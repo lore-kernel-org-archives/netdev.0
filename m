@@ -1,125 +1,96 @@
 From: Paolo Pisati <p.pisati@gmail.com>
-Subject: [PATCH 3/6] ksz884x: remove mac address handling as a module parameter
-Date: Tue, 23 Oct 2012 19:15:30 +0200
-Message-ID: <1351012533-3524-4-git-send-email-p.pisati@gmail.com>
+Subject: [PATCH 4/6] greth: remove mac address handling as a module parameter
+Date: Tue, 23 Oct 2012 19:15:31 +0200
+Message-ID: <1351012533-3524-5-git-send-email-p.pisati@gmail.com>
 References: <1351012533-3524-1-git-send-email-p.pisati@gmail.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
 	Kristoffer Glembo <kristoffer@gaisler.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:46434 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756995Ab2JWRQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 13:16:35 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so2160805wey.19
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 10:16:34 -0700 (PDT)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:41114 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756995Ab2JWRQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 13:16:49 -0400
+Received: by mail-wi0-f170.google.com with SMTP id hm2so3465776wib.1
+        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 10:16:48 -0700 (PDT)
 In-Reply-To: <1351012533-3524-1-git-send-email-p.pisati@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Paolo Pisati <p.pisati@gmail.com>
 ---
- drivers/net/ethernet/micrel/ksz884x.c |   57 ---------------------------------
- 1 file changed, 57 deletions(-)
+ drivers/net/ethernet/aeroflex/greth.c |   36 +++++++++++----------------------
+ 1 file changed, 12 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index 4b9f4bd..c70a1fc 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -6739,9 +6739,6 @@ static void dev_monitor(unsigned long ptr)
+diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
+index 442fefa..c6c85d6 100644
+--- a/drivers/net/ethernet/aeroflex/greth.c
++++ b/drivers/net/ethernet/aeroflex/greth.c
+@@ -59,11 +59,6 @@ static int greth_debug = -1;	/* -1 == use GRETH_DEF_MSG_ENABLE as value */
+ module_param(greth_debug, int, 0);
+ MODULE_PARM_DESC(greth_debug, "GRETH bitmapped debugging message enable value");
  
- static int msg_enable;
- 
--static char *macaddr = ":";
--static char *mac1addr = ":";
+-/* Accept MAC address of the form macaddr=0x08,0x00,0x20,0x30,0x40,0x50 */
+-static int macaddr[6];
+-module_param_array(macaddr, int, NULL, 0);
+-MODULE_PARM_DESC(macaddr, "GRETH Ethernet MAC address");
 -
- /*
-  * This enables multiple network device mode for KSZ8842, which contains a
-  * switch with two physical ports.  Some users like to take control of the
-@@ -6852,51 +6849,6 @@ struct platform_info {
+ static int greth_edcl = 1;
+ module_param(greth_edcl, int, 0);
+ MODULE_PARM_DESC(greth_edcl, "GRETH EDCL usage indicator. Set to 1 if EDCL is used.");
+@@ -1385,8 +1380,11 @@ static int __devinit greth_of_probe(struct platform_device *ofdev)
  
- static int net_device_present;
+ 	int i;
+ 	int err;
++	int len;
+ 	int tmp;
+ 	unsigned long timeout;
++	const unsigned char *addr;
++	int macaddr[6]; /* XXX an initial mac? e.g. 00:11:22:33:44:55? */
  
--static void get_mac_addr(struct dev_info *hw_priv, u8 *macaddr, int port)
--{
--	int i;
--	int j;
--	int got_num;
--	int num;
--
--	i = j = num = got_num = 0;
--	while (j < MAC_ADDR_LEN) {
--		if (macaddr[i]) {
--			int digit;
--
--			got_num = 1;
--			digit = hex_to_bin(macaddr[i]);
--			if (digit >= 0)
--				num = num * 16 + digit;
--			else if (':' == macaddr[i])
--				got_num = 2;
--			else
--				break;
--		} else if (got_num)
--			got_num = 2;
--		else
+ 	dev = alloc_etherdev(sizeof(struct greth_private));
+ 
+@@ -1495,32 +1493,22 @@ static int __devinit greth_of_probe(struct platform_device *ofdev)
+ 
+ 	memset(greth->rx_bd_base, 0, 1024);
+ 
+-	/* Get MAC address from: module param, OF property or ID prom */
+-	for (i = 0; i < 6; i++) {
+-		if (macaddr[i] != 0)
 -			break;
--		if (2 == got_num) {
--			if (MAIN_PORT == port) {
--				hw_priv->hw.override_addr[j++] = (u8) num;
--				hw_priv->hw.override_addr[5] +=
--					hw_priv->hw.id;
--			} else {
--				hw_priv->hw.ksz_switch->other_addr[j++] =
--					(u8) num;
--				hw_priv->hw.ksz_switch->other_addr[5] +=
--					hw_priv->hw.id;
--			}
--			num = got_num = 0;
+-	}
+-	if (i == 6) {
+-		const unsigned char *addr;
+-		int len;
+-		addr = of_get_property(ofdev->dev.of_node, "local-mac-address",
+-					&len);
+-		if (addr != NULL && len == 6) {
+-			for (i = 0; i < 6; i++)
+-				macaddr[i] = (unsigned int) addr[i];
+-		} else {
++	/* Get MAC address from: OF property or ID prom */
++	addr = of_get_property(ofdev->dev.of_node, "local-mac-address",
++				&len);
++	if (addr != NULL && len == 6) {
++		for (i = 0; i < 6; i++)
++			macaddr[i] = (unsigned int) addr[i];
++	} else {
+ #ifdef CONFIG_SPARC
+-			for (i = 0; i < 6; i++)
+-				macaddr[i] = (unsigned int) idprom->id_ethaddr[i];
++		for (i = 0; i < 6; i++)
++			macaddr[i] = (unsigned int) idprom->id_ethaddr[i];
+ #endif
 -		}
--		i++;
--	}
--	if (MAC_ADDR_LEN == j) {
--		if (MAIN_PORT == port)
--			hw_priv->hw.mac_override = 1;
--	}
--}
--
- #define KS884X_DMA_MASK			(~0x0UL)
- 
- static void read_other_addr(struct ksz_hw *hw)
-@@ -7050,9 +7002,6 @@ static int __devinit pcidev_init(struct pci_dev *pdev,
- 	for (i = 0; i < TOTAL_PORT_NUM; i++)
- 		init_waitqueue_head(&hw_priv->counter[i].counter);
- 
--	if (macaddr[0] != ':')
--		get_mac_addr(hw_priv, macaddr, MAIN_PORT);
--
- 	/* Read MAC address and initialize override address if not overrided. */
- 	hw_read_addr(hw);
- 
-@@ -7060,8 +7009,6 @@ static int __devinit pcidev_init(struct pci_dev *pdev,
- 	if (hw->dev_count > 1) {
- 		memcpy(sw->other_addr, hw->override_addr, MAC_ADDR_LEN);
- 		read_other_addr(hw);
--		if (mac1addr[0] != ':')
--			get_mac_addr(hw_priv, mac1addr, OTHER_PORT);
  	}
  
- 	hw_setup(hw);
-@@ -7276,13 +7223,9 @@ MODULE_LICENSE("GPL");
- module_param_named(message, msg_enable, int, 0);
- MODULE_PARM_DESC(message, "Message verbosity level (0=none, 31=all)");
+ 	for (i = 0; i < 6; i++)
+ 		dev->dev_addr[i] = macaddr[i];
  
--module_param(macaddr, charp, 0);
--module_param(mac1addr, charp, 0);
- module_param(fast_aging, int, 0);
- module_param(multi_dev, int, 0);
- module_param(stp, int, 0);
--MODULE_PARM_DESC(macaddr, "MAC address");
--MODULE_PARM_DESC(mac1addr, "Second MAC address");
- MODULE_PARM_DESC(fast_aging, "Fast aging");
- MODULE_PARM_DESC(multi_dev, "Multiple device interfaces");
- MODULE_PARM_DESC(stp, "STP support");
+-	macaddr[5]++;
+-
+ 	if (!is_valid_ether_addr(&dev->dev_addr[0])) {
+ 		if (netif_msg_probe(greth))
+ 			dev_err(greth->dev, "no valid ethernet address, aborting.\n");
 -- 
 1.7.9.5
