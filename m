@@ -1,42 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 8/8] ixgbevf: Update version string
-Date: Tue, 23 Oct 2012 03:24:47 -0700
-Message-ID: <1350987887-16161-9-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:10577 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756037Ab2JWKYz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 06:24:55 -0400
-In-Reply-To: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kay Sievers <kay@vrfy.org>
+Subject: Re: [PATCH] vlan: set sysfs device_type to 'vlan'
+Date: Tue, 23 Oct 2012 12:34:11 +0200
+Message-ID: <CAPXgP10EhtdCT5Bus2+Prfrk0LU3tEeBJq8qq4hK4k=TdiS5qQ@mail.gmail.com>
+References: <1350885237-12998-1-git-send-email-cardoe@cardoe.com> <20121023.023647.2164665243829038911.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: cardoe@cardoe.com, kaber@trash.net, netdev@vger.kernel.org,
+	systemd-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121023.023647.2164665243829038911.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On Tue, Oct 23, 2012 at 8:36 AM, David Miller <davem@davemloft.net> wrote:
+> From: Doug Goldstein <cardoe@cardoe.com>
+> Date: Mon, 22 Oct 2012 00:53:57 -0500
+>
+>> Sets the sysfs device_type to 'vlan' for udev. This makes it easier for
+>> applications that query network information via udev to identify vlans
+>> instead of using strrchr().
+>>
+>> Signed-off-by: Doug Goldstein <cardoe@cardoe.com>
+>
+> You're extremely misguided.  This change, in fact, makes it ten times
+> harder for such applications to query such devices.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+That makes not much sense, really. Every new interface would fall into
+that category. At least I can't see any mis-guidance here. The other
+devtypes for the major netif types are not that much older.
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 846ac51..07d7eab 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -58,7 +58,7 @@ const char ixgbevf_driver_name[] = "ixgbevf";
- static const char ixgbevf_driver_string[] =
- 	"Intel(R) 10 Gigabit PCI Express Virtual Function Network Driver";
- 
--#define DRV_VERSION "2.6.0-k"
-+#define DRV_VERSION "2.7.12-k"
- const char ixgbevf_driver_version[] = DRV_VERSION;
- static char ixgbevf_copyright[] =
- 	"Copyright (c) 2009 - 2012 Intel Corporation.";
--- 
-1.7.11.7
+> Because now the application has to decide whether it wants to support
+> EVERY EXISTING SYSTEM OUT THERE or not.  Hundreds of millions of Linux
+> systems do not provide this attribute.
+>
+> Applications have to handle the case of not having the 'vlan' device
+> type available attribute essentially forever.
+
+Which is an entirely separate issue, and not a technical reason not to
+add new interfaces which are already in use for most other types of
+netifs.
+
+> So providing it in new kernels provides zero value whatsoever.
+
+It sure does provide a value. The kernel can efficiently filter
+uevents in the socket with this available. All other major types of
+netdevs support that too, it's just a matter of completeness. For that
+reason, it looks useful to me.
+
+> I'm not applying this patch, sorry.
+
+That's just sad. Not that I really care about that functionality, but
+your reasoning is absolutely not transparent.
+
+Kay
