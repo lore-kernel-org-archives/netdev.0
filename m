@@ -1,28 +1,55 @@
-From: rsa <ravi.mlists@gmail.com>
-Subject: switching network namespace midway
-Date: Tue, 23 Oct 2012 13:49:12 -0400
-Message-ID: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH 3/3] sock-diag: Report shutdown for inet and unix sockets
+Date: Tue, 23 Oct 2012 21:53:02 +0400
+Message-ID: <5086D97E.2060503@parallels.com>
+References: <5086C36B.6060508@parallels.com>	<5086C5A6.7050101@parallels.com> <20121023.134236.1262093514433122608.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:49984 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755017Ab2JWRtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 13:49:14 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so2176906wey.19
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 10:49:13 -0700 (PDT)
+Received: from mailhub.sw.ru ([195.214.232.25]:21758 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933131Ab2JWRxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 13:53:09 -0400
+In-Reply-To: <20121023.134236.1262093514433122608.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Assuming I have a tunnel interface where two route lookups are done --
-one for innter
-packet and the other for outer -- do you see any issues in switching
-the network
-namespace prior to second route lookup (and restore to the original namespace
-after the second lookup is done)?
+On 10/23/2012 09:42 PM, David Miller wrote:
+> From: Pavel Emelyanov <xemul@parallels.com>
+> Date: Tue, 23 Oct 2012 20:28:22 +0400
+> 
+>> +static inline int shutdown_mask2u(int mask)
+>> +{
+>> +	/*
+>> +	 * map
+>> +	 * 	RCV_SHUTDOWN -> SHUT_RD
+>> +	 * 	SEND_SHUTDOWN -> SHUT_WR
+>> +	 * 	SHUTDOWN_MASK -> SHUT_RDWR
+>> +	 */
+>> +
+>> +	return mask - 1;
+>> +}
+> 
+> This is horrible.
+> 
+> You're returning "-1" when the socket hasn't been shutdown in any way.
+> 
+> Do this:
+> 
+> 1) Use a '1' based encoding like the kernel codes so that '0' means
+>    no shutdown, as any sane interface would.  That's why we use that
+>    representation internally.
+> 
+> 2) Get rid of all of this extension crap, and just report this value
+>    in the pad byte.  In older kernels it will just be zero, which is
+>    fine.
 
-If so, are there any other calls other than sk_change_net() needed?
+The response message of inet-diag never had any pad bytes, I'll have to
+add the new attrtype (the unix-diag response has one, but I plan to add
+attrtype there too for uniformity).
 
-thank you
-rsa
+Thanks,
+Pavel
