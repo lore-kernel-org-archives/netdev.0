@@ -1,96 +1,148 @@
 From: Paolo Pisati <p.pisati@gmail.com>
-Subject: [PATCH 4/6] greth: remove mac address handling as a module parameter
-Date: Tue, 23 Oct 2012 19:15:31 +0200
-Message-ID: <1351012533-3524-5-git-send-email-p.pisati@gmail.com>
+Subject: [PATCH 5/6] sunhme: remove mac address handling as a module parameter
+Date: Tue, 23 Oct 2012 19:15:32 +0200
+Message-ID: <1351012533-3524-6-git-send-email-p.pisati@gmail.com>
 References: <1351012533-3524-1-git-send-email-p.pisati@gmail.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
 	Kristoffer Glembo <kristoffer@gaisler.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:41114 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756995Ab2JWRQt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 13:16:49 -0400
-Received: by mail-wi0-f170.google.com with SMTP id hm2so3465776wib.1
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 10:16:48 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:61441 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756995Ab2JWRRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 13:17:07 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so3294189wgb.1
+        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 10:17:05 -0700 (PDT)
 In-Reply-To: <1351012533-3524-1-git-send-email-p.pisati@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Paolo Pisati <p.pisati@gmail.com>
 ---
- drivers/net/ethernet/aeroflex/greth.c |   36 +++++++++++----------------------
- 1 file changed, 12 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/sun/sunhme.c |   69 +++++++++----------------------------
+ 1 file changed, 16 insertions(+), 53 deletions(-)
 
-diff --git a/drivers/net/ethernet/aeroflex/greth.c b/drivers/net/ethernet/aeroflex/greth.c
-index 442fefa..c6c85d6 100644
---- a/drivers/net/ethernet/aeroflex/greth.c
-+++ b/drivers/net/ethernet/aeroflex/greth.c
-@@ -59,11 +59,6 @@ static int greth_debug = -1;	/* -1 == use GRETH_DEF_MSG_ENABLE as value */
- module_param(greth_debug, int, 0);
- MODULE_PARM_DESC(greth_debug, "GRETH bitmapped debugging message enable value");
+diff --git a/drivers/net/ethernet/sun/sunhme.c b/drivers/net/ethernet/sun/sunhme.c
+index cf14ab9..b5e70d5 100644
+--- a/drivers/net/ethernet/sun/sunhme.c
++++ b/drivers/net/ethernet/sun/sunhme.c
+@@ -9,8 +9,6 @@
+  * 2000/11/11 Willy Tarreau <willy AT meta-x.org>
+  *   - port to non-sparc architectures. Tested only on x86 and
+  *     only currently works with QFE PCI cards.
+- *   - ability to specify the MAC address at module load time by passing this
+- *     argument : macaddr=0x00,0x10,0x20,0x30,0x40,0x50
+  */
  
--/* Accept MAC address of the form macaddr=0x08,0x00,0x20,0x30,0x40,0x50 */
+ #include <linux/module.h>
+@@ -74,12 +72,6 @@ MODULE_AUTHOR(DRV_AUTHOR);
+ MODULE_DESCRIPTION("Sun HappyMealEthernet(HME) 10/100baseT ethernet driver");
+ MODULE_LICENSE("GPL");
+ 
 -static int macaddr[6];
--module_param_array(macaddr, int, NULL, 0);
--MODULE_PARM_DESC(macaddr, "GRETH Ethernet MAC address");
 -
- static int greth_edcl = 1;
- module_param(greth_edcl, int, 0);
- MODULE_PARM_DESC(greth_edcl, "GRETH EDCL usage indicator. Set to 1 if EDCL is used.");
-@@ -1385,8 +1380,11 @@ static int __devinit greth_of_probe(struct platform_device *ofdev)
- 
- 	int i;
- 	int err;
-+	int len;
- 	int tmp;
- 	unsigned long timeout;
+-/* accept MAC address of the form macaddr=0x08,0x00,0x20,0x30,0x40,0x50 */
+-module_param_array(macaddr, int, NULL, 0);
+-MODULE_PARM_DESC(macaddr, "Happy Meal MAC address to set");
+-
+ #ifdef CONFIG_SBUS
+ static struct quattro *qfe_sbus_list;
+ #endif
+@@ -2631,8 +2623,9 @@ static int __devinit happy_meal_sbus_probe_one(struct platform_device *op, int i
+ 	struct quattro *qp = NULL;
+ 	struct happy_meal *hp;
+ 	struct net_device *dev;
+-	int i, qfe_slot = -1;
++	int i, len, qfe_slot = -1;
+ 	int err = -ENODEV;
 +	const unsigned char *addr;
-+	int macaddr[6]; /* XXX an initial mac? e.g. 00:11:22:33:44:55? */
  
- 	dev = alloc_etherdev(sizeof(struct greth_private));
+ 	sbus_dp = op->dev.parent->of_node;
  
-@@ -1495,32 +1493,22 @@ static int __devinit greth_of_probe(struct platform_device *ofdev)
+@@ -2660,28 +2653,12 @@ static int __devinit happy_meal_sbus_probe_one(struct platform_device *op, int i
+ 	if (hme_version_printed++ == 0)
+ 		printk(KERN_INFO "%s", version);
  
- 	memset(greth->rx_bd_base, 0, 1024);
- 
--	/* Get MAC address from: module param, OF property or ID prom */
+-	/* If user did not specify a MAC address specifically, use
+-	 * the Quattro local-mac-address property...
+-	 */
 -	for (i = 0; i < 6; i++) {
 -		if (macaddr[i] != 0)
 -			break;
 -	}
--	if (i == 6) {
+-	if (i < 6) { /* a mac address was given */
+-		for (i = 0; i < 6; i++)
+-			dev->dev_addr[i] = macaddr[i];
+-		macaddr[5]++;
+-	} else {
 -		const unsigned char *addr;
 -		int len;
--		addr = of_get_property(ofdev->dev.of_node, "local-mac-address",
--					&len);
--		if (addr != NULL && len == 6) {
--			for (i = 0; i < 6; i++)
--				macaddr[i] = (unsigned int) addr[i];
--		} else {
-+	/* Get MAC address from: OF property or ID prom */
-+	addr = of_get_property(ofdev->dev.of_node, "local-mac-address",
-+				&len);
-+	if (addr != NULL && len == 6) {
-+		for (i = 0; i < 6; i++)
-+			macaddr[i] = (unsigned int) addr[i];
-+	} else {
+-
+-		addr = of_get_property(dp, "local-mac-address", &len);
+ 
+-		if (qfe_slot != -1 && addr && len == 6)
+-			memcpy(dev->dev_addr, addr, 6);
+-		else
+-			memcpy(dev->dev_addr, idprom->id_ethaddr, 6);
+-	}
++	addr = of_get_property(dp, "local-mac-address", &len);
++	if (qfe_slot != -1 && addr && len == 6)
++		memcpy(dev->dev_addr, addr, 6);
++	else
++		memcpy(dev->dev_addr, idprom->id_ethaddr, 6);
+ 
+ 	hp = netdev_priv(dev);
+ 
+@@ -2945,9 +2922,10 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
+ 	struct net_device *dev;
+ 	void __iomem *hpreg_base;
+ 	unsigned long hpreg_res;
+-	int i, qfe_slot = -1;
++	int i, len, qfe_slot = -1;
+ 	char prom_name[64];
+ 	int err;
++	const unsigned char *addr;
+ 
+ 	/* Now make sure pci_dev cookie is there. */
  #ifdef CONFIG_SPARC
--			for (i = 0; i < 6; i++)
--				macaddr[i] = (unsigned int) idprom->id_ethaddr[i];
-+		for (i = 0; i < 6; i++)
-+			macaddr[i] = (unsigned int) idprom->id_ethaddr[i];
- #endif
--		}
+@@ -3018,31 +2996,16 @@ static int __devinit happy_meal_pci_probe(struct pci_dev *pdev,
+ 		goto err_out_free_res;
  	}
  
- 	for (i = 0; i < 6; i++)
- 		dev->dev_addr[i] = macaddr[i];
- 
--	macaddr[5]++;
+-	for (i = 0; i < 6; i++) {
+-		if (macaddr[i] != 0)
+-			break;
+-	}
+-	if (i < 6) { /* a mac address was given */
+-		for (i = 0; i < 6; i++)
+-			dev->dev_addr[i] = macaddr[i];
+-		macaddr[5]++;
+-	} else {
+ #ifdef CONFIG_SPARC
+-		const unsigned char *addr;
+-		int len;
 -
- 	if (!is_valid_ether_addr(&dev->dev_addr[0])) {
- 		if (netif_msg_probe(greth))
- 			dev_err(greth->dev, "no valid ethernet address, aborting.\n");
+-		if (qfe_slot != -1 &&
+-		    (addr = of_get_property(dp, "local-mac-address", &len))
+-			!= NULL &&
+-		    len == 6) {
+-			memcpy(dev->dev_addr, addr, 6);
+-		} else {
+-			memcpy(dev->dev_addr, idprom->id_ethaddr, 6);
+-		}
++	if (qfe_slot != -1 &&
++	    (addr = of_get_property(dp, "local-mac-address", &len)) != NULL &&
++	    len == 6)
++		memcpy(dev->dev_addr, addr, 6);
++	else
++		memcpy(dev->dev_addr, idprom->id_ethaddr, 6);
+ #else
+-		get_hme_mac_nonsparc(pdev, &dev->dev_addr[0]);
++	get_hme_mac_nonsparc(pdev, &dev->dev_addr[0]);
+ #endif
+-	}
+ 
+ 	/* Layout registers. */
+ 	hp->gregs      = (hpreg_base + 0x0000UL);
 -- 
 1.7.9.5
