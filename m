@@ -1,8 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH net-next 02/15] 6lowpan: next header is
-	not properly set upon decompression of a UDP header.
-Date: Tue, 23 Oct 2012 00:09:44 -0400
-Message-ID: <1350965397-12384-3-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next 03/15] 6lowpan: always enable
+	link-layer acknowledgments
+Date: Tue, 23 Oct 2012 00:09:45 -0400
+Message-ID: <1350965397-12384-4-git-send-email-tony.cheneau@amnesiak.org>
 References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,31 +22,32 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This causes a drop of the UDP packet.
+This feature is especially important when using fragmentation, because
+the reassembly mechanism can not recover from the loss of a fragment.
+
+Note that some hardware ignore this flag and not will not transmit any
+acknowledgments if this is set.
 
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ net/ieee802154/6lowpan.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 6d42c17..b53a71a4 100644
+index b53a71a4..49d91df 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -913,9 +913,12 @@ lowpan_process_data(struct sk_buff *skb)
- 	}
+@@ -589,6 +589,10 @@ static int lowpan_header_create(struct sk_buff *skb,
  
- 	/* UDP data uncompression */
--	if (iphc0 & LOWPAN_IPHC_NH_C)
-+	if (iphc0 & LOWPAN_IPHC_NH_C) {
- 		if (lowpan_uncompress_udp_header(skb))
- 			goto drop;
-+		hdr.nexthdr = UIP_PROTO_UDP;
-+	}
+ 		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
+ 
++		/* request acknowledgment when possible */
++		if (!lowpan_is_addr_broadcast(daddr))
++			mac_cb(skb)->flags |= MAC_CB_FLAG_ACKREQ;
 +
- 
- 	/* Not fragmented package */
- 	hdr.payload_len = htons(skb->len);
+ 		return dev_hard_header(skb, lowpan_dev_info(dev)->real_dev,
+ 				type, (void *)&da, (void *)&sa, skb->len);
+ 	}
 -- 
 1.7.8.6
 
