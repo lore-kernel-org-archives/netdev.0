@@ -1,87 +1,55 @@
-From: Duan Jiong <djduanjiong@gmail.com>
-Subject: [PATCH] ipv6: fix the bug when propagating Redirect Message
-Date: Tue, 23 Oct 2012 23:26:25 +0800
-Message-ID: <5086B721.1090905@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net-next] tcp: fix rcv_ssthresh regression for medium-sized initial packets
+Date: Tue, 23 Oct 2012 11:35:45 -0400
+Message-ID: <1351006545-12556-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:52278 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757091Ab2JWP03 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 11:26:29 -0400
-Received: by mail-da0-f46.google.com with SMTP id n41so1974323dak.19
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 08:26:28 -0700 (PDT)
+Received: from mail-ea0-f202.google.com ([209.85.215.202]:39394 "EHLO
+	mail-ea0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933030Ab2JWPfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 11:35:53 -0400
+Received: by mail-ea0-f202.google.com with SMTP id q10so243546eaa.1
+        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 08:35:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The recent skb truesize fixes caused a slight regression in that
+moderately-sized initial incoming packets (eg ~1000 bytes) can now
+lead to smaller rcv_ssthresh increments than in 2.6.
 
-Before using icmpv6_notify() to propagate redirect, change skb->data
-to poing the IP packet that triggered the sending of the Redirect.
+The mitigation b49960a05e32121d ("tcp: change tcp_adv_win_scale and
+tcp_rmem[2]") compensates for the truesize fixes by fixing the
+ultimate value to which receive window converges. But this commit did
+not mitigate the impact for the initial cwnd growth phase for
+connetions with moderately-sized initial incoming packets. Such
+connections still hit the __tcp_grow_window() code path, where the
+increment to rcv_sssthresh was by rcv_mss, and not the generally
+larger advmss.
 
-Signed-off-by: Duan Jiong <djduanjiong@gmail.com>
+We should not handicap this initial growth rate of the receive
+window. That way short connections are not penalized in cases where
+they wouldn't lead to receive buffer memory consumption issues.
+
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+CC: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv6/ndisc.c |   39 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 39 insertions(+), 0 deletions(-)
+ net/ipv4/tcp_input.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index ff36194..0f73303 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1334,6 +1334,11 @@ out:
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 60cf836..e5981a3 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -316,7 +316,7 @@ static int __tcp_grow_window(const struct sock *sk, const struct sk_buff *skb)
  
- static void ndisc_redirect_rcv(struct sk_buff *skb)
- {
-+	int opt_len;
-+	int opt_offset;
-+	int ndisc_head_len;
-+	struct nd_opt_hdr *nd_opt;
-+	
- #ifdef CONFIG_IPV6_NDISC_NODETYPE
- 	switch (skb->ndisc_nodetype) {
- 	case NDISC_NODETYPE_HOST:
-@@ -1350,6 +1355,40 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
- 		return;
- 	}
+ 	while (tp->rcv_ssthresh <= window) {
+ 		if (truesize <= skb->len)
+-			return 2 * inet_csk(sk)->icsk_ack.rcv_mss;
++			return 2 * tp->advmss;
  
-+	ndisc_head_len = sizeof(struct icmp6hdr) + 2*sizeof(struct in6_addr);
-+	if (!pskb_may_pull(skb, ndisc_head_len)) {
-+		return;
-+	}
-+
-+	nd_opt = (struct nd_opt_hdr *)(skb->data + ndisc_head_len);
-+
-+	opt_len = skb->tail - skb->transport_header - ndisc_head_len;
-+	if (opt_len < 0) {
-+		return;
-+	}
-+	while (opt_len) {
-+		int l;
-+	
-+		if (opt_len < sizeof(struct nd_opt_hdr)) {
-+			return;
-+		}
-+		l = nd_opt->nd_opt_len << 3;
-+		if (opt_len < l || l == 0) {
-+			return;
-+		}
-+		if (nd_opt->nd_opt_type == ND_OPT_REDIRECT_HDR) {
-+			__skb_pull(skb, ndisc_head_len + opt_offset + 8);
-+			break;
-+		}
-+		opt_len -= l;
-+		nd_opt = ((void *)nd_opt) + 1;
-+		opt_offset += 1;
-+	}
-+	
-+	if (opt_len == 0) {
-+		return;
-+	}	
-+
- 	icmpv6_notify(skb, NDISC_REDIRECT, 0, 0);
- }
- 
+ 		truesize >>= 1;
+ 		window >>= 1;
 -- 
-1.7.4.4
+1.7.7.3
