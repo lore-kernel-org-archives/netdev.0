@@ -1,126 +1,75 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [RFC PATCH net-next] qfq: handle the case that front slot is empty
-Date: Tue, 23 Oct 2012 12:15:11 +0800
-Message-ID: <1350965711-4390-1-git-send-email-amwang@redhat.com>
-Cc: Paolo Valente <paolo.valente@unimore.it>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49662 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751731Ab2JWEPb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 00:15:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
+Subject: [PATCH net-next 08/15] 6lowpan: obtain
+	IEEE802.15.4 sequence number from the MAC layer
+Date: Tue, 23 Oct 2012 00:09:50 -0400
+Message-ID: <1350965397-12384-9-git-send-email-tony.cheneau@amnesiak.org>
+References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1350965397-12384-1-git-send-email-tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I am not sure if this patch fixes the real problem or just workarounds
-it. At least, after this patch I don't see the crash I reported any more.
+This patch sets the sequence number in the frame format. Without this
+fix, the sequence number is always set to 0. This makes trafic analysis
+very hard.
 
-The problem is that in some cases the front slot can become empty,
-therefore qfq_slot_head() returns an invalid pointer (not NULL!).
-This patch just make it return NULL in such case.
-
-What's more, in qfq_front_slot_remove(), it always clears
-bit 0 in full_slots, so we should ajust the bucket list with
-qfq_slot_scan() before that.
-
-Cc: Paolo Valente <paolo.valente@unimore.it>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
+Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index f0dd83c..8dfdd89 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -680,24 +680,13 @@ static void qfq_slot_insert(struct qfq_group *grp, struct qfq_class *cl,
- /* Maybe introduce hlist_first_entry?? */
- static struct qfq_class *qfq_slot_head(struct qfq_group *grp)
- {
-+	if (hlist_empty(&grp->slots[grp->front]))
-+		return NULL;
- 	return hlist_entry(grp->slots[grp->front].first,
- 			   struct qfq_class, next);
+ net/ieee802154/6lowpan.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index eb8003b..24b83fa 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -578,6 +578,7 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	 */
+ 	{
+ 		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
++		mac_cb(skb)->seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
+ 
+ 		/* prepare wpan address data */
+ 		sa.addr_type = IEEE802154_ADDR_LONG;
+@@ -1123,6 +1124,12 @@ static u16 lowpan_get_short_addr(const struct net_device *dev)
+ 	return ieee802154_mlme_ops(real_dev)->get_short_addr(real_dev);
  }
  
- /*
-- * remove the entry from the slot
-- */
--static void qfq_front_slot_remove(struct qfq_group *grp)
--{
--	struct qfq_class *cl = qfq_slot_head(grp);
--
--	BUG_ON(!cl);
--	hlist_del(&cl->next);
--	if (hlist_empty(&grp->slots[grp->front]))
--		__clear_bit(0, &grp->full_slots);
--}
--
--/*
-  * Returns the first full queue in a group. As a side effect,
-  * adjust the bucket list so the first non-empty bucket is at
-  * position 0 in full_slots.
-@@ -722,6 +711,19 @@ static struct qfq_class *qfq_slot_scan(struct qfq_group *grp)
- }
- 
- /*
-+ * remove the entry from the front slot
-+ */
-+static void qfq_front_slot_remove(struct qfq_group *grp)
++static u8 lowpan_get_dsn(const struct net_device *dev)
 +{
-+	struct qfq_class *cl = qfq_slot_scan(grp);
-+
-+	BUG_ON(!cl);
-+	hlist_del(&cl->next);
-+	if (hlist_empty(&grp->slots[grp->front]))
-+		__clear_bit(0, &grp->full_slots);
++	struct net_device *real_dev = lowpan_dev_info(dev)->real_dev;
++	return ieee802154_mlme_ops(real_dev)->get_dsn(real_dev);
 +}
 +
-+/*
-  * adjust the bucket list. When the start time of a group decreases,
-  * we move the index down (modulo QFQ_MAX_SLOTS) so we don't need to
-  * move the objects. The mask of occupied slots must be shifted
-@@ -794,6 +796,8 @@ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
- 	grp = qfq_ffs(q, q->bitmaps[ER]);
+ static struct header_ops lowpan_header_ops = {
+ 	.create	= lowpan_header_create,
+ };
+@@ -1136,6 +1143,7 @@ static struct ieee802154_mlme_ops lowpan_mlme = {
+ 	.get_pan_id = lowpan_get_pan_id,
+ 	.get_phy = lowpan_get_phy,
+ 	.get_short_addr = lowpan_get_short_addr,
++	.get_dsn = lowpan_get_dsn,
+ };
  
- 	cl = qfq_slot_head(grp);
-+	if (!cl)
-+		return NULL;
- 	skb = qdisc_dequeue_peeked(cl->qdisc);
- 	if (!skb) {
- 		WARN_ONCE(1, "qfq_dequeue: non-workconserving leaf\n");
-@@ -1018,16 +1022,23 @@ static void qfq_deactivate_class(struct qfq_sched *q, struct qfq_class *cl)
- 		__clear_bit(grp->index, &q->bitmaps[ER]);
- 	} else if (hlist_empty(&grp->slots[grp->front])) {
- 		cl = qfq_slot_scan(grp);
--		roundedS = qfq_round_down(cl->S, grp->slot_shift);
--		if (grp->S != roundedS) {
-+		if (!cl) {
- 			__clear_bit(grp->index, &q->bitmaps[ER]);
- 			__clear_bit(grp->index, &q->bitmaps[IR]);
- 			__clear_bit(grp->index, &q->bitmaps[EB]);
- 			__clear_bit(grp->index, &q->bitmaps[IB]);
--			grp->S = roundedS;
--			grp->F = roundedS + (2ULL << grp->slot_shift);
--			s = qfq_calc_state(q, grp);
--			__set_bit(grp->index, &q->bitmaps[s]);
-+		} else {
-+			roundedS = qfq_round_down(cl->S, grp->slot_shift);
-+			if (grp->S != roundedS) {
-+				__clear_bit(grp->index, &q->bitmaps[ER]);
-+				__clear_bit(grp->index, &q->bitmaps[IR]);
-+				__clear_bit(grp->index, &q->bitmaps[EB]);
-+				__clear_bit(grp->index, &q->bitmaps[IB]);
-+				grp->S = roundedS;
-+				grp->F = roundedS + (2ULL << grp->slot_shift);
-+				s = qfq_calc_state(q, grp);
-+				__set_bit(grp->index, &q->bitmaps[s]);
-+			}
- 		}
- 	}
- 
+ static void lowpan_setup(struct net_device *dev)
+-- 
+1.7.8.6
+
+
+------------------------------------------------------------------------------
+Everyone hates slow websites. So do we.
+Make your web apps faster with AppDynamics
+Download AppDynamics Lite for free today:
+http://p.sf.net/sfu/appdyn_sfd2d_oct
