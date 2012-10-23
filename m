@@ -1,8 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH net-next 14/15] mac802154: remove
-	unnecessary spinlocks
-Date: Tue, 23 Oct 2012 00:09:56 -0400
-Message-ID: <1350965397-12384-15-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next 15/15] mac802154: re-introduce
+	MAC primitives required to send/receive packets
+Date: Tue, 23 Oct 2012 00:09:57 -0400
+Message-ID: <1350965397-12384-16-git-send-email-tony.cheneau@amnesiak.org>
 References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,52 +22,101 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-These spinlock protects an int variable, that is always accessible in an
-atomic fashion.
+- mlme_assoc_req() and mlme_assoc_resp() are just place holder for the
+  moment (they prevent the two corresponding function pointers in the
+  mac802154_mlme_wpan structure to be left uninitialized)
+- mac802514_dev_get_bsn() and mac802514_dev_get_dsn() MAC primitives
+  were present in the Linux-Zigbee kernel and are being re-introduced.
 
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/mac802154/mib.c |   14 ++------------
- 1 files changed, 2 insertions(+), 12 deletions(-)
+ net/mac802154/mac802154.h |    2 ++
+ net/mac802154/mac_cmd.c   |   22 +++++++++++++++++++++-
+ net/mac802154/mib.c       |   19 +++++++++++++++++++
+ 3 files changed, 42 insertions(+), 1 deletions(-)
 
+diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
+index a4dcaf1..18d4044 100644
+--- a/net/mac802154/mac802154.h
++++ b/net/mac802154/mac802154.h
+@@ -114,5 +114,7 @@ void mac802154_dev_set_ieee_addr(struct net_device *dev);
+ u16 mac802154_dev_get_pan_id(const struct net_device *dev);
+ void mac802154_dev_set_pan_id(struct net_device *dev, u16 val);
+ void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan);
++u8 mac802154_dev_get_dsn(const struct net_device *dev);
++u8 mac802154_dev_get_bsn(const struct net_device *dev);
+ 
+ #endif /* MAC802154_H */
+diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
+index d8d2770..8e46e7b 100644
+--- a/net/mac802154/mac_cmd.c
++++ b/net/mac802154/mac_cmd.c
+@@ -33,6 +33,22 @@
+ 
+ #include "mac802154.h"
+ 
++static int mac802154_mlme_assoc_req(struct net_device *dev,
++			struct ieee802154_addr *addr,
++			u8 channel, u8 page, u8 cap)
++{
++	/* TBD */
++	return 0;
++}
++
++static int mac802154_mlme_assoc_resp(struct net_device *dev,
++			struct ieee802154_addr *addr,
++			u16 short_addr, u8 status)
++{
++	/* TBD */
++	return 0;
++}
++
+ static int mac802154_mlme_start_req(struct net_device *dev,
+ 				    struct ieee802154_addr *addr,
+ 				    u8 channel, u8 page,
+@@ -70,7 +86,11 @@ struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced = {
+ 
+ struct ieee802154_mlme_ops mac802154_mlme_wpan = {
+ 	.get_phy = mac802154_get_phy,
+-	.start_req = mac802154_mlme_start_req,
+ 	.get_pan_id = mac802154_dev_get_pan_id,
+ 	.get_short_addr = mac802154_dev_get_short_addr,
++	.get_dsn = mac802154_dev_get_dsn,
++	.get_bsn = mac802154_dev_get_bsn,
++	.start_req = mac802154_mlme_start_req,
++	.assoc_req = mac802154_mlme_assoc_req,
++	.assoc_resp = mac802154_mlme_assoc_resp
+ };
 diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
-index f47781a..2339f8d 100644
+index 2339f8d..70ab6ca 100644
 --- a/net/mac802154/mib.c
 +++ b/net/mac802154/mib.c
-@@ -103,15 +103,10 @@ void mac802154_dev_set_short_addr(struct net_device *dev, u16 val)
- u16 mac802154_dev_get_short_addr(const struct net_device *dev)
- {
- 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
--	u16 ret;
- 
- 	BUG_ON(dev->type != ARPHRD_IEEE802154);
- 
--	spin_lock_bh(&priv->mib_lock);
--	ret = priv->short_addr;
--	spin_unlock_bh(&priv->mib_lock);
--
--	return ret;
-+	return priv->short_addr;
+@@ -149,6 +149,25 @@ void mac802154_dev_set_pan_id(struct net_device *dev, u16 val)
+ 	}
  }
  
- void mac802154_dev_set_ieee_addr(struct net_device *dev)
-@@ -131,15 +126,10 @@ void mac802154_dev_set_ieee_addr(struct net_device *dev)
- u16 mac802154_dev_get_pan_id(const struct net_device *dev)
++u8 mac802154_dev_get_dsn(const struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++
++	BUG_ON(dev->type != ARPHRD_IEEE802154);
++
++	return priv->dsn++;
++}
++
++u8 mac802154_dev_get_bsn(const struct net_device *dev)
++{
++	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++
++	BUG_ON(dev->type != ARPHRD_IEEE802154);
++
++	return priv->bsn++;
++}
++
++
+ static void phy_chan_notify(struct work_struct *work)
  {
- 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
--	u16 ret;
- 
- 	BUG_ON(dev->type != ARPHRD_IEEE802154);
- 
--	spin_lock_bh(&priv->mib_lock);
--	ret = priv->pan_id;
--	spin_unlock_bh(&priv->mib_lock);
--
--	return ret;
-+	return priv->pan_id;
- }
- 
- void mac802154_dev_set_pan_id(struct net_device *dev, u16 val)
+ 	struct phy_chan_notify_work *nw = container_of(work,
 -- 
 1.7.8.6
 
