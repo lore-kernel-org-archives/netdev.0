@@ -1,42 +1,52 @@
-From: Daniel Borkmann <dxchgb@gmail.com>
-Subject: [PATCH net-next 2/2] packet: minor: make if case unlikely
-Date: Tue, 23 Oct 2012 13:58:34 +0200
-Message-ID: <20121023115833.GB8664@thinkbox>
+From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: Re: [PATCH v3 1/4] net/macb: fix truncate warnings
+Date: Tue, 23 Oct 2012 14:00:44 +0200
+Message-ID: <20614.34540.248020.471598@ipc1.ka-ro>
+References: <1350931534-8416-1-git-send-email-manabian@gmail.com>
+ <1350931534-8416-2-git-send-email-manabian@gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B705B@saturn3.aculab.com>
+ <20121023.044829.1915412359769438159.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:59758 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753212Ab2JWL6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 07:58:38 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so1985844wey.19
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 04:58:37 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: bgat@billgatliff.com, netdev@vger.kernel.org, manabian@gmail.com,
+ nicolas.ferre@atmel.com, David.Laight@ACULAB.COM, egtvedt@samfundet.no,
+ plagnioj@jcrosoft.com, linux-arm-kernel@lists.infradead.org,
+ hskinnemoen@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20121023.044829.1915412359769438159.davem@davemloft.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the character width of max. 80 chars and also marks the
-if-statement as unlikely since those flags are not supported for the receive
-path anyway.
-
-Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
----
- net/packet/af_packet.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 1f2f465..adb1931 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2601,7 +2601,8 @@ static int packet_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	struct sockaddr_ll *sll;
- 	int vnet_hdr_len = 0;
- 
--	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT|MSG_ERRQUEUE)) {
-+	if (unlikely(flags & ~(MSG_PEEK | MSG_DONTWAIT | MSG_TRUNC |
-+			       MSG_CMSG_COMPAT | MSG_ERRQUEUE))) {
- 		err = -EINVAL;
- 		goto out;
- 	}
+SGksCgpEYXZpZCBNaWxsZXIgd3JpdGVzOgo+IEZyb206ICJEYXZpZCBMYWlnaHQiIDxEYXZpZC5M
+YWlnaHRAQUNVTEFCLkNPTT4KPiBEYXRlOiBUdWUsIDIzIE9jdCAyMDEyIDA5OjIxOjExICswMTAw
+Cj4gCj4gPj4gV2hlbiBidWlsZGluZyBtYWNiIG9uIHg4Nl82NCB0aGUgZm9sbG93aW5nIHdhcm5p
+bmdzIHNob3cgdXA6Cj4gPj4gICBkcml2ZXJzL25ldC9ldGhlcm5ldC9jYWRlbmNlL21hY2IuYzog
+SW4gZnVuY3Rpb24gbWFjYl9pbnRlcnJ1cHQ6Cj4gPj4gICBkcml2ZXJzL25ldC9ldGhlcm5ldC9j
+YWRlbmNlL21hY2IuYzo1NTY6NDogd2FybmluZzogbGFyZ2UgaW50ZWdlciBpbXBsaWNpdGx5IHRy
+dW5jYXRlZCB0byB1bnNpZ25lZCB0eXBlIFstV292ZXJmbG93XQo+ID4gLi4uCj4gPj4gLQkJCW1h
+Y2Jfd3JpdGVsKGJwLCBJRFIsIH4wVUwpOwo+ID4+ICsJCQltYWNiX3dyaXRlbChicCwgSURSLCAt
+MSk7Cj4gPiAKPiA+IFNlZW1zIHdyb25nIHRvIGZpeCBhbiBlcnJvciB3aXRoIGFuIHVuc2lnbmVk
+IHZhbHVlCj4gPiBieSB1c2luZyAtMS4KPiAKPiAtMSBpcyBlcXVhbGx5IGFuIHVuc2lnbmVkIHZh
+bHVlIG9mIGFsbCAxJ3MgYW5kIGNvbXBsZXRlbHkgbGVnaXRpbWF0ZS4KPiBUaGUgY29ycmVjdGlv
+biBiZWluZyBtYWRlIGhlcmUgaXMgb25lIG9mIHNpemUgbm90IHNpZ25lZG5lc3MuCj4gCllvdSBj
+b3VsZCB1c2UgJ34wJyAod2l0aG91dCB0aGUgJ1VMJykuCgoKTG90aGFyIFdhw59tYW5uCi0tIApf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwoKS2EtUm8gZWxlY3Ryb25pY3MgR21iSCB8IFBhc2NhbHN0cmHDn2UgMjIgfCBEIC0gNTIwNzYg
+QWFjaGVuClBob25lOiArNDkgMjQwOCAxNDAyLTAgfCBGYXg6ICs0OSAyNDA4IDE0MDItMTAKR2Vz
+Y2jDpGZ0c2bDvGhyZXI6IE1hdHRoaWFzIEthdXNzZW4KSGFuZGVsc3JlZ2lzdGVyZWludHJhZzog
+QW10c2dlcmljaHQgQWFjaGVuLCBIUkIgNDk5NgoKd3d3Lmthcm8tZWxlY3Ryb25pY3MuZGUgfCBp
+bmZvQGthcm8tZWxlY3Ryb25pY3MuZGUKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4LWFy
+bS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9t
+YWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
