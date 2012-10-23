@@ -1,44 +1,39 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC PATCH net-next] qfq: handle the case that front slot is
- empty
-Date: Tue, 23 Oct 2012 16:53:52 +0800
-Message-ID: <1350982432.26308.8.camel@cr0>
-References: <1350965711-4390-1-git-send-email-amwang@redhat.com>
-	 <F36C0EC1-0A4C-48FB-ABF3-A89575A9287E@unimore.it>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [net-next:master 35/53] net/ipv6/route.c:400:13: sparse: invalid
+ assignment: ^=
+Date: Tue, 23 Oct 2012 10:58:10 +0200
+Message-ID: <50865C22.1090503@6wind.com>
+References: <508653b5.7Vy7DCd02KcUpUab%fengguang.wu@intel.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Paolo Valente <paolo.valente@unimore.it>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8760 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932503Ab2JWIyH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 04:54:07 -0400
-In-Reply-To: <F36C0EC1-0A4C-48FB-ABF3-A89575A9287E@unimore.it>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:45607 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932238Ab2JWI6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 04:58:14 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1417264bkc.19
+        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 01:58:13 -0700 (PDT)
+In-Reply-To: <508653b5.7Vy7DCd02KcUpUab%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-10-23 at 09:09 +0200, Paolo Valente wrote:
-> The crash you reported is one of the problems I tried to solve with my last fixes.
-> After those fixes I could not reproduce this crash (and other crashes) any more, but of course I am still missing something.
+Le 23/10/2012 10:22, Fengguang Wu a =E9crit :
+> Hi Nicolas,
+>
+> FYI, there are new sparse warnings show up in
+>
+> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.=
+git master
+> head:   598e74f32c6dd4b3dd0ed382c889be07a7c6cbc0
+> commit: 51ebd3181572af8d5076808dab2682d800f6da5d [35/53] ipv6: add su=
+pport of equal cost multipath (ECMP)
+Right, I will send a patch.
 
-I am using the latest net-next, so if your patches are in net-next,
-then the problem of course still exists.
 
-> 
-> Il giorno 23/ott/2012, alle ore 06:15, Cong Wang ha scritto:
-> 
-> > I am not sure if this patch fixes the real problem or just workarounds
-> > it. At least, after this patch I don't see the crash I reported any more.
-> 
-> It is actually a workaround: if the condition that triggers your workaround holds true, then the group data structure is already inconstent, and qfq is likely not to schedule classes correctly.
-> I will try to reproduce the crash with the steps you suggest, and try to understand what is still wrong as soon as I can.
-> 
-
-OK, I don't pretend I understand qfq. And I can help you to test
-patches.
-
-Thanks!
+Thank you,
+Nicolas
