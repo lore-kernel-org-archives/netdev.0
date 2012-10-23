@@ -1,47 +1,46 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ipv4 gro receive IHL
-Date: Tue, 23 Oct 2012 08:01:34 +0200
-Message-ID: <1350972094.8609.1420.camel@edumazet-glaptop>
-References: <20121022.234606.1841113825492366676.davem@davemloft.net>
+Subject: Re: 3.7-rc2 regression : file copied to CIFS-mounted directory
+ corrupted
+Date: Tue, 23 Oct 2012 08:08:48 +0200
+Message-ID: <1350972528.8609.1431.camel@edumazet-glaptop>
+References: <22207427.56211350970373630.JavaMail.weblogic@epml04>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:45254 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751954Ab2JWGBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 02:01:39 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so1235947eek.19
-        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 23:01:37 -0700 (PDT)
-In-Reply-To: <20121022.234606.1841113825492366676.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"edumazet@google.com" <edumazet@google.com>
+To: jongman.heo@samsung.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <22207427.56211350970373630.JavaMail.weblogic@epml04>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-10-22 at 23:46 -0400, David Miller wrote:
-> Eric why do we force the length field to '5' in the ip_fast_csum()
-> call of inet_gro_receive()?  This happened as part of commit
-> a9e050f4e7f9d36afe0dcc0bddba864ee442715e ("net: tcp: GRO should be ECN
-> friendly")
+On Tue, 2012-10-23 at 05:38 +0000, Jongman Heo wrote:
+> Hmm,
 > 
-> This will cause the checksum check to fail for any IPV4 header with
-> options.
+> I've just met the issue, with the commit 5640f768 reverted.
+> It seems that the issue does not always happen. So, my bisection may not be correct.
 > 
-> If that's intended, the way to do this is to reject by checking the
-> iph->ihl value, rather than doing so obscurely via the checksum call.
-> --
+> At this moment, I don't have enough time to do bisection again..
+> 
+> Regards.
 
-Hi David
+What happens, if instead of reverting you try the following ?
 
-GRO on IPv4 only supports ihl = 5, this is tested in :
+If this solves the problem, then we shall find the driver that assumes
+frags are order-0 pages only.
 
-if (*(u8 *)iph != 0x45)
-    goto out_unlock;
-
-
-I also was planning to add some code to ip_fast_csum(addr, X) to have a
-fast path (no conditional jump) for the case where X is the constant 5
-
-
-Thanks !
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 8a146cf..a743e7c 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1726,7 +1726,7 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
+ EXPORT_SYMBOL(sock_alloc_send_skb);
+ 
+ /* On 32bit arches, an skb frag is limited to 2^15 */
+-#define SKB_FRAG_PAGE_ORDER	get_order(32768)
++#define SKB_FRAG_PAGE_ORDER	0
+ 
+ bool sk_page_frag_refill(struct sock *sk, struct page_frag *pfrag)
+ {
