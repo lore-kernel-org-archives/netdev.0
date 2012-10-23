@@ -1,68 +1,85 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 22 Oct 2012 21:26:13 -0700
-Message-ID: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 01/12] ixgbe: Add support for IPv6 and UDP to ixgbe_get_headlen
+Date: Mon, 22 Oct 2012 21:26:14 -0700
+Message-ID: <1350966385-19020-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:52514 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750885Ab2JWEga (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 00:36:30 -0400
+	id S1750810Ab2JWEg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 00:36:29 -0400
+In-Reply-To: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe only.  Only change to this series
-is I dropped the "ixgbe: Add support for pipeline reset" due to
-change requested by Martin Josefsson.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The following are changes since commit d94ce9b283736a876b2e6dec665c68e5e8b5d55e:
-  ipv4: 16 slots in initial fib_info hash table
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+This change adds support for IPv6 and UDP to ixgbe_get_headlen. The
+advantage to this is that we can now handle ipv4/UDP, ipv6/TCP, and
+ipv6/UDP with a single memcpy instead of having to do them in multiple
+pskb_may_pull calls.
 
-Alexander Duyck (7):
-  ixgbe: Add support for IPv6 and UDP to ixgbe_get_headlen
-  ixgbe: Add support for tracking the default user priority to SR-IOV
-  ixgbe: Add support for GET_QUEUES message to get DCB configuration
-  ixgbe: Enable support for VF API version 1.1 in the PF.
-  ixgbevf: Add VF DCB + SR-IOV support
-  ixgbe: Drop unnecessary addition from ixgbe_set_rx_buffer_len
-  ixgbe: Fix possible memory leak in ixgbe_set_ringparam
+A quick bit of testing shows that we increase throughput for a single
+session of netperf from 8800Mpbs to about 9300Mpbs in the case of ipv6/TCP.
+As such overall ipv6 performance should improve with this change.
 
-Don Skidmore (1):
-  ixgbe: Add function ixgbe_reset_pipeline_82599
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Stephen Ko  <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
-Emil Tantilov (1):
-  ixgbe: add WOL support for new subdevice id
-
-Jacob Keller (1):
-  ixgbe: (PTP) refactor init, cyclecounter and reset
-
-Tushar Dave (1):
-  ixgbe: Correcting small packet padding
-
-Wei Yongjun (1):
-  ixgbe: using is_zero_ether_addr() to simplify the code
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    |  44 ++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h   |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  | 102 +++++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  66 +++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |  10 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c      | 109 +++++++--------
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 124 +++++++++++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |   1 +
- drivers/net/ethernet/intel/ixgbevf/defines.h      |   7 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   4 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 159 +++++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbevf/mbx.h          |  10 ++
- drivers/net/ethernet/intel/ixgbevf/vf.c           |  58 ++++++++
- drivers/net/ethernet/intel/ixgbevf/vf.h           |   2 +
- 16 files changed, 539 insertions(+), 167 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index e2a6691..3ef74f8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1244,6 +1244,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 		struct vlan_hdr *vlan;
+ 		/* l3 headers */
+ 		struct iphdr *ipv4;
++		struct ipv6hdr *ipv6;
+ 	} hdr;
+ 	__be16 protocol;
+ 	u8 nexthdr = 0;	/* default to not TCP */
+@@ -1284,6 +1285,13 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 		/* record next protocol */
+ 		nexthdr = hdr.ipv4->protocol;
+ 		hdr.network += hlen;
++	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
++		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
++			return max_len;
++
++		/* record next protocol */
++		nexthdr = hdr.ipv6->nexthdr;
++		hdr.network += sizeof(struct ipv6hdr);
+ #ifdef IXGBE_FCOE
+ 	} else if (protocol == __constant_htons(ETH_P_FCOE)) {
+ 		if ((hdr.network - data) > (max_len - FCOE_HEADER_LEN))
+@@ -1294,7 +1302,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 		return hdr.network - data;
+ 	}
+ 
+-	/* finally sort out TCP */
++	/* finally sort out TCP/UDP */
+ 	if (nexthdr == IPPROTO_TCP) {
+ 		if ((hdr.network - data) > (max_len - sizeof(struct tcphdr)))
+ 			return max_len;
+@@ -1307,6 +1315,11 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
+ 			return hdr.network - data;
+ 
+ 		hdr.network += hlen;
++	} else if (nexthdr == IPPROTO_UDP) {
++		if ((hdr.network - data) > (max_len - sizeof(struct udphdr)))
++			return max_len;
++
++		hdr.network += sizeof(struct udphdr);
+ 	}
+ 
+ 	/*
 -- 
 1.7.11.7
