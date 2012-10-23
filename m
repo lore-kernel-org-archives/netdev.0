@@ -1,8 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv6: tcp: clean up tcp_v6_early_demux() icsk
- variable
-Date: Tue, 23 Oct 2012 09:41:48 +0200
-Message-ID: <1350978108.8609.1542.camel@edumazet-glaptop>
+Subject: [PATCH net-next] ipv4: tcp: clean up tcp_v4_early_demux()
+Date: Tue, 23 Oct 2012 09:42:47 +0200
+Message-ID: <1350978167.8609.1545.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,43 +9,56 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Neal Cardwell <ncardwell@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:56839 "EHLO
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:39443 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752355Ab2JWHlx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 03:41:53 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1377008bkc.19
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 00:41:51 -0700 (PDT)
+	with ESMTP id S1753450Ab2JWHmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 03:42:51 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1377431bkc.19
+        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 00:42:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neal Cardwell <ncardwell@google.com>
+From: Eric Dumazet <edumazet@google.com>
 
-Remove an icsk variable, which by convention should refer to an
-inet_connection_sock rather than an inet_sock. In the process, make
-the tcp_v6_early_demux() code and formatting a bit more like
-tcp_v4_early_demux(), to ease comparisons and maintenance.
+Use same header helpers than tcp_v6_early_demux() because they
+are a bit faster, and as they make IPv4/IPv6 versions look
+the same.
 
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
 ---
- net/ipv6/tcp_ipv6.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv4/tcp_ipv4.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 26175bf..bb6782e 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1741,11 +1741,11 @@ static void tcp_v6_early_demux(struct sk_buff *skb)
- 		skb->destructor = sock_edemux;
- 		if (sk->sk_state != TCP_TIME_WAIT) {
- 			struct dst_entry *dst = sk->sk_rx_dst;
--			struct inet_sock *icsk = inet_sk(sk);
-+
- 			if (dst)
- 				dst = dst_check(dst, inet6_sk(sk)->rx_dst_cookie);
- 			if (dst &&
--			    icsk->rx_dst_ifindex == skb->skb_iif)
-+			    inet_sk(sk)->rx_dst_ifindex == skb->skb_iif)
- 				skb_dst_set_noref(skb, dst);
- 		}
- 	}
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index ef998b0..694ea4c 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1918,7 +1918,6 @@ EXPORT_SYMBOL(tcp_v4_do_rcv);
+ 
+ void tcp_v4_early_demux(struct sk_buff *skb)
+ {
+-	struct net *net = dev_net(skb->dev);
+ 	const struct iphdr *iph;
+ 	const struct tcphdr *th;
+ 	struct sock *sk;
+@@ -1926,16 +1925,16 @@ void tcp_v4_early_demux(struct sk_buff *skb)
+ 	if (skb->pkt_type != PACKET_HOST)
+ 		return;
+ 
+-	if (!pskb_may_pull(skb, ip_hdrlen(skb) + sizeof(struct tcphdr)))
++	if (!pskb_may_pull(skb, skb_transport_offset(skb) + sizeof(struct tcphdr)))
+ 		return;
+ 
+ 	iph = ip_hdr(skb);
+-	th = (struct tcphdr *) ((char *)iph + ip_hdrlen(skb));
++	th = tcp_hdr(skb);
+ 
+ 	if (th->doff < sizeof(struct tcphdr) / 4)
+ 		return;
+ 
+-	sk = __inet_lookup_established(net, &tcp_hashinfo,
++	sk = __inet_lookup_established(dev_net(skb->dev), &tcp_hashinfo,
+ 				       iph->saddr, th->source,
+ 				       iph->daddr, ntohs(th->dest),
+ 				       skb->skb_iif);
