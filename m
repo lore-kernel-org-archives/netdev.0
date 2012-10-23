@@ -1,55 +1,62 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] Make hmac algorithm selection for cookie generation
- dynamic
-Date: Tue, 23 Oct 2012 09:16:08 -0400
-Message-ID: <20121023131608.GA23738@hmsreliant.think-freely.org>
-References: <1350661926-8312-1-git-send-email-nhorman@tuxdriver.com>
- <20121023.023254.1960160564751660622.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 2/8] maintainers: update with official intel support
+ link, new maintainer
+Date: Tue, 23 Oct 2012 06:25:01 -0700
+Message-ID: <1350998701.7502.42.camel@joe-AO722>
+References: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1350987887-16161-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Tushar Dave <tushar.n.dave@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:32798 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932238Ab2JWNQW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 09:16:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20121023.023254.1960160564751660622.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:46139 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756896Ab2JWNZD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 09:25:03 -0400
+In-Reply-To: <1350987887-16161-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 23, 2012 at 02:32:54AM -0400, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Fri, 19 Oct 2012 11:52:06 -0400
+On Tue, 2012-10-23 at 03:24 -0700, Jeff Kirsher wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
-> > Currently sctp allows for the optional use of md5 of sha1 hmac algorithms to
-> > generate cookie values when establishing new connections via two build time
-> > config options.  Theres no real reason to make this a static selection.  We can
-> > add a sysctl that allows for the dynamic selection of these algorithms at run
-> > time, with the default value determined by the corresponding crypto library
-> > config options.  It saves us two needless configuration settings and enables the
-> > freedom for administrators to select which algorithm a particular system uses.
-> > This comes in handy when, for example running a system in FIPS mode, where use
-> > of md5 is disallowed, but SHA1 is permitted.
-> > 
-> > Note: This new sysctl has no corresponding socket option to select the cookie
-> > hmac algorithm.  I chose not to implement that intentionally, as RFC 6458
-> > contains no option for this value, and I opted not to pollute the socket option
-> > namespace.
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Add an official link which is designed to guide the user to the appropriate
+> support resource (be it community, OEM, Intel phone, Intel email, etc)
 > 
-> Neil, please use appropriate subject prefixes in your patch
-> submissions.  In this case "sctp: " would have been appropriate.
-> 
-Crap, sorry, Dave, I should know better.  Completely slipped my mind.
+> Add the current e1000 maintainer to the list of Intel maintainers.
 
-Neil
+Hi Jeff.
 
-> Vlad, this patch looks fine to me, but I'd like you to review
-> it too before I apply it.
-> 
-> Thanks.
-> 
+I think it's unwise to have 10 named maintainers for all
+the intel ethernet drivers if there are specialists
+maintainers.
+
+Maybe it'd be better to break out these sub-maintainers
+into specific driver sections with you as the overall
+maintainer.
+
+Maybe add an internal exploder to get all the various
+maintainers on a list if everyone really looks at all
+patches to intel drivers.
+
+Something like:
+
+INTEL ETHERNET DRIVERS
+M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+M:	Intel Linux Support <linux.drivers@intel.com>
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net.git
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.git
+S:	Supported
+F:	drivers/net/ethernet/intel/
+
+INTEL ETHERNET E1000 DRIVER
+M:	Tushar Dave <tushar.n.dave@intel.com>
+S:	Supported
+F:	drivers/net/ethernet/intel/e1000/
+F:	Documentation/networking/e1000.txt
+
+etc...
