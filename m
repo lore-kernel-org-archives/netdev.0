@@ -1,39 +1,41 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: [PATCH] NET_VENDOR_TI: make available for am33xx as well
-Date: Wed, 24 Oct 2012 00:11:55 +0200
-Message-ID: <1351030315-4156-1-git-send-email-jacmet@sunsite.dk>
-Cc: Peter Korsgaard <jacmet@sunsite.dk>
-To: netdev@vger.kernel.org, mugunthanvnm@ti.com, davem@davemloft.net
+From: Sony Chacko <sony.chacko@qlogic.com>
+Subject: [PATCH V3 0/21] qlcnic: patches for new adapter - Qlogic 83XX CNA
+Date: Tue, 23 Oct 2012 18:30:51 -0400
+Message-ID: <1351031472-731-1-git-send-email-sony.chacko@qlogic.com>
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Sony Chacko <sony.chacko@qlogic.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:62666 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932796Ab2JWWMD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 18:12:03 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hr7so4154831wib.1
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 15:12:02 -0700 (PDT)
+Received: from mvnat01.qlogic.com ([198.186.3.73]:64429 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S933543Ab2JWWuM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 18:50:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The cpsw/davinci mdio ip cores are present on am33xx, so make NET_VENDOR_TI
-visible for it as well.
+From: Sony Chacko <sony.chacko@qlogic.com>
 
-Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
----
- drivers/net/ethernet/ti/Kconfig |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, October 19, 2012 10:50 AM
+> To: Sony Chacko
+> Cc: netdev; Dept-NX Linux NIC Driver
+> Subject: Re: [PATCH V2 12/20] qlcnic: 83xx base driver
+>
+> Patch is way too large and therefore didn't make it to the mailing list.
+> So I'm tossing this entire series, please correct this and repost.
 
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index b26cbda..2c41894 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_TI
- 	bool "Texas Instruments (TI) devices"
- 	default y
--	depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3))
-+	depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX))
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
--- 
-1.7.10.4
+Re-submitting the patch series after splitting large patch.
+
+Previous version of the patch set had lot style issues.
+We have fixed the style issues without blindly relying on scripts.
+
+The following patch set will restructure existing Qlogic 82XX adapter
+driver to create a common driver for 82XX and the new CNA - Qlogic 83XX.
+
+Patches 1 to 11 - restructures existing 82XX adapter driver.
+Patches 12 to 21 - 83XX adapter features.
+
+Please apply the updated 21 patch series to net-next.
+
+Thanks,
+Sony
