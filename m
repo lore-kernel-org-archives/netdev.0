@@ -1,8 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH net-next 13/15] mac802154: make mem
-	alloc ATOMIC to prevent "scheduling while atomic" crashes
-Date: Tue, 23 Oct 2012 00:09:55 -0400
-Message-ID: <1350965397-12384-14-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next 12/15] 6lowpan: make memory
+	allocation atomic during 6lowpan header creation
+Date: Tue, 23 Oct 2012 00:09:54 -0400
+Message-ID: <1350965397-12384-13-git-send-email-tony.cheneau@amnesiak.org>
 References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,23 +22,24 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-These crashes occur mainly with the serial driver (not yet in the tree).
+This is prevent various crashes when using the serial driver (not yet in
+the tree).
 
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/mac802154/wpan.c |    2 +-
+ net/ieee802154/6lowpan.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
-index d6aea7f..49ba8df 100644
---- a/net/mac802154/wpan.c
-+++ b/net/mac802154/wpan.c
-@@ -143,7 +143,7 @@ static int mac802154_header_create(struct sk_buff *skb,
- 	if (!daddr)
- 		return -EINVAL;
- 
--	head = kzalloc(MAC802154_FRAME_HARD_HEADER_LEN, GFP_KERNEL);
-+	head = kzalloc(MAC802154_FRAME_HARD_HEADER_LEN, GFP_ATOMIC);
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 9c7ac2e..70ff171 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -396,7 +396,7 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 		/* TODO:
+ 		 * if this package isn't ipv6 one, where should it be routed?
+ 		 */
+-	head = kzalloc(100, GFP_KERNEL);
++	head = kzalloc(100, GFP_ATOMIC);
  	if (head == NULL)
  		return -ENOMEM;
  
