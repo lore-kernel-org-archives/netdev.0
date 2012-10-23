@@ -1,56 +1,277 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 1/8] e1000e: Minimum packet size must be 17 bytes
-Date: Tue, 23 Oct 2012 03:24:40 -0700
-Message-ID: <1350987887-16161-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 7/8] ixgbevf: fix softirq-safe to unsafe splat on internal mbx_lock
+Date: Tue, 23 Oct 2012 03:24:46 -0700
+Message-ID: <1350987887-16161-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:54686 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:23518 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752903Ab2JWKYv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 06:24:51 -0400
+	id S1755992Ab2JWKYz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 06:24:55 -0400
 In-Reply-To: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tushar Dave <tushar.n.dave@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-This is a HW requirement. Although a buffer as short as 1 byte is allowed,
-the total length of packet before, padding and CRC insertion, must be at
-least 17 bytes.  So pad all small packets manually up to 17 bytes before
-delivering them to HW.
+The lockdep splat below identifies a case where irq safe to unsafe
+lock order is detected. Resolved by making mbx_lock bh.
 
-Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+======================================================
+[ INFO: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected ]
+3.6.0-rc5jk-net-next+ #119 Not tainted
+------------------------------------------------------
+ip/2608 [HC0[0]:SC0[2]:HE1:SE0] is trying to acquire:
+ (&(&adapter->mbx_lock)->rlock){+.+...}, at: [<ffffffffa008114e>] ixgbevf_set_rx_mode+0x36/0xd2 [ixgbevf]
+
+and this task is already holding:
+ (_xmit_ETHER){+.....}, at: [<ffffffff814097c8>] dev_set_rx_mode+0x1e/0x33
+which would create a new lock dependency:
+ (_xmit_ETHER){+.....} -> (&(&adapter->mbx_lock)->rlock){+.+...}
+
+but this new dependency connects a SOFTIRQ-irq-safe lock:
+ (&(&mc->mca_lock)->rlock){+.-...}
+... which became SOFTIRQ-irq-safe at:
+  [<ffffffff81092ee5>] __lock_acquire+0x2f2/0xdf3
+  [<ffffffff81093b11>] lock_acquire+0x12b/0x158
+  [<ffffffff814bdbcd>] _raw_spin_lock_bh+0x4a/0x7d
+  [<ffffffffa011a740>] mld_ifc_timer_expire+0x1b2/0x282 [ipv6]
+  [<ffffffff81054580>] run_timer_softirq+0x2a2/0x3ee
+  [<ffffffff8104cc42>] __do_softirq+0x161/0x2b9
+  [<ffffffff814c6a7c>] call_softirq+0x1c/0x30
+  [<ffffffff81011bc7>] do_softirq+0x4b/0xa3
+  [<ffffffff8104c8d5>] irq_exit+0x53/0xd7
+  [<ffffffff814c734d>] do_IRQ+0x9d/0xb4
+  [<ffffffff814be56f>] ret_from_intr+0x0/0x1a
+  [<ffffffff813de21c>] cpuidle_enter+0x12/0x14
+  [<ffffffff813de235>] cpuidle_enter_state+0x17/0x3f
+  [<ffffffff813deb6c>] cpuidle_idle_call+0x140/0x21c
+  [<ffffffff8101764c>] cpu_idle+0x79/0xcd
+  [<ffffffff814a59f5>] rest_init+0x149/0x150
+  [<ffffffff81ca2cbc>] start_kernel+0x37c/0x389
+  [<ffffffff81ca22dd>] x86_64_start_reservations+0xb8/0xbd
+  [<ffffffff81ca23e3>] x86_64_start_kernel+0x101/0x110
+
+to a SOFTIRQ-irq-unsafe lock:
+ (&(&adapter->mbx_lock)->rlock){+.+...}
+... which became SOFTIRQ-irq-unsafe at:
+...  [<ffffffff81092f59>] __lock_acquire+0x366/0xdf3
+  [<ffffffff81093b11>] lock_acquire+0x12b/0x158
+  [<ffffffff814bd862>] _raw_spin_lock+0x45/0x7a
+  [<ffffffffa0080fde>] ixgbevf_negotiate_api+0x3d/0x6d [ixgbevf]
+  [<ffffffffa008404b>] ixgbevf_open+0x6c/0x43e [ixgbevf]
+  [<ffffffff8140b2c1>] __dev_open+0xa0/0xe6
+  [<ffffffff814099b6>] __dev_change_flags+0xbe/0x142
+  [<ffffffff8140b1eb>] dev_change_flags+0x21/0x57
+  [<ffffffff8141a523>] do_setlink+0x2e2/0x7f4
+  [<ffffffff8141ad8c>] rtnl_newlink+0x277/0x4bb
+  [<ffffffff81419c08>] rtnetlink_rcv_msg+0x236/0x253
+  [<ffffffff8142f92d>] netlink_rcv_skb+0x43/0x94
+  [<ffffffff814199cb>] rtnetlink_rcv+0x26/0x2d
+  [<ffffffff8142f6dc>] netlink_unicast+0xee/0x174
+  [<ffffffff8142ff12>] netlink_sendmsg+0x26a/0x288
+  [<ffffffff813f5a0d>] __sock_sendmsg_nosec+0x58/0x61
+  [<ffffffff813f7d57>] __sock_sendmsg+0x3d/0x48
+  [<ffffffff813f7ed9>] sock_sendmsg+0x6e/0x87
+  [<ffffffff813f93d4>] __sys_sendmsg+0x206/0x288
+  [<ffffffff813f95ce>] sys_sendmsg+0x42/0x60
+  [<ffffffff814c57a9>] system_call_fastpath+0x16/0x1b
+
+other info that might help us debug this:
+
+Chain exists of:
+  &(&mc->mca_lock)->rlock --> _xmit_ETHER --> &(&adapter->mbx_lock)->rlock
+
+ Possible interrupt unsafe locking scenario:
+
+       CPU0                    CPU1
+       ----                    ----
+  lock(&(&adapter->mbx_lock)->rlock);
+                               local_irq_disable();
+                               lock(&(&mc->mca_lock)->rlock);
+                               lock(_xmit_ETHER);
+  <Interrupt>
+    lock(&(&mc->mca_lock)->rlock);
+
+ *** DEADLOCK ***
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 40 +++++++++++------------
+ 1 file changed, 20 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index f444eb0..dadb13b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5067,6 +5067,17 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 		return NETDEV_TX_OK;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 805e02c..846ac51 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1138,12 +1138,12 @@ static int ixgbevf_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+ 	if (!hw->mac.ops.set_vfta)
+ 		return -EOPNOTSUPP;
+ 
+-	spin_lock(&adapter->mbx_lock);
++	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	/* add VID to filter table */
+ 	err = hw->mac.ops.set_vfta(hw, vid, 0, true);
+ 
+-	spin_unlock(&adapter->mbx_lock);
++	spin_unlock_bh(&adapter->mbx_lock);
+ 
+ 	/* translate error return types so error makes sense */
+ 	if (err == IXGBE_ERR_MBX)
+@@ -1163,13 +1163,13 @@ static int ixgbevf_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	int err = -EOPNOTSUPP;
+ 
+-	spin_lock(&adapter->mbx_lock);
++	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	/* remove VID from filter table */
+ 	if (hw->mac.ops.set_vfta)
+ 		err = hw->mac.ops.set_vfta(hw, vid, 0, false);
+ 
+-	spin_unlock(&adapter->mbx_lock);
++	spin_unlock_bh(&adapter->mbx_lock);
+ 
+ 	clear_bit(vid, adapter->active_vlans);
+ 
+@@ -1225,7 +1225,7 @@ static void ixgbevf_set_rx_mode(struct net_device *netdev)
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 
+-	spin_lock(&adapter->mbx_lock);
++	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	/* reprogram multicast list */
+ 	if (hw->mac.ops.update_mc_addr_list)
+@@ -1233,7 +1233,7 @@ static void ixgbevf_set_rx_mode(struct net_device *netdev)
+ 
+ 	ixgbevf_write_uc_addr_list(netdev);
+ 
+-	spin_unlock(&adapter->mbx_lock);
++	spin_unlock_bh(&adapter->mbx_lock);
+ }
+ 
+ static void ixgbevf_napi_enable_all(struct ixgbevf_adapter *adapter)
+@@ -1347,7 +1347,7 @@ static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
+ 		      ixgbe_mbox_api_unknown };
+ 	int err = 0, idx = 0;
+ 
+-	spin_lock(&adapter->mbx_lock);
++	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	while (api[idx] != ixgbe_mbox_api_unknown) {
+ 		err = ixgbevf_negotiate_api_version(hw, api[idx]);
+@@ -1356,7 +1356,7 @@ static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
+ 		idx++;
  	}
  
-+	/*
-+	 * The minimum packet size with TCTL.PSP set is 17 bytes so
-+	 * pad skb in order to meet this minimum size requirement
-+	 */
-+	if (unlikely(skb->len < 17)) {
-+		if (skb_pad(skb, 17 - skb->len))
-+			return NETDEV_TX_OK;
-+		skb->len = 17;
-+		skb_set_tail_pointer(skb, 17);
-+	}
-+
- 	mss = skb_shinfo(skb)->gso_size;
- 	if (mss) {
- 		u8 hdr_len;
+-	spin_unlock(&adapter->mbx_lock);
++	spin_unlock_bh(&adapter->mbx_lock);
+ }
+ 
+ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
+@@ -1397,7 +1397,7 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
+ 
+ 	ixgbevf_configure_msix(adapter);
+ 
+-	spin_lock(&adapter->mbx_lock);
++	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	if (hw->mac.ops.set_rar) {
+ 		if (is_valid_ether_addr(hw->mac.addr))
+@@ -1406,7 +1406,7 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
+ 			hw->mac.ops.set_rar(hw, 0, hw->mac.perm_addr, 0);
+ 	}
+ 
+-	spin_unlock(&adapter->mbx_lock);
++	spin_unlock_bh(&adapter->mbx_lock);
+ 
+ 	clear_bit(__IXGBEVF_DOWN, &adapter->state);
+ 	ixgbevf_napi_enable_all(adapter);
+@@ -1430,12 +1430,12 @@ static int ixgbevf_reset_queues(struct ixgbevf_adapter *adapter)
+ 	unsigned int num_rx_queues = 1;
+ 	int err, i;
+ 
+-	spin_lock(&adapter->mbx_lock);
++	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	/* fetch queue configuration from the PF */
+ 	err = ixgbevf_get_queues(hw, &num_tcs, &def_q);
+ 
+-	spin_unlock(&adapter->mbx_lock);
++	spin_unlock_bh(&adapter->mbx_lock);
+ 
+ 	if (err)
+ 		return err;
+@@ -1694,14 +1694,14 @@ void ixgbevf_reset(struct ixgbevf_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct net_device *netdev = adapter->netdev;
+ 
+-	spin_lock(&adapter->mbx_lock);
++	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	if (hw->mac.ops.reset_hw(hw))
+ 		hw_dbg(hw, "PF still resetting\n");
+ 	else
+ 		hw->mac.ops.init_hw(hw);
+ 
+-	spin_unlock(&adapter->mbx_lock);
++	spin_unlock_bh(&adapter->mbx_lock);
+ 
+ 	if (is_valid_ether_addr(adapter->hw.mac.addr)) {
+ 		memcpy(netdev->dev_addr, adapter->hw.mac.addr,
+@@ -2195,12 +2195,12 @@ static void ixgbevf_watchdog_task(struct work_struct *work)
+ 	if (hw->mac.ops.check_link) {
+ 		s32 need_reset;
+ 
+-		spin_lock(&adapter->mbx_lock);
++		spin_lock_bh(&adapter->mbx_lock);
+ 
+ 		need_reset = hw->mac.ops.check_link(hw, &link_speed,
+ 						    &link_up, false);
+ 
+-		spin_unlock(&adapter->mbx_lock);
++		spin_unlock_bh(&adapter->mbx_lock);
+ 
+ 		if (need_reset) {
+ 			adapter->link_up = link_up;
+@@ -2468,12 +2468,12 @@ static int ixgbevf_setup_queues(struct ixgbevf_adapter *adapter)
+ 	unsigned int num_rx_queues = 1;
+ 	int err, i;
+ 
+-	spin_lock(&adapter->mbx_lock);
++	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	/* fetch queue configuration from the PF */
+ 	err = ixgbevf_get_queues(hw, &num_tcs, &def_q);
+ 
+-	spin_unlock(&adapter->mbx_lock);
++	spin_unlock_bh(&adapter->mbx_lock);
+ 
+ 	if (err)
+ 		return err;
+@@ -3047,12 +3047,12 @@ static int ixgbevf_set_mac(struct net_device *netdev, void *p)
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 	memcpy(hw->mac.addr, addr->sa_data, netdev->addr_len);
+ 
+-	spin_lock(&adapter->mbx_lock);
++	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	if (hw->mac.ops.set_rar)
+ 		hw->mac.ops.set_rar(hw, 0, hw->mac.addr, 0);
+ 
+-	spin_unlock(&adapter->mbx_lock);
++	spin_unlock_bh(&adapter->mbx_lock);
+ 
+ 	return 0;
+ }
 -- 
 1.7.11.7
