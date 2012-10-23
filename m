@@ -1,75 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: fix build errors related to config option combinations
-Date: Tue, 23 Oct 2012 09:50:51 +0900
-Message-ID: <1350953451-19441-2-git-send-email-horms@verge.net.au>
-References: <1350953451-19441-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Fengguang Wu <fengguang.wu@intel.com>,
-	Yuanhan Liu <yuanhan.liu@linux.intel.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1350953451-19441-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: Reject invalid ack_seq to Fast Open sockets
+Date: Mon, 22 Oct 2012 20:56:18 -0400
+Message-ID: <CADVnQyne=GcdafOP8ZrCu+=6aRiqTToyGbWB6PCsNMCdXku1kA@mail.gmail.com>
+References: <1350941196-31224-1-git-send-email-hkchu@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: "H.K. Jerry Chu" <hkchu@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:34745 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753108Ab2JWA4S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 22 Oct 2012 20:56:18 -0400
+Received: by mail-ia0-f174.google.com with SMTP id y32so2561743iag.19
+        for <netdev@vger.kernel.org>; Mon, 22 Oct 2012 17:56:18 -0700 (PDT)
+In-Reply-To: <1350941196-31224-1-git-send-email-hkchu@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
+On Mon, Oct 22, 2012 at 5:26 PM, H.K. Jerry Chu <hkchu@google.com> wrote:
+> From: Jerry Chu <hkchu@google.com>
+>
+> A packet with an invalid ack_seq may cause a TCP Fast Open socket to switch
+> to the unexpected TCP_CLOSING state, triggering a BUG_ON kernel panic.
+>
+> When a FIN packet with an invalid ack_seq# arrives at a socket in
+> the TCP_FIN_WAIT1 state, rather than discarding the packet, the current
+> code will accept the FIN, causing state transition to TCP_CLOSING.
+>
+> This may be a small deviation from RFC793, which seems to say that the
+> packet should be dropped. Unfortunately I did not expect this case for
+> Fast Open hence it will trigger a BUG_ON panic.
+>
+> It turns out there is really nothing bad about a TFO socket going into
+> TCP_CLOSING state so I could just remove the BUG_ON statements. But after
+> some thought I think it's better to treat this case like TCP_SYN_RECV
+> and return a RST to the confused peer who caused the unacceptable ack_seq
+> to be generated in the first place.
+>
+> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
 
-Fix two build error introduced by commit 63dca2c0:
- "ipvs: Fix faulty IPv6 extension header handling in IPVS"
-
-First build error was fairly trivial and can occur, when
-CONFIG_IP_VS_IPV6 is disabled.
-
-The second build error was tricky, and can occur when deselecting
-both all Netfilter and IPVS, but selecting CONFIG_IPV6.  This is
-caused by "kernel/sysctl_binary.c" including "net/ip_vs.h", which
-includes "linux/netfilter_ipv6/ip6_tables.h" causing include
-of "include/linux/netfilter/x_tables.h" which then cannot find
-the typedef nf_hookfn.
-
-Fix this by only including "linux/netfilter_ipv6/ip6_tables.h" in
-case of CONFIG_IP_VS_IPV6 as its already used to guard the usage
-of ipv6_find_hdr().
-
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Reported-by: Yuanhan Liu <yuanhan.liu@linux.intel.com>
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index a681ad6..68c69d5 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -22,7 +22,7 @@
- #include <linux/ip.h>
- #include <linux/ipv6.h>			/* for struct ipv6hdr */
- #include <net/ipv6.h>
--#if IS_ENABLED(CONFIG_IPV6)
-+#if IS_ENABLED(CONFIG_IP_VS_IPV6)
- #include <linux/netfilter_ipv6/ip6_tables.h>
- #endif
- #if IS_ENABLED(CONFIG_NF_CONNTRACK)
-@@ -212,8 +212,9 @@ ip_vs_fill_iph_addr_only(int af, const struct sk_buff *skb,
- 			(struct ipv6hdr *)skb_network_header(skb);
- 		iphdr->saddr.in6 = iph->saddr;
- 		iphdr->daddr.in6 = iph->daddr;
--	} else {
-+	} else
- #endif
-+	{
- 		const struct iphdr *iph =
- 			(struct iphdr *)skb_network_header(skb);
- 		iphdr->saddr.ip = iph->saddr;
--- 
-1.7.10.4
-
+Acked-by: Neal Cardwell <ncardwell@google.com>
