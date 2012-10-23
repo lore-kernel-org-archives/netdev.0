@@ -1,8 +1,10 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH net-next 00/15] 6lowpan: Some more bug
-	fixes
-Date: Tue, 23 Oct 2012 00:09:42 -0400
-Message-ID: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next 01/15] 6lowpan:
+	lowpan_is_iid_16_bit_compressable() does not detect
+	compressable address correctly
+Date: Tue, 23 Oct 2012 00:09:43 -0400
+Message-ID: <1350965397-12384-2-git-send-email-tony.cheneau@amnesiak.org>
+References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +12,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Ott <alan-yzvJWuRpmD1zb
 	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1350965397-12384-1-git-send-email-tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -20,47 +23,41 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+The current test is not RFC6282 compliant. The same issue has been found
+out and fixed in Contiki. This patch is basicaly a port of their fix.
 
-This patch serie fixes a few bugs within the 6lowpan modules and prepares the
-integration of the serial driver that will be submitted in a subsequent patch serie.
-It should apply cleanly on the latest net-next.
+Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
+---
+ net/ieee802154/6lowpan.h |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-Regards,
-	Tony Cheneau
-
-Tony Cheneau (15):
-  6lowpan: lowpan_is_iid_16_bit_compressable() does not detect
-    compressable address correctly
-  6lowpan: next header is not properly set upon decompression of a UDP
-    header.
-  6lowpan: always enable link-layer acknowledgments
-  mac802154: turn on ACK when enabled by the upper layers
-  6lowpan: use short IEEE 802.15.4 addresses for broadcast destination
-  6lowpan: fix first fragment (FRAG1) handling
-  6lowpan: store fragment tag values per device instead of net stack
-    wide
-  6lowpan: obtain IEEE802.15.4 sequence number from the MAC layer
-  6lowpan: add a new parameter in sysfs to turn on/off ACK request at
-    MAC layer
-  6lowpan: use the PANID provided by the device instead of a static
-    value
-  6lowpan: modify udp compression/uncompression to match the standard
-  6lowpan: make memory allocation atomic during 6lowpan header creation
-  mac802154: make mem alloc ATOMIC to prevent "scheduling while atomic"
-    crashes
-  mac802154: remove unnecessary spinlocks
-  mac802154: re-introduce MAC primitives required to send/receive
-    packets
-
- net/ieee802154/6lowpan.c  |  144 ++++++++++++++++++++++++++++++++++++---------
- net/ieee802154/6lowpan.h  |   14 +++--
- net/mac802154/mac802154.h |    2 +
- net/mac802154/mac_cmd.c   |   22 +++++++-
- net/mac802154/mib.c       |   33 +++++++----
- net/mac802154/wpan.c      |    4 +-
- 6 files changed, 172 insertions(+), 47 deletions(-)
-
+diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
+index 8c2251f..efd1a57 100644
+--- a/net/ieee802154/6lowpan.h
++++ b/net/ieee802154/6lowpan.h
+@@ -87,14 +87,16 @@
+ #define is_addr_link_local(a) (((a)->s6_addr16[0]) == 0x80FE)
+ 
+ /*
+- * check whether we can compress the IID to 16 bits,
+- * it's possible for unicast adresses with first 49 bits are zero only.
+- */
++* check whether we can compress the IID to 16 bits,
++* it's possible for unicast adresses with first 49 bits are zero only.
++*/
+ #define lowpan_is_iid_16_bit_compressable(a)	\
+ 	((((a)->s6_addr16[4]) == 0) &&		\
+-	 (((a)->s6_addr16[5]) == 0) &&		\
+-	 (((a)->s6_addr16[6]) == 0) &&		\
+-	 ((((a)->s6_addr[14]) & 0x80) == 0))
++	 (((a)->s6_addr[10]) == 0) &&		\
++	 (((a)->s6_addr[11]) == 0xff) &&	\
++	 (((a)->s6_addr[12]) == 0xfe) &&	\
++	 (((a)->s6_addr[13]) == 0))
++
+ 
+ /* multicast address */
+ #define is_addr_mcast(a) (((a)->s6_addr[0]) == 0xFF)
 -- 
 1.7.8.6
 
