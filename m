@@ -1,129 +1,109 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [RFC PATCH v2 2/6] PM / Runtime: introduce pm_runtime_set_memalloc_noio()
-Date: Tue, 23 Oct 2012 10:46:49 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1210231022230.1635-100000@iolanthe.rowland.org>
-References: <CACVXFVMmszZWHaeNS6LSG4nHR4wWBLwM_BvynRwUW8X=nO+JWA@mail.gmail.com>
+From: Tony Cheneau <tony.cheneau@amnesiak.org>
+Subject: Re: [PATCH net-next 06/15] 6lowpan: fix first fragment (FRAG1)  handling
+Date: Tue, 23 Oct 2012 16:50:27 +0200
+Message-ID: <1bf85bdd4343fe738d15ee74a65578d5@amnesiak.org>
+References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
+ <1350965397-12384-7-git-send-email-tony.cheneau@amnesiak.org>
+ <5086450A.9050506@computer.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
-    Minchan Kim <minchan@kernel.org>,
-    Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-    "Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
-    "David S. Miller" <davem@davemloft.net>,
-    Andrew Morton <akpm@linux-foundation.org>,  <netdev@vger.kernel.org>,
-     <linux-usb@vger.kernel.org>,  <linux-pm@vger.kernel.org>,
-     <linux-mm@kvack.org>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CACVXFVMmszZWHaeNS6LSG4nHR4wWBLwM_BvynRwUW8X=nO+JWA@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-zigbee-devel@lists.sourceforge.net>,
+	Alan Ott <alan@signal11.us>,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+To: Jan Ceuleers <jan.ceuleers@computer.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.amnesiak.org ([95.130.11.136]:54794 "EHLO amnesiak.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751745Ab2JWOvC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 10:51:02 -0400
+In-Reply-To: <5086450A.9050506@computer.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Oct 2012, Ming Lei wrote:
+Hello Jan,
 
-> On Mon, Oct 22, 2012 at 10:33 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
-> >
-> > Tail recursion should be implemented as a loop, not as an explicit
-> > recursion.  That is, the function should be:
-> >
-> > void pm_runtime_set_memalloc_noio(struct device *dev, bool enable)
-> > {
-> >         do {
-> >                 dev->power.memalloc_noio_resume = enable;
-> >
-> >                 if (!enable) {
-> >                         /*
-> >                          * Don't clear the parent's flag if any of the
-> >                          * parent's children have their flag set.
-> >                          */
-> >                         if (device_for_each_child(dev->parent, NULL,
-> >                                           dev_memalloc_noio))
-> >                                 return;
-> >                 }
-> >                 dev = dev->parent;
-> >         } while (dev);
-> > }
-> 
-> OK, will take the non-recursion implementation for saving kernel
-> stack space.
-> 
-> >
-> > except that you need to add locking, for two reasons:
-> >
-> >         There's a race.  What happens if another child sets the flag
-> >         between the time device_for_each_child() runs and the next loop
-> >         iteration?
-> 
-> Yes, I know the race, and not adding a lock because the function
-> is mostly called in .probe() or .remove() callback and its parent's device
-> lock is held to avoid this race.
-> 
-> Considered that it may be called in async probe() (scsi disk), one lock
-> is needed, the simplest way is to add a global lock. Any suggestion?
+Thank you for all your comments. See my answer inline.
 
-No.  Because of where you put the new flag, it must be protected by
-dev->power.lock.  And this means the iterative implementation shown
-above can't be used as is.  It will have to be more like this:
-
-void pm_runtime_set_memalloc_noio(struct device *dev, bool enable)
+Le 23.10.2012 09:19, Jan Ceuleers a =C3=A9crit=C2=A0:
+> On 10/23/2012 06:09 AM, Tony Cheneau wrote:
+>> The first fragment, FRAG1, must contain some payload according to=20
+>> the
+>> specs. However, as it is currently written, the first fragment will
+>> remain empty and only contain the 6lowpan headers.
+>>
+>> This patch also extract the transport layer information from the=20
+>> first
+>> fragment. This information is later on use when uncompressing UDP
+>> header.
+>>
+>> Signed-off-by: Tony Cheneau <tony.cheneau@amnesiak.org>
+>> ---
+>>  net/ieee802154/6lowpan.c |   54=20
+>> +++++++++++++++++++++++++++++++++++----------
+>>  1 files changed, 42 insertions(+), 12 deletions(-)
+>>
+>> diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+>> index 8a2ee95..38cecaf 100644
+>> --- a/net/ieee802154/6lowpan.c
+>> +++ b/net/ieee802154/6lowpan.c
+>> @@ -654,7 +654,7 @@ static void=20
+>> lowpan_fragment_timer_expired(unsigned long entry_addr)
+>>  }
+>>
+>>  static struct lowpan_fragment *
+>> -lowpan_alloc_new_frame(struct sk_buff *skb, u8 len, u16 tag)
+>> +lowpan_alloc_new_frame(struct sk_buff *skb, u16 len, u16 tag)
+>>  {
+>>  	struct lowpan_fragment *frame;
+>>
+>> @@ -735,6 +735,18 @@ lowpan_process_data(struct sk_buff *skb)
+>>  		/* adds the 3 MSB to the 8 LSB to retrieve the 11 bits length */
+>>  		len =3D ((iphc0 & 7) << 8) | slen;
+>>
+>> +		if ((iphc0 & LOWPAN_DISPATCH_MASK) =3D=3D LOWPAN_DISPATCH_FRAG1) =
 {
-	spin_lock_irq(&dev->power.lock);
-	dev->power.memalloc_noio_resume = enable;
+>> +			pr_debug("%s received a FRAG1 packet (tag: %d, "
+>> +				 "size of the entire IP packet: %d)"
+>> +				 , __func__, tag, len);
+>
+> There are several schools of thought on the relative importance of
+> observing the 80-character line limit versus breaking up string
+> constants (in an attempt to maintain grepability). I think the above=20
+> is
+> fine but others (whose opinion matters more than mine) may or may not
+> agree. Whatever you decide here, please apply consistently=20
+> throughout.
+Yes, I've seen that particular issues when running checkpatch.pl. I=20
+decided to break down line, but I can easily be convinced to do things=20
+differently. Anyway, I'll make sure that all my patches are consistent=20
+in breaking up string after 80 characters the same way.
 
-	while (dev->parent) {
-		spin_unlock_irq(&dev->power.lock);
-		dev = dev->parent;
+> However, the comma ahead of the __func__ should be at the end of the
+> previous line.
+Will do.
 
-		spin_lock_irq(&dev->power.lock);
-		/*
-		 * Don't clear the parent's flag if any of the
-		 * parent's children have their flag set.
-		 */
-		if (!enable && device_for_each_child(dev->parent, NULL,
-				dev_memalloc_noio))
-			break;
-		dev->power.memalloc_noio_resume = enable;
-	}
-	spin_unlock_irq(&dev->power.lock);
-}
+>
+>> -	/* if payload length is zero, therefore it's a first fragment */
+>> -	hlen =3D (plen =3D=3D 0 ? LOWPAN_FRAG1_HEAD_SIZE : =20
+>> LOWPAN_FRAGN_HEAD_SIZE);
+>> +	hlen =3D (type =3D=3D LOWPAN_DISPATCH_FRAG1 ? LOWPAN_FRAG1_HEAD_SI=
+ZE :
+>> +			LOWPAN_FRAGN_HEAD_SIZE);
+>
+> The second line of this statement should be aligned as follows:
+>
+> +	hlen =3D (type =3D=3D LOWPAN_DISPATCH_FRAG1 ? LOWPAN_FRAG1_HEAD_SIZ=
+E :
+> +		LOWPAN_FRAGN_HEAD_SIZE);
+>
+> So the L for LOWPAN_FRAGN_HEAD_SIZE should be underneath the t for=20
+> type.
+Will do as well.
 
-> >         Even without a race, access to bitfields is not SMP-safe
-> >         without locking.
-> 
-> You mean one ancestor device might not be in active when
-> one of its descendants is being probed or removed?
+Again, thank you for all your detailed comments.
 
-No.  Consider this example:
-
-	struct foo {
-		int a:1;
-		int b:1;
-	} x;
-
-Consider what happens if CPU 0 does "x.a = 1" at the same time as 
-another CPU 1 does "x.b = 1".  The compiler might produce object code 
-looking like this for CPU 0:
-
-	move	x, reg1
-	or	0x1, reg1
-	move	reg1, x
-
-and this for CPU 1:
-
-	move	x, reg2
-	or	0x2, reg2
-	move	reg2, x
-
-With no locking, the two "or" instructions could execute 
-simultaneously.  What will the final value of x be?
-
-The two CPUs will interfere, even though they are touching different 
-bitfields.
-
-Alan Stern
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Regards,
+Tony
