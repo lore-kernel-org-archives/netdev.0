@@ -1,147 +1,75 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [RFC PATCH v2 2/6] PM / Runtime: introduce pm_runtime_set_memalloc_noio()
-Date: Tue, 23 Oct 2012 23:18:31 +0800
-Message-ID: <CACVXFVN+=XH_f5BmRkXeagTNowz0o0-Pd7GcxCneO0FSq8xqEw@mail.gmail.com>
-References: <CACVXFVMmszZWHaeNS6LSG4nHR4wWBLwM_BvynRwUW8X=nO+JWA@mail.gmail.com>
-	<Pine.LNX.4.44L0.1210231022230.1635-100000@iolanthe.rowland.org>
+From: Duan Jiong <djduanjiong@gmail.com>
+Subject: [PATCH]ipv6: Add an ICMP error handler icmpv6_err
+Date: Tue, 23 Oct 2012 23:24:29 +0800
+Message-ID: <5086B6AD.8060306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
-	Minchan Kim <minchan@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>, "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-pm@vger.kernel.org, linux-mm@kvack.org
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <Pine.LNX.4.44L0.1210231022230.1635-100000@iolanthe.rowland.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
-
-On Tue, Oct 23, 2012 at 10:46 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
-> On Tue, 23 Oct 2012, Ming Lei wrote:
->
->> On Mon, Oct 22, 2012 at 10:33 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
->> >
->> > Tail recursion should be implemented as a loop, not as an explicit
->> > recursion.  That is, the function should be:
->> >
->> > void pm_runtime_set_memalloc_noio(struct device *dev, bool enable)
->> > {
->> >         do {
->> >                 dev->power.memalloc_noio_resume = enable;
->> >
->> >                 if (!enable) {
->> >                         /*
->> >                          * Don't clear the parent's flag if any of the
->> >                          * parent's children have their flag set.
->> >                          */
->> >                         if (device_for_each_child(dev->parent, NULL,
->> >                                           dev_memalloc_noio))
->> >                                 return;
->> >                 }
->> >                 dev = dev->parent;
->> >         } while (dev);
->> > }
->>
->> OK, will take the non-recursion implementation for saving kernel
->> stack space.
->>
->> >
->> > except that you need to add locking, for two reasons:
->> >
->> >         There's a race.  What happens if another child sets the flag
->> >         between the time device_for_each_child() runs and the next loop
->> >         iteration?
->>
->> Yes, I know the race, and not adding a lock because the function
->> is mostly called in .probe() or .remove() callback and its parent's device
->> lock is held to avoid this race.
->>
->> Considered that it may be called in async probe() (scsi disk), one lock
->> is needed, the simplest way is to add a global lock. Any suggestion?
->
-> No.  Because of where you put the new flag, it must be protected by
-> dev->power.lock.  And this means the iterative implementation shown
-> above can't be used as is.  It will have to be more like this:
->
-> void pm_runtime_set_memalloc_noio(struct device *dev, bool enable)
-> {
->         spin_lock_irq(&dev->power.lock);
->         dev->power.memalloc_noio_resume = enable;
->
->         while (dev->parent) {
->                 spin_unlock_irq(&dev->power.lock);
->                 dev = dev->parent;
->
->                 spin_lock_irq(&dev->power.lock);
->                 /*
->                  * Don't clear the parent's flag if any of the
->                  * parent's children have their flag set.
->                  */
->                 if (!enable && device_for_each_child(dev->parent, NULL,
-
-s/dev->parent/dev
-
->                                 dev_memalloc_noio))
->                         break;
->                 dev->power.memalloc_noio_resume = enable;
->         }
->         spin_unlock_irq(&dev->power.lock);
-> }
-
-With the problem of non-SMP-safe bitfields access, the power.lock should
-be held, but that is not enough to prevent children from being probed or
-disconnected. Looks another lock is still needed. I think a global lock
-is OK in the infrequent path.
-
->
->> >         Even without a race, access to bitfields is not SMP-safe
->> >         without locking.
->>
->> You mean one ancestor device might not be in active when
->> one of its descendants is being probed or removed?
->
-> No.  Consider this example:
->
->         struct foo {
->                 int a:1;
->                 int b:1;
->         } x;
->
-> Consider what happens if CPU 0 does "x.a = 1" at the same time as
-> another CPU 1 does "x.b = 1".  The compiler might produce object code
-> looking like this for CPU 0:
->
->         move    x, reg1
->         or      0x1, reg1
->         move    reg1, x
->
-> and this for CPU 1:
->
->         move    x, reg2
->         or      0x2, reg2
->         move    reg2, x
->
-> With no locking, the two "or" instructions could execute
-> simultaneously.  What will the final value of x be?
->
-> The two CPUs will interfere, even though they are touching different
-> bitfields.
-
-Got it, thanks for your detailed explanation.
-
-Looks the problem is worse than above, not only bitfields are affected, the
-adjacent fields might be involved too, see:
-
-           http://lwn.net/Articles/478657/
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:46333 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755495Ab2JWPYe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 11:24:34 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rr4so507107pbb.19
+        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 08:24:33 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-Thanks,
---
-Ming Lei
+Add an ICMP error handler icmpv6_err to deal with ICMPV6 Error
+Messages and Redirect Message, when we do not have a socket
+context.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Signed-off-by: Duan Jiong <djduanjiong@gmail.com>
+---
+ net/ipv6/icmp.c | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
+
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 24d69db..d3cb61d 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -82,9 +82,12 @@ static inline struct sock *icmpv6_sk(struct net *net)
+ }
+ 
+ static int icmpv6_rcv(struct sk_buff *skb);
++static void icmpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
++			u8 type, u8 code, int offset, __be32 info);
+ 
+ static const struct inet6_protocol icmpv6_protocol = {
+ 	.handler	=	icmpv6_rcv,
++	.err_handler	=	icmpv6_err,
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
+ 
+@@ -782,6 +785,26 @@ drop_no_count:
+ 	return 0;
+ }
+ 
++static void icmpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
++			u8 type, u8 code, int offset, __be32 info)
++{
++	struct net *net = dev_net(skb->dev);
++	struct icmp6hdr *hdr = icmp6_hdr(skb);
++
++	switch (hdr->icmp6_type) {
++	case ICMPV6_PKT_TOOBIG:
++		ip6_update_pmtu(skb, net, info, 0, 0);
++		break;
++
++	case NDISC_REDIRECT:
++		ip6_redirect(skb, net, 0, 0);
++		break;
++
++	default:
++		break;
++	}
++}
++
+ void icmpv6_flow_init(struct sock *sk, struct flowi6 *fl6,
+ 		      u8 type,
+ 		      const struct in6_addr *saddr,
+-- 
+1.7.11.4
