@@ -1,56 +1,37 @@
-From: Cong Xu <davidxu06@gmail.com>
-Subject: Synchronization between process context and softirq context on SMP machine
-Date: Tue, 23 Oct 2012 20:56:30 +0000 (UTC)
-Message-ID: <loom.20121023T223837-223@post.gmane.org>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH net-next] sockopt: Make SO_BINDTODEVICE readable
+Date: Tue, 23 Oct 2012 17:43:23 -0400
+Message-ID: <50870F7B.3010805@hp.com>
+References: <508123AC.5080208@parallels.com>  <50858ABD.2000206@hp.com>  <1350938702.8609.1299.camel@edumazet-glaptop>  <5085B8B0.6010500@hp.com>  <1350941831.8609.1355.camel@edumazet-glaptop>  <5085BF0A.2030602@hp.com> <1350942738.8609.1375.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:50545 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933722Ab2JWVJ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 17:09:59 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1TQljg-0000Jv-Be
-	for netdev@vger.kernel.org; Tue, 23 Oct 2012 23:10:04 +0200
-Received: from csdhcp-120-208.cs.purdue.edu ([128.10.120.208])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 23:10:04 +0200
-Received: from davidxu06 by csdhcp-120-208.cs.purdue.edu with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 23:10:04 +0200
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:36443 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752334Ab2JWVn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 17:43:28 -0400
+In-Reply-To: <1350942738.8609.1375.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I met some problems when I did some research in improving the TCP/UDP 
-performance of Virtual Machine(VM), if anybody can offer me some help or 
-suggestion to handle my problem, I will be very appreciated.
+On 10/22/2012 05:52 PM, Eric Dumazet wrote:
 
+>>> I meant another cpu can be changing dev->name[] content while the
+>>> strcpy() is done, and you get a mangled devname, like "for" or "bao"
+>>> instead of "foo" or "bar"
+>>
+>> Even when holding the rcu_read_lock()?  I'd have to hold the rtnl lock there?
+> 
+> Yes, rcu_read_lock() only makes sure the device doesnt disappear.
+> 
+> But its name can be changed.
 
-On virtual machine platform, virtual CPU (vCPU) of each VM can not be always 
-online when several vCPUs share one physical CPU (pCPU) (Here we can simply 
-assume the vCPU scheduling is round-robin.). Therefore, the high delay of TCP 
-receiving of VM hurts the TCP throughput significantly. In order to handle this 
-problem I assign a virtual co-processor (co-vCPU) which is almost always online 
-to each VM and pin NIC IRQ of the VM to this co-vCPU. ( If you are not familiar 
-with VM, you can simply assume that in a common OS the user level application 
-(e.g. iperf) runs on a cpu which will be offline every 30ms, and the bottom half
- or softirq context runs on another cpu which is always online. )
+There's a similar bug in the SIOCGIFNAME/dev_ifname() code too then, but I would
+think this rare enough that it doesn't happen in practice.
 
-In my experiment, this method works well for UDP but does not work for TCP. I 
-doubt that it is due to the synchronization between process context and softirq 
-context. Because when I read some source code of TCP layer in linux, I found 
-that both softirq context (e.g. tcp_v4_rcv() in net/ipv4/tcp_ipv4.c) and process 
-context (e.g. tcp_recvmsg() in net/ipv4/tcp.c) call lock_sock()/unlock_sock() 
-when they access the buffers in kernel(receive_queue, backlog_queue or p
-requeue). Therefore, sometimes softirq context can not access the receiving 
-buffers locked by another vCPU which runs the user level receiving process 
-(iperf server) and this vCPU holding the spinlock has been descheduled by VM 
-monitor(VMM) or hypervisor.
-
-
-I am not sure I described my problem clearly. Anyway, welcome any suggestion on 
-it.
+-Brian
