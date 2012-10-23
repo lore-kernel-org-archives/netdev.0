@@ -1,101 +1,89 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH net-next 1/2] r8169: enable ALDPS for power saving
-Date: Tue, 23 Oct 2012 10:24:39 +0800
-Message-ID: <D81B36B929404E28AE7007B7E21B9D46@realtek.com.tw>
-References: <1350893153-18320-1-git-send-email-hayeswang@realtek.com> <20121022192748.GA16370@electric-eye.fr.zoreil.com>
+From: Jongman Heo <jongman.heo@samsung.com>
+Subject: 3.7-rc2 regression : file copied to CIFS-mounted directory corrupted
+Date: Tue, 23 Oct 2012 03:30:05 +0000 (GMT)
+Message-ID: <30635893.51501350963005670.JavaMail.weblogic@epml04>
+Reply-To: jongman.heo@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	edumazet@google.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121022192748.GA16370@electric-eye.fr.zoreil.com>
+MIME-version: 1.0
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Tuesday, October 23, 2012 3:28 AM
-> To: Hayeswang
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; 
-> jean@google.com
-> Subject: Re: [PATCH net-next 1/2] r8169: enable ALDPS for power saving
-> 
-[...]
-> > @@ -687,6 +687,7 @@ enum features {
-> >  	RTL_FEATURE_WOL		= (1 << 0),
-> >  	RTL_FEATURE_MSI		= (1 << 1),
-> >  	RTL_FEATURE_GMII	= (1 << 2),
-> > +	RTL_FEATURE_EXTENDED	= (1 << 3),
-> 
-> Is there a specific reason why it is not named RTL_FEATURE_ALDPS ?
-> 
-> RTL_FEATURE_EXTENDED is anything but enlightning.
-> 
-
-The flag is determined if the firmware is loaded. It doesn't mean to enable
-ALDPS. Besides ALDPS, the firmware includes the other features about power
-saving, performance, hw behavior, and so on. Thus, I think it  is the extended
-feature. Any suggestion?
-
-[...]
-> > @@ -6391,6 +6433,8 @@ static void 
-> rtl8169_net_suspend(struct net_device *dev)
-> >  {
-> >  	struct rtl8169_private *tp = netdev_priv(dev);
-> >  
-> > +	tp->features &= ~RTL_FEATURE_EXTENDED;
-> > +
-> 
-> The commit message does not explain this part.
-> 
-> What are you trying to achieve ?
-
-I don't sure if the firmware code still exists and works after hibernation. I
-clear the flag for safe. It would be set again after loading firmware. It is
-used to make sure to enable ALDPS with firmware.
-
-> 
-> After this patch the driver would look like:
-> 1. disable ALDPS before setting firmware (unmodified by patch)
->    RTL_GIGA_MAC_VER_29 "RTL8105e"
->    RTL_GIGA_MAC_VER_30 "RTL8105e"
->    RTL_GIGA_MAC_VER_37 "RTL8402"
->    RTL_GIGA_MAC_VER_39 "RTL8106e"
-> 
-> 2. apply_firmware (unmodified by patch)
->    RTL_GIGA_MAC_VER_25 "RTL8168d/8111d"
->    RTL_GIGA_MAC_VER_26 "RTL8168d/8111d"
->    RTL_GIGA_MAC_VER_29 "RTL8105e"
->    RTL_GIGA_MAC_VER_30 "RTL8105e"
->    RTL_GIGA_MAC_VER_32 "RTL8168e/8111e"
->    RTL_GIGA_MAC_VER_33 "RTL8168e/8111e"
->    RTL_GIGA_MAC_VER_34 "RTL8168evl/8111evl"
->    RTL_GIGA_MAC_VER_35 "RTL8168f/8111f"
->    RTL_GIGA_MAC_VER_36 "RTL8168f/8111f"
->    RTL_GIGA_MAC_VER_37 "RTL8402"
->    RTL_GIGA_MAC_VER_38 "RTL8411"
->    RTL_GIGA_MAC_VER_39 "RTL8106e"
->    RTL_GIGA_MAC_VER_40 "RTL8168g/8111g"
-> 
-> 3. enable ALDPS after firmware
->    RTL_GIGA_MAC_VER_34 "RTL8168evl/8111evl"
->    RTL_GIGA_MAC_VER_35 "RTL8168f/8111f"
->    RTL_GIGA_MAC_VER_36 "RTL8168f/8111f"
->    RTL_GIGA_MAC_VER_37 "RTL8402"
->    RTL_GIGA_MAC_VER_38 "RTL8411"
->    RTL_GIGA_MAC_VER_39 "RTL8106e"
->    RTL_GIGA_MAC_VER_40 "RTL8168g/8111g"
-> 
-> The disable/enable ALDPS code is not trivially balanced.
-> 
-> Do we exactly perform the required ALDPS operations ? Nothing more,
-> nothing less ?
-> 
-
-Because the different design between the giga nic and 10/100M nic, the behavior
-would be different. For example, you couldn't disable the ALDPS of the giga nic
-directly just like the 10/100M (8136 series) one. The giga nic would disable
-ALDPS automatically when loading firmware, but the 8136 series wouldn't.
-
-Best Regards,
-Hayes
+DQpIaSwgYWxsLA0KDQpXaXRoIDMuNy1yYzIsIEkgbm90aWNlZCB0aGF0IGZpbGUgY29waWVkIHRv
+IENJRlMtbW91bnRlZCBkaXJlY3RvcnkgaXMgY29ycnVwdGVkLiANCkludGVncml0eSBpcyBjaGVj
+a2VkIGJ5IG1kNXN1bS4NCg0KICAxLiBnZXQgbWQ1c3VtIG9mIGZpbGUgbG9jYXRlZCBvbiBsb2Nh
+bCAoZXh0NCkgZGlzaw0KICAyLiBjb3B5IHRoZSBmaWxlIHRvIENJRlMtbW91bnRlZCBkaXJlY3Rv
+cnkNCiAgMy4gY2hlY2sgbWQ1c3VtIG9mIHRoZSBjb3BpZWQgZmlsZQ0KDQpIb3N0ICAgOiBXaW5k
+b3dzIDcNCkd1ZXN0IDogRmVkb3JhIDE2IG9uIFZNV2FyZQ0KS2VybmVsIDogMy43LXJjMg0KDQpT
+aGFyZWQgZGlyZWN0b3J5IGV4aXN0cyBvbiBXaW5kb3dzIDcgSG9zdCwgYW5kIExpbnV4IEd1ZXN0
+IG9uIFZNd2FyZSBtb3VudHMgaXQgdXNpbmcgQ0lGUy4NCg0KSSB0aG91Z2h0IGl0IHdhcyByZWxh
+dGVkIHRvIENJRlMgb3IgVkZTIGNoYW5nZXMsIGJ1dCBpdCB3YXNuJ3QuDQoNCkJlbG93IGlzIGEg
+Z2l0IGJpc2VjdCBsb2csIGFuZCBmaXJzdCBiYWQgY29tbWl0IGlzIDU2NDBmNzY4LCAibmV0OiB1
+c2UgYSBwZXIgdGFzayBmcmFnIGFsbG9jYXRvciIuDQoNClJldmVydGluZyB0aGUgY29tbWl0IDU2
+NDBmNzY4IGZpeGVzIHRoZSBjb3JydXB0aW9uIGlzc3VlIG9uIENJRlMgZGlyZWN0b3J5Lg0KRHVy
+aW5nIHJldmVydCwgSSBnb3QgY29uZmxpY3QgaW4gbmV0L2lwdjQvcmF3LmMuIEkgdG9vayAicGFy
+ZW50IG9mIDU2NDBmNzYiIGh1bmsgdG8gcmVzb2x2ZSBpdC4NCg0KIyBnaXQgYmlzZWN0IGxvZw0K
+Z2l0IGJpc2VjdCBzdGFydA0KIyBiYWQ6IFs2ZjBjMDU4MGI3MGM4OTA5NGIzNDIyYmE4MTExOGM3
+Yjk1OWM3NTU2XSBMaW51eCAzLjctcmMyDQpnaXQgYmlzZWN0IGJhZCA2ZjBjMDU4MGI3MGM4OTA5
+NGIzNDIyYmE4MTExOGM3Yjk1OWM3NTU2DQojIGdvb2Q6IFthMGQyNzFjYmZlZDFkZDUwMjc4YzZi
+MDZiZWFkM2QwMGJhMGE4OGY5XSBMaW51eCAzLjYNCmdpdCBiaXNlY3QgZ29vZCBhMGQyNzFjYmZl
+ZDFkZDUwMjc4YzZiMDZiZWFkM2QwMGJhMGE4OGY5DQojIGdvb2Q6IFtmZWMzNDRlM2YzMWFhOTEx
+Mjk3Y2QzYTQ2Mzk0MzJkOTgzYjFmMzI0XSBjaWZzOiBjaGFuZ2UgY2lmc19jYWxsX2FzeW5jIHRv
+IHVzZSBzbWJfcnFzdCBzdHJ1Y3RzDQpnaXQgYmlzZWN0IGdvb2QgZmVjMzQ0ZTNmMzFhYTkxMTI5
+N2NkM2E0NjM5NDMyZDk4M2IxZjMyNA0KIyBnb29kOiBbM2Q2ZDg1NGExMzg0NDIyM2I2MDNmZDdh
+MTZhNGE0YTRhZmQ2MmM3Ml0gY2lmczogYWRkIEZMX0NMT1NFIHRvIGZsX2ZsYWdzIG1hc2sgaW4g
+Y2lmc19yZWFkX2Zsb2NrDQpnaXQgYmlzZWN0IGdvb2QgM2Q2ZDg1NGExMzg0NDIyM2I2MDNmZDdh
+MTZhNGE0YTRhZmQ2MmM3Mg0KIyBnb29kOiBbZjA2NWZkMDk5ZmM0NzUzMzNmYzdhNTU2NzdhN2Y2
+NDc2NDQ0NWQ1NV0gQ0lGUzogRml4IHBvc3NpYmxlIGZyZWVkIHBvaW50ZXIgZGVyZWZlcmVuY2Ug
+aW4gQ0lGU19TZXNzU2V0dXANCmdpdCBiaXNlY3QgZ29vZCBmMDY1ZmQwOTlmYzQ3NTMzM2ZjN2E1
+NTY3N2E3ZjY0NzY0NDQ1ZDU1DQojIGJhZDogW2I3YTEwNjI2YzhiYzg4ZmQwOTdhOGJiNDQ4NmM4
+OTU1OGY4OTMyMGNdIFtDSUZTXSBXQVJOX09OX09OQ0UgaWYga2VybmVsX3NlbmRtc2coKSByZXR1
+cm5zIC1FTk9TUEMNCmdpdCBiaXNlY3QgYmFkIGI3YTEwNjI2YzhiYzg4ZmQwOTdhOGJiNDQ4NmM4
+OTU1OGY4OTMyMGMNCiMgZ29vZDogWzFkNGFiOTA3NzY4MWI3Y2NlNjBmZjQ2ZTNhNDJmZTJkYWZh
+MGI4M2RdIFtDSUZTXSBGaXggaW5kZW50YXRpb24gb2YgZnMvY2lmcy9LY29uZmlnIGVudHJpZXMN
+CmdpdCBiaXNlY3QgZ29vZCAxZDRhYjkwNzc2ODFiN2NjZTYwZmY0NmUzYTQyZmUyZGFmYTBiODNk
+DQojIGJhZDogW2FhYjE3NGYwZGY1ZDcyZDMxY2FjY2YyODFhZjVmNjE0ZmEyNTQ1NzhdIE1lcmdl
+IGJyYW5jaCAnZm9yLWxpbnVzJyBvZiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4
+L2tlcm5lbC9naXQvdmlyby92ZnMNCmdpdCBiaXNlY3QgYmFkIGFhYjE3NGYwZGY1ZDcyZDMxY2Fj
+Y2YyODFhZjVmNjE0ZmEyNTQ1NzgNCiMgZ29vZDogW2Q5YTgwNzQ2MWZjOGNjMGQ2YmE1ODllYTA3
+MzBkMTM5MTIyYWYwMTJdIE1lcmdlIHRhZyAndXNiLTMuNicgb2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5v
+cmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L2dyZWdraC91c2INCmdpdCBiaXNlY3QgZ29vZCBk
+OWE4MDc0NjFmYzhjYzBkNmJhNTg5ZWEwNzMwZDEzOTEyMmFmMDEyDQojIGdvb2Q6IFthMjBhY2Y5
+OWY3NWU0OTI3MTM4MWQ2NWRiMDk3Yzk3NjMwNjBhMWU4XSBNZXJnZSBnaXQ6Ly9naXQua2VybmVs
+Lm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vc3BhcmMtbmV4dA0KZ2l0IGJpc2Vj
+dCBnb29kIGEyMGFjZjk5Zjc1ZTQ5MjcxMzgxZDY1ZGIwOTdjOTc2MzA2MGExZTgNCiMgYmFkOiBb
+ZDM3OTE0MmJjNGQ5Yjc4Y2RkOWZjNWFhNjk2Y2ExZWEwODNmYjdkNF0gYmUybmV0OiBmaXh1cCBs
+b2cgbWVzc2FnZXMNCmdpdCBiaXNlY3QgYmFkIGQzNzkxNDJiYzRkOWI3OGNkZDlmYzVhYTY5NmNh
+MWVhMDgzZmI3ZDQNCiMgZ29vZDogWzJhMzVjZmE1OTFhYzYzZjE3ODE1YzJkOTQzMmI3OTllMzc1
+Mjc5ODBdIHI4MTY5OiBhZGQgRC1MaW5rIERHRS01NjBUIGlkZW50aWZpZXJzLg0KZ2l0IGJpc2Vj
+dCBnb29kIDJhMzVjZmE1OTFhYzYzZjE3ODE1YzJkOTQzMmI3OTllMzc1Mjc5ODANCiMgZ29vZDog
+WzkzMTZmMGUzYzZiYTUyNGQ4ZmExNGJmZGVkMDQ4YjI1Mjg5MTkzMWFdIE1lcmdlIGJyYW5jaCAn
+bWFzdGVyJyBvZiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQv
+bGludmlsbGUvd2lyZWxlc3MtbmV4dCBpbnRvIGZvci1kYXZlbQ0KZ2l0IGJpc2VjdCBnb29kIDkz
+MTZmMGUzYzZiYTUyNGQ4ZmExNGJmZGVkMDQ4YjI1Mjg5MTkzMWENCiMgZ29vZDogWzYyM2RmNDg0
+YTc3N2YzYzAwYzFlYTNkNmE3NTY1YjhkOGFjNjg4YTFdIHRjcDogZXh0cmFjdCBjb2RlIHRvIGNv
+bXB1dGUgU1lOQUNLIFJUVA0KZ2l0IGJpc2VjdCBnb29kIDYyM2RmNDg0YTc3N2YzYzAwYzFlYTNk
+NmE3NTY1YjhkOGFjNjg4YTENCiMgYmFkOiBbYzUyMzUzMGNlMTdkZWZlNmIyOGNjZmU2MjJjNTA2
+NDg4ZjQzMDg2Nl0gY2FuOiBjX2NhbjogZml4IHNlZ2ZhdWx0IGR1cmluZyBybW1vZA0KZ2l0IGJp
+c2VjdCBiYWQgYzUyMzUzMGNlMTdkZWZlNmIyOGNjZmU2MjJjNTA2NDg4ZjQzMDg2Ng0KIyBnb29k
+OiBbNmVlNTg0YmUzZWUzMGY3MmRlYzhhOGNhODdiYzEwODI0ZTI3YTYzMV0gbmV0ZmlsdGVyOiBu
+Zm5ldGxpbmtfcXVldWU6IGFkZCBORlFBX0NBUF9MRU4gYXR0cmlidXRlDQpnaXQgYmlzZWN0IGdv
+b2QgNmVlNTg0YmUzZWUzMGY3MmRlYzhhOGNhODdiYzEwODI0ZTI3YTYzMQ0KIyBnb29kOiBbNzI1
+YjljMDQyNWY1NDQ1MGQxZjM3NmJlZmI4NWRhZTcwNmVhMGM3YV0gcWV0aDogY2xlYW51cCBjaGFu
+bmVsIHBhdGggZGVzY3JpcHRvciBmdW5jdGlvbg0KZ2l0IGJpc2VjdCBnb29kIDcyNWI5YzA0MjVm
+NTQ0NTBkMWYzNzZiZWZiODVkYWU3MDZlYTBjN2ENCiMgZ29vZDogWzBjZjgzM2FlZmFhODViYmZj
+ZTNmZjcwNDg1ZTU1MzRlMDkyNTQ3NzNdIG5ldDogbG9vcGJhY2s6IHNldCBkZWZhdWx0IG10dSB0
+byA2NEsNCmdpdCBiaXNlY3QgZ29vZCAwY2Y4MzNhZWZhYTg1YmJmY2UzZmY3MDQ4NWU1NTM0ZTA5
+MjU0NzczDQojIGJhZDogWzllNDllODg5NThmZWI0MWVjNzAxZmEzNGI0NDcyM2RhYmFkYmMyOGNd
+IGZpbHRlcjogYWRkIFhPUiBpbnN0cnVjdGlvbiBmb3IgdXNlIHdpdGggWC9LDQpnaXQgYmlzZWN0
+IGJhZCA5ZTQ5ZTg4OTU4ZmViNDFlYzcwMWZhMzRiNDQ3MjNkYWJhZGJjMjhjDQojIGJhZDogWzU2
+NDBmNzY4NTgzMWUwODhmZTZjMmUxZjg2M2E2ODA1OTYyZjhlODFdIG5ldDogdXNlIGEgcGVyIHRh
+c2sgZnJhZyBhbGxvY2F0b3INCmdpdCBiaXNlY3QgYmFkIDU2NDBmNzY4NTgzMWUwODhmZTZjMmUx
+Zjg2M2E2ODA1OTYyZjhlODENCiMgZ29vZDogW2I5OGI4YmFiZDZlMzM3MGZhZGI3YzZlYWFjYjAw
+ZWIyZjYzNDRhNmNdIGdpYW5mYXI6IENoYW5nZSBkZWZhdWx0IEhXIFR4IHF1ZXVlIHNjaGVkdWxp
+bmcgbW9kZQ0KZ2l0IGJpc2VjdCBnb29kIGI5OGI4YmFiZDZlMzM3MGZhZGI3YzZlYWFjYjAwZWIy
+ZjYzNDRhNmMNCg==
