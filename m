@@ -1,10 +1,10 @@
 From: Serge Hallyn <serge.hallyn@canonical.com>
-Subject: Re: [PATCH v6 06/10] glge driver: rename internal SEM_SET macro to
- SEM_INIT
-Date: Tue, 23 Oct 2012 11:32:59 -0500
-Message-ID: <20121023163259.GE9755@sergelap>
+Subject: Re: [PATCH v6 07/10] ipc: add new SEM_SET command for sys_semctl()
+ call
+Date: Tue, 23 Oct 2012 11:34:04 -0500
+Message-ID: <20121023163404.GF9755@sergelap>
 References: <20121015155800.28348.23561.stgit@localhost.localdomain>
- <20121015160006.28348.79520.stgit@localhost.localdomain>
+ <20121015160011.28348.39915.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: akpm@linux-foundation.org, catalin.marinas@arm.com,
@@ -22,86 +22,117 @@ Cc: akpm@linux-foundation.org, catalin.marinas@arm.com,
 To: Stanislav Kinsbursky <skinsbursky@parallels.com>
 Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20121015160006.28348.79520.stgit@localhost.localdomain>
+In-Reply-To: <20121015160011.28348.39915.stgit@localhost.localdomain>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Quoting Stanislav Kinsbursky (skinsbursky@parallels.com):
-> The reason for shit patch is that SET_SET is desired to be a part of new part
-> of API of IPC sys_semctl() system call.
-> The name itself for IPC is quite natural, because all linux-specific commands
-> names for IPC system calls are originally created by replacing "IPC_" part by
-> "SEM_"("MSG_", "SHM_") part.
-> So, I'm hoping, that this change doesn't really matters for "QLogic qlge NIC
-
-Can't speak for the driver maintainer, but it does look sane.
+> New SEM_SET command will be interpreted exactly as IPC_SET, but also will
+> update key, cuid and cgid values. IOW, it allows to change existent key value.
+> The fact, that key is not used is checked before update. Otherwise -EEXIST is
+> returned.
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
 Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
 
-> HBA Driver" developers, since it's just an internal define.
+(again, modulo requested /* fallthrough */ comment )
+
 > ---
->  drivers/net/ethernet/qlogic/qlge/qlge.h      |    4 ++--
->  drivers/net/ethernet/qlogic/qlge/qlge_main.c |   16 ++++++++--------
->  2 files changed, 10 insertions(+), 10 deletions(-)
+>  include/uapi/linux/sem.h   |    1 +
+>  ipc/compat.c               |    1 +
+>  ipc/sem.c                  |   10 ++++++++--
+>  security/selinux/hooks.c   |    1 +
+>  security/smack/smack_lsm.c |    1 +
+>  5 files changed, 12 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/qlogic/qlge/qlge.h b/drivers/net/ethernet/qlogic/qlge/qlge.h
-> index a131d7b..6f46ea5 100644
-> --- a/drivers/net/ethernet/qlogic/qlge/qlge.h
-> +++ b/drivers/net/ethernet/qlogic/qlge/qlge.h
-> @@ -347,10 +347,10 @@ enum {
->  enum {
->  	/*
->  	 * Example:
-> -	 * reg = SEM_XGMAC0_MASK | (SEM_SET << SEM_XGMAC0_SHIFT)
-> +	 * reg = SEM_XGMAC0_MASK | (SEM_INIT << SEM_XGMAC0_SHIFT)
->  	 */
->  	SEM_CLEAR = 0,
-> -	SEM_SET = 1,
-> +	SEM_INIT = 1,
->  	SEM_FORCE = 3,
->  	SEM_XGMAC0_SHIFT = 0,
->  	SEM_XGMAC1_SHIFT = 2,
-> diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-> index b262d61..cfb0f62 100644
-> --- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-> +++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-> @@ -109,28 +109,28 @@ static int ql_sem_trylock(struct ql_adapter *qdev, u32 sem_mask)
+> diff --git a/include/uapi/linux/sem.h b/include/uapi/linux/sem.h
+> index 541fce0..b6ae374 100644
+> --- a/include/uapi/linux/sem.h
+> +++ b/include/uapi/linux/sem.h
+> @@ -18,6 +18,7 @@
+>  /* ipcs ctl cmds */
+>  #define SEM_STAT 18
+>  #define SEM_INFO 19
+> +#define SEM_SET  20
 >  
->  	switch (sem_mask) {
->  	case SEM_XGMAC0_MASK:
-> -		sem_bits = SEM_SET << SEM_XGMAC0_SHIFT;
-> +		sem_bits = SEM_INIT << SEM_XGMAC0_SHIFT;
+>  /* Obsolete, used only for backwards compatibility and libc5 compiles */
+>  struct semid_ds {
+> diff --git a/ipc/compat.c b/ipc/compat.c
+> index 9c70f9a..84d8efd 100644
+> --- a/ipc/compat.c
+> +++ b/ipc/compat.c
+> @@ -290,6 +290,7 @@ static long do_compat_semctl(int first, int second, int third, u32 pad)
 >  		break;
->  	case SEM_XGMAC1_MASK:
-> -		sem_bits = SEM_SET << SEM_XGMAC1_SHIFT;
-> +		sem_bits = SEM_INIT << SEM_XGMAC1_SHIFT;
->  		break;
->  	case SEM_ICB_MASK:
-> -		sem_bits = SEM_SET << SEM_ICB_SHIFT;
-> +		sem_bits = SEM_INIT << SEM_ICB_SHIFT;
->  		break;
->  	case SEM_MAC_ADDR_MASK:
-> -		sem_bits = SEM_SET << SEM_MAC_ADDR_SHIFT;
-> +		sem_bits = SEM_INIT << SEM_MAC_ADDR_SHIFT;
->  		break;
->  	case SEM_FLASH_MASK:
-> -		sem_bits = SEM_SET << SEM_FLASH_SHIFT;
-> +		sem_bits = SEM_INIT << SEM_FLASH_SHIFT;
->  		break;
->  	case SEM_PROBE_MASK:
-> -		sem_bits = SEM_SET << SEM_PROBE_SHIFT;
-> +		sem_bits = SEM_INIT << SEM_PROBE_SHIFT;
->  		break;
->  	case SEM_RT_IDX_MASK:
-> -		sem_bits = SEM_SET << SEM_RT_IDX_SHIFT;
-> +		sem_bits = SEM_INIT << SEM_RT_IDX_SHIFT;
->  		break;
->  	case SEM_PROC_REG_MASK:
-> -		sem_bits = SEM_SET << SEM_PROC_REG_SHIFT;
-> +		sem_bits = SEM_INIT << SEM_PROC_REG_SHIFT;
->  		break;
+>  
+>  	case IPC_SET:
+> +	case SEM_SET:
+>  		if (version == IPC_64) {
+>  			err = get_compat_semid64_ds(&s64, compat_ptr(pad));
+>  		} else {
+> diff --git a/ipc/sem.c b/ipc/sem.c
+> index 10e9085..3eac885 100644
+> --- a/ipc/sem.c
+> +++ b/ipc/sem.c
+> @@ -1085,12 +1085,13 @@ static int semctl_down(struct ipc_namespace *ns, int semid,
+>  	struct semid64_ds semid64;
+>  	struct kern_ipc_perm *ipcp;
+>  
+> -	if(cmd == IPC_SET) {
+> +	if (cmd == IPC_SET || cmd == SEM_SET) {
+>  		if (copy_semid_from_user(&semid64, arg.buf, version))
+>  			return -EFAULT;
+>  	}
+>  
+> -	ipcp = ipcctl_pre_down(ns, &sem_ids(ns), semid, cmd,
+> +	ipcp = ipcctl_pre_down(ns, &sem_ids(ns), semid,
+> +			       (cmd != SEM_SET) ? cmd : IPC_SET,
+>  			       &semid64.sem_perm, 0);
+>  	if (IS_ERR(ipcp))
+>  		return PTR_ERR(ipcp);
+> @@ -1105,6 +1106,10 @@ static int semctl_down(struct ipc_namespace *ns, int semid,
+>  	case IPC_RMID:
+>  		freeary(ns, ipcp);
+>  		goto out_up;
+> +	case SEM_SET:
+> +		err = ipc_update_key(&sem_ids(ns), &semid64.sem_perm, ipcp);
+> +		if (err)
+> +			break;
+>  	case IPC_SET:
+>  		err = ipc_update_perm(&semid64.sem_perm, ipcp);
+>  		if (err)
+> @@ -1152,6 +1157,7 @@ SYSCALL_DEFINE(semctl)(int semid, int semnum, int cmd, union semun arg)
+>  		return err;
+>  	case IPC_RMID:
+>  	case IPC_SET:
+> +	case SEM_SET:
+>  		err = semctl_down(ns, semid, cmd, version, arg);
+>  		return err;
 >  	default:
->  		netif_alert(qdev, probe, qdev->ndev, "bad Semaphore mask!.\n");
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index 78b77ac..02b037d 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -5133,6 +5133,7 @@ static int selinux_sem_semctl(struct sem_array *sma, int cmd)
+>  		perms = SEM__DESTROY;
+>  		break;
+>  	case IPC_SET:
+> +	case SEM_SET:
+>  		perms = SEM__SETATTR;
+>  		break;
+>  	case IPC_STAT:
+> diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+> index d51a8da..b4135ed 100644
+> --- a/security/smack/smack_lsm.c
+> +++ b/security/smack/smack_lsm.c
+> @@ -2253,6 +2253,7 @@ static int smack_sem_semctl(struct sem_array *sma, int cmd)
+>  	case SETALL:
+>  	case IPC_RMID:
+>  	case IPC_SET:
+> +	case SEM_SET:
+>  		may = MAY_READWRITE;
+>  		break;
+>  	case IPC_INFO:
 > 
 > --
 > To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
