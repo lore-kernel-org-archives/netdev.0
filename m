@@ -1,76 +1,101 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 08/12] ixgbe: using is_zero_ether_addr() to simplify
- the code
-Date: Mon, 22 Oct 2012 22:17:47 -0700
-Message-ID: <1350969467.2135.11.camel@jtkirshe-mobl>
-References: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1350966385-19020-9-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1350967518.7502.32.camel@joe-AO722>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Jongman Heo <jongman.heo@samsung.com>
+Subject: Re: 3.7-rc2 regression : file copied to CIFS-mounted directory
+ corrupted
+Date: Tue, 23 Oct 2012 05:38:57 +0000 (GMT)
+Message-ID: <22207427.56211350970373630.JavaMail.weblogic@epml04>
+Reply-To: jongman.heo@samsung.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-5cl8vLg4MbslqCArz7ND"
-Cc: davem@davemloft.net, Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32756 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751949Ab2JWFRz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 01:17:55 -0400
-In-Reply-To: <1350967518.7502.32.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: Jongman Heo <jongman.heo@samsung.com>
+To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"edumazet@google.com" <edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+MIME-version: 1.0
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-5cl8vLg4MbslqCArz7ND
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2012-10-22 at 21:45 -0700, Joe Perches wrote:
-> On Mon, 2012-10-22 at 21:26 -0700, Jeff Kirsher wrote:
-> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> > Using is_zero_ether_addr() to simplify the code.
-> []
-> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/=
-net/ethernet/intel/ixgbe/ixgbe_common.c
-> []
-> > @@ -1778,8 +1778,7 @@ s32 ixgbe_validate_mac_addr(u8 *mac_addr)
-> []
-> > -	else if (mac_addr[0] =3D=3D 0 && mac_addr[1] =3D=3D 0 && mac_addr[2] =
-=3D=3D 0 &&
-> > -	         mac_addr[3] =3D=3D 0 && mac_addr[4] =3D=3D 0 && mac_addr[5] =
-=3D=3D 0)
-> > +	else if (is_zero_ether_addr(mac_addr))
->=20
-> This means the more comprehensive simplifying patch
-> I submitted doesn't apply.  Easy to fix up though.
->=20
-
-Yeah, I have taken care of fix up to your patch in my queue.  Want me to
-send you the fixed up patch so that you can confirm my fixes?
-
---=-5cl8vLg4MbslqCArz7ND
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJQhih7AAoJEOVv75VaS+3OSIkP+gLJKTOo125sTDu0linGMN61
-MfozRDQp6705C4SW3mkwDjiDCt11O4b7cKOiCmSNoKvX2lOBot5+juvjuyRQvSbK
-OYQth8NKrpLs3sPuEEK2DEgE4MRHzeoeUYLUzaK8CNdefXEA+B+NWgqH7oHXqitD
-MJ65tpltsuYtF2KskFnbnTWWLbV1+ifoSgkNgTNkn12gTr4n0tTvu7o7ROcs/+Tf
-wfDuiu1hv38L7eATVNHCCtblNTcfUwScUWBSd+Epnlz8Ch7e1h0GZlg1ofLgUatM
-7EESksG4jmrB1oqpHQxYbka+mkJpZhXVRmK+/5DN9T8Wte62DDHJCDDxYuOg51X1
-/EfxItz5cWOg1uPZwTzgkxlNW1tgOESZjiIR8QXbeiViJSVJLvWfV3jc7SnwKFcu
-Y17UGuyGTrMrKwR6C8sgk/J/npMLZy4+Z2ETcpQsIx1cM/msg9J1NJrtWjW2RMar
-OFi4rp3am5urJP01A/6CCZwv0Rf4A71CYxXWWE2HE1vMCQaHCrJeEJDjIxlPvj5y
-S3lPXNKh6jsJMU4MVyaB0GTux3+a7OJWGho4xDrFVy97HtNlozI1ixr/tqLq7Ez9
-D2XzzR6A/8+0UXCchxddlK0oJjrw4RkbVZAMkz55EJdcWIk4ypA8Oriq96OgKyDI
-GPQ9fSrQL/PbOcAbidgB
-=J+Y8
------END PGP SIGNATURE-----
-
---=-5cl8vLg4MbslqCArz7ND--
+DQpIbW0sDQoNCkkndmUganVzdCBtZXQgdGhlIGlzc3VlLCB3aXRoIHRoZSBjb21taXQgNTY0MGY3
+NjggcmV2ZXJ0ZWQuDQpJdCBzZWVtcyB0aGF0IHRoZSBpc3N1ZSBkb2VzIG5vdCBhbHdheXMgaGFw
+cGVuLiBTbywgbXkgYmlzZWN0aW9uIG1heSBub3QgYmUgY29ycmVjdC4NCg0KQXQgdGhpcyBtb21l
+bnQsIEkgZG9uJ3QgaGF2ZSBlbm91Z2ggdGltZSB0byBkbyBiaXNlY3Rpb24gYWdhaW4uLg0KDQpS
+ZWdhcmRzLg0KDQpbc29ycnkgZm9yIHRvcCBwb3N0aW5nLCBvdXIgY29ycG9yYXRlIE1UQSBpcyBu
+b3QgZ29vZCBhdCBlLW1haWwgd3JpdGluZyBmb3IgbWFpbGluZyBsaXN0Li4uIF0NCg0KLS0tLS0t
+LSBPcmlnaW5hbCBNZXNzYWdlIC0tLS0tLS0NClNlbmRlciA6IEpvbmdtYW4gSGVvPGpvbmdtYW4u
+aGVvQHNhbXN1bmcuY29tPg0KRGF0ZSA6IDIwMTItMTAtMjMgMTI6MzAgKEdNVCswOTowMCkNClRp
+dGxlIDogMy43LXJjMiByZWdyZXNzaW9uIDogZmlsZSBjb3BpZWQgdG8gQ0lGUy1tb3VudGVkIGRp
+cmVjdG9yeSBjb3JydXB0ZWQNCg0KDQpIaSwgYWxsLA0KDQpXaXRoIDMuNy1yYzIsIEkgbm90aWNl
+ZCB0aGF0IGZpbGUgY29waWVkIHRvIENJRlMtbW91bnRlZCBkaXJlY3RvcnkgaXMgY29ycnVwdGVk
+LiANCkludGVncml0eSBpcyBjaGVja2VkIGJ5IG1kNXN1bS4NCg0KICAxLiBnZXQgbWQ1c3VtIG9m
+IGZpbGUgbG9jYXRlZCBvbiBsb2NhbCAoZXh0NCkgZGlzaw0KICAyLiBjb3B5IHRoZSBmaWxlIHRv
+IENJRlMtbW91bnRlZCBkaXJlY3RvcnkNCiAgMy4gY2hlY2sgbWQ1c3VtIG9mIHRoZSBjb3BpZWQg
+ZmlsZQ0KDQpIb3N0ICAgOiBXaW5kb3dzIDcNCkd1ZXN0IDogRmVkb3JhIDE2IG9uIFZNV2FyZQ0K
+S2VybmVsIDogMy43LXJjMg0KDQpTaGFyZWQgZGlyZWN0b3J5IGV4aXN0cyBvbiBXaW5kb3dzIDcg
+SG9zdCwgYW5kIExpbnV4IEd1ZXN0IG9uIFZNd2FyZSBtb3VudHMgaXQgdXNpbmcgQ0lGUy4NCg0K
+SSB0aG91Z2h0IGl0IHdhcyByZWxhdGVkIHRvIENJRlMgb3IgVkZTIGNoYW5nZXMsIGJ1dCBpdCB3
+YXNuJ3QuDQoNCkJlbG93IGlzIGEgZ2l0IGJpc2VjdCBsb2csIGFuZCBmaXJzdCBiYWQgY29tbWl0
+IGlzIDU2NDBmNzY4LCAibmV0OiB1c2UgYSBwZXIgdGFzayBmcmFnIGFsbG9jYXRvciIuDQoNClJl
+dmVydGluZyB0aGUgY29tbWl0IDU2NDBmNzY4IGZpeGVzIHRoZSBjb3JydXB0aW9uIGlzc3VlIG9u
+IENJRlMgZGlyZWN0b3J5Lg0KRHVyaW5nIHJldmVydCwgSSBnb3QgY29uZmxpY3QgaW4gbmV0L2lw
+djQvcmF3LmMuIEkgdG9vayAicGFyZW50IG9mIDU2NDBmNzYiIGh1bmsgdG8gcmVzb2x2ZSBpdC4N
+Cg0KIyBnaXQgYmlzZWN0IGxvZw0KZ2l0IGJpc2VjdCBzdGFydA0KIyBiYWQ6IFs2ZjBjMDU4MGI3
+MGM4OTA5NGIzNDIyYmE4MTExOGM3Yjk1OWM3NTU2XSBMaW51eCAzLjctcmMyDQpnaXQgYmlzZWN0
+IGJhZCA2ZjBjMDU4MGI3MGM4OTA5NGIzNDIyYmE4MTExOGM3Yjk1OWM3NTU2DQojIGdvb2Q6IFth
+MGQyNzFjYmZlZDFkZDUwMjc4YzZiMDZiZWFkM2QwMGJhMGE4OGY5XSBMaW51eCAzLjYNCmdpdCBi
+aXNlY3QgZ29vZCBhMGQyNzFjYmZlZDFkZDUwMjc4YzZiMDZiZWFkM2QwMGJhMGE4OGY5DQojIGdv
+b2Q6IFtmZWMzNDRlM2YzMWFhOTExMjk3Y2QzYTQ2Mzk0MzJkOTgzYjFmMzI0XSBjaWZzOiBjaGFu
+Z2UgY2lmc19jYWxsX2FzeW5jIHRvIHVzZSBzbWJfcnFzdCBzdHJ1Y3RzDQpnaXQgYmlzZWN0IGdv
+b2QgZmVjMzQ0ZTNmMzFhYTkxMTI5N2NkM2E0NjM5NDMyZDk4M2IxZjMyNA0KIyBnb29kOiBbM2Q2
+ZDg1NGExMzg0NDIyM2I2MDNmZDdhMTZhNGE0YTRhZmQ2MmM3Ml0gY2lmczogYWRkIEZMX0NMT1NF
+IHRvIGZsX2ZsYWdzIG1hc2sgaW4gY2lmc19yZWFkX2Zsb2NrDQpnaXQgYmlzZWN0IGdvb2QgM2Q2
+ZDg1NGExMzg0NDIyM2I2MDNmZDdhMTZhNGE0YTRhZmQ2MmM3Mg0KIyBnb29kOiBbZjA2NWZkMDk5
+ZmM0NzUzMzNmYzdhNTU2NzdhN2Y2NDc2NDQ0NWQ1NV0gQ0lGUzogRml4IHBvc3NpYmxlIGZyZWVk
+IHBvaW50ZXIgZGVyZWZlcmVuY2UgaW4gQ0lGU19TZXNzU2V0dXANCmdpdCBiaXNlY3QgZ29vZCBm
+MDY1ZmQwOTlmYzQ3NTMzM2ZjN2E1NTY3N2E3ZjY0NzY0NDQ1ZDU1DQojIGJhZDogW2I3YTEwNjI2
+YzhiYzg4ZmQwOTdhOGJiNDQ4NmM4OTU1OGY4OTMyMGNdIFtDSUZTXSBXQVJOX09OX09OQ0UgaWYg
+a2VybmVsX3NlbmRtc2coKSByZXR1cm5zIC1FTk9TUEMNCmdpdCBiaXNlY3QgYmFkIGI3YTEwNjI2
+YzhiYzg4ZmQwOTdhOGJiNDQ4NmM4OTU1OGY4OTMyMGMNCiMgZ29vZDogWzFkNGFiOTA3NzY4MWI3
+Y2NlNjBmZjQ2ZTNhNDJmZTJkYWZhMGI4M2RdIFtDSUZTXSBGaXggaW5kZW50YXRpb24gb2YgZnMv
+Y2lmcy9LY29uZmlnIGVudHJpZXMNCmdpdCBiaXNlY3QgZ29vZCAxZDRhYjkwNzc2ODFiN2NjZTYw
+ZmY0NmUzYTQyZmUyZGFmYTBiODNkDQojIGJhZDogW2FhYjE3NGYwZGY1ZDcyZDMxY2FjY2YyODFh
+ZjVmNjE0ZmEyNTQ1NzhdIE1lcmdlIGJyYW5jaCAnZm9yLWxpbnVzJyBvZiBnaXQ6Ly9naXQua2Vy
+bmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvdmlyby92ZnMNCmdpdCBiaXNlY3QgYmFk
+IGFhYjE3NGYwZGY1ZDcyZDMxY2FjY2YyODFhZjVmNjE0ZmEyNTQ1NzgNCiMgZ29vZDogW2Q5YTgw
+NzQ2MWZjOGNjMGQ2YmE1ODllYTA3MzBkMTM5MTIyYWYwMTJdIE1lcmdlIHRhZyAndXNiLTMuNicg
+b2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJuZWwvZ2l0L2dyZWdraC91
+c2INCmdpdCBiaXNlY3QgZ29vZCBkOWE4MDc0NjFmYzhjYzBkNmJhNTg5ZWEwNzMwZDEzOTEyMmFm
+MDEyDQojIGdvb2Q6IFthMjBhY2Y5OWY3NWU0OTI3MTM4MWQ2NWRiMDk3Yzk3NjMwNjBhMWU4XSBN
+ZXJnZSBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0v
+c3BhcmMtbmV4dA0KZ2l0IGJpc2VjdCBnb29kIGEyMGFjZjk5Zjc1ZTQ5MjcxMzgxZDY1ZGIwOTdj
+OTc2MzA2MGExZTgNCiMgYmFkOiBbZDM3OTE0MmJjNGQ5Yjc4Y2RkOWZjNWFhNjk2Y2ExZWEwODNm
+YjdkNF0gYmUybmV0OiBmaXh1cCBsb2cgbWVzc2FnZXMNCmdpdCBiaXNlY3QgYmFkIGQzNzkxNDJi
+YzRkOWI3OGNkZDlmYzVhYTY5NmNhMWVhMDgzZmI3ZDQNCiMgZ29vZDogWzJhMzVjZmE1OTFhYzYz
+ZjE3ODE1YzJkOTQzMmI3OTllMzc1Mjc5ODBdIHI4MTY5OiBhZGQgRC1MaW5rIERHRS01NjBUIGlk
+ZW50aWZpZXJzLg0KZ2l0IGJpc2VjdCBnb29kIDJhMzVjZmE1OTFhYzYzZjE3ODE1YzJkOTQzMmI3
+OTllMzc1Mjc5ODANCiMgZ29vZDogWzkzMTZmMGUzYzZiYTUyNGQ4ZmExNGJmZGVkMDQ4YjI1Mjg5
+MTkzMWFdIE1lcmdlIGJyYW5jaCAnbWFzdGVyJyBvZiBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIv
+c2NtL2xpbnV4L2tlcm5lbC9naXQvbGludmlsbGUvd2lyZWxlc3MtbmV4dCBpbnRvIGZvci1kYXZl
+bQ0KZ2l0IGJpc2VjdCBnb29kIDkzMTZmMGUzYzZiYTUyNGQ4ZmExNGJmZGVkMDQ4YjI1Mjg5MTkz
+MWENCiMgZ29vZDogWzYyM2RmNDg0YTc3N2YzYzAwYzFlYTNkNmE3NTY1YjhkOGFjNjg4YTFdIHRj
+cDogZXh0cmFjdCBjb2RlIHRvIGNvbXB1dGUgU1lOQUNLIFJUVA0KZ2l0IGJpc2VjdCBnb29kIDYy
+M2RmNDg0YTc3N2YzYzAwYzFlYTNkNmE3NTY1YjhkOGFjNjg4YTENCiMgYmFkOiBbYzUyMzUzMGNl
+MTdkZWZlNmIyOGNjZmU2MjJjNTA2NDg4ZjQzMDg2Nl0gY2FuOiBjX2NhbjogZml4IHNlZ2ZhdWx0
+IGR1cmluZyBybW1vZA0KZ2l0IGJpc2VjdCBiYWQgYzUyMzUzMGNlMTdkZWZlNmIyOGNjZmU2MjJj
+NTA2NDg4ZjQzMDg2Ng0KIyBnb29kOiBbNmVlNTg0YmUzZWUzMGY3MmRlYzhhOGNhODdiYzEwODI0
+ZTI3YTYzMV0gbmV0ZmlsdGVyOiBuZm5ldGxpbmtfcXVldWU6IGFkZCBORlFBX0NBUF9MRU4gYXR0
+cmlidXRlDQpnaXQgYmlzZWN0IGdvb2QgNmVlNTg0YmUzZWUzMGY3MmRlYzhhOGNhODdiYzEwODI0
+ZTI3YTYzMQ0KIyBnb29kOiBbNzI1YjljMDQyNWY1NDQ1MGQxZjM3NmJlZmI4NWRhZTcwNmVhMGM3
+YV0gcWV0aDogY2xlYW51cCBjaGFubmVsIHBhdGggZGVzY3JpcHRvciBmdW5jdGlvbg0KZ2l0IGJp
+c2VjdCBnb29kIDcyNWI5YzA0MjVmNTQ0NTBkMWYzNzZiZWZiODVkYWU3MDZlYTBjN2ENCiMgZ29v
+ZDogWzBjZjgzM2FlZmFhODViYmZjZTNmZjcwNDg1ZTU1MzRlMDkyNTQ3NzNdIG5ldDogbG9vcGJh
+Y2s6IHNldCBkZWZhdWx0IG10dSB0byA2NEsNCmdpdCBiaXNlY3QgZ29vZCAwY2Y4MzNhZWZhYTg1
+YmJmY2UzZmY3MDQ4NWU1NTM0ZTA5MjU0NzczDQojIGJhZDogWzllNDllODg5NThmZWI0MWVjNzAx
+ZmEzNGI0NDcyM2RhYmFkYmMyOGNdIGZpbHRlcjogYWRkIFhPUiBpbnN0cnVjdGlvbiBmb3IgdXNl
+IHdpdGggWC9LDQpnaXQgYmlzZWN0IGJhZCA5ZTQ5ZTg4OTU4ZmViNDFlYzcwMWZhMzRiNDQ3MjNk
+YWJhZGJjMjhjDQojIGJhZDogWzU2NDBmNzY4NTgzMWUwODhmZTZjMmUxZjg2M2E2ODA1OTYyZjhl
+ODFdIG5ldDogdXNlIGEgcGVyIHRhc2sgZnJhZyBhbGxvY2F0b3INCmdpdCBiaXNlY3QgYmFkIDU2
+NDBmNzY4NTgzMWUwODhmZTZjMmUxZjg2M2E2ODA1OTYyZjhlODENCiMgZ29vZDogW2I5OGI4YmFi
+ZDZlMzM3MGZhZGI3YzZlYWFjYjAwZWIyZjYzNDRhNmNdIGdpYW5mYXI6IENoYW5nZSBkZWZhdWx0
+IEhXIFR4IHF1ZXVlIHNjaGVkdWxpbmcgbW9kZQ0KZ2l0IGJpc2VjdCBnb29kIGI5OGI4YmFiZDZl
+MzM3MGZhZGI3YzZlYWFjYjAwZWIyZjYzNDRhNmMNCg0K
