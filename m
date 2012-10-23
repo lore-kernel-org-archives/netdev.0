@@ -1,159 +1,155 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 3/3] sock-diag: Report shutdown for inet and unix sockets
-Date: Tue, 23 Oct 2012 20:28:22 +0400
-Message-ID: <5086C5A6.7050101@parallels.com>
-References: <5086C36B.6060508@parallels.com>
+From: Serge Hallyn <serge.hallyn@canonical.com>
+Subject: Re: [PATCH v6 05/10] ipc: add new MSG_SET command for sys_msgctl()
+ call
+Date: Tue, 23 Oct 2012 11:29:29 -0500
+Message-ID: <20121023162929.GD9755@sergelap>
+References: <20121015155800.28348.23561.stgit@localhost.localdomain>
+ <20121015160001.28348.36871.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:41958 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754833Ab2JWQ2Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 12:28:25 -0400
-In-Reply-To: <5086C36B.6060508@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, catalin.marinas@arm.com,
+	will.deacon@arm.com, dhowells@redhat.com, manfred@colorfullife.com,
+	hughd@google.com, jmorris@namei.org, mtk.manpages@gmail.com,
+	kosaki.motohiro@jp.fujitsu.com, paulmck@linux.vnet.ibm.com,
+	sds@tycho.nsa.gov, devel@openvz.org, a.p.zijlstra@chello.nl,
+	cmetcalf@tilera.com, linux-driver@qlogic.com,
+	ron.mercer@qlogic.com, viro@zeniv.linux.org.uk,
+	eparis@parisplace.org, tglx@linutronix.de,
+	jitendra.kalsaria@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, ebiederm@xmission.com,
+	casey@schaufler-ca.com
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121015160001.28348.36871.stgit@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add ext bits for inet-diag and unix-diag and report sk_shutdown state.
+Quoting Stanislav Kinsbursky (skinsbursky@parallels.com):
+> New MSG_SET command will be interpreted exactly as IPC_SET, but also will
+> update key, cuid and cgid values. IOW, it allows to change existent key value.
+> The fact, that key is not used is checked before update. Otherwise -EEXIST is
+> returned.
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-When it's zero (i.e. -- no shutdown on a socket) diag reports nothing
-for this request. Otherwise report user-space known values using the
-proper mask-to-user conversion trick.
+Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-
----
- include/linux/sock_diag.h      |    1 +
- include/net/sock.h             |   12 ++++++++++++
- include/uapi/linux/inet_diag.h |    3 ++-
- include/uapi/linux/unix_diag.h |    2 ++
- net/core/sock_diag.c           |    9 +++++++++
- net/ipv4/inet_diag.c           |    4 ++++
- net/unix/diag.c                |    4 ++++
- 7 files changed, 34 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/sock_diag.h b/include/linux/sock_diag.h
-index e8d702e..df4b20f 100644
---- a/include/linux/sock_diag.h
-+++ b/include/linux/sock_diag.h
-@@ -22,5 +22,6 @@ int sock_diag_check_cookie(void *sk, __u32 *cookie);
- void sock_diag_save_cookie(void *sk, __u32 *cookie);
- 
- int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attr);
-+int sock_diag_put_shutdown(struct sock *sk, struct sk_buff *skb, int attr);
- 
- #endif
-diff --git a/include/net/sock.h b/include/net/sock.h
-index c42c115..8b64048 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1283,6 +1283,18 @@ static inline int shutdown_u2mask(int uhow)
- 	return uhow;
- }
- 
-+static inline int shutdown_mask2u(int mask)
-+{
-+	/*
-+	 * map
-+	 * 	RCV_SHUTDOWN -> SHUT_RD
-+	 * 	SEND_SHUTDOWN -> SHUT_WR
-+	 * 	SHUTDOWN_MASK -> SHUT_RDWR
-+	 */
-+
-+	return mask - 1;
-+}
-+
- #define SOCK_SNDBUF_LOCK	1
- #define SOCK_RCVBUF_LOCK	2
- #define SOCK_BINDADDR_LOCK	4
-diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
-index c5e14f6..ace76b5 100644
---- a/include/uapi/linux/inet_diag.h
-+++ b/include/uapi/linux/inet_diag.h
-@@ -110,9 +110,10 @@ enum {
- 	INET_DIAG_TCLASS,
- 	INET_DIAG_SKMEMINFO,
- 	__INET_DIAG_EXT2,
-+	INET_DIAG_SHUTDOWN,
- };
- 
--#define INET_DIAG_MAX INET_DIAG_SKMEMINFO
-+#define INET_DIAG_MAX INET_DIAG_SHUTDOWN
- 
- 
- /* INET_DIAG_MEM */
-diff --git a/include/uapi/linux/unix_diag.h b/include/uapi/linux/unix_diag.h
-index b1d2bf1..2113d90 100644
---- a/include/uapi/linux/unix_diag.h
-+++ b/include/uapi/linux/unix_diag.h
-@@ -19,6 +19,7 @@ struct unix_diag_req {
- #define UDIAG_SHOW_ICONS	0x00000008	/* show pending connections */
- #define UDIAG_SHOW_RQLEN	0x00000010	/* show skb receive queue len */
- #define UDIAG_SHOW_MEMINFO	0x00000020	/* show memory info of a socket */
-+#define UDIAG_SHOW_SHUTDOWN	0x00000040	/* show shutdown state */
- 
- struct unix_diag_msg {
- 	__u8	udiag_family;
-@@ -37,6 +38,7 @@ enum {
- 	UNIX_DIAG_ICONS,
- 	UNIX_DIAG_RQLEN,
- 	UNIX_DIAG_MEMINFO,
-+	UNIX_DIAG_SHUTDOWN,
- 
- 	UNIX_DIAG_MAX,
- };
-diff --git a/net/core/sock_diag.c b/net/core/sock_diag.c
-index 602cd63..152db24 100644
---- a/net/core/sock_diag.c
-+++ b/net/core/sock_diag.c
-@@ -49,6 +49,15 @@ int sock_diag_put_meminfo(struct sock *sk, struct sk_buff *skb, int attrtype)
- }
- EXPORT_SYMBOL_GPL(sock_diag_put_meminfo);
- 
-+int sock_diag_put_shutdown(struct sock *sk, struct sk_buff *skb, int attrtype)
-+{
-+	if (!sk->sk_shutdown)
-+		return 0;
-+
-+	return nla_put_u32(skb, attrtype, shutdown_mask2u(sk->sk_shutdown));
-+}
-+EXPORT_SYMBOL_GPL(sock_diag_put_shutdown);
-+
- void sock_diag_register_inet_compat(int (*fn)(struct sk_buff *skb, struct nlmsghdr *nlh))
- {
- 	mutex_lock(&sock_diag_table_mutex);
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 52db768..3b91f86 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -115,6 +115,10 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 		if (nla_put_u8(skb, INET_DIAG_TOS, inet->tos) < 0)
- 			goto errout;
- 
-+	if (ext & (1 << (INET_DIAG_SHUTDOWN - 1)))
-+		if (sock_diag_put_shutdown(sk, skb, INET_DIAG_SHUTDOWN))
-+			goto errout;
-+
- #if IS_ENABLED(CONFIG_IPV6)
- 	if (r->idiag_family == AF_INET6) {
- 		const struct ipv6_pinfo *np = inet6_sk(sk);
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index 06748f1..e41308c 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -151,6 +151,10 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb, struct unix_diag_r
- 	    sock_diag_put_meminfo(sk, skb, UNIX_DIAG_MEMINFO))
- 		goto out_nlmsg_trim;
- 
-+	if ((req->udiag_show & UDIAG_SHOW_SHUTDOWN) &&
-+	    sock_diag_put_shutdown(sk, skb, UNIX_DIAG_SHUTDOWN))
-+		goto out_nlmsg_trim;
-+
- 	return nlmsg_end(skb, nlh);
- 
- out_nlmsg_trim:
--- 
-1.7.6.5
+> ---
+>  include/uapi/linux/msg.h   |    1 +
+>  ipc/compat.c               |    1 +
+>  ipc/msg.c                  |   13 +++++++++++--
+>  security/selinux/hooks.c   |    1 +
+>  security/smack/smack_lsm.c |    1 +
+>  5 files changed, 15 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/uapi/linux/msg.h b/include/uapi/linux/msg.h
+> index 78dbd2f..76999c9 100644
+> --- a/include/uapi/linux/msg.h
+> +++ b/include/uapi/linux/msg.h
+> @@ -6,6 +6,7 @@
+>  /* ipcs ctl commands */
+>  #define MSG_STAT 11
+>  #define MSG_INFO 12
+> +#define MSG_SET  13
+>  
+>  /* msgrcv options */
+>  #define MSG_NOERROR     010000  /* no error if message is too big */
+> diff --git a/ipc/compat.c b/ipc/compat.c
+> index 35c750d..9c70f9a 100644
+> --- a/ipc/compat.c
+> +++ b/ipc/compat.c
+> @@ -483,6 +483,7 @@ long compat_sys_msgctl(int first, int second, void __user *uptr)
+>  		break;
+>  
+>  	case IPC_SET:
+> +	case MSG_SET:
+>  		if (version == IPC_64) {
+>  			err = get_compat_msqid64(&m64, uptr);
+>  		} else {
+> diff --git a/ipc/msg.c b/ipc/msg.c
+> index 2f44946..68515dc 100644
+> --- a/ipc/msg.c
+> +++ b/ipc/msg.c
+> @@ -392,6 +392,9 @@ copy_msqid_from_user(struct msqid64_ds *out, void __user *buf, int version)
+>  		out->msg_perm.uid      	= tbuf_old.msg_perm.uid;
+>  		out->msg_perm.gid      	= tbuf_old.msg_perm.gid;
+>  		out->msg_perm.mode     	= tbuf_old.msg_perm.mode;
+> +		out->msg_perm.cuid	= tbuf_old.msg_perm.cuid;
+> +		out->msg_perm.cgid	= tbuf_old.msg_perm.cgid;
+> +		out->msg_perm.key	= tbuf_old.msg_perm.key;
+>  
+>  		if (tbuf_old.msg_qbytes == 0)
+>  			out->msg_qbytes	= tbuf_old.msg_lqbytes;
+> @@ -418,12 +421,13 @@ static int msgctl_down(struct ipc_namespace *ns, int msqid, int cmd,
+>  	struct msg_queue *msq;
+>  	int err;
+>  
+> -	if (cmd == IPC_SET) {
+> +	if (cmd == IPC_SET || cmd == MSG_SET) {
+>  		if (copy_msqid_from_user(&msqid64, buf, version))
+>  			return -EFAULT;
+>  	}
+>  
+> -	ipcp = ipcctl_pre_down(ns, &msg_ids(ns), msqid, cmd,
+> +	ipcp = ipcctl_pre_down(ns, &msg_ids(ns), msqid,
+> +			       (cmd != MSG_SET) ? cmd : IPC_SET,
+>  			       &msqid64.msg_perm, msqid64.msg_qbytes);
+>  	if (IS_ERR(ipcp))
+>  		return PTR_ERR(ipcp);
+> @@ -439,6 +443,7 @@ static int msgctl_down(struct ipc_namespace *ns, int msqid, int cmd,
+>  		freeque(ns, ipcp);
+>  		goto out_up;
+>  	case IPC_SET:
+> +	case MSG_SET:
+>  		if (msqid64.msg_qbytes > ns->msg_ctlmnb &&
+>  		    !capable(CAP_SYS_RESOURCE)) {
+>  			err = -EPERM;
+> @@ -451,6 +456,9 @@ static int msgctl_down(struct ipc_namespace *ns, int msqid, int cmd,
+>  
+>  		msq->q_qbytes = msqid64.msg_qbytes;
+>  
+> +		if (cmd == MSG_SET)
+> +			ipc_update_key(&msg_ids(ns), &msqid64.msg_perm, ipcp);
+> +
+>  		msq->q_ctime = get_seconds();
+>  		/* sleeping receivers might be excluded by
+>  		 * stricter permissions.
+> @@ -569,6 +577,7 @@ SYSCALL_DEFINE3(msgctl, int, msqid, int, cmd, struct msqid_ds __user *, buf)
+>  	}
+>  	case IPC_SET:
+>  	case IPC_RMID:
+> +	case MSG_SET:
+>  		err = msgctl_down(ns, msqid, cmd, buf, version);
+>  		return err;
+>  	default:
+> diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> index 62b2447..78b77ac 100644
+> --- a/security/selinux/hooks.c
+> +++ b/security/selinux/hooks.c
+> @@ -4885,6 +4885,7 @@ static int selinux_msg_queue_msgctl(struct msg_queue *msq, int cmd)
+>  		perms = MSGQ__GETATTR | MSGQ__ASSOCIATE;
+>  		break;
+>  	case IPC_SET:
+> +	case MSG_SET:
+>  		perms = MSGQ__SETATTR;
+>  		break;
+>  	case IPC_RMID:
+> diff --git a/security/smack/smack_lsm.c b/security/smack/smack_lsm.c
+> index c7eabc9..d51a8da 100644
+> --- a/security/smack/smack_lsm.c
+> +++ b/security/smack/smack_lsm.c
+> @@ -2374,6 +2374,7 @@ static int smack_msg_queue_msgctl(struct msg_queue *msq, int cmd)
+>  		may = MAY_READ;
+>  		break;
+>  	case IPC_SET:
+> +	case MSG_SET:
+>  	case IPC_RMID:
+>  		may = MAY_READWRITE;
+>  		break;
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
