@@ -1,40 +1,62 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [net-next 1/8] e1000e: Minimum packet size must be 17 bytes
-Date: Tue, 23 Oct 2012 16:25:49 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B705D@saturn3.aculab.com>
-References: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com> <1350987887-16161-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Serge Hallyn <serge.hallyn@canonical.com>
+Subject: Re: [PATCH v6 01/10] ipc: remove forced assignment of selected
+ message
+Date: Tue, 23 Oct 2012 10:54:48 -0500
+Message-ID: <20121023155448.GA9755@sergelap>
+References: <20121015155800.28348.23561.stgit@localhost.localdomain>
+ <20121015155941.28348.88481.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Tushar Dave" <tushar.n.dave@intel.com>, <netdev@vger.kernel.org>,
-	<gospo@redhat.com>, <sassmann@redhat.com>
-To: "Jeff Kirsher" <jeffrey.t.kirsher@intel.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:53904 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S933024Ab2JWPgk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 11:36:40 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02044-06 for <netdev@vger.kernel.org>;
- Tue, 23 Oct 2012 16:36:37 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1350987887-16161-2-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, catalin.marinas@arm.com,
+	will.deacon@arm.com, dhowells@redhat.com, manfred@colorfullife.com,
+	hughd@google.com, jmorris@namei.org, mtk.manpages@gmail.com,
+	kosaki.motohiro@jp.fujitsu.com, paulmck@linux.vnet.ibm.com,
+	sds@tycho.nsa.gov, devel@openvz.org, a.p.zijlstra@chello.nl,
+	cmetcalf@tilera.com, linux-driver@qlogic.com,
+	ron.mercer@qlogic.com, viro@zeniv.linux.org.uk,
+	eparis@parisplace.org, tglx@linutronix.de,
+	jitendra.kalsaria@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, ebiederm@xmission.com,
+	casey@schaufler-ca.com
+To: Stanislav Kinsbursky <skinsbursky@parallels.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121015155941.28348.88481.stgit@localhost.localdomain>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> This is a HW requirement. Although a buffer as short as 1 byte is allowed,
-> the total length of packet before, padding and CRC insertion, must be at
-> least 17 bytes.  So pad all small packets manually up to 17 bytes before
-> delivering them to HW.
+Quoting Stanislav Kinsbursky (skinsbursky@parallels.com):
+> This is a cleanup patch. The assignment is redundant.
+> 
+> Signed-off-by: Stanislav Kinsbursky <skinsbursky@parallels.com>
 
-Where do such very short packets come from?
-The shortest one I know of have:
- 6 bytes dest-mac
- 6 bytes src-mac
- 2 bytes length
- 3 bytes llc header (eg reflect request).
-17 bytes total.
+Acked-by: Serge E. Hallyn <serge.hallyn@ubuntu.com>
 
-	David
+> ---
+>  ipc/msg.c |    5 +----
+>  1 files changed, 1 insertions(+), 4 deletions(-)
+> 
+> diff --git a/ipc/msg.c b/ipc/msg.c
+> index a71af5a..2f272fa 100644
+> --- a/ipc/msg.c
+> +++ b/ipc/msg.c
+> @@ -793,12 +793,9 @@ long do_msgrcv(int msqid, long *pmtype, void __user *mtext,
+>  				msg = walk_msg;
+>  				if (mode == SEARCH_LESSEQUAL &&
+>  						walk_msg->m_type != 1) {
+> -					msg = walk_msg;
+>  					msgtyp = walk_msg->m_type - 1;
+> -				} else {
+> -					msg = walk_msg;
+> +				} else
+>  					break;
+> -				}
+>  			}
+>  			tmp = tmp->next;
+>  		}
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
