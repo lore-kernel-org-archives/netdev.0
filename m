@@ -1,24 +1,49 @@
-From: ADMINISTRATOR <jvreyes@ateneo.edu>
-Subject: GET BACK TO ME
-Date: Wed, 24 Oct 2012 01:50:39 +0800
-Message-ID: <20121024015039.za8q2fya68kck444@mail.ateneo.edu>
-Reply-To: atlantico.desk@accountant.com
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [RFC PATCH v2 2/6] PM / Runtime: introduce pm_runtime_set_memalloc_noio()
+Date: Tue, 23 Oct 2012 14:16:21 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1210231402040.1635-100000@iolanthe.rowland.org>
+References: <CACVXFVN+=XH_f5BmRkXeagTNowz0o0-Pd7GcxCneO0FSq8xqEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ateneo.edu ([202.138.180.10]:33929 "EHLO mail.ateneo.edu"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756722Ab2JWSFg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 14:05:36 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
+    Minchan Kim <minchan@kernel.org>,
+    Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+    "Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+    "David S. Miller" <davem@davemloft.net>,
+    Andrew Morton <akpm@linux-foundation.org>,  <netdev@vger.kernel.org>,
+     <linux-usb@vger.kernel.org>,  <linux-pm@vger.kernel.org>,
+     <linux-mm@kvack.org>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CACVXFVN+=XH_f5BmRkXeagTNowz0o0-Pd7GcxCneO0FSq8xqEw@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, 23 Oct 2012, Ming Lei wrote:
 
-We are glad to inform you on this year SKL online 2012  promo result.For more
-details get back to the Remittance manager on : atlantico.desk@accountant.com
+> With the problem of non-SMP-safe bitfields access, the power.lock should
+> be held, but that is not enough to prevent children from being probed or
+> disconnected. Looks another lock is still needed. I think a global lock
+> is OK in the infrequent path.
+
+Agreed.
+
+> Got it, thanks for your detailed explanation.
+> 
+> Looks the problem is worse than above, not only bitfields are affected, the
+> adjacent fields might be involved too, see:
+> 
+>            http://lwn.net/Articles/478657/
+
+Linus made it clear (in various emails at the time) that the kernel
+requires the compiler not to do the sort of things discussed in that
+article.  But even the restrictions he wanted would not prevent
+adjacent bitfields from interfering with each other.
+
+Alan Stern
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
