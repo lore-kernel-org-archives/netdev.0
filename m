@@ -1,85 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/12] ixgbe: Add support for IPv6 and UDP to ixgbe_get_headlen
-Date: Mon, 22 Oct 2012 21:26:14 -0700
-Message-ID: <1350966385-19020-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/12] ixgbe: Correcting small packet padding
+Date: Mon, 22 Oct 2012 21:26:22 -0700
+Message-ID: <1350966385-19020-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:52514 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750810Ab2JWEg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 00:36:29 -0400
+	id S1752196Ab2JWEgd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 00:36:33 -0400
 In-Reply-To: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Tushar Dave <tushar.n.dave@intel.com>
 
-This change adds support for IPv6 and UDP to ixgbe_get_headlen. The
-advantage to this is that we can now handle ipv4/UDP, ipv6/TCP, and
-ipv6/UDP with a single memcpy instead of having to do them in multiple
-pskb_may_pull calls.
+Driver pad skb up to 17 bytes because of the HW requirement. However, that code
+implementation mess up the skb tail pointer after padding. This patch sets
+skb->tail correctly.
 
-A quick bit of testing shows that we increase throughput for a single
-session of netperf from 8800Mpbs to about 9300Mpbs in the case of ipv6/TCP.
-As such overall ipv6 performance should improve with this change.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Stephen Ko  <stephen.s.ko@intel.com>
+Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index e2a6691..3ef74f8 100644
+index 46bf0fd..c1ce6e9 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1244,6 +1244,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
- 		struct vlan_hdr *vlan;
- 		/* l3 headers */
- 		struct iphdr *ipv4;
-+		struct ipv6hdr *ipv6;
- 	} hdr;
- 	__be16 protocol;
- 	u8 nexthdr = 0;	/* default to not TCP */
-@@ -1284,6 +1285,13 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
- 		/* record next protocol */
- 		nexthdr = hdr.ipv4->protocol;
- 		hdr.network += hlen;
-+	} else if (protocol == __constant_htons(ETH_P_IPV6)) {
-+		if ((hdr.network - data) > (max_len - sizeof(struct ipv6hdr)))
-+			return max_len;
-+
-+		/* record next protocol */
-+		nexthdr = hdr.ipv6->nexthdr;
-+		hdr.network += sizeof(struct ipv6hdr);
- #ifdef IXGBE_FCOE
- 	} else if (protocol == __constant_htons(ETH_P_FCOE)) {
- 		if ((hdr.network - data) > (max_len - FCOE_HEADER_LEN))
-@@ -1294,7 +1302,7 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
- 		return hdr.network - data;
+@@ -6538,6 +6538,7 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
+ 		if (skb_pad(skb, 17 - skb->len))
+ 			return NETDEV_TX_OK;
+ 		skb->len = 17;
++		skb_set_tail_pointer(skb, 17);
  	}
  
--	/* finally sort out TCP */
-+	/* finally sort out TCP/UDP */
- 	if (nexthdr == IPPROTO_TCP) {
- 		if ((hdr.network - data) > (max_len - sizeof(struct tcphdr)))
- 			return max_len;
-@@ -1307,6 +1315,11 @@ static unsigned int ixgbe_get_headlen(unsigned char *data,
- 			return hdr.network - data;
- 
- 		hdr.network += hlen;
-+	} else if (nexthdr == IPPROTO_UDP) {
-+		if ((hdr.network - data) > (max_len - sizeof(struct udphdr)))
-+			return max_len;
-+
-+		hdr.network += sizeof(struct udphdr);
- 	}
- 
- 	/*
+ 	tx_ring = adapter->tx_ring[skb->queue_mapping];
 -- 
 1.7.11.7
