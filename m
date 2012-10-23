@@ -1,63 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 6/8] ixgbevf: Check for error on dma_map_single call
-Date: Tue, 23 Oct 2012 03:24:45 -0700
-Message-ID: <1350987887-16161-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/8] e1000e: Minimum packet size must be 17 bytes
+Date: Tue, 23 Oct 2012 03:24:40 -0700
+Message-ID: <1350987887-16161-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Tushar Dave <tushar.n.dave@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28521 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:54686 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755991Ab2JWKYy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 06:24:54 -0400
+	id S1752903Ab2JWKYv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 06:24:51 -0400
 In-Reply-To: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Tushar Dave <tushar.n.dave@intel.com>
 
-Ignoring the return value from a call to the kernel dma_map API functions
-can cause data corruption and system instability.  Check the return value
-and take appropriate action.
+This is a HW requirement. Although a buffer as short as 1 byte is allowed,
+the total length of packet before, padding and CRC insertion, must be at
+least 17 bytes.  So pad all small packets manually up to 17 bytes before
+delivering them to HW.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 537ed19..805e02c 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -359,6 +359,12 @@ static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
- 			bi->dma = dma_map_single(&pdev->dev, skb->data,
- 						 rx_ring->rx_buf_len,
- 						 DMA_FROM_DEVICE);
-+			if (dma_mapping_error(&pdev->dev, bi->dma)) {
-+				dev_kfree_skb(skb);
-+				bi->skb = NULL;
-+				dev_err(&pdev->dev, "RX DMA map failed\n");
-+				break;
-+			}
- 		}
- 		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma);
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index f444eb0..dadb13b 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5067,6 +5067,17 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
+ 		return NETDEV_TX_OK;
+ 	}
  
-@@ -2817,10 +2823,10 @@ static int ixgbevf_tx_map(struct ixgbevf_ring *tx_ring,
- 			tx_buffer_info->dma =
- 				skb_frag_dma_map(tx_ring->dev, frag,
- 						 offset, size, DMA_TO_DEVICE);
--			tx_buffer_info->mapped_as_page = true;
- 			if (dma_mapping_error(tx_ring->dev,
- 					      tx_buffer_info->dma))
- 				goto dma_error;
-+			tx_buffer_info->mapped_as_page = true;
- 			tx_buffer_info->next_to_watch = i;
- 
- 			len -= size;
++	/*
++	 * The minimum packet size with TCTL.PSP set is 17 bytes so
++	 * pad skb in order to meet this minimum size requirement
++	 */
++	if (unlikely(skb->len < 17)) {
++		if (skb_pad(skb, 17 - skb->len))
++			return NETDEV_TX_OK;
++		skb->len = 17;
++		skb_set_tail_pointer(skb, 17);
++	}
++
+ 	mss = skb_shinfo(skb)->gso_size;
+ 	if (mss) {
+ 		u8 hdr_len;
 -- 
 1.7.11.7
