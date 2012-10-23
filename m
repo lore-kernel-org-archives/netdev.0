@@ -1,53 +1,62 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] vlan: set sysfs device_type to 'vlan'
-Date: Tue, 23 Oct 2012 16:03:31 -0700
-Message-ID: <50872243.1050308@candelatech.com>
-References: <1350885237-12998-1-git-send-email-cardoe@cardoe.com>  <20121023.023647.2164665243829038911.davem@davemloft.net>  <5086C256.20202@candelatech.com> <1351032742.5283.69.camel@deadeye.wl.decadent.org.uk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 1/2] packet: clean up error variable assignments
+Date: Wed, 24 Oct 2012 00:10:24 +0100
+Message-ID: <1351033824.5283.80.camel@deadeye.wl.decadent.org.uk>
+References: <20121023115629.GA8664@thinkbox>
+	 <1351011952.8609.2334.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, cardoe@cardoe.com,
-	kaber@trash.net, netdev@vger.kernel.org,
-	systemd-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1351032742.5283.69.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Borkmann <dxchgb@gmail.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:60821 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933464Ab2JWXK2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 19:10:28 -0400
+In-Reply-To: <1351011952.8609.2334.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/23/2012 03:52 PM, Ben Hutchings wrote:
-> On Tue, 2012-10-23 at 09:14 -0700, Ben Greear wrote:
->> On 10/22/2012 11:36 PM, David Miller wrote:
->>> From: Doug Goldstein <cardoe@cardoe.com>
->>> Date: Mon, 22 Oct 2012 00:53:57 -0500
->>>
->>>> Sets the sysfs device_type to 'vlan' for udev. This makes it easier for
->>>> applications that query network information via udev to identify vlans
->>>> instead of using strrchr().
->>>>
->>>> Signed-off-by: Doug Goldstein <cardoe@cardoe.com>
->>>
->>> You're extremely misguided.  This change, in fact, makes it ten times
->>> harder for such applications to query such devices.
->>
->> If the application doesn't care, it can use the old way (which at least
->> for me, involves string-comparing the driver name ethtool returns, which
->> sucks at best).
+On Tue, 2012-10-23 at 19:05 +0200, Eric Dumazet wrote:
+> On Tue, 2012-10-23 at 13:56 +0200, Daniel Borkmann wrote:
+> > This patch performs clean-ups of packet's err variables where appropriate.
+> > In particular, errnos are *only* assigned in error cases, which saves
+> > useless instructions in non-error cases and makes the code more readable
+> > in terms of which error type belongs to which evaluated error condition.
+> > Also, in some cases an errno was set, but not used until the next assignment.
+> 
+> I see no value in this patch.
+> 
+> Setting err before a test is a common way to handle error cases and
+> generates smaller code in linux kernel.
 >
-> The 'old way' that has only worked since Linux 2.6.29 (3.5 years)?
+> Better live with it than trying to change it ?
+> 
+> err = -ENOMEM;
+> match = kzalloc(xxxx);
+> if (!match)
+> 	goto error;
+> 
+> 
+> is smaller (source code & generated code) than :
+> 
+> match = kzalloc(xxxx);
+> if (!match) {
+> 	err = -ENOMEM;
+> 	goto error;
+> }
 >
-> The 'right way' seems to be to query for VLAN information through
-> netlink.  But that has only worked since Linux 2.6.23 (5 years ago).
-> The real 'old way' is to use SIOCGIFVLAN. :-/
+> An immediate load is basically free, but code size matters.
 
-Oh, I have the SIOCGIFVLAN fallback in place too.
+In my experience gcc is generally able to perform this optimisation
+itself, at least for x86.  Setting 'err' only after checking for failure
+seems clearer, but I think this is really a matter of taste.
 
-But none of this is easy from a shell script, where reading a sysfs
-file is quite easy.
-
-Thanks,
-Ben
+Ben.
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
