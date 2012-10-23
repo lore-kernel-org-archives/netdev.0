@@ -1,64 +1,44 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [nf-next PATCH v2] ipvs: fix build errors related to config
- option combinations
-Date: Tue, 23 Oct 2012 10:53:20 +0200
-Message-ID: <20121023085320.GC7079@1984>
-References: <20121022192245.12620.84466.stgit@dragon>
- <20121023003314.GC5015@verge.net.au>
- <20121023084241.GA7079@1984>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [RFC PATCH net-next] qfq: handle the case that front slot is
+ empty
+Date: Tue, 23 Oct 2012 16:53:52 +0800
+Message-ID: <1350982432.26308.8.camel@cr0>
+References: <1350965711-4390-1-git-send-email-amwang@redhat.com>
+	 <F36C0EC1-0A4C-48FB-ABF3-A89575A9287E@unimore.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, fengguang.wu@intel.com,
-	yuanhan.liu@linux.intel.com, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Paolo Valente <paolo.valente@unimore.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:36229 "EHLO mail.us.es"
+Received: from mx1.redhat.com ([209.132.183.28]:8760 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932624Ab2JWIxY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 04:53:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20121023084241.GA7079@1984>
+	id S932503Ab2JWIyH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 04:54:07 -0400
+In-Reply-To: <F36C0EC1-0A4C-48FB-ABF3-A89575A9287E@unimore.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 23, 2012 at 10:42:41AM +0200, Pablo Neira Ayuso wrote:
-> On Tue, Oct 23, 2012 at 09:33:15AM +0900, Simon Horman wrote:
-> > On Mon, Oct 22, 2012 at 09:22:45PM +0200, Jesper Dangaard Brouer wrote:
-> > > Fix two build error introduced by commit 63dca2c0:
-> > >  "ipvs: Fix faulty IPv6 extension header handling in IPVS"
-> > > 
-> > > First build error was fairly trivial and can occur, when
-> > > CONFIG_IP_VS_IPV6 is disabled.
-> > > 
-> > > The second build error was tricky, and can occur when deselecting
-> > > both all Netfilter and IPVS, but selecting CONFIG_IPV6.  This is
-> > > caused by "kernel/sysctl_binary.c" including "net/ip_vs.h", which
-> > > includes "linux/netfilter_ipv6/ip6_tables.h" causing include
-> > > of "include/linux/netfilter/x_tables.h" which then cannot find
-> > > the typedef nf_hookfn.
-> > > 
-> > > Fix this by only including "linux/netfilter_ipv6/ip6_tables.h" in
-> > > case of CONFIG_IP_VS_IPV6 as its already used to guard the usage
-> > > of ipv6_find_hdr().
-> > 
-> > Thanks, I have verified both of these fixes and I will send a pull
-> > request ASAP.
-> > 
-> > I do wonder how we might get earlier test coverage of these kinds of problems.
-> 
-> David already mentioned that we (Netfilter/IPVS) should aim to reduce
-> the amount of ifdef pollution in the code. Sometimes it is possible in
-> a nice way by encapsulating code that depends on the feature in one
-> single file.
-> 
-> Sometimes it also requires some more thinking to make it that way (not
-> as easy as adding ifdef).
-> 
-> I think if we aim to that, we can avoid this sort of problems.
+On Tue, 2012-10-23 at 09:09 +0200, Paolo Valente wrote:
+> The crash you reported is one of the problems I tried to solve with my last fixes.
+> After those fixes I could not reproduce this crash (and other crashes) any more, but of course I am still missing something.
 
-By looking at all those CONFIG_IP_VS_IPV6. I'd suggest to abstract
-generic layer 3 operations and thus move all IPv4 and IPv6 to the
-corresponding files (eg. ipvs_l3proto_ipv4.c and
-ipvs_l3proto_ipv6.c).
+I am using the latest net-next, so if your patches are in net-next,
+then the problem of course still exists.
+
+> 
+> Il giorno 23/ott/2012, alle ore 06:15, Cong Wang ha scritto:
+> 
+> > I am not sure if this patch fixes the real problem or just workarounds
+> > it. At least, after this patch I don't see the crash I reported any more.
+> 
+> It is actually a workaround: if the condition that triggers your workaround holds true, then the group data structure is already inconstent, and qfq is likely not to schedule classes correctly.
+> I will try to reproduce the crash with the steps you suggest, and try to understand what is still wrong as soon as I can.
+> 
+
+OK, I don't pretend I understand qfq. And I can help you to test
+patches.
+
+Thanks!
