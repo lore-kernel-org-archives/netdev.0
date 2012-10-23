@@ -1,126 +1,129 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH net-next] sockopt: Introduce the SO_BINDTOIFINDEX
-Date: Tue, 23 Oct 2012 18:21:49 +0400
-Message-ID: <5086A7FD.3020503@parallels.com>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [RFC PATCH v2 2/6] PM / Runtime: introduce pm_runtime_set_memalloc_noio()
+Date: Tue, 23 Oct 2012 10:46:49 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1210231022230.1635-100000@iolanthe.rowland.org>
+References: <CACVXFVMmszZWHaeNS6LSG4nHR4wWBLwM_BvynRwUW8X=nO+JWA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Brian Haley <brian.haley@hp.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:23029 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754525Ab2JWOWa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 10:22:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
+    Minchan Kim <minchan@kernel.org>,
+    Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+    "Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+    "David S. Miller" <davem@davemloft.net>,
+    Andrew Morton <akpm@linux-foundation.org>,  <netdev@vger.kernel.org>,
+     <linux-usb@vger.kernel.org>,  <linux-pm@vger.kernel.org>,
+     <linux-mm@kvack.org>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CACVXFVMmszZWHaeNS6LSG4nHR4wWBLwM_BvynRwUW8X=nO+JWA@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Gentlemen,
+On Tue, 23 Oct 2012, Ming Lei wrote:
 
-here's how the symmetrical sk_bound_dev set/get would look like. If it's OK
-for you, I would ask David for inclusion.
+> On Mon, Oct 22, 2012 at 10:33 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
+> >
+> > Tail recursion should be implemented as a loop, not as an explicit
+> > recursion.  That is, the function should be:
+> >
+> > void pm_runtime_set_memalloc_noio(struct device *dev, bool enable)
+> > {
+> >         do {
+> >                 dev->power.memalloc_noio_resume = enable;
+> >
+> >                 if (!enable) {
+> >                         /*
+> >                          * Don't clear the parent's flag if any of the
+> >                          * parent's children have their flag set.
+> >                          */
+> >                         if (device_for_each_child(dev->parent, NULL,
+> >                                           dev_memalloc_noio))
+> >                                 return;
+> >                 }
+> >                 dev = dev->parent;
+> >         } while (dev);
+> > }
+> 
+> OK, will take the non-recursion implementation for saving kernel
+> stack space.
+> 
+> >
+> > except that you need to add locking, for two reasons:
+> >
+> >         There's a race.  What happens if another child sets the flag
+> >         between the time device_for_each_child() runs and the next loop
+> >         iteration?
+> 
+> Yes, I know the race, and not adding a lock because the function
+> is mostly called in .probe() or .remove() callback and its parent's device
+> lock is held to avoid this race.
+> 
+> Considered that it may be called in async probe() (scsi disk), one lock
+> is needed, the simplest way is to add a global lock. Any suggestion?
 
+No.  Because of where you put the new flag, it must be protected by
+dev->power.lock.  And this means the iterative implementation shown
+above can't be used as is.  It will have to be more like this:
 
+void pm_runtime_set_memalloc_noio(struct device *dev, bool enable)
+{
+	spin_lock_irq(&dev->power.lock);
+	dev->power.memalloc_noio_resume = enable;
 
-It was noted that it was not good to have the non-symmetrical SO_BINDTODEVICE
-sockoption (set works with name, get reports index) and we'd rather implement
-another option to set and get socket bound device that work on ifindex.
+	while (dev->parent) {
+		spin_unlock_irq(&dev->power.lock);
+		dev = dev->parent;
 
-The SO_BINDTONETDEV get-er is removed, as getting a device name is tricky and
-having one doesn't worth that pain.
+		spin_lock_irq(&dev->power.lock);
+		/*
+		 * Don't clear the parent's flag if any of the
+		 * parent's children have their flag set.
+		 */
+		if (!enable && device_for_each_child(dev->parent, NULL,
+				dev_memalloc_noio))
+			break;
+		dev->power.memalloc_noio_resume = enable;
+	}
+	spin_unlock_irq(&dev->power.lock);
+}
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> >         Even without a race, access to bitfields is not SMP-safe
+> >         without locking.
+> 
+> You mean one ancestor device might not be in active when
+> one of its descendants is being probed or removed?
 
----
- include/uapi/asm-generic/socket.h |    2 +
- net/core/sock.c                   |   41 ++++++++++++++++++++++++++++++++++--
- 2 files changed, 40 insertions(+), 3 deletions(-)
+No.  Consider this example:
 
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index b1bea03..c99c843 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -72,4 +72,6 @@
- /* Instruct lower device to use last 4-bytes of skb data as FCS */
- #define SO_NOFCS		43
- 
-+#define SO_BINDTOIFINDEX	44
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index c49412c..c4f56e9 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -505,6 +505,39 @@ struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie)
- }
- EXPORT_SYMBOL(sk_dst_check);
- 
-+static void sock_set_bound_dev(struct sock *sk, int idx)
-+{
-+	sk->sk_bound_dev_if = idx;
-+	sk_dst_reset(sk);
-+}
-+
-+static int sock_bindtoindex(struct sock *sk, int idx)
-+{
-+	int ret = -ENOPROTOOPT;
-+#ifdef CONFIG_NETDEVICES
-+	struct net *net = sock_net(sk);
-+
-+	if (!capable(CAP_NET_RAW))
-+		return -EPERM;
-+
-+	if (idx != 0) {
-+		struct net_device *dev;
-+
-+		rcu_read_lock();
-+		dev = dev_get_by_index_rcu(net, idx);
-+		rcu_read_unlock();
-+		ret = -ENODEV;
-+		if (!dev)
-+			goto out;
-+	}
-+
-+	sock_set_bound_dev(sk, idx);
-+	ret = 0;
-+out:
-+#endif
-+	return ret;
-+}
-+
- static int sock_bindtodevice(struct sock *sk, char __user *optval, int optlen)
- {
- 	int ret = -ENOPROTOOPT;
-@@ -550,8 +583,7 @@ static int sock_bindtodevice(struct sock *sk, char __user *optval, int optlen)
- 	}
- 
- 	lock_sock(sk);
--	sk->sk_bound_dev_if = index;
--	sk_dst_reset(sk);
-+	sock_set_bound_dev(sk, index);
- 	release_sock(sk);
- 
- 	ret = 0;
-@@ -839,6 +871,9 @@ set_rcvbuf:
- 	case SO_NOFCS:
- 		sock_valbool_flag(sk, SOCK_NOFCS, valbool);
- 		break;
-+	case SO_BINDTOIFINDEX:
-+		ret = sock_bindtoindex(sk, val);
-+		break;
- 
- 	default:
- 		ret = -ENOPROTOOPT;
-@@ -1074,7 +1109,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 	case SO_NOFCS:
- 		v.val = sock_flag(sk, SOCK_NOFCS);
- 		break;
--	case SO_BINDTODEVICE:
-+	case SO_BINDTOIFINDEX:
- 		v.val = sk->sk_bound_dev_if;
- 		break;
- 	default:
--- 
-1.7.6.5
+	struct foo {
+		int a:1;
+		int b:1;
+	} x;
+
+Consider what happens if CPU 0 does "x.a = 1" at the same time as 
+another CPU 1 does "x.b = 1".  The compiler might produce object code 
+looking like this for CPU 0:
+
+	move	x, reg1
+	or	0x1, reg1
+	move	reg1, x
+
+and this for CPU 1:
+
+	move	x, reg2
+	or	0x2, reg2
+	move	reg2, x
+
+With no locking, the two "or" instructions could execute 
+simultaneously.  What will the final value of x be?
+
+The two CPUs will interfere, even though they are touching different 
+bitfields.
+
+Alan Stern
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
