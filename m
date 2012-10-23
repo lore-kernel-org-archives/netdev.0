@@ -1,45 +1,72 @@
-From: Naresh Kumar Inna <naresh@chelsio.com>
-Subject: Re: [V5 PATCH 0/8] csiostor: Chelsio FCoE offload driver submission
-Date: Tue, 23 Oct 2012 15:18:51 +0530
-Message-ID: <50866803.3040003@chelsio.com>
-References: <1348507072-25625-1-git-send-email-naresh@chelsio.com>  <5072A5C5.6070102@chelsio.com> <1349691923.2615.36.camel@dabdike.int.hansenpartnership.com>
+From: Shreyas Bhatewara <sbhatewara@vmware.com>
+Subject: Re: [Pv-drivers] 3.7-rc2 regression : file copied to CIFS-mounted
+ directory corrupted
+Date: Tue, 23 Oct 2012 03:02:10 -0700 (PDT)
+Message-ID: <1103939870.6550404.1350986530909.JavaMail.root@vmware.com>
+References: <636804155.6539897.1350984018386.JavaMail.root@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	Dimitrios Michailidis <dm@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chethan Seshadri <chethan@chelsio.com>
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1349691923.2615.36.camel@dabdike.int.hansenpartnership.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: "VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
+	edumazet@google.com, linux-kernel@vger.kernel.org,
+	jongman heo <jongman.heo@samsung.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <636804155.6539897.1350984018386.JavaMail.root@vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi James,
+Well, actually the driver does split large frags into frags of VMXNET3_MAX_TX_BUF_SIZE bytes each.
 
-I hope now is a good time to resume the review of this driver. I will
-send out v6 version of the driver shortly, which has some bug fixes and
-other cleanup.
+vmxnet3_drv.c
+ 711         while (len) {
+ 712                 u32 buf_size;
+ 713
+ 714                 if (len < VMXNET3_MAX_TX_BUF_SIZE) {
+ 715                         buf_size = len;
+ 716                         dw2 |= len;
+ 717                 } else {
+ 718                         buf_size = VMXNET3_MAX_TX_BUF_SIZE;
+ 719                         /* spec says that for TxDesc.len, 0 == 2^14 */
+ 720                 }
+ 721
+....
+ 743
+ 744                 len -= buf_size;
+ 745                 buf_offset += buf_size;
+ 746         }
 
-Thanks,
-Naresh.
 
-On 10/8/2012 3:55 PM, James Bottomley wrote:
-> On Mon, 2012-10-08 at 15:37 +0530, Naresh Kumar Inna wrote:
->> Please let me know if you are expecting any more changes to this driver
->> to resume its review. I have addressed all review comments as of the
->> last series of patches (below).
+----- Original Message -----
+> Eric, thanks for the note. I will submit a patch to do it.
 > 
-> No, I don't think so, but please understand that the review talent is
-> all busy concentrating on the merge window for at least the next week
-> and a bit, so I won't be able to get them to pay attention until 3.7-rc1
-> is released.
+> Shreyas
 > 
-> Thanks,
+> ----- Original Message -----
+> > On Tue, 2012-10-23 at 08:17 +0000, Jongman Heo wrote:
+> > 
+> > > 
+> > > FYI, vmxnet3 driver is used for ethernet.
+> > 
+> > Yes, this driver needs some changes
+> > 
+> > #define VMXNET3_MAX_TX_BUF_SIZE  (1 << 14)
+> > 
+> > Thats 16KB
+> > 
+> > As we can now provide up to 32KB fragments we broke something.
+> > 
+> > vmxnet3_tq_xmit() needs to split large frags into 2 parts.
+> > (And without going to skb_linearize() of course !)
+> > 
+> > Any volunteer ?
+> > 
+> > Thanks !
+> > 
+> > 
+> > 
+> _______________________________________________
+> Pv-drivers mailing list
+> Pv-drivers@vmware.com
+> http://mailman2.vmware.com/mailman/listinfo/pv-drivers
 > 
-> James
-> 
-> 
-
