@@ -1,65 +1,44 @@
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Subject: Re: [PATCH net-next 1/2] packet: clean up error variable assignments
-Date: Tue, 23 Oct 2012 19:25:19 +0200
-Message-ID: <CAD6jFUQeaMD3RMBN2AKLfQwc=uvZSY3wd=B58-6+im7CrUnB3Q@mail.gmail.com>
-References: <20121023115629.GA8664@thinkbox>
-	<1351011952.8609.2334.camel@edumazet-glaptop>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH 3/3] sock-diag: Report shutdown for inet and unix sockets
+Date: Tue, 23 Oct 2012 21:26:20 +0400
+Message-ID: <5086D33C.7030208@parallels.com>
+References: <5086C36B.6060508@parallels.com>  <5086C5A6.7050101@parallels.com> <1351011194.8609.2301.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:45156 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757250Ab2JWRZ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 13:25:27 -0400
-Received: from [78.46.5.203] (helo=sslproxy01.your-server.de)
-	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.74)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1TQiEI-0002sN-8h
-	for netdev@vger.kernel.org; Tue, 23 Oct 2012 19:25:26 +0200
-Received: from [209.85.215.174] (helo=mail-ea0-f174.google.com)
-	by sslproxy01.your-server.de with esmtpsa (TLSv1:RC4-SHA:128)
-	(Exim 4.72)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1TQiEL-0002tW-CX
-	for netdev@vger.kernel.org; Tue, 23 Oct 2012 19:25:29 +0200
-Received: by mail-ea0-f174.google.com with SMTP id c13so1243879eaa.19
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 10:25:19 -0700 (PDT)
-In-Reply-To: <1351011952.8609.2334.camel@edumazet-glaptop>
+Received: from mailhub.sw.ru ([195.214.232.25]:23814 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933303Ab2JWR03 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 13:26:29 -0400
+In-Reply-To: <1351011194.8609.2301.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 23, 2012 at 7:05 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2012-10-23 at 13:56 +0200, Daniel Borkmann wrote:
->> This patch performs clean-ups of packet's err variables where appropriate.
->> In particular, errnos are *only* assigned in error cases, which saves
->> useless instructions in non-error cases and makes the code more readable
->> in terms of which error type belongs to which evaluated error condition.
->> Also, in some cases an errno was set, but not used until the next assignment.
->
-> I see no value in this patch.
->
-> Setting err before a test is a common way to handle error cases and
-> generates smaller code in linux kernel.
->
-> Better live with it than trying to change it ?
->
-> err = -ENOMEM;
-> match = kzalloc(xxxx);
-> if (!match)
->         goto error;
->
->
-> is smaller (source code & generated code) than :
->
-> match = kzalloc(xxxx);
-> if (!match) {
->         err = -ENOMEM;
->         goto error;
-> }
->
-> An immediate load is basically free, but code size matters.
+On 10/23/2012 08:53 PM, Eric Dumazet wrote:
+> On Tue, 2012-10-23 at 20:28 +0400, Pavel Emelyanov wrote:
+>> Add ext bits for inet-diag and unix-diag and report sk_shutdown state.
+> 
+>>  
+>> +	if (ext & (1 << (INET_DIAG_SHUTDOWN - 1)))
+>> +		if (sock_diag_put_shutdown(sk, skb, INET_DIAG_SHUTDOWN))
+>> +			goto errout;
+>> +
+> 
+> I dont feel the need to make this conditional and consume one bit.
 
-Good to know, thanks for the feedback Eric!
+OK, but I have one concern about it.
+
+I'll have to add the attrtype for it anyway. And when later we'll add
+yet another one, say INET_DIAG_FOO, we will not be able to request
+this in such
+
+   req->ext |= (1 << (INET_DIAG_FOO - 1));
+
+manner as it's currently done. If that's OK, I will rework the patch.
+
+Thanks,
+Pavel
