@@ -1,48 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Make hmac algorithm selection for cookie generation
- dynamic
-Date: Tue, 23 Oct 2012 02:32:54 -0400 (EDT)
-Message-ID: <20121023.023254.1960160564751660622.davem@davemloft.net>
-References: <1350661926-8312-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] MAINTAINERS: NETWORKING DRIVERS matches too much
+Date: Tue, 23 Oct 2012 02:33:21 -0400 (EDT)
+Message-ID: <20121023.023321.1875030623621221340.davem@davemloft.net>
+References: <20121018221138.66b43fed@endymion.delvare>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
-	netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, joe@perches.com, akpm@linux-foundation.org
+To: khali@linux-fr.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37306 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37314 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753452Ab2JWGc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 02:32:56 -0400
-In-Reply-To: <1350661926-8312-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1752595Ab2JWGdW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 02:33:22 -0400
+In-Reply-To: <20121018221138.66b43fed@endymion.delvare>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 19 Oct 2012 11:52:06 -0400
+From: Jean Delvare <khali@linux-fr.org>
+Date: Thu, 18 Oct 2012 22:11:38 +0200
 
-> Currently sctp allows for the optional use of md5 of sha1 hmac algorithms to
-> generate cookie values when establishing new connections via two build time
-> config options.  Theres no real reason to make this a static selection.  We can
-> add a sysctl that allows for the dynamic selection of these algorithms at run
-> time, with the default value determined by the corresponding crypto library
-> config options.  It saves us two needless configuration settings and enables the
-> freedom for administrators to select which algorithm a particular system uses.
-> This comes in handy when, for example running a system in FIPS mode, where use
-> of md5 is disallowed, but SHA1 is permitted.
+> File pattern include/linux/*device.h matches too much, including
+> completely unrelated files. Replace it with an explicit list of
+> network device-related header files.
 > 
-> Note: This new sysctl has no corresponding socket option to select the cookie
-> hmac algorithm.  I chose not to implement that intentionally, as RFC 6458
-> contains no option for this value, and I opted not to pollute the socket option
-> namespace.
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Jean Delvare <khali@linux-fr.org>
+> Cc: Joe Perches <joe@perches.com>
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-Neil, please use appropriate subject prefixes in your patch
-submissions.  In this case "sctp: " would have been appropriate.
-
-Vlad, this patch looks fine to me, but I'd like you to review
-it too before I apply it.
-
-Thanks.
+Applied, thanks Jean.
