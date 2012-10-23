@@ -1,8 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH net-next 08/15] 6lowpan: obtain
-	IEEE802.15.4 sequence number from the MAC layer
-Date: Tue, 23 Oct 2012 00:09:50 -0400
-Message-ID: <1350965397-12384-9-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next 09/15] 6lowpan: add a new
+	parameter in sysfs to turn on/off ACK request at MAC layer
+Date: Tue, 23 Oct 2012 00:09:51 -0400
+Message-ID: <1350965397-12384-10-git-send-email-tony.cheneau@amnesiak.org>
 References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,48 +22,46 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch sets the sequence number in the frame format. Without this
-fix, the sequence number is always set to 0. This makes trafic analysis
-very hard.
 
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+ net/ieee802154/6lowpan.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index eb8003b..24b83fa 100644
+index 24b83fa..f8fcdae 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -578,6 +578,7 @@ static int lowpan_header_create(struct sk_buff *skb,
- 	 */
- 	{
- 		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
-+		mac_cb(skb)->seq = ieee802154_mlme_ops(dev)->get_dsn(dev);
+@@ -62,6 +62,8 @@
  
- 		/* prepare wpan address data */
- 		sa.addr_type = IEEE802154_ADDR_LONG;
-@@ -1123,6 +1124,12 @@ static u16 lowpan_get_short_addr(const struct net_device *dev)
- 	return ieee802154_mlme_ops(real_dev)->get_short_addr(real_dev);
+ #include "6lowpan.h"
+ 
++static bool req_802154_ack;
++
+ /* TTL uncompression values */
+ static const u8 lowpan_ttl_values[] = {0, 1, 64, 255};
+ 
+@@ -596,7 +598,8 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 			memcpy(&(da.hwaddr), daddr, 8);
+ 
+ 			/* request acknowledgment */
+-			mac_cb(skb)->flags |= MAC_CB_FLAG_ACKREQ;
++			if (req_802154_ack)
++				mac_cb(skb)->flags |= MAC_CB_FLAG_ACKREQ;
+ 		}
+ 
+ 		return dev_hard_header(skb, lowpan_dev_info(dev)->real_dev,
+@@ -1366,6 +1369,10 @@ static void __exit lowpan_cleanup_module(void)
  }
  
-+static u8 lowpan_get_dsn(const struct net_device *dev)
-+{
-+	struct net_device *real_dev = lowpan_dev_info(dev)->real_dev;
-+	return ieee802154_mlme_ops(real_dev)->get_dsn(real_dev);
-+}
+ module_init(lowpan_init_module);
 +
- static struct header_ops lowpan_header_ops = {
- 	.create	= lowpan_header_create,
- };
-@@ -1136,6 +1143,7 @@ static struct ieee802154_mlme_ops lowpan_mlme = {
- 	.get_pan_id = lowpan_get_pan_id,
- 	.get_phy = lowpan_get_phy,
- 	.get_short_addr = lowpan_get_short_addr,
-+	.get_dsn = lowpan_get_dsn,
- };
- 
- static void lowpan_setup(struct net_device *dev)
++module_param(req_802154_ack, bool, 0644);
++MODULE_PARM_DESC(req_802154_ack, "request link-layer (i.e. IEEE 802.15.4) acknowledgments");
++
+ module_exit(lowpan_cleanup_module);
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS_RTNL_LINK("lowpan");
 -- 
 1.7.8.6
 
