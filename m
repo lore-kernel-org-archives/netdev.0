@@ -1,36 +1,55 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] ipv4: tcp: clean up tcp_v4_early_demux()
-Date: Tue, 23 Oct 2012 08:59:35 -0400
-Message-ID: <CADVnQynW+yObdHVWkSbuvjb0n6pCYcL4TPtuoWayHTb69oPD0g@mail.gmail.com>
-References: <1350978167.8609.1545.camel@edumazet-glaptop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] Make hmac algorithm selection for cookie generation
+ dynamic
+Date: Tue, 23 Oct 2012 09:16:08 -0400
+Message-ID: <20121023131608.GA23738@hmsreliant.think-freely.org>
+References: <1350661926-8312-1-git-send-email-nhorman@tuxdriver.com>
+ <20121023.023254.1960160564751660622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, vyasevich@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:54590 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753399Ab2JWM7g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 08:59:36 -0400
-Received: by mail-qc0-f174.google.com with SMTP id o22so2133632qcr.19
-        for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 05:59:36 -0700 (PDT)
-In-Reply-To: <1350978167.8609.1545.camel@edumazet-glaptop>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:32798 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932238Ab2JWNQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 09:16:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20121023.023254.1960160564751660622.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 23, 2012 at 3:42 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Use same header helpers than tcp_v6_early_demux() because they
-> are a bit faster, and as they make IPv4/IPv6 versions look
-> the same.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> ---
+On Tue, Oct 23, 2012 at 02:32:54AM -0400, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Fri, 19 Oct 2012 11:52:06 -0400
+> 
+> > Currently sctp allows for the optional use of md5 of sha1 hmac algorithms to
+> > generate cookie values when establishing new connections via two build time
+> > config options.  Theres no real reason to make this a static selection.  We can
+> > add a sysctl that allows for the dynamic selection of these algorithms at run
+> > time, with the default value determined by the corresponding crypto library
+> > config options.  It saves us two needless configuration settings and enables the
+> > freedom for administrators to select which algorithm a particular system uses.
+> > This comes in handy when, for example running a system in FIPS mode, where use
+> > of md5 is disallowed, but SHA1 is permitted.
+> > 
+> > Note: This new sysctl has no corresponding socket option to select the cookie
+> > hmac algorithm.  I chose not to implement that intentionally, as RFC 6458
+> > contains no option for this value, and I opted not to pollute the socket option
+> > namespace.
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> Neil, please use appropriate subject prefixes in your patch
+> submissions.  In this case "sctp: " would have been appropriate.
+> 
+Crap, sorry, Dave, I should know better.  Completely slipped my mind.
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+Neil
 
-Thanks, Eric!
-
-neal
+> Vlad, this patch looks fine to me, but I'd like you to review
+> it too before I apply it.
+> 
+> Thanks.
+> 
