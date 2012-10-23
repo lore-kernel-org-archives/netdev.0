@@ -1,101 +1,207 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/12] ixgbe: Add function ixgbe_reset_pipeline_82599
-Date: Mon, 22 Oct 2012 21:26:24 -0700
-Message-ID: <1350966385-19020-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/12] ixgbe: Fix possible memory leak in ixgbe_set_ringparam
+Date: Mon, 22 Oct 2012 21:26:25 -0700
+Message-ID: <1350966385-19020-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:33410 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:41074 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756518Ab2JWE0c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756538Ab2JWE0c (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 23 Oct 2012 00:26:32 -0400
 In-Reply-To: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch adds a function that forces a full pipeline reset.  This
-function will be used in following patches to completely reset the PHY
-during resets.
+We were not correctly freeing the temporary rings on error in
+ixgbe_set_ring_param.  In order to correct this I am unwinding a number of
+changes that were made in order to get things back to the original working
+form with modification for the current ring layouts.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+This approach has multiple advantages including a smaller memory footprint,
+and the fact that the interface is stopped while we are allocating the rings
+meaning that there is less potential for some sort of memory corruption on the
+ring.
+
+The only disadvantage I see with this approach is that on a Rx allocation
+failure we will report an error and only update the Tx rings.  However the
+adapter should be fully functional in this state and the likelihood of such
+an error is very low.  In addition it is not unreasonable to expect the
+user to need to recheck the ring configuration should they experience an
+error setting the ring sizes.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 44 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  1 +
- 2 files changed, 45 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 102 +++++++++++------------
+ 1 file changed, 50 insertions(+), 52 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 1077cb2..b527813 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -2080,6 +2080,50 @@ static s32 ixgbe_read_eeprom_82599(struct ixgbe_hw *hw,
- 	return ret_val;
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 56b20d1..872c337 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -887,24 +887,23 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+                                struct ethtool_ringparam *ring)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-	struct ixgbe_ring *temp_tx_ring, *temp_rx_ring;
++	struct ixgbe_ring *temp_ring;
+ 	int i, err = 0;
+ 	u32 new_rx_count, new_tx_count;
+-	bool need_update = false;
  
-+/**
-+ * ixgbe_reset_pipeline_82599 - perform pipeline reset
-+ *
-+ * @hw: pointer to hardware structure
-+ *
-+ * Reset pipeline by asserting Restart_AN together with LMS change to ensure
-+ * full pipeline reset.  Note - We must hold the SW/FW semaphore before writing
-+ * to AUTOC, so this function assumes the semaphore is held.
-+ **/
-+s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw)
-+{
-+	s32 i, autoc_reg, ret_val;
-+	s32 anlp1_reg = 0;
-+
-+	autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-+	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
-+
-+	/* Write AUTOC register with toggled LMS[2] bit and Restart_AN */
-+	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg ^ IXGBE_AUTOC_LMS_1G_AN);
-+
-+	/* Wait for AN to leave state 0 */
-+	for (i = 0; i < 10; i++) {
-+		usleep_range(4000, 8000);
-+		anlp1_reg = IXGBE_READ_REG(hw, IXGBE_ANLP1);
-+		if (anlp1_reg & IXGBE_ANLP1_AN_STATE_MASK)
-+			break;
-+	}
-+
-+	if (!(anlp1_reg & IXGBE_ANLP1_AN_STATE_MASK)) {
-+		hw_dbg(hw, "auto negotiation not completed\n");
-+		ret_val = IXGBE_ERR_RESET_FAILED;
-+		goto reset_pipeline_out;
-+	}
-+
-+	ret_val = 0;
-+
-+reset_pipeline_out:
-+	/* Write AUTOC register with original LMS field and Restart_AN */
-+	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
-+	IXGBE_WRITE_FLUSH(hw);
-+
-+	return ret_val;
-+}
-+
- static struct ixgbe_mac_operations mac_ops_82599 = {
- 	.init_hw                = &ixgbe_init_hw_generic,
- 	.reset_hw               = &ixgbe_reset_hw_82599,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index d813d11..587db47 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -107,6 +107,7 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
+ 	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
+ 		return -EINVAL;
  
- void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
- 			     u32 headroom, int strategy);
-+s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
+-	new_rx_count = max_t(u32, ring->rx_pending, IXGBE_MIN_RXD);
+-	new_rx_count = min_t(u32, new_rx_count, IXGBE_MAX_RXD);
+-	new_rx_count = ALIGN(new_rx_count, IXGBE_REQ_RX_DESCRIPTOR_MULTIPLE);
+-
+-	new_tx_count = max_t(u32, ring->tx_pending, IXGBE_MIN_TXD);
+-	new_tx_count = min_t(u32, new_tx_count, IXGBE_MAX_TXD);
++	new_tx_count = clamp_t(u32, ring->tx_pending,
++			       IXGBE_MIN_TXD, IXGBE_MAX_TXD);
+ 	new_tx_count = ALIGN(new_tx_count, IXGBE_REQ_TX_DESCRIPTOR_MULTIPLE);
  
- #define IXGBE_I2C_THERMAL_SENSOR_ADDR	0xF8
- #define IXGBE_EMC_INTERNAL_DATA		0x00
+-	if ((new_tx_count == adapter->tx_ring[0]->count) &&
+-	    (new_rx_count == adapter->rx_ring[0]->count)) {
++	new_rx_count = clamp_t(u32, ring->rx_pending,
++			       IXGBE_MIN_RXD, IXGBE_MAX_RXD);
++	new_rx_count = ALIGN(new_rx_count, IXGBE_REQ_RX_DESCRIPTOR_MULTIPLE);
++
++	if ((new_tx_count == adapter->tx_ring_count) &&
++	    (new_rx_count == adapter->rx_ring_count)) {
+ 		/* nothing to do */
+ 		return 0;
+ 	}
+@@ -922,81 +921,80 @@ static int ixgbe_set_ringparam(struct net_device *netdev,
+ 		goto clear_reset;
+ 	}
+ 
+-	temp_tx_ring = vmalloc(adapter->num_tx_queues * sizeof(struct ixgbe_ring));
+-	if (!temp_tx_ring) {
++	/* allocate temporary buffer to store rings in */
++	i = max_t(int, adapter->num_tx_queues, adapter->num_rx_queues);
++	temp_ring = vmalloc(i * sizeof(struct ixgbe_ring));
++
++	if (!temp_ring) {
+ 		err = -ENOMEM;
+ 		goto clear_reset;
+ 	}
+ 
++	ixgbe_down(adapter);
++
++	/*
++	 * Setup new Tx resources and free the old Tx resources in that order.
++	 * We can then assign the new resources to the rings via a memcpy.
++	 * The advantage to this approach is that we are guaranteed to still
++	 * have resources even in the case of an allocation failure.
++	 */
+ 	if (new_tx_count != adapter->tx_ring_count) {
+ 		for (i = 0; i < adapter->num_tx_queues; i++) {
+-			memcpy(&temp_tx_ring[i], adapter->tx_ring[i],
++			memcpy(&temp_ring[i], adapter->tx_ring[i],
+ 			       sizeof(struct ixgbe_ring));
+-			temp_tx_ring[i].count = new_tx_count;
+-			err = ixgbe_setup_tx_resources(&temp_tx_ring[i]);
++
++			temp_ring[i].count = new_tx_count;
++			err = ixgbe_setup_tx_resources(&temp_ring[i]);
+ 			if (err) {
+ 				while (i) {
+ 					i--;
+-					ixgbe_free_tx_resources(&temp_tx_ring[i]);
++					ixgbe_free_tx_resources(&temp_ring[i]);
+ 				}
+-				goto clear_reset;
++				goto err_setup;
+ 			}
+ 		}
+-		need_update = true;
+-	}
+ 
+-	temp_rx_ring = vmalloc(adapter->num_rx_queues * sizeof(struct ixgbe_ring));
+-	if (!temp_rx_ring) {
+-		err = -ENOMEM;
+-		goto err_setup;
++		for (i = 0; i < adapter->num_tx_queues; i++) {
++			ixgbe_free_tx_resources(adapter->tx_ring[i]);
++
++			memcpy(adapter->tx_ring[i], &temp_ring[i],
++			       sizeof(struct ixgbe_ring));
++		}
++
++		adapter->tx_ring_count = new_tx_count;
+ 	}
+ 
++	/* Repeat the process for the Rx rings if needed */
+ 	if (new_rx_count != adapter->rx_ring_count) {
+ 		for (i = 0; i < adapter->num_rx_queues; i++) {
+-			memcpy(&temp_rx_ring[i], adapter->rx_ring[i],
++			memcpy(&temp_ring[i], adapter->rx_ring[i],
+ 			       sizeof(struct ixgbe_ring));
+-			temp_rx_ring[i].count = new_rx_count;
+-			err = ixgbe_setup_rx_resources(&temp_rx_ring[i]);
++
++			temp_ring[i].count = new_rx_count;
++			err = ixgbe_setup_rx_resources(&temp_ring[i]);
+ 			if (err) {
+ 				while (i) {
+ 					i--;
+-					ixgbe_free_rx_resources(&temp_rx_ring[i]);
++					ixgbe_free_rx_resources(&temp_ring[i]);
+ 				}
+ 				goto err_setup;
+ 			}
++
+ 		}
+-		need_update = true;
+-	}
+ 
+-	/* if rings need to be updated, here's the place to do it in one shot */
+-	if (need_update) {
+-		ixgbe_down(adapter);
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			ixgbe_free_rx_resources(adapter->rx_ring[i]);
+ 
+-		/* tx */
+-		if (new_tx_count != adapter->tx_ring_count) {
+-			for (i = 0; i < adapter->num_tx_queues; i++) {
+-				ixgbe_free_tx_resources(adapter->tx_ring[i]);
+-				memcpy(adapter->tx_ring[i], &temp_tx_ring[i],
+-				       sizeof(struct ixgbe_ring));
+-			}
+-			adapter->tx_ring_count = new_tx_count;
++			memcpy(adapter->rx_ring[i], &temp_ring[i],
++			       sizeof(struct ixgbe_ring));
+ 		}
+ 
+-		/* rx */
+-		if (new_rx_count != adapter->rx_ring_count) {
+-			for (i = 0; i < adapter->num_rx_queues; i++) {
+-				ixgbe_free_rx_resources(adapter->rx_ring[i]);
+-				memcpy(adapter->rx_ring[i], &temp_rx_ring[i],
+-				       sizeof(struct ixgbe_ring));
+-			}
+-			adapter->rx_ring_count = new_rx_count;
+-		}
+-		ixgbe_up(adapter);
++		adapter->rx_ring_count = new_rx_count;
+ 	}
+ 
+-	vfree(temp_rx_ring);
+ err_setup:
+-	vfree(temp_tx_ring);
++	ixgbe_up(adapter);
++	vfree(temp_ring);
+ clear_reset:
+ 	clear_bit(__IXGBE_RESETTING, &adapter->state);
+ 	return err;
 -- 
 1.7.11.7
