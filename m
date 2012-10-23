@@ -1,47 +1,38 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [RFC PATCH v2 6/6] USB: forbid memory allocation with I/O during
- bus reset
-Date: Tue, 23 Oct 2012 16:44:39 +0800
-Message-ID: <CACVXFVOy+dmjdhBr9Vtww12PZg_fo2y78TcNzuP_Yq9_p=74Hw@mail.gmail.com>
-References: <1350894794-1494-7-git-send-email-ming.lei@canonical.com>
-	<Pine.LNX.4.44L0.1210221035450.1724-100000@iolanthe.rowland.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 1/4] net/macb: fix truncate warnings
+Date: Tue, 23 Oct 2012 04:48:29 -0400 (EDT)
+Message-ID: <20121023.044829.1915412359769438159.davem@davemloft.net>
+References: <1350931534-8416-1-git-send-email-manabian@gmail.com>
+	<1350931534-8416-2-git-send-email-manabian@gmail.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B705B@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
-	Minchan Kim <minchan@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>, "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-pm@vger.kernel.org, linux-mm@kvack.org
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <Pine.LNX.4.44L0.1210221035450.1724-100000@iolanthe.rowland.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: manabian@gmail.com, nicolas.ferre@atmel.com, hskinnemoen@gmail.com,
+	egtvedt@samfundet.no, plagnioj@jcrosoft.com, bgat@billgatliff.com,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: David.Laight@ACULAB.COM
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38129 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756945Ab2JWIsd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 04:48:33 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B705B@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 22, 2012 at 10:37 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
-> On Mon, 22 Oct 2012, Ming Lei wrote:
+From: "David Laight" <David.Laight@ACULAB.COM>
+Date: Tue, 23 Oct 2012 09:21:11 +0100
 
->>
->> +     /*
->> +      * Don't allocate memory with GFP_KERNEL in current
->> +      * context to avoid possible deadlock if usb mass
->> +      * storage interface or usbnet interface(iSCSI case)
->> +      * is included in current configuration. The easiest
->> +      * approach is to do it for all devices.
->> +      */
->> +     memalloc_noio_save(noio_flag);
->
-> Why not check dev->power.memalloc_noio_resume here too?
+>> When building macb on x86_64 the following warnings show up:
+>>   drivers/net/ethernet/cadence/macb.c: In function macb_interrupt:
+>>   drivers/net/ethernet/cadence/macb.c:556:4: warning: large integer implicitly truncated to unsigned type [-Woverflow]
+> ...
+>> -			macb_writel(bp, IDR, ~0UL);
+>> +			macb_writel(bp, IDR, -1);
+> 
+> Seems wrong to fix an error with an unsigned value
+> by using -1.
 
-Yes, we can use the flag here too even though it is introduced
-for rutime_resume case.
-
-Thanks,
---
-Ming Lei
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-1 is equally an unsigned value of all 1's and completely legitimate.
+The correction being made here is one of size not signedness.
