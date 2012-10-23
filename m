@@ -1,9 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH net-next 01/15] 6lowpan:
-	lowpan_is_iid_16_bit_compressable() does not detect
-	compressable address correctly
-Date: Tue, 23 Oct 2012 00:09:43 -0400
-Message-ID: <1350965397-12384-2-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next 02/15] 6lowpan: next header is
+	not properly set upon decompression of a UDP header.
+Date: Tue, 23 Oct 2012 00:09:44 -0400
+Message-ID: <1350965397-12384-3-git-send-email-tony.cheneau@amnesiak.org>
 References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,41 +22,31 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The current test is not RFC6282 compliant. The same issue has been found
-out and fixed in Contiki. This patch is basicaly a port of their fix.
+This causes a drop of the UDP packet.
 
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/ieee802154/6lowpan.h |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+ net/ieee802154/6lowpan.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/net/ieee802154/6lowpan.h b/net/ieee802154/6lowpan.h
-index 8c2251f..efd1a57 100644
---- a/net/ieee802154/6lowpan.h
-+++ b/net/ieee802154/6lowpan.h
-@@ -87,14 +87,16 @@
- #define is_addr_link_local(a) (((a)->s6_addr16[0]) == 0x80FE)
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 6d42c17..b53a71a4 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -913,9 +913,12 @@ lowpan_process_data(struct sk_buff *skb)
+ 	}
  
- /*
-- * check whether we can compress the IID to 16 bits,
-- * it's possible for unicast adresses with first 49 bits are zero only.
-- */
-+* check whether we can compress the IID to 16 bits,
-+* it's possible for unicast adresses with first 49 bits are zero only.
-+*/
- #define lowpan_is_iid_16_bit_compressable(a)	\
- 	((((a)->s6_addr16[4]) == 0) &&		\
--	 (((a)->s6_addr16[5]) == 0) &&		\
--	 (((a)->s6_addr16[6]) == 0) &&		\
--	 ((((a)->s6_addr[14]) & 0x80) == 0))
-+	 (((a)->s6_addr[10]) == 0) &&		\
-+	 (((a)->s6_addr[11]) == 0xff) &&	\
-+	 (((a)->s6_addr[12]) == 0xfe) &&	\
-+	 (((a)->s6_addr[13]) == 0))
+ 	/* UDP data uncompression */
+-	if (iphc0 & LOWPAN_IPHC_NH_C)
++	if (iphc0 & LOWPAN_IPHC_NH_C) {
+ 		if (lowpan_uncompress_udp_header(skb))
+ 			goto drop;
++		hdr.nexthdr = UIP_PROTO_UDP;
++	}
 +
  
- /* multicast address */
- #define is_addr_mcast(a) (((a)->s6_addr[0]) == 0xFF)
+ 	/* Not fragmented package */
+ 	hdr.payload_len = htons(skb->len);
 -- 
 1.7.8.6
 
