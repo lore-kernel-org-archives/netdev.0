@@ -1,8 +1,8 @@
 From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH net-next 03/15] 6lowpan: always enable
-	link-layer acknowledgments
-Date: Tue, 23 Oct 2012 00:09:45 -0400
-Message-ID: <1350965397-12384-4-git-send-email-tony.cheneau@amnesiak.org>
+Subject: [PATCH net-next 05/15] 6lowpan: use short IEEE
+	802.15.4 addresses for broadcast destination
+Date: Tue, 23 Oct 2012 00:09:47 -0400
+Message-ID: <1350965397-12384-6-git-send-email-tony.cheneau@amnesiak.org>
 References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,32 +22,53 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This feature is especially important when using fragmentation, because
-the reassembly mechanism can not recover from the loss of a fragment.
-
-Note that some hardware ignore this flag and not will not transmit any
-acknowledgments if this is set.
+It is intended that the IEEE 802.15.4 standard uses the 0xFFFF short address (2
+bytes) for message broadcasting.
 
 Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ net/ieee802154/6lowpan.c |   21 +++++++++++++--------
+ 1 files changed, 13 insertions(+), 8 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index b53a71a4..49d91df 100644
+index 49d91df..8a2ee95 100644
 --- a/net/ieee802154/6lowpan.c
 +++ b/net/ieee802154/6lowpan.c
-@@ -589,6 +589,10 @@ static int lowpan_header_create(struct sk_buff *skb,
- 
- 		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
- 
-+		/* request acknowledgment when possible */
-+		if (!lowpan_is_addr_broadcast(daddr))
-+			mac_cb(skb)->flags |= MAC_CB_FLAG_ACKREQ;
+@@ -577,21 +577,26 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	 * this isn't implemented in mainline yet, so currently we assign 0xff
+ 	 */
+ 	{
++		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
 +
+ 		/* prepare wpan address data */
+ 		sa.addr_type = IEEE802154_ADDR_LONG;
+ 		sa.pan_id = 0xff;
+-
+-		da.addr_type = IEEE802154_ADDR_LONG;
+-		da.pan_id = 0xff;
+-
+-		memcpy(&(da.hwaddr), daddr, 8);
+ 		memcpy(&(sa.hwaddr), saddr, 8);
+ 
+-		mac_cb(skb)->flags = IEEE802154_FC_TYPE_DATA;
++		da.pan_id = 0xff;
++		/* if the destination address is the broadcast address,
++		   use short address */
++		if (lowpan_is_addr_broadcast(daddr)) {
++			da.addr_type = IEEE802154_ADDR_SHORT;
++			da.short_addr = IEEE802154_ADDR_BROADCAST;
++		} else {
++			da.addr_type = IEEE802154_ADDR_LONG;
++			memcpy(&(da.hwaddr), daddr, 8);
+ 
+-		/* request acknowledgment when possible */
+-		if (!lowpan_is_addr_broadcast(daddr))
++			/* request acknowledgment */
+ 			mac_cb(skb)->flags |= MAC_CB_FLAG_ACKREQ;
++		}
+ 
  		return dev_hard_header(skb, lowpan_dev_info(dev)->real_dev,
  				type, (void *)&da, (void *)&sa, skb->len);
- 	}
 -- 
 1.7.8.6
 
