@@ -1,45 +1,101 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/12] ixgbe: using is_zero_ether_addr() to simplify the code
-Date: Mon, 22 Oct 2012 21:26:21 -0700
-Message-ID: <1350966385-19020-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/12] ixgbe: Add function ixgbe_reset_pipeline_82599
+Date: Mon, 22 Oct 2012 21:26:24 -0700
+Message-ID: <1350966385-19020-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:33410 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755157Ab2JWE0b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 00:26:31 -0400
+	id S1756518Ab2JWE0c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 00:26:32 -0400
 In-Reply-To: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Using is_zero_ether_addr() to simplify the code.
+This patch adds a function that forces a full pipeline reset.  This
+function will be used in following patches to completely reset the PHY
+during resets.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 44 +++++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  1 +
+ 2 files changed, 45 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index dbf37e4..a2a9bcc 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -1778,8 +1778,7 @@ s32 ixgbe_validate_mac_addr(u8 *mac_addr)
- 	else if (IXGBE_IS_BROADCAST(mac_addr))
- 		status = IXGBE_ERR_INVALID_MAC_ADDR;
- 	/* Reject the zero address */
--	else if (mac_addr[0] == 0 && mac_addr[1] == 0 && mac_addr[2] == 0 &&
--	         mac_addr[3] == 0 && mac_addr[4] == 0 && mac_addr[5] == 0)
-+	else if (is_zero_ether_addr(mac_addr))
- 		status = IXGBE_ERR_INVALID_MAC_ADDR;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+index 1077cb2..b527813 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
+@@ -2080,6 +2080,50 @@ static s32 ixgbe_read_eeprom_82599(struct ixgbe_hw *hw,
+ 	return ret_val;
+ }
  
- 	return status;
++/**
++ * ixgbe_reset_pipeline_82599 - perform pipeline reset
++ *
++ * @hw: pointer to hardware structure
++ *
++ * Reset pipeline by asserting Restart_AN together with LMS change to ensure
++ * full pipeline reset.  Note - We must hold the SW/FW semaphore before writing
++ * to AUTOC, so this function assumes the semaphore is held.
++ **/
++s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw)
++{
++	s32 i, autoc_reg, ret_val;
++	s32 anlp1_reg = 0;
++
++	autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
++	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
++
++	/* Write AUTOC register with toggled LMS[2] bit and Restart_AN */
++	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg ^ IXGBE_AUTOC_LMS_1G_AN);
++
++	/* Wait for AN to leave state 0 */
++	for (i = 0; i < 10; i++) {
++		usleep_range(4000, 8000);
++		anlp1_reg = IXGBE_READ_REG(hw, IXGBE_ANLP1);
++		if (anlp1_reg & IXGBE_ANLP1_AN_STATE_MASK)
++			break;
++	}
++
++	if (!(anlp1_reg & IXGBE_ANLP1_AN_STATE_MASK)) {
++		hw_dbg(hw, "auto negotiation not completed\n");
++		ret_val = IXGBE_ERR_RESET_FAILED;
++		goto reset_pipeline_out;
++	}
++
++	ret_val = 0;
++
++reset_pipeline_out:
++	/* Write AUTOC register with original LMS field and Restart_AN */
++	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
++	IXGBE_WRITE_FLUSH(hw);
++
++	return ret_val;
++}
++
+ static struct ixgbe_mac_operations mac_ops_82599 = {
+ 	.init_hw                = &ixgbe_init_hw_generic,
+ 	.reset_hw               = &ixgbe_reset_hw_82599,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index d813d11..587db47 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -107,6 +107,7 @@ void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
+ 
+ void ixgbe_set_rxpba_generic(struct ixgbe_hw *hw, int num_pb,
+ 			     u32 headroom, int strategy);
++s32 ixgbe_reset_pipeline_82599(struct ixgbe_hw *hw);
+ 
+ #define IXGBE_I2C_THERMAL_SENSOR_ADDR	0xF8
+ #define IXGBE_EMC_INTERNAL_DATA		0x00
 -- 
 1.7.11.7
