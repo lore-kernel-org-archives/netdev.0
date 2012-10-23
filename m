@@ -1,128 +1,123 @@
-From: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Subject: [PATCH net-next 15/15] mac802154: re-introduce
-	MAC primitives required to send/receive packets
-Date: Tue, 23 Oct 2012 00:09:57 -0400
-Message-ID: <1350965397-12384-16-git-send-email-tony.cheneau@amnesiak.org>
-References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1350965397-12384-1-git-send-email-tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/12] ixgbe: Add support for GET_QUEUES message to get DCB configuration
+Date: Mon, 22 Oct 2012 21:26:16 -0700
+Message-ID: <1350966385-19020-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:35959 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752724Ab2JWE02 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 00:26:28 -0400
+In-Reply-To: <1350966385-19020-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-- mlme_assoc_req() and mlme_assoc_resp() are just place holder for the
-  moment (they prevent the two corresponding function pointers in the
-  mac802154_mlme_wpan structure to be left uninitialized)
-- mac802514_dev_get_bsn() and mac802514_dev_get_dsn() MAC primitives
-  were present in the Linux-Zigbee kernel and are being re-introduced.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Signed-off-by: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
+This patch addresses several issues in regards to the combination of DCB
+and SR-IOV. Specifically it allows us to send information to the VF on
+which queues it should be using.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/mac802154/mac802154.h |    2 ++
- net/mac802154/mac_cmd.c   |   22 +++++++++++++++++++++-
- net/mac802154/mib.c       |   19 +++++++++++++++++++
- 3 files changed, 42 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   | 10 ++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 42 ++++++++++++++++++++++++++
+ 2 files changed, 52 insertions(+)
 
-diff --git a/net/mac802154/mac802154.h b/net/mac802154/mac802154.h
-index a4dcaf1..18d4044 100644
---- a/net/mac802154/mac802154.h
-+++ b/net/mac802154/mac802154.h
-@@ -114,5 +114,7 @@ void mac802154_dev_set_ieee_addr(struct net_device *dev);
- u16 mac802154_dev_get_pan_id(const struct net_device *dev);
- void mac802154_dev_set_pan_id(struct net_device *dev, u16 val);
- void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan);
-+u8 mac802154_dev_get_dsn(const struct net_device *dev);
-+u8 mac802154_dev_get_bsn(const struct net_device *dev);
- 
- #endif /* MAC802154_H */
-diff --git a/net/mac802154/mac_cmd.c b/net/mac802154/mac_cmd.c
-index d8d2770..8e46e7b 100644
---- a/net/mac802154/mac_cmd.c
-+++ b/net/mac802154/mac_cmd.c
-@@ -33,6 +33,22 @@
- 
- #include "mac802154.h"
- 
-+static int mac802154_mlme_assoc_req(struct net_device *dev,
-+			struct ieee802154_addr *addr,
-+			u8 channel, u8 page, u8 cap)
-+{
-+	/* TBD */
-+	return 0;
-+}
-+
-+static int mac802154_mlme_assoc_resp(struct net_device *dev,
-+			struct ieee802154_addr *addr,
-+			u16 short_addr, u8 status)
-+{
-+	/* TBD */
-+	return 0;
-+}
-+
- static int mac802154_mlme_start_req(struct net_device *dev,
- 				    struct ieee802154_addr *addr,
- 				    u8 channel, u8 page,
-@@ -70,7 +86,11 @@ struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced = {
- 
- struct ieee802154_mlme_ops mac802154_mlme_wpan = {
- 	.get_phy = mac802154_get_phy,
--	.start_req = mac802154_mlme_start_req,
- 	.get_pan_id = mac802154_dev_get_pan_id,
- 	.get_short_addr = mac802154_dev_get_short_addr,
-+	.get_dsn = mac802154_dev_get_dsn,
-+	.get_bsn = mac802154_dev_get_bsn,
-+	.start_req = mac802154_mlme_start_req,
-+	.assoc_req = mac802154_mlme_assoc_req,
-+	.assoc_resp = mac802154_mlme_assoc_resp
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+index d4c842e..42dd65e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+@@ -71,6 +71,7 @@
+ enum ixgbe_pfvf_api_rev {
+ 	ixgbe_mbox_api_10,	/* API version 1.0, linux/freebsd VF driver */
+ 	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
++	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
+ 	/* This value should always be last */
+ 	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
  };
-diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
-index 2339f8d..70ab6ca 100644
---- a/net/mac802154/mib.c
-+++ b/net/mac802154/mib.c
-@@ -149,6 +149,25 @@ void mac802154_dev_set_pan_id(struct net_device *dev, u16 val)
- 	}
+@@ -86,6 +87,15 @@ enum ixgbe_pfvf_api_rev {
+ #define IXGBE_VF_SET_MACVLAN	0x06 /* VF requests PF for unicast filter */
+ #define IXGBE_VF_API_NEGOTIATE	0x08 /* negotiate API version */
+ 
++/* mailbox API, version 1.1 VF requests */
++#define IXGBE_VF_GET_QUEUES	0x09 /* get queue configuration */
++
++/* GET_QUEUES return data indices within the mailbox */
++#define IXGBE_VF_TX_QUEUES	1	/* number of Tx queues supported */
++#define IXGBE_VF_RX_QUEUES	2	/* number of Rx queues supported */
++#define IXGBE_VF_TRANS_VLAN	3	/* Indication of port vlan */
++#define IXGBE_VF_DEF_QUEUE	4	/* Default queue offset */
++
+ /* length of permanent address message returned from PF */
+ #define IXGBE_VF_PERMADDR_MSG_LEN 4
+ /* word in permanent address message with the current multicast type */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index b330a1c..8bf467b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -751,6 +751,45 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
+ 	return -1;
  }
  
-+u8 mac802154_dev_get_dsn(const struct net_device *dev)
++static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
++			       u32 *msgbuf, u32 vf)
 +{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
++	struct net_device *dev = adapter->netdev;
++	struct ixgbe_ring_feature *vmdq = &adapter->ring_feature[RING_F_VMDQ];
++	unsigned int default_tc = 0;
++	u8 num_tcs = netdev_get_num_tc(dev);
 +
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
++	/* verify the PF is supporting the correct APIs */
++	switch (adapter->vfinfo[vf].vf_api) {
++	case ixgbe_mbox_api_20:
++	case ixgbe_mbox_api_11:
++		break;
++	default:
++		return -1;
++	}
 +
-+	return priv->dsn++;
++	/* only allow 1 Tx queue for bandwidth limiting */
++	msgbuf[IXGBE_VF_TX_QUEUES] = __ALIGN_MASK(1, ~vmdq->mask);
++	msgbuf[IXGBE_VF_RX_QUEUES] = __ALIGN_MASK(1, ~vmdq->mask);
++
++	/* if TCs > 1 determine which TC belongs to default user priority */
++	if (num_tcs > 1)
++		default_tc = netdev_get_prio_tc_map(dev, adapter->default_up);
++
++	/* notify VF of need for VLAN tag stripping, and correct queue */
++	if (num_tcs)
++		msgbuf[IXGBE_VF_TRANS_VLAN] = num_tcs;
++	else if (adapter->vfinfo[vf].pf_vlan || adapter->vfinfo[vf].pf_qos)
++		msgbuf[IXGBE_VF_TRANS_VLAN] = 1;
++	else
++		msgbuf[IXGBE_VF_TRANS_VLAN] = 0;
++
++	/* notify VF of default queue */
++	msgbuf[IXGBE_VF_DEF_QUEUE] = default_tc;
++
++	return 0;
 +}
 +
-+u8 mac802154_dev_get_bsn(const struct net_device *dev)
-+{
-+	struct mac802154_sub_if_data *priv = netdev_priv(dev);
-+
-+	BUG_ON(dev->type != ARPHRD_IEEE802154);
-+
-+	return priv->bsn++;
-+}
-+
-+
- static void phy_chan_notify(struct work_struct *work)
+ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
  {
- 	struct phy_chan_notify_work *nw = container_of(work,
+ 	u32 mbx_size = IXGBE_VFMAILBOX_SIZE;
+@@ -804,6 +843,9 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	case IXGBE_VF_API_NEGOTIATE:
+ 		retval = ixgbe_negotiate_vf_api(adapter, msgbuf, vf);
+ 		break;
++	case IXGBE_VF_GET_QUEUES:
++		retval = ixgbe_get_vf_queues(adapter, msgbuf, vf);
++		break;
+ 	default:
+ 		e_err(drv, "Unhandled Msg %8.8x\n", msgbuf[0]);
+ 		retval = IXGBE_ERR_MBX;
 -- 
-1.7.8.6
-
-
-------------------------------------------------------------------------------
-Everyone hates slow websites. So do we.
-Make your web apps faster with AppDynamics
-Download AppDynamics Lite for free today:
-http://p.sf.net/sfu/appdyn_sfd2d_oct
+1.7.11.7
