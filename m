@@ -1,38 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 1/4] net/macb: fix truncate warnings
-Date: Tue, 23 Oct 2012 04:48:29 -0400 (EDT)
-Message-ID: <20121023.044829.1915412359769438159.davem@davemloft.net>
-References: <1350931534-8416-1-git-send-email-manabian@gmail.com>
-	<1350931534-8416-2-git-send-email-manabian@gmail.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B705B@saturn3.aculab.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next] IPVS for 3.8
+Date: Tue, 23 Oct 2012 10:49:12 +0200
+Message-ID: <20121023084912.GB7079@1984>
+References: <1350953451-19441-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: manabian@gmail.com, nicolas.ferre@atmel.com, hskinnemoen@gmail.com,
-	egtvedt@samfundet.no, plagnioj@jcrosoft.com, bgat@billgatliff.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: David.Laight@ACULAB.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38129 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756945Ab2JWIsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 04:48:33 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B705B@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Fengguang Wu <fengguang.wu@intel.com>,
+	Yuanhan Liu <yuanhan.liu@linux.intel.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1350953451-19441-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "David Laight" <David.Laight@ACULAB.COM>
-Date: Tue, 23 Oct 2012 09:21:11 +0100
-
->> When building macb on x86_64 the following warnings show up:
->>   drivers/net/ethernet/cadence/macb.c: In function macb_interrupt:
->>   drivers/net/ethernet/cadence/macb.c:556:4: warning: large integer implicitly truncated to unsigned type [-Woverflow]
-> ...
->> -			macb_writel(bp, IDR, ~0UL);
->> +			macb_writel(bp, IDR, -1);
+On Tue, Oct 23, 2012 at 09:50:50AM +0900, Simon Horman wrote:
+> Hi Pablo,
 > 
-> Seems wrong to fix an error with an unsigned value
-> by using -1.
+> please consider the following build fix from Jesper for 3.8.
+> 
+> ----------------------------------------------------------------
+> The following changes since commit bcc58c4d9141160d6448e4589acbd46e5c647518:
+> 
+>   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next (2012-10-22 12:30:41 +0200)
+> 
+> are available in the git repository at:
+> 
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git master
 
--1 is equally an unsigned value of all 1's and completely legitimate.
-The correction being made here is one of size not signedness.
+Pulled, thanks.
