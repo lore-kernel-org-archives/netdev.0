@@ -1,56 +1,73 @@
-From: Kay Sievers <kay@vrfy.org>
-Subject: Re: [PATCH] vlan: set sysfs device_type to 'vlan'
-Date: Tue, 23 Oct 2012 12:34:11 +0200
-Message-ID: <CAPXgP10EhtdCT5Bus2+Prfrk0LU3tEeBJq8qq4hK4k=TdiS5qQ@mail.gmail.com>
-References: <1350885237-12998-1-git-send-email-cardoe@cardoe.com> <20121023.023647.2164665243829038911.davem@davemloft.net>
+From: Sergey Popovich <popovich_sergei@mail.ru>
+Subject: Incorrect ARP behavior when multiple/none IPv4 address assigned to
+ interface
+Date: Tue, 23 Oct 2012 14:28:17 +0300
+Message-ID: <50867F51.3030500@mail.ru>
+Reply-To: Sergey Popovich <popovich_sergei@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: cardoe@cardoe.com, kaber@trash.net, netdev@vger.kernel.org,
-	systemd-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121023.023647.2164665243829038911.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fallback3.mail.ru ([94.100.176.58]:42445 "EHLO
+	fallback3.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752440Ab2JWLfm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 07:35:42 -0400
+Received: from smtp15.mail.ru (smtp15.mail.ru [94.100.176.133])
+	by fallback3.mail.ru (mPOP.Fallback_MX) with ESMTP id 2F86EC3C5505
+	for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 15:28:55 +0400 (MSK)
+Received: from [195.234.68.4] (port=33347 helo=tuxracer.localdomain)
+	by smtp15.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
+	id 1TQcev-00031h-Cs
+	for netdev@vger.kernel.org; Tue, 23 Oct 2012 15:28:33 +0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 23, 2012 at 8:36 AM, David Miller <davem@davemloft.net> wrote:
-> From: Doug Goldstein <cardoe@cardoe.com>
-> Date: Mon, 22 Oct 2012 00:53:57 -0500
->
->> Sets the sysfs device_type to 'vlan' for udev. This makes it easier for
->> applications that query network information via udev to identify vlans
->> instead of using strrchr().
->>
->> Signed-off-by: Doug Goldstein <cardoe@cardoe.com>
->
-> You're extremely misguided.  This change, in fact, makes it ten times
-> harder for such applications to query such devices.
+Hello!
 
-That makes not much sense, really. Every new interface would fall into
-that category. At least I can't see any mis-guidance here. The other
-devtypes for the major netif types are not that much older.
+We have following setup:
+------------------------
 
-> Because now the application has to decide whether it wants to support
-> EVERY EXISTING SYSTEM OUT THERE or not.  Hundreds of millions of Linux
-> systems do not provide this attribute.
->
-> Applications have to handle the case of not having the 'vlan' device
-> type available attribute essentially forever.
+  PC1              |             |
+   ip: 10.0.1.2/24 |             | Linux Router (3.7-rc2)
+   gw: 10.0.1.1    |--------eth0-| Lo0: 10.10.10.10/32
+                                 | Lo255: 10.0.1.1/24
+  PC2              |--------eth1-|        10.0.2.1/24
+   ip: 10.0.1.3/24 |             | eth[0-2]: no ip address
+   gw: 10.0.1.1    |             | ip route 10.0.1.2/32 dev eth0 src 10.0.1.1
+                               +-| ip route 10.0.1.3/32 dev eth1 src 10.0.1.1
+                               | | ip route 10.0.2.2/32 dev eth2 src 10.0.2.1
+  PC3              |-----eth2--+
+   ip: 10.0.2.2/24 |
+   gw: 10.0.2.1    |
 
-Which is an entirely separate issue, and not a technical reason not to
-add new interfaces which are already in use for most other types of
-netifs.
 
-> So providing it in new kernels provides zero value whatsoever.
+Problem with ARP Requests sent with incorrect source address 
+(10.10.10.10 instead of 10.0.1.1):
 
-It sure does provide a value. The kernel can efficiently filter
-uevents in the socket with this available. All other major types of
-netdevs support that too, it's just a matter of completeness. For that
-reason, it looks useful to me.
+# tcpdump -vv -ieth0 -s1500 -nnpe 'arp'
+13:28:57.395181 08:00:27:3b:63:ae > 0a:00:27:00:00:00, ethertype ARP 
+(0x0806), length 42: Ethernet (len 6),.
+IPv4 (len 4), Request who-has 10.0.1.2 tell 10.10.10.10, length 28
+13:28:58.395257 08:00:27:3b:63:ae > 0a:00:27:00:00:00, ethertype ARP 
+(0x0806), length 42: Ethernet (len 6),.
+IPv4 (len 4), Request who-has 10.0.1.2 tell 10.10.10.10, length 28
+13:28:59.395207 08:00:27:3b:63:ae > 0a:00:27:00:00:00, ethertype ARP 
+(0x0806), length 42: Ethernet (len 6),.
+IPv4 (len 4), Request who-has 10.0.1.2 tell 10.10.10.10, length 28
+13:29:01.393739 08:00:27:3b:63:ae > ff:ff:ff:ff:ff:ff, ethertype ARP 
+(0x0806), length 42: Ethernet (len 6),.
+IPv4 (len 4), Request who-has 10.0.1.2 tell 10.0.1.1, length 28
+13:29:01.393862 0a:00:27:00:00:00 > 08:00:27:3b:63:ae, ethertype ARP 
+(0x0806), length 60: Ethernet (len 6),.
+IPv4 (len 4), Reply 10.0.1.2 is-at 0a:00:27:00:00:00, length 46
 
-> I'm not applying this patch, sorry.
+Detailed information about this (and other, that triggers same case with 
+ARP) network topology usage in real world
+can be found at https://bugzilla.kernel.org/show_bug.cgi?id=49311
 
-That's just sad. Not that I really care about that functionality, but
-your reasoning is absolutely not transparent.
+Sorry for early bug report.
 
-Kay
+-- 
+SP5474-RIPE
+Sergey Popovich
