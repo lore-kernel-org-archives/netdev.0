@@ -1,62 +1,119 @@
-From: "Western Union Transfer" <info@westernunion.com>
-Subject: Payment Sent!!
-Date: Wed, 24 Oct 2012 10:56:24 +0800
-Message-ID: <20121024023616.E56CF1F99DB@correo.fcctpdom.usmp.edu.pe>
-Reply-To: westernuniont12@yahoo.cn
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 2/8] maintainers: update with official intel support
+ link, new maintainer
+Date: Tue, 23 Oct 2012 21:32:46 -0700
+Message-ID: <1351053166.2252.39.camel@jtkirshe-mobl>
+References: <1350987887-16161-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1350987887-16161-3-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1350998701.7502.42.camel@joe-AO722>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-K4VSOEDDhJdK1OjD0Qb1"
+Cc: Tushar Dave <tushar.n.dave@intel.com>, davem@davemloft.net,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from redaccionline.com ([207.218.180.67]:38428 "EHLO
-	correo.fcctpdom.usmp.edu.pe" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933960Ab2JXDTd convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 23:19:33 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by correo.fcctpdom.usmp.edu.pe (Postfix) with ESMTP id E40721F9ABD
-	for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 21:52:58 -0500 (PET)
-Received: from correo.fcctpdom.usmp.edu.pe ([127.0.0.1])
-	by localhost (correo.fcctpdom.usmp.edu.pe [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id sbqMGLnLYWpo for <netdev@vger.kernel.org>;
-	Tue, 23 Oct 2012 21:52:58 -0500 (PET)
-Received: from [10.1.1.1] (unknown [180.74.102.36])
-	by correo.fcctpdom.usmp.edu.pe (Postfix) with ESMTPSA id E56CF1F99DB
-	for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 21:36:16 -0500 (PET)
-Content-Description: Mail message body
+Received: from mga09.intel.com ([134.134.136.24]:49584 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755909Ab2JXEdA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Oct 2012 00:33:00 -0400
+In-Reply-To: <1350998701.7502.42.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We write to inform you that we have transferred $400,000 dollars.  depo=
-sited for transfer to you by one MR Bernard Harry from BLACKBERRY MOBIL=
-E COMPANY for transfer as a winning prize from the promotion lottery he=
-ld by the communication company to encourage usage and appreciate alrea=
-dy users of their product.
-=20
- The money is available for pick up by receiver(you) to be cashed on da=
-ily installment of $10,000 for 40days. We tried calling to give you the=
- information over the phone but we could not reach you so we decided to=
- email you the information to pick up the first $10,000  already transf=
-erred to you. for you to be able to pick the first payment,
-You will have to pay $250 to get it re-activated in your name for you t=
-o start picking up your money because we de-activate the transaction fo=
-r security reason, by making the status to display pick up.
-=20
-=20
-Use this link to track the below information=20
-https://wumt.westernunion.com/asp/orderStatus.asp?country=3Dglobal
-=20
- Sender's Fist name: Perry
- Sender's Last Name: Poston
- MTCN: 9429519950
- Question: Who Is Great
- Answer: God
- Amount: $10,000.00USD
-=20
- Thanks
- Best Regards
- Mr.Mcferrin Phoenix .
- +60169162934
- western union Office,
- MALAYSIA OFFICE.
- Western Union=AE Money Transfer
+
+--=-K4VSOEDDhJdK1OjD0Qb1
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2012-10-23 at 06:25 -0700, Joe Perches wrote:
+> On Tue, 2012-10-23 at 03:24 -0700, Jeff Kirsher wrote:
+> > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> >=20
+> > Add an official link which is designed to guide the user to the appropr=
+iate
+> > support resource (be it community, OEM, Intel phone, Intel email, etc)
+> >=20
+> > Add the current e1000 maintainer to the list of Intel maintainers.
+>=20
+> Hi Jeff.
+>=20
+> I think it's unwise to have 10 named maintainers for all
+> the intel ethernet drivers if there are specialists
+> maintainers.
+>=20
+> Maybe it'd be better to break out these sub-maintainers
+> into specific driver sections with you as the overall
+> maintainer.
+>=20
+> Maybe add an internal exploder to get all the various
+> maintainers on a list if everyone really looks at all
+> patches to intel drivers.
+>=20
+> Something like:
+>=20
+> INTEL ETHERNET DRIVERS
+> M:	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> M:	Intel Linux Support <linux.drivers@intel.com>
+> T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net.git
+> T:	git git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next.gi=
+t
+> S:	Supported
+> F:	drivers/net/ethernet/intel/
+>=20
+> INTEL ETHERNET E1000 DRIVER
+> M:	Tushar Dave <tushar.n.dave@intel.com>
+> S:	Supported
+> F:	drivers/net/ethernet/intel/e1000/
+> F:	Documentation/networking/e1000.txt
+>=20
+> etc...
+
+I understand where your coming from and this has been been something
+that I have been trying to find a "reasonable" solution, which is harder
+to do than one would expect.
+
+We do have developers like Bruce Allan who maintains e1000e and Carolyn
+Wyborny who maintains igb and Don Skidmore (and others) who maintain
+ixgbe.  The problem we did not want to fall into by pigeon holing
+developers in maintaining a driver.  Developers like John, Jesse, Alex,
+and Tushar work on all of our drivers.  Jesse tends to focus on
+performance related matters, where as Tushar responds to customer issues
+on any driver and does the root cause and fix for the issues.
+
+So how do we go about giving this spider web of complex coverage to some
+clear concise coverage in the MAINTAINERS?
+
+For now, the solution was to list all the developers actively working on
+the kernel drivers since anyone of them can work on pretty much anyone
+of our drivers.
+
+If you have some ideas which may help resolve the issues, I am open to
+suggestions.
+
+--=-K4VSOEDDhJdK1OjD0Qb1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJQh29uAAoJEOVv75VaS+3ODNoP/jTITJilY+shqnJjV5vL+swE
+myP51e8rp8fzBr5imP4OJf7E4MvcWOdzkp0iuDbntBQvycxC1JVBzf0eeO+RwJtC
+EKjx6bGDLKFC5ta/28Bs6Ye8e4trlp2ow2f5qTjylDVzz/Fv07vfOV4Bm7u1dRVp
+2TpADdXj/osdXOInzxTnwNCPqngsBE06GbCn76hUD4TDantq4YgaB+uZFEoBmBmk
+djpr4TdS/kR896uzb3GEaGyLS3BNo6vjPruD1D0nTKNp2crN0+GOtGzJ6V5+51fp
+7Fi8BjZW2VymDqgkscmRmPksd1H6Yml4uTUWjmKlpdZa1CPCDc/Pz5d2xgGAn+N3
+53c+plXXdYgNkB+hFmTDLidAGoSvoEXh8R1atB+T8JhdSXoaXfJTZhR3YF8zrVkJ
+T0NnZcOuDnLPQTh9J+BtWAfOXFD9FT+6YW14s79RzdNfxboPWTgiQe5ETjtO2Mp9
+VDyn54CI9SG2YhV6eIJuiXO4sGDGJfLTImMIyBoRkpbZfjIRkrd2u7k3KWY0nBx3
+PBNJ6CvFuiQpLMI8lmWDs4MItrSRs4Sw4OvRmxD6EzKv7rmyPBb2eOSBX3wWi592
+gDngLgqTXiD3RwAPmji3uRtgImV77NYnTa9caWJ+6rN8z/CJ8SkmH3nDXkrgGP8l
+LK4xHW/+WdImjmk2gHCv
+=SABu
+-----END PGP SIGNATURE-----
+
+--=-K4VSOEDDhJdK1OjD0Qb1--
