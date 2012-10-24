@@ -1,254 +1,215 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next PATCH v1 3/3] ixgbe: add setlink,
-	getlink support to ixgbe and ixgbevf
-Date: Wed, 24 Oct 2012 09:51:13 -0700
-Message-ID: <20121024165113.14221.68413.stgit@jf-dev1-dcblab>
-References: <20121024164906.14221.45341.stgit@jf-dev1-dcblab>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] Make hmac algorithm selection for cookie generation
+ dynamic
+Date: Wed, 24 Oct 2012 13:18:05 -0400
+Message-ID: <20121024171805.GB26433@hmsreliant.think-freely.org>
+References: <1350661926-8312-1-git-send-email-nhorman@tuxdriver.com>
+ <5087FBE0.1020005@gmail.com>
+ <20121024160157.GA26433@hmsreliant.think-freely.org>
+ <508814AC.8030005@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, chrisw@redhat.com, krkumar2@in.ibm.com,
-	samudrala@us.ibm.com, peter.p.waskiewicz.jr@intel.com,
-	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, gregory.v.rose@intel.com,
-	eilong@broadcom.com
-To: shemminger@vyatta.com, buytenh@wantstofly.org, davem@davemloft.net,
-	vyasevic@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:64736 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758694Ab2JXRIa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Oct 2012 13:08:30 -0400
-In-Reply-To: <20121024164906.14221.45341.stgit@jf-dev1-dcblab>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52049 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935245Ab2JXRSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 13:18:25 -0400
+Content-Disposition: inline
+In-Reply-To: <508814AC.8030005@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support for the net device ops to manage the embedded
-hardware bridge on ixgbe devices. With this patch the bridge
-mode can be toggled between VEB and VEPA to support stacking
-macvlan devices or using the embedded switch without any SW
-component in 802.1Qbg/br environments.
+On Wed, Oct 24, 2012 at 12:17:48PM -0400, Vlad Yasevich wrote:
+> On 10/24/2012 12:01 PM, Neil Horman wrote:
+> >On Wed, Oct 24, 2012 at 10:32:00AM -0400, Vlad Yasevich wrote:
+> >>On 10/19/2012 11:52 AM, Neil Horman wrote:
+> >>>Currently sctp allows for the optional use of md5 of sha1 hmac algorithms to
+> >>>generate cookie values when establishing new connections via two build time
+> >>>config options.  Theres no real reason to make this a static selection.  We can
+> >>>add a sysctl that allows for the dynamic selection of these algorithms at run
+> >>>time, with the default value determined by the corresponding crypto library
+> >>>config options.  It saves us two needless configuration settings and enables the
+> >>>freedom for administrators to select which algorithm a particular system uses.
+> >>>This comes in handy when, for example running a system in FIPS mode, where use
+> >>>of md5 is disallowed, but SHA1 is permitted.
+> >>>
+> >>>Note: This new sysctl has no corresponding socket option to select the cookie
+> >>>hmac algorithm.  I chose not to implement that intentionally, as RFC 6458
+> >>>contains no option for this value, and I opted not to pollute the socket option
+> >>>namespace.
+> >>>
+> >>>Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >>>CC: Vlad Yasevich <vyasevich@gmail.com>
+> >>>CC: "David S. Miller" <davem@davemloft.net>
+> >>>CC: netdev@vger.kernel.org
+> >>>---
+> >>>  Documentation/networking/ip-sysctl.txt | 14 ++++++++
+> >>>  include/net/netns/sctp.h               |  3 ++
+> >>>  include/net/sctp/constants.h           |  8 -----
+> >>>  include/net/sctp/structs.h             |  1 +
+> >>>  net/sctp/Kconfig                       | 30 -----------------
+> >>>  net/sctp/protocol.c                    |  9 ++++++
+> >>>  net/sctp/socket.c                      | 11 ++++---
+> >>>  net/sctp/sysctl.c                      | 59 ++++++++++++++++++++++++++++++++++
+> >>>  8 files changed, 93 insertions(+), 42 deletions(-)
+> >>>
+> >>>diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> >>>index c7fc107..98ac0d7 100644
+> >>>--- a/Documentation/networking/ip-sysctl.txt
+> >>>+++ b/Documentation/networking/ip-sysctl.txt
+> >>>@@ -1514,6 +1514,20 @@ cookie_preserve_enable - BOOLEAN
+> >>>
+> >>>  	Default: 1
+> >>>
+> >>>+cookie_hmac_alg - STRING
+> >>>+	Select the hmac algorithm used when generating the cookie value sent by
+> >>>+	a listening sctp socket to a connecting client in the INIT-ACK chunk.
+> >>>+	Valid values are:
+> >>>+	* md5
+> >>>+	* sha1
+> >>>+	* none
+> >>>+	Ability to assign md5 or sha1 as the selected alg is predicated on the
+> >>>+	configuarion of those algorithms at build time (CONFIG_CRYPTO_MD5 and
+> >>>+	CONFIG_CRYPTO_SHA1).
+> >>>+
+> >>>+	Default: Dependent on configuration.  MD5 if available, else SHA1 if
+> >>>+	available, else none.
+> >>>+
+> >>>  rcvbuf_policy - INTEGER
+> >>>  	Determines if the receive buffer is attributed to the socket or to
+> >>>  	association.   SCTP supports the capability to create multiple
+> >>>diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
+> >>>index 5e5eb1f..3573a81 100644
+> >>>--- a/include/net/netns/sctp.h
+> >>>+++ b/include/net/netns/sctp.h
+> >>>@@ -62,6 +62,9 @@ struct netns_sctp {
+> >>>  	/* Whether Cookie Preservative is enabled(1) or not(0) */
+> >>>  	int cookie_preserve_enable;
+> >>>
+> >>>+	/* The namespace default hmac alg */
+> >>>+	char *sctp_hmac_alg;
+> >>>+
+> >>>  	/* Valid.Cookie.Life	    - 60  seconds  */
+> >>>  	unsigned int valid_cookie_life;
+> >>>
+> >>>diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+> >>>index d053d2e..c29707d 100644
+> >>>--- a/include/net/sctp/constants.h
+> >>>+++ b/include/net/sctp/constants.h
+> >>>@@ -312,14 +312,6 @@ enum { SCTP_MAX_GABS = 16 };
+> >>>  				 * functions simpler to write.
+> >>>  				 */
+> >>>
+> >>>-#if defined (CONFIG_SCTP_HMAC_MD5)
+> >>>-#define SCTP_COOKIE_HMAC_ALG "hmac(md5)"
+> >>>-#elif defined (CONFIG_SCTP_HMAC_SHA1)
+> >>>-#define SCTP_COOKIE_HMAC_ALG "hmac(sha1)"
+> >>>-#else
+> >>>-#define SCTP_COOKIE_HMAC_ALG NULL
+> >>>-#endif
+> >>>-
+> >>>  /* These return values describe the success or failure of a number of
+> >>>   * routines which form the lower interface to SCTP_outqueue.
+> >>>   */
+> >>>diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> >>>index 0fef00f..ce5f957 100644
+> >>>--- a/include/net/sctp/structs.h
+> >>>+++ b/include/net/sctp/structs.h
+> >>>@@ -177,6 +177,7 @@ struct sctp_sock {
+> >>>
+> >>>  	/* Access to HMAC transform. */
+> >>>  	struct crypto_hash *hmac;
+> >>>+	char *sctp_hmac_alg;
+> >>>
+> >>>  	/* What is our base endpointer? */
+> >>>  	struct sctp_endpoint *ep;
+> >>>diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+> >>>index 126b014..44ffd3e 100644
+> >>>--- a/net/sctp/Kconfig
+> >>>+++ b/net/sctp/Kconfig
+> >>>@@ -9,7 +9,6 @@ menuconfig IP_SCTP
+> >>>  	select CRYPTO
+> >>>  	select CRYPTO_HMAC
+> >>>  	select CRYPTO_SHA1
+> >>>-	select CRYPTO_MD5 if SCTP_HMAC_MD5
+> >>>  	select LIBCRC32C
+> >>>  	---help---
+> >>>  	  Stream Control Transmission Protocol
+> >>>@@ -68,33 +67,4 @@ config SCTP_DBG_OBJCNT
+> >>>
+> >>>  	  If unsure, say N
+> >>>
+> >>>-choice
+> >>>-	prompt "SCTP: Cookie HMAC Algorithm"
+> >>>-	default SCTP_HMAC_MD5
+> >>
+> >>Did you intend to change the default algorithm to SHA1?  Seems a bit
+> >>unintended and undocumented.
+> >>
+> >Thats not what I did (or at least not my intention).  The sctp_net_init code
+> >checks teh crypto options and if md5 is selcted as on, it uses that as a
+> >default, only if its not selected, does sha1 become the default.  In my testing
+> >this worked properly, and the sysctl for the init_net came up as md5, even
+> >though I had both md5 and sha1 configured.  Is there something else here I'm
+> >missing?
+> 
+> Yes, if you turn on MD5 in the config, it stays the default.
+> However, if you do a brand new config, MD5 may be disabled (if
+> nothing else in the config needs it) and then your default will
+> change seemingly unintentionally.  You always get SHA1 because it is
+> needed for SCTP AUTH.
+> 
+> >
+> >>Would it make more sense to to change from a choice to sub-menu and
+> >>allow selection of multiple algorithms?  Then use the interface you
+> >>have to change the default.
+> >>
+> >Not sure I follow.  You mean create a sub-menu allowing us to choose the default
+> >value at compile time, and allow overriding from there via sysctl? I'm fine with
+> >such a change, although given that everyone seems used to the idea of md5 being
+> >the default when configured, as well as the idea of needing to override default
+> >sysctl values, I'm not sure is necessecary.
+> >
+> >
+> >Let me know about the default, and if I'm on the same page as you regarding the
+> >config option, and I can repost this.
+> >
+> 
+> What I am not sure I like is that there is no longer any tie in
+> between the HMACs needed for cookie signing and the HMAC module
+> selections in SCTP.  You just happen to get lucky with SHA1 because
+> it is always there for AUTH.  Before, to disable cookie signing, it
+> was an explicit configuration choice to turn it off in the SCTP
+> section.  Now, it might be an unintended side-effect for not turning
+> on the right modules.
+> See what I am getting at?
+> 
+> A solution might be to have a sub-menu that allows you to turn on a set
+> of signing algorithms and may be even choose the default one.  This
+> way it's clear that there is a dependency relationship between SCTP
+> and signing algorithms.
+> 
+> -vlad
+> 
+Ah, I see, you would rather just there be a way to explicitly indicate what the
+default hmac_algorithm is, rather than have it be implicitly decided upon by the
+crypto options.  I can see the value there.  We can do something like what
+selinux does in its kconfig where we off a choice of cookie hmac options from a
+set of {none,md5,sha1} and set the default value based on that.  I'll reroll
+this in just a bit
 
-Additionally, this adds source address pruning to the ixgbevf
-driver to prune any frames sent back from a reflective relay on
-the switch. This is required because the existing hardware does
-not support this. Without it frames get pushed into the stack
-with its own src mac which is invalid per 802.1Qbg VEPA
-definition.
+Thanks!
+Neil
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   59 ++++++++++++++++++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |    3 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   10 ++++
- include/linux/rtnetlink.h                         |    3 +
- net/core/rtnetlink.c                              |   50 ++++++++++++++++++
- 5 files changed, 122 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 88d636a..9a88e01 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -44,6 +44,7 @@
- #include <linux/ethtool.h>
- #include <linux/if.h>
- #include <linux/if_vlan.h>
-+#include <linux/if_bridge.h>
- #include <linux/prefetch.h>
- #include <scsi/fc/fc_fcoe.h>
- 
-@@ -3224,7 +3225,6 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
- 	IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset ^ 1), reg_offset - 1);
- 	IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset), (~0) << vf_shift);
- 	IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset ^ 1), reg_offset - 1);
--	IXGBE_WRITE_REG(hw, IXGBE_PFDTXGSWC, IXGBE_PFDTXGSWC_VT_LBEN);
- 
- 	/* Map PF MAC address in RAR Entry 0 to first pool following VFs */
- 	hw->mac.ops.set_vmdq(hw, 0, VMDQ_P(0));
-@@ -3247,8 +3247,6 @@ static void ixgbe_configure_virtualization(struct ixgbe_adapter *adapter)
- 
- 	IXGBE_WRITE_REG(hw, IXGBE_GCR_EXT, gcr_ext);
- 
--	/* enable Tx loopback for VF/PF communication */
--	IXGBE_WRITE_REG(hw, IXGBE_PFDTXGSWC, IXGBE_PFDTXGSWC_VT_LBEN);
- 
- 	/* Enable MAC Anti-Spoofing */
- 	hw->mac.ops.set_mac_anti_spoofing(hw, (adapter->num_vfs != 0),
-@@ -7025,6 +7023,59 @@ static int ixgbe_ndo_fdb_dump(struct sk_buff *skb,
- 	return idx;
- }
- 
-+static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
-+				    struct nlmsghdr *nlh)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	struct nlattr *attr, *br_spec;
-+	int rem;
-+
-+	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
-+		return -EOPNOTSUPP;
-+
-+	br_spec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
-+
-+	nla_for_each_nested(attr, br_spec, rem) {
-+		__u16 mode;
-+		u32 reg = 0;
-+
-+		if (nla_type(attr) != IFLA_BRIDGE_MODE)
-+			continue;
-+
-+		mode = nla_get_u16(attr);
-+		if (mode == BRIDGE_MODE_VEPA)
-+			reg = 0;
-+		else if (mode == BRIDGE_MODE_VEB)
-+			reg = IXGBE_PFDTXGSWC_VT_LBEN;
-+		else
-+			return -EINVAL;
-+
-+		IXGBE_WRITE_REG(&adapter->hw, IXGBE_PFDTXGSWC, reg);
-+
-+		e_info(drv, "enabling bridge mode: %s\n",
-+			mode == BRIDGE_MODE_VEPA ? "VEPA" : "VEB");
-+	}
-+
-+	return 0;
-+}
-+
-+static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+				    struct net_device *dev)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	u16 mode;
-+
-+	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
-+		return 0;
-+
-+	if (IXGBE_READ_REG(&adapter->hw, IXGBE_PFDTXGSWC) & 1)
-+		mode = BRIDGE_MODE_VEB;
-+	else
-+		mode = BRIDGE_MODE_VEPA;
-+
-+	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
-+}
-+
- static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
-@@ -7064,6 +7115,8 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
- 	.ndo_fdb_del		= ixgbe_ndo_fdb_del,
- 	.ndo_fdb_dump		= ixgbe_ndo_fdb_dump,
-+	.ndo_bridge_setlink	= ixgbe_ndo_bridge_setlink,
-+	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
- };
- 
- /**
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 96876b7..7e3ac28 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -117,6 +117,9 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter,
- 		}
- 	}
- 
-+	/* Initialize default switching mode VEB */
-+	IXGBE_WRITE_REG(hw, IXGBE_PFDTXGSWC, IXGBE_PFDTXGSWC_VT_LBEN);
-+
- 	/* If call to enable VFs succeeded then allocate memory
- 	 * for per VF control structures.
- 	 */
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 07d7eab..ac6a76d 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -478,6 +478,16 @@ static bool ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 		}
- 		skb->protocol = eth_type_trans(skb, rx_ring->netdev);
- 
-+		/* Workaround hardware that can't do proper VEPA multicast
-+		 * source pruning.
-+		 */
-+		if ((skb->pkt_type & (PACKET_BROADCAST | PACKET_MULTICAST)) &&
-+		    !(compare_ether_addr(adapter->netdev->dev_addr,
-+					eth_hdr(skb)->h_source))) {
-+			dev_kfree_skb_irq(skb);
-+			goto next_desc;
-+		}
-+
- 		ixgbevf_receive_skb(q_vector, skb, staterr, rx_desc);
- 
- next_desc:
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 7002bbf..489dd7bb 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -69,4 +69,7 @@ extern int ndo_dflt_fdb_dump(struct sk_buff *skb,
- 			     struct netlink_callback *cb,
- 			     struct net_device *dev,
- 			     int idx);
-+
-+extern int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+				   struct net_device *dev, u16 mode);
- #endif	/* __LINUX_RTNETLINK_H */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 8d2af0f..51dc58f 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2252,6 +2252,56 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
-+int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+			    struct net_device *dev, u16 mode)
-+{
-+	struct nlmsghdr *nlh;
-+	struct ifinfomsg *ifm;
-+	struct nlattr *br_afspec;
-+	u8 operstate = netif_running(dev) ? dev->operstate : IF_OPER_DOWN;
-+
-+	nlh = nlmsg_put(skb, pid, seq, RTM_NEWLINK, sizeof(*ifm), NLM_F_MULTI);
-+	if (nlh == NULL)
-+		return -EMSGSIZE;
-+
-+	ifm = nlmsg_data(nlh);
-+	ifm->ifi_family = AF_BRIDGE;
-+	ifm->__ifi_pad = 0;
-+	ifm->ifi_type = dev->type;
-+	ifm->ifi_index = dev->ifindex;
-+	ifm->ifi_flags = dev_get_flags(dev);
-+	ifm->ifi_change = 0;
-+
-+
-+	if (nla_put_string(skb, IFLA_IFNAME, dev->name) ||
-+	    nla_put_u32(skb, IFLA_MTU, dev->mtu) ||
-+	    nla_put_u8(skb, IFLA_OPERSTATE, operstate) ||
-+	    (dev->master &&
-+	     nla_put_u32(skb, IFLA_MASTER, dev->master->ifindex)) ||
-+	    (dev->addr_len &&
-+	     nla_put(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr)) ||
-+	    (dev->ifindex != dev->iflink &&
-+	     nla_put_u32(skb, IFLA_LINK, dev->iflink)))
-+		goto nla_put_failure;
-+
-+	br_afspec = nla_nest_start(skb, IFLA_AF_SPEC);
-+	if (!br_afspec)
-+		goto nla_put_failure;
-+
-+	if (nla_put_u16(skb, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF) ||
-+	    nla_put_u16(skb, IFLA_BRIDGE_MODE, mode)) {
-+		nla_nest_cancel(skb, br_afspec);
-+		goto nla_put_failure;
-+	}
-+	nla_nest_end(skb, br_afspec);
-+
-+	return nlmsg_end(skb, nlh);
-+nla_put_failure:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
-+}
-+EXPORT_SYMBOL(ndo_dflt_bridge_getlink);
-+
- static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	struct net *net = sock_net(skb->sk);
+> >Thanks!
+> >Neil
+> >
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
