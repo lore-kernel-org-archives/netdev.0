@@ -1,80 +1,51 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] net: allow configuration of the size of page in
- __netdev_alloc_frag
-Date: Wed, 24 Oct 2012 17:22:19 +0100
-Message-ID: <1351095739.18035.83.camel@zakaz.uk.xensource.com>
-References: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
-	 <1351081703.6537.99.camel@edumazet-glaptop>
-	 <1351084618.18035.27.camel@zakaz.uk.xensource.com>
-	 <1351085403.6537.102.camel@edumazet-glaptop>
-	 <1351087326.18035.50.camel@zakaz.uk.xensource.com>
-	 <1351092068.6537.107.camel@edumazet-glaptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH for-3.7] vhost: fix mergeable bufs on BE hosts
+Date: Wed, 24 Oct 2012 18:24:38 +0200
+Message-ID: <20121024162437.GA10764@redhat.com>
+References: <20121015175534.GA19489@redhat.com>
+	<20121021124901.GA5315@redhat.com>
+	<20121021.192402.1010682456837361393.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:17989 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933634Ab2JXQWW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 12:22:22 -0400
-In-Reply-To: <1351092068.6537.107.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, stable@kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20121021.192402.1010682456837361393.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-10-24 at 16:21 +0100, Eric Dumazet wrote:
-> On Wed, 2012-10-24 at 15:02 +0100, Ian Campbell wrote:
-> > On Wed, 2012-10-24 at 14:30 +0100, Eric Dumazet wrote:
-> > > It seems to me its a driver issue, for example
-> > > drivers/net/xen-netfront.c has assumptions that can be easily fixed.
-> > 
-> > The netfront ->head thing is a separate (although perhaps related)
-> > issue, I intended to fix along the same lines as the previous netback
-> > except for some unfathomable reason I haven't been able to reproduce the
-> > problem with netfront -- I've no idea why though since it seems like it
-> > should be a no brainer!
-> > 
-> > > Why skb->head can be on order-1 or order-2 pages and this is working ?
-> > 
-> > skb->head being order 1 or 2 isn't working for me. The driver I'm having
-> > issues with which caused me to create this particular patch is the tg3
-> > driver (although I don't think this is by any means specific to tg3).
-> > 
-> > For the ->head the tg3 driver does:
-> >         mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
-> > while for the frags it does:
-> >         mapping = skb_frag_dma_map(&tp->pdev->dev, frag, 0, len, DMA_TO_DEVICE);
-> > 
-> > This ought to do the Right Thing but doesn't seem to be working. Konrad
-> > suspected an issue with the swiotlb's handling of order>0 pages in some
-> > cases. As I said in the commit message he is looking into this issue.
-> > 
-> > My concern however was that even once the swiotlb is fixed to work right
-> > the effect of pci_map_single on a order>0 page is going to be that the
-> > data gets bounced into contiguous memory -- that is a memcpy which would
-> > undo the benefit of having allocating large pages to start with. So I
-> > figured that in such cases we'd be better off just using order 0
-> > allocations to start with.
+On Sun, Oct 21, 2012 at 07:24:02PM -0400, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Sun, 21 Oct 2012 14:49:01 +0200
 > 
-> I am really confused.
+> > On Mon, Oct 15, 2012 at 07:55:34PM +0200, Michael S. Tsirkin wrote:
+> >> We copy head count to a 16 bit field,
+> >> this works by chance on LE but on BE
+> >> guest gets 0. Fix it up.
+> >> 
+> >> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> >> Tested-by: Alexander Graf <agraf@suse.de>
+> >> Cc: stable@kernel.org
+> > 
+> > Ping. Dave, could you apply this to -net please?
 > 
-> If you really have such problems, why locally generated TCP traffic
-> doesnt also have it ?
+> Pinging me but not cc:'ing me?  That's really strange.
+> 
+> What if I operate by just mass deleting things that I'm
+> not explicitly on the To: or CC: when I'm very backlogged?
 
-I think it does. The reason I noticed the original problem was that ssh
-to the machine was virtually (no pun intended) unusable.
+Yes, that was silly. Would you like me to repost the patch?
 
-> Your patch doesnt touch sk_page_frag_refill(), does it ?
-
-That's right. It doesn't. When is (sk->sk_allocation & __GFP_WAIT) true?
-Is it possible I'm just not hitting that case?
-
-Is it possible that this only affects certain traffic patterns (I only
-really tried ssh/scp and ping)? Or perhaps its just that the swiotlb is
-only broken in one corner case and not the other.
-
-Ian.
+-- 
+MST
