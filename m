@@ -1,77 +1,68 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: [PATCH] ixgbe: reduce PTP rx path overhead
-Date: Wed, 24 Oct 2012 17:17:26 +0200
-Message-ID: <1351091846-17677-1-git-send-email-jbenc@redhat.com>
-Cc: e1000-devel@lists.sourceforge.net,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Andy Gospodarek <gospo@redhat.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: allow configuration of the size of page in
+ __netdev_alloc_frag
+Date: Wed, 24 Oct 2012 17:21:08 +0200
+Message-ID: <1351092068.6537.107.camel@edumazet-glaptop>
+References: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
+	 <1351081703.6537.99.camel@edumazet-glaptop>
+	 <1351084618.18035.27.camel@zakaz.uk.xensource.com>
+	 <1351085403.6537.102.camel@edumazet-glaptop>
+	 <1351087326.18035.50.camel@zakaz.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40605 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933816Ab2JXPSk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Oct 2012 11:18:40 -0400
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:51472 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933750Ab2JXPVN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 11:21:13 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so316051bkc.19
+        for <netdev@vger.kernel.org>; Wed, 24 Oct 2012 08:21:12 -0700 (PDT)
+In-Reply-To: <1351087326.18035.50.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hw timestamping code caused performance regression in ixgbe driver when the
-timestamping is not enabled. The culprit is IXGBE_READ_REG call in the rx
-path which is executed for every received skb. This call is not needed when
-the timestamping is disabled or for non-ptp packets.
+On Wed, 2012-10-24 at 15:02 +0100, Ian Campbell wrote:
+> On Wed, 2012-10-24 at 14:30 +0100, Eric Dumazet wrote:
+> > It seems to me its a driver issue, for example
+> > drivers/net/xen-netfront.c has assumptions that can be easily fixed.
+> 
+> The netfront ->head thing is a separate (although perhaps related)
+> issue, I intended to fix along the same lines as the previous netback
+> except for some unfathomable reason I haven't been able to reproduce the
+> problem with netfront -- I've no idea why though since it seems like it
+> should be a no brainer!
+> 
+> > Why skb->head can be on order-1 or order-2 pages and this is working ?
+> 
+> skb->head being order 1 or 2 isn't working for me. The driver I'm having
+> issues with which caused me to create this particular patch is the tg3
+> driver (although I don't think this is by any means specific to tg3).
+> 
+> For the ->head the tg3 driver does:
+>         mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+> while for the frags it does:
+>         mapping = skb_frag_dma_map(&tp->pdev->dev, frag, 0, len, DMA_TO_DEVICE);
+> 
+> This ought to do the Right Thing but doesn't seem to be working. Konrad
+> suspected an issue with the swiotlb's handling of order>0 pages in some
+> cases. As I said in the commit message he is looking into this issue.
+> 
+> My concern however was that even once the swiotlb is fixed to work right
+> the effect of pci_map_single on a order>0 page is going to be that the
+> data gets bounced into contiguous memory -- that is a memcpy which would
+> undo the benefit of having allocating large pages to start with. So I
+> figured that in such cases we'd be better off just using order 0
+> allocations to start with.
 
-netperf results:
+I am really confused.
 
-The ixge side of the connection was acting as a server, the netperf command
-line on the other side was:
-netperf -H 192.168.1.23 -T0,0 -t UDP_STREAM -l 20
+If you really have such problems, why locally generated TCP traffic
+doesnt also have it ?
 
-The values below mean throughput as reported by netperf (local/remote), for
-3 runs, with timestamping not enabled.
-
-3.7.0-rc1+ with CONFIG_IXGBE_PTP off:
-5373.83 / 3329.32
-5721.88 / 3033.89
-5653.42 / 3112.38
-
-3.7.0-rc1+ with CONFIG_IXGBE_PTP on:
-5233.64 / 1226.85
-5448.67 / 1039.32
-5421.36 / 1095.66
-
-Patched 3.7.0-rc1+ with CONFIG_IXGBE_PTP on:
-5594.72 / 2942.53
-5428.95 / 3110.16
-5343.56 / 3200.48
-
-Reported-by: Jesper Brouer <jbrouer@redhat.com>
-Signed-off-by: Jiri Benc <jbenc@redhat.com>
-Signed-off-by: Andy Gospodarek <gospo@redhat.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index 5e71ddb..842ba15 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -554,12 +554,14 @@ void ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
- 	adapter = q_vector->adapter;
- 	hw = &adapter->hw;
- 
-+	if (likely(!ixgbe_ptp_match(skb, adapter->rx_hwtstamp_filter)))
-+		return;
-+
- 	tsyncrxctl = IXGBE_READ_REG(hw, IXGBE_TSYNCRXCTL);
- 
- 	/* Check if we have a valid timestamp and make sure the skb should
- 	 * have been timestamped */
--	if (likely(!(tsyncrxctl & IXGBE_TSYNCRXCTL_VALID) ||
--		   !ixgbe_ptp_match(skb, adapter->rx_hwtstamp_filter)))
-+	if (!(tsyncrxctl & IXGBE_TSYNCRXCTL_VALID))
- 		return;
- 
- 	/*
--- 
-1.7.6.5
+Your patch doesnt touch sk_page_frag_refill(), does it ?
