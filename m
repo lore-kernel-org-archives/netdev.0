@@ -1,48 +1,51 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: switching network namespace midway
-Date: Wed, 24 Oct 2012 17:21:16 -0400
-Message-ID: <20121024212116.GG15034@kvack.org>
-References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com> <878vavshhp.fsf@xmission.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [BUG] checkpatch.pl with commit
+ 058806007450489bb8f457b275e5cb5c946320c1
+Date: Wed, 24 Oct 2012 14:26:41 -0700
+Message-ID: <1351114001.7130.5.camel@joe-AO722>
+References: <1351076421.25066.14.camel@jtkirshe-mobl>
+	 <1351087936.18179.9.camel@joe-AO722>
+	 <1351111870.1917.4.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rsa <ravi.mlists@gmail.com>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:35028 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964884Ab2JXVVU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Oct 2012 17:21:20 -0400
-Content-Disposition: inline
-In-Reply-To: <878vavshhp.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: jeffrey.t.kirsher@intel.com,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351111870.1917.4.camel@jtkirshe-mobl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 24, 2012 at 02:11:14PM -0700, Eric W. Biederman wrote:
-> rsa <ravi.mlists@gmail.com> writes:
+On Wed, 2012-10-24 at 13:51 -0700, Jeff Kirsher wrote:
+> On Wed, 2012-10-24 at 07:12 -0700, Joe Perches wrote:
+> > On Wed, 2012-10-24 at 04:00 -0700, Jeff Kirsher wrote:
+> > > With the recent commit to checkpatch.pl:
+> > > 
+> > > commit 058806007450489bb8f457b275e5cb5c946320c1
+> > > Author: Joe Perches <joe@perches.com>
+> > > Date:   Thu Oct 4 17:13:35 2012 -0700
+> > > 
+> > >     checkpatch: check networking specific block comment style
+> > > 
+> > > We are seeing false positive warnings.  Here is an example of the
+> > > code the would generate a false warning:
+> > > 
+> > > #define foo	0x0000 /* foo comment */
+> > > 
+> > > checkpatch.pl generates a warnings that the */ should be on a separate
+> > > line, which in this case is incorrect.
+> > 
+> > Sorry 'bout that.  I believe it's fixed by:
+> > https://lkml.org/lkml/2012/10/14/267
+> > 
 > 
-> > Assuming I have a tunnel interface where two route lookups are done --
-> > one for innter
-> > packet and the other for outer -- do you see any issues in switching
-> > the network
-> > namespace prior to second route lookup (and restore to the original namespace
-> > after the second lookup is done)?
-> >
-> > If so, are there any other calls other than sk_change_net() needed?
-> 
-> In general sk_change_net is a bad idea.
-> 
-> Most likely what you want to do is simply memorize both struct net's
-> that you care about and perform the routing lookup as appropriate.
-> 
-> Certainly you don't want to be calling sk_change_net for every packet
-> that goes through your tunnel.
+> Yes, I confirm that the patch in the link you provided solves the issue
+> I was seeing.  Thanks, has the patch been accepted yet?  I see it is not
+> in Dave's NET tree as of yet.
 
-I've actually done this with L2TP.  The packets coming into the system from 
-the tunnel are received on one UDP socket in one "struct net", but the 
-decapsulated packets are received on a "struct net_device" that is in a 
-different "struct net".  No special coding is required -- just move the 
-tunnel's net_device into another namespace after creation and it works as 
-expected.  Using sk_change_net() would be full of races and is really not 
-required for the vast majority of use cases.
+Andrew Morton generally picks up my checkpatch twiddles.
+It's in -next as of next-20121024.
 
-		-ben
+commit db64ad0e6f55197bc3794bef007a25f2db4760fb
