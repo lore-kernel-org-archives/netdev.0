@@ -1,51 +1,36 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH] gianfar_ptp: use iomem, not ioports resource tree in probe
-Date: Wed, 24 Oct 2012 11:21:36 -0400
-Message-ID: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: Wei Yang <Wei.Yang@windriver.com>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Timur Tabi <timur@freescale.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next v2 0/5] Allow to monitor protocol configuration
+Date: Wed, 24 Oct 2012 18:02:54 +0200
+Message-ID: <1351094579-3911-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20121023.132940.1732325493436273627.davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:62979 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965198Ab2JXPVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 11:21:54 -0400
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35365 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757843Ab2JXPyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 11:54:38 -0400
+In-Reply-To: <20121023.132940.1732325493436273627.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yang <Wei.Yang@windriver.com>
+This patch serie aims to advertising via netlink any change in the network
+configuration of a protocol (network or transport). For example the announcement
+when ip forwarding parameter is toggled. 
 
-When using a 36 bit dtb file, the driver complains "resource busy".
+It adds a new kind of messages, RTM_NEWNETCONF/RTM_GETNETCONF.
 
-Investigating the source of the message leads one to the
-gianfar_ptp_probe function.
+The patch which adds the support of netconf messages in iproute2 will be sent
+when the feature will be included.  If someone is interested to get it before,
+just tell me!
 
-Since the type of the device resource requested in this function
-is IORESOURCE_MEM, it should use "iomem_resource" instead of
-"ioports_resource".
+v2: rename functions to be consistent
+    specify type of the attribute to notify when calling
+    inet[6]_netconf_notify_devconf(), goal is to notify only thinks that
+    changed.
+    add RTM_GETNETCONF support
 
-Signed-off-by: Wei Yang <Wei.Yang@windriver.com>
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
-Cc: Timur Tabi <timur@freescale.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- drivers/net/ethernet/freescale/gianfar_ptp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Comments are welcome.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
-index b9db0e0..2e5daee 100644
---- a/drivers/net/ethernet/freescale/gianfar_ptp.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
-@@ -478,7 +478,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
- 		pr_err("no resource\n");
- 		goto no_resource;
- 	}
--	if (request_resource(&ioport_resource, etsects->rsrc)) {
-+	if (request_resource(&iomem_resource, etsects->rsrc)) {
- 		pr_err("resource busy\n");
- 		goto no_resource;
- 	}
--- 
-1.7.11.1
+Regards,
+Nicolas
