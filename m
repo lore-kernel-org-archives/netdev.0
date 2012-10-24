@@ -1,107 +1,62 @@
-From: Jongman Heo <jongman.heo@samsung.com>
-Subject: Re: Re: [Pv-drivers] 3.7-rc2 regression : file copied to CIFS-mounted
- directory corrupted
-Date: Wed, 24 Oct 2012 02:53:10 +0000 (GMT)
-Message-ID: <22201304.84761351047189110.JavaMail.weblogic@epml04>
-Reply-To: jongman.heo@samsung.com
+From: "Western Union Transfer" <info@westernunion.com>
+Subject: Payment Sent!!
+Date: Wed, 24 Oct 2012 10:56:24 +0800
+Message-ID: <20121024023616.E56CF1F99DB@correo.fcctpdom.usmp.edu.pe>
+Reply-To: westernuniont12@yahoo.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "VMware, Inc." <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	=?utf-8?Q?=ED=97=88=EC=A2=85=EB=A7=8C?= <jongman.heo@samsung.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:48037 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754577Ab2JXCxM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 22:53:12 -0400
-Received: from epcpsbge7.samsung.com (epcpsbge7 [203.254.230.17])
- by mailout3.samsung.com
- (Oracle Communications Messaging Server 7u4-24.01(7.0.4.24.0) 64bit (built Nov
- 17 2011)) with ESMTP id <0MCD00EH3MOF18E0@mailout3.samsung.com> for
- netdev@vger.kernel.org; Wed, 24 Oct 2012 11:53:11 +0900 (KST)
-MIME-version: 1.0
+Received: from redaccionline.com ([207.218.180.67]:38428 "EHLO
+	correo.fcctpdom.usmp.edu.pe" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933960Ab2JXDTd convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 23 Oct 2012 23:19:33 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by correo.fcctpdom.usmp.edu.pe (Postfix) with ESMTP id E40721F9ABD
+	for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 21:52:58 -0500 (PET)
+Received: from correo.fcctpdom.usmp.edu.pe ([127.0.0.1])
+	by localhost (correo.fcctpdom.usmp.edu.pe [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id sbqMGLnLYWpo for <netdev@vger.kernel.org>;
+	Tue, 23 Oct 2012 21:52:58 -0500 (PET)
+Received: from [10.1.1.1] (unknown [180.74.102.36])
+	by correo.fcctpdom.usmp.edu.pe (Postfix) with ESMTPSA id E56CF1F99DB
+	for <netdev@vger.kernel.org>; Tue, 23 Oct 2012 21:36:16 -0500 (PET)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGksDQoNCi0tLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLS0tDQpTZW5kZXIgOiBFcmljIER1
-bWF6ZXQNCkRhdGUgOiAyMDEyLTEwLTI0IDA0OjM5IChHTVQrMDk6MDApDQpUaXRsZSA6IFJlOiBb
-UHYtZHJpdmVyc10gMy43LXJjMiByZWdyZXNzaW9uIDogZmlsZSBjb3BpZWQgdG8gQ0lGUy1tb3Vu
-dGVkIGRpcmVjdG9yeSBjb3JydXB0ZWQNCg0KT24gVHVlLCAyMDEyLTEwLTIzIGF0IDE1OjUwICsw
-MjAwLCBFcmljIER1bWF6ZXQgd3JvdGU6DQoNCj4gT25seSB0aGUgc2tiIGhlYWQgaXMgaGFuZGxl
-ZCBpbiB0aGUgY29kZSB5b3UgY29weS9wYXN0ZWQuDQo+IA0KPiBZb3UgbmVlZCB0byBnZW5lcmFs
-aXplIHRoYXQgdG8gY29kZSBpbiBsaW5lcyB+NzU0DQo+IA0KPiANCj4gVGhlbiwgdGhlIG51bWJl
-ciBvZiBlc3RpbWF0ZWQgZGVzY3JpcHRvcnMgaXMgYmFkIDoNCj4gDQo+IC8qIGNvbnNlcnZhdGl2
-ZWx5IGVzdGltYXRlICMgb2YgZGVzY3JpcHRvcnMgdG8gdXNlICovDQo+IGNvdW50ID0gVk1YTkVU
-M19UWERfTkVFREVEKHNrYl9oZWFkbGVuKHNrYikpICsNCj4gc2tiX3NoaW5mbyhza2IpLT5ucl9m
-cmFncyArIDE7DQo+IA0KPiANCj4gWWVzLCB5b3UgbmVlZCBhIG1vcmUgcHJlY2lzZSBlc3RpbWF0
-aW9uIGFuZCB2bXhuZXQzX21hcF9wa3QoKSBzaG91bGQNCj4gZXZlbnR1YWxseSBzcGxpdCB0b28g
-YmlnIGZyYWdzLg0KDQpyYXcgcGF0Y2ggd291bGQgYmUgOg0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvdm14bmV0My92bXhuZXQzX2Rydi5jIGIvZHJpdmVycy9uZXQvdm14bmV0My92bXhuZXQz
-X2Rydi5jDQppbmRleCBjZTlkNGYyLi4wYWUxYmNjIDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQv
-dm14bmV0My92bXhuZXQzX2Rydi5jDQorKysgYi9kcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNf
-ZHJ2LmMNCkBAIC03NDQsMjggKzc0NCw0MyBAQCB2bXhuZXQzX21hcF9wa3Qoc3RydWN0IHNrX2J1
-ZmYgKnNrYiwgc3RydWN0IHZteG5ldDNfdHhfY3R4ICpjdHgsDQoNCmZvciAoaSA9IDA7IGkgPCBz
-a2Jfc2hpbmZvKHNrYiktPm5yX2ZyYWdzOyBpKyspIHsNCmNvbnN0IHN0cnVjdCBza2JfZnJhZ19z
-dHJ1Y3QgKmZyYWcgPSAmc2tiX3NoaW5mbyhza2IpLT5mcmFnc1tpXTsNCisgdTMyIGJ1Zl9zaXpl
-Ow0KDQotIHRiaSA9IHRxLT5idWZfaW5mbyArIHRxLT50eF9yaW5nLm5leHQyZmlsbDsNCi0gdGJp
-LT5tYXBfdHlwZSA9IFZNWE5FVDNfTUFQX1BBR0U7DQotIHRiaS0+ZG1hX2FkZHIgPSBza2JfZnJh
-Z19kbWFfbWFwKCZhZGFwdGVyLT5wZGV2LT5kZXYsIGZyYWcsDQotIDAsIHNrYl9mcmFnX3NpemUo
-ZnJhZyksDQotIERNQV9UT19ERVZJQ0UpOw0KKyBidWZfb2Zmc2V0ID0gMDsNCisgbGVuID0gc2ti
-X2ZyYWdfc2l6ZShmcmFnKTsNCisgd2hpbGUgKGxlbikgew0KKyB0YmkgPSB0cS0+YnVmX2luZm8g
-KyB0cS0+dHhfcmluZy5uZXh0MmZpbGw7DQorIGlmIChsZW4gPCBWTVhORVQzX01BWF9UWF9CVUZf
-U0laRSkgew0KKyBidWZfc2l6ZSA9IGxlbjsNCisgZHcyIHw9IGxlbjsNCisgfSBlbHNlIHsNCisg
-YnVmX3NpemUgPSBWTVhORVQzX01BWF9UWF9CVUZfU0laRTsNCisgLyogc3BlYyBzYXlzIHRoYXQg
-Zm9yIFR4RGVzYy5sZW4sIDAgPT0gMl4xNCAqLw0KKyB9DQorIHRiaS0+bWFwX3R5cGUgPSBWTVhO
-RVQzX01BUF9QQUdFOw0KKyB0YmktPmRtYV9hZGRyID0gc2tiX2ZyYWdfZG1hX21hcCgmYWRhcHRl
-ci0+cGRldi0+ZGV2LCBmcmFnLA0KKyBidWZfb2Zmc2V0LCBidWZfc2l6ZSwNCisgRE1BX1RPX0RF
-VklDRSk7DQoNCi0gdGJpLT5sZW4gPSBza2JfZnJhZ19zaXplKGZyYWcpOw0KKyB0YmktPmxlbiA9
-IGJ1Zl9zaXplOw0KDQotIGdkZXNjID0gdHEtPnR4X3JpbmcuYmFzZSArIHRxLT50eF9yaW5nLm5l
-eHQyZmlsbDsNCi0gQlVHX09OKGdkZXNjLT50eGQuZ2VuID09IHRxLT50eF9yaW5nLmdlbik7DQor
-IGdkZXNjID0gdHEtPnR4X3JpbmcuYmFzZSArIHRxLT50eF9yaW5nLm5leHQyZmlsbDsNCisgQlVH
-X09OKGdkZXNjLT50eGQuZ2VuID09IHRxLT50eF9yaW5nLmdlbik7DQoNCi0gZ2Rlc2MtPnR4ZC5h
-ZGRyID0gY3B1X3RvX2xlNjQodGJpLT5kbWFfYWRkcik7DQotIGdkZXNjLT5kd29yZFsyXSA9IGNw
-dV90b19sZTMyKGR3MiB8IHNrYl9mcmFnX3NpemUoZnJhZykpOw0KLSBnZGVzYy0+ZHdvcmRbM10g
-PSAwOw0KKyBnZGVzYy0+dHhkLmFkZHIgPSBjcHVfdG9fbGU2NCh0YmktPmRtYV9hZGRyKTsNCisg
-Z2Rlc2MtPmR3b3JkWzJdID0gY3B1X3RvX2xlMzIoZHcyKTsNCisgZ2Rlc2MtPmR3b3JkWzNdID0g
-MDsNCg0KLSBkZXZfZGJnKCZhZGFwdGVyLT5uZXRkZXYtPmRldiwNCi0gInR4ZFsldV06IDB4JWxs
-dSAldSAldVxuIiwNCi0gdHEtPnR4X3JpbmcubmV4dDJmaWxsLCBsZTY0X3RvX2NwdShnZGVzYy0+
-dHhkLmFkZHIpLA0KLSBsZTMyX3RvX2NwdShnZGVzYy0+ZHdvcmRbMl0pLCBnZGVzYy0+ZHdvcmRb
-M10pOw0KLSB2bXhuZXQzX2NtZF9yaW5nX2Fkdl9uZXh0MmZpbGwoJnRxLT50eF9yaW5nKTsNCi0g
-ZHcyID0gdHEtPnR4X3JpbmcuZ2VuIDw8IFZNWE5FVDNfVFhEX0dFTl9TSElGVDsNCisgZGV2X2Ri
-ZygmYWRhcHRlci0+bmV0ZGV2LT5kZXYsDQorICJ0eGRbJXVdOiAweCVsbHUgJXUgJXVcbiIsDQor
-IHRxLT50eF9yaW5nLm5leHQyZmlsbCwgbGU2NF90b19jcHUoZ2Rlc2MtPnR4ZC5hZGRyKSwNCisg
-bGUzMl90b19jcHUoZ2Rlc2MtPmR3b3JkWzJdKSwgZ2Rlc2MtPmR3b3JkWzNdKTsNCisgdm14bmV0
-M19jbWRfcmluZ19hZHZfbmV4dDJmaWxsKCZ0cS0+dHhfcmluZyk7DQorIGR3MiA9IHRxLT50eF9y
-aW5nLmdlbiA8PCBWTVhORVQzX1RYRF9HRU5fU0hJRlQ7DQorDQorIGxlbiAtPSBidWZfc2l6ZTsN
-CisgYnVmX29mZnNldCArPSBidWZfc2l6ZTsNCisgfQ0KfQ0KDQpjdHgtPmVvcF90eGQgPSBnZGVz
-YzsNCkBAIC04ODYsNiArOTAxLDE4IEBAIHZteG5ldDNfcHJlcGFyZV90c28oc3RydWN0IHNrX2J1
-ZmYgKnNrYiwNCn0NCn0NCg0KK3N0YXRpYyBpbnQgdHhkX2VzdGltYXRlKGNvbnN0IHN0cnVjdCBz
-a19idWZmICpza2IpDQorew0KKyBpbnQgY291bnQgPSBWTVhORVQzX1RYRF9ORUVERUQoc2tiX2hl
-YWRsZW4oc2tiKSkgKyAxOw0KKyBpbnQgaTsNCisNCisgZm9yIChpID0gMDsgaSA8IHNrYl9zaGlu
-Zm8oc2tiKS0+bnJfZnJhZ3M7IGkrKykgew0KKyBjb25zdCBzdHJ1Y3Qgc2tiX2ZyYWdfc3RydWN0
-ICpmcmFnID0gJnNrYl9zaGluZm8oc2tiKS0+ZnJhZ3NbaV07DQorDQorIGNvdW50ICs9IFZNWE5F
-VDNfVFhEX05FRURFRChza2JfZnJhZ19zaXplKGZyYWcpKTsNCisgfQ0KKyByZXR1cm4gY291bnQ7
-DQorfQ0KDQovKg0KICAqIFRyYW5zbWl0cyBhIHBrdCB0aHJ1IGEgZ2l2ZW4gdHENCkBAIC05MTQs
-OSArOTQxLDcgQEAgdm14bmV0M190cV94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCB2
-bXhuZXQzX3R4X3F1ZXVlICp0cSwNCnVuaW9uIFZteG5ldDNfR2VuZXJpY0Rlc2MgdGVtcFR4RGVz
-YzsNCiNlbmRpZg0KDQotIC8qIGNvbnNlcnZhdGl2ZWx5IGVzdGltYXRlICMgb2YgZGVzY3JpcHRv
-cnMgdG8gdXNlICovDQotIGNvdW50ID0gVk1YTkVUM19UWERfTkVFREVEKHNrYl9oZWFkbGVuKHNr
-YikpICsNCi0gc2tiX3NoaW5mbyhza2IpLT5ucl9mcmFncyArIDE7DQorIGNvdW50ID0gdHhkX2Vz
-dGltYXRlKHNrYik7DQoNCmN0eC5pcHY0ID0gKHZsYW5fZ2V0X3Byb3RvY29sKHNrYikgPT0gY3B1
-X3RvX2JlMTYoRVRIX1BfSVApKTsNCg0KLS0tLS0tLSBPcmlnaW5hbCBNZXNzYWdlIEVuZCAtLS0t
-LS0tDQoNCkhpLCBFcmljLCANCnlvdXIgcmF3IHBhdGNoIHNlZW1lZCB0byBmaXggdGhlIGlzc3Vl
-LiBCdXQgYWZ0ZXIgfjIwMCBydW5zLCBjb3BpZWQgZmlsZSBoYXMgYmVlbiBjb3JydXB0ZWQgYWdh
-aW4uDQoNCiAjIGNtcCAtbCAvaG9tZS9sb2NhbC5iaW4gL21udC9jaWZzL25ldy5iaW4gfCBhd2sg
-J3twcmludGYgIiUwOFggJTAyWCAlMDJYXG4iLCAkMSwgc3RydG9udW0oMCQyKSwgc3RydG9udW0o
-MCQzKX0nID4gZGlmZi5sb2cNCg0KSSBjb21wYXJlZCB0aGUgZGlmZmVyZW5jZSBiZXR3ZWVuIHNv
-dXJjZSBhbmQgY29waWVkIGZpbGUuIFNpemUgb2YgZmlsZSBpcyA0NTg3MjczMiBieXRlcyAoPSAw
-eDJCQkY2NUMpLg0KQW1vbmcgdGhlbSwgNDA5NiAoMHgxMDAwKSBieXRlcyBhcmUgZGlmZmVyZW50
-LCBmcm9tIDB4MkI5NjAwMSB0byAweDJCOTcwMDAuIEluc3RlYWQgb2Ygb3JpZ2luYWwgZGF0YSwg
-MHgwMCB3YXMgY29waWVkIGluIHRob3NlIGFyZWEuDQoNCnBhdGNoIGFwcGxpZWQgb24gdG9wIG9m
-IDJkMWY0YzhlICgiTWVyZ2UgYnJhbmNoICdkcm0tZml4ZXMnIG9mIGdpdDovL3Blb3BsZS5mcmVl
-ZGVza3RvcC5vcmcvfmFpcmxpZWQvbGludXgiKS4NCg0KUmVnYXJkcywNCkpvbmdtYW4gSGVvLg0K
+We write to inform you that we have transferred $400,000 dollars.  depo=
+sited for transfer to you by one MR Bernard Harry from BLACKBERRY MOBIL=
+E COMPANY for transfer as a winning prize from the promotion lottery he=
+ld by the communication company to encourage usage and appreciate alrea=
+dy users of their product.
+=20
+ The money is available for pick up by receiver(you) to be cashed on da=
+ily installment of $10,000 for 40days. We tried calling to give you the=
+ information over the phone but we could not reach you so we decided to=
+ email you the information to pick up the first $10,000  already transf=
+erred to you. for you to be able to pick the first payment,
+You will have to pay $250 to get it re-activated in your name for you t=
+o start picking up your money because we de-activate the transaction fo=
+r security reason, by making the status to display pick up.
+=20
+=20
+Use this link to track the below information=20
+https://wumt.westernunion.com/asp/orderStatus.asp?country=3Dglobal
+=20
+ Sender's Fist name: Perry
+ Sender's Last Name: Poston
+ MTCN: 9429519950
+ Question: Who Is Great
+ Answer: God
+ Amount: $10,000.00USD
+=20
+ Thanks
+ Best Regards
+ Mr.Mcferrin Phoenix .
+ +60169162934
+ western union Office,
+ MALAYSIA OFFICE.
+ Western Union=AE Money Transfer
