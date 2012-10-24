@@ -1,87 +1,31 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] net: allow configuration of the size of page in
- __netdev_alloc_frag
-Date: Wed, 24 Oct 2012 14:16:58 +0100
-Message-ID: <1351084618.18035.27.camel@zakaz.uk.xensource.com>
-References: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
-	 <1351081703.6537.99.camel@edumazet-glaptop>
+From: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH RESEND net-next] bluetooth: hci_core: Replace
+ list_for_each with list_for_each_entry() helper
+Date: Wed, 24 Oct 2012 11:22:34 -0200
+Message-ID: <20121024132234.GG13884@joana>
+References: <1350912121-24171-1-git-send-email-kirjanov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:25706 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756460Ab2JXNRB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 09:17:01 -0400
-In-Reply-To: <1351081703.6537.99.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Denis Kirjanov <kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1350912121-24171-1-git-send-email-kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-10-24 at 13:28 +0100, Eric Dumazet wrote:
-> On Wed, 2012-10-24 at 12:42 +0100, Ian Campbell wrote:
-> > The commit 69b08f62e174 "net: use bigger pages in __netdev_alloc_frag"
-> > lead to 70%+ packet loss under Xen when transmitting from physical (as
-> > opposed to virtual) network devices.
-> > 
-> > This is because under Xen pages which are contiguous in the physical
-> > address space may not be contiguous in the DMA space, in fact it is
-> > very likely that they are not. I think there are other architectures
-> > where this is true, although perhaps non quite so aggressive as to
-> > have this property at a per-order-0-page granularity.
-> > 
-> > The real underlying bug here most likely lies in the swiotlb not
-> > correctly handling compound pages, and Konrad is investigating this.
-> > However even with the swiotlb issue fixed the current arrangement
-> > seems likely to result in a lot of bounce buffering which seems likely
-> > to more than offset any benefit from the use of larger pages.
-> > 
-> > Therefore make NETDEV_FRAG_PAGE_MAX_ORDER configurable at runtime and
-> > use this to request order-0 frags under Xen. Also expose this setting
-> > via sysctl.
-> > 
-> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> > Cc: Eric Dumazet <edumazet@google.com>
-> > Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > Cc: netdev@vger.kernel.org
-> > Cc: xen-devel@lists.xen.org
-> > ---
+Hi Denis,
+
+* Denis Kirjanov <kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [2012-10-22 17:22:01 +0400]:
+
+> Replace list_for_each with list_for_each_entry() helper
 > 
-> I understand your concern, but this seems a quick/dirty hack at this
-> moment. After setting the sysctl to 0, some tasks may still have some
-> order-3 pages in their cache.
+> Signed-off-by: Denis Kirjanov <kirjanov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  include/net/bluetooth/hci_core.h |   20 ++++++++------------
+>  1 files changed, 8 insertions(+), 12 deletions(-)
 
-Right, the sysctl thing might be overkill, I just figured it was useful
-for debugging. When booting in a Xen VM the patch sets it to zero very
-early on, during setup_arch(), which is before any tasks even exist.
+Patch has been applied to bluetooth-next. Thanks.
 
-> Your driver must already cope with skb->head being split on several
-> pages.
-> 
-> So what fundamental difference exists with frags ?
-
-The issue here is with drivers for physical network devices when running
-under Xen not with the Xen paravirtualised network drivers (AKA
-netback/netfront).
-
-The problem is that pages which are contiguous in the physical address
-space may not be contiguous in the DMA address space. With order>0 pages
-this becomes a problem when you poke down the DMA address and length of
-a compound page into the hardware registers. The DMA address will be
-right for the head of the page but once the hardware steps off the end
-of that it'll get the wrong page.
-
-I don't think this non-contiguousness between physical and DMA addresses
-is specific to Xen, although it is more frequent under Xen than any real
-hardware platform. (Xen has often been a good canary for these sorts of
-issues which turn out later on to impact other arches too.)
-
-In theory this could be fixed in all the drivers for physical network
-devices, but that would be a lot of effort (and probably a fair bit of
-ugliness in the drivers) for a gain which was only relevant to Xen. 
-
-Ian.
+	Gustavo
