@@ -1,107 +1,184 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Incorrect ARP behavior when multiple/none IPv4 address assigned
- to interface
-Date: Wed, 24 Oct 2012 03:15:01 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1210232317400.1780@ja.ssi.bg>
-References: <50867F51.3030500@mail.ru>
+From: Jonathan Nieder <jrnieder@gmail.com>
+Subject: [3.2.y] e1000: fix vlan processing regression
+Date: Tue, 23 Oct 2012 18:21:18 -0700
+Message-ID: <20121024012118.GA6898@elie.Belkin>
+References: <1332917548-13102-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1332917548-13102-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Sergey Popovich <popovich_sergei@mail.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	Andy Gospodarek <andy@greyhouse.net>, sassmann@redhat.com,
+	"Andrey Jr. Melnikov" <temnota@kmv.ru>, stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:48818 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751310Ab2JXAIo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 23 Oct 2012 20:08:44 -0400
-In-Reply-To: <50867F51.3030500@mail.ru>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:39967 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933768Ab2JXBV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 23 Oct 2012 21:21:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1332917548-13102-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Tue, 20 Mar 2012 18:10:01 +0000
 
-	Hello,
+commit 52f5509fe8ccb607ff9b84ad618f244262336475 upstream.
 
-On Tue, 23 Oct 2012, Sergey Popovich wrote:
+This patch fixes a regression introduced by commit "e1000: do vlan
+cleanup (799d531)".
 
-> Hello!
-> 
-> We have following setup:
-> ------------------------
-> 
->  PC1              |             |
->   ip: 10.0.1.2/24 |             | Linux Router (3.7-rc2)
->   gw: 10.0.1.1    |--------eth0-| Lo0: 10.10.10.10/32
->                                 | Lo255: 10.0.1.1/24
->  PC2              |--------eth1-|        10.0.2.1/24
->   ip: 10.0.1.3/24 |             | eth[0-2]: no ip address
->   gw: 10.0.1.1    |             | ip route 10.0.1.2/32 dev eth0 src 10.0.1.1
->                               +-| ip route 10.0.1.3/32 dev eth1 src 10.0.1.1
->                               | | ip route 10.0.2.2/32 dev eth2 src 10.0.2.1
->  PC3              |-----eth2--+
->   ip: 10.0.2.2/24 |
->   gw: 10.0.2.1    |
-> 
-> 
-> Problem with ARP Requests sent with incorrect source address (10.10.10.10
-> instead of 10.0.1.1):
-> 
-> # tcpdump -vv -ieth0 -s1500 -nnpe 'arp'
-> 13:28:57.395181 08:00:27:3b:63:ae > 0a:00:27:00:00:00, ethertype ARP (0x0806),
-> length 42: Ethernet (len 6),.
-> IPv4 (len 4), Request who-has 10.0.1.2 tell 10.10.10.10, length 28
+Apparently some e1000 chips (not mine) are sensitive about the order of
+setting vlan filter and vlan stripping/inserting functionality. So this
+patch changes the order so it's the same as before vlan cleanup.
 
-	What kind of packet triggers ARP request here?
-May be this IP packet already has saddr=10.10.10.10 ?
-arp_solicit() when eth0/arp_announce=0 (default) just
-ensures that this saddr is local. Or it is a forwarding
-case and inet_select_addr is used? Also, any reason to put
-addresses on loopback and not on eth0?
+Reported-by: Ben Greear <greearb@candelatech.com>
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Tested-by: Ben Greear <greearb@candelatech.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
+Tested-by: Andrey Jr. Melnikov <temnota@kmv.ru>
+---
+Hi Dave,
 
-> 13:28:58.395257 08:00:27:3b:63:ae > 0a:00:27:00:00:00, ethertype ARP (0x0806),
-> length 42: Ethernet (len 6),.
-> IPv4 (len 4), Request who-has 10.0.1.2 tell 10.10.10.10, length 28
-> 13:28:59.395207 08:00:27:3b:63:ae > 0a:00:27:00:00:00, ethertype ARP (0x0806),
-> length 42: Ethernet (len 6),.
-> IPv4 (len 4), Request who-has 10.0.1.2 tell 10.10.10.10, length 28
-> 13:29:01.393739 08:00:27:3b:63:ae > ff:ff:ff:ff:ff:ff, ethertype ARP (0x0806),
-> length 42: Ethernet (len 6),.
-> IPv4 (len 4), Request who-has 10.0.1.2 tell 10.0.1.1, length 28
-> 13:29:01.393862 0a:00:27:00:00:00 > 08:00:27:3b:63:ae, ethertype ARP (0x0806),
-> length 60: Ethernet (len 6),.
-> IPv4 (len 4), Reply 10.0.1.2 is-at 0a:00:27:00:00:00, length 46
-> 
-> Detailed information about this (and other, that triggers same case with ARP)
-> network topology usage in real world
-> can be found at https://bugzilla.kernel.org/show_bug.cgi?id=49311
+Would
 
-	Your case 2 can be also solved with proper ordering of
-the primaries, eg. first add /32 primaries, then /31, ... /25, /24.
-You can also use decreasing scope for the addresses if global
-scope is not needed for them, it can help for the ordering.
+ 52f5509fe8cc e1000: fix vlan processing regression, 2012-03-20
 
-	For the proposed patch: providing iph->saddr to
-inet_select_addr() in icmp_send() looks better than before.
-Still, inet_select_addr() is incorrect function to use
-from icmp_send(), there is the risk to expose scope link
-addresses.
+be ok for 3.2.y?
 
-	The other part from patch in inet_select_addr() looks
-correct to me but comes with some price for the arp_solicit()
-and icmp_send() cases, a slowdown that may not be liked by
-others.
+It doesn't apply cleanly to kernels before v3.3-rc1~182^2~581 (net:
+introduce and use netdev_features_t for device features sets) but a
+backport is straightforward.  The patch is already in 3.3.y as
+v3.3.6~52 (2012-05-12).  3.0.y doesn't need this because it doesn't
+have 799d531.
 
-	About fib_info_update_nh_saddr: same fib_info can
-be used for different subnets, so we can not check the
-destination. But routes to directly connected hosts
-usually come with prefsrc (proto kernel), so it is not a
-problem.
+Andrey (cc-ed) tested[1] this patch against a 3.2.23-based kernel and
+found it to work ok.
 
-> Sorry for early bug report.
-> 
-> -- 
-> SP5474-RIPE
-> Sergey Popovich
+Thoughts of all kinds welcome, as always.
 
-Regards
+Thanks,
+Jonathan
 
---
-Julian Anastasov <ja@ssi.bg>
+[1] http://bugs.debian.org/690956
+
+ drivers/net/ethernet/intel/e1000/e1000_main.c | 76 +++++++++++++++------------
+ 1 file changed, 42 insertions(+), 34 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index c5f6b0e60c39..6546191a5951 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -168,6 +168,8 @@ static int e1000_82547_fifo_workaround(struct e1000_adapter *adapter,
+ 
+ static bool e1000_vlan_used(struct e1000_adapter *adapter);
+ static void e1000_vlan_mode(struct net_device *netdev, u32 features);
++static void e1000_vlan_filter_on_off(struct e1000_adapter *adapter,
++				     bool filter_on);
+ static void e1000_vlan_rx_add_vid(struct net_device *netdev, u16 vid);
+ static void e1000_vlan_rx_kill_vid(struct net_device *netdev, u16 vid);
+ static void e1000_restore_vlan(struct e1000_adapter *adapter);
+@@ -1219,7 +1221,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		goto err_register;
+ 
+-	e1000_vlan_mode(netdev, netdev->features);
++	e1000_vlan_filter_on_off(adapter, false);
+ 
+ 	/* print bus type/speed/width info */
+ 	e_info(probe, "(PCI%s:%dMHz:%d-bit) %pM\n",
+@@ -4553,43 +4555,11 @@ static bool e1000_vlan_used(struct e1000_adapter *adapter)
+ 	return false;
+ }
+ 
+-static void e1000_vlan_filter_on_off(struct e1000_adapter *adapter,
+-				     bool filter_on)
++static void __e1000_vlan_mode(struct e1000_adapter *adapter, u32 features)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u32 rctl;
+-
+-	if (!test_bit(__E1000_DOWN, &adapter->flags))
+-		e1000_irq_disable(adapter);
+-
+-	if (filter_on) {
+-		/* enable VLAN receive filtering */
+-		rctl = er32(RCTL);
+-		rctl &= ~E1000_RCTL_CFIEN;
+-		if (!(adapter->netdev->flags & IFF_PROMISC))
+-			rctl |= E1000_RCTL_VFE;
+-		ew32(RCTL, rctl);
+-		e1000_update_mng_vlan(adapter);
+-	} else {
+-		/* disable VLAN receive filtering */
+-		rctl = er32(RCTL);
+-		rctl &= ~E1000_RCTL_VFE;
+-		ew32(RCTL, rctl);
+-	}
+-
+-	if (!test_bit(__E1000_DOWN, &adapter->flags))
+-		e1000_irq_enable(adapter);
+-}
+-
+-static void e1000_vlan_mode(struct net_device *netdev, u32 features)
+-{
+-	struct e1000_adapter *adapter = netdev_priv(netdev);
+-	struct e1000_hw *hw = &adapter->hw;
+ 	u32 ctrl;
+ 
+-	if (!test_bit(__E1000_DOWN, &adapter->flags))
+-		e1000_irq_disable(adapter);
+-
+ 	ctrl = er32(CTRL);
+ 	if (features & NETIF_F_HW_VLAN_RX) {
+ 		/* enable VLAN tag insert/strip */
+@@ -4599,6 +4569,44 @@ static void e1000_vlan_mode(struct net_device *netdev, u32 features)
+ 		ctrl &= ~E1000_CTRL_VME;
+ 	}
+ 	ew32(CTRL, ctrl);
++}
++static void e1000_vlan_filter_on_off(struct e1000_adapter *adapter,
++				     bool filter_on)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	u32 rctl;
++
++	if (!test_bit(__E1000_DOWN, &adapter->flags))
++		e1000_irq_disable(adapter);
++
++	__e1000_vlan_mode(adapter, adapter->netdev->features);
++	if (filter_on) {
++		/* enable VLAN receive filtering */
++		rctl = er32(RCTL);
++		rctl &= ~E1000_RCTL_CFIEN;
++		if (!(adapter->netdev->flags & IFF_PROMISC))
++			rctl |= E1000_RCTL_VFE;
++		ew32(RCTL, rctl);
++		e1000_update_mng_vlan(adapter);
++	} else {
++		/* disable VLAN receive filtering */
++		rctl = er32(RCTL);
++		rctl &= ~E1000_RCTL_VFE;
++		ew32(RCTL, rctl);
++	}
++
++	if (!test_bit(__E1000_DOWN, &adapter->flags))
++		e1000_irq_enable(adapter);
++}
++
++static void e1000_vlan_mode(struct net_device *netdev, u32 features)
++{
++	struct e1000_adapter *adapter = netdev_priv(netdev);
++
++	if (!test_bit(__E1000_DOWN, &adapter->flags))
++		e1000_irq_disable(adapter);
++
++	__e1000_vlan_mode(adapter, features);
+ 
+ 	if (!test_bit(__E1000_DOWN, &adapter->flags))
+ 		e1000_irq_enable(adapter);
+-- 
+1.8.0.rc2
