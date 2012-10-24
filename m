@@ -1,46 +1,74 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] gianfar_ptp: use iomem, not ioports resource tree in
- probe
-Date: Wed, 24 Oct 2012 22:50:02 +0200
-Message-ID: <20121024205002.GB2732@netboy.at.omicron.at>
-References: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com>
- <6AE080B68D46FC4BA2D2769E68D765B70810B134@039-SN2MPN1-023.039d.mgd.msft.net>
- <50883D03.1000600@windriver.com>
- <50883DB7.4030502@freescale.com>
- <20121024194207.GA2732@netboy.at.omicron.at>
- <50884B5D.9030009@freescale.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [BUG] checkpatch.pl with commit
+ 058806007450489bb8f457b275e5cb5c946320c1
+Date: Wed, 24 Oct 2012 13:51:10 -0700
+Message-ID: <1351111870.1917.4.camel@jtkirshe-mobl>
+References: <1351076421.25066.14.camel@jtkirshe-mobl>
+	 <1351087936.18179.9.camel@joe-AO722>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Wei Yang <Wei.Yang@windriver.com>,
-	Manoil Claudiu-B08782 <B08782@freescale.com>
-To: Timur Tabi <timur@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:54418 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751754Ab2JXUuP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 16:50:15 -0400
-Received: by mail-wi0-f172.google.com with SMTP id hq12so5289131wib.1
-        for <netdev@vger.kernel.org>; Wed, 24 Oct 2012 13:50:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <50884B5D.9030009@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-fls861xKKLRc5f/KmKZV"
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351087936.18179.9.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 24, 2012 at 03:11:09PM -0500, Timur Tabi wrote:
-> Richard Cochran wrote:
-> >> > Oh, I agree with that.  I was just wondering why an OF-enabled driver
-> >> > would not use OF calls.  I've never seen that before.  My instinct is that
-> >> > the original developer had no idea what he was doing, but perhaps there is
-> >> > a very good reason for the way the driver is written.
-> 
-> > Instead of using your instinct, try using your brain instead.
-> 
-> Well, as you are obviously so much smarter than I am, how about
-> enlightening me?  I do not see any explanations in the original commit,
-> and I do not know why someone would use non-OF calls to get data from the
-> device tree.  I didn't even know that you could use platform_get_irq() to
-> get the virtual IRQ from a device tree.
 
-And now you know.
+--=-fls861xKKLRc5f/KmKZV
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2012-10-24 at 07:12 -0700, Joe Perches wrote:
+> On Wed, 2012-10-24 at 04:00 -0700, Jeff Kirsher wrote:
+> > With the recent commit to checkpatch.pl:
+> >=20
+> > commit 058806007450489bb8f457b275e5cb5c946320c1
+> > Author: Joe Perches <joe@perches.com>
+> > Date:   Thu Oct 4 17:13:35 2012 -0700
+> >=20
+> >     checkpatch: check networking specific block comment style
+> >=20
+> > We are seeing false positive warnings.  Here is an example of the
+> > code the would generate a false warning:
+> >=20
+> > #define foo	0x0000 /* foo comment */
+> >=20
+> > checkpatch.pl generates a warnings that the */ should be on a separate
+> > line, which in this case is incorrect.
+>=20
+> Sorry 'bout that.  I believe it's fixed by:
+> https://lkml.org/lkml/2012/10/14/267
+>=20
+
+Yes, I confirm that the patch in the link you provided solves the issue
+I was seeing.  Thanks, has the patch been accepted yet?  I see it is not
+in Dave's NET tree as of yet.
+
+--=-fls861xKKLRc5f/KmKZV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJQiFS+AAoJEOVv75VaS+3OduYP/3Oy30QZVmNq4ubv0qvjtRkJ
+enOM/tbOMxEGcUMMaQ+PHoOKYSOhtC4Kwnvnol51aoutdghRMo51Lc+jnEzoa4WC
+SpOfmMPnEOtegjF9RsNQPoGs3OIWaCW2uELI7UOGc4Cup7EkOX4eoBq34AONm83r
+y+r3sHJZMIA96Gl1a+8P95wWIbYGjZOAlyTVLmt5NgjwQ97xj0rLEKEICGFIZqfB
+DtuOOX8ip6jn9FVUxlbo6ywtAZ/8JEzrO1IQ1UcU48a0qcRRkNAgk0CfJy7JUmz8
+ftA8LgaeHrmo7a9MSmxh24QnWvjV4kmKRfq69I6N7bJLrqzRfGNz8NDqf09XjFrZ
+ahgO4Kr4T+bpiYGVBPwF5umpTnbZSSBpKGAbzKqvimAWzDfF1L6C45/IP67wLM3M
+LpRfIU4jrT08YT1S5sYmpP1G8UG2xDvOFA1EC/brBVMY9tCrVwsvPKNVjQ7bmPem
+J/gagM1J5q3vFziRpnYwo4yxVgJQ6Jd7B+sVpVpD26l+pzPxqwYXx0W7+iw5w6j/
+Z+EiEpjPx5Bgeq2cTPv30zYkcPhAnCvueVe0xRnuo/Bi7l/Xx5VGiOJd3y5AkIMS
+V4OkwzDuc7sX3C+3fwSfnhvFSKkdq8xk3EQb7iVINZvagq/+tXPVCl0D5Cn4U2td
+b9PvgMDWK8i1W5pmWrcc
+=oiB4
+-----END PGP SIGNATURE-----
+
+--=-fls861xKKLRc5f/KmKZV--
