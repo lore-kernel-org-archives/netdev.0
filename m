@@ -1,36 +1,75 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next v2 0/5] Allow to monitor protocol configuration
-Date: Wed, 24 Oct 2012 18:02:54 +0200
-Message-ID: <1351094579-3911-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next v2 1/5] rtnl: add a new type of msg to advertise protocol configuration
+Date: Wed, 24 Oct 2012 18:02:55 +0200
+Message-ID: <1351094579-3911-2-git-send-email-nicolas.dichtel@6wind.com>
 References: <20121023.132940.1732325493436273627.davem@davemloft.net>
-Cc: netdev@vger.kernel.org
+ <1351094579-3911-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35365 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35369 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757843Ab2JXPyi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 11:54:38 -0400
-In-Reply-To: <20121023.132940.1732325493436273627.davem@davemloft.net>
+	with ESMTP id S1757599Ab2JXPyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 11:54:45 -0400
+In-Reply-To: <1351094579-3911-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch serie aims to advertising via netlink any change in the network
-configuration of a protocol (network or transport). For example the announcement
-when ip forwarding parameter is toggled. 
+A new type is added to allow userland to monitor protocol configuration, like
+IPv4 or IPv6.
+For example, monitoring the state of the forwarding status of an interface of
+the system.
 
-It adds a new kind of messages, RTM_NEWNETCONF/RTM_GETNETCONF.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/uapi/linux/netconf.h   | 22 ++++++++++++++++++++++
+ include/uapi/linux/rtnetlink.h |  5 +++++
+ 2 files changed, 27 insertions(+)
+ create mode 100644 include/uapi/linux/netconf.h
 
-The patch which adds the support of netconf messages in iproute2 will be sent
-when the feature will be included.  If someone is interested to get it before,
-just tell me!
-
-v2: rename functions to be consistent
-    specify type of the attribute to notify when calling
-    inet[6]_netconf_notify_devconf(), goal is to notify only thinks that
-    changed.
-    add RTM_GETNETCONF support
-
-Comments are welcome.
-
-Regards,
-Nicolas
+diff --git a/include/uapi/linux/netconf.h b/include/uapi/linux/netconf.h
+new file mode 100644
+index 0000000..d051372
+--- /dev/null
++++ b/include/uapi/linux/netconf.h
+@@ -0,0 +1,22 @@
++#ifndef _UAPI_LINUX_NETCONF_H_
++#define _UAPI_LINUX_NETCONF_H_
++
++#include <linux/types.h>
++#include <linux/netlink.h>
++
++struct netconfmsg {
++	__u8	ncm_family;
++};
++
++enum {
++	NETCONFA_UNSPEC,
++	NETCONFA_IFINDEX,
++	NETCONFA_FORWARDING,
++	__NETCONFA_MAX
++};
++#define NETCONFA_MAX	(__NETCONFA_MAX - 1)
++
++#define NETCONFA_IFINDEX_ALL		-1
++#define NETCONFA_IFINDEX_DEFAULT	-2
++
++#endif /* _UAPI_LINUX_NETCONF_H_ */
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index fcd768b..0043b41 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -120,6 +120,11 @@ enum {
+ 	RTM_SETDCB,
+ #define RTM_SETDCB RTM_SETDCB
+ 
++	RTM_NEWNETCONF = 80,
++#define RTM_NEWNETCONF RTM_NEWNETCONF
++	RTM_GETNETCONF = 82,
++#define RTM_GETNETCONF RTM_GETNETCONF
++
+ 	__RTM_MAX,
+ #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
+ };
+-- 
+1.7.12
