@@ -1,192 +1,80 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] Make hmac algorithm selection for cookie generation dynamic
-Date: Wed, 24 Oct 2012 12:17:48 -0400
-Message-ID: <508814AC.8030005@gmail.com>
-References: <1350661926-8312-1-git-send-email-nhorman@tuxdriver.com> <5087FBE0.1020005@gmail.com> <20121024160157.GA26433@hmsreliant.think-freely.org>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH] net: allow configuration of the size of page in
+ __netdev_alloc_frag
+Date: Wed, 24 Oct 2012 17:22:19 +0100
+Message-ID: <1351095739.18035.83.camel@zakaz.uk.xensource.com>
+References: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
+	 <1351081703.6537.99.camel@edumazet-glaptop>
+	 <1351084618.18035.27.camel@zakaz.uk.xensource.com>
+	 <1351085403.6537.102.camel@edumazet-glaptop>
+	 <1351087326.18035.50.camel@zakaz.uk.xensource.com>
+	 <1351092068.6537.107.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:61536 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757394Ab2JXQRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 12:17:52 -0400
-In-Reply-To: <20121024160157.GA26433@hmsreliant.think-freely.org>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:17989 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933634Ab2JXQWW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 12:22:22 -0400
+In-Reply-To: <1351092068.6537.107.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/24/2012 12:01 PM, Neil Horman wrote:
-> On Wed, Oct 24, 2012 at 10:32:00AM -0400, Vlad Yasevich wrote:
->> On 10/19/2012 11:52 AM, Neil Horman wrote:
->>> Currently sctp allows for the optional use of md5 of sha1 hmac algorithms to
->>> generate cookie values when establishing new connections via two build time
->>> config options.  Theres no real reason to make this a static selection.  We can
->>> add a sysctl that allows for the dynamic selection of these algorithms at run
->>> time, with the default value determined by the corresponding crypto library
->>> config options.  It saves us two needless configuration settings and enables the
->>> freedom for administrators to select which algorithm a particular system uses.
->>> This comes in handy when, for example running a system in FIPS mode, where use
->>> of md5 is disallowed, but SHA1 is permitted.
->>>
->>> Note: This new sysctl has no corresponding socket option to select the cookie
->>> hmac algorithm.  I chose not to implement that intentionally, as RFC 6458
->>> contains no option for this value, and I opted not to pollute the socket option
->>> namespace.
->>>
->>> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->>> CC: Vlad Yasevich <vyasevich@gmail.com>
->>> CC: "David S. Miller" <davem@davemloft.net>
->>> CC: netdev@vger.kernel.org
->>> ---
->>>   Documentation/networking/ip-sysctl.txt | 14 ++++++++
->>>   include/net/netns/sctp.h               |  3 ++
->>>   include/net/sctp/constants.h           |  8 -----
->>>   include/net/sctp/structs.h             |  1 +
->>>   net/sctp/Kconfig                       | 30 -----------------
->>>   net/sctp/protocol.c                    |  9 ++++++
->>>   net/sctp/socket.c                      | 11 ++++---
->>>   net/sctp/sysctl.c                      | 59 ++++++++++++++++++++++++++++++++++
->>>   8 files changed, 93 insertions(+), 42 deletions(-)
->>>
->>> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
->>> index c7fc107..98ac0d7 100644
->>> --- a/Documentation/networking/ip-sysctl.txt
->>> +++ b/Documentation/networking/ip-sysctl.txt
->>> @@ -1514,6 +1514,20 @@ cookie_preserve_enable - BOOLEAN
->>>
->>>   	Default: 1
->>>
->>> +cookie_hmac_alg - STRING
->>> +	Select the hmac algorithm used when generating the cookie value sent by
->>> +	a listening sctp socket to a connecting client in the INIT-ACK chunk.
->>> +	Valid values are:
->>> +	* md5
->>> +	* sha1
->>> +	* none
->>> +	Ability to assign md5 or sha1 as the selected alg is predicated on the
->>> +	configuarion of those algorithms at build time (CONFIG_CRYPTO_MD5 and
->>> +	CONFIG_CRYPTO_SHA1).
->>> +
->>> +	Default: Dependent on configuration.  MD5 if available, else SHA1 if
->>> +	available, else none.
->>> +
->>>   rcvbuf_policy - INTEGER
->>>   	Determines if the receive buffer is attributed to the socket or to
->>>   	association.   SCTP supports the capability to create multiple
->>> diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
->>> index 5e5eb1f..3573a81 100644
->>> --- a/include/net/netns/sctp.h
->>> +++ b/include/net/netns/sctp.h
->>> @@ -62,6 +62,9 @@ struct netns_sctp {
->>>   	/* Whether Cookie Preservative is enabled(1) or not(0) */
->>>   	int cookie_preserve_enable;
->>>
->>> +	/* The namespace default hmac alg */
->>> +	char *sctp_hmac_alg;
->>> +
->>>   	/* Valid.Cookie.Life	    - 60  seconds  */
->>>   	unsigned int valid_cookie_life;
->>>
->>> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
->>> index d053d2e..c29707d 100644
->>> --- a/include/net/sctp/constants.h
->>> +++ b/include/net/sctp/constants.h
->>> @@ -312,14 +312,6 @@ enum { SCTP_MAX_GABS = 16 };
->>>   				 * functions simpler to write.
->>>   				 */
->>>
->>> -#if defined (CONFIG_SCTP_HMAC_MD5)
->>> -#define SCTP_COOKIE_HMAC_ALG "hmac(md5)"
->>> -#elif defined (CONFIG_SCTP_HMAC_SHA1)
->>> -#define SCTP_COOKIE_HMAC_ALG "hmac(sha1)"
->>> -#else
->>> -#define SCTP_COOKIE_HMAC_ALG NULL
->>> -#endif
->>> -
->>>   /* These return values describe the success or failure of a number of
->>>    * routines which form the lower interface to SCTP_outqueue.
->>>    */
->>> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
->>> index 0fef00f..ce5f957 100644
->>> --- a/include/net/sctp/structs.h
->>> +++ b/include/net/sctp/structs.h
->>> @@ -177,6 +177,7 @@ struct sctp_sock {
->>>
->>>   	/* Access to HMAC transform. */
->>>   	struct crypto_hash *hmac;
->>> +	char *sctp_hmac_alg;
->>>
->>>   	/* What is our base endpointer? */
->>>   	struct sctp_endpoint *ep;
->>> diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
->>> index 126b014..44ffd3e 100644
->>> --- a/net/sctp/Kconfig
->>> +++ b/net/sctp/Kconfig
->>> @@ -9,7 +9,6 @@ menuconfig IP_SCTP
->>>   	select CRYPTO
->>>   	select CRYPTO_HMAC
->>>   	select CRYPTO_SHA1
->>> -	select CRYPTO_MD5 if SCTP_HMAC_MD5
->>>   	select LIBCRC32C
->>>   	---help---
->>>   	  Stream Control Transmission Protocol
->>> @@ -68,33 +67,4 @@ config SCTP_DBG_OBJCNT
->>>
->>>   	  If unsure, say N
->>>
->>> -choice
->>> -	prompt "SCTP: Cookie HMAC Algorithm"
->>> -	default SCTP_HMAC_MD5
->>
->> Did you intend to change the default algorithm to SHA1?  Seems a bit
->> unintended and undocumented.
->>
-> Thats not what I did (or at least not my intention).  The sctp_net_init code
-> checks teh crypto options and if md5 is selcted as on, it uses that as a
-> default, only if its not selected, does sha1 become the default.  In my testing
-> this worked properly, and the sysctl for the init_net came up as md5, even
-> though I had both md5 and sha1 configured.  Is there something else here I'm
-> missing?
+On Wed, 2012-10-24 at 16:21 +0100, Eric Dumazet wrote:
+> On Wed, 2012-10-24 at 15:02 +0100, Ian Campbell wrote:
+> > On Wed, 2012-10-24 at 14:30 +0100, Eric Dumazet wrote:
+> > > It seems to me its a driver issue, for example
+> > > drivers/net/xen-netfront.c has assumptions that can be easily fixed.
+> > 
+> > The netfront ->head thing is a separate (although perhaps related)
+> > issue, I intended to fix along the same lines as the previous netback
+> > except for some unfathomable reason I haven't been able to reproduce the
+> > problem with netfront -- I've no idea why though since it seems like it
+> > should be a no brainer!
+> > 
+> > > Why skb->head can be on order-1 or order-2 pages and this is working ?
+> > 
+> > skb->head being order 1 or 2 isn't working for me. The driver I'm having
+> > issues with which caused me to create this particular patch is the tg3
+> > driver (although I don't think this is by any means specific to tg3).
+> > 
+> > For the ->head the tg3 driver does:
+> >         mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+> > while for the frags it does:
+> >         mapping = skb_frag_dma_map(&tp->pdev->dev, frag, 0, len, DMA_TO_DEVICE);
+> > 
+> > This ought to do the Right Thing but doesn't seem to be working. Konrad
+> > suspected an issue with the swiotlb's handling of order>0 pages in some
+> > cases. As I said in the commit message he is looking into this issue.
+> > 
+> > My concern however was that even once the swiotlb is fixed to work right
+> > the effect of pci_map_single on a order>0 page is going to be that the
+> > data gets bounced into contiguous memory -- that is a memcpy which would
+> > undo the benefit of having allocating large pages to start with. So I
+> > figured that in such cases we'd be better off just using order 0
+> > allocations to start with.
+> 
+> I am really confused.
+> 
+> If you really have such problems, why locally generated TCP traffic
+> doesnt also have it ?
 
-Yes, if you turn on MD5 in the config, it stays the default.  However, 
-if you do a brand new config, MD5 may be disabled (if nothing else in 
-the config needs it) and then your default will change seemingly 
-unintentionally.  You always get SHA1 because it is needed for SCTP AUTH.
+I think it does. The reason I noticed the original problem was that ssh
+to the machine was virtually (no pun intended) unusable.
 
->
->> Would it make more sense to to change from a choice to sub-menu and
->> allow selection of multiple algorithms?  Then use the interface you
->> have to change the default.
->>
-> Not sure I follow.  You mean create a sub-menu allowing us to choose the default
-> value at compile time, and allow overriding from there via sysctl? I'm fine with
-> such a change, although given that everyone seems used to the idea of md5 being
-> the default when configured, as well as the idea of needing to override default
-> sysctl values, I'm not sure is necessecary.
->
->
-> Let me know about the default, and if I'm on the same page as you regarding the
-> config option, and I can repost this.
->
+> Your patch doesnt touch sk_page_frag_refill(), does it ?
 
-What I am not sure I like is that there is no longer any tie in between 
-the HMACs needed for cookie signing and the HMAC module selections in 
-SCTP.  You just happen to get lucky with SHA1 because it is always there 
-for AUTH.  Before, to disable cookie signing, it was an explicit 
-configuration choice to turn it off in the SCTP section.  Now, it might 
-be an unintended side-effect for not turning on the right modules.
-See what I am getting at?
+That's right. It doesn't. When is (sk->sk_allocation & __GFP_WAIT) true?
+Is it possible I'm just not hitting that case?
 
-A solution might be to have a sub-menu that allows you to turn on a set
-of signing algorithms and may be even choose the default one.  This way 
-it's clear that there is a dependency relationship between SCTP and 
-signing algorithms.
+Is it possible that this only affects certain traffic patterns (I only
+really tried ssh/scp and ping)? Or perhaps its just that the swiotlb is
+only broken in one corner case and not the other.
 
--vlad
-
-> Thanks!
-> Neil
->
+Ian.
