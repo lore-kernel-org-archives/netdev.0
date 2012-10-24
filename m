@@ -1,11 +1,12 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
 Subject: Re: [PATCH] net: allow configuration of the size of page in
  __netdev_alloc_frag
-Date: Wed, 24 Oct 2012 15:30:03 +0200
-Message-ID: <1351085403.6537.102.camel@edumazet-glaptop>
+Date: Wed, 24 Oct 2012 15:02:06 +0100
+Message-ID: <1351087326.18035.50.camel@zakaz.uk.xensource.com>
 References: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
 	 <1351081703.6537.99.camel@edumazet-glaptop>
 	 <1351084618.18035.27.camel@zakaz.uk.xensource.com>
+	 <1351085403.6537.102.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,84 +14,46 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
 	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
 	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:63341 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756439Ab2JXNaJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 09:30:09 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so250645bkc.19
-        for <netdev@vger.kernel.org>; Wed, 24 Oct 2012 06:30:07 -0700 (PDT)
-In-Reply-To: <1351084618.18035.27.camel@zakaz.uk.xensource.com>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:16475 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934820Ab2JXOCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 10:02:09 -0400
+In-Reply-To: <1351085403.6537.102.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-24 at 14:16 +0100, Ian Campbell wrote:
-> On Wed, 2012-10-24 at 13:28 +0100, Eric Dumazet wrote:
-> > On Wed, 2012-10-24 at 12:42 +0100, Ian Campbell wrote:
-> > > The commit 69b08f62e174 "net: use bigger pages in __netdev_alloc_frag"
-> > > lead to 70%+ packet loss under Xen when transmitting from physical (as
-> > > opposed to virtual) network devices.
-> > > 
-> > > This is because under Xen pages which are contiguous in the physical
-> > > address space may not be contiguous in the DMA space, in fact it is
-> > > very likely that they are not. I think there are other architectures
-> > > where this is true, although perhaps non quite so aggressive as to
-> > > have this property at a per-order-0-page granularity.
-> > > 
-> > > The real underlying bug here most likely lies in the swiotlb not
-> > > correctly handling compound pages, and Konrad is investigating this.
-> > > However even with the swiotlb issue fixed the current arrangement
-> > > seems likely to result in a lot of bounce buffering which seems likely
-> > > to more than offset any benefit from the use of larger pages.
-> > > 
-> > > Therefore make NETDEV_FRAG_PAGE_MAX_ORDER configurable at runtime and
-> > > use this to request order-0 frags under Xen. Also expose this setting
-> > > via sysctl.
-> > > 
-> > > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> > > Cc: Eric Dumazet <edumazet@google.com>
-> > > Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > > Cc: netdev@vger.kernel.org
-> > > Cc: xen-devel@lists.xen.org
-> > > ---
-> > 
-> > I understand your concern, but this seems a quick/dirty hack at this
-> > moment. After setting the sysctl to 0, some tasks may still have some
-> > order-3 pages in their cache.
-> 
-> Right, the sysctl thing might be overkill, I just figured it was useful
-> for debugging. When booting in a Xen VM the patch sets it to zero very
-> early on, during setup_arch(), which is before any tasks even exist.
-> 
-> > Your driver must already cope with skb->head being split on several
-> > pages.
-> > 
-> > So what fundamental difference exists with frags ?
-> 
-> The issue here is with drivers for physical network devices when running
-> under Xen not with the Xen paravirtualised network drivers (AKA
-> netback/netfront).
-> 
-> The problem is that pages which are contiguous in the physical address
-> space may not be contiguous in the DMA address space. With order>0 pages
-> this becomes a problem when you poke down the DMA address and length of
-> a compound page into the hardware registers. The DMA address will be
-> right for the head of the page but once the hardware steps off the end
-> of that it'll get the wrong page.
-> 
-> I don't think this non-contiguousness between physical and DMA addresses
-> is specific to Xen, although it is more frequent under Xen than any real
-> hardware platform. (Xen has often been a good canary for these sorts of
-> issues which turn out later on to impact other arches too.)
-> 
-> In theory this could be fixed in all the drivers for physical network
-> devices, but that would be a lot of effort (and probably a fair bit of
-> ugliness in the drivers) for a gain which was only relevant to Xen. 
+On Wed, 2012-10-24 at 14:30 +0100, Eric Dumazet wrote:
+> It seems to me its a driver issue, for example
+> drivers/net/xen-netfront.c has assumptions that can be easily fixed.
 
-I still have concerns about skb->head that you dint really answered.
+The netfront ->head thing is a separate (although perhaps related)
+issue, I intended to fix along the same lines as the previous netback
+except for some unfathomable reason I haven't been able to reproduce the
+problem with netfront -- I've no idea why though since it seems like it
+should be a no brainer!
 
-Why skb->head can be on order-1 or order-2 pages and this is working ?
+> Why skb->head can be on order-1 or order-2 pages and this is working ?
 
-It seems to me its a driver issue, for example
-drivers/net/xen-netfront.c has assumptions that can be easily fixed.
+skb->head being order 1 or 2 isn't working for me. The driver I'm having
+issues with which caused me to create this particular patch is the tg3
+driver (although I don't think this is by any means specific to tg3).
+
+For the ->head the tg3 driver does:
+        mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+while for the frags it does:
+        mapping = skb_frag_dma_map(&tp->pdev->dev, frag, 0, len, DMA_TO_DEVICE);
+
+This ought to do the Right Thing but doesn't seem to be working. Konrad
+suspected an issue with the swiotlb's handling of order>0 pages in some
+cases. As I said in the commit message he is looking into this issue.
+
+My concern however was that even once the swiotlb is fixed to work right
+the effect of pci_map_single on a order>0 page is going to be that the
+data gets bounced into contiguous memory -- that is a memcpy which would
+undo the benefit of having allocating large pages to start with. So I
+figured that in such cases we'd be better off just using order 0
+allocations to start with.
+
+Ian.
