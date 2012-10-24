@@ -1,51 +1,31 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [BUG] checkpatch.pl with commit
- 058806007450489bb8f457b275e5cb5c946320c1
-Date: Wed, 24 Oct 2012 14:26:41 -0700
-Message-ID: <1351114001.7130.5.camel@joe-AO722>
-References: <1351076421.25066.14.camel@jtkirshe-mobl>
-	 <1351087936.18179.9.camel@joe-AO722>
-	 <1351111870.1917.4.camel@jtkirshe-mobl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v3 net-next] r8169: enable ALDPS for power saving
+Date: Wed, 24 Oct 2012 23:20:03 +0200
+Message-ID: <20121024212003.GA11152@electric-eye.fr.zoreil.com>
+References: <1350893153-18320-1-git-send-email-hayeswang@realtek.com> <1351059843-1464-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: jeffrey.t.kirsher@intel.com,
-	Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jean@google.com
+To: Hayes Wang <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1351111870.1917.4.camel@jtkirshe-mobl>
+Content-Disposition: inline
+In-Reply-To: <1351059843-1464-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-10-24 at 13:51 -0700, Jeff Kirsher wrote:
-> On Wed, 2012-10-24 at 07:12 -0700, Joe Perches wrote:
-> > On Wed, 2012-10-24 at 04:00 -0700, Jeff Kirsher wrote:
-> > > With the recent commit to checkpatch.pl:
-> > > 
-> > > commit 058806007450489bb8f457b275e5cb5c946320c1
-> > > Author: Joe Perches <joe@perches.com>
-> > > Date:   Thu Oct 4 17:13:35 2012 -0700
-> > > 
-> > >     checkpatch: check networking specific block comment style
-> > > 
-> > > We are seeing false positive warnings.  Here is an example of the
-> > > code the would generate a false warning:
-> > > 
-> > > #define foo	0x0000 /* foo comment */
-> > > 
-> > > checkpatch.pl generates a warnings that the */ should be on a separate
-> > > line, which in this case is incorrect.
-> > 
-> > Sorry 'bout that.  I believe it's fixed by:
-> > https://lkml.org/lkml/2012/10/14/267
-> > 
+Hayes Wang <hayeswang@realtek.com> :
+> Enable ALDPS function to save power when link down. Note that the
+> feature should be set after the other PHY settings. And the firmware
+> is necessary. Don't enable it without loading the firmware.
 > 
-> Yes, I confirm that the patch in the link you provided solves the issue
-> I was seeing.  Thanks, has the patch been accepted yet?  I see it is not
-> in Dave's NET tree as of yet.
+> None of the firmware-free chipsets support ALDPS. Neither do the
+> RTL8168d/8111d.
+> 
+> For 8136 series, make sure the ALDPS is disabled before loading the
+> firmware. For 8168 series, the ALDPS would be disabled automatically
+> when loading firmware. You must not disable it directly.
+> 
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-Andrew Morton generally picks up my checkpatch twiddles.
-It's in -next as of next-20121024.
-
-commit db64ad0e6f55197bc3794bef007a25f2db4760fb
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
