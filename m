@@ -1,133 +1,170 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next v2 3/5] rtnl/ipv6: add support of RTM_GETNETCONF
-Date: Wed, 24 Oct 2012 18:02:57 +0200
-Message-ID: <1351094579-3911-4-git-send-email-nicolas.dichtel@6wind.com>
-References: <20121023.132940.1732325493436273627.davem@davemloft.net>
- <1351094579-3911-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] Make hmac algorithm selection for cookie generation
+ dynamic
+Date: Wed, 24 Oct 2012 12:01:57 -0400
+Message-ID: <20121024160157.GA26433@hmsreliant.think-freely.org>
+References: <1350661926-8312-1-git-send-email-nhorman@tuxdriver.com>
+ <5087FBE0.1020005@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35383 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756985Ab2JXPyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 11:54:50 -0400
-In-Reply-To: <1351094579-3911-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:51154 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726Ab2JXQCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 12:02:13 -0400
+Content-Disposition: inline
+In-Reply-To: <5087FBE0.1020005@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This message allows to get the devconf for an interface.
+On Wed, Oct 24, 2012 at 10:32:00AM -0400, Vlad Yasevich wrote:
+> On 10/19/2012 11:52 AM, Neil Horman wrote:
+> >Currently sctp allows for the optional use of md5 of sha1 hmac algorithms to
+> >generate cookie values when establishing new connections via two build time
+> >config options.  Theres no real reason to make this a static selection.  We can
+> >add a sysctl that allows for the dynamic selection of these algorithms at run
+> >time, with the default value determined by the corresponding crypto library
+> >config options.  It saves us two needless configuration settings and enables the
+> >freedom for administrators to select which algorithm a particular system uses.
+> >This comes in handy when, for example running a system in FIPS mode, where use
+> >of md5 is disallowed, but SHA1 is permitted.
+> >
+> >Note: This new sysctl has no corresponding socket option to select the cookie
+> >hmac algorithm.  I chose not to implement that intentionally, as RFC 6458
+> >contains no option for this value, and I opted not to pollute the socket option
+> >namespace.
+> >
+> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >CC: Vlad Yasevich <vyasevich@gmail.com>
+> >CC: "David S. Miller" <davem@davemloft.net>
+> >CC: netdev@vger.kernel.org
+> >---
+> >  Documentation/networking/ip-sysctl.txt | 14 ++++++++
+> >  include/net/netns/sctp.h               |  3 ++
+> >  include/net/sctp/constants.h           |  8 -----
+> >  include/net/sctp/structs.h             |  1 +
+> >  net/sctp/Kconfig                       | 30 -----------------
+> >  net/sctp/protocol.c                    |  9 ++++++
+> >  net/sctp/socket.c                      | 11 ++++---
+> >  net/sctp/sysctl.c                      | 59 ++++++++++++++++++++++++++++++++++
+> >  8 files changed, 93 insertions(+), 42 deletions(-)
+> >
+> >diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> >index c7fc107..98ac0d7 100644
+> >--- a/Documentation/networking/ip-sysctl.txt
+> >+++ b/Documentation/networking/ip-sysctl.txt
+> >@@ -1514,6 +1514,20 @@ cookie_preserve_enable - BOOLEAN
+> >
+> >  	Default: 1
+> >
+> >+cookie_hmac_alg - STRING
+> >+	Select the hmac algorithm used when generating the cookie value sent by
+> >+	a listening sctp socket to a connecting client in the INIT-ACK chunk.
+> >+	Valid values are:
+> >+	* md5
+> >+	* sha1
+> >+	* none
+> >+	Ability to assign md5 or sha1 as the selected alg is predicated on the
+> >+	configuarion of those algorithms at build time (CONFIG_CRYPTO_MD5 and
+> >+	CONFIG_CRYPTO_SHA1).
+> >+
+> >+	Default: Dependent on configuration.  MD5 if available, else SHA1 if
+> >+	available, else none.
+> >+
+> >  rcvbuf_policy - INTEGER
+> >  	Determines if the receive buffer is attributed to the socket or to
+> >  	association.   SCTP supports the capability to create multiple
+> >diff --git a/include/net/netns/sctp.h b/include/net/netns/sctp.h
+> >index 5e5eb1f..3573a81 100644
+> >--- a/include/net/netns/sctp.h
+> >+++ b/include/net/netns/sctp.h
+> >@@ -62,6 +62,9 @@ struct netns_sctp {
+> >  	/* Whether Cookie Preservative is enabled(1) or not(0) */
+> >  	int cookie_preserve_enable;
+> >
+> >+	/* The namespace default hmac alg */
+> >+	char *sctp_hmac_alg;
+> >+
+> >  	/* Valid.Cookie.Life	    - 60  seconds  */
+> >  	unsigned int valid_cookie_life;
+> >
+> >diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+> >index d053d2e..c29707d 100644
+> >--- a/include/net/sctp/constants.h
+> >+++ b/include/net/sctp/constants.h
+> >@@ -312,14 +312,6 @@ enum { SCTP_MAX_GABS = 16 };
+> >  				 * functions simpler to write.
+> >  				 */
+> >
+> >-#if defined (CONFIG_SCTP_HMAC_MD5)
+> >-#define SCTP_COOKIE_HMAC_ALG "hmac(md5)"
+> >-#elif defined (CONFIG_SCTP_HMAC_SHA1)
+> >-#define SCTP_COOKIE_HMAC_ALG "hmac(sha1)"
+> >-#else
+> >-#define SCTP_COOKIE_HMAC_ALG NULL
+> >-#endif
+> >-
+> >  /* These return values describe the success or failure of a number of
+> >   * routines which form the lower interface to SCTP_outqueue.
+> >   */
+> >diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> >index 0fef00f..ce5f957 100644
+> >--- a/include/net/sctp/structs.h
+> >+++ b/include/net/sctp/structs.h
+> >@@ -177,6 +177,7 @@ struct sctp_sock {
+> >
+> >  	/* Access to HMAC transform. */
+> >  	struct crypto_hash *hmac;
+> >+	char *sctp_hmac_alg;
+> >
+> >  	/* What is our base endpointer? */
+> >  	struct sctp_endpoint *ep;
+> >diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+> >index 126b014..44ffd3e 100644
+> >--- a/net/sctp/Kconfig
+> >+++ b/net/sctp/Kconfig
+> >@@ -9,7 +9,6 @@ menuconfig IP_SCTP
+> >  	select CRYPTO
+> >  	select CRYPTO_HMAC
+> >  	select CRYPTO_SHA1
+> >-	select CRYPTO_MD5 if SCTP_HMAC_MD5
+> >  	select LIBCRC32C
+> >  	---help---
+> >  	  Stream Control Transmission Protocol
+> >@@ -68,33 +67,4 @@ config SCTP_DBG_OBJCNT
+> >
+> >  	  If unsure, say N
+> >
+> >-choice
+> >-	prompt "SCTP: Cookie HMAC Algorithm"
+> >-	default SCTP_HMAC_MD5
+> 
+> Did you intend to change the default algorithm to SHA1?  Seems a bit
+> unintended and undocumented.
+> 
+Thats not what I did (or at least not my intention).  The sctp_net_init code
+checks teh crypto options and if md5 is selcted as on, it uses that as a
+default, only if its not selected, does sha1 become the default.  In my testing
+this worked properly, and the sysctl for the init_net came up as md5, even
+though I had both md5 and sha1 configured.  Is there something else here I'm
+missing?
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/addrconf.c | 75 +++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 73 insertions(+), 2 deletions(-)
+> Would it make more sense to to change from a choice to sub-menu and
+> allow selection of multiple algorithms?  Then use the interface you
+> have to change the default.
+> 
+Not sure I follow.  You mean create a sub-menu allowing us to choose the default
+value at compile time, and allow overriding from there via sysctl? I'm fine with
+such a change, although given that everyone seems used to the idea of md5 being
+the default when configured, as well as the idea of needing to override default
+sysctl values, I'm not sure is necessecary.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 9bf4d1b..dbab3ad 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -466,7 +466,8 @@ static inline int inet6_netconf_msgsize_devconf(int type)
- 	int size =  NLMSG_ALIGN(sizeof(struct netconfmsg))
- 		    + nla_total_size(4);	/* NETCONFA_IFINDEX */
- 
--	if (type == NETCONFA_FORWARDING)
-+	/* type -1 is used for ALL */
-+	if (type == -1 || type == NETCONFA_FORWARDING)
- 		size += nla_total_size(4);
- 
- 	return size;
-@@ -491,7 +492,8 @@ static int inet6_netconf_fill_devconf(struct sk_buff *skb, int ifindex,
- 	if (nla_put_s32(skb, NETCONFA_IFINDEX, ifindex) < 0)
- 		goto nla_put_failure;
- 
--	if (type == NETCONFA_FORWARDING &&
-+	/* type -1 is used for ALL */
-+	if ((type == -1 || type == NETCONFA_FORWARDING) &&
- 	    nla_put_s32(skb, NETCONFA_FORWARDING, devconf->forwarding) < 0)
- 		goto nla_put_failure;
- 
-@@ -527,6 +529,73 @@ errout:
- 		rtnl_set_sk_err(net, RTNLGRP_IPV6_NETCONF, err);
- }
- 
-+static const struct nla_policy devconf_ipv6_policy[NETCONFA_MAX+1] = {
-+	[NETCONFA_IFINDEX]	= { .len = sizeof(int) },
-+	[NETCONFA_FORWARDING]	= { .len = sizeof(int) },
-+};
-+
-+static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
-+				     struct nlmsghdr *nlh,
-+				     void *arg)
-+{
-+	struct net *net = sock_net(in_skb->sk);
-+	struct nlattr *tb[NETCONFA_MAX+1];
-+	struct netconfmsg *ncm;
-+	struct sk_buff *skb;
-+	struct ipv6_devconf *devconf;
-+	struct inet6_dev *in6_dev;
-+	struct net_device *dev;
-+	int ifindex;
-+	int err;
-+
-+	err = nlmsg_parse(nlh, sizeof(*ncm), tb, NETCONFA_MAX,
-+			  devconf_ipv6_policy);
-+	if (err < 0)
-+		goto errout;
-+
-+	err = EINVAL;
-+	if (!tb[NETCONFA_IFINDEX])
-+		goto errout;
-+
-+	ifindex = nla_get_s32(tb[NETCONFA_IFINDEX]);
-+	switch (ifindex) {
-+	case NETCONFA_IFINDEX_ALL:
-+		devconf = net->ipv6.devconf_all;
-+		break;
-+	case NETCONFA_IFINDEX_DEFAULT:
-+		devconf = net->ipv6.devconf_dflt;
-+		break;
-+	default:
-+		dev = __dev_get_by_index(net, ifindex);
-+		if (dev == NULL)
-+			goto errout;
-+		in6_dev = __in6_dev_get(dev);
-+		if (in6_dev == NULL)
-+			goto errout;
-+		devconf = &in6_dev->cnf;
-+		break;
-+	}
-+
-+	err = -ENOBUFS;
-+	skb = nlmsg_new(inet6_netconf_msgsize_devconf(-1), GFP_ATOMIC);
-+	if (skb == NULL)
-+		goto errout;
-+
-+	err = inet6_netconf_fill_devconf(skb, ifindex, devconf,
-+					 NETLINK_CB(in_skb).portid,
-+					 nlh->nlmsg_seq, RTM_NEWNETCONF, 0,
-+					 -1);
-+	if (err < 0) {
-+		/* -EMSGSIZE implies BUG in inet6_netconf_msgsize_devconf() */
-+		WARN_ON(err == -EMSGSIZE);
-+		kfree_skb(skb);
-+		goto errout;
-+	}
-+	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
-+errout:
-+	return err;
-+}
-+
- #ifdef CONFIG_SYSCTL
- static void dev_forward_change(struct inet6_dev *idev)
- {
-@@ -4861,6 +4930,8 @@ int __init addrconf_init(void)
- 			inet6_dump_ifmcaddr, NULL);
- 	__rtnl_register(PF_INET6, RTM_GETANYCAST, NULL,
- 			inet6_dump_ifacaddr, NULL);
-+	__rtnl_register(PF_INET6, RTM_GETNETCONF, inet6_netconf_get_devconf,
-+			NULL, NULL);
- 
- 	ipv6_addr_label_rtnl_register();
- 
--- 
-1.7.12
+
+Let me know about the default, and if I'm on the same page as you regarding the
+config option, and I can repost this.
+
+Thanks!
+Neil
