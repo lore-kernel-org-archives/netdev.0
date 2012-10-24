@@ -1,63 +1,68 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: Re: Incorrect ARP behavior when multiple/none IPv4 address assigned
- to interface
-Date: Wed, 24 Oct 2012 13:37:36 +0300
-Message-ID: <5087C4F0.4070607@mail.ru>
-References: <50867F51.3030500@mail.ru> <alpine.LFD.2.00.1210232317400.1780@ja.ssi.bg> <50879632.20909@mail.ru> <alpine.LFD.2.00.1210241106080.1616@ja.ssi.bg>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [BUG] checkpatch.pl with commit
+ 058806007450489bb8f457b275e5cb5c946320c1
+Date: Wed, 24 Oct 2012 04:00:21 -0700
+Message-ID: <1351076421.25066.14.camel@jtkirshe-mobl>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.mail.ru ([94.100.176.130]:55999 "EHLO smtp2.mail.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754417Ab2JXKh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 24 Oct 2012 06:37:56 -0400
-Received: from [195.234.68.4] (port=35894 helo=tuxracer.localdomain)
-	by smtp2.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1TQyLS-0004RD-4r
-	for netdev@vger.kernel.org; Wed, 24 Oct 2012 14:37:54 +0400
-In-Reply-To: <alpine.LFD.2.00.1210241106080.1616@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-HyVN+UXG0ydUy0dgtNqB"
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Julian Anastasov =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
 
-> 	dummy module is usually used as blackhole for
-> traffic or to hide addresses from other interfaces with
-> some sysctl interface flags.
->
-> 	For example, can it work in this way?:
->
-> eth0: addr 10.0.1.1/24
-> ip route 10.0.1.2/32 dev eth0 src 10.0.1.1
->
-> eth1: addr 10.0.1.1/24
-> ip route 10.0.1.3/32 dev eth1 src 10.0.1.1
->
-> eth2: addr 10.0.2.1/24
-> ip route 10.0.2.2/32 dev eth2 src 10.0.2.1
->
-> 	By this way we have subnet on every device and
-> we can prefer local IP from such subnet in inet_select_addr.
-> May be arp_ignore=3D1/2 and arp_announce=3D1/2 can help here
-> to put the needed restrictions, i.e. we should not expose
-> addresses from other devices. It should not cause problem
-> for proxy_arp because we have more specific /32 routes.
->
+--=-HyVN+UXG0ydUy0dgtNqB
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Yes, just apply proposed configuration to lab schema.
+With the recent commit to checkpatch.pl:
 
-Everything works as expected with no extra arp_ignore/arp_announce
-configuration. Even if I add second primary address 192.168.1.1/24 to=20
-eth2, and introduce pc4 in same broadcast domain as pc3 (eth2).
+commit 058806007450489bb8f457b275e5cb5c946320c1
+Author: Joe Perches <joe@perches.com>
+Date:   Thu Oct 4 17:13:35 2012 -0700
 
-Well, configuration with 3000 subinterfaces looks worse, but it works
-with no extra patches/configuration.
+    checkpatch: check networking specific block comment style
 
-Thank you for your help.
+We are seeing false positive warnings.  Here is an example of the
+code the would generate a false warning:
 
---=20
-SP5474-RIPE
-Sergey Popovich
+#define foo	0x0000 /* foo comment */
+
+checkpatch.pl generates a warnings that the */ should be on a separate
+line, which in this case is incorrect.
+
+I apologize for not digging into the checkpatch.pl code to provide a
+fix, I figure Joe (or anyone else with great checkpatch kung fu) can
+figure out the issue and fix it faster than I could. :-)
+
+Cheers,
+Jeff
+
+--=-HyVN+UXG0ydUy0dgtNqB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJQh8pFAAoJEOVv75VaS+3OgPUP/AzNILq/YVcb+D1Ut5PeV6zz
+biyzhiakAkcyRJq6/5c4Cu6zEucgG8j+f43M6moM9BoDKLi7WHwyUguWuG+7t9DG
+N/IHh1isAER0/hn9q0bF0rg0sXgUMOMbPKM8sR9/vGXwtgE/pmciDxQ6D5P0M8Lj
+opNBG7IGykrawQVKOsRC5smnDyivJqtRwXkherNF37Xz/jx0wPVqlzO42RNIbP0W
+YXKmuc2yn3wT2c62f+ya8RR/N2n63VHfl8GbmTi5FVv6tj8aiQ0YUlphGmJz613K
+ZMaHyc4dfbQgjjGLe/dow2nT3QoxdJZ84GdOUvqVrDH4v69E6J7rxMtyUmjtFtaj
+ekR+t8d049MASl82p9gj7jblkiR0u/u/RkFXp4LihZB2vx3WS3pVNJRadPVkAYX1
+FAJ7kuzlm/nRS2D+25zC7oV4jBNWvY/v0+nB0t/OaYekzbxUkjBPgFDcCAJir1Bz
+JM4bCAUN8MUdL0aPSn7JU+x9mSwvC0E01Z+oM6uctakH52DFq5J9MFW9ekk0GCYG
+NZ8xnyiKka1SeiUkhnRx30RZaPrXakdhOiP1U1VSn2npSSdcqDWNvaBcLXoNFK/i
+ZFLfCJtWIquell6LR99HAEi2a+5+Onj4SVMaL4a7WbkitfZNFWPrbDRMhD5crAR3
+XSL57JB4njxH8JY/gxn7
+=WIIH
+-----END PGP SIGNATURE-----
+
+--=-HyVN+UXG0ydUy0dgtNqB--
