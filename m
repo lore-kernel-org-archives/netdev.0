@@ -1,47 +1,55 @@
-From: "Shawn J. Goff" <shawn.goff@accelecon.com>
-Subject: qmi-wwan bug
-Date: Wed, 24 Oct 2012 14:50:04 -0400
-Message-ID: <5088385C.1090304@accelecon.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] gianfar_ptp: use iomem, not ioports resource tree in
+ probe
+Date: Wed, 24 Oct 2012 15:09:55 -0400
+Message-ID: <50883D03.1000600@windriver.com>
+References: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com> <6AE080B68D46FC4BA2D2769E68D765B70810B134@039-SN2MPN1-023.039d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Yang <Wei.Yang@windriver.com>,
+	Manoil Claudiu-B08782 <B08782@freescale.com>
+To: Tabi Timur-B04825 <B04825@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hub027-nj-6.exch027.serverdata.net ([206.225.167.250]:2229 "EHLO
-	hub027-nj-6.exch027.serverdata.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934943Ab2JXS6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 14:58:35 -0400
+Received: from mail1.windriver.com ([147.11.146.13]:48596 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965086Ab2JXTJ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 15:09:59 -0400
+In-Reply-To: <6AE080B68D46FC4BA2D2769E68D765B70810B134@039-SN2MPN1-023.039d.mgd.msft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've backported qmi-wwan to 2.6.39 (it's here: 
-https://bitbucket.org/accelecon/linux-at91/changesets), and it mostly 
-works, but I've come across a problem. The modem will sometimes stop 
-responding to any qmi data (but the AT commands on the TTY ports keep 
-working). This only happens when there is significant traffic flowing 
-through the device (downloading a large file) while at the same time, AT 
-commands are sent to one of the TTY ports (I first noticed with my own 
-modem query program, but I can reproduce it using microcom to send 
-"ATI\r" in a loop). I see this problem with different devices from 
-different manufacturers. I've only made it happen on my kernel - I tried 
-on 3.6.2, but it seems to not happen there. I've also tried using a 
-similar modem that uses a different driver (sierra-net) and that doesn't 
-have the same problem.
+On 12-10-24 01:59 PM, Tabi Timur-B04825 wrote:
+> On Wed, Oct 24, 2012 at 10:21 AM, Paul Gortmaker
+> <paul.gortmaker@windriver.com> wrote:
+>> From: Wei Yang <Wei.Yang@windriver.com>
+>>
+>> When using a 36 bit dtb file, the driver complains "resource busy".
+>>
+>> Investigating the source of the message leads one to the
+>> gianfar_ptp_probe function.
+>>
+>> Since the type of the device resource requested in this function
+>> is IORESOURCE_MEM, it should use "iomem_resource" instead of
+>> "ioports_resource".
+> 
+> I can't comment on this patch, since I didn't write the driver, but I
+> am confused on one thing.  Why is the driver using platform_xxx calls
 
-When it is in failure, if I try to ping an address, the system sends out 
-several an ARP requests but gets no response. To get the device to 
-respond again, I have to administratively set the wwan interface down, 
-then up, use libqmi to get the connection going again, then dhcp to get 
-an address.
+Even if it makes sense to convert the driver to of_xxx calls,
+I think the obvious bug should be fixed as a separate commit,
+so that the -stable folks have something to cherry pick.
 
-I also have some USB traces of the failure and recovery process. I'm not 
-familiar with CDC or QMI, so it's not yet clear to me exactly what's 
-happening, but it looks like the modem just stops sending anything on 
-its QMI endpoint for no reason.
+P.
+--
 
-How might I dive further into the issue? So far, my next step is to look 
-into CDC and QMI and try to decypher the USB traces. If anyone is 
-interested, I can share a tcpdump or a USB trace.
-
--- 
-Shawn J. Goff | Accelerated Concepts | Embedded Systems Engineer | 1-813-983-7501
+> to get data?  Why isn't it using of_xxx calls to read properties from
+> the device tree?  For example, why is it using
+> 
+> 	etsects->irq = platform_get_irq(dev, 0);
+> 
+> to get the IRQ?  Shouldn't it do this instead:
+> 
+> 	etsects->irq = irq_of_parse_and_map(node, 0);
+> 
