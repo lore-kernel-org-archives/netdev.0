@@ -1,59 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: allow configuration of the size of page in
- __netdev_alloc_frag
-Date: Wed, 24 Oct 2012 18:43:20 +0200
-Message-ID: <1351097000.6537.109.camel@edumazet-glaptop>
-References: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
-	 <1351081703.6537.99.camel@edumazet-glaptop>
-	 <1351084618.18035.27.camel@zakaz.uk.xensource.com>
-	 <1351085403.6537.102.camel@edumazet-glaptop>
-	 <1351087326.18035.50.camel@zakaz.uk.xensource.com>
-	 <1351092068.6537.107.camel@edumazet-glaptop>
-	 <1351095739.18035.83.camel@zakaz.uk.xensource.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next PATCH v1 0/3] extend set/get netlink for embedded
+Date: Wed, 24 Oct 2012 09:50:57 -0700
+Message-ID: <20121024164906.14221.45341.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: jhs@mojatatu.com, chrisw@redhat.com, krkumar2@in.ibm.com,
+	samudrala@us.ibm.com, peter.p.waskiewicz.jr@intel.com,
+	jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, gregory.v.rose@intel.com,
+	eilong@broadcom.com
+To: shemminger@vyatta.com, buytenh@wantstofly.org, davem@davemloft.net,
+	vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:58629 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756427Ab2JXQn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 12:43:26 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so361804bkc.19
-        for <netdev@vger.kernel.org>; Wed, 24 Oct 2012 09:43:24 -0700 (PDT)
-In-Reply-To: <1351095739.18035.83.camel@zakaz.uk.xensource.com>
+Received: from mga09.intel.com ([134.134.136.24]:39202 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756966Ab2JXRIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 24 Oct 2012 13:08:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-24 at 17:22 +0100, Ian Campbell wrote:
-> On Wed, 2012-10-24 at 16:21 +0100, Eric Dumazet wrote:
+This extends the PF_BRIDGE setlink and getlink so that they can be
+used generically outside of the Linux bridge module. Doing this
+allows embedded devices to use the same netlink interface that
+the software bridge is currently using.
 
-> > If you really have such problems, why locally generated TCP traffic
-> > doesnt also have it ?
-> 
-> I think it does. The reason I noticed the original problem was that ssh
-> to the machine was virtually (no pun intended) unusable.
-> 
-> > Your patch doesnt touch sk_page_frag_refill(), does it ?
-> 
-> That's right. It doesn't. When is (sk->sk_allocation & __GFP_WAIT) true?
-> Is it possible I'm just not hitting that case?
-> 
+In this patchset I opted to create two new ndo ops ndo_bridge_setlink
+and ndo_bridge_getlink. These ops pass the nlmsghdr to the device
+for handling. The netlink message is extended to support nested
+IFLA_AF_SPEC attributes. A IFLA_BRIDGE_FLAGS attribute is used to
+determine the target of the message either a master netdev is the
+target or the target is "self" indicating the target is the netdev.
+In this way we can send netlink msg to an embedded device or the
+linux sw bridge or both. If the set completes sucessfully the flag
+is cleared in this way we can learn what failed in the both case.
+This scheme is similar to how FDB updates are handled. If no flag
+attribute is present the message is sent to the master device to
+support the existing messages.
 
-I hope not. GFP_KERNEL has __GFP_WAIT.
+An initial IFLA_BRIDGE_MODE attribute is added to indicate if the
+bridge is in a VEPA mode or VEB mode. This is most useful for
+SR-IOV device and can be used to indicate support for VF to VF or
+VF to PF traffic. Without this we have no way of knowing this
+other then trial and error because not all hardware supports
+this.
 
-> Is it possible that this only affects certain traffic patterns (I only
-> really tried ssh/scp and ping)? Or perhaps its just that the swiotlb is
-> only broken in one corner case and not the other.
+In the future additional attributes can be added to handle other
+attributes. We could for example move some of the linux bridge
+sysfs attributes here if we want a netlink interface for them.
+This should also allow DSA switches to use the bridging tools.
+See RFC patch from Lennert
 
-Could you try a netperf -t TCP_STREAM ?
+http://patchwork.ozlabs.org/patch/16578/
 
-Because ssh use small packets, and small TCP packets dont use frags but
-skb->head.
+I could have simply added the VEPA attribute handling to the
+rtnl_setlink() routine but it seemed like a good feature to have
+all the bridging events and configuration on the same type. Also
+this should allow more powerful offloaded switches like the
+hardware supported via DSA access to the bridge control
+interface.
 
-You mentioned a 70% drop of performance, but what test have you used
-exactly ?
+Also I think this interface should allow Vlad to add his port based
+VLAN interface here as well.
+
+Any feedback/criticism appreciated thanks!
+
+---
+
+John Fastabend (3):
+      ixgbe: add setlink, getlink support to ixgbe and ixgbevf
+      net: set and query VEB/VEPA bridge mode via PF_BRIDGE
+      net: create generic bridge ops
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   59 ++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |    3 
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   10 +
+ include/linux/netdevice.h                         |   10 +
+ include/linux/rtnetlink.h                         |    3 
+ include/uapi/linux/if_bridge.h                    |   18 ++
+ net/bridge/br_device.c                            |    2 
+ net/bridge/br_netlink.c                           |   75 +-------
+ net/bridge/br_private.h                           |    7 +
+ net/core/rtnetlink.c                              |  207 +++++++++++++++++++++
+ 10 files changed, 328 insertions(+), 66 deletions(-)
+
+-- 
+Signature
