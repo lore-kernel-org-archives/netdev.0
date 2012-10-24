@@ -1,38 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 1/2] r8169: enable ALDPS for power saving
-Date: Wed, 24 Oct 2012 22:05:25 +0200
-Message-ID: <20121024200525.GB6347@electric-eye.fr.zoreil.com>
-References: <1350893153-18320-1-git-send-email-hayeswang@realtek.com> <20121022192748.GA16370@electric-eye.fr.zoreil.com> <D81B36B929404E28AE7007B7E21B9D46@realtek.com.tw> <20121023193146.GA10463@electric-eye.fr.zoreil.com> <B3B61E0990514F28A8203537EB9D047A@realtek.com.tw>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] gianfar_ptp: use iomem, not ioports resource tree in
+ probe
+Date: Wed, 24 Oct 2012 22:50:02 +0200
+Message-ID: <20121024205002.GB2732@netboy.at.omicron.at>
+References: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com>
+ <6AE080B68D46FC4BA2D2769E68D765B70810B134@039-SN2MPN1-023.039d.mgd.msft.net>
+ <50883D03.1000600@windriver.com>
+ <50883DB7.4030502@freescale.com>
+ <20121024194207.GA2732@netboy.at.omicron.at>
+ <50884B5D.9030009@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: hayeswang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Yang <Wei.Yang@windriver.com>,
+	Manoil Claudiu-B08782 <B08782@freescale.com>
+To: Timur Tabi <timur@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:54418 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751754Ab2JXUuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 16:50:15 -0400
+Received: by mail-wi0-f172.google.com with SMTP id hq12so5289131wib.1
+        for <netdev@vger.kernel.org>; Wed, 24 Oct 2012 13:50:13 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <B3B61E0990514F28A8203537EB9D047A@realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <50884B5D.9030009@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-hayeswang <hayeswang@realtek.com> :
->  Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> [...]
-> > It would be nice to state these things in the commit message, namely:
-> > - ALDPS should never be enabled for the RTL8105e
-> > - none of the firmware-free chipsets support ALDPS
-> > - neither do the RTL8168d/8111d
+On Wed, Oct 24, 2012 at 03:11:09PM -0500, Timur Tabi wrote:
+> Richard Cochran wrote:
+> >> > Oh, I agree with that.  I was just wondering why an OF-enabled driver
+> >> > would not use OF calls.  I've never seen that before.  My instinct is that
+> >> > the original developer had no idea what he was doing, but perhaps there is
+> >> > a very good reason for the way the driver is written.
 > 
-> Excuse me. I don't understand why the RTL8105e shouldn't enable ALDPS.
+> > Instead of using your instinct, try using your brain instead.
+> 
+> Well, as you are obviously so much smarter than I am, how about
+> enlightening me?  I do not see any explanations in the original commit,
+> and I do not know why someone would use non-OF calls to get data from the
+> device tree.  I didn't even know that you could use platform_get_irq() to
+> get the virtual IRQ from a device tree.
 
-I'd appreciate to see such a statement if ALDPS can be enabled with the
-RTL8105e !
-
-You have sent ALDPS related patches for some specific chipsets. Now
-would be a sensible time to check if ALDPS is correctly handled for
-_all_ supported chipsets. I don't have access to your authoritative
-resources. I can only outline something strange in the code wrt
-ALDPS and the 8105e.
-
-/me returns to 8169b RxOverflow oddities...
-
--- 
-Ueimor
+And now you know.
