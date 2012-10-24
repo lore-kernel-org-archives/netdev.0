@@ -1,73 +1,60 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [RFC PATCH v2 2/6] PM / Runtime: introduce
- pm_runtime_set_memalloc_noio()
-Date: Wed, 24 Oct 2012 13:26:03 +0100
-Message-ID: <20121024132603.6c52cc47@pyramind.ukuu.org.uk>
-References: <CACVXFVMmszZWHaeNS6LSG4nHR4wWBLwM_BvynRwUW8X=nO+JWA@mail.gmail.com>
-	<Pine.LNX.4.44L0.1210231022230.1635-100000@iolanthe.rowland.org>
-	<CACVXFVN+=XH_f5BmRkXeagTNowz0o0-Pd7GcxCneO0FSq8xqEw@mail.gmail.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B7060@saturn3.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: allow configuration of the size of page in
+ __netdev_alloc_frag
+Date: Wed, 24 Oct 2012 14:28:23 +0200
+Message-ID: <1351081703.6537.99.camel@edumazet-glaptop>
+References: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Ming Lei" <ming.lei@canonical.com>,
-        "Alan Stern"
- <stern@rowland.harvard.edu>,
-        <linux-kernel@vger.kernel.org>, "Oliver
- Neukum" <oneukum@suse.de>,
-        "Minchan Kim" <minchan@kernel.org>,
-        "Greg
- Kroah-Hartman" <gregkh@linuxfoundation.org>,
-        "Rafael J. Wysocki"
- <rjw@sisk.pl>, "Jens Axboe" <axboe@kernel.dk>,
-        "David S. Miller"
- <davem@davemloft.net>,
-        "Andrew Morton" <akpm@linux-foundation.org>, <netdev@vger.kernel.org>,
-        <linux-usb@vger.kernel.org>, <linux-pm@vger.kernel.org>,
-        <linux-mm@kvack.org>
-To: "David Laight" <David.Laight@ACULAB.COM>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7060@saturn3.aculab.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	xen-devel@lists.xen.org
+To: Ian Campbell <ian.campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:64988 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757540Ab2JXM23 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 08:28:29 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so215811bkc.19
+        for <netdev@vger.kernel.org>; Wed, 24 Oct 2012 05:28:28 -0700 (PDT)
+In-Reply-To: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 24 Oct 2012 10:06:36 +0100
-"David Laight" <David.Laight@ACULAB.COM> wrote:
-
-> > Looks the problem is worse than above, not only bitfields are affected, the
-> > adjacent fields might be involved too, see:
-> > 
-> >            http://lwn.net/Articles/478657/
+On Wed, 2012-10-24 at 12:42 +0100, Ian Campbell wrote:
+> The commit 69b08f62e174 "net: use bigger pages in __netdev_alloc_frag"
+> lead to 70%+ packet loss under Xen when transmitting from physical (as
+> opposed to virtual) network devices.
 > 
-> Not mentioned in there is that even with x86/amd64 given
-> a struct with the following adjacent fields:
-> 	char a;
-> 	char b;
-> 	char c;
-> then foo->b |= 0x80; might do a 32bit RMW cycle.
+> This is because under Xen pages which are contiguous in the physical
+> address space may not be contiguous in the DMA space, in fact it is
+> very likely that they are not. I think there are other architectures
+> where this is true, although perhaps non quite so aggressive as to
+> have this property at a per-order-0-page granularity.
+> 
+> The real underlying bug here most likely lies in the swiotlb not
+> correctly handling compound pages, and Konrad is investigating this.
+> However even with the swiotlb issue fixed the current arrangement
+> seems likely to result in a lot of bounce buffering which seems likely
+> to more than offset any benefit from the use of larger pages.
+> 
+> Therefore make NETDEV_FRAG_PAGE_MAX_ORDER configurable at runtime and
+> use this to request order-0 frags under Xen. Also expose this setting
+> via sysctl.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Cc: netdev@vger.kernel.org
+> Cc: xen-devel@lists.xen.org
+> ---
 
-There are processors that will do this for the char case at least as they
-do byte ops by a mix of 32bit ops and rotate.
+I understand your concern, but this seems a quick/dirty hack at this
+moment. After setting the sysctl to 0, some tasks may still have some
+order-3 pages in their cache.
 
-> This will (well might - but probably does) happen
-> if compiled to a 'BTS' instruction.
-> The x86 instruction set docs are actually unclear
-> as to whether the 32bit cycle might even be misaligned!
-> amd64 might do a 64bit cycle (not checked the docs).
+Your driver must already cope with skb->head being split on several
+pages.
 
-Even with a suitably aligned field the compiler is at liberty to generate
-things like
-
-	reg = 0x80
-	reg |= foo->b
-	foo->b = reg;
-
-One reason it's a good idea to use set_bit/test_bit and friends.
-
-Alan
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+So what fundamental difference exists with frags ?
