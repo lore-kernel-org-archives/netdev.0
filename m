@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pch_gbe: fix error handling in pch_gbe_up()
-Date: Wed, 24 Oct 2012 23:04:44 -0400 (EDT)
-Message-ID: <20121024.230444.2208622837386479403.davem@davemloft.net>
-References: <1351004074-10225-1-git-send-email-vfalico@redhat.com>
+Subject: Re: [PATCH 1/4] net: mvneta: driver for Marvell Armada 370/XP
+ network unit
+Date: Wed, 24 Oct 2012 23:06:48 -0400 (EDT)
+Message-ID: <20121024.230648.1888101216213031807.davem@davemloft.net>
+References: <1351011300-26964-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<1351011300-26964-2-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
-	tshimizu818@gmail.com, andy.cress@us.kontron.com,
-	erwan.velu@zodiacaerospace.com
-To: vfalico@redhat.com
+Cc: kernel@wantstofly.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jason@lakedaemon.net,
+	andrew@lunn.ch, gregory.clement@free-electrons.com,
+	alior@marvell.com, maen@marvell.com
+To: thomas.petazzoni@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59879 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59892 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757394Ab2JYDEs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 23:04:48 -0400
-In-Reply-To: <1351004074-10225-1-git-send-email-vfalico@redhat.com>
+	with ESMTP id S1757623Ab2JYDG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 23:06:56 -0400
+In-Reply-To: <1351011300-26964-2-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@redhat.com>
-Date: Tue, 23 Oct 2012 16:54:34 +0200
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date: Tue, 23 Oct 2012 18:54:57 +0200
 
-> If we fail to allocate rx buffers pool by any reason, we'll just return
-> with an error, however we've previously successfully requested an irq. Fix
-> this by releasing the irq before returning the error.
-> 
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> +	u32 cause_rx_tx[CONFIG_NR_CPUS];
 
-Applied, thanks.
+Please use per-cpu variables instead of explicitly sized
+arrays.
