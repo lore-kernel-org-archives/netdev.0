@@ -1,27 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2012-10-24
-Date: Wed, 24 Oct 2012 23:17:59 -0400 (EDT)
-Message-ID: <20121024.231759.157091460482697822.davem@davemloft.net>
-References: <1351069576-20790-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH] gianfar_ptp: use iomem, not ioports resource tree in
+ probe
+Date: Wed, 24 Oct 2012 23:19:11 -0400 (EDT)
+Message-ID: <20121024.231911.2065674182431820345.davem@davemloft.net>
+References: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1351069576-20790-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Wei.Yang@windriver.com,
+	claudiu.manoil@freescale.com, timur@freescale.com
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60021 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755615Ab2JYDTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 23:19:12 -0400
+In-Reply-To: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 24 Oct 2012 11:06:14 +0200
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Wed, 24 Oct 2012 11:21:36 -0400
 
-> here are two patches for the v3.7 release cycle. A patch by Wolfgang Grandegger
-> for the flexcan driver, which switches off a workaround on the imx6q that is
-> not needed, because the hardware is not affected by that bug. And a patch by
-> Stephane Grosjean which updates the pci device table for the peak pci sja1000
-> driver.
- ...
->   git://gitorious.org/linux-can/linux-can.git fixes-for-3.7
+> From: Wei Yang <Wei.Yang@windriver.com>
+> 
+> When using a 36 bit dtb file, the driver complains "resource busy".
+> 
+> Investigating the source of the message leads one to the
+> gianfar_ptp_probe function.
+> 
+> Since the type of the device resource requested in this function
+> is IORESOURCE_MEM, it should use "iomem_resource" instead of
+> "ioports_resource".
+> 
+> Signed-off-by: Wei Yang <Wei.Yang@windriver.com>
+> Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Cc: Timur Tabi <timur@freescale.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Pulled, thanks Marc.
+Applied, thanks everyone.
