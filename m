@@ -1,48 +1,57 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH] tilegx: fix some issues in the SW TSO support
-Date: Thu, 25 Oct 2012 14:16:01 -0400
-Message-ID: <508981E1.4030600@tilera.com>
-References: <201210251737.q9PHbgev032681@farm-0012.internal.tilera.com> <1351187513.2662.9.camel@bwh-desktop.uk.solarflarecom.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Supporting more devices with dev_alloc_name()
+Date: Thu, 25 Oct 2012 11:16:44 -0700
+Message-ID: <20121025111644.301dc9d8@nehalam.linuxnetplumber.net>
+References: <20121025165632.GC7857@raven>
+	<1351187443.6537.184.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1351187513.2662.9.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Parkin <tparkin@katalix.com>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:50630 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758172Ab2JYSRc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 14:17:32 -0400
+In-Reply-To: <1351187443.6537.184.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2012 1:51 PM, Ben Hutchings wrote:
-> On Thu, 2012-10-25 at 13:25 -0400, Chris Metcalf wrote:
->> This change correctly computes the header length and data length in
->> the fragments to avoid a bug where we would end up with extremely
->> slow performance.  Also adopt use of skb_frag_size() accessor.
-> [...]
->
-> By the way, since you're doing soft-TSO you should probably set
-> net_device::gso_max_segs, as explained in:
->
-> commit 30b678d844af3305cda5953467005cebb5d7b687
-> Author: Ben Hutchings <bhutchings@solarflare.com>
-> Date:   Mon Jul 30 15:57:00 2012 +0000
->
->     net: Allow driver to limit number of GSO segments per skb
+On Thu, 25 Oct 2012 19:50:43 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-We currently have a hard limit of 2048 equeue entries (effectively,
-segments) per interface.  The commit message suggests 861 is the largest
-number we're likely to see, so I think we're OK from a correctness point of
-view.  But, perhaps, we could end up with multiple cores trying to push
-separate flows each with this tiny MSS issue, and they would then be
-contending for the 2048 equeue entries, and performance might suffer.  I
-don't have a good instinct on what value we should choose to set here; I
-see that sfc uses 100.
+> On Thu, 2012-10-25 at 17:56 +0100, Tom Parkin wrote:
+> > Hi list,
+> > 
+> > I've recently been trying to create large-scale L2TPv3 configurations
+> > of up to 50,000 Ethernet pseudowires.
+> > 
+> > One of the limitations I've hit has been to do with dev_alloc_name().
+> > By default, l2tp_eth uses "l2tpeth%d" for device names, which is
+> > expanded by dev_alloc_name() into l2tpeth1, l2tpeth2, etc.  However,
+> > the algorithm dev_alloc_name() uses to derive the next free number for
+> > this scheme is bounded by the number of bits in a single page.  For
+> > kernels/platforms with a 4kB page, this limits these "autoderived"
+> > names to 32k.
+> > 
+> > In my testing I've been able to work around this by specifying
+> > interface names during the bringup of the l2tpeth interfaces, thereby
+> > bypassing dev_alloc_name() altogether.  Using this approach I am able
+> > to comfortably create 50k interfaces, even on fairly modest hardware.
+> > But it seems a shame to have to do this; it would be much nicer if
+> > the kernel were able to autogenerate names for more devices.
+> > 
+> > Is this something that would be worth my working on a patch for, or
+> > would the increased code complexity be too great an overhead to
+> > consider for such outlandish use-cases?
+> 
+> This issue was raised some ago, for the dummy device
+> 
+> modprobe dummy numdummies=33000
+> 
+> I guess each format (eg eth%d) could be attached/associated to an idr,
+> so that we can find the lowest available index very fast.
 
-So, we could do nothing since it seems we're technically safe; we could say
-2048 to be explicit; we could pick a random fraction of the full size to
-help avoid contention effects, like 1024 or 512; or we could mimic sfc and
-just say 100.  What do you think?
-
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+You could try vzalloc() instead of get_zeroed_page which would allow for
+bigger bitmap.
