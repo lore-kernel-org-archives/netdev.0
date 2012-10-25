@@ -1,50 +1,49 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: [PATCH] isdn: remove dead code
-Date: Thu, 25 Oct 2012 15:30:52 +0100
-Message-ID: <20121025143031.16991.81337.stgit@localhost.localdomain>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: switching network namespace midway
+Date: Thu, 25 Oct 2012 10:38:11 -0400
+Message-ID: <20121025143811.GH15034@kvack.org>
+References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com> <878vavshhp.fsf@xmission.com> <20121024212116.GG15034@kvack.org> <87ip9zqqlv.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: isdn@linux-pingi.de, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: rsa <ravi.mlists@gmail.com>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:53789 "EHLO
-	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759749Ab2JYO3S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 10:29:18 -0400
+Received: from kanga.kvack.org ([205.233.56.17]:49141 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758956Ab2JYOiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 10:38:13 -0400
+Content-Disposition: inline
+In-Reply-To: <87ip9zqqlv.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@linux.intel.com>
+Hello Eric,
 
-multi is assigned to 0 and then acts as a constant. Remove the dead
-code.
+On Wed, Oct 24, 2012 at 06:37:16PM -0700, Eric W. Biederman wrote:
+> Yes.  Although L2TP is not an example of code I would copy.  Any other
+> tunnel would be better.  I haven't looked closely at L2TP but it keeps
+> popping up as a poster child for small little network namespace bugs
+> that I don't want to think about.
 
-Signed-off-by: Alan Cox <alan@linux.intel.com>
----
+Agreed.
 
- drivers/isdn/mISDN/l1oip_core.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+> Last I looked to use L2TP it required a magic userspace that I couldn't
+> find and I haven't cared enough to write.  Ben would you be interested
+> in helping flush out the network namespace bugs out of L2TP?
 
-diff --git a/drivers/isdn/mISDN/l1oip_core.c b/drivers/isdn/mISDN/l1oip_core.c
-index db50f78..f8e405c 100644
---- a/drivers/isdn/mISDN/l1oip_core.c
-+++ b/drivers/isdn/mISDN/l1oip_core.c
-@@ -277,7 +277,6 @@ l1oip_socket_send(struct l1oip *hc, u8 localcodec, u8 channel, u32 chanmask,
- 		  u16 timebase, u8 *buf, int len)
- {
- 	u8 *p;
--	int multi = 0;
- 	u8 frame[len + 32];
- 	struct socket *socket = NULL;
- 
-@@ -317,9 +316,7 @@ l1oip_socket_send(struct l1oip *hc, u8 localcodec, u8 channel, u32 chanmask,
- 		*p++ = hc->id >> 8;
- 		*p++ = hc->id;
- 	}
--	*p++ = (multi == 1) ? 0x80 : 0x00 + channel; /* m-flag, channel */
--	if (multi == 1)
--		*p++ = len; /* length */
-+	*p++ =  0x00 + channel; /* m-flag, channel */
- 	*p++ = timebase >> 8; /* time base */
- 	*p++ = timebase;
- 
+Sure, that I can do.  To be entirely honest, I have not yet tried using 
+network namespaces with the in kernel L2TP stack, but rather with the 
+Babylon code.  I have, however, put together changes to make the Babylon 
+userland code work with the in kernel L2TP over the past couple of months.  
+Since the network namespace support is already present in the userland 
+code, it shouldn't be too hard to adapt.
+
+>From a quick read of the L2TP over UDP code paths, it looks like things 
+should work, as the ingress and egress lookups use the transport socket's 
+namespace.  All the reference counting looks a bit heavy handed, though.  
+I also wrote a couple of test programs for setting up L2TP sockets and 
+devices which may be of use -- see http://www.kvack.org/~bcrl/pppol2tp/ .
+
+		-ben
+-- 
+"Thought is the essence of where you are now."
