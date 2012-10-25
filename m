@@ -1,43 +1,39 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH NEXT 10/17] rtlwifi: rtl8723ae: Add new driver - Part 8
-Date: Thu, 25 Oct 2012 13:46:39 -0500
-Message-ID: <1351190806-4258-11-git-send-email-Larry.Finger@lwfinger.net>
+Subject: [PATCH NEXT 12/17] rtlwifi: rtl8723ae: Add new driver - Part 10
+Date: Thu, 25 Oct 2012 13:46:41 -0500
+Message-ID: <1351190806-4258-13-git-send-email-Larry.Finger@lwfinger.net>
 References: <1351190806-4258-1-git-send-email-Larry.Finger@lwfinger.net>
 Cc: linux-wireless@vger.kernel.org,
 	Larry Finger <Larry.Finger@lwfinger.net>,
 	netdev@vger.kernel.org, <chaoming_li@realsil.com.cn>
 To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:36827 "EHLO
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:45711 "EHLO
 	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934743Ab2JYSrh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 14:47:37 -0400
+	with ESMTP id S2992558Ab2JYSrl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 14:47:41 -0400
 In-Reply-To: <1351190806-4258-1-git-send-email-Larry.Finger@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is part 8 of the addition of files for a new driver to handle
+This patch is part 10 of the addition of files for a new driver to handle
 the Realtek RTL8723AE wireless device.
 
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 Cc: <chaoming_li@realsil.com.cn>
 ---
- drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c    |  109 +++++++
- drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h    |  322 ++++++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.c |  129 ++++++++
- drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.h |   98 ++++++
- 4 files changed, 658 insertions(+)
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.h
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.c |  505 +++++++++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/rf.h |   43 +++
+ 2 files changed, 548 insertions(+)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/rf.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/rf.h
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c b/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/rf.c b/drivers/net/wireless/rtlwifi/rtl8723ae/rf.c
 new file mode 100644
-index 0000000..df6ca9a
+index 0000000..50dd2fb
 --- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.c
-@@ -0,0 +1,109 @@
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/rf.c
+@@ -0,0 +1,505 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2012  Realtek Corporation.
@@ -66,652 +62,530 @@ index 0000000..df6ca9a
 + * Larry Finger <Larry.Finger@lwfinger.net>
 + *
 + *****************************************************************************/
-+
-+#include "pwrseqcmd.h"
-+#include "pwrseq.h"
-+
-+/* drivers should parse arrays below and do the corresponding actions */
-+
-+/*3 Power on  Array*/
-+struct wlan_pwr_cfg rtl8723A_power_on_flow[RTL8723A_TRANS_CARDEMU_TO_ACT_STPS
-+					+ RTL8723A_TRANS_END_STPS] = {
-+	RTL8723A_TRANS_CARDEMU_TO_ACT,
-+	RTL8723A_TRANS_END
-+};
-+
-+/*3Radio off GPIO Array */
-+struct wlan_pwr_cfg rtl8723A_radio_off_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+					+ RTL8723A_TRANS_END_STPS] = {
-+	RTL8723A_TRANS_ACT_TO_CARDEMU,
-+	RTL8723A_TRANS_END
-+};
-+
-+/*3Card Disable Array*/
-+struct wlan_pwr_cfg
-+rtl8723A_card_disable_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+			  + RTL8723A_TRANS_CARDEMU_TO_PDN_STPS
-+			  + RTL8723A_TRANS_END_STPS] = {
-+	RTL8723A_TRANS_ACT_TO_CARDEMU,
-+	RTL8723A_TRANS_CARDEMU_TO_CARDDIS,
-+	RTL8723A_TRANS_END
-+};
-+
-+/*3 Card Enable Array*/
-+struct wlan_pwr_cfg rtl8723A_card_enable_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+					+ RTL8723A_TRANS_CARDEMU_TO_PDN_STPS
-+					+ RTL8723A_TRANS_END_STPS] = {
-+	RTL8723A_TRANS_CARDDIS_TO_CARDEMU,
-+	RTL8723A_TRANS_CARDEMU_TO_ACT,
-+	RTL8723A_TRANS_END
-+};
-+
-+/*3Suspend Array*/
-+struct wlan_pwr_cfg rtl8723A_suspend_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+					+ RTL8723A_TRANS_CARDEMU_TO_SUS_STPS
-+					+ RTL8723A_TRANS_END_STPS] = {
-+	RTL8723A_TRANS_ACT_TO_CARDEMU,
-+	RTL8723A_TRANS_CARDEMU_TO_SUS,
-+	RTL8723A_TRANS_END
-+};
-+
-+/*3 Resume Array*/
-+struct wlan_pwr_cfg rtl8723A_resume_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+					+ RTL8723A_TRANS_CARDEMU_TO_SUS_STPS
-+					+ RTL8723A_TRANS_END_STPS] = {
-+	RTL8723A_TRANS_SUS_TO_CARDEMU,
-+	RTL8723A_TRANS_CARDEMU_TO_ACT,
-+	RTL8723A_TRANS_END
-+};
-+
-+/*3HWPDN Array*/
-+struct wlan_pwr_cfg rtl8723A_hwpdn_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+				+ RTL8723A_TRANS_CARDEMU_TO_PDN_STPS
-+				+ RTL8723A_TRANS_END_STPS] = {
-+	RTL8723A_TRANS_ACT_TO_CARDEMU,
-+	RTL8723A_TRANS_CARDEMU_TO_PDN,
-+	RTL8723A_TRANS_END
-+};
-+
-+/*3 Enter LPS */
-+struct wlan_pwr_cfg rtl8723A_enter_lps_flow[RTL8723A_TRANS_ACT_TO_LPS_STPS
-+					+ RTL8723A_TRANS_END_STPS] = {
-+	/*FW behavior*/
-+	RTL8723A_TRANS_ACT_TO_LPS,
-+	RTL8723A_TRANS_END
-+};
-+
-+/*3 Leave LPS */
-+struct wlan_pwr_cfg rtl8723A_leave_lps_flow[RTL8723A_TRANS_LPS_TO_ACT_STPS
-+					+ RTL8723A_TRANS_END_STPS] = {
-+	/*FW behavior*/
-+	RTL8723A_TRANS_LPS_TO_ACT,
-+	RTL8723A_TRANS_END
-+};
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h b/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h
-new file mode 100644
-index 0000000..7a46f9f
---- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseq.h
-@@ -0,0 +1,322 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009-2012  Realtek Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
-+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
-+ * Hsinchu 300, Taiwan.
-+ *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
-+ *
-+ *****************************************************************************/
-+
-+#ifndef __RTL8723E_PWRSEQ_H__
-+#define __RTL8723E_PWRSEQ_H__
-+
-+#include "pwrseqcmd.h"
-+/*
-+	Check document WM-20110607-Paul-RTL8723A_Power_Architecture-R02.vsd
-+	There are 6 HW Power States:
-+	0: POFF--Power Off
-+	1: PDN--Power Down
-+	2: CARDEMU--Card Emulation
-+	3: ACT--Active Mode
-+	4: LPS--Low Power State
-+	5: SUS--Suspend
-+
-+	The transision from different states are defined below
-+	TRANS_CARDEMU_TO_ACT
-+	TRANS_ACT_TO_CARDEMU
-+	TRANS_CARDEMU_TO_SUS
-+	TRANS_SUS_TO_CARDEMU
-+	TRANS_CARDEMU_TO_PDN
-+	TRANS_ACT_TO_LPS
-+	TRANS_LPS_TO_ACT
-+
-+	TRANS_END
-+*/
-+
-+#define	RTL8723A_TRANS_CARDEMU_TO_ACT_STPS	10
-+#define	RTL8723A_TRANS_ACT_TO_CARDEMU_STPS	10
-+#define	RTL8723A_TRANS_CARDEMU_TO_SUS_STPS	10
-+#define	RTL8723A_TRANS_SUS_TO_CARDEMU_STPS	10
-+#define	RTL8723A_TRANS_CARDEMU_TO_PDN_STPS	10
-+#define	RTL8723A_TRANS_PDN_TO_CARDEMU_STPS	10
-+#define	RTL8723A_TRANS_ACT_TO_LPS_STPS		15
-+#define	RTL8723A_TRANS_LPS_TO_ACT_STPS		15
-+#define	RTL8723A_TRANS_END_STPS			1
-+
-+
-+#define RTL8723A_TRANS_CARDEMU_TO_ACT					\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, \
-+	 *  comments here*/						\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(2), 0},		\
-+		/* disable SW LPS 0x04[10]=0*/				\
-+	{0x0006, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_POLLING, BIT(1), BIT(1)},	\
-+		/* wait till 0x04[17] = 1    power ready*/		\
-+	{0x0006, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(0), BIT(0)},	\
-+		/* release WLON reset  0x04[16]=1*/			\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(7), 0},		\
-+		/* disable HWPDN 0x04[15]=0*/				\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, (BIT(4)|BIT(3)), 0},	\
-+	/* disable WL suspend*/						\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(0), BIT(0)},	\
-+		/* polling until return 0*/				\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_POLLING, BIT(0), 0}
-+
-+#define RTL8723A_TRANS_ACT_TO_CARDEMU					\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, \
-+	 *  comments here*/						\
-+	{0x001F, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, 0xFF, 0},		\
-+		/*0x1F[7:0] = 0 turn off RF*/				\
-+	{0x004E, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(7), 0},		\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(1), BIT(1)},	\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_POLLING, BIT(1), 0}
-+
-+#define RTL8723A_TRANS_CARDEMU_TO_SUS					\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, \
-+	 *  comments here*/						\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_PCI_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(4)|BIT(3),		\
-+		(BIT(4)|BIT(3))},					\
-+		/*0x04[12:11] = 2b'11 enable WL suspend for PCIe*/	\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_USB_MSK |	\
-+		PWR_INTF_SDIO_MSK,					\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(3)|BIT(4), BIT(3)},\
-+		 /*0x04[12:11] = 2b'01 enable WL suspend*/		\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_PCI_MSK,	\
-+		PWR_BASEADDR_MAC,					\
-+		PWR_CMD_WRITE, BIT(3)|BIT(4), BIT(3)|BIT(4)},		\
-+		 /*0x04[12:11] = 2b'11 enable WL suspend for PCIe*/	\
-+	{0x0086, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,	\
-+		PWR_BASEADDR_SDIO,					\
-+		PWR_CMD_WRITE, BIT(0), BIT(0)},				\
-+		/*Set SDIO suspend local register*/			\
-+	{0x0086, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,	\
-+		PWR_BASEADDR_SDIO,					\
-+		PWR_CMD_POLLING, BIT(1), 0}				\
-+		/*wait power state to suspend*/
-+
-+#define RTL8723A_TRANS_SUS_TO_CARDEMU					\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, */\
-+	{0x0086, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,	\
-+		PWR_BASEADDR_SDIO, PWR_CMD_WRITE, BIT(0), 0},		\
-+		/*Set SDIO suspend local register*/			\
-+	{0x0086, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,	\
-+		PWR_BASEADDR_SDIO, PWR_CMD_POLLING, BIT(1), BIT(1)},	\
-+		/*wait power state to suspend*/				\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(3)|BIT(4), 0}	\
-+		/*0x04[12:11] = 2b'01enable WL suspend*/
-+
-+#define RTL8723A_TRANS_CARDEMU_TO_CARDDIS				\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, */\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK,			\
-+	PWR_INTF_USB_MSK|PWR_INTF_SDIO_MSK,				\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(3)|BIT(4), BIT(3)},\
-+		/*0x04[12:11] = 2b'01 enable WL suspend*/		\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_PCI_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(2), BIT(2)},	\
-+		/*0x04[10] = 1, enable SW LPS*/				\
-+	{0x0086, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,	\
-+		PWR_BASEADDR_SDIO, PWR_CMD_WRITE, BIT(0), BIT(0)},	\
-+		/*Set SDIO suspend local register*/			\
-+	{0x0086, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,	\
-+		PWR_BASEADDR_SDIO, PWR_CMD_POLLING, BIT(1), 0}		\
-+		/*wait power state to suspend*/
-+
-+#define RTL8723A_TRANS_CARDDIS_TO_CARDEMU				\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, */\
-+	{0x0086, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,	\
-+		PWR_BASEADDR_SDIO, PWR_CMD_WRITE, BIT(0), 0},		\
-+		/*Set SDIO suspend local register*/			\
-+	{0x0086, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,	\
-+		PWR_BASEADDR_SDIO, PWR_CMD_POLLING, BIT(1), BIT(1)},	\
-+		/*wait power state to suspend*/				\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(3)|BIT(4), 0},	\
-+		/*0x04[12:11] = 2b'00enable WL suspend*/		\
-+	{0x0301, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, 0xFF, 0}		\
-+		/*PCIe DMA start*/
-+
-+#define RTL8723A_TRANS_CARDEMU_TO_PDN					\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, */\
-+	{0x0006, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(0), 0},		\
-+		/* 0x04[16] = 0*/\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(7), BIT(7)}	\
-+		/* 0x04[15] = 1*/
-+
-+#define RTL8723A_TRANS_PDN_TO_CARDEMU					\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, */\
-+	{0x0005, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(7), 0}		\
-+		/* 0x04[15] = 0*/
-+
-+#define RTL8723A_TRANS_ACT_TO_LPS					\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, */\
-+	{0x0301, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, 0xFF, 0xFF},		\
-+		/*PCIe DMA stop*/					\
-+	{0x0522, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, 0xFF, 0x7F},		\
-+		/*Tx Pause*/						\
-+	{0x05F8, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_POLLING, 0xFF, 0},		\
-+		/*Should be zero if no packet is transmitting*/		\
-+	{0x05F9, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_POLLING, 0xFF, 0},		\
-+		/*Should be zero if no packet is transmitting*/		\
-+	{0x05FA, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_POLLING, 0xFF, 0},		\
-+		/*Should be zero if no packet is transmitting*/		\
-+	{0x05FB, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_POLLING, 0xFF, 0},		\
-+		/*Should be zero if no packet is transmitting*/		\
-+	{0x0002, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(0), 0},		\
-+		/*CCK and OFDM are disabled,and clock are gated*/	\
-+	{0x0002, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_DELAY, 0, PWRSEQ_DELAY_US},	\
-+		/*Delay 1us*/						\
-+	{0x0002, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(1), 0},		\
-+		/*Whole BB is reset*/					\
-+	{0x0100, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, 0xFF, 0x3F},		\
-+		/*Reset MAC TRX*/					\
-+	{0x0101, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(1), 0},		\
-+		/*check if removed later*/				\
-+	{0x0553, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(5), BIT(5)}	\
-+		/*Respond TxOK to scheduler*/
-+
-+#define RTL8723A_TRANS_LPS_TO_ACT					\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, */\
-+	{0x0080, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,	\
-+		 PWR_BASEADDR_SDIO, PWR_CMD_WRITE, 0xFF, 0x84},		\
-+		 /*SDIO RPWM*/						\
-+	{0xFE58, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_USB_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, 0xFF, 0x84},		\
-+		/*USB RPWM*/						\
-+	{0x0361, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_PCI_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, 0xFF, 0x84},		\
-+		/*PCIe RPWM*/						\
-+	{0x0002, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		 PWR_BASEADDR_MAC, PWR_CMD_DELAY, 0, PWRSEQ_DELAY_MS},	\
-+		/*Delay*/						\
-+	{0x0008, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(4), 0},		\
-+		/* 0x08[4] = 0 switch TSF to 40M*/			\
-+	{0x0109, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_POLLING, BIT(7), 0},		\
-+		/*Polling 0x109[7]=0  TSF in 40M*/			\
-+	{0x0029, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(6)|BIT(7), 0},	\
-+		/*.	0x29[7:6] = 2b'00	 enable BB clock*/	\
-+	{0x0101, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(1), BIT(1)},	\
-+		/*.	0x101[1] = 1*/					\
-+	{0x0100, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, 0xFF, 0xFF},		\
-+		/* 0x100[7:0] = 0xFF enable WMAC TRX*/			\
-+	{0x0002, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, BIT(1)|BIT(0),		\
-+		BIT(1)|BIT(0)},						\
-+		/* 0x02[1:0] = 2b'11  enable BB macro*/			\
-+	{0x0522, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+		PWR_BASEADDR_MAC, PWR_CMD_WRITE, 0xFF, 0}		\
-+		/*.	0x522 = 0*/
-+
-+#define RTL8723A_TRANS_END						\
-+	/* format */							\
-+	/* { offset, cut_msk, fab_msk|interface_msk, base|cmd, msk, value }, */\
-+	{0xFFFF, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_ALL_MSK,	\
-+	0, PWR_CMD_END, 0, 0}
-+
-+extern struct
-+wlan_pwr_cfg rtl8723A_power_on_flow[RTL8723A_TRANS_CARDEMU_TO_ACT_STPS
-+				    + RTL8723A_TRANS_END_STPS];
-+extern struct
-+wlan_pwr_cfg rtl8723A_radio_off_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+				     + RTL8723A_TRANS_END_STPS];
-+extern struct
-+wlan_pwr_cfg rtl8723A_card_disable_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+					+ RTL8723A_TRANS_CARDEMU_TO_PDN_STPS
-+					+ RTL8723A_TRANS_END_STPS];
-+extern struct
-+wlan_pwr_cfg rtl8723A_card_enable_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+				       + RTL8723A_TRANS_CARDEMU_TO_PDN_STPS
-+				       + RTL8723A_TRANS_END_STPS];
-+extern struct
-+wlan_pwr_cfg rtl8723A_suspend_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+				   + RTL8723A_TRANS_CARDEMU_TO_SUS_STPS
-+				   + RTL8723A_TRANS_END_STPS];
-+extern struct
-+wlan_pwr_cfg rtl8723A_resume_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+				  + RTL8723A_TRANS_CARDEMU_TO_SUS_STPS
-+				  + RTL8723A_TRANS_END_STPS];
-+extern struct
-+wlan_pwr_cfg rtl8723A_hwpdn_flow[RTL8723A_TRANS_ACT_TO_CARDEMU_STPS
-+				 + RTL8723A_TRANS_CARDEMU_TO_PDN_STPS
-+				 + RTL8723A_TRANS_END_STPS];
-+extern struct
-+wlan_pwr_cfg rtl8723A_enter_lps_flow[RTL8723A_TRANS_ACT_TO_LPS_STPS
-+				     + RTL8723A_TRANS_END_STPS];
-+extern struct
-+wlan_pwr_cfg rtl8723A_leave_lps_flow[RTL8723A_TRANS_LPS_TO_ACT_STPS
-+				     + RTL8723A_TRANS_END_STPS];
-+
-+/* RTL8723 Power Configuration CMDs for PCIe interface */
-+#define Rtl8723_NIC_PWR_ON_FLOW		rtl8723A_power_on_flow
-+#define Rtl8723_NIC_RF_OFF_FLOW		rtl8723A_radio_off_flow
-+#define Rtl8723_NIC_DISABLE_FLOW	rtl8723A_card_disable_flow
-+#define Rtl8723_NIC_ENABLE_FLOW		rtl8723A_card_enable_flow
-+#define Rtl8723_NIC_SUSPEND_FLOW	rtl8723A_suspend_flow
-+#define Rtl8723_NIC_RESUME_FLOW		rtl8723A_resume_flow
-+#define Rtl8723_NIC_PDN_FLOW		rtl8723A_hwpdn_flow
-+#define Rtl8723_NIC_LPS_ENTER_FLOW	rtl8723A_enter_lps_flow
-+#define Rtl8723_NIC_LPS_LEAVE_FLOW	rtl8723A_leave_lps_flow
-+
-+#endif
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.c b/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.c
-new file mode 100644
-index 0000000..2044b59
---- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.c
-@@ -0,0 +1,129 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009-2012  Realtek Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
-+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
-+ * Hsinchu 300, Taiwan.
-+ *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
-+ *
-+ *****************************************************************************/
-+
-+#include "pwrseq.h"
-+
-+/*	Description:
-+ *		This routine deals with the Power Configuration CMD
-+ *		 parsing for RTL8723/RTL8188E Series IC.
-+ *	Assumption:
-+ *		We should follow specific format that was released from HW SD.
-+ */
-+bool rtl_hal_pwrseqcmdparsing(struct rtl_priv *rtlpriv, u8 cut_version,
-+			      u8 faversion, u8 interface_type,
-+			      struct wlan_pwr_cfg pwrcfgcmd[])
-+{
-+	struct wlan_pwr_cfg cfg_cmd = {0};
-+	bool polling_bit = false;
-+	u32 ary_idx = 0;
-+	u8 value = 0;
-+	u32 offset = 0;
-+	u32 polling_count = 0;
-+	u32 max_polling_cnt = 5000;
-+
-+	do {
-+		cfg_cmd = pwrcfgcmd[ary_idx];
-+		RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+			"rtl_hal_pwrseqcmdparsing(): offset(%#x),cut_msk(%#x), famsk(%#x),"
-+			"interface_msk(%#x), base(%#x), cmd(%#x), msk(%#x), value(%#x)\n",
-+			GET_PWR_CFG_OFFSET(cfg_cmd),
-+					   GET_PWR_CFG_CUT_MASK(cfg_cmd),
-+			GET_PWR_CFG_FAB_MASK(cfg_cmd),
-+					     GET_PWR_CFG_INTF_MASK(cfg_cmd),
-+			GET_PWR_CFG_BASE(cfg_cmd), GET_PWR_CFG_CMD(cfg_cmd),
-+			GET_PWR_CFG_MASK(cfg_cmd), GET_PWR_CFG_VALUE(cfg_cmd));
-+
-+		if ((GET_PWR_CFG_FAB_MASK(cfg_cmd)&faversion) &&
-+		    (GET_PWR_CFG_CUT_MASK(cfg_cmd)&cut_version) &&
-+		    (GET_PWR_CFG_INTF_MASK(cfg_cmd)&interface_type)) {
-+			switch (GET_PWR_CFG_CMD(cfg_cmd)) {
-+			case PWR_CMD_READ:
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					"rtl_hal_pwrseqcmdparsing(): PWR_CMD_READ\n");
-+				break;
-+			case PWR_CMD_WRITE:
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					"rtl_hal_pwrseqcmdparsing(): PWR_CMD_WRITE\n");
-+				offset = GET_PWR_CFG_OFFSET(cfg_cmd);
-+
-+				/*Read the value from system register*/
-+				value = rtl_read_byte(rtlpriv, offset);
-+				value &= (~(GET_PWR_CFG_MASK(cfg_cmd)));
-+				value |= (GET_PWR_CFG_VALUE(cfg_cmd) &
-+					  GET_PWR_CFG_MASK(cfg_cmd));
-+
-+				/*Write the value back to sytem register*/
-+				rtl_write_byte(rtlpriv, offset, value);
-+				break;
-+			case PWR_CMD_POLLING:
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					"rtl_hal_pwrseqcmdparsing(): PWR_CMD_POLLING\n");
-+				polling_bit = false;
-+				offset = GET_PWR_CFG_OFFSET(cfg_cmd);
-+
-+				do {
-+					value = rtl_read_byte(rtlpriv, offset);
-+
-+					value &= GET_PWR_CFG_MASK(cfg_cmd);
-+					if (value ==
-+					    (GET_PWR_CFG_VALUE(cfg_cmd)
-+					    & GET_PWR_CFG_MASK(cfg_cmd)))
-+						polling_bit = true;
-+					else
-+						udelay(10);
-+
-+					if (polling_count++ > max_polling_cnt)
-+						return false;
-+				} while (!polling_bit);
-+				break;
-+			case PWR_CMD_DELAY:
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					"rtl_hal_pwrseqcmdparsing(): PWR_CMD_DELAY\n");
-+				if (GET_PWR_CFG_VALUE(cfg_cmd) ==
-+				    PWRSEQ_DELAY_US)
-+					udelay(GET_PWR_CFG_OFFSET(cfg_cmd));
-+				else
-+					mdelay(GET_PWR_CFG_OFFSET(cfg_cmd));
-+				break;
-+			case PWR_CMD_END:
-+				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
-+					 "rtl_hal_pwrseqcmdparsing(): PWR_CMD_END\n");
-+				return true;
-+			default:
-+				RT_ASSERT(false,
-+					 "rtl_hal_pwrseqcmdparsing(): Unknown CMD!!\n");
-+				break;
-+			}
-+
-+		}
-+		ary_idx++;
-+	} while (1);
-+
-+	return true;
-+}
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.h b/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.h
-new file mode 100644
-index 0000000..6e0f3ea
---- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/pwrseqcmd.h
-@@ -0,0 +1,98 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009-2012  Realtek Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
-+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
-+ * Hsinchu 300, Taiwan.
-+ *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
-+ *
-+ *****************************************************************************/
-+
-+#ifndef __RTL8723E_PWRSEQCMD_H__
-+#define __RTL8723E_PWRSEQCMD_H__
 +
 +#include "../wifi.h"
-+/*---------------------------------------------
-+ * 3 The value of cmd: 4 bits
-+ *---------------------------------------------
-+ */
-+#define    PWR_CMD_READ		0x00
-+#define    PWR_CMD_WRITE	0x01
-+#define    PWR_CMD_POLLING	0x02
-+#define    PWR_CMD_DELAY	0x03
-+#define    PWR_CMD_END		0x04
++#include "reg.h"
++#include "def.h"
++#include "phy.h"
++#include "rf.h"
++#include "dm.h"
 +
-+/* define the base address of each block */
-+#define   PWR_BASEADDR_MAC	0x00
-+#define   PWR_BASEADDR_USB	0x01
-+#define   PWR_BASEADDR_PCIE	0x02
-+#define   PWR_BASEADDR_SDIO	0x03
++void rtl8723ae_phy_rf6052_set_bandwidth(struct ieee80211_hw *hw, u8 bandwidth)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_phy *rtlphy = &(rtlpriv->phy);
 +
-+#define	PWR_INTF_SDIO_MSK	BIT(0)
-+#define	PWR_INTF_USB_MSK	BIT(1)
-+#define	PWR_INTF_PCI_MSK	BIT(2)
-+#define	PWR_INTF_ALL_MSK	(BIT(0)|BIT(1)|BIT(2)|BIT(3))
++	switch (bandwidth) {
++	case HT_CHANNEL_WIDTH_20:
++		rtlphy->rfreg_chnlval[0] = ((rtlphy->rfreg_chnlval[0] &
++					     0xfffff3ff) | 0x0400);
++		rtl_set_rfreg(hw, RF90_PATH_A, RF_CHNLBW, RFREG_OFFSET_MASK,
++			      rtlphy->rfreg_chnlval[0]);
++		break;
++	case HT_CHANNEL_WIDTH_20_40:
++		rtlphy->rfreg_chnlval[0] = ((rtlphy->rfreg_chnlval[0] &
++					     0xfffff3ff));
++		rtl_set_rfreg(hw, RF90_PATH_A, RF_CHNLBW, RFREG_OFFSET_MASK,
++			      rtlphy->rfreg_chnlval[0]);
++		break;
++	default:
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "unknown bandwidth: %#X\n", bandwidth);
++		break;
++	}
++}
 +
-+#define	PWR_FAB_TSMC_MSK	BIT(0)
-+#define	PWR_FAB_UMC_MSK		BIT(1)
-+#define	PWR_FAB_ALL_MSK		(BIT(0)|BIT(1)|BIT(2)|BIT(3))
++void rtl8723ae_phy_rf6052_set_cck_txpower(struct ieee80211_hw *hw,
++					  u8 *ppowerlevel)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_phy *rtlphy = &(rtlpriv->phy);
++	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
++	struct rtl_efuse *rtlefuse = rtl_efuse(rtl_priv(hw));
++	u32 tx_agc[2] = {0, 0}, tmpval;
++	bool turbo_scanoff = false;
++	u8 idx1, idx2;
++	u8 *ptr;
 +
-+#define	PWR_CUT_TESTCHIP_MSK	BIT(0)
-+#define	PWR_CUT_A_MSK		BIT(1)
-+#define	PWR_CUT_B_MSK		BIT(2)
-+#define	PWR_CUT_C_MSK		BIT(3)
-+#define	PWR_CUT_D_MSK		BIT(4)
-+#define	PWR_CUT_E_MSK		BIT(5)
-+#define	PWR_CUT_F_MSK		BIT(6)
-+#define	PWR_CUT_G_MSK		BIT(7)
-+#define	PWR_CUT_ALL_MSK		0xFF
++	if (rtlefuse->eeprom_regulatory != 0)
++		turbo_scanoff = true;
 +
-+enum pwrseq_delay_unit {
-+	PWRSEQ_DELAY_US,
-+	PWRSEQ_DELAY_MS,
-+};
++	if (mac->act_scanning == true) {
++		tx_agc[RF90_PATH_A] = 0x3f3f3f3f;
++		tx_agc[RF90_PATH_B] = 0x3f3f3f3f;
 +
-+struct wlan_pwr_cfg {
-+	u16 offset;
-+	u8 cut_msk;
-+	u8 fab_msk:4;
-+	u8 interface_msk:4;
-+	u8 base:4;
-+	u8 cmd:4;
-+	u8 msk;
-+	u8 value;
-+};
++		if (turbo_scanoff) {
++			for (idx1 = RF90_PATH_A; idx1 <= RF90_PATH_B; idx1++) {
++				tx_agc[idx1] = ppowerlevel[idx1] |
++				    (ppowerlevel[idx1] << 8) |
++				    (ppowerlevel[idx1] << 16) |
++				    (ppowerlevel[idx1] << 24);
++			}
++		}
++	} else {
++		for (idx1 = RF90_PATH_A; idx1 <= RF90_PATH_B; idx1++) {
++			tx_agc[idx1] = ppowerlevel[idx1] |
++				       (ppowerlevel[idx1] << 8) |
++				       (ppowerlevel[idx1] << 16) |
++				       (ppowerlevel[idx1] << 24);
++		}
 +
-+#define	GET_PWR_CFG_OFFSET(__PWR_CMD)	(__PWR_CMD.offset)
-+#define	GET_PWR_CFG_CUT_MASK(__PWR_CMD)	(__PWR_CMD.cut_msk)
-+#define	GET_PWR_CFG_FAB_MASK(__PWR_CMD)	(__PWR_CMD.fab_msk)
-+#define	GET_PWR_CFG_INTF_MASK(__PWR_CMD)	(__PWR_CMD.interface_msk)
-+#define	GET_PWR_CFG_BASE(__PWR_CMD)	(__PWR_CMD.base)
-+#define	GET_PWR_CFG_CMD(__PWR_CMD)	(__PWR_CMD.cmd)
-+#define	GET_PWR_CFG_MASK(__PWR_CMD)	(__PWR_CMD.msk)
-+#define	GET_PWR_CFG_VALUE(__PWR_CMD)	(__PWR_CMD.value)
++		if (rtlefuse->eeprom_regulatory == 0) {
++			tmpval = (rtlphy->mcs_offset[0][6]) +
++				(rtlphy->mcs_offset[0][7] << 8);
++			tx_agc[RF90_PATH_A] += tmpval;
 +
-+bool rtl_hal_pwrseqcmdparsing(struct rtl_priv *rtlpriv, u8 cut_version,
-+			      u8 fab_version, u8 interface_type,
-+			      struct wlan_pwr_cfg pwrcfgcmd[]);
++			tmpval = (rtlphy->mcs_offset[0][14]) +
++			    (rtlphy->mcs_offset[0][15] << 24);
++			tx_agc[RF90_PATH_B] += tmpval;
++		}
++	}
++
++	for (idx1 = RF90_PATH_A; idx1 <= RF90_PATH_B; idx1++) {
++		ptr = (u8 *) (&(tx_agc[idx1]));
++		for (idx2 = 0; idx2 < 4; idx2++) {
++			if (*ptr > RF6052_MAX_TX_PWR)
++				*ptr = RF6052_MAX_TX_PWR;
++			ptr++;
++		}
++	}
++
++	tmpval = tx_agc[RF90_PATH_A] & 0xff;
++	rtl_set_bbreg(hw, RTXAGC_A_CCK1_MCS32, MASKBYTE1, tmpval);
++
++	RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++		"CCK PWR 1M (rf-A) = 0x%x (reg 0x%x)\n", tmpval,
++		RTXAGC_A_CCK1_MCS32);
++
++	tmpval = tx_agc[RF90_PATH_A] >> 8;
++
++	tmpval = tmpval & 0xff00ffff;
++
++	rtl_set_bbreg(hw, RTXAGC_B_CCK11_A_CCK2_11, 0xffffff00, tmpval);
++
++	RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++		"CCK PWR 2~11M (rf-A) = 0x%x (reg 0x%x)\n", tmpval,
++		RTXAGC_B_CCK11_A_CCK2_11);
++
++	tmpval = tx_agc[RF90_PATH_B] >> 24;
++	rtl_set_bbreg(hw, RTXAGC_B_CCK11_A_CCK2_11, MASKBYTE0, tmpval);
++
++	RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++		"CCK PWR 11M (rf-B) = 0x%x (reg 0x%x)\n", tmpval,
++		RTXAGC_B_CCK11_A_CCK2_11);
++
++	tmpval = tx_agc[RF90_PATH_B] & 0x00ffffff;
++	rtl_set_bbreg(hw, RTXAGC_B_CCK1_55_MCS32, 0xffffff00, tmpval);
++
++	RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++		"CCK PWR 1~5.5M (rf-B) = 0x%x (reg 0x%x)\n", tmpval,
++		RTXAGC_B_CCK1_55_MCS32);
++}
++
++static void rtl8723ae_phy_get_power_base(struct ieee80211_hw *hw,
++					 u8 *ppowerlevel, u8 channel,
++					 u32 *ofdmbase, u32 *mcsbase)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_phy *rtlphy = &(rtlpriv->phy);
++	struct rtl_efuse *rtlefuse = rtl_efuse(rtl_priv(hw));
++	u32 powerBase0, powerBase1;
++	u8 legacy_pwrdiff, ht20_pwrdiff;
++	u8 i, powerlevel[2];
++
++	for (i = 0; i < 2; i++) {
++		powerlevel[i] = ppowerlevel[i];
++		legacy_pwrdiff = rtlefuse->txpwr_legacyhtdiff[i][channel - 1];
++		powerBase0 = powerlevel[i] + legacy_pwrdiff;
++
++		powerBase0 = (powerBase0 << 24) | (powerBase0 << 16) |
++		    (powerBase0 << 8) | powerBase0;
++		*(ofdmbase + i) = powerBase0;
++		RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++			" [OFDM power base index rf(%c) = 0x%x]\n",
++			((i == 0) ? 'A' : 'B'), *(ofdmbase + i));
++	}
++
++	for (i = 0; i < 2; i++) {
++		if (rtlphy->current_chan_bw == HT_CHANNEL_WIDTH_20) {
++			ht20_pwrdiff = rtlefuse->txpwr_ht20diff[i][channel - 1];
++			powerlevel[i] += ht20_pwrdiff;
++		}
++		powerBase1 = powerlevel[i];
++		powerBase1 = (powerBase1 << 24) |
++		    (powerBase1 << 16) | (powerBase1 << 8) | powerBase1;
++
++		*(mcsbase + i) = powerBase1;
++
++		RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++			" [MCS power base index rf(%c) = 0x%x]\n",
++			((i == 0) ? 'A' : 'B'), *(mcsbase + i));
++	}
++}
++
++static void rtl8723ae_get_txpwr_val_by_reg(struct ieee80211_hw *hw,
++					   u8 channel, u8 index,
++					   u32 *powerBase0,
++					   u32 *powerBase1,
++					   u32 *p_outwriteval)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_phy *rtlphy = &(rtlpriv->phy);
++	struct rtl_efuse *rtlefuse = rtl_efuse(rtl_priv(hw));
++	u8 i, chnlgroup = 0, pwr_diff_limit[4];
++	u32 writeVal, customer_limit, rf;
++
++	for (rf = 0; rf < 2; rf++) {
++		switch (rtlefuse->eeprom_regulatory) {
++		case 0:
++			chnlgroup = 0;
++
++			writeVal = rtlphy->mcs_offset[chnlgroup]
++				   [index + (rf ? 8 : 0)] +
++				   ((index < 2) ? powerBase0[rf] :
++				   powerBase1[rf]);
++
++			RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++				"RTK better performance, "
++				"writeVal(%c) = 0x%x\n",
++				((rf == 0) ? 'A' : 'B'), writeVal);
++			break;
++		case 1:
++			if (rtlphy->current_chan_bw == HT_CHANNEL_WIDTH_20_40) {
++				writeVal = ((index < 2) ? powerBase0[rf] :
++					    powerBase1[rf]);
++
++				RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++					"Realtek regulatory, 40MHz, "
++					"writeVal(%c) = 0x%x\n",
++					((rf == 0) ? 'A' : 'B'), writeVal);
++			} else {
++				if (rtlphy->pwrgroup_cnt == 1)
++					chnlgroup = 0;
++				if (rtlphy->pwrgroup_cnt >= 3) {
++					if (channel <= 3)
++						chnlgroup = 0;
++					else if (channel >= 4 && channel <= 9)
++						chnlgroup = 1;
++					else if (channel > 9)
++						chnlgroup = 2;
++					if (rtlphy->current_chan_bw ==
++					    HT_CHANNEL_WIDTH_20)
++						chnlgroup++;
++					else
++						chnlgroup += 4;
++				}
++
++				writeVal = rtlphy->mcs_offset[chnlgroup]
++				    [index + (rf ? 8 : 0)] + ((index < 2) ?
++							      powerBase0[rf] :
++							      powerBase1[rf]);
++
++				RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++					"Realtek regulatory, 20MHz, writeVal(%c) = 0x%x\n",
++					((rf == 0) ? 'A' : 'B'), writeVal);
++			}
++			break;
++		case 2:
++			writeVal =
++			    ((index < 2) ? powerBase0[rf] : powerBase1[rf]);
++
++			RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++				"Better regulatory, writeVal(%c) = 0x%x\n",
++				((rf == 0) ? 'A' : 'B'), writeVal);
++			break;
++		case 3:
++			chnlgroup = 0;
++
++			if (rtlphy->current_chan_bw == HT_CHANNEL_WIDTH_20_40) {
++				RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++					"customer's limit, 40MHz rf(%c) = 0x%x\n",
++					((rf == 0) ? 'A' : 'B'),
++					rtlefuse->pwrgroup_ht40[rf][channel-1]);
++			} else {
++				RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++					"customer's limit, 20MHz rf(%c) = 0x%x\n",
++					((rf == 0) ? 'A' : 'B'),
++					rtlefuse->pwrgroup_ht20[rf][channel-1]);
++			}
++			for (i = 0; i < 4; i++) {
++				pwr_diff_limit[i] =
++					(u8) ((rtlphy->mcs_offset
++					[chnlgroup][index + (rf ? 8 : 0)] &
++					(0x7f << (i * 8))) >> (i * 8));
++
++				if (rtlphy->current_chan_bw ==
++				    HT_CHANNEL_WIDTH_20_40) {
++					if (pwr_diff_limit[i] >
++					    rtlefuse->
++					    pwrgroup_ht40[rf][channel - 1])
++						pwr_diff_limit[i] =
++						    rtlefuse->pwrgroup_ht40[rf]
++						    [channel - 1];
++				} else {
++					if (pwr_diff_limit[i] >
++					    rtlefuse->
++					    pwrgroup_ht20[rf][channel - 1])
++						pwr_diff_limit[i] =
++						    rtlefuse->pwrgroup_ht20[rf]
++						    [channel - 1];
++				}
++			}
++
++			customer_limit = (pwr_diff_limit[3] << 24) |
++			    (pwr_diff_limit[2] << 16) |
++			    (pwr_diff_limit[1] << 8) | (pwr_diff_limit[0]);
++
++			RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++				"Customer's limit rf(%c) = 0x%x\n",
++				((rf == 0) ? 'A' : 'B'), customer_limit);
++
++			writeVal = customer_limit +
++			    ((index < 2) ? powerBase0[rf] : powerBase1[rf]);
++
++			RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++				"Customer, writeVal rf(%c)= 0x%x\n",
++				((rf == 0) ? 'A' : 'B'), writeVal);
++			break;
++		default:
++			chnlgroup = 0;
++			writeVal = rtlphy->mcs_offset[chnlgroup][index +
++			    (rf ? 8 : 0)] + ((index < 2) ? powerBase0[rf] :
++			    powerBase1[rf]);
++
++			RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++				"RTK better performance, writeVal rf(%c) = 0x%x\n",
++				((rf == 0) ? 'A' : 'B'), writeVal);
++			break;
++		}
++
++		if (rtlpriv->dm.dynamic_txhighpower_lvl == TXHIGHPWRLEVEL_BT1)
++			writeVal = writeVal - 0x06060606;
++		else if (rtlpriv->dm.dynamic_txhighpower_lvl ==
++			 TXHIGHPWRLEVEL_BT2)
++			writeVal = writeVal - 0x0c0c0c0c;
++		*(p_outwriteval + rf) = writeVal;
++	}
++}
++
++static void _rtl8723ae_write_ofdm_power_reg(struct ieee80211_hw *hw,
++					    u8 index, u32 *pValue)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_phy *rtlphy = &(rtlpriv->phy);
++
++	u16 regoffset_a[6] = {
++		RTXAGC_A_RATE18_06, RTXAGC_A_RATE54_24,
++		RTXAGC_A_MCS03_MCS00, RTXAGC_A_MCS07_MCS04,
++		RTXAGC_A_MCS11_MCS08, RTXAGC_A_MCS15_MCS12
++	};
++	u16 regoffset_b[6] = {
++		RTXAGC_B_RATE18_06, RTXAGC_B_RATE54_24,
++		RTXAGC_B_MCS03_MCS00, RTXAGC_B_MCS07_MCS04,
++		RTXAGC_B_MCS11_MCS08, RTXAGC_B_MCS15_MCS12
++	};
++	u8 i, rf, pwr_val[4];
++	u32 writeVal;
++	u16 regoffset;
++
++	for (rf = 0; rf < 2; rf++) {
++		writeVal = pValue[rf];
++		for (i = 0; i < 4; i++) {
++			pwr_val[i] = (u8) ((writeVal & (0x7f <<
++							(i * 8))) >> (i * 8));
++
++			if (pwr_val[i] > RF6052_MAX_TX_PWR)
++				pwr_val[i] = RF6052_MAX_TX_PWR;
++		}
++		writeVal = (pwr_val[3] << 24) | (pwr_val[2] << 16) |
++		    (pwr_val[1] << 8) | pwr_val[0];
++
++		if (rf == 0)
++			regoffset = regoffset_a[index];
++		else
++			regoffset = regoffset_b[index];
++		rtl_set_bbreg(hw, regoffset, MASKDWORD, writeVal);
++
++		RTPRINT(rtlpriv, FPHY, PHY_TXPWR,
++			"Set 0x%x = %08x\n", regoffset, writeVal);
++
++		if (((get_rf_type(rtlphy) == RF_2T2R) &&
++		     (regoffset == RTXAGC_A_MCS15_MCS12 ||
++		      regoffset == RTXAGC_B_MCS15_MCS12)) ||
++		    ((get_rf_type(rtlphy) != RF_2T2R) &&
++		     (regoffset == RTXAGC_A_MCS07_MCS04 ||
++		      regoffset == RTXAGC_B_MCS07_MCS04))) {
++
++			writeVal = pwr_val[3];
++			if (regoffset == RTXAGC_A_MCS15_MCS12 ||
++			    regoffset == RTXAGC_A_MCS07_MCS04)
++				regoffset = 0xc90;
++			if (regoffset == RTXAGC_B_MCS15_MCS12 ||
++			    regoffset == RTXAGC_B_MCS07_MCS04)
++				regoffset = 0xc98;
++
++			for (i = 0; i < 3; i++) {
++				writeVal = (writeVal > 6) ? (writeVal - 6) : 0;
++				rtl_write_byte(rtlpriv, (u32) (regoffset + i),
++					       (u8) writeVal);
++			}
++		}
++	}
++}
++
++void rtl8723ae_phy_rf6052_set_ofdm_txpower(struct ieee80211_hw *hw,
++					   u8 *ppowerlevel, u8 channel)
++{
++	u32 writeVal[2], powerBase0[2], powerBase1[2];
++	u8 index;
++
++	rtl8723ae_phy_get_power_base(hw, ppowerlevel,
++				  channel, &powerBase0[0], &powerBase1[0]);
++
++	for (index = 0; index < 6; index++) {
++		rtl8723ae_get_txpwr_val_by_reg(hw, channel, index,
++					      &powerBase0[0],
++					      &powerBase1[0],
++					      &writeVal[0]);
++
++		_rtl8723ae_write_ofdm_power_reg(hw, index, &writeVal[0]);
++	}
++}
++
++static bool _rtl8723ae_phy_rf6052_config_parafile(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_phy *rtlphy = &(rtlpriv->phy);
++	u32 u4_regvalue = 0;
++	u8 rfpath;
++	bool rtstatus = true;
++	struct bb_reg_def *pphyreg;
++
++	for (rfpath = 0; rfpath < rtlphy->num_total_rfpath; rfpath++) {
++
++		pphyreg = &rtlphy->phyreg_def[rfpath];
++
++		switch (rfpath) {
++		case RF90_PATH_A:
++		case RF90_PATH_C:
++			u4_regvalue = rtl_get_bbreg(hw, pphyreg->rfintfs,
++						    BRFSI_RFENV);
++			break;
++		case RF90_PATH_B:
++		case RF90_PATH_D:
++			u4_regvalue = rtl_get_bbreg(hw, pphyreg->rfintfs,
++						    BRFSI_RFENV << 16);
++			break;
++		}
++
++		rtl_set_bbreg(hw, pphyreg->rfintfe, BRFSI_RFENV << 16, 0x1);
++		udelay(1);
++
++		rtl_set_bbreg(hw, pphyreg->rfintfo, BRFSI_RFENV, 0x1);
++		udelay(1);
++
++		rtl_set_bbreg(hw, pphyreg->rfhssi_para2,
++			      B3WIREADDREAALENGTH, 0x0);
++		udelay(1);
++
++		rtl_set_bbreg(hw, pphyreg->rfhssi_para2, B3WIREDATALENGTH, 0x0);
++		udelay(1);
++
++		switch (rfpath) {
++		case RF90_PATH_A:
++			rtstatus = rtl8723ae_phy_config_rf_with_headerfile(hw,
++						(enum radio_path)rfpath);
++			break;
++		case RF90_PATH_B:
++			rtstatus = rtl8723ae_phy_config_rf_with_headerfile(hw,
++						(enum radio_path)rfpath);
++			break;
++		case RF90_PATH_C:
++			break;
++		case RF90_PATH_D:
++			break;
++		}
++		switch (rfpath) {
++		case RF90_PATH_A:
++		case RF90_PATH_C:
++			rtl_set_bbreg(hw, pphyreg->rfintfs,
++				      BRFSI_RFENV, u4_regvalue);
++			break;
++		case RF90_PATH_B:
++		case RF90_PATH_D:
++			rtl_set_bbreg(hw, pphyreg->rfintfs,
++				      BRFSI_RFENV << 16, u4_regvalue);
++			break;
++		}
++		if (rtstatus != true) {
++			RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
++				 "Radio[%d] Fail!!", rfpath);
++			return false;
++		}
++	}
++	RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE, "<---\n");
++	return rtstatus;
++}
++
++bool rtl8723ae_phy_rf6052_config(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_phy *rtlphy = &(rtlpriv->phy);
++
++	if (rtlphy->rf_type == RF_1T1R)
++		rtlphy->num_total_rfpath = 1;
++	else
++		rtlphy->num_total_rfpath = 2;
++
++	return _rtl8723ae_phy_rf6052_config_parafile(hw);
++}
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/rf.h b/drivers/net/wireless/rtlwifi/rtl8723ae/rf.h
+new file mode 100644
+index 0000000..d0f9dd7
+--- /dev/null
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/rf.h
+@@ -0,0 +1,43 @@
++/******************************************************************************
++ *
++ * Copyright(c) 2009-2012  Realtek Corporation.
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
++ *
++ * The full GNU General Public License is included in this distribution in the
++ * file called LICENSE.
++ *
++ * Contact Information:
++ * wlanfae <wlanfae@realtek.com>
++ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
++ * Hsinchu 300, Taiwan.
++ *
++ * Larry Finger <Larry.Finger@lwfinger.net>
++ *
++ *****************************************************************************/
++
++#ifndef __RTL8723E_RF_H__
++#define __RTL8723E_RF_H__
++
++#define RF6052_MAX_TX_PWR		0x3F
++
++extern void rtl8723ae_phy_rf6052_set_bandwidth(struct ieee80211_hw *hw,
++					    u8 bandwidth);
++extern void rtl8723ae_phy_rf6052_set_cck_txpower(struct ieee80211_hw *hw,
++					      u8 *ppowerlevel);
++extern void rtl8723ae_phy_rf6052_set_ofdm_txpower(struct ieee80211_hw *hw,
++					       u8 *ppowerlevel, u8 channel);
++extern bool rtl8723ae_phy_rf6052_config(struct ieee80211_hw *hw);
 +
 +#endif
 -- 
