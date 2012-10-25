@@ -1,47 +1,37 @@
-From: Claudio Fontana <Claudio.Fontana@huawei.com>
-Subject: [PATCH resend 2] net/ipv4/ipconfig: add device address to a KERN_INFO
- message
-Date: Thu, 25 Oct 2012 13:15:43 +0200
-Message-ID: <50891F5F.7060003@huawei.com>
+From: wyang1 <Wei.Yang@windriver.com>
+Subject: Re: [PATCH] gianfar_ptp: use iomem, not ioports resource tree in
+ probe
+Date: Thu, 25 Oct 2012 19:41:49 +0800
+Message-ID: <5089257D.8060800@windriver.com>
+References: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com> <6AE080B68D46FC4BA2D2769E68D765B70810B134@039-SN2MPN1-023.039d.mgd.msft.net> <50883D03.1000600@windriver.com> <50883DB7.4030502@freescale.com>
+Reply-To: <Wei.Yang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Manoil Claudiu-B08782 <B08782@freescale.com>
+To: Timur Tabi <B04825@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:47162 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752136Ab2JYLmX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 07:42:23 -0400
+In-Reply-To: <50883DB7.4030502@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 10/25/2012 03:12 AM, Timur Tabi wrote:
+> Paul Gortmaker wrote:
+>> Even if it makes sense to convert the driver to of_xxx calls,
+>> I think the obvious bug should be fixed as a separate commit,
+>> so that the -stable folks have something to cherry pick.
+> Oh, I agree with that.  I was just wondering why an OF-enabled driver
+> would not use OF calls.  I've never seen that before.  My instinct is that
+> the original developer had no idea what he was doing, but perhaps there is
+> a very good reason for the way the driver is written.
+>
+okay, If have time, I will check the issue mentioned by you.:-)
 
-adds a "hwaddr" to the "IP-Config: Complete" KERN_INFO message
-with the dev_addr of the device selected for auto configuration.
-
-Signed-off-by: Claudio Fontana <claudio.fontana@huawei.com>
----
- net/ipv4/ipconfig.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 798358b..d763701 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -1500,8 +1500,10 @@ static int __init ip_auto_config(void)
- 	 * Clue in the operator.
- 	 */
- 	pr_info("IP-Config: Complete:\n");
--	pr_info("     device=%s, addr=%pI4, mask=%pI4, gw=%pI4\n",
--		ic_dev->name, &ic_myaddr, &ic_netmask, &ic_gateway);
-+
-+	pr_info("     device=%s, hwaddr=%*phC, ipaddr=%pI4, mask=%pI4, gw=%pI4\n",
-+		ic_dev->name, ic_dev->addr_len, ic_dev->dev_addr,
-+		&ic_myaddr, &ic_netmask, &ic_gateway);
- 	pr_info("     host=%s, domain=%s, nis-domain=%s\n",
- 		utsname()->nodename, ic_domain, utsname()->domainname);
- 	pr_info("     bootserver=%pI4, rootserver=%pI4, rootpath=%s",
--- 
-1.7.4.4
-
-I tried to disable the mail client unwanted features.
-I hope it works this time.. sorry for that.
-
-Claudio Fontana
+Thanks
+Wei
