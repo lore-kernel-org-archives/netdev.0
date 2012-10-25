@@ -1,51 +1,48 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v1 4/5] cgroup: net_cls: Pass in task to
- sock_update_classid()
-Date: Thu, 25 Oct 2012 11:11:14 -0700
-Message-ID: <20121025181114.GO11442@htj.dyndns.org>
-References: <1351174619-5096-1-git-send-email-wagi@monom.org>
- <1351174619-5096-5-git-send-email-wagi@monom.org>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: [PATCH] tilegx: fix some issues in the SW TSO support
+Date: Thu, 25 Oct 2012 14:16:01 -0400
+Message-ID: <508981E1.4030600@tilera.com>
+References: <201210251737.q9PHbgev032681@farm-0012.internal.tilera.com> <1351187513.2662.9.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1351174619-5096-5-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351187513.2662.9.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 25, 2012 at 04:16:58PM +0200, Daniel Wagner wrote:
-> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> 
-> sock_update_classid() assumes that the update operation always are
-> applied on the current task. sock_update_classid() needs to know on
-> which tasks to work on in order to be able to migrate task between
-> cgroups using the struct cgroup_subsys attach() callback.
-> 
-> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> Cc: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Cc: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-> Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+On 10/25/2012 1:51 PM, Ben Hutchings wrote:
+> On Thu, 2012-10-25 at 13:25 -0400, Chris Metcalf wrote:
+>> This change correctly computes the header length and data length in
+>> the fragments to avoid a bug where we would end up with extremely
+>> slow performance.  Also adopt use of skb_frag_size() accessor.
+> [...]
+>
+> By the way, since you're doing soft-TSO you should probably set
+> net_device::gso_max_segs, as explained in:
+>
+> commit 30b678d844af3305cda5953467005cebb5d7b687
+> Author: Ben Hutchings <bhutchings@solarflare.com>
+> Date:   Mon Jul 30 15:57:00 2012 +0000
+>
+>     net: Allow driver to limit number of GSO segments per skb
 
-1-4 look good to me.  I have no idea about 5. :)
+We currently have a hard limit of 2048 equeue entries (effectively,
+segments) per interface.  The commit message suggests 861 is the largest
+number we're likely to see, so I think we're OK from a correctness point of
+view.  But, perhaps, we could end up with multiple cores trying to push
+separate flows each with this tiny MSS issue, and they would then be
+contending for the 2048 equeue entries, and performance might suffer.  I
+don't have a good instinct on what value we should choose to set here; I
+see that sfc uses 100.
 
-Thanks.
+So, we could do nothing since it seems we're technically safe; we could say
+2048 to be explicit; we could pick a random fraction of the full size to
+help avoid contention effects, like 1024 or 512; or we could mimic sfc and
+just say 100.  What do you think?
 
 -- 
-tejun
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
