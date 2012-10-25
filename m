@@ -1,40 +1,35 @@
-From: Aleksander Morgado <aleksander@lanedo.com>
-Subject: Re: qmi-wwan bug
-Date: Thu, 25 Oct 2012 12:36:26 +0200
-Message-ID: <5089162A.9090608@lanedo.com>
-References: <5088385C.1090304@accelecon.com> <943c3dc1-8bc7-4678-a6fd-adc5051f331c@email.android.com> <50886B75.9080408@accelecon.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
-	netdev <netdev@vger.kernel.org>
-To: "Shawn J. Goff" <shawn.goff@accelecon.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 0/3] mlx4 fixes
+Date: Thu, 25 Oct 2012 13:12:46 +0200
+Message-ID: <1351163569-17132-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanedo.com ([85.214.136.179]:49278 "EHLO lanedo.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758937Ab2JYKoN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 06:44:13 -0400
-In-Reply-To: <50886B75.9080408@accelecon.com>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:44969 "HELO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758910Ab2JYLM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 07:12:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Dave,
 
->>> When it is in failure, if I try to ping an address, the system sends
->>> out
->>> several an ARP requests but gets no response. To get the device to
->>> respond again, I have to administratively set the wwan interface down,
->>> then up, use libqmi to get the connection going again, then dhcp to get
->>>
->>> an address.
->> Which sounds like the connection died. Does QMI work at this point, or
->> is that dead too?
-> 
-> Looks like qmi works. I can do --nas-get-signal-strength and it gives me
-> good numbers. --wds-get-packet-service-status returns "Connection
-> status: '2'"
+Few mlx4 driver fixes for net.
 
-Out of topic...  I just fixed qmicli so that it prints the enum nickname
-string instead of the integer value.
+thanks,
 
--- 
-Aleksander
+Or.
+
+
+Dotan Barak (1):
+  net/mlx4_core: Unmap UAR also in the case of error flow
+
+Jack Morgenstein (1):
+  net/mlx4_en: Fix double-release-range in tx-rings
+
+Moni Shoua (1):
+  net/mlx4_en: Don't use vlan tag value as an indication for vlan presence
+
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |    3 +--
+ drivers/net/ethernet/mellanox/mlx4/eq.c    |   18 ++++++++++++++----
+ 2 files changed, 15 insertions(+), 6 deletions(-)
