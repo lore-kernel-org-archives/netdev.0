@@ -1,55 +1,56 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: [RFC PATCH 2/2] tunneling: capture inner headers during encapsulation
-Date: Thu, 25 Oct 2012 11:29:13 -0700
-Message-ID: <1351189753-5912-3-git-send-email-joseph.gasparakis@intel.com>
-References: <1351189753-5912-1-git-send-email-joseph.gasparakis@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org
-To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:49302 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759865Ab2JYSV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 14:21:57 -0400
-In-Reply-To: <1351189753-5912-1-git-send-email-joseph.gasparakis@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH v1 1/5] cgroup: net_prio: Mark local used function static
+Date: Thu, 25 Oct 2012 14:28:58 -0400
+Message-ID: <20121025182858.GA15105@hmsreliant.think-freely.org>
+References: <1351174619-5096-1-git-send-email-wagi@monom.org>
+ <1351174619-5096-2-git-send-email-wagi@monom.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1351174619-5096-2-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Populating the inner header pointers of skb for vxlan and ipgre
----
- drivers/net/vxlan.c | 4 ++++
- net/ipv4/ip_gre.c   | 4 ++++
- 2 files changed, 8 insertions(+)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 51de9ed..7cd1e5a 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -647,6 +647,10 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	__u8 tos, ttl;
- 	int err;
- 
-+	skb->inner_mac_header = skb->mac_header;
-+	skb->inner_network_header = skb->network_header;
-+	skb->inner_transport_header = skb->transport_header;
-+
- 	/* Need space for new headers (invalidates iph ptr) */
- 	if (skb_cow_head(skb, VXLAN_HEADROOM))
- 		goto drop;
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 7240f8e..b20ff8f 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -902,6 +902,10 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 			tunnel->err_count = 0;
- 	}
- 
-+	skb->inner_mac_header = skb->mac_header;
-+	skb->inner_network_header = skb->network_header;
-+	skb->inner_transport_header = skb->transport_header;
-+
- 	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen + rt->dst.header_len;
- 
- 	if (skb_headroom(skb) < max_headroom || skb_shared(skb)||
--- 
-1.7.11.7
+On Thu, Oct 25, 2012 at 04:16:55PM +0200, Daniel Wagner wrote:
+> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> 
+> net_prio_attach() is only access via cgroup_subsys callbacks,
+> therefore we can reduce the visibility of this function.
+> 
+> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+> Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+> ---
+>  net/core/netprio_cgroup.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> index 79285a3..847c02b 100644
+> --- a/net/core/netprio_cgroup.c
+> +++ b/net/core/netprio_cgroup.c
+> @@ -248,7 +248,7 @@ static int update_netprio(const void *v, struct file *file, unsigned n)
+>  	return 0;
+>  }
+>  
+> -void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+> +static void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+>  {
+>  	struct task_struct *p;
+>  	void *v;
+> -- 
+> 1.8.0.rc0
+> 
+> 
+Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
