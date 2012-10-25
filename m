@@ -1,35 +1,34 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: switching network namespace midway
-Date: Thu, 25 Oct 2012 11:59:28 -0400
-Message-ID: <20121025155927.GI15034@kvack.org>
-References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com> <878vavshhp.fsf@xmission.com> <20121024212116.GG15034@kvack.org> <CAFaHj6Ey4vzXskvsKB_dG4fKGsn4X5oCF3N0YpGskiSaXrGSOw@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH iproute2] iplink: Added support for the kernel IPoIB
+ RTNL ops
+Date: Thu, 25 Oct 2012 09:02:23 -0700
+Message-ID: <20121025090223.58aef233@nehalam.linuxnetplumber.net>
+References: <1351177079-9052-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: rsa <ravi.mlists@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:50121 "EHLO kanga.kvack.org"
+Received: from mail.vyatta.com ([76.74.103.46]:44260 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932678Ab2JYP73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 11:59:29 -0400
-Content-Disposition: inline
-In-Reply-To: <CAFaHj6Ey4vzXskvsKB_dG4fKGsn4X5oCF3N0YpGskiSaXrGSOw@mail.gmail.com>
+	id S934896Ab2JYQDL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 12:03:11 -0400
+In-Reply-To: <1351177079-9052-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 25, 2012 at 11:29:34AM -0400, rsa wrote:
-> Hi Ben
-> For L2TP that should work very well. But, with other tunnel types like GRE etc.
-> route lookups have to be done first in the inner and then outer.  It
-> makes it easier
-> to keep keep the tunnel in the inner namespace in such cases. right?
+On Thu, 25 Oct 2012 16:57:59 +0200
+Or Gerlitz <ogerlitz@mellanox.com> wrote:
 
-I've read IPv4 gre code, and it appears to do the right thing on rx, but it 
-does *not* appear to handle namespaces correctly on transmit.  In general, 
-I would expect pretty much all code to get namespace handling correct for 
-the rx case.  I'll have a closer look at fixing this tomorrow if nobody else 
-beats me to it.
+> Added support to ipoib rtnl ops through which one can create, configure,
+> query and delete IPoIB devices, for example
+> 
+>  $ ip link add link ib0.8001 name ib0.8001 type ipoib pkey 0x8001
+>  $ ip link add link ib0.1 name ib0.1 type ipoib mode connected
+>  $ ip --details link show dev ib0.1
+> 
+> Cc: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-		-ben
--- 
-"Thought is the essence of where you are now."
+Applied. Thanks for remembering the man page update as well.
