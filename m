@@ -1,52 +1,36 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 1/4] net: mvneta: driver for Marvell Armada 370/XP
- network unit
-Date: Thu, 25 Oct 2012 08:21:06 +0200
-Message-ID: <20121025082106.4041f340@skate>
-References: <1351011300-26964-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	<1351011300-26964-2-git-send-email-thomas.petazzoni@free-electrons.com>
-	<20121024.230648.1888101216213031807.davem@davemloft.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH] qmi_wwan/cdc_ether: move Novatel 551 and E362 to qmi_wwan
+Date: Thu, 25 Oct 2012 09:17:13 +0200
+Message-ID: <87ehkn58cm.fsf@nemi.mork.no>
+References: <1351103134.6544.25.camel@dcbw.foobar.com>
+	<1351103720.6544.34.camel@dcbw.foobar.com>
+	<87objr659w.fsf@nemi.mork.no>
+	<1351116634.16726.6.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kernel@wantstofly.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, jason@lakedaemon.net,
-	andrew@lunn.ch, gregory.clement@free-electrons.com,
-	alior@marvell.com, maen@marvell.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([88.190.12.23]:58236 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752947Ab2JYGVS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 02:21:18 -0400
-In-Reply-To: <20121024.230648.1888101216213031807.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Aleksander Morgado <aleksander-mXXj517/zsQ@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1351116634.16726.6.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org> (Dan Williams's
+	message of "Wed, 24 Oct 2012 17:10:34 -0500")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-David,
+Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
 
-On Wed, 24 Oct 2012 23:06:48 -0400 (EDT), David Miller wrote:
-> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> Date: Tue, 23 Oct 2012 18:54:57 +0200
-> 
-> > +	u32 cause_rx_tx[CONFIG_NR_CPUS];
-> 
-> Please use per-cpu variables instead of explicitly sized
-> arrays.
+> These devices provide QMI and ethernet functionality via a standard C=
+DC
+> ethernet descriptor.  But when driven by cdc_ether, the QMI
+> functionality is unavailable because only cdc_ether can claim the USB
+> interface.  Thus blacklist the devices in cdc_ether and add their IDs=
+ to
+> qmi_wwan, which enables both QMI and ethernet simultaneously.
 
-Ok, thanks. In fact, this per-cpu array is not needed in the current
-version of the driver, it will only be needed when we make improvements
-to it that bind RX queues to specific CPUs. So for now, I'll get rid of
-it.
+Acked-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-I'll wait a bit more to see if there are any comments, and I'll repost
-an updated v4 of the patches.
-
-Thanks a lot for your review,
-
-Thomas
--- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
