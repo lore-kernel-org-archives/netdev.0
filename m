@@ -1,17 +1,17 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v2 05/11] usbnet: int51x1: apply introduced usb command APIs
-Date: Thu, 25 Oct 2012 13:46:58 +0800
-Message-ID: <1351144024-16596-6-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v2 06/11] usbnet: mcs7830: apply introduced usb command APIs
+Date: Thu, 25 Oct 2012 13:46:59 +0800
+Message-ID: <1351144024-16596-7-git-send-email-ming.lei@canonical.com>
 References: <1351144024-16596-1-git-send-email-ming.lei@canonical.com>
 Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
 	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:38038 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932112Ab2JYFsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 01:48:33 -0400
+Received: from mail-da0-f46.google.com ([209.85.210.46]:39950 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965215Ab2JYFso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 01:48:44 -0400
 In-Reply-To: <1351144024-16596-1-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,80 +19,112 @@ List-ID: <netdev.vger.kernel.org>
 Acked-by: Oliver Neukum <oneukum@suse.de>
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/net/usb/int51x1.c |   52 +++------------------------------------------
- 1 file changed, 3 insertions(+), 49 deletions(-)
+ drivers/net/usb/mcs7830.c |   85 ++++-----------------------------------------
+ 1 file changed, 6 insertions(+), 79 deletions(-)
 
-diff --git a/drivers/net/usb/int51x1.c b/drivers/net/usb/int51x1.c
-index 8de6417..ace9e74 100644
---- a/drivers/net/usb/int51x1.c
-+++ b/drivers/net/usb/int51x1.c
-@@ -116,23 +116,8 @@ static struct sk_buff *int51x1_tx_fixup(struct usbnet *dev,
- 	return skb;
+diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
+index cc7e720..3f3f566 100644
+--- a/drivers/net/usb/mcs7830.c
++++ b/drivers/net/usb/mcs7830.c
+@@ -124,93 +124,20 @@ static const char driver_name[] = "MOSCHIP usb-ethernet driver";
+ 
+ static int mcs7830_get_reg(struct usbnet *dev, u16 index, u16 size, void *data)
+ {
+-	struct usb_device *xdev = dev->udev;
+-	int ret;
+-	void *buffer;
+-
+-	buffer = kmalloc(size, GFP_NOIO);
+-	if (buffer == NULL)
+-		return -ENOMEM;
+-
+-	ret = usb_control_msg(xdev, usb_rcvctrlpipe(xdev, 0), MCS7830_RD_BREQ,
+-			      MCS7830_RD_BMREQ, 0x0000, index, buffer,
+-			      size, MCS7830_CTRL_TIMEOUT);
+-	memcpy(data, buffer, size);
+-	kfree(buffer);
+-
+-	return ret;
++	return usbnet_read_cmd(dev, MCS7830_RD_BREQ, MCS7830_RD_BMREQ,
++				0x0000, index, data, size);
  }
  
--static void int51x1_async_cmd_callback(struct urb *urb)
+ static int mcs7830_set_reg(struct usbnet *dev, u16 index, u16 size, const void *data)
+ {
+-	struct usb_device *xdev = dev->udev;
+-	int ret;
+-	void *buffer;
+-
+-	buffer = kmemdup(data, size, GFP_NOIO);
+-	if (buffer == NULL)
+-		return -ENOMEM;
+-
+-	ret = usb_control_msg(xdev, usb_sndctrlpipe(xdev, 0), MCS7830_WR_BREQ,
+-			      MCS7830_WR_BMREQ, 0x0000, index, buffer,
+-			      size, MCS7830_CTRL_TIMEOUT);
+-	kfree(buffer);
+-	return ret;
+-}
+-
+-static void mcs7830_async_cmd_callback(struct urb *urb)
 -{
 -	struct usb_ctrlrequest *req = (struct usb_ctrlrequest *)urb->context;
 -	int status = urb->status;
 -
 -	if (status < 0)
--		dev_warn(&urb->dev->dev, "async callback failed with %d\n", status);
+-		printk(KERN_DEBUG "%s() failed with %d\n",
+-		       __func__, status);
 -
 -	kfree(req);
 -	usb_free_urb(urb);
--}
--
- static void int51x1_set_multicast(struct net_device *netdev)
++	return usbnet_write_cmd(dev, MCS7830_WR_BREQ, MCS7830_WR_BMREQ,
++				0x0000, index, data, size);
+ }
+ 
+ static void mcs7830_set_reg_async(struct usbnet *dev, u16 index, u16 size, void *data)
  {
 -	struct usb_ctrlrequest *req;
--	int status;
+-	int ret;
 -	struct urb *urb;
- 	struct usbnet *dev = netdev_priv(netdev);
- 	u16 filter = PACKET_TYPE_DIRECTED | PACKET_TYPE_BROADCAST;
- 
-@@ -149,40 +134,9 @@ static void int51x1_set_multicast(struct net_device *netdev)
- 		netdev_dbg(dev->net, "receive own packets only\n");
- 	}
- 
+-
 -	urb = usb_alloc_urb(0, GFP_ATOMIC);
 -	if (!urb) {
--		netdev_warn(dev->net, "Error allocating URB\n");
+-		dev_dbg(&dev->udev->dev,
+-			"Error allocating URB in write_cmd_async!\n");
 -		return;
 -	}
 -
--	req = kmalloc(sizeof(*req), GFP_ATOMIC);
+-	req = kmalloc(sizeof *req, GFP_ATOMIC);
 -	if (!req) {
--		netdev_warn(dev->net, "Error allocating control msg\n");
+-		dev_err(&dev->udev->dev,
+-			"Failed to allocate memory for control request\n");
 -		goto out;
 -	}
+-	req->bRequestType = MCS7830_WR_BMREQ;
+-	req->bRequest = MCS7830_WR_BREQ;
+-	req->wValue = 0;
+-	req->wIndex = cpu_to_le16(index);
+-	req->wLength = cpu_to_le16(size);
 -
--	req->bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
--	req->bRequest = SET_ETHERNET_PACKET_FILTER;
--	req->wValue = cpu_to_le16(filter);
--	req->wIndex = 0;
--	req->wLength = 0;
+-	usb_fill_control_urb(urb, dev->udev,
+-			     usb_sndctrlpipe(dev->udev, 0),
+-			     (void *)req, data, size,
+-			     mcs7830_async_cmd_callback, req);
 -
--	usb_fill_control_urb(urb, dev->udev, usb_sndctrlpipe(dev->udev, 0),
--		(void *)req, NULL, 0,
--		int51x1_async_cmd_callback,
--		(void *)req);
--
--	status = usb_submit_urb(urb, GFP_ATOMIC);
--	if (status < 0) {
--		netdev_warn(dev->net, "Error submitting control msg, sts=%d\n",
--			    status);
--		goto out1;
+-	ret = usb_submit_urb(urb, GFP_ATOMIC);
+-	if (ret < 0) {
+-		dev_err(&dev->udev->dev,
+-			"Error submitting the control message: ret=%d\n", ret);
+-		goto out;
 -	}
 -	return;
--out1:
--	kfree(req);
 -out:
+-	kfree(req);
 -	usb_free_urb(urb);
-+	usbnet_write_cmd_async(dev, SET_ETHERNET_PACKET_FILTER,
-+			       USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
-+			       filter, 0, NULL, 0);
++	usbnet_write_cmd_async(dev, MCS7830_WR_BREQ, MCS7830_WR_BMREQ,
++				0x0000, index, data, size);
  }
  
- static const struct net_device_ops int51x1_netdev_ops = {
+ static int mcs7830_hif_get_mac_address(struct usbnet *dev, unsigned char *addr)
 -- 
 1.7.9.5
