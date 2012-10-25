@@ -1,96 +1,95 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: reduce PTP rx path overhead
-Date: Thu, 25 Oct 2012 00:35:12 -0700
-Message-ID: <1351150512.2141.0.camel@jtkirshe-mobl>
-References: <1351091846-17677-1-git-send-email-jbenc@redhat.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: qmi-wwan bug
+Date: Thu, 25 Oct 2012 09:40:26 +0200
+Message-ID: <87a9vb579x.fsf@nemi.mork.no>
+References: <5088385C.1090304@accelecon.com>
+	<943c3dc1-8bc7-4678-a6fd-adc5051f331c@email.android.com>
+	<50886B75.9080408@accelecon.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-xC4oJIxI7kzaBaEQraie"
-Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Andy Gospodarek <gospo@redhat.com>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: "Shawn J. Goff" <shawn.goff@accelecon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:20642 "EHLO mga01.intel.com"
+Received: from canardo.mork.no ([148.122.252.1]:42004 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758404Ab2JYHf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 03:35:26 -0400
-In-Reply-To: <1351091846-17677-1-git-send-email-jbenc@redhat.com>
+	id S1754979Ab2JYHkb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 03:40:31 -0400
+In-Reply-To: <50886B75.9080408@accelecon.com> (Shawn J. Goff's message of
+	"Wed, 24 Oct 2012 18:28:05 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+"Shawn J. Goff" <shawn.goff@accelecon.com> writes:
+> On 10/24/2012 05:19 PM, Bj=C3=B8rn Mork wrote:
+>> "Shawn J. Goff" <shawn.goff@accelecon.com> wrote:
+>>
+>>> I've only made it happen on my kernel - I
+>>> tried
+>>> on 3.6.2, but it seems to not happen there.
+>>
+>> Good. But I have a feeling that you switched more than just the
+>> kernel. Do you see the issue if you run your backport on the same
+>> hardware you tested 3.6.2 on?
+>
+> I just tested my 2.6.39 kernel on the same hardware that had 3.6.2;
+> the problem is absent there.
 
---=-xC4oJIxI7kzaBaEQraie
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+As I suspected.  Then I believe this issue is more likely related to
+your hardware platform and/or its other lower layer drivers, and not to
+the backported qmi_wwan driver directly.
 
-On Wed, 2012-10-24 at 17:17 +0200, Jiri Benc wrote:
-> Hw timestamping code caused performance regression in ixgbe driver
-> when the
-> timestamping is not enabled. The culprit is IXGBE_READ_REG call in the
-> rx
-> path which is executed for every received skb. This call is not needed
-> when
-> the timestamping is disabled or for non-ptp packets.
->=20
-> netperf results:
->=20
-> The ixge side of the connection was acting as a server, the netperf
-> command
-> line on the other side was:
-> netperf -H 192.168.1.23 -T0,0 -t UDP_STREAM -l 20
->=20
-> The values below mean throughput as reported by netperf
-> (local/remote), for
-> 3 runs, with timestamping not enabled.
->=20
-> 3.7.0-rc1+ with CONFIG_IXGBE_PTP off:
-> 5373.83 / 3329.32
-> 5721.88 / 3033.89
-> 5653.42 / 3112.38
->=20
-> 3.7.0-rc1+ with CONFIG_IXGBE_PTP on:
-> 5233.64 / 1226.85
-> 5448.67 / 1039.32
-> 5421.36 / 1095.66
->=20
-> Patched 3.7.0-rc1+ with CONFIG_IXGBE_PTP on:
-> 5594.72 / 2942.53
-> 5428.95 / 3110.16
-> 5343.56 / 3200.48
->=20
-> Reported-by: Jesper Brouer <jbrouer@redhat.com>
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
-> Signed-off-by: Andy Gospodarek <gospo@redhat.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)=20
+Maybe an obscure firmware issue related to timing or other differences?
+That is going to be difficult to track down, if it really is the cause.
 
-Thanks Jiri, I have added the patch to my queue.
+>>   > I've also tried using a
+>>> similar modem that uses a different driver (sierra-net) and that
+>>> doesn't
+>>> have the same problem.
+>>
+>> Well, that is an entirely different firmware application and driver,
+>> even if the hardware is similar or even identical.
+>
+> Yes - I wanted to eliminate anything lower (such as usb-net? not sure
+> if qmi-wwan uses that) from being a suspect contributor to the
+> problem.
 
---=-xC4oJIxI7kzaBaEQraie
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Yes, that is useful.  You are perfectly right that most of the host sid=
+e
+drivers are common. Both sierra_net and qmi_wwan are usbnet minidrivers=
+,
+and almost all network device functionality is served by the shared
+usbnet framework.  So this test pretty much eliminates the host USB
+stack.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+Which IMHO points to the firmware implementation as the major
+difference.
 
-iQIcBAABCgAGBQJQiOuwAAoJEOVv75VaS+3ODC8P/2a7rrS4+FEpxBxeg+Iqwgyp
-tx1E7261TxyBPbns+lNxx4EFzZWh7vXPsyGjlZAIO1e53lLrTf7H2yVYfatslRHj
-bInUN1noiRuUKvlsz9/5s+xJn7HUHOr71G0vHYLU5sQRSiW7VxPbfKE4zG6v6VG4
-lul1zdrnG1RJKkDGiP9+X1GHFONbBySeyfBA6bKyYcMo+GQP8uyCacRddffK9OIi
-4lPEq684rtLCsXOV08QgOwZDl4WigalyNnJ35lmwSmzoP4qiIyTvu7TWHqfwccZo
-xOwWgBBzItlkcKoDHZnNrXVO4erNa5DD0LpHNr5Bl3PoAzOad20iVUbNa5+RoO1g
-GVtQ8f7YFTwBdkFnILEoBgH2ALIaAGjRDfEccfqlxQxf6qRAocDG48+enwmQ6eej
-gXDocyb9EyBI60G/dXtjJB435v5JJKnpKOWHlz9KfFuxiy7oFMS5/idPe1V6tBsH
-Rq/SbWA2CLdNaJ8CbEN6tFIzMfGSrLiFUALKfsRLXGxMk3hrvWcgV0sLheO1TgaP
-iQa4WByYOmxOWTplamb0B/+xfVElDKZYHRUHeGJTltr6LWbRu6G6aeLtJDwcdM2g
-90OcsMEgzxid2stohDjylWchSohPirF58ENmBVT1/n3cDspfIJt/nv0Y0k5lZhdp
-+/tRh6kFXi5r82d0pYER
-=AjL3
------END PGP SIGNATURE-----
+>>> When it is in failure, if I try to ping an address, the system send=
+s
+>>> out
+>>> several an ARP requests but gets no response. To get the device to
+>>> respond again, I have to administratively set the wwan interface do=
+wn,
+>>> then up, use libqmi to get the connection going again, then dhcp to=
+ get
+>>>
+>>> an address.
+>> Which sounds like the connection died. Does QMI work at this point, =
+or is that dead too?
+>
+> Looks like qmi works. I can do --nas-get-signal-strength and it gives
+> me good numbers. --wds-get-packet-service-status returns "Connection
+> status: '2'"
 
---=-xC4oJIxI7kzaBaEQraie--
+Ah, interesting.  Then we only need to find out where the bulk URBs end
+up.
+
+I would have tried to enable what I could of USB and usbnet debugging t=
+o
+see if there are any hints there.  A usbmon trace may also show the
+problem.  I don't know.  But in any case, I believe this is a USB
+problem and probably not too interesting for netdev...
+
+
+Bj=C3=B8rn
