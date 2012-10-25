@@ -1,47 +1,50 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: [PATCH v1 0/5] Rework net_cls update socket logic
-Date: Thu, 25 Oct 2012 16:16:54 +0200
-Message-ID: <1351174619-5096-1-git-send-email-wagi@monom.org>
-Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: [PATCH] isdn: remove dead code
+Date: Thu, 25 Oct 2012 15:30:52 +0100
+Message-ID: <20121025143031.16991.81337.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: isdn@linux-pingi.de, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lxorguk.ukuu.org.uk ([81.2.110.251]:53789 "EHLO
+	lxorguk.ukuu.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759749Ab2JYO3S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 10:29:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+From: Alan Cox <alan@linux.intel.com>
 
-Hi,
+multi is assigned to 0 and then acts as a constant. Remove the dead
+code.
 
-I updated this series according the feedback I got. I am not sure
-if I did the 'revert' patch correctly (patch #3). 
+Signed-off-by: Alan Cox <alan@linux.intel.com>
+---
 
-cheers,
-daniel
+ drivers/isdn/mISDN/l1oip_core.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-orignal cover letter:
-
-This series updates net_cls to use the same socket update logic as
-net_prio. With this change sock_update_classid() is not called from
-recvmsg, sendmsg and friends anymore. This seems to be a good idea.
-
-Credit goes to John Fastabend for this work.
-
-The patches are against net-next.
-
-Daniel Wagner (5):
-  cgroup: net_prio: Mark local used function static
-  cgroup: net_cls: Fix local variable type decleration
-  cgroup: net_cls: Remove rcu_read_lock/unlock
-  cgroup: net_cls: Pass in task to sock_update_classid()
-  cgroup: net_cls: Rework update socket logic
-
- drivers/net/tun.c         |  3 ---
- include/net/cls_cgroup.h  |  4 ++--
- net/core/netprio_cgroup.c |  2 +-
- net/core/sock.c           |  8 +++-----
- net/sched/cls_cgroup.c    | 24 ++++++++++++++++++++++++
- net/socket.c              |  8 --------
- 6 files changed, 30 insertions(+), 19 deletions(-)
-
--- 
-1.8.0.rc0
+diff --git a/drivers/isdn/mISDN/l1oip_core.c b/drivers/isdn/mISDN/l1oip_core.c
+index db50f78..f8e405c 100644
+--- a/drivers/isdn/mISDN/l1oip_core.c
++++ b/drivers/isdn/mISDN/l1oip_core.c
+@@ -277,7 +277,6 @@ l1oip_socket_send(struct l1oip *hc, u8 localcodec, u8 channel, u32 chanmask,
+ 		  u16 timebase, u8 *buf, int len)
+ {
+ 	u8 *p;
+-	int multi = 0;
+ 	u8 frame[len + 32];
+ 	struct socket *socket = NULL;
+ 
+@@ -317,9 +316,7 @@ l1oip_socket_send(struct l1oip *hc, u8 localcodec, u8 channel, u32 chanmask,
+ 		*p++ = hc->id >> 8;
+ 		*p++ = hc->id;
+ 	}
+-	*p++ = (multi == 1) ? 0x80 : 0x00 + channel; /* m-flag, channel */
+-	if (multi == 1)
+-		*p++ = len; /* length */
++	*p++ =  0x00 + channel; /* m-flag, channel */
+ 	*p++ = timebase >> 8; /* time base */
+ 	*p++ = timebase;
+ 
