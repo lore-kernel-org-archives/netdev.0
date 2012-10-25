@@ -1,74 +1,46 @@
-From: Jonathan Nieder <jrnieder@gmail.com>
-Subject: Re: [PATCH 2/2] [sky2] Fix for interrupt handler
-Date: Thu, 25 Oct 2012 15:36:46 -0700
-Message-ID: <20121025223646.GA1131@elie.Belkin>
-References: <1341394726.14972.41.camel@mlindner-lin.skd.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Disable tcp MSS option in three way handshake?
+Date: Fri, 26 Oct 2012 00:42:28 +0200
+Message-ID: <1351204948.6537.263.camel@edumazet-glaptop>
+References: <CAK3+h2xKHBNXzY0WNwPV+oGbY00UVfJpO-qjFW2cxCpmdt+hAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Gilbey <jdg@debian.org>,
-	Mirko Lindner <mlindner@marvell.com>,
-	Stephen Hemminger <shemminger@vyatta.org>,
-	netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Vincent Li <vincent.mc.li@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:65093 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751145Ab2JYWgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 18:36:55 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rr4so2334842pbb.19
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 15:36:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1341394726.14972.41.camel@mlindner-lin.skd.de>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:43875 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751662Ab2JYWmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 18:42:33 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so1685022wgb.1
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 15:42:32 -0700 (PDT)
+In-Reply-To: <CAK3+h2xKHBNXzY0WNwPV+oGbY00UVfJpO-qjFW2cxCpmdt+hAg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 2012-10-25 at 15:27 -0700, Vincent Li wrote:
+> Hi,
+> 
+> this sounds crazy, we have a weird situation that an unknown tcp
+> implementation not putting tcp MSS option in the SYN/ACK which caused
+> us some issue. I am tasked to mimic the unknown tcp immplementation on
+> not sending MSS in tcp SYN/ACK, I am wondering if I can achieve that
+> by modifying linux kernel tcp code,  there is socket option
+> TCP_MAXSEG, but that seems only affecting the size of MSS, not
+> removing the MSS option. do you have any pointer on how to do that in
+> kernel tcp code?
 
-Mirko Lindner wrote:
+You'll have to patch the code.
 
-> Re-enable interrupts if it is not our interrupt
->
-> Signed-off-by: Mirko Lindner <mlindner@marvell.com>
+Or else, you could add a new feature to net/netfilter/xt_TCPMSS.c
 
-Julian (cc-ed) is experiencing tx stalls[1] on a 3.2.y-based kernel:
+(We already have 
 
-	WARNING: at [...]/linux-3.2.21/net/sched/sch_generic.c:255 dev_watchdog+0xe9/0x148()
-	Hardware name: Inspiron 1545                   
-	NETDEV WATCHDOG: eth0 (sky2): transmit queue 0 timed out
+#define XT_TCPMSS_CLAMP_PMTU 0xffff
 
-Cherry-picking v3.6-rc1~125^2~264 (sky2: Fix for interrupt handler,
-2012-07-03) fixes it.
+You could add
 
-Tested-by: Julian Gilbey <jdg@debian.org>
+#define XT_TCPMSS_REMOVE 0xfffe
 
-Dave, would this be a candidate for stable?  Patch left unsnipped for
-reference.
-
-Thanks,
-Jonathan
-
-[1] http://bugs.debian.org/681280
-[2] http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
-
-> ---
->  drivers/net/ethernet/marvell/sky2.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-> index f1163b2..2b0748d 100644
-> --- a/drivers/net/ethernet/marvell/sky2.c
-> +++ b/drivers/net/ethernet/marvell/sky2.c
-> @@ -3080,8 +3080,10 @@ static irqreturn_t sky2_intr(int irq, void *dev_id)
->  
->  	/* Reading this mask interrupts as side effect */
->  	status = sky2_read32(hw, B0_Y2_SP_ISRC2);
-> -	if (status == 0 || status == ~0)
-> +	if (status == 0 || status == ~0) {
-> +		sky2_write32(hw, B0_Y2_SP_ICR, 2);
->  		return IRQ_NONE;
-> +	}
->  
->  	prefetch(&hw->st_le[hw->st_idx]);
->  
-> -- 
-> 1.7.10.4
+and replace MSS option by NOP
