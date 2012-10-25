@@ -1,35 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2 1/2] ip: fix "ip -6 route add ... nexthop"
-Date: Thu, 25 Oct 2012 09:08:15 -0700
-Message-ID: <20121025090815.5b7925ac@nehalam.linuxnetplumber.net>
-References: <20121023.023910.80461258323920266.davem@davemloft.net>
-	<1350996176-4000-1-git-send-email-nicolas.dichtel@6wind.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: switching network namespace midway
+Date: Thu, 25 Oct 2012 09:15:34 -0700
+Message-ID: <87a9var0ih.fsf@xmission.com>
+References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com>
+	<878vavshhp.fsf@xmission.com> <20121024212116.GG15034@kvack.org>
+	<CAFaHj6Ey4vzXskvsKB_dG4fKGsn4X5oCF3N0YpGskiSaXrGSOw@mail.gmail.com>
+	<20121025155927.GI15034@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com, bernat@luffy.cx,
-	eric.dumazet@gmail.com, yoshfuji@linux-ipv6.org,
-	davem@davemloft.net
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain
+Cc: rsa <ravi.mlists@gmail.com>, netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50166 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755057Ab2JYQJE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 12:09:04 -0400
-In-Reply-To: <1350996176-4000-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:49747 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946237Ab2JYQPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 12:15:44 -0400
+In-Reply-To: <20121025155927.GI15034@kvack.org> (Benjamin LaHaise's message of
+	"Thu, 25 Oct 2012 11:59:28 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 23 Oct 2012 14:42:55 +0200
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+Benjamin LaHaise <bcrl@kvack.org> writes:
 
-> From: Vincent Bernat <bernat@luffy.cx>
-> 
-> IPv6 multipath routes were not accepted by "ip route" because an IPv4
-> address was expected for each gateway. Use `get_addr()` instead of
-> `get_addr32()`.
-> 
-> Signed-off-by: Vincent Bernat <bernat@luffy.cx>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> On Thu, Oct 25, 2012 at 11:29:34AM -0400, rsa wrote:
+>> Hi Ben
+>> For L2TP that should work very well. But, with other tunnel types like GRE etc.
+>> route lookups have to be done first in the inner and then outer.  It
+>> makes it easier
+>> to keep keep the tunnel in the inner namespace in such cases. right?
+>
+> I've read IPv4 gre code, and it appears to do the right thing on rx, but it 
+> does *not* appear to handle namespaces correctly on transmit.  In general, 
+> I would expect pretty much all code to get namespace handling correct for 
+> the rx case.  I'll have a closer look at fixing this tomorrow if nobody else 
+> beats me to it.
 
-Looks good. Applied.
+It will be interesting to see what you come up with. 
+
+Eric
