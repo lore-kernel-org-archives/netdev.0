@@ -1,78 +1,117 @@
-From: Tom Parkin <tparkin@katalix.com>
-Subject: Supporting more devices with dev_alloc_name()
-Date: Thu, 25 Oct 2012 17:56:32 +0100
-Message-ID: <20121025165632.GC7857@raven>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [RFC] back on nf_tables (plus compatibility layer)
+Date: Thu, 25 Oct 2012 19:06:32 +0200
+Message-ID: <20121025170632.GA4890@1984>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="LwW0XdcUbUexiWVK"
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:34768 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757202Ab2JYRFn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 13:05:43 -0400
-Received: from localhost (cpc28-brad20-2-0-cust174.17-1.cable.virginmedia.com [77.97.157.175])
-	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	(Authenticated sender: tom)
-	by mail.katalix.com (Postfix) with ESMTPSA id DFACDA6207F
-	for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 17:56:33 +0100 (BST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---LwW0XdcUbUexiWVK
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Netfilter Development Mailing list
+	<netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi list,
+Hi,
 
-I've recently been trying to create large-scale L2TPv3 configurations
-of up to 50,000 Ethernet pseudowires.
+I've been working for a while to recover nf_tables kernel patches and
+to implement a compatibility layer so it can be used with existing
+x_tables target/match extensions. These are the main reasons that
+motivated me to follow this approach:
 
-One of the limitations I've hit has been to do with dev_alloc_name().
-By default, l2tp_eth uses "l2tpeth%d" for device names, which is
-expanded by dev_alloc_name() into l2tpeth1, l2tpeth2, etc.  However,
-the algorithm dev_alloc_name() uses to derive the next free number for
-this scheme is bounded by the number of bits in a single page.  For
-kernels/platforms with a 4kB page, this limits these "autoderived"
-names to 32k.
+1) nf_tables already provides a netlink interface, which has been a
+   longstanding demand from users.
 
-In my testing I've been able to work around this by specifying
-interface names during the bringup of the l2tpeth interfaces, thereby
-bypassing dev_alloc_name() altogether.  Using this approach I am able
-to comfortably create 50k interfaces, even on fairly modest hardware.
-But it seems a shame to have to do this; it would be much nicer if
-the kernel were able to autogenerate names for more devices.
+2) Provide a fast path to merge this into mainstream. We'll have both
+   iptables and nftables interfaces during some time in the Linux kernel,
+   then remove iptables infrastructure at some point. iptables scripts
+   would not break as we'll have the iptables emulation over nftables.
 
-Is this something that would be worth my working on a patch for, or
-would the increased code complexity be too great an overhead to
-consider for such outlandish use-cases?
+3) Regarding the compatibility layer: To provide a working command
+   line utility with the same syntax of iptables. The idea is that users
+   don't notice that they are working with the nf_tables kernel
+   infrastructure. We did that during the transition from ipchains to
+   iptables.
 
-Thanks,
-Tom
---=20
-Tom Parkin
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+4) Several extensions for x_tables still need to be ported to
+   nf_tables. With the compatibility layer, we can use non-native
+   x_tables extensions with nf_tables until it fully provides a
+   replacement for all existing features.
 
---LwW0XdcUbUexiWVK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+5) The compatibility layer provides a way to hook existing x_tables
+   matches/targets with nftables. So we can use all existing features
+   from nftables until we provide native nftables expressions /
+   user-space code that replace them.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+The compatibility layer has limitations to emulate struct ipt_entry,
+hookmask, protocol and inversion passed to xt->checkentry(). But this
+can be mostly workaround by relaxing some of the checking in
+kernel-space that prevent users from doing stupid things (like trying
+to use the TCPMSS target for non-TCP traffic / non-syn packets). In my
+list, the affected targets are ECN, CLUSTERIP, TCPMSS, REJECT and CT.
+I have some proposals on how to workaround those.
 
-iQEcBAEBAgAGBQJQiW9AAAoJEJSMBmUKuovQlOkH/2ZdA0Rfwj/gWGXJ2M0HLV6I
-GSwmqTjlDKX4/7dAEE+EQK23KSRmMYZtY9aJc9Zvjxq6jC05KRyBZCUkQ8FCu6TL
-egwadlfim57y1maNS10woMpdjOLOMO1gP1xUtkaEof3YICOpjKHnV05wi+JNlmP5
-8whkvaQY6bhEeUH+cUtkLsHEMaibyGlWcy7VQv20j1DQO8kaIxhZ+XXzk74ld+Xp
-N3HI/pzWSCGXw9GoBvhdWJg/cfAm4J+PxIZeQiey4irsfcKtoGwS+sWSZDosuDYl
-FJFiMX9Jd7I+8oCPP/BEDbbE2Js58ZJC4IB7GdzefRKDUmUC0zpX061TUp2oDaU=
-=7Gwy
------END PGP SIGNATURE-----
+You can access the preliminary iptables over nftables code from:
 
---LwW0XdcUbUexiWVK--
+http://1984.lsi.us.es/git/iptables-nftables/
+
+The name of the utilities are xtables, xtables-save and
+xtables-restore.
+
+There are several missing features in that iptables over nftables
+code: -Z, -R, -E, rule insertion at position and -f are not yet
+working. IPv6 support is also still missing.
+
+It requires this user-space library:
+
+http://1984.lsi.us.es/git/libnftables/
+
+And the following Linux kernel code with several experimental patches
+of mine:
+
+http://1984.lsi.us.es/git/nf-next/log/?h=nf_tables-experiments
+
+I see several things that need to be improved in the nftables kernel
+side:
+
+1) Improve rule addition and deletion timing, currently it is not
+very good compared to iptables. To improve deletions I think we
+have to modify the current locking approach based on RCU. To improve
+additions, we have to improve the unique handle allocation (probably
+using a 64-bits handle number so we forget about wrap-arounds and we
+just incrementally assign new handles).
+
+2) No built-in nat and route tables. Better allow from user-space
+configure one table with the nat / route property. If we provide
+documentation on how to use them appropriately, I would not worry too
+much if the user uses wrongly.
+
+3) Add operation to obtain chain counters, following the same approach
+of iptables (iterate over the entire rule-set and accumulate packets
+and bytes, like in get_counters()).
+
+4) Add native support for TRACE, it seems to be missing in nf_tables.
+
+5) Changes to allow to add rules at positions and replace them, since
+iptables allows this.
+
+6) To speed up packet matching, we can compile nftables expressions to
+some internal bytecode (that could be even compiled to native assembly
+instructions like Eric Dumazet did for BPF).
+
+Several of these things can be improved while we already have this in
+mainline.
+
+One final thing: nftables does not support atomic table commit. The
+point here is if we really need this for the emulation utility or we
+can live without that. Implementing atomic table replacement in
+nftables is not trivial. I have hard time to find this commit table
+feature useful.
+
+That's all by now. By resolving most of these things and having the
+compatibility layer ready, we should get nftables into mainstream
+anytime soon IMO.
+
+Comments welcome.
+
+Regards.
