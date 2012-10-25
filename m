@@ -1,37 +1,54 @@
-From: wyang1 <Wei.Yang@windriver.com>
-Subject: Re: [PATCH] gianfar_ptp: use iomem, not ioports resource tree in
- probe
-Date: Thu, 25 Oct 2012 19:41:49 +0800
-Message-ID: <5089257D.8060800@windriver.com>
-References: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com> <6AE080B68D46FC4BA2D2769E68D765B70810B134@039-SN2MPN1-023.039d.mgd.msft.net> <50883D03.1000600@windriver.com> <50883DB7.4030502@freescale.com>
-Reply-To: <Wei.Yang@windriver.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: re: bonding: remove entries for master_ip and vlan_ip and query
+ devices instead
+Date: Thu, 25 Oct 2012 15:29:09 +0300
+Message-ID: <20121025122908.GA20595@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Manoil Claudiu-B08782 <B08782@freescale.com>
-To: Timur Tabi <B04825@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:47162 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752136Ab2JYLmX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 07:42:23 -0400
-In-Reply-To: <50883DB7.4030502@freescale.com>
+Received: from rcsinet15.oracle.com ([148.87.113.117]:23869 "EHLO
+	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756122Ab2JYM3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 08:29:16 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2012 03:12 AM, Timur Tabi wrote:
-> Paul Gortmaker wrote:
->> Even if it makes sense to convert the driver to of_xxx calls,
->> I think the obvious bug should be fixed as a separate commit,
->> so that the -stable folks have something to cherry pick.
-> Oh, I agree with that.  I was just wondering why an OF-enabled driver
-> would not use OF calls.  I've never seen that before.  My instinct is that
-> the original developer had no idea what he was doing, but perhaps there is
-> a very good reason for the way the driver is written.
->
-okay, If have time, I will check the issue mentioned by you.:-)
+[ Sort of old, but apparently I didn't email about this in March ].
 
-Thanks
-Wei
+Hello Andy Gospodarek,
+
+This is a semi-automatic email about new static checker warnings.
+
+The patch eaddcd76903c: "bonding: remove entries for master_ip and 
+vlan_ip and query devices instead" from Mar 22, 2012, leads to the 
+following Smatch complaint:
+
+drivers/net/bonding/bond_main.c:2703 bond_arp_send_all()
+	 warn: variable dereferenced before check 'vlan_dev' (see line 2697)
+
+drivers/net/bonding/bond_main.c
+  2696					vlan_id = vlan->vlan_id;
+                                        ^^^^^^^^^^
+If vlan_id is non-zero it means we went hit this assignment.
+
+  2697					pr_debug("basa: vlan match on %s %d\n",
+  2698					       vlan_dev->name, vlan_id);
+                                               ^^^^^^^^^^
+Old dereference.
+
+  2699					break;
+  2700				}
+  2701			}
+  2702	
+  2703			if (vlan_id && vlan_dev) {
+                                       ^^^^^^^^
+New check.
+
+  2704				ip_rt_put(rt);
+  2705				addr = bond_confirm_addr(vlan_dev, targets[i], 0);
+
+regards,
+dan carpenter
