@@ -1,47 +1,53 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 5/5] ss: Show inet and unix sockets' shutdown state
-Date: Thu, 25 Oct 2012 16:01:26 -0700
-Message-ID: <20121025160126.49a949ea@nehalam.linuxnetplumber.net>
-References: <50893BAF.7030500@parallels.com>
-	<50893E14.60001@parallels.com>
-	<20121025085229.3aa43b68@nehalam.linuxnetplumber.net>
-	<1351184010.6537.158.camel@edumazet-glaptop>
-	<20121025100922.12ed2061@nehalam.linuxnetplumber.net>
-	<1351188054.6537.196.camel@edumazet-glaptop>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: Disable tcp MSS option in three way handshake?
+Date: Thu, 25 Oct 2012 16:15:38 -0700
+Message-ID: <CAGK4HS8J2v=2SxmpwXR9vkyXJ9ibhMrPdMgUFxjTyXGt3g7vxA@mail.gmail.com>
+References: <CAK3+h2xKHBNXzY0WNwPV+oGbY00UVfJpO-qjFW2cxCpmdt+hAg@mail.gmail.com>
+	<1351204948.6537.263.camel@edumazet-glaptop>
+	<CAK3+h2zLGGA2w38mRwpf5Ww+d8ZdtESp1zix82OZODG7o=Rsbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Vincent Li <vincent.mc.li@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56582 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750751Ab2JYXCO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 19:02:14 -0400
-In-Reply-To: <1351188054.6537.196.camel@edumazet-glaptop>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:50283 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750815Ab2JYXPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 19:15:38 -0400
+Received: by mail-oa0-f46.google.com with SMTP id h16so2159846oag.19
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 16:15:38 -0700 (PDT)
+In-Reply-To: <CAK3+h2zLGGA2w38mRwpf5Ww+d8ZdtESp1zix82OZODG7o=Rsbg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 25 Oct 2012 20:00:54 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> thanks for the reply, I did a quick look at the code, as a quick dirty
+> hack, can I change the
+>
+>  699 /* Set up TCP options for SYN-ACKs. */
+>  700 static unsigned int tcp_synack_options(struct sock *sk,
+>  701                                    struct request_sock *req,
+>  702                                    unsigned int mss, struct sk_buff *skb,
+>  703                                    struct tcp_out_options *opts,
+>  704                                    struct tcp_md5sig_key **md5,
+>  705                                    struct tcp_extend_values *xvp)
+>  706 {
+>
+> ..................
+>  730         /* We always send an MSS option. */
+>  731         opts->mss = mss; <---------here set opts->mss = 0 ?
+>
+> would that work?
 
-> On Thu, 2012-10-25 at 10:09 -0700, Stephen Hemminger wrote:
-> 
-> > I don't want the stashed kernel headers to get out of date with kernel exported ones.
-> > 
-> > People who want to test early features are free to build their own pre-release versions.
-> > --
-> 
-> Have you considered an iproute2-next tree, it would really help us a
-> lot.
-> 
-> Just to be clear, were the patches 1-4 accepted ?
-> 
-> (UDP diag was added kernel in December 2011)
-> 
-> Thanks
-> 
-> 
 
-The first 4 patches are fine, and I will probably take those.
+tcp_make_synack() calls tcp_options_write() has this:
+
+        if (unlikely(opts->mss)) {
+                *ptr++ = htonl((TCPOPT_MSS << 24) |
+                               (TCPOLEN_MSS << 16) |
+                               opts->mss);
+        }
+
+It will not add the option if opts->mss is zero, so this should work too.
+
+Vijay
