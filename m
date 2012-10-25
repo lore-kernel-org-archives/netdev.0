@@ -1,132 +1,140 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH 5/5] ss: Show inet and unix sockets' shutdown state
-Date: Thu, 25 Oct 2012 17:26:44 +0400
-Message-ID: <50893E14.60001@parallels.com>
-References: <50893BAF.7030500@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:30866 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759018Ab2JYN0p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 09:26:45 -0400
-In-Reply-To: <50893BAF.7030500@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: [PATCH v1 4/5] cgroup: net_cls: Pass in task to sock_update_classid()
+Date: Thu, 25 Oct 2012 16:16:58 +0200
+Message-ID: <1351174619-5096-5-git-send-email-wagi@monom.org>
+References: <1351174619-5096-1-git-send-email-wagi@monom.org>
+Cc: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1351174619-5096-1-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-To see this we need kernel >=3.7 with _SHUTDOWN nlarrts in diag messages.
-The output will look like arrows at the end of each line, like this:
+From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 
-ESTAB 0 0  127.0.0.1:41705  127.0.0.1:12345  ino:143321 sk:ffff88003a8cea00 -->
-ESTAB 0 0  127.0.0.1:46925  127.0.0.1:12346  ino:143322 sk:ffff88003a8ce4c0 <--
-ESTAB 0 0  127.0.0.1:51678  127.0.0.1:12347  ino:143323 sk:ffff88003a8cdf80 ---
-ESTAB 0 0  127.0.0.1:46911  127.0.0.1:12348  ino:143324 sk:ffff88003b7f05c0 <->
+sock_update_classid() assumes that the update operation always are
+applied on the current task. sock_update_classid() needs to know on
+which tasks to work on in order to be able to migrate task between
+cgroups using the struct cgroup_subsys attach() callback.
 
-for SHUT_RD, SHUT_WR, SHUT_RDWR and non-shutdown sockets respectively.
-
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-
+Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Cc: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Cc: Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 ---
- include/linux/inet_diag.h |    3 ++-
- include/linux/unix_diag.h |    1 +
- misc/ss.c                 |   26 ++++++++++++++++++++------
- 3 files changed, 23 insertions(+), 7 deletions(-)
+ drivers/net/tun.c        | 2 +-
+ include/net/cls_cgroup.h | 2 +-
+ net/core/sock.c          | 6 +++---
+ net/socket.c             | 8 ++++----
+ 4 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
-index 8c469af..bbde90f 100644
---- a/include/linux/inet_diag.h
-+++ b/include/linux/inet_diag.h
-@@ -109,9 +109,10 @@ enum {
- 	INET_DIAG_TOS,
- 	INET_DIAG_TCLASS,
- 	INET_DIAG_SKMEMINFO,
-+	INET_DIAG_SHUTDOWN,
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 0873cdc..e4858b2 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -587,7 +587,7 @@ static struct sk_buff *tun_alloc_skb(struct tun_struct *tun,
+ 	struct sk_buff *skb;
+ 	int err;
+ 
+-	sock_update_classid(sk);
++	sock_update_classid(sk, current);
+ 
+ 	/* Under a page?  Don't bother with paged skb. */
+ 	if (prepad + len < PAGE_SIZE || !linear)
+diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
+index 0fee061..571de6e 100644
+--- a/include/net/cls_cgroup.h
++++ b/include/net/cls_cgroup.h
+@@ -24,7 +24,7 @@ struct cgroup_cls_state
+ 	u32 classid;
  };
  
--#define INET_DIAG_MAX INET_DIAG_SKMEMINFO
-+#define INET_DIAG_MAX INET_DIAG_SHUTDOWN
+-extern void sock_update_classid(struct sock *sk);
++extern void sock_update_classid(struct sock *sk, struct task_struct *task);
  
+ #if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
+ static inline u32 task_cls_classid(struct task_struct *p)
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 9fedbbf..0a023b8 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1217,11 +1217,11 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
  
- /* INET_DIAG_MEM */
-diff --git a/include/linux/unix_diag.h b/include/linux/unix_diag.h
-index b1d2bf1..b8a2494 100644
---- a/include/linux/unix_diag.h
-+++ b/include/linux/unix_diag.h
-@@ -37,6 +37,7 @@ enum {
- 	UNIX_DIAG_ICONS,
- 	UNIX_DIAG_RQLEN,
- 	UNIX_DIAG_MEMINFO,
-+	UNIX_DIAG_SHUTDOWN,
+ #ifdef CONFIG_CGROUPS
+ #if IS_ENABLED(CONFIG_NET_CLS_CGROUP)
+-void sock_update_classid(struct sock *sk)
++void sock_update_classid(struct sock *sk, struct task_struct *task)
+ {
+ 	u32 classid;
  
- 	UNIX_DIAG_MAX,
- };
-diff --git a/misc/ss.c b/misc/ss.c
-index a0ab2e9..0b70ee6 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1327,15 +1327,12 @@ static char *sprint_bw(char *buf, double bw)
- 	return buf;
+-	classid = task_cls_classid(current);
++	classid = task_cls_classid(task);
+ 	if (classid != sk->sk_classid)
+ 		sk->sk_classid = classid;
  }
+@@ -1264,7 +1264,7 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+ 		sock_net_set(sk, get_net(net));
+ 		atomic_set(&sk->sk_wmem_alloc, 1);
  
--static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
-+static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
-+		struct rtattr *tb[])
+-		sock_update_classid(sk);
++		sock_update_classid(sk, current);
+ 		sock_update_netprioidx(sk, current);
+ 	}
+ 
+diff --git a/net/socket.c b/net/socket.c
+index d92c490..f1a481a 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -620,7 +620,7 @@ static inline int __sock_sendmsg_nosec(struct kiocb *iocb, struct socket *sock,
  {
--	struct rtattr * tb[INET_DIAG_MAX+1];
- 	char b1[64];
- 	double rtt = 0;
+ 	struct sock_iocb *si = kiocb_to_siocb(iocb);
  
--	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr*)(r+1),
--		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
--
- 	if (tb[INET_DIAG_SKMEMINFO]) {
- 		const __u32 *skmeminfo = RTA_DATA(tb[INET_DIAG_SKMEMINFO]);
+-	sock_update_classid(sock->sk);
++	sock_update_classid(sock->sk, current);
  
-@@ -1435,6 +1432,10 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f)
+ 	si->sock = sock;
+ 	si->scm = NULL;
+@@ -784,7 +784,7 @@ static inline int __sock_recvmsg_nosec(struct kiocb *iocb, struct socket *sock,
  {
- 	struct inet_diag_msg *r = NLMSG_DATA(nlh);
- 	struct tcpstat s;
-+	struct rtattr * tb[INET_DIAG_MAX+1];
-+
-+	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr*)(r+1),
-+		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+ 	struct sock_iocb *si = kiocb_to_siocb(iocb);
  
- 	s.state = r->idiag_state;
- 	s.local.family = s.remote.family = r->idiag_family;
-@@ -1484,10 +1485,15 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f)
- 		if (r->id.idiag_cookie[1] != 0)
- 			printf("%08x", r->id.idiag_cookie[1]);
-  		printf("%08x", r->id.idiag_cookie[0]);
-+		if (tb[INET_DIAG_SHUTDOWN]) {
-+			unsigned char mask;
-+			mask = *(__u8 *)RTA_DATA(tb[INET_DIAG_SHUTDOWN]);
-+			printf(" %c-%c", mask & 1 ? '-' : '<', mask & 2 ? '-' : '>');
-+		}
- 	}
- 	if (show_mem || show_tcpinfo) {
- 		printf("\n\t");
--		tcp_show_info(nlh, r);
-+		tcp_show_info(nlh, r, tb);
- 	}
+-	sock_update_classid(sock->sk);
++	sock_update_classid(sock->sk, current);
  
- 	printf("\n");
-@@ -2184,6 +2190,14 @@ static int unix_show_sock(struct nlmsghdr *nlh, struct filter *f)
- 			printf(" users:(%s)", ubuf);
- 	}
+ 	si->sock = sock;
+ 	si->scm = NULL;
+@@ -896,7 +896,7 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
+ 	if (unlikely(!sock->ops->splice_read))
+ 		return -EINVAL;
  
-+	if (show_details) {
-+		if (tb[UNIX_DIAG_SHUTDOWN]) {
-+			unsigned char mask;
-+			mask = *(__u8 *)RTA_DATA(tb[UNIX_DIAG_SHUTDOWN]);
-+			printf(" %c-%c", mask & 1 ? '-' : '<', mask & 2 ? '-' : '>');
-+		}
-+	}
-+
- 	printf("\n");
+-	sock_update_classid(sock->sk);
++	sock_update_classid(sock->sk, current);
  
- 	return 0;
+ 	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
+ }
+@@ -3437,7 +3437,7 @@ EXPORT_SYMBOL(kernel_setsockopt);
+ int kernel_sendpage(struct socket *sock, struct page *page, int offset,
+ 		    size_t size, int flags)
+ {
+-	sock_update_classid(sock->sk);
++	sock_update_classid(sock->sk, current);
+ 
+ 	if (sock->ops->sendpage)
+ 		return sock->ops->sendpage(sock, page, offset, size, flags);
 -- 
-1.7.1
+1.8.0.rc0
