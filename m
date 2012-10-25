@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar_ptp: use iomem, not ioports resource tree in
- probe
-Date: Wed, 24 Oct 2012 23:19:11 -0400 (EDT)
-Message-ID: <20121024.231911.2065674182431820345.davem@davemloft.net>
-References: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH repost for-3.7] vhost: fix mergeable bufs on BE hosts
+Date: Wed, 24 Oct 2012 23:20:22 -0400 (EDT)
+Message-ID: <20121024.232022.1340389049377129136.davem@davemloft.net>
+References: <20121024183751.GC11118@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Wei.Yang@windriver.com,
-	claudiu.manoil@freescale.com, timur@freescale.com
-To: paul.gortmaker@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60021 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755615Ab2JYDTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 24 Oct 2012 23:19:12 -0400
-In-Reply-To: <1351092096-14811-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121024183751.GC11118@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Wed, 24 Oct 2012 11:21:36 -0400
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 24 Oct 2012 20:37:51 +0200
 
-> From: Wei Yang <Wei.Yang@windriver.com>
+> We copy head count to a 16 bit field, this works by chance on LE but on
+> BE guest gets 0. Fix it up.
 > 
-> When using a 36 bit dtb file, the driver complains "resource busy".
-> 
-> Investigating the source of the message leads one to the
-> gianfar_ptp_probe function.
-> 
-> Since the type of the device resource requested in this function
-> is IORESOURCE_MEM, it should use "iomem_resource" instead of
-> "ioports_resource".
-> 
-> Signed-off-by: Wei Yang <Wei.Yang@windriver.com>
-> Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
-> Cc: Timur Tabi <timur@freescale.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Tested-by: Alexander Graf <agraf@suse.de>
+> Cc: stable@vger.kernel.org
 
-Applied, thanks everyone.
+Applied, thanks.
