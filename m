@@ -1,56 +1,34 @@
-From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH v1 1/5] cgroup: net_prio: Mark local used function static
-Date: Thu, 25 Oct 2012 14:28:58 -0400
-Message-ID: <20121025182858.GA15105@hmsreliant.think-freely.org>
-References: <1351174619-5096-1-git-send-email-wagi@monom.org>
- <1351174619-5096-2-git-send-email-wagi@monom.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1351174619-5096-2-git-send-email-wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: (unknown)
+Date: Thu, 25 Oct 2012 11:29:11 -0700
+Message-ID: <1351189753-5912-1-git-send-email-joseph.gasparakis@intel.com>
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org
+To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:43432 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756494Ab2JYSb6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 14:31:58 -0400
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 25, 2012 at 04:16:55PM +0200, Daniel Wagner wrote:
-> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> 
-> net_prio_attach() is only access via cgroup_subsys callbacks,
-> therefore we can reduce the visibility of this function.
-> 
-> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
-> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-> Cc: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-> ---
->  net/core/netprio_cgroup.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-> index 79285a3..847c02b 100644
-> --- a/net/core/netprio_cgroup.c
-> +++ b/net/core/netprio_cgroup.c
-> @@ -248,7 +248,7 @@ static int update_netprio(const void *v, struct file *file, unsigned n)
->  	return 0;
->  }
->  
-> -void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
-> +static void net_prio_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
->  {
->  	struct task_struct *p;
->  	void *v;
-> -- 
-> 1.8.0.rc0
-> 
-> 
-Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: [RFC PATCH 0/2] Add support for hardware-offloaded encapsulation
+
+This is an RFC and not intended to get merged at the moment.
+The series contains updates to add in the NIC Rx and Tx checksumming support
+for encapsulated packets.
+
+The sk_buff needs to somehow have information of the inner packet, and adding
+three fields for the inner mac, network and transport headers was the prefered
+approach. 
+
+Not adding these fields would mean that the drivers would need to parse the
+sk_buff data in hot-path, having a negative impact in the performance.
+
+Adding in sk_buff a pointer to the skbuff of the inner packet made sense, but
+would be a complicated change as assumptions needed to be made with regards to
+helper functions such as skb_clone() skb_copy(). Also code for the existing
+encapsulation protocols (such as VXLAN and IP GRE) had to be reworked, so the
+decision was to have the simple approach of adding these three fields.
