@@ -1,88 +1,46 @@
-From: "Ariel Elior" <ariele@broadcom.com>
-Subject: RE: [net-next PATCH v2 0/3] extend set/get netlink for embedded
-Date: Thu, 25 Oct 2012 21:09:35 +0000
-Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BC95245@SJEXCHMB05.corp.ad.broadcom.com>
-References: <20121024181033.14378.33097.stgit@jf-dev1-dcblab>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCH 1/2] net: Add support for hardware-offloaded
+ encapsulation
+Date: Thu, 25 Oct 2012 14:16:56 -0700
+Message-ID: <20121025141656.5383dabe@nehalam.linuxnetplumber.net>
+References: <1351189753-5912-1-git-send-email-joseph.gasparakis@intel.com>
+	<1351189753-5912-2-git-send-email-joseph.gasparakis@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"krkumar2@in.ibm.com" <krkumar2@in.ibm.com>,
-	"samudrala@us.ibm.com" <samudrala@us.ibm.com>,
-	"peter.p.waskiewicz.jr@intel.com" <peter.p.waskiewicz.jr@intel.com>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "'John Fastabend'" <john.r.fastabend@intel.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, chrisw@sous-sol.org, netdev@vger.kernel.org,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Joseph Gasparakis <joseph.gasparakis@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4102 "EHLO mms2.broadcom.com"
+Received: from mail.vyatta.com ([76.74.103.46]:34623 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992597Ab2JYVKS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 17:10:18 -0400
-In-Reply-To: <20121024181033.14378.33097.stgit@jf-dev1-dcblab>
-Content-Language: en-US
+	id S1750806Ab2JYVRp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 17:17:45 -0400
+In-Reply-To: <1351189753-5912-2-git-send-email-joseph.gasparakis@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi0NCj4gb3duZXJAdmdlci5rZXJuZWwub3JnXSBP
-biBCZWhhbGYgT2YgSm9obiBGYXN0YWJlbmQNCj4gU2VudDogV2VkbmVzZGF5LCBPY3RvYmVyIDI0
-LCAyMDEyIDg6MTMgUE0NCj4gVG86IHNoZW1taW5nZXJAdnlhdHRhLmNvbTsgYnV5dGVuaEB3YW50
-c3RvZmx5Lm9yZzsNCj4gZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgdnlhc2V2aWNAcmVkaGF0LmNvbQ0K
-PiBDYzogamhzQG1vamF0YXR1LmNvbTsgY2hyaXN3QHJlZGhhdC5jb207IGtya3VtYXIyQGluLmli
-bS5jb207DQo+IHNhbXVkcmFsYUB1cy5pYm0uY29tOyBwZXRlci5wLndhc2tpZXdpY3ouanJAaW50
-ZWwuY29tOw0KPiBqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb207IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc7DQo+IGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb207IGdyZWdvcnkudi5yb3NlQGludGVs
-LmNvbTsgRWlsb24gR3JlZW5zdGVpbg0KPiBTdWJqZWN0OiBbbmV0LW5leHQgUEFUQ0ggdjIgMC8z
-XSBleHRlbmQgc2V0L2dldCBuZXRsaW5rIGZvciBlbWJlZGRlZA0KPiANCj4gVGhpcyBleHRlbmRz
-IHRoZSBQRl9CUklER0Ugc2V0bGluayBhbmQgZ2V0bGluayBzbyB0aGF0IHRoZXkgY2FuIGJlIHVz
-ZWQNCj4gZ2VuZXJpY2FsbHkgb3V0c2lkZSBvZiB0aGUgTGludXggYnJpZGdlIG1vZHVsZS4gRG9p
-bmcgdGhpcyBhbGxvd3MNCj4gZW1iZWRkZWQgZGV2aWNlcyB0byB1c2UgdGhlIHNhbWUgbmV0bGlu
-ayBpbnRlcmZhY2UgdGhhdCB0aGUgc29mdHdhcmUNCj4gYnJpZGdlIGlzIGN1cnJlbnRseSB1c2lu
-Zy4NCj4gDQo+IEluIHRoaXMgcGF0Y2hzZXQgSSBvcHRlZCB0byBjcmVhdGUgdHdvIG5ldyBuZG8g
-b3BzIG5kb19icmlkZ2Vfc2V0bGluayBhbmQNCj4gbmRvX2JyaWRnZV9nZXRsaW5rLiBUaGVzZSBv
-cHMgcGFzcyB0aGUgbmxtc2doZHIgdG8gdGhlIGRldmljZSBmb3INCj4gaGFuZGxpbmcuIFRoZSBu
-ZXRsaW5rIG1lc3NhZ2UgaXMgZXh0ZW5kZWQgdG8gc3VwcG9ydCBuZXN0ZWQgSUZMQV9BRl9TUEVD
-DQo+IGF0dHJpYnV0ZXMuIEEgSUZMQV9CUklER0VfRkxBR1MgYXR0cmlidXRlIGlzIHVzZWQgdG8g
-ZGV0ZXJtaW5lIHRoZSB0YXJnZXQNCj4gb2YgdGhlIG1lc3NhZ2UgZWl0aGVyIGEgbWFzdGVyIG5l
-dGRldiBpcyB0aGUgdGFyZ2V0IG9yIHRoZSB0YXJnZXQgaXMgInNlbGYiDQo+IGluZGljYXRpbmcg
-dGhlIHRhcmdldCBpcyB0aGUgbmV0ZGV2Lg0KPiBJbiB0aGlzIHdheSB3ZSBjYW4gc2VuZCBuZXRs
-aW5rIG1zZyB0byBhbiBlbWJlZGRlZCBkZXZpY2Ugb3IgdGhlIGxpbnV4IHN3DQo+IGJyaWRnZSBv
-ciBib3RoLiBJZiB0aGUgc2V0IGNvbXBsZXRlcyBzdWNlc3NmdWxseSB0aGUgZmxhZyBpcyBjbGVh
-cmVkIGluIHRoaXMgd2F5DQo+IHdlIGNhbiBsZWFybiB3aGF0IGZhaWxlZCBpbiB0aGUgYm90aCBj
-YXNlLg0KPiBUaGlzIHNjaGVtZSBpcyBzaW1pbGFyIHRvIGhvdyBGREIgdXBkYXRlcyBhcmUgaGFu
-ZGxlZC4gSWYgbm8gZmxhZyBhdHRyaWJ1dGUgaXMNCj4gcHJlc2VudCB0aGUgbWVzc2FnZSBpcyBz
-ZW50IHRvIHRoZSBtYXN0ZXIgZGV2aWNlIHRvIHN1cHBvcnQgdGhlIGV4aXN0aW5nDQo+IG1lc3Nh
-Z2VzLg0KPiANCj4gQW4gaW5pdGlhbCBJRkxBX0JSSURHRV9NT0RFIGF0dHJpYnV0ZSBpcyBhZGRl
-ZCB0byBpbmRpY2F0ZSBpZiB0aGUgYnJpZGdlIGlzDQo+IGluIGEgVkVQQSBtb2RlIG9yIFZFQiBt
-b2RlLiBUaGlzIGlzIG1vc3QgdXNlZnVsIGZvciBTUi1JT1YgZGV2aWNlIGFuZCBjYW4NCj4gYmUg
-dXNlZCB0byBpbmRpY2F0ZSBzdXBwb3J0IGZvciBWRiB0byBWRiBvciBWRiB0byBQRiB0cmFmZmlj
-LiBXaXRob3V0IHRoaXMgd2UNCj4gaGF2ZSBubyB3YXkgb2Yga25vd2luZyB0aGlzIG90aGVyIHRo
-ZW4gdHJpYWwgYW5kIGVycm9yIGJlY2F1c2Ugbm90IGFsbA0KPiBoYXJkd2FyZSBzdXBwb3J0cyB0
-aGlzLg0KPiANCj4gSW4gdGhlIGZ1dHVyZSBhZGRpdGlvbmFsIGF0dHJpYnV0ZXMgY2FuIGJlIGFk
-ZGVkIHRvIGhhbmRsZSBvdGhlciBhdHRyaWJ1dGVzLg0KPiBXZSBjb3VsZCBmb3IgZXhhbXBsZSBt
-b3ZlIHNvbWUgb2YgdGhlIGxpbnV4IGJyaWRnZSBzeXNmcyBhdHRyaWJ1dGVzIGhlcmUgaWYNCj4g
-d2Ugd2FudCBhIG5ldGxpbmsgaW50ZXJmYWNlIGZvciB0aGVtLg0KPiBUaGlzIHNob3VsZCBhbHNv
-IGFsbG93IERTQSBzd2l0Y2hlcyB0byB1c2UgdGhlIGJyaWRnaW5nIHRvb2xzLg0KPiBTZWUgUkZD
-IHBhdGNoIGZyb20gTGVubmVydA0KPiANCj4gaHR0cDovL3BhdGNod29yay5vemxhYnMub3JnL3Bh
-dGNoLzE2NTc4Lw0KPiANCj4gSSBjb3VsZCBoYXZlIHNpbXBseSBhZGRlZCB0aGUgVkVQQSBhdHRy
-aWJ1dGUgaGFuZGxpbmcgdG8gdGhlDQo+IHJ0bmxfc2V0bGluaygpIHJvdXRpbmUgYnV0IGl0IHNl
-ZW1lZCBsaWtlIGEgZ29vZCBmZWF0dXJlIHRvIGhhdmUgYWxsIHRoZQ0KPiBicmlkZ2luZyBldmVu
-dHMgYW5kIGNvbmZpZ3VyYXRpb24gb24gdGhlIHNhbWUgdHlwZS4gQWxzbyB0aGlzIHNob3VsZCBh
-bGxvdw0KPiBtb3JlIHBvd2VyZnVsIG9mZmxvYWRlZCBzd2l0Y2hlcyBsaWtlIHRoZSBoYXJkd2Fy
-ZSBzdXBwb3J0ZWQgdmlhIERTQQ0KPiBhY2Nlc3MgdG8gdGhlIGJyaWRnZSBjb250cm9sIGludGVy
-ZmFjZS4NCj4gDQo+IEFsc28gSSB0aGluayB0aGlzIGludGVyZmFjZSBzaG91bGQgYWxsb3cgVmxh
-ZCB0byBhZGQgaGlzIHBvcnQgYmFzZWQgVkxBTg0KPiBpbnRlcmZhY2UgaGVyZSBhcyB3ZWxsLg0K
-PiANCj4gQW55IGZlZWRiYWNrL2NyaXRpY2lzbSBhcHByZWNpYXRlZCB0aGFua3MhDQo+IA0KDQoN
-ClRoaXMgc2VyaWVzIGxvb2tzIGZpbmUgZnJvbSBibngyeCBwb2ludCBvZiB2aWV3Lg0KVGhlIGR5
-bmFtaWMgY2hhbmdlIGZyb20gVkVCIHRvIFZFUEEgd2lsbCByZXF1aXJlIGEgZmlybXdhcmUgY2hh
-bmdlLA0Kc28gd2UgbWlnaHQgYXJyaXZlIGEgbGl0dGxlIGxhdGUgZm9yIHRoZSBwYXJ0eS4NCkFy
-aWVsDQo=
+On Thu, 25 Oct 2012 11:29:12 -0700
+Joseph Gasparakis <joseph.gasparakis@intel.com> wrote:
+
+> @@ -19,6 +19,7 @@ enum {
+>  	NETIF_F_IP_CSUM_BIT,		/* Can checksum TCP/UDP over IPv4. */
+>  	__UNUSED_NETIF_F_1,
+>  	NETIF_F_HW_CSUM_BIT,		/* Can checksum all the packets. */
+> +	NETIF_F_HW_CSUM_ENC_BIT,	/* Can checksum all inner headers */
+>  	NETIF_F_IPV6_CSUM_BIT,		/* Can checksum TCP/UDP over IPV6 */
+>  	NETIF_F_HIGHDMA_BIT,		/* Can DMA to high memory. */
+>  	NETIF_F_FRAGLIST_BIT,		/* Scatter/gather IO. */
+> @@ -52,6 +53,8 @@ enum {
+>  	NETIF_F_NTUPLE_BIT,		/* N-tuple filters supported */
+>  	NETIF_F_RXHASH_BIT,		/* Receive hashing offload */
+>  	NETIF_F_RXCSUM_BIT,		/* Receive checksumming offload */
+> +	NETIF_F_RXCSUM_ENC_BIT,		/* Receive checksuming offload */
+> +					/* for encapsulation */
+>  	NETIF_F_NOCACHE_COPY_BIT,	/* Use no-cache copyfromuser */
+>  	NETIF_F_LOOPBACK_BIT,		/* Enable loopback */
+>  	NETIF_F_RXFCS_BIT,		/* Append FCS to skb pkt data */
+
+Add new features at the end, or reuse __UNUSED_ bits to avoid any
+issues with binary compatibility. I don't think these bits are in any
+userspace API, maybe ethtool?
