@@ -1,74 +1,135 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 5/5] ss: Show inet and unix sockets' shutdown state
-Date: Thu, 25 Oct 2012 10:09:22 -0700
-Message-ID: <20121025100922.12ed2061@nehalam.linuxnetplumber.net>
-References: <50893BAF.7030500@parallels.com>
-	<50893E14.60001@parallels.com>
-	<20121025085229.3aa43b68@nehalam.linuxnetplumber.net>
-	<1351184010.6537.158.camel@edumazet-glaptop>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH] tilegx: fix some issues in the SW TSO support
+Date: Thu, 25 Oct 2012 13:25:20 -0400
+Message-ID: <201210251737.q9PHbgev032681@farm-0012.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59019 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946118Ab2JYRKL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 13:10:11 -0400
-In-Reply-To: <1351184010.6537.158.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Oct 2012 18:53:30 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+This change correctly computes the header length and data length in
+the fragments to avoid a bug where we would end up with extremely
+slow performance.  Also adopt use of skb_frag_size() accessor.
 
-> On Thu, 2012-10-25 at 08:52 -0700, Stephen Hemminger wrote:
-> > On Thu, 25 Oct 2012 17:26:44 +0400
-> > Pavel Emelyanov <xemul@parallels.com> wrote:
-> > 
-> > > To see this we need kernel >=3.7 with _SHUTDOWN nlarrts in diag messages.
-> > > The output will look like arrows at the end of each line, like this:
-> > > 
-> > > ESTAB 0 0  127.0.0.1:41705  127.0.0.1:12345  ino:143321 sk:ffff88003a8cea00 -->
-> > > ESTAB 0 0  127.0.0.1:46925  127.0.0.1:12346  ino:143322 sk:ffff88003a8ce4c0 <--
-> > > ESTAB 0 0  127.0.0.1:51678  127.0.0.1:12347  ino:143323 sk:ffff88003a8cdf80 ---
-> > > ESTAB 0 0  127.0.0.1:46911  127.0.0.1:12348  ino:143324 sk:ffff88003b7f05c0 <->
-> > > 
-> > > for SHUT_RD, SHUT_WR, SHUT_RDWR and non-shutdown sockets respectively.
-> > > 
-> > > Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-> > > 
-> > > ---
-> > >  include/linux/inet_diag.h |    3 ++-
-> > >  include/linux/unix_diag.h |    1 +
-> > >  misc/ss.c                 |   26 ++++++++++++++++++++------
-> > >  3 files changed, 23 insertions(+), 7 deletions(-)
-> > > 
-> > > diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
-> > > index 8c469af..bbde90f 100644
-> > > --- a/include/linux/inet_diag.h
-> > > +++ b/include/linux/inet_diag.h
-> > > @@ -109,9 +109,10 @@ enum {
-> > >  	INET_DIAG_TOS,
-> > >  	INET_DIAG_TCLASS,
-> > >  	INET_DIAG_SKMEMINFO,
-> > > +	INET_DIAG_SHUTDOWN,
-> > >  };
-> > 
-> > Since this requires 3.8 or later kernel, please resubmit this
-> > patch during that merge window.
-> > --
-> 
-> I am wondering what possibly could happen if applying this before ?
-> 
-> iproute2 should be non dependent on kernel version, we make sure to not
-> add regressions.
-> 
-> 
-> 
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+Cc: stable@vger.kernel.org [v3.6]
+---
+ drivers/net/ethernet/tile/tilegx.c |   35 +++++++++++++++++++----------------
+ 1 file changed, 19 insertions(+), 16 deletions(-)
 
-I don't want the stashed kernel headers to get out of date with kernel exported ones.
-
-People who want to test early features are free to build their own pre-release versions.
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index 4e2a162..4e98100 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -1334,11 +1334,11 @@ static int tso_count_edescs(struct sk_buff *skb)
+ {
+ 	struct skb_shared_info *sh = skb_shinfo(skb);
+ 	unsigned int sh_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+-	unsigned int data_len = skb->data_len + skb->hdr_len - sh_len;
++	unsigned int data_len = skb->len - sh_len;
+ 	unsigned int p_len = sh->gso_size;
+ 	long f_id = -1;    /* id of the current fragment */
+-	long f_size = skb->hdr_len;  /* size of the current fragment */
+-	long f_used = sh_len;  /* bytes used from the current fragment */
++	long f_size = skb_headlen(skb) - sh_len;  /* current fragment size */
++	long f_used = 0;  /* bytes used from the current fragment */
+ 	long n;            /* size of the current piece of payload */
+ 	int num_edescs = 0;
+ 	int segment;
+@@ -1353,7 +1353,7 @@ static int tso_count_edescs(struct sk_buff *skb)
+ 			/* Advance as needed. */
+ 			while (f_used >= f_size) {
+ 				f_id++;
+-				f_size = sh->frags[f_id].size;
++				f_size = skb_frag_size(&sh->frags[f_id]);
+ 				f_used = 0;
+ 			}
+ 
+@@ -1384,13 +1384,13 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
+ 	struct iphdr *ih;
+ 	struct tcphdr *th;
+ 	unsigned int sh_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+-	unsigned int data_len = skb->data_len + skb->hdr_len - sh_len;
++	unsigned int data_len = skb->len - sh_len;
+ 	unsigned char *data = skb->data;
+ 	unsigned int ih_off, th_off, p_len;
+ 	unsigned int isum_seed, tsum_seed, id, seq;
+ 	long f_id = -1;    /* id of the current fragment */
+-	long f_size = skb->hdr_len;  /* size of the current fragment */
+-	long f_used = sh_len;  /* bytes used from the current fragment */
++	long f_size = skb_headlen(skb) - sh_len;  /* current fragment size */
++	long f_used = 0;  /* bytes used from the current fragment */
+ 	long n;            /* size of the current piece of payload */
+ 	int segment;
+ 
+@@ -1405,7 +1405,7 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
+ 	isum_seed = ((0xFFFF - ih->check) +
+ 		     (0xFFFF - ih->tot_len) +
+ 		     (0xFFFF - ih->id));
+-	tsum_seed = th->check + (0xFFFF ^ htons(sh_len + data_len));
++	tsum_seed = th->check + (0xFFFF ^ htons(skb->len));
+ 	id = ntohs(ih->id);
+ 	seq = ntohl(th->seq);
+ 
+@@ -1444,7 +1444,7 @@ static void tso_headers_prepare(struct sk_buff *skb, unsigned char *headers,
+ 			/* Advance as needed. */
+ 			while (f_used >= f_size) {
+ 				f_id++;
+-				f_size = sh->frags[f_id].size;
++				f_size = skb_frag_size(&sh->frags[f_id]);
+ 				f_used = 0;
+ 			}
+ 
+@@ -1478,14 +1478,14 @@ static void tso_egress(struct net_device *dev, gxio_mpipe_equeue_t *equeue,
+ 	struct tile_net_priv *priv = netdev_priv(dev);
+ 	struct skb_shared_info *sh = skb_shinfo(skb);
+ 	unsigned int sh_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+-	unsigned int data_len = skb->data_len + skb->hdr_len - sh_len;
++	unsigned int data_len = skb->len - sh_len;
+ 	unsigned int p_len = sh->gso_size;
+ 	gxio_mpipe_edesc_t edesc_head = { { 0 } };
+ 	gxio_mpipe_edesc_t edesc_body = { { 0 } };
+ 	long f_id = -1;    /* id of the current fragment */
+-	long f_size = skb->hdr_len;  /* size of the current fragment */
+-	long f_used = sh_len;  /* bytes used from the current fragment */
+-	void *f_data = skb->data;
++	long f_size = skb_headlen(skb) - sh_len;  /* current fragment size */
++	long f_used = 0;  /* bytes used from the current fragment */
++	void *f_data = skb->data + sh_len;
+ 	long n;            /* size of the current piece of payload */
+ 	unsigned long tx_packets = 0, tx_bytes = 0;
+ 	unsigned int csum_start;
+@@ -1516,15 +1516,18 @@ static void tso_egress(struct net_device *dev, gxio_mpipe_equeue_t *equeue,
+ 
+ 		/* Egress the payload. */
+ 		while (p_used < p_len) {
++			void *va;
+ 
+ 			/* Advance as needed. */
+ 			while (f_used >= f_size) {
+ 				f_id++;
+-				f_size = sh->frags[f_id].size;
+-				f_used = 0;
++				f_size = skb_frag_size(&sh->frags[f_id]);
+ 				f_data = tile_net_frag_buf(&sh->frags[f_id]);
++				f_used = 0;
+ 			}
+ 
++			va = f_data + f_used;
++
+ 			/* Use bytes from the current fragment. */
+ 			n = p_len - p_used;
+ 			if (n > f_size - f_used)
+@@ -1533,7 +1536,7 @@ static void tso_egress(struct net_device *dev, gxio_mpipe_equeue_t *equeue,
+ 			p_used += n;
+ 
+ 			/* Egress a piece of the payload. */
+-			edesc_body.va = va_to_tile_io_addr(f_data) + f_used;
++			edesc_body.va = va_to_tile_io_addr(va);
+ 			edesc_body.xfer_size = n;
+ 			edesc_body.bound = !(p_used < p_len);
+ 			gxio_mpipe_equeue_put_at(equeue, edesc_body, slot);
+-- 
+1.7.10.3
