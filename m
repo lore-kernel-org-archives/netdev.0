@@ -1,36 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] tilegx: fix some issues in the SW TSO support
-Date: Thu, 25 Oct 2012 18:51:53 +0100
-Message-ID: <1351187513.2662.9.camel@bwh-desktop.uk.solarflarecom.com>
-References: <201210251737.q9PHbgev032681@farm-0012.internal.tilera.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 5/5] ss: Show inet and unix sockets' shutdown state
+Date: Thu, 25 Oct 2012 20:00:54 +0200
+Message-ID: <1351188054.6537.196.camel@edumazet-glaptop>
+References: <50893BAF.7030500@parallels.com> <50893E14.60001@parallels.com>
+	 <20121025085229.3aa43b68@nehalam.linuxnetplumber.net>
+	 <1351184010.6537.158.camel@edumazet-glaptop>
+	 <20121025100922.12ed2061@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201210251737.q9PHbgev032681@farm-0012.internal.tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:53979 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759716Ab2JYSA5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 14:00:57 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so950501bkc.19
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 11:00:56 -0700 (PDT)
+In-Reply-To: <20121025100922.12ed2061@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-25 at 13:25 -0400, Chris Metcalf wrote:
-> This change correctly computes the header length and data length in
-> the fragments to avoid a bug where we would end up with extremely
-> slow performance.  Also adopt use of skb_frag_size() accessor.
-[...]
+On Thu, 2012-10-25 at 10:09 -0700, Stephen Hemminger wrote:
 
-By the way, since you're doing soft-TSO you should probably set
-net_device::gso_max_segs, as explained in:
+> I don't want the stashed kernel headers to get out of date with kernel exported ones.
+> 
+> People who want to test early features are free to build their own pre-release versions.
+> --
 
-commit 30b678d844af3305cda5953467005cebb5d7b687
-Author: Ben Hutchings <bhutchings@solarflare.com>
-Date:   Mon Jul 30 15:57:00 2012 +0000
+Have you considered an iproute2-next tree, it would really help us a
+lot.
 
-    net: Allow driver to limit number of GSO segments per skb
+Just to be clear, were the patches 1-4 accepted ?
 
-Ben.
+(UDP diag was added kernel in December 2011)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks
