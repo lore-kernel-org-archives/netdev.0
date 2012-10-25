@@ -1,34 +1,61 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: (unknown)
-Date: Thu, 25 Oct 2012 11:29:11 -0700
-Message-ID: <1351189753-5912-1-git-send-email-joseph.gasparakis@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org
-To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v1 2/5] cgroup: net_cls: Fix local variable type
+ decleration
+Date: Thu, 25 Oct 2012 14:35:16 -0400
+Message-ID: <20121025183516.GB15105@hmsreliant.think-freely.org>
+References: <1351174619-5096-1-git-send-email-wagi@monom.org>
+ <1351174619-5096-3-git-send-email-wagi@monom.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
+	Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Li Zefan <lizefan@huawei.com>, Tejun Heo <tj@kernel.org>
+To: Daniel Wagner <wagi@monom.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43432 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756494Ab2JYSb6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 14:31:58 -0400
-Subject: 
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:41062 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756494Ab2JYSfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 14:35:31 -0400
+Content-Disposition: inline
+In-Reply-To: <1351174619-5096-3-git-send-email-wagi@monom.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [RFC PATCH 0/2] Add support for hardware-offloaded encapsulation
-
-This is an RFC and not intended to get merged at the moment.
-The series contains updates to add in the NIC Rx and Tx checksumming support
-for encapsulated packets.
-
-The sk_buff needs to somehow have information of the inner packet, and adding
-three fields for the inner mac, network and transport headers was the prefered
-approach. 
-
-Not adding these fields would mean that the drivers would need to parse the
-sk_buff data in hot-path, having a negative impact in the performance.
-
-Adding in sk_buff a pointer to the skbuff of the inner packet made sense, but
-would be a complicated change as assumptions needed to be made with regards to
-helper functions such as skb_clone() skb_copy(). Also code for the existing
-encapsulation protocols (such as VXLAN and IP GRE) had to be reworked, so the
-decision was to have the simple approach of adding these three fields.
+On Thu, Oct 25, 2012 at 04:16:56PM +0200, Daniel Wagner wrote:
+> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+> 
+> The classid type used throughout the kernel is u32.
+> 
+> Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Li Zefan <lizefan@huawei.com>
+> Cc: Tejun Heo <tj@kernel.org>
+> Cc: <netdev@vger.kernel.org>
+> Cc: <cgroups@vger.kernel.org>
+> ---
+>  include/net/cls_cgroup.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
+> index b6a6eeb..0fee061 100644
+> --- a/include/net/cls_cgroup.h
+> +++ b/include/net/cls_cgroup.h
+> @@ -29,7 +29,7 @@ extern void sock_update_classid(struct sock *sk);
+>  #if IS_BUILTIN(CONFIG_NET_CLS_CGROUP)
+>  static inline u32 task_cls_classid(struct task_struct *p)
+>  {
+> -	int classid;
+> +	u32 classid;
+>  
+>  	if (in_interrupt())
+>  		return 0;
+> -- 
+> 1.8.0.rc0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
