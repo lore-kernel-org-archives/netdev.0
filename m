@@ -1,66 +1,105 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2 2/2] ip: remove NLM_F_EXCL in case of ECMPv6
- routes
-Date: Thu, 25 Oct 2012 18:20:49 +0200
-Message-ID: <508966E1.2050205@6wind.com>
-References: <20121023.023910.80461258323920266.davem@davemloft.net> <1350996176-4000-1-git-send-email-nicolas.dichtel@6wind.com> <1350996176-4000-2-git-send-email-nicolas.dichtel@6wind.com> <20121025090628.25e484d1@nehalam.linuxnetplumber.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: switching network namespace midway
+Date: Thu, 25 Oct 2012 09:21:05 -0700
+Message-ID: <20121025092105.5119b8bf@nehalam.linuxnetplumber.net>
+References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com>
+	<878vavshhp.fsf@xmission.com>
+	<20121024212116.GG15034@kvack.org>
+	<87ip9zqqlv.fsf@xmission.com>
+	<20121025143811.GH15034@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, joe@perches.com, bernat@luffy.cx,
-	eric.dumazet@gmail.com, yoshfuji@linux-ipv6.org,
-	davem@davemloft.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	rsa <ravi.mlists@gmail.com>, netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:35831 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755323Ab2JYQUy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 12:20:54 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so693695eek.19
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 09:20:52 -0700 (PDT)
-In-Reply-To: <20121025090628.25e484d1@nehalam.linuxnetplumber.net>
+Received: from mail.vyatta.com ([76.74.103.46]:34761 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755502Ab2JYQVx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 12:21:53 -0400
+In-Reply-To: <20121025143811.GH15034@kvack.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 25/10/2012 18:06, Stephen Hemminger a =E9crit :
-> On Tue, 23 Oct 2012 14:42:56 +0200
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
->
->> ECMPv6 routes are added each one after the other by the kernel, so w=
-e should
->> avoid to set the flag NLM_F_EXCL.
->>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> ---
->>   ip/iproute.c | 5 ++++-
->>   1 file changed, 4 insertions(+), 1 deletion(-)
->>
->> diff --git a/ip/iproute.c b/ip/iproute.c
->> index c60156f..799a70e 100644
->> --- a/ip/iproute.c
->> +++ b/ip/iproute.c
->> @@ -694,8 +694,11 @@ int parse_nexthops(struct nlmsghdr *n, struct r=
-tmsg *r, int argc, char **argv)
->>   		rtnh =3D RTNH_NEXT(rtnh);
->>   	}
->>
->> -	if (rta->rta_len > RTA_LENGTH(0))
->> +	if (rta->rta_len > RTA_LENGTH(0)) {
->>   		addattr_l(n, 1024, RTA_MULTIPATH, RTA_DATA(rta), RTA_PAYLOAD(rta=
-));
->> +		if (r->rtm_family =3D=3D AF_INET6)
->> +			n->nlmsg_flags &=3D ~NLM_F_EXCL;
->> +	}
->>   	return 0;
->>   }
->>
->
-> Shouldn't this be true for multipath IPv4 as well?
->
-In IPv4, the message is treating in one shot, because all nexthops are =
-added in=20
-the route. In IPv6, each nexthop is added like a single route and then =
-they are=20
-linked together.
+I noticed that the L2TP sockets are not being moved to the correct name
+space.
+
+Something like this is probably needed.
+
+--- a/net/l2tp/l2tp_core.c	2012-10-25 09:11:15.691271882 -0700
++++ b/net/l2tp/l2tp_core.c	2012-10-25 09:18:58.746621418 -0700
+@@ -1357,7 +1357,10 @@ static void l2tp_tunnel_free(struct l2tp
+  * userspace. This is used for static tunnels where there is no
+  * managing L2TP daemon.
+  */
+-static int l2tp_tunnel_sock_create(u32 tunnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct socket **sockp)
++static int l2tp_tunnel_sock_create(struct net *net,
++				   u32 tunnel_id, u32 peer_tunnel_id,
++				   struct l2tp_tunnel_cfg *cfg,
++				   struct socket **sockp)
+ {
+ 	int err = -EINVAL;
+ 	struct sockaddr_in udp_addr;
+@@ -1372,11 +1375,12 @@ static int l2tp_tunnel_sock_create(u32 t
+ 	case L2TP_ENCAPTYPE_UDP:
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		if (cfg->local_ip6 && cfg->peer_ip6) {
+-			err = sock_create(AF_INET6, SOCK_DGRAM, 0, sockp);
++			err = sock_create_kern(AF_INET6, SOCK_DGRAM, 0, sockp);
+ 			if (err < 0)
+ 				goto out;
+ 
+ 			sock = *sockp;
++			sk_change(sock->sk, net);
+ 
+ 			memset(&udp6_addr, 0, sizeof(udp6_addr));
+ 			udp6_addr.sin6_family = AF_INET6;
+@@ -1400,11 +1404,12 @@ static int l2tp_tunnel_sock_create(u32 t
+ 		} else
+ #endif
+ 		{
+-			err = sock_create(AF_INET, SOCK_DGRAM, 0, sockp);
++			err = sock_create_kern(AF_INET, SOCK_DGRAM, 0, sockp);
+ 			if (err < 0)
+ 				goto out;
+ 
+ 			sock = *sockp;
++			sk_change(sock->sk, net);
+ 
+ 			memset(&udp_addr, 0, sizeof(udp_addr));
+ 			udp_addr.sin_family = AF_INET;
+@@ -1433,7 +1438,7 @@ static int l2tp_tunnel_sock_create(u32 t
+ 	case L2TP_ENCAPTYPE_IP:
+ #if IS_ENABLED(CONFIG_IPV6)
+ 		if (cfg->local_ip6 && cfg->peer_ip6) {
+-			err = sock_create(AF_INET6, SOCK_DGRAM, IPPROTO_L2TP,
++			err = sock_create_kern(AF_INET6, SOCK_DGRAM, IPPROTO_L2TP,
+ 					  sockp);
+ 			if (err < 0)
+ 				goto out;
+@@ -1462,12 +1467,13 @@ static int l2tp_tunnel_sock_create(u32 t
+ 		} else
+ #endif
+ 		{
+-			err = sock_create(AF_INET, SOCK_DGRAM, IPPROTO_L2TP,
++			err = sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_L2TP,
+ 					  sockp);
+ 			if (err < 0)
+ 				goto out;
+ 
+ 			sock = *sockp;
++			sk_change(sock->sk, net);
+ 
+ 			memset(&ip_addr, 0, sizeof(ip_addr));
+ 			ip_addr.l2tp_family = AF_INET;
+@@ -1517,7 +1523,8 @@ int l2tp_tunnel_create(struct net *net,
+ 	 * kernel socket.
+ 	 */
+ 	if (fd < 0) {
+-		err = l2tp_tunnel_sock_create(tunnel_id, peer_tunnel_id, cfg, &sock);
++		err = l2tp_tunnel_sock_create(net, tunnel_id, peer_tunnel_id,
++					      cfg, &sock);
+ 		if (err < 0)
+ 			goto err;
+ 	} else {
