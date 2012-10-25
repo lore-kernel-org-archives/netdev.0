@@ -1,63 +1,88 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: listen(2) backlog changes in or around Linux 3.1?
-Date: Thu, 25 Oct 2012 16:16:46 -0700
-Message-ID: <CAGK4HS_DVtvEf78r3z_RoOWSyBCjqSVmFPtpEztDw=W5UkCvrw@mail.gmail.com>
-References: <CAJgzZorigejCuFweNrvmkEJts3Um7exh1fYTH=4KrEcB=v=2SA@mail.gmail.com>
-	<507C4401.7050500@oracle.com>
-	<CAJgzZoqhw6HJxa6uRbekLMaVTDVOo92YDtzqHnZoRiQ8tq6G2g@mail.gmail.com>
-	<CAJgzZoq9+KZpQ1tVQJUK++VVk4JfY9u8timaJ5q6wSYoF+_tog@mail.gmail.com>
-	<5080279F.80008@oracle.com>
-	<5080340F.3050207@oracle.com>
-	<CAJgzZooJM7aj=K-idvdbwUOOmtDM6u-=gsVOs2OFZjiZwQP0zw@mail.gmail.com>
-	<CAGK4HS-tOE1uZR2PE+_DShEb3y5ZAn=dtECY1AmmyO2AmTVzTA@mail.gmail.com>
-	<1350629413.2293.157.camel@edumazet-glaptop>
-	<1350634013.2293.262.camel@edumazet-glaptop>
-	<CAGK4HS_9mLzL9ESm=n5hvO0cw1hkHFMCSmBiYTBnqEMqQOvPvQ@mail.gmail.com>
-	<1350642562.2293.411.camel@edumazet-glaptop>
-	<alpine.DEB.2.00.1210221251520.1684@cleese>
-	<1350936519.8609.1239.camel@edumazet-glaptop>
-	<CAGK4HS9N9b64pKobWE=9wM-ZqNL-uJiGoAWNkqu=F=-NgHM=0Q@mail.gmail.com>
-	<1351205417.6537.272.camel@edumazet-glaptop>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: Clean up type-punning in sctp_cmd_t union
+Date: Thu, 25 Oct 2012 19:58:43 -0400
+Message-ID: <20121025235843.GA13809@neilslaptop.think-freely.org>
+References: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
+ <5089B237.6010902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: enh <enh@google.com>,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:64256 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485Ab2JYXQr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 19:16:47 -0400
-Received: by mail-ob0-f174.google.com with SMTP id uo13so2112334obb.19
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 16:16:46 -0700 (PDT)
-In-Reply-To: <1351205417.6537.272.camel@edumazet-glaptop>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:45284 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750888Ab2JYX73 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 19:59:29 -0400
+Content-Disposition: inline
+In-Reply-To: <5089B237.6010902@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 25 October 2012 15:50, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2012-10-22 at 15:11 -0700, Vijay Subramanian wrote:
->
->> >
->> > All these facilities sound very complex and not really usable by clients
->> > (ie users not willing to wait more than few seconds anyway)
->> >
->>
->> Fair enough. We can drop this if it is not worth the trouble or if I
->> have missed any other scenario.
->>
->
-> Sorry my comment was not related to your patch, but existing logic.
->
-> It seems there is no value resending SYNACK, as we received the client
-> ACK.
->
-> Please send an official patch ?
->
->
->
-Eric,
-I will send a patch shortly.
+On Thu, Oct 25, 2012 at 05:42:15PM -0400, Vlad Yasevich wrote:
+> On 10/25/2012 04:47 PM, Neil Horman wrote:
+> >Lots of points in the sctp_cmd_interpreter function treat the sctp_cmd_t arg as
+> >a void pointer, even though they are written as various other types.  Theres no
+> >need for this as doing so just leads to possible type-punning issues that could
+> >cause crashes, and if we remain type-consistent we can actually just remove the
+> >void * member of the union entirely.
+> >
+> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com
+> >CC: Vlad Yasevich <vyasevich@gmail.com>
+> >CC: "David S. Miller" <davem@davemloft.net>
+> >CC: linux-sctp@vger.kernel.org
+> >---
+> >  include/net/sctp/command.h  |  7 ++++---
+> >  include/net/sctp/ulpqueue.h |  2 +-
+> >  net/sctp/sm_sideeffect.c    | 45 ++++++++++++++++++++++-----------------------
+> >  net/sctp/ulpqueue.c         |  3 +--
+> >  4 files changed, 28 insertions(+), 29 deletions(-)
+> >
+> >diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+> >index 712b3be..7f1b0f3 100644
+> >--- a/include/net/sctp/command.h
+> >+++ b/include/net/sctp/command.h
+> >@@ -131,7 +131,6 @@ typedef union {
+> >  	sctp_state_t state;
+> >  	sctp_event_timeout_t to;
+> >  	unsigned long zero;
+> >-	void *ptr;
+> >  	struct sctp_chunk *chunk;
+> >  	struct sctp_association *asoc;
+> >  	struct sctp_transport *transport;
+> >@@ -154,9 +153,12 @@ typedef union {
+> >   * which takes an __s32 and returns a sctp_arg_t containing the
+> >   * __s32.  So, after foo = SCTP_I32(arg), foo.i32 == arg.
+> >   */
+> >+#define SCTP_NULL_BYTE 0xAA
+> >  static inline sctp_arg_t SCTP_NULL(void)
+> >  {
+> >-	sctp_arg_t retval; retval.ptr = NULL; return retval;
+> >+	sctp_arg_t retval;
+> >+	memset(&retval, SCTP_NULL_BYTE, sizeof(sctp_arg_t));
+> >+	return retval;
+> 
+> What's this for?  Can't we just use retval.zero?
+> 
+> -vlad
+> 
+My intent was to highlight any users of sctp_arg_t when SCTP_NULL was passed.
+My thinking was that the 0xAA byte patern would be a good indicator.  Although,
+admittedly I didn't see the zero argument there.  Looking at it though, the zero
+member of the union is effectively unused.  Strictly speaking its used for
+initalization of sctp_arg_t, but its done somewhat poorly, since theres no
+guarantee that an unsigned long will be the largest member of that union.  Doing
+the memset guarantees the whole instance is set to a predefined value.
 
-Thanks,
-Vijay
+I could go either way with this, would you rather we just have SCTP_NULL return
+retval = { .zero = 0}; or would you rather remove the zero initialization from
+SCTP_[NO]FORCE, and SCTP_ARG_CONSTRUCTOR and do the memset.  I think the memset
+reduces to a single 64 bit assignment as long as the union doesn't exceed that
+size anyway, and it ensures that you initalize the whole union's storage if it
+does in the future.  And if we remove the initialization step (I don't see that
+its needed in the three macros above anyway), then we can remove the zero member
+as well.
+
+Let me know what you want to do here, and I can respin this.
+Best
+Neil
