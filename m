@@ -1,22 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH v2 0/2] Add support for hardware-offloaded
- encapsulation
-Date: Thu, 25 Oct 2012 15:47:20 -0400 (EDT)
-Message-ID: <20121025.154720.1217326691239925890.davem@davemloft.net>
-References: <1351193940-11427-1-git-send-email-joseph.gasparakis@intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] tilegx: fix some issues in the SW TSO support
+Date: Thu, 25 Oct 2012 20:48:45 +0100
+Message-ID: <1351194525.2662.21.camel@bwh-desktop.uk.solarflarecom.com>
+References: <201210251737.q9PHbgev032681@farm-0012.internal.tilera.com>
+	 <1351187513.2662.9.camel@bwh-desktop.uk.solarflarecom.com>
+	 <508981E1.4030600@tilera.com>
+	 <1351193806.2662.18.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, chrisw@sous-sol.org, netdev@vger.kernel.org
-To: joseph.gasparakis@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39586 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755448Ab2JYTrW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 15:47:22 -0400
-In-Reply-To: <1351193940-11427-1-git-send-email-joseph.gasparakis@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351193806.2662.18.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 2012-10-25 at 20:36 +0100, Ben Hutchings wrote:
+[...]
+> There's a simple way to test this - configure the 'attacker' host and
+> interface like this:
+> 
+> # ip link set $IFACE mtu 128
+> # sysctl net.ipv4.route.min_adv_mss=88
+> 
+> and then use something like netperf to generate a high bandwidth stream
+> of TCP traffic toward it from the tilegx interface.
 
-This time patch #1 didn't make it to the list.
+Also you would need to run some other traffic in parallel (multiple
+streams to the 'attacker' and some more normal streams) to ensure there
+is real contention.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
