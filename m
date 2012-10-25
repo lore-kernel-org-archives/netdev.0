@@ -1,117 +1,74 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [RFC] back on nf_tables (plus compatibility layer)
-Date: Thu, 25 Oct 2012 19:06:32 +0200
-Message-ID: <20121025170632.GA4890@1984>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 5/5] ss: Show inet and unix sockets' shutdown state
+Date: Thu, 25 Oct 2012 10:09:22 -0700
+Message-ID: <20121025100922.12ed2061@nehalam.linuxnetplumber.net>
+References: <50893BAF.7030500@parallels.com>
+	<50893E14.60001@parallels.com>
+	<20121025085229.3aa43b68@nehalam.linuxnetplumber.net>
+	<1351184010.6537.158.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Netfilter Development Mailing list
-	<netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:59019 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1946118Ab2JYRKL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 13:10:11 -0400
+In-Reply-To: <1351184010.6537.158.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 25 Oct 2012 18:53:30 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-I've been working for a while to recover nf_tables kernel patches and
-to implement a compatibility layer so it can be used with existing
-x_tables target/match extensions. These are the main reasons that
-motivated me to follow this approach:
+> On Thu, 2012-10-25 at 08:52 -0700, Stephen Hemminger wrote:
+> > On Thu, 25 Oct 2012 17:26:44 +0400
+> > Pavel Emelyanov <xemul@parallels.com> wrote:
+> > 
+> > > To see this we need kernel >=3.7 with _SHUTDOWN nlarrts in diag messages.
+> > > The output will look like arrows at the end of each line, like this:
+> > > 
+> > > ESTAB 0 0  127.0.0.1:41705  127.0.0.1:12345  ino:143321 sk:ffff88003a8cea00 -->
+> > > ESTAB 0 0  127.0.0.1:46925  127.0.0.1:12346  ino:143322 sk:ffff88003a8ce4c0 <--
+> > > ESTAB 0 0  127.0.0.1:51678  127.0.0.1:12347  ino:143323 sk:ffff88003a8cdf80 ---
+> > > ESTAB 0 0  127.0.0.1:46911  127.0.0.1:12348  ino:143324 sk:ffff88003b7f05c0 <->
+> > > 
+> > > for SHUT_RD, SHUT_WR, SHUT_RDWR and non-shutdown sockets respectively.
+> > > 
+> > > Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> > > 
+> > > ---
+> > >  include/linux/inet_diag.h |    3 ++-
+> > >  include/linux/unix_diag.h |    1 +
+> > >  misc/ss.c                 |   26 ++++++++++++++++++++------
+> > >  3 files changed, 23 insertions(+), 7 deletions(-)
+> > > 
+> > > diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+> > > index 8c469af..bbde90f 100644
+> > > --- a/include/linux/inet_diag.h
+> > > +++ b/include/linux/inet_diag.h
+> > > @@ -109,9 +109,10 @@ enum {
+> > >  	INET_DIAG_TOS,
+> > >  	INET_DIAG_TCLASS,
+> > >  	INET_DIAG_SKMEMINFO,
+> > > +	INET_DIAG_SHUTDOWN,
+> > >  };
+> > 
+> > Since this requires 3.8 or later kernel, please resubmit this
+> > patch during that merge window.
+> > --
+> 
+> I am wondering what possibly could happen if applying this before ?
+> 
+> iproute2 should be non dependent on kernel version, we make sure to not
+> add regressions.
+> 
+> 
+> 
 
-1) nf_tables already provides a netlink interface, which has been a
-   longstanding demand from users.
+I don't want the stashed kernel headers to get out of date with kernel exported ones.
 
-2) Provide a fast path to merge this into mainstream. We'll have both
-   iptables and nftables interfaces during some time in the Linux kernel,
-   then remove iptables infrastructure at some point. iptables scripts
-   would not break as we'll have the iptables emulation over nftables.
-
-3) Regarding the compatibility layer: To provide a working command
-   line utility with the same syntax of iptables. The idea is that users
-   don't notice that they are working with the nf_tables kernel
-   infrastructure. We did that during the transition from ipchains to
-   iptables.
-
-4) Several extensions for x_tables still need to be ported to
-   nf_tables. With the compatibility layer, we can use non-native
-   x_tables extensions with nf_tables until it fully provides a
-   replacement for all existing features.
-
-5) The compatibility layer provides a way to hook existing x_tables
-   matches/targets with nftables. So we can use all existing features
-   from nftables until we provide native nftables expressions /
-   user-space code that replace them.
-
-The compatibility layer has limitations to emulate struct ipt_entry,
-hookmask, protocol and inversion passed to xt->checkentry(). But this
-can be mostly workaround by relaxing some of the checking in
-kernel-space that prevent users from doing stupid things (like trying
-to use the TCPMSS target for non-TCP traffic / non-syn packets). In my
-list, the affected targets are ECN, CLUSTERIP, TCPMSS, REJECT and CT.
-I have some proposals on how to workaround those.
-
-You can access the preliminary iptables over nftables code from:
-
-http://1984.lsi.us.es/git/iptables-nftables/
-
-The name of the utilities are xtables, xtables-save and
-xtables-restore.
-
-There are several missing features in that iptables over nftables
-code: -Z, -R, -E, rule insertion at position and -f are not yet
-working. IPv6 support is also still missing.
-
-It requires this user-space library:
-
-http://1984.lsi.us.es/git/libnftables/
-
-And the following Linux kernel code with several experimental patches
-of mine:
-
-http://1984.lsi.us.es/git/nf-next/log/?h=nf_tables-experiments
-
-I see several things that need to be improved in the nftables kernel
-side:
-
-1) Improve rule addition and deletion timing, currently it is not
-very good compared to iptables. To improve deletions I think we
-have to modify the current locking approach based on RCU. To improve
-additions, we have to improve the unique handle allocation (probably
-using a 64-bits handle number so we forget about wrap-arounds and we
-just incrementally assign new handles).
-
-2) No built-in nat and route tables. Better allow from user-space
-configure one table with the nat / route property. If we provide
-documentation on how to use them appropriately, I would not worry too
-much if the user uses wrongly.
-
-3) Add operation to obtain chain counters, following the same approach
-of iptables (iterate over the entire rule-set and accumulate packets
-and bytes, like in get_counters()).
-
-4) Add native support for TRACE, it seems to be missing in nf_tables.
-
-5) Changes to allow to add rules at positions and replace them, since
-iptables allows this.
-
-6) To speed up packet matching, we can compile nftables expressions to
-some internal bytecode (that could be even compiled to native assembly
-instructions like Eric Dumazet did for BPF).
-
-Several of these things can be improved while we already have this in
-mainline.
-
-One final thing: nftables does not support atomic table commit. The
-point here is if we really need this for the emulation utility or we
-can live without that. Implementing atomic table replacement in
-nftables is not trivial. I have hard time to find this commit table
-feature useful.
-
-That's all by now. By resolving most of these things and having the
-compatibility layer ready, we should get nftables into mainstream
-anytime soon IMO.
-
-Comments welcome.
-
-Regards.
+People who want to test early features are free to build their own pre-release versions.
