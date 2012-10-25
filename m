@@ -1,55 +1,71 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: [RFC PATCH v2 2/2] tunneling: capture inner headers during encapsulation
-Date: Thu, 25 Oct 2012 12:39:00 -0700
-Message-ID: <1351193940-11427-3-git-send-email-joseph.gasparakis@intel.com>
-References: <1351193940-11427-1-git-send-email-joseph.gasparakis@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org
-To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58639 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755448Ab2JYTbk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 15:31:40 -0400
-In-Reply-To: <1351193940-11427-1-git-send-email-joseph.gasparakis@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] tilegx: fix some issues in the SW TSO support
+Date: Thu, 25 Oct 2012 20:36:46 +0100
+Message-ID: <1351193806.2662.18.camel@bwh-desktop.uk.solarflarecom.com>
+References: <201210251737.q9PHbgev032681@farm-0012.internal.tilera.com>
+	 <1351187513.2662.9.camel@bwh-desktop.uk.solarflarecom.com>
+	 <508981E1.4030600@tilera.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <508981E1.4030600@tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Populating the inner header pointers of skb for vxlan and ipgre
----
- drivers/net/vxlan.c | 4 ++++
- net/ipv4/ip_gre.c   | 4 ++++
- 2 files changed, 8 insertions(+)
+On Thu, 2012-10-25 at 14:16 -0400, Chris Metcalf wrote:
+> On 10/25/2012 1:51 PM, Ben Hutchings wrote:
+> > On Thu, 2012-10-25 at 13:25 -0400, Chris Metcalf wrote:
+> >> This change correctly computes the header length and data length in
+> >> the fragments to avoid a bug where we would end up with extremely
+> >> slow performance.  Also adopt use of skb_frag_size() accessor.
+> > [...]
+> >
+> > By the way, since you're doing soft-TSO you should probably set
+> > net_device::gso_max_segs, as explained in:
+> >
+> > commit 30b678d844af3305cda5953467005cebb5d7b687
+> > Author: Ben Hutchings <bhutchings@solarflare.com>
+> > Date:   Mon Jul 30 15:57:00 2012 +0000
+> >
+> >     net: Allow driver to limit number of GSO segments per skb
+> 
+> We currently have a hard limit of 2048 equeue entries (effectively,
+> segments) per interface.  The commit message suggests 861 is the largest
+> number we're likely to see, so I think we're OK from a correctness point of
+> view.
+>
+> But, perhaps, we could end up with multiple cores trying to push
+> separate flows each with this tiny MSS issue, and they would then be
+> contending for the 2048 equeue entries, and performance might suffer.  I
+> don't have a good instinct on what value we should choose to set here; I
+> see that sfc uses 100.
+>
+> So, we could do nothing since it seems we're technically safe; we could say
+> 2048 to be explicit; we could pick a random fraction of the full size to
+> help avoid contention effects, like 1024 or 512; or we could mimic sfc and
+> just say 100.  What do you think?
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 51de9ed..7cd1e5a 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -647,6 +647,10 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	__u8 tos, ttl;
- 	int err;
- 
-+	skb->inner_mac_header = skb->mac_header;
-+	skb->inner_network_header = skb->network_header;
-+	skb->inner_transport_header = skb->transport_header;
-+
- 	/* Need space for new headers (invalidates iph ptr) */
- 	if (skb_cow_head(skb, VXLAN_HEADROOM))
- 		goto drop;
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 7240f8e..b20ff8f 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -902,6 +902,10 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 			tunnel->err_count = 0;
- 	}
- 
-+	skb->inner_mac_header = skb->mac_header;
-+	skb->inner_network_header = skb->network_header;
-+	skb->inner_transport_header = skb->transport_header;
-+
- 	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen + rt->dst.header_len;
- 
- 	if (skb_headroom(skb) < max_headroom || skb_shared(skb)||
+You need at least 2 descriptors per segment, plus 1 for each fragment
+boundary, so the maximum would be something like
+(2048 - MAX_SKB_FRAGS) / 2 ~= 1015.  So the worst-case skb can fit in
+the queue, but it requires so much of the queue space that the queue
+might not become sufficiently empty before the watchdog timer fires.
+
+There's a simple way to test this - configure the 'attacker' host and
+interface like this:
+
+# ip link set $IFACE mtu 128
+# sysctl net.ipv4.route.min_adv_mss=88
+
+and then use something like netperf to generate a high bandwidth stream
+of TCP traffic toward it from the tilegx interface.
+
+Ben.
+
 -- 
-1.7.11.7
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
