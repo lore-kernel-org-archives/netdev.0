@@ -1,54 +1,37 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: re: bonding: remove entries for master_ip and vlan_ip and query
- devices instead
-Date: Thu, 25 Oct 2012 15:29:09 +0300
-Message-ID: <20121025122908.GA20595@elgon.mountain>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH iproute2 0/5] Teach ss to show sockets' shutdown state
+Date: Thu, 25 Oct 2012 17:16:31 +0400
+Message-ID: <50893BAF.7030500@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: andy@greyhouse.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet15.oracle.com ([148.87.113.117]:23869 "EHLO
-	rcsinet15.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756122Ab2JYM3Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 08:29:16 -0400
-Content-Disposition: inline
+Received: from mailhub.sw.ru ([195.214.232.25]:44251 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759568Ab2JYNQe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 09:16:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[ Sort of old, but apparently I didn't email about this in March ].
+In the net-next sits a patch which extends the sock-diag subsys to 
+show the sockets' shutdown state. I propose to teach the ss tool to 
+print this info when requested with -e|--extended key.
 
-Hello Andy Gospodarek,
+The output will look like arrows at the end of each line, like this:
 
-This is a semi-automatic email about new static checker warnings.
+ESTAB 0 0  127.0.0.1:41705  127.0.0.1:12345  ino:143321 sk:ffff88003a8cea00 -->
+ESTAB 0 0  127.0.0.1:46925  127.0.0.1:12346  ino:143322 sk:ffff88003a8ce4c0 <--
+ESTAB 0 0  127.0.0.1:51678  127.0.0.1:12347  ino:143323 sk:ffff88003a8cdf80 ---
+ESTAB 0 0  127.0.0.1:46911  127.0.0.1:12348  ino:143324 sk:ffff88003b7f05c0 <->
 
-The patch eaddcd76903c: "bonding: remove entries for master_ip and 
-vlan_ip and query devices instead" from Mar 22, 2012, leads to the 
-following Smatch complaint:
+for SHUT_RD, SHUT_WR, SHUT_RDWR and non-shutdown sockets respectively.
 
-drivers/net/bonding/bond_main.c:2703 bond_arp_send_all()
-	 warn: variable dereferenced before check 'vlan_dev' (see line 2697)
 
-drivers/net/bonding/bond_main.c
-  2696					vlan_id = vlan->vlan_id;
-                                        ^^^^^^^^^^
-If vlan_id is non-zero it means we went hit this assignment.
+In order to do so, it's also required to implement support for the
+newer sock-diag in tcp and udp netlink code. I did it before, but
+broke compatibility with older kernels (those without sock-diag).
+Now this is fixed (checked on 2.6.40 kernel).
 
-  2697					pr_debug("basa: vlan match on %s %d\n",
-  2698					       vlan_dev->name, vlan_id);
-                                               ^^^^^^^^^^
-Old dereference.
-
-  2699					break;
-  2700				}
-  2701			}
-  2702	
-  2703			if (vlan_id && vlan_dev) {
-                                       ^^^^^^^^
-New check.
-
-  2704				ip_rt_put(rt);
-  2705				addr = bond_confirm_addr(vlan_dev, targets[i], 0);
-
-regards,
-dan carpenter
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
