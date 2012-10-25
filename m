@@ -1,40 +1,52 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Regarding bottlenecks for high speed packet generation
-Date: Thu, 25 Oct 2012 23:16:56 +0530
-Message-ID: <CADAe=+KJ2QuL7ZdrfDWQe8R1vF_r_bu3QBS-5kwZBgQ21QTMtg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Supporting more devices with dev_alloc_name()
+Date: Thu, 25 Oct 2012 19:50:43 +0200
+Message-ID: <1351187443.6537.184.camel@edumazet-glaptop>
+References: <20121025165632.GC7857@raven>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Tom Parkin <tparkin@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:34830 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758485Ab2JYRr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 13:47:26 -0400
-Received: by mail-pa0-f46.google.com with SMTP id hz1so1333908pad.19
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 10:47:26 -0700 (PDT)
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:45172 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934720Ab2JYRuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 13:50:46 -0400
+Received: by mail-ea0-f174.google.com with SMTP id c13so597408eaa.19
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 10:50:45 -0700 (PDT)
+In-Reply-To: <20121025165632.GC7857@raven>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, 2012-10-25 at 17:56 +0100, Tom Parkin wrote:
+> Hi list,
+> 
+> I've recently been trying to create large-scale L2TPv3 configurations
+> of up to 50,000 Ethernet pseudowires.
+> 
+> One of the limitations I've hit has been to do with dev_alloc_name().
+> By default, l2tp_eth uses "l2tpeth%d" for device names, which is
+> expanded by dev_alloc_name() into l2tpeth1, l2tpeth2, etc.  However,
+> the algorithm dev_alloc_name() uses to derive the next free number for
+> this scheme is bounded by the number of bits in a single page.  For
+> kernels/platforms with a 4kB page, this limits these "autoderived"
+> names to 32k.
+> 
+> In my testing I've been able to work around this by specifying
+> interface names during the bringup of the l2tpeth interfaces, thereby
+> bypassing dev_alloc_name() altogether.  Using this approach I am able
+> to comfortably create 50k interfaces, even on fairly modest hardware.
+> But it seems a shame to have to do this; it would be much nicer if
+> the kernel were able to autogenerate names for more devices.
+> 
+> Is this something that would be worth my working on a patch for, or
+> would the increased code complexity be too great an overhead to
+> consider for such outlandish use-cases?
 
-I am trying out a sample application written based on packet_mmap to
-generate packets at line rates. I am using 3.4.10 kernel and a gigabit
-nic card.
-I have found some strange issues as mentioned below.
+This issue was raised some ago, for the dummy device
 
-When I am transmitting packets sized 1500 bytes the socket buffers are
-easily filled up eventhough if I increase the value of wmem_default
-and wmem_max.
-The memory I have allotted can fit around 14k packets of 1500 bytes
-size. Is the NIC card not able to transmit them ?? How can I check it
-??
-I have even increased the Hardware tx queue size of NIC card from 256
-to 4096 using ethtool.
+modprobe dummy numdummies=33000
 
-Does traffic control causing any issue as I read it wont allow traffic bursts ?
-
-Is there any way to find the major bottlenecks that would really cause
-problems in high-speed packet generation.
-
-Regards,
-Ajith
+I guess each format (eg eth%d) could be attached/associated to an idr,
+so that we can find the lowest available index very fast.
