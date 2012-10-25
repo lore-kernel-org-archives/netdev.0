@@ -1,49 +1,88 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: switching network namespace midway
-Date: Thu, 25 Oct 2012 10:38:11 -0400
-Message-ID: <20121025143811.GH15034@kvack.org>
-References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com> <878vavshhp.fsf@xmission.com> <20121024212116.GG15034@kvack.org> <87ip9zqqlv.fsf@xmission.com>
+From: Tony Cheneau <tony.cheneau@amnesiak.org>
+Subject: Re: [PATCH net-next 00/15] 6lowpan: Some more bug fixes
+Date: Thu, 25 Oct 2012 16:49:28 +0200
+Message-ID: <383f66ae460548de6f930b0f1c244e5a@amnesiak.org>
+References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
+ <CAJmB2rDcdo7r-0xoNnrbXRB4KKWoKJmpu9OTk5HHuE1V5Py2qA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rsa <ravi.mlists@gmail.com>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-zigbee-devel@lists.sourceforge.net>,
+	Alan Ott <alan@signal11.us>
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:49141 "EHLO kanga.kvack.org"
+Received: from ns.amnesiak.org ([95.130.11.136]:40456 "EHLO amnesiak.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758956Ab2JYOiN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 25 Oct 2012 10:38:13 -0400
-Content-Disposition: inline
-In-Reply-To: <87ip9zqqlv.fsf@xmission.com>
+	id S1756149Ab2JYOty (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 10:49:54 -0400
+In-Reply-To: <CAJmB2rDcdo7r-0xoNnrbXRB4KKWoKJmpu9OTk5HHuE1V5Py2qA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Eric,
+Hello Alexander,
 
-On Wed, Oct 24, 2012 at 06:37:16PM -0700, Eric W. Biederman wrote:
-> Yes.  Although L2TP is not an example of code I would copy.  Any other
-> tunnel would be better.  I haven't looked closely at L2TP but it keeps
-> popping up as a poster child for small little network namespace bugs
-> that I don't want to think about.
+Thank you for your comments. See my answer inline.
 
-Agreed.
+Le 25.10.2012 06:52, Alexander Smirnov a =C3=A9crit=C2=A0:
+> Hi,
+>
+[...]
+> 1. The series is quite huge what makes it difficult for the review.=20
+> It
+> would be better to split it into one-two and submit separately (not
+> simultaneously).
+OK. Will do.
 
-> Last I looked to use L2TP it required a magic userspace that I couldn't
-> find and I haven't cared enough to write.  Ben would you be interested
-> in helping flush out the network namespace bugs out of L2TP?
+> 2. Could you also please provide some notes about how have you tested
+> these changes (logs, plain text)? Do I need to check your changes
+> locally on my desk? If so I need some instructions.
+I'm not sure what you are asking here. There was some more debugging=20
+printk, that I removed because they were too verbose. Mostly, I test my=
+=20
+patch with few userspace program, like ping6, iperf (both for TCP and=20
+UDP) and ssh. I also wrote a TCP and a UDP echo server, so as to test=20
+fragmentation in more details. For most functional patches, I usually=20
+confirm through wireshark that the packets indeed look the way they=20
+should (this, I've done it for patch 11 for example). But I don't have=20
+any automated scripts to check for regression. I can provide you the=20
+script I use to configure nodes if needed (but it pretty straighward an=
+d=20
+should look like your own scripts).
+I'm not sure that really answers your question.
 
-Sure, that I can do.  To be entirely honest, I have not yet tried using 
-network namespaces with the in kernel L2TP stack, but rather with the 
-Babylon code.  I have, however, put together changes to make the Babylon 
-userland code work with the in kernel L2TP over the past couple of months.  
-Since the network namespace support is already present in the userland 
-code, it shouldn't be too hard to adapt.
+> 3. Please DO NOT submit patches like: this patch fixes blablabla=20
+> which
+> isn't in the kernel yet (like patch 13,15). I have no clue what you
+> have locally on your laptop and what you will send in some time. I'd
+> like to see here the working code, not a references to TBD.
+I'm OK with removing patch 13 (I'll introduce it alongside the serial=20
+driver later on). I'm not so OK with removing patch 15, or at least, it=
+=20
+would require some more testing in other parts of the code. Basically,=20
+the TBD are placeholder for when the Association Request/Response will=20
+be reimplemented. I introduced it because otherwise, .assoc_req and=20
+=2Eassoc_resp entries of mac802154_mlme_wpan would go uninitialized and=
+=20
+would cause kernel crash when called. I could have modified the calling=
+=20
+code to deal with that, but I thought these primitives were meant to be=
+=20
+re-implemented soon anyway.
 
->From a quick read of the L2TP over UDP code paths, it looks like things 
-should work, as the ingress and egress lookups use the transport socket's 
-namespace.  All the reference counting looks a bit heavy handed, though.  
-I also wrote a couple of test programs for setting up L2TP sockets and 
-devices which may be of use -- see http://www.kvack.org/~bcrl/pppol2tp/ .
+> 4. The reference to linux-zigbee project isn't an occasion for me to
+> apply this code to this tree. I have no goal to merge all this fun to
+> mainline due to several things in linux-zigbee kernel work NOT
+> according to the standard (mostly it's a timing problems) and global
+> refactoring needed.
+I don't understand what you are talking about here. I would guess that=20
+you are talking about patch 15. If so, my answer is the following, whil=
+e=20
+I understand your effort to refactor linux-zigbee code and fix things=20
+along the way, some code went through net-next that cause crashes. My=20
+pragmatic approach is to try to fix it before more people use it, even=20
+through it might not always be the most elegant way to do it.
 
-		-ben
--- 
-"Thought is the essence of where you are now."
+Regards,
+Tony
