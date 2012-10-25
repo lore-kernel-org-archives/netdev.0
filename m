@@ -1,57 +1,63 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH net-next 00/15] 6lowpan: Some more
-	bug fixes
-Date: Thu, 25 Oct 2012 11:10:37 -0400
-Message-ID: <5089566D.6000801@signal11.us>
-References: <1350965397-12384-1-git-send-email-tony.cheneau@amnesiak.org>
-	<CAJmB2rDcdo7r-0xoNnrbXRB4KKWoKJmpu9OTk5HHuE1V5Py2qA@mail.gmail.com>
-	<383f66ae460548de6f930b0f1c244e5a@amnesiak.org>
+From: rsa <ravi.mlists@gmail.com>
+Subject: Re: switching network namespace midway
+Date: Thu, 25 Oct 2012 11:12:58 -0400
+Message-ID: <CAFaHj6HxV=YgZiUp-WkuGVJBa2nv-g86yUaa_9XxnhqTex=zOg@mail.gmail.com>
+References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com>
+	<878vavshhp.fsf@xmission.com>
+	<20121024212116.GG15034@kvack.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Tony Cheneau <tony.cheneau-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <383f66ae460548de6f930b0f1c244e5a-jNfjcPZKvDhg9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:50421 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935801Ab2JYPNA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 11:13:00 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so1405291wgb.1
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 08:12:58 -0700 (PDT)
+In-Reply-To: <20121024212116.GG15034@kvack.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2012 10:49 AM, Tony Cheneau wrote:
->  I'm not so OK with removing patch 15, or at least, it would require
-> some more testing in other parts of the code. Basically, the TBD are
-> placeholder for when the Association Request/Response will be
-> reimplemented. I introduced it because otherwise, .assoc_req and
-> .assoc_resp entries of mac802154_mlme_wpan would go uninitialized and
-> would cause kernel crash when called. I could have modified the
-> calling code to deal with that, but I thought these primitives were
-> meant to be re-implemented soon anyway.
+Thanks Eric.  That makes sense. I can remember both network namespaces
+and switch to the other prior to route lookup if necessary.
+Any gotchas on receiving tunneled packed on the tunnel interface?  Looking at
+the code there is no change necessary.  Packet arrives on tunnel
+interface which is
+decapsulated and given to net_if_rx() for inner packet processing.  Am I mssing
+something?
 
-I think just simply stating this in the commit message would fix the
-issue here. Maybe something like "Fix crash where assoc_req() and
-assoc_resp() were not defined."
+thank you
+rsa
 
-This should probably get split into two patches, one for BSN and the
-other for assoc.
-
-Also, make the bsn functions static, and the convention is to put static
-functions above where they are being used, so that you don't have to
-forward declare them. It looks though, like this source file doesn't do
-that for other functions, so maybe following the convention of this file
-for now is ok.
-
-Alan.
-
-
-------------------------------------------------------------------------------
-Everyone hates slow websites. So do we.
-Make your web apps faster with AppDynamics
-Download AppDynamics Lite for free today:
-http://p.sf.net/sfu/appdyn_sfd2d_oct
+On Wed, Oct 24, 2012 at 5:21 PM, Benjamin LaHaise <bcrl@kvack.org> wrote:
+> On Wed, Oct 24, 2012 at 02:11:14PM -0700, Eric W. Biederman wrote:
+>> rsa <ravi.mlists@gmail.com> writes:
+>>
+>> > Assuming I have a tunnel interface where two route lookups are done --
+>> > one for innter
+>> > packet and the other for outer -- do you see any issues in switching
+>> > the network
+>> > namespace prior to second route lookup (and restore to the original namespace
+>> > after the second lookup is done)?
+>> >
+>> > If so, are there any other calls other than sk_change_net() needed?
+>>
+>> In general sk_change_net is a bad idea.
+>>
+>> Most likely what you want to do is simply memorize both struct net's
+>> that you care about and perform the routing lookup as appropriate.
+>>
+>> Certainly you don't want to be calling sk_change_net for every packet
+>> that goes through your tunnel.
+>
+> I've actually done this with L2TP.  The packets coming into the system from
+> the tunnel are received on one UDP socket in one "struct net", but the
+> decapsulated packets are received on a "struct net_device" that is in a
+> different "struct net".  No special coding is required -- just move the
+> tunnel's net_device into another namespace after creation and it works as
+> expected.  Using sk_change_net() would be full of races and is really not
+> required for the vast majority of use cases.
+>
+>                 -ben
