@@ -1,39 +1,33 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] tilegx: fix some issues in the SW TSO support
-Date: Thu, 25 Oct 2012 20:48:45 +0100
-Message-ID: <1351194525.2662.21.camel@bwh-desktop.uk.solarflarecom.com>
-References: <201210251737.q9PHbgev032681@farm-0012.internal.tilera.com>
-	 <1351187513.2662.9.camel@bwh-desktop.uk.solarflarecom.com>
-	 <508981E1.4030600@tilera.com>
-	 <1351193806.2662.18.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1351193806.2662.18.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: [RFC PATCH v2 0/2] Add support for hardware-offloaded encapsulation
+Date: Thu, 25 Oct 2012 12:38:58 -0700
+Message-ID: <1351193940-11427-1-git-send-email-joseph.gasparakis@intel.com>
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org
+To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:15190 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759761Ab2JYUBv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 25 Oct 2012 16:01:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-25 at 20:36 +0100, Ben Hutchings wrote:
-[...]
-> There's a simple way to test this - configure the 'attacker' host and
-> interface like this:
-> 
-> # ip link set $IFACE mtu 128
-> # sysctl net.ipv4.route.min_adv_mss=88
-> 
-> and then use something like netperf to generate a high bandwidth stream
-> of TCP traffic toward it from the tilegx interface.
+This is an RFC and not intended to get merged at the moment.
+The series contains updates to add in the NIC Rx and Tx checksumming support
+for encapsulated packets.
 
-Also you would need to run some other traffic in parallel (multiple
-streams to the 'attacker' and some more normal streams) to ensure there
-is real contention.
+The sk_buff needs to somehow have information of the inner packet, and adding
+three fields for the inner mac, network and transport headers was the prefered
+approach. 
 
-Ben.
+Not adding these fields would mean that the drivers would need to parse the
+sk_buff data in hot-path, having a negative impact in the performance.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Adding in sk_buff a pointer to the skbuff of the inner packet made sense, but
+would be a complicated change as assumptions needed to be made with regards to
+helper functions such as skb_clone() skb_copy(). Also code for the existing
+encapsulation protocols (such as VXLAN and IP GRE) had to be reworked, so the
+decision was to have the simple approach of adding these three fields.
+
+Version 2 has the mbox format corrected for this patch.
