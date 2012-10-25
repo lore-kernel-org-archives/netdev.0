@@ -1,35 +1,39 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH NEXT 15/17] rtlwifi: rtl8723ae: Add new driver - Part 13
-Date: Thu, 25 Oct 2012 13:46:44 -0500
-Message-ID: <1351190806-4258-16-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH NEXT 04/17] rtlwifi: rtl8723ae: Add new driver - Part 2
+Date: Thu, 25 Oct 2012 13:46:33 -0500
+Message-ID: <1351190806-4258-5-git-send-email-Larry.Finger@lwfinger.net>
 References: <1351190806-4258-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1351190806-4258-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, <chaoming_li@realsil.com.cn>
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:37405 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992546Ab2JYSrX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 14:47:23 -0400
+In-Reply-To: <1351190806-4258-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch is part 13 of the addition of files for a new driver to handle
+This patch is part 2 of the addition of files for a new driver to handle
 the Realtek RTL8723AE wireless device.
 
-Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Cc: <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: <chaoming_li@realsil.com.cn>
 ---
- drivers/net/wireless/rtlwifi/rtl8723ae/trx.c |  670 ++++++++++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8723ae/trx.h |  725 ++++++++++++++++++++++++++
- 2 files changed, 1395 insertions(+)
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/trx.h
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.c |  745 +++++++++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8723ae/fw.h |  101 ++++
+ 2 files changed, 846 insertions(+)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
 new file mode 100644
-index 0000000..9719d54
+index 0000000..f55b176
 --- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
-@@ -0,0 +1,670 @@
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.c
+@@ -0,0 +1,745 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2012  Realtek Corporation.
@@ -51,661 +55,736 @@ index 0000000..9719d54
 + * file called LICENSE.
 + *
 + * Contact Information:
-+ * wlanfae <wlanfae-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
++ * wlanfae <wlanfae@realtek.com>
 + * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
 + * Hsinchu 300, Taiwan.
 + *
-+ * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
++ * Larry Finger <Larry.Finger@lwfinger.net>
 + *
-+ *****************************************************************************/
++ ****************************************************************************
++ */
 +
 +#include "../wifi.h"
 +#include "../pci.h"
 +#include "../base.h"
-+#include "../stats.h"
 +#include "reg.h"
 +#include "def.h"
-+#include "phy.h"
-+#include "trx.h"
-+#include "led.h"
++#include "fw.h"
 +
-+static u8 _rtl8723ae_map_hwqueue_to_fwqueue(struct sk_buff *skb, u8 hw_queue)
-+{
-+	__le16 fc = rtl_get_fc(skb);
-+
-+	if (unlikely(ieee80211_is_beacon(fc)))
-+		return QSLT_BEACON;
-+	if (ieee80211_is_mgmt(fc) || ieee80211_is_ctl(fc))
-+		return QSLT_MGNT;
-+
-+	return skb->priority;
-+}
-+
-+static void _rtl8723ae_query_rxphystatus(struct ieee80211_hw *hw,
-+			struct rtl_stats *pstatus, u8 *pdesc,
-+			struct rx_fwinfo_8723e *p_drvinfo,
-+			bool bpacket_match_bssid,
-+			bool bpacket_toself, bool packet_beacon)
++static void _rtl8723ae_enable_fw_download(struct ieee80211_hw *hw, bool enable)
 +{
 +	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_ps_ctl *ppsc = rtl_psc(rtlpriv);
-+	struct phy_sts_cck_8723e_t *cck_buf;
-+	s8 rx_pwr_all, rx_pwr[4];
-+	u8 rf_rx_num = 0, evm, pwdb_all;
-+	u8 i, max_spatial_stream;
-+	u32 rssi, total_rssi = 0;
-+	bool is_cck = pstatus->is_cck;
++	u8 tmp;
++	if (enable) {
++		tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++		rtl_write_byte(rtlpriv, REG_SYS_FUNC_EN + 1, tmp | 0x04);
 +
-+	/* Record it for next packet processing */
-+	pstatus->packet_matchbssid = bpacket_match_bssid;
-+	pstatus->packet_toself = bpacket_toself;
-+	pstatus->packet_beacon = packet_beacon;
-+	pstatus->rx_mimo_sig_qual[0] = -1;
-+	pstatus->rx_mimo_sig_qual[1] = -1;
++		tmp = rtl_read_byte(rtlpriv, REG_MCUFWDL);
++		rtl_write_byte(rtlpriv, REG_MCUFWDL, tmp | 0x01);
 +
-+	if (is_cck) {
-+		u8 report, cck_highpwr;
-+
-+		/* CCK Driver info Structure is not the same as OFDM packet. */
-+		cck_buf = (struct phy_sts_cck_8723e_t *)p_drvinfo;
-+
-+		/* (1)Hardware does not provide RSSI for CCK
-+		 * (2)PWDB, Average PWDB cacluated by
-+		 * hardware (for rate adaptive)
-+		 */
-+		if (ppsc->rfpwr_state == ERFON)
-+			cck_highpwr = (u8) rtl_get_bbreg(hw,
-+						 RFPGA0_XA_HSSIPARAMETER2,
-+						 BIT(9));
-+		else
-+			cck_highpwr = false;
-+
-+		if (!cck_highpwr) {
-+			u8 cck_agc_rpt = cck_buf->cck_agc_rpt;
-+			report = cck_buf->cck_agc_rpt & 0xc0;
-+			report = report >> 6;
-+			switch (report) {
-+			case 0x3:
-+				rx_pwr_all = -46 - (cck_agc_rpt & 0x3e);
-+				break;
-+			case 0x2:
-+				rx_pwr_all = -26 - (cck_agc_rpt & 0x3e);
-+				break;
-+			case 0x1:
-+				rx_pwr_all = -12 - (cck_agc_rpt & 0x3e);
-+				break;
-+			case 0x0:
-+				rx_pwr_all = 16 - (cck_agc_rpt & 0x3e);
-+				break;
-+			}
-+		} else {
-+			u8 cck_agc_rpt = cck_buf->cck_agc_rpt;
-+			report = p_drvinfo->cfosho[0] & 0x60;
-+			report = report >> 5;
-+			switch (report) {
-+			case 0x3:
-+				rx_pwr_all = -46 - ((cck_agc_rpt & 0x1f) << 1);
-+				break;
-+			case 0x2:
-+				rx_pwr_all = -26 - ((cck_agc_rpt & 0x1f) << 1);
-+				break;
-+			case 0x1:
-+				rx_pwr_all = -12 - ((cck_agc_rpt & 0x1f) << 1);
-+				break;
-+			case 0x0:
-+				rx_pwr_all = 16 - ((cck_agc_rpt & 0x1f) << 1);
-+				break;
-+			}
-+		}
-+
-+		pwdb_all = rtl_query_rxpwrpercentage(rx_pwr_all);
-+		/* CCK gain is smaller than OFDM/MCS gain,
-+		 * so we add gain diff. From experience, the val is 6
-+		 */
-+		pwdb_all += 6;
-+		if (pwdb_all > 100)
-+			pwdb_all = 100;
-+		/* modify the offset to make the same
-+		 * gain index with OFDM.
-+		 */
-+		if (pwdb_all > 34 && pwdb_all <= 42)
-+			pwdb_all -= 2;
-+		else if (pwdb_all > 26 && pwdb_all <= 34)
-+			pwdb_all -= 6;
-+		else if (pwdb_all > 14 && pwdb_all <= 26)
-+			pwdb_all -= 8;
-+		else if (pwdb_all > 4 && pwdb_all <= 14)
-+			pwdb_all -= 4;
-+
-+		pstatus->rx_pwdb_all = pwdb_all;
-+		pstatus->recvsignalpower = rx_pwr_all;
-+
-+		/* (3) Get Signal Quality (EVM) */
-+		if (bpacket_match_bssid) {
-+			u8 sq;
-+
-+			if (pstatus->rx_pwdb_all > 40) {
-+				sq = 100;
-+			} else {
-+				sq = cck_buf->sq_rpt;
-+				if (sq > 64)
-+					sq = 0;
-+				else if (sq < 20)
-+					sq = 100;
-+				else
-+					sq = ((64 - sq) * 100) / 44;
-+			}
-+
-+			pstatus->signalquality = sq;
-+			pstatus->rx_mimo_sig_qual[0] = sq;
-+			pstatus->rx_mimo_sig_qual[1] = -1;
-+		}
++		tmp = rtl_read_byte(rtlpriv, REG_MCUFWDL + 2);
++		rtl_write_byte(rtlpriv, REG_MCUFWDL + 2, tmp & 0xf7);
 +	} else {
-+		rtlpriv->dm.rfpath_rxenable[0] =
-+		    rtlpriv->dm.rfpath_rxenable[1] = true;
++		tmp = rtl_read_byte(rtlpriv, REG_MCUFWDL);
++		rtl_write_byte(rtlpriv, REG_MCUFWDL, tmp & 0xfe);
 +
-+		/* (1)Get RSSI for HT rate */
-+		for (i = RF90_PATH_A; i < RF6052_MAX_PATH; i++) {
++		rtl_write_byte(rtlpriv, REG_MCUFWDL + 1, 0x00);
++	}
++}
 +
-+			/* we will judge RF RX path now. */
-+			if (rtlpriv->dm.rfpath_rxenable[i])
-+				rf_rx_num++;
++static void _rtl8723ae_fw_block_write(struct ieee80211_hw *hw,
++				      const u8 *buffer, u32 size)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u32 blockSize = sizeof(u32);
++	u8 *bufferPtr = (u8 *) buffer;
++	u32 *pu4BytePtr = (u32 *) buffer;
++	u32 i, offset, blockCount, remainSize;
 +
-+			rx_pwr[i] = ((p_drvinfo->gain_trsw[i] & 0x3f)*2) - 110;
++	blockCount = size / blockSize;
++	remainSize = size % blockSize;
 +
-+			/* Translate DBM to percentage. */
-+			rssi = rtl_query_rxpwrpercentage(rx_pwr[i]);
-+			total_rssi += rssi;
++	for (i = 0; i < blockCount; i++) {
++		offset = i * blockSize;
++		rtl_write_dword(rtlpriv, (FW_8192C_START_ADDRESS + offset),
++				*(pu4BytePtr + i));
++	}
 +
-+			/* Get Rx snr value in DB */
-+			rtlpriv->stats.rx_snr_db[i] = (p_drvinfo->rxsnr[i] / 2);
++	if (remainSize) {
++		offset = blockCount * blockSize;
++		bufferPtr += offset;
++		for (i = 0; i < remainSize; i++) {
++			rtl_write_byte(rtlpriv, (FW_8192C_START_ADDRESS +
++						 offset + i), *(bufferPtr + i));
++		}
++	}
++}
 +
-+			/* Record Signal Strength for next packet */
-+			if (bpacket_match_bssid)
-+				pstatus->rx_mimo_signalstrength[i] = (u8) rssi;
++static void _rtl8723ae_fw_page_write(struct ieee80211_hw *hw,
++				     u32 page, const u8 *buffer, u32 size)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 value8;
++	u8 u8page = (u8) (page & 0x07);
++
++	value8 = (rtl_read_byte(rtlpriv, REG_MCUFWDL + 2) & 0xF8) | u8page;
++
++	rtl_write_byte(rtlpriv, (REG_MCUFWDL + 2), value8);
++	_rtl8723ae_fw_block_write(hw, buffer, size);
++}
++
++static void _rtl8723ae_write_fw(struct ieee80211_hw *hw,
++				enum version_8723e version, u8 *buffer,
++				u32 size)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 *bufferPtr = (u8 *) buffer;
++	u32 page_nums, remain_size;
++	u32 page, offset;
++
++	RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE, "FW size is %d bytes,\n", size);
++
++	page_nums = size / FW_8192C_PAGE_SIZE;
++	remain_size = size % FW_8192C_PAGE_SIZE;
++
++	if (page_nums > 6) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "Page numbers should not be greater then 6\n");
++	}
++
++	for (page = 0; page < page_nums; page++) {
++		offset = page * FW_8192C_PAGE_SIZE;
++		_rtl8723ae_fw_page_write(hw, page, (bufferPtr + offset),
++					 FW_8192C_PAGE_SIZE);
++	}
++
++	if (remain_size) {
++		offset = page_nums * FW_8192C_PAGE_SIZE;
++		page = page_nums;
++		_rtl8723ae_fw_page_write(hw, page, (bufferPtr + offset),
++					 remain_size);
++	}
++
++	RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE, "FW write done.\n");
++}
++
++static int _rtl8723ae_fw_free_to_go(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	int err = -EIO;
++	u32 counter = 0;
++	u32 value32;
++
++	do {
++		value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
++	} while ((counter++ < FW_8192C_POLLING_TIMEOUT_COUNT) &&
++		 (!(value32 & FWDL_ChkSum_rpt)));
++
++	if (counter >= FW_8192C_POLLING_TIMEOUT_COUNT) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "chksum report faill ! REG_MCUFWDL:0x%08x .\n",
++			 value32);
++		goto exit;
++	}
++
++	RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
++		 "Checksum report OK ! REG_MCUFWDL:0x%08x .\n", value32);
++
++	value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
++	value32 |= MCUFWDL_RDY;
++	value32 &= ~WINTINI_RDY;
++	rtl_write_dword(rtlpriv, REG_MCUFWDL, value32);
++
++	counter = 0;
++
++	do {
++		value32 = rtl_read_dword(rtlpriv, REG_MCUFWDL);
++		if (value32 & WINTINI_RDY) {
++			RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
++				 "Polling FW ready success!! REG_MCUFWDL:0x%08x .\n",
++				 value32);
++			err = 0;
++			goto exit;
 +		}
 +
-+		/* (2)PWDB, Average PWDB cacluated by
-+		 * hardware (for rate adaptive)
-+		 */
-+		rx_pwr_all = ((p_drvinfo->pwdb_all >> 1) & 0x7f) - 110;
++		mdelay(FW_8192C_POLLING_DELAY);
 +
-+		pwdb_all = rtl_query_rxpwrpercentage(rx_pwr_all);
-+		pstatus->rx_pwdb_all = pwdb_all;
-+		pstatus->rxpower = rx_pwr_all;
-+		pstatus->recvsignalpower = rx_pwr_all;
++	} while (counter++ < FW_8192C_POLLING_TIMEOUT_COUNT);
 +
-+		/* (3)EVM of HT rate */
-+		if (pstatus->is_ht && pstatus->rate >= DESC92_RATEMCS8 &&
-+		    pstatus->rate <= DESC92_RATEMCS15)
-+			max_spatial_stream = 2;
-+		else
-+			max_spatial_stream = 1;
++	RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++		 "Polling FW ready fail!! REG_MCUFWDL:0x%08x .\n", value32);
 +
-+		for (i = 0; i < max_spatial_stream; i++) {
-+			evm = rtl_evm_db_to_percentage(p_drvinfo->rxevm[i]);
++exit:
++	return err;
++}
 +
-+			if (bpacket_match_bssid) {
-+				/* Fill value in RFD, Get the first
-+				 * spatial stream only
-+				 */
-+				if (i == 0)
-+					pstatus->signalquality = (evm & 0xff);
-+				pstatus->rx_mimo_sig_qual[i] = (evm & 0xff);
++int rtl8723ae_download_fw(struct ieee80211_hw *hw)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	struct rtl8723ae_firmware_header *pfwheader;
++	u8 *pfwdata;
++	u32 fwsize;
++	int err;
++	enum version_8723e version = rtlhal->version;
++
++	if (!rtlhal->pfirmware)
++		return 1;
++
++	pfwheader = (struct rtl8723ae_firmware_header *)rtlhal->pfirmware;
++	pfwdata = (u8 *) rtlhal->pfirmware;
++	fwsize = rtlhal->fwsize;
++
++	if (IS_FW_HEADER_EXIST(pfwheader)) {
++		RT_TRACE(rtlpriv, COMP_FW, DBG_DMESG,
++			 "Firmware Version(%d), Signature(%#x),Size(%d)\n",
++			 pfwheader->version, pfwheader->signature,
++			 (int)sizeof(struct rtl8723ae_firmware_header));
++
++		pfwdata = pfwdata + sizeof(struct rtl8723ae_firmware_header);
++		fwsize = fwsize - sizeof(struct rtl8723ae_firmware_header);
++	}
++
++	if (rtl_read_byte(rtlpriv, REG_MCUFWDL)&BIT(7)) {
++		rtl8723ae_firmware_selfreset(hw);
++		rtl_write_byte(rtlpriv, REG_MCUFWDL, 0x00);
++	}
++	_rtl8723ae_enable_fw_download(hw, true);
++	_rtl8723ae_write_fw(hw, version, pfwdata, fwsize);
++	_rtl8723ae_enable_fw_download(hw, false);
++
++	err = _rtl8723ae_fw_free_to_go(hw);
++	if (err) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "Firmware is not ready to run!\n");
++	} else {
++		RT_TRACE(rtlpriv, COMP_FW, DBG_TRACE,
++			 "Firmware is ready to run!\n");
++	}
++	return 0;
++}
++
++static bool rtl8723ae_check_fw_read_last_h2c(struct ieee80211_hw *hw, u8 boxnum)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 val_hmetfr, val_mcutst_1;
++	bool result = false;
++
++	val_hmetfr = rtl_read_byte(rtlpriv, REG_HMETFR);
++	val_mcutst_1 = rtl_read_byte(rtlpriv, (REG_MCUTST_1 + boxnum));
++
++	if (((val_hmetfr >> boxnum) & BIT(0)) == 0 && val_mcutst_1 == 0)
++		result = true;
++	return result;
++}
++
++static void _rtl8723ae_fill_h2c_command(struct ieee80211_hw *hw,
++					u8 element_id, u32 cmd_len,
++					u8 *p_cmdbuffer)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	u8 boxnum;
++	u16 box_reg = 0, box_extreg = 0;
++	u8 u1tmp;
++	bool isfw_rd = false;
++	bool bwrite_sucess = false;
++	u8 wait_h2c_limmit = 100;
++	u8 wait_writeh2c_limmit = 100;
++	u8 boxcontent[4], boxextcontent[2];
++	u32 h2c_waitcounter = 0;
++	unsigned long flag;
++	u8 idx;
++
++	RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD, "come in\n");
++
++	while (true) {
++		spin_lock_irqsave(&rtlpriv->locks.h2c_lock, flag);
++		if (rtlhal->h2c_setinprogress) {
++			RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++				 "H2C set in progress! Wait to set..element_id(%d).\n",
++				 element_id);
++
++			while (rtlhal->h2c_setinprogress) {
++				spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock,
++						       flag);
++				h2c_waitcounter++;
++				RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++					 "Wait 100 us (%d times)...\n",
++					 h2c_waitcounter);
++				udelay(100);
++
++				if (h2c_waitcounter > 1000)
++					return;
++				spin_lock_irqsave(&rtlpriv->locks.h2c_lock,
++						  flag);
 +			}
++			spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock, flag);
++		} else {
++			rtlhal->h2c_setinprogress = true;
++			spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock, flag);
++			break;
 +		}
 +	}
 +
-+	/* UI BSS List signal strength(in percentage),
-+	 * make it good looking, from 0~100.
-+	 */
-+	if (is_cck)
-+		pstatus->signalstrength = (u8)(rtl_signal_scale_mapping(hw,
-+			pwdb_all));
-+	else if (rf_rx_num != 0)
-+		pstatus->signalstrength = (u8)(rtl_signal_scale_mapping(hw,
-+			total_rssi /= rf_rx_num));
-+}
++	while (!bwrite_sucess) {
++		wait_writeh2c_limmit--;
++		if (wait_writeh2c_limmit == 0) {
++			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++				 "Write H2C fail because no trigger "
++				 "for FW INT!\n");
++			break;
++		}
 +
-+static void _rtl8723ae_translate_rx_signal_stuff(struct ieee80211_hw *hw,
-+		struct sk_buff *skb, struct rtl_stats *pstatus,
-+		u8 *pdesc, struct rx_fwinfo_8723e *p_drvinfo)
-+{
-+	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
-+	struct rtl_efuse *rtlefuse = rtl_efuse(rtl_priv(hw));
-+	struct ieee80211_hdr *hdr;
-+	u8 *tmp_buf;
-+	u8 *praddr;
-+	u8 *psaddr;
-+	__le16 fc;
-+	u16 type;
-+	bool packet_matchbssid, packet_toself, packet_beacon;
++		boxnum = rtlhal->last_hmeboxnum;
++		switch (boxnum) {
++		case 0:
++			box_reg = REG_HMEBOX_0;
++			box_extreg = REG_HMEBOX_EXT_0;
++			break;
++		case 1:
++			box_reg = REG_HMEBOX_1;
++			box_extreg = REG_HMEBOX_EXT_1;
++			break;
++		case 2:
++			box_reg = REG_HMEBOX_2;
++			box_extreg = REG_HMEBOX_EXT_2;
++			break;
++		case 3:
++			box_reg = REG_HMEBOX_3;
++			box_extreg = REG_HMEBOX_EXT_3;
++			break;
++		default:
++			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++				 "switch case not processed\n");
++			break;
++		}
 +
-+	tmp_buf = skb->data + pstatus->rx_drvinfo_size + pstatus->rx_bufshift;
++		isfw_rd = rtl8723ae_check_fw_read_last_h2c(hw, boxnum);
++		while (!isfw_rd) {
 +
-+	hdr = (struct ieee80211_hdr *)tmp_buf;
-+	fc = hdr->frame_control;
-+	type = WLAN_FC_GET_TYPE(fc);
-+	praddr = hdr->addr1;
-+	psaddr = ieee80211_get_SA(hdr);
++			wait_h2c_limmit--;
++			if (wait_h2c_limmit == 0) {
++				RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++					 "Wating too long for FW read clear HMEBox(%d)!\n",
++					 boxnum);
++				break;
++			}
 +
-+	packet_matchbssid = ((IEEE80211_FTYPE_CTL != type) &&
-+			    (!compare_ether_addr(mac->bssid,
-+			    (le16_to_cpu(fc) & IEEE80211_FCTL_TODS) ?
-+			    hdr->addr1 : (le16_to_cpu(fc) &
-+			    IEEE80211_FCTL_FROMDS) ?
-+			    hdr->addr2 : hdr->addr3)) && (!pstatus->hwerror) &&
-+			    (!pstatus->crc) && (!pstatus->icv));
++			udelay(10);
 +
-+	packet_toself = packet_matchbssid &&
-+	    (!compare_ether_addr(praddr, rtlefuse->dev_addr));
++			isfw_rd = rtl8723ae_check_fw_read_last_h2c(hw, boxnum);
++			u1tmp = rtl_read_byte(rtlpriv, 0x1BF);
++			RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++				 "Wating for FW read clear HMEBox(%d)!!! "
++				 "0x1BF = %2x\n", boxnum, u1tmp);
++		}
 +
-+	if (ieee80211_is_beacon(fc))
-+		packet_beacon = true;
++		if (!isfw_rd) {
++			RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++				 "Write H2C register BOX[%d] fail!!!!! "
++				 "Fw do not read.\n", boxnum);
++			break;
++		}
 +
-+	_rtl8723ae_query_rxphystatus(hw, pstatus, pdesc, p_drvinfo,
-+				   packet_matchbssid, packet_toself,
-+				   packet_beacon);
++		memset(boxcontent, 0, sizeof(boxcontent));
++		memset(boxextcontent, 0, sizeof(boxextcontent));
++		boxcontent[0] = element_id;
++		RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++			 "Write element_id box_reg(%4x) = %2x\n",
++			  box_reg, element_id);
 +
-+	rtl_process_phyinfo(hw, tmp_buf, pstatus);
-+}
++		switch (cmd_len) {
++		case 1:
++			boxcontent[0] &= ~(BIT(7));
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer, 1);
 +
-+bool rtl8723ae_rx_query_desc(struct ieee80211_hw *hw,
-+			     struct rtl_stats *status,
-+			     struct ieee80211_rx_status *rx_status,
-+			     u8 *pdesc, struct sk_buff *skb)
-+{
-+	struct rx_fwinfo_8723e *p_drvinfo;
-+	struct ieee80211_hdr *hdr;
-+	u32 phystatus = GET_RX_DESC_PHYST(pdesc);
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		case 2:
++			boxcontent[0] &= ~(BIT(7));
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer, 2);
 +
-+	status->length = (u16) GET_RX_DESC_PKT_LEN(pdesc);
-+	status->rx_drvinfo_size = (u8) GET_RX_DESC_DRV_INFO_SIZE(pdesc) *
-+				   RX_DRV_INFO_SIZE_UNIT;
-+	status->rx_bufshift = (u8) (GET_RX_DESC_SHIFT(pdesc) & 0x03);
-+	status->icv = (u16) GET_RX_DESC_ICV(pdesc);
-+	status->crc = (u16) GET_RX_DESC_CRC32(pdesc);
-+	status->hwerror = (status->crc | status->icv);
-+	status->decrypted = !GET_RX_DESC_SWDEC(pdesc);
-+	status->rate = (u8) GET_RX_DESC_RXMCS(pdesc);
-+	status->shortpreamble = (u16) GET_RX_DESC_SPLCP(pdesc);
-+	status->isampdu = (bool) (GET_RX_DESC_PAGGR(pdesc) == 1);
-+	status->isfirst_ampdu = (bool) ((GET_RX_DESC_PAGGR(pdesc) == 1)
-+				 && (GET_RX_DESC_FAGGR(pdesc) == 1));
-+	status->timestamp_low = GET_RX_DESC_TSFL(pdesc);
-+	status->rx_is40Mhzpacket = (bool) GET_RX_DESC_BW(pdesc);
-+	status->is_ht = (bool)GET_RX_DESC_RXHT(pdesc);
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		case 3:
++			boxcontent[0] &= ~(BIT(7));
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer, 3);
 +
-+	status->is_cck = RTL8723E_RX_HAL_IS_CCK_RATE(status->rate);
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		case 4:
++			boxcontent[0] |= (BIT(7));
++			memcpy((u8 *) (boxextcontent),
++			       p_cmdbuffer, 2);
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer + 2, 2);
 +
-+	rx_status->freq = hw->conf.channel->center_freq;
-+	rx_status->band = hw->conf.channel->band;
++			for (idx = 0; idx < 2; idx++) {
++				rtl_write_byte(rtlpriv, box_extreg + idx,
++					       boxextcontent[idx]);
++			}
 +
-+	hdr = (struct ieee80211_hdr *)(skb->data + status->rx_drvinfo_size
-+		+ status->rx_bufshift);
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		case 5:
++			boxcontent[0] |= (BIT(7));
++			memcpy((u8 *) (boxextcontent),
++			       p_cmdbuffer, 2);
++			memcpy((u8 *) (boxcontent) + 1,
++			       p_cmdbuffer + 2, 3);
 +
-+	if (status->crc)
-+		rx_status->flag |= RX_FLAG_FAILED_FCS_CRC;
++			for (idx = 0; idx < 2; idx++) {
++				rtl_write_byte(rtlpriv, box_extreg + idx,
++					       boxextcontent[idx]);
++			}
 +
-+	if (status->rx_is40Mhzpacket)
-+		rx_status->flag |= RX_FLAG_40MHZ;
++			for (idx = 0; idx < 4; idx++) {
++				rtl_write_byte(rtlpriv, box_reg + idx,
++					       boxcontent[idx]);
++			}
++			break;
++		default:
++			RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++				 "switch case not process\n");
++			break;
++		}
 +
-+	if (status->is_ht)
-+		rx_status->flag |= RX_FLAG_HT;
++		bwrite_sucess = true;
 +
-+	rx_status->flag |= RX_FLAG_MACTIME_MPDU;
++		rtlhal->last_hmeboxnum = boxnum + 1;
++		if (rtlhal->last_hmeboxnum == 4)
++			rtlhal->last_hmeboxnum = 0;
 +
-+	/* hw will set status->decrypted true, if it finds the
-+	 * frame is open data frame or mgmt frame.
-+	 * Thus hw will not decrypt a robust managment frame
-+	 * for IEEE80211w but still set status->decrypted
-+	 * true, so here we should set it back to undecrypted
-+	 * for IEEE80211w frame, and mac80211 sw will help
-+	 * to decrypt it
-+	 */
-+	if (status->decrypted) {
-+		if ((ieee80211_is_robust_mgmt_frame(hdr)) &&
-+			(ieee80211_has_protected(hdr->frame_control)))
-+			rx_status->flag &= ~RX_FLAG_DECRYPTED;
-+		else
-+			rx_status->flag |= RX_FLAG_DECRYPTED;
++		RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD,
++			 "pHalData->last_hmeboxnum  = %d\n",
++			 rtlhal->last_hmeboxnum);
 +	}
 +
-+	/* rate_idx: index of data rate into band's
-+	 * supported rates or MCS index if HT rates
-+	 * are use (RX_FLAG_HT)
-+	 */
-+	rx_status->rate_idx = rtlwifi_rate_mapping(hw, status->is_ht,
-+						   status->rate, false);
++	spin_lock_irqsave(&rtlpriv->locks.h2c_lock, flag);
++	rtlhal->h2c_setinprogress = false;
++	spin_unlock_irqrestore(&rtlpriv->locks.h2c_lock, flag);
 +
-+	rx_status->mactime = status->timestamp_low;
-+	if (phystatus == true) {
-+		p_drvinfo = (struct rx_fwinfo_8723e *)(skb->data +
-+			     status->rx_bufshift);
++	RT_TRACE(rtlpriv, COMP_CMD, DBG_LOUD, "go out\n");
++}
 +
-+		_rtl8723ae_translate_rx_signal_stuff(hw,
-+			   skb, status, pdesc, p_drvinfo);
++void rtl8723ae_fill_h2c_cmd(struct ieee80211_hw *hw,
++			    u8 element_id, u32 cmd_len, u8 *p_cmdbuffer)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_hal *rtlhal = rtl_hal(rtlpriv);
++
++	if (rtlhal->fw_ready == false) {
++		RT_ASSERT(false,
++			 "return H2C cmd because of Fw download fail!!!\n");
++		return;
 +	}
 +
-+	/*rx_status->qual = status->signal; */
-+	rx_status->signal = status->recvsignalpower + 10;
-+	/*rx_status->noise = -status->noise; */
++	_rtl8723ae_fill_h2c_command(hw, element_id, cmd_len, p_cmdbuffer);
++	return;
++}
++
++void rtl8723ae_firmware_selfreset(struct ieee80211_hw *hw)
++{
++	u8 u1tmp;
++	u8 delay = 100;
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++
++	rtl_write_byte(rtlpriv, REG_HMETFR + 3, 0x20);
++	u1tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++
++	while (u1tmp & BIT(2)) {
++		delay--;
++		if (delay == 0)
++			break;
++		udelay(50);
++		u1tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++	}
++	if (delay == 0) {
++		u1tmp = rtl_read_byte(rtlpriv, REG_SYS_FUNC_EN + 1);
++		rtl_write_byte(rtlpriv, REG_SYS_FUNC_EN + 1, u1tmp&(~BIT(2)));
++	}
++}
++
++void rtl8723ae_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	u8 u1_h2c_set_pwrmode[3] = { 0 };
++	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
++
++	RT_TRACE(rtlpriv, COMP_POWER, DBG_LOUD, "FW LPS mode = %d\n", mode);
++
++	SET_H2CCMD_PWRMODE_PARM_MODE(u1_h2c_set_pwrmode, mode);
++	SET_H2CCMD_PWRMODE_PARM_SMART_PS(u1_h2c_set_pwrmode, 1);
++	SET_H2CCMD_PWRMODE_PARM_BCN_PASS_TIME(u1_h2c_set_pwrmode,
++					      ppsc->reg_max_lps_awakeintvl);
++
++	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG,
++		      "rtl8723ae_set_fw_rsvdpagepkt(): u1_h2c_set_pwrmode\n",
++		      u1_h2c_set_pwrmode, 3);
++	rtl8723ae_fill_h2c_cmd(hw, H2C_SETPWRMODE, 3, u1_h2c_set_pwrmode);
++
++}
++
++static bool _rtl8723ae_cmd_send_packet(struct ieee80211_hw *hw,
++				       struct sk_buff *skb)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
++	struct rtl8192_tx_ring *ring;
++	struct rtl_tx_desc *pdesc;
++	u8 own;
++	unsigned long flags;
++	struct sk_buff *pskb = NULL;
++
++	ring = &rtlpci->tx_ring[BEACON_QUEUE];
++
++	pskb = __skb_dequeue(&ring->queue);
++	if (pskb)
++		kfree_skb(pskb);
++
++	spin_lock_irqsave(&rtlpriv->locks.irq_th_lock, flags);
++
++	pdesc = &ring->desc[0];
++	own = (u8) rtlpriv->cfg->ops->get_desc((u8 *) pdesc, true, HW_DESC_OWN);
++
++	rtlpriv->cfg->ops->fill_tx_cmddesc(hw, (u8 *) pdesc, 1, 1, skb);
++
++	__skb_queue_tail(&ring->queue, skb);
++
++	spin_unlock_irqrestore(&rtlpriv->locks.irq_th_lock, flags);
++
++	rtlpriv->cfg->ops->tx_polling(hw, BEACON_QUEUE);
 +
 +	return true;
 +}
 +
-+void rtl8723ae_tx_fill_desc(struct ieee80211_hw *hw,
-+			    struct ieee80211_hdr *hdr, u8 *pdesc_tx,
-+			    struct ieee80211_tx_info *info,
-+			    struct ieee80211_sta *sta,
-+			    struct sk_buff *skb, u8 hw_queue,
-+			    struct rtl_tcb_desc *ptcdesc)
++static u8 reserved_page_packet[TOTAL_RESERVED_PKT_LEN] = {
++	/* page 0 beacon */
++	0x80, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF,
++	0xFF, 0xFF, 0x00, 0xE0, 0x4C, 0x76, 0x00, 0x42,
++	0x00, 0x40, 0x10, 0x10, 0x00, 0x03, 0x50, 0x08,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x64, 0x00, 0x00, 0x04, 0x00, 0x0C, 0x6C, 0x69,
++	0x6E, 0x6B, 0x73, 0x79, 0x73, 0x5F, 0x77, 0x6C,
++	0x61, 0x6E, 0x01, 0x04, 0x82, 0x84, 0x8B, 0x96,
++	0x03, 0x01, 0x01, 0x06, 0x02, 0x00, 0x00, 0x2A,
++	0x01, 0x00, 0x32, 0x08, 0x24, 0x30, 0x48, 0x6C,
++	0x0C, 0x12, 0x18, 0x60, 0x2D, 0x1A, 0x6C, 0x18,
++	0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x3D, 0x00, 0xDD, 0x06, 0x00, 0xE0, 0x4C, 0x02,
++	0x01, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 1 beacon */
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x10, 0x00, 0x20, 0x8C, 0x00, 0x12, 0x10, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 2  ps-poll */
++	0xA4, 0x10, 0x01, 0xC0, 0x00, 0x40, 0x10, 0x10,
++	0x00, 0x03, 0x00, 0xE0, 0x4C, 0x76, 0x00, 0x42,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x18, 0x00, 0x20, 0x8C, 0x00, 0x12, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
++	0x80, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 3  null */
++	0x48, 0x01, 0x00, 0x00, 0x00, 0x40, 0x10, 0x10,
++	0x00, 0x03, 0x00, 0xE0, 0x4C, 0x76, 0x00, 0x42,
++	0x00, 0x40, 0x10, 0x10, 0x00, 0x03, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x72, 0x00, 0x20, 0x8C, 0x00, 0x12, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80,
++	0x80, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 4  probe_resp */
++	0x50, 0x00, 0x00, 0x00, 0x00, 0x40, 0x10, 0x10,
++	0x00, 0x03, 0x00, 0xE0, 0x4C, 0x76, 0x00, 0x42,
++	0x00, 0x40, 0x10, 0x10, 0x00, 0x03, 0x00, 0x00,
++	0x9E, 0x46, 0x15, 0x32, 0x27, 0xF2, 0x2D, 0x00,
++	0x64, 0x00, 0x00, 0x04, 0x00, 0x0C, 0x6C, 0x69,
++	0x6E, 0x6B, 0x73, 0x79, 0x73, 0x5F, 0x77, 0x6C,
++	0x61, 0x6E, 0x01, 0x04, 0x82, 0x84, 0x8B, 0x96,
++	0x03, 0x01, 0x01, 0x06, 0x02, 0x00, 0x00, 0x2A,
++	0x01, 0x00, 0x32, 0x08, 0x24, 0x30, 0x48, 0x6C,
++	0x0C, 0x12, 0x18, 0x60, 0x2D, 0x1A, 0x6C, 0x18,
++	0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x3D, 0x00, 0xDD, 0x06, 0x00, 0xE0, 0x4C, 0x02,
++	0x01, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++
++	/* page 5  probe_resp */
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++};
++
++void rtl8723ae_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool dl_finished)
 +{
 +	struct rtl_priv *rtlpriv = rtl_priv(hw);
 +	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
-+	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
-+	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
-+	bool defaultadapter = true;
-+	u8 *pdesc = (u8 *) pdesc_tx;
-+	u16 seq_number;
-+	__le16 fc = hdr->frame_control;
-+	u8 fw_qsel = _rtl8723ae_map_hwqueue_to_fwqueue(skb, hw_queue);
-+	bool firstseg = ((hdr->seq_ctrl &
-+			    cpu_to_le16(IEEE80211_SCTL_FRAG)) == 0);
-+	bool lastseg = ((hdr->frame_control &
-+			   cpu_to_le16(IEEE80211_FCTL_MOREFRAGS)) == 0);
-+	dma_addr_t mapping = pci_map_single(rtlpci->pdev,
-+					    skb->data, skb->len,
-+					    PCI_DMA_TODEVICE);
-+	u8 bw_40 = 0;
++	struct sk_buff *skb = NULL;
 +
-+	if (mac->opmode == NL80211_IFTYPE_STATION) {
-+		bw_40 = mac->bw_40;
-+	} else if (mac->opmode == NL80211_IFTYPE_AP ||
-+		mac->opmode == NL80211_IFTYPE_ADHOC) {
-+		if (sta)
-+			bw_40 = sta->ht_cap.cap &
-+				IEEE80211_HT_CAP_SUP_WIDTH_20_40;
-+	}
++	u32 totalpacketlen;
++	bool rtstatus;
++	u8 u1RsvdPageLoc[3] = { 0 };
++	bool dlok = false;
 +
-+	seq_number = (le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_SEQ) >> 4;
++	u8 *beacon;
++	u8 *p_pspoll;
++	u8 *nullfunc;
++	u8 *p_probersp;
++	/*---------------------------------------------------------
++				(1) beacon
++	---------------------------------------------------------
++	*/
++	beacon = &reserved_page_packet[BEACON_PG * 128];
++	SET_80211_HDR_ADDRESS2(beacon, mac->mac_addr);
++	SET_80211_HDR_ADDRESS3(beacon, mac->bssid);
 +
-+	rtl_get_tcb_desc(hw, info, sta, skb, ptcdesc);
++	/*-------------------------------------------------------
++				(2) ps-poll
++	--------------------------------------------------------
++	*/
++	p_pspoll = &reserved_page_packet[PSPOLL_PG * 128];
++	SET_80211_PS_POLL_AID(p_pspoll, (mac->assoc_id | 0xc000));
++	SET_80211_PS_POLL_BSSID(p_pspoll, mac->bssid);
++	SET_80211_PS_POLL_TA(p_pspoll, mac->mac_addr);
 +
-+	CLEAR_PCI_TX_DESC_CONTENT(pdesc, sizeof(struct tx_desc_8723e));
++	SET_H2CCMD_RSVDPAGE_LOC_PSPOLL(u1RsvdPageLoc, PSPOLL_PG);
 +
-+	if (ieee80211_is_nullfunc(fc) || ieee80211_is_ctl(fc)) {
-+		firstseg = true;
-+		lastseg = true;
-+	}
++	/*--------------------------------------------------------
++				(3) null data
++	---------------------------------------------------------i
++	*/
++	nullfunc = &reserved_page_packet[NULL_PG * 128];
++	SET_80211_HDR_ADDRESS1(nullfunc, mac->bssid);
++	SET_80211_HDR_ADDRESS2(nullfunc, mac->mac_addr);
++	SET_80211_HDR_ADDRESS3(nullfunc, mac->bssid);
 +
-+	if (firstseg) {
-+		SET_TX_DESC_OFFSET(pdesc, USB_HWDESC_HEADER_LEN);
++	SET_H2CCMD_RSVDPAGE_LOC_NULL_DATA(u1RsvdPageLoc, NULL_PG);
 +
-+		SET_TX_DESC_TX_RATE(pdesc, ptcdesc->hw_rate);
++	/*---------------------------------------------------------
++				(4) probe response
++	----------------------------------------------------------
++	*/
++	p_probersp = &reserved_page_packet[PROBERSP_PG * 128];
++	SET_80211_HDR_ADDRESS1(p_probersp, mac->bssid);
++	SET_80211_HDR_ADDRESS2(p_probersp, mac->mac_addr);
++	SET_80211_HDR_ADDRESS3(p_probersp, mac->bssid);
 +
-+		if (ptcdesc->use_shortgi || ptcdesc->use_shortpreamble)
-+			SET_TX_DESC_DATA_SHORTGI(pdesc, 1);
++	SET_H2CCMD_RSVDPAGE_LOC_PROBE_RSP(u1RsvdPageLoc, PROBERSP_PG);
 +
-+		if (info->flags & IEEE80211_TX_CTL_AMPDU) {
-+			SET_TX_DESC_AGG_BREAK(pdesc, 1);
-+			SET_TX_DESC_MAX_AGG_NUM(pdesc, 0x14);
-+		}
-+		SET_TX_DESC_SEQ(pdesc, seq_number);
-+
-+		SET_TX_DESC_RTS_ENABLE(pdesc, ((ptcdesc->rts_enable &&
-+						!ptcdesc->
-+						cts_enable) ? 1 : 0));
-+		SET_TX_DESC_HW_RTS_ENABLE(pdesc,
-+					  ((ptcdesc->rts_enable
-+					    || ptcdesc->cts_enable) ? 1 : 0));
-+		SET_TX_DESC_CTS2SELF(pdesc, ((ptcdesc->cts_enable) ? 1 : 0));
-+		SET_TX_DESC_RTS_STBC(pdesc, ((ptcdesc->rts_stbc) ? 1 : 0));
-+
-+		SET_TX_DESC_RTS_RATE(pdesc, ptcdesc->rts_rate);
-+		SET_TX_DESC_RTS_BW(pdesc, 0);
-+		SET_TX_DESC_RTS_SC(pdesc, ptcdesc->rts_sc);
-+		SET_TX_DESC_RTS_SHORT(pdesc,
-+				      ((ptcdesc->rts_rate <= DESC92_RATE54M) ?
-+				       (ptcdesc->rts_use_shortpreamble ? 1 : 0)
-+				       : (ptcdesc->rts_use_shortgi ? 1 : 0)));
-+
-+		if (bw_40) {
-+			if (ptcdesc->packet_bw) {
-+				SET_TX_DESC_DATA_BW(pdesc, 1);
-+				SET_TX_DESC_TX_SUB_CARRIER(pdesc, 3);
-+			} else {
-+				SET_TX_DESC_DATA_BW(pdesc, 0);
-+				SET_TX_DESC_TX_SUB_CARRIER(pdesc,
-+							 mac->cur_40_prime_sc);
-+			}
-+		} else {
-+			SET_TX_DESC_DATA_BW(pdesc, 0);
-+			SET_TX_DESC_TX_SUB_CARRIER(pdesc, 0);
-+		}
-+
-+		SET_TX_DESC_LINIP(pdesc, 0);
-+		SET_TX_DESC_PKT_SIZE(pdesc, (u16) skb->len);
-+
-+		if (sta) {
-+			u8 ampdu_density = sta->ht_cap.ampdu_density;
-+			SET_TX_DESC_AMPDU_DENSITY(pdesc, ampdu_density);
-+		}
-+
-+		if (info->control.hw_key) {
-+			struct ieee80211_key_conf *keyconf =
-+			    info->control.hw_key;
-+
-+			switch (keyconf->cipher) {
-+			case WLAN_CIPHER_SUITE_WEP40:
-+			case WLAN_CIPHER_SUITE_WEP104:
-+			case WLAN_CIPHER_SUITE_TKIP:
-+				SET_TX_DESC_SEC_TYPE(pdesc, 0x1);
-+				break;
-+			case WLAN_CIPHER_SUITE_CCMP:
-+				SET_TX_DESC_SEC_TYPE(pdesc, 0x3);
-+				break;
-+			default:
-+				SET_TX_DESC_SEC_TYPE(pdesc, 0x0);
-+				break;
-+			}
-+		}
-+
-+		SET_TX_DESC_PKT_ID(pdesc, 0);
-+		SET_TX_DESC_QUEUE_SEL(pdesc, fw_qsel);
-+
-+		SET_TX_DESC_DATA_RATE_FB_LIMIT(pdesc, 0x1F);
-+		SET_TX_DESC_RTS_RATE_FB_LIMIT(pdesc, 0xF);
-+		SET_TX_DESC_DISABLE_FB(pdesc, 0);
-+		SET_TX_DESC_USE_RATE(pdesc, ptcdesc->use_driver_rate ? 1 : 0);
-+
-+		if (ieee80211_is_data_qos(fc)) {
-+			if (mac->rdg_en) {
-+				RT_TRACE(rtlpriv, COMP_SEND, DBG_TRACE,
-+					 "Enable RDG function.\n");
-+				SET_TX_DESC_RDG_ENABLE(pdesc, 1);
-+				SET_TX_DESC_HTC(pdesc, 1);
-+			}
-+		}
-+	}
-+
-+	SET_TX_DESC_FIRST_SEG(pdesc, (firstseg ? 1 : 0));
-+	SET_TX_DESC_LAST_SEG(pdesc, (lastseg ? 1 : 0));
-+
-+	SET_TX_DESC_TX_BUFFER_SIZE(pdesc, (u16) skb->len);
-+
-+	SET_TX_DESC_TX_BUFFER_ADDRESS(pdesc, mapping);
-+
-+	if (rtlpriv->dm.useramask) {
-+		SET_TX_DESC_RATE_ID(pdesc, ptcdesc->ratr_index);
-+		SET_TX_DESC_MACID(pdesc, ptcdesc->mac_id);
-+	} else {
-+		SET_TX_DESC_RATE_ID(pdesc, 0xC + ptcdesc->ratr_index);
-+		SET_TX_DESC_MACID(pdesc, ptcdesc->ratr_index);
-+	}
-+
-+	if ((!ieee80211_is_data_qos(fc)) && ppsc->fwctrl_lps) {
-+		SET_TX_DESC_HWSEQ_EN_8723(pdesc, 1);
-+
-+		if (!defaultadapter)
-+			SET_TX_DESC_HWSEQ_SEL_8723(pdesc, 1);
-+	}
-+
-+	SET_TX_DESC_MORE_FRAG(pdesc, (lastseg ? 0 : 1));
-+
-+	if (is_multicast_ether_addr(ieee80211_get_DA(hdr)) ||
-+	    is_broadcast_ether_addr(ieee80211_get_DA(hdr))) {
-+		SET_TX_DESC_BMC(pdesc, 1);
-+	}
-+
-+	RT_TRACE(rtlpriv, COMP_SEND, DBG_TRACE, "\n");
-+}
-+
-+void rtl8723ae_tx_fill_cmddesc(struct ieee80211_hw *hw,
-+			      u8 *pdesc, bool firstseg,
-+			      bool lastseg, struct sk_buff *skb)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
-+	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)(skb->data);
-+	u8 fw_queue = QSLT_BEACON;
-+	dma_addr_t mapping = pci_map_single(rtlpci->pdev,
-+					    skb->data, skb->len,
-+					    PCI_DMA_TODEVICE);
-+	__le16 fc = hdr->frame_control;
-+
-+	CLEAR_PCI_TX_DESC_CONTENT(pdesc, TX_DESC_SIZE);
-+
-+	if (firstseg)
-+		SET_TX_DESC_OFFSET(pdesc, USB_HWDESC_HEADER_LEN);
-+
-+	SET_TX_DESC_TX_RATE(pdesc, DESC92_RATE1M);
-+
-+	SET_TX_DESC_SEQ(pdesc, 0);
-+
-+	SET_TX_DESC_LINIP(pdesc, 0);
-+
-+	SET_TX_DESC_QUEUE_SEL(pdesc, fw_queue);
-+
-+	SET_TX_DESC_FIRST_SEG(pdesc, 1);
-+	SET_TX_DESC_LAST_SEG(pdesc, 1);
-+
-+	SET_TX_DESC_TX_BUFFER_SIZE(pdesc, (u16) (skb->len));
-+
-+	SET_TX_DESC_TX_BUFFER_ADDRESS(pdesc, mapping);
-+
-+	SET_TX_DESC_RATE_ID(pdesc, 7);
-+	SET_TX_DESC_MACID(pdesc, 0);
-+
-+	SET_TX_DESC_OWN(pdesc, 1);
-+
-+	SET_TX_DESC_PKT_SIZE((u8 *) pdesc, (u16) (skb->len));
-+
-+	SET_TX_DESC_FIRST_SEG(pdesc, 1);
-+	SET_TX_DESC_LAST_SEG(pdesc, 1);
-+
-+	SET_TX_DESC_OFFSET(pdesc, 0x20);
-+
-+	SET_TX_DESC_USE_RATE(pdesc, 1);
-+
-+	if (!ieee80211_is_data_qos(fc)) {
-+		SET_TX_DESC_HWSEQ_EN_8723(pdesc, 1);
-+		/* SET_TX_DESC_HWSEQ_EN(pdesc, 1); */
-+		/* SET_TX_DESC_PKT_ID(pdesc, 8); */
-+	}
++	totalpacketlen = TOTAL_RESERVED_PKT_LEN;
 +
 +	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_LOUD,
-+		      "H2C Tx Cmd Content\n",
-+		      pdesc, TX_DESC_SIZE);
++		      "rtl8723ae_set_fw_rsvdpagepkt(): HW_VAR_SET_TX_CMD: ALL\n",
++		      &reserved_page_packet[0], totalpacketlen);
++	RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG,
++		      "rtl8723ae_set_fw_rsvdpagepkt(): HW_VAR_SET_TX_CMD: ALL\n",
++		      u1RsvdPageLoc, 3);
++
++	skb = dev_alloc_skb(totalpacketlen);
++	memcpy((u8 *) skb_put(skb, totalpacketlen),
++	       &reserved_page_packet, totalpacketlen);
++
++	rtstatus = _rtl8723ae_cmd_send_packet(hw, skb);
++
++	if (rtstatus)
++		dlok = true;
++
++	if (dlok) {
++		RT_TRACE(rtlpriv, COMP_POWER, DBG_LOUD,
++			 "Set RSVD page location to Fw.\n");
++		RT_PRINT_DATA(rtlpriv, COMP_CMD, DBG_DMESG,
++				"H2C_RSVDPAGE:\n",
++				u1RsvdPageLoc, 3);
++		rtl8723ae_fill_h2c_cmd(hw, H2C_RSVDPAGE,
++				       sizeof(u1RsvdPageLoc), u1RsvdPageLoc);
++	} else
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_WARNING,
++			 "Set RSVD page location to Fw FAIL!!!!!!.\n");
 +}
 +
-+void rtl8723ae_set_desc(u8 *pdesc, bool istx, u8 desc_name, u8 *val)
++void rtl8723ae_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus)
 +{
-+	if (istx == true) {
-+		switch (desc_name) {
-+		case HW_DESC_OWN:
-+			SET_TX_DESC_OWN(pdesc, 1);
-+			break;
-+		case HW_DESC_TX_NEXTDESC_ADDR:
-+			SET_TX_DESC_NEXT_DESC_ADDRESS(pdesc, *(u32 *) val);
-+			break;
-+		default:
-+			RT_ASSERT(false, "ERR txdesc :%d not process\n",
-+				  desc_name);
-+			break;
-+		}
-+	} else {
-+		switch (desc_name) {
-+		case HW_DESC_RXOWN:
-+			SET_RX_DESC_OWN(pdesc, 1);
-+			break;
-+		case HW_DESC_RXBUFF_ADDR:
-+			SET_RX_DESC_BUFF_ADDR(pdesc, *(u32 *) val);
-+			break;
-+		case HW_DESC_RXPKT_LEN:
-+			SET_RX_DESC_PKT_LEN(pdesc, *(u32 *) val);
-+			break;
-+		case HW_DESC_RXERO:
-+			SET_RX_DESC_EOR(pdesc, 1);
-+			break;
-+		default:
-+			RT_ASSERT(false, "ERR rxdesc :%d not process\n",
-+				  desc_name);
-+			break;
-+		}
-+	}
-+}
++	u8 u1_joinbssrpt_parm[1] = { 0 };
 +
-+u32 rtl8723ae_get_desc(u8 *pdesc, bool istx, u8 desc_name)
-+{
-+	u32 ret = 0;
++	SET_H2CCMD_JOINBSSRPT_PARM_OPMODE(u1_joinbssrpt_parm, mstatus);
 +
-+	if (istx == true) {
-+		switch (desc_name) {
-+		case HW_DESC_OWN:
-+			ret = GET_TX_DESC_OWN(pdesc);
-+			break;
-+		case HW_DESC_TXBUFF_ADDR:
-+			ret = GET_TX_DESC_TX_BUFFER_ADDRESS(pdesc);
-+			break;
-+		default:
-+			RT_ASSERT(false, "ERR txdesc :%d not process\n",
-+				  desc_name);
-+			break;
-+		}
-+	} else {
-+		switch (desc_name) {
-+		case HW_DESC_OWN:
-+			ret = GET_RX_DESC_OWN(pdesc);
-+			break;
-+		case HW_DESC_RXPKT_LEN:
-+			ret = GET_RX_DESC_PKT_LEN(pdesc);
-+			break;
-+		default:
-+			RT_ASSERT(false, "ERR rxdesc :%d not process\n",
-+				  desc_name);
-+			break;
-+		}
-+	}
-+	return ret;
++	rtl8723ae_fill_h2c_cmd(hw, H2C_JOINBSSRPT, 1, u1_joinbssrpt_parm);
 +}
-+
-+void rtl8723ae_tx_polling(struct ieee80211_hw *hw, u8 hw_queue)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	if (hw_queue == BEACON_QUEUE) {
-+		rtl_write_word(rtlpriv, REG_PCIE_CTRL_REG, BIT(4));
-+	} else {
-+		rtl_write_word(rtlpriv, REG_PCIE_CTRL_REG,
-+			       BIT(0) << (hw_queue));
-+	}
-+}
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.h b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.h
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/fw.h b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
 new file mode 100644
-index 0000000..ad05b54
+index 0000000..89994e1
 --- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.h
-@@ -0,0 +1,725 @@
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/fw.h
+@@ -0,0 +1,101 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2012  Realtek Corporation.
@@ -727,714 +806,85 @@ index 0000000..ad05b54
 + * file called LICENSE.
 + *
 + * Contact Information:
-+ * wlanfae <wlanfae-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
++ * wlanfae <wlanfae@realtek.com>
 + * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
 + * Hsinchu 300, Taiwan.
++ * Larry Finger <Larry.Finger@lwfinger.net>
 + *
-+ * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-+ *
-+ *****************************************************************************/
++ ****************************************************************************
++ */
 +
-+#ifndef __RTL8723E_TRX_H__
-+#define __RTL8723E_TRX_H__
++#ifndef __RTL92C__FW__H__
++#define __RTL92C__FW__H__
 +
-+#define TX_DESC_SIZE				64
-+#define TX_DESC_AGGR_SUBFRAME_SIZE		32
++#define FW_8192C_START_ADDRESS			0x1000
++#define FW_8192C_END_ADDRESS			0x3FFF
++#define FW_8192C_PAGE_SIZE			4096
++#define FW_8192C_POLLING_DELAY			5
++#define FW_8192C_POLLING_TIMEOUT_COUNT		1000
 +
-+#define RX_DESC_SIZE				32
-+#define RX_DRV_INFO_SIZE_UNIT			8
++#define BEACON_PG				0
++#define PSPOLL_PG				2
++#define NULL_PG					3
++#define PROBERSP_PG				4 /* ->5 */
 +
-+#define	TX_DESC_NEXT_DESC_OFFSET		40
-+#define USB_HWDESC_HEADER_LEN			32
-+#define CRCLENGTH				4
++#define TOTAL_RESERVED_PKT_LEN			768
 +
-+#define SET_TX_DESC_PKT_SIZE(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 0, 16, __val)
-+#define SET_TX_DESC_OFFSET(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 16, 8, __val)
-+#define SET_TX_DESC_BMC(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 24, 1, __val)
-+#define SET_TX_DESC_HTC(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 25, 1, __val)
-+#define SET_TX_DESC_LAST_SEG(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 26, 1, __val)
-+#define SET_TX_DESC_FIRST_SEG(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 27, 1, __val)
-+#define SET_TX_DESC_LINIP(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 28, 1, __val)
-+#define SET_TX_DESC_NO_ACM(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 29, 1, __val)
-+#define SET_TX_DESC_GF(__pdesc, __val)			\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 30, 1, __val)
-+#define SET_TX_DESC_OWN(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 31, 1, __val)
++#define IS_FW_HEADER_EXIST(_pfwhdr)		\
++	((_pfwhdr->signature&0xFF00) == 0x2300)
 +
-+#define GET_TX_DESC_PKT_SIZE(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 0, 16)
-+#define GET_TX_DESC_OFFSET(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 16, 8)
-+#define GET_TX_DESC_BMC(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 24, 1)
-+#define GET_TX_DESC_HTC(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 25, 1)
-+#define GET_TX_DESC_LAST_SEG(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 26, 1)
-+#define GET_TX_DESC_FIRST_SEG(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 27, 1)
-+#define GET_TX_DESC_LINIP(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 28, 1)
-+#define GET_TX_DESC_NO_ACM(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 29, 1)
-+#define GET_TX_DESC_GF(__pdesc)				\
-+	LE_BITS_TO_4BYTE(__pdesc, 30, 1)
-+#define GET_TX_DESC_OWN(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 31, 1)
++struct rtl8723ae_firmware_header {
++	u16 signature;
++	u8 category;
++	u8 function;
++	u16 version;
++	u8 subversion;
++	u8 rsvd1;
++	u8 month;
++	u8 date;
++	u8 hour;
++	u8 minute;
++	u16 ramcodeSize;
++	u16 rsvd2;
++	u32 svnindex;
++	u32 rsvd3;
++	u32 rsvd4;
++	u32 rsvd5;
++};
 +
-+#define SET_TX_DESC_MACID(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 0, 5, __val)
-+#define SET_TX_DESC_AGG_BREAK(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 5, 1, __val)
-+#define SET_TX_DESC_BK(__pdesc, __val)			\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 6, 1, __val)
-+#define SET_TX_DESC_RDG_ENABLE(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 7, 1, __val)
-+#define SET_TX_DESC_QUEUE_SEL(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 8, 5, __val)
-+#define SET_TX_DESC_RDG_NAV_EXT(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 13, 1, __val)
-+#define SET_TX_DESC_LSIG_TXOP_EN(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 14, 1, __val)
-+#define SET_TX_DESC_PIFS(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 15, 1, __val)
-+#define SET_TX_DESC_RATE_ID(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 16, 4, __val)
-+#define SET_TX_DESC_NAV_USE_HDR(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 20, 1, __val)
-+#define SET_TX_DESC_EN_DESC_ID(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 21, 1, __val)
-+#define SET_TX_DESC_SEC_TYPE(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 22, 2, __val)
-+#define SET_TX_DESC_PKT_OFFSET(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+4, 24, 8, __val)
++enum rtl8192c_h2c_cmd {
++	H2C_AP_OFFLOAD = 0,
++	H2C_SETPWRMODE = 1,
++	H2C_JOINBSSRPT = 2,
++	H2C_RSVDPAGE = 3,
++	H2C_RSSI_REPORT = 5,
++	H2C_RA_MASK = 6,
++	MAX_H2CCMD
++};
 +
-+#define GET_TX_DESC_MACID(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 0, 5)
-+#define GET_TX_DESC_AGG_ENABLE(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 5, 1)
-+#define GET_TX_DESC_AGG_BREAK(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 6, 1)
-+#define GET_TX_DESC_RDG_ENABLE(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 7, 1)
-+#define GET_TX_DESC_QUEUE_SEL(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 8, 5)
-+#define GET_TX_DESC_RDG_NAV_EXT(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 13, 1)
-+#define GET_TX_DESC_LSIG_TXOP_EN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 14, 1)
-+#define GET_TX_DESC_PIFS(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 15, 1)
-+#define GET_TX_DESC_RATE_ID(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 16, 4)
-+#define GET_TX_DESC_NAV_USE_HDR(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 20, 1)
-+#define GET_TX_DESC_EN_DESC_ID(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 21, 1)
-+#define GET_TX_DESC_SEC_TYPE(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 22, 2)
-+#define GET_TX_DESC_PKT_OFFSET(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 24, 8)
++#define SET_H2CCMD_PWRMODE_PARM_MODE(__ph2ccmd, __val)			\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_PWRMODE_PARM_SMART_PS(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++#define SET_H2CCMD_PWRMODE_PARM_BCN_PASS_TIME(__ph2ccmd, __val)	\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
++#define SET_H2CCMD_JOINBSSRPT_PARM_OPMODE(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_RSVDPAGE_LOC_PROBE_RSP(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE(__ph2ccmd, 0, 8, __val)
++#define SET_H2CCMD_RSVDPAGE_LOC_PSPOLL(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+1, 0, 8, __val)
++#define SET_H2CCMD_RSVDPAGE_LOC_NULL_DATA(__ph2ccmd, __val)		\
++	SET_BITS_TO_LE_1BYTE((__ph2ccmd)+2, 0, 8, __val)
 +
-+#define SET_TX_DESC_RTS_RC(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 0, 6, __val)
-+#define SET_TX_DESC_DATA_RC(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 6, 6, __val)
-+#define SET_TX_DESC_BAR_RTY_TH(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 14, 2, __val)
-+#define SET_TX_DESC_MORE_FRAG(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 17, 1, __val)
-+#define SET_TX_DESC_RAW(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 18, 1, __val)
-+#define SET_TX_DESC_CCX(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 19, 1, __val)
-+#define SET_TX_DESC_AMPDU_DENSITY(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 20, 3, __val)
-+#define SET_TX_DESC_ANTSEL_A(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 24, 1, __val)
-+#define SET_TX_DESC_ANTSEL_B(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 25, 1, __val)
-+#define SET_TX_DESC_TX_ANT_CCK(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 26, 2, __val)
-+#define SET_TX_DESC_TX_ANTL(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 28, 2, __val)
-+#define SET_TX_DESC_TX_ANT_HT(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+8, 30, 2, __val)
-+
-+#define GET_TX_DESC_RTS_RC(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 0, 6)
-+#define GET_TX_DESC_DATA_RC(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 6, 6)
-+#define GET_TX_DESC_BAR_RTY_TH(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 14, 2)
-+#define GET_TX_DESC_MORE_FRAG(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 17, 1)
-+#define GET_TX_DESC_RAW(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 18, 1)
-+#define GET_TX_DESC_CCX(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 19, 1)
-+#define GET_TX_DESC_AMPDU_DENSITY(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 20, 3)
-+#define GET_TX_DESC_ANTSEL_A(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 24, 1)
-+#define GET_TX_DESC_ANTSEL_B(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 25, 1)
-+#define GET_TX_DESC_TX_ANT_CCK(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 26, 2)
-+#define GET_TX_DESC_TX_ANTL(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 28, 2)
-+#define GET_TX_DESC_TX_ANT_HT(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 30, 2)
-+
-+#define SET_TX_DESC_NEXT_HEAP_PAGE(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+12, 0, 8, __val)
-+#define SET_TX_DESC_TAIL_PAGE(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+12, 8, 8, __val)
-+#define SET_TX_DESC_SEQ(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+12, 16, 12, __val)
-+#define SET_TX_DESC_PKT_ID(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+12, 28, 4, __val)
-+
-+#define GET_TX_DESC_NEXT_HEAP_PAGE(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 0, 8)
-+#define GET_TX_DESC_TAIL_PAGE(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 8, 8)
-+#define GET_TX_DESC_SEQ(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 16, 12)
-+#define GET_TX_DESC_PKT_ID(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 28, 4)
-+
-+/* For RTL8723 */
-+#define SET_TX_DESC_TRIGGER_INT(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+12, 30, 1, __val)
-+#define SET_TX_DESC_HWSEQ_EN_8723(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+12, 31, 1, __val)
-+#define SET_TX_DESC_HWSEQ_SEL_8723(__pTxDesc, __Value)	\
-+	SET_BITS_TO_LE_4BYTE(__pTxDesc+16, 6, 2, __Value)
-+
-+#define SET_TX_DESC_RTS_RATE(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 0, 5, __val)
-+#define SET_TX_DESC_AP_DCFE(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 5, 1, __val)
-+#define SET_TX_DESC_QOS(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 6, 1, __val)
-+#define SET_TX_DESC_HWSEQ_EN(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 7, 1, __val)
-+#define SET_TX_DESC_USE_RATE(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 8, 1, __val)
-+#define SET_TX_DESC_DISABLE_RTS_FB(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 9, 1, __val)
-+#define SET_TX_DESC_DISABLE_FB(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 10, 1, __val)
-+#define SET_TX_DESC_CTS2SELF(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 11, 1, __val)
-+#define SET_TX_DESC_RTS_ENABLE(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 12, 1, __val)
-+#define SET_TX_DESC_HW_RTS_ENABLE(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 13, 1, __val)
-+#define SET_TX_DESC_PORT_ID(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 14, 1, __val)
-+#define SET_TX_DESC_WAIT_DCTS(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 18, 1, __val)
-+#define SET_TX_DESC_CTS2AP_EN(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 19, 1, __val)
-+#define SET_TX_DESC_TX_SUB_CARRIER(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 20, 2, __val)
-+#define SET_TX_DESC_TX_STBC(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 22, 2, __val)
-+#define SET_TX_DESC_DATA_SHORT(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 24, 1, __val)
-+#define SET_TX_DESC_DATA_BW(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 25, 1, __val)
-+#define SET_TX_DESC_RTS_SHORT(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 26, 1, __val)
-+#define SET_TX_DESC_RTS_BW(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 27, 1, __val)
-+#define SET_TX_DESC_RTS_SC(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 28, 2, __val)
-+#define SET_TX_DESC_RTS_STBC(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+16, 30, 2, __val)
-+
-+#define GET_TX_DESC_RTS_RATE(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 0, 5)
-+#define GET_TX_DESC_AP_DCFE(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 5, 1)
-+#define GET_TX_DESC_QOS(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 6, 1)
-+#define GET_TX_DESC_HWSEQ_EN(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 7, 1)
-+#define GET_TX_DESC_USE_RATE(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 8, 1)
-+#define GET_TX_DESC_DISABLE_RTS_FB(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 9, 1)
-+#define GET_TX_DESC_DISABLE_FB(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 10, 1)
-+#define GET_TX_DESC_CTS2SELF(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 11, 1)
-+#define GET_TX_DESC_RTS_ENABLE(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 12, 1)
-+#define GET_TX_DESC_HW_RTS_ENABLE(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 13, 1)
-+#define GET_TX_DESC_PORT_ID(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 14, 1)
-+#define GET_TX_DESC_WAIT_DCTS(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 18, 1)
-+#define GET_TX_DESC_CTS2AP_EN(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 19, 1)
-+#define GET_TX_DESC_TX_SUB_CARRIER(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 20, 2)
-+#define GET_TX_DESC_TX_STBC(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 22, 2)
-+#define GET_TX_DESC_DATA_SHORT(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 24, 1)
-+#define GET_TX_DESC_DATA_BW(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 25, 1)
-+#define GET_TX_DESC_RTS_SHORT(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 26, 1)
-+#define GET_TX_DESC_RTS_BW(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 27, 1)
-+#define GET_TX_DESC_RTS_SC(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 28, 2)
-+#define GET_TX_DESC_RTS_STBC(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 30, 2)
-+
-+#define SET_TX_DESC_TX_RATE(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+20, 0, 6, __val)
-+#define SET_TX_DESC_DATA_SHORTGI(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+20, 6, 1, __val)
-+#define SET_TX_DESC_CCX_TAG(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+20, 7, 1, __val)
-+#define SET_TX_DESC_DATA_RATE_FB_LIMIT(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+20, 8, 5, __val)
-+#define SET_TX_DESC_RTS_RATE_FB_LIMIT(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+20, 13, 4, __val)
-+#define SET_TX_DESC_RETRY_LIMIT_ENABLE(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+20, 17, 1, __val)
-+#define SET_TX_DESC_DATA_RETRY_LIMIT(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+20, 18, 6, __val)
-+#define SET_TX_DESC_USB_TXAGG_NUM(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+20, 24, 8, __val)
-+
-+#define GET_TX_DESC_TX_RATE(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+20, 0, 6)
-+#define GET_TX_DESC_DATA_SHORTGI(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+20, 6, 1)
-+#define GET_TX_DESC_CCX_TAG(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+20, 7, 1)
-+#define GET_TX_DESC_DATA_RATE_FB_LIMIT(__pdesc)	\
-+	LE_BITS_TO_4BYTE(__pdesc+20, 8, 5)
-+#define GET_TX_DESC_RTS_RATE_FB_LIMIT(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+20, 13, 4)
-+#define GET_TX_DESC_RETRY_LIMIT_ENABLE(__pdesc)	\
-+	LE_BITS_TO_4BYTE(__pdesc+20, 17, 1)
-+#define GET_TX_DESC_DATA_RETRY_LIMIT(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+20, 18, 6)
-+#define GET_TX_DESC_USB_TXAGG_NUM(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+20, 24, 8)
-+
-+#define SET_TX_DESC_TXAGC_A(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+24, 0, 5, __val)
-+#define SET_TX_DESC_TXAGC_B(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+24, 5, 5, __val)
-+#define SET_TX_DESC_USE_MAX_LEN(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+24, 10, 1, __val)
-+#define SET_TX_DESC_MAX_AGG_NUM(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+24, 11, 5, __val)
-+#define SET_TX_DESC_MCSG1_MAX_LEN(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+24, 16, 4, __val)
-+#define SET_TX_DESC_MCSG2_MAX_LEN(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+24, 20, 4, __val)
-+#define SET_TX_DESC_MCSG3_MAX_LEN(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+24, 24, 4, __val)
-+#define SET_TX_DESC_MCS7_SGI_MAX_LEN(__pdesc, __val)\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+24, 28, 4, __val)
-+
-+#define GET_TX_DESC_TXAGC_A(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+24, 0, 5)
-+#define GET_TX_DESC_TXAGC_B(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+24, 5, 5)
-+#define GET_TX_DESC_USE_MAX_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+24, 10, 1)
-+#define GET_TX_DESC_MAX_AGG_NUM(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+24, 11, 5)
-+#define GET_TX_DESC_MCSG1_MAX_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+24, 16, 4)
-+#define GET_TX_DESC_MCSG2_MAX_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+24, 20, 4)
-+#define GET_TX_DESC_MCSG3_MAX_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+24, 24, 4)
-+#define GET_TX_DESC_MCS7_SGI_MAX_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+24, 28, 4)
-+
-+#define SET_TX_DESC_TX_BUFFER_SIZE(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+28, 0, 16, __val)
-+#define SET_TX_DESC_MCSG4_MAX_LEN(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+28, 16, 4, __val)
-+#define SET_TX_DESC_MCSG5_MAX_LEN(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+28, 20, 4, __val)
-+#define SET_TX_DESC_MCSG6_MAX_LEN(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+28, 24, 4, __val)
-+#define SET_TX_DESC_MCS15_SGI_MAX_LEN(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+28, 28, 4, __val)
-+
-+#define GET_TX_DESC_TX_BUFFER_SIZE(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+28, 0, 16)
-+#define GET_TX_DESC_MCSG4_MAX_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+28, 16, 4)
-+#define GET_TX_DESC_MCSG5_MAX_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+28, 20, 4)
-+#define GET_TX_DESC_MCSG6_MAX_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+28, 24, 4)
-+#define GET_TX_DESC_MCS15_SGI_MAX_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+28, 28, 4)
-+
-+#define SET_TX_DESC_TX_BUFFER_ADDRESS(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+32, 0, 32, __val)
-+#define SET_TX_DESC_TX_BUFFER_ADDRESS64(__pdesc, __val) \
-+	SET_BITS_TO_LE_4BYTE(__pdesc+36, 0, 32, __val)
-+
-+#define GET_TX_DESC_TX_BUFFER_ADDRESS(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+32, 0, 32)
-+#define GET_TX_DESC_TX_BUFFER_ADDRESS64(__pdesc)	\
-+	LE_BITS_TO_4BYTE(__pdesc+36, 0, 32)
-+
-+#define SET_TX_DESC_NEXT_DESC_ADDRESS(__pdesc, __val)	\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+40, 0, 32, __val)
-+#define SET_TX_DESC_NEXT_DESC_ADDRESS64(__pdesc, __val) \
-+	SET_BITS_TO_LE_4BYTE(__pdesc+44, 0, 32, __val)
-+
-+#define GET_TX_DESC_NEXT_DESC_ADDRESS(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+40, 0, 32)
-+#define GET_TX_DESC_NEXT_DESC_ADDRESS64(__pdesc)	\
-+	LE_BITS_TO_4BYTE(__pdesc+44, 0, 32)
-+
-+#define GET_RX_DESC_PKT_LEN(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 0, 14)
-+#define GET_RX_DESC_CRC32(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 14, 1)
-+#define GET_RX_DESC_ICV(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 15, 1)
-+#define GET_RX_DESC_DRV_INFO_SIZE(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc, 16, 4)
-+#define GET_RX_DESC_SECURITY(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 20, 3)
-+#define GET_RX_DESC_QOS(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 23, 1)
-+#define GET_RX_DESC_SHIFT(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 24, 2)
-+#define GET_RX_DESC_PHYST(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 26, 1)
-+#define GET_RX_DESC_SWDEC(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 27, 1)
-+#define GET_RX_DESC_LS(__pdesc)				\
-+	LE_BITS_TO_4BYTE(__pdesc, 28, 1)
-+#define GET_RX_DESC_FS(__pdesc)				\
-+	LE_BITS_TO_4BYTE(__pdesc, 29, 1)
-+#define GET_RX_DESC_EOR(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 30, 1)
-+#define GET_RX_DESC_OWN(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc, 31, 1)
-+
-+#define SET_RX_DESC_PKT_LEN(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 0, 14, __val)
-+#define SET_RX_DESC_EOR(__pdesc, __val)			\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 30, 1, __val)
-+#define SET_RX_DESC_OWN(__pdesc, __val)			\
-+	SET_BITS_TO_LE_4BYTE(__pdesc, 31, 1, __val)
-+
-+#define GET_RX_DESC_MACID(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 0, 5)
-+#define GET_RX_DESC_TID(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 5, 4)
-+#define GET_RX_DESC_HWRSVD(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 9, 5)
-+#define GET_RX_DESC_PAGGR(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 14, 1)
-+#define GET_RX_DESC_FAGGR(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 15, 1)
-+#define GET_RX_DESC_A1_FIT(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 16, 4)
-+#define GET_RX_DESC_A2_FIT(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 20, 4)
-+#define GET_RX_DESC_PAM(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 24, 1)
-+#define GET_RX_DESC_PWR(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 25, 1)
-+#define GET_RX_DESC_MD(__pdesc)				\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 26, 1)
-+#define GET_RX_DESC_MF(__pdesc)				\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 27, 1)
-+#define GET_RX_DESC_TYPE(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 28, 2)
-+#define GET_RX_DESC_MC(__pdesc)				\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 30, 1)
-+#define GET_RX_DESC_BC(__pdesc)				\
-+	LE_BITS_TO_4BYTE(__pdesc+4, 31, 1)
-+#define GET_RX_DESC_SEQ(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 0, 12)
-+#define GET_RX_DESC_FRAG(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 12, 4)
-+#define GET_RX_DESC_NEXT_PKT_LEN(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 16, 14)
-+#define GET_RX_DESC_NEXT_IND(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 30, 1)
-+#define GET_RX_DESC_RSVD(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+8, 31, 1)
-+
-+#define GET_RX_DESC_RXMCS(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 0, 6)
-+#define GET_RX_DESC_RXHT(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 6, 1)
-+#define GET_RX_DESC_SPLCP(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 8, 1)
-+#define GET_RX_DESC_BW(__pdesc)				\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 9, 1)
-+#define GET_RX_DESC_HTC(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 10, 1)
-+#define GET_RX_DESC_HWPC_ERR(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 14, 1)
-+#define GET_RX_DESC_HWPC_IND(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 15, 1)
-+#define GET_RX_DESC_IV0(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+12, 16, 16)
-+
-+#define GET_RX_DESC_IV1(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+16, 0, 32)
-+#define GET_RX_DESC_TSFL(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+20, 0, 32)
-+
-+#define GET_RX_DESC_BUFF_ADDR(__pdesc)			\
-+	LE_BITS_TO_4BYTE(__pdesc+24, 0, 32)
-+#define GET_RX_DESC_BUFF_ADDR64(__pdesc)		\
-+	LE_BITS_TO_4BYTE(__pdesc+28, 0, 32)
-+
-+#define SET_RX_DESC_BUFF_ADDR(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+24, 0, 32, __val)
-+#define SET_RX_DESC_BUFF_ADDR64(__pdesc, __val)		\
-+	SET_BITS_TO_LE_4BYTE(__pdesc+28, 0, 32, __val)
-+
-+#define CLEAR_PCI_TX_DESC_CONTENT(__pdesc, _size)	\
-+do {							\
-+	if (_size > TX_DESC_NEXT_DESC_OFFSET)		\
-+		memset(__pdesc, 0, TX_DESC_NEXT_DESC_OFFSET);	\
-+	else						\
-+		memset(__pdesc, 0, _size);		\
-+} while (0)
-+
-+#define RTL8723E_RX_HAL_IS_CCK_RATE(rxmcs)		\
-+	((rxmcs) == DESC92_RATE1M ||			\
-+	 (rxmcs) == DESC92_RATE2M ||			\
-+	 (rxmcs) == DESC92_RATE5_5M ||			\
-+	 (rxmcs) == DESC92_RATE11M)
-+
-+struct rx_fwinfo_8723e {
-+	u8 gain_trsw[4];
-+	u8 pwdb_all;
-+	u8 cfosho[4];
-+	u8 cfotail[4];
-+	char rxevm[2];
-+	char rxsnr[4];
-+	u8 pdsnr[2];
-+	u8 csi_current[2];
-+	u8 csi_target[2];
-+	u8 sigevm;
-+	u8 max_ex_pwr;
-+	u8 ex_intf_flag:1;
-+	u8 sgi_en:1;
-+	u8 rxsc:2;
-+	u8 reserve:4;
-+} __packed;
-+
-+struct tx_desc_8723e {
-+	u32 pktsize:16;
-+	u32 offset:8;
-+	u32 bmc:1;
-+	u32 htc:1;
-+	u32 lastseg:1;
-+	u32 firstseg:1;
-+	u32 linip:1;
-+	u32 noacm:1;
-+	u32 gf:1;
-+	u32 own:1;
-+
-+	u32 macid:5;
-+	u32 agg_en:1;
-+	u32 bk:1;
-+	u32 rdg_en:1;
-+	u32 queuesel:5;
-+	u32 rd_nav_ext:1;
-+	u32 lsig_txop_en:1;
-+	u32 pifs:1;
-+	u32 rateid:4;
-+	u32 nav_usehdr:1;
-+	u32 en_descid:1;
-+	u32 sectype:2;
-+	u32 pktoffset:8;
-+
-+	u32 rts_rc:6;
-+	u32 data_rc:6;
-+	u32 rsvd0:2;
-+	u32 bar_retryht:2;
-+	u32 rsvd1:1;
-+	u32 morefrag:1;
-+	u32 raw:1;
-+	u32 ccx:1;
-+	u32 ampdudensity:3;
-+	u32 rsvd2:1;
-+	u32 ant_sela:1;
-+	u32 ant_selb:1;
-+	u32 txant_cck:2;
-+	u32 txant_l:2;
-+	u32 txant_ht:2;
-+
-+	u32 nextheadpage:8;
-+	u32 tailpage:8;
-+	u32 seq:12;
-+	u32 pktid:4;
-+
-+	u32 rtsrate:5;
-+	u32 apdcfe:1;
-+	u32 qos:1;
-+	u32 hwseq_enable:1;
-+	u32 userrate:1;
-+	u32 dis_rtsfb:1;
-+	u32 dis_datafb:1;
-+	u32 cts2self:1;
-+	u32 rts_en:1;
-+	u32 hwrts_en:1;
-+	u32 portid:1;
-+	u32 rsvd3:3;
-+	u32 waitdcts:1;
-+	u32 cts2ap_en:1;
-+	u32 txsc:2;
-+	u32 stbc:2;
-+	u32 txshort:1;
-+	u32 txbw:1;
-+	u32 rtsshort:1;
-+	u32 rtsbw:1;
-+	u32 rtssc:2;
-+	u32 rtsstbc:2;
-+
-+	u32 txrate:6;
-+	u32 shortgi:1;
-+	u32 ccxt:1;
-+	u32 txrate_fb_lmt:5;
-+	u32 rtsrate_fb_lmt:4;
-+	u32 retrylmt_en:1;
-+	u32 txretrylmt:6;
-+	u32 usb_txaggnum:8;
-+
-+	u32 txagca:5;
-+	u32 txagcb:5;
-+	u32 usemaxlen:1;
-+	u32 maxaggnum:5;
-+	u32 mcsg1maxlen:4;
-+	u32 mcsg2maxlen:4;
-+	u32 mcsg3maxlen:4;
-+	u32 mcs7sgimaxlen:4;
-+
-+	u32 txbuffersize:16;
-+	u32 mcsg4maxlen:4;
-+	u32 mcsg5maxlen:4;
-+	u32 mcsg6maxlen:4;
-+	u32 mcsg15sgimaxlen:4;
-+
-+	u32 txbuffaddr;
-+	u32 txbufferaddr64;
-+	u32 nextdescaddress;
-+	u32 nextdescaddress64;
-+
-+	u32 reserve_pass_pcie_mm_limit[4];
-+} __packed;
-+
-+struct rx_desc_8723e {
-+	u32 length:14;
-+	u32 crc32:1;
-+	u32 icverror:1;
-+	u32 drv_infosize:4;
-+	u32 security:3;
-+	u32 qos:1;
-+	u32 shift:2;
-+	u32 phystatus:1;
-+	u32 swdec:1;
-+	u32 lastseg:1;
-+	u32 firstseg:1;
-+	u32 eor:1;
-+	u32 own:1;
-+
-+	u32 macid:5;
-+	u32 tid:4;
-+	u32 hwrsvd:5;
-+	u32 paggr:1;
-+	u32 faggr:1;
-+	u32 a1_fit:4;
-+	u32 a2_fit:4;
-+	u32 pam:1;
-+	u32 pwr:1;
-+	u32 moredata:1;
-+	u32 morefrag:1;
-+	u32 type:2;
-+	u32 mc:1;
-+	u32 bc:1;
-+
-+	u32 seq:12;
-+	u32 frag:4;
-+	u32 nextpktlen:14;
-+	u32 nextind:1;
-+	u32 rsvd:1;
-+
-+	u32 rxmcs:6;
-+	u32 rxht:1;
-+	u32 amsdu:1;
-+	u32 splcp:1;
-+	u32 bandwidth:1;
-+	u32 htc:1;
-+	u32 tcpchk_rpt:1;
-+	u32 ipcchk_rpt:1;
-+	u32 tcpchk_valid:1;
-+	u32 hwpcerr:1;
-+	u32 hwpcind:1;
-+	u32 iv0:16;
-+
-+	u32 iv1;
-+
-+	u32 tsfl;
-+
-+	u32 bufferaddress;
-+	u32 bufferaddress64;
-+
-+} __packed;
-+
-+void rtl8723ae_tx_fill_desc(struct ieee80211_hw *hw,
-+			    struct ieee80211_hdr *hdr, u8 *pdesc_tx,
-+			    struct ieee80211_tx_info *info,
-+			    struct ieee80211_sta *sta,
-+			    struct sk_buff *skb, u8 hw_queue,
-+			    struct rtl_tcb_desc *ptcb_desc);
-+bool rtl8723ae_rx_query_desc(struct ieee80211_hw *hw,
-+			     struct rtl_stats *status,
-+			     struct ieee80211_rx_status *rx_status,
-+			     u8 *pdesc, struct sk_buff *skb);
-+void rtl8723ae_set_desc(u8 *pdesc, bool istx, u8 desc_name, u8 *val);
-+u32 rtl8723ae_get_desc(u8 *pdesc, bool istx, u8 desc_name);
-+void rtl8723ae_tx_polling(struct ieee80211_hw *hw, u8 hw_queue);
-+void rtl8723ae_tx_fill_cmddesc(struct ieee80211_hw *hw, u8 *pdesc,
-+			       bool b_firstseg, bool b_lastseg,
-+			       struct sk_buff *skb);
++int rtl8723ae_download_fw(struct ieee80211_hw *hw);
++void rtl8723ae_fill_h2c_cmd(struct ieee80211_hw *hw, u8 element_id,
++			    u32 cmd_len, u8 *p_cmdbuffer);
++void rtl8723ae_firmware_selfreset(struct ieee80211_hw *hw);
++void rtl8723ae_set_fw_pwrmode_cmd(struct ieee80211_hw *hw, u8 mode);
++void rtl8723ae_set_fw_rsvdpagepkt(struct ieee80211_hw *hw, bool b_dl_finished);
++void rtl8723ae_set_fw_joinbss_report_cmd(struct ieee80211_hw *hw, u8 mstatus);
 +
 +#endif
 -- 
 1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
