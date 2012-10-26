@@ -1,38 +1,37 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: [PATCH] tilegx: fix some issues in the SW TSO support
-Date: Fri, 26 Oct 2012 14:17:47 -0400
-Message-ID: <508AD3CB.8070303@tilera.com>
-References: <201210251737.q9PHbgev032681@farm-0012.internal.tilera.com>  <1351187513.2662.9.camel@bwh-desktop.uk.solarflarecom.com>  <508981E1.4030600@tilera.com>  <1351193806.2662.18.camel@bwh-desktop.uk.solarflarecom.com> <1351194525.2662.21.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/8] IPVS updates for net-next tree
+Date: Fri, 26 Oct 2012 14:50:06 -0400 (EDT)
+Message-ID: <20121026.145006.1534097522946444293.davem@davemloft.net>
+References: <1351243478-4852-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1351194525.2662.21.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49983 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753974Ab2JZSuH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 14:50:07 -0400
+In-Reply-To: <1351243478-4852-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/25/2012 3:48 PM, Ben Hutchings wrote:
-> On Thu, 2012-10-25 at 20:36 +0100, Ben Hutchings wrote:
-> [...]
->> There's a simple way to test this - configure the 'attacker' host and
->> interface like this:
->>
->> # ip link set $IFACE mtu 128
->> # sysctl net.ipv4.route.min_adv_mss=88
->>
->> and then use something like netperf to generate a high bandwidth stream
->> of TCP traffic toward it from the tilegx interface.
-> Also you would need to run some other traffic in parallel (multiple
-> streams to the 'attacker' and some more normal streams) to ensure there
-> is real contention.
+From: pablo@netfilter.org
+Date: Fri, 26 Oct 2012 11:24:30 +0200
 
-Thanks!  I've filed a bugzilla within Tilera to come back and revisit this
-- I think it's not a short-term problem so we'll find some time to look at
-it in the future.  Or, someone reading this could try it themselves and
-submit the patch :-)
+> The following changeset contains updates for IPVS from Jesper Dangaard
+> Brouer that did not reach the previous merge window in time.
+> 
+> More specifically, updates to improve IPv6 support in IPVS. More
+> relevantly, some of the existing code performed wrong handling of the
+> extensions headers and better fragmentation handling.
+> 
+> Jesper promised more follow-up patches to refine this after this batch
+> hits net-next. Yet to come.
+> 
+> You can pull these changes from:
+> 
+> git://1984.lsi.us.es/nf-next master
 
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+Pulled, thanks.
