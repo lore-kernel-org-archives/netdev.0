@@ -1,31 +1,49 @@
-From: Alexey Vlasov <renton@renton.name>
-Subject: Re: Instead of IP addresses the kernel started to show zero's
-Date: Fri, 26 Oct 2012 14:58:15 +0400
-Message-ID: <20121026105815.GA16074@beaver>
-References: <20120921182703.GH16609@beaver>
- <20121009123601.GA21710@mwanda>
- <1349787010.21172.4265.camel@edumazet-glaptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [RFC] back on nf_tables (plus compatibility layer)
+Date: Fri, 26 Oct 2012 13:04:19 +0200
+Message-ID: <20121026110419.GA16629@1984>
+References: <20121025170632.GA4890@1984>
+ <alpine.LNX.2.01.1210252352420.13437@nerf07.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Borislav Petkov <bp@alien8.de>,
-	Giuliano Pochini <pochini@shiny.it>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Netfilter Development Mailing list
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1349787010.21172.4265.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <alpine.LNX.2.01.1210252352420.13437@nerf07.vanv.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 09, 2012 at 02:50:10PM +0200, Eric Dumazet wrote:
+On Fri, Oct 26, 2012 at 12:02:56AM +0200, Jan Engelhardt wrote:
+> On Thursday 2012-10-25 19:06, Pablo Neira Ayuso wrote:
 > 
-> Reporter was (kindly) requested to try 3.6-rc7 +, and we got no answer.
+> >Hi,
+> >
+> >I've been working for a while to recover nf_tables kernel patches and
+> >to implement a compatibility layer so it can be used with existing
+> >x_tables target/match extensions. [...]
+> >2) Provide a fast path to merge this into mainstream. We'll have both
+> >   iptables and nftables interfaces during some time in the Linux kernel,
+> >   then remove iptables infrastructure at some point. iptables scripts
+> >   would not break as we'll have the iptables emulation over nftables.
+> >[...]
+> >One final thing: nftables does not support atomic table commit. The
+> >point here is if we really need this for the emulation utility or we
+> >can live without that. Implementing atomic table replacement in
+> >nftables is not trivial. I have hard time to find this commit table
+> >feature useful.
+> 
+> Meanwhile, I am on xtables2 that actually reproduces the set of
+> _really important_ features that currently are in the setsockopt
+> iptables, like atomic table replace and atomic dump.
+> 
+> I have updated to the newest tree, and the first set is
+> available in the git repository at:
+>   git://git.inai.de/linux xt2-20121025
 
-Now I don't have any free servers where I could test a new kernel.
-But in 1-2 months we'll be placing a new server fo a shared-hosting and
-then I will be able to test new kernels.
-Unfortunatelly I don't think it is reasonable to test kernels on production servers.
-
--- 
-BRGDS. Alexey Vlasov.
+If you think this feature is important, checkout nf_tables and think
+how to integrate this prototype code that provides atomic table
+replacement to it.
