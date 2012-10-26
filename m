@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sk-filter: Add ability to get socket filter
- program
-Date: Fri, 26 Oct 2012 15:04:16 -0400 (EDT)
-Message-ID: <20121026.150416.1261117140434521260.davem@davemloft.net>
-References: <508AC533.4000809@parallels.com>
-	<CAD6jFUS9LBtJ20Ty=3LTJNMxb0UhyCxRiAg+T7BUeXGEswpkUQ@mail.gmail.com>
+Subject: Re: pull request: wireless 2012-10-26
+Date: Fri, 26 Oct 2012 15:09:14 -0400 (EDT)
+Message-ID: <20121026.150914.698922406187249983.davem@davemloft.net>
+References: <20121026152112.GB16104@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, netdev@vger.kernel.org
-To: danborkmann@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50154 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758962Ab2JZTEY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 15:04:24 -0400
-In-Reply-To: <CAD6jFUS9LBtJ20Ty=3LTJNMxb0UhyCxRiAg+T7BUeXGEswpkUQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121026152112.GB16104@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Date: Fri, 26 Oct 2012 20:07:13 +0200
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 26 Oct 2012 11:21:13 -0400
 
-> In your commit message, you address how you implement it, but not
-> where it could be useful (or ``why one needs it''). For instance, in a
-> simple case, you have a packet sniffer that uses PF_PACKET, sets up a
-> socket filter and RX_RING, then you start looking at packets and at
-> some point you stop and close everything. In which scenario would I
-> (ever) call this getsockopt()? (Is it just for the sake for having a
-> missing getter-function?)
+> This is a batch of fixes intended for the 3.7 stream.
+> 
+> Bing Zhao brings two mwifiex fixes, both continuing to fix some scanning
+> failure cases.
+> 
+> Christian Lamparter provides an rtlwifi fix to properly propogate an
+> error code.
+> 
+> Felix Fietkau reverts a previous fix that was improperly reducing Tx
+> power for some devices.  This one looks big, but it is mostly just
+> changes to a table of initialization values.
+> 
+> Larry Finger provides a b43 version of an earlier b43legacy fix to
+> avoid and oops when removing the modules after failing to load firmware.
+> 
+> Mohammed Shafi Shajakhan provides a new device ID for ath9k_htc.
+> 
+> Stanislaw Gruszka gives us an rt2x00 fix to avoide a WARNING during
+> resume, as described in kernel.org bug 48041.
+> 
+> Yuanhan Liu fixes a potential NULL dereference in brcmfmac.
 
-Everything Pavel is working on is for checkpoint/restart.
+Pulled, thanks John.
