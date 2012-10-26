@@ -1,88 +1,65 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: Clean up type-punning in sctp_cmd_t union
-Date: Thu, 25 Oct 2012 19:58:43 -0400
-Message-ID: <20121025235843.GA13809@neilslaptop.think-freely.org>
-References: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
- <5089B237.6010902@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net-next 1/1] tcp: Prevent needless syn-ack rexmt during TWHS
+Date: Thu, 25 Oct 2012 17:45:56 -0700
+Message-ID: <1351212356-11964-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	Elliot Hughes <enh@google.com>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>,
+	Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:45284 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888Ab2JYX73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 19:59:29 -0400
-Content-Disposition: inline
-In-Reply-To: <5089B237.6010902@gmail.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:62775 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755375Ab2JZA21 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 20:28:27 -0400
+Received: by mail-pb0-f46.google.com with SMTP id rr4so2385603pbb.19
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 17:28:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 25, 2012 at 05:42:15PM -0400, Vlad Yasevich wrote:
-> On 10/25/2012 04:47 PM, Neil Horman wrote:
-> >Lots of points in the sctp_cmd_interpreter function treat the sctp_cmd_t arg as
-> >a void pointer, even though they are written as various other types.  Theres no
-> >need for this as doing so just leads to possible type-punning issues that could
-> >cause crashes, and if we remain type-consistent we can actually just remove the
-> >void * member of the union entirely.
-> >
-> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com
-> >CC: Vlad Yasevich <vyasevich@gmail.com>
-> >CC: "David S. Miller" <davem@davemloft.net>
-> >CC: linux-sctp@vger.kernel.org
-> >---
-> >  include/net/sctp/command.h  |  7 ++++---
-> >  include/net/sctp/ulpqueue.h |  2 +-
-> >  net/sctp/sm_sideeffect.c    | 45 ++++++++++++++++++++++-----------------------
-> >  net/sctp/ulpqueue.c         |  3 +--
-> >  4 files changed, 28 insertions(+), 29 deletions(-)
-> >
-> >diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-> >index 712b3be..7f1b0f3 100644
-> >--- a/include/net/sctp/command.h
-> >+++ b/include/net/sctp/command.h
-> >@@ -131,7 +131,6 @@ typedef union {
-> >  	sctp_state_t state;
-> >  	sctp_event_timeout_t to;
-> >  	unsigned long zero;
-> >-	void *ptr;
-> >  	struct sctp_chunk *chunk;
-> >  	struct sctp_association *asoc;
-> >  	struct sctp_transport *transport;
-> >@@ -154,9 +153,12 @@ typedef union {
-> >   * which takes an __s32 and returns a sctp_arg_t containing the
-> >   * __s32.  So, after foo = SCTP_I32(arg), foo.i32 == arg.
-> >   */
-> >+#define SCTP_NULL_BYTE 0xAA
-> >  static inline sctp_arg_t SCTP_NULL(void)
-> >  {
-> >-	sctp_arg_t retval; retval.ptr = NULL; return retval;
-> >+	sctp_arg_t retval;
-> >+	memset(&retval, SCTP_NULL_BYTE, sizeof(sctp_arg_t));
-> >+	return retval;
-> 
-> What's this for?  Can't we just use retval.zero?
-> 
-> -vlad
-> 
-My intent was to highlight any users of sctp_arg_t when SCTP_NULL was passed.
-My thinking was that the 0xAA byte patern would be a good indicator.  Although,
-admittedly I didn't see the zero argument there.  Looking at it though, the zero
-member of the union is effectively unused.  Strictly speaking its used for
-initalization of sctp_arg_t, but its done somewhat poorly, since theres no
-guarantee that an unsigned long will be the largest member of that union.  Doing
-the memset guarantees the whole instance is set to a predefined value.
+If server socket is slow to accept() connections, request_socks can represent
+connections for which the three-way handshake is already done.  From client's
+point of view, the connection is in ESTABLISHED state but on server side, socket
+is not in accept_queue or ESTABLISHED state.  When the syn-ack timer expires,
+because of the order in which tests are performed, server can retransmit the
+synack repeatedly. Following patch prevents the server from retransmitting the
+synack needlessly (and prevents client from replying with ack).  This reduces
+traffic when server is slow to accept() connections.
 
-I could go either way with this, would you rather we just have SCTP_NULL return
-retval = { .zero = 0}; or would you rather remove the zero initialization from
-SCTP_[NO]FORCE, and SCTP_ARG_CONSTRUCTOR and do the memset.  I think the memset
-reduces to a single 64 bit assignment as long as the union doesn't exceed that
-size anyway, and it ensures that you initalize the whole union's storage if it
-does in the future.  And if we remove the initialization step (I don't see that
-its needed in the three macros above anyway), then we can remove the zero member
-as well.
+If the server socket has received the third ack during connection establishment,
+this is remembered in inet_rsk(req)->acked.  The request_sock will expire in
+around 30 seconds and will be dropped if it does not move into accept_queue.
 
-Let me know what you want to do here, and I can respin this.
-Best
-Neil
+With help from Eric Dumazet.
+
+Reported-by: Elliot Hughes <enh@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+---
+Ignoring "WARNING: line over 80 characters" in the interest of readability.
+
+Eric,
+What about your earlier patch that modified sk_acceptq_is_full()?
+
+ net/ipv4/inet_connection_sock.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index d34ce29..4e8e52e 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -598,9 +598,8 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
+ 					       &expire, &resend);
+ 				req->rsk_ops->syn_ack_timeout(parent, req);
+ 				if (!expire &&
+-				    (!resend ||
+-				     !req->rsk_ops->rtx_syn_ack(parent, req, NULL) ||
+-				     inet_rsk(req)->acked)) {
++				    (!resend || inet_rsk(req)->acked ||
++				     !req->rsk_ops->rtx_syn_ack(parent, req, NULL))) {
+ 					unsigned long timeo;
+ 
+ 					if (req->retrans++ == 0)
+-- 
+1.7.0.4
