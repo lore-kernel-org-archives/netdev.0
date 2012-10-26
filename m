@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next v2 0/5] Allow to monitor protocol
- configuration
-Date: Fri, 26 Oct 2012 02:19:26 -0400 (EDT)
-Message-ID: <20121026.021926.1234251415536174852.davem@davemloft.net>
-References: <20121023.132940.1732325493436273627.davem@davemloft.net>
-	<1351094579-3911-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] bas_gigaset: fix pre_reset handling
+Date: Fri, 26 Oct 2012 02:20:58 -0400 (EDT)
+Message-ID: <20121026.022058.1269607845663983487.davem@davemloft.net>
+References: <20121024-patch-gigaset-01.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43835 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756321Ab2JZGT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 02:19:27 -0400
-In-Reply-To: <1351094579-3911-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: isdn@linux-pingi.de, oneukum@suse.de, hjlipp@web.de,
+	gigaset307x-common@lists.sourceforge.net,
+	linux-usb@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tilman@imap.cc
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121024-patch-gigaset-01.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 24 Oct 2012 18:02:54 +0200
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Wed, 24 Oct 2012 20:44:32 +0200
 
-> This patch serie aims to advertising via netlink any change in the network
-> configuration of a protocol (network or transport). For example the announcement
-> when ip forwarding parameter is toggled. 
+> The delayed work function int_in_work() may call usb_reset_device()
+> and thus, indirectly, the driver's pre_reset method. Trying to
+> cancel the work synchronously in that situation would deadlock.
+> Fix by avoiding cancel_work_sync() in the pre_reset method.
 > 
-> It adds a new kind of messages, RTM_NEWNETCONF/RTM_GETNETCONF.
+> If the reset was NOT initiated by int_in_work() this might cause
+> int_in_work() to run after the post_reset method, with urb_int_in
+> already resubmitted, so handle that case gracefully.
 > 
-> The patch which adds the support of netconf messages in iproute2 will be sent
-> when the feature will be included.  If someone is interested to get it before,
-> just tell me!
-> 
-> v2: rename functions to be consistent
->     specify type of the attribute to notify when calling
->     inet[6]_netconf_notify_devconf(), goal is to notify only thinks that
->     changed.
->     add RTM_GETNETCONF support
-> 
-> Comments are welcome.
+> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 
-Besides the inline function thing, this set looks fine to me.
+Applied, thanks.
