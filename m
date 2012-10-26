@@ -1,177 +1,75 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v3 4/5] rtnl/ipv4: use netconf msg to advertise forwarding status
-Date: Fri, 26 Oct 2012 10:28:52 +0200
-Message-ID: <1351240133-4427-5-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v3 1/5] rtnl: add a new type of msg to advertise protocol configuration
+Date: Fri, 26 Oct 2012 10:28:49 +0200
+Message-ID: <1351240133-4427-2-git-send-email-nicolas.dichtel@6wind.com>
 References: <20121026.021830.1470799532580844849.davem@davemloft.net>
  <1351240133-4427-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38320 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38311 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932172Ab2JZITx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 04:19:53 -0400
+	with ESMTP id S932139Ab2JZITt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 04:19:49 -0400
 In-Reply-To: <1351240133-4427-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+A new type is added to allow userland to monitor protocol configuration, like
+IPv4 or IPv6.
+For example, monitoring the state of the forwarding status of an interface of
+the system.
+
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/uapi/linux/rtnetlink.h |  2 +
- net/ipv4/devinet.c             | 93 ++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 91 insertions(+), 4 deletions(-)
+ include/uapi/linux/netconf.h   | 22 ++++++++++++++++++++++
+ include/uapi/linux/rtnetlink.h |  5 +++++
+ 2 files changed, 27 insertions(+)
+ create mode 100644 include/uapi/linux/netconf.h
 
+diff --git a/include/uapi/linux/netconf.h b/include/uapi/linux/netconf.h
+new file mode 100644
+index 0000000..d051372
+--- /dev/null
++++ b/include/uapi/linux/netconf.h
+@@ -0,0 +1,22 @@
++#ifndef _UAPI_LINUX_NETCONF_H_
++#define _UAPI_LINUX_NETCONF_H_
++
++#include <linux/types.h>
++#include <linux/netlink.h>
++
++struct netconfmsg {
++	__u8	ncm_family;
++};
++
++enum {
++	NETCONFA_UNSPEC,
++	NETCONFA_IFINDEX,
++	NETCONFA_FORWARDING,
++	__NETCONFA_MAX
++};
++#define NETCONFA_MAX	(__NETCONFA_MAX - 1)
++
++#define NETCONFA_IFINDEX_ALL		-1
++#define NETCONFA_IFINDEX_DEFAULT	-2
++
++#endif /* _UAPI_LINUX_NETCONF_H_ */
 diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index a4d75ea..3dee071 100644
+index fcd768b..0043b41 100644
 --- a/include/uapi/linux/rtnetlink.h
 +++ b/include/uapi/linux/rtnetlink.h
-@@ -592,6 +592,8 @@ enum rtnetlink_groups {
- #define RTNLGRP_PHONET_ROUTE	RTNLGRP_PHONET_ROUTE
- 	RTNLGRP_DCB,
- #define RTNLGRP_DCB		RTNLGRP_DCB
-+	RTNLGRP_IPV4_NETCONF,
-+#define RTNLGRP_IPV4_NETCONF	RTNLGRP_IPV4_NETCONF
- 	RTNLGRP_IPV6_NETCONF,
- #define RTNLGRP_IPV6_NETCONF	RTNLGRP_IPV6_NETCONF
- 	__RTNLGRP_MAX
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 2a6abc1..020fdd2 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -55,6 +55,7 @@
- #include <linux/sysctl.h>
- #endif
- #include <linux/kmod.h>
-+#include <linux/netconf.h>
+@@ -120,6 +120,11 @@ enum {
+ 	RTM_SETDCB,
+ #define RTM_SETDCB RTM_SETDCB
  
- #include <net/arp.h>
- #include <net/ip.h>
-@@ -1442,6 +1443,73 @@ static int inet_set_link_af(struct net_device *dev, const struct nlattr *nla)
- 	return 0;
- }
- 
-+static int inet_netconf_msgsize_devconf(int type)
-+{
-+	int size = NLMSG_ALIGN(sizeof(struct netconfmsg))
-+		   + nla_total_size(4);	/* NETCONFA_IFINDEX */
++	RTM_NEWNETCONF = 80,
++#define RTM_NEWNETCONF RTM_NEWNETCONF
++	RTM_GETNETCONF = 82,
++#define RTM_GETNETCONF RTM_GETNETCONF
 +
-+	if (type == NETCONFA_FORWARDING)
-+		size += nla_total_size(4);
-+
-+	return size;
-+}
-+
-+static int inet_netconf_fill_devconf(struct sk_buff *skb, int ifindex,
-+				     struct ipv4_devconf *devconf, u32 portid,
-+				     u32 seq, int event, unsigned int flags,
-+				     int type)
-+{
-+	struct nlmsghdr  *nlh;
-+	struct netconfmsg *ncm;
-+
-+	nlh = nlmsg_put(skb, portid, seq, event, sizeof(struct netconfmsg),
-+			flags);
-+	if (nlh == NULL)
-+		return -EMSGSIZE;
-+
-+	ncm = nlmsg_data(nlh);
-+	ncm->ncm_family = AF_INET;
-+
-+	if (nla_put_s32(skb, NETCONFA_IFINDEX, ifindex) < 0)
-+		goto nla_put_failure;
-+
-+	if (type == NETCONFA_FORWARDING &&
-+	    nla_put_s32(skb, NETCONFA_FORWARDING,
-+			IPV4_DEVCONF(*devconf, FORWARDING)) < 0)
-+		goto nla_put_failure;
-+
-+	return nlmsg_end(skb, nlh);
-+
-+nla_put_failure:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
-+}
-+
-+static void inet_netconf_notify_devconf(struct net *net, int type, int ifindex,
-+					struct ipv4_devconf *devconf)
-+{
-+	struct sk_buff *skb;
-+	int err = -ENOBUFS;
-+
-+	skb = nlmsg_new(inet_netconf_msgsize_devconf(type), GFP_ATOMIC);
-+	if (skb == NULL)
-+		goto errout;
-+
-+	err = inet_netconf_fill_devconf(skb, ifindex, devconf, 0, 0,
-+					RTM_NEWNETCONF, 0, type);
-+	if (err < 0) {
-+		/* -EMSGSIZE implies BUG in inet_netconf_msgsize_devconf() */
-+		WARN_ON(err == -EMSGSIZE);
-+		kfree_skb(skb);
-+		goto errout;
-+	}
-+	rtnl_notify(skb, net, 0, RTNLGRP_IPV4_NETCONF, NULL, GFP_ATOMIC);
-+	return;
-+errout:
-+	if (err < 0)
-+		rtnl_set_sk_err(net, RTNLGRP_IPV4_NETCONF, err);
-+}
-+
- #ifdef CONFIG_SYSCTL
- 
- static void devinet_copy_dflt_conf(struct net *net, int i)
-@@ -1467,6 +1535,12 @@ static void inet_forward_change(struct net *net)
- 
- 	IPV4_DEVCONF_ALL(net, ACCEPT_REDIRECTS) = !on;
- 	IPV4_DEVCONF_DFLT(net, FORWARDING) = on;
-+	inet_netconf_notify_devconf(net, NETCONFA_FORWARDING,
-+				    NETCONFA_IFINDEX_ALL,
-+				    net->ipv4.devconf_all);
-+	inet_netconf_notify_devconf(net, NETCONFA_FORWARDING,
-+				    NETCONFA_IFINDEX_DEFAULT,
-+				    net->ipv4.devconf_dflt);
- 
- 	for_each_netdev(net, dev) {
- 		struct in_device *in_dev;
-@@ -1474,8 +1548,11 @@ static void inet_forward_change(struct net *net)
- 			dev_disable_lro(dev);
- 		rcu_read_lock();
- 		in_dev = __in_dev_get_rcu(dev);
--		if (in_dev)
-+		if (in_dev) {
- 			IN_DEV_CONF_SET(in_dev, FORWARDING, on);
-+			inet_netconf_notify_devconf(net, NETCONFA_FORWARDING,
-+						    dev->ifindex, &in_dev->cnf);
-+		}
- 		rcu_read_unlock();
- 	}
- }
-@@ -1527,15 +1604,23 @@ static int devinet_sysctl_forward(ctl_table *ctl, int write,
- 			}
- 			if (valp == &IPV4_DEVCONF_ALL(net, FORWARDING)) {
- 				inet_forward_change(net);
--			} else if (*valp) {
-+			} else {
- 				struct ipv4_devconf *cnf = ctl->extra1;
- 				struct in_device *idev =
- 					container_of(cnf, struct in_device, cnf);
--				dev_disable_lro(idev->dev);
-+				if (*valp)
-+					dev_disable_lro(idev->dev);
-+				inet_netconf_notify_devconf(net,
-+							    NETCONFA_FORWARDING,
-+							    idev->dev->ifindex,
-+							    cnf);
- 			}
- 			rtnl_unlock();
- 			rt_cache_flush(net);
--		}
-+		} else
-+			inet_netconf_notify_devconf(net, NETCONFA_FORWARDING,
-+						    NETCONFA_IFINDEX_DEFAULT,
-+						    net->ipv4.devconf_dflt);
- 	}
- 
- 	return ret;
+ 	__RTM_MAX,
+ #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
+ };
 -- 
 1.7.12
