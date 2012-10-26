@@ -1,49 +1,52 @@
-From: jing wang <windsdaemon@gmail.com>
-Subject: Re: [PATCH 1/1] af_unix.c: fix the compile warning in unix_bind
-Date: Fri, 26 Oct 2012 11:24:18 +0800
-Message-ID: <508A0262.6010205@gmail.com>
-References: <1351219727-6085-1-git-send-email-windsdaemon@gmail.com> <20121025.231641.1536209335816707842.davem@davemloft.net>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next 1/1] tcp: Prevent needless syn-ack rexmt during TWHS
+Date: Thu, 25 Oct 2012 23:31:46 -0400
+Message-ID: <CADVnQynogLLze3B3PqUpKf-mZf3NobHXrfpZdPEc7Kbtxcd0NA@mail.gmail.com>
+References: <1351212356-11964-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: edumazet@google.com, viro@zeniv.linux.org.uk, xemul@parallels.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	Elliot Hughes <enh@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:36234 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755807Ab2JZDY2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 23:24:28 -0400
-Received: by mail-da0-f46.google.com with SMTP id n41so1090183dak.19
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 20:24:27 -0700 (PDT)
-In-Reply-To: <20121025.231641.1536209335816707842.davem@davemloft.net>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:63805 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755893Ab2JZDbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 23:31:47 -0400
+Received: by mail-ia0-f174.google.com with SMTP id y32so1867816iag.19
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 20:31:46 -0700 (PDT)
+In-Reply-To: <1351212356-11964-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Thanks for your review and i'm sorry about this, the warning is :
-
-CC net/unix/af_unix.o
-net/unix/af_unix.c: In function 'unix_bind':
-net/unix/af_unix.c:895: warning: 'path.dentry' may be used uninitialize=
-d=20
-in this function
-net/unix/af_unix.c:895: warning: 'path.mnt' may be used uninitialized i=
-n=20
-this function
-
-
-=E4=BA=8E 2012=E5=B9=B410=E6=9C=8826=E6=97=A5 11:16, David Miller =E5=86=
-=99=E9=81=93:
-> From: Jing Wang <windsdaemon@gmail.com>
-> Date: Fri, 26 Oct 2012 10:48:47 +0800
+On Thu, Oct 25, 2012 at 8:45 PM, Vijay Subramanian
+<subramanian.vijay@gmail.com> wrote:
+> If server socket is slow to accept() connections, request_socks can represent
+> connections for which the three-way handshake is already done.  From client's
+> point of view, the connection is in ESTABLISHED state but on server side, socket
+> is not in accept_queue or ESTABLISHED state.  When the syn-ack timer expires,
+> because of the order in which tests are performed, server can retransmit the
+> synack repeatedly. Following patch prevents the server from retransmitting the
+> synack needlessly (and prevents client from replying with ack).  This reduces
+> traffic when server is slow to accept() connections.
 >
->> Signed-off-by: Jing Wang <windsdaemon@gmail.com>
-> What compile warning?  You need to describe what problem
-> you are solving, rather than assume we can figure it out
-> by reading your patch.
+> If the server socket has received the third ack during connection establishment,
+> this is remembered in inet_rsk(req)->acked.  The request_sock will expire in
+> around 30 seconds and will be dropped if it does not move into accept_queue.
 >
->> -
->> +
-> This doesn't do anything and should be in your patch.
+> With help from Eric Dumazet.
+>
+> Reported-by: Elliot Hughes <enh@google.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> ---
+
+Acked-by: Neal Cardwell <ncardwell@google.com>
+Tested-by: Neal Cardwell <ncardwell@google.com>
+
+Nice. Verified the bug and the fix.
+
+neal
