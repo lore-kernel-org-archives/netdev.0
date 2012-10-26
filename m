@@ -1,61 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH net-next] qfq: handle the case that front slot is
- empty
-Date: Fri, 26 Oct 2012 10:10:07 +0200
-Message-ID: <1351239007.6537.291.camel@edumazet-glaptop>
-References: <1350965711-4390-1-git-send-email-amwang@redhat.com>
-	 <F36C0EC1-0A4C-48FB-ABF3-A89575A9287E@unimore.it>
-	 <1350982432.26308.8.camel@cr0>
-	 <58DEB62C-6237-435E-8300-8E390F101F58@unimore.it>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH v2 net-next] net: sierra: shut up sparse restricted type warnings
+Date: Fri, 26 Oct 2012 10:15:40 +0200
+Message-ID: <1351239340-26272-1-git-send-email-bjorn@mork.no>
+References: <1351237449-23643-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Paolo Valente <paolo.valente@unimore.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:59862 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757232Ab2JZIKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 04:10:10 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1129186bkc.19
-        for <netdev@vger.kernel.org>; Fri, 26 Oct 2012 01:10:09 -0700 (PDT)
-In-Reply-To: <58DEB62C-6237-435E-8300-8E390F101F58@unimore.it>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1351237449-23643-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-10-26 at 09:51 +0200, Paolo Valente wrote:
+Removes the warnings
 
-> I think I will ask for your help soon, thanks.
-> 
-> The cause of the failure is TCP segment offloading, which lets qfq
-> receive packets with a much larger size than the MTU of the device.
-> In this respect, under qfq the default max packet size lmax for each
-> class (2KB) is only slightly higher than the MTU. Violating the lmax
-> constraint causes the corruption of the data structure that implements
-> the bucket lists of the groups. In fact, the failure that you found is
-> only one of the consequences of this corruption. I am sorry I did not
-> discover it before, but, foolishly, I have run only UDP tests.
-> 
-> I am thinking about the best ways for addressing this issue.
-> 
-> BTW, I think that the behavior of all the other schedulers should be
-> checked as well. For example, with segment offloading, drr must
-> increment the deficit of a class for at most (64K/quantum) times,
-> i.e., rounds, before it can serve the next packet of the class. The
-> number of instructions per packet dequeue becomes therefore
-> (64K/quantum) times higher than without segment offloading.
-> 
+ drivers/net/usb/sierra_net.c:343:45: warning: incorrect type in assign=
+ment (different base types)
+ drivers/net/usb/sierra_net.c:343:45:    expected unsigned short [unsig=
+ned] [short] [usertype] <noident>
+ drivers/net/usb/sierra_net.c:343:45:    got restricted __be16 [usertyp=
+e] <noident>
 
-OK, good to know you found the problem.
+and
 
-Normally, TSO is supported by other qdisc, maybe not optimally but
-supported.
+ drivers/net/usb/sierra_net.c:658:18: warning: cast to restricted __le1=
+6
 
-For example, one known problem with TSO is that skb->len is a
-underestimation of real number of bytes sent on wire
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+v2: rebased on top of the latest fixes which were just applied to net-n=
+ext
 
-If MSS is a bit small, TBF/HTB/CBQ can really overdrive links.
+ drivers/net/usb/sierra_net.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-We probably should have a more precise estimation.
+diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.=
+c
+index eb5c7a8..18dd425 100644
+--- a/drivers/net/usb/sierra_net.c
++++ b/drivers/net/usb/sierra_net.c
+@@ -339,7 +339,7 @@ static void sierra_net_set_ctx_index(struct sierra_=
+net_data *priv, u8 ctx_ix)
+ 	dev_dbg(&(priv->usbnet->udev->dev), "%s %d", __func__, ctx_ix);
+ 	priv->tx_hdr_template[0] =3D 0x3F;
+ 	priv->tx_hdr_template[1] =3D ctx_ix;
+-	*((u16 *)&priv->tx_hdr_template[2]) =3D
++	*((__be16 *)&priv->tx_hdr_template[2]) =3D
+ 		cpu_to_be16(SIERRA_NET_HIP_EXT_IP_OUT_ID);
+ }
+=20
+@@ -631,7 +631,7 @@ static int sierra_net_change_mtu(struct net_device =
+*net, int new_mtu)
+ static int sierra_net_get_fw_attr(struct usbnet *dev, u16 *datap)
+ {
+ 	int result =3D 0;
+-	u16 attrdata;
++	__le16 attrdata;
+=20
+ 	result =3D usbnet_read_cmd(dev,
+ 				/* _u8 vendor specific request */
+--=20
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
