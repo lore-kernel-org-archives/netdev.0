@@ -1,75 +1,51 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v3 1/5] rtnl: add a new type of msg to advertise protocol configuration
-Date: Fri, 26 Oct 2012 10:28:49 +0200
-Message-ID: <1351240133-4427-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <20121026.021830.1470799532580844849.davem@davemloft.net>
- <1351240133-4427-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] sctp: Clean up type-punning in sctp_cmd_t union
+Date: Fri, 26 Oct 2012 10:00:13 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B706F@saturn3.aculab.com>
+References: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Vlad Yasevich" <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	<linux-sctp@vger.kernel.org>
+To: "Neil Horman" <nhorman@tuxdriver.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38311 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932139Ab2JZITt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 04:19:49 -0400
-In-Reply-To: <1351240133-4427-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mx0.aculab.com ([213.249.233.131]:36195 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752981Ab2JZJBL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 05:01:11 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 20025-01 for <netdev@vger.kernel.org>;
+ Fri, 26 Oct 2012 10:01:06 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A new type is added to allow userland to monitor protocol configuration, like
-IPv4 or IPv6.
-For example, monitoring the state of the forwarding status of an interface of
-the system.
+> Subject: [PATCH] sctp: Clean up type-punning in sctp_cmd_t union
+...
+> +#define SCTP_NULL_BYTE 0xAA
+>  static inline sctp_arg_t SCTP_NULL(void)
+>  {
+> -	sctp_arg_t retval; retval.ptr = NULL; return retval;
+> +	sctp_arg_t retval;
+> +	memset(&retval, SCTP_NULL_BYTE, sizeof(sctp_arg_t));
+> +	return retval;
+>  }
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/uapi/linux/netconf.h   | 22 ++++++++++++++++++++++
- include/uapi/linux/rtnetlink.h |  5 +++++
- 2 files changed, 27 insertions(+)
- create mode 100644 include/uapi/linux/netconf.h
+You really don't want to be taking the address of a local
+variable that would normally be held in a register.
+It stops the compiler doing a lot of optimisations.
+In this case the structure is also being returned by value,
+not nice except that all(?) modern ABI do pass small structures
+in registers.
 
-diff --git a/include/uapi/linux/netconf.h b/include/uapi/linux/netconf.h
-new file mode 100644
-index 0000000..d051372
---- /dev/null
-+++ b/include/uapi/linux/netconf.h
-@@ -0,0 +1,22 @@
-+#ifndef _UAPI_LINUX_NETCONF_H_
-+#define _UAPI_LINUX_NETCONF_H_
-+
-+#include <linux/types.h>
-+#include <linux/netlink.h>
-+
-+struct netconfmsg {
-+	__u8	ncm_family;
-+};
-+
-+enum {
-+	NETCONFA_UNSPEC,
-+	NETCONFA_IFINDEX,
-+	NETCONFA_FORWARDING,
-+	__NETCONFA_MAX
-+};
-+#define NETCONFA_MAX	(__NETCONFA_MAX - 1)
-+
-+#define NETCONFA_IFINDEX_ALL		-1
-+#define NETCONFA_IFINDEX_DEFAULT	-2
-+
-+#endif /* _UAPI_LINUX_NETCONF_H_ */
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index fcd768b..0043b41 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -120,6 +120,11 @@ enum {
- 	RTM_SETDCB,
- #define RTM_SETDCB RTM_SETDCB
- 
-+	RTM_NEWNETCONF = 80,
-+#define RTM_NEWNETCONF RTM_NEWNETCONF
-+	RTM_GETNETCONF = 82,
-+#define RTM_GETNETCONF RTM_GETNETCONF
-+
- 	__RTM_MAX,
- #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
- };
--- 
-1.7.12
+An assignment of some member of the union to NULL would
+seem most appropriate.
+OTOH the code that uses this must be someones 'bright idea (tm)'
+that probably wasn't such a good idea after all.
+
+	David
