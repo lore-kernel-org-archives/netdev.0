@@ -1,128 +1,61 @@
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Subject: Re: bpf filter : support for vlan tag
-Date: Fri, 26 Oct 2012 10:05:10 +0200
-Message-ID: <CAD6jFUQ+F4nBu6WmC6pW2GLSeUy+QfHngT=5NStt=2BRQFnA4w@mail.gmail.com>
-References: <CAOxq_8MqMatY2+GA6+mHjj5V=Xe7Y8BmuX4r6cz5nChU5C1Vzw@mail.gmail.com>
-	<1350369998.3954.563.camel@edumazet-glaptop>
-	<CAD6jFUTn98+i_0eh6gc-CYgVXHNLbZdZmV6==mL+duFM-oNRmg@mail.gmail.com>
-	<1350386917.3954.890.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH net-next] qfq: handle the case that front slot is
+ empty
+Date: Fri, 26 Oct 2012 10:10:07 +0200
+Message-ID: <1351239007.6537.291.camel@edumazet-glaptop>
+References: <1350965711-4390-1-git-send-email-amwang@redhat.com>
+	 <F36C0EC1-0A4C-48FB-ABF3-A89575A9287E@unimore.it>
+	 <1350982432.26308.8.camel@cr0>
+	 <58DEB62C-6237-435E-8300-8E390F101F58@unimore.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ani Sinha <ani@aristanetworks.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Paolo Valente <paolo.valente@unimore.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50226 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757110Ab2JZIFS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 04:05:18 -0400
-Received: from [78.46.5.203] (helo=sslproxy01.your-server.de)
-	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.74)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1TReuq-0000ut-GE
-	for netdev@vger.kernel.org; Fri, 26 Oct 2012 10:05:16 +0200
-Received: from [74.125.83.46] (helo=mail-ee0-f46.google.com)
-	by sslproxy01.your-server.de with esmtpsa (TLSv1:RC4-SHA:128)
-	(Exim 4.72)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1TReup-0006r0-58
-	for netdev@vger.kernel.org; Fri, 26 Oct 2012 10:05:15 +0200
-Received: by mail-ee0-f46.google.com with SMTP id b15so894862eek.19
-        for <netdev@vger.kernel.org>; Fri, 26 Oct 2012 01:05:10 -0700 (PDT)
-In-Reply-To: <1350386917.3954.890.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:59862 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757232Ab2JZIKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 04:10:10 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1129186bkc.19
+        for <netdev@vger.kernel.org>; Fri, 26 Oct 2012 01:10:09 -0700 (PDT)
+In-Reply-To: <58DEB62C-6237-435E-8300-8E390F101F58@unimore.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 16, 2012 at 1:28 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2012-10-16 at 13:00 +0200, Daniel Borkmann wrote:
->> On Tue, Oct 16, 2012 at 8:46 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Mon, 2012-10-15 at 19:10 -0700, Ani Sinha wrote:
->> >> I was looking at the kernel side implementation of the BPF filter. I
->> >> do not see any code that supports filtering of packets based on
->> >> provided vlan tag information from the skbuff. This will make it
->> >> impossible to provide any filter to tcpdump that will filter packets
->> >> based on the tag information if libpcap uses the kernel filter.
->> >>
->> >> Any help will be much appreciated.
->> >
->> > Right, we need a basic support, using a new ancillary definition.
->> >
->> > Is the following patch enough to address your need, or do you also need
->> > access to vlan_tx_tag_present() ?
->>
->> I like this patch, it's especially useful to speed up processing for
->> packet analyzers. vlan_tx_tag_present() might also be good to have if
->> this doesn't waste to much room for future ancillary operations.
->
-> There is plenty of room in ancillary space
->
-> Note that if speed is needed, we also want to update various JIT
-> implementations.
+On Fri, 2012-10-26 at 09:51 +0200, Paolo Valente wrote:
 
-Eric, can you submit this patch to net-next if there are no objections
-from your side regarding the follow-up comments? Big thanks.
+> I think I will ask for your help soon, thanks.
+> 
+> The cause of the failure is TCP segment offloading, which lets qfq
+> receive packets with a much larger size than the MTU of the device.
+> In this respect, under qfq the default max packet size lmax for each
+> class (2KB) is only slightly higher than the MTU. Violating the lmax
+> constraint causes the corruption of the data structure that implements
+> the bucket lists of the groups. In fact, the failure that you found is
+> only one of the consequences of this corruption. I am sorry I did not
+> discover it before, but, foolishly, I have run only UDP tests.
+> 
+> I am thinking about the best ways for addressing this issue.
+> 
+> BTW, I think that the behavior of all the other schedulers should be
+> checked as well. For example, with segment offloading, drr must
+> increment the deficit of a class for at most (64K/quantum) times,
+> i.e., rounds, before it can serve the next packet of the class. The
+> number of instructions per packet dequeue becomes therefore
+> (64K/quantum) times higher than without segment offloading.
+> 
 
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index 24d251f..c9f0005 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -123,6 +123,8 @@ enum {
->         BPF_S_ANC_CPU,
->         BPF_S_ANC_ALU_XOR_X,
->         BPF_S_ANC_SECCOMP_LD_W,
-> +       BPF_S_ANC_VLAN_TAG,
-> +       BPF_S_ANC_VLAN_TAG_PRESENT,
->  };
->
->  #endif /* __LINUX_FILTER_H__ */
-> diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-> index 3d79224..9cfde69 100644
-> --- a/include/uapi/linux/filter.h
-> +++ b/include/uapi/linux/filter.h
-> @@ -127,7 +127,9 @@ struct sock_fprog { /* Required for SO_ATTACH_FILTER. */
->  #define SKF_AD_RXHASH  32
->  #define SKF_AD_CPU     36
->  #define SKF_AD_ALU_XOR_X       40
-> -#define SKF_AD_MAX     44
-> +#define SKF_AD_VLAN_TAG        44
-> +#define SKF_AD_VLAN_TAG_PRESENT 48
-> +#define SKF_AD_MAX     52
->  #define SKF_NET_OFF   (-0x100000)
->  #define SKF_LL_OFF    (-0x200000)
->
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index 3d92ebb..5a114d4 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -39,6 +39,7 @@
->  #include <linux/reciprocal_div.h>
->  #include <linux/ratelimit.h>
->  #include <linux/seccomp.h>
-> +#include <linux/if_vlan.h>
->
->  /* No hurry in this branch
->   *
-> @@ -341,6 +342,12 @@ load_b:
->                 case BPF_S_ANC_CPU:
->                         A = raw_smp_processor_id();
->                         continue;
-> +               case BPF_S_ANC_VLAN_TAG:
-> +                       A = vlan_tx_tag_get(skb);
-> +                       continue;
-> +               case BPF_S_ANC_VLAN_TAG_PRESENT:
-> +                       A = !!vlan_tx_tag_present(skb);
-> +                       continue;
->                 case BPF_S_ANC_NLATTR: {
->                         struct nlattr *nla;
->
-> @@ -600,6 +607,8 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
->                         ANCILLARY(RXHASH);
->                         ANCILLARY(CPU);
->                         ANCILLARY(ALU_XOR_X);
-> +                       ANCILLARY(VLAN_TAG);
-> +                       ANCILLARY(VLAN_TAG_PRESENT);
->                         }
->                 }
->                 ftest->code = code;
->
->
+OK, good to know you found the problem.
+
+Normally, TSO is supported by other qdisc, maybe not optimally but
+supported.
+
+For example, one known problem with TSO is that skb->len is a
+underestimation of real number of bytes sent on wire
+
+If MSS is a bit small, TBF/HTB/CBQ can really overdrive links.
+
+We probably should have a more precise estimation.
