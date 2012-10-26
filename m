@@ -1,265 +1,277 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v2] sctp: Clean up type-punning in sctp_cmd_t union
-Date: Fri, 26 Oct 2012 09:41:16 -0400
-Message-ID: <1351258876-32078-1-git-send-email-nhorman@tuxdriver.com>
-References: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-sctp@vger.kernel.org
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCH 1/1] smsc95xx: add wol support for more frame types
+Date: Fri, 26 Oct 2012 14:43:56 +0100
+Message-ID: <1351259036-5375-2-git-send-email-steve.glendinning@shawell.net>
+References: <1351259036-5375-1-git-send-email-steve.glendinning@shawell.net>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52952 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932903Ab2JZNla (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 09:41:30 -0400
-In-Reply-To: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:56778 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932956Ab2JZNoC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 09:44:02 -0400
+In-Reply-To: <1351259036-5375-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lots of points in the sctp_cmd_interpreter function treat the sctp_cmd_t arg as
-a void pointer, even though they are written as various other types.  Theres no
-need for this as doing so just leads to possible type-punning issues that could
-cause crashes, and if we remain type-consistent we can actually just remove the
-void * member of the union entirely.
+This patch adds support for wol wakeup on unicast, broadcast,
+multicast and arp frames.
 
-Change Notes:
+The wakeup filter code isn't pretty, but it works.
 
-v2)
-	* Dropped chunk that modified SCTP_NULL to create a marker pattern
-	 should anyone try to use a SCTP_NULL() assigned sctp_arg_t, Assigning
-	 to .zero provides the same effect and should be faster, per Vlad Y.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: linux-sctp@vger.kernel.org
+Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
 ---
- include/net/sctp/command.h  |  4 +---
- include/net/sctp/ulpqueue.h |  2 +-
- net/sctp/sm_sideeffect.c    | 45 ++++++++++++++++++++++-----------------------
- net/sctp/ulpqueue.c         |  3 +--
- 4 files changed, 25 insertions(+), 29 deletions(-)
+ drivers/net/usb/Kconfig    |    2 +
+ drivers/net/usb/smsc95xx.c |  127 +++++++++++++++++++++++++++++++++++++++++---
+ drivers/net/usb/smsc95xx.h |    5 ++
+ 3 files changed, 128 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-index 712b3be..8d52cd7 100644
---- a/include/net/sctp/command.h
-+++ b/include/net/sctp/command.h
-@@ -131,7 +131,6 @@ typedef union {
- 	sctp_state_t state;
- 	sctp_event_timeout_t to;
- 	unsigned long zero;
--	void *ptr;
- 	struct sctp_chunk *chunk;
- 	struct sctp_association *asoc;
- 	struct sctp_transport *transport;
-@@ -156,7 +155,7 @@ typedef union {
-  */
- static inline sctp_arg_t SCTP_NULL(void)
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index 2ab8043..e62882c 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -256,6 +256,8 @@ config USB_NET_SMSC75XX
+ config USB_NET_SMSC95XX
+ 	tristate "SMSC LAN95XX based USB 2.0 10/100 ethernet devices"
+ 	depends on USB_USBNET
++	select BITREVERSE
++	select CRC16
+ 	select CRC32
+ 	help
+ 	  This option adds support for SMSC LAN95XX based USB 2.0
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 1730f75..46cd784 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -26,6 +26,8 @@
+ #include <linux/ethtool.h>
+ #include <linux/mii.h>
+ #include <linux/usb.h>
++#include <linux/bitrev.h>
++#include <linux/crc16.h>
+ #include <linux/crc32.h>
+ #include <linux/usb/usbnet.h>
+ #include <linux/slab.h>
+@@ -46,7 +48,8 @@
+ #define SMSC95XX_INTERNAL_PHY_ID	(1)
+ #define SMSC95XX_TX_OVERHEAD		(8)
+ #define SMSC95XX_TX_OVERHEAD_CSUM	(12)
+-#define SUPPORTED_WAKE			(WAKE_MAGIC)
++#define SUPPORTED_WAKE			(WAKE_UCAST | WAKE_BCAST | \
++					 WAKE_MCAST | WAKE_ARP | WAKE_MAGIC)
+ 
+ #define check_warn(ret, fmt, args...) \
+ 	({ if (ret < 0) netdev_warn(dev->net, fmt, ##args); })
+@@ -63,6 +66,7 @@ struct smsc95xx_priv {
+ 	u32 hash_lo;
+ 	u32 wolopts;
+ 	spinlock_t mac_cr_lock;
++	int wuff_filter_count;
+ };
+ 
+ static bool turbo_mode = true;
+@@ -956,6 +960,7 @@ static const struct net_device_ops smsc95xx_netdev_ops = {
+ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
  {
--	sctp_arg_t retval; retval.ptr = NULL; return retval;
-+	sctp_arg_t retval = { .zero = 0UL}; return retval;
+ 	struct smsc95xx_priv *pdata = NULL;
++	u32 val;
+ 	int ret;
+ 
+ 	printk(KERN_INFO SMSC_CHIPNAME " v" SMSC_DRIVER_VERSION "\n");
+@@ -986,6 +991,15 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	/* Init all registers */
+ 	ret = smsc95xx_reset(dev);
+ 
++	/* detect device revision as different features may be available */
++	ret = smsc95xx_read_reg(dev, ID_REV, &val);
++	check_warn_return(ret, "Failed to read ID_REV: %d\n", ret);
++	val >>= 16;
++	if ((val == ID_REV_CHIP_ID_9500A_) || (val == ID_REV_CHIP_ID_9512_))
++		pdata->wuff_filter_count = LAN9500A_WUFF_NUM;
++	else
++		pdata->wuff_filter_count = LAN9500_WUFF_NUM;
++
+ 	dev->net->netdev_ops = &smsc95xx_netdev_ops;
+ 	dev->net->ethtool_ops = &smsc95xx_ethtool_ops;
+ 	dev->net->flags |= IFF_MULTICAST;
+@@ -1005,6 +1019,11 @@ static void smsc95xx_unbind(struct usbnet *dev, struct usb_interface *intf)
+ 	}
  }
- static inline sctp_arg_t SCTP_NOFORCE(void)
+ 
++static u16 smsc_crc(const u8 *buffer, size_t len, int filter)
++{
++	return bitrev16(crc16(0xFFFF, buffer, len)) << ((filter % 2) * 16);
++}
++
+ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
  {
-@@ -181,7 +180,6 @@ SCTP_ARG_CONSTRUCTOR(ERROR,     int, error)
- SCTP_ARG_CONSTRUCTOR(PERR,      __be16, err)	/* protocol error */
- SCTP_ARG_CONSTRUCTOR(STATE,	sctp_state_t, state)
- SCTP_ARG_CONSTRUCTOR(TO,	sctp_event_timeout_t, to)
--SCTP_ARG_CONSTRUCTOR(PTR,	void *, ptr)
- SCTP_ARG_CONSTRUCTOR(CHUNK,	struct sctp_chunk *, chunk)
- SCTP_ARG_CONSTRUCTOR(ASOC,	struct sctp_association *, asoc)
- SCTP_ARG_CONSTRUCTOR(TRANSPORT,	struct sctp_transport *, transport)
-diff --git a/include/net/sctp/ulpqueue.h b/include/net/sctp/ulpqueue.h
-index 2e5ee0d..ff1b8ba7 100644
---- a/include/net/sctp/ulpqueue.h
-+++ b/include/net/sctp/ulpqueue.h
-@@ -72,7 +72,7 @@ int sctp_ulpq_tail_event(struct sctp_ulpq *, struct sctp_ulpevent *ev);
- void sctp_ulpq_renege(struct sctp_ulpq *, struct sctp_chunk *, gfp_t);
- 
- /* Perform partial delivery. */
--void sctp_ulpq_partial_delivery(struct sctp_ulpq *, struct sctp_chunk *, gfp_t);
-+void sctp_ulpq_partial_delivery(struct sctp_ulpq *, gfp_t);
- 
- /* Abort the partial delivery. */
- void sctp_ulpq_abort_pd(struct sctp_ulpq *, gfp_t);
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 6773d78..6eecf7e 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -1268,14 +1268,14 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 				sctp_outq_uncork(&asoc->outqueue);
- 				local_cork = 0;
- 			}
--			asoc = cmd->obj.ptr;
-+			asoc = cmd->obj.asoc;
- 			/* Register with the endpoint.  */
- 			sctp_endpoint_add_asoc(ep, asoc);
- 			sctp_hash_established(asoc);
- 			break;
- 
- 		case SCTP_CMD_UPDATE_ASSOC:
--		       sctp_assoc_update(asoc, cmd->obj.ptr);
-+		       sctp_assoc_update(asoc, cmd->obj.asoc);
- 		       break;
- 
- 		case SCTP_CMD_PURGE_OUTQUEUE:
-@@ -1315,7 +1315,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 			break;
- 
- 		case SCTP_CMD_PROCESS_FWDTSN:
--			sctp_cmd_process_fwdtsn(&asoc->ulpq, cmd->obj.ptr);
-+			sctp_cmd_process_fwdtsn(&asoc->ulpq, cmd->obj.chunk);
- 			break;
- 
- 		case SCTP_CMD_GEN_SACK:
-@@ -1331,7 +1331,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 		case SCTP_CMD_PROCESS_SACK:
- 			/* Process an inbound SACK.  */
- 			error = sctp_cmd_process_sack(commands, asoc,
--						      cmd->obj.ptr);
-+						      cmd->obj.chunk);
- 			break;
- 
- 		case SCTP_CMD_GEN_INIT_ACK:
-@@ -1352,15 +1352,15 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 			 * layer which will bail.
- 			 */
- 			error = sctp_cmd_process_init(commands, asoc, chunk,
--						      cmd->obj.ptr, gfp);
-+						      cmd->obj.init, gfp);
- 			break;
- 
- 		case SCTP_CMD_GEN_COOKIE_ECHO:
- 			/* Generate a COOKIE ECHO chunk.  */
- 			new_obj = sctp_make_cookie_echo(asoc, chunk);
- 			if (!new_obj) {
--				if (cmd->obj.ptr)
--					sctp_chunk_free(cmd->obj.ptr);
-+				if (cmd->obj.chunk)
-+					sctp_chunk_free(cmd->obj.chunk);
- 				goto nomem;
- 			}
- 			sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-@@ -1369,9 +1369,9 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 			/* If there is an ERROR chunk to be sent along with
- 			 * the COOKIE_ECHO, send it, too.
- 			 */
--			if (cmd->obj.ptr)
-+			if (cmd->obj.chunk)
- 				sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
--						SCTP_CHUNK(cmd->obj.ptr));
-+						SCTP_CHUNK(cmd->obj.chunk));
- 
- 			if (new_obj->transport) {
- 				new_obj->transport->init_sent_count++;
-@@ -1417,18 +1417,18 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 		case SCTP_CMD_CHUNK_ULP:
- 			/* Send a chunk to the sockets layer.  */
- 			SCTP_DEBUG_PRINTK("sm_sideff: %s %p, %s %p.\n",
--					  "chunk_up:", cmd->obj.ptr,
-+					  "chunk_up:", cmd->obj.chunk,
- 					  "ulpq:", &asoc->ulpq);
--			sctp_ulpq_tail_data(&asoc->ulpq, cmd->obj.ptr,
-+			sctp_ulpq_tail_data(&asoc->ulpq, cmd->obj.chunk,
- 					    GFP_ATOMIC);
- 			break;
- 
- 		case SCTP_CMD_EVENT_ULP:
- 			/* Send a notification to the sockets layer.  */
- 			SCTP_DEBUG_PRINTK("sm_sideff: %s %p, %s %p.\n",
--					  "event_up:",cmd->obj.ptr,
-+					  "event_up:",cmd->obj.ulpevent,
- 					  "ulpq:",&asoc->ulpq);
--			sctp_ulpq_tail_event(&asoc->ulpq, cmd->obj.ptr);
-+			sctp_ulpq_tail_event(&asoc->ulpq, cmd->obj.ulpevent);
- 			break;
- 
- 		case SCTP_CMD_REPLY:
-@@ -1438,12 +1438,12 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 				local_cork = 1;
- 			}
- 			/* Send a chunk to our peer.  */
--			error = sctp_outq_tail(&asoc->outqueue, cmd->obj.ptr);
-+			error = sctp_outq_tail(&asoc->outqueue, cmd->obj.chunk);
- 			break;
- 
- 		case SCTP_CMD_SEND_PKT:
- 			/* Send a full packet to our peer.  */
--			packet = cmd->obj.ptr;
-+			packet = cmd->obj.packet;
- 			sctp_packet_transmit(packet);
- 			sctp_ootb_pkt_free(packet);
- 			break;
-@@ -1480,7 +1480,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 			break;
- 
- 		case SCTP_CMD_SETUP_T2:
--			sctp_cmd_setup_t2(commands, asoc, cmd->obj.ptr);
-+			sctp_cmd_setup_t2(commands, asoc, cmd->obj.chunk);
- 			break;
- 
- 		case SCTP_CMD_TIMER_START_ONCE:
-@@ -1514,7 +1514,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 			break;
- 
- 		case SCTP_CMD_INIT_CHOOSE_TRANSPORT:
--			chunk = cmd->obj.ptr;
-+			chunk = cmd->obj.chunk;
- 			t = sctp_assoc_choose_alter_transport(asoc,
- 						asoc->init_last_sent_to);
- 			asoc->init_last_sent_to = t;
-@@ -1665,17 +1665,16 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 			break;
- 
- 		case SCTP_CMD_PART_DELIVER:
--			sctp_ulpq_partial_delivery(&asoc->ulpq, cmd->obj.ptr,
--						   GFP_ATOMIC);
-+			sctp_ulpq_partial_delivery(&asoc->ulpq, GFP_ATOMIC);
- 			break;
- 
- 		case SCTP_CMD_RENEGE:
--			sctp_ulpq_renege(&asoc->ulpq, cmd->obj.ptr,
-+			sctp_ulpq_renege(&asoc->ulpq, cmd->obj.chunk,
- 					 GFP_ATOMIC);
- 			break;
- 
- 		case SCTP_CMD_SETUP_T4:
--			sctp_cmd_setup_t4(commands, asoc, cmd->obj.ptr);
-+			sctp_cmd_setup_t4(commands, asoc, cmd->obj.chunk);
- 			break;
- 
- 		case SCTP_CMD_PROCESS_OPERR:
-@@ -1734,8 +1733,8 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 			break;
- 
- 		default:
--			pr_warn("Impossible command: %u, %p\n",
--				cmd->verb, cmd->obj.ptr);
-+			pr_warn("Impossible command: %u\n",
-+				cmd->verb);
- 			break;
- 		}
- 
-diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-index 360d869..ada1746 100644
---- a/net/sctp/ulpqueue.c
-+++ b/net/sctp/ulpqueue.c
-@@ -997,7 +997,6 @@ static __u16 sctp_ulpq_renege_frags(struct sctp_ulpq *ulpq, __u16 needed)
- 
- /* Partial deliver the first message as there is pressure on rwnd. */
- void sctp_ulpq_partial_delivery(struct sctp_ulpq *ulpq,
--				struct sctp_chunk *chunk,
- 				gfp_t gfp)
- {
- 	struct sctp_ulpevent *event;
-@@ -1060,7 +1059,7 @@ void sctp_ulpq_renege(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
- 		sctp_tsnmap_mark(&asoc->peer.tsn_map, tsn, chunk->transport);
- 		sctp_ulpq_tail_data(ulpq, chunk, gfp);
- 
--		sctp_ulpq_partial_delivery(ulpq, chunk, gfp);
-+		sctp_ulpq_partial_delivery(ulpq, gfp);
+ 	struct usbnet *dev = usb_get_intfdata(intf);
+@@ -1049,6 +1068,94 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 		return 0;
  	}
  
- 	sk_mem_reclaim(asoc->base.sk);
++	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
++		u32 *filter_mask = kzalloc(32, GFP_KERNEL);
++		u32 *command = kzalloc(2, GFP_KERNEL);
++		u32 *offset = kzalloc(2, GFP_KERNEL);
++		u32 *crc = kzalloc(4, GFP_KERNEL);
++		int i, filter = 0;
++
++		if (pdata->wolopts & WAKE_BCAST) {
++			const u8 bcast[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
++			netdev_info(dev->net, "enabling broadcast detection");
++			filter_mask[filter * 4] = 0x003F;
++			filter_mask[filter * 4 + 1] = 0x00;
++			filter_mask[filter * 4 + 2] = 0x00;
++			filter_mask[filter * 4 + 3] = 0x00;
++			command[filter/4] |= 0x05UL << ((filter % 4) * 8);
++			offset[filter/4] |= 0x00 << ((filter % 4) * 8);
++			crc[filter/2] |= smsc_crc(bcast, 6, filter);
++			filter++;
++		}
++
++		if (pdata->wolopts & WAKE_MCAST) {
++			const u8 mcast[] = {0x01, 0x00, 0x5E};
++			netdev_info(dev->net, "enabling multicast detection");
++			filter_mask[filter * 4] = 0x0007;
++			filter_mask[filter * 4 + 1] = 0x00;
++			filter_mask[filter * 4 + 2] = 0x00;
++			filter_mask[filter * 4 + 3] = 0x00;
++			command[filter/4] |= 0x09UL << ((filter % 4) * 8);
++			offset[filter/4] |= 0x00  << ((filter % 4) * 8);
++			crc[filter/2] |= smsc_crc(mcast, 3, filter);
++			filter++;
++		}
++
++		if (pdata->wolopts & WAKE_ARP) {
++			const u8 arp[] = {0x08, 0x06};
++			netdev_info(dev->net, "enabling ARP detection");
++			filter_mask[filter * 4] = 0x0003;
++			filter_mask[filter * 4 + 1] = 0x00;
++			filter_mask[filter * 4 + 2] = 0x00;
++			filter_mask[filter * 4 + 3] = 0x00;
++			command[filter/4] |= 0x05UL << ((filter % 4) * 8);
++			offset[filter/4] |= 0x0C << ((filter % 4) * 8);
++			crc[filter/2] |= smsc_crc(arp, 2, filter);
++			filter++;
++		}
++
++		if (pdata->wolopts & WAKE_UCAST) {
++			netdev_info(dev->net, "enabling unicast detection");
++			filter_mask[filter * 4] = 0x003F;
++			filter_mask[filter * 4 + 1] = 0x00;
++			filter_mask[filter * 4 + 2] = 0x00;
++			filter_mask[filter * 4 + 3] = 0x00;
++			command[filter/4] |= 0x01UL << ((filter % 4) * 8);
++			offset[filter/4] |= 0x00 << ((filter % 4) * 8);
++			crc[filter/2] |= smsc_crc(dev->net->dev_addr, ETH_ALEN, filter);
++			filter++;
++		}
++
++		for (i = 0; i < (pdata->wuff_filter_count * 4); i++) {
++			ret = smsc95xx_write_reg(dev, WUFF, filter_mask[i]);
++			check_warn_return(ret, "Error writing WUFF");
++		}
++
++		for (i = 0; i < (pdata->wuff_filter_count / 4); i++) {
++			ret = smsc95xx_write_reg(dev, WUFF, command[i]);
++			check_warn_return(ret, "Error writing WUFF");
++		}
++
++		for (i = 0; i < (pdata->wuff_filter_count / 4); i++) {
++			ret = smsc95xx_write_reg(dev, WUFF, offset[i]);
++			check_warn_return(ret, "Error writing WUFF");
++		}
++
++		for (i = 0; i < (pdata->wuff_filter_count / 2); i++) {
++			ret = smsc95xx_write_reg(dev, WUFF, crc[i]);
++			check_warn_return(ret, "Error writing WUFF");
++		}
++
++		/* clear any pending pattern match packet status */
++		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		check_warn_return(ret, "Error reading WUCSR");
++
++		val |= WUCSR_WUFR_;
++
++		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		check_warn_return(ret, "Error writing WUCSR");
++	}
++
+ 	if (pdata->wolopts & WAKE_MAGIC) {
+ 		/* clear any pending magic packet status */
+ 		ret = smsc95xx_read_reg(dev, WUCSR, &val);
+@@ -1060,10 +1167,18 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 		check_warn_return(ret, "Error writing WUCSR");
+ 	}
+ 
+-	/* enable/disable magic packup wake */
++	/* enable/disable wakeup sources */
+ 	ret = smsc95xx_read_reg(dev, WUCSR, &val);
+ 	check_warn_return(ret, "Error reading WUCSR");
+ 
++	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
++		netdev_info(dev->net, "enabling pattern match wakeup");
++		val |= WUCSR_WAKE_EN_;
++	} else {
++		netdev_info(dev->net, "disabling pattern match wakeup");
++		val &= ~WUCSR_WAKE_EN_;
++	}
++
+ 	if (pdata->wolopts & WAKE_MAGIC) {
+ 		netdev_info(dev->net, "enabling magic packet wakeup");
+ 		val |= WUCSR_MPEN_;
+@@ -1084,7 +1199,7 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
+ 	check_warn_return(ret, "Error writing PM_CTRL");
+ 
+-	/* enable receiver */
++	/* enable receiver to enable frame reception */
+ 	smsc95xx_start_rx_path(dev);
+ 
+ 	/* some wol options are enabled, so enter SUSPEND0 */
+@@ -1123,14 +1238,14 @@ static int smsc95xx_resume(struct usb_interface *intf)
+ 
+ 	BUG_ON(!dev);
+ 
+-	if (pdata->wolopts & WAKE_MAGIC) {
++	if (pdata->wolopts) {
+ 		smsc95xx_clear_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
+ 
+-		/* Disable magic packup wake */
++		/* clear wake-up sources */
+ 		ret = smsc95xx_read_reg(dev, WUCSR, &val);
+ 		check_warn_return(ret, "Error reading WUCSR");
+ 
+-		val &= ~WUCSR_MPEN_;
++		val &= ~(WUCSR_WAKE_EN_ | WUCSR_MPEN_);
+ 
+ 		ret = smsc95xx_write_reg(dev, WUCSR, val);
+ 		check_warn_return(ret, "Error writing WUCSR");
+diff --git a/drivers/net/usb/smsc95xx.h b/drivers/net/usb/smsc95xx.h
+index 2ff9815..1f86269 100644
+--- a/drivers/net/usb/smsc95xx.h
++++ b/drivers/net/usb/smsc95xx.h
+@@ -53,6 +53,8 @@
+ #define ID_REV_CHIP_ID_MASK_		(0xFFFF0000)
+ #define ID_REV_CHIP_REV_MASK_		(0x0000FFFF)
+ #define ID_REV_CHIP_ID_9500_		(0x9500)
++#define ID_REV_CHIP_ID_9500A_		(0x9E00)
++#define ID_REV_CHIP_ID_9512_		(0xEC00)
+ 
+ #define INT_STS				(0x08)
+ #define INT_STS_TX_STOP_		(0x00020000)
+@@ -203,8 +205,11 @@
+ #define VLAN2				(0x124)
+ 
+ #define WUFF				(0x128)
++#define LAN9500_WUFF_NUM		(4)
++#define LAN9500A_WUFF_NUM		(8)
+ 
+ #define WUCSR				(0x12C)
++#define WUCSR_WFF_PTR_RST_		(0x80000000)
+ #define WUCSR_GUE_			(0x00000200)
+ #define WUCSR_WUFR_			(0x00000040)
+ #define WUCSR_MPR_			(0x00000020)
 -- 
-1.7.11.7
+1.7.9.5
