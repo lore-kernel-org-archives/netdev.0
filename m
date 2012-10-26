@@ -1,47 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next:master 79/82] net/core/sock.c:1267:3: error: too
- many arguments to function 'sock_update_classid'
-Date: Fri, 26 Oct 2012 05:07:20 -0400 (EDT)
-Message-ID: <20121026.050720.367513259148701730.davem@davemloft.net>
-References: <508a42d2./QGsZgSRCzpLxMff%fengguang.wu@intel.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [RFC PATCH net-next v2 2/5] rtnl/ipv6: use netconf msg to advertise forwarding status
+Date: Fri, 26 Oct 2012 10:03:54 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7070@saturn3.aculab.com>
+References: <20121023.132940.1732325493436273627.davem@davemloft.net><1351094579-3911-1-git-send-email-nicolas.dichtel@6wind.com><1351094579-3911-3-git-send-email-nicolas.dichtel@6wind.com> <20121026.021830.1470799532580844849.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel.wagner@bmw-carit.de, netdev@vger.kernel.org
-To: fengguang.wu@intel.com
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>, <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44866 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757792Ab2JZJHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 05:07:24 -0400
-In-Reply-To: <508a42d2./QGsZgSRCzpLxMff%fengguang.wu@intel.com>
+Received: from mx0.aculab.com ([213.249.233.131]:36466 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752156Ab2JZJNI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 05:13:08 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 19964-09 for <netdev@vger.kernel.org>;
+ Fri, 26 Oct 2012 10:13:03 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20121026.021830.1470799532580844849.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> > +static inline int inet6_netconf_msgsize_devconf(int type)
+> 
+> Outside of header files, we don't add explicit inlines, we let
+> the compiler decide.
 
-Fixed thusly:
+Hmmm.... In my experience it makes bad decisions,
+even for static functions that are only called once.
+And yes, I have checked that the inlined code is smaller
+and faster.
 
-[PATCH] net: Update args to dummy sock_update_classid().
-
-Only the real implementation got updated.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/cls_cgroup.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
-index 571de6e..2581638 100644
---- a/include/net/cls_cgroup.h
-+++ b/include/net/cls_cgroup.h
-@@ -61,7 +61,7 @@ static inline u32 task_cls_classid(struct task_struct *p)
- }
- #endif
- #else /* !CGROUP_NET_CLS_CGROUP */
--static inline void sock_update_classid(struct sock *sk)
-+static inline void sock_update_classid(struct sock *sk, struct task_struct *task)
- {
- }
- 
--- 
-1.7.11.7
+	David
