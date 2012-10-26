@@ -1,51 +1,47 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] sctp: Clean up type-punning in sctp_cmd_t union
-Date: Fri, 26 Oct 2012 10:00:13 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B706F@saturn3.aculab.com>
-References: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next:master 79/82] net/core/sock.c:1267:3: error: too
+ many arguments to function 'sock_update_classid'
+Date: Fri, 26 Oct 2012 05:07:20 -0400 (EDT)
+Message-ID: <20121026.050720.367513259148701730.davem@davemloft.net>
+References: <508a42d2./QGsZgSRCzpLxMff%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Vlad Yasevich" <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-sctp@vger.kernel.org>
-To: "Neil Horman" <nhorman@tuxdriver.com>, <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: daniel.wagner@bmw-carit.de, netdev@vger.kernel.org
+To: fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:36195 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752981Ab2JZJBL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 05:01:11 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 20025-01 for <netdev@vger.kernel.org>;
- Fri, 26 Oct 2012 10:01:06 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44866 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757792Ab2JZJHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 05:07:24 -0400
+In-Reply-To: <508a42d2./QGsZgSRCzpLxMff%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Subject: [PATCH] sctp: Clean up type-punning in sctp_cmd_t union
-...
-> +#define SCTP_NULL_BYTE 0xAA
->  static inline sctp_arg_t SCTP_NULL(void)
->  {
-> -	sctp_arg_t retval; retval.ptr = NULL; return retval;
-> +	sctp_arg_t retval;
-> +	memset(&retval, SCTP_NULL_BYTE, sizeof(sctp_arg_t));
-> +	return retval;
->  }
 
-You really don't want to be taking the address of a local
-variable that would normally be held in a register.
-It stops the compiler doing a lot of optimisations.
-In this case the structure is also being returned by value,
-not nice except that all(?) modern ABI do pass small structures
-in registers.
+Fixed thusly:
 
-An assignment of some member of the union to NULL would
-seem most appropriate.
-OTOH the code that uses this must be someones 'bright idea (tm)'
-that probably wasn't such a good idea after all.
+[PATCH] net: Update args to dummy sock_update_classid().
 
-	David
+Only the real implementation got updated.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/cls_cgroup.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
+index 571de6e..2581638 100644
+--- a/include/net/cls_cgroup.h
++++ b/include/net/cls_cgroup.h
+@@ -61,7 +61,7 @@ static inline u32 task_cls_classid(struct task_struct *p)
+ }
+ #endif
+ #else /* !CGROUP_NET_CLS_CGROUP */
+-static inline void sock_update_classid(struct sock *sk)
++static inline void sock_update_classid(struct sock *sk, struct task_struct *task)
+ {
+ }
+ 
+-- 
+1.7.11.7
