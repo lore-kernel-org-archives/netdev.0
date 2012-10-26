@@ -1,53 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Regarding bottlenecks for high speed packet generation
-Date: Fri, 26 Oct 2012 17:15:39 +0100
-Message-ID: <1351268139.2584.9.camel@bwh-desktop.uk.solarflarecom.com>
-References: <CADAe=++9KHUx3qX+2==+q0Fq44CJ9tjYcO=HdLYOF3FVuM5Vtg@mail.gmail.com>
-	 <CAD6jFUScXX0x7yU2f-Cq4B6RZdnQx4dkbADHBL9aYhzQmeKGgA@mail.gmail.com>
-	 <CADAe=+L2hXpYwH-XyNS2HyHQrMQRCmV_v-bs0Qp+sR-mVkzV4A@mail.gmail.com>
-	 <20121025.231814.962022530355865788.davem@davemloft.net>
-	 <CADAe=+LSeTWTnDk3o46EiLMQqJ6q93yVP_D3J2Ufcfy-_cv6RA@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] vxlan: don't expire permanent entries
+Date: Fri, 26 Oct 2012 09:24:34 -0700
+Message-ID: <20121026092434.4d735316@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <danborkmann@iogearbox.net>,
-	<netdev@vger.kernel.org>
-To: Ajith Adapa <adapa.ajith@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	John Southworth <john.southworth@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:18074 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S965038Ab2JZQPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 12:15:45 -0400
-In-Reply-To: <CADAe=+LSeTWTnDk3o46EiLMQqJ6q93yVP_D3J2Ufcfy-_cv6RA@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:56297 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965226Ab2JZQZV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2012 12:25:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-10-26 at 11:42 +0530, Ajith Adapa wrote:
-> > >
-> > > But does NAPI comes into picture in case of transmission of packets ?
-> >
-> > Reclaim of TX descriptors occurs via NAPI.
-> 
-> You mean for every packet sent by the NIC card it drops a interrupt to
-> reclaim the TX buffers used ?
+VXLAN confused flag versus bitmap on state.
+Based on part of a earlier patch by David Stevens.
 
-Not necessarily; completions may be batched in some way.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+---
+Applies to 3.7.0-rc2. Needs to be fixed in 3.7 series
 
-> I am not able to understand why does NIC has to interrupt back instead
-> of freeing the memory in background.
->
-> Might be it does add some bottleneck in my case of transmitting traffic bursts.
-
-The network core needs to account and limit how much memory is allocated
-to socket buffers.  Completed TX buffers should therefore be freed
-promptly, to avoid blocking the sending socket unnecessarily.  It
-doesn't strictly matter whether this is triggered by an IRQ from the NIC
-or by a timer, but it certainly must not be triggered by the next TX
-initiation as this may result in a kind of deadlock.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--- a/drivers/net/vxlan.c	2012-10-11 11:06:10.032585615 -0700
++++ b/drivers/net/vxlan.c	2012-10-26 09:19:30.734585097 -0700
+@@ -816,7 +816,7 @@ static void vxlan_cleanup(unsigned long
+ 				= container_of(p, struct vxlan_fdb, hlist);
+ 			unsigned long timeout;
+ 
+-			if (f->state == NUD_PERMANENT)
++			if (f->state & NUD_PERMANENT)
+ 				continue;
+ 
+ 			timeout = f->used + vxlan->age_interval * HZ;
