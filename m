@@ -1,73 +1,44 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: [net-next 10/14] ixgbevf: make sure probe fails on MSI-X enable
- error
-Date: Fri, 26 Oct 2012 09:32:21 -0700
-Message-ID: <20121026093221.000038cb@unknown>
-References: <1351252702-16532-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1351252702-16532-11-git-send-email-jeffrey.t.kirsher@intel.com>
-	<4F2EF616F787D840B1215485A0B91D1E5EF3AD@IRSMSX103.ger.corp.intel.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: RE: [PATCH -next] qla3xxx: use module_pci_driver to simplify the
+ code
+Date: Fri, 26 Oct 2012 09:32:49 -0700
+Message-ID: <5E4F49720D0BAD499EE1F01232234BA87744C0BAC0@AVEXMB1.qlogic.org>
+References: <CAPgLHd_Xu7TKZ_mqQ2r7A2GVCo+Us6kEggHc5d+hhg4Hh6cukA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Kicinski, Jakub" <jakub.kicinski@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>,
+	Ron Mercer <ron.mercer@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:46640 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965257Ab2JZQca (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2012 12:32:30 -0400
-In-Reply-To: <4F2EF616F787D840B1215485A0B91D1E5EF3AD@IRSMSX103.ger.corp.intel.com>
+Received: from db3ehsobe004.messaging.microsoft.com ([213.199.154.142]:8270
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S965301Ab2JZQdA convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2012 12:33:00 -0400
+In-Reply-To: <CAPgLHd_Xu7TKZ_mqQ2r7A2GVCo+Us6kEggHc5d+hhg4Hh6cukA@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 26 Oct 2012 12:43:12 +0000
-"Kicinski, Jakub" <jakub.kicinski@intel.com> wrote:
 
-> > From: Jakub Kicinski <jakub.kicinski@intel.com>
-> > 
-> > This driver cannot work without MSI-X interrupts so there is no
-> > mechanism to fall back to.
-> > 
-> > Signed-off-by: Jakub Kicinski <jakub.kicinski@intel.com>
-> > Acked-by: Greg Rose <gregory.v.rose@intel.com>
-> > Tested-by: Sibai Li <sibai.li@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 24
-> > +++++++++++------------ 1 file changed, 11 insertions(+), 13
-> > deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > index b5979ba..7ceccff 100644
-> > --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> > +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-> [...]
-> > @@ -1858,7 +1856,7 @@ static int
-> > ixgbevf_set_interrupt_capability(struct ixgbevf_adapter *adapter)
-> >  	for (vector = 0; vector < v_budget; vector++)
-> >  		adapter->msix_entries[vector].entry = vector;
-> > 
-> > -	ixgbevf_acquire_msix_vectors(adapter, v_budget);
-> > +	err = ixgbevf_acquire_msix_vectors(adapter, v_budget);
-> > 
-> >  	err = netif_set_real_num_tx_queues(netdev,
-> > adapter->num_tx_queues); if (err)
-> 
-> This is clearly wrong. My change was overtaken by:
-> 
-> commit 91e2b89b04d3f568dc4ec99f242a4a742061e399
-> Author: Greg Rose <gregory.v.rose@intel.com>
-> Date:   Wed Oct 3 00:57:23 2012 +0000
-> 
->     ixgbevf: Set the netdev number of Tx queues
-> 
-> Please drop this patch, I'll resend a fixed version to Greg.
 
-Yikes!  Yeah, that patch got munged somehow.  Thanks!
+>From: Wei Yongjun [mailto:weiyj.lk@gmail.com] 
+>Sent: Friday, October 26, 2012 8:03 AM
+>To: Jitendra Kalsaria; Ron Mercer
+>Cc: yongjun_wei@trendmicro.com.cn; Dept-Eng Linux Driver; netdev
+>Subject: [PATCH -next] qla3xxx: use module_pci_driver to simplify the code
+>
+>From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+>Use the module_pci_driver() macro to make the code simpler
+>by eliminating module_init and module_exit calls.
+>
+>dpatch engine is used to auto generate this patch.
+>(https://github.com/weiyj/dpatch)
+>
+>Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-- Greg
+Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
