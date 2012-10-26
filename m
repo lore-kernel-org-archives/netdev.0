@@ -1,85 +1,119 @@
-From: roy.qing.li@gmail.com
-Subject: [RFC PATCH net-next] ipv6: remove rt6i_peer_genid from rt6_info and its handler
-Date: Fri, 26 Oct 2012 21:01:59 +0800
-Message-ID: <1351256519-7704-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: Clean up type-punning in sctp_cmd_t union
+Date: Fri, 26 Oct 2012 09:24:22 -0400
+Message-ID: <20121026132422.GA25087@hmsreliant.think-freely.org>
+References: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
+ <5089B237.6010902@gmail.com>
+ <20121025235843.GA13809@neilslaptop.think-freely.org>
+ <508A0800.10404@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35932 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751280Ab2JZNCG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 09:02:06 -0400
-Received: by mail-pa0-f46.google.com with SMTP id hz1so1916461pad.19
-        for <netdev@vger.kernel.org>; Fri, 26 Oct 2012 06:02:05 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52617 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756256Ab2JZNYm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 09:24:42 -0400
+Content-Disposition: inline
+In-Reply-To: <508A0800.10404@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
+On Thu, Oct 25, 2012 at 11:48:16PM -0400, Vlad Yasevich wrote:
+> On 10/25/2012 07:58 PM, Neil Horman wrote:
+> >On Thu, Oct 25, 2012 at 05:42:15PM -0400, Vlad Yasevich wrote:
+> >>On 10/25/2012 04:47 PM, Neil Horman wrote:
+> >>>Lots of points in the sctp_cmd_interpreter function treat the sctp_cmd_t arg as
+> >>>a void pointer, even though they are written as various other types.  Theres no
+> >>>need for this as doing so just leads to possible type-punning issues that could
+> >>>cause crashes, and if we remain type-consistent we can actually just remove the
+> >>>void * member of the union entirely.
+> >>>
+> >>>Signed-off-by: Neil Horman <nhorman@tuxdriver.com
+> >>>CC: Vlad Yasevich <vyasevich@gmail.com>
+> >>>CC: "David S. Miller" <davem@davemloft.net>
+> >>>CC: linux-sctp@vger.kernel.org
+> >>>---
+> >>>  include/net/sctp/command.h  |  7 ++++---
+> >>>  include/net/sctp/ulpqueue.h |  2 +-
+> >>>  net/sctp/sm_sideeffect.c    | 45 ++++++++++++++++++++++-----------------------
+> >>>  net/sctp/ulpqueue.c         |  3 +--
+> >>>  4 files changed, 28 insertions(+), 29 deletions(-)
+> >>>
+> >>>diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+> >>>index 712b3be..7f1b0f3 100644
+> >>>--- a/include/net/sctp/command.h
+> >>>+++ b/include/net/sctp/command.h
+> >>>@@ -131,7 +131,6 @@ typedef union {
+> >>>  	sctp_state_t state;
+> >>>  	sctp_event_timeout_t to;
+> >>>  	unsigned long zero;
+> >>>-	void *ptr;
+> >>>  	struct sctp_chunk *chunk;
+> >>>  	struct sctp_association *asoc;
+> >>>  	struct sctp_transport *transport;
+> >>>@@ -154,9 +153,12 @@ typedef union {
+> >>>   * which takes an __s32 and returns a sctp_arg_t containing the
+> >>>   * __s32.  So, after foo = SCTP_I32(arg), foo.i32 == arg.
+> >>>   */
+> >>>+#define SCTP_NULL_BYTE 0xAA
+> >>>  static inline sctp_arg_t SCTP_NULL(void)
+> >>>  {
+> >>>-	sctp_arg_t retval; retval.ptr = NULL; return retval;
+> >>>+	sctp_arg_t retval;
+> >>>+	memset(&retval, SCTP_NULL_BYTE, sizeof(sctp_arg_t));
+> >>>+	return retval;
+> >>
+> >>What's this for?  Can't we just use retval.zero?
+> >>
+> >>-vlad
+> >>
+> >My intent was to highlight any users of sctp_arg_t when SCTP_NULL was passed.
+> >My thinking was that the 0xAA byte patern would be a good indicator.  Although,
+> >admittedly I didn't see the zero argument there.  Looking at it though, the zero
+> >member of the union is effectively unused.  Strictly speaking its used for
+> >initalization of sctp_arg_t, but its done somewhat poorly, since theres no
+> >guarantee that an unsigned long will be the largest member of that union.  Doing
+> >the memset guarantees the whole instance is set to a predefined value.
+> >
+> >I could go either way with this, would you rather we just have SCTP_NULL return
+> >retval = { .zero = 0}; or would you rather remove the zero initialization from
+> >SCTP_[NO]FORCE, and SCTP_ARG_CONSTRUCTOR and do the memset.  I think the memset
+> >reduces to a single 64 bit assignment as long as the union doesn't exceed that
+> >size anyway, and it ensures that you initalize the whole union's storage if it
+> >does in the future.  And if we remove the initialization step (I don't see that
+> >its needed in the three macros above anyway), then we can remove the zero member
+> >as well.
+> >
+> 
+> You need the initialization step, otherwise things might fail (they
+> did on IA64 a while back).  That's why the zero member was added.
+> You can go with memset if you want, but I was primarily wondering
+> why the 0xAA pattern was there.
+> 
+The AA I did was just meant as a pattern marker, so that, should someone use an
+instance of sctp_arg_t that was passed in as SCTP_NULL(), it would be visually
+obvious in the stack trace, but I suppose its not really needed given that NULL
+is equally clear.  And since Dave pointed out the lack of optimization
+opportunity when using a store to an address rather than a register, I think I
+should probably just revert it and use zero as you initially suggested.
 
-6431cbc25f(Create a mechanism for upward inetpeer propagation into routes)
-introduces these codes, but this mechanism is never enabled since
-rt6i_peer_genid always is zero whether it is not assigned or assigned by
-rt6_peer_genid(). After 5943634fc5 (ipv4: Maintain redirect and PMTU info
-in struct rtable again), the ipv4 related codes of this mechanism have been
-removed, I think we maybe able to remove them now.
+The need for the initalization in SCTP_[NO]FORCE and SCTP_ARG_CONSTRUCTOR
+concerns me though.  All its doing is setting part of the storage to zero, and
+then overwriting it again with whatever type spcific member you're assigning
+from the corresponding SCTP_* macro.  That kind of sounds to me like ia64 might
+have fallen to some amount of type-punning problem.  do you have a link to
+discussion about that problem?
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- include/net/ip6_fib.h |    1 -
- net/ipv6/route.c      |   16 ++--------------
- 2 files changed, 2 insertions(+), 15 deletions(-)
+Regards
+Neil
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 20210d7..26210cf 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -117,7 +117,6 @@ struct rt6_info {
- 	struct rt6key			rt6i_src;
- 	struct rt6key			rt6i_prefsrc;
- 	u32				rt6i_metric;
--	u32				rt6i_peer_genid;
- 
- 	struct inet6_dev		*rt6i_idev;
- 	unsigned long			_rt6i_peer;
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c42650c..6ceee24 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -321,13 +321,6 @@ static void ip6_dst_destroy(struct dst_entry *dst)
- 	}
- }
- 
--static atomic_t __rt6_peer_genid = ATOMIC_INIT(0);
--
--static u32 rt6_peer_genid(void)
--{
--	return atomic_read(&__rt6_peer_genid);
--}
--
- void rt6_bind_peer(struct rt6_info *rt, int create)
- {
- 	struct inet_peer_base *base;
-@@ -341,8 +334,6 @@ void rt6_bind_peer(struct rt6_info *rt, int create)
- 	if (peer) {
- 		if (!rt6_set_peer(rt, peer))
- 			inet_putpeer(peer);
--		else
--			rt->rt6i_peer_genid = rt6_peer_genid();
- 	}
- }
- 
-@@ -1100,11 +1091,8 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
- 		return NULL;
- 
- 	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie)) {
--		if (rt->rt6i_peer_genid != rt6_peer_genid()) {
--			if (!rt6_has_peer(rt))
--				rt6_bind_peer(rt, 0);
--			rt->rt6i_peer_genid = rt6_peer_genid();
--		}
-+		if (!rt6_has_peer(rt))
-+			rt6_bind_peer(rt, 0);
- 		return dst;
- 	}
- 	return NULL;
--- 
-1.7.4.1
+> -vlad
+> >Let me know what you want to do here, and I can respin this.
+> >Best
+> >Neil
+> >
+> 
+> 
