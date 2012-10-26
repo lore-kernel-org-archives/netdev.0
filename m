@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: usb: Fix memory leak on Tx data path
-Date: Fri, 26 Oct 2012 03:43:48 -0400 (EDT)
-Message-ID: <20121026.034348.679271630151161129.davem@davemloft.net>
-References: <1351225074-2078-1-git-send-email-hemantk@codeaurora.org>
-	<4122165.gxBpJlT6o2@linux-lqwf.site>
+Subject: Re: [PATCH] qmi_wwan/cdc_ether: move Novatel 551 and E362 to
+ qmi_wwan
+Date: Fri, 26 Oct 2012 03:44:45 -0400 (EDT)
+Message-ID: <20121026.034445.1640490757070033659.davem@davemloft.net>
+References: <1351103720.6544.34.camel@dcbw.foobar.com>
+	<87objr659w.fsf@nemi.mork.no>
+	<1351116634.16726.6.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hemantk@codeaurora.org, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org
-To: oneukum@suse.de
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <4122165.gxBpJlT6o2@linux-lqwf.site>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bjorn@mork.no, aleksander@gnu.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: dcbw@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44359 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756842Ab2JZHor (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 03:44:47 -0400
+In-Reply-To: <1351116634.16726.6.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oneukum@suse.de>
-Date: Fri, 26 Oct 2012 09:39:16 +0200
+From: Dan Williams <dcbw@redhat.com>
+Date: Wed, 24 Oct 2012 17:10:34 -0500
 
-> On Thursday 25 October 2012 21:17:54 Hemant Kumar wrote:
->> Driver anchors the tx urbs and defers the urb submission if
->> a transmit request comes when the interface is suspended.
->> Anchoring urb increments the urb reference count. These
->> deferred urbs are later accessed by calling usb_get_from_anchor()
->> for submission during interface resume. usb_get_from_anchor()
->> unanchors the urb but urb reference count remains same.
->> This causes the urb reference count to remain non-zero
->> after usb_free_urb() gets called and urb never gets freed.
->> Hence call usb_put_urb() after anchoring the urb to properly
->> balance the reference count for these deferred urbs. Also,
->> unanchor these deferred urbs during disconnect, to free them
->> up.
+> These devices provide QMI and ethernet functionality via a standard CDC
+> ethernet descriptor.  But when driven by cdc_ether, the QMI
+> functionality is unavailable because only cdc_ether can claim the USB
+> interface.  Thus blacklist the devices in cdc_ether and add their IDs to
+> qmi_wwan, which enables both QMI and ethernet simultaneously.
 > 
-> Good catch. This needs to go into stable, too.
->> 
->> Signed-off-by: Hemant Kumar <hemantk@codeaurora.org>
-> Acked-by: Oliver Neukum <oneukum@suse.de>
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
 
-Applied and queued up for -stable.
+Applied, thanks.
