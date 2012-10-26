@@ -1,67 +1,45 @@
 From: pablo@netfilter.org
-Subject: [PATCH 7/8] ipvs: SIP fragment handling
-Date: Fri, 26 Oct 2012 11:24:37 +0200
-Message-ID: <1351243478-4852-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/8] ipvs: Use config macro IS_ENABLED()
+Date: Fri, 26 Oct 2012 11:24:33 +0200
+Message-ID: <1351243478-4852-4-git-send-email-pablo@netfilter.org>
 References: <1351243478-4852-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:59588 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756114Ab2JZJYv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2012 05:24:51 -0400
 In-Reply-To: <1351243478-4852-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Use the nfct_reasm SKB if available.
+Cleanup patch.
 
-Based on part of a patch from: Hans Schillstrom
-I have left Hans'es comment in the patch (marked /HS)
+Use the IS_ENABLED macro, instead of having to check
+both the build and the module CONFIG_ option.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Acked-by: Julian Anastasov <ja@ssi.bg>
-[ horms@verge.net.au: Fix comment style ]
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_pe_sip.c |   16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ include/net/ip_vs.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
-index ee4e2e3..12475ef 100644
---- a/net/netfilter/ipvs/ip_vs_pe_sip.c
-+++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
-@@ -68,6 +68,7 @@ static int get_callid(const char *dptr, unsigned int dataoff,
- static int
- ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
- {
-+	struct sk_buff *reasm = skb_nfct_reasm(skb);
- 	struct ip_vs_iphdr iph;
- 	unsigned int dataoff, datalen, matchoff, matchlen;
- 	const char *dptr;
-@@ -78,13 +79,20 @@ ip_vs_sip_fill_param(struct ip_vs_conn_param *p, struct sk_buff *skb)
- 	/* Only useful with UDP */
- 	if (iph.protocol != IPPROTO_UDP)
- 		return -EINVAL;
-+	/* todo: IPv6 fragments:
-+	 *       I think this only should be done for the first fragment. /HS
-+	 */
-+	if (reasm) {
-+		skb = reasm;
-+		dataoff = iph.thoff_reasm + sizeof(struct udphdr);
-+	} else
-+		dataoff = iph.len + sizeof(struct udphdr);
- 
--	/* No Data ? */
--	dataoff = iph.len + sizeof(struct udphdr);
- 	if (dataoff >= skb->len)
- 		return -EINVAL;
--
--	if ((retc=skb_linearize(skb)) < 0)
-+	/* todo: Check if this will mess-up the reasm skb !!! /HS */
-+	retc = skb_linearize(skb);
-+	if (retc < 0)
- 		return retc;
- 	dptr = skb->data + dataoff;
- 	datalen = skb->len - dataoff;
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index aba0bb2..c8b2bdb 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -22,7 +22,7 @@
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>			/* for struct ipv6hdr */
+ #include <net/ipv6.h>
+-#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+ #include <net/netfilter/nf_conntrack.h>
+ #endif
+ #include <net/net_namespace.h>		/* Netw namespace */
 -- 
 1.7.10.4
-
