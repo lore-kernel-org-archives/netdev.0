@@ -1,37 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] IPVS updates for net-next tree
-Date: Fri, 26 Oct 2012 14:50:06 -0400 (EDT)
-Message-ID: <20121026.145006.1534097522946444293.davem@davemloft.net>
-References: <1351243478-4852-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH v2 0/9] net/macb: driver enhancement concerning GEM
+ support, ring logic and cleanup
+Date: Fri, 26 Oct 2012 14:59:38 -0400 (EDT)
+Message-ID: <20121026.145938.2087989420370212890.davem@davemloft.net>
+References: <cover.1348055112.git.nicolas.ferre@atmel.com>
+	<508AAB54.9010506@atmel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49983 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753974Ab2JZSuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 14:50:07 -0400
-In-Reply-To: <1351243478-4852-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: manabian@gmail.com, netdev@vger.kernel.org, havard@skinnemoen.net,
+	bhutchings@solarflare.com, linux-arm-kernel@lists.infradead.org,
+	plagnioj@jcrosoft.com, patrice.vilchez@atmel.com,
+	linux-kernel@vger.kernel.org
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <508AAB54.9010506@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: pablo@netfilter.org
-Date: Fri, 26 Oct 2012 11:24:30 +0200
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Date: Fri, 26 Oct 2012 17:25:08 +0200
 
-> The following changeset contains updates for IPVS from Jesper Dangaard
-> Brouer that did not reach the previous merge window in time.
+> David,
 > 
-> More specifically, updates to improve IPv6 support in IPVS. More
-> relevantly, some of the existing code performed wrong handling of the
-> extensions headers and better fragmentation handling.
+> On 09/19/2012 01:55 PM, Nicolas Ferre :
+>> This is an enhancement work that began several years ago. I try to catchup with
+>> some performance improvement that has been implemented then by Havard.
+>> The ring index logic and the TX error path modification are the biggest changes
+>> but some cleanup/debugging have been added along the way.
+>> The GEM revision will benefit from the Gigabit support.
+>> 
+>> The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
+>> flavors.
+>> 
+>> v2: - modify the tx error handling: now uses a workqueue
+>>     - information provided by ethtool -i were not accurate: removed
 > 
-> Jesper promised more follow-up patches to refine this after this batch
-> hits net-next. Yet to come.
-> 
-> You can pull these changes from:
-> 
-> git://1984.lsi.us.es/nf-next master
+> I am about to re-send this patch series. Should I rebase it on top of
+> Joachim's recent modifications? I mean, I plan to rebase them on top of
+> net-next, is it the proper thing to do?
 
-Pulled, thanks.
+You should always base your patch on whatever tree you want your patches
+applied to.
+
+If you have a dependency on something not in that tree (for example, you
+need something in the 'net' tree) you have to tell me.
