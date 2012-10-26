@@ -1,90 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net_sched: more precise pkt_len computation
-Date: Fri, 26 Oct 2012 11:32:50 +0200
-Message-ID: <1351243970.6537.321.camel@edumazet-glaptop>
-References: <1350965711-4390-1-git-send-email-amwang@redhat.com>
-	 <F36C0EC1-0A4C-48FB-ABF3-A89575A9287E@unimore.it>
-	 <1350982432.26308.8.camel@cr0>
-	 <58DEB62C-6237-435E-8300-8E390F101F58@unimore.it>
-	 <1351239007.6537.291.camel@edumazet-glaptop>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v4] Network driver for the Armada 370 and Armada XP ARM Marvell SoCs
+Date: Fri, 26 Oct 2012 12:03:20 +0200
+Message-ID: <1351245804-31478-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Paolo Valente <paolo.valente@unimore.it>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Maen Suleiman <maen@marvell.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Lennert Buytenhek <kernel@wantstofly.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:48966 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755932Ab2JZJcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 05:32:54 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1165009bkc.19
-        for <netdev@vger.kernel.org>; Fri, 26 Oct 2012 02:32:52 -0700 (PDT)
-In-Reply-To: <1351239007.6537.291.camel@edumazet-glaptop>
+Received: from mail.free-electrons.com ([88.190.12.23]:45229 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753780Ab2JZKEH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 06:04:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+David, Lennert,
 
-One long standing problem with TSO/GSO/GRO packets is that skb->len
-doesnt represent a precise amount of bytes on wire.
+This patch set adds a new network driver for the network unit
+available in the newest Marvell ARM SoCs Armada 370 and Armada XP, as
+well as the necessary Device Tree information to use this driver in
+the two evaluation platforms of those SoCs.
 
-Headers are only accounted for the first segment.
-For TCP, thats typically 66 bytes per 1448 bytes segment missing,
-an error of 4.5 %
+In details:
 
-As consequences :
+ * Patch 1 contains the driver itself. The commit log contains a
+   detailed explanation about why a new driver is needed for this new
+   Marvell SoC, compared to older Marvell SoCs (Orion, Kirkwood, Dove)
+   that use the mv643xx_eth driver.
 
-1) TBF/CBQ/HTB/NETEM/... can send more bytes than the assigned limits.
-2) Device stats are slightly under estimated as well.
+ * Patch 2 adds the necessary entry to the MAINTAINERS file.
 
-Fix this by taking account of headers in qdisc_skb_cb(skb)->pkt_len
-computation.
+ * Patch 3 adds the SoC-level Device Tree information for Armada 370
+   and Armada XP.
 
-Packet schedulers should use pkt_len instead of skb->len for their
-bandwidth limitations, and TSO enabled devices drivers could use pkt_len
-if their statistics are not hardware assisted, and if they dont scratch
-skb->cb[] first word.
+ * Patch 4 adds the board-level Device Tree information for the
+   Marvell evaluation boards of Armada 370 and Armada XP.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: Paolo Valente <paolo.valente@unimore.it>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Patrick McHardy <kaber@trash.net>
----
- net/core/dev.c |   11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
+Changes since v3:
+ * Use phy_find_first() to get the correct PHY. Suggested by Florian
+   Fainelli.
+ * Make pp->cause_rx_tx a simple variable instead of a per-CPU array
+   since it is not useful. Fixes a comment raised by David Miller.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b4978e2..cf2b5f4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2442,7 +2442,6 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
- 	bool contended;
- 	int rc;
- 
--	qdisc_skb_cb(skb)->pkt_len = skb->len;
- 	qdisc_calculate_pkt_len(skb, q);
- 	/*
- 	 * Heuristic to force contended enqueues to serialize on a
-@@ -2579,6 +2578,16 @@ int dev_queue_xmit(struct sk_buff *skb)
- 	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_EGRESS);
- #endif
- 	trace_net_dev_queue(skb);
-+	qdisc_skb_cb(skb)->pkt_len = skb->len;
-+	if (skb_is_gso(skb)) {
-+		unsigned int hdr_len = skb_transport_offset(skb);
-+
-+		if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))
-+			hdr_len += tcp_hdrlen(skb);
-+		else
-+			hdr_len += sizeof(struct udphdr);
-+		qdisc_skb_cb(skb)->pkt_len += (skb_shinfo(skb)->gso_segs - 1) * hdr_len;
-+	}
- 	if (q->enqueue) {
- 		rc = __dev_xmit_skb(skb, q, dev, txq);
- 		goto out;
+Changes since v2:
+ * Change compatible string from 'marvell,neta' to
+   'marvell,armada-370-neta'. Requested by Rob Herring.
+ * Rename Ethernet DT nodes from eth@... to ethernet@... Requested by
+   Rob Herring.
+ * Remove device_type DT property. Requested by Rob Herring.
+ * Change the PHY interface for eth0/eth1 to be rgmii-id, which allows
+   to enable TX/RX delay mechanisms at the PHY level. This fixes CRC
+   errors on received packets during iperf tests (it was a bug in v2).
+ * Remove the mvneta_ prefix from module parameters. Requested by
+   Baruch Siach.
+ * Many code style improvements suggested by Fran=C3=A7ois Romieu.
+ * Properly stop/restart the TX queue when the number of TX
+   descriptors available becomes low, instead of returning
+   NETDEV_TX_BUSY. Requested by Fran=C3=A7ois Romieu.
+ * Properly drop packets on the TX path when DMA mapping functions
+   return an error, instead of returning NETDEV_TX_BUSY. Requested by
+   Fran=C3=A7ois Romieu.
+ * Rebased on top of Linux 3.7-rc2.
+
+Changes since v1:
+ * Reduced the Cc: list in order to make the patch set acceptable for
+   the netdev@ mailing list.
+ * Merge the mvneta.h contents into mvneta.c, since the header was
+   only used by the driver. Requested by Arnd Bergmann.
+ * Completely reorganize the organization of the register list and
+   register values, in order to make it more consistent, and hopefully
+   easier to read (especially easier to match register values with the
+   corresponding register).
+ * Integrate with the phylib, as suggested by Florian Fainelli, and
+   remove the link management code that has become useless as the
+   result of this integration
+ * Fix many small details suggested by Florian Fainelli in his review
+   of the first driver
+ * Simplify various parts of the driver (descriptors array allocation,
+   data structures, etc.)
+
+Thanks,
+
+Thomas Petazzoni
