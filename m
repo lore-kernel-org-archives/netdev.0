@@ -1,45 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/1] tcp: Prevent needless syn-ack rexmt
- during TWHS
-Date: Fri, 26 Oct 2012 07:32:09 +0200
-Message-ID: <1351229529.6537.284.camel@edumazet-glaptop>
-References: <1351212356-11964-1-git-send-email-subramanian.vijay@gmail.com>
-	 <1351227971.6537.278.camel@edumazet-glaptop>
+From: Ajith Adapa <adapa.ajith@gmail.com>
+Subject: Re: Regarding bottlenecks for high speed packet generation
+Date: Fri, 26 Oct 2012 11:42:28 +0530
+Message-ID: <CADAe=+LSeTWTnDk3o46EiLMQqJ6q93yVP_D3J2Ufcfy-_cv6RA@mail.gmail.com>
+References: <CADAe=++9KHUx3qX+2==+q0Fq44CJ9tjYcO=HdLYOF3FVuM5Vtg@mail.gmail.com>
+ <CAD6jFUScXX0x7yU2f-Cq4B6RZdnQx4dkbADHBL9aYhzQmeKGgA@mail.gmail.com>
+ <CADAe=+L2hXpYwH-XyNS2HyHQrMQRCmV_v-bs0Qp+sR-mVkzV4A@mail.gmail.com> <20121025.231814.962022530355865788.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	Elliot Hughes <enh@google.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: danborkmann@iogearbox.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:49421 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753804Ab2JZFc1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 01:32:27 -0400
-Received: by mail-wi0-f172.google.com with SMTP id hq12so86985wib.1
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 22:32:26 -0700 (PDT)
-In-Reply-To: <1351227971.6537.278.camel@edumazet-glaptop>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:35418 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755033Ab2JZGM7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 02:12:59 -0400
+Received: by mail-oa0-f46.google.com with SMTP id h16so2357821oag.19
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 23:12:59 -0700 (PDT)
+In-Reply-To: <20121025.231814.962022530355865788.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-10-26 at 07:06 +0200, Eric Dumazet wrote:
+> >
+> > But does NAPI comes into picture in case of transmission of packets ?
+>
+> Reclaim of TX descriptors occurs via NAPI.
 
-> About earlier patch, this would break :
-> 
-> tcp_abort_on_overflow - BOOLEAN
-...
-> And even if tcp_abort_on_overflow is TRUE, earlier patch would break
-> some ability to have a momentary burst of SYN packets above the listen()
-> backlog.
+You mean for every packet sent by the NIC card it drops a interrupt to
+reclaim the TX buffers used ?
+I am not able to understand why does NIC has to interrupt back instead
+of freeing the memory in background.
 
-So instead of sending SYNACK immediately, we could try to defer it a
-bit.
+Might be it does add some bottleneck in my case of transmitting traffic bursts.
 
-But before adding yet another trick, we should evaluate if this is
-really needed.
-
-The timer wheel we currently use on the listener socket limits us
-because of the granularity of the timer (one single timer for all
-requests)
+Regards,
+Ajith
