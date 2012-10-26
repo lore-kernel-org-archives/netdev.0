@@ -1,34 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 00/11] usbnet: usb_control_msg cleanup
-Date: Fri, 26 Oct 2012 03:37:11 -0400 (EDT)
-Message-ID: <20121026.033711.358966728996356537.davem@davemloft.net>
-References: <1351144024-16596-1-git-send-email-ming.lei@canonical.com>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH] net: usb: Fix memory leak on Tx data path
+Date: Fri, 26 Oct 2012 09:39:16 +0200
+Message-ID: <4122165.gxBpJlT6o2@linux-lqwf.site>
+References: <1351225074-2078-1-git-send-email-hemantk@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1351144024-16596-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org
+To: Hemant Kumar <hemantk@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <1351225074-2078-1-git-send-email-hemantk@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Date: Thu, 25 Oct 2012 13:46:53 +0800
+On Thursday 25 October 2012 21:17:54 Hemant Kumar wrote:
+> Driver anchors the tx urbs and defers the urb submission if
+> a transmit request comes when the interface is suspended.
+> Anchoring urb increments the urb reference count. These
+> deferred urbs are later accessed by calling usb_get_from_anchor()
+> for submission during interface resume. usb_get_from_anchor()
+> unanchors the urb but urb reference count remains same.
+> This causes the urb reference count to remain non-zero
+> after usb_free_urb() gets called and urb never gets freed.
+> Hence call usb_put_urb() after anchoring the urb to properly
+> balance the reference count for these deferred urbs. Also,
+> unanchor these deferred urbs during disconnect, to free them
+> up.
 
-> This patch set introduces 3 helpers for handling usb read, write
-> and write_async command, and replaces the low level's implemention
-> with the generic ones.
+Good catch. This needs to go into stable, too.
 > 
-> This patchset is a cleanup and about 300 lines code is saved.
-> 
-> Also, the patchset fixes problem of DMA on buffer embedded inside
-> one dynamic allocated buffer, and such usages can be found
-> in cdc-ncm, sierra_net, mcs7830 and asix drivers.
+> Signed-off-by: Hemant Kumar <hemantk@codeaurora.org>
+Acked-by: Oliver Neukum <oneukum@suse.de>
 
-All applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Regards
+		Oliver
