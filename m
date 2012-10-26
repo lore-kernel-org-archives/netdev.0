@@ -1,53 +1,65 @@
-From: Devendra Naga <devendra.aaru@gmail.com>
-Subject: [PATCH] dlink: dl2k: use the module_pci_driver macro
-Date: Fri, 26 Oct 2012 15:29:00 -0400
-Message-ID: <1351279740-16519-1-git-send-email-devendra.aaru@gmail.com>
-Cc: Devendra Naga <devendra.aaru@gmail.com>
-To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+From: "Gasparakis, Joseph" <joseph.gasparakis@intel.com>
+Subject: RE: [RFC PATCH 1/2] net: Add support for hardware-offloaded
+ encapsulation
+Date: Fri, 26 Oct 2012 19:54:12 +0000
+Message-ID: <F9D617782E85934FB0AD6CD1BA0C8EE7324B7663@ORSMSX101.amr.corp.intel.com>
+References: <1351189753-5912-1-git-send-email-joseph.gasparakis@intel.com>
+	 <1351189753-5912-2-git-send-email-joseph.gasparakis@intel.com>
+	 <20121025141656.5383dabe@nehalam.linuxnetplumber.net>
+ <1351203635.2662.73.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"chrisw@sous-sol.org" <chrisw@sous-sol.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:51707 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966098Ab2JZT3K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 15:29:10 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rr4so2977244pbb.19
-        for <netdev@vger.kernel.org>; Fri, 26 Oct 2012 12:29:09 -0700 (PDT)
+Received: from mga09.intel.com ([134.134.136.24]:24178 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966277Ab2JZTyO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2012 15:54:14 -0400
+In-Reply-To: <1351203635.2662.73.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-use the module_pci_driver macro to make the code simpler
-by eliminating module_init and module_exit calls.
-
-Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
----
- drivers/net/ethernet/dlink/dl2k.c |   16 +---------------
- 1 file changed, 1 insertion(+), 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/dlink/dl2k.c b/drivers/net/ethernet/dlink/dl2k.c
-index a059f0c..2fb01bf 100644
---- a/drivers/net/ethernet/dlink/dl2k.c
-+++ b/drivers/net/ethernet/dlink/dl2k.c
-@@ -1758,21 +1758,7 @@ static struct pci_driver rio_driver = {
- 	.remove		= __devexit_p(rio_remove1),
- };
- 
--static int __init
--rio_init (void)
--{
--	return pci_register_driver(&rio_driver);
--}
--
--static void __exit
--rio_exit (void)
--{
--	pci_unregister_driver (&rio_driver);
--}
--
--module_init (rio_init);
--module_exit (rio_exit);
--
-+module_pci_driver(rio_driver);
- /*
- 
- Compile command:
--- 
-1.7.9.5
+U3RlcGhlbiwgYXJlIHlvdSBoYXBweSB3aXRoIEJlbidzIGNvbW1lbnQ/DQpJZiB0aGF0IGlzIHRo
+ZSBjYXNlIEkgd291bGQgcHJlZmVyIHRvIGtlZXAgdGhlIHBhdGNoIGFzIGlzIGFzIEkgYmVsaWV2
+ZSBpdCBtYWtlcyBzZW5zZSB0byBncm91cCB0aGUgZmVhdHVyZXMgdGhhdCB3YXkuDQoNCi0tLS0t
+T3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86Ymh1dGNo
+aW5nc0Bzb2xhcmZsYXJlLmNvbV0gDQpTZW50OiBUaHVyc2RheSwgT2N0b2JlciAyNSwgMjAxMiAz
+OjIxIFBNDQpUbzogU3RlcGhlbiBIZW1taW5nZXINCkNjOiBHYXNwYXJha2lzLCBKb3NlcGg7IGRh
+dmVtQGRhdmVtbG9mdC5uZXQ7IGNocmlzd0Bzb3VzLXNvbC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmc7IFdhc2tpZXdpY3ogSnIsIFBldGVyIFANClN1YmplY3Q6IFJlOiBbUkZDIFBBVENIIDEv
+Ml0gbmV0OiBBZGQgc3VwcG9ydCBmb3IgaGFyZHdhcmUtb2ZmbG9hZGVkIGVuY2Fwc3VsYXRpb24N
+Cg0KT24gVGh1LCAyMDEyLTEwLTI1IGF0IDE0OjE2IC0wNzAwLCBTdGVwaGVuIEhlbW1pbmdlciB3
+cm90ZToNCj4gT24gVGh1LCAyNSBPY3QgMjAxMiAxMToyOToxMiAtMDcwMA0KPiBKb3NlcGggR2Fz
+cGFyYWtpcyA8am9zZXBoLmdhc3BhcmFraXNAaW50ZWwuY29tPiB3cm90ZToNCj4gDQo+ID4gQEAg
+LTE5LDYgKzE5LDcgQEAgZW51bSB7DQo+ID4gIAlORVRJRl9GX0lQX0NTVU1fQklULAkJLyogQ2Fu
+IGNoZWNrc3VtIFRDUC9VRFAgb3ZlciBJUHY0LiAqLw0KPiA+ICAJX19VTlVTRURfTkVUSUZfRl8x
+LA0KPiA+ICAJTkVUSUZfRl9IV19DU1VNX0JJVCwJCS8qIENhbiBjaGVja3N1bSBhbGwgdGhlIHBh
+Y2tldHMuICovDQo+ID4gKwlORVRJRl9GX0hXX0NTVU1fRU5DX0JJVCwJLyogQ2FuIGNoZWNrc3Vt
+IGFsbCBpbm5lciBoZWFkZXJzICovDQo+ID4gIAlORVRJRl9GX0lQVjZfQ1NVTV9CSVQsCQkvKiBD
+YW4gY2hlY2tzdW0gVENQL1VEUCBvdmVyIElQVjYgKi8NCj4gPiAgCU5FVElGX0ZfSElHSERNQV9C
+SVQsCQkvKiBDYW4gRE1BIHRvIGhpZ2ggbWVtb3J5LiAqLw0KPiA+ICAJTkVUSUZfRl9GUkFHTElT
+VF9CSVQsCQkvKiBTY2F0dGVyL2dhdGhlciBJTy4gKi8NCj4gPiBAQCAtNTIsNiArNTMsOCBAQCBl
+bnVtIHsNCj4gPiAgCU5FVElGX0ZfTlRVUExFX0JJVCwJCS8qIE4tdHVwbGUgZmlsdGVycyBzdXBw
+b3J0ZWQgKi8NCj4gPiAgCU5FVElGX0ZfUlhIQVNIX0JJVCwJCS8qIFJlY2VpdmUgaGFzaGluZyBv
+ZmZsb2FkICovDQo+ID4gIAlORVRJRl9GX1JYQ1NVTV9CSVQsCQkvKiBSZWNlaXZlIGNoZWNrc3Vt
+bWluZyBvZmZsb2FkICovDQo+ID4gKwlORVRJRl9GX1JYQ1NVTV9FTkNfQklULAkJLyogUmVjZWl2
+ZSBjaGVja3N1bWluZyBvZmZsb2FkICovDQo+ID4gKwkJCQkJLyogZm9yIGVuY2Fwc3VsYXRpb24g
+Ki8NCj4gPiAgCU5FVElGX0ZfTk9DQUNIRV9DT1BZX0JJVCwJLyogVXNlIG5vLWNhY2hlIGNvcHlm
+cm9tdXNlciAqLw0KPiA+ICAJTkVUSUZfRl9MT09QQkFDS19CSVQsCQkvKiBFbmFibGUgbG9vcGJh
+Y2sgKi8NCj4gPiAgCU5FVElGX0ZfUlhGQ1NfQklULAkJLyogQXBwZW5kIEZDUyB0byBza2IgcGt0
+IGRhdGEgKi8NCj4gDQo+IEFkZCBuZXcgZmVhdHVyZXMgYXQgdGhlIGVuZCwgb3IgcmV1c2UgX19V
+TlVTRURfIGJpdHMgdG8gYXZvaWQgYW55IA0KPiBpc3N1ZXMgd2l0aCBiaW5hcnkgY29tcGF0aWJp
+bGl0eS4gSSBkb24ndCB0aGluayB0aGVzZSBiaXRzIGFyZSBpbiBhbnkgDQo+IHVzZXJzcGFjZSBB
+UEksIG1heWJlIGV0aHRvb2w/DQoNClRoZXJlIHNob3VsZCBiZSBubyBiaW5hcnkgY29tcGF0aWJp
+bGl0eSBpc3N1ZSBoZXJlIGFzIGZlYXR1cmUgYml0cyBhcmUgbWVhbnQgdG8gYmUgbG9va2VkIHVw
+IGJ5IG5hbWUgYXQgcnVuLXRpbWUuDQoNCkJlbi4NCg0KLS0NCkJlbiBIdXRjaGluZ3MsIFN0YWZm
+IEVuZ2luZWVyLCBTb2xhcmZsYXJlIE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQn
+cyB0aGUgbWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQpUaGV5IGFza2VkIHVzIHRvIG5vdGUg
+dGhhdCBTb2xhcmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQo=
