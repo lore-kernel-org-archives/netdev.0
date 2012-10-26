@@ -1,72 +1,113 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] netxen: explicity handle pause autoneg
- parameter
-Date: Fri, 26 Oct 2012 22:10:42 +0100
-Message-ID: <1351285842.2584.13.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1351271832-21275-1-git-send-email-fbl@redhat.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next V2 1/1] tcp: Prevent needless syn-ack rexmt
+ during TWHS
+Date: Sat, 27 Oct 2012 00:30:01 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1210262325480.2880@ja.ssi.bg>
+References: <1351238750-13611-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	ncardwell@google.com,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	Elliott Hughes <enh@google.com>
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:57397 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S966569Ab2JZVKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 17:10:46 -0400
-In-Reply-To: <1351271832-21275-1-git-send-email-fbl@redhat.com>
+Received: from ja.ssi.bg ([178.16.129.10]:56667 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965612Ab2JZVXy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2012 17:23:54 -0400
+In-Reply-To: <1351238750-13611-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-10-26 at 15:17 -0200, Flavio Leitner wrote:
-> The hardware doesn't support controlling pause frames autoneg, so
-> report that back correctly to userspace.
+
+	Hello,
+
+On Fri, 26 Oct 2012, Vijay Subramanian wrote:
+
+> Elliott Hughes <enh@google.com> saw strange behavior when server socket was not
+> calling accept(). Client was receiving SYN-ACK back even when socket on server
+> side was not yet available. Eric noted server sockets kept resending SYN_ACKS
+> and further investigation revealed the following problem.
 > 
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> If server socket is slow to accept() connections, request_socks can represent
+> connections for which the three-way handshake is already done.  From client's
+> point of view, the connection is in ESTABLISHED state but on server side, socket
+> is not in accept_queue or ESTABLISHED state.  When the syn-ack timer expires,
+> because of the order in which tests are performed, server can retransmit the
+> synack repeatedly. Following patch prevents the server from retransmitting the
+> synack needlessly (and prevents client from replying with ack).  This reduces
+> traffic when server is slow to accept() connections.
+> 
+> If the server socket has received the third ack during connection establishment,
+> this is remembered in inet_rsk(req)->acked.  The request_sock will expire in
+> around 30 seconds and will be dropped if it does not move into accept_queue.
+> 
+> With help from Eric Dumazet.
+> 
+> Reported-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Neal Cardwell <ncardwell@google.com>
+> Tested-by: Neal Cardwell <ncardwell@google.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 > ---
->  drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c | 6 ++++++
->  1 file changed, 6 insertions(+)
+> Changes from V1: Changed Reported-by tag and commit message. Added Acked-by and
+> Tested-by tags.
 > 
-> I don't have the hardware handy to test this, so I appreciate
-> if someone could do it.
+> Ignoring "WARNING: line over 80 characters" in the interest of readability.
 > 
-> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-> index 10468e7..b4b46f9 100644
-> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-> @@ -488,6 +488,8 @@ netxen_nic_get_pauseparam(struct net_device *dev,
->  	__u32 val;
->  	int port = adapter->physical_port;
+>  net/ipv4/inet_connection_sock.c |    5 ++---
+>  1 files changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> index d34ce29..4e8e52e 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -598,9 +598,8 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
+>  					       &expire, &resend);
+>  				req->rsk_ops->syn_ack_timeout(parent, req);
+>  				if (!expire &&
+> -				    (!resend ||
+> -				     !req->rsk_ops->rtx_syn_ack(parent, req, NULL) ||
+> -				     inet_rsk(req)->acked)) {
+> +				    (!resend || inet_rsk(req)->acked ||
+
+	Wait a minute, this can cause problem at least
+for the TCP_DEFER_ACCEPT mode. It is supposed to timeout
+in SYN_RECV state if after silence period (no retransmissions)
+and some final retransmissions (until max_retries) client
+still does not send data - the request should be expired
+without notifying the listener.
+
+	So, the logic in syn_ack_recalc() was tuned to resend
+after the TCP_DEFER_ACCEPT period. This patch stops such
+resends after TCP_DEFER_ACCEPT period. May be the change
+should be in syn_ack_recalc() without hurting TCP_DEFER_ACCEPT?
+
+	Lets analyze the default case without TCP_DEFER_ACCEPT.
+
+	Think for protocols like SMTP where server sends
+welcome message. This patch stops SYN-ACK resends, client
+sends one ACK (which server drops) and enters EST state.
+Client is waiting for welcome message in EST state while
+server is waiting silently for ACK message to create child
+socket. No progress, may but timeout error in client.
+
+	Is the patch safe for such case? Is there a logic
+that creates child socket from request if the dropped ACK
+was the last message from client? It must not do it for
+TCP_DEFER_ACCEPT.
+
+> +				     !req->rsk_ops->rtx_syn_ack(parent, req, NULL))) {
+>  					unsigned long timeo;
 >  
-> +	pause->autoneg = AUTONEG_DISABLE;
+>  					if (req->retrans++ == 0)
+> -- 
+> 1.7.0.4
+> 
+> --
 
-AUTONEG_DISABLE is really meant for use in ethtool_cmd::autoneg, not
-ethtool_pauseparam::autoneg.  (Though they are both really booleans so
-this works in practice.)
+Regards
 
->  	if (adapter->ahw.port_type == NETXEN_NIC_GBE) {
->  		if ((port < 0) || (port >= NETXEN_NIU_MAX_GBE_PORTS))
->  			return;
-> @@ -532,6 +534,10 @@ netxen_nic_set_pauseparam(struct net_device *dev,
->  	struct netxen_adapter *adapter = netdev_priv(dev);
->  	__u32 val;
->  	int port = adapter->physical_port;
-> +
-> +	if (pause->autoneg)
-> +		return -EOPNOTSUPP;
-
-Should be -EINVAL; the operation (ETHTOOL_SPAUSEPARAM) is supported but
-not these particular arguments.
-
-Ben.
-
->  	/* read mode */
->  	if (adapter->ahw.port_type == NETXEN_NIC_GBE) {
->  		if ((port < 0) || (port >= NETXEN_NIU_MAX_GBE_PORTS))
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--
+Julian Anastasov <ja@ssi.bg>
