@@ -1,55 +1,123 @@
-From: Vincent Li <vincent.mc.li@gmail.com>
-Subject: Re: Disable tcp MSS option in three way handshake?
-Date: Fri, 26 Oct 2012 15:54:17 -0700
-Message-ID: <CAK3+h2y0M5kytB2q+S0aX+FsVw08VQciSH+aLVM6JTmvVwydgQ@mail.gmail.com>
-References: <CAK3+h2xKHBNXzY0WNwPV+oGbY00UVfJpO-qjFW2cxCpmdt+hAg@mail.gmail.com>
-	<1351204948.6537.263.camel@edumazet-glaptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] gretap: don't do MTU discovery
+Date: Fri, 26 Oct 2012 16:05:15 -0700
+Message-ID: <20121026160515.1f37592e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:61737 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934184Ab2JZWyR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 18:54:17 -0400
-Received: by mail-ie0-f174.google.com with SMTP id k13so4478570iea.19
-        for <netdev@vger.kernel.org>; Fri, 26 Oct 2012 15:54:17 -0700 (PDT)
-In-Reply-To: <1351204948.6537.263.camel@edumazet-glaptop>
+Received: from mail.vyatta.com ([76.74.103.46]:34318 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934216Ab2JZXGF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2012 19:06:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Oct 25, 2012 at 3:42 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2012-10-25 at 15:27 -0700, Vincent Li wrote:
->> Hi,
->>
->> this sounds crazy, we have a weird situation that an unknown tcp
->> implementation not putting tcp MSS option in the SYN/ACK which caused
->> us some issue. I am tasked to mimic the unknown tcp immplementation on
->> not sending MSS in tcp SYN/ACK, I am wondering if I can achieve that
->> by modifying linux kernel tcp code,  there is socket option
->> TCP_MAXSEG, but that seems only affecting the size of MSS, not
->> removing the MSS option. do you have any pointer on how to do that in
->> kernel tcp code?
->
-> You'll have to patch the code.
->
-> Or else, you could add a new feature to net/netfilter/xt_TCPMSS.c
->
-> (We already have
->
-> #define XT_TCPMSS_CLAMP_PMTU 0xffff
->
-> You could add
->
-> #define XT_TCPMSS_REMOVE 0xfffe
->
-> and replace MSS option by NOP
->
->
->
+This came up during review of VXLAN.
 
-for the sake of complete information, net/netfilter/xt_TCPOPTSTRIP.c
-already have this feature to strip tcp option
+Since gretap is a L2 tunnel, and it is not necessarily in the same IP
+network space as there is no way to safely do MTU discovery.
+The IP address in the inner header may not be reachable or conflict
+with the IP address visible to the kernel.
 
-Vincent
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+
+
+--- a/net/ipv4/ip_gre.c	2012-10-26 15:50:39.579955151 -0700
++++ b/net/ipv4/ip_gre.c	2012-10-26 15:58:31.667213979 -0700
+@@ -765,7 +765,6 @@ static netdev_tx_t ipgre_tunnel_xmit(str
+ 	unsigned int max_headroom;		/* The extra header space needed */
+ 	int    gre_hlen;
+ 	__be32 dst;
+-	int    mtu;
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+ 	    skb_checksum_help(skb))
+@@ -853,44 +852,54 @@ static netdev_tx_t ipgre_tunnel_xmit(str
+ 	}
+ 
+ 	df = tiph->frag_off;
+-	if (df)
+-		mtu = dst_mtu(&rt->dst) - dev->hard_header_len - tunnel->hlen;
+-	else
+-		mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
+-
+-	if (skb_dst(skb))
+-		skb_dst(skb)->ops->update_pmtu(skb_dst(skb), NULL, skb, mtu);
+-
+-	if (skb->protocol == htons(ETH_P_IP)) {
+-		df |= (old_iph->frag_off&htons(IP_DF));
+-
+-		if ((old_iph->frag_off&htons(IP_DF)) &&
+-		    mtu < ntohs(old_iph->tot_len)) {
+-			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+-			ip_rt_put(rt);
+-			goto tx_error;
++	if (dev->type == ARPHRD_IPGRE) {
++		unsigned int mtu;
++
++		if (df)
++			mtu = dst_mtu(&rt->dst)
++				- dev->hard_header_len - tunnel->hlen;
++		else
++			mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
++
++		if (skb_dst(skb))
++			skb_dst(skb)->ops->update_pmtu(skb_dst(skb),
++						       NULL, skb, mtu);
++
++		if (skb->protocol == htons(ETH_P_IP)) {
++			df |= (old_iph->frag_off&htons(IP_DF));
++
++			if ((old_iph->frag_off&htons(IP_DF)) &&
++			    mtu < ntohs(old_iph->tot_len)) {
++				icmp_send(skb, ICMP_DEST_UNREACH,
++					  ICMP_FRAG_NEEDED, htonl(mtu));
++				ip_rt_put(rt);
++				goto tx_error;
++			}
+ 		}
+-	}
+ #if IS_ENABLED(CONFIG_IPV6)
+-	else if (skb->protocol == htons(ETH_P_IPV6)) {
+-		struct rt6_info *rt6 = (struct rt6_info *)skb_dst(skb);
++		else if (skb->protocol == htons(ETH_P_IPV6)) {
++			struct rt6_info *rt6 = (struct rt6_info *)skb_dst(skb);
+ 
+-		if (rt6 && mtu < dst_mtu(skb_dst(skb)) && mtu >= IPV6_MIN_MTU) {
+-			if ((tunnel->parms.iph.daddr &&
+-			     !ipv4_is_multicast(tunnel->parms.iph.daddr)) ||
+-			    rt6->rt6i_dst.plen == 128) {
+-				rt6->rt6i_flags |= RTF_MODIFIED;
+-				dst_metric_set(skb_dst(skb), RTAX_MTU, mtu);
++			if (rt6 && mtu < dst_mtu(skb_dst(skb)) &&
++			    mtu >= IPV6_MIN_MTU) {
++				if ((tunnel->parms.iph.daddr &&
++				     !ipv4_is_multicast(tunnel->parms.iph.daddr)) ||
++				    rt6->rt6i_dst.plen == 128) {
++					rt6->rt6i_flags |= RTF_MODIFIED;
++					dst_metric_set(skb_dst(skb),
++						       RTAX_MTU, mtu);
++				}
+ 			}
+-		}
+ 
+-		if (mtu >= IPV6_MIN_MTU && mtu < skb->len - tunnel->hlen + gre_hlen) {
+-			icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+-			ip_rt_put(rt);
+-			goto tx_error;
++			if (mtu >= IPV6_MIN_MTU &&
++			    mtu < skb->len - tunnel->hlen + gre_hlen) {
++				icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
++				ip_rt_put(rt);
++				goto tx_error;
++			}
+ 		}
+-	}
+ #endif
++	}
+ 
+ 	if (tunnel->err_count > 0) {
+ 		if (time_before(jiffies,
