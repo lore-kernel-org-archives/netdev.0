@@ -1,126 +1,184 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net_sched: more precise pkt_len computation
-Date: Fri, 26 Oct 2012 13:11:54 +0200
-Message-ID: <1351249914.6537.339.camel@edumazet-glaptop>
-References: <1350965711-4390-1-git-send-email-amwang@redhat.com>
-	 <F36C0EC1-0A4C-48FB-ABF3-A89575A9287E@unimore.it>
-	 <1350982432.26308.8.camel@cr0>
-	 <58DEB62C-6237-435E-8300-8E390F101F58@unimore.it>
-	 <1351239007.6537.291.camel@edumazet-glaptop>
-	 <1351243970.6537.321.camel@edumazet-glaptop>
+From: Daniel Borkmann <dxchgb@gmail.com>
+Subject: [RFC PATCH net-next] pktgen: clean up ktime_t helpers
+Date: Fri, 26 Oct 2012 13:42:51 +0200
+Message-ID: <20121026114250.GA13378@thinkbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Paolo Valente <paolo.valente@unimore.it>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, tglx@linutronix.de, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:33894 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758370Ab2JZLL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 07:11:59 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hr7so330997wib.1
-        for <netdev@vger.kernel.org>; Fri, 26 Oct 2012 04:11:57 -0700 (PDT)
-In-Reply-To: <1351243970.6537.321.camel@edumazet-glaptop>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:37074 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932362Ab2JZLm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 07:42:56 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so982539eek.19
+        for <netdev@vger.kernel.org>; Fri, 26 Oct 2012 04:42:55 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-10-26 at 11:32 +0200, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> One long standing problem with TSO/GSO/GRO packets is that skb->len
-> doesnt represent a precise amount of bytes on wire.
-> 
-> Headers are only accounted for the first segment.
-> For TCP, thats typically 66 bytes per 1448 bytes segment missing,
-> an error of 4.5 %
-> 
-> As consequences :
-> 
-> 1) TBF/CBQ/HTB/NETEM/... can send more bytes than the assigned limits.
-> 2) Device stats are slightly under estimated as well.
-> 
-> Fix this by taking account of headers in qdisc_skb_cb(skb)->pkt_len
-> computation.
-> 
-> Packet schedulers should use pkt_len instead of skb->len for their
-> bandwidth limitations, and TSO enabled devices drivers could use pkt_len
-> if their statistics are not hardware assisted, and if they dont scratch
-> skb->cb[] first word.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Cc: Paolo Valente <paolo.valente@unimore.it>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Patrick McHardy <kaber@trash.net>
-> ---
->  net/core/dev.c |   11 ++++++++++-
->  1 file changed, 10 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index b4978e2..cf2b5f4 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2442,7 +2442,6 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
->  	bool contended;
->  	int rc;
->  
-> -	qdisc_skb_cb(skb)->pkt_len = skb->len;
->  	qdisc_calculate_pkt_len(skb, q);
->  	/*
->  	 * Heuristic to force contended enqueues to serialize on a
-> @@ -2579,6 +2578,16 @@ int dev_queue_xmit(struct sk_buff *skb)
->  	skb->tc_verd = SET_TC_AT(skb->tc_verd, AT_EGRESS);
->  #endif
->  	trace_net_dev_queue(skb);
-> +	qdisc_skb_cb(skb)->pkt_len = skb->len;
-> +	if (skb_is_gso(skb)) {
-> +		unsigned int hdr_len = skb_transport_offset(skb);
-> +
-> +		if (skb_shinfo(skb)->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))
-> +			hdr_len += tcp_hdrlen(skb);
-> +		else
-> +			hdr_len += sizeof(struct udphdr);
-> +		qdisc_skb_cb(skb)->pkt_len += (skb_shinfo(skb)->gso_segs - 1) * hdr_len;
-> +	}
->  	if (q->enqueue) {
->  		rc = __dev_xmit_skb(skb, q, dev, txq);
->  		goto out;
-> 
+Some years ago, the ktime_t helper functions ktime_now() and ktime_lt()
+have been introduced. Instead of defining them inside pktgen.c, they
+should either use ktime_t library functions or, if not available, they
+should be defined in ktime.h, so that also others can benefit from them.
+ktime_compare() is introduced with a similar notion as in timespec_compare().
 
-Hmm, this doesnt quite work for GRO (ingress), as we call
-skb_reset_transport_header(skb); in __netif_receive_skb() before
-handle_ing()
+Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+---
+ include/linux/ktime.h |   19 +++++++++++++++++++
+ net/core/pktgen.c     |   41 +++++++++++++----------------------------
+ 2 files changed, 32 insertions(+), 28 deletions(-)
 
-So skb_transport_offset(skb) is 14 here, instead of 14+(IP header)
-
-This skb_reset_transport_header(skb); looks like defensive programming,
-for the !NET_SKBUFF_DATA_USES_OFFSET case ?
-
-We could either :
-
-1) remove this skb_reset_transport_header(skb) call
-
-or
-
-2) use the following helper instead :
-
-#ifdef NET_SKBUFF_DATA_USES_OFFSET
-static inline void skb_sanitize_transport_header(struct sk_buff *skb)
-{
-	skb->transport_header = max_t(sk_buff_data_t,
-				      skb->data - skb->head,
-				      skb->transport_header);
-}
-#else
-static inline void skb_sanitize_transport_header(struct sk_buff *skb)
-{
-	skb->transport_header = max_t(sk_buff_data_t,
-				      skb->data,
-				      skb->transport_header);
-}
-#endif
+diff --git a/include/linux/ktime.h b/include/linux/ktime.h
+index 06177ba10..e83512f 100644
+--- a/include/linux/ktime.h
++++ b/include/linux/ktime.h
+@@ -282,6 +282,25 @@ static inline int ktime_equal(const ktime_t cmp1, const ktime_t cmp2)
+ 	return cmp1.tv64 == cmp2.tv64;
+ }
+ 
++/**
++ * ktime_compare - Compares two ktime_t variables for less, greater or equal
++ * @cmp1:	comparable1
++ * @cmp2:	comparable2
++ *
++ * Returns ...
++ *   cmp1  < cmp2: return <0
++ *   cmp1 == cmp2: return 0
++ *   cmp1  > cmp2: return >0
++ */
++static inline int ktime_compare(const ktime_t cmp1, const ktime_t cmp2)
++{
++	if (cmp1.tv64 < cmp2.tv64)
++		return -1;
++	if (cmp1.tv64 > cmp2.tv64)
++		return 1;
++	return 0;
++}
++
+ static inline s64 ktime_to_us(const ktime_t kt)
+ {
+ 	struct timeval tv = ktime_to_timeval(kt);
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 1d1c216..b29dacf 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -419,20 +419,6 @@ struct pktgen_thread {
+ #define REMOVE 1
+ #define FIND   0
+ 
+-static inline ktime_t ktime_now(void)
+-{
+-	struct timespec ts;
+-	ktime_get_ts(&ts);
+-
+-	return timespec_to_ktime(ts);
+-}
+-
+-/* This works even if 32 bit because of careful byte order choice */
+-static inline int ktime_lt(const ktime_t cmp1, const ktime_t cmp2)
+-{
+-	return cmp1.tv64 < cmp2.tv64;
+-}
+-
+ static const char version[] =
+ 	"Packet Generator for packet performance testing. "
+ 	"Version: " VERSION "\n";
+@@ -675,7 +661,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 	seq_puts(seq, "\n");
+ 
+ 	/* not really stopped, more like last-running-at */
+-	stopped = pkt_dev->running ? ktime_now() : pkt_dev->stopped_at;
++	stopped = pkt_dev->running ? ktime_get() : pkt_dev->stopped_at;
+ 	idle = pkt_dev->idle_acc;
+ 	do_div(idle, NSEC_PER_USEC);
+ 
+@@ -2141,12 +2127,12 @@ static void spin(struct pktgen_dev *pkt_dev, ktime_t spin_until)
+ 		return;
+ 	}
+ 
+-	start_time = ktime_now();
++	start_time = ktime_get();
+ 	if (remaining < 100000) {
+ 		/* for small delays (<100us), just loop until limit is reached */
+ 		do {
+-			end_time = ktime_now();
+-		} while (ktime_lt(end_time, spin_until));
++			end_time = ktime_get();
++		} while (ktime_compare(end_time, spin_until) < 0);
+ 	} else {
+ 		/* see do_nanosleep */
+ 		hrtimer_init_sleeper(&t, current);
+@@ -2162,7 +2148,7 @@ static void spin(struct pktgen_dev *pkt_dev, ktime_t spin_until)
+ 			hrtimer_cancel(&t.timer);
+ 		} while (t.task && pkt_dev->running && !signal_pending(current));
+ 		__set_current_state(TASK_RUNNING);
+-		end_time = ktime_now();
++		end_time = ktime_get();
+ 	}
+ 
+ 	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(end_time, start_time));
+@@ -2912,8 +2898,7 @@ static void pktgen_run(struct pktgen_thread *t)
+ 			pktgen_clear_counters(pkt_dev);
+ 			pkt_dev->running = 1;	/* Cranke yeself! */
+ 			pkt_dev->skb = NULL;
+-			pkt_dev->started_at =
+-				pkt_dev->next_tx = ktime_now();
++			pkt_dev->started_at = pkt_dev->next_tx = ktime_get();
+ 
+ 			set_pkt_overhead(pkt_dev);
+ 
+@@ -3072,7 +3057,7 @@ static int pktgen_stop_device(struct pktgen_dev *pkt_dev)
+ 
+ 	kfree_skb(pkt_dev->skb);
+ 	pkt_dev->skb = NULL;
+-	pkt_dev->stopped_at = ktime_now();
++	pkt_dev->stopped_at = ktime_get();
+ 	pkt_dev->running = 0;
+ 
+ 	show_results(pkt_dev, nr_frags);
+@@ -3091,7 +3076,7 @@ static struct pktgen_dev *next_to_run(struct pktgen_thread *t)
+ 			continue;
+ 		if (best == NULL)
+ 			best = pkt_dev;
+-		else if (ktime_lt(pkt_dev->next_tx, best->next_tx))
++		else if (ktime_compare(pkt_dev->next_tx, best->next_tx) < 0)
+ 			best = pkt_dev;
+ 	}
+ 	if_unlock(t);
+@@ -3176,14 +3161,14 @@ static void pktgen_rem_thread(struct pktgen_thread *t)
+ 
+ static void pktgen_resched(struct pktgen_dev *pkt_dev)
+ {
+-	ktime_t idle_start = ktime_now();
++	ktime_t idle_start = ktime_get();
+ 	schedule();
+-	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(ktime_now(), idle_start));
++	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(ktime_get(), idle_start));
+ }
+ 
+ static void pktgen_wait_for_skb(struct pktgen_dev *pkt_dev)
+ {
+-	ktime_t idle_start = ktime_now();
++	ktime_t idle_start = ktime_get();
+ 
+ 	while (atomic_read(&(pkt_dev->skb->users)) != 1) {
+ 		if (signal_pending(current))
+@@ -3194,7 +3179,7 @@ static void pktgen_wait_for_skb(struct pktgen_dev *pkt_dev)
+ 		else
+ 			cpu_relax();
+ 	}
+-	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(ktime_now(), idle_start));
++	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(ktime_get(), idle_start));
+ }
+ 
+ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+@@ -3216,7 +3201,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ 	 * "never transmit"
+ 	 */
+ 	if (unlikely(pkt_dev->delay == ULLONG_MAX)) {
+-		pkt_dev->next_tx = ktime_add_ns(ktime_now(), ULONG_MAX);
++		pkt_dev->next_tx = ktime_add_ns(ktime_get(), ULONG_MAX);
+ 		return;
+ 	}
+ 
