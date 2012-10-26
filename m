@@ -1,36 +1,38 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Re: Regarding bottlenecks for high speed packet generation
-Date: Fri, 26 Oct 2012 11:42:28 +0530
-Message-ID: <CADAe=+LSeTWTnDk3o46EiLMQqJ6q93yVP_D3J2Ufcfy-_cv6RA@mail.gmail.com>
-References: <CADAe=++9KHUx3qX+2==+q0Fq44CJ9tjYcO=HdLYOF3FVuM5Vtg@mail.gmail.com>
- <CAD6jFUScXX0x7yU2f-Cq4B6RZdnQx4dkbADHBL9aYhzQmeKGgA@mail.gmail.com>
- <CADAe=+L2hXpYwH-XyNS2HyHQrMQRCmV_v-bs0Qp+sR-mVkzV4A@mail.gmail.com> <20121025.231814.962022530355865788.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next] r8169: enable ALDPS for power saving
+Date: Fri, 26 Oct 2012 02:15:20 -0400 (EDT)
+Message-ID: <20121026.021520.955480530231877139.davem@davemloft.net>
+References: <1350893153-18320-1-git-send-email-hayeswang@realtek.com>
+	<1351059843-1464-1-git-send-email-hayeswang@realtek.com>
+	<20121024212003.GA11152@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: danborkmann@iogearbox.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:35418 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755033Ab2JZGM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 02:12:59 -0400
-Received: by mail-oa0-f46.google.com with SMTP id h16so2357821oag.19
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 23:12:59 -0700 (PDT)
-In-Reply-To: <20121025.231814.962022530355865788.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jean@google.com
+To: romieu@fr.zoreil.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121024212003.GA11152@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> >
-> > But does NAPI comes into picture in case of transmission of packets ?
->
-> Reclaim of TX descriptors occurs via NAPI.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 24 Oct 2012 23:20:03 +0200
 
-You mean for every packet sent by the NIC card it drops a interrupt to
-reclaim the TX buffers used ?
-I am not able to understand why does NIC has to interrupt back instead
-of freeing the memory in background.
+> Hayes Wang <hayeswang@realtek.com> :
+>> Enable ALDPS function to save power when link down. Note that the
+>> feature should be set after the other PHY settings. And the firmware
+>> is necessary. Don't enable it without loading the firmware.
+>> 
+>> None of the firmware-free chipsets support ALDPS. Neither do the
+>> RTL8168d/8111d.
+>> 
+>> For 8136 series, make sure the ALDPS is disabled before loading the
+>> firmware. For 8168 series, the ALDPS would be disabled automatically
+>> when loading firmware. You must not disable it directly.
+>> 
+>> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> 
+> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Might be it does add some bottleneck in my case of transmitting traffic bursts.
-
-Regards,
-Ajith
+Applied, thanks.
