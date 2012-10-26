@@ -1,154 +1,132 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next v3 2/5] rtnl/ipv6: use netconf msg to advertise forwarding status
-Date: Fri, 26 Oct 2012 10:28:50 +0200
-Message-ID: <1351240133-4427-3-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next v3 5/5] rtnl/ipv4: add support of RTM_GETNETCONF
+Date: Fri, 26 Oct 2012 10:28:53 +0200
+Message-ID: <1351240133-4427-6-git-send-email-nicolas.dichtel@6wind.com>
 References: <20121026.021830.1470799532580844849.davem@davemloft.net>
  <1351240133-4427-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38315 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38323 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932128Ab2JZITv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 04:19:51 -0400
+	with ESMTP id S932128Ab2JZITz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 04:19:55 -0400
 In-Reply-To: <1351240133-4427-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This message allows to get the devconf for an interface.
+
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/uapi/linux/rtnetlink.h |  2 ++
- net/ipv6/addrconf.c            | 77 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 79 insertions(+)
+ net/ipv4/devinet.c | 75 ++++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 73 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 0043b41..a4d75ea 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -592,6 +592,8 @@ enum rtnetlink_groups {
- #define RTNLGRP_PHONET_ROUTE	RTNLGRP_PHONET_ROUTE
- 	RTNLGRP_DCB,
- #define RTNLGRP_DCB		RTNLGRP_DCB
-+	RTNLGRP_IPV6_NETCONF,
-+#define RTNLGRP_IPV6_NETCONF	RTNLGRP_IPV6_NETCONF
- 	__RTNLGRP_MAX
- };
- #define RTNLGRP_MAX	(__RTNLGRP_MAX - 1)
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 0424e4e..0c57a8f 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -81,6 +81,7 @@
- #include <net/pkt_sched.h>
- #include <linux/if_tunnel.h>
- #include <linux/rtnetlink.h>
-+#include <linux/netconf.h>
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 020fdd2..f8b1e04 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1448,7 +1448,8 @@ static int inet_netconf_msgsize_devconf(int type)
+ 	int size = NLMSG_ALIGN(sizeof(struct netconfmsg))
+ 		   + nla_total_size(4);	/* NETCONFA_IFINDEX */
  
- #ifdef CONFIG_IPV6_PRIVACY
- #include <linux/random.h>
-@@ -460,6 +461,72 @@ static struct inet6_dev *ipv6_find_idev(struct net_device *dev)
- 	return idev;
+-	if (type == NETCONFA_FORWARDING)
++	/* type -1 is used for ALL */
++	if (type == -1 || type == NETCONFA_FORWARDING)
+ 		size += nla_total_size(4);
+ 
+ 	return size;
+@@ -1473,7 +1474,8 @@ static int inet_netconf_fill_devconf(struct sk_buff *skb, int ifindex,
+ 	if (nla_put_s32(skb, NETCONFA_IFINDEX, ifindex) < 0)
+ 		goto nla_put_failure;
+ 
+-	if (type == NETCONFA_FORWARDING &&
++	/* type -1 is used for ALL */
++	if ((type == -1 || type == NETCONFA_FORWARDING) &&
+ 	    nla_put_s32(skb, NETCONFA_FORWARDING,
+ 			IPV4_DEVCONF(*devconf, FORWARDING)) < 0)
+ 		goto nla_put_failure;
+@@ -1510,6 +1512,73 @@ errout:
+ 		rtnl_set_sk_err(net, RTNLGRP_IPV4_NETCONF, err);
  }
  
-+static int inet6_netconf_msgsize_devconf(int type)
++static const struct nla_policy devconf_ipv4_policy[NETCONFA_MAX+1] = {
++	[NETCONFA_IFINDEX]	= { .len = sizeof(int) },
++	[NETCONFA_FORWARDING]	= { .len = sizeof(int) },
++};
++
++static int inet_netconf_get_devconf(struct sk_buff *in_skb,
++				    struct nlmsghdr *nlh,
++				    void *arg)
 +{
-+	int size =  NLMSG_ALIGN(sizeof(struct netconfmsg))
-+		    + nla_total_size(4);	/* NETCONFA_IFINDEX */
-+
-+	if (type == NETCONFA_FORWARDING)
-+		size += nla_total_size(4);
-+
-+	return size;
-+}
-+
-+static int inet6_netconf_fill_devconf(struct sk_buff *skb, int ifindex,
-+				      struct ipv6_devconf *devconf, u32 portid,
-+				      u32 seq, int event, unsigned int flags,
-+				      int type)
-+{
-+	struct nlmsghdr  *nlh;
++	struct net *net = sock_net(in_skb->sk);
++	struct nlattr *tb[NETCONFA_MAX+1];
 +	struct netconfmsg *ncm;
-+
-+	nlh = nlmsg_put(skb, portid, seq, event, sizeof(struct netconfmsg),
-+			flags);
-+	if (nlh == NULL)
-+		return -EMSGSIZE;
-+
-+	ncm = nlmsg_data(nlh);
-+	ncm->ncm_family = AF_INET6;
-+
-+	if (nla_put_s32(skb, NETCONFA_IFINDEX, ifindex) < 0)
-+		goto nla_put_failure;
-+
-+	if (type == NETCONFA_FORWARDING &&
-+	    nla_put_s32(skb, NETCONFA_FORWARDING, devconf->forwarding) < 0)
-+		goto nla_put_failure;
-+
-+	return nlmsg_end(skb, nlh);
-+
-+nla_put_failure:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
-+}
-+
-+static void inet6_netconf_notify_devconf(struct net *net, int type, int ifindex,
-+					 struct ipv6_devconf *devconf)
-+{
 +	struct sk_buff *skb;
-+	int err = -ENOBUFS;
++	struct ipv4_devconf *devconf;
++	struct in_device *in_dev;
++	struct net_device *dev;
++	int ifindex;
++	int err;
 +
-+	skb = nlmsg_new(inet6_netconf_msgsize_devconf(type), GFP_ATOMIC);
++	err = nlmsg_parse(nlh, sizeof(*ncm), tb, NETCONFA_MAX,
++			  devconf_ipv4_policy);
++	if (err < 0)
++		goto errout;
++
++	err = EINVAL;
++	if (!tb[NETCONFA_IFINDEX])
++		goto errout;
++
++	ifindex = nla_get_s32(tb[NETCONFA_IFINDEX]);
++	switch (ifindex) {
++	case NETCONFA_IFINDEX_ALL:
++		devconf = net->ipv4.devconf_all;
++		break;
++	case NETCONFA_IFINDEX_DEFAULT:
++		devconf = net->ipv4.devconf_dflt;
++		break;
++	default:
++		dev = __dev_get_by_index(net, ifindex);
++		if (dev == NULL)
++			goto errout;
++		in_dev = __in_dev_get_rtnl(dev);
++		if (in_dev == NULL)
++			goto errout;
++		devconf = &in_dev->cnf;
++		break;
++	}
++
++	err = -ENOBUFS;
++	skb = nlmsg_new(inet_netconf_msgsize_devconf(-1), GFP_ATOMIC);
 +	if (skb == NULL)
 +		goto errout;
 +
-+	err = inet6_netconf_fill_devconf(skb, ifindex, devconf, 0, 0,
-+					 RTM_NEWNETCONF, 0, type);
++	err = inet_netconf_fill_devconf(skb, ifindex, devconf,
++					NETLINK_CB(in_skb).portid,
++					nlh->nlmsg_seq, RTM_NEWNETCONF, 0,
++					-1);
 +	if (err < 0) {
-+		/* -EMSGSIZE implies BUG in inet6_netconf_msgsize_devconf() */
++		/* -EMSGSIZE implies BUG in inet_netconf_msgsize_devconf() */
 +		WARN_ON(err == -EMSGSIZE);
 +		kfree_skb(skb);
 +		goto errout;
 +	}
-+	rtnl_notify(skb, net, 0, RTNLGRP_IPV6_NETCONF, NULL, GFP_ATOMIC);
-+	return;
++	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
 +errout:
-+	if (err < 0)
-+		rtnl_set_sk_err(net, RTNLGRP_IPV6_NETCONF, err);
++	return err;
 +}
 +
  #ifdef CONFIG_SYSCTL
- static void dev_forward_change(struct inet6_dev *idev)
- {
-@@ -486,6 +553,8 @@ static void dev_forward_change(struct inet6_dev *idev)
- 		else
- 			addrconf_leave_anycast(ifa);
- 	}
-+	inet6_netconf_notify_devconf(dev_net(dev), NETCONFA_FORWARDING,
-+				     dev->ifindex, &idev->cnf);
+ 
+ static void devinet_copy_dflt_conf(struct net *net, int i)
+@@ -1894,5 +1963,7 @@ void __init devinet_init(void)
+ 	rtnl_register(PF_INET, RTM_NEWADDR, inet_rtm_newaddr, NULL, NULL);
+ 	rtnl_register(PF_INET, RTM_DELADDR, inet_rtm_deladdr, NULL, NULL);
+ 	rtnl_register(PF_INET, RTM_GETADDR, NULL, inet_dump_ifaddr, NULL);
++	rtnl_register(PF_INET, RTM_GETNETCONF, inet_netconf_get_devconf,
++		      NULL, NULL);
  }
  
- 
-@@ -518,6 +587,10 @@ static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, int newf)
- 	*p = newf;
- 
- 	if (p == &net->ipv6.devconf_dflt->forwarding) {
-+		if ((!newf) ^ (!old))
-+			inet6_netconf_notify_devconf(net, NETCONFA_FORWARDING,
-+						     NETCONFA_IFINDEX_DEFAULT,
-+						     net->ipv6.devconf_dflt);
- 		rtnl_unlock();
- 		return 0;
- 	}
-@@ -525,6 +598,10 @@ static int addrconf_fixup_forwarding(struct ctl_table *table, int *p, int newf)
- 	if (p == &net->ipv6.devconf_all->forwarding) {
- 		net->ipv6.devconf_dflt->forwarding = newf;
- 		addrconf_forward_change(net, newf);
-+		if ((!newf) ^ (!old))
-+			inet6_netconf_notify_devconf(net, NETCONFA_FORWARDING,
-+						     NETCONFA_IFINDEX_ALL,
-+						     net->ipv6.devconf_all);
- 	} else if ((!newf) ^ (!old))
- 		dev_forward_change((struct inet6_dev *)table->extra1);
- 	rtnl_unlock();
 -- 
 1.7.12
