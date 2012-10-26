@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] r8169: enable ALDPS for power saving
-Date: Fri, 26 Oct 2012 02:15:20 -0400 (EDT)
-Message-ID: <20121026.021520.955480530231877139.davem@davemloft.net>
-References: <1350893153-18320-1-git-send-email-hayeswang@realtek.com>
-	<1351059843-1464-1-git-send-email-hayeswang@realtek.com>
-	<20121024212003.GA11152@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH net-next] packet: minor: remove unused err assignment
+Date: Fri, 26 Oct 2012 02:17:48 -0400 (EDT)
+Message-ID: <20121026.021748.2045558753254846096.davem@davemloft.net>
+References: <20121024132723.GA21528@thinkbox>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jean@google.com
-To: romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121024212003.GA11152@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dxchgb@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43820 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752196Ab2JZGRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 02:17:49 -0400
+In-Reply-To: <20121024132723.GA21528@thinkbox>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 24 Oct 2012 23:20:03 +0200
+From: Daniel Borkmann <dxchgb@gmail.com>
+Date: Wed, 24 Oct 2012 15:27:24 +0200
 
-> Hayes Wang <hayeswang@realtek.com> :
->> Enable ALDPS function to save power when link down. Note that the
->> feature should be set after the other PHY settings. And the firmware
->> is necessary. Don't enable it without loading the firmware.
->> 
->> None of the firmware-free chipsets support ALDPS. Neither do the
->> RTL8168d/8111d.
->> 
->> For 8136 series, make sure the ALDPS is disabled before loading the
->> firmware. For 8168 series, the ALDPS would be disabled automatically
->> when loading firmware. You must not disable it directly.
->> 
->> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> This tiny patch removes two unused err assignments. In those two cases the
+> err variable is either overwritten with another value at a later point in
+> time without having read the previous assigment, or it is assigned and the
+> function returns without using/reading err after the assignment.
 > 
-> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
 
 Applied, thanks.
