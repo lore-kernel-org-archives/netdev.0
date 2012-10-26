@@ -1,96 +1,54 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: Clean up type-punning in sctp_cmd_t union
-Date: Thu, 25 Oct 2012 23:48:16 -0400
-Message-ID: <508A0800.10404@gmail.com>
-References: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com> <5089B237.6010902@gmail.com> <20121025235843.GA13809@neilslaptop.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:57483 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755886Ab2JZDsT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 23:48:19 -0400
-In-Reply-To: <20121025235843.GA13809@neilslaptop.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hemant Kumar <hemantk@codeaurora.org>
+Subject: [PATCH] net: usb: Fix memory leak on Tx data path
+Date: Thu, 25 Oct 2012 21:17:54 -0700
+Message-ID: <1351225074-2078-1-git-send-email-hemantk@codeaurora.org>
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org,
+	Hemant Kumar <hemantk@codeaurora.org>
+To: oneukum@suse.de
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/25/2012 07:58 PM, Neil Horman wrote:
-> On Thu, Oct 25, 2012 at 05:42:15PM -0400, Vlad Yasevich wrote:
->> On 10/25/2012 04:47 PM, Neil Horman wrote:
->>> Lots of points in the sctp_cmd_interpreter function treat the sctp_cmd_t arg as
->>> a void pointer, even though they are written as various other types.  Theres no
->>> need for this as doing so just leads to possible type-punning issues that could
->>> cause crashes, and if we remain type-consistent we can actually just remove the
->>> void * member of the union entirely.
->>>
->>> Signed-off-by: Neil Horman <nhorman@tuxdriver.com
->>> CC: Vlad Yasevich <vyasevich@gmail.com>
->>> CC: "David S. Miller" <davem@davemloft.net>
->>> CC: linux-sctp@vger.kernel.org
->>> ---
->>>   include/net/sctp/command.h  |  7 ++++---
->>>   include/net/sctp/ulpqueue.h |  2 +-
->>>   net/sctp/sm_sideeffect.c    | 45 ++++++++++++++++++++++-----------------------
->>>   net/sctp/ulpqueue.c         |  3 +--
->>>   4 files changed, 28 insertions(+), 29 deletions(-)
->>>
->>> diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
->>> index 712b3be..7f1b0f3 100644
->>> --- a/include/net/sctp/command.h
->>> +++ b/include/net/sctp/command.h
->>> @@ -131,7 +131,6 @@ typedef union {
->>>   	sctp_state_t state;
->>>   	sctp_event_timeout_t to;
->>>   	unsigned long zero;
->>> -	void *ptr;
->>>   	struct sctp_chunk *chunk;
->>>   	struct sctp_association *asoc;
->>>   	struct sctp_transport *transport;
->>> @@ -154,9 +153,12 @@ typedef union {
->>>    * which takes an __s32 and returns a sctp_arg_t containing the
->>>    * __s32.  So, after foo = SCTP_I32(arg), foo.i32 == arg.
->>>    */
->>> +#define SCTP_NULL_BYTE 0xAA
->>>   static inline sctp_arg_t SCTP_NULL(void)
->>>   {
->>> -	sctp_arg_t retval; retval.ptr = NULL; return retval;
->>> +	sctp_arg_t retval;
->>> +	memset(&retval, SCTP_NULL_BYTE, sizeof(sctp_arg_t));
->>> +	return retval;
->>
->> What's this for?  Can't we just use retval.zero?
->>
->> -vlad
->>
-> My intent was to highlight any users of sctp_arg_t when SCTP_NULL was passed.
-> My thinking was that the 0xAA byte patern would be a good indicator.  Although,
-> admittedly I didn't see the zero argument there.  Looking at it though, the zero
-> member of the union is effectively unused.  Strictly speaking its used for
-> initalization of sctp_arg_t, but its done somewhat poorly, since theres no
-> guarantee that an unsigned long will be the largest member of that union.  Doing
-> the memset guarantees the whole instance is set to a predefined value.
->
-> I could go either way with this, would you rather we just have SCTP_NULL return
-> retval = { .zero = 0}; or would you rather remove the zero initialization from
-> SCTP_[NO]FORCE, and SCTP_ARG_CONSTRUCTOR and do the memset.  I think the memset
-> reduces to a single 64 bit assignment as long as the union doesn't exceed that
-> size anyway, and it ensures that you initalize the whole union's storage if it
-> does in the future.  And if we remove the initialization step (I don't see that
-> its needed in the three macros above anyway), then we can remove the zero member
-> as well.
->
+Driver anchors the tx urbs and defers the urb submission if
+a transmit request comes when the interface is suspended.
+Anchoring urb increments the urb reference count. These
+deferred urbs are later accessed by calling usb_get_from_anchor()
+for submission during interface resume. usb_get_from_anchor()
+unanchors the urb but urb reference count remains same.
+This causes the urb reference count to remain non-zero
+after usb_free_urb() gets called and urb never gets freed.
+Hence call usb_put_urb() after anchoring the urb to properly
+balance the reference count for these deferred urbs. Also,
+unanchor these deferred urbs during disconnect, to free them
+up.
 
-You need the initialization step, otherwise things might fail (they did 
-on IA64 a while back).  That's why the zero member was added.  You can 
-go with memset if you want, but I was primarily wondering why the 0xAA 
-pattern was there.
+Signed-off-by: Hemant Kumar <hemantk@codeaurora.org>
+---
+ drivers/net/usb/usbnet.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
--vlad
-> Let me know what you want to do here, and I can respin this.
-> Best
-> Neil
->
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 1867fe2..00b7598 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1168,6 +1168,7 @@ netdev_tx_t usbnet_start_xmit (struct sk_buff *skb,
+ 		usb_anchor_urb(urb, &dev->deferred);
+ 		/* no use to process more packets */
+ 		netif_stop_queue(net);
++		usb_put_urb(urb);
+ 		spin_unlock_irqrestore(&dev->txq.lock, flags);
+ 		netdev_dbg(dev->net, "Delaying transmission for resumption\n");
+ 		goto deferred;
+@@ -1317,6 +1318,8 @@ void usbnet_disconnect (struct usb_interface *intf)
+ 
+ 	cancel_work_sync(&dev->kevent);
+ 
++	usb_scuttle_anchored_urbs(&dev->deferred);
++
+ 	if (dev->driver_info->unbind)
+ 		dev->driver_info->unbind (dev, intf);
+ 
+-- 
+The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, hosted by The Linux Foundation
