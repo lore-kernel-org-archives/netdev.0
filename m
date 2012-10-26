@@ -1,56 +1,37 @@
-From: Jing Wang <windsdaemon@gmail.com>
-Subject: [PATCH 1/1] af_unix.c: fix the compile warning in unix_bind
-Date: Fri, 26 Oct 2012 10:48:47 +0800
-Message-ID: <1351219727-6085-1-git-send-email-windsdaemon@gmail.com>
-Cc: netdev@vger.kernel.org, Jing Wang <windsdaemon@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Pavel Emelyanov <xemul@parallels.com>
+From: Ajith Adapa <adapa.ajith@gmail.com>
+Subject: Re: Regarding bottlenecks for high speed packet generation
+Date: Fri, 26 Oct 2012 08:19:15 +0530
+Message-ID: <CADAe=+L2hXpYwH-XyNS2HyHQrMQRCmV_v-bs0Qp+sR-mVkzV4A@mail.gmail.com>
+References: <CADAe=+KJ2QuL7ZdrfDWQe8R1vF_r_bu3QBS-5kwZBgQ21QTMtg@mail.gmail.com>
+ <CAD6jFUTL9-Uyf-0YPwB7Fd5V71NvJh4ameZMF2GCQjDXh_DVzw@mail.gmail.com>
+ <CADAe=++9KHUx3qX+2==+q0Fq44CJ9tjYcO=HdLYOF3FVuM5Vtg@mail.gmail.com> <CAD6jFUScXX0x7yU2f-Cq4B6RZdnQx4dkbADHBL9aYhzQmeKGgA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Daniel Borkmann <danborkmann@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:48938 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754415Ab2JZCtS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 22:49:18 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rr4so2452348pbb.19
-        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 19:49:18 -0700 (PDT)
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:38016 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754456Ab2JZCtp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 25 Oct 2012 22:49:45 -0400
+Received: by mail-ob0-f174.google.com with SMTP id uo13so2230425obb.19
+        for <netdev@vger.kernel.org>; Thu, 25 Oct 2012 19:49:45 -0700 (PDT)
+In-Reply-To: <CAD6jFUScXX0x7yU2f-Cq4B6RZdnQx4dkbADHBL9aYhzQmeKGgA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
-Signed-off-by: Jing Wang <windsdaemon@gmail.com>
----
- net/unix/af_unix.c |    9 ++++++---
- 1 files changed, 6 insertions(+), 3 deletions(-)
+> If the driver uses NAPI [1] / the chip supports that, then not. You
+> can observe the hardware / software interrupts via ifpps or watching
+> procfs or some other tools, or simply look at the driver
+> implementation.
+>
+> [1] http://www.linuxfoundation.org/collaborate/workgroups/networking/napi
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 5b5c876..3f7d9d5 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -860,6 +860,8 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	unsigned int hash;
- 	struct unix_address *addr;
- 	struct hlist_head *list;
-+	struct path path;
-+	umode_t mode;
- 
- 	err = -EINVAL;
- 	if (sunaddr->sun_family != AF_UNIX)
-@@ -890,11 +892,12 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	addr->len = addr_len;
- 	addr->hash = hash ^ sk->sk_type;
- 	atomic_set(&addr->refcnt, 1);
--
-+
- 	if (sun_path[0]) {
--		struct path path;
--		umode_t mode = S_IFSOCK |
-+		mode = S_IFSOCK |
- 		       (SOCK_INODE(sock)->i_mode & ~current_umask());
-+
-+		memset(&path, 0, sizeof(path));
- 		err = unix_mknod(sun_path, mode, &path);
- 		if (err) {
- 			if (err == -EEXIST)
--- 
-1.7.5.4
+But does NAPI comes into picture in case of transmission of packets ?
+I read it comes into picture
+only in the case of reception of packets.
+
+Regards,
+Ajith
