@@ -1,36 +1,73 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] vxlan: don't expire permanent entries
-Date: Fri, 26 Oct 2012 09:24:34 -0700
-Message-ID: <20121026092434.4d735316@nehalam.linuxnetplumber.net>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [net-next 10/14] ixgbevf: make sure probe fails on MSI-X enable
+ error
+Date: Fri, 26 Oct 2012 09:32:21 -0700
+Message-ID: <20121026093221.000038cb@unknown>
+References: <1351252702-16532-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1351252702-16532-11-git-send-email-jeffrey.t.kirsher@intel.com>
+	<4F2EF616F787D840B1215485A0B91D1E5EF3AD@IRSMSX103.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	John Southworth <john.southworth@vyatta.com>
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: "Kicinski, Jakub" <jakub.kicinski@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56297 "EHLO mail.vyatta.com"
+Received: from mga03.intel.com ([143.182.124.21]:46640 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965226Ab2JZQZV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2012 12:25:21 -0400
+	id S965257Ab2JZQca (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2012 12:32:30 -0400
+In-Reply-To: <4F2EF616F787D840B1215485A0B91D1E5EF3AD@IRSMSX103.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VXLAN confused flag versus bitmap on state.
-Based on part of a earlier patch by David Stevens.
+On Fri, 26 Oct 2012 12:43:12 +0000
+"Kicinski, Jakub" <jakub.kicinski@intel.com> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
----
-Applies to 3.7.0-rc2. Needs to be fixed in 3.7 series
+> > From: Jakub Kicinski <jakub.kicinski@intel.com>
+> > 
+> > This driver cannot work without MSI-X interrupts so there is no
+> > mechanism to fall back to.
+> > 
+> > Signed-off-by: Jakub Kicinski <jakub.kicinski@intel.com>
+> > Acked-by: Greg Rose <gregory.v.rose@intel.com>
+> > Tested-by: Sibai Li <sibai.li@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 24
+> > +++++++++++------------ 1 file changed, 11 insertions(+), 13
+> > deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> > b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> > index b5979ba..7ceccff 100644
+> > --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> > +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+> [...]
+> > @@ -1858,7 +1856,7 @@ static int
+> > ixgbevf_set_interrupt_capability(struct ixgbevf_adapter *adapter)
+> >  	for (vector = 0; vector < v_budget; vector++)
+> >  		adapter->msix_entries[vector].entry = vector;
+> > 
+> > -	ixgbevf_acquire_msix_vectors(adapter, v_budget);
+> > +	err = ixgbevf_acquire_msix_vectors(adapter, v_budget);
+> > 
+> >  	err = netif_set_real_num_tx_queues(netdev,
+> > adapter->num_tx_queues); if (err)
+> 
+> This is clearly wrong. My change was overtaken by:
+> 
+> commit 91e2b89b04d3f568dc4ec99f242a4a742061e399
+> Author: Greg Rose <gregory.v.rose@intel.com>
+> Date:   Wed Oct 3 00:57:23 2012 +0000
+> 
+>     ixgbevf: Set the netdev number of Tx queues
+> 
+> Please drop this patch, I'll resend a fixed version to Greg.
 
---- a/drivers/net/vxlan.c	2012-10-11 11:06:10.032585615 -0700
-+++ b/drivers/net/vxlan.c	2012-10-26 09:19:30.734585097 -0700
-@@ -816,7 +816,7 @@ static void vxlan_cleanup(unsigned long
- 				= container_of(p, struct vxlan_fdb, hlist);
- 			unsigned long timeout;
- 
--			if (f->state == NUD_PERMANENT)
-+			if (f->state & NUD_PERMANENT)
- 				continue;
- 
- 			timeout = f->used + vxlan->age_interval * HZ;
+Yikes!  Yeah, that patch got munged somehow.  Thanks!
+
+- Greg
