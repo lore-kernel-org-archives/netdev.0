@@ -1,38 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/5] cgroup: net_prio: Mark local used function
- static
-Date: Fri, 26 Oct 2012 03:41:45 -0400 (EDT)
-Message-ID: <20121026.034145.1107343238754328094.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v1 2/5] cgroup: net_cls: Fix local variable type
+ decleration
+Date: Fri, 26 Oct 2012 03:41:56 -0400 (EDT)
+Message-ID: <20121026.034156.1858346447905058632.davem@davemloft.net>
 References: <1351174619-5096-1-git-send-email-wagi@monom.org>
-	<1351174619-5096-2-git-send-email-wagi@monom.org>
-	<20121025182858.GA15105@hmsreliant.think-freely.org>
+	<1351174619-5096-3-git-send-email-wagi@monom.org>
+	<20121025183516.GB15105@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wagi@monom.org, netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	daniel.wagner@bmw-carit.de, john.r.fastabend@intel.com,
-	lizefan@huawei.com, tj@kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44261 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756753Ab2JZHls (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Oct 2012 03:41:48 -0400
-In-Reply-To: <20121025182858.GA15105@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20121025183516.GB15105-B26myB8xz7F8NnZeBjwnZQMhkBWG/bsMQH7oEaQurus@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 25 Oct 2012 14:28:58 -0400
+From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Thu, 25 Oct 2012 14:35:16 -0400
 
-> On Thu, Oct 25, 2012 at 04:16:55PM +0200, Daniel Wagner wrote:
->> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+> On Thu, Oct 25, 2012 at 04:16:56PM +0200, Daniel Wagner wrote:
+>> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 >> 
->> net_prio_attach() is only access via cgroup_subsys callbacks,
->> therefore we can reduce the visibility of this function.
+>> The classid type used throughout the kernel is u32.
 >> 
->> Signed-off-by: Daniel Wagner <daniel.wagner@bmw-carit.de>
+>> Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
  ...
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 
 Applied.
+ 
