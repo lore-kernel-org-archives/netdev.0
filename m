@@ -1,64 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/12] igbvf: Check for error on dma_map_single call
-Date: Fri, 26 Oct 2012 17:08:35 -0700
-Message-ID: <1351296518-31174-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/12] igb: Fix sparse warning in igb_ptp_rx_pktstamp
+Date: Fri, 26 Oct 2012 17:08:38 -0700
+Message-ID: <1351296518-31174-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1351296518-31174-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:55794 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:45167 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966897Ab2J0AIo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2012 20:08:44 -0400
+	id S966917Ab2J0AIp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2012 20:08:45 -0400
 In-Reply-To: <1351296518-31174-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Ignoring the return value from a call to the kernel dma_map API functions
-can cause data corruption and system instability.  Check the return value
-and take appropriate action.
+This change fixes a sparse warning triggered by us casting the timestamp in
+the packet as a u64 instead of as a __le64.  This change corrects that in
+order to resolve the sparse warning.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igbvf/netdev.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ drivers/net/ethernet/intel/igb/igb_ptp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
-index 0ac11f5..4051ec4 100644
---- a/drivers/net/ethernet/intel/igbvf/netdev.c
-+++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-@@ -184,6 +184,13 @@ static void igbvf_alloc_rx_buffers(struct igbvf_ring *rx_ring,
- 				             buffer_info->page_offset,
- 				             PAGE_SIZE / 2,
- 					     DMA_FROM_DEVICE);
-+			if (dma_mapping_error(&pdev->dev,
-+					      buffer_info->page_dma)) {
-+				__free_page(buffer_info->page);
-+				buffer_info->page = NULL;
-+				dev_err(&pdev->dev, "RX DMA map failed\n");
-+				break;
-+			}
- 		}
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index a7db4ce..aa10f69 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -455,7 +455,7 @@ void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector,
+ 			 unsigned char *va,
+ 			 struct sk_buff *skb)
+ {
+-	u64 *regval = (u64 *)va;
++	__le64 *regval = (__le64 *)va;
  
- 		if (!buffer_info->skb) {
-@@ -197,6 +204,12 @@ static void igbvf_alloc_rx_buffers(struct igbvf_ring *rx_ring,
- 			buffer_info->dma = dma_map_single(&pdev->dev, skb->data,
- 			                                  bufsz,
- 							  DMA_FROM_DEVICE);
-+			if (dma_mapping_error(&pdev->dev, buffer_info->dma)) {
-+				dev_kfree_skb(buffer_info->skb);
-+				buffer_info->skb = NULL;
-+				dev_err(&pdev->dev, "RX DMA map failed\n");
-+				goto no_buffers;
-+			}
- 		}
- 		/* Refresh the desc even if buffer_addrs didn't change because
- 		 * each write-back erases this info. */
+ 	/*
+ 	 * The timestamp is recorded in little endian format.
 -- 
 1.7.11.7
