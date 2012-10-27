@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next 1/2] net: filter: add vlan tag access
-Date: Sat, 27 Oct 2012 14:26:17 +0200
-Message-ID: <1351340777.30380.273.camel@edumazet-glaptop>
+Subject: [PATCH net-next 2/2] x86: bpf_jit_comp: add vlan tag support
+Date: Sat, 27 Oct 2012 14:26:22 +0200
+Message-ID: <1351340782.30380.274.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,97 +10,70 @@ Cc: Ani Sinha <ani@aristanetworks.com>,
 	Daniel Borkmann <danborkmann@iogearbox.net>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:56412 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112Ab2J0M0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2012 08:26:22 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so1424323eek.19
-        for <netdev@vger.kernel.org>; Sat, 27 Oct 2012 05:26:21 -0700 (PDT)
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:34713 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752459Ab2J0M00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2012 08:26:26 -0400
+Received: by mail-ea0-f174.google.com with SMTP id c13so1147382eaa.19
+        for <netdev@vger.kernel.org>; Sat, 27 Oct 2012 05:26:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <edumazet@google.com>
 
-BPF filters lack ability to access skb->vlan_tci
+This patch is a follow-up for patch "net: filter: add vlan tag access"
+to support the new VLAN_TAG/VLAN_TAG_PRESENT accessors in BPF JIT.
 
-This patch adds two new ancillary accessors :
-
-SKF_AD_VLAN_TAG         (44) mapped to vlan_tx_tag_get(skb)
-
-SKF_AD_VLAN_TAG_PRESENT (48) mapped to vlan_tx_tag_present(skb)
-
-This allows libpcap/tcpdump to use a kernel filter instead of
-having to fallback to accept all packets, then filter them in
-user space.
- 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Suggested-by: Ani Sinha <ani@aristanetworks.com>
-Suggested-by: Daniel Borkmann <danborkmann@iogearbox.net>
+Cc: Ani Sinha <ani@aristanetworks.com>
+Cc: Daniel Borkmann <danborkmann@iogearbox.net>
 ---
- include/linux/filter.h      |    2 ++
- include/uapi/linux/filter.h |    4 +++-
- net/core/filter.c           |    9 +++++++++
- 3 files changed, 14 insertions(+), 1 deletion(-)
+ arch/x86/net/bpf_jit_comp.c |   21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 24d251f..c9f0005 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -123,6 +123,8 @@ enum {
- 	BPF_S_ANC_CPU,
- 	BPF_S_ANC_ALU_XOR_X,
- 	BPF_S_ANC_SECCOMP_LD_W,
-+	BPF_S_ANC_VLAN_TAG,
-+	BPF_S_ANC_VLAN_TAG_PRESENT,
- };
- 
- #endif /* __LINUX_FILTER_H__ */
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 3d79224..9cfde69 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -127,7 +127,9 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define SKF_AD_RXHASH	32
- #define SKF_AD_CPU	36
- #define SKF_AD_ALU_XOR_X	40
--#define SKF_AD_MAX	44
-+#define SKF_AD_VLAN_TAG	44
-+#define SKF_AD_VLAN_TAG_PRESENT 48
-+#define SKF_AD_MAX	52
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 3d92ebb..5a114d4 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -39,6 +39,7 @@
- #include <linux/reciprocal_div.h>
- #include <linux/ratelimit.h>
- #include <linux/seccomp.h>
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index 520d2bd..d11a470 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -11,6 +11,7 @@
+ #include <asm/cacheflush.h>
+ #include <linux/netdevice.h>
+ #include <linux/filter.h>
 +#include <linux/if_vlan.h>
  
- /* No hurry in this branch
-  *
-@@ -341,6 +342,12 @@ load_b:
+ /*
+  * Conventions :
+@@ -212,6 +213,8 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 		case BPF_S_ANC_MARK:
+ 		case BPF_S_ANC_RXHASH:
  		case BPF_S_ANC_CPU:
- 			A = raw_smp_processor_id();
- 			continue;
 +		case BPF_S_ANC_VLAN_TAG:
-+			A = vlan_tx_tag_get(skb);
-+			continue;
 +		case BPF_S_ANC_VLAN_TAG_PRESENT:
-+			A = !!vlan_tx_tag_present(skb);
-+			continue;
- 		case BPF_S_ANC_NLATTR: {
- 			struct nlattr *nla;
- 
-@@ -600,6 +607,8 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 			ANCILLARY(RXHASH);
- 			ANCILLARY(CPU);
- 			ANCILLARY(ALU_XOR_X);
-+			ANCILLARY(VLAN_TAG);
-+			ANCILLARY(VLAN_TAG_PRESENT);
- 			}
- 		}
- 		ftest->code = code;
+ 		case BPF_S_ANC_QUEUE:
+ 		case BPF_S_LD_W_ABS:
+ 		case BPF_S_LD_H_ABS:
+@@ -515,6 +518,24 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 				CLEAR_A();
+ #endif
+ 				break;
++			case BPF_S_ANC_VLAN_TAG:
++			case BPF_S_ANC_VLAN_TAG_PRESENT:
++				BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, vlan_tci) != 2);
++				if (is_imm8(offsetof(struct sk_buff, vlan_tci))) {
++					/* movzwl off8(%rdi),%eax */
++					EMIT4(0x0f, 0xb7, 0x47, offsetof(struct sk_buff, vlan_tci));
++				} else {
++					EMIT3(0x0f, 0xb7, 0x87); /* movzwl off32(%rdi),%eax */
++					EMIT(offsetof(struct sk_buff, vlan_tci), 4);
++				}
++				BUILD_BUG_ON(VLAN_TAG_PRESENT != 0x1000);
++				if (filter[i].code == BPF_S_ANC_VLAN_TAG) {
++					EMIT3(0x80, 0xe4, 0xef); /* and    $0xef,%ah */
++				} else {
++					EMIT3(0xc1, 0xe8, 0x0c); /* shr    $0xc,%eax */
++					EMIT3(0x83, 0xe0, 0x01); /* and    $0x1,%eax */
++				}
++				break;
+ 			case BPF_S_LD_W_ABS:
+ 				func = CHOOSE_LOAD_FUNC(K, sk_load_word);
+ common_load:			seen |= SEEN_DATAREF;
