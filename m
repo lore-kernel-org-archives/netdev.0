@@ -1,60 +1,31 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: [PATCH net-next v2] netxen: explicity handle pause autoneg parameter
-Date: Fri, 26 Oct 2012 22:39:53 -0200
-Message-ID: <1351298393-18172-1-git-send-email-fbl@redhat.com>
-Cc: Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Flavio Leitner <fbl@redhat.com>
-To: netdev <netdev@vger.kernel.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 4/5] ss: Get udp sockets info via sock-diag
+Date: Fri, 26 Oct 2012 17:51:54 -0700
+Message-ID: <20121026175154.69cf229a@nehalam.linuxnetplumber.net>
+References: <50893BAF.7030500@parallels.com>
+	<50893DAA.3010909@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24459 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:43006 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756284Ab2J0AkW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 26 Oct 2012 20:40:22 -0400
+	id S1753515Ab2J0Awn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Oct 2012 20:52:43 -0400
+In-Reply-To: <50893DAA.3010909@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The hardware doesn't support controlling pause frames autoneg, so
-report that back correctly to userspace.
+On Thu, 25 Oct 2012 17:24:58 +0400
+Pavel Emelyanov <xemul@parallels.com> wrote:
 
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
----
- drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+> Now everything is prepared for it, so the patch is straightforward.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> 
 
- I don't have the hardware handy to test this, so I appreciate
- if someone could do it.
+1-4 standalone and do not require latest kernel; therefore applied
 
-Changelog:
-v2:
-   fixed to not use AUTONEG_DISABLE
-   fixed to return -EINVAL instead of -EOPNOTSUPP
-
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-index 10468e7..6bf73e1 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
-@@ -488,6 +488,8 @@ netxen_nic_get_pauseparam(struct net_device *dev,
- 	__u32 val;
- 	int port = adapter->physical_port;
- 
-+	pause->autoneg = 0;
-+
- 	if (adapter->ahw.port_type == NETXEN_NIC_GBE) {
- 		if ((port < 0) || (port >= NETXEN_NIU_MAX_GBE_PORTS))
- 			return;
-@@ -532,6 +534,11 @@ netxen_nic_set_pauseparam(struct net_device *dev,
- 	struct netxen_adapter *adapter = netdev_priv(dev);
- 	__u32 val;
- 	int port = adapter->physical_port;
-+
-+	/* not supported */
-+	if (pause->autoneg)
-+		return -EINVAL;
-+
- 	/* read mode */
- 	if (adapter->ahw.port_type == NETXEN_NIC_GBE) {
- 		if ((port < 0) || (port >= NETXEN_NIU_MAX_GBE_PORTS))
--- 
-1.7.11.4
+Please resubmit #5 during next merge window.
