@@ -1,73 +1,39 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: [PATCH 1/1] net: macb: add pinctrl consumer support
-Date: Sat, 27 Oct 2012 17:49:57 +0200
-Message-ID: <1351352997-31116-1-git-send-email-plagnioj@jcrosoft.com>
+From: Javier Domingo <javierdo1@gmail.com>
+Subject: Information about napi_struct and net_device
+Date: Sat, 27 Oct 2012 18:18:39 +0200
+Message-ID: <CALZVap=ybdWdK22LHsfSRu+TVCJnvL95KeChtCdX8DE-C=1gAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
- Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
- netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:46168 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756488Ab2J0QTA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2012 12:19:00 -0400
+Received: by mail-vc0-f174.google.com with SMTP id fk26so4034428vcb.19
+        for <netdev@vger.kernel.org>; Sat, 27 Oct 2012 09:18:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If no pinctrl available just report a warning as some architecture may not
-need to do anything.
+Hello,
 
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
----
- drivers/net/ethernet/cadence/macb.c |   13 +++++++++++++
- 1 file changed, 13 insertions(+)
+I am updating a kernel patch from 2.6.23-rc7 to v3.6, using git
+facilities, and I have found that there have been lots of changes in
+networking. Now the drivers are all by vendor, and more important,
+net_device is not used always, as napi_struct took its place.
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 033064b..e5fdf8a 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -26,6 +26,9 @@
- #include <linux/of.h>
- #include <linux/of_device.h>
- #include <linux/of_net.h>
-+#include <linux/of_gpio.h>
-+#include <linux/gpio.h>
-+#include <linux/pinctrl/consumer.h>
- 
- #include "macb.h"
- 
-@@ -1306,6 +1309,7 @@ static int __init macb_probe(struct platform_device *pdev)
- 	struct phy_device *phydev;
- 	u32 config;
- 	int err = -ENXIO;
-+	struct pinctrl *pinctrl;
- 
- 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!regs) {
-@@ -1313,6 +1317,15 @@ static int __init macb_probe(struct platform_device *pdev)
- 		goto err_out;
- 	}
- 
-+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
-+	if (IS_ERR(pinctrl)) {
-+		err = PTR_ERR(pinctrl);
-+		if (err == -EPROBE_DEFER)
-+			return err;
-+
-+		dev_warn(&pdev->dev, "No pinctrl provided\n");
-+	}
-+
- 	err = -ENOMEM;
- 	dev = alloc_etherdev(sizeof(*bp));
- 	if (!dev)
--- 
-1.7.10.4
+I have asked in #kernel but no one answered me, so I subscribed here.
+Is there any place I can read about how is it now designed the use of
+napi_struct and net_device? I have found a presentation[1] about how
+networking was changing etc, and I wondered if there is anything more
+precise about how it is actually implemented.
+
+I understand a little why napi_struct, but don't really know much
+about the change,
+
+Hope someone can help me,
+
+Javier Domingo
+
+
+[1]: http://vger.kernel.org/~davem/davem_nyc09.pdf
