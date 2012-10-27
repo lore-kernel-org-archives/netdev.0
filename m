@@ -1,95 +1,75 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/12] ixgbe: clean up the condition for turning on/off the laser
-Date: Fri, 26 Oct 2012 17:08:30 -0700
-Message-ID: <1351296518-31174-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/12] ixgbe: Do not decrement budget in ixgbe_clean_rx_irq
+Date: Fri, 26 Oct 2012 17:08:32 -0700
+Message-ID: <1351296518-31174-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1351296518-31174-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:27325 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934318Ab2J0AIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S934312Ab2J0AIn (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 26 Oct 2012 20:08:43 -0400
 In-Reply-To: <1351296518-31174-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch simplifies the check for calling en/disable_tx_laser() function
-pointer. The pointer is only set on parts that can use it.
+This change makes it so that compare the total_rx_packets cleaned to budget
+instead of decrementing budget.  The advantage to this approach is that budget
+can now be const and we only end up modifying total_rx_packets instead of
+modifying both it and budget.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 31 +++++++--------------------
- 1 file changed, 8 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 97bab45..ceab142 100644
+index ceab142..a34ee7d 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4087,11 +4087,8 @@ static void ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 	else
- 		ixgbe_configure_msi_and_legacy(adapter);
+@@ -1794,7 +1794,7 @@ dma_sync:
+  **/
+ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 			       struct ixgbe_ring *rx_ring,
+-			       int budget)
++			       const int budget)
+ {
+ 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
+ #ifdef IXGBE_FCOE
+@@ -1845,7 +1845,6 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
  
--	/* enable the optics for both mult-speed fiber and 82599 SFP+ fiber */
--	if (hw->mac.ops.enable_tx_laser &&
--	    ((hw->phy.multispeed_fiber) ||
--	     ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
--	      (hw->mac.type == ixgbe_mac_82599EB))))
-+	/* enable the optics for 82599 SFP+ fiber */
-+	if (hw->mac.ops.enable_tx_laser)
- 		hw->mac.ops.enable_tx_laser(hw);
+ 		/* probably a little skewed due to removing CRC */
+ 		total_rx_bytes += skb->len;
+-		total_rx_packets++;
  
- 	clear_bit(__IXGBE_DOWN, &adapter->state);
-@@ -4413,11 +4410,8 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	if (!pci_channel_offline(adapter->pdev))
- 		ixgbe_reset(adapter);
+ 		/* populate checksum, timestamp, VLAN, and protocol */
+ 		ixgbe_process_skb_fields(rx_ring, rx_desc, skb);
+@@ -1878,8 +1877,8 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 		ixgbe_rx_skb(q_vector, skb);
  
--	/* power down the optics for multispeed fiber and 82599 SFP+ fiber */
--	if (hw->mac.ops.disable_tx_laser &&
--	    ((hw->phy.multispeed_fiber) ||
--	     ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
--	      (hw->mac.type == ixgbe_mac_82599EB))))
-+	/* power down the optics for 82599 SFP+ fiber */
-+	if (hw->mac.ops.disable_tx_laser)
- 		hw->mac.ops.disable_tx_laser(hw);
+ 		/* update budget accounting */
+-		budget--;
+-	} while (likely(budget));
++		total_rx_packets++;
++	} while (likely(total_rx_packets < budget));
  
- 	ixgbe_clean_all_tx_rings(adapter);
-@@ -5050,14 +5044,8 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
- 	if (wufc) {
- 		ixgbe_set_rx_mode(netdev);
+ 	u64_stats_update_begin(&rx_ring->syncp);
+ 	rx_ring->stats.packets += total_rx_packets;
+@@ -1891,7 +1890,7 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 	if (cleaned_count)
+ 		ixgbe_alloc_rx_buffers(rx_ring, cleaned_count);
  
--		/*
--		 * enable the optics for both mult-speed fiber and
--		 * 82599 SFP+ fiber as we can WoL.
--		 */
--		if (hw->mac.ops.enable_tx_laser &&
--		    (hw->phy.multispeed_fiber ||
--		    (hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber &&
--		     hw->mac.type == ixgbe_mac_82599EB)))
-+		/* enable the optics for 82599 SFP+ fiber as we can WoL */
-+		if (hw->mac.ops.enable_tx_laser)
- 			hw->mac.ops.enable_tx_laser(hw);
+-	return !!budget;
++	return (total_rx_packets < budget);
+ }
  
- 		/* turn on all-multi mode if wake on multicast is enabled */
-@@ -7468,11 +7456,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_register;
- 
--	/* power down the optics for multispeed fiber and 82599 SFP+ fiber */
--	if (hw->mac.ops.disable_tx_laser &&
--	    ((hw->phy.multispeed_fiber) ||
--	     ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
--	      (hw->mac.type == ixgbe_mac_82599EB))))
-+	/* power down the optics for 82599 SFP+ fiber */
-+	if (hw->mac.ops.disable_tx_laser)
- 		hw->mac.ops.disable_tx_laser(hw);
- 
- 	/* carrier off reporting is important to ethtool even BEFORE open */
+ /**
 -- 
 1.7.11.7
