@@ -1,68 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Information about napi_struct and net_device
-Date: Sat, 27 Oct 2012 19:03:41 +0200
-Message-ID: <1351357421.30380.328.camel@edumazet-glaptop>
-References: <CALZVap=ybdWdK22LHsfSRu+TVCJnvL95KeChtCdX8DE-C=1gAg@mail.gmail.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: better retrans tracking for defer-accept
+Date: Sat, 27 Oct 2012 14:27:06 -0400
+Message-ID: <CADVnQynrVqFKOiqB7891hSKLZmQ0GXDiVypop75YB-6RYdjUtA@mail.gmail.com>
+References: <1351238750-13611-1-git-send-email-subramanian.vijay@gmail.com>
+	<1351339032.30380.222.camel@edumazet-glaptop>
+	<alpine.LFD.2.00.1210271556250.1628@ja.ssi.bg>
+	<1351344725.30380.286.camel@edumazet-glaptop>
+	<1351347537.30380.315.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Javier Domingo <javierdo1@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Julian Anastasov <ja@ssi.bg>, David Miller <davem@davemloft.net>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>,
+	Netdev <netdev@vger.kernel.org>,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	Elliott Hughes <enh@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:58303 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751765Ab2J0RDp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2012 13:03:45 -0400
-Received: by mail-ea0-f174.google.com with SMTP id c13so1205931eaa.19
-        for <netdev@vger.kernel.org>; Sat, 27 Oct 2012 10:03:44 -0700 (PDT)
-In-Reply-To: <CALZVap=ybdWdK22LHsfSRu+TVCJnvL95KeChtCdX8DE-C=1gAg@mail.gmail.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:41107 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758499Ab2J0S1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2012 14:27:07 -0400
+Received: by mail-ie0-f174.google.com with SMTP id k13so5061120iea.19
+        for <netdev@vger.kernel.org>; Sat, 27 Oct 2012 11:27:07 -0700 (PDT)
+In-Reply-To: <1351347537.30380.315.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-10-27 at 18:18 +0200, Javier Domingo wrote:
-> Hello,
-> 
-> I am updating a kernel patch from 2.6.23-rc7 to v3.6, using git
-> facilities, and I have found that there have been lots of changes in
-> networking. Now the drivers are all by vendor, and more important,
-> net_device is not used always, as napi_struct took its place.
-> 
+On Sat, Oct 27, 2012 at 10:18 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 
-Yes, some directories were created and files moved around.
+> @@ -2638,7 +2642,7 @@ static void get_openreq4(const struct sock *sk, const struct request_sock *req,
+...
+> -               req->retrans,
+> +               req->num_retrans,
+...
+> @@ -1866,7 +1869,7 @@ static void get_openreq6(struct seq_file *seq,
+...
+> -                  req->retrans,
+> +                  req->num_timeout,
+...
 
-Not really a big deal (no real code change)
+There's a slight inconsistency in the changes to get_openreq4() and
+get_openreq6() - the first now uses num_retrans and the second now
+uses num_timeout.
 
+Otherwise LGTM.
 
-> I have asked in #kernel but no one answered me, so I subscribed here.
-> Is there any place I can read about how is it now designed the use of
-> napi_struct and net_device? I have found a presentation[1] about how
-> networking was changing etc, and I wondered if there is anything more
-> precise about how it is actually implemented.
-> 
-> I understand a little why napi_struct, but don't really know much
-> about the change,
-> 
-> Hope someone can help me,
-
-Seems quite straightforward, we probably should add some docs in 
-Documentation/networking/netdevices.txt
-
-You could take a look at a small driver like
-drivers/net/ethernet/realtek/8139cp.c
-
-and grep for "napi" in it
-
-
-# grep -n napi drivers/net/ethernet/realtek/8139cp.c
-327:	struct napi_struct	napi;
-436:	napi_gro_receive(&cp->napi, skb);
-468:static int cp_rx_poll(struct napi_struct *napi, int budget)
-470:	struct cp_private *cp = container_of(napi, struct cp_private, napi);
-566:		napi_gro_flush(napi, false);
-568:		__napi_complete(napi);
-605:		if (napi_schedule_prep(&cp->napi)) {
-607:			__napi_schedule(&cp->napi);
-1132:	napi_enable(&cp->napi);
-1149:	napi_disable(&cp->napi);
-1160:	napi_disable(&cp->napi);
-1933:	netif_napi_add(dev, &cp->napi, cp_rx_poll, 16);
+neal
