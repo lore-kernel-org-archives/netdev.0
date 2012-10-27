@@ -1,33 +1,55 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: [RFC PATCH net-next] ipv6: remove rt6i_peer_genid from rt6_info
- and its handler
-Date: Sat, 27 Oct 2012 18:49:58 +0800
-Message-ID: <CAJFZqHzTUD=97485SH29PABGwfUHr3whCn+r5y2px0Z3bkS_1A@mail.gmail.com>
-References: <1351256519-7704-1-git-send-email-roy.qing.li@gmail.com>
+From: Michele Baldessari <michele@acksyn.org>
+Subject: Re: [PATCH net-next] sctp: support per-association stats via a new
+ SCTP_GET_ASSOC_STATS call
+Date: Sat, 27 Oct 2012 13:35:41 +0200
+Message-ID: <20121027113541.GA7966@marquez.int.rhx>
+References: <1351258973-17227-1-git-send-email-michele@acksyn.org>
+ <20121026143704.GC25087@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f174.google.com ([209.85.210.174]:46764 "EHLO
-	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751736Ab2J0Kt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2012 06:49:59 -0400
-Received: by mail-ia0-f174.google.com with SMTP id y32so2792923iag.19
-        for <netdev@vger.kernel.org>; Sat, 27 Oct 2012 03:49:59 -0700 (PDT)
-In-Reply-To: <1351256519-7704-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail.acksyn.org ([5.9.7.26]:57324 "EHLO palahniuk.acksyn.org"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753145Ab2J0Lfr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Oct 2012 07:35:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20121026143704.GC25087@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sorry for noise, please ignore it, and see version 2
+Hi Neil & Vlad,
 
--Roy
+On Fri, Oct 26, 2012 at 10:37:04AM -0400, Neil Horman wrote:
+> We already have files in /proc/net/sctp to count snmp system-wide totals,
+> per-endpoint totals, and per association totals.  Why do these stats differently
+> instead of just adding them the per-association file?  I get that solaris does
+> this, but its not codified in any of the RFC's or other standards.  I would
+> really rather see something like this go into the interfaces we have, rather
+> than creating a new one.
+> 
+> I also am a bit confused regarding the stats themselves.  Most are fairly clear,
+> but some seem lacking (you count most things sent and received, but only count
+> received gap acks).  Others seems vague and or confusing (when counting
+> retransmitted chunks and packets, how do you count a packet that has both new
+> and retransmitted chunks)?  And the max observed rto stat is just odd.  Each
+> transport has an rto value, not each association, and you cal already see the
+> individual transport rto values in /proc/net/sctp/remaddr.
 
-2012/10/26  <roy.qing.li@gmail.com>:
-> From: Li RongQing <roy.qing.li@gmail.com>
->
-> 6431cbc25f(Create a mechanism for upward inetpeer propagation into routes)
-> introduces these codes, but this mechanism is never enabled since
-> rt6i_peer_genid always is zero whether it is not assigned or assigned by
-> rt6_peer_genid(). After 5943634fc5 (ipv4: Maintain redirect and PMTU info
-> in struct rtable again), the ipv4 related codes of this mechanism have been
-> removed, I think we maybe able to remove them now.
+thanks a lot for your time reviewing this. I will try to address all
+your comments in a second version of the patch. One thing I am not too
+sure though: do you prefer me extending /proc/net/sctp/* or implement a
+new call.
+
+I ask because from a previous private communication with Vlad the new
+socket option seemed to be the preferred approach.
+I am fine either way just let me know ;)
+
+cheers,
+-- 
+Michele Baldessari            <michele@acksyn.org>
+C2A5 9DA3 9961 4FFB E01B  D0BC DDD4 DCCB 7515 5C6D
