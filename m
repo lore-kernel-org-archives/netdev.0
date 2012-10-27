@@ -1,50 +1,54 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: better retrans tracking for defer-accept
-Date: Sat, 27 Oct 2012 14:27:06 -0400
-Message-ID: <CADVnQynrVqFKOiqB7891hSKLZmQ0GXDiVypop75YB-6RYdjUtA@mail.gmail.com>
-References: <1351238750-13611-1-git-send-email-subramanian.vijay@gmail.com>
-	<1351339032.30380.222.camel@edumazet-glaptop>
-	<alpine.LFD.2.00.1210271556250.1628@ja.ssi.bg>
-	<1351344725.30380.286.camel@edumazet-glaptop>
-	<1351347537.30380.315.camel@edumazet-glaptop>
+From: Konstantin Stepanyuk <konstantin.stepanyuk@gmail.com>
+Subject: Re: [net-next 02/12] ixgbe: Fix return value from macvlan filter function
+Date: Sat, 27 Oct 2012 12:36:52 -0600
+Message-ID: <CAKgsOu-PH2OJRKxLWj=UEp=XuQCpu0e_pNL2_Nkbbz8Hx2bhEw@mail.gmail.com>
+References: <1351296518-31174-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1351296518-31174-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Julian Anastasov <ja@ssi.bg>, David Miller <davem@davemloft.net>,
-	Vijay Subramanian <subramanian.vijay@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	Elliott Hughes <enh@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, Greg Rose <gregory.v.rose@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:41107 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758499Ab2J0S1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2012 14:27:07 -0400
-Received: by mail-ie0-f174.google.com with SMTP id k13so5061120iea.19
-        for <netdev@vger.kernel.org>; Sat, 27 Oct 2012 11:27:07 -0700 (PDT)
-In-Reply-To: <1351347537.30380.315.camel@edumazet-glaptop>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:40766 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758499Ab2J0Sgx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Oct 2012 14:36:53 -0400
+Received: by mail-vc0-f174.google.com with SMTP id fk26so4096933vcb.19
+        for <netdev@vger.kernel.org>; Sat, 27 Oct 2012 11:36:52 -0700 (PDT)
+In-Reply-To: <1351296518-31174-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Oct 27, 2012 at 10:18 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Fri, Oct 26, 2012 at 6:08 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Greg Rose <gregory.v.rose@intel.com>
+>
+> The function to set the macvlan filter should return success or failure
+> instead of the index of the filter.  The message processing function was
+> misinterpreting the index as a non-zero return code indicating failure and
+> NACKing MAC filter set messages that actually succeeded.
+>
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Tested-by: Robert Garrett <robertx.e.garrett@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> index 96876b7..b68bf0f 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> @@ -742,7 +742,8 @@ static int ixgbe_set_vf_macvlan_msg(struct ixgbe_adapter *adapter,
+>                 e_warn(drv,
+>                        "VF %d has requested a MACVLAN filter but there is no space for it\n",
+>                        vf);
+> -       return err;
+> +
+> +       return !!err < 0;
+This expression always resolves to false, either 0 < 0 or 1 < 0,
+because '!' has higher precedence than '<'.
 
-> @@ -2638,7 +2642,7 @@ static void get_openreq4(const struct sock *sk, const struct request_sock *req,
-...
-> -               req->retrans,
-> +               req->num_retrans,
-...
-> @@ -1866,7 +1869,7 @@ static void get_openreq6(struct seq_file *seq,
-...
-> -                  req->retrans,
-> +                  req->num_timeout,
-...
-
-There's a slight inconsistency in the changes to get_openreq4() and
-get_openreq6() - the first now uses num_retrans and the second now
-uses num_timeout.
-
-Otherwise LGTM.
-
-neal
+Thanks,
+Konstantin
