@@ -1,70 +1,72 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 07/16] batman-adv: Remove extra check in batadv_bit_get_packet
-Date: Sun, 28 Oct 2012 12:17:08 +0100
-Message-ID: <1351423037-5292-8-git-send-email-ordex@autistici.org>
+Subject: [PATCH 09/16] batman-adv: Only increase refcounter once for alternate router
+Date: Sun, 28 Oct 2012 12:17:10 +0100
+Message-ID: <1351423037-5292-10-git-send-email-ordex@autistici.org>
 References: <1351423037-5292-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:55827 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:55967 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927Ab2J1LS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2012 07:18:28 -0400
+	with ESMTP id S1752097Ab2J1LSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2012 07:18:33 -0400
 In-Reply-To: <1351423037-5292-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sven Eckelmann <sven@narfation.org>
 
-batadv_bit_get_packet checks for all common situations before it decides that
-the new received packet indicates that the host was restarted. This extra
-condition check at the end of the function is not necessary because this
-condition is always true.
+The test whether we can use a router for alternating bonding should only be
+done once because it is already known that it is still usable and will not be
+deleted from the list soon.
 
-This patch addresses Coverity #712296: Logically dead code
+This patch addresses Coverity #712285: Unchecked return value
 
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bitarray.c | 23 ++++++++++-------------
- 1 file changed, 10 insertions(+), 13 deletions(-)
+ net/batman-adv/routing.c | 23 ++++++++---------------
+ 1 file changed, 8 insertions(+), 15 deletions(-)
 
-diff --git a/net/batman-adv/bitarray.c b/net/batman-adv/bitarray.c
-index aea174c..5453b17 100644
---- a/net/batman-adv/bitarray.c
-+++ b/net/batman-adv/bitarray.c
-@@ -79,20 +79,17 @@ int batadv_bit_get_packet(void *priv, unsigned long *seq_bits,
- 	 * or the old packet got delayed somewhere in the network. The
- 	 * packet should be dropped without calling this function if the
- 	 * seqno window is protected.
-+	 *
-+	 * seq_num_diff <= -BATADV_TQ_LOCAL_WINDOW_SIZE
-+	 * or
-+	 * seq_num_diff >= BATADV_EXPECTED_SEQNO_RANGE
- 	 */
--	if (seq_num_diff <= -BATADV_TQ_LOCAL_WINDOW_SIZE ||
--	    seq_num_diff >= BATADV_EXPECTED_SEQNO_RANGE) {
-+	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
-+		   "Other host probably restarted!\n");
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 8bdafc8..1ac072d 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -549,25 +549,18 @@ batadv_find_ifalter_router(struct batadv_orig_node *primary_orig,
+ 		if (tmp_neigh_node->if_incoming == recv_if)
+ 			continue;
  
--		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
--			   "Other host probably restarted!\n");
-+	bitmap_zero(seq_bits, BATADV_TQ_LOCAL_WINDOW_SIZE);
-+	if (set_mark)
-+		batadv_set_bit(seq_bits, 0);
++		if (router && tmp_neigh_node->tq_avg <= router->tq_avg)
++			continue;
++
+ 		if (!atomic_inc_not_zero(&tmp_neigh_node->refcount))
+ 			continue;
  
--		bitmap_zero(seq_bits, BATADV_TQ_LOCAL_WINDOW_SIZE);
--		if (set_mark)
--			batadv_set_bit(seq_bits, 0);
+-		/* if we don't have a router yet
+-		 * or this one is better, choose it.
+-		 */
+-		if ((!router) ||
+-		    (tmp_neigh_node->tq_avg > router->tq_avg)) {
+-			/* decrement refcount of
+-			 * previously selected router
+-			 */
+-			if (router)
+-				batadv_neigh_node_free_ref(router);
++		/* decrement refcount of previously selected router */
++		if (router)
++			batadv_neigh_node_free_ref(router);
+ 
+-			router = tmp_neigh_node;
+-			atomic_inc_not_zero(&router->refcount);
+-		}
 -
--		return 1;
--	}
--
--	/* never reached */
--	return 0;
-+	return 1;
- }
+-		batadv_neigh_node_free_ref(tmp_neigh_node);
++		/* we found a better router (or at least one valid router) */
++		router = tmp_neigh_node;
+ 	}
+ 
+ 	/* use the first candidate if nothing was found. */
 -- 
 1.7.12.4
