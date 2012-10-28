@@ -1,46 +1,91 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC PATCH net-next] qfq: handle the case that front slot is
- empty
-Date: Sun, 28 Oct 2012 20:45:00 +0800
-Message-ID: <1351428300.15482.2.camel@cr0>
-References: <20121026165115.GA16947@paolo-ThinkPad-W520>
+From: "Walter Robert Ditzler" <ditwal001-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 16/16] batman-adv: add kernel-doc for
+	enum batadv_dbg_level
+Date: Sun, 28 Oct 2012 14:32:46 +0100
+Message-ID: <!&!AAAAAAAAAAAYAAAAAAAAAOJK0u4CH31Kl5v1RPAzyrZCgQAAEAAAAKjiaB1rjc5LlgmOWy8Wfa0BAAAAAA==@gmail.com>
+References: <1351423037-5292-1-git-send-email-ordex@autistici.org>
+ <1351423037-5292-17-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Fabio Checconi <fchecconi@gmail.com>
-To: Paolo Valente <paolo.valente@unimore.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24919 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751551Ab2J1MpP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Oct 2012 08:45:15 -0400
-In-Reply-To: <20121026165115.GA16947@paolo-ThinkPad-W520>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "'The list for a Better Approach To Mobile Ad-hoc Networking'"
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1351423037-5292-17-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Content-Language: de-ch
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-10-26 at 18:51 +0200, Paolo Valente wrote:
-> Here is a possible patch. Could you please give me a feedback?
-> 
-> If this patch actually works, there are some issues related to it that I would
-> like to point out after your (and/or anyone else's) tests.
+hi batman list,
 
-With this patch applied, I can't reproduce the crash any more.
+i recently saw there is a bounce of email in the batman community regarding
+patches. is it safe and reliable to use the version from the open-mesh.org
+site:
 
-And the following messages appear in the log:
+- inux 3.6 => batman-adv 2012.3.x (get batctl 2012.3.x from here)
 
-[  430.956400] qfq: increasing class max_pkt_size from 1514 to 26130
-[  430.981887] qfq: increasing class max_pkt_size from 26130 to 31922
-[  431.011844] qfq: increasing class max_pkt_size from 1514 to 2962
-[  431.060129] qfq: increasing class max_pkt_size from 31922 to 46402
-[  431.096241] qfq: increasing class max_pkt_size from 2962 to 4410
-[  431.123689] qfq: increasing class max_pkt_size from 4410 to 18890
-[  431.134624] qfq: increasing class max_pkt_size from 18890 to 20338
-[  431.149573] qfq: increasing class max_pkt_size from 20338 to 39162
-[  431.328157] qfq: increasing class max_pkt_size from 46402 to 56538
-[  431.339731] qfq: increasing class max_pkt_size from 56538 to 65226
-[  431.363699] qfq: increasing class max_pkt_size from 39162 to 44954
-[  431.376303] qfq: increasing class max_pkt_size from 44954 to 46402
-[  431.482082] qfq: increasing class max_pkt_size from 46402 to 62330
-[  431.520339] qfq: increasing class max_pkt_size from 62330 to 65226
+for production use onto the following configuration:
+
+os: debian 6.0.6
+kernel: 3.6.3, batman activated
+arch: geode lx and amd64
+
+thanks for a brief answer.
+
+walter
+
+-----Original Message-----
+From: B.A.T.M.A.N [mailto:b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org] On Behalf
+Of Antonio Quartulli
+Sent: Sonntag, 28. Oktober 2012 12:17
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Subject: [B.A.T.M.A.N.] [PATCH 16/16] batman-adv: add kernel-doc for enum
+batadv_dbg_level
+
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+---
+ net/batman-adv/main.h | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h index
+9b94f05..897ba6a 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -165,12 +165,19 @@ int batadv_algo_register(struct batadv_algo_ops
+*bat_algo_ops);  int batadv_algo_select(struct batadv_priv *bat_priv, char
+*name);  int batadv_algo_seq_print_text(struct seq_file *seq, void *offset);
+ 
+-/* all messages related to routing / flooding / broadcasting / etc */
++/**
++ * enum batadv_dbg_level - available log levels
++ * @BATADV_DBG_BATMAN: OGM and TQ computations related messages
++ * @BATADV_DBG_ROUTES: route added / changed / deleted
++ * @BATADV_DBG_TT: translation table messages
++ * @BATADV_DBG_BLA: bridge loop avoidance messages
++ * @BATADV_DBG_ALL: the union of all the above log levels  */
+ enum batadv_dbg_level {
+ 	BATADV_DBG_BATMAN = BIT(0),
+-	BATADV_DBG_ROUTES = BIT(1), /* route added / changed / deleted */
+-	BATADV_DBG_TT	  = BIT(2), /* translation table operations */
+-	BATADV_DBG_BLA    = BIT(3), /* bridge loop avoidance */
++	BATADV_DBG_ROUTES = BIT(1),
++	BATADV_DBG_TT	  = BIT(2),
++	BATADV_DBG_BLA    = BIT(3),
+ 	BATADV_DBG_ALL    = 15,
+ };
+ 
+--
+1.7.12.4
