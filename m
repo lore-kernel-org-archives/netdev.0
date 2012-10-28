@@ -1,192 +1,120 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: [PATCH v7 13/16] lockd: use new hashtable implementation
-Date: Sun, 28 Oct 2012 15:02:25 -0400
-Message-ID: <1351450948-15618-13-git-send-email-levinsasha928@gmail.com>
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v7 16/16] tracing output: use new hashtable
+	implementation
+Date: Sun, 28 Oct 2012 15:02:28 -0400
+Message-ID: <1351450948-15618-16-git-send-email-levinsasha928@gmail.com>
 References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
-Cc: tj@kernel.org,
-	akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	linux-mm@kvack.org,
-	paul.gortmaker@windriver.com,
-	davem@davemloft.net,
-	rostedt@goodmis.org,
-	mingo@elte.hu,
-	ebiederm@xmission.com,
-	aarcange@redhat.com,
-	ericvh@gmail.com,
-	netdev@vger.kernel.org,
-	josh@joshtriplett.org,
-	eric.dumazet@gmail.com,
-	mathieu.desnoyers@efficios.com,
-	axboe@kernel.dk,
-	agk@redhat.com,
-	dm-devel@redhat.com,
-	neilb@suse.de,
-	ccaulfie@redhat.com,
-	teigland@redhat.com,
-	Trond.Myklebust@netapp.com,
-	bfields@fieldses.org,
-	fweisbec@gmail.com,
-	jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com,
-	ejt@redhat.com,
-	snitzer@redhat.com,
-	edumazet@google.com,
-	linux-nfs@vger.kernel.org,
-	dev@openvswitch.org,
-	rds-devel@oss.oracle.com,
-	lw@cn.fujitsu.com,
-	Sasha Levin <levinsasha928@gmail.com>
-To: torvalds@linux-foundation.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org,
+	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1351450948-15618-1-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Switch lockd to use the new hashtable implementation. This reduces the amount of
-generic unrelated code in lockd.
+Switch tracing to use the new hashtable implementation. This reduces the amount of
+generic unrelated code in the tracing module.
 
-Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- fs/lockd/svcsubs.c | 66 +++++++++++++++++++++++++++++-------------------------
- 1 file changed, 36 insertions(+), 30 deletions(-)
+ kernel/trace/trace_output.c | 20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
 
-diff --git a/fs/lockd/svcsubs.c b/fs/lockd/svcsubs.c
-index 0deb5f6..d223a1f 100644
---- a/fs/lockd/svcsubs.c
-+++ b/fs/lockd/svcsubs.c
-@@ -20,6 +20,7 @@
- #include <linux/lockd/share.h>
+diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
+index 123b189..1324c1a 100644
+--- a/kernel/trace/trace_output.c
++++ b/kernel/trace/trace_output.c
+@@ -8,15 +8,15 @@
  #include <linux/module.h>
- #include <linux/mount.h>
+ #include <linux/mutex.h>
+ #include <linux/ftrace.h>
 +#include <linux/hashtable.h>
  
- #define NLMDBG_FACILITY		NLMDBG_SVCSUBS
+ #include "trace_output.h"
  
-@@ -28,8 +29,7 @@
-  * Global file hash table
-  */
- #define FILE_HASH_BITS		7
--#define FILE_NRHASH		(1<<FILE_HASH_BITS)
--static struct hlist_head	nlm_files[FILE_NRHASH];
-+static DEFINE_HASHTABLE(nlm_files, FILE_HASH_BITS);
- static DEFINE_MUTEX(nlm_file_mutex);
+-/* must be a power of 2 */
+-#define EVENT_HASHSIZE	128
++#define EVENT_HASH_BITS	7
  
- #ifdef NFSD_DEBUG
-@@ -68,7 +68,7 @@ static inline unsigned int file_hash(struct nfs_fh *f)
- 	int i;
- 	for (i=0; i<NFS2_FHSIZE;i++)
- 		tmp += f->data[i];
--	return tmp & (FILE_NRHASH - 1);
-+	return tmp;
- }
+ DECLARE_RWSEM(trace_event_mutex);
  
- /*
-@@ -86,17 +86,17 @@ nlm_lookup_file(struct svc_rqst *rqstp, struct nlm_file **result,
+-static struct hlist_head event_hash[EVENT_HASHSIZE] __read_mostly;
++static DEFINE_HASHTABLE(event_hash, EVENT_HASH_BITS);
+ 
+ static int next_event_type = __TRACE_LAST_TYPE + 1;
+ 
+@@ -712,11 +712,8 @@ struct trace_event *ftrace_find_event(int type)
  {
- 	struct hlist_node *pos;
- 	struct nlm_file	*file;
--	unsigned int	hash;
-+	unsigned int	key;
- 	__be32		nfserr;
+ 	struct trace_event *event;
+ 	struct hlist_node *n;
+-	unsigned key;
  
- 	nlm_debug_print_fh("nlm_lookup_file", f);
- 
--	hash = file_hash(f);
-+	key = file_hash(f);
- 
- 	/* Lock file table */
- 	mutex_lock(&nlm_file_mutex);
- 
--	hlist_for_each_entry(file, pos, &nlm_files[hash], f_list)
-+	hash_for_each_possible(nlm_files, file, pos, f_list, file_hash(f))
- 		if (!nfs_compare_fh(&file->f_handle, f))
- 			goto found;
- 
-@@ -123,7 +123,7 @@ nlm_lookup_file(struct svc_rqst *rqstp, struct nlm_file **result,
- 		goto out_free;
+-	key = type & (EVENT_HASHSIZE - 1);
+-
+-	hlist_for_each_entry(event, n, &event_hash[key], node) {
++	hash_for_each_possible(event_hash, event, n, node, type) {
+ 		if (event->type == type)
+ 			return event;
  	}
- 
--	hlist_add_head(&file->f_list, &nlm_files[hash]);
-+	hash_add(nlm_files, &file->f_list, key);
- 
- found:
- 	dprintk("lockd: found file %p (count %d)\n", file, file->f_count);
-@@ -147,8 +147,8 @@ static inline void
- nlm_delete_file(struct nlm_file *file)
+@@ -781,7 +778,6 @@ void trace_event_read_unlock(void)
+  */
+ int register_ftrace_event(struct trace_event *event)
  {
- 	nlm_debug_print_file("closing file", file);
--	if (!hlist_unhashed(&file->f_list)) {
--		hlist_del(&file->f_list);
-+	if (hash_hashed(&file->f_list)) {
-+		hash_del(&file->f_list);
- 		nlmsvc_ops->fclose(file->f_file);
- 		kfree(file);
- 	} else {
-@@ -253,27 +253,25 @@ nlm_traverse_files(void *data, nlm_host_match_fn_t match,
- 	int i, ret = 0;
+-	unsigned key;
+ 	int ret = 0;
  
- 	mutex_lock(&nlm_file_mutex);
--	for (i = 0; i < FILE_NRHASH; i++) {
--		hlist_for_each_entry_safe(file, pos, next, &nlm_files[i], f_list) {
--			if (is_failover_file && !is_failover_file(data, file))
--				continue;
--			file->f_count++;
--			mutex_unlock(&nlm_file_mutex);
+ 	down_write(&trace_event_mutex);
+@@ -833,9 +829,7 @@ int register_ftrace_event(struct trace_event *event)
+ 	if (event->funcs->binary == NULL)
+ 		event->funcs->binary = trace_nop_print;
+ 
+-	key = event->type & (EVENT_HASHSIZE - 1);
 -
--			/* Traverse locks, blocks and shares of this file
--			 * and update file->f_locks count */
--			if (nlm_inspect_file(data, file, match))
--				ret = 1;
--
--			mutex_lock(&nlm_file_mutex);
--			file->f_count--;
--			/* No more references to this file. Let go of it. */
--			if (list_empty(&file->f_blocks) && !file->f_locks
--			 && !file->f_shares && !file->f_count) {
--				hlist_del(&file->f_list);
--				nlmsvc_ops->fclose(file->f_file);
--				kfree(file);
--			}
-+	hash_for_each_safe(nlm_files, i, pos, next, file, f_list) {
-+		if (is_failover_file && !is_failover_file(data, file))
-+			continue;
-+		file->f_count++;
-+		mutex_unlock(&nlm_file_mutex);
-+
-+		/* Traverse locks, blocks and shares of this file
-+		 * and update file->f_locks count */
-+		if (nlm_inspect_file(data, file, match))
-+			ret = 1;
-+
-+		mutex_lock(&nlm_file_mutex);
-+		file->f_count--;
-+		/* No more references to this file. Let go of it. */
-+		if (list_empty(&file->f_blocks) && !file->f_locks
-+		 && !file->f_shares && !file->f_count) {
-+			hash_del(&file->f_list);
-+			nlmsvc_ops->fclose(file->f_file);
-+			kfree(file);
+-	hlist_add_head(&event->node, &event_hash[key]);
++	hash_add(event_hash, &event->node, event->type);
+ 
+ 	ret = event->type;
+  out:
+@@ -850,7 +844,7 @@ EXPORT_SYMBOL_GPL(register_ftrace_event);
+  */
+ int __unregister_ftrace_event(struct trace_event *event)
+ {
+-	hlist_del(&event->node);
++	hash_del(&event->node);
+ 	list_del(&event->list);
+ 	return 0;
+ }
+@@ -1323,6 +1317,8 @@ __init static int init_events(void)
  		}
  	}
- 	mutex_unlock(&nlm_file_mutex);
-@@ -451,3 +449,11 @@ nlmsvc_unlock_all_by_ip(struct sockaddr *server_addr)
- 	return ret ? -EIO : 0;
+ 
++	hash_init(event_hash);
++
+ 	return 0;
  }
- EXPORT_SYMBOL_GPL(nlmsvc_unlock_all_by_ip);
-+
-+static int __init nlm_init(void)
-+{
-+	hash_init(nlm_files);
-+	return 0;
-+}
-+
-+module_init(nlm_init);
+ early_initcall(init_events);
 -- 
 1.7.12.4
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
