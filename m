@@ -1,17 +1,17 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 02/16] batman-adv: split hard_iface struct for each routing protocol
-Date: Sun, 28 Oct 2012 12:17:03 +0100
-Message-ID: <1351423037-5292-3-git-send-email-ordex@autistici.org>
+Subject: [PATCH 04/16] batman-adv: consolidate duplicated primary_if checking code
+Date: Sun, 28 Oct 2012 12:17:05 +0100
+Message-ID: <1351423037-5292-5-git-send-email-ordex@autistici.org>
 References: <1351423037-5292-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:55371 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:55526 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932Ab2J1LSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2012 07:18:12 -0400
+	with ESMTP id S1751975Ab2J1LSS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2012 07:18:18 -0400
 In-Reply-To: <1351423037-5292-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,181 +21,295 @@ From: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c     | 43 +++++++++++++++++++++++------------------
- net/batman-adv/hard-interface.c |  4 ++--
- net/batman-adv/types.h          | 16 ++++++++++++---
- 3 files changed, 39 insertions(+), 24 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c | 36 ++++++----------------------------
+ net/batman-adv/gateway_client.c        | 19 ++++--------------
+ net/batman-adv/main.c                  | 36 ++++++++++++++++++++++++++++++++++
+ net/batman-adv/main.h                  |  2 ++
+ net/batman-adv/originator.c            | 19 +++---------------
+ net/batman-adv/translation-table.c     | 36 ++++++----------------------------
+ 6 files changed, 57 insertions(+), 91 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index b02b75d..75403a4 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -57,20 +57,22 @@ out:
- static int batadv_iv_ogm_iface_enable(struct batadv_hard_iface *hard_iface)
- {
- 	struct batadv_ogm_packet *batadv_ogm_packet;
-+	unsigned char *ogm_buff;
- 	uint32_t random_seqno;
- 	int res = -ENOMEM;
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index fd8d5af..29a5542 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -1585,23 +1585,11 @@ int batadv_bla_claim_table_seq_print_text(struct seq_file *seq, void *offset)
+ 	struct hlist_head *head;
+ 	uint32_t i;
+ 	bool is_own;
+-	int ret = 0;
+ 	uint8_t *primary_addr;
  
- 	/* randomize initial seqno to avoid collision */
- 	get_random_bytes(&random_seqno, sizeof(random_seqno));
--	atomic_set(&hard_iface->seqno, random_seqno);
-+	atomic_set(&hard_iface->bat_iv.ogm_seqno, random_seqno);
- 
--	hard_iface->packet_len = BATADV_OGM_HLEN;
--	hard_iface->packet_buff = kmalloc(hard_iface->packet_len, GFP_ATOMIC);
--
--	if (!hard_iface->packet_buff)
-+	hard_iface->bat_iv.ogm_buff_len = BATADV_OGM_HLEN;
-+	ogm_buff = kmalloc(hard_iface->bat_iv.ogm_buff_len, GFP_ATOMIC);
-+	if (!ogm_buff)
+-	primary_if = batadv_primary_if_get_selected(bat_priv);
+-	if (!primary_if) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - please specify interfaces to enable it\n",
+-				 net_dev->name);
++	primary_if = batadv_seq_print_text_primary_if_get(seq);
++	if (!primary_if)
  		goto out;
+-	}
+-
+-	if (primary_if->if_status != BATADV_IF_ACTIVE) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - primary interface not active\n",
+-				 net_dev->name);
+-		goto out;
+-	}
  
--	batadv_ogm_packet = (struct batadv_ogm_packet *)hard_iface->packet_buff;
-+	hard_iface->bat_iv.ogm_buff = ogm_buff;
-+
-+	batadv_ogm_packet = (struct batadv_ogm_packet *)ogm_buff;
- 	batadv_ogm_packet->header.packet_type = BATADV_IV_OGM;
- 	batadv_ogm_packet->header.version = BATADV_COMPAT_VERSION;
- 	batadv_ogm_packet->header.ttl = 2;
-@@ -87,15 +89,16 @@ out:
- 
- static void batadv_iv_ogm_iface_disable(struct batadv_hard_iface *hard_iface)
- {
--	kfree(hard_iface->packet_buff);
--	hard_iface->packet_buff = NULL;
-+	kfree(hard_iface->bat_iv.ogm_buff);
-+	hard_iface->bat_iv.ogm_buff = NULL;
- }
- 
- static void batadv_iv_ogm_iface_update_mac(struct batadv_hard_iface *hard_iface)
- {
- 	struct batadv_ogm_packet *batadv_ogm_packet;
-+	unsigned char *ogm_buff = hard_iface->bat_iv.ogm_buff;
- 
--	batadv_ogm_packet = (struct batadv_ogm_packet *)hard_iface->packet_buff;
-+	batadv_ogm_packet = (struct batadv_ogm_packet *)ogm_buff;
- 	memcpy(batadv_ogm_packet->orig,
- 	       hard_iface->net_dev->dev_addr, ETH_ALEN);
- 	memcpy(batadv_ogm_packet->prev_sender,
-@@ -106,8 +109,9 @@ static void
- batadv_iv_ogm_primary_iface_set(struct batadv_hard_iface *hard_iface)
- {
- 	struct batadv_ogm_packet *batadv_ogm_packet;
-+	unsigned char *ogm_buff = hard_iface->bat_iv.ogm_buff;
- 
--	batadv_ogm_packet = (struct batadv_ogm_packet *)hard_iface->packet_buff;
-+	batadv_ogm_packet = (struct batadv_ogm_packet *)ogm_buff;
- 	batadv_ogm_packet->flags = BATADV_PRIMARIES_FIRST_HOP;
- 	batadv_ogm_packet->header.ttl = BATADV_TTL;
- }
-@@ -590,8 +594,10 @@ static void batadv_iv_ogm_forward(struct batadv_orig_node *orig_node,
- static void batadv_iv_ogm_schedule(struct batadv_hard_iface *hard_iface)
- {
- 	struct batadv_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
-+	unsigned char **ogm_buff = &hard_iface->bat_iv.ogm_buff;
- 	struct batadv_ogm_packet *batadv_ogm_packet;
- 	struct batadv_hard_iface *primary_if;
-+	int *ogm_buff_len = &hard_iface->bat_iv.ogm_buff_len;
- 	int vis_server, tt_num_changes = 0;
- 	uint32_t seqno;
- 	uint8_t bandwidth;
-@@ -600,17 +606,16 @@ static void batadv_iv_ogm_schedule(struct batadv_hard_iface *hard_iface)
- 	primary_if = batadv_primary_if_get_selected(bat_priv);
- 
- 	if (hard_iface == primary_if)
--		tt_num_changes = batadv_tt_append_diff(bat_priv,
--						       &hard_iface->packet_buff,
--						       &hard_iface->packet_len,
-+		tt_num_changes = batadv_tt_append_diff(bat_priv, ogm_buff,
-+						       ogm_buff_len,
- 						       BATADV_OGM_HLEN);
- 
--	batadv_ogm_packet = (struct batadv_ogm_packet *)hard_iface->packet_buff;
-+	batadv_ogm_packet = (struct batadv_ogm_packet *)(*ogm_buff);
- 
- 	/* change sequence number to network order */
--	seqno = (uint32_t)atomic_read(&hard_iface->seqno);
-+	seqno = (uint32_t)atomic_read(&hard_iface->bat_iv.ogm_seqno);
- 	batadv_ogm_packet->seqno = htonl(seqno);
--	atomic_inc(&hard_iface->seqno);
-+	atomic_inc(&hard_iface->bat_iv.ogm_seqno);
- 
- 	batadv_ogm_packet->ttvn = atomic_read(&bat_priv->tt.vn);
- 	batadv_ogm_packet->tt_crc = htons(bat_priv->tt.local_crc);
-@@ -631,8 +636,8 @@ static void batadv_iv_ogm_schedule(struct batadv_hard_iface *hard_iface)
- 	}
- 
- 	batadv_slide_own_bcast_window(hard_iface);
--	batadv_iv_ogm_queue_add(bat_priv, hard_iface->packet_buff,
--				hard_iface->packet_len, hard_iface, 1,
-+	batadv_iv_ogm_queue_add(bat_priv, hard_iface->bat_iv.ogm_buff,
-+				hard_iface->bat_iv.ogm_buff_len, hard_iface, 1,
- 				batadv_iv_ogm_emit_send_time(bat_priv));
- 
+ 	primary_addr = primary_if->net_dev->dev_addr;
+ 	seq_printf(seq,
+@@ -1628,7 +1616,7 @@ int batadv_bla_claim_table_seq_print_text(struct seq_file *seq, void *offset)
+ out:
  	if (primary_if)
-@@ -1015,7 +1020,7 @@ static void batadv_iv_ogm_process(const struct ethhdr *ethhdr,
- 		return;
+ 		batadv_hardif_free_ref(primary_if);
+-	return ret;
++	return 0;
+ }
  
- 	/* could be changed by schedule_own_packet() */
--	if_incoming_seqno = atomic_read(&if_incoming->seqno);
-+	if_incoming_seqno = atomic_read(&if_incoming->bat_iv.ogm_seqno);
+ int batadv_bla_backbone_table_seq_print_text(struct seq_file *seq, void *offset)
+@@ -1643,23 +1631,11 @@ int batadv_bla_backbone_table_seq_print_text(struct seq_file *seq, void *offset)
+ 	int secs, msecs;
+ 	uint32_t i;
+ 	bool is_own;
+-	int ret = 0;
+ 	uint8_t *primary_addr;
  
- 	if (batadv_ogm_packet->flags & BATADV_DIRECTLINK)
- 		has_directlink_flag = 1;
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index d112fd6..fab9e41 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -450,8 +450,8 @@ batadv_hardif_add_interface(struct net_device *net_dev)
- 	/* This can't be called via a bat_priv callback because
- 	 * we have no bat_priv yet.
- 	 */
--	atomic_set(&hard_iface->seqno, 1);
--	hard_iface->packet_buff = NULL;
-+	atomic_set(&hard_iface->bat_iv.ogm_seqno, 1);
-+	hard_iface->bat_iv.ogm_buff = NULL;
+-	primary_if = batadv_primary_if_get_selected(bat_priv);
+-	if (!primary_if) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - please specify interfaces to enable it\n",
+-				 net_dev->name);
++	primary_if = batadv_seq_print_text_primary_if_get(seq);
++	if (!primary_if)
+ 		goto out;
+-	}
+-
+-	if (primary_if->if_status != BATADV_IF_ACTIVE) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - primary interface not active\n",
+-				 net_dev->name);
+-		goto out;
+-	}
  
- 	return hard_iface;
+ 	primary_addr = primary_if->net_dev->dev_addr;
+ 	seq_printf(seq,
+@@ -1693,5 +1669,5 @@ int batadv_bla_backbone_table_seq_print_text(struct seq_file *seq, void *offset)
+ out:
+ 	if (primary_if)
+ 		batadv_hardif_free_ref(primary_if);
+-	return ret;
++	return 0;
+ }
+diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
+index 15d67ab..dd07c7e 100644
+--- a/net/batman-adv/gateway_client.c
++++ b/net/batman-adv/gateway_client.c
+@@ -477,22 +477,11 @@ int batadv_gw_client_seq_print_text(struct seq_file *seq, void *offset)
+ 	struct batadv_hard_iface *primary_if;
+ 	struct batadv_gw_node *gw_node;
+ 	struct hlist_node *node;
+-	int gw_count = 0, ret = 0;
++	int gw_count = 0;
  
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index ac1e07a..faaebd6 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -28,20 +28,30 @@
- 	(ETH_HLEN + max(sizeof(struct batadv_unicast_packet), \
- 			sizeof(struct batadv_bcast_packet)))
+-	primary_if = batadv_primary_if_get_selected(bat_priv);
+-	if (!primary_if) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - please specify interfaces to enable it\n",
+-				 net_dev->name);
++	primary_if = batadv_seq_print_text_primary_if_get(seq);
++	if (!primary_if)
+ 		goto out;
+-	}
+-
+-	if (primary_if->if_status != BATADV_IF_ACTIVE) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - primary interface not active\n",
+-				 net_dev->name);
+-		goto out;
+-	}
+ 
+ 	seq_printf(seq,
+ 		   "      %-12s (%s/%i) %17s [%10s]: gw_class ... [B.A.T.M.A.N. adv %s, MainIF/MAC: %s/%pM (%s)]\n",
+@@ -519,7 +508,7 @@ int batadv_gw_client_seq_print_text(struct seq_file *seq, void *offset)
+ out:
+ 	if (primary_if)
+ 		batadv_hardif_free_ref(primary_if);
+-	return ret;
++	return 0;
+ }
+ 
+ static bool batadv_is_type_dhcprequest(struct sk_buff *skb, int header_len)
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index b4aa470..a4a337d 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -188,6 +188,42 @@ int batadv_is_my_mac(const uint8_t *addr)
+ 	return 0;
+ }
  
 +/**
-+ * struct batadv_hard_iface_bat_iv - per hard interface B.A.T.M.A.N. IV data
-+ * @ogm_buff: buffer holding the OGM packet
-+ * @ogm_buff_len: length of the OGM packet buffer
-+ * @ogm_seqno: OGM sequence number - used to identify each OGM
++ * batadv_seq_print_text_primary_if_get - called from debugfs table printing
++ *  function that requires the primary interface
++ * @seq: debugfs table seq_file struct
++ *
++ * Returns primary interface if found or NULL otherwise.
 + */
-+struct batadv_hard_iface_bat_iv {
-+	unsigned char *ogm_buff;
-+	int ogm_buff_len;
-+	atomic_t ogm_seqno;
-+};
++struct batadv_hard_iface *
++batadv_seq_print_text_primary_if_get(struct seq_file *seq)
++{
++	struct net_device *net_dev = (struct net_device *)seq->private;
++	struct batadv_priv *bat_priv = netdev_priv(net_dev);
++	struct batadv_hard_iface *primary_if;
 +
- struct batadv_hard_iface {
- 	struct list_head list;
- 	int16_t if_num;
- 	char if_status;
- 	struct net_device *net_dev;
--	atomic_t seqno;
- 	atomic_t frag_seqno;
--	unsigned char *packet_buff;
--	int packet_len;
- 	struct kobject *hardif_obj;
- 	atomic_t refcount;
- 	struct packet_type batman_adv_ptype;
- 	struct net_device *soft_iface;
- 	struct rcu_head rcu;
-+	struct batadv_hard_iface_bat_iv bat_iv;
- };
++	primary_if = batadv_primary_if_get_selected(bat_priv);
++
++	if (!primary_if) {
++		seq_printf(seq,
++			   "BATMAN mesh %s disabled - please specify interfaces to enable it\n",
++			   net_dev->name);
++		goto out;
++	}
++
++	if (primary_if->if_status == BATADV_IF_ACTIVE)
++		goto out;
++
++	seq_printf(seq,
++		   "BATMAN mesh %s disabled - primary interface not active\n",
++		   net_dev->name);
++	batadv_hardif_free_ref(primary_if);
++	primary_if = NULL;
++
++out:
++	return primary_if;
++}
++
+ static int batadv_recv_unhandled_packet(struct sk_buff *skb,
+ 					struct batadv_hard_iface *recv_if)
+ {
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index d57b746..5c0be5b 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -153,6 +153,8 @@ void batadv_mesh_free(struct net_device *soft_iface);
+ void batadv_inc_module_count(void);
+ void batadv_dec_module_count(void);
+ int batadv_is_my_mac(const uint8_t *addr);
++struct batadv_hard_iface *
++batadv_seq_print_text_primary_if_get(struct seq_file *seq);
+ int batadv_batman_skb_recv(struct sk_buff *skb, struct net_device *dev,
+ 			   struct packet_type *ptype,
+ 			   struct net_device *orig_dev);
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index ac9bdf8..d9c14b8 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -415,23 +415,10 @@ int batadv_orig_seq_print_text(struct seq_file *seq, void *offset)
+ 	int last_seen_msecs;
+ 	unsigned long last_seen_jiffies;
+ 	uint32_t i;
+-	int ret = 0;
  
- /**
+-	primary_if = batadv_primary_if_get_selected(bat_priv);
+-
+-	if (!primary_if) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - please specify interfaces to enable it\n",
+-				 net_dev->name);
+-		goto out;
+-	}
+-
+-	if (primary_if->if_status != BATADV_IF_ACTIVE) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - primary interface not active\n",
+-				 net_dev->name);
++	primary_if = batadv_seq_print_text_primary_if_get(seq);
++	if (!primary_if)
+ 		goto out;
+-	}
+ 
+ 	seq_printf(seq, "[B.A.T.M.A.N. adv %s, MainIF/MAC: %s/%pM (%s)]\n",
+ 		   BATADV_SOURCE_VERSION, primary_if->net_dev->name,
+@@ -485,7 +472,7 @@ next:
+ out:
+ 	if (primary_if)
+ 		batadv_hardif_free_ref(primary_if);
+-	return ret;
++	return 0;
+ }
+ 
+ static int batadv_orig_node_add_if(struct batadv_orig_node *orig_node,
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 112edd3..d87d9b4 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -434,22 +434,10 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
+ 	struct hlist_node *node;
+ 	struct hlist_head *head;
+ 	uint32_t i;
+-	int ret = 0;
+ 
+-	primary_if = batadv_primary_if_get_selected(bat_priv);
+-	if (!primary_if) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - please specify interfaces to enable it\n",
+-				 net_dev->name);
++	primary_if = batadv_seq_print_text_primary_if_get(seq);
++	if (!primary_if)
+ 		goto out;
+-	}
+-
+-	if (primary_if->if_status != BATADV_IF_ACTIVE) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - primary interface not active\n",
+-				 net_dev->name);
+-		goto out;
+-	}
+ 
+ 	seq_printf(seq,
+ 		   "Locally retrieved addresses (from %s) announced via TT (TTVN: %u):\n",
+@@ -479,7 +467,7 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
+ out:
+ 	if (primary_if)
+ 		batadv_hardif_free_ref(primary_if);
+-	return ret;
++	return 0;
+ }
+ 
+ static void
+@@ -842,22 +830,10 @@ int batadv_tt_global_seq_print_text(struct seq_file *seq, void *offset)
+ 	struct hlist_node *node;
+ 	struct hlist_head *head;
+ 	uint32_t i;
+-	int ret = 0;
+ 
+-	primary_if = batadv_primary_if_get_selected(bat_priv);
+-	if (!primary_if) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - please specify interfaces to enable it\n",
+-				 net_dev->name);
++	primary_if = batadv_seq_print_text_primary_if_get(seq);
++	if (!primary_if)
+ 		goto out;
+-	}
+-
+-	if (primary_if->if_status != BATADV_IF_ACTIVE) {
+-		ret = seq_printf(seq,
+-				 "BATMAN mesh %s disabled - primary interface not active\n",
+-				 net_dev->name);
+-		goto out;
+-	}
+ 
+ 	seq_printf(seq,
+ 		   "Globally announced TT entries received via the mesh %s\n",
+@@ -881,7 +857,7 @@ int batadv_tt_global_seq_print_text(struct seq_file *seq, void *offset)
+ out:
+ 	if (primary_if)
+ 		batadv_hardif_free_ref(primary_if);
+-	return ret;
++	return 0;
+ }
+ 
+ /* deletes the orig list of a tt_global_entry */
 -- 
 1.7.12.4
