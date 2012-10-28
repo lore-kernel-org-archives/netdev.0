@@ -1,46 +1,96 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 05/16] batman-adv: return proper value in case of hash_add failure
-Date: Sun, 28 Oct 2012 12:17:06 +0100
-Message-ID: <1351423037-5292-6-git-send-email-ordex@autistici.org>
+Subject: [PATCH 06/16] batman-adv: Set special lockdep classes to avoid lockdep warning
+Date: Sun, 28 Oct 2012 12:17:07 +0100
+Message-ID: <1351423037-5292-7-git-send-email-ordex@autistici.org>
 References: <1351423037-5292-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:55602 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:55695 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751975Ab2J1LSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2012 07:18:20 -0400
+	with ESMTP id S1752110Ab2J1LSX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2012 07:18:23 -0400
 In-Reply-To: <1351423037-5292-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case of hash_add failure tt_global_add() must return 0 (which means on entry
-insertion).
+From: Sven Eckelmann <sven@narfation.org>
 
+Transmissions over batman-adv devices always start another nested transmission
+over devices attached to the batman-adv interface. These devices usually use
+the ethernet lockdep class for the tx_queue lock which is also set by default
+for all batman-adv devices. Lockdep will detect a nested locking attempt of two
+locks with the same class and warn about a possible deadlock.
+
+This is the default and expected behavior and should not alarm the locking
+correctness prove mechanism. Therefore, the locks for all netdevice specific tx
+queues get a special batman-adv lock class to avoid a false positive for each
+transmission.
+
+Reported-by: Linus Luessing <linus.luessing@web.de>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/translation-table.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/batman-adv/soft-interface.c | 44 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index d87d9b4..42a74e3 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -776,13 +776,13 @@ int batadv_tt_global_add(struct batadv_priv *bat_priv,
- 	batadv_dbg(BATADV_DBG_TT, bat_priv,
- 		   "Creating new global tt entry: %pM (via %pM)\n",
- 		   tt_global_entry->common.addr, orig_node->orig);
-+	ret = 1;
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index b9a28d2..948860a 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -347,7 +347,51 @@ out:
+ 	return;
+ }
  
- out_remove:
- 	/* remove address from local hash if present */
- 	batadv_tt_local_remove(bat_priv, tt_global_entry->common.addr,
- 			       "global tt received",
- 			       flags & BATADV_TT_CLIENT_ROAM);
--	ret = 1;
- out:
- 	if (tt_global_entry)
- 		batadv_tt_global_entry_free_ref(tt_global_entry);
++/* batman-adv network devices have devices nesting below it and are a special
++ * "super class" of normal network devices; split their locks off into a
++ * separate class since they always nest.
++ */
++static struct lock_class_key batadv_netdev_xmit_lock_key;
++static struct lock_class_key batadv_netdev_addr_lock_key;
++
++/**
++ * batadv_set_lockdep_class_one - Set lockdep class for a single tx queue
++ * @dev: device which owns the tx queue
++ * @txq: tx queue to modify
++ * @_unused: always NULL
++ */
++static void batadv_set_lockdep_class_one(struct net_device *dev,
++					 struct netdev_queue *txq,
++					 void *_unused)
++{
++	lockdep_set_class(&txq->_xmit_lock, &batadv_netdev_xmit_lock_key);
++}
++
++/**
++ * batadv_set_lockdep_class - Set txq and addr_list lockdep class
++ * @dev: network device to modify
++ */
++static void batadv_set_lockdep_class(struct net_device *dev)
++{
++	lockdep_set_class(&dev->addr_list_lock, &batadv_netdev_addr_lock_key);
++	netdev_for_each_tx_queue(dev, batadv_set_lockdep_class_one, NULL);
++}
++
++/**
++ * batadv_softif_init - Late stage initialization of soft interface
++ * @dev: registered network device to modify
++ *
++ * Returns error code on failures
++ */
++static int batadv_softif_init(struct net_device *dev)
++{
++	batadv_set_lockdep_class(dev);
++
++	return 0;
++}
++
+ static const struct net_device_ops batadv_netdev_ops = {
++	.ndo_init = batadv_softif_init,
+ 	.ndo_open = batadv_interface_open,
+ 	.ndo_stop = batadv_interface_release,
+ 	.ndo_get_stats = batadv_interface_stats,
 -- 
 1.7.12.4
