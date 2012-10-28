@@ -1,67 +1,73 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 10/16] ethernet: Convert dev_printk(KERN_<LEVEL> to dev_<level>(
-Date: Sun, 28 Oct 2012 01:05:48 -0700
-Message-ID: <78c3d489101b08588cb067181171eb070bdac756.1351411047.git.joe@perches.com>
-References: <cover.1351411047.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Divy Le Ray <divy@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1351411047.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Andrew Beverley <andy@andybev.com>
+Subject: Re: Prioritizing IPs on interface with multiple addresses
+Date: Sun, 28 Oct 2012 08:33:13 +0000
+Message-ID: <1351413193.2740.10.camel@andylaptop>
+References: <CAKfDRXiAL37+H2k0SepwmUzYv4chtKr_Fn0CQSFt2UV5NejsUw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org
+To: Kristian Evensen <kristian.evensen@gmail.com>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <CAKfDRXiAL37+H2k0SepwmUzYv4chtKr_Fn0CQSFt2UV5NejsUw@mail.gmail.com>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dev_<level> calls take less code than dev_printk(KERN_<LEVEL>
-and reducing object size is good.
-Coalesce formats for easier grep.
+On Mon, 2012-10-22 at 11:36 +0200, Kristian Evensen wrote:
+> Hello,
+> 
+> I am currently working on configuring an embedded system that will be
+> used as an access point for other devices. In order to reduce the
+> number of external devices, we want to connect the LAN on the embedded
+> system to a switch. Then, two separate networks will also be connected
+> to this switch, and the LAN interface assigned one IP from each
+> network. The IPs are static and network addresses are not overlapping.
+> One interface is the main interface for all traffic from clients,
+> while the other is used as fallback and for some monitoring traffic.
+> The clients that connect to this AP will be assigned IPs using DHCP
+> and traffic from them will be NAT'ed.
+> 
+> Initially, this setup works fine. The devices connected to this AP are
+> able to send traffic through the intended network and to the correct
+> hosts. If I disconnect from the main network, the routing tables are
+> updated and traffic is routed through the secondary network. However,
+> when I connect to the main network again, things break. The problem is
+> that there is an inconsistency between the order in the routing table
+> and the order of IP addresses assigned to the interface, which causes
+> problems when I do NAT (MASQUERADE). The default route (with the
+> lowest metric) points to the main network, but the first IP address
+> belongs to the secondary network. So what happens is that the packets
+> have the MAC-address of the first hop in the main network, but a
+> source IP address from the second network (chosen by the NAT). This
+> causes the traffic to be discarded by the network. Deleting (and then
+> later adding) the IP of the secondary network is not an option as it
+> is needed for the monitoring traffic.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/chelsio/cxgb3/common.h |    7 +++----
- drivers/net/ethernet/marvell/pxa168_eth.c   |    7 +++----
- 2 files changed, 6 insertions(+), 8 deletions(-)
+I have to admit that I'm struggling to get my head round this, and I
+suspect others are as well given lack of replies. Could you provide an
+ascii diagram and either write more succinctly or try and simplify the
+problem you are having? 
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/common.h b/drivers/net/ethernet/chelsio/cxgb3/common.h
-index df01b63..8c82248 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/common.h
-+++ b/drivers/net/ethernet/chelsio/cxgb3/common.h
-@@ -42,10 +42,9 @@
- #include <linux/mdio.h>
- #include "version.h"
- 
--#define CH_ERR(adap, fmt, ...)   dev_err(&adap->pdev->dev, fmt, ## __VA_ARGS__)
--#define CH_WARN(adap, fmt, ...)  dev_warn(&adap->pdev->dev, fmt, ## __VA_ARGS__)
--#define CH_ALERT(adap, fmt, ...) \
--	dev_printk(KERN_ALERT, &adap->pdev->dev, fmt, ## __VA_ARGS__)
-+#define CH_ERR(adap, fmt, ...)   dev_err(&adap->pdev->dev, fmt, ##__VA_ARGS__)
-+#define CH_WARN(adap, fmt, ...)  dev_warn(&adap->pdev->dev, fmt, ##__VA_ARGS__)
-+#define CH_ALERT(adap, fmt, ...) dev_alert(&adap->pdev->dev, fmt, ##__VA_ARGS__)
- 
- /*
-  * More powerful macro that selectively prints messages based on msg_enable.
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-index 5948972..10d678d 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -1131,7 +1131,7 @@ static int pxa168_eth_open(struct net_device *dev)
- 	err = request_irq(dev->irq, pxa168_eth_int_handler,
- 			  IRQF_DISABLED, dev->name, dev);
- 	if (err) {
--		dev_printk(KERN_ERR, &dev->dev, "can't assign irq\n");
-+		dev_err(&dev->dev, "can't assign irq\n");
- 		return -EAGAIN;
- 	}
- 	pep->rx_resource_err = 0;
-@@ -1201,9 +1201,8 @@ static int pxa168_eth_change_mtu(struct net_device *dev, int mtu)
- 	 */
- 	pxa168_eth_stop(dev);
- 	if (pxa168_eth_open(dev)) {
--		dev_printk(KERN_ERR, &dev->dev,
--			   "fatal error on re-opening device after "
--			   "MTU change\n");
-+		dev_err(&dev->dev,
-+			"fatal error on re-opening device after MTU change\n");
- 	}
- 
- 	return 0;
--- 
-1.7.8.112.g3fd21
+> My question is, is there some way to prioritize the different IP
+> addresses assigned to an interface? For example, is there an
+> equivalent to a metric, index or something similar?
+
+That said, I don't know if there is any way of doing this. Can you not
+achieve it with iptables rules and SNAT?
+
+>  Based on my
+> understanding, ip addr is only able to append addresses.
+
+Well it can delete them as well, or have I misunderstood?
+
+> Another soulution would be to monitor network events and create/delete
+> SNAT rules on-demand, but this is a big hack if you ask me and I would
+> like to try to avoid it.
+
+Ah, you've already thought of SNAT. Is there not a way of doing it
+without adding and deleting rules? For example can you use packet
+marking somehow?
+
+Andy
+
+
