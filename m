@@ -1,192 +1,258 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH net-next] pktgen: clean up ktime_t helpers
-Date: Sun, 28 Oct 2012 19:41:02 +0100 (CET)
-Message-ID: <alpine.LFD.2.02.1210281940220.2756@ionos>
-References: <20121028182718.GA8275@thinkbox>
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v7 01/16] hashtable: introduce a small and naive
+	hashtable
+Date: Sun, 28 Oct 2012 15:02:13 -0400
+Message-ID: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: Daniel Borkmann <dxchgb@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:41137 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751623Ab2J1SlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2012 14:41:20 -0400
-In-Reply-To: <20121028182718.GA8275@thinkbox>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org,
+	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 28 Oct 2012, Daniel Borkmann wrote:
+This hashtable implementation is using hlist buckets to provide a simple
+hashtable to prevent it from getting reimplemented all over the kernel.
 
-> Some years ago, the ktime_t helper functions ktime_now() and ktime_lt()
-> have been introduced. Instead of defining them inside pktgen.c, they
-> should either use ktime_t library functions or, if not available, they
-> should be defined in ktime.h, so that also others can benefit from them.
-> ktime_compare() is introduced with a similar notion as in timespec_compare().
-> 
-> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
-> Cc: Cong Wang <xiyou.wangcong@gmail.com>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
 
-Acked-by: Thomas Gleixner <tglx@linutronix.de>
+Sorry for the long delay, I was busy with a bunch of personal things.
 
-> ---
->  include/linux/ktime.h |   19 +++++++++++++++++++
->  net/core/pktgen.c     |   41 +++++++++++++----------------------------
->  2 files changed, 32 insertions(+), 28 deletions(-)
-> 
-> diff --git a/include/linux/ktime.h b/include/linux/ktime.h
-> index 06177ba10..e83512f 100644
-> --- a/include/linux/ktime.h
-> +++ b/include/linux/ktime.h
-> @@ -282,6 +282,25 @@ static inline int ktime_equal(const ktime_t cmp1, const ktime_t cmp2)
->  	return cmp1.tv64 == cmp2.tv64;
->  }
->  
-> +/**
-> + * ktime_compare - Compares two ktime_t variables for less, greater or equal
-> + * @cmp1:	comparable1
-> + * @cmp2:	comparable2
-> + *
-> + * Returns ...
-> + *   cmp1  < cmp2: return <0
-> + *   cmp1 == cmp2: return 0
-> + *   cmp1  > cmp2: return >0
-> + */
-> +static inline int ktime_compare(const ktime_t cmp1, const ktime_t cmp2)
-> +{
-> +	if (cmp1.tv64 < cmp2.tv64)
-> +		return -1;
-> +	if (cmp1.tv64 > cmp2.tv64)
-> +		return 1;
-> +	return 0;
-> +}
-> +
->  static inline s64 ktime_to_us(const ktime_t kt)
->  {
->  	struct timeval tv = ktime_to_timeval(kt);
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> index 1d1c216..b29dacf 100644
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
-> @@ -419,20 +419,6 @@ struct pktgen_thread {
->  #define REMOVE 1
->  #define FIND   0
->  
-> -static inline ktime_t ktime_now(void)
-> -{
-> -	struct timespec ts;
-> -	ktime_get_ts(&ts);
-> -
-> -	return timespec_to_ktime(ts);
-> -}
-> -
-> -/* This works even if 32 bit because of careful byte order choice */
-> -static inline int ktime_lt(const ktime_t cmp1, const ktime_t cmp2)
-> -{
-> -	return cmp1.tv64 < cmp2.tv64;
-> -}
-> -
->  static const char version[] =
->  	"Packet Generator for packet performance testing. "
->  	"Version: " VERSION "\n";
-> @@ -675,7 +661,7 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
->  	seq_puts(seq, "\n");
->  
->  	/* not really stopped, more like last-running-at */
-> -	stopped = pkt_dev->running ? ktime_now() : pkt_dev->stopped_at;
-> +	stopped = pkt_dev->running ? ktime_get() : pkt_dev->stopped_at;
->  	idle = pkt_dev->idle_acc;
->  	do_div(idle, NSEC_PER_USEC);
->  
-> @@ -2141,12 +2127,12 @@ static void spin(struct pktgen_dev *pkt_dev, ktime_t spin_until)
->  		return;
->  	}
->  
-> -	start_time = ktime_now();
-> +	start_time = ktime_get();
->  	if (remaining < 100000) {
->  		/* for small delays (<100us), just loop until limit is reached */
->  		do {
-> -			end_time = ktime_now();
-> -		} while (ktime_lt(end_time, spin_until));
-> +			end_time = ktime_get();
-> +		} while (ktime_compare(end_time, spin_until) < 0);
->  	} else {
->  		/* see do_nanosleep */
->  		hrtimer_init_sleeper(&t, current);
-> @@ -2162,7 +2148,7 @@ static void spin(struct pktgen_dev *pkt_dev, ktime_t spin_until)
->  			hrtimer_cancel(&t.timer);
->  		} while (t.task && pkt_dev->running && !signal_pending(current));
->  		__set_current_state(TASK_RUNNING);
-> -		end_time = ktime_now();
-> +		end_time = ktime_get();
->  	}
->  
->  	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(end_time, start_time));
-> @@ -2912,8 +2898,7 @@ static void pktgen_run(struct pktgen_thread *t)
->  			pktgen_clear_counters(pkt_dev);
->  			pkt_dev->running = 1;	/* Cranke yeself! */
->  			pkt_dev->skb = NULL;
-> -			pkt_dev->started_at =
-> -				pkt_dev->next_tx = ktime_now();
-> +			pkt_dev->started_at = pkt_dev->next_tx = ktime_get();
->  
->  			set_pkt_overhead(pkt_dev);
->  
-> @@ -3072,7 +3057,7 @@ static int pktgen_stop_device(struct pktgen_dev *pkt_dev)
->  
->  	kfree_skb(pkt_dev->skb);
->  	pkt_dev->skb = NULL;
-> -	pkt_dev->stopped_at = ktime_now();
-> +	pkt_dev->stopped_at = ktime_get();
->  	pkt_dev->running = 0;
->  
->  	show_results(pkt_dev, nr_frags);
-> @@ -3091,7 +3076,7 @@ static struct pktgen_dev *next_to_run(struct pktgen_thread *t)
->  			continue;
->  		if (best == NULL)
->  			best = pkt_dev;
-> -		else if (ktime_lt(pkt_dev->next_tx, best->next_tx))
-> +		else if (ktime_compare(pkt_dev->next_tx, best->next_tx) < 0)
->  			best = pkt_dev;
->  	}
->  	if_unlock(t);
-> @@ -3176,14 +3161,14 @@ static void pktgen_rem_thread(struct pktgen_thread *t)
->  
->  static void pktgen_resched(struct pktgen_dev *pkt_dev)
->  {
-> -	ktime_t idle_start = ktime_now();
-> +	ktime_t idle_start = ktime_get();
->  	schedule();
-> -	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(ktime_now(), idle_start));
-> +	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(ktime_get(), idle_start));
->  }
->  
->  static void pktgen_wait_for_skb(struct pktgen_dev *pkt_dev)
->  {
-> -	ktime_t idle_start = ktime_now();
-> +	ktime_t idle_start = ktime_get();
->  
->  	while (atomic_read(&(pkt_dev->skb->users)) != 1) {
->  		if (signal_pending(current))
-> @@ -3194,7 +3179,7 @@ static void pktgen_wait_for_skb(struct pktgen_dev *pkt_dev)
->  		else
->  			cpu_relax();
->  	}
-> -	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(ktime_now(), idle_start));
-> +	pkt_dev->idle_acc += ktime_to_ns(ktime_sub(ktime_get(), idle_start));
->  }
->  
->  static void pktgen_xmit(struct pktgen_dev *pkt_dev)
-> @@ -3216,7 +3201,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
->  	 * "never transmit"
->  	 */
->  	if (unlikely(pkt_dev->delay == ULLONG_MAX)) {
-> -		pkt_dev->next_tx = ktime_add_ns(ktime_now(), ULONG_MAX);
-> +		pkt_dev->next_tx = ktime_add_ns(ktime_get(), ULONG_MAX);
->  		return;
->  	}
->  
-> 
+Changes since v6:
+
+ - Use macros that point to internal static inline functions instead of
+ implementing everything as a macro.
+ - Rebase on latest -next.
+ - Resending the enter patch series on request.
+ - Break early from hash_empty() if found to be non-empty.
+ - DECLARE_HASHTABLE/DEFINE_HASHTABLE.
+
+
+ include/linux/hashtable.h | 193 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 193 insertions(+)
+ create mode 100644 include/linux/hashtable.h
+
+diff --git a/include/linux/hashtable.h b/include/linux/hashtable.h
+new file mode 100644
+index 0000000..1fb8c97
+--- /dev/null
++++ b/include/linux/hashtable.h
+@@ -0,0 +1,193 @@
++/*
++ * Statically sized hash table implementation
++ * (C) 2012  Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
++ */
++
++#ifndef _LINUX_HASHTABLE_H
++#define _LINUX_HASHTABLE_H
++
++#include <linux/list.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/hash.h>
++#include <linux/rculist.h>
++
++#define DEFINE_HASHTABLE(name, bits)						\
++	struct hlist_head name[1 << bits] =					\
++			{ [0 ... ((1 << bits) - 1)] = HLIST_HEAD_INIT }
++
++#define DECLARE_HASHTABLE(name, bits)                                   	\
++	struct hlist_head name[1 << (bits)]
++
++#define HASH_SIZE(name) (ARRAY_SIZE(name))
++#define HASH_BITS(name) ilog2(HASH_SIZE(name))
++
++/* Use hash_32 when possible to allow for fast 32bit hashing in 64bit kernels. */
++#define hash_min(val, bits)							\
++({										\
++	sizeof(val) <= 4 ?							\
++	hash_32(val, bits) :							\
++	hash_long(val, bits);							\
++})
++
++static inline void __hash_init(struct hlist_head *ht, int sz)
++{
++	int i;
++
++	for (i = 0; i < sz; i++)
++		INIT_HLIST_HEAD(&ht[sz]);
++}
++
++/**
++ * hash_init - initialize a hash table
++ * @hashtable: hashtable to be initialized
++ *
++ * Calculates the size of the hashtable from the given parameter, otherwise
++ * same as hash_init_size.
++ *
++ * This has to be a macro since HASH_BITS() will not work on pointers since
++ * it calculates the size during preprocessing.
++ */
++#define hash_init(hashtable) __hash_init(hashtable, HASH_SIZE(hashtable))
++
++/**
++ * hash_add - add an object to a hashtable
++ * @hashtable: hashtable to add to
++ * @node: the &struct hlist_node of the object to be added
++ * @key: the key of the object to be added
++ */
++#define hash_add(hashtable, node, key)						\
++	hlist_add_head(node, &hashtable[hash_min(key, HASH_BITS(hashtable))]);
++
++/**
++ * hash_add_rcu - add an object to a rcu enabled hashtable
++ * @hashtable: hashtable to add to
++ * @node: the &struct hlist_node of the object to be added
++ * @key: the key of the object to be added
++ */
++#define hash_add_rcu(hashtable, node, key)					\
++	hlist_add_head_rcu(node, &hashtable[hash_min(key, HASH_BITS(hashtable))]);
++
++/**
++ * hash_hashed - check whether an object is in any hashtable
++ * @node: the &struct hlist_node of the object to be checked
++ */
++#define hash_hashed(node) (!hlist_unhashed(node))
++
++static inline bool __hash_empty(struct hlist_head *ht, int sz)
++{
++	int i;
++
++	for (i = 0; i < sz; i++)
++		if (!hlist_empty(&ht[i]))
++			return false;
++
++	return true;
++}
++
++/**
++ * hash_empty - check whether a hashtable is empty
++ * @hashtable: hashtable to check
++ *
++ * This has to be a macro since HASH_BITS() will not work on pointers since
++ * it calculates the size during preprocessing.
++ */
++#define hash_empty(hashtable) __hash_empty(hashtable, HASH_SIZE(hashtable))
++
++/**
++ * hash_del - remove an object from a hashtable
++ * @node: &struct hlist_node of the object to remove
++ */
++static inline void hash_del(struct hlist_node *node)
++{
++	hlist_del_init(node);
++}
++
++/**
++ * hash_del_rcu - remove an object from a rcu enabled hashtable
++ * @node: &struct hlist_node of the object to remove
++ */
++static inline void hash_del_rcu(struct hlist_node *node)
++{
++	hlist_del_init_rcu(node);
++}
++
++/**
++ * hash_for_each - iterate over a hashtable
++ * @name: hashtable to iterate
++ * @bkt: integer to use as bucket loop cursor
++ * @node: the &struct list_head to use as a loop cursor for each entry
++ * @obj: the type * to use as a loop cursor for each entry
++ * @member: the name of the hlist_node within the struct
++ */
++#define hash_for_each(name, bkt, node, obj, member)				\
++	for (bkt = 0, node = NULL; node == NULL && bkt < HASH_SIZE(name); bkt++)\
++		hlist_for_each_entry(obj, node, &name[bkt], member)
++
++/**
++ * hash_for_each_rcu - iterate over a rcu enabled hashtable
++ * @name: hashtable to iterate
++ * @bkt: integer to use as bucket loop cursor
++ * @node: the &struct list_head to use as a loop cursor for each entry
++ * @obj: the type * to use as a loop cursor for each entry
++ * @member: the name of the hlist_node within the struct
++ */
++#define hash_for_each_rcu(name, bkt, node, obj, member)				\
++	for (bkt = 0, node = NULL; node == NULL && bkt < HASH_SIZE(name); bkt++)\
++		hlist_for_each_entry_rcu(obj, node, &name[bkt], member)
++
++/**
++ * hash_for_each_safe - iterate over a hashtable safe against removal of
++ * hash entry
++ * @name: hashtable to iterate
++ * @bkt: integer to use as bucket loop cursor
++ * @node: the &struct list_head to use as a loop cursor for each entry
++ * @tmp: a &struct used for temporary storage
++ * @obj: the type * to use as a loop cursor for each entry
++ * @member: the name of the hlist_node within the struct
++ */
++#define hash_for_each_safe(name, bkt, node, tmp, obj, member)			\
++	for (bkt = 0, node = NULL; node == NULL && bkt < HASH_SIZE(name); bkt++)\
++		hlist_for_each_entry_safe(obj, node, tmp, &name[bkt], member)
++
++/**
++ * hash_for_each_possible - iterate over all possible objects hashing to the
++ * same bucket
++ * @name: hashtable to iterate
++ * @obj: the type * to use as a loop cursor for each entry
++ * @node: the &struct list_head to use as a loop cursor for each entry
++ * @member: the name of the hlist_node within the struct
++ * @key: the key of the objects to iterate over
++ */
++#define hash_for_each_possible(name, obj, node, member, key)			\
++	hlist_for_each_entry(obj, node,	&name[hash_min(key, HASH_BITS(name))], member)
++
++/**
++ * hash_for_each_possible_rcu - iterate over all possible objects hashing to the
++ * same bucket in an rcu enabled hashtable
++ * in a rcu enabled hashtable
++ * @name: hashtable to iterate
++ * @obj: the type * to use as a loop cursor for each entry
++ * @node: the &struct list_head to use as a loop cursor for each entry
++ * @member: the name of the hlist_node within the struct
++ * @key: the key of the objects to iterate over
++ */
++#define hash_for_each_possible_rcu(name, obj, node, member, key)		\
++	hlist_for_each_entry_rcu(obj, node, &name[hash_min(key, HASH_BITS(name))], member)
++
++/**
++ * hash_for_each_possible_safe - iterate over all possible objects hashing to the
++ * same bucket safe against removals
++ * @name: hashtable to iterate
++ * @obj: the type * to use as a loop cursor for each entry
++ * @node: the &struct list_head to use as a loop cursor for each entry
++ * @tmp: a &struct used for temporary storage
++ * @member: the name of the hlist_node within the struct
++ * @key: the key of the objects to iterate over
++ */
++#define hash_for_each_possible_safe(name, obj, node, tmp, member, key)		\
++	hlist_for_each_entry_safe(obj, node, tmp,				\
++		&name[hash_min(key, HASH_BITS(name))], member)
++
++
++#endif
+-- 
+1.7.12.4
