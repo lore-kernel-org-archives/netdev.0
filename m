@@ -1,42 +1,36 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: Fix WoL on RTL8168d/8111d.
-Date: Mon, 29 Oct 2012 00:05:23 +0100
-Message-ID: <20121028230523.GA26778@electric-eye.fr.zoreil.com>
-References: <1351392414-32219-1-git-send-email-kibi@debian.org>
+Subject: Re: Information about napi_struct and net_device
+Date: Mon, 29 Oct 2012 00:13:00 +0100
+Message-ID: <20121028231300.GA27196@electric-eye.fr.zoreil.com>
+References: <CALZVap=ybdWdK22LHsfSRu+TVCJnvL95KeChtCdX8DE-C=1gAg@mail.gmail.com> <1351357421.30380.328.camel@edumazet-glaptop> <20121027182207.GA12858@electric-eye.fr.zoreil.com> <1351378943.30380.332.camel@edumazet-glaptop> <CALZVapkYdSRB9j+KnXdC7wT9iXqrZvXBcAK=Pk9uFoWwLgDNYg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Cyril Brulebois <kibi@debian.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Javier Domingo <javierdo1@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:34290 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757006Ab2J1Xeh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Oct 2012 19:34:37 -0400
 Content-Disposition: inline
-In-Reply-To: <1351392414-32219-1-git-send-email-kibi@debian.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CALZVapkYdSRB9j+KnXdC7wT9iXqrZvXBcAK=Pk9uFoWwLgDNYg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cyril Brulebois <kibi@debian.org> :
-> This regression was spotted between Debian squeeze and Debian wheezy
-> kernels (respectively based on 2.6.32 and 3.2). The fix was inspired
-> by <http://www.spinics.net/lists/netdev/msg178543.html>, using
-> RTL_GIGA_MAC_VER_{25,26} for the RTL8168d/8111d chipset.
-
-If someone experiences problems or has questions about WoL with
-Realtek's 816x chipsets, http://marc.info/?t=132079219400004 would
-imho be a better reference.
-
+Javier Domingo <javierdo1@gmail.com> :
 [...]
-> Tested on top of a 3.2.23 kernel.
+>               inside of the net_device structure, I know I can take
+> the net_device pointer as documented in [3], but how may  I obtain the
+> napi_struct from the netdevice? or I am doing it the wrong way?
 
-It should still be relevant for current kernel. I'll give it a try.
+You are doing it the wrong way. The napi_struct you need is not embedded
+here. See
 
-[...]
-> It looks like RTL_GIGA_MAC_VER_{25,26} are kinda supposed to go
-> together so I kept both. Florent's testing gave the following results:
->  - RTL_GIGA_MAC_VER_25 only: FAIL.
->  - RTL_GIGA_MAC_VER_26 only: SUCCESS.
->  - RTL_GIGA_MAC_VER_25 + RTL_GIGA_MAC_VER_26: SUCCESS.
+$ less +/napi drivers/net/ethernet/realtek/8139cp.c
 
-I don't understand the VER_25 vs VER_26 difference.
+(first match in struct cp_private).
+
+You should really read one of the existing drivers.
 
 -- 
 Ueimor
