@@ -1,54 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv4: avoid a test in ip_rt_put()
-Date: Mon, 29 Oct 2012 09:33:23 +0100
-Message-ID: <1351499603.7394.199.camel@edumazet-glaptop>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH-V2 0/4] ARM: AM33XX: net: Add DT support to CPGMAC and
+ MDIO driver
+Date: Mon, 29 Oct 2012 09:33:29 +0100
+Message-ID: <20121029083329.GD2527@netboy.at.omicron.at>
+References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com>
+ <1351498881-32482-2-git-send-email-hvaibhav@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Cong Wang <amwang@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:36673 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756665Ab2J2Id1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 04:33:27 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so1941028eek.19
-        for <netdev@vger.kernel.org>; Mon, 29 Oct 2012 01:33:26 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, paul@pwsan.com,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
+To: Vaibhav Hiremath <hvaibhav@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1351498881-32482-2-git-send-email-hvaibhav@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Oct 29, 2012 at 01:51:17PM +0530, Vaibhav Hiremath wrote:
+> This patch-series adds support for,
+> 
+> [1/4]: Typo mistake in CPSW driver while invoking runtime_pm api's
+> 
+> [2/4]: Adds parent<->child relation between CPSW & MDIO module inside cpsw
+>        driver, as in case of AM33XX, the resources are shared and common
+>        register bit-field is provided to control module/clock enable/disable,
+>        makes it difficult to handle common resource.
+> 
+>        So the solution here is, to create parent<->child relation between them.
+> 
+> [3/4]: Add hwmod entry for MDIO module, required for MDIO driver.
+> 
+> [4/4]: Add DT device nodes for both CPSW and MDIO modules in am33xx.dtsi,
+> 	am335x-evm.dts and am335x-bone.dts file
 
-We can save a test in ip_rt_put(), considering dst_release() accepts
-a NULL parameter, and dst is first element in rtable.
+Many Thanks!
 
-Add a BUILD_BUG_ON() to catch any change that could break this
-assertion.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Cong Wang <amwang@redhat.com>
----
- include/net/route.h |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/route.h b/include/net/route.h
-index bc40b63..2ea40c1 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -198,10 +198,13 @@ struct in_ifaddr;
- extern void fib_add_ifaddr(struct in_ifaddr *);
- extern void fib_del_ifaddr(struct in_ifaddr *, struct in_ifaddr *);
- 
--static inline void ip_rt_put(struct rtable * rt)
-+static inline void ip_rt_put(struct rtable *rt)
- {
--	if (rt)
--		dst_release(&rt->dst);
-+	/* dst_release() accepts a NULL parameter.
-+	 * We rely on dst being first structure in struct rtable
-+	 */
-+	BUILD_BUG_ON(offsetof(struct rtable, dst) != 0);
-+	dst_release(&rt->dst);
- }
- 
- #define IPTOS_RT_MASK	(IPTOS_TOS_MASK & ~3)
+Acked-by: Richard Cochran <richardcochran@gmail.com>
