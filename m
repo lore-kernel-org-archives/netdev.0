@@ -1,91 +1,130 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH v7 06/16] tracepoint: use new hashtable implementation
-Date: Mon, 29 Oct 2012 13:29:24 -0400
-Message-ID: <CA+1xoqce6uJ6wy3+2CBwsLHKnsz4wD0vt8MBEGKCFfXTvuC0Hg@mail.gmail.com>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
- <1351450948-15618-6-git-send-email-levinsasha928@gmail.com> <20121029113515.GB9115@Krystal>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] vmxnet3: must split too big fragments
+Date: Mon, 29 Oct 2012 18:30:49 +0100
+Message-ID: <1351531849.12280.54.camel@edumazet-glaptop>
+References: <1103939870.6550404.1350986530909.JavaMail.root@vmware.com>
+	 <1351000246.8609.1926.camel@edumazet-glaptop>
+	 <1351021160.8609.2503.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net, rostedt@goodmis.org,
-	mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
-	netdev@vger.kernel.org, josh@joshtriplett.org, eric.dumazet@gmail.com,
-	axboe@kernel.dk, agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
-	ccaulfie@redhat.com, teigland@redhat.com, Trond.Myklebust@netapp.com,
-	bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20121029113515.GB9115@Krystal>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jongman heo <jongman.heo@samsung.com>
+To: Shreyas Bhatewara <sbhatewara@vmware.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351021160.8609.2503.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 29, 2012 at 7:35 AM, Mathieu Desnoyers
-<mathieu.desnoyers@efficios.com> wrote:
-> * Sasha Levin (levinsasha928@gmail.com) wrote:
->> Switch tracepoints to use the new hashtable implementation. This reduces the amount of
->> generic unrelated code in the tracepoints.
->>
->> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
->> ---
->>  kernel/tracepoint.c | 27 +++++++++++----------------
->>  1 file changed, 11 insertions(+), 16 deletions(-)
->>
->> diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
->> index d96ba22..854df92 100644
->> --- a/kernel/tracepoint.c
->> +++ b/kernel/tracepoint.c
->> @@ -26,6 +26,7 @@
->>  #include <linux/slab.h>
->>  #include <linux/sched.h>
->>  #include <linux/static_key.h>
->> +#include <linux/hashtable.h>
->>
->>  extern struct tracepoint * const __start___tracepoints_ptrs[];
->>  extern struct tracepoint * const __stop___tracepoints_ptrs[];
->> @@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
->>   * Protected by tracepoints_mutex.
->>   */
->>  #define TRACEPOINT_HASH_BITS 6
->> -#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
->> -static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
->> +static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
->>
-> [...]
->>
->> @@ -722,6 +715,8 @@ struct notifier_block tracepoint_module_nb = {
->>
->>  static int init_tracepoints(void)
->>  {
->> +     hash_init(tracepoint_table);
->> +
->>       return register_module_notifier(&tracepoint_module_nb);
->>  }
->>  __initcall(init_tracepoints);
->
-> So we have a hash table defined in .bss (therefore entirely initialized
-> to NULL), and you add a call to "hash_init", which iterates on the whole
-> array and initialize it to NULL (again) ?
->
-> This extra initialization is redundant. I think it should be removed
-> from here, and hashtable.h should document that hash_init() don't need
-> to be called on zeroed memory (which includes static/global variables,
-> kzalloc'd memory, etc).
+From: Eric Dumazet <edumazet@google.com>
 
-This was discussed in the previous series, the conclusion was to call
-hash_init() either way to keep the encapsulation and consistency.
+vmxnet3 has a 16Kbytes limit per tx descriptor, that happened to work
+as long as we provided PAGE_SIZE fragments.
 
-It's cheap enough and happens only once, so why not?
+Our stack can now build larger fragments, so we need to split them to
+the 16kbytes boundary.
 
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: jongman heo <jongman.heo@samsung.com>
+Tested-by: jongman heo <jongman.heo@samsung.com>
+Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c |   65 +++++++++++++++++++---------
+ 1 file changed, 45 insertions(+), 20 deletions(-)
 
-Thanks,
-Sasha
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index ce9d4f2..0ae1bcc 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -744,28 +744,43 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+ 		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
++		u32 buf_size;
+ 
+-		tbi = tq->buf_info + tq->tx_ring.next2fill;
+-		tbi->map_type = VMXNET3_MAP_PAGE;
+-		tbi->dma_addr = skb_frag_dma_map(&adapter->pdev->dev, frag,
+-						 0, skb_frag_size(frag),
+-						 DMA_TO_DEVICE);
++		buf_offset = 0;
++		len = skb_frag_size(frag);
++		while (len) {
++			tbi = tq->buf_info + tq->tx_ring.next2fill;
++			if (len < VMXNET3_MAX_TX_BUF_SIZE) {
++				buf_size = len;
++				dw2 |= len;
++			} else {
++				buf_size = VMXNET3_MAX_TX_BUF_SIZE;
++				/* spec says that for TxDesc.len, 0 == 2^14 */
++			}
++			tbi->map_type = VMXNET3_MAP_PAGE;
++			tbi->dma_addr = skb_frag_dma_map(&adapter->pdev->dev, frag,
++							 buf_offset, buf_size,
++							 DMA_TO_DEVICE);
+ 
+-		tbi->len = skb_frag_size(frag);
++			tbi->len = buf_size;
+ 
+-		gdesc = tq->tx_ring.base + tq->tx_ring.next2fill;
+-		BUG_ON(gdesc->txd.gen == tq->tx_ring.gen);
++			gdesc = tq->tx_ring.base + tq->tx_ring.next2fill;
++			BUG_ON(gdesc->txd.gen == tq->tx_ring.gen);
+ 
+-		gdesc->txd.addr = cpu_to_le64(tbi->dma_addr);
+-		gdesc->dword[2] = cpu_to_le32(dw2 | skb_frag_size(frag));
+-		gdesc->dword[3] = 0;
++			gdesc->txd.addr = cpu_to_le64(tbi->dma_addr);
++			gdesc->dword[2] = cpu_to_le32(dw2);
++			gdesc->dword[3] = 0;
+ 
+-		dev_dbg(&adapter->netdev->dev,
+-			"txd[%u]: 0x%llu %u %u\n",
+-			tq->tx_ring.next2fill, le64_to_cpu(gdesc->txd.addr),
+-			le32_to_cpu(gdesc->dword[2]), gdesc->dword[3]);
+-		vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
+-		dw2 = tq->tx_ring.gen << VMXNET3_TXD_GEN_SHIFT;
++			dev_dbg(&adapter->netdev->dev,
++				"txd[%u]: 0x%llu %u %u\n",
++				tq->tx_ring.next2fill, le64_to_cpu(gdesc->txd.addr),
++				le32_to_cpu(gdesc->dword[2]), gdesc->dword[3]);
++			vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
++			dw2 = tq->tx_ring.gen << VMXNET3_TXD_GEN_SHIFT;
++
++			len -= buf_size;
++			buf_offset += buf_size;
++		}
+ 	}
+ 
+ 	ctx->eop_txd = gdesc;
+@@ -886,6 +901,18 @@ vmxnet3_prepare_tso(struct sk_buff *skb,
+ 	}
+ }
+ 
++static int txd_estimate(const struct sk_buff *skb)
++{
++	int count = VMXNET3_TXD_NEEDED(skb_headlen(skb)) + 1;
++	int i;
++
++	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
++		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
++
++		count += VMXNET3_TXD_NEEDED(skb_frag_size(frag));
++	}
++	return count;
++}
+ 
+ /*
+  * Transmits a pkt thru a given tq
+@@ -914,9 +941,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 	union Vmxnet3_GenericDesc tempTxDesc;
+ #endif
+ 
+-	/* conservatively estimate # of descriptors to use */
+-	count = VMXNET3_TXD_NEEDED(skb_headlen(skb)) +
+-		skb_shinfo(skb)->nr_frags + 1;
++	count = txd_estimate(skb);
+ 
+ 	ctx.ipv4 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IP));
+ 
