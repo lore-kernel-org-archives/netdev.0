@@ -1,82 +1,152 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V3 00/10] Support the CPTS as a PTP Hardware Clock
-Date: Mon, 29 Oct 2012 19:45:10 +0100
-Message-ID: <cover.1351535536.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V3 01/10] drivers: net: ethernet: cpsw: add multicast address to ALE table
+Date: Mon, 29 Oct 2012 19:45:11 +0100
+Message-ID: <b6ebb808853753126a45aeeb32f430f14b44b0ad.1351535538.git.richardcochran@gmail.com>
+References: <cover.1351535536.git.richardcochran@gmail.com>
 Cc: <linux-arm-kernel@lists.infradead.org>,
 	David Miller <davem@davemloft.net>,
 	Cyril Chemparathy <cyril@ti.com>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:44513 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760467Ab2J2Spd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 14:45:33 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so2256783eek.19
-        for <netdev@vger.kernel.org>; Mon, 29 Oct 2012 11:45:32 -0700 (PDT)
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:37510 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760475Ab2J2Spf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 14:45:35 -0400
+Received: by mail-ea0-f174.google.com with SMTP id c13so1826941eaa.19
+        for <netdev@vger.kernel.org>; Mon, 29 Oct 2012 11:45:34 -0700 (PDT)
+In-Reply-To: <cover.1351535536.git.richardcochran@gmail.com>
+In-Reply-To: <cover.1351535536.git.richardcochran@gmail.com>
+References: <cover.1351535536.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds support for the Common Platform Time Sync
-(CPTS) found on TI SoCs such as the am335x (like the popular
-BeagleBone) and the dm814x. The patch series enables hardware time
-stamping and a PTP Hardware Clock.
+From: Mugunthan V N <mugunthanvnm@ti.com>
 
-* Changes in V3
-  - Performs clock frequency adjustment in software
-  - Move the HWTSTAMP ioctl into the CPSW code
-  - Handle the two different CPSW versions
+Adding multicast address to ALE table via netdev ops to subscribe, transmit
+or receive multicast frames to and from the network
 
-This work has been tested using the linuxptp PTP stack, and it seems
-to be working quite well. Using the CPSW Ethernet ports (and the CPTS)
-is not yet possible in mainline Linux due to missing device tree
-support. However, this support is expected to appear in v3.8 in the
-form of the following patches.
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Acked-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/net/ethernet/ti/cpsw.c     |   27 +++++++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw_ale.c |   31 ++++++++++++++++++++++++++++---
+ drivers/net/ethernet/ti/cpsw_ale.h |    1 +
+ 3 files changed, 56 insertions(+), 3 deletions(-)
 
-   http://www.spinics.net/lists/arm-kernel/msg203749.html
-
-This third version of the patch series incorporates ideas taken from  
-Mugunthan's driver, namely the CPSW versioning support and keeping the
-HWTSTAMP ioctl within the CPSW code.
-
-   http://thread.gmane.org/gmane.linux.network/246082
-
-The first patch adds multicast MAC support to the CPSW. Patches two
-and three are cleanups to bring the code more in line with the TRM.
-Patches four and five add CPSW versioning support. The sixth patch add
-the new CPTS code, and patches seven through nine add device tree
-support for CPTS variables. The last patch hooks the CPSW to the CPTS
-and adds HWTSTAMP support into the CPSW.
-
-Thanks,
-Richard
-
-Mugunthan V N (1):
-  drivers: net: ethernet: cpsw: add multicast address to ALE table
-
-Richard Cochran (9):
-  cpsw: rename register banks to match the reference manual
-  cpsw: add missing fields to the CPSW_SS register bank.
-  cpsw: remember the silicon version
-  cpsw: support both silicon versions
-  cpts: introduce time stamping code and a PTP hardware clock.
-  cpsw: add a DT field for the cpts offset
-  cpsw: add a DT field for the active time stamping port
-  cpts: specify the input clock frequency via DT
-  cpsw: support the HWTSTAMP ioctl and the CPTS
-
- Documentation/devicetree/bindings/net/cpsw.txt |   20 +-
- drivers/net/ethernet/ti/Kconfig                |    8 +
- drivers/net/ethernet/ti/Makefile               |    2 +-
- drivers/net/ethernet/ti/cpsw.c                 |  373 +++++++++++++++++++--
- drivers/net/ethernet/ti/cpsw_ale.c             |   31 ++-
- drivers/net/ethernet/ti/cpsw_ale.h             |    1 +
- drivers/net/ethernet/ti/cpts.c                 |  427 ++++++++++++++++++++++++
- drivers/net/ethernet/ti/cpts.h                 |  146 ++++++++
- include/linux/platform_data/cpsw.h             |    4 +
- 9 files changed, 979 insertions(+), 33 deletions(-)
- create mode 100644 drivers/net/ethernet/ti/cpts.c
- create mode 100644 drivers/net/ethernet/ti/cpts.h
-
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index df55e24..63b046f 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -70,6 +70,8 @@ do {								\
+ 		dev_notice(priv->dev, format, ## __VA_ARGS__);	\
+ } while (0)
+ 
++#define ALE_ALL_PORTS		0x7
++
+ #define CPSW_MAJOR_VERSION(reg)		(reg >> 8 & 0x7)
+ #define CPSW_MINOR_VERSION(reg)		(reg & 0xff)
+ #define CPSW_RTL_VERSION(reg)		((reg >> 11) & 0x1f)
+@@ -228,6 +230,30 @@ struct cpsw_priv {
+ 			(func)((priv)->slaves + idx, ##arg);	\
+ 	} while (0)
+ 
++static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++
++	if (ndev->flags & IFF_PROMISC) {
++		/* Enable promiscuous mode */
++		dev_err(priv->dev, "Ignoring Promiscuous mode\n");
++		return;
++	}
++
++	/* Clear all mcast from ALE */
++	cpsw_ale_flush_multicast(priv->ale, ALE_ALL_PORTS << priv->host_port);
++
++	if (!netdev_mc_empty(ndev)) {
++		struct netdev_hw_addr *ha;
++
++		/* program multicast address list into ALE register */
++		netdev_for_each_mc_addr(ha, ndev) {
++			cpsw_ale_add_mcast(priv->ale, (u8 *)ha->addr,
++				ALE_ALL_PORTS << priv->host_port, 0, 0);
++		}
++	}
++}
++
+ static void cpsw_intr_enable(struct cpsw_priv *priv)
+ {
+ 	__raw_writel(0xFF, &priv->ss_regs->tx_en);
+@@ -673,6 +699,7 @@ static const struct net_device_ops cpsw_netdev_ops = {
+ 	.ndo_change_mtu		= eth_change_mtu,
+ 	.ndo_tx_timeout		= cpsw_ndo_tx_timeout,
+ 	.ndo_get_stats		= cpsw_ndo_get_stats,
++	.ndo_set_rx_mode	= cpsw_ndo_set_rx_mode,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= cpsw_ndo_poll_controller,
+ #endif
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+index ca0d48a..0e9ccc2 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.c
++++ b/drivers/net/ethernet/ti/cpsw_ale.c
+@@ -20,6 +20,7 @@
+ #include <linux/io.h>
+ #include <linux/stat.h>
+ #include <linux/sysfs.h>
++#include <linux/etherdevice.h>
+ 
+ #include "cpsw_ale.h"
+ 
+@@ -211,10 +212,34 @@ static void cpsw_ale_flush_mcast(struct cpsw_ale *ale, u32 *ale_entry,
+ 	mask &= ~port_mask;
+ 
+ 	/* free if only remaining port is host port */
+-	if (mask == BIT(ale->params.ale_ports))
+-		cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_FREE);
+-	else
++	if (mask)
+ 		cpsw_ale_set_port_mask(ale_entry, mask);
++	else
++		cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_FREE);
++}
++
++int cpsw_ale_flush_multicast(struct cpsw_ale *ale, int port_mask)
++{
++	u32 ale_entry[ALE_ENTRY_WORDS];
++	int ret, idx;
++
++	for (idx = 0; idx < ale->params.ale_entries; idx++) {
++		cpsw_ale_read(ale, idx, ale_entry);
++		ret = cpsw_ale_get_entry_type(ale_entry);
++		if (ret != ALE_TYPE_ADDR && ret != ALE_TYPE_VLAN_ADDR)
++			continue;
++
++		if (cpsw_ale_get_mcast(ale_entry)) {
++			u8 addr[6];
++
++			cpsw_ale_get_addr(ale_entry, addr);
++			if (!is_broadcast_ether_addr(addr))
++				cpsw_ale_flush_mcast(ale, ale_entry, port_mask);
++		}
++
++		cpsw_ale_write(ale, idx, ale_entry);
++	}
++	return 0;
+ }
+ 
+ static void cpsw_ale_flush_ucast(struct cpsw_ale *ale, u32 *ale_entry,
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
+index a95b37b..2bd09cb 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.h
++++ b/drivers/net/ethernet/ti/cpsw_ale.h
+@@ -80,6 +80,7 @@ void cpsw_ale_stop(struct cpsw_ale *ale);
+ 
+ int cpsw_ale_set_ageout(struct cpsw_ale *ale, int ageout);
+ int cpsw_ale_flush(struct cpsw_ale *ale, int port_mask);
++int cpsw_ale_flush_multicast(struct cpsw_ale *ale, int port_mask);
+ int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port, int flags);
+ int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port);
+ int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
 -- 
 1.7.2.5
