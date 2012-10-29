@@ -1,79 +1,61 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH v7 01/16] hashtable: introduce a small and naive hashtable
-Date: Mon, 29 Oct 2012 12:26:47 -0400
-Message-ID: <CA+1xoqfBXM4sjvcZtUncnWAaUxA9_YBod3Hjx3ZO=K1oJO_j7g@mail.gmail.com>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
- <20121029112907.GA9115@Krystal> <CA+1xoqfQn92igbFS1TtrpYuSiy7+Ro02ar=axgqSOJOuE_EVuA@mail.gmail.com>
- <20121029161412.GB18944@Krystal>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [net-next 02/12] ixgbe: Fix return value from macvlan filter
+ function
+Date: Mon, 29 Oct 2012 16:27:45 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A072D540466@ORSMSX106.amr.corp.intel.com>
+References: <1351296518-31174-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1351296518-31174-3-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CAKgsOu-PH2OJRKxLWj=UEp=XuQCpu0e_pNL2_Nkbbz8Hx2bhEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net, rostedt@goodmis.org,
-	mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
-	netdev@vger.kernel.org, josh@joshtriplett.org, eric.dumazet@gmail.com,
-	axboe@kernel.dk, agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
-	ccaulfie@redhat.com, teigland@redhat.com, Trond.Myklebust@netapp.com,
-	bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20121029161412.GB18944@Krystal>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Konstantin Stepanyuk <konstantin.stepanyuk@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:63724 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932664Ab2J2Q15 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2012 12:27:57 -0400
+In-Reply-To: <CAKgsOu-PH2OJRKxLWj=UEp=XuQCpu0e_pNL2_Nkbbz8Hx2bhEw@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 29, 2012 at 12:14 PM, Mathieu Desnoyers
-<mathieu.desnoyers@efficios.com> wrote:
-> * Sasha Levin (levinsasha928@gmail.com) wrote:
->> On Mon, Oct 29, 2012 at 7:29 AM, Mathieu Desnoyers
->> <mathieu.desnoyers@efficios.com> wrote:
->> > * Sasha Levin (levinsasha928@gmail.com) wrote:
->> >> +
->> >> +     for (i = 0; i < sz; i++)
->> >> +             INIT_HLIST_HEAD(&ht[sz]);
->> >
->> > ouch. How did this work ? Has it been tested at all ?
->> >
->> > sz -> i
->>
->> Funny enough, it works perfectly. Generally as a test I boot the
->> kernel in a VM and let it fuzz with trinity for a bit, doing that with
->> the code above worked flawlessly.
->>
->> While it works, it's obviously wrong. Why does it work though? Usually
->> there's a list op happening pretty soon after that which brings the
->> list into proper state.
->>
->> I've been playing with a patch that adds a magic value into list_head
->> if CONFIG_DEBUG_LIST is set, and checks that magic in the list debug
->> code in lib/list_debug.c.
->>
->> Does it sound like something useful? If so I'll send that patch out.
->
-> Most of the calls to this initialization function apply it on zeroed
-> memory (static/kzalloc'd...), which makes it useless. I'd actually be in
-> favor of removing those redundant calls (as I pointed out in another
-> email), and document that zeroed memory don't need to be explicitly
-> initialized.
-
-Why would that make it useless? The idea is that the init functions
-will set the magic field to something random, like:
-
-.magic = 0xBADBEEF0;
-
-And have list_add() and friends WARN(.magic != 0xBADBEEF0, "Using an
-uninitialized list\n");
-
-This way we'll catch all places that don't go through list initialization code.
-
-
-Thanks,
-Sasha
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBLb25zdGFudGluIFN0ZXBhbnl1
+ayBbbWFpbHRvOmtvbnN0YW50aW4uc3RlcGFueXVrQGdtYWlsLmNvbV0NCj4gU2VudDogU2F0dXJk
+YXksIE9jdG9iZXIgMjcsIDIwMTIgMTE6MzcgQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0K
+PiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgUm9zZSwgR3JlZ29yeSBWOyBuZXRkZXZAdmdlci5r
+ZXJuZWwub3JnOw0KPiBnb3Nwb0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tDQo+IFN1
+YmplY3Q6IFJlOiBbbmV0LW5leHQgMDIvMTJdIGl4Z2JlOiBGaXggcmV0dXJuIHZhbHVlIGZyb20g
+bWFjdmxhbiBmaWx0ZXINCj4gZnVuY3Rpb24NCj4gDQo+IE9uIEZyaSwgT2N0IDI2LCAyMDEyIGF0
+IDY6MDggUE0sIEplZmYgS2lyc2hlcg0KPiA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPiB3
+cm90ZToNCj4gPiBGcm9tOiBHcmVnIFJvc2UgPGdyZWdvcnkudi5yb3NlQGludGVsLmNvbT4NCj4g
+Pg0KPiA+IFRoZSBmdW5jdGlvbiB0byBzZXQgdGhlIG1hY3ZsYW4gZmlsdGVyIHNob3VsZCByZXR1
+cm4gc3VjY2VzcyBvcg0KPiA+IGZhaWx1cmUgaW5zdGVhZCBvZiB0aGUgaW5kZXggb2YgdGhlIGZp
+bHRlci4gIFRoZSBtZXNzYWdlIHByb2Nlc3NpbmcNCj4gPiBmdW5jdGlvbiB3YXMgbWlzaW50ZXJw
+cmV0aW5nIHRoZSBpbmRleCBhcyBhIG5vbi16ZXJvIHJldHVybiBjb2RlDQo+ID4gaW5kaWNhdGlu
+ZyBmYWlsdXJlIGFuZCBOQUNLaW5nIE1BQyBmaWx0ZXIgc2V0IG1lc3NhZ2VzIHRoYXQgYWN0dWFs
+bHkNCj4gc3VjY2VlZGVkLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogR3JlZyBSb3NlIDxncmVn
+b3J5LnYucm9zZUBpbnRlbC5jb20+DQo+ID4gVGVzdGVkLWJ5OiBSb2JlcnQgR2FycmV0dCA8cm9i
+ZXJ0eC5lLmdhcnJldHRAaW50ZWwuY29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hl
+ciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jIHwgMyArKy0NCj4gPiAgMSBmaWxl
+IGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiA+DQo+ID4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMNCj4g
+PiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMNCj4gPiBp
+bmRleCA5Njg3NmI3Li5iNjhiZjBmIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jDQo+ID4gQEAgLTc0Miw3ICs3NDIsOCBAQCBz
+dGF0aWMgaW50IGl4Z2JlX3NldF92Zl9tYWN2bGFuX21zZyhzdHJ1Y3QNCj4gaXhnYmVfYWRhcHRl
+ciAqYWRhcHRlciwNCj4gPiAgICAgICAgICAgICAgICAgZV93YXJuKGRydiwNCj4gPiAgICAgICAg
+ICAgICAgICAgICAgICAgICJWRiAlZCBoYXMgcmVxdWVzdGVkIGEgTUFDVkxBTiBmaWx0ZXIgYnV0
+IHRoZXJlDQo+IGlzIG5vIHNwYWNlIGZvciBpdFxuIiwNCj4gPiAgICAgICAgICAgICAgICAgICAg
+ICAgIHZmKTsNCj4gPiAtICAgICAgIHJldHVybiBlcnI7DQo+ID4gKw0KPiA+ICsgICAgICAgcmV0
+dXJuICEhZXJyIDwgMDsNCj4gVGhpcyBleHByZXNzaW9uIGFsd2F5cyByZXNvbHZlcyB0byBmYWxz
+ZSwgZWl0aGVyIDAgPCAwIG9yIDEgPCAwLCBiZWNhdXNlDQo+ICchJyBoYXMgaGlnaGVyIHByZWNl
+ZGVuY2UgdGhhbiAnPCcuDQoNCkl0J3MgYSB0eXBvLiAgSSdsbCBmaXggaXQuDQoNCi0gR3JlZw0K
+DQo+IA0KPiBUaGFua3MsDQo+IEtvbnN0YW50aW4NCg==
