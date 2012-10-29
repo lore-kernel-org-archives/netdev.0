@@ -1,317 +1,149 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V3 10/10] cpsw: support the HWTSTAMP ioctl and the CPTS
-Date: Mon, 29 Oct 2012 19:45:20 +0100
-Message-ID: <6491321837e5ddba8ba1d941bc5602987390ebab.1351535541.git.richardcochran@gmail.com>
-References: <cover.1351535536.git.richardcochran@gmail.com>
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	David Miller <davem@davemloft.net>,
-	Cyril Chemparathy <cyril@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:44513 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760527Ab2J2Sp6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 14:45:58 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so2256783eek.19
-        for <netdev@vger.kernel.org>; Mon, 29 Oct 2012 11:45:58 -0700 (PDT)
-In-Reply-To: <cover.1351535536.git.richardcochran@gmail.com>
-In-Reply-To: <cover.1351535536.git.richardcochran@gmail.com>
-References: <cover.1351535536.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v7 06/16] tracepoint: use new hashtable
+	implementation
+Date: Mon, 29 Oct 2012 14:53:19 -0400
+Message-ID: <20121029185319.GA21546@Krystal>
+References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
+	<1351450948-15618-6-git-send-email-levinsasha928@gmail.com>
+	<20121029113515.GB9115@Krystal>
+	<CA+1xoqce6uJ6wy3+2CBwsLHKnsz4wD0vt8MBEGKCFfXTvuC0Hg@mail.gmail.com>
+	<20121029183157.GC3097@jtriplet-mobl1>
+	<CA+1xoqfMrn9zDFMJNFfA0NA86wE_DedD97cP1yJ2UQdTjs3uyQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>,
+	rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CA+1xoqfMrn9zDFMJNFfA0NA86wE_DedD97cP1yJ2UQdTjs3uyQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch hooks into the CPTS code and adds support for the HWTSTAMP
-ioctl. The patch includes code for the CPSW version found in the dm814x
-even though the background device tree support for this board is still
-missing.
+* Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
+> On Mon, Oct 29, 2012 at 2:31 PM, Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org> wrote:
+> > On Mon, Oct 29, 2012 at 01:29:24PM -0400, Sasha Levin wrote:
+> >> On Mon, Oct 29, 2012 at 7:35 AM, Mathieu Desnoyers
+> >> <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org> wrote:
+> >> > * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
+> >> >> Switch tracepoints to use the new hashtable implementation. This reduces the amount of
+> >> >> generic unrelated code in the tracepoints.
+> >> >>
+> >> >> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >> >> ---
+> >> >>  kernel/tracepoint.c | 27 +++++++++++----------------
+> >> >>  1 file changed, 11 insertions(+), 16 deletions(-)
+> >> >>
+> >> >> diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
+> >> >> index d96ba22..854df92 100644
+> >> >> --- a/kernel/tracepoint.c
+> >> >> +++ b/kernel/tracepoint.c
+> >> >> @@ -26,6 +26,7 @@
+> >> >>  #include <linux/slab.h>
+> >> >>  #include <linux/sched.h>
+> >> >>  #include <linux/static_key.h>
+> >> >> +#include <linux/hashtable.h>
+> >> >>
+> >> >>  extern struct tracepoint * const __start___tracepoints_ptrs[];
+> >> >>  extern struct tracepoint * const __stop___tracepoints_ptrs[];
+> >> >> @@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
+> >> >>   * Protected by tracepoints_mutex.
+> >> >>   */
+> >> >>  #define TRACEPOINT_HASH_BITS 6
+> >> >> -#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
+> >> >> -static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
+> >> >> +static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
+> >> >>
+> >> > [...]
+> >> >>
+> >> >> @@ -722,6 +715,8 @@ struct notifier_block tracepoint_module_nb = {
+> >> >>
+> >> >>  static int init_tracepoints(void)
+> >> >>  {
+> >> >> +     hash_init(tracepoint_table);
+> >> >> +
+> >> >>       return register_module_notifier(&tracepoint_module_nb);
+> >> >>  }
+> >> >>  __initcall(init_tracepoints);
+> >> >
+> >> > So we have a hash table defined in .bss (therefore entirely initialized
+> >> > to NULL), and you add a call to "hash_init", which iterates on the whole
+> >> > array and initialize it to NULL (again) ?
+> >> >
+> >> > This extra initialization is redundant. I think it should be removed
+> >> > from here, and hashtable.h should document that hash_init() don't need
+> >> > to be called on zeroed memory (which includes static/global variables,
+> >> > kzalloc'd memory, etc).
+> >>
+> >> This was discussed in the previous series, the conclusion was to call
+> >> hash_init() either way to keep the encapsulation and consistency.
+> >>
+> >> It's cheap enough and happens only once, so why not?
+> >
+> > Unnecessary work adds up.  Better not to do it unnecessarily, even if by
+> > itself it doesn't cost that much.
+> >
+> > It doesn't seem that difficult for future fields to have 0 as their
+> > initialized state.
+> 
+> Let's put it this way: hlist requires the user to initialize hlist
+> head before usage, therefore as a hlist user, hashtable implementation
+> must do that.
+> 
+> We do it automatically when the hashtable user does
+> DEFINE_HASHTABLE(), but we can't do that if he does
+> DECLARE_HASHTABLE(). This means that the hashtable user must call
+> hash_init() whenever he uses DECLARE_HASHTABLE() to create his
+> hashtable.
+> 
+> There are two options here, either we specify that hash_init() should
+> only be called if DECLARE_HASHTABLE() was called, which is confusing,
+> inconsistent and prone to errors, or we can just say that it should be
+> called whenever a hashtable is used.
+> 
+> The only way to work around it IMO is to get hlist to not require
+> initializing before usage, and there are good reasons that that won't
+> happen.
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/ti/cpsw.c |  182 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 182 insertions(+), 0 deletions(-)
+Hrm, just a second here.
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c04627c..023d439 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -24,6 +24,7 @@
- #include <linux/if_ether.h>
- #include <linux/etherdevice.h>
- #include <linux/netdevice.h>
-+#include <linux/net_tstamp.h>
- #include <linux/phy.h>
- #include <linux/workqueue.h>
- #include <linux/delay.h>
-@@ -35,6 +36,7 @@
- #include <linux/platform_data/cpsw.h>
- 
- #include "cpsw_ale.h"
-+#include "cpts.h"
- #include "davinci_cpdma.h"
- 
- #define CPSW_DEBUG	(NETIF_MSG_HW		| NETIF_MSG_WOL		| \
-@@ -229,6 +231,14 @@ struct cpsw_ss_regs {
- /* The PTP event messages - Sync, Delay_Req, Pdelay_Req, and Pdelay_Resp. */
- #define EVENT_MSG_BITS ((1<<0) | (1<<1) | (1<<2) | (1<<3))
- 
-+/* Bit definitions for the CPSW1_TS_CTL register */
-+#define CPSW_V1_TS_RX_EN		BIT(0)
-+#define CPSW_V1_TS_TX_EN		BIT(4)
-+#define CPSW_V1_MSG_TYPE_OFS		16
-+
-+/* Bit definitions for the CPSW1_TS_SEQ_LTYPE register */
-+#define CPSW_V1_SEQ_ID_OFS_SHIFT	16
-+
- struct cpsw_host_regs {
- 	u32	max_blks;
- 	u32	blk_cnt;
-@@ -297,6 +307,7 @@ struct cpsw_priv {
- 	/* snapshot of IRQ numbers */
- 	u32 irqs_table[4];
- 	u32 num_irqs;
-+	struct cpts cpts;
- };
- 
- #define napi_to_priv(napi)	container_of(napi, struct cpsw_priv, napi)
-@@ -357,6 +368,7 @@ void cpsw_tx_handler(void *token, int len, int status)
- 
- 	if (unlikely(netif_queue_stopped(ndev)))
- 		netif_start_queue(ndev);
-+	cpts_tx_timestamp(&priv->cpts, skb);
- 	priv->stats.tx_packets++;
- 	priv->stats.tx_bytes += len;
- 	dev_kfree_skb_any(skb);
-@@ -377,6 +389,7 @@ void cpsw_rx_handler(void *token, int len, int status)
- 	}
- 	if (likely(status >= 0)) {
- 		skb_put(skb, len);
-+		cpts_rx_timestamp(&priv->cpts, skb);
- 		skb->protocol = eth_type_trans(skb, ndev);
- 		netif_receive_skb(skb);
- 		priv->stats.rx_bytes += len;
-@@ -704,6 +717,11 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
- 		return NETDEV_TX_OK;
- 	}
- 
-+	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP && priv->cpts.tx_enable)
-+		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-+
-+	skb_tx_timestamp(skb);
-+
- 	ret = cpdma_chan_submit(priv->txch, skb, skb->data,
- 				skb->len, GFP_KERNEL);
- 	if (unlikely(ret != 0)) {
-@@ -741,6 +759,130 @@ static void cpsw_ndo_change_rx_flags(struct net_device *ndev, int flags)
- 		dev_err(&ndev->dev, "multicast traffic cannot be filtered!\n");
- }
- 
-+#ifdef CONFIG_TI_CPTS
-+
-+static void cpsw_hwtstamp_v1(struct cpsw_priv *priv)
-+{
-+	struct cpsw_slave *slave = &priv->slaves[priv->data.cpts_active_slave];
-+	u32 ts_en, seq_id;
-+
-+	if (!priv->cpts.tx_enable && !priv->cpts.rx_enable) {
-+		slave_write(slave, 0, CPSW1_TS_CTL);
-+		return;
-+	}
-+
-+	seq_id = (30 << CPSW_V1_SEQ_ID_OFS_SHIFT) | ETH_P_1588;
-+	ts_en = EVENT_MSG_BITS << CPSW_V1_MSG_TYPE_OFS;
-+
-+	if (priv->cpts.tx_enable)
-+		ts_en |= CPSW_V1_TS_TX_EN;
-+
-+	if (priv->cpts.rx_enable)
-+		ts_en |= CPSW_V1_TS_RX_EN;
-+
-+	slave_write(slave, ts_en, CPSW1_TS_CTL);
-+	slave_write(slave, seq_id, CPSW1_TS_SEQ_LTYPE);
-+}
-+
-+static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
-+{
-+	struct cpsw_slave *slave = &priv->slaves[priv->data.cpts_active_slave];
-+	u32 ctrl, mtype;
-+
-+	ctrl = slave_read(slave, CPSW2_CONTROL);
-+	ctrl &= ~CTRL_ALL_TS_MASK;
-+
-+	if (priv->cpts.tx_enable)
-+		ctrl |= CTRL_TX_TS_BITS;
-+
-+	if (priv->cpts.rx_enable)
-+		ctrl |= CTRL_RX_TS_BITS;
-+
-+	mtype = (30 << TS_SEQ_ID_OFFSET_SHIFT) | EVENT_MSG_BITS;
-+
-+	slave_write(slave, mtype, CPSW2_TS_SEQ_MTYPE);
-+	slave_write(slave, ctrl, CPSW2_CONTROL);
-+	__raw_writel(ETH_P_1588, &priv->regs->ts_ltype);
-+}
-+
-+static int cpsw_hwtstamp_ioctl(struct cpsw_priv *priv, struct ifreq *ifr)
-+{
-+	struct cpts *cpts = &priv->cpts;
-+	struct hwtstamp_config cfg;
-+
-+	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
-+		return -EFAULT;
-+
-+	/* reserved for future extensions */
-+	if (cfg.flags)
-+		return -EINVAL;
-+
-+	switch (cfg.tx_type) {
-+	case HWTSTAMP_TX_OFF:
-+		cpts->tx_enable = 0;
-+		break;
-+	case HWTSTAMP_TX_ON:
-+		cpts->tx_enable = 1;
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	switch (cfg.rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+		cpts->rx_enable = 0;
-+		break;
-+	case HWTSTAMP_FILTER_ALL:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-+		return -ERANGE;
-+	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
-+	case HWTSTAMP_FILTER_PTP_V2_EVENT:
-+	case HWTSTAMP_FILTER_PTP_V2_SYNC:
-+	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
-+		cpts->rx_enable = 1;
-+		cfg.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	switch (priv->version) {
-+	case CPSW_VERSION_1:
-+		cpsw_hwtstamp_v1(priv);
-+		break;
-+	case CPSW_VERSION_2:
-+		cpsw_hwtstamp_v2(priv);
-+		break;
-+	default:
-+		return -ENOTSUPP;
-+	}
-+
-+	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
-+}
-+
-+#endif /*CONFIG_TI_CPTS*/
-+
-+static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
-+{
-+	struct cpsw_priv *priv = netdev_priv(dev);
-+
-+	if (!netif_running(dev))
-+		return -EINVAL;
-+
-+#ifdef CONFIG_TI_CPTS
-+	if (cmd == SIOCSHWTSTAMP)
-+		return cpsw_hwtstamp_ioctl(priv, req);
-+#endif
-+	return -ENOTSUPP;
-+}
-+
- static void cpsw_ndo_tx_timeout(struct net_device *ndev)
- {
- 	struct cpsw_priv *priv = netdev_priv(ndev);
-@@ -781,6 +923,7 @@ static const struct net_device_ops cpsw_netdev_ops = {
- 	.ndo_stop		= cpsw_ndo_stop,
- 	.ndo_start_xmit		= cpsw_ndo_start_xmit,
- 	.ndo_change_rx_flags	= cpsw_ndo_change_rx_flags,
-+	.ndo_do_ioctl		= cpsw_ndo_ioctl,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- 	.ndo_tx_timeout		= cpsw_ndo_tx_timeout,
-@@ -812,11 +955,44 @@ static void cpsw_set_msglevel(struct net_device *ndev, u32 value)
- 	priv->msg_enable = value;
- }
- 
-+static int cpsw_get_ts_info(struct net_device *ndev,
-+			    struct ethtool_ts_info *info)
-+{
-+#ifdef CONFIG_TI_CPTS
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+
-+	info->so_timestamping =
-+		SOF_TIMESTAMPING_TX_HARDWARE |
-+		SOF_TIMESTAMPING_TX_SOFTWARE |
-+		SOF_TIMESTAMPING_RX_HARDWARE |
-+		SOF_TIMESTAMPING_RX_SOFTWARE |
-+		SOF_TIMESTAMPING_SOFTWARE |
-+		SOF_TIMESTAMPING_RAW_HARDWARE;
-+	info->phc_index = priv->cpts.phc_index;
-+	info->tx_types =
-+		(1 << HWTSTAMP_TX_OFF) |
-+		(1 << HWTSTAMP_TX_ON);
-+	info->rx_filters =
-+		(1 << HWTSTAMP_FILTER_NONE) |
-+		(1 << HWTSTAMP_FILTER_PTP_V2_EVENT);
-+#else
-+	info->so_timestamping =
-+		SOF_TIMESTAMPING_TX_SOFTWARE |
-+		SOF_TIMESTAMPING_RX_SOFTWARE |
-+		SOF_TIMESTAMPING_SOFTWARE;
-+	info->phc_index = -1;
-+	info->tx_types = 0;
-+	info->rx_filters = 0;
-+#endif
-+	return 0;
-+}
-+
- static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.get_drvinfo	= cpsw_get_drvinfo,
- 	.get_msglevel	= cpsw_get_msglevel,
- 	.set_msglevel	= cpsw_set_msglevel,
- 	.get_link	= ethtool_op_get_link,
-+	.get_ts_info	= cpsw_get_ts_info,
- };
- 
- static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv)
-@@ -1092,6 +1268,7 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 	priv->regs = regs;
- 	priv->host_port = data->host_port_num;
- 	priv->host_port_regs = regs + data->host_port_reg_ofs;
-+	priv->cpts.reg = regs + data->cpts_reg_ofs;
- 
- 	priv->cpsw_ss_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
- 	if (!priv->cpsw_ss_res) {
-@@ -1213,6 +1390,10 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 		goto clean_irq_ret;
- 	}
- 
-+	if (cpts_register(&pdev->dev, &priv->cpts,
-+			  data->cpts_clock_mult, data->cpts_clock_shift))
-+		dev_err(priv->dev, "error registering cpts device\n");
-+
- 	cpsw_notice(priv, probe, "initialized device (regs %x, irq %d)\n",
- 		  priv->cpsw_res->start, ndev->irq);
- 
-@@ -1252,6 +1433,7 @@ static int __devexit cpsw_remove(struct platform_device *pdev)
- 	pr_info("removing device");
- 	platform_set_drvdata(pdev, NULL);
- 
-+	cpts_unregister(&priv->cpts);
- 	free_irq(ndev->irq, priv);
- 	cpsw_ale_destroy(priv->ale);
- 	cpdma_chan_destroy(priv->txch);
+The argument about hash_init being useful to add magic values in the
+future only works for the cases where a hash table is declared with
+DECLARE_HASHTABLE(). It's completely pointless with DEFINE_HASHTABLE(),
+because we could initialize any debugging variables from within
+DEFINE_HASHTABLE().
+
+So I take my "Agreed" back. I disagree with initializing the hash table
+twice redundantly. There should be at least "DEFINE_HASHTABLE()" or a
+hash_init() (for DECLARE_HASHTABLE()), but not useless execution
+initialization on top of an already statically initialized hash table.
+
+Thanks,
+
+Mathieu
+
 -- 
-1.7.2.5
+Mathieu Desnoyers
+Operating System Efficiency R&D Consultant
+EfficiOS Inc.
+http://www.efficios.com
