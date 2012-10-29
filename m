@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net-next 8/8] vhost-net: reduce vq polling on tx zerocopy
-Date: Mon, 29 Oct 2012 17:49:51 +0200
-Message-ID: <3e57e2cde71a4270a8fef395c31f5f0e8a130c28.1351524502.git.mst@redhat.com>
+Subject: [PATCH net-next 4/8] vhost-net: cleanup macros for DMA status tracking
+Date: Mon, 29 Oct 2012 17:49:56 +0200
+Message-ID: <fb1565dcd5203f57c21b6dc8744b4ac768d98702.1351524501.git.mst@redhat.com>
 References: <cover.1351524501.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,37 +27,66 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-It seems that to avoid deadlocks it is enough to poll vq before
- we are going to use the last buffer.  This should be faster than
-c70aa540c7a9f67add11ad3161096fb95233aa2e.
+Better document macros for DMA tracking. Add an
+explicit one for DMA in progress instead of
+relying on user supplying len != 1.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/net.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/vhost/net.c   |  3 ++-
+ drivers/vhost/vhost.c |  2 +-
+ drivers/vhost/vhost.h | 12 +++++++++---
+ 3 files changed, 12 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 8e9de79..3967f82 100644
+index 072cbba..f80ae5f 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -197,8 +197,16 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, int status)
- {
- 	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
+@@ -237,7 +237,8 @@ static void handle_tx(struct vhost_net *net)
+ 			} else {
+ 				struct ubuf_info *ubuf = &vq->ubuf_info[head];
+ 
+-				vq->heads[vq->upend_idx].len = len;
++				vq->heads[vq->upend_idx].len =
++					VHOST_DMA_IN_PROGRESS;
+ 				ubuf->callback = vhost_zerocopy_callback;
+ 				ubuf->ctx = vq->ubufs;
+ 				ubuf->desc = vq->upend_idx;
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 92308b6..906fd9f 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1606,7 +1606,7 @@ void vhost_zerocopy_callback(struct ubuf_info *ubuf, int zerocopy_status)
  	struct vhost_virtqueue *vq = ubufs->vq;
--
--	vhost_poll_queue(&vq->poll);
-+	int cnt = atomic_read(&ubufs->kref.refcount);
-+
-+	/*
-+	 * Trigger polling thread if guest stopped submitting new buffers:
-+	 * in this case, the refcount after decrement will eventually reach 1
-+	 * so here it is 2.
-+	 * We also trigger polling periodically after each 16 packets.
-+	 */
-+	if (cnt <= 2 || !(cnt % 16))
-+		vhost_poll_queue(&vq->poll);
- 	/* set len to mark this desc buffers done DMA */
- 	vq->heads[ubuf->desc].len = status ?
- 		VHOST_DMA_FAILED_LEN : VHOST_DMA_DONE_LEN;
+ 
+ 	vhost_poll_queue(&vq->poll);
+-	/* set len = 1 to mark this desc buffers done DMA */
++	/* set len to mark this desc buffers done DMA */
+ 	vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
+ 	kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
+ }
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index eb7263c3..ad72a1f 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -13,9 +13,15 @@
+ #include <linux/virtio_ring.h>
+ #include <linux/atomic.h>
+ 
+-/* This is for zerocopy, used buffer len is set to 1 when lower device DMA
+- * done */
+-#define VHOST_DMA_DONE_LEN	1
++/*
++ * For transmit, used buffer len is unused; we override it to track buffer
++ * status internally; used for zerocopy tx only.
++ */
++/* Lower device DMA done */
++#define VHOST_DMA_DONE_LEN	2
++/* Lower device DMA in progress */
++#define VHOST_DMA_IN_PROGRESS	1
++/* Buffer unused */
+ #define VHOST_DMA_CLEAR_LEN	0
+ 
+ struct vhost_device;
 -- 
 MST
