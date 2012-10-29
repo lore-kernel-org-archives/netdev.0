@@ -1,109 +1,55 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Subject: Re: [PATCH v7 15/16] openvswitch: use new hashtable implementation
-Date: Mon, 29 Oct 2012 09:29:31 -0400
-Message-ID: <20121029132931.GC16391@Krystal>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com> <1351450948-15618-15-git-send-email-levinsasha928@gmail.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH net-next] net/cadence: depend on HAS_IOMEM
+Date: Mon, 29 Oct 2012 15:48:38 +0100
+Message-ID: <508E9746.9030406@atmel.com>
+References: <1351339823-24987-1-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
-	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
-	josh@joshtriplett.org, eric.dumazet@gmail.com, axboe@kernel.dk,
-	agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
-	ccaulfie@redhat.com, teigland@redhat.com,
-	Trond.Myklebust@netapp.com, bfields@fieldses.org,
-	fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1351450948-15618-15-git-send-email-levinsasha928@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <fengguang.wu@intel.com>,
+	<netdev@vger.kernel.org>
+To: Joachim Eastwood <manabian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:42067 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759173Ab2J2Nsc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 09:48:32 -0400
+In-Reply-To: <1351339823-24987-1-git-send-email-manabian@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Sasha Levin (levinsasha928@gmail.com) wrote:
-[...]
-> -static struct hlist_head *hash_bucket(struct net *net, const char *name)
-> -{
-> -	unsigned int hash = jhash(name, strlen(name), (unsigned long) net);
-> -	return &dev_table[hash & (VPORT_HASH_BUCKETS - 1)];
-> -}
-> -
->  /**
->   *	ovs_vport_locate - find a port that has already been created
->   *
-> @@ -84,13 +76,12 @@ static struct hlist_head *hash_bucket(struct net *net, const char *name)
->   */
->  struct vport *ovs_vport_locate(struct net *net, const char *name)
->  {
-> -	struct hlist_head *bucket = hash_bucket(net, name);
->  	struct vport *vport;
->  	struct hlist_node *node;
-> +	int key = full_name_hash(name, strlen(name));
->  
-> -	hlist_for_each_entry_rcu(vport, node, bucket, hash_node)
-> -		if (!strcmp(name, vport->ops->get_name(vport)) &&
-> -		    net_eq(ovs_dp_get_net(vport->dp), net))
-> +	hash_for_each_possible_rcu(dev_table, vport, node, hash_node, key)
+On 10/27/2012 02:10 PM, Joachim Eastwood :
+> Fixes the following build failure on S390:
+>   In file included from drivers/net/ethernet/cadence/at91_ether.c:35:0:
+>    drivers/net/ethernet/cadence/macb.h: In function 'macb_is_gem':
+>    drivers/net/ethernet/cadence/macb.h:563:2: error: implicit declaration of function '__raw_readl' [-Werror=implicit-function-declaration]
+>    drivers/net/ethernet/cadence/at91_ether.c: In function 'update_mac_address':
+>    drivers/net/ethernet/cadence/at91_ether.c:119:2: error: implicit declaration of function '__raw_writel' [-Werror=implicit-function-declaration]
+>    cc1: some warnings being treated as errors
+> 
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 
-Is applying hash_32() on top of full_name_hash() needed and expected ?
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Thanks,
-
-Mathieu
-
-> +		if (!strcmp(name, vport->ops->get_name(vport)))
->  			return vport;
+> ---
+>  drivers/net/ethernet/cadence/Kconfig | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
+> index 40172d1..ceb0de0 100644
+> --- a/drivers/net/ethernet/cadence/Kconfig
+> +++ b/drivers/net/ethernet/cadence/Kconfig
+> @@ -4,6 +4,7 @@
 >  
->  	return NULL;
-> @@ -174,7 +165,8 @@ struct vport *ovs_vport_add(const struct vport_parms *parms)
->  
->  	for (i = 0; i < ARRAY_SIZE(vport_ops_list); i++) {
->  		if (vport_ops_list[i]->type == parms->type) {
-> -			struct hlist_head *bucket;
-> +			int key;
-> +			const char *name;
->  
->  			vport = vport_ops_list[i]->create(parms);
->  			if (IS_ERR(vport)) {
-> @@ -182,9 +174,9 @@ struct vport *ovs_vport_add(const struct vport_parms *parms)
->  				goto out;
->  			}
->  
-> -			bucket = hash_bucket(ovs_dp_get_net(vport->dp),
-> -					     vport->ops->get_name(vport));
-> -			hlist_add_head_rcu(&vport->hash_node, bucket);
-> +			name = vport->ops->get_name(vport);
-> +			key = full_name_hash(name, strlen(name));
-> +			hash_add_rcu(dev_table, &vport->hash_node, key);
->  			return vport;
->  		}
->  	}
-> @@ -225,7 +217,7 @@ void ovs_vport_del(struct vport *vport)
->  {
->  	ASSERT_RTNL();
->  
-> -	hlist_del_rcu(&vport->hash_node);
-> +	hash_del_rcu(&vport->hash_node);
->  
->  	vport->ops->destroy(vport);
->  }
-> -- 
-> 1.7.12.4
+>  config NET_CADENCE
+>  	bool "Cadence devices"
+> +	depends on HAS_IOMEM
+>  	default y
+>  	---help---
+>  	  If you have a network (Ethernet) card belonging to this class, say Y.
 > 
 
--- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-- 
+Nicolas Ferre
