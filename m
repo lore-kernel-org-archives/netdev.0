@@ -1,7 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net-next 5/8] vhost: track zero copy failures using DMA length
-Date: Mon, 29 Oct 2012 17:50:03 +0200
-Message-ID: <ee60165e6501fb037dfa6e83e3569b3f4dc0c59a.1351524502.git.mst@redhat.com>
+Subject: [PATCH net-next 3/8] tun: report orphan frags errors to zero copy
+	callback
+Date: Mon, 29 Oct 2012 17:49:46 +0200
+Message-ID: <8802a5f3d1556574df1e62279d2788462d23430d.1351524501.git.mst@redhat.com>
 References: <cover.1351524501.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,66 +28,27 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This will be used to disable zerocopy when error rate
-is high.
+When tun transmits a zero copy skb, it orphans the frags
+which might need to allocate extra memory, in atomic context.
+If that fails, notify ubufs callback before freeing the skb
+as a hint that device should disable zerocopy mode.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/vhost.c | 7 ++++---
- drivers/vhost/vhost.h | 4 ++++
- 2 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/tun.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 906fd9f..5affce3 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -425,7 +425,7 @@ int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
- 	int j = 0;
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 3157519..613f826 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -433,6 +433,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
  
- 	for (i = vq->done_idx; i != vq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
--		if ((vq->heads[i].len == VHOST_DMA_DONE_LEN)) {
-+		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
- 			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
- 			vhost_add_used_and_signal(vq->dev, vq,
- 						  vq->heads[i].id, 0);
-@@ -1600,13 +1600,14 @@ void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *ubufs)
- 	kfree(ubufs);
+ drop:
+ 	dev->stats.tx_dropped++;
++	skb_tx_error(skb, -ENOMEM);
+ 	kfree_skb(skb);
+ 	return NETDEV_TX_OK;
  }
- 
--void vhost_zerocopy_callback(struct ubuf_info *ubuf, int zerocopy_status)
-+void vhost_zerocopy_callback(struct ubuf_info *ubuf, int status)
- {
- 	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
- 	struct vhost_virtqueue *vq = ubufs->vq;
- 
- 	vhost_poll_queue(&vq->poll);
- 	/* set len to mark this desc buffers done DMA */
--	vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
-+	vq->heads[ubuf->desc].len = status ?
-+		VHOST_DMA_FAILED_LEN : VHOST_DMA_DONE_LEN;
- 	kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
- }
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index ad72a1f..6fdf31d 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -17,6 +17,8 @@
-  * For transmit, used buffer len is unused; we override it to track buffer
-  * status internally; used for zerocopy tx only.
-  */
-+/* Lower device DMA failed */
-+#define VHOST_DMA_FAILED_LEN	3
- /* Lower device DMA done */
- #define VHOST_DMA_DONE_LEN	2
- /* Lower device DMA in progress */
-@@ -24,6 +26,8 @@
- /* Buffer unused */
- #define VHOST_DMA_CLEAR_LEN	0
- 
-+#define VHOST_DMA_IS_DONE(len) ((len) >= VHOST_DMA_DONE_LEN)
-+
- struct vhost_device;
- 
- struct vhost_work;
 -- 
 MST
