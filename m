@@ -1,68 +1,43 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v7 06/16] tracepoint: use new hashtable
-	implementation
-Date: Mon, 29 Oct 2012 12:01:07 -0700
-Message-ID: <20121029190107.GD4066@htj.dyndns.org>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
-	<1351450948-15618-6-git-send-email-levinsasha928@gmail.com>
-	<20121029113515.GB9115@Krystal>
-	<CA+1xoqce6uJ6wy3+2CBwsLHKnsz4wD0vt8MBEGKCFfXTvuC0Hg@mail.gmail.com>
-	<20121029183157.GC3097@jtriplet-mobl1>
-	<CA+1xoqfMrn9zDFMJNFfA0NA86wE_DedD97cP1yJ2UQdTjs3uyQ@mail.gmail.com>
-	<20121029185319.GA21546@Krystal>
-	<20121029185814.GC4066@htj.dyndns.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sctp: Clean up type-punning in sctp_cmd_t union
+Date: Mon, 29 Oct 2012 15:04:44 -0400 (EDT)
+Message-ID: <20121029.150444.905377521761602639.davem@davemloft.net>
+References: <20121026.171019.702275326710216395.davem@davemloft.net>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B7076@saturn3.aculab.com>
+	<20121029185932.GC10177@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>,
-	rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20121029185814.GC4066-Gd/HAXX7CRxy/B6EtB590w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David.Laight@ACULAB.COM, vyasevich@gmail.com,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53045 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752018Ab2J2TEq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 15:04:46 -0400
+In-Reply-To: <20121029185932.GC10177@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 29, 2012 at 11:58:14AM -0700, Tejun Heo wrote:
-> On Mon, Oct 29, 2012 at 02:53:19PM -0400, Mathieu Desnoyers wrote:
-> > The argument about hash_init being useful to add magic values in the
-> > future only works for the cases where a hash table is declared with
-> > DECLARE_HASHTABLE(). It's completely pointless with DEFINE_HASHTABLE(),
-> > because we could initialize any debugging variables from within
-> > DEFINE_HASHTABLE().
-> 
-> You can do that with [0 .. HASH_SIZE - 1] initializer.
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 29 Oct 2012 14:59:32 -0400
 
-And in general, let's please try not to do optimizations which are
-pointless.  Just stick to the usual semantics.  You have an abstract
-data structure - invoke the initializer before using it.  Sure,
-optimize it if it shows up somewhere.  And here, if we do the
-initializers properly, it shouldn't cause any more actual overhead -
-ie. DEFINE_HASHTABLE() will basicallly boil down to all zero
-assignments and the compiler will put the whole thing in .bss anyway.
+> I don't think thats whats going on at all.  The problem, as commit
+> 19c7e9eef503dc1ae926f3d26c56f88bee568d7b describes it, is that ia64 was
+> speculatively loading a value from memory of type sctp_arg_t.  If the
+> initialization step set the value of one of the smaller members of the union
+> (say a short), then the load stage may still load a larger amount of data (given
+> that the union is larger than its smallest members).  That results in part of
+> the load being uninitalized, and ia64 declaring it Not A Thing, and consequently
+> trapping out.
 
-Thanks.
+Agreed.
 
--- 
-tejun
+> The fix previously was to just initazlie the unsigned long member zero in that
+> union before setting the actuall type member that was requried so as to ensure
+> all the data was initalized.  That works well enough, but it presumes that
+> unsigned long is the largest member of the union, which is risky.  Its better to
+> memset the union to 0 for sizeof bytes to ensure future proofing.
+
+Also agreed.
