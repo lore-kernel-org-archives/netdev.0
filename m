@@ -1,110 +1,87 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net-next 1/8] skb: report completion status for zero copy skbs
-Date: Mon, 29 Oct 2012 17:49:37 +0200
-Message-ID: <0dc176ed796ff5ac7164b6c18cc75d64c2a2317e.1351524501.git.mst@redhat.com>
+Subject: [PATCH net-next 2/8] skb: api to report errors for zero copy skbs
+Date: Mon, 29 Oct 2012 17:49:41 +0200
+Message-ID: <ee85ad5053a929c90e0347b6ba33778d96690e9b.1351524501.git.mst@redhat.com>
 References: <cover.1351524501.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
 	Eric Dumazet <edumazet@google.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
 In-Reply-To: <cover.1351524501.git.mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Even if skb is marked for zero copy, net core might still decide
-to copy it later which is somewhat slower than a copy in user context:
-besides copying the data we need to pin/unpin the pages.
+Orphaning frags for zero copy skbs needs to allocate data in atomic
+context so is has a chance to fail. If it does we currently discard
+the skb which is safe, but we don't report anything to the caller,
+so it can not recover by e.g. disabling zero copy.
 
-Add a parameter reporting such cases through zero copy callback:
-if this happens a lot, device can take this into account
-and switch to copying in user context.
-
-This patch updates all users but ignores the passed value for now:
-it will be used by follow-up patches.
+Add an API to free skb reporting such errors: this is used
+by tun in case orphaning frags fails.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/vhost.c  | 2 +-
- drivers/vhost/vhost.h  | 2 +-
- include/linux/skbuff.h | 4 +++-
- net/core/skbuff.c      | 4 ++--
- 4 files changed, 7 insertions(+), 5 deletions(-)
+ include/linux/skbuff.h |  1 +
+ net/core/skbuff.c      | 19 +++++++++++++++++++
+ 2 files changed, 20 insertions(+)
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 99ac2cb..92308b6 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -1600,7 +1600,7 @@ void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *ubufs)
- 	kfree(ubufs);
- }
- 
--void vhost_zerocopy_callback(struct ubuf_info *ubuf)
-+void vhost_zerocopy_callback(struct ubuf_info *ubuf, int zerocopy_status)
- {
- 	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
- 	struct vhost_virtqueue *vq = ubufs->vq;
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 1125af3..eb7263c3 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -191,7 +191,7 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
- 
- int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
- 		    unsigned int log_num, u64 len);
--void vhost_zerocopy_callback(struct ubuf_info *);
-+void vhost_zerocopy_callback(struct ubuf_info *, int);
- int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq);
- 
- #define vq_err(vq, fmt, ...) do {                                  \
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6a2c34e..8bac11b 100644
+index 8bac11b..0644432 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -235,11 +235,13 @@ enum {
- /*
-  * The callback notifies userspace to release buffers when skb DMA is done in
-  * lower device, the skb last reference should be 0 when calling this.
-+ * The zerocopy_status argument is 0 if zero copy transmit occurred,
-+ * 1 on successful data copy; < 0 on out of memory error.
-  * The ctx field is used to track device context.
-  * The desc field is used to track userspace buffer index.
-  */
- struct ubuf_info {
--	void (*callback)(struct ubuf_info *);
-+	void (*callback)(struct ubuf_info *, int zerocopy_status);
- 	void *ctx;
- 	unsigned long desc;
- };
+@@ -568,6 +568,7 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
+ }
+ 
+ extern void kfree_skb(struct sk_buff *skb);
++extern void skb_tx_error(struct sk_buff *skb, int err);
+ extern void consume_skb(struct sk_buff *skb);
+ extern void	       __kfree_skb(struct sk_buff *skb);
+ extern struct kmem_cache *skbuff_head_cache;
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 6e04b1f..eb31f6e 100644
+index eb31f6e..ad99c64 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -519,7 +519,7 @@ static void skb_release_data(struct sk_buff *skb)
+@@ -635,6 +635,25 @@ void kfree_skb(struct sk_buff *skb)
+ EXPORT_SYMBOL(kfree_skb);
  
- 			uarg = skb_shinfo(skb)->destructor_arg;
- 			if (uarg->callback)
--				uarg->callback(uarg);
-+				uarg->callback(uarg, 0);
- 		}
- 
- 		if (skb_has_frag_list(skb))
-@@ -797,7 +797,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
- 	for (i = 0; i < num_frags; i++)
- 		skb_frag_unref(skb, i);
- 
--	uarg->callback(uarg);
-+	uarg->callback(uarg, 1);
- 
- 	/* skb frags point to kernel buffers */
- 	for (i = num_frags - 1; i >= 0; i--) {
+ /**
++ *	kfree_skb_on_error - report an sk_buff xmit error
++ *	@skb: buffer that triggered an error
++ *
++ *	Report xmit error if a device callback is tracking this skb.
++ */
++void skb_tx_error(struct sk_buff *skb, int err)
++{
++	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
++		struct ubuf_info *uarg;
++
++		uarg = skb_shinfo(skb)->destructor_arg;
++		if (uarg->callback)
++			uarg->callback(uarg, err);
++		skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
++	}
++}
++EXPORT_SYMBOL(skb_tx_error);
++
++/**
+  *	consume_skb - free an skbuff
+  *	@skb: buffer to free
+  *
 -- 
 MST
