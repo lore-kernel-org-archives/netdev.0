@@ -1,41 +1,51 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] vxlan nits
-Date: Mon, 29 Oct 2012 07:20:56 -0700
-Message-ID: <20121029072056.5faa6db4@nehalam.linuxnetplumber.net>
-References: <201210191148.q9JBkm0v018443@lab1.dls>
-	<20121019132815.547a5bb8@nehalam.linuxnetplumber.net>
-	<m3objm45n7.fsf@neo.luffy.cx>
+Subject: Re: switching network namespace midway
+Date: Mon, 29 Oct 2012 07:23:41 -0700
+Message-ID: <20121029072341.158e6412@nehalam.linuxnetplumber.net>
+References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com>
+	<878vavshhp.fsf@xmission.com>
+	<20121024212116.GG15034@kvack.org>
+	<87ip9zqqlv.fsf@xmission.com>
+	<20121025143811.GH15034@kvack.org>
+	<20121025092105.5119b8bf@nehalam.linuxnetplumber.net>
+	<877gqb883y.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David L Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Vincent Bernat <bernat@luffy.cx>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Benjamin LaHaise <bcrl@kvack.org>, rsa <ravi.mlists@gmail.com>,
+	netdev@vger.kernel.org
+To: ebiederm@xmission.com (Eric W. Biederman)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60046 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:60116 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754751Ab2J2OVr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 10:21:47 -0400
-In-Reply-To: <m3objm45n7.fsf@neo.luffy.cx>
+	id S1754546Ab2J2OYb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2012 10:24:31 -0400
+In-Reply-To: <877gqb883y.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 28 Oct 2012 23:02:20 +0100
-Vincent Bernat <bernat@luffy.cx> wrote:
+On Sat, 27 Oct 2012 22:43:13 -0700
+ebiederm@xmission.com (Eric W. Biederman) wrote:
 
->  =E2=9D=A6 19 octobre 2012 22:28 CEST, Stephen Hemminger <shemminger@=
-vyatta.com>=C2=A0:
->=20
-> > The plan is to add IPV6 support, in which case group address could
-> > be IPV6.
->=20
-> Hi Stephen!
->=20
-> Is it something that you plan to add soon?
+> Stephen Hemminger <shemminger@vyatta.com> writes:
+> 
+> > I noticed that the L2TP sockets are not being moved to the correct name
+> > space.
+> >
+> > Something like this is probably needed.
+> 
+> This is almost right.
+> 
+> There needs to be a line in l2tp_tunnel_create that verifies
+> the network namespace of the socket derived from a file descriptor
+> and the passed in network namespace match.
+> 
+> For the l2tp_tunnel_sock_create case where we have a socket that is not
+> exported to userspace using sk_change_net seems appropriate to avoid
+> reference counting problems.  And it may be worth moving that work into
+> sk_create_kern.  But we need a network namespace hook that will lookup
+> all l2tp tunnel sockets when a network namespace is being destroyed and
+> remove them.  I think we can hit this bug with rmmod as well.
 
-The only real question is whether to have one driver do dual stack with
-one forwarding table, or separate drivers (like GRE). I prefer the form=
-er.
-
-Since the RFC does not include IPv6 yet, there is no rush and the final
-standard may address some of the corner case issues like fragmentation.
+Since I don't use netns or L2TP for real, someone else needs to take
+up the crusade here.
