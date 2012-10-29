@@ -1,75 +1,72 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v3 3/6] block/genhd.c: apply pm_runtime_set_memalloc_noio on block devices
-Date: Mon, 29 Oct 2012 20:23:57 +0800
-Message-ID: <1351513440-9286-4-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v3 4/6] net/core: apply pm_runtime_set_memalloc_noio on network devices
+Date: Mon, 29 Oct 2012 20:23:58 +0800
+Message-ID: <1351513440-9286-5-git-send-email-ming.lei@canonical.com>
 References: <1351513440-9286-1-git-send-email-ming.lei@canonical.com>
 Cc: Alan Stern <stern@rowland.harvard.edu>,
 	Oliver Neukum <oneukum@suse.de>,
 	Minchan Kim <minchan@kernel.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Jens Axboe <axboe@kernel.dk>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org,
-	linux-pm@vger.kernel.org,
-	linux-mm@kvack.org,
-	Ming Lei <ming.lei@canonical.com>
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-pm@vger.kernel.org, linux-mm@kvack.org,
+	Ming Lei <ming.lei@canonical.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Decotigny <david.decotigny@google.com>,
+	Tom Herbert <therbert@google.com>, Ingo Molnar <mingo@elte.hu>
 To: linux-kernel@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <linux-pm-owner@vger.kernel.org>
 In-Reply-To: <1351513440-9286-1-git-send-email-ming.lei@canonical.com>
-Sender: owner-linux-mm@kvack.org
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch applyes the introduced pm_runtime_set_memalloc_noio on
-block device so that PM core will teach mm to not allocate memory with
-GFP_IOFS when calling the runtime_resume callback for block devices.
+Deadlock might be caused by allocating memory with GFP_KERNEL in
+runtime_resume callback of network devices in iSCSI situation, so
+mark network devices and its ancestor as 'memalloc_noio_resume'
+with the introduced pm_runtime_set_memalloc_noio().
 
-Cc: Jens Axboe <axboe@kernel.dk>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Decotigny <david.decotigny@google.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Ingo Molnar <mingo@elte.hu>
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- block/genhd.c |    8 ++++++++
- 1 file changed, 8 insertions(+)
+ net/core/net-sysfs.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/block/genhd.c b/block/genhd.c
-index 9e02cd6..c5f10ea 100644
---- a/block/genhd.c
-+++ b/block/genhd.c
-@@ -18,6 +18,7 @@
- #include <linux/mutex.h>
- #include <linux/idr.h>
- #include <linux/log2.h>
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index bcf02f6..9aba5be 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -22,6 +22,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/export.h>
+ #include <linux/jiffies.h>
 +#include <linux/pm_runtime.h>
+ #include <net/wext.h>
  
- #include "blk.h"
+ #include "net-sysfs.h"
+@@ -1386,6 +1387,8 @@ void netdev_unregister_kobject(struct net_device * net)
  
-@@ -519,6 +520,12 @@ static void register_disk(struct gendisk *disk)
+ 	remove_queue_kobjects(net);
  
- 	dev_set_name(ddev, disk->disk_name);
- 
-+	/* avoid probable deadlock caused by allocate memory with
-+	 * GFP_KERNEL in runtime_resume callback of its all ancestor
-+	 * deivces
-+	 */
-+	pm_runtime_set_memalloc_noio(ddev, true);
++	pm_runtime_set_memalloc_noio(dev, false);
 +
- 	/* delay uevents, until we scanned partition table */
- 	dev_set_uevent_suppress(ddev, 1);
- 
-@@ -661,6 +668,7 @@ void del_gendisk(struct gendisk *disk)
- 	disk->driverfs_dev = NULL;
- 	if (!sysfs_deprecated)
- 		sysfs_remove_link(block_depr, dev_name(disk_to_dev(disk)));
-+	pm_runtime_set_memalloc_noio(disk_to_dev(disk), false);
- 	device_del(disk_to_dev(disk));
+ 	device_del(dev);
  }
- EXPORT_SYMBOL(del_gendisk);
+ 
+@@ -1411,6 +1414,8 @@ int netdev_register_kobject(struct net_device *net)
+ 	*groups++ = &netstat_group;
+ #endif /* CONFIG_SYSFS */
+ 
++	pm_runtime_set_memalloc_noio(dev, true);
++
+ 	error = device_add(dev);
+ 	if (error)
+ 		return error;
 -- 
 1.7.9.5
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
