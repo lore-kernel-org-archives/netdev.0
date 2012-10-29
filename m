@@ -1,67 +1,45 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH 4/4] usbnet: make device out of suspend before calling usbnet_read[write]_cmd
-Date: Mon, 29 Oct 2012 15:45:09 +0800
-Message-ID: <1351496709-26934-5-git-send-email-ming.lei@canonical.com>
-References: <1351496709-26934-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1351496709-26934-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net] bnx2x: fix HW initialization using fw 7.8.x
+Date: Mon, 29 Oct 2012 09:59:04 +0200
+Message-ID: <1351497544-13272-1-git-send-email-dmitry@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3572 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751690Ab2J2H7S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2012 03:59:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patche gets the runtime PM reference count before calling
-usbnet_read[write]_cmd, and puts it after completion of the
-usbnet_read[write]_cmd, so that the usb control message can always
-be sent to one active device in the non-PM context.
+Since commit 96bed4b9 (use FW 7.8.2) BRB HW block needs to be
+initialized using fw values for all devices.
+Otherwise ETS on 57712/578xx will not work.
 
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
 ---
- drivers/net/usb/usbnet.c |   18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index a7fb074..74caa67 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1673,8 +1673,13 @@ out:
- int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
- 		    u16 value, u16 index, void *data, u16 size)
- {
--	return __usbnet_read_cmd(dev, cmd, reqtype, value, index,
--				 data, size);
-+	int ret;
-+	if (usb_autopm_get_interface(dev->intf) < 0)
-+		return -ENODEV;
-+	ret = __usbnet_read_cmd(dev, cmd, reqtype, value, index,
-+				data, size);
-+	usb_autopm_put_interface(dev->intf);
-+	return ret;
- }
- EXPORT_SYMBOL_GPL(usbnet_read_cmd);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index d5648fc..baa9a36 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -6794,8 +6794,9 @@ static int bnx2x_init_hw_port(struct bnx2x *bp)
  
-@@ -1685,8 +1690,13 @@ EXPORT_SYMBOL_GPL(usbnet_read_cmd);
- int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
- 		     u16 value, u16 index, const void *data, u16 size)
- {
--	return __usbnet_write_cmd(dev, cmd, reqtype, value, index,
--				  data, size);
-+	int ret;
-+	if (usb_autopm_get_interface(dev->intf) < 0)
-+		return -ENODEV;
-+	ret = __usbnet_write_cmd(dev, cmd, reqtype, value, index,
-+				 data, size);
-+	usb_autopm_put_interface(dev->intf);
-+	return ret;
- }
- EXPORT_SYMBOL_GPL(usbnet_write_cmd);
+ 	bnx2x_init_block(bp, BLOCK_DORQ, init_phase);
  
++	bnx2x_init_block(bp, BLOCK_BRB1, init_phase);
++
+ 	if (CHIP_IS_E1(bp) || CHIP_IS_E1H(bp)) {
+-		bnx2x_init_block(bp, BLOCK_BRB1, init_phase);
+ 
+ 		if (IS_MF(bp))
+ 			low = ((bp->flags & ONE_PORT_FLAG) ? 160 : 246);
 -- 
-1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.7.2
