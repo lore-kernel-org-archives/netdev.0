@@ -1,156 +1,111 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next v4 6/7] tuntap: add ioctl to attach or detach a file form tuntap device
-Date: Mon, 29 Oct 2012 13:36:03 +0800
-Message-ID: <1351488964-11109-8-git-send-email-jasowang@redhat.com>
-References: <1351488964-11109-1-git-send-email-jasowang@redhat.com>
-Cc: maxk@qualcomm.com, haixiao@juniper.net, ernesto.martin@viasat.com,
-	krkumar2@in.ibm.com, edumazet@google.com,
-	Jason Wang <jasowang@redhat.com>
+From: Jongman Heo <jongman.heo@samsung.com>
+Subject: Re: Re: Re: [Pv-drivers] 3.7-rc2 regression : file copied to
+ CIFS-mounted directory corrupted
+Date: Mon, 29 Oct 2012 05:45:04 +0000 (GMT)
+Message-ID: <14353539.198251351489501891.JavaMail.weblogic@epml12>
+Reply-To: jongman.heo@samsung.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "VMware, Inc." <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"edumazet@google.com" <edumazet@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-In-Reply-To: <1351488964-11109-1-git-send-email-jasowang@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
+MIME-version: 1.0
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sometimes usespace may need to active/deactive a queue, this could be done by
-detaching and attaching a file from tuntap device.
-
-This patch introduces a new ioctls - TUNSETQUEUE which could be used to do
-this. Flag IFF_ATTACH_QUEUE were introduced to do attaching while
-IFF_DETACH_QUEUE were introduced to do the detaching.
-
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c           |   56 ++++++++++++++++++++++++++++++++++++------
- include/uapi/linux/if_tun.h |    3 ++
- 2 files changed, 51 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 59235ba..78dcda8 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -195,6 +195,15 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	return txq;
- }
- 
-+static inline bool tun_not_capable(struct tun_struct *tun)
-+{
-+	const struct cred *cred = current_cred();
-+
-+	return (((uid_valid(tun->owner) && !uid_eq(cred->euid, tun->owner)) ||
-+		  (gid_valid(tun->group) && !in_egroup_p(tun->group))) &&
-+		!capable(CAP_NET_ADMIN));
-+}
-+
- static void tun_set_real_num_queues(struct tun_struct *tun)
- {
- 	netif_set_real_num_tx_queues(tun->dev, tun->numqueues);
-@@ -1310,8 +1319,6 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 
- 	dev = __dev_get_by_name(net, ifr->ifr_name);
- 	if (dev) {
--		const struct cred *cred = current_cred();
--
- 		if (ifr->ifr_flags & IFF_TUN_EXCL)
- 			return -EBUSY;
- 		if ((ifr->ifr_flags & IFF_TUN) && dev->netdev_ops == &tun_netdev_ops)
-@@ -1321,9 +1328,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		else
- 			return -EINVAL;
- 
--		if (((uid_valid(tun->owner) && !uid_eq(cred->euid, tun->owner)) ||
--		     (gid_valid(tun->group) && !in_egroup_p(tun->group))) &&
--		    !capable(CAP_NET_ADMIN))
-+		if (tun_not_capable(tun))
- 			return -EPERM;
- 		err = security_tun_dev_attach(tfile->socket.sk);
- 		if (err < 0)
-@@ -1530,6 +1535,40 @@ static void tun_set_sndbuf(struct tun_struct *tun)
- 	}
- }
- 
-+static int tun_set_queue(struct file *file, struct ifreq *ifr)
-+{
-+	struct tun_file *tfile = file->private_data;
-+	struct tun_struct *tun;
-+	struct net_device *dev;
-+	int ret = 0;
-+
-+	rtnl_lock();
-+
-+	if (ifr->ifr_flags & IFF_ATTACH_QUEUE) {
-+		dev = __dev_get_by_name(tfile->net, ifr->ifr_name);
-+		if (!dev) {
-+			ret = -EINVAL;
-+			goto unlock;
-+		}
-+
-+		tun = netdev_priv(dev);
-+		if (dev->netdev_ops != &tap_netdev_ops &&
-+			dev->netdev_ops != &tun_netdev_ops)
-+			ret = -EINVAL;
-+		else if (tun_not_capable(tun))
-+			ret = -EPERM;
-+		else
-+			ret = tun_attach(tun, file);
-+	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE)
-+		__tun_detach(tfile, false);
-+	else
-+		ret = -EINVAL;
-+
-+unlock:
-+	rtnl_unlock();
-+	return ret;
-+}
-+
- static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 			    unsigned long arg, int ifreq_len)
- {
-@@ -1543,7 +1582,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	int vnet_hdr_sz;
- 	int ret;
- 
--	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89) {
-+	if (cmd == TUNSETIFF || cmd == TUNSETQUEUE || _IOC_TYPE(cmd) == 0x89) {
- 		if (copy_from_user(&ifr, argp, ifreq_len))
- 			return -EFAULT;
- 	} else {
-@@ -1554,9 +1593,10 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		 * This is needed because we never checked for invalid flags on
- 		 * TUNSETIFF. */
- 		return put_user(IFF_TUN | IFF_TAP | IFF_NO_PI | IFF_ONE_QUEUE |
--				IFF_VNET_HDR,
-+				IFF_VNET_HDR | IFF_MULTI_QUEUE,
- 				(unsigned int __user*)argp);
--	}
-+	} else if (cmd == TUNSETQUEUE)
-+		return tun_set_queue(file, &ifr);
- 
- 	ret = 0;
- 	rtnl_lock();
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index 8ef3a87..958497a 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -54,6 +54,7 @@
- #define TUNDETACHFILTER _IOW('T', 214, struct sock_fprog)
- #define TUNGETVNETHDRSZ _IOR('T', 215, int)
- #define TUNSETVNETHDRSZ _IOW('T', 216, int)
-+#define TUNSETQUEUE  _IOW('T', 217, int)
- 
- /* TUNSETIFF ifr flags */
- #define IFF_TUN		0x0001
-@@ -63,6 +64,8 @@
- #define IFF_VNET_HDR	0x4000
- #define IFF_TUN_EXCL	0x8000
- #define IFF_MULTI_QUEUE 0x0100
-+#define IFF_ATTACH_QUEUE 0x0200
-+#define IFF_DETACH_QUEUE 0x0400
- 
- /* Features for GSO (TUNSETOFFLOAD). */
- #define TUN_F_CSUM	0x01	/* You can hand me unchecksummed packets. */
--- 
-1.7.1
+DQoNCi0tLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLS0tDQpTZW5kZXIgOiBKb25nbWFuIEhl
+bzxqb25nbWFuLmhlb0BzYW1zdW5nLmNvbT4NCkRhdGUgOiAyMDEyLTEwLTI0IDExOjUzIChHTVQr
+MDk6MDApDQpUaXRsZSA6IFJlOiBSZTogW1B2LWRyaXZlcnNdIDMuNy1yYzIgcmVncmVzc2lvbiA6
+IGZpbGUgY29waWVkIHRvIENJRlMtbW91bnRlZCBkaXJlY3RvcnkgY29ycnVwdGVkDQoNCkhpLA0K
+DQotLS0tLS0tIE9yaWdpbmFsIE1lc3NhZ2UgLS0tLS0tLQ0KU2VuZGVyIDogRXJpYyBEdW1hemV0
+DQpEYXRlIDogMjAxMi0xMC0yNCAwNDozOSAoR01UKzA5OjAwKQ0KVGl0bGUgOiBSZTogW1B2LWRy
+aXZlcnNdIDMuNy1yYzIgcmVncmVzc2lvbiA6IGZpbGUgY29waWVkIHRvIENJRlMtbW91bnRlZCBk
+aXJlY3RvcnkgY29ycnVwdGVkDQoNCk9uIFR1ZSwgMjAxMi0xMC0yMyBhdCAxNTo1MCArMDIwMCwg
+RXJpYyBEdW1hemV0IHdyb3RlOg0KDQo+IE9ubHkgdGhlIHNrYiBoZWFkIGlzIGhhbmRsZWQgaW4g
+dGhlIGNvZGUgeW91IGNvcHkvcGFzdGVkLg0KPiANCj4gWW91IG5lZWQgdG8gZ2VuZXJhbGl6ZSB0
+aGF0IHRvIGNvZGUgaW4gbGluZXMgfjc1NA0KPiANCj4gDQo+IFRoZW4sIHRoZSBudW1iZXIgb2Yg
+ZXN0aW1hdGVkIGRlc2NyaXB0b3JzIGlzIGJhZCA6DQo+IA0KPiAvKiBjb25zZXJ2YXRpdmVseSBl
+c3RpbWF0ZSAjIG9mIGRlc2NyaXB0b3JzIHRvIHVzZSAqLw0KPiBjb3VudCA9IFZNWE5FVDNfVFhE
+X05FRURFRChza2JfaGVhZGxlbihza2IpKSArDQo+IHNrYl9zaGluZm8oc2tiKS0+bnJfZnJhZ3Mg
+KyAxOw0KPiANCj4gDQo+IFllcywgeW91IG5lZWQgYSBtb3JlIHByZWNpc2UgZXN0aW1hdGlvbiBh
+bmQgdm14bmV0M19tYXBfcGt0KCkgc2hvdWxkDQo+IGV2ZW50dWFsbHkgc3BsaXQgdG9vIGJpZyBm
+cmFncy4NCg0KcmF3IHBhdGNoIHdvdWxkIGJlIDoNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
+L3ZteG5ldDMvdm14bmV0M19kcnYuYyBiL2RyaXZlcnMvbmV0L3ZteG5ldDMvdm14bmV0M19kcnYu
+Yw0KaW5kZXggY2U5ZDRmMi4uMGFlMWJjYyAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3ZteG5l
+dDMvdm14bmV0M19kcnYuYw0KKysrIGIvZHJpdmVycy9uZXQvdm14bmV0My92bXhuZXQzX2Rydi5j
+DQpAQCAtNzQ0LDI4ICs3NDQsNDMgQEAgdm14bmV0M19tYXBfcGt0KHN0cnVjdCBza19idWZmICpz
+a2IsIHN0cnVjdCB2bXhuZXQzX3R4X2N0eCAqY3R4LA0KDQpmb3IgKGkgPSAwOyBpIDwgc2tiX3No
+aW5mbyhza2IpLT5ucl9mcmFnczsgaSsrKSB7DQpjb25zdCBzdHJ1Y3Qgc2tiX2ZyYWdfc3RydWN0
+ICpmcmFnID0gJnNrYl9zaGluZm8oc2tiKS0+ZnJhZ3NbaV07DQorIHUzMiBidWZfc2l6ZTsNCg0K
+LSB0YmkgPSB0cS0+YnVmX2luZm8gKyB0cS0+dHhfcmluZy5uZXh0MmZpbGw7DQotIHRiaS0+bWFw
+X3R5cGUgPSBWTVhORVQzX01BUF9QQUdFOw0KLSB0YmktPmRtYV9hZGRyID0gc2tiX2ZyYWdfZG1h
+X21hcCgmYWRhcHRlci0+cGRldi0+ZGV2LCBmcmFnLA0KLSAwLCBza2JfZnJhZ19zaXplKGZyYWcp
+LA0KLSBETUFfVE9fREVWSUNFKTsNCisgYnVmX29mZnNldCA9IDA7DQorIGxlbiA9IHNrYl9mcmFn
+X3NpemUoZnJhZyk7DQorIHdoaWxlIChsZW4pIHsNCisgdGJpID0gdHEtPmJ1Zl9pbmZvICsgdHEt
+PnR4X3JpbmcubmV4dDJmaWxsOw0KKyBpZiAobGVuIDwgVk1YTkVUM19NQVhfVFhfQlVGX1NJWkUp
+IHsNCisgYnVmX3NpemUgPSBsZW47DQorIGR3MiB8PSBsZW47DQorIH0gZWxzZSB7DQorIGJ1Zl9z
+aXplID0gVk1YTkVUM19NQVhfVFhfQlVGX1NJWkU7DQorIC8qIHNwZWMgc2F5cyB0aGF0IGZvciBU
+eERlc2MubGVuLCAwID09IDJeMTQgKi8NCisgfQ0KKyB0YmktPm1hcF90eXBlID0gVk1YTkVUM19N
+QVBfUEFHRTsNCisgdGJpLT5kbWFfYWRkciA9IHNrYl9mcmFnX2RtYV9tYXAoJmFkYXB0ZXItPnBk
+ZXYtPmRldiwgZnJhZywNCisgYnVmX29mZnNldCwgYnVmX3NpemUsDQorIERNQV9UT19ERVZJQ0Up
+Ow0KDQotIHRiaS0+bGVuID0gc2tiX2ZyYWdfc2l6ZShmcmFnKTsNCisgdGJpLT5sZW4gPSBidWZf
+c2l6ZTsNCg0KLSBnZGVzYyA9IHRxLT50eF9yaW5nLmJhc2UgKyB0cS0+dHhfcmluZy5uZXh0MmZp
+bGw7DQotIEJVR19PTihnZGVzYy0+dHhkLmdlbiA9PSB0cS0+dHhfcmluZy5nZW4pOw0KKyBnZGVz
+YyA9IHRxLT50eF9yaW5nLmJhc2UgKyB0cS0+dHhfcmluZy5uZXh0MmZpbGw7DQorIEJVR19PTihn
+ZGVzYy0+dHhkLmdlbiA9PSB0cS0+dHhfcmluZy5nZW4pOw0KDQotIGdkZXNjLT50eGQuYWRkciA9
+IGNwdV90b19sZTY0KHRiaS0+ZG1hX2FkZHIpOw0KLSBnZGVzYy0+ZHdvcmRbMl0gPSBjcHVfdG9f
+bGUzMihkdzIgfCBza2JfZnJhZ19zaXplKGZyYWcpKTsNCi0gZ2Rlc2MtPmR3b3JkWzNdID0gMDsN
+CisgZ2Rlc2MtPnR4ZC5hZGRyID0gY3B1X3RvX2xlNjQodGJpLT5kbWFfYWRkcik7DQorIGdkZXNj
+LT5kd29yZFsyXSA9IGNwdV90b19sZTMyKGR3Mik7DQorIGdkZXNjLT5kd29yZFszXSA9IDA7DQoN
+Ci0gZGV2X2RiZygmYWRhcHRlci0+bmV0ZGV2LT5kZXYsDQotICJ0eGRbJXVdOiAweCVsbHUgJXUg
+JXVcbiIsDQotIHRxLT50eF9yaW5nLm5leHQyZmlsbCwgbGU2NF90b19jcHUoZ2Rlc2MtPnR4ZC5h
+ZGRyKSwNCi0gbGUzMl90b19jcHUoZ2Rlc2MtPmR3b3JkWzJdKSwgZ2Rlc2MtPmR3b3JkWzNdKTsN
+Ci0gdm14bmV0M19jbWRfcmluZ19hZHZfbmV4dDJmaWxsKCZ0cS0+dHhfcmluZyk7DQotIGR3MiA9
+IHRxLT50eF9yaW5nLmdlbiA8PCBWTVhORVQzX1RYRF9HRU5fU0hJRlQ7DQorIGRldl9kYmcoJmFk
+YXB0ZXItPm5ldGRldi0+ZGV2LA0KKyAidHhkWyV1XTogMHglbGx1ICV1ICV1XG4iLA0KKyB0cS0+
+dHhfcmluZy5uZXh0MmZpbGwsIGxlNjRfdG9fY3B1KGdkZXNjLT50eGQuYWRkciksDQorIGxlMzJf
+dG9fY3B1KGdkZXNjLT5kd29yZFsyXSksIGdkZXNjLT5kd29yZFszXSk7DQorIHZteG5ldDNfY21k
+X3JpbmdfYWR2X25leHQyZmlsbCgmdHEtPnR4X3JpbmcpOw0KKyBkdzIgPSB0cS0+dHhfcmluZy5n
+ZW4gPDwgVk1YTkVUM19UWERfR0VOX1NISUZUOw0KKw0KKyBsZW4gLT0gYnVmX3NpemU7DQorIGJ1
+Zl9vZmZzZXQgKz0gYnVmX3NpemU7DQorIH0NCn0NCg0KY3R4LT5lb3BfdHhkID0gZ2Rlc2M7DQpA
+QCAtODg2LDYgKzkwMSwxOCBAQCB2bXhuZXQzX3ByZXBhcmVfdHNvKHN0cnVjdCBza19idWZmICpz
+a2IsDQp9DQp9DQoNCitzdGF0aWMgaW50IHR4ZF9lc3RpbWF0ZShjb25zdCBzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiKQ0KK3sNCisgaW50IGNvdW50ID0gVk1YTkVUM19UWERfTkVFREVEKHNrYl9oZWFkbGVu
+KHNrYikpICsgMTsNCisgaW50IGk7DQorDQorIGZvciAoaSA9IDA7IGkgPCBza2Jfc2hpbmZvKHNr
+YiktPm5yX2ZyYWdzOyBpKyspIHsNCisgY29uc3Qgc3RydWN0IHNrYl9mcmFnX3N0cnVjdCAqZnJh
+ZyA9ICZza2Jfc2hpbmZvKHNrYiktPmZyYWdzW2ldOw0KKw0KKyBjb3VudCArPSBWTVhORVQzX1RY
+RF9ORUVERUQoc2tiX2ZyYWdfc2l6ZShmcmFnKSk7DQorIH0NCisgcmV0dXJuIGNvdW50Ow0KK30N
+Cg0KLyoNCiAgKiBUcmFuc21pdHMgYSBwa3QgdGhydSBhIGdpdmVuIHRxDQpAQCAtOTE0LDkgKzk0
+MSw3IEBAIHZteG5ldDNfdHFfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgdm14bmV0
+M190eF9xdWV1ZSAqdHEsDQp1bmlvbiBWbXhuZXQzX0dlbmVyaWNEZXNjIHRlbXBUeERlc2M7DQoj
+ZW5kaWYNCg0KLSAvKiBjb25zZXJ2YXRpdmVseSBlc3RpbWF0ZSAjIG9mIGRlc2NyaXB0b3JzIHRv
+IHVzZSAqLw0KLSBjb3VudCA9IFZNWE5FVDNfVFhEX05FRURFRChza2JfaGVhZGxlbihza2IpKSAr
+DQotIHNrYl9zaGluZm8oc2tiKS0+bnJfZnJhZ3MgKyAxOw0KKyBjb3VudCA9IHR4ZF9lc3RpbWF0
+ZShza2IpOw0KDQpjdHguaXB2NCA9ICh2bGFuX2dldF9wcm90b2NvbChza2IpID09IGNwdV90b19i
+ZTE2KEVUSF9QX0lQKSk7DQoNCi0tLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSBFbmQgLS0tLS0tLQ0K
+DQpIaSwgRXJpYywgDQp5b3VyIHJhdyBwYXRjaCBzZWVtZWQgdG8gZml4IHRoZSBpc3N1ZS4gQnV0
+IGFmdGVyIH4yMDAgcnVucywgY29waWVkIGZpbGUgaGFzIGJlZW4gY29ycnVwdGVkIGFnYWluLg0K
+DQojIGNtcCAtbCAvaG9tZS9sb2NhbC5iaW4gL21udC9jaWZzL25ldy5iaW4gfCBhd2sgJ3twcmlu
+dGYgIiUwOFggJTAyWCAlMDJYXG4iLCAkMSwgc3RydG9udW0oMCQyKSwgc3RydG9udW0oMCQzKX0n
+ID4gZGlmZi5sb2cNCg0KSSBjb21wYXJlZCB0aGUgZGlmZmVyZW5jZSBiZXR3ZWVuIHNvdXJjZSBh
+bmQgY29waWVkIGZpbGUuIFNpemUgb2YgZmlsZSBpcyA0NTg3MjczMiBieXRlcyAoPSAweDJCQkY2
+NUMpLg0KQW1vbmcgdGhlbSwgNDA5NiAoMHgxMDAwKSBieXRlcyBhcmUgZGlmZmVyZW50LCBmcm9t
+IDB4MkI5NjAwMSB0byAweDJCOTcwMDAuIEluc3RlYWQgb2Ygb3JpZ2luYWwgZGF0YSwgMHgwMCB3
+YXMgY29waWVkIGluIHRob3NlIGFyZWEuDQoNCnBhdGNoIGFwcGxpZWQgb24gdG9wIG9mIDJkMWY0
+YzhlICgiTWVyZ2UgYnJhbmNoICdkcm0tZml4ZXMnIG9mIGdpdDovL3Blb3BsZS5mcmVlZGVza3Rv
+cC5vcmcvfmFpcmxpZWQvbGludXgiKS4NCg0KUmVnYXJkcywNCkpvbmdtYW4gSGVvLg0KDQotLS0t
+LS0tIE9yaWdpbmFsIE1lc3NhZ2UgRW5kIC0tLS0tLS0NCg0KSGksIA0KDQpBcyBJIHNhaWQgaW4g
+dGhlIHByZXZpb3VzIHBvc3QsIHdpdGggMmQxZjRjOGUgKyBFcmljJ3MgcGF0Y2gsIEkgZ290IHRo
+ZSBpc3N1ZSBtZW50aW9uZWQgYWJvdmUgOyBzb21ldGltZXMgNDA5NiBieXRlcyBhcmUgYmVpbmcg
+Y29waWVkIGJ5IGFsbCB6ZXJvcy4gTm90IGVhc2lseSByZXByb2R1Y2libGUsIGJ1dCBhbHdheXMg
+aGFwcGVuZWQgYmVmb3JlIHJ1bm5pbmcgfjUwMCBydW5zLg0KDQpCdXQgd2l0aCAzLjctcmMzICsg
+dGhlIHBhdGNoLCBJIGhhdmVuJ3QgZW5jb3VudGVyZWQgdGhlIGlzc3VlIHNvIGZhciwgdW50aWwg
+fjIwMDAgcnVucy4NCk1heWJlLCB0aGUgcm9vdCBjYXVzZSBpcyBmaXhlZCBieSBFcmljJ3MgcGF0
+Y2gsIGFuZCB0aGUgcmVtYWluaW5nIHN1YnRsZSBidWcsIGNvcnJ1cHRpbmcgNDA5NiBieXRlcywg
+bWlnaHQgYmUgZml4ZWQgYnkgb3RoZXIgY29tbWl0LCBiZXR3ZWVuIDMuNy1yYzIgYW5kIC1yYzMu
+DQoNClRoYW5rcywNCkpvbmdtYW4gSGVvLg0K
