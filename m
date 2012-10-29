@@ -1,35 +1,94 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH RFC] pkt_sched: enable QFQ to support TSO/GSO
-Date: Mon, 29 Oct 2012 19:31:03 +0800
-Message-ID: <508E68F7.5080402@gmail.com>
-References: <20121029085106.GA3733@paolo-ThinkPad-W520> <508E63AD.20803@gmail.com> <508E6783.2080403@unimore.it>
+From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Subject: Re: [PATCH v7 06/16] tracepoint: use new hashtable implementation
+Date: Mon, 29 Oct 2012 07:35:15 -0400
+Message-ID: <20121029113515.GB9115@Krystal>
+References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com> <1351450948-15618-6-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, davem@davemloft.net, shemminger@vyatta.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com
-To: Paolo Valente <paolo.valente@unimore.it>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <508E6783.2080403@unimore.it>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	paul.gortmaker@windriver.com, davem@davemloft.net,
+	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
+	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
+	josh@joshtriplett.org, eric.dumazet@gmail.com, axboe@kernel.dk,
+	agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
+	ccaulfie@redhat.com, teigland@redhat.com,
+	Trond.Myklebust@netapp.com, bfields@fieldses.org,
+	fweisbec@gmail.com, jesse@nicira.com,
+	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
+	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
+	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1351450948-15618-6-git-send-email-levinsasha928@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 10/29/2012 07:24 PM, Paolo Valente wrote:
-> Il 29/10/2012 12:08, Cong Wang ha scritto:
->>
->> Please respect people who helps you to test it:
->>
->> Tested-by: Cong Wang <amwang@redhat.com>
-> Oops, really sorry about that. I did not mean to hide your contribution.
-> I am just not familiar with the process.
+* Sasha Levin (levinsasha928@gmail.com) wrote:
+> Switch tracepoints to use the new hashtable implementation. This reduces =
+the amount of
+> generic unrelated code in the tracepoints.
+>=20
+> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
+> ---
+>  kernel/tracepoint.c | 27 +++++++++++----------------
+>  1 file changed, 11 insertions(+), 16 deletions(-)
+>=20
+> diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
+> index d96ba22..854df92 100644
+> --- a/kernel/tracepoint.c
+> +++ b/kernel/tracepoint.c
+> @@ -26,6 +26,7 @@
+>  #include <linux/slab.h>
+>  #include <linux/sched.h>
+>  #include <linux/static_key.h>
+> +#include <linux/hashtable.h>
+> =20
+>  extern struct tracepoint * const __start___tracepoints_ptrs[];
+>  extern struct tracepoint * const __stop___tracepoints_ptrs[];
+> @@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
+>   * Protected by tracepoints_mutex.
+>   */
+>  #define TRACEPOINT_HASH_BITS 6
+> -#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
+> -static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
+> +static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
+> =20
+[...]
+> =20
+> @@ -722,6 +715,8 @@ struct notifier_block tracepoint_module_nb =3D {
+> =20
+>  static int init_tracepoints(void)
+>  {
+> +	hash_init(tracepoint_table);
+> +
+>  	return register_module_notifier(&tracepoint_module_nb);
+>  }
+>  __initcall(init_tracepoints);
 
-No problem. :)
+So we have a hash table defined in .bss (therefore entirely initialized
+to NULL), and you add a call to "hash_init", which iterates on the whole
+array and initialize it to NULL (again) ?
 
+This extra initialization is redundant. I think it should be removed
+=66rom here, and hashtable.h should document that hash_init() don't need
+to be called on zeroed memory (which includes static/global variables,
+kzalloc'd memory, etc).
 
-> Thanks, I will integrate this and possible other suggestions in a new
-> version of the patch.
+Thanks,
 
-While you are on it, please check your patch with 
-./scripts/checkpatch.pl, it complains there are some trailing 
-whitespaces in your patch. ;)
+Mathieu
+
+--=20
+Mathieu Desnoyers
+Operating System Efficiency R&D Consultant
+EfficiOS Inc.
+http://www.efficios.com
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
