@@ -1,137 +1,131 @@
-From: Alexandre Pereira da Silva <aletes.xgr@gmail.com>
-Subject: 3.7-rc3 oops on reboot
-Date: Mon, 29 Oct 2012 10:08:45 -0200
-Message-ID: <CAAAP30E-g3YdXOMvfueDQZREZ+_Adi2uhxgLeqKixkupU+QNhA@mail.gmail.com>
+From: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v7 07/16] net,
+	9p: use new hashtable implementation
+Date: Mon, 29 Oct 2012 08:15:06 -0400
+Message-ID: <20121029121506.GA11733@Krystal>
+References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
+	<1351450948-15618-7-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Roland Stigge <stigge@antcom.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:54112 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754978Ab2J2MIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 08:08:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1351450948-15618-7-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+* Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
+> Switch 9p error table to use the new hashtable implementation. This reduces the amount of
+> generic unrelated code in 9p.
+> 
+> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  net/9p/error.c | 21 ++++++++++-----------
+>  1 file changed, 10 insertions(+), 11 deletions(-)
+> 
+> diff --git a/net/9p/error.c b/net/9p/error.c
+> index 2ab2de7..a5cc7dd 100644
+> --- a/net/9p/error.c
+> +++ b/net/9p/error.c
+> @@ -34,7 +34,7 @@
+>  #include <linux/jhash.h>
+>  #include <linux/errno.h>
+>  #include <net/9p/9p.h>
+> -
+> +#include <linux/hashtable.h>
 
-I am getting oops on 3.7-rc3 at reboot.
+missing newline.
 
-This is an LPC32XX machine. This problem only happens when I connect
-the ethernet cable and get an IP address.
+>  /**
+>   * struct errormap - map string errors from Plan 9 to Linux numeric ids
+>   * @name: string sent over 9P
+> @@ -50,8 +50,8 @@ struct errormap {
+>  	struct hlist_node list;
+>  };
+>  
+> -#define ERRHASHSZ		32
+> -static struct hlist_head hash_errmap[ERRHASHSZ];
+> +#define ERR_HASH_BITS 5
+> +static DEFINE_HASHTABLE(hash_errmap, ERR_HASH_BITS);
+>  
+>  /* FixMe - reduce to a reasonable size */
+>  static struct errormap errmap[] = {
+> @@ -193,18 +193,17 @@ static struct errormap errmap[] = {
+>  int p9_error_init(void)
+>  {
+>  	struct errormap *c;
+> -	int bucket;
+> +	u32 hash;
+>  
+>  	/* initialize hash table */
+> -	for (bucket = 0; bucket < ERRHASHSZ; bucket++)
+> -		INIT_HLIST_HEAD(&hash_errmap[bucket]);
+> +	hash_init(hash_errmap);
 
-Here are the kernel messages.
-[   38.570000] Unable to handle kernel paging request at virtual
-address a0000014
-[   38.570000] pgd = c1730000
-[   38.580000] [a0000014] *pgd=00000000
-[   38.580000] Internal error: Oops: 5 [#1] PREEMPT ARM
-[   38.580000] Modules linked in:
-[   38.580000] CPU: 0    Not tainted  (3.7.0-rc3 #4)
-[   38.580000] PC is at trie_firstleaf+0xc/0x2c
-[   38.580000] LR is at fib_table_flush+0x1c/0x170
-[   38.580000] pc : [<c029659c>]    lr : [<c0298dec>]    psr: a0000013
-[   38.580000] sp : c1719d50  ip : c1719d60  fp : c1719d5c
-[   38.580000] r10: 00000000  r9 : 00000000  r8 : c16341e0
-[   38.580000] r7 : c09d2c24  r6 : 00000001  r5 : a0000000  r4 : 000003fc
-[   38.580000] r3 : c18dac00  r2 : c09c6fc0  r1 : c09c6fc0  r0 : a0000014
-[   38.580000] Flags: NzCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
-[   38.580000] Control: 0005317f  Table: 81730000  DAC: 00000015
-[   38.580000] Process ifconfig (pid: 396, stack limit = 0xc17181b8)
-[   38.580000] Stack: (0xc1719d50 to 0xc171a000)
-[   38.580000] 9d40:                                     c1719d9c
-c1719d60 c0298dec c02965a0
-[   38.580000] 9d60: c170f308 c14d42e0 00000000 a0000014 c16341e0
-000003fc a0000000 00000001
-[   38.580000] 9d80: c09d2c24 c16341e0 00000000 00000000 c1719dbc
-c1719da0 c0294244 c0298de0
-[   38.580000] 9da0: c160f800 c160f800 ffffffff 00000000 c1719dd4
-c1719dc0 c0294294 c0294224
-[   38.580000] 9dc0: 00000000 c16341e0 c1719dec c1719dd8 c0294bf0
-c0294284 00000002 00000000
-[   38.580000] 9de0: c1719e14 c1719df0 c003e810 c0294b60 ffffffff
-c09d4698 ffffffff c16341e0
-[   38.580000] 9e00: 00000002 00000000 c1719e3c c1719e18 c003ea9c
-c003e7e0 00000000 c1719e28
-[   38.580000] 9e20: c16341e0 00000000 00000000 c16341e0 c1719e54
-c1719e40 c003ead4 c003ea5c
-[   38.580000] 9e40: 00000000 00000000 c1719e8c c1719e58 c028b9bc
-c003eac4 00000000 c145edec
-[   38.580000] 9e60: c1719e8c c16341e0 00000000 c160f800 c145ede0
-c145edec 00000000 00000000
-[   38.580000] 9e80: c1719ea4 c1719e90 c028ba94 c028b828 00000000
-c09d2c24 c1719f14 c1719ea8
-[   38.580000] 9ea0: c028d278 c028ba88 c003d890 00000000 00008916
-bef74c18 30687465 00000000
-[   38.580000] 9ec0: 00000000 00000000 00000002 00000000 00000001
-00084a10 00000002 00000000
-[   38.580000] 9ee0: 00000001 00084a10 00001000 00008914 bef74c18
-bef74c18 00008916 00000003
-[   38.580000] 9f00: c1718000 00000000 c1719f2c c1719f18 c028e284
-c028cf18 c1404420 00008916
-[   38.580000] 9f20: c1719f4c c1719f30 c022ed8c c028e1c4 c022eb6c
-00000003 bef74c18 bef74c18
-[   38.580000] 9f40: c1719f74 c1719f50 c009e5e8 c022eb7c 000ac000
-000ad000 bef74c18 00008916
-[   38.580000] 9f60: c14dcbe0 00000000 c1719fa4 c1719f78 c009e66c
-c009e304 c0080184 00000000
-[   38.580000] 9f80: b6f73ee4 bef74c18 00008916 00000003 00000036
-c000e224 00000000 c1719fa8
-[   38.580000] 9fa0: c000e0c0 c009e638 bef74c18 00008916 00000003
-00008916 bef74c18 00000000
-[   38.580000] 9fc0: bef74c18 00008916 00000003 00000036 00085a28
-00000000 000859a8 00000000
-[   38.580000] 9fe0: b6f2bde4 bef74bc0 0000ddb4 b6f2be28 60000010
-00000003 00000000 00000000
-[   38.580000] Backtrace:
-[   38.580000] [<c0296590>] (trie_firstleaf+0x0/0x2c) from
-[<c0298dec>] (fib_table_flush+0x1c/0x170)
-[   38.580000] [<c0298dd0>] (fib_table_flush+0x0/0x170) from
-[<c0294244>] (fib_flush.clone.27+0x30/0x60)
-[   38.580000] [<c0294214>] (fib_flush.clone.27+0x0/0x60) from
-[<c0294294>] (fib_disable_ip+0x20/0x38)
-[   38.580000]  r7:00000000 r6:ffffffff r5:c160f800 r4:c160f800
-[   38.580000] [<c0294274>] (fib_disable_ip+0x0/0x38) from
-[<c0294bf0>] (fib_inetaddr_event+0xa0/0xb4)
-[   38.580000]  r4:c16341e0 r3:00000000
-[   38.580000] [<c0294b50>] (fib_inetaddr_event+0x0/0xb4) from
-[<c003e810>] (notifier_call_chain+0x40/0x70)
-[   38.580000]  r5:00000000 r4:00000002
-[   38.580000] [<c003e7d0>] (notifier_call_chain+0x0/0x70) from
-[<c003ea9c>] (__blocking_notifier_call_chain+0x50/0x68)
-[   38.580000]  r8:00000000 r7:00000002 r6:c16341e0 r5:ffffffff r4:c09d4698
-r3:ffffffff
-[   38.580000] [<c003ea4c>] (__blocking_notifier_call_chain+0x0/0x68)
-from [<c003ead4>] (blocking_notifier_call_chain+0x20/0x28)
-[   38.580000]  r7:c16341e0 r6:00000000 r5:00000000 r4:c16341e0
-[   38.580000] [<c003eab4>] (blocking_notifier_call_chain+0x0/0x28)
-from [<c028b9bc>] (__inet_del_ifa+0x1a4/0x260)
-[   38.580000] [<c028b818>] (__inet_del_ifa+0x0/0x260) from
-[<c028ba94>] (inet_del_ifa+0x1c/0x24)
-[   38.580000] [<c028ba78>] (inet_del_ifa+0x0/0x24) from [<c028d278>]
-(devinet_ioctl+0x370/0x634)
-[   38.580000] [<c028cf08>] (devinet_ioctl+0x0/0x634) from
-[<c028e284>] (inet_ioctl+0xd0/0x110)
-[   38.580000] [<c028e1b4>] (inet_ioctl+0x0/0x110) from [<c022ed8c>]
-(sock_ioctl+0x220/0x278)
-[   38.580000]  r4:00008916 r3:c1404420
-[   38.580000] [<c022eb6c>] (sock_ioctl+0x0/0x278) from [<c009e5e8>]
-(do_vfs_ioctl+0x2f4/0x334)
-[   38.580000]  r6:bef74c18 r5:bef74c18 r4:00000003 r3:c022eb6c
-[   38.580000] [<c009e2f4>] (do_vfs_ioctl+0x0/0x334) from [<c009e66c>]
-(sys_ioctl+0x44/0x64)
-[   38.580000]  r5:00000000 r4:c14dcbe0
-[   38.580000] [<c009e628>] (sys_ioctl+0x0/0x64) from [<c000e0c0>]
-(ret_fast_syscall+0x0/0x2c)
-[   38.580000]  r8:c000e224 r7:00000036 r6:00000003 r5:00008916 r4:bef74c18
-[   38.580000] Code: e89da810 e1a0c00d e92dd800 e24cb004 (e5900000)
-[   39.040000] ---[ end trace 1e122706a9f64743 ]---
+As for most of the other patches in this series, the hash_init is
+redundant for a statically defined hash table.
 
-Do anybody have any idea what may have happened there?
+Thanks,
 
-Thanks.
+Mathieu
+
+>  
+>  	/* load initial error map into hash table */
+>  	for (c = errmap; c->name != NULL; c++) {
+>  		c->namelen = strlen(c->name);
+> -		bucket = jhash(c->name, c->namelen, 0) % ERRHASHSZ;
+> +		hash = jhash(c->name, c->namelen, 0);
+>  		INIT_HLIST_NODE(&c->list);
+> -		hlist_add_head(&c->list, &hash_errmap[bucket]);
+> +		hash_add(hash_errmap, &c->list, hash);
+>  	}
+>  
+>  	return 1;
+> @@ -223,13 +222,13 @@ int p9_errstr2errno(char *errstr, int len)
+>  	int errno;
+>  	struct hlist_node *p;
+>  	struct errormap *c;
+> -	int bucket;
+> +	u32 hash;
+>  
+>  	errno = 0;
+>  	p = NULL;
+>  	c = NULL;
+> -	bucket = jhash(errstr, len, 0) % ERRHASHSZ;
+> -	hlist_for_each_entry(c, p, &hash_errmap[bucket], list) {
+> +	hash = jhash(errstr, len, 0);
+> +	hash_for_each_possible(hash_errmap, c, p, list, hash) {
+>  		if (c->namelen == len && !memcmp(c->name, errstr, len)) {
+>  			errno = c->val;
+>  			break;
+> -- 
+> 1.7.12.4
+> 
+
+-- 
+Mathieu Desnoyers
+Operating System Efficiency R&D Consultant
+EfficiOS Inc.
+http://www.efficios.com
