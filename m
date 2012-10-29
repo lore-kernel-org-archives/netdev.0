@@ -1,54 +1,89 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net-next 3/8] tun: report orphan frags errors to zero copy
-	callback
-Date: Mon, 29 Oct 2012 17:49:46 +0200
-Message-ID: <8802a5f3d1556574df1e62279d2788462d23430d.1351524501.git.mst@redhat.com>
-References: <cover.1351524501.git.mst@redhat.com>
+From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v7 10/16] dlm: use new hashtable implementation
+Date: Mon, 29 Oct 2012 11:53:54 -0400
+Message-ID: <CA+1xoqfxgB+8BybPpf+jwT-ObfGPxnbKvkz1MUMuJuR8NDSNaw@mail.gmail.com>
+References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
+	<1351450948-15618-10-git-send-email-levinsasha928@gmail.com>
+	<20121029124655.GD11733@Krystal> <20121029130736.GF11733@Krystal>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1351524501.git.mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20121029130736.GF11733@Krystal>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When tun transmits a zero copy skb, it orphans the frags
-which might need to allocate extra memory, in atomic context.
-If that fails, notify ubufs callback before freeing the skb
-as a hint that device should disable zerocopy mode.
+On Mon, Oct 29, 2012 at 9:07 AM, Mathieu Desnoyers
+<mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org> wrote:
+> * Mathieu Desnoyers (mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org) wrote:
+>> * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
+>> [...]
+>> > @@ -158,34 +159,21 @@ static int dlm_allow_conn;
+>> >  static struct workqueue_struct *recv_workqueue;
+>> >  static struct workqueue_struct *send_workqueue;
+>> >
+>> > -static struct hlist_head connection_hash[CONN_HASH_SIZE];
+>> > +static struct hlist_head connection_hash[CONN_HASH_BITS];
+>> >  static DEFINE_MUTEX(connections_lock);
+>> >  static struct kmem_cache *con_cache;
+>> >
+>> >  static void process_recv_sockets(struct work_struct *work);
+>> >  static void process_send_sockets(struct work_struct *work);
+>> >
+>> > -
+>> > -/* This is deliberately very simple because most clusters have simple
+>> > -   sequential nodeids, so we should be able to go straight to a connection
+>> > -   struct in the array */
+>> > -static inline int nodeid_hash(int nodeid)
+>> > -{
+>> > -   return nodeid & (CONN_HASH_SIZE-1);
+>> > -}
+>>
+>> There is one thing I dislike about this change: you remove a useful
+>> comment. It's good to be informed of the reason why a direct mapping
+>> "value -> hash" without any dispersion function is preferred here.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/tun.c | 1 +
- 1 file changed, 1 insertion(+)
+Yes, I've removed the comment because it's no longer true with the patch :)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 3157519..613f826 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -433,6 +433,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- drop:
- 	dev->stats.tx_dropped++;
-+	skb_tx_error(skb, -ENOMEM);
- 	kfree_skb(skb);
- 	return NETDEV_TX_OK;
- }
--- 
-MST
+> And now that I come to think of it: you're changing the behavior : you
+> will now use a dispersion function on the key, which goes against the
+> intent expressed in this comment.
+
+The comment gave us the information that nodeids are mostly
+sequential, we no longer need to rely on that.
+
+> It might be good to change hash_add(), hash_add_rcu(),
+> hash_for_each_possible*() key parameter for a "hash" parameter, and let
+> the caller provide the hash value computed by the function they like as
+> parameter, rather than enforcing hash_32/hash_64.
+
+Why? We already proved that hash_32() is more than enough as a hashing
+function, why complicate things?
+
+Even doing hash_32() on top of another hash is probably a good idea to
+keep things simple.
+
+Thanks,
+Sasha
