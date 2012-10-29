@@ -1,48 +1,82 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] sctp: Clean up type-punning in sctp_cmd_t union
-Date: Mon, 29 Oct 2012 12:35:44 -0400
-Message-ID: <20121029163544.GA10177@hmsreliant.think-freely.org>
-References: <1351198075-20385-1-git-send-email-nhorman@tuxdriver.com>
- <1351258876-32078-1-git-send-email-nhorman@tuxdriver.com>
- <508AE0B6.2020506@gmail.com>
+Subject: Re: [PATCH net-next] sctp: support per-association stats via a new
+ SCTP_GET_ASSOC_STATS call
+Date: Mon, 29 Oct 2012 12:38:08 -0400
+Message-ID: <20121029163808.GB10177@hmsreliant.think-freely.org>
+References: <1351258973-17227-1-git-send-email-michele@acksyn.org>
+ <20121026143704.GC25087@hmsreliant.think-freely.org>
+ <20121027113541.GA7966@marquez.int.rhx>
+ <DB10D819-2751-4467-858A-C4ED1DBED9F4@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org
+Cc: Michele Baldessari <michele@acksyn.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>
 To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57451 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57548 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932627Ab2J2Qf4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 12:35:56 -0400
+	with ESMTP id S1756804Ab2J2QiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 12:38:22 -0400
 Content-Disposition: inline
-In-Reply-To: <508AE0B6.2020506@gmail.com>
+In-Reply-To: <DB10D819-2751-4467-858A-C4ED1DBED9F4@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Oct 26, 2012 at 03:12:54PM -0400, Vlad Yasevich wrote:
-> On 10/26/2012 09:41 AM, Neil Horman wrote:
-> >Lots of points in the sctp_cmd_interpreter function treat the sctp_cmd_t arg as
-> >a void pointer, even though they are written as various other types.  Theres no
-> >need for this as doing so just leads to possible type-punning issues that could
-> >cause crashes, and if we remain type-consistent we can actually just remove the
-> >void * member of the union entirely.
-> >
-> >Change Notes:
-> >
-> >v2)
-> >	* Dropped chunk that modified SCTP_NULL to create a marker pattern
-> >	 should anyone try to use a SCTP_NULL() assigned sctp_arg_t, Assigning
-> >	 to .zero provides the same effect and should be faster, per Vlad Y.
-> >
-> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com
-> >CC: Vlad Yasevich <vyasevich@gmail.com>
+On Sat, Oct 27, 2012 at 11:48:33AM -0400, Vlad Yasevich wrote:
 > 
-> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 > 
-> -vlad
 > 
-Thanks for the ACk Vlad, do you have any thoughts regarding Dave M's comments
-above on this .zero/memset question?  He makes a good point regarding complete
-initalization I think.
+> 
+> On Oct 27, 2012, at 7:35 AM, Michele Baldessari <michele@acksyn.org> wrote:
+> 
+> > Hi Neil & Vlad,
+> > 
+> > On Fri, Oct 26, 2012 at 10:37:04AM -0400, Neil Horman wrote:
+> >> We already have files in /proc/net/sctp to count snmp system-wide totals,
+> >> per-endpoint totals, and per association totals.  Why do these stats differently
+> >> instead of just adding them the per-association file?  I get that solaris does
+> >> this, but its not codified in any of the RFC's or other standards.  I would
+> >> really rather see something like this go into the interfaces we have, rather
+> >> than creating a new one.
+> >> 
+> >> I also am a bit confused regarding the stats themselves.  Most are fairly clear,
+> >> but some seem lacking (you count most things sent and received, but only count
+> >> received gap acks).  Others seems vague and or confusing (when counting
+> >> retransmitted chunks and packets, how do you count a packet that has both new
+> >> and retransmitted chunks)?  And the max observed rto stat is just odd.  Each
+> >> transport has an rto value, not each association, and you cal already see the
+> >> individual transport rto values in /proc/net/sctp/remaddr.
+> > 
+> > thanks a lot for your time reviewing this. I will try to address all
+> > your comments in a second version of the patch. One thing I am not too
+> > sure though: do you prefer me extending /proc/net/sctp/* or implement a
+> > new call.
+> > 
+> > I ask because from a previous private communication with Vlad the new
+> > socket option seemed to be the preferred approach.
+> > I am fine either way just let me know ;)
+> 
+> 
+> socket option is preferable as /proc doesn't scale very well as number of associations grows.
+> 
+> -Vlad
+> 
+I completely agree with that notion, but at the same time, the socket option is
+limited in that these stats will only be accessible to the process that owns the
+socket.  I imagine that someone will eventually ask for these stats to be made
+available to utilities outside of the owning socket.
 Neil
+
+> > 
+> > cheers,
+> > -- 
+> > Michele Baldessari            <michele@acksyn.org>
+> > C2A5 9DA3 9961 4FFB E01B  D0BC DDD4 DCCB 7515 5C6D
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
