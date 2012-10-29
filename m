@@ -1,111 +1,132 @@
 From: Vaibhav Hiremath <hvaibhav@ti.com>
-Subject: [PATCH 3/4] ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio module
-Date: Mon, 29 Oct 2012 13:51:20 +0530
-Message-ID: <1351498881-32482-5-git-send-email-hvaibhav@ti.com>
+Subject: [PATCH 4/4] arm/dts: am33xx: Add CPSW and MDIO module nodes for AM33XX
+Date: Mon, 29 Oct 2012 13:51:21 +0530
+Message-ID: <1351498881-32482-6-git-send-email-hvaibhav@ti.com>
 References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <paul@pwsan.com>, <linux-arm-kernel@lists.infradead.org>,
 	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>,
 	Vaibhav Hiremath <hvaibhav@ti.com>,
-	Richard Cochran <richardcochran@gmail.com>
+	Richard Cochran <richardcochran@gmail.com>,
+	Benoit Cousson <b-cousson@ti.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:50820 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758037Ab2J2IVl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2012 04:21:41 -0400
 In-Reply-To: <1351498881-32482-1-git-send-email-hvaibhav@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Mugunthan V N <mugunthanvnm@ti.com>
 
-This patch adds hwmod entry for davinci MDIO module,
-creating parent<->child relationship between CPSW and MDIO module.
-
-This Parent-child relation is required in order to use common resources
-like, clock, but still maintaining the logical separation between them.
-
-CPGMAC SubSystem consist of various sub-modules, like, mdio, cpdma,
-cpsw, etc... These sub-modules are also used in some of Davinci
-family of devices, so separate and independent platform devices &
-drivers for CPSW and MDIO is implemented.
-In case of AM33XX, the resources are shared and common register
-bit-field is provided to control module/clock enable/disable,
-makes it difficult to handle common resources from both drivers.
-
-So the solution is, create parent<->child relationship between
-CPGMAC & MDIO modules.
+Add CPSW and MDIO related device tree data for AM33XX.
+Also enable them into board/evm dts files by providing
+respective phy-id.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
 Cc: Richard Cochran <richardcochran@gmail.com>
-Cc: Paul Walmsley <paul@pwsan.com>
+Cc: Benoit Cousson <b-cousson@ti.com>
 ---
- arch/arm/mach-omap2/omap_hwmod_33xx_data.c |   32 ++++++++++++++++++++++++++++
- 1 files changed, 32 insertions(+), 0 deletions(-)
+ arch/arm/boot/dts/am335x-bone.dts |    8 ++++++
+ arch/arm/boot/dts/am335x-evm.dts  |    8 ++++++
+ arch/arm/boot/dts/am33xx.dtsi     |   50 +++++++++++++++++++++++++++++++++++++
+ 3 files changed, 66 insertions(+), 0 deletions(-)
 
-diff --git a/arch/arm/mach-omap2/omap_hwmod_33xx_data.c b/arch/arm/mach-omap2/omap_hwmod_33xx_data.c
-index ad8d43b..3c235d8 100644
---- a/arch/arm/mach-omap2/omap_hwmod_33xx_data.c
-+++ b/arch/arm/mach-omap2/omap_hwmod_33xx_data.c
-@@ -674,6 +674,7 @@ static struct omap_hwmod am33xx_cpgmac0_hwmod = {
- 	.name		= "cpgmac0",
- 	.class		= &am33xx_cpgmac0_hwmod_class,
- 	.clkdm_name	= "cpsw_125mhz_clkdm",
-+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
- 	.mpu_irqs	= am33xx_cpgmac0_irqs,
- 	.main_clk	= "cpsw_125mhz_gclk",
- 	.prcm		= {
-@@ -685,6 +686,20 @@ static struct omap_hwmod am33xx_cpgmac0_hwmod = {
+diff --git a/arch/arm/boot/dts/am335x-bone.dts b/arch/arm/boot/dts/am335x-bone.dts
+index c634f87..e233cfa 100644
+--- a/arch/arm/boot/dts/am335x-bone.dts
++++ b/arch/arm/boot/dts/am335x-bone.dts
+@@ -78,3 +78,11 @@
+ 		};
+ 	};
  };
-
- /*
-+ * mdio class
-+ */
-+static struct omap_hwmod_class am33xx_mdio_hwmod_class = {
-+	.name		= "davinci_mdio",
++
++&cpsw_emac0 {
++	phy_id = "4a101000.mdio:00";
 +};
 +
-+static struct omap_hwmod am33xx_mdio_hwmod = {
-+	.name		= "davinci_mdio",
-+	.class		= &am33xx_mdio_hwmod_class,
-+	.clkdm_name	= "cpsw_125mhz_clkdm",
-+	.main_clk	= "cpsw_125mhz_gclk",
++&cpsw_emac1 {
++	phy_id = "4a101000.mdio:01";
 +};
-+
-+/*
-  * dcan class
-  */
- static struct omap_hwmod_class am33xx_dcan_hwmod_class = {
-@@ -2501,6 +2516,22 @@ static struct omap_hwmod_ocp_if am33xx_l4_hs__cpgmac0 = {
- 	.user		= OCP_USER_MPU,
+diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
+index 185d632..415c3b3 100644
+--- a/arch/arm/boot/dts/am335x-evm.dts
++++ b/arch/arm/boot/dts/am335x-evm.dts
+@@ -118,3 +118,11 @@
+ 		};
+ 	};
  };
-
-+struct omap_hwmod_addr_space am33xx_mdio_addr_space[] = {
-+	{
-+		.pa_start	= 0x4A101000,
-+		.pa_end		= 0x4A101000 + SZ_256 - 1,
-+		.flags		= ADDR_MAP_ON_INIT,
-+	},
-+	{ }
++
++&cpsw_emac0 {
++	phy_id = "4a101000.mdio:00";
 +};
 +
-+struct omap_hwmod_ocp_if am33xx_cpgmac0__mdio = {
-+	.master		= &am33xx_cpgmac0_hwmod,
-+	.slave		= &am33xx_mdio_hwmod,
-+	.addr		= am33xx_mdio_addr_space,
-+	.user		= OCP_USER_MPU,
++&cpsw_emac1 {
++	phy_id = "4a101000.mdio:01";
 +};
+diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+index bb31bff..f6bea04 100644
+--- a/arch/arm/boot/dts/am33xx.dtsi
++++ b/arch/arm/boot/dts/am33xx.dtsi
+@@ -210,5 +210,55 @@
+ 			interrupt-parent = <&intc>;
+ 			interrupts = <91>;
+ 		};
 +
- static struct omap_hwmod_addr_space am33xx_elm_addr_space[] = {
- 	{
- 		.pa_start	= 0x48080000,
-@@ -3371,6 +3402,7 @@ static struct omap_hwmod_ocp_if *am33xx_hwmod_ocp_ifs[] __initdata = {
- 	&am33xx_l3_main__tptc2,
- 	&am33xx_l3_s__usbss,
- 	&am33xx_l4_hs__cpgmac0,
-+	&am33xx_cpgmac0__mdio,
- 	NULL,
++		mac: ethernet@4A100000 {
++			compatible = "ti,cpsw";
++			ti,hwmods = "cpgmac0";
++			cpdma_channels = <8>;
++			host_port_no = <0>;
++			cpdma_reg_ofs = <0x800>;
++			cpdma_sram_ofs = <0xa00>;
++			ale_reg_ofs = <0xd00>;
++			ale_entries = <1024>;
++			host_port_reg_ofs = <0x108>;
++			hw_stats_reg_ofs = <0x900>;
++			bd_ram_ofs = <0x2000>;
++			bd_ram_size = <0x2000>;
++			no_bd_ram = <0>;
++			rx_descs = <64>;
++			mac_control = <0x20>;
++			slaves = <2>;
++			reg = <0x4a100000 0x800
++				0x4a101200 0x100
++				0x4a101000 0x100>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			interrupt-parent = <&intc>;
++			/* c0_rx_thresh_pend c0_rx_pend c0_tx_pend c0_misc_pend*/
++			interrupts = <40 41 42 43>;
++			ranges;
++			cpsw_emac0: slave@0 {
++				slave_reg_ofs = <0x208>;
++				sliver_reg_ofs = <0xd80>;
++				/* Filled in by U-Boot */
++				mac-address = [ 00 00 00 00 00 00 ];
++			};
++			cpsw_emac1: slave@1 {
++				slave_reg_ofs = <0x308>;
++				sliver_reg_ofs = <0xdc0>;
++				/* Filled in by U-Boot */
++				mac-address = [ 00 00 00 00 00 00 ];
++			};
++
++			davinci_mdio: mdio@4a101000 {
++				compatible = "ti,davinci_mdio";
++				#address-cells = <1>;
++				#size-cells = <0>;
++				ti,hwmods = "davinci_mdio";
++				bus_freq = <1000000>;
++				reg = <0x4a101000 0x100>;
++			};
++
++		};
+ 	};
  };
-
 --
 1.7.0.4
-
