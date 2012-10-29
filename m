@@ -1,72 +1,47 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 09/16] batman-adv: Only increase refcounter once for alternate router
-Date: Mon, 29 Oct 2012 09:58:10 +0100
-Message-ID: <1351501097-1289-10-git-send-email-ordex@autistici.org>
+Subject: [PATCH 11/16] batman-adv: properly store the roaming time
+Date: Mon, 29 Oct 2012 09:58:12 +0100
+Message-ID: <1351501097-1289-12-git-send-email-ordex@autistici.org>
 References: <1351501097-1289-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:54213 "EHLO
+Received: from contumacia.investici.org ([178.255.144.35]:54254 "EHLO
 	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758161Ab2J2I7E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 04:59:04 -0400
+	with ESMTP id S1758196Ab2J2I7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 04:59:05 -0400
 In-Reply-To: <1351501097-1289-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+in case of a new global entry added because of roaming, the roam_at field must
+be properly initiated with the current time. This value will be later use to
+purge this entry out on time out (if nobody claims it). Instead roam_at field
+is now set to zero in this situation leading to an immediate purging of the
+related entry.
 
-The test whether we can use a router for alternating bonding should only be
-done once because it is already known that it is still usable and will not be
-deleted from the list soon.
-
-This patch addresses Coverity #712285: Unchecked return value
-
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/routing.c | 23 ++++++++---------------
- 1 file changed, 8 insertions(+), 15 deletions(-)
+ net/batman-adv/translation-table.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 8bdafc8..1ac072d 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -549,25 +549,18 @@ batadv_find_ifalter_router(struct batadv_orig_node *primary_orig,
- 		if (tmp_neigh_node->if_incoming == recv_if)
- 			continue;
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index 42a74e3..0ac39d5 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -726,6 +726,12 @@ int batadv_tt_global_add(struct batadv_priv *bat_priv,
  
-+		if (router && tmp_neigh_node->tq_avg <= router->tq_avg)
-+			continue;
-+
- 		if (!atomic_inc_not_zero(&tmp_neigh_node->refcount))
- 			continue;
+ 		common->flags = flags;
+ 		tt_global_entry->roam_at = 0;
++		/* node must store current time in case of roaming. This is
++		 * needed to purge this entry out on timeout (if nobody claims
++		 * it)
++		 */
++		if (flags & BATADV_TT_CLIENT_ROAM)
++			tt_global_entry->roam_at = jiffies;
+ 		atomic_set(&common->refcount, 2);
+ 		common->added_at = jiffies;
  
--		/* if we don't have a router yet
--		 * or this one is better, choose it.
--		 */
--		if ((!router) ||
--		    (tmp_neigh_node->tq_avg > router->tq_avg)) {
--			/* decrement refcount of
--			 * previously selected router
--			 */
--			if (router)
--				batadv_neigh_node_free_ref(router);
-+		/* decrement refcount of previously selected router */
-+		if (router)
-+			batadv_neigh_node_free_ref(router);
- 
--			router = tmp_neigh_node;
--			atomic_inc_not_zero(&router->refcount);
--		}
--
--		batadv_neigh_node_free_ref(tmp_neigh_node);
-+		/* we found a better router (or at least one valid router) */
-+		router = tmp_neigh_node;
- 	}
- 
- 	/* use the first candidate if nothing was found. */
 -- 
 1.7.12.4
