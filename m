@@ -1,71 +1,72 @@
-From: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v7 08/16] block,elevator: use new hashtable
-	implementation
-Date: Mon, 29 Oct 2012 08:20:52 -0400
-Message-ID: <20121029122052.GB11733@Krystal>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com> <1351450948-15618-8-git-send-email-levinsasha928@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
-	venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1351450948-15618-8-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH v3 0/6] solve deadlock caused by memory allocation with I/O
+Date: Mon, 29 Oct 2012 20:23:54 +0800
+Message-ID: <1351513440-9286-1-git-send-email-ming.lei@canonical.com>
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>,
+	Minchan Kim <minchan@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-pm@vger.kernel.org, linux-mm@kvack.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
-[...]
-> @@ -96,6 +97,8 @@ struct elevator_type
->  	struct list_head list;
->  };
->  
-> +#define ELV_HASH_BITS 6
-> +
->  /*
->   * each queue has an elevator_queue associated with it
->   */
-> @@ -105,7 +108,7 @@ struct elevator_queue
->  	void *elevator_data;
->  	struct kobject kobj;
->  	struct mutex sysfs_lock;
-> -	struct hlist_head *hash;
-> +	DECLARE_HASHTABLE(hash, ELV_HASH_BITS);
->  	unsigned int registered:1;
+This patchset try to solve one deadlock problem which might be caused
+by memory allocation with block I/O during runtime resume and block device
+error handling path. Traditionly, the problem is addressed by passing
+GFP_NOIO statically to mm, but that is not a effective solution, see
+detailed description in patch 1's commit log.
 
-Hrm, so this is moving "registered" out of the elevator_queue first
-cache-line by turning the pointer into a 256 or 512 bytes hash table.
+This patch set introduces one process flag and trys to fix one deadlock
+problem on block device/network device during runtime resume or usb bus reset.
 
-Maybe we should consider moving "registered" before the "hash" field ?
+The 1st one is the change on include/sched.h and mm.
+
+The 2nd patch introduces the flag of memalloc_noio_resume on 'dev_pm_info',
+and pm_runtime_set_memalloc_noio(), so that PM Core can teach mm to not
+allocate mm with GFP_IOFS during the runtime_resume callback only on
+device with the flag set.
+
+The following 2 patches apply the introduced pm_runtime_set_memalloc_noio()
+to mark all devices as memalloc_noio_resume in the path from the block or
+network device to the root device in device tree.
+
+The last 2 patches are applied again PM and USB subsystem to demonstrate
+how to use the introduced mechanism to fix the deadlock problem.
+
+V3:
+	- patch 2/6 and 5/6 changed, see their commit log
+	- remove RFC from title since several guys have expressed that
+	it is a reasonable solution
+V2:
+        - remove changes on 'may_writepage' and 'may_swap'(1/6)
+        - unset GFP_IOFS in try_to_free_pages() path(1/6)
+        - introduce pm_runtime_set_memalloc_noio()
+        - only apply the meachnism on block/network device and its ancestors
+        for runtime resume context
+V1:
+        - take Minchan's change to avoid the check in alloc_page hot path
+        - change the helpers' style into save/restore as suggested by Alan
+        - memory allocation with no io in usb bus reset path for all devices
+        as suggested by Greg and Oliver
+
+ block/genhd.c                |    8 ++++
+ drivers/base/power/runtime.c |   88 +++++++++++++++++++++++++++++++++++++++++-
+ drivers/usb/core/hub.c       |   15 +++++++
+ include/linux/pm.h           |    1 +
+ include/linux/pm_runtime.h   |    5 +++
+ include/linux/sched.h        |   10 +++++
+ mm/page_alloc.c              |   10 ++++-
+ mm/vmscan.c                  |   12 ++++++
+ net/core/net-sysfs.c         |    5 +++
+ 9 files changed, 152 insertions(+), 2 deletions(-)
+
 
 Thanks,
-
-Mathieu
-
->  };
->  
-> -- 
-> 1.7.12.4
-> 
-
--- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ming Lei
