@@ -1,8 +1,8 @@
 From: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v7 13/16] lockd: use new hashtable implementation
-Date: Mon, 29 Oct 2012 09:23:23 -0400
-Message-ID: <20121029132323.GA16391@Krystal>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com> <1351450948-15618-13-git-send-email-levinsasha928@gmail.com>
+Subject: Re: [PATCH v7 14/16] net,rds: use new hashtable implementation
+Date: Mon, 29 Oct 2012 09:25:52 -0400
+Message-ID: <20121029132552.GB16391@Krystal>
+References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com> <1351450948-15618-14-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
@@ -21,109 +21,69 @@ Cc: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, tj-DgEjT+Ai2ygdn
 To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1351450948-15618-13-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1351450948-15618-14-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
-> Switch lockd to use the new hashtable implementation. This reduces the amount of
-> generic unrelated code in lockd.
+> Switch rds to use the new hashtable implementation. This reduces the amount of
+> generic unrelated code in rds.
 > 
 > Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 > ---
->  fs/lockd/svcsubs.c | 66 +++++++++++++++++++++++++++++-------------------------
->  1 file changed, 36 insertions(+), 30 deletions(-)
+>  net/rds/bind.c       |  28 +++++++++-----
+>  net/rds/connection.c | 102 +++++++++++++++++++++++----------------------------
+>  2 files changed, 63 insertions(+), 67 deletions(-)
 > 
-> diff --git a/fs/lockd/svcsubs.c b/fs/lockd/svcsubs.c
-> index 0deb5f6..d223a1f 100644
-> --- a/fs/lockd/svcsubs.c
-> +++ b/fs/lockd/svcsubs.c
-> @@ -20,6 +20,7 @@
->  #include <linux/lockd/share.h>
->  #include <linux/module.h>
->  #include <linux/mount.h>
+> diff --git a/net/rds/bind.c b/net/rds/bind.c
+> index 637bde5..79d65ce 100644
+> --- a/net/rds/bind.c
+> +++ b/net/rds/bind.c
+> @@ -36,16 +36,16 @@
+>  #include <linux/if_arp.h>
+>  #include <linux/jhash.h>
+>  #include <linux/ratelimit.h>
 > +#include <linux/hashtable.h>
+>  #include "rds.h"
 >  
->  #define NLMDBG_FACILITY		NLMDBG_SVCSUBS
+> -#define BIND_HASH_SIZE 1024
+> -static struct hlist_head bind_hash_table[BIND_HASH_SIZE];
+> +#define BIND_HASH_BITS 10
+> +static DEFINE_HASHTABLE(bind_hash_table, BIND_HASH_BITS);
+>  static DEFINE_SPINLOCK(rds_bind_lock);
 >  
-> @@ -28,8 +29,7 @@
->   * Global file hash table
->   */
->  #define FILE_HASH_BITS		7
-> -#define FILE_NRHASH		(1<<FILE_HASH_BITS)
-> -static struct hlist_head	nlm_files[FILE_NRHASH];
-> +static DEFINE_HASHTABLE(nlm_files, FILE_HASH_BITS);
->  static DEFINE_MUTEX(nlm_file_mutex);
->  
->  #ifdef NFSD_DEBUG
-> @@ -68,7 +68,7 @@ static inline unsigned int file_hash(struct nfs_fh *f)
->  	int i;
->  	for (i=0; i<NFS2_FHSIZE;i++)
->  		tmp += f->data[i];
-> -	return tmp & (FILE_NRHASH - 1);
-> +	return tmp;
+> -static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
+> +static u32 rds_hash(__be32 addr, __be16 port)
+>  {
+> -	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
+> -				  (BIND_HASH_SIZE - 1));
+> +	return jhash_2words((u32)addr, (u32)port, 0);
 >  }
 >  
->  /*
-> @@ -86,17 +86,17 @@ nlm_lookup_file(struct svc_rqst *rqstp, struct nlm_file **result,
+>  static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
+> @@ -53,12 +53,12 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
 >  {
->  	struct hlist_node *pos;
->  	struct nlm_file	*file;
-> -	unsigned int	hash;
-> +	unsigned int	key;
->  	__be32		nfserr;
+>  	struct rds_sock *rs;
+>  	struct hlist_node *node;
+> -	struct hlist_head *head = hash_to_bucket(addr, port);
+> +	u32 key = rds_hash(addr, port);
+>  	u64 cmp;
+>  	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
 >  
->  	nlm_debug_print_fh("nlm_lookup_file", f);
->  
-> -	hash = file_hash(f);
-> +	key = file_hash(f);
->  
->  	/* Lock file table */
->  	mutex_lock(&nlm_file_mutex);
->  
-> -	hlist_for_each_entry(file, pos, &nlm_files[hash], f_list)
-> +	hash_for_each_possible(nlm_files, file, pos, f_list, file_hash(f))
+>  	rcu_read_lock();
+> -	hlist_for_each_entry_rcu(rs, node, head, rs_bound_node) {
+> +	hash_for_each_possible_rcu(bind_hash_table, rs, node, rs_bound_node, key) {
 
-we have a nice example of weirdness about key vs hash here:
+here too, key will be hashed twice:
 
-1) "key" is computed from file_hash(f)
-2) file_hash(f) is computed again and again in hash_for_each_possible()
+- once by jhash_2words,
+- once by hash_32(),
 
->  		if (!nfs_compare_fh(&file->f_handle, f))
->  			goto found;
->  
-> @@ -123,7 +123,7 @@ nlm_lookup_file(struct svc_rqst *rqstp, struct nlm_file **result,
->  		goto out_free;
->  	}
->  
-> -	hlist_add_head(&file->f_list, &nlm_files[hash]);
-> +	hash_add(nlm_files, &file->f_list, key);
-
-3) then we use "key" as parameter to hash_add.
-
-Moreover, we're adding dispersion to the file_hash() with the hash_32()
-called under the hook within hashtable.h. Is it an intended behavior ?
-This should at the very least be documented in the changelog.
-
-[...]
-
-> +static int __init nlm_init(void)
-> +{
-> +	hash_init(nlm_files);
-
-Useless.
+is this intended ?
 
 Thanks,
 
 Mathieu
-
-> +	return 0;
-> +}
-> +
-> +module_init(nlm_init);
-> -- 
-> 1.7.12.4
-> 
 
 -- 
 Mathieu Desnoyers
