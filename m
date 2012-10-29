@@ -1,39 +1,47 @@
-From: Kirill Smelkov <kirr@mns.spb.ru>
-Subject: [PATCH, RESEND] r8169: Kill SafeMtu macro
-Date: Mon, 29 Oct 2012 21:55:12 +0400
-Message-ID: <20121029175512.GA13577@tugrik.mns.mnsspb.ru>
+From: Rob Herring <rob.herring@calxeda.com>
+Subject: Re: [PATCH 0/6] Calxeda xgmac performance fixes
+Date: Mon, 29 Oct 2012 12:52:39 -0500
+Message-ID: <508EC267.6020208@calxeda.com>
+References: <1350054908-30646-1-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Kirill Smelkov <kirr@mns.spb.ru>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mnsspb.ru ([84.204.75.2]:54122 "EHLO mail.mnsspb.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932119Ab2J2RyP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2012 13:54:15 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jonathan@jonmasters.org, eric.dumazet@gmail.com,
+	Mark Langsdorf <mark.langsdorf@calxeda.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1350054908-30646-1-git-send-email-robherring2@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After d58d46b5 (r8169: jumbo fixes.) max frame len is stored in
-rtl_chip_infos[].jumbo_max for each chip and SafeMtu should be gone.
+David,
 
-Signed-off-by: Kirill Smelkov <kirr@mns.spb.ru>
----
- drivers/net/ethernet/realtek/r8169.c | 1 -
- 1 file changed, 1 deletion(-)
+On 10/12/2012 10:15 AM, Rob Herring wrote:
+> From: Rob Herring <rob.herring@calxeda.com>
+> 
+> This is a series of performance improvements to the xgmac driver. The most
+> significant changes are the alignment fixes to avoid alignment traps on
+> received frames and using relaxed i/o accessors.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index e7ff886..7ca6618 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -78,7 +78,6 @@ static const int multicast_filter_limit = 32;
- 
- #define MAX_READ_REQUEST_SHIFT	12
- #define TX_DMA_BURST	7	/* Maximum PCI burst, '7' is unlimited */
--#define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
- #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
- 
- #define R8169_REGS_SIZE		256
--- 
-1.8.0.rc1.231.g17358b9
+Can you please apply this series for 3.7. They are all self-contained to
+the xgmac driver and fix some performance issues including unaligned
+access traps in the IP stack. If 3.7 is not acceptable, then 3.8 is fine.
+
+Note that only patch 5 has a v2 version.
+
+Rob
+
+> 
+> Rob Herring (6):
+>   net: calxedaxgmac: enable operate on 2nd frame mode
+>   net: calxedaxgmac: remove explicit rx dma buffer polling
+>   net: calxedaxgmac: use relaxed i/o accessors in rx and tx paths
+>   net: calxedaxgmac: drop some unnecessary register writes
+>   net: calxedaxgmac: rework transmit ring handling
+>   net: calxedaxgmac: ip align receive buffers
+> 
+>  drivers/net/ethernet/calxeda/Kconfig |    2 +-
+>  drivers/net/ethernet/calxeda/xgmac.c |   57 +++++++++++++++-------------------
+>  2 files changed, 26 insertions(+), 33 deletions(-)
+> 
