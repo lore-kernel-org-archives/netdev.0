@@ -1,54 +1,40 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Subject: [PATCH] net: dsa/slave: Fix compilation warnings
-Date: Mon, 29 Oct 2012 22:27:56 +0530
-Message-ID: <5afab1ebe83e4361f1fd75bbea0c559af195bf02.1351529738.git.viresh.kumar@linaro.org>
-Cc: linaro-dev@lists.linaro.org, patches@linaro.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Viresh Kumar <viresh.kumar@linaro.org>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] ipv6: fix a potential NULL deref
+Date: Mon, 29 Oct 2012 13:22:03 -0400 (EDT)
+Message-ID: <20121029.132203.1458595923917658146.davem@davemloft.net>
+References: <1351482620-11008-1-git-send-email-amwang@redhat.com>
+	<1351491005.7394.7.camel@edumazet-glaptop>
+	<1351493366.8221.2.camel@cr0>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51925 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760318Ab2J2RWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 13:22:05 -0400
+In-Reply-To: <1351493366.8221.2.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently when none of CONFIG_NET_DSA_TAG_DSA, CONFIG_NET_DSA_TAG_EDSA and
-CONFIG_NET_DSA_TAG_TRAILER is defined, we get following compilation warnings:
+From: Cong Wang <amwang@redhat.com>
+Date: Mon, 29 Oct 2012 14:49:26 +0800
 
-net/dsa/slave.c:51:12: warning: 'dsa_slave_init' defined but not used [-Wunused-function]
-net/dsa/slave.c:60:12: warning: 'dsa_slave_open' defined but not used [-Wunused-function]
-net/dsa/slave.c:98:12: warning: 'dsa_slave_close' defined but not used [-Wunused-function]
-net/dsa/slave.c:116:13: warning: 'dsa_slave_change_rx_flags' defined but not used [-Wunused-function]
-net/dsa/slave.c:127:13: warning: 'dsa_slave_set_rx_mode' defined but not used [-Wunused-function]
-net/dsa/slave.c:136:12: warning: 'dsa_slave_set_mac_address' defined but not used [-Wunused-function]
-net/dsa/slave.c:164:12: warning: 'dsa_slave_ioctl' defined but not used [-Wunused-function]
+> On Mon, 2012-10-29 at 07:10 +0100, Eric Dumazet wrote:
+>> > -		dst_release(&rt->dst);
+>> > +		if (rt)
+>> > +			dst_release(&rt->dst);
+>> >  	}
+>> >  
+>> 
+>> dst_release() is like kfree(), it accepts a NULL argument.
+>> 
+> 
+> 'rt->dst' already dereferences 'rt', no matter dst_release() accepts
+> NULL or not.
 
-Fix them by enclosing these routines under #ifdef,endif.
+It's taking the address of a struct member, it's not a dereference.
 
-Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
----
- net/dsa/slave.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index e32083d..5606fae 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -48,6 +48,8 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
- 
- 
- /* slave device handling ****************************************************/
-+#if defined(CONFIG_NET_DSA_TAG_DSA) || defined(CONFIG_NET_DSA_TAG_EDSA) || \
-+		defined(CONFIG_NET_DSA_TAG_TRAILER)
- static int dsa_slave_init(struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-@@ -170,6 +172,8 @@ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 
- 	return -EOPNOTSUPP;
- }
-+#endif /* defined(CONFIG_NET_DSA_TAG_DSA) || defined(CONFIG_NET_DSA_TAG_EDSA ||
-+		defined(CONFIG_NET_DSA_TAG_TRAILER) */
- 
- 
- /* ethtool operations *******************************************************/
--- 
-1.7.12.rc2.18.g61b472e
+You know what the difference is right?
