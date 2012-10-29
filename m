@@ -1,114 +1,156 @@
-From: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH v7 06/16] tracepoint: use new hashtable
-	implementation
-Date: Mon, 29 Oct 2012 13:50:07 -0400
-Message-ID: <20121029175007.GA20796@Krystal>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
-	<1351450948-15618-6-git-send-email-levinsasha928@gmail.com>
-	<20121029113515.GB9115@Krystal>
-	<CA+1xoqce6uJ6wy3+2CBwsLHKnsz4wD0vt8MBEGKCFfXTvuC0Hg@mail.gmail.com>
+From: Bhavesh Davda <bhavesh@vmware.com>
+Subject: Re: [Pv-drivers] [PATCH] vmxnet3: must split too big fragments
+Date: Mon, 29 Oct 2012 10:52:51 -0700 (PDT)
+Message-ID: <1948210032.25549736.1351533171670.JavaMail.root@vmware.com>
+References: <1351531849.12280.54.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CA+1xoqce6uJ6wy3+2CBwsLHKnsz4wD0vt8MBEGKCFfXTvuC0Hg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: "VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	jongman heo <jongman.heo@samsung.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351531849.12280.54.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
-> On Mon, Oct 29, 2012 at 7:35 AM, Mathieu Desnoyers
-> <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org> wrote:
-> > * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
-> >> Switch tracepoints to use the new hashtable implementation. This reduces the amount of
-> >> generic unrelated code in the tracepoints.
-> >>
-> >> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >> ---
-> >>  kernel/tracepoint.c | 27 +++++++++++----------------
-> >>  1 file changed, 11 insertions(+), 16 deletions(-)
-> >>
-> >> diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
-> >> index d96ba22..854df92 100644
-> >> --- a/kernel/tracepoint.c
-> >> +++ b/kernel/tracepoint.c
-> >> @@ -26,6 +26,7 @@
-> >>  #include <linux/slab.h>
-> >>  #include <linux/sched.h>
-> >>  #include <linux/static_key.h>
-> >> +#include <linux/hashtable.h>
-> >>
-> >>  extern struct tracepoint * const __start___tracepoints_ptrs[];
-> >>  extern struct tracepoint * const __stop___tracepoints_ptrs[];
-> >> @@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
-> >>   * Protected by tracepoints_mutex.
-> >>   */
-> >>  #define TRACEPOINT_HASH_BITS 6
-> >> -#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
-> >> -static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
-> >> +static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
-> >>
-> > [...]
-> >>
-> >> @@ -722,6 +715,8 @@ struct notifier_block tracepoint_module_nb = {
-> >>
-> >>  static int init_tracepoints(void)
-> >>  {
-> >> +     hash_init(tracepoint_table);
-> >> +
-> >>       return register_module_notifier(&tracepoint_module_nb);
-> >>  }
-> >>  __initcall(init_tracepoints);
-> >
-> > So we have a hash table defined in .bss (therefore entirely initialized
-> > to NULL), and you add a call to "hash_init", which iterates on the whole
-> > array and initialize it to NULL (again) ?
-> >
-> > This extra initialization is redundant. I think it should be removed
-> > from here, and hashtable.h should document that hash_init() don't need
-> > to be called on zeroed memory (which includes static/global variables,
-> > kzalloc'd memory, etc).
+LGTM. Thanks for doing this! Did you do any performance testing with this patch?
+
+Reviewed-by: Bhavesh Davda <bhavesh@vmware.com>
+
+--
+Bhavesh Davda
+
+----- Original Message -----
+> From: "Eric Dumazet" <eric.dumazet@gmail.com>
+> To: "Shreyas Bhatewara" <sbhatewara@vmware.com>, "David Miller" <davem@davemloft.net>
+> Cc: "VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, "jongman heo"
+> <jongman.heo@samsung.com>
+> Sent: Monday, October 29, 2012 10:30:49 AM
+> Subject: [Pv-drivers] [PATCH] vmxnet3: must split too big fragments
 > 
-> This was discussed in the previous series, the conclusion was to call
-> hash_init() either way to keep the encapsulation and consistency.
-
-Agreed,
-
-Thanks,
-
-Mathieu
-
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> It's cheap enough and happens only once, so why not?
+> vmxnet3 has a 16Kbytes limit per tx descriptor, that happened to work
+> as long as we provided PAGE_SIZE fragments.
+> 
+> Our stack can now build larger fragments, so we need to split them to
+> the 16kbytes boundary.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: jongman heo <jongman.heo@samsung.com>
+> Tested-by: jongman heo <jongman.heo@samsung.com>
+> Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
+> ---
+>  drivers/net/vmxnet3/vmxnet3_drv.c |   65
+>  +++++++++++++++++++---------
+>  1 file changed, 45 insertions(+), 20 deletions(-)
+> 
+> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c
+> b/drivers/net/vmxnet3/vmxnet3_drv.c
+> index ce9d4f2..0ae1bcc 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+> @@ -744,28 +744,43 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct
+> vmxnet3_tx_ctx *ctx,
+>  
+>  	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+>  		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
+> +		u32 buf_size;
+>  
+> -		tbi = tq->buf_info + tq->tx_ring.next2fill;
+> -		tbi->map_type = VMXNET3_MAP_PAGE;
+> -		tbi->dma_addr = skb_frag_dma_map(&adapter->pdev->dev, frag,
+> -						 0, skb_frag_size(frag),
+> -						 DMA_TO_DEVICE);
+> +		buf_offset = 0;
+> +		len = skb_frag_size(frag);
+> +		while (len) {
+> +			tbi = tq->buf_info + tq->tx_ring.next2fill;
+> +			if (len < VMXNET3_MAX_TX_BUF_SIZE) {
+> +				buf_size = len;
+> +				dw2 |= len;
+> +			} else {
+> +				buf_size = VMXNET3_MAX_TX_BUF_SIZE;
+> +				/* spec says that for TxDesc.len, 0 == 2^14 */
+> +			}
+> +			tbi->map_type = VMXNET3_MAP_PAGE;
+> +			tbi->dma_addr = skb_frag_dma_map(&adapter->pdev->dev, frag,
+> +							 buf_offset, buf_size,
+> +							 DMA_TO_DEVICE);
+>  
+> -		tbi->len = skb_frag_size(frag);
+> +			tbi->len = buf_size;
+>  
+> -		gdesc = tq->tx_ring.base + tq->tx_ring.next2fill;
+> -		BUG_ON(gdesc->txd.gen == tq->tx_ring.gen);
+> +			gdesc = tq->tx_ring.base + tq->tx_ring.next2fill;
+> +			BUG_ON(gdesc->txd.gen == tq->tx_ring.gen);
+>  
+> -		gdesc->txd.addr = cpu_to_le64(tbi->dma_addr);
+> -		gdesc->dword[2] = cpu_to_le32(dw2 | skb_frag_size(frag));
+> -		gdesc->dword[3] = 0;
+> +			gdesc->txd.addr = cpu_to_le64(tbi->dma_addr);
+> +			gdesc->dword[2] = cpu_to_le32(dw2);
+> +			gdesc->dword[3] = 0;
+>  
+> -		dev_dbg(&adapter->netdev->dev,
+> -			"txd[%u]: 0x%llu %u %u\n",
+> -			tq->tx_ring.next2fill, le64_to_cpu(gdesc->txd.addr),
+> -			le32_to_cpu(gdesc->dword[2]), gdesc->dword[3]);
+> -		vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
+> -		dw2 = tq->tx_ring.gen << VMXNET3_TXD_GEN_SHIFT;
+> +			dev_dbg(&adapter->netdev->dev,
+> +				"txd[%u]: 0x%llu %u %u\n",
+> +				tq->tx_ring.next2fill, le64_to_cpu(gdesc->txd.addr),
+> +				le32_to_cpu(gdesc->dword[2]), gdesc->dword[3]);
+> +			vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
+> +			dw2 = tq->tx_ring.gen << VMXNET3_TXD_GEN_SHIFT;
+> +
+> +			len -= buf_size;
+> +			buf_offset += buf_size;
+> +		}
+>  	}
+>  
+>  	ctx->eop_txd = gdesc;
+> @@ -886,6 +901,18 @@ vmxnet3_prepare_tso(struct sk_buff *skb,
+>  	}
+>  }
+>  
+> +static int txd_estimate(const struct sk_buff *skb)
+> +{
+> +	int count = VMXNET3_TXD_NEEDED(skb_headlen(skb)) + 1;
+> +	int i;
+> +
+> +	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+> +		const struct skb_frag_struct *frag = &skb_shinfo(skb)->frags[i];
+> +
+> +		count += VMXNET3_TXD_NEEDED(skb_frag_size(frag));
+> +	}
+> +	return count;
+> +}
+>  
+>  /*
+>   * Transmits a pkt thru a given tq
+> @@ -914,9 +941,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct
+> vmxnet3_tx_queue *tq,
+>  	union Vmxnet3_GenericDesc tempTxDesc;
+>  #endif
+>  
+> -	/* conservatively estimate # of descriptors to use */
+> -	count = VMXNET3_TXD_NEEDED(skb_headlen(skb)) +
+> -		skb_shinfo(skb)->nr_frags + 1;
+> +	count = txd_estimate(skb);
+>  
+>  	ctx.ipv4 = (vlan_get_protocol(skb) == cpu_to_be16(ETH_P_IP));
+>  
 > 
 > 
-> Thanks,
-> Sasha
-
--- 
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
+> _______________________________________________
+> Pv-drivers mailing list
+> Pv-drivers@vmware.com
+> http://mailman2.vmware.com/mailman/listinfo/pv-drivers
+> 
