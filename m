@@ -1,53 +1,114 @@
-From: Alexandre Pereira da Silva <aletes.xgr@gmail.com>
-Subject: Re: 3.7-rc3 oops on reboot
-Date: Mon, 29 Oct 2012 15:41:50 -0200
-Message-ID: <CAAAP30HRRnZQVhJAP19HZ_nJtn6GPeWZeEsst2pyhYZ5JM=Eow@mail.gmail.com>
-References: <CAAAP30E-g3YdXOMvfueDQZREZ+_Adi2uhxgLeqKixkupU+QNhA@mail.gmail.com>
-	<508E7B47.60207@antcom.de>
-	<CAAAP30HWhz_h4AVwjkw9APw6pv0ydO=GZ89uaBhKbmjw60ym4Q@mail.gmail.com>
-	<508E95B3.7070807@antcom.de>
+From: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v7 06/16] tracepoint: use new hashtable
+	implementation
+Date: Mon, 29 Oct 2012 13:50:07 -0400
+Message-ID: <20121029175007.GA20796@Krystal>
+References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
+	<1351450948-15618-6-git-send-email-levinsasha928@gmail.com>
+	<20121029113515.GB9115@Krystal>
+	<CA+1xoqce6uJ6wy3+2CBwsLHKnsz4wD0vt8MBEGKCFfXTvuC0Hg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Roland Stigge <stigge@antcom.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <508E95B3.7070807@antcom.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CA+1xoqce6uJ6wy3+2CBwsLHKnsz4wD0vt8MBEGKCFfXTvuC0Hg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 29, 2012 at 12:41 PM, Roland Stigge <stigge@antcom.de> wrote:
-> On 10/29/2012 02:51 PM, Alexandre Pereira da Silva wrote:
->>> I just tried both on a PHY3250 reference machine, and on a custom board
->>> and couldn't reproduce sth. like this. Booted the kernel and connected
->>> the ethernet cable later on, as well as with cable connected on boot.
->>
->> This is happening on my custom board. I didn't try this on the
->> reference board yet.
->>
->>> Any related patches applied? Can you reproduce this on a reference
->>> machine? Can you provide a .config for this? Any more detail about how
->>> this could be reproduced?
->>
->> No patches applied. I'm trying to bisect this. This happens on a clean
->> -rc1 as well. Doesn't happen on v3.6.
->>
->> Attached my .config
->>
->> To reproduce this, I am just running "reboot". I have the ethernet
->> cable always connected here.
->
-> Just tried this with your .config on the PHY3250 (w/o your initrd
-> thought) but couldn't reproduce the issue.
->
-> Maybe it's related to your Micrel ethernet PHY (activated in your
-> config) which I don't have hardware for?
->
-> Otherwise, we would need to have a look at your devicetree.
+* Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
+> On Mon, Oct 29, 2012 at 7:35 AM, Mathieu Desnoyers
+> <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org> wrote:
+> > * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
+> >> Switch tracepoints to use the new hashtable implementation. This reduces the amount of
+> >> generic unrelated code in the tracepoints.
+> >>
+> >> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >> ---
+> >>  kernel/tracepoint.c | 27 +++++++++++----------------
+> >>  1 file changed, 11 insertions(+), 16 deletions(-)
+> >>
+> >> diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
+> >> index d96ba22..854df92 100644
+> >> --- a/kernel/tracepoint.c
+> >> +++ b/kernel/tracepoint.c
+> >> @@ -26,6 +26,7 @@
+> >>  #include <linux/slab.h>
+> >>  #include <linux/sched.h>
+> >>  #include <linux/static_key.h>
+> >> +#include <linux/hashtable.h>
+> >>
+> >>  extern struct tracepoint * const __start___tracepoints_ptrs[];
+> >>  extern struct tracepoint * const __stop___tracepoints_ptrs[];
+> >> @@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
+> >>   * Protected by tracepoints_mutex.
+> >>   */
+> >>  #define TRACEPOINT_HASH_BITS 6
+> >> -#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
+> >> -static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
+> >> +static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
+> >>
+> > [...]
+> >>
+> >> @@ -722,6 +715,8 @@ struct notifier_block tracepoint_module_nb = {
+> >>
+> >>  static int init_tracepoints(void)
+> >>  {
+> >> +     hash_init(tracepoint_table);
+> >> +
+> >>       return register_module_notifier(&tracepoint_module_nb);
+> >>  }
+> >>  __initcall(init_tracepoints);
+> >
+> > So we have a hash table defined in .bss (therefore entirely initialized
+> > to NULL), and you add a call to "hash_init", which iterates on the whole
+> > array and initialize it to NULL (again) ?
+> >
+> > This extra initialization is redundant. I think it should be removed
+> > from here, and hashtable.h should document that hash_init() don't need
+> > to be called on zeroed memory (which includes static/global variables,
+> > kzalloc'd memory, etc).
+> 
+> This was discussed in the previous series, the conclusion was to call
+> hash_init() either way to keep the encapsulation and consistency.
 
-Thanks for testing. I will investigate this further to see if I can
-narrow source of the problem.
+Agreed,
+
+Thanks,
+
+Mathieu
+
+> 
+> It's cheap enough and happens only once, so why not?
+> 
+> 
+> Thanks,
+> Sasha
+
+-- 
+Mathieu Desnoyers
+Operating System Efficiency R&D Consultant
+EfficiOS Inc.
+http://www.efficios.com
