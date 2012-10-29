@@ -1,64 +1,54 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH v7 09/16] SUNRPC/cache: use new hashtable
-	implementation
-Date: Mon, 29 Oct 2012 07:49:42 -0700
-Message-ID: <CA+55aFzO8DJJP3HBfgqXFac9r3=bYK+_nYe4cuXiNFg-623s6w@mail.gmail.com>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
-	<1351450948-15618-9-git-send-email-levinsasha928@gmail.com>
-	<20121029124229.GC11733@Krystal>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH net] tcp-repair: Handle zero-length data put in rcv queue
+Date: Mon, 29 Oct 2012 19:05:33 +0400
+Message-ID: <508E9B3D.1050505@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20121029124229.GC11733@Krystal>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Giorgos Mavrikas <gmavrikas@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:37293 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752267Ab2J2PFp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2012 11:05:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 29, 2012 at 5:42 AM, Mathieu Desnoyers
-<mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org> wrote:
->
-> So defining e.g.:
->
-> #include <linux/log2.h>
->
-> #define DFR_HASH_BITS  (PAGE_SHIFT - ilog2(BITS_PER_LONG))
->
-> would keep the intended behavior in all cases: use one page for the hash
-> array.
+When sending data into a tcp socket in repair state we should check
+for the amount of data being 0 explicitly. Otherwise we'll have an skb 
+with seq == end_seq in rcv queue, but tcp doesn't expect this to happen
+(in particular a warn_on in tcp_recvmsg shoots).
 
-Well, since that wasn't true before either because of the long-time
-bug you point out, clearly the page size isn't all that important. I
-think it's more important to have small and simple code, and "9" is
-certainly that, compared to playing ilog2 games with not-so-obvious
-things.
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+Reported-by: Giorgos Mavrikas <gmavrikas@gmail.com>
 
-Because there's no reason to believe that '9' is in any way a worse
-random number than something page-shift-related, is there? And getting
-away from *previous* overly-complicated size calculations that had
-been broken because they were too complicated and random, sounds like
-a good idea.
+---
 
-            Linus
+>From 8f70f4ea4f509a3772ee7eb5d9d5c2571a86652a Mon Sep 17 00:00:00 2001
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Mon, 29 Oct 2012 18:12:41 +0400
+Subject: [PATCH] fix for repair queue getback
+
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+---
+ net/ipv4/tcp_input.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 432c366..ff5b746 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4529,6 +4529,9 @@ int tcp_send_rcvq(struct sock *sk, struct msghdr *msg, size_t size)
+ 	struct tcphdr *th;
+ 	bool fragstolen;
+ 
++	if (size == 0)
++		return 0;
++
+ 	skb = alloc_skb(size + sizeof(*th), sk->sk_allocation);
+ 	if (!skb)
+ 		goto err;
+-- 
+1.7.6.5
