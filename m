@@ -1,47 +1,148 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH 0/4] usbnet: avoiding access auto-suspended device
-Date: Mon, 29 Oct 2012 15:45:05 +0800
-Message-ID: <1351496709-26934-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH 1/4] usbnet: introduce usbnet_read[write]_cmd_nopm
+Date: Mon, 29 Oct 2012 15:45:06 +0800
+Message-ID: <1351496709-26934-2-git-send-email-ming.lei@canonical.com>
+References: <1351496709-26934-1-git-send-email-ming.lei@canonical.com>
+Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:46466 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755806Ab2J2Hpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 03:45:34 -0400
+In-Reply-To: <1351496709-26934-1-git-send-email-ming.lei@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thip patchset avoids accessing auto-suspended device in ioctl path,
-which is generally triggered by some network utility(ethtool, ifconfig,
-...)
+This patch introduces the below two helpers to prepare for solving
+the usbnet runtime PM problem, which may cause some network utilities
+(ifconfig, ethtool,...) touch a suspended device.
 
-Most of network devices have the problem, but as discussed in the
-thread:
+	usbnet_read_cmd_nopm()
+	usbnet_write_cmd_nopm()
 
-	http://marc.info/?t=135054860600003&r=1&w=2
+The above two helpers should be called by usbnet resume/suspend
+callback to avoid deadlock.
 
-the problem should be solved inside driver.
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
+---
+ drivers/net/usb/usbnet.c   |   62 ++++++++++++++++++++++++++++++++++++++++----
+ include/linux/usb/usbnet.h |    4 +++
+ 2 files changed, 61 insertions(+), 5 deletions(-)
 
-Considered that only smsc75xx and smsc95xx calls usbnet_read_cmd()
-and usbnet_write_cmd() inside its resume and suspend callback, the
-patcheset introduce the nopm version of the two functions which
-should be called only in the resume and suspend callback. So we
-can solve the problem by runtime resuming device before doing
-control message things.
-
-The patchset is against 3.7.0-rc3-next-20121029, and has been tested
-OK on smsc95xx usbnet device.
-
- drivers/net/usb/smsc75xx.c |  133 +++++++++++++++++++++++++++-----------------
- drivers/net/usb/smsc95xx.c |  122 ++++++++++++++++++++++++++--------------
- drivers/net/usb/usbnet.c   |   72 ++++++++++++++++++++++--
- include/linux/usb/usbnet.h |    4 ++
- 4 files changed, 233 insertions(+), 98 deletions(-)
-
-Thanks,
---
-Ming Lei
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 09ea47a..a7fb074 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1614,8 +1614,8 @@ void usbnet_device_suggests_idle(struct usbnet *dev)
+ EXPORT_SYMBOL(usbnet_device_suggests_idle);
+ 
+ /*-------------------------------------------------------------------------*/
+-int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+-		    u16 value, u16 index, void *data, u16 size)
++static int __usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
++			     u16 value, u16 index, void *data, u16 size)
+ {
+ 	void *buf = NULL;
+ 	int err = -ENOMEM;
+@@ -1639,10 +1639,10 @@ int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+ out:
+ 	return err;
+ }
+-EXPORT_SYMBOL_GPL(usbnet_read_cmd);
+ 
+-int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+-		     u16 value, u16 index, const void *data, u16 size)
++static int __usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
++			      u16 value, u16 index, const void *data,
++			      u16 size)
+ {
+ 	void *buf = NULL;
+ 	int err = -ENOMEM;
+@@ -1665,8 +1665,56 @@ int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+ out:
+ 	return err;
+ }
++
++/*
++ * The function can't be called inside suspend/resume callback,
++ * otherwise deadlock will be caused.
++ */
++int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
++		    u16 value, u16 index, void *data, u16 size)
++{
++	return __usbnet_read_cmd(dev, cmd, reqtype, value, index,
++				 data, size);
++}
++EXPORT_SYMBOL_GPL(usbnet_read_cmd);
++
++/*
++ * The function can't be called inside suspend/resume callback,
++ * otherwise deadlock will be caused.
++ */
++int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
++		     u16 value, u16 index, const void *data, u16 size)
++{
++	return __usbnet_write_cmd(dev, cmd, reqtype, value, index,
++				  data, size);
++}
+ EXPORT_SYMBOL_GPL(usbnet_write_cmd);
+ 
++/*
++ * The function can be called inside suspend/resume callback safely
++ * and should only be called by suspend/resume callback generally.
++ */
++int usbnet_read_cmd_nopm(struct usbnet *dev, u8 cmd, u8 reqtype,
++			  u16 value, u16 index, void *data, u16 size)
++{
++	return __usbnet_read_cmd(dev, cmd, reqtype, value, index,
++				 data, size);
++}
++EXPORT_SYMBOL_GPL(usbnet_read_cmd_nopm);
++
++/*
++ * The function can be called inside suspend/resume callback safely
++ * and should only be called by suspend/resume callback generally.
++ */
++int usbnet_write_cmd_nopm(struct usbnet *dev, u8 cmd, u8 reqtype,
++			  u16 value, u16 index, const void *data,
++			  u16 size)
++{
++	return __usbnet_write_cmd(dev, cmd, reqtype, value, index,
++				  data, size);
++}
++EXPORT_SYMBOL_GPL(usbnet_write_cmd_nopm);
++
+ static void usbnet_async_cmd_cb(struct urb *urb)
+ {
+ 	struct usb_ctrlrequest *req = (struct usb_ctrlrequest *)urb->context;
+@@ -1680,6 +1728,10 @@ static void usbnet_async_cmd_cb(struct urb *urb)
+ 	usb_free_urb(urb);
+ }
+ 
++/*
++ * The caller must make sure that device can't be put into suspend
++ * state until the control URB completes.
++ */
+ int usbnet_write_cmd_async(struct usbnet *dev, u8 cmd, u8 reqtype,
+ 			   u16 value, u16 index, const void *data, u16 size)
+ {
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 4410e416..9bbeabf 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -167,6 +167,10 @@ extern int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+ 		    u16 value, u16 index, void *data, u16 size);
+ extern int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+ 		    u16 value, u16 index, const void *data, u16 size);
++extern int usbnet_read_cmd_nopm(struct usbnet *dev, u8 cmd, u8 reqtype,
++		    u16 value, u16 index, void *data, u16 size);
++extern int usbnet_write_cmd_nopm(struct usbnet *dev, u8 cmd, u8 reqtype,
++		    u16 value, u16 index, const void *data, u16 size);
+ extern int usbnet_write_cmd_async(struct usbnet *dev, u8 cmd, u8 reqtype,
+ 		    u16 value, u16 index, const void *data, u16 size);
+ 
+-- 
+1.7.9.5
