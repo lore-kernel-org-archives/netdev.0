@@ -1,61 +1,51 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [net-next 02/12] ixgbe: Fix return value from macvlan filter
- function
-Date: Mon, 29 Oct 2012 16:27:45 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A072D540466@ORSMSX106.amr.corp.intel.com>
-References: <1351296518-31174-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1351296518-31174-3-git-send-email-jeffrey.t.kirsher@intel.com>
- <CAKgsOu-PH2OJRKxLWj=UEp=XuQCpu0e_pNL2_Nkbbz8Hx2bhEw@mail.gmail.com>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [PATCH v7 09/16] SUNRPC/cache: use new hashtable
+	implementation
+Date: Mon, 29 Oct 2012 09:27:58 -0700
+Message-ID: <20121029092758.1ab87d79.akpm@linux-foundation.org>
+References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
+	<1351450948-15618-9-git-send-email-levinsasha928@gmail.com>
+	<20121029124229.GC11733@Krystal>
+	<CA+55aFzO8DJJP3HBfgqXFac9r3=bYK+_nYe4cuXiNFg-623s6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Konstantin Stepanyuk <konstantin.stepanyuk@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:63724 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932664Ab2J2Q15 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2012 12:27:57 -0400
-In-Reply-To: <CAKgsOu-PH2OJRKxLWj=UEp=XuQCpu0e_pNL2_Nkbbz8Hx2bhEw@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
+	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>,
+	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CA+55aFzO8DJJP3HBfgqXFac9r3=bYK+_nYe4cuXiNFg-623s6w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBLb25zdGFudGluIFN0ZXBhbnl1
-ayBbbWFpbHRvOmtvbnN0YW50aW4uc3RlcGFueXVrQGdtYWlsLmNvbV0NCj4gU2VudDogU2F0dXJk
-YXksIE9jdG9iZXIgMjcsIDIwMTIgMTE6MzcgQU0NCj4gVG86IEtpcnNoZXIsIEplZmZyZXkgVA0K
-PiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgUm9zZSwgR3JlZ29yeSBWOyBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnOw0KPiBnb3Nwb0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tDQo+IFN1
-YmplY3Q6IFJlOiBbbmV0LW5leHQgMDIvMTJdIGl4Z2JlOiBGaXggcmV0dXJuIHZhbHVlIGZyb20g
-bWFjdmxhbiBmaWx0ZXINCj4gZnVuY3Rpb24NCj4gDQo+IE9uIEZyaSwgT2N0IDI2LCAyMDEyIGF0
-IDY6MDggUE0sIEplZmYgS2lyc2hlcg0KPiA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPiB3
-cm90ZToNCj4gPiBGcm9tOiBHcmVnIFJvc2UgPGdyZWdvcnkudi5yb3NlQGludGVsLmNvbT4NCj4g
-Pg0KPiA+IFRoZSBmdW5jdGlvbiB0byBzZXQgdGhlIG1hY3ZsYW4gZmlsdGVyIHNob3VsZCByZXR1
-cm4gc3VjY2VzcyBvcg0KPiA+IGZhaWx1cmUgaW5zdGVhZCBvZiB0aGUgaW5kZXggb2YgdGhlIGZp
-bHRlci4gIFRoZSBtZXNzYWdlIHByb2Nlc3NpbmcNCj4gPiBmdW5jdGlvbiB3YXMgbWlzaW50ZXJw
-cmV0aW5nIHRoZSBpbmRleCBhcyBhIG5vbi16ZXJvIHJldHVybiBjb2RlDQo+ID4gaW5kaWNhdGlu
-ZyBmYWlsdXJlIGFuZCBOQUNLaW5nIE1BQyBmaWx0ZXIgc2V0IG1lc3NhZ2VzIHRoYXQgYWN0dWFs
-bHkNCj4gc3VjY2VlZGVkLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogR3JlZyBSb3NlIDxncmVn
-b3J5LnYucm9zZUBpbnRlbC5jb20+DQo+ID4gVGVzdGVkLWJ5OiBSb2JlcnQgR2FycmV0dCA8cm9i
-ZXJ0eC5lLmdhcnJldHRAaW50ZWwuY29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hl
-ciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tPg0KPiA+IC0tLQ0KPiA+ICBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jIHwgMyArKy0NCj4gPiAgMSBmaWxl
-IGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiA+DQo+ID4gZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMNCj4g
-PiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMNCj4gPiBp
-bmRleCA5Njg3NmI3Li5iNjhiZjBmIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3NyaW92LmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9pbnRlbC9peGdiZS9peGdiZV9zcmlvdi5jDQo+ID4gQEAgLTc0Miw3ICs3NDIsOCBAQCBz
-dGF0aWMgaW50IGl4Z2JlX3NldF92Zl9tYWN2bGFuX21zZyhzdHJ1Y3QNCj4gaXhnYmVfYWRhcHRl
-ciAqYWRhcHRlciwNCj4gPiAgICAgICAgICAgICAgICAgZV93YXJuKGRydiwNCj4gPiAgICAgICAg
-ICAgICAgICAgICAgICAgICJWRiAlZCBoYXMgcmVxdWVzdGVkIGEgTUFDVkxBTiBmaWx0ZXIgYnV0
-IHRoZXJlDQo+IGlzIG5vIHNwYWNlIGZvciBpdFxuIiwNCj4gPiAgICAgICAgICAgICAgICAgICAg
-ICAgIHZmKTsNCj4gPiAtICAgICAgIHJldHVybiBlcnI7DQo+ID4gKw0KPiA+ICsgICAgICAgcmV0
-dXJuICEhZXJyIDwgMDsNCj4gVGhpcyBleHByZXNzaW9uIGFsd2F5cyByZXNvbHZlcyB0byBmYWxz
-ZSwgZWl0aGVyIDAgPCAwIG9yIDEgPCAwLCBiZWNhdXNlDQo+ICchJyBoYXMgaGlnaGVyIHByZWNl
-ZGVuY2UgdGhhbiAnPCcuDQoNCkl0J3MgYSB0eXBvLiAgSSdsbCBmaXggaXQuDQoNCi0gR3JlZw0K
-DQo+IA0KPiBUaGFua3MsDQo+IEtvbnN0YW50aW4NCg==
+On Mon, 29 Oct 2012 07:49:42 -0700 Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
+
+> Because there's no reason to believe that '9' is in any way a worse
+> random number than something page-shift-related, is there?
+
+9 is much better than PAGE_SHIFT.  PAGE_SIZE can vary by a factor of
+16, depending on config.
+
+Everyone thinks 4k, and tests only for that.  There's potential for
+very large performance and behavior changes when their code gets run
+on a 64k PAGE_SIZE machine.
