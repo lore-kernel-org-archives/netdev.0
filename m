@@ -1,93 +1,56 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Subject: Re: [PATCH v7 09/16] SUNRPC/cache: use new hashtable implementation
-Date: Mon, 29 Oct 2012 08:42:29 -0400
-Message-ID: <20121029124229.GC11733@Krystal>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com> <1351450948-15618-9-git-send-email-levinsasha928@gmail.com>
+From: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH v7 10/16] dlm: use new hashtable implementation
+Date: Mon, 29 Oct 2012 08:46:55 -0400
+Message-ID: <20121029124655.GD11733@Krystal>
+References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com> <1351450948-15618-10-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
-	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
-	josh@joshtriplett.org, eric.dumazet@gmail.com, axboe@kernel.dk,
-	agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
-	ccaulfie@redhat.com, teigland@redhat.com,
-	Trond.Myklebust@netapp.com, bfields@fieldses.org,
-	fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
+To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1351450948-15618-9-git-send-email-levinsasha928@gmail.com>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <1351450948-15618-10-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-* Sasha Levin (levinsasha928@gmail.com) wrote:
-> Switch cache to use the new hashtable implementation. This reduces the amount of
-> generic unrelated code in the cache implementation.
-> 
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> ---
->  net/sunrpc/cache.c | 20 +++++++++-----------
->  1 file changed, 9 insertions(+), 11 deletions(-)
-> 
-> diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
-> index fc2f7aa..0490546 100644
-> --- a/net/sunrpc/cache.c
-> +++ b/net/sunrpc/cache.c
-> @@ -28,6 +28,7 @@
->  #include <linux/workqueue.h>
->  #include <linux/mutex.h>
->  #include <linux/pagemap.h>
-> +#include <linux/hashtable.h>
->  #include <asm/ioctls.h>
->  #include <linux/sunrpc/types.h>
->  #include <linux/sunrpc/cache.h>
-> @@ -524,19 +525,18 @@ EXPORT_SYMBOL_GPL(cache_purge);
->   * it to be revisited when cache info is available
->   */
+* Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
+[...]
+> @@ -158,34 +159,21 @@ static int dlm_allow_conn;
+>  static struct workqueue_struct *recv_workqueue;
+>  static struct workqueue_struct *send_workqueue;
 >  
-> -#define	DFR_HASHSIZE	(PAGE_SIZE/sizeof(struct list_head))
-> -#define	DFR_HASH(item)	((((long)item)>>4 ^ (((long)item)>>13)) % DFR_HASHSIZE)
-> +#define	DFR_HASH_BITS	9
+> -static struct hlist_head connection_hash[CONN_HASH_SIZE];
+> +static struct hlist_head connection_hash[CONN_HASH_BITS];
+>  static DEFINE_MUTEX(connections_lock);
+>  static struct kmem_cache *con_cache;
+>  
+>  static void process_recv_sockets(struct work_struct *work);
+>  static void process_send_sockets(struct work_struct *work);
+>  
+> -
+> -/* This is deliberately very simple because most clusters have simple
+> -   sequential nodeids, so we should be able to go straight to a connection
+> -   struct in the array */
+> -static inline int nodeid_hash(int nodeid)
+> -{
+> -	return nodeid & (CONN_HASH_SIZE-1);
+> -}
 
-If we look at a bit of history, mainly commit:
-
-commit 1117449276bb909b029ed0b9ba13f53e4784db9d
-Author: NeilBrown <neilb@suse.de>
-Date:   Thu Aug 12 17:04:08 2010 +1000
-
-    sunrpc/cache: change deferred-request hash table to use hlist.
-
-
-we'll notice that the only reason why the prior DFR_HASHSIZE was using
-
-  (PAGE_SIZE/sizeof(struct list_head))
-
-instead of
-
-  (PAGE_SIZE/sizeof(struct hlist_head))
-
-is because it has been forgotten in that commit. The intent there is to
-make the hash table array fit the page size.
-
-By defining DFR_HASH_BITS arbitrarily to "9", this indeed fulfills this
-purpose on architectures with 4kB page size and 64-bit pointers, but not
-on some powerpc configurations, and Tile architectures, which have more
-exotic 64kB page size, and of course on the far less exotic 32-bit
-pointer architectures.
-
-So defining e.g.:
-
-#include <linux/log2.h>
-
-#define DFR_HASH_BITS  (PAGE_SHIFT - ilog2(BITS_PER_LONG))
-
-would keep the intended behavior in all cases: use one page for the hash
-array.
+There is one thing I dislike about this change: you remove a useful
+comment. It's good to be informed of the reason why a direct mapping
+"value -> hash" without any dispersion function is preferred here.
 
 Thanks,
 
@@ -98,9 +61,7 @@ Mathieu Desnoyers
 Operating System Efficiency R&D Consultant
 EfficiOS Inc.
 http://www.efficios.com
-
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
