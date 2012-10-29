@@ -1,111 +1,364 @@
-From: Jongman Heo <jongman.heo@samsung.com>
-Subject: Re: Re: Re: [Pv-drivers] 3.7-rc2 regression : file copied to
- CIFS-mounted directory corrupted
-Date: Mon, 29 Oct 2012 05:45:04 +0000 (GMT)
-Message-ID: <14353539.198251351489501891.JavaMail.weblogic@epml12>
-Reply-To: jongman.heo@samsung.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "VMware, Inc." <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"edumazet@google.com" <edumazet@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-MIME-version: 1.0
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: [net-next v4 7/7] tuntap: choose the txq based on rxq
+Date: Mon, 29 Oct 2012 13:36:04 +0800
+Message-ID: <1351488964-11109-9-git-send-email-jasowang__21147.2670700916$1351489562$gmane$org@redhat.com>
+References: <1351488964-11109-1-git-send-email-jasowang@redhat.com>
+Cc: maxk@qualcomm.com, haixiao@juniper.net, ernesto.martin@viasat.com,
+	krkumar2@in.ibm.com, edumazet@google.com,
+	Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51550 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755609Ab2J2Fo4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2012 01:44:56 -0400
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+In-Reply-To: <1351488964-11109-1-git-send-email-jasowang@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCi0tLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLS0tDQpTZW5kZXIgOiBKb25nbWFuIEhl
-bzxqb25nbWFuLmhlb0BzYW1zdW5nLmNvbT4NCkRhdGUgOiAyMDEyLTEwLTI0IDExOjUzIChHTVQr
-MDk6MDApDQpUaXRsZSA6IFJlOiBSZTogW1B2LWRyaXZlcnNdIDMuNy1yYzIgcmVncmVzc2lvbiA6
-IGZpbGUgY29waWVkIHRvIENJRlMtbW91bnRlZCBkaXJlY3RvcnkgY29ycnVwdGVkDQoNCkhpLA0K
-DQotLS0tLS0tIE9yaWdpbmFsIE1lc3NhZ2UgLS0tLS0tLQ0KU2VuZGVyIDogRXJpYyBEdW1hemV0
-DQpEYXRlIDogMjAxMi0xMC0yNCAwNDozOSAoR01UKzA5OjAwKQ0KVGl0bGUgOiBSZTogW1B2LWRy
-aXZlcnNdIDMuNy1yYzIgcmVncmVzc2lvbiA6IGZpbGUgY29waWVkIHRvIENJRlMtbW91bnRlZCBk
-aXJlY3RvcnkgY29ycnVwdGVkDQoNCk9uIFR1ZSwgMjAxMi0xMC0yMyBhdCAxNTo1MCArMDIwMCwg
-RXJpYyBEdW1hemV0IHdyb3RlOg0KDQo+IE9ubHkgdGhlIHNrYiBoZWFkIGlzIGhhbmRsZWQgaW4g
-dGhlIGNvZGUgeW91IGNvcHkvcGFzdGVkLg0KPiANCj4gWW91IG5lZWQgdG8gZ2VuZXJhbGl6ZSB0
-aGF0IHRvIGNvZGUgaW4gbGluZXMgfjc1NA0KPiANCj4gDQo+IFRoZW4sIHRoZSBudW1iZXIgb2Yg
-ZXN0aW1hdGVkIGRlc2NyaXB0b3JzIGlzIGJhZCA6DQo+IA0KPiAvKiBjb25zZXJ2YXRpdmVseSBl
-c3RpbWF0ZSAjIG9mIGRlc2NyaXB0b3JzIHRvIHVzZSAqLw0KPiBjb3VudCA9IFZNWE5FVDNfVFhE
-X05FRURFRChza2JfaGVhZGxlbihza2IpKSArDQo+IHNrYl9zaGluZm8oc2tiKS0+bnJfZnJhZ3Mg
-KyAxOw0KPiANCj4gDQo+IFllcywgeW91IG5lZWQgYSBtb3JlIHByZWNpc2UgZXN0aW1hdGlvbiBh
-bmQgdm14bmV0M19tYXBfcGt0KCkgc2hvdWxkDQo+IGV2ZW50dWFsbHkgc3BsaXQgdG9vIGJpZyBm
-cmFncy4NCg0KcmF3IHBhdGNoIHdvdWxkIGJlIDoNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L3ZteG5ldDMvdm14bmV0M19kcnYuYyBiL2RyaXZlcnMvbmV0L3ZteG5ldDMvdm14bmV0M19kcnYu
-Yw0KaW5kZXggY2U5ZDRmMi4uMGFlMWJjYyAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3ZteG5l
-dDMvdm14bmV0M19kcnYuYw0KKysrIGIvZHJpdmVycy9uZXQvdm14bmV0My92bXhuZXQzX2Rydi5j
-DQpAQCAtNzQ0LDI4ICs3NDQsNDMgQEAgdm14bmV0M19tYXBfcGt0KHN0cnVjdCBza19idWZmICpz
-a2IsIHN0cnVjdCB2bXhuZXQzX3R4X2N0eCAqY3R4LA0KDQpmb3IgKGkgPSAwOyBpIDwgc2tiX3No
-aW5mbyhza2IpLT5ucl9mcmFnczsgaSsrKSB7DQpjb25zdCBzdHJ1Y3Qgc2tiX2ZyYWdfc3RydWN0
-ICpmcmFnID0gJnNrYl9zaGluZm8oc2tiKS0+ZnJhZ3NbaV07DQorIHUzMiBidWZfc2l6ZTsNCg0K
-LSB0YmkgPSB0cS0+YnVmX2luZm8gKyB0cS0+dHhfcmluZy5uZXh0MmZpbGw7DQotIHRiaS0+bWFw
-X3R5cGUgPSBWTVhORVQzX01BUF9QQUdFOw0KLSB0YmktPmRtYV9hZGRyID0gc2tiX2ZyYWdfZG1h
-X21hcCgmYWRhcHRlci0+cGRldi0+ZGV2LCBmcmFnLA0KLSAwLCBza2JfZnJhZ19zaXplKGZyYWcp
-LA0KLSBETUFfVE9fREVWSUNFKTsNCisgYnVmX29mZnNldCA9IDA7DQorIGxlbiA9IHNrYl9mcmFn
-X3NpemUoZnJhZyk7DQorIHdoaWxlIChsZW4pIHsNCisgdGJpID0gdHEtPmJ1Zl9pbmZvICsgdHEt
-PnR4X3JpbmcubmV4dDJmaWxsOw0KKyBpZiAobGVuIDwgVk1YTkVUM19NQVhfVFhfQlVGX1NJWkUp
-IHsNCisgYnVmX3NpemUgPSBsZW47DQorIGR3MiB8PSBsZW47DQorIH0gZWxzZSB7DQorIGJ1Zl9z
-aXplID0gVk1YTkVUM19NQVhfVFhfQlVGX1NJWkU7DQorIC8qIHNwZWMgc2F5cyB0aGF0IGZvciBU
-eERlc2MubGVuLCAwID09IDJeMTQgKi8NCisgfQ0KKyB0YmktPm1hcF90eXBlID0gVk1YTkVUM19N
-QVBfUEFHRTsNCisgdGJpLT5kbWFfYWRkciA9IHNrYl9mcmFnX2RtYV9tYXAoJmFkYXB0ZXItPnBk
-ZXYtPmRldiwgZnJhZywNCisgYnVmX29mZnNldCwgYnVmX3NpemUsDQorIERNQV9UT19ERVZJQ0Up
-Ow0KDQotIHRiaS0+bGVuID0gc2tiX2ZyYWdfc2l6ZShmcmFnKTsNCisgdGJpLT5sZW4gPSBidWZf
-c2l6ZTsNCg0KLSBnZGVzYyA9IHRxLT50eF9yaW5nLmJhc2UgKyB0cS0+dHhfcmluZy5uZXh0MmZp
-bGw7DQotIEJVR19PTihnZGVzYy0+dHhkLmdlbiA9PSB0cS0+dHhfcmluZy5nZW4pOw0KKyBnZGVz
-YyA9IHRxLT50eF9yaW5nLmJhc2UgKyB0cS0+dHhfcmluZy5uZXh0MmZpbGw7DQorIEJVR19PTihn
-ZGVzYy0+dHhkLmdlbiA9PSB0cS0+dHhfcmluZy5nZW4pOw0KDQotIGdkZXNjLT50eGQuYWRkciA9
-IGNwdV90b19sZTY0KHRiaS0+ZG1hX2FkZHIpOw0KLSBnZGVzYy0+ZHdvcmRbMl0gPSBjcHVfdG9f
-bGUzMihkdzIgfCBza2JfZnJhZ19zaXplKGZyYWcpKTsNCi0gZ2Rlc2MtPmR3b3JkWzNdID0gMDsN
-CisgZ2Rlc2MtPnR4ZC5hZGRyID0gY3B1X3RvX2xlNjQodGJpLT5kbWFfYWRkcik7DQorIGdkZXNj
-LT5kd29yZFsyXSA9IGNwdV90b19sZTMyKGR3Mik7DQorIGdkZXNjLT5kd29yZFszXSA9IDA7DQoN
-Ci0gZGV2X2RiZygmYWRhcHRlci0+bmV0ZGV2LT5kZXYsDQotICJ0eGRbJXVdOiAweCVsbHUgJXUg
-JXVcbiIsDQotIHRxLT50eF9yaW5nLm5leHQyZmlsbCwgbGU2NF90b19jcHUoZ2Rlc2MtPnR4ZC5h
-ZGRyKSwNCi0gbGUzMl90b19jcHUoZ2Rlc2MtPmR3b3JkWzJdKSwgZ2Rlc2MtPmR3b3JkWzNdKTsN
-Ci0gdm14bmV0M19jbWRfcmluZ19hZHZfbmV4dDJmaWxsKCZ0cS0+dHhfcmluZyk7DQotIGR3MiA9
-IHRxLT50eF9yaW5nLmdlbiA8PCBWTVhORVQzX1RYRF9HRU5fU0hJRlQ7DQorIGRldl9kYmcoJmFk
-YXB0ZXItPm5ldGRldi0+ZGV2LA0KKyAidHhkWyV1XTogMHglbGx1ICV1ICV1XG4iLA0KKyB0cS0+
-dHhfcmluZy5uZXh0MmZpbGwsIGxlNjRfdG9fY3B1KGdkZXNjLT50eGQuYWRkciksDQorIGxlMzJf
-dG9fY3B1KGdkZXNjLT5kd29yZFsyXSksIGdkZXNjLT5kd29yZFszXSk7DQorIHZteG5ldDNfY21k
-X3JpbmdfYWR2X25leHQyZmlsbCgmdHEtPnR4X3JpbmcpOw0KKyBkdzIgPSB0cS0+dHhfcmluZy5n
-ZW4gPDwgVk1YTkVUM19UWERfR0VOX1NISUZUOw0KKw0KKyBsZW4gLT0gYnVmX3NpemU7DQorIGJ1
-Zl9vZmZzZXQgKz0gYnVmX3NpemU7DQorIH0NCn0NCg0KY3R4LT5lb3BfdHhkID0gZ2Rlc2M7DQpA
-QCAtODg2LDYgKzkwMSwxOCBAQCB2bXhuZXQzX3ByZXBhcmVfdHNvKHN0cnVjdCBza19idWZmICpz
-a2IsDQp9DQp9DQoNCitzdGF0aWMgaW50IHR4ZF9lc3RpbWF0ZShjb25zdCBzdHJ1Y3Qgc2tfYnVm
-ZiAqc2tiKQ0KK3sNCisgaW50IGNvdW50ID0gVk1YTkVUM19UWERfTkVFREVEKHNrYl9oZWFkbGVu
-KHNrYikpICsgMTsNCisgaW50IGk7DQorDQorIGZvciAoaSA9IDA7IGkgPCBza2Jfc2hpbmZvKHNr
-YiktPm5yX2ZyYWdzOyBpKyspIHsNCisgY29uc3Qgc3RydWN0IHNrYl9mcmFnX3N0cnVjdCAqZnJh
-ZyA9ICZza2Jfc2hpbmZvKHNrYiktPmZyYWdzW2ldOw0KKw0KKyBjb3VudCArPSBWTVhORVQzX1RY
-RF9ORUVERUQoc2tiX2ZyYWdfc2l6ZShmcmFnKSk7DQorIH0NCisgcmV0dXJuIGNvdW50Ow0KK30N
-Cg0KLyoNCiAgKiBUcmFuc21pdHMgYSBwa3QgdGhydSBhIGdpdmVuIHRxDQpAQCAtOTE0LDkgKzk0
-MSw3IEBAIHZteG5ldDNfdHFfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgdm14bmV0
-M190eF9xdWV1ZSAqdHEsDQp1bmlvbiBWbXhuZXQzX0dlbmVyaWNEZXNjIHRlbXBUeERlc2M7DQoj
-ZW5kaWYNCg0KLSAvKiBjb25zZXJ2YXRpdmVseSBlc3RpbWF0ZSAjIG9mIGRlc2NyaXB0b3JzIHRv
-IHVzZSAqLw0KLSBjb3VudCA9IFZNWE5FVDNfVFhEX05FRURFRChza2JfaGVhZGxlbihza2IpKSAr
-DQotIHNrYl9zaGluZm8oc2tiKS0+bnJfZnJhZ3MgKyAxOw0KKyBjb3VudCA9IHR4ZF9lc3RpbWF0
-ZShza2IpOw0KDQpjdHguaXB2NCA9ICh2bGFuX2dldF9wcm90b2NvbChza2IpID09IGNwdV90b19i
-ZTE2KEVUSF9QX0lQKSk7DQoNCi0tLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSBFbmQgLS0tLS0tLQ0K
-DQpIaSwgRXJpYywgDQp5b3VyIHJhdyBwYXRjaCBzZWVtZWQgdG8gZml4IHRoZSBpc3N1ZS4gQnV0
-IGFmdGVyIH4yMDAgcnVucywgY29waWVkIGZpbGUgaGFzIGJlZW4gY29ycnVwdGVkIGFnYWluLg0K
-DQojIGNtcCAtbCAvaG9tZS9sb2NhbC5iaW4gL21udC9jaWZzL25ldy5iaW4gfCBhd2sgJ3twcmlu
-dGYgIiUwOFggJTAyWCAlMDJYXG4iLCAkMSwgc3RydG9udW0oMCQyKSwgc3RydG9udW0oMCQzKX0n
-ID4gZGlmZi5sb2cNCg0KSSBjb21wYXJlZCB0aGUgZGlmZmVyZW5jZSBiZXR3ZWVuIHNvdXJjZSBh
-bmQgY29waWVkIGZpbGUuIFNpemUgb2YgZmlsZSBpcyA0NTg3MjczMiBieXRlcyAoPSAweDJCQkY2
-NUMpLg0KQW1vbmcgdGhlbSwgNDA5NiAoMHgxMDAwKSBieXRlcyBhcmUgZGlmZmVyZW50LCBmcm9t
-IDB4MkI5NjAwMSB0byAweDJCOTcwMDAuIEluc3RlYWQgb2Ygb3JpZ2luYWwgZGF0YSwgMHgwMCB3
-YXMgY29waWVkIGluIHRob3NlIGFyZWEuDQoNCnBhdGNoIGFwcGxpZWQgb24gdG9wIG9mIDJkMWY0
-YzhlICgiTWVyZ2UgYnJhbmNoICdkcm0tZml4ZXMnIG9mIGdpdDovL3Blb3BsZS5mcmVlZGVza3Rv
-cC5vcmcvfmFpcmxpZWQvbGludXgiKS4NCg0KUmVnYXJkcywNCkpvbmdtYW4gSGVvLg0KDQotLS0t
-LS0tIE9yaWdpbmFsIE1lc3NhZ2UgRW5kIC0tLS0tLS0NCg0KSGksIA0KDQpBcyBJIHNhaWQgaW4g
-dGhlIHByZXZpb3VzIHBvc3QsIHdpdGggMmQxZjRjOGUgKyBFcmljJ3MgcGF0Y2gsIEkgZ290IHRo
-ZSBpc3N1ZSBtZW50aW9uZWQgYWJvdmUgOyBzb21ldGltZXMgNDA5NiBieXRlcyBhcmUgYmVpbmcg
-Y29waWVkIGJ5IGFsbCB6ZXJvcy4gTm90IGVhc2lseSByZXByb2R1Y2libGUsIGJ1dCBhbHdheXMg
-aGFwcGVuZWQgYmVmb3JlIHJ1bm5pbmcgfjUwMCBydW5zLg0KDQpCdXQgd2l0aCAzLjctcmMzICsg
-dGhlIHBhdGNoLCBJIGhhdmVuJ3QgZW5jb3VudGVyZWQgdGhlIGlzc3VlIHNvIGZhciwgdW50aWwg
-fjIwMDAgcnVucy4NCk1heWJlLCB0aGUgcm9vdCBjYXVzZSBpcyBmaXhlZCBieSBFcmljJ3MgcGF0
-Y2gsIGFuZCB0aGUgcmVtYWluaW5nIHN1YnRsZSBidWcsIGNvcnJ1cHRpbmcgNDA5NiBieXRlcywg
-bWlnaHQgYmUgZml4ZWQgYnkgb3RoZXIgY29tbWl0LCBiZXR3ZWVuIDMuNy1yYzIgYW5kIC1yYzMu
-DQoNClRoYW5rcywNCkpvbmdtYW4gSGVvLg0K
+This patch implements a simple multiqueue flow steering policy - tx follows rx
+for tun/tap. The idea is simple, it just choose the txq based on which rxq it
+comes. The flow were identified through the rxhash of a skb, and the hash to
+queue mapping were recorded in a hlist with an ageing timer to retire the
+mapping. The mapping were created when tun receives packet from userspace, and
+was quired in .ndo_select_queue().
+
+I run co-current TCP_CRR test and didn't see any mapping manipulation helpers in
+perf top, so the overhead could be negelected.
+
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/tun.c |  239 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 236 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 78dcda8..158ef1d 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -115,6 +115,8 @@ struct tap_filter {
+  * to match a queue per guest CPU. */
+ #define MAX_TAP_QUEUES 1024
+ 
++#define TUN_FLOW_EXPIRE 3 * HZ
++
+ /* A tun_file connects an open character device to a tuntap netdevice. It
+  * also contains all socket related strctures (except sock_fprog and tap_filter)
+  * to serve as one transmit queue for tuntap device. The sock_fprog and
+@@ -138,6 +140,18 @@ struct tun_file {
+ 	u16 queue_index;
+ };
+ 
++struct tun_flow_entry {
++	struct hlist_node hash_link;
++	struct rcu_head rcu;
++	struct tun_struct *tun;
++
++	u32 rxhash;
++	int queue_index;
++	unsigned long updated;
++};
++
++#define TUN_NUM_FLOW_ENTRIES 1024
++
+ /* Since the socket were moved to tun_file, to preserve the behavior of persist
+  * device, socket fileter, sndbuf and vnet header size were restore when the
+  * file were attached to a persist device.
+@@ -163,8 +177,176 @@ struct tun_struct {
+ #ifdef TUN_DEBUG
+ 	int debug;
+ #endif
++	spinlock_t lock;
++	struct kmem_cache *flow_cache;
++	struct hlist_head flows[TUN_NUM_FLOW_ENTRIES];
++	struct timer_list flow_gc_timer;
++	unsigned long ageing_time;
+ };
+ 
++static inline u32 tun_hashfn(u32 rxhash)
++{
++	return rxhash & 0x3ff;
++}
++
++static struct tun_flow_entry *tun_flow_find(struct hlist_head *head, u32 rxhash)
++{
++	struct tun_flow_entry *e;
++	struct hlist_node *n;
++
++	hlist_for_each_entry_rcu(e, n, head, hash_link) {
++		if (e->rxhash == rxhash)
++			return e;
++	}
++	return NULL;
++}
++
++static struct tun_flow_entry *tun_flow_create(struct tun_struct *tun,
++					      struct hlist_head *head,
++					      u32 rxhash, u16 queue_index)
++{
++	struct tun_flow_entry *e = kmem_cache_alloc(tun->flow_cache,
++						    GFP_ATOMIC);
++	if (e) {
++		tun_debug(KERN_INFO, tun, "create flow: hash %u index %u\n",
++			  rxhash, queue_index);
++		e->updated = jiffies;
++		e->rxhash = rxhash;
++		e->queue_index = queue_index;
++		e->tun = tun;
++		hlist_add_head_rcu(&e->hash_link, head);
++	}
++	return e;
++}
++
++static void tun_flow_free(struct rcu_head *head)
++{
++	struct tun_flow_entry *e
++		= container_of(head, struct tun_flow_entry, rcu);
++	kmem_cache_free(e->tun->flow_cache, e);
++}
++
++static void tun_flow_delete(struct tun_struct *tun, struct tun_flow_entry *e)
++{
++	tun_debug(KERN_INFO, tun, "delete flow: hash %u index %u\n",
++		  e->rxhash, e->queue_index);
++	hlist_del_rcu(&e->hash_link);
++	call_rcu(&e->rcu, tun_flow_free);
++}
++
++/* caller hold tun->lock */
++static int tun_delete_by_rxhash(struct tun_struct *tun, u32 rxhash)
++{
++	struct hlist_head *head = &tun->flows[tun_hashfn(rxhash)];
++	struct tun_flow_entry *e = tun_flow_find(head, rxhash);
++
++	if (!e)
++		return -ENOENT;
++
++	tun_flow_delete(tun, e);
++}
++
++static void tun_flow_flush(struct tun_struct *tun)
++{
++	int i;
++
++	spin_lock_bh(&tun->lock);
++	for (i = 0; i < TUN_NUM_FLOW_ENTRIES; i++) {
++		struct tun_flow_entry *e;
++		struct hlist_node *h, *n;
++
++		hlist_for_each_entry_safe(e, h, n, &tun->flows[i], hash_link)
++			tun_flow_delete(tun, e);
++	}
++	spin_unlock_bh(&tun->lock);
++}
++
++static void tun_flow_delete_by_queue(struct tun_struct *tun, u16 queue_index)
++{
++	int i;
++
++	spin_lock_bh(&tun->lock);
++	for (i = 0; i < TUN_NUM_FLOW_ENTRIES; i++) {
++		struct tun_flow_entry *e;
++		struct hlist_node *h, *n;
++
++		hlist_for_each_entry_safe(e, h, n, &tun->flows[i], hash_link) {
++			if (e->queue_index == queue_index)
++				tun_flow_delete(tun, e);
++		}
++	}
++	spin_unlock_bh(&tun->lock);
++}
++
++static void tun_flow_cleanup(unsigned long data)
++{
++	struct tun_struct *tun = (struct tun_struct *)data;
++	unsigned long delay = tun->ageing_time;
++	unsigned long next_timer = jiffies + delay;
++	unsigned long count = 0;
++	int i;
++
++	tun_debug(KERN_INFO, tun, "tun_flow_cleanup\n");
++
++	spin_lock_bh(&tun->lock);
++	for (i = 0; i < TUN_NUM_FLOW_ENTRIES; i++) {
++		struct tun_flow_entry *e;
++		struct hlist_node *h, *n;
++
++		hlist_for_each_entry_safe(e, h, n, &tun->flows[i], hash_link) {
++			unsigned long this_timer;
++			count ++;
++			this_timer = e->updated + delay;
++			if (time_before_eq(this_timer, jiffies))
++				tun_flow_delete(tun, e);
++			else if (time_before(this_timer, next_timer))
++				next_timer = this_timer;
++		}
++	}
++
++	if (count)
++		mod_timer(&tun->flow_gc_timer, round_jiffies_up(next_timer));
++	spin_unlock_bh(&tun->lock);
++}
++
++static void tun_flow_update(struct tun_struct *tun, struct sk_buff *skb,
++			    u16 queue_index)
++{
++	struct hlist_head *head;
++	struct tun_flow_entry *e;
++	unsigned long delay = tun->ageing_time;
++	u32 rxhash = skb_get_rxhash(skb);
++
++	if (!rxhash)
++		return;
++	else
++		head = &tun->flows[tun_hashfn(rxhash)];
++
++	rcu_read_lock();
++
++	if (tun->numqueues == 1)
++		goto unlock;
++
++	e = tun_flow_find(head, rxhash);
++	if (likely(e)) {
++		/* TODO: keep queueing to old queue until it's empty? */
++		e->queue_index = queue_index;
++		e->updated = jiffies;
++	} else {
++		spin_lock_bh(&tun->lock);
++		if (!tun_flow_find(head, rxhash))
++			tun_flow_create(tun, head, rxhash, queue_index);
++
++		if (!timer_pending(&tun->flow_gc_timer))
++			mod_timer(&tun->flow_gc_timer,
++				  round_jiffies_up(jiffies + delay));
++		spin_unlock_bh(&tun->lock);
++	}
++
++unlock:
++	rcu_read_unlock();
++}
++
+ /* We try to identify a flow through its rxhash first. The reason that
+  * we do not check rxq no. is becuase some cards(e.g 82599), chooses
+  * the rxq based on the txq where the last packet of the flow comes. As
+@@ -175,6 +357,7 @@ struct tun_struct {
+ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
+ {
+ 	struct tun_struct *tun = netdev_priv(dev);
++	struct tun_flow_entry *e;
+ 	u32 txq = 0;
+ 	u32 numqueues = 0;
+ 
+@@ -183,8 +366,12 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 
+ 	txq = skb_get_rxhash(skb);
+ 	if (txq) {
+-		/* use multiply and shift instead of expensive divide */
+-	        txq = ((u64)txq * numqueues) >> 32;
++		e = tun_flow_find(&tun->flows[tun_hashfn(txq)], txq);
++		if (e)
++			txq = e->queue_index;
++		else
++			/* use multiply and shift instead of expensive divide */
++			txq = ((u64)txq * numqueues) >> 32;
+ 	} else if (likely(skb_rx_queue_recorded(skb))) {
+ 		txq = skb_get_rx_queue(skb);
+ 		while (unlikely(txq >= numqueues))
+@@ -234,6 +421,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+ 		sock_put(&tfile->sk);
+ 
+ 		synchronize_net();
++		tun_flow_delete_by_queue(tun, tun->numqueues + 1);
+ 		/* Drop read queue */
+ 		skb_queue_purge(&tfile->sk.sk_receive_queue);
+ 		tun_set_real_num_queues(tun);
+@@ -629,6 +817,37 @@ static const struct net_device_ops tap_netdev_ops = {
+ #endif
+ };
+ 
++static int tun_flow_init(struct tun_struct *tun)
++{
++	int i;
++
++	tun->flow_cache = kmem_cache_create("tun_flow_cache",
++					    sizeof(struct tun_flow_entry), 0, 0,
++					    NULL);
++	if (!tun->flow_cache)
++		return -ENOMEM;
++
++	for (i = 0; i < TUN_NUM_FLOW_ENTRIES; i++)
++		INIT_HLIST_HEAD(&tun->flows[i]);
++
++	tun->ageing_time = TUN_FLOW_EXPIRE;
++	setup_timer(&tun->flow_gc_timer, tun_flow_cleanup, (unsigned long)tun);
++	mod_timer(&tun->flow_gc_timer,
++		  round_jiffies_up(jiffies + tun->ageing_time));
++
++	return 0;
++}
++
++static void tun_flow_uninit(struct tun_struct *tun)
++{
++	del_timer_sync(&tun->flow_gc_timer);
++	tun_flow_flush(tun);
++
++	/* Wait for completion of call_rcu()'s */
++	rcu_barrier();
++	kmem_cache_destroy(tun->flow_cache);
++}
++
+ /* Initialize net device. */
+ static void tun_net_init(struct net_device *dev)
+ {
+@@ -973,6 +1192,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	tun->dev->stats.rx_packets++;
+ 	tun->dev->stats.rx_bytes += len;
+ 
++	tun_flow_update(tun, skb, tfile->queue_index);
+ 	return total_len;
+ }
+ 
+@@ -1150,6 +1370,14 @@ out:
+ 	return ret;
+ }
+ 
++static void tun_free_netdev(struct net_device *dev)
++{
++	struct tun_struct *tun = netdev_priv(dev);
++
++	tun_flow_uninit(tun);
++	free_netdev(dev);
++}
++
+ static void tun_setup(struct net_device *dev)
+ {
+ 	struct tun_struct *tun = netdev_priv(dev);
+@@ -1158,7 +1386,7 @@ static void tun_setup(struct net_device *dev)
+ 	tun->group = INVALID_GID;
+ 
+ 	dev->ethtool_ops = &tun_ethtool_ops;
+-	dev->destructor = free_netdev;
++	dev->destructor = tun_free_netdev;
+ }
+ 
+ /* Trivial set of netlink ops to allow deleting tun or tap
+@@ -1381,10 +1609,15 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		tun->filter_attached = false;
+ 		tun->sndbuf = tfile->socket.sk->sk_sndbuf;
+ 
++		spin_lock_init(&tun->lock);
++
+ 		security_tun_dev_post_create(&tfile->sk);
+ 
+ 		tun_net_init(dev);
+ 
++		if (tun_flow_init(tun))
++			goto err_free_dev;
++
+ 		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
+ 			TUN_USER_FEATURES;
+ 		dev->features = dev->hw_features;
+-- 
+1.7.1
