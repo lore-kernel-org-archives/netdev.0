@@ -1,94 +1,108 @@
-From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-Subject: Re: [PATCH v7 06/16] tracepoint: use new hashtable implementation
-Date: Mon, 29 Oct 2012 07:35:15 -0400
-Message-ID: <20121029113515.GB9115@Krystal>
-References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com> <1351450948-15618-6-git-send-email-levinsasha928@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next] sctp: support per-association stats via a new
+ SCTP_GET_ASSOC_STATS call
+Date: Mon, 29 Oct 2012 07:37:00 -0400
+Message-ID: <20121029113700.GA9332@hmsreliant.think-freely.org>
+References: <1351258973-17227-1-git-send-email-michele@acksyn.org>
+ <20121026143704.GC25087@hmsreliant.think-freely.org>
+ <20121029084143.GA17442@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: torvalds@linux-foundation.org, tj@kernel.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net,
-	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
-	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
-	josh@joshtriplett.org, eric.dumazet@gmail.com, axboe@kernel.dk,
-	agk@redhat.com, dm-devel@redhat.com, neilb@suse.de,
-	ccaulfie@redhat.com, teigland@redhat.com,
-	Trond.Myklebust@netapp.com, bfields@fieldses.org,
-	fweisbec@gmail.com, jesse@nicira.com,
-	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
-	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
-	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: Michele Baldessari <michele@acksyn.org>,
+	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53347 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932329Ab2J2LhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 07:37:20 -0400
 Content-Disposition: inline
-In-Reply-To: <1351450948-15618-6-git-send-email-levinsasha928@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20121029084143.GA17442@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Sasha Levin (levinsasha928@gmail.com) wrote:
-> Switch tracepoints to use the new hashtable implementation. This reduces =
-the amount of
-> generic unrelated code in the tracepoints.
->=20
-> Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
-> ---
->  kernel/tracepoint.c | 27 +++++++++++----------------
->  1 file changed, 11 insertions(+), 16 deletions(-)
->=20
-> diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
-> index d96ba22..854df92 100644
-> --- a/kernel/tracepoint.c
-> +++ b/kernel/tracepoint.c
-> @@ -26,6 +26,7 @@
->  #include <linux/slab.h>
->  #include <linux/sched.h>
->  #include <linux/static_key.h>
-> +#include <linux/hashtable.h>
-> =20
->  extern struct tracepoint * const __start___tracepoints_ptrs[];
->  extern struct tracepoint * const __stop___tracepoints_ptrs[];
-> @@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
->   * Protected by tracepoints_mutex.
->   */
->  #define TRACEPOINT_HASH_BITS 6
-> -#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
-> -static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
-> +static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
-> =20
-[...]
-> =20
-> @@ -722,6 +715,8 @@ struct notifier_block tracepoint_module_nb =3D {
-> =20
->  static int init_tracepoints(void)
->  {
-> +	hash_init(tracepoint_table);
-> +
->  	return register_module_notifier(&tracepoint_module_nb);
->  }
->  __initcall(init_tracepoints);
+On Mon, Oct 29, 2012 at 08:41:43AM +0000, Thomas Graf wrote:
+> On 10/26/12 at 10:37am, Neil Horman wrote:
+> > We already have files in /proc/net/sctp to count snmp system-wide totals,
+> > per-endpoint totals, and per association totals.  Why do these stats differently
+> > instead of just adding them the per-association file?  I get that solaris does
+> > this, but its not codified in any of the RFC's or other standards.  I would
+> > really rather see something like this go into the interfaces we have, rather
+> > than creating a new one.
+> 
+> I really dislike to grow the procfs interface. I would favour a
+> netlink inteface but we already export all the statistics via
+> the socket interface so this is the most consistent choice.
+> 
+I'm not sure what statistics you are referring to here.  The only stats I see
+exported (save for association setting exported via SCTP_STATUS on the socket
+interface), are done via proc.  I agree that proc stinks out loud, but my first
+though when seeing stats exported via an interface in which you need to provide
+process specific data (in this case the socket and association id), is that the
+very next thing that someone will ask for is the ability for these stats to be
+visible from outside the process, so an external tool can monitor them.  I guess
+I'm ok with this approach, since its more efficient than polling proc (as per
+your needs below), but maybe its time to start looking at implementing a
+NETLINK_STATS interface so that we can have the best of both worlds.
 
-So we have a hash table defined in .bss (therefore entirely initialized
-to NULL), and you add a call to "hash_init", which iterates on the whole
-array and initialize it to NULL (again) ?
 
-This extra initialization is redundant. I think it should be removed
-=66rom here, and hashtable.h should document that hash_init() don't need
-to be called on zeroed memory (which includes static/global variables,
-kzalloc'd memory, etc).
+> > And the max observed rto stat is just odd.  Each
+> > transport has an rto value, not each association, and you cal already see the
+> > individual transport rto values in /proc/net/sctp/remaddr.
+> 
+> It's true that this is not found in any RFC and the request seems to
+> be based on the fact that Solaris provides this information already.
+> Recording the largest observed RTO is critical for latency sensitive
+> use cases. Looking at RTO in remaddr doesn't really help to figure out
+> the MAX(RTO) even with a very high polling frequency, something you
+> don't want to do on a procfs file.
+> 
+Hm, ok, looking for the maximum rto seen is definately more efficient that a
+high polling rate on the remaddr file.  Still can't say I really like it as a
+statistic though.  While it helps in diagnosing a very specific type of problem
+(applications that have a maximum allowable latency), its really not useful, and
+potentially misleading, in the general case.  Specificaly it may show a very
+large RTO even if that RTO was an erroneous spike in behavior earlier in the
+lifetime of a given transport, even if that RTO is not representative of the
+current behavior of the association.  It seems to me like this stat might be
+better collected using a stap script or by adding a trace point to
+sctp_transport_update_rto.  If the application needs to know this information
+internally during its operation to take corrective action, you can already get
+it via the SCTP_GET_PEER_ADDR_INFO socket option on a per transport basis just
+as efficiently.
 
-Thanks,
+> > 
+> > > +	if (q->asoc)
+> > > +		q->asoc->rtxpackets++;
+> > > +
+> > > +
+> > This seems incorrect to me.  The packet being assembled here may have new chunks
+> > in it (either control or data).  Counting a packet as being retransmitted just
+> > because it has a retransmitted chunk in it seems wrong.  At the very least its a
+> > misleading/vague statistic.
+> 
+> I agree, this can't be done 100% accurate. I'm fine with leaving this
+> out and have userspace create the sum of SCTP_MIB_*_RETRANSMITS.
+> 
+Thank you, I agree.
 
-Mathieu
+> > > +		if (chunk->asoc)
+> > > +			chunk->asoc->outseqtsns++;
+> > This just seems wrong.  The definition states that this is counting the last TSN
+> > recevied (despite being name outseqtsns), yet this looks like you're:
+> > 1) just incrementing a counter, rather than recording the TSN value itself
+> > (which may or may not be what you meant, but seems to contradict what the
+> > comments at the definition)
+> > 2) Only incremanting it if the TSN is out of range, which makes very little
+> > sense to me.
+> 
+> As Vlad pointed out the name could be improved but the description
+> seems correct. The statistic counts the number of chunks where
+> TSN > expected.
+> 
+I'll look at it again, but the comments really suggested to me that this was
+mean to be a counter of the last transmitted tsn value, not the number of tsn's
+that were received out of the windowed range.
 
---=20
-Mathieu Desnoyers
-Operating System Efficiency R&D Consultant
-EfficiOS Inc.
-http://www.efficios.com
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Neil
