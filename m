@@ -1,108 +1,66 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next] sctp: support per-association stats via a new
- SCTP_GET_ASSOC_STATS call
-Date: Mon, 29 Oct 2012 07:37:00 -0400
-Message-ID: <20121029113700.GA9332@hmsreliant.think-freely.org>
-References: <1351258973-17227-1-git-send-email-michele@acksyn.org>
- <20121026143704.GC25087@hmsreliant.think-freely.org>
- <20121029084143.GA17442@casper.infradead.org>
+From: Javier Domingo <javierdo1@gmail.com>
+Subject: Re: Information about napi_struct and net_device
+Date: Mon, 29 Oct 2012 12:49:51 +0100
+Message-ID: <CALZVapmSRsSYFea_PE0G9UWq-XgMaWLqnp6r9-Y8RGxVtf4Zpw@mail.gmail.com>
+References: <CALZVap=ybdWdK22LHsfSRu+TVCJnvL95KeChtCdX8DE-C=1gAg@mail.gmail.com>
+ <1351357421.30380.328.camel@edumazet-glaptop> <20121027182207.GA12858@electric-eye.fr.zoreil.com>
+ <1351378943.30380.332.camel@edumazet-glaptop> <CALZVapkYdSRB9j+KnXdC7wT9iXqrZvXBcAK=Pk9uFoWwLgDNYg@mail.gmail.com>
+ <20121028231300.GA27196@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michele Baldessari <michele@acksyn.org>,
-	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53347 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932329Ab2J2LhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 07:37:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20121029084143.GA17442@casper.infradead.org>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:60745 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758652Ab2J2LuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 07:50:12 -0400
+Received: by mail-vc0-f174.google.com with SMTP id fk26so5106030vcb.19
+        for <netdev@vger.kernel.org>; Mon, 29 Oct 2012 04:50:11 -0700 (PDT)
+In-Reply-To: <20121028231300.GA27196@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Oct 29, 2012 at 08:41:43AM +0000, Thomas Graf wrote:
-> On 10/26/12 at 10:37am, Neil Horman wrote:
-> > We already have files in /proc/net/sctp to count snmp system-wide totals,
-> > per-endpoint totals, and per association totals.  Why do these stats differently
-> > instead of just adding them the per-association file?  I get that solaris does
-> > this, but its not codified in any of the RFC's or other standards.  I would
-> > really rather see something like this go into the interfaces we have, rather
-> > than creating a new one.
-> 
-> I really dislike to grow the procfs interface. I would favour a
-> netlink inteface but we already export all the statistics via
-> the socket interface so this is the most consistent choice.
-> 
-I'm not sure what statistics you are referring to here.  The only stats I see
-exported (save for association setting exported via SCTP_STATUS on the socket
-interface), are done via proc.  I agree that proc stinks out loud, but my first
-though when seeing stats exported via an interface in which you need to provide
-process specific data (in this case the socket and association id), is that the
-very next thing that someone will ask for is the ability for these stats to be
-visible from outside the process, so an external tool can monitor them.  I guess
-I'm ok with this approach, since its more efficient than polling proc (as per
-your needs below), but maybe its time to start looking at implementing a
-NETLINK_STATS interface so that we can have the best of both worlds.
+Hi Francois,
+
+I have been reading the code you recommended, and I think I must have
+misexplained myself. I am not developing a driver, I am updating a
+patch that we use at our research group, in which we modify linux to
+make our custom packet processing, getting all the packets from the
+NICs into a custom queue for processing.
+
+It will obviously not going to be integrated in the linux kernel,
+because its way to work is just useful to us, thought when we have
+something that works, we have planned to distribute it.
+
+I work with net_device, because I mainly use its fields, but I provide
+functions to enable/disable capturing from a specific net_device. Now,
+as napi_struct has appeared, I can't no longer use the
+netif_rx_disable/enable functions, but I still need to know how to get
+the already created napi_struct from my net_device pointers.
+
+I think I have been looking in a too low level,
+
+Regards,
+
+Javier Domingo
 
 
-> > And the max observed rto stat is just odd.  Each
-> > transport has an rto value, not each association, and you cal already see the
-> > individual transport rto values in /proc/net/sctp/remaddr.
-> 
-> It's true that this is not found in any RFC and the request seems to
-> be based on the fact that Solaris provides this information already.
-> Recording the largest observed RTO is critical for latency sensitive
-> use cases. Looking at RTO in remaddr doesn't really help to figure out
-> the MAX(RTO) even with a very high polling frequency, something you
-> don't want to do on a procfs file.
-> 
-Hm, ok, looking for the maximum rto seen is definately more efficient that a
-high polling rate on the remaddr file.  Still can't say I really like it as a
-statistic though.  While it helps in diagnosing a very specific type of problem
-(applications that have a maximum allowable latency), its really not useful, and
-potentially misleading, in the general case.  Specificaly it may show a very
-large RTO even if that RTO was an erroneous spike in behavior earlier in the
-lifetime of a given transport, even if that RTO is not representative of the
-current behavior of the association.  It seems to me like this stat might be
-better collected using a stap script or by adding a trace point to
-sctp_transport_update_rto.  If the application needs to know this information
-internally during its operation to take corrective action, you can already get
-it via the SCTP_GET_PEER_ADDR_INFO socket option on a per transport basis just
-as efficiently.
-
-> > 
-> > > +	if (q->asoc)
-> > > +		q->asoc->rtxpackets++;
-> > > +
-> > > +
-> > This seems incorrect to me.  The packet being assembled here may have new chunks
-> > in it (either control or data).  Counting a packet as being retransmitted just
-> > because it has a retransmitted chunk in it seems wrong.  At the very least its a
-> > misleading/vague statistic.
-> 
-> I agree, this can't be done 100% accurate. I'm fine with leaving this
-> out and have userspace create the sum of SCTP_MIB_*_RETRANSMITS.
-> 
-Thank you, I agree.
-
-> > > +		if (chunk->asoc)
-> > > +			chunk->asoc->outseqtsns++;
-> > This just seems wrong.  The definition states that this is counting the last TSN
-> > recevied (despite being name outseqtsns), yet this looks like you're:
-> > 1) just incrementing a counter, rather than recording the TSN value itself
-> > (which may or may not be what you meant, but seems to contradict what the
-> > comments at the definition)
-> > 2) Only incremanting it if the TSN is out of range, which makes very little
-> > sense to me.
-> 
-> As Vlad pointed out the name could be improved but the description
-> seems correct. The statistic counts the number of chunks where
-> TSN > expected.
-> 
-I'll look at it again, but the comments really suggested to me that this was
-mean to be a counter of the last transmitted tsn value, not the number of tsn's
-that were received out of the windowed range.
-
-Neil
+2012/10/29 Francois Romieu <romieu@fr.zoreil.com>:
+> Javier Domingo <javierdo1@gmail.com> :
+> [...]
+>>               inside of the net_device structure, I know I can take
+>> the net_device pointer as documented in [3], but how may  I obtain the
+>> napi_struct from the netdevice? or I am doing it the wrong way?
+>
+> You are doing it the wrong way. The napi_struct you need is not embedded
+> here. See
+>
+> $ less +/napi drivers/net/ethernet/realtek/8139cp.c
+>
+> (first match in struct cp_private).
+>
+> You should really read one of the existing drivers.
+>
+> --
+> Ueimor
