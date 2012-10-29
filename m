@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next V3 07/10] cpsw: add a DT field for the cpts offset
-Date: Mon, 29 Oct 2012 19:45:17 +0100
-Message-ID: <18ad33e907fee56947313a9a36e0d3adc1e37237.1351535540.git.richardcochran@gmail.com>
+Subject: [PATCH net-next V3 02/10] cpsw: rename register banks to match the reference manual
+Date: Mon, 29 Oct 2012 19:45:12 +0100
+Message-ID: <dabacdd3ca46ca75c013eb9d9380a933226761f7.1351535538.git.richardcochran@gmail.com>
 References: <cover.1351535536.git.richardcochran@gmail.com>
 Cc: <linux-arm-kernel@lists.infradead.org>,
 	David Miller <davem@davemloft.net>,
@@ -11,80 +11,88 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ea0-f174.google.com ([209.85.215.174]:37510 "EHLO
 	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759657Ab2J2Spu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 14:45:50 -0400
+	with ESMTP id S1760489Ab2J2Sph (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 14:45:37 -0400
 Received: by mail-ea0-f174.google.com with SMTP id c13so1826941eaa.19
-        for <netdev@vger.kernel.org>; Mon, 29 Oct 2012 11:45:50 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Mon, 29 Oct 2012 11:45:37 -0700 (PDT)
 In-Reply-To: <cover.1351535536.git.richardcochran@gmail.com>
 In-Reply-To: <cover.1351535536.git.richardcochran@gmail.com>
 References: <cover.1351535536.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The code mixes up the CPSW_SS and the CPSW_WR register naming. This patch
+changes the names to conform to the published Technical Reference Manual
+from TI, in order to make working on the code less confusing.
+
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- Documentation/devicetree/bindings/net/cpsw.txt |    3 +++
- drivers/net/ethernet/ti/cpsw.c                 |    7 +++++++
- include/linux/platform_data/cpsw.h             |    1 +
- 3 files changed, 11 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 3af47b7..dba014f 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -16,6 +16,7 @@ Required properties:
- - ale_entries		: Specifies No of entries ALE can hold
- - host_port_reg_ofs	: Specifies host port register offset
- - hw_stats_reg_ofs	: Specifies hardware statistics register offset
-+- cpts_reg_ofs		: Specifies the offset of the CPTS registers
- - bd_ram_ofs		: Specifies internal desciptor RAM offset
- - bd_ram_size		: Specifies internal descriptor RAM size
- - rx_descs		: Specifies number of Rx descriptors
-@@ -52,6 +53,7 @@ Examples:
- 		ale_entries = <1024>;
- 		host_port_reg_ofs = <0x108>;
- 		hw_stats_reg_ofs = <0x900>;
-+		cpts_reg_ofs = <0xc00>;
- 		bd_ram_ofs = <0x2000>;
- 		bd_ram_size = <0x2000>;
- 		no_bd_ram = <0>;
-@@ -86,6 +88,7 @@ Examples:
- 		ale_entries = <1024>;
- 		host_port_reg_ofs = <0x108>;
- 		hw_stats_reg_ofs = <0x900>;
-+		cpts_reg_ofs = <0xc00>;
- 		bd_ram_ofs = <0x2000>;
- 		bd_ram_size = <0x2000>;
- 		no_bd_ram = <0>;
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 588f5c3..f1af5e0 100644
+index 63b046f..e651a2a 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -912,6 +912,13 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+@@ -131,7 +131,7 @@ static int rx_packet_max = CPSW_MAX_PACKET_SIZE;
+ module_param(rx_packet_max, int, 0);
+ MODULE_PARM_DESC(rx_packet_max, "maximum receive packet size (bytes)");
+ 
+-struct cpsw_ss_regs {
++struct cpsw_wr_regs {
+ 	u32	id_ver;
+ 	u32	soft_reset;
+ 	u32	control;
+@@ -142,7 +142,7 @@ struct cpsw_ss_regs {
+ 	u32	misc_en;
+ };
+ 
+-struct cpsw_regs {
++struct cpsw_ss_regs {
+ 	u32	id_ver;
+ 	u32	control;
+ 	u32	soft_reset;
+@@ -204,8 +204,8 @@ struct cpsw_priv {
+ 	struct napi_struct		napi;
+ 	struct device			*dev;
+ 	struct cpsw_platform_data	data;
+-	struct cpsw_regs __iomem	*regs;
+-	struct cpsw_ss_regs __iomem	*ss_regs;
++	struct cpsw_ss_regs __iomem	*regs;
++	struct cpsw_wr_regs __iomem	*wr_regs;
+ 	struct cpsw_host_regs __iomem	*host_port_regs;
+ 	u32				msg_enable;
+ 	struct net_device_stats		stats;
+@@ -256,8 +256,8 @@ static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
+ 
+ static void cpsw_intr_enable(struct cpsw_priv *priv)
+ {
+-	__raw_writel(0xFF, &priv->ss_regs->tx_en);
+-	__raw_writel(0xFF, &priv->ss_regs->rx_en);
++	__raw_writel(0xFF, &priv->wr_regs->tx_en);
++	__raw_writel(0xFF, &priv->wr_regs->rx_en);
+ 
+ 	cpdma_ctlr_int_ctrl(priv->dma, true);
+ 	return;
+@@ -265,8 +265,8 @@ static void cpsw_intr_enable(struct cpsw_priv *priv)
+ 
+ static void cpsw_intr_disable(struct cpsw_priv *priv)
+ {
+-	__raw_writel(0, &priv->ss_regs->tx_en);
+-	__raw_writel(0, &priv->ss_regs->rx_en);
++	__raw_writel(0, &priv->wr_regs->tx_en);
++	__raw_writel(0, &priv->wr_regs->rx_en);
+ 
+ 	cpdma_ctlr_int_ctrl(priv->dma, false);
+ 	return;
+@@ -999,7 +999,7 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
+ 		dev_err(priv->dev, "unable to map i/o region\n");
+ 		goto clean_cpsw_ss_iores_ret;
  	}
- 	data->hw_stats_reg_ofs = prop;
+-	priv->ss_regs = regs;
++	priv->wr_regs = regs;
  
-+	if (of_property_read_u32(node, "cpts_reg_ofs", &prop)) {
-+		pr_err("Missing cpts_reg_ofs property in the DT.\n");
-+		ret = -EINVAL;
-+		goto error_ret;
-+	}
-+	data->cpts_reg_ofs = prop;
-+
- 	if (of_property_read_u32(node, "bd_ram_ofs", &prop)) {
- 		pr_err("Missing bd_ram_ofs property in the DT.\n");
- 		ret = -EINVAL;
-diff --git a/include/linux/platform_data/cpsw.h b/include/linux/platform_data/cpsw.h
-index c4e23d0..a052b1d 100644
---- a/include/linux/platform_data/cpsw.h
-+++ b/include/linux/platform_data/cpsw.h
-@@ -41,6 +41,7 @@ struct cpsw_platform_data {
- 	u32     host_port_num; /* The port number for the host port */
+ 	for_each_slave(priv, cpsw_slave_init, priv);
  
- 	u32	hw_stats_reg_ofs;  /* cpsw hardware statistics counters */
-+	u32	cpts_reg_ofs;      /* cpts registers */
- 
- 	u32	bd_ram_ofs;   /* embedded buffer descriptor RAM offset*/
- 	u32	bd_ram_size;  /*buffer descriptor ram size */
 -- 
 1.7.2.5
