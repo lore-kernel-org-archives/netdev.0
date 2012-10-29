@@ -1,15 +1,12 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v7 15/16] openvswitch: use new hashtable
+From: Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>
+Subject: Re: [PATCH v7 06/16] tracepoint: use new hashtable
 	implementation
-Date: Mon, 29 Oct 2012 11:22:09 -0700
-Message-ID: <20121029182209.GB4066@htj.dyndns.org>
+Date: Mon, 29 Oct 2012 11:31:57 -0700
+Message-ID: <20121029183157.GC3097@jtriplet-mobl1>
 References: <1351450948-15618-1-git-send-email-levinsasha928@gmail.com>
-	<1351450948-15618-15-git-send-email-levinsasha928@gmail.com>
-	<20121029132931.GC16391@Krystal>
-	<CA+1xoqfRGhPaBEVh228O5_295bWh8FmcyLSOwq8VE5Dm7i3JHg@mail.gmail.com>
-	<20121029155957.GB18834@Krystal>
-	<CA+1xoqcr5xmOkDfqL3P84CNdotOALOhiLRkJjsPCZzijSQUF6w@mail.gmail.com>
-	<20121029181648.GB20796@Krystal>
+	<1351450948-15618-6-git-send-email-levinsasha928@gmail.com>
+	<20121029113515.GB9115@Krystal>
+	<CA+1xoqce6uJ6wy3+2CBwsLHKnsz4wD0vt8MBEGKCFfXTvuC0Hg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,18 +16,18 @@ Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gm
 	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
 	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
 	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
+	Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>,
 	axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
 	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
 	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
 	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Mathieu Desnoyers <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org>
+To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20121029181648.GB20796@Krystal>
+In-Reply-To: <CA+1xoqce6uJ6wy3+2CBwsLHKnsz4wD0vt8MBEGKCFfXTvuC0Hg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
 	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -42,24 +39,68 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-
-On Mon, Oct 29, 2012 at 02:16:48PM -0400, Mathieu Desnoyers wrote:
-> This is just one example in an attempt to show why different hash table
-> users may have different constraints: for a hash table entirely
-> populated by keys generated internally by the kernel, a random seed
-> might not be required, but for cases where values are fed by user-space
-> and from the NIC, I would argue that flexibility to implement a
-> randomizable hash function beats implementation simplicity any time.
+On Mon, Oct 29, 2012 at 01:29:24PM -0400, Sasha Levin wrote:
+> On Mon, Oct 29, 2012 at 7:35 AM, Mathieu Desnoyers
+> <mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org> wrote:
+> > * Sasha Levin (levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org) wrote:
+> >> Switch tracepoints to use the new hashtable implementation. This reduces the amount of
+> >> generic unrelated code in the tracepoints.
+> >>
+> >> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> >> ---
+> >>  kernel/tracepoint.c | 27 +++++++++++----------------
+> >>  1 file changed, 11 insertions(+), 16 deletions(-)
+> >>
+> >> diff --git a/kernel/tracepoint.c b/kernel/tracepoint.c
+> >> index d96ba22..854df92 100644
+> >> --- a/kernel/tracepoint.c
+> >> +++ b/kernel/tracepoint.c
+> >> @@ -26,6 +26,7 @@
+> >>  #include <linux/slab.h>
+> >>  #include <linux/sched.h>
+> >>  #include <linux/static_key.h>
+> >> +#include <linux/hashtable.h>
+> >>
+> >>  extern struct tracepoint * const __start___tracepoints_ptrs[];
+> >>  extern struct tracepoint * const __stop___tracepoints_ptrs[];
+> >> @@ -49,8 +50,7 @@ static LIST_HEAD(tracepoint_module_list);
+> >>   * Protected by tracepoints_mutex.
+> >>   */
+> >>  #define TRACEPOINT_HASH_BITS 6
+> >> -#define TRACEPOINT_TABLE_SIZE (1 << TRACEPOINT_HASH_BITS)
+> >> -static struct hlist_head tracepoint_table[TRACEPOINT_TABLE_SIZE];
+> >> +static DEFINE_HASHTABLE(tracepoint_table, TRACEPOINT_HASH_BITS);
+> >>
+> > [...]
+> >>
+> >> @@ -722,6 +715,8 @@ struct notifier_block tracepoint_module_nb = {
+> >>
+> >>  static int init_tracepoints(void)
+> >>  {
+> >> +     hash_init(tracepoint_table);
+> >> +
+> >>       return register_module_notifier(&tracepoint_module_nb);
+> >>  }
+> >>  __initcall(init_tracepoints);
+> >
+> > So we have a hash table defined in .bss (therefore entirely initialized
+> > to NULL), and you add a call to "hash_init", which iterates on the whole
+> > array and initialize it to NULL (again) ?
+> >
+> > This extra initialization is redundant. I think it should be removed
+> > from here, and hashtable.h should document that hash_init() don't need
+> > to be called on zeroed memory (which includes static/global variables,
+> > kzalloc'd memory, etc).
 > 
-> And you could keep the basic use-case simple by providing hints to the
-> hash_32()/hash_64()/hash_ulong() helpers in comments.
+> This was discussed in the previous series, the conclusion was to call
+> hash_init() either way to keep the encapsulation and consistency.
+> 
+> It's cheap enough and happens only once, so why not?
 
-If all you need is throwing in a salt value to avoid attacks, can't
-you just do that from caller side?  Scrambling the key before feeding
-it into hash_*() should work, no?
+Unnecessary work adds up.  Better not to do it unnecessarily, even if by
+itself it doesn't cost that much.
 
-Thanks.
+It doesn't seem that difficult for future fields to have 0 as their
+initialized state.
 
--- 
-tejun
+- Josh Triplett
