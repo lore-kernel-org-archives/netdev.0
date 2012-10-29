@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v3 5/6] PM / Runtime: force memory allocation with no I/O during runtime_resume callbcack
-Date: Mon, 29 Oct 2012 20:23:59 +0800
-Message-ID: <1351513440-9286-6-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH v3 6/6] USB: forbid memory allocation with I/O during bus reset
+Date: Mon, 29 Oct 2012 20:24:00 +0800
+Message-ID: <1351513440-9286-7-git-send-email-ming.lei@canonical.com>
 References: <1351513440-9286-1-git-send-email-ming.lei@canonical.com>
 Cc: Alan Stern <stern@rowland.harvard.edu>,
 	Oliver Neukum <oneukum@suse.de>,
@@ -22,53 +22,66 @@ In-Reply-To: <1351513440-9286-1-git-send-email-ming.lei@canonical.com>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-This patch applies the introduced memalloc_noio_save() and
-memalloc_noio_restore() to force memory allocation with no I/O
-during runtime_resume callback on device which is marked as
-memalloc_noio_resume.
+If one storage interface or usb network interface(iSCSI case)
+exists in current configuration, memory allocation with
+GFP_KERNEL during usb_device_reset() might trigger I/O transfer
+on the storage interface itself and cause deadlock because
+the 'us->dev_mutex' is held in .pre_reset() and the storage
+interface can't do I/O transfer when the reset is triggered
+by other interface, or the error handling can't be completed
+if the reset is triggered by the storage itself(error handling path).
 
 Cc: Alan Stern <stern@rowland.harvard.edu>
 Cc: Oliver Neukum <oneukum@suse.de>
-Cc: Rafael J. Wysocki <rjw@sisk.pl>
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/base/power/runtime.c |   16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+v3:
+	- check usbnet device or usb mass storage device by
+	'dev->power.memalloc_noio_resume' as suggested by Alan Stern
+---
+ drivers/usb/core/hub.c |   15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/drivers/base/power/runtime.c b/drivers/base/power/runtime.c
-index 9fa6ea7..c9e26b9 100644
---- a/drivers/base/power/runtime.c
-+++ b/drivers/base/power/runtime.c
-@@ -575,6 +575,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
- 	int (*callback)(struct device *);
- 	struct device *parent = NULL;
- 	int retval = 0;
-+	unsigned int noio_flag;
+diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+index 5b131b6..5aea807 100644
+--- a/drivers/usb/core/hub.c
++++ b/drivers/usb/core/hub.c
+@@ -5044,6 +5044,8 @@ int usb_reset_device(struct usb_device *udev)
+ {
+ 	int ret;
+ 	int i;
++	unsigned int uninitialized_var(noio_flag);
++	bool noio_set = false;
+ 	struct usb_host_config *config = udev->actconfig;
  
- 	trace_rpm_resume(dev, rpmflags);
+ 	if (udev->state == USB_STATE_NOTATTACHED ||
+@@ -5053,6 +5055,17 @@ int usb_reset_device(struct usb_device *udev)
+ 		return -EINVAL;
+ 	}
  
-@@ -724,7 +725,20 @@ static int rpm_resume(struct device *dev, int rpmflags)
- 	if (!callback && dev->driver && dev->driver->pm)
- 		callback = dev->driver->pm->runtime_resume;
- 
--	retval = rpm_callback(callback, dev);
 +	/*
-+	 * Deadlock might be caused if memory allocation with GFP_KERNEL
-+	 * happens inside runtime_resume callback of one block device's
-+	 * ancestor or the block device itself. Network device might be
-+	 * thought as part of iSCSI block device, so network device and
-+	 * its ancestor should be marked as memalloc_noio_resume.
++	 * Don't allocate memory with GFP_KERNEL in current
++	 * context to avoid possible deadlock if usb mass
++	 * storage interface or usbnet interface(iSCSI case)
++	 * is included in current configuration.
 +	 */
-+	if (dev->power.memalloc_noio_resume) {
++	if (pm_runtime_get_memalloc_noio(&udev->dev)) {
 +		memalloc_noio_save(noio_flag);
-+		retval = rpm_callback(callback, dev);
-+		memalloc_noio_restore(noio_flag);
-+	} else {
-+		retval = rpm_callback(callback, dev);
++		noio_set = true;
 +	}
- 	if (retval) {
- 		__update_runtime_status(dev, RPM_SUSPENDED);
- 		pm_runtime_cancel_pending(dev);
++
+ 	/* Prevent autosuspend during the reset */
+ 	usb_autoresume_device(udev);
+ 
+@@ -5097,6 +5110,8 @@ int usb_reset_device(struct usb_device *udev)
+ 	}
+ 
+ 	usb_autosuspend_device(udev);
++	if (noio_set)
++		memalloc_noio_restore(noio_flag);
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(usb_reset_device);
 -- 
 1.7.9.5
 
