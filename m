@@ -1,237 +1,93 @@
-From: Paolo Valente <paolo.valente@unimore.it>
-Subject: [PATCH RFC] pkt_sched: enable QFQ to support TSO/GSO
-Date: Mon, 29 Oct 2012 09:51:06 +0100
-Message-ID: <20121029085106.GA3733@paolo-ThinkPad-W520>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com, paolo.valente@unimore.it
-To: jhs@mojatatu.com, davem@davemloft.net, shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp7.sms.unimo.it ([155.185.44.150]:38383 "EHLO
-	smtp7.sms.unimo.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758120Ab2J2Iv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Oct 2012 04:51:26 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: pull request: batman-adv 202-10-29
+Date: Mon, 29 Oct 2012 09:58:01 +0100
+Message-ID: <1351501097-1289-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hi,
-if the max packet size for some class (configured through tc) is
-violated by the actual size of the packets of that class, then QFQ
-would not schedule classes correctly, and the data structures
-implementing the bucket lists may get corrupted. This problem occurs
-with TSO/GSO even if the max packet size is set to the MTU, and is,
-e.g., the cause of the failure reported in [1]. Two patches have been
-proposed to solve this problem in [2], one of them is a preliminary
-version of this patch.
+Hello David,
 
-This patch addresses the above issues by: 1) setting QFQ parameters to
-proper values for supporting TSO/GSO (in particular, setting the
-maximum possible packet size to 64KB), 2) automatically increasing the
-max packet size for a class, lmax, when a packet with a larger size
-than the current value of lmax arrives (a notification is also appended
-to the log).
+this is again our first set of changes intended for net-next/linux-3.8.
+With respect to the previous changeset we substituted the patch changing the
+BAT_ATTR_HIF_UINT macro with a new one that removes it (we will re-add such
+macro together with the user).
+The rest is exactly the same as before.
 
-The drawback of the first point is that the maximum weight for a class
-is now limited to 4096, which is equal to 1/16 of the maximum weight
-sum.
+Thank you very much,
+		Antonio
 
-Finally, this patch also forcibly caps the timestamps of a class if
-they are too high to be stored in the bucket list. This capping, taken
-from QFQ+ [3], handles the unfrequent case described in the comment to
-the function slot_insert.
 
-[1] http://marc.info/?l=linux-netdev&m=134968777902077&w=2
-[2] http://marc.info/?l=linux-netdev&m=135096573507936&w=2
-[3] http://marc.info/?l=linux-netdev&m=134902691421670&w=2
+The following changes since commit a932657f51eadb8280166e82dc7034dfbff3985a:
 
-Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
----
- net/sched/sch_qfq.c |  109 +++++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 79 insertions(+), 30 deletions(-)
+  net: sierra: shut up sparse restricted type warnings (2012-10-28 19:09:02 -0400)
 
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index f0dd83c..4092470 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -84,18 +84,19 @@
-  * grp->index is the index of the group; and grp->slot_shift
-  * is the shift for the corresponding (scaled) sigma_i.
-  */
--#define QFQ_MAX_INDEX		19
--#define QFQ_MAX_WSHIFT		16
-+#define QFQ_MAX_INDEX		24
-+#define QFQ_MAX_WSHIFT		12
- 
- #define	QFQ_MAX_WEIGHT		(1<<QFQ_MAX_WSHIFT)
--#define QFQ_MAX_WSUM		(2*QFQ_MAX_WEIGHT)
-+#define QFQ_MAX_WSUM		(16*QFQ_MAX_WEIGHT)
- 
- #define FRAC_BITS		30	/* fixed point arithmetic */
- #define ONE_FP			(1UL << FRAC_BITS)
- #define IWSUM			(ONE_FP/QFQ_MAX_WSUM)
- 
--#define QFQ_MTU_SHIFT		11
-+#define QFQ_MTU_SHIFT		16	/* to support TSO/GSO */
- #define QFQ_MIN_SLOT_SHIFT	(FRAC_BITS + QFQ_MTU_SHIFT - QFQ_MAX_INDEX)
-+#define QFQ_MIN_LMAX		256	/* min possible lmax for a class */
- 
- /*
-  * Possible group states.  These values are used as indexes for the bitmaps
-@@ -231,6 +232,32 @@ static void qfq_update_class_params(struct qfq_sched *q, struct qfq_class *cl,
- 	q->wsum += delta_w;
- }
- 
-+static void qfq_update_reactivate_class(struct qfq_sched *q,
-+					struct qfq_class *cl,
-+					u32 inv_w, u32 lmax, int delta_w)
-+{
-+	bool need_reactivation = false;
-+	int i = qfq_calc_index(inv_w, lmax);
-+
-+	if (&q->groups[i] != cl->grp && cl->qdisc->q.qlen > 0) {
-+		/*
-+		 * shift cl->F back, to not charge the
-+		 * class for the not-yet-served head
-+		 * packet
-+		 */
-+		cl->F = cl->S;
-+		/* remove class from its slot in the old group */
-+		qfq_deactivate_class(q, cl);
-+		need_reactivation = true;
-+	}
-+
-+	qfq_update_class_params(q, cl, lmax, inv_w, delta_w);
-+
-+	if (need_reactivation) /* activate in new group */
-+		qfq_activate_class(q, cl, qdisc_peek_len(cl->qdisc));
-+}
-+
-+
- static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 			    struct nlattr **tca, unsigned long *arg)
- {
-@@ -238,7 +265,7 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 	struct qfq_class *cl = (struct qfq_class *)*arg;
- 	struct nlattr *tb[TCA_QFQ_MAX + 1];
- 	u32 weight, lmax, inv_w;
--	int i, err;
-+	int err;
- 	int delta_w;
- 
- 	if (tca[TCA_OPTIONS] == NULL) {
-@@ -270,16 +297,14 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 
- 	if (tb[TCA_QFQ_LMAX]) {
- 		lmax = nla_get_u32(tb[TCA_QFQ_LMAX]);
--		if (!lmax || lmax > (1UL << QFQ_MTU_SHIFT)) {
-+		if (lmax < QFQ_MIN_LMAX || lmax > (1UL << QFQ_MTU_SHIFT)) {
- 			pr_notice("qfq: invalid max length %u\n", lmax);
- 			return -EINVAL;
- 		}
- 	} else
--		lmax = 1UL << QFQ_MTU_SHIFT;
-+		lmax = psched_mtu(qdisc_dev(sch));
- 
- 	if (cl != NULL) {
--		bool need_reactivation = false;
--
- 		if (tca[TCA_RATE]) {
- 			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
- 						    qdisc_root_sleeping_lock(sch),
-@@ -291,24 +316,8 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 		if (lmax == cl->lmax && inv_w == cl->inv_w)
- 			return 0; /* nothing to update */
- 
--		i = qfq_calc_index(inv_w, lmax);
- 		sch_tree_lock(sch);
--		if (&q->groups[i] != cl->grp && cl->qdisc->q.qlen > 0) {
--			/*
--			 * shift cl->F back, to not charge the
--			 * class for the not-yet-served head
--			 * packet
--			 */
--			cl->F = cl->S;
--			/* remove class from its slot in the old group */
--			qfq_deactivate_class(q, cl);
--			need_reactivation = true;
--		}
--
--		qfq_update_class_params(q, cl, lmax, inv_w, delta_w);
--
--		if (need_reactivation) /* activate in new group */
--			qfq_activate_class(q, cl, qdisc_peek_len(cl->qdisc));
-+		qfq_update_reactivate_class(q, cl, inv_w, lmax, delta_w);
- 		sch_tree_unlock(sch);
- 
- 		return 0;
-@@ -663,15 +672,48 @@ static void qfq_make_eligible(struct qfq_sched *q, u64 old_V)
- 
- 
- /*
-- * XXX we should make sure that slot becomes less than 32.
-- * This is guaranteed by the input values.
-- * roundedS is always cl->S rounded on grp->slot_shift bits.
-+ * If the weight and lmax (max_pkt_size) of the classes do not change,
-+ * then QFQ guarantees that the slot index is never higher than
-+ * 2 + ((1<<QFQ_MTU_SHIFT)/QFQ_MIN_LMAX) * (QFQ_MAX_WEIGHT/QFQ_MAX_WSUM).
-+ *
-+ * With the current values of the above constants, the index is
-+ * then guaranteed to never be higher than 2 + 256 * (1 / 16) = 18.
-+ *
-+ * When the weight of a class is increased or the lmax of the class is
-+ * decreased, a new class with smaller slot size may happen to be
-+ * activated. The activation of this class should be properly delayed
-+ * to when the service of the class has finished in the ideal system
-+ * tracked by QFQ. If the activation of the class is not delayed to
-+ * this reference time instant, then this class may be unjustly served
-+ * before other classes waiting for service. This may cause
-+ * (unfrequently) the above bound to the slot index to be violated for
-+ * some of these unlucky classes.
-+ *
-+ * Instead of delaying the activation of the new class, which is quite
-+ * complex, the following inaccurate but simple solution is used: if
-+ * the slot index is higher than QFQ_MAX_SLOTS-2, then the timestamps
-+ * of the class are shifted backward so as to let the slot index
-+ * become equal to QFQ_MAX_SLOTS-2. This threshold is used because, if
-+ * the slot index is above it, then the data structure implementing
-+ * the bucket list either gets immediately corrupted or may get
-+ * corrupted on a possible next packet arrival that causes the start
-+ * time of the group to be shifted backward.
-  */
- static void qfq_slot_insert(struct qfq_group *grp, struct qfq_class *cl,
- 			    u64 roundedS)
- {
- 	u64 slot = (roundedS - grp->S) >> grp->slot_shift;
--	unsigned int i = (grp->front + slot) % QFQ_MAX_SLOTS;
-+	unsigned int i; /* slot index in the bucket list */
-+
-+	if (unlikely(slot > QFQ_MAX_SLOTS - 2)) {
-+		u64 deltaS = roundedS - grp->S -
-+			((u64)(QFQ_MAX_SLOTS - 2)<<grp->slot_shift);
-+		cl->S -= deltaS;
-+		cl->F -= deltaS;
-+		slot = QFQ_MAX_SLOTS - 2;
-+	}
-+
-+	i = (grp->front + slot) % QFQ_MAX_SLOTS;
- 
- 	hlist_add_head(&cl->next, &grp->slots[i]);
- 	__set_bit(slot, &grp->full_slots);
-@@ -892,6 +934,13 @@ static int qfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	}
- 	pr_debug("qfq_enqueue: cl = %x\n", cl->common.classid);
- 
-+	if (unlikely(cl->lmax < qdisc_pkt_len(skb))) {
-+		pr_notice("qfq: increasing maxpkt from %u to %u for class %u",
-+			  cl->lmax, qdisc_pkt_len(skb), cl->common.classid);
-+		qfq_update_reactivate_class(q, cl, cl->inv_w,
-+					    qdisc_pkt_len(skb), 0);
-+	}
-+
- 	err = qdisc_enqueue(skb, cl->qdisc);
- 	if (unlikely(err != NET_XMIT_SUCCESS)) {
- 		pr_debug("qfq_enqueue: enqueue failed %d\n", err);
--- 
-1.7.9.5
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to 0aca86cd92282359d2f7202804bd92e7d092c04e:
+
+  batman-adv: add kernel-doc for enum batadv_dbg_level (2012-10-29 09:42:51 +0100)
+
+----------------------------------------------------------------
+included changes:
+- some code cleanups and minor fixes (3 of them were reported by Coverity)
+- 'struct hard_iface' re-shaping to improve multi-protocol support
+- ECTP packets silent drop
+- transfer the WIFI flag on clients in case of roaming
+
+----------------------------------------------------------------
+Antonio Quartulli (8):
+      batman-adv: use check_unicast_packet() in recv_roam_adv()
+      batman-adv: return proper value in case of hash_add failure
+      batman-adv: properly store the roaming time
+      batman-adv: print packets re-routing on DBG_TT and ratelimit it
+      batman-adv: check for more space before accessing the skb
+      batman-adv: properly convert flag into a boolean value
+      batman-adv: pass the WIFI flag from the local to global entry
+      batman-adv: add kernel-doc for enum batadv_dbg_level
+
+Marek Lindner (2):
+      batman-adv: split hard_iface struct for each routing protocol
+      batman-adv: consolidate duplicated primary_if checking code
+
+Simon Wunderlich (1):
+      batman-adv: don't allow ECTP traffic on batman-adv
+
+Sven Eckelmann (5):
+      batman-adv: Remove unused define BAT_ATTR_HIF_UINT
+      batman-adv: Set special lockdep classes to avoid lockdep warning
+      batman-adv: Remove extra check in batadv_bit_get_packet
+      batman-adv: Check return value of try_module_get
+      batman-adv: Only increase refcounter once for alternate router
+
+ net/batman-adv/bat_iv_ogm.c            | 43 ++++++++++---------
+ net/batman-adv/bitarray.c              | 23 +++++-----
+ net/batman-adv/bridge_loop_avoidance.c | 36 +++-------------
+ net/batman-adv/debugfs.c               |  6 ++-
+ net/batman-adv/gateway_client.c        | 19 ++-------
+ net/batman-adv/hard-interface.c        |  4 +-
+ net/batman-adv/icmp_socket.c           | 12 ++++--
+ net/batman-adv/main.c                  | 46 +++++++++++++++-----
+ net/batman-adv/main.h                  | 19 ++++++---
+ net/batman-adv/originator.c            | 19 ++-------
+ net/batman-adv/routing.c               | 54 +++++++++---------------
+ net/batman-adv/soft-interface.c        | 56 ++++++++++++++++++++++++-
+ net/batman-adv/sysfs.c                 | 49 ----------------------
+ net/batman-adv/translation-table.c     | 77 +++++++++++++++++-----------------
+ net/batman-adv/translation-table.h     |  6 +--
+ net/batman-adv/types.h                 | 16 +++++--
+ 16 files changed, 238 insertions(+), 247 deletions(-)
