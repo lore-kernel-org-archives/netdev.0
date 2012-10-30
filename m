@@ -1,36 +1,47 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3 06/10] net/macb: clean up ring buffer logic
-Date: Tue, 30 Oct 2012 11:12:53 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B707D@saturn3.aculab.com>
-References: <cover.1351591858.git.nicolas.ferre@atmel.com> <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
+Date: Tue, 30 Oct 2012 19:30:14 +0800
+Message-ID: <CACVXFVMTg6k09AWTDZKQCJTBTUGwQ0OoHhdCLFdcbbCv5kzTjw@mail.gmail.com>
+References: <1351513440-9286-3-git-send-email-ming.lei@canonical.com>
+	<Pine.LNX.4.44L0.1210291125590.22882-100000@netrider.rowland.org>
+	<CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com>
+	<2149424.HsnQpSLjK5@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <bhutchings@solarflare.com>,
-	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
-	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
-	<manabian@gmail.com>
-To: "Nicolas Ferre" <nicolas.ferre@atmel.com>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<havard@skinnemoen.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	linux-kernel@vger.kernel.org, Minchan Kim <minchan@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-pm@vger.kernel.org, linux-mm@kvack.org
+To: Oliver Neukum <oneukum@suse.de>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <2149424.HsnQpSLjK5@linux-lqwf.site>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Instead of masking head and tail every time we increment them, just let them
-> wrap through UINT_MAX and mask them when subscripting. Add simple accessor
-> functions to do the subscripting properly to minimize the chances of messing
-> this up.
-...
-> +static unsigned int macb_tx_ring_avail(struct macb *bp)
-> +{
-> +	return TX_RING_SIZE - (bp->tx_head - bp->tx_tail);
-> +}
+Hi,
 
-That one doesn't look quite right to me.
-Surely it should be masking with 'TX_RING_SIZE - 1'
+On Tue, Oct 30, 2012 at 6:57 PM, Oliver Neukum <oneukum@suse.de> wrote:
+> how is this to work with power management domains?
 
-	David
+Could you explain it in a bit detail? Why is PM domain involved?
+
+Suppose PM domain is involved, its domain runtime_resume callback
+is still run in the context with PF_MEMALLOC_NOIO flag set if the
+affected 'device' is passed to the callback.
+
+> And I may be dense, but disks are added in slave_configure().
+> This seems to be a race to me.
+
+Sorry, could you describe what is the race?
+
+Suppose drivers set correct parent device to the disk device(gendisk),
+then add the disk into device model via register_disk(), the solution
+should be fine.
+
+Thanks,
+--
+Ming Lei
