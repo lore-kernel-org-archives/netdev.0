@@ -1,46 +1,91 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/13] igb: Fix sparse warning in igb_ptp_rx_pktstamp
-Date: Tue, 30 Oct 2012 00:04:30 -0700
-Message-ID: <1351580670-8292-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/13] igb: Enable auto-crossover during forced operation on 82580 and above.
+Date: Tue, 30 Oct 2012 00:04:28 -0700
+Message-ID: <1351580670-8292-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1351580670-8292-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:4367 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:25412 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755336Ab2J3HEi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 03:04:38 -0400
+	id S1755269Ab2J3HEh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2012 03:04:37 -0400
 In-Reply-To: <1351580670-8292-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Matthew Vick <matthew.vick@intel.com>
 
-This change fixes a sparse warning triggered by us casting the timestamp in
-the packet as a u64 instead of as a __le64.  This change corrects that in
-order to resolve the sparse warning.
+Newer devices supported by igb can support auto-crossover detection in
+forced operation modes. Enable this in the driver, rather than clobbering
+this functionality in forced operation.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Matthew Vick <matthew.vick@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ptp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/e1000_mac.c |  4 ++++
+ drivers/net/ethernet/intel/igb/e1000_phy.c | 29 +++++++++++++++++------------
+ 2 files changed, 21 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index a7db4ce..aa10f69 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -455,7 +455,7 @@ void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector,
- 			 unsigned char *va,
- 			 struct sk_buff *skb)
+diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
+index 819c145..7acddfe 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_mac.c
++++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
+@@ -1391,6 +1391,10 @@ s32 igb_validate_mdi_setting(struct e1000_hw *hw)
  {
--	u64 *regval = (u64 *)va;
-+	__le64 *regval = (__le64 *)va;
+ 	s32 ret_val = 0;
  
- 	/*
- 	 * The timestamp is recorded in little endian format.
++	/* All MDI settings are supported on 82580 and newer. */
++	if (hw->mac.type >= e1000_82580)
++		goto out;
++
+ 	if (!hw->mac.autoneg && (hw->phy.mdix == 0 || hw->phy.mdix == 3)) {
+ 		hw_dbg("Invalid MDI setting detected\n");
+ 		hw->phy.mdix = 1;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index c62a4c3..fe76004 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -1207,20 +1207,25 @@ s32 igb_phy_force_speed_duplex_m88(struct e1000_hw *hw)
+ 	u16 phy_data;
+ 	bool link;
+ 
+-	/*
+-	 * Clear Auto-Crossover to force MDI manually.  M88E1000 requires MDI
+-	 * forced whenever speed and duplex are forced.
+-	 */
+-	ret_val = phy->ops.read_reg(hw, M88E1000_PHY_SPEC_CTRL, &phy_data);
+-	if (ret_val)
+-		goto out;
++	/* I210 and I211 devices support Auto-Crossover in forced operation. */
++	if (phy->type != e1000_phy_i210) {
++		/*
++		 * Clear Auto-Crossover to force MDI manually.  M88E1000
++		 * requires MDI forced whenever speed and duplex are forced.
++		 */
++		ret_val = phy->ops.read_reg(hw, M88E1000_PHY_SPEC_CTRL,
++					    &phy_data);
++		if (ret_val)
++			goto out;
+ 
+-	phy_data &= ~M88E1000_PSCR_AUTO_X_MODE;
+-	ret_val = phy->ops.write_reg(hw, M88E1000_PHY_SPEC_CTRL, phy_data);
+-	if (ret_val)
+-		goto out;
++		phy_data &= ~M88E1000_PSCR_AUTO_X_MODE;
++		ret_val = phy->ops.write_reg(hw, M88E1000_PHY_SPEC_CTRL,
++					     phy_data);
++		if (ret_val)
++			goto out;
+ 
+-	hw_dbg("M88E1000 PSCR: %X\n", phy_data);
++		hw_dbg("M88E1000 PSCR: %X\n", phy_data);
++	}
+ 
+ 	ret_val = phy->ops.read_reg(hw, PHY_CONTROL, &phy_data);
+ 	if (ret_val)
 -- 
 1.7.11.7
