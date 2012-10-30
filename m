@@ -1,62 +1,80 @@
-From: pablo@netfilter.org
-Subject: [PATCH 1/3] netfilter: nf_conntrack: fix rt_gateway checks for H.323 helper
-Date: Tue, 30 Oct 2012 11:19:18 +0100
-Message-ID: <1351592360-5686-2-git-send-email-pablo@netfilter.org>
-References: <1351592360-5686-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58425 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932602Ab2J3KTi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 06:19:38 -0400
-In-Reply-To: <1351592360-5686-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH v3 00/10] net/macb: driver enhancement concerning GEM
+ support, ring logic and cleanup
+Date: Tue, 30 Oct 2012 12:26:40 +0100
+Message-ID: <508FB970.8070703@atmel.com>
+References: <cover.1351591858.git.nicolas.ferre@atmel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <havard@skinnemoen.net>,
+	<bhutchings@solarflare.com>,
+	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
+	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
+	<manabian@gmail.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1351591858.git.nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+On 10/30/2012 11:17 AM, Nicolas Ferre :
+> This is an enhancement work that began several years ago. I try to catchup with
+> some performance improvement that has been implemented then by Havard.
+> The ring index logic and the TX error path modification are the biggest changes
+> but some cleanup/debugging have been added along the way.
+> The GEM revision will benefit from the Gigabit support.
+> Newer pinctrl infrastructure support is added but it is optional.
+> 
+> The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
+> flavors.
+> 
+> v3: - rebased on net-next to take into account current effor to merge
+>       at91_ether with macb drivers
+>     - add additional patch to use the new pinctrl infrastructure
+> v2: - modify the tx error handling: now uses a workqueue
+>     - information provided by ethtool -i were not accurate: removed
 
-After the change "Adjust semantics of rt->rt_gateway"
-(commit f8126f1d51) we should properly match the nexthop when
-destinations are directly connected because rt_gateway can be 0.
+David, if you feel more comfortable with a git branch (I can also 
+cook a signed tag if you want), here it is:
 
-The rt_gateway checks in H.323 helper try to avoid the creation
-of an unnecessary expectation in this call-forwarding case:
 
-http://people.netfilter.org/zhaojingmin/h323_conntrack_nat_helper/#_Toc133598073
+The following changes since commit a932657f51eadb8280166e82dc7034dfbff3985a:
 
-However, the existing code fails to avoid that in many cases,
-see this thread:
+  net: sierra: shut up sparse restricted type warnings (2012-10-28 19:09:02 -0400)
 
-http://marc.info/?l=linux-netdev&m=135043175028620&w=2
+are available in the git repository at:
 
-It seems it is not trivial to know from the kernel if two hosts
-have to go through the firewall to communicate each other, which
-is the main point of the call-forwarding filter code to avoid
-creating unnecessary expectations.
+  git://github.com/at91linux/linux-at91.git net-next_macb_enhancement3
 
-So this patch just gets things the way they were as before
-commit f8126f1d51.
+for you to fetch changes up to 3269426bdd44debc00d027651f8248db9d40f3dc:
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_h323_main.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+  net/macb: add pinctrl consumer support (2012-10-30 11:08:10 +0100)
 
-diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index 1b30b0d..962795e 100644
---- a/net/netfilter/nf_conntrack_h323_main.c
-+++ b/net/netfilter/nf_conntrack_h323_main.c
-@@ -753,7 +753,8 @@ static int callforward_do_filter(const union nf_inet_addr *src,
- 				   flowi4_to_flowi(&fl1), false)) {
- 			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
- 					   flowi4_to_flowi(&fl2), false)) {
--				if (rt1->rt_gateway == rt2->rt_gateway &&
-+				if (rt_nexthop(rt1, fl1.daddr) ==
-+				    rt_nexthop(rt2, fl2.daddr) &&
- 				    rt1->dst.dev  == rt2->dst.dev)
- 					ret = 1;
- 				dst_release(&rt2->dst);
+----------------------------------------------------------------
+Havard Skinnemoen (4):
+      net/macb: memory barriers cleanup
+      net/macb: change debugging messages
+      net/macb: clean up ring buffer logic
+      net/macb: Offset first RX buffer by two bytes
+
+Jean-Christophe PLAGNIOL-VILLARD (1):
+      net/macb: add pinctrl consumer support
+
+Nicolas Ferre (4):
+      net/macb: remove macb_get_drvinfo()
+      net/macb: tx status is more than 8 bits now
+      net/macb: ethtool interface: add register dump feature
+      net/macb: better manage tx errors
+
+Patrice Vilchez (1):
+      net/macb: Add support for Gigabit Ethernet mode
+
+ drivers/net/ethernet/cadence/macb.c | 446 ++++++++++++++++++++++++++++++++++++++++++++++++++++++------------------------
+ drivers/net/ethernet/cadence/macb.h |  30 ++++--
+ 2 files changed, 334 insertions(+), 142 deletions(-)
+
+
+Thanks, best regards,
 -- 
-1.7.10.4
+Nicolas Ferre
