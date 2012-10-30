@@ -1,29 +1,43 @@
-From: Mohammad Alsaleh <msal@tormail.org>
-Subject: ping -f is broken in iputils 20121011
-Date: Tue, 30 Oct 2012 23:52:53 +0300
-Message-ID: <1TTImq-000C5f-Bs@internal.tormail.org>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH 1/4] net: davinci_mdio: Fix typo mistake in calling runtime-pm api
+Date: Tue, 30 Oct 2012 22:33:53 +0100
+Message-ID: <877gq7hcfy.fsf@macbook.be.48ers.dk>
+References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com>
+	<1351498881-32482-3-git-send-email-hvaibhav@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <paul@pwsan.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Vaibhav Hiremath <hvaibhav@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outgoing.tormail.org ([82.221.96.22]:58769 "EHLO
-	outgoing.tormail.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754164Ab2J3Vbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 17:31:41 -0400
-Received: from localhost ([127.0.0.1] helo=internal.tormail.org)
-	by outgoing.tormail.org with esmtp (Exim 4.72)
-	(envelope-from <msal@tormail.org>)
-	id 1TTIoN-0005Ye-3H
-	for netdev@vger.kernel.org; Tue, 30 Oct 2012 23:53:24 +0300
-Received: from msal by internal.tormail.org with local (Exim 4.63)
-	(envelope-from <msal@tormail.org>)
-	id 1TTImq-000C5f-Bs
-	for netdev@vger.kernel.org; Tue, 30 Oct 2012 20:51:50 +0000
-Content-Disposition: inline
+Received: from mail-we0-f174.google.com ([74.125.82.174]:44203 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756134Ab2J3VeM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 17:34:12 -0400
+In-Reply-To: <1351498881-32482-3-git-send-email-hvaibhav@ti.com> (Vaibhav
+	Hiremath's message of "Mon, 29 Oct 2012 13:51:18 +0530")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As explained in this bug report(1). ping -f seems to be broken in
-iputils 20121011.
+>>>>> "Vaibhav" == Vaibhav Hiremath <hvaibhav@ti.com> writes:
 
-(1) https://bugs.archlinux.org/task/32306
+ Vaibhav> By mistake (most likely a copy-paste), instead of pm_runtime_get_sync()
+ Vaibhav> api, driver is calling pm_runtime_put_sync() api in resume callback
+ Vaibhav> function. The bug was introduced by commit id (ae2c07aaf74:
+ Vaibhav> davinci_mdio: runtime PM support).
+
+ Vaibhav> Now, the reason why it didn't impact functionality is, the patch has
+ Vaibhav> been tested on AM335x-EVM and BeagleBone platform while submitting;
+ Vaibhav> and in case of AM335x the MDIO driver doesn't control the module
+ Vaibhav> enable/disable part, which is handled by CPSW driver.
+
+ Vaibhav> Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
+ Vaibhav> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+ Vaibhav> Cc: Richard Cochran <richardcochran@gmail.com>
+
+Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
+
+-- 
+Bye, Peter Korsgaard
