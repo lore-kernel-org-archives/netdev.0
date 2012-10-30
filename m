@@ -1,48 +1,29 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next 1/8] bridge: bridge port parameters over
- netlink
-Date: Tue, 30 Oct 2012 14:00:09 -0700
-Message-ID: <20121030140009.067f49fa@nehalam.linuxnetplumber.net>
-References: <20121030005731.843020405@vyatta.com>
-	<20121030005835.289407930@vyatta.com>
-	<50902115.3090005@gurgi.dk>
+From: Mohammad Alsaleh <msal@tormail.org>
+Subject: ping -f is broken in iputils 20121011
+Date: Tue, 30 Oct 2012 23:52:53 +0300
+Message-ID: <1TTImq-000C5f-Bs@internal.tormail.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Tommy S. Christensen" <tsc@gurgi.dk>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59129 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934107Ab2J3VBF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 17:01:05 -0400
-In-Reply-To: <50902115.3090005@gurgi.dk>
+Received: from outgoing.tormail.org ([82.221.96.22]:58769 "EHLO
+	outgoing.tormail.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754164Ab2J3Vbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 17:31:41 -0400
+Received: from localhost ([127.0.0.1] helo=internal.tormail.org)
+	by outgoing.tormail.org with esmtp (Exim 4.72)
+	(envelope-from <msal@tormail.org>)
+	id 1TTIoN-0005Ye-3H
+	for netdev@vger.kernel.org; Tue, 30 Oct 2012 23:53:24 +0300
+Received: from msal by internal.tormail.org with local (Exim 4.63)
+	(envelope-from <msal@tormail.org>)
+	id 1TTImq-000C5f-Bs
+	for netdev@vger.kernel.org; Tue, 30 Oct 2012 20:51:50 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Oct 2012 19:48:53 +0100
-"Tommy S. Christensen" <tsc@gurgi.dk> wrote:
+As explained in this bug report(1). ping -f seems to be broken in
+iputils 20121011.
 
-> On 10/30/2012 01:57 AM, Stephen Hemminger wrote:
-> >
-> > -/*
-> > - * Change state of port (ie from forwarding to blocking etc)
-> > +static const struct nla_policy ifla_brport_policy[IFLA_BRPORT_MAX + 1] = {
-> > +	[IFLA_BRPORT_STATE]	= { .type = NLA_U8 },
-> > +	[IFLA_BRPORT_COST]	= { .type = NLA_U16 },
-> > +	[IFLA_BRPORT_PRIORITY]	= { .type = NLA_U32 },
-> > +	[IFLA_BRPORT_MODE]	= { .type = NLA_U8 },
-> > +};
-> > +
-> 
-> Hey Stephen
-> 
-> It seems you've swapped the sizes of COST and PRIORITY in this part.
-> 
-> -Tommy
-> 
-
-Ok, will fix in next version.
-
-One alternative I considered would be to use previously unused IFLA_PRIORITY and IFLA_COST
-which would be more generic. But these fields only really matter to bridge.
+(1) https://bugs.archlinux.org/task/32306
