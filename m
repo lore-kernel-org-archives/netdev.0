@@ -1,85 +1,68 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Subject: Re: [PATCH] net: dsa/slave: Fix compilation warnings
-Date: Tue, 30 Oct 2012 14:33:19 +0530
-Message-ID: <CAKohpon8C5O4U+h3nr=8gaEQ1f-K9pqafw=5jPrhaGup_3re=g@mail.gmail.com>
-References: <5afab1ebe83e4361f1fd75bbea0c559af195bf02.1351529738.git.viresh.kumar@linaro.org>
-	<1351540778.2721.7.camel@bwh-desktop.uk.solarflarecom.com>
-	<CAKohponL_3m2KVytiWm8ZHyB5aimk8CzGrqr5J0LMy8MFGodHg@mail.gmail.com>
-	<CAKohponOKk5e2Sxyhjw-XvzVxF3tNp66rsnYCwvwHazAPAauKw@mail.gmail.com>
-	<508F8779.8070300@linaro.org>
-	<CAKohpokmfFSFsADmtOyN9JRCX8aVdNs+tDFhUQuM6sSQ+dFfUA@mail.gmail.com>
-	<508F9724.50804@linaro.org>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: switching network namespace midway
+Date: Tue, 30 Oct 2012 08:55:43 +0000
+Message-ID: <508F960F.20104@katalix.com>
+References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com> <878vavshhp.fsf@xmission.com> <20121024212116.GG15034@kvack.org> <87ip9zqqlv.fsf@xmission.com> <20121025143811.GH15034@kvack.org> <20121025092105.5119b8bf@nehalam.linuxnetplumber.net> <877gqb883y.fsf@xmission.com> <20121029072341.158e6412@nehalam.linuxnetplumber.net> <87a9v47qsl.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	linaro-dev@lists.linaro.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, patches@linaro.org
-To: Daniel Lezcano <daniel.lezcano@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <508F9724.50804@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Benjamin LaHaise <bcrl@kvack.org>, rsa <ravi.mlists@gmail.com>,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:60757 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751284Ab2J3JFm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2012 05:05:42 -0400
+In-Reply-To: <87a9v47qsl.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30 October 2012 14:30, Daniel Lezcano <daniel.lezcano@linaro.org> wr=
-ote:
-> It is very curious if we disable all the configs option, a slave
-> creation raise a BUG (cf. dsa_slave_create). IIUC, booting with NET_D=
-SA
-> enabled and none of the NET_DSA_TAG* enabled will raise a BUG in the
-> probe function, right ?
->
-> Maybe we should force at least one config when none are set ?
+On 30/10/12 00:21, Eric W. Biederman wrote:
+> Stephen Hemminger <shemminger@vyatta.com> writes:
+> 
+>> On Sat, 27 Oct 2012 22:43:13 -0700
+>> ebiederm@xmission.com (Eric W. Biederman) wrote:
+>>
+>>> Stephen Hemminger <shemminger@vyatta.com> writes:
+>>>
+>>>> I noticed that the L2TP sockets are not being moved to the correct name
+>>>> space.
+>>>>
+>>>> Something like this is probably needed.
+>>>
+>>> This is almost right.
+>>>
+>>> There needs to be a line in l2tp_tunnel_create that verifies
+>>> the network namespace of the socket derived from a file descriptor
+>>> and the passed in network namespace match.
+>>>
+>>> For the l2tp_tunnel_sock_create case where we have a socket that is not
+>>> exported to userspace using sk_change_net seems appropriate to avoid
+>>> reference counting problems.  And it may be worth moving that work into
+>>> sk_create_kern.  But we need a network namespace hook that will lookup
+>>> all l2tp tunnel sockets when a network namespace is being destroyed and
+>>> remove them.  I think we can hit this bug with rmmod as well.
+>>
+>> Since I don't use netns or L2TP for real, someone else needs to take
+>> up the crusade here.
+> 
+> Let's see if James Chapman is interested.  I don't use L2TP for real either.
+> 
+> James are you at all interested in the network namespace bugs that have
+> been found in the l2tp code?
 
-I thought of it earlier. But found the one which i posted better. As we=
- will not
-compile DSA stuff now without these tags.
+Very much so, Eric. Thanks for keeping me in the loop. Unfortunately, I
+am busy on other things at the moment. It's in my queue. I'll get to it
+as soon as I can.
 
---
-viresh
+> 
+> Eric
 
-> diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-> index 274791c..86326e3 100644
-> --- a/net/dsa/Kconfig
-> +++ b/net/dsa/Kconfig
-> @@ -1,8 +1,9 @@
-> -config NET_DSA
-> +menuconfig NET_DSA
->         tristate "Distributed Switch Architecture support"
->         default n
->         depends on EXPERIMENTAL && NETDEVICES && !S390
->         select PHYLIB
-> +       select NET_DSA_TAG_DSA if (!NET_DSA_TAG_EDSA &&
-> !NET_DSA_TAG_TRAILER)
->         ---help---
->           This allows you to use hardware switch chips that use
->           the Distributed Switch Architecture.
-> @@ -12,15 +13,15 @@ if NET_DSA
->
->  # tagging formats
->  config NET_DSA_TAG_DSA
-> -       bool
-> +       bool "tag dsa"
->         default n
->
->  config NET_DSA_TAG_EDSA
-> -       bool
-> +       bool "tag edsa"
->         default n
->
->  config NET_DSA_TAG_TRAILER
-> -       bool
-> +       bool "tag trailer"
->         default n
->
->  endif
->
->
-> --
->  <http://www.linaro.org/> Linaro.org =E2=94=82 Open source software f=
-or ARM SoCs
->
-> Follow Linaro:  <http://www.facebook.com/pages/Linaro> Facebook |
-> <http://twitter.com/#!/linaroorg> Twitter |
-> <http://www.linaro.org/linaro-blog/> Blog
->
+
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
