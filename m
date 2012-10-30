@@ -1,58 +1,97 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
-Date: Tue, 30 Oct 2012 12:54:33 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1210301251050.1363-100000@iolanthe.rowland.org>
-References: <CACVXFVO5-UPNrWsySzDE5AfOv1TMqbyitQX9ViidSJPM36fqAQ@mail.gmail.com>
+From: Chris J Arges <chris.j.arges@canonical.com>
+Subject: [PATCH] bonding: extend bond_arp_send_all to bridge devices
+Date: Tue, 30 Oct 2012 18:07:45 +0100
+Message-ID: <50900961.7010907@canonical.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
-    Minchan Kim <minchan@kernel.org>,
-    Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-    "Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
-    "David S. Miller" <davem@davemloft.net>,
-    Andrew Morton <akpm@linux-foundation.org>,  <netdev@vger.kernel.org>,
-     <linux-usb@vger.kernel.org>,  <linux-pm@vger.kernel.org>,
-     <linux-mm@kvack.org>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CACVXFVO5-UPNrWsySzDE5AfOv1TMqbyitQX9ViidSJPM36fqAQ@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------090708090401070401010306"
+Cc: Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:49445 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759908Ab2J3RHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 13:07:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Oct 2012, Ming Lei wrote:
+This is a multi-part message in MIME format.
+--------------090708090401070401010306
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-> On Tue, Oct 30, 2012 at 11:38 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
-> 
-> >
-> > Okay, I see your point.  But acquiring the lock here doesn't solve the
-> > problem.  Suppose a thread is about to reset a USB mass-storage device.
-> > It acquires the lock and sees that the noio flag is clear.  But before
-> > it can issue the reset, another thread sets the noio flag.
-> 
-> If the USB mass-storage device is being reseted, the flag should be set
-> already generally.  If the flag is still unset, that means the disk/network
-> device isn't added into system(or removed just now), so memory allocation
-> with block I/O should be allowed during the reset. Looks it isn't one problem,
-> isn't it?
+Hi, please accept this patch that fixes the following issues:
+http://bugzilla.kernel.org/show_bug.cgi?id=31822
+http://launchpad.net/bugs/736226
 
-As Oliver said, it can be a problem.
+I've done a bit of testing with the setup identified in the bugs, and
+this patch fixes the issue for me and others that have tested this.
 
-> > Lastly, pm_runtime_get_memalloc_noio always returns false when
-> > CONFIG_PM_RUNTIME is disabled.  But we still need to prevent I/O during
-> > usb_reset_device even when there's no runtime PM.  Maybe the simplest
-> > answer is always to set noio during resets.  That would also help with
-> > the race described above.
-> 
-> I have thought about this. IMO, pm_runtime_get_memalloc_noio should
-> return true always if CONFIG_PM_RUNTIME is unset.
+Thanks,
+--chris j arges
 
-That's okay as long as the only user of pm_runtime_get_memalloc_noio
-(apart from the runtime PM core) is usbcore.
+--------------090708090401070401010306
+Content-Type: text/x-patch;
+ name="0001-bonding-extend-bond_arp_send_all-to-bridge-devices.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-bonding-extend-bond_arp_send_all-to-bridge-devices.patc";
+ filename*1="h"
 
-Alan Stern
+>From bc58ecc70aecc68497fe54228ebe8630777b53a0 Mon Sep 17 00:00:00 2001
+From: Chris J Arges <chris.j.arges@canonical.com>
+Date: Thu, 6 Sep 2012 14:17:40 -0500
+Subject: [PATCH] bonding: extend bond_arp_send_all to bridge devices
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ARP monitoring does not work when we have a network in the
+following configuration:
+
+eth0----+ +----bond0.100----br0-100---{+virtual machines
+          | |
+          +----bond0----+----br0---(fixed IP)->--{LAN arp_ip_target}
+          | |
+eth1----+ +----bond0.200----br0-200---{+virtual machines
+
+This patch extends bond_arp_send_all to also check if a device
+is also in a bridge.
+
+This is related to the following issues:
+http://launchpad.net/bugs/736226
+http://bugzilla.kernel.org/show_bug.cgi?id=31822
+
+Thanks to help from Andy Gospodarek.
+
+Signed-off-by: Chris J Arges <chris.j.arges@canonical.com>
+---
+ drivers/net/bonding/bond_main.c |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index b2530b0..cb791f6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2708,6 +2708,18 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 			continue;
+ 		}
+ 
++		/*
++		 * Check if the target is part of a bridge.
++		 */
++		if (rt->dst.dev->priv_flags & IFF_EBRIDGE) {
++			/* Confirm addr is part of the bridge */
++			addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
++
++			/* Send ARP request */
++			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], addr, 0);
++			continue;
++		}
++
+ 		if (net_ratelimit()) {
+ 			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
+ 				   bond->dev->name, &targets[i],
+-- 
+1.7.10.4
+
+
+
+--------------090708090401070401010306--
