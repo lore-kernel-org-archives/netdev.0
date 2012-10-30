@@ -1,46 +1,62 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH net] tcp: Fix double sizeof in new tcp_metrics code
-Date: Wed, 31 Oct 2012 00:03:09 +0200
-Message-ID: <1351634589-4861-1-git-send-email-ja@ssi.bg>
+From: "Western Union Transfer" <info@westernunion.com>
+Subject: Payment Sent!!
+Date: Wed, 31 Oct 2012 06:05:24 +0800
+Message-ID: <20121030214504.617F41F0162@correo.fcctpdom.usmp.edu.pe>
+Reply-To: westernuniont12@yahoo.cn
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:44882 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934889Ab2J3WDe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 18:03:34 -0400
-Received: from ja.ssi.bg (localhost.localdomain [127.0.0.1])
-	by ja.ssi.bg (8.14.4/8.14.4) with ESMTP id q9UM3a8S004889
-	for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 00:03:36 +0200
-Received: (from root@localhost)
-	by ja.ssi.bg (8.14.4/8.14.4/Submit) id q9UM3Ze5004887
-	for netdev@vger.kernel.org; Wed, 31 Oct 2012 00:03:35 +0200
+Received: from redaccionline.com ([207.218.180.67]:54560 "EHLO
+	correo.fcctpdom.usmp.edu.pe" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1758339Ab2J3WFg convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2012 18:05:36 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by correo.fcctpdom.usmp.edu.pe (Postfix) with ESMTP id 451641F01A0
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 16:45:05 -0500 (PET)
+Received: from correo.fcctpdom.usmp.edu.pe ([127.0.0.1])
+	by localhost (correo.fcctpdom.usmp.edu.pe [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id FSjOqomBqYMb for <netdev@vger.kernel.org>;
+	Tue, 30 Oct 2012 16:45:05 -0500 (PET)
+Received: from [10.1.1.1] (unknown [120.139.104.255])
+	by correo.fcctpdom.usmp.edu.pe (Postfix) with ESMTPSA id 617F41F0162
+	for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 16:45:03 -0500 (PET)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Fix double sizeof when parsing IPv6 address from
-user space because it breaks get/del by specific IPv6 address.
-
-	Problem noticed by David Binderman:
-
-https://bugzilla.kernel.org/show_bug.cgi?id=49171
-
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- net/ipv4/tcp_metrics.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 4c752a6..53bc584 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -864,7 +864,7 @@ static int parse_nl_addr(struct genl_info *info, struct inetpeer_addr *addr,
- 	}
- 	a = info->attrs[TCP_METRICS_ATTR_ADDR_IPV6];
- 	if (a) {
--		if (nla_len(a) != sizeof(sizeof(struct in6_addr)))
-+		if (nla_len(a) != sizeof(struct in6_addr))
- 			return -EINVAL;
- 		addr->family = AF_INET6;
- 		memcpy(addr->addr.a6, nla_data(a), sizeof(addr->addr.a6));
--- 
-1.7.3.4
+We write to inform you that we have transferred $400,000 dollars.  depo=
+sited for transfer to you by one MR Bernard Harry from BLACKBERRY MOBIL=
+E COMPANY for transfer as a winning prize from the promotion lottery he=
+ld by the communication company to encourage usage and appreciate alrea=
+dy users of their product.
+=20
+ The money is available for pick up by receiver(you) to be cashed on da=
+ily installment of $10,000 for 40days. We tried calling to give you the=
+ information over the phone but we could not reach you so we decided to=
+ email you the information to pick up the first $10,000  already transf=
+erred to you. for you to be able to pick the first payment,
+You will have to pay $250 to get it re-activated in your name for you t=
+o start picking up your money because we de-activate the transaction fo=
+r security reason, by making the status to display pick up.
+=20
+=20
+Use this link to track the below information=20
+https://wumt.westernunion.com/asp/orderStatus.asp?country=3Dglobal
+=20
+ Sender's Fist name: Ronald
+ Sender's Last Name: Mundy
+ MTCN: 6605740058
+ Question: Who Is Great
+ Answer: God
+ Amount: $10,000.00USD
+=20
+ Thanks
+ Best Regards
+ Mr.Mcferrin Phoenix .
+ +60169162934
+ western union Office,
+ MALAYSIA OFFICE.
+ Western Union=AE Money Transfer
