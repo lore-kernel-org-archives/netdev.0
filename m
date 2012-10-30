@@ -1,36 +1,65 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Subject: Re: [PATCH] net: dsa/slave: Fix compilation warnings
-Date: Tue, 30 Oct 2012 13:25:07 +0530
-Message-ID: <CAKohpokmfFSFsADmtOyN9JRCX8aVdNs+tDFhUQuM6sSQ+dFfUA@mail.gmail.com>
-References: <5afab1ebe83e4361f1fd75bbea0c559af195bf02.1351529738.git.viresh.kumar@linaro.org>
-	<1351540778.2721.7.camel@bwh-desktop.uk.solarflarecom.com>
-	<CAKohponL_3m2KVytiWm8ZHyB5aimk8CzGrqr5J0LMy8MFGodHg@mail.gmail.com>
-	<CAKohponOKk5e2Sxyhjw-XvzVxF3tNp66rsnYCwvwHazAPAauKw@mail.gmail.com>
-	<508F8779.8070300@linaro.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 3/4] arm: mvebu: add Ethernet controllers using mvneta
+ driver for Armada 370/XP
+Date: Tue, 30 Oct 2012 09:36:29 +0100
+Message-ID: <20121030093629.398ce706@skate>
+References: <1351245804-31478-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<1351245804-31478-4-git-send-email-thomas.petazzoni@free-electrons.com>
+	<CABMQnVKswTJr9Nd4Etx4Htv0Ckn+pDNqGO8MoPBH-x8y6CwZyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	linaro-dev@lists.linaro.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, patches@linaro.org
-To: Daniel Lezcano <daniel.lezcano@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <508F8779.8070300@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	Maen Suleiman <maen@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([88.190.12.23]:49524 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756329Ab2J3Igo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 04:36:44 -0400
+In-Reply-To: <CABMQnVKswTJr9Nd4Etx4Htv0Ckn+pDNqGO8MoPBH-x8y6CwZyA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30 October 2012 13:23, Daniel Lezcano <daniel.lezcano@linaro.org> wrote:
->> From: Viresh Kumar <viresh.kumar@linaro.org>
+Hello,
 
->>  config NET_DSA_TAG_DSA
->> -     bool
->> +     bool "Original DSA packet tagging format"
->> +     select NET_DSt
->
-> typo NET_DSA
+On Tue, 30 Oct 2012 13:19:15 +0900, Nobuhiro Iwamatsu wrote:
 
-Unbelievable mistake :(
+> > diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+> > index 16cc82c..d484492 100644
+> > --- a/arch/arm/boot/dts/armada-370-xp.dtsi
+> > +++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+> > @@ -68,6 +68,20 @@
+> >                         compatible = "marvell,armada-addr-decoding-controller";
+> >                         reg = <0xd0020000 0x258>;
+> >                 };
+> > +
+> > +                ethernet@d0070000 {
+> > +                               compatible = "marvell,armada-370-neta";
+> > +                               reg = <0xd0070000 0x2500>;
+> > +                               interrupts = <8>;
+> > +                               status = "disabled";
+> > +                };
+> > +
+> > +                ethernet@d0074000 {
+> > +                               compatible = "marvell,armada-370-neta";
+> > +                               reg = <0xd0074000 0x2500>;
+> > +                               interrupts = <10>;
+> > +                               status = "disabled";
+> > +                };
+> 
+> Could you fit an indent?
 
-Will fix it after some reviews now :)
+Right, thanks, will fix.
 
---
-viresh
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
