@@ -1,47 +1,70 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
-Date: Tue, 30 Oct 2012 19:30:14 +0800
-Message-ID: <CACVXFVMTg6k09AWTDZKQCJTBTUGwQ0OoHhdCLFdcbbCv5kzTjw@mail.gmail.com>
-References: <1351513440-9286-3-git-send-email-ming.lei@canonical.com>
-	<Pine.LNX.4.44L0.1210291125590.22882-100000@netrider.rowland.org>
-	<CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com>
-	<2149424.HsnQpSLjK5@linux-lqwf.site>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH] net/at91_ether: fix the use of macb structure
+Date: Tue, 30 Oct 2012 12:30:28 +0100
+Message-ID: <1351596628-3405-1-git-send-email-nicolas.ferre@atmel.com>
+References: <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	linux-kernel@vger.kernel.org, Minchan Kim <minchan@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-pm@vger.kernel.org, linux-mm@kvack.org
-To: Oliver Neukum <oneukum@suse.de>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <2149424.HsnQpSLjK5@linux-lqwf.site>
-Sender: linux-pm-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <bhutchings@solarflare.com>,
+	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
+	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
+	<manabian@gmail.com>, Nicolas Ferre <nicolas.ferre@atmel.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<havard@skinnemoen.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Due to the use of common structure in at91_ether and macb drivers,
+change the name of DMA descriptor structures in at91_ether as well:
+dma_desc => macb_dma_desc
+
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
 Hi,
 
-On Tue, Oct 30, 2012 at 6:57 PM, Oliver Neukum <oneukum@suse.de> wrote:
-> how is this to work with power management domains?
+This patch is a fix for the patch
+[PATCH v3 06/10] net/macb: clean up ring buffer logic
+that I have just sent.
 
-Could you explain it in a bit detail? Why is PM domain involved?
+I would prefer to merge it with the patch mentioned above
+that introduces the issue. Tell me if you do it or if I
+have to provide a v4 for this patch series.
 
-Suppose PM domain is involved, its domain runtime_resume callback
-is still run in the context with PF_MEMALLOC_NOIO flag set if the
-affected 'device' is passed to the callback.
+ drivers/net/ethernet/cadence/at91_ether.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-> And I may be dense, but disks are added in slave_configure().
-> This seems to be a race to me.
-
-Sorry, could you describe what is the race?
-
-Suppose drivers set correct parent device to the disk device(gendisk),
-then add the disk into device model via register_disk(), the solution
-should be fine.
-
-Thanks,
---
-Ming Lei
+diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+index b92815a..0d6392d 100644
+--- a/drivers/net/ethernet/cadence/at91_ether.c
++++ b/drivers/net/ethernet/cadence/at91_ether.c
+@@ -156,7 +156,7 @@ static int at91ether_start(struct net_device *dev)
+ 	int i;
+ 
+ 	lp->rx_ring = dma_alloc_coherent(&lp->pdev->dev,
+-					MAX_RX_DESCR * sizeof(struct dma_desc),
++					MAX_RX_DESCR * sizeof(struct macb_dma_desc),
+ 					&lp->rx_ring_dma, GFP_KERNEL);
+ 	if (!lp->rx_ring) {
+ 		netdev_err(lp->dev, "unable to alloc rx ring DMA buffer\n");
+@@ -170,7 +170,7 @@ static int at91ether_start(struct net_device *dev)
+ 		netdev_err(lp->dev, "unable to alloc rx data DMA buffer\n");
+ 
+ 		dma_free_coherent(&lp->pdev->dev,
+-					MAX_RX_DESCR * sizeof(struct dma_desc),
++					MAX_RX_DESCR * sizeof(struct macb_dma_desc),
+ 					lp->rx_ring, lp->rx_ring_dma);
+ 		lp->rx_ring = NULL;
+ 		return -ENOMEM;
+@@ -256,7 +256,7 @@ static int at91ether_close(struct net_device *dev)
+ 	netif_stop_queue(dev);
+ 
+ 	dma_free_coherent(&lp->pdev->dev,
+-				MAX_RX_DESCR * sizeof(struct dma_desc),
++				MAX_RX_DESCR * sizeof(struct macb_dma_desc),
+ 				lp->rx_ring, lp->rx_ring_dma);
+ 	lp->rx_ring = NULL;
+ 
+-- 
+1.8.0
