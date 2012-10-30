@@ -1,48 +1,78 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] sctp: support per-association stats via a new
- SCTP_GET_ASSOC_STATS call
-Date: Tue, 30 Oct 2012 14:54:44 +0000
-Message-ID: <20121030145444.GO13450@casper.infradead.org>
-References: <1351258973-17227-1-git-send-email-michele@acksyn.org>
- <20121026143704.GC25087@hmsreliant.think-freely.org>
- <20121029084143.GA17442@casper.infradead.org>
- <20121029113700.GA9332@hmsreliant.think-freely.org>
- <508EE586.9060907@gmail.com>
- <20121030111546.GA14013@hmsreliant.think-freely.org>
- <508FE256.9010205@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Michele Baldessari <michele@acksyn.org>,
-	linux-sctp@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH] ipv4/fib_trie: notify deleted routes on if down event
+Date: Tue, 30 Oct 2012 16:32:56 +0100
+Message-ID: <1351611176-4000-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:56945 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933781Ab2J3Oyr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 10:54:47 -0400
-Content-Disposition: inline
-In-Reply-To: <508FE256.9010205@gmail.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:43995 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758023Ab2J3PXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 11:23:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/30/12 at 10:21am, Vlad Yasevich wrote:
-> What if the message arrived across multiple transports?
-> 
-> Also, you can always see current rto, but that means that the
-> application has to still poll for it with PEER_ADDR_INFO.  I think
-> the idea, as Thomas pointed out, is to easily see what the max rto
-> was.  I like that, but I don't like the fact that it's per
-> association.   With that stat we really don't know which transport
-> spiked.  So, it gives us a some useful information, but not really
-> enough.
-> 
-> It might be a little more useful to keep track of the which
-> transport has experienced the spike and then return info about it.
-> Granted, we may be too late and the spike corrected itself already,
-> but at least it will give the management application a little more
-> information and allow admin to have a little more info to determine
-> why the spike occurred.
+This notification is missing in IPv4 (in IPv6, deleted routes are
+notified).
 
-Agreed and good point, a per transport max rto makes more sense.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv4/fib_trie.c | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 31d771c..5b1c7d0 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1718,15 +1718,20 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
+ 	return 0;
+ }
+ 
+-static int trie_flush_list(struct list_head *head)
++static int trie_flush_list(struct fib_table *tb, struct leaf *l,
++			   struct leaf_info *li)
+ {
+ 	struct fib_alias *fa, *fa_node;
+ 	int found = 0;
+ 
+-	list_for_each_entry_safe(fa, fa_node, head, fa_list) {
++	list_for_each_entry_safe(fa, fa_node, &li->falh, fa_list) {
+ 		struct fib_info *fi = fa->fa_info;
+ 
+ 		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
++			struct nl_info nlinfo = { .nl_net = fi->fib_net, };
++
++			rtmsg_fib(RTM_DELROUTE, htonl(l->key), fa, li->plen,
++				  tb->tb_id, &nlinfo, 0);
+ 			list_del_rcu(&fa->fa_list);
+ 			fib_release_info(fa->fa_info);
+ 			alias_free_mem_rcu(fa);
+@@ -1736,7 +1741,7 @@ static int trie_flush_list(struct list_head *head)
+ 	return found;
+ }
+ 
+-static int trie_flush_leaf(struct leaf *l)
++static int trie_flush_leaf(struct fib_table *tb, struct leaf *l)
+ {
+ 	int found = 0;
+ 	struct hlist_head *lih = &l->list;
+@@ -1744,7 +1749,7 @@ static int trie_flush_leaf(struct leaf *l)
+ 	struct leaf_info *li = NULL;
+ 
+ 	hlist_for_each_entry_safe(li, node, tmp, lih, hlist) {
+-		found += trie_flush_list(&li->falh);
++		found += trie_flush_list(tb, l, li);
+ 
+ 		if (list_empty(&li->falh)) {
+ 			hlist_del_rcu(&li->hlist);
+@@ -1835,7 +1840,7 @@ int fib_table_flush(struct fib_table *tb)
+ 	int found = 0;
+ 
+ 	for (l = trie_firstleaf(t); l; l = trie_nextleaf(l)) {
+-		found += trie_flush_leaf(l);
++		found += trie_flush_leaf(tb, l);
+ 
+ 		if (ll && hlist_empty(&ll->list))
+ 			trie_leaf_remove(t, ll);
+-- 
+1.7.12
