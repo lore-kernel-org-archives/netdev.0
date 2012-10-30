@@ -1,51 +1,71 @@
-From: pablo@netfilter.org
-Subject: [PATCH 0/3] netfilter updates for the net tree
-Date: Tue, 30 Oct 2012 11:19:17 +0100
-Message-ID: <1351592360-5686-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH v3 10/10] net/macb: add pinctrl consumer support
+Date: Tue, 30 Oct 2012 11:18:02 +0100
+Message-ID: <3269426bdd44debc00d027651f8248db9d40f3dc.1351591858.git.nicolas.ferre@atmel.com>
+References: <cover.1351591858.git.nicolas.ferre@atmel.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <bhutchings@solarflare.com>,
+	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
+	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
+	<manabian@gmail.com>, Nicolas Ferre <nicolas.ferre@atmel.com>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<havard@skinnemoen.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1351591858.git.nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 
-Hi David,
+If no pinctrl available just report a warning as some architecture may not
+need to do anything.
 
-The following patchset contains fixes for your net tree, two of them
-are due to relatively recent changes, one has been a longstanding bug,
-they are:
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+[nicolas.ferre@atmel.com: adapt the error path]
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/cadence/macb.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-* Fix incorrect usage of rt_gateway in the H.323 helper, from
-  Julian Anastasov.
-
-* Skip re-route in nf_nat code for ICMP traffic. If CONFIG_XFRM is
-  enabled, we waste cycles to look up for the route again. This problem
-  seems to be there since really long time. From Ulrich Weber.
-
-* Fix mismatching section in nf_conntrack_reasm, from Hein Tibosch.
-
-You can pull this changes from:
-
-git://1984.lsi.us.es/nf master
-
-Thanks!
-
-Hein Tibosch (1):
-  netfilter: nf_defrag_ipv6: solve section mismatch in nf_conntrack_reasm
-
-Julian Anastasov (1):
-  netfilter: nf_conntrack: fix rt_gateway checks for H.323 helper
-
-Ulrich Weber (1):
-  netfilter: nf_nat: don't check for port change on ICMP tuples
-
- net/ipv4/netfilter/iptable_nat.c        |    4 +++-
- net/ipv6/netfilter/ip6table_nat.c       |    4 +++-
- net/ipv6/netfilter/nf_conntrack_reasm.c |    4 ++--
- net/netfilter/nf_conntrack_h323_main.c  |    3 ++-
- 4 files changed, 10 insertions(+), 5 deletions(-)
-
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 4d51877..eae3d74 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -26,6 +26,9 @@
+ #include <linux/of.h>
+ #include <linux/of_device.h>
+ #include <linux/of_net.h>
++#include <linux/of_gpio.h>
++#include <linux/gpio.h>
++#include <linux/pinctrl/consumer.h>
+ 
+ #include "macb.h"
+ 
+@@ -1472,6 +1475,7 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	struct phy_device *phydev;
+ 	u32 config;
+ 	int err = -ENXIO;
++	struct pinctrl *pinctrl;
+ 
+ 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!regs) {
+@@ -1479,6 +1483,15 @@ static int __init macb_probe(struct platform_device *pdev)
+ 		goto err_out;
+ 	}
+ 
++	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
++	if (IS_ERR(pinctrl)) {
++		err = PTR_ERR(pinctrl);
++		if (err == -EPROBE_DEFER)
++			goto err_out;
++
++		dev_warn(&pdev->dev, "No pinctrl provided\n");
++	}
++
+ 	err = -ENOMEM;
+ 	dev = alloc_etherdev(sizeof(*bp));
+ 	if (!dev)
 -- 
-1.7.10.4
-
+1.8.0
