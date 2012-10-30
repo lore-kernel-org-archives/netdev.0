@@ -1,59 +1,69 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] sctp: support per-association stats via a new
- SCTP_GET_ASSOC_STATS call
-Date: Tue, 30 Oct 2012 12:52:30 +0000
-Message-ID: <20121030125230.GB13450@casper.infradead.org>
-References: <1351258973-17227-1-git-send-email-michele@acksyn.org>
- <20121026143704.GC25087@hmsreliant.think-freely.org>
- <20121029084143.GA17442@casper.infradead.org>
- <20121029113700.GA9332@hmsreliant.think-freely.org>
- <508EE586.9060907@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [uclinux-dist-devel] [PATCH RFC net-next 2/4] bfin_mac:
+ replace sys time stamps with raw ones instead.
+Date: Tue, 30 Oct 2012 14:41:12 +0100
+Message-ID: <20121030134112.GB2283@netboy.at.omicron.at>
+References: <cover.1348851539.git.richardcochran@gmail.com>
+ <84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
+ <CAA_GA1dWgav0fP3wJNFQW=VE9Qh-V8NBHqsmNoXaRny+5dnewg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Michele Baldessari <michele@acksyn.org>,
-	linux-sctp@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Cc: netdev@vger.kernel.org, Miroslav Lichvar <mlichvar@redhat.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	device-drivers-devel@blackfin.uclinux.org,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Patrick Ohly <patrick.ohly@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Bob Liu <lliubbo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:55698 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752440Ab2J3Mwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 08:52:39 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:52484 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752589Ab2J3Nl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 09:41:27 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so159538eek.19
+        for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 06:41:26 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <508EE586.9060907@gmail.com>
+In-Reply-To: <CAA_GA1dWgav0fP3wJNFQW=VE9Qh-V8NBHqsmNoXaRny+5dnewg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/29/12 at 04:22pm, Vlad Yasevich wrote:
-> On 10/29/2012 07:37 AM, Neil Horman wrote:
-> >Hm, ok, looking for the maximum rto seen is definately more efficient that a
-> >high polling rate on the remaddr file.  Still can't say I really like it as a
-> >statistic though.  While it helps in diagnosing a very specific type of problem
-> >(applications that have a maximum allowable latency), its really not useful, and
-> >potentially misleading, in the general case.  Specificaly it may show a very
-> >large RTO even if that RTO was an erroneous spike in behavior earlier in the
-> >lifetime of a given transport, even if that RTO is not representative of the
-> >current behavior of the association.  It seems to me like this stat might be
-> >better collected using a stap script or by adding a trace point to
-> >sctp_transport_update_rto.  If the application needs to know this information
-> >internally during its operation to take corrective action, you can already get
-> >it via the SCTP_GET_PEER_ADDR_INFO socket option on a per transport basis just
-> >as efficiently.
+On Tue, Oct 30, 2012 at 05:17:51PM +0800, Bob Liu wrote:
 
-SCTP_GET_PEER_ADDR_INFO doesn't help here as the whole point of this
-stat is to get max(rto) as seen by the SCTP stack.
+> > @@ -892,51 +879,25 @@ static void bfin_rx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
+> >
+> >         regval = bfin_read_EMAC_PTP_RXSNAPLO();
+> >         regval |= (u64)bfin_read_EMAC_PTP_RXSNAPHI() << 32;
+> > -       ns = timecounter_cyc2time(&lp->clock, regval);
+> > -       timecompare_update(&lp->compare, ns);
+> > +       ns = regval >> lp->shift;
+> >         memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+> >         shhwtstamps->hwtstamp = ns_to_ktime(ns);
+> > -       shhwtstamps->syststamp = timecompare_transform(&lp->compare, ns);
+> > -
+> > -       bfin_dump_hwtamp("RX", &shhwtstamps->hwtstamp, &shhwtstamps->syststamp, &lp->compare);
+> > -}
+> 
+> In my test,  system time in slave side can't be updated although here
+> have set shhwtstamps->hwtstamp = ns_to_ktime(ns).
+> Any idea?
 
-> The max_rto is reset after each getsockopt(), so in effect, the
-> application sets its own polling interval and gets the max rto
-> achieved during it.  If the rto hasn't changed, then the last value
-> is returned.  Not sure how much I like that.  I would rather get max
-> rto achieved per polling period and upon reset, max_rto is
-> accumulated again (easy way to do that is set to rto_min on reset).
-> This way an monitoring thread can truly represent the max rto
-> reported by association.  It should normally remain steady, but this
-> will show spikes, if any.
+So the "system time" in shhwtstamps->syststamp has been removed. Only
+the raw value remains.
 
-I would still reset it to 0 but I agree that it makes more sense to
-return 0 if max(rto) remains unchanged within the observation period
-rather than returning the previous max(rto).
+Or what do you mean by "can't be updated"?
+
+How did you test this?
+
+I would suggest the following:
+
+1. test using Documentation/ptp/testptp to make sure the clock is
+   working reasconably.
+
+2. try ptp4l from http://linuxptp.sourceforge.net/ to make sure the
+   time stamping is working
+
+Thanks,
+Richard
