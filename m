@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [PATCH] vxlan: allow a user to set TTL value
-Date: Tue, 30 Oct 2012 13:53:34 -0700
-Message-ID: <20121030135334.4707bbd0@nehalam.linuxnetplumber.net>
+Date: Tue, 30 Oct 2012 13:54:27 -0700
+Message-ID: <20121030135427.367c90cb@nehalam.linuxnetplumber.net>
 References: <1351628836-23094-1-git-send-email-bernat@luffy.cx>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -9,10 +9,10 @@ Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Vincent Bernat <bernat@luffy.cx>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37413 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:37442 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753294Ab2J3Uy0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 16:54:26 -0400
+	id S934072Ab2J3UzV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2012 16:55:21 -0400
 In-Reply-To: <1351628836-23094-1-git-send-email-bernat@luffy.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -44,5 +44,3 @@ Vincent Bernat <bernat@luffy.cx> wrote:
 >  	if (!data[IFLA_VXLAN_LEARNING] || nla_get_u8(data[IFLA_VXLAN_LEARNING]))
 >  		vxlan->learn = true;
 >  
-
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
