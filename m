@@ -1,7 +1,8 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v3 00/10] net/macb: driver enhancement concerning GEM support, ring logic and cleanup
-Date: Tue, 30 Oct 2012 11:17:52 +0100
-Message-ID: <cover.1351591858.git.nicolas.ferre@atmel.com>
+Subject: [PATCH v3 01/10] net/macb: Add support for Gigabit Ethernet mode
+Date: Tue, 30 Oct 2012 11:17:53 +0100
+Message-ID: <f614a440bd48509e8f36c84794808dd05110b5e6.1351591858.git.nicolas.ferre@atmel.com>
+References: <cover.1351591858.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <bhutchings@solarflare.com>,
@@ -11,46 +12,88 @@ Cc: <bhutchings@solarflare.com>,
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
 	<havard@skinnemoen.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1351591858.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an enhancement work that began several years ago. I try to catchup with
-some performance improvement that has been implemented then by Havard.
-The ring index logic and the TX error path modification are the biggest changes
-but some cleanup/debugging have been added along the way.
-The GEM revision will benefit from the Gigabit support.
-Newer pinctrl infrastructure support is added but it is optional.
+From: Patrice Vilchez <patrice.vilchez@atmel.com>
 
-The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
-flavors.
+Add Gigabit Ethernet mode to GEM cadence IP and enable RGMII connection.
 
-v3: - rebased on net-next to take into account current effor to merge
-      at91_ether with macb drivers
-    - add additional patch to use the new pinctrl infrastructure
-v2: - modify the tx error handling: now uses a workqueue
-    - information provided by ethtool -i were not accurate: removed
+Signed-off-by: Patrice Vilchez <patrice.vilchez@atmel.com>
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 15 ++++++++++++---
+ drivers/net/ethernet/cadence/macb.h |  4 ++++
+ 2 files changed, 16 insertions(+), 3 deletions(-)
 
-Havard Skinnemoen (4):
-  net/macb: memory barriers cleanup
-  net/macb: change debugging messages
-  net/macb: clean up ring buffer logic
-  net/macb: Offset first RX buffer by two bytes
-
-Jean-Christophe PLAGNIOL-VILLARD (1):
-  net/macb: add pinctrl consumer support
-
-Nicolas Ferre (4):
-  net/macb: remove macb_get_drvinfo()
-  net/macb: tx status is more than 8 bits now
-  net/macb: ethtool interface: add register dump feature
-  net/macb: better manage tx errors
-
-Patrice Vilchez (1):
-  net/macb: Add support for Gigabit Ethernet mode
-
- drivers/net/ethernet/cadence/macb.c | 446 +++++++++++++++++++++++++-----------
- drivers/net/ethernet/cadence/macb.h |  30 ++-
- 2 files changed, 334 insertions(+), 142 deletions(-)
-
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 6a4f499..0931cb7 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -152,13 +152,17 @@ static void macb_handle_link_change(struct net_device *dev)
+ 
+ 			reg = macb_readl(bp, NCFGR);
+ 			reg &= ~(MACB_BIT(SPD) | MACB_BIT(FD));
++			if (macb_is_gem(bp))
++				reg &= ~GEM_BIT(GBE);
+ 
+ 			if (phydev->duplex)
+ 				reg |= MACB_BIT(FD);
+ 			if (phydev->speed == SPEED_100)
+ 				reg |= MACB_BIT(SPD);
++			if (phydev->speed == SPEED_1000)
++				reg |= GEM_BIT(GBE);
+ 
+-			macb_writel(bp, NCFGR, reg);
++			macb_or_gem_writel(bp, NCFGR, reg);
+ 
+ 			bp->speed = phydev->speed;
+ 			bp->duplex = phydev->duplex;
+@@ -216,7 +220,10 @@ static int macb_mii_probe(struct net_device *dev)
+ 	}
+ 
+ 	/* mask with MAC supported features */
+-	phydev->supported &= PHY_BASIC_FEATURES;
++	if (macb_is_gem(bp))
++		phydev->supported &= PHY_GBIT_FEATURES;
++	else
++		phydev->supported &= PHY_BASIC_FEATURES;
+ 
+ 	phydev->advertising = phydev->supported;
+ 
+@@ -1388,7 +1395,9 @@ static int __init macb_probe(struct platform_device *pdev)
+ 		bp->phy_interface = err;
+ 	}
+ 
+-	if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
++	if (bp->phy_interface == PHY_INTERFACE_MODE_RGMII)
++		macb_or_gem_writel(bp, USRIO, GEM_BIT(RGMII));
++	else if (bp->phy_interface == PHY_INTERFACE_MODE_RMII)
+ #if defined(CONFIG_ARCH_AT91)
+ 		macb_or_gem_writel(bp, USRIO, (MACB_BIT(RMII) |
+ 					       MACB_BIT(CLKEN)));
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index a362751..33a050f 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -149,6 +149,8 @@
+ #define MACB_IRXFCS_SIZE			1
+ 
+ /* GEM specific NCFGR bitfields. */
++#define GEM_GBE_OFFSET				10
++#define GEM_GBE_SIZE				1
+ #define GEM_CLK_OFFSET				18
+ #define GEM_CLK_SIZE				3
+ #define GEM_DBW_OFFSET				21
+@@ -252,6 +254,8 @@
+ /* Bitfields in USRIO (AT91) */
+ #define MACB_RMII_OFFSET			0
+ #define MACB_RMII_SIZE				1
++#define GEM_RGMII_OFFSET			0	/* GEM gigabit mode */
++#define GEM_RGMII_SIZE				1
+ #define MACB_CLKEN_OFFSET			1
+ #define MACB_CLKEN_SIZE				1
+ 
 -- 
 1.8.0
