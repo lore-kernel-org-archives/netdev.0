@@ -1,88 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IPV6_PKTINFO seems not to be honored correctly by RAW-sockets
-Date: Tue, 30 Oct 2012 11:42:48 +0100
-Message-ID: <1351593768.12280.779.camel@edumazet-glaptop>
-References: <508F969C.9080300@midlink.org>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
+Date: Tue, 30 Oct 2012 11:57:35 +0100
+Message-ID: <2149424.HsnQpSLjK5@linux-lqwf.site>
+References: <1351513440-9286-3-git-send-email-ming.lei@canonical.com> <Pine.LNX.4.44L0.1210291125590.22882-100000@netrider.rowland.org> <CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Steven Barth <steven@midlink.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:51534 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758201Ab2J3Kmw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 06:42:52 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so71779bkc.19
-        for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 03:42:50 -0700 (PDT)
-In-Reply-To: <508F969C.9080300@midlink.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	linux-kernel@vger.kernel.org, Minchan Kim <minchan@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-pm@vger.kernel.org, linux-mm@kvack.org
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Tuesday 30 October 2012 11:21:33 Ming Lei wrote:
+> On Mon, Oct 29, 2012 at 11:41 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
+> > On Mon, 29 Oct 2012, Ming Lei wrote:
+> >
+> >> The patch introduces the flag of memalloc_noio_resume in
+> >> 'struct dev_pm_info' to help PM core to teach mm not allocating
+> >> memory with GFP_KERNEL flag for avoiding probable deadlock
+> >> problem.
+> >>
+> >> As explained in the comment, any GFP_KERNEL allocation inside
+> >> runtime_resume on any one of device in the path from one block
+> >> or network device to the root device in the device tree may cause
+> >> deadlock, the introduced pm_runtime_set_memalloc_noio() sets or
+> >> clears the flag on device of the path recursively.
+> >>
+> >> This patch also introduces pm_runtime_get_memalloc_noio() because
+> >> the flag may be accessed in block device's error handling path
+> >> (for example, usb device reset)
+> >
+> >> +/*
+> >> + * pm_runtime_get_memalloc_noio - Get a device's memalloc_noio flag.
+> >> + * @dev: Device to handle.
+> >> + *
+> >> + * Return the device's memalloc_noio flag.
+> >> + *
+> >> + * The device power lock is held because bitfield is not SMP-safe.
+> >> + */
+> >> +bool pm_runtime_get_memalloc_noio(struct device *dev)
+> >> +{
+> >> +     bool ret;
+> >> +     spin_lock_irq(&dev->power.lock);
+> >> +     ret = dev->power.memalloc_noio_resume;
+> >> +     spin_unlock_irq(&dev->power.lock);
+> >> +     return ret;
+> >> +}
+> >
+> > You don't need to acquire and release a spinlock just to read the
+> > value.  Reading bitfields _is_ SMP-safe; writing them is not.
+> 
+> Thanks for your review.
+> 
+> As you pointed out before, the flag need to be checked before
+> resetting usb devices, so the lock should be held to make another
+> context(CPU) see the updated value suppose one context(CPU)
+> call pm_runtime_set_memalloc_noio() to change the flag at the
+> same time.
+> 
+> The lock needn't to be held when the function is called inside
+> pm_runtime_set_memalloc_noio(),  so the bitfield flag should
+> be checked directly without holding power lock in dev_memalloc_noio().
 
-On Tue, 2012-10-30 at 09:58 +0100, Steven Barth wrote:
-> Hi,
-> 
-> I recently noticed that there might be an unexpected behavior in the 
-> handling of IPV6_PKTINFO for RAW-sockets. It seems that the given 
-> destination interface is ignored.
-> 
-> I just reproduced this on 3.7.0-rc3 vanilla but some quick tests with 
-> 2.6.32 and 3.5 distro-kernels on different machines showed the same.
-> 
-> I've noticed this first in my own software but I could also reproduce it 
-> easily with standard tools like ping6 from iputils:
-> 
-> Have 2 network interfaces with (global) IPv6-addresses assigned (e.g. 
-> eth0 with fd00::1/64 and eth1 with fd01::1/64) and do a ping6 -I eth1 
-> fd00::1 (ping6 from iputils uses IPV6_PKTINFO internally).
-> 
-> For me the result was that even though I set the interface to eth1 the 
-> ECHO was still send to eth0.
-> 
-> Also (although probably unrelated) forwarding for IPv6 was disabled.
-> 
-> If I try something similar with IPv4 and ping -I ... the ECHO doesn't go 
-> out on eth0 but - as expected - on eth1.
-> 
-> However if I use traceroute(6) with -I (ICMP-traceroute) and the -i 
-> option to determine the interface, packages seem to be sent through the 
-> expected interface. Internally it seems that traceroute(6) uses 
-> SO_BINDTODEVICE instead of IP(V6)_PKTINFO which seems to work.
-> 
-> So it seems there might be something wrong with IPV6_PKTINFO or is this 
-> expected behavior?
-> 
+Hi,
 
-I believe its not expected behavior.
+how is this to work with power management domains?
+And I may be dense, but disks are added in slave_configure().
+This seems to be a race to me.
 
-Is the following patch fixing it ?
+	Regards
+		Oliver
 
-Thanks
-
-[PATCH] ipv6: raw: honor IPV6_PKTINFO 
-
-Let ping6 -I interface works correctly.
-
-If socket was not bound to a given interface, check if IPV6_PKTINFO was
-issued on this socket.
-
-Reported-by: Steven Barth <steven@midlink.org>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index d8e95c7..363ee65 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -814,8 +814,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		fl6.flowlabel = np->flow_label;
- 	}
- 
--	if (fl6.flowi6_oif == 0)
--		fl6.flowi6_oif = sk->sk_bound_dev_if;
-+	if (!fl6.flowi6_oif)
-+		fl6.flowi6_oif = sk->sk_bound_dev_if ?: np->sticky_pktinfo.ipi6_ifindex;
- 
- 	if (msg->msg_controllen) {
- 		opt = &opt_space;
