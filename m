@@ -1,377 +1,44 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/13] ixgbe: Add support for pipeline reset
-Date: Tue, 30 Oct 2012 00:04:18 -0700
-Message-ID: <1351580670-8292-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1351580670-8292-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Martin Josefsson <gandalf@mjufs.se>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Jing Wang <windsdaemon@gmail.com>
+Subject: [PATCH 1/1] net: fix compile warning in af_unix.c
+Date: Tue, 30 Oct 2012 15:16:36 +0800
+Message-ID: <1351581396-20493-1-git-send-email-windsdaemon@gmail.com>
+Cc: netdev@vger.kernel.org, Jing Wang <windsdaemon@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8573 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755143Ab2J3HOh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 03:14:37 -0400
-In-Reply-To: <1351580670-8292-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:58813 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741Ab2J3HRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 03:17:20 -0400
+Received: by mail-da0-f46.google.com with SMTP id n41so2831805dak.19
+        for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 00:17:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+This patch fix some compile warning as follows:
+net/unix/af_unix.c: In function 'unix_bind':
+net/unix/af_unix.c:895: warning: 'path.dentry' may be used uninitialized in this function
+net/unix/af_unix.c:895: warning: 'path.mnt' may be used uninitialized in this function
 
-Calling the ixgbe_reset_pipeline_82599 function will ensure a full pipeline
-reset on all 82599 devices.  This is necessary to avoid possible link issues.
-Since this patch accomplishes this by modifying AUTOC.LMS we need to wrap
-all AUTOC writes when LESM is enabled.
-
-v2- fix LMS behaviour based on feedback by Martin Josefsson
-
-CC: Martin Josefsson <gandalf@mjufs.se>
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Jing Wang <windsdaemon@gmail.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h        |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c  | 114 ++++++++++++++++++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c |  70 ++++++++++++++-
- 3 files changed, 153 insertions(+), 32 deletions(-)
+ net/unix/af_unix.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index c64a777..a17116b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -693,6 +693,7 @@ extern s32 ixgbe_fdir_erase_perfect_filter_82599(struct ixgbe_hw *hw,
- 						 u16 soft_id);
- extern void ixgbe_atr_compute_perfect_hash_82599(union ixgbe_atr_input *input,
- 						 union ixgbe_atr_input *mask);
-+extern bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw);
- extern void ixgbe_set_rx_mode(struct net_device *netdev);
- #ifdef CONFIG_IXGBE_DCB
- extern void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index b527813..e75f5a4 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -62,7 +62,6 @@ static s32 ixgbe_setup_copper_link_82599(struct ixgbe_hw *hw,
-                                          bool autoneg,
-                                          bool autoneg_wait_to_complete);
- static s32 ixgbe_verify_fw_version_82599(struct ixgbe_hw *hw);
--static bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw);
- 
- static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
- {
-@@ -99,9 +98,8 @@ static void ixgbe_init_mac_link_ops_82599(struct ixgbe_hw *hw)
- static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
- {
- 	s32 ret_val = 0;
--	u32 reg_anlp1 = 0;
--	u32 i = 0;
- 	u16 list_offset, data_offset, data_value;
-+	bool got_lock = false;
- 
- 	if (hw->phy.sfp_type != ixgbe_sfp_type_unknown) {
- 		ixgbe_init_mac_link_ops_82599(hw);
-@@ -137,28 +135,36 @@ static s32 ixgbe_setup_sfp_modules_82599(struct ixgbe_hw *hw)
- 		usleep_range(hw->eeprom.semaphore_delay * 1000,
- 			     hw->eeprom.semaphore_delay * 2000);
- 
--		/* Now restart DSP by setting Restart_AN and clearing LMS */
--		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, ((IXGBE_READ_REG(hw,
--		                IXGBE_AUTOC) & ~IXGBE_AUTOC_LMS_MASK) |
--		                IXGBE_AUTOC_AN_RESTART));
--
--		/* Wait for AN to leave state 0 */
--		for (i = 0; i < 10; i++) {
--			usleep_range(4000, 8000);
--			reg_anlp1 = IXGBE_READ_REG(hw, IXGBE_ANLP1);
--			if (reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)
--				break;
-+		/* Need SW/FW semaphore around AUTOC writes if LESM on,
-+		 * likewise reset_pipeline requires lock as it also writes
-+		 * AUTOC.
-+		 */
-+		if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
-+			ret_val = hw->mac.ops.acquire_swfw_sync(hw,
-+							IXGBE_GSSR_MAC_CSR_SM);
-+			if (ret_val)
-+				goto setup_sfp_out;
-+
-+			got_lock = true;
-+		}
-+
-+		/* Restart DSP and set SFI mode */
-+		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, (IXGBE_READ_REG(hw,
-+				IXGBE_AUTOC) | IXGBE_AUTOC_LMS_10G_SERIAL));
-+
-+		ret_val = ixgbe_reset_pipeline_82599(hw);
-+
-+		if (got_lock) {
-+			hw->mac.ops.release_swfw_sync(hw,
-+						      IXGBE_GSSR_MAC_CSR_SM);
-+			got_lock = false;
- 		}
--		if (!(reg_anlp1 & IXGBE_ANLP1_AN_STATE_MASK)) {
--			hw_dbg(hw, "sfp module setup not complete\n");
-+
-+		if (ret_val) {
-+			hw_dbg(hw, " sfp module setup not complete\n");
- 			ret_val = IXGBE_ERR_SFP_SETUP_NOT_COMPLETE;
- 			goto setup_sfp_out;
- 		}
--
--		/* Restart DSP by setting Restart_AN and return to SFI mode */
--		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, (IXGBE_READ_REG(hw,
--		                IXGBE_AUTOC) | IXGBE_AUTOC_LMS_10G_SERIAL |
--		                IXGBE_AUTOC_AN_RESTART));
- 	}
- 
- setup_sfp_out:
-@@ -394,14 +400,26 @@ static s32 ixgbe_start_mac_link_82599(struct ixgbe_hw *hw,
- 	u32 links_reg;
- 	u32 i;
- 	s32 status = 0;
-+	bool got_lock = false;
-+
-+	if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
-+		status = hw->mac.ops.acquire_swfw_sync(hw,
-+						IXGBE_GSSR_MAC_CSR_SM);
-+		if (status)
-+			goto out;
-+
-+		got_lock = true;
-+	}
- 
- 	/* Restart link */
--	autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
--	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
--	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
-+	ixgbe_reset_pipeline_82599(hw);
-+
-+	if (got_lock)
-+		hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_MAC_CSR_SM);
- 
- 	/* Only poll for autoneg to complete if specified to do so */
- 	if (autoneg_wait_to_complete) {
-+		autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
- 		if ((autoc_reg & IXGBE_AUTOC_LMS_MASK) ==
- 		     IXGBE_AUTOC_LMS_KX4_KX_KR ||
- 		    (autoc_reg & IXGBE_AUTOC_LMS_MASK) ==
-@@ -425,6 +443,7 @@ static s32 ixgbe_start_mac_link_82599(struct ixgbe_hw *hw,
- 	/* Add delay to filter out noises during initial link setup */
- 	msleep(50);
- 
-+out:
- 	return status;
- }
- 
-@@ -779,6 +798,7 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
- 	u32 links_reg;
- 	u32 i;
- 	ixgbe_link_speed link_capabilities = IXGBE_LINK_SPEED_UNKNOWN;
-+	bool got_lock = false;
- 
- 	/* Check to see if speed passed in is supported. */
- 	status = hw->mac.ops.get_link_capabilities(hw, &link_capabilities,
-@@ -836,9 +856,26 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
- 	}
- 
- 	if (autoc != start_autoc) {
-+		/* Need SW/FW semaphore around AUTOC writes if LESM is on,
-+		 * likewise reset_pipeline requires us to hold this lock as
-+		 * it also writes to AUTOC.
-+		 */
-+		if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
-+			status = hw->mac.ops.acquire_swfw_sync(hw,
-+							IXGBE_GSSR_MAC_CSR_SM);
-+			if (status != 0)
-+				goto out;
-+
-+			got_lock = true;
-+		}
-+
- 		/* Restart link */
--		autoc |= IXGBE_AUTOC_AN_RESTART;
- 		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc);
-+		ixgbe_reset_pipeline_82599(hw);
-+
-+		if (got_lock)
-+			hw->mac.ops.release_swfw_sync(hw,
-+						      IXGBE_GSSR_MAC_CSR_SM);
- 
- 		/* Only poll for autoneg to complete if specified to do so */
- 		if (autoneg_wait_to_complete) {
-@@ -994,9 +1031,28 @@ mac_reset_top:
- 		hw->mac.orig_autoc2 = autoc2;
- 		hw->mac.orig_link_settings_stored = true;
- 	} else {
--		if (autoc != hw->mac.orig_autoc)
--			IXGBE_WRITE_REG(hw, IXGBE_AUTOC, (hw->mac.orig_autoc |
--			                IXGBE_AUTOC_AN_RESTART));
-+		if (autoc != hw->mac.orig_autoc) {
-+			/* Need SW/FW semaphore around AUTOC writes if LESM is
-+			 * on, likewise reset_pipeline requires us to hold
-+			 * this lock as it also writes to AUTOC.
-+			 */
-+			bool got_lock = false;
-+			if (ixgbe_verify_lesm_fw_enabled_82599(hw)) {
-+				status = hw->mac.ops.acquire_swfw_sync(hw,
-+							IXGBE_GSSR_MAC_CSR_SM);
-+				if (status)
-+					goto reset_hw_out;
-+
-+				got_lock = true;
-+			}
-+
-+			IXGBE_WRITE_REG(hw, IXGBE_AUTOC, hw->mac.orig_autoc);
-+			ixgbe_reset_pipeline_82599(hw);
-+
-+			if (got_lock)
-+				hw->mac.ops.release_swfw_sync(hw,
-+							IXGBE_GSSR_MAC_CSR_SM);
-+		}
- 
- 		if ((autoc2 & IXGBE_AUTOC2_UPPER_MASK) !=
- 		    (hw->mac.orig_autoc2 & IXGBE_AUTOC2_UPPER_MASK)) {
-@@ -1983,7 +2039,7 @@ fw_version_out:
-  *  Returns true if the LESM FW module is present and enabled. Otherwise
-  *  returns false. Smart Speed must be disabled if LESM FW module is enabled.
-  **/
--static bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw)
-+bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw)
- {
- 	bool lesm_enabled = false;
- 	u16 fw_offset, fw_lesm_param_offset, fw_lesm_state;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index a2a9bcc..8f285ed 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -90,6 +90,7 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
- 	s32 ret_val = 0;
- 	u32 reg = 0, reg_bp = 0;
- 	u16 reg_cu = 0;
-+	bool got_lock = false;
- 
- 	/*
- 	 * Validate the requested mode.  Strict IEEE mode does not allow
-@@ -210,8 +211,29 @@ static s32 ixgbe_setup_fc(struct ixgbe_hw *hw)
- 	 *
- 	 */
- 	if (hw->phy.media_type == ixgbe_media_type_backplane) {
--		reg_bp |= IXGBE_AUTOC_AN_RESTART;
-+		/* Need the SW/FW semaphore around AUTOC writes if 82599 and
-+		 * LESM is on, likewise reset_pipeline requries the lock as
-+		 * it also writes AUTOC.
-+		 */
-+		if ((hw->mac.type == ixgbe_mac_82599EB) &&
-+		    ixgbe_verify_lesm_fw_enabled_82599(hw)) {
-+			ret_val = hw->mac.ops.acquire_swfw_sync(hw,
-+							IXGBE_GSSR_MAC_CSR_SM);
-+			if (ret_val)
-+				goto out;
-+
-+			got_lock = true;
-+		}
-+
- 		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, reg_bp);
-+
-+		if (hw->mac.type == ixgbe_mac_82599EB)
-+			ixgbe_reset_pipeline_82599(hw);
-+
-+		if (got_lock)
-+			hw->mac.ops.release_swfw_sync(hw,
-+						      IXGBE_GSSR_MAC_CSR_SM);
-+
- 	} else if ((hw->phy.media_type == ixgbe_media_type_copper) &&
- 		    (ixgbe_device_supports_autoneg_fc(hw) == 0)) {
- 		hw->phy.ops.write_reg(hw, MDIO_AN_ADVERTISE,
-@@ -2616,6 +2638,7 @@ s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index)
- 	bool link_up = false;
- 	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
- 	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
-+	s32 ret_val = 0;
- 
- 	/*
- 	 * Link must be up to auto-blink the LEDs;
-@@ -2624,10 +2647,28 @@ s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index)
- 	hw->mac.ops.check_link(hw, &speed, &link_up, false);
- 
- 	if (!link_up) {
-+		/* Need the SW/FW semaphore around AUTOC writes if 82599 and
-+		 * LESM is on.
-+		 */
-+		bool got_lock = false;
-+
-+		if ((hw->mac.type == ixgbe_mac_82599EB) &&
-+		    ixgbe_verify_lesm_fw_enabled_82599(hw)) {
-+			ret_val = hw->mac.ops.acquire_swfw_sync(hw,
-+							IXGBE_GSSR_MAC_CSR_SM);
-+			if (ret_val)
-+				goto out;
-+
-+			got_lock = true;
-+		}
- 		autoc_reg |= IXGBE_AUTOC_AN_RESTART;
- 		autoc_reg |= IXGBE_AUTOC_FLU;
- 		IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
- 		IXGBE_WRITE_FLUSH(hw);
-+
-+		if (got_lock)
-+			hw->mac.ops.release_swfw_sync(hw,
-+						      IXGBE_GSSR_MAC_CSR_SM);
- 		usleep_range(10000, 20000);
- 	}
- 
-@@ -2636,7 +2677,8 @@ s32 ixgbe_blink_led_start_generic(struct ixgbe_hw *hw, u32 index)
- 	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
- 	IXGBE_WRITE_FLUSH(hw);
- 
--	return 0;
-+out:
-+	return ret_val;
- }
- 
- /**
-@@ -2648,18 +2690,40 @@ s32 ixgbe_blink_led_stop_generic(struct ixgbe_hw *hw, u32 index)
- {
- 	u32 autoc_reg = IXGBE_READ_REG(hw, IXGBE_AUTOC);
- 	u32 led_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
-+	s32 ret_val = 0;
-+	bool got_lock = false;
-+
-+	/* Need the SW/FW semaphore around AUTOC writes if 82599 and
-+	 * LESM is on.
-+	 */
-+	if ((hw->mac.type == ixgbe_mac_82599EB) &&
-+	    ixgbe_verify_lesm_fw_enabled_82599(hw)) {
-+		ret_val = hw->mac.ops.acquire_swfw_sync(hw,
-+						IXGBE_GSSR_MAC_CSR_SM);
-+		if (ret_val)
-+			goto out;
-+
-+		got_lock = true;
-+	}
- 
- 	autoc_reg &= ~IXGBE_AUTOC_FLU;
- 	autoc_reg |= IXGBE_AUTOC_AN_RESTART;
- 	IXGBE_WRITE_REG(hw, IXGBE_AUTOC, autoc_reg);
- 
-+	if (hw->mac.type == ixgbe_mac_82599EB)
-+		ixgbe_reset_pipeline_82599(hw);
-+
-+	if (got_lock)
-+		hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_MAC_CSR_SM);
-+
- 	led_reg &= ~IXGBE_LED_MODE_MASK(index);
- 	led_reg &= ~IXGBE_LED_BLINK(index);
- 	led_reg |= IXGBE_LED_LINK_ACTIVE << IXGBE_LED_MODE_SHIFT(index);
- 	IXGBE_WRITE_REG(hw, IXGBE_LEDCTL, led_reg);
- 	IXGBE_WRITE_FLUSH(hw);
- 
--	return 0;
-+out:
-+	return ret_val;
- }
- 
- /**
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 5b5c876..9f710ac 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -895,6 +895,8 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 		struct path path;
+ 		umode_t mode = S_IFSOCK |
+ 		       (SOCK_INODE(sock)->i_mode & ~current_umask());
++		path.mnt = NULL;
++		path.dentry = NULL;
+ 		err = unix_mknod(sun_path, mode, &path);
+ 		if (err) {
+ 			if (err == -EEXIST)
 -- 
-1.7.11.7
+1.7.5.4
