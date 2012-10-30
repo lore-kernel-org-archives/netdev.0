@@ -1,70 +1,97 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH] net/at91_ether: fix the use of macb structure
-Date: Tue, 30 Oct 2012 12:30:28 +0100
-Message-ID: <1351596628-3405-1-git-send-email-nicolas.ferre@atmel.com>
-References: <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <bhutchings@solarflare.com>,
-	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
-	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
-	<manabian@gmail.com>, Nicolas Ferre <nicolas.ferre@atmel.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<havard@skinnemoen.net>
+From: asingh.engi@gmail.com
+Subject: [PATCH] Linus's tree: wireless: Spelling corrections
+Date: Tue, 30 Oct 2012 17:17:28 +0530
+Message-ID: <508fbe62.a689440a.0273.2f2b@mx.google.com>
+Cc: linville@tuxdriver.com, davem@davemloft.net,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	Ashwini Singh <asingh.engi@gmail.com>
+To: johannes@sipsolutions.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Due to the use of common structure in at91_ether and macb drivers,
-change the name of DMA descriptor structures in at91_ether as well:
-dma_desc => macb_dma_desc
+From: Ashwini Singh <asingh.engi@gmail.com>
 
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Few spelling corrections in wireless directory.
+
+Signed-off-by: Ashwini Singh <asingh.engi@gmail.com>
 ---
-Hi,
+ net/wireless/radiotap.c    |    2 +-
+ net/wireless/reg.c         |    6 +++---
+ net/wireless/wext-compat.c |    2 +-
+ net/wireless/wext-core.c   |    2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
-This patch is a fix for the patch
-[PATCH v3 06/10] net/macb: clean up ring buffer logic
-that I have just sent.
-
-I would prefer to merge it with the patch mentioned above
-that introduces the issue. Tell me if you do it or if I
-have to provide a v4 for this patch series.
-
- drivers/net/ethernet/cadence/at91_ether.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index b92815a..0d6392d 100644
---- a/drivers/net/ethernet/cadence/at91_ether.c
-+++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -156,7 +156,7 @@ static int at91ether_start(struct net_device *dev)
- 	int i;
+diff --git a/net/wireless/radiotap.c b/net/wireless/radiotap.c
+index 7d604c0..eaf4282 100644
+--- a/net/wireless/radiotap.c
++++ b/net/wireless/radiotap.c
+@@ -190,7 +190,7 @@ static void find_ns(struct ieee80211_radiotap_iterator *iterator,
+  * present fields.  @this_arg can be changed by the caller (eg,
+  * incremented to move inside a compound argument like
+  * IEEE80211_RADIOTAP_CHANNEL).  The args pointed to are in
+- * little-endian format whatever the endianess of your CPU.
++ * little-endian format whatever the endianness of your CPU.
+  *
+  * Alignment Gotcha:
+  * You must take care when dereferencing iterator.this_arg
+diff --git a/net/wireless/reg.c b/net/wireless/reg.c
+index 3b8cbbc..b98ff98 100644
+--- a/net/wireless/reg.c
++++ b/net/wireless/reg.c
+@@ -718,7 +718,7 @@ static int freq_reg_info_regd(struct wiphy *wiphy,
  
- 	lp->rx_ring = dma_alloc_coherent(&lp->pdev->dev,
--					MAX_RX_DESCR * sizeof(struct dma_desc),
-+					MAX_RX_DESCR * sizeof(struct macb_dma_desc),
- 					&lp->rx_ring_dma, GFP_KERNEL);
- 	if (!lp->rx_ring) {
- 		netdev_err(lp->dev, "unable to alloc rx ring DMA buffer\n");
-@@ -170,7 +170,7 @@ static int at91ether_start(struct net_device *dev)
- 		netdev_err(lp->dev, "unable to alloc rx data DMA buffer\n");
- 
- 		dma_free_coherent(&lp->pdev->dev,
--					MAX_RX_DESCR * sizeof(struct dma_desc),
-+					MAX_RX_DESCR * sizeof(struct macb_dma_desc),
- 					lp->rx_ring, lp->rx_ring_dma);
- 		lp->rx_ring = NULL;
- 		return -ENOMEM;
-@@ -256,7 +256,7 @@ static int at91ether_close(struct net_device *dev)
- 	netif_stop_queue(dev);
- 
- 	dma_free_coherent(&lp->pdev->dev,
--				MAX_RX_DESCR * sizeof(struct dma_desc),
-+				MAX_RX_DESCR * sizeof(struct macb_dma_desc),
- 				lp->rx_ring, lp->rx_ring_dma);
- 	lp->rx_ring = NULL;
- 
+ 	/*
+ 	 * Follow the driver's regulatory domain, if present, unless a country
+-	 * IE has been processed or a user wants to help complaince further
++	 * IE has been processed or a user wants to help compliance further
+ 	 */
+ 	if (!custom_regd &&
+ 	    last_request->initiator != NL80211_REGDOM_SET_BY_COUNTRY_IE &&
+@@ -2133,7 +2133,7 @@ bool reg_supported_dfs_region(u8 dfs_region)
+ 	case NL80211_DFS_JP:
+ 		return true;
+ 	default:
+-		REG_DBG_PRINT("Ignoring uknown DFS master region: %d\n",
++		REG_DBG_PRINT("Ignoring unknown DFS master region: %d\n",
+ 			      dfs_region);
+ 		return false;
+ 	}
+@@ -2155,7 +2155,7 @@ static void print_dfs_region(u8 dfs_region)
+ 		pr_info(" DFS Master region JP");
+ 		break;
+ 	default:
+-		pr_info(" DFS Master region Uknown");
++		pr_info(" DFS Master region Unknown");
+ 		break;
+ 	}
+ }
+diff --git a/net/wireless/wext-compat.c b/net/wireless/wext-compat.c
+index 494379e..7642f60 100644
+--- a/net/wireless/wext-compat.c
++++ b/net/wireless/wext-compat.c
+@@ -1144,7 +1144,7 @@ static int cfg80211_wext_siwpower(struct net_device *dev,
+ 		switch (wrq->flags & IW_POWER_MODE) {
+ 		case IW_POWER_ON:       /* If not specified */
+ 		case IW_POWER_MODE:     /* If set all mask */
+-		case IW_POWER_ALL_R:    /* If explicitely state all */
++		case IW_POWER_ALL_R:    /* If explicitly state all */
+ 			ps = true;
+ 			break;
+ 		default:                /* Otherwise we ignore */
+diff --git a/net/wireless/wext-core.c b/net/wireless/wext-core.c
+index c8717c1..c9514ce 100644
+--- a/net/wireless/wext-core.c
++++ b/net/wireless/wext-core.c
+@@ -849,7 +849,7 @@ out:
+  *
+  * Note : our current commit strategy is currently pretty dumb,
+  * but we will be able to improve on that...
+- * The goal is to try to agreagate as many changes as possible
++ * The goal is to try to aggregate as many changes as possible
+  * before doing the commit. Drivers that will define a commit handler
+  * are usually those that need a reset after changing parameters, so
+  * we want to minimise the number of reset.
 -- 
-1.8.0
+1.7.0.1
