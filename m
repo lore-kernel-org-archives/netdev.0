@@ -1,59 +1,51 @@
 From: pablo@netfilter.org
-Subject: [PATCH 3/3] netfilter: nf_defrag_ipv6: solve section mismatch in nf_conntrack_reasm
-Date: Tue, 30 Oct 2012 11:19:20 +0100
-Message-ID: <1351592360-5686-4-git-send-email-pablo@netfilter.org>
-References: <1351592360-5686-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 0/3] netfilter updates for the net tree
+Date: Tue, 30 Oct 2012 11:19:17 +0100
+Message-ID: <1351592360-5686-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58440 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932649Ab2J3KTk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 06:19:40 -0400
-In-Reply-To: <1351592360-5686-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hein Tibosch <hein_tibosch@yahoo.es>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-WARNING: net/ipv6/netfilter/nf_defrag_ipv6.o(.text+0xe0): Section mismatch in
-reference from the function nf_ct_net_init() to the function
-.init.text:nf_ct_frag6_sysctl_register()
-The function nf_ct_net_init() references the function
-__init nf_ct_frag6_sysctl_register().
+Hi David,
 
-In case nf_conntrack_ipv6 is compiled as a module, nf_ct_net_init could be
-called after the init code and data are unloaded. Therefore remove the
-"__net_init" annotation from nf_ct_frag6_sysctl_register().
+The following patchset contains fixes for your net tree, two of them
+are due to relatively recent changes, one has been a longstanding bug,
+they are:
 
-Signed-off-by: Hein Tibosch <hein_tibosch@yahoo.es>
-Acked-by: Cong Wang <amwang@redhat.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
+* Fix incorrect usage of rt_gateway in the H.323 helper, from
+  Julian Anastasov.
+
+* Skip re-route in nf_nat code for ICMP traffic. If CONFIG_XFRM is
+  enabled, we waste cycles to look up for the route again. This problem
+  seems to be there since really long time. From Ulrich Weber.
+
+* Fix mismatching section in nf_conntrack_reasm, from Hein Tibosch.
+
+You can pull this changes from:
+
+git://1984.lsi.us.es/nf master
+
+Thanks!
+
+Hein Tibosch (1):
+  netfilter: nf_defrag_ipv6: solve section mismatch in nf_conntrack_reasm
+
+Julian Anastasov (1):
+  netfilter: nf_conntrack: fix rt_gateway checks for H.323 helper
+
+Ulrich Weber (1):
+  netfilter: nf_nat: don't check for port change on ICMP tuples
+
+ net/ipv4/netfilter/iptable_nat.c        |    4 +++-
+ net/ipv6/netfilter/ip6table_nat.c       |    4 +++-
  net/ipv6/netfilter/nf_conntrack_reasm.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/nf_conntrack_h323_main.c  |    3 ++-
+ 4 files changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 18bd9bb..22c8ea9 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -85,7 +85,7 @@ static struct ctl_table nf_ct_frag6_sysctl_table[] = {
- 	{ }
- };
- 
--static int __net_init nf_ct_frag6_sysctl_register(struct net *net)
-+static int nf_ct_frag6_sysctl_register(struct net *net)
- {
- 	struct ctl_table *table;
- 	struct ctl_table_header *hdr;
-@@ -127,7 +127,7 @@ static void __net_exit nf_ct_frags6_sysctl_unregister(struct net *net)
- }
- 
- #else
--static int __net_init nf_ct_frag6_sysctl_register(struct net *net)
-+static int nf_ct_frag6_sysctl_register(struct net *net)
- {
- 	return 0;
- }
 -- 
 1.7.10.4
+
