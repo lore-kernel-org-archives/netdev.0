@@ -1,95 +1,260 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/13] ixgbe: clean up the condition for turning on/off the laser
-Date: Tue, 30 Oct 2012 00:04:21 -0700
-Message-ID: <1351580670-8292-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/13] igb: Update firmware version info for ethtool output.
+Date: Tue, 30 Oct 2012 00:04:29 -0700
+Message-ID: <1351580670-8292-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1351580670-8292-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:5842 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755262Ab2J3HEf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 03:04:35 -0400
+	id S1755313Ab2J3HEi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2012 03:04:38 -0400
 In-Reply-To: <1351580670-8292-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-This patch simplifies the check for calling en/disable_tx_laser() function
-pointer. The pointer is only set on parts that can use it.
+There are multiple places in our device nvm where the version is stored.
+This update fixes some output errors with some types of images and
+refactors the way the version data is gathered and stored for ethtool output.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 31 +++++++--------------------
- 1 file changed, 8 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_defines.h | 14 +++++
+ drivers/net/ethernet/intel/igb/e1000_nvm.c     | 70 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_nvm.h     | 16 ++++++
+ drivers/net/ethernet/intel/igb/igb_main.c      | 76 +++++++++-----------------
+ 4 files changed, 126 insertions(+), 50 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 97bab45..ceab142 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4087,11 +4087,8 @@ static void ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 	else
- 		ixgbe_configure_msi_and_legacy(adapter);
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index de4b41e..e647cff 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -636,6 +636,7 @@
+ /* NVM Word Offsets */
+ #define NVM_COMPAT                 0x0003
+ #define NVM_ID_LED_SETTINGS        0x0004 /* SERDES output amplitude */
++#define NVM_VERSION                0x0005
+ #define NVM_INIT_CONTROL2_REG      0x000F
+ #define NVM_INIT_CONTROL3_PORT_B   0x0014
+ #define NVM_INIT_CONTROL3_PORT_A   0x0024
+@@ -653,6 +654,19 @@
+ #define NVM_LED_1_CFG              0x001C
+ #define NVM_LED_0_2_CFG            0x001F
  
--	/* enable the optics for both mult-speed fiber and 82599 SFP+ fiber */
--	if (hw->mac.ops.enable_tx_laser &&
--	    ((hw->phy.multispeed_fiber) ||
--	     ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
--	      (hw->mac.type == ixgbe_mac_82599EB))))
-+	/* enable the optics for 82599 SFP+ fiber */
-+	if (hw->mac.ops.enable_tx_laser)
- 		hw->mac.ops.enable_tx_laser(hw);
++/* NVM version defines */
++#define NVM_ETRACK_WORD            0x0042
++#define NVM_COMB_VER_OFF           0x0083
++#define NVM_COMB_VER_PTR           0x003d
++#define NVM_MAJOR_MASK             0xF000
++#define NVM_MINOR_MASK             0x0FF0
++#define NVM_BUILD_MASK             0x000F
++#define NVM_COMB_VER_MASK          0x00FF
++#define NVM_MAJOR_SHIFT                12
++#define NVM_MINOR_SHIFT                 4
++#define NVM_COMB_VER_SHFT               8
++#define NVM_VER_INVALID            0xFFFF
++#define NVM_ETRACK_SHIFT               16
  
- 	clear_bit(__IXGBE_DOWN, &adapter->state);
-@@ -4413,11 +4410,8 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	if (!pci_channel_offline(adapter->pdev))
- 		ixgbe_reset(adapter);
+ #define E1000_NVM_CFG_DONE_PORT_0  0x040000 /* MNG config cycle done */
+ #define E1000_NVM_CFG_DONE_PORT_1  0x080000 /* ...for second port */
+diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.c b/drivers/net/ethernet/intel/igb/e1000_nvm.c
+index aa5fcdf..54ff539 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_nvm.c
++++ b/drivers/net/ethernet/intel/igb/e1000_nvm.c
+@@ -710,3 +710,73 @@ s32 igb_update_nvm_checksum(struct e1000_hw *hw)
+ out:
+ 	return ret_val;
+ }
++
++/**
++ *  igb_get_fw_version - Get firmware version information
++ *  @hw: pointer to the HW structure
++ *  @fw_vers: pointer to output structure
++ *
++ *  unsupported MAC types will return all 0 version structure
++ **/
++void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
++{
++	u16 eeprom_verh, eeprom_verl, comb_verh, comb_verl, comb_offset;
++	u16 fw_version;
++
++	memset(fw_vers, 0, sizeof(struct e1000_fw_version));
++
++	switch (hw->mac.type) {
++	case e1000_i211:
++		return;
++	case e1000_82575:
++	case e1000_82576:
++	case e1000_82580:
++	case e1000_i350:
++	case e1000_i210:
++		break;
++	default:
++		return;
++	}
++	/* basic eeprom version numbers */
++	hw->nvm.ops.read(hw, NVM_VERSION, 1, &fw_version);
++	fw_vers->eep_major = (fw_version & NVM_MAJOR_MASK) >> NVM_MAJOR_SHIFT;
++	fw_vers->eep_minor = (fw_version & NVM_MINOR_MASK);
++
++	/* etrack id */
++	hw->nvm.ops.read(hw, NVM_ETRACK_WORD, 1, &eeprom_verl);
++	hw->nvm.ops.read(hw, (NVM_ETRACK_WORD + 1), 1, &eeprom_verh);
++	fw_vers->etrack_id = (eeprom_verh << NVM_ETRACK_SHIFT) | eeprom_verl;
++
++	switch (hw->mac.type) {
++	case e1000_i210:
++	case e1000_i350:
++		/* find combo image version */
++		hw->nvm.ops.read(hw, NVM_COMB_VER_PTR, 1, &comb_offset);
++		if ((comb_offset != 0x0) && (comb_offset != NVM_VER_INVALID)) {
++
++			hw->nvm.ops.read(hw, (NVM_COMB_VER_OFF + comb_offset
++					 + 1), 1, &comb_verh);
++			hw->nvm.ops.read(hw, (NVM_COMB_VER_OFF + comb_offset),
++					 1, &comb_verl);
++
++			/* get Option Rom version if it exists and is valid */
++			if ((comb_verh && comb_verl) &&
++			    ((comb_verh != NVM_VER_INVALID) &&
++			     (comb_verl != NVM_VER_INVALID))) {
++
++				fw_vers->or_valid = true;
++				fw_vers->or_major =
++					comb_verl >> NVM_COMB_VER_SHFT;
++				fw_vers->or_build =
++					((comb_verl << NVM_COMB_VER_SHFT)
++					| (comb_verh >> NVM_COMB_VER_SHFT));
++				fw_vers->or_patch =
++					comb_verh & NVM_COMB_VER_MASK;
++			}
++		}
++		break;
++	default:
++		break;
++	}
++	return;
++}
+diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.h b/drivers/net/ethernet/intel/igb/e1000_nvm.h
+index 825b022..7012d45 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_nvm.h
++++ b/drivers/net/ethernet/intel/igb/e1000_nvm.h
+@@ -40,4 +40,20 @@ s32  igb_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
+ s32  igb_validate_nvm_checksum(struct e1000_hw *hw);
+ s32  igb_update_nvm_checksum(struct e1000_hw *hw);
  
--	/* power down the optics for multispeed fiber and 82599 SFP+ fiber */
--	if (hw->mac.ops.disable_tx_laser &&
--	    ((hw->phy.multispeed_fiber) ||
--	     ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
--	      (hw->mac.type == ixgbe_mac_82599EB))))
-+	/* power down the optics for 82599 SFP+ fiber */
-+	if (hw->mac.ops.disable_tx_laser)
- 		hw->mac.ops.disable_tx_laser(hw);
++struct e1000_fw_version {
++	u32 etrack_id;
++	u16 eep_major;
++	u16 eep_minor;
++
++	u8 invm_major;
++	u8 invm_minor;
++	u8 invm_img_type;
++
++	bool or_valid;
++	u16 or_major;
++	u16 or_build;
++	u16 or_patch;
++};
++void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers);
++
+ #endif
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index b07d679..df1e790 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1785,58 +1785,34 @@ static const struct net_device_ops igb_netdev_ops = {
+ void igb_set_fw_version(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u16 eeprom_verh, eeprom_verl, comb_verh, comb_verl, comb_offset;
+-	u16 major, build, patch, fw_version;
+-	u32 etrack_id;
+-
+-	hw->nvm.ops.read(hw, 5, 1, &fw_version);
+-	if (adapter->hw.mac.type != e1000_i211) {
+-		hw->nvm.ops.read(hw, NVM_ETRACK_WORD, 1, &eeprom_verh);
+-		hw->nvm.ops.read(hw, (NVM_ETRACK_WORD + 1), 1, &eeprom_verl);
+-		etrack_id = (eeprom_verh << IGB_ETRACK_SHIFT) | eeprom_verl;
+-
+-		/* combo image version needs to be found */
+-		hw->nvm.ops.read(hw, NVM_COMB_VER_PTR, 1, &comb_offset);
+-		if ((comb_offset != 0x0) &&
+-		    (comb_offset != IGB_NVM_VER_INVALID)) {
+-			hw->nvm.ops.read(hw, (NVM_COMB_VER_OFF + comb_offset
+-					 + 1), 1, &comb_verh);
+-			hw->nvm.ops.read(hw, (NVM_COMB_VER_OFF + comb_offset),
+-					 1, &comb_verl);
+-
+-			/* Only display Option Rom if it exists and is valid */
+-			if ((comb_verh && comb_verl) &&
+-			    ((comb_verh != IGB_NVM_VER_INVALID) &&
+-			     (comb_verl != IGB_NVM_VER_INVALID))) {
+-				major = comb_verl >> IGB_COMB_VER_SHFT;
+-				build = (comb_verl << IGB_COMB_VER_SHFT) |
+-					(comb_verh >> IGB_COMB_VER_SHFT);
+-				patch = comb_verh & IGB_COMB_VER_MASK;
+-				snprintf(adapter->fw_version,
+-					 sizeof(adapter->fw_version),
+-					 "%d.%d%d, 0x%08x, %d.%d.%d",
+-					 (fw_version & IGB_MAJOR_MASK) >>
+-					 IGB_MAJOR_SHIFT,
+-					 (fw_version & IGB_MINOR_MASK) >>
+-					 IGB_MINOR_SHIFT,
+-					 (fw_version & IGB_BUILD_MASK),
+-					 etrack_id, major, build, patch);
+-				goto out;
+-			}
+-		}
+-		snprintf(adapter->fw_version, sizeof(adapter->fw_version),
+-			 "%d.%d%d, 0x%08x",
+-			 (fw_version & IGB_MAJOR_MASK) >> IGB_MAJOR_SHIFT,
+-			 (fw_version & IGB_MINOR_MASK) >> IGB_MINOR_SHIFT,
+-			 (fw_version & IGB_BUILD_MASK), etrack_id);
+-	} else {
++	struct e1000_fw_version fw;
++
++	igb_get_fw_version(hw, &fw);
++
++	switch (hw->mac.type) {
++	case e1000_i211:
+ 		snprintf(adapter->fw_version, sizeof(adapter->fw_version),
+-			 "%d.%d%d",
+-			 (fw_version & IGB_MAJOR_MASK) >> IGB_MAJOR_SHIFT,
+-			 (fw_version & IGB_MINOR_MASK) >> IGB_MINOR_SHIFT,
+-			 (fw_version & IGB_BUILD_MASK));
++			 "%2d.%2d-%d",
++			 fw.invm_major, fw.invm_minor, fw.invm_img_type);
++		break;
++
++	default:
++		/* if option is rom valid, display its version too */
++		if (fw.or_valid) {
++			snprintf(adapter->fw_version,
++				 sizeof(adapter->fw_version),
++				 "%d.%d, 0x%08x, %d.%d.%d",
++				 fw.eep_major, fw.eep_minor, fw.etrack_id,
++				 fw.or_major, fw.or_build, fw.or_patch);
++		/* no option rom */
++		} else {
++			snprintf(adapter->fw_version,
++				 sizeof(adapter->fw_version),
++				 "%d.%d, 0x%08x",
++				 fw.eep_major, fw.eep_minor, fw.etrack_id);
++		}
++		break;
+ 	}
+-out:
+ 	return;
+ }
  
- 	ixgbe_clean_all_tx_rings(adapter);
-@@ -5050,14 +5044,8 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
- 	if (wufc) {
- 		ixgbe_set_rx_mode(netdev);
- 
--		/*
--		 * enable the optics for both mult-speed fiber and
--		 * 82599 SFP+ fiber as we can WoL.
--		 */
--		if (hw->mac.ops.enable_tx_laser &&
--		    (hw->phy.multispeed_fiber ||
--		    (hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber &&
--		     hw->mac.type == ixgbe_mac_82599EB)))
-+		/* enable the optics for 82599 SFP+ fiber as we can WoL */
-+		if (hw->mac.ops.enable_tx_laser)
- 			hw->mac.ops.enable_tx_laser(hw);
- 
- 		/* turn on all-multi mode if wake on multicast is enabled */
-@@ -7468,11 +7456,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	if (err)
- 		goto err_register;
- 
--	/* power down the optics for multispeed fiber and 82599 SFP+ fiber */
--	if (hw->mac.ops.disable_tx_laser &&
--	    ((hw->phy.multispeed_fiber) ||
--	     ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
--	      (hw->mac.type == ixgbe_mac_82599EB))))
-+	/* power down the optics for 82599 SFP+ fiber */
-+	if (hw->mac.ops.disable_tx_laser)
- 		hw->mac.ops.disable_tx_laser(hw);
- 
- 	/* carrier off reporting is important to ethtool even BEFORE open */
 -- 
 1.7.11.7
