@@ -1,41 +1,144 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next 6/8] tun: implement byte queue limits
-Date: Mon, 29 Oct 2012 17:57:37 -0700
-Message-ID: <20121030005835.726919547@vyatta.com>
+Subject: [PATCH net-next 4/8] bridge: add root port blocking
+Date: Mon, 29 Oct 2012 17:57:35 -0700
+Message-ID: <20121030005835.545985608@vyatta.com>
 References: <20121030005731.843020405@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fiji.vyatta.com ([76.74.103.50]:35110 "EHLO fiji.vyatta.com"
+Received: from fiji.vyatta.com ([76.74.103.50]:35099 "EHLO fiji.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759045Ab2J3BGO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1761782Ab2J3BGO (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 29 Oct 2012 21:06:14 -0400
-Content-Disposition: inline; filename=tap-bql.patch
+Content-Disposition: inline; filename=bridge-root-block.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add byte queue limits for tun device transmit.
+This is Linux bridge implementation of root port guard.
+If BPDU is received from a leaf (edge) port, it should not
+be elected as root port.
+
+Why would you want to do this?
+If using STP on a bridge and the downstream bridges are not fully
+trusted; this prevents a hostile guest for rerouting traffic.
+
+Why not just use netfilter?
+Netfilter does not track of follow spanning tree decisions.
+It would be difficult and error prone to try and mirror STP
+resolution in netfilter module.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/drivers/net/tun.c	2012-10-26 14:29:51.172647696 -0700
-+++ b/drivers/net/tun.c	2012-10-26 14:31:46.663487824 -0700
-@@ -421,6 +421,9 @@ static netdev_tx_t tun_net_xmit(struct s
- 		goto drop;
- 	skb_orphan(skb);
+
+---
+ include/uapi/linux/if_link.h |    1 +
+ net/bridge/br_netlink.c      |    6 +++++-
+ net/bridge/br_private.h      |    1 +
+ net/bridge/br_stp.c          |   22 +++++++++++++++++++++-
+ net/bridge/br_sysfs_if.c     |    2 ++
+ 5 files changed, 30 insertions(+), 2 deletions(-)
+
+--- a/net/bridge/br_private.h	2012-10-29 17:39:57.902199174 -0700
++++ b/net/bridge/br_private.h	2012-10-29 17:40:20.373973489 -0700
+@@ -136,6 +136,7 @@ struct net_bridge_port
+ 	unsigned long 			flags;
+ #define BR_HAIRPIN_MODE		0x00000001
+ #define BR_BPDU_GUARD           0x00000002
++#define BR_ROOT_BLOCK		0x00000004
  
-+	/* Update byte queue limits */
-+	netdev_sent_queue(dev, skb->len);
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	u32				multicast_startup_queries_sent;
+--- a/net/bridge/br_stp.c	2012-10-29 17:39:57.902199174 -0700
++++ b/net/bridge/br_stp.c	2012-10-29 17:40:20.373973489 -0700
+@@ -100,6 +100,21 @@ static int br_should_become_root_port(co
+ 	return 0;
+ }
+ 
++static void br_root_port_block(const struct net_bridge *br,
++			       struct net_bridge_port *p)
++{
 +
- 	/* Enqueue packet */
- 	skb_queue_tail(&tun->socket.sk->sk_receive_queue, skb);
- 
-@@ -991,6 +994,8 @@ static ssize_t tun_do_read(struct tun_st
- 		netif_wake_queue(tun->dev);
- 
- 		ret = tun_put_user(tun, skb, iv, len);
++	br_notice(br, "port %u(%s) tried to become root port (blocked)",
++		  (unsigned int) p->port_no, p->dev->name);
 +
-+		netdev_completed_queue(tun->dev, 1, skb->len);
- 		kfree_skb(skb);
- 		break;
++	p->state = BR_STATE_LISTENING;
++	br_log_state(p);
++	br_ifinfo_notify(RTM_NEWLINK, p);
++
++	if (br->forward_delay > 0)
++		mod_timer(&p->forward_delay_timer, jiffies + br->forward_delay);
++}
++
+ /* called under bridge lock */
+ static void br_root_selection(struct net_bridge *br)
+ {
+@@ -107,7 +122,12 @@ static void br_root_selection(struct net
+ 	u16 root_port = 0;
+ 
+ 	list_for_each_entry(p, &br->port_list, list) {
+-		if (br_should_become_root_port(p, root_port))
++		if (!br_should_become_root_port(p, root_port))
++			continue;
++
++		if (p->flags & BR_ROOT_BLOCK)
++			br_root_port_block(br, p);
++		else
+ 			root_port = p->port_no;
  	}
+ 
+--- a/net/bridge/br_sysfs_if.c	2012-10-29 17:40:15.230025149 -0700
++++ b/net/bridge/br_sysfs_if.c	2012-10-29 17:40:37.869797779 -0700
+@@ -157,6 +157,7 @@ static BRPORT_ATTR(flush, S_IWUSR, NULL,
+ 
+ BRPORT_ATTR_FLAG(hairpin_mode, BR_HAIRPIN_MODE);
+ BRPORT_ATTR_FLAG(bpdu_guard, BR_BPDU_GUARD);
++BRPORT_ATTR_FLAG(root_block, BR_ROOT_BLOCK);
+ 
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
+@@ -191,6 +192,7 @@ static const struct brport_attribute *br
+ 	&brport_attr_flush,
+ 	&brport_attr_hairpin_mode,
+ 	&brport_attr_bpdu_guard,
++	&brport_attr_root_block,
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	&brport_attr_multicast_router,
+ #endif
+--- a/include/uapi/linux/if_link.h	2012-10-29 17:39:57.902199174 -0700
++++ b/include/uapi/linux/if_link.h	2012-10-29 17:40:20.373973489 -0700
+@@ -217,6 +217,7 @@ enum {
+ 	IFLA_BRPORT_COST,	/* "             cost      */
+ 	IFLA_BRPORT_MODE,	/* mode (hairpin)          */
+ 	IFLA_BRPORT_GUARD,	/* bpdu guard              */
++	IFLA_BRPORT_PROTECT,	/* root port protection    */
+ 	__IFLA_BRPORT_MAX
+ };
+ #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+--- a/net/bridge/br_netlink.c	2012-10-29 17:39:57.902199174 -0700
++++ b/net/bridge/br_netlink.c	2012-10-29 17:40:20.373973489 -0700
+@@ -27,6 +27,7 @@ static inline size_t br_port_info_size(v
+ 		+ nla_total_size(4)	/* IFLA_BRPORT_COST */
+ 		+ nla_total_size(1)	/* IFLA_BRPORT_MODE */
+ 		+ nla_total_size(1)	/* IFLA_BRPORT_GUARD */
++		+ nla_total_size(1)	/* IFLA_BRPORT_PROTECT */
+ 		+ 0;
+ }
+ 
+@@ -51,7 +52,8 @@ static int br_port_fill_attrs(struct sk_
+ 	    nla_put_u16(skb, IFLA_BRPORT_PRIORITY, p->priority) ||
+ 	    nla_put_u32(skb, IFLA_BRPORT_COST, p->path_cost) ||
+ 	    nla_put_u8(skb, IFLA_BRPORT_MODE, mode) ||
+-	    nla_put_u8(skb, IFLA_BRPORT_GUARD, !!(p->flags & BR_BPDU_GUARD)))
++	    nla_put_u8(skb, IFLA_BRPORT_GUARD, !!(p->flags & BR_BPDU_GUARD)) ||
++	    nla_put_u8(skb, IFLA_BRPORT_PROTECT, !!(p->flags & BR_ROOT_BLOCK)))
+ 		return -EMSGSIZE;
+ 
+ 	return 0;
+@@ -179,6 +181,7 @@ static const struct nla_policy ifla_brpo
+ 	[IFLA_BRPORT_PRIORITY]	= { .type = NLA_U32 },
+ 	[IFLA_BRPORT_MODE]	= { .type = NLA_U8 },
+ 	[IFLA_BRPORT_GUARD]	= { .type = NLA_U8 },
++	[IFLA_BRPORT_PROTECT]	= { .type = NLA_U8 },
+ };
+ 
+ /* Change state of port (ie from forwarding to blocking etc)
