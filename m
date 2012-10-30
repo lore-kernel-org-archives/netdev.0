@@ -1,30 +1,47 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH v2 1/3] pppoatm: don't send frames to destroyed vcc
-Date: Tue, 30 Oct 2012 09:35:00 +0000
-Message-ID: <1351589700.17077.31.camel@shinybook.infradead.org>
+Subject: Re: [PATCH v2 2/3] pppoatm: fix race condition with destroying of
+ vcc
+Date: Tue, 30 Oct 2012 09:37:48 +0000
+Message-ID: <1351589868.17077.34.camel@shinybook.infradead.org>
 References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+	 <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-f0fA8BcMJlgdyQjwU4QS"
+	boundary="=-cSUV3jzXKcZUxKqLnAVL"
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Krzysztof Mazur <krzysiek@podlesie.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+In-Reply-To: <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-f0fA8BcMJlgdyQjwU4QS
+--=-cSUV3jzXKcZUxKqLnAVL
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Mon, 2012-10-22 at 19:14 +0200, Krzysztof Mazur wrote:
-> Now pppoatm_send(), like vcc_sendmsg(), checks for vcc flags that
-> indicate that vcc is not ready.
+> The pppoatm_send() calls vcc->send() and now also checks for
+> some vcc flags that indicate destroyed vcc without proper locking.
+>=20
+> The vcc_sendmsg() uses lock_sock(sk). This lock is used by
+> vcc_release(), so vcc_destroy_socket() will not be called between
+> check and during ->send(). The vcc_release_async() sets ATM_VF_CLOSE,
+> but it should be safe to call ->send() after it, because
+> vcc->dev->ops->close() is not called.
+>=20
+> The pppoatm_send() is called with BH disabled, so bh_lock_sock()
+> should be used instead of lock_sock().
 
-I note that vcc_sendmsg() also checks for sock->state =3D=3D SS_CONNECTED.
-Is that check not needed here? Otherwise, looks sane enough.
+Should we be locking it earlier, so that the atm_may_send() call is also
+covered by the lock?
+
+Either way, it's an obvious improvement on what we had before =E2=80=94 and=
+ even
+if the answer to my question above is 'yes', exceeding the configured
+size by one packet is both harmless and almost never going to happen
+since we now limit ourselves to two packets anyway. So:
 
 Acked-By: David Woodhouse <David.Woodhouse@intel.com>
 
@@ -32,7 +49,7 @@ Acked-By: David Woodhouse <David.Woodhouse@intel.com>
 dwmw2
 
 
---=-f0fA8BcMJlgdyQjwU4QS
+--=-cSUV3jzXKcZUxKqLnAVL
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -133,19 +150,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMDMwMDkzNTAwWjAjBgkqhkiG9w0BCQQx
-FgQUskmPDaJZUtOUojvkz2Iw2faTPc4wgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMDMwMDkzNzQ4WjAjBgkqhkiG9w0BCQQx
+FgQUk9X6eJjR8fzasM7XBJl+5yfkG1cwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAwXzyXFC9njpB/F3H4wVezw8L2
-d/MSxiCNW9ZHc7BWrN6aGMmnEy4yUW7S8HI7PLyB8BtwQAn4+f+03Kk7koXal9lkZX3CQejUqRHx
-zCy4Bmzwc+z2KNmZHauEQD2oAcFzZWIYCpy1y/vyD+Qdhhh5rGnEr+gebIgiOBNiH7LoJpnCgSR8
-rcwMppo0LBmsei1rnzbd3DPJTcllootlGjy+iQq01KdNrws7i7HiK6G82aE/q5xTHfF4+s8gGOU9
-Ej8yfQnLS6x+JEgGlqHsqr6A0AqrQKhiM5pjPep2CZmb470IyS/QCcUGREqQ4iD90EkGop+0wbO6
-tSk4V66GNEl9AAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBm5hGj31UBFpEzuOPsdJ8+fuEA
+T5OmWAE4Wk1fIHaD0Mce3qgUtWsWWUjWm1zXZYeNlQN/cXIHCCq8jRTe9z11WmTxLbHP6rnlML1E
+yxFNPOAOCbBFbtIRv0qYpvfTzorK8u7y4HqFDcjXCKo2fMIfpLx45Ehkt2Z9MiIM4rpvIV5kCHjK
+SVMLdqfTB0jS6Xw4k1vxwUOUJCsPg/BA7EiwxXTRJKiD1SoyN/jLgAYn2k1fWyaqxrcf8+N4osuH
+bicMKRaHkXhyu2LM/W6x8/lbCc0JJqNU5jpFL/5wFT3PP2wY1P1N6tnsfyylobwb5hMswpRZv2lM
+t7pBOuwmnY0zAAAAAAAA
 
 
---=-f0fA8BcMJlgdyQjwU4QS--
+--=-cSUV3jzXKcZUxKqLnAVL--
