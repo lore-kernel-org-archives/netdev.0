@@ -1,71 +1,62 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v3 10/10] net/macb: add pinctrl consumer support
-Date: Tue, 30 Oct 2012 11:18:02 +0100
-Message-ID: <3269426bdd44debc00d027651f8248db9d40f3dc.1351591858.git.nicolas.ferre@atmel.com>
-References: <cover.1351591858.git.nicolas.ferre@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <bhutchings@solarflare.com>,
-	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
-	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
-	<manabian@gmail.com>, Nicolas Ferre <nicolas.ferre@atmel.com>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<havard@skinnemoen.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1351591858.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH 1/3] netfilter: nf_conntrack: fix rt_gateway checks for H.323 helper
+Date: Tue, 30 Oct 2012 11:19:18 +0100
+Message-ID: <1351592360-5686-2-git-send-email-pablo@netfilter.org>
+References: <1351592360-5686-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:58425 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932602Ab2J3KTi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2012 06:19:38 -0400
+In-Reply-To: <1351592360-5686-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+From: Julian Anastasov <ja@ssi.bg>
 
-If no pinctrl available just report a warning as some architecture may not
-need to do anything.
+After the change "Adjust semantics of rt->rt_gateway"
+(commit f8126f1d51) we should properly match the nexthop when
+destinations are directly connected because rt_gateway can be 0.
 
-Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-[nicolas.ferre@atmel.com: adapt the error path]
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Cc: netdev@vger.kernel.org
+The rt_gateway checks in H.323 helper try to avoid the creation
+of an unnecessary expectation in this call-forwarding case:
+
+http://people.netfilter.org/zhaojingmin/h323_conntrack_nat_helper/#_Toc133598073
+
+However, the existing code fails to avoid that in many cases,
+see this thread:
+
+http://marc.info/?l=linux-netdev&m=135043175028620&w=2
+
+It seems it is not trivial to know from the kernel if two hosts
+have to go through the firewall to communicate each other, which
+is the main point of the call-forwarding filter code to avoid
+creating unnecessary expectations.
+
+So this patch just gets things the way they were as before
+commit f8126f1d51.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- drivers/net/ethernet/cadence/macb.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ net/netfilter/nf_conntrack_h323_main.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 4d51877..eae3d74 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -26,6 +26,9 @@
- #include <linux/of.h>
- #include <linux/of_device.h>
- #include <linux/of_net.h>
-+#include <linux/of_gpio.h>
-+#include <linux/gpio.h>
-+#include <linux/pinctrl/consumer.h>
- 
- #include "macb.h"
- 
-@@ -1472,6 +1475,7 @@ static int __init macb_probe(struct platform_device *pdev)
- 	struct phy_device *phydev;
- 	u32 config;
- 	int err = -ENXIO;
-+	struct pinctrl *pinctrl;
- 
- 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!regs) {
-@@ -1479,6 +1483,15 @@ static int __init macb_probe(struct platform_device *pdev)
- 		goto err_out;
- 	}
- 
-+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
-+	if (IS_ERR(pinctrl)) {
-+		err = PTR_ERR(pinctrl);
-+		if (err == -EPROBE_DEFER)
-+			goto err_out;
-+
-+		dev_warn(&pdev->dev, "No pinctrl provided\n");
-+	}
-+
- 	err = -ENOMEM;
- 	dev = alloc_etherdev(sizeof(*bp));
- 	if (!dev)
+diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+index 1b30b0d..962795e 100644
+--- a/net/netfilter/nf_conntrack_h323_main.c
++++ b/net/netfilter/nf_conntrack_h323_main.c
+@@ -753,7 +753,8 @@ static int callforward_do_filter(const union nf_inet_addr *src,
+ 				   flowi4_to_flowi(&fl1), false)) {
+ 			if (!afinfo->route(&init_net, (struct dst_entry **)&rt2,
+ 					   flowi4_to_flowi(&fl2), false)) {
+-				if (rt1->rt_gateway == rt2->rt_gateway &&
++				if (rt_nexthop(rt1, fl1.daddr) ==
++				    rt_nexthop(rt2, fl2.daddr) &&
+ 				    rt1->dst.dev  == rt2->dst.dev)
+ 					ret = 1;
+ 				dst_release(&rt2->dst);
 -- 
-1.8.0
+1.7.10.4
