@@ -1,48 +1,59 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH 3/4] ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio module
-Date: Tue, 30 Oct 2012 22:35:14 +0100
-Message-ID: <87y5infxt9.fsf@macbook.be.48ers.dk>
-References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com>
-	<1351498881-32482-5-git-send-email-hvaibhav@ti.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v8 01/16] hashtable: introduce a small and naive hashtable
+Date: Tue, 30 Oct 2012 14:42:57 -0700
+Message-ID: <20121030214257.GB2681@htj.dyndns.org>
+References: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>, <paul@pwsan.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Vaibhav Hiremath <hvaibhav@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1351498881-32482-5-git-send-email-hvaibhav@ti.com> (Vaibhav
-	Hiremath's message of "Mon, 29 Oct 2012 13:51:20 +0530")
-Sender: linux-omap-owner@vger.kernel.org
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+	paul.gortmaker@windriver.com, davem@davemloft.net,
+	rostedt@goodmis.org, mingo@elte.hu, ebiederm@xmission.com,
+	aarcange@redhat.com, ericvh@gmail.com, netdev@vger.kernel.org,
+	josh@joshtriplett.org, eric.dumazet@gmail.com,
+	mathieu.desnoyers@efficios.com, axboe@kernel.dk, agk@redhat.com,
+	dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com,
+	teigland@redhat.com, Trond.Myklebust@netapp.com,
+	bfields@fieldses.org, fweisbec@gmail.com, jesse@nicira.com,
+	venkat.x.venkatsubra@oracle.com, ejt@redhat.com, snitzer@redhat.com,
+	edumazet@google.com, linux-nfs@vger.kernel.org, dev@openvswitch.org,
+	rds-devel@oss.oracle.com, lw@cn.fujitsu.com
+To: Sasha Levin <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
->>>>> "Vaibhav" == Vaibhav Hiremath <hvaibhav@ti.com> writes:
+Hello,
 
- Vaibhav> From: Mugunthan V N <mugunthanvnm@ti.com>
- Vaibhav> This patch adds hwmod entry for davinci MDIO module,
- Vaibhav> creating parent<->child relationship between CPSW and MDIO module.
+Just some nitpicks.
 
- Vaibhav> This Parent-child relation is required in order to use common resources
- Vaibhav> like, clock, but still maintaining the logical separation between them.
+On Tue, Oct 30, 2012 at 02:45:57PM -0400, Sasha Levin wrote:
+> +/* Use hash_32 when possible to allow for fast 32bit hashing in 64bit kernels. */
+> +#define hash_min(val, bits)							\
+> +({										\
+> +	sizeof(val) <= 4 ?							\
+> +	hash_32(val, bits) :							\
+> +	hash_long(val, bits);							\
+> +})
 
- Vaibhav> CPGMAC SubSystem consist of various sub-modules, like, mdio, cpdma,
- Vaibhav> cpsw, etc... These sub-modules are also used in some of Davinci
- Vaibhav> family of devices, so separate and independent platform devices &
- Vaibhav> drivers for CPSW and MDIO is implemented.
- Vaibhav> In case of AM33XX, the resources are shared and common register
- Vaibhav> bit-field is provided to control module/clock enable/disable,
- Vaibhav> makes it difficult to handle common resources from both drivers.
+Doesn't the above fit in 80 column.  Why is it broken into multiple
+lines?  Also, you probably want () around at least @val.  In general,
+it's a good idea to add () around any macro argument to avoid nasty
+surprises.
 
- Vaibhav> So the solution is, create parent<->child relationship between
- Vaibhav> CPGMAC & MDIO modules.
+Looks good to me otherwise.
 
- Vaibhav> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
- Vaibhav> Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
- Vaibhav> Cc: Richard Cochran <richardcochran@gmail.com>
- Vaibhav> Cc: Paul Walmsley <paul@pwsan.com>
+ Reviewed-by: Tejun Heo <tj@kernel.org>
 
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
+Thanks.
 
 -- 
-Bye, Peter Korsgaard
+tejun
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
