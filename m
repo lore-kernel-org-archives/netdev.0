@@ -1,7 +1,8 @@
 From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v8 12/16] dm: use new hashtable implementation
-Date: Tue, 30 Oct 2012 14:46:08 -0400
-Message-ID: <1351622772-16400-12-git-send-email-levinsasha928@gmail.com>
+Subject: [PATCH v8 14/16] net,
+	rds: use new hashtable implementation
+Date: Tue, 30 Oct 2012 14:46:10 -0400
+Message-ID: <1351622772-16400-14-git-send-email-levinsasha928@gmail.com>
 References: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -34,252 +35,292 @@ Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Switch dm to use the new hashtable implementation. This reduces the amount of
-generic unrelated code in the dm.
+Switch rds to use the new hashtable implementation. This reduces the amount of
+generic unrelated code in rds.
 
 Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/md/dm-snap.c                               | 24 +++++------------
- drivers/md/persistent-data/dm-block-manager.c      |  1 -
- .../persistent-data/dm-persistent-data-internal.h  | 19 --------------
- .../md/persistent-data/dm-transaction-manager.c    | 30 +++++++---------------
- 4 files changed, 16 insertions(+), 58 deletions(-)
- delete mode 100644 drivers/md/persistent-data/dm-persistent-data-internal.h
+ net/rds/bind.c       |  20 +++++------
+ net/rds/connection.c | 100 ++++++++++++++++++++++-----------------------------
+ 2 files changed, 53 insertions(+), 67 deletions(-)
 
-diff --git a/drivers/md/dm-snap.c b/drivers/md/dm-snap.c
-index 223e7eb..4b19fa0 100644
---- a/drivers/md/dm-snap.c
-+++ b/drivers/md/dm-snap.c
-@@ -34,9 +34,7 @@ static const char dm_snapshot_merge_target_name[] = "snapshot-merge";
-  */
- #define MIN_IOS 256
- 
--#define DM_TRACKED_CHUNK_HASH_SIZE	16
--#define DM_TRACKED_CHUNK_HASH(x)	((unsigned long)(x) & \
--					 (DM_TRACKED_CHUNK_HASH_SIZE - 1))
-+#define DM_TRACKED_CHUNK_HASH_BITS	4
- 
- struct dm_exception_table {
- 	uint32_t hash_mask;
-@@ -80,7 +78,7 @@ struct dm_snapshot {
- 	/* Chunks with outstanding reads */
- 	spinlock_t tracked_chunk_lock;
- 	mempool_t *tracked_chunk_pool;
--	struct hlist_head tracked_chunk_hash[DM_TRACKED_CHUNK_HASH_SIZE];
-+	DECLARE_HASHTABLE(tracked_chunk_hash, DM_TRACKED_CHUNK_HASH_BITS);
- 
- 	/* The on disk metadata handler */
- 	struct dm_exception_store *store;
-@@ -202,8 +200,7 @@ static struct dm_snap_tracked_chunk *track_chunk(struct dm_snapshot *s,
- 	c->chunk = chunk;
- 
- 	spin_lock_irq(&s->tracked_chunk_lock);
--	hlist_add_head(&c->node,
--		       &s->tracked_chunk_hash[DM_TRACKED_CHUNK_HASH(chunk)]);
-+	hash_add(s->tracked_chunk_hash, &c->node, chunk);
- 	spin_unlock_irq(&s->tracked_chunk_lock);
- 
- 	return c;
-@@ -215,7 +212,7 @@ static void stop_tracking_chunk(struct dm_snapshot *s,
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&s->tracked_chunk_lock, flags);
--	hlist_del(&c->node);
-+	hash_del(&c->node);
- 	spin_unlock_irqrestore(&s->tracked_chunk_lock, flags);
- 
- 	mempool_free(c, s->tracked_chunk_pool);
-@@ -229,8 +226,7 @@ static int __chunk_is_tracked(struct dm_snapshot *s, chunk_t chunk)
- 
- 	spin_lock_irq(&s->tracked_chunk_lock);
- 
--	hlist_for_each_entry(c, hn,
--	    &s->tracked_chunk_hash[DM_TRACKED_CHUNK_HASH(chunk)], node) {
-+	hash_for_each_possible(s->tracked_chunk_hash, c, hn, node, chunk) {
- 		if (c->chunk == chunk) {
- 			found = 1;
- 			break;
-@@ -1032,7 +1028,6 @@ static void stop_merge(struct dm_snapshot *s)
- static int snapshot_ctr(struct dm_target *ti, unsigned int argc, char **argv)
- {
- 	struct dm_snapshot *s;
--	int i;
- 	int r = -EINVAL;
- 	char *origin_path, *cow_path;
- 	unsigned args_used, num_flush_requests = 1;
-@@ -1127,8 +1122,7 @@ static int snapshot_ctr(struct dm_target *ti, unsigned int argc, char **argv)
- 		goto bad_tracked_chunk_pool;
- 	}
- 
--	for (i = 0; i < DM_TRACKED_CHUNK_HASH_SIZE; i++)
--		INIT_HLIST_HEAD(&s->tracked_chunk_hash[i]);
-+	hash_init(s->tracked_chunk_hash);
- 
- 	spin_lock_init(&s->tracked_chunk_lock);
- 
-@@ -1252,9 +1246,6 @@ static void __handover_exceptions(struct dm_snapshot *snap_src,
- 
- static void snapshot_dtr(struct dm_target *ti)
- {
--#ifdef CONFIG_DM_DEBUG
--	int i;
--#endif
- 	struct dm_snapshot *s = ti->private;
- 	struct dm_snapshot *snap_src = NULL, *snap_dest = NULL;
- 
-@@ -1285,8 +1276,7 @@ static void snapshot_dtr(struct dm_target *ti)
- 	smp_mb();
- 
- #ifdef CONFIG_DM_DEBUG
--	for (i = 0; i < DM_TRACKED_CHUNK_HASH_SIZE; i++)
--		BUG_ON(!hlist_empty(&s->tracked_chunk_hash[i]));
-+	BUG_ON(!hash_empty(s->tracked_chunk_hash));
- #endif
- 
- 	mempool_destroy(s->tracked_chunk_pool);
-diff --git a/drivers/md/persistent-data/dm-block-manager.c b/drivers/md/persistent-data/dm-block-manager.c
-index 5ba2777..31edaf13 100644
---- a/drivers/md/persistent-data/dm-block-manager.c
-+++ b/drivers/md/persistent-data/dm-block-manager.c
-@@ -4,7 +4,6 @@
-  * This file is released under the GPL.
-  */
- #include "dm-block-manager.h"
--#include "dm-persistent-data-internal.h"
- #include "../dm-bufio.h"
- 
- #include <linux/crc32c.h>
-diff --git a/drivers/md/persistent-data/dm-persistent-data-internal.h b/drivers/md/persistent-data/dm-persistent-data-internal.h
-deleted file mode 100644
-index c49e26f..0000000
---- a/drivers/md/persistent-data/dm-persistent-data-internal.h
-+++ /dev/null
-@@ -1,19 +0,0 @@
--/*
-- * Copyright (C) 2011 Red Hat, Inc.
-- *
-- * This file is released under the GPL.
-- */
--
--#ifndef _DM_PERSISTENT_DATA_INTERNAL_H
--#define _DM_PERSISTENT_DATA_INTERNAL_H
--
--#include "dm-block-manager.h"
--
--static inline unsigned dm_hash_block(dm_block_t b, unsigned hash_mask)
--{
--	const unsigned BIG_PRIME = 4294967291UL;
--
--	return (((unsigned) b) * BIG_PRIME) & hash_mask;
--}
--
--#endif	/* _PERSISTENT_DATA_INTERNAL_H */
-diff --git a/drivers/md/persistent-data/dm-transaction-manager.c b/drivers/md/persistent-data/dm-transaction-manager.c
-index d247a35..9eb9417 100644
---- a/drivers/md/persistent-data/dm-transaction-manager.c
-+++ b/drivers/md/persistent-data/dm-transaction-manager.c
-@@ -7,11 +7,11 @@
- #include "dm-space-map.h"
- #include "dm-space-map-disk.h"
- #include "dm-space-map-metadata.h"
--#include "dm-persistent-data-internal.h"
- 
- #include <linux/export.h>
- #include <linux/slab.h>
- #include <linux/device-mapper.h>
+diff --git a/net/rds/bind.c b/net/rds/bind.c
+index 637bde5..a99e524 100644
+--- a/net/rds/bind.c
++++ b/net/rds/bind.c
+@@ -36,16 +36,16 @@
+ #include <linux/if_arp.h>
+ #include <linux/jhash.h>
+ #include <linux/ratelimit.h>
 +#include <linux/hashtable.h>
+ #include "rds.h"
  
- #define DM_MSG_PREFIX "transaction manager"
+-#define BIND_HASH_SIZE 1024
+-static struct hlist_head bind_hash_table[BIND_HASH_SIZE];
++#define BIND_HASH_BITS 10
++static DEFINE_HASHTABLE(bind_hash_table, BIND_HASH_BITS);
+ static DEFINE_SPINLOCK(rds_bind_lock);
  
-@@ -25,8 +25,7 @@ struct shadow_info {
- /*
-  * It would be nice if we scaled with the size of transaction.
-  */
--#define HASH_SIZE 256
--#define HASH_MASK (HASH_SIZE - 1)
-+#define DM_HASH_BITS 8
- 
- struct dm_transaction_manager {
- 	int is_clone;
-@@ -36,7 +35,7 @@ struct dm_transaction_manager {
- 	struct dm_space_map *sm;
- 
- 	spinlock_t lock;
--	struct hlist_head buckets[HASH_SIZE];
-+	DECLARE_HASHTABLE(hash, DM_HASH_BITS);
- };
- 
- /*----------------------------------------------------------------*/
-@@ -44,12 +43,11 @@ struct dm_transaction_manager {
- static int is_shadow(struct dm_transaction_manager *tm, dm_block_t b)
+-static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
++static u32 rds_hash(__be32 addr, __be16 port)
  {
- 	int r = 0;
--	unsigned bucket = dm_hash_block(b, HASH_MASK);
- 	struct shadow_info *si;
- 	struct hlist_node *n;
+-	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
+-				  (BIND_HASH_SIZE - 1));
++	return jhash_2words((u32)addr, (u32)port, 0);
+ }
  
- 	spin_lock(&tm->lock);
--	hlist_for_each_entry(si, n, tm->buckets + bucket, hlist)
-+	hash_for_each_possible(tm->hash, si, n, hlist, b)
- 		if (si->where == b) {
- 			r = 1;
- 			break;
-@@ -65,15 +63,13 @@ static int is_shadow(struct dm_transaction_manager *tm, dm_block_t b)
-  */
- static void insert_shadow(struct dm_transaction_manager *tm, dm_block_t b)
+ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
+@@ -53,12 +53,12 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
  {
--	unsigned bucket;
- 	struct shadow_info *si;
+ 	struct rds_sock *rs;
+ 	struct hlist_node *node;
+-	struct hlist_head *head = hash_to_bucket(addr, port);
++	u32 key = rds_hash(addr, port);
+ 	u64 cmp;
+ 	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
  
- 	si = kmalloc(sizeof(*si), GFP_NOIO);
- 	if (si) {
- 		si->where = b;
--		bucket = dm_hash_block(b, HASH_MASK);
- 		spin_lock(&tm->lock);
--		hlist_add_head(&si->hlist, tm->buckets + bucket);
-+		hash_add(tm->hash, &si->hlist, b);
- 		spin_unlock(&tm->lock);
+ 	rcu_read_lock();
+-	hlist_for_each_entry_rcu(rs, node, head, rs_bound_node) {
++	hash_for_each_possible_rcu(bind_hash_table, rs, node, rs_bound_node, key) {
+ 		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
+ 		      be16_to_cpu(rs->rs_bound_port);
+ 
+@@ -74,13 +74,13 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
+ 		 * make sure our addr and port are set before
+ 		 * we are added to the list, other people
+ 		 * in rcu will find us as soon as the
+-		 * hlist_add_head_rcu is done
++		 * hash_add_rcu is done
+ 		 */
+ 		insert->rs_bound_addr = addr;
+ 		insert->rs_bound_port = port;
+ 		rds_sock_addref(insert);
+ 
+-		hlist_add_head_rcu(&insert->rs_bound_node, head);
++		hash_add_rcu(bind_hash_table, &insert->rs_bound_node, key);
  	}
+ 	return NULL;
  }
-@@ -82,18 +78,12 @@ static void wipe_shadow_table(struct dm_transaction_manager *tm)
+@@ -152,7 +152,7 @@ void rds_remove_bound(struct rds_sock *rs)
+ 		  rs, &rs->rs_bound_addr,
+ 		  ntohs(rs->rs_bound_port));
+ 
+-		hlist_del_init_rcu(&rs->rs_bound_node);
++		hash_del_rcu(&rs->rs_bound_node);
+ 		rds_sock_put(rs);
+ 		rs->rs_bound_addr = 0;
+ 	}
+diff --git a/net/rds/connection.c b/net/rds/connection.c
+index 9e07c75..a9afcb8 100644
+--- a/net/rds/connection.c
++++ b/net/rds/connection.c
+@@ -34,28 +34,24 @@
+ #include <linux/list.h>
+ #include <linux/slab.h>
+ #include <linux/export.h>
++#include <linux/hashtable.h>
+ #include <net/inet_hashtables.h>
+ 
+ #include "rds.h"
+ #include "loop.h"
+ 
+ #define RDS_CONNECTION_HASH_BITS 12
+-#define RDS_CONNECTION_HASH_ENTRIES (1 << RDS_CONNECTION_HASH_BITS)
+-#define RDS_CONNECTION_HASH_MASK (RDS_CONNECTION_HASH_ENTRIES - 1)
+ 
+ /* converting this to RCU is a chore for another day.. */
+ static DEFINE_SPINLOCK(rds_conn_lock);
+ static unsigned long rds_conn_count;
+-static struct hlist_head rds_conn_hash[RDS_CONNECTION_HASH_ENTRIES];
++static DEFINE_HASHTABLE(rds_conn_hash, RDS_CONNECTION_HASH_BITS);
+ static struct kmem_cache *rds_conn_slab;
+ 
+-static struct hlist_head *rds_conn_bucket(__be32 laddr, __be32 faddr)
++static unsigned long rds_conn_hashfn(__be32 laddr, __be32 faddr)
  {
- 	struct shadow_info *si;
- 	struct hlist_node *n, *tmp;
--	struct hlist_head *bucket;
- 	int i;
- 
- 	spin_lock(&tm->lock);
--	for (i = 0; i < HASH_SIZE; i++) {
--		bucket = tm->buckets + i;
--		hlist_for_each_entry_safe(si, n, tmp, bucket, hlist)
--			kfree(si);
--
--		INIT_HLIST_HEAD(bucket);
--	}
--
-+	hash_for_each_safe(tm->hash, i, n, tmp, si, hlist)
-+		kfree(si);
-+	hash_init(tm->hash);
- 	spin_unlock(&tm->lock);
+ 	/* Pass NULL, don't need struct net for hash */
+-	unsigned long hash = inet_ehashfn(NULL,
+-					  be32_to_cpu(laddr), 0,
+-					  be32_to_cpu(faddr), 0);
+-	return &rds_conn_hash[hash & RDS_CONNECTION_HASH_MASK];
++	return inet_ehashfn(NULL,  be32_to_cpu(laddr), 0,  be32_to_cpu(faddr), 0);
  }
  
-@@ -102,7 +92,6 @@ static void wipe_shadow_table(struct dm_transaction_manager *tm)
- static struct dm_transaction_manager *dm_tm_create(struct dm_block_manager *bm,
- 						   struct dm_space_map *sm)
+ #define rds_conn_info_set(var, test, suffix) do {		\
+@@ -64,14 +60,14 @@ static struct hlist_head *rds_conn_bucket(__be32 laddr, __be32 faddr)
+ } while (0)
+ 
+ /* rcu read lock must be held or the connection spinlock */
+-static struct rds_connection *rds_conn_lookup(struct hlist_head *head,
+-					      __be32 laddr, __be32 faddr,
++static struct rds_connection *rds_conn_lookup(__be32 laddr, __be32 faddr,
+ 					      struct rds_transport *trans)
  {
--	int i;
- 	struct dm_transaction_manager *tm;
+ 	struct rds_connection *conn, *ret = NULL;
+ 	struct hlist_node *pos;
++	unsigned long key = rds_conn_hashfn(laddr, faddr);
  
- 	tm = kmalloc(sizeof(*tm), GFP_KERNEL);
-@@ -115,8 +104,7 @@ static struct dm_transaction_manager *dm_tm_create(struct dm_block_manager *bm,
- 	tm->sm = sm;
+-	hlist_for_each_entry_rcu(conn, pos, head, c_hash_node) {
++	hash_for_each_possible_rcu(rds_conn_hash, conn, pos, c_hash_node, key) {
+ 		if (conn->c_faddr == faddr && conn->c_laddr == laddr &&
+ 				conn->c_trans == trans) {
+ 			ret = conn;
+@@ -117,13 +113,12 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
+ 				       int is_outgoing)
+ {
+ 	struct rds_connection *conn, *parent = NULL;
+-	struct hlist_head *head = rds_conn_bucket(laddr, faddr);
+ 	struct rds_transport *loop_trans;
+ 	unsigned long flags;
+ 	int ret;
  
- 	spin_lock_init(&tm->lock);
--	for (i = 0; i < HASH_SIZE; i++)
--		INIT_HLIST_HEAD(tm->buckets + i);
-+	hash_init(tm->hash);
+ 	rcu_read_lock();
+-	conn = rds_conn_lookup(head, laddr, faddr, trans);
++	conn = rds_conn_lookup(laddr, faddr, trans);
+ 	if (conn && conn->c_loopback && conn->c_trans != &rds_loop_transport &&
+ 	    !is_outgoing) {
+ 		/* This is a looped back IB connection, and we're
+@@ -224,13 +219,15 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
+ 		/* Creating normal conn */
+ 		struct rds_connection *found;
  
- 	return tm;
+-		found = rds_conn_lookup(head, laddr, faddr, trans);
++		found = rds_conn_lookup(laddr, faddr, trans);
+ 		if (found) {
+ 			trans->conn_free(conn->c_transport_data);
+ 			kmem_cache_free(rds_conn_slab, conn);
+ 			conn = found;
+ 		} else {
+-			hlist_add_head_rcu(&conn->c_hash_node, head);
++			unsigned long key = rds_conn_hashfn(laddr, faddr);
++
++			hash_add_rcu(rds_conn_hash, &conn->c_hash_node, key);
+ 			rds_cong_add_conn(conn);
+ 			rds_conn_count++;
+ 		}
+@@ -303,7 +300,7 @@ void rds_conn_shutdown(struct rds_connection *conn)
+ 	 * conn - the reconnect is always triggered by the active peer. */
+ 	cancel_delayed_work_sync(&conn->c_conn_w);
+ 	rcu_read_lock();
+-	if (!hlist_unhashed(&conn->c_hash_node)) {
++	if (hash_hashed(&conn->c_hash_node)) {
+ 		rcu_read_unlock();
+ 		rds_queue_reconnect(conn);
+ 	} else {
+@@ -329,7 +326,7 @@ void rds_conn_destroy(struct rds_connection *conn)
+ 
+ 	/* Ensure conn will not be scheduled for reconnect */
+ 	spin_lock_irq(&rds_conn_lock);
+-	hlist_del_init_rcu(&conn->c_hash_node);
++	hash_del(&conn->c_hash_node);
+ 	spin_unlock_irq(&rds_conn_lock);
+ 	synchronize_rcu();
+ 
+@@ -375,7 +372,6 @@ static void rds_conn_message_info(struct socket *sock, unsigned int len,
+ 				  struct rds_info_lengths *lens,
+ 				  int want_send)
+ {
+-	struct hlist_head *head;
+ 	struct hlist_node *pos;
+ 	struct list_head *list;
+ 	struct rds_connection *conn;
+@@ -388,27 +384,24 @@ static void rds_conn_message_info(struct socket *sock, unsigned int len,
+ 
+ 	rcu_read_lock();
+ 
+-	for (i = 0, head = rds_conn_hash; i < ARRAY_SIZE(rds_conn_hash);
+-	     i++, head++) {
+-		hlist_for_each_entry_rcu(conn, pos, head, c_hash_node) {
+-			if (want_send)
+-				list = &conn->c_send_queue;
+-			else
+-				list = &conn->c_retrans;
+-
+-			spin_lock_irqsave(&conn->c_lock, flags);
+-
+-			/* XXX too lazy to maintain counts.. */
+-			list_for_each_entry(rm, list, m_conn_item) {
+-				total++;
+-				if (total <= len)
+-					rds_inc_info_copy(&rm->m_inc, iter,
+-							  conn->c_laddr,
+-							  conn->c_faddr, 0);
+-			}
+-
+-			spin_unlock_irqrestore(&conn->c_lock, flags);
++	hash_for_each_rcu(rds_conn_hash, i, pos, conn, c_hash_node) {
++		if (want_send)
++			list = &conn->c_send_queue;
++		else
++			list = &conn->c_retrans;
++
++		spin_lock_irqsave(&conn->c_lock, flags);
++
++		/* XXX too lazy to maintain counts.. */
++		list_for_each_entry(rm, list, m_conn_item) {
++			total++;
++			if (total <= len)
++				rds_inc_info_copy(&rm->m_inc, iter,
++						  conn->c_laddr,
++						  conn->c_faddr, 0);
+ 		}
++
++		spin_unlock_irqrestore(&conn->c_lock, flags);
+ 	}
+ 	rcu_read_unlock();
+ 
+@@ -438,7 +431,6 @@ void rds_for_each_conn_info(struct socket *sock, unsigned int len,
+ 			  size_t item_len)
+ {
+ 	uint64_t buffer[(item_len + 7) / 8];
+-	struct hlist_head *head;
+ 	struct hlist_node *pos;
+ 	struct rds_connection *conn;
+ 	size_t i;
+@@ -448,23 +440,19 @@ void rds_for_each_conn_info(struct socket *sock, unsigned int len,
+ 	lens->nr = 0;
+ 	lens->each = item_len;
+ 
+-	for (i = 0, head = rds_conn_hash; i < ARRAY_SIZE(rds_conn_hash);
+-	     i++, head++) {
+-		hlist_for_each_entry_rcu(conn, pos, head, c_hash_node) {
+-
+-			/* XXX no c_lock usage.. */
+-			if (!visitor(conn, buffer))
+-				continue;
+-
+-			/* We copy as much as we can fit in the buffer,
+-			 * but we count all items so that the caller
+-			 * can resize the buffer. */
+-			if (len >= item_len) {
+-				rds_info_copy(iter, buffer, item_len);
+-				len -= item_len;
+-			}
+-			lens->nr++;
++	hash_for_each_rcu(rds_conn_hash, i, pos, conn, c_hash_node) {
++		/* XXX no c_lock usage.. */
++		if (!visitor(conn, buffer))
++			continue;
++
++		/* We copy as much as we can fit in the buffer,
++		 * but we count all items so that the caller
++		 * can resize the buffer. */
++		if (len >= item_len) {
++			rds_info_copy(iter, buffer, item_len);
++			len -= item_len;
+ 		}
++		lens->nr++;
+ 	}
+ 	rcu_read_unlock();
  }
+@@ -525,8 +513,6 @@ void rds_conn_exit(void)
+ {
+ 	rds_loop_exit();
+ 
+-	WARN_ON(!hlist_empty(rds_conn_hash));
+-
+ 	kmem_cache_destroy(rds_conn_slab);
+ 
+ 	rds_info_deregister_func(RDS_INFO_CONNECTIONS, rds_conn_info);
 -- 
 1.7.12.4
