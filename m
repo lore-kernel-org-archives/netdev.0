@@ -1,176 +1,131 @@
-From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v8 08/16] block,
-	elevator: use new hashtable implementation
-Date: Tue, 30 Oct 2012 14:46:04 -0400
-Message-ID: <1351622772-16400-8-git-send-email-levinsasha928@gmail.com>
+From: Sasha Levin <levinsasha928@gmail.com>
+Subject: [PATCH v8 09/16] SUNRPC/cache: use new hashtable implementation
+Date: Tue, 30 Oct 2012 14:46:05 -0400
+Message-ID: <1351622772-16400-9-git-send-email-levinsasha928@gmail.com>
 References: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org,
-	lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org, mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org,
-	Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1351622772-16400-1-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: tj@kernel.org,
+	akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	linux-mm@kvack.org,
+	paul.gortmaker@windriver.com,
+	davem@davemloft.net,
+	rostedt@goodmis.org,
+	mingo@elte.hu,
+	ebiederm@xmission.com,
+	aarcange@redhat.com,
+	ericvh@gmail.com,
+	netdev@vger.kernel.org,
+	josh@joshtriplett.org,
+	eric.dumazet@gmail.com,
+	mathieu.desnoyers@efficios.com,
+	axboe@kernel.dk,
+	agk@redhat.com,
+	dm-devel@redhat.com,
+	neilb@suse.de,
+	ccaulfie@redhat.com,
+	teigland@redhat.com,
+	Trond.Myklebust@netapp.com,
+	bfields@fieldses.org,
+	fweisbec@gmail.com,
+	jesse@nicira.com,
+	venkat.x.venkatsubra@oracle.com,
+	ejt@redhat.com,
+	snitzer@redhat.com,
+	edumazet@google.com,
+	linux-nfs@vger.kernel.org,
+	dev@openvswitch.org,
+	rds-devel@oss.oracle.com,
+	lw@cn.fujitsu.com,
+	Sasha Levin <levinsasha928@gmail.com>
+To: torvalds@linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Switch elevator to use the new hashtable implementation. This reduces the
-amount of generic unrelated code in the elevator.
+Switch cache to use the new hashtable implementation. This reduces the amount
+of generic unrelated code in the cache implementation.
 
-This also removes the dymanic allocation of the hash table. The size of the table is
-constant so there's no point in paying the price of an extra dereference when accessing
-it.
-
-Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Sasha Levin <levinsasha928@gmail.com>
 ---
- block/blk.h              |  2 +-
- block/elevator.c         | 23 ++++-------------------
- include/linux/elevator.h |  5 ++++-
- 3 files changed, 9 insertions(+), 21 deletions(-)
+ net/sunrpc/cache.c | 18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
 
-diff --git a/block/blk.h b/block/blk.h
-index ca51543..a0abbf6 100644
---- a/block/blk.h
-+++ b/block/blk.h
-@@ -61,7 +61,7 @@ static inline void blk_clear_rq_complete(struct request *rq)
- /*
-  * Internal elevator interface
-  */
--#define ELV_ON_HASH(rq)		(!hlist_unhashed(&(rq)->hash))
-+#define ELV_ON_HASH(rq) hash_hashed(&(rq)->hash)
- 
- void blk_insert_flush(struct request *rq);
- void blk_abort_flushes(struct request_queue *q);
-diff --git a/block/elevator.c b/block/elevator.c
-index 9b1d42b..898d0eb 100644
---- a/block/elevator.c
-+++ b/block/elevator.c
-@@ -46,11 +46,6 @@ static LIST_HEAD(elv_list);
- /*
-  * Merge hash stuff.
-  */
--static const int elv_hash_shift = 6;
--#define ELV_HASH_BLOCK(sec)	((sec) >> 3)
--#define ELV_HASH_FN(sec)	\
--		(hash_long(ELV_HASH_BLOCK((sec)), elv_hash_shift))
--#define ELV_HASH_ENTRIES	(1 << elv_hash_shift)
- #define rq_hash_key(rq)		(blk_rq_pos(rq) + blk_rq_sectors(rq))
- 
- /*
-@@ -142,7 +137,6 @@ static struct elevator_queue *elevator_alloc(struct request_queue *q,
- 				  struct elevator_type *e)
- {
- 	struct elevator_queue *eq;
--	int i;
- 
- 	eq = kmalloc_node(sizeof(*eq), GFP_KERNEL | __GFP_ZERO, q->node);
- 	if (unlikely(!eq))
-@@ -151,14 +145,7 @@ static struct elevator_queue *elevator_alloc(struct request_queue *q,
- 	eq->type = e;
- 	kobject_init(&eq->kobj, &elv_ktype);
- 	mutex_init(&eq->sysfs_lock);
--
--	eq->hash = kmalloc_node(sizeof(struct hlist_head) * ELV_HASH_ENTRIES,
--					GFP_KERNEL, q->node);
--	if (!eq->hash)
--		goto err;
--
--	for (i = 0; i < ELV_HASH_ENTRIES; i++)
--		INIT_HLIST_HEAD(&eq->hash[i]);
-+	hash_init(eq->hash);
- 
- 	return eq;
- err:
-@@ -173,7 +160,6 @@ static void elevator_release(struct kobject *kobj)
- 
- 	e = container_of(kobj, struct elevator_queue, kobj);
- 	elevator_put(e->type);
--	kfree(e->hash);
- 	kfree(e);
- }
- 
-@@ -240,7 +226,7 @@ EXPORT_SYMBOL(elevator_exit);
- 
- static inline void __elv_rqhash_del(struct request *rq)
- {
--	hlist_del_init(&rq->hash);
-+	hash_del(&rq->hash);
- }
- 
- static void elv_rqhash_del(struct request_queue *q, struct request *rq)
-@@ -254,7 +240,7 @@ static void elv_rqhash_add(struct request_queue *q, struct request *rq)
- 	struct elevator_queue *e = q->elevator;
- 
- 	BUG_ON(ELV_ON_HASH(rq));
--	hlist_add_head(&rq->hash, &e->hash[ELV_HASH_FN(rq_hash_key(rq))]);
-+	hash_add(e->hash, &rq->hash, rq_hash_key(rq));
- }
- 
- static void elv_rqhash_reposition(struct request_queue *q, struct request *rq)
-@@ -266,11 +252,10 @@ static void elv_rqhash_reposition(struct request_queue *q, struct request *rq)
- static struct request *elv_rqhash_find(struct request_queue *q, sector_t offset)
- {
- 	struct elevator_queue *e = q->elevator;
--	struct hlist_head *hash_list = &e->hash[ELV_HASH_FN(offset)];
- 	struct hlist_node *entry, *next;
- 	struct request *rq;
- 
--	hlist_for_each_entry_safe(rq, entry, next, hash_list, hash) {
-+	hash_for_each_possible_safe(e->hash, rq, entry, next, hash, offset) {
- 		BUG_ON(!ELV_ON_HASH(rq));
- 
- 		if (unlikely(!rq_mergeable(rq))) {
-diff --git a/include/linux/elevator.h b/include/linux/elevator.h
-index c03af76..7c5a7c9 100644
---- a/include/linux/elevator.h
-+++ b/include/linux/elevator.h
-@@ -2,6 +2,7 @@
- #define _LINUX_ELEVATOR_H
- 
- #include <linux/percpu.h>
+diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
+index fc2f7aa..eaf9693 100644
+--- a/net/sunrpc/cache.c
++++ b/net/sunrpc/cache.c
+@@ -28,6 +28,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/mutex.h>
+ #include <linux/pagemap.h>
 +#include <linux/hashtable.h>
- 
- #ifdef CONFIG_BLOCK
- 
-@@ -96,6 +97,8 @@ struct elevator_type
- 	struct list_head list;
- };
- 
-+#define ELV_HASH_BITS 6
-+
- /*
-  * each queue has an elevator_queue associated with it
+ #include <asm/ioctls.h>
+ #include <linux/sunrpc/types.h>
+ #include <linux/sunrpc/cache.h>
+@@ -524,19 +525,18 @@ EXPORT_SYMBOL_GPL(cache_purge);
+  * it to be revisited when cache info is available
   */
-@@ -105,8 +108,8 @@ struct elevator_queue
- 	void *elevator_data;
- 	struct kobject kobj;
- 	struct mutex sysfs_lock;
--	struct hlist_head *hash;
- 	unsigned int registered:1;
-+	DECLARE_HASHTABLE(hash, ELV_HASH_BITS);
- };
  
- /*
+-#define	DFR_HASHSIZE	(PAGE_SIZE/sizeof(struct list_head))
+-#define	DFR_HASH(item)	((((long)item)>>4 ^ (((long)item)>>13)) % DFR_HASHSIZE)
++#define	DFR_HASH_BITS	9
+ 
+ #define	DFR_MAX	300	/* ??? */
+ 
+ static DEFINE_SPINLOCK(cache_defer_lock);
+ static LIST_HEAD(cache_defer_list);
+-static struct hlist_head cache_defer_hash[DFR_HASHSIZE];
++static DEFINE_HASHTABLE(cache_defer_hash, DFR_HASH_BITS);
+ static int cache_defer_cnt;
+ 
+ static void __unhash_deferred_req(struct cache_deferred_req *dreq)
+ {
+-	hlist_del_init(&dreq->hash);
++	hash_del(&dreq->hash);
+ 	if (!list_empty(&dreq->recent)) {
+ 		list_del_init(&dreq->recent);
+ 		cache_defer_cnt--;
+@@ -545,10 +545,7 @@ static void __unhash_deferred_req(struct cache_deferred_req *dreq)
+ 
+ static void __hash_deferred_req(struct cache_deferred_req *dreq, struct cache_head *item)
+ {
+-	int hash = DFR_HASH(item);
+-
+-	INIT_LIST_HEAD(&dreq->recent);
+-	hlist_add_head(&dreq->hash, &cache_defer_hash[hash]);
++	hash_add(cache_defer_hash, &dreq->hash, (unsigned long)item);
+ }
+ 
+ static void setup_deferral(struct cache_deferred_req *dreq,
+@@ -600,7 +597,7 @@ static void cache_wait_req(struct cache_req *req, struct cache_head *item)
+ 		 * to clean up
+ 		 */
+ 		spin_lock(&cache_defer_lock);
+-		if (!hlist_unhashed(&sleeper.handle.hash)) {
++		if (hash_hashed(&sleeper.handle.hash)) {
+ 			__unhash_deferred_req(&sleeper.handle);
+ 			spin_unlock(&cache_defer_lock);
+ 		} else {
+@@ -671,12 +668,11 @@ static void cache_revisit_request(struct cache_head *item)
+ 	struct cache_deferred_req *dreq;
+ 	struct list_head pending;
+ 	struct hlist_node *lp, *tmp;
+-	int hash = DFR_HASH(item);
+ 
+ 	INIT_LIST_HEAD(&pending);
+ 	spin_lock(&cache_defer_lock);
+ 
+-	hlist_for_each_entry_safe(dreq, lp, tmp, &cache_defer_hash[hash], hash)
++	hash_for_each_possible_safe(cache_defer_hash, dreq, lp, tmp, hash, (unsigned long)item)
+ 		if (dreq->item == item) {
+ 			__unhash_deferred_req(dreq);
+ 			list_add(&dreq->recent, &pending);
 -- 
 1.7.12.4
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
