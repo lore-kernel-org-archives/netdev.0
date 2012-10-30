@@ -1,91 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/13] igb: Enable auto-crossover during forced operation on 82580 and above.
-Date: Tue, 30 Oct 2012 00:04:28 -0700
-Message-ID: <1351580670-8292-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/13] ixgbe: Return success or failure on VF MAC filter set
+Date: Tue, 30 Oct 2012 00:04:22 -0700
+Message-ID: <1351580670-8292-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1351580670-8292-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:25412 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755269Ab2J3HEh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 03:04:37 -0400
+	id S1755269Ab2J3HEf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2012 03:04:35 -0400
 In-Reply-To: <1351580670-8292-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Newer devices supported by igb can support auto-crossover detection in
-forced operation modes. Enable this in the driver, rather than clobbering
-this functionality in forced operation.
+When setting a MAC filter for the VF the function should return a success
+or failure code, not the index of the new filter.  It causes spurious NACK
+returns to the VF driver.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_mac.c |  4 ++++
- drivers/net/ethernet/intel/igb/e1000_phy.c | 29 +++++++++++++++++------------
- 2 files changed, 21 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
-index 819c145..7acddfe 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mac.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
-@@ -1391,6 +1391,10 @@ s32 igb_validate_mdi_setting(struct e1000_hw *hw)
- {
- 	s32 ret_val = 0;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 8bdb341..bfeb7ec 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -675,7 +675,7 @@ static int ixgbe_set_vf_mac_addr(struct ixgbe_adapter *adapter,
+ 		return -1;
+ 	}
  
-+	/* All MDI settings are supported on 82580 and newer. */
-+	if (hw->mac.type >= e1000_82580)
-+		goto out;
-+
- 	if (!hw->mac.autoneg && (hw->phy.mdix == 0 || hw->phy.mdix == 3)) {
- 		hw_dbg("Invalid MDI setting detected\n");
- 		hw->phy.mdix = 1;
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index c62a4c3..fe76004 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -1207,20 +1207,25 @@ s32 igb_phy_force_speed_duplex_m88(struct e1000_hw *hw)
- 	u16 phy_data;
- 	bool link;
+-	return ixgbe_set_vf_mac(adapter, vf, new_mac);
++	return ixgbe_set_vf_mac(adapter, vf, new_mac) < 0;
+ }
  
--	/*
--	 * Clear Auto-Crossover to force MDI manually.  M88E1000 requires MDI
--	 * forced whenever speed and duplex are forced.
--	 */
--	ret_val = phy->ops.read_reg(hw, M88E1000_PHY_SPEC_CTRL, &phy_data);
--	if (ret_val)
--		goto out;
-+	/* I210 and I211 devices support Auto-Crossover in forced operation. */
-+	if (phy->type != e1000_phy_i210) {
-+		/*
-+		 * Clear Auto-Crossover to force MDI manually.  M88E1000
-+		 * requires MDI forced whenever speed and duplex are forced.
-+		 */
-+		ret_val = phy->ops.read_reg(hw, M88E1000_PHY_SPEC_CTRL,
-+					    &phy_data);
-+		if (ret_val)
-+			goto out;
- 
--	phy_data &= ~M88E1000_PSCR_AUTO_X_MODE;
--	ret_val = phy->ops.write_reg(hw, M88E1000_PHY_SPEC_CTRL, phy_data);
--	if (ret_val)
--		goto out;
-+		phy_data &= ~M88E1000_PSCR_AUTO_X_MODE;
-+		ret_val = phy->ops.write_reg(hw, M88E1000_PHY_SPEC_CTRL,
-+					     phy_data);
-+		if (ret_val)
-+			goto out;
- 
--	hw_dbg("M88E1000 PSCR: %X\n", phy_data);
-+		hw_dbg("M88E1000 PSCR: %X\n", phy_data);
-+	}
- 
- 	ret_val = phy->ops.read_reg(hw, PHY_CONTROL, &phy_data);
- 	if (ret_val)
+ static int ixgbe_set_vf_vlan_msg(struct ixgbe_adapter *adapter,
 -- 
 1.7.11.7
