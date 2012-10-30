@@ -1,7 +1,7 @@
-From: asingh.engi@gmail.com
+From: Ashwini Singh <asingh.engi@gmail.com>
 Subject: [PATCH] Linus's tree: wireless: Spelling corrections
-Date: Tue, 30 Oct 2012 17:17:28 +0530
-Message-ID: <508fbe62.a689440a.0273.2f2b@mx.google.com>
+Date: Tue, 30 Oct 2012 17:18:21 +0530
+Message-ID: <1351597701-18216-1-git-send-email-asingh.engi@gmail.com>
 Cc: linville@tuxdriver.com, davem@davemloft.net,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
@@ -10,8 +10,6 @@ To: johannes@sipsolutions.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-From: Ashwini Singh <asingh.engi@gmail.com>
 
 Few spelling corrections in wireless directory.
 
