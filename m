@@ -1,43 +1,81 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Subject: Re: [PATCH] net: dsa/slave: Fix compilation warnings
-Date: Tue, 30 Oct 2012 15:15:30 +0530
-Message-ID: <CAKohpo=X0ZNSRZHFO==j43Hq0ZheQLmER9X+adsLQErAJT5f2w@mail.gmail.com>
-References: <5afab1ebe83e4361f1fd75bbea0c559af195bf02.1351529738.git.viresh.kumar@linaro.org>
-	<1351540778.2721.7.camel@bwh-desktop.uk.solarflarecom.com>
-	<CAKohponL_3m2KVytiWm8ZHyB5aimk8CzGrqr5J0LMy8MFGodHg@mail.gmail.com>
-	<CAKohponOKk5e2Sxyhjw-XvzVxF3tNp66rsnYCwvwHazAPAauKw@mail.gmail.com>
-	<508F8779.8070300@linaro.org>
-	<CAKohpokmfFSFsADmtOyN9JRCX8aVdNs+tDFhUQuM6sSQ+dFfUA@mail.gmail.com>
-	<508F9724.50804@linaro.org>
-	<CAKohpon8C5O4U+h3nr=8gaEQ1f-K9pqafw=5jPrhaGup_3re=g@mail.gmail.com>
-	<508F9D5C.2020802@linaro.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 1/1] net: macb: add pinctrl consumer support
+Date: Tue, 30 Oct 2012 11:47:16 +0100
+Message-ID: <508FB034.70004@atmel.com>
+References: <1351352997-31116-1-git-send-email-plagnioj@jcrosoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	linaro-dev@lists.linaro.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, patches@linaro.org
-To: Daniel Lezcano <daniel.lezcano@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <508F9D5C.2020802@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:27722 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757067Ab2J3JrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 05:47:12 -0400
+In-Reply-To: <1351352997-31116-1-git-send-email-plagnioj@jcrosoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 30 October 2012 14:56, Daniel Lezcano <daniel.lezcano@linaro.org> wrote:
-> Well, it is the same here, no ? Except, it is up to the user to disable
-> the option.
+On 10/27/2012 05:49 PM, Jean-Christophe PLAGNIOL-VILLARD :
+> If no pinctrl available just report a warning as some architecture may not
+> need to do anything.
+> 
+> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c |   13 +++++++++++++
+>  1 file changed, 13 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 033064b..e5fdf8a 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -26,6 +26,9 @@
+>  #include <linux/of.h>
+>  #include <linux/of_device.h>
+>  #include <linux/of_net.h>
+> +#include <linux/of_gpio.h>
+> +#include <linux/gpio.h>
+> +#include <linux/pinctrl/consumer.h>
+>  
+>  #include "macb.h"
+>  
+> @@ -1306,6 +1309,7 @@ static int __init macb_probe(struct platform_device *pdev)
+>  	struct phy_device *phydev;
+>  	u32 config;
+>  	int err = -ENXIO;
+> +	struct pinctrl *pinctrl;
+>  
+>  	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>  	if (!regs) {
+> @@ -1313,6 +1317,15 @@ static int __init macb_probe(struct platform_device *pdev)
+>  		goto err_out;
+>  	}
+>  
+> +	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+> +	if (IS_ERR(pinctrl)) {
+> +		err = PTR_ERR(pinctrl);
+> +		if (err == -EPROBE_DEFER)
+> +			return err;
 
-I didn't wanted to add code like this:
+I will modify this to be consistent with error path before and after
+this change => goto err_out.
+Do not bother to re-submit a patch, I will include this one in my
+upcoming patch series.
 
->> +       select NET_DSA_TAG_DSA if (!NET_DSA_TAG_EDSA &&
->> !NET_DSA_TAG_TRAILER)
+Thanks,
 
-Why should we select NET_DSA_TAG_DSA by default? What made us
-select that?
+> +
+> +		dev_warn(&pdev->dev, "No pinctrl provided\n");
+> +	}
+> +
+>  	err = -ENOMEM;
+>  	dev = alloc_etherdev(sizeof(*bp));
+>  	if (!dev)
+> 
 
-For this reason, i went to the solution i offered.
 
-Anyway, i just wanted to get rid of the warning. Whatever maintainer
-feels is better must be selected.
-
---
-viresh
+-- 
+Nicolas Ferre
