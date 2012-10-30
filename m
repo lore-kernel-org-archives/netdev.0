@@ -1,53 +1,237 @@
-From: Steven Barth <steven@midlink.org>
-Subject: IPV6_PKTINFO seems not to be honored correctly by RAW-sockets
-Date: Tue, 30 Oct 2012 09:58:04 +0100
-Message-ID: <508F969C.9080300@midlink.org>
+From: Bob Liu <lliubbo@gmail.com>
+Subject: Re: [uclinux-dist-devel] [PATCH RFC net-next 2/4] bfin_mac: replace
+ sys time stamps with raw ones instead.
+Date: Tue, 30 Oct 2012 17:17:51 +0800
+Message-ID: <CAA_GA1dWgav0fP3wJNFQW=VE9Qh-V8NBHqsmNoXaRny+5dnewg@mail.gmail.com>
+References: <cover.1348851539.git.richardcochran@gmail.com>
+	<84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Steven Barth <steven@midlink.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Miroslav Lichvar <mlichvar@redhat.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	device-drivers-devel@blackfin.uclinux.org,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Patrick Ohly <patrick.ohly@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chi.subsignal.org ([188.40.166.11]:33507 "EHLO
-	chi.subsignal.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756222Ab2J3JIj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 05:08:39 -0400
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:35813 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751115Ab2J3JRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 05:17:53 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hr7so44824wib.1
+        for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 02:17:51 -0700 (PDT)
+In-Reply-To: <84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Sat, Sep 29, 2012 at 1:20 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> This patch replaces the sys time stamps and timecompare code with simple
+> raw hardware time stamps in nanosecond resolution. The only tricky bit is
+> to find a PTP Hardware Clock period slower than the input clock period
+> and a power of two.
+>
+> Compile tested only.
+>
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+> ---
+>  drivers/net/ethernet/adi/bfin_mac.c |   91 ++++++++++-------------------------
+>  drivers/net/ethernet/adi/bfin_mac.h |    7 +--
+>  2 files changed, 28 insertions(+), 70 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+> index 2349abb..393d1b5 100644
+> --- a/drivers/net/ethernet/adi/bfin_mac.c
+> +++ b/drivers/net/ethernet/adi/bfin_mac.c
+> @@ -555,7 +555,7 @@ static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
+>         info->so_timestamping =
+>                 SOF_TIMESTAMPING_TX_HARDWARE |
+>                 SOF_TIMESTAMPING_RX_HARDWARE |
+> -               SOF_TIMESTAMPING_SYS_HARDWARE;
+> +               SOF_TIMESTAMPING_RAW_HARDWARE;
+>         info->phc_index = -1;
+>         info->tx_types =
+>                 (1 << HWTSTAMP_TX_OFF) |
+> @@ -653,6 +653,20 @@ static int bfin_mac_set_mac_address(struct net_device *dev, void *p)
+>  #ifdef CONFIG_BFIN_MAC_USE_HWSTAMP
+>  #define bfin_mac_hwtstamp_is_none(cfg) ((cfg) == HWTSTAMP_FILTER_NONE)
+>
+> +static u32 bfin_select_phc_clock(u32 input_clk, unsigned int *shift_result)
+> +{
+> +       u32 ipn = 1000000000UL / input_clk;
+> +       u32 ppn = 1;
+> +       unsigned int shift = 0;
+> +
+> +       while (ppn <= ipn) {
+> +               ppn <<= 1;
+> +               shift++;
+> +       }
+> +       *shift_result = shift;
+> +       return 1000000000UL / ppn;
+> +}
+> +
+>  static int bfin_mac_hwtstamp_ioctl(struct net_device *netdev,
+>                 struct ifreq *ifr, int cmd)
+>  {
+> @@ -802,19 +816,7 @@ static int bfin_mac_hwtstamp_ioctl(struct net_device *netdev,
+>                 bfin_read_EMAC_PTP_TXSNAPLO();
+>                 bfin_read_EMAC_PTP_TXSNAPHI();
+>
+> -               /*
+> -                * Set registers so that rollover occurs soon to test this.
+> -                */
+> -               bfin_write_EMAC_PTP_TIMELO(0x00000000);
+> -               bfin_write_EMAC_PTP_TIMEHI(0xFF800000);
+> -
+>                 SSYNC();
+> -
+> -               lp->compare.last_update = 0;
+> -               timecounter_init(&lp->clock,
+> -                               &lp->cycles,
+> -                               ktime_to_ns(ktime_get_real()));
+> -               timecompare_update(&lp->compare, 0);
+>         }
+>
+>         lp->stamp_cfg = config;
+> @@ -822,15 +824,6 @@ static int bfin_mac_hwtstamp_ioctl(struct net_device *netdev,
+>                 -EFAULT : 0;
+>  }
+>
+> -static void bfin_dump_hwtamp(char *s, ktime_t *hw, ktime_t *ts, struct timecompare *cmp)
+> -{
+> -       ktime_t sys = ktime_get_real();
+> -
+> -       pr_debug("%s %s hardware:%d,%d transform system:%d,%d system:%d,%d, cmp:%lld, %lld\n",
+> -                       __func__, s, hw->tv.sec, hw->tv.nsec, ts->tv.sec, ts->tv.nsec, sys.tv.sec,
+> -                       sys.tv.nsec, cmp->offset, cmp->skew);
+> -}
+> -
+>  static void bfin_tx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
+>  {
+>         struct bfin_mac_local *lp = netdev_priv(netdev);
+> @@ -861,15 +854,9 @@ static void bfin_tx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
+>                         regval = bfin_read_EMAC_PTP_TXSNAPLO();
+>                         regval |= (u64)bfin_read_EMAC_PTP_TXSNAPHI() << 32;
+>                         memset(&shhwtstamps, 0, sizeof(shhwtstamps));
+> -                       ns = timecounter_cyc2time(&lp->clock,
+> -                                       regval);
+> -                       timecompare_update(&lp->compare, ns);
+> +                       ns = regval >> lp->shift;
+>                         shhwtstamps.hwtstamp = ns_to_ktime(ns);
+> -                       shhwtstamps.syststamp =
+> -                               timecompare_transform(&lp->compare, ns);
+>                         skb_tstamp_tx(skb, &shhwtstamps);
+> -
+> -                       bfin_dump_hwtamp("TX", &shhwtstamps.hwtstamp, &shhwtstamps.syststamp, &lp->compare);
+>                 }
+>         }
+>  }
+> @@ -892,51 +879,25 @@ static void bfin_rx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
+>
+>         regval = bfin_read_EMAC_PTP_RXSNAPLO();
+>         regval |= (u64)bfin_read_EMAC_PTP_RXSNAPHI() << 32;
+> -       ns = timecounter_cyc2time(&lp->clock, regval);
+> -       timecompare_update(&lp->compare, ns);
+> +       ns = regval >> lp->shift;
+>         memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+>         shhwtstamps->hwtstamp = ns_to_ktime(ns);
+> -       shhwtstamps->syststamp = timecompare_transform(&lp->compare, ns);
+> -
+> -       bfin_dump_hwtamp("RX", &shhwtstamps->hwtstamp, &shhwtstamps->syststamp, &lp->compare);
+> -}
 
-I recently noticed that there might be an unexpected behavior in the 
-handling of IPV6_PKTINFO for RAW-sockets. It seems that the given 
-destination interface is ignored.
+In my test,  system time in slave side can't be updated although here
+have set shhwtstamps->hwtstamp = ns_to_ktime(ns).
+Any idea?
 
-I just reproduced this on 3.7.0-rc3 vanilla but some quick tests with 
-2.6.32 and 3.5 distro-kernels on different machines showed the same.
+> -
+> -/*
+> - * bfin_read_clock - read raw cycle counter (to be used by time counter)
+> - */
+> -static cycle_t bfin_read_clock(const struct cyclecounter *tc)
+> -{
+> -       u64 stamp;
+> -
+> -       stamp =  bfin_read_EMAC_PTP_TIMELO();
+> -       stamp |= (u64)bfin_read_EMAC_PTP_TIMEHI() << 32ULL;
+> -
+> -       return stamp;
+>  }
+>
+> -#define PTP_CLK 25000000
+> -
+>  static void bfin_mac_hwtstamp_init(struct net_device *netdev)
+>  {
+>         struct bfin_mac_local *lp = netdev_priv(netdev);
+> -       u64 append;
+> +       u64 addend;
+> +       u32 input_clk, phc_clk;
+>
+>         /* Initialize hardware timer */
+> -       append = PTP_CLK * (1ULL << 32);
+> -       do_div(append, get_sclk());
+> -       bfin_write_EMAC_PTP_ADDEND((u32)append);
+> -
+> -       memset(&lp->cycles, 0, sizeof(lp->cycles));
+> -       lp->cycles.read = bfin_read_clock;
+> -       lp->cycles.mask = CLOCKSOURCE_MASK(64);
+> -       lp->cycles.mult = 1000000000 / PTP_CLK;
+> -       lp->cycles.shift = 0;
+> -
+> -       /* Synchronize our NIC clock against system wall clock */
+> -       memset(&lp->compare, 0, sizeof(lp->compare));
+> -       lp->compare.source = &lp->clock;
+> -       lp->compare.target = ktime_get_real;
+> -       lp->compare.num_samples = 10;
+> +       input_clk = get_sclk();
+> +       phc_clk = bfin_select_phc_clock(input_clk, &lp->shift);
+> +       addend = phc_clk * (1ULL << 32);
+> +       do_div(addend, input_clk);
+> +       bfin_write_EMAC_PTP_ADDEND((u32)addend);
+> +
+> +       lp->addend = addend;
+>
+>         /* Initialize hwstamp config */
+>         lp->stamp_cfg.rx_filter = HWTSTAMP_FILTER_NONE;
+> diff --git a/drivers/net/ethernet/adi/bfin_mac.h b/drivers/net/ethernet/adi/bfin_mac.h
+> index 960905c..57f042c 100644
+> --- a/drivers/net/ethernet/adi/bfin_mac.h
+> +++ b/drivers/net/ethernet/adi/bfin_mac.h
+> @@ -11,8 +11,6 @@
+>  #define _BFIN_MAC_H_
+>
+>  #include <linux/net_tstamp.h>
+> -#include <linux/clocksource.h>
+> -#include <linux/timecompare.h>
+>  #include <linux/timer.h>
+>  #include <linux/etherdevice.h>
+>  #include <linux/bfin_mac.h>
+> @@ -94,9 +92,8 @@ struct bfin_mac_local {
+>         struct mii_bus *mii_bus;
+>
+>  #if defined(CONFIG_BFIN_MAC_USE_HWSTAMP)
+> -       struct cyclecounter cycles;
+> -       struct timecounter clock;
+> -       struct timecompare compare;
+> +       u32 addend;
+> +       unsigned int shift;
+>         struct hwtstamp_config stamp_cfg;
+>  #endif
+>  };
+> --
+> 1.7.2.5
+>
+> _______________________________________________
+> Uclinux-dist-devel mailing list
+> Uclinux-dist-devel@blackfin.uclinux.org
+> https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel
 
-I've noticed this first in my own software but I could also reproduce it 
-easily with standard tools like ping6 from iputils:
-
-Have 2 network interfaces with (global) IPv6-addresses assigned (e.g. 
-eth0 with fd00::1/64 and eth1 with fd01::1/64) and do a ping6 -I eth1 
-fd00::1 (ping6 from iputils uses IPV6_PKTINFO internally).
-
-For me the result was that even though I set the interface to eth1 the 
-ECHO was still send to eth0.
-
-Also (although probably unrelated) forwarding for IPv6 was disabled.
-
-If I try something similar with IPv4 and ping -I ... the ECHO doesn't go 
-out on eth0 but - as expected - on eth1.
-
-However if I use traceroute(6) with -I (ICMP-traceroute) and the -i 
-option to determine the interface, packages seem to be sent through the 
-expected interface. Internally it seems that traceroute(6) uses 
-SO_BINDTODEVICE instead of IP(V6)_PKTINFO which seems to work.
-
-So it seems there might be something wrong with IPV6_PKTINFO or is this 
-expected behavior?
 
 
-Thanks and Regards,
-
-Steven
+-- 
+Regards,
+--Bob
