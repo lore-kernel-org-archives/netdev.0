@@ -1,55 +1,56 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH v2 2/3] pppoatm: fix race condition with destroying of
- vcc
-Date: Tue, 30 Oct 2012 09:37:48 +0000
-Message-ID: <1351589868.17077.34.camel@shinybook.infradead.org>
+Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
+Date: Tue, 30 Oct 2012 09:39:22 +0000
+Message-ID: <1351589962.17077.36.camel@shinybook.infradead.org>
 References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
-	 <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>
+	 <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-cSUV3jzXKcZUxKqLnAVL"
+	boundary="=-DdJM4hqsAQ14AhPIKB+X"
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Krzysztof Mazur <krzysiek@podlesie.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>
+In-Reply-To: <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-cSUV3jzXKcZUxKqLnAVL
+--=-DdJM4hqsAQ14AhPIKB+X
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Mon, 2012-10-22 at 19:14 +0200, Krzysztof Mazur wrote:
-> The pppoatm_send() calls vcc->send() and now also checks for
-> some vcc flags that indicate destroyed vcc without proper locking.
+> The pppoatm gets a reference to atmvcc, but does not increment vcc
+> usage count. The vcc uses vcc->sk socket for reference counting,
+> so sock_hold() and sock_put() should be used by pppoatm.
 >=20
-> The vcc_sendmsg() uses lock_sock(sk). This lock is used by
-> vcc_release(), so vcc_destroy_socket() will not be called between
-> check and during ->send(). The vcc_release_async() sets ATM_VF_CLOSE,
-> but it should be safe to call ->send() after it, because
-> vcc->dev->ops->close() is not called.
->=20
-> The pppoatm_send() is called with BH disabled, so bh_lock_sock()
-> should be used instead of lock_sock().
-
-Should we be locking it earlier, so that the atm_may_send() call is also
-covered by the lock?
-
-Either way, it's an obvious improvement on what we had before =E2=80=94 and=
- even
-if the answer to my question above is 'yes', exceeding the configured
-size by one packet is both harmless and almost never going to happen
-since we now limit ourselves to two packets anyway. So:
+> Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
+> Cc: David Woodhouse <dwmw2@infradead.org>
 
 Acked-By: David Woodhouse <David.Woodhouse@intel.com>
+
+But did you spot what's in the end of the context of the first hunk...?
+
+> --- a/net/atm/pppoatm.c
+> +++ b/net/atm/pppoatm.c
+> @@ -154,6 +154,7 @@ static void pppoatm_unassign_vcc(struct atm_vcc
+> *atmvcc)
+>         tasklet_kill(&pvcc->wakeup_tasklet);
+>         ppp_unregister_channel(&pvcc->chan);
+>         atmvcc->user_back =3D NULL;
+> +       sock_put(sk_atm(pvcc->atmvcc));
+>         kfree(pvcc);
+>         /* Gee, I hope we have the big kernel lock here... */
+>         module_put(THIS_MODULE);
+
+Fairly sure that hope is unfounded these days... :)
 
 --=20
 dwmw2
 
 
---=-cSUV3jzXKcZUxKqLnAVL
+--=-DdJM4hqsAQ14AhPIKB+X
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -150,19 +151,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMDMwMDkzNzQ4WjAjBgkqhkiG9w0BCQQx
-FgQUk9X6eJjR8fzasM7XBJl+5yfkG1cwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMDMwMDkzOTIyWjAjBgkqhkiG9w0BCQQx
+FgQURsdsRJRmcGi7k8FXLYHyGER8aggwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBm5hGj31UBFpEzuOPsdJ8+fuEA
-T5OmWAE4Wk1fIHaD0Mce3qgUtWsWWUjWm1zXZYeNlQN/cXIHCCq8jRTe9z11WmTxLbHP6rnlML1E
-yxFNPOAOCbBFbtIRv0qYpvfTzorK8u7y4HqFDcjXCKo2fMIfpLx45Ehkt2Z9MiIM4rpvIV5kCHjK
-SVMLdqfTB0jS6Xw4k1vxwUOUJCsPg/BA7EiwxXTRJKiD1SoyN/jLgAYn2k1fWyaqxrcf8+N4osuH
-bicMKRaHkXhyu2LM/W6x8/lbCc0JJqNU5jpFL/5wFT3PP2wY1P1N6tnsfyylobwb5hMswpRZv2lM
-t7pBOuwmnY0zAAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQA5LUniW+hTfoXCa3Lyy4okcOnY
+xZBDlOPfnoSD3cMGCccbFXg/OYqbqVolhxce9EOnaIOoSZRAm+iE324h3fP8ECgtQUsgDsJCdUoa
+1tuBXyuwsrprv5uB3vglodZ2/vkMg+1pAFwotRt2jqu+onFAbXc6zbLMFIdiiJEp6KsvfjzqLTAA
+29vPwBpL+bm8XEYWdQnIixf5B8PURa0VmKZ+TGhIX9yrO7/4+FF9Kr6EYRhIlCDke0gzf7zTLEpz
+dAJeM8vhOA/D+gE2If3wI5gHW8yKKACRtG8XANaCUPtYr+zRi9Vj/MFhvf4ulLBaEii+RQzADx+1
+INpx9bI3aXO+AAAAAAAA
 
 
---=-cSUV3jzXKcZUxKqLnAVL--
+--=-DdJM4hqsAQ14AhPIKB+X--
