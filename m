@@ -1,46 +1,48 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] vxlan: allow a user to set TTL value
-Date: Tue, 30 Oct 2012 13:54:27 -0700
-Message-ID: <20121030135427.367c90cb@nehalam.linuxnetplumber.net>
-References: <1351628836-23094-1-git-send-email-bernat@luffy.cx>
+Subject: Re: [PATCH net-next 1/8] bridge: bridge port parameters over
+ netlink
+Date: Tue, 30 Oct 2012 14:00:09 -0700
+Message-ID: <20121030140009.067f49fa@nehalam.linuxnetplumber.net>
+References: <20121030005731.843020405@vyatta.com>
+	<20121030005835.289407930@vyatta.com>
+	<50902115.3090005@gurgi.dk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Vincent Bernat <bernat@luffy.cx>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: "Tommy S. Christensen" <tsc@gurgi.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37442 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:59129 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934072Ab2J3UzV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 16:55:21 -0400
-In-Reply-To: <1351628836-23094-1-git-send-email-bernat@luffy.cx>
+	id S934107Ab2J3VBF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Oct 2012 17:01:05 -0400
+In-Reply-To: <50902115.3090005@gurgi.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 30 Oct 2012 21:27:16 +0100
-Vincent Bernat <bernat@luffy.cx> wrote:
+On Tue, 30 Oct 2012 19:48:53 +0100
+"Tommy S. Christensen" <tsc@gurgi.dk> wrote:
 
-> "ip link add ... type vxlan ... ttl X" allows a user to set the TTL
-> used by a VXLAN for encapsulation. The provided value was ignored by
-> vxlan module and the default value of 1 was used when encapsulating
-> multicast packets.
+> On 10/30/2012 01:57 AM, Stephen Hemminger wrote:
+> >
+> > -/*
+> > - * Change state of port (ie from forwarding to blocking etc)
+> > +static const struct nla_policy ifla_brport_policy[IFLA_BRPORT_MAX + 1] = {
+> > +	[IFLA_BRPORT_STATE]	= { .type = NLA_U8 },
+> > +	[IFLA_BRPORT_COST]	= { .type = NLA_U16 },
+> > +	[IFLA_BRPORT_PRIORITY]	= { .type = NLA_U32 },
+> > +	[IFLA_BRPORT_MODE]	= { .type = NLA_U8 },
+> > +};
+> > +
 > 
-> Signed-off-by: Vincent Bernat <bernat@luffy.cx>
-> ---
->  drivers/net/vxlan.c |    3 +++
->  1 file changed, 3 insertions(+)
+> Hey Stephen
 > 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 607976c..030559d 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1107,6 +1107,9 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
->  	if (data[IFLA_VXLAN_TOS])
->  		vxlan->tos  = nla_get_u8(data[IFLA_VXLAN_TOS]);
->  
-> +	if (data[IFLA_VXLAN_TTL])
-> +		vxlan->ttl = nla_get_u8(data[IFLA_VXLAN_TTL]);
-> +
->  	if (!data[IFLA_VXLAN_LEARNING] || nla_get_u8(data[IFLA_VXLAN_LEARNING]))
->  		vxlan->learn = true;
->  
+> It seems you've swapped the sizes of COST and PRIORITY in this part.
+> 
+> -Tommy
+> 
+
+Ok, will fix in next version.
+
+One alternative I considered would be to use previously unused IFLA_PRIORITY and IFLA_COST
+which would be more generic. But these fields only really matter to bridge.
