@@ -1,130 +1,149 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next 3/8] bridge: implement BPDU blocking
-Date: Mon, 29 Oct 2012 17:57:34 -0700
-Message-ID: <20121030005835.462418417@vyatta.com>
+Subject: [PATCH net-next 8/8] iproute2: handle new bridge PROTINFO format
+Date: Mon, 29 Oct 2012 17:57:39 -0700
+Message-ID: <20121030005835.894317015@vyatta.com>
 References: <20121030005731.843020405@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fiji.vyatta.com ([76.74.103.50]:35098 "EHLO fiji.vyatta.com"
+Received: from fiji.vyatta.com ([76.74.103.50]:35112 "EHLO fiji.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761788Ab2J3BGO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2012 21:06:14 -0400
-Content-Disposition: inline; filename=bridge-bpdu-guard.patch
+	id S1761340Ab2J3BGP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Oct 2012 21:06:15 -0400
+Content-Disposition: inline; filename=virtio-bql.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is Linux bridge implementation of STP protection
-(Cisco BPDU guard/Juniper BPDU block). BPDU block disables
-the bridge port if a STP BPDU packet is received.
-
-Why would you want to do this?
-If running Spanning Tree on bridge, hostile devices on the network
-may send BPDU and cause network failure. Enabling bpdu block
-will detect and stop this.
-
-How to recover the port?
-The port will be restarted if link is brought down, or
-removed and reattached.  For example:
- # ip li set dev eth0 down; ip li set dev eth0 up
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
+Support nested attributes over netlink for bridge port state
 ---
- include/uapi/linux/if_link.h |    1 +
- net/bridge/br_netlink.c      |    7 ++++++-
- net/bridge/br_private.h      |    1 +
- net/bridge/br_stp_bpdu.c     |    7 +++++++
- net/bridge/br_sysfs_if.c     |    2 ++
- 5 files changed, 17 insertions(+), 1 deletion(-)
+Patch against current -git version of iproute2
 
---- a/net/bridge/br_private.h	2012-10-29 17:07:08.005982838 -0700
-+++ b/net/bridge/br_private.h	2012-10-29 17:37:20.959775346 -0700
-@@ -135,6 +135,7 @@ struct net_bridge_port
- 
- 	unsigned long 			flags;
- #define BR_HAIRPIN_MODE		0x00000001
-+#define BR_BPDU_GUARD           0x00000002
- 
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	u32				multicast_startup_queries_sent;
---- a/net/bridge/br_stp_bpdu.c	2012-10-29 17:07:08.005982838 -0700
-+++ b/net/bridge/br_stp_bpdu.c	2012-10-29 17:31:14.327457434 -0700
-@@ -170,6 +170,13 @@ void br_stp_rcv(const struct stp_proto *
- 	if (!ether_addr_equal(dest, br->group_addr))
- 		goto out;
- 
-+	if (p->flags & BR_BPDU_GUARD) {
-+		br_notice(br, "BPDU received on blocked port %u(%s)\n",
-+			  (unsigned int) p->port_no, p->dev->name);
-+		br_stp_disable_port(p);
-+		goto out;
-+	}
-+
- 	buf = skb_pull(skb, 3);
- 
- 	if (buf[0] == BPDU_TYPE_CONFIG) {
---- a/net/bridge/br_sysfs_if.c	2012-10-29 17:19:30.562525344 -0700
-+++ b/net/bridge/br_sysfs_if.c	2012-10-29 17:37:38.207602125 -0700
-@@ -156,6 +156,7 @@ static int store_flush(struct net_bridge
- static BRPORT_ATTR(flush, S_IWUSR, NULL, store_flush);
- 
- BRPORT_ATTR_FLAG(hairpin_mode, BR_HAIRPIN_MODE);
-+BRPORT_ATTR_FLAG(bpdu_guard, BR_BPDU_GUARD);
- 
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
-@@ -189,6 +190,7 @@ static const struct brport_attribute *br
- 	&brport_attr_hold_timer,
- 	&brport_attr_flush,
- 	&brport_attr_hairpin_mode,
-+	&brport_attr_bpdu_block,
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	&brport_attr_multicast_router,
- #endif
---- a/include/uapi/linux/if_link.h	2012-10-29 17:07:14.713915471 -0700
-+++ b/include/uapi/linux/if_link.h	2012-10-29 17:37:20.959775346 -0700
-@@ -216,6 +216,7 @@ enum {
- 	IFLA_BRPORT_PRIORITY,	/* "             priority  */
- 	IFLA_BRPORT_COST,	/* "             cost      */
- 	IFLA_BRPORT_MODE,	/* mode (hairpin)          */
-+	IFLA_BRPORT_GUARD,	/* bpdu guard              */
- 	__IFLA_BRPORT_MAX
- };
- #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
---- a/net/bridge/br_netlink.c	2012-10-29 17:09:23.520621865 -0700
-+++ b/net/bridge/br_netlink.c	2012-10-29 17:37:20.959775346 -0700
-@@ -26,6 +26,7 @@ static inline size_t br_port_info_size(v
- 		+ nla_total_size(2)	/* IFLA_BRPORT_PRIORITY */
- 		+ nla_total_size(4)	/* IFLA_BRPORT_COST */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_MODE */
-+		+ nla_total_size(1)	/* IFLA_BRPORT_GUARD */
- 		+ 0;
+ bridge/link.c           |   56 ++++++++++++++++++++++++++++++++++++++++++-----
+ include/linux/if_link.h |   18 +++++++++++++++
+ lib/libnetlink.c        |    6 +++--
+ 3 files changed, 72 insertions(+), 8 deletions(-)
+
+diff --git a/bridge/link.c b/bridge/link.c
+index edb6fbf..4ae256b 100644
+--- a/bridge/link.c
++++ b/bridge/link.c
+@@ -69,6 +69,49 @@ static void print_operstate(FILE *f, __u8 state)
+ 		fprintf(f, "state %s ", oper_states[state]);
  }
  
-@@ -49,7 +50,8 @@ static int br_port_fill_attrs(struct sk_
- 	if (nla_put_u8(skb, IFLA_BRPORT_STATE, p->state) ||
- 	    nla_put_u16(skb, IFLA_BRPORT_PRIORITY, p->priority) ||
- 	    nla_put_u32(skb, IFLA_BRPORT_COST, p->path_cost) ||
--	    nla_put_u8(skb, IFLA_BRPORT_MODE, mode))
-+	    nla_put_u8(skb, IFLA_BRPORT_MODE, mode) ||
-+	    nla_put_u8(skb, IFLA_BRPORT_GUARD, !!(p->flags & BR_BPDU_GUARD)))
- 		return -EMSGSIZE;
++static void print_stpstate(FILE *fp, __u8 state)
++{
++	if (state <= BR_STATE_BLOCKING)
++		fprintf(fp, "state %s", port_states[state]);
++	else
++		fprintf(fp, "state (%d)", state);
++}
++
++static void print_protinfo(FILE *f, struct rtattr *pinfo)
++{
++	struct rtattr *pb[IFLA_BRPORT_MAX+1];
++
++	parse_rtattr_nested(pb, IFLA_BRPORT_MAX, pinfo);
++
++	if (pb[IFLA_BRPORT_STATE])
++		print_stpstate(f, rta_getattr_u8(pb[IFLA_BRPORT_STATE]));
++
++	if (pb[IFLA_BRPORT_PRIORITY])
++		fprintf(f, " priority %u",
++			rta_getattr_u16(pb[IFLA_BRPORT_PRIORITY]));
++
++	if (pb[IFLA_BRPORT_COST])
++		fprintf(f, " cost %u",
++			rta_getattr_u32(pb[IFLA_BRPORT_COST]));
++
++
++	if (pb[IFLA_BRPORT_MODE]) {
++		__u8 mode = rta_getattr_u8(pb[IFLA_BRPORT_MODE]);
++		if (mode == BRIDGE_MODE_HAIRPIN)
++			fprintf(f, " hairpin");
++	}
++
++	if (pb[IFLA_BRPORT_BLOCK] && rta_getattr_u8(pb[IFLA_BRPORT_BLOCK]))
++		fprintf(f, " bpdu blocked");
++
++	if (pb[IFLA_BRPORT_GUARD] && rta_getattr_u8(pb[IFLA_BRPORT_GUARD]))
++		fprintf(f, " bpdu guard");
++
++	if (pb[IFLA_BRPORT_PROTECT] && rta_getattr_u8(pb[IFLA_BRPORT_PROTECT]))
++		fprintf(f, " rootprotect");
++
++}
++
+ int print_linkinfo(const struct sockaddr_nl *who,
+ 		   struct nlmsghdr *n, void *arg)
+ {
+@@ -124,13 +167,14 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 			if_indextoname(rta_getattr_u32(tb[IFLA_MASTER]), b1));
  
- 	return 0;
-@@ -176,6 +178,7 @@ static const struct nla_policy ifla_brpo
- 	[IFLA_BRPORT_COST]	= { .type = NLA_U16 },
- 	[IFLA_BRPORT_PRIORITY]	= { .type = NLA_U32 },
- 	[IFLA_BRPORT_MODE]	= { .type = NLA_U8 },
-+	[IFLA_BRPORT_GUARD]	= { .type = NLA_U8 },
- };
+ 	if (tb[IFLA_PROTINFO]) {
+-		__u8 state = rta_getattr_u8(tb[IFLA_PROTINFO]);
+-		if (state <= BR_STATE_BLOCKING)
+-			fprintf(fp, "state %s", port_states[state]);
+-		else
+-			fprintf(fp, "state (%d)", state);
+-	}
++		struct rtattr *pinfo = tb[IFLA_PROTINFO];
  
- /* Change state of port (ie from forwarding to blocking etc)
-@@ -218,6 +221,7 @@ static int br_rtm_protinfo(struct net_br
- 	int err;
++		/* Handle both new (nested) and bare format */
++		if (pinfo->rta_type & NLA_F_NESTED)
++			print_protinfo(fp, pinfo);
++ 		else
++			print_stpstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
++	}
  
- 	br_rtm_setflag(p, tb, IFLA_BRPORT_MODE, BR_HAIRPIN_MODE);
-+	br_rtm_setflag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
+ 	fprintf(fp, "\n");
+ 	fflush(fp);
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 012d95a..cb5e8a7 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -203,6 +203,24 @@ enum {
  
- 	if (tb[IFLA_BRPORT_COST]) {
- 		err = br_stp_set_path_cost(p, nla_get_u32(tb[IFLA_BRPORT_COST]));
+ #define IFLA_INET6_MAX	(__IFLA_INET6_MAX - 1)
+ 
++enum {
++	BRIDGE_MODE_UNSPEC,
++	BRIDGE_MODE_HAIRPIN,
++};
++
++enum {
++	IFLA_BRPORT_UNSPEC,
++	IFLA_BRPORT_STATE,	/* Spanning tree state     */
++	IFLA_BRPORT_PRIORITY,	/* "             priority  */
++	IFLA_BRPORT_COST,	/* "             cost      */
++	IFLA_BRPORT_MODE,	/* mode (hairpin)          */
++	IFLA_BRPORT_GUARD,	/* bpdu guard              */
++	IFLA_BRPORT_PROTECT,	/* root port protection    */
++	IFLA_BRPORT_BLOCK,	/* bpdu filter             */
++	__IFLA_BRPORT_MAX
++};
++#define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
++
+ struct ifla_cacheinfo {
+ 	__u32	max_reasm_len;
+ 	__u32	tstamp;		/* ipv6InterfaceTable updated timestamp */
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index 8e8c8b9..08dadf9 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -653,9 +653,11 @@ int rta_addattr_l(struct rtattr *rta, int maxlen, int type,
+ int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
+ {
+ 	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
++
+ 	while (RTA_OK(rta, len)) {
+-		if ((rta->rta_type <= max) && (!tb[rta->rta_type]))
+-			tb[rta->rta_type] = rta;
++		__u16 rta_type = rta->rta_type & NLA_TYPE_MASK;
++		if (rta_type <= max && !tb[rta_type])
++			tb[rta_type] = rta;
+ 		rta = RTA_NEXT(rta,len);
+ 	}
+ 	if (len)
+-- 
+1.7.10.4
