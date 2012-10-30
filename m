@@ -1,73 +1,86 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
-Date: Tue, 30 Oct 2012 11:38:46 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1210301112270.1363-100000@iolanthe.rowland.org>
-References: <CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next 2/8] skb: api to report errors for zero copy
+ skbs
+Date: Tue, 30 Oct 2012 11:44:16 -0400
+Message-ID: <508FF5D0.6080107@redhat.com>
+References: <cover.1351524501.git.mst@redhat.com> <ee85ad5053a929c90e0347b6ba33778d96690e9b.1351524501.git.mst@redhat.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
-	Minchan Kim <minchan@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
-	"David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<linux-pm@vger.kernel.org>, <linux-mm@kvack.org>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com>
-Sender: linux-pm-owner@vger.kernel.org
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ee85ad5053a929c90e0347b6ba33778d96690e9b.1351524501.git.mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Oct 2012, Ming Lei wrote:
+On 10/29/2012 11:49 AM, Michael S. Tsirkin wrote:
+> Orphaning frags for zero copy skbs needs to allocate data in atomic
+> context so is has a chance to fail. If it does we currently discard
+> the skb which is safe, but we don't report anything to the caller,
+> so it can not recover by e.g. disabling zero copy.
+>
+> Add an API to free skb reporting such errors: this is used
+> by tun in case orphaning frags fails.
+>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>   include/linux/skbuff.h |  1 +
+>   net/core/skbuff.c      | 19 +++++++++++++++++++
+>   2 files changed, 20 insertions(+)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 8bac11b..0644432 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -568,6 +568,7 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
+>   }
+>
+>   extern void kfree_skb(struct sk_buff *skb);
+> +extern void skb_tx_error(struct sk_buff *skb, int err);
+>   extern void consume_skb(struct sk_buff *skb);
+>   extern void	       __kfree_skb(struct sk_buff *skb);
+>   extern struct kmem_cache *skbuff_head_cache;
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index eb31f6e..ad99c64 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -635,6 +635,25 @@ void kfree_skb(struct sk_buff *skb)
+>   EXPORT_SYMBOL(kfree_skb);
+>
+>   /**
+> + *	kfree_skb_on_error - report an sk_buff xmit error
+> + *	@skb: buffer that triggered an error
+> + *
+> + *	Report xmit error if a device callback is tracking this skb.
+> + */
 
-> >> +bool pm_runtime_get_memalloc_noio(struct device *dev)
-> >> +{
-> >> +     bool ret;
-> >> +     spin_lock_irq(&dev->power.lock);
-> >> +     ret = dev->power.memalloc_noio_resume;
-> >> +     spin_unlock_irq(&dev->power.lock);
-> >> +     return ret;
-> >> +}
-> >
-> > You don't need to acquire and release a spinlock just to read the
-> > value.  Reading bitfields _is_ SMP-safe; writing them is not.
-> 
-> Thanks for your review.
-> 
-> As you pointed out before, the flag need to be checked before
-> resetting usb devices, so the lock should be held to make another
-> context(CPU) see the updated value suppose one context(CPU)
-> call pm_runtime_set_memalloc_noio() to change the flag at the
-> same time.
+Nit:  Comment doesn't match new function.
 
-Okay, I see your point.  But acquiring the lock here doesn't solve the 
-problem.  Suppose a thread is about to reset a USB mass-storage device.  
-It acquires the lock and sees that the noio flag is clear.  But before 
-it can issue the reset, another thread sets the noio flag.
+-vlad
 
-I'm not sure what the best solution is.
-
-> The lock needn't to be held when the function is called inside
-> pm_runtime_set_memalloc_noio(),  so the bitfield flag should
-> be checked directly without holding power lock in dev_memalloc_noio().
-
-Yes.
-
-A couple of other things...  Runtime resume can be blocked by runtime
-suspend, if a resume is requested while the suspend is in progress.  
-Therefore the runtime suspend code also needs to save-set-restore the
-noio flag.
-
-Also, we should set the noio flag at the start of 
-usb_stor_control_thread, because everything that thread does can 
-potentially block an I/O operation.
-
-Lastly, pm_runtime_get_memalloc_noio always returns false when 
-CONFIG_PM_RUNTIME is disabled.  But we still need to prevent I/O during 
-usb_reset_device even when there's no runtime PM.  Maybe the simplest 
-answer is always to set noio during resets.  That would also help with 
-the race described above.
-
-Alan Stern
-
+> +void skb_tx_error(struct sk_buff *skb, int err)
+> +{
+> +	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+> +		struct ubuf_info *uarg;
+> +
+> +		uarg = skb_shinfo(skb)->destructor_arg;
+> +		if (uarg->callback)
+> +			uarg->callback(uarg, err);
+> +		skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+> +	}
+> +}
+> +EXPORT_SYMBOL(skb_tx_error);
+> +
+> +/**
+>    *	consume_skb - free an skbuff
+>    *	@skb: buffer to free
+>    *
+>
