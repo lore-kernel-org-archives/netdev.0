@@ -1,78 +1,73 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH] ipv4/fib_trie: notify deleted routes on if down event
-Date: Tue, 30 Oct 2012 16:32:56 +0100
-Message-ID: <1351611176-4000-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:43995 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758023Ab2J3PXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 11:23:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
+Date: Tue, 30 Oct 2012 11:38:46 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1210301112270.1363-100000@iolanthe.rowland.org>
+References: <CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, Oliver Neukum <oneukum@suse.de>,
+	Minchan Kim <minchan@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<linux-pm@vger.kernel.org>, <linux-mm@kvack.org>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This notification is missing in IPv4 (in IPv6, deleted routes are
-notified).
+On Tue, 30 Oct 2012, Ming Lei wrote:
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv4/fib_trie.c | 15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
+> >> +bool pm_runtime_get_memalloc_noio(struct device *dev)
+> >> +{
+> >> +     bool ret;
+> >> +     spin_lock_irq(&dev->power.lock);
+> >> +     ret = dev->power.memalloc_noio_resume;
+> >> +     spin_unlock_irq(&dev->power.lock);
+> >> +     return ret;
+> >> +}
+> >
+> > You don't need to acquire and release a spinlock just to read the
+> > value.  Reading bitfields _is_ SMP-safe; writing them is not.
+> 
+> Thanks for your review.
+> 
+> As you pointed out before, the flag need to be checked before
+> resetting usb devices, so the lock should be held to make another
+> context(CPU) see the updated value suppose one context(CPU)
+> call pm_runtime_set_memalloc_noio() to change the flag at the
+> same time.
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 31d771c..5b1c7d0 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1718,15 +1718,20 @@ int fib_table_delete(struct fib_table *tb, struct fib_config *cfg)
- 	return 0;
- }
- 
--static int trie_flush_list(struct list_head *head)
-+static int trie_flush_list(struct fib_table *tb, struct leaf *l,
-+			   struct leaf_info *li)
- {
- 	struct fib_alias *fa, *fa_node;
- 	int found = 0;
- 
--	list_for_each_entry_safe(fa, fa_node, head, fa_list) {
-+	list_for_each_entry_safe(fa, fa_node, &li->falh, fa_list) {
- 		struct fib_info *fi = fa->fa_info;
- 
- 		if (fi && (fi->fib_flags & RTNH_F_DEAD)) {
-+			struct nl_info nlinfo = { .nl_net = fi->fib_net, };
-+
-+			rtmsg_fib(RTM_DELROUTE, htonl(l->key), fa, li->plen,
-+				  tb->tb_id, &nlinfo, 0);
- 			list_del_rcu(&fa->fa_list);
- 			fib_release_info(fa->fa_info);
- 			alias_free_mem_rcu(fa);
-@@ -1736,7 +1741,7 @@ static int trie_flush_list(struct list_head *head)
- 	return found;
- }
- 
--static int trie_flush_leaf(struct leaf *l)
-+static int trie_flush_leaf(struct fib_table *tb, struct leaf *l)
- {
- 	int found = 0;
- 	struct hlist_head *lih = &l->list;
-@@ -1744,7 +1749,7 @@ static int trie_flush_leaf(struct leaf *l)
- 	struct leaf_info *li = NULL;
- 
- 	hlist_for_each_entry_safe(li, node, tmp, lih, hlist) {
--		found += trie_flush_list(&li->falh);
-+		found += trie_flush_list(tb, l, li);
- 
- 		if (list_empty(&li->falh)) {
- 			hlist_del_rcu(&li->hlist);
-@@ -1835,7 +1840,7 @@ int fib_table_flush(struct fib_table *tb)
- 	int found = 0;
- 
- 	for (l = trie_firstleaf(t); l; l = trie_nextleaf(l)) {
--		found += trie_flush_leaf(l);
-+		found += trie_flush_leaf(tb, l);
- 
- 		if (ll && hlist_empty(&ll->list))
- 			trie_leaf_remove(t, ll);
--- 
-1.7.12
+Okay, I see your point.  But acquiring the lock here doesn't solve the 
+problem.  Suppose a thread is about to reset a USB mass-storage device.  
+It acquires the lock and sees that the noio flag is clear.  But before 
+it can issue the reset, another thread sets the noio flag.
+
+I'm not sure what the best solution is.
+
+> The lock needn't to be held when the function is called inside
+> pm_runtime_set_memalloc_noio(),  so the bitfield flag should
+> be checked directly without holding power lock in dev_memalloc_noio().
+
+Yes.
+
+A couple of other things...  Runtime resume can be blocked by runtime
+suspend, if a resume is requested while the suspend is in progress.  
+Therefore the runtime suspend code also needs to save-set-restore the
+noio flag.
+
+Also, we should set the noio flag at the start of 
+usb_stor_control_thread, because everything that thread does can 
+potentially block an I/O operation.
+
+Lastly, pm_runtime_get_memalloc_noio always returns false when 
+CONFIG_PM_RUNTIME is disabled.  But we still need to prevent I/O during 
+usb_reset_device even when there's no runtime PM.  Maybe the simplest 
+answer is always to set noio during resets.  That would also help with 
+the race described above.
+
+Alan Stern
+
