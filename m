@@ -1,80 +1,88 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v3 00/10] net/macb: driver enhancement concerning GEM
- support, ring logic and cleanup
-Date: Tue, 30 Oct 2012 12:26:40 +0100
-Message-ID: <508FB970.8070703@atmel.com>
-References: <cover.1351591858.git.nicolas.ferre@atmel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IPV6_PKTINFO seems not to be honored correctly by RAW-sockets
+Date: Tue, 30 Oct 2012 11:42:48 +0100
+Message-ID: <1351593768.12280.779.camel@edumazet-glaptop>
+References: <508F969C.9080300@midlink.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <havard@skinnemoen.net>,
-	<bhutchings@solarflare.com>,
-	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
-	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
-	<manabian@gmail.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1351591858.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Steven Barth <steven@midlink.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:51534 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758201Ab2J3Kmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 06:42:52 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so71779bkc.19
+        for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 03:42:50 -0700 (PDT)
+In-Reply-To: <508F969C.9080300@midlink.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 10/30/2012 11:17 AM, Nicolas Ferre :
-> This is an enhancement work that began several years ago. I try to catchup with
-> some performance improvement that has been implemented then by Havard.
-> The ring index logic and the TX error path modification are the biggest changes
-> but some cleanup/debugging have been added along the way.
-> The GEM revision will benefit from the Gigabit support.
-> Newer pinctrl infrastructure support is added but it is optional.
+From: Eric Dumazet <edumazet@google.com>
+
+On Tue, 2012-10-30 at 09:58 +0100, Steven Barth wrote:
+> Hi,
 > 
-> The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
-> flavors.
+> I recently noticed that there might be an unexpected behavior in the 
+> handling of IPV6_PKTINFO for RAW-sockets. It seems that the given 
+> destination interface is ignored.
 > 
-> v3: - rebased on net-next to take into account current effor to merge
->       at91_ether with macb drivers
->     - add additional patch to use the new pinctrl infrastructure
-> v2: - modify the tx error handling: now uses a workqueue
->     - information provided by ethtool -i were not accurate: removed
+> I just reproduced this on 3.7.0-rc3 vanilla but some quick tests with 
+> 2.6.32 and 3.5 distro-kernels on different machines showed the same.
+> 
+> I've noticed this first in my own software but I could also reproduce it 
+> easily with standard tools like ping6 from iputils:
+> 
+> Have 2 network interfaces with (global) IPv6-addresses assigned (e.g. 
+> eth0 with fd00::1/64 and eth1 with fd01::1/64) and do a ping6 -I eth1 
+> fd00::1 (ping6 from iputils uses IPV6_PKTINFO internally).
+> 
+> For me the result was that even though I set the interface to eth1 the 
+> ECHO was still send to eth0.
+> 
+> Also (although probably unrelated) forwarding for IPv6 was disabled.
+> 
+> If I try something similar with IPv4 and ping -I ... the ECHO doesn't go 
+> out on eth0 but - as expected - on eth1.
+> 
+> However if I use traceroute(6) with -I (ICMP-traceroute) and the -i 
+> option to determine the interface, packages seem to be sent through the 
+> expected interface. Internally it seems that traceroute(6) uses 
+> SO_BINDTODEVICE instead of IP(V6)_PKTINFO which seems to work.
+> 
+> So it seems there might be something wrong with IPV6_PKTINFO or is this 
+> expected behavior?
+> 
 
-David, if you feel more comfortable with a git branch (I can also 
-cook a signed tag if you want), here it is:
+I believe its not expected behavior.
 
+Is the following patch fixing it ?
 
-The following changes since commit a932657f51eadb8280166e82dc7034dfbff3985a:
+Thanks
 
-  net: sierra: shut up sparse restricted type warnings (2012-10-28 19:09:02 -0400)
+[PATCH] ipv6: raw: honor IPV6_PKTINFO 
 
-are available in the git repository at:
+Let ping6 -I interface works correctly.
 
-  git://github.com/at91linux/linux-at91.git net-next_macb_enhancement3
+If socket was not bound to a given interface, check if IPV6_PKTINFO was
+issued on this socket.
 
-for you to fetch changes up to 3269426bdd44debc00d027651f8248db9d40f3dc:
-
-  net/macb: add pinctrl consumer support (2012-10-30 11:08:10 +0100)
-
-----------------------------------------------------------------
-Havard Skinnemoen (4):
-      net/macb: memory barriers cleanup
-      net/macb: change debugging messages
-      net/macb: clean up ring buffer logic
-      net/macb: Offset first RX buffer by two bytes
-
-Jean-Christophe PLAGNIOL-VILLARD (1):
-      net/macb: add pinctrl consumer support
-
-Nicolas Ferre (4):
-      net/macb: remove macb_get_drvinfo()
-      net/macb: tx status is more than 8 bits now
-      net/macb: ethtool interface: add register dump feature
-      net/macb: better manage tx errors
-
-Patrice Vilchez (1):
-      net/macb: Add support for Gigabit Ethernet mode
-
- drivers/net/ethernet/cadence/macb.c | 446 ++++++++++++++++++++++++++++++++++++++++++++++++++++++------------------------
- drivers/net/ethernet/cadence/macb.h |  30 ++++--
- 2 files changed, 334 insertions(+), 142 deletions(-)
-
-
-Thanks, best regards,
--- 
-Nicolas Ferre
+Reported-by: Steven Barth <steven@midlink.org>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index d8e95c7..363ee65 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -814,8 +814,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 		fl6.flowlabel = np->flow_label;
+ 	}
+ 
+-	if (fl6.flowi6_oif == 0)
+-		fl6.flowi6_oif = sk->sk_bound_dev_if;
++	if (!fl6.flowi6_oif)
++		fl6.flowi6_oif = sk->sk_bound_dev_if ?: np->sticky_pktinfo.ipi6_ifindex;
+ 
+ 	if (msg->msg_controllen) {
+ 		opt = &opt_space;
