@@ -1,10 +1,10 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 8/8] vhost-net: reduce vq polling on tx zerocopy
-Date: Tue, 30 Oct 2012 17:54:12 +0200
-Message-ID: <20121030155412.GA7256@redhat.com>
+Subject: Re: [PATCH net-next 2/8] skb: api to report errors for zero copy skbs
+Date: Tue, 30 Oct 2012 17:54:36 +0200
+Message-ID: <20121030155436.GB7256@redhat.com>
 References: <cover.1351524501.git.mst@redhat.com>
-	<3e57e2cde71a4270a8fef395c31f5f0e8a130c28.1351524502.git.mst@redhat.com>
-	<508FF6A1.5060201@redhat.com>
+	<ee85ad5053a929c90e0347b6ba33778d96690e9b.1351524501.git.mst@redhat.com>
+	<508FF5D0.6080107@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -18,7 +18,7 @@ Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <508FF6A1.5060201@redhat.com>
+In-Reply-To: <508FF5D0.6080107@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -30,45 +30,69 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 30, 2012 at 11:47:45AM -0400, Vlad Yasevich wrote:
+On Tue, Oct 30, 2012 at 11:44:16AM -0400, Vlad Yasevich wrote:
 > On 10/29/2012 11:49 AM, Michael S. Tsirkin wrote:
-> >It seems that to avoid deadlocks it is enough to poll vq before
-> >  we are going to use the last buffer.  This should be faster than
-> >c70aa540c7a9f67add11ad3161096fb95233aa2e.
+> >Orphaning frags for zero copy skbs needs to allocate data in atomic
+> >context so is has a chance to fail. If it does we currently discard
+> >the skb which is safe, but we don't report anything to the caller,
+> >so it can not recover by e.g. disabling zero copy.
+> >
+> >Add an API to free skb reporting such errors: this is used
+> >by tun in case orphaning frags fails.
 > >
 > >Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 > >---
-> >  drivers/vhost/net.c | 12 ++++++++++--
-> >  1 file changed, 10 insertions(+), 2 deletions(-)
+> >  include/linux/skbuff.h |  1 +
+> >  net/core/skbuff.c      | 19 +++++++++++++++++++
+> >  2 files changed, 20 insertions(+)
 > >
-> >diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> >index 8e9de79..3967f82 100644
-> >--- a/drivers/vhost/net.c
-> >+++ b/drivers/vhost/net.c
-> >@@ -197,8 +197,16 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, int status)
-> >  {
-> >  	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
-> >  	struct vhost_virtqueue *vq = ubufs->vq;
-> >-
-> >-	vhost_poll_queue(&vq->poll);
-> >+	int cnt = atomic_read(&ubufs->kref.refcount);
-> >+
-> >+	/*
-> >+	 * Trigger polling thread if guest stopped submitting new buffers:
-> >+	 * in this case, the refcount after decrement will eventually reach 1
-> >+	 * so here it is 2.
-> >+	 * We also trigger polling periodically after each 16 packets.
-> >+	 */
-> >+	if (cnt <= 2 || !(cnt % 16))
+> >diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> >index 8bac11b..0644432 100644
+> >--- a/include/linux/skbuff.h
+> >+++ b/include/linux/skbuff.h
+> >@@ -568,6 +568,7 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
+> >  }
+> >
+> >  extern void kfree_skb(struct sk_buff *skb);
+> >+extern void skb_tx_error(struct sk_buff *skb, int err);
+> >  extern void consume_skb(struct sk_buff *skb);
+> >  extern void	       __kfree_skb(struct sk_buff *skb);
+> >  extern struct kmem_cache *skbuff_head_cache;
+> >diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> >index eb31f6e..ad99c64 100644
+> >--- a/net/core/skbuff.c
+> >+++ b/net/core/skbuff.c
+> >@@ -635,6 +635,25 @@ void kfree_skb(struct sk_buff *skb)
+> >  EXPORT_SYMBOL(kfree_skb);
+> >
+> >  /**
+> >+ *	kfree_skb_on_error - report an sk_buff xmit error
+> >+ *	@skb: buffer that triggered an error
+> >+ *
+> >+ *	Report xmit error if a device callback is tracking this skb.
+> >+ */
 > 
-> Why 16?  Does it make sense to make it configurable?
+> Nit:  Comment doesn't match new function.
 > 
 > -vlad
 
-Probably not but I'll add a comment explaining why.
+Good catch, thanks.
 
-> >+		vhost_poll_queue(&vq->poll);
-> >  	/* set len to mark this desc buffers done DMA */
-> >  	vq->heads[ubuf->desc].len = status ?
-> >  		VHOST_DMA_FAILED_LEN : VHOST_DMA_DONE_LEN;
+> >+void skb_tx_error(struct sk_buff *skb, int err)
+> >+{
+> >+	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+> >+		struct ubuf_info *uarg;
+> >+
+> >+		uarg = skb_shinfo(skb)->destructor_arg;
+> >+		if (uarg->callback)
+> >+			uarg->callback(uarg, err);
+> >+		skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+> >+	}
+> >+}
+> >+EXPORT_SYMBOL(skb_tx_error);
+> >+
+> >+/**
+> >   *	consume_skb - free an skbuff
+> >   *	@skb: buffer to free
+> >   *
 > >
