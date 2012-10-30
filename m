@@ -1,68 +1,53 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: switching network namespace midway
-Date: Tue, 30 Oct 2012 08:55:43 +0000
-Message-ID: <508F960F.20104@katalix.com>
-References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com> <878vavshhp.fsf@xmission.com> <20121024212116.GG15034@kvack.org> <87ip9zqqlv.fsf@xmission.com> <20121025143811.GH15034@kvack.org> <20121025092105.5119b8bf@nehalam.linuxnetplumber.net> <877gqb883y.fsf@xmission.com> <20121029072341.158e6412@nehalam.linuxnetplumber.net> <87a9v47qsl.fsf@xmission.com>
+From: Steven Barth <steven@midlink.org>
+Subject: IPV6_PKTINFO seems not to be honored correctly by RAW-sockets
+Date: Tue, 30 Oct 2012 09:58:04 +0100
+Message-ID: <508F969C.9080300@midlink.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Benjamin LaHaise <bcrl@kvack.org>, rsa <ravi.mlists@gmail.com>,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Steven Barth <steven@midlink.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:60757 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751284Ab2J3JFm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 05:05:42 -0400
-In-Reply-To: <87a9v47qsl.fsf@xmission.com>
+Received: from chi.subsignal.org ([188.40.166.11]:33507 "EHLO
+	chi.subsignal.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756222Ab2J3JIj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 05:08:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30/10/12 00:21, Eric W. Biederman wrote:
-> Stephen Hemminger <shemminger@vyatta.com> writes:
-> 
->> On Sat, 27 Oct 2012 22:43:13 -0700
->> ebiederm@xmission.com (Eric W. Biederman) wrote:
->>
->>> Stephen Hemminger <shemminger@vyatta.com> writes:
->>>
->>>> I noticed that the L2TP sockets are not being moved to the correct name
->>>> space.
->>>>
->>>> Something like this is probably needed.
->>>
->>> This is almost right.
->>>
->>> There needs to be a line in l2tp_tunnel_create that verifies
->>> the network namespace of the socket derived from a file descriptor
->>> and the passed in network namespace match.
->>>
->>> For the l2tp_tunnel_sock_create case where we have a socket that is not
->>> exported to userspace using sk_change_net seems appropriate to avoid
->>> reference counting problems.  And it may be worth moving that work into
->>> sk_create_kern.  But we need a network namespace hook that will lookup
->>> all l2tp tunnel sockets when a network namespace is being destroyed and
->>> remove them.  I think we can hit this bug with rmmod as well.
->>
->> Since I don't use netns or L2TP for real, someone else needs to take
->> up the crusade here.
-> 
-> Let's see if James Chapman is interested.  I don't use L2TP for real either.
-> 
-> James are you at all interested in the network namespace bugs that have
-> been found in the l2tp code?
+Hi,
 
-Very much so, Eric. Thanks for keeping me in the loop. Unfortunately, I
-am busy on other things at the moment. It's in my queue. I'll get to it
-as soon as I can.
+I recently noticed that there might be an unexpected behavior in the 
+handling of IPV6_PKTINFO for RAW-sockets. It seems that the given 
+destination interface is ignored.
 
-> 
-> Eric
+I just reproduced this on 3.7.0-rc3 vanilla but some quick tests with 
+2.6.32 and 3.5 distro-kernels on different machines showed the same.
+
+I've noticed this first in my own software but I could also reproduce it 
+easily with standard tools like ping6 from iputils:
+
+Have 2 network interfaces with (global) IPv6-addresses assigned (e.g. 
+eth0 with fd00::1/64 and eth1 with fd01::1/64) and do a ping6 -I eth1 
+fd00::1 (ping6 from iputils uses IPV6_PKTINFO internally).
+
+For me the result was that even though I set the interface to eth1 the 
+ECHO was still send to eth0.
+
+Also (although probably unrelated) forwarding for IPv6 was disabled.
+
+If I try something similar with IPv4 and ping -I ... the ECHO doesn't go 
+out on eth0 but - as expected - on eth1.
+
+However if I use traceroute(6) with -I (ICMP-traceroute) and the -i 
+option to determine the interface, packages seem to be sent through the 
+expected interface. Internally it seems that traceroute(6) uses 
+SO_BINDTODEVICE instead of IP(V6)_PKTINFO which seems to work.
+
+So it seems there might be something wrong with IPV6_PKTINFO or is this 
+expected behavior?
 
 
--- 
-James Chapman
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+Thanks and Regards,
+
+Steven
