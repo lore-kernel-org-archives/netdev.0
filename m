@@ -1,42 +1,43 @@
-From: Tom Parkin <tparkin@katalix.com>
-Subject: [PATCH 1/1] l2tp: fix oops in l2tp_eth_create() error path
-Date: Tue, 30 Oct 2012 09:41:48 +0000
-Message-ID: <1351590108-21067-1-git-send-email-tparkin@katalix.com>
-Cc: jchapman@katalix.com, Tom Parkin <tparkin@katalix.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:50148 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757484Ab2J3Jlz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Oct 2012 05:41:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Subject: Re: [PATCH] net: dsa/slave: Fix compilation warnings
+Date: Tue, 30 Oct 2012 15:15:30 +0530
+Message-ID: <CAKohpo=X0ZNSRZHFO==j43Hq0ZheQLmER9X+adsLQErAJT5f2w@mail.gmail.com>
+References: <5afab1ebe83e4361f1fd75bbea0c559af195bf02.1351529738.git.viresh.kumar@linaro.org>
+	<1351540778.2721.7.camel@bwh-desktop.uk.solarflarecom.com>
+	<CAKohponL_3m2KVytiWm8ZHyB5aimk8CzGrqr5J0LMy8MFGodHg@mail.gmail.com>
+	<CAKohponOKk5e2Sxyhjw-XvzVxF3tNp66rsnYCwvwHazAPAauKw@mail.gmail.com>
+	<508F8779.8070300@linaro.org>
+	<CAKohpokmfFSFsADmtOyN9JRCX8aVdNs+tDFhUQuM6sSQ+dFfUA@mail.gmail.com>
+	<508F9724.50804@linaro.org>
+	<CAKohpon8C5O4U+h3nr=8gaEQ1f-K9pqafw=5jPrhaGup_3re=g@mail.gmail.com>
+	<508F9D5C.2020802@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	linaro-dev@lists.linaro.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, patches@linaro.org
+To: Daniel Lezcano <daniel.lezcano@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <508F9D5C.2020802@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When creating an L2TPv3 Ethernet session, if register_netdev() should fail for
-any reason (for example, automatic naming for "l2tpeth%d" interfaces hits the
-32k-interface limit), the netdev is freed in the error path.  However, the
-l2tp_eth_sess structure's dev pointer is left uncleared, and this results in
-l2tp_eth_delete() then attempting to unregister the same netdev later in the
-session teardown.  This results in an oops.
+On 30 October 2012 14:56, Daniel Lezcano <daniel.lezcano@linaro.org> wrote:
+> Well, it is the same here, no ? Except, it is up to the user to disable
+> the option.
 
-To avoid this, clear the session dev pointer in the error path.
+I didn't wanted to add code like this:
 
-Signed-off-by: Tom Parkin <tparkin@katalix.com>
----
- net/l2tp/l2tp_eth.c |    1 +
- 1 file changed, 1 insertion(+)
+>> +       select NET_DSA_TAG_DSA if (!NET_DSA_TAG_EDSA &&
+>> !NET_DSA_TAG_TRAILER)
 
-diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
-index 37b8b8b..76125c5 100644
---- a/net/l2tp/l2tp_eth.c
-+++ b/net/l2tp/l2tp_eth.c
-@@ -291,6 +291,7 @@ static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 p
- 
- out_del_dev:
- 	free_netdev(dev);
-+	spriv->dev = NULL;
- out_del_session:
- 	l2tp_session_delete(session);
- out:
--- 
-1.7.9.5
+Why should we select NET_DSA_TAG_DSA by default? What made us
+select that?
+
+For this reason, i went to the solution i offered.
+
+Anyway, i just wanted to get rid of the warning. Whatever maintainer
+feels is better must be selected.
+
+--
+viresh
