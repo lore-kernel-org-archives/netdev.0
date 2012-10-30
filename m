@@ -1,56 +1,235 @@
-From: Paul Thompson <set.mailinglist@gmail.com>
-Subject: NETDEV WATCHDOG: eth2 (tg3): transmit queue 0 timed out
-Date: Tue, 30 Oct 2012 00:32:14 -0400
-Message-ID: <20121030043213.GE2604@squish.home.loc>
+From: Paolo Valente <paolo.valente@unimore.it>
+Subject: [PATCH RFC] pkt_sched: enable QFQ to support TSO/GSO
+Date: Tue, 30 Oct 2012 07:00:56 +0100
+Message-ID: <20121030060056.GA3373@paolo-ThinkPad-W520>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.wow.synacor.com ([64.8.70.55]:34330 "EHLO
-	smtp.mail.wowway.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750894Ab2J3EcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 00:32:16 -0400
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rizzo@iet.unipi.it, fchecconi@gmail.com, paolo.valente@unimore.it
+To: jhs@mojatatu.com, davem@davemloft.net, shemminger@vyatta.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-	Hi;
+[new version modified according to the suggestions received]
 
-	Just noticed this in my logs after 10 days uptime. The interface
-is reset and continues to work fine. Looking back through the logs, I
-see it happened in 3.3.0-rc4 for the first time. No occurance from
-2.6.35.5 util then, and I have run all versions in between. Load on
-the interface is light; just connects to a cable modem.
+Hi,
+if the max packet size for some class (configured through tc) is
+violated by the actual size of the packets of that class, then QFQ
+would not schedule classes correctly, and the data structures
+implementing the bucket lists may get corrupted. This problem occurs
+with TSO/GSO even if the max packet size is set to the MTU, and is,
+e.g., the cause of the failure reported in [1]. Two patches have been
+proposed to solve this problem in [2], one of them is a preliminary
+version of this patch.
 
-Paul
-set.mailinglist@gmail.com
+This patch addresses the above issues by: 1) setting QFQ parameters to
+proper values for supporting TSO/GSO (in particular, setting the
+maximum possible packet size to 64KB), 2) automatically increasing the
+max packet size for a class, lmax, when a packet with a larger size
+than the current value of lmax arrives.
 
-After this, there is a large dump of hex numbers. If this is signifigant
-let me know and I will supply any more information or testing.
+The drawback of the first point is that the maximum weight for a class
+is now limited to 4096, which is equal to 1/16 of the maximum weight
+sum.
 
-2012 Oct 29 08:37:25: ------------[ cut here ]------------
-2012 Oct 29 08:37:25: WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x22f/0x240()
-2012 Oct 29 08:37:25: Hardware name: To Be Filled By O.E.M.
-2012 Oct 29 08:37:25: NETDEV WATCHDOG: eth2 (tg3): transmit queue 0 timed out
-2012 Oct 29 08:37:25: Modules linked in: hid_logitech_dj serpent_sse2_x86_64 ablk_helper cryptd glue_helper lrw serpent_generic xts gf128mul cpufreq_ondemand btrfs lzo_decompress lzo_compress libcrc32c dm_crypt dm_mod radeon ttm drm_kms_helper drm backlight i2c_algo_bit cfbcopyarea cfbimgblt cfbfillrect snd_ens1371 snd_rawmidi snd_ac97_codec snd_pcm snd_page_alloc ac97_bus pcspkr [last unloaded: hid_logitech_dj]
-2012 Oct 29 08:37:25: Pid: 0, comm: swapper/1 Not tainted 3.6.2-low-lat #13
-2012 Oct 29 08:37:25: Call Trace:
-2012 Oct 29 08:37:25: <IRQ>  [<ffffffff8134a300>] ? dev_watchdog+0x1c0/0x240
-2012 Oct 29 08:37:25: [<ffffffff81030329>] ? warn_slowpath_common+0x79/0xc0
-2012 Oct 29 08:37:25: [<ffffffff81030425>] ? warn_slowpath_fmt+0x45/0x50
-2012 Oct 29 08:37:25: [<ffffffff8134a36f>] ? dev_watchdog+0x22f/0x240
-2012 Oct 29 08:37:25: [<ffffffff8134a140>] ? dev_graft_qdisc+0x90/0x90
-2012 Oct 29 08:37:25: [<ffffffff8103c9cd>] ? run_timer_softirq+0x12d/0x270
-2012 Oct 29 08:37:25: [<ffffffff810374f4>] ? __do_softirq+0xa4/0x150
-2012 Oct 29 08:37:25: [<ffffffff813d976c>] ? call_softirq+0x1c/0x30
-2012 Oct 29 08:37:25: [<ffffffff81003e6d>] ? do_softirq+0x4d/0x80
-2012 Oct 29 08:37:25: [<ffffffff810378a5>] ? irq_exit+0xa5/0xb0
-2012 Oct 29 08:37:25: [<ffffffff810202e8>] ? smp_apic_timer_interrupt+0x68/0xa0
-2012 Oct 29 08:37:25: [<ffffffff813d9087>] ? apic_timer_interrupt+0x67/0x70
-2012 Oct 29 08:37:25: <EOI>  [<ffffffff8100a25e>] ? default_idle+0x2e/0x50
-2012 Oct 29 08:37:25: [<ffffffff8100a23e>] ? default_idle+0xe/0x50
-2012 Oct 29 08:37:25: [<ffffffff8100a3ab>] ? amd_e400_idle+0x7b/0xf0
-2012 Oct 29 08:37:25: [<ffffffff8100ac56>] ? cpu_idle+0xc6/0xe0
-2012 Oct 29 08:37:25: ---[ end trace ff857795a2d2309a ]---
+Finally, this patch also forcibly caps the timestamps of a class if
+they are too high to be stored in the bucket list. This capping, taken
+from QFQ+ [3], handles the unfrequent case described in the comment to
+the function slot_insert.
+
+[1] http://marc.info/?l=linux-netdev&m=134968777902077&w=2
+[2] http://marc.info/?l=linux-netdev&m=135096573507936&w=2
+[3] http://marc.info/?l=linux-netdev&m=134902691421670&w=2
+
+Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
+Tested-by: Cong Wang <amwang@redhat.com>
+---
+ net/sched/sch_qfq.c |  109 +++++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 79 insertions(+), 30 deletions(-)
+
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index f0dd83c..9687fa1 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -84,18 +84,19 @@
+  * grp->index is the index of the group; and grp->slot_shift
+  * is the shift for the corresponding (scaled) sigma_i.
+  */
+-#define QFQ_MAX_INDEX		19
+-#define QFQ_MAX_WSHIFT		16
++#define QFQ_MAX_INDEX		24
++#define QFQ_MAX_WSHIFT		12
+ 
+ #define	QFQ_MAX_WEIGHT		(1<<QFQ_MAX_WSHIFT)
+-#define QFQ_MAX_WSUM		(2*QFQ_MAX_WEIGHT)
++#define QFQ_MAX_WSUM		(16*QFQ_MAX_WEIGHT)
+ 
+ #define FRAC_BITS		30	/* fixed point arithmetic */
+ #define ONE_FP			(1UL << FRAC_BITS)
+ #define IWSUM			(ONE_FP/QFQ_MAX_WSUM)
+ 
+-#define QFQ_MTU_SHIFT		11
++#define QFQ_MTU_SHIFT		16	/* to support TSO/GSO */
+ #define QFQ_MIN_SLOT_SHIFT	(FRAC_BITS + QFQ_MTU_SHIFT - QFQ_MAX_INDEX)
++#define QFQ_MIN_LMAX		256	/* min possible lmax for a class */
+ 
+ /*
+  * Possible group states.  These values are used as indexes for the bitmaps
+@@ -231,6 +232,32 @@ static void qfq_update_class_params(struct qfq_sched *q, struct qfq_class *cl,
+ 	q->wsum += delta_w;
+ }
+ 
++static void qfq_update_reactivate_class(struct qfq_sched *q,
++					struct qfq_class *cl,
++					u32 inv_w, u32 lmax, int delta_w)
++{
++	bool need_reactivation = false;
++	int i = qfq_calc_index(inv_w, lmax);
++
++	if (&q->groups[i] != cl->grp && cl->qdisc->q.qlen > 0) {
++		/*
++		 * shift cl->F back, to not charge the
++		 * class for the not-yet-served head
++		 * packet
++		 */
++		cl->F = cl->S;
++		/* remove class from its slot in the old group */
++		qfq_deactivate_class(q, cl);
++		need_reactivation = true;
++	}
++
++	qfq_update_class_params(q, cl, lmax, inv_w, delta_w);
++
++	if (need_reactivation) /* activate in new group */
++		qfq_activate_class(q, cl, qdisc_peek_len(cl->qdisc));
++}
++
++
+ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 			    struct nlattr **tca, unsigned long *arg)
+ {
+@@ -238,7 +265,7 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 	struct qfq_class *cl = (struct qfq_class *)*arg;
+ 	struct nlattr *tb[TCA_QFQ_MAX + 1];
+ 	u32 weight, lmax, inv_w;
+-	int i, err;
++	int err;
+ 	int delta_w;
+ 
+ 	if (tca[TCA_OPTIONS] == NULL) {
+@@ -270,16 +297,14 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 
+ 	if (tb[TCA_QFQ_LMAX]) {
+ 		lmax = nla_get_u32(tb[TCA_QFQ_LMAX]);
+-		if (!lmax || lmax > (1UL << QFQ_MTU_SHIFT)) {
++		if (lmax < QFQ_MIN_LMAX || lmax > (1UL << QFQ_MTU_SHIFT)) {
+ 			pr_notice("qfq: invalid max length %u\n", lmax);
+ 			return -EINVAL;
+ 		}
+ 	} else
+-		lmax = 1UL << QFQ_MTU_SHIFT;
++		lmax = psched_mtu(qdisc_dev(sch));
+ 
+ 	if (cl != NULL) {
+-		bool need_reactivation = false;
+-
+ 		if (tca[TCA_RATE]) {
+ 			err = gen_replace_estimator(&cl->bstats, &cl->rate_est,
+ 						    qdisc_root_sleeping_lock(sch),
+@@ -291,24 +316,8 @@ static int qfq_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
+ 		if (lmax == cl->lmax && inv_w == cl->inv_w)
+ 			return 0; /* nothing to update */
+ 
+-		i = qfq_calc_index(inv_w, lmax);
+ 		sch_tree_lock(sch);
+-		if (&q->groups[i] != cl->grp && cl->qdisc->q.qlen > 0) {
+-			/*
+-			 * shift cl->F back, to not charge the
+-			 * class for the not-yet-served head
+-			 * packet
+-			 */
+-			cl->F = cl->S;
+-			/* remove class from its slot in the old group */
+-			qfq_deactivate_class(q, cl);
+-			need_reactivation = true;
+-		}
+-
+-		qfq_update_class_params(q, cl, lmax, inv_w, delta_w);
+-
+-		if (need_reactivation) /* activate in new group */
+-			qfq_activate_class(q, cl, qdisc_peek_len(cl->qdisc));
++		qfq_update_reactivate_class(q, cl, inv_w, lmax, delta_w);
+ 		sch_tree_unlock(sch);
+ 
+ 		return 0;
+@@ -663,15 +672,48 @@ static void qfq_make_eligible(struct qfq_sched *q, u64 old_V)
+ 
+ 
+ /*
+- * XXX we should make sure that slot becomes less than 32.
+- * This is guaranteed by the input values.
+- * roundedS is always cl->S rounded on grp->slot_shift bits.
++ * If the weight and lmax (max_pkt_size) of the classes do not change,
++ * then QFQ guarantees that the slot index is never higher than
++ * 2 + ((1<<QFQ_MTU_SHIFT)/QFQ_MIN_LMAX) * (QFQ_MAX_WEIGHT/QFQ_MAX_WSUM).
++ *
++ * With the current values of the above constants, the index is
++ * then guaranteed to never be higher than 2 + 256 * (1 / 16) = 18.
++ *
++ * When the weight of a class is increased or the lmax of the class is
++ * decreased, a new class with smaller slot size may happen to be
++ * activated. The activation of this class should be properly delayed
++ * to when the service of the class has finished in the ideal system
++ * tracked by QFQ. If the activation of the class is not delayed to
++ * this reference time instant, then this class may be unjustly served
++ * before other classes waiting for service. This may cause
++ * (unfrequently) the above bound to the slot index to be violated for
++ * some of these unlucky classes.
++ *
++ * Instead of delaying the activation of the new class, which is quite
++ * complex, the following inaccurate but simple solution is used: if
++ * the slot index is higher than QFQ_MAX_SLOTS-2, then the timestamps
++ * of the class are shifted backward so as to let the slot index
++ * become equal to QFQ_MAX_SLOTS-2. This threshold is used because, if
++ * the slot index is above it, then the data structure implementing
++ * the bucket list either gets immediately corrupted or may get
++ * corrupted on a possible next packet arrival that causes the start
++ * time of the group to be shifted backward.
+  */
+ static void qfq_slot_insert(struct qfq_group *grp, struct qfq_class *cl,
+ 			    u64 roundedS)
+ {
+ 	u64 slot = (roundedS - grp->S) >> grp->slot_shift;
+-	unsigned int i = (grp->front + slot) % QFQ_MAX_SLOTS;
++	unsigned int i; /* slot index in the bucket list */
++
++	if (unlikely(slot > QFQ_MAX_SLOTS - 2)) {
++		u64 deltaS = roundedS - grp->S -
++			((u64)(QFQ_MAX_SLOTS - 2)<<grp->slot_shift);
++		cl->S -= deltaS;
++		cl->F -= deltaS;
++		slot = QFQ_MAX_SLOTS - 2;
++	}
++
++	i = (grp->front + slot) % QFQ_MAX_SLOTS;
+ 
+ 	hlist_add_head(&cl->next, &grp->slots[i]);
+ 	__set_bit(slot, &grp->full_slots);
+@@ -892,6 +934,13 @@ static int qfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	}
+ 	pr_debug("qfq_enqueue: cl = %x\n", cl->common.classid);
+ 
++	if (unlikely(cl->lmax < qdisc_pkt_len(skb))) {
++		pr_debug("qfq: increasing maxpkt from %u to %u for class %u",
++			  cl->lmax, qdisc_pkt_len(skb), cl->common.classid);
++		qfq_update_reactivate_class(q, cl, cl->inv_w,
++					    qdisc_pkt_len(skb), 0);
++	}
++
+ 	err = qdisc_enqueue(skb, cl->qdisc);
+ 	if (unlikely(err != NET_XMIT_SUCCESS)) {
+ 		pr_debug("qfq_enqueue: enqueue failed %d\n", err);
+-- 
+1.7.9.5
