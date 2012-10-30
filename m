@@ -1,69 +1,99 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] vlan: use IS_ENABLED()
-Date: Tue, 30 Oct 2012 11:22:28 +0800
-Message-ID: <1351567348-15229-1-git-send-email-amwang@redhat.com>
+From: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
+Subject: Re: [PATCH 3/4] arm: mvebu: add Ethernet controllers using mvneta
+ driver for Armada 370/XP
+Date: Tue, 30 Oct 2012 13:19:15 +0900
+Message-ID: <CABMQnVKswTJr9Nd4Etx4Htv0Ckn+pDNqGO8MoPBH-x8y6CwZyA@mail.gmail.com>
+References: <1351245804-31478-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1351245804-31478-4-git-send-email-thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	Maen Suleiman <maen@marvell.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21352 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753769Ab2J3DWe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Oct 2012 23:22:34 -0400
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:42964 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751116Ab2J3ETr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 00:19:47 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so4143667wgb.1
+        for <netdev@vger.kernel.org>; Mon, 29 Oct 2012 21:19:45 -0700 (PDT)
+In-Reply-To: <1351245804-31478-4-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-#if defined(CONFIG_FOO) || defined(CONFIG_FOO_MODULE)
+On Fri, Oct 26, 2012 at 7:03 PM, Thomas Petazzoni
+<thomas.petazzoni@free-electrons.com> wrote:
+> The Armada 370 SoC has two network units, while the Armada XP has four
+> network units. The first two network units are common to both the
+> Armada XP and Armada 370, so they are added to armada-370-xp.dtsi,
+> while the other two network units are specific to the Armada XP and
+> therefore added to armada-xp.dtsi.
+>
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> ---
+>  arch/arm/boot/dts/armada-370-xp.dtsi |   14 ++++++++++++++
+>  arch/arm/boot/dts/armada-xp.dtsi     |   14 ++++++++++++++
+>  2 files changed, 28 insertions(+)
+>
+> diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+> index 16cc82c..d484492 100644
+> --- a/arch/arm/boot/dts/armada-370-xp.dtsi
+> +++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+> @@ -68,6 +68,20 @@
+>                         compatible = "marvell,armada-addr-decoding-controller";
+>                         reg = <0xd0020000 0x258>;
+>                 };
+> +
+> +                ethernet@d0070000 {
+> +                               compatible = "marvell,armada-370-neta";
+> +                               reg = <0xd0070000 0x2500>;
+> +                               interrupts = <8>;
+> +                               status = "disabled";
+> +                };
+> +
+> +                ethernet@d0074000 {
+> +                               compatible = "marvell,armada-370-neta";
+> +                               reg = <0xd0074000 0x2500>;
+> +                               interrupts = <10>;
+> +                               status = "disabled";
+> +                };
 
-can be replaced by
+Could you fit an indent?
 
-#if IS_ENABLED(CONFIG_FOO)
+>         };
+>  };
+>
+> diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
+> index 71d6b5d..c77a43e 100644
+> --- a/arch/arm/boot/dts/armada-xp.dtsi
+> +++ b/arch/arm/boot/dts/armada-xp.dtsi
+> @@ -51,5 +51,19 @@
+>                                 compatible = "marvell,armada-370-xp-system-controller";
+>                                 reg = <0xd0018200 0x500>;
+>                 };
+> +
+> +                ethernet@d0030000 {
+> +                               compatible = "marvell,armada-370-neta";
+> +                               reg = <0xd0030000 0x2500>;
+> +                               interrupts = <12>;
+> +                               status = "disabled";
+> +                };
+> +
+> +                ethernet@d0034000 {
+> +                               compatible = "marvell,armada-370-neta";
+> +                               reg = <0xd0034000 0x2500>;
+> +                               interrupts = <14>;
+> +                               status = "disabled";
+> +                };
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+likewise.
 
----
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index ee07072..30ee4bc 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -294,7 +294,7 @@ static void vlan_transfer_features(struct net_device *dev,
- 	else
- 		vlandev->hard_header_len = dev->hard_header_len + VLAN_HLEN;
- 
--#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+#if IS_ENABLED(CONFIG_FCOE)
- 	vlandev->fcoe_ddp_xid = dev->fcoe_ddp_xid;
- #endif
- 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 4024424..6da96d4 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -409,7 +409,7 @@ static int vlan_dev_neigh_setup(struct net_device *dev, struct neigh_parms *pa)
- 	return err;
- }
- 
--#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+#if IS_ENABLED(CONFIG_FCOE)
- static int vlan_dev_fcoe_ddp_setup(struct net_device *dev, u16 xid,
- 				   struct scatterlist *sgl, unsigned int sgc)
- {
-@@ -564,7 +564,7 @@ static int vlan_dev_init(struct net_device *dev)
- 	if (is_zero_ether_addr(dev->broadcast))
- 		memcpy(dev->broadcast, real_dev->broadcast, dev->addr_len);
- 
--#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+#if IS_ENABLED(CONFIG_FCOE)
- 	dev->fcoe_ddp_xid = real_dev->fcoe_ddp_xid;
- #endif
- 
-@@ -741,7 +741,7 @@ static const struct net_device_ops vlan_netdev_ops = {
- 	.ndo_do_ioctl		= vlan_dev_ioctl,
- 	.ndo_neigh_setup	= vlan_dev_neigh_setup,
- 	.ndo_get_stats64	= vlan_dev_get_stats64,
--#if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
-+#if IS_ENABLED(CONFIG_FCOE)
- 	.ndo_fcoe_ddp_setup	= vlan_dev_fcoe_ddp_setup,
- 	.ndo_fcoe_ddp_done	= vlan_dev_fcoe_ddp_done,
- 	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
+-- 
+Nobuhiro Iwamatsu
+   iwamatsu at {nigauri.org / debian.org}
+   GPG ID: 40AD1FA6
