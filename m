@@ -1,52 +1,53 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH v4] Network driver for the Armada 370 and Armada XP ARM
- Marvell SoCs
-Date: Tue, 30 Oct 2012 10:51:54 +0100
-Message-ID: <20121030105154.5b7c8e48@skate>
-References: <1351245804-31478-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Daniel Lezcano <daniel.lezcano@linaro.org>
+Subject: Re: [PATCH] net: dsa/slave: Fix compilation warnings
+Date: Tue, 30 Oct 2012 11:04:57 +0100
+Message-ID: <508FA649.6090901@linaro.org>
+References: <5afab1ebe83e4361f1fd75bbea0c559af195bf02.1351529738.git.viresh.kumar@linaro.org> <1351540778.2721.7.camel@bwh-desktop.uk.solarflarecom.com> <CAKohponL_3m2KVytiWm8ZHyB5aimk8CzGrqr5J0LMy8MFGodHg@mail.gmail.com> <CAKohponOKk5e2Sxyhjw-XvzVxF3tNp66rsnYCwvwHazAPAauKw@mail.gmail.com> <508F8779.8070300@linaro.org> <CAKohpokmfFSFsADmtOyN9JRCX8aVdNs+tDFhUQuM6sSQ+dFfUA@mail.gmail.com> <508F9724.50804@linaro.org> <CAKohpon8C5O4U+h3nr=8gaEQ1f-K9pqafw=5jPrhaGup_3re=g@mail.gmail.com> <508F9D5C.2020802@linaro.org> <CAKohpo=X0ZNSRZHFO==j43Hq0ZheQLmER9X+adsLQErAJT5f2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Maen Suleiman <maen@marvell.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([88.190.12.23]:49896 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755430Ab2J3JwJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 05:52:09 -0400
-In-Reply-To: <1351245804-31478-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	linaro-dev@lists.linaro.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, patches@linaro.org
+To: Viresh Kumar <viresh.kumar@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKohpo=X0ZNSRZHFO==j43Hq0ZheQLmER9X+adsLQErAJT5f2w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On 10/30/2012 10:45 AM, Viresh Kumar wrote:
+> On 30 October 2012 14:56, Daniel Lezcano <daniel.lezcano@linaro.org> =
+wrote:
+>> Well, it is the same here, no ? Except, it is up to the user to disa=
+ble
+>> the option.
+>=20
+> I didn't wanted to add code like this:
+>=20
+>>> +       select NET_DSA_TAG_DSA if (!NET_DSA_TAG_EDSA &&
+>>> !NET_DSA_TAG_TRAILER)
+>=20
+> Why should we select NET_DSA_TAG_DSA by default? What made us
+> select that?
 
-On Fri, 26 Oct 2012 12:03:20 +0200, Thomas Petazzoni wrote:
+That was an example, like you I don't know the DSA at all.
+I guess the maintainer will guide on that.
 
-> This patch set adds a new network driver for the network unit
-> available in the newest Marvell ARM SoCs Armada 370 and Armada XP, as
-> well as the necessary Device Tree information to use this driver in
-> the two evaluation platforms of those SoCs.
+> For this reason, i went to the solution i offered.
 
-Besides Nobuhiro's small comment on the Device Tree part, are there any
-comments on the driver itself, or is the code good to go?
+Ok.
 
-I can send a fifth version with just the fix for Nobuhiro's comment,
-but it probably makes sense to take into account a few more comments
-(if any) at the same time.
+> Anyway, i just wanted to get rid of the warning. Whatever maintainer
+> feels is better must be selected.
 
-Thanks for your review,
+Yep.
 
-Thomas
--- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+  -- Daniel
+
+--=20
+ <http://www.linaro.org/> Linaro.org =E2=94=82 Open source software for=
+ ARM SoCs
+
+=46ollow Linaro:  <http://www.facebook.com/pages/Linaro> Facebook |
+<http://twitter.com/#!/linaroorg> Twitter |
+<http://www.linaro.org/linaro-blog/> Blog
