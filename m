@@ -1,47 +1,59 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v8 16/16] tracing output: use new hashtable
- implementation
-Date: Tue, 30 Oct 2012 15:23:43 -0400
-Message-ID: <1351625023.4004.29.camel@gandalf.local.home>
-References: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com>
-	<1351622772-16400-16-git-send-email-levinsasha928@gmail.com>
+From: Krzysztof Mazur <krzysiek@podlesie.net>
+Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
+Date: Tue, 30 Oct 2012 20:26:40 +0100
+Message-ID: <20121030192639.GA31574@shrek.podlesie.net>
+References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+ <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
+ <1351589962.17077.36.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
-	mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1351622772-16400-16-git-send-email-levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1351589962.17077.36.camel@shinybook.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-10-30 at 14:46 -0400, Sasha Levin wrote:
-> Switch tracing to use the new hashtable implementation. This reduces the
-> amount of generic unrelated code in the tracing module.
+On Tue, Oct 30, 2012 at 09:39:22AM +0000, David Woodhouse wrote:
+> On Mon, 2012-10-22 at 19:14 +0200, Krzysztof Mazur wrote:
+> > The pppoatm gets a reference to atmvcc, but does not increment vcc
+> > usage count. The vcc uses vcc->sk socket for reference counting,
+> > so sock_hold() and sock_put() should be used by pppoatm.
+> > 
+> > Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
+> > Cc: David Woodhouse <dwmw2@infradead.org>
 > 
-> Signed-off-by: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Acked-By: David Woodhouse <David.Woodhouse@intel.com>
 
-Acked-by: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+This patch is not needed, because vcc_destroy_socket()
+calls pppoatm_push(vcc, NULL) to indicate that vcc is now closed,
+before vcc_release() calls sock_put() and it's properly handled
+by pppoatm.
 
--- Steve
+I will drop this patch.
+
+> 
+> But did you spot what's in the end of the context of the first hunk...?
+> 
+> > --- a/net/atm/pppoatm.c
+> > +++ b/net/atm/pppoatm.c
+> > @@ -154,6 +154,7 @@ static void pppoatm_unassign_vcc(struct atm_vcc
+> > *atmvcc)
+> >         tasklet_kill(&pvcc->wakeup_tasklet);
+> >         ppp_unregister_channel(&pvcc->chan);
+> >         atmvcc->user_back = NULL;
+> > +       sock_put(sk_atm(pvcc->atmvcc));
+> >         kfree(pvcc);
+> >         /* Gee, I hope we have the big kernel lock here... */
+> >         module_put(THIS_MODULE);
+> 
+> Fairly sure that hope is unfounded these days... :)
+> 
+
+Yes, I saw that.
+
+Thanks.
+
+Krzysiek
