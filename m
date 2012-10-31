@@ -1,124 +1,90 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
- to return an interface name
-Date: Wed, 31 Oct 2012 16:06:49 -0400
-Message-ID: <509184D9.8030103@hp.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net PATCH V2] net: fix divide by zero in tcp algorithm
+ illinois
+Date: Wed, 31 Oct 2012 13:48:36 -0700
+Message-ID: <20121031134836.16b31625@s6510.linuxnetplumber.net>
+References: <20121031124318.30915.32293.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Petr Matousek <pmatouse@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:10971 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759725Ab2JaUGy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 16:06:54 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:33687 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760217Ab2JaUsp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2012 16:48:45 -0400
+In-Reply-To: <20121031124318.30915.32293.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of having the getsockopt() of SO_BINDTODEVICE return an index, which
-will then require another call like if_indextoname() to get the actual interface
-name, have it return the name directly.
+On Wed, 31 Oct 2012 13:45:32 +0100
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
 
-This also matches the existing man page description on socket(7) which mentions
-the argument being an interface name.
+> Reading TCP stats when using TCP Illinois congestion control algorithm
+> can cause a divide by zero kernel oops.
+> 
+> The division by zero occur in tcp_illinois_info() at:
+>  do_div(t, ca->cnt_rtt);
+> where ca->cnt_rtt can become zero (when rtt_reset is called)
+> 
+> Steps to Reproduce:
+>  1. Register tcp_illinois:
+>      # sysctl -w net.ipv4.tcp_congestion_control=illinois
+>  2. Monitor internal TCP information via command "ss -i"
+>      # watch -d ss -i
+>  3. Establish new TCP conn to machine
+> 
+> Either it fails at the initial conn, or else it needs to wait
+> for a loss or a reset.
+> 
+> This is only related to reading stats.  The function avg_delay() also
+> performs the same divide, but is guarded with a (ca->cnt_rtt > 0) at its
+> calling point in update_params().  Thus, simply fix tcp_illinois_info().
+> 
+> Function tcp_illinois_info() / get_info() is called without
+> socket lock.  Thus, eliminate any race condition on ca->cnt_rtt
+> by using a local stack variable.  Simply reuse info.tcpv_rttcnt,
+> as its already set to ca->cnt_rtt.
+> Function avg_delay() is not affected by this race condition, as
+> its called with the socket lock.
+> 
+> Cc: Petr Matousek <pmatouse@redhat.com>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> 
+> ---
+> V2:
+>  Address Eric Dumazets input:
+>   - Save 2 bytes of stack, by using info.tcpv_rttcnt.
+>   - Help compiler, and define "u64 t" inside if() lexical scope.
+> 
+> 
+>  net/ipv4/tcp_illinois.c |    8 +++++---
+>  1 files changed, 5 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
+> index 813b43a..834857f 100644
+> --- a/net/ipv4/tcp_illinois.c
+> +++ b/net/ipv4/tcp_illinois.c
+> @@ -313,11 +313,13 @@ static void tcp_illinois_info(struct sock *sk, u32 ext,
+>  			.tcpv_rttcnt = ca->cnt_rtt,
+>  			.tcpv_minrtt = ca->base_rtt,
+>  		};
+> -		u64 t = ca->sum_rtt;
+>  
+> -		do_div(t, ca->cnt_rtt);
+> -		info.tcpv_rtt = t;
+> +		if (info.tcpv_rttcnt > 0) {
+> +			u64 t = ca->sum_rtt;
+>  
+> +			do_div(t, info.tcpv_rttcnt);
+> +			info.tcpv_rtt = t;
+> +		}
+>  		nla_put(skb, INET_DIAG_VEGASINFO, sizeof(info), &info);
+>  	}
+>  }
+> 
 
-If the value has not been set, zero is returned and optlen will be set to zero
-to indicate there is no interface name present.
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-
---
-
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 0a023b8..9172ff4 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -505,7 +505,8 @@ struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie)
- }
- EXPORT_SYMBOL(sk_dst_check);
-
--static int sock_bindtodevice(struct sock *sk, char __user *optval, int optlen)
-+static int sock_setbindtodevice(struct sock *sk, char __user *optval,
-+				int optlen)
- {
- 	int ret = -ENOPROTOOPT;
- #ifdef CONFIG_NETDEVICES
-@@ -562,6 +563,52 @@ out:
- 	return ret;
- }
-
-+static int sock_getbindtodevice(struct sock *sk, char __user *optval,
-+				int __user *optlen, int len)
-+{
-+	int ret = -ENOPROTOOPT;
-+#ifdef CONFIG_NETDEVICES
-+	struct net *net = sock_net(sk);
-+	struct net_device *dev;
-+	char devname[IFNAMSIZ];
-+
-+	if (sk->sk_bound_dev_if == 0) {
-+		len = 0;
-+		goto zero;
-+	}
-+
-+	ret = -EINVAL;
-+	if (len < IFNAMSIZ)
-+		goto out;
-+
-+	rcu_read_lock();
-+	dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
-+	if (dev)
-+		strcpy(devname, dev->name);
-+	rcu_read_unlock();
-+	ret = -ENODEV;
-+	if (!dev)
-+		goto out;
-+
-+	len = strlen(devname) + 1;
-+
-+	ret = -EFAULT;
-+	if (copy_to_user(optval, devname, len))
-+		goto out;
-+
-+zero:
-+	ret = -EFAULT;
-+	if (put_user(len, optlen))
-+		goto out;
-+
-+	ret = 0;
-+
-+out:
-+#endif
-+
-+	return ret;
-+}
-+
- static inline void sock_valbool_flag(struct sock *sk, int bit, int valbool)
- {
- 	if (valbool)
-@@ -589,7 +636,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- 	 */
-
- 	if (optname == SO_BINDTODEVICE)
--		return sock_bindtodevice(sk, optval, optlen);
-+		return sock_setbindtodevice(sk, optval, optlen);
-
- 	if (optlen < sizeof(int))
- 		return -EINVAL;
-@@ -1074,9 +1121,10 @@ int sock_getsockopt(struct socket *sock, int level, int
-optname,
- 	case SO_NOFCS:
- 		v.val = sock_flag(sk, SOCK_NOFCS);
- 		break;
-+
- 	case SO_BINDTODEVICE:
--		v.val = sk->sk_bound_dev_if;
--		break;
-+		return sock_getbindtodevice(sk, optval, optlen, len);
-+
- 	default:
- 		return -ENOPROTOOPT;
- 	}
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
