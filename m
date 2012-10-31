@@ -1,28 +1,114 @@
 From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3 06/10] net/macb: clean up ring buffer logic
-Date: Wed, 31 Oct 2012 09:48:09 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7081@saturn3.aculab.com>
-References: <cover.1351591858.git.nicolas.ferre@atmel.com> <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B707D@saturn3.aculab.com> <CACiLriQnQcoXFqrqNt3nkY47nR8FnXbqWjtPRp250gueHSMDmQ@mail.gmail.com> <5090F67C.9020104@atmel.com> <5090FFF5.6020109@atmel.com>
+Subject: RE: [PATCH v8 01/16] hashtable: introduce a small and naive hashtable
+Date: Wed, 31 Oct 2012 09:46:20 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7080@saturn3.aculab.com>
+References: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com> <20121030214257.GB2681@htj.dyndns.org> <CA+1xoqeCKS2E4TWCUCELjDqV2pWS4v6EyV6K-=w-GRi_K6quiQ@mail.gmail.com> <1351646186.4004.41.camel@gandalf.local.home>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <manabian@gmail.com>,
-	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
-	<bhutchings@solarflare.com>, <plagnioj@jcrosoft.com>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>
-To: "Nicolas Ferre" <nicolas.ferre@atmel.com>,
-	=?Windows-1252?Q?H=E5vard_Skinnemoen?= <havard@skinnemoen.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	charset="ISO-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Tejun Heo" <tj@kernel.org>,
+	<torvalds@linux-foundation.org>,
+	<akpm@linux-foundation.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-mm@kvack.org>,
+	<paul.gortmaker@windriver.com>,
+	<davem@davemloft.net>,
+	<mingo@elte.hu>,
+	<ebiederm@xmission.com>,
+	<aarcange@redhat.com>,
+	<ericvh@gmail.com>,
+	<netdev@vger.kernel.org>,
+	<josh@joshtriplett.org>,
+	<eric.dumazet@gmail.com>,
+	<mathieu.desnoyers@efficios.com>,
+	<axboe@kernel.dk>,
+	<agk@redhat.com>,
+	<dm-devel@redhat.com>,
+	<neilb@suse.de>,
+	<ccaulfie@redhat.com>,
+	<teigland@redhat.com>,
+	<Trond.Myklebust@netapp.com>,
+	<bfields@fieldses.org>,
+	<fweisbec@gmail.com>,
+	<jesse@nicira.com>,
+	<venkat.x.venkatsubra@oracle.com>,
+	<ejt@redhat.com>,
+	<snitzer@redhat.com>,
+	<edumazet@google.com>,
+	<linux-nfs@vger.kernel.org>,
+	<dev@openvswitch.org>,
+	<rds-devel@oss.oracle.com>,
+	<lw@cn.fujitsu.com>
+To: "Steven Rostedt" <rostedt@goodmis.org>,
+	"Sasha Levin" <levinsasha928@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-class: urn:content-classes:message
-In-Reply-To: <5090FFF5.6020109@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1351646186.4004.41.camel@gandalf.local.home>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-> 	return (TX_RING_SIZE - (bp->tx_head - bp->tx_tail) & (TX_RING_SIZE - 1));
+> > > On Tue, Oct 30, 2012 at 02:45:57PM -0400, Sasha Levin wrote:
+> > >> +/* Use hash_32 when possible to allow for fast 32bit hashing in =
+64bit kernels. */
+> > >> +#define hash_min(val, bits)                                      =
+            \
+> > >> +({                                                               =
+            \
+> > >> +     sizeof(val) <=3D 4 ?                                        =
+              \
+> > >> +     hash_32(val, bits) :                                        =
+            \
+> > >> +     hash_long(val, bits);                                       =
+            \
+> > >> +})
+> > >
+> > > Doesn't the above fit in 80 column.  Why is it broken into =
+multiple
+> > > lines?  Also, you probably want () around at least @val.  In =
+general,
+> > > it's a good idea to add () around any macro argument to avoid =
+nasty
+> > > surprises.
+> >
+> > It was broken to multiple lines because it looks nicer that way =
+(IMO).
+> >
+> > If we wrap it with () it's going to go over 80, so it's going to =
+stay
+> > broken down either way :)
+>=20
+> ({								      \
+> 	sizeof(val) <=3D 4 ? hash_32(val, bits) : hash_long(val, bits); \
+> })
+>=20
+> Is the better way to go. We are C programmers, we like to see the ?: =
+on
+> a single line if possible. The way you have it, looks like three
+> statements run consecutively.
 
-Is equivalent to:
+To add some more colour (not color):
 
-	return (bp->tx_tail - bp->tx_head) & (TX_RING_SIZE - 1));
+In any case, this is a normal C #define, it doesn't need the {}.
+So it can just be:
+# define hash_min(val, bits) \
+	(sizeof(val) <=3D 4 ? hash_32(val, bits) : hash_long(val, bits))
+
+I don't think that s/val/(val)/g and s/bits/(bits)/g are needed
+because the tokens are already ',' separated.
+
+I do actually wonder how many of these hash lists should be replaced
+with some kind of tree structure in order to get O(log(n)) searches.
+After all hashing is still O(n).
+(apologies if I mean o(n) not O(n) - it's a long time since I did
+my maths degree!)
 
 	David
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
