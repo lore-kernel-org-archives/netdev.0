@@ -1,8 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2 net-next 3/8] tun: report orphan frags errors to zero copy
-	callback
-Date: Wed, 31 Oct 2012 12:31:15 +0200
-Message-ID: <753585407bf5ab8b757921d4d7182a08668f7713.1351679008.git.mst@redhat.com>
+Subject: [PATCHv2 net-next 8/8] vhost-net: reduce vq polling on tx zerocopy
+Date: Wed, 31 Oct 2012 12:31:20 +0200
+Message-ID: <de945eeac9c8878321121f5634ca56da2f4ec440.1351679008.git.mst@redhat.com>
 References: <cover.1351679008.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -29,27 +28,39 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-When tun transmits a zero copy skb, it orphans the frags
-which might need to allocate extra memory, in atomic context.
-If that fails, notify ubufs callback before freeing the skb
-as a hint that device should disable zerocopy mode.
+It seems that to avoid deadlocks it is enough to poll vq before
+ we are going to use the last buffer.  This is faster than
+c70aa540c7a9f67add11ad3161096fb95233aa2e.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/tun.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/vhost/net.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 3157519..613f826 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -433,6 +433,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- drop:
- 	dev->stats.tx_dropped++;
-+	skb_tx_error(skb, -ENOMEM);
- 	kfree_skb(skb);
- 	return NETDEV_TX_OK;
- }
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 8e9de79..88beedb 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -197,8 +197,18 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, int status)
+ {
+ 	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
+ 	struct vhost_virtqueue *vq = ubufs->vq;
+-
+-	vhost_poll_queue(&vq->poll);
++	int cnt = atomic_read(&ubufs->kref.refcount);
++
++	/*
++	 * Trigger polling thread if guest stopped submitting new buffers:
++	 * in this case, the refcount after decrement will eventually reach 1
++	 * so here it is 2.
++	 * We also trigger polling periodically after each 16 packets
++	 * (the value 16 here is more or less arbitrary, it's tuned to trigger
++	 * less than 10% of times).
++	 */
++	if (cnt <= 2 || !(cnt % 16))
++		vhost_poll_queue(&vq->poll);
+ 	/* set len to mark this desc buffers done DMA */
+ 	vq->heads[ubuf->desc].len = status ?
+ 		VHOST_DMA_FAILED_LEN : VHOST_DMA_DONE_LEN;
 -- 
 MST
