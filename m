@@ -1,37 +1,36 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 3/9] net: xfrm: use this_cpu_ptr per-cpu helper
-Date: Wed, 31 Oct 2012 17:35:46 +0000
-Message-ID: <0000013ab7e4a640-60bd5b38-a1fc-4730-b918-4109211ffea0-000000@email.amazonses.com>
-References: <509109F9.3030904@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] qla3xxx: use module_pci_driver to simplify the
+ code
+Date: Wed, 31 Oct 2012 13:36:08 -0400 (EDT)
+Message-ID: <20121031.133608.2289101772589469673.davem@davemloft.net>
+References: <CAPgLHd_Xu7TKZ_mqQ2r7A2GVCo+Us6kEggHc5d+hhg4Hh6cukA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: steffen.klassert@secunet.com, David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Shan Wei <shanwei88@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <509109F9.3030904@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jitendra.kalsaria@qlogic.com, ron.mercer@qlogic.com,
+	yongjun_wei@trendmicro.com.cn, linux-driver@qlogic.com,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47589 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965635Ab2JaRgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 13:36:12 -0400
+In-Reply-To: <CAPgLHd_Xu7TKZ_mqQ2r7A2GVCo+Us6kEggHc5d+hhg4Hh6cukA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Oct 2012, Shan Wei wrote:
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Fri, 26 Oct 2012 23:02:30 +0800
 
-> -
->  	list_for_each_entry(pos, &ipcomp_tfms_list, list) {
->  		struct crypto_comp *tfm;
->
->  		tfms = pos->tfms;
-> -		tfm = *per_cpu_ptr(tfms, cpu);
-> +
-> +		/* This can be any valid CPU ID so we don't need locking. */
-> +		tfm = *this_cpu_ptr(tfms);
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Use the module_pci_driver() macro to make the code simpler
+> by eliminating module_init and module_exit calls.
+> 
+> dpatch engine is used to auto generate this patch.
+> (https://github.com/weiyj/dpatch)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-It would be better to use
-
-	this_cpu_read(tfms)
-
-since that would also make it atomic vs interrupts. The above code (both
-original and modified) could determine a pointer to a per cpu structure
-and then take an interrupt which would move the task. On return we would
-be accessing the per cpu variable of another processor.
+Applied.
