@@ -1,54 +1,45 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
-Date: Wed, 31 Oct 2012 11:41:07 -0400 (EDT)
-Message-ID: <Pine.LNX.4.44L0.1210311139300.1954-100000@iolanthe.rowland.org>
-References: <Pine.LNX.4.44L0.1210311117310.1954-100000@iolanthe.rowland.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [RFC] back on nf_tables (plus compatibility layer)
+Date: Wed, 31 Oct 2012 16:42:16 +0100
+Message-ID: <20121031154216.GB9558@1984>
+References: <20121025170632.GA4890@1984>
+ <alpine.LNX.2.01.1210252352420.13437@nerf07.vanv.qr>
+ <20121026110419.GA16629@1984>
+ <alpine.LNX.2.01.1210311449570.29232@nerf07.vanv.qr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Oliver Neukum <oneukum@suse.de>,  <linux-kernel@vger.kernel.org>,
-    Minchan Kim <minchan@kernel.org>,
-    Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-    "Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
-    "David S. Miller" <davem@davemloft.net>,
-    Andrew Morton <akpm@linux-foundation.org>,  <netdev@vger.kernel.org>,
-     <linux-usb@vger.kernel.org>,  <linux-pm@vger.kernel.org>,
-     <linux-mm@kvack.org>
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <Pine.LNX.4.44L0.1210311117310.1954-100000@iolanthe.rowland.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Netfilter Development Mailing list
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.01.1210311449570.29232@nerf07.vanv.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Oct 2012, Alan Stern wrote:
-
-> On Wed, 31 Oct 2012, Ming Lei wrote:
+On Wed, Oct 31, 2012 at 02:50:27PM +0100, Jan Engelhardt wrote:
 > 
-> > The below idea may help the problem which 'memalloc_noio' flag isn't set during
-> > usb_reset_device().
-> > 
-> > - for usb mass storage device, call pm_runtime_set_memalloc_noio(true)
-> >   inside usb_stor_probe2() and uas_probe(), and call
-> >   pm_runtime_set_memalloc_noio(false) inside uas_disconnect()
-> >   and usb_stor_disconnect().
+> On Friday 2012-10-26 13:04, Pablo Neira Ayuso wrote:
+> >> 
+> >> Meanwhile, I am on xtables2 that actually reproduces the set of
+> >> _really important_ features that currently are in the setsockopt
+> >> iptables, like atomic table replace and atomic dump.
+> >> 
+> >> I have updated to the newest tree, and the first set is
+> >> available in the git repository at:
+> >>   git://git.inai.de/linux xt2-20121025
+> >
+> >If you think this feature is important, checkout nf_tables and think
+> >how to integrate this prototype code that provides atomic table
+> >replacement to it.
 > 
-> Why would you want to do that?  The probe and disconnect routines
-> usually -- but not always -- run in the khubd thread.  Surely you don't
-> want to prevent khubd from using GFP_KERNEL?
-> 
-> And what if probe runs in khubd but disconnect runs in a different 
-> thread?
+> I'd rather tinker with xt2.
 
-Sorry, I misread your message.  You are setting the device's flag, not 
-the thread's flag.
+You're are free spend your time on your pet project, but I warn you:
+it will *extremely hard* to justify its inclusion into mainline.
 
-This still doesn't help in this case where CONFIG_PM_RUNTIME is 
-disabled.  I think it will be simpler to set the noio flag during every 
-device reset.
-
-Alan Stern
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+As said, I don't think it makes sense to add two firewall
+engines/interfaces for the same thing. And the compatibility layer
+provides an utility with similar syntax and semantics to iptables.
