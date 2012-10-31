@@ -1,44 +1,34 @@
-From: "George Spelvin" <linux@horizon.com>
-Subject: Re: [dm-devel] [PATCH v8 01/16] hashtable: introduce a small and naive hashtable
-Date: 31 Oct 2012 05:10:18 -0400
-Message-ID: <20121031091018.24875.qmail@science.horizon.com>
-Cc: dm-devel@redhat.com, levinsasha928@gmail.com,
-  linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-nfs@vger.kernel.org,
-  netdev@vger.kernel.org
-To: tj@kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Mohammad Alsaleh <msal@tormail.org>
+Subject: Re: ping -f is broken in iputils 20121011
+Date: Wed, 31 Oct 2012 12:11:11 +0300
+Message-ID: <1TTUJN-000MzR-Tp@internal.tormail.org>
+References: <20121030205249.GA2817@mail>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outgoing.tormail.org ([82.221.96.22]:45256 "EHLO
+	outgoing.tormail.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933199Ab2JaJMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 05:12:47 -0400
+Received: from localhost ([127.0.0.1] helo=internal.tormail.org)
+	by outgoing.tormail.org with esmtp (Exim 4.72)
+	(envelope-from <msal@tormail.org>)
+	id 1TTULp-0008N6-3k
+	for netdev@vger.kernel.org; Wed, 31 Oct 2012 12:12:43 +0300
+Received: from msal by internal.tormail.org with local (Exim 4.63)
+	(envelope-from <msal@tormail.org>)
+	id 1TTUJN-000MzR-Tp
+	for netdev@vger.kernel.org; Wed, 31 Oct 2012 09:10:13 +0000
+Content-Disposition: inline
+In-Reply-To: <20121030205249.GA2817@mail>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tejun Heo wrote:
->> +#define hash_min(val, bits)						\
->> +({									\
->> +	sizeof(val) <= 4 ?						\
->> +	hash_32(val, bits) :						\
->> +	hash_long(val, bits);						\
->> +})
+On Tue, Oct 30, 2012 at 11:52:49PM +0300, Mohammad Alsaleh wrote:
+> As explained in this bug report(1). ping -f seems to be broken in
+> iputils 20121011.
+> 
+> (1) https://bugs.archlinux.org/task/32306
 
-> Also, you probably want () around at least @val.  In general,
-> it's a good idea to add () around any macro argument to avoid nasty
-> surprises.
-
-Er... not in this case, you don't.  If a macro argument is passed verbatim
-as an argument to a function, it doesn't need additional parens.
-
-That's because the one guarantee you have about a macro argument is
-that it can't contain any (unquoted) commas, and there's nothing lower
-precedence than the comma.  So it's safe to delimit a macro argument
-with *either* parens *or* a comma.
-
-So you can go ahead and write:
-
-#define hash_min(val, bits) \
-	(sizeof(val) <= 4 ? hash_32(val, bits) : hash_long(val, bits))
-
-... which is easier to read, anyway.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Bisected to commit 8feb586c4c6df32badb159947ed233898891aecd
