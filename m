@@ -1,93 +1,60 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: skb_linearize
-Date: Wed, 31 Oct 2012 21:03:32 +0000
-Message-ID: <1351717412.2706.28.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20120916091747.GA23775@redhat.com>
-	 <1347808032.13258.275.camel@deadeye.wl.decadent.org.uk>
-	 <20121031191530.GA3674@redhat.com>
+From: Paul Chavent <paul.chavent@fnac.net>
+Subject: Re: [PATCH net-next v2] packet: tx_ring: allow the user to choose
+ tx data offset
+Date: Wed, 31 Oct 2012 22:22:07 +0100
+Message-ID: <5091967F.9050907@fnac.net>
+References: <1350889014-2975-1-git-send-email-paul.chavent@onera.fr> <20121031.131434.910561089094397853.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Herbert Xu <herbert@gondor.hengli.com.au>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Paul.Chavent@onera.fr, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32377 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933501Ab2JaVDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 17:03:35 -0400
-In-Reply-To: <20121031191530.GA3674@redhat.com>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:57346 "EHLO smtp5-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933501Ab2JaVWJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2012 17:22:09 -0400
+In-Reply-To: <20121031.131434.910561089094397853.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-31 at 21:15 +0200, Michael S. Tsirkin wrote:
-> On Sun, Sep 16, 2012 at 04:07:12PM +0100, Ben Hutchings wrote:
-> > On Sun, 2012-09-16 at 12:17 +0300, Michael S. Tsirkin wrote:
-> > > I notice that dev_hard_start_xmit might invoke
-> > > __skb_linearize e.g. if device does not support NETIF_F_SG.
-> > > 
-> > > This in turn onvokes __pskb_pull_tail, and
-> > > documentation of __pskb_pull_tail says:
-> > >   &sk_buff MUST have reference count of 1.
-> > > 
-> > > I am guessing 'reference count' means users in this context, right?
-> > > IIUC this is because it modifies skb in a way that
-> > > isn't safe if anyone else is looking at the skb.
-> > > 
-> > > 
-> > > However, I don't see what guarantees that reference
-> > > count is 1 when dev_hard_start_xmit invokes
-> > > linearize. In particular it calls dev_queue_xmit_nit
-> > > which could queue packets on a network tap.
-> > > 
-> > > Could someone help me understand please?
-> > 
-> > Reference count here means references to struct sk_buff itself.  The
-> > header area and data fragments are allowed to be shared.
-> > 
-> > dev_queue_xmit_nit() clones the skb for each tap, so the reference count
-> > on the original skb remains 1.
-> > 
-> > Ben.
-> 
-> Interesting. But don't skb clones share the fragment list?
+On 10/31/2012 06:14 PM, David Miller wrote:
+> From: Paul Chavent <Paul.Chavent@onera.fr>
+> Date: Mon, 22 Oct 2012 08:56:54 +0200
+>
+>> +		if (unlikely((off < off_min) || (off_max < off))) {
+>> +			pr_err("payload offset (%d) out of range [%d;%d]\n",
+>> +				off, off_min, off_max);
+>> +			return -EINVAL;
+>> +		}
+>
+> Users should not be able to spam the kernel log with error messages
+> by simply make setsockopt() calls.
+>
+> This error log is inappropriate.
 
-Yes.
+This error log is thrown when the user call send, not setsockopt !
 
-> Maybe I misunderstand? If they do it looks like the following race
-> would be possible:
-> 
-> - skb is cloned and queued e.g. at socket receive queue.
->   dataref becomes 2.
-> - On CPU 1, skb_copy_datagram_iovec is called on clone 1, is reads nr_frags and sees
->   value > 1.
-> - On CPU 2, __skb_linearize is now called on clone 2, it modified the
->   skb so nr_frags is now 0, and does put_page for all frags > 1.
-> - On CPU 1, skb_copy_datagram_iovec will now use the previously read
->   nr_frags > 1 and access a fragment page that was already freed.
-> 
-> What did I miss?
+It seems that the user can already fire an error msg by simply pass a too long tp_len.
 
-__skb_linearize() calls __pskb_pull_tail(), which starts with:
+Though, should i remove it from the tpacket_fill_skb function and silently return -EINVAL ?
 
-	if (eat > 0 || skb_cloned(skb)) {
-		if (pskb_expand_head(skb, 0, eat > 0 ? eat + 128 : 0,
-				     GFP_ATOMIC))
-			return NULL;
-	}
 
-pskb_expand_head() will then create a new unshared head area for the skb
-being linearised, and will add a reference to each fragment page
-(skb_frag_ref()).  __pskb_pull_tail() unreferences the pages later, as
-you say, but this all cancels out.
+>> @@ -110,6 +110,7 @@ struct packet_sock {
+>>   	unsigned int		tp_reserve;
+>>   	unsigned int		tp_loss:1;
+>>   	unsigned int		tp_tstamp;
+>> +	unsigned int		tp_tx_has_off:1;
+>>   	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
+>>   };
+>
+> Please put the new bit field next to other existing bit fields so that
+> there is less wasted space in the struct.
 
-(pskb_expand_head() will also cancel zero-copy (skb_orphan_frags() ->
-skb_copy_ubufs()), which seems like it should be done only after the
-head area has been unshared.  But skb_clone() will also do that, so I
-don't know how the zero-copy flag would still be set on a cloned skb.)
+OK.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
