@@ -1,82 +1,46 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: fix divide by zero in tcp algorithm illinois
-Date: Wed, 31 Oct 2012 12:17:22 +0100
-Message-ID: <1351682242.32673.50.camel@edumazet-glaptop>
-References: <20121031103630.18756.15685.stgit@dragon>
+Subject: Re: [Xen-devel] [PATCH] net: allow configuration of the size of
+ page in __netdev_alloc_frag
+Date: Wed, 31 Oct 2012 12:19:06 +0100
+Message-ID: <1351682346.32673.54.camel@edumazet-glaptop>
+References: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
+	 <1351081703.6537.99.camel@edumazet-glaptop>
+	 <1351084618.18035.27.camel@zakaz.uk.xensource.com>
+	 <1351085403.6537.102.camel@edumazet-glaptop>
+	 <1351087326.18035.50.camel@zakaz.uk.xensource.com>
+	 <1351092068.6537.107.camel@edumazet-glaptop>
+	 <1351095739.18035.83.camel@zakaz.uk.xensource.com>
+	 <1351097000.6537.109.camel@edumazet-glaptop>
+	 <20121030165309.GA30483@phenom.dumpdata.com>
+	 <20121030172352.GA31997@phenom.dumpdata.com>
+	 <20121031110149.GA6376@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Petr Matousek <pmatouse@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Konrad Rzeszutek Wilk <konrad@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:54433 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965072Ab2JaLRZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 07:17:25 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so667655eek.19
-        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 04:17:24 -0700 (PDT)
-In-Reply-To: <20121031103630.18756.15685.stgit@dragon>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:44098 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934387Ab2JaLTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 07:19:09 -0400
+Received: by mail-wi0-f172.google.com with SMTP id hq12so4095842wib.1
+        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 04:19:08 -0700 (PDT)
+In-Reply-To: <20121031110149.GA6376@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-31 at 11:37 +0100, Jesper Dangaard Brouer wrote:
-> Reading TCP stats when using TCP Illinois congestion control algorithm
-> can cause a divide by zero kernel oops.
+On Wed, 2012-10-31 at 07:01 -0400, Konrad Rzeszutek Wilk wrote:
+
+> Argh. Please disregard this test. I added an extra patch in the kernel
+> tree to track the SWIOTLB bounce usage and print it.. and the printk was
+> going out to the FB, which was not too fast - so the whole test was being
+> slowed down by FB drivers :-)
 > 
-> The division by zero occur in tcp_illinois_info() at:
->  do_div(t, ca->cnt_rtt);
-> where ca->cnt_rtt can become zero (when rtt_reset is called)
-> 
-> Steps to Reproduce:
->  1. Register tcp_illinois:
->      # sysctl -w net.ipv4.tcp_congestion_control=illinois
->  2. Monitor internal TCP information via command "ss -i"
->      # watch -d ss -i
->  3. Establish new TCP conn to machine
-> 
-> Either it fails at the initial conn, or else it needs to wait
-> for a loss or a reset.
-> 
-> This is only related to reading stats.  The function avg_delay() also
-> performs the same divide, but is guarded with a (ca->cnt_rtt > 0) at its
-> calling point in update_params().  Thus, simply fix tcp_illinois_info().
-> 
+> Will re-run this test without the offending patch.
 
-avg_delay() is called with socket locked so it is safe.
-
-While get_info() is called with socket not locked.
-
-> To be on the safe side, I use a local stack variable in tcp_illinois_info()
-> to eliminate any race conditions.  I'm not sure this is needed, as this
-> would also affect avg_delay(), if this race exists.  (Although this is likely
-> already "fix" by compiler optimization and kept in a local register)
-
-Hmm, this is certainly not a valid reason.
-
-Compiler could do the reverse actually, even with a local var.
-
-Could you please use info.tcpv_rttcnt to be on the safe side ?
-
-diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
-index 813b43a..d92ae7e 100644
---- a/net/ipv4/tcp_illinois.c
-+++ b/net/ipv4/tcp_illinois.c
-@@ -313,11 +313,13 @@ static void tcp_illinois_info(struct sock *sk, u32 ext,
- 			.tcpv_rttcnt = ca->cnt_rtt,
- 			.tcpv_minrtt = ca->base_rtt,
- 		};
--		u64 t = ca->sum_rtt;
- 
--		do_div(t, ca->cnt_rtt);
--		info.tcpv_rtt = t;
-+		if (info.tcpv_rttcnt) {
-+			u64 t = ca->sum_rtt;
- 
-+			do_div(t, info.tcpv_rttcnt);
-+			info.tcpv_rtt = t;
-+		}
- 		nla_put(skb, INET_DIAG_VEGASINFO, sizeof(info), &info);
- 	}
- }
+Anyway, I must confess I didnt understand what you did ;)
