@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v4 02/10] net/macb: memory barriers cleanup
-Date: Wed, 31 Oct 2012 17:04:51 +0100
-Message-ID: <e6ea9b93cd6525dd388175dd3ee88ee1f23300c0.1351690694.git.nicolas.ferre@atmel.com>
+Subject: [PATCH v4 09/10] net/macb: Offset first RX buffer by two bytes
+Date: Wed, 31 Oct 2012 17:04:58 +0100
+Message-ID: <49a6277a963758b7858a3598935d372e1c2ad1f6.1351690694.git.nicolas.ferre@atmel.com>
 References: <cover.1351690694.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,94 +19,92 @@ List-Id: netdev.vger.kernel.org
 
 From: Havard Skinnemoen <havard@skinnemoen.net>
 
-Remove a couple of unneeded barriers and document the remaining ones.
+Make the ethernet frame payload word-aligned, possibly making the
+memcpy into the skb a bit faster. This will be even more important
+after we eliminate the copy altogether.
+
+Also eliminate the redundant RX_OFFSET constant -- it has the same
+definition and purpose as NET_IP_ALIGN.
 
 Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-[nicolas.ferre@atmel.com: split patch in topics]
+[nicolas.ferre@atmel.com: adapt to newer kernel]
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 Tested-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++++----
- 1 file changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 23 ++++++++++++++++-------
+ 1 file changed, 16 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 0931cb7..e7f554d 100644
+index d5b52ff..c1f20b0 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -373,7 +373,9 @@ static void macb_tx(struct macb *bp)
+@@ -33,9 +33,6 @@
+ #define RX_RING_SIZE		512 /* must be power of 2 */
+ #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
  
- 		BUG_ON(skb == NULL);
+-/* Make the IP header word-aligned (the ethernet header is 14 bytes) */
+-#define RX_OFFSET		2
+-
+ #define TX_RING_SIZE		128 /* must be power of 2 */
+ #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
  
-+		/* Make hw descriptor updates visible to CPU */
- 		rmb();
-+
- 		bufstat = bp->tx_ring[tail].ctrl;
+@@ -498,7 +495,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ {
+ 	unsigned int len;
+ 	unsigned int frag;
+-	unsigned int offset = 0;
++	unsigned int offset;
+ 	struct sk_buff *skb;
+ 	struct macb_dma_desc *desc;
  
- 		if (!(bufstat & MACB_BIT(TX_USED)))
-@@ -416,7 +418,10 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 			if (frag == last_frag)
- 				break;
- 		}
-+
-+		/* Make descriptor updates visible to hardware */
- 		wmb();
-+
+@@ -509,7 +506,16 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 		macb_rx_ring_wrap(first_frag),
+ 		macb_rx_ring_wrap(last_frag), len);
+ 
+-	skb = netdev_alloc_skb(bp->dev, len + RX_OFFSET);
++	/*
++	 * The ethernet header starts NET_IP_ALIGN bytes into the
++	 * first buffer. Since the header is 14 bytes, this makes the
++	 * payload word-aligned.
++	 *
++	 * Instead of calling skb_reserve(NET_IP_ALIGN), we just copy
++	 * the two padding bytes into the skb so that we avoid hitting
++	 * the slowpath in memcpy(), and pull them off afterwards.
++	 */
++	skb = netdev_alloc_skb(bp->dev, len + NET_IP_ALIGN);
+ 	if (!skb) {
+ 		bp->stats.rx_dropped++;
+ 		for (frag = first_frag; ; frag++) {
+@@ -525,7 +531,8 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
  		return 1;
  	}
  
-@@ -437,12 +442,14 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 					       frag_len);
- 		offset += RX_BUFFER_SIZE;
- 		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
--		wmb();
+-	skb_reserve(skb, RX_OFFSET);
++	offset = 0;
++	len += NET_IP_ALIGN;
+ 	skb_checksum_none_assert(skb);
+ 	skb_put(skb, len);
  
- 		if (frag == last_frag)
- 			break;
- 	}
+@@ -549,10 +556,11 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 	/* Make descriptor updates visible to hardware */
+ 	wmb();
  
-+	/* Make descriptor updates visible to hardware */
-+	wmb();
-+
++	__skb_pull(skb, NET_IP_ALIGN);
  	skb->protocol = eth_type_trans(skb, bp->dev);
  
  	bp->stats.rx_packets++;
-@@ -462,6 +469,8 @@ static void discard_partial_frame(struct macb *bp, unsigned int begin,
+-	bp->stats.rx_bytes += len;
++	bp->stats.rx_bytes += skb->len;
+ 	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
+ 		   skb->len, skb->csum);
+ 	netif_receive_skb(skb);
+@@ -1012,6 +1020,7 @@ static void macb_init_hw(struct macb *bp)
+ 	__macb_set_hwaddr(bp);
  
- 	for (frag = begin; frag != end; frag = NEXT_RX(frag))
- 		bp->rx_ring[frag].addr &= ~MACB_BIT(RX_USED);
-+
-+	/* Make descriptor updates visible to hardware */
- 	wmb();
- 
- 	/*
-@@ -480,7 +489,9 @@ static int macb_rx(struct macb *bp, int budget)
- 	for (; budget > 0; tail = NEXT_RX(tail)) {
- 		u32 addr, ctrl;
- 
-+		/* Make hw descriptor updates visible to CPU */
- 		rmb();
-+
- 		addr = bp->rx_ring[tail].addr;
- 		ctrl = bp->rx_ring[tail].ctrl;
- 
-@@ -675,6 +686,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	bp->tx_ring[entry].addr = mapping;
- 	bp->tx_ring[entry].ctrl = ctrl;
-+
-+	/* Make newly initialized descriptor visible to hardware */
- 	wmb();
- 
- 	entry = NEXT_TX(entry);
-@@ -783,9 +796,6 @@ static void macb_init_rings(struct macb *bp)
- 
- static void macb_reset_hw(struct macb *bp)
- {
--	/* Make sure we have the write buffer for ourselves */
--	wmb();
--
- 	/*
- 	 * Disable RX and TX (XXX: Should we halt the transmission
- 	 * more gracefully?)
+ 	config = macb_mdc_clk_div(bp);
++	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
+ 	config |= MACB_BIT(PAE);		/* PAuse Enable */
+ 	config |= MACB_BIT(DRFCS);		/* Discard Rx FCS */
+ 	config |= MACB_BIT(BIG);		/* Receive oversized frames */
 -- 
 1.8.0
