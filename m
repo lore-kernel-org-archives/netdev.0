@@ -1,60 +1,85 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH v3 06/10] net/macb: clean up ring buffer logic
-Date: Wed, 31 Oct 2012 11:39:49 +0100
-Message-ID: <5090FFF5.6020109@atmel.com>
-References: <cover.1351591858.git.nicolas.ferre@atmel.com> <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B707D@saturn3.aculab.com> <CACiLriQnQcoXFqrqNt3nkY47nR8FnXbqWjtPRp250gueHSMDmQ@mail.gmail.com> <5090F67C.9020104@atmel.com>
+From: Krzysztof Mazur <krzysiek@podlesie.net>
+Subject: Re: [PATCH v2 2/3] pppoatm: fix race condition with destroying of vcc
+Date: Wed, 31 Oct 2012 10:41:47 +0100
+Message-ID: <20121031094147.GA1004@shrek.podlesie.net>
+References: <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>
+ <201210301426.q9UEQkI7007209@thirdoffive.cmf.nrl.navy.mil>
+ <20121030182001.GA30373@shrek.podlesie.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <manabian@gmail.com>,
-	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
-	<bhutchings@solarflare.com>, <plagnioj@jcrosoft.com>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>
-To: =?ISO-8859-1?Q?H=E5vard_Skinnemoen?= <havard@skinnemoen.net>,
-	David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, dwmw2@infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5090F67C.9020104@atmel.com>
+Content-Disposition: inline
+In-Reply-To: <20121030182001.GA30373@shrek.podlesie.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 10/31/2012 10:59 AM, Nicolas Ferre :
-> On 10/30/2012 07:22 PM, H=E5vard Skinnemoen :
->> On Tue, Oct 30, 2012 at 4:12 AM, David Laight <David.Laight@aculab.c=
-om> wrote:
->>>> Instead of masking head and tail every time we increment them, jus=
-t let them
->>>> wrap through UINT_MAX and mask them when subscripting. Add simple =
-accessor
->>>> functions to do the subscripting properly to minimize the chances =
-of messing
->>>> this up.
->>> ...
->>>> +static unsigned int macb_tx_ring_avail(struct macb *bp)
->>>> +{
->>>> +     return TX_RING_SIZE - (bp->tx_head - bp->tx_tail);
->>>> +}
->>>
->>> That one doesn't look quite right to me.
->>> Surely it should be masking with 'TX_RING_SIZE - 1'
->>
->> Why is that? head and tail can never be more than TX_RING_SIZE apart=
-,
->> so it shouldn't make any difference.
->=20
-> Absolutely.
+On Tue, Oct 30, 2012 at 07:20:01PM +0100, Krzysztof Mazur wrote:
+> On Tue, Oct 30, 2012 at 10:26:46AM -0400, Chas Williams (CONTRACTOR) wrote:
+> > In message <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>,Krzysztof Mazur writes:
+> > 
+> > as i recall from way back, this shouldnt be necessary.  closing a vcc
+> > for an attached protocol isnt supposed to require addtional locking
+> > or synchronization.
+> 
+> Such locking is already used by vcc_sendmsg() and I think we should do here
+> exacly what vcc_sendmsg() does.
+> 
+> > 
+> > vcc_release() locks the socket and vcc_destroy_socket() calls the device's
+> > vcc close routine and pushes a NULL skb to the attached protocol.
+> > this NULL push is supposed to let the attached protocol that no more
+> > sends and recvs can be handled. 
+> > 
+> > that said, the order for the device vcc close and push does seem
+> > reversed.  since i imagine there could be a pending pppoatm_send()
+> > during this interval.  the push of the NULL skb is allowed to wait for
+> > the subprotocol to finish its cleanup/shutdown.
+> 
+> Yes, this problem can be probably fixed by reversing close and push
+> and adding some synchronization to pppoatm_unassign_vcc(), but I think
+> we need that locking anyway, for instance for synchronization for
+> checking and incrementing sk->sk_wmem_alloc, between pppoatm_send()
+> and vcc_sendmsg().
+> 
 
-Well not so absolute, after having thinking twice ;-)
+I think that the same problem exists in other drivers (net/atm/br2684.c,
+net/atm/clip.c, maybe other).
 
-We should move to:
+Reversing order of close() and push(vcc, NULL) operations seems to
+be a good idea, but synchronization with push(vcc, NULL)
+and function that calls vcc->send() must be added to all drivers.
+I think it's better to just use ATM socket lock - lock_sock(sk_atm(vcc)),
+it will fix also problems with synchronization with vcc_sendmsg()
+and possibly other functions (ioctl?).
 
-static unsigned int macb_tx_ring_avail(struct macb *bp)
-{
-	return (TX_RING_SIZE - (bp->tx_head - bp->tx_tail) & (TX_RING_SIZE - 1=
-));
-}
+I think that we should add a wrapper to vcc->send(), based on
+fixed pppoatm_send(), that performs required checks and takes the ATM socket
+lock.
 
-Thanks David!
+But I think we should reverse those operations anyway, because some
+drivers may use other locks, not ATM socket lock, for proper
+synchronization.
 
-(sorry for the noise) Bye,
---=20
-Nicolas Ferre
+Krzysiek
+
+-- >8 --
+diff --git a/net/atm/common.c b/net/atm/common.c
+index 0c0ad93..a0e4411 100644
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -171,10 +171,10 @@ static void vcc_destroy_socket(struct sock *sk)
+ 	set_bit(ATM_VF_CLOSE, &vcc->flags);
+ 	clear_bit(ATM_VF_READY, &vcc->flags);
+ 	if (vcc->dev) {
+-		if (vcc->dev->ops->close)
+-			vcc->dev->ops->close(vcc);
+ 		if (vcc->push)
+ 			vcc->push(vcc, NULL); /* atmarpd has no push */
++		if (vcc->dev->ops->close)
++			vcc->dev->ops->close(vcc);
+ 
+ 		while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
+ 			atm_return(vcc, skb->truesize);
