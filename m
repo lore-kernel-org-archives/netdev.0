@@ -1,165 +1,109 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2 net-next 7/8] vhost-net: select tx zero copy dynamically
-Date: Wed, 31 Oct 2012 12:31:41 +0200
-Message-ID: <23a29eaa4a1d662a7dbecb9fc46c63ceb8b0669b.1351679008.git.mst@redhat.com>
-References: <cover.1351679008.git.mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1351679008.git.mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Xiaotian Feng <xtfeng@gmail.com>
+Subject: [PATCH] drivers/net: use tasklet_kill in device remove/close process
+Date: Wed, 31 Oct 2012 18:29:57 +0800
+Message-ID: <1351679397-26994-1-git-send-email-xtfeng@gmail.com>
+Cc: Xiaotian Feng <xtfeng@gmail.com>,
+	Xiaotian Feng <dannyfeng@tencent.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:63682 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422641Ab2JaK3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 06:29:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Even when vhost-net is in zero-copy transmit mode,
-net core might still decide to copy the skb later
-which is somewhat slower than a copy in user
-context: data copy overhead is added to the cost of
-page pin/unpin. The result is that enabling tx zero copy
-option leads to higher CPU utilization for guest to guest
-and guest to host traffic.
+Some driver uses tasklet_disable in device remove/close process,
+tasklet_disable will inc tasklet->count and return. If the tasklet
+is not handled yet because some softirq pressure, the tasklet will
+placed on the tasklet_vec, never have a chance to excute. This might
+lead to ksoftirqd heavy loaded, wakeup with pending_softirq, but
+tasklet is disabled. tasklet_kill should be used in this case.
 
-To fix this, suppress zero copy tx after a given number of
-packets triggered late data copy. Re-enable periodically
-to detect workload changes.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Xiaotian Feng <dannyfeng@tencent.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org 
 ---
- drivers/vhost/net.c | 55 ++++++++++++++++++++++++++++++++++++++++++++++++-----
- 1 file changed, 50 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/jme.c                        |    8 ++++----
+ drivers/net/ethernet/marvell/skge.c               |    2 +-
+ drivers/net/ethernet/micrel/ksz884x.c             |    4 ++--
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    2 +-
+ drivers/net/wireless/b43legacy/pio.c              |    2 +-
+ 5 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 532fc88..8e9de79 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -42,6 +42,21 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Experimental Zero Copy TX");
- #define VHOST_MAX_PEND 128
- #define VHOST_GOODCOPY_LEN 256
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index 8ddf9ca..76a91f6 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -1948,10 +1948,10 @@ jme_close(struct net_device *netdev)
  
-+/*
-+ * For transmit, used buffer len is unused; we override it to track buffer
-+ * status internally; used for zerocopy tx only.
-+ */
-+/* Lower device DMA failed */
-+#define VHOST_DMA_FAILED_LEN	3
-+/* Lower device DMA done */
-+#define VHOST_DMA_DONE_LEN	2
-+/* Lower device DMA in progress */
-+#define VHOST_DMA_IN_PROGRESS	1
-+/* Buffer unused */
-+#define VHOST_DMA_CLEAR_LEN	0
-+
-+#define VHOST_DMA_IS_DONE(len) ((len) >= VHOST_DMA_DONE_LEN)
-+
- enum {
- 	VHOST_NET_VQ_RX = 0,
- 	VHOST_NET_VQ_TX = 1,
-@@ -62,8 +77,33 @@ struct vhost_net {
- 	 * We only do this when socket buffer fills up.
- 	 * Protected by tx vq lock. */
- 	enum vhost_net_poll_state tx_poll_state;
-+	/* Number of TX recently submitted.
-+	 * Protected by tx vq lock. */
-+	unsigned tx_packets;
-+	/* Number of times zerocopy TX recently failed.
-+	 * Protected by tx vq lock. */
-+	unsigned tx_zcopy_err;
- };
+ 	JME_NAPI_DISABLE(jme);
  
-+static void vhost_net_tx_packet(struct vhost_net *net)
-+{
-+	++net->tx_packets;
-+	if (net->tx_packets < 1024)
-+		return;
-+	net->tx_packets = 0;
-+	net->tx_zcopy_err = 0;
-+}
-+
-+static void vhost_net_tx_err(struct vhost_net *net)
-+{
-+	++net->tx_zcopy_err;
-+}
-+
-+static bool vhost_net_tx_select_zcopy(struct vhost_net *net)
-+{
-+	return net->tx_packets / 64 >= net->tx_zcopy_err;
-+}
-+
- static bool vhost_sock_zcopy(struct socket *sock)
+-	tasklet_disable(&jme->linkch_task);
+-	tasklet_disable(&jme->txclean_task);
+-	tasklet_disable(&jme->rxclean_task);
+-	tasklet_disable(&jme->rxempty_task);
++	tasklet_kill(&jme->linkch_task);
++	tasklet_kill(&jme->txclean_task);
++	tasklet_kill(&jme->rxclean_task);
++	tasklet_kill(&jme->rxempty_task);
+ 
+ 	jme_disable_rx_engine(jme);
+ 	jme_disable_tx_engine(jme);
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 9b9c2ac..d19a143 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -4026,7 +4026,7 @@ static void __devexit skge_remove(struct pci_dev *pdev)
+ 	dev0 = hw->dev[0];
+ 	unregister_netdev(dev0);
+ 
+-	tasklet_disable(&hw->phy_task);
++	tasklet_kill(&hw->phy_task);
+ 
+ 	spin_lock_irq(&hw->hw_lock);
+ 	hw->intr_mask = 0;
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index 318fee9..e558edd 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -5407,8 +5407,8 @@ static int netdev_close(struct net_device *dev)
+ 		/* Delay for receive task to stop scheduling itself. */
+ 		msleep(2000 / HZ);
+ 
+-		tasklet_disable(&hw_priv->rx_tasklet);
+-		tasklet_disable(&hw_priv->tx_tasklet);
++		tasklet_kill(&hw_priv->rx_tasklet);
++		tasklet_kill(&hw_priv->tx_tasklet);
+ 		free_irq(dev->irq, hw_priv->dev);
+ 
+ 		transmit_cleanup(hw_priv, 0);
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+index 0793299..1d04754 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+@@ -990,7 +990,7 @@ static int axienet_stop(struct net_device *ndev)
+ 	axienet_setoptions(ndev, lp->options &
+ 			   ~(XAE_OPTION_TXEN | XAE_OPTION_RXEN));
+ 
+-	tasklet_disable(&lp->dma_err_tasklet);
++	tasklet_kill(&lp->dma_err_tasklet);
+ 
+ 	free_irq(lp->tx_irq, ndev);
+ 	free_irq(lp->rx_irq, ndev);
+diff --git a/drivers/net/wireless/b43legacy/pio.c b/drivers/net/wireless/b43legacy/pio.c
+index 192251a..282eede 100644
+--- a/drivers/net/wireless/b43legacy/pio.c
++++ b/drivers/net/wireless/b43legacy/pio.c
+@@ -382,7 +382,7 @@ static void cancel_transfers(struct b43legacy_pioqueue *queue)
  {
- 	return unlikely(experimental_zcopytx) &&
-@@ -131,12 +171,15 @@ static void tx_poll_start(struct vhost_net *net, struct socket *sock)
-  * of used idx. Once lower device DMA done contiguously, we will signal KVM
-  * guest used idx.
-  */
--int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
-+static int vhost_zerocopy_signal_used(struct vhost_net *net,
-+				      struct vhost_virtqueue *vq)
- {
- 	int i;
- 	int j = 0;
+ 	struct b43legacy_pio_txpacket *packet, *tmp_packet;
  
- 	for (i = vq->done_idx; i != vq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
-+		if (vq->heads[i].len == VHOST_DMA_FAILED_LEN)
-+			vhost_net_tx_err(net);
- 		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
- 			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
- 			vhost_add_used_and_signal(vq->dev, vq,
-@@ -208,7 +251,7 @@ static void handle_tx(struct vhost_net *net)
- 	for (;;) {
- 		/* Release DMAs done buffers first */
- 		if (zcopy)
--			vhost_zerocopy_signal_used(vq);
-+			vhost_zerocopy_signal_used(net, vq);
+-	tasklet_disable(&queue->txtask);
++	tasklet_kill(&queue->txtask);
  
- 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
- 					 ARRAY_SIZE(vq->iov),
-@@ -263,7 +306,8 @@ static void handle_tx(struct vhost_net *net)
- 		/* use msg_control to pass vhost zerocopy ubuf info to skb */
- 		if (zcopy) {
- 			vq->heads[vq->upend_idx].id = head;
--			if (len < VHOST_GOODCOPY_LEN) {
-+			if (!vhost_net_tx_select_zcopy(net) ||
-+			    len < VHOST_GOODCOPY_LEN) {
- 				/* copy don't need to wait for DMA done */
- 				vq->heads[vq->upend_idx].len =
- 							VHOST_DMA_DONE_LEN;
-@@ -305,8 +349,9 @@ static void handle_tx(struct vhost_net *net)
- 		if (!zcopy)
- 			vhost_add_used_and_signal(&net->dev, vq, head, 0);
- 		else
--			vhost_zerocopy_signal_used(vq);
-+			vhost_zerocopy_signal_used(net, vq);
- 		total_len += len;
-+		vhost_net_tx_packet(net);
- 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
- 			vhost_poll_queue(&vq->poll);
- 			break;
-@@ -774,7 +819,7 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 	if (oldubufs) {
- 		vhost_ubuf_put_and_wait(oldubufs);
- 		mutex_lock(&vq->mutex);
--		vhost_zerocopy_signal_used(vq);
-+		vhost_zerocopy_signal_used(n, vq);
- 		mutex_unlock(&vq->mutex);
- 	}
- 
+ 	list_for_each_entry_safe(packet, tmp_packet, &queue->txrunning, list)
+ 		free_txpacket(packet, 0);
 -- 
-MST
+1.7.9.5
