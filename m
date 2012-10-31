@@ -1,66 +1,66 @@
-From: Sasha Levin <levinsasha928@gmail.com>
-Subject: Re: [PATCH v8 01/16] hashtable: introduce a small and naive hashtable
-Date: Tue, 30 Oct 2012 20:33:43 -0400
-Message-ID: <CA+1xoqeCKS2E4TWCUCELjDqV2pWS4v6EyV6K-=w-GRi_K6quiQ@mail.gmail.com>
-References: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com> <20121030214257.GB2681@htj.dyndns.org>
+From: jing wang <windsdaemon@gmail.com>
+Subject: Re: [PATCH 1/1] net: fix compile warning in af_unix.c
+Date: Wed, 31 Oct 2012 08:46:09 +0800
+Message-ID: <509074D1.3000306@gmail.com>
+References: <1351581396-20493-1-git-send-email-windsdaemon@gmail.com> <20121030070040.5bdf0f0a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-	paul.gortmaker@windriver.com, davem@davemloft.net, rostedt@goodmis.org,
-	mingo@elte.hu, ebiederm@xmission.com, aarcange@redhat.com, ericvh@gmail.com,
-	netdev@vger.kernel.org, josh@joshtriplett.org, eric.dumazet@gmail.com,
-	mathieu.desnoyers@efficios.com, axboe@kernel.dk, agk@redhat.com,
-	dm-devel@redhat.com, neilb@suse.de, ccaulfie@redhat.com, teigland@redhat.com,
-	Trond.Myklebust@netapp.com, bfields@fieldses.org, fweisbec@gmail.com,
-	jesse@nicira.com, venkat.x.venkatsubra@oracle.com, ejt@redhat.com,
-	snitzer@redhat.com, edumazet@google.com, linux-nfs@vger.kernel.org,
-	dev@openvswitch.org, rds-devel@oss.oracle.com, lw@cn.fujitsu.com
-To: Tejun Heo <tj@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20121030214257.GB2681@htj.dyndns.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Pavel Emelyanov <xemul@parallels.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:50994 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752325Ab2JaAq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Oct 2012 20:46:29 -0400
+Received: by mail-pa0-f46.google.com with SMTP id hz1so556705pad.19
+        for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 17:46:28 -0700 (PDT)
+In-Reply-To: <20121030070040.5bdf0f0a@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 30, 2012 at 5:42 PM, Tejun Heo <tj@kernel.org> wrote:
-> Hello,
+=E4=BA=8E 2012=E5=B9=B410=E6=9C=8830=E6=97=A5 22:00, Stephen Hemminger =
+=E5=86=99=E9=81=93:
+> On Tue, 30 Oct 2012 15:16:36 +0800
+> Jing Wang <windsdaemon@gmail.com> wrote:
 >
-> Just some nitpicks.
+>> This patch fix some compile warning as follows:
+>> net/unix/af_unix.c: In function 'unix_bind':
+>> net/unix/af_unix.c:895: warning: 'path.dentry' may be used uninitial=
+ized in this function
+>> net/unix/af_unix.c:895: warning: 'path.mnt' may be used uninitialize=
+d in this function
+>>
+>> Signed-off-by: Jing Wang <windsdaemon@gmail.com>
+>> ---
+>>   net/unix/af_unix.c |    2 ++
+>>   1 files changed, 2 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+>> index 5b5c876..9f710ac 100644
+>> --- a/net/unix/af_unix.c
+>> +++ b/net/unix/af_unix.c
+>> @@ -895,6 +895,8 @@ static int unix_bind(struct socket *sock, struct=
+ sockaddr *uaddr, int addr_len)
+>>   		struct path path;
+>>   		umode_t mode =3D S_IFSOCK |
+>>   		       (SOCK_INODE(sock)->i_mode & ~current_umask());
+>> +		path.mnt =3D NULL;
+>> +		path.dentry =3D NULL;
+>>   		err =3D unix_mknod(sun_path, mode, &path);
+>>   		if (err) {
+>>   			if (err =3D=3D -EEXIST)
+> I appreciate the effort to silence warnings. But this warning is a fa=
+lse
+> positive that only occurs on some versions of Gcc. With gcc 4.7 the
+> warning does not occur.
 >
-> On Tue, Oct 30, 2012 at 02:45:57PM -0400, Sasha Levin wrote:
->> +/* Use hash_32 when possible to allow for fast 32bit hashing in 64bit kernels. */
->> +#define hash_min(val, bits)                                                  \
->> +({                                                                           \
->> +     sizeof(val) <= 4 ?                                                      \
->> +     hash_32(val, bits) :                                                    \
->> +     hash_long(val, bits);                                                   \
->> +})
+> The general consensus has been NOT to do initializations or other cha=
+nges
+> if the problem is due to Gcc bug.
 >
-> Doesn't the above fit in 80 column.  Why is it broken into multiple
-> lines?  Also, you probably want () around at least @val.  In general,
-> it's a good idea to add () around any macro argument to avoid nasty
-> surprises.
-
-It was broken to multiple lines because it looks nicer that way (IMO).
-
-If we wrap it with () it's going to go over 80, so it's going to stay
-broken down either way :)
-
-
-Thanks,
-Sasha
-
-> Looks good to me otherwise.
->
->  Reviewed-by: Tejun Heo <tj@kernel.org>
->
-> Thanks.
->
-> --
-> tejun
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks for you review, you're right, the version of my gcc is 4.4.6 !
