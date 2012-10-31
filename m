@@ -1,49 +1,47 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [uclinux-dist-devel] [PATCH RFC net-next 2/4] bfin_mac:
- replace sys time stamps with raw ones instead.
-Date: Wed, 31 Oct 2012 09:36:53 +0100
-Message-ID: <20121031083652.GC2327@netboy.at.omicron.at>
-References: <cover.1348851539.git.richardcochran@gmail.com>
- <84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
- <CAA_GA1dWgav0fP3wJNFQW=VE9Qh-V8NBHqsmNoXaRny+5dnewg@mail.gmail.com>
- <20121030134112.GB2283@netboy.at.omicron.at>
- <CAA_GA1fW2zA2j66y7zfVe6+U-pb1=3mOyFFH+oDHimMFAXyH7Q@mail.gmail.com>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
+Date: Wed, 31 Oct 2012 09:37:16 +0100
+Message-ID: <1478330.G3nm4yCX9h@linux-lqwf.site>
+References: <CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com> <CACVXFVMRJPfPSC_4ZamqfYUSYNsMEVYXMFmcs26T=4MdB_Kntw@mail.gmail.com> <CACVXFVNxucCVLS-=EQkmVop3LQMkeXW7RbZq4yfkiq_MUGndvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Miroslav Lichvar <mlichvar@redhat.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	device-drivers-devel@blackfin.uclinux.org,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	Patrick Ohly <patrick.ohly@intel.com>,
-	David Miller <davem@davemloft.net>
-To: Bob Liu <lliubbo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:40840 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935097Ab2JaIhG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 04:37:06 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so593563eek.19
-        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 01:37:04 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAA_GA1fW2zA2j66y7zfVe6+U-pb1=3mOyFFH+oDHimMFAXyH7Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	linux-kernel@vger.kernel.org, Minchan Kim <minchan@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-pm@vger.kernel.org, linux-mm@kvack.org
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <CACVXFVNxucCVLS-=EQkmVop3LQMkeXW7RbZq4yfkiq_MUGndvg@mail.gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 31, 2012 at 02:29:23PM +0800, Bob Liu wrote:
+On Wednesday 31 October 2012 11:05:33 Ming Lei wrote:
+> On Wed, Oct 31, 2012 at 10:08 AM, Ming Lei <ming.lei@canonical.com> wrote:
+> >> I am afraid it is, because a disk may just have been probed as the deviceis being reset.
+> >
+> > Yes, it is probable, and sounds like similar with 'root_wait' problem, see
+> > prepare_namespace(): init/do_mounts.c, so looks no good solution
+> > for the problem, and maybe we have to set the flag always before resetting
+> > usb device.
+> 
+> The below idea may help the problem which 'memalloc_noio' flag isn't set during
+> usb_reset_device().
+> 
+> - for usb mass storage device, call pm_runtime_set_memalloc_noio(true)
+>   inside usb_stor_probe2() and uas_probe(), and call
+>   pm_runtime_set_memalloc_noio(false) inside uas_disconnect()
+>   and usb_stor_disconnect().
+> 
+> - for usb network device, register_netdev() is always called inside usb
+>   interface's probe(),  looks no such problem.
 
-> Any guide how to use ptp4l to sync system time between two machines
-> over ethernet?
+This still leaves networking done over PPP in the cold.
 
-You can run ptp4l on two machines like this
+	Regards
+		Oliver
 
-  ptp4l -i eth0 -q -v     # master
-  ptp4l -i eth0 -q -v -s  # slave
-
-and you should see the "master offset" on the slave converge within
-about 30 seconds or so.
-
-Thanks,
-Richard
