@@ -1,43 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] packet: tx_ring: allow the user to choose
- tx data offset
-Date: Wed, 31 Oct 2012 13:14:34 -0400 (EDT)
-Message-ID: <20121031.131434.910561089094397853.davem@davemloft.net>
-References: <1350889014-2975-1-git-send-email-paul.chavent@onera.fr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net PATCH V2] net: fix divide by zero in tcp algorithm
+ illinois
+Date: Wed, 31 Oct 2012 18:14:38 +0100
+Message-ID: <1351703678.32673.414.camel@edumazet-glaptop>
+References: <20121031124318.30915.32293.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Paul.Chavent@onera.fr
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Petr Matousek <pmatouse@redhat.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47315 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754341Ab2JaROk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 13:14:40 -0400
-In-Reply-To: <1350889014-2975-1-git-send-email-paul.chavent@onera.fr>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:52738 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757067Ab2JaROn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 13:14:43 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so866385eek.19
+        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 10:14:42 -0700 (PDT)
+In-Reply-To: <20121031124318.30915.32293.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Date: Mon, 22 Oct 2012 08:56:54 +0200
+On Wed, 2012-10-31 at 13:45 +0100, Jesper Dangaard Brouer wrote:
+> Reading TCP stats when using TCP Illinois congestion control algorithm
+> can cause a divide by zero kernel oops.
+> 
+> The division by zero occur in tcp_illinois_info() at:
+>  do_div(t, ca->cnt_rtt);
+> where ca->cnt_rtt can become zero (when rtt_reset is called)
+> 
 
-> +		if (unlikely((off < off_min) || (off_max < off))) {
-> +			pr_err("payload offset (%d) out of range [%d;%d]\n",
-> +				off, off_min, off_max);
-> +			return -EINVAL;
-> +		}
+> Cc: Petr Matousek <pmatouse@redhat.com>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> 
+> ---
 
-Users should not be able to spam the kernel log with error messages
-by simply make setsockopt() calls.
-
-This error log is inappropriate.
-> @@ -110,6 +110,7 @@ struct packet_sock {
->  	unsigned int		tp_reserve;
->  	unsigned int		tp_loss:1;
->  	unsigned int		tp_tstamp;
-> +	unsigned int		tp_tx_has_off:1;
->  	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
->  };
-
-Please put the new bit field next to other existing bit fields so that
-there is less wasted space in the struct.
+Acked-by: Eric Dumazet <edumazet@google.com>
