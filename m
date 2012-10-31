@@ -1,85 +1,85 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v2 2/3] pppoatm: fix race condition with destroying of vcc
-Date: Wed, 31 Oct 2012 10:41:47 +0100
-Message-ID: <20121031094147.GA1004@shrek.podlesie.net>
-References: <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>
- <201210301426.q9UEQkI7007209@thirdoffive.cmf.nrl.navy.mil>
- <20121030182001.GA30373@shrek.podlesie.net>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH v3 10/10] net/macb: add pinctrl consumer support
+Date: Wed, 31 Oct 2012 11:42:14 +0100
+Message-ID: <50910086.6080705@atmel.com>
+References: <cover.1351591858.git.nicolas.ferre@atmel.com> <3269426bdd44debc00d027651f8248db9d40f3dc.1351591858.git.nicolas.ferre@atmel.com> <CAGhQ9VxJ58ej3j9eEx1rex5h-ua_C53=Z4WwGk5YdjfaYTdHpw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, dwmw2@infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<havard@skinnemoen.net>, <bhutchings@solarflare.com>,
+	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
+	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>
+To: Joachim Eastwood <manabian@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20121030182001.GA30373@shrek.podlesie.net>
+In-Reply-To: <CAGhQ9VxJ58ej3j9eEx1rex5h-ua_C53=Z4WwGk5YdjfaYTdHpw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 30, 2012 at 07:20:01PM +0100, Krzysztof Mazur wrote:
-> On Tue, Oct 30, 2012 at 10:26:46AM -0400, Chas Williams (CONTRACTOR) wrote:
-> > In message <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>,Krzysztof Mazur writes:
-> > 
-> > as i recall from way back, this shouldnt be necessary.  closing a vcc
-> > for an attached protocol isnt supposed to require addtional locking
-> > or synchronization.
+On 10/30/2012 06:37 PM, Joachim Eastwood :
+> On 30 October 2012 11:18, Nicolas Ferre <nicolas.ferre@atmel.com> wrote:
+>> From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+>>
+>> If no pinctrl available just report a warning as some architecture may not
+>> need to do anything.
+>>
+>> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+>> [nicolas.ferre@atmel.com: adapt the error path]
+>> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+>> Cc: netdev@vger.kernel.org
+>> ---
+>>  drivers/net/ethernet/cadence/macb.c | 13 +++++++++++++
+>>  1 file changed, 13 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+>> index 4d51877..eae3d74 100644
+>> --- a/drivers/net/ethernet/cadence/macb.c
+>> +++ b/drivers/net/ethernet/cadence/macb.c
+>> @@ -26,6 +26,9 @@
+>>  #include <linux/of.h>
+>>  #include <linux/of_device.h>
+>>  #include <linux/of_net.h>
+>> +#include <linux/of_gpio.h>
+>> +#include <linux/gpio.h>
+> Why are these two headers added?
+> I don't see anything from them used in the code added.
 > 
-> Such locking is already used by vcc_sendmsg() and I think we should do here
-> exacly what vcc_sendmsg() does.
+> Wouldn't the pinctrl header by itself be sufficient?
+
+It is: I will remove the two unneeded headers in my v4 patch series.
+
+Thanks,
+
 > 
-> > 
-> > vcc_release() locks the socket and vcc_destroy_socket() calls the device's
-> > vcc close routine and pushes a NULL skb to the attached protocol.
-> > this NULL push is supposed to let the attached protocol that no more
-> > sends and recvs can be handled. 
-> > 
-> > that said, the order for the device vcc close and push does seem
-> > reversed.  since i imagine there could be a pending pppoatm_send()
-> > during this interval.  the push of the NULL skb is allowed to wait for
-> > the subprotocol to finish its cleanup/shutdown.
-> 
-> Yes, this problem can be probably fixed by reversing close and push
-> and adding some synchronization to pppoatm_unassign_vcc(), but I think
-> we need that locking anyway, for instance for synchronization for
-> checking and incrementing sk->sk_wmem_alloc, between pppoatm_send()
-> and vcc_sendmsg().
-> 
+>> +#include <linux/pinctrl/consumer.h>
+>>
+>>  #include "macb.h"
+>>
+>> @@ -1472,6 +1475,7 @@ static int __init macb_probe(struct platform_device *pdev)
+>>         struct phy_device *phydev;
+>>         u32 config;
+>>         int err = -ENXIO;
+>> +       struct pinctrl *pinctrl;
+>>
+>>         regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>>         if (!regs) {
+>> @@ -1479,6 +1483,15 @@ static int __init macb_probe(struct platform_device *pdev)
+>>                 goto err_out;
+>>         }
+>>
+>> +       pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+>> +       if (IS_ERR(pinctrl)) {
+>> +               err = PTR_ERR(pinctrl);
+>> +               if (err == -EPROBE_DEFER)
+>> +                       goto err_out;
+>> +
+>> +               dev_warn(&pdev->dev, "No pinctrl provided\n");
+>> +       }
+>> +
+>>         err = -ENOMEM;
+>>         dev = alloc_etherdev(sizeof(*bp));
+>>         if (!dev)
 
-I think that the same problem exists in other drivers (net/atm/br2684.c,
-net/atm/clip.c, maybe other).
-
-Reversing order of close() and push(vcc, NULL) operations seems to
-be a good idea, but synchronization with push(vcc, NULL)
-and function that calls vcc->send() must be added to all drivers.
-I think it's better to just use ATM socket lock - lock_sock(sk_atm(vcc)),
-it will fix also problems with synchronization with vcc_sendmsg()
-and possibly other functions (ioctl?).
-
-I think that we should add a wrapper to vcc->send(), based on
-fixed pppoatm_send(), that performs required checks and takes the ATM socket
-lock.
-
-But I think we should reverse those operations anyway, because some
-drivers may use other locks, not ATM socket lock, for proper
-synchronization.
-
-Krzysiek
-
--- >8 --
-diff --git a/net/atm/common.c b/net/atm/common.c
-index 0c0ad93..a0e4411 100644
---- a/net/atm/common.c
-+++ b/net/atm/common.c
-@@ -171,10 +171,10 @@ static void vcc_destroy_socket(struct sock *sk)
- 	set_bit(ATM_VF_CLOSE, &vcc->flags);
- 	clear_bit(ATM_VF_READY, &vcc->flags);
- 	if (vcc->dev) {
--		if (vcc->dev->ops->close)
--			vcc->dev->ops->close(vcc);
- 		if (vcc->push)
- 			vcc->push(vcc, NULL); /* atmarpd has no push */
-+		if (vcc->dev->ops->close)
-+			vcc->dev->ops->close(vcc);
- 
- 		while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
- 			atm_return(vcc, skb->truesize);
+Best regards,
+-- 
+Nicolas Ferre
