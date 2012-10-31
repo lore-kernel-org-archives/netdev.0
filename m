@@ -1,42 +1,175 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH] bonding: fix off-by-one error
-Date: Wed, 31 Oct 2012 15:42:51 +0100
-Message-ID: <1351694571-26369-1-git-send-email-nikolay@redhat.com>
-Cc: andy@greyhouse.net, fubar@us.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54273 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422981Ab2JaOpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2012 10:45:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benoit Cousson <b-cousson@ti.com>
+Subject: Re: [PATCH 4/4] arm/dts: am33xx: Add CPSW and MDIO module nodes for
+ AM33XX
+Date: Wed, 31 Oct 2012 16:17:27 +0100
+Message-ID: <50914107.2090909@ti.com>
+References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com> <1351498881-32482-6-git-send-email-hvaibhav@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <paul@pwsan.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Vaibhav Hiremath <hvaibhav@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1351498881-32482-6-git-send-email-hvaibhav@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix off-by-one error because IFNAMSIZ == 16 and when this
-code gets executed we stick a NULL byte where we should not.
+Hi,
 
-How to reproduce:
- with CONFIG_CC_STACKPROTECTOR=y (otherwise it may pass by silently)
- modprobe bonding; echo 1 > /sys/class/net/bond0/bonding/mode;
- echo "AAAAAAAAAAAAAAAA" > /sys/class/net/bond0/bonding/primary;
+On 10/29/2012 09:21 AM, Vaibhav Hiremath wrote:
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> 
+> Add CPSW and MDIO related device tree data for AM33XX.
+> Also enable them into board/evm dts files by providing
+> respective phy-id.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_sysfs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Is there any bindings documentation for that device?
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index dc15d24..238d9b3 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1060,7 +1060,7 @@ static ssize_t bonding_store_primary(struct device *d,
- 		goto out;
- 	}
- 
--	sscanf(buf, "%16s", ifname); /* IFNAMSIZ */
-+	sscanf(buf, "%15s", ifname); /* IFNAMSIZ */
- 
- 	/* check to see if we are clearing primary */
- 	if (!strlen(ifname) || buf[0] == '\n') {
--- 
-1.7.11.4
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
+> Cc: Richard Cochran <richardcochran@gmail.com>
+> Cc: Benoit Cousson <b-cousson@ti.com>
+> ---
+>  arch/arm/boot/dts/am335x-bone.dts |    8 ++++++
+>  arch/arm/boot/dts/am335x-evm.dts  |    8 ++++++
+>  arch/arm/boot/dts/am33xx.dtsi     |   50 +++++++++++++++++++++++++++++++++++++
+>  3 files changed, 66 insertions(+), 0 deletions(-)
+> 
+> diff --git a/arch/arm/boot/dts/am335x-bone.dts b/arch/arm/boot/dts/am335x-bone.dts
+> index c634f87..e233cfa 100644
+> --- a/arch/arm/boot/dts/am335x-bone.dts
+> +++ b/arch/arm/boot/dts/am335x-bone.dts
+> @@ -78,3 +78,11 @@
+>  		};
+>  	};
+>  };
+> +
+> +&cpsw_emac0 {
+> +	phy_id = "4a101000.mdio:00";
+
+Why are you using that kind of interface? You seem to want a reference
+to a device.
+
+Cannot you have something less hard coded like:
+phy_id = <&davinci_mdio>, <0>;
+
+
+> +};
+> +
+> +&cpsw_emac1 {
+> +	phy_id = "4a101000.mdio:01";
+> +};
+> diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
+> index 185d632..415c3b3 100644
+> --- a/arch/arm/boot/dts/am335x-evm.dts
+> +++ b/arch/arm/boot/dts/am335x-evm.dts
+> @@ -118,3 +118,11 @@
+>  		};
+>  	};
+>  };
+> +
+> +&cpsw_emac0 {
+> +	phy_id = "4a101000.mdio:00";
+> +};
+> +
+> +&cpsw_emac1 {
+> +	phy_id = "4a101000.mdio:01";
+> +};
+> diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+> index bb31bff..f6bea04 100644
+> --- a/arch/arm/boot/dts/am33xx.dtsi
+> +++ b/arch/arm/boot/dts/am33xx.dtsi
+> @@ -210,5 +210,55 @@
+>  			interrupt-parent = <&intc>;
+>  			interrupts = <91>;
+>  		};
+> +
+> +		mac: ethernet@4A100000 {
+
+hexa data should be in lower case.
+
+> +			compatible = "ti,cpsw";
+> +			ti,hwmods = "cpgmac0";
+> +			cpdma_channels = <8>;
+> +			host_port_no = <0>;
+> +			cpdma_reg_ofs = <0x800>;
+> +			cpdma_sram_ofs = <0xa00>;
+> +			ale_reg_ofs = <0xd00>;
+> +			ale_entries = <1024>;
+> +			host_port_reg_ofs = <0x108>;
+> +			hw_stats_reg_ofs = <0x900>;
+> +			bd_ram_ofs = <0x2000>;
+> +			bd_ram_size = <0x2000>;
+> +			no_bd_ram = <0>;
+> +			rx_descs = <64>;
+> +			mac_control = <0x20>;
+
+Do you have to store all these data in the DTS? Cannot it be in the driver?
+
+Do you expect to have several instance of the same IP with different
+parameters here?
+
+> +			slaves = <2>;
+> +			reg = <0x4a100000 0x800
+> +				0x4a101200 0x100
+> +				0x4a101000 0x100>;
+
+Please align the address.
+
+> +			#address-cells = <1>;
+> +			#size-cells = <1>;
+> +			interrupt-parent = <&intc>;
+> +			/* c0_rx_thresh_pend c0_rx_pend c0_tx_pend c0_misc_pend*/
+
+Please use a standard multi-line comment instead of trying to put
+everything in one line.
+
+> +			interrupts = <40 41 42 43>;
+> +			ranges;
+
+You should add blank line here for readability.
+
+> +			cpsw_emac0: slave@0 {
+
+Mmm, you are using some address later and here some relative number,
+that does not looks very consistent.
+
+> +				slave_reg_ofs = <0x208>;
+
+Is it an offset from 4a100000? Cannot you use the address for the slave
+name?
+
+Something like that: cpsw_emac0: slave@4a100208
+
+> +				sliver_reg_ofs = <0xd80>;
+> +				/* Filled in by U-Boot */
+> +				mac-address = [ 00 00 00 00 00 00 ];
+> +			};
+
+You should add blank line here for readability.
+
+> +			cpsw_emac1: slave@1 {
+> +				slave_reg_ofs = <0x308>;
+> +				sliver_reg_ofs = <0xdc0>;
+> +				/* Filled in by U-Boot */
+> +				mac-address = [ 00 00 00 00 00 00 ];
+> +			};
+> +
+> +			davinci_mdio: mdio@4a101000 {
+> +				compatible = "ti,davinci_mdio";
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +				ti,hwmods = "davinci_mdio";
+> +				bus_freq = <1000000>;
+> +				reg = <0x4a101000 0x100>;
+> +			};
+> +
+
+Stray change.
+
+Regards,
+Benoit
+
