@@ -1,65 +1,42 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net-next 1/8] bridge: bridge port parameters over netlink
-Date: Wed, 31 Oct 2012 07:01:49 -0700
-Message-ID: <50912F4D.2090602@intel.com>
-References: <20121030005731.843020405@vyatta.com> <20121030005835.289407930@vyatta.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH] bonding: fix off-by-one error
+Date: Wed, 31 Oct 2012 15:42:51 +0100
+Message-ID: <1351694571-26369-1-git-send-email-nikolay@redhat.com>
+Cc: andy@greyhouse.net, fubar@us.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58672 "EHLO mga02.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54273 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932647Ab2JaOB4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2012 10:01:56 -0400
-In-Reply-To: <20121030005835.289407930@vyatta.com>
+	id S1422981Ab2JaOpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2012 10:45:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/29/2012 5:57 PM, Stephen Hemminger wrote:
-> Expose bridge port parameters over netlink. By switching
-> from a single byet to a nested message, this can be used for
-> other bridge parameters.
->
-> Although, this changes IFLA_PROTINFO attribute from one byte to a full nested
-> set of attributes; it is safe for applications because the
-> old message used IFLA_PROTINFO and new one uses
->   IFLA_PROTINFO | NLA_F_NESTED.
->
-> The code still accepts to old format requests, and therefore stays
-> compatiable with user mode RSTP daemon. Since the type field
-> for nested and unnested attributes are different, and the old
-> code in libnetlink doesn't do the mask, it is also safe to use
-> with old versions of bridge monitor command.
->
-> Note: although mode is only a boolean, treating it as a
-> full byte since in the future someone will probably want to add more
-> values (like macvlan has).
->
-> Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
->
-> ---
+Fix off-by-one error because IFNAMSIZ == 16 and when this
+code gets executed we stick a NULL byte where we should not.
 
-Stephen,
+How to reproduce:
+ with CONFIG_CC_STACKPROTECTOR=y (otherwise it may pass by silently)
+ modprobe bonding; echo 1 > /sys/class/net/bond0/bonding/mode;
+ echo "AAAAAAAAAAAAAAAA" > /sys/class/net/bond0/bonding/primary;
 
-Did you see these two patches
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/bonding/bond_sysfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-http://patchwork.ozlabs.org/patch/193900/
-http://patchwork.ozlabs.org/patch/193901/
-
-here I added nested bridge attributes to IFLA_AF_SPEC and pass them down
-to the drivers as needed. Should we merge these two sets so that we have
-only a single nested set of bridge attributes? Either in IFLA_AF_SPEC or
-IFLA_PROTINFO.
-
-The attributes in this patch are port specifics and the one in the
-patches listed above are bridge specific so in this sense perhaps
-its OK to keep them separate. I'm not sure it matters much either
-way but thought I would mention it.
-
-Also I suspect these two series will have conflicts but I haven't tried
-yet.
-
-Thanks,
-John
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index dc15d24..238d9b3 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1060,7 +1060,7 @@ static ssize_t bonding_store_primary(struct device *d,
+ 		goto out;
+ 	}
+ 
+-	sscanf(buf, "%16s", ifname); /* IFNAMSIZ */
++	sscanf(buf, "%15s", ifname); /* IFNAMSIZ */
+ 
+ 	/* check to see if we are clearing primary */
+ 	if (!strlen(ifname) || buf[0] == '\n') {
+-- 
+1.7.11.4
