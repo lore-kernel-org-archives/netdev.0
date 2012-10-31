@@ -1,12 +1,16 @@
-From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Subject: Re: [PATCH v8 01/16] hashtable: introduce a small and naive hashtable
-Date: Tue, 30 Oct 2012 18:25:46 -0700
-Message-ID: <CA+55aFzFMrOUwdHHJ5-YUtEzTHGvdRosQc+K+trjub0K-w-D3A@mail.gmail.com>
+From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH v8 01/16] hashtable: introduce a small and naive
+ hashtable
+Date: Tue, 30 Oct 2012 21:36:30 -0400
+Message-ID: <1351647390.4004.47.camel@gandalf.local.home>
 References: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com>
- <20121030214257.GB2681@htj.dyndns.org> <CA+1xoqeCKS2E4TWCUCELjDqV2pWS4v6EyV6K-=w-GRi_K6quiQ@mail.gmail.com>
- <1351646186.4004.41.camel@gandalf.local.home>
+	 <20121030214257.GB2681@htj.dyndns.org>
+	 <CA+1xoqeCKS2E4TWCUCELjDqV2pWS4v6EyV6K-=w-GRi_K6quiQ@mail.gmail.com>
+	 <1351646186.4004.41.camel@gandalf.local.home>
+	 <CA+55aFzFMrOUwdHHJ5-YUtEzTHGvdRosQc+K+trjub0K-w-D3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
 Cc: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
 	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org,
@@ -20,31 +24,43 @@ Cc: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Tejun H
 	venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
 	snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
-To: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1351646186.4004.41.camel-f9ZlEuEWxVcJvu8Pb33WZ0EMvNT87kid@public.gmane.org>
+In-Reply-To: <CA+55aFzFMrOUwdHHJ5-YUtEzTHGvdRosQc+K+trjub0K-w-D3A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 30, 2012 at 6:16 PM, Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
->
-> ({                                                                    \
->         sizeof(val) <= 4 ? hash_32(val, bits) : hash_long(val, bits); \
-> })
->
-> Is the better way to go. We are C programmers, we like to see the ?: on
-> a single line if possible. The way you have it, looks like three
-> statements run consecutively.
+On Tue, 2012-10-30 at 18:25 -0700, Linus Torvalds wrote:
+> On Tue, Oct 30, 2012 at 6:16 PM, Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org> wrote:
+> >
+> > ({                                                                    \
+> >         sizeof(val) <= 4 ? hash_32(val, bits) : hash_long(val, bits); \
+> > })
+> >
+> > Is the better way to go. We are C programmers, we like to see the ?: on
+> > a single line if possible. The way you have it, looks like three
+> > statements run consecutively.
+> 
+> If we're C programmers, why use the non-standard statement-expression
+> at all? And split it onto three lines when it's just a single one?
 
-If we're C programmers, why use the non-standard statement-expression
-at all? And split it onto three lines when it's just a single one?
+I like the blue color over the pink. Anyway, I was just expressing an
+opinion and really didn't care if it was changed or not.
 
-But whatever. This series has gotten way too much bike-shedding
-anyway. I think it should just be applied, since it does remove lines
-of code overall. I'd even possibly apply it to mainline, but it seems
-to be against linux-next.
 
-             Linus
+> 
+> But whatever. This series has gotten way too much bike-shedding
+> anyway. I think it should just be applied, since it does remove lines
+> of code overall. I'd even possibly apply it to mainline, but it seems
+> to be against linux-next.
+
+I would think this change is a bit too big for an -rc4 release, but
+you're the boss.  I've already given my ack for my code that this set
+touches. Let it go to Stephen's repo then.
+
+-- Steve
+
+
 --
 To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
