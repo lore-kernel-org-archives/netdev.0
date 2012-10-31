@@ -1,47 +1,49 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH] bonding: fix second off-by-one error
-Date: Wed, 31 Oct 2012 17:03:52 +0100
-Message-ID: <1351699432-27602-1-git-send-email-nikolay@redhat.com>
-References: <1351694571-26369-1-git-send-email-nikolay@redhat.com>
-Cc: andy@greyhouse.net, fubar@us.ibm.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8222 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935754Ab2JaQGM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2012 12:06:12 -0400
-In-Reply-To: <1351694571-26369-1-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH v4 05/10] net/macb: tx status is more than 8 bits now
+Date: Wed, 31 Oct 2012 17:04:54 +0100
+Message-ID: <76a3a1fb6ad2fbf5e4d8d447afe7cd5c0eb24b8b.1351690694.git.nicolas.ferre@atmel.com>
+References: <cover.1351690694.git.nicolas.ferre@atmel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>, manabian@gmail.com,
+ patrice.vilchez@atmel.com, linux-kernel@vger.kernel.org,
+ David.Laight@ACULAB.COM, bhutchings@solarflare.com, plagnioj@jcrosoft.com,
+ linux-arm-kernel@lists.infradead.org
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>, <havard@skinnemoen.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <cover.1351690694.git.nicolas.ferre@atmel.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Fix off-by-one error because IFNAMSIZ == 16 and when this
-code gets executed we stick a NULL byte where we should not.
+On some revision of GEM, TSR status register has more information.
 
-How to reproduce:
- with CONFIG_CC_STACKPROTECTOR=y (otherwise it may pass by silently)
- modprobe bonding; echo 1 > /sys/class/net/bond0/bonding/mode;
- echo "AAAAAAAAAAAAAAAA" > /sys/class/net/bond0/bonding/active_slave;
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-
-Note: Sorry for the second patch but I missed this one while checking
-      the file. You can squash them into one patch.
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Tested-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/bonding/bond_sysfs.c | 2 +-
+ drivers/net/ethernet/cadence/macb.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 238d9b3..ef8d2a0 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -1237,7 +1237,7 @@ static ssize_t bonding_store_active_slave(struct device *d,
- 		goto out;
- 	}
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 4db52f3..cd6d431 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -314,7 +314,7 @@ static void macb_tx(struct macb *bp)
+ 	status = macb_readl(bp, TSR);
+ 	macb_writel(bp, TSR, status);
  
--	sscanf(buf, "%16s", ifname); /* IFNAMSIZ */
-+	sscanf(buf, "%15s", ifname); /* IFNAMSIZ */
+-	netdev_vdbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
++	netdev_vdbg(bp->dev, "macb_tx status = 0x%03lx\n", (unsigned long)status);
  
- 	/* check to see if we are clearing active */
- 	if (!strlen(ifname) || buf[0] == '\n') {
+ 	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
+ 		int i;
 -- 
-1.7.11.4
+1.8.0
