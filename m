@@ -1,35 +1,31 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 1/9] net: core: use this_cpu_ptr per-cpu helper
-Date: Wed, 31 Oct 2012 17:31:52 +0000
-Message-ID: <0000013ab7e116c8-fac51ac3-c4a4-46b8-9d55-fb4df4019e30-000000@email.amazonses.com>
-References: <509109E1.6040607@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] smsc95xx: add wol support for more frame types
+Date: Wed, 31 Oct 2012 13:33:09 -0400 (EDT)
+Message-ID: <20121031.133309.575670421875903399.davem@davemloft.net>
+References: <1351259036-5375-1-git-send-email-steve.glendinning@shawell.net>
+	<1351259036-5375-2-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, timo.teras@iki.fi,
-	steffen.klassert@secunet.com, NetDev <netdev@vger.kernel.org>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Shan Wei <shanwei88@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <509109E1.6040607@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: steve.glendinning@shawell.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47536 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933028Ab2JaRdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 13:33:13 -0400
+In-Reply-To: <1351259036-5375-2-git-send-email-steve.glendinning@shawell.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Oct 2012, Shan Wei wrote:
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Fri, 26 Oct 2012 14:43:56 +0100
 
-> +++ b/net/core/flow.c
-> @@ -327,11 +327,9 @@ static void flow_cache_flush_tasklet(unsigned long data)
->  static void flow_cache_flush_per_cpu(void *data)
->  {
->  	struct flow_flush_info *info = data;
-> -	int cpu;
->  	struct tasklet_struct *tasklet;
->
-> -	cpu = smp_processor_id();
-> -	tasklet = &per_cpu_ptr(info->cache->percpu, cpu)->flush_tasklet;
-> +	tasklet = &this_cpu_ptr(info->cache->percpu)->flush_tasklet;
->  	tasklet->data = (unsigned long)info;
->  	tasklet_schedule(tasklet);
->  }
->
+> This patch adds support for wol wakeup on unicast, broadcast,
+> multicast and arp frames.
+> 
+> The wakeup filter code isn't pretty, but it works.
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
 
-Reviewed-by: Christoph Lameter <cl@linux.com>
+Applied.
