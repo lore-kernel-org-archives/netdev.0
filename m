@@ -1,8 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net 5/7] bnx2x: Fix unrecognized SFP+ module after
- driver is loaded
-Date: Wed, 31 Oct 2012 17:46:56 +0200
-Message-ID: <1351698418-10005-6-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH net 3/7] bnx2x: Restore global registers back to
+ default.
+Date: Wed, 31 Oct 2012 17:46:54 +0200
+Message-ID: <1351698418-10005-4-git-send-email-dmitry@broadcom.com>
 References: <1351698418-10005-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,96 +13,187 @@ Cc: "Yaniv Rosner" <yanivr@broadcom.com>,
 To: ariele@broadcom.com, eilong@broadcom.com, davem@davemloft.net,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2910 "EHLO mms3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2905 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965146Ab2JaPrT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2012 11:47:19 -0400
+	id S1757952Ab2JaPrP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2012 11:47:15 -0400
 In-Reply-To: <1351698418-10005-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yaniv Rosner <yanivr@broadcom.com>
 
-When SFP+ module is plugged in after driver is already loaded, it may not be
-recognized, so set SFP module recognition time up to 300ms, without resetting
-the module power in the middle.
+Several KR registers were not set correctly back to default after
+loopback test, so set those global registers over the global WC lane (zero)
+rather than the current lane.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Barak Witkowski <barak@broadcom.com>
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   22 +++++++++++++++-------
- 1 files changed, 15 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   78 ++++++++++++++++------
+ 1 files changed, 56 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 308ba42..679d45e 100644
+index f2436ea..5e8f7b7 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -7634,7 +7634,7 @@ static void bnx2x_warpcore_power_module(struct link_params *params,
- static int bnx2x_warpcore_read_sfp_module_eeprom(struct bnx2x_phy *phy,
- 						 struct link_params *params,
- 						 u16 addr, u8 byte_cnt,
--						 u8 *o_buf)
-+						 u8 *o_buf, u8 is_init)
- {
- 	int rc = 0;
- 	u8 i, j = 0, cnt = 0;
-@@ -7651,10 +7651,10 @@ static int bnx2x_warpcore_read_sfp_module_eeprom(struct bnx2x_phy *phy,
- 	/* 4 byte aligned address */
- 	addr32 = addr & (~0x3);
- 	do {
--		if (cnt == I2C_WA_PWR_ITER) {
-+		if ((!is_init) && (cnt == I2C_WA_PWR_ITER)) {
- 			bnx2x_warpcore_power_module(params, phy, 0);
- 			/* Note that 100us are not enough here */
--			usleep_range(1000,1000);
-+			usleep_range(1000, 2000);
- 			bnx2x_warpcore_power_module(params, phy, 1);
- 		}
- 		rc = bnx2x_bsc_read(params, phy, 0xa0, addr32, 0, byte_cnt,
-@@ -7774,7 +7774,7 @@ int bnx2x_read_sfp_module_eeprom(struct bnx2x_phy *phy,
- 	break;
- 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT:
- 		rc = bnx2x_warpcore_read_sfp_module_eeprom(phy, params, addr,
--							   byte_cnt, o_buf);
-+							   byte_cnt, o_buf, 0);
- 	break;
- 	}
- 	return rc;
-@@ -7978,6 +7978,7 @@ static int bnx2x_wait_for_sfp_module_initialized(struct bnx2x_phy *phy,
- 
- {
- 	u8 val;
-+	int rc;
+@@ -3558,13 +3558,11 @@ static void bnx2x_warpcore_set_lpi_passthrough(struct bnx2x_phy *phy,
+ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 					struct link_params *params,
+ 					struct link_vars *vars) {
+-	u16 val16 = 0, lane, i, cl72_ctrl;
++	u16 lane, i, cl72_ctrl, an_adv = 0;
++	u16 ucode_ver;
  	struct bnx2x *bp = params->bp;
- 	u16 timeout;
- 	/* Initialization time after hot-plug may take up to 300ms for
-@@ -7985,8 +7986,14 @@ static int bnx2x_wait_for_sfp_module_initialized(struct bnx2x_phy *phy,
- 	 */
+ 	static struct bnx2x_reg_set reg_set[] = {
+ 		{MDIO_WC_DEVAD, MDIO_WC_REG_SERDESDIGITAL_CONTROL1000X2, 0x7},
+-		{MDIO_AN_DEVAD, MDIO_WC_REG_PAR_DET_10G_CTRL, 0},
+-		{MDIO_WC_DEVAD, MDIO_WC_REG_XGXSBLK1_LANECTRL0, 0xff},
+-		{MDIO_WC_DEVAD, MDIO_WC_REG_XGXSBLK1_LANECTRL1, 0x5555},
+ 		{MDIO_PMA_DEVAD, MDIO_WC_REG_IEEE0BLK_AUTONEGNP, 0x0},
+ 		{MDIO_WC_DEVAD, MDIO_WC_REG_RX66_CONTROL, 0x7415},
+ 		{MDIO_WC_DEVAD, MDIO_WC_REG_SERDESDIGITAL_MISC2, 0x6190},
+@@ -3589,7 +3587,7 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 	     (phy->speed_cap_mask & PORT_HW_CFG_SPEED_CAPABILITY_D0_1G)) ||
+ 	    (vars->line_speed == SPEED_1000)) {
+ 		u32 addr = MDIO_WC_REG_SERDESDIGITAL_CONTROL1000X2;
+-		val16 |= (1<<5);
++		an_adv |= (1<<5);
  
- 	for (timeout = 0; timeout < 60; timeout++) {
--		if (bnx2x_read_sfp_module_eeprom(phy, params, 1, 1, &val)
--		    == 0) {
-+		if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT)
-+			rc = bnx2x_warpcore_read_sfp_module_eeprom(phy,
-+								   params, 1,
-+								   1, &val, 1);
-+		else
-+			rc = bnx2x_read_sfp_module_eeprom(phy, params, 1, 1,
-+							  &val);
-+		if (rc == 0) {
- 			DP(NETIF_MSG_LINK,
- 			   "SFP+ module initialization took %d ms\n",
- 			   timeout * 5);
-@@ -7994,7 +8001,8 @@ static int bnx2x_wait_for_sfp_module_initialized(struct bnx2x_phy *phy,
- 		}
- 		usleep_range(5000, 10000);
+ 		/* Enable CL37 1G Parallel Detect */
+ 		bnx2x_cl45_read_or_write(bp, phy, MDIO_WC_DEVAD, addr, 0x1);
+@@ -3599,11 +3597,14 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 	     (phy->speed_cap_mask & PORT_HW_CFG_SPEED_CAPABILITY_D0_10G)) ||
+ 	    (vars->line_speed ==  SPEED_10000)) {
+ 		/* Check adding advertisement for 10G KR */
+-		val16 |= (1<<7);
++		an_adv |= (1<<7);
+ 		/* Enable 10G Parallel Detect */
++		CL22_WR_OVER_CL45(bp, phy, MDIO_REG_BANK_AER_BLOCK,
++				  MDIO_AER_BLOCK_AER_REG, 0);
++
+ 		bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
+ 				 MDIO_WC_REG_PAR_DET_10G_CTRL, 1);
+-
++		bnx2x_set_aer_mmd(params, phy);
+ 		DP(NETIF_MSG_LINK, "Advertize 10G\n");
  	}
--	return -EINVAL;
-+	rc = bnx2x_read_sfp_module_eeprom(phy, params, 1, 1, &val);
-+	return rc;
+ 
+@@ -3623,7 +3624,7 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 
+ 	/* Advertised speeds */
+ 	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
+-			 MDIO_WC_REG_AN_IEEE1BLK_AN_ADVERTISEMENT1, val16);
++			 MDIO_WC_REG_AN_IEEE1BLK_AN_ADVERTISEMENT1, an_adv);
+ 
+ 	/* Advertised and set FEC (Forward Error Correction) */
+ 	bnx2x_cl45_write(bp, phy, MDIO_AN_DEVAD,
+@@ -3647,9 +3648,10 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 	/* Set KR Autoneg Work-Around flag for Warpcore version older than D108
+ 	 */
+ 	bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
+-			MDIO_WC_REG_UC_INFO_B1_VERSION, &val16);
+-	if (val16 < 0xd108) {
+-		DP(NETIF_MSG_LINK, "Enable AN KR work-around\n");
++			MDIO_WC_REG_UC_INFO_B1_VERSION, &ucode_ver);
++	if (ucode_ver < 0xd108) {
++		DP(NETIF_MSG_LINK, "Enable AN KR work-around. WC ver:0x%x\n",
++			       ucode_ver);
+ 		vars->rx_tx_asic_rst = MAX_KR_LINK_RETRY;
+ 	}
+ 	bnx2x_cl45_read_or_write(bp, phy, MDIO_WC_DEVAD,
+@@ -3670,21 +3672,16 @@ static void bnx2x_warpcore_set_10G_KR(struct bnx2x_phy *phy,
+ 				      struct link_vars *vars)
+ {
+ 	struct bnx2x *bp = params->bp;
+-	u16 i;
++	u16 val16, i, lane;
+ 	static struct bnx2x_reg_set reg_set[] = {
+ 		/* Disable Autoneg */
+ 		{MDIO_WC_DEVAD, MDIO_WC_REG_SERDESDIGITAL_CONTROL1000X2, 0x7},
+-		{MDIO_AN_DEVAD, MDIO_WC_REG_PAR_DET_10G_CTRL, 0},
+ 		{MDIO_WC_DEVAD, MDIO_WC_REG_CL72_USERB0_CL72_MISC1_CONTROL,
+ 			0x3f00},
+ 		{MDIO_AN_DEVAD, MDIO_WC_REG_AN_IEEE1BLK_AN_ADVERTISEMENT1, 0},
+ 		{MDIO_AN_DEVAD, MDIO_WC_REG_IEEE0BLK_MIICNTL, 0x0},
+ 		{MDIO_WC_DEVAD, MDIO_WC_REG_DIGITAL3_UP1, 0x1},
+ 		{MDIO_WC_DEVAD, MDIO_WC_REG_DIGITAL5_MISC7, 0xa},
+-		/* Disable CL36 PCS Tx */
+-		{MDIO_WC_DEVAD, MDIO_WC_REG_XGXSBLK1_LANECTRL0, 0x0},
+-		/* Double Wide Single Data Rate @ pll rate */
+-		{MDIO_WC_DEVAD, MDIO_WC_REG_XGXSBLK1_LANECTRL1, 0xFFFF},
+ 		/* Leave cl72 training enable, needed for KR */
+ 		{MDIO_PMA_DEVAD,
+ 		MDIO_WC_REG_PMD_IEEE9BLK_TENGBASE_KR_PMD_CONTROL_REGISTER_150,
+@@ -3695,11 +3692,24 @@ static void bnx2x_warpcore_set_10G_KR(struct bnx2x_phy *phy,
+ 		bnx2x_cl45_write(bp, phy, reg_set[i].devad, reg_set[i].reg,
+ 				 reg_set[i].val);
+ 
+-	/* Leave CL72 enabled */
+-	bnx2x_cl45_read_or_write(bp, phy, MDIO_WC_DEVAD,
+-				 MDIO_WC_REG_CL72_USERB0_CL72_MISC1_CONTROL,
+-				 0x3800);
++	lane = bnx2x_get_warpcore_lane(phy, params);
++	/* Global registers */
++	CL22_WR_OVER_CL45(bp, phy, MDIO_REG_BANK_AER_BLOCK,
++			  MDIO_AER_BLOCK_AER_REG, 0);
++	/* Disable CL36 PCS Tx */
++	bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
++			MDIO_WC_REG_XGXSBLK1_LANECTRL0, &val16);
++	val16 &= ~(0x0011 << lane);
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			 MDIO_WC_REG_XGXSBLK1_LANECTRL0, val16);
+ 
++	bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
++			MDIO_WC_REG_XGXSBLK1_LANECTRL1, &val16);
++	val16 |= (0x0303 << (lane << 1));
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			 MDIO_WC_REG_XGXSBLK1_LANECTRL1, val16);
++	/* Restore AER */
++	bnx2x_set_aer_mmd(params, phy);
+ 	/* Set speed via PMA/PMD register */
+ 	bnx2x_cl45_write(bp, phy, MDIO_PMA_DEVAD,
+ 			 MDIO_WC_REG_IEEE0BLK_MIICNTL, 0x2040);
+@@ -4322,7 +4332,7 @@ static void bnx2x_warpcore_link_reset(struct bnx2x_phy *phy,
+ 				      struct link_params *params)
+ {
+ 	struct bnx2x *bp = params->bp;
+-	u16 val16;
++	u16 val16, lane;
+ 	bnx2x_sfp_e3_set_transmitter(params, phy, 0);
+ 	bnx2x_set_mdio_clk(bp, params->chip_id, params->port);
+ 	bnx2x_set_aer_mmd(params, phy);
+@@ -4359,6 +4369,30 @@ static void bnx2x_warpcore_link_reset(struct bnx2x_phy *phy,
+ 			 MDIO_WC_REG_XGXSBLK1_LANECTRL2,
+ 			 val16 & 0xff00);
+ 
++	lane = bnx2x_get_warpcore_lane(phy, params);
++	/* Disable CL36 PCS Tx */
++	bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
++			MDIO_WC_REG_XGXSBLK1_LANECTRL0, &val16);
++	val16 |= (0x11 << lane);
++	if (phy->flags & FLAGS_WC_DUAL_MODE)
++		val16 |= (0x22 << lane);
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			 MDIO_WC_REG_XGXSBLK1_LANECTRL0, val16);
++
++	bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
++			MDIO_WC_REG_XGXSBLK1_LANECTRL1, &val16);
++	val16 &= ~(0x0303 << (lane << 1));
++	val16 |= (0x0101 << (lane << 1));
++	if (phy->flags & FLAGS_WC_DUAL_MODE) {
++		val16 &= ~(0x0c0c << (lane << 1));
++		val16 |= (0x0404 << (lane << 1));
++	}
++
++	bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
++			 MDIO_WC_REG_XGXSBLK1_LANECTRL1, val16);
++	/* Restore AER */
++	bnx2x_set_aer_mmd(params, phy);
++
  }
  
- static void bnx2x_8727_power_module(struct bnx2x *bp,
+ static void bnx2x_set_warpcore_loopback(struct bnx2x_phy *phy,
 -- 
 1.7.7.2
