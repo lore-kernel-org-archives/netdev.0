@@ -1,47 +1,47 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
-Date: Wed, 31 Oct 2012 09:37:16 +0100
-Message-ID: <1478330.G3nm4yCX9h@linux-lqwf.site>
-References: <CACVXFVOPDu6wVgPmvtTkokn7VV41x3XVvL4g_E0pz0mikUbvUg@mail.gmail.com> <CACVXFVMRJPfPSC_4ZamqfYUSYNsMEVYXMFmcs26T=4MdB_Kntw@mail.gmail.com> <CACVXFVNxucCVLS-=EQkmVop3LQMkeXW7RbZq4yfkiq_MUGndvg@mail.gmail.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH v3 06/10] net/macb: clean up ring buffer logic
+Date: Wed, 31 Oct 2012 10:59:24 +0100
+Message-ID: <5090F67C.9020104@atmel.com>
+References: <cover.1351591858.git.nicolas.ferre@atmel.com> <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B707D@saturn3.aculab.com> <CACiLriQnQcoXFqrqNt3nkY47nR8FnXbqWjtPRp250gueHSMDmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	linux-kernel@vger.kernel.org, Minchan Kim <minchan@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-pm@vger.kernel.org, linux-mm@kvack.org
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <CACVXFVNxucCVLS-=EQkmVop3LQMkeXW7RbZq4yfkiq_MUGndvg@mail.gmail.com>
-Sender: linux-pm-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<bhutchings@solarflare.com>,
+	<linux-arm-kernel@lists.infradead.org>, <plagnioj@jcrosoft.com>,
+	<patrice.vilchez@atmel.com>, <linux-kernel@vger.kernel.org>,
+	<manabian@gmail.com>
+To: =?ISO-8859-1?Q?H=E5vard_Skinnemoen?= <havard@skinnemoen.net>,
+	David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACiLriQnQcoXFqrqNt3nkY47nR8FnXbqWjtPRp250gueHSMDmQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 31 October 2012 11:05:33 Ming Lei wrote:
-> On Wed, Oct 31, 2012 at 10:08 AM, Ming Lei <ming.lei@canonical.com> wrote:
-> >> I am afraid it is, because a disk may just have been probed as the deviceis being reset.
-> >
-> > Yes, it is probable, and sounds like similar with 'root_wait' problem, see
-> > prepare_namespace(): init/do_mounts.c, so looks no good solution
-> > for the problem, and maybe we have to set the flag always before resetting
-> > usb device.
-> 
-> The below idea may help the problem which 'memalloc_noio' flag isn't set during
-> usb_reset_device().
-> 
-> - for usb mass storage device, call pm_runtime_set_memalloc_noio(true)
->   inside usb_stor_probe2() and uas_probe(), and call
->   pm_runtime_set_memalloc_noio(false) inside uas_disconnect()
->   and usb_stor_disconnect().
-> 
-> - for usb network device, register_netdev() is always called inside usb
->   interface's probe(),  looks no such problem.
+On 10/30/2012 07:22 PM, H=E5vard Skinnemoen :
+> On Tue, Oct 30, 2012 at 4:12 AM, David Laight <David.Laight@aculab.co=
+m> wrote:
+>>> Instead of masking head and tail every time we increment them, just=
+ let them
+>>> wrap through UINT_MAX and mask them when subscripting. Add simple a=
+ccessor
+>>> functions to do the subscripting properly to minimize the chances o=
+f messing
+>>> this up.
+>> ...
+>>> +static unsigned int macb_tx_ring_avail(struct macb *bp)
+>>> +{
+>>> +     return TX_RING_SIZE - (bp->tx_head - bp->tx_tail);
+>>> +}
+>>
+>> That one doesn't look quite right to me.
+>> Surely it should be masking with 'TX_RING_SIZE - 1'
+>=20
+> Why is that? head and tail can never be more than TX_RING_SIZE apart,
+> so it shouldn't make any difference.
 
-This still leaves networking done over PPP in the cold.
+Absolutely.
 
-	Regards
-		Oliver
-
+Best regards,
+--=20
+Nicolas Ferre
