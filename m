@@ -1,28 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vxlan: don't expire permanent entries
-Date: Wed, 31 Oct 2012 13:42:56 -0400 (EDT)
-Message-ID: <20121031.134256.1408855723224918392.davem@davemloft.net>
-References: <20121026092434.4d735316@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next] sk-filter: Add ability to get socket filter
+ program
+Date: Wed, 31 Oct 2012 13:45:32 -0400 (EDT)
+Message-ID: <20121031.134532.1861747412920375129.davem@davemloft.net>
+References: <508AC533.4000809@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.southworth@vyatta.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org
+To: xemul@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47712 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47741 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758866Ab2JaRnC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 13:43:02 -0400
-In-Reply-To: <20121026092434.4d735316@nehalam.linuxnetplumber.net>
+	with ESMTP id S1759532Ab2JaRpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 13:45:35 -0400
+In-Reply-To: <508AC533.4000809@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 26 Oct 2012 09:24:34 -0700
 
-> VXLAN confused flag versus bitmap on state.
-> Based on part of a earlier patch by David Stevens.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-Applied.
+You can't only add this to asm-generic, you must add the new
+option to all the arch specific headers that need it too.
