@@ -1,25 +1,35 @@
 From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH 0/9] use this_cpu_ptr instead of  per_cpu_ptr(p,
- smp_processor_id())
-Date: Wed, 31 Oct 2012 17:28:56 +0000
-Message-ID: <0000013ab7de641e-c975be0c-e85b-4705-8f02-e25b2d4a0ac2-000000@email.amazonses.com>
-References: <509109D2.9030209@gmail.com>
+Subject: Re: [PATCH 2/9] net: rds: use this_cpu_ptr per-cpu helper
+Date: Wed, 31 Oct 2012 17:32:20 +0000
+Message-ID: <0000013ab7e18181-c7fd1c9b-5ba6-4765-817f-cbf12448be41-000000@email.amazonses.com>
+References: <509109ED.7060900@gmail.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
+Cc: venkat.x.venkatsubra@oracle.com,
+	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com,
 	NetDev <netdev@vger.kernel.org>,
 	Kernel-Maillist <linux-kernel@vger.kernel.org>
 To: Shan Wei <shanwei88@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <509109D2.9030209@gmail.com>
+In-Reply-To: <509109ED.7060900@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Wed, 31 Oct 2012, Shan Wei wrote:
 
-> this_cpu_ptr is faster than per_cpu_ptr(p, smp_processor_id()).
-> The latter helper needs to find the offset for current cpu,
-> and needs more assembler instructions which objdump shows in following.
+> diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
+> index 8d19491..a4a5064 100644
+> --- a/net/rds/ib_recv.c
+> +++ b/net/rds/ib_recv.c
+> @@ -423,7 +423,7 @@ static void rds_ib_recv_cache_put(struct list_head *new_item,
+>
+>  	local_irq_save(flags);
+>
+> -	chp = per_cpu_ptr(cache->percpu, smp_processor_id());
+> +	chp = this_cpu_ptr(cache->percpu);
+>  	if (!chp->first)
+>  		INIT_LIST_HEAD(new_item);
+>  	else /* put on front */
+>
 
-The code is shorter and that helps but note that the main effect is that
-memory accesses are reduced.
+Reviewed-by: Christoph Lameter <cl@linux.com>
