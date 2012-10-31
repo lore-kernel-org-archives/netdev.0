@@ -1,7 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2 net-next 2/8] skb: api to report errors for zero copy skbs
-Date: Wed, 31 Oct 2012 12:31:11 +0200
-Message-ID: <cfa9ea5acdaeaed930a92f7733e5fc80a4e935a0.1351679008.git.mst@redhat.com>
+Subject: [PATCHv2 net-next 3/8] tun: report orphan frags errors to zero copy
+	callback
+Date: Wed, 31 Oct 2012 12:31:15 +0200
+Message-ID: <753585407bf5ab8b757921d4d7182a08668f7713.1351679008.git.mst@redhat.com>
 References: <cover.1351679008.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,62 +29,27 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Orphaning frags for zero copy skbs needs to allocate data in atomic
-context so is has a chance to fail. If it does we currently discard
-the skb which is safe, but we don't report anything to the caller,
-so it can not recover by e.g. disabling zero copy.
-
-Add an API to free skb reporting such errors: this is used
-by tun in case orphaning frags fails.
+When tun transmits a zero copy skb, it orphans the frags
+which might need to allocate extra memory, in atomic context.
+If that fails, notify ubufs callback before freeing the skb
+as a hint that device should disable zerocopy mode.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- include/linux/skbuff.h |  1 +
- net/core/skbuff.c      | 20 ++++++++++++++++++++
- 2 files changed, 21 insertions(+)
+ drivers/net/tun.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 8bac11b..0644432 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -568,6 +568,7 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 3157519..613f826 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -433,6 +433,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ drop:
+ 	dev->stats.tx_dropped++;
++	skb_tx_error(skb, -ENOMEM);
+ 	kfree_skb(skb);
+ 	return NETDEV_TX_OK;
  }
- 
- extern void kfree_skb(struct sk_buff *skb);
-+extern void skb_tx_error(struct sk_buff *skb, int err);
- extern void consume_skb(struct sk_buff *skb);
- extern void	       __kfree_skb(struct sk_buff *skb);
- extern struct kmem_cache *skbuff_head_cache;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index eb31f6e..2e7a1fd 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -635,6 +635,26 @@ void kfree_skb(struct sk_buff *skb)
- EXPORT_SYMBOL(kfree_skb);
- 
- /**
-+ *	skb_tx_error - report an sk_buff xmit error
-+ *	@skb: buffer that triggered an error
-+ *
-+ *	Report xmit error if a device callback is tracking this skb.
-+ *	skb must be freed afterwards.
-+ */
-+void skb_tx_error(struct sk_buff *skb, int err)
-+{
-+	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
-+		struct ubuf_info *uarg;
-+
-+		uarg = skb_shinfo(skb)->destructor_arg;
-+		if (uarg->callback)
-+			uarg->callback(uarg, err);
-+		skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
-+	}
-+}
-+EXPORT_SYMBOL(skb_tx_error);
-+
-+/**
-  *	consume_skb - free an skbuff
-  *	@skb: buffer to free
-  *
 -- 
 MST
