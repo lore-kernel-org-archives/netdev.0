@@ -1,62 +1,91 @@
-From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: vlan tagged packets and libpcap breakage
-Date: Wed, 31 Oct 2012 15:35:27 -0700
-Message-ID: <CAOxq_8O8Vkm5Napp_h6HVj6C=EH2gd_PQJJ1N5d_VQZrRZFYNQ@mail.gmail.com>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	<3246.1351717319@obiwan.sandelman.ca>
-	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	<5422DBB2-EABF-4C9F-B0CD-8C77E91F9FF8@alum.mit.edu>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur@brendeland.net>
+Subject: [RFC virtio-next 0/4] Introduce CAIF Virtio and reversed Vrings
+Date: Wed, 31 Oct 2012 23:46:50 +0100
+Message-ID: <1351723614-4145-1-git-send-email-sjur@brendeland.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tcpdump-workers@lists.tcpdump.org,
-	Michael Richardson <mcr@sandelman.ca>,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>
-To: Guy Harris <guy@alum.mit.edu>
-Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
-In-Reply-To: <5422DBB2-EABF-4C9F-B0CD-8C77E91F9FF8@alum.mit.edu>
-List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
-List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
-List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
-List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
-List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
-Sender: tcpdump-workers-bounces@lists.tcpdump.org
-Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	Linus Walleij <linus.walleij@linaro.org>,
+	dmitry.tarnyagin@stericsson.com, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, sjur@brendeland.net
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 31, 2012 at 3:20 PM, Guy Harris <guy@alum.mit.edu> wrote:
->
-> On Oct 31, 2012, at 2:50 PM, Ani Sinha <ani@aristanetworks.com> wrote:
->
->> pcap files that already have the tags reinsrted should work with
->> current filter code. However for live traffic, one has to get the tags
->> from CMSG() and then reinsert it back to the packet for the current
->> filter to work.
->
-> *Somebody* has to do that, at least to packets that pass the filter,
-
-
-yes but if the packet is passed to the filter within libpcap (when we
-are not using the kernel filter) before the reinsertion, then the
-filter has to be taught to look into the metadata for tag information
-and not in the packet itself.
-
-before they're handed to a libpcap-based application, for programs
-that expect to see packets as they arrived from/were transmitted to
-the wire to work.
->
-> I.e., the tags *should* be reinserted by libpcap, and, as I understand it, that's what the
->
->         #if defined(HAVE_PACKET_AUXDATA) && defined(HAVE_LINUX_TPACKET_AUXDATA_TP_VLAN_TCI)
->                 ...
->         #endif
->
-> blocks of code in pcap-linux.c in libpcap are doing.
-
-yes, I agree.
-_______________________________________________
-tcpdump-workers mailing list
-tcpdump-workers@lists.tcpdump.org
-https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
+VGhpcyBwYXRjaC1zZXQgaW50cm9kdWNlcyB0aGUgQ0FJRiBWaXJ0aW8gTGluayBsYXllci4gVGhl
+IHB1cnBvc2UgaXMgdG8KY29tbXVuaWNhdGUgd2l0aCBhIHJlbW90ZSBwcm9jZXNzb3IgKGEgbW9k
+ZW0pIG92ZXIgc2hhcmVkIG1lbW9yeS4gVmlydGlvCmlzIHVzZWQgYXMgdGhlIHRyYW5zcG9ydCBt
+ZWNoYW5pc20sIGFuZCB0aGUgUmVtb3RlcHJvYyBmcmFtZXdvcmsgcHJvdmlkZXMKY29uZmlndXJh
+dGlvbiBhbmQgbWFuYWdlbWVudCBvZiB0aGUgVmlydGlvIHJpbmdzIGFuZCBkZXZpY2VzLiBUaGUg
+bW9kZW0KYW5kIExpbnV4IGhvc3QgbWF5IGJlIG9uIHRoZSBzYW1lIFNvQywgb3IgY29ubmVjdGVk
+IG92ZXIgYSBzaGFyZWQgbWVtb3J5CmludGVyZmFjZSBzdWNoIGFzIExMSS4KClplcm8tQ29weSBk
+YXRhIHRyYW5zcG9ydCBvbiB0aGUgbW9kZW0gaXMgcHJpbWFyeSBnb2FsIGZvciBDQUlGIFZpcnRp
+by4KSW4gb3JkZXIgdG8gYWNoaWV2ZSBaZXJvLUNvcHkgdGhlIGRpcmVjdGlvbiBvZiB0aGUgVmly
+dGlvIHJpbmdzIGFyZQpmbGlwcGVkIGluIHRoZSBSWCBkaXJlY3Rpb24uIFNvIHdlIGhhdmUgaW1w
+bGVtZW50ZWQgdGhlIFZpcnRpbwphY2Nlc3MtZnVuY3Rpb24gc2ltaWxhciB0byB3aGF0IGlzIGZv
+dW5kIGluIHZob3N0LmMuCgpUaGUgY29ubmVjdGVkIExURS1tb2RlbSBpcyBhIG11bHRpLXByb2Nl
+c3NvciBzeXN0ZW0gd2l0aCBhbiBhZHZhbmNlZAptZW1vcnkgYWxsb2NhdG9yIG9uIGJvYXJkLiBJ
+biBvcmRlciB0byBwcm92aWRlIHplcm8tY29weSBmcm9tIHRoZSBtb2RlbQp0byB0aGUgY29ubmVj
+dGVkIExpbnV4IGhvc3QsIHRoZSBkaXJlY3Rpb24gb2YgdGhlIFZpcnRpbyByaW5ncyBhcmUKcmV2
+ZXJzZWQuIFRoaXMgYWxsb3dzIHRoZSBtb2RlbSB0byBhbGxvY2F0ZSBkYXRhLWJ1ZmZlcnMgaW4g
+UlgKZGlyZWN0aW9uIGFuZCBwYXNzIHRoZW0gdG8gdGhlIExpbnV4IGhvc3QsIGFuZCByZWN5Y2xl
+ZCBidWZmZXJzIHRvIGJlCnNlbnQgYmFjayB0byB0aGUgbW9kZW0uCgpUaGUgb3B0aW9uIG9mIHBy
+b3ZpZGluZyBwcmUtYWxsb2NhdGVkIGJ1ZmZlcnMgaW4gUlggZGlyZWN0aW9uIGhhcyBiZWVuCmNv
+bnNpZGVyZWQsIGJ1dCByZWplY3RlZC4gVGhlIGFsbG9jYXRpb24gb2YgZGF0YSBidWZmZXJzIGhh
+cHBlbnMgZGVlcApkb3duIGluIHRoZSBuZXR3b3JrIHNpZ25hbGluZyBzdGFjayBvbiB0aGUgTFRF
+IG1vZGVtIGJlZm9yZSBpdCBpcyBrbm93bgp3aGF0IHR5cGUgb2YgZGF0YSBpcyByZWNlaXZlZC4g
+SXQgbWF5IGJlIGRhdGEgdGhhdCBpcyBoYW5kbGVkIHdpdGhpbiB0aGUKbW9kZW0gYW5kIG5ldmVy
+IHNlbnQgdG8gdGhlIExpbnV4IGhvc3QsIG9yIElQIHRyYWZmaWMgZ29pbmcgdG8gdGhlIGhvc3Qu
+ClByZS1hbGxvY2F0ZWQgVmlydGlvIGJ1ZmZlcnMgZG9lcyBub3QgZml0IGZvciB0aGlzIHVzYWdl
+LiBBbm90aGVyIGlzc3VlCmlzIHRoYXQgdGhlIG5ldHdvcmsgdHJhZmZpYyBwYXR0ZXJuIG1heSB2
+YXJ5LCByZXN1bHRpbmcgaW4gdmFyaWF0aW9uIG9mCm51bWJlciBhbmQgc2l6ZSBvZiBidWZmZXJz
+IGFsbG9jYXRlZCBmcm9tIHRoZSBtZW1vcnkgYWxsb2NhdG9yLiBEeW5hbWljCmFsbG9jYXRpb24g
+aXMgbmVlZGVkIGluIG9yZGVyIHRvIHV0aWxpemUgbWVtb3J5IHByb3Blcmx5LiBEdWUgdG8gdGhp
+cywKd2UgZGVjaWRlZCB3ZSBoYWQgdG8gaW1wbGVtZW50ICJyZXZlcnNlZCIgdnJpbmdzLiBSZXZl
+cnNlZCB2cmluZ3MgYWxsb3dzCnVzIHRvIG1pbmltaXplIHRoZSBpbXBhY3Qgb24gdGhlIGN1cnJl
+bnQgbWVtb3J5IGFsbG9jYXRvciBhbmQgYnVmZmVyCmhhbmRsaW5nIG9uIHRoZSBtb2RlbS4gCgpJ
+biBvcmRlciB0byBpbXBsZW1lbnQgcmV2ZXJzZWQgcmluZ3Mgd2UgaGF2ZSBhZGRlZCBmdW5jdGlv
+bnMgZm9yIHJlYWRpbmcKZGVzY3JpcHRvcnMgZnJvbSB0aGUgYXZhaWxhYmxlLXJpbmcgYW5kIGFk
+ZGluZyBkZXNjcmlwdG9ycyB0byB0aGUgdXNlZC1yaW5nLgpUaGUgaW50ZXJuYWwgZGF0YS1zdHJ1
+Y3R1cmVzIGluIHZpcnRpb19yaW5nLmMgYXJlIG1vdmVkIGludG8gYSBuZXcgaGVhZGVyCmZpbGUg
+c28gdGhlIGRhdGEtc3RydWN0dXJlcyBjYW4gYmUgYWNjZXNzZWQgYnkgY2FpZl92aXJ0aW8uCgpU
+aGUgZGF0YSBidWZmZXJzIGluIFRYIGRpcmVjdGlvbiBhcmUgYWxsb2NhdGVkIHVzaW5nIGRtYV9h
+bGxvY19jb2hlcmVudCgpLgpUaGlzIGFsbG93cyBtZW1vcnkgdG8gYmUgYWxsb2NhdGVkIGZyb20g
+dGhlIG1lbW9yeSByZWdpb24gc2hhcmVkIGJldHdlZW4KdGhlIEhvc3QgYW5kIG1vZGVtLgoKSW4g
+VFggZGlyZWN0aW9uIHNpbmdsZSBsaW5lYXJpemVkIFRYIGJ1ZmZlcnMgYXJlIGFkZGVkIHRvIHRo
+ZSB2cmluZy4gSW4KUlggZGlyZWN0aW9uIGxpbmVhcml6ZWQgZnJhbWVzIGFyZSBhbHNvIHVzZWQs
+IGJ1dCBtdWx0aXBsZSBkZXNjcmlwdG9ycyBtYXkKYmUgbGlua2VkLiBUaGlzIGlzIGRvbmUgdG8g
+YWxsb3cgbWF4aW11bSBlZmZpY2llbmN5IGZvciB0aGUgTFRFIG1vZGVtLgoKVGhpcyBwYXRjaCBz
+ZXQgaXMgbm90IHlldCBmdWxseSB0ZXN0ZWQgYW5kIGRvZXMgbm90IGhhbmRsZSBhbGwgbmVnYXRp
+dmUKc2NlbmFyaW9zIGNvcnJlY3RseS4gU28gYXQgdGhpcyBzdGFnZSB3ZSdyZSBwcmltYXJpbHkg
+bG9va2luZyBmb3IgcmV2aWV3CmNvbW1lbnRzIHJlbGF0ZWQgdG8gdGhlIHN0cnVjdHVyZSBvZiB0
+aGUgVmlydGlvIGNvZGUuIFRoZXJlIGFyZSBzZXZlcmFsCm9wdGlvbnMgb24gaG93IHRvIHN0cnVj
+dHVyZSB0aGlzLCBhbmQgZmVlZGJhY2sgaXMgd2VsY29tZWQuCgpUaGFua3MsClNqdXIKClNqdXIg
+QnLDpm5kZWxhbmQgKDQpOgogIHZpcnRpbzogTW92ZSBkZWZpbml0aW9ucyB0byBoZWFkZXIgZmls
+ZSB2cmluZy5oCiAgaW5jbHVkZS92cmluZy5oOiBBZGQgc3VwcG9ydCBmb3IgcmV2ZXJzZWQgdnJp
+dGlvIHJpbmdzLgogIHZpcnRpb19yaW5nOiBDYWxsIGNhbGxiYWNrIGZ1bmN0aW9uIGV2ZW4gd2hl
+biB1c2VkIHJpbmcgaXMgZW1wdHkKICBjYWlmX3ZpcnRpbzogQWRkIENBSUYgb3ZlciB2aXJ0aW8K
+CiBkcml2ZXJzL25ldC9jYWlmL0tjb25maWcgICAgICAgICAgICAgICB8ICAgIDkgKwogZHJpdmVy
+cy9uZXQvY2FpZi9NYWtlZmlsZSAgICAgICAgICAgICAgfCAgICAzICsKIGRyaXZlcnMvbmV0L2Nh
+aWYvY2FpZl92aXJ0aW8uYyAgICAgICAgIHwgIDYyNyArKysrKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKwogZHJpdmVycy9yZW1vdGVwcm9jL3JlbW90ZXByb2NfdmlydGlvLmMgfCAgICAyICst
+CiBkcml2ZXJzL3ZpcnRpby92aXJ0aW9fcmluZy5jICAgICAgICAgICB8ICAxMDIgKy0tLS0tCiBk
+cml2ZXJzL3ZpcnRpby92cmluZy5oICAgICAgICAgICAgICAgICB8ICAxMjQgKysrKysrKwogaW5j
+bHVkZS9saW51eC92aXJ0aW9fcmluZy5oICAgICAgICAgICAgfCAgICA4ICstCiBpbmNsdWRlL3Vh
+cGkvbGludXgvdmlydGlvX2lkcy5oICAgICAgICB8ICAgIDEgKwogOCBmaWxlcyBjaGFuZ2VkLCA3
+NzYgaW5zZXJ0aW9ucygrKSwgMTAwIGRlbGV0aW9ucygtKQogY3JlYXRlIG1vZGUgMTAwNjQ0IGRy
+aXZlcnMvbmV0L2NhaWYvY2FpZl92aXJ0aW8uYwogY3JlYXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMv
+dmlydGlvL3ZyaW5nLmgKCi0tIAoxLjcuOS41CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6
+YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5k
+YXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
