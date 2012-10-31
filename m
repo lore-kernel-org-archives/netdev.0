@@ -1,7 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net 2/7] bnx2x: Fix link down in 57712 following LFA
-Date: Wed, 31 Oct 2012 17:46:53 +0200
-Message-ID: <1351698418-10005-3-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH net 5/7] bnx2x: Fix unrecognized SFP+ module after
+ driver is loaded
+Date: Wed, 31 Oct 2012 17:46:56 +0200
+Message-ID: <1351698418-10005-6-git-send-email-dmitry@broadcom.com>
 References: <1351698418-10005-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,73 +13,96 @@ Cc: "Yaniv Rosner" <yanivr@broadcom.com>,
 To: ariele@broadcom.com, eilong@broadcom.com, davem@davemloft.net,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2865 "EHLO mms3.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2910 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757618Ab2JaPrP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2012 11:47:15 -0400
+	id S965146Ab2JaPrT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2012 11:47:19 -0400
 In-Reply-To: <1351698418-10005-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yaniv Rosner <yanivr@broadcom.com>
 
-In case of link flap avoidance between PXE boot and bnx2x, set the appropriate
-PHY DEVAD even if LFA kicks in.
+When SFP+ module is plugged in after driver is already loaded, it may not be
+recognized, so set SFP module recognition time up to 300ms, without resetting
+the module power in the middle.
 
 Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Barak Witkowski <barak@broadcom.com>
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   23 +++++++++++++++++----
- 1 files changed, 18 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |   22 +++++++++++++++-------
+ 1 files changed, 15 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 290e12a..f2436ea 100644
+index 308ba42..679d45e 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -3295,6 +3295,21 @@ static void bnx2x_serdes_deassert(struct bnx2x *bp, u8 port)
- 	       DEFAULT_PHY_DEV_ADDR);
- }
- 
-+static void bnx2x_xgxs_specific_func(struct bnx2x_phy *phy,
-+				     struct link_params *params,
-+				     u32 action)
-+{
-+	struct bnx2x *bp = params->bp;
-+	switch (action) {
-+	case PHY_INIT:
-+		/* Set correct devad */
-+		REG_WR(bp, NIG_REG_XGXS0_CTRL_MD_ST + params->port*0x18, 0);
-+		REG_WR(bp, NIG_REG_XGXS0_CTRL_MD_DEVAD + params->port*0x18,
-+		       phy->def_md_devad);
-+		break;
-+	}
-+}
-+
- static void bnx2x_xgxs_deassert(struct link_params *params)
+@@ -7634,7 +7634,7 @@ static void bnx2x_warpcore_power_module(struct link_params *params,
+ static int bnx2x_warpcore_read_sfp_module_eeprom(struct bnx2x_phy *phy,
+ 						 struct link_params *params,
+ 						 u16 addr, u8 byte_cnt,
+-						 u8 *o_buf)
++						 u8 *o_buf, u8 is_init)
  {
+ 	int rc = 0;
+ 	u8 i, j = 0, cnt = 0;
+@@ -7651,10 +7651,10 @@ static int bnx2x_warpcore_read_sfp_module_eeprom(struct bnx2x_phy *phy,
+ 	/* 4 byte aligned address */
+ 	addr32 = addr & (~0x3);
+ 	do {
+-		if (cnt == I2C_WA_PWR_ITER) {
++		if ((!is_init) && (cnt == I2C_WA_PWR_ITER)) {
+ 			bnx2x_warpcore_power_module(params, phy, 0);
+ 			/* Note that 100us are not enough here */
+-			usleep_range(1000,1000);
++			usleep_range(1000, 2000);
+ 			bnx2x_warpcore_power_module(params, phy, 1);
+ 		}
+ 		rc = bnx2x_bsc_read(params, phy, 0xa0, addr32, 0, byte_cnt,
+@@ -7774,7 +7774,7 @@ int bnx2x_read_sfp_module_eeprom(struct bnx2x_phy *phy,
+ 	break;
+ 	case PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT:
+ 		rc = bnx2x_warpcore_read_sfp_module_eeprom(phy, params, addr,
+-							   byte_cnt, o_buf);
++							   byte_cnt, o_buf, 0);
+ 	break;
+ 	}
+ 	return rc;
+@@ -7978,6 +7978,7 @@ static int bnx2x_wait_for_sfp_module_initialized(struct bnx2x_phy *phy,
+ 
+ {
+ 	u8 val;
++	int rc;
  	struct bnx2x *bp = params->bp;
-@@ -3309,10 +3324,8 @@ static void bnx2x_xgxs_deassert(struct link_params *params)
- 	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_3_CLEAR, val);
- 	udelay(500);
- 	REG_WR(bp, GRCBASE_MISC + MISC_REGISTERS_RESET_REG_3_SET, val);
--
--	REG_WR(bp, NIG_REG_XGXS0_CTRL_MD_ST + port*0x18, 0);
--	REG_WR(bp, NIG_REG_XGXS0_CTRL_MD_DEVAD + port*0x18,
--	       params->phy[INT_PHY].def_md_devad);
-+	bnx2x_xgxs_specific_func(&params->phy[INT_PHY], params,
-+				 PHY_INIT);
+ 	u16 timeout;
+ 	/* Initialization time after hot-plug may take up to 300ms for
+@@ -7985,8 +7986,14 @@ static int bnx2x_wait_for_sfp_module_initialized(struct bnx2x_phy *phy,
+ 	 */
+ 
+ 	for (timeout = 0; timeout < 60; timeout++) {
+-		if (bnx2x_read_sfp_module_eeprom(phy, params, 1, 1, &val)
+-		    == 0) {
++		if (phy->type == PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT)
++			rc = bnx2x_warpcore_read_sfp_module_eeprom(phy,
++								   params, 1,
++								   1, &val, 1);
++		else
++			rc = bnx2x_read_sfp_module_eeprom(phy, params, 1, 1,
++							  &val);
++		if (rc == 0) {
+ 			DP(NETIF_MSG_LINK,
+ 			   "SFP+ module initialization took %d ms\n",
+ 			   timeout * 5);
+@@ -7994,7 +8001,8 @@ static int bnx2x_wait_for_sfp_module_initialized(struct bnx2x_phy *phy,
+ 		}
+ 		usleep_range(5000, 10000);
+ 	}
+-	return -EINVAL;
++	rc = bnx2x_read_sfp_module_eeprom(phy, params, 1, 1, &val);
++	return rc;
  }
  
- static void bnx2x_calc_ieee_aneg_adv(struct bnx2x_phy *phy,
-@@ -10999,7 +11012,7 @@ static struct bnx2x_phy phy_xgxs = {
- 	.format_fw_ver	= (format_fw_ver_t)NULL,
- 	.hw_reset	= (hw_reset_t)NULL,
- 	.set_link_led	= (set_link_led_t)NULL,
--	.phy_specific_func = (phy_specific_func_t)NULL
-+	.phy_specific_func = (phy_specific_func_t)bnx2x_xgxs_specific_func
- };
- static struct bnx2x_phy phy_warpcore = {
- 	.type		= PORT_HW_CFG_XGXS_EXT_PHY_TYPE_DIRECT,
+ static void bnx2x_8727_power_module(struct bnx2x *bp,
 -- 
 1.7.7.2
