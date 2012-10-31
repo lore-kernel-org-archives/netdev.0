@@ -1,78 +1,97 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next 1/8] bridge: bridge port parameters over
- netlink
-Date: Wed, 31 Oct 2012 14:30:20 -0700
-Message-ID: <20121031143020.62e08062@s6510.linuxnetplumber.net>
-References: <20121030005731.843020405@vyatta.com>
-	<20121030005835.289407930@vyatta.com>
-	<50912F4D.2090602@intel.com>
+From: Ani Sinha <ani@aristanetworks.com>
+Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
+Date: Wed, 31 Oct 2012 14:50:27 -0700
+Message-ID: <CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
+References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
+	<3246.1351717319@obiwan.sandelman.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: tcpdump-workers@lists.tcpdump.org,
+	Francesco Ruggeri <fruggeri@aristanetworks.com>
+To: Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56086 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932661Ab2JaVac (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2012 17:30:32 -0400
-In-Reply-To: <50912F4D.2090602@intel.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:59421 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754482Ab2JaVu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 17:50:28 -0400
+Received: by mail-ie0-f174.google.com with SMTP id k13so2792828iea.19
+        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 14:50:28 -0700 (PDT)
+In-Reply-To: <3246.1351717319@obiwan.sandelman.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Oct 2012 07:01:49 -0700
-John Fastabend <john.r.fastabend@intel.com> wrote:
+cc'ing netdev.
 
-> On 10/29/2012 5:57 PM, Stephen Hemminger wrote:
-> > Expose bridge port parameters over netlink. By switching
-> > from a single byet to a nested message, this can be used for
-> > other bridge parameters.
-> >
-> > Although, this changes IFLA_PROTINFO attribute from one byte to a full nested
-> > set of attributes; it is safe for applications because the
-> > old message used IFLA_PROTINFO and new one uses
-> >   IFLA_PROTINFO | NLA_F_NESTED.
-> >
-> > The code still accepts to old format requests, and therefore stays
-> > compatiable with user mode RSTP daemon. Since the type field
-> > for nested and unnested attributes are different, and the old
-> > code in libnetlink doesn't do the mask, it is also safe to use
-> > with old versions of bridge monitor command.
-> >
-> > Note: although mode is only a boolean, treating it as a
-> > full byte since in the future someone will probably want to add more
-> > values (like macvlan has).
-> >
-> > Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
-> >
-> > ---
-> 
-> Stephen,
-> 
-> Did you see these two patches
-> 
-> http://patchwork.ozlabs.org/patch/193900/
-> http://patchwork.ozlabs.org/patch/193901/
-> 
-> here I added nested bridge attributes to IFLA_AF_SPEC and pass them down
-> to the drivers as needed. Should we merge these two sets so that we have
-> only a single nested set of bridge attributes? Either in IFLA_AF_SPEC or
-> IFLA_PROTINFO.
-> 
-> The attributes in this patch are port specifics and the one in the
-> patches listed above are bridge specific so in this sense perhaps
-> its OK to keep them separate. I'm not sure it matters much either
-> way but thought I would mention it.
-> 
-> Also I suspect these two series will have conflicts but I haven't tried
-> yet.
-> 
-> Thanks,
-> John
 
-This is an area where there is no clear choice.
-I would like to keep AF_UNSPEC for non-protocol stuff,
-that is why I targeted PF_BRIDGE:IFLA_PROTINFO.
+On Wed, Oct 31, 2012 at 2:01 PM, Michael Richardson <mcr@sandelman.ca> wrote:
+>
+> Thanks for this email.
+>
+>>>>>> "Ani" == Ani Sinha <ani@aristanetworks.com> writes:
+>     Ani> remove "inline" from vlan_core.c functions
+>     Ani> Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+>     Ani> As a result of this patch, with or without HW acceleration support in
+>     Ani> the kernel driver, the vlan tag information is pulled out from the
+>     Ani> packet and is inserted in the skb metadata. Thereafter, the vlan tag
+>     Ani> information for a 802.1q packet can be obtained my applications
+>     Ani> running in the user space by using the auxdata and cmsg
+>     Ani> structure.
+>
+> Do you think that the existance of this behaviour could be exposed in
+> sysctl, /proc/net or /sys equivalent (we still don't have /sys/net...)?
+> As a read only file that had a 0/1 in it?
 
-Other alternative would be to add sysctl which is less message
-based, but is more general. (ie. /default and /all are available).
+yes, we definitely need a run time check. Whether this could be in the
+form of a socket option or a /proc entry I don't know.
+
+>
+> Should be one stanza to net/dev/sysctl_net_core, I think.
+> If we are fast, maybe no kernel will ship without it.
+>
+> (An aside, is this auxdata/cmsg info available on UDP sockets too?)
+>
+>     Ani> More recently, two more patches were committed to net-next that enable
+>     Ani> the kernel BPF filter to filter packets using their vlan tags :
+>
+>     Ani> http://www.spinics.net/lists/netdev/msg214758.html
+>     Ani> http://www.spinics.net/lists/netdev/msg214759.html
+>
+> okay...
+>
+>     Ani> Now to the real problem. The filter that is currently generated by
+>     Ani> libpcap (gencode.c) uses offsets into the packet to obtain the vlan
+>     Ani> tag for a packet and then compare it to the one provided by the user
+>     Ani> in the filter expression (gen_vlan()). This will no longer work if the
+>     Ani> tag has been pulled off from the packet itself. One has to use the
+>     Ani> negative offsets (SKF_AD_VLAN_TAG) as used by the kernel BPF filter to
+>     Ani> pass down the attribute that we need to compare against.  Now here's a
+>     Ani> bigger problem. How do we avoid breakage in case we run libpcap on top
+>     Ani> of an older kernel that does not extract the tags from the packet? How
+>     Ani> do we handle cases of parsing and filtering against captured pcap
+>     Ani> files that already have the vlan tags reinserted into the packet data?
+>     Ani> There might be other corner cases that I am missing and not
+>     Ani> understanding here.
+>
+> AFAIK, We will have to modify pcap-linux to produce different filters.
+>
+>     Ani> Are you guys aware of the problem? Is there any thoughts as to how we
+>     Ani> may be able to address the problem or not at all?
+>
+> Nobody gave us a heads up, no.
+
+Glad that I brought this up. Actually Bill Fenner who also works for
+us helped me a lot in understanding the problem and potentially how it
+can be addressed.
+
+
+>
+> It sounds like it's impossible to capture all traffic now, and do vlan
+> filtering later on?
+
+pcap files that already have the tags reinsrted should work with
+current filter code. However for live traffic, one has to get the tags
+from CMSG() and then reinsert it back to the packet for the current
+filter to work. This is slow.
+
+ani
