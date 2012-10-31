@@ -1,24 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: no power and backlogged
-Date: Wed, 31 Oct 2012 12:40:26 -0400 (EDT)
-Message-ID: <20121031.124026.1926567040512451629.davem@davemloft.net>
+Subject: Re: tcp_metrics: dumb bug
+Date: Wed, 31 Oct 2012 12:46:39 -0400 (EDT)
+Message-ID: <20121031.124639.2059872320833955948.davem@davemloft.net>
+References: <20121030085920.3c64ebd1@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ja@ssi.bg, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46989 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758120Ab2JaQqm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 12:46:42 -0400
+In-Reply-To: <20121030085920.3c64ebd1@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 30 Oct 2012 08:59:20 -0700
 
-As you probably know NYC is a complete shit show right now.
+> https://bugzilla.kernel.org/show_bug.cgi?id=49171
+> 
+> Description From David Binderman 2012-10-21 10:31:05 (-) [reply]
+> The source code is
+> 
+>         if (nla_len(a) != sizeof(sizeof(struct in6_addr)))
+> 
+> I'm surprised that compiles. Suggest remove one of the sizeofs.
 
-I'm without power and just got onto the net for the first time in two
-days at an internet cafe in midtown (nearly all of manhattan below
-40th St. is without power).
-
-Even with net access, conditions as you can imagine are far from
-ideal, so I'm likely to be backlogged for a while.
-
-Thanks in advance for your understanding.
+sizeof() resolves to a size_t value so... :)
