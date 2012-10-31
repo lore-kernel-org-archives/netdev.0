@@ -1,12 +1,13 @@
 From: Bob Liu <lliubbo@gmail.com>
 Subject: Re: [uclinux-dist-devel] [PATCH RFC net-next 2/4] bfin_mac: replace
  sys time stamps with raw ones instead.
-Date: Wed, 31 Oct 2012 14:29:23 +0800
-Message-ID: <CAA_GA1fW2zA2j66y7zfVe6+U-pb1=3mOyFFH+oDHimMFAXyH7Q@mail.gmail.com>
+Date: Wed, 31 Oct 2012 14:36:17 +0800
+Message-ID: <CAA_GA1eonrPNS0VZgLxnTYSzFdOWvBvp8XUcEfOLKo+c7LzoDg@mail.gmail.com>
 References: <cover.1348851539.git.richardcochran@gmail.com>
 	<84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
 	<CAA_GA1dWgav0fP3wJNFQW=VE9Qh-V8NBHqsmNoXaRny+5dnewg@mail.gmail.com>
 	<20121030134112.GB2283@netboy.at.omicron.at>
+	<CAA_GA1fW2zA2j66y7zfVe6+U-pb1=3mOyFFH+oDHimMFAXyH7Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev@vger.kernel.org, Miroslav Lichvar <mlichvar@redhat.com>,
@@ -20,88 +21,95 @@ Cc: netdev@vger.kernel.org, Miroslav Lichvar <mlichvar@redhat.com>,
 	David Miller <davem@davemloft.net>
 To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:39417 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752817Ab2JaG3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 02:29:25 -0400
-Received: by mail-wg0-f44.google.com with SMTP id dr13so718207wgb.1
-        for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 23:29:23 -0700 (PDT)
-In-Reply-To: <20121030134112.GB2283@netboy.at.omicron.at>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:60099 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751018Ab2JaGgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 02:36:18 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hr7so886192wib.1
+        for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 23:36:17 -0700 (PDT)
+In-Reply-To: <CAA_GA1fW2zA2j66y7zfVe6+U-pb1=3mOyFFH+oDHimMFAXyH7Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 30, 2012 at 9:41 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Tue, Oct 30, 2012 at 05:17:51PM +0800, Bob Liu wrote:
->
->> > @@ -892,51 +879,25 @@ static void bfin_rx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
->> >
->> >         regval = bfin_read_EMAC_PTP_RXSNAPLO();
->> >         regval |= (u64)bfin_read_EMAC_PTP_RXSNAPHI() << 32;
->> > -       ns = timecounter_cyc2time(&lp->clock, regval);
->> > -       timecompare_update(&lp->compare, ns);
->> > +       ns = regval >> lp->shift;
->> >         memset(shhwtstamps, 0, sizeof(*shhwtstamps));
->> >         shhwtstamps->hwtstamp = ns_to_ktime(ns);
->> > -       shhwtstamps->syststamp = timecompare_transform(&lp->compare, ns);
->> > -
->> > -       bfin_dump_hwtamp("RX", &shhwtstamps->hwtstamp, &shhwtstamps->syststamp, &lp->compare);
->> > -}
+On Wed, Oct 31, 2012 at 2:29 PM, Bob Liu <lliubbo@gmail.com> wrote:
+> On Tue, Oct 30, 2012 at 9:41 PM, Richard Cochran
+> <richardcochran@gmail.com> wrote:
+>> On Tue, Oct 30, 2012 at 05:17:51PM +0800, Bob Liu wrote:
 >>
->> In my test,  system time in slave side can't be updated although here
->> have set shhwtstamps->hwtstamp = ns_to_ktime(ns).
->> Any idea?
+>>> > @@ -892,51 +879,25 @@ static void bfin_rx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
+>>> >
+>>> >         regval = bfin_read_EMAC_PTP_RXSNAPLO();
+>>> >         regval |= (u64)bfin_read_EMAC_PTP_RXSNAPHI() << 32;
+>>> > -       ns = timecounter_cyc2time(&lp->clock, regval);
+>>> > -       timecompare_update(&lp->compare, ns);
+>>> > +       ns = regval >> lp->shift;
+>>> >         memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+>>> >         shhwtstamps->hwtstamp = ns_to_ktime(ns);
+>>> > -       shhwtstamps->syststamp = timecompare_transform(&lp->compare, ns);
+>>> > -
+>>> > -       bfin_dump_hwtamp("RX", &shhwtstamps->hwtstamp, &shhwtstamps->syststamp, &lp->compare);
+>>> > -}
+>>>
+>>> In my test,  system time in slave side can't be updated although here
+>>> have set shhwtstamps->hwtstamp = ns_to_ktime(ns).
+>>> Any idea?
+>>
+>> So the "system time" in shhwtstamps->syststamp has been removed. Only
+>> the raw value remains.
+>>
+>> Or what do you mean by "can't be updated"?
+>>
+>> How did you test this?
+>>
 >
-> So the "system time" in shhwtstamps->syststamp has been removed. Only
-> the raw value remains.
->
-> Or what do you mean by "can't be updated"?
->
-> How did you test this?
->
-
-Using ptpv2 from ptpd.sourceforge.net.
-That's the tool we used to test ptp, it's out of date now?
-
-> I would suggest the following:
->
-> 1. test using Documentation/ptp/testptp to make sure the clock is
->    working reasconably.
->
-
-Seems work fine:
----------------------
-root:/> ./testptp -c
-capabilities:
-  279999999 maximum frequency adjustment (ppb)
-  0 programmable alarms
-  0 external time stamp channels
-  0 programmable periodic signals
-  0 pulse per second
-root:/> ./testptp -g
-clock time: 221.372644272 or Thu Jan  1 00:03:41 1970
-root:/> date
-Fri Jan  2 10:52:06 UTC 1970
-root:/>
-root:/>  date -s 2010.03.16-15:30
-Tue Mar 16 15:30:00 UTC 2010
-root:/>
-root:/> ./testptp -g
-clock time: 242.392199760 or Thu Jan  1 00:04:02 1970
-root:/> ./testptp -s
-set time okay
-root:/> ./testptp -g
-clock time: 1268753411.506626656 or Tue Mar 16 15:30:11 2010
-root:/>
-
-
-> 2. try ptp4l from http://linuxptp.sourceforge.net/ to make sure the
->    time stamping is working
+> Using ptpv2 from ptpd.sourceforge.net.
+> That's the tool we used to test ptp, it's out of date now?
 >
 
-Any guide how to use ptp4l to sync system time between two machines
-over ethernet?
-We used to use PTPd - Precision Time Protocol daemon.
+Sorry, we used to use this one:
+ https://github.com/richardcochran/ptpd-phc.git
 
+>> I would suggest the following:
+>>
+>> 1. test using Documentation/ptp/testptp to make sure the clock is
+>>    working reasconably.
+>>
+>
+> Seems work fine:
+> ---------------------
+> root:/> ./testptp -c
+> capabilities:
+>   279999999 maximum frequency adjustment (ppb)
+>   0 programmable alarms
+>   0 external time stamp channels
+>   0 programmable periodic signals
+>   0 pulse per second
+> root:/> ./testptp -g
+> clock time: 221.372644272 or Thu Jan  1 00:03:41 1970
+> root:/> date
+> Fri Jan  2 10:52:06 UTC 1970
+> root:/>
+> root:/>  date -s 2010.03.16-15:30
+> Tue Mar 16 15:30:00 UTC 2010
+> root:/>
+> root:/> ./testptp -g
+> clock time: 242.392199760 or Thu Jan  1 00:04:02 1970
+> root:/> ./testptp -s
+> set time okay
+> root:/> ./testptp -g
+> clock time: 1268753411.506626656 or Tue Mar 16 15:30:11 2010
+> root:/>
+>
+>
+>> 2. try ptp4l from http://linuxptp.sourceforge.net/ to make sure the
+>>    time stamping is working
+>>
+>
+> Any guide how to use ptp4l to sync system time between two machines
+> over ethernet?
+> We used to use PTPd - Precision Time Protocol daemon.
+>
+
+-- 
 Thanks,
 --Bob
