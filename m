@@ -1,25 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH resend 2] net/ipv4/ipconfig: add device address to a
- KERN_INFO message
-Date: Wed, 31 Oct 2012 13:23:20 -0400 (EDT)
-Message-ID: <20121031.132320.161133126258025586.davem@davemloft.net>
-References: <50891F5F.7060003@huawei.com>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: [PATCH 0/9] use this_cpu_ptr instead of  per_cpu_ptr(p,
+ smp_processor_id())
+Date: Wed, 31 Oct 2012 17:28:56 +0000
+Message-ID: <0000013ab7de641e-c975be0c-e85b-4705-8f02-e25b2d4a0ac2-000000@email.amazonses.com>
+References: <509109D2.9030209@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Claudio.Fontana@huawei.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>,
+	Kernel-Maillist <linux-kernel@vger.kernel.org>
+To: Shan Wei <shanwei88@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50891F5F.7060003@huawei.com>
+In-Reply-To: <509109D2.9030209@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Claudio Fontana <Claudio.Fontana@huawei.com>
-Date: Thu, 25 Oct 2012 13:15:43 +0200
+On Wed, 31 Oct 2012, Shan Wei wrote:
 
-> adds a "hwaddr" to the "IP-Config: Complete" KERN_INFO message
-> with the dev_addr of the device selected for auto configuration.
-> 
-> Signed-off-by: Claudio Fontana <claudio.fontana@huawei.com>
+> this_cpu_ptr is faster than per_cpu_ptr(p, smp_processor_id()).
+> The latter helper needs to find the offset for current cpu,
+> and needs more assembler instructions which objdump shows in following.
 
-Applied to net-next
+The code is shorter and that helps but note that the main effect is that
+memory accesses are reduced.
