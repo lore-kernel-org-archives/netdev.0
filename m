@@ -1,175 +1,45 @@
-From: Benoit Cousson <b-cousson@ti.com>
-Subject: Re: [PATCH 4/4] arm/dts: am33xx: Add CPSW and MDIO module nodes for
- AM33XX
-Date: Wed, 31 Oct 2012 16:17:27 +0100
-Message-ID: <50914107.2090909@ti.com>
-References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com> <1351498881-32482-6-git-send-email-hvaibhav@ti.com>
+From: Alan Stern <stern@rowland.harvard.edu>
+Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
+Date: Wed, 31 Oct 2012 11:20:02 -0400 (EDT)
+Message-ID: <Pine.LNX.4.44L0.1210311117310.1954-100000@iolanthe.rowland.org>
+References: <CACVXFVNxucCVLS-=EQkmVop3LQMkeXW7RbZq4yfkiq_MUGndvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <paul@pwsan.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Vaibhav Hiremath <hvaibhav@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1351498881-32482-6-git-send-email-hvaibhav@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Oliver Neukum <oneukum@suse.de>,  <linux-kernel@vger.kernel.org>,
+    Minchan Kim <minchan@kernel.org>,
+    Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+    "Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
+    "David S. Miller" <davem@davemloft.net>,
+    Andrew Morton <akpm@linux-foundation.org>,  <netdev@vger.kernel.org>,
+     <linux-usb@vger.kernel.org>,  <linux-pm@vger.kernel.org>,
+     <linux-mm@kvack.org>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CACVXFVNxucCVLS-=EQkmVop3LQMkeXW7RbZq4yfkiq_MUGndvg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 31 Oct 2012, Ming Lei wrote:
 
-On 10/29/2012 09:21 AM, Vaibhav Hiremath wrote:
-> From: Mugunthan V N <mugunthanvnm@ti.com>
+> The below idea may help the problem which 'memalloc_noio' flag isn't set during
+> usb_reset_device().
 > 
-> Add CPSW and MDIO related device tree data for AM33XX.
-> Also enable them into board/evm dts files by providing
-> respective phy-id.
+> - for usb mass storage device, call pm_runtime_set_memalloc_noio(true)
+>   inside usb_stor_probe2() and uas_probe(), and call
+>   pm_runtime_set_memalloc_noio(false) inside uas_disconnect()
+>   and usb_stor_disconnect().
 
-Is there any bindings documentation for that device?
+Why would you want to do that?  The probe and disconnect routines
+usually -- but not always -- run in the khubd thread.  Surely you don't
+want to prevent khubd from using GFP_KERNEL?
 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
-> Cc: Richard Cochran <richardcochran@gmail.com>
-> Cc: Benoit Cousson <b-cousson@ti.com>
-> ---
->  arch/arm/boot/dts/am335x-bone.dts |    8 ++++++
->  arch/arm/boot/dts/am335x-evm.dts  |    8 ++++++
->  arch/arm/boot/dts/am33xx.dtsi     |   50 +++++++++++++++++++++++++++++++++++++
->  3 files changed, 66 insertions(+), 0 deletions(-)
-> 
-> diff --git a/arch/arm/boot/dts/am335x-bone.dts b/arch/arm/boot/dts/am335x-bone.dts
-> index c634f87..e233cfa 100644
-> --- a/arch/arm/boot/dts/am335x-bone.dts
-> +++ b/arch/arm/boot/dts/am335x-bone.dts
-> @@ -78,3 +78,11 @@
->  		};
->  	};
->  };
-> +
-> +&cpsw_emac0 {
-> +	phy_id = "4a101000.mdio:00";
+And what if probe runs in khubd but disconnect runs in a different 
+thread?
 
-Why are you using that kind of interface? You seem to want a reference
-to a device.
+Alan Stern
 
-Cannot you have something less hard coded like:
-phy_id = <&davinci_mdio>, <0>;
-
-
-> +};
-> +
-> +&cpsw_emac1 {
-> +	phy_id = "4a101000.mdio:01";
-> +};
-> diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
-> index 185d632..415c3b3 100644
-> --- a/arch/arm/boot/dts/am335x-evm.dts
-> +++ b/arch/arm/boot/dts/am335x-evm.dts
-> @@ -118,3 +118,11 @@
->  		};
->  	};
->  };
-> +
-> +&cpsw_emac0 {
-> +	phy_id = "4a101000.mdio:00";
-> +};
-> +
-> +&cpsw_emac1 {
-> +	phy_id = "4a101000.mdio:01";
-> +};
-> diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-> index bb31bff..f6bea04 100644
-> --- a/arch/arm/boot/dts/am33xx.dtsi
-> +++ b/arch/arm/boot/dts/am33xx.dtsi
-> @@ -210,5 +210,55 @@
->  			interrupt-parent = <&intc>;
->  			interrupts = <91>;
->  		};
-> +
-> +		mac: ethernet@4A100000 {
-
-hexa data should be in lower case.
-
-> +			compatible = "ti,cpsw";
-> +			ti,hwmods = "cpgmac0";
-> +			cpdma_channels = <8>;
-> +			host_port_no = <0>;
-> +			cpdma_reg_ofs = <0x800>;
-> +			cpdma_sram_ofs = <0xa00>;
-> +			ale_reg_ofs = <0xd00>;
-> +			ale_entries = <1024>;
-> +			host_port_reg_ofs = <0x108>;
-> +			hw_stats_reg_ofs = <0x900>;
-> +			bd_ram_ofs = <0x2000>;
-> +			bd_ram_size = <0x2000>;
-> +			no_bd_ram = <0>;
-> +			rx_descs = <64>;
-> +			mac_control = <0x20>;
-
-Do you have to store all these data in the DTS? Cannot it be in the driver?
-
-Do you expect to have several instance of the same IP with different
-parameters here?
-
-> +			slaves = <2>;
-> +			reg = <0x4a100000 0x800
-> +				0x4a101200 0x100
-> +				0x4a101000 0x100>;
-
-Please align the address.
-
-> +			#address-cells = <1>;
-> +			#size-cells = <1>;
-> +			interrupt-parent = <&intc>;
-> +			/* c0_rx_thresh_pend c0_rx_pend c0_tx_pend c0_misc_pend*/
-
-Please use a standard multi-line comment instead of trying to put
-everything in one line.
-
-> +			interrupts = <40 41 42 43>;
-> +			ranges;
-
-You should add blank line here for readability.
-
-> +			cpsw_emac0: slave@0 {
-
-Mmm, you are using some address later and here some relative number,
-that does not looks very consistent.
-
-> +				slave_reg_ofs = <0x208>;
-
-Is it an offset from 4a100000? Cannot you use the address for the slave
-name?
-
-Something like that: cpsw_emac0: slave@4a100208
-
-> +				sliver_reg_ofs = <0xd80>;
-> +				/* Filled in by U-Boot */
-> +				mac-address = [ 00 00 00 00 00 00 ];
-> +			};
-
-You should add blank line here for readability.
-
-> +			cpsw_emac1: slave@1 {
-> +				slave_reg_ofs = <0x308>;
-> +				sliver_reg_ofs = <0xdc0>;
-> +				/* Filled in by U-Boot */
-> +				mac-address = [ 00 00 00 00 00 00 ];
-> +			};
-> +
-> +			davinci_mdio: mdio@4a101000 {
-> +				compatible = "ti,davinci_mdio";
-> +				#address-cells = <1>;
-> +				#size-cells = <0>;
-> +				ti,hwmods = "davinci_mdio";
-> +				bus_freq = <1000000>;
-> +				reg = <0x4a101000 0x100>;
-> +			};
-> +
-
-Stray change.
-
-Regards,
-Benoit
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
