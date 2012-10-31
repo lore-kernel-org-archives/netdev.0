@@ -1,12 +1,13 @@
-From: Bob Liu <lliubbo@gmail.com>
-Subject: Re: [uclinux-dist-devel] [PATCH RFC net-next 2/4] bfin_mac: replace
- sys time stamps with raw ones instead.
-Date: Wed, 31 Oct 2012 14:47:21 +0800
-Message-ID: <CAA_GA1f6BuaY+xtMjGrvaaAoP=Z0=o3NZEwjt6F-5zYho0L7OQ@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [uclinux-dist-devel] [PATCH RFC net-next 2/4] bfin_mac:
+ replace sys time stamps with raw ones instead.
+Date: Wed, 31 Oct 2012 08:57:43 +0100
+Message-ID: <20121031075743.GA2327@netboy.at.omicron.at>
 References: <cover.1348851539.git.richardcochran@gmail.com>
-	<84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
+ <84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
+ <CAA_GA1f6BuaY+xtMjGrvaaAoP=Z0=o3NZEwjt6F-5zYho0L7OQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Miroslav Lichvar <mlichvar@redhat.com>,
 	John Ronciak <john.ronciak@intel.com>,
 	John Stultz <john.stultz@linaro.org>,
@@ -16,236 +17,43 @@ Cc: netdev@vger.kernel.org, Miroslav Lichvar <mlichvar@redhat.com>,
 	uclinux-dist-devel@blackfin.uclinux.org,
 	Patrick Ohly <patrick.ohly@intel.com>,
 	David Miller <davem@davemloft.net>
-To: Richard Cochran <richardcochran@gmail.com>
+To: Bob Liu <lliubbo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:58792 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754098Ab2JaGrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 02:47:24 -0400
-Received: by mail-we0-f174.google.com with SMTP id t9so488509wey.19
-        for <netdev@vger.kernel.org>; Tue, 30 Oct 2012 23:47:21 -0700 (PDT)
-In-Reply-To: <84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:33642 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751390Ab2JaH54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 03:57:56 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so575749eek.19
+        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 00:57:55 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAA_GA1f6BuaY+xtMjGrvaaAoP=Z0=o3NZEwjt6F-5zYho0L7OQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 29, 2012 at 1:20 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> This patch replaces the sys time stamps and timecompare code with simple
-> raw hardware time stamps in nanosecond resolution. The only tricky bit is
-> to find a PTP Hardware Clock period slower than the input clock period
-> and a power of two.
->
-> Compile tested only.
->
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-> ---
->  drivers/net/ethernet/adi/bfin_mac.c |   91 ++++++++++-------------------------
->  drivers/net/ethernet/adi/bfin_mac.h |    7 +--
->  2 files changed, 28 insertions(+), 70 deletions(-)
->
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-> index 2349abb..393d1b5 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.c
-> +++ b/drivers/net/ethernet/adi/bfin_mac.c
-> @@ -555,7 +555,7 @@ static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
->         info->so_timestamping =
->                 SOF_TIMESTAMPING_TX_HARDWARE |
->                 SOF_TIMESTAMPING_RX_HARDWARE |
-> -               SOF_TIMESTAMPING_SYS_HARDWARE;
-> +               SOF_TIMESTAMPING_RAW_HARDWARE;
->         info->phc_index = -1;
->         info->tx_types =
->                 (1 << HWTSTAMP_TX_OFF) |
-> @@ -653,6 +653,20 @@ static int bfin_mac_set_mac_address(struct net_device *dev, void *p)
->  #ifdef CONFIG_BFIN_MAC_USE_HWSTAMP
->  #define bfin_mac_hwtstamp_is_none(cfg) ((cfg) == HWTSTAMP_FILTER_NONE)
->
-> +static u32 bfin_select_phc_clock(u32 input_clk, unsigned int *shift_result)
-> +{
-> +       u32 ipn = 1000000000UL / input_clk;
-> +       u32 ppn = 1;
-> +       unsigned int shift = 0;
-> +
-> +       while (ppn <= ipn) {
-> +               ppn <<= 1;
-> +               shift++;
-> +       }
-> +       *shift_result = shift;
-> +       return 1000000000UL / ppn;
-> +}
-> +
->  static int bfin_mac_hwtstamp_ioctl(struct net_device *netdev,
->                 struct ifreq *ifr, int cmd)
->  {
-> @@ -802,19 +816,7 @@ static int bfin_mac_hwtstamp_ioctl(struct net_device *netdev,
->                 bfin_read_EMAC_PTP_TXSNAPLO();
->                 bfin_read_EMAC_PTP_TXSNAPHI();
->
-> -               /*
-> -                * Set registers so that rollover occurs soon to test this.
-> -                */
-> -               bfin_write_EMAC_PTP_TIMELO(0x00000000);
-> -               bfin_write_EMAC_PTP_TIMEHI(0xFF800000);
-> -
->                 SSYNC();
-> -
-> -               lp->compare.last_update = 0;
-> -               timecounter_init(&lp->clock,
-> -                               &lp->cycles,
-> -                               ktime_to_ns(ktime_get_real()));
-> -               timecompare_update(&lp->compare, 0);
->         }
->
->         lp->stamp_cfg = config;
-> @@ -822,15 +824,6 @@ static int bfin_mac_hwtstamp_ioctl(struct net_device *netdev,
->                 -EFAULT : 0;
->  }
->
-> -static void bfin_dump_hwtamp(char *s, ktime_t *hw, ktime_t *ts, struct timecompare *cmp)
-> -{
-> -       ktime_t sys = ktime_get_real();
-> -
-> -       pr_debug("%s %s hardware:%d,%d transform system:%d,%d system:%d,%d, cmp:%lld, %lld\n",
-> -                       __func__, s, hw->tv.sec, hw->tv.nsec, ts->tv.sec, ts->tv.nsec, sys.tv.sec,
-> -                       sys.tv.nsec, cmp->offset, cmp->skew);
-> -}
-> -
->  static void bfin_tx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
->  {
->         struct bfin_mac_local *lp = netdev_priv(netdev);
-> @@ -861,15 +854,9 @@ static void bfin_tx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
->                         regval = bfin_read_EMAC_PTP_TXSNAPLO();
->                         regval |= (u64)bfin_read_EMAC_PTP_TXSNAPHI() << 32;
->                         memset(&shhwtstamps, 0, sizeof(shhwtstamps));
-> -                       ns = timecounter_cyc2time(&lp->clock,
-> -                                       regval);
-> -                       timecompare_update(&lp->compare, ns);
-> +                       ns = regval >> lp->shift;
+On Wed, Oct 31, 2012 at 02:47:21PM +0800, Bob Liu wrote:
+> > @@ -861,15 +854,9 @@ static void bfin_tx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
+> >                         regval = bfin_read_EMAC_PTP_TXSNAPLO();
+> >                         regval |= (u64)bfin_read_EMAC_PTP_TXSNAPHI() << 32;
+> >                         memset(&shhwtstamps, 0, sizeof(shhwtstamps));
+> > -                       ns = timecounter_cyc2time(&lp->clock,
+> > -                                       regval);
+> > -                       timecompare_update(&lp->compare, ns);
+> > +                       ns = regval >> lp->shift;
+> 
+> Why not set ns = regval << lp->shift?
+> I think it's conflicted with patch [3/4]
 
-Why not set ns = regval << lp->shift?
-I think it's conflicted with patch [3/4]
-+static u64 bfin_ptp_time_read(struct bfin_mac_local *lp)
-+{
-+       u64 ns;
-+       u32 lo, hi;
-+
-+       lo = bfin_read_EMAC_PTP_TIMELO();
-+       hi = bfin_read_EMAC_PTP_TIMEHI();
-+
-+       ns = ((u64) hi) << 32;
-+       ns |= lo;
-+       ns <<= lp->shift;
-+
-+       return ns;
-+}
+Yes, you are right. I will fix this in V2.
 
->                         shhwtstamps.hwtstamp = ns_to_ktime(ns);
-> -                       shhwtstamps.syststamp =
-> -                               timecompare_transform(&lp->compare, ns);
->                         skb_tstamp_tx(skb, &shhwtstamps);
-> -
-> -                       bfin_dump_hwtamp("TX", &shhwtstamps.hwtstamp, &shhwtstamps.syststamp, &lp->compare);
->                 }
->         }
->  }
-> @@ -892,51 +879,25 @@ static void bfin_rx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
->
->         regval = bfin_read_EMAC_PTP_RXSNAPLO();
->         regval |= (u64)bfin_read_EMAC_PTP_RXSNAPHI() << 32;
-> -       ns = timecounter_cyc2time(&lp->clock, regval);
-> -       timecompare_update(&lp->compare, ns);
-> +       ns = regval >> lp->shift;
+> > @@ -892,51 +879,25 @@ static void bfin_rx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
+> >
+> >         regval = bfin_read_EMAC_PTP_RXSNAPLO();
+> >         regval |= (u64)bfin_read_EMAC_PTP_RXSNAPHI() << 32;
+> > -       ns = timecounter_cyc2time(&lp->clock, regval);
+> > -       timecompare_update(&lp->compare, ns);
+> > +       ns = regval >> lp->shift;
+> 
+> So is here.
 
-So is here.
-
->         memset(shhwtstamps, 0, sizeof(*shhwtstamps));
->         shhwtstamps->hwtstamp = ns_to_ktime(ns);
-> -       shhwtstamps->syststamp = timecompare_transform(&lp->compare, ns);
-> -
-> -       bfin_dump_hwtamp("RX", &shhwtstamps->hwtstamp, &shhwtstamps->syststamp, &lp->compare);
-> -}
-> -
-> -/*
-> - * bfin_read_clock - read raw cycle counter (to be used by time counter)
-> - */
-> -static cycle_t bfin_read_clock(const struct cyclecounter *tc)
-> -{
-> -       u64 stamp;
-> -
-> -       stamp =  bfin_read_EMAC_PTP_TIMELO();
-> -       stamp |= (u64)bfin_read_EMAC_PTP_TIMEHI() << 32ULL;
-> -
-> -       return stamp;
->  }
->
-> -#define PTP_CLK 25000000
-> -
->  static void bfin_mac_hwtstamp_init(struct net_device *netdev)
->  {
->         struct bfin_mac_local *lp = netdev_priv(netdev);
-> -       u64 append;
-> +       u64 addend;
-> +       u32 input_clk, phc_clk;
->
->         /* Initialize hardware timer */
-> -       append = PTP_CLK * (1ULL << 32);
-> -       do_div(append, get_sclk());
-> -       bfin_write_EMAC_PTP_ADDEND((u32)append);
-> -
-> -       memset(&lp->cycles, 0, sizeof(lp->cycles));
-> -       lp->cycles.read = bfin_read_clock;
-> -       lp->cycles.mask = CLOCKSOURCE_MASK(64);
-> -       lp->cycles.mult = 1000000000 / PTP_CLK;
-> -       lp->cycles.shift = 0;
-> -
-> -       /* Synchronize our NIC clock against system wall clock */
-> -       memset(&lp->compare, 0, sizeof(lp->compare));
-> -       lp->compare.source = &lp->clock;
-> -       lp->compare.target = ktime_get_real;
-> -       lp->compare.num_samples = 10;
-> +       input_clk = get_sclk();
-> +       phc_clk = bfin_select_phc_clock(input_clk, &lp->shift);
-> +       addend = phc_clk * (1ULL << 32);
-> +       do_div(addend, input_clk);
-> +       bfin_write_EMAC_PTP_ADDEND((u32)addend);
-> +
-> +       lp->addend = addend;
->
->         /* Initialize hwstamp config */
->         lp->stamp_cfg.rx_filter = HWTSTAMP_FILTER_NONE;
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.h b/drivers/net/ethernet/adi/bfin_mac.h
-> index 960905c..57f042c 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.h
-> +++ b/drivers/net/ethernet/adi/bfin_mac.h
-> @@ -11,8 +11,6 @@
->  #define _BFIN_MAC_H_
->
->  #include <linux/net_tstamp.h>
-> -#include <linux/clocksource.h>
-> -#include <linux/timecompare.h>
->  #include <linux/timer.h>
->  #include <linux/etherdevice.h>
->  #include <linux/bfin_mac.h>
-> @@ -94,9 +92,8 @@ struct bfin_mac_local {
->         struct mii_bus *mii_bus;
->
->  #if defined(CONFIG_BFIN_MAC_USE_HWSTAMP)
-> -       struct cyclecounter cycles;
-> -       struct timecounter clock;
-> -       struct timecompare compare;
-> +       u32 addend;
-> +       unsigned int shift;
->         struct hwtstamp_config stamp_cfg;
->  #endif
->  };
-> --
-> 1.7.2.5
->
-> _______________________________________________
-> Uclinux-dist-devel mailing list
-> Uclinux-dist-devel@blackfin.uclinux.org
-> https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel
-
--- 
-Regards,
---Bob
+Thanks for the careful review,
+Richard
