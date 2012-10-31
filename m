@@ -1,69 +1,124 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH v2 2/3] pppoatm: fix race condition with destroying of
- vcc
-Date: Wed, 31 Oct 2012 16:03:52 -0400
-Message-ID: <20121031160352.68353ecc@thirdoffive.cmf.nrl.navy.mil>
-References: <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>
-	<201210301426.q9UEQkI7007209@thirdoffive.cmf.nrl.navy.mil>
-	<20121030182001.GA30373@shrek.podlesie.net>
-	<20121031094147.GA1004@shrek.podlesie.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: [PATCH net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
+ to return an interface name
+Date: Wed, 31 Oct 2012 16:06:49 -0400
+Message-ID: <509184D9.8030103@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, dwmw2@infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Krzysztof Mazur <krzysiek@podlesie.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121031094147.GA1004@shrek.podlesie.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:10971 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759725Ab2JaUGy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 16:06:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 31 Oct 2012 10:41:47 +0100
-Krzysztof Mazur <krzysiek@podlesie.net> wrote:
+Instead of having the getsockopt() of SO_BINDTODEVICE return an index, which
+will then require another call like if_indextoname() to get the actual interface
+name, have it return the name directly.
 
-> On Tue, Oct 30, 2012 at 07:20:01PM +0100, Krzysztof Mazur wrote:
-> > Yes, this problem can be probably fixed by reversing close and push
-> > and adding some synchronization to pppoatm_unassign_vcc(), but I think
-> > we need that locking anyway, for instance for synchronization for
-> > checking and incrementing sk->sk_wmem_alloc, between pppoatm_send()
-> > and vcc_sendmsg().
-> > 
-> 
-> I think that the same problem exists in other drivers (net/atm/br2684.c,
-> net/atm/clip.c, maybe other).
->
-> Reversing order of close() and push(vcc, NULL) operations seems to
-> be a good idea, but synchronization with push(vcc, NULL)
-> and function that calls vcc->send() must be added to all drivers.
+This also matches the existing man page description on socket(7) which mentions
+the argument being an interface name.
 
-this was the scheme that was (and is) currently in place.  detaching a
-protocol from the atm layer never had a separate function, so it was
-decided at some point to just push a NULL skb as a signal to the next
-layer that i needed to cleanly shutdown and detach.  the push(vcc,
-NULL) always happens in a sleepable context, so waiting for whatever
-attached protocol scheduler to finish up is not a problem.  after the
-pushing of the skb NULL, the attached protocol should not send or recv
-any data on that vcc.
+If the value has not been set, zero is returned and optlen will be set to zero
+to indicate there is no interface name present.
 
-reversing the order of the push and close certainly seems like the right
-thing to do. i would like to see if it would fix your problem.  making
-the minimal change to get something working would be preferred before
-adding additional complexity.  i am just surprised we havent seen this
-bug before.
+Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-> I think it's better to just use ATM socket lock - lock_sock(sk_atm(vcc)),
-> it will fix also problems with synchronization with vcc_sendmsg()
-> and possibly other functions (ioctl?).
-> 
-> I think that we should add a wrapper to vcc->send(), based on
-> fixed pppoatm_send(), that performs required checks and takes the ATM socket
-> lock.
-> 
-> But I think we should reverse those operations anyway, because some
-> drivers may use other locks, not ATM socket lock, for proper
-> synchronization.
+--
 
-i dont think this is a bad idea.  vcc_release_async() could happen
-(this would be a bit unusual for a pvc but removing the usbatm device
-would do this) and there is no point in sending on a vcc that is
-closing.
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 0a023b8..9172ff4 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -505,7 +505,8 @@ struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie)
+ }
+ EXPORT_SYMBOL(sk_dst_check);
+
+-static int sock_bindtodevice(struct sock *sk, char __user *optval, int optlen)
++static int sock_setbindtodevice(struct sock *sk, char __user *optval,
++				int optlen)
+ {
+ 	int ret = -ENOPROTOOPT;
+ #ifdef CONFIG_NETDEVICES
+@@ -562,6 +563,52 @@ out:
+ 	return ret;
+ }
+
++static int sock_getbindtodevice(struct sock *sk, char __user *optval,
++				int __user *optlen, int len)
++{
++	int ret = -ENOPROTOOPT;
++#ifdef CONFIG_NETDEVICES
++	struct net *net = sock_net(sk);
++	struct net_device *dev;
++	char devname[IFNAMSIZ];
++
++	if (sk->sk_bound_dev_if == 0) {
++		len = 0;
++		goto zero;
++	}
++
++	ret = -EINVAL;
++	if (len < IFNAMSIZ)
++		goto out;
++
++	rcu_read_lock();
++	dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
++	if (dev)
++		strcpy(devname, dev->name);
++	rcu_read_unlock();
++	ret = -ENODEV;
++	if (!dev)
++		goto out;
++
++	len = strlen(devname) + 1;
++
++	ret = -EFAULT;
++	if (copy_to_user(optval, devname, len))
++		goto out;
++
++zero:
++	ret = -EFAULT;
++	if (put_user(len, optlen))
++		goto out;
++
++	ret = 0;
++
++out:
++#endif
++
++	return ret;
++}
++
+ static inline void sock_valbool_flag(struct sock *sk, int bit, int valbool)
+ {
+ 	if (valbool)
+@@ -589,7 +636,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 	 */
+
+ 	if (optname == SO_BINDTODEVICE)
+-		return sock_bindtodevice(sk, optval, optlen);
++		return sock_setbindtodevice(sk, optval, optlen);
+
+ 	if (optlen < sizeof(int))
+ 		return -EINVAL;
+@@ -1074,9 +1121,10 @@ int sock_getsockopt(struct socket *sock, int level, int
+optname,
+ 	case SO_NOFCS:
+ 		v.val = sock_flag(sk, SOCK_NOFCS);
+ 		break;
++
+ 	case SO_BINDTODEVICE:
+-		v.val = sk->sk_bound_dev_if;
+-		break;
++		return sock_getbindtodevice(sk, optval, optlen, len);
++
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
