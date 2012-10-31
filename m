@@ -1,78 +1,81 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH net] net: fix divide by zero in tcp algorithm illinois
-Date: Wed, 31 Oct 2012 11:37:08 +0100
-Message-ID: <20121031103630.18756.15685.stgit@dragon>
+From: Konrad Rzeszutek Wilk <konrad@kernel.org>
+Subject: Re: [Xen-devel] [PATCH] net: allow configuration of the size of page
+ in __netdev_alloc_frag
+Date: Wed, 31 Oct 2012 07:01:51 -0400
+Message-ID: <20121031110149.GA6376@localhost.localdomain>
+References: <1351078936-14159-1-git-send-email-ian.campbell@citrix.com>
+ <1351081703.6537.99.camel@edumazet-glaptop>
+ <1351084618.18035.27.camel@zakaz.uk.xensource.com>
+ <1351085403.6537.102.camel@edumazet-glaptop>
+ <1351087326.18035.50.camel@zakaz.uk.xensource.com>
+ <1351092068.6537.107.camel@edumazet-glaptop>
+ <1351095739.18035.83.camel@zakaz.uk.xensource.com>
+ <1351097000.6537.109.camel@edumazet-glaptop>
+ <20121030165309.GA30483@phenom.dumpdata.com>
+ <20121030172352.GA31997@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	Petr Matousek <pmatouse@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49165 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935382Ab2JaKgC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 31 Oct 2012 06:36:02 -0400
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:33492 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756730Ab2JaLB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 07:01:58 -0400
+Received: by mail-qc0-f174.google.com with SMTP id o22so826223qcr.19
+        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 04:01:57 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20121030172352.GA31997@phenom.dumpdata.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reading TCP stats when using TCP Illinois congestion control algorithm
-can cause a divide by zero kernel oops.
+On Tue, Oct 30, 2012 at 01:23:52PM -0400, Konrad Rzeszutek Wilk wrote:
+> On Tue, Oct 30, 2012 at 12:53:09PM -0400, Konrad Rzeszutek Wilk wrote:
+> > On Wed, Oct 24, 2012 at 06:43:20PM +0200, Eric Dumazet wrote:
+> > > On Wed, 2012-10-24 at 17:22 +0100, Ian Campbell wrote:
+> > > > On Wed, 2012-10-24 at 16:21 +0100, Eric Dumazet wrote:
+> > > 
+> > > > > If you really have such problems, why locally generated TCP traffic
+> > > > > doesnt also have it ?
+> > > > 
+> > > > I think it does. The reason I noticed the original problem was that ssh
+> > > > to the machine was virtually (no pun intended) unusable.
+> > > > 
+> > > > > Your patch doesnt touch sk_page_frag_refill(), does it ?
+> > > > 
+> > > > That's right. It doesn't. When is (sk->sk_allocation & __GFP_WAIT) true?
+> > > > Is it possible I'm just not hitting that case?
+> > > > 
+> > > 
+> > > I hope not. GFP_KERNEL has __GFP_WAIT.
+> > > 
+> > > > Is it possible that this only affects certain traffic patterns (I only
+> > > > really tried ssh/scp and ping)? Or perhaps its just that the swiotlb is
+> > > > only broken in one corner case and not the other.
+> > > 
+> > > Could you try a netperf -t TCP_STREAM ?
+> > 
+> > For fun I did a couple of tests - I setup two machines (one r8168, the other
+> > e1000e) and tried to do netperf/netserver. Both of them are running a baremetal
+> > kernel and one of them has 'iommu=soft swiotlb=force' to simulate the worst
+> > case. This is using v3.7-rc3.
+> 
+> I also did a test with the patch at the top, with the same setup and ... it
+> does look like it fixes some issues, but not the underlaying one.
+> 
+> The same test, with net.core.netdev_frag_page_max_order=0, the e1000e->r8169
+> gets ~124, but then on subsequent runs it picks up to ~933. If I let the
+> machine stay a bit idle and then do this again, it does around ~124 again.
+> 
+> Thoughts?
 
-The division by zero occur in tcp_illinois_info() at:
- do_div(t, ca->cnt_rtt);
-where ca->cnt_rtt can become zero (when rtt_reset is called)
+Argh. Please disregard this test. I added an extra patch in the kernel
+tree to track the SWIOTLB bounce usage and print it.. and the printk was
+going out to the FB, which was not too fast - so the whole test was being
+slowed down by FB drivers :-)
 
-Steps to Reproduce:
- 1. Register tcp_illinois:
-     # sysctl -w net.ipv4.tcp_congestion_control=illinois
- 2. Monitor internal TCP information via command "ss -i"
-     # watch -d ss -i
- 3. Establish new TCP conn to machine
-
-Either it fails at the initial conn, or else it needs to wait
-for a loss or a reset.
-
-This is only related to reading stats.  The function avg_delay() also
-performs the same divide, but is guarded with a (ca->cnt_rtt > 0) at its
-calling point in update_params().  Thus, simply fix tcp_illinois_info().
-
-To be on the safe side, I use a local stack variable in tcp_illinois_info()
-to eliminate any race conditions.  I'm not sure this is needed, as this
-would also affect avg_delay(), if this race exists.  (Although this is likely
-already "fix" by compiler optimization and kept in a local register)
-
-Cc: Petr Matousek <pmatouse@redhat.com>
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
-
- net/ipv4/tcp_illinois.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
-index 813b43a..343f160 100644
---- a/net/ipv4/tcp_illinois.c
-+++ b/net/ipv4/tcp_illinois.c
-@@ -306,6 +306,7 @@ static void tcp_illinois_info(struct sock *sk, u32 ext,
- 			      struct sk_buff *skb)
- {
- 	const struct illinois *ca = inet_csk_ca(sk);
-+	u16 cnt_rtt;
- 
- 	if (ext & (1 << (INET_DIAG_VEGASINFO - 1))) {
- 		struct tcpvegas_info info = {
-@@ -315,8 +316,11 @@ static void tcp_illinois_info(struct sock *sk, u32 ext,
- 		};
- 		u64 t = ca->sum_rtt;
- 
--		do_div(t, ca->cnt_rtt);
--		info.tcpv_rtt = t;
-+		cnt_rtt = ca->cnt_rtt;
-+		if (cnt_rtt > 0) {
-+			do_div(t, cnt_rtt);
-+			info.tcpv_rtt = t;
-+		}
- 
- 		nla_put(skb, INET_DIAG_VEGASINFO, sizeof(info), &info);
- 	}
+Will re-run this test without the offending patch.
