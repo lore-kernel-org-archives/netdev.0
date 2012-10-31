@@ -1,33 +1,65 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [RFC] back on nf_tables (plus compatibility layer)
-Date: Wed, 31 Oct 2012 14:50:27 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1210311449570.29232@nerf07.vanv.qr>
-References: <20121025170632.GA4890@1984> <alpine.LNX.2.01.1210252352420.13437@nerf07.vanv.qr> <20121026110419.GA16629@1984>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next 1/8] bridge: bridge port parameters over netlink
+Date: Wed, 31 Oct 2012 07:01:49 -0700
+Message-ID: <50912F4D.2090602@intel.com>
+References: <20121030005731.843020405@vyatta.com> <20121030005835.289407930@vyatta.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Netfilter Development Mailing list
-	<netfilter-devel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20121026110419.GA16629@1984>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:58672 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932647Ab2JaOB4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2012 10:01:56 -0400
+In-Reply-To: <20121030005835.289407930@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Friday 2012-10-26 13:04, Pablo Neira Ayuso wrote:
->> 
->> Meanwhile, I am on xtables2 that actually reproduces the set of
->> _really important_ features that currently are in the setsockopt
->> iptables, like atomic table replace and atomic dump.
->> 
->> I have updated to the newest tree, and the first set is
->> available in the git repository at:
->>   git://git.inai.de/linux xt2-20121025
+On 10/29/2012 5:57 PM, Stephen Hemminger wrote:
+> Expose bridge port parameters over netlink. By switching
+> from a single byet to a nested message, this can be used for
+> other bridge parameters.
 >
->If you think this feature is important, checkout nf_tables and think
->how to integrate this prototype code that provides atomic table
->replacement to it.
+> Although, this changes IFLA_PROTINFO attribute from one byte to a full nested
+> set of attributes; it is safe for applications because the
+> old message used IFLA_PROTINFO and new one uses
+>   IFLA_PROTINFO | NLA_F_NESTED.
+>
+> The code still accepts to old format requests, and therefore stays
+> compatiable with user mode RSTP daemon. Since the type field
+> for nested and unnested attributes are different, and the old
+> code in libnetlink doesn't do the mask, it is also safe to use
+> with old versions of bridge monitor command.
+>
+> Note: although mode is only a boolean, treating it as a
+> full byte since in the future someone will probably want to add more
+> values (like macvlan has).
+>
+> Signed-off-by: Stephen Hemminger<shemminger@vyatta.com>
+>
+> ---
 
-I'd rather tinker with xt2.
+Stephen,
+
+Did you see these two patches
+
+http://patchwork.ozlabs.org/patch/193900/
+http://patchwork.ozlabs.org/patch/193901/
+
+here I added nested bridge attributes to IFLA_AF_SPEC and pass them down
+to the drivers as needed. Should we merge these two sets so that we have
+only a single nested set of bridge attributes? Either in IFLA_AF_SPEC or
+IFLA_PROTINFO.
+
+The attributes in this patch are port specifics and the one in the
+patches listed above are bridge specific so in this sense perhaps
+its OK to keep them separate. I'm not sure it matters much either
+way but thought I would mention it.
+
+Also I suspect these two series will have conflicts but I haven't tried
+yet.
+
+Thanks,
+John
