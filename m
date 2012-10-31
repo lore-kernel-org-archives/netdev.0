@@ -1,8 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V2 net-next 1/4] bfin_mac: only advertise hardware time stamped when enabled.
-Date: Wed, 31 Oct 2012 17:27:22 +0100
-Message-ID: <e9f363ffac9c59b5174b4bf89a157e0dfeb151bb.1351696541.git.richardcochran@gmail.com>
-References: <cover.1351696541.git.richardcochran@gmail.com>
+Subject: [PATCH V2 net-next 0/4] Convert blackfin to phc and remove timecompare
+Date: Wed, 31 Oct 2012 17:27:21 +0100
+Message-ID: <cover.1351696541.git.richardcochran@gmail.com>
 Cc: <device-drivers-devel@blackfin.uclinux.org>,
 	<uclinux-dist-devel@blackfin.uclinux.org>,
 	Bob Liu <lliubbo@gmail.com>,
@@ -17,56 +16,48 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ee0-f46.google.com ([74.125.83.46]:46216 "EHLO
 	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935781Ab2JaQ1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 12:27:39 -0400
+	with ESMTP id S935781Ab2JaQ1h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 12:27:37 -0400
 Received: by mail-ee0-f46.google.com with SMTP id b15so839847eek.19
-        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 09:27:39 -0700 (PDT)
-In-Reply-To: <cover.1351696541.git.richardcochran@gmail.com>
-In-Reply-To: <cover.1351696541.git.richardcochran@gmail.com>
-References: <cover.1351696541.git.richardcochran@gmail.com>
+        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 09:27:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The hardware time stamping code is a compile time option for the blackfin.
-When it is not enabled, the driver should fall back to the standard
-ethtool reply to the get_ts_info query.
+* Changes in V2:
+  - Correct the wrong direction of the shift when converting time
+    stamps to nanoseconds
+  - Add John Stultz's ack on patch 4
 
-Compile tested only.
+This patch series takes care of a legacy issue in the time keeping
+core by moving blackfin over to PHC model and removing the dubious
+timecompare code.
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/adi/bfin_mac.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+The blackfin is quite similar to the other MAC based PTP hardware
+clocks, and so the implementation is straightforward.
 
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index f816426..2349abb 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -548,6 +548,7 @@ static int bfin_mac_ethtool_setwol(struct net_device *dev,
- 	return 0;
- }
- 
-+#ifdef CONFIG_BFIN_MAC_USE_HWSTAMP
- static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
- 	struct ethtool_ts_info *info)
- {
-@@ -566,6 +567,7 @@ static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
- 		(1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT);
- 	return 0;
- }
-+#endif
- 
- static const struct ethtool_ops bfin_mac_ethtool_ops = {
- 	.get_settings = bfin_mac_ethtool_getsettings,
-@@ -574,7 +576,9 @@ static const struct ethtool_ops bfin_mac_ethtool_ops = {
- 	.get_drvinfo = bfin_mac_ethtool_getdrvinfo,
- 	.get_wol = bfin_mac_ethtool_getwol,
- 	.set_wol = bfin_mac_ethtool_setwol,
-+#ifdef CONFIG_BFIN_MAC_USE_HWSTAMP
- 	.get_ts_info = bfin_mac_ethtool_get_ts_info,
-+#endif
- };
- 
- /**************************************************************************/
+The first patch is a bug fix that should be merged in any
+case. Pacthes two and three convert the bfin_mac to offer a PHC
+device. The last patch removes the timecompare code.
+
+Thanks,
+Richard
+
+
+Richard Cochran (4):
+  bfin_mac: only advertise hardware time stamped when enabled.
+  bfin_mac: replace sys time stamps with raw ones instead.
+  bfin_mac: offer a PTP Hardware Clock.
+  time: remove the timecompare code.
+
+ drivers/net/ethernet/adi/Kconfig    |    2 +-
+ drivers/net/ethernet/adi/bfin_mac.c |  259 ++++++++++++++++++++++++++---------
+ drivers/net/ethernet/adi/bfin_mac.h |   13 +-
+ include/linux/timecompare.h         |  125 -----------------
+ kernel/time/Makefile                |    2 +-
+ kernel/time/timecompare.c           |  193 --------------------------
+ 6 files changed, 205 insertions(+), 389 deletions(-)
+ delete mode 100644 include/linux/timecompare.h
+ delete mode 100644 kernel/time/timecompare.c
+
 -- 
 1.7.2.5
