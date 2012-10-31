@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 202-10-29
-Date: Wed, 31 Oct 2012 13:53:48 -0400 (EDT)
-Message-ID: <20121031.135348.190750761922288740.davem@davemloft.net>
-References: <1351501097-1289-1-git-send-email-ordex@autistici.org>
+Subject: Re: [PATCH] realtek: r8169: use module_pci_driver macro
+Date: Wed, 31 Oct 2012 14:04:23 -0400 (EDT)
+Message-ID: <20121031.140423.1473598712723129102.davem@davemloft.net>
+References: <1351279662-16466-1-git-send-email-devendra.aaru@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: ordex@autistici.org
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: devendra.aaru@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47835 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47929 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933198Ab2JaRxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 13:53:51 -0400
-In-Reply-To: <1351501097-1289-1-git-send-email-ordex@autistici.org>
+	with ESMTP id S964944Ab2JaSE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 14:04:27 -0400
+In-Reply-To: <1351279662-16466-1-git-send-email-devendra.aaru@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex@autistici.org>
-Date: Mon, 29 Oct 2012 09:58:01 +0100
+From: Devendra Naga <devendra.aaru@gmail.com>
+Date: Fri, 26 Oct 2012 15:27:42 -0400
 
-> this is again our first set of changes intended for net-next/linux-3.8.
-> With respect to the previous changeset we substituted the patch changing the
-> BAT_ATTR_HIF_UINT macro with a new one that removes it (we will re-add such
-> macro together with the user).
-> The rest is exactly the same as before.
+> use the module_pci_driver macro to make the code simpler
+> by eliminating the module_init and module_exit calls
+> 
+> Signed-off-by: Devendra Naga <devendra.aaru@gmail.com>
 
-Pulled, thanks.
+Applied.
