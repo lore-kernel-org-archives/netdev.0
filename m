@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v4 03/10] net/macb: change debugging messages
-Date: Wed, 31 Oct 2012 17:04:52 +0100
-Message-ID: <a351d176ce8c7fe18b336f3dde97cf7beae41bfe.1351690694.git.nicolas.ferre@atmel.com>
+Subject: [PATCH v4 10/10] net/macb: add pinctrl consumer support
+Date: Wed, 31 Oct 2012 17:04:59 +0100
+Message-ID: <75c45d93a92ba4cc18c03dee607d543dc3b766b2.1351690694.git.nicolas.ferre@atmel.com>
 References: <cover.1351690694.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,117 +12,63 @@ Cc: <bhutchings@solarflare.com>,
 	Nicolas Ferre <nicolas.ferre@atmel.com>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
 	<havard@skinnemoen.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:30897 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935752Ab2JaQGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 12:06:03 -0400
 In-Reply-To: <cover.1351690694.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Havard Skinnemoen <havard@skinnemoen.net>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 
-Convert some noisy netdev_dbg() statements to netdev_vdbg(). Defining
-DEBUG will no longer fill up the logs; VERBOSE_DEBUG still does.
-Add one more verbose debug for ISR status.
+If no pinctrl available just report a warning as some architecture may not
+need to do anything.
 
-Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-[nicolas.ferre@atmel.com: split patch in topics, add ISR status]
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+[nicolas.ferre@atmel.com: adapt the error path, remove unneeded headers]
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 Tested-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index e7f554d..b161d73 100644
+index c1f20b0..c374875 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -314,7 +314,7 @@ static void macb_tx(struct macb *bp)
- 	status = macb_readl(bp, TSR);
- 	macb_writel(bp, TSR, status);
+@@ -26,6 +26,7 @@
+ #include <linux/of.h>
+ #include <linux/of_device.h>
+ #include <linux/of_net.h>
++#include <linux/pinctrl/consumer.h>
  
--	netdev_dbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
-+	netdev_vdbg(bp->dev, "macb_tx status = %02lx\n", (unsigned long)status);
+ #include "macb.h"
  
- 	if (status & (MACB_BIT(UND) | MACB_BIT(TSR_RLE))) {
- 		int i;
-@@ -381,7 +381,7 @@ static void macb_tx(struct macb *bp)
- 		if (!(bufstat & MACB_BIT(TX_USED)))
- 			break;
+@@ -1472,6 +1473,7 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	struct phy_device *phydev;
+ 	u32 config;
+ 	int err = -ENXIO;
++	struct pinctrl *pinctrl;
  
--		netdev_dbg(bp->dev, "skb %u (data %p) TX complete\n",
-+		netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
- 			   tail, skb->data);
- 		dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
- 				 DMA_TO_DEVICE);
-@@ -407,7 +407,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 
- 	len = MACB_BFEXT(RX_FRMLEN, bp->rx_ring[last_frag].ctrl);
- 
--	netdev_dbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
-+	netdev_vdbg(bp->dev, "macb_rx_frame frags %u - %u (len %u)\n",
- 		   first_frag, last_frag, len);
- 
- 	skb = netdev_alloc_skb(bp->dev, len + RX_OFFSET);
-@@ -454,7 +454,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 
- 	bp->stats.rx_packets++;
- 	bp->stats.rx_bytes += len;
--	netdev_dbg(bp->dev, "received skb of length %u, csum: %08x\n",
-+	netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
- 		   skb->len, skb->csum);
- 	netif_receive_skb(skb);
- 
-@@ -536,7 +536,7 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 
- 	work_done = 0;
- 
--	netdev_dbg(bp->dev, "poll: status = %08lx, budget = %d\n",
-+	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
- 		   (unsigned long)status, budget);
- 
- 	work_done = macb_rx(bp, budget);
-@@ -575,6 +575,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			break;
- 		}
- 
-+		netdev_vdbg(bp->dev, "isr = 0x%08lx\n", (unsigned long)status);
-+
- 		if (status & MACB_RX_INT_FLAGS) {
- 			/*
- 			 * There's no point taking any more interrupts
-@@ -586,7 +588,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
- 
- 			if (napi_schedule_prep(&bp->napi)) {
--				netdev_dbg(bp->dev, "scheduling RX softirq\n");
-+				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
- 				__napi_schedule(&bp->napi);
- 			}
- 		}
-@@ -648,8 +650,8 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	u32 ctrl;
- 	unsigned long flags;
- 
--#ifdef DEBUG
--	netdev_dbg(bp->dev,
-+#if defined(DEBUG) && defined(VERBOSE_DEBUG)
-+	netdev_vdbg(bp->dev,
- 		   "start_xmit: len %u head %p data %p tail %p end %p\n",
- 		   skb->len, skb->head, skb->data,
- 		   skb_tail_pointer(skb), skb_end_pointer(skb));
-@@ -671,12 +673,12 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!regs) {
+@@ -1479,6 +1481,15 @@ static int __init macb_probe(struct platform_device *pdev)
+ 		goto err_out;
  	}
  
- 	entry = bp->tx_head;
--	netdev_dbg(bp->dev, "Allocated ring entry %u\n", entry);
-+	netdev_vdbg(bp->dev, "Allocated ring entry %u\n", entry);
- 	mapping = dma_map_single(&bp->pdev->dev, skb->data,
- 				 len, DMA_TO_DEVICE);
- 	bp->tx_skb[entry].skb = skb;
- 	bp->tx_skb[entry].mapping = mapping;
--	netdev_dbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
-+	netdev_vdbg(bp->dev, "Mapped skb data %p to DMA addr %08lx\n",
- 		   skb->data, (unsigned long)mapping);
- 
- 	ctrl = MACB_BF(TX_FRMLEN, len);
++	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
++	if (IS_ERR(pinctrl)) {
++		err = PTR_ERR(pinctrl);
++		if (err == -EPROBE_DEFER)
++			goto err_out;
++
++		dev_warn(&pdev->dev, "No pinctrl provided\n");
++	}
++
+ 	err = -ENOMEM;
+ 	dev = alloc_etherdev(sizeof(*bp));
+ 	if (!dev)
 -- 
 1.8.0
