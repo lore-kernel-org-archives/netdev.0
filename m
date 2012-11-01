@@ -1,86 +1,90 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Fw: [Bug 42764] BUG at net/core/skbuff.c:147
-Date: Thu, 1 Nov 2012 16:53:26 +0000
-Message-ID: <1351788806.2883.9.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20121031135106.453cbe4d@s6510.linuxnetplumber.net>
+From: Shawn Starr <shawn.starr@rogers.com>
+Subject: [3.5/6.x][e1000e] - Regression - Unable to receive packets if MTU == 1500
+Date: Thu, 01 Nov 2012 13:58:13 -0400
+Message-ID: <1570009.hYb0226lHg@segfault.sh0n.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Michael Chan <mchan@broadcom.com>, <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:37761 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750745Ab2KAQx3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 12:53:29 -0400
-In-Reply-To: <20121031135106.453cbe4d@s6510.linuxnetplumber.net>
+Received: from nm20.access.bullet.mail.mud.yahoo.com ([66.94.237.221]:31667
+	"EHLO nm20.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750796Ab2KASE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 14:04:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-10-31 at 13:51 -0700, Stephen Hemminger wrote:
-[...]
-> This machine does a lot of network traffic, because it load data from a
-> database every night.
-> 
-> Kernel version is 3.0.34
-> 
-> Sorry for not reporting hardware, I thought it was a protocol bug not related
-> to a specific card.
-> 
-> ------------[ cut here ]------------
-> kernel BUG at net/core/skbuff.c:147!
-> invalid opcode: 0000 [#1] SMP 
-> CPU 2 
-> Modules linked in: af_packet ipmi_devintf ipmi_si ipmi_msghandler ipv6 fuse
-> loop sr_mod cdrom mptsas mptscsih mptbase scsi_transport_sas tpm_tis tpm bnx2
-> tpm_bios sg i2c_piix4 i2c_core shpchp pci_hotplug button serio_raw linear
-> scsi_dh_alua scsi_dh_rdac scsi_dh_hp_sw scsi_dh_emc dm_round_robin sd_mod
-> crc_t10dif qla2xxx scsi_transport_fc scsi_tgt dm_snapshot dm_multipath scsi_dh
-> scsi_mod edd dm_mod ext3 mbcache jbd fan thermal processor thermal_sys hwmon
-> [last unloaded: usbcore]
-> 
-> Pid: 21566, comm: nscd Not tainted 3.0.34-inps #5 IBM BladeCenter LS42
-> -[7902CQG]-/Server Blade
-> RIP: 0010:[<ffffffff8123fd12>]  [<ffffffff8123fd12>] skb_push+0x75/0x7e
-> RSP: 0018:ffff880b956c39d8  EFLAGS: 00010292
-> RAX: 0000000000000083 RBX: 0000000000000800 RCX: 0000000000023382
-> RDX: 0000000000007878 RSI: 0000000000000046 RDI: ffffffff8152ee9c
-> RBP: ffff880b956c39f8 R08: 0000000000000000 R09: 0720072007200720
-> R10: ffff880b956c37c8 R11: 0720072007200720 R12: 0000000000000000
-> R13: ffff8810231fb718 R14: 0000000000000055 R15: ffff880c25d24000
-> FS:  00007fd9a9222950(0000) GS:ffff880c3fc00000(0000) knlGS:00000000e8dafb90
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 00007fd9b403a000 CR3: 0000000c265e8000 CR4: 00000000000006e0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Process nscd (pid: 21566, threadinfo ffff880b956c2000, task ffff8803e50e4790)
-> Stack:
->  0000000000000057 0000000000000080 ffff880c25d24000 ffff880c71806440
->  ffff880b956c3a38 ffffffff8125e0c5 ffff880b956c3a28 0000000000000036
->  ffff8810231fb680 ffff8810231fb718 ffff880b2cc49380 ffff8810231fb710
-> Call Trace:
->  [<ffffffff8125e0c5>] eth_header+0x29/0xa8
->  [<ffffffff81251a59>] neigh_resolve_output+0x284/0x2ed
-[...]
+Hello network driver folks,
 
-The symptoms seem to match this fix:
+I recently decided to reinstall my Lenovo W500 laptop and found I wasn't able 
+to get DHCP leases, I wasn't able to install over PXE (when getting the IP a 
+second time within the OS)
 
-commit e1f165032c8bade3a6bdf546f8faf61fda4dd01c
-Author: ramesh.nagappa@gmail.com <ramesh.nagappa@gmail.com>
-Date:   Fri Oct 5 19:10:15 2012 +0000
+Fedora is currently using kernel-3.6.2-2.fc18.x86_64 (Pre-beta)
 
-    net: Fix skb_under_panic oops in neigh_resolve_output
-    
-    The retry loop in neigh_resolve_output() and neigh_connected_output()
-    call dev_hard_header() with out reseting the skb to network_header.
-    This causes the retry to fail with skb_under_panic. The fix is to
-    reset the network_header within the retry loop.
+The only difference I noticed was in my old install of Fedora, I had added 
+MTU=9000 to the interface config while using a 3.5 kernel, not knowing 3.6.x 
+seems to break things.
 
-which was backported into 3.0.49 and other stable branches.
+My Cisco DPC3825 Switch/Cable modem has an MTU setting but this is from Cable 
+provider <-> WAN interface only. I tried changing to 1500 but by default it 
+uses this anyway.
 
-Ben.
+I had noticed tx unit hang errors sometimes, but not when MTU is above 1500.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+PCI info:
+
+00:19.0 Ethernet controller: Intel Corporation 82567LM Gigabit Network 
+Connection (rev 03)
+        Subsystem: Lenovo Device 20ee
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
+Stepping- SERR+ FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0
+        Interrupt: pin A routed to IRQ 46
+        Region 0: Memory at fc000000 (32-bit, non-prefetchable) [size=128K]
+        Region 1: Memory at fc025000 (32-bit, non-prefetchable) [size=4K]
+        Region 2: I/O ports at 1840 [size=32]
+        Capabilities: [c8] Power Management version 2
+                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA 
+PME(D0+,D1-,D2-,D3hot+,D3cold+)
+                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
+        Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
+                Address: 00000000fee0100c  Data: 41a2
+        Capabilities: [e0] PCI Advanced Features
+                AFCap: TP+ FLR+
+                AFCtrl: FLR-
+                AFStatus: TP-
+        Kernel driver in use: e1000e
+
+e1000e conversation log:
+
+[   12.653816] e1000e: Intel(R) PRO/1000 Network Driver - 2.0.0-k
+[   12.653819] e1000e: Copyright(c) 1999 - 2012 Intel Corporation.
+[   12.653855] e1000e 0000:00:19.0: setting latency timer to 64
+[   12.653938] e1000e 0000:00:19.0: Interrupt Throttling Rate (ints/sec) set 
+to dynamic conservative mode
+[   12.653980] e1000e 0000:00:19.0: irq 46 for MSI/MSI-X
+[   12.844121] e1000e 0000:00:19.0: eth0: (PCI Express:2.5GT/s:Width x1) 
+00:22:68:0c:96:e3
+[   12.844124] e1000e 0000:00:19.0: eth0: Intel(R) PRO/1000 Network Connection
+[   12.844150] e1000e 0000:00:19.0: eth0: MAC: 7, PHY: 8, PBA No: 1008FF-0FF
+[   17.459570] e1000e 0000:00:19.0: eth0: changing MTU from 1500 to 9000
+[   17.459577] e1000e 0000:00:19.0: Interrupt Throttle Rate turned off
+[   17.948121] e1000e 0000:00:19.0: irq 46 for MSI/MSI-X
+[   18.049164] e1000e 0000:00:19.0: irq 46 for MSI/MSI-X
+[   20.442936] e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow 
+Control: Rx/Tx
+
+When I set MTU = 1500 (2000 works), it will stop receiving packets, it also 
+disables Interrupt Throttling when MTU is set higher.
+
+After testing reasons why it wasn't get a DHCP lease, I decided to bump the 
+MTU to 9000 for Jumbo Frames and as soon as I did this, I was able to get a 
+lease and the network functioned resumes receiving packets.
+
+Can anyone else report regressions or might know whats going on?
+
+Thanks,
+Shawn.
