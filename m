@@ -1,66 +1,86 @@
-From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
-	per-cpu helper
-Date: Thu, 01 Nov 2012 18:07:03 +0800
-Message-ID: <509249C7.3080000@gmail.com>
-References: <50910A04.5000003@gmail.com>
-	<0000013ab7e86f8a-4adb8b81-19be-4264-96f1-924aaf3819f2-000000@email.amazonses.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [Suggestion] net-ipv6: format %8s change to %16s in rt6_info_route
+ function of route.c
+Date: Thu, 01 Nov 2012 18:23:47 +0800
+Message-ID: <50924DB3.9010601@asianux.com>
+References: <50921A92.8000809@asianux.com> <1351760482.32673.913.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <0000013ab7e86f8a-4adb8b81-19be-4264-96f1-924aaf3819f2-000000-p/GC64/jrecnJqMo6gzdpkEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351760482.32673.913.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter said, at 2012/11/1 1:39:
-> On Wed, 31 Oct 2012, Shan Wei wrote:
-> 
->> --- a/net/openvswitch/datapath.c
->> +++ b/net/openvswitch/datapath.c
->> @@ -208,7 +208,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
->>  	int error;
->>  	int key_len;
->>
->> -	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
->> +	stats = this_cpu_ptr(dp->stats_percpu);
-> 
-> Well this is an improvement and may be ok if the preemption is disabled at
-> this point. There is another possibility here to use this_cpu_read/add/inc
-> instead of determining the pointer to the local cpu first and then
-> performing operations on the fields. The pointer relocation with
-> this_cpu_xxx ops is implicit in the instructions and safe against changing
-> of processors. It would also save us the determination of a pointer to the
-> current cpus stats structure.
+=E4=BA=8E 2012=E5=B9=B411=E6=9C=8801=E6=97=A5 17:01, Eric Dumazet =E5=86=
+=99=E9=81=93:
+> Hi Chen
+>=20
+> Thats a good suggestion indeed.
+>=20
 
-yes, this_cpu_ptr just locate the point to current cpu per-cpu data domain.
-and then operating [read/write/inc/sub] fields of this per-cpu variable
-maybe on other cpu because task is rescheduled for preemption, interrupt.
+  thank you very much for your confirmation.
 
-But for different field in same per-cpu variable, how to guarantee n_missed
-and n_hit are from same cpu? 
-this_cpu_read(dp->stats_percpu->n_missed);
-[processor changed]
-this_cpu_read(dp->stats_percpu->n_hit);
+> Networking patches should be sent to netdev@vger.kernel.org (added in
+> CC)
+
+  I will do it.
+
+>=20
+> This list only cares about recent generic kernels, not RedHat ones.
+>=20
+
+  it seems "it is not suitable to send any issues which only relative
+with Red Hat to linux-*@vger.kernel.org".
 
 
-In addition, following usage of per_cpu_ptr can be replaced by this_cpu_read.
 
-cpu=get_cpu()
-....
-*per_cpu_ptr(p,cpu)
-....
-....
-put_cpu()
+> If you want to provide a patch, please base it on David Miller net-ne=
+xt
+> [1] tree, and make it official (read Documentation/SubmittingPatches =
+for
+> general advices)
+>=20
+
+  ok, I will follow, thank you for your information.
+
+
+> By the way, the %8s should be replaced by %s, there is no need to mak=
+e
+> /proc/net/ipv6_route 'beautiful'. In the past, it was *needed* becaus=
+e
+> each line had to be of a given length, but its not anymore the case.
+>=20
+> Thanks
+>=20
+
+1) I agree with your result.
+
+2) But for the "reason", I have my opinions:
+   A) %.8s :  for limitation of output string length.
+   B) %8s  :  for width of output string length (but not limit 8).
+   C) %8.8s:  both limitation and width.
+
+3) for rt->rt6i_dev->name:
+   A) original %8s is not a bug for name len is more than 8 (can still
+be outputted correctly)
+   B) it is only effect with name len is less than 8 (it will fill some
+' ' before the name)
+   C) this is the reason why I call it "beautiful", not a bug.
+
+
+> [1] :
+> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next.git;a=3Dsu=
+mmary
+>=20
+
+  I will reference it, thanks.
+
+
+--=20
+Chen Gang
+
+Asianux Corporation
