@@ -1,94 +1,25 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv3 net-next 5/8] vhost: track zero copy failures using DMA
-	length
-Date: Thu, 1 Nov 2012 21:16:42 +0200
-Message-ID: <d53ccc944ec54f609342f95a8ff1764cc655c136.1351797353.git.mst@redhat.com>
-References: <cover.1351797353.git.mst@redhat.com>
+From: John Greene <jogreene@redhat.com>
+Subject: anything
+Date: Thu, 01 Nov 2012 15:38:40 -0400
+Message-ID: <5092CFC0.9030202@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <edumazet@google.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1351797353.git.mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:24712 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756339Ab2KATim (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2012 15:38:42 -0400
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id qA1Jcf0b019878
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 1 Nov 2012 15:38:42 -0400
+Received: from [10.11.8.108] (vpn-8-108.rdu.redhat.com [10.11.8.108])
+	by int-mx11.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id qA1Jcer7029211
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-CAMELLIA256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Thu, 1 Nov 2012 15:38:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This will be used to disable zerocopy when error rate
-is high.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/vhost/vhost.c | 7 ++++---
- drivers/vhost/vhost.h | 4 ++++
- 2 files changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index f23cf89..5affce3 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -425,7 +425,7 @@ int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
- 	int j = 0;
- 
- 	for (i = vq->done_idx; i != vq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
--		if ((vq->heads[i].len == VHOST_DMA_DONE_LEN)) {
-+		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
- 			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
- 			vhost_add_used_and_signal(vq->dev, vq,
- 						  vq->heads[i].id, 0);
-@@ -1600,13 +1600,14 @@ void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *ubufs)
- 	kfree(ubufs);
- }
- 
--void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool status)
-+void vhost_zerocopy_callback(struct ubuf_info *ubuf, int status)
- {
- 	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
- 	struct vhost_virtqueue *vq = ubufs->vq;
- 
- 	vhost_poll_queue(&vq->poll);
- 	/* set len to mark this desc buffers done DMA */
--	vq->heads[ubuf->desc].len = VHOST_DMA_DONE_LEN;
-+	vq->heads[ubuf->desc].len = status ?
-+		VHOST_DMA_FAILED_LEN : VHOST_DMA_DONE_LEN;
- 	kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
- }
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index b6538ee..464469d 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -17,6 +17,8 @@
-  * For transmit, used buffer len is unused; we override it to track buffer
-  * status internally; used for zerocopy tx only.
-  */
-+/* Lower device DMA failed */
-+#define VHOST_DMA_FAILED_LEN	3
- /* Lower device DMA done */
- #define VHOST_DMA_DONE_LEN	2
- /* Lower device DMA in progress */
-@@ -24,6 +26,8 @@
- /* Buffer unused */
- #define VHOST_DMA_CLEAR_LEN	0
- 
-+#define VHOST_DMA_IS_DONE(len) ((len) >= VHOST_DMA_DONE_LEN)
-+
- struct vhost_device;
- 
- struct vhost_work;
--- 
-MST
+subscribe netdev
