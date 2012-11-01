@@ -1,42 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 00/10] net/macb: driver enhancement concerning GEM
- support, ring logic and cleanup
-Date: Thu, 01 Nov 2012 11:46:42 -0400 (EDT)
-Message-ID: <20121101.114642.1433440763058405336.davem@davemloft.net>
-References: <cover.1351690694.git.nicolas.ferre@atmel.com>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [RFC] back on nf_tables (plus compatibility layer)
+Date: Thu, 1 Nov 2012 16:49:01 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1210311726400.20723@nerf07.vanv.qr>
+References: <20121025170632.GA4890@1984> <alpine.LNX.2.01.1210252352420.13437@nerf07.vanv.qr> <20121026110419.GA16629@1984> <alpine.LNX.2.01.1210311449570.29232@nerf07.vanv.qr> <20121031154216.GB9558@1984>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, havard@skinnemoen.net,
-	bhutchings@solarflare.com, linux-arm-kernel@lists.infradead.org,
-	plagnioj@jcrosoft.com, patrice.vilchez@atmel.com,
-	linux-kernel@vger.kernel.org, manabian@gmail.com,
-	David.Laight@ACULAB.COM
-To: nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1351690694.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Netfilter Development Mailing list
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20121031154216.GB9558@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Wed, 31 Oct 2012 17:04:49 +0100
+On Wednesday 2012-10-31 16:42, Pablo Neira Ayuso wrote:
+>> >> 
+>> >> I have updated to the newest tree, and the first set is
+>> >> available in the git repository at:
+>> >>   git://git.inai.de/linux xt2-20121025
+>> >
+>> >If you think this feature is important, checkout nf_tables and think
+>> >how to integrate this prototype code that provides atomic table
+>> >replacement to it.
+>> 
+>> I'd rather tinker with xt2.
+>
+>You're are free spend your time on your pet project, but I warn you:
+>it will *extremely hard* to justify its inclusion into mainline.
+>As said, I don't think it makes sense to add two firewall
+>engines/interfaces for the same thing.
 
-> This is an enhancement work that began several years ago. I try to catchup with
-> some performance improvement that has been implemented then by Havard.
-> The ring index logic and the TX error path modification are the biggest changes
-> but some cleanup/debugging have been added along the way.
-> The GEM revision will benefit from the Gigabit support.
-> Newer pinctrl infrastructure support is added but it is optional.
-> 
-> The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
-> flavors.
-> 
-> v4: - remove unneeded device tree header includes
->     - modified the computation of available entries in ring buffer
-> v3: - rebased on net-next to take into account current effor to merge
->       at91_ether with macb drivers
->     - add additional patch to use the new pinctrl infrastructure
-> v2: - modify the tx error handling: now uses a workqueue
->     - information provided by ethtool -i were not accurate: removed
+You make it sound like you have already made up your mind and will
+not consider xtnl because you are having nft as your pet project.
+That would be really sad.
 
-Series applied to net-next
+So, what xt2 has of this hour.
+
+(- netlink interface obviously)
+ - netns support
+ - single table sufficiency
+ - is RCU'd
+ - atomic whole-table replace
+ - atomic chain-level multi-rule replace
+   (less to transfer over netlink between kernel<->user)
+ - chain-level dump (also relates to transfer size)
+ - packed ruleset for cache efficiency
+ - already has had some review from community members when it was last posted
+ - in-code and external documentation
+
+Certainly there is still something to do - but so would there be for nft.
