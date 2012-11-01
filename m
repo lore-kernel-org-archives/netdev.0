@@ -1,38 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 01 Nov 2012 11:16:24 -0400 (EDT)
-Message-ID: <20121101.111624.2264556775891936805.davem@davemloft.net>
-References: <1351766667-28489-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] sk-filter: Add ability to get socket filter
+ program (v2)
+Date: Thu, 01 Nov 2012 11:17:58 -0400 (EDT)
+Message-ID: <20121101.111758.587399436547929971.davem@davemloft.net>
+References: <509264AC.5090802@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org
+To: xemul@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60158 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60173 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761655Ab2KAPQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 11:16:35 -0400
-In-Reply-To: <1351766667-28489-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1761978Ab2KAPSA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 11:18:00 -0400
+In-Reply-To: <509264AC.5090802@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu,  1 Nov 2012 03:44:21 -0700
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Thu, 01 Nov 2012 16:01:48 +0400
 
-> This series contains updates to igb, ixgbe and e1000.
+> The SO_ATTACH_FILTER option is set only. I propose to add the get
+> ability by using SO_ATTACH_FILTER in getsockopt. To be less
+> irritating to eyes the SO_GET_FILTER alias to it is declared. This
+> ability is required by checkpoint-restore project to be able to 
+> save full state of a socket. 
 > 
-> The following are changes since commit 810b6d7638a288216f99bd190470d67061c8bd88:
->   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+> 
+> There are two issues with getting filter back.
+> 
+> First, kernel modifies the sock_filter->code on filter load, thus in
+> order to return the filter element back to user we have to decode it
+> into user-visible constants. Fortunately the modification in question
+> is interconvertible.
+> 
+> Second, the BPF_S_ALU_DIV_K code modifies the command argument k to
+> speed up the run-time division by doing kernel_k = reciprocal(user_k).
+> Bad news is that different user_k may result in same kernel_k, so we 
+> can't get the original user_k back. Good news is that we don't have 
+> to do it. What we need to is calculate a user2_k so, that
+> 
+>   reciprocal(user2_k) == reciprocal(user_k) == kernel_k
+> 
+> i.e. if it's re-loaded back the compiled again value will be exactly
+> the same as it was. That said, the user2_k can be calculated like this
+> 
+>   user2_k = reciprocal(kernel_k)
+> 
+> with an exception, that if kernel_k == 0, then user2_k == 1.
+> 
+> 
+> The optlen argument is treated like this -- when zero, kernel returns
+> the amount of sock_fprog elements in filter, otherwise it should be
+> large enough for the sock_fprog array.
+> 
+> changes since v1:
+> * Declared SO_GET_FILTER in all arch headers
+> * Added decode of vlan-tag codes
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-Nothing there:
-
-[davem@tempietto net-next]$ git pull git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
->From git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
- * branch            master     -> FETCH_HEAD
-Already up-to-date.
-[davem@tempietto net-next]$ 
-
-Now is AN EXTREMELY bad period to waste my time like this.
+Applied, thanks.
