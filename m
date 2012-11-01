@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv3 net-next 6/8] vhost: move -net specific code out
-Date: Thu, 1 Nov 2012 21:16:46 +0200
-Message-ID: <5b0334faefb8d44df8272a6888032dc4d10cd37f.1351797353.git.mst@redhat.com>
+Subject: [PATCHv3 net-next 7/8] vhost-net: select tx zero copy dynamically
+Date: Thu, 1 Nov 2012 21:16:51 +0200
+Message-ID: <b420d8d6433f42282be3b0b8636eaf375aadb17c.1351797353.git.mst@redhat.com>
 References: <cover.1351797353.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,237 +28,157 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Zerocopy handling code is vhost-net specific.
-Move it from vhost.c/vhost.h out to net.c
+Even when vhost-net is in zero-copy transmit mode,
+net core might still decide to copy the skb later
+which is somewhat slower than a copy in user
+context: data copy overhead is added to the cost of
+page pin/unpin. The result is that enabling tx zero copy
+option leads to higher CPU utilization for guest to guest
+and guest to host traffic.
+
+To fix this, suppress zero copy tx after a given number of
+packets triggered late data copy. Re-enable periodically
+to detect workload changes.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/net.c       | 45 ++++++++++++++++++++++++++++++++++++++++
- drivers/vhost/tcm_vhost.c |  1 +
- drivers/vhost/vhost.c     | 53 +++++++----------------------------------------
- drivers/vhost/vhost.h     | 21 +++----------------
- 4 files changed, 56 insertions(+), 64 deletions(-)
+ drivers/vhost/net.c | 61 ++++++++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 53 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index f80ae5f..532fc88 100644
+index 532fc88..93f2d67 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -126,6 +126,42 @@ static void tx_poll_start(struct vhost_net *net, struct socket *sock)
- 	net->tx_poll_state = VHOST_NET_POLL_STARTED;
- }
+@@ -42,6 +42,21 @@ MODULE_PARM_DESC(experimental_zcopytx, "Enable Experimental Zero Copy TX");
+ #define VHOST_MAX_PEND 128
+ #define VHOST_GOODCOPY_LEN 256
  
-+/* In case of DMA done not in order in lower device driver for some reason.
-+ * upend_idx is used to track end of used idx, done_idx is used to track head
-+ * of used idx. Once lower device DMA done contiguously, we will signal KVM
-+ * guest used idx.
++/*
++ * For transmit, used buffer len is unused; we override it to track buffer
++ * status internally; used for zerocopy tx only.
 + */
-+int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
-+{
-+	int i;
-+	int j = 0;
++/* Lower device DMA failed */
++#define VHOST_DMA_FAILED_LEN	3
++/* Lower device DMA done */
++#define VHOST_DMA_DONE_LEN	2
++/* Lower device DMA in progress */
++#define VHOST_DMA_IN_PROGRESS	1
++/* Buffer unused */
++#define VHOST_DMA_CLEAR_LEN	0
 +
-+	for (i = vq->done_idx; i != vq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
-+		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
-+			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
-+			vhost_add_used_and_signal(vq->dev, vq,
-+						  vq->heads[i].id, 0);
-+			++j;
-+		} else
-+			break;
-+	}
-+	if (j)
-+		vq->done_idx = i;
-+	return j;
-+}
++#define VHOST_DMA_IS_DONE(len) ((len) >= VHOST_DMA_DONE_LEN)
 +
-+static void vhost_zerocopy_callback(struct ubuf_info *ubuf, int status)
-+{
-+	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
-+	struct vhost_virtqueue *vq = ubufs->vq;
-+
-+	vhost_poll_queue(&vq->poll);
-+	/* set len to mark this desc buffers done DMA */
-+	vq->heads[ubuf->desc].len = status ?
-+		VHOST_DMA_FAILED_LEN : VHOST_DMA_DONE_LEN;
-+	vhost_ubuf_put(ubufs);
-+}
-+
- /* Expects to be always run from workqueue - which acts as
-  * read-size critical section for our kind of RCU. */
- static void handle_tx(struct vhost_net *net)
-@@ -594,9 +630,18 @@ static int vhost_net_release(struct inode *inode, struct file *f)
- 	struct vhost_net *n = f->private_data;
- 	struct socket *tx_sock;
- 	struct socket *rx_sock;
-+	int i;
- 
- 	vhost_net_stop(n, &tx_sock, &rx_sock);
- 	vhost_net_flush(n);
-+	vhost_dev_stop(&n->dev);
-+	for (i = 0; i < n->dev.nvqs; ++i) {
-+		/* Wait for all lower device DMAs done. */
-+		if (n->dev.vqs[i].ubufs)
-+			vhost_ubuf_put_and_wait(n->dev.vqs[i].ubufs);
-+
-+		vhost_zerocopy_signal_used(n, &n->dev.vqs[i]);
-+	}
- 	vhost_dev_cleanup(&n->dev, false);
- 	if (tx_sock)
- 		fput(tx_sock->file);
-diff --git a/drivers/vhost/tcm_vhost.c b/drivers/vhost/tcm_vhost.c
-index aa31692..23c138f 100644
---- a/drivers/vhost/tcm_vhost.c
-+++ b/drivers/vhost/tcm_vhost.c
-@@ -895,6 +895,7 @@ static int vhost_scsi_release(struct inode *inode, struct file *f)
- 		vhost_scsi_clear_endpoint(s, &backend);
- 	}
- 
-+	vhost_dev_stop(&s->dev);
- 	vhost_dev_cleanup(&s->dev, false);
- 	kfree(s);
- 	return 0;
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 5affce3..ef8f598 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -26,10 +26,6 @@
- #include <linux/kthread.h>
- #include <linux/cgroup.h>
- 
--#include <linux/net.h>
--#include <linux/if_packet.h>
--#include <linux/if_arp.h>
--
- #include "vhost.h"
- 
  enum {
-@@ -414,28 +410,16 @@ long vhost_dev_reset_owner(struct vhost_dev *dev)
- 	return 0;
- }
+ 	VHOST_NET_VQ_RX = 0,
+ 	VHOST_NET_VQ_TX = 1,
+@@ -62,8 +77,33 @@ struct vhost_net {
+ 	 * We only do this when socket buffer fills up.
+ 	 * Protected by tx vq lock. */
+ 	enum vhost_net_poll_state tx_poll_state;
++	/* Number of TX recently submitted.
++	 * Protected by tx vq lock. */
++	unsigned tx_packets;
++	/* Number of times zerocopy TX recently failed.
++	 * Protected by tx vq lock. */
++	unsigned tx_zcopy_err;
+ };
  
--/* In case of DMA done not in order in lower device driver for some reason.
-- * upend_idx is used to track end of used idx, done_idx is used to track head
-- * of used idx. Once lower device DMA done contiguously, we will signal KVM
-- * guest used idx.
-- */
++static void vhost_net_tx_packet(struct vhost_net *net)
++{
++	++net->tx_packets;
++	if (net->tx_packets < 1024)
++		return;
++	net->tx_packets = 0;
++	net->tx_zcopy_err = 0;
++}
++
++static void vhost_net_tx_err(struct vhost_net *net)
++{
++	++net->tx_zcopy_err;
++}
++
++static bool vhost_net_tx_select_zcopy(struct vhost_net *net)
++{
++	return net->tx_packets / 64 >= net->tx_zcopy_err;
++}
++
+ static bool vhost_sock_zcopy(struct socket *sock)
+ {
+ 	return unlikely(experimental_zcopytx) &&
+@@ -131,12 +171,15 @@ static void tx_poll_start(struct vhost_net *net, struct socket *sock)
+  * of used idx. Once lower device DMA done contiguously, we will signal KVM
+  * guest used idx.
+  */
 -int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
-+void vhost_dev_stop(struct vhost_dev *dev)
++static int vhost_zerocopy_signal_used(struct vhost_net *net,
++				      struct vhost_virtqueue *vq)
  {
  	int i;
--	int j = 0;
--
--	for (i = vq->done_idx; i != vq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
--		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
--			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
--			vhost_add_used_and_signal(vq->dev, vq,
--						  vq->heads[i].id, 0);
--			++j;
--		} else
--			break;
-+
-+	for (i = 0; i < dev->nvqs; ++i) {
-+		if (dev->vqs[i].kick && dev->vqs[i].handle_kick) {
-+			vhost_poll_stop(&dev->vqs[i].poll);
-+			vhost_poll_flush(&dev->vqs[i].poll);
-+		}
- 	}
--	if (j)
--		vq->done_idx = i;
--	return j;
+ 	int j = 0;
+ 
+ 	for (i = vq->done_idx; i != vq->upend_idx; i = (i + 1) % UIO_MAXIOV) {
++		if (vq->heads[i].len == VHOST_DMA_FAILED_LEN)
++			vhost_net_tx_err(net);
+ 		if (VHOST_DMA_IS_DONE(vq->heads[i].len)) {
+ 			vq->heads[i].len = VHOST_DMA_CLEAR_LEN;
+ 			vhost_add_used_and_signal(vq->dev, vq,
+@@ -150,15 +193,15 @@ int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq)
+ 	return j;
  }
  
- /* Caller should have device mutex if and only if locked is set */
-@@ -444,17 +428,6 @@ void vhost_dev_cleanup(struct vhost_dev *dev, bool locked)
- 	int i;
+-static void vhost_zerocopy_callback(struct ubuf_info *ubuf, int status)
++static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
+ {
+ 	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
+ 	struct vhost_virtqueue *vq = ubufs->vq;
  
- 	for (i = 0; i < dev->nvqs; ++i) {
--		if (dev->vqs[i].kick && dev->vqs[i].handle_kick) {
--			vhost_poll_stop(&dev->vqs[i].poll);
--			vhost_poll_flush(&dev->vqs[i].poll);
--		}
--		/* Wait for all lower device DMAs done. */
--		if (dev->vqs[i].ubufs)
--			vhost_ubuf_put_and_wait(dev->vqs[i].ubufs);
--
--		/* Signal guest as appropriate. */
--		vhost_zerocopy_signal_used(&dev->vqs[i]);
--
- 		if (dev->vqs[i].error_ctx)
- 			eventfd_ctx_put(dev->vqs[i].error_ctx);
- 		if (dev->vqs[i].error)
-@@ -1599,15 +1572,3 @@ void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *ubufs)
- 	wait_event(ubufs->wait, !atomic_read(&ubufs->kref.refcount));
- 	kfree(ubufs);
- }
--
--void vhost_zerocopy_callback(struct ubuf_info *ubuf, int status)
--{
--	struct vhost_ubuf_ref *ubufs = ubuf->ctx;
--	struct vhost_virtqueue *vq = ubufs->vq;
--
--	vhost_poll_queue(&vq->poll);
--	/* set len to mark this desc buffers done DMA */
+ 	vhost_poll_queue(&vq->poll);
+ 	/* set len to mark this desc buffers done DMA */
 -	vq->heads[ubuf->desc].len = status ?
 -		VHOST_DMA_FAILED_LEN : VHOST_DMA_DONE_LEN;
--	kref_put(&ubufs->kref, vhost_zerocopy_done_signal);
--}
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 464469d..5e19e3d 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -7,27 +7,11 @@
- #include <linux/mutex.h>
- #include <linux/poll.h>
- #include <linux/file.h>
--#include <linux/skbuff.h>
- #include <linux/uio.h>
- #include <linux/virtio_config.h>
- #include <linux/virtio_ring.h>
- #include <linux/atomic.h>
++	vq->heads[ubuf->desc].len = success ?
++		VHOST_DMA_DONE_LEN : VHOST_DMA_FAILED_LEN;
+ 	vhost_ubuf_put(ubufs);
+ }
  
--/*
-- * For transmit, used buffer len is unused; we override it to track buffer
-- * status internally; used for zerocopy tx only.
-- */
--/* Lower device DMA failed */
--#define VHOST_DMA_FAILED_LEN	3
--/* Lower device DMA done */
--#define VHOST_DMA_DONE_LEN	2
--/* Lower device DMA in progress */
--#define VHOST_DMA_IN_PROGRESS	1
--/* Buffer unused */
--#define VHOST_DMA_CLEAR_LEN	0
--
--#define VHOST_DMA_IS_DONE(len) ((len) >= VHOST_DMA_DONE_LEN)
--
- struct vhost_device;
+@@ -208,7 +251,7 @@ static void handle_tx(struct vhost_net *net)
+ 	for (;;) {
+ 		/* Release DMAs done buffers first */
+ 		if (zcopy)
+-			vhost_zerocopy_signal_used(vq);
++			vhost_zerocopy_signal_used(net, vq);
  
- struct vhost_work;
-@@ -80,6 +64,8 @@ struct vhost_ubuf_ref *vhost_ubuf_alloc(struct vhost_virtqueue *, bool zcopy);
- void vhost_ubuf_put(struct vhost_ubuf_ref *);
- void vhost_ubuf_put_and_wait(struct vhost_ubuf_ref *);
+ 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+ 					 ARRAY_SIZE(vq->iov),
+@@ -263,7 +306,8 @@ static void handle_tx(struct vhost_net *net)
+ 		/* use msg_control to pass vhost zerocopy ubuf info to skb */
+ 		if (zcopy) {
+ 			vq->heads[vq->upend_idx].id = head;
+-			if (len < VHOST_GOODCOPY_LEN) {
++			if (!vhost_net_tx_select_zcopy(net) ||
++			    len < VHOST_GOODCOPY_LEN) {
+ 				/* copy don't need to wait for DMA done */
+ 				vq->heads[vq->upend_idx].len =
+ 							VHOST_DMA_DONE_LEN;
+@@ -305,8 +349,9 @@ static void handle_tx(struct vhost_net *net)
+ 		if (!zcopy)
+ 			vhost_add_used_and_signal(&net->dev, vq, head, 0);
+ 		else
+-			vhost_zerocopy_signal_used(vq);
++			vhost_zerocopy_signal_used(net, vq);
+ 		total_len += len;
++		vhost_net_tx_packet(net);
+ 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+ 			vhost_poll_queue(&vq->poll);
+ 			break;
+@@ -774,7 +819,7 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 	if (oldubufs) {
+ 		vhost_ubuf_put_and_wait(oldubufs);
+ 		mutex_lock(&vq->mutex);
+-		vhost_zerocopy_signal_used(vq);
++		vhost_zerocopy_signal_used(n, vq);
+ 		mutex_unlock(&vq->mutex);
+ 	}
  
-+struct ubuf_info;
-+
- /* The virtqueue structure describes a queue attached to a device. */
- struct vhost_virtqueue {
- 	struct vhost_dev *dev;
-@@ -177,6 +163,7 @@ long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue *vqs, int nvqs);
- long vhost_dev_check_owner(struct vhost_dev *);
- long vhost_dev_reset_owner(struct vhost_dev *);
- void vhost_dev_cleanup(struct vhost_dev *, bool locked);
-+void vhost_dev_stop(struct vhost_dev *);
- long vhost_dev_ioctl(struct vhost_dev *, unsigned int ioctl, unsigned long arg);
- int vhost_vq_access_ok(struct vhost_virtqueue *vq);
- int vhost_log_access_ok(struct vhost_dev *);
-@@ -201,8 +188,6 @@ bool vhost_enable_notify(struct vhost_dev *, struct vhost_virtqueue *);
- 
- int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
- 		    unsigned int log_num, u64 len);
--void vhost_zerocopy_callback(struct ubuf_info *, bool);
--int vhost_zerocopy_signal_used(struct vhost_virtqueue *vq);
- 
- #define vq_err(vq, fmt, ...) do {                                  \
- 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
 -- 
 MST
