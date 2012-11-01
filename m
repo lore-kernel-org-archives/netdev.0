@@ -1,49 +1,66 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [uclinux-dist-devel] [PATCH RFC net-next 2/4] bfin_mac:
- replace sys time stamps with raw ones instead.
-Date: Thu, 1 Nov 2012 10:42:09 +0100
-Message-ID: <20121101094209.GC5949@netboy.at.omicron.at>
-References: <20121030134112.GB2283@netboy.at.omicron.at>
- <CAA_GA1fW2zA2j66y7zfVe6+U-pb1=3mOyFFH+oDHimMFAXyH7Q@mail.gmail.com>
- <20121031083652.GC2327@netboy.at.omicron.at>
- <CAA_GA1cQojiaJat8gGmp3XYZVGOtKi2xoFS08hsYTGssdbWcRg@mail.gmail.com>
- <20121031124638.GA14197@netboy.at.omicron.at>
- <CAA_GA1eLXajk+wfwf7QYVoabDDeXLZecaTFX+6JRyoaYOyztQQ@mail.gmail.com>
- <20121101084111.GC2637@netboy.at.omicron.at>
- <CAA_GA1f=2ubb1z6rr1L8TR54cwh1NQcKiiaZqqv2r3mjX1wL7g@mail.gmail.com>
- <20121101093540.GB5949@netboy.at.omicron.at>
- <CAA_GA1e_NkFq49abibVtcyOcGp+AnP=yLbNPxmD3SdaAbWp+Jw@mail.gmail.com>
+From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
+	per-cpu helper
+Date: Thu, 01 Nov 2012 18:07:03 +0800
+Message-ID: <509249C7.3080000@gmail.com>
+References: <50910A04.5000003@gmail.com>
+	<0000013ab7e86f8a-4adb8b81-19be-4264-96f1-924aaf3819f2-000000@email.amazonses.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Miroslav Lichvar <mlichvar@redhat.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	device-drivers-devel@blackfin.uclinux.org,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	uclinux-dist-devel@blackfin.uclinux.org,
-	Patrick Ohly <patrick.ohly@intel.com>,
-	David Miller <davem@davemloft.net>
-To: Bob Liu <lliubbo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:46325 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933967Ab2KAJmW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 05:42:22 -0400
-Received: by mail-ea0-f174.google.com with SMTP id c13so901869eaa.19
-        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 02:42:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAA_GA1e_NkFq49abibVtcyOcGp+AnP=yLbNPxmD3SdaAbWp+Jw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <0000013ab7e86f8a-4adb8b81-19be-4264-96f1-924aaf3819f2-000000-p/GC64/jrecnJqMo6gzdpkEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 01, 2012 at 05:39:01PM +0800, Bob Liu wrote:
+Christoph Lameter said, at 2012/11/1 1:39:
+> On Wed, 31 Oct 2012, Shan Wei wrote:
 > 
-> Thank you very much.
-> It works.
+>> --- a/net/openvswitch/datapath.c
+>> +++ b/net/openvswitch/datapath.c
+>> @@ -208,7 +208,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
+>>  	int error;
+>>  	int key_len;
+>>
+>> -	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
+>> +	stats = this_cpu_ptr(dp->stats_percpu);
+> 
+> Well this is an improvement and may be ok if the preemption is disabled at
+> this point. There is another possibility here to use this_cpu_read/add/inc
+> instead of determining the pointer to the local cpu first and then
+> performing operations on the fields. The pointer relocation with
+> this_cpu_xxx ops is implicit in the instructions and safe against changing
+> of processors. It would also save us the determination of a pointer to the
+> current cpus stats structure.
 
-Thanks, Bob.
+yes, this_cpu_ptr just locate the point to current cpu per-cpu data domain.
+and then operating [read/write/inc/sub] fields of this per-cpu variable
+maybe on other cpu because task is rescheduled for preemption, interrupt.
 
-Can you add your Acked- or Tested-by to the V2 series that I posted?
+But for different field in same per-cpu variable, how to guarantee n_missed
+and n_hit are from same cpu? 
+this_cpu_read(dp->stats_percpu->n_missed);
+[processor changed]
+this_cpu_read(dp->stats_percpu->n_hit);
 
-Richard
+
+In addition, following usage of per_cpu_ptr can be replaced by this_cpu_read.
+
+cpu=get_cpu()
+....
+*per_cpu_ptr(p,cpu)
+....
+....
+put_cpu()
