@@ -1,45 +1,48 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net 1/1] r8169: allow multicast packets on sub-8168f chipset.
-Date: Thu, 1 Nov 2012 23:08:47 +0100
-Message-ID: <20121101220847.GA7708@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
-	Nathan Walp <faceprint@faceprint.com>
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] ptp: update adjfreq callback description
+Date: Thu,  1 Nov 2012 15:30:16 -0700
+Message-ID: <1351809016-29237-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
+	richard.cochran@gmail.com, john.stultz@linaro.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:47249 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762452Ab2KAWay (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 18:30:54 -0400
-Content-Disposition: inline
+Received: from mga03.intel.com ([143.182.124.21]:13621 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762451Ab2KAWax (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2012 18:30:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nathan Walp <faceprint@faceprint.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-RTL_GIGA_MAC_VER_35 includes no multicast hardware filter.
+This patch updates the adjfreq callback description to include a note that the
+delta in ppb is always relative to the base frequency, and not to the current
+frequency of the hardware clock.
 
-Signed-off-by: Nathan Walp <faceprint@faceprint.com>
-Suggested-by: Hayes Wang <hayeswang@realtek.com>
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+CC: stable@vger.kernel.org [v3.5+]
+CC: Richard Cochran <richard.cochran@gmail.com>
+CC: John Stultz <john.stultz@linaro.org>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 3 +++
- 1 file changed, 3 insertions(+)
+ include/linux/ptp_clock_kernel.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index e7ff886..89bf6e1 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4519,6 +4519,9 @@ static void rtl_set_rx_mode(struct net_device *dev)
- 		mc_filter[1] = swab32(data);
- 	}
- 
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_35)
-+		mc_filter[1] = mc_filter[0] = 0xffffffff;
-+
- 	RTL_W32(MAR0 + 4, mc_filter[1]);
- 	RTL_W32(MAR0 + 0, mc_filter[0]);
- 
+diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
+index f2dc6d8..38a9935 100644
+--- a/include/linux/ptp_clock_kernel.h
++++ b/include/linux/ptp_clock_kernel.h
+@@ -54,7 +54,8 @@ struct ptp_clock_request {
+  * clock operations
+  *
+  * @adjfreq:  Adjusts the frequency of the hardware clock.
+- *            parameter delta: Desired period change in parts per billion.
++ *            parameter delta: Desired frequency offset from nominal frequency
++ *            in parts per billion
+  *
+  * @adjtime:  Shifts the time of the hardware clock.
+  *            parameter delta: Desired change in nanoseconds.
 -- 
 1.7.11.7
