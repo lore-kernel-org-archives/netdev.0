@@ -1,9 +1,9 @@
 From: Bob Liu <lliubbo@gmail.com>
-Subject: Re: [PATCH V2 net-next 3/4] bfin_mac: offer a PTP Hardware Clock.
-Date: Thu, 1 Nov 2012 17:40:38 +0800
-Message-ID: <CAA_GA1dbvD6717OP0XX5E5egPLqV0S5u-JqqR2qM-0H18d6Vuw@mail.gmail.com>
+Subject: Re: [PATCH V2 net-next 4/4] time: remove the timecompare code.
+Date: Thu, 1 Nov 2012 17:41:00 +0800
+Message-ID: <CAA_GA1fP79GzVkvLSp5a9NNTEUhyw1h0UTYYq09iUqdsj4iVQg@mail.gmail.com>
 References: <cover.1351696541.git.richardcochran@gmail.com>
-	<6525f9eba3712d3c11744f061b022cc4038d260f.1351696541.git.richardcochran@gmail.com>
+	<962c27259144108f7f7033bb30ad9fa49630a9ce.1351696541.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev@vger.kernel.org, device-drivers-devel@blackfin.uclinux.org,
@@ -17,304 +17,380 @@ Cc: netdev@vger.kernel.org, device-drivers-devel@blackfin.uclinux.org,
 	Sonic Zhang <sonic.zhang@analog.com>
 To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:39650 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759074Ab2KAJkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 05:40:40 -0400
-Received: by mail-wi0-f170.google.com with SMTP id hm2so158956wib.1
-        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 02:40:38 -0700 (PDT)
-In-Reply-To: <6525f9eba3712d3c11744f061b022cc4038d260f.1351696541.git.richardcochran@gmail.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:44277 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759074Ab2KAJlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 05:41:01 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so1577243wgb.1
+        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 02:41:00 -0700 (PDT)
+In-Reply-To: <962c27259144108f7f7033bb30ad9fa49630a9ce.1351696541.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Thu, Nov 1, 2012 at 12:27 AM, Richard Cochran
 <richardcochran@gmail.com> wrote:
-> The BF518 has a PTP time unit that works in a similar way to other MAC
-> based clocks, like gianfar, ixp46x, and igb. This patch adds support for
-> using the blackfin as a PHC. Although the blackfin hardware does offer a
-> few ancillary features, this patch implements only the basic operations.
+> This patch removes the timecompare code from the kernel. The top five
+> reasons to do this are:
 >
-> Compile tested only.
+> 1. There are no more users of this code.
+> 2. The original idea was a bit weak.
+> 3. The original author has disappeared.
+> 4. The code was not general purpose but tuned to a particular hardware,
+> 5. There are better ways to accomplish clock synchronization.
 >
 > Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 
 Tested-by: Bob Liu <lliubbo@gmail.com>
 
+> Acked-by: John Stultz <john.stultz@linaro.org>
 > ---
->  drivers/net/ethernet/adi/Kconfig    |    2 +-
->  drivers/net/ethernet/adi/bfin_mac.c |  170 ++++++++++++++++++++++++++++++++++-
->  drivers/net/ethernet/adi/bfin_mac.h |    6 ++
->  3 files changed, 175 insertions(+), 3 deletions(-)
+>  include/linux/timecompare.h |  125 ----------------------------
+>  kernel/time/Makefile        |    2 +-
+>  kernel/time/timecompare.c   |  193 -------------------------------------------
+>  3 files changed, 1 insertions(+), 319 deletions(-)
+>  delete mode 100644 include/linux/timecompare.h
+>  delete mode 100644 kernel/time/timecompare.c
 >
-> diff --git a/drivers/net/ethernet/adi/Kconfig b/drivers/net/ethernet/adi/Kconfig
-> index 49a30d3..175c38c 100644
-> --- a/drivers/net/ethernet/adi/Kconfig
-> +++ b/drivers/net/ethernet/adi/Kconfig
-> @@ -61,7 +61,7 @@ config BFIN_RX_DESC_NUM
+> diff --git a/include/linux/timecompare.h b/include/linux/timecompare.h
+> deleted file mode 100644
+> index 546e223..0000000
+> --- a/include/linux/timecompare.h
+> +++ /dev/null
+> @@ -1,125 +0,0 @@
+> -/*
+> - * Utility code which helps transforming between two different time
+> - * bases, called "source" and "target" time in this code.
+> - *
+> - * Source time has to be provided via the timecounter API while target
+> - * time is accessed via a function callback whose prototype
+> - * intentionally matches ktime_get() and ktime_get_real(). These
+> - * interfaces where chosen like this so that the code serves its
+> - * initial purpose without additional glue code.
+> - *
+> - * This purpose is synchronizing a hardware clock in a NIC with system
+> - * time, in order to implement the Precision Time Protocol (PTP,
+> - * IEEE1588) with more accurate hardware assisted time stamping.  In
+> - * that context only synchronization against system time (=
+> - * ktime_get_real()) is currently needed. But this utility code might
+> - * become useful in other situations, which is why it was written as
+> - * general purpose utility code.
+> - *
+> - * The source timecounter is assumed to return monotonically
+> - * increasing time (but this code does its best to compensate if that
+> - * is not the case) whereas target time may jump.
+> - *
+> - * The target time corresponding to a source time is determined by
+> - * reading target time, reading source time, reading target time
+> - * again, then assuming that average target time corresponds to source
+> - * time. In other words, the assumption is that reading the source
+> - * time is slow and involves equal time for sending the request and
+> - * receiving the reply, whereas reading target time is assumed to be
+> - * fast.
+> - *
+> - * Copyright (C) 2009 Intel Corporation.
+> - * Author: Patrick Ohly <patrick.ohly@intel.com>
+> - *
+> - * This program is free software; you can redistribute it and/or modify it
+> - * under the terms and conditions of the GNU General Public License,
+> - * version 2, as published by the Free Software Foundation.
+> - *
+> - * This program is distributed in the hope it will be useful, but WITHOUT
+> - * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+> - * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
+> - * more details.
+> - *
+> - * You should have received a copy of the GNU General Public License along with
+> - * this program; if not, write to the Free Software Foundation, Inc.,
+> - * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+> - */
+> -#ifndef _LINUX_TIMECOMPARE_H
+> -#define _LINUX_TIMECOMPARE_H
+> -
+> -#include <linux/clocksource.h>
+> -#include <linux/ktime.h>
+> -
+> -/**
+> - * struct timecompare - stores state and configuration for the two clocks
+> - *
+> - * Initialize to zero, then set source/target/num_samples.
+> - *
+> - * Transformation between source time and target time is done with:
+> - * target_time = source_time + offset +
+> - *               (source_time - last_update) * skew /
+> - *               TIMECOMPARE_SKEW_RESOLUTION
+> - *
+> - * @source:          used to get source time stamps via timecounter_read()
+> - * @target:          function returning target time (for example, ktime_get
+> - *                   for monotonic time, or ktime_get_real for wall clock)
+> - * @num_samples:     number of times that source time and target time are to
+> - *                   be compared when determining their offset
+> - * @offset:          (target time - source time) at the time of the last update
+> - * @skew:            average (target time - source time) / delta source time *
+> - *                   TIMECOMPARE_SKEW_RESOLUTION
+> - * @last_update:     last source time stamp when time offset was measured
+> - */
+> -struct timecompare {
+> -       struct timecounter *source;
+> -       ktime_t (*target)(void);
+> -       int num_samples;
+> -
+> -       s64 offset;
+> -       s64 skew;
+> -       u64 last_update;
+> -};
+> -
+> -/**
+> - * timecompare_transform - transform source time stamp into target time base
+> - * @sync:            context for time sync
+> - * @source_tstamp:   the result of timecounter_read() or
+> - *                   timecounter_cyc2time()
+> - */
+> -extern ktime_t timecompare_transform(struct timecompare *sync,
+> -                                    u64 source_tstamp);
+> -
+> -/**
+> - * timecompare_offset - measure current (target time - source time) offset
+> - * @sync:            context for time sync
+> - * @offset:          average offset during sample period returned here
+> - * @source_tstamp:   average source time during sample period returned here
+> - *
+> - * Returns number of samples used. Might be zero (= no result) in the
+> - * unlikely case that target time was monotonically decreasing for all
+> - * samples (= broken).
+> - */
+> -extern int timecompare_offset(struct timecompare *sync,
+> -                             s64 *offset,
+> -                             u64 *source_tstamp);
+> -
+> -extern void __timecompare_update(struct timecompare *sync,
+> -                                u64 source_tstamp);
+> -
+> -/**
+> - * timecompare_update - update offset and skew by measuring current offset
+> - * @sync:            context for time sync
+> - * @source_tstamp:   the result of timecounter_read() or
+> - *                   timecounter_cyc2time(), pass zero to force update
+> - *
+> - * Updates are only done at most once per second.
+> - */
+> -static inline void timecompare_update(struct timecompare *sync,
+> -                                     u64 source_tstamp)
+> -{
+> -       if (!source_tstamp ||
+> -           (s64)(source_tstamp - sync->last_update) >= NSEC_PER_SEC)
+> -               __timecompare_update(sync, source_tstamp);
+> -}
+> -
+> -#endif /* _LINUX_TIMECOMPARE_H */
+> diff --git a/kernel/time/Makefile b/kernel/time/Makefile
+> index e2fd74b..ff7d9d2 100644
+> --- a/kernel/time/Makefile
+> +++ b/kernel/time/Makefile
+> @@ -1,4 +1,4 @@
+> -obj-y += timekeeping.o ntp.o clocksource.o jiffies.o timer_list.o timecompare.o
+> +obj-y += timekeeping.o ntp.o clocksource.o jiffies.o timer_list.o
+>  obj-y += timeconv.o posix-clock.o alarmtimer.o
 >
->  config BFIN_MAC_USE_HWSTAMP
->         bool "Use IEEE 1588 hwstamp"
-> -       depends on BFIN_MAC && BF518
-> +       depends on BFIN_MAC && BF518 && PTP_1588_CLOCK && !(BFIN_MAC=y && PTP_1588_CLOCK=m)
->         default y
->         ---help---
->           To support the IEEE 1588 Precision Time Protocol (PTP), select y here
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-> index 885fa80..f1c458d 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.c
-> +++ b/drivers/net/ethernet/adi/bfin_mac.c
-> @@ -552,11 +552,13 @@ static int bfin_mac_ethtool_setwol(struct net_device *dev,
->  static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
->         struct ethtool_ts_info *info)
->  {
-> +       struct bfin_mac_local *lp = netdev_priv(dev);
-> +
->         info->so_timestamping =
->                 SOF_TIMESTAMPING_TX_HARDWARE |
->                 SOF_TIMESTAMPING_RX_HARDWARE |
->                 SOF_TIMESTAMPING_RAW_HARDWARE;
-> -       info->phc_index = -1;
-> +       info->phc_index = lp->phc_index;
->         info->tx_types =
->                 (1 << HWTSTAMP_TX_OFF) |
->                 (1 << HWTSTAMP_TX_ON);
-> @@ -887,7 +889,7 @@ static void bfin_rx_hwtstamp(struct net_device *netdev, struct sk_buff *skb)
->  static void bfin_mac_hwtstamp_init(struct net_device *netdev)
->  {
->         struct bfin_mac_local *lp = netdev_priv(netdev);
-> -       u64 addend;
-> +       u64 addend, ppb;
->         u32 input_clk, phc_clk;
->
->         /* Initialize hardware timer */
-> @@ -898,18 +900,175 @@ static void bfin_mac_hwtstamp_init(struct net_device *netdev)
->         bfin_write_EMAC_PTP_ADDEND((u32)addend);
->
->         lp->addend = addend;
-> +       ppb = 1000000000ULL * input_clk;
-> +       do_div(ppb, phc_clk);
-> +       lp->max_ppb = ppb - 1000000000ULL - 1ULL;
->
->         /* Initialize hwstamp config */
->         lp->stamp_cfg.rx_filter = HWTSTAMP_FILTER_NONE;
->         lp->stamp_cfg.tx_type = HWTSTAMP_TX_OFF;
->  }
->
-> +static u64 bfin_ptp_time_read(struct bfin_mac_local *lp)
-> +{
-> +       u64 ns;
-> +       u32 lo, hi;
-> +
-> +       lo = bfin_read_EMAC_PTP_TIMELO();
-> +       hi = bfin_read_EMAC_PTP_TIMEHI();
-> +
-> +       ns = ((u64) hi) << 32;
-> +       ns |= lo;
-> +       ns <<= lp->shift;
-> +
-> +       return ns;
-> +}
-> +
-> +static void bfin_ptp_time_write(struct bfin_mac_local *lp, u64 ns)
-> +{
-> +       u32 hi, lo;
-> +
-> +       ns >>= lp->shift;
-> +       hi = ns >> 32;
-> +       lo = ns & 0xffffffff;
-> +
-> +       bfin_write_EMAC_PTP_TIMELO(lo);
-> +       bfin_write_EMAC_PTP_TIMEHI(hi);
-> +}
-> +
-> +/* PTP Hardware Clock operations */
-> +
-> +static int bfin_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-> +{
-> +       u64 adj;
-> +       u32 diff, addend;
-> +       int neg_adj = 0;
-> +       struct bfin_mac_local *lp =
-> +               container_of(ptp, struct bfin_mac_local, caps);
-> +
-> +       if (ppb < 0) {
-> +               neg_adj = 1;
-> +               ppb = -ppb;
-> +       }
-> +       addend = lp->addend;
-> +       adj = addend;
-> +       adj *= ppb;
-> +       diff = div_u64(adj, 1000000000ULL);
-> +
-> +       addend = neg_adj ? addend - diff : addend + diff;
-> +
-> +       bfin_write_EMAC_PTP_ADDEND(addend);
-> +
-> +       return 0;
-> +}
-> +
-> +static int bfin_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
-> +{
-> +       s64 now;
-> +       unsigned long flags;
-> +       struct bfin_mac_local *lp =
-> +               container_of(ptp, struct bfin_mac_local, caps);
-> +
-> +       spin_lock_irqsave(&lp->phc_lock, flags);
-> +
-> +       now = bfin_ptp_time_read(lp);
-> +       now += delta;
-> +       bfin_ptp_time_write(lp, now);
-> +
-> +       spin_unlock_irqrestore(&lp->phc_lock, flags);
-> +
-> +       return 0;
-> +}
-> +
-> +static int bfin_ptp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
-> +{
-> +       u64 ns;
-> +       u32 remainder;
-> +       unsigned long flags;
-> +       struct bfin_mac_local *lp =
-> +               container_of(ptp, struct bfin_mac_local, caps);
-> +
-> +       spin_lock_irqsave(&lp->phc_lock, flags);
-> +
-> +       ns = bfin_ptp_time_read(lp);
-> +
-> +       spin_unlock_irqrestore(&lp->phc_lock, flags);
-> +
-> +       ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
-> +       ts->tv_nsec = remainder;
-> +       return 0;
-> +}
-> +
-> +static int bfin_ptp_settime(struct ptp_clock_info *ptp,
-> +                          const struct timespec *ts)
-> +{
-> +       u64 ns;
-> +       unsigned long flags;
-> +       struct bfin_mac_local *lp =
-> +               container_of(ptp, struct bfin_mac_local, caps);
-> +
-> +       ns = ts->tv_sec * 1000000000ULL;
-> +       ns += ts->tv_nsec;
-> +
-> +       spin_lock_irqsave(&lp->phc_lock, flags);
-> +
-> +       bfin_ptp_time_write(lp, ns);
-> +
-> +       spin_unlock_irqrestore(&lp->phc_lock, flags);
-> +
-> +       return 0;
-> +}
-> +
-> +static int bfin_ptp_enable(struct ptp_clock_info *ptp,
-> +                         struct ptp_clock_request *rq, int on)
-> +{
-> +       return -EOPNOTSUPP;
-> +}
-> +
-> +static struct ptp_clock_info bfin_ptp_caps = {
-> +       .owner          = THIS_MODULE,
-> +       .name           = "BF518 clock",
-> +       .max_adj        = 0,
-> +       .n_alarm        = 0,
-> +       .n_ext_ts       = 0,
-> +       .n_per_out      = 0,
-> +       .pps            = 0,
-> +       .adjfreq        = bfin_ptp_adjfreq,
-> +       .adjtime        = bfin_ptp_adjtime,
-> +       .gettime        = bfin_ptp_gettime,
-> +       .settime        = bfin_ptp_settime,
-> +       .enable         = bfin_ptp_enable,
-> +};
-> +
-> +static int bfin_phc_init(struct net_device *netdev, struct device *dev)
-> +{
-> +       struct bfin_mac_local *lp = netdev_priv(netdev);
-> +
-> +       lp->caps = bfin_ptp_caps;
-> +       lp->caps.max_adj = lp->max_ppb;
-> +       lp->clock = ptp_clock_register(&lp->caps, dev);
-> +       if (IS_ERR(lp->clock))
-> +               return PTR_ERR(lp->clock);
-> +
-> +       lp->phc_index = ptp_clock_index(lp->clock);
-> +       spin_lock_init(&lp->phc_lock);
-> +
-> +       return 0;
-> +}
-> +
-> +static void bfin_phc_release(struct bfin_mac_local *lp)
-> +{
-> +       ptp_clock_unregister(lp->clock);
-> +}
-> +
->  #else
->  # define bfin_mac_hwtstamp_is_none(cfg) 0
->  # define bfin_mac_hwtstamp_init(dev)
->  # define bfin_mac_hwtstamp_ioctl(dev, ifr, cmd) (-EOPNOTSUPP)
->  # define bfin_rx_hwtstamp(dev, skb)
->  # define bfin_tx_hwtstamp(dev, skb)
-> +# define bfin_phc_init(netdev, dev) 0
-> +# define bfin_phc_release(lp)
->  #endif
->
->  static inline void _tx_reclaim_skb(void)
-> @@ -1544,12 +1703,17 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
->         }
->
->         bfin_mac_hwtstamp_init(ndev);
-> +       if (bfin_phc_init(ndev, &pdev->dev)) {
-> +               dev_err(&pdev->dev, "Cannot register PHC device!\n");
-> +               goto out_err_phc;
-> +       }
->
->         /* now, print out the card info, in a short format.. */
->         netdev_info(ndev, "%s, Version %s\n", DRV_DESC, DRV_VERSION);
->
->         return 0;
->
-> +out_err_phc:
->  out_err_reg_ndev:
->         free_irq(IRQ_MAC_RX, ndev);
->  out_err_request_irq:
-> @@ -1568,6 +1732,8 @@ static int __devexit bfin_mac_remove(struct platform_device *pdev)
->         struct net_device *ndev = platform_get_drvdata(pdev);
->         struct bfin_mac_local *lp = netdev_priv(ndev);
->
-> +       bfin_phc_release(lp);
-> +
->         platform_set_drvdata(pdev, NULL);
->
->         lp->mii_bus->priv = NULL;
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.h b/drivers/net/ethernet/adi/bfin_mac.h
-> index 57f042c..7a07ee0 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.h
-> +++ b/drivers/net/ethernet/adi/bfin_mac.h
-> @@ -11,6 +11,7 @@
->  #define _BFIN_MAC_H_
->
->  #include <linux/net_tstamp.h>
-> +#include <linux/ptp_clock_kernel.h>
->  #include <linux/timer.h>
->  #include <linux/etherdevice.h>
->  #include <linux/bfin_mac.h>
-> @@ -94,7 +95,12 @@ struct bfin_mac_local {
->  #if defined(CONFIG_BFIN_MAC_USE_HWSTAMP)
->         u32 addend;
->         unsigned int shift;
-> +       s32 max_ppb;
->         struct hwtstamp_config stamp_cfg;
-> +       struct ptp_clock_info caps;
-> +       struct ptp_clock *clock;
-> +       int phc_index;
-> +       spinlock_t phc_lock; /* protects time lo/hi registers */
->  #endif
->  };
->
+>  obj-$(CONFIG_GENERIC_CLOCKEVENTS_BUILD)                += clockevents.o
+> diff --git a/kernel/time/timecompare.c b/kernel/time/timecompare.c
+> deleted file mode 100644
+> index a9ae369..0000000
+> --- a/kernel/time/timecompare.c
+> +++ /dev/null
+> @@ -1,193 +0,0 @@
+> -/*
+> - * Copyright (C) 2009 Intel Corporation.
+> - * Author: Patrick Ohly <patrick.ohly@intel.com>
+> - *
+> - * This program is free software; you can redistribute it and/or modify
+> - * it under the terms of the GNU General Public License as published by
+> - * the Free Software Foundation; either version 2 of the License, or
+> - * (at your option) any later version.
+> - *
+> - * This program is distributed in the hope that it will be useful,
+> - * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> - * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> - * GNU General Public License for more details.
+> - *
+> - * You should have received a copy of the GNU General Public License
+> - * along with this program; if not, write to the Free Software
+> - * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+> - */
+> -
+> -#include <linux/timecompare.h>
+> -#include <linux/module.h>
+> -#include <linux/slab.h>
+> -#include <linux/math64.h>
+> -#include <linux/kernel.h>
+> -
+> -/*
+> - * fixed point arithmetic scale factor for skew
+> - *
+> - * Usually one would measure skew in ppb (parts per billion, 1e9), but
+> - * using a factor of 2 simplifies the math.
+> - */
+> -#define TIMECOMPARE_SKEW_RESOLUTION (((s64)1)<<30)
+> -
+> -ktime_t timecompare_transform(struct timecompare *sync,
+> -                             u64 source_tstamp)
+> -{
+> -       u64 nsec;
+> -
+> -       nsec = source_tstamp + sync->offset;
+> -       nsec += (s64)(source_tstamp - sync->last_update) * sync->skew /
+> -               TIMECOMPARE_SKEW_RESOLUTION;
+> -
+> -       return ns_to_ktime(nsec);
+> -}
+> -EXPORT_SYMBOL_GPL(timecompare_transform);
+> -
+> -int timecompare_offset(struct timecompare *sync,
+> -                      s64 *offset,
+> -                      u64 *source_tstamp)
+> -{
+> -       u64 start_source = 0, end_source = 0;
+> -       struct {
+> -               s64 offset;
+> -               s64 duration_target;
+> -       } buffer[10], sample, *samples;
+> -       int counter = 0, i;
+> -       int used;
+> -       int index;
+> -       int num_samples = sync->num_samples;
+> -
+> -       if (num_samples > ARRAY_SIZE(buffer)) {
+> -               samples = kmalloc(sizeof(*samples) * num_samples, GFP_ATOMIC);
+> -               if (!samples) {
+> -                       samples = buffer;
+> -                       num_samples = ARRAY_SIZE(buffer);
+> -               }
+> -       } else {
+> -               samples = buffer;
+> -       }
+> -
+> -       /* run until we have enough valid samples, but do not try forever */
+> -       i = 0;
+> -       counter = 0;
+> -       while (1) {
+> -               u64 ts;
+> -               ktime_t start, end;
+> -
+> -               start = sync->target();
+> -               ts = timecounter_read(sync->source);
+> -               end = sync->target();
+> -
+> -               if (!i)
+> -                       start_source = ts;
+> -
+> -               /* ignore negative durations */
+> -               sample.duration_target = ktime_to_ns(ktime_sub(end, start));
+> -               if (sample.duration_target >= 0) {
+> -                       /*
+> -                        * assume symetric delay to and from source:
+> -                        * average target time corresponds to measured
+> -                        * source time
+> -                        */
+> -                       sample.offset =
+> -                               (ktime_to_ns(end) + ktime_to_ns(start)) / 2 -
+> -                               ts;
+> -
+> -                       /* simple insertion sort based on duration */
+> -                       index = counter - 1;
+> -                       while (index >= 0) {
+> -                               if (samples[index].duration_target <
+> -                                   sample.duration_target)
+> -                                       break;
+> -                               samples[index + 1] = samples[index];
+> -                               index--;
+> -                       }
+> -                       samples[index + 1] = sample;
+> -                       counter++;
+> -               }
+> -
+> -               i++;
+> -               if (counter >= num_samples || i >= 100000) {
+> -                       end_source = ts;
+> -                       break;
+> -               }
+> -       }
+> -
+> -       *source_tstamp = (end_source + start_source) / 2;
+> -
+> -       /* remove outliers by only using 75% of the samples */
+> -       used = counter * 3 / 4;
+> -       if (!used)
+> -               used = counter;
+> -       if (used) {
+> -               /* calculate average */
+> -               s64 off = 0;
+> -               for (index = 0; index < used; index++)
+> -                       off += samples[index].offset;
+> -               *offset = div_s64(off, used);
+> -       }
+> -
+> -       if (samples && samples != buffer)
+> -               kfree(samples);
+> -
+> -       return used;
+> -}
+> -EXPORT_SYMBOL_GPL(timecompare_offset);
+> -
+> -void __timecompare_update(struct timecompare *sync,
+> -                         u64 source_tstamp)
+> -{
+> -       s64 offset;
+> -       u64 average_time;
+> -
+> -       if (!timecompare_offset(sync, &offset, &average_time))
+> -               return;
+> -
+> -       if (!sync->last_update) {
+> -               sync->last_update = average_time;
+> -               sync->offset = offset;
+> -               sync->skew = 0;
+> -       } else {
+> -               s64 delta_nsec = average_time - sync->last_update;
+> -
+> -               /* avoid division by negative or small deltas */
+> -               if (delta_nsec >= 10000) {
+> -                       s64 delta_offset_nsec = offset - sync->offset;
+> -                       s64 skew; /* delta_offset_nsec *
+> -                                    TIMECOMPARE_SKEW_RESOLUTION /
+> -                                    delta_nsec */
+> -                       u64 divisor;
+> -
+> -                       /* div_s64() is limited to 32 bit divisor */
+> -                       skew = delta_offset_nsec * TIMECOMPARE_SKEW_RESOLUTION;
+> -                       divisor = delta_nsec;
+> -                       while (unlikely(divisor >= ((s64)1) << 32)) {
+> -                               /* divide both by 2; beware, right shift
+> -                                  of negative value has undefined
+> -                                  behavior and can only be used for
+> -                                  the positive divisor */
+> -                               skew = div_s64(skew, 2);
+> -                               divisor >>= 1;
+> -                       }
+> -                       skew = div_s64(skew, divisor);
+> -
+> -                       /*
+> -                        * Calculate new overall skew as 4/16 the
+> -                        * old value and 12/16 the new one. This is
+> -                        * a rather arbitrary tradeoff between
+> -                        * only using the latest measurement (0/16 and
+> -                        * 16/16) and even more weight on past measurements.
+> -                        */
+> -#define TIMECOMPARE_NEW_SKEW_PER_16 12
+> -                       sync->skew =
+> -                               div_s64((16 - TIMECOMPARE_NEW_SKEW_PER_16) *
+> -                                       sync->skew +
+> -                                       TIMECOMPARE_NEW_SKEW_PER_16 * skew,
+> -                                       16);
+> -                       sync->last_update = average_time;
+> -                       sync->offset = offset;
+> -               }
+> -       }
+> -}
+> -EXPORT_SYMBOL_GPL(__timecompare_update);
 > --
 > 1.7.2.5
 >
