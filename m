@@ -1,46 +1,60 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC virtio-next 0/4] Introduce CAIF Virtio and reversed Vrings
-Date: Thu, 01 Nov 2012 18:11:35 +1030
-Message-ID: <87wqy54vo0.fsf@rustcorp.com.au>
-References: <1351723614-4145-1-git-send-email-sjur@brendeland.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 4/4] arm/dts: am33xx: Add CPSW and MDIO module nodes
+ for AM33XX
+Date: Thu, 1 Nov 2012 08:45:08 +0100
+Message-ID: <20121101074508.GA2637@netboy.at.omicron.at>
+References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com>
+ <1351498881-32482-6-git-send-email-hvaibhav@ti.com>
+ <50914107.2090909@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Linus Walleij <linus.walleij@linaro.org>,
-	dmitry.tarnyagin@stericsson.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, sjur@brendeland.net
-To: Sjur =?utf-8?Q?Br=C3=A6ndeland?= <sjur@brendeland.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1351723614-4145-1-git-send-email-sjur@brendeland.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vaibhav Hiremath <hvaibhav@ti.com>, netdev@vger.kernel.org,
+	paul@pwsan.com, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>
+To: Benoit Cousson <b-cousson@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:62809 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754222Ab2KAHpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 03:45:20 -0400
+Content-Disposition: inline
+In-Reply-To: <50914107.2090909@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U2p1ciBCcsOmbmRlbGFuZCA8c2p1ckBicmVuZGVsYW5kLm5ldD4gd3JpdGVzOgo+IFplcm8tQ29w
-eSBkYXRhIHRyYW5zcG9ydCBvbiB0aGUgbW9kZW0gaXMgcHJpbWFyeSBnb2FsIGZvciBDQUlGIFZp
-cnRpby4KPiBJbiBvcmRlciB0byBhY2hpZXZlIFplcm8tQ29weSB0aGUgZGlyZWN0aW9uIG9mIHRo
-ZSBWaXJ0aW8gcmluZ3MgYXJlCj4gZmxpcHBlZCBpbiB0aGUgUlggZGlyZWN0aW9uLiBTbyB3ZSBo
-YXZlIGltcGxlbWVudGVkIHRoZSBWaXJ0aW8KPiBhY2Nlc3MtZnVuY3Rpb24gc2ltaWxhciB0byB3
-aGF0IGlzIGZvdW5kIGluIHZob3N0LmMuCgpTbywgdGhpcyBhZGRzIGFub3RoZXIgaG9zdC1zaWRl
-IHZpcnRxdWV1ZSBpbXBsZW1lbnRhdGlvbi4KCkNhbiB3ZSBjb21iaW5lIHRoZW0gdG9nZXRoZXIg
-Y29udmVuaWVudGx5PyAgWW91IHB1bGxlZCBvdXQgbW9yZSBzdHVmZgppbnRvIHZyaW5nLmggd2hp
-Y2ggaXMgYSBzdGFydCwgYnV0IGl0J3MgYSBiaXQgb3ZlcmxvYWRlZC4KClBlcmhhcHMgd2Ugc2hv
-dWxkIHNlcGFyYXRlIHRoZSBjb21tb24gZmllbGRzIGludG8gc3RydWN0IHZyaW5nLCBhbmQgdXNl
-Cml0IHRvIGJ1aWxkOgoKICAgICAgICBzdHJ1Y3QgdnJpbmdfZ3Vlc3QgewogICAgICAgICAgICAg
-ICAgc3RydWN0IHZyaW5nIHZyOwogICAgICAgICAgICAgICAgdTE2IGxhc3RfdXNlZF9pZHg7CiAg
-ICAgICAgfTsKCiAgICAgICAgc3RydWN0IHZyaW5nX2hvc3QgewogICAgICAgICAgICAgICAgc3Ry
-dWN0IHZyaW5nIHZyOwogICAgICAgICAgICAgICAgdTE2IGxhc3RfYXZhaWxfaWR4OwogICAgICAg
-IH07CgpJIGhhdmVuJ3QgbG9va2VkIGNsb3NlbHkgYXQgdmhvc3QgdG8gc2VlIHdoYXQgaXQgd2Fu
-dHMsIGJ1dCBJIHdvdWxkCnRoaW5rIHdlIGNvdWxkIHNoYXJlIG1vcmUgY29kZS4KCkNoZWVycywK
-UnVzdHkuCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZp
-cnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3Vu
-ZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0
-aW5mby92aXJ0dWFsaXphdGlvbg==
+On Wed, Oct 31, 2012 at 04:17:27PM +0100, Benoit Cousson wrote:
+> > +			compatible = "ti,cpsw";
+> > +			ti,hwmods = "cpgmac0";
+> > +			cpdma_channels = <8>;
+> > +			host_port_no = <0>;
+> > +			cpdma_reg_ofs = <0x800>;
+> > +			cpdma_sram_ofs = <0xa00>;
+> > +			ale_reg_ofs = <0xd00>;
+> > +			ale_entries = <1024>;
+> > +			host_port_reg_ofs = <0x108>;
+> > +			hw_stats_reg_ofs = <0x900>;
+> > +			bd_ram_ofs = <0x2000>;
+> > +			bd_ram_size = <0x2000>;
+> > +			no_bd_ram = <0>;
+> > +			rx_descs = <64>;
+> > +			mac_control = <0x20>;
+> 
+> Do you have to store all these data in the DTS? Cannot it be in the driver?
+> 
+> Do you expect to have several instance of the same IP with different
+> parameters here?
+
+As I understand it, there are only two different layouts for the CPSW,
+the one in the dm814x and the one in the am335x. So I think it would
+work to put only the version register offet in the DT, and the let the
+driver figure out the rest from there.
+
+But if TI is planning on reordering the registers with each new
+silicon revision, again and again, then it might make sense to keep
+the offsets in the DT.
+
+[ I really wonder why the hardware people think that reshuffling the
+  register layout constitutes an improvement. ]
+
+Thanks,
+Richard
