@@ -1,86 +1,115 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [Suggestion] net-ipv6: format %8s change to %16s in rt6_info_route
- function of route.c
-Date: Thu, 01 Nov 2012 18:23:47 +0800
-Message-ID: <50924DB3.9010601@asianux.com>
-References: <50921A92.8000809@asianux.com> <1351760482.32673.913.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1351760482.32673.913.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rob Herring <robherring2@gmail.com>
+Subject: [PATCH v2 RESEND 5/6] net: calxedaxgmac: rework transmit ring handling
+Date: Thu,  1 Nov 2012 05:41:03 -0500
+Message-ID: <1351766464-27354-6-git-send-email-robherring2@gmail.com>
+References: <1351766464-27354-1-git-send-email-robherring2@gmail.com>
+Cc: eric.dumazet@gmail.com, Rob Herring <rob.herring@calxeda.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:59212 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756518Ab2KAKl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 06:41:26 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1000967bkc.19
+        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 03:41:25 -0700 (PDT)
+In-Reply-To: <1351766464-27354-1-git-send-email-robherring2@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B411=E6=9C=8801=E6=97=A5 17:01, Eric Dumazet =E5=86=
-=99=E9=81=93:
-> Hi Chen
->=20
-> Thats a good suggestion indeed.
->=20
+From: Rob Herring <rob.herring@calxeda.com>
 
-  thank you very much for your confirmation.
+Only generate tx interrupts on every ring size / 4 descriptors. Move the
+netif_stop_queue call to the end of the xmit function rather than
+checking at the beginning.
 
-> Networking patches should be sent to netdev@vger.kernel.org (added in
-> CC)
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+---
+ drivers/net/ethernet/calxeda/xgmac.c |   24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-  I will do it.
-
->=20
-> This list only cares about recent generic kernels, not RedHat ones.
->=20
-
-  it seems "it is not suitable to send any issues which only relative
-with Red Hat to linux-*@vger.kernel.org".
-
-
-
-> If you want to provide a patch, please base it on David Miller net-ne=
-xt
-> [1] tree, and make it official (read Documentation/SubmittingPatches =
-for
-> general advices)
->=20
-
-  ok, I will follow, thank you for your information.
-
-
-> By the way, the %8s should be replaced by %s, there is no need to mak=
-e
-> /proc/net/ipv6_route 'beautiful'. In the past, it was *needed* becaus=
-e
-> each line had to be of a given length, but its not anymore the case.
->=20
-> Thanks
->=20
-
-1) I agree with your result.
-
-2) But for the "reason", I have my opinions:
-   A) %.8s :  for limitation of output string length.
-   B) %8s  :  for width of output string length (but not limit 8).
-   C) %8.8s:  both limitation and width.
-
-3) for rt->rt6i_dev->name:
-   A) original %8s is not a bug for name len is more than 8 (can still
-be outputted correctly)
-   B) it is only effect with name len is less than 8 (it will fill some
-' ' before the name)
-   C) this is the reason why I call it "beautiful", not a bug.
-
-
-> [1] :
-> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next.git;a=3Dsu=
-mmary
->=20
-
-  I will reference it, thanks.
-
-
---=20
-Chen Gang
-
-Asianux Corporation
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index 4a1a06a..38eb1b2 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -211,7 +211,7 @@
+ #define DMA_INTR_ENA_TIE	0x00000001	/* Transmit Interrupt */
+ 
+ #define DMA_INTR_NORMAL		(DMA_INTR_ENA_NIE | DMA_INTR_ENA_RIE | \
+-				 DMA_INTR_ENA_TUE)
++				 DMA_INTR_ENA_TUE | DMA_INTR_ENA_TIE)
+ 
+ #define DMA_INTR_ABNORMAL	(DMA_INTR_ENA_AIE | DMA_INTR_ENA_FBE | \
+ 				 DMA_INTR_ENA_RWE | DMA_INTR_ENA_RSE | \
+@@ -374,6 +374,7 @@ struct xgmac_priv {
+ 	struct sk_buff **tx_skbuff;
+ 	unsigned int tx_head;
+ 	unsigned int tx_tail;
++	int tx_irq_cnt;
+ 
+ 	void __iomem *base;
+ 	unsigned int dma_buf_sz;
+@@ -886,7 +887,7 @@ static void xgmac_tx_complete(struct xgmac_priv *priv)
+ 	}
+ 
+ 	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) >
+-	    TX_THRESH)
++	    MAX_SKB_FRAGS)
+ 		netif_wake_queue(priv->dev);
+ }
+ 
+@@ -1057,19 +1058,15 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct xgmac_priv *priv = netdev_priv(dev);
+ 	unsigned int entry;
+ 	int i;
++	u32 irq_flag;
+ 	int nfrags = skb_shinfo(skb)->nr_frags;
+ 	struct xgmac_dma_desc *desc, *first;
+ 	unsigned int desc_flags;
+ 	unsigned int len;
+ 	dma_addr_t paddr;
+ 
+-	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) <
+-	    (nfrags + 1)) {
+-		writel(DMA_INTR_DEFAULT_MASK | DMA_INTR_ENA_TIE,
+-			priv->base + XGMAC_DMA_INTR_ENA);
+-		netif_stop_queue(dev);
+-		return NETDEV_TX_BUSY;
+-	}
++	priv->tx_irq_cnt = (priv->tx_irq_cnt + 1) & (DMA_TX_RING_SZ/4 - 1);
++	irq_flag = priv->tx_irq_cnt ? 0 : TXDESC_INTERRUPT;
+ 
+ 	desc_flags = (skb->ip_summed == CHECKSUM_PARTIAL) ?
+ 		TXDESC_CSUM_ALL : 0;
+@@ -1110,9 +1107,9 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* Interrupt on completition only for the latest segment */
+ 	if (desc != first)
+ 		desc_set_tx_owner(desc, desc_flags |
+-			TXDESC_LAST_SEG | TXDESC_INTERRUPT);
++			TXDESC_LAST_SEG | irq_flag);
+ 	else
+-		desc_flags |= TXDESC_LAST_SEG | TXDESC_INTERRUPT;
++		desc_flags |= TXDESC_LAST_SEG | irq_flag;
+ 
+ 	/* Set owner on first desc last to avoid race condition */
+ 	wmb();
+@@ -1121,6 +1118,9 @@ static netdev_tx_t xgmac_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	priv->tx_head = dma_ring_incr(entry, DMA_TX_RING_SZ);
+ 
+ 	writel(1, priv->base + XGMAC_DMA_TX_POLL);
++	if (dma_ring_space(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ) <
++	    MAX_SKB_FRAGS)
++		netif_stop_queue(dev);
+ 
+ 	return NETDEV_TX_OK;
+ }
+@@ -1397,7 +1397,7 @@ static irqreturn_t xgmac_interrupt(int irq, void *dev_id)
+ 	}
+ 
+ 	/* TX/RX NORMAL interrupts */
+-	if (intr_status & (DMA_STATUS_RI | DMA_STATUS_TU)) {
++	if (intr_status & (DMA_STATUS_RI | DMA_STATUS_TU | DMA_STATUS_TI)) {
+ 		writel_relaxed(DMA_INTR_ABNORMAL, priv->base + XGMAC_DMA_INTR_ENA);
+ 		napi_schedule(&priv->napi);
+ 	}
+-- 
+1.7.10.4
