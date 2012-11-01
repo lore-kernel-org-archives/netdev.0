@@ -1,30 +1,62 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH 3/9] net: xfrm: use this_cpu_ptr per-cpu helper
-Date: Thu, 01 Nov 2012 17:00:56 +0800
-Message-ID: <50923A48.1080906@gmail.com>
-References: <509109F9.3030904@gmail.com> <0000013ab7e4a640-60bd5b38-a1fc-4730-b918-4109211ffea0-000000@email.amazonses.com> <20121101034136.GA27343@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Suggestion] net-ipv6: format %8s change to %16s in
+ rt6_info_route function of route.c
+Date: Thu, 01 Nov 2012 10:01:22 +0100
+Message-ID: <1351760482.32673.913.camel@edumazet-glaptop>
+References: <50921A92.8000809@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <cl@linux.com>, steffen.klassert@secunet.com,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121101034136.GA27343@gondor.apana.org.au>
+In-Reply-To: <50921A92.8000809@asianux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu said, at 2012/11/1 11:41:
-> Please refer to the comment in the patch above.
+On Thu, 2012-11-01 at 14:45 +0800, Chen Gang wrote:
+> Hello:
 > 
-> But I think the patch is wrong anyway because it would introduce
-> a warning, no?
+> 1) For Public Kernel:
+> 
+>    A) in rt6_info_route function of net/ipv6/route.c
+> 
+>    B) the length of rt->rt6i_dev->name is 16 (IFNAMSIZ)
+> 
+>    C) using %16s is better than %8s (it will be more "beautiful")
+>       (also suggest to delete RT6_INFO_LEN, it is useless for ever)
+> 
+> 
+> 
+> 2) For Red Hat RHEL5:
+> 
+>    A) in rt6_info_route function of net/ipv6/route.c
+> 
+>    B) the length of rt->rt6i_dev->name is 16 (IFNAMSIZ)
+> 
+>    C) for RT6_INFO_LEN is still useful, so it is an correctness issue.
+> 
+>    the relative patch for RHEL5 is below:
 
-yes, __this_cpu_ptr(or __this_cpu_read) is more reasonable 
-which don't check preemption context.
+Hi Chen
 
-> 
-> Thanks,
-> 
+Thats a good suggestion indeed.
+
+Networking patches should be sent to netdev@vger.kernel.org (added in
+CC)
+
+This list only cares about recent generic kernels, not RedHat ones.
+
+If you want to provide a patch, please base it on David Miller net-next
+[1] tree, and make it official (read Documentation/SubmittingPatches for
+general advices)
+
+By the way, the %8s should be replaced by %s, there is no need to make
+/proc/net/ipv6_route 'beautiful'. In the past, it was *needed* because
+each line had to be of a given length, but its not anymore the case.
+
+Thanks
+
+[1] :
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=summary
