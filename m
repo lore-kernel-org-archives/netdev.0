@@ -1,48 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] ptp: update adjfreq callback description
-Date: Thu,  1 Nov 2012 15:30:16 -0700
-Message-ID: <1351809016-29237-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
-	richard.cochran@gmail.com, john.stultz@linaro.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:13621 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762451Ab2KAWax (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2012 18:30:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next] r8169: enable internal ASPM and clock request settings
+Date: Thu, 1 Nov 2012 23:21:39 +0100
+Message-ID: <20121101222139.GC7708@electric-eye.fr.zoreil.com>
+References: <1351780651-1271-1-git-send-email-hayeswang@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1351780651-1271-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+Hayes Wang <hayeswang@realtek.com> :
+> The following chips need to enable internal settings to let ASPM
+> and clock request work.
 
-This patch updates the adjfreq callback description to include a note that the
-delta in ppb is always relative to the base frequency, and not to the current
-frequency of the hardware clock.
+No objection, you know better than me.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-CC: stable@vger.kernel.org [v3.5+]
-CC: Richard Cochran <richard.cochran@gmail.com>
-CC: John Stultz <john.stultz@linaro.org>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- include/linux/ptp_clock_kernel.h | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+[...]
+> @@ -5145,7 +5146,10 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
+>  
+>  	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+>  	RTL_W32(MISC, RTL_R32(MISC) & ~RXDV_GATED_EN);
+> +	RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
 
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-index f2dc6d8..38a9935 100644
---- a/include/linux/ptp_clock_kernel.h
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -54,7 +54,8 @@ struct ptp_clock_request {
-  * clock operations
-  *
-  * @adjfreq:  Adjusts the frequency of the hardware clock.
-- *            parameter delta: Desired period change in parts per billion.
-+ *            parameter delta: Desired frequency offset from nominal frequency
-+ *            in parts per billion
-  *
-  * @adjtime:  Shifts the time of the hardware clock.
-  *            parameter delta: Desired change in nanoseconds.
+I wonder if those could had been merged.
+
+[...]
+> @@ -5407,7 +5417,10 @@ static void rtl_hw_start_8106(struct rtl8169_private *tp)
+>  	/* Force LAN exit from ASPM if Rx/Tx are not idle */
+>  	RTL_W32(FuncEvent, RTL_R32(FuncEvent) | 0x002800);
+>  
+> -	RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN) & ~EARLY_TALLY_EN);
+> +	RTL_W32(MISC, RTL_R32(MISC) & ~EARLY_TALLY_EN);
+> +	RTL_W32(MISC, RTL_R32(MISC) | DISABLE_LAN_EN | FORCE_CLK);
+
+As well as those.
+
 -- 
-1.7.11.7
+Ueimor
