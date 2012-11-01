@@ -1,71 +1,71 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 3/9] net: xfrm: use this_cpu_ptr per-cpu helper
-Date: Thu, 1 Nov 2012 10:18:42 +0100
-Message-ID: <20121101091842.GA2719@secunet.com>
-References: <509109F9.3030904@gmail.com>
- <0000013ab7e4a640-60bd5b38-a1fc-4730-b918-4109211ffea0-000000@email.amazonses.com>
- <50923956.5090206@gmail.com>
+From: "Cousson, Benoit" <b-cousson@ti.com>
+Subject: Re: [PATCH 4/4] arm/dts: am33xx: Add CPSW and MDIO module nodes for
+ AM33XX
+Date: Thu, 1 Nov 2012 10:28:47 +0100
+Message-ID: <509240CF.6060909@ti.com>
+References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com> <1351498881-32482-6-git-send-email-hvaibhav@ti.com> <50914107.2090909@ti.com> <20121101074508.GA2637@netboy.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Shan Wei <shanwei88@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vaibhav Hiremath <hvaibhav@ti.com>, <netdev@vger.kernel.org>,
+	<paul@pwsan.com>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:35338 "EHLO a.mx.secunet.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:57904 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752145Ab2KAJSw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2012 05:18:52 -0400
-Content-Disposition: inline
-In-Reply-To: <50923956.5090206@gmail.com>
+	id S1752338Ab2KAJ2x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2012 05:28:53 -0400
+In-Reply-To: <20121101074508.GA2637@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 01, 2012 at 04:56:54PM +0800, Shan Wei wrote:
-> Christoph Lameter said, at 2012/11/1 1:35:
-> > It would be better to use
-> >=20
-> > 	this_cpu_read(tfms)
-> >=20
-> > since that would also make it atomic vs interrupts. The above code =
-(both
-> > original and modified) could determine a pointer to a per cpu struc=
-ture
-> > and then take an interrupt which would move the task. On return we =
-would
-> > be accessing the per cpu variable of another processor.
->=20
-> this_cpu_read
-> |-----_this_cpu_generic_read
->=20
-> #define _this_cpu_generic_read(pcp)                                  =
-   \
-> ({      typeof(pcp) ret__;                                           =
-   \
->         preempt_disable();                                           =
-   \
->         ret__ =3D *this_cpu_ptr(&(pcp));                             =
-     \
->         preempt_enable();                                            =
-   \
->         ret__;                                                       =
-   \
-> })
->=20
->=20
-> this_cpu_read operations locate per-cpu variable with preemption safe=
-=EF=BC=8C not
-> disable interrupts. why is it atomic vs interrupts?
->=20
-> I have no idea whether we need to disable preemption for this code?
-> At least, xfrm code run well with per_cpu_ptr which don't disable pre=
-emption.
+On 11/1/2012 8:45 AM, Richard Cochran wrote:
+> On Wed, Oct 31, 2012 at 04:17:27PM +0100, Benoit Cousson wrote:
+>>> +			compatible = "ti,cpsw";
+>>> +			ti,hwmods = "cpgmac0";
+>>> +			cpdma_channels = <8>;
+>>> +			host_port_no = <0>;
+>>> +			cpdma_reg_ofs = <0x800>;
+>>> +			cpdma_sram_ofs = <0xa00>;
+>>> +			ale_reg_ofs = <0xd00>;
+>>> +			ale_entries = <1024>;
+>>> +			host_port_reg_ofs = <0x108>;
+>>> +			hw_stats_reg_ofs = <0x900>;
+>>> +			bd_ram_ofs = <0x2000>;
+>>> +			bd_ram_size = <0x2000>;
+>>> +			no_bd_ram = <0>;
+>>> +			rx_descs = <64>;
+>>> +			mac_control = <0x20>;
+>>
+>> Do you have to store all these data in the DTS? Cannot it be in the driver?
+>>
+>> Do you expect to have several instance of the same IP with different
+>> parameters here?
+>
+> As I understand it, there are only two different layouts for the CPSW,
+> the one in the dm814x and the one in the am335x. So I think it would
+> work to put only the version register offet in the DT, and the let the
+> driver figure out the rest from there.
 
-We compare the name of the newly allocated crypto transform against the
-existing ones. The name is the same on every percpu transform and it
-does not change after the transform is allocated. So we don't care
-if we get migrated or not, we can just take the transform from an
-arbitrary cpu to read the name from it.
+Yes, that's indeed better. We did that for other IPs already (GPIO, I2C...)
+
+> But if TI is planning on reordering the registers with each new
+> silicon revision, again and again, then it might make sense to keep
+> the offsets in the DT.
+
+Yeah, let's assume they will do a better job in the future.
+
+All these offset registers information does belong to the driver, and 
+even if the HW change a lot, I still rather hide that in the driver.
+It will always be cleaner, most efficient, and will reduce the size if 
+the blob.
+
+> [ I really wonder why the hardware people think that reshuffling the
+>    register layout constitutes an improvement. ]
+
+I've been wondering that for ten years :-(
+I'm always hoping it will be better some day.
+
+Regards,
+Benoit
