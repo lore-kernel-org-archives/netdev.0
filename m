@@ -1,43 +1,39 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
- to return an interface name
-Date: Thu, 01 Nov 2012 10:02:25 -0400
-Message-ID: <509280F1.5080504@hp.com>
-References: <509184D9.8030103@hp.com> <m2wqy6jrne.fsf@firstfloor.org>
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH v2 2/3] pppoatm: fix race condition with destroying of
+ vcc
+Date: Thu, 1 Nov 2012 10:26:28 -0400
+Message-ID: <20121101102628.6e3d3cae@thirdoffive.cmf.nrl.navy.mil>
+References: <1350926091-12642-2-git-send-email-krzysiek@podlesie.net>
+	<201210301426.q9UEQkI7007209@thirdoffive.cmf.nrl.navy.mil>
+	<20121030182001.GA30373@shrek.podlesie.net>
+	<20121031094147.GA1004@shrek.podlesie.net>
+	<20121031160352.68353ecc@thirdoffive.cmf.nrl.navy.mil>
+	<20121031220435.GA25157@shrek.podlesie.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:44746 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756011Ab2KAOCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 10:02:30 -0400
-In-Reply-To: <m2wqy6jrne.fsf@firstfloor.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, dwmw2@infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Krzysztof Mazur <krzysiek@podlesie.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121031220435.GA25157@shrek.podlesie.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 10/31/2012 04:47 PM, Andi Kleen wrote:
-> Brian Haley <brian.haley@hp.com> writes:
+On Wed, 31 Oct 2012 23:04:35 +0100
+Krzysztof Mazur <krzysiek@podlesie.net> wrote:
+
+> There are also some minor potential issues in pppoatm driver:
 > 
->> Instead of having the getsockopt() of SO_BINDTODEVICE return an index, which
->> will then require another call like if_indextoname() to get the actual interface
->> name, have it return the name directly.
->>
->> This also matches the existing man page description on socket(7) which mentions
->> the argument being an interface name.
->>
->> If the value has not been set, zero is returned and optlen will be set to zero
->> to indicate there is no interface name present.
-> 
-> That will break all existing programs using the return value, right?
-> Better to fix the manpage
+> 	- locking issues, but now only between pppoatm_send() and
+> 	  vcc_sendmsg() and maybe some other functions,
 
-Dave just accepted the original code for this into net-next last week, so I
-don't think it's too late to change it to be correct.
+these have been around for a while.  i agree that something should be
+done about it.  just not sure what should be synchronizing this mess.
 
--Brian
+> 	- missing check for SS_CONNECTED in pppoatm_ioctl,
+
+in practice you will never run into this because a pvc is immediately
+put into SS_CONNECTED mode (right before the userspace open()
+returns).  however, should it check?  yes.  i dont see anything
+preventing you from running ppp on svc's.
