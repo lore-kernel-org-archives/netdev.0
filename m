@@ -1,55 +1,41 @@
 From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH v2 RESEND 4/6] net: calxedaxgmac: drop some unnecessary register writes
-Date: Thu,  1 Nov 2012 05:41:02 -0500
-Message-ID: <1351766464-27354-5-git-send-email-robherring2@gmail.com>
-References: <1351766464-27354-1-git-send-email-robherring2@gmail.com>
+Subject: [PATCH v2 RESEND 0/6] Calxeda xgmac performance fixes
+Date: Thu,  1 Nov 2012 05:40:58 -0500
+Message-ID: <1351766464-27354-1-git-send-email-robherring2@gmail.com>
 Cc: eric.dumazet@gmail.com, Rob Herring <rob.herring@calxeda.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-bk0-f46.google.com ([209.85.214.46]:64228 "EHLO
 	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755802Ab2KAKlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 06:41:24 -0400
+	with ESMTP id S1753437Ab2KAKlT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 06:41:19 -0400
 Received: by mail-bk0-f46.google.com with SMTP id jk13so1000955bkc.19
-        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 03:41:24 -0700 (PDT)
-In-Reply-To: <1351766464-27354-1-git-send-email-robherring2@gmail.com>
+        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 03:41:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rob Herring <rob.herring@calxeda.com>
 
-The interrupts have already been cleared, so we don't need to clear them
-again. Also, we could miss interrupts if they are cleared, but we don't
-process the packet.
+This is a repost for 3.8 inclusion. Only patch 5 has changed from v1
+and was previously posted.
 
-Signed-off-by: Rob Herring <rob.herring@calxeda.com>
----
- drivers/net/ethernet/calxeda/xgmac.c |    6 ------
- 1 file changed, 6 deletions(-)
+This is a series of performance improvements to the xgmac driver. The
+most significant changes are the alignment fixes to avoid alignment
+traps on received frames and using relaxed i/o accessors.
 
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 117839e..4a1a06a 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -846,9 +846,6 @@ static void xgmac_free_dma_desc_rings(struct xgmac_priv *priv)
- static void xgmac_tx_complete(struct xgmac_priv *priv)
- {
- 	int i;
--	void __iomem *ioaddr = priv->base;
--
--	writel(DMA_STATUS_TU | DMA_STATUS_NIS, ioaddr + XGMAC_DMA_STATUS);
- 
- 	while (dma_ring_cnt(priv->tx_head, priv->tx_tail, DMA_TX_RING_SZ)) {
- 		unsigned int entry = priv->tx_tail;
-@@ -1139,9 +1136,6 @@ static int xgmac_rx(struct xgmac_priv *priv, int limit)
- 		struct sk_buff *skb;
- 		int frame_len;
- 
--		writel(DMA_STATUS_RI | DMA_STATUS_NIS,
--		       priv->base + XGMAC_DMA_STATUS);
--
- 		entry = priv->rx_tail;
- 		p = priv->dma_rx + entry;
- 		if (desc_get_owner(p))
+Rob
+
+Rob Herring (6):
+  net: calxedaxgmac: enable operate on 2nd frame mode
+  net: calxedaxgmac: remove explicit rx dma buffer polling
+  net: calxedaxgmac: use relaxed i/o accessors in rx and tx paths
+  net: calxedaxgmac: drop some unnecessary register writes
+  net: calxedaxgmac: rework transmit ring handling
+  net: calxedaxgmac: ip align receive buffers
+
+ drivers/net/ethernet/calxeda/Kconfig |    2 +-
+ drivers/net/ethernet/calxeda/xgmac.c |   59 +++++++++++++++-------------------
+ 2 files changed, 27 insertions(+), 34 deletions(-)
+
 -- 
 1.7.10.4
