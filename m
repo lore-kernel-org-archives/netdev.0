@@ -1,66 +1,82 @@
-From: Bob Liu <lliubbo-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFC net-next 2/4] bfin_mac: replace
- sys time stamps with raw ones instead.
-Date: Thu, 1 Nov 2012 17:39:01 +0800
-Message-ID: <CAA_GA1e_NkFq49abibVtcyOcGp+AnP=yLbNPxmD3SdaAbWp+Jw@mail.gmail.com>
-References: <84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
-	<CAA_GA1dWgav0fP3wJNFQW=VE9Qh-V8NBHqsmNoXaRny+5dnewg@mail.gmail.com>
-	<20121030134112.GB2283@netboy.at.omicron.at>
-	<CAA_GA1fW2zA2j66y7zfVe6+U-pb1=3mOyFFH+oDHimMFAXyH7Q@mail.gmail.com>
-	<20121031083652.GC2327@netboy.at.omicron.at>
-	<CAA_GA1cQojiaJat8gGmp3XYZVGOtKi2xoFS08hsYTGssdbWcRg@mail.gmail.com>
-	<20121031124638.GA14197@netboy.at.omicron.at>
-	<CAA_GA1eLXajk+wfwf7QYVoabDDeXLZecaTFX+6JRyoaYOyztQQ@mail.gmail.com>
-	<20121101084111.GC2637@netboy.at.omicron.at>
-	<CAA_GA1f=2ubb1z6rr1L8TR54cwh1NQcKiiaZqqv2r3mjX1wL7g@mail.gmail.com>
-	<20121101093540.GB5949@netboy.at.omicron.at>
+From: Bob Liu <lliubbo@gmail.com>
+Subject: Re: [PATCH V2 net-next 1/4] bfin_mac: only advertise hardware time
+ stamped when enabled.
+Date: Thu, 1 Nov 2012 17:40:11 +0800
+Message-ID: <CAA_GA1cfc66Sh+ojPyEjc8vHJgVxoEWj=kbAywv-Pm0-R5v1yg@mail.gmail.com>
+References: <cover.1351696541.git.richardcochran@gmail.com>
+	<e9f363ffac9c59b5174b4bf89a157e0dfeb151bb.1351696541.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Miroslav Lichvar <mlichvar-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        John Ronciak <john.ronciak-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-        Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        device-drivers-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
-        Jacob Keller <jacob.e.keller-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
-        Patrick Ohly <patrick.ohly-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-In-Reply-To: <20121101093540.GB5949-TJb37gCd1q6chkuNt9O67llkmcu1nq/N@public.gmane.org>
-List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
-List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, device-drivers-devel@blackfin.uclinux.org,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:35597 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932645Ab2KAJkN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 05:40:13 -0400
+Received: by mail-wg0-f44.google.com with SMTP id dr13so1576724wgb.1
+        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 02:40:11 -0700 (PDT)
+In-Reply-To: <e9f363ffac9c59b5174b4bf89a157e0dfeb151bb.1351696541.git.richardcochran@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 1, 2012 at 5:35 PM, Richard Cochran
-<richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Thu, Nov 01, 2012 at 04:54:30PM +0800, Bob Liu wrote:
->>
->> date in master side is:
->> root:/> date
->> Thu Dec 21 01:34:26 UTC 2006
->> root:/>
+On Thu, Nov 1, 2012 at 12:27 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> The hardware time stamping code is a compile time option for the blackfin.
+> When it is not enabled, the driver should fall back to the standard
+> ethtool reply to the get_ts_info query.
 >
-> What is the time on the master from the 'testptp -g' command?
+> Compile tested only.
 >
->> So the system time didn't sync.
->
-> I guess that you need to set the PHC time on the master, using 'testptp -s'.
->
-> [ There are always two clocks on each host, the Linux system time and
->   the PHC time in the hardware clock. ]
->
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 
-Thank you very much.
-It works.
+Tested-by: Bob Liu <lliubbo@gmail.com>
+
+> ---
+>  drivers/net/ethernet/adi/bfin_mac.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+> index f816426..2349abb 100644
+> --- a/drivers/net/ethernet/adi/bfin_mac.c
+> +++ b/drivers/net/ethernet/adi/bfin_mac.c
+> @@ -548,6 +548,7 @@ static int bfin_mac_ethtool_setwol(struct net_device *dev,
+>         return 0;
+>  }
+>
+> +#ifdef CONFIG_BFIN_MAC_USE_HWSTAMP
+>  static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
+>         struct ethtool_ts_info *info)
+>  {
+> @@ -566,6 +567,7 @@ static int bfin_mac_ethtool_get_ts_info(struct net_device *dev,
+>                 (1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT);
+>         return 0;
+>  }
+> +#endif
+>
+>  static const struct ethtool_ops bfin_mac_ethtool_ops = {
+>         .get_settings = bfin_mac_ethtool_getsettings,
+> @@ -574,7 +576,9 @@ static const struct ethtool_ops bfin_mac_ethtool_ops = {
+>         .get_drvinfo = bfin_mac_ethtool_getdrvinfo,
+>         .get_wol = bfin_mac_ethtool_getwol,
+>         .set_wol = bfin_mac_ethtool_setwol,
+> +#ifdef CONFIG_BFIN_MAC_USE_HWSTAMP
+>         .get_ts_info = bfin_mac_ethtool_get_ts_info,
+> +#endif
+>  };
+>
+>  /**************************************************************************/
+> --
+> 1.7.2.5
+>
 
 -- 
 Regards,
