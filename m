@@ -1,53 +1,194 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH v2 RESEND 2/6] net: calxedaxgmac: remove explicit rx dma buffer polling
-Date: Thu,  1 Nov 2012 05:41:00 -0500
-Message-ID: <1351766464-27354-3-git-send-email-robherring2@gmail.com>
-References: <1351766464-27354-1-git-send-email-robherring2@gmail.com>
-Cc: eric.dumazet@gmail.com, Rob Herring <rob.herring@calxeda.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 4/6] igb: Add function to read i211's invm version
+Date: Thu,  1 Nov 2012 03:44:25 -0700
+Message-ID: <1351766667-28489-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1351766667-28489-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:64228 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756122Ab2KAKlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 06:41:22 -0400
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1000955bkc.19
-        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 03:41:22 -0700 (PDT)
-In-Reply-To: <1351766464-27354-1-git-send-email-robherring2@gmail.com>
+Received: from mga03.intel.com ([143.182.124.21]:51802 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757745Ab2KAKod (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2012 06:44:33 -0400
+In-Reply-To: <1351766667-28489-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rob Herring <rob.herring@calxeda.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-New received frames will trigger the rx DMA to poll the DMA descriptors,
-so there is no need to tell the h/w to poll. We also want to enable
-dropping frames from the fifo when there is no buffer.
+The i211's one-time programmable (invm) version field is different than the
+other fields contained in it.  This patch adds a function to get the invm version
+of it and store it for output from ethtool.
 
-Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/calxeda/xgmac.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_i210.c | 94 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_i210.h | 11 ++++
+ drivers/net/ethernet/intel/igb/e1000_mac.h  |  1 +
+ drivers/net/ethernet/intel/igb/e1000_nvm.c  |  1 +
+ 4 files changed, 107 insertions(+)
 
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 7f5fd17..728fcef 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -966,7 +966,7 @@ static int xgmac_hw_init(struct net_device *dev)
- 		ctrl |= XGMAC_CONTROL_IPC;
- 	writel(ctrl, ioaddr + XGMAC_CONTROL);
- 
--	writel(DMA_CONTROL_DFF | DMA_CONTROL_OSF, ioaddr + XGMAC_DMA_CONTROL);
-+	writel(DMA_CONTROL_OSF, ioaddr + XGMAC_DMA_CONTROL);
- 
- 	/* Set the HW DMA mode and the COE */
- 	writel(XGMAC_OMR_TSF | XGMAC_OMR_RFD | XGMAC_OMR_RFA |
-@@ -1180,8 +1180,6 @@ static int xgmac_rx(struct xgmac_priv *priv, int limit)
- 
- 	xgmac_rx_refill(priv);
- 
--	writel(1, priv->base + XGMAC_DMA_RX_POLL);
--
- 	return count;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
+index 77a5f93..4147429 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.c
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
+@@ -423,6 +423,100 @@ s32 igb_read_invm_i211(struct e1000_hw *hw, u16 address, u16 *data)
  }
  
+ /**
++ *  igb_read_invm_version - Reads iNVM version and image type
++ *  @hw: pointer to the HW structure
++ *  @invm_ver: version structure for the version read
++ *
++ *  Reads iNVM version and image type.
++ **/
++s32 igb_read_invm_version(struct e1000_hw *hw,
++			  struct e1000_fw_version *invm_ver) {
++	u32 *record = NULL;
++	u32 *next_record = NULL;
++	u32 i = 0;
++	u32 invm_dword = 0;
++	u32 invm_blocks = E1000_INVM_SIZE - (E1000_INVM_ULT_BYTES_SIZE /
++					     E1000_INVM_RECORD_SIZE_IN_BYTES);
++	u32 buffer[E1000_INVM_SIZE];
++	s32 status = -E1000_ERR_INVM_VALUE_NOT_FOUND;
++	u16 version = 0;
++
++	/* Read iNVM memory */
++	for (i = 0; i < E1000_INVM_SIZE; i++) {
++		invm_dword = rd32(E1000_INVM_DATA_REG(i));
++		buffer[i] = invm_dword;
++	}
++
++	/* Read version number */
++	for (i = 1; i < invm_blocks; i++) {
++		record = &buffer[invm_blocks - i];
++		next_record = &buffer[invm_blocks - i + 1];
++
++		/* Check if we have first version location used */
++		if ((i == 1) && ((*record & E1000_INVM_VER_FIELD_ONE) == 0)) {
++			version = 0;
++			status = E1000_SUCCESS;
++			break;
++		}
++		/* Check if we have second version location used */
++		else if ((i == 1) &&
++			 ((*record & E1000_INVM_VER_FIELD_TWO) == 0)) {
++			version = (*record & E1000_INVM_VER_FIELD_ONE) >> 3;
++			status = E1000_SUCCESS;
++			break;
++		}
++		/* Check if we have odd version location
++		 * used and it is the last one used
++		 */
++		else if ((((*record & E1000_INVM_VER_FIELD_ONE) == 0) &&
++			 ((*record & 0x3) == 0)) || (((*record & 0x3) != 0) &&
++			 (i != 1))) {
++			version = (*next_record & E1000_INVM_VER_FIELD_TWO)
++				  >> 13;
++			status = E1000_SUCCESS;
++			break;
++		}
++		/* Check if we have even version location
++		 * used and it is the last one used
++		 */
++		else if (((*record & E1000_INVM_VER_FIELD_TWO) == 0) &&
++			 ((*record & 0x3) == 0)) {
++			version = (*record & E1000_INVM_VER_FIELD_ONE) >> 3;
++			status = E1000_SUCCESS;
++			break;
++		}
++	}
++
++	if (status == E1000_SUCCESS) {
++		invm_ver->invm_major = (version & E1000_INVM_MAJOR_MASK)
++					>> E1000_INVM_MAJOR_SHIFT;
++		invm_ver->invm_minor = version & E1000_INVM_MINOR_MASK;
++	}
++	/* Read Image Type */
++	for (i = 1; i < invm_blocks; i++) {
++		record = &buffer[invm_blocks - i];
++		next_record = &buffer[invm_blocks - i + 1];
++
++		/* Check if we have image type in first location used */
++		if ((i == 1) && ((*record & E1000_INVM_IMGTYPE_FIELD) == 0)) {
++			invm_ver->invm_img_type = 0;
++			status = E1000_SUCCESS;
++			break;
++		}
++		/* Check if we have image type in first location used */
++		else if ((((*record & 0x3) == 0) &&
++			 ((*record & E1000_INVM_IMGTYPE_FIELD) == 0)) ||
++			 ((((*record & 0x3) != 0) && (i != 1)))) {
++			invm_ver->invm_img_type =
++				(*next_record & E1000_INVM_IMGTYPE_FIELD) >> 23;
++			status = E1000_SUCCESS;
++			break;
++		}
++	}
++	return status;
++}
++
++/**
+  *  igb_validate_nvm_checksum_i210 - Validate EEPROM checksum
+  *  @hw: pointer to the HW structure
+  *
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.h b/drivers/net/ethernet/intel/igb/e1000_i210.h
+index 5dc2bd3..974d235 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.h
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.h
+@@ -43,6 +43,8 @@ extern void igb_release_nvm_i210(struct e1000_hw *hw);
+ extern s32 igb_valid_led_default_i210(struct e1000_hw *hw, u16 *data);
+ extern s32 igb_read_nvm_i211(struct e1000_hw *hw, u16 offset, u16 words,
+ 			       u16 *data);
++extern s32 igb_read_invm_version(struct e1000_hw *hw,
++				 struct e1000_fw_version *invm_ver);
+ 
+ #define E1000_STM_OPCODE		0xDB00
+ #define E1000_EEPROM_FLASH_SIZE_WORD	0x11
+@@ -65,6 +67,15 @@ enum E1000_INVM_STRUCTURE_TYPE {
+ 
+ #define E1000_INVM_RSA_KEY_SHA256_DATA_SIZE_IN_DWORDS	8
+ #define E1000_INVM_CSR_AUTOLOAD_DATA_SIZE_IN_DWORDS	1
++#define E1000_INVM_ULT_BYTES_SIZE			8
++#define E1000_INVM_RECORD_SIZE_IN_BYTES			4
++#define E1000_INVM_VER_FIELD_ONE			0x1FF8
++#define E1000_INVM_VER_FIELD_TWO			0x7FE000
++#define E1000_INVM_IMGTYPE_FIELD			0x1F800000
++
++#define E1000_INVM_MAJOR_MASK		0x3F0
++#define E1000_INVM_MINOR_MASK		0xF
++#define E1000_INVM_MAJOR_SHIFT		4
+ 
+ #define ID_LED_DEFAULT_I210		((ID_LED_OFF1_ON2  << 8) | \
+ 					 (ID_LED_OFF1_OFF2 <<  4) | \
+diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.h b/drivers/net/ethernet/intel/igb/e1000_mac.h
+index cbddc4e..e2b2c4b 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_mac.h
++++ b/drivers/net/ethernet/intel/igb/e1000_mac.h
+@@ -33,6 +33,7 @@
+ #include "e1000_phy.h"
+ #include "e1000_nvm.h"
+ #include "e1000_defines.h"
++#include "e1000_i210.h"
+ 
+ /*
+  * Functions that should not be called directly from drivers but can be used
+diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.c b/drivers/net/ethernet/intel/igb/e1000_nvm.c
+index 54ff539..7db3f80 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_nvm.c
++++ b/drivers/net/ethernet/intel/igb/e1000_nvm.c
+@@ -727,6 +727,7 @@ void igb_get_fw_version(struct e1000_hw *hw, struct e1000_fw_version *fw_vers)
+ 
+ 	switch (hw->mac.type) {
+ 	case e1000_i211:
++		igb_read_invm_version(hw, fw_vers);
+ 		return;
+ 	case e1000_82575:
+ 	case e1000_82576:
 -- 
-1.7.10.4
+1.7.11.7
