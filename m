@@ -1,65 +1,101 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/6] igb: Remove workaround for EEE configuration on i210/I211
-Date: Thu,  1 Nov 2012 03:44:24 -0700
-Message-ID: <1351766667-28489-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/6] ixgbe: fix default setting of TXDCTL.WTHRESH
+Date: Thu,  1 Nov 2012 03:44:23 -0700
+Message-ID: <1351766667-28489-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1351766667-28489-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:1625 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:51802 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757293Ab2KAKoc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2012 06:44:32 -0400
+	id S1756249Ab2KAKob (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2012 06:44:31 -0400
 In-Reply-To: <1351766667-28489-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch removes a workaround that was needed on pre-release hardware.
-Released hardware should not have this setting, but any devices that do
-will get a warning message instead.
+The q_vector->itr check in ixgbe_configure_tx_ring() was done prior to it
+being set, which resulted in TXDCTL.WTHRESH always being set to 1 on driver
+load, while consequent resets would set it to 8.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+This patch moves the setting of q_vector->itr in ixgbe_alloc_q_vector() to
+make sure that TXDCTL.WTHRESH is set to 8 by default.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c | 19 ++++++++-----------
- 1 file changed, 8 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  | 15 +++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 20 --------------------
+ 2 files changed, 15 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index ca4641e..4313bcc 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -2233,19 +2233,16 @@ s32 igb_set_eee_i350(struct e1000_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index 5e508b6..8c74f73 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -824,6 +824,21 @@ static int ixgbe_alloc_q_vector(struct ixgbe_adapter *adapter,
+ 	/* initialize pointer to rings */
+ 	ring = q_vector->ring;
  
- 	/* enable or disable per user setting */
- 	if (!(hw->dev_spec._82575.eee_disable)) {
--		ipcnfg |= (E1000_IPCNFG_EEE_1G_AN |
--			E1000_IPCNFG_EEE_100M_AN);
--		eeer |= (E1000_EEER_TX_LPI_EN |
--			E1000_EEER_RX_LPI_EN |
-+		u32 eee_su = rd32(E1000_EEE_SU);
++	/* intialize ITR */
++	if (txr_count && !rxr_count) {
++		/* tx only vector */
++		if (adapter->tx_itr_setting == 1)
++			q_vector->itr = IXGBE_10K_ITR;
++		else
++			q_vector->itr = adapter->tx_itr_setting;
++	} else {
++		/* rx or rx/tx vector */
++		if (adapter->rx_itr_setting == 1)
++			q_vector->itr = IXGBE_20K_ITR;
++		else
++			q_vector->itr = adapter->rx_itr_setting;
++	}
 +
-+		ipcnfg |= (E1000_IPCNFG_EEE_1G_AN | E1000_IPCNFG_EEE_100M_AN);
-+		eeer |= (E1000_EEER_TX_LPI_EN | E1000_EEER_RX_LPI_EN |
- 			E1000_EEER_LPI_FC);
+ 	while (txr_count) {
+ 		/* assign generic ring traits */
+ 		ring->dev = &adapter->pdev->dev;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 26bfaae..8b1a38b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1976,20 +1976,6 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
+ 		ixgbe_for_each_ring(ring, q_vector->tx)
+ 			ixgbe_set_ivar(adapter, 1, ring->reg_idx, v_idx);
  
--		/* keep the LPI clock running before EEE is enabled */
--		if (hw->mac.type == e1000_i210 || hw->mac.type == e1000_i211) {
--			u32 eee_su;
--			eee_su = rd32(E1000_EEE_SU);
--			eee_su &= ~E1000_EEE_SU_LPI_CLK_STP;
--			wr32(E1000_EEE_SU, eee_su);
+-		if (q_vector->tx.ring && !q_vector->rx.ring) {
+-			/* tx only vector */
+-			if (adapter->tx_itr_setting == 1)
+-				q_vector->itr = IXGBE_10K_ITR;
+-			else
+-				q_vector->itr = adapter->tx_itr_setting;
+-		} else {
+-			/* rx or rx/tx vector */
+-			if (adapter->rx_itr_setting == 1)
+-				q_vector->itr = IXGBE_20K_ITR;
+-			else
+-				q_vector->itr = adapter->rx_itr_setting;
 -		}
-+		/* This bit should not be set in normal operation. */
-+		if (eee_su & E1000_EEE_SU_LPI_CLK_STP)
-+			hw_dbg("LPI Clock Stop Bit should not be set!\n");
-+
+-
+ 		ixgbe_write_eitr(q_vector);
+ 	}
  
- 	} else {
- 		ipcnfg &= ~(E1000_IPCNFG_EEE_1G_AN |
+@@ -2761,12 +2747,6 @@ static void ixgbe_configure_msi_and_legacy(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_q_vector *q_vector = adapter->q_vector[0];
+ 
+-	/* rx/tx vector */
+-	if (adapter->rx_itr_setting == 1)
+-		q_vector->itr = IXGBE_20K_ITR;
+-	else
+-		q_vector->itr = adapter->rx_itr_setting;
+-
+ 	ixgbe_write_eitr(q_vector);
+ 
+ 	ixgbe_set_ivar(adapter, 0, 0, 0);
 -- 
 1.7.11.7
