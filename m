@@ -1,40 +1,73 @@
-From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
-Date: Wed, 31 Oct 2012 18:22:54 -0700
-Message-ID: <CAOxq_8OnKhLMqdgj=LBiHyYwqjE82-qjcGLiUUcp14RzK8P7YA@mail.gmail.com>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	<3246.1351717319@obiwan.sandelman.ca>
-	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	<5422DBB2-EABF-4C9F-B0CD-8C77E91F9FF8@alum.mit.edu>
-	<CAOxq_8O8Vkm5Napp_h6HVj6C=EH2gd_PQJJ1N5d_VQZrRZFYNQ@mail.gmail.com>
-	<B23C28F0-4005-4970-984D-3BAD063EA513@alum.mit.edu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 0/3] Enable PPS and PTP clocks automatically
+Date: Thu, 1 Nov 2012 01:29:57 +0000
+Message-ID: <1351733397.2706.62.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>,
-	tcpdump-workers@lists.tcpdump.org
-To: Guy Harris <guy@alum.mit.edu>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>,
+	Rodolfo Giometti <giometti@enneenne.com>,
+	Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:37760 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760190Ab2KABWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 21:22:55 -0400
-Received: by mail-vc0-f174.google.com with SMTP id fk26so2190150vcb.19
-        for <netdev@vger.kernel.org>; Wed, 31 Oct 2012 18:22:55 -0700 (PDT)
-In-Reply-To: <B23C28F0-4005-4970-984D-3BAD063EA513@alum.mit.edu>
+Received: from webmail.solarflare.com ([12.187.104.25]:63964 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757002Ab2KABaC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 21:30:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 31, 2012 at 5:50 PM, Guy Harris <guy@alum.mit.edu> wrote:
->
-> On Oct 31, 2012, at 3:35 PM, Ani Sinha <ani@aristanetworks.com> wrote:
->
->> yes but if the packet is passed to the filter within libpcap (when we
->> are not using the kernel filter) before the reinsertion,
->
-> ...that would be a bug.
->
-> Currently, that bug doesn't exist in the recvfrom() code path, but *does* appear to exist in the tpacket code path - and that code path also runs the filter before the SLL header is constructed.  That should be fixed.
+There are a number of problems with PPS and PTP kconfig options:
+
+1. PPS and PTP_1588_CLOCK depend on EXPERIMENTAL, therefore so must the
+   clock drivers.  (And EXPERIMENTAL is deprecated.)
+2. PTP_1588_CLOCK depends on PPS, so users or clock driver options must
+   explicitly select both.
+3. In general, users have to enable too many options to get hardware
+   timestamps and PTP working.
+4. Boolean options for clock drivers combined with net drivers can force
+   the PTP and PPS subsystems to be built-in unnecessarily.
+
+This series changes the options as follows:
+
+1. Nothing depends on EXPERIMENTAL.
+2. Only PTP_1588_CLOCK selects PPS.
+3, 4. The boolean options are removed and the net driver options select
+   PTP_1588_CLOCK.  Where a net driver and associated clock driver are
+   separate modules, the clock driver remains optional but is default y.
+
+Ben.
+
+Ben Hutchings (3):
+  pps, ptp: Remove dependencies on EXPERIMENTAL
+  ptp: Make PTP_1588_CLOCK select rather than depend on PPS
+  ptp: Enable clock drivers along with associated net/PHY drivers
+
+ drivers/net/ethernet/intel/Kconfig                 |   28 +------------------
+ drivers/net/ethernet/intel/igb/Makefile            |    4 +--
+ drivers/net/ethernet/intel/igb/igb.h               |    6 ----
+ drivers/net/ethernet/intel/igb/igb_ethtool.c       |    2 -
+ drivers/net/ethernet/intel/igb/igb_main.c          |   28 --------------------
+ drivers/net/ethernet/intel/ixgbe/Makefile          |    3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h           |    6 ----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |    2 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   28 --------------------
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |   16 -----------
+ drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |    2 -
+ .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   14 ----------
+ drivers/net/ethernet/sfc/Kconfig                   |    7 -----
+ drivers/net/ethernet/sfc/Makefile                  |    3 +-
+ drivers/net/ethernet/sfc/net_driver.h              |    2 -
+ drivers/net/ethernet/sfc/nic.h                     |   26 ------------------
+ drivers/pps/Kconfig                                |    1 -
+ drivers/ptp/Kconfig                                |   19 ++++++-------
+ 18 files changed, 14 insertions(+), 183 deletions(-)
+
+-- 
+1.7.7.6
 
 
-yes, agreed.
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
