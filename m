@@ -1,45 +1,43 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/9] net: xfrm: use this_cpu_ptr per-cpu helper
-Date: Thu, 1 Nov 2012 12:15:50 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7086@saturn3.aculab.com>
-References: <509109F9.3030904@gmail.com> <0000013ab7e4a640-60bd5b38-a1fc-4730-b918-4109211ffea0-000000@email.amazonses.com> <50923956.5090206@gmail.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
+ to return an interface name
+Date: Thu, 01 Nov 2012 10:02:25 -0400
+Message-ID: <509280F1.5080504@hp.com>
+References: <509184D9.8030103@hp.com> <m2wqy6jrne.fsf@firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <steffen.klassert@secunet.com>,
-	"David Miller" <davem@davemloft.net>,
-	"NetDev" <netdev@vger.kernel.org>,
-	"Herbert Xu" <herbert@gondor.apana.org.au>,
-	"Kernel-Maillist" <linux-kernel@vger.kernel.org>
-To: "Shan Wei" <shanwei88@gmail.com>,
-	"Christoph Lameter" <cl@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <50923956.5090206@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:44746 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756011Ab2KAOCa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 10:02:30 -0400
+In-Reply-To: <m2wqy6jrne.fsf@firstfloor.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiB0aGlzX2NwdV9yZWFkDQo+IHwtLS0tLV90aGlzX2NwdV9nZW5lcmljX3JlYWQNCj4gDQo+ICNk
-ZWZpbmUgX3RoaXNfY3B1X2dlbmVyaWNfcmVhZChwY3ApICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgIFwNCj4gKHsgICAgICB0eXBlb2YocGNwKSByZXRfXzsgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXA0KPiAgICAgICAgIHByZWVtcHRfZGlz
-YWJsZSgpOyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBcDQo+
-ICAgICAgICAgcmV0X18gPSAqdGhpc19jcHVfcHRyKCYocGNwKSk7ICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgIFwNCj4gICAgICAgICBwcmVlbXB0X2VuYWJsZSgpOyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgXA0KPiAgICAgICAgIHJldF9fOyAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBc
-DQo+IH0pDQo+IA0KPiANCj4gdGhpc19jcHVfcmVhZCBvcGVyYXRpb25zIGxvY2F0ZSBwZXItY3B1
-IHZhcmlhYmxlIHdpdGggcHJlZW1wdGlvbiBzYWZl77yMIG5vdA0KPiBkaXNhYmxlIGludGVycnVw
-dHMuIHdoeSBpcyBpdCBhdG9taWMgdnMgaW50ZXJydXB0cz8NCg0KSG1tbS4uLiAgd2hhdCBlZmZl
-Y3QgZG8gdGhvc2UgcHJlZW10X2Rpcy9lbmFibGUoKSBhY3R1YWxseSBoYXZlPw0KU2luY2UgYSBw
-cmUtZW1wdCBjYW4gaGFwcGVuIGVpdGhlciBzaWRlIG9mIHRoZW0sIHRoZSB2YWx1ZQ0KdGhlIGNh
-bGxlciBzZWVzIGNhbiBiZSBmb3IgdGhlIHdyb25nIGNwdSBhbnl3YXkuDQoNClRoZSBvbmx5IHRp
-bWUgSSBjb3VsZCBzZWUgdGhlbSBiZWluZyBuZWNlc3NhcnkgaXMgaWYNCip0aGlzX2NwdV9wdHIo
-KSBpdHNlbGYgbmVlZHMgbXV0ZXggcHJvdGVjdGlvbiBpbiBvcmRlciB0bw0KZnVuY3Rpb24gY29y
-cmVjdGx5IC0gYW5kIHRoYXQgaXMgbGlrZWx5IHRvIGJlIHBvcnQgc3BlY2lmaWMuDQpPbiBpMzg2
-L2FtZDY0IHdoZXJlIChJIGd1ZXNzKSBpdCBpcyBhbiBhY2Nlc3Mgb2Zmc2V0IGJ5IGZzL2dzDQp0
-aGlzIGlzbid0IG5lY2Vzc2FyeSBhbmQganVzdCB3YXN0ZXMgY3B1IGN5Y2xlcy4NCg0KSWYgdGhl
-IGNhbGxlciBjYXJlcyB3aGljaCBjcHUgdGhlIHZhbHVlIGNvbWVzIGZyb20gKGVnIHRvDQppbmNy
-ZW1lbnQgYSBjb3VudGVyKSB0aGVuIHRoZSBjYWxsZXIgd291bGQgbmVlZCB0byBkaXNhYmxlDQpw
-cmUtZW1wdGlvbiBhY3Jvc3MgdGhlIHdob2xlIG9wZXJhdGlvbi4NCg0KCURhdmlkDQoNCg==
+On 10/31/2012 04:47 PM, Andi Kleen wrote:
+> Brian Haley <brian.haley@hp.com> writes:
+> 
+>> Instead of having the getsockopt() of SO_BINDTODEVICE return an index, which
+>> will then require another call like if_indextoname() to get the actual interface
+>> name, have it return the name directly.
+>>
+>> This also matches the existing man page description on socket(7) which mentions
+>> the argument being an interface name.
+>>
+>> If the value has not been set, zero is returned and optlen will be set to zero
+>> to indicate there is no interface name present.
+> 
+> That will break all existing programs using the return value, right?
+> Better to fix the manpage
+
+Dave just accepted the original code for this into net-next last week, so I
+don't think it's too late to change it to be correct.
+
+-Brian
