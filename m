@@ -1,64 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sk-filter: Add ability to get socket filter
- program (v2)
-Date: Thu, 01 Nov 2012 11:17:58 -0400 (EDT)
-Message-ID: <20121101.111758.587399436547929971.davem@davemloft.net>
-References: <509264AC.5090802@parallels.com>
+Subject: Re: [PATCH v2 RESEND 3/6] net: calxedaxgmac: use relaxed i/o
+ accessors in rx and tx paths
+Date: Thu, 01 Nov 2012 11:21:41 -0400 (EDT)
+Message-ID: <20121101.112141.2093388998181270335.davem@davemloft.net>
+References: <1351766464-27354-1-git-send-email-robherring2@gmail.com>
+	<1351766464-27354-4-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@parallels.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	rob.herring@calxeda.com
+To: robherring2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60173 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60198 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761978Ab2KAPSA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 11:18:00 -0400
-In-Reply-To: <509264AC.5090802@parallels.com>
+	with ESMTP id S1761867Ab2KAPVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 11:21:45 -0400
+In-Reply-To: <1351766464-27354-4-git-send-email-robherring2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Thu, 01 Nov 2012 16:01:48 +0400
+From: Rob Herring <robherring2@gmail.com>
+Date: Thu,  1 Nov 2012 05:41:01 -0500
 
-> The SO_ATTACH_FILTER option is set only. I propose to add the get
-> ability by using SO_ATTACH_FILTER in getsockopt. To be less
-> irritating to eyes the SO_GET_FILTER alias to it is declared. This
-> ability is required by checkpoint-restore project to be able to 
-> save full state of a socket. 
+> From: Rob Herring <rob.herring@calxeda.com>
 > 
+> The standard readl/writel accessors involve a spinlock and cache sync
+> operation on ARM platforms with an outer cache. Only DMA triggering
+> accesses need this, so use the relaxed variants instead.
 > 
-> There are two issues with getting filter back.
+> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+> ---
+>  drivers/net/ethernet/calxeda/Kconfig |    2 +-
+>  drivers/net/ethernet/calxeda/xgmac.c |   12 ++++++------
+>  2 files changed, 7 insertions(+), 7 deletions(-)
 > 
-> First, kernel modifies the sock_filter->code on filter load, thus in
-> order to return the filter element back to user we have to decode it
-> into user-visible constants. Fortunately the modification in question
-> is interconvertible.
-> 
-> Second, the BPF_S_ALU_DIV_K code modifies the command argument k to
-> speed up the run-time division by doing kernel_k = reciprocal(user_k).
-> Bad news is that different user_k may result in same kernel_k, so we 
-> can't get the original user_k back. Good news is that we don't have 
-> to do it. What we need to is calculate a user2_k so, that
-> 
->   reciprocal(user2_k) == reciprocal(user_k) == kernel_k
-> 
-> i.e. if it's re-loaded back the compiled again value will be exactly
-> the same as it was. That said, the user2_k can be calculated like this
-> 
->   user2_k = reciprocal(kernel_k)
-> 
-> with an exception, that if kernel_k == 0, then user2_k == 1.
-> 
-> 
-> The optlen argument is treated like this -- when zero, kernel returns
-> the amount of sock_fprog elements in filter, otherwise it should be
-> large enough for the sock_fprog array.
-> 
-> changes since v1:
-> * Declared SO_GET_FILTER in all arch headers
-> * Added decode of vlan-tag codes
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> diff --git a/drivers/net/ethernet/calxeda/Kconfig b/drivers/net/ethernet/calxeda/Kconfig
+> index aba435c..6a4ddf6 100644
+> --- a/drivers/net/ethernet/calxeda/Kconfig
+> +++ b/drivers/net/ethernet/calxeda/Kconfig
+> @@ -1,6 +1,6 @@
+>  config NET_CALXEDA_XGMAC
+>  	tristate "Calxeda 1G/10G XGMAC Ethernet driver"
+> -	depends on HAS_IOMEM
+> +	depends on HAS_IOMEM && ARM
+>  	select CRC32
+>  	help
+>  	  This is the driver for the XGMAC Ethernet IP block found on Calxeda
 
-Applied, thanks.
+This is a regression.  Now I can't built test this driver on x86
+or sparc.
+
+I'm not applying this series.  You can argue until the cows come home
+about why you absolutley have to add this restriction, but I simply
+don't care, this issue is too important to me.
