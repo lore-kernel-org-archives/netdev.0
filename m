@@ -1,44 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next 0/4] Convert blackfin to phc and remove
- timecompare
-Date: Thu, 01 Nov 2012 11:43:01 -0400 (EDT)
-Message-ID: <20121101.114301.414026192698498641.davem@davemloft.net>
-References: <cover.1351696541.git.richardcochran@gmail.com>
+Subject: Re: [PATCH v4 00/10] net/macb: driver enhancement concerning GEM
+ support, ring logic and cleanup
+Date: Thu, 01 Nov 2012 11:46:42 -0400 (EDT)
+Message-ID: <20121101.114642.1433440763058405336.davem@davemloft.net>
+References: <cover.1351690694.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, device-drivers-devel@blackfin.uclinux.org,
-	uclinux-dist-devel@blackfin.uclinux.org, lliubbo@gmail.com,
-	jacob.e.keller@intel.com, jeffrey.t.kirsher@intel.com,
-	john.ronciak@intel.com, john.stultz@linaro.org, vapier@gentoo.org,
-	sonic.zhang@analog.com
-To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60396 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761922Ab2KAPnE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 11:43:04 -0400
-In-Reply-To: <cover.1351696541.git.richardcochran@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, havard@skinnemoen.net,
+	bhutchings@solarflare.com, linux-arm-kernel@lists.infradead.org,
+	plagnioj@jcrosoft.com, patrice.vilchez@atmel.com,
+	linux-kernel@vger.kernel.org, manabian@gmail.com,
+	David.Laight@ACULAB.COM
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1351690694.git.nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Wed, 31 Oct 2012 17:27:21 +0100
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Date: Wed, 31 Oct 2012 17:04:49 +0100
 
-> * Changes in V2:
->   - Correct the wrong direction of the shift when converting time
->     stamps to nanoseconds
->   - Add John Stultz's ack on patch 4
+> This is an enhancement work that began several years ago. I try to catchup with
+> some performance improvement that has been implemented then by Havard.
+> The ring index logic and the TX error path modification are the biggest changes
+> but some cleanup/debugging have been added along the way.
+> The GEM revision will benefit from the Gigabit support.
+> Newer pinctrl infrastructure support is added but it is optional.
 > 
-> This patch series takes care of a legacy issue in the time keeping
-> core by moving blackfin over to PHC model and removing the dubious
-> timecompare code.
+> The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
+> flavors.
 > 
-> The blackfin is quite similar to the other MAC based PTP hardware
-> clocks, and so the implementation is straightforward.
-> 
-> The first patch is a bug fix that should be merged in any
-> case. Pacthes two and three convert the bfin_mac to offer a PHC
-> device. The last patch removes the timecompare code.
+> v4: - remove unneeded device tree header includes
+>     - modified the computation of available entries in ring buffer
+> v3: - rebased on net-next to take into account current effor to merge
+>       at91_ether with macb drivers
+>     - add additional patch to use the new pinctrl infrastructure
+> v2: - modify the tx error handling: now uses a workqueue
+>     - information provided by ethtool -i were not accurate: removed
 
-Series applied.
+Series applied to net-next
