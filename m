@@ -1,87 +1,69 @@
-From: =?GB2312?B?taXOwA==?= <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
-	per-cpu helper
-Date: Thu, 1 Nov 2012 22:44:44 +0800
-Message-ID: <CAPYxyx+BVdtoo9-uZje7b4BOXmHBx+yg1Ac27Qe1oO_kptj-KA@mail.gmail.com>
-References: <50910A04.5000003@gmail.com>
-	<0000013ab7e86f8a-4adb8b81-19be-4264-96f1-924aaf3819f2-000000@email.amazonses.com>
-	<509249C7.3080000@gmail.com>
-	<0000013abc646055-30441bd6-241f-436a-a356-9cd462da66ce-000000@email.amazonses.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH v4 00/10] net/macb: driver enhancement concerning GEM
+ support, ring logic and cleanup
+Date: Thu, 1 Nov 2012 15:47:07 +0100
+Message-ID: <20121101144707.GH19021@game.jcrosoft.org>
+References: <cover.1351690694.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0771321823=="
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <0000013abc646055-30441bd6-241f-436a-a356-9cd462da66ce-000000-p/GC64/jrecnJqMo6gzdpkEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, havard@skinnemoen.net,
+	bhutchings@solarflare.com, linux-arm-kernel@lists.infradead.org,
+	patrice.vilchez@atmel.com, linux-kernel@vger.kernel.org,
+	manabian@gmail.com, David.Laight@ACULAB.COM
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1351690694.git.nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============0771321823==
-Content-Type: multipart/alternative; boundary=e89a8fb2062e60cf0804cd700f9c
+On 17:04 Wed 31 Oct     , Nicolas Ferre wrote:
+> This is an enhancement work that began several years ago. I try to catchup with
+> some performance improvement that has been implemented then by Havard.
+> The ring index logic and the TX error path modification are the biggest changes
+> but some cleanup/debugging have been added along the way.
+> The GEM revision will benefit from the Gigabit support.
+> Newer pinctrl infrastructure support is added but it is optional.
+> 
+> The series has been tested on several Atmel AT91 SoC with the two MACB/GEM
+> flavors.
+> 
+> v4: - remove unneeded device tree header includes
+>     - modified the computation of available entries in ring buffer
+> v3: - rebased on net-next to take into account current effor to merge
+>       at91_ether with macb drivers
+>     - add additional patch to use the new pinctrl infrastructure
+> v2: - modify the tx error handling: now uses a workqueue
+>     - information provided by ethtool -i were not accurate: removed
+> 
+> 
+> Havard Skinnemoen (4):
+>   net/macb: memory barriers cleanup
+>   net/macb: change debugging messages
+>   net/macb: clean up ring buffer logic
+>   net/macb: Offset first RX buffer by two bytes
+> 
+> Jean-Christophe PLAGNIOL-VILLARD (1):
+>   net/macb: add pinctrl consumer support
+> 
+> Nicolas Ferre (4):
+>   net/macb: remove macb_get_drvinfo()
+>   net/macb: tx status is more than 8 bits now
+>   net/macb: ethtool interface: add register dump feature
+>   net/macb: better manage tx errors
+> 
+> Patrice Vilchez (1):
+>   net/macb: Add support for Gigabit Ethernet mode
+> 
+>  drivers/net/ethernet/cadence/at91_ether.c |   6 +-
+>  drivers/net/ethernet/cadence/macb.c       | 448 +++++++++++++++++++++---------
+>  drivers/net/ethernet/cadence/macb.h       |  30 +-
+>  3 files changed, 337 insertions(+), 147 deletions(-)
+Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 
---e89a8fb2062e60cf0804cd700f9c
-Content-Type: text/plain; charset=ISO-8859-1
-
-2012/11/1 Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-
->
-> > In addition, following usage of per_cpu_ptr can be replaced by
-> this_cpu_read.
-> >
-> > cpu=get_cpu()
-> > ....
-> > *per_cpu_ptr(p,cpu)
-> > ....
-> > ....
-> > put_cpu()
->
-> Right.
->
->
-Thanks very much,
-I  will resubmit new patchset.
-
---e89a8fb2062e60cf0804cd700f9c
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-2012/11/1 Christoph Lameter <span dir=3D"ltr">&lt;<a href=3D"mailto:cl@linu=
-x.com" target=3D"_blank">cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org</a>&gt;</span><br><div class=3D"gmail=
-_quote"><blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border=
--left:1px #ccc solid;padding-left:1ex">
-<div class=3D"im"><br></div><div class=3D"im">
-&gt; In addition, following usage of per_cpu_ptr can be replaced by this_cp=
-u_read.<br>
-&gt;<br>
-&gt; cpu=3Dget_cpu()<br>
-&gt; ....<br>
-&gt; *per_cpu_ptr(p,cpu)<br>
-&gt; ....<br>
-&gt; ....<br>
-&gt; put_cpu()<br>
-<br>
-</div>Right.<br>
-<br>
-</blockquote></div><br><div>Thanks very much,</div><div>I =A0will resubmit =
-new patchset.</div><div><br></div>
-
---e89a8fb2062e60cf0804cd700f9c--
-
---===============0771321823==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============0771321823==--
+Best Regards,
+J.
+> 
+> -- 
+> 1.8.0
+> 
