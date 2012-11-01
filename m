@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next v5 1/7] tuntap: log the unsigned informaiton with %u
-Date: Thu,  1 Nov 2012 13:45:56 +0800
-Message-ID: <1351748762-3455-2-git-send-email-jasowang@redhat.com>
+Subject: [net-next v5 4/7] tuntap: introduce multiqueue flags
+Date: Thu,  1 Nov 2012 13:45:59 +0800
+Message-ID: <1351748762-3455-5-git-send-email-jasowang@redhat.com>
 References: <1351748762-3455-1-git-send-email-jasowang@redhat.com>
 Cc: maxk@qti.qualcomm.com, edumazet@google.com, krkumar2@in.ibm.com,
 	ernesto.martin@viasat.com, haixiao@juniper.net,
@@ -13,41 +13,32 @@ In-Reply-To: <1351748762-3455-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Add flags to be used by creating multiqueue tuntap device.
+
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/tun.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ include/uapi/linux/if_tun.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 3157519..f830b1b 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1419,7 +1419,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	if (!tun)
- 		goto unlock;
+diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+index 25a585c..8ef3a87 100644
+--- a/include/uapi/linux/if_tun.h
++++ b/include/uapi/linux/if_tun.h
+@@ -34,6 +34,7 @@
+ #define TUN_ONE_QUEUE	0x0080
+ #define TUN_PERSIST 	0x0100	
+ #define TUN_VNET_HDR 	0x0200
++#define TUN_TAP_MQ      0x0400
  
--	tun_debug(KERN_INFO, tun, "tun_chr_ioctl cmd %d\n", cmd);
-+	tun_debug(KERN_INFO, tun, "tun_chr_ioctl cmd %u\n", cmd);
+ /* Ioctl defines */
+ #define TUNSETNOCSUM  _IOW('T', 200, int) 
+@@ -61,6 +62,7 @@
+ #define IFF_ONE_QUEUE	0x2000
+ #define IFF_VNET_HDR	0x4000
+ #define IFF_TUN_EXCL	0x8000
++#define IFF_MULTI_QUEUE 0x0100
  
- 	ret = 0;
- 	switch (cmd) {
-@@ -1459,7 +1459,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 			break;
- 		}
- 		tun->owner = owner;
--		tun_debug(KERN_INFO, tun, "owner set to %d\n",
-+		tun_debug(KERN_INFO, tun, "owner set to %u\n",
- 			  from_kuid(&init_user_ns, tun->owner));
- 		break;
- 
-@@ -1471,7 +1471,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 			break;
- 		}
- 		tun->group = group;
--		tun_debug(KERN_INFO, tun, "group set to %d\n",
-+		tun_debug(KERN_INFO, tun, "group set to %u\n",
- 			  from_kgid(&init_user_ns, tun->group));
- 		break;
- 
+ /* Features for GSO (TUNSETOFFLOAD). */
+ #define TUN_F_CSUM	0x01	/* You can hand me unchecksummed packets. */
 -- 
 1.7.1
