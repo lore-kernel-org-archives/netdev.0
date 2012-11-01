@@ -1,60 +1,61 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 4/4] arm/dts: am33xx: Add CPSW and MDIO module nodes
- for AM33XX
-Date: Thu, 1 Nov 2012 08:45:08 +0100
-Message-ID: <20121101074508.GA2637@netboy.at.omicron.at>
-References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com>
- <1351498881-32482-6-git-send-email-hvaibhav@ti.com>
- <50914107.2090909@ti.com>
+Subject: Re: [PATCH net-next 0/3] Enable PPS and PTP clocks automatically
+Date: Thu, 1 Nov 2012 09:19:24 +0100
+Message-ID: <20121101081924.GB2637@netboy.at.omicron.at>
+References: <1351733397.2706.62.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vaibhav Hiremath <hvaibhav@ti.com>, netdev@vger.kernel.org,
-	paul@pwsan.com, linux-arm-kernel@lists.infradead.org,
-	linux-omap@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>
-To: Benoit Cousson <b-cousson@ti.com>
+Cc: David Miller <davem@davemloft.net>,
+	Rodolfo Giometti <giometti@enneenne.com>,
+	netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:62809 "EHLO
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:42686 "EHLO
 	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754222Ab2KAHpU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 03:45:20 -0400
+	with ESMTP id S1750815Ab2KAITf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 04:19:35 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so1140674eek.19
+        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 01:19:32 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <50914107.2090909@ti.com>
+In-Reply-To: <1351733397.2706.62.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 31, 2012 at 04:17:27PM +0100, Benoit Cousson wrote:
-> > +			compatible = "ti,cpsw";
-> > +			ti,hwmods = "cpgmac0";
-> > +			cpdma_channels = <8>;
-> > +			host_port_no = <0>;
-> > +			cpdma_reg_ofs = <0x800>;
-> > +			cpdma_sram_ofs = <0xa00>;
-> > +			ale_reg_ofs = <0xd00>;
-> > +			ale_entries = <1024>;
-> > +			host_port_reg_ofs = <0x108>;
-> > +			hw_stats_reg_ofs = <0x900>;
-> > +			bd_ram_ofs = <0x2000>;
-> > +			bd_ram_size = <0x2000>;
-> > +			no_bd_ram = <0>;
-> > +			rx_descs = <64>;
-> > +			mac_control = <0x20>;
+Ben,
+
+I really like this idea, but I have a couple of questions, below.
+
+On Thu, Nov 01, 2012 at 01:29:57AM +0000, Ben Hutchings wrote:
+
+> Ben Hutchings (3):
+>   pps, ptp: Remove dependencies on EXPERIMENTAL
+
+Kees Cook just posted a massive series to remove EXPERIMENTAL
+everywhere. Maybe it would make sense to have this series follow that
+one?
+
+>   ptp: Make PTP_1588_CLOCK select rather than depend on PPS
+>   ptp: Enable clock drivers along with associated net/PHY drivers
 > 
-> Do you have to store all these data in the DTS? Cannot it be in the driver?
-> 
-> Do you expect to have several instance of the same IP with different
-> parameters here?
+>  drivers/net/ethernet/intel/Kconfig                 |   28 +------------------
+>  drivers/net/ethernet/intel/igb/Makefile            |    4 +--
+>  drivers/net/ethernet/intel/igb/igb.h               |    6 ----
+>  drivers/net/ethernet/intel/igb/igb_ethtool.c       |    2 -
+>  drivers/net/ethernet/intel/igb/igb_main.c          |   28 --------------------
 
-As I understand it, there are only two different layouts for the CPSW,
-the one in the dm814x and the one in the am335x. So I think it would
-work to put only the version register offet in the DT, and the let the
-driver figure out the rest from there.
+The #ifdefs in the Intel and PCH drivers are meant to streamline the
+code for users who are not interested in time stamping. Although the
+overhead of the additional is minimal (it really just a bunch of
+tests), and I wouldn't mind removing the conditionals, I suspect that
+some people won't like it.
 
-But if TI is planning on reordering the registers with each new
-silicon revision, again and again, then it might make sense to keep
-the offsets in the DT.
-
-[ I really wonder why the hardware people think that reshuffling the
-  register layout constitutes an improvement. ]
+>  drivers/net/ethernet/intel/ixgbe/Makefile          |    3 +-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe.h           |    6 ----
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |    2 -
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   28 --------------------
+>  drivers/net/ethernet/oki-semi/pch_gbe/Kconfig      |   16 -----------
+>  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe.h    |    2 -
+>  .../net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c   |   14 ----------
 
 Thanks,
 Richard
