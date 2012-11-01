@@ -1,43 +1,50 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v3 2/6] PM / Runtime: introduce pm_runtime_set[get]_memalloc_noio()
-Date: Thu, 1 Nov 2012 07:18:11 +0800
-Message-ID: <CACVXFVM=JTxBc7dUNgAYg3oEveASZMJEvSuTjR+_u0E1ZCUHkA@mail.gmail.com>
-References: <Pine.LNX.4.44L0.1210311117310.1954-100000@iolanthe.rowland.org>
-	<Pine.LNX.4.44L0.1210311139300.1954-100000@iolanthe.rowland.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Oliver Neukum <oneukum@suse.de>, linux-kernel@vger.kernel.org,
-	Minchan Kim <minchan@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-pm@vger.kernel.org, linux-mm@kvack.org
-To: Alan Stern <stern@rowland.harvard.edu>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.44L0.1210311139300.1954-100000@iolanthe.rowland.org>
-Sender: linux-pm-owner@vger.kernel.org
+From: Cyril Brulebois <kibi@debian.org>
+Subject: [PATCH v2] r8169: Fix WoL on RTL8168d/8111d.
+Date: Thu,  1 Nov 2012 01:00:46 +0100
+Message-ID: <1351728046-32105-1-git-send-email-kibi@debian.org>
+References: <20121028230523.GA26778@electric-eye.fr.zoreil.com>
+Cc: romieu@fr.zoreil.com, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, florent.fourcot@enst-bretagne.fr,
+	Cyril Brulebois <kibi@debian.org>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121028230523.GA26778@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 31, 2012 at 11:41 PM, Alan Stern <stern@rowland.harvard.edu> wrote:
->
-> Sorry, I misread your message.  You are setting the device's flag, not
-> the thread's flag.
+This regression was spotted between Debian squeeze and Debian wheezy
+kernels (respectively based on 2.6.32 and 3.2). More info about
+Wake-on-LAN issues with Realtek's 816x chipsets can be found in the
+following thread: http://marc.info/?t=132079219400004
 
-Never mind.
+Probable regression from d4ed95d796e5126bba51466dc07e287cebc8bd19;
+more chipsets are likely affected.
 
->
-> This still doesn't help in this case where CONFIG_PM_RUNTIME is
-> disabled.  I think it will be simpler to set the noio flag during every
-> device reset.
+Tested on top of a 3.2.23 kernel.
 
-Yes, it's better to set the flag during every device reset now.
+Reported-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Tested-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Hinted-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Cyril Brulebois <kibi@debian.org>
+---
+ drivers/net/ethernet/realtek/r8169.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Also pppoe or network interface over serial port is a bit difficult to
-deal with, as Oliver pointed out.
+v2: Update link in commit message, and re-send to netdev/Dave according
+    to Francois Romieu's comment, thanks.
 
-
-Thanks,
---
-Ming Lei
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index e7ff886..eb6a5e4 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -3827,6 +3827,8 @@ static void rtl_wol_suspend_quirk(struct rtl8169_private *tp)
+ 	void __iomem *ioaddr = tp->mmio_addr;
+ 
+ 	switch (tp->mac_version) {
++	case RTL_GIGA_MAC_VER_25:
++	case RTL_GIGA_MAC_VER_26:
+ 	case RTL_GIGA_MAC_VER_29:
+ 	case RTL_GIGA_MAC_VER_30:
+ 	case RTL_GIGA_MAC_VER_32:
+-- 
+1.7.10.4
