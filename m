@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH V2] net: fix divide by zero in tcp algorithm
- illinois
-Date: Thu, 01 Nov 2012 11:56:29 -0400 (EDT)
-Message-ID: <20121101.115629.370549613464282212.davem@davemloft.net>
-References: <20121031124318.30915.32293.stgit@dragon>
-	<1351703678.32673.414.camel@edumazet-glaptop>
+Subject: Re: [PATCH net] tcp: Fix double sizeof in new tcp_metrics code
+Date: Thu, 01 Nov 2012 12:00:50 -0400 (EDT)
+Message-ID: <20121101.120050.1731582793025597129.davem@davemloft.net>
+References: <1351634589-4861-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org, pmatouse@redhat.com,
-	shemminger@vyatta.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: ja@ssi.bg
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60564 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60607 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S936003Ab2KAP4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 11:56:34 -0400
-In-Reply-To: <1351703678.32673.414.camel@edumazet-glaptop>
+	with ESMTP id S933964Ab2KAQAy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 12:00:54 -0400
+In-Reply-To: <1351634589-4861-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 31 Oct 2012 18:14:38 +0100
+From: Julian Anastasov <ja@ssi.bg>
+Date: Wed, 31 Oct 2012 00:03:09 +0200
 
-> On Wed, 2012-10-31 at 13:45 +0100, Jesper Dangaard Brouer wrote:
->> Reading TCP stats when using TCP Illinois congestion control algorithm
->> can cause a divide by zero kernel oops.
->> 
->> The division by zero occur in tcp_illinois_info() at:
->>  do_div(t, ca->cnt_rtt);
->> where ca->cnt_rtt can become zero (when rtt_reset is called)
->> 
+> 	Fix double sizeof when parsing IPv6 address from
+> user space because it breaks get/del by specific IPv6 address.
 > 
->> Cc: Petr Matousek <pmatouse@redhat.com>
->> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
->> 
->> ---
+> 	Problem noticed by David Binderman:
 > 
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> https://bugzilla.kernel.org/show_bug.cgi?id=49171
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-Applied, thanks everyone.
+Applied, thanks.
