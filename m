@@ -1,81 +1,55 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv3 net-next 2/8] skb: api to report errors for zero copy skbs
-Date: Thu, 1 Nov 2012 21:16:28 +0200
-Message-ID: <e7af9b18fbf340e035288dbb76b09565b3177d56.1351797353.git.mst@redhat.com>
+Subject: [PATCHv3 net-next 3/8] tun: report orphan frags errors to zero copy
+	callback
+Date: Thu, 1 Nov 2012 21:16:32 +0200
+Message-ID: <d9b53564e1d9cbc1ef89fb12fcf48472e618f3e6.1351797353.git.mst@redhat.com>
 References: <cover.1351797353.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: Vlad Yasevich <vyasevic@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Ian Campbell <Ian.Campbell@citrix.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <edumazet@google.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
 In-Reply-To: <cover.1351797353.git.mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Orphaning frags for zero copy skbs needs to allocate data in atomic
-context so is has a chance to fail. If it does we currently discard
-the skb which is safe, but we don't report anything to the caller,
-so it can not recover by e.g. disabling zero copy.
-
-Add an API to free skb reporting such errors: this is used
-by tun in case orphaning frags fails.
+When tun transmits a zero copy skb, it orphans the frags
+which might need to allocate extra memory, in atomic context.
+If that fails, notify ubufs callback before freeing the skb
+as a hint that device should disable zerocopy mode.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- include/linux/skbuff.h |  1 +
- net/core/skbuff.c      | 20 ++++++++++++++++++++
- 2 files changed, 21 insertions(+)
+ drivers/net/tun.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index e5eae5b..f2af494 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -568,6 +568,7 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
- }
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 9e28768..b44d7b7 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -728,6 +728,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
  
- extern void kfree_skb(struct sk_buff *skb);
-+extern void skb_tx_error(struct sk_buff *skb);
- extern void consume_skb(struct sk_buff *skb);
- extern void	       __kfree_skb(struct sk_buff *skb);
- extern struct kmem_cache *skbuff_head_cache;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 4abdf71..d9addea 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -635,6 +635,26 @@ void kfree_skb(struct sk_buff *skb)
- EXPORT_SYMBOL(kfree_skb);
- 
- /**
-+ *	skb_tx_error - report an sk_buff xmit error
-+ *	@skb: buffer that triggered an error
-+ *
-+ *	Report xmit error if a device callback is tracking this skb.
-+ *	skb must be freed afterwards.
-+ */
-+void skb_tx_error(struct sk_buff *skb)
-+{
-+	if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
-+		struct ubuf_info *uarg;
-+
-+		uarg = skb_shinfo(skb)->destructor_arg;
-+		if (uarg->callback)
-+			uarg->callback(uarg, false);
-+		skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
-+	}
-+}
-+EXPORT_SYMBOL(skb_tx_error);
-+
-+/**
-  *	consume_skb - free an skbuff
-  *	@skb: buffer to free
-  *
+ drop:
+ 	dev->stats.tx_dropped++;
++	skb_tx_error(skb);
+ 	kfree_skb(skb);
+ 	rcu_read_unlock();
+ 	return NETDEV_TX_OK;
 -- 
 MST
