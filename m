@@ -1,93 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 2/3] ptp: Make PTP_1588_CLOCK select rather than
- depend on PPS
-Date: Thu, 1 Nov 2012 01:32:44 +0000
-Message-ID: <1351733564.2706.64.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1351733397.2706.62.camel@bwh-desktop.uk.solarflarecom.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next 1/8] bridge: bridge port parameters over netlink
+Date: Wed, 31 Oct 2012 18:33:29 -0700
+Message-ID: <5091D169.9070302@intel.com>
+References: <20121030005731.843020405@vyatta.com> <20121030005835.289407930@vyatta.com> <50912F4D.2090602@intel.com> <20121031143020.62e08062@s6510.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>,
-	Rodolfo Giometti <giometti@enneenne.com>,
-	Richard Cochran <richardcochran@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:64022 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1761208Ab2KABcs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 31 Oct 2012 21:32:48 -0400
-In-Reply-To: <1351733397.2706.62.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mga14.intel.com ([143.182.124.37]:48412 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754479Ab2KABde (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 31 Oct 2012 21:33:34 -0400
+In-Reply-To: <20121031143020.62e08062@s6510.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PTP hardware clock drivers that select PTP_1588_CLOCK must currently
-also select PPS.  For those drivers that don't, the user must enable
-PPS, then enable PTP_1588_CLOCK, then the driver.  Simplify things for
-developers and users by putting this selection in one place.
+[...]
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/intel/Kconfig            |    2 --
- drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    1 -
- drivers/ptp/Kconfig                           |    5 +----
- 3 files changed, 1 insertions(+), 7 deletions(-)
+>> here I added nested bridge attributes to IFLA_AF_SPEC and pass them down
+>> to the drivers as needed. Should we merge these two sets so that we have
+>> only a single nested set of bridge attributes? Either in IFLA_AF_SPEC or
+>> IFLA_PROTINFO.
+>>
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 9e49217..d5b359d 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -124,7 +124,6 @@ config IGB_PTP
- 	bool "PTP Hardware Clock (PHC)"
- 	default n
- 	depends on IGB
--	select PPS
- 	select PTP_1588_CLOCK
- 	---help---
- 	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
-@@ -226,7 +225,6 @@ config IXGBE_PTP
- 	bool "PTP Clock Support"
- 	default n
- 	depends on IXGBE
--	select PPS
- 	select PTP_1588_CLOCK
- 	---help---
- 	  Say Y here if you want support for 1588 Timestamping with a
-diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-index 9867bc6..d0e36f2 100644
---- a/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-+++ b/drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
-@@ -26,7 +26,6 @@ if PCH_GBE
- config PCH_PTP
- 	bool "PCH PTP clock support"
- 	default n
--	select PPS
- 	select PTP_1588_CLOCK
- 	select PTP_1588_CLOCK_PCH
- 	---help---
-diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
-index a6e4b7c..131ef03 100644
---- a/drivers/ptp/Kconfig
-+++ b/drivers/ptp/Kconfig
-@@ -4,12 +4,9 @@
- 
- menu "PTP clock support"
- 
--comment "Enable Device Drivers -> PPS to see the PTP clock options."
--	depends on PPS=n
--
- config PTP_1588_CLOCK
- 	tristate "PTP clock support"
--	depends on PPS
-+	select PPS
- 	help
- 	  The IEEE 1588 standard defines a method to precisely
- 	  synchronize distributed clocks over Ethernet networks. The
--- 
-1.7.7.6
+[...]
 
+>
+> This is an area where there is no clear choice.
+> I would like to keep AF_UNSPEC for non-protocol stuff,
+> that is why I targeted PF_BRIDGE:IFLA_PROTINFO.
+>
 
+Works for me.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> Other alternative would be to add sysctl which is less message
+> based, but is more general. (ie. /default and /all are available).
+>
+
+I would just assume use netlink seeing this is common for all the other
+networking bits and any networking app is already likely to be handling
+these events.
+
+.John
