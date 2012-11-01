@@ -1,71 +1,57 @@
-From: "Cousson, Benoit" <b-cousson@ti.com>
-Subject: Re: [PATCH 4/4] arm/dts: am33xx: Add CPSW and MDIO module nodes for
- AM33XX
-Date: Thu, 1 Nov 2012 10:28:47 +0100
-Message-ID: <509240CF.6060909@ti.com>
-References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com> <1351498881-32482-6-git-send-email-hvaibhav@ti.com> <50914107.2090909@ti.com> <20121101074508.GA2637@netboy.at.omicron.at>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [uclinux-dist-devel] [PATCH RFC net-next 2/4] bfin_mac:
+ replace sys time stamps with raw ones instead.
+Date: Thu, 1 Nov 2012 10:35:40 +0100
+Message-ID: <20121101093540.GB5949@netboy.at.omicron.at>
+References: <84396eacd75b4abed36a7819d8c2c33f9ced1ad5.1348851539.git.richardcochran@gmail.com>
+ <CAA_GA1dWgav0fP3wJNFQW=VE9Qh-V8NBHqsmNoXaRny+5dnewg@mail.gmail.com>
+ <20121030134112.GB2283@netboy.at.omicron.at>
+ <CAA_GA1fW2zA2j66y7zfVe6+U-pb1=3mOyFFH+oDHimMFAXyH7Q@mail.gmail.com>
+ <20121031083652.GC2327@netboy.at.omicron.at>
+ <CAA_GA1cQojiaJat8gGmp3XYZVGOtKi2xoFS08hsYTGssdbWcRg@mail.gmail.com>
+ <20121031124638.GA14197@netboy.at.omicron.at>
+ <CAA_GA1eLXajk+wfwf7QYVoabDDeXLZecaTFX+6JRyoaYOyztQQ@mail.gmail.com>
+ <20121101084111.GC2637@netboy.at.omicron.at>
+ <CAA_GA1f=2ubb1z6rr1L8TR54cwh1NQcKiiaZqqv2r3mjX1wL7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Vaibhav Hiremath <hvaibhav@ti.com>, <netdev@vger.kernel.org>,
-	<paul@pwsan.com>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Miroslav Lichvar <mlichvar@redhat.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	John Stultz <john.stultz@linaro.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	device-drivers-devel@blackfin.uclinux.org,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Patrick Ohly <patrick.ohly@intel.com>,
+	David Miller <davem@davemloft.net>
+To: Bob Liu <lliubbo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:57904 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338Ab2KAJ2x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2012 05:28:53 -0400
-In-Reply-To: <20121101074508.GA2637@netboy.at.omicron.at>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:53069 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338Ab2KAJfv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 05:35:51 -0400
+Received: by mail-ea0-f174.google.com with SMTP id c13so899686eaa.19
+        for <netdev@vger.kernel.org>; Thu, 01 Nov 2012 02:35:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAA_GA1f=2ubb1z6rr1L8TR54cwh1NQcKiiaZqqv2r3mjX1wL7g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/1/2012 8:45 AM, Richard Cochran wrote:
-> On Wed, Oct 31, 2012 at 04:17:27PM +0100, Benoit Cousson wrote:
->>> +			compatible = "ti,cpsw";
->>> +			ti,hwmods = "cpgmac0";
->>> +			cpdma_channels = <8>;
->>> +			host_port_no = <0>;
->>> +			cpdma_reg_ofs = <0x800>;
->>> +			cpdma_sram_ofs = <0xa00>;
->>> +			ale_reg_ofs = <0xd00>;
->>> +			ale_entries = <1024>;
->>> +			host_port_reg_ofs = <0x108>;
->>> +			hw_stats_reg_ofs = <0x900>;
->>> +			bd_ram_ofs = <0x2000>;
->>> +			bd_ram_size = <0x2000>;
->>> +			no_bd_ram = <0>;
->>> +			rx_descs = <64>;
->>> +			mac_control = <0x20>;
->>
->> Do you have to store all these data in the DTS? Cannot it be in the driver?
->>
->> Do you expect to have several instance of the same IP with different
->> parameters here?
->
-> As I understand it, there are only two different layouts for the CPSW,
-> the one in the dm814x and the one in the am335x. So I think it would
-> work to put only the version register offet in the DT, and the let the
-> driver figure out the rest from there.
+On Thu, Nov 01, 2012 at 04:54:30PM +0800, Bob Liu wrote:
+> 
+> date in master side is:
+> root:/> date
+> Thu Dec 21 01:34:26 UTC 2006
+> root:/>
 
-Yes, that's indeed better. We did that for other IPs already (GPIO, I2C...)
+What is the time on the master from the 'testptp -g' command?
+ 
+> So the system time didn't sync.
 
-> But if TI is planning on reordering the registers with each new
-> silicon revision, again and again, then it might make sense to keep
-> the offsets in the DT.
+I guess that you need to set the PHC time on the master, using 'testptp -s'.
 
-Yeah, let's assume they will do a better job in the future.
+[ There are always two clocks on each host, the Linux system time and
+  the PHC time in the hardware clock. ]
 
-All these offset registers information does belong to the driver, and 
-even if the HW change a lot, I still rather hide that in the driver.
-It will always be cleaner, most efficient, and will reduce the size if 
-the blob.
-
-> [ I really wonder why the hardware people think that reshuffling the
->    register layout constitutes an improvement. ]
-
-I've been wondering that for ten years :-(
-I'm always hoping it will be better some day.
-
-Regards,
-Benoit
+Thanks,
+Richard
