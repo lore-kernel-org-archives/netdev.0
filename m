@@ -1,66 +1,66 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH net-next 0/3] Enable PPS and PTP clocks automatically
-Date: Thu, 1 Nov 2012 18:59:57 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB583AF0AD1C@ORSMSX105.amr.corp.intel.com>
-References: <1351733397.2706.62.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20121101081924.GB2637@netboy.at.omicron.at>
- <1351788416.2883.6.camel@bwh-desktop.uk.solarflarecom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 1/3] bridge: Use is_link_local() in
+ store_group_addr()
+Date: Thu, 1 Nov 2012 19:10:04 +0000
+Message-ID: <1351797004.2883.12.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	Rodolfo Giometti <giometti@enneenne.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-net-drivers@solarflare.com" <linux-net-drivers@solarflare.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Stephen Hemminger <shemminger@vyatta.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:14790 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753555Ab2KATAq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2012 15:00:46 -0400
-In-Reply-To: <1351788416.2883.6.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from webmail.solarflare.com ([12.187.104.25]:39057 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752285Ab2KATKI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Nov 2012 15:10:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIEJlbiBIdXRjaGluZ3MNCj4gU2VudDogVGh1cnNkYXksIE5vdmVtYmVyIDAxLCAyMDEy
-IDk6NDcgQU0NCj4gVG86IFJpY2hhcmQgQ29jaHJhbg0KPiBDYzogRGF2aWQgTWlsbGVyOyBSb2Rv
-bGZvIEdpb21ldHRpOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1uZXQtDQo+IGRyaXZl
-cnNAc29sYXJmbGFyZS5jb20NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQtbmV4dCAwLzNdIEVu
-YWJsZSBQUFMgYW5kIFBUUCBjbG9ja3MgYXV0b21hdGljYWxseQ0KPiANCj4gT24gVGh1LCAyMDEy
-LTExLTAxIGF0IDA5OjE5ICswMTAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6DQo+ID4gQmVuLA0K
-PiA+DQo+ID4gSSByZWFsbHkgbGlrZSB0aGlzIGlkZWEsIGJ1dCBJIGhhdmUgYSBjb3VwbGUgb2Yg
-cXVlc3Rpb25zLCBiZWxvdy4NCj4gPg0KPiA+IE9uIFRodSwgTm92IDAxLCAyMDEyIGF0IDAxOjI5
-OjU3QU0gKzAwMDAsIEJlbiBIdXRjaGluZ3Mgd3JvdGU6DQo+ID4NCj4gPiA+IEJlbiBIdXRjaGlu
-Z3MgKDMpOg0KPiA+ID4gICBwcHMsIHB0cDogUmVtb3ZlIGRlcGVuZGVuY2llcyBvbiBFWFBFUklN
-RU5UQUwNCj4gPg0KPiA+IEtlZXMgQ29vayBqdXN0IHBvc3RlZCBhIG1hc3NpdmUgc2VyaWVzIHRv
-IHJlbW92ZSBFWFBFUklNRU5UQUwNCj4gPiBldmVyeXdoZXJlLiBNYXliZSBpdCB3b3VsZCBtYWtl
-IHNlbnNlIHRvIGhhdmUgdGhpcyBzZXJpZXMgZm9sbG93IHRoYXQNCj4gPiBvbmU/DQo+IA0KPiBJ
-ZiBzb21lIG90aGVyIHRyZWUgZ2V0cyBhIGNvbW1pdCB0byByZW1vdmUgdGhlc2UsIHRoZXkgc2hv
-dWxkIHN0aWxsDQo+IG1lcmdlIGNsZWFubHkuDQo+IA0KPiA+ID4gICBwdHA6IE1ha2UgUFRQXzE1
-ODhfQ0xPQ0sgc2VsZWN0IHJhdGhlciB0aGFuIGRlcGVuZCBvbiBQUFMNCj4gPiA+ICAgcHRwOiBF
-bmFibGUgY2xvY2sgZHJpdmVycyBhbG9uZyB3aXRoIGFzc29jaWF0ZWQgbmV0L1BIWSBkcml2ZXJz
-DQo+ID4gPg0KPiA+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL0tjb25maWcgICAgICAg
-ICAgICAgICAgIHwgICAyOCArLS0tLS0tLS0tLQ0KPiAtLS0tLS0tLQ0KPiA+ID4gIGRyaXZlcnMv
-bmV0L2V0aGVybmV0L2ludGVsL2lnYi9NYWtlZmlsZSAgICAgICAgICAgIHwgICAgNCArLS0NCj4g
-PiA+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiLmggICAgICAgICAgICAgICB8
-ICAgIDYgLS0tLQ0KPiA+ID4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfZXRo
-dG9vbC5jICAgICAgIHwgICAgMiAtDQo+ID4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-aWdiL2lnYl9tYWluLmMgICAgICAgICAgfCAgIDI4IC0tLS0tLS0tLS0tDQo+IC0tLS0tLS0tLQ0K
-PiA+DQo+ID4gVGhlICNpZmRlZnMgaW4gdGhlIEludGVsIGFuZCBQQ0ggZHJpdmVycyBhcmUgbWVh
-bnQgdG8gc3RyZWFtbGluZSB0aGUNCj4gPiBjb2RlIGZvciB1c2VycyB3aG8gYXJlIG5vdCBpbnRl
-cmVzdGVkIGluIHRpbWUgc3RhbXBpbmcuIEFsdGhvdWdoIHRoZQ0KPiA+IG92ZXJoZWFkIG9mIHRo
-ZSBhZGRpdGlvbmFsIGlzIG1pbmltYWwgKGl0IHJlYWxseSBqdXN0IGEgYnVuY2ggb2YNCj4gPiB0
-ZXN0cyksIGFuZCBJIHdvdWxkbid0IG1pbmQgcmVtb3ZpbmcgdGhlIGNvbmRpdGlvbmFscywgSSBz
-dXNwZWN0IHRoYXQNCj4gPiBzb21lIHBlb3BsZSB3b24ndCBsaWtlIGl0Lg0KPiANCj4gVGhlbiB0
-aGV5IG1heSBvYmplY3QgdG8gdGhpcyBhbmQgbWF5YmUgZ2V0IHNvbWUgZHJpdmVycyBjaGFuZ2Vk
-IGJhY2suDQo+IEhvd2V2ZXIgSSBkaWRuJ3QgZ2V0IGFueSBvYmplY3Rpb25zIHdoZW4gSSBwcmV2
-aW91c2x5IG91dGxpbmVkIHRoZXNlDQo+IGNoYW5nZXMuDQo+IA0KPiBCZW4uDQo+IA0KPiAtLQ0K
-DQpMYXN0IEkgY2hlY2tlZCBhdCBsZWFzdCBmb3IgaXhnYmUsIHdlIHJlY2VudGx5IGZpeGVkIHRo
-ZSBwZXJmb3JtYW5jZSByZWdyZXNzaW9uIHdoZW4gUFRQIHdhcyBlbmFibGVkLCBhbmQgbm93IGl0
-IGRvZXNuJ3QgYXBwZWFyIHRvIGNhdXNlIGxvd2VyIHBlcmZvcm1hbmNlIHdoZW4gZW5hYmxlZCBp
-biBrZXJuZWwgYnV0IG5vdCBlbmFibGVkIHZpYSB0aGUgaHd0c3RhbXBfaW9jdGwuDQoNCi0gSmFr
-ZQ0KDQo=
+Parse the string into an array of bytes rather than ints, so we can
+use is_link_local() rather than reimplementing it.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ net/bridge/br_sysfs_br.c |   11 +++--------
+ 1 files changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index e157b0d..82385fd 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -298,23 +298,18 @@ static ssize_t store_group_addr(struct device *d,
+ 				const char *buf, size_t len)
+ {
+ 	struct net_bridge *br = to_bridge(d);
+-	unsigned int new_addr[6];
++	u8 new_addr[6];
+ 	int i;
+ 
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	if (sscanf(buf, "%x:%x:%x:%x:%x:%x",
++	if (sscanf(buf, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+ 		   &new_addr[0], &new_addr[1], &new_addr[2],
+ 		   &new_addr[3], &new_addr[4], &new_addr[5]) != 6)
+ 		return -EINVAL;
+ 
+-	/* Must be 01:80:c2:00:00:0X */
+-	for (i = 0; i < 5; i++)
+-		if (new_addr[i] != br_reserved_address[i])
+-			return -EINVAL;
+-
+-	if (new_addr[5] & ~0xf)
++	if (!is_link_local(new_addr))
+ 		return -EINVAL;
+ 
+ 	if (new_addr[5] == 1 ||		/* 802.3x Pause address */
+-- 
+1.7.7.6
+
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
