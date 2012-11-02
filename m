@@ -1,56 +1,44 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] [trivial] net: bnx2x: Fix typo in bnx2x driver
-Date: Fri,  2 Nov 2012 23:36:17 +0900
-Message-ID: <1351866977-6251-1-git-send-email-standby24x7@gmail.com>
-Cc: Masanari Iida <standby24x7@gmail.com>
-To: trivial@kernel.org, linux-kernel@vger.kernel.org,
-	eilong@broadcom.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 3/3] net: neterion: Do not break word unregister.
+Date: Fri, 02 Nov 2012 23:43:45 +0900
+Message-ID: <5093DC21.30004@linux-ipv6.org>
+References: <201211021439.qA2EdkbO004741@94.43.138.210.xn.2iij.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46773 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754862Ab2KBOnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 10:43:47 -0400
+In-Reply-To: <201211021439.qA2EdkbO004741@94.43.138.210.xn.2iij.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Correct spelling typo in bnx2x driver
+Sorry, subject and date are strange.  I'm resending...
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c    | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+--yoshfuji
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index c65295d..6e5bdd1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -1702,7 +1702,7 @@ static int bnx2x_set_eee(struct net_device *dev, struct ethtool_eee *edata)
- 				      SHMEM_EEE_ADV_STATUS_SHIFT);
- 	if ((advertised != (eee_cfg & SHMEM_EEE_ADV_STATUS_MASK))) {
- 		DP(BNX2X_MSG_ETHTOOL,
--		   "Direct manipulation of EEE advertisment is not supported\n");
-+		   "Direct manipulation of EEE advertisement is not supported\n");
- 		return -EINVAL;
- 	}
- 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index e2e45ee..5be223e 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -9878,7 +9878,7 @@ static int bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 		else
- 			rc = bnx2x_8483x_disable_eee(phy, params, vars);
- 		if (rc) {
--			DP(NETIF_MSG_LINK, "Failed to set EEE advertisment\n");
-+			DP(NETIF_MSG_LINK, "Failed to set EEE advertisement\n");
- 			return rc;
- 		}
- 	} else {
-@@ -12919,7 +12919,7 @@ static u8 bnx2x_analyze_link_error(struct link_params *params,
- 		DP(NETIF_MSG_LINK, "Analyze TX Fault\n");
- 		break;
- 	default:
--		DP(NETIF_MSG_LINK, "Analyze UNKOWN\n");
-+		DP(NETIF_MSG_LINK, "Analyze UNKNOWN\n");
- 	}
- 	DP(NETIF_MSG_LINK, "Link changed:[%x %x]->%x\n", vars->link_up,
- 	   old_status, status);
--- 
-1.8.0.rc3.16.g8ead1bf
+YOSHIFUJI Hideaki wrote:
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> ---
+>  drivers/net/ethernet/neterion/s2io.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+> index de50547..c98decb 100644
+> --- a/drivers/net/ethernet/neterion/s2io.c
+> +++ b/drivers/net/ethernet/neterion/s2io.c
+> @@ -8239,7 +8239,8 @@ static int __init s2io_starter(void)
+>  
+>  /**
+>   * s2io_closer - Cleanup routine for the driver
+> - * Description: This function is the cleanup routine for the driver. It unregist * ers the driver.
+> + * Description: This function is the cleanup routine for the driver. It
+> + * unregisters the driver.
+>   */
+>  
+>  static __exit void s2io_closer(void)
+> 
