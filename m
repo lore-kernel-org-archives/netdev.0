@@ -1,54 +1,82 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next] ptp: fixup Kconfig for two PHC drivers.
-Date: Fri,  2 Nov 2012 10:57:38 +0100
-Message-ID: <1351850258-5072-1-git-send-email-richardcochran@gmail.com>
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] sockopt: Change getsockopt() of
+ SO_BINDTODEVICE to return an interface name
+Date: Fri, 02 Nov 2012 11:23:04 +0100
+Message-ID: <1351851784.32673.2788.camel@edumazet-glaptop>
+References: <509184D9.8030103@hp.com>  <5093940B.6020207@parallels.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Brian Haley <brian.haley@hp.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:36247 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965850Ab2KBJ5t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 05:57:49 -0400
-Received: by mail-ea0-f174.google.com with SMTP id c13so1307182eaa.19
-        for <netdev@vger.kernel.org>; Fri, 02 Nov 2012 02:57:48 -0700 (PDT)
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:60817 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933539Ab2KBKXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 06:23:09 -0400
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1317986bkc.19
+        for <netdev@vger.kernel.org>; Fri, 02 Nov 2012 03:23:08 -0700 (PDT)
+In-Reply-To: <5093940B.6020207@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings recently came up with a better way to handle the kconfig
-dependencies for the PTP hardware clocks. This patch converts one new and
-one older driver to the new scheme.
+On Fri, 2012-11-02 at 13:36 +0400, Pavel Emelyanov wrote:
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/adi/Kconfig |    2 +-
- drivers/net/ethernet/ti/Kconfig  |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+> This still races with the device name change, potentially providing
+> a name which never existed in the system, doesn't it?
 
-diff --git a/drivers/net/ethernet/adi/Kconfig b/drivers/net/ethernet/adi/Kconfig
-index 175c38c..e49c0ef 100644
---- a/drivers/net/ethernet/adi/Kconfig
-+++ b/drivers/net/ethernet/adi/Kconfig
-@@ -61,7 +61,7 @@ config BFIN_RX_DESC_NUM
+It does.
+
+Maybe add a seqlock_t, to avoid taking rtnl here.
+(as it could bring interesting lockdep/deadlock issues)
+
+Here is the write side. Read side is trivial.
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b4978e2..0184ec9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -201,6 +201,8 @@ static struct list_head ptype_all __read_mostly;	/* Taps */
+ DEFINE_RWLOCK(dev_base_lock);
+ EXPORT_SYMBOL(dev_base_lock);
  
- config BFIN_MAC_USE_HWSTAMP
- 	bool "Use IEEE 1588 hwstamp"
--	depends on BFIN_MAC && BF518 && PTP_1588_CLOCK && !(BFIN_MAC=y && PTP_1588_CLOCK=m)
-+	select PTP_1588_CLOCK
- 	default y
- 	---help---
- 	  To support the IEEE 1588 Precision Time Protocol (PTP), select y here
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index cbc3905..14297ff 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -62,7 +62,7 @@ config TI_CPSW
++DEFINE_SEQLOCK(devnet_rename_seq);
++
+ static inline void dev_base_seq_inc(struct net *net)
+ {
+ 	while (++net->dev_base_seq == 0);
+@@ -1018,17 +1020,22 @@ int dev_change_name(struct net_device *dev, const char *newname)
  
- config TI_CPTS
- 	boolean "TI Common Platform Time Sync (CPTS) Support"
--	depends on TI_CPSW && PTP_1588_CLOCK && !(TI_CPSW=y && PTP_1588_CLOCK=m)
-+	select PTP_1588_CLOCK
- 	---help---
- 	  This driver supports the Common Platform Time Sync unit of
- 	  the CPSW Ethernet Switch. The unit can time stamp PTP UDP/IPv4
--- 
-1.7.2.5
+ 	memcpy(oldname, dev->name, IFNAMSIZ);
+ 
++	write_seqlock(&devnet_rename_seq);
+ 	err = dev_get_valid_name(net, dev, newname);
+-	if (err < 0)
++	if (err < 0) {
++		write_sequnlock(&devnet_rename_seq);
+ 		return err;
+-
++	}
+ rollback:
+ 	ret = device_rename(&dev->dev, dev->name);
+ 	if (ret) {
+ 		memcpy(dev->name, oldname, IFNAMSIZ);
++		write_sequnlock(&devnet_rename_seq);
+ 		return ret;
+ 	}
+ 
++	write_sequnlock(&devnet_rename_seq);
++
+ 	write_lock_bh(&dev_base_lock);
+ 	hlist_del_rcu(&dev->name_hlist);
+ 	write_unlock_bh(&dev_base_lock);
+@@ -1046,6 +1053,7 @@ rollback:
+ 		/* err >= 0 after dev_alloc_name() or stores the first errno */
+ 		if (err >= 0) {
+ 			err = ret;
++			write_seqlock(&devnet_rename_seq);
+ 			memcpy(dev->name, oldname, IFNAMSIZ);
+ 			goto rollback;
+ 		} else {
