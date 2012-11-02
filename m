@@ -1,37 +1,28 @@
-From: Jaume =?iso-8859-1?Q?Delcl=F2s?= Coll <jaume@delclos.com>
-Subject: [PATCH] Wireless: rt2x00: Add device id for Sweex LW323 to
- rt2800usb.c
-Date: Fri, 2 Nov 2012 23:35:20 +0100
-Message-ID: <20121102223520.GB16573@jaume-arch.example.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/6][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 02 Nov 2012 18:46:25 -0400 (EDT)
+Message-ID: <20121102.184625.2277474095401629449.davem@davemloft.net>
+References: <1351766667-28489-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20121101.111624.2264556775891936805.davem@davemloft.net>
+	<1351802715.2080.35.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: IvDoorn@gmail.com, gwingerde@gmail.com,
-	helmut.schaa@googlemail.com, linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48104 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758197Ab2KBWq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 18:46:29 -0400
+In-Reply-To: <1351802715.2080.35.camel@jtkirshe-mobl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jaume Delcl=F2s <jaume@delclos.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 01 Nov 2012 13:45:15 -0700
 
-This patch adds detection for the Sweex LW323 USB wireless network card
-in the rt2x00 driver (just one line in rt2800usb.c).
-It applies to linux-3.7-rc3.
+> REALLY Sorry, I forgot to push the patches up to kernel.org.  I have
+> pushed them up now.
 
-Signed-off-by: Jaume Delcl=F2s <jaume@delclos.com>
-
---- linux-3.7-rc3/drivers/net/wireless/rt2x00/rt2800usb.c.orig	2012-11-=
-02 21:14:01.393082623 +0100
-+++ linux-3.7-rc3/drivers/net/wireless/rt2x00/rt2800usb.c	2012-11-02 21=
-:14:57.502778651 +0100
-@@ -1096,6 +1096,7 @@ static struct usb_device_id rt2800usb_de
- 	{ USB_DEVICE(0x177f, 0x0153) },
- 	{ USB_DEVICE(0x177f, 0x0302) },
- 	{ USB_DEVICE(0x177f, 0x0313) },
-+	{ USB_DEVICE(0x177f, 0x0323) },
- 	/* U-Media */
- 	{ USB_DEVICE(0x157e, 0x300e) },
- 	{ USB_DEVICE(0x157e, 0x3013) },
+Pulled, thanks Jeff.
