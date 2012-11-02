@@ -1,56 +1,39 @@
 From: Shan Wei <shanwei88@gmail.com>
-Subject: [PATCH 0/9 v2] use efficient this_cpu_* helper
-Date: Sat, 03 Nov 2012 00:01:04 +0800
-Message-ID: <5093EE40.5080405@gmail.com>
+Subject: [PATCH v2 2/9] net: rds: use this_cpu_ptr per-cpu helper
+Date: Sat, 03 Nov 2012 00:01:19 +0800
+Message-ID: <5093EE4F.4030601@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: cl@linux-foundation.org, David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: venkat.x.venkatsubra@oracle.com,
+	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com,
 	NetDev <netdev@vger.kernel.org>,
 	Kernel-Maillist <linux-kernel@vger.kernel.org>,
-	Shan Wei <shanwei88@gmail.com>
+	cl@linux-foundation.org, Shan Wei <shanwei88@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-this_cpu_ptr is faster than per_cpu_ptr(p, smp_processor_id())=20
-and can reduce  memory accesses.
-The latter helper needs to find the offset for current cpu,
-and needs more assembler instructions which objdump shows in following.=
-=20
+From: Shan Wei <davidshan@tencent.com>
 
-per_cpu_ptr(p, smp_processor_id())=EF=BC=9A
-  1e:   65 8b 04 25 00 00 00 00         mov    %gs:0x0,%eax
-  26:   48 98                           cltq
-  28:   31 f6                           xor    %esi,%esi
-  2a:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
-  31:   48 8b 04 c5 00 00 00 00         mov    0x0(,%rax,8),%rax
-  39:   c7 44 10 04 14 00 00 00         movl   $0x14,0x4(%rax,%rdx,1)
+Signed-off-by: Shan Wei <davidshan@tencent.com>
+Reviewed-by: Christoph Lameter <cl@linux.com>
+---
+ net/rds/ib_recv.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-this_cpu_ptr(p)
-  1e:   65 48 03 14 25 00 00 00 00      add    %gs:0x0,%rdx
-  27:   31 f6                           xor    %esi,%esi
-  29:   c7 42 04 14 00 00 00            movl   $0x14,0x4(%rdx)
-  30:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
-
-Changelog V2:
-1. Use this_cpu_read directly instead of ref to field of per-cpu variab=
-le.
-2. Patch5 about ftrace is dropped from this series.
-3. Add new patch9 to replace get_cpu;per_cpu_ptr;put_cpu with this_cpu_=
-add opt.
-4. For preemption disable case, use __this_cpu_read instead.
- =20
-$ git diff --stat b77bc2069d1e437d5a1a71bb5cfcf4556ee40015=20
- drivers/clocksource/arm_generic.c |    2 +-
- kernel/padata.c                   |    5 ++---
- kernel/rcutree.c                  |    2 +-
- kernel/trace/blktrace.c           |    2 +-
- kernel/trace/trace.c              |    4 +---
- net/batman-adv/main.h             |    4 +---
- net/core/flow.c                   |    4 +---
- net/openvswitch/datapath.c        |    4 ++--
- net/openvswitch/vport.c           |    5 ++---
- net/rds/ib_recv.c                 |    2 +-
- net/xfrm/xfrm_ipcomp.c            |    7 +++----
- 11 files changed, 16 insertions(+), 25 deletions(-)
+diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
+index 8d19491..a4a5064 100644
+--- a/net/rds/ib_recv.c
++++ b/net/rds/ib_recv.c
+@@ -423,7 +423,7 @@ static void rds_ib_recv_cache_put(struct list_head *new_item,
+ 
+ 	local_irq_save(flags);
+ 
+-	chp = per_cpu_ptr(cache->percpu, smp_processor_id());
++	chp = this_cpu_ptr(cache->percpu);
+ 	if (!chp->first)
+ 		INIT_LIST_HEAD(new_item);
+ 	else /* put on front */
+-- 
+1.7.1
