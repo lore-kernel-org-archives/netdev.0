@@ -1,42 +1,114 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next:master 122/152] drivers/ptp/ptp_chardev.c:36
- ptp_ioctl() warn: 'sysoff' puts 832 bytes on stack
-Date: Fri, 2 Nov 2012 09:59:15 +0100
-Message-ID: <20121102085915.GC2486@netboy.at.omicron.at>
-References: <509326ff.Rs30l/1GTlOl9dW+%yuanhan.liu@linux.intel.com>
- <20121102020631.GI16883@yliu-dev.sh.intel.com>
+Subject: Re: [PATCH 4/4] FEC: Add time stamping code and a PTP hardware
+ clock
+Date: Fri, 2 Nov 2012 10:19:03 +0100
+Message-ID: <20121102091902.GA3437@netboy.at.omicron.at>
+References: <1351657531-25989-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: changlongx.xie@intel.com, fengguang.wu@intel.com,
-	netdev@vger.kernel.org
-To: Yuanhan Liu <yuanhan.liu@linux.intel.com>
+Cc: lznua@gmail.com, shawn.guo@linaro.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:50310 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927Ab2KBI7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 04:59:24 -0400
-Received: by mail-ee0-f46.google.com with SMTP id b15so1687107eek.19
-        for <netdev@vger.kernel.org>; Fri, 02 Nov 2012 01:59:23 -0700 (PDT)
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:44552 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750927Ab2KBJTQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 05:19:16 -0400
+Received: by mail-ea0-f174.google.com with SMTP id c13so1295273eaa.19
+        for <netdev@vger.kernel.org>; Fri, 02 Nov 2012 02:19:15 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20121102020631.GI16883@yliu-dev.sh.intel.com>
+In-Reply-To: <1351657531-25989-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 02, 2012 at 10:06:31AM +0800, Yuanhan Liu wrote:
-> 
-> Hi Richard,
-> 
-> _just_ FYI and let you aware of it, there are new smatch warnings show up in
-> 
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-> head:   b77bc2069d1e437d5a1a71bb5cfcf4556ee40015
-> commit: 215b13dd288c2e1e4461c1530a801f5f83e8cd90 [122/152] ptp: add an ioctl to compare PHC time with system time
-> 
-> + drivers/ptp/ptp_chardev.c:36 ptp_ioctl() warn: 'sysoff' puts 832 bytes on stack
->   drivers/ptp/ptp_chardev.c:144 ptp_read() warn: 'event' puts 960 bytes on stack
+On Wed, Oct 31, 2012 at 12:25:31PM +0800, Frank Li wrote:
 
-I am aware that these methods use large stack buffers, but I thought
-it was okay seeing as they are both under the 1k limit.
+> diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+> index feff516..ff3be53 100644
+> --- a/drivers/net/ethernet/freescale/Kconfig
+> +++ b/drivers/net/ethernet/freescale/Kconfig
+> @@ -92,4 +92,13 @@ config GIANFAR
+>  	  This driver supports the Gigabit TSEC on the MPC83xx, MPC85xx,
+>  	  and MPC86xx family of chips, and the FEC on the 8540.
+>  
+> +config FEC_PTP
+> +	bool "PTP Hardware Clock (PHC)"
+> +	depends on FEC
+> +	select PPS
+> +	select PTP_1588_CLOCK
+> +	--help---
+> +	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
+> +	  driver.  Only the basic clock operations have been implemented.
+> +
+
+Does the PTP function work with every FEC on ColdFire and i.MX?
+
+Or do you need to limit this option in some way?
+
+>  endif # NET_VENDOR_FREESCALE
+
+...
+
+> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+> new file mode 100644
+> index 0000000..9b91da9
+> --- /dev/null
+> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
+
+...
+
+> +/**
+> + * fec_ptp_adjfreq - adjust ptp cycle frequency
+> + * @ptp: the ptp clock structure
+> + * @ppb: parts per billion adjustment from base
+> + *
+> + * Adjust the frequency of the ptp cycle counter by the
+> + * indicated ppb from the base frequency.
+> + *
+> + * Because ENET hardware frequency adjust is complex,
+> + * using software method to do that.
+> + */
+> +static int fec_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
+> +{
+> +	u64 diff;
+> +	unsigned long flags;
+> +	int neg_adj = 0;
+> +
+> +	struct fec_enet_private *fep =
+> +	    container_of(ptp, struct fec_enet_private, ptp_caps);
+> +
+> +	if (ppb < 0) {
+> +		ppb = -ppb;
+> +		neg_adj = 1;
+> +	}
+> +
+> +	spin_lock_irqsave(&fep->tmreg_lock, flags);
+> +	/*
+> +	 * dummy read to set cycle_last in tc to now.
+> +	 * So use adjusted mult to calculate when next call
+> +	 * timercounter_read.
+> +	 */
+> +	timecounter_read(&fep->tc);
+
+You can reduce the time that the spin lock is held by moving the next
+four lines before the locked region:
+
+> +	fep->cc.mult = FEC_CC_MULT;
+> +	diff = fep->cc.mult;
+> +	diff *= ppb;
+> +	diff = div_u64(diff, 1000000000ULL);
+
+> +
+> +	if (neg_adj)
+> +		fep->cc.mult -= diff;
+> +	else
+> +		fep->cc.mult += diff;
+> +
+> +	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+> +
+> +	return 0;
+> +}
 
 Thanks,
 Richard
