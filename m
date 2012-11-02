@@ -1,62 +1,63 @@
-From: Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v8 01/16] hashtable: introduce a small and
-	naive hashtable
-Date: Fri, 2 Nov 2012 00:23:48 -0400
-Message-ID: <CA+1xoqdu-ar=-hh-+uVPtj=jy=rN0OiOGr09OxZsyphYzyJuEw@mail.gmail.com>
-References: <1351622772-16400-1-git-send-email-levinsasha928@gmail.com>
-	<20121030214257.GB2681@htj.dyndns.org>
-	<CA+1xoqeCKS2E4TWCUCELjDqV2pWS4v6EyV6K-=w-GRi_K6quiQ@mail.gmail.com>
-	<1351646186.4004.41.camel@gandalf.local.home>
-	<CA+55aFzFMrOUwdHHJ5-YUtEzTHGvdRosQc+K+trjub0K-w-D3A@mail.gmail.com>
-	<CA+1xoqd8vAn+N1JuhpXRjSr74OPtnnw_1UBhf8=c4WDC3jOirw@mail.gmail.com>
-	<CA+55aFxK+xr0Gc+ZLgi3Ch8YgoV78vvr+Q-7cP=kC7asFB5k5w@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the drop-experimental tree with the
+ net-next tree
+Date: Fri, 2 Nov 2012 15:55:14 +1100
+Message-ID: <20121102155514.939282b4682c521f07e7943c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: snitzer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, fweisbec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, dm-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	agk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, aarcange-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-	ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, mingo-X9Un+BFzKDI@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
-	ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>, lw-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org,
-	mathieu.desnoyers-vg+e7yoeK/dWk0Htik3J/w@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-mm-Bw31MaZKKs3YtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ejt-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CA+55aFxK+xr0Gc+ZLgi3Ch8YgoV78vvr+Q-7cP=kC7asFB5k5w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__2_Nov_2012_15_55_14_+1100_ZesQDe77+ORwRkej"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Kees Cook <keescook@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from haggis.pcug.org.au ([203.10.76.10]:44864 "EHLO
+	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751147Ab2KBEzW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 00:55:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Oct 30, 2012 at 10:23 PM, Linus Torvalds
-<torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org> wrote:
-> On Tue, Oct 30, 2012 at 6:36 PM, Sasha Levin <levinsasha928-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->>
->> I can either rebase that on top of mainline, or we can ask maintainers
->> to take it to their own trees if you take only 01/16 into mainline.
->> What would you prefer?
->
-> I don't really care deeply. The only reason to merge it now would be
-> to avoid any pain with it during the next merge window. Just taking
-> 01/16 might be the sanest way to do that, then the rest can trickle in
-> independently at their own leisure.
+--Signature=_Fri__2_Nov_2012_15_55_14_+1100_ZesQDe77+ORwRkej
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Okay, I'll keep working on converting everything else as soon as 01/16
-makes it in your tree.
+Hi Kees,
 
+Today's linux-next merge of the drop-experimental tree got a conflict in
+drivers/net/ethernet/intel/Kconfig between commit a24006ed1261 ("ptp:
+Enable clock drivers along with associated net/PHY drivers") from the
+net-next tree and commit 70c5056f413d ("drivers/net/ethernet/intel:
+remove depends on CONFIG_EXPERIMENTAL") from the drop-experimental tree.
 
-Thanks,
-Sasha
+The former removed some code that was changed by the latter, so I did
+that and can carry the fix as necessary (no action is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Fri__2_Nov_2012_15_55_14_+1100_ZesQDe77+ORwRkej
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQk1IyAAoJEECxmPOUX5FEChUP/1tZ0iPHeX3wRJGmLtqZajjR
+gGiCRv0lEKfPQwXhlYH9+vxS04Vmn9Q+YLwKsrrmhSllEgmUCFrK002ea9q3Surd
+ZwTvlkfXiySokO29t4sOdfG/iOo6+DjEWRB0CggJX5ffqeZz0WJJz/OkrExFiMPg
+jy7VK3bJerdOZ6eURGwJBixg7duYV1YguajCijQTDKOlYONS12qtse446q8lael5
+9h6VRu/4GSUvnaFu8P4n4G85Z4ZTbwydqNCci7cXLuX5lygwRJC9c4OxHcBc2CFA
+4SLS4/H4GskTmZrfnd7fmpqlnreH0LsQ6CpidT9RzJqpbVJYFMeidnmzyh9SvrFZ
+wzPfF7t4YgYuqFVyw9mDbTsCv51PD9cWMa+c7pMg/7h8XC6WjEjkTzbHJM0GXk7Z
+RVjaxfMdsSXJj4Tz5ZX1fQNmlNo4JZrUT+VXmclDQisBC1zahokx0F5PlsWDK/Q7
+EdMyyxV0jELsQJFbLLhnhUTa2AfyA4a+D3lwNVTt1gA/6pw3JrhRmNbjr4OzGxw1
+Vh5/peCRR41Kj+7fi+7GCIQPAQDlkqzptiXJi47ShizCgEBYeu4xC2RB2CqmPz0/
+ST3CtTCGbtFhgOA1QeVVlp1gUwTHZ0Tm/4j8WnrKdf4CNySigVzqzqd64ijf1SvJ
+UEKV3zli/rbe7AiF2e7d
+=eh0J
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__2_Nov_2012_15_55_14_+1100_ZesQDe77+ORwRkej--
