@@ -1,149 +1,383 @@
 From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: [PATCH V5 11/22] qlcnic: rename module params with module_param_named
-Date: Thu,  1 Nov 2012 21:06:43 -0400
-Message-ID: <1351818414-25197-12-git-send-email-sony.chacko@qlogic.com>
+Subject: [PATCH V5 19/22] qlcnic: enable 83xx virtual NIC mode
+Date: Thu,  1 Nov 2012 21:06:51 -0400
+Message-ID: <1351818414-25197-20-git-send-email-sony.chacko@qlogic.com>
 References: <1351818414-25197-1-git-send-email-sony.chacko@qlogic.com>
 Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
 	Sony Chacko <sony.chacko@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:41900 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:43774 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1762553Ab2KBB0O (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2012 21:26:14 -0400
+	id S1762575Ab2KBB0S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Nov 2012 21:26:18 -0400
 In-Reply-To: <1351818414-25197-1-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sony Chacko <sony.chacko@qlogic.com>
 
-Refactor 82xx driver to support new adapter - Qlogic 83XX CNA
+Enable 83xx virtual NIC mode
 
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    4 ++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   34 +++++++++++-----------
- 2 files changed, 21 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/Makefile        |    3 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    4 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    7 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   53 +++++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  |  216 ++++++++++++++++++++
+ 5 files changed, 281 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/Makefile b/drivers/net/ethernet/qlogic/qlcnic/Makefile
+index 9a03a72..4fb61dc 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/Makefile
++++ b/drivers/net/ethernet/qlogic/qlcnic/Makefile
+@@ -6,4 +6,5 @@ obj-$(CONFIG_QLCNIC) := qlcnic.o
+ 
+ qlcnic-y := qlcnic_hw.o qlcnic_main.o qlcnic_init.o \
+ 	qlcnic_ethtool.o qlcnic_ctx.o qlcnic_io.o \
+-	qlcnic_sysfs.o qlcnic_83xx_hw.o qlcnic_83xx_init.o
++	qlcnic_sysfs.o qlcnic_83xx_hw.o qlcnic_83xx_init.o \
++	qlcnic_83xx_vnic.o
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index a931831..7837546 100644
+index 504a808..8438651 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -355,6 +355,10 @@ struct qlcnic_flt_entry {
- #define QLCNIC_FLASH_ROMIMAGE_NAME	"flash"
- 
- extern char qlcnic_driver_name[];
-+extern int qlcnic_use_msi;
-+extern int qlcnic_use_msi_x;
-+extern int qlcnic_auto_fw_reset;
-+extern int qlcnic_load_fw_file;
+@@ -390,6 +390,7 @@ extern int qlcnic_use_msi;
+ extern int qlcnic_use_msi_x;
+ extern int qlcnic_auto_fw_reset;
+ extern int qlcnic_load_fw_file;
++extern int qlcnic_config_npars;
  
  /* Number of status descriptors to handle per interrupt */
  #define MAX_STATUS_HANDLE	(64)
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 400d0bf..4e274b5 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -31,25 +31,26 @@ static const char qlcnic_driver_string[] = "QLogic 1/10 GbE "
- 	"Converged/Intelligent Ethernet Driver v" QLCNIC_LINUX_VERSIONID;
+@@ -1618,6 +1619,9 @@ void qlcnic_restore_indev_addr(struct net_device *, unsigned long);
  
- static struct workqueue_struct *qlcnic_wq;
+ int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *, u32);
+ int qlcnicvf_config_led(struct qlcnic_adapter *, u32, u32);
++int qlcnic_init_pci_info(struct qlcnic_adapter *);
++int qlcnic_set_default_offload_settings(struct qlcnic_adapter *);
++int qlcnic_reset_npar_config(struct qlcnic_adapter *);
+ 
+ /*
+  * QLOGIC Board information
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+index 1952348..f88e126 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+@@ -578,4 +578,11 @@ int qlcnic_83xx_lock_driver(struct qlcnic_adapter *);
+ void qlcnic_83xx_unlock_driver(struct qlcnic_adapter *);
+ int qlcnic_83xx_set_default_offload_settings(struct qlcnic_adapter *);
+ int qlcnic_83xx_ms_mem_write128(struct qlcnic_adapter *, u64, u32 *, u32);
++int qlcnic_83xx_idc_vnic_pf_entry(struct qlcnic_adapter *);
++int qlcnic_83xx_enable_vnic_mode(struct qlcnic_adapter *, int);
++int qlcnic_83xx_disable_vnic_mode(struct qlcnic_adapter *, int);
++int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *);
++int qlcnic_83xx_get_vnic_vport_info(struct qlcnic_adapter *,
++				    struct qlcnic_info *, u8);
++int qlcnic_83xx_get_vnic_pf_info(struct qlcnic_adapter *, struct qlcnic_info *);
+ #endif
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index 9fa3dd7..c16b8ee 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -577,6 +577,52 @@ int qlcnic_83xx_idc_ready_state_entry(struct qlcnic_adapter *adapter)
+ 	return 0;
+ }
+ 
++/**
++ * qlcnic_83xx_idc_vnic_pf_entry
++ *
++ * @adapter: adapter structure
++ *
++ * Ensure vNIC mode privileged function starts only after vNIC mode is
++ * enabled by management function.
++ * If vNIC mode is ready, start initialization.
++ *
++ * Returns: -EIO or 0
++ *
++ **/
++int qlcnic_83xx_idc_vnic_pf_entry(struct qlcnic_adapter *adapter)
++{
++	u32 state;
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
 +
- static int qlcnic_mac_learn;
- module_param(qlcnic_mac_learn, int, 0444);
- MODULE_PARM_DESC(qlcnic_mac_learn, "Mac Filter (0=disabled, 1=enabled)");
- 
--static int use_msi = 1;
--module_param(use_msi, int, 0444);
-+int qlcnic_use_msi = 1;
- MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled");
-+module_param_named(use_msi, qlcnic_use_msi, int, 0444);
- 
--static int use_msi_x = 1;
--module_param(use_msi_x, int, 0444);
-+int qlcnic_use_msi_x = 1;
- MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled");
-+module_param_named(use_msi_x, qlcnic_use_msi_x, int, 0444);
- 
--static int auto_fw_reset = 1;
--module_param(auto_fw_reset, int, 0644);
-+int qlcnic_auto_fw_reset = 1;
- MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled");
-+module_param_named(auto_fw_reset, qlcnic_auto_fw_reset, int, 0644);
- 
--static int load_fw_file;
--module_param(load_fw_file, int, 0444);
-+int qlcnic_load_fw_file;
- MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file");
-+module_param_named(load_fw_file, qlcnic_load_fw_file, int, 0444);
- 
- static int qlcnic_config_npars;
- module_param(qlcnic_config_npars, int, 0444);
-@@ -396,7 +397,7 @@ static void qlcnic_enable_msi_legacy(struct qlcnic_adapter *adapter)
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	struct pci_dev *pdev = adapter->pdev;
- 
--	if (use_msi && !pci_enable_msi(pdev)) {
-+	if (qlcnic_use_msi && !pci_enable_msi(pdev)) {
- 		adapter->flags |= QLCNIC_MSI_ENABLED;
- 		offset = msi_tgt_status[adapter->ahw->pci_func];
- 		adapter->tgt_status_reg = qlcnic_get_ioaddr(adapter->ahw,
-@@ -738,7 +739,7 @@ qlcnic_check_options(struct qlcnic_adapter *adapter)
- 		adapter->max_rxd = MAX_RCV_DESCRIPTORS_1G;
- 	}
- 
--	adapter->ahw->msix_supported = !!use_msi_x;
-+	adapter->ahw->msix_supported = !!qlcnic_use_msi_x;
- 
- 	adapter->num_txd = MAX_CMD_DESCRIPTORS;
- 
-@@ -1070,7 +1071,7 @@ int qlcnic_82xx_start_firmware(struct qlcnic_adapter *adapter)
- 	else if (!err)
- 		goto check_fw_status;
- 
--	if (load_fw_file)
-+	if (qlcnic_load_fw_file)
- 		qlcnic_request_firmware(adapter);
- 	else {
- 		err = qlcnic_check_flash_fw_ver(adapter);
-@@ -2679,7 +2680,7 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 		if (adapter->need_fw_reset)
- 			goto detach;
- 
--		if (adapter->ahw->reset_context && auto_fw_reset) {
-+		if (adapter->ahw->reset_context && qlcnic_auto_fw_reset) {
- 			qlcnic_reset_hw_context(adapter);
- 			adapter->netdev->trans_start = jiffies;
- 		}
-@@ -2694,7 +2695,7 @@ qlcnic_check_health(struct qlcnic_adapter *adapter)
- 
- 	qlcnic_dev_request_reset(adapter, 0);
- 
--	if (auto_fw_reset)
-+	if (qlcnic_auto_fw_reset)
- 		clear_bit(__QLCNIC_FW_ATTACHED, &adapter->state);
- 
- 	dev_err(&adapter->pdev->dev, "firmware hang detected\n");
-@@ -2719,9 +2720,8 @@ detach:
- 	adapter->dev_state = (state == QLCNIC_DEV_NEED_QUISCENT) ? state :
- 		QLCNIC_DEV_NEED_RESET;
- 
--	if (auto_fw_reset &&
--		!test_and_set_bit(__QLCNIC_RESETTING, &adapter->state)) {
--
-+	if (qlcnic_auto_fw_reset && !test_and_set_bit(__QLCNIC_RESETTING,
-+						      &adapter->state)) {
- 		qlcnic_schedule_work(adapter, qlcnic_detach_work, 0);
- 		QLCDB(adapter, DRV, "fw recovery scheduled.\n");
- 	}
-@@ -2995,7 +2995,7 @@ static struct device_attribute dev_attr_diag_mode = {
- 
- int qlcnic_validate_max_rss(struct net_device *netdev, u8 max_hw, u8 val)
++	/* Privileged function waits till mgmt function enables VNIC mode */
++	state = QLCRDX(adapter->ahw, QLC_83XX_VNIC_STATE);
++	if (state != QLCNIC_DEV_NPAR_OPER) {
++		if (!ahw->idc.vnic_wait_limit--) {
++			qlcnic_83xx_idc_enter_failed_state(adapter, 1);
++			return -EIO;
++		}
++		dev_info(&adapter->pdev->dev, "vNIC mode disabled\n");
++		return -EIO;
++
++	} else {
++		/* Perform one time initialization from ready state */
++		if (ahw->idc.vnic_state != QLCNIC_DEV_NPAR_OPER) {
++			qlcnic_83xx_idc_update_idc_params(adapter);
++
++			/* If the previous state is UNKNOWN, device will be
++			   already attached properly by Init routine*/
++			if (ahw->idc.prev_state != QLC_83XX_IDC_DEV_UNKNOWN) {
++				if (qlcnic_83xx_idc_reattach_driver(adapter))
++					return -EIO;
++			}
++			adapter->ahw->idc.vnic_state =  QLCNIC_DEV_NPAR_OPER;
++			dev_info(&adapter->pdev->dev, "vNIC mode enabled\n");
++		}
++	}
++
++	return 0;
++}
++
+ static int qlcnic_83xx_idc_unknown_state(struct qlcnic_adapter *adapter)
  {
--	if (!use_msi_x && !use_msi) {
-+	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
- 		netdev_info(netdev, "no msix or msi support, hence no rss\n");
- 		return -EINVAL;
+ 	adapter->ahw->idc.err_code = -EIO;
+@@ -736,6 +782,8 @@ static int qlcnic_83xx_idc_need_reset_state(struct qlcnic_adapter *adapter)
+ 		qlcnic_83xx_idc_update_audit_reg(adapter, 0, 1);
+ 		set_bit(__QLCNIC_RESETTING, &adapter->state);
+ 		clear_bit(QLC_83XX_MBX_READY, &adapter->ahw->idc.status);
++		if (adapter->ahw->nic_mode == QLC_83XX_VIRTUAL_NIC_MODE)
++			qlcnic_83xx_disable_vnic_mode(adapter, 1);
+ 		qlcnic_83xx_idc_detach_driver(adapter);
  	}
+ 
+@@ -1820,7 +1868,10 @@ static int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter)
+ 	if (ret == -EIO)
+ 		return -EIO;
+ 
+-	if (ret == QLC_83XX_DEFAULT_MODE) {
++	if (ret == QLC_83XX_VIRTUAL_NIC_MODE) {
++		if (qlcnic_83xx_config_vnic_opmode(adapter))
++			return -EIO;
++	} else if (ret == QLC_83XX_DEFAULT_MODE) {
+ 		if (qlcnic_83xx_config_default_opmode(adapter))
+ 			return -EIO;
+ 	}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
+new file mode 100644
+index 0000000..d394471
+--- /dev/null
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
+@@ -0,0 +1,216 @@
++#include "qlcnic.h"
++#include "qlcnic_hw.h"
++
++int qlcnic_83xx_enable_vnic_mode(struct qlcnic_adapter *adapter, int lock)
++{
++	if (lock) {
++		if (qlcnic_83xx_lock_driver(adapter))
++			return -EBUSY;
++	}
++	QLCWRX(adapter->ahw, QLC_83XX_VNIC_STATE, QLCNIC_DEV_NPAR_OPER);
++	if (lock)
++		qlcnic_83xx_unlock_driver(adapter);
++
++	return 0;
++}
++
++int qlcnic_83xx_disable_vnic_mode(struct qlcnic_adapter *adapter, int lock)
++{
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++
++	if (lock) {
++		if (qlcnic_83xx_lock_driver(adapter))
++			return -EBUSY;
++	}
++
++	QLCWRX(adapter->ahw, QLC_83XX_VNIC_STATE, QLCNIC_DEV_NPAR_NON_OPER);
++	ahw->idc.vnic_state = QLCNIC_DEV_NPAR_NON_OPER;
++
++	if (lock)
++		qlcnic_83xx_unlock_driver(adapter);
++
++	return 0;
++}
++
++static int qlcnic_83xx_set_vnic_opmode(struct qlcnic_adapter *adapter)
++{
++	u8 id;
++	int i, ret = -EBUSY;
++	u32 data = QLCNIC_MGMT_FUNC;
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++
++	if (qlcnic_83xx_lock_driver(adapter))
++		return ret;
++
++	if (qlcnic_config_npars) {
++		for (i = 0; i < ahw->act_pci_func; i++) {
++			id = adapter->npars[i].pci_func;
++			if (id == ahw->pci_func)
++				continue;
++			data |= qlcnic_config_npars &
++				QLC_83XX_SET_FUNC_OPMODE(0x3, id);
++		}
++	} else {
++		data = QLCRDX(adapter->ahw, QLC_83XX_DRV_OP_MODE);
++		data = (data & ~QLC_83XX_SET_FUNC_OPMODE(0x3, ahw->pci_func)) |
++		       QLC_83XX_SET_FUNC_OPMODE(QLCNIC_MGMT_FUNC,
++						ahw->pci_func);
++	}
++	QLCWRX(adapter->ahw, QLC_83XX_DRV_OP_MODE, data);
++
++	qlcnic_83xx_unlock_driver(adapter);
++
++	return 0;
++}
++
++static void
++qlcnic_83xx_config_vnic_buff_descriptors(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++
++	if (ahw->port_type == QLCNIC_XGBE) {
++		adapter->num_rxd = DEFAULT_RCV_DESCRIPTORS_VF;
++		adapter->max_rxd = MAX_RCV_DESCRIPTORS_VF;
++		adapter->num_jumbo_rxd = MAX_JUMBO_RCV_DESCRIPTORS_10G;
++		adapter->max_jumbo_rxd = MAX_JUMBO_RCV_DESCRIPTORS_10G;
++
++	} else if (ahw->port_type == QLCNIC_GBE) {
++		adapter->num_rxd = DEFAULT_RCV_DESCRIPTORS_1G;
++		adapter->num_jumbo_rxd = MAX_JUMBO_RCV_DESCRIPTORS_1G;
++		adapter->max_jumbo_rxd = MAX_JUMBO_RCV_DESCRIPTORS_1G;
++		adapter->max_rxd = MAX_RCV_DESCRIPTORS_1G;
++	}
++	adapter->num_txd = MAX_CMD_DESCRIPTORS;
++	adapter->max_rds_rings = MAX_RDS_RINGS;
++}
++
++
++/**
++ * qlcnic_83xx_init_mgmt_vnic
++ *
++ * @adapter: adapter structure
++ * Management virtual NIC sets the operational mode of other vNIC's and
++ * configures embedded switch (ESWITCH).
++ * Returns: Success(0) or error code.
++ *
++ **/
++static int qlcnic_83xx_init_mgmt_vnic(struct qlcnic_adapter *adapter)
++{
++	int err = -EIO;
++
++	if (!(adapter->flags & QLCNIC_ADAPTER_INITIALIZED)) {
++		if (qlcnic_init_pci_info(adapter))
++			return err;
++
++		if (qlcnic_83xx_set_vnic_opmode(adapter))
++			return err;
++
++		if (qlcnic_set_default_offload_settings(adapter))
++			return err;
++	} else {
++		if (qlcnic_reset_npar_config(adapter))
++			return err;
++	}
++
++	if (qlcnic_83xx_get_port_info(adapter))
++		return err;
++
++	qlcnic_83xx_config_vnic_buff_descriptors(adapter);
++	adapter->ahw->msix_supported = !!qlcnic_use_msi_x;
++	adapter->flags |= QLCNIC_ADAPTER_INITIALIZED;
++	qlcnic_83xx_enable_vnic_mode(adapter, 1);
++
++	dev_info(&adapter->pdev->dev, "HAL Version: %d, Management function\n",
++		 adapter->ahw->fw_hal_version);
++
++	return 0;
++}
++
++static int qlcnic_83xx_init_privileged_vnic(struct qlcnic_adapter *adapter)
++{
++	int err = -EIO;
++
++	if (qlcnic_83xx_get_port_info(adapter))
++		return err;
++
++	qlcnic_83xx_config_vnic_buff_descriptors(adapter);
++	adapter->ahw->msix_supported = !!qlcnic_use_msi_x;
++	adapter->flags |= QLCNIC_ADAPTER_INITIALIZED;
++
++	dev_info(&adapter->pdev->dev,
++		 "HAL Version: %d, Privileged function\n",
++		 adapter->ahw->fw_hal_version);
++	return 0;
++}
++
++static int qlcnic_83xx_init_non_privileged_vnic(struct qlcnic_adapter *adapter)
++{
++	int err = -EIO;
++
++	qlcnic_83xx_get_fw_version(adapter);
++	if (qlcnic_set_eswitch_port_config(adapter))
++		return err;
++
++	if (qlcnic_83xx_get_port_info(adapter))
++		return err;
++
++	qlcnic_83xx_config_vnic_buff_descriptors(adapter);
++	adapter->ahw->msix_supported = !!qlcnic_use_msi_x;
++	adapter->flags |= QLCNIC_ADAPTER_INITIALIZED;
++
++	dev_info(&adapter->pdev->dev, "HAL Version: %d, Virtual function\n",
++		 adapter->ahw->fw_hal_version);
++
++	return 0;
++}
++
++/**
++ * qlcnic_83xx_vnic_opmode
++ *
++ * @adapter: adapter structure
++ * Identify virtual NIC operational modes.
++ *
++ * Returns: Success(0) or error code.
++ *
++ **/
++int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *adapter)
++{
++	u32 op_mode, priv_level;
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	struct qlcnic_nic_template *nic_ops = adapter->nic_ops;
++
++	qlcnic_get_func_no(adapter);
++	op_mode = QLCRDX(adapter->ahw, QLC_83XX_DRV_OP_MODE);
++
++	if (op_mode == QLC_83XX_DEFAULT_OPMODE)
++		priv_level = QLCNIC_MGMT_FUNC;
++	else
++		priv_level = QLC_83XX_GET_FUNC_PRIVILEGE(op_mode,
++							 ahw->pci_func);
++
++	if (priv_level == QLCNIC_NON_PRIV_FUNC) {
++		ahw->op_mode = QLCNIC_NON_PRIV_FUNC;
++		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
++		nic_ops->init_driver = qlcnic_83xx_init_non_privileged_vnic;
++	} else if (priv_level == QLCNIC_PRIV_FUNC) {
++		ahw->op_mode = QLCNIC_PRIV_FUNC;
++		ahw->idc.state_entry = qlcnic_83xx_idc_vnic_pf_entry;
++		nic_ops->init_driver = qlcnic_83xx_init_privileged_vnic;
++	} else if (priv_level == QLCNIC_MGMT_FUNC) {
++		ahw->op_mode = QLCNIC_MGMT_FUNC;
++		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
++		nic_ops->init_driver = qlcnic_83xx_init_mgmt_vnic;
++	} else {
++		return -EIO;
++	}
++
++	if (ahw->capabilities & BIT_23)
++		adapter->flags |= QLCNIC_ESWITCH_ENABLED;
++	else
++		adapter->flags &= ~QLCNIC_ESWITCH_ENABLED;
++
++	adapter->ahw->idc.vnic_state = QLCNIC_DEV_NPAR_NON_OPER;
++	adapter->ahw->idc.vnic_wait_limit = QLCNIC_DEV_NPAR_OPER_TIMEO;
++
++	return 0;
++}
 -- 
 1.7.1
