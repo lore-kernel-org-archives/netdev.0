@@ -1,88 +1,70 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next] net: Fix continued iteration in
- rtnl_bridge_getlink()
-Date: Fri, 2 Nov 2012 22:56:52 +0000
-Message-ID: <1351897012.2703.17.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [net-next PATCH v2 2/3] net: set and query VEB/VEPA bridge mode
+ via PF_BRIDGE
+Date: Fri, 2 Nov 2012 23:01:01 +0000
+Message-ID: <1351897261.2703.21.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20121024181033.14378.33097.stgit@jf-dev1-dcblab>
+	  <20121024181303.14378.78253.stgit@jf-dev1-dcblab>
+	 <1351895923.2703.11.camel@bwh-desktop.uk.solarflarecom.com>
+	 <50944DC0.5060209@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: David Miller <davem@davemloft.net>
+Cc: <shemminger@vyatta.com>, <buytenh@wantstofly.org>,
+	<davem@davemloft.net>, <vyasevic@redhat.com>, <jhs@mojatatu.com>,
+	<chrisw@redhat.com>, <krkumar2@in.ibm.com>, <samudrala@us.ibm.com>,
+	<peter.p.waskiewicz.jr@intel.com>, <jeffrey.t.kirsher@intel.com>,
+	<netdev@vger.kernel.org>, <gregory.v.rose@intel.com>,
+	<eilong@broadcom.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50222 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:50299 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1759634Ab2KBW44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 18:56:56 -0400
+	by vger.kernel.org with ESMTP id S1760727Ab2KBXBG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 19:01:06 -0400
+In-Reply-To: <50944DC0.5060209@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit e5a55a898720096f43bc24938f8875c0a1b34cd7 ('net: create generic
-bridge ops') broke the handling of a non-zero starting index in
-rtnl_bridge_getlink() (based on the old br_dump_ifinfo()).
+On Fri, 2012-11-02 at 15:48 -0700, John Fastabend wrote:
+> On 11/2/2012 3:38 PM, Ben Hutchings wrote:
+> > On Wed, 2012-10-24 at 11:13 -0700, John Fastabend wrote:
+> >> Hardware switches may support enabling and disabling the
+> >> loopback switch which puts the device in a VEPA mode defined
+> >> in the IEEE 802.1Qbg specification. In this mode frames are
+> >> not switched in the hardware but sent directly to the switch.
+> >> SR-IOV capable NICs will likely support this mode I am
+> >> aware of at least two such devices. Also I am told (but don't
+> >> have any of this hardware available) that there are devices
+> >> that only support VEPA modes. In these cases it is important
+> >> at a minimum to be able to query these attributes.
+> >>
+> >> This patch adds an additional IFLA_BRIDGE_MODE attribute that can be
+> >> set and dumped via the PF_BRIDGE:{SET|GET}LINK operations. Also
+> >> anticipating bridge attributes that may be common for both embedded
+> >> bridges and software bridges this adds a flags attribute
+> >> IFLA_BRIDGE_FLAGS currently used to determine if the command or event
+> >> is being generated to/from an embedded bridge or software bridge.
+> >> Finally, the event generation is pulled out of the bridge module and
+> >> into rtnetlink proper.
+[...]
+> >> +	if (attr && nla_type(attr) == IFLA_BRIDGE_FLAGS)
+> >
+> > This condition is wrong; attr will *not* be NULL if the
+> > nla_for_each_nested() loop terminates without finding an
+> > IFLA_BRIDGE_FLAGS attribute.
+> 
+> It might be NULL if the nlmsg has no IFLA_AF_SPEC attr. In this case
+> we still need to send the PROTINFO attribute to the master which
+> could be the linux bridge.
+[...]
 
-When the starting index is non-zero, we need to increment the current
-index for each entry that we are skipping.  Also, we need to check the
-index before both cases, since we may previously have stopped
-iteration between getting information about a device from its master
-and from itself.
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-This is compile-tested only, as I don't know what userland code to test
-with.  I'm still not sure it's correct to break iteration if
-ndo_bridge_getlink returns -EOPNOTSUPP (possible if the driver supports
-a mixture of bridging and non-bridging devices).
+I think nla_for_each_nested() can leave attr non-null but also not valid
+for use with nla_type().  And that's a problem.  I think it would be
+better to use an explicit flag for whether we found that attribute,
+rather than trying to re-test here.
 
 Ben.
-
- net/core/rtnetlink.c |   23 +++++++----------------
- 1 files changed, 7 insertions(+), 16 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 51dc58f..a0e35076 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2315,28 +2315,19 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
- 		const struct net_device_ops *ops = dev->netdev_ops;
- 		struct net_device *master = dev->master;
- 
--		if (idx < cb->args[0])
--			continue;
--
- 		if (master && master->netdev_ops->ndo_bridge_getlink) {
--			const struct net_device_ops *bops = master->netdev_ops;
--			int err = bops->ndo_bridge_getlink(skb, portid,
--							   seq, dev);
--
--			if (err < 0)
-+			if (idx >= cb->args[0] &&
-+			    master->netdev_ops->ndo_bridge_getlink(
-+				    skb, portid, seq, dev) < 0)
- 				break;
--			else
--				idx++;
-+			idx++;
- 		}
- 
- 		if (ops->ndo_bridge_getlink) {
--			int err = ops->ndo_bridge_getlink(skb, portid,
--							  seq, dev);
--
--			if (err < 0)
-+			if (idx >= cb->args[0] &&
-+			    ops->ndo_bridge_getlink(skb, portid, seq, dev) < 0)
- 				break;
--			else
--				idx++;
-+			idx++;
- 		}
- 	}
- 	rcu_read_unlock();
--- 
-1.7.7.6
-
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
