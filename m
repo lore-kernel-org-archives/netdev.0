@@ -1,88 +1,56 @@
-From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 4/9] net: openvswitch: use this_cpu_ptr per-cpu
-	helper
-Date: Sat, 03 Nov 2012 00:01:29 +0800
-Message-ID: <5093EE59.8010609@gmail.com>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: [PATCH v2 9/9] net: batman-adv: use per_cpu_add helper
+Date: Sat, 03 Nov 2012 00:02:06 +0800
+Message-ID: <5093EE7E.6040400@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: lindner_marek@yahoo.de, siwu@hrz.tu-chemnitz.de,
+	ordex@autistici.org, b.a.t.m.a.n@lists.open-mesh.org,
+	David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>,
+	Kernel-Maillist <linux-kernel@vger.kernel.org>,
+	Shan Wei <shanwei88@gmail.com>,
+	Christoph Lameter <cl@linux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
-
-no change vs v1.
-
-Lots of drivers use this kind to read/write per-cpu variable.
-stats = this_cpu_ptr(dp->stats_percpu);
-u64_stats_update_begin(&stats->sync);
- 		stats->tx_packets++;
-u64_stats_update_begin(&stats->sync);
+From: Shan Wei <davidshan@tencent.com>
 
 
-Signed-off-by: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
+As Christoph Lameter said:
+
+> In addition, following usage of per_cpu_ptr can be replaced by this_cpu_read.
+>
+> cpu=get_cpu()
+> ....
+> *per_cpu_ptr(p,cpu)
+> ....
+> ....
+> put_cpu()
+
+Right.
+
+Signed-off-by: Shan Wei <davidshan@tencent.com>
 ---
- net/openvswitch/datapath.c |    4 ++--
- net/openvswitch/vport.c    |    5 ++---
- 2 files changed, 4 insertions(+), 5 deletions(-)
+ net/batman-adv/main.h |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 4c4b62c..77d16a5 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -208,7 +208,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
- 	int error;
- 	int key_len;
- 
--	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
-+	stats = this_cpu_ptr(dp->stats_percpu);
- 
- 	/* Extract flow from 'skb' into 'key'. */
- 	error = ovs_flow_extract(skb, p->port_no, &key, &key_len);
-@@ -282,7 +282,7 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
- 	return 0;
- 
- err:
--	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
-+	stats = this_cpu_ptr(dp->stats_percpu);
- 
- 	u64_stats_update_begin(&stats->sync);
- 	stats->n_lost++;
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 03779e8..70af0be 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -333,8 +333,7 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 897ba6a..3aef5b2 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -263,9 +263,7 @@ static inline bool batadv_has_timed_out(unsigned long timestamp,
+ static inline void batadv_add_counter(struct batadv_priv *bat_priv, size_t idx,
+ 				      size_t count)
  {
- 	struct vport_percpu_stats *stats;
+-	int cpu = get_cpu();
+-	per_cpu_ptr(bat_priv->bat_counters, cpu)[idx] += count;
+-	put_cpu();
++	this_cpu_add(bat_priv->bat_counters[idx], count);
+ }
  
--	stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());
--
-+	stats = this_cpu_ptr(vport->percpu_stats);
- 	u64_stats_update_begin(&stats->sync);
- 	stats->rx_packets++;
- 	stats->rx_bytes += skb->len;
-@@ -359,7 +358,7 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
- 	if (likely(sent)) {
- 		struct vport_percpu_stats *stats;
- 
--		stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());
-+		stats = this_cpu_ptr(vport->percpu_stats);
- 
- 		u64_stats_update_begin(&stats->sync);
- 		stats->tx_packets++;
+ #define batadv_inc_counter(b, i) batadv_add_counter(b, i, 1)
 -- 
 1.7.1
