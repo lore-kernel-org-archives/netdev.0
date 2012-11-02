@@ -1,63 +1,144 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the drop-experimental tree with the
- net-next tree
-Date: Fri, 2 Nov 2012 15:55:14 +1100
-Message-ID: <20121102155514.939282b4682c521f07e7943c@canb.auug.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: switching network namespace midway
+Date: Thu, 01 Nov 2012 23:18:58 -0700
+Message-ID: <87k3u4il2l.fsf@xmission.com>
+References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com>
+	<878vavshhp.fsf@xmission.com> <20121024212116.GG15034@kvack.org>
+	<CAFaHj6Ey4vzXskvsKB_dG4fKGsn4X5oCF3N0YpGskiSaXrGSOw@mail.gmail.com>
+	<20121025155927.GI15034@kvack.org> <87a9var0ih.fsf@xmission.com>
+	<20121102022542.GD18091@kvack.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__2_Nov_2012_15_55_14_+1100_ZesQDe77+ORwRkej"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Kees Cook <keescook@google.com>
+Content-Type: text/plain
+Cc: rsa <ravi.mlists@gmail.com>, netdev@vger.kernel.org
+To: Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from haggis.pcug.org.au ([203.10.76.10]:44864 "EHLO
-	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751147Ab2KBEzW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 00:55:22 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:38050 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752647Ab2KBGTH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 02:19:07 -0400
+In-Reply-To: <20121102022542.GD18091@kvack.org> (Benjamin LaHaise's message of
+	"Thu, 1 Nov 2012 22:25:43 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__2_Nov_2012_15_55_14_+1100_ZesQDe77+ORwRkej
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Benjamin LaHaise <bcrl@kvack.org> writes:
 
-Hi Kees,
+> On Thu, Oct 25, 2012 at 09:15:34AM -0700, Eric W. Biederman wrote:
+>> > I've read IPv4 gre code, and it appears to do the right thing on rx, but it 
+>> > does *not* appear to handle namespaces correctly on transmit.  In general, 
+>> > I would expect pretty much all code to get namespace handling correct for 
+>> > the rx case.  I'll have a closer look at fixing this tomorrow if nobody else 
+>> > beats me to it.
+>> 
+>> It will be interesting to see what you come up with. 
+>
+> Well, I finally had some time to work on the ip_gre module a bit today, 
+> and here's what I came up with.  The basic idea is to store the network 
+> namespace in the ip_tunnel structure at creation time for use in sending 
+> and receiving packets, allowing the gre network device to be safely moved 
+> into another network namespace.  This works for me in moving a gre tunnel 
+> into an lxc container, and survives module unload and namespace 
+> destruction.  I'll try to spend a bit more time adding similar support to 
+> the other ip_tunnel devices over the next few days.  Comments/thoughts?
+>
+> 		-ben
 
-Today's linux-next merge of the drop-experimental tree got a conflict in
-drivers/net/ethernet/intel/Kconfig between commit a24006ed1261 ("ptp:
-Enable clock drivers along with associated net/PHY drivers") from the
-net-next tree and commit 70c5056f413d ("drivers/net/ethernet/intel:
-remove depends on CONFIG_EXPERIMENTAL") from the drop-experimental tree.
+You need a per network namespace exit function to delete the tunnel when
+the xmit direction goes away.  Otherwise we have a very nasty race if
+the original network namespace exits.
 
-The former removed some code that was changed by the latter, so I did
-that and can carry the fix as necessary (no action is required).
+NETNS_LOCAL may make sense on the reference device that is used to
+support ioctls for creating devices.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+ipgre_open ?  It looks like it needs to be handled.  Probably that
+ip_route_output_gre needs to be moved.
 
---Signature=_Fri__2_Nov_2012_15_55_14_+1100_ZesQDe77+ORwRkej
-Content-Type: application/pgp-signature
+ipv6?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+Eric
 
-iQIcBAEBCAAGBQJQk1IyAAoJEECxmPOUX5FEChUP/1tZ0iPHeX3wRJGmLtqZajjR
-gGiCRv0lEKfPQwXhlYH9+vxS04Vmn9Q+YLwKsrrmhSllEgmUCFrK002ea9q3Surd
-ZwTvlkfXiySokO29t4sOdfG/iOo6+DjEWRB0CggJX5ffqeZz0WJJz/OkrExFiMPg
-jy7VK3bJerdOZ6eURGwJBixg7duYV1YguajCijQTDKOlYONS12qtse446q8lael5
-9h6VRu/4GSUvnaFu8P4n4G85Z4ZTbwydqNCci7cXLuX5lygwRJC9c4OxHcBc2CFA
-4SLS4/H4GskTmZrfnd7fmpqlnreH0LsQ6CpidT9RzJqpbVJYFMeidnmzyh9SvrFZ
-wzPfF7t4YgYuqFVyw9mDbTsCv51PD9cWMa+c7pMg/7h8XC6WjEjkTzbHJM0GXk7Z
-RVjaxfMdsSXJj4Tz5ZX1fQNmlNo4JZrUT+VXmclDQisBC1zahokx0F5PlsWDK/Q7
-EdMyyxV0jELsQJFbLLhnhUTa2AfyA4a+D3lwNVTt1gA/6pw3JrhRmNbjr4OzGxw1
-Vh5/peCRR41Kj+7fi+7GCIQPAQDlkqzptiXJi47ShizCgEBYeu4xC2RB2CqmPz0/
-ST3CtTCGbtFhgOA1QeVVlp1gUwTHZ0Tm/4j8WnrKdf4CNySigVzqzqd64ijf1SvJ
-UEKV3zli/rbe7AiF2e7d
-=eh0J
------END PGP SIGNATURE-----
-
---Signature=_Fri__2_Nov_2012_15_55_14_+1100_ZesQDe77+ORwRkej--
+> -- 
+> "Thought is the essence of where you are now."
+> 
+> 
+> diff --git a/include/net/ipip.h b/include/net/ipip.h
+> index ddc077c..9cfba92 100644
+> --- a/include/net/ipip.h
+> +++ b/include/net/ipip.h
+> @@ -19,6 +19,7 @@ struct ip_tunnel_6rd_parm {
+>  struct ip_tunnel {
+>  	struct ip_tunnel __rcu	*next;
+>  	struct net_device	*dev;
+> +	struct net		*net;		/* Namespace for packet i/o */
+>  
+>  	int			err_count;	/* Number of arrived ICMP errors */
+>  	unsigned long		err_time;	/* Time when the last ICMP error arrived */
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> index 7240f8e..705dc66 100644
+> --- a/net/ipv4/ip_gre.c
+> +++ b/net/ipv4/ip_gre.c
+> @@ -461,6 +461,7 @@ static struct ip_tunnel *ipgre_tunnel_locate(struct net *net,
+>  	dev_net_set(dev, net);
+>  
+>  	nt = netdev_priv(dev);
+> +	nt->net = net;
+>  	nt->parms = *parms;
+>  	dev->rtnl_link_ops = &ipgre_link_ops;
+>  
+> @@ -484,8 +485,10 @@ failed_free:
+>  
+>  static void ipgre_tunnel_uninit(struct net_device *dev)
+>  {
+> -	struct net *net = dev_net(dev);
+> -	struct ipgre_net *ign = net_generic(net, ipgre_net_id);
+> +	struct ip_tunnel *tunnel = netdev_priv(dev);
+> +	struct ipgre_net *ign;
+> +
+> +	ign = net_generic(tunnel->net, ipgre_net_id);
+>  
+>  	ipgre_tunnel_unlink(ign, netdev_priv(dev));
+>  	dev_put(dev);
+> @@ -837,7 +840,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+>  			tos = ipv6_get_dsfield((const struct ipv6hdr *)old_iph);
+>  	}
+>  
+> -	rt = ip_route_output_gre(dev_net(dev), &fl4, dst, tiph->saddr,
+> +	rt = ip_route_output_gre(tunnel->net, &fl4, dst, tiph->saddr,
+>  				 tunnel->parms.o_key, RT_TOS(tos),
+>  				 tunnel->parms.link);
+>  	if (IS_ERR(rt)) {
+> @@ -1010,7 +1013,7 @@ static int ipgre_tunnel_bind_dev(struct net_device *dev)
+>  		struct flowi4 fl4;
+>  		struct rtable *rt;
+>  
+> -		rt = ip_route_output_gre(dev_net(dev), &fl4,
+> +		rt = ip_route_output_gre(tunnel->net, &fl4,
+>  					 iph->daddr, iph->saddr,
+>  					 tunnel->parms.o_key,
+>  					 RT_TOS(iph->tos),
+> @@ -1341,7 +1344,6 @@ static void ipgre_tunnel_setup(struct net_device *dev)
+>  	dev->flags		= IFF_NOARP;
+>  	dev->iflink		= 0;
+>  	dev->addr_len		= 4;
+> -	dev->features		|= NETIF_F_NETNS_LOCAL;
+>  	dev->priv_flags		&= ~IFF_XMIT_DST_RELEASE;
+>  
+>  	dev->features		|= GRE_FEATURES;
+> @@ -1432,6 +1434,7 @@ static void ipgre_destroy_tunnels(struct ipgre_net *ign, struct list_head *head)
+>  static int __net_init ipgre_init_net(struct net *net)
+>  {
+>  	struct ipgre_net *ign = net_generic(net, ipgre_net_id);
+> +	struct ip_tunnel *tunnel;
+>  	int err;
+>  
+>  	ign->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel), "gre0",
+> @@ -1445,6 +1448,9 @@ static int __net_init ipgre_init_net(struct net *net)
+>  	ipgre_fb_tunnel_init(ign->fb_tunnel_dev);
+>  	ign->fb_tunnel_dev->rtnl_link_ops = &ipgre_link_ops;
+>  
+> +	tunnel = netdev_priv(ign->fb_tunnel_dev);
+> +	tunnel->net = net;
+> +
+>  	if ((err = register_netdev(ign->fb_tunnel_dev)))
+>  		goto err_reg_dev;
+>  
