@@ -1,57 +1,77 @@
-From: Vitalii Demianets <vitas@nppfactor.kiev.ua>
-Subject: [PATCH net-next] macb: Keep driver's speed/duplex in sync with actual
- NCFGR
-Date: Fri, 2 Nov 2012 19:09:24 +0200
-Message-ID: <201211021909.25473.vitas@nppfactor.kiev.ua>
+From: Cyrill Gorcunov <gorcunov@openvz.org>
+Subject: [RFC] net: netlink -- Allow netlink_dump to return error code if
+ protocol handler is missed
+Date: Fri, 2 Nov 2012 21:35:50 +0400
+Message-ID: <20121102173550.GH10877@moon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
- Nicolas Ferre <nicolas.ferre@atmel.com>, linux-arm-kernel@lists.infradead.org,
- Jamie Iles <jamie@jamieiles.com>, Havard Skinnemoen <havard@skinnemoen.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Pavel Emelyanov <xemul@parallels.com>
+To: NETDEV <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:46391 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763227Ab2KBRgR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 13:36:17 -0400
+Received: by mail-lb0-f174.google.com with SMTP id n3so2784975lbo.19
+        for <netdev@vger.kernel.org>; Fri, 02 Nov 2012 10:36:16 -0700 (PDT)
 Content-Disposition: inline
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When underlying phy driver restores its state very fast after being brought 
-down and up so that macb driver function macb_handle_link_change() was never 
-called with link state "down", driver's internal representation of phy speed 
-and duplex (bp->speed and bp->duplex) didn't change. So, macb driver sees no 
-reason to perform actual write to the NCFGR register, although the speed and 
-duplex settings in that register were reset when interface was brought down 
-and up. In that case actual phy speed and duplex differ from NCFGR settings.
-The patch fixes that by keeping internal driver representation of speed and 
-duplex in sync with actual content of NCFGR.
+We've observed that in case if UDP diag module is not
+supported in kernel the netlink returns NLMSG_DONE without
+notifying a caller that handler is missed.
 
-Signed-off-by: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+This patch makes netlink_dump to return error code instead.
 
+So as example it become possible to detect such situation
+and handle it gracefully on userspace level.
+
+Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+CC: David Miller <davem@davemloft.net>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Pavel Emelyanov <xemul@parallels.com>
 ---
- drivers/net/ethernet/cadence/macb.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/ipv4/inet_diag.c     |    5 ++++-
+ net/netlink/af_netlink.c |    4 ++++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c 
-b/drivers/net/ethernet/cadence/macb.c
-index c374875..13c3c33 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1031,6 +1031,8 @@ static void macb_init_hw(struct macb *bp)
- 		config |= MACB_BIT(NBC);	/* No BroadCast */
- 	config |= macb_dbw(bp);
- 	macb_writel(bp, NCFGR, config);
-+	bp->speed = SPEED_10;
-+	bp->duplex = DUPLEX_HALF;
+Index: linux-2.6.git/net/ipv4/inet_diag.c
+===================================================================
+--- linux-2.6.git.orig/net/ipv4/inet_diag.c
++++ linux-2.6.git/net/ipv4/inet_diag.c
+@@ -895,13 +895,16 @@ static int __inet_diag_dump(struct sk_bu
+ 		struct inet_diag_req_v2 *r, struct nlattr *bc)
+ {
+ 	const struct inet_diag_handler *handler;
++	int err = 0;
  
- 	macb_configure_dma(bp);
+ 	handler = inet_diag_lock_handler(r->sdiag_protocol);
+ 	if (!IS_ERR(handler))
+ 		handler->dump(skb, cb, r, bc);
++	else
++		err = PTR_ERR(handler);
+ 	inet_diag_unlock_handler(handler);
  
--- 
-1.7.8.6
+-	return skb->len;
++	return err ? : skb->len;
+ }
+ 
+ static int inet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
+Index: linux-2.6.git/net/netlink/af_netlink.c
+===================================================================
+--- linux-2.6.git.orig/net/netlink/af_netlink.c
++++ linux-2.6.git/net/netlink/af_netlink.c
+@@ -1740,6 +1740,10 @@ static int netlink_dump(struct sock *sk)
+ 		else
+ 			__netlink_sendskb(sk, skb);
+ 		return 0;
++	} else if (len < 0) {
++		err = len;
++		nlk->cb = NULL;
++		goto errout_skb;
+ 	}
+ 
+ 	nlh = nlmsg_put_answer(skb, cb, NLMSG_DONE, sizeof(len), NLM_F_MULTI);
