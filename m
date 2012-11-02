@@ -1,51 +1,46 @@
-From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
-	per-cpu helper
-Date: Fri, 2 Nov 2012 14:01:13 +0000
-Message-ID: <0000013ac16cefd9-5db44ae3-c74f-4bac-a88e-caf1ff5ccdd6-000000@email.amazonses.com>
-References: <50910A04.5000003@gmail.com>
-	<0000013ab7e86f8a-4adb8b81-19be-4264-96f1-924aaf3819f2-000000@email.amazonses.com>
-	<509249C7.3080000@gmail.com>
-	<0000013abc646055-30441bd6-241f-436a-a356-9cd462da66ce-000000@email.amazonses.com>
-	<CAEP_g=-GSpSJkeZbwDpBwo-in0FYD=LjWdCFsdo7-a=ssL41nA@mail.gmail.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: switching network namespace midway
+Date: Fri, 2 Nov 2012 10:03:53 -0400
+Message-ID: <20121102140353.GE18091@kvack.org>
+References: <CAFaHj6FjDULMCdta3bhVu2mtJeR9TuJVMmbC0H6jjkfb6A5t-Q@mail.gmail.com> <878vavshhp.fsf@xmission.com> <20121024212116.GG15034@kvack.org> <CAFaHj6Ey4vzXskvsKB_dG4fKGsn4X5oCF3N0YpGskiSaXrGSOw@mail.gmail.com> <20121025155927.GI15034@kvack.org> <87a9var0ih.fsf@xmission.com> <20121102022542.GD18091@kvack.org> <87k3u4il2l.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAEP_g=-GSpSJkeZbwDpBwo-in0FYD=LjWdCFsdo7-a=ssL41nA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: rsa <ravi.mlists@gmail.com>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kanga.kvack.org ([205.233.56.17]:45135 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1762804Ab2KBODy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2012 10:03:54 -0400
+Content-Disposition: inline
+In-Reply-To: <87k3u4il2l.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 1 Nov 2012, Jesse Gross wrote:
+On Thu, Nov 01, 2012 at 11:18:58PM -0700, Eric W. Biederman wrote:
+> You need a per network namespace exit function to delete the tunnel when
+> the xmit direction goes away.  Otherwise we have a very nasty race if
+> the original network namespace exits.
 
-> On Thu, Nov 1, 2012 at 7:33 AM, Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org> wrote:
-> > On Thu, 1 Nov 2012, Shan Wei wrote:
-> >
-> >> But for different field in same per-cpu variable, how to guarantee n_missed
-> >> and n_hit are from same cpu?
-> >> this_cpu_read(dp->stats_percpu->n_missed);
-> >> [processor changed]
-> >> this_cpu_read(dp->stats_percpu->n_hit);
-> >
-> > What does current guarantee that? If it is guaranteed then you can use the
-> > __this_cpu_xxx ops.
->
-> Preemption is disabled in all of the places where writes are done and
-> all of the reads are from foreign CPUs.
+That already exists as ipgre_exit_net().  Since the ip_tunnel structure 
+remains hashed in the network namespace that creation occurred in, this 
+case should be covered.
 
-Since preemption is disabled no processor change can occur. So its safe to
-use __this_cpu ops throughout and they will operate on the current per cpu
-area.
+> NETNS_LOCAL may make sense on the reference device that is used to
+> support ioctls for creating devices.
+
+*nod*  That makes sense.
+
+> ipgre_open ?  It looks like it needs to be handled.  Probably that
+> ip_route_output_gre needs to be moved.
+
+Good catch.  Will respin with that changed.
+
+> ipv6?
+
+That's next on the list.  There are also issues with ipip, ipmr and 
+ipvti, as well as their ipv6 versions.
+
+		-ben
+-- 
+"Thought is the essence of where you are now."
