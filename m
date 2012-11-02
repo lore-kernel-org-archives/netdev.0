@@ -1,34 +1,46 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] net: Fix continued iteration in
- rtnl_bridge_getlink()
-Date: Fri, 2 Nov 2012 23:04:44 +0000
-Message-ID: <1351897484.2703.23.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1351897012.2703.17.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH 0/4] Support the MX6 FEC as a PTP hardware clock
+Date: Fri, 2 Nov 2012 23:25:28 +0000
+Message-ID: <1351898728.2703.30.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1351657480-24745-1-git-send-email-Frank.Li@freescale.com>
+	 <20121101.123027.1332984905040252720.davem@davemloft.net>
+	 <CAHrpEqRuy=kewK-592RphVfJnNoma2CPZytoTqLc45HeT53hRQ@mail.gmail.com>
+	 <20121102084324.GA2486@netboy.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, <Frank.Li@freescale.com>,
+	<shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.org>,
+	<netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>,
+	Frank Li <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50383 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:22553 "EHLO
 	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750988Ab2KBXEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 19:04:47 -0400
-In-Reply-To: <1351897012.2703.17.camel@bwh-desktop.uk.solarflarecom.com>
+	by vger.kernel.org with ESMTP id S1752920Ab2KBXZc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 19:25:32 -0400
+In-Reply-To: <20121102084324.GA2486@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-02 at 22:56 +0000, Ben Hutchings wrote:
-[...]
-> I'm still not sure it's correct to break iteration if
-> ndo_bridge_getlink returns -EOPNOTSUPP (possible if the driver supports
-> a mixture of bridging and non-bridging devices).
-[...]
+On Fri, 2012-11-02 at 09:43 +0100, Richard Cochran wrote:
+> On Fri, Nov 02, 2012 at 10:36:09AM +0800, Frank Li wrote:
+> > >
+> > > All applied to net-next.
+> > >
+> > > Please make sure your changes are in sync with Ben's PTP/PPS
+> > > Kconfig changes of today, and send me any changes if necessary.
+> > >
+> > 
+> > Thank you very much.
+> > I checked Ben's patch, which not affect FEC.
+> 
+> Maybe just remove the Kconfig line "select PPS".
 
-Never mind that - the driver can just return 0 for those devices, as
-ixgbe is doing.  But the bug this patch addresses seems to be real.
+More than that: FEC should select PTP_1588_CLOCK, FEC_PTP should be
+removed and all the conditional code made unconditional.  Alternately,
+if that would cost too much (in terms of performance or memory) on some
+systems where the driver is used, FEC_PTP should default to 'y'.
 
 Ben.
 
