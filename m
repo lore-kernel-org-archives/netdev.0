@@ -1,122 +1,152 @@
-From: Naresh Kumar Inna <naresh@chelsio.com>
-Subject: Re: [v6 PATCH 0/8] csiostor: Chelsio FCoE offload driver submission
-Date: Fri, 2 Nov 2012 12:53:54 +0530
-Message-ID: <5093750A.60908@chelsio.com>
-References: <1351158621-32222-1-git-send-email-naresh@chelsio.com>
+From: Jeff Kirsher <tarbal@gmail.com>
+Subject: Re: [3.5/6.x][e1000e] - Regression - Unable to receive packets if
+ MTU == 1500
+Date: Fri, 02 Nov 2012 01:40:38 -0700
+Message-ID: <50938706.1020900@gmail.com>
+References: <1570009.hYb0226lHg@segfault.sh0n.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Naresh Kumar Inna <naresh@chelsio.com>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	Dimitrios Michailidis <dm@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chethan Seshadri <chethan@chelsio.com>
-To: "JBottomley@parallels.com" <JBottomley@parallels.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1351158621-32222-1-git-send-email-naresh@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="------------enig0665B6AACF157124D132EFEC"
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Shawn Starr <shawn.starr@rogers.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:44014 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754099Ab2KBIkk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2012 04:40:40 -0400
+In-Reply-To: <1570009.hYb0226lHg@segfault.sh0n.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi James,
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig0665B6AACF157124D132EFEC
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Could you please let me know where we are with the review of this driver?
+On 11/01/2012 10:58 AM, Shawn Starr wrote:
+> Hello network driver folks,
+>
+> I recently decided to reinstall my Lenovo W500 laptop and found I wasn'=
+t able=20
+> to get DHCP leases, I wasn't able to install over PXE (when getting the=
+ IP a=20
+> second time within the OS)
+>
+> Fedora is currently using kernel-3.6.2-2.fc18.x86_64 (Pre-beta)
+>
+> The only difference I noticed was in my old install of Fedora, I had ad=
+ded=20
+> MTU=3D9000 to the interface config while using a 3.5 kernel, not knowin=
+g 3.6.x=20
+> seems to break things.
+>
+> My Cisco DPC3825 Switch/Cable modem has an MTU setting but this is from=
+ Cable=20
+> provider <-> WAN interface only. I tried changing to 1500 but by defaul=
+t it=20
+> uses this anyway.
+>
+> I had noticed tx unit hang errors sometimes, but not when MTU is above =
+1500.
+>
+> PCI info:
+>
+> 00:19.0 Ethernet controller: Intel Corporation 82567LM Gigabit Network =
 
-Thanks,
-Naresh.
+> Connection (rev 03)
+>         Subsystem: Lenovo Device 20ee
+>         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- Par=
+Err-=20
+> Stepping- SERR+ FastB2B- DisINTx+
+>         Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast >TAbort=
+-=20
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>         Latency: 0
+>         Interrupt: pin A routed to IRQ 46
+>         Region 0: Memory at fc000000 (32-bit, non-prefetchable) [size=3D=
+128K]
+>         Region 1: Memory at fc025000 (32-bit, non-prefetchable) [size=3D=
+4K]
+>         Region 2: I/O ports at 1840 [size=3D32]
+>         Capabilities: [c8] Power Management version 2
+>                 Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D0mA=20
+> PME(D0+,D1-,D2-,D3hot+,D3cold+)
+>                 Status: D0 NoSoftRst- PME-Enable- DSel=3D0 DScale=3D1 P=
+ME-
+>         Capabilities: [d0] MSI: Enable+ Count=3D1/1 Maskable- 64bit+
+>                 Address: 00000000fee0100c  Data: 41a2
+>         Capabilities: [e0] PCI Advanced Features
+>                 AFCap: TP+ FLR+
+>                 AFCtrl: FLR-
+>                 AFStatus: TP-
+>         Kernel driver in use: e1000e
+>
+> e1000e conversation log:
+>
+> [   12.653816] e1000e: Intel(R) PRO/1000 Network Driver - 2.0.0-k
+> [   12.653819] e1000e: Copyright(c) 1999 - 2012 Intel Corporation.
+> [   12.653855] e1000e 0000:00:19.0: setting latency timer to 64
+> [   12.653938] e1000e 0000:00:19.0: Interrupt Throttling Rate (ints/sec=
+) set=20
+> to dynamic conservative mode
+> [   12.653980] e1000e 0000:00:19.0: irq 46 for MSI/MSI-X
+> [   12.844121] e1000e 0000:00:19.0: eth0: (PCI Express:2.5GT/s:Width x1=
+)=20
+> 00:22:68:0c:96:e3
+> [   12.844124] e1000e 0000:00:19.0: eth0: Intel(R) PRO/1000 Network Con=
+nection
+> [   12.844150] e1000e 0000:00:19.0: eth0: MAC: 7, PHY: 8, PBA No: 1008F=
+F-0FF
+> [   17.459570] e1000e 0000:00:19.0: eth0: changing MTU from 1500 to 900=
+0
+> [   17.459577] e1000e 0000:00:19.0: Interrupt Throttle Rate turned off
+> [   17.948121] e1000e 0000:00:19.0: irq 46 for MSI/MSI-X
+> [   18.049164] e1000e 0000:00:19.0: irq 46 for MSI/MSI-X
+> [   20.442936] e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex, Flow =
 
-On 10/25/2012 3:20 PM, Naresh Kumar Inna wrote:
-> This is the initial submission of the Chelsio FCoE offload driver (csiostor)
-> to the upstream kernel. This driver currently supports FCoE offload
-> functionality over Chelsio T4-based 10Gb Converged Network Adapters.
-> 
-> The following patches contain the driver sources for csiostor driver and
-> updates to firmware/hardware header files shared between csiostor,
-> cxgb4 (Chelsio T4-based NIC driver) and cxgb4vf (Chelsio T4-based Virtual
-> Function NIC driver). The csiostor driver is dependent on these
-> header updates. These patches have been generated against scsi 'misc' branch.
-> 
-> csiostor is a low level SCSI driver that interfaces with PCI, SCSI midlayer and
-> FC transport subsystems. This driver claims the FCoE PCIe function on
-> Chelsio Converged Network Adapters. It relies on firmware events for slow path
-> operations like discovery, thereby offloading session management. The driver
-> programs firmware via Work Request interfaces for fast path I/O offload
-> features.
-> 
-> v6 has changes to make csiostor work with cxgb4 header files post 3.6 merge, as
-> well as a few bug fixes in csiostor.
-> 
-> Here is the brief description of patches:
-> [v6 PATCH 1/8]: Updates to header files shared between cxgb4, cxgb4vf and
->                 csiostor.
-> [v6 PATCH 2/8]: Header files part 1.
-> [v6 PATCH 3/8]: Header files part 2.
-> [v6 PATCH 4/8]: Driver initialization and Work Request services.
-> [v6 PATCH 5/8]: FC transport interfaces and mailbox services.
-> [v6 PATCH 6/8]: Local and remote port state tracking functionality.
-> [v6 PATCH 7/8]: Interrupt handling and fast path I/O functionality.
-> [v6 PATCH 8/8]: Hardware interface, Makefile and Kconfig changes.
-> 
-> Naresh Kumar Inna (8):
->   cxgb4/cxgb4vf: Chelsio FCoE offload driver submission (common header
->     updates).
->   csiostor: Chelsio FCoE offload driver submission (headers part 1).
->   csiostor: Chelsio FCoE offload driver submission (headers part 2).
->   csiostor: Chelsio FCoE offload driver submission (sources part 1).
->   csiostor: Chelsio FCoE offload driver submission (sources part 2).
->   csiostor: Chelsio FCoE offload driver submission (sources part 3).
->   csiostor: Chelsio FCoE offload driver submission (sources part 4).
->   csiostor: Chelsio FCoE offload driver submission (sources part 5).
-> 
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    8 +-
->  drivers/net/ethernet/chelsio/cxgb4/sge.c        |    6 +-
->  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   20 +-
->  drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    1 +
->  drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   36 +-
->  drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   41 +-
->  drivers/net/ethernet/chelsio/cxgb4vf/sge.c      |    8 +-
->  drivers/scsi/Kconfig                            |    1 +
->  drivers/scsi/Makefile                           |    1 +
->  drivers/scsi/csiostor/Kconfig                   |   19 +
->  drivers/scsi/csiostor/Makefile                  |   11 +
->  drivers/scsi/csiostor/csio_attr.c               |  796 ++++
->  drivers/scsi/csiostor/csio_defs.h               |  121 +
->  drivers/scsi/csiostor/csio_hw.c                 | 4395 +++++++++++++++++++++++
->  drivers/scsi/csiostor/csio_hw.h                 |  667 ++++
->  drivers/scsi/csiostor/csio_init.c               | 1274 +++++++
->  drivers/scsi/csiostor/csio_init.h               |  158 +
->  drivers/scsi/csiostor/csio_isr.c                |  624 ++++
->  drivers/scsi/csiostor/csio_lnode.c              | 2133 +++++++++++
->  drivers/scsi/csiostor/csio_lnode.h              |  255 ++
->  drivers/scsi/csiostor/csio_mb.c                 | 1770 +++++++++
->  drivers/scsi/csiostor/csio_mb.h                 |  278 ++
->  drivers/scsi/csiostor/csio_rnode.c              |  912 +++++
->  drivers/scsi/csiostor/csio_rnode.h              |  141 +
->  drivers/scsi/csiostor/csio_scsi.c               | 2555 +++++++++++++
->  drivers/scsi/csiostor/csio_scsi.h               |  342 ++
->  drivers/scsi/csiostor/csio_wr.c                 | 1632 +++++++++
->  drivers/scsi/csiostor/csio_wr.h                 |  512 +++
->  drivers/scsi/csiostor/t4fw_api_stor.h           |  578 +++
->  29 files changed, 19267 insertions(+), 28 deletions(-)
->  create mode 100644 drivers/scsi/csiostor/Kconfig
->  create mode 100644 drivers/scsi/csiostor/Makefile
->  create mode 100644 drivers/scsi/csiostor/csio_attr.c
->  create mode 100644 drivers/scsi/csiostor/csio_defs.h
->  create mode 100644 drivers/scsi/csiostor/csio_hw.c
->  create mode 100644 drivers/scsi/csiostor/csio_hw.h
->  create mode 100644 drivers/scsi/csiostor/csio_init.c
->  create mode 100644 drivers/scsi/csiostor/csio_init.h
->  create mode 100644 drivers/scsi/csiostor/csio_isr.c
->  create mode 100644 drivers/scsi/csiostor/csio_lnode.c
->  create mode 100644 drivers/scsi/csiostor/csio_lnode.h
->  create mode 100644 drivers/scsi/csiostor/csio_mb.c
->  create mode 100644 drivers/scsi/csiostor/csio_mb.h
->  create mode 100644 drivers/scsi/csiostor/csio_rnode.c
->  create mode 100644 drivers/scsi/csiostor/csio_rnode.h
->  create mode 100644 drivers/scsi/csiostor/csio_scsi.c
->  create mode 100644 drivers/scsi/csiostor/csio_scsi.h
->  create mode 100644 drivers/scsi/csiostor/csio_wr.c
->  create mode 100644 drivers/scsi/csiostor/csio_wr.h
->  create mode 100644 drivers/scsi/csiostor/t4fw_api_stor.h
-> 
+> Control: Rx/Tx
+>
+> When I set MTU =3D 1500 (2000 works), it will stop receiving packets, i=
+t also=20
+> disables Interrupt Throttling when MTU is set higher.
+>
+> After testing reasons why it wasn't get a DHCP lease, I decided to bump=
+ the=20
+> MTU to 9000 for Jumbo Frames and as soon as I did this, I was able to g=
+et a=20
+> lease and the network functioned resumes receiving packets.
+>
+> Can anyone else report regressions or might know whats going on?
+>
+> Thanks,
+> Shawn.
+Adding e1000-devel mailing list
 
+
+--------------enig0665B6AACF157124D132EFEC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
+
+iQIcBAEBCgAGBQJQk4cGAAoJEOVv75VaS+3OQ7kQAIGtEW/MryEDtdqyIedwVXcF
+zqPKfZUFR/1zOI2bmzWvbnav+pSsR0Ks693oC+/SRymCzkg7J7+lztUhe54ZkNNj
+pPIuAkIdAjy7EKBimi5mfZ5XXanahZzYuFhg/KQn7+zQzHAWMU7VKQK+/xZvPKmW
+rReq2uT4Jmj6V6xfZhyAFBbHPPIDMJtsn29P/2IasH0/YAXAbIx9VOq5y6FKCEUp
+widjzolouLbH5RNsKWNZBesk3gygLu1K52X3FWRZqNDxIk0hQ1a8mH3yUjpT2NrQ
+BVJy8xkinwfkGIrqex9VJvGcITcuP0weLwh5YH+OGuzSZdJVSeUv4oVtAvhdZzb+
+QIIawAPUXKS6DmaUZkWMecPIxd2Z2AFRoRDCGbKarBQW9+tdq6lM+uOsJw4GAXma
+b9FZzd4Km3gJeo9VkhpOLroT8xcc5RsbJ0R7xkiYCoriwliRvAKeo6PnYJmKeWWt
+ZPZc8Oh/kV1JW7lTVOezvAFAKe0CrJh4qBaRIwUb0BJHG/qoudoaKrXvQAJP8T/b
+ru+KgcTvIoWoZJE2+AtUfqYx3SU8MrH4UqXRQJLc2fdimPw41dw445FwYso8w+Le
+TEyYKLsNafe506IQO6EbqVb9dwoQws7vREA8u3f12Rj1EuHp4Nn2Kdkl+nS5X8cp
+dMJOGCRcqqAfYuRm9/Hu
+=/bCM
+-----END PGP SIGNATURE-----
+
+--------------enig0665B6AACF157124D132EFEC--
