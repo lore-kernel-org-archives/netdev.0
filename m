@@ -1,63 +1,51 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH] net: ipv6: change %8s to %s for rt->dst.dev->name in seq_printf
- of rt6_info_route
-Date: Fri, 02 Nov 2012 20:18:47 +0800
-Message-ID: <5093BA27.3090109@asianux.com>
-References: <50938A65.6040507@asianux.com>
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
+	per-cpu helper
+Date: Fri, 2 Nov 2012 14:01:13 +0000
+Message-ID: <0000013ac16cefd9-5db44ae3-c74f-4bac-a88e-caf1ff5ccdd6-000000@email.amazonses.com>
+References: <50910A04.5000003@gmail.com>
+	<0000013ab7e86f8a-4adb8b81-19be-4264-96f1-924aaf3819f2-000000@email.amazonses.com>
+	<509249C7.3080000@gmail.com>
+	<0000013abc646055-30441bd6-241f-436a-a356-9cd462da66ce-000000@email.amazonses.com>
+	<CAEP_g=-GSpSJkeZbwDpBwo-in0FYD=LjWdCFsdo7-a=ssL41nA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:1030 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751691Ab2KBMRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 08:17:52 -0400
-In-Reply-To: <50938A65.6040507@asianux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=-GSpSJkeZbwDpBwo-in0FYD=LjWdCFsdo7-a=ssL41nA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 1 Nov 2012, Jesse Gross wrote:
 
-  the length of rt->dst.dev->name is 16 (IFNAMSIZ)
-  in seq_printf, it is not suitable to use %8s for rt->dst.dev->name.
-  so change it to %s, since each line has not been solid any more.
+> On Thu, Nov 1, 2012 at 7:33 AM, Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org> wrote:
+> > On Thu, 1 Nov 2012, Shan Wei wrote:
+> >
+> >> But for different field in same per-cpu variable, how to guarantee n_missed
+> >> and n_hit are from same cpu?
+> >> this_cpu_read(dp->stats_percpu->n_missed);
+> >> [processor changed]
+> >> this_cpu_read(dp->stats_percpu->n_hit);
+> >
+> > What does current guarantee that? If it is guaranteed then you can use the
+> > __this_cpu_xxx ops.
+>
+> Preemption is disabled in all of the places where writes are done and
+> all of the reads are from foreign CPUs.
 
-  additional information:
-
-    %8s  limit the width, not for the original string output length
-         if name length is more than 8, it still can be fully displayed.
-         if name length is less than 8, the ' ' will be filled before name.
-
-    %.8s truly limit the original string output length (precision)
-
-
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
----
- net/ipv6/route.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c42650c..b60bc52 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2835,7 +2835,7 @@ static int rt6_info_route(struct rt6_info *rt, void *p_arg)
-        } else {
-                seq_puts(m, "00000000000000000000000000000000");
-        }
--       seq_printf(m, " %08x %08x %08x %08x %8s\n",
-+       seq_printf(m, " %08x %08x %08x %08x %s\n",
-                   rt->rt6i_metric, atomic_read(&rt->dst.__refcnt),
-                   rt->dst.__use, rt->rt6i_flags,
-                   rt->dst.dev ? rt->dst.dev->name : "");
--- 
-1.7.9.5
-
-
-
-
--- 
-Chen Gang
-
-Asianux Corporation
+Since preemption is disabled no processor change can occur. So its safe to
+use __this_cpu ops throughout and they will operate on the current per cpu
+area.
