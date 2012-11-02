@@ -1,114 +1,89 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 4/4] FEC: Add time stamping code and a PTP hardware
- clock
-Date: Fri, 2 Nov 2012 10:19:03 +0100
-Message-ID: <20121102091902.GA3437@netboy.at.omicron.at>
-References: <1351657531-25989-1-git-send-email-Frank.Li@freescale.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] net-ipv6: change %8s to %s for rt->dst.dev->name in seq_printf
+ of rt6_info_route
+Date: Fri, 02 Nov 2012 17:28:35 +0800
+Message-ID: <50939243.7080507@asianux.com>
+References: <50938A65.6040507@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lznua@gmail.com, shawn.guo@linaro.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Frank Li <Frank.Li@freescale.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:44552 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927Ab2KBJTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 05:19:16 -0400
-Received: by mail-ea0-f174.google.com with SMTP id c13so1295273eaa.19
-        for <netdev@vger.kernel.org>; Fri, 02 Nov 2012 02:19:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1351657531-25989-1-git-send-email-Frank.Li@freescale.com>
+Received: from intranet.asianux.com ([58.214.24.6]:61890 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756629Ab2KBJ1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 05:27:36 -0400
+In-Reply-To: <50938A65.6040507@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Oct 31, 2012 at 12:25:31PM +0800, Frank Li wrote:
+Hello Eric Dumazet:
 
-> diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-> index feff516..ff3be53 100644
-> --- a/drivers/net/ethernet/freescale/Kconfig
-> +++ b/drivers/net/ethernet/freescale/Kconfig
-> @@ -92,4 +92,13 @@ config GIANFAR
->  	  This driver supports the Gigabit TSEC on the MPC83xx, MPC85xx,
->  	  and MPC86xx family of chips, and the FEC on the 8540.
->  
-> +config FEC_PTP
-> +	bool "PTP Hardware Clock (PHC)"
-> +	depends on FEC
-> +	select PPS
-> +	select PTP_1588_CLOCK
-> +	--help---
-> +	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
-> +	  driver.  Only the basic clock operations have been implemented.
-> +
+1) This time (the first time):
+   A) I have done according to what you have suggested.
+      i)   git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+      ii)  format with `git format-patch -s --summary --stat`
+      iii) cc to netdev@vger.kernel.org (not to linux-kernle@vger.kernel.org)  
+   B) please check the 'Main Contents' (below of this mail).
+   C) thank you for your original information again, they are truly useful for me.
 
-Does the PTP function work with every FEC on ColdFire and i.MX?
+2) Next time (if also for net/ipv6):
+   A) I will send mail according to MAINTAINERS (which also you suggested)
+      M:      "David S. Miller" <davem@davemloft.net>
+      M:      Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+      M:      James Morris <jmorris@namei.org>
+      M:      Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+      M:      Patrick McHardy <kaber@trash.net>
+      L:      netdev@vger.kernel.org
+      T:      git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+   B) Only have 'Main Content' in next time.
 
-Or do you need to limit this option in some way?
 
->  endif # NET_VENDOR_FREESCALE
+Main Contents:
+-----------------------------------------------------------------------------------
+From: Chen Gang <gang.chen@asianux.com>
+Date: Fri, 2 Nov 2012 16:02:11 +0800
+Subject: [PATCH] net-ipv6: change %8s to %s for rt->dst.dev->name in seq_printf of rt6_info_route
 
-...
+  the length of rt->dst.dev->name is 16 (IFNAMSIZ)
+  in seq_printf, it is not suitable to use %8s for rt->dst.dev->name.
+  so change it to %s, since each line has not been solid any more.
 
-> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-> new file mode 100644
-> index 0000000..9b91da9
-> --- /dev/null
-> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
+  additional information:
 
-...
+    %8s  limit the width, not for the original string output length
+         if name length is more than 8, it still can be fully displayed.
+         if name length is less than 8, the ' ' will be filled before name.
 
-> +/**
-> + * fec_ptp_adjfreq - adjust ptp cycle frequency
-> + * @ptp: the ptp clock structure
-> + * @ppb: parts per billion adjustment from base
-> + *
-> + * Adjust the frequency of the ptp cycle counter by the
-> + * indicated ppb from the base frequency.
-> + *
-> + * Because ENET hardware frequency adjust is complex,
-> + * using software method to do that.
-> + */
-> +static int fec_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
-> +{
-> +	u64 diff;
-> +	unsigned long flags;
-> +	int neg_adj = 0;
-> +
-> +	struct fec_enet_private *fep =
-> +	    container_of(ptp, struct fec_enet_private, ptp_caps);
-> +
-> +	if (ppb < 0) {
-> +		ppb = -ppb;
-> +		neg_adj = 1;
-> +	}
-> +
-> +	spin_lock_irqsave(&fep->tmreg_lock, flags);
-> +	/*
-> +	 * dummy read to set cycle_last in tc to now.
-> +	 * So use adjusted mult to calculate when next call
-> +	 * timercounter_read.
-> +	 */
-> +	timecounter_read(&fep->tc);
+    %.8s truly limit the original string output length (precision)
 
-You can reduce the time that the spin lock is held by moving the next
-four lines before the locked region:
 
-> +	fep->cc.mult = FEC_CC_MULT;
-> +	diff = fep->cc.mult;
-> +	diff *= ppb;
-> +	diff = div_u64(diff, 1000000000ULL);
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ net/ipv6/route.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> +
-> +	if (neg_adj)
-> +		fep->cc.mult -= diff;
-> +	else
-> +		fep->cc.mult += diff;
-> +
-> +	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
-> +
-> +	return 0;
-> +}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c42650c..b60bc52 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2835,7 +2835,7 @@ static int rt6_info_route(struct rt6_info *rt, void *p_arg)
+        } else {
+                seq_puts(m, "00000000000000000000000000000000");
+        }
+-       seq_printf(m, " %08x %08x %08x %08x %8s\n",
++       seq_printf(m, " %08x %08x %08x %08x %s\n",
+                   rt->rt6i_metric, atomic_read(&rt->dst.__refcnt),
+                   rt->dst.__use, rt->rt6i_flags,
+                   rt->dst.dev ? rt->dst.dev->name : "");
+-- 
+1.7.9.5
 
-Thanks,
-Richard
+
+
+
+-- 
+Chen Gang
+
+Asianux Corporation
