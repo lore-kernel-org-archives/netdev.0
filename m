@@ -1,49 +1,136 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net PATCH] rtnetlink: Use nlmsg type RTM_NEWNEIGH from dflt fdb dump
-Date: Thu, 01 Nov 2012 19:23:10 -0700
-Message-ID: <20121102022310.2692.60718.stgit@jf-dev1-dcblab>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH v2 net-next] r8169: enable internal ASPM and clock request settings
+Date: Fri, 2 Nov 2012 10:46:28 +0800
+Message-ID: <1351824388-1225-1-git-send-email-hayeswang@realtek.com>
+References: <1351780651-1271-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:41561 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758264Ab2KBCkl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Nov 2012 22:40:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<agnescheng@google.com>, Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351780651-1271-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Change the dflt fdb dump handler to use RTM_NEWNEIGH to
-be compatible with bridge dump routines.
+The following chips need to enable internal settings to let ASPM
+and clock request work.
 
-The dump reply from the network driver handlers should
-match the reply from bridge handler. The fact they were
-not in the ixgbe case was effectively a bug. This patch
-resolves it.
+RTL8111E-VL, RTL8111F, RTL8411, RTL8111G
+RTL8105, RTL8402, RTL8106
 
-Applications that were not checking the nlmsg type will
-continue to work. And now applications that do check
-the type will work as expected.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
+ drivers/net/ethernet/realtek/r8169.c | 30 +++++++++++++++++++++---------
+ 1 file changed, 21 insertions(+), 9 deletions(-)
 
- net/core/rtnetlink.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 76d4c2c..fad649a 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2192,7 +2192,8 @@ static int nlmsg_populate_fdb(struct sk_buff *skb,
- 			goto skip;
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 123c6a5..91c8387 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -456,6 +456,7 @@ enum rtl8168_registers {
+ #define PWM_EN				(1 << 22)
+ #define RXDV_GATED_EN			(1 << 19)
+ #define EARLY_TALLY_EN			(1 << 16)
++#define FORCE_CLK			(1 << 15) /* force clock request */
+ };
  
- 		err = nlmsg_populate_fdb_fill(skb, dev, ha->addr,
--					      portid, seq, 0, NTF_SELF);
-+					      portid, seq,
-+					      RTM_NEWNEIGH, NTF_SELF);
- 		if (err < 0)
- 			return err;
- skip:
+ enum rtl_register_content {
+@@ -519,6 +520,7 @@ enum rtl_register_content {
+ 	PMEnable	= (1 << 0),	/* Power Management Enable */
+ 
+ 	/* Config2 register p. 25 */
++	ClkReqEn	= (1 << 7),	/* Clock Request Enable */
+ 	MSIEnable	= (1 << 5),	/* 8169 only. Reserved in the 8168. */
+ 	PCI_Clock_66MHz = 0x01,
+ 	PCI_Clock_33MHz = 0x00,
+@@ -539,6 +541,7 @@ enum rtl_register_content {
+ 	Spi_en		= (1 << 3),
+ 	LanWake		= (1 << 1),	/* LanWake enable/disable */
+ 	PMEStatus	= (1 << 0),	/* PME status can be reset by PCI RST# */
++	ASPM_en		= (1 << 0),	/* ASPM enable */
+ 
+ 	/* TBICSR p.28 */
+ 	TBIReset	= 0x80000000,
+@@ -5046,8 +5049,6 @@ static void rtl_hw_start_8168e_2(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(MaxTxPacketSize, EarlySize);
+ 
+-	rtl_disable_clock_request(pdev);
+-
+ 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
+ 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
+ 
+@@ -5056,7 +5057,8 @@ static void rtl_hw_start_8168e_2(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
+ 	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
+-	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
++	RTL_W8(Config5, (RTL_R8(Config5) & ~Spi_en) | ASPM_en);
++	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
+ }
+ 
+ static void rtl_hw_start_8168f(struct rtl8169_private *tp)
+@@ -5081,13 +5083,12 @@ static void rtl_hw_start_8168f(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(MaxTxPacketSize, EarlySize);
+ 
+-	rtl_disable_clock_request(pdev);
+-
+ 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
+ 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
+-	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
+-	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
++	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN | FORCE_CLK);
++	RTL_W8(Config5, (RTL_R8(Config5) & ~Spi_en) | ASPM_en);
++	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
+ }
+ 
+ static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
+@@ -5144,8 +5145,10 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
+ 	rtl_w1w0_eri(tp, 0xdc, ERIAR_MASK_0001, 0x01, 0x00, ERIAR_EXGMAC);
+ 
+ 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+-	RTL_W32(MISC, RTL_R32(MISC) & ~RXDV_GATED_EN);
++	RTL_W32(MISC, (RTL_R32(MISC) | FORCE_CLK) & ~RXDV_GATED_EN);
+ 	RTL_W8(MaxTxPacketSize, EarlySize);
++	RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
+ 
+ 	rtl_eri_write(tp, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
+ 	rtl_eri_write(tp, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
+@@ -5361,6 +5364,9 @@ static void rtl_hw_start_8105e_1(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
++	RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++	RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
+ 
+ 	rtl_ephy_init(tp, e_info_8105e_1, ARRAY_SIZE(e_info_8105e_1));
+ }
+@@ -5386,6 +5392,9 @@ static void rtl_hw_start_8402(struct rtl8169_private *tp)
+ 
+ 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
+ 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
++	RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
++	RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
+ 
+ 	rtl_ephy_init(tp, e_info_8402, ARRAY_SIZE(e_info_8402));
+ 
+@@ -5407,7 +5416,10 @@ static void rtl_hw_start_8106(struct rtl8169_private *tp)
+ 	/* Force LAN exit from ASPM if Rx/Tx are not idle */
+ 	RTL_W32(FuncEvent, RTL_R32(FuncEvent) | 0x002800);
+ 
+-	RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN) & ~EARLY_TALLY_EN);
++	RTL_W32(MISC,
++		(RTL_R32(MISC) | DISABLE_LAN_EN | FORCE_CLK) & ~EARLY_TALLY_EN);
++	RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
++	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
+ 	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) & ~PFM_EN);
+ }
+-- 
+1.7.11.4
