@@ -1,89 +1,74 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH] net-ipv6: change %8s to %s for rt->dst.dev->name in seq_printf
- of rt6_info_route
-Date: Fri, 02 Nov 2012 17:28:35 +0800
-Message-ID: <50939243.7080507@asianux.com>
-References: <50938A65.6040507@asianux.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
+ to return an interface name
+Date: Fri, 02 Nov 2012 13:36:11 +0400
+Message-ID: <5093940B.6020207@parallels.com>
+References: <509184D9.8030103@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:61890 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756629Ab2KBJ1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 05:27:36 -0400
-In-Reply-To: <50938A65.6040507@asianux.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:6909 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932799Ab2KBJga (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2012 05:36:30 -0400
+In-Reply-To: <509184D9.8030103@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Eric Dumazet:
+> +static int sock_getbindtodevice(struct sock *sk, char __user *optval,
+> +				int __user *optlen, int len)
+> +{
+> +	int ret = -ENOPROTOOPT;
+> +#ifdef CONFIG_NETDEVICES
+> +	struct net *net = sock_net(sk);
+> +	struct net_device *dev;
+> +	char devname[IFNAMSIZ];
+> +
+> +	if (sk->sk_bound_dev_if == 0) {
+> +		len = 0;
+> +		goto zero;
+> +	}
+> +
+> +	ret = -EINVAL;
+> +	if (len < IFNAMSIZ)
+> +		goto out;
+> +
+> +	rcu_read_lock();
+> +	dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
+> +	if (dev)
+> +		strcpy(devname, dev->name);
 
-1) This time (the first time):
-   A) I have done according to what you have suggested.
-      i)   git clone git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
-      ii)  format with `git format-patch -s --summary --stat`
-      iii) cc to netdev@vger.kernel.org (not to linux-kernle@vger.kernel.org)  
-   B) please check the 'Main Contents' (below of this mail).
-   C) thank you for your original information again, they are truly useful for me.
+This still races with the device name change, potentially providing
+a name which never existed in the system, doesn't it?
 
-2) Next time (if also for net/ipv6):
-   A) I will send mail according to MAINTAINERS (which also you suggested)
-      M:      "David S. Miller" <davem@davemloft.net>
-      M:      Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-      M:      James Morris <jmorris@namei.org>
-      M:      Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-      M:      Patrick McHardy <kaber@trash.net>
-      L:      netdev@vger.kernel.org
-      T:      git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
-   B) Only have 'Main Content' in next time.
+> +	rcu_read_unlock();
+> +	ret = -ENODEV;
+> +	if (!dev)
+> +		goto out;
+> +
+> +	len = strlen(devname) + 1;
+> +
+> +	ret = -EFAULT;
+> +	if (copy_to_user(optval, devname, len))
+> +		goto out;
+> +
+> +zero:
+> +	ret = -EFAULT;
+> +	if (put_user(len, optlen))
+> +		goto out;
+> +
+> +	ret = 0;
+> +
+> +out:
+> +#endif
+> +
+> +	return ret;
+> +}
 
-
-Main Contents:
------------------------------------------------------------------------------------
-From: Chen Gang <gang.chen@asianux.com>
-Date: Fri, 2 Nov 2012 16:02:11 +0800
-Subject: [PATCH] net-ipv6: change %8s to %s for rt->dst.dev->name in seq_printf of rt6_info_route
-
-  the length of rt->dst.dev->name is 16 (IFNAMSIZ)
-  in seq_printf, it is not suitable to use %8s for rt->dst.dev->name.
-  so change it to %s, since each line has not been solid any more.
-
-  additional information:
-
-    %8s  limit the width, not for the original string output length
-         if name length is more than 8, it still can be fully displayed.
-         if name length is less than 8, the ' ' will be filled before name.
-
-    %.8s truly limit the original string output length (precision)
-
-
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
----
- net/ipv6/route.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c42650c..b60bc52 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2835,7 +2835,7 @@ static int rt6_info_route(struct rt6_info *rt, void *p_arg)
-        } else {
-                seq_puts(m, "00000000000000000000000000000000");
-        }
--       seq_printf(m, " %08x %08x %08x %08x %8s\n",
-+       seq_printf(m, " %08x %08x %08x %08x %s\n",
-                   rt->rt6i_metric, atomic_read(&rt->dst.__refcnt),
-                   rt->dst.__use, rt->rt6i_flags,
-                   rt->dst.dev ? rt->dst.dev->name : "");
--- 
-1.7.9.5
-
-
-
-
--- 
-Chen Gang
-
-Asianux Corporation
+Thanks,
+Pavel
