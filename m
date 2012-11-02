@@ -1,35 +1,47 @@
 From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH v2 9/9] net: batman-adv: use per_cpu_add helper
-Date: Fri, 2 Nov 2012 17:48:04 +0000
-Message-ID: <0000013ac23ca1c8-740e6cfa-8166-4369-80d6-88bdfa8117d6-000000@email.amazonses.com>
-References: <5093EE7E.6040400@gmail.com>
+Subject: Re: [PATCH 0/9 v2] use efficient this_cpu_* helper
+Date: Fri, 2 Nov 2012 17:49:12 +0000
+Message-ID: <0000013ac23daa38-76df0db5-322e-4df6-bcb8-0be356eb8846-000000@email.amazonses.com>
+References: <5093EEC2.7000109@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lindner_marek@yahoo.de, siwu@hrz.tu-chemnitz.de,
-	ordex@autistici.org, b.a.t.m.a.n@lists.open-mesh.org,
-	David Miller <davem@davemloft.net>,
+Content-Type: MULTIPART/MIXED; BOUNDARY="288502408-1248043375-1351878512=:7937"
+Cc: David Miller <davem@davemloft.net>,
 	NetDev <netdev@vger.kernel.org>,
 	Kernel-Maillist <linux-kernel@vger.kernel.org>
 To: Shan Wei <shanwei88@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5093EE7E.6040400@gmail.com>
+In-Reply-To: <5093EEC2.7000109@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--288502408-1248043375-1351878512=:7937
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+
 On Sat, 3 Nov 2012, Shan Wei wrote:
 
-> diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-> index 897ba6a..3aef5b2 100644
-> --- a/net/batman-adv/main.h
-> +++ b/net/batman-adv/main.h
-> @@ -263,9 +263,7 @@ static inline bool batadv_has_timed_out(unsigned long timestamp,
->  static inline void batadv_add_counter(struct batadv_priv *bat_priv, size_t idx,
->  				      size_t count)
->  {
-> -	int cpu = get_cpu();
-> -	per_cpu_ptr(bat_priv->bat_counters, cpu)[idx] += count;
-> -	put_cpu();
-> +	this_cpu_add(bat_priv->bat_counters[idx], count);
->  }
+> this_cpu_ptr is faster than per_cpu_ptr(p, smp_processor_id())
+> and can reduce  memory accesses.
+> The latter helper needs to find the offset for current cpu,
+> and needs more assembler instructions which objdump shows in following.
+>
+> per_cpu_ptr(p, smp_processor_id())：
+>   1e:   65 8b 04 25 00 00 00 00         mov    %gs:0x0,%eax
+>   26:   48 98                           cltq
+>   28:   31 f6                           xor    %esi,%esi
+>   2a:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
+>   31:   48 8b 04 c5 00 00 00 00         mov    0x0(,%rax,8),%rax
+>   39:   c7 44 10 04 14 00 00 00         movl   $0x14,0x4(%rax,%rdx,1)
+>
+> this_cpu_ptr(p)
+>   1e:   65 48 03 14 25 00 00 00 00      add    %gs:0x0,%rdx
+>   27:   31 f6                           xor    %esi,%esi
+>   29:   c7 42 04 14 00 00 00            movl   $0x14,0x4(%rdx)
+>   30:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
 
-Reviewed-by: Christoph Lameter <cl@linux.com>
+this_cpu_read() etc even avoids the use of this_cpu_ptr()
+reducing the 6 instructions earlier to 1.
+--288502408-1248043375-1351878512=:7937--
