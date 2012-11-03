@@ -1,43 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Query regarding pushing a patch series against net-next tree
-Date: Sat, 3 Nov 2012 12:54:03 +0100
-Message-ID: <20121103115403.GB4539@electric-eye.fr.zoreil.com>
-References: <5094CC60.20907@chelsio.com>
+From: Christof Meerwald <cmeerw@cmeerw.org>
+Subject: Re: A reliable kernel panic (3.6.2) and system crash when visiting a
+ particular website
+Date: Sat, 3 Nov 2012 15:10:49 +0100
+Message-ID: <20121103141049.GA24238@edge.cmeerw.net>
+References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05>
+ <20121020162759.GA12551@liondog.tnic>
+ <966148591.30347.1350754909449.JavaMail.mail@webmail08>
+ <20121020203227.GC555@elf.ucw.cz>
+ <20121020225849.GA8976@liondog.tnic>
+ <1781795634.31179.1350774917965.JavaMail.mail@webmail04>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Steve Wise <swise@opengridcomputing.com>,
-	kumar Sanghvi <kumaras@chelsio.com>,
-	Divy Le Ray <divy@chelsio.com>,
-	Dimitrios Michailidis <dm@chelsio.com>
-To: Vipul Pandya <vipul@chelsio.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50567 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932075Ab2KCMQQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 08:16:16 -0400
+Cc: pavel@ucw.cz, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	security@kernel.org, linux-media@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: "Artem S. Tashkinov" <t.artem@lycos.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5094CC60.20907@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1781795634.31179.1350774917965.JavaMail.mail@webmail04>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Vipul Pandya <vipul@chelsio.com> :
-[...]
-> Can you please suggest how should we proceed for submitting this patch
-> series?
+On Sat, 20 Oct 2012 23:15:17 +0000 (GMT), Artem S. Tashkinov wrote:
+> It's almost definitely either a USB driver bug or video4linux driver bug:
+>
+> I'm CC'ing linux-media and linux-usb mailing lists, the problem is described here:
+> https://lkml.org/lkml/2012/10/20/35
+> https://lkml.org/lkml/2012/10/20/148
 
-- Answer #1
-  You rework the fix against -net so that it can be fed into -stable asap
-  (your customers use -stable or derivative kernels, don't they ?). You
-  rework the feature part against your modified -net vs -net-next merge
-  and you carry it until -net gets merged.
+Not sure if it's related, but I am seeing a kernel freeze with a
+usb-audio headset (connected via an external USB hub) on Linux 3.5.0
+(Ubuntu 12.10) - see
+http://comments.gmane.org/gmane.comp.voip.twinkle/3052 and
+http://pastebin.com/aHGe1S1X for a self-contained C test.
 
-- Answer #2
-  You wait until David merges -net into -net-next again.
 
-If you don't read netdev regularly (!), you should read
-http://marc.info/?l=linux-netdev&m=135170163622882&w=2
+Christof
 
 -- 
-Ueimor
+
+http://cmeerw.org                              sip:cmeerw at cmeerw.org
+mailto:cmeerw at cmeerw.org                   xmpp:cmeerw at cmeerw.org
