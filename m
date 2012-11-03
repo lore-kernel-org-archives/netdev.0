@@ -1,45 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] sctp: Clean up type-punning in sctp_cmd_t union
-Date: Sat, 03 Nov 2012 14:55:17 -0400 (EDT)
-Message-ID: <20121103.145517.1686027994101913314.davem@davemloft.net>
-References: <1351535533-23402-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH, RESEND] r8169: Kill SafeMtu macro
+Date: Sat, 03 Nov 2012 14:59:27 -0400 (EDT)
+Message-ID: <20121103.145927.938662941593447912.davem@davemloft.net>
+References: <20121029175512.GA13577@tugrik.mns.mnsspb.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
-	linux-sctp@vger.kernel.org
-To: nhorman@tuxdriver.com
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: kirr@mns.spb.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57746 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57763 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752691Ab2KCSzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 14:55:19 -0400
-In-Reply-To: <1351535533-23402-1-git-send-email-nhorman@tuxdriver.com>
+	with ESMTP id S1753770Ab2KCS73 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 14:59:29 -0400
+In-Reply-To: <20121029175512.GA13577@tugrik.mns.mnsspb.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Mon, 29 Oct 2012 14:32:13 -0400
+From: Kirill Smelkov <kirr@mns.spb.ru>
+Date: Mon, 29 Oct 2012 21:55:12 +0400
 
-> Lots of points in the sctp_cmd_interpreter function treat the sctp_cmd_t arg as
-> a void pointer, even though they are written as various other types.  Theres no
-> need for this as doing so just leads to possible type-punning issues that could
-> cause crashes, and if we remain type-consistent we can actually just remove the
-> void * member of the union entirely.
+> After d58d46b5 (r8169: jumbo fixes.) max frame len is stored in
+> rtl_chip_infos[].jumbo_max for each chip and SafeMtu should be gone.
 > 
-> Change Notes:
-> 
-> v2)
-> 	* Dropped chunk that modified SCTP_NULL to create a marker pattern
-> 	 should anyone try to use a SCTP_NULL() assigned sctp_arg_t, Assigning
-> 	 to .zero provides the same effect and should be faster, per Vlad Y.
-> 
-> v3)
-> 	* Reverted part of V2, opting to use memset instead of .zero, so that
-> 	 the entire union is initalized thus avoiding the i164 speculative load
-> 	 problems previously encountered, per Dave M..  Also rewrote
-> 	 SCTP_[NO]FORCE so as to use common infrastructure a little more
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com
+> Signed-off-by: Kirill Smelkov <kirr@mns.spb.ru>
 
-Applied, thanks.
+Applied.
