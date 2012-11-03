@@ -1,47 +1,41 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v2 1/3] net: create generic bridge ops
-Date: Fri, 02 Nov 2012 16:46:10 -0700
-Message-ID: <50945B42.4000502@intel.com>
-References: <20121024181033.14378.33097.stgit@jf-dev1-dcblab>  <20121024181257.14378.41548.stgit@jf-dev1-dcblab> <1351895575.2703.5.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V5 04/22] qlcnic: modify PCI and register access
+ routines
+Date: Fri, 02 Nov 2012 21:27:32 -0400 (EDT)
+Message-ID: <20121102.212732.478167267058337431.davem@davemloft.net>
+References: <1351818414-25197-1-git-send-email-sony.chacko@qlogic.com>
+	<1351818414-25197-5-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, buytenh@wantstofly.org, davem@davemloft.net,
-	vyasevic@redhat.com, jhs@mojatatu.com, chrisw@redhat.com,
-	krkumar2@in.ibm.com, samudrala@us.ibm.com,
-	peter.p.waskiewicz.jr@intel.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gregory.v.rose@intel.com,
-	eilong@broadcom.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:3190 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760021Ab2KBXq3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Nov 2012 19:46:29 -0400
-In-Reply-To: <1351895575.2703.5.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49234 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755797Ab2KCB1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 21:27:35 -0400
+In-Reply-To: <1351818414-25197-5-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/2/2012 3:32 PM, Ben Hutchings wrote:
-> On Wed, 2012-10-24 at 11:12 -0700, John Fastabend wrote:
->> The PF_BRIDGE:RTM_{GET|SET}LINK nlmsg family and type are
->> currently embedded in the ./net/bridge module. This prohibits
->> them from being used by other bridging devices. One example
->> of this being hardware that has embedded bridging components.
->>
->> In order to use these nlmsg types more generically this patch
->> adds two net_device_ops hooks. One to set link bridge attributes
->> and another to dump the current bride attributes.
->>
->> 	ndo_bridge_setlink()
->> 	ndo_bridge_getlink()
-> [...]
->
-> Do you have any userland code for this?
-
-Just sent this to netdev. Or you can pull it here,
-
-git://github.com/jrfastab/net-next-iproute2-jf.git
-
-
-I'll test your idx fix now.
+RnJvbTogU29ueSBDaGFja28gPHNvbnkuY2hhY2tvQHFsb2dpYy5jb20+DQpEYXRlOiBUaHUsICAx
+IE5vdiAyMDEyIDIxOjA2OjM2IC0wNDAwDQoNCj4gRnJvbTogU29ueSBDaGFja28gPHNvbnkuY2hh
+Y2tvQHFsb2dpYy5jb20+DQo+IA0KPiBSZWZhY3RvciA4Mnh4IGRyaXZlciB0byBzdXBwb3J0IG5l
+dyBhZGFwdGVyIC0gUWxvZ2ljIDgzWFggQ05BDQo+IFVwZGF0ZSBQQ0kgYW5kIGhhcmR3YXJlIGFj
+Y2VzcyByb3V0aW5lcw0KPiANCj4gU2lnbmVkLW9mZi1ieTogQW5pcmJhbiBDaGFrcmFib3J0eSA8
+YW5pcmJhbi5jaGFrcmFib3J0eUBxbG9naWMuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBTb255IENo
+YWNrbyA8c29ueS5jaGFja29AcWxvZ2ljLmNvbT4NCg0KVGhpcyByZW1vdmVzIHRoZSBvbmx5IHVz
+ZXIgb2YgcWxjbmljX2NoZWNrX3ZmKCkgYnV0IGxlYXZlcyB0aGUNCmRlZmluaXRpb24gYXJvdW5k
+LCBkYW5nbGluZywgYW5kIGNyZWF0aW5nIGEgYnVpbGQgd2FybmluZzoNCg0KZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfbWFpbi5jOjQ1NDoxOiB3YXJuaW5nOiChcWxj
+bmljX2NoZWNrX3ZmoiBkZWZpbmVkIGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQoN
+CkJlZm9yZSB5b3UgZXZlbiBib3RoZXIgc2VuZGluZyB0aGlzIHNlcmllcyB5ZXQgYW5vdGhlciB0
+aW1lLCBJIHdhbnQNCnlvdSB0byBkbyB3aGF0IEknbSBnb2luZyB0byBkbyB3aXRoIHlvdXIgcGF0
+Y2hlcyBhbnl3YXlzLCB3aGljaCBpcw0KYXBwbHkgdGhlbSBvbmUgYnkgb25lIGFuZCB2ZXJpZnkg
+dGhhdCBhdCBlYWNoIGFuZCBldmVyeSBwYXRjaCB0aGVyZQ0KYXJlIG5vIGJ1aWxkIGZhaWx1cmVz
+IG9yIG5ldyB3YXJuaW5ncyBpbnRyb2R1Y2VkLg0KDQpNeSBwYXRpZW5jZSB3aXRoIHlvdSBndXlz
+IGlzIHdlYXJpbmcgdGhpbiwgYW5kIGFmdGVyIGJlaW5nIHdpdGhvdXQNCnBvd2VyIG9yIGhlYXQg
+Zm9yIDUgZGF5cyBJJ20gcmVhbGx5IGdydW1weS4gIFNvIHlvdSBiZXR0ZXIgdGFrZQ0KeW91ciB0
+aW1lIGFuZCBtYWtlIHN1cmUgdGhpcyB0aGluZyBpcyBwZXJmZWN0IGJlZm9yZSB5b3UgZXZlbg0K
+dGhpbmsgYWJvdXQgcG9zdGluZyBpdCBhZ2Fpbi4NCg0KVGhhbmtzLg0K
