@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 10/16] drivers/net/ethernet/ibm/emac/mal.c: use WARN
-Date: Sat, 03 Nov 2012 15:43:34 -0400 (EDT)
-Message-ID: <20121103.154334.44159507206649735.davem@davemloft.net>
-References: <1351940317-14812-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1351940317-14812-11-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH] atp: remove set_rx_mode_8012()
+Date: Sat, 03 Nov 2012 15:43:56 -0400 (EDT)
+Message-ID: <20121103.154356.693234817224225347.davem@davemloft.net>
+References: <1351936395.1434.2.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: pebolle@tiscali.nl
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1351940317-14812-11-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <1351936395.1434.2.camel@x61.thuisdomein>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Sat,  3 Nov 2012 11:58:31 +0100
-
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> Use WARN rather than printk followed by WARN_ON(1), for conciseness.
-> 
-> A simplified version of the semantic patch that makes this transformation
-> is as follows: (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
-Applied.
+RnJvbTogUGF1bCBCb2xsZSA8cGVib2xsZUB0aXNjYWxpLm5sPg0KRGF0ZTogU2F0LCAwMyBOb3Yg
+MjAxMiAxMDo1MzoxNSArMDEwMA0KDQo+IEJ1aWxkaW5nIGF0cC5vIHRyaWdnZXJzIHRoaXMgR0ND
+IHdhcm5pbmc6DQo+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL2F0cC5jOiBJbiBm
+dW5jdGlvbiChc2V0X3J4X21vZGWiOg0KPiAgICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRl
+ay9hdHAuYzo4NzE6MjY6IHdhcm5pbmc6IKFtY19maWx0ZXJbMF2iIG1heSBiZSB1c2VkIHVuaW5p
+dGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbiBbLVd1bmluaXRpYWxpemVkXQ0KPiANCj4gR0NDIGlz
+IGNvcnJlY3QuIEluIHByb21pc2N1b3VzIG1vZGUgJ21jX2ZpbHRlcicgd2lsbCBiZSB1c2VkDQo+
+IHVuaW5pdGlhbGl6ZWQgaW4gc2V0X3J4X21vZGVfODAxMigpLCB3aGljaCBpcyBhcHBhcmVudGx5
+IGlubGluZWQgaW50bw0KPiBzZXRfcnhfbW9kZSgpLg0KPiANCj4gQnV0IGl0IHR1cm5zIG91dCBz
+ZXRfcnhfbW9kZV84MDEyKCkgd2lsbCBuZXZlciBiZSBjYWxsZWQsIHNpbmNlDQo+IG5ldF9sb2Nh
+bC5jaGlwX3R5cGUgd2lsbCBhbHdheXMgYmUgUlRMODAwMi4gU28gd2UgY2FuIGp1c3QgcmVtb3Zl
+DQo+IHNldF9yeF9tb2RlXzgwMTIoKSBhbmQgZG8gc29tZSByZWxhdGVkIGNsZWFudXBzLg0KPiAN
+Cj4gU2lnbmVkLW9mZi1ieTogUGF1bCBCb2xsZSA8cGVib2xsZUB0aXNjYWxpLm5sPg0KDQpBcHBs
+aWVkLg0K
