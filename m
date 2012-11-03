@@ -1,39 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pktgen: clean up ktime_t helpers
-Date: Sat, 03 Nov 2012 14:52:59 -0400 (EDT)
-Message-ID: <20121103.145259.1421005495138741143.davem@davemloft.net>
-References: <20121028182718.GA8275@thinkbox>
-	<alpine.LFD.2.02.1210281940220.2756@ionos>
+Subject: Re: [PATCH v3] sctp: Clean up type-punning in sctp_cmd_t union
+Date: Sat, 03 Nov 2012 14:55:17 -0400 (EDT)
+Message-ID: <20121103.145517.1686027994101913314.davem@davemloft.net>
+References: <1351535533-23402-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dxchgb@gmail.com, xiyou.wangcong@gmail.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: tglx@linutronix.de
+Cc: netdev@vger.kernel.org, vyasevich@gmail.com,
+	linux-sctp@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57687 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57746 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752385Ab2KCSxB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 14:53:01 -0400
-In-Reply-To: <alpine.LFD.2.02.1210281940220.2756@ionos>
+	with ESMTP id S1752691Ab2KCSzT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 14:55:19 -0400
+In-Reply-To: <1351535533-23402-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Sun, 28 Oct 2012 19:41:02 +0100 (CET)
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 29 Oct 2012 14:32:13 -0400
 
-> On Sun, 28 Oct 2012, Daniel Borkmann wrote:
+> Lots of points in the sctp_cmd_interpreter function treat the sctp_cmd_t arg as
+> a void pointer, even though they are written as various other types.  Theres no
+> need for this as doing so just leads to possible type-punning issues that could
+> cause crashes, and if we remain type-consistent we can actually just remove the
+> void * member of the union entirely.
 > 
->> Some years ago, the ktime_t helper functions ktime_now() and ktime_lt()
->> have been introduced. Instead of defining them inside pktgen.c, they
->> should either use ktime_t library functions or, if not available, they
->> should be defined in ktime.h, so that also others can benefit from them.
->> ktime_compare() is introduced with a similar notion as in timespec_compare().
->> 
->> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
->> Cc: Cong Wang <xiyou.wangcong@gmail.com>
->> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Change Notes:
 > 
-> Acked-by: Thomas Gleixner <tglx@linutronix.de>
+> v2)
+> 	* Dropped chunk that modified SCTP_NULL to create a marker pattern
+> 	 should anyone try to use a SCTP_NULL() assigned sctp_arg_t, Assigning
+> 	 to .zero provides the same effect and should be faster, per Vlad Y.
+> 
+> v3)
+> 	* Reverted part of V2, opting to use memset instead of .zero, so that
+> 	 the entire union is initalized thus avoiding the i164 speculative load
+> 	 problems previously encountered, per Dave M..  Also rewrote
+> 	 SCTP_[NO]FORCE so as to use common infrastructure a little more
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com
 
 Applied, thanks.
