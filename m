@@ -1,29 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atp: remove set_rx_mode_8012()
-Date: Sat, 03 Nov 2012 15:43:56 -0400 (EDT)
-Message-ID: <20121103.154356.693234817224225347.davem@davemloft.net>
-References: <1351936395.1434.2.camel@x61.thuisdomein>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: pebolle@tiscali.nl
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH 8/8] drivers/net/wireless/ath/ath6kl/hif.c: drop if around WARN_ON
+Date: Sat,  3 Nov 2012 21:30:25 +0100
+Message-ID: <1351974625-10282-9-git-send-email-Julia.Lawall@lip6.fr>
+References: <1351974625-10282-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@qca.qualcomm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1351936395.1434.2.camel@x61.thuisdomein>
+In-Reply-To: <1351974625-10282-1-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogUGF1bCBCb2xsZSA8cGVib2xsZUB0aXNjYWxpLm5sPg0KRGF0ZTogU2F0LCAwMyBOb3Yg
-MjAxMiAxMDo1MzoxNSArMDEwMA0KDQo+IEJ1aWxkaW5nIGF0cC5vIHRyaWdnZXJzIHRoaXMgR0ND
-IHdhcm5pbmc6DQo+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9yZWFsdGVrL2F0cC5jOiBJbiBm
-dW5jdGlvbiChc2V0X3J4X21vZGWiOg0KPiAgICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRl
-ay9hdHAuYzo4NzE6MjY6IHdhcm5pbmc6IKFtY19maWx0ZXJbMF2iIG1heSBiZSB1c2VkIHVuaW5p
-dGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbiBbLVd1bmluaXRpYWxpemVkXQ0KPiANCj4gR0NDIGlz
-IGNvcnJlY3QuIEluIHByb21pc2N1b3VzIG1vZGUgJ21jX2ZpbHRlcicgd2lsbCBiZSB1c2VkDQo+
-IHVuaW5pdGlhbGl6ZWQgaW4gc2V0X3J4X21vZGVfODAxMigpLCB3aGljaCBpcyBhcHBhcmVudGx5
-IGlubGluZWQgaW50bw0KPiBzZXRfcnhfbW9kZSgpLg0KPiANCj4gQnV0IGl0IHR1cm5zIG91dCBz
-ZXRfcnhfbW9kZV84MDEyKCkgd2lsbCBuZXZlciBiZSBjYWxsZWQsIHNpbmNlDQo+IG5ldF9sb2Nh
-bC5jaGlwX3R5cGUgd2lsbCBhbHdheXMgYmUgUlRMODAwMi4gU28gd2UgY2FuIGp1c3QgcmVtb3Zl
-DQo+IHNldF9yeF9tb2RlXzgwMTIoKSBhbmQgZG8gc29tZSByZWxhdGVkIGNsZWFudXBzLg0KPiAN
-Cj4gU2lnbmVkLW9mZi1ieTogUGF1bCBCb2xsZSA8cGVib2xsZUB0aXNjYWxpLm5sPg0KDQpBcHBs
-aWVkLg0K
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+
+Just use WARN_ON rather than an if containing only WARN_ON(1).
+
+A simplified version of the semantic patch that makes this transformation
+is as follows: (http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression e;
+@@
+- if (e) WARN_ON(1);
++ WARN_ON(e);
+// </smpl>
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+ drivers/net/wireless/ath/ath6kl/hif.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath6kl/hif.c b/drivers/net/wireless/ath/ath6kl/hif.c
+index 68ed6c2..9e47c4a 100644
+--- a/drivers/net/wireless/ath/ath6kl/hif.c
++++ b/drivers/net/wireless/ath/ath6kl/hif.c
+@@ -338,8 +338,7 @@ static int ath6kl_hif_proc_err_intr(struct ath6kl_device *dev)
+ 	status = hif_read_write_sync(dev->ar, ERROR_INT_STATUS_ADDRESS,
+ 				     reg_buf, 4, HIF_WR_SYNC_BYTE_FIX);
+ 
+-	if (status)
+-		WARN_ON(1);
++	WARN_ON(status);
+ 
+ 	return status;
+ }
+@@ -383,8 +382,7 @@ static int ath6kl_hif_proc_cpu_intr(struct ath6kl_device *dev)
+ 	status = hif_read_write_sync(dev->ar, CPU_INT_STATUS_ADDRESS,
+ 				     reg_buf, 4, HIF_WR_SYNC_BYTE_FIX);
+ 
+-	if (status)
+-		WARN_ON(1);
++	WARN_ON(status);
+ 
+ 	return status;
+ }
