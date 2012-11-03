@@ -1,50 +1,85 @@
 From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH net] tcp-repair: Handle zero-length data put in rcv queue
-Date: Sat, 03 Nov 2012 20:15:09 +0400
-Message-ID: <5095430D.4090703@parallels.com>
-References: <508E9B3D.1050505@parallels.com> <20121102.220211.734003528595209418.davem@davemloft.net>
+Subject: Re: [RFC] net: netlink -- Allow netlink_dump to return error code
+ if protocol handler is missed
+Date: Sat, 03 Nov 2012 20:17:50 +0400
+Message-ID: <509543AE.1020902@parallels.com>
+References: <20121102173550.GH10877@moon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gmavrikas@gmail.com" <gmavrikas@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: NETDEV <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Cyrill Gorcunov <gorcunov@openvz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:29432 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:12567 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756198Ab2KCQPX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Nov 2012 12:15:23 -0400
-In-Reply-To: <20121102.220211.734003528595209418.davem@davemloft.net>
+	id S1752564Ab2KCQR6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Nov 2012 12:17:58 -0400
+In-Reply-To: <20121102173550.GH10877@moon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/03/2012 06:02 AM, David Miller wrote:
-> From: Pavel Emelyanov <xemul@parallels.com>
-> Date: Mon, 29 Oct 2012 19:05:33 +0400
+On 11/02/2012 09:35 PM, Cyrill Gorcunov wrote:
+> We've observed that in case if UDP diag module is not
+> supported in kernel the netlink returns NLMSG_DONE without
+> notifying a caller that handler is missed.
 > 
->> When sending data into a tcp socket in repair state we should check
->> for the amount of data being 0 explicitly. Otherwise we'll have an skb 
->> with seq == end_seq in rcv queue, but tcp doesn't expect this to happen
->> (in particular a warn_on in tcp_recvmsg shoots).
->>
->> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
->> Reported-by: Giorgos Mavrikas <gmavrikas@gmail.com>
+> This patch makes netlink_dump to return error code instead.
 > 
-> Applied, thanks.
+> So as example it become possible to detect such situation
+> and handle it gracefully on userspace level.
 > 
->> From 8f70f4ea4f509a3772ee7eb5d9d5c2571a86652a Mon Sep 17 00:00:00 2001
->> From: Pavel Emelyanov <xemul@parallels.com>
->> Date: Mon, 29 Oct 2012 18:12:41 +0400
->> Subject: [PATCH] fix for repair queue getback
->>
->> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
+> CC: David Miller <davem@davemloft.net>
+> CC: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Pavel Emelyanov <xemul@parallels.com>
+> ---
+>  net/ipv4/inet_diag.c     |    5 ++++-
+>  net/netlink/af_netlink.c |    4 ++++
+>  2 files changed, 8 insertions(+), 1 deletion(-)
 > 
-> What is this?
+> Index: linux-2.6.git/net/ipv4/inet_diag.c
+> ===================================================================
+> --- linux-2.6.git.orig/net/ipv4/inet_diag.c
+> +++ linux-2.6.git/net/ipv4/inet_diag.c
+> @@ -895,13 +895,16 @@ static int __inet_diag_dump(struct sk_bu
+>  		struct inet_diag_req_v2 *r, struct nlattr *bc)
+>  {
+>  	const struct inet_diag_handler *handler;
+> +	int err = 0;
+>  
+>  	handler = inet_diag_lock_handler(r->sdiag_protocol);
+>  	if (!IS_ERR(handler))
+>  		handler->dump(skb, cb, r, bc);
+> +	else
+> +		err = PTR_ERR(handler);
+>  	inet_diag_unlock_handler(handler);
+>  
+> -	return skb->len;
+> +	return err ? : skb->len;
+>  }
+>  
+>  static int inet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
+> Index: linux-2.6.git/net/netlink/af_netlink.c
+> ===================================================================
+> --- linux-2.6.git.orig/net/netlink/af_netlink.c
+> +++ linux-2.6.git/net/netlink/af_netlink.c
+> @@ -1740,6 +1740,10 @@ static int netlink_dump(struct sock *sk)
+>  		else
+>  			__netlink_sendskb(sk, skb);
+>  		return 0;
+> +	} else if (len < 0) {
+> +		err = len;
+> +		nlk->cb = NULL;
+> +		goto errout_skb;
 
-It's a garbage left after patches rebase and resplit. Sorry for that :(
+When family-level handler is absent and sock_diag returns error this error
+gets propagated back to user without this fix. Why do we need it in case
+we return error from protocol-level handler?
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  	}
+>  
+>  	nlh = nlmsg_put_answer(skb, cb, NLMSG_DONE, sizeof(len), NLM_F_MULTI);
+> .
 > 
