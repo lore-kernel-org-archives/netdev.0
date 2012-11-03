@@ -1,48 +1,39 @@
-From: Cyrill Gorcunov <gorcunov@openvz.org>
-Subject: Re: [RFC] net: netlink -- Allow netlink_dump to return error code if
- protocol handler is missed
-Date: Sat, 3 Nov 2012 20:39:58 +0400
-Message-ID: <20121103163958.GB6055@moon>
-References: <20121102173550.GH10877@moon>
- <509543AE.1020902@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NETDEV <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:57600 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756713Ab2KCQkD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 12:40:03 -0400
-Received: by mail-la0-f46.google.com with SMTP id h6so3234146lag.19
-        for <netdev@vger.kernel.org>; Sat, 03 Nov 2012 09:40:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <509543AE.1020902@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH RFC net-next 0/1] Simplify the CPSW DT
+Date: Sat,  3 Nov 2012 18:45:03 +0100
+Message-ID: <cover.1351964329.git.richardcochran@gmail.com>
+References: <509240CF.6060909@ti.com>
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	Cyril Chemparathy <cyril@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Vaibhav Hiremath <hvaibhav@ti.com>,
+	Benoit Cousson <b-cousson@ti.com>, <paul@pwsan.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <509240CF.6060909@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 03, 2012 at 08:17:50PM +0400, Pavel Emelyanov wrote:
-> >  static int inet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
-> > Index: linux-2.6.git/net/netlink/af_netlink.c
-> > ===================================================================
-> > --- linux-2.6.git.orig/net/netlink/af_netlink.c
-> > +++ linux-2.6.git/net/netlink/af_netlink.c
-> > @@ -1740,6 +1740,10 @@ static int netlink_dump(struct sock *sk)
-> >  		else
-> >  			__netlink_sendskb(sk, skb);
-> >  		return 0;
-> > +	} else if (len < 0) {
-> > +		err = len;
-> > +		nlk->cb = NULL;
-> > +		goto errout_skb;
-> 
-> When family-level handler is absent and sock_diag returns error this error
-> gets propagated back to user without this fix. Why do we need it in case
-> we return error from protocol-level handler?
+This patch is a follow up to show how to remove all the various
+register offsets from the DT for the CPSW driver. This applies on top
+of the bug fix I posted earlier for IO mapping leak.
 
-Because as far as I can say the family-level handler already has such error
-returning code in __sock_diag_rcv_msg. Or you mean something else?
+Since I am currently awaiting a replacement for my defective
+BeagleBone, this patch is compile tested only.
 
-	Cyrill
+Thanks,
+Richard
+
+
+Richard Cochran (1):
+  cpsw: simplify the setup of the register pointers
+
+ Documentation/devicetree/bindings/net/cpsw.txt |   34 ----
+ drivers/net/ethernet/ti/cpsw.c                 |  209 +++++++++--------------
+ include/linux/platform_data/cpsw.h             |   19 --
+ 3 files changed, 82 insertions(+), 180 deletions(-)
+
+-- 
+1.7.2.5
+
