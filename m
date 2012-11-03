@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next:master 122/152] drivers/ptp/ptp_chardev.c:36
- ptp_ioctl() warn: 'sysoff' puts 832 bytes on stack
-Date: Sat, 03 Nov 2012 01:39:02 -0400 (EDT)
-Message-ID: <20121103.013902.249179459166100599.davem@davemloft.net>
-References: <20121102085915.GC2486@netboy.at.omicron.at>
-	<20121102.213928.934210347094361569.davem@davemloft.net>
-	<20121103045339.GA2277@netboy.at.omicron.at>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: Query regarding pushing a patch series against net-next tree
+Date: Sat, 03 Nov 2012 13:18:48 +0530
+Message-ID: <5094CC60.20907@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: yuanhan.liu@linux.intel.com, changlongx.xie@intel.com,
-	fengguang.wu@intel.com, netdev@vger.kernel.org
-To: richardcochran@gmail.com
+Cc: Steve Wise <swise@opengridcomputing.com>,
+	kumar Sanghvi <kumaras@chelsio.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	Dimitrios Michailidis <dm@chelsio.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51047 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751446Ab2KCFjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 01:39:07 -0400
-In-Reply-To: <20121103045339.GA2277@netboy.at.omicron.at>
+Received: from stargate.chelsio.com ([67.207.112.58]:6401 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751393Ab2KCHz4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 03:55:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <richardcochran@gmail.com>
-Date: Sat, 3 Nov 2012 05:53:39 +0100
+Hi David Miller,
 
-> Isn't it being nicer to the memory allocation code not to repeatedly
-> request small chunks?
+We have a important patch series fixing a bug as well as adding a
+feature. This patch series is prepared against net-next tree. However to
+be able to build it successfully it requires a patch from net tree which
+was pushed recently. So, we cannot push this patch series until both the
+trees are merged. We would like this patch series to be submitted as
+soon as possible to net-next so that it can be accepted by OFED community.
 
-Don't use performance as an argument against writing this code
-correctly.
+Can you please suggest how should we proceed for submitting this patch
+series?
+
+Thanks,
+Vipul Pandya
