@@ -1,72 +1,28 @@
 From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH v2 00/11] introduce random32_get_bytes() and random32_get_bytes_state()
-Date: Sun,  4 Nov 2012 00:43:31 +0900
-Message-ID: <1351957422-23243-1-git-send-email-akinobu.mita@gmail.com>
+Subject: [PATCH v2 02/11] random32: introduce random32_get_bytes() and random32_get_bytes_state()
+Date: Sun,  4 Nov 2012 00:43:33 +0900
+Message-ID: <1351957422-23243-3-git-send-email-akinobu.mita@gmail.com>
+References: <1351957422-23243-1-git-send-email-akinobu.mita@gmail.com>
 Cc: Akinobu Mita <akinobu.mita@gmail.com>,
 	"Theodore Ts'o" <tytso@mit.edu>,
 	Artem Bityutskiy <dedekind1@gmail.com>,
 	Adrian Hunter <adrian.hunter@intel.com>,
 	David Woodhouse <dwmw2@infradead.org>,
 	linux-mtd@lists.infradead.org,
-	Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org,
-	Robert Love <robert.w.love@intel.com>, devel@open-fcoe.org,
-	Michel Lespinasse <walken@google.com>
+	Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351957422-23243-1-git-send-email-akinobu.mita@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset introduces new functions into random32 library for
-getting the requested number of pseudo-random bytes.
+Add functions to get the requested number of pseudo-random bytes.
 
-Before introducing these new functions into random32 library,
-prandom32() and prandom32_seed() with "prandom32" prefix are
-renamed to random32_state() and srandom32_state() respectively.
+The difference from get_random_bytes() is that it generates pseudo-random
+numbers by random32().  It is fast, suitable for generating random bytes
+for testing, and reproducible if random32_get_bytes_state() is used.
 
-The purpose of this renaming is to prevent some kernel developers
-from assuming that prandom32() and random32() might imply that only
-prandom32() was the one using a pseudo-random number generator by
-prandom32's "p", and the result may be a very embarassing security
-exposure.
-
-Changelog
-
-* v2
-- rename prandom32 to random32_state
-- dropped lib/uuid.c patch
-- add bnx2 and mtd_stresstest patches
-
-Akinobu Mita (11):
-  random32: rename prandom32 to random32_state
-  random32: introduce random32_get_bytes() and
-    random32_get_bytes_state()
-  bnx2x: use random32_get_bytes()
-  mtd: nandsim: use random32_get_bytes
-  ubifs: use random32_get_bytes
-  mtd: mtd_nandecctest: use random32_get_bytes instead of
-    get_random_bytes()
-  mtd: mtd_oobtest: convert to use random32_get_bytes_state()
-  mtd: mtd_pagetest: convert to use random32_get_bytes_state()
-  mtd: mtd_speedtest: use random32_get_bytes
-  mtd: mtd_subpagetest: convert to use random32_get_bytes_state()
-  mtd: mtd_stresstest: use random32_get_bytes()
-
- drivers/mtd/nand/nandsim.c                      |  5 +--
- drivers/mtd/tests/mtd_nandecctest.c             |  2 +-
- drivers/mtd/tests/mtd_oobtest.c                 | 49 +++++++-------------
- drivers/mtd/tests/mtd_pagetest.c                | 43 ++++++------------
- drivers/mtd/tests/mtd_speedtest.c               |  9 +---
- drivers/mtd/tests/mtd_stresstest.c              |  3 +-
- drivers/mtd/tests/mtd_subpagetest.c             | 42 +++++------------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |  5 +--
- drivers/scsi/fcoe/fcoe_ctlr.c                   |  4 +-
- fs/ubifs/debug.c                                |  8 ++--
- include/linux/random.h                          |  8 ++--
- lib/interval_tree_test_main.c                   |  7 +--
- lib/random32.c                                  | 60 ++++++++++++++++++++-----
- lib/rbtree_test.c                               |  6 +--
- 14 files changed, 112 insertions(+), 139 deletions(-)
-
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
 Cc: "Theodore Ts'o" <tytso@mit.edu>
 Cc: Artem Bityutskiy <dedekind1@gmail.com>
 Cc: Adrian Hunter <adrian.hunter@intel.com>
@@ -74,9 +30,77 @@ Cc: David Woodhouse <dwmw2@infradead.org>
 Cc: linux-mtd@lists.infradead.org
 Cc: Eilon Greenstein <eilong@broadcom.com>
 Cc: netdev@vger.kernel.org
-Cc: Robert Love <robert.w.love@intel.com>
-Cc: devel@open-fcoe.org
-Cc: Michel Lespinasse <walken@google.com>
+---
+* v2
+- rename prandom32_get_bytes to random32_get_bytes_state
 
+ include/linux/random.h |  2 ++
+ lib/random32.c         | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 40 insertions(+)
+
+diff --git a/include/linux/random.h b/include/linux/random.h
+index bb96f79..4176762 100644
+--- a/include/linux/random.h
++++ b/include/linux/random.h
+@@ -27,8 +27,10 @@ unsigned long randomize_range(unsigned long start, unsigned long end, unsigned l
+ 
+ u32 random32(void);
+ void srandom32(u32 seed);
++void random32_get_bytes(void *buf, int nbytes);
+ 
+ u32 random32_state(struct rnd_state *);
++void random32_get_bytes_state(struct rnd_state *state, void *buf, int nbytes);
+ 
+ /*
+  * Handle minimum values for seeds
+diff --git a/lib/random32.c b/lib/random32.c
+index 7a3e0c7..9557417 100644
+--- a/lib/random32.c
++++ b/lib/random32.c
+@@ -61,6 +61,44 @@ u32 random32_state(struct rnd_state *state)
+ EXPORT_SYMBOL(random32_state);
+ 
+ /**
++ *	random32_get_bytes_state - get the pseudo-random bytes
++ *	@state: pointer to state structure holding seeded state.
++ *	@buf: where to copy the pseudo-random bytes to
++ *	@bytes: the requested number of bytes
++ *
++ *	This is used for pseudo-randomness with no outside seeding.
++ *	For more random results, use random32_get_bytes().
++ */
++void random32_get_bytes_state(struct rnd_state *state, void *buf, int bytes)
++{
++	unsigned char *p = buf;
++
++	for (; bytes > 0 && ((unsigned long)p) % sizeof(u32); bytes--, p++)
++		*p = random32_state(state);
++
++	for (; bytes > sizeof(u32) - 1; bytes -= sizeof(u32), p += sizeof(u32))
++		*(u32 *)p = random32_state(state);
++
++	for (; bytes > 0; bytes--, p++)
++		*p = random32_state(state);
++}
++EXPORT_SYMBOL(random32_get_bytes_state);
++
++/**
++ *	random32_get_bytes - get the requested number of pseudo-random bytes
++ *	@buf: where to copy the pseudo-random bytes to
++ *	@bytes: the requested number of bytes
++ */
++void random32_get_bytes(void *buf, int bytes)
++{
++	struct rnd_state *state = &get_cpu_var(net_rand_state);
++
++	random32_get_bytes_state(state, buf, bytes);
++	put_cpu_var(state);
++}
++EXPORT_SYMBOL(random32_get_bytes);
++
++/**
+  *	random32 - pseudo random number generator
+  *
+  *	A 32 bit pseudo-random number is generated using a fast
 -- 
 1.7.11.7
