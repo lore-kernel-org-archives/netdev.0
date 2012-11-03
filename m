@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: fix HW initialization using fw 7.8.x
-Date: Fri, 02 Nov 2012 21:32:49 -0400 (EDT)
-Message-ID: <20121102.213249.2106153755687516533.davem@davemloft.net>
-References: <1351497544-13272-1-git-send-email-dmitry@broadcom.com>
+Subject: Re: [PATCH net-next 1/3] bridge: Use is_link_local() in
+ store_group_addr()
+Date: Fri, 02 Nov 2012 21:34:36 -0400 (EDT)
+Message-ID: <20121102.213436.1866522756298779775.davem@davemloft.net>
+References: <1351797004.2883.12.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com
-To: dmitry@broadcom.com
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49278 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49285 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757342Ab2KCBcu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 21:32:50 -0400
-In-Reply-To: <1351497544-13272-1-git-send-email-dmitry@broadcom.com>
+	with ESMTP id S1753285Ab2KCBei (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 21:34:38 -0400
+In-Reply-To: <1351797004.2883.12.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Mon, 29 Oct 2012 09:59:04 +0200
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Thu, 1 Nov 2012 19:10:04 +0000
 
-> Since commit 96bed4b9 (use FW 7.8.2) BRB HW block needs to be
-> initialized using fw values for all devices.
-> Otherwise ETS on 57712/578xx will not work.
+> Parse the string into an array of bytes rather than ints, so we can
+> use is_link_local() rather than reimplementing it.
 > 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Applied, thanks.
+Applied.
