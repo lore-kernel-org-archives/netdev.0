@@ -1,61 +1,36 @@
-From: Cyrill Gorcunov <gorcunov@openvz.org>
-Subject: [PATCH] net: inet_diag -- Return error code if protocol handler is
- missed
-Date: Sat, 3 Nov 2012 23:30:34 +0400
-Message-ID: <20121103193034.GF6055@moon>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] smsc95xx: fix tx checksum offload for big endian
+Date: Sat, 03 Nov 2012 15:30:44 -0400 (EDT)
+Message-ID: <20121103.153044.759986344361039924.davem@davemloft.net>
+References: <1351853060-2330-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Pavel Emelyanov <xemul@parallels.com>
-To: NETDEV <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jose.ventura@efacec.com
+To: steve.glendinning@shawell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:56968 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752592Ab2KCTaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 15:30:39 -0400
-Received: by mail-la0-f46.google.com with SMTP id h6so3289478lag.19
-        for <netdev@vger.kernel.org>; Sat, 03 Nov 2012 12:30:37 -0700 (PDT)
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:58144 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752592Ab2KCTaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 15:30:46 -0400
+In-Reply-To: <1351853060-2330-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We've observed that in case if UDP diag module is not
-supported in kernel the netlink returns NLMSG_DONE without
-notifying a caller that handler is missed.
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Fri,  2 Nov 2012 10:44:20 +0000
 
-This patch makes __inet_diag_dump to return error code instead.
+> f7b2927 introduced tx checksum offload support for smsc95xx,
+> and enabled it by default. This feature doesn't take
+> endianness into account, so causes most tx to fail on
+> those platforms.
+> 
+> This patch fixes the problem fully by adding the missing
+> conversion.
+> 
+> An alternate workaround is to disable TX checksum offload
+> on those platforms. The cpu impact of this feature is very low.
+> 
+> Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
 
-So as example it become possible to detect such situation
-and handle it gracefully on userspace level.
-
-Signed-off-by: Cyrill Gorcunov <gorcunov@openvz.org>
-CC: David Miller <davem@davemloft.net>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Pavel Emelyanov <xemul@parallels.com>
----
- net/ipv4/inet_diag.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-Index: linux-2.6.git/net/ipv4/inet_diag.c
-===================================================================
---- linux-2.6.git.orig/net/ipv4/inet_diag.c
-+++ linux-2.6.git/net/ipv4/inet_diag.c
-@@ -895,13 +895,16 @@ static int __inet_diag_dump(struct sk_bu
- 		struct inet_diag_req_v2 *r, struct nlattr *bc)
- {
- 	const struct inet_diag_handler *handler;
-+	int err = 0;
- 
- 	handler = inet_diag_lock_handler(r->sdiag_protocol);
- 	if (!IS_ERR(handler))
- 		handler->dump(skb, cb, r, bc);
-+	else
-+		err = PTR_ERR(handler);
- 	inet_diag_unlock_handler(handler);
- 
--	return skb->len;
-+	return err ? : skb->len;
- }
- 
- static int inet_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
+Applied and queued up for -stable, thanks.
