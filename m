@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] l2tp: fix oops in l2tp_eth_create() error path
-Date: Fri, 02 Nov 2012 21:57:05 -0400 (EDT)
-Message-ID: <20121102.215705.177696570905508047.davem@davemloft.net>
-References: <1351590108-21067-1-git-send-email-tparkin@katalix.com>
+Subject: Re: [PATCH] vmxnet3: must split too big fragments
+Date: Fri, 02 Nov 2012 21:58:40 -0400 (EDT)
+Message-ID: <20121102.215840.116110325989713705.davem@davemloft.net>
+References: <1351000246.8609.1926.camel@edumazet-glaptop>
+	<1351021160.8609.2503.camel@edumazet-glaptop>
+	<1351531849.12280.54.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com
-To: tparkin@katalix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49485 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756482Ab2KCB5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 21:57:07 -0400
-In-Reply-To: <1351590108-21067-1-git-send-email-tparkin@katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jongman.heo@samsung.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351531849.12280.54.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Parkin <tparkin@katalix.com>
-Date: Tue, 30 Oct 2012 09:41:48 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 29 Oct 2012 18:30:49 +0100
 
-> When creating an L2TPv3 Ethernet session, if register_netdev() should fail for
-> any reason (for example, automatic naming for "l2tpeth%d" interfaces hits the
-> 32k-interface limit), the netdev is freed in the error path.  However, the
-> l2tp_eth_sess structure's dev pointer is left uncleared, and this results in
-> l2tp_eth_delete() then attempting to unregister the same netdev later in the
-> session teardown.  This results in an oops.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> To avoid this, clear the session dev pointer in the error path.
+> vmxnet3 has a 16Kbytes limit per tx descriptor, that happened to work
+> as long as we provided PAGE_SIZE fragments.
 > 
-> Signed-off-by: Tom Parkin <tparkin@katalix.com>
+> Our stack can now build larger fragments, so we need to split them to
+> the 16kbytes boundary.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: jongman heo <jongman.heo@samsung.com>
+> Tested-by: jongman heo <jongman.heo@samsung.com>
+> Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
 
-Applied, thanks.
+Applied, thanks everyone.
