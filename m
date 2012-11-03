@@ -1,41 +1,101 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp-repair: Handle zero-length data put in rcv
- queue
-Date: Fri, 02 Nov 2012 22:02:11 -0400 (EDT)
-Message-ID: <20121102.220211.734003528595209418.davem@davemloft.net>
-References: <508E9B3D.1050505@parallels.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next PATCH] net: fix bridge notify hook to manage flags correctly
+Date: Fri, 02 Nov 2012 19:32:36 -0700
+Message-ID: <20121103023236.8177.63714.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gmavrikas@gmail.com
-To: xemul@parallels.com
+Cc: netdev@vger.kernel.org
+To: bhutchings@solarflare.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49524 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916Ab2KCCCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 22:02:12 -0400
-In-Reply-To: <508E9B3D.1050505@parallels.com>
+Received: from mga14.intel.com ([143.182.124.37]:36202 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751701Ab2KCCmf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Nov 2012 22:42:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Mon, 29 Oct 2012 19:05:33 +0400
+The bridge notify hook rtnl_bridge_notify() was not handling the
+case where the master flags was set or with both flags set. First
+flags are not being passed correctly and second the logic to parse
+them is broken.
 
-> When sending data into a tcp socket in repair state we should check
-> for the amount of data being 0 explicitly. Otherwise we'll have an skb 
-> with seq == end_seq in rcv queue, but tcp doesn't expect this to happen
-> (in particular a warn_on in tcp_recvmsg shoots).
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-> Reported-by: Giorgos Mavrikas <gmavrikas@gmail.com>
+This patch passes the original flags value and fixes the
+logic.
 
-Applied, thanks.
+Reported-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
-> From 8f70f4ea4f509a3772ee7eb5d9d5c2571a86652a Mon Sep 17 00:00:00 2001
-> From: Pavel Emelyanov <xemul@parallels.com>
-> Date: Mon, 29 Oct 2012 18:12:41 +0400
-> Subject: [PATCH] fix for repair queue getback
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+ net/core/rtnetlink.c |   26 ++++++++++++++++++--------
+ 1 files changed, 18 insertions(+), 8 deletions(-)
 
-What is this?
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 51dc58f..7eae53b 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2373,13 +2373,19 @@ static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
+ 		goto errout;
+ 	}
+ 
+-	if (!flags && master && master->netdev_ops->ndo_bridge_getlink)
++	if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
++	    master && master->netdev_ops->ndo_bridge_getlink) {
+ 		err = master->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
+-	else if (dev->netdev_ops->ndo_bridge_getlink)
+-		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
++		if (err < 0)
++			goto errout;
++	}
+ 
+-	if (err < 0)
+-		goto errout;
++	if ((flags & BRIDGE_FLAGS_SELF) &&
++	    dev->netdev_ops->ndo_bridge_getlink) {
++		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
++		if (err < 0)
++			goto errout;
++	}
+ 
+ 	rtnl_notify(skb, net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
+ 	return 0;
+@@ -2398,7 +2404,8 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	struct net_device *dev;
+ 	struct nlattr *br_spec, *attr = NULL;
+ 	int rem, err = -EOPNOTSUPP;
+-	u16 flags = 0;
++	u16 oflags, flags = 0;
++	bool have_flags = false;
+ 
+ 	if (nlmsg_len(nlh) < sizeof(*ifm))
+ 		return -EINVAL;
+@@ -2417,12 +2424,15 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (br_spec) {
+ 		nla_for_each_nested(attr, br_spec, rem) {
+ 			if (nla_type(attr) == IFLA_BRIDGE_FLAGS) {
++				have_flags = true;
+ 				flags = nla_get_u16(attr);
+ 				break;
+ 			}
+ 		}
+ 	}
+ 
++	oflags = flags;
++
+ 	if (!flags || (flags & BRIDGE_FLAGS_MASTER)) {
+ 		if (!dev->master ||
+ 		    !dev->master->netdev_ops->ndo_bridge_setlink) {
+@@ -2447,11 +2457,11 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 			flags &= ~BRIDGE_FLAGS_SELF;
+ 	}
+ 
+-	if (attr && nla_type(attr) == IFLA_BRIDGE_FLAGS)
++	if (have_flags)
+ 		memcpy(nla_data(attr), &flags, sizeof(flags));
+ 	/* Generate event to notify upper layer of bridge change */
+ 	if (!err)
+-		err = rtnl_bridge_notify(dev, flags);
++		err = rtnl_bridge_notify(dev, oflags);
+ out:
+ 	return err;
+ }
