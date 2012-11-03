@@ -1,59 +1,51 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 181/190] net/sched/sch_htb.c:921:26: warning:
- integer overflow in expression
-Date: Sun, 04 Nov 2012 05:48:03 +0800
-Message-ID: <50959113.xkJ9zuBEBTS30I+c%fengguang.wu@intel.com>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: [PATCH 8/9] isdn: Remove unused variable causing a compile build warning
+Date: Sat,  3 Nov 2012 23:02:29 +0100
+Message-ID: <1351980150-24145-9-git-send-email-lee.jones@linaro.org>
+References: <1351980150-24145-1-git-send-email-lee.jones@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Vimalkumar <j.vimal@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lee Jones <lee.jones@linaro.org>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:16485 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751199Ab2KCVrw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 3 Nov 2012 17:47:52 -0400
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:48038 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756307Ab2KCWC6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 18:02:58 -0400
+Received: by mail-ee0-f46.google.com with SMTP id b15so2344547eek.19
+        for <netdev@vger.kernel.org>; Sat, 03 Nov 2012 15:02:57 -0700 (PDT)
+In-Reply-To: <1351980150-24145-1-git-send-email-lee.jones@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   f7c3f96a41f16865e6422bfb919312a716b16552
-commit: 56b765b79e9a78dc7d3f8850ba5e5567205a3ecd [181/190] htb: improved accuracy at high rates
-config: make ARCH=mips allmodconfig
+This patch fixes:
+drivers/isdn/i4l/isdn_common.c: In function =E2=80=98isdn_ioctl=E2=80=99=
+:
+drivers/isdn/i4l/isdn_common.c:1278:8: warning: unused variable =E2=80=98=
+s=E2=80=99 [-Wunused-variable]
 
-All warnings:
-
-net/sched/sch_htb.c: In function 'htb_dequeue':
-net/sched/sch_htb.c:921:26: warning: integer overflow in expression [-Woverflow]
-
-vim +921 net/sched/sch_htb.c
-
-^1da177e Linus Torvalds    2005-04-16  905  
-^1da177e Linus Torvalds    2005-04-16  906  	/* try to dequeue direct packets as high prio (!) to minimize cpu work */
-87990467 Stephen Hemminger 2006-08-10  907  	skb = __skb_dequeue(&q->direct_queue);
-87990467 Stephen Hemminger 2006-08-10  908  	if (skb != NULL) {
-9190b3b3 Eric Dumazet      2011-01-20  909  ok:
-9190b3b3 Eric Dumazet      2011-01-20  910  		qdisc_bstats_update(sch, skb);
-fd245a4a Eric Dumazet      2011-01-20  911  		qdisc_unthrottled(sch);
-^1da177e Linus Torvalds    2005-04-16  912  		sch->q.qlen--;
-^1da177e Linus Torvalds    2005-04-16  913  		return skb;
-^1da177e Linus Torvalds    2005-04-16  914  	}
-^1da177e Linus Torvalds    2005-04-16  915  
-87990467 Stephen Hemminger 2006-08-10  916  	if (!sch->q.qlen)
-87990467 Stephen Hemminger 2006-08-10  917  		goto fin;
-56b765b7 Vimalkumar        2012-10-31  918  	q->now = ktime_to_ns(ktime_get());
-a73be040 Jarek Poplawski   2009-01-12  919  	start_at = jiffies;
-^1da177e Linus Torvalds    2005-04-16  920  
-56b765b7 Vimalkumar        2012-10-31 @921  	next_event = q->now + 5 * NSEC_PER_SEC;
-633fe66e Jarek Poplawski   2008-12-03  922  
-^1da177e Linus Torvalds    2005-04-16  923  	for (level = 0; level < TC_HTB_MAXDEPTH; level++) {
-^1da177e Linus Torvalds    2005-04-16  924  		/* common case optimization - skip event handler quickly */
-^1da177e Linus Torvalds    2005-04-16  925  		int m;
-fb983d45 Patrick McHardy   2007-03-16  926  		psched_time_t event;
-fb983d45 Patrick McHardy   2007-03-16  927  
-fb983d45 Patrick McHardy   2007-03-16  928  		if (q->now >= q->near_ev_cache[level]) {
-a73be040 Jarek Poplawski   2009-01-12  929  			event = htb_do_events(q, level, start_at);
-
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Lee Jones <lee.jones@linaro.org>
 ---
-0-DAY kernel build testing backend         Open Source Technology Center
-Fengguang Wu, Yuanhan Liu                              Intel Corporation
+ drivers/isdn/i4l/isdn_common.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/isdn/i4l/isdn_common.c b/drivers/isdn/i4l/isdn_com=
+mon.c
+index 8c610fa..fb90d40 100644
+--- a/drivers/isdn/i4l/isdn_common.c
++++ b/drivers/isdn/i4l/isdn_common.c
+@@ -1275,7 +1275,6 @@ isdn_ioctl(struct file *file, uint cmd, ulong arg=
+)
+ 	int ret;
+ 	int i;
+ 	char __user *p;
+-	char *s;
+ 	union iocpar {
+ 		char name[10];
+ 		char bname[22];
+--=20
+1.7.9.5
