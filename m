@@ -1,41 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V5 04/22] qlcnic: modify PCI and register access
- routines
-Date: Fri, 02 Nov 2012 21:27:32 -0400 (EDT)
-Message-ID: <20121102.212732.478167267058337431.davem@davemloft.net>
-References: <1351818414-25197-1-git-send-email-sony.chacko@qlogic.com>
-	<1351818414-25197-5-git-send-email-sony.chacko@qlogic.com>
+Subject: Re: [PATCHv3 net-next 0/8] enable/disable zero copy tx dynamically
+Date: Fri, 02 Nov 2012 21:31:10 -0400 (EDT)
+Message-ID: <20121102.213110.2070365320544608145.davem@davemloft.net>
+References: <cover.1351797353.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: sony.chacko@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49234 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755797Ab2KCB1f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 21:27:35 -0400
-In-Reply-To: <1351818414-25197-5-git-send-email-sony.chacko@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: vyasevic@redhat.com, alexander.h.duyck@intel.com, Ian.Campbell@citrix.com,
+	kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, edumazet@google.com,
+	akpm@linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <cover.1351797353.git.mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogU29ueSBDaGFja28gPHNvbnkuY2hhY2tvQHFsb2dpYy5jb20+DQpEYXRlOiBUaHUsICAx
-IE5vdiAyMDEyIDIxOjA2OjM2IC0wNDAwDQoNCj4gRnJvbTogU29ueSBDaGFja28gPHNvbnkuY2hh
-Y2tvQHFsb2dpYy5jb20+DQo+IA0KPiBSZWZhY3RvciA4Mnh4IGRyaXZlciB0byBzdXBwb3J0IG5l
-dyBhZGFwdGVyIC0gUWxvZ2ljIDgzWFggQ05BDQo+IFVwZGF0ZSBQQ0kgYW5kIGhhcmR3YXJlIGFj
-Y2VzcyByb3V0aW5lcw0KPiANCj4gU2lnbmVkLW9mZi1ieTogQW5pcmJhbiBDaGFrcmFib3J0eSA8
-YW5pcmJhbi5jaGFrcmFib3J0eUBxbG9naWMuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBTb255IENo
-YWNrbyA8c29ueS5jaGFja29AcWxvZ2ljLmNvbT4NCg0KVGhpcyByZW1vdmVzIHRoZSBvbmx5IHVz
-ZXIgb2YgcWxjbmljX2NoZWNrX3ZmKCkgYnV0IGxlYXZlcyB0aGUNCmRlZmluaXRpb24gYXJvdW5k
-LCBkYW5nbGluZywgYW5kIGNyZWF0aW5nIGEgYnVpbGQgd2FybmluZzoNCg0KZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfbWFpbi5jOjQ1NDoxOiB3YXJuaW5nOiChcWxj
-bmljX2NoZWNrX3ZmoiBkZWZpbmVkIGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQoN
-CkJlZm9yZSB5b3UgZXZlbiBib3RoZXIgc2VuZGluZyB0aGlzIHNlcmllcyB5ZXQgYW5vdGhlciB0
-aW1lLCBJIHdhbnQNCnlvdSB0byBkbyB3aGF0IEknbSBnb2luZyB0byBkbyB3aXRoIHlvdXIgcGF0
-Y2hlcyBhbnl3YXlzLCB3aGljaCBpcw0KYXBwbHkgdGhlbSBvbmUgYnkgb25lIGFuZCB2ZXJpZnkg
-dGhhdCBhdCBlYWNoIGFuZCBldmVyeSBwYXRjaCB0aGVyZQ0KYXJlIG5vIGJ1aWxkIGZhaWx1cmVz
-IG9yIG5ldyB3YXJuaW5ncyBpbnRyb2R1Y2VkLg0KDQpNeSBwYXRpZW5jZSB3aXRoIHlvdSBndXlz
-IGlzIHdlYXJpbmcgdGhpbiwgYW5kIGFmdGVyIGJlaW5nIHdpdGhvdXQNCnBvd2VyIG9yIGhlYXQg
-Zm9yIDUgZGF5cyBJJ20gcmVhbGx5IGdydW1weS4gIFNvIHlvdSBiZXR0ZXIgdGFrZQ0KeW91ciB0
-aW1lIGFuZCBtYWtlIHN1cmUgdGhpcyB0aGluZyBpcyBwZXJmZWN0IGJlZm9yZSB5b3UgZXZlbg0K
-dGhpbmsgYWJvdXQgcG9zdGluZyBpdCBhZ2Fpbi4NCg0KVGhhbmtzLg0K
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 1 Nov 2012 21:16:17 +0200
+
+> 
+> tun supports zero copy transmit since 0690899b4d4501b3505be069b9a687e68ccbe15b,
+> however you can only enable this mode if you know your workload does not
+> trigger heavy guest to host/host to guest traffic - otherwise you
+> get a (minor) performance regression.
+> This patchset addresses this problem by notifying the owner
+> device when callback is invoked because of a data copy.
+> This makes it possible to detect whether zero copy is appropriate
+> dynamically: we start in zero copy mode, when we detect
+> data copied we disable zero copy for a while.
+> 
+> With this patch applied, I get the same performance for
+> guest to host and guest to guest both with and without zero copy tx.
+
+Series applied, thanks Michael.
