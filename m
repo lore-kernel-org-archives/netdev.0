@@ -1,154 +1,263 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 8/9] batman-adv: Distributed ARP Table - add runtime switch
-Date: Sat,  3 Nov 2012 19:48:33 +0100
-Message-ID: <1351968514-12357-9-git-send-email-ordex@autistici.org>
+Subject: [PATCH 7/9] batman-adv: Distributed ARP Table - add compile option
+Date: Sat,  3 Nov 2012 19:48:32 +0100
+Message-ID: <1351968514-12357-8-git-send-email-ordex@autistici.org>
 References: <1351968514-12357-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:49794 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:49757 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753092Ab2KCStd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 14:49:33 -0400
+	with ESMTP id S1752429Ab2KCStc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 14:49:32 -0400
 In-Reply-To: <1351968514-12357-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a runtime switch that enables the user to turn the DAT feature
-on or off at runtime
+This patch makes it possible to decide whether to include DAT within the
+batman-adv binary or not.
+It is extremely useful when the user wants to reduce the size of the resulting
+module by cutting off any not needed feature.
 
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/distributed-arp-table.c | 18 ++++++++++++++++++
- net/batman-adv/soft-interface.c        |  3 +++
- net/batman-adv/sysfs.c                 |  7 +++++++
- net/batman-adv/types.h                 |  3 +++
- 4 files changed, 31 insertions(+)
+ net/batman-adv/Kconfig                 | 14 ++++++--
+ net/batman-adv/Makefile                |  2 +-
+ net/batman-adv/debugfs.c               |  7 +++-
+ net/batman-adv/distributed-arp-table.h | 65 ++++++++++++++++++++++++++++++++++
+ net/batman-adv/types.h                 | 10 ++++++
+ 5 files changed, 94 insertions(+), 4 deletions(-)
 
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index f43bf8e..c1a74a1 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -621,6 +621,9 @@ out:
-  */
- static void batadv_dat_hash_free(struct batadv_priv *bat_priv)
+diff --git a/net/batman-adv/Kconfig b/net/batman-adv/Kconfig
+index e77f805..250e0b5 100644
+--- a/net/batman-adv/Kconfig
++++ b/net/batman-adv/Kconfig
+@@ -4,7 +4,7 @@
+ 
+ config BATMAN_ADV
+ 	tristate "B.A.T.M.A.N. Advanced Meshing Protocol"
+-	depends on NET && INET
++	depends on NET
+ 	select CRC16
+         default n
+ 	help
+@@ -16,7 +16,7 @@ config BATMAN_ADV
+ 
+ config BATMAN_ADV_BLA
+ 	bool "Bridge Loop Avoidance"
+-	depends on BATMAN_ADV
++	depends on BATMAN_ADV && INET
+ 	default y
+ 	help
+ 	  This option enables BLA (Bridge Loop Avoidance), a mechanism
+@@ -25,6 +25,16 @@ config BATMAN_ADV_BLA
+ 	  more than one mesh node in the same LAN, you can safely remove
+ 	  this feature and save some space.
+ 
++config BATMAN_ADV_DAT
++	bool "Distributed ARP Table"
++	depends on BATMAN_ADV && INET
++	default n
++	help
++	  This option enables DAT (Distributed ARP Table), a DHT based
++	  mechanism that increases ARP reliability on sparse wireless
++	  mesh networks. If you think that your network does not need
++	  this option you can safely remove it and save some space.
++
+ config BATMAN_ADV_DEBUG
+ 	bool "B.A.T.M.A.N. debugging"
+ 	depends on BATMAN_ADV
+diff --git a/net/batman-adv/Makefile b/net/batman-adv/Makefile
+index 7604159..e45e3b4 100644
+--- a/net/batman-adv/Makefile
++++ b/net/batman-adv/Makefile
+@@ -23,7 +23,7 @@ batman-adv-y += bat_iv_ogm.o
+ batman-adv-y += bitarray.o
+ batman-adv-$(CONFIG_BATMAN_ADV_BLA) += bridge_loop_avoidance.o
+ batman-adv-y += debugfs.o
+-batman-adv-y += distributed-arp-table.o
++batman-adv-$(CONFIG_BATMAN_ADV_DAT) += distributed-arp-table.o
+ batman-adv-y += gateway_client.o
+ batman-adv-y += gateway_common.o
+ batman-adv-y += hard-interface.o
+diff --git a/net/batman-adv/debugfs.c b/net/batman-adv/debugfs.c
+index ebc5f4d..3f679cb 100644
+--- a/net/batman-adv/debugfs.c
++++ b/net/batman-adv/debugfs.c
+@@ -281,6 +281,7 @@ static int batadv_bla_backbone_table_open(struct inode *inode,
+ 
+ #endif
+ 
++#ifdef CONFIG_BATMAN_ADV_DAT
+ /**
+  * batadv_dat_cache_open - Prepare file handler for reads from dat_chache
+  * @inode: inode which was opened
+@@ -291,7 +292,7 @@ static int batadv_dat_cache_open(struct inode *inode, struct file *file)
+ 	struct net_device *net_dev = (struct net_device *)inode->i_private;
+ 	return single_open(file, batadv_dat_cache_seq_print_text, net_dev);
+ }
+-
++#endif
+ 
+ static int batadv_transtable_local_open(struct inode *inode, struct file *file)
  {
-+	if (!bat_priv->dat.hash)
-+		return;
-+
- 	__batadv_dat_purge(bat_priv, NULL);
- 
- 	batadv_hash_destroy(bat_priv->dat.hash);
-@@ -790,6 +793,9 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
- 	struct sk_buff *skb_new;
- 	struct batadv_hard_iface *primary_if = NULL;
- 
-+	if (!atomic_read(&bat_priv->distributed_arp_table))
-+		goto out;
-+
- 	type = batadv_arp_get_type(bat_priv, skb, 0);
- 	/* If the node gets an ARP_REQUEST it has to send a DHT_GET unicast
- 	 * message to the selected DHT candidates
-@@ -861,6 +867,9 @@ bool batadv_dat_snoop_incoming_arp_request(struct batadv_priv *bat_priv,
- 	bool ret = false;
- 	int err;
- 
-+	if (!atomic_read(&bat_priv->distributed_arp_table))
-+		goto out;
-+
- 	type = batadv_arp_get_type(bat_priv, skb, hdr_size);
- 	if (type != ARPOP_REQUEST)
- 		goto out;
-@@ -924,6 +933,9 @@ void batadv_dat_snoop_outgoing_arp_reply(struct batadv_priv *bat_priv,
- 	__be32 ip_src, ip_dst;
- 	uint8_t *hw_src, *hw_dst;
- 
-+	if (!atomic_read(&bat_priv->distributed_arp_table))
-+		return;
-+
- 	type = batadv_arp_get_type(bat_priv, skb, 0);
- 	if (type != ARPOP_REPLY)
- 		return;
-@@ -959,6 +971,9 @@ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
- 	uint8_t *hw_src, *hw_dst;
- 	bool ret = false;
- 
-+	if (!atomic_read(&bat_priv->distributed_arp_table))
-+		goto out;
-+
- 	type = batadv_arp_get_type(bat_priv, skb, hdr_size);
- 	if (type != ARPOP_REPLY)
- 		goto out;
-@@ -1003,6 +1018,9 @@ bool batadv_dat_drop_broadcast_packet(struct batadv_priv *bat_priv,
- 	bool ret = false;
- 	const size_t bcast_len = sizeof(struct batadv_bcast_packet);
- 
-+	if (!atomic_read(&bat_priv->distributed_arp_table))
-+		goto out;
-+
- 	/* If this packet is an ARP_REQUEST and the node already has the
- 	 * information that it is going to ask, then the packet can be dropped
- 	 */
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 9dc0ae1..7b4a3a3 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -480,6 +480,9 @@ struct net_device *batadv_softif_create(const char *name)
- 	atomic_set(&bat_priv->aggregated_ogms, 1);
- 	atomic_set(&bat_priv->bonding, 0);
- 	atomic_set(&bat_priv->bridge_loop_avoidance, 0);
+@@ -332,7 +333,9 @@ static BATADV_DEBUGINFO(bla_claim_table, S_IRUGO, batadv_bla_claim_table_open);
+ static BATADV_DEBUGINFO(bla_backbone_table, S_IRUGO,
+ 			batadv_bla_backbone_table_open);
+ #endif
 +#ifdef CONFIG_BATMAN_ADV_DAT
-+	atomic_set(&bat_priv->distributed_arp_table, 1);
+ static BATADV_DEBUGINFO(dat_cache, S_IRUGO, batadv_dat_cache_open);
 +#endif
- 	atomic_set(&bat_priv->ap_isolation, 0);
- 	atomic_set(&bat_priv->vis_mode, BATADV_VIS_TYPE_CLIENT_UPDATE);
- 	atomic_set(&bat_priv->gw_mode, BATADV_GW_MODE_OFF);
-diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
-index 42cd09e..fa3cc1a 100644
---- a/net/batman-adv/sysfs.c
-+++ b/net/batman-adv/sysfs.c
-@@ -20,6 +20,7 @@
- #include "main.h"
- #include "sysfs.h"
- #include "translation-table.h"
-+#include "distributed-arp-table.h"
+ static BATADV_DEBUGINFO(transtable_local, S_IRUGO,
+ 			batadv_transtable_local_open);
+ static BATADV_DEBUGINFO(vis_data, S_IRUGO, batadv_vis_data_open);
+@@ -345,7 +348,9 @@ static struct batadv_debuginfo *batadv_mesh_debuginfos[] = {
+ 	&batadv_debuginfo_bla_claim_table,
+ 	&batadv_debuginfo_bla_backbone_table,
+ #endif
++#ifdef CONFIG_BATMAN_ADV_DAT
+ 	&batadv_debuginfo_dat_cache,
++#endif
+ 	&batadv_debuginfo_transtable_local,
+ 	&batadv_debuginfo_vis_data,
+ 	NULL,
+diff --git a/net/batman-adv/distributed-arp-table.h b/net/batman-adv/distributed-arp-table.h
+index 01308ce..fdb3522 100644
+--- a/net/batman-adv/distributed-arp-table.h
++++ b/net/batman-adv/distributed-arp-table.h
+@@ -20,6 +20,8 @@
+ #ifndef _NET_BATMAN_ADV_ARP_H_
+ #define _NET_BATMAN_ADV_ARP_H_
+ 
++#ifdef CONFIG_BATMAN_ADV_DAT
++
+ #include "types.h"
  #include "originator.h"
- #include "hard-interface.h"
- #include "gateway_common.h"
-@@ -420,6 +421,9 @@ BATADV_ATTR_SIF_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
- #ifdef CONFIG_BATMAN_ADV_BLA
- BATADV_ATTR_SIF_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
- #endif
-+#ifdef CONFIG_BATMAN_ADV_DAT
-+BATADV_ATTR_SIF_BOOL(distributed_arp_table, S_IRUGO | S_IWUSR, NULL);
-+#endif
- BATADV_ATTR_SIF_BOOL(fragmentation, S_IRUGO | S_IWUSR, batadv_update_min_mtu);
- BATADV_ATTR_SIF_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
- static BATADV_ATTR(vis_mode, S_IRUGO | S_IWUSR, batadv_show_vis_mode,
-@@ -445,6 +449,9 @@ static struct batadv_attribute *batadv_mesh_attrs[] = {
- #ifdef CONFIG_BATMAN_ADV_BLA
- 	&batadv_attr_bridge_loop_avoidance,
- #endif
-+#ifdef CONFIG_BATMAN_ADV_DAT
-+	&batadv_attr_distributed_arp_table,
-+#endif
- 	&batadv_attr_fragmentation,
- 	&batadv_attr_ap_isolation,
- 	&batadv_attr_vis_mode,
+ 
+@@ -72,4 +74,67 @@ int batadv_dat_init(struct batadv_priv *bat_priv);
+ void batadv_dat_free(struct batadv_priv *bat_priv);
+ int batadv_dat_cache_seq_print_text(struct seq_file *seq, void *offset);
+ 
++#else
++
++static inline bool
++batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
++				      struct sk_buff *skb)
++{
++	return false;
++}
++
++static inline bool
++batadv_dat_snoop_incoming_arp_request(struct batadv_priv *bat_priv,
++				      struct sk_buff *skb, int hdr_size)
++{
++	return false;
++}
++
++static inline bool
++batadv_dat_snoop_outgoing_arp_reply(struct batadv_priv *bat_priv,
++				    struct sk_buff *skb)
++{
++	return false;
++}
++
++static inline bool
++batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
++				    struct sk_buff *skb, int hdr_size)
++{
++	return false;
++}
++
++static inline bool
++batadv_dat_drop_broadcast_packet(struct batadv_priv *bat_priv,
++				 struct batadv_forw_packet *forw_packet)
++{
++	return false;
++}
++
++static inline void
++batadv_dat_init_orig_node_addr(struct batadv_orig_node *orig_node)
++{
++}
++
++static inline void batadv_dat_init_own_addr(struct batadv_priv *bat_priv,
++					    struct batadv_hard_iface *iface)
++{
++}
++
++static inline void batadv_arp_change_timeout(struct net_device *soft_iface,
++					     const char *name)
++{
++}
++
++static inline int batadv_dat_init(struct batadv_priv *bat_priv)
++{
++	return 0;
++}
++
++static inline void batadv_dat_free(struct batadv_priv *bat_priv)
++{
++}
++
++#endif /* CONFIG_BATMAN_ADV_DAT */
++
+ #endif /* _NET_BATMAN_ADV_ARP_H_ */
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 00d3093..0afeb2b 100644
+index 9ed1bb2..00d3093 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -275,6 +275,9 @@ struct batadv_priv {
- 	atomic_t fragmentation;		/* boolean */
- 	atomic_t ap_isolation;		/* boolean */
- 	atomic_t bridge_loop_avoidance;	/* boolean */
+@@ -28,6 +28,8 @@
+ 	(ETH_HLEN + max(sizeof(struct batadv_unicast_packet), \
+ 			sizeof(struct batadv_bcast_packet)))
+ 
 +#ifdef CONFIG_BATMAN_ADV_DAT
-+	atomic_t distributed_arp_table;	/* boolean */
++
+ /* batadv_dat_addr_t is the type used for all DHT addresses. If it is changed,
+  * BATADV_DAT_ADDR_MAX is changed as well.
+  *
+@@ -35,6 +37,8 @@
+  */
+ #define batadv_dat_addr_t uint16_t
+ 
++#endif /* CONFIG_BATMAN_ADV_DAT */
++
+ /**
+  * struct batadv_hard_iface_bat_iv - per hard interface B.A.T.M.A.N. IV data
+  * @ogm_buff: buffer holding the OGM packet
+@@ -80,7 +84,9 @@ struct batadv_orig_node {
+ 	uint8_t orig[ETH_ALEN];
+ 	uint8_t primary_addr[ETH_ALEN];
+ 	struct batadv_neigh_node __rcu *router; /* rcu protected pointer */
++#ifdef CONFIG_BATMAN_ADV_DAT
+ 	batadv_dat_addr_t dat_addr;
 +#endif
- 	atomic_t vis_mode;		/* VIS_TYPE_* */
- 	atomic_t gw_mode;		/* GW_MODE_* */
- 	atomic_t gw_sel_class;		/* uint */
+ 	unsigned long *bcast_own;
+ 	uint8_t *bcast_own_sum;
+ 	unsigned long last_seen;
+@@ -252,11 +258,13 @@ struct batadv_priv_vis {
+  * @hash: hashtable representing the local ARP cache
+  * @work: work queue callback item for cache purging
+  */
++#ifdef CONFIG_BATMAN_ADV_DAT
+ struct batadv_priv_dat {
+ 	batadv_dat_addr_t addr;
+ 	struct batadv_hashtable *hash;
+ 	struct delayed_work work;
+ };
++#endif
+ 
+ struct batadv_priv {
+ 	atomic_t mesh_state;
+@@ -295,7 +303,9 @@ struct batadv_priv {
+ 	struct batadv_priv_gw gw;
+ 	struct batadv_priv_tt tt;
+ 	struct batadv_priv_vis vis;
++#ifdef CONFIG_BATMAN_ADV_DAT
+ 	struct batadv_priv_dat dat;
++#endif
+ };
+ 
+ struct batadv_socket_client {
 -- 
 1.7.12.4
