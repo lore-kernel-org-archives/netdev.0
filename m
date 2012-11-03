@@ -1,375 +1,194 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC PATCH v2] iproute2: bridge: add veb/vepa toggle
-Date: Fri, 02 Nov 2012 20:24:36 -0700
-Message-ID: <20121103032436.8744.12352.stgit@localhost6.localdomain6>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Fri, 02 Nov 2012 23:46:51 -0400 (EDT)
+Message-ID: <20121102.234651.536037174791637359.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:16056 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751858Ab2KCDey (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Nov 2012 23:34:54 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:50140 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752498Ab2KCDqy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Nov 2012 23:46:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Test bridge commands to set veb, vepa modes to iproute2.
 
-[root@jf-dev1-dcblab iproute2]# ./bridge/bridge bridge show
-eth2: mode VEB bridge_flags: self
-eth3: mode VEPA bridge_flags: self
-eth10: mode VEB bridge_flags: self
-eth12: mode VEB bridge_flags: self
+First post-Sandy pull request, here goes:
 
-[root@jf-dev1-dcblab iproute2]# ./bridge/bridge bridge state mode veb dev eth3 self
-bridge_mode_set eth3: type 19 family 7 mode VEB flags 0002
+1) Fix antenna gain handling and initialization of chan->max_reg_power
+   in wireless, from Felix Fietkau.
 
-[root@jf-dev1-dcblab iproute2]# ./bridge/bridge bridge show
-eth2: mode VEB bridge_flags: self
-eth3: mode VEB bridge_flags: self
-eth10: mode VEB bridge_flags: self
-eth12: mode VEB bridge_flags: self
+2) Fix nexthop handling in H.232 conntrack helper, from Julian
+   Anastasov.
 
-Maybe the final patch should separate protocol (STP) configuraiton
-from the bridge setup (VEB.VEPA). But this is good for testing in
-the meantime.
+3) Only process 80211 mesh config header in certain kinds of frames,
+   from Javier Cardona.
 
-v2: remove a lot of the crazy cruft in the last patch
+4) 80211 management frame header length needs to be validated, from
+   Johannes Berg.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
+5) Don't access free'd SKBs in ath9k driver, from Felix Fietkay.
 
- bridge/br_common.h      |    1 
- bridge/bridge.c         |    3 -
- bridge/fdb.c            |  244 +++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/if_link.h |   16 +++
- 4 files changed, 263 insertions(+), 1 deletions(-)
+6) Test for permanent state correctly in VXLAN driver, from Stephen
+   Hemminger.
 
-diff --git a/bridge/br_common.h b/bridge/br_common.h
-index 718ecb9..3e5dcab 100644
---- a/bridge/br_common.h
-+++ b/bridge/br_common.h
-@@ -5,6 +5,7 @@ extern int print_fdb(const struct sockaddr_nl *who,
- 		     struct nlmsghdr *n, void *arg);
- 
- extern int do_fdb(int argc, char **argv);
-+extern int do_bridge(int argc, char **argv);
- extern int do_monitor(int argc, char **argv);
- 
- extern int preferred_family;
-diff --git a/bridge/bridge.c b/bridge/bridge.c
-index e2c33b0..b5145c1 100644
---- a/bridge/bridge.c
-+++ b/bridge/bridge.c
-@@ -27,7 +27,7 @@ static void usage(void)
- {
- 	fprintf(stderr,
- "Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }\n"
--"where  OBJECT := { fdb |  monitor }\n"
-+"where  OBJECT := { fdb |  monitor | bridge }\n"
- "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails]\n" );
- 	exit(-1);
- }
-@@ -43,6 +43,7 @@ static const struct cmd {
- 	int (*func)(int argc, char **argv);
- } cmds[] = {
- 	{ "fdb", 	do_fdb },
-+	{ "bridge",	do_bridge },
- 	{ "monitor",	do_monitor },
- 	{ "help",	do_help },
- 	{ 0 }
-diff --git a/bridge/fdb.c b/bridge/fdb.c
-index 4ca4861..e1c138d 100644
---- a/bridge/fdb.c
-+++ b/bridge/fdb.c
-@@ -34,6 +34,13 @@ static void usage(void)
- 	exit(-1);
- }
- 
-+static void bridge_usage(void)
-+{
-+	fprintf(stderr, "Usage: br bridge er mode {veb | vepa} dev DEV\n");
-+	fprintf(stderr, "	br bridge {show} [ dev DEV] \n");
-+	exit(-1);
-+}
-+
- static const char *state_n2a(unsigned s)
- {
- 	static char buf[32];
-@@ -269,3 +276,240 @@ int do_fdb(int argc, char **argv)
- 	fprintf(stderr, "Command \"%s\" is unknown, try \"bridge fdb help\".\n", *argv);
- 	exit(-1);
- }
-+
-+int print_bridge(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
-+{
-+	FILE *fp = arg;
-+	struct ifinfomsg *ifm = NLMSG_DATA(n);
-+	int len = n->nlmsg_len;
-+	struct rtattr * tb[IFLA_MAX+1];
-+       
-+	len -= NLMSG_LENGTH(sizeof(*ifm));
-+	if (len < 0) {
-+		fprintf(stderr, "BUG: wrong nlmsg len %d\n", len);
-+		return -1;
-+	}
-+
-+	if (ifm->ifi_family != AF_BRIDGE) {
-+		fprintf(stderr, "hmm: Not PF_BRIDGE is %i\n", ifm->ifi_family);
-+	}
-+
-+	if (filter_index && filter_index != ifm->ifi_index)
-+		return 0;
-+
-+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifm), len);
-+
-+	if (!tb[IFLA_IFNAME]) {
-+		fprintf(stderr, "%s: missing ifname using ifi_index %u name %s\n",
-+			__func__, ifm->ifi_index,
-+			ll_index_to_name(ifm->ifi_index));
-+	}
-+	if (tb[IFLA_AF_SPEC]) {
-+		struct rtattr *bridge[IFLA_BRIDGE_MAX+1];
-+		__u16 mode = 0, flags = 0;
-+
-+		parse_rtattr_nested(bridge, IFLA_BRIDGE_MAX, tb[IFLA_AF_SPEC]);
-+		if (bridge[IFLA_BRIDGE_MODE])
-+			mode =*(__u16*)RTA_DATA(bridge[IFLA_BRIDGE_MODE]);
-+		if (bridge[IFLA_BRIDGE_FLAGS])
-+			flags =*(__u16*)RTA_DATA(bridge[IFLA_BRIDGE_FLAGS]);
-+
-+		fprintf(stderr, "%s: mode %s bridge_flags: %s %s\n",
-+			ll_index_to_name(ifm->ifi_index),
-+			mode ? "VEPA" : "VEB",
-+			flags & BRIDGE_FLAGS_SELF ? "self" : "",
-+			flags & BRIDGE_FLAGS_MASTER ? "master" : "");
-+	}
-+
-+	if (tb[IFLA_PROTINFO]) {
-+		__u8 state = *(__u8*)RTA_DATA(tb[IFLA_PROTINFO]);
-+		char *sstate;
-+
-+		switch (state) {
-+		case 0:
-+			sstate = "DISABLED";
-+			break;
-+		case 1:
-+			sstate = "LISTENING";
-+			break;
-+		case 2:
-+			sstate = "LEARNING";
-+			break;
-+		case 3:
-+			sstate = "FORWARDING";
-+			break;
-+		case 4:
-+			sstate = "BLOCKING";
-+			break;
-+		default:
-+			sstate = "UNKNOWN";
-+			break;
-+		}
-+	
-+
-+		fprintf(stderr, "%s: %s: ifla_protinfo: %s\n",
-+			ll_index_to_name(ifm->ifi_index),
-+			__func__, sstate);
-+	}
-+
-+	fflush(fp);
-+	return 0;
-+}
-+
-+static int bridge_show(int argc, char **argv)
-+{
-+	char *filter_dev = NULL;
-+
-+       
-+	while (argc > 0) {
-+		if (strcmp(*argv, "dev") == 0) {
-+			NEXT_ARG();
-+			if (filter_dev)
-+				duparg("dev", *argv);
-+                       
-+			filter_dev = *argv;
-+		}
-+		argc--; argv++;
-+	}
-+
-+	if (filter_dev) {
-+		if ((filter_index = if_nametoindex(filter_dev)) == 0) {
-+			fprintf(stderr, "Cannot find device \"%s\"\n", filter_dev);
-+			return -1;
-+		}
-+	}
-+
-+	if (rtnl_wilddump_request(&rth, PF_BRIDGE, RTM_GETLINK) < 0) {
-+		perror("Cannot send dump request");
-+		exit(1);
-+	}
-+
-+	if (rtnl_dump_filter(&rth, print_bridge, stdout) < 0) {
-+		fprintf(stderr, "Dump terminated\n");
-+		exit(1);
-+	}
-+
-+	return 0;
-+}
-+
-+static int bridge_state_set(int argc, char **argv)
-+{
-+	struct {
-+		struct nlmsghdr		n;
-+		struct ifinfomsg	ifm;
-+		char			buf[1024];
-+	} req;
-+	struct {
-+		struct nlmsghdr		hdr;
-+		struct nlmsgerr		err;
-+		struct nlmsghdr		rhdr;
-+		struct ifinfomsg	ifm;
-+		char			buf[1024];
-+	} reply;
-+	char *d = NULL;
-+	__u8 state = 0;
-+	__u16 mode = -1, flags = 0;
-+	
-+	memset(&req, 0, sizeof(req));
-+	memset(&reply, 0, sizeof(reply));
-+
-+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-+	req.n.nlmsg_flags = NLM_F_REQUEST | NLM_F_REPLACE | NLM_F_ACK;
-+	req.n.nlmsg_type = RTM_SETLINK;
-+	req.ifm.ifi_family = PF_BRIDGE;
-+
-+	while (argc > 0) {
-+		if (strcmp(*argv, "dev") == 0) {
-+			NEXT_ARG();
-+			d = *argv;	
-+		} else if (matches(*argv, "state") == 0) {
-+			NEXT_ARG();
-+			if (matches(*argv, "DISABLED") == 0)
-+				state = 0;
-+			else if (matches(*argv, "LISTENING") == 0)
-+				 state = 1;
-+			else if (matches(*argv, "LEARNING") == 0)
-+				 state = 2;
-+			else if (matches(*argv, "FORWARDING") == 0)
-+				 state = 3;
-+			else if (matches(*argv, "BLOCKING") == 0)
-+				 state = 4;
-+			else
-+				invarg("Invalid state value\n", *argv);
-+
-+		} else if (matches(*argv, "mode") == 0) {
-+			NEXT_ARG();
-+			if (matches(*argv, "veb") == 0)
-+				mode = BRIDGE_MODE_VEB;
-+			else if (matches(*argv, "vepa") == 0)
-+				 mode = BRIDGE_MODE_VEPA;
-+			else
-+				invarg("Invalid mode value\n", *argv);
-+
-+		} else if (matches(*argv, "master") == 0) {
-+			flags |= BRIDGE_FLAGS_MASTER;
-+		} else if (matches(*argv, "self") == 0) {
-+			flags |= BRIDGE_FLAGS_SELF;
-+		}
-+
-+		argc--; argv++;
-+	}
-+
-+	if (!d) {
-+		fprintf(stderr, "Device required.\n");
-+		exit(-1);
-+	}
-+
-+       req.ifm.ifi_index = ll_name_to_index(d);
-+       if (req.ifm.ifi_index == 0) {
-+               fprintf(stderr, "Cannot find device \"%s\"\n", d);
-+               return -1;
-+       }
-+
-+	if (state < 4)
-+		addattr8(&req.n, sizeof(req.buf), IFLA_PROTINFO, state);
-+       
-+	printf("%s %s(%u): type %i family %i state 0x%x ", __func__, d, req.ifm.ifi_index,
-+		req.n.nlmsg_type, req.ifm.ifi_family, state);
-+
-+	if (mode < 3 || flags) {
-+		struct rtattr *binfo;
-+		int err = 0;
-+
-+		binfo = addattr_nest(&req.n, sizeof(req), IFLA_AF_SPEC);
-+		if (flags)
-+			err = addattr16(&req.n, sizeof(req), IFLA_BRIDGE_FLAGS, flags);
-+		if (mode < 3)
-+			err = addattr16(&req.n, sizeof(req), IFLA_BRIDGE_MODE, mode);
-+		if (err < 0)
-+			fprintf(stderr, "addattr16 failes\n");
-+		addattr_nest_end(&req.n, binfo);
-+       
-+		printf("mode %s\n", mode == BRIDGE_MODE_VEPA ? "VEPA" : "VEB");
-+	}
-+
-+	printf("%s: %s(%u): rtnl_talk length %u\n", __func__, d, req.ifm.ifi_index, req.n.nlmsg_len);
-+	if (rtnl_talk(&rth, &req.n, 0, 0, &reply.hdr) < 0) {
-+		printf("\nREPLY: error %i\n", reply.err.error);
-+		print_bridge(NULL, &reply.err.msg, stderr);
-+		exit(2);
-+	}
-+
-+	return 0;
-+}
-+
-+int do_bridge(int argc, char **argv)
-+{
-+	ll_init_map(&rth);
-+
-+	if (argc > 0) {
-+		if (matches(*argv, "show") == 0)
-+			return bridge_show(argc-1, argv+1);
-+		else if (matches(*argv, "state") == 0)
-+			return bridge_state_set(argc-1, argv+1);
-+		else if (matches(*argv, "help") == 0)
-+			bridge_usage();
-+	}
-+
-+	exit(0);
-+}
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 012d95a..1a6c2f1 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -142,6 +142,7 @@ enum {
- #define IFLA_PROMISCUITY IFLA_PROMISCUITY
- 	IFLA_NUM_TX_QUEUES,
- 	IFLA_NUM_RX_QUEUES,
-+	IFLA_BRIDGE,
- 	__IFLA_MAX
- };
- 
-@@ -375,6 +376,21 @@ enum {
- #define PORT_UUID_MAX		16
- #define PORT_SELF_VF		-1
- 
-+/* Bridge Flags */
-+#define BRIDGE_FLAGS_MASTER	1	/* Bridge command to/from master */
-+#define BRIDGE_FLAGS_SELF	2	/* Bridge command to/from lowerdev */
-+
-+#define BRIDGE_MODE_VEB		0	/* Default loopback mode */
-+#define BRIDGE_MODE_VEPA	1	/* 802.1Qbg defined VEPA mode */
-+
-+/* Bridge management nested attributes */
-+enum {
-+	IFLA_BRIDGE_FLAGS,
-+	IFLA_BRIDGE_MODE,
-+	__IFLA_BRIDGE_MAX,
-+};
-+#define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
-+
- enum {
- 	PORT_REQUEST_PREASSOCIATE = 0,
- 	PORT_REQUEST_PREASSOCIATE_RR,
+7) BNX2X bug fixes from Yaniv Rosner and Dmitry Kravkov.
+
+8) Fix off by one errors in bonding, from Nikolay ALeksandrov.
+
+9) Fix divide by zero in TCP-Illinois congestion control.  From
+   Jesper Dangaard Brouer.
+
+10) TCP metrics code says "Yo dawg, I heard you like sizeof, so I
+    did a sizeof of a sizeof, so you can size your size" Fix from
+    Julian Anastasov.
+
+11) Several drivers do mdiobus_free without first doing an
+    mdiobus_unregister leading to stray pointer references.
+    Fix from Peter Senna Tschudin.
+
+12) Fix OOPS in l2tp_eth_create() error path, it's another danling
+    pointer kinda situation.  Fix from Tom Parkin.
+
+13) Hardware driven by the vmxnet driver can't handle larger than 16K
+    fragments, so split them up when necessary.  From Eric Dumazet.
+
+14) Handle zero length data length in tcp_send_rcvq() properly.  Fix
+    from Pavel Emelyanov.
+
+Please pull, thanks a lot!
+
+The following changes since commit e657e078d3dfa9f96976db7a2b5fd7d7c9f1f1a6:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2012-10-26 15:00:48 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net master
+
+for you to fetch changes up to c454e6111d1ef4268fe98e87087216e51c2718c3:
+
+  tcp-repair: Handle zero-length data put in rcv queue (2012-11-02 22:01:45 -0400)
+
+----------------------------------------------------------------
+Antonio Quartulli (1):
+      mac80211: fix SSID copy on IBSS JOIN
+
+David S. Miller (2):
+      Merge branch 'master' of git://1984.lsi.us.es/nf
+      Merge branch 'for-davem' of git://git.kernel.org/.../linville/wireless
+
+Dmitry Kravkov (2):
+      bnx2x: Disable FCoE for 57840 since not yet supported by FW
+      bnx2x: fix HW initialization using fw 7.8.x
+
+Eric Dumazet (1):
+      vmxnet3: must split too big fragments
+
+Felix Fietkau (3):
+      cfg80211: fix antenna gain handling
+      cfg80211: fix initialization of chan->max_reg_power
+      ath9k: fix stale pointers potentially causing access to free'd skbs
+
+Hein Tibosch (1):
+      netfilter: nf_defrag_ipv6: solve section mismatch in nf_conntrack_reasm
+
+Jacob Keller (1):
+      ixgbe: PTP get_ts_info missing software support
+
+Javier Cardona (3):
+      mac80211: Only process mesh config header on frames that RA_MATCH
+      mac80211: Don't drop frames received with mesh ttl == 1
+      mac80211: don't inspect Sequence Control field on control frames
+
+Jesper Dangaard Brouer (1):
+      net: fix divide by zero in tcp algorithm illinois
+
+Johannes Berg (5):
+      mac80211: use blacklist for duplicate IE check
+      wireless: drop invalid mesh address extension frames
+      mac80211: check management frame header length
+      mac80211: verify that skb data is present
+      mac80211: make sure data is accessible in EAPOL check
+
+John W. Linville (2):
+      Merge branch 'for-john' of git://git.kernel.org/.../jberg/mac80211
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless into for-davem
+
+Julian Anastasov (2):
+      netfilter: nf_conntrack: fix rt_gateway checks for H.323 helper
+      tcp: Fix double sizeof in new tcp_metrics code
+
+Masanari Iida (1):
+      net: sctp: Fix typo in net/sctp
+
+Pavel Emelyanov (1):
+      tcp-repair: Handle zero-length data put in rcv queue
+
+Peter Senna Tschudin (2):
+      drivers/net/ethernet/nxp/lpc_eth.c: Call mdiobus_unregister before mdiobus_free
+      drivers/net/phy/mdio-bitbang.c: Call mdiobus_unregister before mdiobus_free
+
+Stanislaw Gruszka (1):
+      rt2800: validate step value for temperature compensation
+
+Sven Eckelmann (1):
+      ath9k: Test for TID only in BlockAcks while checking tx status
+
+Tom Parkin (1):
+      l2tp: fix oops in l2tp_eth_create() error path
+
+Ulrich Weber (1):
+      netfilter: nf_nat: don't check for port change on ICMP tuples
+
+Vipul Pandya (1):
+      cxgb4: Fix unable to get UP event from the LLD
+
+Yaniv Rosner (6):
+      bnx2x: Fix 57810 1G-KR link against certain switches.
+      bnx2x: Fix link down in 57712 following LFA
+      bnx2x: Restore global registers back to default.
+      bnx2x: Fix potential incorrect link speed provision
+      bnx2x: Fix unrecognized SFP+ module after driver is loaded
+      bnx2x: Fix no link on 577xx 10G-baseT
+
+nikolay@redhat.com (2):
+      bonding: fix off-by-one error
+      bonding: fix second off-by-one error
+
+stephen hemminger (1):
+      vxlan: don't expire permanent entries
+
+ drivers/net/bonding/bond_sysfs.c                 |   4 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 158 +++++++++++++++++++++++++++++++++++--------------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  13 +++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c  |  10 ----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   3 +
+ drivers/net/ethernet/nxp/lpc_eth.c               |   1 +
+ drivers/net/phy/mdio-bitbang.c                   |   1 +
+ drivers/net/vmxnet3/vmxnet3_drv.c                |  65 +++++++++++++-------
+ drivers/net/vxlan.c                              |   2 +-
+ drivers/net/wireless/ath/ath9k/xmit.c            |  10 +++-
+ drivers/net/wireless/rt2x00/rt2800lib.c          |   2 +-
+ include/net/cfg80211.h                           |   9 +++
+ net/ipv4/netfilter/iptable_nat.c                 |   4 +-
+ net/ipv4/tcp_illinois.c                          |   8 ++-
+ net/ipv4/tcp_input.c                             |   3 +
+ net/ipv4/tcp_metrics.c                           |   2 +-
+ net/ipv6/netfilter/ip6table_nat.c                |   4 +-
+ net/ipv6/netfilter/nf_conntrack_reasm.c          |   4 +-
+ net/l2tp/l2tp_eth.c                              |   1 +
+ net/mac80211/ibss.c                              |   2 +-
+ net/mac80211/rx.c                                |  74 +++++++++++++++++------
+ net/mac80211/util.c                              |  42 ++++++++++---
+ net/netfilter/nf_conntrack_h323_main.c           |   3 +-
+ net/sctp/socket.c                                |   2 +-
+ net/wireless/core.c                              |   3 +-
+ net/wireless/reg.c                               |   5 +-
+ net/wireless/util.c                              |  14 +++--
+ 27 files changed, 320 insertions(+), 129 deletions(-)
