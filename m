@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] vlan: use IS_ENABLED()
-Date: Sat, 03 Nov 2012 15:03:38 -0400 (EDT)
-Message-ID: <20121103.150338.501185798299983644.davem@davemloft.net>
-References: <1351567348-15229-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH] net/at91_ether: fix the use of macb structure
+Date: Sat, 03 Nov 2012 15:04:14 -0400 (EDT)
+Message-ID: <20121103.150414.707741347606909244.davem@davemloft.net>
+References: <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com>
+	<1351596628-3405-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57807 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751559Ab2KCTDj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 15:03:39 -0400
-In-Reply-To: <1351567348-15229-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, havard@skinnemoen.net,
+	bhutchings@solarflare.com, linux-arm-kernel@lists.infradead.org,
+	plagnioj@jcrosoft.com, patrice.vilchez@atmel.com,
+	linux-kernel@vger.kernel.org, manabian@gmail.com
+To: nicolas.ferre@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351596628-3405-1-git-send-email-nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Tue, 30 Oct 2012 11:22:28 +0800
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Date: Tue, 30 Oct 2012 12:30:28 +0100
 
-> #if defined(CONFIG_FOO) || defined(CONFIG_FOO_MODULE)
+> Due to the use of common structure in at91_ether and macb drivers,
+> change the name of DMA descriptor structures in at91_ether as well:
+> dma_desc => macb_dma_desc
 > 
-> can be replaced by
-> 
-> #if IS_ENABLED(CONFIG_FOO)
-> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-Applied.
+This does not apply to net-next, respin it if this change is
+still relevant.
