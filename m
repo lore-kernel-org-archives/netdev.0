@@ -1,208 +1,364 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 9/9] batman-adv: Add get_ethtool_stats() support for DAT
-Date: Sat,  3 Nov 2012 19:48:34 +0100
-Message-ID: <1351968514-12357-10-git-send-email-ordex@autistici.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: [PATCH 1/9] batman-adv: add UNICAST_4ADDR packet type
+Date: Sat,  3 Nov 2012 19:48:26 +0100
+Message-ID: <1351968514-12357-2-git-send-email-ordex@autistici.org>
 References: <1351968514-12357-1-git-send-email-ordex@autistici.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Martin=20Hundeb=C3=B8ll?= <martin@hundeboll.net>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:49808 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753225Ab2KCSte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 14:49:34 -0400
-In-Reply-To: <1351968514-12357-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1351968514-12357-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-=46rom: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
+The current unicast packet type does not contain the orig source address. This
+patches add a new unicast packet (called UNICAST_4ADDR) which provides two new
+fields: the originator source address and the subtype (the type of the data
+contained in the packet payload). The former is useful to identify the node
+which injected the packet into the network and the latter is useful to avoid
+creating new unicast packet types in the future: a macro defining a new subtype
+will be enough.
 
-Added additional counters for D.A.T.
-
-Signed-off-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 ---
- net/batman-adv/distributed-arp-table.c | 19 +++++++++++++++++--
- net/batman-adv/distributed-arp-table.h | 27 ++++++++++++++++++++++++++=
-+
- net/batman-adv/routing.c               |  8 +++++++-
- net/batman-adv/soft-interface.c        |  7 +++++++
- net/batman-adv/types.h                 |  7 +++++++
- 5 files changed, 65 insertions(+), 3 deletions(-)
+ net/batman-adv/main.c           |   2 +
+ net/batman-adv/packet.h         |  37 ++++++++---
+ net/batman-adv/routing.c        |   8 ++-
+ net/batman-adv/soft-interface.c |   2 +-
+ net/batman-adv/unicast.c        | 134 +++++++++++++++++++++++++++++++++++-----
+ net/batman-adv/unicast.h        |  32 +++++++++-
+ 6 files changed, 189 insertions(+), 26 deletions(-)
 
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/di=
-stributed-arp-table.c
-index c1a74a1..8e1d89d 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -601,9 +601,22 @@ static bool batadv_dat_send_data(struct batadv_pri=
-v *bat_priv,
- 		send_status =3D batadv_send_skb_packet(tmp_skb,
- 						     neigh_node->if_incoming,
- 						     neigh_node->addr);
--		if (send_status =3D=3D NET_XMIT_SUCCESS)
-+		if (send_status =3D=3D NET_XMIT_SUCCESS) {
-+			/* count the sent packet */
-+			switch (packet_subtype) {
-+			case BATADV_P_DAT_DHT_GET:
-+				batadv_inc_counter(bat_priv,
-+						   BATADV_CNT_DAT_GET_TX);
-+				break;
-+			case BATADV_P_DAT_DHT_PUT:
-+				batadv_inc_counter(bat_priv,
-+						   BATADV_CNT_DAT_PUT_TX);
-+				break;
-+			}
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index f9bcfa1..afc07a8 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -300,6 +300,8 @@ static void batadv_recv_handler_init(void)
+ 
+ 	/* batman icmp packet */
+ 	batadv_rx_handler[BATADV_ICMP] = batadv_recv_icmp_packet;
++	/* unicast with 4 addresses packet */
++	batadv_rx_handler[BATADV_UNICAST_4ADDR] = batadv_recv_unicast_packet;
+ 	/* unicast packet */
+ 	batadv_rx_handler[BATADV_UNICAST] = batadv_recv_unicast_packet;
+ 	/* fragmented unicast packet */
+diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
+index 2d23a14..72d7331 100644
+--- a/net/batman-adv/packet.h
++++ b/net/batman-adv/packet.h
+@@ -23,14 +23,23 @@
+ #define BATADV_ETH_P_BATMAN  0x4305 /* unofficial/not registered Ethertype */
+ 
+ enum batadv_packettype {
+-	BATADV_IV_OGM	    = 0x01,
+-	BATADV_ICMP	    = 0x02,
+-	BATADV_UNICAST	    = 0x03,
+-	BATADV_BCAST	    = 0x04,
+-	BATADV_VIS	    = 0x05,
+-	BATADV_UNICAST_FRAG = 0x06,
+-	BATADV_TT_QUERY	    = 0x07,
+-	BATADV_ROAM_ADV	    = 0x08,
++	BATADV_IV_OGM		= 0x01,
++	BATADV_ICMP		= 0x02,
++	BATADV_UNICAST		= 0x03,
++	BATADV_BCAST		= 0x04,
++	BATADV_VIS		= 0x05,
++	BATADV_UNICAST_FRAG	= 0x06,
++	BATADV_TT_QUERY		= 0x07,
++	BATADV_ROAM_ADV		= 0x08,
++	BATADV_UNICAST_4ADDR	= 0x09,
++};
 +
- 			/* packet sent to a candidate: return true */
- 			ret =3D true;
-+		}
- free_neigh:
- 		batadv_neigh_node_free_ref(neigh_node);
- free_orig:
-@@ -909,8 +922,10 @@ bool batadv_dat_snoop_incoming_arp_request(struct =
-batadv_priv *bat_priv,
- 	else
- 		err =3D batadv_unicast_send_skb(bat_priv, skb_new);
-=20
--	if (!err)
-+	if (!err) {
-+		batadv_inc_counter(bat_priv, BATADV_CNT_DAT_CACHED_REPLY_TX);
- 		ret =3D true;
-+	}
- out:
- 	if (dat_entry)
- 		batadv_dat_entry_free_ref(dat_entry);
-diff --git a/net/batman-adv/distributed-arp-table.h b/net/batman-adv/di=
-stributed-arp-table.h
-index fdb3522..d060c03 100644
---- a/net/batman-adv/distributed-arp-table.h
-+++ b/net/batman-adv/distributed-arp-table.h
-@@ -74,6 +74,28 @@ int batadv_dat_init(struct batadv_priv *bat_priv);
- void batadv_dat_free(struct batadv_priv *bat_priv);
- int batadv_dat_cache_seq_print_text(struct seq_file *seq, void *offset=
-);
-=20
 +/**
-+ * batadv_dat_inc_counter - increment the correct DAT packet counter
-+ * @bat_priv: the bat priv with all the soft interface information
-+ * @subtype: the 4addr subtype of the packet to be counted
-+ *
-+ * Updates the ethtool statistics for the received packet if it is a D=
-AT subtype
++ * enum batadv_subtype - packet subtype for unicast4addr
++ * @BATADV_P_DATA: user payload
 + */
-+static inline void batadv_dat_inc_counter(struct batadv_priv *bat_priv=
-,
-+					  uint8_t subtype)
-+{
-+	switch (subtype) {
-+	case BATADV_P_DAT_DHT_GET:
-+		batadv_inc_counter(bat_priv,
-+				   BATADV_CNT_DAT_GET_RX);
-+		break;
-+	case BATADV_P_DAT_DHT_PUT:
-+		batadv_inc_counter(bat_priv,
-+				   BATADV_CNT_DAT_PUT_RX);
-+		break;
-+	}
-+}
++enum batadv_subtype {
++	BATADV_P_DATA		= 0x01,
+ };
+ 
+ /* this file is included by batctl which needs these defines */
+@@ -161,6 +170,18 @@ struct batadv_unicast_packet {
+ 	uint8_t  dest[ETH_ALEN];
+ } __packed;
+ 
++/**
++ * struct batadv_unicast_4addr_packet - extended unicast packet
++ * @u: common unicast packet header
++ * @src: address of the source
++ * @subtype: packet subtype
++ */
++struct batadv_unicast_4addr_packet {
++	struct batadv_unicast_packet u;
++	uint8_t src[ETH_ALEN];
++	uint8_t subtype;
++} __packed;
 +
- #else
-=20
- static inline bool
-@@ -135,6 +157,11 @@ static inline void batadv_dat_free(struct batadv_p=
-riv *bat_priv)
- {
- }
-=20
-+static inline void batadv_dat_inc_counter(struct batadv_priv *bat_priv=
-,
-+					  uint8_t subtype)
-+{
-+}
-+
- #endif /* CONFIG_BATMAN_ADV_DAT */
-=20
- #endif /* _NET_BATMAN_ADV_ARP_H_ */
+ struct batadv_unicast_frag_packet {
+ 	struct batadv_header header;
+ 	uint8_t  ttvn; /* destination translation table version number */
 diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 1826699..3f21c09 100644
+index 46dd5b4..859679b 100644
 --- a/net/batman-adv/routing.c
 +++ b/net/batman-adv/routing.c
-@@ -985,15 +985,17 @@ int batadv_recv_unicast_packet(struct sk_buff *sk=
-b,
- {
- 	struct batadv_priv *bat_priv =3D netdev_priv(recv_if->soft_iface);
+@@ -986,14 +986,18 @@ int batadv_recv_unicast_packet(struct sk_buff *skb,
  	struct batadv_unicast_packet *unicast_packet;
-+	struct batadv_unicast_4addr_packet *unicast_4addr_packet;
- 	int hdr_size =3D sizeof(*unicast_packet);
- 	bool is4addr;
-=20
- 	unicast_packet =3D (struct batadv_unicast_packet *)skb->data;
-+	unicast_4addr_packet =3D (struct batadv_unicast_4addr_packet *)skb->d=
-ata;
-=20
- 	is4addr =3D unicast_packet->header.packet_type =3D=3D BATADV_UNICAST_=
-4ADDR;
- 	/* the caller function should have already pulled 2 bytes */
- 	if (is4addr)
--		hdr_size =3D sizeof(struct batadv_unicast_4addr_packet);
-+		hdr_size =3D sizeof(*unicast_4addr_packet);
-=20
+ 	int hdr_size = sizeof(*unicast_packet);
+ 
++	unicast_packet = (struct batadv_unicast_packet *)skb->data;
++
++	/* the caller function should have already pulled 2 bytes */
++	if (unicast_packet->header.packet_type == BATADV_UNICAST_4ADDR)
++		hdr_size = sizeof(struct batadv_unicast_4addr_packet);
++
  	if (batadv_check_unicast_packet(skb, hdr_size) < 0)
  		return NET_RX_DROP;
-@@ -1003,6 +1005,10 @@ int batadv_recv_unicast_packet(struct sk_buff *s=
-kb,
-=20
+ 
+ 	if (!batadv_check_unicast_ttvn(bat_priv, skb))
+ 		return NET_RX_DROP;
+ 
+-	unicast_packet = (struct batadv_unicast_packet *)skb->data;
+-
  	/* packet for me */
  	if (batadv_is_my_mac(unicast_packet->dest)) {
-+		if (is4addr)
-+			batadv_dat_inc_counter(bat_priv,
-+					       unicast_4addr_packet->subtype);
-+
- 		if (batadv_dat_snoop_incoming_arp_request(bat_priv, skb,
- 							  hdr_size))
- 			goto rx_success;
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-inte=
-rface.c
-index 7b4a3a3..c283d87 100644
+ 		batadv_interface_rx(recv_if->soft_iface, skb, recv_if, hdr_size,
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 22bc651..2f123a1 100644
 --- a/net/batman-adv/soft-interface.c
 +++ b/net/batman-adv/soft-interface.c
-@@ -625,6 +625,13 @@ static const struct {
- 	{ "tt_response_rx" },
- 	{ "tt_roam_adv_tx" },
- 	{ "tt_roam_adv_rx" },
-+#ifdef CONFIG_BATMAN_ADV_DAT
-+	{ "dat_get_tx" },
-+	{ "dat_get_rx" },
-+	{ "dat_put_tx" },
-+	{ "dat_put_rx" },
-+	{ "dat_cached_reply_tx" },
-+#endif
- };
-=20
- static void batadv_get_strings(struct net_device *dev, uint32_t string=
-set,
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 0afeb2b..8ce16c1 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -186,6 +186,13 @@ enum batadv_counters {
- 	BATADV_CNT_TT_RESPONSE_RX,
- 	BATADV_CNT_TT_ROAM_ADV_TX,
- 	BATADV_CNT_TT_ROAM_ADV_RX,
-+#ifdef CONFIG_BATMAN_ADV_DAT
-+	BATADV_CNT_DAT_GET_TX,
-+	BATADV_CNT_DAT_GET_RX,
-+	BATADV_CNT_DAT_PUT_TX,
-+	BATADV_CNT_DAT_PUT_RX,
-+	BATADV_CNT_DAT_CACHED_REPLY_TX,
-+#endif
- 	BATADV_CNT_NUM,
- };
-=20
---=20
+@@ -260,7 +260,7 @@ static int batadv_interface_tx(struct sk_buff *skb,
+ 				goto dropped;
+ 		}
+ 
+-		ret = batadv_unicast_send_skb(skb, bat_priv);
++		ret = batadv_unicast_send_skb(bat_priv, skb);
+ 		if (ret != 0)
+ 			goto dropped_freed;
+ 	}
+diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
+index f397232..1df22c5 100644
+--- a/net/batman-adv/unicast.c
++++ b/net/batman-adv/unicast.c
+@@ -291,7 +291,110 @@ out:
+ 	return ret;
+ }
+ 
+-int batadv_unicast_send_skb(struct sk_buff *skb, struct batadv_priv *bat_priv)
++/**
++ * batadv_unicast_push_and_fill_skb - extends the buffer and initializes the
++ * common fields for unicast packets
++ * @skb: packet
++ * @hdr_size: amount of bytes to push at the beginning of the skb
++ * @orig_node: the destination node
++ *
++ * Returns false if the buffer extension was not possible or true otherwise
++ */
++static bool batadv_unicast_push_and_fill_skb(struct sk_buff *skb, int hdr_size,
++					     struct batadv_orig_node *orig_node)
++{
++	struct batadv_unicast_packet *unicast_packet;
++	uint8_t ttvn = (uint8_t)atomic_read(&orig_node->last_ttvn);
++
++	if (batadv_skb_head_push(skb, hdr_size) < 0)
++		return false;
++
++	unicast_packet = (struct batadv_unicast_packet *)skb->data;
++	unicast_packet->header.version = BATADV_COMPAT_VERSION;
++	/* batman packet type: unicast */
++	unicast_packet->header.packet_type = BATADV_UNICAST;
++	/* set unicast ttl */
++	unicast_packet->header.ttl = BATADV_TTL;
++	/* copy the destination for faster routing */
++	memcpy(unicast_packet->dest, orig_node->orig, ETH_ALEN);
++	/* set the destination tt version number */
++	unicast_packet->ttvn = ttvn;
++
++	return true;
++}
++
++/**
++ * batadv_unicast_prepare_skb - encapsulate an skb with a unicast header
++ * @skb: the skb containing the payload to encapsulate
++ * @orig_node: the destination node
++ *
++ * Returns false if the payload could not be encapsulated or true otherwise
++ */
++static bool batadv_unicast_prepare_skb(struct sk_buff *skb,
++				       struct batadv_orig_node *orig_node)
++{
++	size_t uni_size = sizeof(struct batadv_unicast_packet);
++	return batadv_unicast_push_and_fill_skb(skb, uni_size, orig_node);
++}
++
++/**
++ * batadv_unicast_4addr_prepare_skb - encapsulate an skb with a unicast4addr
++ * header
++ * @bat_priv: the bat priv with all the soft interface information
++ * @skb: the skb containing the payload to encapsulate
++ * @orig_node: the destination node
++ * @packet_subtype: the batman 4addr packet subtype to use
++ *
++ * Returns false if the payload could not be encapsulated or true otherwise
++ */
++static bool batadv_unicast_4addr_prepare_skb(struct batadv_priv *bat_priv,
++					     struct sk_buff *skb,
++					     struct batadv_orig_node *orig,
++					     int packet_subtype)
++{
++	struct batadv_hard_iface *primary_if;
++	struct batadv_unicast_4addr_packet *unicast_4addr_packet;
++	bool ret = false;
++
++	primary_if = batadv_primary_if_get_selected(bat_priv);
++	if (!primary_if)
++		goto out;
++
++	/* pull the header space and fill the unicast_packet substructure.
++	 * We can do that because the first member of the unicast_4addr_packet
++	 * is of type struct unicast_packet
++	 */
++	if (!batadv_unicast_push_and_fill_skb(skb,
++					      sizeof(*unicast_4addr_packet),
++					      orig))
++		goto out;
++
++	unicast_4addr_packet = (struct batadv_unicast_4addr_packet *)skb->data;
++	unicast_4addr_packet->u.header.packet_type = BATADV_UNICAST_4ADDR;
++	memcpy(unicast_4addr_packet->src, primary_if->net_dev->dev_addr,
++	       ETH_ALEN);
++	unicast_4addr_packet->subtype = packet_subtype;
++
++	ret = true;
++out:
++	if (primary_if)
++		batadv_hardif_free_ref(primary_if);
++	return ret;
++}
++
++/**
++ * batadv_unicast_generic_send_skb - send an skb as unicast
++ * @bat_priv: the bat priv with all the soft interface information
++ * @skb: payload to send
++ * @packet_type: the batman unicast packet type to use
++ * @packet_subtype: the batman packet subtype. It is ignored if packet_type is
++ *		    not BATADV_UNICAT_4ADDR
++ *
++ * Returns 1 in case of error or 0 otherwise
++ */
++int batadv_unicast_generic_send_skb(struct batadv_priv *bat_priv,
++				    struct sk_buff *skb, int packet_type,
++				    int packet_subtype)
+ {
+ 	struct ethhdr *ethhdr = (struct ethhdr *)skb->data;
+ 	struct batadv_unicast_packet *unicast_packet;
+@@ -324,21 +427,23 @@ find_router:
+ 	if (!neigh_node)
+ 		goto out;
+ 
+-	if (batadv_skb_head_push(skb, sizeof(*unicast_packet)) < 0)
++	switch (packet_type) {
++	case BATADV_UNICAST:
++		batadv_unicast_prepare_skb(skb, orig_node);
++		break;
++	case BATADV_UNICAST_4ADDR:
++		batadv_unicast_4addr_prepare_skb(bat_priv, skb, orig_node,
++						 packet_subtype);
++		break;
++	default:
++		/* this function supports UNICAST and UNICAST_4ADDR only. It
++		 * should never be invoked with any other packet type
++		 */
+ 		goto out;
++	}
+ 
+ 	unicast_packet = (struct batadv_unicast_packet *)skb->data;
+ 
+-	unicast_packet->header.version = BATADV_COMPAT_VERSION;
+-	/* batman packet type: unicast */
+-	unicast_packet->header.packet_type = BATADV_UNICAST;
+-	/* set unicast ttl */
+-	unicast_packet->header.ttl = BATADV_TTL;
+-	/* copy the destination for faster routing */
+-	memcpy(unicast_packet->dest, orig_node->orig, ETH_ALEN);
+-	/* set the destination tt version number */
+-	unicast_packet->ttvn = (uint8_t)atomic_read(&orig_node->last_ttvn);
+-
+ 	/* inform the destination node that we are still missing a correct route
+ 	 * for this client. The destination will receive this packet and will
+ 	 * try to reroute it because the ttvn contained in the header is less
+@@ -348,7 +453,9 @@ find_router:
+ 		unicast_packet->ttvn = unicast_packet->ttvn - 1;
+ 
+ 	dev_mtu = neigh_node->if_incoming->net_dev->mtu;
+-	if (atomic_read(&bat_priv->fragmentation) &&
++	/* fragmentation mechanism only works for UNICAST (now) */
++	if (packet_type == BATADV_UNICAST &&
++	    atomic_read(&bat_priv->fragmentation) &&
+ 	    data_len + sizeof(*unicast_packet) > dev_mtu) {
+ 		/* send frag skb decreases ttl */
+ 		unicast_packet->header.ttl++;
+@@ -360,7 +467,6 @@ find_router:
+ 
+ 	batadv_send_skb_packet(skb, neigh_node->if_incoming, neigh_node->addr);
+ 	ret = 0;
+-	goto out;
+ 
+ out:
+ 	if (neigh_node)
+diff --git a/net/batman-adv/unicast.h b/net/batman-adv/unicast.h
+index 1c46e2e..a88ed29 100644
+--- a/net/batman-adv/unicast.h
++++ b/net/batman-adv/unicast.h
+@@ -29,10 +29,40 @@ int batadv_frag_reassemble_skb(struct sk_buff *skb,
+ 			       struct batadv_priv *bat_priv,
+ 			       struct sk_buff **new_skb);
+ void batadv_frag_list_free(struct list_head *head);
+-int batadv_unicast_send_skb(struct sk_buff *skb, struct batadv_priv *bat_priv);
+ int batadv_frag_send_skb(struct sk_buff *skb, struct batadv_priv *bat_priv,
+ 			 struct batadv_hard_iface *hard_iface,
+ 			 const uint8_t dstaddr[]);
++int batadv_unicast_generic_send_skb(struct batadv_priv *bat_priv,
++				    struct sk_buff *skb, int packet_type,
++				    int packet_subtype);
++
++
++/**
++ * batadv_unicast_send_skb - send the skb encapsulated in a unicast packet
++ * @bat_priv: the bat priv with all the soft interface information
++ * @skb: the payload to send
++ */
++static inline int batadv_unicast_send_skb(struct batadv_priv *bat_priv,
++					  struct sk_buff *skb)
++{
++	return batadv_unicast_generic_send_skb(bat_priv, skb, BATADV_UNICAST,
++					       0);
++}
++
++/**
++ * batadv_unicast_send_skb - send the skb encapsulated in a unicast4addr packet
++ * @bat_priv: the bat priv with all the soft interface information
++ * @skb: the payload to send
++ * @packet_subtype: the batman 4addr packet subtype to use
++ */
++static inline int batadv_unicast_4addr_send_skb(struct batadv_priv *bat_priv,
++						struct sk_buff *skb,
++						int packet_subtype)
++{
++	return batadv_unicast_generic_send_skb(bat_priv, skb,
++					       BATADV_UNICAST_4ADDR,
++					       packet_subtype);
++}
+ 
+ static inline int batadv_frag_can_reassemble(const struct sk_buff *skb, int mtu)
+ {
+-- 
 1.7.12.4
