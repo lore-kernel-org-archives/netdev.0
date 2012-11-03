@@ -1,43 +1,78 @@
-From: Christof Meerwald <cmeerw@cmeerw.org>
-Subject: Re: A reliable kernel panic (3.6.2) and system crash when visiting a
- particular website
-Date: Sat, 3 Nov 2012 15:10:49 +0100
-Message-ID: <20121103141049.GA24238@edge.cmeerw.net>
-References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05>
- <20121020162759.GA12551@liondog.tnic>
- <966148591.30347.1350754909449.JavaMail.mail@webmail08>
- <20121020203227.GC555@elf.ucw.cz>
- <20121020225849.GA8976@liondog.tnic>
- <1781795634.31179.1350774917965.JavaMail.mail@webmail04>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH 10/16] drivers/net/ethernet/ibm/emac/mal.c: use WARN
+Date: Sat, 3 Nov 2012 15:14:51 +0100 (CET)
+Message-ID: <alpine.DEB.2.02.1211031513220.1955@localhost6.localdomain6>
+References: <1351940317-14812-1-git-send-email-Julia.Lawall@lip6.fr> <1351940317-14812-11-git-send-email-Julia.Lawall@lip6.fr> <50950055.8040307@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pavel@ucw.cz, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	security@kernel.org, linux-media@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: "Artem S. Tashkinov" <t.artem@lycos.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Julia Lawall <Julia.Lawall@lip6.fr>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: walter harms <wharms@bfs.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1781795634.31179.1350774917965.JavaMail.mail@webmail04>
+In-Reply-To: <50950055.8040307@bfs.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 20 Oct 2012 23:15:17 +0000 (GMT), Artem S. Tashkinov wrote:
-> It's almost definitely either a USB driver bug or video4linux driver bug:
+On Sat, 3 Nov 2012, walter harms wrote:
+
 >
-> I'm CC'ing linux-media and linux-usb mailing lists, the problem is described here:
-> https://lkml.org/lkml/2012/10/20/35
-> https://lkml.org/lkml/2012/10/20/148
+>
+> Am 03.11.2012 11:58, schrieb Julia Lawall:
+>> From: Julia Lawall <Julia.Lawall@lip6.fr>
+>>
+>> Use WARN rather than printk followed by WARN_ON(1), for conciseness.
+>>
+>> A simplified version of the semantic patch that makes this transformation
+>> is as follows: (http://coccinelle.lip6.fr/)
+>>
+>> // <smpl>
+>> @@
+>> expression list es;
+>> @@
+>>
+>> -printk(
+>> +WARN(1,
+>>   es);
+>> -WARN_ON(1);
+>> // </smpl>
+>>
+>> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+>>
+>> ---
+>>  drivers/net/ethernet/ibm/emac/mal.c |    6 ++----
+>>  1 file changed, 2 insertions(+), 4 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/ibm/emac/mal.c b/drivers/net/ethernet/ibm/emac/mal.c
+>> index 479e43e..84c6b6c 100644
+>> --- a/drivers/net/ethernet/ibm/emac/mal.c
+>> +++ b/drivers/net/ethernet/ibm/emac/mal.c
+>> @@ -738,13 +738,11 @@ static int __devexit mal_remove(struct platform_device *ofdev)
+>>  	/* Synchronize with scheduled polling */
+>>  	napi_disable(&mal->napi);
+>>
+>> -	if (!list_empty(&mal->list)) {
+>> +	if (!list_empty(&mal->list))
+>>  		/* This is *very* bad */
+>> -		printk(KERN_EMERG
+>> +		WARN(1, KERN_EMERG
+>>  		       "mal%d: commac list is not empty on remove!\n",
+>>  		       mal->index);
+>> -		WARN_ON(1);
+>> -	}
+>>
+>>  	dev_set_drvdata(&ofdev->dev, NULL);
+>>
+>>
+>
+> Hi Julia,
+> you are removing the {} behin the if. I prefer to be a bit conservative
+> about {}. There is suggest to keep them because WARN may be expanded in
+> future (with a second line) and that will cause subtle changes that do
+> no break the code. (Yes i know it is possible to write macros that
+> contain savely more than one line.)
 
-Not sure if it's related, but I am seeing a kernel freeze with a
-usb-audio headset (connected via an external USB hub) on Linux 3.5.0
-(Ubuntu 12.10) - see
-http://comments.gmane.org/gmane.comp.voip.twinkle/3052 and
-http://pastebin.com/aHGe1S1X for a self-contained C test.
+WARN is already multi-line, surrounded by ({ }).  It seems to be set up to 
+be used as an expression.  Is it necessary to assume that it might someday 
+be changed from safe to unsafe?
 
-
-Christof
-
--- 
-
-http://cmeerw.org                              sip:cmeerw at cmeerw.org
-mailto:cmeerw at cmeerw.org                   xmpp:cmeerw at cmeerw.org
+julia
