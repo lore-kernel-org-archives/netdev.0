@@ -1,496 +1,65 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH RFC net-next 1/1] cpsw: simplify the setup of the register pointers
-Date: Sat,  3 Nov 2012 18:45:04 +0100
-Message-ID: <574bfbec2104064664529d2ee39d812441c4fab8.1351964329.git.richardcochran@gmail.com>
-References: <509240CF.6060909@ti.com>
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Cyril Chemparathy <cyril@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Vaibhav Hiremath <hvaibhav@ti.com>,
-	Benoit Cousson <b-cousson@ti.com>, <paul@pwsan.com>
-To: <netdev@vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: better retrans tracking for defer-accept
+Date: Sat, 03 Nov 2012 14:46:59 -0400 (EDT)
+Message-ID: <20121103.144659.41045577384221098.davem@davemloft.net>
+References: <alpine.LFD.2.00.1210271556250.1628@ja.ssi.bg>
+	<1351344725.30380.286.camel@edumazet-glaptop>
+	<1351347537.30380.315.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ja@ssi.bg, subramanian.vijay@gmail.com, netdev@vger.kernel.org,
+	ncardwell@google.com, venkat.x.venkatsubra@oracle.com,
+	enh@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:48347 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754694Ab2KCRpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 13:45:22 -0400
-In-Reply-To: <509240CF.6060909@ti.com>
-In-Reply-To: <cover.1351964329.git.richardcochran@gmail.com>
-References: <cover.1351964329.git.richardcochran@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57569 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752385Ab2KCSrC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 14:47:02 -0400
+In-Reply-To: <1351347537.30380.315.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of having a host of different register offsets in the device tree,
-this patch simplifies the CPSW code by letting the driver set the proper
-register offsets automatically, based on the CPSW version.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 27 Oct 2012 16:18:57 +0200
 
-Signed-off-by: Richard Cochran <richardcochran@gmail.com>
----
- Documentation/devicetree/bindings/net/cpsw.txt |   34 ----
- drivers/net/ethernet/ti/cpsw.c                 |  209 +++++++++--------------
- include/linux/platform_data/cpsw.h             |   19 --
- 3 files changed, 82 insertions(+), 180 deletions(-)
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> For passive TCP connections using TCP_DEFER_ACCEPT facility,
+> we incorrectly increment req->retrans each time timeout triggers
+> while no SYNACK is sent.
+> 
+> SYNACK are not sent for TCP_DEFER_ACCEPT that were established (for wich
+> we received the ACK from client). Only the last SYNACK is
+> sent so that we can receive again an ACK from client, to move the
+> req into accept queue. We plan to change this later to avoid
+> the useless retransmit (and potential problem as this SYNACK could be
+> lost)
+> 
+> TCP_INFO later gives wrong information to user, claiming imaginary
+> retransmits.
+> 
+> Decouple req->retrans field into two independent fields :
+> 
+> num_retrans : number of retransmit
+> num_timeout : number of timeouts
+> 
+> num_timeout is the counter that is incremented at each timeout,
+> regardless of actual SYNACK being sent or not, and used to
+> compute the exponential timeout.
+> 
+> Introduce inet_rtx_syn_ack() helper to increment num_retrans
+> only if ->rtx_syn_ack() succeeded.
+> 
+> Use inet_rtx_syn_ack() from tcp_check_req() to increment num_retrans
+> when we re-send a SYNACK in answer to a (retransmitted) SYN.
+> Prior to this patch, we were not counting these retransmits.
+> 
+> Change tcp_v[46]_rtx_synack() to increment TCP_MIB_RETRANSSEGS
+> only if a synack packet was successfully queued.
+> 
+> Reported-by: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 2214607..6cf5d92 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -9,15 +9,7 @@ Required properties:
- 			  number
- - interrupt-parent	: The parent interrupt controller
- - cpdma_channels 	: Specifies number of channels in CPDMA
--- host_port_no		: Specifies host port shift
--- cpdma_reg_ofs		: Specifies CPDMA submodule register offset
--- cpdma_sram_ofs	: Specifies CPDMA SRAM offset
--- ale_reg_ofs		: Specifies ALE submodule register offset
- - ale_entries		: Specifies No of entries ALE can hold
--- host_port_reg_ofs	: Specifies host port register offset
--- hw_stats_reg_ofs	: Specifies hardware statistics register offset
--- cpts_reg_ofs		: Specifies the offset of the CPTS registers
--- bd_ram_ofs		: Specifies internal desciptor RAM offset
- - bd_ram_size		: Specifies internal descriptor RAM size
- - rx_descs		: Specifies number of Rx descriptors
- - mac_control		: Specifies Default MAC control register content
-@@ -26,8 +18,6 @@ Required properties:
- - cpts_active_slave	: Specifies the slave to use for time stamping
- - cpts_clock_mult	: Numerator to convert input clock ticks into nanoseconds
- - cpts_clock_shift	: Denominator to convert input clock ticks into nanoseconds
--- slave_reg_ofs		: Specifies slave register offset
--- sliver_reg_ofs	: Specifies slave sliver register offset
- - phy_id		: Specifies slave phy id
- - mac-address		: Specifies slave MAC address
- 
-@@ -49,15 +39,7 @@ Examples:
- 		interrupts = <55 0x4>;
- 		interrupt-parent = <&intc>;
- 		cpdma_channels = <8>;
--		host_port_no = <0>;
--		cpdma_reg_ofs = <0x800>;
--		cpdma_sram_ofs = <0xa00>;
--		ale_reg_ofs = <0xd00>;
- 		ale_entries = <1024>;
--		host_port_reg_ofs = <0x108>;
--		hw_stats_reg_ofs = <0x900>;
--		cpts_reg_ofs = <0xc00>;
--		bd_ram_ofs = <0x2000>;
- 		bd_ram_size = <0x2000>;
- 		no_bd_ram = <0>;
- 		rx_descs = <64>;
-@@ -67,15 +49,11 @@ Examples:
- 		cpts_clock_mult = <0x80000000>;
- 		cpts_clock_shift = <29>;
- 		cpsw_emac0: slave@0 {
--			slave_reg_ofs = <0x200>;
--			sliver_reg_ofs = <0xd80>;
- 			phy_id = "davinci_mdio.16:00";
- 			/* Filled in by U-Boot */
- 			mac-address = [ 00 00 00 00 00 00 ];
- 		};
- 		cpsw_emac1: slave@1 {
--			slave_reg_ofs = <0x300>;
--			sliver_reg_ofs = <0xdc0>;
- 			phy_id = "davinci_mdio.16:01";
- 			/* Filled in by U-Boot */
- 			mac-address = [ 00 00 00 00 00 00 ];
-@@ -87,15 +65,7 @@ Examples:
- 		compatible = "ti,cpsw";
- 		ti,hwmods = "cpgmac0";
- 		cpdma_channels = <8>;
--		host_port_no = <0>;
--		cpdma_reg_ofs = <0x800>;
--		cpdma_sram_ofs = <0xa00>;
--		ale_reg_ofs = <0xd00>;
- 		ale_entries = <1024>;
--		host_port_reg_ofs = <0x108>;
--		hw_stats_reg_ofs = <0x900>;
--		cpts_reg_ofs = <0xc00>;
--		bd_ram_ofs = <0x2000>;
- 		bd_ram_size = <0x2000>;
- 		no_bd_ram = <0>;
- 		rx_descs = <64>;
-@@ -105,15 +75,11 @@ Examples:
- 		cpts_clock_mult = <0x80000000>;
- 		cpts_clock_shift = <29>;
- 		cpsw_emac0: slave@0 {
--			slave_reg_ofs = <0x200>;
--			sliver_reg_ofs = <0xd80>;
- 			phy_id = "davinci_mdio.16:00";
- 			/* Filled in by U-Boot */
- 			mac-address = [ 00 00 00 00 00 00 ];
- 		};
- 		cpsw_emac1: slave@1 {
--			slave_reg_ofs = <0x300>;
--			sliver_reg_ofs = <0xdc0>;
- 			phy_id = "davinci_mdio.16:01";
- 			/* Filled in by U-Boot */
- 			mac-address = [ 00 00 00 00 00 00 ];
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 7654a62..cf53379 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -80,6 +80,29 @@ do {								\
- 
- #define CPSW_VERSION_1		0x19010a
- #define CPSW_VERSION_2		0x19010c
-+
-+#define HOST_PORT_NUM		0
-+#define SLIVER_SIZE		0x40
-+
-+#define CPSW1_HOST_PORT_OFFSET	0x028
-+#define CPSW1_SLAVE_OFFSET	0x050
-+#define CPSW1_SLAVE_SIZE	0x040
-+#define CPSW1_CPDMA_OFFSET	0x100
-+#define CPSW1_STATERAM_OFFSET	0x200
-+#define CPSW1_CPTS_OFFSET	0x500
-+#define CPSW1_ALE_OFFSET	0x600
-+#define CPSW1_SLIVER_OFFSET	0x700
-+
-+#define CPSW2_HOST_PORT_OFFSET	0x108
-+#define CPSW2_SLAVE_OFFSET	0x200
-+#define CPSW2_SLAVE_SIZE	0x100
-+#define CPSW2_CPDMA_OFFSET	0x800
-+#define CPSW2_STATERAM_OFFSET	0xa00
-+#define CPSW2_CPTS_OFFSET	0xc00
-+#define CPSW2_ALE_OFFSET	0xd00
-+#define CPSW2_SLIVER_OFFSET	0xd80
-+#define CPSW2_BD_OFFSET		0x2000
-+
- #define CPDMA_RXTHRESH		0x0c0
- #define CPDMA_RXFREE		0x0e0
- #define CPDMA_TXHDP		0x00
-@@ -87,21 +110,6 @@ do {								\
- #define CPDMA_TXCP		0x40
- #define CPDMA_RXCP		0x60
- 
--#define cpsw_dma_regs(base, offset)		\
--	(void __iomem *)((base) + (offset))
--#define cpsw_dma_rxthresh(base, offset)		\
--	(void __iomem *)((base) + (offset) + CPDMA_RXTHRESH)
--#define cpsw_dma_rxfree(base, offset)		\
--	(void __iomem *)((base) + (offset) + CPDMA_RXFREE)
--#define cpsw_dma_txhdp(base, offset)		\
--	(void __iomem *)((base) + (offset) + CPDMA_TXHDP)
--#define cpsw_dma_rxhdp(base, offset)		\
--	(void __iomem *)((base) + (offset) + CPDMA_RXHDP)
--#define cpsw_dma_txcp(base, offset)		\
--	(void __iomem *)((base) + (offset) + CPDMA_TXCP)
--#define cpsw_dma_rxcp(base, offset)		\
--	(void __iomem *)((base) + (offset) + CPDMA_RXCP)
--
- #define CPSW_POLL_WEIGHT	64
- #define CPSW_MIN_PACKET_SIZE	60
- #define CPSW_MAX_PACKET_SIZE	(1500 + 14 + 4 + 4)
-@@ -629,8 +637,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 
- 	pm_runtime_get_sync(&priv->pdev->dev);
- 
--	reg = __raw_readl(&priv->regs->id_ver);
--	priv->version = reg;
-+	reg = priv->version;
- 
- 	dev_info(priv->dev, "initializing cpsw version %d.%d (%d)\n",
- 		 CPSW_MAJOR_VERSION(reg), CPSW_MINOR_VERSION(reg),
-@@ -995,15 +1002,16 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
- 	.get_ts_info	= cpsw_get_ts_info,
- };
- 
--static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv)
-+static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
-+			    u32 slave_reg_ofs, u32 sliver_reg_ofs)
- {
- 	void __iomem		*regs = priv->regs;
- 	int			slave_num = slave->slave_num;
- 	struct cpsw_slave_data	*data = priv->data.slave_data + slave_num;
- 
- 	slave->data	= data;
--	slave->regs	= regs + data->slave_reg_ofs;
--	slave->sliver	= regs + data->sliver_reg_ofs;
-+	slave->regs	= regs + slave_reg_ofs;
-+	slave->sliver	= regs + sliver_reg_ofs;
- }
- 
- static int cpsw_probe_dt(struct cpsw_platform_data *data,
-@@ -1051,8 +1059,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		return -EINVAL;
- 	}
- 
--	data->no_bd_ram = of_property_read_bool(node, "no_bd_ram");
--
- 	if (of_property_read_u32(node, "cpdma_channels", &prop)) {
- 		pr_err("Missing cpdma_channels property in the DT.\n");
- 		ret = -EINVAL;
-@@ -1060,34 +1066,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 	data->channels = prop;
- 
--	if (of_property_read_u32(node, "host_port_no", &prop)) {
--		pr_err("Missing host_port_no property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
--	}
--	data->host_port_num = prop;
--
--	if (of_property_read_u32(node, "cpdma_reg_ofs", &prop)) {
--		pr_err("Missing cpdma_reg_ofs property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
--	}
--	data->cpdma_reg_ofs = prop;
--
--	if (of_property_read_u32(node, "cpdma_sram_ofs", &prop)) {
--		pr_err("Missing cpdma_sram_ofs property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
--	}
--	data->cpdma_sram_ofs = prop;
--
--	if (of_property_read_u32(node, "ale_reg_ofs", &prop)) {
--		pr_err("Missing ale_reg_ofs property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
--	}
--	data->ale_reg_ofs = prop;
--
- 	if (of_property_read_u32(node, "ale_entries", &prop)) {
- 		pr_err("Missing ale_entries property in the DT.\n");
- 		ret = -EINVAL;
-@@ -1095,34 +1073,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 	data->ale_entries = prop;
- 
--	if (of_property_read_u32(node, "host_port_reg_ofs", &prop)) {
--		pr_err("Missing host_port_reg_ofs property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
--	}
--	data->host_port_reg_ofs = prop;
--
--	if (of_property_read_u32(node, "hw_stats_reg_ofs", &prop)) {
--		pr_err("Missing hw_stats_reg_ofs property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
--	}
--	data->hw_stats_reg_ofs = prop;
--
--	if (of_property_read_u32(node, "cpts_reg_ofs", &prop)) {
--		pr_err("Missing cpts_reg_ofs property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
--	}
--	data->cpts_reg_ofs = prop;
--
--	if (of_property_read_u32(node, "bd_ram_ofs", &prop)) {
--		pr_err("Missing bd_ram_ofs property in the DT.\n");
--		ret = -EINVAL;
--		goto error_ret;
--	}
--	data->bd_ram_ofs = prop;
--
- 	if (of_property_read_u32(node, "bd_ram_size", &prop)) {
- 		pr_err("Missing bd_ram_size property in the DT.\n");
- 		ret = -EINVAL;
-@@ -1156,22 +1106,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		}
- 		slave_data->phy_id = phy_id;
- 
--		if (of_property_read_u32(slave_node, "slave_reg_ofs", &prop)) {
--			pr_err("Missing slave[%d] slave_reg_ofs property\n", i);
--			ret = -EINVAL;
--			goto error_ret;
--		}
--		slave_data->slave_reg_ofs = prop;
--
--		if (of_property_read_u32(slave_node, "sliver_reg_ofs",
--					 &prop)) {
--			pr_err("Missing slave[%d] sliver_reg_ofs property\n",
--				i);
--			ret = -EINVAL;
--			goto error_ret;
--		}
--		slave_data->sliver_reg_ofs = prop;
--
- 		mac_addr = of_get_mac_address(slave_node);
- 		if (mac_addr)
- 			memcpy(slave_data->mac_addr, mac_addr, ETH_ALEN);
-@@ -1193,8 +1127,9 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 	struct cpsw_priv		*priv;
- 	struct cpdma_params		dma_params;
- 	struct cpsw_ale_params		ale_params;
--	void __iomem			*regs;
-+	void __iomem			*ss_regs, *wr_regs;
- 	struct resource			*res;
-+	u32 slave_offset, sliver_offset, slave_size;
- 	int ret = 0, i, k = 0;
- 
- 	ndev = alloc_etherdev(sizeof(struct cpsw_priv));
-@@ -1258,15 +1193,14 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 		ret = -ENXIO;
- 		goto clean_clk_ret;
- 	}
--	regs = ioremap(priv->cpsw_res->start, resource_size(priv->cpsw_res));
--	if (!regs) {
-+	ss_regs = ioremap(priv->cpsw_res->start, resource_size(priv->cpsw_res));
-+	if (!ss_regs) {
- 		dev_err(priv->dev, "unable to map i/o region\n");
- 		goto clean_cpsw_iores_ret;
- 	}
--	priv->regs = regs;
--	priv->host_port = data->host_port_num;
--	priv->host_port_regs = regs + data->host_port_reg_ofs;
--	priv->cpts.reg = regs + data->cpts_reg_ofs;
-+	priv->regs = ss_regs;
-+	priv->version = __raw_readl(&priv->regs->id_ver);
-+	priv->host_port = HOST_PORT_NUM;
- 
- 	priv->cpsw_wr_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
- 	if (!priv->cpsw_wr_res) {
-@@ -1280,32 +1214,59 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 		ret = -ENXIO;
- 		goto clean_iomap_ret;
- 	}
--	regs = ioremap(priv->cpsw_wr_res->start,
-+	wr_regs = ioremap(priv->cpsw_wr_res->start,
- 				resource_size(priv->cpsw_wr_res));
--	if (!regs) {
-+	if (!wr_regs) {
- 		dev_err(priv->dev, "unable to map i/o region\n");
- 		goto clean_cpsw_wr_iores_ret;
- 	}
--	priv->wr_regs = regs;
--
--	for_each_slave(priv, cpsw_slave_init, priv);
-+	priv->wr_regs = wr_regs;
- 
- 	memset(&dma_params, 0, sizeof(dma_params));
-+	memset(&ale_params, 0, sizeof(ale_params));
-+
-+	switch (priv->version) {
-+	case CPSW_VERSION_1:
-+		priv->host_port_regs = ss_regs + CPSW1_HOST_PORT_OFFSET;
-+		priv->cpts.reg       = ss_regs + CPSW1_CPTS_OFFSET;
-+		dma_params.dmaregs   = ss_regs + CPSW1_CPDMA_OFFSET;
-+		dma_params.txhdp     = ss_regs + CPSW1_STATERAM_OFFSET;
-+		ale_params.ale_regs  = ss_regs + CPSW1_ALE_OFFSET;
-+		slave_offset         = CPSW1_SLAVE_OFFSET;
-+		slave_size           = CPSW1_SLAVE_SIZE;
-+		sliver_offset        = CPSW1_SLIVER_OFFSET;
-+		dma_params.desc_mem_phys = 0;
-+		break;
-+	case CPSW_VERSION_2:
-+		priv->host_port_regs = ss_regs + CPSW2_HOST_PORT_OFFSET;
-+		priv->cpts.reg       = ss_regs + CPSW2_CPTS_OFFSET;
-+		dma_params.dmaregs   = ss_regs + CPSW2_CPDMA_OFFSET;
-+		dma_params.txhdp     = ss_regs + CPSW2_STATERAM_OFFSET;
-+		ale_params.ale_regs  = ss_regs + CPSW2_ALE_OFFSET;
-+		slave_offset         = CPSW2_SLAVE_OFFSET;
-+		slave_size           = CPSW2_SLAVE_SIZE;
-+		sliver_offset        = CPSW2_SLIVER_OFFSET;
-+		dma_params.desc_mem_phys =
-+			(u32 __force) priv->cpsw_res->start + CPSW2_BD_OFFSET;
-+		break;
-+	default:
-+		dev_err(priv->dev, "unknown version 0x%08x\n", priv->version);
-+		ret = -ENODEV;
-+		goto clean_cpsw_wr_iores_ret;
-+	}
-+	for (i = 0; i < priv->data.slaves; i++) {
-+		struct cpsw_slave *slave = &priv->slaves[i];
-+		cpsw_slave_init(slave, priv, slave_offset, sliver_offset);
-+		slave_offset  += slave_size;
-+		sliver_offset += SLIVER_SIZE;
-+	}
-+
- 	dma_params.dev		= &pdev->dev;
--	dma_params.dmaregs	= cpsw_dma_regs((u32)priv->regs,
--						data->cpdma_reg_ofs);
--	dma_params.rxthresh	= cpsw_dma_rxthresh((u32)priv->regs,
--						    data->cpdma_reg_ofs);
--	dma_params.rxfree	= cpsw_dma_rxfree((u32)priv->regs,
--						  data->cpdma_reg_ofs);
--	dma_params.txhdp	= cpsw_dma_txhdp((u32)priv->regs,
--						 data->cpdma_sram_ofs);
--	dma_params.rxhdp	= cpsw_dma_rxhdp((u32)priv->regs,
--						 data->cpdma_sram_ofs);
--	dma_params.txcp		= cpsw_dma_txcp((u32)priv->regs,
--						data->cpdma_sram_ofs);
--	dma_params.rxcp		= cpsw_dma_rxcp((u32)priv->regs,
--						data->cpdma_sram_ofs);
-+	dma_params.rxthresh	= dma_params.dmaregs + CPDMA_RXTHRESH;
-+	dma_params.rxfree	= dma_params.dmaregs + CPDMA_RXFREE;
-+	dma_params.rxhdp	= dma_params.txhdp + CPDMA_RXHDP;
-+	dma_params.txcp		= dma_params.txhdp + CPDMA_TXCP;
-+	dma_params.rxcp		= dma_params.txhdp + CPDMA_RXCP;
- 
- 	dma_params.num_chan		= data->channels;
- 	dma_params.has_soft_reset	= true;
-@@ -1313,10 +1274,7 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 	dma_params.desc_mem_size	= data->bd_ram_size;
- 	dma_params.desc_align		= 16;
- 	dma_params.has_ext_regs		= true;
--	dma_params.desc_mem_phys        = data->no_bd_ram ? 0 :
--			(u32 __force)priv->cpsw_res->start + data->bd_ram_ofs;
--	dma_params.desc_hw_addr         = data->hw_ram_addr ?
--			data->hw_ram_addr : dma_params.desc_mem_phys ;
-+	dma_params.desc_hw_addr         = dma_params.desc_mem_phys;
- 
- 	priv->dma = cpdma_ctlr_create(&dma_params);
- 	if (!priv->dma) {
-@@ -1336,10 +1294,7 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 		goto clean_dma_ret;
- 	}
- 
--	memset(&ale_params, 0, sizeof(ale_params));
- 	ale_params.dev			= &ndev->dev;
--	ale_params.ale_regs		= (void *)((u32)priv->regs) +
--						((u32)data->ale_reg_ofs);
- 	ale_params.ale_ageout		= ale_ageout;
- 	ale_params.ale_entries		= data->ale_entries;
- 	ale_params.ale_ports		= data->slaves;
-diff --git a/include/linux/platform_data/cpsw.h b/include/linux/platform_data/cpsw.h
-index b5c16c3..4b0ed74 100644
---- a/include/linux/platform_data/cpsw.h
-+++ b/include/linux/platform_data/cpsw.h
-@@ -18,8 +18,6 @@
- #include <linux/if_ether.h>
- 
- struct cpsw_slave_data {
--	u32		slave_reg_ofs;
--	u32		sliver_reg_ofs;
- 	const char	*phy_id;
- 	int		phy_if;
- 	u8		mac_addr[ETH_ALEN];
-@@ -28,31 +26,14 @@ struct cpsw_slave_data {
- struct cpsw_platform_data {
- 	u32	ss_reg_ofs;	/* Subsystem control register offset */
- 	u32	channels;	/* number of cpdma channels (symmetric) */
--	u32	cpdma_reg_ofs;	/* cpdma register offset */
--	u32	cpdma_sram_ofs;	/* cpdma sram offset */
--
- 	u32	slaves;		/* number of slave cpgmac ports */
- 	struct cpsw_slave_data	*slave_data;
- 	u32	cpts_active_slave; /* time stamping slave */
- 	u32	cpts_clock_mult;  /* convert input clock ticks to nanoseconds */
- 	u32	cpts_clock_shift; /* convert input clock ticks to nanoseconds */
--
--	u32	ale_reg_ofs;	/* address lookup engine reg offset */
- 	u32	ale_entries;	/* ale table size */
--
--	u32	host_port_reg_ofs; /* cpsw cpdma host port registers */
--	u32     host_port_num; /* The port number for the host port */
--
--	u32	hw_stats_reg_ofs;  /* cpsw hardware statistics counters */
--	u32	cpts_reg_ofs;      /* cpts registers */
--
--	u32	bd_ram_ofs;   /* embedded buffer descriptor RAM offset*/
- 	u32	bd_ram_size;  /*buffer descriptor ram size */
--	u32	hw_ram_addr; /*if the HW address for BD RAM is different */
--	bool	no_bd_ram; /* no embedded BD ram*/
--
- 	u32	rx_descs;	/* Number of Rx Descriptios */
--
- 	u32	mac_control;	/* Mac control register */
- };
- 
--- 
-1.7.2.5
+Applied, thanks Eric.
