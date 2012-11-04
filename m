@@ -1,39 +1,26 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] wireless: iwlwifi - add dma_mapping_error() checks to
- avoid warnings
-Date: Sun, 04 Nov 2012 10:16:57 +0100
-Message-ID: <1352020617.10072.0.camel@jlt4.sipsolutions.net>
-References: <1351993233.4369.2.camel@lorien2>
-	 (sfid-20121104_024119_271188_5372C13E)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v2 net-next] r8169: enable internal ASPM and clock request settings
+Date: Sun, 4 Nov 2012 10:17:52 +0100
+Message-ID: <20121104091752.GA14093@electric-eye.fr.zoreil.com>
+References: <1351780651-1271-1-git-send-email-hayeswang@realtek.com> <1351824388-1225-1-git-send-email-hayeswang@realtek.com> <20121104.010135.1162785749638710718.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: johannes.berg@intel.com, wey-yi.w.guy@intel.com,
-	linville@tuxdriver.com, ilw@linux.intel.com,
-	emmanuel.grumbach@intel.com, donald.h.fry@intel.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, shuahkhan@gmail.com
-To: shuah.khan@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:60774 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750782Ab2KDJQj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 04:16:39 -0500
-In-Reply-To: <1351993233.4369.2.camel@lorien2> (sfid-20121104_024119_271188_5372C13E)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hayeswang@realtek.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, agnescheng@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121104.010135.1162785749638710718.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2012-11-03 at 19:40 -0600, Shuah Khan wrote:
-> Add missing dma_mapping_error() checks to validate dma addresses returned by
-> dma_map_page() calls to avoid the following warning:
-> 
-> [   28.475686] WARNING: at lib/dma-debug.c:933 check_unmap+0x459/0x8a0()
-> [   28.475688] Hardware name: HP EliteBook 6930p
-> [   28.475690] iwlwifi 0000:03:00.0: DMA-API: device driver failed to check map error[device address=0x00000000ffffa000] [size=8192 bytes] [mapped as page]
-> [   28.475691] Modules linked in: arc4 bnep rfcomm iwldvm mac80211 snd_hda_codec_analog radeon snd_hda_intel snd_hda_codec coretemp kvm_intel snd_hwdep snd_pcm iwlwifi kvm btusb bluetooth snd_seq_midi snd_rawmidi ttm cfg80211 snd_seq_midi_event drm_kms_helper pata_pcmcia drm snd_seq binfmt_misc pcmcia snd_timer snd_seq_device tpm_infineon snd dm_multipath yenta_socket joydev pcmcia_rsrc pcmcia_core hp_wmi psmouse hp_accel microcode soundcore i2c_algo_bit sparse_keymap wmi ppdev lpc_ich lis3lv02d snd_page_alloc video tpm_tis serio_raw parport_pc input_polldev mac_hid lp parport firewire_ohci firewire_core crc_itu_t sdhci_pci sdhci e1000e
+David Miller <davem@davemloft.net> :
+[...]
+> Francois?
 
-Thanks for the report. Since I think doing BUG_ON() in such a scenario
-is a really bad idea, I've applied a different patch with your
-Reported-by.
+Please apply.
 
-johannes
+Thanks.
+
+-- 
+Ueimor
