@@ -1,59 +1,59 @@
-From: Hiroyuki Yamada <mogwaing@gmail.com>
-Subject: some nodes in a cluster has higher frame value in ifconfig
-Date: Sun, 4 Nov 2012 16:37:23 +0900
-Message-ID: <CAPDOW74k6krw1qCB-rTPbuUr3zLp7TNcfM9+UDB6Rmf_YkqXRA@mail.gmail.com>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: Re: [PATCH 9/9] Avoid 'statement with no effect' compiler warnings
+Date: Sun, 4 Nov 2012 08:55:55 +0100
+Message-ID: <20121104075555.GB24262@gmail.com>
+References: <1351980150-24145-1-git-send-email-lee.jones@linaro.org>
+ <1351980150-24145-10-git-send-email-lee.jones@linaro.org>
+ <20121104.010043.1842614952525101679.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:56758 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751190Ab2KDHhY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 02:37:24 -0500
-Received: by mail-vc0-f174.google.com with SMTP id fk26so4933340vcb.19
-        for <netdev@vger.kernel.org>; Sun, 04 Nov 2012 00:37:23 -0700 (PDT)
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:50406 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751533Ab2KDHz7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 02:55:59 -0500
+Received: by mail-ee0-f46.google.com with SMTP id b15so2424519eek.19
+        for <netdev@vger.kernel.org>; Sun, 04 Nov 2012 00:55:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20121104.010043.1842614952525101679.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am running a cluster consisting of 22 nodes.
-(22 nodes under the same 1Gbps switch.)
-I noticed some nodes in the cluster has higher "frame" value in
-ifconfig like the following.
+On Sun, 04 Nov 2012, David Miller wrote:
 
-some nodes (higher frame):
-eth0      Link encap:Ethernet  HWaddr 90:B1:1C:09:D2:F8
-          inet addr:192.168.121.20  Bcast:192.168.121.255  Mask:255.255.255.0
-          inet6 addr: fe80::92b1:1cff:fe09:d2f8/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:643150667 errors:0 dropped:790 overruns:0 frame:280072
-          TX packets:908361364 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:377424658828 (351.5 GiB)  TX bytes:864099883266 (804.7 GiB)
-          Interrupt:170 Memory:d91a0000-d91b0000
+> From: Lee Jones <lee.jones@linaro.org>
+> Date: Sat,  3 Nov 2012 23:02:30 +0100
+>=20
+> > Instead of issuing (0) statements when !CONFIG_SYSFS which will cau=
+se
+> > 'warning: ', we'll use inline statements instead. This will effecti=
+vely
+> > do the same thing, but suppress any unnecessary warnings.
+> >=20
+> > Cc: Stephen Hemminger <shemminger@vyatta.com>
+> > Cc: bridge@lists.linux-foundation.org
+> > Cc: netdev@vger.kernel.org
+> > Signed-off-by: Lee Jones <lee.jones@linaro.org>
+>=20
+> Applied, but please use more informative subject lines.
+>=20
+> You should prefix your subject line after [PATCH ...] with
+> the name of the subsystem you are touching, a ": " then
+> the headline description.
+>=20
+> So here you would have used "bridge: " and that's what I added when I
+> commited this patch.
 
-other nodes (lower frame):
-eth0      Link encap:Ethernet  HWaddr 24:B6:FD:F6:DF:34
-          inet addr:192.168.121.3  Bcast:192.168.121.255  Mask:255.255.255.0
-          inet6 addr: fe80::26b6:fdff:fef6:df34/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:1126524649 errors:0 dropped:118 overruns:0 frame:43775
-          TX packets:847071691 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:992080311726 (923.9 GiB)  TX bytes:385366462299 (358.9 GiB)
-          Interrupt:170 Memory:d91a0000-d91b0000
+Yes, of course I should have done, and usually do.
 
-What might be wrong with it ?
-I also ran ethtool and
-"rxbds_empty" value is the same value as frame in ifconfig.
-whta is rxbds_empty ?
-I have investigated rxbds_empty, but there is almost no information about it.
+This was an oversight, sorry about that.
 
-The weird thing is newly added 6 nodes have that higher value.
-Also, I noticed some program runs slower than before we added those 6 nodes.
-What the program is doing is that
-every node requests huge amount of short messages
-to other random nodes in parallel.
-Ideally, every node has the some completion time with the program,
-but the added 6 nodes run slower than others.
-
-Could anyone give me any advice ?
+--=20
+Lee Jones
+Linaro ST-Ericsson Landing Team Lead
+Linaro.org =E2=94=82 Open source software for ARM SoCs
+=46ollow Linaro: Facebook | Twitter | Blog
