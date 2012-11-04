@@ -1,47 +1,74 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/9] batman-adv: add UNICAST_4ADDR packet
- type
-Date: Sun, 04 Nov 2012 12:30:57 -0500 (EST)
-Message-ID: <20121104.123057.59138392933877977.davem@davemloft.net>
-References: <20121103.152226.244759041688205348.davem@davemloft.net>
- <12758662.vFhVQet4vg@sven-laptop.home.narfation.org>
- <5244128.ID77evUSAJ@sven-laptop.home.narfation.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: [PATCH 2/2] net: at91_ether: add pinctrl support
+Date: Sun,  4 Nov 2012 19:10:37 +0100
+Message-ID: <1352052637-5154-2-git-send-email-plagnioj@jcrosoft.com>
+References: <20121104154954.GJ19021@game.jcrosoft.org>
+ <1352052637-5154-1-git-send-email-plagnioj@jcrosoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <5244128.ID77evUSAJ-S/pmIDWWJIwhrEaHGRlFQnOel7F/LzPIcbWoRP8EXgk@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+ devicetree-discuss@lists.ozlabs.org,
+ Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+ Joachim Eastwood <manabian@gmail.com>, netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1352052637-5154-1-git-send-email-plagnioj@jcrosoft.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Date: Sun, 04 Nov 2012 12:20:13 +0100
+If no pinctrl available just report a warning as some architecture may not
+need to do anything.
 
-> To push this question in a direction: May I assume that the driver always 
-> ensures that the ethernet header is 4 byte boundary - NET_IP_ALIGN (2) 
-> aligned?
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+Cc: Joachim Eastwood <manabian@gmail.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/cadence/at91_ether.c |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-Yes.
-
-> When yes, this would result in a slight variations of your suggestion: 
-> unicast/bcast headers have to end at 4 bytes boundary + 2 bytes. The reason is 
-> easy to explain. batman-adv unicast/bcast headers are used to encapsulate the 
-> important parts of an ethernet frame:
-> 
-> Ethernet Header for P2P | batman-adv header stuff | ethernet header | payload.
-> 
-> Would you aggree?
-
-Then you can get rid of the packed crap.
+diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+index 3e843b4..ffcdbc3 100644
+--- a/drivers/net/ethernet/cadence/at91_ether.c
++++ b/drivers/net/ethernet/cadence/at91_ether.c
+@@ -34,6 +34,7 @@
+ #include <linux/of.h>
+ #include <linux/of_device.h>
+ #include <linux/of_net.h>
++#include <linux/pinctrl/consumer.h>
+ 
+ #include "macb.h"
+ 
+@@ -500,11 +501,21 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 	struct phy_device *phydev;
+ 	struct macb *lp;
+ 	int res;
++	struct pinctrl *pinctrl;
+ 
+ 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!regs)
+ 		return -ENOENT;
+ 
++	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
++	if (IS_ERR(pinctrl)) {
++		res = PTR_ERR(pinctrl);
++		if (res == -EPROBE_DEFER)
++			return res;
++
++		dev_warn(&pdev->dev, "No pinctrl provided\n");
++	}
++
+ 	dev = alloc_etherdev(sizeof(struct macb));
+ 	if (!dev)
+ 		return -ENOMEM;
+-- 
+1.7.10.4
