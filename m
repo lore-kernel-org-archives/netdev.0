@@ -1,196 +1,45 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: [PATCH 1/2] net: at91_ether: add dt support
-Date: Sun, 4 Nov 2012 23:21:54 +0100
-Message-ID: <CAGhQ9VwUr=ak3Rjo0JVTkdP=4k6xkAKCDEwFyO5v3Fui0Md4Lg@mail.gmail.com>
-References: <20121104154954.GJ19021@game.jcrosoft.org>
-	<1352052637-5154-1-git-send-email-plagnioj@jcrosoft.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net/at91_ether: fix the use of macb structure
+Date: Mon, 5 Nov 2012 00:02:35 +0100
+Message-ID: <5096F40B.60509@atmel.com>
+References: <75eb5df193c504e68ebff7d6a6a88d9a1cc678cb.1351591858.git.nicolas.ferre@atmel.com>
+ <1351596628-3405-1-git-send-email-nicolas.ferre@atmel.com>
+ <20121103.150414.707741347606909244.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-arm-kernel@lists.infradead.org,
-	devicetree-discuss@lists.ozlabs.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:33092 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751769Ab2KDWV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 17:21:56 -0500
-Received: by mail-lb0-f174.google.com with SMTP id n3so3808729lbo.19
-        for <netdev@vger.kernel.org>; Sun, 04 Nov 2012 14:21:55 -0800 (PST)
-In-Reply-To: <1352052637-5154-1-git-send-email-plagnioj@jcrosoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, manabian@gmail.com, patrice.vilchez@atmel.com,
+ linux-kernel@vger.kernel.org, havard@skinnemoen.net, bhutchings@solarflare.com,
+ plagnioj@jcrosoft.com, linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20121103.150414.707741347606909244.davem@davemloft.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jean-Christophe,
+On 11/03/2012 08:04 PM, David Miller :
+> From: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Date: Tue, 30 Oct 2012 12:30:28 +0100
+> 
+>> Due to the use of common structure in at91_ether and macb drivers,
+>> change the name of DMA descriptor structures in at91_ether as well:
+>> dma_desc => macb_dma_desc
+>>
+>> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> 
+> This does not apply to net-next, respin it if this change is
+> still relevant.
 
-Some minor comments below.
+This one is not relevant anymore.
 
-On 4 November 2012 19:10, Jean-Christophe PLAGNIOL-VILLARD
-<plagnioj@jcrosoft.com> wrote:
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Cc: Joachim Eastwood <manabian@gmail.com>
-> Cc: netdev@vger.kernel.org
-> ---
->  .../devicetree/bindings/net/cdns-emac.txt          |   23 +++++++
->  drivers/net/ethernet/cadence/at91_ether.c          |   72 ++++++++++++++++++--
->  2 files changed, 88 insertions(+), 7 deletions(-)
->  create mode 100644 Documentation/devicetree/bindings/net/cdns-emac.txt
->
-> diff --git a/Documentation/devicetree/bindings/net/cdns-emac.txt b/Documentation/devicetree/bindings/net/cdns-emac.txt
-> new file mode 100644
-> index 0000000..45b8760
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/cdns-emac.txt
-> @@ -0,0 +1,23 @@
-> +* Cadence EMAC Ethernet controller
-> +
-> +Required properties:
-> +- compatible: Should be "cdns,[<chip>-]{emac}"
-> +  Use "cdns,at91rm9200-emac" Atmel at91rm9200 SoC.
-> +  or the generic form: "cdns,emac".
-> +- reg: Address and length of the register set for the device
-> +- interrupts: Should contain macb interrupt
-> +- phy-mode: String, operation mode of the PHY interface.
-> +  Supported values are: "mii", "rmii".
-> +
-> +Optional properties:
-> +- local-mac-address: 6 bytes, mac address
-> +
-> +Examples:
-> +
-> +       macb0: ethernet@fffc4000 {
-> +               compatible = "cdns,atrm9200-emac";
-
-Typo in the compatible string. Should be "cdns,at91rm9200-emac"
-
-> +               reg = <0xfffc4000 0x4000>;
-> +               interrupts = <21>;
-> +               phy-mode = "rmii";
-> +               local-mac-address = [3a 0e 03 04 05 06];
-> +       };
-> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-> index 0d6392d..3e843b4 100644
-> --- a/drivers/net/ethernet/cadence/at91_ether.c
-> +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> @@ -31,6 +31,9 @@
->  #include <linux/gfp.h>
->  #include <linux/phy.h>
->  #include <linux/io.h>
-> +#include <linux/of.h>
-> +#include <linux/of_device.h>
-> +#include <linux/of_net.h>
->
->  #include "macb.h"
->
-> @@ -443,6 +446,49 @@ static const struct net_device_ops at91ether_netdev_ops = {
->  #endif
->  };
->
-> +#if defined(CONFIG_OF)
-> +static const struct of_device_id at91ether_dt_ids[] = {
-> +       { .compatible = "cdns,at91rm9200-emac" },
-> +       { .compatible = "cdns,emac" },
-> +       { /* sentinel */ }
-> +};
-> +
-> +MODULE_DEVICE_TABLE(of, at91ether_dt_ids);
-> +
-> +static int at91ether_get_phy_mode_dt(struct platform_device *pdev)
-> +{
-> +       struct device_node *np = pdev->dev.of_node;
-> +
-> +       if (np)
-> +               return of_get_phy_mode(np);
-> +
-> +       return -ENODEV;
-> +}
-> +
-> +static int at91ether_get_hwaddr_dt(struct macb *bp)
-> +{
-> +       struct device_node *np = bp->pdev->dev.of_node;
-
-Space between variables and code, please.
-
-> +       if (np) {
-> +               const char *mac = of_get_mac_address(np);
-> +               if (mac) {
-> +                       memcpy(bp->dev->dev_addr, mac, ETH_ALEN);
-> +                       return 0;
-> +               }
-> +       }
-> +
-> +       return -ENODEV;
-> +}
-> +#else
-> +static int at91ether_get_phy_mode_dt(struct platform_device *pdev)
-> +{
-> +       return -ENODEV;
-> +}
-> +static int at91ether_get_hwaddr_dt(struct macb *bp)
-> +{
-> +       return -ENODEV;
-> +}
-> +#endif
-> +
->  /*
->   * Detect MAC & PHY and perform ethernet interface initialization
->   */
-> @@ -466,7 +512,8 @@ static int __init at91ether_probe(struct platform_device *pdev)
->         lp = netdev_priv(dev);
->         lp->pdev = pdev;
->         lp->dev = dev;
-> -       lp->board_data = *board_data;
-> +       if (board_data)
-> +               lp->board_data = *board_data;
->         spin_lock_init(&lp->lock);
->
->         dev->base_addr = regs->start;           /* physical base address */
-> @@ -496,18 +543,28 @@ static int __init at91ether_probe(struct platform_device *pdev)
->         platform_set_drvdata(pdev, dev);
->         SET_NETDEV_DEV(dev, &pdev->dev);
->
-> -       get_mac_address(dev);           /* Get ethernet address and store it in dev->dev_addr */
-> +       res = at91ether_get_hwaddr_dt(lp);
-> +       if (res < 0)
-> +               get_mac_address(dev);           /* Get ethernet address and store it in dev->dev_addr */
-> +
->         update_mac_address(dev);        /* Program ethernet address into MAC */
->
-> +       res = at91ether_get_phy_mode_dt(pdev);
-> +       if (res < 0) {
-> +               if (board_data && board_data->is_rmii)
-> +                       lp->phy_interface = PHY_INTERFACE_MODE_RMII;
-> +               else
-> +                       lp->phy_interface = PHY_INTERFACE_MODE_MII;
-> +       } else {
-> +               lp->phy_interface = res;
-> +       }
-> +
->         macb_writel(lp, NCR, 0);
->
-> -       if (board_data->is_rmii) {
-> +       if (lp->phy_interface == PHY_INTERFACE_MODE_RMII)
->                 macb_writel(lp, NCFGR, MACB_BF(CLK, MACB_CLK_DIV32) | MACB_BIT(BIG) | MACB_BIT(RM9200_RMII));
-> -               lp->phy_interface = PHY_INTERFACE_MODE_RMII;
-> -       } else {
-> +       else
->                 macb_writel(lp, NCFGR, MACB_BF(CLK, MACB_CLK_DIV32) | MACB_BIT(BIG));
-> -               lp->phy_interface = PHY_INTERFACE_MODE_MII;
-> -       }
->
->         /* Register the network interface */
->         res = register_netdev(dev);
-> @@ -602,6 +659,7 @@ static struct platform_driver at91ether_driver = {
->         .driver         = {
->                 .name   = DRV_NAME,
->                 .owner  = THIS_MODULE,
-> +               .of_match_table = of_match_ptr(at91ether_dt_ids),
->         },
->  };
->
-
-Tested-by: Joachim Eastwood <manabian@gmail.com>
-
-regards
-Joachim Eastwood
+Best regards,
+-- 
+Nicolas Ferre
