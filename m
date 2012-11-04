@@ -1,55 +1,39 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [4/4] arm: mvebu: enable Ethernet controllers on Armada 370/XP
- eval boards
-Date: Sun, 4 Nov 2012 10:12:12 +0100
-Message-ID: <20121104101212.33449081@skate>
-References: <1351245804-31478-5-git-send-email-thomas.petazzoni@free-electrons.com>
-	<20121104020311.GA26747@obsidianresearch.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] wireless: iwlwifi - add dma_mapping_error() checks to
+ avoid warnings
+Date: Sun, 04 Nov 2012 10:16:57 +0100
+Message-ID: <1352020617.10072.0.camel@jlt4.sipsolutions.net>
+References: <1351993233.4369.2.camel@lorien2>
+	 (sfid-20121104_024119_271188_5372C13E)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	Maen Suleiman <maen@marvell.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Ian Molton <ian.molton@codethink.co.uk>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Cc: johannes.berg@intel.com, wey-yi.w.guy@intel.com,
+	linville@tuxdriver.com, ilw@linux.intel.com,
+	emmanuel.grumbach@intel.com, donald.h.fry@intel.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>, shuahkhan@gmail.com
+To: shuah.khan@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([88.190.12.23]:35445 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814Ab2KDJMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 04:12:32 -0500
-In-Reply-To: <20121104020311.GA26747@obsidianresearch.com>
+Received: from he.sipsolutions.net ([78.46.109.217]:60774 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750782Ab2KDJQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 04:16:39 -0500
+In-Reply-To: <1351993233.4369.2.camel@lorien2> (sfid-20121104_024119_271188_5372C13E)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jason,
-
-On Sat, 3 Nov 2012 20:03:11 -0600, Jason Gunthorpe wrote:
-
-> We've been using the patches from Ian Molton for the mv643xx driver
-> that make it use the more standard, separately described MDIO
-> bus..
-
-[...]
-
-> Where the MDIO bus is explicit, the PHY, its address and parameters
-> are explicit - the PHY has an of_node pointer - and phy-handle is used
-> to connect them.
+On Sat, 2012-11-03 at 19:40 -0600, Shuah Khan wrote:
+> Add missing dma_mapping_error() checks to validate dma addresses returned by
+> dma_map_page() calls to avoid the following warning:
 > 
-> I'm not sure having the MDIO bus as a distinct top level item is
-> great, considering how the registers overlap.. It might be better
-> to put it under the egiga0 block? But that is a minor nit :)
+> [   28.475686] WARNING: at lib/dma-debug.c:933 check_unmap+0x459/0x8a0()
+> [   28.475688] Hardware name: HP EliteBook 6930p
+> [   28.475690] iwlwifi 0000:03:00.0: DMA-API: device driver failed to check map error[device address=0x00000000ffffa000] [size=8192 bytes] [mapped as page]
+> [   28.475691] Modules linked in: arc4 bnep rfcomm iwldvm mac80211 snd_hda_codec_analog radeon snd_hda_intel snd_hda_codec coretemp kvm_intel snd_hwdep snd_pcm iwlwifi kvm btusb bluetooth snd_seq_midi snd_rawmidi ttm cfg80211 snd_seq_midi_event drm_kms_helper pata_pcmcia drm snd_seq binfmt_misc pcmcia snd_timer snd_seq_device tpm_infineon snd dm_multipath yenta_socket joydev pcmcia_rsrc pcmcia_core hp_wmi psmouse hp_accel microcode soundcore i2c_algo_bit sparse_keymap wmi ppdev lpc_ich lis3lv02d snd_page_alloc video tpm_tis serio_raw parport_pc input_polldev mac_hid lp parport firewire_ohci firewire_core crc_itu_t sdhci_pci sdhci e1000e
 
-Thanks for your comment. I'll see what I can come up with to make the
-phy a separate DT entity.
+Thanks for the report. Since I think doing BUG_ON() in such a scenario
+is a really bad idea, I've applied a different patch with your
+Reported-by.
 
-Thanks!
-
-Thomas
--- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+johannes
