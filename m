@@ -1,50 +1,70 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 8/9] isdn: Remove unused variable causing a compile
- build warning
-Date: Sun, 04 Nov 2012 11:14:51 +0100
-Message-ID: <1352024091.1434.17.camel@x61.thuisdomein>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: [PATCH v2 8/9] isdn: Remove unused variable causing a compile build
+ warning
+Date: Sun, 4 Nov 2012 11:28:40 +0100
+Message-ID: <20121104102840.GA27124@gmail.com>
 References: <1351980150-24145-1-git-send-email-lee.jones@linaro.org>
-	 <1351980150-24145-9-git-send-email-lee.jones@linaro.org>
-	 <1351982441.1434.5.camel@x61.thuisdomein>
-	 <20121103224832.GA24262@gmail.com>
+ <1351980150-24145-9-git-send-email-lee.jones@linaro.org>
+ <1351982441.1434.5.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
 	netdev@vger.kernel.org
-To: Lee Jones <lee.jones@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpb-ews09.kpnxchange.com ([213.75.39.14]:58908 "EHLO
-	cpsmtpb-ews09.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750831Ab2KDKOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 05:14:53 -0500
-In-Reply-To: <20121103224832.GA24262@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1351982441.1434.5.camel@x61.thuisdomein>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2012-11-03 at 23:48 +0100, Lee Jones wrote:
-> On Sat, 03 Nov 2012, Paul Bolle wrote:
-> > On Sat, 2012-11-03 at 23:02 +0100, Lee Jones wrote:
-> > > This patch fixes:
-> > > drivers/isdn/i4l/isdn_common.c: In function =E2=80=98isdn_ioctl=E2=
-=80=99:
-> > > drivers/isdn/i4l/isdn_common.c:1278:8: warning: unused variable =E2=
+Thanks for reviewing Paul. Here's the result:
+
+Author: Lee Jones <lee.jones@linaro.org>
+Date:   Sat Nov 3 22:06:02 2012 +0100
+
+    isdn: Encapsulate variable 's' in same CONFIG_NETDEVICES guards as =
+code using it
+   =20
+    In the current case, variable 's' of type 'char *' is defined but t=
+hen
+    not used if !CONFIG_NETDEVICES, casing the compile-time warning bel=
+ow.
+    In this change we surround the declaration using the same guards as
+    the pre-processed code which makes use of it.
+   =20
+    This patch fixes:
+    drivers/isdn/i4l/isdn_common.c: In function =E2=80=98isdn_ioctl=E2=80=
+=99:
+    drivers/isdn/i4l/isdn_common.c:1278:8: warning: unused variable =E2=
 =80=98s=E2=80=99 [-Wunused-variable]
-> >=20
-> > Did you have CONFIG_NETDEVICES not set in this build?
->=20
-> Ah yes, I see it. The function went down further than I thought
-> it did. So the real fix is to ensure 's' is defined inside of
-> some ifdef CONFIG_NETDEVICES guards.=20
+   =20
+    Cc: Karsten Keil <isdn@linux-pingi.de>
+    Cc: netdev@vger.kernel.org
+    Signed-off-by: Lee Jones <lee.jones@linaro.org>
 
-What puzzles me is that we only find these "#ifdef CONFIG_NETDEVICES"
-guards in this file and not in isdn_net.c, were all the ioctl commands
-guarded that way seem to be calling into. On first glance that doesn't
-make much sense.
-
-(Actually the idea of having ISDN without NETDEVICES is a bit puzzling
-too. But there are too many parts of the isdn subsystem that I'm
-unfamiliar with to say whether that can make sense.)
-
-
-Paul Bolle
+diff --git a/drivers/isdn/i4l/isdn_common.c b/drivers/isdn/i4l/isdn_com=
+mon.c
+index 8c610fa..2875f31 100644
+--- a/drivers/isdn/i4l/isdn_common.c
++++ b/drivers/isdn/i4l/isdn_common.c
+@@ -1275,7 +1275,6 @@ isdn_ioctl(struct file *file, uint cmd, ulong arg=
+)
+ 	int ret;
+ 	int i;
+ 	char __user *p;
+-	char *s;
+ 	union iocpar {
+ 		char name[10];
+ 		char bname[22];
+@@ -1284,6 +1283,9 @@ isdn_ioctl(struct file *file, uint cmd, ulong arg=
+)
+ 		isdn_net_ioctl_cfg cfg;
+ 	} iocpar;
+ 	void __user *argp =3D (void __user *)arg;
++#ifdef CONFIG_NETDEVICES
++	char *s;
++#endif
+=20
+ #define name  iocpar.name
+ #define bname iocpar.bname
