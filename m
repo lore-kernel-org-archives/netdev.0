@@ -1,44 +1,41 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 2/2] cpsw: fix leaking IO mappings
-Date: Sun, 4 Nov 2012 16:16:20 +0100
-Message-ID: <20121104151620.GA2175@netboy.at.omicron.at>
-References: <cover.1351930782.git.richardcochran@gmail.com>
- <1c915a7d0301355342358db8f84560417609a61c.1351930782.git.richardcochran@gmail.com>
- <50966C6E.1000507@ti.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: [PATCH 0/2] net: at91_ether add dt and pinctrl support
+Date: Sun, 4 Nov 2012 16:49:54 +0100
+Message-ID: <20121104154954.GJ19021@game.jcrosoft.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	David Miller <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Vaibhav Hiremath <hvaibhav@ti.com>
-To: Cyril Chemparathy <cyril@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:38794 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752671Ab2KDPQc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 10:16:32 -0500
-Received: by mail-ea0-f174.google.com with SMTP id c13so1947634eaa.19
-        for <netdev@vger.kernel.org>; Sun, 04 Nov 2012 07:16:31 -0800 (PST)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+ Nicolas Ferre <nicolas.ferre@atmel.com>, Joachim Eastwood <manabian@gmail.com>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <50966C6E.1000507@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Nov 04, 2012 at 02:23:58PM +0100, Cyril Chemparathy wrote:
-> On 11/03/2012 09:25 AM, Richard Cochran wrote:
-> >The CPSW driver remaps two different IO regions, but fails to unmap them
-> >both. This patch fixes the issue by calling iounmap in the appropriate
-> >places.
-> 
-> Any thoughts on using devres helpers to keep the bail out path simpler?
+Hi,
 
-I wasn't aware of devres before, but I just read through the doc. It
-looks interesting, and if I were writting a new driver, then I might
-use it.
+	This patch serie add dt and pinctrl support to the at91 ether
 
-But for this driver, it really isn't very complex. It only looks that
-way, but I think this just accidental. I guess that the code was
-adapted from the davinci emac driver.
+	this is need to use the network on at91rm9200 as we now have dt
+	support on it
 
-Thanks,
-Richard
+Jean-Christophe PLAGNIOL-VILLARD (2):
+      net: at91_ether: add dt support
+      net: at91_ether: add pinctrl support
+
+ Documentation/devicetree/bindings/net/cdns-emac.txt |   23 +++++++++++++++++++++++
+ drivers/net/ethernet/cadence/at91_ether.c           |   83 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 99 insertions(+), 7 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/cdns-emac.txt
+
+Best Regards,
+J.
