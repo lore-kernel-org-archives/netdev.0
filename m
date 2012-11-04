@@ -1,49 +1,37 @@
-From: Lee Jones <lee.jones@linaro.org>
-Subject: Re: [PATCH 8/9] isdn: Remove unused variable causing a compile build
- warning
-Date: Sat, 3 Nov 2012 23:48:32 +0100
-Message-ID: <20121103224832.GA24262@gmail.com>
-References: <1351980150-24145-1-git-send-email-lee.jones@linaro.org>
- <1351980150-24145-9-git-send-email-lee.jones@linaro.org>
- <1351982441.1434.5.camel@x61.thuisdomein>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: Disable tcp MSS option in three way handshake?
+Date: Sun, 4 Nov 2012 01:25:13 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1211040124370.30066@nerf07.vanv.qr>
+References: <CAK3+h2xKHBNXzY0WNwPV+oGbY00UVfJpO-qjFW2cxCpmdt+hAg@mail.gmail.com> <1351204948.6537.263.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, Karsten Keil <isdn@linux-pingi.de>,
-	netdev@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Vincent Li <vincent.mc.li@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:33879 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019Ab2KCWsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 3 Nov 2012 18:48:36 -0400
-Received: by mail-ea0-f174.google.com with SMTP id c13so1800933eaa.19
-        for <netdev@vger.kernel.org>; Sat, 03 Nov 2012 15:48:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1351982441.1434.5.camel@x61.thuisdomein>
+Received: from ares07.inai.de ([5.9.24.206]:53324 "EHLO ares07.inai.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751184Ab2KDAZR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 3 Nov 2012 20:25:17 -0400
+In-Reply-To: <1351204948.6537.263.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 03 Nov 2012, Paul Bolle wrote:
 
-> On Sat, 2012-11-03 at 23:02 +0100, Lee Jones wrote:
-> > This patch fixes:
-> > drivers/isdn/i4l/isdn_common.c: In function =E2=80=98isdn_ioctl=E2=80=
-=99:
-> > drivers/isdn/i4l/isdn_common.c:1278:8: warning: unused variable =E2=
-=80=98s=E2=80=99 [-Wunused-variable]
->=20
-> Did you have CONFIG_NETDEVICES not set in this build?
+On Friday 2012-10-26 00:42, Eric Dumazet wrote:
+>On Thu, 2012-10-25 at 15:27 -0700, Vincent Li wrote:
+>> 
+>> this sounds crazy, we have a weird situation that an unknown tcp
+>> implementation not putting tcp MSS option in the SYN/ACK which caused
+>> us some issue. I am tasked to mimic the unknown tcp immplementation on
+>> not sending MSS in tcp SYN/ACK, I am wondering if I can achieve that
+>> by modifying linux kernel tcp code,  there is socket option
+>> TCP_MAXSEG, but that seems only affecting the size of MSS, not
+>> removing the MSS option. do you have any pointer on how to do that in
+>> kernel tcp code?
+>
+>You'll have to patch the code.
+>
+>Or else, you could add a new feature to net/netfilter/xt_TCPMSS.c
 
-Ah yes, I see it. The function went down further than I thought
-it did. So the real fix is to ensure 's' is defined inside of
-some ifdef CONFIG_NETDEVICES guards.=20
-
-I'll fix up and resend. Will likely be tomorrow now, as it's
-fast approaching midnight here.
-
---=20
-Lee Jones
-Linaro ST-Ericsson Landing Team Lead
-Linaro.org =E2=94=82 Open source software for ARM SoCs
-=46ollow Linaro: Facebook | Twitter | Blog
+Or you could just use -j TCPOPTSTRIP.
