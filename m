@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 2/5] usbnet: smsc75xx: apply the introduced
- usbnet_read[write]_cmd_nopm
-Date: Sun, 04 Nov 2012 01:58:34 -0400 (EDT)
-Message-ID: <20121104.015834.655875426096699012.davem@davemloft.net>
-References: <1351992594-12818-1-git-send-email-ming.lei@canonical.com>
-	<1351992594-12818-3-git-send-email-ming.lei@canonical.com>
+Subject: Re: [PATCH 9/9] Avoid 'statement with no effect' compiler warnings
+Date: Sun, 04 Nov 2012 01:00:43 -0500 (EST)
+Message-ID: <20121104.010043.1842614952525101679.davem@davemloft.net>
+References: <1351980150-24145-1-git-send-email-lee.jones@linaro.org>
+	<1351980150-24145-10-git-send-email-lee.jones@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, oneukum@suse.de,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	steve.glendinning@shawell.net
-To: ming.lei@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34383 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750883Ab2KDF6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 01:58:36 -0400
-In-Reply-To: <1351992594-12818-3-git-send-email-ming.lei@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: lee.jones@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1351980150-24145-10-git-send-email-lee.jones@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ming Lei <ming.lei@canonical.com>
-Date: Sun,  4 Nov 2012 09:29:51 +0800
+From: Lee Jones <lee.jones@linaro.org>
+Date: Sat,  3 Nov 2012 23:02:30 +0100
 
-> This patch applies the introduced usbnet_read_cmd_nopm() and
-> usbnet_write_cmd_nopm() in the callback of resume and suspend
-> to avoid deadlock if USB runtime PM is considered into
-> usbnet_read_cmd() and usbnet_write_cmd().
+> Instead of issuing (0) statements when !CONFIG_SYSFS which will cause
+> 'warning: ', we'll use inline statements instead. This will effectively
+> do the same thing, but suppress any unnecessary warnings.
 > 
-> Cc: Steve Glendinning <steve.glendinning@shawell.net>
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Cc: bridge@lists.linux-foundation.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Lee Jones <lee.jones@linaro.org>
 
-This gets rejects, you didn't have your net-next tree uptodate
-enough.
+Applied, but please use more informative subject lines.
+
+You should prefix your subject line after [PATCH ...] with
+the name of the subsystem you are touching, a ": " then
+the headline description.
+
+So here you would have used "bridge: " and that's what I added when I
+commited this patch.
