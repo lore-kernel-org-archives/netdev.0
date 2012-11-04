@@ -1,105 +1,90 @@
-From: Cyril Chemparathy <cyril@ti.com>
-Subject: Re: [PATCH net-next 2/2] cpsw: fix leaking IO mappings
-Date: Sun, 4 Nov 2012 14:23:58 +0100
-Message-ID: <50966C6E.1000507@ti.com>
-References: <cover.1351930782.git.richardcochran@gmail.com> <1c915a7d0301355342358db8f84560417609a61c.1351930782.git.richardcochran@gmail.com>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [PATCH v2 5/5] usbnet: make device out of suspend before calling
+ usbnet_read[write]_cmd
+Date: Sun, 04 Nov 2012 17:55:17 +0400
+Message-ID: <509673C5.1090005@mvista.com>
+References: <1352027793-6608-1-git-send-email-ming.lei@canonical.com> <1352027793-6608-6-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	David Miller <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Vaibhav Hiremath <hvaibhav@ti.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:50177 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752200Ab2KDNYI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 4 Nov 2012 08:24:08 -0500
-In-Reply-To: <1c915a7d0301355342358db8f84560417609a61c.1351930782.git.richardcochran@gmail.com>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:42510 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754164Ab2KDN4b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 08:56:31 -0500
+Received: by mail-la0-f46.google.com with SMTP id h6so3606347lag.19
+        for <netdev@vger.kernel.org>; Sun, 04 Nov 2012 05:56:29 -0800 (PST)
+In-Reply-To: <1352027793-6608-6-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/03/2012 09:25 AM, Richard Cochran wrote:
-> The CPSW driver remaps two different IO regions, but fails to unmap them
-> both. This patch fixes the issue by calling iounmap in the appropriate
-> places.
+Hello.
 
-Any thoughts on using devres helpers to keep the bail out path simpler?
+On 04-11-2012 15:16, Ming Lei wrote:
 
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+    s/make/wake/ in the subject?
+
+> This patche gets the runtime PM reference count before calling
+
+    s/patche/patch/
+
+> usbnet_read[write]_cmd, and puts it after completion of the
+> usbnet_read[write]_cmd, so that the usb control message can always
+
+    You probably meant usbnet_{read|write}_cmd() here and in the subject?
+
+> be sent to one active device in the non-PM context.
+
+> Signed-off-by: Ming Lei <ming.lei@canonical.com>
 > ---
->   drivers/net/ethernet/ti/cpsw.c |   17 ++++++++---------
->   1 files changed, 8 insertions(+), 9 deletions(-)
+>   drivers/net/usb/usbnet.c |   18 ++++++++++++++----
+>   1 file changed, 14 insertions(+), 4 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 6215246..7654a62 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -1252,14 +1252,12 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
->   		ret = -ENOENT;
->   		goto clean_clk_ret;
->   	}
-> -
->   	if (!request_mem_region(priv->cpsw_res->start,
->   				resource_size(priv->cpsw_res), ndev->name)) {
->   		dev_err(priv->dev, "failed request i/o region\n");
->   		ret = -ENXIO;
->   		goto clean_clk_ret;
->   	}
-> -
->   	regs = ioremap(priv->cpsw_res->start, resource_size(priv->cpsw_res));
->   	if (!regs) {
->   		dev_err(priv->dev, "unable to map i/o region\n");
-> @@ -1274,16 +1272,14 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
->   	if (!priv->cpsw_wr_res) {
->   		dev_err(priv->dev, "error getting i/o resource\n");
->   		ret = -ENOENT;
-> -		goto clean_clk_ret;
-> +		goto clean_iomap_ret;
->   	}
-> -
->   	if (!request_mem_region(priv->cpsw_wr_res->start,
->   			resource_size(priv->cpsw_wr_res), ndev->name)) {
->   		dev_err(priv->dev, "failed request i/o region\n");
->   		ret = -ENXIO;
-> -		goto clean_clk_ret;
-> +		goto clean_iomap_ret;
->   	}
-> -
->   	regs = ioremap(priv->cpsw_wr_res->start,
->   				resource_size(priv->cpsw_wr_res));
->   	if (!regs) {
-> @@ -1326,7 +1322,7 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
->   	if (!priv->dma) {
->   		dev_err(priv->dev, "error initializing dma\n");
->   		ret = -ENOMEM;
-> -		goto clean_iomap_ret;
-> +		goto clean_wr_iomap_ret;
->   	}
->   
->   	priv->txch = cpdma_chan_create(priv->dma, tx_chan_num(0),
-> @@ -1407,11 +1403,13 @@ clean_dma_ret:
->   	cpdma_chan_destroy(priv->txch);
->   	cpdma_chan_destroy(priv->rxch);
->   	cpdma_ctlr_destroy(priv->dma);
-> -clean_iomap_ret:
-> -	iounmap(priv->regs);
-> +clean_wr_iomap_ret:
-> +	iounmap(priv->wr_regs);
->   clean_cpsw_wr_iores_ret:
->   	release_mem_region(priv->cpsw_wr_res->start,
->   			   resource_size(priv->cpsw_wr_res));
-> +clean_iomap_ret:
-> +	iounmap(priv->regs);
->   clean_cpsw_iores_ret:
->   	release_mem_region(priv->cpsw_res->start,
->   			   resource_size(priv->cpsw_res));
-> @@ -1442,6 +1440,7 @@ static int __devexit cpsw_remove(struct platform_device *pdev)
->   	iounmap(priv->regs);
->   	release_mem_region(priv->cpsw_res->start,
->   			   resource_size(priv->cpsw_res));
-> +	iounmap(priv->wr_regs);
->   	release_mem_region(priv->cpsw_wr_res->start,
->   			   resource_size(priv->cpsw_wr_res));
->   	pm_runtime_disable(&pdev->dev);
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index a7fb074..74caa67 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -1673,8 +1673,13 @@ out:
+>   int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+>   		    u16 value, u16 index, void *data, u16 size)
+>   {
+> -	return __usbnet_read_cmd(dev, cmd, reqtype, value, index,
+> -				 data, size);
+> +	int ret;
+
+    Empty line wouldn't hurt here, after declaration block.
+
+> +	if (usb_autopm_get_interface(dev->intf) < 0)
+> +		return -ENODEV;
+> +	ret = __usbnet_read_cmd(dev, cmd, reqtype, value, index,
+> +				data, size);
+> +	usb_autopm_put_interface(dev->intf);
+> +	return ret;
+>   }
+>   EXPORT_SYMBOL_GPL(usbnet_read_cmd);
+>
+> @@ -1685,8 +1690,13 @@ EXPORT_SYMBOL_GPL(usbnet_read_cmd);
+>   int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
+>   		     u16 value, u16 index, const void *data, u16 size)
+>   {
+> -	return __usbnet_write_cmd(dev, cmd, reqtype, value, index,
+> -				  data, size);
+> +	int ret;
+
+    And here too...
+
+> +	if (usb_autopm_get_interface(dev->intf) < 0)
+> +		return -ENODEV;
+> +	ret = __usbnet_write_cmd(dev, cmd, reqtype, value, index,
+> +				 data, size);
+> +	usb_autopm_put_interface(dev->intf);
+> +	return ret;
+>   }
+>   EXPORT_SYMBOL_GPL(usbnet_write_cmd);
+
+WBR, Sergei
