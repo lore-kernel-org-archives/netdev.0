@@ -1,51 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/9] isdn: Remove unused variable causing a compile
- build warning
-Date: Sun, 04 Nov 2012 12:30:13 -0500 (EST)
-Message-ID: <20121104.123013.700345271120279281.davem@davemloft.net>
-References: <20121103224832.GA24262@gmail.com>
-	<1352024091.1434.17.camel@x61.thuisdomein>
-	<20121104105332.GC27124@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/9] batman-adv: add UNICAST_4ADDR packet
+ type
+Date: Sun, 04 Nov 2012 12:30:57 -0500 (EST)
+Message-ID: <20121104.123057.59138392933877977.davem@davemloft.net>
+References: <20121103.152226.244759041688205348.davem@davemloft.net>
+ <12758662.vFhVQet4vg@sven-laptop.home.narfation.org>
+ <5244128.ID77evUSAJ@sven-laptop.home.narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org,
-	isdn@linux-pingi.de, netdev@vger.kernel.org
-To: lee.jones@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39249 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751138Ab2KDRaP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 12:30:15 -0500
-In-Reply-To: <20121104105332.GC27124@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <5244128.ID77evUSAJ-S/pmIDWWJIwhrEaHGRlFQnOel7F/LzPIcbWoRP8EXgk@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogTGVlIEpvbmVzIDxsZWUuam9uZXNAbGluYXJvLm9yZz4NCkRhdGU6IFN1biwgNCBOb3Yg
-MjAxMiAxMTo1MzozMiArMDEwMA0KDQo+IE9uIFN1biwgMDQgTm92IDIwMTIsIFBhdWwgQm9sbGUg
-d3JvdGU6DQo+IA0KPj4gT24gU2F0LCAyMDEyLTExLTAzIGF0IDIzOjQ4ICswMTAwLCBMZWUgSm9u
-ZXMgd3JvdGU6DQo+PiA+IE9uIFNhdCwgMDMgTm92IDIwMTIsIFBhdWwgQm9sbGUgd3JvdGU6DQo+
-PiA+ID4gT24gU2F0LCAyMDEyLTExLTAzIGF0IDIzOjAyICswMTAwLCBMZWUgSm9uZXMgd3JvdGU6
-DQo+PiA+ID4gPiBUaGlzIHBhdGNoIGZpeGVzOg0KPj4gPiA+ID4gZHJpdmVycy9pc2RuL2k0bC9p
-c2RuX2NvbW1vbi5jOiBJbiBmdW5jdGlvbiChaXNkbl9pb2N0bKI6DQo+PiA+ID4gPiBkcml2ZXJz
-L2lzZG4vaTRsL2lzZG5fY29tbW9uLmM6MTI3ODo4OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUg
-oXOiIFstV3VudXNlZC12YXJpYWJsZV0NCj4+ID4gPiANCj4+ID4gPiBEaWQgeW91IGhhdmUgQ09O
-RklHX05FVERFVklDRVMgbm90IHNldCBpbiB0aGlzIGJ1aWxkPw0KPj4gPiANCj4+ID4gQWggeWVz
-LCBJIHNlZSBpdC4gVGhlIGZ1bmN0aW9uIHdlbnQgZG93biBmdXJ0aGVyIHRoYW4gSSB0aG91Z2h0
-DQo+PiA+IGl0IGRpZC4gU28gdGhlIHJlYWwgZml4IGlzIHRvIGVuc3VyZSAncycgaXMgZGVmaW5l
-ZCBpbnNpZGUgb2YNCj4+ID4gc29tZSBpZmRlZiBDT05GSUdfTkVUREVWSUNFUyBndWFyZHMuIA0K
-Pj4gDQo+PiBXaGF0IHB1enpsZXMgbWUgaXMgdGhhdCB3ZSBvbmx5IGZpbmQgdGhlc2UgIiNpZmRl
-ZiBDT05GSUdfTkVUREVWSUNFUyINCj4+IGd1YXJkcyBpbiB0aGlzIGZpbGUgYW5kIG5vdCBpbiBp
-c2RuX25ldC5jLCB3ZXJlIGFsbCB0aGUgaW9jdGwgY29tbWFuZHMNCj4+IGd1YXJkZWQgdGhhdCB3
-YXkgc2VlbSB0byBiZSBjYWxsaW5nIGludG8uIE9uIGZpcnN0IGdsYW5jZSB0aGF0IGRvZXNuJ3QN
-Cj4+IG1ha2UgbXVjaCBzZW5zZS4NCj4+IA0KPj4gKEFjdHVhbGx5IHRoZSBpZGVhIG9mIGhhdmlu
-ZyBJU0ROIHdpdGhvdXQgTkVUREVWSUNFUyBpcyBhIGJpdCBwdXp6bGluZw0KPj4gdG9vLiBCdXQg
-dGhlcmUgYXJlIHRvbyBtYW55IHBhcnRzIG9mIHRoZSBpc2RuIHN1YnN5c3RlbSB0aGF0IEknbQ0K
-Pj4gdW5mYW1pbGlhciB3aXRoIHRvIHNheSB3aGV0aGVyIHRoYXQgY2FuIG1ha2Ugc2Vuc2UuKQ0K
-PiANCj4gSSdtIGluIHRoZSBzYW1lIHBvc2l0aW9uIGFzIHlvdSBQYXVsLiBJIGp1c3Qgbm90aWNl
-ZCB0aGUgd2FybmluZyBzbw0KPiBmaXhlZCBpdCBmb2xsb3dpbmcgdGhlIGN1cnJlbnQgd2F5IG9m
-IGRvaW5nIHRoaW5ncy4gQW55LCBtb3JlDQo+IHN1YnN0YW50aWFsIGNoYW5nZXMgcmVxdWlyaW5n
-IGdyZWF0ZXIga25vd2xlZGdlIG9mIHRoZSBzdWJzeXN0ZW0NCj4gd291bGQgaGF2ZSB0byBiZSBk
-b25lIGJ5IHNvbWVvbmUgZWxzZS4NCg0KSSB0aGluayB0aGUgbW9zdCBhcHByb3ByaWF0ZSB0aGlu
-ZyB0byBkbyBpcyBtYWtlIENPTkZJR19JU0ROIGRlcGVuZA0KdXBvbiBDT05GSUdfTkVUREVWSUNF
-UyBpbiB0aGUgS2NvbmZpZyBmaWxlLg0K
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Date: Sun, 04 Nov 2012 12:20:13 +0100
+
+> To push this question in a direction: May I assume that the driver always 
+> ensures that the ethernet header is 4 byte boundary - NET_IP_ALIGN (2) 
+> aligned?
+
+Yes.
+
+> When yes, this would result in a slight variations of your suggestion: 
+> unicast/bcast headers have to end at 4 bytes boundary + 2 bytes. The reason is 
+> easy to explain. batman-adv unicast/bcast headers are used to encapsulate the 
+> important parts of an ethernet frame:
+> 
+> Ethernet Header for P2P | batman-adv header stuff | ethernet header | payload.
+> 
+> Would you aggree?
+
+Then you can get rid of the packed crap.
