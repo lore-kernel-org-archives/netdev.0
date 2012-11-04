@@ -1,90 +1,44 @@
-From: Sergei Shtylyov <sshtylyov@mvista.com>
-Subject: Re: [PATCH v2 5/5] usbnet: make device out of suspend before calling
- usbnet_read[write]_cmd
-Date: Sun, 04 Nov 2012 17:55:17 +0400
-Message-ID: <509673C5.1090005@mvista.com>
-References: <1352027793-6608-1-git-send-email-ming.lei@canonical.com> <1352027793-6608-6-git-send-email-ming.lei@canonical.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next 2/2] cpsw: fix leaking IO mappings
+Date: Sun, 4 Nov 2012 16:16:20 +0100
+Message-ID: <20121104151620.GA2175@netboy.at.omicron.at>
+References: <cover.1351930782.git.richardcochran@gmail.com>
+ <1c915a7d0301355342358db8f84560417609a61c.1351930782.git.richardcochran@gmail.com>
+ <50966C6E.1000507@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	David Miller <davem@davemloft.net>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Vaibhav Hiremath <hvaibhav@ti.com>
+To: Cyril Chemparathy <cyril@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:42510 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754164Ab2KDN4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 08:56:31 -0500
-Received: by mail-la0-f46.google.com with SMTP id h6so3606347lag.19
-        for <netdev@vger.kernel.org>; Sun, 04 Nov 2012 05:56:29 -0800 (PST)
-In-Reply-To: <1352027793-6608-6-git-send-email-ming.lei@canonical.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:38794 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752671Ab2KDPQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 10:16:32 -0500
+Received: by mail-ea0-f174.google.com with SMTP id c13so1947634eaa.19
+        for <netdev@vger.kernel.org>; Sun, 04 Nov 2012 07:16:31 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <50966C6E.1000507@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Sun, Nov 04, 2012 at 02:23:58PM +0100, Cyril Chemparathy wrote:
+> On 11/03/2012 09:25 AM, Richard Cochran wrote:
+> >The CPSW driver remaps two different IO regions, but fails to unmap them
+> >both. This patch fixes the issue by calling iounmap in the appropriate
+> >places.
+> 
+> Any thoughts on using devres helpers to keep the bail out path simpler?
 
-On 04-11-2012 15:16, Ming Lei wrote:
+I wasn't aware of devres before, but I just read through the doc. It
+looks interesting, and if I were writting a new driver, then I might
+use it.
 
-    s/make/wake/ in the subject?
+But for this driver, it really isn't very complex. It only looks that
+way, but I think this just accidental. I guess that the code was
+adapted from the davinci emac driver.
 
-> This patche gets the runtime PM reference count before calling
-
-    s/patche/patch/
-
-> usbnet_read[write]_cmd, and puts it after completion of the
-> usbnet_read[write]_cmd, so that the usb control message can always
-
-    You probably meant usbnet_{read|write}_cmd() here and in the subject?
-
-> be sent to one active device in the non-PM context.
-
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
->   drivers/net/usb/usbnet.c |   18 ++++++++++++++----
->   1 file changed, 14 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index a7fb074..74caa67 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -1673,8 +1673,13 @@ out:
->   int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
->   		    u16 value, u16 index, void *data, u16 size)
->   {
-> -	return __usbnet_read_cmd(dev, cmd, reqtype, value, index,
-> -				 data, size);
-> +	int ret;
-
-    Empty line wouldn't hurt here, after declaration block.
-
-> +	if (usb_autopm_get_interface(dev->intf) < 0)
-> +		return -ENODEV;
-> +	ret = __usbnet_read_cmd(dev, cmd, reqtype, value, index,
-> +				data, size);
-> +	usb_autopm_put_interface(dev->intf);
-> +	return ret;
->   }
->   EXPORT_SYMBOL_GPL(usbnet_read_cmd);
->
-> @@ -1685,8 +1690,13 @@ EXPORT_SYMBOL_GPL(usbnet_read_cmd);
->   int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
->   		     u16 value, u16 index, const void *data, u16 size)
->   {
-> -	return __usbnet_write_cmd(dev, cmd, reqtype, value, index,
-> -				  data, size);
-> +	int ret;
-
-    And here too...
-
-> +	if (usb_autopm_get_interface(dev->intf) < 0)
-> +		return -ENODEV;
-> +	ret = __usbnet_write_cmd(dev, cmd, reqtype, value, index,
-> +				 data, size);
-> +	usb_autopm_put_interface(dev->intf);
-> +	return ret;
->   }
->   EXPORT_SYMBOL_GPL(usbnet_write_cmd);
-
-WBR, Sergei
+Thanks,
+Richard
