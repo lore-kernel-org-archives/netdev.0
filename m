@@ -1,37 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [B.A.T.M.A.N.] [PATCH 1/9] batman-adv: add UNICAST_4ADDR
- packet type
-Date: Sun, 04 Nov 2012 12:26:11 -0500 (EST)
-Message-ID: <20121104.122611.1457246059414191903.davem@davemloft.net>
-References: <1351968514-12357-2-git-send-email-ordex@autistici.org>
-	<20121103.152226.244759041688205348.davem@davemloft.net>
-	<12758662.vFhVQet4vg@sven-laptop.home.narfation.org>
+Subject: Re: [PATCH 8/9] isdn: Remove unused variable causing a compile
+ build warning
+Date: Sun, 04 Nov 2012 12:30:13 -0500 (EST)
+Message-ID: <20121104.123013.700345271120279281.davem@davemloft.net>
+References: <20121103224832.GA24262@gmail.com>
+	<1352024091.1434.17.camel@x61.thuisdomein>
+	<20121104105332.GC27124@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: b.a.t.m.a.n@lists.open-mesh.org, ordex@autistici.org,
-	netdev@vger.kernel.org
-To: sven@narfation.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org,
+	isdn@linux-pingi.de, netdev@vger.kernel.org
+To: lee.jones@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39228 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39249 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751107Ab2KDR0N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 12:26:13 -0500
-In-Reply-To: <12758662.vFhVQet4vg@sven-laptop.home.narfation.org>
+	with ESMTP id S1751138Ab2KDRaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 4 Nov 2012 12:30:15 -0500
+In-Reply-To: <20121104105332.GC27124@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
-Date: Sun, 04 Nov 2012 11:29:29 +0100
-
-> Now also assume following really unusual situation: We get our data from a 
-> ethernet driver and the skb stores the ethernet header. The start of the 
-> ethernet header is perfectly aligned (4 or even 16 byte boundary aligned). The 
-> the header is 14/18 byte long (6 byte src, 6 byte dst, 2 byte ethertype and 
-> maybe 4 byte vlan). Now the payload starts only on a 2 byte boundary -> it is 
-> never 4 byte boundary aligned. A 32 bit read now causes different variations 
-> of problems (reminder: bus error).
-
-Every ethernet driver must provide the networking stack with a modulo 2
-aligned ethernet header, which makes sure that everything after the
-ethernet header is at least 4 byte aligned.
+RnJvbTogTGVlIEpvbmVzIDxsZWUuam9uZXNAbGluYXJvLm9yZz4NCkRhdGU6IFN1biwgNCBOb3Yg
+MjAxMiAxMTo1MzozMiArMDEwMA0KDQo+IE9uIFN1biwgMDQgTm92IDIwMTIsIFBhdWwgQm9sbGUg
+d3JvdGU6DQo+IA0KPj4gT24gU2F0LCAyMDEyLTExLTAzIGF0IDIzOjQ4ICswMTAwLCBMZWUgSm9u
+ZXMgd3JvdGU6DQo+PiA+IE9uIFNhdCwgMDMgTm92IDIwMTIsIFBhdWwgQm9sbGUgd3JvdGU6DQo+
+PiA+ID4gT24gU2F0LCAyMDEyLTExLTAzIGF0IDIzOjAyICswMTAwLCBMZWUgSm9uZXMgd3JvdGU6
+DQo+PiA+ID4gPiBUaGlzIHBhdGNoIGZpeGVzOg0KPj4gPiA+ID4gZHJpdmVycy9pc2RuL2k0bC9p
+c2RuX2NvbW1vbi5jOiBJbiBmdW5jdGlvbiChaXNkbl9pb2N0bKI6DQo+PiA+ID4gPiBkcml2ZXJz
+L2lzZG4vaTRsL2lzZG5fY29tbW9uLmM6MTI3ODo4OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUg
+oXOiIFstV3VudXNlZC12YXJpYWJsZV0NCj4+ID4gPiANCj4+ID4gPiBEaWQgeW91IGhhdmUgQ09O
+RklHX05FVERFVklDRVMgbm90IHNldCBpbiB0aGlzIGJ1aWxkPw0KPj4gPiANCj4+ID4gQWggeWVz
+LCBJIHNlZSBpdC4gVGhlIGZ1bmN0aW9uIHdlbnQgZG93biBmdXJ0aGVyIHRoYW4gSSB0aG91Z2h0
+DQo+PiA+IGl0IGRpZC4gU28gdGhlIHJlYWwgZml4IGlzIHRvIGVuc3VyZSAncycgaXMgZGVmaW5l
+ZCBpbnNpZGUgb2YNCj4+ID4gc29tZSBpZmRlZiBDT05GSUdfTkVUREVWSUNFUyBndWFyZHMuIA0K
+Pj4gDQo+PiBXaGF0IHB1enpsZXMgbWUgaXMgdGhhdCB3ZSBvbmx5IGZpbmQgdGhlc2UgIiNpZmRl
+ZiBDT05GSUdfTkVUREVWSUNFUyINCj4+IGd1YXJkcyBpbiB0aGlzIGZpbGUgYW5kIG5vdCBpbiBp
+c2RuX25ldC5jLCB3ZXJlIGFsbCB0aGUgaW9jdGwgY29tbWFuZHMNCj4+IGd1YXJkZWQgdGhhdCB3
+YXkgc2VlbSB0byBiZSBjYWxsaW5nIGludG8uIE9uIGZpcnN0IGdsYW5jZSB0aGF0IGRvZXNuJ3QN
+Cj4+IG1ha2UgbXVjaCBzZW5zZS4NCj4+IA0KPj4gKEFjdHVhbGx5IHRoZSBpZGVhIG9mIGhhdmlu
+ZyBJU0ROIHdpdGhvdXQgTkVUREVWSUNFUyBpcyBhIGJpdCBwdXp6bGluZw0KPj4gdG9vLiBCdXQg
+dGhlcmUgYXJlIHRvbyBtYW55IHBhcnRzIG9mIHRoZSBpc2RuIHN1YnN5c3RlbSB0aGF0IEknbQ0K
+Pj4gdW5mYW1pbGlhciB3aXRoIHRvIHNheSB3aGV0aGVyIHRoYXQgY2FuIG1ha2Ugc2Vuc2UuKQ0K
+PiANCj4gSSdtIGluIHRoZSBzYW1lIHBvc2l0aW9uIGFzIHlvdSBQYXVsLiBJIGp1c3Qgbm90aWNl
+ZCB0aGUgd2FybmluZyBzbw0KPiBmaXhlZCBpdCBmb2xsb3dpbmcgdGhlIGN1cnJlbnQgd2F5IG9m
+IGRvaW5nIHRoaW5ncy4gQW55LCBtb3JlDQo+IHN1YnN0YW50aWFsIGNoYW5nZXMgcmVxdWlyaW5n
+IGdyZWF0ZXIga25vd2xlZGdlIG9mIHRoZSBzdWJzeXN0ZW0NCj4gd291bGQgaGF2ZSB0byBiZSBk
+b25lIGJ5IHNvbWVvbmUgZWxzZS4NCg0KSSB0aGluayB0aGUgbW9zdCBhcHByb3ByaWF0ZSB0aGlu
+ZyB0byBkbyBpcyBtYWtlIENPTkZJR19JU0ROIGRlcGVuZA0KdXBvbiBDT05GSUdfTkVUREVWSUNF
+UyBpbiB0aGUgS2NvbmZpZyBmaWxlLg0K
