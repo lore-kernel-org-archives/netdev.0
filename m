@@ -1,48 +1,48 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH v1 0/5] usbnet: avoiding access auto-suspended device
-Date: Mon, 05 Nov 2012 10:24:57 +0100
-Message-ID: <9016904.gHGBncEQ14@linux-lqwf.site>
-References: <1351992594-12818-1-git-send-email-ming.lei@canonical.com>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: Re: [PATCH 8/9] isdn: Remove unused variable causing a compile build
+ warning
+Date: Mon, 5 Nov 2012 10:44:50 +0100
+Message-ID: <20121105094450.GA5220@gmail.com>
+References: <20121103224832.GA24262@gmail.com>
+ <1352024091.1434.17.camel@x61.thuisdomein>
+ <20121104105332.GC27124@gmail.com>
+ <20121104.123013.700345271120279281.davem@davemloft.net>
+ <20121105084419.GC2699@gmail.com>
+ <1352106704.1434.25.camel@x61.thuisdomein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1351992594-12818-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	isdn@linux-pingi.de, netdev@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1352106704.1434.25.camel@x61.thuisdomein>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday 04 November 2012 09:29:49 Ming Lei wrote:
-> Thip patchset avoids accessing auto-suspended device in ioctl path,
-> which is generally triggered by some network utility(ethtool, ifconfig,
-> ...)
-> 
-> Most of network devices have the problem, but as discussed in the
-> thread:
-> 
->         http://marc.info/?t=135054860600003&r=1&w=2
-> 
-> the problem should be solved inside driver.
-> 
-> Considered that only smsc75xx and smsc95xx calls usbnet_read_cmd()
-> and usbnet_write_cmd() inside its resume and suspend callback, the
-> patcheset introduce the nopm version of the two functions which
-> should be called only in the resume and suspend callback. So we
-> can solve the problem by runtime resuming device before doing
-> control message things.
+On Mon, 05 Nov 2012, Paul Bolle wrote:
 
-Hi,
+> On Mon, 2012-11-05 at 09:44 +0100, Lee Jones wrote:
+> > On Sun, 04 Nov 2012, David Miller wrote:
+> > > I think the most appropriate thing to do is make CONFIG_ISDN depe=
+nd
+> > > upon CONFIG_NETDEVICES in the Kconfig file.
+> >=20
+> > ... and then remove the CONFIG_NETDEVICES guards in isdn_common.c?
+>=20
+> If ISDN would depend on NETDEVICES, ISDN_I4L would too, since it depe=
+nds
+> on ISDN. In that case CONFIG_NETDEVICES would always be true when
+> compiling isdn_common.c. That would make these guards pointless. (The
+> dependency of ISDN_PPP on NETDEVICES would then also be pointless.)
 
-I am happy with these patches.
-Dave, do you have a principal objection regarding these patches, too?
+I'll submit a patch based on your comments.
 
-	Regards
-		Oliver
+Thanks for your time Paul.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Lee Jones
+Linaro ST-Ericsson Landing Team Lead
+Linaro.org =E2=94=82 Open source software for ARM SoCs
+=46ollow Linaro: Facebook | Twitter | Blog
