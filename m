@@ -1,62 +1,75 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH RFC] pkt_sched: enable QFQ to support TSO/GSO
-Date: Mon, 5 Nov 2012 16:41:49 +0800
-Message-ID: <CAM_iQpUbru0EiO8yJYO2Uke_Y5v7047PEijkBHHpBn5DUbke5Q@mail.gmail.com>
-References: <20121030060056.GA3373@paolo-ThinkPad-W520>
-	<20121030072415.17199f9a@nehalam.linuxnetplumber.net>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: Re: [PATCH 8/9] isdn: Remove unused variable causing a compile build
+ warning
+Date: Mon, 5 Nov 2012 09:44:19 +0100
+Message-ID: <20121105084419.GC2699@gmail.com>
+References: <20121103224832.GA24262@gmail.com>
+ <1352024091.1434.17.camel@x61.thuisdomein>
+ <20121104105332.GC27124@gmail.com>
+ <20121104.123013.700345271120279281.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Paolo Valente <paolo.valente@unimore.it>, jhs@mojatatu.com,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	rizzo@iet.unipi.it, fchecconi@gmail.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org,
+	isdn@linux-pingi.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121030072415.17199f9a@nehalam.linuxnetplumber.net>
+Content-Disposition: inline
+In-Reply-To: <20121104.123013.700345271120279281.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 30, 2012 at 10:24 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
-> On Tue, 30 Oct 2012 07:00:56 +0100
-> Paolo Valente <paolo.valente@unimore.it> wrote:
->
->> Hi,
->> if the max packet size for some class (configured through tc) is
->> violated by the actual size of the packets of that class, then QFQ
->> would not schedule classes correctly, and the data structures
->> implementing the bucket lists may get corrupted. This problem occurs
->> with TSO/GSO even if the max packet size is set to the MTU, and is,
->> e.g., the cause of the failure reported in [1]. Two patches have been
->> proposed to solve this problem in [2], one of them is a preliminary
->> version of this patch.
->>
->> This patch addresses the above issues by: 1) setting QFQ parameters to
->> proper values for supporting TSO/GSO (in particular, setting the
->> maximum possible packet size to 64KB), 2) automatically increasing the
->> max packet size for a class, lmax, when a packet with a larger size
->> than the current value of lmax arrives.
->>
->> The drawback of the first point is that the maximum weight for a class
->> is now limited to 4096, which is equal to 1/16 of the maximum weight
->> sum.
->>
->> Finally, this patch also forcibly caps the timestamps of a class if
->> they are too high to be stored in the bucket list. This capping, taken
->> from QFQ+ [3], handles the unfrequent case described in the comment to
->> the function slot_insert.
->>
->> [1] http://marc.info/?l=linux-netdev&m=134968777902077&w=2
->> [2] http://marc.info/?l=linux-netdev&m=135096573507936&w=2
->> [3] http://marc.info/?l=linux-netdev&m=134902691421670&w=2
->>
->> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
->> Tested-by: Cong Wang <amwang@redhat.com>
->
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+On Sun, 04 Nov 2012, David Miller wrote:
 
+> From: Lee Jones <lee.jones@linaro.org>
+> Date: Sun, 4 Nov 2012 11:53:32 +0100
+>=20
+> > On Sun, 04 Nov 2012, Paul Bolle wrote:
+> >=20
+> >> On Sat, 2012-11-03 at 23:48 +0100, Lee Jones wrote:
+> >> > On Sat, 03 Nov 2012, Paul Bolle wrote:
+> >> > > On Sat, 2012-11-03 at 23:02 +0100, Lee Jones wrote:
+> >> > > > This patch fixes:
+> >> > > > drivers/isdn/i4l/isdn_common.c: In function =E2=80=98isdn_io=
+ctl=E2=80=99:
+> >> > > > drivers/isdn/i4l/isdn_common.c:1278:8: warning: unused varia=
+ble =E2=80=98s=E2=80=99 [-Wunused-variable]
+> >> > >=20
+> >> > > Did you have CONFIG_NETDEVICES not set in this build?
+> >> >=20
+> >> > Ah yes, I see it. The function went down further than I thought
+> >> > it did. So the real fix is to ensure 's' is defined inside of
+> >> > some ifdef CONFIG_NETDEVICES guards.=20
+> >>=20
+> >> What puzzles me is that we only find these "#ifdef CONFIG_NETDEVIC=
+ES"
+> >> guards in this file and not in isdn_net.c, were all the ioctl comm=
+ands
+> >> guarded that way seem to be calling into. On first glance that doe=
+sn't
+> >> make much sense.
+> >>=20
+> >> (Actually the idea of having ISDN without NETDEVICES is a bit puzz=
+ling
+> >> too. But there are too many parts of the isdn subsystem that I'm
+> >> unfamiliar with to say whether that can make sense.)
+> >=20
+> > I'm in the same position as you Paul. I just noticed the warning so
+> > fixed it following the current way of doing things. Any, more
+> > substantial changes requiring greater knowledge of the subsystem
+> > would have to be done by someone else.
+>=20
+> I think the most appropriate thing to do is make CONFIG_ISDN depend
+> upon CONFIG_NETDEVICES in the Kconfig file.
 
-David, could you take this patch? Stephen acked it.
+=2E.. and then remove the CONFIG_NETDEVICES guards in isdn_common.c?
 
-Thanks!
+If that's suitable more suitable I can do that instead?
+
+Just need a yay or nay and I'll make it happen.
+
+--=20
+Lee Jones
+Linaro ST-Ericsson Landing Team Lead
+Linaro.org =E2=94=82 Open source software for ARM SoCs
+=46ollow Linaro: Facebook | Twitter | Blog
