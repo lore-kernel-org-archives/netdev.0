@@ -1,50 +1,40 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v1 0/5] usbnet: avoiding access auto-suspended device
-Date: Mon, 05 Nov 2012 11:50:10 -0500 (EST)
-Message-ID: <20121105.115010.1531838246984342873.davem@davemloft.net>
-References: <1351992594-12818-1-git-send-email-ming.lei@canonical.com>
-	<9016904.gHGBncEQ14@linux-lqwf.site>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 6/6] net: calxedaxgmac: ip align receive buffers
+Date: Mon, 05 Nov 2012 08:53:37 -0800
+Message-ID: <1352134417.2747.0.camel@edumazet-glaptop>
+References: <1352132544-15809-1-git-send-email-robherring2@gmail.com>
+	 <1352132544-15809-7-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: oneukum-l3A5Bk7waGM@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9016904.gHGBncEQ14-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Rob Herring <rob.herring@calxeda.com>
+To: Rob Herring <robherring2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:59104 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753019Ab2KEQxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 11:53:49 -0500
+Received: by mail-pa0-f46.google.com with SMTP id hz1so4059082pad.19
+        for <netdev@vger.kernel.org>; Mon, 05 Nov 2012 08:53:48 -0800 (PST)
+In-Reply-To: <1352132544-15809-7-git-send-email-robherring2@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Date: Mon, 05 Nov 2012 10:24:57 +0100
-
-> On Sunday 04 November 2012 09:29:49 Ming Lei wrote:
->> Thip patchset avoids accessing auto-suspended device in ioctl path,
->> which is generally triggered by some network utility(ethtool, ifconfig,
->> ...)
->> 
->> Most of network devices have the problem, but as discussed in the
->> thread:
->> 
->>         http://marc.info/?t=135054860600003&r=1&w=2
->> 
->> the problem should be solved inside driver.
->> 
->> Considered that only smsc75xx and smsc95xx calls usbnet_read_cmd()
->> and usbnet_write_cmd() inside its resume and suspend callback, the
->> patcheset introduce the nopm version of the two functions which
->> should be called only in the resume and suspend callback. So we
->> can solve the problem by runtime resuming device before doing
->> control message things.
+On Mon, 2012-11-05 at 10:22 -0600, Rob Herring wrote:
+> From: Rob Herring <rob.herring@calxeda.com>
 > 
-> Hi,
+> On gcc 4.7, we will get alignment traps in the ip stack if we don't align
+> the ip headers on receive. The h/w can support this, so use ip aligned
+> allocations.
 > 
-> I am happy with these patches.
-> Dave, do you have a principal objection regarding these patches, too?
+> Cut down the unnecessary padding on the allocation. The buffer can start on
+> any byte alignment, but the size including the begining offset must be 8
+> byte aligned. So the h/w buffer size must include the NET_IP_ALIGN offset.
+> 
+> Thanks to Eric Dumazet for the initial patch highlighting the padding issues.
+> 
+> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+> ---
 
-There were review comments and the most recently posted series
-needs to be reposted with that feedback incorporated.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Eric Dumazet <edumazet@google.com>
