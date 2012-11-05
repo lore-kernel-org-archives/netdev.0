@@ -1,71 +1,39 @@
-From: Mohammad Alsaleh <msal@tormail.org>
-Subject: Re: ping -f is broken in iputils 20121011
-Date: Mon, 5 Nov 2012 18:37:57 +0300
-Message-ID: <1TVOjm-000HkS-JO@internal.tormail.org>
-References: <5097841F.2050905@redhat.com>
+From: David Sterba <dave@jikos.cz>
+Subject: Re: merging printk and WARN
+Date: Mon, 5 Nov 2012 16:42:32 +0100
+Message-ID: <20121105154232.GL3102@twin.jikos.cz>
+References: <alpine.DEB.2.02.1211042120200.1960@localhost6.localdomain6>
+Reply-To: dave@jikos.cz
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jan Synacek <jsynacek@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from outgoing.tormail.org ([82.221.96.22]:55424 "EHLO
-	outgoing.tormail.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951Ab2KEPkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 10:40:08 -0500
+Cc: linux-kernel@vger.kernel.org, airlied@linux.ie,
+	netdev@vger.kernel.org, arnd@arndb.de, joern@logfs.org,
+	chris.mason@fusionio.com, m@bues.ch, jejb@parisc-linux.org,
+	faisal.latif@intel.com, neilb@suse.de, gregkh@linuxfoundation.org,
+	JBottomley@parallels.com, swise@chelsio.com,
+	achim_leubner@adaptec.com, tytso@mit.edu,
+	dri-devel@lists.freedesktop.org, jason.wessel@windriver.com,
+	kgdb-bugreport@lists.sourceforge.net,
+	Prasad Joshi <prasadjoshi.linux@gmail.com>, logfs@logfs.org,
+	linux-btrfs@vger.kernel.org, Helge Deller <deller@gmx.de>,
+	linux-parisc@vger.kernel.org, Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>, hal.rosenstock@gmail.com,
+	linux-rdma@vger.kernel.org, linux-raid@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-scsi@vger.kernel.org,
+	Andreas Dilger <adilger.kernel@dilger.ca>,
+	linux-ext4@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
+Return-path: <linux-ext4-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5097841F.2050905@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1211042120200.1960@localhost6.localdomain6>
+Sender: linux-ext4-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->On 10/31/2012 10:11 AM, Mohammad Alsaleh wrote:
->> On Tue, Oct 30, 2012 at 11:52:49PM +0300, Mohammad Alsaleh wrote:
->>> As explained in this bug report(1). ping -f seems to be broken in
->>> iputils 20121011.
->>>
->>> (1) https://bugs.archlinux.org/task/32306
->> 
->> Bisected to commit 8feb586c4c6df32badb159947ed233898891aecd
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> 
->
->Can you please try the attached patch?
->
->-- 
->Jan Synacek
->Software Engineer, BaseOS team Brno, Red Hat
->
->--- iputils-s20121011/ping_common.h	2012-11-05 10:07:40.065281888
->+0100
->+++ iputils-s20121011-new/ping_common.h	2012-11-05 10:07:22.001268362
->+0100
->@@ -141,7 +141,7 @@ static inline void write_stdout(const ch
-> 	do {
-> 		cc = write(STDOUT_FILENO, str + o, len - o);
-> 		o += cc;
->-	} while (len >= o || cc < 0);
->+	} while (len > o || cc < 0);
-> }
-> 
-> /*
->--- iputils-s20121011/ping_common.c	2012-11-05 10:07:40.066281889
->+0100
->+++ iputils-s20121011-new/ping_common.c	2012-11-05 10:07:22.007268368
->+0100
->@@ -776,7 +776,7 @@ restamp:
-> 		if (!csfailed)
-> 			write_stdout("\b \b", 3);
-> 		else
->-			write_stdout("\bC", 1);
->+			write_stdout("\bC", 2);
-> 	} else {
-> 		int i;
-> 		__u8 *cp, *dp;
->
+On Sun, Nov 04, 2012 at 09:25:53PM +0100, Julia Lawall wrote:
+> It looks like these patches were not a good idea, because in each case the
+> printk provides an error level, and WARN then provides another one.
 
-Sorry if this reply does not appear in the right thread. I'm not
-subscribed to the list.
+I think this is not a problem within btrfs at the place where this has
+changed.
 
-I can confirm the patch fixes the bug.
+david
