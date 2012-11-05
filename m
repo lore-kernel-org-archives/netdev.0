@@ -1,28 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vlan: set sysfs device_type to 'vlan'
-Date: Mon, 05 Nov 2012 01:44:37 -0500 (EST)
-Message-ID: <20121105.014437.768714358664336963.davem@davemloft.net>
-References: <CAFWqQMSes5J1bjUA6NBiWKrjbdUKJkhz-mdNYhGLU-A8cksxZg@mail.gmail.com>
-	<20121105.005343.973313737817968846.davem@davemloft.net>
-	<CAFWqQMRa6sPxqAJswu-6f06KxhqLSsY2T-dE3p-tpo4VEpwfdA@mail.gmail.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: [PATCH 0/2 v2] net: at91_ether add dt and pinctrl support
+Date: Mon, 5 Nov 2012 08:30:15 +0100
+Message-ID: <20121105073015.GM19021@game.jcrosoft.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@vger.kernel.org,
-	systemd-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org
-To: cardoe@cardoe.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFWqQMRa6sPxqAJswu-6f06KxhqLSsY2T-dE3p-tpo4VEpwfdA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+ Nicolas Ferre <nicolas.ferre@atmel.com>, Joachim Eastwood <manabian@gmail.com>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Doug Goldstein <cardoe@cardoe.com>
-Date: Mon, 5 Nov 2012 00:19:19 -0600
+Hi,
 
-> By this argument we shouldn't ever improve any API or add new syscalls
-> since we'll have to have fallback code to handle the old interfaces
-> when the new ones aren't available.
+	v2: fix typo in doc + miising empty line
 
-It makes sense to add new APIs when existing mechanisms are too
-difficult _AND_ code doesn't already exist that works reasonable well
-with existing facilities.
+	This patch serie add dt and pinctrl support to the at91 ether
+
+	this is need to use the network on at91rm9200 as we now have dt
+	support on it
+
+Jean-Christophe PLAGNIOL-VILLARD (2):
+      net: at91_ether: add dt support
+      net: at91_ether: add pinctrl support
+
+ Documentation/devicetree/bindings/net/cdns-emac.txt |   23 +++++++++++++++++++++++
+ drivers/net/ethernet/cadence/at91_ether.c           |   84 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 100 insertions(+), 7 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/cdns-emac.txt
+
+Best Regards,
+J.
+
+_______________________________________________
+linux-arm-kernel mailing list
+linux-arm-kernel@lists.infradead.org
+http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
