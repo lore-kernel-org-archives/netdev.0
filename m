@@ -1,40 +1,57 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RESEND PATCH net-next] ipv6/multipath: remove flag NLM_F_EXCL
- after the first nexthop
-Date: Mon, 05 Nov 2012 09:30:06 +0100
-Message-ID: <5097790E.1080701@6wind.com>
-References: <50896D47.7030500@6wind.com> <1351846702-4982-1-git-send-email-nicolas.dichtel@6wind.com> <20121102.213857.2276553238313329445.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: "N, Mugunthan V" <mugunthanvnm@ti.com>
+Subject: RE: [PATCH net-next 0/2] cpsw: fix resource leak for v3.8
+Date: Mon, 5 Nov 2012 08:40:34 +0000
+Message-ID: <EB1619762EAF8B4E97A227FB77B7E0293EA0A1EC@DBDE01.ent.ti.com>
+References: <cover.1351930782.git.richardcochran@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org, joe@perches.com,
-	bernat@luffy.cx, eric.dumazet@gmail.com, yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	David Miller <davem@davemloft.net>,
+	"Chemparathy, Cyril" <cyril@ti.com>,
+	"Hiremath, Vaibhav" <hvaibhav@ti.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:39428 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032Ab2KEIaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 03:30:10 -0500
-Received: by mail-wi0-f178.google.com with SMTP id hr7so2846374wib.1
-        for <netdev@vger.kernel.org>; Mon, 05 Nov 2012 00:30:09 -0800 (PST)
-In-Reply-To: <20121102.213857.2276553238313329445.davem@davemloft.net>
+Received: from bear.ext.ti.com ([192.94.94.41]:57219 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753052Ab2KEIko convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 03:40:44 -0500
+In-Reply-To: <cover.1351930782.git.richardcochran@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 03/11/2012 02:38, David Miller a =E9crit :
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Fri,  2 Nov 2012 09:58:22 +0100
->
->> fib6_add_rt2node() will reject the nexthop if this flag is set, so
->> we perform the check only for the first nexthop.
->>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->
-> It seems a bit hackish, but I don't have any better ideas, so
-> applied, thanks.
->
-Yes, I agree. It's why I didn't include it in the initial patch ... but=
- I also=20
-didn't find a better way :/
+> -----Original Message-----
+> From: Richard Cochran [mailto:richardcochran@gmail.com]
+> Sent: Saturday, November 03, 2012 1:55 PM
+> To: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org; David Miller; Chemparathy,
+> Cyril; N, Mugunthan V; Hiremath, Vaibhav
+> Subject: [PATCH net-next 0/2] cpsw: fix resource leak for v3.8
+> 
+> While looking at the idea of removing all of the register offsets in
+> the CPSW's device tree, I noticed that the driver would be leaking IO
+> mappings. Although this is, strictly speaking, a bug fix, still it can
+> wait to appear in v3.8, since there is no way to use the driver in
+> v3.7 (or earlier) anyhow.
+> 
+> Thanks,
+> Richard
+> 
+> 
+> Richard Cochran (2):
+>   cpsw: rename register banks to match the reference manual, part 2
+>   cpsw: fix leaking IO mappings
+> 
+>  drivers/net/ethernet/ti/cpsw.c |   39 +++++++++++++++++++-------------
+> -------
+>  1 files changed, 19 insertions(+), 20 deletions(-)
+> 
+> --
+> 1.7.2.5
+
+The patches look good to me.
+
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
