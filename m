@@ -1,163 +1,148 @@
-From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbr@gmail.com>
-Subject: Re: [RFC virtio-next 0/4] Introduce CAIF Virtio and reversed Vrings
-Date: Mon, 5 Nov 2012 13:12:00 +0100
-Message-ID: <CANHm3PgrsTD4uYuXN0AMuZFX794CJmmus4AST=G0+nP1ha3VyQ@mail.gmail.com>
-References: <1351723614-4145-1-git-send-email-sjur@brendeland.net>
-	<87wqy54vo0.fsf@rustcorp.com.au>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH 0/4] Support the MX6 FEC as a PTP hardware clock
+Date: Mon, 5 Nov 2012 19:23:39 +0800
+Message-ID: <CAHrpEqRCVv1JLGz04Gb8q=X3x_UGG4wEvr2TBQjU_2bK8vhJOA@mail.gmail.com>
+References: <1351657480-24745-1-git-send-email-Frank.Li@freescale.com>
+ <20121101.123027.1332984905040252720.davem@davemloft.net>
+ <CAHrpEqRuy=kewK-592RphVfJnNoma2CPZytoTqLc45HeT53hRQ@mail.gmail.com>
+ <20121102084324.GA2486@netboy.at.omicron.at>
+ <1351898728.2703.30.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Ohad Ben-Cohen <ohad@wizery.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	dmitry.tarnyagin@stericsson.com
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87wqy54vo0.fsf@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============4369104646502332726=="
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Richard Cochran <richardcochran@gmail.com>,
+ "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
+ David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1351898728.2703.30.camel@bwh-desktop.uk.solarflarecom.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Hi Rusty,
+--===============4369104646502332726==
+Content-Type: multipart/alternative; boundary=f46d0444696992b77804cdbdb730
 
-> So, this adds another host-side virtqueue implementation.
+--f46d0444696992b77804cdbdb730
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: quoted-printable
+
+=D4=DA 2012=C4=EA11=D4=C23=C8=D5=D0=C7=C6=DA=C1=F9=A3=ACBen Hutchings =D0=
+=B4=B5=C0=A3=BA
+
+> On Fri, 2012-11-02 at 09:43 +0100, Richard Cochran wrote:
+> > On Fri, Nov 02, 2012 at 10:36:09AM +0800, Frank Li wrote:
+> > > >
+> > > > All applied to net-next.
+> > > >
+> > > > Please make sure your changes are in sync with Ben's PTP/PPS
+> > > > Kconfig changes of today, and send me any changes if necessary.
+> > > >
+> > >
+> > > Thank you very much.
+> > > I checked Ben's patch, which not affect FEC.
+> >
+> > Maybe just remove the Kconfig line "select PPS".
 >
-> Can we combine them together conveniently?  You pulled out more stuff
-> into vring.h which is a start, but it's a bit overloaded.
-> Perhaps we should separate the common fields into struct vring, and use
-> it to build:
+> More than that: FEC should select PTP_1588_CLOCK,
+
+
+okay, I will do that.
+
+
+> FEC_PTP should be
+> removed and all the conditional code made unconditional.  Alternately,
+> if that would cost too much (in terms of performance or memory) on some
+> systems where the driver is used, FEC_PTP should default to 'y'.
+
+
+Bd description will be difference between no PTP and PTP hardware,
+So driver will not incompatible at two kind of hardware.
+
+I can set it default is Y at MX6 platform.
+
+
+> Ben.
 >
->         struct vring_guest {
->                 struct vring vr;
->                 u16 last_used_idx;
->         };
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
 >
->         struct vring_host {
->                 struct vring vr;
->                 u16 last_avail_idx;
->         };
-> I haven't looked closely at vhost to see what it wants, but I would
-> think we could share more code.
+>
 
-I have played around with the code in vhost.c to explore your idea.
-The main issue I run into is that vhost.c is accessing user data while my new
-code does not. So I end up with some quirky code testing if the ring lives in
-user memory or not.  Another issue is sparse warnings when
-accessing user memory.
+--f46d0444696992b77804cdbdb730
+Content-Type: text/html; charset=GB2312
+Content-Transfer-Encoding: quoted-printable
 
-With your suggested changes I end up sharing about 100 lines of code.
-So in sum, I feel this add more complexity than what we gain by sharing.
+<br><br>=D4=DA 2012=C4=EA11=D4=C23=C8=D5=D0=C7=C6=DA=C1=F9=A3=ACBen Hutchin=
+gs  =D0=B4=B5=C0=A3=BA<br><blockquote class=3D"gmail_quote" style=3D"margin=
+:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">On Fri, 2012-11-02=
+ at 09:43 +0100, Richard Cochran wrote:<br>
+&gt; On Fri, Nov 02, 2012 at 10:36:09AM +0800, Frank Li wrote:<br>
+&gt; &gt; &gt;<br>
+&gt; &gt; &gt; All applied to net-next.<br>
+&gt; &gt; &gt;<br>
+&gt; &gt; &gt; Please make sure your changes are in sync with Ben&#39;s PTP=
+/PPS<br>
+&gt; &gt; &gt; Kconfig changes of today, and send me any changes if necessa=
+ry.<br>
+&gt; &gt; &gt;<br>
+&gt; &gt;<br>
+&gt; &gt; Thank you very much.<br>
+&gt; &gt; I checked Ben&#39;s patch, which not affect FEC.<br>
+&gt;<br>
+&gt; Maybe just remove the Kconfig line &quot;select PPS&quot;.<br>
+<br>
+More than that: FEC should select PTP_1588_CLOCK,&nbsp;</blockquote><blockq=
+uote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1px #ccc =
+solid;padding-left:1ex"></blockquote><div><br></div><div>okay, I will do th=
+at.</div>
+<div>&nbsp;<br></div><div></div><blockquote class=3D"gmail_quote" style=3D"=
+margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">FEC_PTP shou=
+ld be<br>
+removed and all the conditional code made unconditional. &nbsp;Alternately,=
+<br>
+if that would cost too much (in terms of performance or memory) on some<br>
+systems where the driver is used, FEC_PTP should default to &#39;y&#39;.</b=
+lockquote><div><br></div><div>Bd description will be difference between no =
+PTP and PTP hardware,&nbsp;</div><div>So driver will not incompatible at tw=
+o kind of hardware.</div>
+<div><br></div><div>I can set it default is Y at MX6 platform.&nbsp;<span><=
+/span></div><div><br></div><blockquote class=3D"gmail_quote" style=3D"margi=
+n:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">
+<br>
+Ben.<br>
+<br>
+--<br>
+Ben Hutchings, Staff Engineer, Solarflare<br>
+Not speaking for my employer; that&#39;s the marketing department&#39;s job=
+.<br>
+They asked us to note that Solarflare product names are trademarked.<br>
+<br>
+</blockquote>
 
-Below is an initial draft of the re-usable code. I added "is_uaccess" to struct
-virtio_ring in order to know if the ring lives in user memory.
+--f46d0444696992b77804cdbdb730--
 
-Let me know what you think.
 
-[snip]
-int virtqueue_add_used(struct vring_host *vr, unsigned int head, int len,
-		    struct vring_used_elem  **used)
-{
-	/* The virtqueue contains a ring of used buffers.  Get a pointer to the
-	 * next entry in that used ring. */
-	*used = &vr->vring.used->ring[vr->last_used_idx % vr->vring.num];
-	if (vr->is_uaccess) {
-		if(unlikely(__put_user(head, &(*used)->id))) {
-			pr_debug("Failed to write used id");
-			return -EFAULT;
-		}
-		if (unlikely(__put_user(len, &(*used)->len))) {
-			pr_debug("Failed to write used len");
-			return -EFAULT;
-		}
-		smp_wmb();
-		if (__put_user(vr->last_used_idx + 1,
-			       &vr->vring.used->idx)) {
-			pr_debug("Failed to increment used idx");
-			return -EFAULT;
-		}
-	} else {
-		(*used)->id = head;
-		(*used)->len = len;
-		smp_wmb();
-		vr->vring.used->idx = vr->last_used_idx + 1;
-	}
-	vr->last_used_idx++;
-	return 0;
-}
+--===============4369104646502332726==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-/* Each buffer in the virtqueues is actually a chain of descriptors.  This
- * function returns the next descriptor in the chain,
- * or -1U if we're at the end. */
-unsigned virtqueue_next_desc(struct vring_desc *desc)
-{
-	unsigned int next;
+_______________________________________________
+linux-arm-kernel mailing list
+linux-arm-kernel@lists.infradead.org
+http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
 
-	/* If this descriptor says it doesn't chain, we're done. */
-	if (!(desc->flags & VRING_DESC_F_NEXT))
-		return -1U;
-
-	/* Check they're not leading us off end of descriptors. */
-	next = desc->next;
-	/* Make sure compiler knows to grab that: we don't want it changing! */
-	/* We will use the result as an index in an array, so most
-	 * architectures only need a compiler barrier here. */
-	read_barrier_depends();
-
-	return next;
-}
-
-static int virtqueue_next_avail_desc(struct vring_host *vr)
-{
-	int head;
-	u16 last_avail_idx;
-
-	/* Check it isn't doing very strange things with descriptor numbers. */
-	last_avail_idx = vr->last_avail_idx;
-	if (vr->is_uaccess) {
-		if (__get_user(vr->avail_idx, &vr->vring.avail->idx)) {
-			pr_debug("Failed to access avail idx at %p\n",
-				 &vr->vring.avail->idx);
-			return -EFAULT;
-		}
-	} else
-		vr->avail_idx = vr->vring.avail->idx;
-
-	if (unlikely((u16)(vr->avail_idx - last_avail_idx) > vr->vring.num)) {
-		pr_debug("Guest moved used index from %u to %u",
-		       last_avail_idx, vr->avail_idx);
-		return -EFAULT;
-	}
-
-	/* If there's nothing new since last we looked, return invalid. */
-	if (vr->avail_idx == last_avail_idx)
-		return vr->vring.num;
-
-	/* Only get avail ring entries after they have been exposed by guest. */
-	smp_rmb();
-
-	/* Grab the next descriptor number they're advertising, and increment
-	 * the index we've seen. */
-	if (vr->is_uaccess) {
-		if (unlikely(__get_user(head,
-				&vr->vring.avail->ring[last_avail_idx
-						       % vr->vring.num]))) {
-			pr_debug("Failed to read head: idx %d address %p\n",
-				 last_avail_idx,
-				 &vr->vring.avail->ring[last_avail_idx %
-							vr->vring.num]);
-			return -EFAULT;
-		}
-	} else
-		head = vr->vring.avail->ring[last_avail_idx % vr->vring.num];
-
-	/* If their number is silly, that's an error. */
-	if (unlikely(head >= vr->vring.num)) {
-		pr_debug("Guest says index %u > %u is available",
-		       head, vr->vring.num);
-		return -EINVAL;
-	}
-
-	return head;
-}
-
-Thanks,
-Sjur
+--===============4369104646502332726==--
