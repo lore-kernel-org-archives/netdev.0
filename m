@@ -1,148 +1,54 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH 0/4] Support the MX6 FEC as a PTP hardware clock
-Date: Mon, 5 Nov 2012 19:23:39 +0800
-Message-ID: <CAHrpEqRCVv1JLGz04Gb8q=X3x_UGG4wEvr2TBQjU_2bK8vhJOA@mail.gmail.com>
-References: <1351657480-24745-1-git-send-email-Frank.Li@freescale.com>
- <20121101.123027.1332984905040252720.davem@davemloft.net>
- <CAHrpEqRuy=kewK-592RphVfJnNoma2CPZytoTqLc45HeT53hRQ@mail.gmail.com>
- <20121102084324.GA2486@netboy.at.omicron.at>
- <1351898728.2703.30.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4369104646502332726=="
-Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Richard Cochran <richardcochran@gmail.com>,
- "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
- David Miller <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1351898728.2703.30.camel@bwh-desktop.uk.solarflarecom.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next] ipv6: export IP6_RT_PRIO_* to userland
+Date: Mon,  5 Nov 2012 16:28:18 +0100
+Message-ID: <1352129298-1104-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:51262 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754376Ab2KEPRR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 10:17:17 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============4369104646502332726==
-Content-Type: multipart/alternative; boundary=f46d0444696992b77804cdbdb730
+The kernel uses some default metric when routes are managed. For example, a
+static route added with a metric set to 0 is inserted in the kernel with
+metric 1024 (IP6_RT_PRIO_USER).
+It is useful for routing daemons to know these values, to be able to set routes
+without interfering with what the kernel does.
 
---f46d0444696992b77804cdbdb730
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/net/ip6_route.h         | 3 ---
+ include/uapi/linux/ipv6_route.h | 3 +++
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-=D4=DA 2012=C4=EA11=D4=C23=C8=D5=D0=C7=C6=DA=C1=F9=A3=ACBen Hutchings =D0=
-=B4=B5=C0=A3=BA
-
-> On Fri, 2012-11-02 at 09:43 +0100, Richard Cochran wrote:
-> > On Fri, Nov 02, 2012 at 10:36:09AM +0800, Frank Li wrote:
-> > > >
-> > > > All applied to net-next.
-> > > >
-> > > > Please make sure your changes are in sync with Ben's PTP/PPS
-> > > > Kconfig changes of today, and send me any changes if necessary.
-> > > >
-> > >
-> > > Thank you very much.
-> > > I checked Ben's patch, which not affect FEC.
-> >
-> > Maybe just remove the Kconfig line "select PPS".
->
-> More than that: FEC should select PTP_1588_CLOCK,
-
-
-okay, I will do that.
-
-
-> FEC_PTP should be
-> removed and all the conditional code made unconditional.  Alternately,
-> if that would cost too much (in terms of performance or memory) on some
-> systems where the driver is used, FEC_PTP should default to 'y'.
-
-
-Bd description will be difference between no PTP and PTP hardware,
-So driver will not incompatible at two kind of hardware.
-
-I can set it default is Y at MX6 platform.
-
-
-> Ben.
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
->
-
---f46d0444696992b77804cdbdb730
-Content-Type: text/html; charset=GB2312
-Content-Transfer-Encoding: quoted-printable
-
-<br><br>=D4=DA 2012=C4=EA11=D4=C23=C8=D5=D0=C7=C6=DA=C1=F9=A3=ACBen Hutchin=
-gs  =D0=B4=B5=C0=A3=BA<br><blockquote class=3D"gmail_quote" style=3D"margin=
-:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">On Fri, 2012-11-02=
- at 09:43 +0100, Richard Cochran wrote:<br>
-&gt; On Fri, Nov 02, 2012 at 10:36:09AM +0800, Frank Li wrote:<br>
-&gt; &gt; &gt;<br>
-&gt; &gt; &gt; All applied to net-next.<br>
-&gt; &gt; &gt;<br>
-&gt; &gt; &gt; Please make sure your changes are in sync with Ben&#39;s PTP=
-/PPS<br>
-&gt; &gt; &gt; Kconfig changes of today, and send me any changes if necessa=
-ry.<br>
-&gt; &gt; &gt;<br>
-&gt; &gt;<br>
-&gt; &gt; Thank you very much.<br>
-&gt; &gt; I checked Ben&#39;s patch, which not affect FEC.<br>
-&gt;<br>
-&gt; Maybe just remove the Kconfig line &quot;select PPS&quot;.<br>
-<br>
-More than that: FEC should select PTP_1588_CLOCK,&nbsp;</blockquote><blockq=
-uote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1px #ccc =
-solid;padding-left:1ex"></blockquote><div><br></div><div>okay, I will do th=
-at.</div>
-<div>&nbsp;<br></div><div></div><blockquote class=3D"gmail_quote" style=3D"=
-margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">FEC_PTP shou=
-ld be<br>
-removed and all the conditional code made unconditional. &nbsp;Alternately,=
-<br>
-if that would cost too much (in terms of performance or memory) on some<br>
-systems where the driver is used, FEC_PTP should default to &#39;y&#39;.</b=
-lockquote><div><br></div><div>Bd description will be difference between no =
-PTP and PTP hardware,&nbsp;</div><div>So driver will not incompatible at tw=
-o kind of hardware.</div>
-<div><br></div><div>I can set it default is Y at MX6 platform.&nbsp;<span><=
-/span></div><div><br></div><blockquote class=3D"gmail_quote" style=3D"margi=
-n:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">
-<br>
-Ben.<br>
-<br>
---<br>
-Ben Hutchings, Staff Engineer, Solarflare<br>
-Not speaking for my employer; that&#39;s the marketing department&#39;s job=
-.<br>
-They asked us to note that Solarflare product names are trademarked.<br>
-<br>
-</blockquote>
-
---f46d0444696992b77804cdbdb730--
-
-
---===============4369104646502332726==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-linux-arm-kernel mailing list
-linux-arm-kernel@lists.infradead.org
-http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
---===============4369104646502332726==--
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 5fa2af0..27d8318 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -1,9 +1,6 @@
+ #ifndef _NET_IP6_ROUTE_H
+ #define _NET_IP6_ROUTE_H
+ 
+-#define IP6_RT_PRIO_USER	1024
+-#define IP6_RT_PRIO_ADDRCONF	256
+-
+ struct route_info {
+ 	__u8			type;
+ 	__u8			length;
+diff --git a/include/uapi/linux/ipv6_route.h b/include/uapi/linux/ipv6_route.h
+index 0459664..2be7bd1 100644
+--- a/include/uapi/linux/ipv6_route.h
++++ b/include/uapi/linux/ipv6_route.h
+@@ -55,4 +55,7 @@ struct in6_rtmsg {
+ #define RTMSG_NEWROUTE		0x21
+ #define RTMSG_DELROUTE		0x22
+ 
++#define IP6_RT_PRIO_USER	1024
++#define IP6_RT_PRIO_ADDRCONF	256
++
+ #endif /* _UAPI_LINUX_IPV6_ROUTE_H */
+-- 
+1.7.12
