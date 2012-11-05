@@ -1,54 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/9] isdn: Remove unused variable causing a compile
- build warning
-Date: Mon, 05 Nov 2012 11:46:33 -0500 (EST)
-Message-ID: <20121105.114633.1342071685669147321.davem@davemloft.net>
-References: <20121104105332.GC27124@gmail.com>
-	<20121104.123013.700345271120279281.davem@davemloft.net>
-	<20121105084419.GC2699@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v1 0/5] usbnet: avoiding access auto-suspended device
+Date: Mon, 05 Nov 2012 11:50:10 -0500 (EST)
+Message-ID: <20121105.115010.1531838246984342873.davem@davemloft.net>
+References: <1351992594-12818-1-git-send-email-ming.lei@canonical.com>
+	<9016904.gHGBncEQ14@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org,
-	isdn@linux-pingi.de, netdev@vger.kernel.org
-To: lee.jones@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121105084419.GC2699@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: oneukum-l3A5Bk7waGM@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <9016904.gHGBncEQ14-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogTGVlIEpvbmVzIDxsZWUuam9uZXNAbGluYXJvLm9yZz4NCkRhdGU6IE1vbiwgNSBOb3Yg
-MjAxMiAwOTo0NDoxOSArMDEwMA0KDQo+IE9uIFN1biwgMDQgTm92IDIwMTIsIERhdmlkIE1pbGxl
-ciB3cm90ZToNCj4gDQo+PiBGcm9tOiBMZWUgSm9uZXMgPGxlZS5qb25lc0BsaW5hcm8ub3JnPg0K
-Pj4gRGF0ZTogU3VuLCA0IE5vdiAyMDEyIDExOjUzOjMyICswMTAwDQo+PiANCj4+ID4gT24gU3Vu
-LCAwNCBOb3YgMjAxMiwgUGF1bCBCb2xsZSB3cm90ZToNCj4+ID4gDQo+PiA+PiBPbiBTYXQsIDIw
-MTItMTEtMDMgYXQgMjM6NDggKzAxMDAsIExlZSBKb25lcyB3cm90ZToNCj4+ID4+ID4gT24gU2F0
-LCAwMyBOb3YgMjAxMiwgUGF1bCBCb2xsZSB3cm90ZToNCj4+ID4+ID4gPiBPbiBTYXQsIDIwMTIt
-MTEtMDMgYXQgMjM6MDIgKzAxMDAsIExlZSBKb25lcyB3cm90ZToNCj4+ID4+ID4gPiA+IFRoaXMg
-cGF0Y2ggZml4ZXM6DQo+PiA+PiA+ID4gPiBkcml2ZXJzL2lzZG4vaTRsL2lzZG5fY29tbW9uLmM6
-IEluIGZ1bmN0aW9uIKFpc2RuX2lvY3RsojoNCj4+ID4+ID4gPiA+IGRyaXZlcnMvaXNkbi9pNGwv
-aXNkbl9jb21tb24uYzoxMjc4Ojg6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSChc6IgWy1XdW51
-c2VkLXZhcmlhYmxlXQ0KPj4gPj4gPiA+IA0KPj4gPj4gPiA+IERpZCB5b3UgaGF2ZSBDT05GSUdf
-TkVUREVWSUNFUyBub3Qgc2V0IGluIHRoaXMgYnVpbGQ/DQo+PiA+PiA+IA0KPj4gPj4gPiBBaCB5
-ZXMsIEkgc2VlIGl0LiBUaGUgZnVuY3Rpb24gd2VudCBkb3duIGZ1cnRoZXIgdGhhbiBJIHRob3Vn
-aHQNCj4+ID4+ID4gaXQgZGlkLiBTbyB0aGUgcmVhbCBmaXggaXMgdG8gZW5zdXJlICdzJyBpcyBk
-ZWZpbmVkIGluc2lkZSBvZg0KPj4gPj4gPiBzb21lIGlmZGVmIENPTkZJR19ORVRERVZJQ0VTIGd1
-YXJkcy4gDQo+PiA+PiANCj4+ID4+IFdoYXQgcHV6emxlcyBtZSBpcyB0aGF0IHdlIG9ubHkgZmlu
-ZCB0aGVzZSAiI2lmZGVmIENPTkZJR19ORVRERVZJQ0VTIg0KPj4gPj4gZ3VhcmRzIGluIHRoaXMg
-ZmlsZSBhbmQgbm90IGluIGlzZG5fbmV0LmMsIHdlcmUgYWxsIHRoZSBpb2N0bCBjb21tYW5kcw0K
-Pj4gPj4gZ3VhcmRlZCB0aGF0IHdheSBzZWVtIHRvIGJlIGNhbGxpbmcgaW50by4gT24gZmlyc3Qg
-Z2xhbmNlIHRoYXQgZG9lc24ndA0KPj4gPj4gbWFrZSBtdWNoIHNlbnNlLg0KPj4gPj4gDQo+PiA+
-PiAoQWN0dWFsbHkgdGhlIGlkZWEgb2YgaGF2aW5nIElTRE4gd2l0aG91dCBORVRERVZJQ0VTIGlz
-IGEgYml0IHB1enpsaW5nDQo+PiA+PiB0b28uIEJ1dCB0aGVyZSBhcmUgdG9vIG1hbnkgcGFydHMg
-b2YgdGhlIGlzZG4gc3Vic3lzdGVtIHRoYXQgSSdtDQo+PiA+PiB1bmZhbWlsaWFyIHdpdGggdG8g
-c2F5IHdoZXRoZXIgdGhhdCBjYW4gbWFrZSBzZW5zZS4pDQo+PiA+IA0KPj4gPiBJJ20gaW4gdGhl
-IHNhbWUgcG9zaXRpb24gYXMgeW91IFBhdWwuIEkganVzdCBub3RpY2VkIHRoZSB3YXJuaW5nIHNv
-DQo+PiA+IGZpeGVkIGl0IGZvbGxvd2luZyB0aGUgY3VycmVudCB3YXkgb2YgZG9pbmcgdGhpbmdz
-LiBBbnksIG1vcmUNCj4+ID4gc3Vic3RhbnRpYWwgY2hhbmdlcyByZXF1aXJpbmcgZ3JlYXRlciBr
-bm93bGVkZ2Ugb2YgdGhlIHN1YnN5c3RlbQ0KPj4gPiB3b3VsZCBoYXZlIHRvIGJlIGRvbmUgYnkg
-c29tZW9uZSBlbHNlLg0KPj4gDQo+PiBJIHRoaW5rIHRoZSBtb3N0IGFwcHJvcHJpYXRlIHRoaW5n
-IHRvIGRvIGlzIG1ha2UgQ09ORklHX0lTRE4gZGVwZW5kDQo+PiB1cG9uIENPTkZJR19ORVRERVZJ
-Q0VTIGluIHRoZSBLY29uZmlnIGZpbGUuDQo+IA0KPiAuLi4gYW5kIHRoZW4gcmVtb3ZlIHRoZSBD
-T05GSUdfTkVUREVWSUNFUyBndWFyZHMgaW4gaXNkbl9jb21tb24uYz8NCj4gDQo+IElmIHRoYXQn
-cyBzdWl0YWJsZSBtb3JlIHN1aXRhYmxlIEkgY2FuIGRvIHRoYXQgaW5zdGVhZD8NCj4gDQo+IEp1
-c3QgbmVlZCBhIHlheSBvciBuYXkgYW5kIEknbGwgbWFrZSBpdCBoYXBwZW4uDQoNCiJ5YXkiDQo=
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Date: Mon, 05 Nov 2012 10:24:57 +0100
+
+> On Sunday 04 November 2012 09:29:49 Ming Lei wrote:
+>> Thip patchset avoids accessing auto-suspended device in ioctl path,
+>> which is generally triggered by some network utility(ethtool, ifconfig,
+>> ...)
+>> 
+>> Most of network devices have the problem, but as discussed in the
+>> thread:
+>> 
+>>         http://marc.info/?t=135054860600003&r=1&w=2
+>> 
+>> the problem should be solved inside driver.
+>> 
+>> Considered that only smsc75xx and smsc95xx calls usbnet_read_cmd()
+>> and usbnet_write_cmd() inside its resume and suspend callback, the
+>> patcheset introduce the nopm version of the two functions which
+>> should be called only in the resume and suspend callback. So we
+>> can solve the problem by runtime resuming device before doing
+>> control message things.
+> 
+> Hi,
+> 
+> I am happy with these patches.
+> Dave, do you have a principal objection regarding these patches, too?
+
+There were review comments and the most recently posted series
+needs to be reposted with that feedback incorporated.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
