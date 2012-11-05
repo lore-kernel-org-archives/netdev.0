@@ -1,74 +1,40 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: [PATCH 2/2 v2] net: at91_ether: add pinctrl support
-Date: Mon,  5 Nov 2012 08:34:52 +0100
-Message-ID: <1352100892-19936-2-git-send-email-plagnioj@jcrosoft.com>
-References: <20121105073015.GM19021@game.jcrosoft.org>
- <1352100892-19936-1-git-send-email-plagnioj@jcrosoft.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RESEND PATCH net-next] ipv6/multipath: remove flag NLM_F_EXCL
+ after the first nexthop
+Date: Mon, 05 Nov 2012 09:30:06 +0100
+Message-ID: <5097790E.1080701@6wind.com>
+References: <50896D47.7030500@6wind.com> <1351846702-4982-1-git-send-email-nicolas.dichtel@6wind.com> <20121102.213857.2276553238313329445.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
- devicetree-discuss@lists.ozlabs.org,
- Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
- netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1352100892-19936-1-git-send-email-plagnioj@jcrosoft.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org, joe@perches.com,
+	bernat@luffy.cx, eric.dumazet@gmail.com, yoshfuji@linux-ipv6.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:39428 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032Ab2KEIaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 03:30:10 -0500
+Received: by mail-wi0-f178.google.com with SMTP id hr7so2846374wib.1
+        for <netdev@vger.kernel.org>; Mon, 05 Nov 2012 00:30:09 -0800 (PST)
+In-Reply-To: <20121102.213857.2276553238313329445.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If no pinctrl available just report a warning as some architecture may not
-need to do anything.
-
-Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Tested-by: Joachim Eastwood <manabian@gmail.com>
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-Cc: netdev@vger.kernel.org
----
- drivers/net/ethernet/cadence/at91_ether.c |   11 +++++++++++
- 1 file changed, 11 insertions(+)
-
-diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index 039e7ef..6eb928e 100644
---- a/drivers/net/ethernet/cadence/at91_ether.c
-+++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -34,6 +34,7 @@
- #include <linux/of.h>
- #include <linux/of_device.h>
- #include <linux/of_net.h>
-+#include <linux/pinctrl/consumer.h>
- 
- #include "macb.h"
- 
-@@ -501,11 +502,21 @@ static int __init at91ether_probe(struct platform_device *pdev)
- 	struct phy_device *phydev;
- 	struct macb *lp;
- 	int res;
-+	struct pinctrl *pinctrl;
- 
- 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	if (!regs)
- 		return -ENOENT;
- 
-+	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
-+	if (IS_ERR(pinctrl)) {
-+		res = PTR_ERR(pinctrl);
-+		if (res == -EPROBE_DEFER)
-+			return res;
-+
-+		dev_warn(&pdev->dev, "No pinctrl provided\n");
-+	}
-+
- 	dev = alloc_etherdev(sizeof(struct macb));
- 	if (!dev)
- 		return -ENOMEM;
--- 
-1.7.10.4
+Le 03/11/2012 02:38, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Fri,  2 Nov 2012 09:58:22 +0100
+>
+>> fib6_add_rt2node() will reject the nexthop if this flag is set, so
+>> we perform the check only for the first nexthop.
+>>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>
+> It seems a bit hackish, but I don't have any better ideas, so
+> applied, thanks.
+>
+Yes, I agree. It's why I didn't include it in the initial patch ... but=
+ I also=20
+didn't find a better way :/
