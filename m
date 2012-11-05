@@ -1,29 +1,40 @@
-From: nilton@uenf.br
-Subject: Do You Want To Be Comfortable
-Date: Mon, 05 Nov 2012 09:14:25 -0200
-Message-ID: <20121105091425.g9sz9k5jlwkok8wc@zappa.uenf.br>
+From: Andy King <acking@vmware.com>
+Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Mon, 5 Nov 2012 10:19:52 -0800 (PST)
+Message-ID: <783561822.12637564.1352139592543.JavaMail.root@vmware.com>
+References: <20121105.130917.2098838777626057548.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	DelSp="Yes";
-	format="flowed"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zappa.uenf.br ([200.20.228.33]:55758 "EHLO zappa.uenf.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754361Ab2KESRQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Nov 2012 13:17:16 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, georgezhang@vmware.com
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121105.130917.2098838777626057548.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello, My name is Nilton secretary to Mr.Norman Chan, I got your email  
-contact from an online directory; Mr.Norman Chan would need your  
-assistance on a business proposal. Contact me him through mail;  
-normchan2@live.com for more detailed.
+Hi David,
 
+> The big and only question is whether anyone can actually use any of
+> this stuff without your proprietary bits?
 
--------------------------------------------------------------------------
-"O usuario e integralmente responsavel por todo conteudo enviado
-de sua conta de e-mail. Sua senha e pessoal e intransferivel."
+Do you mean the VMCI calls?  The VMCI driver is in the process of being
+upstreamed into the drivers/misc tree.  Greg (cc'd on these patches) is
+actively reviewing that code and we are addressing feedback.
+
+Also, there was some interest from RedHat into using vSockets as a unified
+interface, routed over a hypervisor-specific transport (virtio or
+otherwise, although for now VMCI is the only one implemented).
+
+Thanks!
+- Andy
