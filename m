@@ -1,98 +1,55 @@
-From: Kumar Amit Mehta <gmate.amit@gmail.com>
-Subject: [PATCH] drivers: ethernet: qlogic: qlge_dbg.c: Fixed a coding style issue
-Date: Sun,  4 Nov 2012 21:11:32 -0800
-Message-ID: <1352092292-4413-1-git-send-email-gmate.amit@gmail.com>
-Cc: ron.mercer@qlogic.com, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: jitendra.kalsaria@qlogic.com
+From: Doug Goldstein <cardoe@cardoe.com>
+Subject: Re: [PATCH] vlan: set sysfs device_type to 'vlan'
+Date: Sun, 4 Nov 2012 23:45:56 -0600
+Message-ID: <CAFWqQMSes5J1bjUA6NBiWKrjbdUKJkhz-mdNYhGLU-A8cksxZg@mail.gmail.com>
+References: <1350885237-12998-1-git-send-email-cardoe@cardoe.com>
+	<20121023.023647.2164665243829038911.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: kaber@trash.net, netdev@vger.kernel.org,
+	systemd-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121023.023647.2164665243829038911.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-checkpatch.pl throws error message for the current code. This patch fixes
-this coding style issue.
+On Tue, Oct 23, 2012 at 1:36 AM, David Miller <davem@davemloft.net> wrote:
+> From: Doug Goldstein <cardoe@cardoe.com>
+> Date: Mon, 22 Oct 2012 00:53:57 -0500
+>
+>> Sets the sysfs device_type to 'vlan' for udev. This makes it easier for
+>> applications that query network information via udev to identify vlans
+>> instead of using strrchr().
+>>
+>> Signed-off-by: Doug Goldstein <cardoe@cardoe.com>
+>
+> You're extremely misguided.  This change, in fact, makes it ten times
+> harder for such applications to query such devices.
+>
+> Because now the application has to decide whether it wants to support
+> EVERY EXISTING SYSTEM OUT THERE or not.  Hundreds of millions of Linux
+> systems do not provide this attribute.
+>
+> Applications have to handle the case of not having the 'vlan' device
+> type available attribute essentially forever.
+>
+> So providing it in new kernels provides zero value whatsoever.
+>
+> I'm not applying this patch, sorry.
 
-Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
----
- drivers/net/ethernet/qlogic/qlge/qlge_dbg.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+Dave,
 
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_dbg.c b/drivers/net/ethernet/qlogic/qlge/qlge_dbg.c
-index 58185b6..10093f0 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_dbg.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_dbg.c
-@@ -86,7 +86,7 @@ exit:
- }
- 
- /* Read out the SERDES registers */
--static int ql_read_serdes_reg(struct ql_adapter *qdev, u32 reg, u32 * data)
-+static int ql_read_serdes_reg(struct ql_adapter *qdev, u32 reg, u32 *data)
- {
- 	int status;
- 
-@@ -364,7 +364,7 @@ exit:
- /* Read the 400 xgmac control/statistics registers
-  * skipping unused locations.
-  */
--static int ql_get_xgmac_regs(struct ql_adapter *qdev, u32 * buf,
-+static int ql_get_xgmac_regs(struct ql_adapter *qdev, u32 *buf,
- 					unsigned int other_function)
- {
- 	int status = 0;
-@@ -405,7 +405,7 @@ static int ql_get_xgmac_regs(struct ql_adapter *qdev, u32 * buf,
- 	return status;
- }
- 
--static int ql_get_ets_regs(struct ql_adapter *qdev, u32 * buf)
-+static int ql_get_ets_regs(struct ql_adapter *qdev, u32 *buf)
- {
- 	int status = 0;
- 	int i;
-@@ -423,7 +423,7 @@ static int ql_get_ets_regs(struct ql_adapter *qdev, u32 * buf)
- 	return status;
- }
- 
--static void ql_get_intr_states(struct ql_adapter *qdev, u32 * buf)
-+static void ql_get_intr_states(struct ql_adapter *qdev, u32 *buf)
- {
- 	int i;
- 
-@@ -434,7 +434,7 @@ static void ql_get_intr_states(struct ql_adapter *qdev, u32 * buf)
- 	}
- }
- 
--static int ql_get_cam_entries(struct ql_adapter *qdev, u32 * buf)
-+static int ql_get_cam_entries(struct ql_adapter *qdev, u32 *buf)
- {
- 	int i, status;
- 	u32 value[3];
-@@ -471,7 +471,7 @@ err:
- 	return status;
- }
- 
--static int ql_get_routing_entries(struct ql_adapter *qdev, u32 * buf)
-+static int ql_get_routing_entries(struct ql_adapter *qdev, u32 *buf)
- {
- 	int status;
- 	u32 value, i;
-@@ -496,7 +496,7 @@ err:
- }
- 
- /* Read the MPI Processor shadow registers */
--static int ql_get_mpi_shadow_regs(struct ql_adapter *qdev, u32 * buf)
-+static int ql_get_mpi_shadow_regs(struct ql_adapter *qdev, u32 *buf)
- {
- 	u32 i;
- 	int status;
-@@ -515,7 +515,7 @@ end:
- }
- 
- /* Read the MPI Processor core registers */
--static int ql_get_mpi_regs(struct ql_adapter *qdev, u32 * buf,
-+static int ql_get_mpi_regs(struct ql_adapter *qdev, u32 *buf,
- 				u32 offset, u32 count)
- {
- 	int i, status = 0;
+As others on this thread have discussed there are other merits to the
+patch as well. Yes you are correct that netlink is the preferred
+method to gather information about network devices but the point was
+really to make the sysfs layout more correct a matter of completeness.
+As Ben Greear pointed out this would allow shell scripts and other
+scripting languages to better detect vlans. Kay pointed out that this
+would allow better uevent filters in the future as well. So there are
+some merits to this patch. If you'd prefer I can resubmit with a
+better commit message entailing the reasons behind it.
+
+Thanks.
 -- 
-1.7.9.5
+Doug Goldstein
