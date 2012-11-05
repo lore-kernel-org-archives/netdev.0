@@ -1,95 +1,61 @@
-From: John <john@boldstatementmarketing.net>
-Subject: Just what if...
-Date: Mon, 5 Nov 2012 13:53:59 -0500
-Message-ID: <Q46MU8WH-5HT6-MHA5-BVUX-8HYGZR8D8VAX@boldstatementmarketing.net>
-Reply-To: laveniaent@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [108.167.186.132] ([108.167.186.132]:51426 "EHLO
-	bol.boldstatementmarketing.net" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750776Ab2KEUAz convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Nov 2012 15:00:55 -0500
-Received: from c-98-192-192-85.hsd1.de.comcast.net ([98.192.192.85]:41582 helo=[10.0.1.9])
-	by bol.boldstatementmarketing.net with esmtpa (Exim 4.80)
-	(envelope-from <john@boldstatementmarketing.net>)
-	id 1TVRo7-0005oL-6A
-	for netdev@vger.kernel.org; Mon, 05 Nov 2012 12:53:59 -0600
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chris J Arges <chris.j.arges@canonical.com>
+Subject: [PATCH] bonding: extend bond_arp_send_all to bridge devices
+Date: Mon,  5 Nov 2012 14:14:08 -0600
+Message-ID: <1352146448-8921-1-git-send-email-chris.j.arges@canonical.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Chris J Arges <chris.j.arges@canonical.com>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+ARP monitoring does not work when we have a network in the
+following configuration:
 
-How would you like to be part of a program where you can get started
-for $25 and get all of this:
+eth0----+ +----bond0.100----br0-100---{+virtual machines
+          | |
+          +----bond0----+----br0---(fixed IP)->--{LAN arp_ip_target}
+          | |
+eth1----+ +----bond0.200----br0-200---{+virtual machines
 
-> A turnkey market system and income opportunity all in one,
-> No chasing after prospects,
-> You can market any product, service or income opportunity,
-> You make 100% commissions (not a typo),
-> No selling, convincing or explaining,
-> Huge immediate, leveraged and residual income,
-> 1 in 4 people who view your presentation will become a customer,
-> Simple and easy-to-use system, and
-> Immediate traffic generated to your site.
+This patch extends bond_arp_send_all to also check if a device
+is also in a bridge.
 
-I know it sounds too good to be true, however, if you don't
-check it out you will never know what you are missing.
+This is related to the following issues:
+http://launchpad.net/bugs/736226
+http://bugzilla.kernel.org/show_bug.cgi?id=31822
 
-You can see for yourself right now by going here:
+Thanks to help from Andy Gospodarek.
 
-http://www.TrueProsperityNow.com
+Signed-off-by: Chris J Arges <chris.j.arges@canonical.com>
+---
+ drivers/net/bonding/bond_main.c |   13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-All you need is a little openness and time.
-
-Best wishes,
-
-John
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-*To unsubscribe, reply to this e-mail with "unsubscribe" as the subject. No incomes are guaranteed for any person.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 6c284d1..f11a2e1 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2670,6 +2670,19 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+ 			continue;
+ 		}
+ 
++		/*
++		 * Check if the target is part of a bridge.
++		 */
++		if (rt->dst.dev->priv_flags & IFF_EBRIDGE) {
++			printk("bondbridge: %s->priv_flags has IFF_EBRIDGE\n", rt->dst.dev->name);
++
++			/* Send ARP request */
++			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], bond->master_ip, 0);
++			printk("bondbridge: bond_arp_send %d\n", 0);
++
++			continue;
++		}
++
+ 		if (net_ratelimit()) {
+ 			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
+ 				   bond->dev->name, &targets[i],
+-- 
+1.7.9.5
