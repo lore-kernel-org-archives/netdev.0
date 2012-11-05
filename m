@@ -1,65 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] pkt_sched: enable QFQ to support TSO/GSO
-Date: Mon, 05 Nov 2012 11:46:19 -0500 (EST)
-Message-ID: <20121105.114619.159498586351738155.davem@davemloft.net>
-References: <20121030060056.GA3373@paolo-ThinkPad-W520>
-	<20121030072415.17199f9a@nehalam.linuxnetplumber.net>
-	<CAM_iQpUbru0EiO8yJYO2Uke_Y5v7047PEijkBHHpBn5DUbke5Q@mail.gmail.com>
+Subject: Re: [PATCH 8/9] isdn: Remove unused variable causing a compile
+ build warning
+Date: Mon, 05 Nov 2012 11:46:33 -0500 (EST)
+Message-ID: <20121105.114633.1342071685669147321.davem@davemloft.net>
+References: <20121104105332.GC27124@gmail.com>
+	<20121104.123013.700345271120279281.davem@davemloft.net>
+	<20121105084419.GC2699@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, paolo.valente@unimore.it, jhs@mojatatu.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com
-To: xiyou.wangcong@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org,
+	isdn@linux-pingi.de, netdev@vger.kernel.org
+To: lee.jones@linaro.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpUbru0EiO8yJYO2Uke_Y5v7047PEijkBHHpBn5DUbke5Q@mail.gmail.com>
+In-Reply-To: <20121105084419.GC2699@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 5 Nov 2012 16:41:49 +0800
-
-> On Tue, Oct 30, 2012 at 10:24 PM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
->> On Tue, 30 Oct 2012 07:00:56 +0100
->> Paolo Valente <paolo.valente@unimore.it> wrote:
->>
->>> Hi,
->>> if the max packet size for some class (configured through tc) is
->>> violated by the actual size of the packets of that class, then QFQ
->>> would not schedule classes correctly, and the data structures
->>> implementing the bucket lists may get corrupted. This problem occurs
->>> with TSO/GSO even if the max packet size is set to the MTU, and is,
->>> e.g., the cause of the failure reported in [1]. Two patches have been
->>> proposed to solve this problem in [2], one of them is a preliminary
->>> version of this patch.
->>>
->>> This patch addresses the above issues by: 1) setting QFQ parameters to
->>> proper values for supporting TSO/GSO (in particular, setting the
->>> maximum possible packet size to 64KB), 2) automatically increasing the
->>> max packet size for a class, lmax, when a packet with a larger size
->>> than the current value of lmax arrives.
->>>
->>> The drawback of the first point is that the maximum weight for a class
->>> is now limited to 4096, which is equal to 1/16 of the maximum weight
->>> sum.
->>>
->>> Finally, this patch also forcibly caps the timestamps of a class if
->>> they are too high to be stored in the bucket list. This capping, taken
->>> from QFQ+ [3], handles the unfrequent case described in the comment to
->>> the function slot_insert.
->>>
->>> [1] http://marc.info/?l=linux-netdev&m=134968777902077&w=2
->>> [2] http://marc.info/?l=linux-netdev&m=135096573507936&w=2
->>> [3] http://marc.info/?l=linux-netdev&m=134902691421670&w=2
->>>
->>> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
->>> Tested-by: Cong Wang <amwang@redhat.com>
->>
->> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> 
-> David, could you take this patch? Stephen acked it.
-
-It's "RFC" so it needs to be explicitly reposted.
+RnJvbTogTGVlIEpvbmVzIDxsZWUuam9uZXNAbGluYXJvLm9yZz4NCkRhdGU6IE1vbiwgNSBOb3Yg
+MjAxMiAwOTo0NDoxOSArMDEwMA0KDQo+IE9uIFN1biwgMDQgTm92IDIwMTIsIERhdmlkIE1pbGxl
+ciB3cm90ZToNCj4gDQo+PiBGcm9tOiBMZWUgSm9uZXMgPGxlZS5qb25lc0BsaW5hcm8ub3JnPg0K
+Pj4gRGF0ZTogU3VuLCA0IE5vdiAyMDEyIDExOjUzOjMyICswMTAwDQo+PiANCj4+ID4gT24gU3Vu
+LCAwNCBOb3YgMjAxMiwgUGF1bCBCb2xsZSB3cm90ZToNCj4+ID4gDQo+PiA+PiBPbiBTYXQsIDIw
+MTItMTEtMDMgYXQgMjM6NDggKzAxMDAsIExlZSBKb25lcyB3cm90ZToNCj4+ID4+ID4gT24gU2F0
+LCAwMyBOb3YgMjAxMiwgUGF1bCBCb2xsZSB3cm90ZToNCj4+ID4+ID4gPiBPbiBTYXQsIDIwMTIt
+MTEtMDMgYXQgMjM6MDIgKzAxMDAsIExlZSBKb25lcyB3cm90ZToNCj4+ID4+ID4gPiA+IFRoaXMg
+cGF0Y2ggZml4ZXM6DQo+PiA+PiA+ID4gPiBkcml2ZXJzL2lzZG4vaTRsL2lzZG5fY29tbW9uLmM6
+IEluIGZ1bmN0aW9uIKFpc2RuX2lvY3RsojoNCj4+ID4+ID4gPiA+IGRyaXZlcnMvaXNkbi9pNGwv
+aXNkbl9jb21tb24uYzoxMjc4Ojg6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSChc6IgWy1XdW51
+c2VkLXZhcmlhYmxlXQ0KPj4gPj4gPiA+IA0KPj4gPj4gPiA+IERpZCB5b3UgaGF2ZSBDT05GSUdf
+TkVUREVWSUNFUyBub3Qgc2V0IGluIHRoaXMgYnVpbGQ/DQo+PiA+PiA+IA0KPj4gPj4gPiBBaCB5
+ZXMsIEkgc2VlIGl0LiBUaGUgZnVuY3Rpb24gd2VudCBkb3duIGZ1cnRoZXIgdGhhbiBJIHRob3Vn
+aHQNCj4+ID4+ID4gaXQgZGlkLiBTbyB0aGUgcmVhbCBmaXggaXMgdG8gZW5zdXJlICdzJyBpcyBk
+ZWZpbmVkIGluc2lkZSBvZg0KPj4gPj4gPiBzb21lIGlmZGVmIENPTkZJR19ORVRERVZJQ0VTIGd1
+YXJkcy4gDQo+PiA+PiANCj4+ID4+IFdoYXQgcHV6emxlcyBtZSBpcyB0aGF0IHdlIG9ubHkgZmlu
+ZCB0aGVzZSAiI2lmZGVmIENPTkZJR19ORVRERVZJQ0VTIg0KPj4gPj4gZ3VhcmRzIGluIHRoaXMg
+ZmlsZSBhbmQgbm90IGluIGlzZG5fbmV0LmMsIHdlcmUgYWxsIHRoZSBpb2N0bCBjb21tYW5kcw0K
+Pj4gPj4gZ3VhcmRlZCB0aGF0IHdheSBzZWVtIHRvIGJlIGNhbGxpbmcgaW50by4gT24gZmlyc3Qg
+Z2xhbmNlIHRoYXQgZG9lc24ndA0KPj4gPj4gbWFrZSBtdWNoIHNlbnNlLg0KPj4gPj4gDQo+PiA+
+PiAoQWN0dWFsbHkgdGhlIGlkZWEgb2YgaGF2aW5nIElTRE4gd2l0aG91dCBORVRERVZJQ0VTIGlz
+IGEgYml0IHB1enpsaW5nDQo+PiA+PiB0b28uIEJ1dCB0aGVyZSBhcmUgdG9vIG1hbnkgcGFydHMg
+b2YgdGhlIGlzZG4gc3Vic3lzdGVtIHRoYXQgSSdtDQo+PiA+PiB1bmZhbWlsaWFyIHdpdGggdG8g
+c2F5IHdoZXRoZXIgdGhhdCBjYW4gbWFrZSBzZW5zZS4pDQo+PiA+IA0KPj4gPiBJJ20gaW4gdGhl
+IHNhbWUgcG9zaXRpb24gYXMgeW91IFBhdWwuIEkganVzdCBub3RpY2VkIHRoZSB3YXJuaW5nIHNv
+DQo+PiA+IGZpeGVkIGl0IGZvbGxvd2luZyB0aGUgY3VycmVudCB3YXkgb2YgZG9pbmcgdGhpbmdz
+LiBBbnksIG1vcmUNCj4+ID4gc3Vic3RhbnRpYWwgY2hhbmdlcyByZXF1aXJpbmcgZ3JlYXRlciBr
+bm93bGVkZ2Ugb2YgdGhlIHN1YnN5c3RlbQ0KPj4gPiB3b3VsZCBoYXZlIHRvIGJlIGRvbmUgYnkg
+c29tZW9uZSBlbHNlLg0KPj4gDQo+PiBJIHRoaW5rIHRoZSBtb3N0IGFwcHJvcHJpYXRlIHRoaW5n
+IHRvIGRvIGlzIG1ha2UgQ09ORklHX0lTRE4gZGVwZW5kDQo+PiB1cG9uIENPTkZJR19ORVRERVZJ
+Q0VTIGluIHRoZSBLY29uZmlnIGZpbGUuDQo+IA0KPiAuLi4gYW5kIHRoZW4gcmVtb3ZlIHRoZSBD
+T05GSUdfTkVUREVWSUNFUyBndWFyZHMgaW4gaXNkbl9jb21tb24uYz8NCj4gDQo+IElmIHRoYXQn
+cyBzdWl0YWJsZSBtb3JlIHN1aXRhYmxlIEkgY2FuIGRvIHRoYXQgaW5zdGVhZD8NCj4gDQo+IEp1
+c3QgbmVlZCBhIHlheSBvciBuYXkgYW5kIEknbGwgbWFrZSBpdCBoYXBwZW4uDQoNCiJ5YXkiDQo=
