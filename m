@@ -1,52 +1,42 @@
-From: George Zhang <georgezhang@vmware.com>
-Subject: Re: [PATCH 0/6] VSOCK for Linux upstreaming
-Date: Mon, 5 Nov 2012 10:32:15 -0800 (PST)
-Message-ID: <854640502.31217031.1352140335740.JavaMail.root@vmware.com>
-References: <CA+1xoqcMo1RrJKAaS+k5cVuRonRF+go7tJKUkARP_xcuZAwoGw@mail.gmail.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: RE: [PATCH] drivers: ethernet: qlogic: qlge_dbg.c: Fixed a coding
+ style issue
+Date: Mon, 5 Nov 2012 10:45:08 -0800
+Message-ID: <5E4F49720D0BAD499EE1F01232234BA87744DA340F@AVEXMB1.qlogic.org>
+References: <1352092292-4413-1-git-send-email-gmate.amit@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CA+1xoqcMo1RrJKAaS+k5cVuRonRF+go7tJKUkARP_xcuZAwoGw@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Transfer-Encoding: 8BIT
+Cc: Ron Mercer <ron.mercer@qlogic.com>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Kumar Amit Mehta <gmate.amit@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1352092292-4413-1-git-send-email-gmate.amit@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sasha,
-There is a 'brief' implementation notes aboutVSOCK protocol family
-in af_vsock.c. More about user space layer socket programming is from
-VMCI Socket Programming Guide. (remove crosstalk@vmware.com for email bouncing).
-thanks,
-George
-
------ Original Message -----
-From: "Sasha Levin" <levinsasha928@gmail.com>
-To: "George Zhang" <georgezhang@vmware.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org, pv-drivers@vmware.com, vm-crosstalk@vmware.com, davem@davemloft.net, gregkh@linuxfoundation.org
-Sent: Monday, November 5, 2012 10:23:02 AM
-Subject: Re: [PATCH 0/6] VSOCK for Linux upstreaming
-
-Hi George,
-
-On Mon, Nov 5, 2012 at 1:00 PM, George Zhang <georgezhang@vmware.com> wrote:
-> For additional information about the use of VMCI and in particular
-> VMCI Sockets, please refer to the VMCI Socket Programming Guide
-> available at https://www.vmware.com/support/developer/vmci-sdk/.
-
-Is there documentation about the protocol itself? I couldn't find it
-on the link above.
 
 
-Thanks,
-Sasha
+>From: Kumar Amit Mehta [mailto:gmate.amit@gmail.com] 
+>Sent: Sunday, November 04, 2012 9:12 PM
+>To: Jitendra Kalsaria
+>Cc: Ron Mercer; Dept-Eng Linux Driver; netdev; linux-kernel; kernel-janitors@vger.kernel.org
+>Subject: [PATCH] drivers: ethernet: qlogic: qlge_dbg.c: Fixed a coding style issue
+>
+>checkpatch.pl throws error message for the current code. This patch fixes
+>this coding style issue.
+>
+>Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
+>---
+> drivers/net/ethernet/qlogic/qlge/qlge_dbg.c |   16 ++++++++--------
+> 1 file changed, 8 insertions(+), 8 deletions(-)
+
+Never seen these before with checkpatch.pl when we submitted changes.
+
+Anyway thanks for your effort on fixing it.
+
+Acked-by: Jitendra Kalsaria <Jitendra.kalsaria@qlogic.com>
