@@ -1,17 +1,16 @@
-From: Sasha Levin <levinsasha928@gmail.com>
+From: George Zhang <georgezhang@vmware.com>
 Subject: Re: [PATCH 0/6] VSOCK for Linux upstreaming
-Date: Mon, 5 Nov 2012 13:23:02 -0500
-Message-ID: <CA+1xoqcMo1RrJKAaS+k5cVuRonRF+go7tJKUkARP_xcuZAwoGw@mail.gmail.com>
-References: <20121105175730.21472.99155.stgit@promb-2n-dhcp175.eng.vmware.com>
+Date: Mon, 5 Nov 2012 10:24:13 -0800 (PST)
+Message-ID: <1736680087.31211496.1352139853555.JavaMail.root@vmware.com>
+References: <20121105.131037.522811734707988745.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, vm-crosstalk@vmware.com, davem@davemloft.net
-To: George Zhang <georgezhang@vmware.com>
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121105175730.21472.99155.stgit@promb-2n-dhcp175.eng.vmware.com>
+In-Reply-To: <20121105.131037.522811734707988745.davem@davemloft.net>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -23,16 +22,23 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi George,
-
-On Mon, Nov 5, 2012 at 1:00 PM, George Zhang <georgezhang@vmware.com> wrote:
-> For additional information about the use of VMCI and in particular
-> VMCI Sockets, please refer to the VMCI Socket Programming Guide
-> available at https://www.vmware.com/support/developer/vmci-sdk/.
-
-Is there documentation about the protocol itself? I couldn't find it
-on the link above.
-
-
+David,
+We will fix this bounces and remove the email: crosstalk@vmware.com.
 Thanks,
-Sasha
+george zhang
+
+----- Original Message -----
+From: "David Miller" <davem@davemloft.net>
+To: georgezhang@vmware.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org, pv-drivers@vmware.com, vm-crosstalk@vmware.com, gregkh@linuxfoundation.org
+Sent: Monday, November 5, 2012 10:10:37 AM
+Subject: Re: [PATCH 0/6] VSOCK for Linux upstreaming
+
+From: David Miller <davem@davemloft.net>
+Date: Mon, 05 Nov 2012 13:09:17 -0500 (EST)
+
+> The big and only question is whether anyone can actually use any of
+> this stuff without your proprietary bits?
+
+And BTW vm-crosstalk@vmware.com bounces, take it out of the CC: list
+on all future emails.
