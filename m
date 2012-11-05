@@ -1,43 +1,29 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: ping -f is broken in iputils 20121011
-Date: Tue, 06 Nov 2012 03:12:36 +0900
-Message-ID: <50980194.1000609@linux-ipv6.org>
-References: <20121030205249.GA2817@mail> <1TTUJN-000MzR-Tp@internal.tormail.org> <5097841F.2050905@redhat.com>
+From: nilton@uenf.br
+Subject: Do You Want To Be Comfortable
+Date: Mon, 05 Nov 2012 09:14:25 -0200
+Message-ID: <20121105091425.g9sz9k5jlwkok8wc@zappa.uenf.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Jan Synacek <jsynacek@redhat.com>, msal@tormail.org
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51307 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754126Ab2KESMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 13:12:38 -0500
-In-Reply-To: <5097841F.2050905@redhat.com>
+Received: from zappa.uenf.br ([200.20.228.33]:55758 "EHLO zappa.uenf.br"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754361Ab2KESRQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 5 Nov 2012 13:17:16 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello, My name is Nilton secretary to Mr.Norman Chan, I got your email  
+contact from an online directory; Mr.Norman Chan would need your  
+assistance on a business proposal. Contact me him through mail;  
+normchan2@live.com for more detailed.
 
-Jan Synacek wrote:
-> On 10/31/2012 10:11 AM, Mohammad Alsaleh wrote:
->> On Tue, Oct 30, 2012 at 11:52:49PM +0300, Mohammad Alsaleh wrote:
->>> As explained in this bug report(1). ping -f seems to be broken in
->>> iputils 20121011.
->>>
->>> (1) https://bugs.archlinux.org/task/32306
->>
->> Bisected to commit 8feb586c4c6df32badb159947ed233898891aecd
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> 
-> Can you please try the attached patch?
-> 
 
-I applied this patch.  Thank you.
-Mohammad, Thank you for spotting this.
-
---yoshfuji
+-------------------------------------------------------------------------
+"O usuario e integralmente responsavel por todo conteudo enviado
+de sua conta de e-mail. Sua senha e pessoal e intransferivel."
