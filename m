@@ -1,65 +1,63 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: 3.6 routing cache regression, multicast loopback broken
-Date: Mon, 05 Nov 2012 17:37:51 +0100
-Message-ID: <1352133471.12029.43.camel@sakura.staff.proxad.net>
-Reply-To: mbizon@freebox.fr
+From: Shuah Khan <shuah.khan@hp.com>
+Subject: Re: [PATCH] wireless: iwlwifi - add dma_mapping_error() checks to
+ avoid warnings
+Date: Mon, 05 Nov 2012 09:44:57 -0700
+Message-ID: <1352133897.2606.16.camel@lorien2>
+References: <1351993233.4369.2.camel@lorien2>
+	 (sfid-20121104_024119_271188_5372C13E) <1352020617.10072.0.camel@jlt4.sipsolutions.net>
+	 <1352132785.2606.14.camel@lorien2>
+	 <1352132992.9466.27.camel@jlt4.sipsolutions.net>
+Reply-To: shuah.khan@hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.iliad.fr ([212.27.33.1]:49460 "EHLO ns.iliad.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750895Ab2KEQhx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 5 Nov 2012 11:37:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: wey-yi.w.guy@intel.com, linville@tuxdriver.com,
+	ilw@linux.intel.com, emmanuel.grumbach@intel.com,
+	donald.h.fry@intel.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	shuahkhan@gmail.com
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1352132992.9466.27.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Mon, 2012-11-05 at 17:29 +0100, Johannes Berg wrote:
+> On Mon, 2012-11-05 at 09:26 -0700, Shuah Khan wrote:
+> 
+> > > Thanks for the report. Since I think doing BUG_ON() in such a scenario
+> > > is a really bad idea, I've applied a different patch with your
+> > > Reported-by.
+> > 
+> > Yeah. I wasn't sure about BUS() either. Did you notice the other cases
+> > of BUG_ON() in this path in iwl_rx_allocate()? I would think those need
+> > fixing as well.
+> > 
+> >               rxb->page_dma =
+> >                         dma_map_page(trans->dev, page, 0,
+> >                                      PAGE_SIZE <<
+> > trans_pcie->rx_page_order,
+> >                                      DMA_FROM_DEVICE);
+> >                 /* dma address must be no more than 36 bits */
+> >                 BUG_ON(rxb->page_dma & ~DMA_BIT_MASK(36));
+> >                 /* and also 256 byte aligned! */
+> >                 BUG_ON(rxb->page_dma & DMA_BIT_MASK(8));
+> 
+> Well, yes, we could convert them, but we can leave them as they are
+> because these are assertions that the DMA mapping API guarantees. If
+> this breaks, it's a bug in the DMA mapping code.
+> 
+> In contrast, if it fails to map, it's not a bug in the code, it's just
+> running out of memory or IO space or whatever.
+
+Right.
+> 
+> > Could you please send me commitID for the patch you did. I am interested
+> > in seeing the failure handling in your patch?
+> 
+> It's here:
+> http://git.kernel.org/?p=linux/kernel/git/iwlwifi/iwlwifi-fixes.git;a=commit;h=7c34158231b2eda8dcbd297be2bb1559e69cb433
+> 
 
 
-Hi David & all,
-
-
-kernel 3.6 to 3.6.5 (3.5 is working fine)
-
-I have a "sender" sample app that does:
-
-  - socket(dgram)
-  - setsockopt mcast ttl 8
-  - setsockopt mcast loopback
-  - sendto() to 239.0.0.x
-
-and a "receiver" sample app:
-
-  - socket(dgram)
-  - bind(239.0.0.x)
-  - add membership (239.0.0.x)
-  - loop on recv()
-
-
-My setup: no default route, "ip route add 239.0.0.0/8 dev eth0", sender
-& receiver running on same host.
-
-If I first start one sender app (on 239.0.0.1), and after a receiver app
-on 239.0.0.1 => no problem
-
-If I first start two or more sender apps (239.0.0.1/239.0.0.2/...), then
-assuming I don't start as many matching receivers, receivers sometimes
-get all data or nothing at all.
-
-
-After digging in __mkroute_output(), I found that unless I'm using a
-default route (fi != NULL), rtable is cached and shared by all senders
-(even those with different mcast addresses)
-
-Since ip_check_mc_rcu() returns different results depending on whether
-fl->daddr is present in device mc_list or not, I don't think we can
-cache this.
-
-The random working/not working effect I get is because add_membership
-flushes the rt_cache, so depending on which sender does sendto() first
-after flush, the cached entry will either use ip_mc_output() or
-ip_output().
-
--- 
-Maxime
+Thanks. 
