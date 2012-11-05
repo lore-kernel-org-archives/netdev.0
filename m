@@ -1,81 +1,60 @@
-From: Christof Meerwald <cmeerw@cmeerw.org>
-Subject: Re: A reliable kernel panic (3.6.2) and system crash when visiting a
- particular website
-Date: Mon, 5 Nov 2012 20:13:36 +0100
-Message-ID: <20121105191336.GA1404@edge.cmeerw.net>
-References: <2104474742.26357.1350734815286.JavaMail.mail@webmail05>
- <20121020162759.GA12551@liondog.tnic>
- <966148591.30347.1350754909449.JavaMail.mail@webmail08>
- <20121020203227.GC555@elf.ucw.cz>
- <20121020225849.GA8976@liondog.tnic>
- <1781795634.31179.1350774917965.JavaMail.mail@webmail04>
- <20121103141049.GA24238@edge.cmeerw.net>
- <50952744.4090203@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] ipv6: export IP6_RT_PRIO_* to userland
+Date: Mon, 05 Nov 2012 20:24:42 +0100
+Message-ID: <5098127A.2040405@6wind.com>
+References: <1352129298-1104-1-git-send-email-nicolas.dichtel@6wind.com> <20121105.120017.1189906314924845791.davem@davemloft.net> <5097F5DF.7040507@6wind.com> <20121105.124305.1002288640313724910.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Artem S. Tashkinov" <t.artem@lycos.com>, pavel@ucw.cz,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	security@kernel.org, linux-media@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: Daniel Mack <zonque@gmail.com>
-Return-path: <linux-media-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <50952744.4090203@gmail.com>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:48798 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751180Ab2KETYq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 14:24:46 -0500
+Received: by mail-wi0-f178.google.com with SMTP id hr7so3449062wib.1
+        for <netdev@vger.kernel.org>; Mon, 05 Nov 2012 11:24:44 -0800 (PST)
+In-Reply-To: <20121105.124305.1002288640313724910.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 03, 2012 at 03:16:36PM +0100, Daniel Mack wrote:
-> On 03.11.2012 15:10, Christof Meerwald wrote:
-> > http://comments.gmane.org/gmane.comp.voip.twinkle/3052 and
-> > http://pastebin.com/aHGe1S1X for a self-contained C test.
-> Some questions:
-> 
->  - Are you seeing the same issue with 3.6.x?
-
-I haven't tried it myself, but the other poster on
-http://comments.gmane.org/gmane.comp.voip.twinkle/3052 mentions 3.6.2
-(and 3.6.3)
-
->  - If you can reproduce this issue, could you paste the messages in
-> dmesg when this happens? Do they resemble to the list corruption that
-> was reported?
-
-I am not seeing any kernel messages at all - the system just freezes
-and not even the SysRq stuff works after that.
-
->  - Do you see the same problem with 3.4?
-
-I upgraded from Ubuntu 12.04 (Linux 3.2) where I didn't see the
-problem. However,
-http://www.linuxquestions.org/questions/linux-desktop-74/twinkle-causes-linux-freeze-kernel-3-6-2-a-4175433799/
-mentions 3.4.0
-
->  - Are you able to apply the patch Alan Stern posted in this thread earlier?
-
-Unfortunately, I am not really in a position to apply kernel patches
-at the moment.
-
-
-> We should really sort this out, but I unfortunately lack a system or
-> setup that shows the bug.
-
-BTW, I have been able to reproduce the problem on a completely
-different machine (also running Ubuntu 12.10, but different hardware).
-The important thing appears to be that the USB audio device is
-connected via a USB 2.0 hub (and then using the test code posted in
-http://pastebin.com/aHGe1S1X specifying the audio device as
-"plughw:Set" (or whatever it's called) seems to trigger the freeze).
-
-So I guess another question is: do you have a USB headset connected
-via a USB 2.0 hub and not seeing the problem or is your USB headset
-not connected via a USB 2.0 hub? (of course, it would also be useful
-if others could comment if they are seeing the problem with that setup
-or not)
-
-
-Christof
-
--- 
-
-http://cmeerw.org                              sip:cmeerw at cmeerw.org
-mailto:cmeerw at cmeerw.org                   xmpp:cmeerw at cmeerw.org
+Le 05/11/2012 18:43, David Miller a =E9crit :
+> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Date: Mon, 05 Nov 2012 18:22:39 +0100
+>
+>> Le 05/11/2012 18:00, David Miller a =E9crit :
+>>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>> Date: Mon,  5 Nov 2012 16:28:18 +0100
+>>>
+>>>> The kernel uses some default metric when routes are managed. For
+>>>> example, a
+>>>> static route added with a metric set to 0 is inserted in the kerne=
+l
+>>>> with
+>>>> metric 1024 (IP6_RT_PRIO_USER).
+>>>> It is useful for routing daemons to know these values, to be able =
+to
+>>>> set routes
+>>>> without interfering with what the kernel does.
+>>>>
+>>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>>
+>>> But these belong in the libc headers anyways.
+>>>
+>>> If we haven't provided them for so long, there's no real value of
+>>> adding them now.
+>>>
+>> But how can a daemon know which default values are used? If it wants
+>> to add a route with metric =3D default + x, it should first add it w=
+ith
+>> metric =3D 0, check the result and then change the metric.
+>
+> What do we do on the ipv4 side and how do daemons cope in that situat=
+ion?
+>
+In IPv4, there is no such default metric. If you add a route with metri=
+c X, it=20
+remains X in the kernel, even if it's 0.
