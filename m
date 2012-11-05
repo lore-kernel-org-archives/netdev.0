@@ -1,52 +1,44 @@
 From: Rob Herring <robherring2@gmail.com>
-Subject: [PATCH v3 1/6] net: calxedaxgmac: enable operate on 2nd frame mode
-Date: Mon,  5 Nov 2012 10:22:19 -0600
-Message-ID: <1352132544-15809-2-git-send-email-robherring2@gmail.com>
-References: <1352132544-15809-1-git-send-email-robherring2@gmail.com>
+Subject: [PATCH v3 0/6] Calxeda xgmac performance fixes
+Date: Mon,  5 Nov 2012 10:22:18 -0600
+Message-ID: <1352132544-15809-1-git-send-email-robherring2@gmail.com>
 Cc: eric.dumazet@gmail.com, Rob Herring <rob.herring@calxeda.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:49379 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752592Ab2KEQWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 11:22:40 -0500
-Received: by mail-oa0-f46.google.com with SMTP id h16so5924901oag.19
-        for <netdev@vger.kernel.org>; Mon, 05 Nov 2012 08:22:39 -0800 (PST)
-In-Reply-To: <1352132544-15809-1-git-send-email-robherring2@gmail.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:33164 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505Ab2KEQWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 11:22:38 -0500
+Received: by mail-ob0-f174.google.com with SMTP id uo13so5859114obb.19
+        for <netdev@vger.kernel.org>; Mon, 05 Nov 2012 08:22:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Rob Herring <rob.herring@calxeda.com>
 
-Enable the tx dma to start reading the next frame while sending the current
-frame.
+This is a series of performance improvements to the xgmac driver. The
+most significant changes are the alignment fixes to avoid alignment
+traps on received frames and using raw i/o accessors.
 
-Signed-off-by: Rob Herring <rob.herring@calxeda.com>
----
- drivers/net/ethernet/calxeda/xgmac.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+v3:
+- Only patch 3 changed. Use raw i/o accessors instead of relaxed for
+better build coverage.
 
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 16814b3..7f5fd17 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -191,6 +191,7 @@
- #define DMA_CONTROL_ST		0x00002000	/* Start/Stop Transmission */
- #define DMA_CONTROL_SR		0x00000002	/* Start/Stop Receive */
- #define DMA_CONTROL_DFF		0x01000000	/* Disable flush of rx frames */
-+#define DMA_CONTROL_OSF		0x00000004	/* Operate on 2nd tx frame */
- 
- /* DMA Normal interrupt */
- #define DMA_INTR_ENA_NIE	0x00010000	/* Normal Summary */
-@@ -965,8 +966,7 @@ static int xgmac_hw_init(struct net_device *dev)
- 		ctrl |= XGMAC_CONTROL_IPC;
- 	writel(ctrl, ioaddr + XGMAC_CONTROL);
- 
--	value = DMA_CONTROL_DFF;
--	writel(value, ioaddr + XGMAC_DMA_CONTROL);
-+	writel(DMA_CONTROL_DFF | DMA_CONTROL_OSF, ioaddr + XGMAC_DMA_CONTROL);
- 
- 	/* Set the HW DMA mode and the COE */
- 	writel(XGMAC_OMR_TSF | XGMAC_OMR_RFD | XGMAC_OMR_RFA |
+v2:
+- Only patch 5 changed. Add a missing enabling of tx irq.
+
+Rob
+
+Rob Herring (6):
+  net: calxedaxgmac: enable operate on 2nd frame mode
+  net: calxedaxgmac: remove explicit rx dma buffer polling
+  net: calxedaxgmac: use raw i/o accessors in rx and tx paths
+  net: calxedaxgmac: drop some unnecessary register writes
+  net: calxedaxgmac: rework transmit ring handling
+  net: calxedaxgmac: ip align receive buffers
+
+ drivers/net/ethernet/calxeda/xgmac.c |   59 +++++++++++++++-------------------
+ 1 file changed, 26 insertions(+), 33 deletions(-)
+
 -- 
 1.7.10.4
