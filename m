@@ -1,67 +1,359 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH v4 3/5] usbnet: smsc95xx: fix memory leak in smsc95xx_suspend
-Date: Tue,  6 Nov 2012 22:53:06 +0800
-Message-ID: <1352213588-8948-4-git-send-email-ming.lei@canonical.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH v4 4/5] usbnet: smsc95xx: apply the introduced usbnet_{read|write}_cmd_nopm
+Date: Tue,  6 Nov 2012 22:53:07 +0800
+Message-ID: <1352213588-8948-5-git-send-email-ming.lei@canonical.com>
 References: <1352213588-8948-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1352213588-8948-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>,
+	Steve Glendinning <steve.glendinning@shawell.net>
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:57513 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752090Ab2KFOyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 09:54:50 -0500
+In-Reply-To: <1352213588-8948-1-git-send-email-ming.lei@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes memory leak in smsc95xx_suspend.
+This patch applies the introduced usbnet_read_cmd_nopm() and
+usbnet_write_cmd_nopm() in the callback of resume and suspend
+to avoid deadlock if USB runtime PM is considered into
+usbnet_read_cmd() and usbnet_write_cmd().
 
-Also, it isn't necessary to bother mm to allocate 8bytes/16byte,
-and we can use stack variable safely.
-
-Acked-By: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
-Signed-off-by: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/net/usb/smsc95xx.c |   13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/usb/smsc95xx.c |  134 ++++++++++++++++++++++++++++----------------
+ 1 file changed, 85 insertions(+), 49 deletions(-)
 
 diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 34f2e78..f69560c 100644
+index f69560c..e07f70b 100644
 --- a/drivers/net/usb/smsc95xx.c
 +++ b/drivers/net/usb/smsc95xx.c
-@@ -1070,11 +1070,15 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+@@ -73,20 +73,26 @@ static bool turbo_mode = true;
+ module_param(turbo_mode, bool, 0644);
+ MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
  
- 	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
- 		u32 *filter_mask = kzalloc(32, GFP_KERNEL);
--		u32 *command = kzalloc(2, GFP_KERNEL);
--		u32 *offset = kzalloc(2, GFP_KERNEL);
--		u32 *crc = kzalloc(4, GFP_KERNEL);
-+		u32 command[2];
-+		u32 offset[2];
-+		u32 crc[4];
- 		int i, filter = 0;
+-static int __must_check smsc95xx_read_reg(struct usbnet *dev, u32 index,
+-					  u32 *data)
++static int __must_check __smsc95xx_read_reg(struct usbnet *dev, u32 index,
++					    u32 *data, int in_pm)
+ {
+ 	u32 buf;
+ 	int ret;
++	int (*fn)(struct usbnet *, u8, u8, u16, u16, void *, u16);
  
-+		memset(command, 0, sizeof(command));
-+		memset(offset, 0, sizeof(offset));
-+		memset(crc, 0, sizeof(crc));
+ 	BUG_ON(!dev);
+ 
+-	ret = usbnet_read_cmd(dev, USB_VENDOR_REQUEST_READ_REGISTER,
+-			      USB_DIR_IN | USB_TYPE_VENDOR |
+-			      USB_RECIP_DEVICE,
+-			      0, index, &buf, 4);
++	if (!in_pm)
++		fn = usbnet_read_cmd;
++	else
++		fn = usbnet_read_cmd_nopm;
 +
- 		if (pdata->wolopts & WAKE_BCAST) {
- 			const u8 bcast[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
- 			netdev_info(dev->net, "enabling broadcast detection");
-@@ -1128,8 +1132,11 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
++	ret = fn(dev, USB_VENDOR_REQUEST_READ_REGISTER, USB_DIR_IN
++		 | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
++		 0, index, &buf, 4);
+ 	if (unlikely(ret < 0))
+-		netdev_warn(dev->net, "Failed to read register index 0x%08x\n", index);
++		netdev_warn(dev->net,
++			"Failed to read reg index 0x%08x: %d", index, ret);
+ 
+ 	le32_to_cpus(&buf);
+ 	*data = buf;
+@@ -94,35 +100,64 @@ static int __must_check smsc95xx_read_reg(struct usbnet *dev, u32 index,
+ 	return ret;
+ }
+ 
+-static int __must_check smsc95xx_write_reg(struct usbnet *dev, u32 index,
+-					   u32 data)
++static int __must_check __smsc95xx_write_reg(struct usbnet *dev, u32 index,
++					     u32 data, int in_pm)
+ {
+ 	u32 buf;
+ 	int ret;
++	int (*fn)(struct usbnet *, u8, u8, u16, u16, const void *, u16);
+ 
+ 	BUG_ON(!dev);
+ 
++	if (!in_pm)
++		fn = usbnet_write_cmd;
++	else
++		fn = usbnet_write_cmd_nopm;
++
+ 	buf = data;
+ 	cpu_to_le32s(&buf);
+ 
+-
+-	ret = usbnet_write_cmd(dev, USB_VENDOR_REQUEST_WRITE_REGISTER,
+-			       USB_DIR_OUT | USB_TYPE_VENDOR |
+-			       USB_RECIP_DEVICE,
+-			       0, index, &buf, 4);
++	ret = fn(dev, USB_VENDOR_REQUEST_WRITE_REGISTER, USB_DIR_OUT
++		 | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
++		 0, index, &buf, 4);
+ 	if (unlikely(ret < 0))
+-		netdev_warn(dev->net, "Failed to write register index 0x%08x\n", index);
++		netdev_warn(dev->net,
++			"Failed to write reg index 0x%08x: %d", index, ret);
+ 
+ 	return ret;
+ }
+ 
++static int __must_check smsc95xx_read_reg_nopm(struct usbnet *dev, u32 index,
++					       u32 *data)
++{
++	return __smsc95xx_read_reg(dev, index, data, 1);
++}
++
++static int __must_check smsc95xx_write_reg_nopm(struct usbnet *dev, u32 index,
++						u32 data)
++{
++	return __smsc95xx_write_reg(dev, index, data, 1);
++}
++
++static int __must_check smsc95xx_read_reg(struct usbnet *dev, u32 index,
++					  u32 *data)
++{
++	return __smsc95xx_read_reg(dev, index, data, 0);
++}
++
++static int __must_check smsc95xx_write_reg(struct usbnet *dev, u32 index,
++					   u32 data)
++{
++	return __smsc95xx_write_reg(dev, index, data, 0);
++}
+ static int smsc95xx_set_feature(struct usbnet *dev, u32 feature)
+ {
+ 	if (WARN_ON_ONCE(!dev))
+ 		return -EINVAL;
+ 
+-	return usbnet_write_cmd(dev, USB_REQ_SET_FEATURE,
+-				USB_RECIP_DEVICE, feature, 0, NULL, 0);
++	return usbnet_write_cmd_nopm(dev, USB_REQ_SET_FEATURE,
++				     USB_RECIP_DEVICE, feature, 0,
++				     NULL, 0);
+ }
+ 
+ static int smsc95xx_clear_feature(struct usbnet *dev, u32 feature)
+@@ -130,8 +165,9 @@ static int smsc95xx_clear_feature(struct usbnet *dev, u32 feature)
+ 	if (WARN_ON_ONCE(!dev))
+ 		return -EINVAL;
+ 
+-	return usbnet_write_cmd(dev, USB_REQ_CLEAR_FEATURE,
+-				USB_RECIP_DEVICE, feature, 0, NULL, 0);
++	return usbnet_write_cmd_nopm(dev, USB_REQ_CLEAR_FEATURE,
++				     USB_RECIP_DEVICE, feature,
++				     0, NULL, 0);
+ }
+ 
+ /* Loop until the read is completed with timeout
+@@ -708,7 +744,7 @@ static int smsc95xx_start_tx_path(struct usbnet *dev)
+ }
+ 
+ /* Starts the Receive path */
+-static int smsc95xx_start_rx_path(struct usbnet *dev)
++static int smsc95xx_start_rx_path(struct usbnet *dev, int in_pm)
+ {
+ 	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+ 	unsigned long flags;
+@@ -718,7 +754,7 @@ static int smsc95xx_start_rx_path(struct usbnet *dev)
+ 	pdata->mac_cr |= MAC_CR_RXEN_;
+ 	spin_unlock_irqrestore(&pdata->mac_cr_lock, flags);
+ 
+-	ret = smsc95xx_write_reg(dev, MAC_CR, pdata->mac_cr);
++	ret = __smsc95xx_write_reg(dev, MAC_CR, pdata->mac_cr, in_pm);
+ 	check_warn_return(ret, "Failed to write MAC_CR: %d\n", ret);
+ 
+ 	return 0;
+@@ -937,7 +973,7 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 	ret = smsc95xx_start_tx_path(dev);
+ 	check_warn_return(ret, "Failed to start TX path");
+ 
+-	ret = smsc95xx_start_rx_path(dev);
++	ret = smsc95xx_start_rx_path(dev, 0);
+ 	check_warn_return(ret, "Failed to start RX path");
+ 
+ 	netif_dbg(dev, ifup, dev->net, "smsc95xx_reset, return 0\n");
+@@ -1039,30 +1075,30 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 		netdev_info(dev->net, "entering SUSPEND2 mode");
+ 
+ 		/* disable energy detect (link up) & wake up events */
+-		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		ret = smsc95xx_read_reg_nopm(dev, WUCSR, &val);
+ 		check_warn_return(ret, "Error reading WUCSR");
+ 
+ 		val &= ~(WUCSR_MPEN_ | WUCSR_WAKE_EN_);
+ 
+-		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		ret = smsc95xx_write_reg_nopm(dev, WUCSR, val);
+ 		check_warn_return(ret, "Error writing WUCSR");
+ 
+-		ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++		ret = smsc95xx_read_reg_nopm(dev, PM_CTRL, &val);
+ 		check_warn_return(ret, "Error reading PM_CTRL");
+ 
+ 		val &= ~(PM_CTL_ED_EN_ | PM_CTL_WOL_EN_);
+ 
+-		ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++		ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
+ 		check_warn_return(ret, "Error writing PM_CTRL");
+ 
+ 		/* enter suspend2 mode */
+-		ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++		ret = smsc95xx_read_reg_nopm(dev, PM_CTRL, &val);
+ 		check_warn_return(ret, "Error reading PM_CTRL");
+ 
+ 		val &= ~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_);
+ 		val |= PM_CTL_SUS_MODE_2;
+ 
+-		ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++		ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
+ 		check_warn_return(ret, "Error writing PM_CTRL");
+ 
+ 		return 0;
+@@ -1131,7 +1167,7 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 		}
  
  		for (i = 0; i < (pdata->wuff_filter_count * 4); i++) {
- 			ret = smsc95xx_write_reg(dev, WUFF, filter_mask[i]);
-+			if (ret < 0)
-+				kfree(filter_mask);
+-			ret = smsc95xx_write_reg(dev, WUFF, filter_mask[i]);
++			ret = smsc95xx_write_reg_nopm(dev, WUFF, filter_mask[i]);
+ 			if (ret < 0)
+ 				kfree(filter_mask);
  			check_warn_return(ret, "Error writing WUFF");
- 		}
-+		kfree(filter_mask);
+@@ -1139,43 +1175,43 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 		kfree(filter_mask);
  
  		for (i = 0; i < (pdata->wuff_filter_count / 4); i++) {
- 			ret = smsc95xx_write_reg(dev, WUFF, command[i]);
+-			ret = smsc95xx_write_reg(dev, WUFF, command[i]);
++			ret = smsc95xx_write_reg_nopm(dev, WUFF, command[i]);
+ 			check_warn_return(ret, "Error writing WUFF");
+ 		}
+ 
+ 		for (i = 0; i < (pdata->wuff_filter_count / 4); i++) {
+-			ret = smsc95xx_write_reg(dev, WUFF, offset[i]);
++			ret = smsc95xx_write_reg_nopm(dev, WUFF, offset[i]);
+ 			check_warn_return(ret, "Error writing WUFF");
+ 		}
+ 
+ 		for (i = 0; i < (pdata->wuff_filter_count / 2); i++) {
+-			ret = smsc95xx_write_reg(dev, WUFF, crc[i]);
++			ret = smsc95xx_write_reg_nopm(dev, WUFF, crc[i]);
+ 			check_warn_return(ret, "Error writing WUFF");
+ 		}
+ 
+ 		/* clear any pending pattern match packet status */
+-		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		ret = smsc95xx_read_reg_nopm(dev, WUCSR, &val);
+ 		check_warn_return(ret, "Error reading WUCSR");
+ 
+ 		val |= WUCSR_WUFR_;
+ 
+-		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		ret = smsc95xx_write_reg_nopm(dev, WUCSR, val);
+ 		check_warn_return(ret, "Error writing WUCSR");
+ 	}
+ 
+ 	if (pdata->wolopts & WAKE_MAGIC) {
+ 		/* clear any pending magic packet status */
+-		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		ret = smsc95xx_read_reg_nopm(dev, WUCSR, &val);
+ 		check_warn_return(ret, "Error reading WUCSR");
+ 
+ 		val |= WUCSR_MPR_;
+ 
+-		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		ret = smsc95xx_write_reg_nopm(dev, WUCSR, val);
+ 		check_warn_return(ret, "Error writing WUCSR");
+ 	}
+ 
+ 	/* enable/disable wakeup sources */
+-	ret = smsc95xx_read_reg(dev, WUCSR, &val);
++	ret = smsc95xx_read_reg_nopm(dev, WUCSR, &val);
+ 	check_warn_return(ret, "Error reading WUCSR");
+ 
+ 	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
+@@ -1194,41 +1230,41 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 		val &= ~WUCSR_MPEN_;
+ 	}
+ 
+-	ret = smsc95xx_write_reg(dev, WUCSR, val);
++	ret = smsc95xx_write_reg_nopm(dev, WUCSR, val);
+ 	check_warn_return(ret, "Error writing WUCSR");
+ 
+ 	/* enable wol wakeup source */
+-	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++	ret = smsc95xx_read_reg_nopm(dev, PM_CTRL, &val);
+ 	check_warn_return(ret, "Error reading PM_CTRL");
+ 
+ 	val |= PM_CTL_WOL_EN_;
+ 
+-	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++	ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
+ 	check_warn_return(ret, "Error writing PM_CTRL");
+ 
+ 	/* enable receiver to enable frame reception */
+-	smsc95xx_start_rx_path(dev);
++	smsc95xx_start_rx_path(dev, 1);
+ 
+ 	/* some wol options are enabled, so enter SUSPEND0 */
+ 	netdev_info(dev->net, "entering SUSPEND0 mode");
+ 
+-	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++	ret = smsc95xx_read_reg_nopm(dev, PM_CTRL, &val);
+ 	check_warn_return(ret, "Error reading PM_CTRL");
+ 
+ 	val &= (~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_));
+ 	val |= PM_CTL_SUS_MODE_0;
+ 
+-	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++	ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
+ 	check_warn_return(ret, "Error writing PM_CTRL");
+ 
+ 	/* clear wol status */
+ 	val &= ~PM_CTL_WUPS_;
+ 	val |= PM_CTL_WUPS_WOL_;
+-	ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++	ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
+ 	check_warn_return(ret, "Error writing PM_CTRL");
+ 
+ 	/* read back PM_CTRL */
+-	ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++	ret = smsc95xx_read_reg_nopm(dev, PM_CTRL, &val);
+ 	check_warn_return(ret, "Error reading PM_CTRL");
+ 
+ 	smsc95xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
+@@ -1249,22 +1285,22 @@ static int smsc95xx_resume(struct usb_interface *intf)
+ 		smsc95xx_clear_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
+ 
+ 		/* clear wake-up sources */
+-		ret = smsc95xx_read_reg(dev, WUCSR, &val);
++		ret = smsc95xx_read_reg_nopm(dev, WUCSR, &val);
+ 		check_warn_return(ret, "Error reading WUCSR");
+ 
+ 		val &= ~(WUCSR_WAKE_EN_ | WUCSR_MPEN_);
+ 
+-		ret = smsc95xx_write_reg(dev, WUCSR, val);
++		ret = smsc95xx_write_reg_nopm(dev, WUCSR, val);
+ 		check_warn_return(ret, "Error writing WUCSR");
+ 
+ 		/* clear wake-up status */
+-		ret = smsc95xx_read_reg(dev, PM_CTRL, &val);
++		ret = smsc95xx_read_reg_nopm(dev, PM_CTRL, &val);
+ 		check_warn_return(ret, "Error reading PM_CTRL");
+ 
+ 		val &= ~PM_CTL_WOL_EN_;
+ 		val |= PM_CTL_WUPS_;
+ 
+-		ret = smsc95xx_write_reg(dev, PM_CTRL, val);
++		ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
+ 		check_warn_return(ret, "Error writing PM_CTRL");
+ 	}
+ 
 -- 
 1.7.9.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
