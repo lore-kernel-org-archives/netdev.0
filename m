@@ -1,68 +1,36 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH v3 5/5] usbnet: runtime wake up device before calling usbnet_{read|write}_cmd
-Date: Tue,  6 Nov 2012 09:45:41 +0800
-Message-ID: <1352166341-27616-6-git-send-email-ming.lei@canonical.com>
-References: <1352166341-27616-1-git-send-email-ming.lei@canonical.com>
-Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:52748 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932947Ab2KFBqn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 20:46:43 -0500
-In-Reply-To: <1352166341-27616-1-git-send-email-ming.lei@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH v1 0/5] usbnet: avoiding access auto-suspended device
+Date: Tue, 6 Nov 2012 09:49:12 +0800
+Message-ID: <CACVXFVNChj2x31shTyOLXv1-p7vwATG4=-pN9THZZOUFGU7gtA@mail.gmail.com>
+References: <1351992594-12818-1-git-send-email-ming.lei@canonical.com>
+	<9016904.gHGBncEQ14@linux-lqwf.site>
+	<20121105.115010.1531838246984342873.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: oneukum-l3A5Bk7waGM@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20121105.115010.1531838246984342873.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch gets the runtime PM reference count before calling
-usbnet_{read|write}_cmd, and puts it after completion of the
-usbnet_{read|write}_cmd, so that the usb control message can always
-be sent to one active device in the non-PM context.
+Hi David,
 
-Signed-off-by: Ming Lei <ming.lei@canonical.com>
----
- drivers/net/usb/usbnet.c |   20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+On Tue, Nov 6, 2012 at 12:50 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>> I am happy with these patches.
+>> Dave, do you have a principal objection regarding these patches, too?
+>
+> There were review comments and the most recently posted series
+> needs to be reposted with that feedback incorporated.
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index a7fb074..08c4759 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1673,8 +1673,14 @@ out:
- int usbnet_read_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
- 		    u16 value, u16 index, void *data, u16 size)
- {
--	return __usbnet_read_cmd(dev, cmd, reqtype, value, index,
--				 data, size);
-+	int ret;
-+
-+	if (usb_autopm_get_interface(dev->intf) < 0)
-+		return -ENODEV;
-+	ret = __usbnet_read_cmd(dev, cmd, reqtype, value, index,
-+				data, size);
-+	usb_autopm_put_interface(dev->intf);
-+	return ret;
- }
- EXPORT_SYMBOL_GPL(usbnet_read_cmd);
- 
-@@ -1685,8 +1691,14 @@ EXPORT_SYMBOL_GPL(usbnet_read_cmd);
- int usbnet_write_cmd(struct usbnet *dev, u8 cmd, u8 reqtype,
- 		     u16 value, u16 index, const void *data, u16 size)
- {
--	return __usbnet_write_cmd(dev, cmd, reqtype, value, index,
--				  data, size);
-+	int ret;
-+
-+	if (usb_autopm_get_interface(dev->intf) < 0)
-+		return -ENODEV;
-+	ret = __usbnet_write_cmd(dev, cmd, reqtype, value, index,
-+				 data, size);
-+	usb_autopm_put_interface(dev->intf);
-+	return ret;
- }
- EXPORT_SYMBOL_GPL(usbnet_write_cmd);
- 
--- 
-1.7.9.5
+The comment is just about commit log and code style, and I have fixed
+that in V3.
+
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
