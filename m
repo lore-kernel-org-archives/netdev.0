@@ -1,48 +1,40 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH 4/4] FEC: Add time stamping code and a PTP hardware clock
-Date: Tue, 6 Nov 2012 09:36:39 +0800
-Message-ID: <CAHrpEqQsOj-m6QGr6URhOQfkdUxL8jkZUnA0ssZG3jG6zRvZjg@mail.gmail.com>
-References: <1351657531-25989-1-git-send-email-Frank.Li@freescale.com>
-	<20121102091902.GA3437@netboy.at.omicron.at>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: Re: [PATCH] net: ipv6: change %8s to %s for seq_printf of if6_seq_stop
+Date: Tue, 06 Nov 2012 09:42:14 +0800
+Message-ID: <50986AF6.10904@gmail.com>
+References: <5097A030.5030209@asianux.com> <509863D8.9020501@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Frank Li <Frank.Li@freescale.com>, lznuaa@gmail.com,
-	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:48386 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932372Ab2KFBgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 20:36:40 -0500
-Received: by mail-ie0-f174.google.com with SMTP id k13so9033449iea.19
-        for <netdev@vger.kernel.org>; Mon, 05 Nov 2012 17:36:40 -0800 (PST)
-In-Reply-To: <20121102091902.GA3437@netboy.at.omicron.at>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:34858 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754895Ab2KFBm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 20:42:29 -0500
+Received: by mail-pb0-f46.google.com with SMTP id rr4so3267pbb.19
+        for <netdev@vger.kernel.org>; Mon, 05 Nov 2012 17:42:28 -0800 (PST)
+In-Reply-To: <509863D8.9020501@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +       Say Y here if you want to use PTP Hardware Clock (PHC) in the
->> +       driver.  Only the basic clock operations have been implemented.
->> +
->
-> Does the PTP function work with every FEC on ColdFire and i.MX?
+Chen Gang said, at 2012/11/6 9:11:
+> 1) sorry, the comments is incorrect
+>    need use ifp->idev->dev->name instead of rt->dst.dev->name in 2nd line.
+>    I will send it again.
 
-No, I just test i.MX.
+New patch, you should tag new version in [PATCH]  to distinguish them.
+i.e. [PATCH V4]
 
->
-> Or do you need to limit this option in some way?
+> 
+> 2) By the way, the three patches "* %8s to %s *" are almost the same
+>    If need merge them into one patch, please tell me, I shall do.
 
-Okay, I will do that at new patch because this patch have been accepted.
+trivial patches, send them in one patch for net/ subsystem.
 
->
-> You can reduce the time that the spin lock is held by moving the next
-> four lines before the locked region:
->
->> +     fep->cc.mult = FEC_CC_MULT;
->> +     diff = fep->cc.mult;
->> +     diff *= ppb;
->> +     diff = div_u64(diff, 1000000000ULL);
->
-
-Okay, I will do that at new patch and fix a bug when two boards
-directly connect at 1G mode.
+> 
+>    thanks.
+> 
