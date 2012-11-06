@@ -1,39 +1,59 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH 1/6] VSOCK: vsock protocol implementation.
-Date: Tue, 6 Nov 2012 06:31:09 -0800 (PST)
-Message-ID: <1891962703.13755196.1352212269838.JavaMail.root@vmware.com>
-References: <20121106101013.09806f81@s6510.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net,
-	George Zhang <georgezhang@vmware.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121106101013.09806f81@s6510.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: [PATCH v4 0/5] usbnet: avoiding access auto-suspended device
+Date: Tue,  6 Nov 2012 22:53:03 +0800
+Message-ID: <1352213588-8948-1-git-send-email-ming.lei@canonical.com>
+Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:52766 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751343Ab2KFOxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 09:53:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+Hi,
 
-> You did some scrubbing of the macro's to support multiple kernel
-> versions, but there are still some leftovers.
-> This code seems to have a lot of "this added in version xxx"
-> type comments. These are probably not a good idea to include
-> in the mainline kernel code.
+This patchset avoids accessing auto-suspended device in ioctl path,
+which is generally triggered by some network utility(ethtool, ifconfig,
+...)
 
-Thanks so much for taking a look.  Sorry about that, we'll remove
-all such occurrences and send out a new series of patches in a bit.
+Most of network devices have the problem, but as discussed in the
+thread:
 
-Thanks!
-- Andy
+        http://marc.info/?t=135054860600003&r=1&w=2
+
+the problem should be solved inside driver.
+
+Considered that only smsc75xx and smsc95xx calls usbnet_read_cmd()
+and usbnet_write_cmd() inside its resume and suspend callback, the
+patcheset introduces the nopm version of the two functions which
+should be called only in the resume and suspend callback. So we
+can solve the problem by runtime resuming device before doing
+control message things.
+
+The patchset is against 3.7.0-rc4-next-20121105, and has been tested
+OK on smsc95xx usbnet device.
+
+Change logs:
+V4:
+	- kfree in failure path, only patch 3/5 changed
+V3:
+        - fix comment and code style reported by Sergei Shtylyov
+V2:
+        - rebased on the latest net-next tree, only 2/5 changed
+V1:
+        - rebased on 3.7.0-rc3-next-20121102, only patch 4/5 changed
+        - fix one memory leak during smsc95xx_suspend, patch 3/5 added
+
+ drivers/net/usb/smsc75xx.c |  147 +++++++++++++++++++++++++++-----------------
+ drivers/net/usb/smsc95xx.c |  147 ++++++++++++++++++++++++++++----------------
+ drivers/net/usb/usbnet.c   |   74 ++++++++++++++++++++--
+ include/linux/usb/usbnet.h |    4 ++
+ 4 files changed, 258 insertions(+), 114 deletions(-)
+
+Thanks,
+--
+Ming Lei
