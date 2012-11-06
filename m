@@ -1,108 +1,31 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next] bonding: convert delay parameters to unsigned
- integers
-Date: Tue, 06 Nov 2012 20:43:02 +0100
-Message-ID: <50996846.3030105@redhat.com>
-References: <1352202733-27906-1-git-send-email-nikolay@redhat.com> <5112.1352228613@death.nxdomain> <50996776.7030205@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, andy@greyhouse.net, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Ian Coolidge <iancoolidge@gmail.com>
+Subject: [PATCH 0/2] Fix CDC_EEM with 802.1Q VLAN and 1500 MTU
+Date: Tue,  6 Nov 2012 13:00:09 -0800
+Message-ID: <1352235611-13066-1-git-send-email-iancoolidge@gmail.com>
+Cc: Ian Coolidge <iancoolidge@gmail.com>
+To: Oliver Neukum <oliver@neukum.name>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Felipe Balbi <balbi@ti.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29070 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752864Ab2KFTnT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Nov 2012 14:43:19 -0500
-In-Reply-To: <50996776.7030205@redhat.com>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:53612 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751870Ab2KFU7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 15:59:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+cdc_eem USB host driver and gadget driver both are broken in 1500 MTU
+case when using 802.1Q VLANs. In both cases, this is due to incomplete
+assumptions of Ethernet frame size.
 
-On 06/11/12 20:39, Nikolay Aleksandrov wrote:
-> On 06/11/12 20:03, Jay Vosburgh wrote:
->> Nikolay Aleksandrov<nikolay@redhat.com>  wrote:
->>
->>> This patch converts the following parameters from int to unsigned 
->>> int in order
->>> to remove the unnecessary<  0 checks in the code and make it less 
->>> error prone.
->>> The functionality remains unchanged as before it wasn't allowed to 
->>> have these
->>> be less than zero too. Their maximum value was INT_MAX, now it will 
->>> be UINT_MAX.
->>> It also fixes how min_links parameter is treated since it is 
->>> unsigned int
->>> already but was treated as signed integer.
->>     Is this patch fixing any actual bugs, and if so, what?
-> I don't claim that it fixes any bugs, it is a cosmetic change that 
-> allows to remove
-> < 0 checks in the code without affecting functionality. The only "fix" 
-> there is, is
-> how min_links is treated when changed (everywhere it was used as int 
-> but it
-> is in fact unsigned int), although this didn't present any problems it 
-> was more
-> of an inconsistency.
->>> struct bond_params members:
->>> updelay downdelay miimon arp_interval
->>>
->>> The delay variable is initialized from updelay and downdelay 
->>> parameters and
->>> counted down to zero so it should never be<  0.
->>>
->>> struct slave members:
->>> delay
->>>
->>> The change to struct ifbond's miimon parameter (s32 ->  u32) will 
->>> probably
->>> affect some user-space software but it should be all right in 99 % 
->>> of the
->>> cases as I don't think anyone uses>  INT_MAX for that.
->>     The struct ifbond is used to pass information from the kernel to
->> user space in response to an SIOCBONDINFOQUERY ioctl.  It is not used to
->> set values within the kernel.  In any event, I don't believe it is
->> acceptable to modify a user-visible structure like this, even to change
->> types from signed to unsigned of the same size.
-> I should've explained more about the "limited" part. This is exactly 
-> what I meant,
-> if this variable type can/should be changed. But I don't know who 
-> would use this
-> at such high values (it loses any meaning IMO). If it is a problem I 
-> will re-post this
-> patch without this change, I did it only to be consistent with the 
-> miimon type, but
-> then upon returning the ifbond miimon variable might have wrong value.
->>> Limited testing of this patch was done in VMs.
->>     If this is not actually fixing any bugs (i.e., is a cosmetic
->> change only), then I think it's reasonable to expect the changes to be
->> fully tested by you to insure there are no regressions introduced.
->>
->>     In particular, if a negative number is passed in after your
->> patch is applied, is it accepted or rejected, and if it is accepted,
->> what is the value?  For example, if the user specifies "miimon=-1" does
->> that fail, or is miimon set to 4294967295?
->>
->>     -J
-> The unsigned int changes have been tested and to answer your question,
-> when you define a module parameter to be of a certain type, that type is
-> enforced by the way kernel_param_ops are defined for that type. In this
-> case if you specify a negative value the parameter won't be set and if 
-> it is
-> on the command line (and not through sysfs) the module won't get loaded
-> as before.
-Sorry, not as before, before it was set to a default value if < 0, now 
-it won't get loaded
-due to the wrong parameter. So this actually changes the behaviour, if such
-change is wrong, then ignore this patch.
+Ian Coolidge (2):
+  usb: gadget: g_ether: fix frame size check
+  net: usb: cdc_eem: Fix rx skb allocation for 802.1Q VLANs
 
-Nik
-> (Information based on tests, kernel/params.c & kernel/module.c)
->> --- -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com 
-> Best regards,
-> Nikolay Aleksandrov
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/usb/cdc_eem.c    |    4 ++++
+ drivers/usb/gadget/u_ether.c |    3 ++-
+ 2 files changed, 6 insertions(+), 1 deletions(-)
+
+-- 
+1.7.6.5
