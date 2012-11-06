@@ -1,7 +1,7 @@
 From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: [PATCH v3 4/7] pppoatm: fix module_put() race
-Date: Tue,  6 Nov 2012 23:16:59 +0100
-Message-ID: <1352240222-363-5-git-send-email-krzysiek@podlesie.net>
+Subject: [PATCH v3 5/7] pppoatm: take ATM socket lock in pppoatm_send()
+Date: Tue,  6 Nov 2012 23:17:00 +0100
+Message-ID: <1352240222-363-6-git-send-email-krzysiek@podlesie.net>
 References: <1352240222-363-1-git-send-email-krzysiek@podlesie.net>
 Cc: linux-kernel@vger.kernel.org,
 	Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
@@ -13,67 +13,86 @@ In-Reply-To: <1352240222-363-1-git-send-email-krzysiek@podlesie.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The pppoatm used module_put() during unassignment from vcc with
-hope that we have BKL. This assumption is no longer true.
+The pppoatm_send() does not take any lock that will prevent concurrent
+vcc_sendmsg(). This causes two problems:
 
-Now owner field in atmvcc is used to move this module_put()
-to vcc_destroy_socket().
+	- there is no locking between checking the send queue size
+	  with atm_may_send() and incrementing sk_wmem_alloc,
+	  and the real queue size can be a little higher than sk_sndbuf
+
+	- the vcc->sendmsg() can be called concurrently. I'm not sure
+	  if it's allowed. Some drivers (eni, nicstar, ...) seem
+	  to assume it will never happen.
+
+Now pppoatm_send() takes ATM socket lock, the same that is used
+in vcc_sendmsg() and other ATM socket functions. The pppoatm_send()
+is called with BH disabled, so bh_lock_sock() is used instead
+of lock_sock().
 
 Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
+Cc: David Woodhouse <David.Woodhouse@intel.com>
+Cc: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 ---
- net/atm/pppoatm.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ net/atm/pppoatm.c | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
 
 diff --git a/net/atm/pppoatm.c b/net/atm/pppoatm.c
-index f27a07a..b23c672 100644
+index b23c672..c4a57bc 100644
 --- a/net/atm/pppoatm.c
 +++ b/net/atm/pppoatm.c
-@@ -60,6 +60,7 @@ struct pppoatm_vcc {
- 	struct atm_vcc	*atmvcc;	/* VCC descriptor */
- 	void (*old_push)(struct atm_vcc *, struct sk_buff *);
- 	void (*old_pop)(struct atm_vcc *, struct sk_buff *);
-+	struct module *old_owner;
- 					/* keep old push/pop for detaching */
- 	enum pppoatm_encaps encaps;
- 	atomic_t inflight;
-@@ -155,8 +156,6 @@ static void pppoatm_unassign_vcc(struct atm_vcc *atmvcc)
- 	ppp_unregister_channel(&pvcc->chan);
- 	atmvcc->user_back = NULL;
- 	kfree(pvcc);
--	/* Gee, I hope we have the big kernel lock here... */
--	module_put(THIS_MODULE);
- }
- 
- /* Called when an AAL5 PDU comes in */
-@@ -165,9 +164,13 @@ static void pppoatm_push(struct atm_vcc *atmvcc, struct sk_buff *skb)
- 	struct pppoatm_vcc *pvcc = atmvcc_to_pvcc(atmvcc);
- 	pr_debug("\n");
- 	if (skb == NULL) {			/* VCC was closed */
-+		struct module *module;
+@@ -272,10 +272,19 @@ static inline int pppoatm_may_send(struct pppoatm_vcc *pvcc, int size)
+ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
+ {
+ 	struct pppoatm_vcc *pvcc = chan_to_pvcc(chan);
++	struct atm_vcc *vcc;
++	int ret;
 +
- 		pr_debug("removing ATMPPP VCC %p\n", pvcc);
-+		module = pvcc->old_owner;
- 		pppoatm_unassign_vcc(atmvcc);
- 		atmvcc->push(atmvcc, NULL);	/* Pass along bad news */
-+		module_put(module);
- 		return;
- 	}
- 	atm_return(atmvcc, skb->truesize);
-@@ -362,6 +365,7 @@ static int pppoatm_assign_vcc(struct atm_vcc *atmvcc, void __user *arg)
- 	atomic_set(&pvcc->inflight, NONE_INFLIGHT);
- 	pvcc->old_push = atmvcc->push;
- 	pvcc->old_pop = atmvcc->pop;
-+	pvcc->old_owner = atmvcc->owner;
- 	pvcc->encaps = (enum pppoatm_encaps) be.encaps;
- 	pvcc->chan.private = pvcc;
- 	pvcc->chan.ops = &pppoatm_ops;
-@@ -378,6 +382,7 @@ static int pppoatm_assign_vcc(struct atm_vcc *atmvcc, void __user *arg)
- 	atmvcc->push = pppoatm_push;
- 	atmvcc->pop = pppoatm_pop;
- 	__module_get(THIS_MODULE);
-+	atmvcc->owner = THIS_MODULE;
- 
- 	/* re-process everything received between connection setup and
- 	   backend setup */
+ 	ATM_SKB(skb)->vcc = pvcc->atmvcc;
+ 	pr_debug("(skb=0x%p, vcc=0x%p)\n", skb, pvcc->atmvcc);
+ 	if (skb->data[0] == '\0' && (pvcc->flags & SC_COMP_PROT))
+ 		(void) skb_pull(skb, 1);
++
++	vcc = ATM_SKB(skb)->vcc;
++	bh_lock_sock(sk_atm(vcc));
++	if (sock_owned_by_user(sk_atm(vcc)))
++		goto nospace;
++
+ 	switch (pvcc->encaps) {		/* LLC encapsulation needed */
+ 	case e_llc:
+ 		if (skb_headroom(skb) < LLC_LEN) {
+@@ -288,8 +297,10 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
+ 			}
+ 			consume_skb(skb);
+ 			skb = n;
+-			if (skb == NULL)
++			if (skb == NULL) {
++				bh_unlock_sock(sk_atm(vcc));
+ 				return DROP_PACKET;
++			}
+ 		} else if (!pppoatm_may_send(pvcc, skb->truesize))
+ 			goto nospace;
+ 		memcpy(skb_push(skb, LLC_LEN), pppllc, LLC_LEN);
+@@ -299,6 +310,7 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
+ 			goto nospace;
+ 		break;
+ 	case e_autodetect:
++		bh_unlock_sock(sk_atm(vcc));
+ 		pr_debug("Trying to send without setting encaps!\n");
+ 		kfree_skb(skb);
+ 		return 1;
+@@ -308,9 +320,12 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
+ 	ATM_SKB(skb)->atm_options = ATM_SKB(skb)->vcc->atm_options;
+ 	pr_debug("atm_skb(%p)->vcc(%p)->dev(%p)\n",
+ 		 skb, ATM_SKB(skb)->vcc, ATM_SKB(skb)->vcc->dev);
+-	return ATM_SKB(skb)->vcc->send(ATM_SKB(skb)->vcc, skb)
++	ret = ATM_SKB(skb)->vcc->send(ATM_SKB(skb)->vcc, skb)
+ 	    ? DROP_PACKET : 1;
++	bh_unlock_sock(sk_atm(vcc));
++	return ret;
+ nospace:
++	bh_unlock_sock(sk_atm(vcc));
+ 	/*
+ 	 * We don't have space to send this SKB now, but we might have
+ 	 * already applied SC_COMP_PROT compression, so may need to undo
 -- 
 1.8.0.233.g54991f2
