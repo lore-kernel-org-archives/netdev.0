@@ -1,36 +1,41 @@
-From: "Woodhouse, David" <david.woodhouse@intel.com>
-Subject: Re: [PATCH v3 5/7] pppoatm: take ATM socket lock in pppoatm_send()
-Date: Tue, 6 Nov 2012 22:57:39 +0000
-Message-ID: <1352242658.7340.19.camel@shinybook.infradead.org>
-References: <1352240222-363-1-git-send-email-krzysiek@podlesie.net>
-	 <1352240222-363-6-git-send-email-krzysiek@podlesie.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v4 0/6] solve deadlock caused by memory allocation with
+ I/O
+Date: Tue, 6 Nov 2012 15:23:03 -0800
+Message-ID: <20121106152303.b1e135ee.akpm@linux-foundation.org>
+References: <1351931714-11689-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Krzysztof Mazur <krzysiek@podlesie.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352240222-363-6-git-send-email-krzysiek@podlesie.net>
-Content-Language: en-US
-Content-ID: <1DDACE81D6B5FA409A8BD38C858EA4BA@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Alan Stern <stern@rowland.harvard.edu>,
+ Oliver Neukum <oneukum@suse.de>, Minchan Kim <minchan@kernel.org>, Greg
+ Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki"
+ <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>, "David S. Miller"
+ <davem@davemloft.net>, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-pm@vger.kernel.org, linux-mm@kvack.org, "Rafael J. Wysocki"
+ <rjw@sisk.pl>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1351931714-11689-1-git-send-email-ming.lei@canonical.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAyMDEyLTExLTA2IGF0IDIzOjE3ICswMTAwLCBLcnp5c3p0b2YgTWF6dXIgd3JvdGU6
-DQo+ICsgICAgICAgaWYgKHNvY2tfb3duZWRfYnlfdXNlcihza19hdG0odmNjKSkpDQo+ICsgICAg
-ICAgICAgICAgICBnb3RvIG5vc3BhY2U7DQoNCkkgc3RpbGwgdGhpbmsgdGhpcyBvbmUgY2FuIGxl
-YWQgdG8gYW4gaW5maW5pdGUgc3RhbGwgb2YgdGhlIFBQUCBjaGFubmVsLA0KYmVjYXVzZSB3ZSBy
-ZXR1cm4gMCBmcm9tIHBwcG9hdG1fc2VuZCgpIGJ1dCBuZXZlciBtYWtlIGEgbGF0ZXIgY2FsbCB0
-bw0KcHBwX291dHB1dF93YWtldXAoKSB0byB1bmJsb2NrIGl0Lg0KDQpJbiB0aGUgZXhpc3Rpbmcg
-Y2FzZXMgd2hlcmUgd2UgY291bGQgcmV0dXJuIDAgKGJlY2F1c2UNCnBwcG9hdG1fbWF5X3NlbmQo
-KSBzYWlkIG5vKSwgd2Ugd2VyZSBjYXJlZnVsIHRvIHNldCB0aGUgQkxPQ0tFRCBmbGFnIGFuZA0K
-d2UgKmtuZXcqIHRoYXQgYSBwYWNrZXQgd2FzIGluIGZsaWdodCBzbyB3ZSdkIGdldCB0byB3YWtl
-IGl0IHVwIGFnYWluIG9uDQphIHN1YnNlcXVlbnQgcHBwb2F0bV9wb3AoKS4NCg0KTm9uZSBvZiB0
-aGF0IHdvcmtzIGZvciB0aGlzIG5ldyBjb2RlIHBhdGggdGhhdCByZXR1cm5zIHplcm8uDQoNCi0t
-IA0KICAgICAgICAgICAgICAgICAgIFNlbnQgd2l0aCBNZWVHbydzIEFjdGl2ZVN5bmMgc3VwcG9y
-dC4NCg0KRGF2aWQgV29vZGhvdXNlICAgICAgICAgICAgICAgICAgICAgICAgICAgIE9wZW4gU291
-cmNlIFRlY2hub2xvZ3kgQ2VudHJlDQpEYXZpZC5Xb29kaG91c2VAaW50ZWwuY29tICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgSW50ZWwgQ29ycG9yYXRpb24NCg0KDQoNCg==
+On Sat,  3 Nov 2012 16:35:08 +0800
+Ming Lei <ming.lei@canonical.com> wrote:
+
+> This patchset try to solve one deadlock problem which might be caused
+> by memory allocation with block I/O during runtime PM and block device
+> error handling path. Traditionly, the problem is addressed by passing
+> GFP_NOIO statically to mm, but that is not a effective solution, see
+> detailed description in patch 1's commit log.
+
+It generally looks OK to me.  I have a few comments and I expect to grab
+v5.
+
+Rafael, your thoughts?
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
