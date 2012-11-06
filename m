@@ -1,44 +1,91 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v3 3/5] usbnet: smsc95xx: fix memory leak in smsc95xx_suspend
-Date: Tue, 6 Nov 2012 21:51:11 +0800
-Message-ID: <CACVXFVPhYaBcr+V4W1-fSrLFVMMVo8vUv=eaKu2y_LjZ-EtnwQ@mail.gmail.com>
-References: <1352166341-27616-1-git-send-email-ming.lei@canonical.com>
-	<1352166341-27616-4-git-send-email-ming.lei@canonical.com>
-	<CAKh2mn52HCFE8JSRJZ95m8qimPP0d4hx8SP3yExTsi+RYfJwRg@mail.gmail.com>
+From: Chris J Arges <chris.j.arges@canonical.com>
+Subject: Re: [PATCH v3 net-next] bonding: extend bond_arp_send_all to bridge
+ devices
+Date: Tue, 06 Nov 2012 07:56:27 -0600
+Message-ID: <5099170B.3020406@canonical.com>
+References: <1352154649-21089-1-git-send-email-chris.j.arges@canonical.com> <26061.1352155545@death.nxdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Oliver Neukum <oneukum@suse.de>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	Steve Glendinning <steve.glendinning@shawell.net>
-To: Steve Glendinning <steve@shawell.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:47685 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751343Ab2KFNvN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 08:51:13 -0500
-In-Reply-To: <CAKh2mn52HCFE8JSRJZ95m8qimPP0d4hx8SP3yExTsi+RYfJwRg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <26061.1352155545@death.nxdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 6, 2012 at 9:20 PM, Steve Glendinning <steve@shawell.net> wrote:
-> On 6 November 2012 01:45, Ming Lei <ming.lei@canonical.com> wrote:
->> This patch fixes memory leak in smsc95xx_suspend.
->
-> Good spot, thanks!
->
-> Note that check_warn_return just above your kfree can cause early
-> return in the error case, which would still leak filter_mask, so we
-> might want to explicitly expand that instance of the helper macro.
+On 11/05/2012 04:45 PM, Jay Vosburgh wrote:
+> Chris J Arges <chris.j.arges@canonical.com> wrote:
+> 
+>> ARP monitoring does not work when we have a network in the
+>> following configuration:
+>>
+>> eth0----+ +----bond0.100----br0-100---{+virtual machines
+>>          | |
+>>          +----bond0----+----br0---(fixed IP)->--{LAN arp_ip_target}
+>>          | |
+>> eth1----+ +----bond0.200----br0-200---{+virtual machines
+>>
+>> This patch extends bond_arp_send_all to check if a device
+>> is also in a bridge.
+>>
+>> This is related to the following issues:
+>> http://launchpad.net/bugs/736226
+>> http://bugzilla.kernel.org/show_bug.cgi?id=31822
+>>
+>> Thanks to help from Andy Gospodarek <andy@greyhouse.net>.
+>>
+>> Signed-off-by: Chris J Arges <chris.j.arges@canonical.com>
+> 
+> 	What has changed that you're up to version 3 now?
 
-OK, will update the patch.
+Had (user) issues with git send-email, and wanted to send a clean patch.
+Sorry about that.
+> 
+>> drivers/net/bonding/bond_main.c |   12 ++++++++++++
+>> 1 file changed, 12 insertions(+)
+>>
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index b2530b0..cb791f6 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -2708,6 +2708,18 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+>> 			continue;
+>> 		}
+>>
+>> +		/*
+>> +		 * Check if the target is part of a bridge.
+>> +		 */
+> 
+> 		/* Comment should be formatted like this.
+> 		 */
+> 
+>> +		if (rt->dst.dev->priv_flags & IFF_EBRIDGE) {
+>> +			/* Confirm addr is part of the bridge */
+>> +			addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
+>> +
+>> +			/* Send ARP request */
+> 
+> 	I think this comment is unnecessary.
+> 
+> 	-J
+> 
+>> +			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], addr, 0);
+>> +			continue;
+>> +		}
+>> +
 
-BTW, I just saw the smsc95xx datasheet and the vendor's driver
-source code, and found the chip supports runtime PM well
-(remote wakeup on 'good packet' or link change), so do you
-plan to implement that?
+Great, sending v4 soon with these changes.
+--chris j arges
 
-Thanks,
---
-Ming Lei
+>> 		if (net_ratelimit()) {
+>> 			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
+>> 				   bond->dev->name, &targets[i],
+>> -- 
+>> 1.7.9.5
+>>
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> 
