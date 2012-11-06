@@ -1,66 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] af-packet: fix oops when socket is not present
-Date: Tue, 06 Nov 2012 04:42:52 -0800
-Message-ID: <1352205772.3140.1025.camel@edumazet-glaptop>
-References: <1352201642.3140.880.camel@edumazet-glaptop>
-	 <1352203810-957-1-git-send-email-eric@regit.org>
-	 <20121106122848.GB20904@kroah.com>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: Re: [PATCH v2 00/11] introduce random32_get_bytes() and random32_get_bytes_state()
+Date: Tue, 6 Nov 2012 22:04:59 +0900
+Message-ID: <CAC5umyh7cSiBaBLroNbAJoZ4_B1W9o+qLPGMtXj4Yqn7sTAaTw@mail.gmail.com>
+References: <1351957422-23243-1-git-send-email-akinobu.mita@gmail.com>
+	<90816.1352178872@turing-police.cc.vt.edu>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B7094@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Leblond <eric@regit.org>, netdev <netdev@vger.kernel.org>,
-	stable@vger.kernel.org
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:33511 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152Ab2KFMmy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 07:42:54 -0500
-In-Reply-To: <20121106122848.GB20904@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Valdis.Kletnieks@vt.edu, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, "Theodore Ts'o" <tytso@mit.edu>,
+	Artem Bityutskiy <dedekind1@gmail.com>,
+	Adrian Hunter <adrian.hunter@intel.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	linux-mtd@lists.infradead.org,
+	Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org,
+	Robert Love <robert.w.love@intel.com>, devel@open-fcoe.org,
+	Michel Lespinasse <walken@google.com>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7094@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-11-06 at 13:28 +0100, Greg KH wrote:
-> On Tue, Nov 06, 2012 at 01:10:10PM +0100, Eric Leblond wrote:
-> > Due to a NULL dereference, the following patch is causing oops
-> > in normal trafic condition:
-> > 
-> > commit c0de08d04215031d68fa13af36f347a6cfa252ca
-> > Author: Eric Leblond <eric@regit.org>
-> > Date:   Thu Aug 16 22:02:58 2012 +0000
-> > 
-> >     af_packet: don't emit packet on orig fanout group
-> > 
-> > This buggy patch was a feature fix and has reached most stable
-> > branches.
-> > 
-> > When skb->sk is NULL and when packet fanout is used, there is a
-> > crash in match_fanout_group where skb->sk is accessed.
-> > This patch fixes the issue by returning false as soon as the
-> > socket is NULL: this correspond to the wanted behavior because
-> > the kernel as to resend the skb to all the listening socket in
-> > this case.
-> > 
-> > Signed-off-by: Eric Leblond <eric@regit.org>
-> > ---
-> >  net/core/dev.c |    2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> <formletter>
-> 
-> This is not the correct way to submit patches for inclusion in the
-> stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-> for how to do this properly.
-> 
-> </formletter>
+2012/11/6 David Laight <David.Laight@aculab.com>:
+>> On Sun, 04 Nov 2012 00:43:31 +0900, Akinobu Mita said:
+>> > This patchset introduces new functions into random32 library for
+>> > getting the requested number of pseudo-random bytes.
+>> >
+>> > Before introducing these new functions into random32 library,
+>> > prandom32() and prandom32_seed() with "prandom32" prefix are
+>> > renamed to random32_state() and srandom32_state() respectively.
+>> >
+>> > The purpose of this renaming is to prevent some kernel developers
+>> > from assuming that prandom32() and random32() might imply that only
+>> > prandom32() was the one using a pseudo-random number generator by
+>> > prandom32's "p", and the result may be a very embarassing security
+>> > exposure.
+>>
+>> Out of curiosity, why the '32'?  I'm just waiting for some kernel developer to
+>> do something stupid with this on a 64-bit arch because they think it's a 32-bit API. ;)
+>>
+>> Should we bite the bullet and lose the 32, as long as we're churning the code *anyhow*?
+>
+> Also why remove the 'pseudo' part of the name?
+> It is an important part of the name.
 
-Right.
+Thanks for the heads-up.  Then, what is the ideal function name for
+pseudo-random library?
 
-By the way, David Miller prefers to handle stable submissions himself.
+I propose the following renaming, 'p' prefix is restored and '32' is
+removed for not returning 32bit pseudo-random number functions.
 
-So Eric, I guess you could just do nothing for this particular patch,
-since your stable@vger.kernel.org addition in the CC will be void.
+void prandom_seed(u32 seed);    /* rename from srandom32() */
+u32 prandom32(void);            /* rename from random32() */
+void prandom_get_byte(void *buf, int bytes);
 
-(Dont add the Cc: in the patch itself, as David will remove it anyway)
-
-Thanks
+void prandom_seed_state(struct rnd_state *state, u64 seed);
+                                        /* rename from prandom32_seed() */
+u32 prandom32_state(struct rnd_state *state);   /* rename from prandom32() */
+void prandom_get_byte_state(struct rnd_state *state, void *buf, int bytes);
