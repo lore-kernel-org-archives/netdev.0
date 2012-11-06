@@ -1,17 +1,32 @@
-From: Harper Saris <harperkzd519@rocketmail.com>
-Subject: Hi there! I'm now looking out for man!
-Date: Tue, 6 Nov 2012 15:23:55 -0800 (PST)
-Message-ID: <1352244235.29490.YahooMailNeo@web184402.mail.bf1.yahoo.com>
-Reply-To: Harper Saris <Dexter@freemailzz.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sparc: bpf_jit_comp: add VLAN instructions
+ for BPF JIT
+Date: Tue, 06 Nov 2012 18:33:04 -0500 (EST)
+Message-ID: <20121106.183304.247782713765794241.davem@davemloft.net>
+References: <20121105025930.GA5197@thinkbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dxchgb@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm29.bullet.mail.sp2.yahoo.com ([98.139.91.99]:35920 "EHLO
-	nm29.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752613Ab2KFXX4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 18:23:56 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:60945 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947Ab2KFXdI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 18:33:08 -0500
+In-Reply-To: <20121105025930.GA5197@thinkbox>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Keeping Fit, although too much time in America recently messed that up Having Fun at weekends, getting out as much as i can!! Travel (Lots of hot holidays), Cars, Bikes. My career is something i take kinda seriously, and i have a bit of a passion for engineering and progressing my career. Love nights out and try to plan a holiday as much as i possibly can as i have a sun addiction and cant get enough of it! Live in T-wells area.I like art and music and seek perfection where possible.
+From: Daniel Borkmann <dxchgb@gmail.com>
+Date: Mon, 5 Nov 2012 03:59:30 +0100
+
+> This patch is a follow-up for patch "net: filter: add vlan tag access"
+> to support the new VLAN_TAG/VLAN_TAG_PRESENT accessors in BPF JIT.
+> 
+> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+> ---
+>  Disclaimer: uncompiled and untested, since I don't have a SPARC machine,
+>  but it should (hopefully) integrate cleanly. ;)
+
+Looks good, applied, thanks Dan.
