@@ -1,41 +1,46 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/6] VSOCK: vsock protocol implementation.
-Date: Tue, 6 Nov 2012 10:10:13 +0100
-Message-ID: <20121106101013.09806f81@s6510.linuxnetplumber.net>
-References: <20121105175730.21472.99155.stgit@promb-2n-dhcp175.eng.vmware.com>
-	<20121105180043.21472.95003.stgit@promb-2n-dhcp175.eng.vmware.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, vm-crosstalk@vmware.com, davem@davemloft.net
-To: George Zhang <georgezhang@vmware.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121105180043.21472.95003.stgit@promb-2n-dhcp175.eng.vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCH 2/2] smsc95xx: set MII_BUSY bit to read/write PHY regs
+Date: Tue,  6 Nov 2012 10:08:53 +0000
+Message-ID: <1352196533-2674-1-git-send-email-steve.glendinning@shawell.net>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:50632 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750988Ab2KFKI5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 05:08:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 05 Nov 2012 10:00:51 -0800
-George Zhang <georgezhang@vmware.com> wrote:
+The device datasheet specifies the BUSY bit must be set when reading
+or writing phy registers.  This patch ensures we do that.
 
-> +	/* Added in 2.6.10. */
-> +	.owner = THIS_MODULE,
+Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+---
+ drivers/net/usb/smsc95xx.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Thanks for submitting this, it will make life easier for distro's
-that now have to go through extra effort to include out of mainline
-support for Vmware.
-
-You did some scrubbing of the macro's to support multiple kernel
-versions, but there are still some leftovers.
-This code seems to have a lot of "this added in version xxx"
-type comments. These are probably not a good idea to include
-in the mainline kernel code. 
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 34f2e78..69efe66 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -167,7 +167,7 @@ static int smsc95xx_mdio_read(struct net_device *netdev, int phy_id, int idx)
+ 	/* set the address, index & direction (read from PHY) */
+ 	phy_id &= dev->mii.phy_id_mask;
+ 	idx &= dev->mii.reg_num_mask;
+-	addr = (phy_id << 11) | (idx << 6) | MII_READ_;
++	addr = (phy_id << 11) | (idx << 6) | MII_READ_ | MII_BUSY_;
+ 	ret = smsc95xx_write_reg(dev, MII_ADDR, addr);
+ 	check_warn_goto_done(ret, "Error writing MII_ADDR");
+ 
+@@ -204,7 +204,7 @@ static void smsc95xx_mdio_write(struct net_device *netdev, int phy_id, int idx,
+ 	/* set the address, index & direction (write to PHY) */
+ 	phy_id &= dev->mii.phy_id_mask;
+ 	idx &= dev->mii.reg_num_mask;
+-	addr = (phy_id << 11) | (idx << 6) | MII_WRITE_;
++	addr = (phy_id << 11) | (idx << 6) | MII_WRITE_ | MII_BUSY_;
+ 	ret = smsc95xx_write_reg(dev, MII_ADDR, addr);
+ 	check_warn_goto_done(ret, "Error writing MII_ADDR");
+ 
+-- 
+1.7.10.4
