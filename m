@@ -1,26 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: ethernet: qlogic: netxen_nic_ethtool.c: Fixed
- a coding style issue
-Date: Tue, 06 Nov 2012 18:33:22 -0500 (EST)
-Message-ID: <20121106.183322.1223064885182660442.davem@davemloft.net>
-References: <1352094368-5037-1-git-send-email-gmate.amit@gmail.com>
+Subject: Re: [PATCH 0/2 v2] net: at91_ether add dt and pinctrl support
+Date: Tue, 06 Nov 2012 18:33:44 -0500 (EST)
+Message-ID: <20121106.183344.1487915722729890376.davem@davemloft.net>
+References: <20121105073015.GM19021@game.jcrosoft.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sony.chacko@qlogic.com, rajesh.borundia@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: gmate.amit@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352094368-5037-1-git-send-email-gmate.amit@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, nicolas.ferre@atmel.com,
+	manabian@gmail.com
+To: plagnioj@jcrosoft.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60972 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947Ab2KFXdq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 18:33:46 -0500
+In-Reply-To: <20121105073015.GM19021@game.jcrosoft.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Amit Mehta <gmate.amit@gmail.com>
-Date: Sun,  4 Nov 2012 21:46:08 -0800
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Date: Mon, 5 Nov 2012 08:30:15 +0100
 
-> Fixed some coding style issues.
+> Hi,
 > 
-> Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
+> 	v2: fix typo in doc + miising empty line
+> 
+> 	This patch serie add dt and pinctrl support to the at91 ether
+> 
+> 	this is need to use the network on at91rm9200 as we now have dt
+> 	support on it
+> 
+> Jean-Christophe PLAGNIOL-VILLARD (2):
+>       net: at91_ether: add dt support
+>       net: at91_ether: add pinctrl support
 
-Applied.
+Series applied, thanks.
