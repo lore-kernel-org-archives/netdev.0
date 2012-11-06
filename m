@@ -1,68 +1,71 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
- to return an interface name
-Date: Mon, 05 Nov 2012 21:01:50 -0700
-Message-ID: <50988BAE.6020602@hp.com>
-References: <509184D9.8030103@hp.com> <5093940B.6020207@parallels.com>  <5093E09A.6000004@hp.com> <1351899276.2703.35.camel@bwh-desktop.uk.solarflarecom.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH v2 00/11] introduce random32_get_bytes() and random32_get_bytes_state()
+Date: Tue, 06 Nov 2012 00:14:32 -0500
+Message-ID: <90816.1352178872@turing-police.cc.vt.edu>
+References: <1351957422-23243-1-git-send-email-akinobu.mita@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: multipart/signed; boundary="==_Exmh_1352178872_2044P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:43688 "EHLO
-	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753012Ab2KFELX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 23:11:23 -0500
-In-Reply-To: <1351899276.2703.35.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Artem Bityutskiy <dedekind1@gmail.com>,
+	Adrian Hunter <adrian.hunter@intel.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	linux-mtd@lists.infradead.org,
+	Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org,
+	Robert Love <robert.w.love@intel.com>, devel@open-fcoe.org,
+	Michel Lespinasse <walken@google.com>
+To: Akinobu Mita <akinobu.mita@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Sun, 04 Nov 2012 00:43:31 +0900."
+             <1351957422-23243-1-git-send-email-akinobu.mita@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/02/2012 05:34 PM, Ben Hutchings wrote:
-> On Fri, 2012-11-02 at 11:02 -0400, Brian Haley wrote:
->> On 11/02/2012 05:36 AM, Pavel Emelyanov wrote:
->>>> +static int sock_getbindtodevice(struct sock *sk, char __user *optval,
->>>> +				int __user *optlen, int len)
->>>> +{
->>>> +	int ret = -ENOPROTOOPT;
->>>> +#ifdef CONFIG_NETDEVICES
->>>> +	struct net *net = sock_net(sk);
->>>> +	struct net_device *dev;
->>>> +	char devname[IFNAMSIZ];
->>>> +
->>>> +	if (sk->sk_bound_dev_if == 0) {
->>>> +		len = 0;
->>>> +		goto zero;
->>>> +	}
->>>> +
->>>> +	ret = -EINVAL;
->>>> +	if (len < IFNAMSIZ)
->>>> +		goto out;
->>>> +
->>>> +	rcu_read_lock();
->>>> +	dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
->>>> +	if (dev)
->>>> +		strcpy(devname, dev->name);
->>>
->>> This still races with the device name change, potentially providing
->>> a name which never existed in the system, doesn't it?
->>
->> My only argument here is that SIOCGIFNAME has had this same code forever, and
->> noone has ever complained about that returning a garbled name.  Even
->> dev_get_by_name() only holds an rcu lock when doing a strncmp().
->>
->> We'd need to audit the whole kernel to catch all the places where we potentially
->> look at dev->name while it could change.  Is it really worth it?
+--==_Exmh_1352178872_2044P
+Content-Type: text/plain; charset=us-ascii
+
+On Sun, 04 Nov 2012 00:43:31 +0900, Akinobu Mita said:
+> This patchset introduces new functions into random32 library for
+> getting the requested number of pseudo-random bytes.
 >
-> A net device name can't be changed while the device is up, or while
-> another task holds the RTNL lock.  I think that covers almost all uses.
-> I don't know whether it's worth going out to look for exceptions, but we
-> might as well fix the cases we know about.
+> Before introducing these new functions into random32 library,
+> prandom32() and prandom32_seed() with "prandom32" prefix are
+> renamed to random32_state() and srandom32_state() respectively.
+>
+> The purpose of this renaming is to prevent some kernel developers
+> from assuming that prandom32() and random32() might imply that only
+> prandom32() was the one using a pseudo-random number generator by
+> prandom32's "p", and the result may be a very embarassing security
+> exposure.
 
-So do you think we can fix these corner cases later and get the API 
-right first?
+Out of curiosity, why the '32'?  I'm just waiting for some kernel developer to
+do something stupid with this on a 64-bit arch because they think it's a 32-bit API. ;)
 
--Brian
+Should we bite the bullet and lose the 32, as long as we're churning the code *anyhow*?
+
+
+--==_Exmh_1352178872_2044P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBUJicuAdmEQWDXROgAQIpXQ/+OF2DqhEuVW7LL+uD224Wjp0lPNisDYJp
+r52c5r7bu8P87/ds5XfYYqa5mnZ4kcoCtkMfGFRkOSQasv/vAzXAvtBva2uy8xKV
+nmeO3S3cfTnCyFiOU3xUEkOsBQny3oUFTLCpcKdsoZl0zJKaPgFl2x5sR+t6z1eU
+kVJehRoSJ+w3rHTdRFiLyH2sUdTJHGEClwnVsCmYoHhPuttWDOUFQry06B/1SjfU
+Zpuc6dhVWeCRSB8RI4WCTfHwYEi7r6vk7Uhd39Nybn9D1BXrk46gMKeHTUf5cptR
+jkk9pIaBK0XsRj1ZqrPoYJUTs//e7/l0LHY8XEGK2nn0Hvh4PEQmAf90mEVnxBFj
+FHS9TE+MKXtRyTqcFMxDqH1fVinFJkf+QRgS2ibaOzEzIAukbFt8dSvfC+aBVkmg
+VsdbRZSySppq9gUEpGq8xJiYkgctpUz4QcRFrfWMtX+eNpRnOevFr5jGUcxzF9+R
+qQzA+a1/1e39jEH46P0YX0ZF7gOkpgvskKpArRHqtLmWrhM+gCkVbjy/2pfkD2Jl
+Hh8aR9fz/YjUMY+Vlnbo7WY8ZU+LXepwErPDhPO10Yh3KmcYroFEPzNMb40EirSv
+2KpQXYUZqO5YEFUpMDxdB2RDvddaoi8Qh0n26F7EX3b3KF+pdUv+9ihI4jyNLLTi
+PRTdX/OpIPQ=
+=wND5
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1352178872_2044P--
