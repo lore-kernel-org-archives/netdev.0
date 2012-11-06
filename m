@@ -1,95 +1,75 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [RFC virtio-next 0/4] Introduce CAIF Virtio and reversed Vrings
-Date: Tue, 06 Nov 2012 12:39:14 +1030
-Message-ID: <871ug75vp1.fsf@rustcorp.com.au>
-References: <1351723614-4145-1-git-send-email-sjur@brendeland.net>
-	<87wqy54vo0.fsf@rustcorp.com.au>
-	<CANHm3PgrsTD4uYuXN0AMuZFX794CJmmus4AST=G0+nP1ha3VyQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] mlx4: change TX coalescing defaults
+Date: Mon, 05 Nov 2012 18:20:42 -0800
+Message-ID: <1352168442.3140.32.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Linus Walleij <linus.walleij@linaro.org>,
-	dmitry.tarnyagin@stericsson.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Sjur =?utf-8?Q?Br=C3=A6ndeland?= <sjurbr@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CANHm3PgrsTD4uYuXN0AMuZFX794CJmmus4AST=G0+nP1ha3VyQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Vimalkumar <j.vimal@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:40196 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933594Ab2KFCUp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 21:20:45 -0500
+Received: by mail-pa0-f46.google.com with SMTP id hz1so4380264pad.19
+        for <netdev@vger.kernel.org>; Mon, 05 Nov 2012 18:20:44 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U2p1ciBCcsOmbmRlbGFuZCA8c2p1cmJyQGdtYWlsLmNvbT4gd3JpdGVzOgo+IEhpIFJ1c3R5LAo+
-Cj4+IFNvLCB0aGlzIGFkZHMgYW5vdGhlciBob3N0LXNpZGUgdmlydHF1ZXVlIGltcGxlbWVudGF0
-aW9uLgo+Pgo+PiBDYW4gd2UgY29tYmluZSB0aGVtIHRvZ2V0aGVyIGNvbnZlbmllbnRseT8gIFlv
-dSBwdWxsZWQgb3V0IG1vcmUgc3R1ZmYKPj4gaW50byB2cmluZy5oIHdoaWNoIGlzIGEgc3RhcnQs
-IGJ1dCBpdCdzIGEgYml0IG92ZXJsb2FkZWQuCj4+IFBlcmhhcHMgd2Ugc2hvdWxkIHNlcGFyYXRl
-IHRoZSBjb21tb24gZmllbGRzIGludG8gc3RydWN0IHZyaW5nLCBhbmQgdXNlCj4+IGl0IHRvIGJ1
-aWxkOgo+Pgo+PiAgICAgICAgIHN0cnVjdCB2cmluZ19ndWVzdCB7Cj4+ICAgICAgICAgICAgICAg
-ICBzdHJ1Y3QgdnJpbmcgdnI7Cj4+ICAgICAgICAgICAgICAgICB1MTYgbGFzdF91c2VkX2lkeDsK
-Pj4gICAgICAgICB9Owo+Pgo+PiAgICAgICAgIHN0cnVjdCB2cmluZ19ob3N0IHsKPj4gICAgICAg
-ICAgICAgICAgIHN0cnVjdCB2cmluZyB2cjsKPj4gICAgICAgICAgICAgICAgIHUxNiBsYXN0X2F2
-YWlsX2lkeDsKPj4gICAgICAgICB9Owo+PiBJIGhhdmVuJ3QgbG9va2VkIGNsb3NlbHkgYXQgdmhv
-c3QgdG8gc2VlIHdoYXQgaXQgd2FudHMsIGJ1dCBJIHdvdWxkCj4+IHRoaW5rIHdlIGNvdWxkIHNo
-YXJlIG1vcmUgY29kZS4KPgo+IEkgaGF2ZSBwbGF5ZWQgYXJvdW5kIHdpdGggdGhlIGNvZGUgaW4g
-dmhvc3QuYyB0byBleHBsb3JlIHlvdXIgaWRlYS4KPiBUaGUgbWFpbiBpc3N1ZSBJIHJ1biBpbnRv
-IGlzIHRoYXQgdmhvc3QuYyBpcyBhY2Nlc3NpbmcgdXNlciBkYXRhIHdoaWxlIG15IG5ldwo+IGNv
-ZGUgZG9lcyBub3QuIFNvIEkgZW5kIHVwIHdpdGggc29tZSBxdWlya3kgY29kZSB0ZXN0aW5nIGlm
-IHRoZSByaW5nIGxpdmVzIGluCj4gdXNlciBtZW1vcnkgb3Igbm90LiAgQW5vdGhlciBpc3N1ZSBp
-cyBzcGFyc2Ugd2FybmluZ3Mgd2hlbgo+IGFjY2Vzc2luZyB1c2VyIG1lbW9yeS4KClNwYXJzZSBp
-cyBhIHNlcnZhbnQsIG5vdCBhIG1hc3Rlci4gIElmIHRoYXQncyB0aGUgb25seSB0aGluZyBzdG9w
-cGluZwp1cywgd2UgY2FuIGlnbm9yZSBpdCAob3IgaGFjayBhcm91bmQgaXQpLgoKPiBXaXRoIHlv
-dXIgc3VnZ2VzdGVkIGNoYW5nZXMgSSBlbmQgdXAgc2hhcmluZyBhYm91dCAxMDAgbGluZXMgb2Yg
-Y29kZS4KPiBTbyBpbiBzdW0sIEkgZmVlbCB0aGlzIGFkZCBtb3JlIGNvbXBsZXhpdHkgdGhhbiB3
-aGF0IHdlIGdhaW4gYnkgc2hhcmluZy4KPgo+IEJlbG93IGlzIGFuIGluaXRpYWwgZHJhZnQgb2Yg
-dGhlIHJlLXVzYWJsZSBjb2RlLiBJIGFkZGVkICJpc191YWNjZXNzIiB0byBzdHJ1Y3QKPiB2aXJ0
-aW9fcmluZyBpbiBvcmRlciB0byBrbm93IGlmIHRoZSByaW5nIGxpdmVzIGluIHVzZXIgbWVtb3J5
-Lgo+Cj4gTGV0IG1lIGtub3cgd2hhdCB5b3UgdGhpbmsuCgpBZ3JlZWQsIHRoYXQncyBob3JyaWJs
-ZS4uLgoKRm9ydHVuYXRlbHksIHJlY2VudCBHQ0NzIHdpbGwgaW5saW5lIGZ1bmN0aW9uIHBvaW50
-ZXJzLCBzbyBpbmxpbmluZyB0aGlzCmFuZCBoYW5kaW5nIGFuIGFjY2Vzc29yIGZ1bmN0aW9uIGdl
-dHMgb3B0aW1pemVkIGF3YXkuCgpJIHdvdWxkIHJlYWxseSBsaWtlIHRoaXMsIGJlY2F1c2UgSSdk
-IGxvdmUgdG8gaGF2ZSBhIGNvbmZpZyBvcHRpb24gdG8gZG8Kc3RyaWN0IGNoZWNraW5nIG9uIHRo
-ZSBmb3JtYXQgb2YgdGhlc2UgdGhpbmdzIChzaW1pbGFyIHRvIG15IHJlY2VudGx5CnBvc3RlZCBD
-T05GSUdfVklSVElPX0RFVklDRV9UT1JUVVJFIHBhdGNoKS4KClNlZSBiZWxvdy4KCj4gaW50IHZp
-cnRxdWV1ZV9hZGRfdXNlZChzdHJ1Y3QgdnJpbmdfaG9zdCAqdnIsIHVuc2lnbmVkIGludCBoZWFk
-LCBpbnQgbGVuLAo+IAkJICAgIHN0cnVjdCB2cmluZ191c2VkX2VsZW0gICoqdXNlZCkKPiB7Cj4g
-CS8qIFRoZSB2aXJ0cXVldWUgY29udGFpbnMgYSByaW5nIG9mIHVzZWQgYnVmZmVycy4gIEdldCBh
-IHBvaW50ZXIgdG8gdGhlCj4gCSAqIG5leHQgZW50cnkgaW4gdGhhdCB1c2VkIHJpbmcuICovCj4g
-CSp1c2VkID0gJnZyLT52cmluZy51c2VkLT5yaW5nW3ZyLT5sYXN0X3VzZWRfaWR4ICUgdnItPnZy
-aW5nLm51bV07Cj4gCWlmICh2ci0+aXNfdWFjY2Vzcykgewo+IAkJaWYodW5saWtlbHkoX19wdXRf
-dXNlcihoZWFkLCAmKCp1c2VkKS0+aWQpKSkgewo+IAkJCXByX2RlYnVnKCJGYWlsZWQgdG8gd3Jp
-dGUgdXNlZCBpZCIpOwo+IAkJCXJldHVybiAtRUZBVUxUOwo+IAkJfQo+IAkJaWYgKHVubGlrZWx5
-KF9fcHV0X3VzZXIobGVuLCAmKCp1c2VkKS0+bGVuKSkpIHsKPiAJCQlwcl9kZWJ1ZygiRmFpbGVk
-IHRvIHdyaXRlIHVzZWQgbGVuIik7Cj4gCQkJcmV0dXJuIC1FRkFVTFQ7Cj4gCQl9Cj4gCQlzbXBf
-d21iKCk7Cj4gCQlpZiAoX19wdXRfdXNlcih2ci0+bGFzdF91c2VkX2lkeCArIDEsCj4gCQkJICAg
-ICAgICZ2ci0+dnJpbmcudXNlZC0+aWR4KSkgewo+IAkJCXByX2RlYnVnKCJGYWlsZWQgdG8gaW5j
-cmVtZW50IHVzZWQgaWR4Iik7Cj4gCQkJcmV0dXJuIC1FRkFVTFQ7Cj4gCQl9Cj4gCX0gZWxzZSB7
-Cj4gCQkoKnVzZWQpLT5pZCA9IGhlYWQ7Cj4gCQkoKnVzZWQpLT5sZW4gPSBsZW47Cj4gCQlzbXBf
-d21iKCk7Cj4gCQl2ci0+dnJpbmcudXNlZC0+aWR4ID0gdnItPmxhc3RfdXNlZF9pZHggKyAxOwo+
-IAl9Cj4gCXZyLT5sYXN0X3VzZWRfaWR4Kys7Cj4gCXJldHVybiAwOwo+IH0KCi8qIFVudGVzdGVk
-ISAqLwpzdGF0aWMgaW5saW5lIGJvb2wgaW5fa2VybmVsX3B1dCh1MzIgKmRzdCwgdTMyIHYpCnsK
-ICAgICAgICAqZHN0ID0gdjsKICAgICAgICByZXR1cm4gdHJ1ZTsKfQoKc3RhdGljIGlubGluZSBi
-b29sIHVzZXJzcGFjZV9wdXQodTMyICpkc3QsIHUzMiB2KQp7CglyZXR1cm4gX19wdXRfdXNlcihk
-c3QsIHYpID09IDA7Cn0KCnN0YXRpYyBpbmxpbmUgc3RydWN0IHZyaW5nX3VzZWRfZWxlbSAqdnJo
-X2FkZF91c2VkKHN0cnVjdCB2cmluZ19ob3N0ICp2ciwKICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgdW5zaWduZWQgaW50IGhlYWQsIHUzMiBsZW4sCiAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGJvb2wgKCpw
-dXQpKHUzMiAqZHN0LCB1MzIgdikpCnsKICAgICAgICBzdHJ1Y3QgdnJpbmdfdXNlZF9lbGVtICp1
-c2VkOwoKCS8qIFRoZSB2aXJ0cXVldWUgY29udGFpbnMgYSByaW5nIG9mIHVzZWQgYnVmZmVycy4g
-IEdldCBhIHBvaW50ZXIgdG8gdGhlCgkgKiBuZXh0IGVudHJ5IGluIHRoYXQgdXNlZCByaW5nLiAq
-LwoJdXNlZCA9ICZ2ci0+dnJpbmcudXNlZC0+cmluZ1t2ci0+bGFzdF91c2VkX2lkeCAlIHZyLT52
-cmluZy5udW1dOwogICAgICAgIAoJaWYgKCFwdXQoJnVzZWQtPmlkLCBoZWFkKSB8fCAhcHV0KCZ1
-c2VkLT5sZW4gPSBsZW4pKQogICAgICAgICAgICAgICAgcmV0dXJuIE5VTEw7CglzbXBfd21iKCk7
-CiAgICAgICAgaWYgKCFwdXQoJnZyLT52cmluZy51c2VkLT5pZHgsIHZyLT5sYXN0X3VzZWRfaWR4
-ICsgMSkpCiAgICAgICAgICAgICAgICByZXR1cm4gTlVMTDsKCXZyLT5sYXN0X3VzZWRfaWR4Kys7
-CglyZXR1cm4gdXNlZDsKfQoKQ2hlZXJzLApSdXN0eS4KX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1
-YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhm
-b3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+From: Eric Dumazet <edumazet@google.com>
+
+mlx4 currently uses a too high tx coalescing setting, deferring
+TX completion interrupts by up to 128 us.
+
+With the recent skb_orphan() removal in commit 8112ec3b872,
+performance of a single TCP flow is capped to ~4 Gbps, unless
+we increase tcp_limit_output_bytes.
+
+I suggest using 16 us instead of 128 us, allowing a finer control.
+
+Performance of a single TCP flow is restored to previous levels,
+while keeping TCP small queues fully enabled with default sysctl.
+
+This patch is also a BQL prereq.
+
+Reported-by: Vimalkumar <j.vimal@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Cc: Or Gerlitz <ogerlitz@mellanox.com>
+---
+By the way, is BQL addition planned for this driver ?
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index edd9cb8..2b23ca2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -870,7 +870,7 @@ static void mlx4_en_set_default_moderation(struct mlx4_en_priv *priv)
+ 	/* If we haven't received a specific coalescing setting
+ 	 * (module param), we set the moderation parameters as follows:
+ 	 * - moder_cnt is set to the number of mtu sized packets to
+-	 *   satisfy our coelsing target.
++	 *   satisfy our coalescing target.
+ 	 * - moder_time is set to a fixed value.
+ 	 */
+ 	priv->rx_frames = MLX4_EN_RX_COAL_TARGET;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 9d27e42..8a5e70d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -126,7 +126,7 @@ enum {
+ #define MLX4_EN_RX_COAL_TIME	0x10
+ 
+ #define MLX4_EN_TX_COAL_PKTS	16
+-#define MLX4_EN_TX_COAL_TIME	0x80
++#define MLX4_EN_TX_COAL_TIME	0x10
+ 
+ #define MLX4_EN_RX_RATE_LOW		400000
+ #define MLX4_EN_RX_COAL_TIME_LOW	0
