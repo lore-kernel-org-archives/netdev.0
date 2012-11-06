@@ -1,123 +1,76 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH V4 5/7] arm/dts: am33xx: Add CPSW and MDIO module nodes for AM33XX
-Date: Tue, 6 Nov 2012 23:02:37 +0530
-Message-ID: <1352223159-27504-6-git-send-email-mugunthanvnm@ti.com>
-References: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH V4 0/7] ARM: AM33XX: net: Add DT support to CPGMAC and MDIO
+ driver
+Date: Tue, 6 Nov 2012 23:02:32 +0530
+Message-ID: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>,
-	Vaibhav Hiremath <hvaibhav@ti.com>,
-	Benoit Cousson <b-cousson@ti.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mugunthan V N <mugunthanvnm@ti.com>, devicetree-discuss@lists.ozlabs.org,
+ linux-omap@vger.kernel.org, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:41022 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752048Ab2KFRdC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Nov 2012 12:33:02 -0500
-In-Reply-To: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Add CPSW and MDIO related device tree data for AM33XX.
-Also enable them into board/evm dts files by providing
-respective phy-id.
+This patch-series adds support for,
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
-Cc: Benoit Cousson <b-cousson@ti.com>
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
-Acked-by: Richard Cochran <richardcochran@gmail.com>
----
- arch/arm/boot/dts/am335x-bone.dts |    8 +++++++
- arch/arm/boot/dts/am335x-evm.dts  |    8 +++++++
- arch/arm/boot/dts/am33xx.dtsi     |   42 +++++++++++++++++++++++++++++++++++++
- 3 files changed, 58 insertions(+), 0 deletions(-)
+[1/7]: Typo mistake in CPSW driver while invoking runtime_pm api's
 
-diff --git a/arch/arm/boot/dts/am335x-bone.dts b/arch/arm/boot/dts/am335x-bone.dts
-index c634f87..e233cfa 100644
---- a/arch/arm/boot/dts/am335x-bone.dts
-+++ b/arch/arm/boot/dts/am335x-bone.dts
-@@ -78,3 +78,11 @@
- 		};
- 	};
- };
-+
-+&cpsw_emac0 {
-+	phy_id = "4a101000.mdio:00";
-+};
-+
-+&cpsw_emac1 {
-+	phy_id = "4a101000.mdio:01";
-+};
-diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
-index 185d632..415c3b3 100644
---- a/arch/arm/boot/dts/am335x-evm.dts
-+++ b/arch/arm/boot/dts/am335x-evm.dts
-@@ -118,3 +118,11 @@
- 		};
- 	};
- };
-+
-+&cpsw_emac0 {
-+	phy_id = "4a101000.mdio:00";
-+};
-+
-+&cpsw_emac1 {
-+	phy_id = "4a101000.mdio:01";
-+};
-diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-index bb31bff..2a0c8fe 100644
---- a/arch/arm/boot/dts/am33xx.dtsi
-+++ b/arch/arm/boot/dts/am33xx.dtsi
-@@ -210,5 +210,47 @@
- 			interrupt-parent = <&intc>;
- 			interrupts = <91>;
- 		};
-+
-+		mac: ethernet@4A100000 {
-+			compatible = "ti,cpsw";
-+			ti,hwmods = "cpgmac0";
-+			cpdma_channels = <8>;
-+			ale_entries = <1024>;
-+			bd_ram_size = <0x2000>;
-+			no_bd_ram = <0>;
-+			rx_descs = <64>;
-+			mac_control = <0x20>;
-+			slaves = <2>;
-+			cpts_active_slave = <0>;
-+			cpts_clock_mult = <0x80000000>;
-+			cpts_clock_shift = <29>;
-+			reg = <0x4a100000 0x800
-+				0x4a101200 0x100
-+				0x4a101000 0x100>;
-+			#address-cells = <1>;
-+			#size-cells = <1>;
-+			interrupt-parent = <&intc>;
-+			/* c0_rx_thresh_pend c0_rx_pend c0_tx_pend c0_misc_pend*/
-+			interrupts = <40 41 42 43>;
-+			ranges;
-+			cpsw_emac0: slave@0 {
-+				phy_id = "davinci_mdio.16:00";
-+				/* Filled in by U-Boot */
-+				mac-address = [ 00 00 00 00 00 00 ];
-+			};
-+			cpsw_emac1: slave@1 {
-+				/* Filled in by U-Boot */
-+				mac-address = [ 00 00 00 00 00 00 ];
-+			};
-+
-+			davinci_mdio: mdio@4a101000 {
-+				compatible = "ti,davinci_mdio";
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				ti,hwmods = "davinci_mdio";
-+				bus_freq = <1000000>;
-+				reg = <0x4a101000 0x100>;
-+			};
-+		};
- 	};
- };
--- 
-1.7.0.4
+[2/7]: Adds parent<->child relation between CPSW & MDIO module inside cpsw
+       driver, as in case of AM33XX, the resources are shared and common
+       register bit-field is provided to control module/clock enable/disable,
+       makes it difficult to handle common resource.
+
+       So the solution here is, to create parent<->child relation between them.
+
+[3/7]: Add hwmod entry for MDIO module, required for MDIO driver.
+
+[4/7]: cpsw: simplify the setup of the register pointers
+
+[5/7]: Add DT device nodes for both CPSW and MDIO modules in am33xx.dtsi,
+       am335x-evm.dts and am335x-bone.dts file
+
+[6/7]: Enable CPSW support to omap2plus_defconfig
+
+[7/7]: cpsw: Kernel warn fix during suspend
+
+This patch series has been created on top of net-next/master and tested
+on BeagleBone platform for NFS boot and basic ping test cases.
+
+Changes from V3:
+* Removed unnecessary flags in Davinci MDIO Hwmod entry.
+
+Mugunthan V N (4):
+  ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio module
+  arm/dts: am33xx: Add CPSW and MDIO module nodes for AM33XX
+  ARM: OMAP2+: omap2plus_defconfig: Enable CPSW support
+  net: cpsw: halt network stack before halting the device during
+    suspend
+
+Richard Cochran (1):
+  cpsw: simplify the setup of the register pointers
+
+Vaibhav Hiremath (2):
+  net: davinci_mdio: Fix typo mistake in calling runtime-pm api
+  net: cpsw: Add parent<->child relation support between cpsw and mdio
+
+ Documentation/devicetree/bindings/net/cpsw.txt |   34 ----
+ arch/arm/boot/dts/am335x-bone.dts              |    8 +
+ arch/arm/boot/dts/am335x-evm.dts               |    8 +
+ arch/arm/boot/dts/am33xx.dtsi                  |   42 +++++
+ arch/arm/configs/omap2plus_defconfig           |    3 +
+ arch/arm/mach-omap2/omap_hwmod_33xx_data.c     |   31 ++++
+ drivers/net/ethernet/ti/cpsw.c                 |  231 ++++++++++--------------
+ drivers/net/ethernet/ti/davinci_mdio.c         |    2 +-
+ include/linux/platform_data/cpsw.h             |   19 --
+ 9 files changed, 192 insertions(+), 186 deletions(-)
