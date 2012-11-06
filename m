@@ -1,28 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 0/6] VSOCK for Linux upstreaming
-Date: Tue, 6 Nov 2012 10:06:07 +0100
-Message-ID: <20121106100607.33d7879d@s6510.linuxnetplumber.net>
-References: <20121105175730.21472.99155.stgit@promb-2n-dhcp175.eng.vmware.com>
-	<20121106100021.538486e7@s6510.linuxnetplumber.net>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: iputils-s20121106
+Date: Tue, 06 Nov 2012 18:07:56 +0900
+Message-ID: <5098D36C.1060806@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, vm-crosstalk@vmware.com,
-	davem@davemloft.net, George Zhang <georgezhang@vmware.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121106100021.538486e7@s6510.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:52208 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751157Ab2KFJH6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 04:07:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Never mind, mail server seemed to be overloaded today.
+Hello.
+
+I have just released new snapshot of iputils (iputils-s20121106).
+
+This release basically fixes bugs in ping/ping6 with -f option and
+a bug regarding error message in tracepath6.
+
+----
+Changes since s20121011:
+      ninfod: Attatch configure and renew config.h.in.
+      makefile: clean-up
+      tracepath6: Print reason on getadrinfo() failure.
+      ping,ping6: Fix hang with -f option.
+      ping: Make sure to print C if checksum failed with -f option.
+
+----
+
+Release note:
+ https://sourceforge.net/p/iputils/code/ci/s20121106/tree/RELNOTES
+
+
+Download:
+ https://sourceforge.net/projects/iputils/files/
+ http://www.skbuff.net/iputils/
+
+Regards,
+
+--yoshfuji
