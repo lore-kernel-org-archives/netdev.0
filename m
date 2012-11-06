@@ -1,64 +1,54 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 0/7] ARM: AM33XX: net: Add DT support to CPGMAC and MDIO driver
-Date: Tue, 6 Nov 2012 13:42:18 +0530
-Message-ID: <1352189545-26303-1-git-send-email-mugunthanvnm@ti.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] pkt_sched: enable QFQ to support TSO/GSO
+Date: Tue, 6 Nov 2012 09:30:57 +0100
+Message-ID: <20121106093057.465c5b6c@s6510.linuxnetplumber.net>
+References: <20121106062924.GA2930@paolo-ThinkPad-W520>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jhs@mojatatu.com, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rizzo@iet.unipi.it, fchecconi@gmail.com
+To: Paolo Valente <paolo.valente@unimore.it>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121106062924.GA2930@paolo-ThinkPad-W520>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch-series adds support for,
+On Tue, 6 Nov 2012 07:29:24 +0100
+Paolo Valente <paolo.valente@unimore.it> wrote:
 
-[1/7]: Typo mistake in CPSW driver while invoking runtime_pm api's
+> If the max packet size for some class (configured through tc) is
+> violated by the actual size of the packets of that class, then QFQ
+> would not schedule classes correctly, and the data structures
+> implementing the bucket lists may get corrupted. This problem occurs
+> with TSO/GSO even if the max packet size is set to the MTU, and is,
+> e.g., the cause of the failure reported in [1]. Two patches have been
+> proposed to solve this problem in [2], one of them is a preliminary
+> version of this patch.
+> 
+> This patch addresses the above issues by: 1) setting QFQ parameters to
+> proper values for supporting TSO/GSO (in particular, setting the
+> maximum possible packet size to 64KB), 2) automatically increasing the
+> max packet size for a class, lmax, when a packet with a larger size
+> than the current value of lmax arrives.
+> 
+> The drawback of the first point is that the maximum weight for a class
+> is now limited to 4096, which is equal to 1/16 of the maximum weight
+> sum.
+> 
+> Finally, this patch also forcibly caps the timestamps of a class if
+> they are too high to be stored in the bucket list. This capping, taken
+> from QFQ+ [3], handles the unfrequent case described in the comment to
+> the function slot_insert.
+> 
+> [1] http://marc.info/?l=linux-netdev&m=134968777902077&w=2
+> [2] http://marc.info/?l=linux-netdev&m=135096573507936&w=2
+> [3] http://marc.info/?l=linux-netdev&m=134902691421670&w=2
+> 
+> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
+> Tested-by: Cong Wang <amwang@redhat.com>
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-[2/7]: Adds parent<->child relation between CPSW & MDIO module inside cpsw
-       driver, as in case of AM33XX, the resources are shared and common
-       register bit-field is provided to control module/clock enable/disable,
-       makes it difficult to handle common resource.
 
-       So the solution here is, to create parent<->child relation between them.
-
-[3/7]: Add hwmod entry for MDIO module, required for MDIO driver.
-
-[4/7]: cpsw: simplify the setup of the register pointers
-
-[5/7]: Add DT device nodes for both CPSW and MDIO modules in am33xx.dtsi,
-       am335x-evm.dts and am335x-bone.dts file
-
-[6/7]: Enable CPSW support to omap2plus_defconfig
-
-[7/7]: cpsw: Kernel warn fix during suspend
-
-This patch series has been created on top of net-next/master and tested
-on BeagleBone platform for NFS boot and basic ping test cases.
-
-Mugunthan V N (4):
-  ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio module
-  arm/dts: am33xx: Add CPSW and MDIO module nodes for AM33XX
-  ARM: OMAP2+: omap2plus_defconfig: Enable CPSW support
-  net: cpsw: halt network stack before halting the device during
-    suspend
-
-Richard Cochran (1):
-  cpsw: simplify the setup of the register pointers
-
-Vaibhav Hiremath (2):
-  net: davinci_mdio: Fix typo mistake in calling runtime-pm api
-  net: cpsw: Add parent<->child relation support between cpsw and mdio
-
- Documentation/devicetree/bindings/net/cpsw.txt |   34 ----
- arch/arm/boot/dts/am335x-bone.dts              |    8 +
- arch/arm/boot/dts/am335x-evm.dts               |    8 +
- arch/arm/boot/dts/am33xx.dtsi                  |   42 +++++
- arch/arm/configs/omap2plus_defconfig           |    3 +
- arch/arm/mach-omap2/omap_hwmod_33xx_data.c     |   32 ++++
- drivers/net/ethernet/ti/cpsw.c                 |  231 ++++++++++--------------
- drivers/net/ethernet/ti/davinci_mdio.c         |    2 +-
- include/linux/platform_data/cpsw.h             |   19 --
- 9 files changed, 193 insertions(+), 186 deletions(-)
-
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
