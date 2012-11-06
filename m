@@ -1,53 +1,41 @@
-From: Wang Dongsheng <dongsheng.wang@freescale.com>
-Subject: [PATCH] powerpc/gianfar: fix ethernet cannot work after restoring from hibernation
-Date: Tue, 6 Nov 2012 14:04:08 +0800
-Message-ID: <1352181848-24102-1-git-send-email-dongsheng.wang@freescale.com>
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: how to disable automatic route addition for an ipv6 address
+Date: Tue, 6 Nov 2012 08:01:34 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.1211060755510.13802@uplift.swm.pp.se>
+References: <CAHdPZaPt-ybmZiS5uzdos6OYC2q8BBmFfSgSQ0RnOe4AnPpcdA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Wang Dongsheng <dongsheng.wang@freescale.com>
-To: <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: "devendra.aaru" <devendra.aaru@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:45990
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750878Ab2KFGsv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 01:48:51 -0500
+Received: from swm.pp.se ([212.247.200.143]:51911 "EHLO uplift.swm.pp.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751805Ab2KFHBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Nov 2012 02:01:36 -0500
+In-Reply-To: <CAHdPZaPt-ybmZiS5uzdos6OYC2q8BBmFfSgSQ0RnOe4AnPpcdA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-we should make sure a ethernet has been taken down when system into hibernation
-status. when the system restoring form hibernation, the ethernet cannot be
-taken up.
-eg:
-~# ifconfig eth0 down
-~# echo disk > /sys/power/state
+On Mon, 5 Nov 2012, devendra.aaru wrote:
 
-hibernation restore
+> while adding the ipv6 address to interface ,
+>
+> ifconfig eth0 add 2001:8800:10fb:4444::ae/64
+>
+> i am seeing the route addition automatically
+>
+> route -n -A inet6 shows that one of the route from the above added address.
 
-~# ifconfig eth0 up
-SIOCSIFFLAGS: No such device
+You mean you get a /64 route to the interface? I'd say that's normal, as 
+you're adding a /64.
 
-Signed-off-by: Wang Dongsheng <dongsheng.wang@freescale.com>
----
- drivers/net/ethernet/freescale/gianfar.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+If you do not want this, add it as a /128 instead.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 4605f72..487b944 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -1345,8 +1345,11 @@ static int gfar_restore(struct device *dev)
- 	struct gfar_private *priv = dev_get_drvdata(dev);
- 	struct net_device *ndev = priv->ndev;
- 
--	if (!netif_running(ndev))
-+	if (!netif_running(ndev)) {
-+		netif_device_attach(ndev);
-+
- 		return 0;
-+	}
- 
- 	gfar_init_bds(ndev);
- 	init_registers(ndev);
+"ip -6 a a dev eth0 2000:db8::1/128" will add just that /128 to eth0 
+interface without an encompassing network route.
+
+"ip -6 r l" to verify (you will see just the IPv6 address to the device, 
+ie an implicit /128).
+
 -- 
-1.7.5.1
+Mikael Abrahamsson    email: swmike@swm.pp.se
