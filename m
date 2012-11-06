@@ -1,60 +1,62 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 3/7] ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio
- module
-Date: Tue, 6 Nov 2012 16:54:53 +0530
-Message-ID: <5098F385.6020009@ti.com>
-References: <1352189545-26303-1-git-send-email-mugunthanvnm@ti.com> <1352189545-26303-4-git-send-email-mugunthanvnm@ti.com> <B5906170F1614E41A8A28DE3B8D121433EC049CC@DBDE01.ent.ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/1] af-packet: fix oops when socket is not present
+Date: Tue, 06 Nov 2012 03:34:02 -0800
+Message-ID: <1352201642.3140.880.camel@edumazet-glaptop>
+References: <1352197481-16782-1-git-send-email-eric@regit.org>
+	 <1352197481-16782-2-git-send-email-eric@regit.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Paul Walmsley <paul@pwsan.com>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	"Hiremath, Vaibhav" <hvaibhav@ti.com>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: "Bedia, Vaibhav" <vaibhav.bedia@ti.com>
+Cc: netdev <netdev@vger.kernel.org>, stable@vger.kernel.org
+To: Eric Leblond <eric@regit.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:42451 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901Ab2KFL0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 06:26:14 -0500
-In-Reply-To: <B5906170F1614E41A8A28DE3B8D121433EC049CC@DBDE01.ent.ti.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:43405 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911Ab2KFLeH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 06:34:07 -0500
+In-Reply-To: <1352197481-16782-2-git-send-email-eric@regit.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/6/2012 3:39 PM, Bedia, Vaibhav wrote:
-> On Tue, Nov 06, 2012 at 13:42:21, N, Mugunthan V wrote:
-> [...]
->> +struct omap_hwmod_addr_space am33xx_mdio_addr_space[] = {
->> +	{
->> +		.pa_start	= 0x4A101000,
->> +		.pa_end		= 0x4A101000 + SZ_256 - 1,
->> +		.flags		= ADDR_MAP_ON_INIT,
-> Based on the recent discussions and looking the hwmod code,
-> I guess ADDR_MAP_ON_INIT does not make sense here. Since you
-> are just creating a parent-child relationship here, maybe no
-> flag is needed?
->
->> +	},
->> +	{ }
->> +};
->> +
->> +struct omap_hwmod_ocp_if am33xx_cpgmac0__mdio = {
->> +	.master		= &am33xx_cpgmac0_hwmod,
->> +	.slave		= &am33xx_mdio_hwmod,
->> +	.addr		= am33xx_mdio_addr_space,
->> +	.user		= OCP_USER_MPU,
-> Is this flag necessary? Shouldn't you just skip the
-> user field since there's nothing for the hwmod code
-> to do here?
->
->
-Will remove the unnecessary flags and submit the patch.
+On Tue, 2012-11-06 at 11:24 +0100, Eric Leblond wrote:
+> When skb->sk is NULL and when packet fanout is used, there is a
+> crash in match_fanout_group where skb->sk is accessed.
+> This patch fixes the issue by returning false as soon as the
+> socket is NULL: this correspond to the wanted behavior because
+> the kernel as to resend the skb to all the listening socket in
+> this case.
+> 
+> Signed-off-by: Eric Leblond <eric@regit.org>
+> ---
+>  net/core/dev.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index b4978e2..c7b5293 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1666,7 +1666,7 @@ static inline int deliver_skb(struct sk_buff *skb,
+>  
+>  static inline bool skb_loop_sk(struct packet_type *ptype, struct sk_buff *skb)
+>  {
+> -	if (ptype->af_packet_priv == NULL)
+> +	if ((ptype->af_packet_priv == NULL) || (skb->sk == NULL))
 
-Regards
-Mugunthan V N
+Why adding these parentheses  ?
+
+if (!ptype->af_packet_priv || !skb->sk)
+
+
+>  		return false;
+>  
+>  	if (ptype->id_match)
+
+Your patch is technically correct, but misses extra information to ease
+stable team work.
+
+Your previous mail with this useful information wont be part of the
+patch.
+
+Please add this information in the changelog ?
+
+Thanks
