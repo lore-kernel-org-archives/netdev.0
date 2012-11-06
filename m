@@ -1,113 +1,52 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH V4 3/7] ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio module
-Date: Tue, 6 Nov 2012 23:02:35 +0530
-Message-ID: <1352223159-27504-4-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH V4 7/7] net: cpsw: halt network stack before halting the device during suspend
+Date: Tue, 6 Nov 2012 23:02:39 +0530
+Message-ID: <1352223159-27504-8-git-send-email-mugunthanvnm@ti.com>
 References: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
 	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>,
-	Vaibhav Hiremath <hvaibhav@ti.com>,
-	Paul Walmsley <paul@pwsan.com>
+	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:34665 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751394Ab2KFRc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 12:32:58 -0500
+Received: from comal.ext.ti.com ([198.47.26.152]:41020 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751394Ab2KFRdA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Nov 2012 12:33:00 -0500
 In-Reply-To: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds hwmod entry for davinci MDIO module,
-creating parent<->child relationship between CPSW and MDIO module.
-
-This Parent-child relation is required in order to use common resources
-like, clock, but still maintaining the logical separation between them.
-
-CPGMAC SubSystem consist of various sub-modules, like, mdio, cpdma,
-cpsw, etc... These sub-modules are also used in some of Davinci
-family of devices, so separate and independent platform devices &
-drivers for CPSW and MDIO is implemented.
-In case of AM33XX, the resources are shared and common register
-bit-field is provided to control module/clock enable/disable,
-makes it difficult to handle common resources from both drivers.
-
-So the solution is, create parent<->child relationship between
-CPGMAC & MDIO modules.
+Move network stack halt APIs before halting the hardware to ensure no
+packets are queued to hardware during closing the device during
+suspend sequence.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
-Cc: Paul Walmsley <paul@pwsan.com>
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
 Acked-by: Richard Cochran <richardcochran@gmail.com>
 ---
- arch/arm/mach-omap2/omap_hwmod_33xx_data.c |   31 ++++++++++++++++++++++++++++
- 1 files changed, 31 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/arch/arm/mach-omap2/omap_hwmod_33xx_data.c b/arch/arm/mach-omap2/omap_hwmod_33xx_data.c
-index 59d5c1c..3125835 100644
---- a/arch/arm/mach-omap2/omap_hwmod_33xx_data.c
-+++ b/arch/arm/mach-omap2/omap_hwmod_33xx_data.c
-@@ -674,6 +674,7 @@ static struct omap_hwmod am33xx_cpgmac0_hwmod = {
- 	.name		= "cpgmac0",
- 	.class		= &am33xx_cpgmac0_hwmod_class,
- 	.clkdm_name	= "cpsw_125mhz_clkdm",
-+	.flags		= (HWMOD_SWSUP_SIDLE | HWMOD_SWSUP_MSTANDBY),
- 	.mpu_irqs	= am33xx_cpgmac0_irqs,
- 	.main_clk	= "cpsw_125mhz_gclk",
- 	.prcm		= {
-@@ -685,6 +686,20 @@ static struct omap_hwmod am33xx_cpgmac0_hwmod = {
- };
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index f94aa8f..b46dbb4 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -698,12 +698,12 @@ static int cpsw_ndo_stop(struct net_device *ndev)
+ 	struct cpsw_priv *priv = netdev_priv(ndev);
  
- /*
-+ * mdio class
-+ */
-+static struct omap_hwmod_class am33xx_mdio_hwmod_class = {
-+	.name		= "davinci_mdio",
-+};
-+
-+static struct omap_hwmod am33xx_mdio_hwmod = {
-+	.name		= "davinci_mdio",
-+	.class		= &am33xx_mdio_hwmod_class,
-+	.clkdm_name	= "cpsw_125mhz_clkdm",
-+	.main_clk	= "cpsw_125mhz_gclk",
-+};
-+
-+/*
-  * dcan class
-  */
- static struct omap_hwmod_class am33xx_dcan_hwmod_class = {
-@@ -2501,6 +2516,21 @@ static struct omap_hwmod_ocp_if am33xx_l4_hs__cpgmac0 = {
- 	.user		= OCP_USER_MPU,
- };
- 
-+struct omap_hwmod_addr_space am33xx_mdio_addr_space[] = {
-+	{
-+		.pa_start	= 0x4A101000,
-+		.pa_end		= 0x4A101000 + SZ_256 - 1,
-+	},
-+	{ }
-+};
-+
-+struct omap_hwmod_ocp_if am33xx_cpgmac0__mdio = {
-+	.master		= &am33xx_cpgmac0_hwmod,
-+	.slave		= &am33xx_mdio_hwmod,
-+	.addr		= am33xx_mdio_addr_space,
-+	.user		= OCP_USER_MPU,
-+};
-+
- static struct omap_hwmod_addr_space am33xx_elm_addr_space[] = {
- 	{
- 		.pa_start	= 0x48080000,
-@@ -3371,6 +3401,7 @@ static struct omap_hwmod_ocp_if *am33xx_hwmod_ocp_ifs[] __initdata = {
- 	&am33xx_l3_main__tptc2,
- 	&am33xx_l3_s__usbss,
- 	&am33xx_l4_hs__cpgmac0,
-+	&am33xx_cpgmac0__mdio,
- 	NULL,
- };
- 
+ 	cpsw_info(priv, ifdown, "shutting down cpsw device\n");
+-	cpsw_intr_disable(priv);
+-	cpdma_ctlr_int_ctrl(priv->dma, false);
+-	cpdma_ctlr_stop(priv->dma);
+ 	netif_stop_queue(priv->ndev);
+ 	napi_disable(&priv->napi);
+ 	netif_carrier_off(priv->ndev);
++	cpsw_intr_disable(priv);
++	cpdma_ctlr_int_ctrl(priv->dma, false);
++	cpdma_ctlr_stop(priv->dma);
+ 	cpsw_ale_stop(priv->ale);
+ 	for_each_slave(priv, cpsw_slave_stop, priv);
+ 	pm_runtime_put_sync(&priv->pdev->dev);
 -- 
 1.7.0.4
