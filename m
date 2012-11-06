@@ -1,43 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V6 0/22] qlcnic: patches for new adapter - Qlogic 83XX
- CNA
-Date: Tue, 06 Nov 2012 18:51:24 -0500 (EST)
-Message-ID: <20121106.185124.2155177049133289777.davem@davemloft.net>
-References: <1352153535-5006-1-git-send-email-sony.chacko@qlogic.com>
+Subject: Re: [PATCH v3 5/6] net: calxedaxgmac: rework transmit ring handling
+Date: Tue, 06 Nov 2012 18:57:04 -0500 (EST)
+Message-ID: <20121106.185704.1212469675670236955.davem@davemloft.net>
+References: <1352132544-15809-1-git-send-email-robherring2@gmail.com>
+	<1352132544-15809-6-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: sony.chacko@qlogic.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	rob.herring@calxeda.com
+To: robherring2@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32835 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32869 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753981Ab2KFXv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 18:51:26 -0500
-In-Reply-To: <1352153535-5006-1-git-send-email-sony.chacko@qlogic.com>
+	with ESMTP id S1753822Ab2KFX5G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 18:57:06 -0500
+In-Reply-To: <1352132544-15809-6-git-send-email-robherring2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU29ueSBDaGFja28gPHNvbnkuY2hhY2tvQHFsb2dpYy5jb20+DQpEYXRlOiBNb24sICA1
-IE5vdiAyMDEyIDE3OjExOjU0IC0wNTAwDQoNCj4gSSBhcG9sb2dpemUgZm9yIHRoZSBhYm92ZSBt
-aXN0YWtlLg0KPiBXZSBoYXZlIGZpeGVkIHRoZSBhYm92ZSB3YXJuaW5nIGFuZCBoYXZlIHZlcmlm
-aWVkIHRoZSByZXN0IG9mIHRoZSBwYXRjaGVzLg0KPiBQbGVhc2UgYXBwbHkgdGhlIHVwZGF0ZWQg
-MjIgcGF0Y2ggc2VyaWVzIHRvIG5ldC1uZXh0Lg0KDQpZb3VyIGNoYW5nZXMgYXJlIHN0aWxsIGJy
-b2tlbjoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfY3R4LmM6
-IEluIGZ1bmN0aW9uIKFxbGNuaWNfZndfY3JlYXRlX2N0eKI6DQpkcml2ZXJzL25ldC9ldGhlcm5l
-dC9xbG9naWMvcWxjbmljL3FsY25pY19jdHguYzo1NjU6MTogd2FybmluZzogdGhlIGZyYW1lIHNp
-emUgb2YgODE5MiBieXRlcyBpcyBsYXJnZXIgdGhhbiAyMDQ4IGJ5dGVzIFstV2ZyYW1lLWxhcmdl
-ci10aGFuPV0NCg0KQSBtdWx0aS1raWxvYnl0ZSBvbi1zdGFjayB2YXJpYWJsZT8gIEFyZSB5b3Ug
-a2lkZGluZyBtZT8NCg0KVGhpcyBzdWJtaXNzaW9uIGlzIHRlcnJpYmxlLCBpbiBldmVyeSB3YXks
-IHNoYXBlLCBhbmQgZm9ybS4gIE5vYm9keQ0Kd2FudHMgdG8gcmV2aWV3IHRoZXNlIGNoYW5nZXMg
-aW4gZGV0YWlsIChoYXZlIHlvdSBub3RpY2VkIHRoYXQgYmVzaWRlcw0KbWUsIHRoZXJlIGlzIHpl
-cm8gZmVlZGJhY2sgY29taW5nIGluIGZyb20gYW55b25lKS4gIFlvdSBoYXZlIHRvDQpyZWNvZ25p
-emUgdGhhdCBpdCdzIGRlbW9yYWxpemluZyB0byByZXZpZXcgcGF0Y2hlcyB3aGVuIHRoZXkgZG9u
-J3QNCmV2ZW4gYnVpbGQgY2xlYW5seSBsaWtlIHlvdXIncyBkby4NCg0KU3RvcCBzdWJtaXR0aW5n
-IGdhcmJhZ2UgcGF0Y2hlcywgbm93Lg0KDQpJIHdhbnQgeW91IHRvIG5vdCByZXN1Ym1pdCB0aGlz
-IGZvciBhdCBsZWFzdCBhIHdlZWsuICBZb3UgbXVzdA0KZWxpbWluYXRlIGFsbCBvZiB0aGVzZSBr
-aW5kcyBvZiBwcm9ibGVtcywgeW91IG11c3QgdmFsaWRhdGUgdGhlIGJ1aWxkLA0KeW91IG11c3Qg
-ZG91YmxlIGNoZWNrIGV2ZXJ5dGhpbmcuDQoNCkFuZCB5b3UgY2Fubm90IGJlIHRydXN0ZWQgdG8g
-ZG8gdGhhdCBpbiBqdXN0IG9uZSBvciB0d28gZGF5cy4NCg0KQWdhaW4sIGRvbid0IHJlc3VibWl0
-IHRoaXMgdW50aWwgeW91J3ZlIHdvcmtlZCBvdmVyIGFuZCBkb3VibGUgY2hlY2tlZA0KZXZlcnl0
-aGluZyBpbiBpdCBmb3IgYXQgbGVhc3QgYSB3ZWVrLg0K
+From: Rob Herring <robherring2@gmail.com>
+Date: Mon,  5 Nov 2012 10:22:23 -0600
+
+> Only generate tx interrupts on every ring size / 4 descriptors.
+
+I thought we told you that you cannot do this.
+
+With this change if we get a few packets, then stop generating any
+traffic, there will be SKBs that just sit dead in your TX queue.
+
+This cannot ever happen.  All TX SKBs must be freed up in a short,
+finite, amount of time.  Under all conditions, and in every situation.
+
+Otherwise memory accounted to sockets is not liberated, and such
+sockets cannot be destroyed or closed.
+
+SKBs also hold onto other kinds of resources, for which it is critical
+to liberate in a finite amount of time.
+
+I'm not applying this series, it still needs more work.
