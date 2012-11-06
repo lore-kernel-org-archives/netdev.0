@@ -1,45 +1,41 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: iputils-s20121106
-Date: Tue, 06 Nov 2012 18:07:56 +0900
-Message-ID: <5098D36C.1060806@linux-ipv6.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/6] VSOCK: vsock protocol implementation.
+Date: Tue, 6 Nov 2012 10:10:13 +0100
+Message-ID: <20121106101013.09806f81@s6510.linuxnetplumber.net>
+References: <20121105175730.21472.99155.stgit@promb-2n-dhcp175.eng.vmware.com>
+	<20121105180043.21472.95003.stgit@promb-2n-dhcp175.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:52208 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751157Ab2KFJH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 04:07:58 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, vm-crosstalk@vmware.com, davem@davemloft.net
+To: George Zhang <georgezhang@vmware.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121105180043.21472.95003.stgit@promb-2n-dhcp175.eng.vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Mon, 05 Nov 2012 10:00:51 -0800
+George Zhang <georgezhang@vmware.com> wrote:
 
-I have just released new snapshot of iputils (iputils-s20121106).
+> +	/* Added in 2.6.10. */
+> +	.owner = THIS_MODULE,
 
-This release basically fixes bugs in ping/ping6 with -f option and
-a bug regarding error message in tracepath6.
+Thanks for submitting this, it will make life easier for distro's
+that now have to go through extra effort to include out of mainline
+support for Vmware.
 
-----
-Changes since s20121011:
-      ninfod: Attatch configure and renew config.h.in.
-      makefile: clean-up
-      tracepath6: Print reason on getadrinfo() failure.
-      ping,ping6: Fix hang with -f option.
-      ping: Make sure to print C if checksum failed with -f option.
-
-----
-
-Release note:
- https://sourceforge.net/p/iputils/code/ci/s20121106/tree/RELNOTES
-
-
-Download:
- https://sourceforge.net/projects/iputils/files/
- http://www.skbuff.net/iputils/
-
-Regards,
-
---yoshfuji
+You did some scrubbing of the macro's to support multiple kernel
+versions, but there are still some leftovers.
+This code seems to have a lot of "this added in version xxx"
+type comments. These are probably not a good idea to include
+in the mainline kernel code. 
