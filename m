@@ -1,80 +1,63 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 3/7] ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio
- module
-Date: Tue, 6 Nov 2012 19:00:42 +0530
-Message-ID: <50991102.3080302@ti.com>
-References: <1352189545-26303-1-git-send-email-mugunthanvnm@ti.com> <1352189545-26303-4-git-send-email-mugunthanvnm@ti.com> <B5906170F1614E41A8A28DE3B8D121433EC049CC@DBDE01.ent.ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Paul Walmsley <paul@pwsan.com>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	"Hiremath, Vaibhav" <hvaibhav@ti.com>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: "Bedia, Vaibhav" <vaibhav.bedia@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <B5906170F1614E41A8A28DE3B8D121433EC049CC@DBDE01.ent.ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH net] cxgb4: Initialize data structures before using.
+Date: Tue,  6 Nov 2012 19:07:09 +0530
+Message-ID: <1352209029-4291-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>,
+	Jay Hernandez <jay@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:24883 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751903Ab2KFNkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 08:40:49 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/6/2012 3:39 PM, Bedia, Vaibhav wrote:
-> On Tue, Nov 06, 2012 at 13:42:21, N, Mugunthan V wrote:
-> [...]
->> +struct omap_hwmod_addr_space am33xx_mdio_addr_space[] = {
->> +	{
->> +		.pa_start	= 0x4A101000,
->> +		.pa_end		= 0x4A101000 + SZ_256 - 1,
->> +		.flags		= ADDR_MAP_ON_INIT,
-> Based on the recent discussions and looking the hwmod code,
-> I guess ADDR_MAP_ON_INIT does not make sense here. Since you
-> are just creating a parent-child relationship here, maybe no
-> flag is needed?
-Will remove this flag as it is a parrent-child relationship
->
->> +	},
->> +	{ }
->> +};
->> +
->> +struct omap_hwmod_ocp_if am33xx_cpgmac0__mdio = {
->> +	.master		= &am33xx_cpgmac0_hwmod,
->> +	.slave		= &am33xx_mdio_hwmod,
->> +	.addr		= am33xx_mdio_addr_space,
->> +	.user		= OCP_USER_MPU,
-> Is this flag necessary? Shouldn't you just skip the
-> user field since there's nothing for the hwmod code
-> to do here?
-This flag is necessary as MPU is going to access to device.
+We should not assume reserve fields to be don't cares as fields may change.
+Clearing data structures before using.
 
-The patch will look like
-@@ -2501,6 +2516,21 @@ static struct omap_hwmod_ocp_if 
-am33xx_l4_hs__cpgmac0 = {
-         .user           = OCP_USER_MPU,
-  };
+Signed-off-by: Jay Hernandez <jay@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-+struct omap_hwmod_addr_space am33xx_mdio_addr_space[] = {
-+       {
-+               .pa_start       = 0x4A101000,
-+               .pa_end         = 0x4A101000 + SZ_256 - 1,
-+       },
-+       { }
-+};
-+
-+struct omap_hwmod_ocp_if am33xx_cpgmac0__mdio = {
-+       .master         = &am33xx_cpgmac0_hwmod,
-+       .slave          = &am33xx_mdio_hwmod,
-+       .addr           = am33xx_mdio_addr_space,
-+       .user           = OCP_USER_MPU,
-+};
-+
-  static struct omap_hwmod_addr_space am33xx_elm_addr_space[] = {
-         {
-                 .pa_start       = 0x48080000,
-
-Regards
-Mugunthan V N
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 32eec15..01fa5b7 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -2519,6 +2519,7 @@ int t4_fw_bye(struct adapter *adap, unsigned int mbox)
+ {
+ 	struct fw_bye_cmd c;
+ 
++	memset(&c, 0, sizeof(c));
+ 	INIT_CMD(c, BYE, WRITE);
+ 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+ }
+@@ -2535,6 +2536,7 @@ int t4_early_init(struct adapter *adap, unsigned int mbox)
+ {
+ 	struct fw_initialize_cmd c;
+ 
++	memset(&c, 0, sizeof(c));
+ 	INIT_CMD(c, INITIALIZE, WRITE);
+ 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+ }
+@@ -2551,6 +2553,7 @@ int t4_fw_reset(struct adapter *adap, unsigned int mbox, int reset)
+ {
+ 	struct fw_reset_cmd c;
+ 
++	memset(&c, 0, sizeof(c));
+ 	INIT_CMD(c, RESET, WRITE);
+ 	c.val = htonl(reset);
+ 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
+@@ -3278,6 +3281,7 @@ int t4_identify_port(struct adapter *adap, unsigned int mbox, unsigned int viid,
+ {
+ 	struct fw_vi_enable_cmd c;
+ 
++	memset(&c, 0, sizeof(c));
+ 	c.op_to_viid = htonl(FW_CMD_OP(FW_VI_ENABLE_CMD) | FW_CMD_REQUEST |
+ 			     FW_CMD_EXEC | FW_VI_ENABLE_CMD_VIID(viid));
+ 	c.ien_to_len16 = htonl(FW_VI_ENABLE_CMD_LED | FW_LEN16(c));
+-- 
+1.7.1
