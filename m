@@ -1,53 +1,79 @@
 From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: [PATCH v3 6/7] pppoatm: don't send frames on not-ready vcc
-Date: Tue,  6 Nov 2012 23:17:01 +0100
-Message-ID: <1352240222-363-7-git-send-email-krzysiek@podlesie.net>
+Subject: [PATCH v3 4/7] pppoatm: fix module_put() race
+Date: Tue,  6 Nov 2012 23:16:59 +0100
+Message-ID: <1352240222-363-5-git-send-email-krzysiek@podlesie.net>
 References: <1352240222-363-1-git-send-email-krzysiek@podlesie.net>
 Cc: linux-kernel@vger.kernel.org,
 	Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
 	David Woodhouse <David.Woodhouse@intel.com>,
 	davem@davemloft.net, Krzysztof Mazur <krzysiek@podlesie.net>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [93.179.225.50] ([93.179.225.50]:39260 "EHLO shrek.podlesie.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753295Ab2KFWUa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Nov 2012 17:20:30 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1352240222-363-1-git-send-email-krzysiek@podlesie.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Patches "atm: detach protocol before closing vcc"
-and "pppoatm: allow assign only on a connected socket" fixed
-common cases where the pppoatm_send() crashes while sending
-frame to not-ready vcc. However there are still some other cases
-where we can send frames to vcc, which is flagged as ATM_VF_CLOSE
-(for instance after vcc_release_async()) or it's opened but not
-ready yet.
+The pppoatm used module_put() during unassignment from vcc with
+hope that we have BKL. This assumption is no longer true.
 
-Now pppoatm_send(), like vcc_sendmsg(), checks for vcc flags that
-indicate that vcc is not ready.
+Now owner field in atmvcc is used to move this module_put()
+to vcc_destroy_socket().
 
 Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
-Cc: David Woodhouse <David.Woodhouse@intel.com>
 ---
- net/atm/pppoatm.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ net/atm/pppoatm.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/net/atm/pppoatm.c b/net/atm/pppoatm.c
-index c4a57bc..bf5d6c9 100644
+index f27a07a..b23c672 100644
 --- a/net/atm/pppoatm.c
 +++ b/net/atm/pppoatm.c
-@@ -284,6 +284,10 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
- 	bh_lock_sock(sk_atm(vcc));
- 	if (sock_owned_by_user(sk_atm(vcc)))
- 		goto nospace;
-+	if (test_bit(ATM_VF_RELEASED, &vcc->flags)
-+			|| test_bit(ATM_VF_CLOSE, &vcc->flags)
-+			|| !test_bit(ATM_VF_READY, &vcc->flags))
-+		goto nospace;
+@@ -60,6 +60,7 @@ struct pppoatm_vcc {
+ 	struct atm_vcc	*atmvcc;	/* VCC descriptor */
+ 	void (*old_push)(struct atm_vcc *, struct sk_buff *);
+ 	void (*old_pop)(struct atm_vcc *, struct sk_buff *);
++	struct module *old_owner;
+ 					/* keep old push/pop for detaching */
+ 	enum pppoatm_encaps encaps;
+ 	atomic_t inflight;
+@@ -155,8 +156,6 @@ static void pppoatm_unassign_vcc(struct atm_vcc *atmvcc)
+ 	ppp_unregister_channel(&pvcc->chan);
+ 	atmvcc->user_back = NULL;
+ 	kfree(pvcc);
+-	/* Gee, I hope we have the big kernel lock here... */
+-	module_put(THIS_MODULE);
+ }
  
- 	switch (pvcc->encaps) {		/* LLC encapsulation needed */
- 	case e_llc:
+ /* Called when an AAL5 PDU comes in */
+@@ -165,9 +164,13 @@ static void pppoatm_push(struct atm_vcc *atmvcc, struct sk_buff *skb)
+ 	struct pppoatm_vcc *pvcc = atmvcc_to_pvcc(atmvcc);
+ 	pr_debug("\n");
+ 	if (skb == NULL) {			/* VCC was closed */
++		struct module *module;
++
+ 		pr_debug("removing ATMPPP VCC %p\n", pvcc);
++		module = pvcc->old_owner;
+ 		pppoatm_unassign_vcc(atmvcc);
+ 		atmvcc->push(atmvcc, NULL);	/* Pass along bad news */
++		module_put(module);
+ 		return;
+ 	}
+ 	atm_return(atmvcc, skb->truesize);
+@@ -362,6 +365,7 @@ static int pppoatm_assign_vcc(struct atm_vcc *atmvcc, void __user *arg)
+ 	atomic_set(&pvcc->inflight, NONE_INFLIGHT);
+ 	pvcc->old_push = atmvcc->push;
+ 	pvcc->old_pop = atmvcc->pop;
++	pvcc->old_owner = atmvcc->owner;
+ 	pvcc->encaps = (enum pppoatm_encaps) be.encaps;
+ 	pvcc->chan.private = pvcc;
+ 	pvcc->chan.ops = &pppoatm_ops;
+@@ -378,6 +382,7 @@ static int pppoatm_assign_vcc(struct atm_vcc *atmvcc, void __user *arg)
+ 	atmvcc->push = pppoatm_push;
+ 	atmvcc->pop = pppoatm_pop;
+ 	__module_get(THIS_MODULE);
++	atmvcc->owner = THIS_MODULE;
+ 
+ 	/* re-process everything received between connection setup and
+ 	   backend setup */
 -- 
 1.8.0.233.g54991f2
