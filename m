@@ -1,105 +1,39 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH V4 2/7] net: cpsw: Add parent<->child relation support between cpsw and mdio
-Date: Tue, 6 Nov 2012 23:02:34 +0530
-Message-ID: <1352223159-27504-3-git-send-email-mugunthanvnm@ti.com>
-References: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net/smsc911x: problems after commit 3ac3546e [Always wait for
+ the chip to be ready]
+Date: Tue, 06 Nov 2012 12:36:23 -0500 (EST)
+Message-ID: <20121106.123623.676046673605774326.davem@davemloft.net>
+References: <264CB35B0DEC34409EE4134DB2E2DA569AA2DB@IRVEXCHMB15.corp.ad.broadcom.com>
+	<CAKh2mn7XsJjGxctHs5F3d+Av3GpeJW9veH5=S=Y2y_qGf33R4g@mail.gmail.com>
+	<20121106054643.GB8634@patelk@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, Vaibhav Hiremath <hvaibhav@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: steve@shawell.net, linus.walleij@linaro.org,
+	robert.marklund@stericsson.com, netdev@vger.kernel.org
+To: kamlakant.patel@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58266 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977Ab2KFRg1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 12:36:27 -0500
+In-Reply-To: <20121106054643.GB8634@patelk@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vaibhav Hiremath <hvaibhav@ti.com>
+From: "Kamlakant Patel" <kamlakant.patel@broadcom.com>
+Date: Tue, 6 Nov 2012 11:16:44 +0530
 
-CPGMAC SubSystem consist of various sub-modules, like, mdio, cpdma,
-cpsw, etc... These sub-modules are also used in some of Davinci family
-of devices. Now based on requirement, use-case and available technology
-nodes the integration of these sub-modules varies across devices.
+> The issue is that the logic of the commit 3ac3546e does not work if
+> WORD_SWAP is needed. So we have to either revert that commit or add
+> logic to check for swapped register if we read PMT_CTRL before
+> programming WORD_SWAP.
 
-So coming back to Linux net driver, currently separate and independent
-platform devices & drivers for CPSW and MDIO is implemented. In case of
-Davinci they both has separate control, from resources perspective,
-like clock.
+I understand the problem.
 
-In case of AM33XX, the resources are shared and only one register
-bit-field is provided to control module/clock enable/disable, makes it
-difficult to handle common resource.
+You program the device into a state the driver is not expecting,
+you have to therefore undo that before transferring control to
+the kernel.
 
-So the solution here implemented in this patch is,
-
-Create parent<->child relationship between both the drivers, making
-CPSW as a parent and MDIO as its child and enumerate all the child nodes
-under CPSW module.
-Both the drivers will function exactly the way it was operating before,
-including runtime-pm functionality. No change is required in MDIO driver
-(for that matter to any child driver).
-
-As this is only supported during DT boot, the parent<->child relationship
-is created and populated in DT execution flow. The only required change
-is inside DTS file, making MDIO as a child to CPSW node.
-
-Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
-Acked-by: Richard Cochran <richardcochran@gmail.com>
----
- drivers/net/ethernet/ti/cpsw.c |   16 ++++++++++++++--
- 1 files changed, 14 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 7654a62..7007aba 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1144,7 +1144,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 	data->mac_control = prop;
- 
--	for_each_child_of_node(node, slave_node) {
-+	for_each_node_by_name(slave_node, "slave") {
- 		struct cpsw_slave_data *slave_data = data->slave_data + i;
- 		const char *phy_id = NULL;
- 		const void *mac_addr = NULL;
-@@ -1179,6 +1179,14 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		i++;
- 	}
- 
-+	/*
-+	 * Populate all the child nodes here...
-+	 */
-+	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
-+	/* We do not want to force this, as in some cases may not have child */
-+	if (ret)
-+		pr_warn("Doesn't have any child node\n");
-+
- 	return 0;
- 
- error_ret:
-@@ -1212,6 +1220,11 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 	priv->msg_enable = netif_msg_init(debug_level, CPSW_DEBUG);
- 	priv->rx_packet_max = max(rx_packet_max, 128);
- 
-+	/*
-+	 * This may be required here for child devices.
-+	 */
-+	pm_runtime_enable(&pdev->dev);
-+
- 	if (cpsw_probe_dt(&priv->data, pdev)) {
- 		pr_err("cpsw: platform data missing\n");
- 		ret = -ENODEV;
-@@ -1238,7 +1251,6 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
- 	for (i = 0; i < data->slaves; i++)
- 		priv->slaves[i].slave_num = i;
- 
--	pm_runtime_enable(&pdev->dev);
- 	priv->clk = clk_get(&pdev->dev, "fck");
- 	if (IS_ERR(priv->clk)) {
- 		dev_err(&pdev->dev, "fck is not found\n");
--- 
-1.7.0.4
-
+I accept no other solution, testing random reserved bits is
+bogus beyond belief.
