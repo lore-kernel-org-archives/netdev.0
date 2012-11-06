@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 1/7] net: davinci_mdio: Fix typo mistake in calling runtime-pm api
-Date: Tue, 6 Nov 2012 13:42:19 +0530
-Message-ID: <1352189545-26303-2-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH 2/7] net: cpsw: Add parent<->child relation support between cpsw and mdio
+Date: Tue, 6 Nov 2012 13:42:20 +0530
+Message-ID: <1352189545-26303-3-git-send-email-mugunthanvnm@ti.com>
 References: <1352189545-26303-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,45 +12,97 @@ Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
 	Richard Cochran <richardcochran@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:53029 "EHLO arroyo.ext.ti.com"
+Received: from comal.ext.ti.com ([198.47.26.152]:35136 "EHLO comal.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754002Ab2KFIMs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Nov 2012 03:12:48 -0500
+	id S1754002Ab2KFIMq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Nov 2012 03:12:46 -0500
 In-Reply-To: <1352189545-26303-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vaibhav Hiremath <hvaibhav@ti.com>
 
-By mistake (most likely a copy-paste), instead of pm_runtime_get_sync()
-api, driver is calling pm_runtime_put_sync() api in resume callback
-function. The bug was introduced by commit id (ae2c07aaf74:
-davinci_mdio: runtime PM support).
+CPGMAC SubSystem consist of various sub-modules, like, mdio, cpdma,
+cpsw, etc... These sub-modules are also used in some of Davinci family
+of devices. Now based on requirement, use-case and available technology
+nodes the integration of these sub-modules varies across devices.
 
-Now, the reason why it didn't impact functionality is, the patch has
-been tested on AM335x-EVM and BeagleBone platform while submitting;
-and in case of AM335x the MDIO driver doesn't control the module
-enable/disable part, which is handled by CPSW driver.
+So coming back to Linux net driver, currently separate and independent
+platform devices & drivers for CPSW and MDIO is implemented. In case of
+Davinci they both has separate control, from resources perspective,
+like clock.
+
+In case of AM33XX, the resources are shared and only one register
+bit-field is provided to control module/clock enable/disable, makes it
+difficult to handle common resource.
+
+So the solution here implemented in this patch is,
+
+Create parent<->child relationship between both the drivers, making
+CPSW as a parent and MDIO as its child and enumerate all the child nodes
+under CPSW module.
+Both the drivers will function exactly the way it was operating before,
+including runtime-pm functionality. No change is required in MDIO driver
+(for that matter to any child driver).
+
+As this is only supported during DT boot, the parent<->child relationship
+is created and populated in DT execution flow. The only required change
+is inside DTS file, making MDIO as a child to CPSW node.
 
 Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
 Cc: Mugunthan V N <mugunthanvnm@ti.com>
 Cc: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/ti/davinci_mdio.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 51a96db..ae74280 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -465,7 +465,7 @@ static int davinci_mdio_resume(struct device *dev)
- 	u32 ctrl;
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 7654a62..7007aba 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1144,7 +1144,7 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 	}
+ 	data->mac_control = prop;
  
- 	spin_lock(&data->lock);
--	pm_runtime_put_sync(data->dev);
-+	pm_runtime_get_sync(data->dev);
+-	for_each_child_of_node(node, slave_node) {
++	for_each_node_by_name(slave_node, "slave") {
+ 		struct cpsw_slave_data *slave_data = data->slave_data + i;
+ 		const char *phy_id = NULL;
+ 		const void *mac_addr = NULL;
+@@ -1179,6 +1179,14 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 		i++;
+ 	}
  
- 	/* restart the scan state machine */
- 	ctrl = __raw_readl(&data->regs->control);
++	/*
++	 * Populate all the child nodes here...
++	 */
++	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
++	/* We do not want to force this, as in some cases may not have child */
++	if (ret)
++		pr_warn("Doesn't have any child node\n");
++
+ 	return 0;
+ 
+ error_ret:
+@@ -1212,6 +1220,11 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
+ 	priv->msg_enable = netif_msg_init(debug_level, CPSW_DEBUG);
+ 	priv->rx_packet_max = max(rx_packet_max, 128);
+ 
++	/*
++	 * This may be required here for child devices.
++	 */
++	pm_runtime_enable(&pdev->dev);
++
+ 	if (cpsw_probe_dt(&priv->data, pdev)) {
+ 		pr_err("cpsw: platform data missing\n");
+ 		ret = -ENODEV;
+@@ -1238,7 +1251,6 @@ static int __devinit cpsw_probe(struct platform_device *pdev)
+ 	for (i = 0; i < data->slaves; i++)
+ 		priv->slaves[i].slave_num = i;
+ 
+-	pm_runtime_enable(&pdev->dev);
+ 	priv->clk = clk_get(&pdev->dev, "fck");
+ 	if (IS_ERR(priv->clk)) {
+ 		dev_err(&pdev->dev, "fck is not found\n");
 -- 
 1.7.0.4
