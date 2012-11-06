@@ -1,63 +1,44 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net] cxgb4: Initialize data structures before using.
-Date: Tue,  6 Nov 2012 19:07:09 +0530
-Message-ID: <1352209029-4291-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
-	Vipul Pandya <vipul@chelsio.com>,
-	Jay Hernandez <jay@chelsio.com>
-To: netdev@vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v3 3/5] usbnet: smsc95xx: fix memory leak in smsc95xx_suspend
+Date: Tue, 6 Nov 2012 21:51:11 +0800
+Message-ID: <CACVXFVPhYaBcr+V4W1-fSrLFVMMVo8vUv=eaKu2y_LjZ-EtnwQ@mail.gmail.com>
+References: <1352166341-27616-1-git-send-email-ming.lei@canonical.com>
+	<1352166341-27616-4-git-send-email-ming.lei@canonical.com>
+	<CAKh2mn52HCFE8JSRJZ95m8qimPP0d4hx8SP3yExTsi+RYfJwRg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Oliver Neukum <oneukum@suse.de>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	Steve Glendinning <steve.glendinning@shawell.net>
+To: Steve Glendinning <steve@shawell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:24883 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751903Ab2KFNkt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 08:40:49 -0500
+Received: from youngberry.canonical.com ([91.189.89.112]:47685 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751343Ab2KFNvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 08:51:13 -0500
+In-Reply-To: <CAKh2mn52HCFE8JSRJZ95m8qimPP0d4hx8SP3yExTsi+RYfJwRg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We should not assume reserve fields to be don't cares as fields may change.
-Clearing data structures before using.
+On Tue, Nov 6, 2012 at 9:20 PM, Steve Glendinning <steve@shawell.net> wrote:
+> On 6 November 2012 01:45, Ming Lei <ming.lei@canonical.com> wrote:
+>> This patch fixes memory leak in smsc95xx_suspend.
+>
+> Good spot, thanks!
+>
+> Note that check_warn_return just above your kfree can cause early
+> return in the error case, which would still leak filter_mask, so we
+> might want to explicitly expand that instance of the helper macro.
 
-Signed-off-by: Jay Hernandez <jay@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+OK, will update the patch.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 32eec15..01fa5b7 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -2519,6 +2519,7 @@ int t4_fw_bye(struct adapter *adap, unsigned int mbox)
- {
- 	struct fw_bye_cmd c;
- 
-+	memset(&c, 0, sizeof(c));
- 	INIT_CMD(c, BYE, WRITE);
- 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
- }
-@@ -2535,6 +2536,7 @@ int t4_early_init(struct adapter *adap, unsigned int mbox)
- {
- 	struct fw_initialize_cmd c;
- 
-+	memset(&c, 0, sizeof(c));
- 	INIT_CMD(c, INITIALIZE, WRITE);
- 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
- }
-@@ -2551,6 +2553,7 @@ int t4_fw_reset(struct adapter *adap, unsigned int mbox, int reset)
- {
- 	struct fw_reset_cmd c;
- 
-+	memset(&c, 0, sizeof(c));
- 	INIT_CMD(c, RESET, WRITE);
- 	c.val = htonl(reset);
- 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-@@ -3278,6 +3281,7 @@ int t4_identify_port(struct adapter *adap, unsigned int mbox, unsigned int viid,
- {
- 	struct fw_vi_enable_cmd c;
- 
-+	memset(&c, 0, sizeof(c));
- 	c.op_to_viid = htonl(FW_CMD_OP(FW_VI_ENABLE_CMD) | FW_CMD_REQUEST |
- 			     FW_CMD_EXEC | FW_VI_ENABLE_CMD_VIID(viid));
- 	c.ien_to_len16 = htonl(FW_VI_ENABLE_CMD_LED | FW_LEN16(c));
--- 
-1.7.1
+BTW, I just saw the smsc95xx datasheet and the vendor's driver
+source code, and found the chip supports runtime PM well
+(remote wakeup on 'good packet' or link change), so do you
+plan to implement that?
+
+Thanks,
+--
+Ming Lei
