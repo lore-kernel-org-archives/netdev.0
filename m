@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2 v2] net: at91_ether add dt and pinctrl support
-Date: Tue, 06 Nov 2012 18:33:44 -0500 (EST)
-Message-ID: <20121106.183344.1487915722729890376.davem@davemloft.net>
-References: <20121105073015.GM19021@game.jcrosoft.org>
+Subject: Re: [PATCH V6 0/22] qlcnic: patches for new adapter - Qlogic 83XX
+ CNA
+Date: Tue, 06 Nov 2012 18:51:24 -0500 (EST)
+Message-ID: <20121106.185124.2155177049133289777.davem@davemloft.net>
+References: <1352153535-5006-1-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, nicolas.ferre@atmel.com,
-	manabian@gmail.com
-To: plagnioj@jcrosoft.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60972 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32835 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751947Ab2KFXdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 18:33:46 -0500
-In-Reply-To: <20121105073015.GM19021@game.jcrosoft.org>
+	with ESMTP id S1753981Ab2KFXv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 18:51:26 -0500
+In-Reply-To: <1352153535-5006-1-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Date: Mon, 5 Nov 2012 08:30:15 +0100
-
-> Hi,
-> 
-> 	v2: fix typo in doc + miising empty line
-> 
-> 	This patch serie add dt and pinctrl support to the at91 ether
-> 
-> 	this is need to use the network on at91rm9200 as we now have dt
-> 	support on it
-> 
-> Jean-Christophe PLAGNIOL-VILLARD (2):
->       net: at91_ether: add dt support
->       net: at91_ether: add pinctrl support
-
-Series applied, thanks.
+RnJvbTogU29ueSBDaGFja28gPHNvbnkuY2hhY2tvQHFsb2dpYy5jb20+DQpEYXRlOiBNb24sICA1
+IE5vdiAyMDEyIDE3OjExOjU0IC0wNTAwDQoNCj4gSSBhcG9sb2dpemUgZm9yIHRoZSBhYm92ZSBt
+aXN0YWtlLg0KPiBXZSBoYXZlIGZpeGVkIHRoZSBhYm92ZSB3YXJuaW5nIGFuZCBoYXZlIHZlcmlm
+aWVkIHRoZSByZXN0IG9mIHRoZSBwYXRjaGVzLg0KPiBQbGVhc2UgYXBwbHkgdGhlIHVwZGF0ZWQg
+MjIgcGF0Y2ggc2VyaWVzIHRvIG5ldC1uZXh0Lg0KDQpZb3VyIGNoYW5nZXMgYXJlIHN0aWxsIGJy
+b2tlbjoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfY3R4LmM6
+IEluIGZ1bmN0aW9uIKFxbGNuaWNfZndfY3JlYXRlX2N0eKI6DQpkcml2ZXJzL25ldC9ldGhlcm5l
+dC9xbG9naWMvcWxjbmljL3FsY25pY19jdHguYzo1NjU6MTogd2FybmluZzogdGhlIGZyYW1lIHNp
+emUgb2YgODE5MiBieXRlcyBpcyBsYXJnZXIgdGhhbiAyMDQ4IGJ5dGVzIFstV2ZyYW1lLWxhcmdl
+ci10aGFuPV0NCg0KQSBtdWx0aS1raWxvYnl0ZSBvbi1zdGFjayB2YXJpYWJsZT8gIEFyZSB5b3Ug
+a2lkZGluZyBtZT8NCg0KVGhpcyBzdWJtaXNzaW9uIGlzIHRlcnJpYmxlLCBpbiBldmVyeSB3YXks
+IHNoYXBlLCBhbmQgZm9ybS4gIE5vYm9keQ0Kd2FudHMgdG8gcmV2aWV3IHRoZXNlIGNoYW5nZXMg
+aW4gZGV0YWlsIChoYXZlIHlvdSBub3RpY2VkIHRoYXQgYmVzaWRlcw0KbWUsIHRoZXJlIGlzIHpl
+cm8gZmVlZGJhY2sgY29taW5nIGluIGZyb20gYW55b25lKS4gIFlvdSBoYXZlIHRvDQpyZWNvZ25p
+emUgdGhhdCBpdCdzIGRlbW9yYWxpemluZyB0byByZXZpZXcgcGF0Y2hlcyB3aGVuIHRoZXkgZG9u
+J3QNCmV2ZW4gYnVpbGQgY2xlYW5seSBsaWtlIHlvdXIncyBkby4NCg0KU3RvcCBzdWJtaXR0aW5n
+IGdhcmJhZ2UgcGF0Y2hlcywgbm93Lg0KDQpJIHdhbnQgeW91IHRvIG5vdCByZXN1Ym1pdCB0aGlz
+IGZvciBhdCBsZWFzdCBhIHdlZWsuICBZb3UgbXVzdA0KZWxpbWluYXRlIGFsbCBvZiB0aGVzZSBr
+aW5kcyBvZiBwcm9ibGVtcywgeW91IG11c3QgdmFsaWRhdGUgdGhlIGJ1aWxkLA0KeW91IG11c3Qg
+ZG91YmxlIGNoZWNrIGV2ZXJ5dGhpbmcuDQoNCkFuZCB5b3UgY2Fubm90IGJlIHRydXN0ZWQgdG8g
+ZG8gdGhhdCBpbiBqdXN0IG9uZSBvciB0d28gZGF5cy4NCg0KQWdhaW4sIGRvbid0IHJlc3VibWl0
+IHRoaXMgdW50aWwgeW91J3ZlIHdvcmtlZCBvdmVyIGFuZCBkb3VibGUgY2hlY2tlZA0KZXZlcnl0
+aGluZyBpbiBpdCBmb3IgYXQgbGVhc3QgYSB3ZWVrLg0K
