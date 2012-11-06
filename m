@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sparc: bpf_jit_comp: add VLAN instructions
- for BPF JIT
-Date: Tue, 06 Nov 2012 18:33:04 -0500 (EST)
-Message-ID: <20121106.183304.247782713765794241.davem@davemloft.net>
-References: <20121105025930.GA5197@thinkbox>
+Subject: Re: [PATCH] drivers: ethernet: qlogic: qlge_dbg.c: Fixed a coding
+ style issue
+Date: Tue, 06 Nov 2012 18:33:15 -0500 (EST)
+Message-ID: <20121106.183315.1405011057301397607.davem@davemloft.net>
+References: <1352092292-4413-1-git-send-email-gmate.amit@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dxchgb@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60945 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751947Ab2KFXdI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 18:33:08 -0500
-In-Reply-To: <20121105025930.GA5197@thinkbox>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jitendra.kalsaria@qlogic.com, ron.mercer@qlogic.com,
+	linux-driver@qlogic.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: gmate.amit@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1352092292-4413-1-git-send-email-gmate.amit@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dxchgb@gmail.com>
-Date: Mon, 5 Nov 2012 03:59:30 +0100
+From: Kumar Amit Mehta <gmate.amit@gmail.com>
+Date: Sun,  4 Nov 2012 21:11:32 -0800
 
-> This patch is a follow-up for patch "net: filter: add vlan tag access"
-> to support the new VLAN_TAG/VLAN_TAG_PRESENT accessors in BPF JIT.
+> checkpatch.pl throws error message for the current code. This patch fixes
+> this coding style issue.
 > 
-> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
-> ---
->  Disclaimer: uncompiled and untested, since I don't have a SPARC machine,
->  but it should (hopefully) integrate cleanly. ;)
+> Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
 
-Looks good, applied, thanks Dan.
+Applied.
