@@ -1,48 +1,60 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 00/11] introduce random32_get_bytes() and random32_get_bytes_state()
-Date: Tue, 6 Nov 2012 11:18:22 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7094@saturn3.aculab.com>
-References: <1351957422-23243-1-git-send-email-akinobu.mita@gmail.com> <90816.1352178872@turing-police.cc.vt.edu>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 3/7] ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio
+ module
+Date: Tue, 6 Nov 2012 16:54:53 +0530
+Message-ID: <5098F385.6020009@ti.com>
+References: <1352189545-26303-1-git-send-email-mugunthanvnm@ti.com> <1352189545-26303-4-git-send-email-mugunthanvnm@ti.com> <B5906170F1614E41A8A28DE3B8D121433EC049CC@DBDE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-kernel@vger.kernel.org>, <akpm@linux-foundation.org>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	"Artem Bityutskiy" <dedekind1@gmail.com>,
-	"Adrian Hunter" <adrian.hunter@intel.com>,
-	"David Woodhouse" <dwmw2@infradead.org>,
-	<linux-mtd@lists.infradead.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>, <netdev@vger.kernel.org>,
-	"Robert Love" <robert.w.love@intel.com>, <devel@open-fcoe.org>,
-	"Michel Lespinasse" <walken@google.com>
-To: <Valdis.Kletnieks@vt.edu>, "Akinobu Mita" <akinobu.mita@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <90816.1352178872@turing-police.cc.vt.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>,
+	Paul Walmsley <paul@pwsan.com>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	"Hiremath, Vaibhav" <hvaibhav@ti.com>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: "Bedia, Vaibhav" <vaibhav.bedia@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:42451 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750901Ab2KFL0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 06:26:14 -0500
+In-Reply-To: <B5906170F1614E41A8A28DE3B8D121433EC049CC@DBDE01.ent.ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Sun, 04 Nov 2012 00:43:31 +0900, Akinobu Mita said:
-> > This patchset introduces new functions into random32 library for
-> > getting the requested number of pseudo-random bytes.
-> >
-> > Before introducing these new functions into random32 library,
-> > prandom32() and prandom32_seed() with "prandom32" prefix are
-> > renamed to random32_state() and srandom32_state() respectively.
-> >
-> > The purpose of this renaming is to prevent some kernel developers
-> > from assuming that prandom32() and random32() might imply that only
-> > prandom32() was the one using a pseudo-random number generator by
-> > prandom32's "p", and the result may be a very embarassing security
-> > exposure.
-> 
-> Out of curiosity, why the '32'?  I'm just waiting for some kernel developer to
-> do something stupid with this on a 64-bit arch because they think it's a 32-bit API. ;)
-> 
-> Should we bite the bullet and lose the 32, as long as we're churning the code *anyhow*?
+On 11/6/2012 3:39 PM, Bedia, Vaibhav wrote:
+> On Tue, Nov 06, 2012 at 13:42:21, N, Mugunthan V wrote:
+> [...]
+>> +struct omap_hwmod_addr_space am33xx_mdio_addr_space[] = {
+>> +	{
+>> +		.pa_start	= 0x4A101000,
+>> +		.pa_end		= 0x4A101000 + SZ_256 - 1,
+>> +		.flags		= ADDR_MAP_ON_INIT,
+> Based on the recent discussions and looking the hwmod code,
+> I guess ADDR_MAP_ON_INIT does not make sense here. Since you
+> are just creating a parent-child relationship here, maybe no
+> flag is needed?
+>
+>> +	},
+>> +	{ }
+>> +};
+>> +
+>> +struct omap_hwmod_ocp_if am33xx_cpgmac0__mdio = {
+>> +	.master		= &am33xx_cpgmac0_hwmod,
+>> +	.slave		= &am33xx_mdio_hwmod,
+>> +	.addr		= am33xx_mdio_addr_space,
+>> +	.user		= OCP_USER_MPU,
+> Is this flag necessary? Shouldn't you just skip the
+> user field since there's nothing for the hwmod code
+> to do here?
+>
+>
+Will remove the unnecessary flags and submit the patch.
 
-Also why remove the 'pseudo' part of the name?
-It is an important part of the name.
-
-	David
+Regards
+Mugunthan V N
