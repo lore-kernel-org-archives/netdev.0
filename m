@@ -1,36 +1,64 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH v1 0/5] usbnet: avoiding access auto-suspended device
-Date: Tue, 6 Nov 2012 09:49:12 +0800
-Message-ID: <CACVXFVNChj2x31shTyOLXv1-p7vwATG4=-pN9THZZOUFGU7gtA@mail.gmail.com>
-References: <1351992594-12818-1-git-send-email-ming.lei@canonical.com>
-	<9016904.gHGBncEQ14@linux-lqwf.site>
-	<20121105.115010.1531838246984342873.davem@davemloft.net>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] net: ipv6: change %8s to %s for seq_printf of if6_seq_stop
+Date: Tue, 06 Nov 2012 09:57:49 +0800
+Message-ID: <50986E9D.9000209@asianux.com>
+References: <5097A030.5030209@asianux.com> <509863D8.9020501@asianux.com> <50986AF6.10904@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: oneukum-l3A5Bk7waGM@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20121105.115010.1531838246984342873.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev <netdev@vger.kernel.org>
+To: Shan Wei <shanwei88@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:47462 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933487Ab2KFB4s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 5 Nov 2012 20:56:48 -0500
+In-Reply-To: <50986AF6.10904@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+=D3=DA 2012=C4=EA11=D4=C206=C8=D5 09:42, Shan Wei =D0=B4=B5=C0:
+>=20
+> New patch, you should tag new version in [PATCH]  to distinguish them=
+=2E
+> i.e. [PATCH V4]
+>=20
+  thanks, I shall do it next time.
 
-On Tue, Nov 6, 2012 at 12:50 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
->> I am happy with these patches.
->> Dave, do you have a principal objection regarding these patches, too?
->
-> There were review comments and the most recently posted series
-> needs to be reposted with that feedback incorporated.
+>=20
+> trivial patches, send them in one patch for net/ subsystem.
+>=20
 
-The comment is just about commit log and code style, and I have fixed
-that in V3.
+1) thanks, I shall do it next time.
 
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+2) if necessary
+
+   A) need send one patch for the 3 patches, this time,
+   B) please tell me clearly,
+   C) I shall do,
+
+
+3) By the way:
+
+   A) for finding bugs, I truly find them one by one;
+
+   B) When I find one and send it, not know also have another one.
+
+   C) and now
+      i)   I will continue to search the 'same' issue,
+      ii)  if I am 'lucky' enough,
+      iii) maybe also can find another (but maybe not net/ subsystem)
+
+
+  welcome any members to giving suggestions and completions.
+
+  thanks.
+
+
+--=20
+Chen Gang
+
+Asianux Corporation
