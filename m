@@ -1,34 +1,60 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 2/2] net: fec: reduce spin lock time in fec_ptp_adjfreq
-Date: Wed, 7 Nov 2012 09:33:07 +0100
-Message-ID: <20121107083307.GB2267@netboy.at.omicron.at>
-References: <1352268889-16836-1-git-send-email-Frank.Li@freescale.com>
+From: Li Yu <raise.sail@gmail.com>
+Subject: Re: [PATCH 1/4 net-next] net: allow skb->head to be a page fragment
+Date: Wed, 07 Nov 2012 16:35:21 +0800
+Message-ID: <509A1D49.4080306@gmail.com>
+References: <1335522818.2775.227.camel@edumazet-glaptop> <509A19E6.4040707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lznuaa@gmail.com, shawn.guo@linaro.org,
-	linux-arm-kernel@lists.infradead.or, netdev@vger.kernel.org,
-	davem@davemloft.net, bhutchings@solarflare.com
-To: Frank Li <Frank.Li@freescale.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:36492 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750829Ab2KGIdR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 03:33:17 -0500
-Received: by mail-ee0-f46.google.com with SMTP id b15so741656eek.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 00:33:16 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1352268889-16836-1-git-send-email-Frank.Li@freescale.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:40756 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750996Ab2KGIfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 03:35:25 -0500
+Received: by mail-pb0-f46.google.com with SMTP id rr4so1052082pbb.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 00:35:25 -0800 (PST)
+In-Reply-To: <509A19E6.4040707@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 07, 2012 at 02:14:49PM +0800, Frank Li wrote:
-> move below calculate out of spin lock section
-> 	diff = fep->cc.mult;
-> 	diff *= ppb;
-> 	diff = div_u64(diff, 1000000000ULL);
-> 
-> diff is local variable and not neccesary in spin lock
-> 
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+=E4=BA=8E 2012=E5=B9=B411=E6=9C=8807=E6=97=A5 16:20, Li Yu =E5=86=99=E9=
+=81=93:
+> =E4=BA=8E 2012=E5=B9=B404=E6=9C=8827=E6=97=A5 18:33, Eric Dumazet =E5=
+=86=99=E9=81=93:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> skb->head is currently allocated from kmalloc(). This is convenient =
+but
+>> has the drawback the data cannot be converted to a page fragment if
+>> needed.
+>>
+>
+> Hi, Eric,
+>
+> I have a question about this patch, why data are allocated from
+> kmalloc() can not be converted to page fragment ? We have its kernel
+> mapped address and length, so we can get its page and offset in the
+> page. If the skb is not cloned (shared with others), such page and it=
+s
+> offset should be can use safely, in my words.
+>
+> I suspected that I may lost important something in slab internals, is
+> right?
+>
+> Thanks
+>
+> Yu
+>
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Or since slab allocated object may be across multiple pages?
+I saw __netdev_alloc_skb() only use build_skb() with non-zero
+fragsz if it is less than PAGE_SIZE.
+
+Thanks
+
+Yu
+
+[snip]
