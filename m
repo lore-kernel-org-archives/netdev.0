@@ -1,41 +1,64 @@
-From: Lee Jones <lee.jones@linaro.org>
-Subject: Re: [PATCH 8/9] isdn: Make CONFIG_ISDN depend on CONFIG_NETDEVICES
-Date: Wed, 7 Nov 2012 10:56:16 +0100
-Message-ID: <20121107095616.GA13463@gmail.com>
-References: <20121104105332.GC27124@gmail.com>
- <20121104.123013.700345271120279281.davem@davemloft.net>
- <20121105103126.GB5220@gmail.com>
- <20121106.185752.1986400393399264104.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/4 net-next] net: allow skb->head to be a page fragment
+Date: Wed, 07 Nov 2012 03:04:24 -0800
+Message-ID: <1352286264.3140.3575.camel@edumazet-glaptop>
+References: <1335522818.2775.227.camel@edumazet-glaptop>
+	 <509A19E6.4040707@gmail.com>  <509A1D49.4080306@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org,
-	isdn@linux-pingi.de, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20121106.185752.1986400393399264104.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Li Yu <raise.sail@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:50064 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754221Ab2KGLE1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 06:04:27 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y32so997795iag.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 03:04:27 -0800 (PST)
+In-Reply-To: <509A1D49.4080306@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 06 Nov 2012, David Miller wrote:
-
-> From: Lee Jones <lee.jones@linaro.org>
-> Date: Mon, 5 Nov 2012 11:31:26 +0100
+On Wed, 2012-11-07 at 16:35 +0800, Li Yu wrote:
+> =E4=BA=8E 2012=E5=B9=B411=E6=9C=8807=E6=97=A5 16:20, Li Yu =E5=86=99=E9=
+=81=93:
+> > =E4=BA=8E 2012=E5=B9=B404=E6=9C=8827=E6=97=A5 18:33, Eric Dumazet =E5=
+=86=99=E9=81=93:
+> >> From: Eric Dumazet <edumazet@google.com>
+> >>
+> >> skb->head is currently allocated from kmalloc(). This is convenien=
+t but
+> >> has the drawback the data cannot be converted to a page fragment i=
+f
+> >> needed.
+> >>
+> >
+> > Hi, Eric,
+> >
+> > I have a question about this patch, why data are allocated from
+> > kmalloc() can not be converted to page fragment ? We have its kerne=
+l
+> > mapped address and length, so we can get its page and offset in the
+> > page. If the skb is not cloned (shared with others), such page and =
+its
+> > offset should be can use safely, in my words.
+> >
+> > I suspected that I may lost important something in slab internals, =
+is
+> > right?
+> >
+> > Thanks
+> >
+> > Yu
+> >
 >=20
-> > Does something like look like a better solution?
-> >=20
-> > Author: Lee Jones <lee.jones@linaro.org>
-> > Date:   Sat Nov 3 22:06:02 2012 +0100
-> >=20
-> >     isdn: Make CONFIG_ISDN depend on CONFIG_NETDEVICES
+> Or since slab allocated object may be across multiple pages?
+> I saw __netdev_alloc_skb() only use build_skb() with non-zero
+> fragsz if it is less than PAGE_SIZE.
 >=20
-> Yes, it looks good, please resubmit it formally.
 
-Done. Thanks for reviewing.
+SLAB allocators have their own way to handle a page, we cant interfere
+with it.
 
---=20
-Lee Jones
-Linaro ST-Ericsson Landing Team Lead
-Linaro.org =E2=94=82 Open source software for ARM SoCs
-=46ollow Linaro: Facebook | Twitter | Blog
+So no, a kmalloced() object cannot be converted to a page fragment.
