@@ -1,85 +1,96 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH V4 0/7] ARM: AM33XX: net: Add DT support to CPGMAC and
- MDIO driver
-Date: Wed, 7 Nov 2012 20:54:41 +0530
-Message-ID: <509A7D39.8050506@ti.com>
-References: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next] mlx4: change TX coalescing defaults
+Date: Wed, 7 Nov 2012 17:30:03 +0200
+Message-ID: <CAPcc5Pj0ffeb8O8YW3SAS21=+ub8ypc34=YaAxTB-qh9DGeawQ@mail.gmail.com>
+References: <1352168442.3140.32.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>
-To: <b-cousson@ti.com>, <davem@davemloft.net>,
-	Paul Walmsley <paul@pwsan.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Vimalkumar <j.vimal@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:52822 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752314Ab2KGPY7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Nov 2012 10:24:59 -0500
-In-Reply-To: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:51133 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753016Ab2KGPaE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 10:30:04 -0500
+Received: by mail-ee0-f46.google.com with SMTP id b15so975775eek.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 07:30:03 -0800 (PST)
+In-Reply-To: <1352168442.3140.32.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/6/2012 11:02 PM, Mugunthan V N wrote:
-> This patch-series adds support for,
->
-> [1/7]: Typo mistake in CPSW driver while invoking runtime_pm api's
->
-> [2/7]: Adds parent<->child relation between CPSW & MDIO module inside cpsw
->         driver, as in case of AM33XX, the resources are shared and common
->         register bit-field is provided to control module/clock enable/disable,
->         makes it difficult to handle common resource.
->
->         So the solution here is, to create parent<->child relation between them.
->
-> [3/7]: Add hwmod entry for MDIO module, required for MDIO driver.
->
-> [4/7]: cpsw: simplify the setup of the register pointers
->
-> [5/7]: Add DT device nodes for both CPSW and MDIO modules in am33xx.dtsi,
->         am335x-evm.dts and am335x-bone.dts file
->
-> [6/7]: Enable CPSW support to omap2plus_defconfig
->
-> [7/7]: cpsw: Kernel warn fix during suspend
->
-> This patch series has been created on top of net-next/master and tested
-> on BeagleBone platform for NFS boot and basic ping test cases.
->
-> Changes from V3:
-> * Removed unnecessary flags in Davinci MDIO Hwmod entry.
->
-> Mugunthan V N (4):
->    ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio module
->    arm/dts: am33xx: Add CPSW and MDIO module nodes for AM33XX
->    ARM: OMAP2+: omap2plus_defconfig: Enable CPSW support
->    net: cpsw: halt network stack before halting the device during
->      suspend
->
-> Richard Cochran (1):
->    cpsw: simplify the setup of the register pointers
->
-> Vaibhav Hiremath (2):
->    net: davinci_mdio: Fix typo mistake in calling runtime-pm api
->    net: cpsw: Add parent<->child relation support between cpsw and mdio
->
->   Documentation/devicetree/bindings/net/cpsw.txt |   34 ----
->   arch/arm/boot/dts/am335x-bone.dts              |    8 +
->   arch/arm/boot/dts/am335x-evm.dts               |    8 +
->   arch/arm/boot/dts/am33xx.dtsi                  |   42 +++++
->   arch/arm/configs/omap2plus_defconfig           |    3 +
->   arch/arm/mach-omap2/omap_hwmod_33xx_data.c     |   31 ++++
->   drivers/net/ethernet/ti/cpsw.c                 |  231 ++++++++++--------------
->   drivers/net/ethernet/ti/davinci_mdio.c         |    2 +-
->   include/linux/platform_data/cpsw.h             |   19 --
->   9 files changed, 192 insertions(+), 186 deletions(-)
->
-Paul/Benoit
+Acked.
 
-Do you any comments
+BTW, a mail will be sent - I'm replacing Yevgeny Petrilin as mlx4_en maintainer.
 
-Regards
-Mugunthan V N
+(sorry for the previous non plain text mail)
+
+Amir
+
+On Tue, Nov 6, 2012 at 4:20 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> From: Eric Dumazet <edumazet@google.com>
+>
+> mlx4 currently uses a too high tx coalescing setting, deferring
+> TX completion interrupts by up to 128 us.
+>
+> With the recent skb_orphan() removal in commit 8112ec3b872,
+> performance of a single TCP flow is capped to ~4 Gbps, unless
+> we increase tcp_limit_output_bytes.
+>
+> I suggest using 16 us instead of 128 us, allowing a finer control.
+>
+> Performance of a single TCP flow is restored to previous levels,
+> while keeping TCP small queues fully enabled with default sysctl.
+>
+> This patch is also a BQL prereq.
+>
+> Reported-by: Vimalkumar <j.vimal@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Yevgeny Petrilin <yevgenyp@mellanox.com>
+> Cc: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+> By the way, is BQL addition planned for this driver ?
+>
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index edd9cb8..2b23ca2 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -870,7 +870,7 @@ static void mlx4_en_set_default_moderation(struct
+> mlx4_en_priv *priv)
+>         /* If we haven't received a specific coalescing setting
+>          * (module param), we set the moderation parameters as follows:
+>          * - moder_cnt is set to the number of mtu sized packets to
+> -        *   satisfy our coelsing target.
+> +        *   satisfy our coalescing target.
+>          * - moder_time is set to a fixed value.
+>          */
+>         priv->rx_frames = MLX4_EN_RX_COAL_TARGET;
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> index 9d27e42..8a5e70d 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> @@ -126,7 +126,7 @@ enum {
+>  #define MLX4_EN_RX_COAL_TIME   0x10
+>
+>  #define MLX4_EN_TX_COAL_PKTS   16
+> -#define MLX4_EN_TX_COAL_TIME   0x80
+> +#define MLX4_EN_TX_COAL_TIME   0x10
+>
+>  #define MLX4_EN_RX_RATE_LOW            400000
+>  #define MLX4_EN_RX_COAL_TIME_LOW       0
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
