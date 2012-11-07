@@ -1,32 +1,44 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH v3 2/7] atm: add owner of push() callback to atmvcc
-Date: Wed, 7 Nov 2012 14:05:22 -0500
-Message-ID: <20121107140522.257c541c@thirdoffive.cmf.nrl.navy.mil>
-References: <1352240222-363-1-git-send-email-krzysiek@podlesie.net>
-	<1352240222-363-3-git-send-email-krzysiek@podlesie.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Lower wake up time when phy enter lower mode
+Date: Wed, 7 Nov 2012 19:06:23 +0000
+Message-ID: <1352315183.2725.17.camel@bwh-desktop.uk.solarflarecom.com>
+References: <CAHrpEqSw8N4nN6Wgnu2z3tWS_CrGoPMbFj2wJjmDv2JPLW7cLg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	davem@davemloft.net
-To: Krzysztof Mazur <krzysiek@podlesie.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352240222-363-3-git-send-email-krzysiek@podlesie.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	<netdev@vger.kernel.org>
+To: Frank Li <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:60342 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754106Ab2KGTG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 14:06:26 -0500
+In-Reply-To: <CAHrpEqSw8N4nN6Wgnu2z3tWS_CrGoPMbFj2wJjmDv2JPLW7cLg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue,  6 Nov 2012 23:16:57 +0100
-Krzysztof Mazur <krzysiek@podlesie.net> wrote:
-
-> The atm is using atmvcc->push(vcc, NULL) callback to notify protocol
-> that vcc will be closed and protocol must detach from it. This callback
-> is usually used by protocol to decrement module usage count by module_put(),
-> but it leaves small window then module is still used after module_put().
+On Wed, 2012-11-07 at 10:52 +0800, Frank Li wrote:
+> Richard:
 > 
-> Now the owner of push() callback is kept in atmvcc and
-> module_put(atmvcc->owner) is called after the protocol is detached from vcc.
-> 
-> Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
+>           Recently, I found out the path delay will increase about
+> 20us suddenly in something when connect two iMX6 board and Ethernet
+> work on 1G mode.
+>           The reason is that the PHY enter lower mode automatically
+> when no package send and receive. It takes some time to recover and
+> send out package by PHY but MAC think package have sent and sample
+> time stamper.
+>           Do you meet such case?  I can workaround it by two method
+>                1. disable phy lower power feature.
+>                2. add some dummy package before SYNC package.
 
-Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
+If this low power mode is related to EEE (Energy Efficient Ethernet)
+then there are ethtool operations defined for configuring it, and you
+could implement those.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
