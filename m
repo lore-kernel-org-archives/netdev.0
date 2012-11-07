@@ -1,148 +1,154 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: pull request: batman-adv 2012-11-07
-Date: Wed,  7 Nov 2012 20:11:30 +0100
-Message-ID: <1352315502-20324-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 10/12] batman-adv: Distributed ARP Table - add runtime switch
+Date: Wed,  7 Nov 2012 20:11:40 +0100
+Message-ID: <1352315502-20324-11-git-send-email-ordex@autistici.org>
+References: <1352315502-20324-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from contumacia.investici.org ([178.255.144.35]:44661 "EHLO
+	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754552Ab2KGTMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 14:12:37 -0500
+In-Reply-To: <1352315502-20324-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+This patch adds a runtime switch that enables the user to turn the DAT feature
+on or off at runtime
 
-first of all thank you for having made us aware of the packet format prob=
-lem in
-batman-adv! The impact of __packed on performances was not entirely known=
- to me,
-in particular for what concerns the RISC arch.
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
+ net/batman-adv/distributed-arp-table.c | 18 ++++++++++++++++++
+ net/batman-adv/soft-interface.c        |  3 +++
+ net/batman-adv/sysfs.c                 |  7 +++++++
+ net/batman-adv/types.h                 |  3 +++
+ 4 files changed, 31 insertions(+)
 
-We have to change a number of packet formats before we can remove __packe=
-d
-everywhere which will obviously break compatibility.
-
-However we already scheduled a compatibility break because we want to
-heavily improve our packet formats and to provide a more flexible framewo=
-rk that
-would allow us to add new types and features while reducing the probabili=
-ty of
-breaking compatibility again and again as happened in the past (we are
-implementing TypeLengthValue (TLV) containers among other things).
-
-To avoid breaking compatibility (at least) twice we decided to fix now (i=
-n this
-patchset) what is fixable with no consequences to compatibility while we =
-would
-ilike to defer the remaining changes for the scheduled compatibility brea=
-k.
-
-In this patchset you have the two new features intended for net-next/linu=
-x-3.8:
-1) the new UNICAST_4ADDR packet type
-2) the Distributed ARP Table (DAT) component
-
-The new packet type has been reviewed to entirely address the alignment i=
-ssue.
-At the same time we also reviewed the other packet types but as I told yo=
-u
-before, we will send these changes later.
-
-Other than that you have patch 02/12 that removes the __packed attribute =
-from
-the structures where it was not really needed.
-
-Please, let me know if there is any problem.
-
-Thank you very much,
-		Antonio
-
-
-
-The following changes since commit 6f0a0986e328dd61610d898a09c9f4aa960ae6=
-4a:
-
-  usbnet: runtime wake up device before calling usbnet_{read|write}_cmd (=
-2012-11-07 03:53:38 -0500)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-
-for you to fetch changes up to 9affec6be810d1d529cb9dc95126119451696ba6:
-
-  batman-adv: enable fast client detection using unicast_4addr packets (2=
-012-11-07 20:00:24 +0100)
-
-----------------------------------------------------------------
-Included changes:
-- minimal fixes to the packet layout to avoid the __packed attribute when=
- not
-  needed
-- new packet type called UNICAST_4ADDR: in this packet it is possible to =
-find
-  both source and destination node (in the classic UNICAST header only th=
-e
-  destination field exists).
-- a new feature: Distributed ARP Table (D.A.T.). It aims to reduce ARP lo=
-okups
-  latency by means of a simil-DHT approach.
-
-----------------------------------------------------------------
-Antonio Quartulli (9):
-      batman-adv: add UNICAST_4ADDR packet type
-      batman-adv: Distributed ARP Table - add a new debug log level
-      batman-adv: Distributed ARP Table - create DHT helper functions
-      batman-adv: Distributed ARP Table - implement local storage
-      batman-adv: Distributed ARP Table - add ARP parsing functions
-      batman-adv: Distributed ARP Table - add snooping functions for ARP =
-messages
-      batman-adv: Distributed ARP Table - add compile option
-      batman-adv: Distributed ARP Table - add runtime switch
-      batman-adv: enable fast client detection using unicast_4addr packet=
-s
-
-Martin Hundeb=C3=B8ll (1):
-      batman-adv: Add get_ethtool_stats() support for DAT
-
-Sven Eckelmann (2):
-      batman-adv: Reserve extra bytes in skb for better alignment
-      batman-adv: Mark correctly aligned headers not as __packed
-
- Documentation/networking/batman-adv.txt |    3 +-
- net/batman-adv/Kconfig                  |   10 +
- net/batman-adv/Makefile                 |    1 +
- net/batman-adv/bat_iv_ogm.c             |    8 +-
- net/batman-adv/debugfs.c                |   20 +
- net/batman-adv/distributed-arp-table.c  | 1066 +++++++++++++++++++++++++=
-++++++
- net/batman-adv/distributed-arp-table.h  |  167 +++++
- net/batman-adv/hard-interface.c         |    3 +
- net/batman-adv/icmp_socket.c            |    4 +-
- net/batman-adv/main.c                   |    9 +
- net/batman-adv/main.h                   |   13 +-
- net/batman-adv/originator.c             |    2 +
- net/batman-adv/packet.h                 |   68 +-
- net/batman-adv/routing.c                |   51 +-
- net/batman-adv/send.c                   |    4 +
- net/batman-adv/soft-interface.c         |   28 +-
- net/batman-adv/sysfs.c                  |    7 +
- net/batman-adv/translation-table.c      |   20 +-
- net/batman-adv/types.h                  |   73 +++
- net/batman-adv/unicast.c                |  135 +++-
- net/batman-adv/unicast.h                |   36 +-
- net/batman-adv/vis.c                    |    9 +-
- 22 files changed, 1682 insertions(+), 55 deletions(-)
- create mode 100644 net/batman-adv/distributed-arp-table.c
- create mode 100644 net/batman-adv/distributed-arp-table.h
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index f43bf8e..c1a74a1 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -621,6 +621,9 @@ out:
+  */
+ static void batadv_dat_hash_free(struct batadv_priv *bat_priv)
+ {
++	if (!bat_priv->dat.hash)
++		return;
++
+ 	__batadv_dat_purge(bat_priv, NULL);
+ 
+ 	batadv_hash_destroy(bat_priv->dat.hash);
+@@ -790,6 +793,9 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
+ 	struct sk_buff *skb_new;
+ 	struct batadv_hard_iface *primary_if = NULL;
+ 
++	if (!atomic_read(&bat_priv->distributed_arp_table))
++		goto out;
++
+ 	type = batadv_arp_get_type(bat_priv, skb, 0);
+ 	/* If the node gets an ARP_REQUEST it has to send a DHT_GET unicast
+ 	 * message to the selected DHT candidates
+@@ -861,6 +867,9 @@ bool batadv_dat_snoop_incoming_arp_request(struct batadv_priv *bat_priv,
+ 	bool ret = false;
+ 	int err;
+ 
++	if (!atomic_read(&bat_priv->distributed_arp_table))
++		goto out;
++
+ 	type = batadv_arp_get_type(bat_priv, skb, hdr_size);
+ 	if (type != ARPOP_REQUEST)
+ 		goto out;
+@@ -924,6 +933,9 @@ void batadv_dat_snoop_outgoing_arp_reply(struct batadv_priv *bat_priv,
+ 	__be32 ip_src, ip_dst;
+ 	uint8_t *hw_src, *hw_dst;
+ 
++	if (!atomic_read(&bat_priv->distributed_arp_table))
++		return;
++
+ 	type = batadv_arp_get_type(bat_priv, skb, 0);
+ 	if (type != ARPOP_REPLY)
+ 		return;
+@@ -959,6 +971,9 @@ bool batadv_dat_snoop_incoming_arp_reply(struct batadv_priv *bat_priv,
+ 	uint8_t *hw_src, *hw_dst;
+ 	bool ret = false;
+ 
++	if (!atomic_read(&bat_priv->distributed_arp_table))
++		goto out;
++
+ 	type = batadv_arp_get_type(bat_priv, skb, hdr_size);
+ 	if (type != ARPOP_REPLY)
+ 		goto out;
+@@ -1003,6 +1018,9 @@ bool batadv_dat_drop_broadcast_packet(struct batadv_priv *bat_priv,
+ 	bool ret = false;
+ 	const size_t bcast_len = sizeof(struct batadv_bcast_packet);
+ 
++	if (!atomic_read(&bat_priv->distributed_arp_table))
++		goto out;
++
+ 	/* If this packet is an ARP_REQUEST and the node already has the
+ 	 * information that it is going to ask, then the packet can be dropped
+ 	 */
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 9dc0ae1..7b4a3a3 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -480,6 +480,9 @@ struct net_device *batadv_softif_create(const char *name)
+ 	atomic_set(&bat_priv->aggregated_ogms, 1);
+ 	atomic_set(&bat_priv->bonding, 0);
+ 	atomic_set(&bat_priv->bridge_loop_avoidance, 0);
++#ifdef CONFIG_BATMAN_ADV_DAT
++	atomic_set(&bat_priv->distributed_arp_table, 1);
++#endif
+ 	atomic_set(&bat_priv->ap_isolation, 0);
+ 	atomic_set(&bat_priv->vis_mode, BATADV_VIS_TYPE_CLIENT_UPDATE);
+ 	atomic_set(&bat_priv->gw_mode, BATADV_GW_MODE_OFF);
+diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
+index 42cd09e..fa3cc1a 100644
+--- a/net/batman-adv/sysfs.c
++++ b/net/batman-adv/sysfs.c
+@@ -20,6 +20,7 @@
+ #include "main.h"
+ #include "sysfs.h"
+ #include "translation-table.h"
++#include "distributed-arp-table.h"
+ #include "originator.h"
+ #include "hard-interface.h"
+ #include "gateway_common.h"
+@@ -420,6 +421,9 @@ BATADV_ATTR_SIF_BOOL(bonding, S_IRUGO | S_IWUSR, NULL);
+ #ifdef CONFIG_BATMAN_ADV_BLA
+ BATADV_ATTR_SIF_BOOL(bridge_loop_avoidance, S_IRUGO | S_IWUSR, NULL);
+ #endif
++#ifdef CONFIG_BATMAN_ADV_DAT
++BATADV_ATTR_SIF_BOOL(distributed_arp_table, S_IRUGO | S_IWUSR, NULL);
++#endif
+ BATADV_ATTR_SIF_BOOL(fragmentation, S_IRUGO | S_IWUSR, batadv_update_min_mtu);
+ BATADV_ATTR_SIF_BOOL(ap_isolation, S_IRUGO | S_IWUSR, NULL);
+ static BATADV_ATTR(vis_mode, S_IRUGO | S_IWUSR, batadv_show_vis_mode,
+@@ -445,6 +449,9 @@ static struct batadv_attribute *batadv_mesh_attrs[] = {
+ #ifdef CONFIG_BATMAN_ADV_BLA
+ 	&batadv_attr_bridge_loop_avoidance,
+ #endif
++#ifdef CONFIG_BATMAN_ADV_DAT
++	&batadv_attr_distributed_arp_table,
++#endif
+ 	&batadv_attr_fragmentation,
+ 	&batadv_attr_ap_isolation,
+ 	&batadv_attr_vis_mode,
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 00d3093..0afeb2b 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -275,6 +275,9 @@ struct batadv_priv {
+ 	atomic_t fragmentation;		/* boolean */
+ 	atomic_t ap_isolation;		/* boolean */
+ 	atomic_t bridge_loop_avoidance;	/* boolean */
++#ifdef CONFIG_BATMAN_ADV_DAT
++	atomic_t distributed_arp_table;	/* boolean */
++#endif
+ 	atomic_t vis_mode;		/* VIS_TYPE_* */
+ 	atomic_t gw_mode;		/* GW_MODE_* */
+ 	atomic_t gw_sel_class;		/* uint */
+-- 
+1.8.0
