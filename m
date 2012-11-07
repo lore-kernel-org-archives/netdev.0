@@ -1,45 +1,49 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v4 0/5] usbnet: avoiding access auto-suspended device
-Date: Wed, 07 Nov 2012 03:54:37 -0500 (EST)
-Message-ID: <20121107.035437.1004450415124026375.davem@davemloft.net>
-References: <1352213588-8948-1-git-send-email-ming.lei@canonical.com>
+From: Alex Bligh <alex@alex.org.uk>
+Subject: Listing ipv6 proxy neighbours
+Date: Wed, 07 Nov 2012 09:03:54 +0000
+Message-ID: <CC966090B4F10E8F4612D351@nimrod.local>
+Reply-To: Alex Bligh <alex@alex.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1352213588-8948-1-git-send-email-ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Alex Bligh <alex@alex.org.uk>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.avalus.com ([89.16.176.221]:51202 "EHLO mail.avalus.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750996Ab2KGJN0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Nov 2012 04:13:26 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Date: Tue,  6 Nov 2012 22:53:03 +0800
+If I set up an ipv6 proxy neighbour like this:
+ echo 1 > /proc/sys/net/ipv6/conf/eth0/proxy_ndp
+ ip neigh add proxy 2a01:2345:8b25:7ea0::22 dev eth0
+it appears to go into the kernel OK (the first delete works, the second does not).
 
-> This patchset avoids accessing auto-suspended device in ioctl path,
-> which is generally triggered by some network utility(ethtool, ifconfig,
-> ...)
-> 
-> Most of network devices have the problem, but as discussed in the
-> thread:
-> 
->         http://marc.info/?t=135054860600003&r=1&w=2
-> 
-> the problem should be solved inside driver.
-> 
-> Considered that only smsc75xx and smsc95xx calls usbnet_read_cmd()
-> and usbnet_write_cmd() inside its resume and suspend callback, the
-> patcheset introduces the nopm version of the two functions which
-> should be called only in the resume and suspend callback. So we
-> can solve the problem by runtime resuming device before doing
-> control message things.
-> 
-> The patchset is against 3.7.0-rc4-next-20121105, and has been tested
-> OK on smsc95xx usbnet device.
+However, there appears to be no way of listing them in that
+ ip -6 neigh show
+does not list them.
 
-All applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I assumed this was a bug in 'ip', which I set about trying to fix. Modern 'ip'
+has a new command 'ip -6 neigh show proxy' but this also does not list them.
+As far as I can tell, stepping through 'ip' with gdb, and commenting out
+some of the more obvious if conditions filtering out returns from the kernel,
+the kernel is not actually listing these through netlink.
+
+ip maddr show shows a multicast group created, so it's in there somewhere.
+
+$ ./ip -6 maddr show
+1:	lo
+	inet6 ff02::1
+2:	eth0
+	inet6 ff02::1:ff00:22 <-------- this one
+	inet6 ff02::fb
+	inet6 ff02::1:ff48:aad6
+	inet6 ff02::1
+
+Any ideas?
+
+-- 
+Alex Bligh
