@@ -1,55 +1,42 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] ksz884x: use module_pci_driver to simplify the code
-Date: Wed, 7 Nov 2012 20:54:30 +0800
-Message-ID: <CAPgLHd8mrDXyiJ4rNFLHsYWEreVRiKXwqqr7umtSY36RkzXjUA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH net] cxgb4: Fix initialization of SGE_CONTROL register
+Date: Wed,  7 Nov 2012 19:15:46 +0530
+Message-ID: <1352295946-32146-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>,
+	Jay Hernandez <jay@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:55973 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754822Ab2KGMyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 07:54:31 -0500
-Received: by mail-qc0-f174.google.com with SMTP id o22so987131qcr.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 04:54:30 -0800 (PST)
+Received: from stargate.chelsio.com ([67.207.112.58]:31313 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751281Ab2KGNt0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 08:49:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+INGPADBOUNDARY_MASK is already shifted. No need to shift it again. On reloading
+a driver it was resulting in a bad SGE FL MTU sizes [1536, 9088] error. This
+only causes an issue on systems that have L1 cache size of 32B, 128B, 512B,
+2048B or 4096B.
 
-Use the module_pci_driver() macro to make the code simpler
-by eliminating module_init and module_exit calls.
-
-dpatch engine is used to auto generate this patch.
-(https://github.com/weiyj/dpatch)
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Jay Hernandez <jay@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 ---
- drivers/net/ethernet/micrel/ksz884x.c | 13 +------------
- 1 file changed, 1 insertion(+), 12 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index e558edd..e4ba868 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -7251,18 +7251,7 @@ static struct pci_driver pci_device_driver = {
- 	.remove		= pcidev_exit
- };
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 01fa5b7..730ae2c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -2831,7 +2831,7 @@ int t4_fixup_host_params(struct adapter *adap, unsigned int page_size,
+ 		     HOSTPAGESIZEPF7(sge_hps));
  
--static int __init ksz884x_init_module(void)
--{
--	return pci_register_driver(&pci_device_driver);
--}
--
--static void __exit ksz884x_cleanup_module(void)
--{
--	pci_unregister_driver(&pci_device_driver);
--}
--
--module_init(ksz884x_init_module);
--module_exit(ksz884x_cleanup_module);
-+module_pci_driver(pci_device_driver);
- 
- MODULE_DESCRIPTION("KSZ8841/2 PCI network driver");
- MODULE_AUTHOR("Tristram Ha <Tristram.Ha@micrel.com>");
+ 	t4_set_reg_field(adap, SGE_CONTROL,
+-			 INGPADBOUNDARY(INGPADBOUNDARY_MASK) |
++			 INGPADBOUNDARY_MASK |
+ 			 EGRSTATUSPAGESIZE_MASK,
+ 			 INGPADBOUNDARY(fl_align_log - 5) |
+ 			 EGRSTATUSPAGESIZE(stat_len != 64));
+-- 
+1.7.1
