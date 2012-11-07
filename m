@@ -1,170 +1,89 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH 4/8] net/at91_ether: use macb functions for get/set hwaddr
-Date: Wed,  7 Nov 2012 19:14:53 +0100
-Message-ID: <1352312097-31320-5-git-send-email-manabian@gmail.com>
-References: <1352312097-31320-1-git-send-email-manabian@gmail.com>
-Cc: plagnioj@jcrosoft.com, netdev@vger.kernel.org,
-	Joachim Eastwood <manabian@gmail.com>
-To: nicolas.ferre@atmel.com, davem@davemloft.net
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: Re: mmap RX_RING socket issue 32b application running on 64b kernel.
+Date: Wed, 7 Nov 2012 19:26:24 +0100
+Message-ID: <CAD6jFURNbY4BkcUeykrkO2PU17+G_mOD7Dw3KrEx0BAaOpqiSA@mail.gmail.com>
+References: <CAMJ=MEfeMDC3H2bjKz9XA4072Vo7U17108N4bK77q0GvUEF09w@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Ronny Meeus <ronny.meeus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:60048 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753374Ab2KGSPQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 13:15:16 -0500
-Received: by mail-lb0-f174.google.com with SMTP id n3so1512078lbo.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 10:15:16 -0800 (PST)
-In-Reply-To: <1352312097-31320-1-git-send-email-manabian@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:60656 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752043Ab2KGS0c convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 13:26:32 -0500
+Received: from [78.46.5.204] (helo=sslproxy02.your-server.de)
+	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.74)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TWAKd-0001zk-6s
+	for netdev@vger.kernel.org; Wed, 07 Nov 2012 19:26:31 +0100
+Received: from [74.125.83.46] (helo=mail-ee0-f46.google.com)
+	by sslproxy02.your-server.de with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
+	(Exim 4.72)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TWAKZ-0005yv-TY
+	for netdev@vger.kernel.org; Wed, 07 Nov 2012 19:26:27 +0100
+Received: by mail-ee0-f46.google.com with SMTP id b15so1086930eek.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 10:26:24 -0800 (PST)
+In-Reply-To: <CAMJ=MEfeMDC3H2bjKz9XA4072Vo7U17108N4bK77q0GvUEF09w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
----
- drivers/net/ethernet/cadence/at91_ether.c | 112 +-----------------------------
- 1 file changed, 3 insertions(+), 109 deletions(-)
+On Wed, Nov 7, 2012 at 6:58 PM, Ronny Meeus <ronny.meeus@gmail.com> wro=
+te:
+> I have an application using raw Ethernet sockets in combination with
+> the mmaped RX_RING.
+> The application is running on a Cavium MIPS processor (64bit) and the
+> application code is compiled with the N32 ABI.
+>
+> Since the ring buffer is shared between the Linux kernel and the
+> application there is a conflict in the way the data is presented.
+> Each buffer in the ring has a header that has following structure:
+> (File http://lxr.free-electrons.com/source/include/linux/if_packet.h =
+)
+> 103 struct tpacket_hdr {
+> 104         unsigned long   tp_status;
+> 105         unsigned int    tp_len;
+> 106         unsigned int    tp_snaplen;
+> 107         unsigned short  tp_mac;
+> 108         unsigned short  tp_net;
+> 109         unsigned int    tp_sec;
+> 110         unsigned int    tp_usec;
+> 111 };
+>
+> The status field indicates that the buffer belongs to the kernel or t=
+o
+> the user. Note that an unsigned long is used to represent the field.
+> In the kernel the long is 64 bit while in application space the long
+> is only 32bit, so the bits do not match.
+>
+> After adapting the code to take this into account my program works we=
+ll.
+> In my test program I have defined a new struct where I change the
+> =93unsigned long=94 into an =93unsigned long long=94:
+>
+> struct tpacket_hdr_64 {
+>   unsigned long long tp_status;
+>   unsigned int tp_len;
+>   unsigned int tp_snaplen;
+>   unsigned short tp_mac;
+>   unsigned short tp_net;
+>   unsigned int tp_sec;
+>   unsigned int tp_usec;
+> };
+>
+> In my opinion this is not a correct solution. It should be solved
+> somewhere in the include file I used so that it is transparent for th=
+e
+> application.
+> Please comment.
 
-diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index 6eb928e..2f89e64 100644
---- a/drivers/net/ethernet/cadence/at91_ether.c
-+++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -46,109 +46,6 @@
- /* max number of receive buffers */
- #define MAX_RX_DESCR	9
- 
--/* ......................... ADDRESS MANAGEMENT ........................ */
--
--/*
-- * NOTE: Your bootloader must always set the MAC address correctly before
-- * booting into Linux.
-- *
-- * - It must always set the MAC address after reset, even if it doesn't
-- *   happen to access the Ethernet while it's booting.  Some versions of
-- *   U-Boot on the AT91RM9200-DK do not do this.
-- *
-- * - Likewise it must store the addresses in the correct byte order.
-- *   MicroMonitor (uMon) on the CSB337 does this incorrectly (and
-- *   continues to do so, for bug-compatibility).
-- */
--
--static short __init unpack_mac_address(struct net_device *dev, unsigned int hi, unsigned int lo)
--{
--	struct macb *lp = netdev_priv(dev);
--	char addr[6];
--
--	if (lp->board_data.rev_eth_addr) {
--		addr[5] = (lo & 0xff);			/* The CSB337 bootloader stores the MAC the wrong-way around */
--		addr[4] = (lo & 0xff00) >> 8;
--		addr[3] = (lo & 0xff0000) >> 16;
--		addr[2] = (lo & 0xff000000) >> 24;
--		addr[1] = (hi & 0xff);
--		addr[0] = (hi & 0xff00) >> 8;
--	}
--	else {
--		addr[0] = (lo & 0xff);
--		addr[1] = (lo & 0xff00) >> 8;
--		addr[2] = (lo & 0xff0000) >> 16;
--		addr[3] = (lo & 0xff000000) >> 24;
--		addr[4] = (hi & 0xff);
--		addr[5] = (hi & 0xff00) >> 8;
--	}
--
--	if (is_valid_ether_addr(addr)) {
--		memcpy(dev->dev_addr, &addr, 6);
--		return 1;
--	}
--	return 0;
--}
--
--/*
-- * Set the ethernet MAC address in dev->dev_addr
-- */
--static void __init get_mac_address(struct net_device *dev)
--{
--	struct macb *lp = netdev_priv(dev);
--
--	/* Check Specific-Address 1 */
--	if (unpack_mac_address(dev, macb_readl(lp, SA1T), macb_readl(lp, SA1B)))
--		return;
--	/* Check Specific-Address 2 */
--	if (unpack_mac_address(dev, macb_readl(lp, SA2T), macb_readl(lp, SA2B)))
--		return;
--	/* Check Specific-Address 3 */
--	if (unpack_mac_address(dev, macb_readl(lp, SA3T), macb_readl(lp, SA3B)))
--		return;
--	/* Check Specific-Address 4 */
--	if (unpack_mac_address(dev, macb_readl(lp, SA4T), macb_readl(lp, SA4B)))
--		return;
--
--	printk(KERN_ERR "at91_ether: Your bootloader did not configure a MAC address.\n");
--}
--
--/*
-- * Program the hardware MAC address from dev->dev_addr.
-- */
--static void update_mac_address(struct net_device *dev)
--{
--	struct macb *lp = netdev_priv(dev);
--
--	macb_writel(lp, SA1B, (dev->dev_addr[3] << 24) | (dev->dev_addr[2] << 16)
--					| (dev->dev_addr[1] << 8) | (dev->dev_addr[0]));
--	macb_writel(lp, SA1T, (dev->dev_addr[5] << 8) | (dev->dev_addr[4]));
--
--	macb_writel(lp, SA2B, 0);
--	macb_writel(lp, SA2T, 0);
--}
--
--/*
-- * Store the new hardware address in dev->dev_addr, and update the MAC.
-- */
--static int set_mac_address(struct net_device *dev, void* addr)
--{
--	struct sockaddr *address = addr;
--
--	if (!is_valid_ether_addr(address->sa_data))
--		return -EADDRNOTAVAIL;
--
--	memcpy(dev->dev_addr, address->sa_data, dev->addr_len);
--	update_mac_address(dev);
--
--	printk("%s: Setting MAC address to %pM\n", dev->name,
--	       dev->dev_addr);
--
--	return 0;
--}
--
--/* ................................ MAC ................................ */
--
- /*
-  * Initialize and start the Receiver and Transmit subsystems
-  */
-@@ -219,8 +116,7 @@ static int at91ether_open(struct net_device *dev)
- 	ctl = macb_readl(lp, NCR);
- 	macb_writel(lp, NCR, ctl | MACB_BIT(CLRSTAT));
- 
--	/* Update the MAC address (incase user has changed it) */
--	update_mac_address(dev);
-+	macb_set_hwaddr(lp);
- 
- 	ret = at91ether_start(dev);
- 	if (ret)
-@@ -438,7 +334,7 @@ static const struct net_device_ops at91ether_netdev_ops = {
- 	.ndo_start_xmit		= at91ether_start_xmit,
- 	.ndo_get_stats		= at91ether_stats,
- 	.ndo_set_rx_mode	= macb_set_rx_mode,
--	.ndo_set_mac_address	= set_mac_address,
-+	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_do_ioctl		= macb_ioctl,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
-@@ -557,9 +453,7 @@ static int __init at91ether_probe(struct platform_device *pdev)
- 
- 	res = at91ether_get_hwaddr_dt(lp);
- 	if (res < 0)
--		get_mac_address(dev);		/* Get ethernet address and store it in dev->dev_addr */
--
--	update_mac_address(dev);	/* Program ethernet address into MAC */
-+		macb_get_hwaddr(lp);
- 
- 	res = at91ether_get_phy_mode_dt(pdev);
- 	if (res < 0) {
--- 
-1.8.0
+Have you tried to use packet_mmap with TPACKET version 2  [1]?
+
+In my understanding, it was introduced because of such issues that you
+described.
+
+[1] E.g. http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux.git=
+;a=3Dcommitdiff;h=3Dbbd6ef87c544d88c30e4b762b1b61ef267a7d279
