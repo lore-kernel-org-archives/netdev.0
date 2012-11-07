@@ -1,89 +1,130 @@
-From: Daniel Borkmann <danborkmann@iogearbox.net>
-Subject: Re: mmap RX_RING socket issue 32b application running on 64b kernel.
-Date: Wed, 7 Nov 2012 19:26:24 +0100
-Message-ID: <CAD6jFURNbY4BkcUeykrkO2PU17+G_mOD7Dw3KrEx0BAaOpqiSA@mail.gmail.com>
-References: <CAMJ=MEfeMDC3H2bjKz9XA4072Vo7U17108N4bK77q0GvUEF09w@mail.gmail.com>
+From: George Zhang <georgezhang@vmware.com>
+Subject: [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Wed, 07 Nov 2012 10:45:18 -0800
+Message-ID: <20121107184340.10612.3372.stgit@promb-2n-dhcp175.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Ronny Meeus <ronny.meeus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60656 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752043Ab2KGS0c convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 13:26:32 -0500
-Received: from [78.46.5.204] (helo=sslproxy02.your-server.de)
-	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
-	(Exim 4.74)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1TWAKd-0001zk-6s
-	for netdev@vger.kernel.org; Wed, 07 Nov 2012 19:26:31 +0100
-Received: from [74.125.83.46] (helo=mail-ee0-f46.google.com)
-	by sslproxy02.your-server.de with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
-	(Exim 4.72)
-	(envelope-from <danborkmann@iogearbox.net>)
-	id 1TWAKZ-0005yv-TY
-	for netdev@vger.kernel.org; Wed, 07 Nov 2012 19:26:27 +0100
-Received: by mail-ee0-f46.google.com with SMTP id b15so1086930eek.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 10:26:24 -0800 (PST)
-In-Reply-To: <CAMJ=MEfeMDC3H2bjKz9XA4072Vo7U17108N4bK77q0GvUEF09w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, gregkh@linuxfoundation.org, davem@davemloft.net
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	georgezhang@vmware.com, virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 7, 2012 at 6:58 PM, Ronny Meeus <ronny.meeus@gmail.com> wro=
-te:
-> I have an application using raw Ethernet sockets in combination with
-> the mmaped RX_RING.
-> The application is running on a Cavium MIPS processor (64bit) and the
-> application code is compiled with the N32 ABI.
->
-> Since the ring buffer is shared between the Linux kernel and the
-> application there is a conflict in the way the data is presented.
-> Each buffer in the ring has a header that has following structure:
-> (File http://lxr.free-electrons.com/source/include/linux/if_packet.h =
-)
-> 103 struct tpacket_hdr {
-> 104         unsigned long   tp_status;
-> 105         unsigned int    tp_len;
-> 106         unsigned int    tp_snaplen;
-> 107         unsigned short  tp_mac;
-> 108         unsigned short  tp_net;
-> 109         unsigned int    tp_sec;
-> 110         unsigned int    tp_usec;
-> 111 };
->
-> The status field indicates that the buffer belongs to the kernel or t=
-o
-> the user. Note that an unsigned long is used to represent the field.
-> In the kernel the long is 64 bit while in application space the long
-> is only 32bit, so the bits do not match.
->
-> After adapting the code to take this into account my program works we=
-ll.
-> In my test program I have defined a new struct where I change the
-> =93unsigned long=94 into an =93unsigned long long=94:
->
-> struct tpacket_hdr_64 {
->   unsigned long long tp_status;
->   unsigned int tp_len;
->   unsigned int tp_snaplen;
->   unsigned short tp_mac;
->   unsigned short tp_net;
->   unsigned int tp_sec;
->   unsigned int tp_usec;
-> };
->
-> In my opinion this is not a correct solution. It should be solved
-> somewhere in the include file I used so that it is transparent for th=
-e
-> application.
-> Please comment.
 
-Have you tried to use packet_mmap with TPACKET version 2  [1]?
+* * *
+This series of VSOCK linux upstreaming patches include latest udpate from
+VMware.
 
-In my understanding, it was introduced because of such issues that you
-described.
+Summary of changes:
+        - Fix some new sparse issues.
+        - Remove some unneeded casts for VMCI.
+        - add more __user annotations for VMCI.
+        - Remove kernel version-specific bits from vSockets.
 
-[1] E.g. http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux.git=
-;a=3Dcommitdiff;h=3Dbbd6ef87c544d88c30e4b762b1b61ef267a7d279
+
+* * *
+
+In an effort to improve the out-of-the-box experience with Linux
+kernels for VMware users, VMware is working on readying the Virtual
+Machine Communication Interface (vmw_vmci) and VMCI Sockets (VSOCK)
+(vmw_vsock) kernel modules for inclusion in the Linux kernel. The
+purpose of this post is to acquire feedback on the vmw_vsock kernel
+module. The vmw_vmci kernel module has been presented in an early post.
+
+
+* * *
+
+VMCI Sockets allows virtual machines to communicate with host kernel
+modules and the VMware hypervisors. VMCI Sockets kernel module has
+dependency on VMCI kernel module. User level applications both in
+a virtual machine and on the host can use vmw_vmci through VMCI
+Sockets API which facilitates fast and efficient communication
+between guest virtual machines and their host. A socket
+address family designed to be compatible with UDP and TCP at the
+interface level. Today, VMCI and VMCI Sockets are used by the VMware
+shared folders (HGFS) and various VMware Tools components inside the
+guest for zero-config, network-less access to VMware host services. In
+addition to this, VMware's users are using VMCI Sockets for various
+applications, where network access of the virtual machine is
+restricted or non-existent. Examples of this are VMs communicating
+with device proxies for proprietary hardware running as host
+applications and automated testing of applications running within
+virtual machines.
+
+The VMware VMCI Sockets are similar to other socket types, like
+Berkeley UNIX socket interface. The VMCI sockets module supports
+both connection-oriented stream sockets like TCP, and connectionless
+datagram sockets like UDP. The VSOCK protocol family is defined as
+"AF_VSOCK" and the socket operations split for SOCK_DGRAM and
+SOCK_STREAM.
+
+For additional information about the use of VMCI and in particular
+VMCI Sockets, please refer to the VMCI Socket Programming Guide
+available at https://www.vmware.com/support/developer/vmci-sdk/.
+
+
+
+---
+
+George Zhang (6):
+      VSOCK: vsock protocol implementation.
+      VSOCK: vsock address implementaion.
+      VSOCK: notification implementation.
+      VSOCK: statistics implementation.
+      VSOCK: utility functions.
+      VSOCK: header and config files.
+
+
+ include/linux/socket.h              |    4 
+ net/Kconfig                         |    1 
+ net/Makefile                        |    1 
+ net/vmw_vsock/Kconfig               |   14 
+ net/vmw_vsock/Makefile              |    4 
+ net/vmw_vsock/af_vsock.c            | 4135 +++++++++++++++++++++++++++++++++++
+ net/vmw_vsock/af_vsock.h            |  179 ++
+ net/vmw_vsock/notify.c              |  984 ++++++++
+ net/vmw_vsock/notify.h              |  130 +
+ net/vmw_vsock/notify_qstate.c       |  627 +++++
+ net/vmw_vsock/stats.c               |   37 
+ net/vmw_vsock/stats.h               |  219 ++
+ net/vmw_vsock/util.c                |  626 +++++
+ net/vmw_vsock/util.h                |  312 +++
+ net/vmw_vsock/vmci_sockets.h        |  517 ++++
+ net/vmw_vsock/vmci_sockets_packet.h |  106 +
+ net/vmw_vsock/vsock_addr.c          |  264 ++
+ net/vmw_vsock/vsock_addr.h          |   40 
+ net/vmw_vsock/vsock_common.h        |  130 +
+ net/vmw_vsock/vsock_packet.h        |  131 +
+ net/vmw_vsock/vsock_version.h       |   29 
+ 21 files changed, 8489 insertions(+), 1 deletions(-)
+ create mode 100644 net/vmw_vsock/Kconfig
+ create mode 100644 net/vmw_vsock/Makefile
+ create mode 100644 net/vmw_vsock/af_vsock.c
+ create mode 100644 net/vmw_vsock/af_vsock.h
+ create mode 100644 net/vmw_vsock/notify.c
+ create mode 100644 net/vmw_vsock/notify.h
+ create mode 100644 net/vmw_vsock/notify_qstate.c
+ create mode 100644 net/vmw_vsock/stats.c
+ create mode 100644 net/vmw_vsock/stats.h
+ create mode 100644 net/vmw_vsock/util.c
+ create mode 100644 net/vmw_vsock/util.h
+ create mode 100644 net/vmw_vsock/vmci_sockets.h
+ create mode 100644 net/vmw_vsock/vmci_sockets_packet.h
+ create mode 100644 net/vmw_vsock/vsock_addr.c
+ create mode 100644 net/vmw_vsock/vsock_addr.h
+ create mode 100644 net/vmw_vsock/vsock_common.h
+ create mode 100644 net/vmw_vsock/vsock_packet.h
+ create mode 100644 net/vmw_vsock/vsock_version.h
+
+-- 
+Signature
