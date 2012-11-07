@@ -1,56 +1,57 @@
-From: Julius Werner <jwerner@chromium.org>
-Subject: [PATCH] tcp: Replace infinite loop on recvmsg bug with proper crash
-Date: Tue,  6 Nov 2012 16:15:35 -0800
-Message-ID: <1352247335-10396-1-git-send-email-jwerner@chromium.org>
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sameer Nanda <snanda@chromium.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Eric Dumazet <edumazet@chromium.org>,
-	Julius Werner <jwerner@chromium.org>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rob Herring <rob.herring@calxeda.com>
+Subject: Re: [PATCH v3 5/6] net: calxedaxgmac: rework transmit ring handling
+Date: Tue, 06 Nov 2012 18:29:11 -0600
+Message-ID: <5099AB57.7000805@calxeda.com>
+References: <1352132544-15809-1-git-send-email-robherring2@gmail.com> <1352132544-15809-6-git-send-email-robherring2@gmail.com> <20121106.185704.1212469675670236955.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp171.dfw.emailsrvr.com ([67.192.241.171]:39291 "EHLO
+	smtp171.dfw.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751165Ab2KGA3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 19:29:13 -0500
+In-Reply-To: <20121106.185704.1212469675670236955.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-tcp_recvmsg contains a sanity check that WARNs when there is a gap
-between the socket's copied_seq and the first buffer in the
-sk_receive_queue. In theory, the TCP stack makes sure that This Should
-Never Happen (TM)... however, practice shows that there are still a few
-bug reports from it out there (and one in my inbox).
+David,
 
-Unfortunately, when it does happen for whatever reason, the situation
-is not handled very well: the kernel logs a warning and breaks out of
-the loop that walks the receive queue. It proceeds to find nothing else
-to do on the socket and hits sk_wait_data, which cannot block because
-the receive queue is not empty. As no data was read, the outer while
-loop repeats (logging the same warning again) ad infinitum until the
-system's syslog exhausts all available hard drive capacity.
+On 11/06/2012 05:57 PM, David Miller wrote:
+> From: Rob Herring <robherring2@gmail.com>
+> Date: Mon,  5 Nov 2012 10:22:23 -0600
+> 
+>> Only generate tx interrupts on every ring size / 4 descriptors.
+> 
+> I thought we told you that you cannot do this.
+> 
+> With this change if we get a few packets, then stop generating any
+> traffic, there will be SKBs that just sit dead in your TX queue.
 
-This patch improves that behavior by going straight to a proper kernel
-crash. The cause of the error can be identified right away and the
-system's hard drive is not unnecessarily strained.
+And as I previously mentioned, we do get a tx complete interrupt in
+addition. The h/w will interrupt when all packets are transmitted and
+there is not another descriptor ready. That is the only tx interrupt we
+get without this patch. With this patch, we will get interrupts for
+every N descriptors in addition to a tx complete/idle interrupt. This
+patch is to avoid the transmitter from going idle and only refilling the
+tx ring after finishing sending all frames. I can repost this patch and
+make the commit message more clear, but I don't think there is any
+functional change needed. This one is not so important compared to the
+rest of the series, so you can just drop it if you still don't agree.
 
-Signed-off-by: Julius Werner <jwerner@chromium.org>
----
- net/ipv4/tcp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Rob
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 197c000..fcb0927 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1628,7 +1628,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 				 "recvmsg bug: copied %X seq %X rcvnxt %X fl %X\n",
- 				 *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
- 				 flags))
--				break;
-+				BUG();
- 
- 			offset = *seq - TCP_SKB_CB(skb)->seq;
- 			if (tcp_hdr(skb)->syn)
--- 
-1.7.8.6
+> 
+> This cannot ever happen.  All TX SKBs must be freed up in a short,
+> finite, amount of time.  Under all conditions, and in every situation.
+> 
+> Otherwise memory accounted to sockets is not liberated, and such
+> sockets cannot be destroyed or closed.
+> 
+> SKBs also hold onto other kinds of resources, for which it is critical
+> to liberate in a finite amount of time.
+> 
+> I'm not applying this series, it still needs more work.
+> 
