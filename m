@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 8/9] isdn: Make CONFIG_ISDN depend on CONFIG_NETDEVICES
-Date: Tue, 06 Nov 2012 18:57:52 -0500 (EST)
-Message-ID: <20121106.185752.1986400393399264104.davem@davemloft.net>
-References: <20121104105332.GC27124@gmail.com>
-	<20121104.123013.700345271120279281.davem@davemloft.net>
-	<20121105103126.GB5220@gmail.com>
+Subject: Re: [PATCH net-next 2/2] tg3: Call tg3_netif_stop() from tg3_stop()
+Date: Tue, 06 Nov 2012 19:00:48 -0500 (EST)
+Message-ID: <20121106.190048.2206430857624402333.davem@davemloft.net>
+References: <1352161590-1586-1-git-send-email-mchan@broadcom.com>
+	<1352161590-1586-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pebolle@tiscali.nl, linux-kernel@vger.kernel.org,
-	isdn@linux-pingi.de, netdev@vger.kernel.org
-To: lee.jones@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121105103126.GB5220@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32898 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754027Ab2KGAAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 19:00:49 -0500
+In-Reply-To: <1352161590-1586-2-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lee Jones <lee.jones@linaro.org>
-Date: Mon, 5 Nov 2012 11:31:26 +0100
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Mon, 5 Nov 2012 16:26:30 -0800
 
-> Does something like look like a better solution?
+> From: Nithin Nayak Sujir <nsujir@broadcom.com>
 > 
-> Author: Lee Jones <lee.jones@linaro.org>
-> Date:   Sat Nov 3 22:06:02 2012 +0100
+> instead of making separate tg3_napi_disable() and netif_tx_disable() calls.
 > 
->     isdn: Make CONFIG_ISDN depend on CONFIG_NETDEVICES
+> Update version to 3.126.
+> 
+> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Yes, it looks good, please resubmit it formally.
+Applied.
