@@ -1,34 +1,29 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH trivial] ndisc: fix a typo in a comment in ndisc_recv_na()
-Date: Wed,  7 Nov 2012 16:05:38 +0100
-Message-ID: <1352300738-3851-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:54579 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752314Ab2KGOyT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 09:54:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 1/1] isdn: Make CONFIG_ISDN depend on CONFIG_NETDEVICES
+Date: Wed, 7 Nov 2012 15:04:36 +0000
+Message-ID: <20121107150436.3d25ee51@pyramind.ukuu.org.uk>
+References: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+To: Lee Jones <lee.jones@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ndisc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Wed,  7 Nov 2012 10:55:03 +0100
+Lee Jones <lee.jones@linaro.org> wrote:
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index ae0cf81..a2e50dc 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -906,7 +906,7 @@ static void ndisc_recv_na(struct sk_buff *skb)
- 		if (lladdr && !memcmp(lladdr, dev->dev_addr, dev->addr_len) &&
- 		    net->ipv6.devconf_all->forwarding && net->ipv6.devconf_all->proxy_ndp &&
- 		    pneigh_lookup(&nd_tbl, net, &msg->target, dev, 0)) {
--			/* XXX: idev->cnf.prixy_ndp */
-+			/* XXX: idev->cnf.proxy_ndp */
- 			goto out;
- 		}
- 
--- 
-1.7.12
+> It doesn't make much sense to enable ISDN services if you don't
+> intend to connect to a network. 
+
+I would disagree. However what I don't understand and you've not
+explained is why the current code is a bug or a problem ?
+
+This seems to be a make-work inconvenience causing patch that serves no
+useful purpose ?
+
+Alan
