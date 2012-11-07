@@ -1,64 +1,52 @@
-From: Ronny Meeus <ronny.meeus@gmail.com>
-Subject: mmap RX_RING socket issue 32b application running on 64b kernel.
-Date: Wed, 7 Nov 2012 18:58:55 +0100
-Message-ID: <CAMJ=MEfeMDC3H2bjKz9XA4072Vo7U17108N4bK77q0GvUEF09w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [PATCH 0/8] at91_ether share stats/address setting with macb
+Date: Wed,  7 Nov 2012 19:14:49 +0100
+Message-ID: <1352312097-31320-1-git-send-email-manabian@gmail.com>
+Cc: plagnioj@jcrosoft.com, netdev@vger.kernel.org,
+	Joachim Eastwood <manabian@gmail.com>
+To: nicolas.ferre@atmel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:43739 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346Ab2KGR7Q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 12:59:16 -0500
-Received: by mail-ob0-f174.google.com with SMTP id uo13so1871735obb.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 09:59:16 -0800 (PST)
+Received: from mail-la0-f46.google.com ([209.85.215.46]:38659 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751732Ab2KGSPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 13:15:13 -0500
+Received: by mail-la0-f46.google.com with SMTP id h6so1452444lag.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 10:15:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have an application using raw Ethernet sockets in combination with
-the mmaped RX_RING.
-The application is running on a Cavium MIPS processor (64bit) and the
-application code is compiled with the N32 ABI.
+Patch 1-2 add support for some special at91_ether features to macb address setting code. This will allow us to have one address setting function that can be shared.
 
-Since the ring buffer is shared between the Linux kernel and the
-application there is a conflict in the way the data is presented.
-Each buffer in the ring has a header that has following structure:
-(File http://lxr.free-electrons.com/source/include/linux/if_packet.h )
-103 struct tpacket_hdr {
-104         unsigned long   tp_status;
-105         unsigned int    tp_len;
-106         unsigned int    tp_snaplen;
-107         unsigned short  tp_mac;
-108         unsigned short  tp_net;
-109         unsigned int    tp_sec;
-110         unsigned int    tp_usec;
-111 };
+Patch 4 removes the at91_ether address set/get code and make use of the exported functions for macb.
 
-The status field indicates that the buffer belongs to the kernel or to
-the user. Note that an unsigned long is used to represent the field.
-In the kernel the long is 64 bit while in application space the long
-is only 32bit, so the bits do not match.
+Patch 5 remove the at91_ether statistics functions and replace them with equivalent function from macb.
 
-After adapting the code to take this into account my program works well=
-=2E
-In my test program I have defined a new struct where I change the
-=93unsigned long=94 into an =93unsigned long long=94:
+Patch 6 removes an unused member from the at91_ether/macb private struct.
 
-struct tpacket_hdr_64 {
-  unsigned long long tp_status;
-  unsigned int tp_len;
-  unsigned int tp_snaplen;
-  unsigned short tp_mac;
-  unsigned short tp_net;
-  unsigned int tp_sec;
-  unsigned int tp_usec;
-};
+Patch 7 is a clean up of the print outs from at91_ether.
 
-In my opinion this is not a correct solution. It should be solved
-somewhere in the include file I used so that it is transparent for the
-application.
-Please comment.
+Patch 8 is a misc clean up patch which fixes some comment and style issues.
 
----
-Ronny
+
+Most of the code left in at91_ether now deal with configuration and DMA rx/tx which is hard to share with macb since this is specific for the IP block in AT91RM9200.
+
+Next I'll work on adding PHY GPIO interrupt to the macb driver. at91_ether had this functionality before it began using mdio functions from macb.
+
+
+Joachim Eastwood (8):
+  net/macb: check all address registers sets
+  net/macb: support reversed hw addr
+  net/macb: export macb_set_hwaddr and macb_get_hwaddr
+  net/at91_ether: use macb functions for get/set hwaddr
+  net/at91_ether: use stat function from macb
+  net/at91_ether: drop board_data private struct member
+  net/at91_ether: clean up print outs
+  net/at91_ether: fix comment and style issues
+
+ drivers/net/ethernet/cadence/at91_ether.c | 289 +++++++-----------------------
+ drivers/net/ethernet/cadence/macb.c       |  54 ++++--
+ drivers/net/ethernet/cadence/macb.h       |  10 +-
+ 3 files changed, 109 insertions(+), 244 deletions(-)
+
+-- 
+1.8.0
