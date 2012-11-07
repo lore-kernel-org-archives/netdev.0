@@ -1,97 +1,59 @@
-From: Benoit Cousson <b-cousson@ti.com>
-Subject: Re: [PATCH V4 0/7] ARM: AM33XX: net: Add DT support to CPGMAC and
- MDIO driver
-Date: Wed, 7 Nov 2012 16:45:41 +0100
-Message-ID: <509A8225.8050508@ti.com>
-References: <1352223159-27504-1-git-send-email-mugunthanvnm@ti.com> <509A7D39.8050506@ti.com>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: [PATCH] tcp: Replace infinite loop on recvmsg bug with proper
+ crash
+Date: Wed, 7 Nov 2012 10:54:34 -0500
+Message-ID: <20121107155434.GA17677@redhat.com>
+References: <1352247335-10396-1-git-send-email-jwerner@chromium.org>
+ <20121107013907.GA31185@redhat.com>
+ <CAODwPW-636Sn3B4CYajvrgccXxresZwPLg2UFz6xDDk9-FfTYQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, Paul Walmsley <paul@pwsan.com>,
-	<netdev@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <509A7D39.8050506@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sameer Nanda <snanda@chromium.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Eric Dumazet <edumazet@chromium.org>
+To: Julius Werner <jwerner@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAODwPW-636Sn3B4CYajvrgccXxresZwPLg2UFz6xDDk9-FfTYQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Mugunthan,
+On Tue, Nov 06, 2012 at 05:51:19PM -0800, Julius Werner wrote:
+ > > We've had reports of this WARN against the Fedora kernel for a while.
+ > > Had this been immediately followed by a BUG(), we'd have never seen those traces at all,
+ > > and just got "my machine just locked up" reports instead.
+ > >
+ > > The proper fix here is to find out why we're getting into this state.
+ > 
+ > Are you sure you don't mean the WARN below that ("recvmsg bug 2")
+ > instead? I don't think this one can happen without eventually running
+ > into the syslog overflow issue I described.
 
-On 11/07/2012 04:24 PM, Mugunthan V N wrote:
-> On 11/6/2012 11:02 PM, Mugunthan V N wrote:
->> This patch-series adds support for,
->>
->> [1/7]: Typo mistake in CPSW driver while invoking runtime_pm api's
->>
->> [2/7]: Adds parent<->child relation between CPSW & MDIO module inside
->> cpsw
->>         driver, as in case of AM33XX, the resources are shared and common
->>         register bit-field is provided to control module/clock
->> enable/disable,
->>         makes it difficult to handle common resource.
->>
->>         So the solution here is, to create parent<->child relation
->> between them.
->>
->> [3/7]: Add hwmod entry for MDIO module, required for MDIO driver.
->>
->> [4/7]: cpsw: simplify the setup of the register pointers
->>
->> [5/7]: Add DT device nodes for both CPSW and MDIO modules in am33xx.dtsi,
->>         am335x-evm.dts and am335x-bone.dts file
->>
->> [6/7]: Enable CPSW support to omap2plus_defconfig
->>
->> [7/7]: cpsw: Kernel warn fix during suspend
->>
->> This patch series has been created on top of net-next/master and tested
->> on BeagleBone platform for NFS boot and basic ping test cases.
->>
->> Changes from V3:
->> * Removed unnecessary flags in Davinci MDIO Hwmod entry.
->>
->> Mugunthan V N (4):
->>    ARM: OMAP3+: hwmod: Add AM33XX HWMOD data for davinci_mdio module
->>    arm/dts: am33xx: Add CPSW and MDIO module nodes for AM33XX
->>    ARM: OMAP2+: omap2plus_defconfig: Enable CPSW support
->>    net: cpsw: halt network stack before halting the device during
->>      suspend
->>
->> Richard Cochran (1):
->>    cpsw: simplify the setup of the register pointers
->>
->> Vaibhav Hiremath (2):
->>    net: davinci_mdio: Fix typo mistake in calling runtime-pm api
->>    net: cpsw: Add parent<->child relation support between cpsw and mdio
->>
->>   Documentation/devicetree/bindings/net/cpsw.txt |   34 ----
->>   arch/arm/boot/dts/am335x-bone.dts              |    8 +
->>   arch/arm/boot/dts/am335x-evm.dts               |    8 +
->>   arch/arm/boot/dts/am33xx.dtsi                  |   42 +++++
->>   arch/arm/configs/omap2plus_defconfig           |    3 +
->>   arch/arm/mach-omap2/omap_hwmod_33xx_data.c     |   31 ++++
->>   drivers/net/ethernet/ti/cpsw.c                 |  231
->> ++++++++++--------------
->>   drivers/net/ethernet/ti/davinci_mdio.c         |    2 +-
->>   include/linux/platform_data/cpsw.h             |   19 --
->>   9 files changed, 192 insertions(+), 186 deletions(-)
->>
-> Paul/Benoit
-> 
-> Do you any comments
+bug2 is more common (And usually is accompanied by mangled traces),
+but we have reports of the first WARN too..
 
-The DTS looks better thanks to Richard cleanup.
-But you did not take into account the minor cosmetic comments I did last
-time.
+https://bugzilla.redhat.com/show_bug.cgi?id=841769
+https://bugzilla.redhat.com/show_bug.cgi?id=845853
+https://bugzilla.redhat.com/show_bug.cgi?id=846991
+https://bugzilla.redhat.com/show_bug.cgi?id=860039
 
-Could you just clean the DTS based on last time comments and change the
-subject to be compliant with the other ones and I will take it in my
-for_3.8/dts_part2 branch.
+(I note that none of these reports mention "also, my hard disk is now full")
 
-Thanks,
-Benoit
+ > I agree that the underlying cause must be fixed too, but as we will
+ > always have bugs in the kernel I think proper handling when it does
+ > happen is also important (and filling the hard disk with junk is
+ > obviously not the best approach). If you think a full panic is too
+ > extreme, I have an alternative version of this patch that logs the
+ > WARN once, closes the socket, and returns EBADFD from the syscall...
+ > would you think that is more appropriate?
 
+It sounds more appropriate to me, instead of silently wedging the box.
+At least with that approach we have a chance of finding out what happened.
+
+	Dave
