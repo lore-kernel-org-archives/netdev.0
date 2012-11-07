@@ -1,44 +1,42 @@
-From: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: [PATCH] sunrpc: fix clnt.c kernel-doc warning
-Date: Tue, 06 Nov 2012 17:08:47 -0800
-Message-ID: <5099B49F.5070701@infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 5/6] net: calxedaxgmac: rework transmit ring handling
+Date: Tue, 06 Nov 2012 20:10:52 -0500 (EST)
+Message-ID: <20121106.201052.1632236238198110122.davem@davemloft.net>
+References: <1352132544-15809-6-git-send-email-robherring2@gmail.com>
+	<20121106.185704.1212469675670236955.davem@davemloft.net>
+	<5099AB57.7000805@calxeda.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: rob.herring@calxeda.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33254 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753693Ab2KGBK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 20:10:56 -0500
+In-Reply-To: <5099AB57.7000805@calxeda.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+From: Rob Herring <rob.herring@calxeda.com>
+Date: Tue, 06 Nov 2012 18:29:11 -0600
 
-Fix new kernel-doc warnings in clnt.c:
+> David,
+> 
+> On 11/06/2012 05:57 PM, David Miller wrote:
+>> From: Rob Herring <robherring2@gmail.com>
+>> Date: Mon,  5 Nov 2012 10:22:23 -0600
+>> 
+>>> Only generate tx interrupts on every ring size / 4 descriptors.
+>> 
+>> I thought we told you that you cannot do this.
+>> 
+>> With this change if we get a few packets, then stop generating any
+>> traffic, there will be SKBs that just sit dead in your TX queue.
+> 
+> And as I previously mentioned, we do get a tx complete interrupt in
+> addition. The h/w will interrupt when all packets are transmitted and
+> there is not another descriptor ready.
 
-Warning(net/sunrpc/clnt.c:561): No description found for parameter 'flavor'
-Warning(net/sunrpc/clnt.c:561): Excess function parameter 'auth' description in 'rpc_clone_client_set_auth'
-
-Signed-off-by: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Cc:	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Cc:	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Cc:	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- net/sunrpc/clnt.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- lnx-37-rc4.orig/net/sunrpc/clnt.c
-+++ lnx-37-rc4/net/sunrpc/clnt.c
-@@ -552,7 +552,7 @@ EXPORT_SYMBOL_GPL(rpc_clone_client);
-  * rpc_clone_client_set_auth - Clone an RPC client structure and set its auth
-  *
-  * @clnt: RPC client whose parameters are copied
-- * @auth: security flavor for new client
-+ * @flavor: security flavor for new client
-  *
-  * Returns a fresh RPC client or an ERR_PTR.
-  */
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Ok, in that case it's fine.  I'll keep reviewing this series then.
