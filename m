@@ -1,32 +1,53 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Possible bug with r8169 driver
-Date: Wed, 7 Nov 2012 20:06:54 +0100
-Message-ID: <20121107190654.GA26506@electric-eye.fr.zoreil.com>
-References: <2197741.c8FeV4Xbis@bureau> <20121001185629.GA4922@electric-eye.fr.zoreil.com> <2B85B2AE7F334F8CBC4C4A084CA849FB@realtek.com.tw> <6037895.4WQG8HALS9@bureau>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] cxgb4: Initialize data structures before using.
+Date: Wed, 07 Nov 2012 14:31:27 -0500 (EST)
+Message-ID: <20121107.143127.2060314019851524050.davem@davemloft.net>
+References: <1352209029-4291-1-git-send-email-vipul@chelsio.com>
+	<CANX6Dak5pFutKVn7hV_8-tYx4h67-gS2ud=CrArN--9e=ica5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hayeswang <hayeswang@realtek.com>, netdev@vger.kernel.org,
-	"'nic_swsd'" <nic_swsd@realtek.com>
-To: Nolwenn <donolwenn@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vipul@chelsio.com, netdev@vger.kernel.org, divy@chelsio.com,
+	dm@chelsio.com, jay@chelsio.com
+To: viral.vkm@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:60171 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751149Ab2KGT33 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 14:29:29 -0500
-Content-Disposition: inline
-In-Reply-To: <6037895.4WQG8HALS9@bureau>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40559 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751356Ab2KGTbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 14:31:31 -0500
+In-Reply-To: <CANX6Dak5pFutKVn7hV_8-tYx4h67-gS2ud=CrArN--9e=ica5Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nolwenn <donolwenn@gmail.com> :
-[...]
-> Few weeks later, does I have to do something or it will be fix in the next 
-> kernel ?
+From: Viral Mehta <viral.vkm@gmail.com>
+Date: Wed, 7 Nov 2012 16:42:09 +0530
 
-You do not have anything to do.
+> Hi,
+> 
+> On Tue, Nov 6, 2012 at 7:07 PM, Vipul Pandya <vipul@chelsio.com> wrote:
+>>
+>> We should not assume reserve fields to be don't cares as fields may change.
+>> Clearing data structures before using.
+>>
+>> Signed-off-by: Jay Hernandez <jay@chelsio.com>
+>> Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+>> ---
+>>  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    4 ++++
+>>  1 files changed, 4 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+>> index 32eec15..01fa5b7 100644
+>> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+>> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+>> @@ -2519,6 +2519,7 @@ int t4_fw_bye(struct adapter *adap, unsigned int mbox)
+>>  {
+>>         struct fw_bye_cmd c;
+>>
+>> +       memset(&c, 0, sizeof(c));
+> 
+> struct fw_byte_cmd c = {0};
+> 
+> Isn't it better ?
 
-It is included in David Miller's net branch and will thereof proceed into
-Linus's main branch.
-
--- 
-Ueimor
+There is no fundamental difference, as far as the compiler and
+optimizations are concerned, it's pretty much identical.
