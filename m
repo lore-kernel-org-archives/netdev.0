@@ -1,43 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlx4: change TX coalescing defaults
-Date: Wed, 07 Nov 2012 15:31:13 -0500 (EST)
-Message-ID: <20121107.153113.716743500905191245.davem@davemloft.net>
-References: <1352168442.3140.32.camel@edumazet-glaptop>
+Subject: Re: [PATCH] pkt_sched: enable QFQ to support TSO/GSO
+Date: Wed, 07 Nov 2012 15:37:29 -0500 (EST)
+Message-ID: <20121107.153729.281038826381865443.davem@davemloft.net>
+References: <20121106062924.GA2930@paolo-ThinkPad-W520>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
-	ogerlitz@mellanox.com, j.vimal@gmail.com
-To: eric.dumazet@gmail.com
+Cc: jhs@mojatatu.com, shemminger@vyatta.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rizzo@iet.unipi.it, fchecconi@gmail.com
+To: paolo.valente@unimore.it
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40900 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40937 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750802Ab2KGUbR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 15:31:17 -0500
-In-Reply-To: <1352168442.3140.32.camel@edumazet-glaptop>
+	with ESMTP id S1752074Ab2KGUhb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 15:37:31 -0500
+In-Reply-To: <20121106062924.GA2930@paolo-ThinkPad-W520>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 05 Nov 2012 18:20:42 -0800
+From: Paolo Valente <paolo.valente@unimore.it>
+Date: Tue, 6 Nov 2012 07:29:24 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> If the max packet size for some class (configured through tc) is
+> violated by the actual size of the packets of that class, then QFQ
+> would not schedule classes correctly, and the data structures
+> implementing the bucket lists may get corrupted. This problem occurs
+> with TSO/GSO even if the max packet size is set to the MTU, and is,
+> e.g., the cause of the failure reported in [1]. Two patches have been
+> proposed to solve this problem in [2], one of them is a preliminary
+> version of this patch.
 > 
-> mlx4 currently uses a too high tx coalescing setting, deferring
-> TX completion interrupts by up to 128 us.
+> This patch addresses the above issues by: 1) setting QFQ parameters to
+> proper values for supporting TSO/GSO (in particular, setting the
+> maximum possible packet size to 64KB), 2) automatically increasing the
+> max packet size for a class, lmax, when a packet with a larger size
+> than the current value of lmax arrives.
 > 
-> With the recent skb_orphan() removal in commit 8112ec3b872,
-> performance of a single TCP flow is capped to ~4 Gbps, unless
-> we increase tcp_limit_output_bytes.
+> The drawback of the first point is that the maximum weight for a class
+> is now limited to 4096, which is equal to 1/16 of the maximum weight
+> sum.
 > 
-> I suggest using 16 us instead of 128 us, allowing a finer control.
+> Finally, this patch also forcibly caps the timestamps of a class if
+> they are too high to be stored in the bucket list. This capping, taken
+> from QFQ+ [3], handles the unfrequent case described in the comment to
+> the function slot_insert.
 > 
-> Performance of a single TCP flow is restored to previous levels,
-> while keeping TCP small queues fully enabled with default sysctl.
+> [1] http://marc.info/?l=linux-netdev&m=134968777902077&w=2
+> [2] http://marc.info/?l=linux-netdev&m=135096573507936&w=2
+> [3] http://marc.info/?l=linux-netdev&m=134902691421670&w=2
 > 
-> This patch is also a BQL prereq.
-> 
-> Reported-by: Vimalkumar <j.vimal@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
+> Tested-by: Cong Wang <amwang@redhat.com>
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied, thanks Eric.
+Applied, thanks.
