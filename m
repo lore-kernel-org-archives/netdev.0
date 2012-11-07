@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: fec: reduce spin lock time in fec_ptp_adjfreq
-Date: Wed, 07 Nov 2012 18:53:04 -0500 (EST)
-Message-ID: <20121107.185304.1774660119595460505.davem@davemloft.net>
-References: <1352268889-16836-1-git-send-email-Frank.Li@freescale.com>
+Subject: Re: [PATCH net-next v3] packet: tx_ring: allow the user to choose
+ tx data offset
+Date: Wed, 07 Nov 2012 18:55:13 -0500 (EST)
+Message-ID: <20121107.185513.577120386806348661.davem@davemloft.net>
+References: <1352279447-2980-1-git-send-email-paul.chavent@onera.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lznuaa@gmail.com, richardcochran@gmail.com, shawn.guo@linaro.org,
-	linux-arm-kernel@lists.infradead.or, netdev@vger.kernel.org,
-	bhutchings@solarflare.com
-To: Frank.Li@freescale.com
+Cc: netdev@vger.kernel.org
+To: Paul.Chavent@onera.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42365 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42389 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752130Ab2KGXxH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 18:53:07 -0500
-In-Reply-To: <1352268889-16836-1-git-send-email-Frank.Li@freescale.com>
+	with ESMTP id S1752828Ab2KGXzO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 18:55:14 -0500
+In-Reply-To: <1352279447-2980-1-git-send-email-paul.chavent@onera.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
-Date: Wed, 7 Nov 2012 14:14:49 +0800
+From: Paul Chavent <Paul.Chavent@onera.fr>
+Date: Wed,  7 Nov 2012 10:10:47 +0100
 
-> move below calculate out of spin lock section
-> 	diff = fep->cc.mult;
-> 	diff *= ppb;
-> 	diff = div_u64(diff, 1000000000ULL);
+> The tx data offset of packet mmap tx ring used to be :
+> (TPACKET2_HDRLEN - sizeof(struct sockaddr_ll))
 > 
-> diff is local variable and not neccesary in spin lock
+> The problem is that, with SOCK_RAW socket, the payload (14 bytes after
+> the beginning of the user data) is misaligned.
 > 
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> This patch allows to let the user gives an offset for it's tx data if
+> he desires.
+> 
+> Set sock option PACKET_TX_HAS_OFF to 1, then specify in each frame of
+> your tx ring tp_net for SOCK_DGRAM, or tp_mac for SOCK_RAW.
+> 
+> Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
 
-Also applied, thanks.
+Applied, thanks.
