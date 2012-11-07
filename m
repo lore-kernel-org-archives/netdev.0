@@ -1,82 +1,42 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 02/10] arm: at91: move platfarm_data to include/linux/platform_data/atmel.h
-Date: Wed, 07 Nov 2012 13:20:41 +0100
-Message-ID: <509A5219.2080408@pengutronix.de>
-References: <20121107111235.GH20063@game.jcrosoft.org> <1352287374-25176-1-git-send-email-plagnioj@jcrosoft.com> <1352287374-25176-2-git-send-email-plagnioj@jcrosoft.com>
+From: =?UTF-8?B?QXVyw6lsaWVu?= <footplus@gmail.com>
+Subject: Optics (SFP) monitoring on ixgbe and igbe
+Date: Wed, 7 Nov 2012 13:27:05 +0100
+Message-ID: <CAPN4dA8WUdox2k_F_9cYw=hR=xZHia=z3CXwy-36_t9Hh58zBg@mail.gmail.com>
+Reply-To: footplus@gmail.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig35807B8655F8528925E7C0C9"
-Cc: linux-arm-kernel@lists.infradead.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-ide@vger.kernel.org, linux-input@vger.kernel.org,
-	linux-mmc@vger.kernel.org, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-	rtc-linux@googlegroups.com,
-	spi-devel-general@lists.sourceforge.net,
-	linux-serial@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-fbdev@vger.kernel.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1352287374-25176-2-git-send-email-plagnioj@jcrosoft.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:50250 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751469Ab2KGM10 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 07:27:26 -0500
+Received: by mail-qc0-f174.google.com with SMTP id o22so971839qcr.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 04:27:25 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig35807B8655F8528925E7C0C9
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Hello,
 
-On 11/07/2012 12:22 PM, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>=
+I'm looking to propose a patch for optics monitoring on igbe and ixgbe
+cards which support SFP and SFP+. I have one of each card. While
+searching for previous work done by others on this domain, i found the
+following:
 
-> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Cc: linux-ide@vger.kernel.org
-> Cc: linux-input@vger.kernel.org
-> Cc: linux-mmc@vger.kernel.org
-> Cc: linux-can@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: linux-pcmcia@lists.infradead.org
-> Cc: rtc-linux@googlegroups.com
-> Cc: spi-devel-general@lists.sourceforge.net
-> Cc: linux-serial@vger.kernel.org
-> Cc: linux-usb@vger.kernel.org
-> Cc: linux-fbdev@vger.kernel.org
-> ---
-> HI all,
->=20
-> 	If it's ok with everyone this will go via at91
-> 	with the patch serie than clean up the include/mach
+https://github.com/jelaas/bifrost-build-x86_64/tree/master/all/kernel-x=
+86_64-3.3.0-rc2-1
+(the DOM-* files)
 
-Fine with me.
+I did not yet test this patch (i'll do in a few days), but just by
+looking at the patches, do you think this could get incorporated in
+the current state, provided some administrative work is done, or would
+it require more architectural rework / documentation / other ?
 
-> 	For preparation to switch to arm multiarch kernel
+Could you point me to the next steps required for the functionality to
+be merged in a future mainline kernel/ethtool ? Is there a better
+place than netdev@ to discuss this matter ?
 
-Acked-by: Marc Kleine-Budde <mkl@pengutronix.de> (for the CAN related cha=
-nges)
-
-Marc
-
-
+Thanks,
 --=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig35807B8655F8528925E7C0C9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iEYEARECAAYFAlCaUhwACgkQjTAFq1RaXHPpxACghbRDxGsYGS6OC3LEGKKRMvVE
-P6cAn1B3NTtB3CmBscGxjMuHx42LmYYR
-=omqt
------END PGP SIGNATURE-----
-
---------------enig35807B8655F8528925E7C0C9--
+Aur=C3=A9lien Guillaume
