@@ -1,58 +1,32 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] net: fec: default select FEC_PTP at mx6 platform
-Date: Wed, 7 Nov 2012 18:58:16 +0000
-Message-ID: <1352314696.2725.13.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1352268883-16800-1-git-send-email-Frank.Li@freescale.com>
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH v3 2/7] atm: add owner of push() callback to atmvcc
+Date: Wed, 7 Nov 2012 14:05:22 -0500
+Message-ID: <20121107140522.257c541c@thirdoffive.cmf.nrl.navy.mil>
+References: <1352240222-363-1-git-send-email-krzysiek@podlesie.net>
+	<1352240222-363-3-git-send-email-krzysiek@podlesie.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <lznuaa@gmail.com>, <richardcochran@gmail.com>,
-	<shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.or>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Frank Li <Frank.Li@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:46253 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751284Ab2KGS6U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 13:58:20 -0500
-In-Reply-To: <1352268883-16800-1-git-send-email-Frank.Li@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Woodhouse <David.Woodhouse@intel.com>,
+	davem@davemloft.net
+To: Krzysztof Mazur <krzysiek@podlesie.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1352240222-363-3-git-send-email-krzysiek@podlesie.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-11-07 at 14:14 +0800, Frank Li wrote:
-> Remove PPS.
-> Limit FEC_PTP option for i.MX chip only.
-> FEC_PTP default is on at mx6 platform.
+On Tue,  6 Nov 2012 23:16:57 +0100
+Krzysztof Mazur <krzysiek@podlesie.net> wrote:
+
+> The atm is using atmvcc->push(vcc, NULL) callback to notify protocol
+> that vcc will be closed and protocol must detach from it. This callback
+> is usually used by protocol to decrement module usage count by module_put(),
+> but it leaves small window then module is still used after module_put().
 > 
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
-
-Looks sensible, though I know nothing about the hardware dependencies.
-
-Ben.
-
-> ---
->  drivers/net/ethernet/freescale/Kconfig |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+> Now the owner of push() callback is kept in atmvcc and
+> module_put(atmvcc->owner) is called after the protocol is detached from vcc.
 > 
-> diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-> index ff3be53..5ba6e1c 100644
-> --- a/drivers/net/ethernet/freescale/Kconfig
-> +++ b/drivers/net/ethernet/freescale/Kconfig
-> @@ -94,9 +94,9 @@ config GIANFAR
->  
->  config FEC_PTP
->  	bool "PTP Hardware Clock (PHC)"
-> -	depends on FEC
-> -	select PPS
-> +	depends on FEC && ARCH_MXC
->  	select PTP_1588_CLOCK
-> +	default y if SOC_IMX6Q
->  	--help---
->  	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
->  	  driver.  Only the basic clock operations have been implemented.
+> Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
