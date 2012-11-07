@@ -1,40 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] htb: fix two bugs
-Date: Tue, 06 Nov 2012 19:06:55 -0500 (EST)
-Message-ID: <20121106.190655.1944399936693318220.davem@davemloft.net>
-References: <1352169649.3140.59.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vimal@gmail.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32926 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752828Ab2KGAG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 19:06:56 -0500
-In-Reply-To: <1352169649.3140.59.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julius Werner <jwerner@chromium.org>
+Subject: [PATCH] tcp: Replace infinite loop on recvmsg bug with proper crash
+Date: Tue,  6 Nov 2012 16:15:35 -0800
+Message-ID: <1352247335-10396-1-git-send-email-jwerner@chromium.org>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sameer Nanda <snanda@chromium.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Eric Dumazet <edumazet@chromium.org>,
+	Julius Werner <jwerner@chromium.org>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 05 Nov 2012 18:40:49 -0800
+tcp_recvmsg contains a sanity check that WARNs when there is a gap
+between the socket's copied_seq and the first buffer in the
+sk_receive_queue. In theory, the TCP stack makes sure that This Should
+Never Happen (TM)... however, practice shows that there are still a few
+bug reports from it out there (and one in my inbox).
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Commit 56b765b79e9 (htb: improved accuracy at high rates)
-> introduced two bugs :
-> 
-> 1) one bstats_update() was inadvertently removed from
->    htb_dequeue_tree(), breaking statistics/rate estimation.
-> 
-> 2) Missing qdisc_put_rtab() calls in htb_change_class(),
->    leaking kernel memory, now struct htb_class no longer
->    retains pointers to qdisc_rate_table structs.
-> 
->    Since only rate is used, dont use qdisc_get_rtab() calls
->    copying data we ignore anyway.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Unfortunately, when it does happen for whatever reason, the situation
+is not handled very well: the kernel logs a warning and breaks out of
+the loop that walks the receive queue. It proceeds to find nothing else
+to do on the socket and hits sk_wait_data, which cannot block because
+the receive queue is not empty. As no data was read, the outer while
+loop repeats (logging the same warning again) ad infinitum until the
+system's syslog exhausts all available hard drive capacity.
 
-Applied, thanks Eric.
+This patch improves that behavior by going straight to a proper kernel
+crash. The cause of the error can be identified right away and the
+system's hard drive is not unnecessarily strained.
+
+Signed-off-by: Julius Werner <jwerner@chromium.org>
+---
+ net/ipv4/tcp.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 197c000..fcb0927 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1628,7 +1628,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 				 "recvmsg bug: copied %X seq %X rcvnxt %X fl %X\n",
+ 				 *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
+ 				 flags))
+-				break;
++				BUG();
+ 
+ 			offset = *seq - TCP_SKB_CB(skb)->seq;
+ 			if (tcp_hdr(skb)->syn)
+-- 
+1.7.8.6
