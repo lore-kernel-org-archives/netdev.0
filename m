@@ -1,53 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] cxgb4: Initialize data structures before using.
-Date: Wed, 07 Nov 2012 14:31:27 -0500 (EST)
-Message-ID: <20121107.143127.2060314019851524050.davem@davemloft.net>
-References: <1352209029-4291-1-git-send-email-vipul@chelsio.com>
-	<CANX6Dak5pFutKVn7hV_8-tYx4h67-gS2ud=CrArN--9e=ica5Q@mail.gmail.com>
+From: Julius Werner <jwerner@chromium.org>
+Subject: Re: [PATCH] tcp: Replace infinite loop on recvmsg bug with proper crashusers
+Date: Wed, 7 Nov 2012 11:32:47 -0800
+Message-ID: <CAODwPW9kiG-jo=n0zedv5KT-8-gJcEUrdC3F2mAEjt78tne18g@mail.gmail.com>
+References: <1352247335-10396-1-git-send-email-jwerner@chromium.org>
+	<20121107013907.GA31185@redhat.com>
+	<CAODwPW-636Sn3B4CYajvrgccXxresZwPLg2UFz6xDDk9-FfTYQ@mail.gmail.com>
+	<20121107155434.GA17677@redhat.com>
+	<1352305752.3140.4449.camel@edumazet-glaptop>
+	<20121107164358.GA20495@redhat.com>
+	<1352307902.3140.4588.camel@edumazet-glaptop>
+	<20121107171541.GA24482@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vipul@chelsio.com, netdev@vger.kernel.org, divy@chelsio.com,
-	dm@chelsio.com, jay@chelsio.com
-To: viral.vkm@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40559 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751356Ab2KGTbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 14:31:31 -0500
-In-Reply-To: <CANX6Dak5pFutKVn7hV_8-tYx4h67-gS2ud=CrArN--9e=ica5Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: Dave Jones <davej@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Julius Werner <jwerner@chromium.org>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	James Morris <jmorris@namei.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sameer Nanda <snanda@chromium.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Eric Dumazet <edumazet@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121107171541.GA24482@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Viral Mehta <viral.vkm@gmail.com>
-Date: Wed, 7 Nov 2012 16:42:09 +0530
+I tend to agree with Dave that it's not in the user's best interest to
+have a full-on BUG() here, and that we can get our reports just as
+well by fishing them from the log through abrt or something similar. I
+will just submit my alternative patch too and let you decide which one
+you prefer.
 
-> Hi,
-> 
-> On Tue, Nov 6, 2012 at 7:07 PM, Vipul Pandya <vipul@chelsio.com> wrote:
->>
->> We should not assume reserve fields to be don't cares as fields may change.
->> Clearing data structures before using.
->>
->> Signed-off-by: Jay Hernandez <jay@chelsio.com>
->> Signed-off-by: Vipul Pandya <vipul@chelsio.com>
->> ---
->>  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    4 ++++
->>  1 files changed, 4 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
->> index 32eec15..01fa5b7 100644
->> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
->> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
->> @@ -2519,6 +2519,7 @@ int t4_fw_bye(struct adapter *adap, unsigned int mbox)
->>  {
->>         struct fw_bye_cmd c;
->>
->> +       memset(&c, 0, sizeof(c));
-> 
-> struct fw_byte_cmd c = {0};
-> 
-> Isn't it better ?
-
-There is no fundamental difference, as far as the compiler and
-optimizations are concerned, it's pretty much identical.
+This version shuts down the socket, so the broken receive queue will
+not be used again and eventually freed. Other sockets and the system
+as a whole will stay usable and probably still work if the bug is a
+very rare coincidence. Of course, the driver will still be buggy, but
+the same would stay true after a reboot (which is what most people do
+after a panic). The userland caller gets an unexpected error code,
+which is not the same as receiving a proper FIN and is the only thing
+we can do to communicate this.
