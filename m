@@ -1,87 +1,83 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH 7/8] net/at91_ether: clean up print outs
-Date: Wed,  7 Nov 2012 19:14:56 +0100
-Message-ID: <1352312097-31320-8-git-send-email-manabian@gmail.com>
+Subject: [PATCH 3/8] net/macb: export macb_set_hwaddr and macb_get_hwaddr
+Date: Wed,  7 Nov 2012 19:14:52 +0100
+Message-ID: <1352312097-31320-4-git-send-email-manabian@gmail.com>
 References: <1352312097-31320-1-git-send-email-manabian@gmail.com>
 Cc: plagnioj@jcrosoft.com, netdev@vger.kernel.org,
 	Joachim Eastwood <manabian@gmail.com>
 To: nicolas.ferre@atmel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:36135 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753694Ab2KGSPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 13:15:19 -0500
-Received: by mail-lb0-f174.google.com with SMTP id n3so1512096lbo.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 10:15:18 -0800 (PST)
+Received: from mail-la0-f46.google.com ([209.85.215.46]:38659 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751748Ab2KGSPP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 13:15:15 -0500
+Received: by mail-la0-f46.google.com with SMTP id h6so1452444lag.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 10:15:15 -0800 (PST)
 In-Reply-To: <1352312097-31320-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert all printk's to netdev_ counterparts and fix up some
-printed texts.
+for usage in at91_ether driver.
 
 Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/ethernet/cadence/at91_ether.c | 17 +++++++----------
- 1 file changed, 7 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 8 +++++---
+ drivers/net/ethernet/cadence/macb.h | 2 ++
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index 67b66c4..cf0cf06 100644
---- a/drivers/net/ethernet/cadence/at91_ether.c
-+++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -60,7 +60,7 @@ static int at91ether_start(struct net_device *dev)
- 					MAX_RX_DESCR * sizeof(struct macb_dma_desc),
- 					&lp->rx_ring_dma, GFP_KERNEL);
- 	if (!lp->rx_ring) {
--		netdev_err(lp->dev, "unable to alloc rx ring DMA buffer\n");
-+		netdev_err(dev, "unable to alloc rx ring DMA buffer\n");
- 		return -ENOMEM;
- 	}
- 
-@@ -68,7 +68,7 @@ static int at91ether_start(struct net_device *dev)
- 					MAX_RX_DESCR * MAX_RBUFF_SZ,
- 					&lp->rx_buffers_dma, GFP_KERNEL);
- 	if (!lp->rx_buffers) {
--		netdev_err(lp->dev, "unable to alloc rx data DMA buffer\n");
-+		netdev_err(dev, "unable to alloc rx data DMA buffer\n");
- 
- 		dma_free_coherent(&lp->pdev->dev,
- 					MAX_RX_DESCR * sizeof(struct macb_dma_desc),
-@@ -189,7 +189,7 @@ static int at91ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		macb_writel(lp, TCR, skb->len);
- 
- 	} else {
--		printk(KERN_ERR "at91_ether.c: at91ether_start_xmit() called, but device is busy!\n");
-+		netdev_err(dev, "%s called, but device is busy!\n", __func__);
- 		return NETDEV_TX_BUSY;	/* if we return anything but zero, dev.c:1055 calls kfree_skb(skb)
- 				on this skb, he also reports -ENETDOWN and printk's, so either
- 				we free and return(0) or don't free and return 1 */
-@@ -279,7 +279,7 @@ static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
- 	}
- 
- 	if (intstatus & MACB_BIT(ISR_ROVR))
--		printk("%s: ROVR error\n", dev->name);
-+		netdev_err(dev, "ROVR error\n");
- 
- 	return IRQ_HANDLED;
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index a9e5a50..6be5a26 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -98,7 +98,7 @@ static void *macb_rx_buffer(struct macb *bp, unsigned int index)
+ 	return bp->rx_buffers + RX_BUFFER_SIZE * macb_rx_ring_wrap(index);
  }
-@@ -449,14 +449,11 @@ static int __init at91ether_probe(struct platform_device *pdev)
  
- 	phydev = lp->phy_dev;
- 	netdev_info(dev, "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
--		phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
-+				phydev->drv->name, dev_name(&phydev->dev), phydev->irq);
+-static void __macb_set_hwaddr(struct macb *bp)
++void macb_set_hwaddr(struct macb *bp)
+ {
+ 	u32 bottom;
+ 	u16 top;
+@@ -108,8 +108,9 @@ static void __macb_set_hwaddr(struct macb *bp)
+ 	top = cpu_to_le16(*((u16 *)(bp->dev->dev_addr + 4)));
+ 	macb_or_gem_writel(bp, SA1T, top);
+ }
++EXPORT_SYMBOL_GPL(macb_set_hwaddr);
  
- 	/* Display ethernet banner */
--	printk(KERN_INFO "%s: AT91 ethernet at 0x%08x int=%d %s%s (%pM)\n",
--	       dev->name, (uint) dev->base_addr, dev->irq,
--	       macb_readl(lp, NCFGR) & MACB_BIT(SPD) ? "100-" : "10-",
--	       macb_readl(lp, NCFGR) & MACB_BIT(FD) ? "FullDuplex" : "HalfDuplex",
--	       dev->dev_addr);
-+	netdev_info(dev, "AT91 ethernet at 0x%08lx int=%d (%pM)\n",
-+				dev->base_addr, dev->irq, dev->dev_addr);
+-static void __init macb_get_hwaddr(struct macb *bp)
++void macb_get_hwaddr(struct macb *bp)
+ {
+ 	struct macb_platform_data *pdata;
+ 	u32 bottom;
+@@ -149,6 +150,7 @@ static void __init macb_get_hwaddr(struct macb *bp)
+ 	netdev_info(bp->dev, "invalid hw address, using random\n");
+ 	eth_hw_addr_random(bp->dev);
+ }
++EXPORT_SYMBOL_GPL(macb_get_hwaddr);
  
- 	return 0;
+ static int macb_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+ {
+@@ -1035,7 +1037,7 @@ static void macb_init_hw(struct macb *bp)
+ 	u32 config;
  
+ 	macb_reset_hw(bp);
+-	__macb_set_hwaddr(bp);
++	macb_set_hwaddr(bp);
+ 
+ 	config = macb_mdc_clk_div(bp);
+ 	config |= MACB_BF(RBOF, NET_IP_ALIGN);	/* Make eth data aligned */
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 4235ab8..d723494 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -573,6 +573,8 @@ extern const struct ethtool_ops macb_ethtool_ops;
+ int macb_mii_init(struct macb *bp);
+ int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ void macb_set_rx_mode(struct net_device *dev);
++void macb_set_hwaddr(struct macb *bp);
++void macb_get_hwaddr(struct macb *bp);
+ 
+ static inline bool macb_is_gem(struct macb *bp)
+ {
 -- 
 1.8.0
