@@ -1,155 +1,303 @@
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Subject: [PATCH net-next v3] packet: tx_ring: allow the user to choose tx data offset
-Date: Wed,  7 Nov 2012 10:10:47 +0100
-Message-ID: <1352279447-2980-1-git-send-email-paul.chavent@onera.fr>
-Cc: Paul Chavent <Paul.Chavent@onera.fr>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Li Yu <raise.sail@gmail.com>
+Subject: Re: [PATCH 1/4 net-next] net: allow skb->head to be a page fragment
+Date: Wed, 07 Nov 2012 16:20:54 +0800
+Message-ID: <509A19E6.4040707@gmail.com>
+References: <1335522818.2775.227.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from briaree.onecert.fr ([134.212.190.4]:50906 "EHLO
-	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750825Ab2KGIOt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 03:14:49 -0500
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:54053 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750768Ab2KGIVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 03:21:04 -0500
+Received: by mail-pa0-f46.google.com with SMTP id hz1so983309pad.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 00:21:04 -0800 (PST)
+In-Reply-To: <1335522818.2775.227.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tx data offset of packet mmap tx ring used to be :
-(TPACKET2_HDRLEN - sizeof(struct sockaddr_ll))
+=E4=BA=8E 2012=E5=B9=B404=E6=9C=8827=E6=97=A5 18:33, Eric Dumazet =E5=86=
+=99=E9=81=93:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> skb->head is currently allocated from kmalloc(). This is convenient b=
+ut
+> has the drawback the data cannot be converted to a page fragment if
+> needed.
+>
 
-The problem is that, with SOCK_RAW socket, the payload (14 bytes after
-the beginning of the user data) is misaligned.
+Hi, Eric,
 
-This patch allows to let the user gives an offset for it's tx data if
-he desires.
+I have a question about this patch, why data are allocated from=20
+kmalloc() can not be converted to page fragment ? We have its kernel
+mapped address and length, so we can get its page and offset in the=20
+page. If the skb is not cloned (shared with others), such page and its
+offset should be can use safely, in my words.
 
-Set sock option PACKET_TX_HAS_OFF to 1, then specify in each frame of
-your tx ring tp_net for SOCK_DGRAM, or tp_mac for SOCK_RAW.
+I suspected that I may lost important something in slab internals, is r=
+ight?
 
-Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
----
- Documentation/networking/packet_mmap.txt | 13 +++++++++
- include/uapi/linux/if_packet.h           |  1 +
- net/packet/af_packet.c                   | 46 +++++++++++++++++++++++++++++++-
- net/packet/internal.h                    |  1 +
- 4 files changed, 60 insertions(+), 1 deletion(-)
+Thanks
 
-diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
-index 1c08a4b..7cd879e 100644
---- a/Documentation/networking/packet_mmap.txt
-+++ b/Documentation/networking/packet_mmap.txt
-@@ -163,6 +163,19 @@ As capture, each frame contains two parts:
- 
-  A complete tutorial is available at: http://wiki.gnu-log.net/
- 
-+By default, the user should put data at :
-+ frame base + TPACKET_HDRLEN - sizeof(struct sockaddr_ll)
-+
-+So, whatever you choose for the socket mode (SOCK_DGRAM or SOCK_RAW),
-+the beginning of the user data will be at :
-+ frame base + TPACKET_ALIGN(sizeof(struct tpacket_hdr))
-+
-+If you wish to put user data at a custom offset from the beginning of
-+the frame (for payload alignment with SOCK_RAW mode for instance) you
-+can set tp_net (with SOCK_DGRAM) or tp_mac (with SOCK_RAW). In order
-+to make this work it must be enabled previously with setsockopt()
-+and the PACKET_TX_HAS_OFF option.
-+
- --------------------------------------------------------------------------------
- + PACKET_MMAP settings
- --------------------------------------------------------------------------------
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index f379929..f9a6037 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -50,6 +50,7 @@ struct sockaddr_ll {
- #define PACKET_TX_TIMESTAMP		16
- #define PACKET_TIMESTAMP		17
- #define PACKET_FANOUT			18
-+#define PACKET_TX_HAS_OFF		19
- 
- #define PACKET_FANOUT_HASH		0
- #define PACKET_FANOUT_LB		1
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 9034f52..f262dbf 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1881,7 +1881,35 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	skb_reserve(skb, hlen);
- 	skb_reset_network_header(skb);
- 
--	data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
-+	if (po->tp_tx_has_off) {
-+		int off_min, off_max, off;
-+		off_min = po->tp_hdrlen - sizeof(struct sockaddr_ll);
-+		off_max = po->tx_ring.frame_size - tp_len;
-+		if (sock->type == SOCK_DGRAM) {
-+			switch (po->tp_version) {
-+			case TPACKET_V2:
-+				off = ph.h2->tp_net;
-+				break;
-+			default:
-+				off = ph.h1->tp_net;
-+				break;
-+			}
-+		} else {
-+			switch (po->tp_version) {
-+			case TPACKET_V2:
-+				off = ph.h2->tp_mac;
-+				break;
-+			default:
-+				off = ph.h1->tp_mac;
-+				break;
-+			}
-+		}
-+		if (unlikely((off < off_min) || (off_max < off)))
-+			return -EINVAL;
-+		data = ph.raw + off;
-+	} else {
-+		data = ph.raw + po->tp_hdrlen - sizeof(struct sockaddr_ll);
-+	}
- 	to_write = tp_len;
- 
- 	if (sock->type == SOCK_DGRAM) {
-@@ -3109,6 +3137,19 @@ packet_setsockopt(struct socket *sock, int level, int optname, char __user *optv
- 
- 		return fanout_add(sk, val & 0xffff, val >> 16);
- 	}
-+	case PACKET_TX_HAS_OFF:
-+	{
-+		unsigned int val;
-+
-+		if (optlen != sizeof(val))
-+			return -EINVAL;
-+		if (po->rx_ring.pg_vec || po->tx_ring.pg_vec)
-+			return -EBUSY;
-+		if (copy_from_user(&val, optval, sizeof(val)))
-+			return -EFAULT;
-+		po->tp_tx_has_off = !!val;
-+		return 0;
-+	}
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-@@ -3200,6 +3241,9 @@ static int packet_getsockopt(struct socket *sock, int level, int optname,
- 			((u32)po->fanout->type << 16)) :
- 		       0);
- 		break;
-+	case PACKET_TX_HAS_OFF:
-+		val = po->tp_tx_has_off;
-+		break;
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-diff --git a/net/packet/internal.h b/net/packet/internal.h
-index 44945f6..e84cab8 100644
---- a/net/packet/internal.h
-+++ b/net/packet/internal.h
-@@ -109,6 +109,7 @@ struct packet_sock {
- 	unsigned int		tp_hdrlen;
- 	unsigned int		tp_reserve;
- 	unsigned int		tp_loss:1;
-+	unsigned int		tp_tx_has_off:1;
- 	unsigned int		tp_tstamp;
- 	struct packet_type	prot_hook ____cacheline_aligned_in_smp;
- };
--- 
-1.7.12.1
+Yu
+
+> We have three spots were it hurts :
+>
+> 1) GRO aggregation
+>
+>   When a linear skb must be appended to another skb, GRO uses the
+> frag_list fallback, very inefficient since we keep all struct sk_buff
+> around. So drivers enabling GRO but delivering linear skbs to network
+> stack aren't enabling full GRO power.
+>
+> 2) splice(socket -> pipe).
+>
+>   We must copy the linear part to a page fragment.
+>   This kind of defeats splice() purpose (zero copy claim)
+>
+> 3) TCP coalescing.
+>
+>   Recently introduced, this permits to group several contiguous segme=
+nts
+> into a single skb. This shortens queue lengths and save kernel memory=
+,
+> and greatly reduce probabilities of TCP collapses. This coalescing
+> doesnt work on linear skbs (or we would need to copy data, this would=
+ be
+> too slow)
+>
+> Given all these issues, the following patch introduces the possibilit=
+y
+> of having skb->head be a fragment in itself. We use a new skb flag,
+> skb->head_frag to carry this information.
+>
+> build_skb() is changed to accept a frag_size argument. Drivers willin=
+g
+> to provide a page fragment instead of kmalloc() data will set a non z=
+ero
+> value, set to the fragment size.
+>
+> Then, on situations we need to convert the skb head to a frag in itse=
+lf,
+> we can check if skb->head_frag is set and avoid the copies or various
+> fallbacks we have.
+>
+> This means drivers currently using frags could be updated to avoid th=
+e
+> current skb->head allocation and reduce their memory footprint (aka s=
+kb
+> truesize). (thats 512 or 1024 bytes saved per skb). This also makes
+> bpf/netfilter faster since the 'first frag' will be part of skb linea=
+r
+> part, no need to copy data.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Maciej =C5=BBenczykowski <maze@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Tom Herbert <therbert@google.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: Ben Hutchings <bhutchings@solarflare.com>
+> Cc: Matt Carlson <mcarlson@broadcom.com>
+> Cc: Michael Chan <mchan@broadcom.com>
+> ---
+>   drivers/net/ethernet/broadcom/bnx2.c            |    2 -
+>   drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    4 +-
+>   drivers/net/ethernet/broadcom/tg3.c             |    2 -
+>   include/linux/skbuff.h                          |    5 +-
+>   net/core/skbuff.c                               |   24 ++++++++++--=
+--
+>   5 files changed, 25 insertions(+), 12 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ether=
+net/broadcom/bnx2.c
+> index ab55979..ac7b744 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2.c
+> @@ -3006,7 +3006,7 @@ error:
+>
+>   	dma_unmap_single(&bp->pdev->dev, dma_addr, bp->rx_buf_use_size,
+>   			 PCI_DMA_FROMDEVICE);
+> -	skb =3D build_skb(data);
+> +	skb =3D build_skb(data, 0);
+>   	if (!skb) {
+>   		kfree(data);
+>   		goto error;
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/driver=
+s/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> index 60d5b54..9c5bc5d 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> @@ -513,7 +513,7 @@ static inline void bnx2x_tpa_stop(struct bnx2x *b=
+p, struct bnx2x_fastpath *fp,
+>   	dma_unmap_single(&bp->pdev->dev, dma_unmap_addr(rx_buf, mapping),
+>   			 fp->rx_buf_size, DMA_FROM_DEVICE);
+>   	if (likely(new_data))
+> -		skb =3D build_skb(data);
+> +		skb =3D build_skb(data, 0);
+>
+>   	if (likely(skb)) {
+>   #ifdef BNX2X_STOP_ON_ERROR
+> @@ -721,7 +721,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int b=
+udget)
+>   						 dma_unmap_addr(rx_buf, mapping),
+>   						 fp->rx_buf_size,
+>   						 DMA_FROM_DEVICE);
+> -				skb =3D build_skb(data);
+> +				skb =3D build_skb(data, 0);
+>   				if (unlikely(!skb)) {
+>   					kfree(data);
+>   					fp->eth_q_stats.rx_skb_alloc_failed++;
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethern=
+et/broadcom/tg3.c
+> index 0c3e7c7..d481b0a 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -5844,7 +5844,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int b=
+udget)
+>   			pci_unmap_single(tp->pdev, dma_addr, skb_size,
+>   					 PCI_DMA_FROMDEVICE);
+>
+> -			skb =3D build_skb(data);
+> +			skb =3D build_skb(data, 0);
+>   			if (!skb) {
+>   				kfree(data);
+>   				goto drop_it_no_recycle;
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 4a656b5..9d28a22 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -470,7 +470,8 @@ struct sk_buff {
+>   	__u8			wifi_acked_valid:1;
+>   	__u8			wifi_acked:1;
+>   	__u8			no_fcs:1;
+> -	/* 9/11 bit hole (depending on ndisc_nodetype presence) */
+> +	__u8			head_frag:1;
+> +	/* 8/10 bit hole (depending on ndisc_nodetype presence) */
+>   	kmemcheck_bitfield_end(flags2);
+>
+>   #ifdef CONFIG_NET_DMA
+> @@ -562,7 +563,7 @@ extern void consume_skb(struct sk_buff *skb);
+>   extern void	       __kfree_skb(struct sk_buff *skb);
+>   extern struct sk_buff *__alloc_skb(unsigned int size,
+>   				   gfp_t priority, int fclone, int node);
+> -extern struct sk_buff *build_skb(void *data);
+> +extern struct sk_buff *build_skb(void *data, unsigned int frag_size)=
+;
+>   static inline struct sk_buff *alloc_skb(unsigned int size,
+>   					gfp_t priority)
+>   {
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 2342a72..effa75d 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -245,6 +245,7 @@ EXPORT_SYMBOL(__alloc_skb);
+>   /**
+>    * build_skb - build a network buffer
+>    * @data: data buffer provided by caller
+> + * @frag_size: size of fragment, or 0 if head was kmalloced
+>    *
+>    * Allocate a new &sk_buff. Caller provides space holding head and
+>    * skb_shared_info. @data must have been allocated by kmalloc()
+> @@ -258,20 +259,21 @@ EXPORT_SYMBOL(__alloc_skb);
+>    *  before giving packet to stack.
+>    *  RX rings only contains data buffers, not full skbs.
+>    */
+> -struct sk_buff *build_skb(void *data)
+> +struct sk_buff *build_skb(void *data, unsigned int frag_size)
+>   {
+>   	struct skb_shared_info *shinfo;
+>   	struct sk_buff *skb;
+> -	unsigned int size;
+> +	unsigned int size =3D frag_size ? : ksize(data);
+>
+>   	skb =3D kmem_cache_alloc(skbuff_head_cache, GFP_ATOMIC);
+>   	if (!skb)
+>   		return NULL;
+>
+> -	size =3D ksize(data) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info=
+));
+> +	size -=3D SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+>
+>   	memset(skb, 0, offsetof(struct sk_buff, tail));
+>   	skb->truesize =3D SKB_TRUESIZE(size);
+> +	skb->head_frag =3D frag_size !=3D 0;
+>   	atomic_set(&skb->users, 1);
+>   	skb->head =3D data;
+>   	skb->data =3D data;
+> @@ -376,6 +378,14 @@ static void skb_clone_fraglist(struct sk_buff *s=
+kb)
+>   		skb_get(list);
+>   }
+>
+> +static void skb_free_head(struct sk_buff *skb)
+> +{
+> +	if (skb->head_frag)
+> +		put_page(virt_to_head_page(skb->head));
+> +	else
+> +		kfree(skb->head);
+> +}
+> +
+>   static void skb_release_data(struct sk_buff *skb)
+>   {
+>   	if (!skb->cloned ||
+> @@ -402,7 +412,7 @@ static void skb_release_data(struct sk_buff *skb)
+>   		if (skb_has_frag_list(skb))
+>   			skb_drop_fraglist(skb);
+>
+> -		kfree(skb->head);
+> +		skb_free_head(skb);
+>   	}
+>   }
+>
+> @@ -644,6 +654,7 @@ static struct sk_buff *__skb_clone(struct sk_buff=
+ *n, struct sk_buff *skb)
+>   	C(tail);
+>   	C(end);
+>   	C(head);
+> +	C(head_frag);
+>   	C(data);
+>   	C(truesize);
+>   	atomic_set(&n->users, 1);
+> @@ -940,7 +951,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhe=
+ad, int ntail,
+>   		fastpath =3D atomic_read(&skb_shinfo(skb)->dataref) =3D=3D delta;
+>   	}
+>
+> -	if (fastpath &&
+> +	if (fastpath && !skb->head_frag &&
+>   	    size + sizeof(struct skb_shared_info) <=3D ksize(skb->head)) {
+>   		memmove(skb->head + size, skb_shinfo(skb),
+>   			offsetof(struct skb_shared_info,
+> @@ -967,7 +978,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhe=
+ad, int ntail,
+>   	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_=
+frags]));
+>
+>   	if (fastpath) {
+> -		kfree(skb->head);
+> +		skb_free_head(skb);
+>   	} else {
+>   		/* copy this zero copy skb frags */
+>   		if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+> @@ -985,6 +996,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhe=
+ad, int ntail,
+>   	off =3D (data + nhead) - skb->head;
+>
+>   	skb->head     =3D data;
+> +	skb->head_frag =3D 0;
+>   adjust_others:
+>   	skb->data    +=3D off;
+>   #ifdef NET_SKBUFF_DATA_USES_OFFSET
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
