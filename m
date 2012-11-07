@@ -1,73 +1,50 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH 2/2] net: fec: reduce spin lock time in fec_ptp_adjfreq
-Date: Wed, 7 Nov 2012 14:14:49 +0800
-Message-ID: <1352268889-16836-1-git-send-email-Frank.Li@freescale.com>
+From: Gerd Hoffmann <kraxel@redhat.com>
+Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Wed, 07 Nov 2012 07:58:51 +0100
+Message-ID: <509A06AB.2020700@redhat.com>
+References: <783561822.12637564.1352139592543.JavaMail.root@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Frank Li <Frank.Li@freescale.com>
-To: <lznuaa@gmail.com>, <richardcochran@gmail.com>,
-	<shawn.guo@linaro.org>, <linux-arm-kernel@lists.infradead.or>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:36730 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751616Ab2KGG5f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 01:57:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, David Miller <davem@davemloft.net>,
+	georgezhang@vmware.com
+To: Andy King <acking@vmware.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <783561822.12637564.1352139592543.JavaMail.root@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-move below calculate out of spin lock section
-	diff = fep->cc.mult;
-	diff *= ppb;
-	diff = div_u64(diff, 1000000000ULL);
+On 11/05/12 19:19, Andy King wrote:
+> Hi David,
+> 
+>> The big and only question is whether anyone can actually use any of
+>> this stuff without your proprietary bits?
+> 
+> Do you mean the VMCI calls?  The VMCI driver is in the process of being
+> upstreamed into the drivers/misc tree.  Greg (cc'd on these patches) is
+> actively reviewing that code and we are addressing feedback.
+> 
+> Also, there was some interest from RedHat into using vSockets as a unified
+> interface, routed over a hypervisor-specific transport (virtio or
+> otherwise, although for now VMCI is the only one implemented).
 
-diff is local variable and not neccesary in spin lock
+Can you outline how this can be done?  From a quick look over the code
+it seems like vsock has a hard dependency on vmci, is that correct?
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- drivers/net/ethernet/freescale/fec_ptp.c |   14 ++++++--------
- 1 files changed, 6 insertions(+), 8 deletions(-)
+When making vsock a generic, reusable kernel service it should be the
+other way around:  vsock should provide the core implementation and an
+interface where hypervisor-specific transports (vmci, virtio, xenbus,
+...) can register themself.
 
-diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
-index 5352140..c40526c 100644
---- a/drivers/net/ethernet/freescale/fec_ptp.c
-+++ b/drivers/net/ethernet/freescale/fec_ptp.c
-@@ -145,6 +145,7 @@ static int fec_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 	u64 diff;
- 	unsigned long flags;
- 	int neg_adj = 0;
-+	u32 mult = FEC_CC_MULT;
- 
- 	struct fec_enet_private *fep =
- 	    container_of(ptp, struct fec_enet_private, ptp_caps);
-@@ -154,6 +155,10 @@ static int fec_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 		neg_adj = 1;
- 	}
- 
-+	diff = mult;
-+	diff *= ppb;
-+	diff = div_u64(diff, 1000000000ULL);
-+
- 	spin_lock_irqsave(&fep->tmreg_lock, flags);
- 	/*
- 	 * dummy read to set cycle_last in tc to now.
-@@ -161,15 +166,8 @@ static int fec_ptp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
- 	 * timercounter_read.
- 	 */
- 	timecounter_read(&fep->tc);
--	fep->cc.mult = FEC_CC_MULT;
--	diff = fep->cc.mult;
--	diff *= ppb;
--	diff = div_u64(diff, 1000000000ULL);
- 
--	if (neg_adj)
--		fep->cc.mult -= diff;
--	else
--		fep->cc.mult += diff;
-+	fep->cc.mult = neg_adj ? mult - diff : mult + diff;
- 
- 	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
- 
--- 
-1.7.1
+cheers,
+  Gerd
