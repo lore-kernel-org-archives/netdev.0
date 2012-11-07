@@ -1,64 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/4 net-next] net: allow skb->head to be a page fragment
-Date: Wed, 07 Nov 2012 03:04:24 -0800
-Message-ID: <1352286264.3140.3575.camel@edumazet-glaptop>
-References: <1335522818.2775.227.camel@edumazet-glaptop>
-	 <509A19E6.4040707@gmail.com>  <509A1D49.4080306@gmail.com>
+From: Viral Mehta <viral.vkm@gmail.com>
+Subject: Re: [PATCH net] cxgb4: Initialize data structures before using.
+Date: Wed, 7 Nov 2012 16:42:09 +0530
+Message-ID: <CANX6Dak5pFutKVn7hV_8-tYx4h67-gS2ud=CrArN--9e=ica5Q@mail.gmail.com>
+References: <1352209029-4291-1-git-send-email-vipul@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Li Yu <raise.sail@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	divy@chelsio.com, dm@chelsio.com, Jay Hernandez <jay@chelsio.com>
+To: Vipul Pandya <vipul@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f174.google.com ([209.85.210.174]:50064 "EHLO
-	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754221Ab2KGLE1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 06:04:27 -0500
-Received: by mail-ia0-f174.google.com with SMTP id y32so997795iag.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 03:04:27 -0800 (PST)
-In-Reply-To: <509A1D49.4080306@gmail.com>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:42411 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751758Ab2KGLMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 06:12:10 -0500
+Received: by mail-ob0-f174.google.com with SMTP id uo13so1436514obb.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 03:12:09 -0800 (PST)
+In-Reply-To: <1352209029-4291-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-11-07 at 16:35 +0800, Li Yu wrote:
-> =E4=BA=8E 2012=E5=B9=B411=E6=9C=8807=E6=97=A5 16:20, Li Yu =E5=86=99=E9=
-=81=93:
-> > =E4=BA=8E 2012=E5=B9=B404=E6=9C=8827=E6=97=A5 18:33, Eric Dumazet =E5=
-=86=99=E9=81=93:
-> >> From: Eric Dumazet <edumazet@google.com>
-> >>
-> >> skb->head is currently allocated from kmalloc(). This is convenien=
-t but
-> >> has the drawback the data cannot be converted to a page fragment i=
-f
-> >> needed.
-> >>
-> >
-> > Hi, Eric,
-> >
-> > I have a question about this patch, why data are allocated from
-> > kmalloc() can not be converted to page fragment ? We have its kerne=
-l
-> > mapped address and length, so we can get its page and offset in the
-> > page. If the skb is not cloned (shared with others), such page and =
-its
-> > offset should be can use safely, in my words.
-> >
-> > I suspected that I may lost important something in slab internals, =
-is
-> > right?
-> >
-> > Thanks
-> >
-> > Yu
-> >
->=20
-> Or since slab allocated object may be across multiple pages?
-> I saw __netdev_alloc_skb() only use build_skb() with non-zero
-> fragsz if it is less than PAGE_SIZE.
->=20
+Hi,
 
-SLAB allocators have their own way to handle a page, we cant interfere
-with it.
+On Tue, Nov 6, 2012 at 7:07 PM, Vipul Pandya <vipul@chelsio.com> wrote:
+>
+> We should not assume reserve fields to be don't cares as fields may change.
+> Clearing data structures before using.
+>
+> Signed-off-by: Jay Hernandez <jay@chelsio.com>
+> Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+> ---
+>  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> index 32eec15..01fa5b7 100644
+> --- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+> @@ -2519,6 +2519,7 @@ int t4_fw_bye(struct adapter *adap, unsigned int mbox)
+>  {
+>         struct fw_bye_cmd c;
+>
+> +       memset(&c, 0, sizeof(c));
 
-So no, a kmalloced() object cannot be converted to a page fragment.
+struct fw_byte_cmd c = {0};
+
+Isn't it better ?
+
+Thanks,
+Viral
