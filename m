@@ -1,160 +1,61 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH 5/8] net/at91_ether: use stat function from macb
-Date: Wed,  7 Nov 2012 19:14:54 +0100
-Message-ID: <1352312097-31320-6-git-send-email-manabian@gmail.com>
+Subject: [PATCH 6/8] net/at91_ether: drop board_data private struct member
+Date: Wed,  7 Nov 2012 19:14:55 +0100
+Message-ID: <1352312097-31320-7-git-send-email-manabian@gmail.com>
 References: <1352312097-31320-1-git-send-email-manabian@gmail.com>
 Cc: plagnioj@jcrosoft.com, netdev@vger.kernel.org,
 	Joachim Eastwood <manabian@gmail.com>
 To: nicolas.ferre@atmel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:36135 "EHLO
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:60048 "EHLO
 	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753546Ab2KGSPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 13:15:17 -0500
-Received: by mail-lb0-f174.google.com with SMTP id n3so1512096lbo.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 10:15:17 -0800 (PST)
+	with ESMTP id S1751732Ab2KGSPS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 13:15:18 -0500
+Received: by mail-lb0-f174.google.com with SMTP id n3so1512078lbo.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 10:15:18 -0800 (PST)
 In-Reply-To: <1352312097-31320-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+No longer used after gpio phy interrupt support was
+removed from at91_ether.
+
 Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/ethernet/cadence/at91_ether.c | 49 +++++--------------------------
- drivers/net/ethernet/cadence/macb.c       |  3 +-
- drivers/net/ethernet/cadence/macb.h       |  1 +
- 3 files changed, 11 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/cadence/at91_ether.c | 2 --
+ drivers/net/ethernet/cadence/macb.h       | 7 +------
+ 2 files changed, 1 insertion(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index 2f89e64..65a9afa 100644
+index 65a9afa..67b66c4 100644
 --- a/drivers/net/ethernet/cadence/at91_ether.c
 +++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -182,7 +182,6 @@ static int at91ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		lp->skb = skb;
- 		lp->skb_length = skb->len;
- 		lp->skb_physaddr = dma_map_single(NULL, skb->data, skb->len, DMA_TO_DEVICE);
--		dev->stats.tx_bytes += skb->len;
+@@ -387,8 +387,6 @@ static int __init at91ether_probe(struct platform_device *pdev)
+ 	lp = netdev_priv(dev);
+ 	lp->pdev = pdev;
+ 	lp->dev = dev;
+-	if (board_data)
+-		lp->board_data = *board_data;
+ 	spin_lock_init(&lp->lock);
  
- 		/* Set address of the data in the Transmit Address register */
- 		macb_writel(lp, TAR, lp->skb_physaddr);
-@@ -200,41 +199,6 @@ static int at91ether_start_xmit(struct sk_buff *skb, struct net_device *dev)
- }
- 
- /*
-- * Update the current statistics from the internal statistics registers.
-- */
--static struct net_device_stats *at91ether_stats(struct net_device *dev)
--{
--	struct macb *lp = netdev_priv(dev);
--	int ale, lenerr, seqe, lcol, ecol;
--
--	if (netif_running(dev)) {
--		dev->stats.rx_packets += macb_readl(lp, FRO);	/* Good frames received */
--		ale = macb_readl(lp, ALE);
--		dev->stats.rx_frame_errors += ale;				/* Alignment errors */
--		lenerr = macb_readl(lp, ELE) + macb_readl(lp, USF);
--		dev->stats.rx_length_errors += lenerr;				/* Excessive Length or Undersize Frame error */
--		seqe = macb_readl(lp, FCSE);
--		dev->stats.rx_crc_errors += seqe;				/* CRC error */
--		dev->stats.rx_fifo_errors += macb_readl(lp, RRE);/* Receive buffer not available */
--		dev->stats.rx_errors += (ale + lenerr + seqe
--			+ macb_readl(lp, RSE) + macb_readl(lp, RJA));
--
--		dev->stats.tx_packets += macb_readl(lp, FTO);	/* Frames successfully transmitted */
--		dev->stats.tx_fifo_errors += macb_readl(lp, TUND);	/* Transmit FIFO underruns */
--		dev->stats.tx_carrier_errors += macb_readl(lp, CSE);	/* Carrier Sense errors */
--		dev->stats.tx_heartbeat_errors += macb_readl(lp, STE);/* Heartbeat error */
--
--		lcol = macb_readl(lp, LCOL);
--		ecol = macb_readl(lp, EXCOL);
--		dev->stats.tx_window_errors += lcol;			/* Late collisions */
--		dev->stats.tx_aborted_errors += ecol;			/* 16 collisions */
--
--		dev->stats.collisions += (macb_readl(lp, SCF) + macb_readl(lp, MCF) + lcol + ecol);
--	}
--	return &dev->stats;
--}
--
--/*
-  * Extract received frame from buffer descriptors and sent to upper layers.
-  * (Called from interrupt context)
-  */
-@@ -254,15 +218,16 @@ static void at91ether_rx(struct net_device *dev)
- 			memcpy(skb_put(skb, pktlen), p_recv, pktlen);
- 
- 			skb->protocol = eth_type_trans(skb, dev);
--			dev->stats.rx_bytes += pktlen;
-+			lp->stats.rx_packets++;
-+			lp->stats.rx_bytes += pktlen;
- 			netif_rx(skb);
- 		} else {
--			dev->stats.rx_dropped += 1;
-+			lp->stats.rx_dropped++;
- 			netdev_notice(dev, "Memory squeeze, dropping packet.\n");
- 		}
- 
- 		if (lp->rx_ring[lp->rx_tail].ctrl & MACB_BIT(RX_MHASH_MATCH))
--			dev->stats.multicast++;
-+			lp->stats.multicast++;
- 
- 		/* reset ownership bit */
- 		lp->rx_ring[lp->rx_tail].addr &= ~MACB_BIT(RX_USED);
-@@ -294,12 +259,14 @@ static irqreturn_t at91ether_interrupt(int irq, void *dev_id)
- 	if (intstatus & MACB_BIT(TCOMP)) {	/* Transmit complete */
- 		/* The TCOM bit is set even if the transmission failed. */
- 		if (intstatus & (MACB_BIT(ISR_TUND) | MACB_BIT(ISR_RLE)))
--			dev->stats.tx_errors += 1;
-+			lp->stats.tx_errors++;
- 
- 		if (lp->skb) {
- 			dev_kfree_skb_irq(lp->skb);
- 			lp->skb = NULL;
- 			dma_unmap_single(NULL, lp->skb_physaddr, lp->skb_length, DMA_TO_DEVICE);
-+			lp->stats.tx_packets++;
-+			lp->stats.tx_bytes += lp->skb_length;
- 		}
- 		netif_wake_queue(dev);
- 	}
-@@ -332,7 +299,7 @@ static const struct net_device_ops at91ether_netdev_ops = {
- 	.ndo_open		= at91ether_open,
- 	.ndo_stop		= at91ether_close,
- 	.ndo_start_xmit		= at91ether_start_xmit,
--	.ndo_get_stats		= at91ether_stats,
-+	.ndo_get_stats		= macb_get_stats,
- 	.ndo_set_rx_mode	= macb_set_rx_mode,
- 	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_do_ioctl		= macb_ioctl,
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 6be5a26..1fac769 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1292,7 +1292,7 @@ static struct net_device_stats *gem_get_stats(struct macb *bp)
- 	return nstat;
- }
- 
--static struct net_device_stats *macb_get_stats(struct net_device *dev)
-+struct net_device_stats *macb_get_stats(struct net_device *dev)
- {
- 	struct macb *bp = netdev_priv(dev);
- 	struct net_device_stats *nstat = &bp->stats;
-@@ -1338,6 +1338,7 @@ static struct net_device_stats *macb_get_stats(struct net_device *dev)
- 
- 	return nstat;
- }
-+EXPORT_SYMBOL_GPL(macb_get_stats);
- 
- static int macb_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
+ 	dev->base_addr = regs->start;		/* physical base address */
 diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index d723494..97f74dd 100644
+index 97f74dd..864e380 100644
 --- a/drivers/net/ethernet/cadence/macb.h
 +++ b/drivers/net/ethernet/cadence/macb.h
-@@ -572,6 +572,7 @@ extern const struct ethtool_ops macb_ethtool_ops;
+@@ -557,12 +557,7 @@ struct macb {
  
- int macb_mii_init(struct macb *bp);
- int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-+struct net_device_stats *macb_get_stats(struct net_device *dev);
- void macb_set_rx_mode(struct net_device *dev);
- void macb_set_hwaddr(struct macb *bp);
- void macb_get_hwaddr(struct macb *bp);
+ 	phy_interface_t		phy_interface;
+ 
+-	/* at91_private */
+-	struct macb_platform_data board_data;	/* board-specific
+-						 * configuration (shared with
+-						 * macb for common data */
+-
+-	/* Transmit */
++	/* AT91RM9200 transmit */
+ 	struct sk_buff *skb;			/* holds skb until xmit interrupt completes */
+ 	dma_addr_t skb_physaddr;		/* phys addr from pci_map_single */
+ 	int skb_length;				/* saved skb length for pci_unmap_single */
 -- 
 1.8.0
