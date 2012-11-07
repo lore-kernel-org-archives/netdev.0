@@ -1,38 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] packet: tx_ring: allow the user to choose
- tx data offset
-Date: Wed, 07 Nov 2012 18:55:13 -0500 (EST)
-Message-ID: <20121107.185513.577120386806348661.davem@davemloft.net>
-References: <1352279447-2980-1-git-send-email-paul.chavent@onera.fr>
+Subject: Re: [net-next patch 0/2] bnx2x: Enable cnic at run-time
+Date: Wed, 07 Nov 2012 18:57:36 -0500 (EST)
+Message-ID: <20121107.185736.1387317478385227779.davem@davemloft.net>
+References: <1352285148-21784-1-git-send-email-meravs@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Paul.Chavent@onera.fr
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: meravs@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42389 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42401 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752828Ab2KGXzO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 18:55:14 -0500
-In-Reply-To: <1352279447-2980-1-git-send-email-paul.chavent@onera.fr>
+	with ESMTP id S1752130Ab2KGX5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 18:57:37 -0500
+In-Reply-To: <1352285148-21784-1-git-send-email-meravs@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Date: Wed,  7 Nov 2012 10:10:47 +0100
+From: "Merav Sicron" <meravs@broadcom.com>
+Date: Wed, 7 Nov 2012 12:45:46 +0200
 
-> The tx data offset of packet mmap tx ring used to be :
-> (TPACKET2_HDRLEN - sizeof(struct sockaddr_ll))
+> This patch series removes the BCM_CNIC bnx2x define, and eliminates the use of
+> the CONFIG_CNIC kconfig option.
+> The define removal is mainly important for SR-IOV, as the VF driver will use the
+> same code as the PF/hypervisor driver. Since storage is not supported in
+> SR-IOV (while is usually enabled in the non SR-IOV driver), we don't want to
+> waste resources on it.
+> After this change, cnic-related resources are allocated only when the cnic
+> module registers with bnx2x (which means that the user asked for storage
+> services). Also only at this stage the HW is configured to non-NIC (offload)
+> mode.
+> The first patch is the driver-FW HSI addition to change the 'update' ramrod for
+> offload mode configuration at run-time.
+> The second patch is for the removal of the BCM_CNIC define, and for separating
+> the load flow to two stages, one for L2 and one for cnic-related stuff.
 > 
-> The problem is that, with SOCK_RAW socket, the payload (14 bytes after
-> the beginning of the user data) is misaligned.
-> 
-> This patch allows to let the user gives an offset for it's tx data if
-> he desires.
-> 
-> Set sock option PACKET_TX_HAS_OFF to 1, then specify in each frame of
-> your tx ring tp_net for SOCK_DGRAM, or tp_mac for SOCK_RAW.
-> 
-> Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
+> Please consider applying this patch series to net-next.
 
-Applied, thanks.
+Series applied, thanks.
