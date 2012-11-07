@@ -1,55 +1,55 @@
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] tcm_vhost: remove unused variable in
-	vhost_scsi_allocate_cmd()
-Date: Wed, 7 Nov 2012 20:53:25 +0800
-Message-ID: <CAPgLHd81=dTwwSTgUtd9YbgWf8YLMfi3VJQ-76h71+0W_mx_2g@mail.gmail.com>
+Subject: [PATCH -next] ksz884x: use module_pci_driver to simplify the code
+Date: Wed, 7 Nov 2012 20:54:30 +0800
+Message-ID: <CAPgLHd8mrDXyiJ4rNFLHsYWEreVRiKXwqqr7umtSY36RkzXjUA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yongjun_wei@trendmicro.com.cn, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:55973 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754822Ab2KGMyb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 07:54:31 -0500
+Received: by mail-qc0-f174.google.com with SMTP id o22so987131qcr.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 04:54:30 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-The variable se_sess is initialized but never used
-otherwise, so remove the unused variable.
+Use the module_pci_driver() macro to make the code simpler
+by eliminating module_init and module_exit calls.
 
 dpatch engine is used to auto generate this patch.
 (https://github.com/weiyj/dpatch)
 
 Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/vhost/tcm_vhost.c | 2 --
- 1 file changed, 2 deletions(-)
+ drivers/net/ethernet/micrel/ksz884x.c | 13 +------------
+ 1 file changed, 1 insertion(+), 12 deletions(-)
 
-diff --git a/drivers/vhost/tcm_vhost.c b/drivers/vhost/tcm_vhost.c
-index 23c138f..551fff0 100644
---- a/drivers/vhost/tcm_vhost.c
-+++ b/drivers/vhost/tcm_vhost.c
-@@ -415,14 +415,12 @@ static struct tcm_vhost_cmd *vhost_scsi_allocate_cmd(
- {
- 	struct tcm_vhost_cmd *tv_cmd;
- 	struct tcm_vhost_nexus *tv_nexus;
--	struct se_session *se_sess;
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index e558edd..e4ba868 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -7251,18 +7251,7 @@ static struct pci_driver pci_device_driver = {
+ 	.remove		= pcidev_exit
+ };
  
- 	tv_nexus = tv_tpg->tpg_nexus;
- 	if (!tv_nexus) {
- 		pr_err("Unable to locate active struct tcm_vhost_nexus\n");
- 		return ERR_PTR(-EIO);
- 	}
--	se_sess = tv_nexus->tvn_se_sess;
+-static int __init ksz884x_init_module(void)
+-{
+-	return pci_register_driver(&pci_device_driver);
+-}
+-
+-static void __exit ksz884x_cleanup_module(void)
+-{
+-	pci_unregister_driver(&pci_device_driver);
+-}
+-
+-module_init(ksz884x_init_module);
+-module_exit(ksz884x_cleanup_module);
++module_pci_driver(pci_device_driver);
  
- 	tv_cmd = kzalloc(sizeof(struct tcm_vhost_cmd), GFP_ATOMIC);
- 	if (!tv_cmd) {
+ MODULE_DESCRIPTION("KSZ8841/2 PCI network driver");
+ MODULE_AUTHOR("Tristram Ha <Tristram.Ha@micrel.com>");
