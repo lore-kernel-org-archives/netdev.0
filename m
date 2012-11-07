@@ -1,88 +1,120 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 3/7] be2net: do not use sli_family to identify skyhawk-R chip
-Date: Wed, 7 Nov 2012 09:18:57 +0530
-Message-ID: <9b7db7e2-6fb0-4fa6-a529-308d5f4fd6cb@CMEXHTCAS2.ad.emulex.com>
-References: <1352260141-27725-1-git-send-email-sathya.perla@emulex.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v4 1/6] mm: teach mm by current context info to not do
+ I/O during memory allocation
+Date: Tue, 6 Nov 2012 19:48:59 -0800
+Message-ID: <20121106194859.8eec3043.akpm@linux-foundation.org>
+References: <1351931714-11689-1-git-send-email-ming.lei@canonical.com>
+	<1351931714-11689-2-git-send-email-ming.lei@canonical.com>
+	<20121106152354.90150a3b.akpm@linux-foundation.org>
+	<CACVXFVNs2JtEYQ3Y2rA8L89sAaMJ7TO-PxG3h4w+ihcZrBLtpg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sathya Perla <sathya.perla@emulex.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:25376 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753499Ab2KGDqP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 22:46:15 -0500
-In-Reply-To: <1352260141-27725-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Alan Stern <stern@rowland.harvard.edu>,
+ Oliver Neukum <oneukum@suse.de>, Minchan Kim <minchan@kernel.org>, Greg
+ Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki"
+ <rjw@sisk.pl>, Jens Axboe <axboe@kernel.dk>, "David S. Miller"
+ <davem@davemloft.net>, netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-pm@vger.kernel.org, linux-mm@kvack.org, Jiri Kosina
+ <jiri.kosina@suse.com>, Mel Gorman <mel@csn.ul.ie>, KAMEZAWA Hiroyuki
+ <kamezawa.hiroyu@jp.fujitsu.com>, Michal Hocko <mhocko@suse.cz>, Ingo
+ Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <CACVXFVNs2JtEYQ3Y2rA8L89sAaMJ7TO-PxG3h4w+ihcZrBLtpg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-SKYHAWK_FAMILY will not identify all revisions of the chip.
-Use device-id check (skyhawk_chip() macro) instead.
+On Wed, 7 Nov 2012 11:11:24 +0800 Ming Lei <ming.lei@canonical.com> wrote:
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    4 ++--
- drivers/net/ethernet/emulex/benet/be_hw.h   |    5 -----
- drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
- drivers/net/ethernet/emulex/benet/be_roce.c |    2 +-
- 4 files changed, 4 insertions(+), 9 deletions(-)
+> On Wed, Nov 7, 2012 at 7:23 AM, Andrew Morton <akpm@linux-foundation.org> wrote:
+> >
+> > It's unclear from the description why we're also clearing __GFP_FS in
+> > this situation.
+> >
+> > If we can avoid doing this then there will be a very small gain: there
+> > are some situations in which a filesystem can clean pagecache without
+> > performing I/O.
+> 
+> Firstly,  the patch follows the policy in the system suspend/resume situation,
+> in which the __GFP_FS is cleared, and basically the problem is very similar
+> with that in system PM path.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 82f74f8..26b9b8b 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -475,8 +475,8 @@ struct be_adapter {
- #define BEx_chip(adapter)	(BE3_chip(adapter) || BE2_chip(adapter))
- 
- #define be_roce_supported(adapter) ((adapter->if_type == SLI_INTF_TYPE_3 || \
--				adapter->sli_family == SKYHAWK_SLI_FAMILY) && \
--				(adapter->function_mode & RDMA_ENABLED))
-+				     skyhawk_chip(adapter)) && \
-+				     (adapter->function_mode & RDMA_ENABLED))
- 
- extern const struct ethtool_ops be_ethtool_ops;
- 
-diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
-index 4ccbc36..c257207 100644
---- a/drivers/net/ethernet/emulex/benet/be_hw.h
-+++ b/drivers/net/ethernet/emulex/benet/be_hw.h
-@@ -105,11 +105,6 @@
- #define SLI_INTF_TYPE_2		2
- #define SLI_INTF_TYPE_3		3
- 
--/* SLI family */
--#define BE_SLI_FAMILY		0x0
--#define LANCER_A0_SLI_FAMILY	0xA
--#define SKYHAWK_SLI_FAMILY      0x2
--
- /********* ISR0 Register offset **********/
- #define CEV_ISR0_OFFSET 			0xC18
- #define CEV_ISR_SIZE				4
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index e0e826a..1767bab 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3685,7 +3685,7 @@ static int be_map_pci_bars(struct be_adapter *adapter)
- 	if (addr == NULL)
- 		goto pci_map_err;
- 	adapter->db = addr;
--	if (adapter->sli_family == SKYHAWK_SLI_FAMILY) {
-+	if (skyhawk_chip(adapter)) {
- 		adapter->roce_db.size = 4096;
- 		adapter->roce_db.io_addr =
- 				pci_resource_start(adapter->pdev, db_reg);
-diff --git a/drivers/net/ethernet/emulex/benet/be_roce.c b/drivers/net/ethernet/emulex/benet/be_roce.c
-index deecc44..866900e 100644
---- a/drivers/net/ethernet/emulex/benet/be_roce.c
-+++ b/drivers/net/ethernet/emulex/benet/be_roce.c
-@@ -47,7 +47,7 @@ static void _be_roce_dev_add(struct be_adapter *adapter)
- 		dev_info.dpp_unmapped_len = 0;
- 	}
- 	dev_info.pdev = adapter->pdev;
--	if (adapter->sli_family == SKYHAWK_SLI_FAMILY)
-+	if (skyhawk_chip(adapter))
- 		dev_info.db = adapter->db;
- 	else
- 		dev_info.db = adapter->roce_db.base;
--- 
-1.7.1
+I suspect that code is wrong.  Or at least, suboptimal.
+
+> Secondly, inside shrink_page_list(), pageout() may be triggered on dirty anon
+> page if __GFP_FS is set.
+
+pageout() should be called if GFP_FS is set or if GFP_IO is set and the
+IO is against swap.
+
+And that's what we want to happen: we want to enter the fs to try to
+turn dirty pagecache into clean pagecache without doing IO.  If we in
+fact enter the device drivers when GFP_IO was not set then that's a bug
+which we should fix.
+
+> IMO, if performing I/O can be completely avoided when __GFP_FS is set, the
+> flag can be kept, otherwise it is better to clear it in the situation.
+
+yup.
+
+> >
+> > Also, you can probably put the unlikely() inside memalloc_noio() and
+> > avoid repeating it at all the callsites.
+> >
+> > And it might be neater to do:
+> >
+> > /*
+> >  * Nice comment goes here
+> >  */
+> > static inline gfp_t memalloc_noio_flags(gfp_t flags)
+> > {
+> >         if (unlikely(current->flags & PF_MEMALLOC_NOIO))
+> >                 flags &= ~GFP_IOFS;
+> >         return flags;
+> > }
+> 
+> But without the check in callsites, some local variables will be write
+> two times,
+> so it is better to not do it.
+
+I don't see why - we just modify the incoming gfp_t at the start of the
+function, then use it.
+
+It gets a bit tricky with those struct initialisations.  Things like
+
+	struct foo bar {
+		.a = a1,
+		.b = b1,
+	};
+
+should not be turned into
+
+	struct foo bar {
+		.a = a1,
+	};
+	
+	bar.b = b1;
+
+and we don't want to do
+
+	struct foo bar { };
+
+	bar.a = a1;
+	bar.b = b1;
+
+either, because these are indeed a double-write.  But we can do
+
+	struct foo bar {
+		.flags = (flags = memalloc_noio_flags(flags)),
+		.b = b1,
+	};
+
+which is a bit arcane but not toooo bad.  Have a think about it...
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
