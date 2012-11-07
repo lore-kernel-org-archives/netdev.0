@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next patch 0/2] bnx2x: Enable cnic at run-time
-Date: Wed, 07 Nov 2012 18:57:36 -0500 (EST)
-Message-ID: <20121107.185736.1387317478385227779.davem@davemloft.net>
-References: <1352285148-21784-1-git-send-email-meravs@broadcom.com>
+Subject: Re: [PATCH 1/1] isdn: Make CONFIG_ISDN depend on CONFIG_NETDEVICES
+Date: Wed, 07 Nov 2012 18:59:51 -0500 (EST)
+Message-ID: <20121107.185951.1536161042866737820.davem@davemloft.net>
+References: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: meravs@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42401 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752130Ab2KGX5h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 18:57:37 -0500
-In-Reply-To: <1352285148-21784-1-git-send-email-meravs@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org, isdn@linux-pingi.de,
+	netdev@vger.kernel.org
+To: lee.jones@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Merav Sicron" <meravs@broadcom.com>
-Date: Wed, 7 Nov 2012 12:45:46 +0200
-
-> This patch series removes the BCM_CNIC bnx2x define, and eliminates the use of
-> the CONFIG_CNIC kconfig option.
-> The define removal is mainly important for SR-IOV, as the VF driver will use the
-> same code as the PF/hypervisor driver. Since storage is not supported in
-> SR-IOV (while is usually enabled in the non SR-IOV driver), we don't want to
-> waste resources on it.
-> After this change, cnic-related resources are allocated only when the cnic
-> module registers with bnx2x (which means that the user asked for storage
-> services). Also only at this stage the HW is configured to non-NIC (offload)
-> mode.
-> The first patch is the driver-FW HSI addition to change the 'update' ramrod for
-> offload mode configuration at run-time.
-> The second patch is for the removal of the BCM_CNIC define, and for separating
-> the load flow to two stages, one for L2 and one for cnic-related stuff.
-> 
-> Please consider applying this patch series to net-next.
-
-Series applied, thanks.
+RnJvbTogTGVlIEpvbmVzIDxsZWUuam9uZXNAbGluYXJvLm9yZz4NCkRhdGU6IFdlZCwgIDcgTm92
+IDIwMTIgMTA6NTU6MDMgKzAxMDANCg0KPiBJdCBkb2Vzbid0IG1ha2UgbXVjaCBzZW5zZSB0byBl
+bmFibGUgSVNETiBzZXJ2aWNlcyBpZiB5b3UgZG9uJ3QNCj4gaW50ZW5kIHRvIGNvbm5lY3QgdG8g
+YSBuZXR3b3JrLiBUaGVyZWZvcmUgaW5zaXN0aW5nIHRoYXQgSVNETg0KPiBkZXBlbmRzIG9uIE5F
+VERFVklDRVMgc2VlbXMgbG9naWNhbC4gV2UgY2FuIHRoZW4gcmVtb3ZlIGFueQ0KPiBndWFyZHMg
+bWVudGlvbmluZyBORVRERVZJQ0VTIGluc2lkZSBhbGwgc3Vib3JkaW5hdGUgZHJpdmVycy4NCj4g
+DQo+IFRoaXMgYWxzbyBoYXMgdGhlIG5pY2Ugc2lkZS1lZmZlY3Qgb2YgZml4aW5nIHRoZSB3YXJu
+aW5nIGJlbG93DQo+IHdoZW4gSVNETl9JNEwgJiYgIUNPTkZJR19ORVRERVZJQ0VTIGF0IGNvbXBp
+bGUgdGltZS4NCj4gDQo+IFRoaXMgcGF0Y2ggZml4ZXM6DQo+IGRyaXZlcnMvaXNkbi9pNGwvaXNk
+bl9jb21tb24uYzogSW4gZnVuY3Rpb24goWlzZG5faW9jdGyiOg0KPiBkcml2ZXJzL2lzZG4vaTRs
+L2lzZG5fY29tbW9uLmM6MTI3ODo4OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoXOiIFstV3Vu
+dXNlZC12YXJpYWJsZV0NCj4gDQo+IENjOiBLYXJzdGVuIEtlaWwgPGlzZG5AbGludXgtcGluZ2ku
+ZGU+DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFNpZ25lZC1vZmYtYnk6IExlZSBK
+b25lcyA8bGVlLmpvbmVzQGxpbmFyby5vcmc+DQoNCkFwcGxpZWQsIHRoYW5rcy4NCg==
