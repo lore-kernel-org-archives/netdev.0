@@ -1,402 +1,228 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 2/7] be2net: fix wrong usage of adapter->generation
-Date: Wed, 7 Nov 2012 09:18:56 +0530
-Message-ID: <c8046886-97ac-499e-9168-4e3f26cdeae3@CMEXHTCAS2.ad.emulex.com>
+Subject: [PATCH net-next 4/7] be2net: re-factor bar mapping code
+Date: Wed, 7 Nov 2012 09:18:58 +0530
+Message-ID: <30263519-9995-41dd-8aa5-cdd329d699b9@CMEXHTCAS2.ad.emulex.com>
 References: <1352260141-27725-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Sathya Perla <sathya.perla@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:46376 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753499Ab2KGDqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 22:46:10 -0500
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:25376 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753876Ab2KGDqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Nov 2012 22:46:15 -0500
 In-Reply-To: <1352260141-27725-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-adapter->generation was being incorrectly set as BE_GEN3 for Skyhawk-R.
-Replace generation usage with XXX_chip() macros to identify the chip.
+1) separate NIC and roce bar mapping code
+2) parse sli_intf::if_type inside be_map_pci_bars() as if_type must be
+   used only to identify bars.
+3) Use pci_iomap/unmap() routines
 
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |   18 ++--
- drivers/net/ethernet/emulex/benet/be_cmds.c |    6 +-
- drivers/net/ethernet/emulex/benet/be_cmds.h |   27 ------
- drivers/net/ethernet/emulex/benet/be_main.c |  134 ++++++++++++++++-----------
- 4 files changed, 92 insertions(+), 93 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_main.c |  137 ++++++++------------------
+ 1 files changed, 42 insertions(+), 95 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index f920a65..82f74f8 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -410,7 +410,6 @@ struct be_adapter {
- 	u32 rx_fc;		/* Rx flow control */
- 	u32 tx_fc;		/* Tx flow control */
- 	bool stats_cmd_sent;
--	u8 generation;		/* BladeEngine ASIC generation */
- 	u32 if_type;
- 	struct {
- 		u8 __iomem *base;	/* Door Bell */
-@@ -458,19 +457,22 @@ struct be_adapter {
- 	for (i = 0, vf_cfg = &adapter->vf_cfg[i]; i < adapter->num_vfs;	\
- 		i++, vf_cfg++)
- 
--/* BladeEngine Generation numbers */
--#define BE_GEN2 2
--#define BE_GEN3 3
--#define SH_HW	4
--
- #define ON				1
- #define OFF				0
--#define lancer_chip(adapter)	((adapter->pdev->device == OC_DEVICE_ID3) || \
--				 (adapter->pdev->device == OC_DEVICE_ID4))
-+
-+#define lancer_chip(adapter)	(adapter->pdev->device == OC_DEVICE_ID3 || \
-+				 adapter->pdev->device == OC_DEVICE_ID4)
- 
- #define skyhawk_chip(adapter)	(adapter->pdev->device == OC_DEVICE_ID5 || \
- 				 adapter->pdev->device == OC_DEVICE_ID6)
- 
-+#define BE3_chip(adapter)	(adapter->pdev->device == BE_DEVICE_ID2 || \
-+				 adapter->pdev->device == OC_DEVICE_ID2)
-+
-+#define BE2_chip(adapter)	(adapter->pdev->device == BE_DEVICE_ID1 || \
-+				 adapter->pdev->device == OC_DEVICE_ID1)
-+
-+#define BEx_chip(adapter)	(BE3_chip(adapter) || BE2_chip(adapter))
- 
- #define be_roce_supported(adapter) ((adapter->if_type == SLI_INTF_TYPE_3 || \
- 				adapter->sli_family == SKYHAWK_SLI_FAMILY) && \
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 7ea1ea4..1768cfa 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1362,7 +1362,8 @@ int be_cmd_get_stats(struct be_adapter *adapter, struct be_dma_mem *nonemb_cmd)
- 	be_wrb_cmd_hdr_prepare(hdr, CMD_SUBSYSTEM_ETH,
- 		OPCODE_ETH_GET_STATISTICS, nonemb_cmd->size, wrb, nonemb_cmd);
- 
--	if (adapter->generation == BE_GEN3)
-+	/* version 1 of the cmd is not supported only by BE2 */
-+	if (!BE2_chip(adapter))
- 		hdr->version = 1;
- 
- 	be_mcc_notify(adapter);
-@@ -1452,7 +1453,8 @@ int be_cmd_link_status_query(struct be_adapter *adapter, u16 *link_speed,
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
- 		OPCODE_COMMON_NTWK_LINK_STATUS_QUERY, sizeof(*req), wrb, NULL);
- 
--	if (adapter->generation == BE_GEN3 || lancer_chip(adapter))
-+	/* version 1 of the cmd is not supported only by BE2 */
-+	if (!BE2_chip(adapter))
- 		req->hdr.version = 1;
- 
- 	req->hdr.domain = dom;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 06fc227..d6552e1 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1656,33 +1656,6 @@ struct be_cmd_resp_get_stats_v1 {
- 	struct be_hw_stats_v1 hw_stats;
- };
- 
--static inline void *hw_stats_from_cmd(struct be_adapter *adapter)
--{
--	if (adapter->generation == BE_GEN3) {
--		struct be_cmd_resp_get_stats_v1 *cmd = adapter->stats_cmd.va;
--
--		return &cmd->hw_stats;
--	} else {
--		struct be_cmd_resp_get_stats_v0 *cmd = adapter->stats_cmd.va;
--
--		return &cmd->hw_stats;
--	}
--}
--
--static inline void *be_erx_stats_from_cmd(struct be_adapter *adapter)
--{
--	if (adapter->generation == BE_GEN3) {
--		struct be_hw_stats_v1 *hw_stats = hw_stats_from_cmd(adapter);
--
--		return &hw_stats->erx;
--	} else {
--		struct be_hw_stats_v0 *hw_stats = hw_stats_from_cmd(adapter);
--
--		return &hw_stats->erx;
--	}
--}
--
--
- /************** get fat capabilites *******************/
- #define MAX_MODULES 27
- #define MAX_MODES 4
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index d982cb0..e0e826a 100644
+index 1767bab..95e279f 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -285,7 +285,35 @@ err:
- 	return status;
+@@ -3620,79 +3620,69 @@ static void be_netdev_init(struct net_device *netdev)
+ static void be_unmap_pci_bars(struct be_adapter *adapter)
+ {
+ 	if (adapter->csr)
+-		iounmap(adapter->csr);
++		pci_iounmap(adapter->pdev, adapter->csr);
+ 	if (adapter->db)
+-		iounmap(adapter->db);
++		pci_iounmap(adapter->pdev, adapter->db);
+ 	if (adapter->roce_db.base)
+ 		pci_iounmap(adapter->pdev, adapter->roce_db.base);
  }
  
--static void populate_be2_stats(struct be_adapter *adapter)
-+/* BE2 supports only v0 cmd */
-+static void *hw_stats_from_cmd(struct be_adapter *adapter)
+-static int lancer_roce_map_pci_bars(struct be_adapter *adapter)
++static int db_bar(struct be_adapter *adapter)
 +{
-+	if (BE2_chip(adapter)) {
-+		struct be_cmd_resp_get_stats_v0 *cmd = adapter->stats_cmd.va;
-+
-+		return &cmd->hw_stats;
-+	} else  {
-+		struct be_cmd_resp_get_stats_v1 *cmd = adapter->stats_cmd.va;
-+
-+		return &cmd->hw_stats;
-+	}
++	if (lancer_chip(adapter) || !be_physfn(adapter))
++		return 0;
++	else
++		return 4;
 +}
 +
-+/* BE2 supports only v0 cmd */
-+static void *be_erx_stats_from_cmd(struct be_adapter *adapter)
-+{
-+	if (BE2_chip(adapter)) {
-+		struct be_hw_stats_v0 *hw_stats = hw_stats_from_cmd(adapter);
-+
-+		return &hw_stats->erx;
-+	} else {
-+		struct be_hw_stats_v1 *hw_stats = hw_stats_from_cmd(adapter);
-+
-+		return &hw_stats->erx;
++static int be_roce_map_pci_bars(struct be_adapter *adapter)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	u8 __iomem *addr;
+ 
+-	addr = pci_iomap(pdev, 2, 0);
+-	if (addr == NULL)
+-		return -ENOMEM;
++	if (lancer_chip(adapter) && adapter->if_type == SLI_INTF_TYPE_3) {
++		addr = pci_iomap(pdev, 2, 0);
++		if (addr == NULL)
++			return -ENOMEM;
+ 
+-	adapter->roce_db.base = addr;
+-	adapter->roce_db.io_addr = pci_resource_start(pdev, 2);
+-	adapter->roce_db.size = 8192;
+-	adapter->roce_db.total_size = pci_resource_len(pdev, 2);
++		adapter->roce_db.base = addr;
++		adapter->roce_db.io_addr = pci_resource_start(pdev, 2);
++		adapter->roce_db.size = 8192;
++		adapter->roce_db.total_size = pci_resource_len(pdev, 2);
++	} else if (skyhawk_chip(adapter)) {
++		adapter->roce_db.size = 4096;
++		adapter->roce_db.io_addr = pci_resource_start(adapter->pdev,
++							      db_bar(adapter));
++		adapter->roce_db.total_size = pci_resource_len(adapter->pdev,
++							       db_bar(adapter));
 +	}
-+}
-+
-+static void populate_be_v0_stats(struct be_adapter *adapter)
- {
- 	struct be_hw_stats_v0 *hw_stats = hw_stats_from_cmd(adapter);
- 	struct be_pmem_stats *pmem_sts = &hw_stats->pmem;
-@@ -334,7 +362,7 @@ static void populate_be2_stats(struct be_adapter *adapter)
- 	adapter->drv_stats.eth_red_drops = pmem_sts->eth_red_drops;
- }
- 
--static void populate_be3_stats(struct be_adapter *adapter)
-+static void populate_be_v1_stats(struct be_adapter *adapter)
- {
- 	struct be_hw_stats_v1 *hw_stats = hw_stats_from_cmd(adapter);
- 	struct be_pmem_stats *pmem_sts = &hw_stats->pmem;
-@@ -436,28 +464,25 @@ void be_parse_stats(struct be_adapter *adapter)
- 	struct be_rx_obj *rxo;
- 	int i;
- 
--	if (adapter->generation == BE_GEN3) {
--		if (lancer_chip(adapter))
--			populate_lancer_stats(adapter);
--		 else
--			populate_be3_stats(adapter);
-+	if (lancer_chip(adapter)) {
-+		populate_lancer_stats(adapter);
- 	} else {
--		populate_be2_stats(adapter);
--	}
--
--	if (lancer_chip(adapter))
--		goto done;
-+		if (BE2_chip(adapter))
-+			populate_be_v0_stats(adapter);
-+		else
-+			/* for BE3 and Skyhawk */
-+			populate_be_v1_stats(adapter);
- 
--	/* as erx_v1 is longer than v0, ok to use v1 defn for v0 access */
--	for_all_rx_queues(adapter, rxo, i) {
--		/* below erx HW counter can actually wrap around after
--		 * 65535. Driver accumulates a 32-bit value
--		 */
--		accumulate_16bit_val(&rx_stats(rxo)->rx_drops_no_frags,
--				(u16)erx->rx_drops_no_fragments[rxo->q.id]);
-+		/* as erx_v1 is longer than v0, ok to use v1 for v0 access */
-+		for_all_rx_queues(adapter, rxo, i) {
-+			/* below erx HW counter can actually wrap around after
-+			 * 65535. Driver accumulates a 32-bit value
-+			 */
-+			accumulate_16bit_val(&rx_stats(rxo)->rx_drops_no_frags,
-+					     (u16)erx->rx_drops_no_fragments \
-+					     [rxo->q.id]);
-+		}
- 	}
--done:
--	return;
- }
- 
- static struct rtnl_link_stats64 *be_get_stats64(struct net_device *netdev,
-@@ -1874,7 +1899,7 @@ static int be_num_txqs_want(struct be_adapter *adapter)
- 	if ((!lancer_chip(adapter) && sriov_want(adapter)) ||
- 	    be_is_mc(adapter) ||
- 	    (!lancer_chip(adapter) && !be_physfn(adapter)) ||
--	    adapter->generation == BE_GEN2)
-+	    BE2_chip(adapter))
- 		return 1;
- 	else
- 		return adapter->max_tx_queues;
-@@ -3046,7 +3071,7 @@ static bool is_comp_in_ufi(struct be_adapter *adapter,
- 	int i = 0, img_type = 0;
- 	struct flash_section_info_g2 *fsec_g2 = NULL;
- 
--	if (adapter->generation != BE_GEN3)
-+	if (BE2_chip(adapter))
- 		fsec_g2 = (struct flash_section_info_g2 *)fsec;
- 
- 	for (i = 0; i < MAX_FLASH_COMP; i++) {
-@@ -3120,7 +3145,8 @@ static int be_flash(struct be_adapter *adapter, const u8 *img,
  	return 0;
  }
  
--static int be_flash_data(struct be_adapter *adapter,
-+/* For BE2 and BE3 */
-+static int be_flash_BEx(struct be_adapter *adapter,
- 			 const struct firmware *fw,
- 			 struct be_dma_mem *flash_cmd,
- 			 int num_of_images)
-@@ -3175,7 +3201,7 @@ static int be_flash_data(struct be_adapter *adapter,
- 			 FLASH_IMAGE_MAX_SIZE_g2, IMAGE_FIRMWARE_BACKUP_FCoE}
- 	};
- 
--	if (adapter->generation == BE_GEN3) {
-+	if (BE3_chip(adapter)) {
- 		pflashcomp = gen3_flash_types;
- 		filehdr_size = sizeof(struct flash_file_hdr_g3);
- 		num_comp = ARRAY_SIZE(gen3_flash_types);
-@@ -3184,6 +3210,7 @@ static int be_flash_data(struct be_adapter *adapter,
- 		filehdr_size = sizeof(struct flash_file_hdr_g2);
- 		num_comp = ARRAY_SIZE(gen2_flash_types);
- 	}
-+
- 	/* Get flash section info*/
- 	fsec = get_fsec_info(adapter, filehdr_size + img_hdrs_size, fw);
- 	if (!fsec) {
-@@ -3431,20 +3458,21 @@ lancer_fw_exit:
- 	return status;
- }
- 
--static int be_get_ufi_gen(struct be_adapter *adapter,
--			struct flash_file_hdr_g2 *fhdr)
-+#define UFI_TYPE2		2
-+#define UFI_TYPE3		3
-+#define UFI_TYPE4		4
-+static int be_get_ufi_type(struct be_adapter *adapter,
-+			   struct flash_file_hdr_g2 *fhdr)
+ static int be_map_pci_bars(struct be_adapter *adapter)
  {
- 	if (fhdr == NULL)
- 		goto be_get_ufi_exit;
+ 	u8 __iomem *addr;
+-	int db_reg;
++	u32 sli_intf;
  
--	if (adapter->generation == BE_GEN3) {
--		if (skyhawk_chip(adapter) && fhdr->build[0] == '4')
--			return SH_HW;
--		else if (!skyhawk_chip(adapter) && fhdr->build[0] == '3')
--			return BE_GEN3;
--	} else if (adapter->generation == BE_GEN2 && fhdr->build[0] == '2') {
--			return BE_GEN2;
+-	if (lancer_chip(adapter)) {
+-		if (be_type_2_3(adapter)) {
+-			addr = ioremap_nocache(
+-					pci_resource_start(adapter->pdev, 0),
+-					pci_resource_len(adapter->pdev, 0));
+-			if (addr == NULL)
+-				return -ENOMEM;
+-			adapter->db = addr;
+-		}
+-		if (adapter->if_type == SLI_INTF_TYPE_3) {
+-			if (lancer_roce_map_pci_bars(adapter))
+-				goto pci_map_err;
+-		}
+-		return 0;
 -	}
-+	if (skyhawk_chip(adapter) && fhdr->build[0] == '4')
-+		return UFI_TYPE4;
-+	else if (BE3_chip(adapter) && fhdr->build[0] == '3')
-+		return UFI_TYPE3;
-+	else if (BE2_chip(adapter) && fhdr->build[0] == '2')
-+		return UFI_TYPE2;
++	pci_read_config_dword(adapter->pdev, SLI_INTF_REG_OFFSET, &sli_intf);
++	adapter->if_type = (sli_intf & SLI_INTF_IF_TYPE_MASK) >>
++				SLI_INTF_IF_TYPE_SHIFT;
  
- be_get_ufi_exit:
- 	dev_err(&adapter->pdev->dev,
-@@ -3474,7 +3502,7 @@ static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
- 	p = fw->data;
- 	fhdr = (struct flash_file_hdr_g2 *)p;
- 
--	ufi_type = be_get_ufi_gen(adapter, fhdr);
-+	ufi_type = be_get_ufi_type(adapter, fhdr);
- 
- 	fhdr3 = (struct flash_file_hdr_g3 *)fw->data;
- 	num_imgs = le32_to_cpu(fhdr3->num_imgs);
-@@ -3483,17 +3511,17 @@ static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
- 				(sizeof(struct flash_file_hdr_g3) +
- 				 i * sizeof(struct image_hdr)));
- 		if (le32_to_cpu(img_hdr_ptr->imageid) == 1) {
--			if (ufi_type == SH_HW)
-+			if (ufi_type == UFI_TYPE4)
- 				status = be_flash_skyhawk(adapter, fw,
- 							&flash_cmd, num_imgs);
--			else if (ufi_type == BE_GEN3)
--				status = be_flash_data(adapter, fw,
--							&flash_cmd, num_imgs);
-+			else if (ufi_type == UFI_TYPE3)
-+				status = be_flash_BEx(adapter, fw, &flash_cmd,
-+						      num_imgs);
- 		}
- 	}
- 
--	if (ufi_type == BE_GEN2)
--		status = be_flash_data(adapter, fw, &flash_cmd, 0);
-+	if (ufi_type == UFI_TYPE2)
-+		status = be_flash_BEx(adapter, fw, &flash_cmd, 0);
- 	else if (ufi_type == -1)
- 		status = -1;
- 
-@@ -3644,7 +3672,7 @@ static int be_map_pci_bars(struct be_adapter *adapter)
+-	if (be_physfn(adapter)) {
+-		addr = ioremap_nocache(pci_resource_start(adapter->pdev, 2),
+-				pci_resource_len(adapter->pdev, 2));
++	if (be_physfn(adapter) && !lancer_chip(adapter)) {
++		addr = pci_iomap(adapter->pdev, 2, 0);
+ 		if (addr == NULL)
+ 			return -ENOMEM;
  		adapter->csr = addr;
  	}
  
--	if (adapter->generation == BE_GEN2) {
-+	if (BE2_chip(adapter)) {
- 		db_reg = 4;
- 	} else {
- 		if (be_physfn(adapter))
-@@ -3751,14 +3779,14 @@ static int be_stats_init(struct be_adapter *adapter)
- {
- 	struct be_dma_mem *cmd = &adapter->stats_cmd;
- 
--	if (adapter->generation == BE_GEN2) {
-+	if (lancer_chip(adapter))
-+		cmd->size = sizeof(struct lancer_cmd_req_pport_stats);
-+	else if (BE2_chip(adapter))
- 		cmd->size = sizeof(struct be_cmd_req_get_stats_v0);
+-	if (BE2_chip(adapter)) {
+-		db_reg = 4;
 -	} else {
--		if (lancer_chip(adapter))
--			cmd->size = sizeof(struct lancer_cmd_req_pport_stats);
+-		if (be_physfn(adapter))
+-			db_reg = 4;
 -		else
--			cmd->size = sizeof(struct be_cmd_req_get_stats_v1);
+-			db_reg = 0;
 -	}
-+	else
-+		/* BE3 and Skyhawk */
-+		cmd->size = sizeof(struct be_cmd_req_get_stats_v1);
+-	addr = ioremap_nocache(pci_resource_start(adapter->pdev, db_reg),
+-				pci_resource_len(adapter->pdev, db_reg));
++	addr = pci_iomap(adapter->pdev, db_bar(adapter), 0);
+ 	if (addr == NULL)
+ 		goto pci_map_err;
+ 	adapter->db = addr;
+-	if (skyhawk_chip(adapter)) {
+-		adapter->roce_db.size = 4096;
+-		adapter->roce_db.io_addr =
+-				pci_resource_start(adapter->pdev, db_reg);
+-		adapter->roce_db.total_size =
+-				pci_resource_len(adapter->pdev, db_reg);
+-	}
 +
- 	cmd->va = dma_alloc_coherent(&adapter->pdev->dev, cmd->size, &cmd->dma,
- 				     GFP_KERNEL);
- 	if (cmd->va == NULL)
-@@ -3878,11 +3906,9 @@ static int be_dev_type_check(struct be_adapter *adapter)
- 	switch (pdev->device) {
- 	case BE_DEVICE_ID1:
- 	case OC_DEVICE_ID1:
--		adapter->generation = BE_GEN2;
- 		break;
- 	case BE_DEVICE_ID2:
- 	case OC_DEVICE_ID2:
--		adapter->generation = BE_GEN3;
- 		break;
- 	case OC_DEVICE_ID3:
- 	case OC_DEVICE_ID4:
-@@ -3898,7 +3924,6 @@ static int be_dev_type_check(struct be_adapter *adapter)
- 		}
- 		adapter->sli_family = ((sli_intf & SLI_INTF_FAMILY_MASK) >>
- 					 SLI_INTF_FAMILY_SHIFT);
--		adapter->generation = BE_GEN3;
- 		break;
- 	case OC_DEVICE_ID5:
- 	case OC_DEVICE_ID6:
-@@ -3909,10 +3934,7 @@ static int be_dev_type_check(struct be_adapter *adapter)
- 		}
- 		adapter->sli_family = ((sli_intf & SLI_INTF_FAMILY_MASK) >>
- 					 SLI_INTF_FAMILY_SHIFT);
--		adapter->generation = BE_GEN3;
- 		break;
--	default:
--		adapter->generation = 0;
- 	}
++	be_roce_map_pci_bars(adapter);
+ 	return 0;
++
+ pci_map_err:
+ 	be_unmap_pci_bars(adapter);
+ 	return -ENOMEM;
+@@ -3719,8 +3709,14 @@ static int be_ctrl_init(struct be_adapter *adapter)
+ 	struct be_dma_mem *mbox_mem_alloc = &adapter->mbox_mem_alloced;
+ 	struct be_dma_mem *mbox_mem_align = &adapter->mbox_mem;
+ 	struct be_dma_mem *rx_filter = &adapter->rx_filter;
++	u32 sli_intf;
+ 	int status;
  
- 	pci_read_config_dword(adapter->pdev, SLI_INTF_REG_OFFSET, &sli_intf);
++	pci_read_config_dword(adapter->pdev, SLI_INTF_REG_OFFSET, &sli_intf);
++	adapter->sli_family = (sli_intf & SLI_INTF_FAMILY_MASK) >>
++				 SLI_INTF_FAMILY_SHIFT;
++	adapter->virtfn = (sli_intf & SLI_INTF_FT_MASK) ? 1 : 0;
++
+ 	status = be_map_pci_bars(adapter);
+ 	if (status)
+ 		goto done;
+@@ -3898,50 +3894,6 @@ static int be_get_initial_config(struct be_adapter *adapter)
+ 	return 0;
+ }
+ 
+-static int be_dev_type_check(struct be_adapter *adapter)
+-{
+-	struct pci_dev *pdev = adapter->pdev;
+-	u32 sli_intf = 0, if_type;
+-
+-	switch (pdev->device) {
+-	case BE_DEVICE_ID1:
+-	case OC_DEVICE_ID1:
+-		break;
+-	case BE_DEVICE_ID2:
+-	case OC_DEVICE_ID2:
+-		break;
+-	case OC_DEVICE_ID3:
+-	case OC_DEVICE_ID4:
+-		pci_read_config_dword(pdev, SLI_INTF_REG_OFFSET, &sli_intf);
+-		adapter->if_type = (sli_intf & SLI_INTF_IF_TYPE_MASK) >>
+-						SLI_INTF_IF_TYPE_SHIFT;
+-		if_type = (sli_intf & SLI_INTF_IF_TYPE_MASK) >>
+-						SLI_INTF_IF_TYPE_SHIFT;
+-		if (((sli_intf & SLI_INTF_VALID_MASK) != SLI_INTF_VALID) ||
+-			!be_type_2_3(adapter)) {
+-			dev_err(&pdev->dev, "SLI_INTF reg val is not valid\n");
+-			return -EINVAL;
+-		}
+-		adapter->sli_family = ((sli_intf & SLI_INTF_FAMILY_MASK) >>
+-					 SLI_INTF_FAMILY_SHIFT);
+-		break;
+-	case OC_DEVICE_ID5:
+-	case OC_DEVICE_ID6:
+-		pci_read_config_dword(pdev, SLI_INTF_REG_OFFSET, &sli_intf);
+-		if ((sli_intf & SLI_INTF_VALID_MASK) != SLI_INTF_VALID) {
+-			dev_err(&pdev->dev, "SLI_INTF reg val is not valid\n");
+-			return -EINVAL;
+-		}
+-		adapter->sli_family = ((sli_intf & SLI_INTF_FAMILY_MASK) >>
+-					 SLI_INTF_FAMILY_SHIFT);
+-		break;
+-	}
+-
+-	pci_read_config_dword(adapter->pdev, SLI_INTF_REG_OFFSET, &sli_intf);
+-	adapter->virtfn = (sli_intf & SLI_INTF_FT_MASK) ? 1 : 0;
+-	return 0;
+-}
+-
+ static int lancer_recover_func(struct be_adapter *adapter)
+ {
+ 	int status;
+@@ -4097,11 +4049,6 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	adapter = netdev_priv(netdev);
+ 	adapter->pdev = pdev;
+ 	pci_set_drvdata(pdev, adapter);
+-
+-	status = be_dev_type_check(adapter);
+-	if (status)
+-		goto free_netdev;
+-
+ 	adapter->netdev = netdev;
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+ 
 -- 
 1.7.1
