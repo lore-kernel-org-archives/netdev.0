@@ -1,47 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: Avoid infinite loop on recvmsg bug
-Date: Wed, 07 Nov 2012 15:33:12 -0800
-Message-ID: <1352331192.2748.10.camel@edumazet-glaptop>
-References: <CAODwPW9kiG-jo=n0zedv5KT-8-gJcEUrdC3F2mAEjt78tne18g@mail.gmail.com>
-	 <1352316791-16491-1-git-send-email-jwerner@chromium.org>
-	 <1352317219.5552.6.camel@edumazet-glaptop>
-	 <CAODwPW8mBJspF3k5SCBR-BShNvBLQpD-vyhLRh5Cq-4h=VZDgg@mail.gmail.com>
+From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
+Subject: Re: tc filter u32 match
+Date: Thu, 08 Nov 2012 00:36:38 +0100
+Message-ID: <c3bfe7201cd3e7ecc751139ec32ada2e@justnet.pl>
+References: <32a6182e71dd565206cf39d4cad3f984@justnet.pl>
+ <1337853878.3513.11.camel@mojatatu>
+Reply-To: <adam.niescierowicz@justnet.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dave Jones <davej@redhat.com>,
-	Sameer Nanda <snanda@chromium.org>,
-	Mandeep Singh Baines <msb@chromium.org>
-To: Julius Werner <jwerner@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAODwPW8mBJspF3k5SCBR-BShNvBLQpD-vyhLRh5Cq-4h=VZDgg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:32778 "EHLO
+	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1754186Ab2KGXg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 18:36:58 -0500
+In-Reply-To: <1337853878.3513.11.camel@mojatatu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-11-07 at 13:14 -0800, Julius Werner wrote:
-> > What I find very sad in all this is that you didnt mention the driver
-> > that was triggering this bug.
-> 
-> Sorry, I was just trying to keep this thread focussed on one patch.
-> The bug report that led me to this is publicly accessible at
-> http://crosbug.com/35827. We have encountered the problem only once,
-> on an Acer AC700 Chromebook that ran automated tests. The ethernet
-> interface for the offending socket was provided by a USB-to-Ethernet
-> dongle using the smsc95xx/usbnet module (v1.0.4).
+W dniu 24.05.2012 12:04, Jamal Hadi Salim napisa=C5=82(a):
 
-This driver uses interesting skb_clone() games and skb->truesize lies :
+> On Tue, 2012-05-22 at 15:42 +0200, Nie=C5=9Bcierowicz Adam wrote:
+>
+>> Hello, I'm in the process of building a new shaper, when adding=20
+>> support
+>> for 802.1q vlan noticed that u32 can catch network traffic without
+>> giving 4 bytes offset. How is this possible?
+>
+> Because we look at where the network header starts?
+> Why do you expect 4 bytes to be counted?
+>
+>> My environment: eth2 - network card eth2.200 - vlan /sbin/tc filter=20
+>> add
+>> dev eth2 parent 1:0 prio 5 handle 35: protocol ip u32 divisor 256
+>> /sbin/tc filter add dev eth2 protocol ip parent 1:0 prio 5 u32 ht=20
+>> 800::
+>> match ip dst 31.41.208.32/27 hashkey mask 0x000000ff at 16 link 35:
+>> /sbin/tc filter add dev eth2 protocol ip parent 1: prio 1 u32 ht=20
+>> 35:24:
+>> match ip dst 31.41.208.36 flowid 1:2e5 Here you can see the hits in=20
+>> the
+>> rule filter parent 1: protocol ip pref 5 u32 fh 35:24:800 order 2048
+>> key ht 35 bkt 24 flowid 1:2e5 (rule hit 44037 success 44037) match
+>> 1f29d024/ffffffff at 16 (success 44037 )
+>
+> I dont see an issue. This looks correct.
+>
+>>> I found a similar question here
+>>
+>
+http://serverfault.com/questions/370795/tc-u32-how-to-match-l2-protocol=
+s-in-recent-kernels
+>>
+>
+> There may have been bugs in the past that someone missed or didnt
+> report here (likely around the time there was a lot of changes
+> happening with vlan offloading). Try the latest kernel and
+> if it behaves badly, send a report and a reproducible test case.
 
-skb->truesize = size + sizeof(struct sk_buff);
+Hello Again,
 
-So you probably are fighting a bug we already fixed in upstream kernel.
+I changed the kernel to 3.6.0 and ip traffic classification on the
+interface and vlan works fine.
+Unfortunately I am not able to classify
+PPPoE traffic, I checked filters with offset: 16, 20, 24, 28
 
-(commit c8628155ece363 "tcp: reduce out_of_order memory use" did not
-played well with cloned skbs.)
-
-This issue was already discussed on netdev in the past.
+Is it possible to classify PPPoE traffic on the main interface as it=20
+was in previous kernels?
