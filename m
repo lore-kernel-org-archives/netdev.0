@@ -1,69 +1,44 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH net-next] netconsole: add oops_only module option
-Date: Thu, 08 Nov 2012 11:49:33 -0800
-Message-ID: <509C0CCD.7020900@infradead.org>
-References: <1352382158-3928-1-git-send-email-amwang@redhat.com>
+From: "William Lee Cheng" <noman@era.com.bd>
+Subject: HELLO !!!
+Date: Thu, 8 Nov 2012 23:53:36 +0800 (HKT)
+Message-ID: <54923.116.211.0.106.1352390016.squirrel__25649.2389170036$1352402230$gmane$org@202.40.181.92>
+Reply-To: w_cheng01@yahoo.com.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50490 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752334Ab2KHStn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 13:49:43 -0500
-In-Reply-To: <1352382158-3928-1-git-send-email-amwang@redhat.com>
+Received: from ritt-181-92.ranksitt.net ([202.40.181.92]:47041 "EHLO
+	mail.era.com.bd" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1756656Ab2KHTQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 14:16:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/08/2012 05:42 AM, Cong Wang wrote:
-
-> Some people wants to log only oops messages via netconsole,
-> (this is also why netoops was invented)
-> so add a module option for netconsole. This can be tuned
-> via /sys/module/netconsole/parameters/oops_only at run time
-> as well.
-> 
 
 
-Hi,
 
-What does this do with panics?
-Do they set oops_in_progress?
+Dear Friend,
 
-thanks.
+Greetings to you, I have a business proposal for you that will be
+beneficial to the both of us.This proposal has to do with funds transfer.
 
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> ---
-> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-> index b332112..6989ebe 100644
-> --- a/drivers/net/netconsole.c
-> +++ b/drivers/net/netconsole.c
-> @@ -56,6 +56,10 @@ static char config[MAX_PARAM_LENGTH];
->  module_param_string(netconsole, config, MAX_PARAM_LENGTH, 0);
->  MODULE_PARM_DESC(netconsole, " netconsole=[src-port]@[src-ip]/[dev],[tgt-port]@<tgt-ip>/[tgt-macaddr]");
->  
-> +static bool oops_only = false;
-> +module_param(oops_only, bool, 0600);
-> +MODULE_PARM_DESC(oops_only, "Only log oops messages");
-> +
->  #ifndef	MODULE
->  static int __init option_setup(char *opt)
->  {
-> @@ -683,6 +687,8 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
->  	struct netconsole_target *nt;
->  	const char *tmp;
->  
-> +	if (oops_only && !oops_in_progress)
-> +		return;
->  	/* Avoid taking lock and disabling interrupts unnecessarily */
->  	if (list_empty(&target_list))
->  		return;
-> --
+In confirmation of your acceptance,I would need you to provide me with
+your full names, current house and mailing address,date of birth telephone
+and fax numbers so as to be very confident that I am dealing with the
+right person.(This is very important).
 
+Once I have received confirmation from you with the required information,
+I shall then send you further details about this transaction and how it
+will be executed. I look forward to hearing from you soonest and hope that
+this marks the beginning of a successful and long lasting business
+relationship with you. My profound greetings to you and your family.
+
+Best regards,
+
+William Lee Cheng.
 
 -- 
-~Randy
+This message has been scanned for viruses and
+dangerous content by MailScanner, and is
+believed to be clean.
