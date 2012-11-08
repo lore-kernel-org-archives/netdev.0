@@ -1,52 +1,29 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ethtool: Support et131x registers in -d
-Date: Thu, 8 Nov 2012 19:25:57 +0000
-Message-ID: <1352402757.2771.11.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1351634243-10265-1-git-send-email-mark.einon@gmail.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: question on netdev_completed_queue()
+Date: Thu, 08 Nov 2012 20:38:36 +0100
+Message-ID: <1476426.QTHA7ibVHZ@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Mark Einon <mark.einon@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:23709 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756661Ab2KHT0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 14:26:00 -0500
-In-Reply-To: <1351634243-10265-1-git-send-email-mark.einon@gmail.com>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:45046 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756500Ab2KHTic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 14:38:32 -0500
+Received: from linux-lqwf.site (91.Red-212-170-18.staticIP.rima-tde.net [212.170.18.91])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	(Authenticated sender: neukum_org@smtp-out003.kontent.com)
+	by smtp-out003.kontent.com (Postfix) with ESMTPSA id 4C3064001B75
+	for <netdev@vger.kernel.org>; Thu,  8 Nov 2012 20:38:31 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-10-30 at 21:57 +0000, Mark Einon wrote:
-> The et131x register set contains useful details of RX/TX queues for
-> the device. This dumps them with the -d option.
->
-> Signed-off-by: Mark Einon <mark.einon@gmail.com>
+Hi,
 
-Applied, thanks.  However:
+is this function to be called whenever a driver is done with transmitting
+data, whether the transmission be successful or not?
 
-[...]
-> --- /dev/null
-> +++ b/et131x.c
-> @@ -0,0 +1,120 @@
-> +#include <stdio.h>
-> +#include <string.h>
-> +#include "internal.h"
-> +
-> +int et131x_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
-> +{
-> +	u32 *reg = (u32 *)regs->data;
-> +
-> +	fprintf(stdout, "PHY Registers\n");
-[...]
-
-In case you need to change the dump format later, it might be worth
-adding a version check here.  But if you're confident that you'll only
-ever append to the dump format, this should be fine for now.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+	Regards
+		Oliver
