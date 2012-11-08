@@ -1,47 +1,34 @@
-From: Julius Werner <jwerner@chromium.org>
-Subject: Re: [PATCH] tcp: Avoid infinite loop on recvmsg bug
-Date: Wed, 7 Nov 2012 18:25:37 -0800
-Message-ID: <CAODwPW90mZuCDgYPZEJtYNOGGt752VpP=S_EYACUCGua_x=WjA@mail.gmail.com>
-References: <CAODwPW9kiG-jo=n0zedv5KT-8-gJcEUrdC3F2mAEjt78tne18g@mail.gmail.com>
-	<1352316791-16491-1-git-send-email-jwerner@chromium.org>
-	<1352317219.5552.6.camel@edumazet-glaptop>
-	<CAODwPW8mBJspF3k5SCBR-BShNvBLQpD-vyhLRh5Cq-4h=VZDgg@mail.gmail.com>
-	<1352331192.2748.10.camel@edumazet-glaptop>
-	<1352331754.2748.14.camel@edumazet-glaptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 0/2] Fix CDC_EEM with 802.1Q VLAN and 1500 MTU
+Date: Wed, 07 Nov 2012 21:27:52 -0500 (EST)
+Message-ID: <20121107.212752.1709967292920700431.davem@davemloft.net>
+References: <1352335159-8049-1-git-send-email-iancoolidge@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dave Jones <davej@redhat.com>,
-	Sameer Nanda <snanda@chromium.org>,
-	Mandeep Singh Baines <msb@chromium.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352331754.2748.14.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: iancoolidge-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1352335159-8049-1-git-send-email-iancoolidge-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> So you probably are fighting a bug we already fixed in upstream kernel.
->
-> (commit c8628155ece363 "tcp: reduce out_of_order memory use" did not
-> played well with cloned skbs.)
->
-> This issue was already discussed on netdev in the past.
+From: Ian Coolidge <iancoolidge-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Wed,  7 Nov 2012 16:39:17 -0800
 
-Thanks for the hint. Unfortunately, we have not pulled c8628 into our
-tree yet, so that's not it. Is there another point where the cloned
-skb or the faked truesize might make it break? We have been running
-this test with that hardware some 30 times in the last months and only
-seen it once, so it cannot be that common.
+> cdc_eem USB host driver and gadget driver both are broken in 1500 MTU
+> case while using 802.1Q VLANs. In both cases, this is due to the
+> assumption of standard Ethernet frame length.
+> 
+> v2: rebase against Dave Miller's 'net/master' tree
+> 
+> Ian Coolidge (2):
+>   usb: gadget: g_ether: fix frame size check for 802.1Q
+>   net: usb: cdc_eem: Fix rx skb allocation for 802.1Q VLANs
 
-I have noticed that you have already proposed a patch to repair
-smsc95xx (replacing the clone with a copy) on this list a few times...
-what's the status on that? Will it be committed eventually or did you
-abandon that approach?
-
-Regardless of that, I still think that the bug handling in tcp_recvmsg
-should be updated in one way or the other.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
