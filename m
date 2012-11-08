@@ -1,90 +1,69 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH] qmi_wwan/cdc_ether: add Dell Wireless 5800 (Novatel E362)
- USB IDs
-Date: Thu, 08 Nov 2012 12:14:31 -0600
-Message-ID: <1352398471.22225.18.camel@dcbw.foobar.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH net-next] netconsole: add oops_only module option
+Date: Thu, 08 Nov 2012 11:49:33 -0800
+Message-ID: <509C0CCD.7020900@infradead.org>
+References: <1352382158-3928-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Aleksander Morgado <aleksander@gnu.org>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9090 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755643Ab2KHSOf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2012 13:14:35 -0500
+Received: from casper.infradead.org ([85.118.1.10]:50490 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752334Ab2KHStn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 13:49:43 -0500
+In-Reply-To: <1352382158-3928-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Dell Wireless 5800 appears to be a Novatel E362 rebrand.
+On 11/08/2012 05:42 AM, Cong Wang wrote:
 
-Signed-off-by: Dan Williams <dcbw@redhat.com>
-Cc: stable@vger.kernel.org
----
-Greg: CC-ed to linux-usb@ for visibility but should go through davem
+> Some people wants to log only oops messages via netconsole,
+> (this is also why netoops was invented)
+> so add a module option for netconsole. This can be tuned
+> via /sys/module/netconsole/parameters/oops_only at run time
+> as well.
+> 
 
- drivers/net/usb/cdc_ether.c | 15 +++++++++++++++
- drivers/net/usb/qmi_wwan.c  | 14 ++++++++++++++
- 2 files changed, 29 insertions(+)
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index d095b39..a74f35f 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -487,6 +487,7 @@ static const struct driver_info wwan_info = {
- #define HUAWEI_VENDOR_ID	0x12D1
- #define NOVATEL_VENDOR_ID	0x1410
- #define ZTE_VENDOR_ID		0x19D2
-+#define DELL_VENDOR_ID		0x413C
- 
- static const struct usb_device_id	products [] = {
- /*
-@@ -606,6 +607,20 @@ static const struct usb_device_id	products [] = {
- 	.driver_info = 0,
- },
- 
-+/* Dell Wireless 5800 (Novatel E362) - handled by qmi_wwan */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(DELL_VENDOR_ID, 0x8195, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-+	.driver_info = 0,
-+},
-+
-+/* Dell Wireless 5800 V2 (Novatel E362) - handled by qmi_wwan */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(DELL_VENDOR_ID, 0x8196, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-+	.driver_info = 0,
-+},
-+
- /*
-  * WHITELIST!!!
-  *
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 3b566fa..28a76b2 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -383,6 +383,20 @@ static const struct usb_device_id products[] = {
- 		                              USB_CDC_PROTO_NONE),
- 		.driver_info        = (unsigned long)&qmi_wwan_info,
- 	},
-+	{	/* Dell Wireless 5800 (Novatel E362) */
-+		USB_DEVICE_AND_INTERFACE_INFO(0x413C, 0x8195,
-+					      USB_CLASS_COMM,
-+					      USB_CDC_SUBCLASS_ETHERNET,
-+					      USB_CDC_PROTO_NONE),
-+		.driver_info        = (unsigned long)&qmi_wwan_info,
-+	},
-+	{	/* Dell Wireless 5800 V2 (Novatel E362) */
-+		USB_DEVICE_AND_INTERFACE_INFO(0x413C, 0x8196,
-+					      USB_CLASS_COMM,
-+					      USB_CDC_SUBCLASS_ETHERNET,
-+					      USB_CDC_PROTO_NONE),
-+		.driver_info        = (unsigned long)&qmi_wwan_info,
-+	},
- 
- 	/* 3. Combined interface devices matching on interface number */
- 	{QMI_FIXED_INTF(0x19d2, 0x0002, 1)},
+Hi,
+
+What does this do with panics?
+Do they set oops_in_progress?
+
+thanks.
+
+> Cc: David Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> ---
+> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+> index b332112..6989ebe 100644
+> --- a/drivers/net/netconsole.c
+> +++ b/drivers/net/netconsole.c
+> @@ -56,6 +56,10 @@ static char config[MAX_PARAM_LENGTH];
+>  module_param_string(netconsole, config, MAX_PARAM_LENGTH, 0);
+>  MODULE_PARM_DESC(netconsole, " netconsole=[src-port]@[src-ip]/[dev],[tgt-port]@<tgt-ip>/[tgt-macaddr]");
+>  
+> +static bool oops_only = false;
+> +module_param(oops_only, bool, 0600);
+> +MODULE_PARM_DESC(oops_only, "Only log oops messages");
+> +
+>  #ifndef	MODULE
+>  static int __init option_setup(char *opt)
+>  {
+> @@ -683,6 +687,8 @@ static void write_msg(struct console *con, const char *msg, unsigned int len)
+>  	struct netconsole_target *nt;
+>  	const char *tmp;
+>  
+> +	if (oops_only && !oops_in_progress)
+> +		return;
+>  	/* Avoid taking lock and disabling interrupts unnecessarily */
+>  	if (list_empty(&target_list))
+>  		return;
+> --
+
+
 -- 
-1.7.11.7
+~Randy
