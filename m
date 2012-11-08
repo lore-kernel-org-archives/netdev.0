@@ -1,34 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 0/2] Fix CDC_EEM with 802.1Q VLAN and 1500 MTU
-Date: Wed, 07 Nov 2012 21:27:52 -0500 (EST)
-Message-ID: <20121107.212752.1709967292920700431.davem@davemloft.net>
-References: <1352335159-8049-1-git-send-email-iancoolidge@gmail.com>
+From: Webmail Admin <pro@housing.go.ke>
+Subject: Messenger from Administrator
+Date: Thu, 8 Nov 2012 08:29:13 +0300 (EAT)
+Message-ID: <19443579.22118.1352352553248.JavaMail.root__35811.0437788584$1352353667$gmane$org@mail.housing.go.ke>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, balbi-l0cyMroinI0@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: iancoolidge-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1352335159-8049-1-git-send-email-iancoolidge-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 41.206.34.146.accesskenya.com ([41.206.34.146]:46548 "EHLO
+	mail.housing.go.ke" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751407Ab2KHFrb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 00:47:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Coolidge <iancoolidge-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed,  7 Nov 2012 16:39:17 -0800
+Your E-mail=C2=AE Account needs to be updated with our 2013 F-Secure R-=
+HTK4S new version anti-spam/anti-virus/anti-spyware. Please click this =
+link below=20
 
-> cdc_eem USB host driver and gadget driver both are broken in 1500 MTU
-> case while using 802.1Q VLANs. In both cases, this is due to the
-> assumption of standard Ethernet frame length.
-> 
-> v2: rebase against Dave Miller's 'net/master' tree
-> 
-> Ian Coolidge (2):
->   usb: gadget: g_ether: fix frame size check for 802.1Q
->   net: usb: cdc_eem: Fix rx skb allocation for 802.1Q VLANs
+http://www.contactme.com/509b2c7e59d3f1000202406a
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We Are Sorry For Any Inconvenience.
+
+Regards,
+WEBMAIL ADMINISTRATOR
+Copyright=C2=A9 2012 All rights reserved=C2=AE.ABN 31 088 377 860 All R=
+ights Reserved
