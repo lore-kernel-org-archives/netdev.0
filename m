@@ -1,59 +1,82 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2012-11-07
-Date: Wed, 07 Nov 2012 19:10:34 -0500 (EST)
-Message-ID: <20121107.191034.180849843876027251.davem@davemloft.net>
-References: <1352315502-20324-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] sockopt: Change getsockopt() of
+ SO_BINDTODEVICE to return an interface name
+Date: Thu, 8 Nov 2012 00:23:19 +0000
+Message-ID: <1352334199.2725.48.camel@bwh-desktop.uk.solarflarecom.com>
+References: <509184D9.8030103@hp.com> <5093940B.6020207@parallels.com>
+	  <5093E09A.6000004@hp.com>
+	 <1351899276.2703.35.camel@bwh-desktop.uk.solarflarecom.com>
+	 <50988BAE.6020602@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1352315502-20324-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:42556 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754039Ab2KHAXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 19:23:22 -0500
+In-Reply-To: <50988BAE.6020602@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Wed,  7 Nov 2012 20:11:30 +0100
+On Mon, 2012-11-05 at 21:01 -0700, Brian Haley wrote:
+> On 11/02/2012 05:34 PM, Ben Hutchings wrote:
+> > On Fri, 2012-11-02 at 11:02 -0400, Brian Haley wrote:
+> >> On 11/02/2012 05:36 AM, Pavel Emelyanov wrote:
+> >>>> +static int sock_getbindtodevice(struct sock *sk, char __user *optval,
+> >>>> +				int __user *optlen, int len)
+> >>>> +{
+> >>>> +	int ret = -ENOPROTOOPT;
+> >>>> +#ifdef CONFIG_NETDEVICES
+> >>>> +	struct net *net = sock_net(sk);
+> >>>> +	struct net_device *dev;
+> >>>> +	char devname[IFNAMSIZ];
+> >>>> +
+> >>>> +	if (sk->sk_bound_dev_if == 0) {
+> >>>> +		len = 0;
+> >>>> +		goto zero;
+> >>>> +	}
+> >>>> +
+> >>>> +	ret = -EINVAL;
+> >>>> +	if (len < IFNAMSIZ)
+> >>>> +		goto out;
+> >>>> +
+> >>>> +	rcu_read_lock();
+> >>>> +	dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
+> >>>> +	if (dev)
+> >>>> +		strcpy(devname, dev->name);
+> >>>
+> >>> This still races with the device name change, potentially providing
+> >>> a name which never existed in the system, doesn't it?
+> >>
+> >> My only argument here is that SIOCGIFNAME has had this same code forever, and
+> >> noone has ever complained about that returning a garbled name.  Even
+> >> dev_get_by_name() only holds an rcu lock when doing a strncmp().
+> >>
+> >> We'd need to audit the whole kernel to catch all the places where we potentially
+> >> look at dev->name while it could change.  Is it really worth it?
+> >
+> > A net device name can't be changed while the device is up, or while
+> > another task holds the RTNL lock.  I think that covers almost all uses.
+> > I don't know whether it's worth going out to look for exceptions, but we
+> > might as well fix the cases we know about.
+> 
+> So do you think we can fix these corner cases later and get the API 
+> right first?
 
-> Hello David,
-> 
-> first of all thank you for having made us aware of the packet format problem in
-> batman-adv! The impact of __packed on performances was not entirely known to me,
-> in particular for what concerns the RISC arch.
-> 
-> We have to change a number of packet formats before we can remove __packed
-> everywhere which will obviously break compatibility.
-> 
-> However we already scheduled a compatibility break because we want to
-> heavily improve our packet formats and to provide a more flexible framework that
-> would allow us to add new types and features while reducing the probability of
-> breaking compatibility again and again as happened in the past (we are
-> implementing TypeLengthValue (TLV) containers among other things).
-> 
-> To avoid breaking compatibility (at least) twice we decided to fix now (in this
-> patchset) what is fixable with no consequences to compatibility while we would
-> ilike to defer the remaining changes for the scheduled compatibility break.
-> 
-> In this patchset you have the two new features intended for net-next/linux-3.8:
-> 1) the new UNICAST_4ADDR packet type
-> 2) the Distributed ARP Table (DAT) component
-> 
-> The new packet type has been reviewed to entirely address the alignment issue.
-> At the same time we also reviewed the other packet types but as I told you
-> before, we will send these changes later.
-> 
-> Other than that you have patch 02/12 that removes the __packed attribute from
-> the structures where it was not really needed.
+Well you can avoid the problem here by using rtnl_{,un}lock() and
+__dev_get_by_index().  But if that's too heavyweight (it depends on how
+often you think this might need to be called) then I suppose it can be
+left until we have a general solution for races with renaming.
 
-Pulled, thanks.
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
