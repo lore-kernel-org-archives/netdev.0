@@ -1,73 +1,90 @@
-From: Daniel Borkmann <dxchgb@gmail.com>
-Subject: [PATCH net-next 2/2] PPC: net: bpf_jit_comp: add VLAN instructions
- for BPF JIT
-Date: Thu, 8 Nov 2012 22:41:39 +0100
-Message-ID: <20121108214137.GB29696@thinkbox>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Fri, 9 Nov 2012 10:53:18 +1100
+Message-ID: <20121109105318.e24e2fa2b899af6e4d444b30@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: matt@ozlabs.org, benh@kernel.crashing.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:36793 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756690Ab2KHVlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 16:41:44 -0500
-Received: by mail-ea0-f174.google.com with SMTP id c13so1241445eaa.19
-        for <netdev@vger.kernel.org>; Thu, 08 Nov 2012 13:41:43 -0800 (PST)
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__9_Nov_2012_10_53_18_+1100_1.mq6L.2UhwDPvZR"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Merav Sicron <meravs@broadcom.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Fri__9_Nov_2012_10_53_18_+1100_1.mq6L.2UhwDPvZR
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-This patch is a follow-up for patch "net: filter: add vlan tag access"
-to support the new VLAN_TAG/VLAN_TAG_PRESENT accessors in BPF JIT.
+Hi all,
 
-Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
-Cc: Matt Evans <matt@ozlabs.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
----
- Disclaimer: uncompiled and untested, since I don't have a PPC machine,
- but it should (hopefully) integrate cleanly; impl. after PPC instruction
- reference.
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c between commit
+477864ddd365 ("bnx2x: Disable FCoE for 57840 since not yet supported by
+FW") from Linus' tree and commit 55c11941e382 ("bnx2x: Support loading
+cnic resources at run-time") from the net-next tree.
 
- arch/powerpc/net/bpf_jit_comp.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+I fixed it up (I think - see below) and can carry the fix as necessary
+(no action is required).
 
-diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
-index b9434de..e834f1e 100644
---- a/arch/powerpc/net/bpf_jit_comp.c
-+++ b/arch/powerpc/net/bpf_jit_comp.c
-@@ -13,6 +13,8 @@
- #include <asm/cacheflush.h>
- #include <linux/netdevice.h>
- #include <linux/filter.h>
-+#include <linux/if_vlan.h>
-+
- #include "bpf_jit.h"
- 
- #ifndef __BIG_ENDIAN
-@@ -89,6 +91,8 @@ static void bpf_jit_build_prologue(struct sk_filter *fp, u32 *image,
- 	case BPF_S_ANC_IFINDEX:
- 	case BPF_S_ANC_MARK:
- 	case BPF_S_ANC_RXHASH:
-+	case BPF_S_ANC_VLAN_TAG:
-+	case BPF_S_ANC_VLAN_TAG_PRESENT:
- 	case BPF_S_ANC_CPU:
- 	case BPF_S_ANC_QUEUE:
- 	case BPF_S_LD_W_ABS:
-@@ -382,6 +386,16 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
- 			PPC_LWZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
- 							  rxhash));
- 			break;
-+		case BPF_S_ANC_VLAN_TAG:
-+		case BPF_S_ANC_VLAN_TAG_PRESENT:
-+			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, vlan_tci) != 2);
-+			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
-+							  vlan_tci));
-+			if (filter[i].code == BPF_S_ANC_VLAN_TAG)
-+				PPC_ANDI(r_A, r_A, VLAN_VID_MASK);
-+			else
-+				PPC_ANDI(r_A, r_A, VLAN_TAG_PRESENT);
-+			break;
- 		case BPF_S_ANC_QUEUE:
- 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
- 						  queue_mapping) != 2);
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index bd1fd3d,0546cf4..0000000
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@@ -11899,22 -12065,10 +12066,20 @@@ static int __devinit bnx2x_init_one(s=
+tr
+  	/* calc qm_cid_count */
+  	bp->qm_cid_count =3D bnx2x_set_qm_cid_count(bp);
+ =20
+- #ifdef BCM_CNIC
+- 	/* disable FCOE L2 queue for E1x */
++ 	/* disable FCOE L2 queue for E1x*/
+  	if (CHIP_IS_E1x(bp))
+  		bp->flags |=3D NO_FCOE_FLAG;
++=20
+ +	/* disable FCOE for 57840 device, until FW supports it */
+ +	switch (ent->driver_data) {
+ +	case BCM57840_O:
+ +	case BCM57840_4_10:
+ +	case BCM57840_2_20:
+ +	case BCM57840_MFO:
+ +	case BCM57840_MF:
+ +		bp->flags |=3D NO_FCOE_FLAG;
+ +	}
+- #endif
+-=20
+ +
+  	/* Set bp->num_queues for MSI-X mode*/
+  	bnx2x_set_num_queues(bp);
+ =20
+
+--Signature=_Fri__9_Nov_2012_10_53_18_+1100_1.mq6L.2UhwDPvZR
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQnEXuAAoJEECxmPOUX5FEP00QAIrY1EAHh1MVpVIFwcijQ6Hj
+NZ+U01SQfLOXikbm98uLcHgHeAOrUZu+I4potFHCqwIAJZRegeTf7siPptvv0q+0
+Y2hW6F4qbvr6Pl8dbx71BIzl3zgh0jgfMx+9U2VgB18+6aOZeDcvut1w0bZBkl4z
+TMC0ONivXxPYgQUY7Y7IJw2ds95jdoe97eCUxtlwQzwk/CZw35FjbJenCMPv3vt8
+cRmD5JPBumztpPqRNYCbwLx3ZdRvLun0wO3Fvnx9XomK/kFa+LdYxKNsxEpk0rjK
+4j5FqBKYMNN7v+N59QrzWfkNqE1akZnGEzlH6JCagGx9L6z0wAM/VTfUiwc2DDBY
+a0m1cm8VdndaemQ8TcXQXHxcCa98KU38FCRQY5LJo0t5in/9rU0Fy5koBRqit0rA
+J6x+z74f8m+EwfarbqmKdbCfS8w66JE7XkdiTT9k257QB7FcWtbGXMS1N+JcMdVu
+sUFsbGx/JEbonsjDB9o/QGc/ElI0gGAjDCUyty2jg+N/l1xNlU3Qh/oRAWvk8pex
+R5od2rAS4eOWjBbYQ1wKU2RefEQkrgUW8QwoFDKoiGeUM4uCi4XrkIsJSroo8AwS
+EZfgALjxEPPdK6Dsr04naNH0wNxMp6SqEjF9gzSDm9RtHuRKWM+44KwTyQxp415D
+pzC//v6QxU3EW7pTgPCs
+=Fub3
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__9_Nov_2012_10_53_18_+1100_1.mq6L.2UhwDPvZR--
