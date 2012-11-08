@@ -1,31 +1,48 @@
-From: "Merav Sicron" <meravs@broadcom.com>
-Subject: Re: [net-next:master 232/235]
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:7053:6: sparse: symbol
- 'bnx2x_init_searcher' was not declared. Should it be static?
-Date: Thu, 8 Nov 2012 18:09:10 +0200
-Message-ID: <1352390951.5555.5.camel@lb-tlvb-meravs.il.broadcom.com>
-References: <20121108093805.GA1891@localhost>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 4/4] arm/dts: am33xx: Add CPSW and MDIO module nodes for
+ AM33XX
+Date: Thu, 8 Nov 2012 18:29:12 +0530
+Message-ID: <509BACA0.8060409@ti.com>
+References: <1351498881-32482-1-git-send-email-hvaibhav@ti.com> <1351498881-32482-6-git-send-email-hvaibhav@ti.com> <50914107.2090909@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>, netdev@vger.kernel.org
-To: "Fengguang Wu" <fengguang.wu@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4144 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751274Ab2KHM7G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2012 07:59:06 -0500
-In-Reply-To: <20121108093805.GA1891@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vaibhav Hiremath <hvaibhav@ti.com>, <netdev@vger.kernel.org>,
+	<paul@pwsan.com>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Benoit Cousson <b-cousson@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <50914107.2090909@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-11-08 at 17:38 +0800, Fengguang Wu wrote:
-> Hi Merav,
-> 
-> FYI, there are new sparse warnings show up in
+On 10/31/2012 8:47 PM, Benoit Cousson wrote:
+> diff --git a/arch/arm/boot/dts/am335x-bone.dts b/arch/arm/boot/dts/am335x-bone.dts
+> index c634f87..e233cfa 100644
+> --- a/arch/arm/boot/dts/am335x-bone.dts
+> +++ b/arch/arm/boot/dts/am335x-bone.dts
+> @@ -78,3 +78,11 @@
+>   		};
+>   	};
+>   };
+> +
+> +&cpsw_emac0 {
+> +	phy_id = "4a101000.mdio:00";
+> Why are you using that kind of interface? You seem to want a reference
+> to a device.
+>
+> Cannot you have something less hard coded like:
+> phy_id = <&davinci_mdio>, <0>;
+Benoit
 
-Thanks. Before submitting I run sparse and it didn't catch these issues,
-but apparently it didn't function well. I will submit a patch soon.
-Merav
+I am having a issue in converting the above phy_id conversion from 
+"<&davinci_mdio>, <0>" to
+"4a101000.mdio:00". Since davinci_mdio is a child node to cpsw, the 
+platform device for mdio is
+not created to get the mdio device name "4a101000.mdio".
+Can you point me a reference to get the right implementation.
+
+Regards
+Mugunthan V N
+
