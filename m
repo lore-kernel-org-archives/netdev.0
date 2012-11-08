@@ -1,54 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix two typos in a comment in xfrm6_init()
-Date: Thu, 08 Nov 2012 14:59:39 -0500 (EST)
-Message-ID: <20121108.145939.2274479010583117059.davem@davemloft.net>
-References: <1352363888-14068-1-git-send-email-roy.qing.li@gmail.com>
-	<20121108141936.GC22290@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipip: add GSO support
+Date: Thu, 08 Nov 2012 11:59:52 -0800
+Message-ID: <1352404792.19779.88.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57257 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753283Ab2KHT7s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 14:59:48 -0500
-In-Reply-To: <20121108141936.GC22290@secunet.com>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:32969 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753283Ab2KHT7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 14:59:54 -0500
+Received: by mail-da0-f46.google.com with SMTP id n41so1324888dak.19
+        for <netdev@vger.kernel.org>; Thu, 08 Nov 2012 11:59:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 8 Nov 2012 15:19:36 +0100
+=46rom: Eric Dumazet <edumazet@google.com>
 
-> On Thu, Nov 08, 2012 at 04:38:08PM +0800, roy.qing.li@gmail.com wrote:
->> From: Li RongQing <roy.qing.li@gmail.com>
->> 
->> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
->> ---
->>  net/ipv6/xfrm6_policy.c |    4 ++--
->>  1 files changed, 2 insertions(+), 2 deletions(-)
->> 
->> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
->> index f3ed8ca..93832e8 100644
->> --- a/net/ipv6/xfrm6_policy.c
->> +++ b/net/ipv6/xfrm6_policy.c
->> @@ -332,10 +332,10 @@ int __init xfrm6_init(void)
->>  	/*
->>  	 * We need a good default value for the xfrm6 gc threshold.
->>  	 * In ipv4 we set it to the route hash table size * 8, which
->> -	 * is half the size of the maximaum route cache for ipv4.  It
->> +	 * is half the size of the maximum route cache for ipv4.
-> 
-> The routing cache is removed, so this comment is obsolete. But it reminds
-> me that we set the gc threshold to ip_rt_max_size/2 in ipv4. With the
-> routing cache removal patch, ip_rt_max_size was set to INT_MAX. So the gc
-> starts to remove entries when a threshold of INT_MAX/2 is reached.
-> 
-> cat /proc/sys/net/ipv4/xfrm4_gc_thresh
-> 1073741823
-> 
-> I guess this was not intentional.
+In commit 6b78f16e4b (gre: add GSO support) we added GSO support to GRE
+tunnels.
 
-Do you mean for IPSEC routes?  For non-IPSEC routes on ipv4 there
-is nothing to garbage collect.
+This patch does the same for IPIP tunnels.
+
+Performance of single TCP flow over an IPIP tunnel is increased by 40%
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Maciej =C5=BBenczykowski <maze@google.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+---
+ net/ipv4/ipip.c |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index e15b452..cc49cc1 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -479,6 +479,10 @@ static netdev_tx_t ipip_tunnel_xmit(struct sk_buff=
+ *skb, struct net_device *dev)
+ 	if (skb->protocol !=3D htons(ETH_P_IP))
+ 		goto tx_error;
+=20
++	if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL &&
++	    skb_checksum_help(skb))
++		goto tx_error;
++
+ 	if (tos & 1)
+ 		tos =3D old_iph->tos;
+=20
+@@ -773,6 +777,11 @@ static void ipip_dev_free(struct net_device *dev)
+ 	free_netdev(dev);
+ }
+=20
++#define IPIP_FEATURES (NETIF_F_SG |		\
++		       NETIF_F_FRAGLIST |	\
++		       NETIF_F_HIGHDMA |	\
++		       NETIF_F_HW_CSUM)
++
+ static void ipip_tunnel_setup(struct net_device *dev)
+ {
+ 	dev->netdev_ops		=3D &ipip_netdev_ops;
+@@ -787,6 +796,9 @@ static void ipip_tunnel_setup(struct net_device *de=
+v)
+ 	dev->features		|=3D NETIF_F_NETNS_LOCAL;
+ 	dev->features		|=3D NETIF_F_LLTX;
+ 	dev->priv_flags		&=3D ~IFF_XMIT_DST_RELEASE;
++
++	dev->features		|=3D IPIP_FEATURES;
++	dev->hw_features	|=3D IPIP_FEATURES;
+ }
+=20
+ static int ipip_tunnel_init(struct net_device *dev)
