@@ -1,78 +1,47 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH v2 0/2] Fix CDC_EEM with 802.1Q VLAN and 1500 MTU
-Date: Thu, 8 Nov 2012 15:37:36 +0200
-Message-ID: <20121108133736.GA19533@arwen.pp.htv.fi>
-References: <1352335159-8049-1-git-send-email-iancoolidge@gmail.com>
- <20121107.212752.1709967292920700431.davem@davemloft.net>
-Reply-To: <balbi@ti.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] ipv6: fix two typos in a comment in xfrm6_init()
+Date: Thu, 8 Nov 2012 15:19:36 +0100
+Message-ID: <20121108141936.GC22290@secunet.com>
+References: <1352363888-14068-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="5vNYLRcllDrimb99"
-Cc: <iancoolidge@gmail.com>, <gregkh@linuxfoundation.org>,
-	<balbi@ti.com>, <linux-usb@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:53600 "EHLO arroyo.ext.ti.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:47929 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751193Ab2KHNnr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2012 08:43:47 -0500
+	id S1755975Ab2KHOTq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Nov 2012 09:19:46 -0500
 Content-Disposition: inline
-In-Reply-To: <20121107.212752.1709967292920700431.davem@davemloft.net>
+In-Reply-To: <1352363888-14068-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---5vNYLRcllDrimb99
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Thu, Nov 08, 2012 at 04:38:08PM +0800, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>  net/ipv6/xfrm6_policy.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+> index f3ed8ca..93832e8 100644
+> --- a/net/ipv6/xfrm6_policy.c
+> +++ b/net/ipv6/xfrm6_policy.c
+> @@ -332,10 +332,10 @@ int __init xfrm6_init(void)
+>  	/*
+>  	 * We need a good default value for the xfrm6 gc threshold.
+>  	 * In ipv4 we set it to the route hash table size * 8, which
+> -	 * is half the size of the maximaum route cache for ipv4.  It
+> +	 * is half the size of the maximum route cache for ipv4.
 
-Hi,
+The routing cache is removed, so this comment is obsolete. But it reminds
+me that we set the gc threshold to ip_rt_max_size/2 in ipv4. With the
+routing cache removal patch, ip_rt_max_size was set to INT_MAX. So the gc
+starts to remove entries when a threshold of INT_MAX/2 is reached.
 
-On Wed, Nov 07, 2012 at 09:27:52PM -0500, David Miller wrote:
-> From: Ian Coolidge <iancoolidge@gmail.com>
-> Date: Wed,  7 Nov 2012 16:39:17 -0800
->=20
-> > cdc_eem USB host driver and gadget driver both are broken in 1500 MTU
-> > case while using 802.1Q VLANs. In both cases, this is due to the
-> > assumption of standard Ethernet frame length.
-> >=20
-> > v2: rebase against Dave Miller's 'net/master' tree
-> >=20
-> > Ian Coolidge (2):
-> >   usb: gadget: g_ether: fix frame size check for 802.1Q
-> >   net: usb: cdc_eem: Fix rx skb allocation for 802.1Q VLANs
->=20
-> Applied, thanks.
+cat /proc/sys/net/ipv4/xfrm4_gc_thresh
+1073741823
 
-did you take both ? I'd rather you waited for my Ack for anything under
-drivers/usb/gadget/ so we avoid conflicts later.
-
-cheers
-
---=20
-balbi
-
---5vNYLRcllDrimb99
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJQm7WgAAoJEIaOsuA1yqREDO8QAJuaN5nEKv0abMGX3DO2MmLT
-84Wcq4BJzY1r3YHaUELTw9GQQqjSQdMKq31FHVQNlr1TJOjOMNRqgLJyENpyP41m
-Lsm957aduugErzRZ10copAXzs4n8NdrK2slAVkJ4msC4N7ccO42NoTcnS+gxSHpU
-KYI9asIyEtOwjEJN+SsPgfr5+E/RewsYQ/jFzqTm8izw1I1HnHVDW5v1lVq0co/R
-HSOtkWkXr0PU7o4sRrSrOdU6rxZ6OqCNd+C2lSH+lOL9uK4bEveLswnXVlQq+Ql+
-wkmhQVsx8Ebsp+b0NzoGUUTGguQnChPf5E/wklrNlKyKZsP6nlUF2pb4Dyky7QLW
-PuYn8uIeWdZTPR7nfaAmKQfG3z4RyCrLg8NcJpuLhiU1U5Nd0eAUmJn2cOywpe/c
-wmIosVUx4RKF7waj4VW0IiOIzFJ8Ltlr+QfxTt6ov5/ntCxrMibaMObWpgQ2tOpW
-3v5owYs64ypqnyPyoyJZSaBWEknSB5v5F6SFC7KF8B0dQjs+OkWqsXzmS2vegw7y
-L5B0EO1yhISyPwbnzncvpufKuslTqKomf99D8UOJ7S9QqnFSpIZJZUlfTGuQkaDI
-YO3+t0Xx6ebjs/J+AMfWi9bXQtYQYax7CCnQJmet3LHRzIFrYG6+WlX9qWGEjVSW
-sUdy+0iCfoKOwxMTaHaD
-=iN/I
------END PGP SIGNATURE-----
-
---5vNYLRcllDrimb99--
+I guess this was not intentional.
