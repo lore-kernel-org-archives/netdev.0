@@ -1,44 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next:master 232/235]
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c:7053:6: sparse: symbol
- 'bnx2x_init_searcher' was not declared. Should it be static?
-Date: Thu, 8 Nov 2012 17:15:25 +0000
-Message-ID: <1352394925.2771.1.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20121108093805.GA1891@localhost>
-	 <1352390951.5555.5.camel@lb-tlvb-meravs.il.broadcom.com>
+From: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
+	per-cpu helper
+Date: Thu, 8 Nov 2012 17:18:55 +0000
+Message-ID: <0000013ae10817d9-c5215352-348f-4898-b618-bb89e8725ab1-000000@email.amazonses.com>
+References: <5093EE59.8010609@gmail.com>
+	<0000013ac23ac528-19a0dd1b-3144-45df-9d6e-471999d6ae31-000000@email.amazonses.com>
+	<509BC026.4040209@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Fengguang Wu <fengguang.wu@intel.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	<netdev@vger.kernel.org>
-To: Merav Sicron <meravs@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:56576 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751810Ab2KHRPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 12:15:32 -0500
-In-Reply-To: <1352390951.5555.5.camel@lb-tlvb-meravs.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <509BC026.4040209-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-11-08 at 18:09 +0200, Merav Sicron wrote:
-> On Thu, 2012-11-08 at 17:38 +0800, Fengguang Wu wrote:
-> > Hi Merav,
-> > 
-> > FYI, there are new sparse warnings show up in
-> 
-> Thanks. Before submitting I run sparse and it didn't catch these issues,
-> but apparently it didn't function well. I will submit a patch soon.
-> Merav
+On Thu, 8 Nov 2012, Shan Wei wrote:
 
-The kernel doesn't enable byte-order type checks by default; you have to
-add CHECKFLAGS=-D__CHECK_ENDIAN__ to the make command line.
+> Christoph Lameter said, at 2012/11/3 1:46:
+> >>  		u64_stats_update_begin(&stats->sync);
+> >>  		stats->tx_packets++;
+> >
+> > Use this_cpu_inc(vport->percpu_stats->packets) here?
+>
+> Lots of network drivers use u64_stats_sync infrastructure for statistics
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+So they would all have an advantage from the patch.
