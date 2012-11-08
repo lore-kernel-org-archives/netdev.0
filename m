@@ -1,90 +1,39 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH][net-next] gianfar: Fix alloc_skb_resources on -ENOMEM
- cleanup path
-Date: Thu, 8 Nov 2012 09:21:03 -0500
-Message-ID: <509BBFCF.20109@windriver.com>
-References: <1352382008-7039-1-git-send-email-claudiu.manoil@freescale.com>
+From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
+	per-cpu helper
+Date: Thu, 08 Nov 2012 22:22:30 +0800
+Message-ID: <509BC026.4040209@gmail.com>
+References: <5093EE59.8010609@gmail.com>
+	<0000013ac23ac528-19a0dd1b-3144-45df-9d6e-471999d6ae31-000000@email.amazonses.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:59632 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755976Ab2KHOVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 09:21:10 -0500
-In-Reply-To: <1352382008-7039-1-git-send-email-claudiu.manoil@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <0000013ac23ac528-19a0dd1b-3144-45df-9d6e-471999d6ae31-000000-p/GC64/jrecnJqMo6gzdpkEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12-11-08 08:40 AM, Claudiu Manoil wrote:
-> Should gfar_init_bds() return with -ENOMEM inside gfar_alloc_skb_resources(),
-> free_skb_resources() will be called twice in a row on the "cleanup" path,
-> leading to duplicate kfree() calls for rx_|tx_queue->rx_|tx_skbuff resulting
-> in segmentation fault.
-> This patch prevents the segmentation fault to happen in the future
-> (rx_|tx_sbkbuff set to NULL), and corrects the error path handling
-> for gfar_init_bds().
+Christoph Lameter said, at 2012/11/3 1:46:
+>>  		u64_stats_update_begin(&stats->sync);
+>>  		stats->tx_packets++;
+> 
+> Use this_cpu_inc(vport->percpu_stats->packets) here?
+ 
+Lots of network drivers use u64_stats_sync infrastructure for statistics
+on 32bit or 64bit hosts no matter how many members in per-cpu variable. 
 
-Since gfar_init_bds is more like a slave routine to gfar_alloc_skb_resources,
-I think the dup free_skb_resources should remain in the parent, and be removed
-from gfar_init_bds.  Otherwise the gfar_alloc_skb_resources will appear
-confusing -- one will think it it allocates some resources, hits a failure
-and then returns without bothering to do any cleanup of the parts it
-did manage to allocate. (Then gfar_restore will have to call the free
-itself _if_ gfar_init_bds fails too.)
+keep them be consistent, so no plan to change them.
 
-Paul.
---
-
-> 
-> Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> 
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/gianfar.c |    8 ++++++--
->  1 files changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-> index 1d03dcd..c5c82ad 100644
-> --- a/drivers/net/ethernet/freescale/gianfar.c
-> +++ b/drivers/net/ethernet/freescale/gianfar.c
-> @@ -311,7 +311,7 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
->  	}
->  
->  	if (gfar_init_bds(ndev))
-> -		goto cleanup;
-> +		return -ENOMEM;
->  
->  	return 0;
->  
-> @@ -1356,7 +1356,9 @@ static int gfar_restore(struct device *dev)
->  	if (!netif_running(ndev))
->  		return 0;
->  
-> -	gfar_init_bds(ndev);
-> +	if (gfar_init_bds(ndev))
-> +		return -ENOMEM;
-> +
->  	init_registers(ndev);
->  	gfar_set_mac_address(ndev);
->  	gfar_init_mac(ndev);
-> @@ -1709,6 +1711,7 @@ static void free_skb_tx_queue(struct gfar_priv_tx_q *tx_queue)
->  		tx_queue->tx_skbuff[i] = NULL;
->  	}
->  	kfree(tx_queue->tx_skbuff);
-> +	tx_queue->tx_skbuff = NULL;
->  }
->  
->  static void free_skb_rx_queue(struct gfar_priv_rx_q *rx_queue)
-> @@ -1732,6 +1735,7 @@ static void free_skb_rx_queue(struct gfar_priv_rx_q *rx_queue)
->  		rxbdp++;
->  	}
->  	kfree(rx_queue->rx_skbuff);
-> +	rx_queue->rx_skbuff = NULL;
->  }
->  
->  /* If there are any tx skbs or rx skbs still around, free them.
-> 
+Thanks 
