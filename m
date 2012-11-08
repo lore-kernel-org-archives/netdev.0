@@ -1,45 +1,86 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: [PATCH 2/2] irda: sh-irda: Remove SH7377 support
-Date: Thu,  8 Nov 2012 16:44:27 +0900
-Message-ID: <1352360667-9341-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-References: <1352360667-9341-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Cc: samuel@sortiz.org,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-To: netdev@vger.kernel.org
+From: Li Yu <raise.sail@gmail.com>
+Subject: Re: [PATCH 1/4 net-next] net: allow skb->head to be a page fragment
+Date: Thu, 08 Nov 2012 15:46:48 +0800
+Message-ID: <509B6368.9010206@gmail.com>
+References: <1335522818.2775.227.camel@edumazet-glaptop>  <509A19E6.4040707@gmail.com>  <509A1D49.4080306@gmail.com> <1352286264.3140.3575.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:33163 "EHLO
+Received: from mail-da0-f46.google.com ([209.85.210.46]:57166 "EHLO
 	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500Ab2KHHok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 02:44:40 -0500
-Received: by mail-da0-f46.google.com with SMTP id n41so1072021dak.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 23:44:40 -0800 (PST)
-In-Reply-To: <1352360667-9341-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+	with ESMTP id S1751500Ab2KHHr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 02:47:28 -0500
+Received: by mail-da0-f46.google.com with SMTP id n41so1073038dak.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 23:47:28 -0800 (PST)
+In-Reply-To: <1352286264.3140.3575.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The shmobile SH7377 already was removed from source tree.
-This remove SH7377 support for sh-irda.
+=E4=BA=8E 2012=E5=B9=B411=E6=9C=8807=E6=97=A5 19:04, Eric Dumazet =E5=86=
+=99=E9=81=93:
+> On Wed, 2012-11-07 at 16:35 +0800, Li Yu wrote:
+>> =E4=BA=8E 2012=E5=B9=B411=E6=9C=8807=E6=97=A5 16:20, Li Yu =E5=86=99=
+=E9=81=93:
+>>> =E4=BA=8E 2012=E5=B9=B404=E6=9C=8827=E6=97=A5 18:33, Eric Dumazet =E5=
+=86=99=E9=81=93:
+>>>> From: Eric Dumazet <edumazet@google.com>
+>>>>
+>>>> skb->head is currently allocated from kmalloc(). This is convenien=
+t but
+>>>> has the drawback the data cannot be converted to a page fragment i=
+f
+>>>> needed.
+>>>>
+>>>
+>>> Hi, Eric,
+>>>
+>>> I have a question about this patch, why data are allocated from
+>>> kmalloc() can not be converted to page fragment ? We have its kerne=
+l
+>>> mapped address and length, so we can get its page and offset in the
+>>> page. If the skb is not cloned (shared with others), such page and =
+its
+>>> offset should be can use safely, in my words.
+>>>
+>>> I suspected that I may lost important something in slab internals, =
+is
+>>> right?
+>>>
+>>> Thanks
+>>>
+>>> Yu
+>>>
+>>
+>> Or since slab allocated object may be across multiple pages?
+>> I saw __netdev_alloc_skb() only use build_skb() with non-zero
+>> fragsz if it is less than PAGE_SIZE.
+>>
+>
+> SLAB allocators have their own way to handle a page, we cant interfer=
+e
+> with it.
+>
+> So no, a kmalloced() object cannot be converted to a page fragment.
+>
 
-Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
----
- drivers/net/irda/sh_irda.c |    4 ----
- 1 file changed, 4 deletions(-)
+I think that all kmalloced() objects are continuous on both virtual
+and physical address space, so such page fragment converting should be
+safe until we use slab allocator to free them.
 
-diff --git a/drivers/net/irda/sh_irda.c b/drivers/net/irda/sh_irda.c
-index ca49bbf..945360a 100644
---- a/drivers/net/irda/sh_irda.c
-+++ b/drivers/net/irda/sh_irda.c
-@@ -33,11 +33,7 @@
- 
- #define DRIVER_NAME "sh_irda"
- 
--#if defined(CONFIG_ARCH_SH7377)
--#define __IRDARAM_LEN	0x13FF
--#else
- #define __IRDARAM_LEN	0x1039
--#endif
- 
- #define IRTMR		0x1F00 /* Transfer mode */
- #define IRCFR		0x1F02 /* Configuration */
--- 
-1.7.10.4
+I ask this question since I am working on a patch to try to directly
+forward the data from rx queue of a socket to tx queue of another=20
+socket. We noticed that the splice itself still has visible costs when=20
+forwarding small messages, and hope such direct forwarding optimization
+can improve this, this idea comes from TCP friends.
+
+Thanks
+
+Yu
+
+>
+>
+>
