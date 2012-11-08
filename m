@@ -1,53 +1,31 @@
 From: Frank Li <lznuaa@gmail.com>
-Subject: Re: Lower wake up time when phy enter lower mode
-Date: Thu, 8 Nov 2012 10:09:11 +0800
-Message-ID: <CAHrpEqQYXxADPrYd=TwqEPaecWt_yjgkivCR6iek9qk0z73WzQ@mail.gmail.com>
-References: <CAHrpEqSw8N4nN6Wgnu2z3tWS_CrGoPMbFj2wJjmDv2JPLW7cLg@mail.gmail.com>
-	<1352315183.2725.17.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH 1/2] net: fec: default select FEC_PTP at mx6 platform
+Date: Thu, 8 Nov 2012 10:15:33 +0800
+Message-ID: <CAHrpEqSSA-1JKuUN0LbWDNxN+sMbMZLfFw2kXut4NRk78ZSV=w@mail.gmail.com>
+References: <1352268883-16800-1-git-send-email-Frank.Li@freescale.com>
+	<20121107.185246.1330887590098677807.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Frank.Li@freescale.com, richardcochran@gmail.com,
+	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.or,
+	netdev@vger.kernel.org, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:33248 "EHLO
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:35989 "EHLO
 	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752935Ab2KHCJM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 21:09:12 -0500
-Received: by mail-ie0-f174.google.com with SMTP id k13so3489377iea.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 18:09:11 -0800 (PST)
-In-Reply-To: <1352315183.2725.17.camel@bwh-desktop.uk.solarflarecom.com>
+	with ESMTP id S1751740Ab2KHCPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 21:15:33 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k13so3494544iea.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 18:15:33 -0800 (PST)
+In-Reply-To: <20121107.185246.1330887590098677807.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/11/8 Ben Hutchings <bhutchings@solarflare.com>:
-> On Wed, 2012-11-07 at 10:52 +0800, Frank Li wrote:
->> Richard:
->>
->>           Recently, I found out the path delay will increase about
->> 20us suddenly in something when connect two iMX6 board and Ethernet
->> work on 1G mode.
->>           The reason is that the PHY enter lower mode automatically
->> when no package send and receive. It takes some time to recover and
->> send out package by PHY but MAC think package have sent and sample
->> time stamper.
->>           Do you meet such case?  I can workaround it by two method
->>                1. disable phy lower power feature.
->>                2. add some dummy package before SYNC package.
 >
-> If this low power mode is related to EEE (Energy Efficient Ethernet)
-> then there are ethtool operations defined for configuring it, and you
-> could implement those.
+> But please be explicit about which tree your patches are for in the
+> subject line in the future.
 
-Yes, it is phy specific, called smart EEE, which compatible with IEEE 802.3az
-and can be used in legacy MAC without EEE.
+Okay.
 
-Do you have example about ethtool operations?
-
->
-> Ben.
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
+best regards
+Frank Li
