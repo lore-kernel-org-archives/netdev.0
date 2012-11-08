@@ -1,513 +1,456 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources
- for SR-IOV)
-Date: Thu, 08 Nov 2012 03:23:24 -0800
-Message-ID: <509B962C.6070002@gmail.com>
-References: <201211081915083774239@gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Daniel Borkmann <dxchgb@gmail.com>
+Subject: [PATCH net-next] doc: packet_mmap: update doc to implementation
+ status
+Date: Thu, 8 Nov 2012 13:37:01 +0100
+Message-ID: <20121108123700.GA25799@thinkbox>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="------------enig5EB9C985A4D06E20EF09C0D6"
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>,
-	e1000-devel@lists.sourceforge.net,
-	Greg Rose <gregory.v.rose@intel.com>
-To: "pkill.2012" <pkill.2012@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201211081915083774239@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ronny Meeus <ronny.meeus@gmail.com>,
+	Ulisses Alonso =?iso-8859-1?Q?Camar=F3?= <uaca@alumni.uv.es>,
+	Johann Baudy <johann.baudy@gnu-log.net>, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:48206 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751317Ab2KHMhG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 07:37:06 -0500
+Received: by mail-ea0-f174.google.com with SMTP id c13so1036645eaa.19
+        for <netdev@vger.kernel.org>; Thu, 08 Nov 2012 04:37:05 -0800 (PST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig5EB9C985A4D06E20EF09C0D6
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+This improves the packet_mmap.txt document in the following ways:
 
-On 11/08/2012 03:15 AM, pkill.2012 wrote:
-> Hello,
-> =20
-> I installed kvm and tried to use SR-IOV virtualizaton for 82599EB(Intel=
- XT-520 T2) dual port card with latest ixgbe driver(version:3.11.33) ,=20
-> kernel2.6.32-279.14.1(OS:Centos6.3) ,after configuration and reboot
-> It seems that only first port of the card's VFs works,second port of th=
-e card's VFs didn't work
-> I found some errors in /var/log messages:
-> =20
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: not enough MMIO resource=
-s for SR-IOV
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: (unregistered net_device=
-): Failed to enable PCI sriov: -12
-> =20
-> How to fix it,any help would be greatly appreciated.
-> =20
-> below is the related information:
-> Server: R710
-> OS: centos6.3
-> NIC: X520-T2(dual port)
-> kernel: 2.6.32-279.14.1.el6.x86_64
-> BIOSVersion: 6.3.0(latest)
-> BIOS:Inter VT/VT-d or SR-IOV(enabled)
-> ixgbe:3.11.33(latest)
-> ixgbevf:2.7.12(latest)
-> grub config:intel_iommu=3Don appended
-> =20
-> /var/log/messages:
-> Nov  8 14:56:54 12 kernel: Intel(R) 10 Gigabit PCI Express Network Driv=
-er - version 3.11.33
-> Nov  8 14:56:54 12 kernel: Copyright (c) 1999-2012 Intel Corporation.
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: PCI INT B -> GSI 50 (lev=
-el, low) -> IRQ 50
-> Nov  8 14:56:54 12 kernel: ixgbe: I/O Virtualization (IOV) set to 2
-> Nov  8 14:56:54 12 kernel: ixgbe: 0000:07:00.0: ixgbe_check_options: FC=
-oE Offload feature enabled
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: (unregistered net_device=
-): SR-IOV enabled with 2 VFs
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: FCoE offload feature is =
-not available. Disabling FCoE offload feature
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: (PCI Express:5.0GT/s:Wid=
-th x8) 68:05:ca:0c:7a:e2
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: MAC: 2, PHY: 2, PB=
-A No: G21371-003
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: Enabled Features: =
-RxQ: 1 TxQ: 1 LRO
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: IOV: VF 0 is enabl=
-ed mac 0E:15:B9:26:B3:7D
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: IOV: VF 1 is enabl=
-ed mac 32:69:2D:16:B9:40
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: Intel(R) 10 Gigabi=
-t Network Connection
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: PCI INT A -> GSI 40 (lev=
-el, low) -> IRQ 40
-> Nov  8 14:56:54 12 kernel: ixgbe: I/O Virtualization (IOV) set to 2
-> Nov  8 14:56:54 12 kernel: ixgbe: 0000:07:00.1: ixgbe_check_options: FC=
-oE Offload feature enabled
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: not enough MMIO resource=
-s for SR-IOV
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: (unregistered net_device=
-): Failed to enable PCI sriov: -12
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: FCoE offload feature is =
-not available. Disabling FCoE offload feature
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: (PCI Express:5.0GT/s:Wid=
-th x8) 68:05:ca:0c:7a:e3
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: eth5: MAC: 2, PHY: 2, PB=
-A No: G21371-003
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: eth5: Enabled Features:
-> RxQ: 16 TxQ: 16 FdirHash RSC
-> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: eth5: Intel(R) 10
-> Gigabit Network Connection
-> =20
-> # dmesg |grep -E 'DMA|IOMMU'
-> ACPI: DMAR 00000000bf3b3668 001C0 (v01 DELL   PE_SC3   00000001 DELL 00=
-000001)
->   DMA      0x00000001 -> 0x00001000
->   DMA32    0x00001000 -> 0x00100000
->   DMA zone: 56 pages used for memmap
->   DMA zone: 102 pages reserved
->   DMA zone: 3839 pages, LIFO batch:0
->   DMA32 zone: 14280 pages used for memmap
->   DMA32 zone: 764849 pages, LIFO batch:31
-> Intel-IOMMU: enabled
-> DMAR: Host address width 40
-> DMAR: DRHD base: 0x000000fed90000 flags: 0x1
-> IOMMU fed90000: ver 1:0 cap c90780106f0462 ecap f020fe
-> DMAR: RMRR base: 0x000000bf4c8000 end: 0x000000bf4dffff
-> DMAR: RMRR base: 0x000000bf4b1000 end: 0x000000bf4bffff
-> DMAR: RMRR base: 0x000000bf4a1000 end: 0x000000bf4a1fff
-> DMAR: RMRR base: 0x000000bf4a3000 end: 0x000000bf4a3fff
-> DMAR: RMRR base: 0x000000bf4a5000 end: 0x000000bf4a5fff
-> DMAR: RMRR base: 0x000000bf4a7000 end: 0x000000bf4a7fff
-> DMAR: RMRR base: 0x000000bf4c0000 end: 0x000000bf4c0fff
-> DMAR: RMRR base: 0x000000bf4c2000 end: 0x000000bf4c2fff
-> DMAR: ATSR flags: 0x0
-> DMAR: Device scope device [0000:00:1a.02] not found
-> DMAR: Device scope device [0000:00:1a.02] not found
-> DMAR: Device scope device [0000:00:1d.02] not found
-> DMAR: Device scope device [0000:00:1d.02] not found
-> IOMMU 0xfed90000: using Queued invalidation
-> IOMMU: Setting RMRR:
-> IOMMU: Setting identity map for device 0000:00:1d.7 [0xbf4c2000 - 0xbf4=
-c3000]
-> IOMMU: Setting identity map for device 0000:00:1a.7 [0xbf4c0000 - 0xbf4=
-c1000]
-> IOMMU: Setting identity map for device 0000:00:1d.1 [0xbf4a7000 - 0xbf4=
-a8000]
-> IOMMU: Setting identity map for device 0000:00:1d.0 [0xbf4a5000 - 0xbf4=
-a6000]
-> IOMMU: Setting identity map for device 0000:00:1a.1 [0xbf4a3000 - 0xbf4=
-a4000]
-> IOMMU: Setting identity map for device 0000:00:1a.0 [0xbf4a1000 - 0xbf4=
-a2000]
-> IOMMU: Setting identity map for device 0000:00:1a.0 [0xbf4b1000 - 0xbf4=
-c0000]
-> IOMMU: Setting identity map for device 0000:00:1a.1 [0xbf4b1000 - 0xbf4=
-c0000]
-> IOMMU: Setting identity map for device 0000:00:1d.0 [0xbf4b1000 - 0xbf4=
-c0000]
-> IOMMU: Setting identity map for device 0000:00:1d.1 [0xbf4b1000 - 0xbf4=
-c0000]
-> IOMMU: Setting identity map for device 0000:00:1a.7 [0xbf4c8000 - 0xbf4=
-e0000]
-> IOMMU: Setting identity map for device 0000:00:1d.7 [0xbf4c8000 - 0xbf4=
-e0000]
-> IOMMU: Prepare 0-16MiB unity mapping for LPC
-> IOMMU: Setting identity map for device 0000:00:1f.0 [0x0 - 0x1000000]
-> PCI-DMA: Intel(R) Virtualization Technology for Directed I/O
-> ata1: SATA max UDMA/133 cmd 0xdc10 ctl 0xdc08 bmdma 0xdc20 irq 23
-> ata2: SATA max UDMA/133 cmd 0xdc18 ctl 0xdc0c bmdma 0xdc28 irq 23
-> ata1.00: ATAPI: TSSTcorp DVD-ROM SN-108BB, D150, max UDMA/100
-> ata1.00: configured for UDMA/100
-> =20
-> # lspci|grep Virtual
-> 07:10.0 Ethernet controller: Intel Corporation 82599 Virtual Function (=
-rev 01)
-> 07:10.2 Ethernet controller: Intel Corporation 82599 Virtual Function (=
-rev 01)
-> =20
-> #lspci|grep '82599EB'
-> 07:00.0 Ethernet controller: Intel Corporation 82599EB 10 Gigabit TN
-> Network Connection (rev 01)
-> 07:00.1 Ethernet controller: Intel Corporation 82599EB 10 Gigabit TN
-> Network Connection (rev 01)
-> =20
-> # lspci -n|grep 07:00
-> 07:00.0 0200: 8086:151c (rev 01)
-> 07:00.1 0200: 8086:151c (rev 01)
-> =20
-> # lspci -n -d 8086:151c -vvv|grep -i width
-> LnkCap: Port #2, Speed 5GT/s, Width x8, ASPM L0s, Latency L0 <1us, L1 <=
-8us
-> LnkSta: Speed 5GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt-=
- ABWMgmt-
-> LnkCap: Port #2, Speed 5GT/s, Width x8, ASPM L0s, Latency L0 <1us, L1 <=
-8us
-> LnkSta: Speed 5GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt-=
- ABWMgmt-
-> =20
-> #lspci -vvv -s 07:00
-> 07:00.0 Ethernet controller: Intel Corporation 82599EB 10 Gigabit TN Ne=
-twork Connection (rev 01)
-> Subsystem: Intel Corporation Ethernet Server Adapter X520-T2
-> Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Ste=
-pping- SERR- FastB2B- DisINTx+
-> Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast >TAbort- <TAbor=
-t- <MAbort- >SERR- <PERR- INTx-
-> Latency: 0, Cache Line Size: 64 bytes
-> Interrupt: pin B routed to IRQ 50
-> Region 0: Memory at de400000 (64-bit, non-prefetchable) [size=3D2M]
-> Region 2: I/O ports at ecc0 [size=3D32]
-> Region 4: Memory at de3f8000 (64-bit, non-prefetchable) [size=3D16K]
-> Expansion ROM at de200000 [disabled] [size=3D1M]
-> Capabilities: [40] Power Management version 3
-> Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D0mA PME(D0+,D1-,D2-,D3hot+,D3c=
-old+)
-> Status: D0 NoSoftRst- PME-Enable- DSel=3D0 DScale=3D1 PME-
-> Capabilities: [50] MSI: Enable- Count=3D1/1 Maskable+ 64bit+
-> Address: 0000000000000000  Data: 0000
-> Masking: 00000000  Pending: 00000000
-> Capabilities: [70] MSI-X: Enable+ Count=3D64 Masked-
-> Vector table: BAR=3D4 offset=3D00000000
-> PBA: BAR=3D4 offset=3D00002000
-> Capabilities: [a0] Express (v2) Endpoint, MSI 00
-> DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us=
+ * Add initial information about different TPACKET versions
+ * Add initial information about packet fanout
+ * Add pointer to BPF document (since this also could be of interest)
+ * 'Fix' minor, rather cosmetic things
 
-> ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset+
-> DevCtl: Report errors: Correctable- Non-Fatal+ Fatal+ Unsupported+
-> RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+ FLReset-
-> MaxPayload 256 bytes, MaxReadReq 512 bytes
-> DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ AuxPwr+ TransPend-
-> LnkCap: Port #2, Speed 5GT/s, Width x8, ASPM L0s, Latency L0 <1us, L1 <=
-8us
-> ClockPM- Surprise- LLActRep- BwNot-
-> LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk+
-> ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-> LnkSta: Speed 5GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt-=
- ABWMgmt-
-> DevCap2: Completion Timeout: Range ABCD, TimeoutDis+
-> DevCtl2: Completion Timeout: 65ms to 210ms, TimeoutDis-
-> LnkCtl2: Target Link Speed: 5GT/s, EnterCompliance- SpeedDis-, Selectab=
-le De-emphasis: -6dB
->  Transmit Margin: Normal Operating Range, EnterModifiedCompliance- Comp=
-lianceSOS-
->  Compliance De-emphasis: -6dB
-> LnkSta2: Current De-emphasis Level: -6dB
-> Capabilities: [e0] Vital Product Data
-> Unknown small resource type 06, will not decode more.
-> Capabilities: [100] Advanced Error Reporting
-> UESta: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP=
-- ECRC- UnsupReq- ACSViol-
-> UEMsk: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt+ UnxCmplt+ RxOF- MalfTLP=
-- ECRC- UnsupReq- ACSViol-
-> UESvrt: DLP+ SDES- TLP+ FCP+ CmpltTO+ CmpltAbrt- UnxCmplt- RxOF+ MalfTL=
-P+ ECRC+ UnsupReq- ACSViol-
-> CESta: RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-> CEMsk: RxErr+ BadTLP+ BadDLLP+ Rollover+ Timeout+ NonFatalErr+
-> AERCap: First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
-> Capabilities: [140] Device Serial Number 68-05-ca-ff-ff-0c-7a-e2
-> Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
-> ARICap: MFVC- ACS-, Next Function: 1
-> ARICtl: MFVC- ACS-, Function Group: 0
-> Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
-> IOVCap: Migration-, Interrupt Message Number: 000
-> IOVCtl: Enable+ Migration- Interrupt- MSE+ ARIHierarchy+
-> IOVSta: Migration-
-> Initial VFs: 64, Total VFs: 64, Number of VFs: 2, Function Dependency L=
-ink: 00
-> VF offset: 128, stride: 2, Device ID: 10ed
-> Supported Page Size: 00000553, System Page Size: 00000001
-> Region 0: Memory at 00000000d5900000 (64-bit, prefetchable)
-> Region 3: Memory at 00000000d5a00000 (64-bit, prefetchable)
-> VF Migration: offset: 00000000, BIR: 0
-> Kernel driver in use: ixgbe
-> Kernel modules: ixgbe
-> 07:00.1 Ethernet controller: Intel Corporation 82599EB 10 Gigabit TN Ne=
-twork Connection (rev 01)
-> Subsystem: Intel Corporation Ethernet Server Adapter X520-T2
-> Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Ste=
-pping- SERR- FastB2B- DisINTx+
-> Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast >TAbort- <TAbor=
-t- <MAbort- >SERR- <PERR- INTx-
-> Latency: 0, Cache Line Size: 64 bytes
-> Interrupt: pin A routed to IRQ 40
-> Region 0: Memory at de600000 (64-bit, non-prefetchable) [size=3D2M]
-> Region 2: I/O ports at ece0 [size=3D32]
-> Region 4: Memory at de3fc000 (64-bit, non-prefetchable) [size=3D16K]
-> Expansion ROM at d5800000 [disabled] [size=3D1M]
-> Capabilities: [40] Power Management version 3
-> Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D0mA PME(D0+,D1-,D2-,D3hot+,D3c=
-old+)
-> Status: D0 NoSoftRst- PME-Enable- DSel=3D0 DScale=3D1 PME-
-> Capabilities: [50] MSI: Enable- Count=3D1/1 Maskable+ 64bit+
-> Address: 0000000000000000  Data: 0000
-> Masking: 00000000  Pending: 00000000
-> Capabilities: [70] MSI-X: Enable+ Count=3D64 Masked-
-> Vector table: BAR=3D4 offset=3D00000000
-> PBA: BAR=3D4 offset=3D00002000
-> Capabilities: [a0] Express (v2) Endpoint, MSI 00
-> DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us=
+Information partially taken from related commit messages.
 
-> ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset+
-> DevCtl: Report errors: Correctable- Non-Fatal+ Fatal+ Unsupported+
-> RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+ FLReset-
-> MaxPayload 256 bytes, MaxReadReq 512 bytes
-> DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ AuxPwr+ TransPend-
-> LnkCap: Port #2, Speed 5GT/s, Width x8, ASPM L0s, Latency L0 <1us, L1 <=
-8us
-> ClockPM- Surprise- LLActRep- BwNot-
-> LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk+
-> ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-> LnkSta: Speed 5GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt-=
- ABWMgmt-
-> DevCap2: Completion Timeout: Range ABCD, TimeoutDis+
-> DevCtl2: Completion Timeout: 65ms to 210ms, TimeoutDis-
-> LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- SpeedDis-, Select=
-able De-emphasis: -6dB
->  Transmit Margin: Normal Operating Range, EnterModifiedCompliance- Comp=
-lianceSOS-
->  Compliance De-emphasis: -6dB
-> LnkSta2: Current De-emphasis Level: -6dB
-> Capabilities: [e0] Vital Product Data
-> Unknown small resource type 06, will not decode more.
-> Capabilities: [100] Advanced Error Reporting
-> UESta: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP=
-- ECRC- UnsupReq- ACSViol-
-> UEMsk: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt+ UnxCmplt+ RxOF- MalfTLP=
-- ECRC- UnsupReq- ACSViol-
-> UESvrt: DLP+ SDES- TLP+ FCP+ CmpltTO+ CmpltAbrt- UnxCmplt- RxOF+ MalfTL=
-P+ ECRC+ UnsupReq- ACSViol-
-> CESta: RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-> CEMsk: RxErr+ BadTLP+ BadDLLP+ Rollover+ Timeout+ NonFatalErr+
-> AERCap: First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
-> Capabilities: [140] Device Serial Number 68-05-ca-ff-ff-0c-7a-e2
-> Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
-> ARICap: MFVC- ACS-, Next Function: 0
-> ARICtl: MFVC- ACS-, Function Group: 0
-> Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
-> IOVCap: Migration-, Interrupt Message Number: 000
-> IOVCtl: Enable- Migration- Interrupt- MSE- ARIHierarchy-
-> IOVSta: Migration-
-> Initial VFs: 64, Total VFs: 64, Number of VFs: 2, Function Dependency L=
-ink: 01
-> VF offset: 128, stride: 2, Device ID: 10ed
-> Supported Page Size: 00000553, System Page Size: 00000001
-> Region 0: Memory at 00000000d5b00000 (64-bit, prefetchable)
-> Region 3: Memory at 00000000d5b00000 (64-bit, prefetchable)
-> VF Migration: offset: 00000000, BIR: 0
-> Kernel driver in use: ixgbe
-> Kernel modules: ixgbe
-> =20
-> #modinfo ixgbe
-> filename:       /lib/modules/2.6.32-279.14.1.el6.x86_64/kernel/drivers/=
-net/ixgbe/ixgbe.ko
-> version:        3.11.33
-> license:        GPL
-> description:    Intel(R) 10 Gigabit PCI Express Network Driver
-> author:         Intel Corporation, <linux.nics@intel.com>
-> srcversion:     ADDCBFA6FAFE8A0299074F8
-> alias:          pci:v00008086d0000154Asv*sd*bc*sc*i*
-> alias:          pci:v00008086d00001557sv*sd*bc*sc*i*
-> alias:          pci:v00008086d0000154Fsv*sd*bc*sc*i*
-> alias:          pci:v00008086d0000154Dsv*sd*bc*sc*i*
-> alias:          pci:v00008086d00001528sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010F8sv*sd*bc*sc*i*
-> alias:          pci:v00008086d0000151Csv*sd*bc*sc*i*
-> alias:          pci:v00008086d00001529sv*sd*bc*sc*i*
-> alias:          pci:v00008086d0000152Asv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010F9sv*sd*bc*sc*i*
-> alias:          pci:v00008086d00001514sv*sd*bc*sc*i*
-> alias:          pci:v00008086d00001507sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010FBsv*sd*bc*sc*i*
-> alias:          pci:v00008086d00001517sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010FCsv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010F7sv*sd*bc*sc*i*
-> alias:          pci:v00008086d00001508sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010DBsv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010F4sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010E1sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010F1sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010ECsv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010DDsv*sd*bc*sc*i*
-> alias:          pci:v00008086d0000150Bsv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010C8sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010C7sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010C6sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010B6sv*sd*bc*sc*i*
-> depends:        dca
-> vermagic:       2.6.32-279.14.1.el6.x86_64 SMP mod_unload modversions=20
-> parm:           InterruptType:Change Interrupt Mode (0=3DLegacy, 1=3DMS=
-I, 2=3DMSI-X), default IntMode (deprecated) (array of int)
-> parm:           IntMode:Change Interrupt Mode (0=3DLegacy, 1=3DMSI, 2=3D=
-MSI-X), default 2 (array of int)
-> parm:           MQ:Disable or enable Multiple Queues, default 1 (array =
-of int)
-> parm:           DCA:Disable or enable Direct Cache Access, 0=3Ddisabled=
-, 1=3Ddescriptor only, 2=3Ddescriptor and data (array of int)
-> parm:           RSS:Number of Receive-Side Scaling Descriptor Queues, d=
-efault 0=3Dnumber of cpus (array of int)
-> parm:           VMDQ:Number of Virtual Machine Device Queues: 0/1 =3D d=
-isable, 2-16 enable (default=3D8) (array of int)
-> parm:           max_vfs:Number of Virtual Functions: 0 =3D disable (def=
-ault), 1-63 =3D enable this many VFs (array of int)
-> parm:           L2LBen:L2 Loopback Enable: 0 =3D disable, 1 =3D enable =
-(default) (array of int)
-> parm:           InterruptThrottleRate:Maximum interrupts per second, pe=
-r vector, (0,1,956-488281), default 1 (array of int)
-> parm:           LLIPort:Low Latency Interrupt TCP Port (0-65535) (array=
- of int)
-> parm:           LLIPush:Low Latency Interrupt on TCP Push flag (0,1) (a=
-rray of int)
-> parm:           LLISize:Low Latency Interrupt on Packet Size (0-1500) (=
-array of int)
-> parm:           LLIEType:Low Latency Interrupt Ethernet Protocol Type (=
-array of int)
-> parm:           LLIVLANP:Low Latency Interrupt on VLAN priority thresho=
-ld (array of int)
-> parm:           FdirPballoc:Flow Director packet buffer allocation leve=
-l:
-> 1 =3D 8k hash filters or 2k perfect filters
-> 2 =3D 16k hash filters or 4k perfect filters
-> 3 =3D 32k hash filters or 8k perfect filters (array of int)
-> parm:           AtrSampleRate:Software ATR Tx packet sample rate (array=
- of int)
-> parm:           FCoE:Disable or enable FCoE Offload, default 1 (array o=
-f int)
-> parm:           LRO:Large Receive Offload (0,1), default 1 =3D on (arra=
-y of int)
-> parm:           allow_unsupported_sfp:Allow unsupported and untested SF=
-P+ modules on 82599 based adapters, default 0 =3D Disable (array of int)
-> =20
-> # modinfo ixgbevf
-> filename:       /lib/modules/2.6.32-279.14.1.el6.x86_64/kernel/drivers/=
-net/ixgbevf/ixgbevf.ko
-> version:        2.7.12
-> license:        GPL
-> description:    Intel(R) 10 Gigabit PCI Express Virtual Function Networ=
-k Driver
-> author:         Intel Corporation, <linux.nics@intel.com>
-> srcversion:     4D00B4A5B811D6D07D8BD15
-> alias:          pci:v00008086d00001515sv*sd*bc*sc*i*
-> alias:          pci:v00008086d000010EDsv*sd*bc*sc*i*
-> depends:       =20
-> vermagic:       2.6.32-279.14.1.el6.x86_64 SMP mod_unload modversions=20
-> parm:           InterruptThrottleRate:Maximum interrupts per second, pe=
-r vector, (956-488281), default 8000, use 1 for dynamic (array of int)
-> =20
-> =20
-> # dmidecode -t bios
-> # dmidecode 2.11
-> SMBIOS 2.6 present.
-> Handle 0x0000, DMI type 0, 24 bytes
-> BIOS Information
->         Vendor: Dell Inc.
->         Version: 6.3.0
->         Release Date: 07/24/2012
->         Address: 0xF0000
->         Runtime Size: 64 kB
->         ROM Size: 4096 kB
->         Characteristics:
->                 ISA is supported
->                 PCI is supported
->                 PNP is supported
->                 BIOS is upgradeable
->                 BIOS shadowing is allowed
->                 Boot from CD is supported
->                 Selectable boot is supported
->                 EDD is supported
->                 Japanese floppy for Toshiba 1.2 MB is supported (int 13=
-h)
->                 5.25"/360 kB floppy services are supported (int 13h)
->                 5.25"/1.2 MB floppy services are supported (int 13h)
->                 3.5"/720 kB floppy services are supported (int 13h)
->                 8042 keyboard services are supported (int 9h)
->                 Serial services are supported (int 14h)
->                 CGA/mono video services are supported (int 10h)
->                 ACPI is supported
->                 USB legacy is supported
->                 BIOS boot specification is supported
->                 Function key-initiated network boot is supported
->                 Targeted content distribution is supported
->         BIOS Revision: 6.3
-> Handle 0x0D00, DMI type 13, 22 bytes
-> BIOS Language Information
->         Language Description Format: Long
->         Installable Languages: 1
->                 en|US|iso8859-1
->         Currently Installed Language: en|US|iso8859-1
-> =20
-> Jason Gao
-> --
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-Adding e100-devel mailing list
+Reported-by: Ronny Meeus <ronny.meeus@gmail.com>
+Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+Cc: Ulisses Alonso Camar=F3 <uaca@alumni.uv.es>
+Cc: Johann Baudy <johann.baudy@gnu-log.net>
+---
+ Documentation/networking/packet_mmap.txt |  233 ++++++++++++++++++++++=
++++++---
+ 1 files changed, 209 insertions(+), 24 deletions(-)
 
-
---------------enig5EB9C985A4D06E20EF09C0D6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJQm5YsAAoJEOVv75VaS+3OLcEP/RS4sNSKwohvlg45PoeBRMmE
-sbgSilFvrJXxzr+dhvSvn8iHxOmd4GlC0mAraOudhuAcss+sE7sC481JKOCHLhHL
-BSlr74sy+Tbb49ybp7noGhx+qVS3rX2mciH8TylwkgXtAAvYK0o7ubIOaNNu4k7t
-AQWqkJRd4Co319OF/a11dCJ/zFN7P3TImXZ9Juq9nP2a9PwxVtkhz/xlBGLEXJtG
-pP/eF2OGMABLNEjTpReIZbwJEElH3nRC2DZvBsURrK6Y/Vh9tcTDtuVB7++vaFrk
-Qu2tE26s1/yvuBkfnAHrjnWXEH4pjhSv9aDd3WtTBqej1nPSfPYJI17+kedtgkZh
-cOx1OqMX7M/BN72bRN1CMCERdBkjhZ7niDiseu3r3efrsHoruV04QemmSivk0Vvu
-e1/ztEA9iHqzr4OJsjFkujzalYiIR6JrZUUG3sfu0kU9MdqvCA5Zo4avO7AgASEP
-D1i2T1umubNExlsWV/5tqpFBEQMjTGyf4jtUykJVnFuOnt7q1NXSmqwdCFcbskD/
-GDNIeMNTG/wyPxsDRRfLxWXvwPk86cr5L1QCJlLUTfNXYA9UMBNwt7uDsJAEhRH2
-aQH2cZkxUzXDwjZCqiwyTGfpG6S9QEknhCc7KICrOxEzy73aFsD0d9jOlvm5fwbx
-tw8/mNh3m4FDgtjgAe+G
-=IzLw
------END PGP SIGNATURE-----
-
---------------enig5EB9C985A4D06E20EF09C0D6--
+diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/n=
+etworking/packet_mmap.txt
+index 7cd879e..241364f 100644
+--- a/Documentation/networking/packet_mmap.txt
++++ b/Documentation/networking/packet_mmap.txt
+@@ -3,9 +3,9 @@
+ ----------------------------------------------------------------------=
+----------
+=20
+ This file documents the mmap() facility available with the PACKET
+-socket interface on 2.4 and 2.6 kernels. This type of sockets is used =
+for=20
+-capture network traffic with utilities like tcpdump or any other that =
+needs
+-raw access to network interface.
++socket interface on 2.4/2.6/3.x kernels. This type of sockets is used =
+for=20
++i) capture network traffic with utilities like tcpdump, ii) transmit n=
+etwork
++traffic, or any other that needs raw access to network interface.
+=20
+ You can find the latest version of this document at:
+     http://wiki.ipxwarzone.com/index.php5?title=3DLinux_packet_mmap
+@@ -21,19 +21,18 @@ Please send your comments to
+ + Why use PACKET_MMAP
+ ----------------------------------------------------------------------=
+----------
+=20
+-In Linux 2.4/2.6 if PACKET_MMAP is not enabled, the capture process is=
+ very
+-inefficient. It uses very limited buffers and requires one system call
+-to capture each packet, it requires two if you want to get packet's=20
+-timestamp (like libpcap always does).
++In Linux 2.4/2.6/3.x if PACKET_MMAP is not enabled, the capture proces=
+s is very
++inefficient. It uses very limited buffers and requires one system call=
+ to
++capture each packet, it requires two if you want to get packet's times=
+tamp
++(like libpcap always does).
+=20
+ In the other hand PACKET_MMAP is very efficient. PACKET_MMAP provides =
+a size=20
+ configurable circular buffer mapped in user space that can be used to =
+either
+ send or receive packets. This way reading packets just needs to wait f=
+or them,
+ most of the time there is no need to issue a single system call. Conce=
+rning
+ transmission, multiple packets can be sent through one system call to =
+get the
+-highest bandwidth.
+-By using a shared buffer between the kernel and the user also has the =
+benefit
+-of minimizing packet copies.
++highest bandwidth. By using a shared buffer between the kernel and the=
+ user
++also has the benefit of minimizing packet copies.
+=20
+ It's fine to use PACKET_MMAP to improve the performance of the capture=
+ and
+ transmission process, but it isn't everything. At least, if you are ca=
+pturing
+@@ -41,7 +40,8 @@ at high speeds (this is relative to the cpu speed), y=
+ou should check if the
+ device driver of your network interface card supports some sort of int=
+errupt
+ load mitigation or (even better) if it supports NAPI, also make sure i=
+t is
+ enabled. For transmission, check the MTU (Maximum Transmission Unit) u=
+sed and
+-supported by devices of your network.
++supported by devices of your network. CPU IRQ pinning of your network =
+interface
++card can also be an advantage.
+=20
+ ----------------------------------------------------------------------=
+----------
+ + How to use mmap() to improve capture process
+@@ -87,9 +87,7 @@ the following process:
+ socket creation and destruction is straight forward, and is done=20
+ the same way with or without PACKET_MMAP:
+=20
+-int fd;
+-
+-fd=3D socket(PF_PACKET, mode, htons(ETH_P_ALL))
++ int fd =3D socket(PF_PACKET, mode, htons(ETH_P_ALL));
+=20
+ where mode is SOCK_RAW for the raw interface were link level
+ information can be captured or SOCK_DGRAM for the cooked
+@@ -180,7 +178,6 @@ and the PACKET_TX_HAS_OFF option.
+ + PACKET_MMAP settings
+ ----------------------------------------------------------------------=
+----------
+=20
+-
+ To setup PACKET_MMAP from user level code is done with a call like
+=20
+  - Capture process
+@@ -214,7 +211,6 @@ indeed, packet_set_ring checks that the following c=
+ondition is true
+=20
+     frames_per_block * tp_block_nr =3D=3D tp_frame_nr
+=20
+-
+ Lets see an example, with the following values:
+=20
+      tp_block_size=3D 4096
+@@ -240,7 +236,6 @@ be spawned across two blocks, so there are some det=
+ails you have to take into
+ account when choosing the frame_size. See "Mapping and use of the circ=
+ular=20
+ buffer (ring)".
+=20
+-
+ ----------------------------------------------------------------------=
+----------
+ + PACKET_MMAP setting constraints
+ ----------------------------------------------------------------------=
+----------
+@@ -277,7 +272,6 @@ User space programs can include /usr/include/sys/us=
+er.h and
+ The pagesize can also be determined dynamically with the getpagesize (=
+2)=20
+ system call.=20
+=20
+-
+  Block number limit
+ --------------------
+=20
+@@ -297,7 +291,6 @@ called pg_vec, its size limits the number of blocks=
+ that can be allocated.
+       v  block #2
+      block #1
+=20
+-
+ kmalloc allocates any number of bytes of physically contiguous memory =
+from=20
+ a pool of pre-determined sizes. This pool of memory is maintained by t=
+he slab=20
+ allocator which is at the end the responsible for doing the allocation=
+ and=20
+@@ -312,7 +305,6 @@ pointers to blocks is
+=20
+      131072/4 =3D 32768 blocks
+=20
+-
+  PACKET_MMAP buffer size calculator
+ ------------------------------------
+=20
+@@ -353,7 +345,6 @@ and a value for <frame size> of 2048 bytes. These p=
+arameters will yield
+ and hence the buffer will have a 262144 MiB size. So it can hold=20
+ 262144 MiB / 2048 bytes =3D 134217728 frames
+=20
+-
+ Actually, this buffer size is not possible with an i386 architecture.=20
+ Remember that the memory is allocated in kernel space, in the case of=20
+ an i386 kernel's memory size is limited to 1GiB.
+@@ -385,7 +376,6 @@ the following (from include/linux/if_packet.h):
+    - Start+tp_net: Packet data, aligned to TPACKET_ALIGNMENT=3D16.
+    - Pad to align to TPACKET_ALIGNMENT=3D16
+  */
+-          =20
+ =20
+  The following are conditions that are checked in packet_set_ring
+=20
+@@ -426,7 +416,6 @@ and the following flags apply:
+      #define TP_STATUS_LOSING        4=20
+      #define TP_STATUS_CSUMNOTREADY  8=20
+=20
+-
+ TP_STATUS_COPY        : This flag indicates that the frame (and associ=
+ated
+                         meta information) has been truncated because i=
+t's=20
+                         larger than tp_frame_size. This packet can be=20
+@@ -475,7 +464,6 @@ packets are in the ring:
+ It doesn't incur in a race condition to first check the status value a=
+nd=20
+ then poll for frames.
+=20
+-
+ ++ Transmission process
+ Those defines are also used for transmission:
+=20
+@@ -507,6 +495,196 @@ The user can also use poll() to check if a buffer=
+ is available:
+     retval =3D poll(&pfd, 1, timeout);
+=20
+ ----------------------------------------------------------------------=
+---------
+++ What TPACKET versions are available and when to use them?
++----------------------------------------------------------------------=
+---------
++
++ int val =3D tpacket_version;
++ setsockopt(fd, SOL_PACKET, PACKET_VERSION, &val, sizeof(val));
++ getsockopt(fd, SOL_PACKET, PACKET_VERSION, &val, sizeof(val));
++
++where 'tpacket_version' can be TPACKET_V1 (default), TPACKET_V2, TPACK=
+ET_V3.
++
++TPACKET_V1:
++	- Default if not otherwise specified by setsockopt(2)
++	- RX_RING, TX_RING available
++	- VLAN metadata information available for packets
++	  (TP_STATUS_VLAN_VALID)
++
++TPACKET_V1 --> TPACKET_V2:
++	- Made 64 bit clean due to unsigned long usage in TPACKET_V1
++	  structures, thus this also works on 64 bit kernel with 32 bit
++	  userspace and the like
++	- Timestamp resolution in nanoseconds instead of microseconds
++	- RX_RING, TX_RING available
++	- How to switch to TPACKET_V2:
++		1. Replace struct tpacket_hdr by struct tpacket2_hdr
++		2. Query header len and save
++		3. Set protocol version to 2, set up ring as usual
++		4. For getting the sockaddr_ll,
++		   use (void *)hdr + TPACKET_ALIGN(hdrlen) instead of
++		   (void *)hdr + TPACKET_ALIGN(sizeof(struct tpacket_hdr))
++
++TPACKET_V2 --> TPACKET_V3:
++	- Flexible buffer implementation:
++		1. Blocks can be configured with non-static frame-size
++		2. Read/poll is at a block-level (as opposed to packet-level)
++		3. Added poll timeout to avoid indefinite user-space wait
++		   on idle links
++		4. Added user-configurable knobs:
++			4.1 block::timeout
++			4.2 tpkt_hdr::sk_rxhash
++	- RX Hash data available in user space
++	- Currently only RX_RING available
++
++----------------------------------------------------------------------=
+---------
+++ AF_PACKET fanout mode
++----------------------------------------------------------------------=
+---------
++
++In the AF_PACKET fanout mode, packet reception can be load balanced am=
+ong
++processes. This also works in combination with mmap(2) on packet socke=
+ts.
++
++Minimal example code by David S. Miller (try things like "./test eth0 =
+hash",
++"./test eth0 lb", etc.):
++
++#include <stddef.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <string.h>
++
++#include <sys/types.h>
++#include <sys/wait.h>
++#include <sys/socket.h>
++#include <sys/ioctl.h>
++
++#include <unistd.h>
++
++#include <linux/if_ether.h>
++#include <linux/if_packet.h>
++
++#include <net/if.h>
++
++static const char *device_name;
++static int fanout_type;
++static int fanout_id;
++
++#ifndef PACKET_FANOUT
++# define PACKET_FANOUT			18
++# define PACKET_FANOUT_HASH		0
++# define PACKET_FANOUT_LB		1
++#endif
++
++static int setup_socket(void)
++{
++	int err, fd =3D socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
++	struct sockaddr_ll ll;
++	struct ifreq ifr;
++	int fanout_arg;
++
++	if (fd < 0) {
++		perror("socket");
++		return EXIT_FAILURE;
++	}
++
++	memset(&ifr, 0, sizeof(ifr));
++	strcpy(ifr.ifr_name, device_name);
++	err =3D ioctl(fd, SIOCGIFINDEX, &ifr);
++	if (err < 0) {
++		perror("SIOCGIFINDEX");
++		return EXIT_FAILURE;
++	}
++
++	memset(&ll, 0, sizeof(ll));
++	ll.sll_family =3D AF_PACKET;
++	ll.sll_ifindex =3D ifr.ifr_ifindex;
++	err =3D bind(fd, (struct sockaddr *) &ll, sizeof(ll));
++	if (err < 0) {
++		perror("bind");
++		return EXIT_FAILURE;
++	}
++
++	fanout_arg =3D (fanout_id | (fanout_type << 16));
++	err =3D setsockopt(fd, SOL_PACKET, PACKET_FANOUT,
++			 &fanout_arg, sizeof(fanout_arg));
++	if (err) {
++		perror("setsockopt");
++		return EXIT_FAILURE;
++	}
++
++	return fd;
++}
++
++static void fanout_thread(void)
++{
++	int fd =3D setup_socket();
++	int limit =3D 10000;
++
++	if (fd < 0)
++		exit(fd);
++
++	while (limit-- > 0) {
++		char buf[1600];
++		int err;
++
++		err =3D read(fd, buf, sizeof(buf));
++		if (err < 0) {
++			perror("read");
++			exit(EXIT_FAILURE);
++		}
++		if ((limit % 10) =3D=3D 0)
++			fprintf(stdout, "(%d) \n", getpid());
++	}
++
++	fprintf(stdout, "%d: Received 10000 packets\n", getpid());
++
++	close(fd);
++	exit(0);
++}
++
++int main(int argc, char **argp)
++{
++	int fd, err;
++	int i;
++
++	if (argc !=3D 3) {
++		fprintf(stderr, "Usage: %s INTERFACE {hash|lb}\n", argp[0]);
++		return EXIT_FAILURE;
++	}
++
++	if (!strcmp(argp[2], "hash"))
++		fanout_type =3D PACKET_FANOUT_HASH;
++	else if (!strcmp(argp[2], "lb"))
++		fanout_type =3D PACKET_FANOUT_LB;
++	else {
++		fprintf(stderr, "Unknown fanout type [%s]\n", argp[2]);
++		exit(EXIT_FAILURE);
++	}
++
++	device_name =3D argp[1];
++	fanout_id =3D getpid() & 0xffff;
++
++	for (i =3D 0; i < 4; i++) {
++		pid_t pid =3D fork();
++
++		switch (pid) {
++		case 0:
++			fanout_thread();
++
++		case -1:
++			perror("fork");
++			exit(EXIT_FAILURE);
++		}
++	}
++
++	for (i =3D 0; i < 4; i++) {
++		int status;
++
++		wait(&status);
++	}
++
++	return 0;
++}
++
++----------------------------------------------------------------------=
+---------
+ + PACKET_TIMESTAMP
+ ----------------------------------------------------------------------=
+---------
+=20
+@@ -532,6 +710,13 @@ the networking stack is used (the behavior before =
+this setting was added).
+ See include/linux/net_tstamp.h and Documentation/networking/timestampi=
+ng
+ for more information on hardware timestamps.
+=20
++----------------------------------------------------------------------=
+---------
+++ Miscellaneous bits
++----------------------------------------------------------------------=
+---------
++
++- Packet sockets work well together with Linux socket filters, thus yo=
+u also
++  might want to have a look at Documentation/networking/filter.txt
++
+ ----------------------------------------------------------------------=
+----------
+ + THANKS
+ ----------------------------------------------------------------------=
+----------
