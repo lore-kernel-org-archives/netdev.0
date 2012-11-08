@@ -1,112 +1,92 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [rfc net-next v6 3/3] virtio-net: change the number of queues
-	through ethtool
-Date: Thu, 8 Nov 2012 21:13:31 +0000
-Message-ID: <1352409211.2771.22.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1351591403-23065-1-git-send-email-jasowang@redhat.com>
-	<1351591403-23065-4-git-send-email-jasowang@redhat.com>
+From: Daniel Borkmann <dxchgb@gmail.com>
+Subject: [PATCH net-next 1/2] PPC: net: bpf_jit_comp: add XOR instruction
+ for BPF JIT
+Date: Thu, 8 Nov 2012 22:39:41 +0100
+Message-ID: <20121108213939.GA29696@thinkbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1351591403-23065-4-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: matt@ozlabs.org, benh@kernel.crashing.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:53912 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757099Ab2KHVjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 16:39:46 -0500
+Received: by mail-ea0-f174.google.com with SMTP id c13so1240810eaa.19
+        for <netdev@vger.kernel.org>; Thu, 08 Nov 2012 13:39:45 -0800 (PST)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-10-30 at 18:03 +0800, Jason Wang wrote:
-> This patch implement the {set|get}_channels method of ethool to allow user to
-> change the number of queues dymaically when the device is running. This would
-> let the user to tune the device for specific applications.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/virtio_net.c |   43 +++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 43 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 8cc43e5..66fc129 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1616,10 +1616,53 @@ static struct virtio_driver virtio_net_driver = {
->  #endif
->  };
->  
-> +/* TODO: Eliminate OOO packets during switching */
-> +static int virtnet_set_channels(struct net_device *dev,
-> +				struct ethtool_channels *channels)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +	u16 queue_pairs = channels->combined_count;
-> +
-> +	/* Only two modes were support currently */
-> +	if (queue_pairs == 0)
-> +		return -EINVAL;
-> +	if (queue_pairs != vi->total_queue_pairs - 1 && queue_pairs != 1)
-> +		return -EINVAL;
+This patch is a follow-up for patch "filter: add XOR instruction for use
+with X/K" that implements BPF PowerPC JIT parts for the BPF XOR operation.
 
-You should also check that all of the other counts are == 0.
+Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+Cc: Matt Evans <matt@ozlabs.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+---
+ Disclaimer: uncompiled and untested, since I don't have a PPC machine,
+ but it should (hopefully) integrate cleanly; impl. after PPC instruction
+ reference.
 
-> +	vi->num_queue_pairs = queue_pairs > 1 ? queue_pairs + 1 : 1;
+ arch/powerpc/include/asm/ppc-opcode.h |    3 +++
+ arch/powerpc/net/bpf_jit.h            |    6 ++++++
+ arch/powerpc/net/bpf_jit_comp.c       |   11 +++++++++++
+ 3 files changed, 20 insertions(+), 0 deletions(-)
 
-This doesn't make sense.  You're setting vi->num_queue_pairs to be
-combined_count + 1...
-
-> +	BUG_ON(virtnet_set_queues(vi));
-> +
-> +	netif_set_real_num_tx_queues(dev, vi->num_queue_pairs);
-> +	netif_set_real_num_rx_queues(dev, vi->num_queue_pairs);
-> +
-> +	return 0;
-> +}
-> +
-> +static void virtnet_get_channels(struct net_device *dev,
-> +				 struct ethtool_channels *channels)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +
-> +	if (vi->total_queue_pairs != 1) {
-> +		channels->combined_count = vi->num_queue_pairs;
-
-but here you report combined_count as being vi->num_queue_pairs.  Do you
-need to subtract 1 here?
-
-Ben.
-
-> +		channels->max_combined = vi->total_queue_pairs - 1;
-> +	} else {
-> +		channels->combined_count = 1;
-> +		channels->max_combined = 1;
-> +	}
-> +
-> +	channels->max_other = 0;
-> +	channels->rx_count = 0;
-> +	channels->tx_count = 0;
-> +	channels->other_count = 0;
-> +}
-> +
->  static const struct ethtool_ops virtnet_ethtool_ops = {
->  	.get_drvinfo = virtnet_get_drvinfo,
->  	.get_link = ethtool_op_get_link,
->  	.get_ringparam = virtnet_get_ringparam,
-> +	.set_channels = virtnet_set_channels,
-> +	.get_channels = virtnet_get_channels,
->  };
->  
->  static int __init init(void)
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/arch/powerpc/include/asm/ppc-opcode.h b/arch/powerpc/include/asm/ppc-opcode.h
+index 5f73ce6..42b1f43 100644
+--- a/arch/powerpc/include/asm/ppc-opcode.h
++++ b/arch/powerpc/include/asm/ppc-opcode.h
+@@ -168,9 +168,12 @@
+ #define PPC_INST_AND			0x7c000038
+ #define PPC_INST_ANDDOT			0x7c000039
+ #define PPC_INST_OR			0x7c000378
++#define PPC_INST_XOR			0x7c000278
+ #define PPC_INST_ANDI			0x70000000
+ #define PPC_INST_ORI			0x60000000
+ #define PPC_INST_ORIS			0x64000000
++#define PPC_INST_XORI			0x68000000
++#define PPC_INST_XORIS			0x6c000000
+ #define PPC_INST_NEG			0x7c0000d0
+ #define PPC_INST_BRANCH			0x48000000
+ #define PPC_INST_BRANCH_COND		0x40800000
+diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
+index 1fc8109..8a5dfaf 100644
+--- a/arch/powerpc/net/bpf_jit.h
++++ b/arch/powerpc/net/bpf_jit.h
+@@ -134,6 +134,12 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ 				     ___PPC_RS(a) | IMM_L(i))
+ #define PPC_ORIS(d, a, i)	EMIT(PPC_INST_ORIS | ___PPC_RA(d) |	      \
+ 				     ___PPC_RS(a) | IMM_L(i))
++#define PPC_XOR(d, a, b)	EMIT(PPC_INST_XOR | ___PPC_RA(d) |	      \
++				     ___PPC_RS(a) | ___PPC_RB(b))
++#define PPC_XORI(d, a, i)	EMIT(PPC_INST_XORI | ___PPC_RA(d) |	      \
++				     ___PPC_RS(a) | IMM_L(i))
++#define PPC_XORIS(d, a, i)	EMIT(PPC_INST_XORIS | ___PPC_RA(d) |	      \
++				     ___PPC_RS(a) | IMM_L(i))
+ #define PPC_SLW(d, a, s)	EMIT(PPC_INST_SLW | ___PPC_RA(d) |	      \
+ 				     ___PPC_RS(a) | ___PPC_RB(s))
+ #define PPC_SRW(d, a, s)	EMIT(PPC_INST_SRW | ___PPC_RA(d) |	      \
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index dd11306..b9434de 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -232,6 +232,17 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ 			if (K >= 65536)
+ 				PPC_ORIS(r_A, r_A, IMM_H(K));
+ 			break;
++		case BPF_S_ANC_ALU_XOR_X:
++		case BPF_S_ALU_XOR_X: /* A ^= X */
++			ctx->seen |= SEEN_XREG;
++			PPC_XOR(r_A, r_A, r_X);
++			break;
++		case BPF_S_ALU_XOR_K: /* A ^= K */
++			if (IMM_L(K))
++				PPC_XORI(r_A, r_A, IMM_L(K));
++			if (K >= 65536)
++				PPC_XORIS(r_A, r_A, IMM_H(K));
++			break;
+ 		case BPF_S_ALU_LSH_X: /* A <<= X; */
+ 			ctx->seen |= SEEN_XREG;
+ 			PPC_SLW(r_A, r_A, r_X);
