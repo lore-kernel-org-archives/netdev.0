@@ -1,86 +1,88 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: [PATCH 1/4 net-next] net: allow skb->head to be a page fragment
-Date: Thu, 08 Nov 2012 15:46:48 +0800
-Message-ID: <509B6368.9010206@gmail.com>
-References: <1335522818.2775.227.camel@edumazet-glaptop>  <509A19E6.4040707@gmail.com>  <509A1D49.4080306@gmail.com> <1352286264.3140.3575.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next] ipv6: remove rt6i_peer_genid from rt6_info and its handler
+Date: Thu,  8 Nov 2012 15:56:33 +0800
+Message-ID: <1352361393-4807-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:57166 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751500Ab2KHHr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 02:47:28 -0500
-Received: by mail-da0-f46.google.com with SMTP id n41so1073038dak.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 23:47:28 -0800 (PST)
-In-Reply-To: <1352286264.3140.3575.camel@edumazet-glaptop>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:58630 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751427Ab2KHH4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 02:56:45 -0500
+Received: by mail-pb0-f46.google.com with SMTP id rr4so1854712pbb.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 23:56:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2012=E5=B9=B411=E6=9C=8807=E6=97=A5 19:04, Eric Dumazet =E5=86=
-=99=E9=81=93:
-> On Wed, 2012-11-07 at 16:35 +0800, Li Yu wrote:
->> =E4=BA=8E 2012=E5=B9=B411=E6=9C=8807=E6=97=A5 16:20, Li Yu =E5=86=99=
-=E9=81=93:
->>> =E4=BA=8E 2012=E5=B9=B404=E6=9C=8827=E6=97=A5 18:33, Eric Dumazet =E5=
-=86=99=E9=81=93:
->>>> From: Eric Dumazet <edumazet@google.com>
->>>>
->>>> skb->head is currently allocated from kmalloc(). This is convenien=
-t but
->>>> has the drawback the data cannot be converted to a page fragment i=
-f
->>>> needed.
->>>>
->>>
->>> Hi, Eric,
->>>
->>> I have a question about this patch, why data are allocated from
->>> kmalloc() can not be converted to page fragment ? We have its kerne=
-l
->>> mapped address and length, so we can get its page and offset in the
->>> page. If the skb is not cloned (shared with others), such page and =
-its
->>> offset should be can use safely, in my words.
->>>
->>> I suspected that I may lost important something in slab internals, =
-is
->>> right?
->>>
->>> Thanks
->>>
->>> Yu
->>>
->>
->> Or since slab allocated object may be across multiple pages?
->> I saw __netdev_alloc_skb() only use build_skb() with non-zero
->> fragsz if it is less than PAGE_SIZE.
->>
->
-> SLAB allocators have their own way to handle a page, we cant interfer=
-e
-> with it.
->
-> So no, a kmalloced() object cannot be converted to a page fragment.
->
+From: Li RongQing <roy.qing.li@gmail.com>
 
-I think that all kmalloced() objects are continuous on both virtual
-and physical address space, so such page fragment converting should be
-safe until we use slab allocator to free them.
+6431cbc25f(Create a mechanism for upward inetpeer propagation into routes)
+introduces these codes, but this mechanism is never enabled since
+rt6i_peer_genid always is zero whether it is not assigned or assigned by
+rt6_peer_genid(). After 5943634fc5 (ipv4: Maintain redirect and PMTU info
+in struct rtable again), the ipv4 related codes of this mechanism has been
+removed, I think we maybe able to remove them now.
 
-I ask this question since I am working on a patch to try to directly
-forward the data from rx queue of a socket to tx queue of another=20
-socket. We noticed that the splice itself still has visible costs when=20
-forwarding small messages, and hope such direct forwarding optimization
-can improve this, this idea comes from TCP friends.
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ include/net/ip6_fib.h |    1 -
+ net/ipv6/route.c      |   18 ++----------------
+ 2 files changed, 2 insertions(+), 17 deletions(-)
 
-Thanks
-
-Yu
-
->
->
->
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 20210d7..26210cf 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -117,7 +117,6 @@ struct rt6_info {
+ 	struct rt6key			rt6i_src;
+ 	struct rt6key			rt6i_prefsrc;
+ 	u32				rt6i_metric;
+-	u32				rt6i_peer_genid;
+ 
+ 	struct inet6_dev		*rt6i_idev;
+ 	unsigned long			_rt6i_peer;
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c42650c..0db1828 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -321,13 +321,6 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+ 	}
+ }
+ 
+-static atomic_t __rt6_peer_genid = ATOMIC_INIT(0);
+-
+-static u32 rt6_peer_genid(void)
+-{
+-	return atomic_read(&__rt6_peer_genid);
+-}
+-
+ void rt6_bind_peer(struct rt6_info *rt, int create)
+ {
+ 	struct inet_peer_base *base;
+@@ -341,8 +334,6 @@ void rt6_bind_peer(struct rt6_info *rt, int create)
+ 	if (peer) {
+ 		if (!rt6_set_peer(rt, peer))
+ 			inet_putpeer(peer);
+-		else
+-			rt->rt6i_peer_genid = rt6_peer_genid();
+ 	}
+ }
+ 
+@@ -1099,14 +1090,9 @@ static struct dst_entry *ip6_dst_check(struct dst_entry *dst, u32 cookie)
+ 	if (rt->rt6i_genid != rt_genid(dev_net(rt->dst.dev)))
+ 		return NULL;
+ 
+-	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie)) {
+-		if (rt->rt6i_peer_genid != rt6_peer_genid()) {
+-			if (!rt6_has_peer(rt))
+-				rt6_bind_peer(rt, 0);
+-			rt->rt6i_peer_genid = rt6_peer_genid();
+-		}
++	if (rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie))
+ 		return dst;
+-	}
++
+ 	return NULL;
+ }
+ 
+-- 
+1.7.4.1
