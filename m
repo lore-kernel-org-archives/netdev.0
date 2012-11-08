@@ -1,44 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/4 net-next] net: allow skb->head to be a page fragment
-Date: Thu, 08 Nov 2012 05:30:49 -0800
-Message-ID: <1352381449.19779.13.camel@edumazet-glaptop>
-References: <1335522818.2775.227.camel@edumazet-glaptop>
-	 <509A19E6.4040707@gmail.com>  <509A1D49.4080306@gmail.com>
-	 <1352286264.3140.3575.camel@edumazet-glaptop>  <509B6368.9010206@gmail.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH][net-next] gianfar: Fix alloc_skb_resources on -ENOMEM cleanup path
+Date: Thu, 8 Nov 2012 15:40:08 +0200
+Message-ID: <1352382008-7039-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Li Yu <raise.sail@gmail.com>
+Content-Type: text/plain
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:45837 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755555Ab2KHNaw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 08:30:52 -0500
-Received: by mail-ie0-f174.google.com with SMTP id k13so4119202iea.19
-        for <netdev@vger.kernel.org>; Thu, 08 Nov 2012 05:30:52 -0800 (PST)
-In-Reply-To: <509B6368.9010206@gmail.com>
+Received: from co1ehsobe006.messaging.microsoft.com ([216.32.180.189]:38000
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751317Ab2KHNkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 08:40:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-08 at 15:46 +0800, Li Yu wrote:
+Should gfar_init_bds() return with -ENOMEM inside gfar_alloc_skb_resources(),
+free_skb_resources() will be called twice in a row on the "cleanup" path,
+leading to duplicate kfree() calls for rx_|tx_queue->rx_|tx_skbuff resulting
+in segmentation fault.
+This patch prevents the segmentation fault to happen in the future
+(rx_|tx_sbkbuff set to NULL), and corrects the error path handling
+for gfar_init_bds().
 
-> I think that all kmalloced() objects are continuous on both virtual
-> and physical address space, so such page fragment converting should be
-> safe until we use slab allocator to free them.
-> 
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 
-Its not safe at all. Good luck with coping with SLAB, SLUB, SLOB, and
-various debugging facilities on top of them.
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-> I ask this question since I am working on a patch to try to directly
-> forward the data from rx queue of a socket to tx queue of another 
-> socket. We noticed that the splice itself still has visible costs when 
-> forwarding small messages, and hope such direct forwarding optimization
-> can improve this, this idea comes from TCP friends.
-
-If not using splice, you directly transfert one skb coming from one
-side, to the other side, so you dont care skb->head being a frag or not.
-
-If messages are small, there is probably no hope trying to coalesce them
-(or else fixing the application would be much easier)
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 1d03dcd..c5c82ad 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -311,7 +311,7 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
+ 	}
+ 
+ 	if (gfar_init_bds(ndev))
+-		goto cleanup;
++		return -ENOMEM;
+ 
+ 	return 0;
+ 
+@@ -1356,7 +1356,9 @@ static int gfar_restore(struct device *dev)
+ 	if (!netif_running(ndev))
+ 		return 0;
+ 
+-	gfar_init_bds(ndev);
++	if (gfar_init_bds(ndev))
++		return -ENOMEM;
++
+ 	init_registers(ndev);
+ 	gfar_set_mac_address(ndev);
+ 	gfar_init_mac(ndev);
+@@ -1709,6 +1711,7 @@ static void free_skb_tx_queue(struct gfar_priv_tx_q *tx_queue)
+ 		tx_queue->tx_skbuff[i] = NULL;
+ 	}
+ 	kfree(tx_queue->tx_skbuff);
++	tx_queue->tx_skbuff = NULL;
+ }
+ 
+ static void free_skb_rx_queue(struct gfar_priv_rx_q *rx_queue)
+@@ -1732,6 +1735,7 @@ static void free_skb_rx_queue(struct gfar_priv_rx_q *rx_queue)
+ 		rxbdp++;
+ 	}
+ 	kfree(rx_queue->rx_skbuff);
++	rx_queue->rx_skbuff = NULL;
+ }
+ 
+ /* If there are any tx skbs or rx skbs still around, free them.
+-- 
+1.6.6
