@@ -1,35 +1,63 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: explaining the math behind the buffering done in USB network drivers
-Date: Thu, 08 Nov 2012 18:35:07 +0100
-Message-ID: <1544921.F1ezT4niGW@linux-lqwf.site>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] cdc_ether: use USB_DEVICE_AND_INTERFACE_INFO for Novatel
+ 551L/E362
+Date: Thu, 08 Nov 2012 12:09:12 -0600
+Message-ID: <1352398152.22225.14.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: Robert Bradley <robert.bradley1@gmail.com>,
-	Dave Taht <dave.taht@gmail.com>,
-	Jim Gettys <jg@freedesktop.org>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Aleksander Morgado <aleksander@gnu.org>,
+	netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:38199 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:42777 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751266Ab2KHRfD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2012 12:35:03 -0500
+	id S1756542Ab2KHSJO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Nov 2012 13:09:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Small cleanup.
 
-it is probably necessary to state the limitations of USB to understand
-why we buffer as much data as we buffer. Basically the schedule on
-the USB bus is set in stone for a period of 1ms(full speed). This means that a driver
-has to have submitted to USB core enough data to fill _2_ such periods
-at all times. Thus the schedule for the current period is filled up and the
-host controller can seamlessly switch to the next period.
-In addition the driver has to be ready to provide the data for the next period
-as soon as one period is done.
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/net/usb/cdc_ether.c | 20 ++++----------------
+ 1 file changed, 4 insertions(+), 16 deletions(-)
 
-Thus conceptually for USB we do tripple-buffering.
-Few drivers actually express this logic internally. One usually calculates
-a rough approximation, but this is the logic behind the thing.
-
-	Regards
-		Oliver
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index d012982..d095b39 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -594,27 +594,15 @@ static const struct usb_device_id	products [] = {
+ 
+ /* Novatel USB551L and MC551 - handled by qmi_wwan */
+ {
+-	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
+-		 | USB_DEVICE_ID_MATCH_PRODUCT
+-		 | USB_DEVICE_ID_MATCH_INT_INFO,
+-	.idVendor               = NOVATEL_VENDOR_ID,
+-	.idProduct		= 0xB001,
+-	.bInterfaceClass	= USB_CLASS_COMM,
+-	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
+-	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
++	USB_DEVICE_AND_INTERFACE_INFO(NOVATEL_VENDOR_ID, 0xB001, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
+ 	.driver_info = 0,
+ },
+ 
+ /* Novatel E362 - handled by qmi_wwan */
+ {
+-	.match_flags    =   USB_DEVICE_ID_MATCH_VENDOR
+-		 | USB_DEVICE_ID_MATCH_PRODUCT
+-		 | USB_DEVICE_ID_MATCH_INT_INFO,
+-	.idVendor               = NOVATEL_VENDOR_ID,
+-	.idProduct		= 0x9010,
+-	.bInterfaceClass	= USB_CLASS_COMM,
+-	.bInterfaceSubClass	= USB_CDC_SUBCLASS_ETHERNET,
+-	.bInterfaceProtocol	= USB_CDC_PROTO_NONE,
++	USB_DEVICE_AND_INTERFACE_INFO(NOVATEL_VENDOR_ID, 0x9010, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
+ 	.driver_info = 0,
+ },
+ 
