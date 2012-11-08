@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] isdn: Make CONFIG_ISDN depend on CONFIG_NETDEVICES
-Date: Wed, 07 Nov 2012 18:59:51 -0500 (EST)
-Message-ID: <20121107.185951.1536161042866737820.davem@davemloft.net>
-References: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
+Subject: Re: [PATCH -next] ksz884x: use module_pci_driver to simplify the
+ code
+Date: Wed, 07 Nov 2012 19:01:40 -0500 (EST)
+Message-ID: <20121107.190140.1862649158439289219.davem@davemloft.net>
+References: <CAPgLHd8mrDXyiJ4rNFLHsYWEreVRiKXwqqr7umtSY36RkzXjUA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, isdn@linux-pingi.de,
-	netdev@vger.kernel.org
-To: lee.jones@linaro.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42414 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753461Ab2KHABm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 19:01:42 -0500
+In-Reply-To: <CAPgLHd8mrDXyiJ4rNFLHsYWEreVRiKXwqqr7umtSY36RkzXjUA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTGVlIEpvbmVzIDxsZWUuam9uZXNAbGluYXJvLm9yZz4NCkRhdGU6IFdlZCwgIDcgTm92
-IDIwMTIgMTA6NTU6MDMgKzAxMDANCg0KPiBJdCBkb2Vzbid0IG1ha2UgbXVjaCBzZW5zZSB0byBl
-bmFibGUgSVNETiBzZXJ2aWNlcyBpZiB5b3UgZG9uJ3QNCj4gaW50ZW5kIHRvIGNvbm5lY3QgdG8g
-YSBuZXR3b3JrLiBUaGVyZWZvcmUgaW5zaXN0aW5nIHRoYXQgSVNETg0KPiBkZXBlbmRzIG9uIE5F
-VERFVklDRVMgc2VlbXMgbG9naWNhbC4gV2UgY2FuIHRoZW4gcmVtb3ZlIGFueQ0KPiBndWFyZHMg
-bWVudGlvbmluZyBORVRERVZJQ0VTIGluc2lkZSBhbGwgc3Vib3JkaW5hdGUgZHJpdmVycy4NCj4g
-DQo+IFRoaXMgYWxzbyBoYXMgdGhlIG5pY2Ugc2lkZS1lZmZlY3Qgb2YgZml4aW5nIHRoZSB3YXJu
-aW5nIGJlbG93DQo+IHdoZW4gSVNETl9JNEwgJiYgIUNPTkZJR19ORVRERVZJQ0VTIGF0IGNvbXBp
-bGUgdGltZS4NCj4gDQo+IFRoaXMgcGF0Y2ggZml4ZXM6DQo+IGRyaXZlcnMvaXNkbi9pNGwvaXNk
-bl9jb21tb24uYzogSW4gZnVuY3Rpb24goWlzZG5faW9jdGyiOg0KPiBkcml2ZXJzL2lzZG4vaTRs
-L2lzZG5fY29tbW9uLmM6MTI3ODo4OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoXOiIFstV3Vu
-dXNlZC12YXJpYWJsZV0NCj4gDQo+IENjOiBLYXJzdGVuIEtlaWwgPGlzZG5AbGludXgtcGluZ2ku
-ZGU+DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFNpZ25lZC1vZmYtYnk6IExlZSBK
-b25lcyA8bGVlLmpvbmVzQGxpbmFyby5vcmc+DQoNCkFwcGxpZWQsIHRoYW5rcy4NCg==
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Wed, 7 Nov 2012 20:54:30 +0800
+
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Use the module_pci_driver() macro to make the code simpler
+> by eliminating module_init and module_exit calls.
+> 
+> dpatch engine is used to auto generate this patch.
+> (https://github.com/weiyj/dpatch)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+
+Applied, thanks.
