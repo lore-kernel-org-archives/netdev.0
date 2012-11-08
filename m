@@ -1,244 +1,513 @@
-From: kate johnson <nog@nox.com>
-Subject: LETTER FROM MRS KATE
-Date: Thu, 08 Nov 2012 10:56:41 +0000
-Message-ID: <1352372201.509b8fe9c395f__40674.4544663981$1352373517$gmane$org@netmail.pipex.net>
-Reply-To: katejh21@gmail.com
+From: Jeff Kirsher <tarbal@gmail.com>
+Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+ for SR-IOV)
+Date: Thu, 08 Nov 2012 03:23:24 -0800
+Message-ID: <509B962C.6070002@gmail.com>
+References: <201211081915083774239@gmail.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="-MOQ135237220102dd052d2e4b44ec517af02e114d25d9"
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mk-outboundfilter-6-a-3.mail.uk.tiscali.com ([212.74.114.22]:37145
-	"EHLO mk-outboundfilter-6-a-3.mail.uk.tiscali.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754663Ab2KHLSK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2012 06:18:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="------------enig5EB9C985A4D06E20EF09C0D6"
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>,
+	e1000-devel@lists.sourceforge.net,
+	Greg Rose <gregory.v.rose@intel.com>
+To: "pkill.2012" <pkill.2012@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201211081915083774239@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This message is in MIME format.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig5EB9C985A4D06E20EF09C0D6
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
----MOQ135237220102dd052d2e4b44ec517af02e114d25d9
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+On 11/08/2012 03:15 AM, pkill.2012 wrote:
+> Hello,
+> =20
+> I installed kvm and tried to use SR-IOV virtualizaton for 82599EB(Intel=
+ XT-520 T2) dual port card with latest ixgbe driver(version:3.11.33) ,=20
+> kernel2.6.32-279.14.1(OS:Centos6.3) ,after configuration and reboot
+> It seems that only first port of the card's VFs works,second port of th=
+e card's VFs didn't work
+> I found some errors in /var/log messages:
+> =20
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: not enough MMIO resource=
+s for SR-IOV
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: (unregistered net_device=
+): Failed to enable PCI sriov: -12
+> =20
+> How to fix it,any help would be greatly appreciated.
+> =20
+> below is the related information:
+> Server: R710
+> OS: centos6.3
+> NIC: X520-T2(dual port)
+> kernel: 2.6.32-279.14.1.el6.x86_64
+> BIOSVersion: 6.3.0(latest)
+> BIOS:Inter VT/VT-d or SR-IOV(enabled)
+> ixgbe:3.11.33(latest)
+> ixgbevf:2.7.12(latest)
+> grub config:intel_iommu=3Don appended
+> =20
+> /var/log/messages:
+> Nov  8 14:56:54 12 kernel: Intel(R) 10 Gigabit PCI Express Network Driv=
+er - version 3.11.33
+> Nov  8 14:56:54 12 kernel: Copyright (c) 1999-2012 Intel Corporation.
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: PCI INT B -> GSI 50 (lev=
+el, low) -> IRQ 50
+> Nov  8 14:56:54 12 kernel: ixgbe: I/O Virtualization (IOV) set to 2
+> Nov  8 14:56:54 12 kernel: ixgbe: 0000:07:00.0: ixgbe_check_options: FC=
+oE Offload feature enabled
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: (unregistered net_device=
+): SR-IOV enabled with 2 VFs
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: FCoE offload feature is =
+not available. Disabling FCoE offload feature
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: (PCI Express:5.0GT/s:Wid=
+th x8) 68:05:ca:0c:7a:e2
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: MAC: 2, PHY: 2, PB=
+A No: G21371-003
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: Enabled Features: =
+RxQ: 1 TxQ: 1 LRO
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: IOV: VF 0 is enabl=
+ed mac 0E:15:B9:26:B3:7D
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: IOV: VF 1 is enabl=
+ed mac 32:69:2D:16:B9:40
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.0: eth4: Intel(R) 10 Gigabi=
+t Network Connection
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: PCI INT A -> GSI 40 (lev=
+el, low) -> IRQ 40
+> Nov  8 14:56:54 12 kernel: ixgbe: I/O Virtualization (IOV) set to 2
+> Nov  8 14:56:54 12 kernel: ixgbe: 0000:07:00.1: ixgbe_check_options: FC=
+oE Offload feature enabled
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: not enough MMIO resource=
+s for SR-IOV
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: (unregistered net_device=
+): Failed to enable PCI sriov: -12
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: FCoE offload feature is =
+not available. Disabling FCoE offload feature
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: (PCI Express:5.0GT/s:Wid=
+th x8) 68:05:ca:0c:7a:e3
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: eth5: MAC: 2, PHY: 2, PB=
+A No: G21371-003
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: eth5: Enabled Features:
+> RxQ: 16 TxQ: 16 FdirHash RSC
+> Nov  8 14:56:54 12 kernel: ixgbe 0000:07:00.1: eth5: Intel(R) 10
+> Gigabit Network Connection
+> =20
+> # dmesg |grep -E 'DMA|IOMMU'
+> ACPI: DMAR 00000000bf3b3668 001C0 (v01 DELL   PE_SC3   00000001 DELL 00=
+000001)
+>   DMA      0x00000001 -> 0x00001000
+>   DMA32    0x00001000 -> 0x00100000
+>   DMA zone: 56 pages used for memmap
+>   DMA zone: 102 pages reserved
+>   DMA zone: 3839 pages, LIFO batch:0
+>   DMA32 zone: 14280 pages used for memmap
+>   DMA32 zone: 764849 pages, LIFO batch:31
+> Intel-IOMMU: enabled
+> DMAR: Host address width 40
+> DMAR: DRHD base: 0x000000fed90000 flags: 0x1
+> IOMMU fed90000: ver 1:0 cap c90780106f0462 ecap f020fe
+> DMAR: RMRR base: 0x000000bf4c8000 end: 0x000000bf4dffff
+> DMAR: RMRR base: 0x000000bf4b1000 end: 0x000000bf4bffff
+> DMAR: RMRR base: 0x000000bf4a1000 end: 0x000000bf4a1fff
+> DMAR: RMRR base: 0x000000bf4a3000 end: 0x000000bf4a3fff
+> DMAR: RMRR base: 0x000000bf4a5000 end: 0x000000bf4a5fff
+> DMAR: RMRR base: 0x000000bf4a7000 end: 0x000000bf4a7fff
+> DMAR: RMRR base: 0x000000bf4c0000 end: 0x000000bf4c0fff
+> DMAR: RMRR base: 0x000000bf4c2000 end: 0x000000bf4c2fff
+> DMAR: ATSR flags: 0x0
+> DMAR: Device scope device [0000:00:1a.02] not found
+> DMAR: Device scope device [0000:00:1a.02] not found
+> DMAR: Device scope device [0000:00:1d.02] not found
+> DMAR: Device scope device [0000:00:1d.02] not found
+> IOMMU 0xfed90000: using Queued invalidation
+> IOMMU: Setting RMRR:
+> IOMMU: Setting identity map for device 0000:00:1d.7 [0xbf4c2000 - 0xbf4=
+c3000]
+> IOMMU: Setting identity map for device 0000:00:1a.7 [0xbf4c0000 - 0xbf4=
+c1000]
+> IOMMU: Setting identity map for device 0000:00:1d.1 [0xbf4a7000 - 0xbf4=
+a8000]
+> IOMMU: Setting identity map for device 0000:00:1d.0 [0xbf4a5000 - 0xbf4=
+a6000]
+> IOMMU: Setting identity map for device 0000:00:1a.1 [0xbf4a3000 - 0xbf4=
+a4000]
+> IOMMU: Setting identity map for device 0000:00:1a.0 [0xbf4a1000 - 0xbf4=
+a2000]
+> IOMMU: Setting identity map for device 0000:00:1a.0 [0xbf4b1000 - 0xbf4=
+c0000]
+> IOMMU: Setting identity map for device 0000:00:1a.1 [0xbf4b1000 - 0xbf4=
+c0000]
+> IOMMU: Setting identity map for device 0000:00:1d.0 [0xbf4b1000 - 0xbf4=
+c0000]
+> IOMMU: Setting identity map for device 0000:00:1d.1 [0xbf4b1000 - 0xbf4=
+c0000]
+> IOMMU: Setting identity map for device 0000:00:1a.7 [0xbf4c8000 - 0xbf4=
+e0000]
+> IOMMU: Setting identity map for device 0000:00:1d.7 [0xbf4c8000 - 0xbf4=
+e0000]
+> IOMMU: Prepare 0-16MiB unity mapping for LPC
+> IOMMU: Setting identity map for device 0000:00:1f.0 [0x0 - 0x1000000]
+> PCI-DMA: Intel(R) Virtualization Technology for Directed I/O
+> ata1: SATA max UDMA/133 cmd 0xdc10 ctl 0xdc08 bmdma 0xdc20 irq 23
+> ata2: SATA max UDMA/133 cmd 0xdc18 ctl 0xdc0c bmdma 0xdc28 irq 23
+> ata1.00: ATAPI: TSSTcorp DVD-ROM SN-108BB, D150, max UDMA/100
+> ata1.00: configured for UDMA/100
+> =20
+> # lspci|grep Virtual
+> 07:10.0 Ethernet controller: Intel Corporation 82599 Virtual Function (=
+rev 01)
+> 07:10.2 Ethernet controller: Intel Corporation 82599 Virtual Function (=
+rev 01)
+> =20
+> #lspci|grep '82599EB'
+> 07:00.0 Ethernet controller: Intel Corporation 82599EB 10 Gigabit TN
+> Network Connection (rev 01)
+> 07:00.1 Ethernet controller: Intel Corporation 82599EB 10 Gigabit TN
+> Network Connection (rev 01)
+> =20
+> # lspci -n|grep 07:00
+> 07:00.0 0200: 8086:151c (rev 01)
+> 07:00.1 0200: 8086:151c (rev 01)
+> =20
+> # lspci -n -d 8086:151c -vvv|grep -i width
+> LnkCap: Port #2, Speed 5GT/s, Width x8, ASPM L0s, Latency L0 <1us, L1 <=
+8us
+> LnkSta: Speed 5GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt-=
+ ABWMgmt-
+> LnkCap: Port #2, Speed 5GT/s, Width x8, ASPM L0s, Latency L0 <1us, L1 <=
+8us
+> LnkSta: Speed 5GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt-=
+ ABWMgmt-
+> =20
+> #lspci -vvv -s 07:00
+> 07:00.0 Ethernet controller: Intel Corporation 82599EB 10 Gigabit TN Ne=
+twork Connection (rev 01)
+> Subsystem: Intel Corporation Ethernet Server Adapter X520-T2
+> Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Ste=
+pping- SERR- FastB2B- DisINTx+
+> Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast >TAbort- <TAbor=
+t- <MAbort- >SERR- <PERR- INTx-
+> Latency: 0, Cache Line Size: 64 bytes
+> Interrupt: pin B routed to IRQ 50
+> Region 0: Memory at de400000 (64-bit, non-prefetchable) [size=3D2M]
+> Region 2: I/O ports at ecc0 [size=3D32]
+> Region 4: Memory at de3f8000 (64-bit, non-prefetchable) [size=3D16K]
+> Expansion ROM at de200000 [disabled] [size=3D1M]
+> Capabilities: [40] Power Management version 3
+> Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D0mA PME(D0+,D1-,D2-,D3hot+,D3c=
+old+)
+> Status: D0 NoSoftRst- PME-Enable- DSel=3D0 DScale=3D1 PME-
+> Capabilities: [50] MSI: Enable- Count=3D1/1 Maskable+ 64bit+
+> Address: 0000000000000000  Data: 0000
+> Masking: 00000000  Pending: 00000000
+> Capabilities: [70] MSI-X: Enable+ Count=3D64 Masked-
+> Vector table: BAR=3D4 offset=3D00000000
+> PBA: BAR=3D4 offset=3D00002000
+> Capabilities: [a0] Express (v2) Endpoint, MSI 00
+> DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us=
+
+> ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset+
+> DevCtl: Report errors: Correctable- Non-Fatal+ Fatal+ Unsupported+
+> RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+ FLReset-
+> MaxPayload 256 bytes, MaxReadReq 512 bytes
+> DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ AuxPwr+ TransPend-
+> LnkCap: Port #2, Speed 5GT/s, Width x8, ASPM L0s, Latency L0 <1us, L1 <=
+8us
+> ClockPM- Surprise- LLActRep- BwNot-
+> LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk+
+> ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+> LnkSta: Speed 5GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt-=
+ ABWMgmt-
+> DevCap2: Completion Timeout: Range ABCD, TimeoutDis+
+> DevCtl2: Completion Timeout: 65ms to 210ms, TimeoutDis-
+> LnkCtl2: Target Link Speed: 5GT/s, EnterCompliance- SpeedDis-, Selectab=
+le De-emphasis: -6dB
+>  Transmit Margin: Normal Operating Range, EnterModifiedCompliance- Comp=
+lianceSOS-
+>  Compliance De-emphasis: -6dB
+> LnkSta2: Current De-emphasis Level: -6dB
+> Capabilities: [e0] Vital Product Data
+> Unknown small resource type 06, will not decode more.
+> Capabilities: [100] Advanced Error Reporting
+> UESta: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP=
+- ECRC- UnsupReq- ACSViol-
+> UEMsk: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt+ UnxCmplt+ RxOF- MalfTLP=
+- ECRC- UnsupReq- ACSViol-
+> UESvrt: DLP+ SDES- TLP+ FCP+ CmpltTO+ CmpltAbrt- UnxCmplt- RxOF+ MalfTL=
+P+ ECRC+ UnsupReq- ACSViol-
+> CESta: RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
+> CEMsk: RxErr+ BadTLP+ BadDLLP+ Rollover+ Timeout+ NonFatalErr+
+> AERCap: First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
+> Capabilities: [140] Device Serial Number 68-05-ca-ff-ff-0c-7a-e2
+> Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
+> ARICap: MFVC- ACS-, Next Function: 1
+> ARICtl: MFVC- ACS-, Function Group: 0
+> Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
+> IOVCap: Migration-, Interrupt Message Number: 000
+> IOVCtl: Enable+ Migration- Interrupt- MSE+ ARIHierarchy+
+> IOVSta: Migration-
+> Initial VFs: 64, Total VFs: 64, Number of VFs: 2, Function Dependency L=
+ink: 00
+> VF offset: 128, stride: 2, Device ID: 10ed
+> Supported Page Size: 00000553, System Page Size: 00000001
+> Region 0: Memory at 00000000d5900000 (64-bit, prefetchable)
+> Region 3: Memory at 00000000d5a00000 (64-bit, prefetchable)
+> VF Migration: offset: 00000000, BIR: 0
+> Kernel driver in use: ixgbe
+> Kernel modules: ixgbe
+> 07:00.1 Ethernet controller: Intel Corporation 82599EB 10 Gigabit TN Ne=
+twork Connection (rev 01)
+> Subsystem: Intel Corporation Ethernet Server Adapter X520-T2
+> Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Ste=
+pping- SERR- FastB2B- DisINTx+
+> Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=3Dfast >TAbort- <TAbor=
+t- <MAbort- >SERR- <PERR- INTx-
+> Latency: 0, Cache Line Size: 64 bytes
+> Interrupt: pin A routed to IRQ 40
+> Region 0: Memory at de600000 (64-bit, non-prefetchable) [size=3D2M]
+> Region 2: I/O ports at ece0 [size=3D32]
+> Region 4: Memory at de3fc000 (64-bit, non-prefetchable) [size=3D16K]
+> Expansion ROM at d5800000 [disabled] [size=3D1M]
+> Capabilities: [40] Power Management version 3
+> Flags: PMEClk- DSI+ D1- D2- AuxCurrent=3D0mA PME(D0+,D1-,D2-,D3hot+,D3c=
+old+)
+> Status: D0 NoSoftRst- PME-Enable- DSel=3D0 DScale=3D1 PME-
+> Capabilities: [50] MSI: Enable- Count=3D1/1 Maskable+ 64bit+
+> Address: 0000000000000000  Data: 0000
+> Masking: 00000000  Pending: 00000000
+> Capabilities: [70] MSI-X: Enable+ Count=3D64 Masked-
+> Vector table: BAR=3D4 offset=3D00000000
+> PBA: BAR=3D4 offset=3D00002000
+> Capabilities: [a0] Express (v2) Endpoint, MSI 00
+> DevCap: MaxPayload 512 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us=
+
+> ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset+
+> DevCtl: Report errors: Correctable- Non-Fatal+ Fatal+ Unsupported+
+> RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+ FLReset-
+> MaxPayload 256 bytes, MaxReadReq 512 bytes
+> DevSta: CorrErr+ UncorrErr- FatalErr- UnsuppReq+ AuxPwr+ TransPend-
+> LnkCap: Port #2, Speed 5GT/s, Width x8, ASPM L0s, Latency L0 <1us, L1 <=
+8us
+> ClockPM- Surprise- LLActRep- BwNot-
+> LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk+
+> ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+> LnkSta: Speed 5GT/s, Width x8, TrErr- Train- SlotClk+ DLActive- BWMgmt-=
+ ABWMgmt-
+> DevCap2: Completion Timeout: Range ABCD, TimeoutDis+
+> DevCtl2: Completion Timeout: 65ms to 210ms, TimeoutDis-
+> LnkCtl2: Target Link Speed: 2.5GT/s, EnterCompliance- SpeedDis-, Select=
+able De-emphasis: -6dB
+>  Transmit Margin: Normal Operating Range, EnterModifiedCompliance- Comp=
+lianceSOS-
+>  Compliance De-emphasis: -6dB
+> LnkSta2: Current De-emphasis Level: -6dB
+> Capabilities: [e0] Vital Product Data
+> Unknown small resource type 06, will not decode more.
+> Capabilities: [100] Advanced Error Reporting
+> UESta: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP=
+- ECRC- UnsupReq- ACSViol-
+> UEMsk: DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt+ UnxCmplt+ RxOF- MalfTLP=
+- ECRC- UnsupReq- ACSViol-
+> UESvrt: DLP+ SDES- TLP+ FCP+ CmpltTO+ CmpltAbrt- UnxCmplt- RxOF+ MalfTL=
+P+ ECRC+ UnsupReq- ACSViol-
+> CESta: RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
+> CEMsk: RxErr+ BadTLP+ BadDLLP+ Rollover+ Timeout+ NonFatalErr+
+> AERCap: First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
+> Capabilities: [140] Device Serial Number 68-05-ca-ff-ff-0c-7a-e2
+> Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
+> ARICap: MFVC- ACS-, Next Function: 0
+> ARICtl: MFVC- ACS-, Function Group: 0
+> Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
+> IOVCap: Migration-, Interrupt Message Number: 000
+> IOVCtl: Enable- Migration- Interrupt- MSE- ARIHierarchy-
+> IOVSta: Migration-
+> Initial VFs: 64, Total VFs: 64, Number of VFs: 2, Function Dependency L=
+ink: 01
+> VF offset: 128, stride: 2, Device ID: 10ed
+> Supported Page Size: 00000553, System Page Size: 00000001
+> Region 0: Memory at 00000000d5b00000 (64-bit, prefetchable)
+> Region 3: Memory at 00000000d5b00000 (64-bit, prefetchable)
+> VF Migration: offset: 00000000, BIR: 0
+> Kernel driver in use: ixgbe
+> Kernel modules: ixgbe
+> =20
+> #modinfo ixgbe
+> filename:       /lib/modules/2.6.32-279.14.1.el6.x86_64/kernel/drivers/=
+net/ixgbe/ixgbe.ko
+> version:        3.11.33
+> license:        GPL
+> description:    Intel(R) 10 Gigabit PCI Express Network Driver
+> author:         Intel Corporation, <linux.nics@intel.com>
+> srcversion:     ADDCBFA6FAFE8A0299074F8
+> alias:          pci:v00008086d0000154Asv*sd*bc*sc*i*
+> alias:          pci:v00008086d00001557sv*sd*bc*sc*i*
+> alias:          pci:v00008086d0000154Fsv*sd*bc*sc*i*
+> alias:          pci:v00008086d0000154Dsv*sd*bc*sc*i*
+> alias:          pci:v00008086d00001528sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010F8sv*sd*bc*sc*i*
+> alias:          pci:v00008086d0000151Csv*sd*bc*sc*i*
+> alias:          pci:v00008086d00001529sv*sd*bc*sc*i*
+> alias:          pci:v00008086d0000152Asv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010F9sv*sd*bc*sc*i*
+> alias:          pci:v00008086d00001514sv*sd*bc*sc*i*
+> alias:          pci:v00008086d00001507sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010FBsv*sd*bc*sc*i*
+> alias:          pci:v00008086d00001517sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010FCsv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010F7sv*sd*bc*sc*i*
+> alias:          pci:v00008086d00001508sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010DBsv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010F4sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010E1sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010F1sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010ECsv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010DDsv*sd*bc*sc*i*
+> alias:          pci:v00008086d0000150Bsv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010C8sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010C7sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010C6sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010B6sv*sd*bc*sc*i*
+> depends:        dca
+> vermagic:       2.6.32-279.14.1.el6.x86_64 SMP mod_unload modversions=20
+> parm:           InterruptType:Change Interrupt Mode (0=3DLegacy, 1=3DMS=
+I, 2=3DMSI-X), default IntMode (deprecated) (array of int)
+> parm:           IntMode:Change Interrupt Mode (0=3DLegacy, 1=3DMSI, 2=3D=
+MSI-X), default 2 (array of int)
+> parm:           MQ:Disable or enable Multiple Queues, default 1 (array =
+of int)
+> parm:           DCA:Disable or enable Direct Cache Access, 0=3Ddisabled=
+, 1=3Ddescriptor only, 2=3Ddescriptor and data (array of int)
+> parm:           RSS:Number of Receive-Side Scaling Descriptor Queues, d=
+efault 0=3Dnumber of cpus (array of int)
+> parm:           VMDQ:Number of Virtual Machine Device Queues: 0/1 =3D d=
+isable, 2-16 enable (default=3D8) (array of int)
+> parm:           max_vfs:Number of Virtual Functions: 0 =3D disable (def=
+ault), 1-63 =3D enable this many VFs (array of int)
+> parm:           L2LBen:L2 Loopback Enable: 0 =3D disable, 1 =3D enable =
+(default) (array of int)
+> parm:           InterruptThrottleRate:Maximum interrupts per second, pe=
+r vector, (0,1,956-488281), default 1 (array of int)
+> parm:           LLIPort:Low Latency Interrupt TCP Port (0-65535) (array=
+ of int)
+> parm:           LLIPush:Low Latency Interrupt on TCP Push flag (0,1) (a=
+rray of int)
+> parm:           LLISize:Low Latency Interrupt on Packet Size (0-1500) (=
+array of int)
+> parm:           LLIEType:Low Latency Interrupt Ethernet Protocol Type (=
+array of int)
+> parm:           LLIVLANP:Low Latency Interrupt on VLAN priority thresho=
+ld (array of int)
+> parm:           FdirPballoc:Flow Director packet buffer allocation leve=
+l:
+> 1 =3D 8k hash filters or 2k perfect filters
+> 2 =3D 16k hash filters or 4k perfect filters
+> 3 =3D 32k hash filters or 8k perfect filters (array of int)
+> parm:           AtrSampleRate:Software ATR Tx packet sample rate (array=
+ of int)
+> parm:           FCoE:Disable or enable FCoE Offload, default 1 (array o=
+f int)
+> parm:           LRO:Large Receive Offload (0,1), default 1 =3D on (arra=
+y of int)
+> parm:           allow_unsupported_sfp:Allow unsupported and untested SF=
+P+ modules on 82599 based adapters, default 0 =3D Disable (array of int)
+> =20
+> # modinfo ixgbevf
+> filename:       /lib/modules/2.6.32-279.14.1.el6.x86_64/kernel/drivers/=
+net/ixgbevf/ixgbevf.ko
+> version:        2.7.12
+> license:        GPL
+> description:    Intel(R) 10 Gigabit PCI Express Virtual Function Networ=
+k Driver
+> author:         Intel Corporation, <linux.nics@intel.com>
+> srcversion:     4D00B4A5B811D6D07D8BD15
+> alias:          pci:v00008086d00001515sv*sd*bc*sc*i*
+> alias:          pci:v00008086d000010EDsv*sd*bc*sc*i*
+> depends:       =20
+> vermagic:       2.6.32-279.14.1.el6.x86_64 SMP mod_unload modversions=20
+> parm:           InterruptThrottleRate:Maximum interrupts per second, pe=
+r vector, (956-488281), default 8000, use 1 for dynamic (array of int)
+> =20
+> =20
+> # dmidecode -t bios
+> # dmidecode 2.11
+> SMBIOS 2.6 present.
+> Handle 0x0000, DMI type 0, 24 bytes
+> BIOS Information
+>         Vendor: Dell Inc.
+>         Version: 6.3.0
+>         Release Date: 07/24/2012
+>         Address: 0xF0000
+>         Runtime Size: 64 kB
+>         ROM Size: 4096 kB
+>         Characteristics:
+>                 ISA is supported
+>                 PCI is supported
+>                 PNP is supported
+>                 BIOS is upgradeable
+>                 BIOS shadowing is allowed
+>                 Boot from CD is supported
+>                 Selectable boot is supported
+>                 EDD is supported
+>                 Japanese floppy for Toshiba 1.2 MB is supported (int 13=
+h)
+>                 5.25"/360 kB floppy services are supported (int 13h)
+>                 5.25"/1.2 MB floppy services are supported (int 13h)
+>                 3.5"/720 kB floppy services are supported (int 13h)
+>                 8042 keyboard services are supported (int 9h)
+>                 Serial services are supported (int 14h)
+>                 CGA/mono video services are supported (int 10h)
+>                 ACPI is supported
+>                 USB legacy is supported
+>                 BIOS boot specification is supported
+>                 Function key-initiated network boot is supported
+>                 Targeted content distribution is supported
+>         BIOS Revision: 6.3
+> Handle 0x0D00, DMI type 13, 22 bytes
+> BIOS Language Information
+>         Language Description Format: Long
+>         Installable Languages: 1
+>                 en|US|iso8859-1
+>         Currently Installed Language: en|US|iso8859-1
+> =20
+> Jason Gao
+> --
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
+ in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+Adding e100-devel mailing list
 
 
+--------------enig5EB9C985A4D06E20EF09C0D6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
--- 
-I'm Mrs Kate Johnson from Ireland, suffering from breast cancer wish has got to
-stage 4 and my doctor has made understand that i will not be able to live for
-more than a month  please read the attach file to know why i contacted you.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
 
+iQIcBAEBCgAGBQJQm5YsAAoJEOVv75VaS+3OLcEP/RS4sNSKwohvlg45PoeBRMmE
+sbgSilFvrJXxzr+dhvSvn8iHxOmd4GlC0mAraOudhuAcss+sE7sC481JKOCHLhHL
+BSlr74sy+Tbb49ybp7noGhx+qVS3rX2mciH8TylwkgXtAAvYK0o7ubIOaNNu4k7t
+AQWqkJRd4Co319OF/a11dCJ/zFN7P3TImXZ9Juq9nP2a9PwxVtkhz/xlBGLEXJtG
+pP/eF2OGMABLNEjTpReIZbwJEElH3nRC2DZvBsURrK6Y/Vh9tcTDtuVB7++vaFrk
+Qu2tE26s1/yvuBkfnAHrjnWXEH4pjhSv9aDd3WtTBqej1nPSfPYJI17+kedtgkZh
+cOx1OqMX7M/BN72bRN1CMCERdBkjhZ7niDiseu3r3efrsHoruV04QemmSivk0Vvu
+e1/ztEA9iHqzr4OJsjFkujzalYiIR6JrZUUG3sfu0kU9MdqvCA5Zo4avO7AgASEP
+D1i2T1umubNExlsWV/5tqpFBEQMjTGyf4jtUykJVnFuOnt7q1NXSmqwdCFcbskD/
+GDNIeMNTG/wyPxsDRRfLxWXvwPk86cr5L1QCJlLUTfNXYA9UMBNwt7uDsJAEhRH2
+aQH2cZkxUzXDwjZCqiwyTGfpG6S9QEknhCc7KICrOxEzy73aFsD0d9jOlvm5fwbx
+tw8/mNh3m4FDgtjgAe+G
+=IzLw
+-----END PGP SIGNATURE-----
 
----MOQ135237220102dd052d2e4b44ec517af02e114d25d9
-Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document; name="Document.docx"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="Document.docx"
-
-UEsDBBQABgAIAAAAIQDd/JU3ZgEAACAFAAATAAgCW0NvbnRlbnRfVHlwZXNdLnhtbCCiBAIooAAC
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0
-VMtuwjAQvFfqP0S+Vomhh6qqCBz6OLZIpR9g7A1Y9Uv28vr7bgJEVQtBKuUSKVnvzOzsxIPR2pps
-CTFp70rWL3osAye90m5Wso/JS37PsoTCKWG8g5JtILHR8PpqMNkESBl1u1SyOWJ44DzJOViRCh/A
-UaXy0Qqk1zjjQchPMQN+2+vdcekdgsMcaww2HDxBJRYGs+c1fd4qiWASyx63B2uukokQjJYCSSlf
-OvWDJd8xFNTZnElzHdINyWD8IENdOU6w63sja6JWkI1FxFdhSQZf+ai48nJhaYaiG+aATl9VWkLb
-X6OF6CWkRJ5bU7QVK7Tb6z+qI+HGQPp/FVvcLnrSOY4+JE57OZsf6s0rUDlZESCihnZ1x0cHRLLs
-EsPvkLvGb1KAlHfgzbN/tgcNzEnKin6JiZgaOJvvV/Ja6JMiVjB9v5j738C7hLT5kz7+wYz9dVF3
-H0gdb+634RcAAAD//wMAUEsDBBQABgAIAAAAIQAekRq38wAAAE4CAAALAAgCX3JlbHMvLnJlbHMg
-ogQCKKAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAjJLbSgNBDIbvBd9hyH032woi0tneSKF3IusDhJnsAXcOzKTavr2jILpQ217m9OfLT9ab
-g5vUO6c8Bq9hWdWg2JtgR99reG23iwdQWchbmoJnDUfOsGlub9YvPJGUoTyMMaui4rOGQSQ+ImYz
-sKNchci+VLqQHEkJU4+RzBv1jKu6vsf0VwOamabaWQ1pZ+9AtcdYNl/WDl03Gn4KZu/Yy4kVyAdh
-b9kuYipsScZyjWop9SwabDDPJZ2RYqwKNuBpotX1RP9fi46FLAmhCYnP83x1nANaXg902aJ5x687
-HyFZLBZ9e/tDg7MvaD4BAAD//wMAUEsDBBQABgAIAAAAIQDWZLNR+gAAADEDAAAcAAgBd29yZC9f
-cmVscy9kb2N1bWVudC54bWwucmVscyCiBAEooAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-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
-
----MOQ135237220102dd052d2e4b44ec517af02e114d25d9--
+--------------enig5EB9C985A4D06E20EF09C0D6--
