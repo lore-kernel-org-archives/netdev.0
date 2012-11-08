@@ -1,39 +1,55 @@
-From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
-	per-cpu helper
-Date: Thu, 08 Nov 2012 22:22:30 +0800
-Message-ID: <509BC026.4040209@gmail.com>
-References: <5093EE59.8010609@gmail.com>
-	<0000013ac23ac528-19a0dd1b-3144-45df-9d6e-471999d6ae31-000000@email.amazonses.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: iproute2 (2012-11-08) and tunnel mode vti problems
+Date: Thu, 8 Nov 2012 16:33:10 +0100
+Message-ID: <20121108163310.48c67965@s6510.linuxnetplumber.net>
+References: <20121108121502.GC2838@puettmann.net>
+	<20121108140717.72bac4e7@s6510.linuxnetplumber.net>
+	<20121108131305.GD2838@puettmann.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <0000013ac23ac528-19a0dd1b-3144-45df-9d6e-471999d6ae31-000000-p/GC64/jrecnJqMo6gzdpkEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Saurabh Mohan <saurabh.mohan@vyatta.com>, netdev@vger.kernel.org
+To: Ruben Herold <ruben@puettmann.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52118 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753767Ab2KHPdS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Nov 2012 10:33:18 -0500
+In-Reply-To: <20121108131305.GD2838@puettmann.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Christoph Lameter said, at 2012/11/3 1:46:
->>  		u64_stats_update_begin(&stats->sync);
->>  		stats->tx_packets++;
+> I have here some problems with the newest iproute2 taken from git today.
+> I will play around with the new vti mode. 
 > 
-> Use this_cpu_inc(vport->percpu_stats->packets) here?
- 
-Lots of network drivers use u64_stats_sync infrastructure for statistics
-on 32bit or 64bit hosts no matter how many members in per-cpu variable. 
+> First problem ist after loading the ip_vti module I got an ioctl error
+> on ip tunnel show:
+> 
+> ---------------------------------------------------------------------
+> root@ipsec0:[~] > ip -V
+> ip utility, iproute2-ss121108
+> root@ipsec0:[~] > uname -a
+> Linux ipsec0 3.6.6 #1 SMP Tue Nov 6 16:21:05 CET 2012 i686 GNU/Linux
+> root@ipsec0:[~] > modprobe ip_vti 
+> root@ipsec0:[~] > ip tunnel show
+> ip_vti0: ioctl 89f4 failed: Invalid argument
+> ip_vti0: ip/ip  remote any  local any  ttl inherit  nopmtudisc key 0
+> root@ipsec0:[~] > 
+> --------------------------------------------------------------------
 
-keep them be consistent, so no plan to change them.
+Found the cause of the problem. It is a kernel issue.
 
-Thanks 
+The kernel implementation of VTI uses same flag bit as SIT tunnel,
+and 'ip tunnel show' is using SIT flag to decide whether to look
+up sit tunnel parameters, which fails on VTI.
+
+It is a bug introduced in ioctl definition for VTI. Not sure
+what the best way to fix it is? Add more kludge code in ip command,
+or change definition of flag bit, and risk userspace ABI incompatibility.
+
+Also, there is the issue that i_flags is a confusing mix of
+network byte order bits or'd with host byte order bits. The initial
+definition of SIT was broken long, long ago.
+
+
+Copying netdev list.
