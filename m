@@ -1,60 +1,31 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: 82571EB: Detected Hardware Unit Hang
-Date: Thu, 08 Nov 2012 14:24:56 +0800
-Message-ID: <509B5038.8090304@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: net/smsc911x: problems after commit 3ac3546e [Always wait for
+ the chip to be ready]
+Date: Thu, 08 Nov 2012 01:57:54 -0500 (EST)
+Message-ID: <20121108.015754.967579869456342727.davem@davemloft.net>
+References: <CAKh2mn7XsJjGxctHs5F3d+Av3GpeJW9veH5=S=Y2y_qGf33R4g@mail.gmail.com>
+	<20121106.123623.676046673605774326.davem@davemloft.net>
+	<20121108064627.GA25027@patelk@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Mary Mcgrath <mary.mcgrath@oracle.com>
-To: "e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: steve@shawell.net, linus.walleij@linaro.org,
+	robert.marklund@stericsson.com, netdev@vger.kernel.org
+To: kamlakant.patel@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44240 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711Ab2KHG55 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 01:57:57 -0500
+In-Reply-To: <20121108064627.GA25027@patelk@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi list,
+From: "Kamlakant Patel" <kamlakant.patel@broadcom.com>
+Date: Thu, 8 Nov 2012 12:16:28 +0530
 
-IHAC reported "82571EB Detected Hardware Unit Hang" on HP ProLiant DL360 G6, and
-have to reboot the server to recover:
+> smsc driver is disabled in our bootloader and it is not changing the
+> state of the smsc registers at any stage, so it is not a bootloader
+> issue.
 
-e1000e 0000:06:00.1: eth3: Detected Hardware Unit Hang:
-  TDH                  <1a>
-  TDT                  <1a>
-  next_to_use          <1a>
-  next_to_clean        <18>
-buffer_info[next_to_clean]:
-  time_stamp           <10047a74e>
-  next_to_watch        <18>
-  jiffies              <10047a88c>
-  next_to_watch.status <1>
-MAC Status             <80383>
-PHY Status             <792d>
-PHY 1000BASE-T Status  <3800>
-PHY Extended Status    <3000>
-PCI Status             <10>
-
-With newer kernel 2.0.0.1 the issue still reproducible.
-
-Device info:
-06:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (Copper) (rev 06)
-06:00.1 0200: 8086:10bc (rev 06)
-
-I compared lspci output before and after the issue, different as below:
- 06:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (Copper) (rev 06)
- 	Subsystem: Hewlett-Packard Company NC364T PCI Express Quad Port Gigabit Server Adapter
- 	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR- FastB2B- DisINTx-
--	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
-+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx+
-
-
-Would you please help to it?
-
-Thanks in advance,
-Joe
-
--- 
-Oracle <http://www.oracle.com>
-Joe Jin | Software Development Senior Manager | +8610.6106.5624
-ORACLE | Linux and Virtualization
-No. 24 Zhongguancun Software Park, Haidian District | 100193 Beijing 
+What puts that chip into a non-default byte swapping mode then?
