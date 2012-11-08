@@ -1,70 +1,53 @@
-From: Daniel Borkmann <dxchgb@gmail.com>
-Subject: [PATCH net-next 2/2] ARM: net: bpf_jit_32: add VLAN instructions
- for BPF JIT
-Date: Thu, 8 Nov 2012 02:31:02 +0100
-Message-ID: <20121108013101.GB23143@thinkbox>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: Lower wake up time when phy enter lower mode
+Date: Thu, 8 Nov 2012 10:09:11 +0800
+Message-ID: <CAHrpEqQYXxADPrYd=TwqEPaecWt_yjgkivCR6iek9qk0z73WzQ@mail.gmail.com>
+References: <CAHrpEqSw8N4nN6Wgnu2z3tWS_CrGoPMbFj2wJjmDv2JPLW7cLg@mail.gmail.com>
+	<1352315183.2725.17.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mircea Gherzan <mgherzan@gmail.com>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:32915 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752935Ab2KHBbH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 20:31:07 -0500
-Received: by mail-ea0-f174.google.com with SMTP id c13so861810eaa.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 17:31:06 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:33248 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752935Ab2KHCJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 21:09:12 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k13so3489377iea.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 18:09:11 -0800 (PST)
+In-Reply-To: <1352315183.2725.17.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is a follow-up for patch "net: filter: add vlan tag access"
-to support the new VLAN_TAG/VLAN_TAG_PRESENT accessors in BPF JIT.
+2012/11/8 Ben Hutchings <bhutchings@solarflare.com>:
+> On Wed, 2012-11-07 at 10:52 +0800, Frank Li wrote:
+>> Richard:
+>>
+>>           Recently, I found out the path delay will increase about
+>> 20us suddenly in something when connect two iMX6 board and Ethernet
+>> work on 1G mode.
+>>           The reason is that the PHY enter lower mode automatically
+>> when no package send and receive. It takes some time to recover and
+>> send out package by PHY but MAC think package have sent and sample
+>> time stamper.
+>>           Do you meet such case?  I can workaround it by two method
+>>                1. disable phy lower power feature.
+>>                2. add some dummy package before SYNC package.
+>
+> If this low power mode is related to EEE (Energy Efficient Ethernet)
+> then there are ethtool operations defined for configuring it, and you
+> could implement those.
 
-Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
-Cc: Mircea Gherzan <mgherzan@gmail.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
----
- arch/arm/net/bpf_jit_32.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+Yes, it is phy specific, called smart EEE, which compatible with IEEE 802.3az
+and can be used in legacy MAC without EEE.
 
-diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-index 8be702d..9af9a69 100644
---- a/arch/arm/net/bpf_jit_32.c
-+++ b/arch/arm/net/bpf_jit_32.c
-@@ -16,6 +16,7 @@
- #include <linux/netdevice.h>
- #include <linux/string.h>
- #include <linux/slab.h>
-+#include <linux/if_vlan.h>
- #include <asm/cacheflush.h>
- #include <asm/hwcap.h>
- 
-@@ -168,6 +169,8 @@ static inline bool is_load_to_a(u16 inst)
- 	case BPF_S_ANC_MARK:
- 	case BPF_S_ANC_PROTOCOL:
- 	case BPF_S_ANC_RXHASH:
-+	case BPF_S_ANC_VLAN_TAG:
-+	case BPF_S_ANC_VLAN_TAG_PRESENT:
- 	case BPF_S_ANC_QUEUE:
- 		return true;
- 	default:
-@@ -815,6 +818,17 @@ b_epilogue:
- 			off = offsetof(struct sk_buff, rxhash);
- 			emit(ARM_LDR_I(r_A, r_skb, off), ctx);
- 			break;
-+		case BPF_S_ANC_VLAN_TAG:
-+		case BPF_S_ANC_VLAN_TAG_PRESENT:
-+			ctx->seen |= SEEN_SKB;
-+			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, vlan_tci) != 2);
-+			off = offsetof(struct sk_buff, vlan_tci);
-+			emit(ARM_LDRH_I(r_A, r_skb, off), ctx);
-+			if (inst->code == BPF_S_ANC_VLAN_TAG)
-+				OP_IMM3(ARM_AND, r_A, r_A, VLAN_VID_MASK, ctx);
-+			else
-+				OP_IMM3(ARM_AND, r_A, r_A, VLAN_TAG_PRESENT, ctx);
-+			break;
- 		case BPF_S_ANC_QUEUE:
- 			ctx->seen |= SEEN_SKB;
- 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
+Do you have example about ethtool operations?
+
+>
+> Ben.
+>
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
