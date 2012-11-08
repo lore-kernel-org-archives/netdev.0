@@ -1,65 +1,44 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
- to return an interface name
-Date: Thu, 08 Nov 2012 08:36:02 -0700
-Message-ID: <509BD162.1000205@hp.com>
-References: <509184D9.8030103@hp.com> <5093940B.6020207@parallels.com>  <5093E09A.6000004@hp.com> <1351899276.2703.35.camel@bwh-desktop.uk.solarflarecom.com> <50988BAE.6020602@hp.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH][net-next] gianfar: Fix alloc_skb_resources on -ENOMEM
+ cleanup path
+Date: Thu, 8 Nov 2012 17:37:03 +0200
+Message-ID: <509BD19F.4080905@freescale.com>
+References: <1352382008-7039-1-git-send-email-claudiu.manoil@freescale.com> <509BBFCF.20109@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:30109 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752727Ab2KHPgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 10:36:08 -0500
-In-Reply-To: <50988BAE.6020602@hp.com>
+Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:38889 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751429Ab2KHPhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 10:37:14 -0500
+In-Reply-To: <509BBFCF.20109@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/05/2012 09:01 PM, Brian Haley wrote:
->>>>> +    rcu_read_lock();
->>>>> +    dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
->>>>> +    if (dev)
->>>>> +        strcpy(devname, dev->name);
->>>>
->>>> This still races with the device name change, potentially providing
->>>> a name which never existed in the system, doesn't it?
->>>
->>> My only argument here is that SIOCGIFNAME has had this same code
->>> forever, and
->>> noone has ever complained about that returning a garbled name.  Even
->>> dev_get_by_name() only holds an rcu lock when doing a strncmp().
->>>
->>> We'd need to audit the whole kernel to catch all the places where we
->>> potentially
->>> look at dev->name while it could change.  Is it really worth it?
->>
->> A net device name can't be changed while the device is up, or while
->> another task holds the RTNL lock.  I think that covers almost all uses.
->> I don't know whether it's worth going out to look for exceptions, but we
->> might as well fix the cases we know about.
+On 11/8/2012 4:21 PM, Paul Gortmaker wrote:
+> On 12-11-08 08:40 AM, Claudiu Manoil wrote:
+>> Should gfar_init_bds() return with -ENOMEM inside gfar_alloc_skb_resources(),
+>> free_skb_resources() will be called twice in a row on the "cleanup" path,
+>> leading to duplicate kfree() calls for rx_|tx_queue->rx_|tx_skbuff resulting
+>> in segmentation fault.
+>> This patch prevents the segmentation fault to happen in the future
+>> (rx_|tx_sbkbuff set to NULL), and corrects the error path handling
+>> for gfar_init_bds().
 >
-> So do you think we can fix these corner cases later and get the API
-> right first?
+> Since gfar_init_bds is more like a slave routine to gfar_alloc_skb_resources,
+> I think the dup free_skb_resources should remain in the parent, and be removed
+> from gfar_init_bds.  Otherwise the gfar_alloc_skb_resources will appear
+> confusing -- one will think it it allocates some resources, hits a failure
+> and then returns without bothering to do any cleanup of the parts it
+> did manage to allocate. (Then gfar_restore will have to call the free
+> itself _if_ gfar_init_bds fails too.)
+>
+> Paul.
 
-Hi Dave,
+You're right. I'll send the v1 patch shortly.
+Thanks.
 
-I noticed this isn't in patchwork anymore.  Is it possible to get this 
-in and then work on the other issue in a separate patch since it's not 
-just this code that has this problem?
-
-Of course I'm still not convinced that extra check is necessary (but 
-I'll do it to make others happy) because if you do a setsockopt("eth0"), 
-all you care is that a getsockopt() returns "eth0" - if it returns 
-anything else, eth0_renamed, eth0_foo, etc you'll notice it's not the 
-same and take action.  And the fact that the name can't change when UP 
-means the odds are small it can happen anyways.
-
-Thanks,
-
--Brian
+Claudiu
