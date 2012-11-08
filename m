@@ -1,56 +1,50 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: [PATCH] ipv4: Handle very small SO_SNDTIMEOs
-Date: Thu,  8 Nov 2012 07:51:48 -0800
-Message-ID: <1352389908-28587-1-git-send-email-andi@firstfloor.org>
-Cc: netdev@vger.kernel.org, Andi Kleen <ak@linux.intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:3804 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751464Ab2KHPvw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2012 10:51:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andi Kleen <andi-Vw/NltI1exuRpAAqCnN02g@public.gmane.org>
+Subject: [PATCH] socket.7: Correctly describe SO_SNDTIMEO for connect
+Date: Thu,  8 Nov 2012 07:55:23 -0800
+Message-ID: <1352390123-28658-1-git-send-email-andi@firstfloor.org>
+Cc: linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andi Kleen <ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Andi Kleen <ak@linux.intel.com>
+From: Andi Kleen <ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
 
-When the SO_SNDTIMEO timeout is short enough it may round down to zero
-jiffies.   This causes unexpected behaviour because the socket
-essentially becomes always non blocking.
+When SO_SNDTIMEO is set before connect() connect may return EWOULDBLOCK
+when the timeout fires. Describe this correctly.
 
-Round up the timeout to at least two jiffies, so that
-we guarantee waiting for at least some time. With one jiffie
-we could potentially still wait zero time because we might
-be just at the edge of the jiffie, and if it flips over
-in the middle of the check it could be still zero.
-
-This has been observed in a real application.
-
-Signed-off-by: Andi Kleen <ak@linux.intel.com>
+Signed-off-by: Andi Kleen <ak-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
 ---
- net/core/sock.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+ man7/socket.7 |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index a6000fb..93c0060 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -362,8 +362,15 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
- 	*timeo_p = MAX_SCHEDULE_TIMEOUT;
- 	if (tv.tv_sec == 0 && tv.tv_usec == 0)
- 		return 0;
--	if (tv.tv_sec < (MAX_SCHEDULE_TIMEOUT/HZ - 1))
-+	if (tv.tv_sec < (MAX_SCHEDULE_TIMEOUT/HZ - 1)) {
- 		*timeo_p = tv.tv_sec*HZ + (tv.tv_usec+(1000000/HZ-1))/(1000000/HZ);
-+		/* Do at least two jiffies to ensure we wait at all.
-+		 * Otherwise we may be on the edge of the next jiffie already,
-+		 * and then essentially non block.
-+		 */
-+		if ((unsigned long)*timeo_p < 2)
-+			*timeo_p = 2;
-+	}
- 	return 0;
- }
- 
+diff --git a/man7/socket.7 b/man7/socket.7
+index cd75746..9e05f48 100644
+--- a/man7/socket.7
++++ b/man7/socket.7
+@@ -434,6 +434,9 @@ set to
+ .B EAGAIN
+ or
+ .B EWOULDBLOCK
++or
++.B EINPROGRESS
++(for connect)
+ .\" in fact to EAGAIN
+ just as if the socket was specified to be nonblocking.
+ If the timeout is set to zero (the default)
+@@ -442,6 +445,7 @@ Timeouts only have effect for system calls that perform socket I/O (e.g.,
+ .BR read (2),
+ .BR recvmsg (2),
+ .BR send (2),
++.BR connect (2),
+ .BR sendmsg (2));
+ timeouts have no effect for
+ .BR select (2),
 -- 
 1.7.7.6
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
