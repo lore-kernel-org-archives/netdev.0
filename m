@@ -1,59 +1,85 @@
-From: =?UTF-8?B?QXVyw6lsaWVu?= <footplus@gmail.com>
-Subject: Re: Optics (SFP) monitoring on ixgbe and igbe
-Date: Thu, 8 Nov 2012 01:39:52 +0100
-Message-ID: <CAPN4dA95RQ+xyvY+qo0CDc=KmaKhuqHATx_KyMjppvauYtUyzQ@mail.gmail.com>
-References: <CAPN4dA8WUdox2k_F_9cYw=hR=xZHia=z3CXwy-36_t9Hh58zBg@mail.gmail.com>
- <1352318339.2725.34.camel@bwh-desktop.uk.solarflarecom.com>
-Reply-To: footplus@gmail.com
+From: Daniel Borkmann <dxchgb@gmail.com>
+Subject: [PATCH net-next 1/2] ARM: net: bpf_jit_32: add XOR instruction for
+ BPF JIT
+Date: Thu, 8 Nov 2012 02:28:28 +0100
+Message-ID: <20121108012828.GA23143@thinkbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mircea Gherzan <mgherzan@gmail.com>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f46.google.com ([209.85.216.46]:45582 "EHLO
-	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753147Ab2KHAkN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 19:40:13 -0500
-Received: by mail-qa0-f46.google.com with SMTP id n12so940464qat.19
-        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 16:40:12 -0800 (PST)
-In-Reply-To: <1352318339.2725.34.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:49892 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754799Ab2KHB2d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Nov 2012 20:28:33 -0500
+Received: by mail-ea0-f174.google.com with SMTP id c13so861407eaa.19
+        for <netdev@vger.kernel.org>; Wed, 07 Nov 2012 17:28:32 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 7, 2012 at 8:58 PM, Ben Hutchings <bhutchings@solarflare.co=
-m> wrote:
-> On Wed, 2012-11-07 at 13:27 +0100, Aur=C3=A9lien wrote:
->
-> We just added the ETHTOOL_GMODULEINFO and ETHTOOL_GMODULEEEPROM
-> interface for this purpose.  The diagnostics obviously aren't really =
-an
-> EEPROM but I don't think that matters.
->
-> These drivers should report a type of ETH_MODULE_SFF_8472 (assuming a
-> module is present) and expose an 'EEPROM' with the real EEPROM in the
-> first 256 bytes and the diagnostic registers in the next 256 bytes.
->
-> Decoding of the diagnostic registers can be done in ethtool itself.
->
+This patch is a follow-up for patch "filter: add XOR instruction for use
+with X/K" that implements BPF ARM JIT parts for the BPF XOR operation.
 
-Hi Ben,
+Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+Cc: Mircea Gherzan <mgherzan@gmail.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/arm/net/bpf_jit_32.c |   15 ++++++++++-----
+ arch/arm/net/bpf_jit_32.h |    2 ++
+ 2 files changed, 12 insertions(+), 5 deletions(-)
 
-Thanks for this reply.
-
-I did not see these interfaces in my searches, but from what I gather
-from the code, the missing part is the actual decoding of the data in
-ethtool.
-
-As soon as I get my card installed in a test server, I'll reboot on a
-kernel issued from the davem/net-next master, and will do some tests
-to see if ethtool correctly sees an SFF-8472 compliant module, and has
-the correct diagnostic data after the eeprom.
-
-Then I will port the decoding part from the kernel-side patches I to
-code in ethtool, and will do some basic tests.
-
-Thanks,
-Best regards,
---=20
-Aur=C3=A9lien Guillaume
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index c641fb6..8be702d 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -646,6 +646,16 @@ load_ind:
+ 			update_on_xread(ctx);
+ 			emit(ARM_ORR_R(r_A, r_A, r_X), ctx);
+ 			break;
++		case BPF_S_ALU_XOR_K:
++			/* A ^= K; */
++			OP_IMM3(ARM_EOR, r_A, r_A, k, ctx);
++			break;
++		case BPF_S_ANC_ALU_XOR_X:
++		case BPF_S_ALU_XOR_X:
++			/* A ^= X */
++			update_on_xread(ctx);
++			emit(ARM_EOR_R(r_A, r_A, r_X), ctx);
++			break;
+ 		case BPF_S_ALU_AND_K:
+ 			/* A &= K */
+ 			OP_IMM3(ARM_AND, r_A, r_A, k, ctx);
+@@ -762,11 +772,6 @@ b_epilogue:
+ 			update_on_xread(ctx);
+ 			emit(ARM_MOV_R(r_A, r_X), ctx);
+ 			break;
+-		case BPF_S_ANC_ALU_XOR_X:
+-			/* A ^= X */
+-			update_on_xread(ctx);
+-			emit(ARM_EOR_R(r_A, r_A, r_X), ctx);
+-			break;
+ 		case BPF_S_ANC_PROTOCOL:
+ 			/* A = ntohs(skb->protocol) */
+ 			ctx->seen |= SEEN_SKB;
+diff --git a/arch/arm/net/bpf_jit_32.h b/arch/arm/net/bpf_jit_32.h
+index 7fa2f7d..afb8462 100644
+--- a/arch/arm/net/bpf_jit_32.h
++++ b/arch/arm/net/bpf_jit_32.h
+@@ -69,6 +69,7 @@
+ #define ARM_INST_CMP_I		0x03500000
+ 
+ #define ARM_INST_EOR_R		0x00200000
++#define ARM_INST_EOR_I		0x02200000
+ 
+ #define ARM_INST_LDRB_I		0x05d00000
+ #define ARM_INST_LDRB_R		0x07d00000
+@@ -135,6 +136,7 @@
+ #define ARM_CMP_I(rn, imm)	_AL3_I(ARM_INST_CMP, 0, rn, imm)
+ 
+ #define ARM_EOR_R(rd, rn, rm)	_AL3_R(ARM_INST_EOR, rd, rn, rm)
++#define ARM_EOR_I(rd, rn, imm)	_AL3_I(ARM_INST_EOR, rd, rn, imm)
+ 
+ #define ARM_LDR_I(rt, rn, off)	(ARM_INST_LDR_I | (rt) << 12 | (rn) << 16 \
+ 				 | (off))
