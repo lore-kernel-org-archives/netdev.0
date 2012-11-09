@@ -1,63 +1,147 @@
-From: Rayagond K <rayagond@vayavyalabs.com>
-Subject: Re: query on dynamic switching between Ethernet ports
-Date: Fri, 9 Nov 2012 23:32:52 +0530
-Message-ID: <CAJ3bTp7fxg6koL2t8S6xHkXLVEq-64k40FXZoXDzpro+22GwfA@mail.gmail.com>
-References: <CAJ3bTp7zXVB5NSj+8J8bR+pvg7mgJ7UjxqhubGxEYmdbpfEVxw@mail.gmail.com>
-	<1352475403.3159.8.camel@bwh-desktop.uk.solarflarecom.com>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: How to compile tcp fast open client app with kernel tfo client
+ support ?
+Date: Fri, 9 Nov 2012 10:05:43 -0800
+Message-ID: <CAK3+h2xmgy+RhUy=MZ5Cu8Zpz+gQmt3dXCX0tpLAWFCTeujBLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: multipart/mixed; boundary=e89a8f646759de10af04ce13ccb6
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:63138 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751902Ab2KISCy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 13:02:54 -0500
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1765573bkc.19
-        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 10:02:52 -0800 (PST)
-In-Reply-To: <1352475403.3159.8.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:35174 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753502Ab2KISFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 13:05:44 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k13so6311087iea.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 10:05:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-yes driver issues soft reset to MAC and PHY.
+--e89a8f646759de10af04ce13ccb6
+Content-Type: text/plain; charset=ISO-8859-1
 
-On Fri, Nov 9, 2012 at 9:06 PM, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> On Fri, 2012-11-09 at 20:02 +0530, Rayagond K wrote:
->> Hi All,
->>
->> I am implementing handling of dynamic switching between Ethernet ports
->> (1GMbps to 100Mbps mode) using PHY layer, I referred various driver in
->> LXR and doc and I am able to understand the PHY layer and implement in
->> my driver.
->>
->> For now I am able to do following in my driver now,
->>
->> 1. Advertising all the capabilities like FULL duplex, half duplex,
->> pause frames, MII/GMII etc while registering with PHY layer.
->> 2. Able to detect the link up and link down.
->> 3. Able do the auto-negotiation with remote end link partner and
->> program my MAC accordingly.
->> 4. Able to establish the link by connecting and disconnecting the
->> cable many times.
->>
->> But I am facing one problem ie my driver is not able to establish the
->> link when I load the driver first time and connected to 1G port. If I
->> toggle the port connection between MII(10/100Mbps) and GMII(1Gbps) for
->> two/three times and connect it back to GMII ports then driver works
->> fine and it establish the link.
->
-> Is the driver resetting everything it needs to when loaded?
->
-> Ben.
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
+Hi,
+
+this is sort of off toptic, sorry for the noise.
+
+I am running ubuntu 10.0.4 with kernel 3.6.0 with tfo client support,
+then I have simple client code that i want to use to test tcp fast
+open, here is part of the code:
+
+  int sent = 0;
+  while(sent < strlen(get))
+  {
+    tmpres = sendto(sock, get+sent, strlen(get)-sent, MSG_FASTOPEN,
+(struct sockaddr *)remote, sizeof(struct sockaddr));
+    if(tmpres == -1){
+      perror("Can't send query");
+      exit(1);
+    }
+    sent += tmpres;
+  }
+
+when i compile it, as gcc -o htmlgettfo htmlgettfo.c, I got:
+
+htmlgettfo.c: In function 'get_page_thread':
+htmlgettfo.c:109: error: 'MSG_FASTOPEN' undeclared (first use in this function)
+htmlgettfo.c:109: error: (Each undeclared identifier is reported only once
+htmlgettfo.c:109: error: for each function it appears in.)
+
+I have the 3.6.0 kernel header file package installed
+/usr/src/linux-headers-3.6.0-custom, the user space include file
+/usr/include/linux is original one coming with 10.0.4 distro kernel
+
+I am suspecting I don't have proper linux header file that has
+MSG_FASTOPEN declared in user space. can anyone shed a light on how to
+get MSG_FASTOPEN supported and compiled in client code properly?
+
+I am attempting to use the test client code to test one of our load
+balancer and see how it responds.
 
 
+I attached my test code
 
--- 
-wwr
-Rayagond
+Thanks
+
+Vincent
+
+--e89a8f646759de10af04ce13ccb6
+Content-Type: text/plain; charset=US-ASCII; name="htmlgettfo.c.txt"
+Content-Disposition: attachment; filename="htmlgettfo.c.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_h9bm5s1w0
+
+I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzeXMvc29ja2V0Lmg+CiNpbmNsdWRlIDxhcnBh
+L2luZXQuaD4KI2luY2x1ZGUgPHN0ZGxpYi5oPgojaW5jbHVkZSA8bmV0ZGIuaD4KI2luY2x1ZGUg
+PHN0cmluZy5oPgoKI2luY2x1ZGUgPHB0aHJlYWQuaD4KI2luY2x1ZGUgPHVuaXN0ZC5oPgojaW5j
+bHVkZSA8bGludXgtMy42LjAvc29ja2V0Lmg+CgojZGVmaW5lIE1BWF9IT1NUX1BBR0UgMgoKc3Ry
+dWN0IGhvc3RfcGFnZSB7CiAgICBjaGFyICpob3N0OwogICAgY2hhciAqcGFnZTsKfSBocFtNQVhf
+SE9TVF9QQUdFXTsKCmludCB0Y3BfY29ubmVjdChjaGFyICpob3N0KTsKY2hhciAqZ2V0X2lwKGNo
+YXIgKmhvc3QpOwpjaGFyICpidWlsZF9nZXRfcXVlcnkoY2hhciAqaG9zdCwgY2hhciAqcGFnZSk7
+CmludCAqZ2V0X3BhZ2VfdGhyZWFkKHN0cnVjdCBob3N0X3BhZ2UgKmhwKTsKdm9pZCB1c2FnZSgp
+OwoKI2RlZmluZSBIT1NUICJob3N0LmV4YW1wbGUuY29tIgojZGVmaW5lIFBBR0UgIi8iCiNkZWZp
+bmUgUE9SVCA4MAojZGVmaW5lIFVTRVJBR0VOVCAiSFRNTEdFVCAxLjAiCgppbnQgbWFpbihpbnQg
+YXJnYywgY2hhciAqKmFyZ3YpCnsKIAogIHN0cnVjdCBob3N0X3BhZ2UgKmhwcHRyOyAKIAogIGlm
+KGFyZ2MgPT0gMSl7CiAgICB1c2FnZSgpOwogICAgZXhpdCgyKTsKICB9ICAKICBocFswXS5ob3N0
+ID0gYXJndlsxXTsKICBmcHJpbnRmKHN0ZGVyciwgImhwLT5ob3N0OlxuJXNcbiIsIGhwWzBdLmhv
+c3QpOwogIGlmKGFyZ2MgPiAyKXsKICAgIGhwWzBdLnBhZ2UgPSBhcmd2WzJdOwogICAgZnByaW50
+ZihzdGRlcnIsICJob3N0LT5wYWdlOlxuJXNcbiIsIGhwWzBdLnBhZ2UpOwogIH1lbHNlewogICAg
+aHBbMF0ucGFnZSA9IFBBR0U7CiAgfQoKIGhwcHRyID0gJmhwWzBdOwoKICAgIGlmKGdldF9wYWdl
+X3RocmVhZChocHB0cikpewogICAgICBwZXJyb3IoIkNhbid0IGdldCBwYWdlIik7CiAgICAgIGV4
+aXQoMik7CiAgICB9CiAgCn0KCnZvaWQgdXNhZ2UoKQp7CiAgZnByaW50ZihzdGRlcnIsICJVU0FH
+RTogaHRtbGdldCBob3N0IFtwYWdlXVxuXApcdGhvc3Q6IHRoZSB3ZWJzaXRlIGhvc3RuYW1lLiBl
+eDogXG5cClx0cGFnZTogdGhlIHBhZ2UgdG8gcmV0cmlldmUuIGV4OiBpbmRleC5odG1sLCBkZWZh
+dWx0OiAvXG4iKTsKfQoKaW50ICpnZXRfcGFnZV90aHJlYWQoc3RydWN0IGhvc3RfcGFnZSAqaHAp
+ewoKCiAgc3RydWN0IHNvY2thZGRyX2luICpyZW1vdGU7CiAgaW50IHNvY2s7CiAgaW50IHRtcHJl
+czsKICBjaGFyICppcDsKICBjaGFyICpob3N0OwogIGNoYXIgKnBhZ2U7CgogIGhvc3Q9aHAtPmhv
+c3Q7CiAgcGFnZT1ocC0+cGFnZTsKCiAgY2hhciAqZ2V0OwogIGNoYXIgYnVmW0JVRlNJWisxXTsK
+CgogIGlmKChzb2NrID0gc29ja2V0KEFGX0lORVQsIFNPQ0tfU1RSRUFNLCBJUFBST1RPX1RDUCkp
+IDwgMCl7CiAgICBwZXJyb3IoIkNhbid0IGNyZWF0ZSBUQ1Agc29ja2V0Iik7CiAgICByZXR1cm4g
+MDsKICB9CgogIGlwID0gZ2V0X2lwKGhvc3QpOwogIGZwcmludGYoc3RkZXJyLCAiSVAgaXMgJXNc
+biIsIGlwKTsKICByZW1vdGUgPSAoc3RydWN0IHNvY2thZGRyX2luICopbWFsbG9jKHNpemVvZihz
+dHJ1Y3Qgc29ja2FkZHJfaW4gKikpOwogIHJlbW90ZS0+c2luX2ZhbWlseSA9IEFGX0lORVQ7CiAg
+dG1wcmVzID0gaW5ldF9wdG9uKEFGX0lORVQsIGlwLCAodm9pZCAqKSgmKHJlbW90ZS0+c2luX2Fk
+ZHIuc19hZGRyKSkpOwogIGlmKCB0bXByZXMgPCAwKQogIHsKICAgIHBlcnJvcigiQ2FuJ3Qgc2V0
+IHJlbW90ZS0+c2luX2FkZHIuc19hZGRyIik7CiAgICByZXR1cm4gMDsKICB9ZWxzZSBpZih0bXBy
+ZXMgPT0gMCkKICB7CiAgICBmcHJpbnRmKHN0ZGVyciwgIiVzIGlzIG5vdCBhIHZhbGlkIElQIGFk
+ZHJlc3NcbiIsIGlwKTsKICAgIHJldHVybiAwOwogIH0KICByZW1vdGUtPnNpbl9wb3J0ID0gaHRv
+bnMoUE9SVCk7CgogIGdldCA9IGJ1aWxkX2dldF9xdWVyeShob3N0LCBwYWdlKTsKICBmcHJpbnRm
+KHN0ZGVyciwgIlF1ZXJ5IGlzOlxuPDxTVEFSVD4+XG4lczw8RU5EPj5cbiIsIGdldCk7CgogIC8v
+U2VuZCB0aGUgcXVlcnkgdG8gdGhlIHNlcnZlcgogIGludCBzZW50ID0gMDsKICB3aGlsZShzZW50
+IDwgc3RybGVuKGdldCkpCiAgewogICAgdG1wcmVzID0gc2VuZHRvKHNvY2ssIGdldCtzZW50LCBz
+dHJsZW4oZ2V0KS1zZW50LCBNU0dfRkFTVE9QRU4sIChzdHJ1Y3Qgc29ja2FkZHIgKilyZW1vdGUs
+IHNpemVvZihzdHJ1Y3Qgc29ja2FkZHIpKTsKICAgIGlmKHRtcHJlcyA9PSAtMSl7CiAgICAgIHBl
+cnJvcigiQ2FuJ3Qgc2VuZCBxdWVyeSIpOwogICAgICBleGl0KDEpOwogICAgfQogICAgc2VudCAr
+PSB0bXByZXM7CiAgfQogIC8vbm93IGl0IGlzIHRpbWUgdG8gcmVjZWl2ZSB0aGUgcGFnZQogIG1l
+bXNldChidWYsIDAsIHNpemVvZihidWYpKTsKICBpbnQgaHRtbHN0YXJ0ID0gMDsKICBjaGFyICog
+aHRtbGNvbnRlbnQ7CiAgd2hpbGUoKHRtcHJlcyA9IHJlY3Yoc29jaywgYnVmLCBCVUZTSVosIDAp
+KSA+IDApewogICAgaWYoaHRtbHN0YXJ0ID09IDApCiAgICB7CiAgICAgIC8qIFVuZGVyIGNlcnRh
+aW4gY29uZGl0aW9ucyB0aGlzIHdpbGwgbm90IHdvcmsuCiAgICAgICogSWYgdGhlIFxyXG5cclxu
+IHBhcnQgaXMgc3BsaXR0ZWQgaW50byB0d28gbWVzc2FnZXMKICAgICAgKiBpdCB3aWxsIGZhaWwg
+dG8gZGV0ZWN0IHRoZSBiZWdpbm5pbmcgb2YgSFRNTCBjb250ZW50CiAgICAgICovCiAgICAgIGh0
+bWxjb250ZW50ID0gc3Ryc3RyKGJ1ZiwgIlxyXG5cclxuIik7CiAgICAgIGlmKGh0bWxjb250ZW50
+ICE9IE5VTEwpewogICAgICAgIGh0bWxzdGFydCA9IDE7CiAgICAgICAgaHRtbGNvbnRlbnQgKz0g
+NDsKICAgICAgfQogICAgfWVsc2V7CiAgICAgIGh0bWxjb250ZW50ID0gYnVmOwogICAgfQogICAg
+aWYoaHRtbHN0YXJ0KXsKICAgICAvKiBmcHJpbnRmKHN0ZG91dCwgaHRtbGNvbnRlbnQpOyAqLwog
+ICAgICBmcHJpbnRmKHN0ZG91dCwgIiVzIiwgaHRtbGNvbnRlbnQpOwogICAgfQoKICAgIG1lbXNl
+dChidWYsIDAsIHRtcHJlcyk7CiAgfQogIGlmKHRtcHJlcyA8IDApCiAgewogICAgcGVycm9yKCJF
+cnJvciByZWNlaXZpbmcgZGF0YSIpOwogIH0KICBmcmVlKGdldCk7CiAgZnJlZShyZW1vdGUpOwog
+IGZyZWUoaXApOwogIGNsb3NlKHNvY2spOwogIHJldHVybiAwOwoKfQoKCgpjaGFyICpnZXRfaXAo
+Y2hhciAqaG9zdCkKewogIHN0cnVjdCBob3N0ZW50ICpoZW50OwogIGludCBpcGxlbiA9IDE1OyAv
+L1hYWC5YWFguWFhYLlhYWAogIGNoYXIgKmlwID0gKGNoYXIgKiltYWxsb2MoaXBsZW4rMSk7CiAg
+bWVtc2V0KGlwLCAwLCBpcGxlbisxKTsKICBpZigoaGVudCA9IGdldGhvc3RieW5hbWUoaG9zdCkp
+ID09IE5VTEwpCiAgewogICAgaGVycm9yKCJDYW4ndCBnZXQgSVAiKTsKICAgIGV4aXQoMSk7CiAg
+fQogIGlmKGluZXRfbnRvcChBRl9JTkVULCAodm9pZCAqKWhlbnQtPmhfYWRkcl9saXN0WzBdLCBp
+cCwgaXBsZW4pID09IE5VTEwpCiAgewogICAgcGVycm9yKCJDYW4ndCByZXNvbHZlIGhvc3QiKTsK
+ICAgIGV4aXQoMSk7CiAgfQogIHJldHVybiBpcDsKfQoKY2hhciAqYnVpbGRfZ2V0X3F1ZXJ5KGNo
+YXIgKmhvc3QsIGNoYXIgKnBhZ2UpCnsKICBjaGFyICpxdWVyeTsKICBjaGFyICpnZXRwYWdlID0g
+cGFnZTsKICBjaGFyICp0cGwgPSAiR0VUIC8lcyBIVFRQLzEuMFxyXG5Ib3N0OiAlc1xyXG5Vc2Vy
+LUFnZW50OiAlc1xyXG5cclxuIjsKLypjaGFyICp0cGwgPSAiR0VUIC8lcyBIVFRQLzEuMVxyXG5I
+b3N0OiAlc1xyXG5Vc2VyLUFnZW50OiAlc1xyXG5Db25uZWN0aW9uOiBjbG9zZVxyXG5cclxuIjsg
+Ki8KICBpZihnZXRwYWdlWzBdID09ICcvJyl7CiAgICBnZXRwYWdlID0gZ2V0cGFnZSArIDE7CiAg
+ICBmcHJpbnRmKHN0ZGVyciwiUmVtb3ZpbmcgbGVhZGluZyBcIi9cIiwgY29udmVydGluZyAlcyB0
+byAlc1xuIiwgcGFnZSwgZ2V0cGFnZSk7CiAgfQogIC8vIC01IGlzIHRvIGNvbnNpZGVyIHRoZSAl
+cyAlcyAlcyBpbiB0cGwgYW5kIHRoZSBlbmRpbmcgXDAKICBxdWVyeSA9IChjaGFyICopbWFsbG9j
+KHN0cmxlbihob3N0KStzdHJsZW4oZ2V0cGFnZSkrc3RybGVuKFVTRVJBR0VOVCkrc3RybGVuKHRw
+bCktNSk7CiAgc3ByaW50ZihxdWVyeSwgdHBsLCBnZXRwYWdlLCBob3N0LCBVU0VSQUdFTlQpOwog
+IHJldHVybiBxdWVyeTsKfQoK
+--e89a8f646759de10af04ce13ccb6--
