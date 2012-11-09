@@ -1,41 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: How to compile tcp fast open client app with kernel tfo client
- support ?
-Date: Fri, 09 Nov 2012 12:27:03 -0800
-Message-ID: <1352492823.19779.825.camel@edumazet-glaptop>
-References: <CAK3+h2xmgy+RhUy=MZ5Cu8Zpz+gQmt3dXCX0tpLAWFCTeujBLA@mail.gmail.com>
-	 <CAGK4HS-U+Ov5x8z+1CRZdiAD9MhfBUfurKKBbt1EWGYFLN8TcA@mail.gmail.com>
-	 <CAK3+h2z5=n6BHGzPjfbrJS4MbVGQ2pdMQP54dOZ8M=8xigUd3Q@mail.gmail.com>
-	 <CAK6E8=fc=hYppk=4+tnNF9UPvQNFhw8YKo-ebG2y6FwXTft_EQ@mail.gmail.com>
-	 <CAK3+h2xAqjs8CvkcwXiFryyQhDnohsN7-0KfQVjpegZh_AD1eg@mail.gmail.com>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: Question about Mellanox FW reporting (incorrect) port types
+Date: Fri, 09 Nov 2012 18:37:34 -0200
+Message-ID: <509D698E.60000@redhat.com>
+References: <507EDC5D.4070602@redhat.com> <CAJZOPZ+T7paqVe12n+sBw4ra8AEWCZ+W2GZ52iJY=9Hrgoxuaw@mail.gmail.com> <507F0BD5.7080005@redhat.com>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Yuchung Cheng <ycheng@google.com>,
-	Vijay Subramanian <subramanian.vijay@gmail.com>,
-	netdev@vger.kernel.org
-To: Vincent Li <vincent.mc.li@gmail.com>
+Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Doug Ledford <dledford@redhat.com>,
+	Yishai Hadas <yishaih@dev.mellanox.co.il>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:53457 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751507Ab2KIU1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 15:27:08 -0500
-Received: by mail-pb0-f46.google.com with SMTP id rr4so3069161pbb.19
-        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 12:27:07 -0800 (PST)
-In-Reply-To: <CAK3+h2xAqjs8CvkcwXiFryyQhDnohsN7-0KfQVjpegZh_AD1eg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:5480 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752689Ab2KIUhz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Nov 2012 15:37:55 -0500
+In-Reply-To: <507F0BD5.7080005@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-09 at 12:17 -0800, Vincent Li wrote:
+Em 17-10-2012 16:49, Marcelo Ricardo Leitner escreveu:
+> On 10/17/2012 04:22 PM, Or Gerlitz wrote:
+>> Marcelo Ricardo Leitner <mleitner@redhat.com> wrote:
+>>>
+>>> [...] So my questions are: is it possible to the firmware report a
+>>> wrong port type like
+>>> that? Is it somehow configurable by sysadmin (via fw update, ..), can
+>>> we flip that byte
+>>> or is it a manufacturing issue?
 
-> I have tried to run fresh build net-next, for some reason the build
-> stops ssh service from starting up, tried 3.7.0-rc4 too, same issue. I
-> don't know if it is new kernel bug or ubuntu upstart bug, but that is
-> another issue.
-> 
+For completeness,
 
-Not sure Ubuntu 10.04 binaries can run a 3.7 kernel.
+As it happens the customer had the HP Infinband Enablement Kit 
+(614841-B21) installed at jumper location 53 (J53) of the motherboard, 
+which makes the QSFP port of the S390s' NC543i interface an Infiniband 
+interface rather than a 10gbE interface. Removing this allowed the port 
+to be brought-up as 10GbE just fine.
 
-Some bug fixes in kernel need bug fixes in userland.
+Interesting that it worked as 10GbE even with InifiniBand Enablement Kit 
+on it, so the port was just advertised, but not forced, as InfiniBand. 
+Or something like that.
 
-You could try a bisection ?
+Thanks,
+Marcelo.
