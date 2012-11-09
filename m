@@ -1,103 +1,59 @@
-From: Masanari Iida <standby24x7@gmail.com>
-Subject: [PATCH] [trivial] isdn: Fix typo in drivers/isdn
-Date: Sat, 10 Nov 2012 00:02:49 +0900
-Message-ID: <1352473369-13613-1-git-send-email-standby24x7@gmail.com>
-Cc: davem@davemloft.net, Masanari Iida <standby24x7@gmail.com>
-To: linux-kernel@vger.kernel.org, trivial@kernel.org,
-	isdn@linux-pingi.de, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Lower wake up time when phy enter lower mode
+Date: Fri, 9 Nov 2012 15:07:19 +0000
+Message-ID: <1352473639.3159.3.camel@bwh-desktop.uk.solarflarecom.com>
+References: <CAHrpEqSw8N4nN6Wgnu2z3tWS_CrGoPMbFj2wJjmDv2JPLW7cLg@mail.gmail.com>
+	 <1352315183.2725.17.camel@bwh-desktop.uk.solarflarecom.com>
+	 <CAHrpEqQYXxADPrYd=TwqEPaecWt_yjgkivCR6iek9qk0z73WzQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	<netdev@vger.kernel.org>
+To: Frank Li <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:33793 "EHLO
+	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753527Ab2KIPHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 10:07:25 -0500
+In-Reply-To: <CAHrpEqQYXxADPrYd=TwqEPaecWt_yjgkivCR6iek9qk0z73WzQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Correct spelling typo in printk within drivers/isdn
+On Thu, 2012-11-08 at 10:09 +0800, Frank Li wrote:
+> 2012/11/8 Ben Hutchings <bhutchings@solarflare.com>:
+> > On Wed, 2012-11-07 at 10:52 +0800, Frank Li wrote:
+> >> Richard:
+> >>
+> >>           Recently, I found out the path delay will increase about
+> >> 20us suddenly in something when connect two iMX6 board and Ethernet
+> >> work on 1G mode.
+> >>           The reason is that the PHY enter lower mode automatically
+> >> when no package send and receive. It takes some time to recover and
+> >> send out package by PHY but MAC think package have sent and sample
+> >> time stamper.
+> >>           Do you meet such case?  I can workaround it by two method
+> >>                1. disable phy lower power feature.
+> >>                2. add some dummy package before SYNC package.
+> >
+> > If this low power mode is related to EEE (Energy Efficient Ethernet)
+> > then there are ethtool operations defined for configuring it, and you
+> > could implement those.
+> 
+> Yes, it is phy specific, called smart EEE, which compatible with IEEE 802.3az
+> and can be used in legacy MAC without EEE.
+> 
+> Do you have example about ethtool operations?
 
-Signed-off-by: Masanari Iida <standby24x7@gmail.com>
----
- drivers/isdn/hardware/mISDN/hfcpci.c    | 2 +-
- drivers/isdn/hardware/mISDN/mISDNisar.c | 2 +-
- drivers/isdn/hisax/callc.c              | 2 +-
- drivers/isdn/hisax/hfc_pci.c            | 2 +-
- drivers/isdn/hisax/hfc_sx.c             | 2 +-
- drivers/isdn/pcbit/layer2.c             | 2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+Look at the comments on struct ethtool_eee in <uapi/linux/ethtool.h>,
+and the existing implementations:
 
-diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
-index 81363ff..6e99d73 100644
---- a/drivers/isdn/hardware/mISDN/hfcpci.c
-+++ b/drivers/isdn/hardware/mISDN/hfcpci.c
-@@ -490,7 +490,7 @@ receive_dmsg(struct hfc_pci *hc)
- 		    (df->data[le16_to_cpu(zp->z1)])) {
- 			if (dch->debug & DEBUG_HW)
- 				printk(KERN_DEBUG
--				       "empty_fifo hfcpci paket inv. len "
-+				       "empty_fifo hfcpci packet inv. len "
- 				       "%d or crc %d\n",
- 				       rcnt,
- 				       df->data[le16_to_cpu(zp->z1)]);
-diff --git a/drivers/isdn/hardware/mISDN/mISDNisar.c b/drivers/isdn/hardware/mISDN/mISDNisar.c
-index 182ecf0..feafa91 100644
---- a/drivers/isdn/hardware/mISDN/mISDNisar.c
-+++ b/drivers/isdn/hardware/mISDN/mISDNisar.c
-@@ -1302,7 +1302,7 @@ modeisar(struct isar_ch *ch, u32 bprotocol)
- 						   &ch->is->Flags))
- 				ch->dpath = 1;
- 			else {
--				pr_info("modeisar both pathes in use\n");
-+				pr_info("modeisar both paths in use\n");
- 				return -EBUSY;
- 			}
- 			if (bprotocol == ISDN_P_B_HDLC)
-diff --git a/drivers/isdn/hisax/callc.c b/drivers/isdn/hisax/callc.c
-index a47637b..ddec47a 100644
---- a/drivers/isdn/hisax/callc.c
-+++ b/drivers/isdn/hisax/callc.c
-@@ -35,7 +35,7 @@ static int chancount;
- /* experimental REJECT after ALERTING for CALLBACK to beat the 4s delay */
- #define ALERT_REJECT 0
- 
--/* Value to delay the sending of the first B-channel paket after CONNECT
-+/* Value to delay the sending of the first B-channel packet after CONNECT
-  * here is no value given by ITU, but experience shows that 300 ms will
-  * work on many networks, if you or your other side is behind local exchanges
-  * a greater value may be recommented. If the delay is to short the first paket
-diff --git a/drivers/isdn/hisax/hfc_pci.c b/drivers/isdn/hisax/hfc_pci.c
-index 334fa90..f60d4be 100644
---- a/drivers/isdn/hisax/hfc_pci.c
-+++ b/drivers/isdn/hisax/hfc_pci.c
-@@ -354,7 +354,7 @@ receive_dmsg(struct IsdnCardState *cs)
- 		if ((rcnt > MAX_DFRAME_LEN + 3) || (rcnt < 4) ||
- 		    (df->data[zp->z1])) {
- 			if (cs->debug & L1_DEB_WARN)
--				debugl1(cs, "empty_fifo hfcpci paket inv. len %d or crc %d", rcnt, df->data[zp->z1]);
-+				debugl1(cs, "empty_fifo hfcpci packet inv. len %d or crc %d", rcnt, df->data[zp->z1]);
- #ifdef ERROR_STATISTIC
- 			cs->err_rx++;
- #endif
-diff --git a/drivers/isdn/hisax/hfc_sx.c b/drivers/isdn/hisax/hfc_sx.c
-index 4db846b..4ec279c 100644
---- a/drivers/isdn/hisax/hfc_sx.c
-+++ b/drivers/isdn/hisax/hfc_sx.c
-@@ -270,7 +270,7 @@ read_fifo(struct IsdnCardState *cs, u_char fifo, int trans_max)
- 
- 		if ((count > fifo_size) || (count < 4)) {
- 			if (cs->debug & L1_DEB_WARN)
--				debugl1(cs, "hfcsx_read_fifo %d paket inv. len %d ", fifo , count);
-+				debugl1(cs, "hfcsx_read_fifo %d packet inv. len %d ", fifo , count);
- 			while (count) {
- 				count--; /* empty fifo */
- 				Read_hfc(cs, HFCSX_FIF_DRD);
-diff --git a/drivers/isdn/pcbit/layer2.c b/drivers/isdn/pcbit/layer2.c
-index a18e639..42ecfef 100644
---- a/drivers/isdn/pcbit/layer2.c
-+++ b/drivers/isdn/pcbit/layer2.c
-@@ -508,7 +508,7 @@ pcbit_irq_handler(int interrupt, void *devptr)
- 		return IRQ_NONE;
- 	}
- 	if (dev->interrupt) {
--		printk(KERN_DEBUG "pcbit: reentering interrupt hander\n");
-+		printk(KERN_DEBUG "pcbit: reentering interrupt handler\n");
- 		return IRQ_HANDLED;
- 	}
- 	dev->interrupt = 1;
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+
+Ben.
+
 -- 
-1.8.0.rc3.16.g8ead1bf
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
