@@ -1,43 +1,69 @@
-From: Rayagond K <rayagond@vayavyalabs.com>
-Subject: query on dynamic switching between Ethernet ports
-Date: Fri, 9 Nov 2012 20:02:19 +0530
-Message-ID: <CAJ3bTp7zXVB5NSj+8J8bR+pvg7mgJ7UjxqhubGxEYmdbpfEVxw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH] gianfar: ethernet vanishes after restoring from hibernation
+Date: Fri,  9 Nov 2012 09:43:51 -0500
+Message-ID: <1352472231-17927-1-git-send-email-paul.gortmaker@windriver.com>
+References: <1352181848-24102-1-git-send-email-dongsheng.wang@freescale.com>
+Cc: Wang Dongsheng <dongsheng.wang@freescale.com>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:34116 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752877Ab2KIOcV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 09:32:21 -0500
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1673009bkc.19
-        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 06:32:20 -0800 (PST)
+Received: from mail.windriver.com ([147.11.1.11]:42625 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753630Ab2KIOoJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 09:44:09 -0500
+In-Reply-To: <1352181848-24102-1-git-send-email-dongsheng.wang@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+From: Wang Dongsheng <dongsheng.wang@freescale.com>
 
-I am implementing handling of dynamic switching between Ethernet ports
-(1GMbps to 100Mbps mode) using PHY layer, I referred various driver in
-LXR and doc and I am able to understand the PHY layer and implement in
-my driver.
+If a gianfar ethernet device is down prior to hibernating a
+system, it will no longer be present upon system restore.
 
-For now I am able to do following in my driver now,
+For example:
 
-1. Advertising all the capabilities like FULL duplex, half duplex,
-pause frames, MII/GMII etc while registering with PHY layer.
-2. Able to detect the link up and link down.
-3. Able do the auto-negotiation with remote end link partner and
-program my MAC accordingly.
-4. Able to establish the link by connecting and disconnecting the
-cable many times.
+	~# ifconfig eth0 down
+	~# echo disk > /sys/power/state
 
-But I am facing one problem ie my driver is not able to establish the
-link when I load the driver first time and connected to 1G port. If I
-toggle the port connection between MII(10/100Mbps) and GMII(1Gbps) for
-two/three times and connect it back to GMII ports then driver works
-fine and it establish the link.
+	  <trigger a restore from hibernation>
 
+	~# ifconfig eth0 up
+	SIOCSIFFLAGS: No such device
+
+This happens because the restore function bails out early upon
+finding devices that were not up at hibernation.  In doing so,
+it never gets to the netif_device_attach call at the end of
+the restore function.  Adding the netif_device_attach as done
+here also makes the gfar_restore code consistent with what is
+done in the gfar_resume code.
+
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+Signed-off-by: Wang Dongsheng <dongsheng.wang@freescale.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+[v2: expand on details in commit log a bit more, to superceed
+ v1 at http://patchwork.ozlabs.org/patch/197412/ ]
+
+ drivers/net/ethernet/freescale/gianfar.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 1d03dcd..19ac096 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -1353,8 +1353,11 @@ static int gfar_restore(struct device *dev)
+ 	struct gfar_private *priv = dev_get_drvdata(dev);
+ 	struct net_device *ndev = priv->ndev;
+ 
+-	if (!netif_running(ndev))
++	if (!netif_running(ndev)) {
++		netif_device_attach(ndev);
++
+ 		return 0;
++	}
+ 
+ 	gfar_init_bds(ndev);
+ 	init_registers(ndev);
 -- 
-wwr
-Rayagond
+1.8.0
