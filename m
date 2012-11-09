@@ -1,44 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding: rlb mode of bond should not alter ARP replies
- originating via bridge
-Date: Fri, 09 Nov 2012 16:25:28 -0500 (EST)
-Message-ID: <20121109.162528.1251308488326610816.davem@davemloft.net>
-References: <1352258580-8272-1-git-send-email-zheng.x.li@oracle.com>
+Subject: Re: [PATCH 1/4] UAPI: Fix compilation of the wanxl firmware blob.
+Date: Fri, 09 Nov 2012 16:29:09 -0500 (EST)
+Message-ID: <20121109.162909.1684134351246747559.davem@davemloft.net>
+References: <20121107123709.4147.98018.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	linux-kernel@vger.kernel.org, joe.jin@oracle.com
-To: zheng.x.li@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352258580-8272-1-git-send-email-zheng.x.li@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org, linux@arm.linux.org.uk
+To: dhowells@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38472 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752689Ab2KIV3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 16:29:12 -0500
+In-Reply-To: <20121107123709.4147.98018.stgit@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zheng Li <zheng.x.li@oracle.com>
-Date: Wed,  7 Nov 2012 11:23:00 +0800
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 07 Nov 2012 12:37:09 +0000
 
-> ARP traffic passing through a bridge and out via the bond (when the bond is a 
-> port of the bridge) should not have its source MAC address adjusted by the 
-> receive load balance code in rlb_arp_xmit.
+> The wanxl firmware needs access to some bits of UAPI stuff, so the -I flag in
+> the Makefile needs adjusting to point at the UAPI headers.
 > 
-> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Please format these change properly, this is not indented
-correctly at all:
-
-> +				if (ether_addr_equal_64bits(arp->mac_src,
-> +						tmp_slave->dev->dev_addr)) {
-> +					memcpy(arp->mac_src,
-> +						tx_slave->dev->dev_addr,
-> +						ETH_ALEN);
-> +					break;
-
-Arguments to functions should line up, always, with the first column
-after the openning parenthesis of the function call.
-
-If that makes the far right column of the line go too far past
-80 columns, too bad.  Make and use a helper function to perform
-this test in that case.
-
-Thanks.
+Applied to net-next.
