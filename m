@@ -1,150 +1,64 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 1/3] ipip: advertise tunnel param via rtnl
-Date: Fri,  9 Nov 2012 17:09:59 +0100
-Message-ID: <1352477401-19044-2-git-send-email-nicolas.dichtel@6wind.com>
-References: <1352467239.19779.564.camel@edumazet-glaptop>
- <1352477401-19044-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: eric.dumazet@gmail.com
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: [PATCH] iproute2: avoid errors from double-installing manpages
+Date: Fri, 9 Nov 2012 16:42:41 +0100
+Message-ID: <20121109154241.GA29156@amd64.fatal.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:57914 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754031Ab2KIP6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 10:58:12 -0500
-In-Reply-To: <1352477401-19044-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from smtprelay-b22.telenor.se ([195.54.99.213]:51608 "EHLO
+	smtprelay-b22.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754437Ab2KIQB1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 11:01:27 -0500
+Received: from ipb2.telenor.se (ipb2.telenor.se [195.54.127.165])
+	by smtprelay-b22.telenor.se (Postfix) with ESMTP id 665BEEB711
+	for <netdev@vger.kernel.org>; Fri,  9 Nov 2012 16:42:14 +0100 (CET)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is usefull for daemons that monitor link event to have the full parameters of
-these interfaces when a rtnl message is sent.
-It allows also to dump them via rtnetlink.
+Three manpages in man8 are listed twice in MAN8PAGES (both directly and
+in TARGETS) which causes the install command to spit our a couple of
+warnings as below and exiting with non-zero exit code....
 
-It is based on what is done for GRE tunnels.
+make[3]: Entering directory `/tmp/buildd/iproute-20121001/man/man8'
+install -m 0755 -d /tmp/buildd/iproute-20121001/debian/tmp/usr/share/man/man8
+install -m 0644 ip-address.8 ip-link.8 ip-route.8 ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 tc.8 tc-bfifo.8 tc-cbq.8 tc-cbq-details.8 tc-choke.8 tc-codel.8 tc-drr.8 tc-ematch.8 tc-fq_codel.8 tc-hfsc.8 tc-htb.8 tc-netem.8 tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8 bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 ip-address.8 ip-addrlabel.8 ip-l2tp.8 ip-link.8 ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8 ip-netns.8 ip-ntable.8 ip-route.8 ip-rule.8 ip-tunnel.8 ip-xfrm.8 /tmp/buildd/iproute-20121001/debian/tmp/usr/share/man/man8
+install: will not overwrite just-created `/tmp/buildd/iproute-20121001/debian/tmp/usr/share/man/man8/ip-address.8' with `ip-address.8'
+install: will not overwrite just-created `/tmp/buildd/iproute-20121001/debian/tmp/usr/share/man/man8/ip-link.8' with `ip-link.8'
+install: will not overwrite just-created `/tmp/buildd/iproute-20121001/debian/tmp/usr/share/man/man8/ip-route.8' with `ip-route.8'
+make[3]: *** [install] Error 1
+make[3]: Leaving directory `/tmp/buildd/iproute-20121001/man/man8'
+make[2]: *** [install] Error 2
+make[2]: Leaving directory `/tmp/buildd/iproute-20121001/man'
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/uapi/linux/if_tunnel.h | 11 ++++++++
- net/ipv4/ipip.c                | 57 +++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 67 insertions(+), 1 deletion(-)
+Signed-off-by: Andreas Henriksson <andreas@fatal.se>
 
-diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
-index 5db5942..ccb21d5 100644
---- a/include/uapi/linux/if_tunnel.h
-+++ b/include/uapi/linux/if_tunnel.h
-@@ -37,6 +37,17 @@ struct ip_tunnel_parm {
- 	struct iphdr		iph;
- };
+
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index aaf1729..4bad9d6 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -1,19 +1,19 @@
+ TARGETS = ip-address.8 ip-link.8 ip-route.8
  
-+enum {
-+	IFLA_IPTUN_UNSPEC,
-+	IFLA_IPTUN_LINK,
-+	IFLA_IPTUN_LOCAL,
-+	IFLA_IPTUN_REMOTE,
-+	IFLA_IPTUN_TTL,
-+	IFLA_IPTUN_TOS,
-+	__IFLA_IPTUN_MAX,
-+};
-+#define IFLA_IPTUN_MAX	(__IFLA_IPTUN_MAX - 1)
-+
- /* SIT-mode i_flags */
- #define	SIT_ISATAP	0x0001
+ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
+ 	tc.8 tc-bfifo.8 tc-cbq.8 tc-cbq-details.8 tc-choke.8 tc-codel.8 \
+ 	tc-drr.8 tc-ematch.8 tc-fq_codel.8 tc-hfsc.8 tc-htb.8 \
+ 	tc-netem.8 tc-pfifo.8 tc-pfifo_fast.8 tc-prio.8 tc-red.8 \
+ 	tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8 \
+ 	bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 \
+-	ip-address.8 ip-addrlabel.8 ip-l2tp.8 ip-link.8 \
++	ip-addrlabel.8 ip-l2tp.8 \
+ 	ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8 \
+-	ip-netns.8 ip-ntable.8 ip-route.8 ip-rule.8 ip-tunnel.8 ip-xfrm.8 \
++	ip-netns.8 ip-ntable.8 ip-rule.8 ip-tunnel.8 ip-xfrm.8 \
+ 	ip-tcp_metrics.8
  
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index e15b452..37e1ca2 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -138,6 +138,7 @@ struct ipip_net {
- static int ipip_tunnel_init(struct net_device *dev);
- static void ipip_tunnel_setup(struct net_device *dev);
- static void ipip_dev_free(struct net_device *dev);
-+static struct rtnl_link_ops ipip_link_ops __read_mostly;
+ all: $(TARGETS)
  
- /*
-  * Locking : hash tables are protected by RCU and RTNL
-@@ -305,6 +306,7 @@ static struct ip_tunnel *ipip_tunnel_locate(struct net *net,
- 		goto failed_free;
+ ip-address.8: ip-address.8.in
+ 	sed "s|@SYSCONFDIR@|$(CONFDIR)|g" $< > $@
  
- 	strcpy(nt->parms.name, dev->name);
-+	dev->rtnl_link_ops = &ipip_link_ops;
- 
- 	dev_hold(dev);
- 	ipip_tunnel_link(ipn, nt);
-@@ -829,6 +831,47 @@ static int __net_init ipip_fb_tunnel_init(struct net_device *dev)
- 	return 0;
- }
- 
-+static size_t ipip_get_size(const struct net_device *dev)
-+{
-+	return
-+		/* IFLA_IPTUN_LINK */
-+		nla_total_size(4) +
-+		/* IFLA_IPTUN_LOCAL */
-+		nla_total_size(4) +
-+		/* IFLA_IPTUN_REMOTE */
-+		nla_total_size(4) +
-+		/* IFLA_IPTUN_TTL */
-+		nla_total_size(1) +
-+		/* IFLA_IPTUN_TOS */
-+		nla_total_size(1) +
-+		0;
-+}
-+
-+static int ipip_fill_info(struct sk_buff *skb, const struct net_device *dev)
-+{
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	struct ip_tunnel_parm *parm = &tunnel->parms;
-+
-+	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
-+	    nla_put_be32(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
-+	    nla_put_be32(skb, IFLA_IPTUN_REMOTE, parm->iph.daddr) ||
-+	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->iph.ttl) ||
-+	    nla_put_u8(skb, IFLA_IPTUN_TOS, parm->iph.tos))
-+		goto nla_put_failure;
-+	return 0;
-+
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static struct rtnl_link_ops ipip_link_ops __read_mostly = {
-+	.kind		= "ipip",
-+	.maxtype	= IFLA_IPTUN_MAX,
-+	.priv_size	= sizeof(struct ip_tunnel),
-+	.get_size	= ipip_get_size,
-+	.fill_info	= ipip_fill_info,
-+};
-+
- static struct xfrm_tunnel ipip_handler __read_mostly = {
- 	.handler	=	ipip_rcv,
- 	.err_handler	=	ipip_err,
-@@ -925,14 +968,26 @@ static int __init ipip_init(void)
- 		return err;
- 	err = xfrm4_tunnel_register(&ipip_handler, AF_INET);
- 	if (err < 0) {
--		unregister_pernet_device(&ipip_net_ops);
- 		pr_info("%s: can't register tunnel\n", __func__);
-+		goto xfrm_tunnel_failed;
- 	}
-+	err = rtnl_link_register(&ipip_link_ops);
-+	if (err < 0)
-+		goto rtnl_link_failed;
-+
-+out:
- 	return err;
-+
-+rtnl_link_failed:
-+	xfrm4_tunnel_deregister(&ipip_handler, AF_INET);
-+xfrm_tunnel_failed:
-+	unregister_pernet_device(&ipip_net_ops);
-+	goto out;
- }
- 
- static void __exit ipip_fini(void)
- {
-+	rtnl_link_unregister(&ipip_link_ops);
- 	if (xfrm4_tunnel_deregister(&ipip_handler, AF_INET))
- 		pr_info("%s: can't deregister tunnel\n", __func__);
- 
--- 
-1.7.12
+ ip-link.8: ip-link.8.in
