@@ -1,53 +1,63 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: SR-IOV problem with Intel 82599EB (not enough MMIO resources
- for SR-IOV)
-Date: Fri, 9 Nov 2012 17:15:50 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A072D5683CF@ORSMSX106.amr.corp.intel.com>
-References: <201211081915083774239@gmail.com>	<509B962C.6070002@gmail.com>
-	<C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com>
- <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
+From: Rayagond K <rayagond@vayavyalabs.com>
+Subject: Re: query on dynamic switching between Ethernet ports
+Date: Fri, 9 Nov 2012 23:32:52 +0530
+Message-ID: <CAJ3bTp7fxg6koL2t8S6xHkXLVEq-64k40FXZoXDzpro+22GwfA@mail.gmail.com>
+References: <CAJ3bTp7zXVB5NSj+8J8bR+pvg7mgJ7UjxqhubGxEYmdbpfEVxw@mail.gmail.com>
+	<1352475403.3159.8.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>
-To: Jason Gao <pkill.2012@gmail.com>, "Li, Sibai" <sibai.li@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
-Content-Language: en-US
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:63138 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751902Ab2KISCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 13:02:54 -0500
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1765573bkc.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 10:02:52 -0800 (PST)
+In-Reply-To: <1352475403.3159.8.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Jason Gao [mailto:pkill.2012@gmail.com]
-> Sent: Thursday, November 08, 2012 8:00 PM
-> To: Rose, Gregory V
-> Cc: Kirsher, Jeffrey T; linux-kernel; netdev; kvm; e1000-
-> devel@lists.sourceforge.net
-> Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources
-> for SR-IOV)
-> 
-> > The BIOS in your machine doesn't support SR-IOV.  You'll need to ask the
-> manufacturer for a BIOS upgrade, if in fact one is available.  Sometimes
-> they're not.
-> 
-> very thanks Greg,my server Dell R710 with latest BIOS version and option
-> for SR-IOV(SR-IOV Global Enable->Enabled)  opened,I'm confused that Does
-> R710 provide full support for SR-IOV, kernel or  ixgbe driver's bug? but
-> I'm not sure where the problem lies,anyone has any
-> experience about this?   .
+yes driver issues soft reset to MAC and PHY.
 
-I use a Dell R710 for all my SR-IOV testing and it works fine but I had to acquire a special BIOS from Dell to get it to work.  As I said, you'll want to contact them and make sure you've got the correct BIOS.
+On Fri, Nov 9, 2012 at 9:06 PM, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> On Fri, 2012-11-09 at 20:02 +0530, Rayagond K wrote:
+>> Hi All,
+>>
+>> I am implementing handling of dynamic switching between Ethernet ports
+>> (1GMbps to 100Mbps mode) using PHY layer, I referred various driver in
+>> LXR and doc and I am able to understand the PHY layer and implement in
+>> my driver.
+>>
+>> For now I am able to do following in my driver now,
+>>
+>> 1. Advertising all the capabilities like FULL duplex, half duplex,
+>> pause frames, MII/GMII etc while registering with PHY layer.
+>> 2. Able to detect the link up and link down.
+>> 3. Able do the auto-negotiation with remote end link partner and
+>> program my MAC accordingly.
+>> 4. Able to establish the link by connecting and disconnecting the
+>> cable many times.
+>>
+>> But I am facing one problem ie my driver is not able to establish the
+>> link when I load the driver first time and connected to 1G port. If I
+>> toggle the port connection between MII(10/100Mbps) and GMII(1Gbps) for
+>> two/three times and connect it back to GMII ports then driver works
+>> fine and it establish the link.
+>
+> Is the driver resetting everything it needs to when loaded?
+>
+> Ben.
+>
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
 
-The error you're seeing, "not enough MMIO resources" has been an issue with the BIOS 100% of the times that we've run into it.  In any case, it is NOT a driver bug.  The driver has nothing to do with allocation of MMIO space reservation for VF devices.  The message you're seeing pops up when the driver calls pci_enable_sriov().  There is nothing the driver can do to force that call to be successful.
 
-I've added Sibai Li to this response.  She should be able to get the BIOS version string off of one of our working Dell R710s.
 
-Sibai,
-
-Could you please reply to this message with that information?
-
-Thanks,
-
-- Greg
+-- 
+wwr
+Rayagond
