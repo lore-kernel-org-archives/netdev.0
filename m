@@ -1,30 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: add knob to send unsolicited ND on link-layer
- address change
-Date: Fri, 09 Nov 2012 16:22:59 -0500 (EST)
-Message-ID: <20121109.162259.141861970162047674.davem@davemloft.net>
-References: <20121107024620.GD26398@order.stressinduktion.org>
-	<20121109130141.GA31099@order.stressinduktion.org>
+Subject: Re: [PATCH] bonding: rlb mode of bond should not alter ARP replies
+ originating via bridge
+Date: Fri, 09 Nov 2012 16:25:28 -0500 (EST)
+Message-ID: <20121109.162528.1251308488326610816.davem@davemloft.net>
+References: <1352258580-8272-1-git-send-email-zheng.x.li@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38419 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755761Ab2KIVXB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 16:23:01 -0500
-In-Reply-To: <20121109130141.GA31099@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	linux-kernel@vger.kernel.org, joe.jin@oracle.com
+To: zheng.x.li@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1352258580-8272-1-git-send-email-zheng.x.li@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 9 Nov 2012 14:01:41 +0100
+From: Zheng Li <zheng.x.li@oracle.com>
+Date: Wed,  7 Nov 2012 11:23:00 +0800
 
-> David, if you intend to merge this patch, could you please remove the empty
-> line I accidently added in the addrconf_sysctl_table, directly following
-> .proc_handler? As usual, I noticed it just after sending the patch.
+> ARP traffic passing through a bridge and out via the bond (when the bond is a 
+> port of the bridge) should not have its source MAC address adjusted by the 
+> receive load balance code in rlb_arp_xmit.
+> 
+> Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
 
-I intend to eventually apply this to net-next, and I'll take care
-of the empty line when I do so, thanks.
+Please format these change properly, this is not indented
+correctly at all:
+
+> +				if (ether_addr_equal_64bits(arp->mac_src,
+> +						tmp_slave->dev->dev_addr)) {
+> +					memcpy(arp->mac_src,
+> +						tx_slave->dev->dev_addr,
+> +						ETH_ALEN);
+> +					break;
+
+Arguments to functions should line up, always, with the first column
+after the openning parenthesis of the function call.
+
+If that makes the far right column of the line go too far past
+80 columns, too bad.  Make and use a helper function to perform
+this test in that case.
+
+Thanks.
