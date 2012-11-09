@@ -1,63 +1,51 @@
-From: Joe Jin <joe.jin@oracle.com>
-Subject: Re: 82571EB: Detected Hardware Unit Hang
-Date: Fri, 09 Nov 2012 09:22:21 +0800
-Message-ID: <509C5ACD.4040706@oracle.com>
-References: <509B5038.8090304@oracle.com>
-	<061C8A8601E8EE4CA8D8FD6990CEA89133487884@ORSMSX102.amr.corp.intel.com>
+From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
+	per-cpu helper
+Date: Fri, 09 Nov 2012 09:39:58 +0800
+Message-ID: <509C5EEE.4050205@gmail.com>
+References: <5093EE59.8010609@gmail.com>
+	<0000013ac23ac528-19a0dd1b-3144-45df-9d6e-471999d6ae31-000000@email.amazonses.com>
+	<509BC026.4040209@gmail.com>
+	<0000013ae10817d9-c5215352-348f-4898-b618-bb89e8725ab1-000000@email.amazonses.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Mary Mcgrath <mary.mcgrath@oracle.com>
-To: "Dave, Tushar N" <tushar.n.dave@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <061C8A8601E8EE4CA8D8FD6990CEA89133487884@ORSMSX102.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <0000013ae10817d9-c5215352-348f-4898-b618-bb89e8725ab1-000000-p/GC64/jrecnJqMo6gzdpkEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 11/09/12 04:35, Dave, Tushar N wrote:
-> Are you sure this is not similar issue as before that you reported.
-> i.e. 
-
-Tushar,
-
-Thanks for your quick response, I'll check with customer if they can modify the Max
-payload size from BIOS, this time issue hit on HP's server.
-
-Thanks again,
-Joe
-
-> On Mon, 2012-07-09 at 16:51 +0800, Joe Jin wrote:
->> > I'm seeing a Unit Hang even with the latest e1000e driver 2.0.0 when 
->> > doing scp test. this issue is easy do reproduced on SUN FIRE X2270 M2, 
->> > just copy a big file (>500M) from another server will hit it at once.
-> All devices in path from root complex to 82571, should have *same* max payload size otherwise it can cause hang. 
-> Can you double check this?
+Christoph Lameter said, at 2012/11/9 1:18:
+> On Thu, 8 Nov 2012, Shan Wei wrote:
 > 
+>> Christoph Lameter said, at 2012/11/3 1:46:
+>>>>  		u64_stats_update_begin(&stats->sync);
+>>>>  		stats->tx_packets++;
+>>>
+>>> Use this_cpu_inc(vport->percpu_stats->packets) here?
+>>
+>> Lots of network drivers use u64_stats_sync infrastructure for statistics
+> 
+> So they would all have an advantage from the patch.
 
+I will try to do the optimizing next time in another patchset which not included
+in this series patchset.
 
--- 
-Oracle <http://www.oracle.com>
-Joe Jin | Software Development Senior Manager | +8610.6106.5624
-ORACLE | Linux and Virtualization
-No. 24 Zhongguancun Software Park, Haidian District | 100193 Beijing 
+I will submit v3 version of this series after testing today.
 
-------------------------------------------------------------------------------
-Everyone hates slow websites. So do we.
-Make your web apps faster with AppDynamics
-Download AppDynamics Lite for free today:
-http://p.sf.net/sfu/appdyn_d2d_nov
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Thanks
+
+ 
+ 
