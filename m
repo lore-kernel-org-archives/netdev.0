@@ -1,74 +1,97 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 2/4] sit: advertise tunnel param via rtnl
-Date: Fri,  9 Nov 2012 10:51:09 +0100
-Message-ID: <1352454671-4336-3-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 3/4] ip6tnl: advertise tunnel param via rtnl
+Date: Fri,  9 Nov 2012 10:51:10 +0100
+Message-ID: <1352454671-4336-4-git-send-email-nicolas.dichtel@6wind.com>
 References: <1352454671-4336-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:57266 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:57269 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751013Ab2KIJkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 04:40:23 -0500
+	with ESMTP id S1751595Ab2KIJkZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 04:40:25 -0500
 In-Reply-To: <1352454671-4336-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/ipv6/sit.c | 57 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 56 insertions(+), 1 deletion(-)
+ include/uapi/linux/if_tunnel.h |  3 +++
+ net/ipv6/ip6_tunnel.c          | 57 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+)
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 3ed54ff..b543c56 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -68,6 +68,7 @@
- static int ipip6_tunnel_init(struct net_device *dev);
- static void ipip6_tunnel_setup(struct net_device *dev);
- static void ipip6_dev_free(struct net_device *dev);
-+static struct rtnl_link_ops sit_link_ops __read_mostly;
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index ccb21d5..c1bf0b5 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -44,6 +44,9 @@ enum {
+ 	IFLA_IPTUN_REMOTE,
+ 	IFLA_IPTUN_TTL,
+ 	IFLA_IPTUN_TOS,
++	IFLA_IPTUN_ENCAP_LIMIT,
++	IFLA_IPTUN_FLOWINFO,
++	IFLA_IPTUN_FLAGS,
+ 	__IFLA_IPTUN_MAX,
+ };
+ #define IFLA_IPTUN_MAX	(__IFLA_IPTUN_MAX - 1)
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 09482f7..424ed45 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -83,6 +83,7 @@ static u32 HASH(const struct in6_addr *addr1, const struct in6_addr *addr2)
  
- static int sit_net_id __read_mostly;
- struct sit_net {
-@@ -282,6 +283,7 @@ static struct ip_tunnel *ipip6_tunnel_locate(struct net *net,
+ static int ip6_tnl_dev_init(struct net_device *dev);
+ static void ip6_tnl_dev_setup(struct net_device *dev);
++static struct rtnl_link_ops ip6_link_ops __read_mostly;
+ 
+ static int ip6_tnl_net_id __read_mostly;
+ struct ip6_tnl_net {
+@@ -299,6 +300,7 @@ static struct ip6_tnl *ip6_tnl_create(struct net *net, struct __ip6_tnl_parm *p)
  		goto failed_free;
  
- 	strcpy(nt->parms.name, dev->name);
-+	dev->rtnl_link_ops = &sit_link_ops;
+ 	strcpy(t->parms.name, dev->name);
++	dev->rtnl_link_ops = &ip6_link_ops;
  
  	dev_hold(dev);
- 
-@@ -1216,6 +1218,47 @@ static int __net_init ipip6_fb_tunnel_init(struct net_device *dev)
+ 	ip6_tnl_link(ip6n, t);
+@@ -1504,6 +1506,55 @@ static int __net_init ip6_fb_tnl_dev_init(struct net_device *dev)
  	return 0;
  }
  
-+static size_t sit_get_size(const struct net_device *dev)
++static size_t ip6_get_size(const struct net_device *dev)
 +{
 +	return
 +		/* IFLA_IPTUN_LINK */
 +		nla_total_size(4) +
 +		/* IFLA_IPTUN_LOCAL */
-+		nla_total_size(4) +
++		nla_total_size(sizeof(struct in6_addr)) +
 +		/* IFLA_IPTUN_REMOTE */
-+		nla_total_size(4) +
++		nla_total_size(sizeof(struct in6_addr)) +
 +		/* IFLA_IPTUN_TTL */
 +		nla_total_size(1) +
-+		/* IFLA_IPTUN_TOS */
++		/* IFLA_IPTUN_ENCAP_LIMIT */
 +		nla_total_size(1) +
++		/* IFLA_IPTUN_FLOWINFO */
++		nla_total_size(4) +
++		/* IFLA_IPTUN_FLAGS */
++		nla_total_size(4) +
 +		0;
 +}
 +
-+static int sit_fill_info(struct sk_buff *skb, const struct net_device *dev)
++static int ip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
 +{
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	struct ip_tunnel_parm *parm = &tunnel->parms;
++	struct ip6_tnl *tunnel = netdev_priv(dev);
++	struct __ip6_tnl_parm *parm = &tunnel->parms;
 +
 +	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
-+	    nla_put_be32(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
-+	    nla_put_be32(skb, IFLA_IPTUN_REMOTE, parm->iph.daddr) ||
-+	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->iph.ttl) ||
-+	    nla_put_u8(skb, IFLA_IPTUN_TOS, parm->iph.tos))
++	    nla_put(skb, IFLA_IPTUN_LOCAL, sizeof(struct in6_addr),
++		    &parm->raddr) ||
++	    nla_put(skb, IFLA_IPTUN_REMOTE, sizeof(struct in6_addr),
++		    &parm->laddr) ||
++	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->hop_limit) ||
++	    nla_put_u8(skb, IFLA_IPTUN_ENCAP_LIMIT, parm->encap_limit) ||
++	    nla_put_be32(skb, IFLA_IPTUN_FLOWINFO, parm->flowinfo) ||
++	    nla_put_u32(skb, IFLA_IPTUN_FLAGS, parm->flags))
 +		goto nla_put_failure;
 +	return 0;
 +
@@ -76,47 +99,39 @@ index 3ed54ff..b543c56 100644
 +	return -EMSGSIZE;
 +}
 +
-+static struct rtnl_link_ops sit_link_ops __read_mostly = {
-+	.kind		= "sit",
++static struct rtnl_link_ops ip6_link_ops __read_mostly = {
++	.kind		= "ip6tnl",
 +	.maxtype	= IFLA_IPTUN_MAX,
-+	.priv_size	= sizeof(struct ip_tunnel),
-+	.get_size	= sit_get_size,
-+	.fill_info	= sit_fill_info,
++	.priv_size	= sizeof(struct ip6_tnl),
++	.get_size	= ip6_get_size,
++	.fill_info	= ip6_fill_info,
 +};
 +
- static struct xfrm_tunnel sit_handler __read_mostly = {
- 	.handler	=	ipip6_rcv,
- 	.err_handler	=	ipip6_err,
-@@ -1302,6 +1345,7 @@ static struct pernet_operations sit_net_ops = {
- 
- static void __exit sit_cleanup(void)
- {
-+	rtnl_link_unregister(&sit_link_ops);
- 	xfrm4_tunnel_deregister(&sit_handler, AF_INET6);
- 
- 	unregister_pernet_device(&sit_net_ops);
-@@ -1319,10 +1363,21 @@ static int __init sit_init(void)
- 		return err;
- 	err = xfrm4_tunnel_register(&sit_handler, AF_INET6);
- 	if (err < 0) {
--		unregister_pernet_device(&sit_net_ops);
- 		pr_info("%s: can't add protocol\n", __func__);
-+		goto xfrm_tunnel_failed;
+ static struct xfrm6_tunnel ip4ip6_handler __read_mostly = {
+ 	.handler	= ip4ip6_rcv,
+ 	.err_handler	= ip4ip6_err,
+@@ -1612,9 +1663,14 @@ static int __init ip6_tunnel_init(void)
+ 		pr_err("%s: can't register ip6ip6\n", __func__);
+ 		goto out_ip6ip6;
  	}
-+	err = rtnl_link_register(&sit_link_ops);
++	err = rtnl_link_register(&ip6_link_ops);
 +	if (err < 0)
 +		goto rtnl_link_failed;
-+
-+out:
- 	return err;
-+
-+rtnl_link_failed:
-+	xfrm4_tunnel_deregister(&sit_handler, AF_INET6);
-+xfrm_tunnel_failed:
-+	unregister_pernet_device(&sit_net_ops);
-+	goto out;
- }
  
- module_init(sit_init);
+ 	return 0;
+ 
++rtnl_link_failed:
++	xfrm6_tunnel_deregister(&ip6ip6_handler, AF_INET6);
+ out_ip6ip6:
+ 	xfrm6_tunnel_deregister(&ip4ip6_handler, AF_INET);
+ out_ip4ip6:
+@@ -1629,6 +1685,7 @@ out_pernet:
+ 
+ static void __exit ip6_tunnel_cleanup(void)
+ {
++	rtnl_link_unregister(&ip6_link_ops);
+ 	if (xfrm6_tunnel_deregister(&ip4ip6_handler, AF_INET))
+ 		pr_info("%s: can't deregister ip4ip6\n", __func__);
+ 
 -- 
 1.7.12
