@@ -1,32 +1,34 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: question on netdev_completed_queue()
-Date: Fri, 09 Nov 2012 11:38:30 -0800
-Message-ID: <1352489910.19779.770.camel@edumazet-glaptop>
-References: <1476426.QTHA7ibVHZ@linux-lqwf.site>
-	 <1352407453.2771.18.camel@bwh-desktop.uk.solarflarecom.com>
-	 <16131769.FsMAT47cqV@linux-lqwf.site>
-	 <1352480979.3159.13.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH net-next 1/3] ipip: advertise tunnel param via rtnl
+Date: Fri, 09 Nov 2012 11:42:48 -0800
+Message-ID: <1352490168.19779.776.camel@edumazet-glaptop>
+References: <1352467239.19779.564.camel@edumazet-glaptop>
+	 <1352477401-19044-1-git-send-email-nicolas.dichtel@6wind.com>
+	 <1352477401-19044-2-git-send-email-nicolas.dichtel@6wind.com>
+	 <1352479020.19779.741.camel@edumazet-glaptop>  <509D36CB.9030509@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:52908 "EHLO
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:55161 "EHLO
 	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753360Ab2KITic (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 14:38:32 -0500
-Received: by mail-pb0-f46.google.com with SMTP id rr4so3046085pbb.19
-        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 11:38:32 -0800 (PST)
-In-Reply-To: <1352480979.3159.13.camel@bwh-desktop.uk.solarflarecom.com>
+	with ESMTP id S1753315Ab2KITmu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 14:42:50 -0500
+Received: by mail-pb0-f46.google.com with SMTP id rr4so3048037pbb.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 11:42:50 -0800 (PST)
+In-Reply-To: <509D36CB.9030509@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-09 at 17:09 +0000, Ben Hutchings wrote:
+On Fri, 2012-11-09 at 18:00 +0100, Nicolas Dichtel wrote:
 
-> The underlying DQL algorithm doesn't care what it's counting.  However
-> the administrator can adjust the queue limits through sysfs, and they
-> will expect the numbers to be byte counts.
+> If the principle is approved, yes. If we add it, we will have two
+> ways to manage these tunnels, via netlink and via ioctl, is it ok?
+> 
+> A side effect could be to have an option or an argument to the module to not 
+> create the control interface (tunl0, sit0, ...).
 
-Yes, skb->len should be a fine approximation, even if slightly wrong for
-TSO packets.
+The principle is already used for gre tunnels, so it definitely is
+approved ;)
