@@ -1,34 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] smsc95xx: set MII_BUSY bit to read/write PHY regs
-Date: Fri, 09 Nov 2012 16:08:50 -0500 (EST)
-Message-ID: <20121109.160850.901809648224300452.davem@davemloft.net>
-References: <1352196533-2674-1-git-send-email-steve.glendinning@shawell.net>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Re: How to compile tcp fast open client app with kernel tfo client
+ support ?
+Date: Fri, 9 Nov 2012 13:09:58 -0800
+Message-ID: <CAK3+h2zi34_7xSbZpgaA0xwm5y=esYr1P8+-LEm5jyKEMPJHbg@mail.gmail.com>
+References: <CAK3+h2xmgy+RhUy=MZ5Cu8Zpz+gQmt3dXCX0tpLAWFCTeujBLA@mail.gmail.com>
+	<CAGK4HS-U+Ov5x8z+1CRZdiAD9MhfBUfurKKBbt1EWGYFLN8TcA@mail.gmail.com>
+	<CAK3+h2z5=n6BHGzPjfbrJS4MbVGQ2pdMQP54dOZ8M=8xigUd3Q@mail.gmail.com>
+	<CAK6E8=fc=hYppk=4+tnNF9UPvQNFhw8YKo-ebG2y6FwXTft_EQ@mail.gmail.com>
+	<CAK3+h2xAqjs8CvkcwXiFryyQhDnohsN7-0KfQVjpegZh_AD1eg@mail.gmail.com>
+	<1352492823.19779.825.camel@edumazet-glaptop>
+	<CAGK4HS_SpdECk_KCu98Z1X9W02G9j9u7QE9B6qHEnTXLeZbqgA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: steve.glendinning@shawell.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>, netdev@vger.kernel.org
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38373 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755617Ab2KIVIw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 16:08:52 -0500
-In-Reply-To: <1352196533-2674-1-git-send-email-steve.glendinning@shawell.net>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:33120 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753511Ab2KIVJ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 16:09:58 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y32so3033723iag.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 13:09:58 -0800 (PST)
+In-Reply-To: <CAGK4HS_SpdECk_KCu98Z1X9W02G9j9u7QE9B6qHEnTXLeZbqgA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@shawell.net>
-Date: Tue,  6 Nov 2012 10:08:53 +0000
+On Fri, Nov 9, 2012 at 12:54 PM, Vijay Subramanian
+<subramanian.vijay@gmail.com> wrote:
+> On 9 November 2012 12:27, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Fri, 2012-11-09 at 12:17 -0800, Vincent Li wrote:
+>>
+>>> I have tried to run fresh build net-next, for some reason the build
+>>> stops ssh service from starting up, tried 3.7.0-rc4 too, same issue. I
+>>> don't know if it is new kernel bug or ubuntu upstart bug, but that is
+>>> another issue.
+>>>
+>>
+>> Not sure Ubuntu 10.04 binaries can run a 3.7 kernel.
+>>
+>> Some bug fixes in kernel need bug fixes in userland.
+>>
+>> You could try a bisection ?
+>>
+>  I saw the same issue with Ubuntu starting around 3.7.0-rc1 but 3.6
+> was fine if I recall. (I did a partial bisection but was not sure it
+> was a kernel issue)
+>  sshd would not start up on boot and I 'fixed' it by adding the
+> following in /etc/rc.local since I assumed it was a userspace issue.
+>
+> if [ ! -d /var/run/sshd ]; then
+>    mkdir /var/run/sshd
+>    chmod 0755 /var/run/sshd
+> fi
+> /usr/sbin/sshd
+>
+>
+> Thanks,
+> Vijay
 
-> The device datasheet specifies the BUSY bit must be set when reading
-> or writing phy registers.  This patch ensures we do that.
-> 
-> Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+thanks again, you "fixed" my other issue :-)
 
-Steve please let me know why you only submitted patch #2
-of an apparent 2 part series.
-
-If I don't get a response soon I'm just going to toss this
-patch instead of letting it simply rot in patchwork.
-
-Thanks.
+Vincent
