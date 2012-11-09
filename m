@@ -1,90 +1,100 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with Linus' tree
-Date: Fri, 9 Nov 2012 10:53:18 +1100
-Message-ID: <20121109105318.e24e2fa2b899af6e4d444b30@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__9_Nov_2012_10_53_18_+1100_1.mq6L.2UhwDPvZR"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Merav Sicron <meravs@broadcom.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH v4 net-next] bonding: extend bond_arp_send_all to bridge devices
+Date: Thu, 08 Nov 2012 16:58:56 -0800
+Message-ID: <9296.1352422736@death.nxdomain>
+References: <1352210205-24558-1-git-send-email-chris.j.arges@canonical.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Chris J Arges <chris.j.arges@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1352210205-24558-1-git-send-email-chris.j.arges@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__9_Nov_2012_10_53_18_+1100_1.mq6L.2UhwDPvZR
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Chris J Arges <chris.j.arges@canonical.com> wrote:
 
-Hi all,
+>ARP monitoring does not work when we have a network in the
+>following configuration:
+>
+>eth0----+ +----bond0.100----br0-100---{+virtual machines
+>          | |
+>          +----bond0----+----br0---(fixed IP)->--{LAN arp_ip_target}
+>          | |
+>eth1----+ +----bond0.200----br0-200---{+virtual machines
+>
+>This patch extends bond_arp_send_all to check if a device
+>is also in a bridge.
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c between commit
-477864ddd365 ("bnx2x: Disable FCoE for 57840 since not yet supported by
-FW") from Linus' tree and commit 55c11941e382 ("bnx2x: Support loading
-cnic resources at run-time") from the net-next tree.
+	I did some testing with this.  The required network
+configuration to show the problem is much simpler than this.  I tested
+with something of the form:
 
-I fixed it up (I think - see below) and can carry the fix as necessary
-(no action is required).
+eth0 -> bond0 -> {bond0.123, br0} br0 is 10.0.9.1/16, arp_ip_target is
+10.0.1.1
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+	br0 has the only assigned IP address, and the arp_ip_target is
+something on that same subnet.  In this case, merely having 8021q loaded
+would induce the problem, as that would add a VLAN (VID 0) to the bond
+even without explicitly adding a VLAN to the bond.
 
-diff --cc drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index bd1fd3d,0546cf4..0000000
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@@ -11899,22 -12065,10 +12066,20 @@@ static int __devinit bnx2x_init_one(s=
-tr
-  	/* calc qm_cid_count */
-  	bp->qm_cid_count =3D bnx2x_set_qm_cid_count(bp);
- =20
-- #ifdef BCM_CNIC
-- 	/* disable FCOE L2 queue for E1x */
-+ 	/* disable FCOE L2 queue for E1x*/
-  	if (CHIP_IS_E1x(bp))
-  		bp->flags |=3D NO_FCOE_FLAG;
-+=20
- +	/* disable FCOE for 57840 device, until FW supports it */
- +	switch (ent->driver_data) {
- +	case BCM57840_O:
- +	case BCM57840_4_10:
- +	case BCM57840_2_20:
- +	case BCM57840_MFO:
- +	case BCM57840_MF:
- +		bp->flags |=3D NO_FCOE_FLAG;
- +	}
-- #endif
--=20
- +
-  	/* Set bp->num_queues for MSI-X mode*/
-  	bnx2x_set_num_queues(bp);
- =20
+	The patch does resolve the immediate problem that with the VLAN,
+the bond would not send the ARP queries out via eth0.
 
---Signature=_Fri__9_Nov_2012_10_53_18_+1100_1.mq6L.2UhwDPvZR
-Content-Type: application/pgp-signature
+	However, it misses one corner case, because the new test does
+not validate that the bond is actually a port of the bridge that's found
+via the route.  In this case, a configuration like:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+eth0 -> bond0 -> bond0.123 IP address 10.99.0.1/16, arp_ip_target 10.0.1.1
+eth1 -> br0 IP address 10.0.9.1/16
 
-iQIcBAEBCAAGBQJQnEXuAAoJEECxmPOUX5FEP00QAIrY1EAHh1MVpVIFwcijQ6Hj
-NZ+U01SQfLOXikbm98uLcHgHeAOrUZu+I4potFHCqwIAJZRegeTf7siPptvv0q+0
-Y2hW6F4qbvr6Pl8dbx71BIzl3zgh0jgfMx+9U2VgB18+6aOZeDcvut1w0bZBkl4z
-TMC0ONivXxPYgQUY7Y7IJw2ds95jdoe97eCUxtlwQzwk/CZw35FjbJenCMPv3vt8
-cRmD5JPBumztpPqRNYCbwLx3ZdRvLun0wO3Fvnx9XomK/kFa+LdYxKNsxEpk0rjK
-4j5FqBKYMNN7v+N59QrzWfkNqE1akZnGEzlH6JCagGx9L6z0wAM/VTfUiwc2DDBY
-a0m1cm8VdndaemQ8TcXQXHxcCa98KU38FCRQY5LJo0t5in/9rU0Fy5koBRqit0rA
-J6x+z74f8m+EwfarbqmKdbCfS8w66JE7XkdiTT9k257QB7FcWtbGXMS1N+JcMdVu
-sUFsbGx/JEbonsjDB9o/QGc/ElI0gGAjDCUyty2jg+N/l1xNlU3Qh/oRAWvk8pex
-R5od2rAS4eOWjBbYQ1wKU2RefEQkrgUW8QwoFDKoiGeUM4uCi4XrkIsJSroo8AwS
-EZfgALjxEPPdK6Dsr04naNH0wNxMp6SqEjF9gzSDm9RtHuRKWM+44KwTyQxp415D
-pzC//v6QxU3EW7pTgPCs
-=Fub3
------END PGP SIGNATURE-----
+	would cause the bond to issue the ARP probe request for 10.0.1.1
+on eth0, even though it really shouldn't (and currently wouldn't).  If,
+say, eth0 and eth1 are parallel subnets, it's possible that the host
+with 10.0.1.1 (multihomed to both subnets) may answer on the "wrong"
+subnet even if regular traffic routed via the correct subnet can't get
+through for some reason.
 
---Signature=_Fri__9_Nov_2012_10_53_18_+1100_1.mq6L.2UhwDPvZR--
+	I don't see an easy way to find out if device X is a port of
+bridge Y, either, although we can easily check if the bond is a bridge
+port (priv_flags & IFF_BRIDGE_PORT) before doing the new check.  That
+doesn't completely fix the problem, but does require that the bond be a
+port of a different bridge to cause a misbehavior.
+
+	-J
+
+>This is related to the following issues:
+>http://launchpad.net/bugs/736226
+>http://bugzilla.kernel.org/show_bug.cgi?id=31822
+>
+>Thanks to help from Andy Gospodarek <andy@greyhouse.net>.
+>
+>Signed-off-by: Chris J Arges <chris.j.arges@canonical.com>
+>---
+> drivers/net/bonding/bond_main.c |    8 ++++++++
+> 1 file changed, 8 insertions(+)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index b2530b0..62931b0 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2708,6 +2708,14 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+> 			continue;
+> 		}
+>
+>+		/* Check if the target is part of a bridge.
+>+		 */
+>+		if (rt->dst.dev->priv_flags & IFF_EBRIDGE) {
+>+			addr = bond_confirm_addr(rt->dst.dev, targets[i], 0);
+>+			bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i], addr, 0);
+>+			continue;
+>+		}
+>+
+> 		if (net_ratelimit()) {
+> 			pr_warning("%s: no path to arp_ip_target %pI4 via rt.dev %s\n",
+> 				   bond->dev->name, &targets[i],
+>-- 
+>1.7.9.5
+>
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
