@@ -1,51 +1,26 @@
-From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/9] net: openvswitch: use this_cpu_ptr
-	per-cpu helper
-Date: Fri, 09 Nov 2012 09:39:58 +0800
-Message-ID: <509C5EEE.4050205@gmail.com>
-References: <5093EE59.8010609@gmail.com>
-	<0000013ac23ac528-19a0dd1b-3144-45df-9d6e-471999d6ae31-000000@email.amazonses.com>
-	<509BC026.4040209@gmail.com>
-	<0000013ae10817d9-c5215352-348f-4898-b618-bb89e8725ab1-000000@email.amazonses.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <0000013ae10817d9-c5215352-348f-4898-b618-bb89e8725ab1-000000-p/GC64/jrecnJqMo6gzdpkEOCMrvLtNR@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: [PATCH net-next 0/3 ] tunneling: Add support for hardware-offloaded encapsulation
+Date: Thu,  8 Nov 2012 18:18:00 -0800
+Message-ID: <1352427483-4380-1-git-send-email-joseph.gasparakis@intel.com>
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter said, at 2012/11/9 1:18:
-> On Thu, 8 Nov 2012, Shan Wei wrote:
-> 
->> Christoph Lameter said, at 2012/11/3 1:46:
->>>>  		u64_stats_update_begin(&stats->sync);
->>>>  		stats->tx_packets++;
->>>
->>> Use this_cpu_inc(vport->percpu_stats->packets) here?
->>
->> Lots of network drivers use u64_stats_sync infrastructure for statistics
-> 
-> So they would all have an advantage from the patch.
+The series contains updates to add in the NIC Rx and Tx checksumming support
+for encapsulated packets.
 
-I will try to do the optimizing next time in another patchset which not included
-in this series patchset.
+The sk_buff needs to somehow have information of the inner packet, and adding
+three fields for the inner mac, network and transport headers was the prefered
+approach. 
 
-I will submit v3 version of this series after testing today.
+Not adding these fields would mean that the drivers would need to parse the
+sk_buff data in hot-path, having a negative impact in the performance.
 
-Thanks
-
- 
- 
+Adding in sk_buff a pointer to the skbuff of the inner packet made sense, but
+would be a complicated change as assumptions needed to be made with regards to
+helper functions such as skb_clone() skb_copy(). Also code for the existing
+encapsulation protocols (such as VXLAN and IP GRE) had to be reworked, so the
+decision was to have the simple approach of adding these three fields.
