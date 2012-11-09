@@ -1,39 +1,42 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources for SR-IOV)
-Date: Fri, 9 Nov 2012 08:26:59 -0700
-Message-ID: <CAErSpo4xn9t=4yXGLdPQMtUJF=n38tYrMutAoj7NCsLUzQEbcg@mail.gmail.com>
-References: <201211081915083774239@gmail.com> <509B962C.6070002@gmail.com>
- <C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com> <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
+From: =?UTF-8?B?QXVyw6lsaWVu?= <footplus@gmail.com>
+Subject: Re: Optics (SFP) monitoring on ixgbe and igbe
+Date: Fri, 9 Nov 2012 16:31:17 +0100
+Message-ID: <CAPN4dA_kb4Gy6JWEW1h4YsGf5QwsOz58gGJqS0OcPTvHoAL7Xw@mail.gmail.com>
+References: <CAPN4dA8WUdox2k_F_9cYw=hR=xZHia=z3CXwy-36_t9Hh58zBg@mail.gmail.com>
+ <1352318339.2725.34.camel@bwh-desktop.uk.solarflarecom.com>
+ <CAPN4dA95RQ+xyvY+qo0CDc=KmaKhuqHATx_KyMjppvauYtUyzQ@mail.gmail.com> <1352473713.3159.4.camel@bwh-desktop.uk.solarflarecom.com>
+Reply-To: footplus@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>, linux-pci@vger.kernel.org,
-	Yinghai Lu <yinghai@kernel.org>
-To: Jason Gao <pkill.2012@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:47070 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750922Ab2KIPbj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 10:31:39 -0500
+Received: by mail-qa0-f46.google.com with SMTP id c11so275560qad.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 07:31:38 -0800 (PST)
+In-Reply-To: <1352473713.3159.4.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[+ linux-pci, Yinghai]
-
-On Thu, Nov 8, 2012 at 8:59 PM, Jason Gao <pkill.2012@gmail.com> wrote:
->> The BIOS in your machine doesn't support SR-IOV.  You'll need to ask the manufacturer for a BIOS upgrade, if in fact one is available.  Sometimes they're not.
+On Fri, Nov 9, 2012 at 4:08 PM, Ben Hutchings <bhutchings@solarflare.co=
+m> wrote:
 >
-> very thanks Greg,my server Dell R710 with latest BIOS version and
-> option for SR-IOV(SR-IOV Global Enable->Enabled)  opened,I'm confused
-> that Does R710 provide full support for SR-IOV, kernel or  ixgbe
-> driver's bug? but I'm not sure where the problem lies,anyone has any
-> experience about this?   .
+> No, the driver also needs to implement ethtool_ops::get_module_info a=
+nd
+> ethtool_ops::get_module_eeprom.  But those should be quite easy to do=
+=2E
+>
 
-Linux normally uses the resource assignments done by the BIOS, but it
-is possible for the kernel to reassign those.  We don't have good
-automatic support for that yet, but on a recent upstream kernel, you
-can try "pci=realloc".  I doubt this option is in CentOS 6.3, though.
+Indeed. But like you said, it should be easy. I shall receive my cards
+on monday, i'll try to do the implementation next week.
 
-If an upstream kernel with "pci=realloc" still doesn't work, please
-post the entire dmesg log.
+Best regards,
+--=20
+Aur=C3=A9lien Guillaume
+- By all means break the rules, and break them beautifully,
+deliberately and well. That is one of the ends for which they exist.
+-- Robert Bringhurst
