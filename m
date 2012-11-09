@@ -1,58 +1,58 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Optics (SFP) monitoring on ixgbe and igbe
-Date: Fri, 9 Nov 2012 15:08:33 +0000
-Message-ID: <1352473713.3159.4.camel@bwh-desktop.uk.solarflarecom.com>
-References: <CAPN4dA8WUdox2k_F_9cYw=hR=xZHia=z3CXwy-36_t9Hh58zBg@mail.gmail.com>
-	 <1352318339.2725.34.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CAPN4dA95RQ+xyvY+qo0CDc=KmaKhuqHATx_KyMjppvauYtUyzQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: <footplus@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH] gre6: fix rtnl dump messages
+Date: Fri,  9 Nov 2012 16:34:56 +0100
+Message-ID: <1352475296-14675-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <1352467361.19779.569.camel@edumazet-glaptop>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:33830 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753527Ab2KIPIg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 10:08:36 -0500
-In-Reply-To: <CAPN4dA95RQ+xyvY+qo0CDc=KmaKhuqHATx_KyMjppvauYtUyzQ@mail.gmail.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:57856 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754021Ab2KIPXC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 10:23:02 -0500
+In-Reply-To: <1352467361.19779.569.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-08 at 01:39 +0100, Aur=C3=A9lien wrote:
-> On Wed, Nov 7, 2012 at 8:58 PM, Ben Hutchings <bhutchings@solarflare.=
-com> wrote:
-> > On Wed, 2012-11-07 at 13:27 +0100, Aur=C3=A9lien wrote:
-> >
-> > We just added the ETHTOOL_GMODULEINFO and ETHTOOL_GMODULEEEPROM
-> > interface for this purpose.  The diagnostics obviously aren't reall=
-y an
-> > EEPROM but I don't think that matters.
-> >
-> > These drivers should report a type of ETH_MODULE_SFF_8472 (assuming=
- a
-> > module is present) and expose an 'EEPROM' with the real EEPROM in t=
-he
-> > first 256 bytes and the diagnostic registers in the next 256 bytes.
-> >
-> > Decoding of the diagnostic registers can be done in ethtool itself.
-> >
->=20
-> Hi Ben,
->=20
-> Thanks for this reply.
->=20
-> I did not see these interfaces in my searches, but from what I gather
-> from the code, the missing part is the actual decoding of the data in
-> ethtool.
-[...]
+Spotted after a code review.
+Introduced by c12b395a46646bab69089ce7016ac78177f6001f (gre: Support GRE over
+IPv6).
 
-No, the driver also needs to implement ethtool_ops::get_module_info and
-ethtool_ops::get_module_eeprom.  But those should be quite easy to do.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+v2: rebase the patch against net
+    add the commit that introduces the bug
 
-Ben.
+ net/ipv6/ip6_gre.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 0185679..d5cb3c4 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1633,9 +1633,9 @@ static size_t ip6gre_get_size(const struct net_device *dev)
+ 		/* IFLA_GRE_OKEY */
+ 		nla_total_size(4) +
+ 		/* IFLA_GRE_LOCAL */
+-		nla_total_size(4) +
++		nla_total_size(sizeof(struct in6_addr)) +
+ 		/* IFLA_GRE_REMOTE */
+-		nla_total_size(4) +
++		nla_total_size(sizeof(struct in6_addr)) +
+ 		/* IFLA_GRE_TTL */
+ 		nla_total_size(1) +
+ 		/* IFLA_GRE_TOS */
+@@ -1659,8 +1659,8 @@ static int ip6gre_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	    nla_put_be16(skb, IFLA_GRE_OFLAGS, p->o_flags) ||
+ 	    nla_put_be32(skb, IFLA_GRE_IKEY, p->i_key) ||
+ 	    nla_put_be32(skb, IFLA_GRE_OKEY, p->o_key) ||
+-	    nla_put(skb, IFLA_GRE_LOCAL, sizeof(struct in6_addr), &p->raddr) ||
+-	    nla_put(skb, IFLA_GRE_REMOTE, sizeof(struct in6_addr), &p->laddr) ||
++	    nla_put(skb, IFLA_GRE_LOCAL, sizeof(struct in6_addr), &p->laddr) ||
++	    nla_put(skb, IFLA_GRE_REMOTE, sizeof(struct in6_addr), &p->raddr) ||
+ 	    nla_put_u8(skb, IFLA_GRE_TTL, p->hop_limit) ||
+ 	    /*nla_put_u8(skb, IFLA_GRE_TOS, t->priority) ||*/
+ 	    nla_put_u8(skb, IFLA_GRE_ENCAP_LIMIT, p->encap_limit) ||
+-- 
+1.7.12
