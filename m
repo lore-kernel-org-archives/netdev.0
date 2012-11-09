@@ -1,36 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next v2] gianfar: Fix alloc_skb_resources on
- -ENOMEM cleanup path
-Date: Fri, 09 Nov 2012 17:08:12 -0500 (EST)
-Message-ID: <20121109.170812.1627720982777784196.davem@davemloft.net>
-References: <1352448701-14041-1-git-send-email-claudiu.manoil@freescale.com>
+Subject: Re: [PATCH] gianfar: ethernet vanishes after restoring from
+ hibernation
+Date: Fri, 09 Nov 2012 17:08:59 -0500 (EST)
+Message-ID: <20121109.170859.796967518373395470.davem@davemloft.net>
+References: <1352181848-24102-1-git-send-email-dongsheng.wang@freescale.com>
+	<1352472231-17927-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com
-To: claudiu.manoil@freescale.com
+Cc: netdev@vger.kernel.org, dongsheng.wang@freescale.com,
+	claudiu.manoil@freescale.com
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38857 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38863 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756117Ab2KIWIO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 17:08:14 -0500
-In-Reply-To: <1352448701-14041-1-git-send-email-claudiu.manoil@freescale.com>
+	with ESMTP id S1756098Ab2KIWJB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 17:09:01 -0500
+In-Reply-To: <1352472231-17927-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Date: Fri, 9 Nov 2012 10:11:41 +0200
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Fri,  9 Nov 2012 09:43:51 -0500
 
-> Should gfar_init_bds() return with -ENOMEM inside gfar_alloc_skb_resources(),
-> free_skb_resources() will be called twice in a row on the "cleanup" path,
-> leading to duplicate kfree() calls for rx_|tx_queue->rx_|tx_skbuff resulting
-> in segmentation fault.
-> This patch prevents the segmentation fault to happen in the future
-> (rx_|tx_sbkbuff set to NULL), and corrects the error path handling
-> for gfar_init_bds().
+> From: Wang Dongsheng <dongsheng.wang@freescale.com>
 > 
-> Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+> If a gianfar ethernet device is down prior to hibernating a
+> system, it will no longer be present upon system restore.
 > 
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> For example:
+> 
+> 	~# ifconfig eth0 down
+> 	~# echo disk > /sys/power/state
+> 
+> 	  <trigger a restore from hibernation>
+> 
+> 	~# ifconfig eth0 up
+> 	SIOCSIFFLAGS: No such device
+> 
+> This happens because the restore function bails out early upon
+> finding devices that were not up at hibernation.  In doing so,
+> it never gets to the netif_device_attach call at the end of
+> the restore function.  Adding the netif_device_attach as done
+> here also makes the gfar_restore code consistent with what is
+> done in the gfar_resume code.
+> 
+> Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Signed-off-by: Wang Dongsheng <dongsheng.wang@freescale.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Applied.
+Applied, thanks.
