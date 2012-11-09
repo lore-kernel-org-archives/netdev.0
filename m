@@ -1,86 +1,46 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] 8021q: validate SAN MAC address
-Date: Fri, 9 Nov 2012 23:02:45 +0000
-Message-ID: <1352502165.3159.21.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1352501644-8444-1-git-send-email-mchan@broadcom.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: [PATCH] vxlan: Fix error that was resulting in VXLAN MTU size being
+	10 bytes too large
+Date: Fri, 09 Nov 2012 15:35:24 -0800
+Message-ID: <20121109233354.17208.36271.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Cc: davem@davemloft.net, shemminger@vyatta.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:28024 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751694Ab2KIXCs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 18:02:48 -0500
-In-Reply-To: <1352501644-8444-1-git-send-email-mchan@broadcom.com>
+Received: from mga14.intel.com ([143.182.124.37]:55812 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751004Ab2KIXfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Nov 2012 18:35:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-09 at 14:54 -0800, Michael Chan wrote:
-> Some bnx2x multi-function devices are configured for FCoE only in
-> a PCI function and only has a SAN MAC address.  The current code
-> will fail ->ndo_validate_addr() when a VLAN device is brought up
-> over such a device.
-> 
-> Check the real device's dev_addrs[] for a valid SAN MAC address
-> when validating the MAC address if the regular MAC address is not
-> valid.
+This change fixes an issue I found where VXLAN frames were fragmented when
+they were up to the VXLAN MTU size.  I root caused the issue to the fact that
+the headroom was 4 + 20 + 8 + 8.  This math doesn't appear to be correct
+because we are not inserting a VLAN header, but instead a 2nd Ethernet header.
+As such the math for the overhead should be 20 + 8 + 8 + 14 to account for the
+extra headers that are inserted for VXLAN.
 
-So the VLAN device's own address is being completely ignored?
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
 
-Ben.
+ drivers/net/vxlan.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> ---
->  net/8021q/vlan_dev.c |   25 ++++++++++++++++++++++++-
->  1 files changed, 24 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index 6da96d4..9ef2d2e 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -346,6 +346,29 @@ static int vlan_dev_stop(struct net_device *dev)
->  	return 0;
->  }
->  
-> +static int vlan_dev_validate_addr(struct net_device *dev)
-> +{
-> +	if (!is_valid_ether_addr(dev->dev_addr)) {
-> +		struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
-> +
-> +		if (real_dev) {
-> +			struct netdev_hw_addr *ha;
-> +
-> +			rcu_read_lock();
-> +			for_each_dev_addr(real_dev, ha) {
-> +				if ((ha->type == NETDEV_HW_ADDR_T_SAN) &&
-> +				    (is_valid_ether_addr(ha->addr))) {
-> +					rcu_read_unlock();
-> +					return 0;
-> +				}
-> +			}
-> +			rcu_read_unlock();
-> +		}
-> +		return -EADDRNOTAVAIL;
-> +	}
-> +	return 0;
-> +}
-> +
->  static int vlan_dev_set_mac_address(struct net_device *dev, void *p)
->  {
->  	struct net_device *real_dev = vlan_dev_priv(dev)->real_dev;
-> @@ -734,7 +757,7 @@ static const struct net_device_ops vlan_netdev_ops = {
->  	.ndo_open		= vlan_dev_open,
->  	.ndo_stop		= vlan_dev_stop,
->  	.ndo_start_xmit =  vlan_dev_hard_start_xmit,
-> -	.ndo_validate_addr	= eth_validate_addr,
-> +	.ndo_validate_addr	= vlan_dev_validate_addr,
->  	.ndo_set_mac_address	= vlan_dev_set_mac_address,
->  	.ndo_set_rx_mode	= vlan_dev_set_rx_mode,
->  	.ndo_change_rx_flags	= vlan_dev_change_rx_flags,
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 410ebc8..0b75c19 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -51,8 +51,8 @@
+ 
+ #define VXLAN_N_VID	(1u << 24)
+ #define VXLAN_VID_MASK	(VXLAN_N_VID - 1)
+-/* VLAN + IP header + UDP + VXLAN */
+-#define VXLAN_HEADROOM (4 + 20 + 8 + 8)
++/* IP header + UDP + VXLAN + Ethernet header */
++#define VXLAN_HEADROOM (20 + 8 + 8 + 14)
+ 
+ #define VXLAN_FLAGS 0x08000000	/* struct vxlanhdr.vx_flags required value. */
+ 
