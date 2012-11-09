@@ -1,53 +1,35 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH] gianfar: ethernet vanishes after restoring from hibernation
-Date: Fri, 9 Nov 2012 18:02:12 +0200
-Message-ID: <509D2904.8050602@freescale.com>
-References: <1352181848-24102-1-git-send-email-dongsheng.wang@freescale.com> <1352472231-17927-1-git-send-email-paul.gortmaker@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] gre6: fix rtnl dump messages
+Date: Fri, 09 Nov 2012 08:09:06 -0800
+Message-ID: <1352477346.19779.710.camel@edumazet-glaptop>
+References: <1352467361.19779.569.camel@edumazet-glaptop>
+	 <1352475296-14675-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Wang Dongsheng <dongsheng.wang@freescale.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.32.180.186] ([216.32.180.186]:12171 "EHLO
-	co1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752914Ab2KIQDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 11:03:53 -0500
-In-Reply-To: <1352472231-17927-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:42766 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751565Ab2KIQJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 11:09:08 -0500
+Received: by mail-pb0-f46.google.com with SMTP id rr4so2927943pbb.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 08:09:08 -0800 (PST)
+In-Reply-To: <1352475296-14675-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/9/2012 4:43 PM, Paul Gortmaker wrote:
-> From: Wang Dongsheng <dongsheng.wang@freescale.com>
->
-> If a gianfar ethernet device is down prior to hibernating a
-> system, it will no longer be present upon system restore.
->
-> For example:
->
-> 	~# ifconfig eth0 down
-> 	~# echo disk > /sys/power/state
->
-> 	  <trigger a restore from hibernation>
->
-> 	~# ifconfig eth0 up
-> 	SIOCSIFFLAGS: No such device
->
-> This happens because the restore function bails out early upon
-> finding devices that were not up at hibernation.  In doing so,
-> it never gets to the netif_device_attach call at the end of
-> the restore function.  Adding the netif_device_attach as done
-> here also makes the gfar_restore code consistent with what is
-> done in the gfar_resume code.
->
-> Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+On Fri, 2012-11-09 at 16:34 +0100, Nicolas Dichtel wrote:
+> Spotted after a code review.
+> Introduced by c12b395a46646bab69089ce7016ac78177f6001f (gre: Support GRE over
+> IPv6).
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+> v2: rebase the patch against net
+>     add the commit that introduces the bug
 
-Hello Paul,
+Thanks !
 
-Thought I don't have the proper setup to test the hibernation feature,
-I agree with this patch especially now that the description is much
-clearer. I fully agree on the consistency argument b/w gfar_restore and
-gfar_resume. (good observation)
-
-Acked-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
