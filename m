@@ -1,49 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 1/9] net: core: use this_cpu_ptr per-cpu helper
-Date: Fri, 09 Nov 2012 12:15:44 -0800
-Message-ID: <1352492144.19779.811.camel@edumazet-glaptop>
-References: <509C686F.20400@gmail.com>
-	 <0000013ae6c9e81a-eabe295b-72a5-4ebd-85c5-231bec1a70c5-000000@email.amazonses.com>
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Re: How to compile tcp fast open client app with kernel tfo client
+ support ?
+Date: Fri, 9 Nov 2012 12:17:30 -0800
+Message-ID: <CAK3+h2xAqjs8CvkcwXiFryyQhDnohsN7-0KfQVjpegZh_AD1eg@mail.gmail.com>
+References: <CAK3+h2xmgy+RhUy=MZ5Cu8Zpz+gQmt3dXCX0tpLAWFCTeujBLA@mail.gmail.com>
+	<CAGK4HS-U+Ov5x8z+1CRZdiAD9MhfBUfurKKBbt1EWGYFLN8TcA@mail.gmail.com>
+	<CAK3+h2z5=n6BHGzPjfbrJS4MbVGQ2pdMQP54dOZ8M=8xigUd3Q@mail.gmail.com>
+	<CAK6E8=fc=hYppk=4+tnNF9UPvQNFhw8YKo-ebG2y6FwXTft_EQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Shan Wei <shanwei88@gmail.com>, David Miller <davem@davemloft.net>,
-	timo.teras@iki.fi, steffen.klassert@secunet.com,
-	NetDev <netdev@vger.kernel.org>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Christoph Lameter <cl@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0000013ae6c9e81a-eabe295b-72a5-4ebd-85c5-231bec1a70c5-000000@email.amazonses.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Vijay Subramanian <subramanian.vijay@gmail.com>,
+	netdev@vger.kernel.org
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:33258 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754848Ab2KIURb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 15:17:31 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k13so6505561iea.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 12:17:30 -0800 (PST)
+In-Reply-To: <CAK6E8=fc=hYppk=4+tnNF9UPvQNFhw8YKo-ebG2y6FwXTft_EQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-09 at 20:08 +0000, Christoph Lameter wrote:
-> On Fri, 9 Nov 2012, Shan Wei wrote:
-> 
-> > diff --git a/net/core/flow.c b/net/core/flow.c
-> > index e318c7e..b0901ee 100644
-> > --- a/net/core/flow.c
-> > +++ b/net/core/flow.c
-> > @@ -327,11 +327,9 @@ static void flow_cache_flush_tasklet(unsigned long data)
-> >  static void flow_cache_flush_per_cpu(void *data)
-> >  {
-> >  	struct flow_flush_info *info = data;
-> > -	int cpu;
-> >  	struct tasklet_struct *tasklet;
-> >
-> > -	cpu = smp_processor_id();
-> > -	tasklet = &per_cpu_ptr(info->cache->percpu, cpu)->flush_tasklet;
-> > +	tasklet = this_cpu_ptr(&info->cache->percpu->flush_tasklet);
-> >  	tasklet->data = (unsigned long)info;
-> 
-> this_cpu_write(info->cache->percpu->flush_tasklet->data, (unsigned
-> 	long)info);
-> 
-> should also do the trick in less instructions and get rid of all temporary
-> variables as well.
+> Hi Vincent,
+>
+> Note that MSG_FASTOPEN flag should be used only once. Subsequent
+> sendto(MSG_FASTOPEN) == connect() on connected sockets. You can verify
+> if the fast open is successful by checking a bit in TCP_INFO.
+> http://patchwork.o zlabs.org/patch/192883/ if you are running a fresh
+> netdev build.
+>
+> I'll submit a patch to update the man page on MSG_FASTOPEN too.
+>
+> Yuchung
+>
 
-Its not the case.
+I have tried to run fresh build net-next, for some reason the build
+stops ssh service from starting up, tried 3.7.0-rc4 too, same issue. I
+don't know if it is new kernel bug or ubuntu upstart bug, but that is
+another issue.
 
-We need the _pointer_ to call :
+I will study the tcp fast open more, thanks.
 
-tasklet_schedule(tasklet);
+Vincent
