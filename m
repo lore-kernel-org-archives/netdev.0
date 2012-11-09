@@ -1,63 +1,61 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next] ipv6: export IP6_RT_PRIO_* to userland
-Date: Fri, 09 Nov 2012 10:43:34 +0100
-Message-ID: <509CD046.4060302@6wind.com>
-References: <1352129298-1104-1-git-send-email-nicolas.dichtel@6wind.com> <20121105.120017.1189906314924845791.davem@davemloft.net> <5097F5DF.7040507@6wind.com> <20121105.124305.1002288640313724910.davem@davemloft.net> <5098127A.2040405@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: [PATCH] kaweth:BQL support
+Date: Fri,  9 Nov 2012 13:19:47 +0100
+Message-ID: <1352463587-23899-1-git-send-email-oliver@neukum.org>
+Cc: Oliver Neukum <oliver@neukum.org>, Oliver Neukum <oneukum@suse.de>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:51740 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751017Ab2KIJnj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 04:43:39 -0500
-Received: by mail-bk0-f46.google.com with SMTP id jk13so1531480bkc.19
-        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 01:43:38 -0800 (PST)
-In-Reply-To: <5098127A.2040405@6wind.com>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:42854 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752262Ab2KIMTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 07:19:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 05/11/2012 20:24, Nicolas Dichtel a =E9crit :
-> Le 05/11/2012 18:43, David Miller a =E9crit :
->> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> Date: Mon, 05 Nov 2012 18:22:39 +0100
->>
->>> Le 05/11/2012 18:00, David Miller a =E9crit :
->>>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>>> Date: Mon,  5 Nov 2012 16:28:18 +0100
->>>>
->>>>> The kernel uses some default metric when routes are managed. For
->>>>> example, a
->>>>> static route added with a metric set to 0 is inserted in the kern=
-el
->>>>> with
->>>>> metric 1024 (IP6_RT_PRIO_USER).
->>>>> It is useful for routing daemons to know these values, to be able=
- to
->>>>> set routes
->>>>> without interfering with what the kernel does.
->>>>>
->>>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>>>
->>>> But these belong in the libc headers anyways.
->>>>
->>>> If we haven't provided them for so long, there's no real value of
->>>> adding them now.
->>>>
->>> But how can a daemon know which default values are used? If it want=
-s
->>> to add a route with metric =3D default + x, it should first add it =
-with
->>> metric =3D 0, check the result and then change the metric.
->>
->> What do we do on the ipv4 side and how do daemons cope in that situa=
-tion?
->>
-> In IPv4, there is no such default metric. If you add a route with met=
-ric X, it
-> remains X in the kernel, even if it's 0.
-So we need to duplicate these values in the daemon?
+This adds the callbacks for the statistics necessary for BQL
+
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
+---
+ drivers/net/usb/kaweth.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
+index afb117c..f30e07f 100644
+--- a/drivers/net/usb/kaweth.c
++++ b/drivers/net/usb/kaweth.c
+@@ -715,6 +715,7 @@ static int kaweth_open(struct net_device *net)
+ 		usb_kill_urb(kaweth->rx_urb);
+ 		goto err_out;
+ 	}
++	netdev_reset_queue(net);
+ 	kaweth->opened = 1;
+ 
+ 	netif_start_queue(net);
+@@ -783,6 +784,7 @@ static void kaweth_usb_transmit_complete(struct urb *urb)
+ {
+ 	struct kaweth_device *kaweth = urb->context;
+ 	struct sk_buff *skb = kaweth->tx_skb;
++	struct net_device *net = kaweth->net;
+ 	int status = urb->status;
+ 
+ 	if (unlikely(status != 0))
+@@ -790,7 +792,8 @@ static void kaweth_usb_transmit_complete(struct urb *urb)
+ 			dev_dbg(&urb->dev->dev, "%s: TX status %d.\n",
+ 				kaweth->net->name, status);
+ 
+-	netif_wake_queue(kaweth->net);
++	netif_wake_queue(net);
++	netdev_completed_queue(net, 1, skb->len - 2);
+ 	dev_kfree_skb_irq(skb);
+ }
+ 
+@@ -854,6 +857,7 @@ skip:
+ 	{
+ 		kaweth->stats.tx_packets++;
+ 		kaweth->stats.tx_bytes += skb->len;
++		netdev_sent_queue(net, skb->len - 2);
+ 	}
+ 
+ 	spin_unlock_irq(&kaweth->device_lock);
+-- 
+1.7.7
