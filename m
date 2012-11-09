@@ -1,147 +1,86 @@
-From: Vincent Li <vincent.mc.li@gmail.com>
-Subject: How to compile tcp fast open client app with kernel tfo client
- support ?
-Date: Fri, 9 Nov 2012 10:05:43 -0800
-Message-ID: <CAK3+h2xmgy+RhUy=MZ5Cu8Zpz+gQmt3dXCX0tpLAWFCTeujBLA@mail.gmail.com>
+From: "Li, Sibai" <sibai.li@intel.com>
+Subject: RE: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+ for SR-IOV)
+Date: Fri, 9 Nov 2012 18:08:00 +0000
+Message-ID: <A3A921390EAE4044940E99EBF13D97321AE2114C@FMSMSX104.amr.corp.intel.com>
+References: <201211081915083774239@gmail.com>	<509B962C.6070002@gmail.com>
+	<C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com>
+ <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
+ <C5551D9AAB213A418B7FD5E4A6F30A072D5683CF@ORSMSX106.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=e89a8f646759de10af04ce13ccb6
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>
+To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	Jason Gao <pkill.2012@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:35174 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753502Ab2KISFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 13:05:44 -0500
-Received: by mail-ie0-f174.google.com with SMTP id k13so6311087iea.19
-        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 10:05:43 -0800 (PST)
+Received: from mga11.intel.com ([192.55.52.93]:37613 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751454Ab2KISIH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 13:08:07 -0500
+In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A072D5683CF@ORSMSX106.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---e89a8f646759de10af04ce13ccb6
-Content-Type: text/plain; charset=ISO-8859-1
+Jason,
 
-Hi,
+DellR710 with the latest BIOS should work fine for SR-IOV. My BIOS is v.6.3.0 and release date is 07/24/2012
+Please check if you configured intel_iommu=on in the grub.conf file. 
+If you did, check your kernel .config file under Device Drivers-> IOMMU Hardware support->enable Support for Intel IOMMU using DMA remapping Devices, enable Intel DMA Remapping Devices by Default, enable Support for Interrupt Remapping.
 
-this is sort of off toptic, sorry for the noise.
+Thanks,
+Sibai
 
-I am running ubuntu 10.0.4 with kernel 3.6.0 with tfo client support,
-then I have simple client code that i want to use to test tcp fast
-open, here is part of the code:
-
-  int sent = 0;
-  while(sent < strlen(get))
-  {
-    tmpres = sendto(sock, get+sent, strlen(get)-sent, MSG_FASTOPEN,
-(struct sockaddr *)remote, sizeof(struct sockaddr));
-    if(tmpres == -1){
-      perror("Can't send query");
-      exit(1);
-    }
-    sent += tmpres;
-  }
-
-when i compile it, as gcc -o htmlgettfo htmlgettfo.c, I got:
-
-htmlgettfo.c: In function 'get_page_thread':
-htmlgettfo.c:109: error: 'MSG_FASTOPEN' undeclared (first use in this function)
-htmlgettfo.c:109: error: (Each undeclared identifier is reported only once
-htmlgettfo.c:109: error: for each function it appears in.)
-
-I have the 3.6.0 kernel header file package installed
-/usr/src/linux-headers-3.6.0-custom, the user space include file
-/usr/include/linux is original one coming with 10.0.4 distro kernel
-
-I am suspecting I don't have proper linux header file that has
-MSG_FASTOPEN declared in user space. can anyone shed a light on how to
-get MSG_FASTOPEN supported and compiled in client code properly?
-
-I am attempting to use the test client code to test one of our load
-balancer and see how it responds.
-
-
-I attached my test code
-
-Thanks
-
-Vincent
-
---e89a8f646759de10af04ce13ccb6
-Content-Type: text/plain; charset=US-ASCII; name="htmlgettfo.c.txt"
-Content-Disposition: attachment; filename="htmlgettfo.c.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_h9bm5s1w0
-
-I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzeXMvc29ja2V0Lmg+CiNpbmNsdWRlIDxhcnBh
-L2luZXQuaD4KI2luY2x1ZGUgPHN0ZGxpYi5oPgojaW5jbHVkZSA8bmV0ZGIuaD4KI2luY2x1ZGUg
-PHN0cmluZy5oPgoKI2luY2x1ZGUgPHB0aHJlYWQuaD4KI2luY2x1ZGUgPHVuaXN0ZC5oPgojaW5j
-bHVkZSA8bGludXgtMy42LjAvc29ja2V0Lmg+CgojZGVmaW5lIE1BWF9IT1NUX1BBR0UgMgoKc3Ry
-dWN0IGhvc3RfcGFnZSB7CiAgICBjaGFyICpob3N0OwogICAgY2hhciAqcGFnZTsKfSBocFtNQVhf
-SE9TVF9QQUdFXTsKCmludCB0Y3BfY29ubmVjdChjaGFyICpob3N0KTsKY2hhciAqZ2V0X2lwKGNo
-YXIgKmhvc3QpOwpjaGFyICpidWlsZF9nZXRfcXVlcnkoY2hhciAqaG9zdCwgY2hhciAqcGFnZSk7
-CmludCAqZ2V0X3BhZ2VfdGhyZWFkKHN0cnVjdCBob3N0X3BhZ2UgKmhwKTsKdm9pZCB1c2FnZSgp
-OwoKI2RlZmluZSBIT1NUICJob3N0LmV4YW1wbGUuY29tIgojZGVmaW5lIFBBR0UgIi8iCiNkZWZp
-bmUgUE9SVCA4MAojZGVmaW5lIFVTRVJBR0VOVCAiSFRNTEdFVCAxLjAiCgppbnQgbWFpbihpbnQg
-YXJnYywgY2hhciAqKmFyZ3YpCnsKIAogIHN0cnVjdCBob3N0X3BhZ2UgKmhwcHRyOyAKIAogIGlm
-KGFyZ2MgPT0gMSl7CiAgICB1c2FnZSgpOwogICAgZXhpdCgyKTsKICB9ICAKICBocFswXS5ob3N0
-ID0gYXJndlsxXTsKICBmcHJpbnRmKHN0ZGVyciwgImhwLT5ob3N0OlxuJXNcbiIsIGhwWzBdLmhv
-c3QpOwogIGlmKGFyZ2MgPiAyKXsKICAgIGhwWzBdLnBhZ2UgPSBhcmd2WzJdOwogICAgZnByaW50
-ZihzdGRlcnIsICJob3N0LT5wYWdlOlxuJXNcbiIsIGhwWzBdLnBhZ2UpOwogIH1lbHNlewogICAg
-aHBbMF0ucGFnZSA9IFBBR0U7CiAgfQoKIGhwcHRyID0gJmhwWzBdOwoKICAgIGlmKGdldF9wYWdl
-X3RocmVhZChocHB0cikpewogICAgICBwZXJyb3IoIkNhbid0IGdldCBwYWdlIik7CiAgICAgIGV4
-aXQoMik7CiAgICB9CiAgCn0KCnZvaWQgdXNhZ2UoKQp7CiAgZnByaW50ZihzdGRlcnIsICJVU0FH
-RTogaHRtbGdldCBob3N0IFtwYWdlXVxuXApcdGhvc3Q6IHRoZSB3ZWJzaXRlIGhvc3RuYW1lLiBl
-eDogXG5cClx0cGFnZTogdGhlIHBhZ2UgdG8gcmV0cmlldmUuIGV4OiBpbmRleC5odG1sLCBkZWZh
-dWx0OiAvXG4iKTsKfQoKaW50ICpnZXRfcGFnZV90aHJlYWQoc3RydWN0IGhvc3RfcGFnZSAqaHAp
-ewoKCiAgc3RydWN0IHNvY2thZGRyX2luICpyZW1vdGU7CiAgaW50IHNvY2s7CiAgaW50IHRtcHJl
-czsKICBjaGFyICppcDsKICBjaGFyICpob3N0OwogIGNoYXIgKnBhZ2U7CgogIGhvc3Q9aHAtPmhv
-c3Q7CiAgcGFnZT1ocC0+cGFnZTsKCiAgY2hhciAqZ2V0OwogIGNoYXIgYnVmW0JVRlNJWisxXTsK
-CgogIGlmKChzb2NrID0gc29ja2V0KEFGX0lORVQsIFNPQ0tfU1RSRUFNLCBJUFBST1RPX1RDUCkp
-IDwgMCl7CiAgICBwZXJyb3IoIkNhbid0IGNyZWF0ZSBUQ1Agc29ja2V0Iik7CiAgICByZXR1cm4g
-MDsKICB9CgogIGlwID0gZ2V0X2lwKGhvc3QpOwogIGZwcmludGYoc3RkZXJyLCAiSVAgaXMgJXNc
-biIsIGlwKTsKICByZW1vdGUgPSAoc3RydWN0IHNvY2thZGRyX2luICopbWFsbG9jKHNpemVvZihz
-dHJ1Y3Qgc29ja2FkZHJfaW4gKikpOwogIHJlbW90ZS0+c2luX2ZhbWlseSA9IEFGX0lORVQ7CiAg
-dG1wcmVzID0gaW5ldF9wdG9uKEFGX0lORVQsIGlwLCAodm9pZCAqKSgmKHJlbW90ZS0+c2luX2Fk
-ZHIuc19hZGRyKSkpOwogIGlmKCB0bXByZXMgPCAwKQogIHsKICAgIHBlcnJvcigiQ2FuJ3Qgc2V0
-IHJlbW90ZS0+c2luX2FkZHIuc19hZGRyIik7CiAgICByZXR1cm4gMDsKICB9ZWxzZSBpZih0bXBy
-ZXMgPT0gMCkKICB7CiAgICBmcHJpbnRmKHN0ZGVyciwgIiVzIGlzIG5vdCBhIHZhbGlkIElQIGFk
-ZHJlc3NcbiIsIGlwKTsKICAgIHJldHVybiAwOwogIH0KICByZW1vdGUtPnNpbl9wb3J0ID0gaHRv
-bnMoUE9SVCk7CgogIGdldCA9IGJ1aWxkX2dldF9xdWVyeShob3N0LCBwYWdlKTsKICBmcHJpbnRm
-KHN0ZGVyciwgIlF1ZXJ5IGlzOlxuPDxTVEFSVD4+XG4lczw8RU5EPj5cbiIsIGdldCk7CgogIC8v
-U2VuZCB0aGUgcXVlcnkgdG8gdGhlIHNlcnZlcgogIGludCBzZW50ID0gMDsKICB3aGlsZShzZW50
-IDwgc3RybGVuKGdldCkpCiAgewogICAgdG1wcmVzID0gc2VuZHRvKHNvY2ssIGdldCtzZW50LCBz
-dHJsZW4oZ2V0KS1zZW50LCBNU0dfRkFTVE9QRU4sIChzdHJ1Y3Qgc29ja2FkZHIgKilyZW1vdGUs
-IHNpemVvZihzdHJ1Y3Qgc29ja2FkZHIpKTsKICAgIGlmKHRtcHJlcyA9PSAtMSl7CiAgICAgIHBl
-cnJvcigiQ2FuJ3Qgc2VuZCBxdWVyeSIpOwogICAgICBleGl0KDEpOwogICAgfQogICAgc2VudCAr
-PSB0bXByZXM7CiAgfQogIC8vbm93IGl0IGlzIHRpbWUgdG8gcmVjZWl2ZSB0aGUgcGFnZQogIG1l
-bXNldChidWYsIDAsIHNpemVvZihidWYpKTsKICBpbnQgaHRtbHN0YXJ0ID0gMDsKICBjaGFyICog
-aHRtbGNvbnRlbnQ7CiAgd2hpbGUoKHRtcHJlcyA9IHJlY3Yoc29jaywgYnVmLCBCVUZTSVosIDAp
-KSA+IDApewogICAgaWYoaHRtbHN0YXJ0ID09IDApCiAgICB7CiAgICAgIC8qIFVuZGVyIGNlcnRh
-aW4gY29uZGl0aW9ucyB0aGlzIHdpbGwgbm90IHdvcmsuCiAgICAgICogSWYgdGhlIFxyXG5cclxu
-IHBhcnQgaXMgc3BsaXR0ZWQgaW50byB0d28gbWVzc2FnZXMKICAgICAgKiBpdCB3aWxsIGZhaWwg
-dG8gZGV0ZWN0IHRoZSBiZWdpbm5pbmcgb2YgSFRNTCBjb250ZW50CiAgICAgICovCiAgICAgIGh0
-bWxjb250ZW50ID0gc3Ryc3RyKGJ1ZiwgIlxyXG5cclxuIik7CiAgICAgIGlmKGh0bWxjb250ZW50
-ICE9IE5VTEwpewogICAgICAgIGh0bWxzdGFydCA9IDE7CiAgICAgICAgaHRtbGNvbnRlbnQgKz0g
-NDsKICAgICAgfQogICAgfWVsc2V7CiAgICAgIGh0bWxjb250ZW50ID0gYnVmOwogICAgfQogICAg
-aWYoaHRtbHN0YXJ0KXsKICAgICAvKiBmcHJpbnRmKHN0ZG91dCwgaHRtbGNvbnRlbnQpOyAqLwog
-ICAgICBmcHJpbnRmKHN0ZG91dCwgIiVzIiwgaHRtbGNvbnRlbnQpOwogICAgfQoKICAgIG1lbXNl
-dChidWYsIDAsIHRtcHJlcyk7CiAgfQogIGlmKHRtcHJlcyA8IDApCiAgewogICAgcGVycm9yKCJF
-cnJvciByZWNlaXZpbmcgZGF0YSIpOwogIH0KICBmcmVlKGdldCk7CiAgZnJlZShyZW1vdGUpOwog
-IGZyZWUoaXApOwogIGNsb3NlKHNvY2spOwogIHJldHVybiAwOwoKfQoKCgpjaGFyICpnZXRfaXAo
-Y2hhciAqaG9zdCkKewogIHN0cnVjdCBob3N0ZW50ICpoZW50OwogIGludCBpcGxlbiA9IDE1OyAv
-L1hYWC5YWFguWFhYLlhYWAogIGNoYXIgKmlwID0gKGNoYXIgKiltYWxsb2MoaXBsZW4rMSk7CiAg
-bWVtc2V0KGlwLCAwLCBpcGxlbisxKTsKICBpZigoaGVudCA9IGdldGhvc3RieW5hbWUoaG9zdCkp
-ID09IE5VTEwpCiAgewogICAgaGVycm9yKCJDYW4ndCBnZXQgSVAiKTsKICAgIGV4aXQoMSk7CiAg
-fQogIGlmKGluZXRfbnRvcChBRl9JTkVULCAodm9pZCAqKWhlbnQtPmhfYWRkcl9saXN0WzBdLCBp
-cCwgaXBsZW4pID09IE5VTEwpCiAgewogICAgcGVycm9yKCJDYW4ndCByZXNvbHZlIGhvc3QiKTsK
-ICAgIGV4aXQoMSk7CiAgfQogIHJldHVybiBpcDsKfQoKY2hhciAqYnVpbGRfZ2V0X3F1ZXJ5KGNo
-YXIgKmhvc3QsIGNoYXIgKnBhZ2UpCnsKICBjaGFyICpxdWVyeTsKICBjaGFyICpnZXRwYWdlID0g
-cGFnZTsKICBjaGFyICp0cGwgPSAiR0VUIC8lcyBIVFRQLzEuMFxyXG5Ib3N0OiAlc1xyXG5Vc2Vy
-LUFnZW50OiAlc1xyXG5cclxuIjsKLypjaGFyICp0cGwgPSAiR0VUIC8lcyBIVFRQLzEuMVxyXG5I
-b3N0OiAlc1xyXG5Vc2VyLUFnZW50OiAlc1xyXG5Db25uZWN0aW9uOiBjbG9zZVxyXG5cclxuIjsg
-Ki8KICBpZihnZXRwYWdlWzBdID09ICcvJyl7CiAgICBnZXRwYWdlID0gZ2V0cGFnZSArIDE7CiAg
-ICBmcHJpbnRmKHN0ZGVyciwiUmVtb3ZpbmcgbGVhZGluZyBcIi9cIiwgY29udmVydGluZyAlcyB0
-byAlc1xuIiwgcGFnZSwgZ2V0cGFnZSk7CiAgfQogIC8vIC01IGlzIHRvIGNvbnNpZGVyIHRoZSAl
-cyAlcyAlcyBpbiB0cGwgYW5kIHRoZSBlbmRpbmcgXDAKICBxdWVyeSA9IChjaGFyICopbWFsbG9j
-KHN0cmxlbihob3N0KStzdHJsZW4oZ2V0cGFnZSkrc3RybGVuKFVTRVJBR0VOVCkrc3RybGVuKHRw
-bCktNSk7CiAgc3ByaW50ZihxdWVyeSwgdHBsLCBnZXRwYWdlLCBob3N0LCBVU0VSQUdFTlQpOwog
-IHJldHVybiBxdWVyeTsKfQoK
---e89a8f646759de10af04ce13ccb6--
+> -----Original Message-----
+> From: Rose, Gregory V
+> Sent: Friday, November 09, 2012 9:16 AM
+> To: Jason Gao; Li, Sibai
+> Cc: Kirsher, Jeffrey T; linux-kernel; netdev; kvm
+> Subject: RE: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+> for SR-IOV)
+> 
+> > -----Original Message-----
+> > From: Jason Gao [mailto:pkill.2012@gmail.com]
+> > Sent: Thursday, November 08, 2012 8:00 PM
+> > To: Rose, Gregory V
+> > Cc: Kirsher, Jeffrey T; linux-kernel; netdev; kvm; e1000-
+> > devel@lists.sourceforge.net
+> > Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO
+> > resources for SR-IOV)
+> >
+> > > The BIOS in your machine doesn't support SR-IOV.  You'll need to ask
+> > > the
+> > manufacturer for a BIOS upgrade, if in fact one is available.
+> > Sometimes they're not.
+> >
+> > very thanks Greg,my server Dell R710 with latest BIOS version and
+> > option for SR-IOV(SR-IOV Global Enable->Enabled)  opened,I'm confused
+> > that Does
+> > R710 provide full support for SR-IOV, kernel or  ixgbe driver's bug?
+> > but I'm not sure where the problem lies,anyone has any
+> > experience about this?   .
+> 
+> I use a Dell R710 for all my SR-IOV testing and it works fine but I had to acquire a
+> special BIOS from Dell to get it to work.  As I said, you'll want to contact them
+> and make sure you've got the correct BIOS.
+> 
+> The error you're seeing, "not enough MMIO resources" has been an issue with
+> the BIOS 100% of the times that we've run into it.  In any case, it is NOT a driver
+> bug.  The driver has nothing to do with allocation of MMIO space reservation for
+> VF devices.  The message you're seeing pops up when the driver calls
+> pci_enable_sriov().  There is nothing the driver can do to force that call to be
+> successful.
+> 
+> I've added Sibai Li to this response.  She should be able to get the BIOS version
+> string off of one of our working Dell R710s.
+> 
+> Sibai,
+> 
+> Could you please reply to this message with that information?
+> 
+> Thanks,
+> 
+> - Greg
