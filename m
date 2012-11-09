@@ -1,48 +1,44 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: gro vs vlan in myri10ge
-Date: Thu, 08 Nov 2012 21:20:08 -0500
-Message-ID: <509C6858.6010105@myri.com>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: [PATCH v3 1/9] net: core: use this_cpu_ptr per-cpu helper
+Date: Fri, 09 Nov 2012 10:20:31 +0800
+Message-ID: <509C686F.20400@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f46.google.com ([209.85.213.46]:47612 "EHLO
-	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756980Ab2KICUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 21:20:11 -0500
-Received: by mail-yh0-f46.google.com with SMTP id m54so727021yhm.19
-        for <netdev@vger.kernel.org>; Thu, 08 Nov 2012 18:20:10 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Miller <davem@davemloft.net>, timo.teras@iki.fi,
+	steffen.klassert@secunet.com, NetDev <netdev@vger.kernel.org>,
+	Kernel-Maillist <linux-kernel@vger.kernel.org>,
+	cl@linux-foundation.org, Shan Wei <shanwei88@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Shan Wei <davidshan@tencent.com>
 
-I've wanted to convert myri10ge from LRO to GRO for quite a while.
-The problem I'm facing is that the NIC cannot perform hardware vlan
-tag offload, so GRO performance is far below LRO performance when
-receiving vlan tagged TCP traffic.
+flush_tasklet is a struct, not a pointer in percpu var.
+so use this_cpu_ptr to get the member pointer.
 
-If a vlan tagged frame is passed to lro_receive_frags(), inet_lro will
-look at the encapsulated IPv4 frame and TCP aggregation will succeed.
-However, it appears that GRO will not do this.  When I patch the
-driver to use GRO, and configure a vlan interface, I see high CPU
-utilization and poor bandwidth when I'm receiving a netperf TCP stream
-on the vlan interface.  If I use LRO in an unpatched driver, then I
-see good receive performance in the same scenario.
+Signed-off-by: Shan Wei <davidshan@tencent.com>
+---
+ net/core/flow.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-What is the best way to "fix" this?
-
-Unless I'm just using GRO wrong, it seems that the simplest thing for
-me to do is to claim NETIF_F_HW_VLAN_RX, but pop the tags in the
-driver so as to allow myri10ge to pass up a non-encapsulated frame the
-same way that (nearly?) every other 10GbE NIC does.  I've got a quick
-and dirty patch that confirms doing the vtag pop in the driver gives
-me roughly the same performance with GRO as I used to have with LRO.
-
-Is this (popping vlan tags in the driver) acceptable, or is it
-too much of a layering violation?
-
-Thanks,
-
-Drew
+diff --git a/net/core/flow.c b/net/core/flow.c
+index e318c7e..b0901ee 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -327,11 +327,9 @@ static void flow_cache_flush_tasklet(unsigned long data)
+ static void flow_cache_flush_per_cpu(void *data)
+ {
+ 	struct flow_flush_info *info = data;
+-	int cpu;
+ 	struct tasklet_struct *tasklet;
+ 
+-	cpu = smp_processor_id();
+-	tasklet = &per_cpu_ptr(info->cache->percpu, cpu)->flush_tasklet;
++	tasklet = this_cpu_ptr(&info->cache->percpu->flush_tasklet);
+ 	tasklet->data = (unsigned long)info;
+ 	tasklet_schedule(tasklet);
+ }
+-- 
+1.7.1
