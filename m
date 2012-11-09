@@ -1,52 +1,63 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 4/4] gre6: fix rtnl dump messages
-Date: Fri,  9 Nov 2012 10:51:11 +0100
-Message-ID: <1352454671-4336-5-git-send-email-nicolas.dichtel@6wind.com>
-References: <1352454671-4336-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
+Subject: Re: [PATCH net-next] ipv6: export IP6_RT_PRIO_* to userland
+Date: Fri, 09 Nov 2012 10:43:34 +0100
+Message-ID: <509CD046.4060302@6wind.com>
+References: <1352129298-1104-1-git-send-email-nicolas.dichtel@6wind.com> <20121105.120017.1189906314924845791.davem@davemloft.net> <5097F5DF.7040507@6wind.com> <20121105.124305.1002288640313724910.davem@davemloft.net> <5098127A.2040405@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:57272 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751679Ab2KIJk0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 04:40:26 -0500
-In-Reply-To: <1352454671-4336-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:51740 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017Ab2KIJnj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 04:43:39 -0500
+Received: by mail-bk0-f46.google.com with SMTP id jk13so1531480bkc.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 01:43:38 -0800 (PST)
+In-Reply-To: <5098127A.2040405@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Spotted after a code review.
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ip6_gre.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index bbe2e7b..12aa473 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1633,9 +1633,9 @@ static size_t ip6gre_get_size(const struct net_device *dev)
- 		/* IFLA_GRE_OKEY */
- 		nla_total_size(4) +
- 		/* IFLA_GRE_LOCAL */
--		nla_total_size(4) +
-+		nla_total_size(sizeof(struct in6_addr)) +
- 		/* IFLA_GRE_REMOTE */
--		nla_total_size(4) +
-+		nla_total_size(sizeof(struct in6_addr)) +
- 		/* IFLA_GRE_TTL */
- 		nla_total_size(1) +
- 		/* IFLA_GRE_TOS */
-@@ -1659,8 +1659,8 @@ static int ip6gre_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_be16(skb, IFLA_GRE_OFLAGS, p->o_flags) ||
- 	    nla_put_be32(skb, IFLA_GRE_IKEY, p->i_key) ||
- 	    nla_put_be32(skb, IFLA_GRE_OKEY, p->o_key) ||
--	    nla_put(skb, IFLA_GRE_LOCAL, sizeof(struct in6_addr), &p->raddr) ||
--	    nla_put(skb, IFLA_GRE_REMOTE, sizeof(struct in6_addr), &p->laddr) ||
-+	    nla_put(skb, IFLA_GRE_LOCAL, sizeof(struct in6_addr), &p->laddr) ||
-+	    nla_put(skb, IFLA_GRE_REMOTE, sizeof(struct in6_addr), &p->raddr) ||
- 	    nla_put_u8(skb, IFLA_GRE_TTL, p->hop_limit) ||
- 	    /*nla_put_u8(skb, IFLA_GRE_TOS, t->priority) ||*/
- 	    nla_put_u8(skb, IFLA_GRE_ENCAP_LIMIT, p->encap_limit) ||
--- 
-1.7.12
+Le 05/11/2012 20:24, Nicolas Dichtel a =E9crit :
+> Le 05/11/2012 18:43, David Miller a =E9crit :
+>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> Date: Mon, 05 Nov 2012 18:22:39 +0100
+>>
+>>> Le 05/11/2012 18:00, David Miller a =E9crit :
+>>>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>>> Date: Mon,  5 Nov 2012 16:28:18 +0100
+>>>>
+>>>>> The kernel uses some default metric when routes are managed. For
+>>>>> example, a
+>>>>> static route added with a metric set to 0 is inserted in the kern=
+el
+>>>>> with
+>>>>> metric 1024 (IP6_RT_PRIO_USER).
+>>>>> It is useful for routing daemons to know these values, to be able=
+ to
+>>>>> set routes
+>>>>> without interfering with what the kernel does.
+>>>>>
+>>>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>>>
+>>>> But these belong in the libc headers anyways.
+>>>>
+>>>> If we haven't provided them for so long, there's no real value of
+>>>> adding them now.
+>>>>
+>>> But how can a daemon know which default values are used? If it want=
+s
+>>> to add a route with metric =3D default + x, it should first add it =
+with
+>>> metric =3D 0, check the result and then change the metric.
+>>
+>> What do we do on the ipv4 side and how do daemons cope in that situa=
+tion?
+>>
+> In IPv4, there is no such default metric. If you add a route with met=
+ric X, it
+> remains X in the kernel, even if it's 0.
+So we need to duplicate these values in the daemon?
