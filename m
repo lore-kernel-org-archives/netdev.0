@@ -1,37 +1,53 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: question on netdev_completed_queue()
-Date: Fri, 09 Nov 2012 17:58:08 +0100
-Message-ID: <16131769.FsMAT47cqV@linux-lqwf.site>
-References: <1476426.QTHA7ibVHZ@linux-lqwf.site> <1352407453.2771.18.camel@bwh-desktop.uk.solarflarecom.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next 1/3] ipip: advertise tunnel param via rtnl
+Date: Fri, 09 Nov 2012 18:00:59 +0100
+Message-ID: <509D36CB.9030509@6wind.com>
+References: <1352467239.19779.564.camel@edumazet-glaptop>  <1352477401-19044-1-git-send-email-nicolas.dichtel@6wind.com>  <1352477401-19044-2-git-send-email-nicolas.dichtel@6wind.com> <1352479020.19779.741.camel@edumazet-glaptop>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out002.kontent.com ([81.88.40.216]:50981 "EHLO
-	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754194Ab2KIQ6E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 11:58:04 -0500
-In-Reply-To: <1352407453.2771.18.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:64508 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754748Ab2KIRBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 12:01:03 -0500
+Received: by mail-ea0-f174.google.com with SMTP id c13so1549747eaa.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 09:01:01 -0800 (PST)
+In-Reply-To: <1352479020.19779.741.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 08 November 2012 20:44:13 Ben Hutchings wrote:
-> On Thu, 2012-11-08 at 20:38 +0100, Oliver Neukum wrote:
-> > Hi,
-> > 
-> > is this function to be called whenever a driver is done with transmitting
-> > data, whether the transmission be successful or not?
-> 
-> Yes, BQL tracks number of packets and bytes in each queue and you have
-> to tell it about all insertions and removals from the queue.  (Except
-> that if you flush the queue, you can use netdev_reset_queue() rather
-> than trying to counting the remaining packets and bytes.)
+Le 09/11/2012 17:37, Eric Dumazet a =C3=A9crit :
+> On Fri, 2012-11-09 at 17:09 +0100, Nicolas Dichtel wrote:
+>> It is usefull for daemons that monitor link event to have the full p=
+arameters of
+>> these interfaces when a rtnl message is sent.
+>> It allows also to dump them via rtnetlink.
+>>
+>> It is based on what is done for GRE tunnels.
+>>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> ---
+>
+> Nice !
+>
+> Note this also adds support for link creation.
+>
+> Do you plan to add iproute2 support for :
+>
+> ip link add ipip1 type ipip remote 10.246.8.36
+>
+> Thanks
+>
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Thank you. That opens up the next question. How exact does the count
-have to be? Do you care about the exact amount of data or does it just
-have to be internally consistent?
+If the principle is approved, yes. If we add it, we will have two
+ways to manage these tunnels, via netlink and via ioctl, is it ok?
 
-	Regards
-		Oliver
+A side effect could be to have an option or an argument to the module t=
+o not=20
+create the control interface (tunl0, sit0, ...).
