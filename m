@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] irda: sh-irda: Remove SH7377 support
-Date: Thu, 08 Nov 2012 21:59:58 -0500 (EST)
-Message-ID: <20121108.215958.1117667089717288356.davem@davemloft.net>
-References: <1352360667-9341-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-	<1352360667-9341-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Subject: Re: [PATCH] xfrm: remove redundant replay_esn check
+Date: Thu, 08 Nov 2012 22:00:20 -0500 (EST)
+Message-ID: <20121108.220020.884271049343560692.davem@davemloft.net>
+References: <20121108101544.GA30309@uweber-WS>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, samuel@sortiz.org
-To: nobuhiro.iwamatsu.yj@renesas.com
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: ulrich.weber@sophos.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60103 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60112 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757256Ab2KIC77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 21:59:59 -0500
-In-Reply-To: <1352360667-9341-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+	with ESMTP id S1756964Ab2KIDAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 22:00:24 -0500
+In-Reply-To: <20121108101544.GA30309@uweber-WS>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Date: Thu,  8 Nov 2012 16:44:27 +0900
+From: Ulrich Weber <ulrich.weber@sophos.com>
+Date: Thu, 8 Nov 2012 11:15:44 +0100
 
-> The shmobile SH7377 already was removed from source tree.
-> This remove SH7377 support for sh-irda.
+> x->replay_esn is already checked in if clause,
+> so remove check and ident properly
 > 
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+> Signed-off-by: Ulrich Weber <ulrich.weber@sophos.com>
 
-Applied.
+Steffen, I assume you'll pick this one up.
