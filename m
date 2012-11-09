@@ -1,89 +1,81 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: add knob to send unsolicited ND on link-layer address change
-Date: Fri, 9 Nov 2012 14:01:41 +0100
-Message-ID: <20121109130141.GA31099@order.stressinduktion.org>
-References: <20121107024620.GD26398@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] kaweth:BQL support
+Date: Fri, 09 Nov 2012 05:15:44 -0800
+Message-ID: <1352466944.19779.556.camel@edumazet-glaptop>
+References: <1352463587-23899-1-git-send-email-oliver@neukum.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Oliver Neukum <oneukum@suse.de>
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43244 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751658Ab2KINBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 08:01:42 -0500
-Content-Disposition: inline
-In-Reply-To: <20121107024620.GD26398@order.stressinduktion.org>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:39908 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751948Ab2KINPr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 08:15:47 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y32so2702548iag.19
+        for <netdev@vger.kernel.org>; Fri, 09 Nov 2012 05:15:47 -0800 (PST)
+In-Reply-To: <1352463587-23899-1-git-send-email-oliver@neukum.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 07, 2012 at 03:46:20AM +0100, Hannes Frederic Sowa wrote:
-> This patch introduces a new knob ndisc_notify. If enabled, the kernel
-> will transmit an unsolicited neighbour advertisement on link-layer address
-> change to update the neighbour tables of the corresponding hosts more quickly.
+On Fri, 2012-11-09 at 13:19 +0100, Oliver Neukum wrote:
+> This adds the callbacks for the statistics necessary for BQL
 > 
-> This is the equivalent to arp_notify in ipv4 world.
+> Signed-off-by: Oliver Neukum <oneukum@suse.de>
+> ---
+>  drivers/net/usb/kaweth.c |    6 +++++-
+>  1 files changed, 5 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/usb/kaweth.c b/drivers/net/usb/kaweth.c
+> index afb117c..f30e07f 100644
+> --- a/drivers/net/usb/kaweth.c
+> +++ b/drivers/net/usb/kaweth.c
+> @@ -715,6 +715,7 @@ static int kaweth_open(struct net_device *net)
+>  		usb_kill_urb(kaweth->rx_urb);
+>  		goto err_out;
+>  	}
+> +	netdev_reset_queue(net);
+>  	kaweth->opened = 1;
+>  
+>  	netif_start_queue(net);
+> @@ -783,6 +784,7 @@ static void kaweth_usb_transmit_complete(struct urb *urb)
+>  {
+>  	struct kaweth_device *kaweth = urb->context;
+>  	struct sk_buff *skb = kaweth->tx_skb;
+> +	struct net_device *net = kaweth->net;
+>  	int status = urb->status;
+>  
+>  	if (unlikely(status != 0))
+> @@ -790,7 +792,8 @@ static void kaweth_usb_transmit_complete(struct urb *urb)
+>  			dev_dbg(&urb->dev->dev, "%s: TX status %d.\n",
+>  				kaweth->net->name, status);
+>  
+> -	netif_wake_queue(kaweth->net);
+> +	netif_wake_queue(net);
+> +	netdev_completed_queue(net, 1, skb->len - 2);
+>  	dev_kfree_skb_irq(skb);
+>  }
+>  
+> @@ -854,6 +857,7 @@ skip:
+>  	{
+>  		kaweth->stats.tx_packets++;
+>  		kaweth->stats.tx_bytes += skb->len;
+> +		netdev_sent_queue(net, skb->len - 2);
+>  	}
+>  
+>  	spin_unlock_irq(&kaweth->device_lock);
 
-If this eases review, I have a test script to demonstrate the behaviour
-(this needs the patch to change the mac address of a running veth, which was
-merged into net-next some time ago and does only work correctly if unsolicited
-neighbour advertisments are send to all-nodes):
 
-#!/bin/bash
-set -ex
-set -o pipefail
-declare -r NETNS=2337 R=$RANDOM
-declare -r ULAM="fd8b:abf9:283d:1::/64" ULAM_ADDR="fd8b:abf9:283d:1::1/64"
-declare -r ULAS="fd8b:abf9:283d:2::/64" ULAS_ADDR="fd8b:abf9:283d:2::1/64"
-declare -r NS="ip netns exec $NETNS"
-declare -r NMACM=00:00:6c:55:56:9e NMACS=00:00:6c:55:56:9e
-function enable_forward {
-    declare -r F="sysctl -w net.ipv6.conf.all.forwarding=1"
-    $F
-    $NS $F
-}
-function fetch_gw {
-    echo "ip -6 -o a l group $NETNS dev $1 scope link 
-	                     | awk '{print \$4}'"
-}
-case $1 in
-    clean)
-	ip netns delete $NETNS || true # ignore errors
-	# seems to be racy here because deconstruction happens in a workqueue
-	sleep 1
-	for i in $(ip -o l l group $NETNS|cut -f2 -d:|egrep 'vmeth|dummy'); do
-	    ip l d $i || true
-	done
-	;;
-    '')
-	declare -r vmeth=vmeth$R vseth=vseth$R
-	echo 'file net/ipv6/ndisc.c +pflmt' > /sys/kernel/debug/dynamic_debug/control
-	ip netns add $NETNS
-	enable_forward
-	ip link add name $vmeth type veth peer name $vseth
-	ip link set dev $vmeth group $NETNS up
-	ip link set dev $vseth netns $NETNS
-	$NS ip link set dev $vseth group $NETNS up
-	$NS ip l a name dummy$R up type dummy
-	$NS ip l set dev dummy$R group $NETNS up
-	ip a a $ULAM_ADDR dev $vmeth
-	$NS ip a a $ULAS_ADDR dev dummy$R
-	declare -r GWS=$(eval $NS $(fetch_gw $vseth))
-	declare -r GWM=$(eval $(fetch_gw $vmeth))
-	ip -6 r a $ULAS via ${GWS%/64} dev $vmeth
-	$NS ip -6 r a $ULAM via ${GWM%/64} dev $vseth
-	sleep 5
-	time ping6 -w 100 -c 1 ${ULAS_ADDR%/64}
-	# perf probes
-	$0 internal $vmeth
-	;;
-    internal)
-	sleep 5
-	ip l set dev $2 addr $NMACM
-	sleep 5
-	time ping6 -w 100 -c 1 ${ULAS_ADDR%/64}
-	;;
-esac
+I am curious to know if it changes anything on the behavior of this
+network adapter ?
 
-David, if you intend to merge this patch, could you please remove the empty
-line I accidently added in the addrconf_sysctl_table, directly following
-.proc_handler? As usual, I noticed it just after sending the patch.
+Because it seems queue is stopped anyway when a packet is in transmit.
+
+(netif_stop_queue() in kaweth_start_xmit(), and netif_wake_queue() in
+kaweth_usb_transmit_complete())
+
+What I am missing ?
+
+Thanks
