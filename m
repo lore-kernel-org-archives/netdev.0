@@ -1,48 +1,26 @@
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Subject: Re: Question about Mellanox FW reporting (incorrect) port types
-Date: Fri, 09 Nov 2012 18:37:34 -0200
-Message-ID: <509D698E.60000@redhat.com>
-References: <507EDC5D.4070602@redhat.com> <CAJZOPZ+T7paqVe12n+sBw4ra8AEWCZ+W2GZ52iJY=9Hrgoxuaw@mail.gmail.com> <507F0BD5.7080005@redhat.com>
-Reply-To: mleitner@redhat.com
+From: Jan Ceuleers <jan.ceuleers-bdq14YP6qtRg9hUCZPvPmw@public.gmane.org>
+Subject: Re: essentially offline...
+Date: Fri, 09 Nov 2012 21:49:28 +0100
+Message-ID: <509D6C58.8090006@computer.org>
+References: <20121108.150930.2104308040240146535.davem@davemloft.net> <509C1BDD.6000405@computer.org> <20121108.160149.1435441347312920431.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	netdev <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Yishai Hadas <yishaih@dev.mellanox.co.il>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5480 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752689Ab2KIUhz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Nov 2012 15:37:55 -0500
-In-Reply-To: <507F0BD5.7080005@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20121108.160149.1435441347312920431.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Em 17-10-2012 16:49, Marcelo Ricardo Leitner escreveu:
-> On 10/17/2012 04:22 PM, Or Gerlitz wrote:
->> Marcelo Ricardo Leitner <mleitner@redhat.com> wrote:
->>>
->>> [...] So my questions are: is it possible to the firmware report a
->>> wrong port type like
->>> that? Is it somehow configurable by sysadmin (via fw update, ..), can
->>> we flip that byte
->>> or is it a manufacturing issue?
+On 11/08/2012 10:01 PM, David Miller wrote:
+> I used the work jackass just as frequently before I lived part time
+> in New York.  Try again...
 
-For completeness,
+Well then it seems you were born that way. Still doesn't make it acceptable.
 
-As it happens the customer had the HP Infinband Enablement Kit 
-(614841-B21) installed at jumper location 53 (J53) of the motherboard, 
-which makes the QSFP port of the S390s' NC543i interface an Infiniband 
-interface rather than a 10gbE interface. Removing this allowed the port 
-to be brought-up as 10GbE just fine.
-
-Interesting that it worked as 10GbE even with InifiniBand Enablement Kit 
-on it, so the port was just advertised, but not forced, as InfiniBand. 
-Or something like that.
-
-Thanks,
-Marcelo.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
