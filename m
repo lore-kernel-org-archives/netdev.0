@@ -1,48 +1,53 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: question on netdev_completed_queue()
-Date: Fri, 9 Nov 2012 17:09:39 +0000
-Message-ID: <1352480979.3159.13.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1476426.QTHA7ibVHZ@linux-lqwf.site>
-	 <1352407453.2771.18.camel@bwh-desktop.uk.solarflarecom.com>
-	 <16131769.FsMAT47cqV@linux-lqwf.site>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+ for SR-IOV)
+Date: Fri, 9 Nov 2012 17:15:50 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A072D5683CF@ORSMSX106.amr.corp.intel.com>
+References: <201211081915083774239@gmail.com>	<509B962C.6070002@gmail.com>
+	<C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com>
+ <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Oliver Neukum <oliver@neukum.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:55915 "EHLO
-	ocex02.SolarFlarecom.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755076Ab2KIRJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 12:09:42 -0500
-In-Reply-To: <16131769.FsMAT47cqV@linux-lqwf.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>
+To: Jason Gao <pkill.2012@gmail.com>, "Li, Sibai" <sibai.li@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
+Content-Language: en-US
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-11-09 at 17:58 +0100, Oliver Neukum wrote:
-> On Thursday 08 November 2012 20:44:13 Ben Hutchings wrote:
-> > On Thu, 2012-11-08 at 20:38 +0100, Oliver Neukum wrote:
-> > > Hi,
-> > > 
-> > > is this function to be called whenever a driver is done with transmitting
-> > > data, whether the transmission be successful or not?
-> > 
-> > Yes, BQL tracks number of packets and bytes in each queue and you have
-> > to tell it about all insertions and removals from the queue.  (Except
-> > that if you flush the queue, you can use netdev_reset_queue() rather
-> > than trying to counting the remaining packets and bytes.)
+> -----Original Message-----
+> From: Jason Gao [mailto:pkill.2012@gmail.com]
+> Sent: Thursday, November 08, 2012 8:00 PM
+> To: Rose, Gregory V
+> Cc: Kirsher, Jeffrey T; linux-kernel; netdev; kvm; e1000-
+> devel@lists.sourceforge.net
+> Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+> for SR-IOV)
 > 
-> Thank you. That opens up the next question. How exact does the count
-> have to be? Do you care about the exact amount of data or does it just
-> have to be internally consistent?
+> > The BIOS in your machine doesn't support SR-IOV.  You'll need to ask the
+> manufacturer for a BIOS upgrade, if in fact one is available.  Sometimes
+> they're not.
+> 
+> very thanks Greg,my server Dell R710 with latest BIOS version and option
+> for SR-IOV(SR-IOV Global Enable->Enabled)  opened,I'm confused that Does
+> R710 provide full support for SR-IOV, kernel or  ixgbe driver's bug? but
+> I'm not sure where the problem lies,anyone has any
+> experience about this?   .
 
-The underlying DQL algorithm doesn't care what it's counting.  However
-the administrator can adjust the queue limits through sysfs, and they
-will expect the numbers to be byte counts.
+I use a Dell R710 for all my SR-IOV testing and it works fine but I had to acquire a special BIOS from Dell to get it to work.  As I said, you'll want to contact them and make sure you've got the correct BIOS.
 
-Ben.
+The error you're seeing, "not enough MMIO resources" has been an issue with the BIOS 100% of the times that we've run into it.  In any case, it is NOT a driver bug.  The driver has nothing to do with allocation of MMIO space reservation for VF devices.  The message you're seeing pops up when the driver calls pci_enable_sriov().  There is nothing the driver can do to force that call to be successful.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I've added Sibai Li to this response.  She should be able to get the BIOS version string off of one of our working Dell R710s.
+
+Sibai,
+
+Could you please reply to this message with that information?
+
+Thanks,
+
+- Greg
