@@ -1,37 +1,34 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH net-next] netconsole: add oops_only module option
-Date: Fri, 09 Nov 2012 11:02:32 +0800
-Message-ID: <1352430152.8746.1.camel@cr0>
-References: <1352382158-3928-1-git-send-email-amwang@redhat.com>
-	 <509C0CCD.7020900@infradead.org>
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [PATCH] ipv6: fix two typos in a comment in xfrm6_init()
+Date: Fri, 9 Nov 2012 11:04:13 +0800
+Message-ID: <CAJFZqHzRq5DagF6R8qyo2HRU05H2jTvuyEsfjnzDZkh+QkRc-Q@mail.gmail.com>
+References: <1352363888-14068-1-git-send-email-roy.qing.li@gmail.com>
+	<20121108.213622.1170393152152755967.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Randy Dunlap <rdunlap@infradead.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63859 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752337Ab2KIDCq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Nov 2012 22:02:46 -0500
-In-Reply-To: <509C0CCD.7020900@infradead.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:62200 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752643Ab2KIDEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Nov 2012 22:04:13 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k13so5326739iea.19
+        for <netdev@vger.kernel.org>; Thu, 08 Nov 2012 19:04:13 -0800 (PST)
+In-Reply-To: <20121108.213622.1170393152152755967.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-08 at 11:49 -0800, Randy Dunlap wrote:
-> On 11/08/2012 05:42 AM, Cong Wang wrote:
-> 
-> > Some people wants to log only oops messages via netconsole,
-> > (this is also why netoops was invented)
-> > so add a module option for netconsole. This can be tuned
-> > via /sys/module/netconsole/parameters/oops_only at run time
-> > as well.
-> > 
-> 
-> 
-> Hi,
-> 
-> What does this do with panics?
-> Do they set oops_in_progress?
+2012/11/9 David Miller <davem@davemloft.net>:
+> From: roy.qing.li@gmail.com
+> Date: Thu,  8 Nov 2012 16:38:08 +0800
+>
+>> From: Li RongQing <roy.qing.li@gmail.com>
+>>
+>> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+>
+> As Steffen stated, this comment is largely obsolete.
 
-Yes, panic() calls bust_spinlocks(1).
+Thanks, I will resend new patch to remove this comments
+
+-Roy
