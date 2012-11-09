@@ -1,27 +1,69 @@
-From: Jason Gao <pkill.2012@gmail.com>
-Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources for SR-IOV)
-Date: Fri, 9 Nov 2012 11:59:42 +0800
-Message-ID: <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
-References: <201211081915083774239@gmail.com>
-	<509B962C.6070002@gmail.com>
-	<C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PATCH -next] tcm_vhost: remove unused variable in
+	vhost_scsi_allocate_cmd()
+Date: Thu, 08 Nov 2012 21:24:41 -0800
+Message-ID: <1352438681.29589.514.camel@haakon2.linux-iscsi.org>
+References: <CAPgLHd81=dTwwSTgUtd9YbgWf8YLMfi3VJQ-76h71+0W_mx_2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, yongjun_wei@trendmicro.com.cn,
+	target-devel <target-devel@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAPgLHd81=dTwwSTgUtd9YbgWf8YLMfi3VJQ-76h71+0W_mx_2g@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> The BIOS in your machine doesn't support SR-IOV.  You'll need to ask the manufacturer for a BIOS upgrade, if in fact one is available.  Sometimes they're not.
+Hello Wei,
 
-very thanks Greg,my server Dell R710 with latest BIOS version and
-option for SR-IOV(SR-IOV Global Enable->Enabled)  opened,I'm confused
-that Does R710 provide full support for SR-IOV, kernel or  ixgbe
-driver's bug? but I'm not sure where the problem lies,anyone has any
-experience about this?   .
+On Wed, 2012-11-07 at 20:53 +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> The variable se_sess is initialized but never used
+> otherwise, so remove the unused variable.
+> 
+> dpatch engine is used to auto generate this patch.
+> (https://github.com/weiyj/dpatch)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  drivers/vhost/tcm_vhost.c | 2 --
+>  1 file changed, 2 deletions(-)
+> 
+> diff --git a/drivers/vhost/tcm_vhost.c b/drivers/vhost/tcm_vhost.c
+> index 23c138f..551fff0 100644
+> --- a/drivers/vhost/tcm_vhost.c
+> +++ b/drivers/vhost/tcm_vhost.c
+> @@ -415,14 +415,12 @@ static struct tcm_vhost_cmd *vhost_scsi_allocate_cmd(
+>  {
+>  	struct tcm_vhost_cmd *tv_cmd;
+>  	struct tcm_vhost_nexus *tv_nexus;
+> -	struct se_session *se_sess;
+>  
+>  	tv_nexus = tv_tpg->tpg_nexus;
+>  	if (!tv_nexus) {
+>  		pr_err("Unable to locate active struct tcm_vhost_nexus\n");
+>  		return ERR_PTR(-EIO);
+>  	}
+> -	se_sess = tv_nexus->tvn_se_sess;
+>  
+>  	tv_cmd = kzalloc(sizeof(struct tcm_vhost_cmd), GFP_ATOMIC);
+>  	if (!tv_cmd) {
+> 
+> --
+
+Looks fine to me.
+
+Reviewed-by + Acked-by: Nicholas Bellinger <nab@linux-iscsi.org>
+
+Thanks!
