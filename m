@@ -1,58 +1,39 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH] gre6: fix rtnl dump messages
-Date: Fri,  9 Nov 2012 16:34:56 +0100
-Message-ID: <1352475296-14675-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <1352467361.19779.569.camel@edumazet-glaptop>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:57856 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754021Ab2KIPXC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Nov 2012 10:23:02 -0500
-In-Reply-To: <1352467361.19779.569.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources for SR-IOV)
+Date: Fri, 9 Nov 2012 08:26:59 -0700
+Message-ID: <CAErSpo4xn9t=4yXGLdPQMtUJF=n38tYrMutAoj7NCsLUzQEbcg@mail.gmail.com>
+References: <201211081915083774239@gmail.com> <509B962C.6070002@gmail.com>
+ <C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com> <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>, linux-pci@vger.kernel.org,
+	Yinghai Lu <yinghai@kernel.org>
+To: Jason Gao <pkill.2012@gmail.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Spotted after a code review.
-Introduced by c12b395a46646bab69089ce7016ac78177f6001f (gre: Support GRE over
-IPv6).
+[+ linux-pci, Yinghai]
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
-v2: rebase the patch against net
-    add the commit that introduces the bug
+On Thu, Nov 8, 2012 at 8:59 PM, Jason Gao <pkill.2012@gmail.com> wrote:
+>> The BIOS in your machine doesn't support SR-IOV.  You'll need to ask the manufacturer for a BIOS upgrade, if in fact one is available.  Sometimes they're not.
+>
+> very thanks Greg,my server Dell R710 with latest BIOS version and
+> option for SR-IOV(SR-IOV Global Enable->Enabled)  opened,I'm confused
+> that Does R710 provide full support for SR-IOV, kernel or  ixgbe
+> driver's bug? but I'm not sure where the problem lies,anyone has any
+> experience about this?   .
 
- net/ipv6/ip6_gre.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Linux normally uses the resource assignments done by the BIOS, but it
+is possible for the kernel to reassign those.  We don't have good
+automatic support for that yet, but on a recent upstream kernel, you
+can try "pci=realloc".  I doubt this option is in CentOS 6.3, though.
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 0185679..d5cb3c4 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1633,9 +1633,9 @@ static size_t ip6gre_get_size(const struct net_device *dev)
- 		/* IFLA_GRE_OKEY */
- 		nla_total_size(4) +
- 		/* IFLA_GRE_LOCAL */
--		nla_total_size(4) +
-+		nla_total_size(sizeof(struct in6_addr)) +
- 		/* IFLA_GRE_REMOTE */
--		nla_total_size(4) +
-+		nla_total_size(sizeof(struct in6_addr)) +
- 		/* IFLA_GRE_TTL */
- 		nla_total_size(1) +
- 		/* IFLA_GRE_TOS */
-@@ -1659,8 +1659,8 @@ static int ip6gre_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_be16(skb, IFLA_GRE_OFLAGS, p->o_flags) ||
- 	    nla_put_be32(skb, IFLA_GRE_IKEY, p->i_key) ||
- 	    nla_put_be32(skb, IFLA_GRE_OKEY, p->o_key) ||
--	    nla_put(skb, IFLA_GRE_LOCAL, sizeof(struct in6_addr), &p->raddr) ||
--	    nla_put(skb, IFLA_GRE_REMOTE, sizeof(struct in6_addr), &p->laddr) ||
-+	    nla_put(skb, IFLA_GRE_LOCAL, sizeof(struct in6_addr), &p->laddr) ||
-+	    nla_put(skb, IFLA_GRE_REMOTE, sizeof(struct in6_addr), &p->raddr) ||
- 	    nla_put_u8(skb, IFLA_GRE_TTL, p->hop_limit) ||
- 	    /*nla_put_u8(skb, IFLA_GRE_TOS, t->priority) ||*/
- 	    nla_put_u8(skb, IFLA_GRE_ENCAP_LIMIT, p->encap_limit) ||
--- 
-1.7.12
+If an upstream kernel with "pci=realloc" still doesn't work, please
+post the entire dmesg log.
