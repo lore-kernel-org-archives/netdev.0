@@ -1,26 +1,52 @@
 From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: [PATCH net-next 0/3 ] tunneling: Add support for hardware-offloaded encapsulation
-Date: Thu,  8 Nov 2012 18:18:00 -0800
-Message-ID: <1352427483-4380-1-git-send-email-joseph.gasparakis@intel.com>
+Subject: [PATCH 2/3] vxlan: capture inner headers during encapsulation
+Date: Thu,  8 Nov 2012 18:18:02 -0800
+Message-ID: <1352427483-4380-3-git-send-email-joseph.gasparakis@intel.com>
+References: <1352427483-4380-1-git-send-email-joseph.gasparakis@intel.com>
 Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1352427483-4380-1-git-send-email-joseph.gasparakis@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The series contains updates to add in the NIC Rx and Tx checksumming support
-for encapsulated packets.
+Populating the inner header pointers of skb for vxlan
 
-The sk_buff needs to somehow have information of the inner packet, and adding
-three fields for the inner mac, network and transport headers was the prefered
-approach. 
+Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+---
+ drivers/net/vxlan.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-Not adding these fields would mean that the drivers would need to parse the
-sk_buff data in hot-path, having a negative impact in the performance.
-
-Adding in sk_buff a pointer to the skbuff of the inner packet made sense, but
-would be a complicated change as assumptions needed to be made with regards to
-helper functions such as skb_clone() skb_copy(). Also code for the existing
-encapsulation protocols (such as VXLAN and IP GRE) had to be reworked, so the
-decision was to have the simple approach of adding these three fields.
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 030559d..14e6c8f 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -694,11 +694,23 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	__be16 df = 0;
+ 	__u8 tos, ttl;
+ 	int err;
++	unsigned int offset;
+ 
+ 	dst = vxlan_find_dst(vxlan, skb);
+ 	if (!dst)
+ 		goto drop;
+ 
++	offset = skb->data - skb->head;
++
++	skb_reset_inner_mac_header(skb);
++
++	if (skb->network_header)
++		skb_set_inner_network_header(skb, skb->network_header - offset);
++
++	if (skb->transport_header)
++		skb_set_inner_transport_header(skb, skb->transport_header -
++					      offset);
++
+ 	/* Need space for new headers (invalidates iph ptr) */
+ 	if (skb_cow_head(skb, VXLAN_HEADROOM))
+ 		goto drop;
+-- 
+1.7.11.7
