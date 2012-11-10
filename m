@@ -1,99 +1,79 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: [PATCH 02/10] arm: at91: move platfarm_data to include/linux/platform_data/atmel.h
-Date: Sat, 10 Nov 2012 11:54:27 +0100
-Message-ID: <CAGhQ9VxgbCGzOPVtQq-LYsEPuyyGjRDfB3jHPtvbHr1xLgntXA@mail.gmail.com>
-References: <20121107111235.GH20063@game.jcrosoft.org>
-	<1352287374-25176-1-git-send-email-plagnioj@jcrosoft.com>
-	<1352287374-25176-2-git-send-email-plagnioj@jcrosoft.com>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: [PATCH/RFC] iproute2: drop libresolv
+Date: Sat, 10 Nov 2012 13:22:10 +0100
+Message-ID: <20121110122209.GA15100@amd64.fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-arm-kernel@lists.infradead.org, linux-fbdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, rtc-linux@googlegroups.com,
-	linux-mmc@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-can@vger.kernel.org, linux-ide@vger.kernel.org,
-	netdev@vger.kernel.org, linux-serial@vger.kernel.org,
-	linux-input@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1352287374-25176-2-git-send-email-plagnioj@jcrosoft.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay-h22.telenor.se ([195.54.99.197]:39412 "EHLO
+	smtprelay-h22.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751344Ab2KJMVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Nov 2012 07:21:42 -0500
+Received: from ipb4.telenor.se (ipb4.telenor.se [195.54.127.167])
+	by smtprelay-h22.telenor.se (Postfix) with ESMTP id 5E084EAF89
+	for <netdev@vger.kernel.org>; Sat, 10 Nov 2012 13:21:39 +0100 (CET)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jean-Christophe,
+Hello!
 
-On 7 November 2012 12:22, Jean-Christophe PLAGNIOL-VILLARD
-<plagnioj@jcrosoft.com> wrote:
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Cc: linux-ide@vger.kernel.org
-> Cc: linux-input@vger.kernel.org
-> Cc: linux-mmc@vger.kernel.org
-> Cc: linux-can@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: linux-pcmcia@lists.infradead.org
-> Cc: rtc-linux@googlegroups.com
-> Cc: spi-devel-general@lists.sourceforge.net
-> Cc: linux-serial@vger.kernel.org
-> Cc: linux-usb@vger.kernel.org
-> Cc: linux-fbdev@vger.kernel.org
-> ---
-> HI all,
->
->         If it's ok with everyone this will go via at91
->         with the patch serie than clean up the include/mach
->
->         For preparation to switch to arm multiarch kernel
->
-> Best Regards,
-> J.
->  arch/arm/mach-at91/include/mach/board.h     |   55 ----------------------
->  arch/avr32/mach-at32ap/include/mach/board.h |    7 ---
->  drivers/ata/pata_at91.c                     |    2 +-
->  drivers/input/touchscreen/atmel_tsadcc.c    |    2 +-
->  drivers/mmc/host/atmel-mci.c                |    2 +-
->  drivers/net/can/at91_can.c                  |    3 +-
->  drivers/net/ethernet/cadence/at91_ether.c   |    2 +-
->  drivers/pcmcia/at91_cf.c                    |    2 +-
->  drivers/rtc/rtc-at91sam9.c                  |    2 +-
->  drivers/spi/spi-atmel.c                     |    2 +-
->  drivers/tty/serial/atmel_serial.c           |    2 +-
->  drivers/usb/gadget/at91_udc.c               |    2 +-
->  drivers/usb/gadget/atmel_usba_udc.c         |    2 +-
->  drivers/usb/host/ohci-at91.c                |    2 +-
->  drivers/video/atmel_lcdfb.c                 |    2 +-
->  include/linux/platform_data/atmel.h         |   67 +++++++++++++++++++++++++++
->  16 files changed, 80 insertions(+), 76 deletions(-)
+While building the iproute package in Debian I get warnings from
+package helpers like this:
 
-<snip>
+dpkg-shlibdeps: warning: package could avoid a useless dependency if debian/iproute/sbin/tc debian/iproute/usr/bin/lnstat debian/iproute/bin/ip debian/iproute/bin/ss debian/iproute/sbin/bridge debian/iproute/sbin/rtmon were not linked against libresolv.so.2 (they use none of the library's symbols)
 
-> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-> index 4e980a7..35fc6edb 100644
-> --- a/drivers/net/ethernet/cadence/at91_ether.c
-> +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> @@ -31,6 +31,7 @@
->  #include <linux/clk.h>
->  #include <linux/gfp.h>
->  #include <linux/phy.h>
-> +#include <linux/platform_data/atmel.h>
->
->  #include <asm/io.h>
->  #include <asm/uaccess.h>
-> @@ -38,7 +39,6 @@
->
->  #include <mach/at91rm9200_emac.h>
->  #include <asm/gpio.h>
-> -#include <mach/board.h>
->
->  #include "at91_ether.h"
+The -lresolv in ./Makefile seems to come from pre-historic times (before
+iproute2 git history, possibly from libc5/pre-glibc days).
+I couldn't find out if/why there was any reason for linking to libresolv.
+Does anyone know if there are any valid reasons for keeping it still?
 
-The at91_ether driver in net-next does not need to be change since it
-all mach includes has already been removed by other patches and it
-includes linux/platform_data/macb.h directly.
+If not, I'd be happy to see it go.... while at it I also removed includes
+of <resolv.h> which I also couldn't find any reason for, but this is
+just an added bonus of the patch (and there are probably more unneeded
+includes that could be dropped in the same sources).
 
-What tree was these patches based on?
-The at91_ether driver changes has been in linux-next for a long while now.
 
-regards
-Joachim Eastwood
+Signed-off-by: Andreas Henriksson <andreas@fatal.se>
+
+diff --git a/Makefile b/Makefile
+index 917862b..46a5ad9 100644
+--- a/Makefile
++++ b/Makefile
+@@ -20,10 +20,6 @@ endif
+ 
+ DEFINES+=-DCONFDIR=\"$(CONFDIR)\"
+ 
+-#options if you have a bind>=4.9.4 libresolv (or, maybe, glibc)
+-LDLIBS=-lresolv
+-ADDLIB=
+-
+ #options for decnet
+ ADDLIB+=dnet_ntop.o dnet_pton.o
+ 
+diff --git a/lib/utils.c b/lib/utils.c
+index d80f79b..7ecaab3 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -20,7 +20,6 @@
+ #include <string.h>
+ #include <netdb.h>
+ #include <arpa/inet.h>
+-#include <resolv.h>
+ #include <asm/types.h>
+ #include <linux/pkt_sched.h>
+ #include <time.h>
+diff --git a/misc/ss.c b/misc/ss.c
+index a0ab2e9..b45f5ba 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -22,7 +22,6 @@
+ #include <errno.h>
+ #include <netdb.h>
+ #include <arpa/inet.h>
+-#include <resolv.h>
+ #include <dirent.h>
+ #include <fnmatch.h>
+ #include <getopt.h>
