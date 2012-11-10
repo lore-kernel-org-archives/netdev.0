@@ -1,31 +1,27 @@
-From: Kirill Smelkov <kirr@mns.spb.ru>
-Subject: [PATCH] doc/net: Fix typo in netdev-features.txt
-Date: Sat, 10 Nov 2012 21:12:36 +0400
-Message-ID: <1352567556-23326-1-git-send-email-kirr@mns.spb.ru>
-Cc: netdev@vger.kernel.org, Kirill Smelkov <kirr@mns.spb.ru>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mnsspb.ru ([84.204.75.2]:34013 "EHLO mail.mnsspb.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750798Ab2KJRLs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 10 Nov 2012 12:11:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
+Date: Sat, 10 Nov 2012 13:38:10 -0500 (EST)
+Message-ID: <20121110.133810.754496966938629729.davem@davemloft.net>
+References: <1352292734.7340.35.camel@shinybook.infradead.org>
+	<20121109.163012.719663130136182296.davem@davemloft.net>
+	<1352532973.9449.105.camel@shinybook.infradead.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: krzysiek@podlesie.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, chas@cmf.nrl.navy.mil
+To: dwmw2@infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1352532973.9449.105.camel@shinybook.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Kirill Smelkov <kirr@mns.spb.ru>
----
- Documentation/networking/netdev-features.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Sat, 10 Nov 2012 07:36:13 +0000
 
-diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
-index 4164f5c..f310ede 100644
---- a/Documentation/networking/netdev-features.txt
-+++ b/Documentation/networking/netdev-features.txt
-@@ -164,4 +164,4 @@ read the CRC recorded by the NIC on receipt of the packet.
- This requests that the NIC receive all possible frames, including errored
- frames (such as bad FCS, etc).  This can be helpful when sniffing a link with
- bad packets on it.  Some NICs may receive more packets if also put into normal
--PROMISC mdoe.
-+PROMISC mode.
--- 
-1.8.0.267.g7a4c58c
+> I was hoping for an ack from Chas and/or Krzysztof, especially as I
+> hadn't tested my patch. So hopefully there'll be a v4 series of 8
+> patches, including this one... and all from the same person, which
+> makes it slightly easier to follow :)
+
+Ok, great.
