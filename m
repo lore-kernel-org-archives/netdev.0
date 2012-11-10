@@ -1,53 +1,38 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-next] 8021q: validate SAN MAC address
-Date: Fri, 9 Nov 2012 16:44:47 -0800
-Message-ID: <1352508287.6276.7.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1352501644-8444-1-git-send-email-mchan@broadcom.com>
- <1352502165.3159.21.camel@bwh-desktop.uk.solarflarecom.com>
- <1352507122.6276.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <1352507762.3159.26.camel@bwh-desktop.uk.solarflarecom.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH net-next 1/2] PPC: net: bpf_jit_comp: add XOR
+ instruction for BPF JIT
+Date: Sat, 10 Nov 2012 12:50:58 +1100
+Message-ID: <1352512258.23412.5.camel@pasglop>
+References: <20121108213939.GA29696@thinkbox>
+	 <20121109.164019.1147290535167723496.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Cc: dxchgb@gmail.com, matt@ozlabs.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2165 "EHLO mms1.broadcom.com"
+Received: from gate.crashing.org ([63.228.1.57]:59193 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751694Ab2KJAo5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 9 Nov 2012 19:44:57 -0500
-In-Reply-To: <1352507762.3159.26.camel@bwh-desktop.uk.solarflarecom.com>
+	id S1751057Ab2KJBvT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Nov 2012 20:51:19 -0500
+In-Reply-To: <20121109.164019.1147290535167723496.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-11-10 at 00:36 +0000, Ben Hutchings wrote: 
-> On Fri, 2012-11-09 at 16:25 -0800, Michael Chan wrote:
-> > On Fri, 2012-11-09 at 23:02 +0000, Ben Hutchings wrote:
-> > > > Some bnx2x multi-function devices are configured for FCoE only in
-> > > > a PCI function and only has a SAN MAC address.  The current code
-> > > > will fail ->ndo_validate_addr() when a VLAN device is brought up
-> > > > over such a device.
-> > > > 
-> > > > Check the real device's dev_addrs[] for a valid SAN MAC address
-> > > > when validating the MAC address if the regular MAC address is not
-> > > > valid.
-> > > 
-> > > So the VLAN device's own address is being completely ignored?
+On Fri, 2012-11-09 at 16:40 -0500, David Miller wrote:
+> From: Daniel Borkmann <dxchgb@gmail.com>
+> Date: Thu, 8 Nov 2012 22:39:41 +0100
+> 
+> > This patch is a follow-up for patch "filter: add XOR instruction for use
+> > with X/K" that implements BPF PowerPC JIT parts for the BPF XOR operation.
 > > 
-> > No, it is not being ignored.  We validate the VLAN's regular MAC address
-> > first.  If it is invalid, check further to see if the real device has a
-> > SAN MAC address.
+> > Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
 > 
-> Sure, but in the case that the VLAN device is layered on one of these
-> FCoE SAN devices, the VLAN device's address isn't validated.  Which
-> presumably means it's not going to be used at all...
-> 
-> What does the VLAN device actually do in this case?  Is it a way of
-> setting a VID to be used for the FCoE encapsulation?
+> Could a powerpc person please review these two patches so that I can
+> toss them into net-next (where the dependency is)?
 
-Yeah, fcoemon first gets the SAN MAC from the physical device (using
-DCBNL) and uses it send out packets for VLAN discovery.  After the VLAN
-has been discovered, it will create the VLAN device over the physical
-device and will try to bring it up.  After that, fcoemon will continue
-to use the SAN MAC over the VLAN device.
+Sure, travelling right now, will try to find somebody or will do it
+myself some time next week.
+
+Cheers,
+Ben.
