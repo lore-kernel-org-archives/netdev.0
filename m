@@ -1,92 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Pull request for 'davem-next.r8169' branch
-Date: Mon, 12 Nov 2012 00:01:28 +0100
-Message-ID: <20121111230128.GA1848@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Kirill Smelkov <kirr@mns.spb.ru>,
-	Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: David Miller <davem@davemloft.net>
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [PATCH v2 0/3] macb add support for phy gpio interrupt
+Date: Mon, 12 Nov 2012 00:56:25 +0100
+Message-ID: <1352678188-18647-1-git-send-email-manabian@gmail.com>
+Cc: plagnioj@jcrosoft.com, netdev@vger.kernel.org,
+	Joachim Eastwood <manabian@gmail.com>
+To: nicolas.ferre@atmel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:39939 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810Ab2KKXYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2012 18:24:32 -0500
-Content-Disposition: inline
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:41155 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751355Ab2KKX4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2012 18:56:33 -0500
+Received: by mail-lb0-f174.google.com with SMTP id n3so4243267lbo.19
+        for <netdev@vger.kernel.org>; Sun, 11 Nov 2012 15:56:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please pull from branch 'davem-next.r8169' in repository
+Main feature of this patch set is phy gpio interrupt for macb.
 
-git://violet.fr.zoreil.com/romieu/linux davem-next.r8169
+There is a couple of concerns about this patch series.
+* PHY interrupt support has never been supported with macb before but many board have set phy_irq_pin variable. These board will be swapped over to interrupt handing now and while this should work but one can never be 100% certain.
+* at91_ether driver supported interrupt on some PHYs which does not have PHY drivers in phylib or doesn't have interrupt support hooked up.
 
-to get the changes below.
+Patch 1 add interrupt handing to a couple of Davicom PHY that is used on most (all?) Atmel eval boards and was also popular on custom boards.
 
-Distance from 'davem-next' (d4185bbf62a5d8d777ee445db1581beb17882a07)
----------------------------------------------------------------------
+If the 2nd patch breaks any boards there are 2 possible ways to fix the issue. One would be to go back to polling by setting phy_irq_pin to EINVAL. The other would be add a proper PHY driver with interrupt support for the PHY in question.
 
-810f4893e93b4e074be6b7a7cc6a36a1f2c51aa8
-ac50974b37f2763aa8c6e6626e17694af468b9ad
+I would be grateful if anyone can test the 2 first patches on any AT91 boards that they might have access to. If there is any breakage I am more than willing to help out.
+Patch series was tested on a custom board with DM9161AEP and AT91RM9200 EMAC.
 
-Diffstat
---------
 
- drivers/net/ethernet/realtek/r8169.c | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+Last patch in this series is unrelated to the phy stuff. It's is a small fix for macb hw set addr functions when used in at91_ether.
 
-Shortlog
---------
+v2: set PHY_HAS_INTERRUPT in phy_driver flags.
 
-Dayanidhi Sreenivasan (1):
-      r8169: remove unused macros.
+Joachim Eastwood (3):
+  net/phy/davicom: add irq functions to DM9161E and DM9161A
+  net/macb: add support for phy irq via gpio pin
+  net/macb: clear unused address register
 
-Kirill Smelkov (1):
-      r8169: Drop tp arg from rtl8169_tx_vlan_tag()
+ drivers/net/ethernet/cadence/macb.c | 20 +++++++++++++++++++-
+ drivers/net/ethernet/cadence/macb.h |  6 ++++++
+ drivers/net/phy/davicom.c           |  6 ++++++
+ 3 files changed, 31 insertions(+), 1 deletion(-)
 
-Patch
------
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 50a55fb..248f883 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -84,17 +84,12 @@ static const int multicast_filter_limit = 32;
- #define R8169_NAPI_WEIGHT	64
- #define NUM_TX_DESC	64	/* Number of Tx descriptor registers */
- #define NUM_RX_DESC	256	/* Number of Rx descriptor registers */
--#define RX_BUF_SIZE	1536	/* Rx Buffer size */
- #define R8169_TX_RING_BYTES	(NUM_TX_DESC * sizeof(struct TxDesc))
- #define R8169_RX_RING_BYTES	(NUM_RX_DESC * sizeof(struct RxDesc))
- 
- #define RTL8169_TX_TIMEOUT	(6*HZ)
- #define RTL8169_PHY_TIMEOUT	(10*HZ)
- 
--#define RTL_EEPROM_SIG		cpu_to_le32(0x8129)
--#define RTL_EEPROM_SIG_MASK	cpu_to_le32(0xffff)
--#define RTL_EEPROM_SIG_ADDR	0x0000
--
- /* write/read MMIO register */
- #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
- #define RTL_W16(reg, val16)	writew ((val16), ioaddr + (reg))
-@@ -1819,8 +1814,7 @@ static int rtl8169_set_features(struct net_device *dev,
- }
- 
- 
--static inline u32 rtl8169_tx_vlan_tag(struct rtl8169_private *tp,
--				      struct sk_buff *skb)
-+static inline u32 rtl8169_tx_vlan_tag(struct sk_buff *skb)
- {
- 	return (vlan_tx_tag_present(skb)) ?
- 		TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
-@@ -5821,7 +5815,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 	tp->tx_skb[entry].len = len;
- 	txd->addr = cpu_to_le64(mapping);
- 
--	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
-+	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(skb));
- 	opts[0] = DescOwn;
- 
- 	rtl8169_tso_csum(tp, skb, opts);
 -- 
-Ueimor
+1.8.0
