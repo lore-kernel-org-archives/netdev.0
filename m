@@ -1,23 +1,35 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
-Date: Sun, 11 Nov 2012 17:47:32 -0500
-Message-ID: <201211112247.qABMlWiQ021630@thirdoffive.cmf.nrl.navy.mil>
-References: <20121111110437.GA25894@shrek.podlesie.net>
-Cc: David Woodhouse <dwmw2@infradead.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Krzysztof Mazur <krzysiek@podlesie.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <20121111110437.GA25894@shrek.podlesie.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: avoid undefined behavior in do_ip_setsockopt()
+Date: Sun, 11 Nov 2012 17:50:56 -0500 (EST)
+Message-ID: <20121111.175056.930119228369321440.davem@davemloft.net>
+References: <1352668801-14373-1-git-send-email-xi.wang@gmail.com>
+	<20121111.170247.780516266044882867.davem@davemloft.net>
+	<50A0244F.1070302@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xi.wang@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56512 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810Ab2KKWve (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2012 17:51:34 -0500
+In-Reply-To: <50A0244F.1070302@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In message <20121111110437.GA25894@shrek.podlesie.net>,Krzysztof Mazur writes:
->Any race with testing vcc flags is probably not really important
->because:
->	- vcc_release_async() does not take any lock so this check
->	  will be always racy so we are probably allowed to send
->	  new frames until vcc is really closed,
+From: Xi Wang <xi.wang@gmail.com>
+Date: Sun, 11 Nov 2012 17:18:55 -0500
 
-this locking/synchronization is handled in the atm device drivers.
-the send and close routines are responsbile for synchronization (yes, i
-believe that leads to duplicated code but that is the way it currently is)
+> On 11/11/12 5:02 PM, David Miller wrote:
+>> 
+>> This code is a fast bit test on purpose.  You're making the
+>> code slower.
+> 
+> No, it's the opposite.  All modern compilers optimize switch cases
+> into a fast bit test.
+
+Indeed, I even checked sparc64 with gcc-4.6 and it looks good.
+
+Thanks for the clarification, I'll apply this, thanks.
