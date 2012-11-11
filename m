@@ -1,50 +1,71 @@
 From: Joachim Eastwood <manabian@gmail.com>
-Subject: [PATCH 1/3] net/phy/davicom: add irq functions to DM9161E and DM9161A
-Date: Sun, 11 Nov 2012 23:23:25 +0100
-Message-ID: <1352672607-12793-2-git-send-email-manabian@gmail.com>
+Subject: [PATCH 3/3] net/macb: clear unused address register
+Date: Sun, 11 Nov 2012 23:23:27 +0100
+Message-ID: <1352672607-12793-4-git-send-email-manabian@gmail.com>
 References: <1352672607-12793-1-git-send-email-manabian@gmail.com>
 Cc: plagnioj@jcrosoft.com, netdev@vger.kernel.org,
 	Joachim Eastwood <manabian@gmail.com>
 To: nicolas.ferre@atmel.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:36644 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752054Ab2KKWYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2012 17:24:00 -0500
-Received: by mail-la0-f46.google.com with SMTP id h6so4139356lag.19
-        for <netdev@vger.kernel.org>; Sun, 11 Nov 2012 14:23:59 -0800 (PST)
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:58545 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752732Ab2KKWYC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2012 17:24:02 -0500
+Received: by mail-lb0-f174.google.com with SMTP id n3so4217186lbo.19
+        for <netdev@vger.kernel.org>; Sun, 11 Nov 2012 14:24:01 -0800 (PST)
 In-Reply-To: <1352672607-12793-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both these PHYs support interrupt generation on IC pin 32.
+Only the first register set is used for matching but
+we support getting the initial hw addr from any of
+the registers.
+
+To prevent stale entries and false matches clear unused
+register sets. This most important for the at91_ether
+driver where u-boot always uses the 2nd register set.
 
 Signed-off-by: Joachim Eastwood <manabian@gmail.com>
 ---
- drivers/net/phy/davicom.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/cadence/macb.c | 8 ++++++++
+ drivers/net/ethernet/cadence/macb.h | 6 ++++++
+ 2 files changed, 14 insertions(+)
 
-diff --git a/drivers/net/phy/davicom.c b/drivers/net/phy/davicom.c
-index 81c7bc0..a2ad421 100644
---- a/drivers/net/phy/davicom.c
-+++ b/drivers/net/phy/davicom.c
-@@ -153,6 +153,8 @@ static struct phy_driver dm91xx_driver[] = {
- 	.config_init	= dm9161_config_init,
- 	.config_aneg	= dm9161_config_aneg,
- 	.read_status	= genphy_read_status,
-+	.ack_interrupt	= dm9161_ack_interrupt,
-+	.config_intr	= dm9161_config_intr,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= 0x0181b8a0,
-@@ -162,6 +164,8 @@ static struct phy_driver dm91xx_driver[] = {
- 	.config_init	= dm9161_config_init,
- 	.config_aneg	= dm9161_config_aneg,
- 	.read_status	= genphy_read_status,
-+	.ack_interrupt	= dm9161_ack_interrupt,
-+	.config_intr	= dm9161_config_intr,
- 	.driver		= { .owner = THIS_MODULE,},
- }, {
- 	.phy_id		= 0x00181b80,
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index ca34efc..edb2aba 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -108,6 +108,14 @@ void macb_set_hwaddr(struct macb *bp)
+ 	macb_or_gem_writel(bp, SA1B, bottom);
+ 	top = cpu_to_le16(*((u16 *)(bp->dev->dev_addr + 4)));
+ 	macb_or_gem_writel(bp, SA1T, top);
++
++	/* Clear unused address register sets */
++	macb_or_gem_writel(bp, SA2B, 0);
++	macb_or_gem_writel(bp, SA2T, 0);
++	macb_or_gem_writel(bp, SA3B, 0);
++	macb_or_gem_writel(bp, SA3T, 0);
++	macb_or_gem_writel(bp, SA4B, 0);
++	macb_or_gem_writel(bp, SA4T, 0);
+ }
+ EXPORT_SYMBOL_GPL(macb_set_hwaddr);
+ 
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 864e380..4414421 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -74,6 +74,12 @@
+ #define GEM_HRT					0x0084
+ #define GEM_SA1B				0x0088
+ #define GEM_SA1T				0x008C
++#define GEM_SA2B				0x0090
++#define GEM_SA2T				0x0094
++#define GEM_SA3B				0x0098
++#define GEM_SA3T				0x009C
++#define GEM_SA4B				0x00A0
++#define GEM_SA4T				0x00A4
+ #define GEM_OTX					0x0100
+ #define GEM_DCFG1				0x0280
+ #define GEM_DCFG2				0x0284
 -- 
 1.8.0
