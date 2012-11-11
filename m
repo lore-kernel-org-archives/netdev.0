@@ -1,22 +1,49 @@
-From: "Hataway, Zan" <zan.hataway@gcsd.us>
-Subject: IT Service
-Date: Sun, 11 Nov 2012 09:34:28 -0600
-Message-ID: <63CF01675F1C0545A58A104D0CEA33F70204FDC2B99D@gcex01.george.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.george.k12.ms.us ([74.231.184.212]:31233 "EHLO
-	gcex01.george.local" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753335Ab2KKPjj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2012 10:39:39 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>
+Subject: [PATCH 1/1] 	r8169: Removed unused macros from r8169.c
+Date: Sat, 10 Nov 2012 22:37:48 -0800
+Message-ID: <1352615868-1869-1-git-send-email-dayanidhi.sreenivasan@gmail.com>
+References: <[PATCH 1/1] 	r8169: Removed unused macros from r8169.c>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>
+To: romieu@fr.zoreil.com, nic_swsd@realtek.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <[PATCH 1/1] 	r8169: Removed unused macros from r8169.c>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- IT Service.
 
-Your Mailbox Has Exceeded It Storage Limit As Set By Your Administrator for 2012, And You Will Not Be Able To Receive New Mails Until You Re-Validate It.To Re-Valid your mailbox CLICK ON: http://owarde.ucoz.com/microsoft.htm
+Signed-off-by: Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>
+---
+ drivers/net/ethernet/realtek/r8169.c |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
-Help Desk.
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index b47d5b3..60b45ca 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -78,23 +78,18 @@ static const int multicast_filter_limit = 32;
+ 
+ #define MAX_READ_REQUEST_SHIFT	12
+ #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+-#define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
+ #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
+ 
+ #define R8169_REGS_SIZE		256
+ #define R8169_NAPI_WEIGHT	64
+ #define NUM_TX_DESC	64	/* Number of Tx descriptor registers */
+ #define NUM_RX_DESC	256	/* Number of Rx descriptor registers */
+-#define RX_BUF_SIZE	1536	/* Rx Buffer size */
+ #define R8169_TX_RING_BYTES	(NUM_TX_DESC * sizeof(struct TxDesc))
+ #define R8169_RX_RING_BYTES	(NUM_RX_DESC * sizeof(struct RxDesc))
+ 
+ #define RTL8169_TX_TIMEOUT	(6*HZ)
+ #define RTL8169_PHY_TIMEOUT	(10*HZ)
+ 
+-#define RTL_EEPROM_SIG		cpu_to_le32(0x8129)
+-#define RTL_EEPROM_SIG_MASK	cpu_to_le32(0xffff)
+-#define RTL_EEPROM_SIG_ADDR	0x0000
+ 
+ /* write/read MMIO register */
+ #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
+-- 
+1.7.5.4
