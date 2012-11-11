@@ -1,31 +1,23 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: Drop tp arg from rtl8169_tx_vlan_tag()
-Date: Sun, 11 Nov 2012 23:18:19 +0100
-Message-ID: <20121111221819.GB873@electric-eye.fr.zoreil.com>
-References: <1352567462-23174-1-git-send-email-kirr@mns.spb.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
-To: Kirill Smelkov <kirr@mns.spb.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:39883 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752637Ab2KKWlP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Nov 2012 17:41:15 -0500
-Content-Disposition: inline
-In-Reply-To: <1352567462-23174-1-git-send-email-kirr@mns.spb.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
+Date: Sun, 11 Nov 2012 17:47:32 -0500
+Message-ID: <201211112247.qABMlWiQ021630@thirdoffive.cmf.nrl.navy.mil>
+References: <20121111110437.GA25894@shrek.podlesie.net>
+Cc: David Woodhouse <dwmw2@infradead.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Krzysztof Mazur <krzysiek@podlesie.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <20121111110437.GA25894@shrek.podlesie.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kirill Smelkov <kirr@mns.spb.ru> :
-> Since eab6d18d (vlan: Don't check for vlan group before
-> vlan_tx_tag_present.) we don't check tp->vlgrp and thus tp is not needed
-> in this function.
+In message <20121111110437.GA25894@shrek.podlesie.net>,Krzysztof Mazur writes:
+>Any race with testing vcc flags is probably not really important
+>because:
+>	- vcc_release_async() does not take any lock so this check
+>	  will be always racy so we are probably allowed to send
+>	  new frames until vcc is really closed,
 
-Pushed to branch git://violet.fr.zoreil.com/romieu/linux davem-next.r8169
-
-Thanks.
-
--- 
-Ueimor
+this locking/synchronization is handled in the atm device drivers.
+the send and close routines are responsbile for synchronization (yes, i
+believe that leads to duplicated code but that is the way it currently is)
