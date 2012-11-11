@@ -1,49 +1,49 @@
-From: Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>
-Subject: [PATCH 1/1] 	r8169: Removed unused macros from r8169.c
-Date: Sat, 10 Nov 2012 22:37:48 -0800
-Message-ID: <1352615868-1869-1-git-send-email-dayanidhi.sreenivasan@gmail.com>
-References: <[PATCH 1/1] 	r8169: Removed unused macros from r8169.c>
+From: Krzysztof Mazur <krzysiek@podlesie.net>
+Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
+Date: Sun, 11 Nov 2012 17:12:19 +0100
+Message-ID: <20121111161219.GA25360@shrek.podlesie.net>
+References: <1352240222-363-1-git-send-email-krzysiek@podlesie.net>
+ <1352292734.7340.35.camel@shinybook.infradead.org>
+ <20121110202338.GA1749@shrek.podlesie.net>
+ <1352618933.9449.113.camel@shinybook.infradead.org>
+ <20121111110437.GA25894@shrek.podlesie.net>
+ <1352633993.9449.120.camel@shinybook.infradead.org>
+ <20121111135002.GA32390@shrek.podlesie.net>
+ <1352647601.9449.130.camel@shinybook.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>
-To: romieu@fr.zoreil.com, nic_swsd@realtek.com
+	Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
+	davem@davemloft.net
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <[PATCH 1/1] 	r8169: Removed unused macros from r8169.c>
+Content-Disposition: inline
+In-Reply-To: <1352647601.9449.130.camel@shinybook.infradead.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, Nov 11, 2012 at 03:26:41PM +0000, David Woodhouse wrote:
+> On Sun, 2012-11-11 at 14:50 +0100, Krzysztof Mazur wrote:
+> > Looks and works ok after:
+> > +       atmvcc->unlock_cb = pppoatm_unlock_cb;
+> 
+> Heh, yeah. That would probably help :)
+> 
+> Not sure if it's really necessary to optimise out the unneeded wakeups ???
+> I don't think that code path gets exercised very hard for normal passing
+> of packets. Maybe only LCP echo and responses, on a live connection?
+> 
+> But yeah, the locking *is* that simple, isn't it ??? and not the painful
+> stuff I had to do for the BLOCKED flag, which is why I deferred that
+> question to concentrate on the basic concept of using ->release_cb().
+> 
+> So it's silly *not* to do the 'need_wakeup'. But could it also live in
+> the 'blocked' word rather than expanding the structure further? Or just
+> *use* the BLOCKED bit, for that matter?
+> 
 
-Signed-off-by: Dayanidhi Sreenivasan <dayanidhi.sreenivasan@gmail.com>
----
- drivers/net/ethernet/realtek/r8169.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+It would require using atomic ops because also pppoatm_pop() can modify this
+word. I think it's better to add additional word instead of using
+atomic ops.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index b47d5b3..60b45ca 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -78,23 +78,18 @@ static const int multicast_filter_limit = 32;
- 
- #define MAX_READ_REQUEST_SHIFT	12
- #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
--#define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
- #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
- 
- #define R8169_REGS_SIZE		256
- #define R8169_NAPI_WEIGHT	64
- #define NUM_TX_DESC	64	/* Number of Tx descriptor registers */
- #define NUM_RX_DESC	256	/* Number of Rx descriptor registers */
--#define RX_BUF_SIZE	1536	/* Rx Buffer size */
- #define R8169_TX_RING_BYTES	(NUM_TX_DESC * sizeof(struct TxDesc))
- #define R8169_RX_RING_BYTES	(NUM_RX_DESC * sizeof(struct RxDesc))
- 
- #define RTL8169_TX_TIMEOUT	(6*HZ)
- #define RTL8169_PHY_TIMEOUT	(10*HZ)
- 
--#define RTL_EEPROM_SIG		cpu_to_le32(0x8129)
--#define RTL_EEPROM_SIG_MASK	cpu_to_le32(0xffff)
--#define RTL_EEPROM_SIG_ADDR	0x0000
- 
- /* write/read MMIO register */
- #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
--- 
-1.7.5.4
+Krzysiek
