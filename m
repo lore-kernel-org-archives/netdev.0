@@ -1,54 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: net/smsc911x: problems after commit 3ac3546e [Always wait for
- the chip to be ready]
-Date: Mon, 12 Nov 2012 14:40:27 -0500 (EST)
-Message-ID: <20121112.144027.1074374601388950128.davem@davemloft.net>
-References: <20121106.123623.676046673605774326.davem@davemloft.net>
-	<20121108.015754.967579869456342727.davem@davemloft.net>
-	<20121112100445.GA12511@patelk@broadcom.com>
+From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
+Subject: tc adding two filters with different protocols
+Date: Mon, 12 Nov 2012 20:45:51 +0100
+Message-ID: <1ca4bd93df74882980e199ca3fcf83a3@justnet.pl>
+Reply-To: <adam.niescierowicz@justnet.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: steve@shawell.net, linus.walleij@linaro.org,
-	robert.marklund@stericsson.com, netdev@vger.kernel.org
-To: kamlakant.patel@broadcom.com
+To: Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37054 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752021Ab2KLTk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 14:40:29 -0500
-In-Reply-To: <20121112100445.GA12511@patelk@broadcom.com>
+Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:39155 "EHLO
+	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751576Ab2KLTqD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 14:46:03 -0500
+Received: from [91.230.163.37] (helo=mail.justnet.pl)
+	by service with esmtpa (Exim 4.72)
+	(envelope-from <adam.niescierowicz@justnet.pl>)
+	id 1TXzx9-0002zv-V5
+	for netdev@vger.kernel.org; Mon, 12 Nov 2012 20:45:52 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kamlakant Patel" <kamlakant.patel@broadcom.com>
-Date: Mon, 12 Nov 2012 15:34:46 +0530
+Hello,
 
-> On Thu, Nov 08, 2012 at 01:57:54AM -0500, David Miller wrote:
->> From: "Kamlakant Patel" <kamlakant.patel@broadcom.com>
->> Date: Thu, 8 Nov 2012 12:16:28 +0530
->> 
->> > smsc driver is disabled in our bootloader and it is not changing the
->> > state of the smsc registers at any stage, so it is not a bootloader
->> > issue.
->> 
->> What puts that chip into a non-default byte swapping mode then?
-> 
-> This is a property of the XLP GBU (IO bus flash like devices). A 32-bit
-> read/write will be split into two 16-bit operations, and when the XLP is
-> in big-endian mode, we get the lower 16-bit ends up in bits 31-16 and the
-> upper 16-bit in bits 15-0.
-> 
-> The code before commit 3ac3546e worked because the driver saw that the registers
-> are word swapped (not byte swapped) and programmed the WORD_SWAP register
-> first (before any other register operations).
+writes the qos where i want classify traffic for two protocol: ip and
+pppoe. Example below
 
-Ok, fair enough.   Someone can resubmit the patch, and I'll apply it,
-but I still very much dislike this situation.
+---
+tc qdisc del root dev eth2
+tc qdisc add dev eth2 root handle 1: htb
+tc class add dev eth2 parent 1:0 classid 1:1 htb rate 500Mbit ceil 
+500Mbit
 
-Please make sure there is a very verbose comment added to the code,
-and a similarly verbose commit message for the patch explaining
-exactly how the chip gets into this state and why we have to solve
-the problem this way.
 
-Thanks.
+tc filter add dev eth2 parent 1:0 prio 5 protocol ip u32
+tc filter add dev eth2 parent 1:0 prio 5 handle 9: protocol ip u32 
+divisor 256
+tc filter add dev eth2 protocol ip parent 1:0 prio 5 u32 ht 800:: match 
+ip dst 172.16.0.0/22 hashkey mask 0x000000ff at 16 link 9:
+
+
+tc filter add dev eth2 parent 1:0 prio 6 protocol ppp_ses u32
+tc filter add dev eth2 parent 1:0 prio 6 handle 4a: protocol ppp_ses 
+u32 divisor 256
+tc filter add dev eth2 protocol ppp_ses parent 1:0 prio 6 u32 ht 800:: 
+match ip dst 31.41.209.0/24 at 24 hashkey mask 0x000000ff at 24 link 4a:
+---
+
+Unfortunately, when you add lines "tc filter add dev eth2 protocol 
+ppp_ses parent 1:0 prio 6 u32 ht 800:: match ip dst 31.41.209.0/24 at 24 
+hashkey mask 0x000000ff at 24 link 4a:" protocol change to ip
+
+command "tc -s -d filter show dev eth2" shows
+---
+filter parent 1: protocol ip pref 5 u32
+filter parent 1: protocol ip pref 5 u32 fh 9: ht divisor 256
+filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1
+filter parent 1: protocol ip pref 5 u32 fh 800::800 order 2048 key ht 
+800 bkt 0 link 9:  (rule hit 557082 success 0)
+   match ac100000/fffffc00 at 16 (success 267341 )
+     hash mask 000000ff at 16
+filter parent 1: protocol ip pref 5 u32 fh 800::801 order 2049 key ht 
+800 bkt 0 link 4a:  (rule hit 557039 success 0)
+   match 1f29d100/ffffff00 at 24 (success 0 )
+     hash mask 000000ff at 24
+filter parent 1: protocol ppp_ses pref 6 u32
+filter parent 1: protocol ppp_ses pref 6 u32 fh 4a: ht divisor 256
+filter parent 1: protocol ppp_ses pref 6 u32 fh 801: ht divisor 1
+---
+if i change order and first protocol is ppp_ses the hashkey for ip 
+protocol is changed to ppp_ses.
+
+Is this correct behavior and I do something wrong?
+
+
+Thanks
+Adam N.
