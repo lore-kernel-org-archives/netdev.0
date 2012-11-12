@@ -1,38 +1,59 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH v3 3/9] net: xfrm: use __this_cpu_read per-cpu helper
-Date: Mon, 12 Nov 2012 09:45:56 +0800
-Message-ID: <50A054D4.2070404@gmail.com>
-References: <509C688B.5010502@gmail.com> <0000013ae6ccff86-695eb9f4-23b6-4196-a575-e12d05e1a659-000000@email.amazonses.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Christoph Lameter <cl@linux.com>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: [PATCH v2 3/3] ipgre: capture inner headers during encapsulation
+Date: Sun, 11 Nov 2012 19:04:10 -0800
+Message-ID: <1352689450-4092-1-git-send-email-joseph.gasparakis@intel.com>
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0000013ae6ccff86-695eb9f4-23b6-4196-a575-e12d05e1a659-000000@email.amazonses.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter said, at 2012/11/10 4:12:
-> On Fri, 9 Nov 2012, Shan Wei wrote:
-> 
->> v3 fix compile warning:
->> net/xfrm/xfrm_ipcomp.c: In function 'ipcomp_alloc_tfms':
->> net/xfrm/xfrm_ipcomp.c:285: warning: assignment from incompatible pointer type
-> 
-> Why exactly is the pointer type not compatible? Looks like we have a
-> problem here.
-> 
+Populating the inner header pointers of skb for ipgre
+This patch has been compile-tested only.
 
-pos->tfms(struct crypto_comp **tfms) is a double pointer that point to struct crypto_comp.
-returned value is a pointer that point to struct crypto_comp;
-So, we need to dereference and then read.
+v2 Makes sure that checksumming does not take place if the offload flag is set in the skb's netdev features
 
-+ tfm = __this_cpu_read(*pos->tfms);
+Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+---
+ net/ipv4/ip_gre.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
 
-I will update this patch in v4 to fix it.
-
-Thanks~
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 7240f8e..e35ed52 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -766,8 +766,10 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 	int    gre_hlen;
+ 	__be32 dst;
+ 	int    mtu;
++	unsigned int offset;
+ 
+-	if (skb->ip_summed == CHECKSUM_PARTIAL &&
++	if (!(skb->dev->features & NETIF_F_HW_CSUM_ENC_BIT) &&
++	    skb->ip_summed == CHECKSUM_PARTIAL &&
+ 	    skb_checksum_help(skb))
+ 		goto tx_error;
+ 
+@@ -902,6 +904,17 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 			tunnel->err_count = 0;
+ 	}
+ 
++	offset = skb->data - skb->head;
++
++	skb_reset_inner_mac_header(skb);
++
++	if (skb->network_header)
++		skb_set_inner_network_header(skb, skb->network_header - offset);
++
++	if (skb->transport_header)
++		skb_set_inner_transport_header(skb, skb->transport_header -
++					       offset);
++
+ 	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen + rt->dst.header_len;
+ 
+ 	if (skb_headroom(skb) < max_headroom || skb_shared(skb)||
+-- 
+1.7.11.7
