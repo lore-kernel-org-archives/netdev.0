@@ -1,70 +1,59 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: Build regressions/improvements in v3.7-rc5
-Date: Mon, 12 Nov 2012 22:02:46 +0100
-Message-ID: <CAMuHMdXE0yJNivpirGgx08zqLH2086ydeOU6zswXj-+zn8OsWQ@mail.gmail.com>
-References: <1352753886-3402-1-git-send-email-geert@linux-m68k.org>
+From: Andreas Philipp <philipp.andreas@gmail.com>
+Subject: Re: [ath9k-devel] ath9k_htc-based adapter unfunctioning after commit
+ ceb26a6013
+Date: Mon, 12 Nov 2012 22:03:32 +0100
+Message-ID: <50A16424.5080202@gmail.com>
+References: <CA++BO6SuRgOu7A4BKobrdEeSpSc3UUYHXaECmEGE=R17w7HjQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linuxppc-dev@lists.ozlabs.org, ceph-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352753886-3402-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, vthiagar@qca.qualcomm.com,
+	netdev@vger.kernel.org, jouni@qca.qualcomm.com,
+	linville@tuxdriver.com, ath9k-devel@lists.ath9k.org
+To: Corey Richardson <corey@octayn.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:48197 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752285Ab2KLVDh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 16:03:37 -0500
+In-Reply-To: <CA++BO6SuRgOu7A4BKobrdEeSpSc3UUYHXaECmEGE=R17w7HjQA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 12, 2012 at 9:58 PM, Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> JFYI, when comparing v3.7-rc5 to v3.7-rc4[3], the summaries are:
->   - build errors: +14/-4
+Hello,
 
-14 regressions:
-  + drivers/virt/fsl_hypervisor.c: error: 'MSR_GS' undeclared (first
-use in this function):  => 799:93
-  + error: No rule to make target drivers/scsi/aic7xxx/aicasm/*.[chyl]:  => N/A
-  + net/ceph/ceph_common.c: error: dereferencing pointer to incomplete
-type:  => 272:13
-  + net/ceph/ceph_common.c: error: implicit declaration of function
-'request_key' [-Werror=implicit-function-declaration]:  => 249:2
-  + net/ceph/crypto.c: error: dereferencing pointer to incomplete
-type:  => 463:19, 434:46, 452:5, 448:52, 429:23, 467:36, 447:18
-  + net/ceph/crypto.c: error: implicit declaration of function
-'key_payload_reserve' [-Werror=implicit-function-declaration]:  =>
-437:2
-  + net/ceph/crypto.c: error: implicit declaration of function
-'register_key_type' [-Werror=implicit-function-declaration]:  => 481:2
-  + net/ceph/crypto.c: error: implicit declaration of function
-'unregister_key_type' [-Werror=implicit-function-declaration]:  =>
-485:2
-  + net/ceph/crypto.c: error: unknown field 'destroy' specified in
-initializer:  => 477:2
-  + net/ceph/crypto.c: error: unknown field 'instantiate' specified in
-initializer:  => 475:2
-  + net/ceph/crypto.c: error: unknown field 'match' specified in
-initializer:  => 476:2
-  + net/ceph/crypto.c: error: unknown field 'name' specified in
-initializer:  => 474:2
-  + net/ceph/crypto.c: error: variable 'key_type_ceph' has initializer
-but incomplete type:  => 473:8
+I am experiencing exactly the same problem. I will try to revert the
+commit in question tomorrow and report the result.
 
-powerpc-randconfig
+Thanks,
+Andreas Philipp
 
-  + error: relocation truncated to fit: R_PPC64_REL24 against symbol
-`._mcount' defined in .text section in arch/powerpc/kernel/entry_64.o:
-(.text+0x1ff9eb8) => (.text+0x1ffa274), (.text+0x1ff7840)
-
-powerpc-allyesconfig
-
-> [1] http://kisskb.ellerman.id.au/kisskb/head/5614/ (all 117 configs)
-> [3] http://kisskb.ellerman.id.au/kisskb/head/5600/ (all 117 configs)
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+On 11/12/2012 02:34 PM, Corey Richardson wrote:
+> I was giving 3.7-rc4 a whirl when I discovered my wireless adapter [0] wasn't
+> working: the LED didn't light up. Went and ran 'ip link' and it just hung there.
+> Tried a few other things and discovered that sudo was broken too. With
+> strace I found that they were hanging in sendto().
+>
+> If I then unplug the adapter, everything comes out of the hang.
+>
+> Bisected and found that commit ceb26a6013b962b82f644189ea29d802490fc8fc is
+> to blame.
+>
+> Attached is my .config,. The complete dmesg is attached, as well as
+> dmesg_disconnect which is what gets spat out on disconnect of the device.
+> strace is an strace of 'ip link'.
+>
+> I feel like I haven't given enough information; anything else needed?
+>
+> (Please CC me in any reply to a list; I am not subscribed to them)
+>
+> [0] - http://support.netgear.com/product/WNA1100
+>
+> --
+> Corey Richardson
+>
+>
+> _______________________________________________
+> ath9k-devel mailing list
+> ath9k-devel@lists.ath9k.org
+> https://lists.ath9k.org/mailman/listinfo/ath9k-devel
