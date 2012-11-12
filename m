@@ -1,59 +1,93 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 1/1] isdn: Make CONFIG_ISDN depend on CONFIG_NETDEVICES
-Date: Mon, 12 Nov 2012 18:08:09 +0100
-Message-ID: <50A12CF9.7000608@imap.cc>
-References: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigB344C93EC3BBAA095A4C37E3"
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
-To: Lee Jones <lee.jones@linaro.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH 4/7] arm: mvebu: add Ethernet controllers using mvneta driver for Armada 370/XP
+Date: Mon, 12 Nov 2012 18:07:07 +0100
+Message-ID: <1352740030-12801-5-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1352740030-12801-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Dmitri Epshtein <dima@marvell.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:54843 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751992Ab2KLRIM (ORCPT
+Received: from mail.free-electrons.com ([88.190.12.23]:40143 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753848Ab2KLRIM (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 12:08:12 -0500
-In-Reply-To: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
+In-Reply-To: <1352740030-12801-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigB344C93EC3BBAA095A4C37E3
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+The Armada 370 SoC has two network units, while the Armada XP has four
+network units. The first two network units are common to both the
+Armada XP and Armada 370, so they are added to armada-370-xp.dtsi,
+while the other two network units are specific to the Armada XP and
+therefore added to armada-xp.dtsi.
 
-Am 07.11.2012 10:55, schrieb Lee Jones:
-> It doesn't make much sense to enable ISDN services if you don't
-> intend to connect to a network. Therefore insisting that ISDN
-> depends on NETDEVICES seems logical.
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ arch/arm/boot/dts/armada-370-xp.dtsi |   21 +++++++++++++++++++++
+ arch/arm/boot/dts/armada-xp.dtsi     |   14 ++++++++++++++
+ 2 files changed, 35 insertions(+)
 
-Well, not quite. ISDN is (was?) also used for telephony applications
-which could work just fine without network devices. But I guess not
-many kernels will actually be built with CONFIG_NETDEVICES=3Dn, so the
-inconvenience is small.
-
---=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
-
-
-
---------------enigB344C93EC3BBAA095A4C37E3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.12 (MingW32)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAlChLPkACgkQMdB4Whm86/lndACfTtpdyYN/SwgtIfYCxV1kF0Qb
-LS8AnAufcDUSDIliIjuu4X/MagMpcZJw
-=WOqN
------END PGP SIGNATURE-----
-
---------------enigB344C93EC3BBAA095A4C37E3--
+diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+index b113e0b..0cd3331 100644
+--- a/arch/arm/boot/dts/armada-370-xp.dtsi
++++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+@@ -68,6 +68,27 @@
+ 			compatible = "marvell,armada-addr-decoding-controller";
+ 			reg = <0xd0020000 0x258>;
+ 		};
++
++		mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++			compatible = "marvell,orion-mdio";
++			reg = <0xd0072004 0x4>;
++		};
++
++		ethernet@d0070000 {
++				compatible = "marvell,armada-370-neta";
++				reg = <0xd0070000 0x2500>;
++				interrupts = <8>;
++				status = "disabled";
++		};
++
++		ethernet@d0074000 {
++				compatible = "marvell,armada-370-neta";
++				reg = <0xd0074000 0x2500>;
++				interrupts = <10>;
++				status = "disabled";
++		};
+ 	};
+ };
+ 
+diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
+index 71d6b5d..3bbbccf 100644
+--- a/arch/arm/boot/dts/armada-xp.dtsi
++++ b/arch/arm/boot/dts/armada-xp.dtsi
+@@ -51,5 +51,19 @@
+ 				compatible = "marvell,armada-370-xp-system-controller";
+ 				reg = <0xd0018200 0x500>;
+ 		};
++
++		ethernet@d0030000 {
++				compatible = "marvell,armada-370-neta";
++				reg = <0xd0030000 0x2500>;
++				interrupts = <12>;
++				status = "disabled";
++		};
++
++		ethernet@d0034000 {
++				compatible = "marvell,armada-370-neta";
++				reg = <0xd0034000 0x2500>;
++				interrupts = <14>;
++				status = "disabled";
++		};
+ 	};
+ };
+-- 
+1.7.9.5
