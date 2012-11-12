@@ -1,42 +1,112 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] ipv4: avoid undefined behavior in do_ip_setsockopt()
-Date: Mon, 12 Nov 2012 13:54:11 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B709E@saturn3.aculab.com>
-References: <1352668801-14373-1-git-send-email-xi.wang@gmail.com><20121111.170247.780516266044882867.davem@davemloft.net><50A0244F.1070302@gmail.com> <20121111.175056.930119228369321440.davem@davemloft.net>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH 02/10] arm: at91: move platfarm_data to
+ include/linux/platform_data/atmel.h
+Date: Mon, 12 Nov 2012 15:06:46 +0100
+Message-ID: <20121112140646.GK4576@game.jcrosoft.org>
+References: <20121107111235.GH20063@game.jcrosoft.org>
+ <1352287374-25176-1-git-send-email-plagnioj@jcrosoft.com>
+ <1352287374-25176-2-git-send-email-plagnioj@jcrosoft.com>
+ <CAGhQ9VxgbCGzOPVtQq-LYsEPuyyGjRDfB3jHPtvbHr1xLgntXA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>, <xi.wang@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org, linux-fbdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, rtc-linux@googlegroups.com,
+	linux-mmc@vger.kernel.org, linux-pcmcia@lists.infradead.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	linux-can@vger.kernel.org, linux-ide@vger.kernel.org,
+	netdev@vger.kernel.org, linux-serial@vger.kernel.org,
+	linux-input@vger.kernel.org,
+	spi-devel-general@lists.sourceforge.net
+To: Joachim Eastwood <manabian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:54431 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751549Ab2KLOGH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 09:06:07 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 08565-10 for <netdev@vger.kernel.org>;
- Mon, 12 Nov 2012 14:05:58 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20121111.175056.930119228369321440.davem@davemloft.net>
+Received: from 5.mo2.mail-out.ovh.net ([87.98.181.248]:41799 "EHLO
+	mo2.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751549Ab2KLOJm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 09:09:42 -0500
+Received: from mail426.ha.ovh.net (b6.ovh.net [213.186.33.56])
+	by mo2.mail-out.ovh.net (Postfix) with SMTP id 028D0DC06AF
+	for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 15:17:09 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <CAGhQ9VxgbCGzOPVtQq-LYsEPuyyGjRDfB3jHPtvbHr1xLgntXA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >> This code is a fast bit test on purpose.  You're making the
-> >> code slower.
-> >
-> > No, it's the opposite.  All modern compilers optimize switch cases
-> > into a fast bit test.
-
-'All modern' is probably an overstatement, 'recent gcc' might be valid.
- 
-> Indeed, I even checked sparc64 with gcc-4.6 and it looks good.
+On 11:54 Sat 10 Nov     , Joachim Eastwood wrote:
+> Hi Jean-Christophe,
 > 
-> Thanks for the clarification, I'll apply this, thanks.
+> On 7 November 2012 12:22, Jean-Christophe PLAGNIOL-VILLARD
+> <plagnioj@jcrosoft.com> wrote:
+> > Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> > Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+> > Cc: linux-ide@vger.kernel.org
+> > Cc: linux-input@vger.kernel.org
+> > Cc: linux-mmc@vger.kernel.org
+> > Cc: linux-can@vger.kernel.org
+> > Cc: netdev@vger.kernel.org
+> > Cc: linux-pcmcia@lists.infradead.org
+> > Cc: rtc-linux@googlegroups.com
+> > Cc: spi-devel-general@lists.sourceforge.net
+> > Cc: linux-serial@vger.kernel.org
+> > Cc: linux-usb@vger.kernel.org
+> > Cc: linux-fbdev@vger.kernel.org
+> > ---
+> > HI all,
+> >
+> >         If it's ok with everyone this will go via at91
+> >         with the patch serie than clean up the include/mach
+> >
+> >         For preparation to switch to arm multiarch kernel
+> >
+> > Best Regards,
+> > J.
+> >  arch/arm/mach-at91/include/mach/board.h     |   55 ----------------------
+> >  arch/avr32/mach-at32ap/include/mach/board.h |    7 ---
+> >  drivers/ata/pata_at91.c                     |    2 +-
+> >  drivers/input/touchscreen/atmel_tsadcc.c    |    2 +-
+> >  drivers/mmc/host/atmel-mci.c                |    2 +-
+> >  drivers/net/can/at91_can.c                  |    3 +-
+> >  drivers/net/ethernet/cadence/at91_ether.c   |    2 +-
+> >  drivers/pcmcia/at91_cf.c                    |    2 +-
+> >  drivers/rtc/rtc-at91sam9.c                  |    2 +-
+> >  drivers/spi/spi-atmel.c                     |    2 +-
+> >  drivers/tty/serial/atmel_serial.c           |    2 +-
+> >  drivers/usb/gadget/at91_udc.c               |    2 +-
+> >  drivers/usb/gadget/atmel_usba_udc.c         |    2 +-
+> >  drivers/usb/host/ohci-at91.c                |    2 +-
+> >  drivers/video/atmel_lcdfb.c                 |    2 +-
+> >  include/linux/platform_data/atmel.h         |   67 +++++++++++++++++++++++++++
+> >  16 files changed, 80 insertions(+), 76 deletions(-)
+> 
+> <snip>
+> 
+> > diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+> > index 4e980a7..35fc6edb 100644
+> > --- a/drivers/net/ethernet/cadence/at91_ether.c
+> > +++ b/drivers/net/ethernet/cadence/at91_ether.c
+> > @@ -31,6 +31,7 @@
+> >  #include <linux/clk.h>
+> >  #include <linux/gfp.h>
+> >  #include <linux/phy.h>
+> > +#include <linux/platform_data/atmel.h>
+> >
+> >  #include <asm/io.h>
+> >  #include <asm/uaccess.h>
+> > @@ -38,7 +39,6 @@
+> >
+> >  #include <mach/at91rm9200_emac.h>
+> >  #include <asm/gpio.h>
+> > -#include <mach/board.h>
+> >
+> >  #include "at91_ether.h"
+> 
+> The at91_ether driver in net-next does not need to be change since it
+> all mach includes has already been removed by other patches and it
+> includes linux/platform_data/macb.h directly.
+> 
+> What tree was these patches based on?
+> The at91_ether driver changes has been in linux-next for a long while now.
+the conflict is minor easy to handle and the cleanup need to go first on arm soc so this is
+based on rc3
 
-The 'switch' version will have an extra conditional to detect
-'out of range' values - even though we know they can't happen.
-I'm not sure you can avoid that - even for an enum.
-
-	David
+Best Regards,
+J.
