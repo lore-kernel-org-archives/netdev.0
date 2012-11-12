@@ -1,37 +1,84 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: [PATCH v3 2/9] net: rds: use this_cpu_ptr per-cpu helper
-Date: Mon, 12 Nov 2012 23:31:13 +0000
-Message-ID: <0000013af6f6652c-8e110b17-56dc-4119-899a-02a627c5485a-000000@email.amazonses.com>
-References: <509C687E.1080106@gmail.com> <0000013ae6cadebe-0e44d6a0-5e8c-4ded-a337-d2f41f2ab0e4-000000@email.amazonses.com> <50A0EFE7.9010100@gmail.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: venkat.x.venkatsubra@oracle.com,
-	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	NetDev <netdev@vger.kernel.org>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Shan Wei <shanwei88@gmail.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding: rlb mode of bond should not alter ARP replies originating via bridge
+Date: Mon, 12 Nov 2012 15:40:45 -0800
+Message-ID: <29827.1352763645@death.nxdomain>
+References: <1352714143-28160-1-git-send-email-zheng.x.li@oracle.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	joe.jin@oracle.com
+To: Zheng Li <zheng.x.li@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50A0EFE7.9010100@gmail.com>
+In-reply-to: <1352714143-28160-1-git-send-email-zheng.x.li@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Nov 2012, Shan Wei wrote:
+Zheng Li <zheng.x.li@oracle.com> wrote:
 
-> __percpu annotations in struct rds_ib_refill_cache is missing.
+>ARP traffic passing through a bridge and out via the bond (when the bond is a 
+>port of the bridge) should not have its source MAC address adjusted by the 
+>receive load balance code in rlb_arp_xmit.
 >
-> you mean that read/write fields of struct rds_ib_cache_head
-> using __this_cpu_* operation like following?
-> How about it?
+>Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+>Cc: Jay Vosburgh <fubar@us.ibm.com>
+>Cc: Andy Gospodarek <andy@greyhouse.net>
+>Cc: "David S. Miller" <davem@davemloft.net>
 >
-> diff --git a/net/rds/ib.h b/net/rds/ib.h
-> index 8d2b3d5..7280ab8 100644
-> --- a/net/rds/ib.h
-> +++ b/net/rds/ib.h
-> @@ -50,7 +50,7 @@ struct rds_ib_cache_head {
->  };
+>---
+> drivers/net/bonding/bond_alb.c |   21 ++++++++++++++++++++-
+> 1 files changed, 20 insertions(+), 1 deletions(-)
 >
->  struct rds_ib_refill_cache {
-> -	struct rds_ib_cache_head *percpu;
-> +	struct rds_ib_cache_head __percpu *percpu;
+>diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>index e15cc11..a99e658 100644
+>--- a/drivers/net/bonding/bond_alb.c
+>+++ b/drivers/net/bonding/bond_alb.c
+>@@ -685,6 +685,18 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+> 	return assigned_slave;
+> }
+>
+>+struct slave *bond_slave_has_mac(struct bonding *bond, const u8 *mac)
+>+{
+>+	int i = 0;
+>+	struct slave *tmp;
+>+
+>+	bond_for_each_slave(bond, tmp, i)
+>+		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
+>+			return tmp;
+>+
+>+	return NULL;
+>+}
 
-That looks ok.
+	This should go in bonding.h as a static line, so that other
+parts of bonding can use it in the future.  I'll also point out that
+this function is one I suggested in a prior email, but did not test.
+Presumably you've tested this.
+
+> /* chooses (and returns) transmit channel for arp reply
+>  * does not choose channel for other arp types since they are
+>  * sent on the curr_active_slave
+>@@ -700,7 +712,14 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+> 		*/
+> 		tx_slave = rlb_choose_channel(skb, bond);
+> 		if (tx_slave) {
+>-			memcpy(arp->mac_src,tx_slave->dev->dev_addr, ETH_ALEN);
+>+			struct slave *tmp_slave = NULL;
+
+	This does not need to be initialized, as the next line of code
+assigns a value to it.
+
+	-J
+
+>+			/* Only modify ARP's MAC if it originates locally;
+>+			 * don't change ARPs arriving via a bridge.
+>+			 */
+>+			tmp_slave = bond_slave_has_mac(bond, arp->mac_src);
+>+			if (tmp_slave)
+>+				memcpy(arp->mac_src, tx_slave->dev->dev_addr,
+>+				       ETH_ALEN);
+> 		}
+> 		pr_debug("Server sent ARP Reply packet\n");
+> 	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
+>-- 
+>1.7.6.5
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
