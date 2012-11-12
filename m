@@ -1,46 +1,29 @@
-From: Jonathan Nieder <jrnieder@gmail.com>
-Subject: Re: [3.0.y, 3.2.y, 3.4.y] Re: [PATCH 2/2] [sky2] Fix for interrupt
- handler
-Date: Mon, 12 Nov 2012 00:24:23 -0800
-Message-ID: <20121112082423.GD3581@elie.Belkin>
-References: <1341394726.14972.41.camel@mlindner-lin.skd.de>
- <20121025223646.GA1131@elie.Belkin>
- <20121103100447.GA2003@elie.Belkin>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Gilbey <jdg@debian.org>,
-	Mirko Lindner <mlindner@marvell.com>,
-	Stephen Hemminger <shemminger@vyatta.org>,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35942 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751203Ab2KLIY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 03:24:27 -0500
-Content-Disposition: inline
-In-Reply-To: <20121103100447.GA2003@elie.Belkin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: [PATCH v2 net-next 0/3 ] tunneling: Add support for hardware-offloaded encapsulation
+Date: Mon, 12 Nov 2012 00:36:55 -0800
+Message-ID: <1352709418-28996-1-git-send-email-joseph.gasparakis@intel.com>
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dmitry@broadcom.com
+To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On November 3, Jonathan Nieder wrote:
-> On October 25, Jonathan Nieder wrote:
->> Mirko Lindner wrote:
+The series contains updates to add in the NIC Rx and Tx checksumming support
+for encapsulated packets.
 
->>> Re-enable interrupts if it is not our interrupt
-[...]
->> Tested-by: Julian Gilbey <jdg@debian.org> # 3.2.y, Inspiron 1545
->
-> Ping.  Dave, is
->
->   d663d181b9e9 sky2: Fix for interrupt handler
->
-> a candidate for inclusion in 3.0-, 3.2-, and 3.4-stable?  (It was
-> applied upstream during the 3.6 merge window.)
+The sk_buff needs to somehow have information of the inner packet, and adding
+three fields for the inner mac, network and transport headers was the prefered
+approach. 
 
-Please confirm or object so I know you've received this message.
-Thanks for maintaining netdev-stable with such attention to quality,
-by the way.
+Not adding these fields would mean that the drivers would need to parse the
+sk_buff data in hot-path, having a negative impact in the performance.
 
-Sincerely,
-Jonathan
+Adding in sk_buff a pointer to the skbuff of the inner packet made sense, but
+would be a complicated change as assumptions needed to be made with regards to
+helper functions such as skb_clone() skb_copy(). Also code for the existing
+encapsulation protocols (such as VXLAN and IP GRE) had to be reworked, so the
+decision was to have the simple approach of adding these three fields.
+
+v2 Makes sure that checksumming for IP GRE does not take place if the offload flag is set in the skb's netdev features
