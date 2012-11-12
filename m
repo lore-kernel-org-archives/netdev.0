@@ -1,58 +1,35 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH v4] Network driver for the Armada 370 and Armada XP ARM
- Marvell SoCs
-Date: Mon, 12 Nov 2012 18:58:40 +0100
-Message-ID: <20121112185840.7a18a11d@skate>
-References: <1351245804-31478-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	<20121030105154.5b7c8e48@skate>
-	<20121102232137.3c9da5e4@skate>
-	<20121103115321.GA4539@electric-eye.fr.zoreil.com>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH] vlan: Make it possible to add vlan with id 4095
+Date: Mon, 12 Nov 2012 19:42:12 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1211121941370.1611@nerf07.vanv.qr>
+References: <20120928123258.9454.95197.stgit@localhost.localdomain> <20120928.134417.1763308761361480629.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Maen Suleiman <maen@marvell.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: paulius.zaleckas@gmail.com, kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([88.190.12.23]:41029 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750988Ab2KLR6v convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 12:58:51 -0500
-In-Reply-To: <20121103115321.GA4539@electric-eye.fr.zoreil.com>
+Received: from ares07.inai.de ([5.9.24.206]:53238 "EHLO ares07.inai.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751076Ab2KLSmN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2012 13:42:13 -0500
+In-Reply-To: <20120928.134417.1763308761361480629.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Fran=C3=A7ois,
+On Friday 2012-09-28 19:44, David Miller wrote:
 
-On Sat, 3 Nov 2012 12:53:21 +0100, Francois Romieu wrote:
-> Thomas Petazzoni <thomas.petazzoni@free-electrons.com> :
-> [...]
-> > Any comments on this patch set? What should I do to make it progres=
-s
-> > towards integration?
->=20
-> Nits review above. I'll search more substantial things this evening.
-> It looks quite good.
+>From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+>Date: Fri, 28 Sep 2012 15:32:58 +0300
+>
+>> vconfig help tells that vlan_id should be 0-4095, but fails
+>> with 4095.
+>> 
+>> There is an off-by-one bug while evaluating vlan_id.
+>> Fix it by evaluating against count(4096), not mask(0x0fff = 4095).
+>> 
+>> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+>
+>Awesome, we don't need VXVLAN any more after this fix.
 
-Thanks a lot for your reviews. I completely forgot to take your
-comments into account for my v5, I was focused on the MDIO changes. I
-will resend a v6 tomorrow that takes into account your comments.
-
-Do not hesitate to get back to me if you have more comments after a
-more substantial review.
-
-Thanks,
-
-Thomas
---=20
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+You mean because the special 0xfff value could indicate "here's more 
+headers"? Sounds like a plan.
