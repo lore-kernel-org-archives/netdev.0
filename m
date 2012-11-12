@@ -1,55 +1,30 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] ping: Wrap SO_BINDTODEVICE with the correct capability.
-Date: Tue, 13 Nov 2012 00:25:08 +0900
-Message-ID: <50A114D4.4040201@linux-ipv6.org>
-References: <50A0F570.5090208@redhat.com>
+From: WEBMAIL <rodrigo.figueroa@vicepresidencia.gob.ec>
+Subject: KONTO UPPDATERING
+Date: Mon, 12 Nov 2012 01:53:12 -0500 (ECT)
+Message-ID: <27320486.129215.1352703192351.JavaMail.root@vicepresidencia.gob.ec>
+Reply-To: WEBMAIL <accountuserhelp@admin.in.th>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Jan Synacek <jsynacek@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:33023 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752979Ab2KLPZK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 10:25:10 -0500
-In-Reply-To: <50A0F570.5090208@redhat.com>
+Received: from msgw.vicepresidencia.gob.ec ([190.152.249.126]:56744 "EHLO
+	msgw.vicepresidencia.gob.ec" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751339Ab2KLQSZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2012 11:18:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jan Synacek wrote:
-> 
-> Signed-off-by: Jan Synacek <jsynacek@redhat.com>
-> ---
->  ping.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/ping.c b/ping.c
-> index 2f70cec..c958f1a 100644
-> --- a/ping.c
-> +++ b/ping.c
-> @@ -316,6 +316,9 @@ main(int argc, char **argv)
->  			struct ifreq ifr;
->  			memset(&ifr, 0, sizeof(ifr));
->  			strncpy(ifr.ifr_name, device, IFNAMSIZ-1);
-> +
-> +			enable_capability_raw();
-> +
->  			if (setsockopt(probe_fd, SOL_SOCKET, SO_BINDTODEVICE, device,
-> strlen(device)+1) == -1) {
->  				if (IN_MULTICAST(ntohl(dst.sin_addr.s_addr))) {
->  					struct ip_mreqn imr;
-> @@ -331,6 +334,8 @@ main(int argc, char **argv)
->  					}
->  				}
->  			}
-> +
-> +			disable_capability_raw();
->  		}
-> 
->  		if (settos &&
-> 
-
-Oh, you're right.  Applied, thank you.
-
---yoshfuji
+En DGTFX Virus har uppt=C3=A4ckts i v=C3=A5r webb tj=C3=A4nsteleverant=C3=
+=B6r. Ditt e-postkonto m=C3=A5ste uppgraderas till v=C3=A5r nya Secured=
+ DGTFX antivirusprogram 2011/2012 version f=C3=B6r att f=C3=B6rhindra s=
+kador p=C3=A5 v=C3=A5r webb leverant=C3=B6r och dina viktiga filer. Kli=
+cka p=C3=A5 nedan l=C3=A4nk, Fyll kolumnerna och skicka tillbaka till o=
+ss eller ditt e-postkonto kommer att avslutas f=C3=B6r att undvika spri=
+dning av viruset.
+aktiveringsl=C3=A4nk
+http://www.formstack.com/forms/?1326104-EUKetyz1zD
+Tack f=C3=B6r ditt samarbete.
+konto Support
+Varning Kod: ID67565453
