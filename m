@@ -1,64 +1,59 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH 7/7] arm: mvebu: enable Ethernet controllers on Mirabox platform
-Date: Mon, 12 Nov 2012 18:07:10 +0100
-Message-ID: <1352740030-12801-8-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1352740030-12801-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Dmitri Epshtein <dima@marvell.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH 1/1] isdn: Make CONFIG_ISDN depend on CONFIG_NETDEVICES
+Date: Mon, 12 Nov 2012 18:08:09 +0100
+Message-ID: <50A12CF9.7000608@imap.cc>
+References: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigB344C93EC3BBAA095A4C37E3"
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
+To: Lee Jones <lee.jones@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([88.190.12.23]:40126 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753263Ab2KLRII (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 12:08:08 -0500
-In-Reply-To: <1352740030-12801-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Received: from out5-smtp.messagingengine.com ([66.111.4.29]:54843 "EHLO
+	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751992Ab2KLRIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 12:08:12 -0500
+In-Reply-To: <1352282103-13665-1-git-send-email-lee.jones@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Globalscale Mirabox platform has two Ethernet interfaces,
-connected to the SoC with a RGMII interface.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigB344C93EC3BBAA095A4C37E3
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- arch/arm/boot/dts/armada-370-mirabox.dts |   21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
+Am 07.11.2012 10:55, schrieb Lee Jones:
+> It doesn't make much sense to enable ISDN services if you don't
+> intend to connect to a network. Therefore insisting that ISDN
+> depends on NETDEVICES seems logical.
 
-diff --git a/arch/arm/boot/dts/armada-370-mirabox.dts b/arch/arm/boot/dts/armada-370-mirabox.dts
-index 9eef8dd..8554dbe 100644
---- a/arch/arm/boot/dts/armada-370-mirabox.dts
-+++ b/arch/arm/boot/dts/armada-370-mirabox.dts
-@@ -33,5 +33,26 @@
- 			clock-frequency = <600000000>;
- 			status = "okay";
- 		};
-+		mdio {
-+			phy0: ethernet-phy@0 {
-+				reg = <0>;
-+			};
-+
-+			phy1: ethernet-phy@1 {
-+				reg = <1>;
-+			};
-+		};
-+		ethernet@d0070000 {
-+			clock-frequency = <200000000>;
-+			status = "okay";
-+			phy = <&phy0>;
-+			phy-mode = "rgmii-id";
-+		};
-+		ethernet@d0074000 {
-+			clock-frequency = <200000000>;
-+			status = "okay";
-+			phy = <&phy1>;
-+			phy-mode = "rgmii-id";
-+		};
- 	};
- };
--- 
-1.7.9.5
+Well, not quite. ISDN is (was?) also used for telephony applications
+which could work just fine without network devices. But I guess not
+many kernels will actually be built with CONFIG_NETDEVICES=3Dn, so the
+inconvenience is small.
+
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=C3=B6ffnet mindestens haltbar bis: (siehe R=C3=BCckseite)
+
+
+
+--------------enigB344C93EC3BBAA095A4C37E3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.12 (MingW32)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAlChLPkACgkQMdB4Whm86/lndACfTtpdyYN/SwgtIfYCxV1kF0Qb
+LS8AnAufcDUSDIliIjuu4X/MagMpcZJw
+=WOqN
+-----END PGP SIGNATURE-----
+
+--------------enigB344C93EC3BBAA095A4C37E3--
