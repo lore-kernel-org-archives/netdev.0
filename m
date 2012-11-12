@@ -1,61 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC net-next] tun: implement BQL
-Date: Mon, 12 Nov 2012 13:22:41 -0800
-Message-ID: <20121112132241.12bb94e4@nehalam.linuxnetplumber.net>
+From: Adrian Chadd <adrian@freebsd.org>
+Subject: Re: ath9k_htc-based adapter unfunctioning after commit ceb26a6013
+Date: Mon, 12 Nov 2012 13:39:34 -0800
+Message-ID: <CAJ-Vmon04wLvn0DDnD9X98bY8DxHRQf10jQJCbuckbztS261vQ@mail.gmail.com>
+References: <CA++BO6SuRgOu7A4BKobrdEeSpSc3UUYHXaECmEGE=R17w7HjQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-wireless@vger.kernel.org, jouni@qca.qualcomm.com,
+	vthiagar@qca.qualcomm.com, linville@tuxdriver.com,
+	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org,
+	nbd@openwrt.org
+To: Corey Richardson <corey@octayn.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52625 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754117Ab2KLVXp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2012 16:23:45 -0500
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:64781 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751888Ab2KLVje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 16:39:34 -0500
+In-Reply-To: <CA++BO6SuRgOu7A4BKobrdEeSpSc3UUYHXaECmEGE=R17w7HjQA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add multiqueue BQL to tap device. Tested with VPN, doesn't have a big impact,
-most likely because there is little queueing occuring at TAP device except
-under case of forwarding.
+Hi!
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Please create a bugzilla.kernel.org ticket with this info?
 
---- a/drivers/net/tun.c	2012-11-12 07:58:45.527037947 -0800
-+++ b/drivers/net/tun.c	2012-11-12 11:20:26.017512742 -0800
-@@ -412,6 +412,7 @@ static void __tun_detach(struct tun_file
- 		tun_flow_delete_by_queue(tun, tun->numqueues + 1);
- 		/* Drop read queue */
- 		skb_queue_purge(&tfile->sk.sk_receive_queue);
-+		netdev_tx_reset_queue(netdev_get_tx_queue(dev, index));
- 		tun_set_real_num_queues(tun);
- 
- 		if (tun->numqueues == 0 && !(tun->flags & TUN_PERSIST))
-@@ -455,6 +456,7 @@ static void tun_detach_all(struct net_de
- 						  lockdep_rtnl_is_held());
- 		/* Drop read queue */
- 		skb_queue_purge(&tfile->sk.sk_receive_queue);
-+		netdev_tx_reset_queue(netdev_get_tx_queue(dev, i));
- 		sock_put(&tfile->sk);
- 	}
- }
-@@ -712,6 +714,8 @@ static netdev_tx_t tun_net_xmit(struct s
- 	 * for indefinite time. */
- 	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
- 		goto drop;
-+
-+	netdev_tx_sent_queue(netdev_get_tx_queue(dev, txq), skb->len);
- 	skb_orphan(skb);
- 
- 	/* Enqueue packet */
-@@ -1324,6 +1328,10 @@ static ssize_t tun_do_read(struct tun_st
- 		netif_wake_subqueue(tun->dev, tfile->queue_index);
- 
- 		ret = tun_put_user(tun, tfile, skb, iv, len);
-+
-+		netdev_tx_completed_queue(netdev_get_tx_queue(tun->dev,
-+							      tfile->queue_index),
-+					  1, skb->len);
- 		kfree_skb(skb);
- 		break;
- 	}
+Thanks,
+
+
+
+adrian
+
+
+On 12 November 2012 05:34, Corey Richardson <corey@octayn.net> wrote:
+> I was giving 3.7-rc4 a whirl when I discovered my wireless adapter [0] wasn't
+> working: the LED didn't light up. Went and ran 'ip link' and it just hung there.
+> Tried a few other things and discovered that sudo was broken too. With
+> strace I found that they were hanging in sendto().
+>
+> If I then unplug the adapter, everything comes out of the hang.
+>
+> Bisected and found that commit ceb26a6013b962b82f644189ea29d802490fc8fc is
+> to blame.
+>
+> Attached is my .config,. The complete dmesg is attached, as well as
+> dmesg_disconnect which is what gets spat out on disconnect of the device.
+> strace is an strace of 'ip link'.
+>
+> I feel like I haven't given enough information; anything else needed?
+>
+> (Please CC me in any reply to a list; I am not subscribed to them)
+>
+> [0] - http://support.netgear.com/product/WNA1100
+>
+> --
+> Corey Richardson
