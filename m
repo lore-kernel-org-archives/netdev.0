@@ -1,42 +1,58 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next] ipv6 ndisc: Use pre-defined in6addr_linklocal_allnodes.
-Date: Tue, 13 Nov 2012 02:50:17 +0900
-Message-ID: <201211121750.qACHoHYE012220@94.43.138.210.xn.2iij.net>
-Cc: yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH v4] Network driver for the Armada 370 and Armada XP ARM
+ Marvell SoCs
+Date: Mon, 12 Nov 2012 18:58:40 +0100
+Message-ID: <20121112185840.7a18a11d@skate>
+References: <1351245804-31478-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<20121030105154.5b7c8e48@skate>
+	<20121102232137.3c9da5e4@skate>
+	<20121103115321.GA4539@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Maen Suleiman <maen@marvell.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:43246 "EHLO
-	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751984Ab2KLRua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 12:50:30 -0500
+Received: from mail.free-electrons.com ([88.190.12.23]:41029 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750988Ab2KLR6v convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 12:58:51 -0500
+In-Reply-To: <20121103115321.GA4539@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/ndisc.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Hello Fran=C3=A7ois,
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 4f47aa5..6ba4b54 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -535,7 +535,6 @@ static void ndisc_send_unsol_na(struct net_device *dev)
- {
- 	struct inet6_dev *idev;
- 	struct inet6_ifaddr *ifa;
--	struct in6_addr mcaddr = IN6ADDR_LINKLOCAL_ALLNODES_INIT;
- 
- 	idev = in6_dev_get(dev);
- 	if (!idev)
-@@ -543,7 +542,7 @@ static void ndisc_send_unsol_na(struct net_device *dev)
- 
- 	read_lock_bh(&idev->lock);
- 	list_for_each_entry(ifa, &idev->addr_list, if_list) {
--		ndisc_send_na(dev, NULL, &mcaddr, &ifa->addr,
-+		ndisc_send_na(dev, NULL, &in6addr_linklocal_allnodes, &ifa->addr,
- 			      /*router=*/ !!idev->cnf.forwarding,
- 			      /*solicited=*/ false, /*override=*/ true,
- 			      /*inc_opt=*/ true);
--- 
-1.7.9.5
+On Sat, 3 Nov 2012 12:53:21 +0100, Francois Romieu wrote:
+> Thomas Petazzoni <thomas.petazzoni@free-electrons.com> :
+> [...]
+> > Any comments on this patch set? What should I do to make it progres=
+s
+> > towards integration?
+>=20
+> Nits review above. I'll search more substantial things this evening.
+> It looks quite good.
+
+Thanks a lot for your reviews. I completely forgot to take your
+comments into account for my v5, I was focused on the MDIO changes. I
+will resend a v6 tomorrow that takes into account your comments.
+
+Do not hesitate to get back to me if you have more comments after a
+more substantial review.
+
+Thanks,
+
+Thomas
+--=20
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
