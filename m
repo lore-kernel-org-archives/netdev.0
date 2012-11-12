@@ -1,75 +1,65 @@
-From: Jan Synacek <jsynacek@redhat.com>
-Subject: [PATCH] iputils: clockdiff: remove unused variable
-Date: Mon, 12 Nov 2012 09:38:29 +0100
-Message-ID: <50A0B585.4030603@redhat.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070704030707010107070705"
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29387 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752331Ab2KLIid (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2012 03:38:33 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zheng Li <zheng.x.li@oracle.com>
+Subject: [PATCH] bonding: rlb mode of bond should not alter ARP replies originating via bridge
+Date: Mon, 12 Nov 2012 17:55:43 +0800
+Message-ID: <1352714143-28160-1-git-send-email-zheng.x.li@oracle.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	joe.jin@oracle.com, zheng.x.li@oracle.com
+To: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070704030707010107070705
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+ARP traffic passing through a bridge and out via the bond (when the bond is a 
+port of the bridge) should not have its source MAC address adjusted by the 
+receive load balance code in rlb_arp_xmit.
 
-Hello,
+Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: "David S. Miller" <davem@davemloft.net>
 
-attached is a small patch that removes an unused variable.
-
-Cheers,
-
--- 
-Jan Synacek
-Software Engineer, BaseOS team Brno, Red Hat
-
---------------070704030707010107070705
-Content-Type: text/x-patch;
- name="0001-clockdiff-remove-unused-variable.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="0001-clockdiff-remove-unused-variable.patch"
-
->From 43edd5f73b1c6d1d6c033076c3ebcd43bf169594 Mon Sep 17 00:00:00 2001
-From: Jan Synacek <jsynacek@redhat.com>
-Date: Mon, 12 Nov 2012 09:31:53 +0100
-Subject: [PATCH] clockdiff: remove unused variable
-
-Signed-off-by: Jan Synacek <jsynacek@redhat.com>
 ---
- clockdiff.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/bonding/bond_alb.c |   21 ++++++++++++++++++++-
+ 1 files changed, 20 insertions(+), 1 deletions(-)
 
-diff --git a/clockdiff.c b/clockdiff.c
-index 32590d7..7c1ea1b 100644
---- a/clockdiff.c
-+++ b/clockdiff.c
-@@ -129,7 +129,7 @@ measure(struct sockaddr_in * addr)
- 	int msgcount;
- 	int cc, count;
- 	fd_set ready;
--	long sendtime, recvtime, histime,  histime1;
-+	long sendtime, recvtime, histime;
- 	long min1, min2, diff;
- 	long delta1, delta2;
- 	struct timeval tv1, tout;
-@@ -243,7 +243,6 @@ empty:
- 			  rtt_sigma = (rtt_sigma *3 + abs(diff-rtt))/4;
- 			  msgcount++;
- 			  histime = ntohl(((__u32*)(icp+1))[1]);
--			  histime1 = ntohl(((__u32*)(icp+1))[2]);
- 		/*
- 		 * a hosts using a time format different from
- 		 * ms. since midnight UT (as per RFC792) should
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index e15cc11..a99e658 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -685,6 +685,18 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 	return assigned_slave;
+ }
+ 
++struct slave *bond_slave_has_mac(struct bonding *bond, const u8 *mac)
++{
++	int i = 0;
++	struct slave *tmp;
++
++	bond_for_each_slave(bond, tmp, i)
++		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
++			return tmp;
++
++	return NULL;
++}
++
+ /* chooses (and returns) transmit channel for arp reply
+  * does not choose channel for other arp types since they are
+  * sent on the curr_active_slave
+@@ -700,7 +712,14 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+ 		*/
+ 		tx_slave = rlb_choose_channel(skb, bond);
+ 		if (tx_slave) {
+-			memcpy(arp->mac_src,tx_slave->dev->dev_addr, ETH_ALEN);
++			struct slave *tmp_slave = NULL;
++			/* Only modify ARP's MAC if it originates locally;
++			 * don't change ARPs arriving via a bridge.
++			 */
++			tmp_slave = bond_slave_has_mac(bond, arp->mac_src);
++			if (tmp_slave)
++				memcpy(arp->mac_src, tx_slave->dev->dev_addr,
++				       ETH_ALEN);
+ 		}
+ 		pr_debug("Server sent ARP Reply packet\n");
+ 	} else if (arp->op_code == htons(ARPOP_REQUEST)) {
 -- 
-1.7.11.7
-
-
---------------070704030707010107070705--
+1.7.6.5
