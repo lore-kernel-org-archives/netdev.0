@@ -1,53 +1,75 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: [PATCH v2 2/3] vxlan: capture inner headers during encapsulation
-Date: Mon, 12 Nov 2012 00:36:57 -0800
-Message-ID: <1352709418-28996-3-git-send-email-joseph.gasparakis@intel.com>
-References: <1352709418-28996-1-git-send-email-joseph.gasparakis@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dmitry@broadcom.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352709418-28996-1-git-send-email-joseph.gasparakis@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jan Synacek <jsynacek@redhat.com>
+Subject: [PATCH] iputils: clockdiff: remove unused variable
+Date: Mon, 12 Nov 2012 09:38:29 +0100
+Message-ID: <50A0B585.4030603@redhat.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------070704030707010107070705"
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29387 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752331Ab2KLIid (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2012 03:38:33 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Populating the inner header pointers of skb for vxlan
+This is a multi-part message in MIME format.
+--------------070704030707010107070705
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Hello,
+
+attached is a small patch that removes an unused variable.
+
+Cheers,
+
+-- 
+Jan Synacek
+Software Engineer, BaseOS team Brno, Red Hat
+
+--------------070704030707010107070705
+Content-Type: text/x-patch;
+ name="0001-clockdiff-remove-unused-variable.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="0001-clockdiff-remove-unused-variable.patch"
+
+>From 43edd5f73b1c6d1d6c033076c3ebcd43bf169594 Mon Sep 17 00:00:00 2001
+From: Jan Synacek <jsynacek@redhat.com>
+Date: Mon, 12 Nov 2012 09:31:53 +0100
+Subject: [PATCH] clockdiff: remove unused variable
+
+Signed-off-by: Jan Synacek <jsynacek@redhat.com>
 ---
- drivers/net/vxlan.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ clockdiff.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 030559d..14e6c8f 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -694,11 +694,23 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	__be16 df = 0;
- 	__u8 tos, ttl;
- 	int err;
-+	unsigned int offset;
- 
- 	dst = vxlan_find_dst(vxlan, skb);
- 	if (!dst)
- 		goto drop;
- 
-+	offset = skb->data - skb->head;
-+
-+	skb_reset_inner_mac_header(skb);
-+
-+	if (skb->network_header)
-+		skb_set_inner_network_header(skb, skb->network_header - offset);
-+
-+	if (skb->transport_header)
-+		skb_set_inner_transport_header(skb, skb->transport_header -
-+					      offset);
-+
- 	/* Need space for new headers (invalidates iph ptr) */
- 	if (skb_cow_head(skb, VXLAN_HEADROOM))
- 		goto drop;
+diff --git a/clockdiff.c b/clockdiff.c
+index 32590d7..7c1ea1b 100644
+--- a/clockdiff.c
++++ b/clockdiff.c
+@@ -129,7 +129,7 @@ measure(struct sockaddr_in * addr)
+ 	int msgcount;
+ 	int cc, count;
+ 	fd_set ready;
+-	long sendtime, recvtime, histime,  histime1;
++	long sendtime, recvtime, histime;
+ 	long min1, min2, diff;
+ 	long delta1, delta2;
+ 	struct timeval tv1, tout;
+@@ -243,7 +243,6 @@ empty:
+ 			  rtt_sigma = (rtt_sigma *3 + abs(diff-rtt))/4;
+ 			  msgcount++;
+ 			  histime = ntohl(((__u32*)(icp+1))[1]);
+-			  histime1 = ntohl(((__u32*)(icp+1))[2]);
+ 		/*
+ 		 * a hosts using a time format different from
+ 		 * ms. since midnight UT (as per RFC792) should
 -- 
 1.7.11.7
+
+
+--------------070704030707010107070705--
