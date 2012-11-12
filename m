@@ -1,30 +1,38 @@
-From: WEBMAIL <rodrigo.figueroa@vicepresidencia.gob.ec>
-Subject: KONTO UPPDATERING
-Date: Mon, 12 Nov 2012 01:53:12 -0500 (ECT)
-Message-ID: <27320486.129215.1352703192351.JavaMail.root@vicepresidencia.gob.ec>
-Reply-To: WEBMAIL <accountuserhelp@admin.in.th>
+From: Jonathan Nieder <jrnieder@gmail.com>
+Subject: [3.0.y, 3.2.y, 3.4.y] Re: [PATCH v2] r8169: Fix WoL on
+ RTL8168d/8111d.
+Date: Mon, 12 Nov 2012 08:38:58 -0800
+Message-ID: <20121112163858.GA4343@elie.Belkin>
+References: <20121028230523.GA26778@electric-eye.fr.zoreil.com>
+ <1351728046-32105-1-git-send-email-kibi@debian.org>
+ <20121101222113.GB7708@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from msgw.vicepresidencia.gob.ec ([190.152.249.126]:56744 "EHLO
-	msgw.vicepresidencia.gob.ec" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751339Ab2KLQSZ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2012 11:18:25 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, stable@vger.kernel.org,
+	Cyril Brulebois <kibi@debian.org>, netdev@vger.kernel.org,
+	nic_swsd@realtek.com, Hayes Wang <hayeswang@realtek.com>,
+	linux-kernel@vger.kernel.org, florent.fourcot@enst-bretagne.fr
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121101222113.GB7708@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-En DGTFX Virus har uppt=C3=A4ckts i v=C3=A5r webb tj=C3=A4nsteleverant=C3=
-=B6r. Ditt e-postkonto m=C3=A5ste uppgraderas till v=C3=A5r nya Secured=
- DGTFX antivirusprogram 2011/2012 version f=C3=B6r att f=C3=B6rhindra s=
-kador p=C3=A5 v=C3=A5r webb leverant=C3=B6r och dina viktiga filer. Kli=
-cka p=C3=A5 nedan l=C3=A4nk, Fyll kolumnerna och skicka tillbaka till o=
-ss eller ditt e-postkonto kommer att avslutas f=C3=B6r att undvika spri=
-dning av viruset.
-aktiveringsl=C3=A4nk
-http://www.formstack.com/forms/?1326104-EUKetyz1zD
-Tack f=C3=B6r ditt samarbete.
-konto Support
-Varning Kod: ID67565453
+=46rancois Romieu wrote:
+> Cyril Brulebois <kibi@debian.org> :
+
+>> This regression was spotted between Debian squeeze and Debian wheezy
+>> kernels (respectively based on 2.6.32 and 3.2). More info about
+>> Wake-on-LAN issues with Realtek's 816x chipsets can be found in the
+>> following thread: http://marc.info/?t=3D132079219400004
+>
+> David, please apply to -net.
+
+This has been applied as commit b00e69dee4cc in mainline; thanks!
+
+=46ran=C3=A7ois and David, would this be a candidate for inclusion in
+3.0- and newer stable kernels?
+
+Jonathan
