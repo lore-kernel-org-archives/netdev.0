@@ -1,112 +1,75 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH 02/10] arm: at91: move platfarm_data to
- include/linux/platform_data/atmel.h
-Date: Mon, 12 Nov 2012 15:06:46 +0100
-Message-ID: <20121112140646.GK4576@game.jcrosoft.org>
-References: <20121107111235.GH20063@game.jcrosoft.org>
- <1352287374-25176-1-git-send-email-plagnioj@jcrosoft.com>
- <1352287374-25176-2-git-send-email-plagnioj@jcrosoft.com>
- <CAGhQ9VxgbCGzOPVtQq-LYsEPuyyGjRDfB3jHPtvbHr1xLgntXA@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: question about RT_TABLE_MAX
+Date: Mon, 12 Nov 2012 17:51:35 +0300
+Message-ID: <20121112145135.GA32199@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, linux-fbdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, rtc-linux@googlegroups.com,
-	linux-mmc@vger.kernel.org, linux-pcmcia@lists.infradead.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-can@vger.kernel.org, linux-ide@vger.kernel.org,
-	netdev@vger.kernel.org, linux-serial@vger.kernel.org,
-	linux-input@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net
-To: Joachim Eastwood <manabian@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 5.mo2.mail-out.ovh.net ([87.98.181.248]:41799 "EHLO
-	mo2.mail-out.ovh.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751549Ab2KLOJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 09:09:42 -0500
-Received: from mail426.ha.ovh.net (b6.ovh.net [213.186.33.56])
-	by mo2.mail-out.ovh.net (Postfix) with SMTP id 028D0DC06AF
-	for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 15:17:09 +0100 (CET)
+Received: from userp1040.oracle.com ([156.151.31.81]:43741 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751628Ab2KLOvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 09:51:45 -0500
+Received: from ucsinet21.oracle.com (ucsinet21.oracle.com [156.151.31.93])
+	by userp1040.oracle.com (Sentrion-MTA-4.2.2/Sentrion-MTA-4.2.2) with ESMTP id qACEpipE016636
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 14:51:45 GMT
+Received: from acsmt358.oracle.com (acsmt358.oracle.com [141.146.40.158])
+	by ucsinet21.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id qACEphev010612
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 14:51:44 GMT
+Received: from abhmt105.oracle.com (abhmt105.oracle.com [141.146.116.57])
+	by acsmt358.oracle.com (8.12.11.20060308/8.12.11) with ESMTP id qACEphiZ015685
+	for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 08:51:43 -0600
 Content-Disposition: inline
-In-Reply-To: <CAGhQ9VxgbCGzOPVtQq-LYsEPuyyGjRDfB3jHPtvbHr1xLgntXA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11:54 Sat 10 Nov     , Joachim Eastwood wrote:
-> Hi Jean-Christophe,
-> 
-> On 7 November 2012 12:22, Jean-Christophe PLAGNIOL-VILLARD
-> <plagnioj@jcrosoft.com> wrote:
-> > Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> > Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-> > Cc: linux-ide@vger.kernel.org
-> > Cc: linux-input@vger.kernel.org
-> > Cc: linux-mmc@vger.kernel.org
-> > Cc: linux-can@vger.kernel.org
-> > Cc: netdev@vger.kernel.org
-> > Cc: linux-pcmcia@lists.infradead.org
-> > Cc: rtc-linux@googlegroups.com
-> > Cc: spi-devel-general@lists.sourceforge.net
-> > Cc: linux-serial@vger.kernel.org
-> > Cc: linux-usb@vger.kernel.org
-> > Cc: linux-fbdev@vger.kernel.org
-> > ---
-> > HI all,
-> >
-> >         If it's ok with everyone this will go via at91
-> >         with the patch serie than clean up the include/mach
-> >
-> >         For preparation to switch to arm multiarch kernel
-> >
-> > Best Regards,
-> > J.
-> >  arch/arm/mach-at91/include/mach/board.h     |   55 ----------------------
-> >  arch/avr32/mach-at32ap/include/mach/board.h |    7 ---
-> >  drivers/ata/pata_at91.c                     |    2 +-
-> >  drivers/input/touchscreen/atmel_tsadcc.c    |    2 +-
-> >  drivers/mmc/host/atmel-mci.c                |    2 +-
-> >  drivers/net/can/at91_can.c                  |    3 +-
-> >  drivers/net/ethernet/cadence/at91_ether.c   |    2 +-
-> >  drivers/pcmcia/at91_cf.c                    |    2 +-
-> >  drivers/rtc/rtc-at91sam9.c                  |    2 +-
-> >  drivers/spi/spi-atmel.c                     |    2 +-
-> >  drivers/tty/serial/atmel_serial.c           |    2 +-
-> >  drivers/usb/gadget/at91_udc.c               |    2 +-
-> >  drivers/usb/gadget/atmel_usba_udc.c         |    2 +-
-> >  drivers/usb/host/ohci-at91.c                |    2 +-
-> >  drivers/video/atmel_lcdfb.c                 |    2 +-
-> >  include/linux/platform_data/atmel.h         |   67 +++++++++++++++++++++++++++
-> >  16 files changed, 80 insertions(+), 76 deletions(-)
-> 
-> <snip>
-> 
-> > diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-> > index 4e980a7..35fc6edb 100644
-> > --- a/drivers/net/ethernet/cadence/at91_ether.c
-> > +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> > @@ -31,6 +31,7 @@
-> >  #include <linux/clk.h>
-> >  #include <linux/gfp.h>
-> >  #include <linux/phy.h>
-> > +#include <linux/platform_data/atmel.h>
-> >
-> >  #include <asm/io.h>
-> >  #include <asm/uaccess.h>
-> > @@ -38,7 +39,6 @@
-> >
-> >  #include <mach/at91rm9200_emac.h>
-> >  #include <asm/gpio.h>
-> > -#include <mach/board.h>
-> >
-> >  #include "at91_ether.h"
-> 
-> The at91_ether driver in net-next does not need to be change since it
-> all mach includes has already been removed by other patches and it
-> includes linux/platform_data/macb.h directly.
-> 
-> What tree was these patches based on?
-> The at91_ether driver changes has been in linux-next for a long while now.
-the conflict is minor easy to handle and the cleanup need to go first on arm soc so this is
-based on rc3
+RT_TABLE_MAX is 0xFFFFFFFF.  It's always compared against an unsigned
+int so the checks against it don't test anything.
 
-Best Regards,
-J.
+net/decnet/dn_table.c
+   828  struct dn_fib_table *dn_fib_get_table(u32 n, int create)
+   829  {
+   830          struct dn_fib_table *t;
+   831          struct hlist_node *node;
+   832          unsigned int h;
+   833  
+   834          if (n < RT_TABLE_MIN)
+   835                  return NULL;
+   836  
+   837          if (n > RT_TABLE_MAX)
+                    ^^^^^^^^^^^^^^^^
+Never true.
+   838                  return NULL;
+
+net/decnet/dn_table.c
+   874  struct dn_fib_table *dn_fib_empty_table(void)
+   875  {
+   876          u32 id;
+   877  
+   878          for(id = RT_TABLE_MIN; id <= RT_TABLE_MAX; id++)
+                                       ^^^^^^^^^^^^^^^^^^
+Always true.
+   879                  if (dn_fib_get_table(id, 0) == NULL)
+   880                          return dn_fib_get_table(id, 1);
+   881          return NULL;
+   882  }
+
+net/ipv4/fib_rules.c
+   122  static struct fib_table *fib_empty_table(struct net *net)
+   123  {
+   124          u32 id;
+   125  
+   126          for (id = 1; id <= RT_TABLE_MAX; id++)
+                             ^^^^^^^^^^^^^^^^^^
+Always true.
+   127                  if (fib_get_table(net, id) == NULL)
+   128                          return fib_new_table(net, id);
+   129          return NULL;
+   130  }
+
+Maybe it should be id < RT_TABLE_MAX?
+
+regards,
+dan carpenter
