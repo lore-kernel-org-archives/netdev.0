@@ -1,35 +1,65 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: [PATCH] vlan: Make it possible to add vlan with id 4095
-Date: Mon, 12 Nov 2012 19:42:12 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1211121941370.1611@nerf07.vanv.qr>
-References: <20120928123258.9454.95197.stgit@localhost.localdomain> <20120928.134417.1763308761361480629.davem@davemloft.net>
+From: Saurabh <saurabh.mohan@vyatta.com>
+Subject: [PATCH 00/00] ipv4/ip_vti.c: VTI fix post-decryption forwarding
+Date: Mon, 12 Nov 2012 10:52:14 -0800
+Message-ID: <20121112185214.GA26628@debian-saurabh-64.vyatta.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: paulius.zaleckas@gmail.com, kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares07.inai.de ([5.9.24.206]:53238 "EHLO ares07.inai.de"
+Received: from mail.vyatta.com ([76.74.103.46]:50718 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751076Ab2KLSmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2012 13:42:13 -0500
-In-Reply-To: <20120928.134417.1763308761361480629.davem@davemloft.net>
+	id S1751555Ab2KLSwu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Nov 2012 13:52:50 -0500
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 0489114101A1
+	for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 10:52:50 -0800 (PST)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id A2K9tMSXTrTn for <netdev@vger.kernel.org>;
+	Mon, 12 Nov 2012 10:52:49 -0800 (PST)
+Received: from localhost (eng-dhcp-109.vyatta.com [10.3.0.109])
+	by mail.vyatta.com (Postfix) with ESMTP id 501EB141019D
+	for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 10:52:49 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 2012-09-28 19:44, David Miller wrote:
 
->From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
->Date: Fri, 28 Sep 2012 15:32:58 +0300
->
->> vconfig help tells that vlan_id should be 0-4095, but fails
->> with 4095.
->> 
->> There is an off-by-one bug while evaluating vlan_id.
->> Fix it by evaluating against count(4096), not mask(0x0fff = 4095).
->> 
->> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
->
->Awesome, we don't need VXVLAN any more after this fix.
 
-You mean because the special 0xfff value could indicate "here's more 
-headers"? Sounds like a plan.
+With the latest kernel there are two things that must be done post decryption
+ so that the packet are forwarded.
+ 1. Remove the mark from the packet. This will cause the packet to not match
+ the ipsec-policy again. However doing this causes the post-decryption check to
+ fail also and the packet will get dropped. (cat /proc/net/xfrm_stat).
+ 2. Remove the sp association in the skbuff so that no policy check is done on
+ the packet for VTI tunnels.
+
+Due to #2 above we must now do a security-policy check in the vti rcv path
+prior to resetting the mark in the skbuff.
+
+Signed-off-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
+Reported-by: Ruben Herold <ruben@puettmann.net>
+
+---
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 1831092..858fddf 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -338,12 +338,17 @@ static int vti_rcv(struct sk_buff *skb)
+ 	if (tunnel != NULL) {
+ 		struct pcpu_tstats *tstats;
+ 
++		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
++			return -1;
++
+ 		tstats = this_cpu_ptr(tunnel->dev->tstats);
+ 		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->rx_packets++;
+ 		tstats->rx_bytes += skb->len;
+ 		u64_stats_update_end(&tstats->syncp);
+ 
++		skb->mark = 0;
++		secpath_reset(skb);
+ 		skb->dev = tunnel->dev;
+ 		return 1;
+ 	}
