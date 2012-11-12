@@ -1,65 +1,51 @@
-From: Saurabh <saurabh.mohan@vyatta.com>
-Subject: [PATCH 00/00] ipv4/ip_vti.c: VTI fix post-decryption forwarding
-Date: Mon, 12 Nov 2012 10:52:14 -0800
-Message-ID: <20121112185214.GA26628@debian-saurabh-64.vyatta.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] vlan: Make it possible to add vlan with id 4095
+Date: Mon, 12 Nov 2012 11:01:21 -0800
+Message-ID: <50A14781.1030106@candelatech.com>
+References: <20120928123258.9454.95197.stgit@localhost.localdomain> <20120928.134417.1763308761361480629.davem@davemloft.net> <alpine.LNX.2.01.1211121941370.1611@nerf07.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, paulius.zaleckas@gmail.com,
+	kaber@trash.net, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50718 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751555Ab2KLSwu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2012 13:52:50 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id 0489114101A1
-	for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 10:52:50 -0800 (PST)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id A2K9tMSXTrTn for <netdev@vger.kernel.org>;
-	Mon, 12 Nov 2012 10:52:49 -0800 (PST)
-Received: from localhost (eng-dhcp-109.vyatta.com [10.3.0.109])
-	by mail.vyatta.com (Postfix) with ESMTP id 501EB141019D
-	for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 10:52:49 -0800 (PST)
-Content-Disposition: inline
+Received: from mail.candelatech.com ([208.74.158.172]:60769 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911Ab2KLTBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 14:01:32 -0500
+In-Reply-To: <alpine.LNX.2.01.1211121941370.1611@nerf07.vanv.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/12/2012 10:42 AM, Jan Engelhardt wrote:
+> On Friday 2012-09-28 19:44, David Miller wrote:
+>
+>> From: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+>> Date: Fri, 28 Sep 2012 15:32:58 +0300
+>>
+>>> vconfig help tells that vlan_id should be 0-4095, but fails
+>>> with 4095.
+>>>
+>>> There is an off-by-one bug while evaluating vlan_id.
+>>> Fix it by evaluating against count(4096), not mask(0x0fff = 4095).
+>>>
+>>> Signed-off-by: Paulius Zaleckas <paulius.zaleckas@gmail.com>
+>>
+>> Awesome, we don't need VXVLAN any more after this fix.
+>
+> You mean because the special 0xfff value could indicate "here's more
+> headers"? Sounds like a plan.
 
+You can't just use reserved values...they are for the standards writers
+in case they ever need to officially extend the 802.1q spec somehow.
 
-With the latest kernel there are two things that must be done post decryption
- so that the packet are forwarded.
- 1. Remove the mark from the packet. This will cause the packet to not match
- the ipsec-policy again. However doing this causes the post-decryption check to
- fail also and the packet will get dropped. (cat /proc/net/xfrm_stat).
- 2. Remove the sp association in the skbuff so that no policy check is done on
- the packet for VTI tunnels.
+If you use it for non-standard purposes, you can set up conflicts with
+future standards.
 
-Due to #2 above we must now do a security-policy check in the vti rcv path
-prior to resetting the mark in the skbuff.
+Thanks,
+Ben
 
-Signed-off-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Reported-by: Ruben Herold <ruben@puettmann.net>
-
----
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 1831092..858fddf 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -338,12 +338,17 @@ static int vti_rcv(struct sk_buff *skb)
- 	if (tunnel != NULL) {
- 		struct pcpu_tstats *tstats;
- 
-+		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
-+			return -1;
-+
- 		tstats = this_cpu_ptr(tunnel->dev->tstats);
- 		u64_stats_update_begin(&tstats->syncp);
- 		tstats->rx_packets++;
- 		tstats->rx_bytes += skb->len;
- 		u64_stats_update_end(&tstats->syncp);
- 
-+		skb->mark = 0;
-+		secpath_reset(skb);
- 		skb->dev = tunnel->dev;
- 		return 1;
- 	}
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
