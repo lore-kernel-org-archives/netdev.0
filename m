@@ -1,78 +1,55 @@
-From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
-Subject: tc adding two filters with different protocols
-Date: Mon, 12 Nov 2012 20:45:51 +0100
-Message-ID: <1ca4bd93df74882980e199ca3fcf83a3@justnet.pl>
-Reply-To: <adam.niescierowicz@justnet.pl>
+From: Don Dutile <ddutile@redhat.com>
+Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+ for SR-IOV)
+Date: Mon, 12 Nov 2012 14:46:59 -0500
+Message-ID: <50A15233.10007@redhat.com>
+References: <201211081915083774239@gmail.com> <509B962C.6070002@gmail.com> <C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com> <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com> <CAErSpo4xn9t=4yXGLdPQMtUJF=n38tYrMutAoj7NCsLUzQEbcg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:39155 "EHLO
-	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1751576Ab2KLTqD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 14:46:03 -0500
-Received: from [91.230.163.37] (helo=mail.justnet.pl)
-	by service with esmtpa (Exim 4.72)
-	(envelope-from <adam.niescierowicz@justnet.pl>)
-	id 1TXzx9-0002zv-V5
-	for netdev@vger.kernel.org; Mon, 12 Nov 2012 20:45:52 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Gao <pkill.2012@gmail.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>, linux-pci@vger.kernel.org,
+	Yinghai Lu <yinghai@kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAErSpo4xn9t=4yXGLdPQMtUJF=n38tYrMutAoj7NCsLUzQEbcg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On 11/09/2012 10:26 AM, Bjorn Helgaas wrote:
+> [+ linux-pci, Yinghai]
+>
+> On Thu, Nov 8, 2012 at 8:59 PM, Jason Gao<pkill.2012@gmail.com>  wrote:
+>>> The BIOS in your machine doesn't support SR-IOV.  You'll need to ask the manufacturer for a BIOS upgrade, if in fact one is available.  Sometimes they're not.
+>>
+>> very thanks Greg,my server Dell R710 with latest BIOS version and
+>> option for SR-IOV(SR-IOV Global Enable->Enabled)  opened,I'm confused
+>> that Does R710 provide full support for SR-IOV, kernel or  ixgbe
+>> driver's bug? but I'm not sure where the problem lies,anyone has any
+>> experience about this?   .
+>
+> Linux normally uses the resource assignments done by the BIOS, but it
+> is possible for the kernel to reassign those.  We don't have good
+> automatic support for that yet, but on a recent upstream kernel, you
+> can try "pci=realloc".  I doubt this option is in CentOS 6.3, though.
+>
+Try moving the device into a different slot.
+You may be trying it in a non-ARI slot in the 710; that is a problem
+in RHEL6 (needing to realloc bus &/or mem-space).
+A non-ARI slot will want to use one bus number per VF.... which will
+be problematic.
+I know I've seen ixgbe's (& their vfs's) working on a dell 710;
+but they may also be one of those systems that has a slot off the ich10
+with no ARI support.
 
-writes the qos where i want classify traffic for two protocol: ip and
-pppoe. Example below
-
----
-tc qdisc del root dev eth2
-tc qdisc add dev eth2 root handle 1: htb
-tc class add dev eth2 parent 1:0 classid 1:1 htb rate 500Mbit ceil 
-500Mbit
-
-
-tc filter add dev eth2 parent 1:0 prio 5 protocol ip u32
-tc filter add dev eth2 parent 1:0 prio 5 handle 9: protocol ip u32 
-divisor 256
-tc filter add dev eth2 protocol ip parent 1:0 prio 5 u32 ht 800:: match 
-ip dst 172.16.0.0/22 hashkey mask 0x000000ff at 16 link 9:
-
-
-tc filter add dev eth2 parent 1:0 prio 6 protocol ppp_ses u32
-tc filter add dev eth2 parent 1:0 prio 6 handle 4a: protocol ppp_ses 
-u32 divisor 256
-tc filter add dev eth2 protocol ppp_ses parent 1:0 prio 6 u32 ht 800:: 
-match ip dst 31.41.209.0/24 at 24 hashkey mask 0x000000ff at 24 link 4a:
----
-
-Unfortunately, when you add lines "tc filter add dev eth2 protocol 
-ppp_ses parent 1:0 prio 6 u32 ht 800:: match ip dst 31.41.209.0/24 at 24 
-hashkey mask 0x000000ff at 24 link 4a:" protocol change to ip
-
-command "tc -s -d filter show dev eth2" shows
----
-filter parent 1: protocol ip pref 5 u32
-filter parent 1: protocol ip pref 5 u32 fh 9: ht divisor 256
-filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1
-filter parent 1: protocol ip pref 5 u32 fh 800::800 order 2048 key ht 
-800 bkt 0 link 9:  (rule hit 557082 success 0)
-   match ac100000/fffffc00 at 16 (success 267341 )
-     hash mask 000000ff at 16
-filter parent 1: protocol ip pref 5 u32 fh 800::801 order 2049 key ht 
-800 bkt 0 link 4a:  (rule hit 557039 success 0)
-   match 1f29d100/ffffff00 at 24 (success 0 )
-     hash mask 000000ff at 24
-filter parent 1: protocol ppp_ses pref 6 u32
-filter parent 1: protocol ppp_ses pref 6 u32 fh 4a: ht divisor 256
-filter parent 1: protocol ppp_ses pref 6 u32 fh 801: ht divisor 1
----
-if i change order and first protocol is ppp_ses the hashkey for ip 
-protocol is changed to ppp_ses.
-
-Is this correct behavior and I do something wrong?
-
-
-Thanks
-Adam N.
+> If an upstream kernel with "pci=realloc" still doesn't work, please
+> post the entire dmesg log.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
