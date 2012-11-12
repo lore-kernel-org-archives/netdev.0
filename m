@@ -1,35 +1,31 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] usbnet: ratelimit kevent may have been dropped warnings
-Date: Mon, 12 Nov 2012 08:16:29 +0100
-Message-ID: <2192335.eVEjctQSPm@linux-lqwf.site>
-References: <1352391981-15692-1-git-send-email-steve.glendinning@shawell.net>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH] kaweth:BQL support
+Date: Mon, 12 Nov 2012 08:38:57 +0100
+Message-ID: <5350156.Kb3Hv9rKLR@linux-lqwf.site>
+References: <1352463587-23899-1-git-send-email-oliver@neukum.org> <1352466944.19779.556.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org
-To: Steve Glendinning <steve.glendinning@shawell.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:46728 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751377Ab2KLHQV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Nov 2012 02:16:21 -0500
-In-Reply-To: <1352391981-15692-1-git-send-email-steve.glendinning@shawell.net>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:58330 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750918Ab2KLHiz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 02:38:55 -0500
+In-Reply-To: <1352466944.19779.556.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 08 November 2012 16:26:21 Steve Glendinning wrote:
+On Friday 09 November 2012 05:15:44 Eric Dumazet wrote:
+> I am curious to know if it changes anything on the behavior of this
+> network adapter ?
+> 
+> Because it seems queue is stopped anyway when a packet is in transmit.
 
-> There's an underlying problem in usbnet's kevent deferral
+True, I'd need to also do more changes on the tx path.
 
-This is imported from schedule_work().
-
-> mechanism which needs fixing, specifically that events *can*
-> get dropped and not handled.  This patch doesn't address this,
-> but just mitigates fallout caused by the current implemention.
-
-All is not lost, as the flag is still set. How about starting a timer
-in the failure case? It feels kind of dirty, but a solution with locks would
-leave open a window to a race in any case.
+Dave, for now please disregard the patch.
 
 	Regards
 		Oliver
