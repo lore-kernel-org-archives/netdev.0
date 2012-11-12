@@ -1,51 +1,34 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: Re: [PATCH v2 3/3] ipgre: capture inner headers during
- encapsulation
-Date: Mon, 12 Nov 2012 13:20:05 +0200
-Message-ID: <1352719205.5201.7.camel@lb-tlvb-dmitry.il.broadcom.com>
-References: <1352709418-28996-1-git-send-email-joseph.gasparakis@intel.com>
- <1352709418-28996-4-git-send-email-joseph.gasparakis@intel.com>
+From: saeed bishara <saeed.bishara@gmail.com>
+Subject: Re: [PATCH v2 1/3] net: Add support for hardware-offloaded encapsulation
+Date: Mon, 12 Nov 2012 14:31:05 +0200
+Message-ID: <CAMAG_ecK1eUEcCD49DxSzCEqEHwd8qzJPvs3uK+FBW2MMwkV8w@mail.gmail.com>
+References: <1352709418-28996-1-git-send-email-joseph.gasparakis@intel.com> <1352709418-28996-2-git-send-email-joseph.gasparakis@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
 Cc: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Peter P Waskiewicz Jr" <peter.p.waskiewicz.jr@intel.com>
-To: "Joseph Gasparakis" <joseph.gasparakis@intel.com>
+	dmitry@broadcom.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Joseph Gasparakis <joseph.gasparakis@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352709418-28996-4-git-send-email-joseph.gasparakis@intel.com>
+In-Reply-To: <1352709418-28996-2-git-send-email-joseph.gasparakis@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My last comment was rejected by the lists due to html tag.
-Resending it in plain text. Sorry for the spam.
-On Mon, 2012-11-12 at 00:36 -0800, Joseph Gasparakis wrote:
-> Populating the inner header pointers of skb for ipgre
-> This patch has been compile-tested only.
-> 
-> Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> ---
->  net/ipv4/ip_gre.c | 15 ++++++++++++++-
->  1 file changed, 14 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> index 7240f8e..e35ed52 100644
-> --- a/net/ipv4/ip_gre.c
-> +++ b/net/ipv4/ip_gre.c
-> @@ -766,8 +766,10 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
->  	int    gre_hlen;
->  	__be32 dst;
->  	int    mtu;
-> +	unsigned int offset;
->  
-> -	if (skb->ip_summed == CHECKSUM_PARTIAL &&
-> +	if (!(skb->dev->features & NETIF_F_HW_CSUM_ENC_BIT) &&
-> +	    skb->ip_summed == CHECKSUM_PARTIAL &&
->  	    skb_checksum_help(skb))
->  		goto tx_error;
-Gre device currently has constant features set, which does not include
-CSUM_ENC bit. Do you plan to propagate it from underlying physical
-device?
-Thanks.
+> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+> index 5ac3212..6dd59a5 100644
+> --- a/include/linux/netdev_features.h
+> +++ b/include/linux/netdev_features.h
+
+>         NETIF_F_RXCSUM_BIT,             /* Receive checksumming offload */
+> +       NETIF_F_RXCSUM_ENC_BIT,         /* Receive checksuming offload */
+> +                                       /* for encapsulation */
+in the future more features will be needed for tunneled packets (tso,
+rxhash, etc..)
+so I think it would make sense to add a new features variable for
+tunneled packets, and the enum above will be used as is.
+for example, if the driver supports checksum offloading for
+encapsulated packets, then it will set the RXCSUM_BIT in that
+variable:
+netdev->encap_hw_features = NETIF_F_RXCSUM_BIT;
+saeed
