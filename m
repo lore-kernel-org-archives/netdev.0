@@ -1,127 +1,50 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH v3 02/11] prandom: introduce prandom_bytes() and prandom_bytes_state()
-Date: Tue, 13 Nov 2012 22:37:01 +0900
-Message-ID: <1352813830-4624-3-git-send-email-akinobu.mita@gmail.com>
-References: <1352813830-4624-1-git-send-email-akinobu.mita@gmail.com>
-Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	Artem Bityutskiy <dedekind1@gmail.com>,
-	Adrian Hunter <adrian.hunter@intel.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	linux-mtd@lists.infradead.org,
-	Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+From: Jason Gao <pkill.2012@gmail.com>
+Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources for SR-IOV)
+Date: Tue, 13 Nov 2012 21:38:05 +0800
+Message-ID: <CANmqhJAjwP8CLEKpgsDbT-7+n=hf30LbYrTAu+qDH09LzETD4g@mail.gmail.com>
+References: <201211081915083774239@gmail.com>
+	<509B962C.6070002@gmail.com>
+	<C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com>
+	<CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
+	<CAErSpo4xn9t=4yXGLdPQMtUJF=n38tYrMutAoj7NCsLUzQEbcg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: ddutile@redhat.com,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>, linux-pci@vger.kernel.org,
+	Yinghai Lu <yinghai@kernel.org>
+To: bhelgaas@google.com, "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	sibai.li@intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352813830-4624-1-git-send-email-akinobu.mita@gmail.com>
+In-Reply-To: <CAErSpo4xn9t=4yXGLdPQMtUJF=n38tYrMutAoj7NCsLUzQEbcg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add functions to get the requested number of pseudo-random bytes.
+I'm very sorry for delayed reply.now SR-IOV works for me in Centos
+6.3,thank all of you.
 
-The difference from get_random_bytes() is that it generates pseudo-random
-numbers by prandom_u32().  It doesn't consume the entropy pool, and the
-sequence is reproducible if the same rnd_state is used.  So it is suitable
-for generating random bytes for testing.
 
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Cc: "Theodore Ts'o" <tytso@mit.edu>
-Cc: Artem Bityutskiy <dedekind1@gmail.com>
-Cc: Adrian Hunter <adrian.hunter@intel.com>
-Cc: David Woodhouse <dwmw2@infradead.org>
-Cc: linux-mtd@lists.infradead.org
-Cc: Eilon Greenstein <eilong@broadcom.com>
-Cc: netdev@vger.kernel.org
----
-* v3
-- rename random32_get_bytes_state to prandom_bytes_state
-- ensure prandom_bytes_state() generates same bytes with same rnd_state
+On Fri, Nov 9, 2012 at 11:26 PM, Bjorn Helgaas <bhelgaas@google.com> wrote:
+> Linux normally uses the resource assignments done by the BIOS, but it
+> is possible for the kernel to reassign those.  We don't have good
+> automatic support for that yet, but on a recent upstream kernel, you
+> can try "pci=realloc".  I doubt this option is in CentOS 6.3, though
 
-* v2
-- rename prandom32_get_bytes to random32_get_bytes_state
+Thank you very much,I try "pci=realloc" in Centos 6.3,and now it works for me.
 
- include/linux/random.h |  2 ++
- lib/random32.c         | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 51 insertions(+)
 
-diff --git a/include/linux/random.h b/include/linux/random.h
-index db6debc..d984608 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -26,6 +26,7 @@ unsigned int get_random_int(void);
- unsigned long randomize_range(unsigned long start, unsigned long end, unsigned long len);
- 
- u32 prandom_u32(void);
-+void prandom_bytes(void *buf, int nbytes);
- void prandom_seed(u32 seed);
- 
- /*
-@@ -36,6 +37,7 @@ void prandom_seed(u32 seed);
- #define srandom32(seed) prandom_seed(seed)
- 
- u32 prandom_u32_state(struct rnd_state *);
-+void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
- 
- /*
-  * Handle minimum values for seeds
-diff --git a/lib/random32.c b/lib/random32.c
-index d1830fa..52280d5 100644
---- a/lib/random32.c
-+++ b/lib/random32.c
-@@ -77,6 +77,55 @@ u32 prandom_u32(void)
- }
- EXPORT_SYMBOL(prandom_u32);
- 
-+/*
-+ *	prandom_bytes_state - get the requested number of pseudo-random bytes
-+ *
-+ *	@state: pointer to state structure holding seeded state.
-+ *	@buf: where to copy the pseudo-random bytes to
-+ *	@bytes: the requested number of bytes
-+ *
-+ *	This is used for pseudo-randomness with no outside seeding.
-+ *	For more random results, use prandom_bytes().
-+ */
-+void prandom_bytes_state(struct rnd_state *state, void *buf, int bytes)
-+{
-+	unsigned char *p = buf;
-+	int i;
-+
-+	for (i = 0; i < round_down(bytes, sizeof(u32)); i += sizeof(u32)) {
-+		u32 random = prandom_u32_state(state);
-+		int j;
-+
-+		for (j = 0; j < sizeof(u32); j++) {
-+			p[i + j] = random;
-+			random >>= BITS_PER_BYTE;
-+		}
-+	}
-+	if (i < bytes) {
-+		u32 random = prandom_u32_state(state);
-+
-+		for (; i < bytes; i++) {
-+			p[i] = random;
-+			random >>= BITS_PER_BYTE;
-+		}
-+	}
-+}
-+EXPORT_SYMBOL(prandom_bytes_state);
-+
-+/**
-+ *	prandom_bytes - get the requested number of pseudo-random bytes
-+ *	@buf: where to copy the pseudo-random bytes to
-+ *	@bytes: the requested number of bytes
-+ */
-+void prandom_bytes(void *buf, int bytes)
-+{
-+	struct rnd_state *state = &get_cpu_var(net_rand_state);
-+
-+	prandom_bytes_state(state, buf, bytes);
-+	put_cpu_var(state);
-+}
-+EXPORT_SYMBOL(prandom_bytes);
-+
- /**
-  *	prandom_seed - add entropy to pseudo random number generator
-  *	@seed: seed value
--- 
-1.7.11.7
+
+On Sat, Nov 10, 2012 at 2:08 AM, Li, Sibai <sibai.li@intel.com> wrote:
+> DellR710 with the latest BIOS should work fine for SR-IOV. My BIOS is v.6.3.0 and release date is 07/24/2012
+> Please check if you configured intel_iommu=on in the grub.conf file.
+> If you did, check your kernel .config file under Device Drivers-> IOMMU Hardware support->enable Support for Intel IOMMU using DMA remapping Devices, enable Intel DMA Remapping Devices by Default, enable Support for Interrupt Remapping.
+
+thank you Sibai,Our server "Dell R710",its BIOS version is just
+v.6.3.0 and release date is 07/24/2012,and I also configured
+intel_iommu=on in the grub.conf file,but I can't find these IOMMU
+options in "Device Drivers" in my kernel(2.6.32-279) .config file ,
+btw my os is Centos 6.3(RHEL6.3),although the problem solved,I'd like
+to know what's your os version ,kernel version?
