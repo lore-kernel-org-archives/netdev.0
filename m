@@ -1,27 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: setsockopt(IPIPPROTO_IPV6,IPV6_MINHOPCOUNT)
- forgot to set return value
-Date: Tue, 13 Nov 2012 14:39:30 -0500 (EST)
-Message-ID: <20121113.143930.997118479094382961.davem@davemloft.net>
-References: <20121111055234.GA28043@order.stressinduktion.org>
+From: "Dave, Tushar N" <tushar.n.dave@intel.com>
+Subject: RE: e1000e on DH55HC stalling and kernel panic in 3.6.6
+Date: Tue, 13 Nov 2012 19:41:52 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA8913348A9F7@ORSMSX102.amr.corp.intel.com>
+References: <46948b0ae98fcae5d08fd9fe61fd2e47@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48414 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750969Ab2KMTjc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:39:32 -0500
-In-Reply-To: <20121111055234.GA28043@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Denys Fedoryshchenko <denys@visp.net.lb>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <46948b0ae98fcae5d08fd9fe61fd2e47@visp.net.lb>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sun, 11 Nov 2012 06:52:34 +0100
-
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Applied and queued up for -stable, thanks.
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
+bmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddDQo+T24gQmVoYWxm
+IE9mIERlbnlzIEZlZG9yeXNoY2hlbmtvDQo+U2VudDogVHVlc2RheSwgTm92ZW1iZXIgMTMsIDIw
+MTIgNTo1OSBBTQ0KPlRvOiBLaXJzaGVyLCBKZWZmcmV5IFQ7IEJyYW5kZWJ1cmcsIEplc3NlOyBB
+bGxhbiwgQnJ1Y2UgVzsgV3lib3JueSwNCj5DYXJvbHluOyBTa2lkbW9yZSwgRG9uYWxkIEM7IFJv
+c2UsIEdyZWdvcnkgVjsgV2Fza2lld2ljeiBKciwgUGV0ZXIgUDsNCj5EdXljaywgQWxleGFuZGVy
+IEg7IFJvbmNpYWssIEpvaG47IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldDsNCj5u
+ZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+U3Vi
+amVjdDogZTEwMDBlIG9uIERINTVIQyBzdGFsbGluZyBhbmQga2VybmVsIHBhbmljIGluIDMuNi42
+DQo+DQo+SGkNCj4NCj5JIGp1c3QgdHJpZWQgdG8gcnVuIGxhdGVzdCBrZXJuZWwgb24gbXkgREg1
+NUhDIG1vdGhlcmJvYXJkIGxhdGVzdCBrZXJuZWwNCj4zLjYuNiBhbmQgZ290IHZhcmlvdXMgbmV0
+d29yayBwcm9ibGVtcywgc3VjaCBhcyBuZXR3b3JrIHRyYWZmaWMgYXJlDQo+c3RvcHBpbmcsIGFu
+ZCBzb21ldGltZXMgaSBhbSBnZXR0aW5nIGtlcm5lbCBwYW5pYy4NCj5XaGVuIHRyYWZmaWMgYXJl
+IHN0b3BwaW5nLCBldGh0b29sIC1yIGV0aDAgc29tZXRpbWVzIGhlbHBzLg0KPldoZW4gaSBkbyBl
+dGh0b29sIC1HIGV0aDAgcnggTk5OICwgc29tZXRpbWVzIGl0IHdpbGwgZ2l2ZSBrZXJuZWwgcGFu
+aWMsDQo+YnV0IGl0IGlzIGhhcmQgdG8gcmVwcm9kdWNlLg0KPg0KPkkgdHJpZWQgdG8gY2FwdHVy
+ZSBwYW5pYyBvbiBwaWN0dXJlcywgc28gd2lsbCB0cnkgdG8gZGVjb2RlIG9uIHdoYXQgaSBnb3QN
+Cj5waG90bywgaXQgaXMgYSBuaWdodG1hcmUsIGJ1dCBzYWRseSBpIGRvbnQgaGF2ZSBzZXJpYWwg
+aW4gaGFuZHMgdG8gZ2V0DQo+ZGF0YSBvdmVyIGl0Lg0KPg0KPnNrYnVmZjogc2tiX292ZXJfcGFu
+aWM6IHRleHQ6Zjg2ZmM3NjkgbGVuOjI1ODA3IHB1dDoyNTgwNyBoZWFkOmMxZGExODAwDQo+ZGF0
+YTpjMWRhMTg0MCB0YWlsOjB4YzFkYTdkMGYgZW5kOmMxZGExZjQwIGRldjpldGgwIGtlcm5lbCBC
+VUcgYXQNCj5uZXQvY29yZS9za2J1ZmYuYzoxMjcNCj5vcGNvZGU6IDAwMDAgWyMxXSBTTVANCj5Q
+aWQ6IDAgY29tbTogc3dhcHBlci82IE5vdCB0YWluZWQgMy42LjYtYnVpbGQtMDA2MyAjMjMNCj5F
+SVA6IDAwNjA6WzxjMDJlNzk4MD5dIEVGTEFHUzogMDAwMTAyOTYgQ1BVOjYgRUlQIGlzIGF0IHNr
+Yl9wdXQrMHg4My8weDhlDQo+DQo+VGhlcmUgaXMgcmVnaXN0ZXJzIGFuZCBzdGFjaywgbGV0IG1l
+IGtub3cgaWYgeW91IG5lZWQgc3BlY2lmaWMgZmllbGRzDQo+DQo+Q2FsbCB0cmFjZToNCj5mODZm
+Yzc2OSA/IGUxMDAwX2NsZWFuX3J4X2lycSsweDFlMS8weDJhZiBbZTEwMDBlXQ0KPmY4NmZjNzY5
+IGUxMDAwX2NsZWFuX3J4X2lycSsweDFlMS8weDJhZiBbZTEwMDBlXQ0KPmY4NmZjYzczIGUxMDAw
+ZV9wb2xsKzB4NmEvMHgyMDkgW2UxMDAwZV0NCj5jMDJmMTYzMCBuZXRfcnhfYWN0aW9uKzB4OTAv
+MHgxNWQNCj5jMDEzMDJkNSBfX2RvX3NvZnRpcnErMHg4YS8teDEzYg0KPmMwMTMwMjRiID8gbG9j
+YWxfYmhfZW5hYmxlKzB4ZC8weGQNCj48SVJRPg0KPmMwMTMwNTA0IGlycV9leGl0KzB4NDEvMHg5
+MQ0KPmMwMTAyYzM3IGRvX0lSUSsweDc5LzB4OGQNCj4NCj5UaGVyZSBpcyBhbHNvIG1vcmUgZGF0
+YSwgbGV0IG1lIGtub3cgaWYgeW91IG5lZWQgaXQuDQpZZXMsIHBsZWFzZSBzZW5kIHVzIHRoZSBm
+dWxsIGRtZXNnIGxvZyB3aXRoIGVycm9yLg0KSGF2ZSB5b3UgdHJpZWQgb3V0LW9mLXRyZWUgZTEw
+MDBlIGRyaXZlcj8NCg0KLVR1c2hhcg0KIA0KDQo=
