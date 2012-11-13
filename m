@@ -1,96 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/11] ixgbevf: make sure probe fails on MSI-X enable error
-Date: Tue, 13 Nov 2012 06:03:16 -0800
-Message-ID: <1352815405-751-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/11] ixgbevf: Reduce size of maximum rx buffer
+Date: Tue, 13 Nov 2012 06:03:19 -0800
+Message-ID: <1352815405-751-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jakub Kicinski <jakub.kicinski@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8266 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:35423 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754715Ab2KMOD3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 09:03:29 -0500
+	id S1754765Ab2KMODb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 09:03:31 -0500
 In-Reply-To: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This driver cannot work without MSI-X interrupts
-so there is no mechanism to fall back to.
+There's no need to support up to 15k buffers since the HW is limited to
+9.5k in SR-IOV mode.  Instead, allocate buffers that fit and align inside
+of a 32K memory buffer.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@intel.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 26 +++++++++++------------
- 1 file changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  8 ++++----
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 18 +++++++++---------
+ 2 files changed, 13 insertions(+), 13 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 9faaf54..1211fa0 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -101,10 +101,10 @@ struct ixgbevf_ring {
+ 
+ /* Supported Rx Buffer Sizes */
+ #define IXGBEVF_RXBUFFER_256   256    /* Used for packet split */
+-#define IXGBEVF_RXBUFFER_3K    3072
+-#define IXGBEVF_RXBUFFER_7K    7168
+-#define IXGBEVF_RXBUFFER_15K   15360
+-#define IXGBEVF_MAX_RXBUFFER   16384  /* largest size for single descriptor */
++#define IXGBEVF_RXBUFFER_2K    2048
++#define IXGBEVF_RXBUFFER_4K    4096
++#define IXGBEVF_RXBUFFER_8K    8192
++#define IXGBEVF_RXBUFFER_10K   10240
+ 
+ #define IXGBEVF_RX_HDR_SIZE IXGBEVF_RXBUFFER_256
+ 
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index f3d3947..a8fbe6c 100644
+index 00f9698..9d88153 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -1721,8 +1721,8 @@ void ixgbevf_reset(struct ixgbevf_adapter *adapter)
- 	}
- }
+@@ -1087,20 +1087,20 @@ static void ixgbevf_set_rx_buffer_len(struct ixgbevf_adapter *adapter)
+ 	max_frame += VLAN_HLEN;
  
--static void ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
--					 int vectors)
-+static int ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
-+					int vectors)
- {
- 	int err, vector_threshold;
+ 	/*
+-	 * Make best use of allocation by using all but 1K of a
+-	 * power of 2 allocation that will be used for skb->head.
++	 * Allocate buffer sizes that fit well into 32K and
++	 * take into account max frame size of 9.5K
+ 	 */
+ 	if ((hw->mac.type == ixgbe_mac_X540_vf) &&
+ 	    (max_frame <= MAXIMUM_ETHERNET_VLAN_SIZE))
+ 		rx_buf_len = MAXIMUM_ETHERNET_VLAN_SIZE;
+-	else if (max_frame <= IXGBEVF_RXBUFFER_3K)
+-		rx_buf_len = IXGBEVF_RXBUFFER_3K;
+-	else if (max_frame <= IXGBEVF_RXBUFFER_7K)
+-		rx_buf_len = IXGBEVF_RXBUFFER_7K;
+-	else if (max_frame <= IXGBEVF_RXBUFFER_15K)
+-		rx_buf_len = IXGBEVF_RXBUFFER_15K;
++	else if (max_frame <= IXGBEVF_RXBUFFER_2K)
++		rx_buf_len = IXGBEVF_RXBUFFER_2K;
++	else if (max_frame <= IXGBEVF_RXBUFFER_4K)
++		rx_buf_len = IXGBEVF_RXBUFFER_4K;
++	else if (max_frame <= IXGBEVF_RXBUFFER_8K)
++		rx_buf_len = IXGBEVF_RXBUFFER_8K;
+ 	else
+-		rx_buf_len = IXGBEVF_MAX_RXBUFFER;
++		rx_buf_len = IXGBEVF_RXBUFFER_10K;
  
-@@ -1740,21 +1740,18 @@ static void ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
- 	while (vectors >= vector_threshold) {
- 		err = pci_enable_msix(adapter->pdev, adapter->msix_entries,
- 				      vectors);
--		if (!err) /* Success in acquiring all requested vectors. */
-+		if (!err || err < 0) /* Success or a nasty failure. */
- 			break;
--		else if (err < 0)
--			vectors = 0; /* Nasty failure, quit now */
- 		else /* err == number of vectors we should try again with */
- 			vectors = err;
- 	}
- 
--	if (vectors < vector_threshold) {
--		/* Can't allocate enough MSI-X interrupts?  Oh well.
--		 * This just means we'll go with either a single MSI
--		 * vector or fall back to legacy interrupts.
--		 */
--		hw_dbg(&adapter->hw,
--		       "Unable to allocate MSI-X interrupts\n");
-+	if (vectors < vector_threshold)
-+		err = -ENOMEM;
-+
-+	if (err) {
-+		dev_err(&adapter->pdev->dev,
-+			"Unable to allocate MSI-X interrupts\n");
- 		kfree(adapter->msix_entries);
- 		adapter->msix_entries = NULL;
- 	} else {
-@@ -1765,6 +1762,7 @@ static void ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
- 		 */
- 		adapter->num_msix_vectors = vectors;
- 	}
-+	return err;
- }
- 
- /**
-@@ -1868,7 +1866,9 @@ static int ixgbevf_set_interrupt_capability(struct ixgbevf_adapter *adapter)
- 	for (vector = 0; vector < v_budget; vector++)
- 		adapter->msix_entries[vector].entry = vector;
- 
--	ixgbevf_acquire_msix_vectors(adapter, v_budget);
-+	err = ixgbevf_acquire_msix_vectors(adapter, v_budget);
-+	if (err)
-+		goto out;
- 
- 	err = netif_set_real_num_tx_queues(netdev, adapter->num_tx_queues);
- 	if (err)
+ 	for (i = 0; i < adapter->num_rx_queues; i++)
+ 		adapter->rx_ring[i].rx_buf_len = rx_buf_len;
 -- 
 1.7.11.7
