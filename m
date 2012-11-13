@@ -1,47 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] netfilter updates for net-next
-Date: Tue, 13 Nov 2012 14:12:59 -0500 (EST)
-Message-ID: <20121113.141259.920173818208682329.davem@davemloft.net>
-References: <1352765203-4160-1-git-send-email-pablo@netfilter.org>
-	<20121113124002.GA5350@1984>
+Subject: Re: [net-next 00/11][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 13 Nov 2012 14:19:11 -0500 (EST)
+Message-ID: <20121113.141911.866978479148781394.davem@davemloft.net>
+References: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48060 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48132 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751748Ab2KMTNB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:13:01 -0500
-In-Reply-To: <20121113124002.GA5350@1984>
+	with ESMTP id S1754692Ab2KMTTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:19:12 -0500
+In-Reply-To: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue, 13 Nov 2012 13:40:02 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 13 Nov 2012 06:03:14 -0800
 
-> On Tue, Nov 13, 2012 at 01:06:40AM +0100, pablo@netfilter.org wrote:
->> From: Pablo Neira Ayuso <pablo@netfilter.org>
->> 
->> Hi David,
->> 
->> The following three patches contain updates for your net-next tree,
->> they include:
->> 
->> * Little cleanup for IPVS the use of a strange notation to assign the
->>   conntrack object, from Alan Cox.
->> 
->> * getsockopt support to obtain the original IPv6 address after NAT,
->>   similar to the one that IPv4 provides, from Florian Westphal.
->> 
->> * Another little cleanup for nf_nat to save a couple of lines by using
->>   PTR_RET, from Wu Fengguang.
+> This series contains updates to ixgbe, ixgbevf and igb.
 > 
-> Please, hold on with this pull request. We need a follow-up patch to
-> resolve an issue regarding the getsockopt to obtain original address
-> with IPv6 NAT.
-> 
-> I'll send you a new pull request.
+> The following are changes since commit 9fafd65ad407d4e0c96919a325f568dd95d032af:
+>   ipv6 ndisc: Use pre-defined in6addr_linklocal_allnodes.
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-Ok.
+Pulled, but I have some long term feedback to give on one of the
+patches, thanks.
