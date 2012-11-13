@@ -1,88 +1,397 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [3.0.y, 3.2.y, 3.4.y] Re: [PATCH v2] r8169: Fix WoL on
- RTL8168d/8111d.
-Date: Tue, 13 Nov 2012 20:24:41 +0000
-Message-ID: <1352838281.16264.106.camel@deadeye.wl.decadent.org.uk>
-References: <20121101222113.GB7708@electric-eye.fr.zoreil.com>
-	 <20121112163858.GA4343@elie.Belkin>
-	 <20121112230339.GA28555@electric-eye.fr.zoreil.com>
-	 <20121112.182754.384199300061351360.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-LWof8aclMGFufVWbgLoz"
-Cc: jrnieder@gmail.com, stable@vger.kernel.org, kibi@debian.org,
-	netdev@vger.kernel.org, nic_swsd@realtek.com,
-	hayeswang@realtek.com, linux-kernel@vger.kernel.org,
-	florent.fourcot@enst-bretagne.fr
-To: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121112.182754.384199300061351360.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David L Stevens <dlstevens@us.ibm.com>
+Subject: [PATCH net-next] add DOVE extensions for VXLAN
+Date: Tue, 13 Nov 2012 15:21:22 -0500
+Message-ID: <201211132022.qADKLMrT018535@lab1.dls>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:47652 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932216Ab2KMU2C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 15:28:02 -0500
+Received: from /spool/local
+	by e5.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Tue, 13 Nov 2012 15:27:56 -0500
+Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 84B506E805D
+	for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 15:27:20 -0500 (EST)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id qADKRAFL48169036
+	for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 15:27:11 -0500
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id qADKSrS9003650
+	for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 13:28:53 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-LWof8aclMGFufVWbgLoz
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+	This patch provides extensions to VXLAN for supporting Distributed
+Overlay Virtual Ethernet (DOVE) networks. The patch includes:
 
-On Mon, 2012-11-12 at 18:27 -0500, David Miller wrote:
-> From: Francois Romieu <romieu@fr.zoreil.com>
-> Date: Tue, 13 Nov 2012 00:03:39 +0100
->=20
-> > Jonathan Nieder <jrnieder@gmail.com> :
-> > [...]
-> >> This has been applied as commit b00e69dee4cc in mainline; thanks!
-> >>=20
-> >> Fran??ois and David, would this be a candidate for inclusion in
-> >> 3.0- and newer stable kernels?
-> >=20
-> > - 3.0.51
-> >   b00e69dee4ccbb3a19989e3d4f1385bc2e3406cd
-> >   aee77e4accbeb2c86b1d294cd84fec4a12dde3bd
-> >=20
-> > - 3.4.18
-> >   0481776b7a70f09acf7d9d97c288c3a8403fbfe4
-> >   b00e69dee4ccbb3a19989e3d4f1385bc2e3406cd
-> >   aee77e4accbeb2c86b1d294cd84fec4a12dde3bd
-> >=20
-> > - 3.6.6
-> >   0481776b7a70f09acf7d9d97c288c3a8403fbfe4
-> >   b00e69dee4ccbb3a19989e3d4f1385bc2e3406cd
-> >   aee77e4accbeb2c86b1d294cd84fec4a12dde3bd
-> >=20
-> > I'll cook the patches.
->=20
-> Thank you, these all look fine for -stable to me.
+	+ a dove flag per VXLAN device to enable DOVE extensions
+	+ ARP reduction, whereby a bridge-connected VXLAN tunnel endpoint
+		answers ARP requests from the local bridge on behalf of
+		remote DOVE clients
+	+ route short-circuiting (aka L3 switching). Known destination IP
+		addresses use the corresponding destination MAC address for
+		switching rather than going to a (possibly remote) router first.
+	+ netlink notification messages for forwarding table and L3 switching
+		misses
 
-I've queued up all three for 3.2.
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-Ben.
-
---=20
-Ben Hutchings
-For every complex problem
-there is a solution that is simple, neat, and wrong.
-
---=-LWof8aclMGFufVWbgLoz
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAUKKsiee/yOyVhhEJAQp7GRAA1iSSgTnp/o7TGnyZsYHJEA/opDtC48JY
-sXUORFOZs5PZVNZnCtwO4EQr5RrJkRq00I7EwbynUIUOMdwiKydoWH+xauWE7gbC
-CDAqaRUnuA+u+DFEW4LPVh4s0wWxjE9XhA9TJrYEeBVFjiwxNI53j+8mauwWXVO7
-vNcOevfdjs86ctWgzpeoAMP4IwNObCUbJdQxSIINwNpPC+4+4iVzLJj68PDFBcCJ
-p9Q8Oi4XWnZlC/Ap+Sm6wkHHvKB1iIqOkF5SIh/EOD2fcDutVypI7W5RnVbLZtS2
-qhHUBOgrn3m6oxLXbn9lB1rGuAqa8Ihya2giamtG0E4GGs6PJwWinFz3CZRLGv1r
-TWi8gwz0bZENY5wMmhCnZVgkA8yBCx4C1V1Xuhj51+JU8RTmRzUzi8feJSgxRxOk
-3l8NKrbPUpfJQNbyFnGC9VwDrYyBnQRUSD/cgoXoBbPk1ps40xZvxuYFjcMUk595
-MU3EX1cBW6NxQYik62TDfSm/DrI7sNMKRgUnprA+Mc+psWa8dJ1kvMy4a7j1rOyr
-FIxeDaTFzdQ7EmkCCrLwxMafhDRFzb04+YHXqHgWztOi9//wKsniEeKIGo/WVE2V
-0uoo888oSyeFA657pGxpkkDC4hp1/bfHlvvPH5KXPCezIGJ/8tTMlSqkFqXqO5wA
-oFG0BuWu81A=
-=Wrk0
------END PGP SIGNATURE-----
-
---=-LWof8aclMGFufVWbgLoz--
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 8aca888..42ccd54 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -29,6 +29,8 @@
+ #include <linux/etherdevice.h>
+ #include <linux/if_ether.h>
+ #include <linux/hash.h>
++#include <net/arp.h>
++#include <net/ndisc.h>
+ #include <net/ip.h>
+ #include <net/icmp.h>
+ #include <net/udp.h>
+@@ -111,6 +113,7 @@ struct vxlan_dev {
+ 	__u8		  tos;		/* TOS override */
+ 	__u8		  ttl;
+ 	bool		  learn;
++	bool		  dove;
+ 
+ 	unsigned long	  age_interval;
+ 	struct timer_list age_timer;
+@@ -155,6 +158,7 @@ static int vxlan_fdb_info(struct sk_buff *skb, struct vxlan_dev *vxlan,
+ 	struct nda_cacheinfo ci;
+ 	struct nlmsghdr *nlh;
+ 	struct ndmsg *ndm;
++	bool send_ip, send_eth;
+ 
+ 	nlh = nlmsg_put(skb, portid, seq, type, sizeof(*ndm), flags);
+ 	if (nlh == NULL)
+@@ -162,16 +166,28 @@ static int vxlan_fdb_info(struct sk_buff *skb, struct vxlan_dev *vxlan,
+ 
+ 	ndm = nlmsg_data(nlh);
+ 	memset(ndm, 0, sizeof(*ndm));
+-	ndm->ndm_family	= AF_BRIDGE;
++
++	send_eth = send_ip = true;
++
++	if (type == RTM_GETNEIGH) {
++		int i;
++
++		ndm->ndm_family	= AF_INET;
++		send_ip = fdb->remote_ip != 0;
++		send_eth = 0;
++		for (i=0; i<ETH_ALEN; ++i)
++			send_eth |= !!fdb->eth_addr[i];
++	} else
++		ndm->ndm_family	= AF_BRIDGE;
+ 	ndm->ndm_state = fdb->state;
+ 	ndm->ndm_ifindex = vxlan->dev->ifindex;
+ 	ndm->ndm_flags = NTF_SELF;
+ 	ndm->ndm_type = NDA_DST;
+ 
+-	if (nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->eth_addr))
++	if (send_eth && nla_put(skb, NDA_LLADDR, ETH_ALEN, &fdb->eth_addr))
+ 		goto nla_put_failure;
+ 
+-	if (nla_put_be32(skb, NDA_DST, fdb->remote_ip))
++	if (send_ip && nla_put_be32(skb, NDA_DST, fdb->remote_ip))
+ 		goto nla_put_failure;
+ 
+ 	ci.ndm_used	 = jiffies_to_clock_t(now - fdb->used);
+@@ -223,6 +239,29 @@ errout:
+ 		rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
+ }
+ 
++static void vxlan_ip_miss(struct net_device *dev, __be32 ipa)
++{
++	struct vxlan_dev *vxlan = netdev_priv(dev);
++	struct vxlan_fdb f;
++
++	memset(&f, 0, sizeof f);
++	f.state = NUD_STALE;
++	f.remote_ip = ipa; /* goes to NDA_DST */
++
++	vxlan_fdb_notify(vxlan, &f, RTM_GETNEIGH);
++}
++
++static void vxlan_fdb_miss(struct vxlan_dev *vxlan, const u8 eth_addr[ETH_ALEN])
++{
++	struct vxlan_fdb	f;
++
++	memset(&f, 0, sizeof f);
++	f.state = NUD_STALE;
++	memcpy(f.eth_addr, eth_addr, ETH_ALEN);
++
++	vxlan_fdb_notify(vxlan, &f, RTM_GETNEIGH);
++}
++
+ /* Hash Ethernet address */
+ static u32 eth_hash(const unsigned char *addr)
+ {
+@@ -552,6 +591,8 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ 		goto drop;
+ 	}
+ 
++	skb_reset_mac_header(skb);
++
+ 	/* Re-examine inner Ethernet packet */
+ 	oip = ip_hdr(skb);
+ 	skb->protocol = eth_type_trans(skb, vxlan->dev);
+@@ -600,6 +641,115 @@ drop:
+ 	return 0;
+ }
+ 
++static int arp_reduce(struct net_device *dev, struct sk_buff *skb)
++{
++	struct arphdr *parp;
++	u8 *arpptr, *sha;
++	__be32 sip, tip;
++	struct neighbour *n;
++
++	if (dev->flags & IFF_NOARP)
++		goto out;
++
++	if (!pskb_may_pull(skb, arp_hdr_len(dev))) {
++		dev->stats.tx_dropped++;
++		goto out;
++	}
++	parp = arp_hdr(skb);
++
++	if ((parp->ar_hrd != htons(ARPHRD_ETHER) &&
++	     parp->ar_hrd != htons(ARPHRD_IEEE802)) ||
++	    parp->ar_pro != htons(ETH_P_IP) ||
++	    parp->ar_op != htons(ARPOP_REQUEST) ||
++	    parp->ar_hln != dev->addr_len ||
++	    parp->ar_pln != 4)
++		goto out;
++	arpptr = (u8 *)parp + sizeof(struct arphdr);
++	sha = arpptr;
++	arpptr += dev->addr_len;	/* sha */
++	memcpy(&sip, arpptr, sizeof(sip));
++	arpptr += sizeof(sip);
++	arpptr += dev->addr_len;	/* tha */
++	memcpy(&tip, arpptr, sizeof(tip));
++
++	if (ipv4_is_loopback(tip) ||
++	    ipv4_is_multicast(tip))
++		goto out;
++
++	n = neigh_lookup(&arp_tbl, &tip, dev);
++
++	if (n) {
++		struct vxlan_dev *vxlan = netdev_priv(dev);
++		struct vxlan_fdb *f;
++		struct sk_buff	*reply;
++
++		if (!(n->nud_state & NUD_CONNECTED)) {
++			neigh_release(n);
++			goto out;
++		}
++
++		f = vxlan_find_mac(vxlan, n->ha);
++		if (f && f->remote_ip == 0) {
++			/* bridge-local neighbor */
++			neigh_release(n);
++			goto out;
++		}
++
++		reply = arp_create(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
++				n->ha, sha);
++
++		neigh_release(n);
++
++		skb_reset_mac_header(reply);
++		__skb_pull(reply, skb_network_offset(reply));
++		reply->ip_summed = CHECKSUM_UNNECESSARY;
++		reply->pkt_type = PACKET_HOST;
++
++		if (netif_rx_ni(reply) == NET_RX_DROP)
++			dev->stats.rx_dropped++;
++	} else
++		vxlan_ip_miss(dev, tip);
++out:
++	consume_skb(skb);
++	return NETDEV_TX_OK;
++}
++
++static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
++{
++	struct neighbour *n;
++	struct iphdr *pip;
++
++	if (is_multicast_ether_addr(eth_hdr(skb)->h_dest))
++		return false;
++
++	n = NULL;
++	switch (ntohs(eth_hdr(skb)->h_proto)) {
++	case ETH_P_IP:
++		if (!pskb_may_pull(skb, sizeof(struct iphdr)))
++			return false;
++		pip = ip_hdr(skb);
++		n = neigh_lookup(&arp_tbl, &pip->daddr, dev);
++		break;
++	default:
++		return false;
++	}
++
++	if (n) {
++		bool diff;
++
++		diff = compare_ether_addr(eth_hdr(skb)->h_dest, n->ha) != 0;
++		if (diff) {
++			memcpy(eth_hdr(skb)->h_source, eth_hdr(skb)->h_dest,
++				dev->addr_len);
++			memcpy(eth_hdr(skb)->h_dest, n->ha, dev->addr_len);
++		}
++		neigh_release(n);
++		return diff;
++	} else
++		vxlan_ip_miss(dev, pip->daddr);
++	return false;
++}
++
+ /* Extract dsfield from inner protocol */
+ static inline u8 vxlan_get_dsfield(const struct iphdr *iph,
+ 				   const struct sk_buff *skb)
+@@ -622,22 +772,6 @@ static inline u8 vxlan_ecn_encap(u8 tos,
+ 	return INET_ECN_encapsulate(tos, inner);
+ }
+ 
+-static __be32 vxlan_find_dst(struct vxlan_dev *vxlan, struct sk_buff *skb)
+-{
+-	const struct ethhdr *eth = (struct ethhdr *) skb->data;
+-	const struct vxlan_fdb *f;
+-
+-	if (is_multicast_ether_addr(eth->h_dest))
+-		return vxlan->gaddr;
+-
+-	f = vxlan_find_mac(vxlan, eth->h_dest);
+-	if (f)
+-		return f->remote_ip;
+-	else
+-		return vxlan->gaddr;
+-
+-}
+-
+ static void vxlan_sock_free(struct sk_buff *skb)
+ {
+ 	sock_put(skb->sk);
+@@ -684,6 +818,7 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct rtable *rt;
+ 	const struct iphdr *old_iph;
++	struct ethhdr *eth;
+ 	struct iphdr *iph;
+ 	struct vxlanhdr *vxh;
+ 	struct udphdr *uh;
+@@ -694,10 +829,57 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	__be16 df = 0;
+ 	__u8 tos, ttl;
+ 	int err;
++	bool rsc = false;
++	const struct vxlan_fdb *f;
+ 
+-	dst = vxlan_find_dst(vxlan, skb);
+-	if (!dst)
++	skb_reset_mac_header(skb);
++	eth = eth_hdr(skb);
++
++	if (vxlan->dove) {
++		switch (ntohs(eth->h_proto)) {
++		case ETH_P_ARP:
++			return arp_reduce(dev, skb);
++		case ETH_P_IP:
++			rsc = route_shortcircuit(dev, skb);
++			break;
++		default:
++			break;
++		}
++	}
++
++	f = vxlan_find_mac(vxlan, eth->h_dest);
++	if (f == NULL) {
++		rsc = false;
++		dst = vxlan->gaddr;
++		if (!dst && vxlan->dove &&
++		    !is_multicast_ether_addr(eth->h_dest))
++			vxlan_fdb_miss(vxlan, eth->h_dest);
++	} else
++		dst = f->remote_ip;
++
++	if (!dst) {
++		if (rsc) {
++			__skb_pull(skb, skb_network_offset(skb));
++			skb->ip_summed = CHECKSUM_NONE;
++			skb->pkt_type = PACKET_HOST;
++
++			/* short-circuited back to local bridge */
++			if (netif_rx(skb) == NET_RX_SUCCESS) {
++				struct vxlan_stats *stats =
++						this_cpu_ptr(vxlan->stats);
++		
++				u64_stats_update_begin(&stats->syncp);
++				stats->tx_packets++;
++				stats->tx_bytes += pkt_len;
++				u64_stats_update_end(&stats->syncp);
++			} else {
++				dev->stats.tx_errors++;
++				dev->stats.tx_aborted_errors++;
++			}
++			return NETDEV_TX_OK;
++		}
+ 		goto drop;
++	}
+ 
+ 	/* Need space for new headers (invalidates iph ptr) */
+ 	if (skb_cow_head(skb, VXLAN_HEADROOM))
+@@ -1020,6 +1202,7 @@ static const struct nla_policy vxlan_policy[IFLA_VXLAN_MAX + 1] = {
+ 	[IFLA_VXLAN_AGEING]	= { .type = NLA_U32 },
+ 	[IFLA_VXLAN_LIMIT]	= { .type = NLA_U32 },
+ 	[IFLA_VXLAN_PORT_RANGE] = { .len  = sizeof(struct ifla_vxlan_port_range) },
++	[IFLA_VXLAN_DOVE]	= { .type = NLA_U8 },
+ };
+ 
+ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+@@ -1118,6 +1301,9 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+ 	else
+ 		vxlan->age_interval = FDB_AGE_DEFAULT;
+ 
++	if (data[IFLA_VXLAN_DOVE] && nla_get_u8(data[IFLA_VXLAN_DOVE]))
++		vxlan->dove = true;
++
+ 	if (data[IFLA_VXLAN_LIMIT])
+ 		vxlan->addrmax = nla_get_u32(data[IFLA_VXLAN_LIMIT]);
+ 
+@@ -1154,6 +1340,7 @@ static size_t vxlan_get_size(const struct net_device *dev)
+ 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_TTL */
+ 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_TOS */
+ 		nla_total_size(sizeof(__u8)) +	/* IFLA_VXLAN_LEARNING */
++		nla_total_size(sizeof(__u32)) +	/* IFLA_VXLAN_DOVE */
+ 		nla_total_size(sizeof(__u32)) +	/* IFLA_VXLAN_AGEING */
+ 		nla_total_size(sizeof(__u32)) +	/* IFLA_VXLAN_LIMIT */
+ 		nla_total_size(sizeof(struct ifla_vxlan_port_range)) +
+@@ -1183,6 +1370,7 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	if (nla_put_u8(skb, IFLA_VXLAN_TTL, vxlan->ttl) ||
+ 	    nla_put_u8(skb, IFLA_VXLAN_TOS, vxlan->tos) ||
+ 	    nla_put_u8(skb, IFLA_VXLAN_LEARNING, vxlan->learn) ||
++	    nla_put_u8(skb, IFLA_VXLAN_DOVE, vxlan->dove) ||
+ 	    nla_put_u32(skb, IFLA_VXLAN_AGEING, vxlan->age_interval) ||
+ 	    nla_put_u32(skb, IFLA_VXLAN_LIMIT, vxlan->addrmax))
+ 		goto nla_put_failure;
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 5c80cb1..740b636 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -285,6 +285,7 @@ enum {
+ 	IFLA_VXLAN_AGEING,
+ 	IFLA_VXLAN_LIMIT,
+ 	IFLA_VXLAN_PORT_RANGE,
++	IFLA_VXLAN_DOVE,
+ 	__IFLA_VXLAN_MAX
+ };
+ #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
