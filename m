@@ -1,87 +1,84 @@
-From: Lekensteyn <lekensteyn@gmail.com>
-Subject: Re: [REGRESSION, v3.7-rc5, bisected] 100% CPU usage in softirqd, unable to shutdown(Internet mail)
-Date: Tue, 13 Nov 2012 19:25:50 +0100
-Message-ID: <1821565.8nx6NH6PfI@al>
-References: <5934660.4HuQirPM4Z@al> <0ED22CD02BE51541A6BCC0D6BDA097AE0F5A6D@EXMBX-BJ003.tencent.com>
+From: "Li, Sibai" <sibai.li@intel.com>
+Subject: Re: SR-IOV problem with Intel 82599EB (not enough
+ MMIO resources for SR-IOV)
+Date: Tue, 13 Nov 2012 18:25:58 +0000
+Message-ID: <A3A921390EAE4044940E99EBF13D97321AE21FBB@FMSMSX104.amr.corp.intel.com>
+References: <201211081915083774239@gmail.com>	<509B962C.6070002@gmail.com>
+	<C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com>
+	<CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
+	<CAErSpo4xn9t=4yXGLdPQMtUJF=n38tYrMutAoj7NCsLUzQEbcg@mail.gmail.com>
+	<CANmqhJAjwP8CLEKpgsDbT-7+n=hf30LbYrTAu+qDH09LzETD4g@mail.gmail.com>
+	<A3A921390EAE4044940E99EBF13D97321AE21E15@FMSMSX104.amr.corp.intel.com>
+	<CAE9FiQXnP2gpy9z6VNGSpimLkhDYKp6Qr=9nGZ9d-pKdohA4bw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?utf-8?B?ZGFubnlmZW5nKOWGr+Wwj+WkqSk=?= <dannyfeng@tencent.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:37032 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752384Ab2KMSZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 13:25:54 -0500
-Received: by mail-bk0-f46.google.com with SMTP id q16so708492bkw.19
-        for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 10:25:53 -0800 (PST)
-In-Reply-To: <0ED22CD02BE51541A6BCC0D6BDA097AE0F5A6D@EXMBX-BJ003.tencent.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: kvm <kvm@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"ddutile@redhat.com" <ddutile@redhat.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"bhelgaas@google.com" <bhelgaas@google.com>
+To: Yinghai Lu <yinghai@kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <CAE9FiQXnP2gpy9z6VNGSpimLkhDYKp6Qr=9nGZ9d-pKdohA4bw@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 13 November 2012 10:26:03 dannyfeng wrote:
-> I'm sorry, I didn't noticed that jme_open use tasklet_enable, which may
-> reuse a killed tasklet... Could you please try following patch?
-> ---
-> diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
-> index 92317e9..c0314c1 100644
-> --- a/drivers/net/ethernet/jme.c
-> +++ b/drivers/net/ethernet/jme.c
-> @@ -1860,10 +1860,14 @@ jme_open(struct net_device *netdev)
->         jme_clear_pm(jme);
->         JME_NAPI_ENABLE(jme);
->  
-> -       tasklet_enable(&jme->linkch_task);
-> -       tasklet_enable(&jme->txclean_task);
-> -       tasklet_hi_enable(&jme->rxclean_task);
-> -       tasklet_hi_enable(&jme->rxempty_task);
-> +       tasklet_init(&jme->linkch_task, jme_link_change_tasklet,
-> +                     (unsigned long) jme);
-> +       tasklet_init(&jme->txclean_task, jme_tx_clean_tasklet,
-> +                     (unsigned long) jme);
-> +       tasklet_init(&jme->rxclean_task, jme_rx_clean_tasklet,
-> +                     (unsigned long) jme);
-> +       tasklet_init(&jme->rxempty_task, jme_rx_empty_tasklet,
-> +                     (unsigned long) jme);
->  
->         rc = jme_request_irq(jme);
->         if (rc)
-> @@ -3079,22 +3083,6 @@ jme_init_one(struct pci_dev *pdev,
->         tasklet_init(&jme->pcc_task,
->                      jme_pcc_tasklet,
->                      (unsigned long) jme);
-> -       tasklet_init(&jme->linkch_task,
-> -                    jme_link_change_tasklet,
-> -                    (unsigned long) jme);
-> -       tasklet_init(&jme->txclean_task,
-> -                    jme_tx_clean_tasklet,
-> -                    (unsigned long) jme);
-> -       tasklet_init(&jme->rxclean_task,
-> -                    jme_rx_clean_tasklet,
-> -                    (unsigned long) jme);
-> -       tasklet_init(&jme->rxempty_task,
-> -                    jme_rx_empty_tasklet,
-> -                    (unsigned long) jme);
-> -       tasklet_disable_nosync(&jme->linkch_task);
-> -       tasklet_disable_nosync(&jme->txclean_task);
-> -       tasklet_disable_nosync(&jme->rxclean_task);
-> -       tasklet_disable_nosync(&jme->rxempty_task);
->         jme->dpi.cur = PCC_P1;
->  
->         jme->reg_ghc = 0;
-Tested-by: Peter Wu <lekensteyn@gmail.com>
 
-I have no idea what this does, but it seems to help as I can suspend/resume 
-without rapidly rising softirqs. (applied on top of 3.7-rc5.)
+> -----Original Message-----
+> From: yhlu.kernel@gmail.com [mailto:yhlu.kernel@gmail.com] On Behalf Of
+> Yinghai Lu
+> Sent: Tuesday, November 13, 2012 10:17 AM
+> To: Li, Sibai
+> Cc: Jason Gao; bhelgaas@google.com; Rose, Gregory V; ddutile@redhat.com;
+> Kirsher, Jeffrey T; linux-kernel; netdev; kvm; e1000-devel@lists.sourceforge.net;
+> linux-pci@vger.kernel.org
+> Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+> for SR-IOV)
+> 
+> On Tue, Nov 13, 2012 at 8:04 AM, Li, Sibai <sibai.li@intel.com> wrote:
+> >
+> >>
+> >> Thank you very much,I try "pci=realloc" in Centos 6.3,and now it works for
+> me.
+> >>
+> >> thank you Sibai,Our server "Dell R710",its BIOS version is just
+> >> v.6.3.0 and release date is 07/24/2012,and I also configured
+> >> intel_iommu=on in the grub.conf file,but I can't find these IOMMU
+> >> options in "Device Drivers" in my
+> >> kernel(2.6.32-279) .config file , btw my os is Centos
+> >> 6.3(RHEL6.3),although the problem solved,I'd like to know what's your os
+> version ,kernel version?
+> >
+> > I am using RHEL6.3 with unstable kernel 3.7.0-rc
+> 
+> that means that config has
+> CONFIG_PCI_REALLOC_ENABLE_AUTO=y
+> 
+> So you don't need to append "pci=realloc"
+> 
+> Yinghai
 
-I tested it like this:
-- rmmod jme
-- insmod <path to new patched build>/jme.ko
+Never append "pci=realloc" for both kernel 2.6.32.279 and kernel 3.5.0 above.
 
-I hand-edited the code as your patch does not apply due to tab to space 
-conversion. You might want to use a real email client instead of the web 
-interface.
-
-Regards,
-Peter
+------------------------------------------------------------------------------
+Monitor your physical, virtual and cloud infrastructure from a single
+web console. Get in-depth insight into apps, servers, databases, vmware,
+SAP, cloud infrastructure, etc. Download 30-day Free Trial.
+Pricing starts from $795 for 25 servers or applications!
+http://p.sf.net/sfu/zoho_dev2dev_nov
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
