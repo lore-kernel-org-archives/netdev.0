@@ -1,57 +1,49 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: e1000e on DH55HC stalling and kernel panic in 3.6.6
-Date: Tue, 13 Nov 2012 15:58:34 +0200
-Message-ID: <46948b0ae98fcae5d08fd9fe61fd2e47@visp.net.lb>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: <jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
-	<bruce.w.allan@intel.com>, <carolyn.wyborny@intel.com>,
-	<donald.c.skidmore@intel.com>, <gregory.v.rose@intel.com>,
-	<peter.p.waskiewicz.jr@intel.com>, <alexander.h.duyck@intel.com>,
-	<john.ronciak@intel.com>, <e1000-devel@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/11] ixgbe: Do not use DCA to prefetch the entire packet into the cache
+Date: Tue, 13 Nov 2012 06:03:15 -0800
+Message-ID: <1352815405-751-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:8266 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754644Ab2KMOD2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 09:03:28 -0500
+In-Reply-To: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-I just tried to run latest kernel on my DH55HC motherboard latest 
-kernel 3.6.6 and got various network problems, such as network traffic 
-are stopping, and sometimes i am getting kernel panic.
-When traffic are stopping, ethtool -r eth0 sometimes helps.
-When i do ethtool -G eth0 rx NNN , sometimes it will give kernel panic, 
-but it is hard to reproduce.
+The way the code was previously written it was causing DCA to prefetch the
+entire packet into the cache when it was enabled.  That is excessive as we
+only really need the headers.
 
-I tried to capture panic on pictures, so will try to decode on what i 
-got photo, it is a nightmare, but sadly i dont have serial in hands to 
-get data over it.
+We are now prefetching the headers via software so doing this from DCA would
+be redundant anyway.  So clear the bit that was causing us to prefetch the
+packet data and instead only use DCA for the descriptor rings.
 
-skbuff: skb_over_panic: text:f86fc769 len:25807 put:25807 head:c1da1800 
-data:c1da1840 tail:0xc1da7d0f end:c1da1f40 dev:eth0
-kernel BUG at net/core/skbuff.c:127
-opcode: 0000 [#1] SMP
-Pid: 0 comm: swapper/6 Not tained 3.6.6-build-0063 #23
-EIP: 0060:[<c02e7980>] EFLAGS: 00010296 CPU:6
-EIP is at skb_put+0x83/0x8e
-
-There is registers and stack, let me know if you need specific fields
-
-Call trace:
-f86fc769 ? e1000_clean_rx_irq+0x1e1/0x2af [e1000e]
-f86fc769 e1000_clean_rx_irq+0x1e1/0x2af [e1000e]
-f86fcc73 e1000e_poll+0x6a/0x209 [e1000e]
-c02f1630 net_rx_action+0x90/0x15d
-c01302d5 __do_softirq+0x8a/-x13b
-c013024b ? local_bh_enable+0xd/0xd
-<IRQ>
-c0130504 irq_exit+0x41/0x91
-c0102c37 do_IRQ+0x79/0x8d
-
-There is also more data, let me know if you need it.
-
-
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 690535a..38fc186 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1015,7 +1015,6 @@ static void ixgbe_update_rx_dca(struct ixgbe_adapter *adapter,
+ 	 * which will cause the DCA tag to be cleared.
+ 	 */
+ 	rxctrl |= IXGBE_DCA_RXCTRL_DESC_RRO_EN |
+-		  IXGBE_DCA_RXCTRL_DATA_DCA_EN |
+ 		  IXGBE_DCA_RXCTRL_DESC_DCA_EN;
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(reg_idx), rxctrl);
+-- 
+1.7.11.7
