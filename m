@@ -1,64 +1,71 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v6 2/7] net: mvneta: driver for Marvell Armada 370/XP
- network unit
-Date: Tue, 13 Nov 2012 07:57:58 -0800
-Message-ID: <1352822278.24230.36.camel@joe-AO722>
-References: <1352818843-4457-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	 <1352818843-4457-3-git-send-email-thomas.petazzoni@free-electrons.com>
-	 <1352820622.24230.31.camel@joe-AO722> <20121113164658.03ae12f8@skate>
+From: "Li, Sibai" <sibai.li@intel.com>
+Subject: RE: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+ for SR-IOV)
+Date: Tue, 13 Nov 2012 16:04:53 +0000
+Message-ID: <A3A921390EAE4044940E99EBF13D97321AE21E15@FMSMSX104.amr.corp.intel.com>
+References: <201211081915083774239@gmail.com>	<509B962C.6070002@gmail.com>
+	<C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com>
+	<CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com>
+	<CAErSpo4xn9t=4yXGLdPQMtUJF=n38tYrMutAoj7NCsLUzQEbcg@mail.gmail.com>
+ <CANmqhJAjwP8CLEKpgsDbT-7+n=hf30LbYrTAu+qDH09LzETD4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Dmitri Epshtein <dima@marvell.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:58360 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751976Ab2KMP5z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 10:57:55 -0500
-In-Reply-To: <20121113164658.03ae12f8@skate>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "ddutile@redhat.com" <ddutile@redhat.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Yinghai Lu <yinghai@kernel.org>
+To: Jason Gao <pkill.2012@gmail.com>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANmqhJAjwP8CLEKpgsDbT-7+n=hf30LbYrTAu+qDH09LzETD4g@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-11-13 at 16:46 +0100, Thomas Petazzoni wrote:
-> On Tue, 13 Nov 2012 07:30:22 -0800, Joe Perches wrote:
-> > On Tue, 2012-11-13 at 16:00 +0100, Thomas Petazzoni wrote:
-> > > This patch contains a new network driver for the network unit of the
-> > > ARM Marvell Armada 370 and the Armada XP. Both SoCs use the PJ4B
-> > > processor, a Marvell-developed ARM core that implements the ARMv7
-> > > instruction set.
-> > 
-> > This looks very clean to me.
+
+
+> -----Original Message-----
+> From: Jason Gao [mailto:pkill.2012@gmail.com]
+> Sent: Tuesday, November 13, 2012 5:38 AM
+> To: bhelgaas@google.com; Rose, Gregory V; Li, Sibai
+> Cc: ddutile@redhat.com; Kirsher, Jeffrey T; linux-kernel; netdev; kvm; e1000-
+> devel@lists.sourceforge.net; linux-pci@vger.kernel.org; Yinghai Lu
+> Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+> for SR-IOV)
 > 
-> Thanks!
+> I'm very sorry for delayed reply.now SR-IOV works for me in Centos 6.3,thank all
+> of you.
 > 
-> With the below fixes, may I get your formal Acked-by on the driver
-> patch?
+> 
+> On Fri, Nov 9, 2012 at 11:26 PM, Bjorn Helgaas <bhelgaas@google.com> wrote:
+> > Linux normally uses the resource assignments done by the BIOS, but it
+> > is possible for the kernel to reassign those.  We don't have good
+> > automatic support for that yet, but on a recent upstream kernel, you
+> > can try "pci=realloc".  I doubt this option is in CentOS 6.3, though
+> 
+> Thank you very much,I try "pci=realloc" in Centos 6.3,and now it works for me.
+> 
+> 
+> 
+> On Sat, Nov 10, 2012 at 2:08 AM, Li, Sibai <sibai.li@intel.com> wrote:
+> > DellR710 with the latest BIOS should work fine for SR-IOV. My BIOS is
+> > v.6.3.0 and release date is 07/24/2012 Please check if you configured
+> intel_iommu=on in the grub.conf file.
+> > If you did, check your kernel .config file under Device Drivers-> IOMMU
+> Hardware support->enable Support for Intel IOMMU using DMA remapping
+> Devices, enable Intel DMA Remapping Devices by Default, enable Support for
+> Interrupt Remapping.
+> 
+> thank you Sibai,Our server "Dell R710",its BIOS version is just
+> v.6.3.0 and release date is 07/24/2012,and I also configured intel_iommu=on in
+> the grub.conf file,but I can't find these IOMMU options in "Device Drivers" in my
+> kernel(2.6.32-279) .config file , btw my os is Centos 6.3(RHEL6.3),although the
+> problem solved,I'd like to know what's your os version ,kernel version?
 
-Hi Thomas.
-
-I'm not one that believe there's much value in acks.
-I don't have a card, I didn't test it, so I don't
-know that it works.
-
-The code style/readability looks pretty good to me.
-
-> > trivial:
-> > some of the logging doesn't use terminating newlines.
-> > You could use netdev_info
-[]
-> Thanks for those comments, I'll wait a bit to see if any other comment
-> shows up before tomorrow, and I'll send a v7 with those issues fixed.
-
-These trivialities aren't any kind of blocking issue.
-
-Perhaps David will apply it as is and you could send
-a follow up patch later.
+I am using RHEL6.3 with unstable kernel 3.7.0-rc
