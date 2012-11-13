@@ -1,31 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next patch] bnx2x: Add static declaration to several
- functions
-Date: Tue, 13 Nov 2012 14:42:38 -0500 (EST)
-Message-ID: <20121113.144238.552090507458794080.davem@davemloft.net>
-References: <1352642168-22759-1-git-send-email-meravs@broadcom.com>
+Subject: Re: [PATCH] wanrouter: Remove it and the drivers that depend on it
+Date: Tue, 13 Nov 2012 14:44:06 -0500 (EST)
+Message-ID: <20121113.144406.1610017702502358739.davem@davemloft.net>
+References: <67fe0c5701a8c7cfe06b178cf04b1c5c06592714.1352548454.git.joe@perches.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: meravs@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48494 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754329Ab2KMTmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:42:39 -0500
-In-Reply-To: <1352642168-22759-1-git-send-email-meravs@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rob@landley.net, harryxiyou@gmail.com, jdike@addtoit.com,
+	richard@nod.at, linux@arm.linux.org.uk, ralf@linux-mips.org,
+	benh@kernel.crashing.org, paulus@samba.org, chris@zankel.net,
+	jcmvbkbc@gmail.com, isdn@linux-pingi.de, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	xiyoulinuxkernelgroup@googlegroups.com, linux-kernel@zh-kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-mips@linux-mips.org,
+	linuxppc-dev@lists.ozlabs.org,
+	user-mode-linux-devel@lists.sourceforge.net,
+	user-mode-linux-user@lists.sourceforge.net,
+	linux-xtensa@linux-xtensa.org, netdev@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <67fe0c5701a8c7cfe06b178cf04b1c5c06592714.1352548454.git.joe@perches.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Merav Sicron" <meravs@broadcom.com>
-Date: Sun, 11 Nov 2012 15:56:08 +0200
+From: Joe Perches <joe@perches.com>
+Date: Sat, 10 Nov 2012 06:20:55 -0800
 
-> This patch adds static declaration to several functions in bnx2x. It eliminates
-> newly introduced sparse warnings reported by Fengguang Wu.
+> Remove wanrouter as it's obsolete and has not been updated
+> by sangoma since 2.4.3 or so and it's not used anymore.
 > 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Merav Sicron <meravs@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> Remove obsolete cyclomx drivers.
+> Update defconfig files that enable wanrouter.
+> Update files that include now deleted wanrouter bits.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, thanks.
+I'm fine with this change, except the arch defconfig bits.
+
+We've been leaving those alone, and letting the arch maintainers
+do the updates themselves periodically.
+
+Please resubmit this with those parts removed.
+
+Thanks.
