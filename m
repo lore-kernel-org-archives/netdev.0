@@ -1,47 +1,75 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next PATCH v2 0/3] extend set/get netlink for embedded
-Date: Tue, 13 Nov 2012 09:16:25 -0800
-Message-ID: <50A28069.1070903@intel.com>
-References: <20121024181033.14378.33097.stgit@jf-dev1-dcblab> <6AE768456CEC4B4A9B2248CB6B87EB3E1BC95245@SJEXCHMB05.corp.ad.broadcom.com>
+From: Don Dutile <ddutile@redhat.com>
+Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+ for SR-IOV)
+Date: Tue, 13 Nov 2012 11:40:04 -0500
+Message-ID: <50A277E4.7080902@redhat.com>
+References: <201211081915083774239@gmail.com>	<509B962C.6070002@gmail.com> <C5551D9AAB213A418B7FD5E4A6F30A072D565E76@ORSMSX106.amr.corp.intel.com> <CANmqhJDJXcbUxyt6YD6ktxZCDJ=VqiwhGXP+fLMukQr0o-XwxQ@mail.gmail.com> <CAErSpo4xn9t=4yXGLdPQMtUJF=n38tYrMutAoj7NCsLUzQEbcg@mail.gmail.com> <CANmqhJAjwP8CLEKpgsDbT-7+n=hf30LbYrTAu+qDH09LzETD4g@mail.gmail.com> <A3A921390EAE4044940E99EBF13D97321AE21E15@FMSMSX104.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"buytenh@wantstofly.org" <buytenh@wantstofly.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"krkumar2@in.ibm.com" <krkumar2@in.ibm.com>,
-	"samudrala@us.ibm.com" <samudrala@us.ibm.com>,
-	"peter.p.waskiewicz.jr@intel.com" <peter.p.waskiewicz.jr@intel.com>,
-	"jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"gregory.v.rose@intel.com" <gregory.v.rose@intel.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Ariel Elior <ariele@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:5086 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932236Ab2KMRQg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 12:16:36 -0500
-In-Reply-To: <6AE768456CEC4B4A9B2248CB6B87EB3E1BC95245@SJEXCHMB05.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Gao <pkill.2012@gmail.com>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, kvm <kvm@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Yinghai Lu <yinghai@kernel.org>
+To: "Li, Sibai" <sibai.li@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <A3A921390EAE4044940E99EBF13D97321AE21E15@FMSMSX104.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 11/13/2012 11:04 AM, Li, Sibai wrote:
 >
-> This series looks fine from bnx2x point of view.
-> The dynamic change from VEB to VEPA will require a firmware change,
-> so we might arrive a little late for the party.
-> Ariel
 >
+>> -----Original Message-----
+>> From: Jason Gao [mailto:pkill.2012@gmail.com]
+>> Sent: Tuesday, November 13, 2012 5:38 AM
+>> To: bhelgaas@google.com; Rose, Gregory V; Li, Sibai
+>> Cc: ddutile@redhat.com; Kirsher, Jeffrey T; linux-kernel; netdev; kvm; e1000-
+>> devel@lists.sourceforge.net; linux-pci@vger.kernel.org; Yinghai Lu
+>> Subject: Re: SR-IOV problem with Intel 82599EB (not enough MMIO resources
+>> for SR-IOV)
+>>
+>> I'm very sorry for delayed reply.now SR-IOV works for me in Centos 6.3,thank all
+>> of you.
+>>
+>>
+>> On Fri, Nov 9, 2012 at 11:26 PM, Bjorn Helgaas<bhelgaas@google.com>  wrote:
+>>> Linux normally uses the resource assignments done by the BIOS, but it
+>>> is possible for the kernel to reassign those.  We don't have good
+>>> automatic support for that yet, but on a recent upstream kernel, you
+>>> can try "pci=realloc".  I doubt this option is in CentOS 6.3, though
+>>
+>> Thank you very much,I try "pci=realloc" in Centos 6.3,and now it works for me.
+>>
+>>
+>>
+>> On Sat, Nov 10, 2012 at 2:08 AM, Li, Sibai<sibai.li@intel.com>  wrote:
+>>> DellR710 with the latest BIOS should work fine for SR-IOV. My BIOS is
+>>> v.6.3.0 and release date is 07/24/2012 Please check if you configured
+>> intel_iommu=on in the grub.conf file.
+>>> If you did, check your kernel .config file under Device Drivers->  IOMMU
+>> Hardware support->enable Support for Intel IOMMU using DMA remapping
+>> Devices, enable Intel DMA Remapping Devices by Default, enable Support for
+>> Interrupt Remapping.
+>>
+>> thank you Sibai,Our server "Dell R710",its BIOS version is just
+>> v.6.3.0 and release date is 07/24/2012,and I also configured intel_iommu=on in
+>> the grub.conf file,but I can't find these IOMMU options in "Device Drivers" in my
+Sibai is referring to kernel config options.  RHEL6.3 has the IOMMU options built into
+the kernel, but not enabled by default -- have to add 'intel_iommu=on' to the kernel
+cmdline to enable IOMMU. SRIOV support (CONFIG_IOV) is built into the RHEL6.3 kernel as well.
 
-In the meantime you could enable just the get routines
-so the upper layer could learn how your SR-IOV switching
-is being done or not done.
-
-My basic expectation is hardware defaults to VEB but
-not sure if that is true in all cases.
-
-.John
+>> kernel(2.6.32-279) .config file , btw my os is Centos 6.3(RHEL6.3),although the
+>> problem solved,I'd like to know what's your os version ,kernel version?
+>
+> I am using RHEL6.3 with unstable kernel 3.7.0-rc
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
