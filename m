@@ -1,97 +1,85 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: [PATCH v4 2/9] net: rds: use this_cpu_* per-cpu helper
-Date: Tue, 13 Nov 2012 09:52:01 +0800
-Message-ID: <50A1A7C1.50308@gmail.com>
+From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v4 4/9] net: openvswitch: use this_cpu_ptr per-cpu
+	helper
+Date: Tue, 13 Nov 2012 09:52:25 +0800
+Message-ID: <50A1A7D9.2040506@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: venkat.x.venkatsubra@oracle.com,
-	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	NetDev <netdev@vger.kernel.org>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>,
-	cl@linux-foundation.org, Shan Wei <shanwei88@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Shan Wei <davidshan@tencent.com>
+From: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
+
+just use more faster this_cpu_ptr instead of per_cpu_ptr(p, smp_processor_id());
 
 
-Signed-off-by: Shan Wei <davidshan@tencent.com>
-Reviewed-by: Christoph Lameter <cl@linux.com>
+Signed-off-by: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
+Reviewed-by: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
 ---
-v4:
-1. add missing __percpu annotations.
-2. [read|write]ing fields of struct rds_ib_cache_head
-using __this_cpu_* operation, drop per_cpu_ptr.
+no changes vs v3,v2.
 ---
- net/rds/ib.h      |    2 +-
- net/rds/ib_recv.c |   24 +++++++++++++-----------
- 2 files changed, 14 insertions(+), 12 deletions(-)
+ net/openvswitch/datapath.c |    4 ++--
+ net/openvswitch/vport.c    |    5 ++---
+ 2 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index 8d2b3d5..7280ab8 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -50,7 +50,7 @@ struct rds_ib_cache_head {
- };
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 4c4b62c..77d16a5 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -208,7 +208,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
+ 	int error;
+ 	int key_len;
  
- struct rds_ib_refill_cache {
--	struct rds_ib_cache_head *percpu;
-+	struct rds_ib_cache_head __percpu *percpu;
- 	struct list_head	 *xfer;
- 	struct list_head	 *ready;
- };
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index 8d19491..8c5bc85 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -418,20 +418,21 @@ static void rds_ib_recv_cache_put(struct list_head *new_item,
- 				 struct rds_ib_refill_cache *cache)
+-	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
++	stats = this_cpu_ptr(dp->stats_percpu);
+ 
+ 	/* Extract flow from 'skb' into 'key'. */
+ 	error = ovs_flow_extract(skb, p->port_no, &key, &key_len);
+@@ -282,7 +282,7 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+ 	return 0;
+ 
+ err:
+-	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
++	stats = this_cpu_ptr(dp->stats_percpu);
+ 
+ 	u64_stats_update_begin(&stats->sync);
+ 	stats->n_lost++;
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 03779e8..70af0be 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -333,8 +333,7 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
  {
- 	unsigned long flags;
--	struct rds_ib_cache_head *chp;
- 	struct list_head *old;
-+	struct list_head __percpu *chpfirst;
+ 	struct vport_percpu_stats *stats;
  
- 	local_irq_save(flags);
+-	stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());
+-
++	stats = this_cpu_ptr(vport->percpu_stats);
+ 	u64_stats_update_begin(&stats->sync);
+ 	stats->rx_packets++;
+ 	stats->rx_bytes += skb->len;
+@@ -359,7 +358,7 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
+ 	if (likely(sent)) {
+ 		struct vport_percpu_stats *stats;
  
--	chp = per_cpu_ptr(cache->percpu, smp_processor_id());
--	if (!chp->first)
-+	chpfirst = __this_cpu_read(cache->percpu->first);
-+	if (!chpfirst)
- 		INIT_LIST_HEAD(new_item);
- 	else /* put on front */
--		list_add_tail(new_item, chp->first);
--	chp->first = new_item;
--	chp->count++;
-+		list_add_tail(new_item, chpfirst);
+-		stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());
++		stats = this_cpu_ptr(vport->percpu_stats);
  
--	if (chp->count < RDS_IB_RECYCLE_BATCH_COUNT)
-+	__this_cpu_write(chpfirst, new_item);
-+	__this_cpu_inc(cache->percpu->count);
-+
-+	if (__this_cpu_read(cache->percpu->count) < RDS_IB_RECYCLE_BATCH_COUNT)
- 		goto end;
- 
- 	/*
-@@ -443,12 +444,13 @@ static void rds_ib_recv_cache_put(struct list_head *new_item,
- 	do {
- 		old = xchg(&cache->xfer, NULL);
- 		if (old)
--			list_splice_entire_tail(old, chp->first);
--		old = cmpxchg(&cache->xfer, NULL, chp->first);
-+			list_splice_entire_tail(old, chpfirst);
-+		old = cmpxchg(&cache->xfer, NULL, chpfirst);
- 	} while (old);
- 
--	chp->first = NULL;
--	chp->count = 0;
-+
-+	__this_cpu_write(chpfirst, NULL);
-+	__this_cpu_write(cache->percpu->count, 0);
- end:
- 	local_irq_restore(flags);
- }
+ 		u64_stats_update_begin(&stats->sync);
+ 		stats->tx_packets++;
 -- 
 1.7.1
