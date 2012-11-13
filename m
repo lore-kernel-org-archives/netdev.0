@@ -1,40 +1,82 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: How to compile tcp fast open client app with kernel tfo client
- support ?
-Date: Mon, 12 Nov 2012 17:13:43 -0800
-Message-ID: <CAGK4HS8SMk8W+hdUxaQ8qL=YW4WijJAP64hgdo6sekqpzUEu2g@mail.gmail.com>
-References: <CAK3+h2xmgy+RhUy=MZ5Cu8Zpz+gQmt3dXCX0tpLAWFCTeujBLA@mail.gmail.com>
-	<CAGK4HS-U+Ov5x8z+1CRZdiAD9MhfBUfurKKBbt1EWGYFLN8TcA@mail.gmail.com>
-	<CAK3+h2z5=n6BHGzPjfbrJS4MbVGQ2pdMQP54dOZ8M=8xigUd3Q@mail.gmail.com>
-	<CAK6E8=fc=hYppk=4+tnNF9UPvQNFhw8YKo-ebG2y6FwXTft_EQ@mail.gmail.com>
-	<CAK3+h2xAqjs8CvkcwXiFryyQhDnohsN7-0KfQVjpegZh_AD1eg@mail.gmail.com>
-	<1352492823.19779.825.camel@edumazet-glaptop>
-	<CAGK4HS_SpdECk_KCu98Z1X9W02G9j9u7QE9B6qHEnTXLeZbqgA@mail.gmail.com>
-	<CAK3+h2y+Kctdfk6+q5UB56qemdEVY4Fw3AbqZwycL-uDWzD=Lg@mail.gmail.com>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: [PATCH 0/9 v4] use efficient this_cpu_* helper
+Date: Tue, 13 Nov 2012 09:51:37 +0800
+Message-ID: <50A1A7A9.6050501@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>, netdev@vger.kernel.org
-To: Vincent Li <vincent.mc.li@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:41801 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753710Ab2KMBNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 20:13:44 -0500
-Received: by mail-oa0-f46.google.com with SMTP id h16so6917311oag.19
-        for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 17:13:43 -0800 (PST)
-In-Reply-To: <CAK3+h2y+Kctdfk6+q5UB56qemdEVY4Fw3AbqZwycL-uDWzD=Lg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: cl@linux-foundation.org, David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>,
+	Kernel-Maillist <linux-kernel@vger.kernel.org>,
+	Shan Wei <shanwei88@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Hi Vijay,
->
-> just FYI, I filed a bug report in ubuntu and it appears to be a kernel
-> commit breaks the user space code that still using deprecated kernel
-> knobs oom_adj.
->
+this_cpu_ptr/this_cpu_read is faster than per_cpu_ptr(p, smp_processor_=
+id())=20
+and can reduce  memory accesses.
+The latter helper needs to find the offset for current cpu,
+and needs more assembler instructions which objdump shows in following.=
+=20
 
-Vincent,
-Thanks for following up and finding the exact cause!!
+this_cpu_ptr relocates and address. this_cpu_read() relocates the addre=
+ss
+and performs the fetch. If you want to operate on rda(defined as per_cp=
+u)=20
+then you can only use this_cpu_ptr. this_cpu_read() saves you more inst=
+ructions
+since it can do the relocation and the fetch in one instruction.
 
-Vijay
+per_cpu_ptr(p, smp_processor_id())=EF=BC=9A
+  1e:   65 8b 04 25 00 00 00 00         mov    %gs:0x0,%eax
+  26:   48 98                           cltq
+  28:   31 f6                           xor    %esi,%esi
+  2a:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
+  31:   48 8b 04 c5 00 00 00 00         mov    0x0(,%rax,8),%rax
+  39:   c7 44 10 04 14 00 00 00         movl   $0x14,0x4(%rax,%rdx,1)
+
+this_cpu_ptr(p)
+  1e:   65 48 03 14 25 00 00 00 00      add    %gs:0x0,%rdx
+  27:   31 f6                           xor    %esi,%esi
+  29:   c7 42 04 14 00 00 00            movl   $0x14,0x4(%rdx)
+  30:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
+
+
+
+Changelog V4:
+1. [read|write]ing fields of struct rds_ib_cache_head using __this_cpu_=
+* operation for rds subsystem.
+   see patch2
+2. fix bug in xfrm to read pointer. see patch3.=20
+3. avoid type cast in patch7.
+
+Changelog V3:
+1. use this_cpu_read directly read member of per-cpu variable,
+   so that droping the this_cpu_ptr operation.
+2. for preemption off and bottom halves off case,
+   use __this_cpu_read instead of this_cpu_read.=20
+
+Changelog V2:
+1. Use this_cpu_read directly instead of ref to field of per-cpu variab=
+le.
+2. Patch5 about ftrace is dropped from this series.
+3. Add new patch9 to replace get_cpu;per_cpu_ptr;put_cpu with this_cpu_=
+add opt.
+4. For preemption disable case, use __this_cpu_read instead.
+ =20
+
+$ git diff --stat d4185bbf62a5d8d777ee445db1581beb17882a07
+ drivers/clocksource/arm_generic.c |    2 +-
+ kernel/padata.c                   |    5 ++---
+ kernel/rcutree.c                  |    2 +-
+ kernel/trace/blktrace.c           |    2 +-
+ kernel/trace/trace.c              |    5 +----
+ net/batman-adv/main.h             |    4 +---
+ net/core/flow.c                   |    4 +---
+ net/openvswitch/datapath.c        |    4 ++--
+ net/openvswitch/vport.c           |    5 ++---
+ net/rds/ib.h                      |    2 +-
+ net/rds/ib_recv.c                 |   24 +++++++++++++-----------
+ net/xfrm/xfrm_ipcomp.c            |    8 +++-----
+ 12 files changed, 29 insertions(+), 38 deletions(-)
