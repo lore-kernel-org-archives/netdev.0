@@ -1,54 +1,46 @@
-From: Simon Marchi <simon.marchi@polymtl.ca>
-Subject: Re: [PATCH] tilegx: request_irq with a non-null device name
-Date: Tue, 13 Nov 2012 13:54:06 -0800
-Message-ID: <CAFXXi0kcGCqr-Ss5-Li9vXKCWyTh6Nvx+aAzVUZ1PZbZ=YZ2Pg@mail.gmail.com>
-References: <1352840300-27814-1-git-send-email-simon.marchi@polymtl.ca> <50A2BD87.3060202@tilera.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next PATCH] net/ethernet: remove useless
+ is_valid_ether_addr from drivers ndo_open
+Date: Tue, 13 Nov 2012 13:55:19 -0800
+Message-ID: <20121113135519.1e02be53@nehalam.linuxnetplumber.net>
+References: <1352843199-24869-1-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50A2BD87.3060202@tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, pcnet32@frontier.com, nicolas.ferre@atmel.com,
+	mlindner@marvell.com, nico@fluxnic.net,
+	steve.glendinning@shawell.net,
+	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org
+To: Joachim Eastwood <manabian@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:51492 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752304Ab2KMV4W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 16:56:22 -0500
+In-Reply-To: <1352843199-24869-1-git-send-email-manabian@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 13, 2012 at 1:37 PM, Chris Metcalf <cmetcalf@tilera.com> wrote:
-> On 11/13/2012 3:58 PM, Simon Marchi wrote:
->> This patch simply makes the tilegx net driver call request_irq with a
->> non-null name. It makes the output in /proc/interrupts more obvious, but
->> also helps tools that don't expect to find null there.
->>
->> Signed-off-by: Simon Marchi <simon.marchi@polymtl.ca>
->> ---
->>  drivers/net/ethernet/tile/tilegx.c |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
->> index 4e98100..66e025a 100644
->> --- a/drivers/net/ethernet/tile/tilegx.c
->> +++ b/drivers/net/ethernet/tile/tilegx.c
->> @@ -917,7 +917,7 @@ static int tile_net_setup_interrupts(struct net_device *dev)
->>       ingress_irq = rc;
->>       tile_irq_activate(ingress_irq, TILE_IRQ_PERCPU);
->>       rc = request_irq(ingress_irq, tile_net_handle_ingress_irq,
->> -                      0, NULL, NULL);
->> +                      0, "tile_net", NULL);
->
-> Good catch.  If you can change it to dev->name instead of "tile_net", feel
-> free to add my:
+On Tue, 13 Nov 2012 22:46:39 +0100
+Joachim Eastwood <manabian@gmail.com> wrote:
 
-I thought about that first, but it wouldn't be very logical. This
-module is loaded once and for all when the first network device is
-brought up, so this request_irq is for all the tile network
-interfaces. Suppose you "up" gbe0, "up" gbe1 and "down" gbe0, the
-device name would still be gbe0, even though it's down. That's why I
-opted for a generic name instead.
+> diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+> index d19a143..ce8d053 100644
+> --- a/drivers/net/ethernet/marvell/skge.c
+> +++ b/drivers/net/ethernet/marvell/skge.c
+> @@ -2524,9 +2524,6 @@ static int skge_up(struct net_device *dev)
+>  	size_t rx_size, tx_size;
+>  	int err;
+>  
+> -	if (!is_valid_ether_addr(dev->dev_addr))
+> -		return -EINVAL;
+> -
+>  	netif_info(skge, ifup, skge->netdev, "enabling interface\n");
+>  
+>  	if (dev->mtu > RX_BUF_SIZE)
 
-If you still want to go with dev->name I have no problem with that.
-
-> Acked-by: Chris Metcalf <cmetcalf@tilera.com>
->
-> --
-> Chris Metcalf, Tilera Corp.
-> http://www.tilera.com
->
+This should probably stay since it costs so little and protects
+against a obscure error case.
+skge_up is called from skge_resume on resume from suspend.
+It is possible that the device was zeroed after skge_suspend was
+called.
