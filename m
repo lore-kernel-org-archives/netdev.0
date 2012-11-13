@@ -1,44 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [3.0.y, 3.2.y, 3.4.y] Re: [PATCH 2/2] [sky2] Fix for interrupt
- handler
-Date: Tue, 13 Nov 2012 03:14:46 -0500 (EST)
-Message-ID: <20121113.031446.1481052044099452015.davem@davemloft.net>
-References: <1341394726.14972.41.camel@mlindner-lin.skd.de>
-	<20121025223646.GA1131@elie.Belkin>
-	<20121103100447.GA2003@elie.Belkin>
+From: Robert MARKLUND <robert.marklund@stericsson.com>
+Subject: RE: net/smsc911x: problems after commit 3ac3546e [Always wait for
+ the chip to be ready]
+Date: Tue, 13 Nov 2012 09:20:33 +0100
+Message-ID: <2B1D156D95AE9B4EAD379CB9E465FE73272C64B600@EXDCVYMBSTM005.EQ1STM.local>
+References: <20121106.123623.676046673605774326.davem@davemloft.net>
+	<20121108.015754.967579869456342727.davem@davemloft.net>
+	<20121112100445.GA12511@patelk@broadcom.com>
+ <20121112.144027.1074374601388950128.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jdg@debian.org, mlindner@marvell.com, shemminger@vyatta.org,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: jrnieder@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "steve@shawell.net" <steve@shawell.net>,
+	"linus.walleij@linaro.org" <linus.walleij@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	"kamlakant.patel@broadcom.com" <kamlakant.patel@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41750 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753270Ab2KMIOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 03:14:53 -0500
-In-Reply-To: <20121103100447.GA2003@elie.Belkin>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:57801 "EHLO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753496Ab2KMIUp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 03:20:45 -0500
+In-Reply-To: <20121112.144027.1074374601388950128.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jonathan Nieder <jrnieder@gmail.com>
-Date: Sat, 3 Nov 2012 03:04:48 -0700
+Don't forget to push so that the HW guys update the datasheet as Linus W mentioned.
+BR
+Robert
 
-> On October 25, Jonathan Nieder wrote:
->> Mirko Lindner wrote:
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: den 12 november 2012 20:40
+> To: kamlakant.patel@broadcom.com
+> Cc: steve@shawell.net; linus.walleij@linaro.org; Robert MARKLUND; netdev@vger.kernel.org
+> Subject: Re: net/smsc911x: problems after commit 3ac3546e [Always wait for the chip to be ready]
 > 
->>> Re-enable interrupts if it is not our interrupt
->>>
->>> Signed-off-by: Mirko Lindner <mlindner@marvell.com>
-> [...]
->> Tested-by: Julian Gilbey <jdg@debian.org> # 3.2.y, Inspiron 1545
+> From: "Kamlakant Patel" <kamlakant.patel@broadcom.com>
+> Date: Mon, 12 Nov 2012 15:34:46 +0530
 > 
-> Ping.  Dave, is
+> > On Thu, Nov 08, 2012 at 01:57:54AM -0500, David Miller wrote:
+> >> From: "Kamlakant Patel" <kamlakant.patel@broadcom.com>
+> >> Date: Thu, 8 Nov 2012 12:16:28 +0530
+> >>
+> >> > smsc driver is disabled in our bootloader and it is not changing the
+> >> > state of the smsc registers at any stage, so it is not a bootloader
+> >> > issue.
+> >>
+> >> What puts that chip into a non-default byte swapping mode then?
+> >
+> > This is a property of the XLP GBU (IO bus flash like devices). A 32-bit
+> > read/write will be split into two 16-bit operations, and when the XLP is
+> > in big-endian mode, we get the lower 16-bit ends up in bits 31-16 and the
+> > upper 16-bit in bits 15-0.
+> >
+> > The code before commit 3ac3546e worked because the driver saw that the registers
+> > are word swapped (not byte swapped) and programmed the WORD_SWAP register
+> > first (before any other register operations).
 > 
->   d663d181b9e9 sky2: Fix for interrupt handler
+> Ok, fair enough.   Someone can resubmit the patch, and I'll apply it,
+> but I still very much dislike this situation.
 > 
-> a candidate for inclusion in 3.0-, 3.2-, and 3.4-stable?  (It was
-> applied upstream during the 3.6 merge window.)  I don't see it in
-> the list at [2].
-
-This looks fine.
+> Please make sure there is a very verbose comment added to the code,
+> and a similarly verbose commit message for the patch explaining
+> exactly how the chip gets into this state and why we have to solve
+> the problem this way.
+> 
+> Thanks.
