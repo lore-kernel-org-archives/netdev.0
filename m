@@ -1,49 +1,62 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] tilegx: request_irq with a non-null device name
-Date: Tue, 13 Nov 2012 13:50:16 -0800
-Message-ID: <20121113135016.229e2571@nehalam.linuxnetplumber.net>
-References: <1352840300-27814-1-git-send-email-simon.marchi@polymtl.ca>
-	<50A2BD87.3060202@tilera.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] 8021q: validate SAN MAC address
+Date: Tue, 13 Nov 2012 16:53:00 -0500 (EST)
+Message-ID: <20121113.165300.1149843648625252626.davem@davemloft.net>
+References: <1352501644-8444-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Simon Marchi <simon.marchi@polymtl.ca>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50A2BD87.3060202@tilera.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50174 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752632Ab2KMVxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 16:53:04 -0500
+In-Reply-To: <1352501644-8444-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Nov 2012 16:37:11 -0500
-Chris Metcalf <cmetcalf@tilera.com> wrote:
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Fri, 9 Nov 2012 14:54:04 -0800
 
-> On 11/13/2012 3:58 PM, Simon Marchi wrote:
-> > This patch simply makes the tilegx net driver call request_irq with a
-> > non-null name. It makes the output in /proc/interrupts more obvious, but
-> > also helps tools that don't expect to find null there.
-> >
-> > Signed-off-by: Simon Marchi <simon.marchi@polymtl.ca>
-> > ---
-> >  drivers/net/ethernet/tile/tilegx.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
-> > index 4e98100..66e025a 100644
-> > --- a/drivers/net/ethernet/tile/tilegx.c
-> > +++ b/drivers/net/ethernet/tile/tilegx.c
-> > @@ -917,7 +917,7 @@ static int tile_net_setup_interrupts(struct net_device *dev)
-> >  	ingress_irq = rc;
-> >  	tile_irq_activate(ingress_irq, TILE_IRQ_PERCPU);
-> >  	rc = request_irq(ingress_irq, tile_net_handle_ingress_irq,
-> > -			 0, NULL, NULL);
-> > +			 0, "tile_net", NULL);
+> Some bnx2x multi-function devices are configured for FCoE only in
+> a PCI function and only has a SAN MAC address.  The current code
+> will fail ->ndo_validate_addr() when a VLAN device is brought up
+> over such a device.
 > 
-> Good catch.  If you can change it to dev->name instead of "tile_net", feel
-> free to add my:
+> Check the real device's dev_addrs[] for a valid SAN MAC address
+> when validating the MAC address if the regular MAC address is not
+> valid.
 > 
-> Acked-by: Chris Metcalf <cmetcalf@tilera.com>
-> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-It really should be using dev->name since that helps out some
-applications like irqbalance that read /proc/interrupts
+I've read this thread and I still don't think this is a nice
+change at all.
+
+It's beyond hackish to allow configuring a VLAN with a completely
+invalid MAC address just because the underlying real device just so
+happens to have a storage MAC address.
+
+I can only assume that, in this case, this code block is triggered
+in vlan_dev_open():
+
+	if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr)) {
+		err = dev_uc_add(real_dev, dev->dev_addr);
+		if (err < 0)
+			goto out;
+	}
+
+And if so we're adding an invalid ethernet address to the underlying
+device's UC list.  Yet another terrible aspect of this situation.
+
+The more I look into this situation the more it looks like piling crap
+on top of crap on top of crap.  It's a long depency chain of special
+cases just to get this weird setup working.
+
+I'm sorry, I'm not making the situation even worse by applying this
+patch.  If you want to have real bypasses to allow VLAN VIDs to
+be configured on SAN devices, create a real interface for it, rather
+than hack to shreds the stuff we have already.
+
+Thanks.
