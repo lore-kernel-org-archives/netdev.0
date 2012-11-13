@@ -1,59 +1,61 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [rfc net-next v6 2/3] virtio_net: multiqueue support
-Date: Tue, 13 Nov 2012 08:40:26 +0200
-Message-ID: <20121113064026.GA27416@redhat.com>
-References: <1351591403-23065-1-git-send-email-jasowang@redhat.com>
-	<1351591403-23065-3-git-send-email-jasowang@redhat.com>
-	<87y5igyhyg.fsf@rustcorp.com.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH v4 3/9] net: xfrm: use __this_cpu_read per-cpu helper
+Date: Tue, 13 Nov 2012 08:21:01 +0100
+Message-ID: <20121113072101.GG22290@secunet.com>
+References: <50A1A7C9.3060703@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	davem@davemloft.net
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Kernel-Maillist <linux-kernel@vger.kernel.org>,
+	cl@linux-foundation.org
+To: Shan Wei <shanwei88@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:44090 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751646Ab2KMHVI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 02:21:08 -0500
 Content-Disposition: inline
-In-Reply-To: <87y5igyhyg.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <50A1A7C9.3060703@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 05, 2012 at 11:38:39AM +1030, Rusty Russell wrote:
-> > @@ -924,11 +1032,10 @@ static void virtnet_get_ringparam(struct net_device *dev,
-> >  {
-> >  	struct virtnet_info *vi = netdev_priv(dev);
-> >  
-> > -	ring->rx_max_pending = virtqueue_get_vring_size(vi->rvq);
-> > -	ring->tx_max_pending = virtqueue_get_vring_size(vi->svq);
-> > +	ring->rx_max_pending = virtqueue_get_vring_size(vi->rq[0].vq);
-> > +	ring->tx_max_pending = virtqueue_get_vring_size(vi->sq[0].vq);
-> >  	ring->rx_pending = ring->rx_max_pending;
-> >  	ring->tx_pending = ring->tx_max_pending;
-> > -
-> >  }
+On Tue, Nov 13, 2012 at 09:52:09AM +0800, Shan Wei wrote:
+> From: Shan Wei <davidshan@tencent.com>
 > 
-> This assumes all vqs are the same size.  I think this should probably
-> check: for mq mode, use the first vq, otherewise use the 0th.
 
-For rx_pending/tx_pending I think what is required here is the
-actual number of outstanding buffers.
-Dave, Eric - right?
+Please add a proper commit message, explaining why you do this change.
 
-So this should be the total over all rings and to be useful,
-rx_max_pending/tx_max_pending should be the total too.
+> 
+> Signed-off-by: Shan Wei <davidshan@tencent.com>
+> ---
+> v4:
+>   derefrence pointer before reading to avoid compile warning.
+> ---
+>  net/xfrm/xfrm_ipcomp.c |    8 +++-----
+>  1 files changed, 3 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+> index e5246fb..2906d52 100644
+> --- a/net/xfrm/xfrm_ipcomp.c
+> +++ b/net/xfrm/xfrm_ipcomp.c
+> @@ -276,18 +276,16 @@ static struct crypto_comp * __percpu *ipcomp_alloc_tfms(const char *alg_name)
+>  	struct crypto_comp * __percpu *tfms;
+>  	int cpu;
+>  
+> -	/* This can be any valid CPU ID so we don't need locking. */
+> -	cpu = raw_smp_processor_id();
+>  
+>  	list_for_each_entry(pos, &ipcomp_tfms_list, list) {
+>  		struct crypto_comp *tfm;
+>  
+> -		tfms = pos->tfms;
+> -		tfm = *per_cpu_ptr(tfms, cpu);
+> +		/* This can be any valid CPU ID so we don't need locking. */
+> +		tfm = __this_cpu_read(*pos->tfms);
 
-> For bonus points, check this assertion at probe time.
-
-Looks like we can easily support different queues too.
-
--- 
-MST
+This should just fetch the tfm pointer, so why exactly __this_cpu_read
+is better than __this_cpu_ptr? Please keep in mind that performance is
+not the most important thing here. It's much more important that it
+works in any case.
