@@ -1,45 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tcp: tcp_replace_ts_recent() should not be called
- from tcp_validate_incoming()
-Date: Tue, 13 Nov 2012 14:35:44 -0500 (EST)
-Message-ID: <20121113.143544.503592471078426014.davem@davemloft.net>
-References: <87k3tp6783.fsf@silenus.orebokech.com>
-	<1352813332.6185.29.camel@edumazet-glaptop>
-	<1352821038.6185.38.camel@edumazet-glaptop>
+Subject: Re: [PATCH] vxlan: Fix error that was resulting in VXLAN MTU size
+ being 10 bytes too large
+Date: Tue, 13 Nov 2012 14:37:19 -0500 (EST)
+Message-ID: <20121113.143719.1473223615602040380.davem@davemloft.net>
+References: <20121109233354.17208.36271.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romain@orebokech.com, netdev@vger.kernel.org, ncardwell@google.com,
-	ycheng@google.com, nanditad@google.com, hkchu@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48343 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48379 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754695Ab2KMTfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:35:45 -0500
-In-Reply-To: <1352821038.6185.38.camel@edumazet-glaptop>
+	with ESMTP id S1754815Ab2KMThU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:37:20 -0500
+In-Reply-To: <20121109233354.17208.36271.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 13 Nov 2012 07:37:18 -0800
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Fri, 09 Nov 2012 15:35:24 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> This change fixes an issue I found where VXLAN frames were fragmented when
+> they were up to the VXLAN MTU size.  I root caused the issue to the fact that
+> the headroom was 4 + 20 + 8 + 8.  This math doesn't appear to be correct
+> because we are not inserting a VLAN header, but instead a 2nd Ethernet header.
+> As such the math for the overhead should be 20 + 8 + 8 + 14 to account for the
+> extra headers that are inserted for VXLAN.
 > 
-> We added support for RFC 5961 in latest kernels but TCP fails
-> to perform exhaustive check of ACK sequence.
-> 
-> We can update our view of peer tsval from a frame that is
-> later discarded by tcp_ack()
-> 
-> This makes timestamps enabled sessions vulnerable to injection of
-> a high tsval : peers start an ACK storm, since the victim
-> sends a dupack each time it receives an ACK from the other peer.
-> 
-> As tcp_validate_incoming() is called before tcp_ack(), we should
-> not peform tcp_replace_ts_recent() from it, and let callers do it
-> at the right time.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Applied, thanks a lot.
+Applied, thanks for the detailed commit message.
