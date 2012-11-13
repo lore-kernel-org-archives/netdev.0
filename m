@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v6 5/7] arm: mvebu: enable Ethernet controllers on Armada 370/XP eval boards
-Date: Tue, 13 Nov 2012 16:00:41 +0100
-Message-ID: <1352818843-4457-6-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v6 4/7] arm: mvebu: add Ethernet controllers using mvneta driver for Armada 370/XP
+Date: Tue, 13 Nov 2012 16:00:40 +0100
+Message-ID: <1352818843-4457-5-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1352818843-4457-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Francois Romieu <romieu@fr.zoreil.com>,
 	Lennert Buytenhek <kernel@wantstofly.org>,
@@ -13,107 +13,79 @@ Cc: Francois Romieu <romieu@fr.zoreil.com>,
 	Dmitri Epshtein <dima@marvell.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([88.190.12.23]:49789 "EHLO
+Received: from mail.free-electrons.com ([88.190.12.23]:49796 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752656Ab2KMPCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 10:02:35 -0500
+	with ESMTP id S1755160Ab2KMPCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 10:02:36 -0500
 In-Reply-To: <1352818843-4457-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables the two network interfaces of the Armada 370
-official Marvell evaluation platform, and the four network interfaces
-of the Armada XP official Marvell evaluation platform.
+The Armada 370 SoC has two network units, while the Armada XP has four
+network units. The first two network units are common to both the
+Armada XP and Armada 370, so they are added to armada-370-xp.dtsi,
+while the other two network units are specific to the Armada XP and
+therefore added to armada-xp.dtsi.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- arch/arm/boot/dts/armada-370-db.dts |   23 +++++++++++++++++++
- arch/arm/boot/dts/armada-xp-db.dts  |   43 +++++++++++++++++++++++++++++++++++
- 2 files changed, 66 insertions(+)
+ arch/arm/boot/dts/armada-370-xp.dtsi |   21 +++++++++++++++++++++
+ arch/arm/boot/dts/armada-xp.dtsi     |   14 ++++++++++++++
+ 2 files changed, 35 insertions(+)
 
-diff --git a/arch/arm/boot/dts/armada-370-db.dts b/arch/arm/boot/dts/armada-370-db.dts
-index fffd5c2..76362f7 100644
---- a/arch/arm/boot/dts/armada-370-db.dts
-+++ b/arch/arm/boot/dts/armada-370-db.dts
-@@ -38,5 +38,28 @@
- 			clock-frequency = <600000000>;
- 			status = "okay";
+diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+index b113e0b..0cd3331 100644
+--- a/arch/arm/boot/dts/armada-370-xp.dtsi
++++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+@@ -68,6 +68,27 @@
+ 			compatible = "marvell,armada-addr-decoding-controller";
+ 			reg = <0xd0020000 0x258>;
  		};
 +
 +		mdio {
-+			phy0: ethernet-phy@0 {
-+				reg = <0>;
-+			};
-+
-+			phy1: ethernet-phy@1 {
-+				reg = <1>;
-+			};
++			#address-cells = <1>;
++			#size-cells = <0>;
++			compatible = "marvell,orion-mdio";
++			reg = <0xd0072004 0x4>;
 +		};
 +
 +		ethernet@d0070000 {
-+			clock-frequency = <200000000>;
-+			status = "okay";
-+			phy = <&phy0>;
-+			phy-mode = "rgmii-id";
++				compatible = "marvell,armada-370-neta";
++				reg = <0xd0070000 0x2500>;
++				interrupts = <8>;
++				status = "disabled";
 +		};
++
 +		ethernet@d0074000 {
-+			clock-frequency = <200000000>;
-+			status = "okay";
-+			phy = <&phy1>;
-+			phy-mode = "rgmii-id";
++				compatible = "marvell,armada-370-neta";
++				reg = <0xd0074000 0x2500>;
++				interrupts = <10>;
++				status = "disabled";
 +		};
  	};
  };
-diff --git a/arch/arm/boot/dts/armada-xp-db.dts b/arch/arm/boot/dts/armada-xp-db.dts
-index b1fc728..b614bd0 100644
---- a/arch/arm/boot/dts/armada-xp-db.dts
-+++ b/arch/arm/boot/dts/armada-xp-db.dts
-@@ -46,5 +46,48 @@
- 			clock-frequency = <250000000>;
- 			status = "okay";
+ 
+diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
+index 71d6b5d..3bbbccf 100644
+--- a/arch/arm/boot/dts/armada-xp.dtsi
++++ b/arch/arm/boot/dts/armada-xp.dtsi
+@@ -51,5 +51,19 @@
+ 				compatible = "marvell,armada-370-xp-system-controller";
+ 				reg = <0xd0018200 0x500>;
  		};
 +
-+		mdio {
-+			phy0: ethernet-phy@0 {
-+				reg = <0>;
-+			};
-+
-+			phy1: ethernet-phy@1 {
-+				reg = <1>;
-+			};
-+
-+			phy2: ethernet-phy@2 {
-+				reg = <25>;
-+			};
-+
-+			phy3: ethernet-phy@3 {
-+				reg = <27>;
-+			};
-+		};
-+
-+		ethernet@d0070000 {
-+			clock-frequency = <250000000>;
-+			status = "okay";
-+			phy = <&phy0>;
-+			phy-mode = "rgmii-id";
-+		};
-+		ethernet@d0074000 {
-+			clock-frequency = <250000000>;
-+			status = "okay";
-+			phy = <&phy1>;
-+			phy-mode = "rgmii-id";
-+		};
 +		ethernet@d0030000 {
-+			clock-frequency = <250000000>;
-+			status = "okay";
-+			phy = <&phy2>;
-+			phy-mode = "sgmii";
++				compatible = "marvell,armada-370-neta";
++				reg = <0xd0030000 0x2500>;
++				interrupts = <12>;
++				status = "disabled";
 +		};
++
 +		ethernet@d0034000 {
-+			clock-frequency = <250000000>;
-+			status = "okay";
-+			phy = <&phy3>;
-+			phy-mode = "sgmii";
++				compatible = "marvell,armada-370-neta";
++				reg = <0xd0034000 0x2500>;
++				interrupts = <14>;
++				status = "disabled";
 +		};
  	};
  };
