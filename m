@@ -1,57 +1,32 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next 01/11] ixgbe: Do not use DCA to prefetch the entire
- packet into the cache
-Date: Tue, 13 Nov 2012 09:41:38 -0800
-Message-ID: <50A28652.6020505@intel.com>
-References: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>  <1352815405-751-2-git-send-email-jeffrey.t.kirsher@intel.com> <1352816011.6185.33.camel@edumazet-glaptop>
+From: Steve Glendinning <steve@shawell.net>
+Subject: Re: [PATCH 2/2] smsc95xx: set MII_BUSY bit to read/write PHY regs
+Date: Tue, 13 Nov 2012 17:44:39 +0000
+Message-ID: <CAKh2mn4Hm0R5vgOtx+kjjVXh9ucF649cdrXb_VVbRBN47WGr2A@mail.gmail.com>
+References: <1352196533-2674-1-git-send-email-steve.glendinning@shawell.net>
+	<20121109.160850.901809648224300452.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:63447 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752108Ab2KMRlj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 12:41:39 -0500
-In-Reply-To: <1352816011.6185.33.camel@edumazet-glaptop>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:44281 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751903Ab2KMRok (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 12:44:40 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so16358eaa.19
+        for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 09:44:39 -0800 (PST)
+In-Reply-To: <20121109.160850.901809648224300452.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2012 06:13 AM, Eric Dumazet wrote:
-> On Tue, 2012-11-13 at 06:03 -0800, Jeff Kirsher wrote:
->> From: Alexander Duyck <alexander.h.duyck@intel.com>
->>
->> The way the code was previously written it was causing DCA to prefetch the
->> entire packet into the cache when it was enabled.  That is excessive as we
->> only really need the headers.
->>
->> We are now prefetching the headers via software so doing this from DCA would
->> be redundant anyway.  So clear the bit that was causing us to prefetch the
->> packet data and instead only use DCA for the descriptor rings.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
-> Excellent !
->
-> My own ixgbe cards are moving so I cant test this, do you guys have some
-> numbers to share ?
->
-> Thanks
+> Steve please let me know why you only submitted patch #2
+> of an apparent 2 part series.
 
-In my tests I saw no real change because of the DCA changes.  I kind of
-suspected that would be the case as mentioned in the patch the prefetch
-and DCA were both doing the same thing so by dropping the extra DCA
-prefetch I am just polluting the case less.
+My bad being sloppy when formatting the patch for submission, sorry.
+The first patch in my rebased tree was one you've already accepted
+into net but hadn't pulled into net-next yet.  I just sent the second
+one, and I forgot to remove the 2/2 from it.
 
-I have a similar set of changes for the ixgbe transmit path that are
-similar to the changes I made to igb in this patch set.  Those are a bit
-more interesting as they actually decreased the ixgbe_xmit_frame_ring
-function overhead for some of my tests by something like 15%.
+They don't depend on each other, they're independent bugfixes.
 
-Thanks,
-
-Alex
+Sorry again for the sloppyness.
