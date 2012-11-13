@@ -1,50 +1,40 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH v3 03/11] bnx2x: use prandom_bytes()
-Date: Tue, 13 Nov 2012 22:37:02 +0900
-Message-ID: <1352813830-4624-4-git-send-email-akinobu.mita@gmail.com>
-References: <1352813830-4624-1-git-send-email-akinobu.mita@gmail.com>
-Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352813830-4624-1-git-send-email-akinobu.mita@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Srinivas KANDAGATLA <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+Subject: [RFC PATCH v1 3.7.0-rc4 0/2] dt:net/stmmac add full device tree
+ support
+Date: Tue, 13 Nov 2012 13:50:07 +0000
+Message-ID: <1352814607-13788-1-git-send-email-srinivas.kandagatla@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: peppe.cavallaro-qxv4g6HH51o@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Use prandom_bytes() to fill rss key with pseudo-random bytes.
+From: Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
 
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Cc: Eilon Greenstein <eilong@broadcom.com>
-Cc: netdev@vger.kernel.org
----
-* v3
-- rename random32_get_bytes to prandom_bytes
+This patch series attempts to add full device tree support to stmmac driver.
+Existing device bindings do not cover all the possible use cases of stmmac driver,
+so new properties are added.
 
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+And also stmmac phy reset callback support via devicetrees is added.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 4833b6a..257d38b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -1741,7 +1741,6 @@ int bnx2x_config_rss_pf(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
- 			bool config_hash)
- {
- 	struct bnx2x_config_rss_params params = {NULL};
--	int i;
- 
- 	/* Although RSS is meaningless when there is a single HW queue we
- 	 * still need it enabled in order to have HW Rx hash generated.
-@@ -1773,9 +1772,7 @@ int bnx2x_config_rss_pf(struct bnx2x *bp, struct bnx2x_rss_config_obj *rss_obj,
- 
- 	if (config_hash) {
- 		/* RSS keys */
--		for (i = 0; i < sizeof(params.rss_key) / 4; i++)
--			params.rss_key[i] = random32();
--
-+		prandom_bytes(params.rss_key, sizeof(params.rss_key));
- 		__set_bit(BNX2X_RSS_SET_SRCH, &params.rss_flags);
- 	}
- 
--- 
-1.7.11.7
+Srinivas Kandagatla (2):
+  dt:net/stmmac: Add complete device tree support
+  dt:net/stmmac: Add dt specific phy reset callback support.
+
+ Documentation/devicetree/bindings/net/stmmac.txt   |   51 +++++++++++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c  |   50 ++++++++++++++---
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   58 ++++++++++++++------
+ 3 files changed, 131 insertions(+), 28 deletions(-)
