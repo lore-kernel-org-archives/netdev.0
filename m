@@ -1,163 +1,191 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/11] igb: Ethtool support to enable and disable EEE
-Date: Tue, 13 Nov 2012 06:03:25 -0800
-Message-ID: <1352815405-751-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/11] igb: Update igb Tx flags to improve code efficiency
+Date: Tue, 13 Nov 2012 06:03:23 -0800
+Message-ID: <1352815405-751-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:33618 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754781Ab2KMOED (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 09:04:03 -0500
+	id S1754764Ab2KMOEC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 09:04:02 -0500
 In-Reply-To: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This patch allows users to enable and disable EEE using Ethtool.
-It also allows users to get EEE settings, as supported by the device.
+This change is meant to improve the efficiency of the Tx flags in igb by
+aligning them with the values that will later be written into either the
+cmd_type or olinfo.  By doing this we are able to reduce most of these
+functions to either just a simple shift followed by an or in the case of
+cmd_type, or an and followed by an or in the case of olinfo.
 
-Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+In order to avoid type conversion errors I also adjusted the locations
+where we were switching between CPU and little endian.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_defines.h |   1 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c   | 100 +++++++++++++++++++++++++
- 2 files changed, 101 insertions(+)
+ drivers/net/ethernet/intel/igb/igb.h      | 17 ++++++---
+ drivers/net/ethernet/intel/igb/igb_main.c | 61 +++++++++++++++++--------------
+ 2 files changed, 45 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index e647cff..198d148 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -874,6 +874,7 @@
- #define E1000_EEER_FRC_AN            0x10000000  /* Enable EEE in loopback */
- #define E1000_EEER_LPI_FC            0x00040000  /* EEE Enable on FC */
- #define E1000_EEE_SU_LPI_CLK_STP     0X00800000  /* EEE LPI Clock Stop */
-+#define E1000_EEER_EEE_NEG           0x20000000  /* EEE capability nego */
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index b23a667..d8fd5b6 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -150,11 +150,18 @@ struct vf_data_storage {
  
- /* SerDes Control */
- #define E1000_GEN_CTL_READY             0x80000000
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 2b82a53..0acf590 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2529,6 +2529,104 @@ static int igb_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
- 	return ret;
+ #define IGB_MNG_VLAN_NONE -1
+ 
+-#define IGB_TX_FLAGS_CSUM		0x00000001
+-#define IGB_TX_FLAGS_VLAN		0x00000002
+-#define IGB_TX_FLAGS_TSO		0x00000004
+-#define IGB_TX_FLAGS_IPV4		0x00000008
+-#define IGB_TX_FLAGS_TSTAMP		0x00000010
++enum igb_tx_flags {
++	/* cmd_type flags */
++	IGB_TX_FLAGS_VLAN	= 0x01,
++	IGB_TX_FLAGS_TSO	= 0x02,
++	IGB_TX_FLAGS_TSTAMP	= 0x04,
++
++	/* olinfo flags */
++	IGB_TX_FLAGS_IPV4	= 0x10,
++	IGB_TX_FLAGS_CSUM	= 0x20,
++};
++
++/* VLAN info */
+ #define IGB_TX_FLAGS_VLAN_MASK		0xffff0000
+ #define IGB_TX_FLAGS_VLAN_SHIFT	16
+ 
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index b0730e9..0a0bd81 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -4121,24 +4121,32 @@ static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
+ 	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
  }
  
-+static int igb_get_eee(struct net_device *netdev, struct ethtool_eee *edata)
-+{
-+	struct igb_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 ipcnfg, eeer;
+-static __le32 igb_tx_cmd_type(u32 tx_flags)
++#define IGB_SET_FLAG(_input, _flag, _result) \
++	((_flag <= _result) ? \
++	 ((u32)(_input & _flag) * (_result / _flag)) : \
++	 ((u32)(_input & _flag) / (_flag / _result)))
 +
-+	if ((hw->mac.type < e1000_i350) ||
-+	    (hw->phy.media_type != e1000_media_type_copper))
-+		return -EOPNOTSUPP;
-+
-+	edata->supported = (SUPPORTED_1000baseT_Full |
-+			    SUPPORTED_100baseT_Full);
-+
-+	ipcnfg = rd32(E1000_IPCNFG);
-+	eeer = rd32(E1000_EEER);
-+
-+	/* EEE status on negotiated link */
-+	if (ipcnfg & E1000_IPCNFG_EEE_1G_AN)
-+		edata->advertised = ADVERTISED_1000baseT_Full;
-+
-+	if (ipcnfg & E1000_IPCNFG_EEE_100M_AN)
-+		edata->advertised |= ADVERTISED_100baseT_Full;
-+
-+	if (eeer & E1000_EEER_EEE_NEG)
-+		edata->eee_active = true;
-+
-+	edata->eee_enabled = !hw->dev_spec._82575.eee_disable;
-+
-+	if (eeer & E1000_EEER_TX_LPI_EN)
-+		edata->tx_lpi_enabled = true;
-+
-+	/* Report correct negotiated EEE status for devices that
-+	 * wrongly report EEE at half-duplex
-+	 */
-+	if (adapter->link_duplex == HALF_DUPLEX) {
-+		edata->eee_enabled = false;
-+		edata->eee_active = false;
-+		edata->tx_lpi_enabled = false;
-+		edata->advertised &= ~edata->advertised;
-+	}
-+
-+	return 0;
-+}
-+
-+static int igb_set_eee(struct net_device *netdev,
-+		       struct ethtool_eee *edata)
-+{
-+	struct igb_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+	struct ethtool_eee eee_curr;
-+	s32 ret_val;
-+
-+	if ((hw->mac.type < e1000_i350) ||
-+	    (hw->phy.media_type != e1000_media_type_copper))
-+		return -EOPNOTSUPP;
-+
-+	ret_val = igb_get_eee(netdev, &eee_curr);
-+	if (ret_val)
-+		return ret_val;
-+
-+	if (eee_curr.eee_enabled) {
-+		if (eee_curr.tx_lpi_enabled != edata->tx_lpi_enabled) {
-+			dev_err(&adapter->pdev->dev,
-+				"Setting EEE tx-lpi is not supported\n");
-+			return -EINVAL;
-+		}
-+
-+		/* Tx LPI timer is not implemented currently */
-+		if (edata->tx_lpi_timer) {
-+			dev_err(&adapter->pdev->dev,
-+				"Setting EEE Tx LPI timer is not supported\n");
-+			return -EINVAL;
-+		}
-+
-+		if (eee_curr.advertised != edata->advertised) {
-+			dev_err(&adapter->pdev->dev,
-+				"Setting EEE Advertisement is not supported\n");
-+			return -EINVAL;
-+		}
-+
-+	} else if (!edata->eee_enabled) {
-+		dev_err(&adapter->pdev->dev,
-+			"Setting EEE options are not supported with EEE disabled\n");
-+			return -EINVAL;
-+		}
-+
-+	if (hw->dev_spec._82575.eee_disable != !edata->eee_enabled) {
-+		hw->dev_spec._82575.eee_disable = !edata->eee_enabled;
-+		igb_set_eee_i350(hw);
-+
-+		/* reset link */
-+		if (!netif_running(netdev))
-+			igb_reset(adapter);
-+	}
-+
-+	return 0;
-+}
-+
- static int igb_ethtool_begin(struct net_device *netdev)
++static u32 igb_tx_cmd_type(struct sk_buff *skb, u32 tx_flags)
  {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
-@@ -2571,6 +2669,8 @@ static const struct ethtool_ops igb_ethtool_ops = {
- 	.get_ts_info            = igb_get_ts_info,
- 	.get_rxnfc		= igb_get_rxnfc,
- 	.set_rxnfc		= igb_set_rxnfc,
-+	.get_eee		= igb_get_eee,
-+	.set_eee		= igb_set_eee,
- 	.begin			= igb_ethtool_begin,
- 	.complete		= igb_ethtool_complete,
- };
+ 	/* set type for advanced descriptor with frame checksum insertion */
+-	__le32 cmd_type = cpu_to_le32(E1000_ADVTXD_DTYP_DATA |
+-				      E1000_ADVTXD_DCMD_IFCS |
+-				      E1000_ADVTXD_DCMD_DEXT);
++	u32 cmd_type = E1000_ADVTXD_DTYP_DATA |
++		       E1000_ADVTXD_DCMD_DEXT |
++		       E1000_ADVTXD_DCMD_IFCS;
+ 
+ 	/* set HW vlan bit if vlan is present */
+-	if (tx_flags & IGB_TX_FLAGS_VLAN)
+-		cmd_type |= cpu_to_le32(E1000_ADVTXD_DCMD_VLE);
++	cmd_type |= IGB_SET_FLAG(tx_flags, IGB_TX_FLAGS_VLAN,
++				 (E1000_ADVTXD_DCMD_VLE));
++
++	/* set segmentation bits for TSO */
++	cmd_type |= IGB_SET_FLAG(tx_flags, IGB_TX_FLAGS_TSO,
++				 (E1000_ADVTXD_DCMD_TSE));
+ 
+ 	/* set timestamp bit if present */
+-	if (unlikely(tx_flags & IGB_TX_FLAGS_TSTAMP))
+-		cmd_type |= cpu_to_le32(E1000_ADVTXD_MAC_TSTAMP);
++	cmd_type |= IGB_SET_FLAG(tx_flags, IGB_TX_FLAGS_TSTAMP,
++				 (E1000_ADVTXD_MAC_TSTAMP));
+ 
+-	/* set segmentation bits for TSO */
+-	if (tx_flags & IGB_TX_FLAGS_TSO)
+-		cmd_type |= cpu_to_le32(E1000_ADVTXD_DCMD_TSE);
++	/* insert frame checksum */
++	cmd_type ^= IGB_SET_FLAG(skb->no_fcs, 1, E1000_ADVTXD_DCMD_IFCS);
+ 
+ 	return cmd_type;
+ }
+@@ -4149,19 +4157,19 @@ static void igb_tx_olinfo_status(struct igb_ring *tx_ring,
+ {
+ 	u32 olinfo_status = paylen << E1000_ADVTXD_PAYLEN_SHIFT;
+ 
+-	/* 82575 requires a unique index per ring if any offload is enabled */
+-	if ((tx_flags & (IGB_TX_FLAGS_CSUM | IGB_TX_FLAGS_VLAN)) &&
+-	    test_bit(IGB_RING_FLAG_TX_CTX_IDX, &tx_ring->flags))
++	/* 82575 requires a unique index per ring */
++	if (test_bit(IGB_RING_FLAG_TX_CTX_IDX, &tx_ring->flags))
+ 		olinfo_status |= tx_ring->reg_idx << 4;
+ 
+ 	/* insert L4 checksum */
+-	if (tx_flags & IGB_TX_FLAGS_CSUM) {
+-		olinfo_status |= E1000_TXD_POPTS_TXSM << 8;
++	olinfo_status |= IGB_SET_FLAG(tx_flags,
++				      IGB_TX_FLAGS_CSUM,
++				      (E1000_TXD_POPTS_TXSM << 8));
+ 
+-		/* insert IPv4 checksum */
+-		if (tx_flags & IGB_TX_FLAGS_IPV4)
+-			olinfo_status |= E1000_TXD_POPTS_IXSM << 8;
+-	}
++	/* insert IPv4 checksum */
++	olinfo_status |= IGB_SET_FLAG(tx_flags,
++				      IGB_TX_FLAGS_IPV4,
++				      (E1000_TXD_POPTS_IXSM << 8));
+ 
+ 	tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
+ }
+@@ -4185,14 +4193,13 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+ 	unsigned int data_len = skb->data_len;
+ 	unsigned int size = skb_headlen(skb);
+ 	unsigned int paylen = skb->len - hdr_len;
+-	__le32 cmd_type;
+ 	u32 tx_flags = first->tx_flags;
++	u32 cmd_type = igb_tx_cmd_type(skb, tx_flags);
+ 	u16 i = tx_ring->next_to_use;
+ 
+ 	tx_desc = IGB_TX_DESC(tx_ring, i);
+ 
+ 	igb_tx_olinfo_status(tx_ring, tx_desc, tx_flags, paylen);
+-	cmd_type = igb_tx_cmd_type(tx_flags);
+ 
+ 	dma = dma_map_single(tx_ring->dev, skb->data, size, DMA_TO_DEVICE);
+ 	if (dma_mapping_error(tx_ring->dev, dma))
+@@ -4206,7 +4213,7 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+ 	for (;;) {
+ 		while (unlikely(size > IGB_MAX_DATA_PER_TXD)) {
+ 			tx_desc->read.cmd_type_len =
+-				cmd_type | cpu_to_le32(IGB_MAX_DATA_PER_TXD);
++				cpu_to_le32(cmd_type ^ IGB_MAX_DATA_PER_TXD);
+ 
+ 			i++;
+ 			tx_desc++;
+@@ -4225,7 +4232,7 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+ 		if (likely(!data_len))
+ 			break;
+ 
+-		tx_desc->read.cmd_type_len = cmd_type | cpu_to_le32(size);
++		tx_desc->read.cmd_type_len = cpu_to_le32(cmd_type ^ size);
+ 
+ 		i++;
+ 		tx_desc++;
+@@ -4255,10 +4262,8 @@ static void igb_tx_map(struct igb_ring *tx_ring,
+ 	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
+ 
+ 	/* write last descriptor with RS and EOP bits */
+-	cmd_type |= cpu_to_le32(size) | cpu_to_le32(IGB_TXD_DCMD);
+-	if (unlikely(skb->no_fcs))
+-		cmd_type &= ~(cpu_to_le32(E1000_ADVTXD_DCMD_IFCS));
+-	tx_desc->read.cmd_type_len = cmd_type;
++	cmd_type |= size | IGB_TXD_DCMD;
++	tx_desc->read.cmd_type_len = cpu_to_le32(cmd_type);
+ 
+ 	/* set the timestamp */
+ 	first->time_stamp = jiffies;
 -- 
 1.7.11.7
