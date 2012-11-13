@@ -1,51 +1,67 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-next] 8021q: validate SAN MAC address
-Date: Tue, 13 Nov 2012 14:29:48 -0800
-Message-ID: <1352845788.6276.28.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1352501644-8444-1-git-send-email-mchan@broadcom.com>
- <20121113.165300.1149843648625252626.davem@davemloft.net>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH net-next] add DOVE extensions for VXLAN
+Date: Tue, 13 Nov 2012 17:28:17 -0500
+Message-ID: <OFD9622F46.08427B4F-ON85257AB5.00792B0C-85257AB5.007B6F17@us.ibm.com>
+References: <201211132022.qADKLMrT018535@lab1.dls> <20121113132842.2414d381@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3327 "EHLO mms1.broadcom.com"
+Received: from e2.ny.us.ibm.com ([32.97.182.142]:39394 "EHLO e2.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754870Ab2KMW37 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 17:29:59 -0500
-In-Reply-To: <20121113.165300.1149843648625252626.davem@davemloft.net>
+	id S1751474Ab2KMWcS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 17:32:18 -0500
+Received: from /spool/local
+	by e2.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Tue, 13 Nov 2012 17:29:37 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 8F797C90077
+	for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 17:28:35 -0500 (EST)
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id qADMSYfL031922
+	for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 17:28:35 -0500
+Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id qADMSPUB019256
+	for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 15:28:25 -0700
+In-Reply-To: <20121113132842.2414d381@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-11-13 at 16:53 -0500, David Miller wrote:
-> I can only assume that, in this case, this code block is triggered
-> in vlan_dev_open():
-> 
->         if (!ether_addr_equal(dev->dev_addr, real_dev->dev_addr)) {
->                 err = dev_uc_add(real_dev, dev->dev_addr);
->                 if (err < 0)
->                         goto out;
->         }
+Stephen Hemminger <shemminger@vyatta.com> wrote on 11/13/2012 04:28:42 PM:
 
-No, this is not triggered.  The addresses will be equal (and invalid) in
-this case.  No addresses will be added.
 > 
-> And if so we're adding an invalid ethernet address to the underlying
-> device's UC list.  Yet another terrible aspect of this situation.
-> 
-> The more I look into this situation the more it looks like piling crap
-> on top of crap on top of crap.  It's a long depency chain of special
-> cases just to get this weird setup working.
-> 
-> I'm sorry, I'm not making the situation even worse by applying this
-> patch.  If you want to have real bypasses to allow VLAN VIDs to
-> be configured on SAN devices, create a real interface for it, rather
-> than hack to shreds the stuff we have already.
+> There are some issues with this.
+>  1. DOVE flag is mixing multiple functions (arp and route) together,
+>     users may want one without the other.
 
-I don't understand.  We need to have VLAN tags inserted to packets using
-that interface.  The VID is dynamically discovered by application.  How
-do suggest we do that if we don't use 8021q?
-> 
-> 
+        I can separate these.
+
+>  2. There is an implicit assumption that IP stack has valid IP address
+>     in the tenant network (vxlan). This is rarely the case. For security
+>     and other reasons, in my opinion the best practice is not to have
+>     the bridge as part of the tenant network.
+
+        No, actually for testing I didn't set an IP address on the tunnel
+endpoint at all. The neighbor table entries must be in the domain, but
+they are only used within the domain when the tunnel endpoint is on a
+bridge and the host has no IP address on that interface.
+
+>  3. Misses might be common and this could easily be used to DoS the host
+>     from a malicious guest.
+
+        Yes. The management piece can add forwarding table entries with
+"0.0.0.0" as the dst IP address to disable MAC misses, and neighbor
+table entries to disable IP misses, but it is our intention to have all
+reachable destinations with both forwarding table and neighbor table
+entries and no learning or multicast address (ie, no forwarding of 
+anything
+that isn't in the forwarding table). And yes, we want a notification
+for every miss packet.
+        Someone who doesn't want all of them shouldn't use this feature.
+If we're dropping the "dove" flag in favor of individual flags for each
+feature, then I could make this into "l2miss" and "l3miss" flags and
+they should default off, of course.
+
+                                                        +-DLS
