@@ -1,55 +1,89 @@
-From: Sujith Manoharan <sujith-TPRpbcbO+rZAfugRpC6u6w@public.gmane.org>
-Subject: ath9k_htc-based adapter unfunctioning after commit ceb26a6013
-Date: Tue, 13 Nov 2012 12:58:02 +0530
-Message-ID: <20641.63106.943323.923565@gargle.gargle.HOWL>
-References: <CA++BO6SuRgOu7A4BKobrdEeSpSc3UUYHXaECmEGE=R17w7HjQA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: tcp_replace_ts_recent() should not be called from
+ tcp_validate_incoming()
+Date: Tue, 13 Nov 2012 00:05:51 -0800
+Message-ID: <1352793951.6185.28.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
-	vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org
-To: Corey Richardson <corey-GAYEDG9L0ISsTnJN9+BGXg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA++BO6SuRgOu7A4BKobrdEeSpSc3UUYHXaECmEGE=R17w7HjQA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	"H.K. Jerry Chu" <hkchu@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:42985 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754290Ab2KMIFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 03:05:53 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y25so479102iay.19
+        for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 00:05:53 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Corey Richardson wrote:
-> I was giving 3.7-rc4 a whirl when I discovered my wireless adapter [0] wasn't
-> working: the LED didn't light up. Went and ran 'ip link' and it just hung there.
-> Tried a few other things and discovered that sudo was broken too. With
-> strace I found that they were hanging in sendto().
-> 
-> If I then unplug the adapter, everything comes out of the hang.
-> 
-> Bisected and found that commit ceb26a6013b962b82f644189ea29d802490fc8fc is
-> to blame.
+From: Eric Dumazet <edumazet@google.com>
 
-I can see this issue too. I am not entirely convinced that the commit in
-question is valid. If a HW reset fails for some reason in start(), bailing
-out seems the right thing to do instead of continuing to fiddle with the HW
-and silently returning a success code to mac80211.
+We added support for RFC 5962 in latest kernels but TCP fails
+to perform exhaustive check of ACK sequence.
 
-I was able to bring up the device with this patch.
+We can update our view of peer tsval from a frame that is
+later discarded by tcp_ack()
 
-diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/ath/ath9k/hw.c
-index 756191b..e06bcec 100644
---- a/drivers/net/wireless/ath/ath9k/hw.c
-+++ b/drivers/net/wireless/ath/ath9k/hw.c
-@@ -1456,7 +1456,7 @@ static bool ath9k_hw_set_reset_reg(struct ath_hw *ah, u32 type)
- 	switch (type) {
- 	case ATH9K_RESET_POWER_ON:
- 		ret = ath9k_hw_set_reset_power_on(ah);
--		if (!ret)
-+		if (ret)
- 			ah->reset_power_on = true;
- 		break;
- 	case ATH9K_RESET_WARM:
+This makes timestamps enabled sessions vulnerable to injection of
+a high tsval : peers start an ACK storm, since the victim
+sends a dupack each time it receives an ACK from the other peer.
 
-Sujith
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+As tcp_validate_incoming() is called before tcp_ack(), we should
+not peform tcp_replace_ts_recent() from it, and let callers do it
+at the right time.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Nandita Dukkipati <nanditad@google.com>
+Cc: H.K. Jerry Chu <hkchu@google.com>
+---
+ net/ipv4/tcp_input.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 7839d51..fc67831 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5320,11 +5320,6 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+ 		goto discard;
+ 	}
+ 
+-	/* ts_recent update must be made after we are sure that the packet
+-	 * is in window.
+-	 */
+-	tcp_replace_ts_recent(tp, TCP_SKB_CB(skb)->seq);
+-
+ 	/* step 3: check security and precedence [ignored] */
+ 
+ 	/* step 4: Check for a SYN
+@@ -5559,6 +5554,11 @@ step5:
+ 	if (th->ack && tcp_ack(sk, skb, FLAG_SLOWPATH) < 0)
+ 		goto discard;
+ 
++	/* ts_recent update must be made after we are sure that the packet
++	 * is acceptable.
++	 */
++	tcp_replace_ts_recent(tp, TCP_SKB_CB(skb)->seq);
++
+ 	tcp_rcv_rtt_measure_ts(sk, skb);
+ 
+ 	/* Process urgent data. */
+@@ -6137,6 +6137,11 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 	} else
+ 		goto discard;
+ 
++	/* ts_recent update must be made after we are sure that the packet
++	 * is in acceptable.
++	 */
++	tcp_replace_ts_recent(tp, TCP_SKB_CB(skb)->seq);
++
+ 	/* step 6: check the URG bit */
+ 	tcp_urg(sk, skb, th);
+ 
