@@ -1,35 +1,49 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH v4 3/9] net: xfrm: use __this_cpu_read per-cpu helper
-Date: Tue, 13 Nov 2012 17:33:19 +0800
-Message-ID: <50A213DF.1040103@gmail.com>
-References: <50A1A7C9.3060703@gmail.com> <20121113072101.GG22290@secunet.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 3/3] netfilter: ipv6: add getsockopt to retrieve origdst
+Date: Tue, 13 Nov 2012 10:39:50 +0100
+Message-ID: <20121113093950.GA24755@1984>
+References: <1352765203-4160-1-git-send-email-pablo@netfilter.org>
+ <1352765203-4160-4-git-send-email-pablo@netfilter.org>
+ <50A1BEA0.8070504@linux-ipv6.org>
+ <20121113085930.GE20678@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	Christoph Lameter <cl@linux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121113072101.GG22290@secunet.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60916 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752619Ab2KMJkA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 04:40:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20121113085930.GE20678@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Steffen Klassert said, at 2012/11/13 15:21:
+On Tue, Nov 13, 2012 at 09:59:30AM +0100, Florian Westphal wrote:
+> YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> wrote:
+> > pablo@netfilter.org wrote:
+> > > From: Florian Westphal <fw@strlen.de>
+> > > +	sin6.sin6_scope_id = sk->sk_bound_dev_if;
+> > > +
+> > > +	nf_ct_put(ct);
+> > > +	return copy_to_user(user, &sin6, sizeof(sin6)) ? -EFAULT : 0;
+> > > +}
+> > > +
+> > 
+> > I think we should set sin6_scope_id to sk->sk_bound_dev_if only if the
+> > destination is link-local address.
 > 
-> This should just fetch the tfm pointer, so why exactly __this_cpu_read
-> is better than __this_cpu_ptr? Please keep in mind that performance is
-> not the most important thing here. It's much more important that it
-> works in any case.
- 
-[0/9] describes why we should submit this series patches.
-you are not included in original mail.
+> Right, I see that getpeer/sockname has this test.
+> 
+> Dave, please either apply the patch as is (I'd submit a fixup)
+> or discard i, I'll then send a V2 with added
+> ipv6_addr_type(&sin->sin6_addr) & IPV6_ADDR_LINKLOCAL
+> test to Pablo.
 
-this_cpu_ptr relocates and address. this_cpu_read() relocates the address
-and performs the fetch. If you want to operate on rda(defined as per_cpu) 
-then you can only use this_cpu_ptr. this_cpu_read() saves you more instructions
-since it can do the relocation and the fetch in one instruction.
+Please, send me a follow-up patch, I'll apply and request a new pull
+request.
 
-More info, please refer to http://www.spinics.net/lists/kernel/msg1435153.html
+Thanks.
