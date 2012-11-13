@@ -1,13 +1,13 @@
 From: Shan Wei <shanwei88@gmail.com>
-Subject: [PATCH v4 3/9] net: xfrm: use __this_cpu_read per-cpu helper
-Date: Tue, 13 Nov 2012 09:52:09 +0800
-Message-ID: <50A1A7C9.3060703@gmail.com>
+Subject: [PATCH v4 2/9] net: rds: use this_cpu_* per-cpu helper
+Date: Tue, 13 Nov 2012 09:52:01 +0800
+Message-ID: <50A1A7C1.50308@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: steffen.klassert@secunet.com, David Miller <davem@davemloft.net>,
+To: venkat.x.venkatsubra@oracle.com,
+	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com,
 	NetDev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
 	Kernel-Maillist <linux-kernel@vger.kernel.org>,
 	cl@linux-foundation.org, Shan Wei <shanwei88@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -18,38 +18,80 @@ From: Shan Wei <davidshan@tencent.com>
 
 
 Signed-off-by: Shan Wei <davidshan@tencent.com>
+Reviewed-by: Christoph Lameter <cl@linux.com>
 ---
 v4:
-  derefrence pointer before reading to avoid compile warning.
+1. add missing __percpu annotations.
+2. [read|write]ing fields of struct rds_ib_cache_head
+using __this_cpu_* operation, drop per_cpu_ptr.
 ---
- net/xfrm/xfrm_ipcomp.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+ net/rds/ib.h      |    2 +-
+ net/rds/ib_recv.c |   24 +++++++++++++-----------
+ 2 files changed, 14 insertions(+), 12 deletions(-)
 
-diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
-index e5246fb..2906d52 100644
---- a/net/xfrm/xfrm_ipcomp.c
-+++ b/net/xfrm/xfrm_ipcomp.c
-@@ -276,18 +276,16 @@ static struct crypto_comp * __percpu *ipcomp_alloc_tfms(const char *alg_name)
- 	struct crypto_comp * __percpu *tfms;
- 	int cpu;
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index 8d2b3d5..7280ab8 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -50,7 +50,7 @@ struct rds_ib_cache_head {
+ };
  
--	/* This can be any valid CPU ID so we don't need locking. */
--	cpu = raw_smp_processor_id();
+ struct rds_ib_refill_cache {
+-	struct rds_ib_cache_head *percpu;
++	struct rds_ib_cache_head __percpu *percpu;
+ 	struct list_head	 *xfer;
+ 	struct list_head	 *ready;
+ };
+diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
+index 8d19491..8c5bc85 100644
+--- a/net/rds/ib_recv.c
++++ b/net/rds/ib_recv.c
+@@ -418,20 +418,21 @@ static void rds_ib_recv_cache_put(struct list_head *new_item,
+ 				 struct rds_ib_refill_cache *cache)
+ {
+ 	unsigned long flags;
+-	struct rds_ib_cache_head *chp;
+ 	struct list_head *old;
++	struct list_head __percpu *chpfirst;
  
- 	list_for_each_entry(pos, &ipcomp_tfms_list, list) {
- 		struct crypto_comp *tfm;
+ 	local_irq_save(flags);
  
--		tfms = pos->tfms;
--		tfm = *per_cpu_ptr(tfms, cpu);
-+		/* This can be any valid CPU ID so we don't need locking. */
-+		tfm = __this_cpu_read(*pos->tfms);
+-	chp = per_cpu_ptr(cache->percpu, smp_processor_id());
+-	if (!chp->first)
++	chpfirst = __this_cpu_read(cache->percpu->first);
++	if (!chpfirst)
+ 		INIT_LIST_HEAD(new_item);
+ 	else /* put on front */
+-		list_add_tail(new_item, chp->first);
+-	chp->first = new_item;
+-	chp->count++;
++		list_add_tail(new_item, chpfirst);
  
- 		if (!strcmp(crypto_comp_name(tfm), alg_name)) {
- 			pos->users++;
--			return tfms;
-+			return pos->tfms;
- 		}
- 	}
+-	if (chp->count < RDS_IB_RECYCLE_BATCH_COUNT)
++	__this_cpu_write(chpfirst, new_item);
++	__this_cpu_inc(cache->percpu->count);
++
++	if (__this_cpu_read(cache->percpu->count) < RDS_IB_RECYCLE_BATCH_COUNT)
+ 		goto end;
  
+ 	/*
+@@ -443,12 +444,13 @@ static void rds_ib_recv_cache_put(struct list_head *new_item,
+ 	do {
+ 		old = xchg(&cache->xfer, NULL);
+ 		if (old)
+-			list_splice_entire_tail(old, chp->first);
+-		old = cmpxchg(&cache->xfer, NULL, chp->first);
++			list_splice_entire_tail(old, chpfirst);
++		old = cmpxchg(&cache->xfer, NULL, chpfirst);
+ 	} while (old);
+ 
+-	chp->first = NULL;
+-	chp->count = 0;
++
++	__this_cpu_write(chpfirst, NULL);
++	__this_cpu_write(cache->percpu->count, 0);
+ end:
+ 	local_irq_restore(flags);
+ }
 -- 
 1.7.1
