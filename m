@@ -1,65 +1,81 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the arm-soc tree with the net-next
- tree
-Date: Tue, 13 Nov 2012 20:08:45 +1100
-Message-ID: <20121113200845.719276a14b4aa37a3dbdd896@canb.auug.org.au>
-References: <20121113151536.50d0292e8cb88b10686b576e@canb.auug.org.au>
-	<CAGhQ9Vx3Y3j0qqkEif09HebFyR+1UYmSbp=3jwuXnoiuWBdymQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__13_Nov_2012_20_08_45_+1100_5iglaAZHDz8LU0/s"
-Cc: Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joachim Eastwood <manabian@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGhQ9Vx3Y3j0qqkEif09HebFyR+1UYmSbp=3jwuXnoiuWBdymQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: pull request: batman-adv 2012-11-13
+Date: Tue, 13 Nov 2012 10:15:28 +0100
+Message-ID: <1352798139-19458-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__13_Nov_2012_20_08_45_+1100_5iglaAZHDz8LU0/s
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hello David,
 
-Hi Joachim,
+this is another set of changes intended for net-next/linux-3.8.
+In this patchset you have patch 10/11 which is a roaming handling procedure
+re-arrangement and patches 4,5,6/11 by Simon Wunderlich which improve the Bridge
+Loop Avoidance set-up phase. The rest is mostly clean-up work.
 
-On Tue, 13 Nov 2012 08:21:26 +0100 Joachim  Eastwood <manabian@gmail.com> w=
-rote:
->
-> The platform_data/atmel.h include shouldn't be necessary since the
-> driver already includes platform_data/macb.h.
->=20
-> Otherwise the fix up looks correct.
+Let me know if there is any problem!
 
-Thanks, I have fixed up my fix for tomorrow.
+Thanks a lot,
+	Antonio
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
 
---Signature=_Tue__13_Nov_2012_20_08_45_+1100_5iglaAZHDz8LU0/s
-Content-Type: application/pgp-signature
+The following changes since commit 9fafd65ad407d4e0c96919a325f568dd95d032af:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+  ipv6 ndisc: Use pre-defined in6addr_linklocal_allnodes. (2012-11-12 15:23:21 -0500)
 
-iQIcBAEBCAAGBQJQog4dAAoJEECxmPOUX5FEnScQAIR8YchYwefEd6VHmWuCZNNe
-52NfQXEvlP7jjNPTEAmgg+G2Mn7rdXSMsMYgDlwyJsXts1xCucImr+rDbZk7WwKD
-931CWA4Y5j2hDfm0iQOGFPxAShxSKCCAhfTdou179HWj4uRZUMBK5VhcuriSTs3I
-Lk6hcHCxXSVhKO+qNugPFPjCxNrZeCV2Enpa+2Ok0u910c5QMo2yYc4hFZQB7Q0l
-yPE9ljVIO0AJrMTsaDvm2koUDgOp8DAIK1BA9AmU6MxnIT4zjTt/ihDQKnusLKjt
-HxqLAjrqVb5M/yE4OE1pWziOGO0VDfuinPGY1OnQGrLbqaNrZBOVJ0OOtZGnU92t
-nOnwrtM9xM2rilSNXwrGiT45bUrJ+/unNltbS8/hqo5RryORn12nU3qb1sd1Ksz6
-QmYS9cPFT/V/G88newfMVggWgCibgwh92gMbyfI5xI7zQ2o99zkwKD4TB3sW1ACG
-rwdFmk0xLxBpWnpli+zt4wY4B1x9PxE9E+1JuCEUJpPwosgqxNEhiua+I2tMIPDP
-llbm5/SZrCj/o78qDoyIp48VyZvnFVfe5hsKjo1OmmgO/vgF6sd4Gx76C6Tx3Bxn
-nn6qx9wYW65CbuCdauW1FQ/eezY1aZREEqyJ+vZOzbyhT+aktEM8M1bc6WLPAGxY
-APeJ+yib1GdXBmYDjZZI
-=3pNi
------END PGP SIGNATURE-----
+are available in the git repository at:
 
---Signature=_Tue__13_Nov_2012_20_08_45_+1100_5iglaAZHDz8LU0/s--
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to 153f5177b998c04c8459bc591cd4e5204fe66a1c:
+
+  batman-adv: Remove instant overwritten variable initialization (2012-11-13 10:06:08 +0100)
+
+----------------------------------------------------------------
+Included changes:
+- hash computation improvements
+- Bridge Loop Avoidance set-up phase optimisations
+- Roaming handling code redesign
+- some code cleanups
+
+----------------------------------------------------------------
+Antonio Quartulli (6):
+      batman-adv: fix wrong spinlock inline comment
+      batman-adv: prevent using any virtual device created on batman-adv as hard-interface
+      batman-adv: substitute tt_poss_change with a per-tt_entry flag
+      batman-adv: refactor code to simplify long lines
+      batman-adv: refactor tt_global_del_struct()
+      batman-adv: roaming handling mechanism redesign
+
+Simon Wunderlich (4):
+      batman-adv: don't rely on positions in struct for hashing
+      batman-adv: send announcement when backbone gw is registered
+      batman-adv: allow bla traffic only after first worker period
+      batman-adv: wait multiple periods before activating bla
+
+Sven Eckelmann (1):
+      batman-adv: Remove instant overwritten variable initialization
+
+ net/batman-adv/bridge_loop_avoidance.c |  71 ++++++---
+ net/batman-adv/hard-interface.c        |  41 ++++-
+ net/batman-adv/main.h                  |   1 +
+ net/batman-adv/originator.c            |   1 -
+ net/batman-adv/routing.c               | 173 +++++++++++++++------
+ net/batman-adv/soft-interface.c        |   1 -
+ net/batman-adv/sysfs.c                 |   2 +-
+ net/batman-adv/translation-table.c     | 276 ++++++++++++++++++++++-----------
+ net/batman-adv/translation-table.h     |   2 +
+ net/batman-adv/types.h                 |  11 +-
+ 10 files changed, 406 insertions(+), 173 deletions(-)
