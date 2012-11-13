@@ -1,12 +1,13 @@
 From: Shan Wei <shanwei88@gmail.com>
-Subject: [PATCH v4 1/9] net: core: use this_cpu_ptr per-cpu helper
-Date: Tue, 13 Nov 2012 09:51:54 +0800
-Message-ID: <50A1A7BA.5000507@gmail.com>
+Subject: [PATCH v4 3/9] net: xfrm: use __this_cpu_read per-cpu helper
+Date: Tue, 13 Nov 2012 09:52:09 +0800
+Message-ID: <50A1A7C9.3060703@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, timo.teras@iki.fi,
-	steffen.klassert@secunet.com, NetDev <netdev@vger.kernel.org>,
+To: steffen.klassert@secunet.com, David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
 	Kernel-Maillist <linux-kernel@vger.kernel.org>,
 	cl@linux-foundation.org, Shan Wei <shanwei88@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,33 +16,40 @@ List-Id: netdev.vger.kernel.org
 
 From: Shan Wei <davidshan@tencent.com>
 
-flush_tasklet is a struct, not a pointer in percpu var.
-so use this_cpu_ptr to get the member pointer.
 
 Signed-off-by: Shan Wei <davidshan@tencent.com>
-Reviewed-by: Christoph Lameter <cl@linux.com>
 ---
-no changes vs v3.
+v4:
+  derefrence pointer before reading to avoid compile warning.
 ---
- net/core/flow.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ net/xfrm/xfrm_ipcomp.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index e318c7e..b0901ee 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -327,11 +327,9 @@ static void flow_cache_flush_tasklet(unsigned long data)
- static void flow_cache_flush_per_cpu(void *data)
- {
- 	struct flow_flush_info *info = data;
--	int cpu;
- 	struct tasklet_struct *tasklet;
+diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+index e5246fb..2906d52 100644
+--- a/net/xfrm/xfrm_ipcomp.c
++++ b/net/xfrm/xfrm_ipcomp.c
+@@ -276,18 +276,16 @@ static struct crypto_comp * __percpu *ipcomp_alloc_tfms(const char *alg_name)
+ 	struct crypto_comp * __percpu *tfms;
+ 	int cpu;
  
--	cpu = smp_processor_id();
--	tasklet = &per_cpu_ptr(info->cache->percpu, cpu)->flush_tasklet;
-+	tasklet = this_cpu_ptr(&info->cache->percpu->flush_tasklet);
- 	tasklet->data = (unsigned long)info;
- 	tasklet_schedule(tasklet);
- }
+-	/* This can be any valid CPU ID so we don't need locking. */
+-	cpu = raw_smp_processor_id();
+ 
+ 	list_for_each_entry(pos, &ipcomp_tfms_list, list) {
+ 		struct crypto_comp *tfm;
+ 
+-		tfms = pos->tfms;
+-		tfm = *per_cpu_ptr(tfms, cpu);
++		/* This can be any valid CPU ID so we don't need locking. */
++		tfm = __this_cpu_read(*pos->tfms);
+ 
+ 		if (!strcmp(crypto_comp_name(tfm), alg_name)) {
+ 			pos->users++;
+-			return tfms;
++			return pos->tfms;
+ 		}
+ 	}
+ 
 -- 
 1.7.1
