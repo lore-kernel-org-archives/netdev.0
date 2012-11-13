@@ -1,172 +1,76 @@
-From: pablo@netfilter.org
-Subject: [PATCH 3/3] netfilter: ipv6: add getsockopt to retrieve origdst
-Date: Tue, 13 Nov 2012 01:06:43 +0100
-Message-ID: <1352765203-4160-4-git-send-email-pablo@netfilter.org>
-References: <1352765203-4160-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1352765203-4160-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vincent Li <vincent.mc.li@gmail.com>
+Subject: Re: How to compile tcp fast open client app with kernel tfo client
+ support ?
+Date: Mon, 12 Nov 2012 16:33:54 -0800
+Message-ID: <CAK3+h2y+Kctdfk6+q5UB56qemdEVY4Fw3AbqZwycL-uDWzD=Lg@mail.gmail.com>
+References: <CAK3+h2xmgy+RhUy=MZ5Cu8Zpz+gQmt3dXCX0tpLAWFCTeujBLA@mail.gmail.com>
+	<CAGK4HS-U+Ov5x8z+1CRZdiAD9MhfBUfurKKBbt1EWGYFLN8TcA@mail.gmail.com>
+	<CAK3+h2z5=n6BHGzPjfbrJS4MbVGQ2pdMQP54dOZ8M=8xigUd3Q@mail.gmail.com>
+	<CAK6E8=fc=hYppk=4+tnNF9UPvQNFhw8YKo-ebG2y6FwXTft_EQ@mail.gmail.com>
+	<CAK3+h2xAqjs8CvkcwXiFryyQhDnohsN7-0KfQVjpegZh_AD1eg@mail.gmail.com>
+	<1352492823.19779.825.camel@edumazet-glaptop>
+	<CAGK4HS_SpdECk_KCu98Z1X9W02G9j9u7QE9B6qHEnTXLeZbqgA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>, netdev@vger.kernel.org
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:49906 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753539Ab2KMAdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Nov 2012 19:33:54 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k13so9966748iea.19
+        for <netdev@vger.kernel.org>; Mon, 12 Nov 2012 16:33:54 -0800 (PST)
+In-Reply-To: <CAGK4HS_SpdECk_KCu98Z1X9W02G9j9u7QE9B6qHEnTXLeZbqgA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+On Fri, Nov 9, 2012 at 12:54 PM, Vijay Subramanian
+<subramanian.vijay@gmail.com> wrote:
+> On 9 November 2012 12:27, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Fri, 2012-11-09 at 12:17 -0800, Vincent Li wrote:
+>>
+>>> I have tried to run fresh build net-next, for some reason the build
+>>> stops ssh service from starting up, tried 3.7.0-rc4 too, same issue. I
+>>> don't know if it is new kernel bug or ubuntu upstart bug, but that is
+>>> another issue.
+>>>
+>>
+>> Not sure Ubuntu 10.04 binaries can run a 3.7 kernel.
+>>
+>> Some bug fixes in kernel need bug fixes in userland.
+>>
+>> You could try a bisection ?
+>>
+>  I saw the same issue with Ubuntu starting around 3.7.0-rc1 but 3.6
+> was fine if I recall. (I did a partial bisection but was not sure it
+> was a kernel issue)
+>  sshd would not start up on boot and I 'fixed' it by adding the
+> following in /etc/rc.local since I assumed it was a userspace issue.
+>
+> if [ ! -d /var/run/sshd ]; then
+>    mkdir /var/run/sshd
+>    chmod 0755 /var/run/sshd
+> fi
+> /usr/sbin/sshd
+>
+>
+> Thanks,
+> Vijay
 
-userspace can query the original ipv4 destination address of a REDIRECTed
-connection via
-getsockopt(m_sock, SOL_IP, SO_ORIGINAL_DST, &m_server_addr, &addrsize)
+Hi Vijay,
 
-but for ipv6 no such option existed.
+just FYI, I filed a bug report in ubuntu and it appears to be a kernel
+commit breaks the user space code that still using deprecated kernel
+knobs oom_adj.
 
-This adds getsockopt(..., IPPROTO_IPV6, IP6T_SO_ORIGINAL_DST, ...).
+https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1077248
 
-Without this, userspace needs to parse /proc or use ctnetlink, which
-appears to be overkill.
+commit 01dc52ebdf472f77cca623ca693ca24cfc0f1bbe
+Author: Davidlohr Bueso <dave@gnu.org>
+Date: Mon Oct 8 16:29:30 2012 -0700
 
-This uses option number 80 for IP6T_SO_ORIGINAL_DST, which is spare,
-to use the same number we use in the IPv4 socket option SO_ORIGINAL_DST.
+    oom: remove deprecated oom_adj
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/uapi/linux/in6.h                       |    1 +
- include/uapi/linux/netfilter_ipv6/ip6_tables.h |    3 ++
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   61 ++++++++++++++++++++++++
- 3 files changed, 65 insertions(+)
-
-diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
-index 1e31599..f79c372 100644
---- a/include/uapi/linux/in6.h
-+++ b/include/uapi/linux/in6.h
-@@ -240,6 +240,7 @@ struct in6_flowlabel_req {
-  *
-  * IP6T_SO_GET_REVISION_MATCH	68
-  * IP6T_SO_GET_REVISION_TARGET	69
-+ * IP6T_SO_ORIGINAL_DST		80
-  */
- 
- /* RFC5014: Source address selection */
-diff --git a/include/uapi/linux/netfilter_ipv6/ip6_tables.h b/include/uapi/linux/netfilter_ipv6/ip6_tables.h
-index bf1ef65..649c680 100644
---- a/include/uapi/linux/netfilter_ipv6/ip6_tables.h
-+++ b/include/uapi/linux/netfilter_ipv6/ip6_tables.h
-@@ -178,6 +178,9 @@ struct ip6t_error {
- #define IP6T_SO_GET_REVISION_TARGET	(IP6T_BASE_CTL + 5)
- #define IP6T_SO_GET_MAX			IP6T_SO_GET_REVISION_TARGET
- 
-+/* obtain original address if REDIRECT'd connection */
-+#define IP6T_SO_ORIGINAL_DST            80
-+
- /* ICMP matching stuff */
- struct ip6t_icmp {
- 	__u8 type;				/* type to match */
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 8860d23..02dcafd 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -21,6 +21,7 @@
- 
- #include <linux/netfilter_bridge.h>
- #include <linux/netfilter_ipv6.h>
-+#include <linux/netfilter_ipv6/ip6_tables.h>
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_helper.h>
- #include <net/netfilter/nf_conntrack_l4proto.h>
-@@ -295,6 +296,50 @@ static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
- 	},
- };
- 
-+static int
-+ipv6_getorigdst(struct sock *sk, int optval, void __user *user, int *len)
-+{
-+	const struct inet_sock *inet = inet_sk(sk);
-+	const struct ipv6_pinfo *inet6 = inet6_sk(sk);
-+	const struct nf_conntrack_tuple_hash *h;
-+	struct sockaddr_in6 sin6;
-+	struct nf_conntrack_tuple tuple = { .src.l3num = NFPROTO_IPV6 };
-+	struct nf_conn *ct;
-+
-+	tuple.src.u3.in6 = inet6->rcv_saddr;
-+	tuple.src.u.tcp.port = inet->inet_sport;
-+	tuple.dst.u3.in6 = inet6->daddr;
-+	tuple.dst.u.tcp.port = inet->inet_dport;
-+	tuple.dst.protonum = sk->sk_protocol;
-+
-+	if (sk->sk_protocol != IPPROTO_TCP && sk->sk_protocol != IPPROTO_SCTP)
-+		return -ENOPROTOOPT;
-+
-+	if (*len < 0 || (unsigned int) *len < sizeof(sin6))
-+		return -EINVAL;
-+
-+	h = nf_conntrack_find_get(sock_net(sk), NF_CT_DEFAULT_ZONE, &tuple);
-+	if (!h) {
-+		pr_debug("IP6T_SO_ORIGINAL_DST: Can't find %pI6c/%u-%pI6c/%u.\n",
-+			 &tuple.src.u3.ip6, ntohs(tuple.src.u.tcp.port),
-+			 &tuple.dst.u3.ip6, ntohs(tuple.dst.u.tcp.port));
-+		return -ENOENT;
-+	}
-+
-+	ct = nf_ct_tuplehash_to_ctrack(h);
-+
-+	sin6.sin6_family = AF_INET6;
-+	sin6.sin6_port = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.tcp.port;
-+	sin6.sin6_flowinfo = inet6->flow_label & IPV6_FLOWINFO_MASK;
-+	memcpy(&sin6.sin6_addr,
-+		&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u3.in6,
-+					sizeof(sin6.sin6_addr));
-+	sin6.sin6_scope_id = sk->sk_bound_dev_if;
-+
-+	nf_ct_put(ct);
-+	return copy_to_user(user, &sin6, sizeof(sin6)) ? -EFAULT : 0;
-+}
-+
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
- 
- #include <linux/netfilter/nfnetlink.h>
-@@ -359,6 +404,14 @@ MODULE_ALIAS("nf_conntrack-" __stringify(AF_INET6));
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Yasuyuki KOZAKAI @USAGI <yasuyuki.kozakai@toshiba.co.jp>");
- 
-+static struct nf_sockopt_ops so_getorigdst6 = {
-+	.pf		= NFPROTO_IPV6,
-+	.get_optmin	= IP6T_SO_ORIGINAL_DST,
-+	.get_optmax	= IP6T_SO_ORIGINAL_DST + 1,
-+	.get		= ipv6_getorigdst,
-+	.owner		= THIS_MODULE,
-+};
-+
- static int ipv6_net_init(struct net *net)
- {
- 	int ret = 0;
-@@ -425,6 +478,12 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
- 	need_conntrack();
- 	nf_defrag_ipv6_enable();
- 
-+	ret = nf_register_sockopt(&so_getorigdst6);
-+	if (ret < 0) {
-+		pr_err("Unable to register netfilter socket option\n");
-+		return ret;
-+	}
-+
- 	ret = register_pernet_subsys(&ipv6_net_ops);
- 	if (ret < 0)
- 		goto cleanup_pernet;
-@@ -440,6 +499,7 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
-  cleanup_ipv6:
- 	unregister_pernet_subsys(&ipv6_net_ops);
-  cleanup_pernet:
-+	nf_unregister_sockopt(&so_getorigdst6);
- 	return ret;
- }
- 
-@@ -448,6 +508,7 @@ static void __exit nf_conntrack_l3proto_ipv6_fini(void)
- 	synchronize_net();
- 	nf_unregister_hooks(ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
- 	unregister_pernet_subsys(&ipv6_net_ops);
-+	nf_unregister_sockopt(&so_getorigdst6);
- }
- 
- module_init(nf_conntrack_l3proto_ipv6_init);
--- 
-1.7.10.4
-
+    The deprecated /proc/<pid>/oom_adj is scheduled for removal this month.
