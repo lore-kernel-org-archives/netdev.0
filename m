@@ -1,49 +1,49 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 3/3] netfilter: ipv6: add getsockopt to retrieve origdst
-Date: Tue, 13 Nov 2012 10:39:50 +0100
-Message-ID: <20121113093950.GA24755@1984>
-References: <1352765203-4160-1-git-send-email-pablo@netfilter.org>
- <1352765203-4160-4-git-send-email-pablo@netfilter.org>
- <50A1BEA0.8070504@linux-ipv6.org>
- <20121113085930.GE20678@breakpoint.cc>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: Re: [PATCH v4 9/9] net: batman-adv: use per_cpu_add
+	helper
+Date: Tue, 13 Nov 2012 17:55:12 +0800
+Message-ID: <201211131755.13299.lindner_marek@yahoo.de>
+References: <50A1A816.3070900@gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60916 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752619Ab2KMJkA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 04:40:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20121113085930.GE20678@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org,
+ Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+ David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <50A1A816.3070900-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 13, 2012 at 09:59:30AM +0100, Florian Westphal wrote:
-> YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> wrote:
-> > pablo@netfilter.org wrote:
-> > > From: Florian Westphal <fw@strlen.de>
-> > > +	sin6.sin6_scope_id = sk->sk_bound_dev_if;
-> > > +
-> > > +	nf_ct_put(ct);
-> > > +	return copy_to_user(user, &sin6, sizeof(sin6)) ? -EFAULT : 0;
-> > > +}
-> > > +
-> > 
-> > I think we should set sin6_scope_id to sk->sk_bound_dev_if only if the
-> > destination is link-local address.
+On Tuesday, November 13, 2012 09:53:26 Shan Wei wrote:
+> From: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
 > 
-> Right, I see that getpeer/sockname has this test.
+> this_cpu_add is an atomic operation.
+> and be more faster than per_cpu_ptr operation.
 > 
-> Dave, please either apply the patch as is (I'd submit a fixup)
-> or discard i, I'll then send a V2 with added
-> ipv6_addr_type(&sin->sin6_addr) & IPV6_ADDR_LINKLOCAL
-> test to Pablo.
+> Signed-off-by: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
+> Reviewed-by: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+> ---
+> v4: no changes vs v3.
+> ---
+>  net/batman-adv/main.h |    4 +---
+>  1 files changed, 1 insertions(+), 3 deletions(-)
 
-Please, send me a follow-up patch, I'll apply and request a new pull
-request.
+Applied in our tree (revision f8b19e1). We will pass along this patch through 
+our standard workflow. No need to resend this patch in the future.
 
-Thanks.
+Thanks,
+Marek
