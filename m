@@ -1,64 +1,45 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net: cdc_ncm: add Huawei devices
-Date: Tue, 13 Nov 2012 14:34:19 -0500 (EST)
-Message-ID: <20121113.143419.1681663503009222211.davem@davemloft.net>
-References: <1352812783-741-1-git-send-email-bjorn@mork.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] tcp: tcp_replace_ts_recent() should not be called
+ from tcp_validate_incoming()
+Date: Tue, 13 Nov 2012 14:35:44 -0500 (EST)
+Message-ID: <20121113.143544.503592471078426014.davem@davemloft.net>
+References: <87k3tp6783.fsf@silenus.orebokech.com>
+	<1352813332.6185.29.camel@edumazet-glaptop>
+	<1352821038.6185.38.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org,
-	tommy7765-/E1597aS9LQAvxtiuMwx3w@public.gmane.org, olof.ermis-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1352812783-741-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: romain@orebokech.com, netdev@vger.kernel.org, ncardwell@google.com,
+	ycheng@google.com, nanditad@google.com, hkchu@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48343 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754695Ab2KMTfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:35:45 -0500
+In-Reply-To: <1352821038.6185.38.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Tue, 13 Nov 2012 14:19:43 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 13 Nov 2012 07:37:18 -0800
 
-> A number of Huawei 3G and LTE modems implement a CDC NCM function,
-> including the necessary functional descriptors, but using a non
-> standard interface layout and class/subclass/protocol codes.
->=20
-> These devices can be handled by this driver with only a minor
-> change to the probing logic, allowing a single combined control
-> and data interface.  This works because the devices
-> - include a CDC Union descriptor labelling the combined
->   interface as both master and slave, and
-> - have an alternate setting #1 for the bulk endpoints on the
->   combined interface.
->=20
-> The 3G/LTE network connection is managed by vendor specific AT
-> commands on a serial function in the same composite device.
-> Handling the managment function is out of the scope of this
-> driver.  It will be handled by an appropriate USB serial
-> driver.
->=20
-> Reported-and-Tested-by: Olof Ermis <olof.ermis-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Reported-and-Tested-by: Tommy Cheng <tommy7765-/E1597aS9LQAvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> We added support for RFC 5961 in latest kernels but TCP fails
+> to perform exhaustive check of ACK sequence.
+> 
+> We can update our view of peer tsval from a frame that is
+> later discarded by tcp_ack()
+> 
+> This makes timestamps enabled sessions vulnerable to injection of
+> a high tsval : peers start an ACK storm, since the victim
+> sends a dupack each time it receives an ACK from the other peer.
+> 
+> As tcp_validate_incoming() is called before tcp_ack(), we should
+> not peform tcp_replace_ts_recent() from it, and let callers do it
+> at the right time.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied to net, thanks.
-
-> I am therefore requesting that this patch is put in the stable
-> queue like other device additons.
->=20
-> I guess it may be too late for v3.7, but FWIW I have verified
-> that the patch applies cleanly to both the current net-next/master
-> and to net/master, and will not cause merge conflicts either way.
-> I have also verified that it applies cleanly to the v3.6.6 stable
-> release.
-
-There were quite a few ID additions and I don't think most of them
-were actually queued up for -stable submission.
-
-Can you make a list of patches that still need to be submitted to
--stable, including this one?
-
-Thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks a lot.
