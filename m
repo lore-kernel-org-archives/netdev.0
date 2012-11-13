@@ -1,15 +1,135 @@
-From: "kid_from_hell2507@yahoo.com" <kid_from_hell2507@yahoo.com>
-Subject: Relax, You've Made The Right Choice!
-Date: Tue, 13 Nov 2012 08:23:45 -0600
-Message-ID: <50A20384.C690E1CD@smtp.mail.yahoo.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v6] Network driver for the Armada 370 and Armada XP ARM Marvell SoCs
+Date: Tue, 13 Nov 2012 16:00:36 +0100
+Message-ID: <1352818843-4457-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: lotto68@hotmail.com
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Dmitri Epshtein <dima@marvell.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm22-vm4.bullet.mail.gq1.yahoo.com ([98.136.217.67]:29965 "EHLO
-	nm22-vm4.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754540Ab2KMOai (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 09:30:38 -0500
+Received: from mail.free-electrons.com ([88.190.12.23]:49743 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755182Ab2KMPCY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 10:02:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- http://bit.ly/PQxeyZ  Local Sex Search
+David,
+
+This patch set adds a new network driver for the network unit
+available in the newest Marvell ARM SoCs Armada 370 and Armada XP, as
+well as the necessary Device Tree information to use this driver in
+the two evaluation platforms of those SoCs.
+
+The previous versions of this patch set have been sent on September
+4th (v1), October 11th (v2), October 23rd (v3), October 26th (v4),
+November 12th (v5) and now comes the v6 of the driver. The number of
+comments over the last versions have been really small, and I would
+really appreciate if this driver could land into the 3.8 kernel
+release.
+
+People interested in testing this driver can find it at:
+
+ git@github.com:MISL-EBU-System-SW/mainline-public.git marvell-neta-v6
+
+In details:
+
+ * Patch 1 contains a small driver for the MDIO interface of this
+   Ethernet controller. Having a separate driver is useful to more
+   easily handle concurrent accesses on this MDIO interface that is
+   shared between all Ethernet ports.
+
+ * Patch 3 contains the driver itself. The commit log contains a
+   detailed explanation about why a new driver is needed for this new
+   Marvell SoC, compared to older Marvell SoCs (Orion, Kirkwood, Dove)
+   that use the mv643xx_eth driver.
+
+ * Patch 4 adds the necessary entry to the MAINTAINERS file.
+
+ * Patch 5 adds the SoC-level Device Tree information for Armada 370
+   and Armada XP.
+
+ * Patch 6 adds the board-level Device Tree information for the
+   Marvell evaluation boards of Armada 370 and Armada XP.
+
+ * Patch 6 adds the board-level Device Tree information for the
+   PlatHome OpenBlocks AX3-4 platform (based on the Armada XP SoC).
+
+ * Patch 7 adds the board-level Device Tree information for the
+   GlobalScale Mirabox platform (based on the Armada 370 SoC).
+
+Changes since v5:
+ * Take into account comments from Fran=C3=A7ois Romieu (mainly coding
+   style fixes + addition of a mvneta_rxq_desc_is_first_last() helper
+   function)
+ * Fix a wrong argument passed to dma_alloc_coherent():
+   DMA_BIDIRECTIONAL should have been GFP_KERNEL. Thanks to Fran=C3=A7o=
+is
+   Romieu for having pointed the issue in his review.
+ * Removed calls to smp_call_function_many() that were useless.
+ * Ordered alphabetically entries in the Kconfig and Makefile.
+
+Changes since v4:
+ * Added a separate MDIO driver, which allow to easily handle
+   concurrent accesses to the MDIO interface.
+ * The Device Tree now has separate nodes for the PHY devices, which
+   belong to the MDIO bus handled by the separate MDIO driver.
+ * Fix tabulation issues in some Device Tree files.
+ * Rebased on top of 3.7-rc5
+ * Added the Device Tree code necessary for the GlobalScale Mirabox
+   platform and the PlatHome OpenBlocks AX3-4 platform.
+
+Changes since v3:
+ * Use phy_find_first() to get the correct PHY. Suggested by Florian
+   Fainelli.
+ * Make pp->cause_rx_tx a simple variable instead of a per-CPU array
+   since it is not useful. Fixes a comment raised by David Miller.
+
+Changes since v2:
+ * Change compatible string from 'marvell,neta' to
+   'marvell,armada-370-neta'. Requested by Rob Herring.
+ * Rename Ethernet DT nodes from eth@... to ethernet@... Requested by
+   Rob Herring.
+ * Remove device_type DT property. Requested by Rob Herring.
+ * Change the PHY interface for eth0/eth1 to be rgmii-id, which allows
+   to enable TX/RX delay mechanisms at the PHY level. This fixes CRC
+   errors on received packets during iperf tests (it was a bug in v2).
+ * Remove the mvneta_ prefix from module parameters. Requested by
+   Baruch Siach.
+ * Many code style improvements suggested by Fran=C3=A7ois Romieu.
+ * Properly stop/restart the TX queue when the number of TX
+   descriptors available becomes low, instead of returning
+   NETDEV_TX_BUSY. Requested by Fran=C3=A7ois Romieu.
+ * Properly drop packets on the TX path when DMA mapping functions
+   return an error, instead of returning NETDEV_TX_BUSY. Requested by
+   Fran=C3=A7ois Romieu.
+ * Rebased on top of Linux 3.7-rc2.
+
+Changes since v1:
+ * Reduced the Cc: list in order to make the patch set acceptable for
+   the netdev@ mailing list.
+ * Merge the mvneta.h contents into mvneta.c, since the header was
+   only used by the driver. Requested by Arnd Bergmann.
+ * Completely reorganize the organization of the register list and
+   register values, in order to make it more consistent, and hopefully
+   easier to read (especially easier to match register values with the
+   corresponding register).
+ * Integrate with the phylib, as suggested by Florian Fainelli, and
+   remove the link management code that has become useless as the
+   result of this integration
+ * Fix many small details suggested by Florian Fainelli in his review
+   of the first driver
+ * Simplify various parts of the driver (descriptors array allocation,
+   data structures, etc.)
+
+Thanks,
+
+Thomas Petazzoni
