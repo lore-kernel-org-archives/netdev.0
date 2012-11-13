@@ -1,64 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] add DOVE extensions for VXLAN
-Date: Tue, 13 Nov 2012 14:41:48 -0800
-Message-ID: <20121113144148.66a86bc7@nehalam.linuxnetplumber.net>
-References: <201211132022.qADKLMrT018535@lab1.dls>
-	<20121113132842.2414d381@nehalam.linuxnetplumber.net>
-	<OFD9622F46.08427B4F-ON85257AB5.00792B0C-85257AB5.007B6F17@us.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [REGRESSION] r8169: jumbo fixes caused jumbo regressions!
+Date: Tue, 13 Nov 2012 23:35:12 +0100
+Message-ID: <20121113223512.GA29342@electric-eye.fr.zoreil.com>
+References: <20121113170655.GA20291@tugrik.mns.mnsspb.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Hayes Wang <hayeswang@realtek.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org
+To: Kirill Smelkov <kirr@mns.spb.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:43639 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754385Ab2KMWmw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 17:42:52 -0500
-In-Reply-To: <OFD9622F46.08427B4F-ON85257AB5.00792B0C-85257AB5.007B6F17@us.ibm.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:46402 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753683Ab2KMW6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 17:58:30 -0500
+Content-Disposition: inline
+In-Reply-To: <20121113170655.GA20291@tugrik.mns.mnsspb.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Nov 2012 17:28:17 -0500
-David Stevens <dlstevens@us.ibm.com> wrote:
+Kirill Smelkov <kirr@mns.spb.ru> :
+[...]
+> My test is to stream raw video from 8 PAL cameras to net - 4 for 720x576@25 and
+> 4 for 360x288@25 which for YUYV format occupies ~ 860 Mbps of bandwidth. The
+> program to transmit/receive video is here: http://repo.or.cz/w/rawv.git
 
-> Stephen Hemminger <shemminger@vyatta.com> wrote on 11/13/2012 04:28:42 PM:
-> 
-> > 
-> > There are some issues with this.
-> >  1. DOVE flag is mixing multiple functions (arp and route) together,
-> >     users may want one without the other.
-> 
->         I can separate these.
-> 
-> >  2. There is an implicit assumption that IP stack has valid IP address
-> >     in the tenant network (vxlan). This is rarely the case. For security
-> >     and other reasons, in my opinion the best practice is not to have
-> >     the bridge as part of the tenant network.
-> 
->         No, actually for testing I didn't set an IP address on the tunnel
-> endpoint at all. The neighbor table entries must be in the domain, but
-> they are only used within the domain when the tunnel endpoint is on a
-> bridge and the host has no IP address on that interface.
-> 
-> >  3. Misses might be common and this could easily be used to DoS the host
-> >     from a malicious guest.
-> 
->         Yes. The management piece can add forwarding table entries with
-> "0.0.0.0" as the dst IP address to disable MAC misses, and neighbor
-> table entries to disable IP misses, but it is our intention to have all
-> reachable destinations with both forwarding table and neighbor table
-> entries and no learning or multicast address (ie, no forwarding of 
-> anything
-> that isn't in the forwarding table). And yes, we want a notification
-> for every miss packet.
->         Someone who doesn't want all of them shouldn't use this feature.
-> If we're dropping the "dove" flag in favor of individual flags for each
-> feature, then I could make this into "l2miss" and "l3miss" flags and
-> they should default off, of course.
-> 
->                                                         +-DLS
+$ git clone  http://repo.or.cz/w/rawv.git
+Cloning into 'rawv'...
+fatal: http://repo.or.cz/w/rawv.git/info/refs not valid: is this a git repository?
 
-Maybe a OVS style "here is the homeless packet" message is needed.
-That would allow for controller in user space to populate table
-on as needed basis.
+[...]
+> (by the way, on atom system, without tx csum offload, half of cpu time
+> is spent only to calculate checksums...)
+
+:o(
+
+> Now I wonder, where that 6K limit came from and why they say it is now
+> not possible to use jumbos together with tx csum offload ?
+
+Here is an excerpt from a mail where Hayes explained the rules of
+engagement back in may 2011 (John Lumby and Chris Friesen were Cced then):
+
+! The Max tx sizes for 8168 series are as following:
+! 
+! 8168B is 4K bytes.
+! 8168C and 8168CP are 6K bytes.
+! 8168D and later are 9K bytes.
+! 
+! Note that these sizes all include head size. That is, the mtu must less than
+! these values.
+! You have to enable Jumbo frame feature when the tx size is large, otherwise the
+! packet would not be sent. Because the hw doesn't provide the threshold, the
+! checking for MTU > 1500 is just for convenience for sw.
+! 
+! The TSO couldn't work with some feature which need to disable hw checksum, such
+! as Jumbo frame. The hw checksum have to be disabled in certain situations, so
+! the TSO feature should be checked in these situations, too.
+
+> Is my testing enough to justify raising the limits and allowing tx offload ?
+
+I don't oppose knobs to go off-limits but I'll need some rather good reason
+before changing the manufacturer's suggested defaults.
+
+-- 
+Ueimor
