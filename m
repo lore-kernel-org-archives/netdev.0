@@ -1,46 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 01/11] batman-adv: don't rely on positions in struct
- for hashing
-Date: Tue, 13 Nov 2012 14:24:01 -0500 (EST)
-Message-ID: <20121113.142401.1673481049958731174.davem@davemloft.net>
-References: <1352798139-19458-1-git-send-email-ordex@autistici.org>
-	<1352798139-19458-2-git-send-email-ordex@autistici.org>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [net-next 04/11] ixgbevf: Add flag to indicate when rx is in
+ net poll
+Date: Tue, 13 Nov 2012 11:25:09 -0800
+Message-ID: <20121113112509.000074b5@unknown>
+References: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1352815405-751-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20121113.142005.106273728495001348.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	simon.wunderlich@s2003.tu-chemnitz.de, siwu@hrz.tu-chemnitz.de
-To: ordex@autistici.org
+Cc: <jeffrey.t.kirsher@intel.com>, <netdev@vger.kernel.org>,
+	<gospo@redhat.com>, <sassmann@redhat.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48188 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754815Ab2KMTYD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:24:03 -0500
-In-Reply-To: <1352798139-19458-2-git-send-email-ordex@autistici.org>
+Received: from mga02.intel.com ([134.134.136.20]:34124 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754815Ab2KMTZT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 14:25:19 -0500
+In-Reply-To: <20121113.142005.106273728495001348.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex@autistici.org>
-Date: Tue, 13 Nov 2012 10:15:29 +0100
+On Tue, 13 Nov 2012 14:20:05 -0500
+David Miller <davem@davemloft.net> wrote:
 
-> @@ -37,18 +37,26 @@ static void batadv_bla_periodic_work(struct work_struct *work);
->  static void batadv_bla_send_announce(struct batadv_priv *bat_priv,
->  				     struct batadv_backbone_gw *backbone_gw);
->  
-> +static inline void hash_bytes(uint32_t *hash, void *data, uint32_t size)
-> +{
-> +	const unsigned char *key = data;
-> +	int i;
-> +
-> +	for (i = 0; i < size; i++) {
-> +		*hash += key[i];
-> +		*hash += (*hash << 10);
-> +		*hash ^= (*hash >> 6);
-> +	}
-> +}
-> +
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Tue, 13 Nov 2012 06:03:18 -0800
+> 
+> > From: Greg Rose <gregory.v.rose@intel.com>
+> > 
+> > napi_gro_receive shouldn't be called from netpoll context.  Doing
+> > so was causing kernel panics when jumbo frames larger than 2K were
+> > set. Add a flag to check if the Rx ring processing is occurring
+> > from interrupt context or from netpoll context and call netif_rx()
+> > if in the polling context.
+> > 
+> > Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> > Tested-by: Sibai Li <sibai.li@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> 
+> This is not a scalable solution.
+> 
+> It is not prudent to have every single driver do a check like
+> this.  If using GRO receive from netpoll causes problems,
+> then it's a generic issue rather than a driver specific one.
 
-Remove the inline tag.
+OK, let me look into this a bit more then.
 
-Return the uint32_t resulting hash value rather than passing it by
-reference.
+Thanks,
+
+- Greg
