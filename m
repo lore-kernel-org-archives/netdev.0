@@ -1,68 +1,90 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [REGRESSION] r8169: jumbo fixes caused jumbo regressions!
-Date: Tue, 13 Nov 2012 23:35:12 +0100
-Message-ID: <20121113223512.GA29342@electric-eye.fr.zoreil.com>
-References: <20121113170655.GA20291@tugrik.mns.mnsspb.ru>
+From: Mircea Gherzan <mgherzan@gmail.com>
+Subject: Re: [PATCH net-next 1/2] ARM: net: bpf_jit_32: add XOR instruction
+ for BPF JIT
+Date: Wed, 14 Nov 2012 00:00:04 +0100
+Message-ID: <50A2D0F4.3090202@gmail.com>
+References: <20121108012828.GA23143@thinkbox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
-	Hayes Wang <hayeswang@realtek.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org
-To: Kirill Smelkov <kirr@mns.spb.ru>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Daniel Borkmann <dxchgb@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:46402 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753683Ab2KMW6a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 17:58:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20121113170655.GA20291@tugrik.mns.mnsspb.ru>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:34769 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752219Ab2KMXAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 18:00:08 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so131707eaa.19
+        for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 15:00:07 -0800 (PST)
+In-Reply-To: <20121108012828.GA23143@thinkbox>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kirill Smelkov <kirr@mns.spb.ru> :
-[...]
-> My test is to stream raw video from 8 PAL cameras to net - 4 for 720x576@25 and
-> 4 for 360x288@25 which for YUYV format occupies ~ 860 Mbps of bandwidth. The
-> program to transmit/receive video is here: http://repo.or.cz/w/rawv.git
+Am 08.11.2012 02:28, schrieb Daniel Borkmann:
+> This patch is a follow-up for patch "filter: add XOR instruction for use
+> with X/K" that implements BPF ARM JIT parts for the BPF XOR operation.
+> 
+> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+> Cc: Mircea Gherzan <mgherzan@gmail.com>
+> Cc: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  arch/arm/net/bpf_jit_32.c |   15 ++++++++++-----
+>  arch/arm/net/bpf_jit_32.h |    2 ++
+>  2 files changed, 12 insertions(+), 5 deletions(-)
+> 
+> diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+> index c641fb6..8be702d 100644
+> --- a/arch/arm/net/bpf_jit_32.c
+> +++ b/arch/arm/net/bpf_jit_32.c
+> @@ -646,6 +646,16 @@ load_ind:
+>  			update_on_xread(ctx);
+>  			emit(ARM_ORR_R(r_A, r_A, r_X), ctx);
+>  			break;
+> +		case BPF_S_ALU_XOR_K:
+> +			/* A ^= K; */
+> +			OP_IMM3(ARM_EOR, r_A, r_A, k, ctx);
+> +			break;
+> +		case BPF_S_ANC_ALU_XOR_X:
+> +		case BPF_S_ALU_XOR_X:
+> +			/* A ^= X */
+> +			update_on_xread(ctx);
+> +			emit(ARM_EOR_R(r_A, r_A, r_X), ctx);
+> +			break;
+>  		case BPF_S_ALU_AND_K:
+>  			/* A &= K */
+>  			OP_IMM3(ARM_AND, r_A, r_A, k, ctx);
+> @@ -762,11 +772,6 @@ b_epilogue:
+>  			update_on_xread(ctx);
+>  			emit(ARM_MOV_R(r_A, r_X), ctx);
+>  			break;
+> -		case BPF_S_ANC_ALU_XOR_X:
+> -			/* A ^= X */
+> -			update_on_xread(ctx);
+> -			emit(ARM_EOR_R(r_A, r_A, r_X), ctx);
+> -			break;
+>  		case BPF_S_ANC_PROTOCOL:
+>  			/* A = ntohs(skb->protocol) */
+>  			ctx->seen |= SEEN_SKB;
+> diff --git a/arch/arm/net/bpf_jit_32.h b/arch/arm/net/bpf_jit_32.h
+> index 7fa2f7d..afb8462 100644
+> --- a/arch/arm/net/bpf_jit_32.h
+> +++ b/arch/arm/net/bpf_jit_32.h
+> @@ -69,6 +69,7 @@
+>  #define ARM_INST_CMP_I		0x03500000
+>  
+>  #define ARM_INST_EOR_R		0x00200000
+> +#define ARM_INST_EOR_I		0x02200000
+>  
+>  #define ARM_INST_LDRB_I		0x05d00000
+>  #define ARM_INST_LDRB_R		0x07d00000
+> @@ -135,6 +136,7 @@
+>  #define ARM_CMP_I(rn, imm)	_AL3_I(ARM_INST_CMP, 0, rn, imm)
+>  
+>  #define ARM_EOR_R(rd, rn, rm)	_AL3_R(ARM_INST_EOR, rd, rn, rm)
+> +#define ARM_EOR_I(rd, rn, imm)	_AL3_I(ARM_INST_EOR, rd, rn, imm)
+>  
+>  #define ARM_LDR_I(rt, rn, off)	(ARM_INST_LDR_I | (rt) << 12 | (rn) << 16 \
+>  				 | (off))
 
-$ git clone  http://repo.or.cz/w/rawv.git
-Cloning into 'rawv'...
-fatal: http://repo.or.cz/w/rawv.git/info/refs not valid: is this a git repository?
-
-[...]
-> (by the way, on atom system, without tx csum offload, half of cpu time
-> is spent only to calculate checksums...)
-
-:o(
-
-> Now I wonder, where that 6K limit came from and why they say it is now
-> not possible to use jumbos together with tx csum offload ?
-
-Here is an excerpt from a mail where Hayes explained the rules of
-engagement back in may 2011 (John Lumby and Chris Friesen were Cced then):
-
-! The Max tx sizes for 8168 series are as following:
-! 
-! 8168B is 4K bytes.
-! 8168C and 8168CP are 6K bytes.
-! 8168D and later are 9K bytes.
-! 
-! Note that these sizes all include head size. That is, the mtu must less than
-! these values.
-! You have to enable Jumbo frame feature when the tx size is large, otherwise the
-! packet would not be sent. Because the hw doesn't provide the threshold, the
-! checking for MTU > 1500 is just for convenience for sw.
-! 
-! The TSO couldn't work with some feature which need to disable hw checksum, such
-! as Jumbo frame. The hw checksum have to be disabled in certain situations, so
-! the TSO feature should be checked in these situations, too.
-
-> Is my testing enough to justify raising the limits and allowing tx offload ?
-
-I don't oppose knobs to go off-limits but I'll need some rather good reason
-before changing the manufacturer's suggested defaults.
-
--- 
-Ueimor
+Acked-by: Mircea Gherzan <mgherzan@gmail.com>
