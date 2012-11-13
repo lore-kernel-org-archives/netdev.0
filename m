@@ -1,60 +1,35 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: net/usb device additions for -stable
-Date: Tue, 13 Nov 2012 21:25:58 +0100
-Message-ID: <877gppuu5l.fsf@nemi.mork.no>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Jay Purohit <jspurohit@velocitylimitless.com>,
-	Valdis Kletnieks <valdis.kletnieks@vt.edu>,
-	Jan Ceuleers <jan.ceuleers@computer.org>,
-	Olof Ermis <olof.ermis@gmail.com>,
-	Tommy Cheng <tommy7765@yahoo.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:53263 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755796Ab2KMUfo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 15:35:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Marchi <simon.marchi@polymtl.ca>
+Subject: [PATCH] tilegx: request_irq with a non-null device name
+Date: Tue, 13 Nov 2012 15:58:20 -0500
+Message-ID: <1352840300-27814-1-git-send-email-simon.marchi@polymtl.ca>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Simon Marchi <simon.marchi@polymtl.ca>
+To: cmetcalf@tilera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I looked quickly through the list of added devices in the range
-v3.6..net/master and tried to cherry-pick them into the current 3.0,
-3.2, 3.4 and 3.6 stable trees.  There weren't really that many. The
-result was:
+This patch simply makes the tilegx net driver call request_irq with a
+non-null name. It makes the output in /proc/interrupts more obvious, but
+also helps tools that don't expect to find null there.
 
-# for stable-3.6:
-af1b85e usb/ipheth: Add iPhone 5 support
-c6846ee net: qmi_wwan: adding more ZTE devices
-bbc8d92 net: cdc_ncm: add Huawei devices
+Signed-off-by: Simon Marchi <simon.marchi@polymtl.ca>
+---
+ drivers/net/ethernet/tile/tilegx.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-# for stable-3.4:
-af1b85e usb/ipheth: Add iPhone 5 support
-
-# for stable-3.2:
-af1b85e usb/ipheth: Add iPhone 5 support
-
-# for stable-3.0:
-af1b85e usb/ipheth: Add iPhone 5 support
-
-
-
-=46or completeness, these three patches were also applied after 3.6 but=
- are
-not in the list above for the given reasons:
-
-42d94dc net: qmi_wwan: adding Huawei E367, ZTE MF683 and Pantech P4200
- - does not apply cleanly to any stable relase. I'll send a backport
-   if/when I get around to it.
-
-66dc81e asix: Adds support for Lenovo 10/100 USB dongle.
- - already applied to stable-3.6 and does not apply to anything earlier
-
-f8295ec qmi_wwan/cdc_ether: move Novatel 551 and E362 to qmi_wwan
- - already applied to stable-3.6 and does not apply to anything earlier
-
-
-
-Bj=C3=B8rn
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index 4e98100..66e025a 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -917,7 +917,7 @@ static int tile_net_setup_interrupts(struct net_device *dev)
+ 	ingress_irq = rc;
+ 	tile_irq_activate(ingress_irq, TILE_IRQ_PERCPU);
+ 	rc = request_irq(ingress_irq, tile_net_handle_ingress_irq,
+-			 0, NULL, NULL);
++			 0, "tile_net", NULL);
+ 	if (rc != 0) {
+ 		netdev_err(dev, "request_irq failed: %d\n", rc);
+ 		destroy_irq(ingress_irq);
+-- 
+1.7.1
