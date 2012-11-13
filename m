@@ -1,76 +1,290 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/11] ixgbevf: Add flag to indicate when rx is in net poll
-Date: Tue, 13 Nov 2012 06:03:18 -0800
-Message-ID: <1352815405-751-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/11] igb: Support for modifying UDP RSS flow hashing
+Date: Tue, 13 Nov 2012 06:03:21 -0800
+Message-ID: <1352815405-751-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:35423 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754644Ab2KMODa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 09:03:30 -0500
+	id S1754644Ab2KMODc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 09:03:32 -0500
 In-Reply-To: <1352815405-751-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-napi_gro_receive shouldn't be called from netpoll context.  Doing
-so was causing kernel panics when jumbo frames larger than 2K were set.
-Add a flag to check if the Rx ring processing is occurring from interrupt
-context or from netpoll context and call netif_rx() if in the polling
-context.
+This patch provides ability to enable or disable UDP RSS hashing. It gives
+users option of generating RSS hash based on the UDP source and destination
+ports numbers. Currently, UDP flow hash is always disabled in igb-driver.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      | 1 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 ++++++-
- 2 files changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/igb.h         |  14 ++-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c | 181 +++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/igb_main.c    |  13 +-
+ 3 files changed, 197 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-index 2323ccd..9faaf54 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
-@@ -229,6 +229,7 @@ struct ixgbevf_adapter {
- 	 */
- 	u32 flags;
- #define IXGBE_FLAG_IN_WATCHDOG_TASK             (u32)(1)
-+#define IXGBE_FLAG_IN_NETPOLL                   (u32)(1 << 1)
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 796db53..b23a667 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -386,12 +386,14 @@ struct igb_adapter {
+ 	char fw_version[32];
+ };
  
- 	/* OS defined structs */
- 	struct net_device *netdev;
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index ee5ff0e..00f9698 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -288,7 +288,10 @@ static void ixgbevf_receive_skb(struct ixgbevf_q_vector *q_vector,
- 	if (is_vlan && test_bit(tag & VLAN_VID_MASK, adapter->active_vlans))
- 		__vlan_hwaccel_put_tag(skb, tag);
+-#define IGB_FLAG_HAS_MSI           (1 << 0)
+-#define IGB_FLAG_DCA_ENABLED       (1 << 1)
+-#define IGB_FLAG_QUAD_PORT_A       (1 << 2)
+-#define IGB_FLAG_QUEUE_PAIRS       (1 << 3)
+-#define IGB_FLAG_DMAC              (1 << 4)
+-#define IGB_FLAG_PTP               (1 << 5)
++#define IGB_FLAG_HAS_MSI		(1 << 0)
++#define IGB_FLAG_DCA_ENABLED		(1 << 1)
++#define IGB_FLAG_QUAD_PORT_A		(1 << 2)
++#define IGB_FLAG_QUEUE_PAIRS		(1 << 3)
++#define IGB_FLAG_DMAC			(1 << 4)
++#define IGB_FLAG_PTP			(1 << 5)
++#define IGB_FLAG_RSS_FIELD_IPV4_UDP	(1 << 6)
++#define IGB_FLAG_RSS_FIELD_IPV6_UDP	(1 << 7)
  
--	napi_gro_receive(&q_vector->napi, skb);
-+	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
-+		napi_gro_receive(&q_vector->napi, skb);
-+	else
-+		netif_rx(skb);
+ /* DMA Coalescing defines */
+ #define IGB_MIN_TXPBSIZE           20408
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index d8b1bee..2b82a53 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -2350,6 +2350,185 @@ static int igb_get_ts_info(struct net_device *dev,
+ 	}
  }
  
- /**
-@@ -550,9 +553,11 @@ static int ixgbevf_poll(struct napi_struct *napi, int budget)
- 	else
- 		per_ring_budget = budget;
++static int igb_get_rss_hash_opts(struct igb_adapter *adapter,
++				 struct ethtool_rxnfc *cmd)
++{
++	cmd->data = 0;
++
++	/* Report default options for RSS on igb */
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case UDP_V4_FLOW:
++		if (adapter->flags & IGB_FLAG_RSS_FIELD_IPV4_UDP)
++			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case SCTP_V4_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case IPV4_FLOW:
++		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		break;
++	case TCP_V6_FLOW:
++		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case UDP_V6_FLOW:
++		if (adapter->flags & IGB_FLAG_RSS_FIELD_IPV6_UDP)
++			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++	case SCTP_V6_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case IPV6_FLOW:
++		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int igb_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
++			   u32 *rule_locs)
++{
++	struct igb_adapter *adapter = netdev_priv(dev);
++	int ret = -EOPNOTSUPP;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_GRXRINGS:
++		cmd->data = adapter->num_rx_queues;
++		ret = 0;
++		break;
++	case ETHTOOL_GRXFH:
++		ret = igb_get_rss_hash_opts(adapter, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
++#define UDP_RSS_FLAGS (IGB_FLAG_RSS_FIELD_IPV4_UDP | \
++		       IGB_FLAG_RSS_FIELD_IPV6_UDP)
++static int igb_set_rss_hash_opt(struct igb_adapter *adapter,
++				struct ethtool_rxnfc *nfc)
++{
++	u32 flags = adapter->flags;
++
++	/* RSS does not support anything other than hashing
++	 * to queues on src and dst IPs and ports
++	 */
++	if (nfc->data & ~(RXH_IP_SRC | RXH_IP_DST |
++			  RXH_L4_B_0_1 | RXH_L4_B_2_3))
++		return -EINVAL;
++
++	switch (nfc->flow_type) {
++	case TCP_V4_FLOW:
++	case TCP_V6_FLOW:
++		if (!(nfc->data & RXH_IP_SRC) ||
++		    !(nfc->data & RXH_IP_DST) ||
++		    !(nfc->data & RXH_L4_B_0_1) ||
++		    !(nfc->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		break;
++	case UDP_V4_FLOW:
++		if (!(nfc->data & RXH_IP_SRC) ||
++		    !(nfc->data & RXH_IP_DST))
++			return -EINVAL;
++		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++		case 0:
++			flags &= ~IGB_FLAG_RSS_FIELD_IPV4_UDP;
++			break;
++		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			flags |= IGB_FLAG_RSS_FIELD_IPV4_UDP;
++			break;
++		default:
++			return -EINVAL;
++		}
++		break;
++	case UDP_V6_FLOW:
++		if (!(nfc->data & RXH_IP_SRC) ||
++		    !(nfc->data & RXH_IP_DST))
++			return -EINVAL;
++		switch (nfc->data & (RXH_L4_B_0_1 | RXH_L4_B_2_3)) {
++		case 0:
++			flags &= ~IGB_FLAG_RSS_FIELD_IPV6_UDP;
++			break;
++		case (RXH_L4_B_0_1 | RXH_L4_B_2_3):
++			flags |= IGB_FLAG_RSS_FIELD_IPV6_UDP;
++			break;
++		default:
++			return -EINVAL;
++		}
++		break;
++	case AH_ESP_V4_FLOW:
++	case AH_V4_FLOW:
++	case ESP_V4_FLOW:
++	case SCTP_V4_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V6_FLOW:
++	case SCTP_V6_FLOW:
++		if (!(nfc->data & RXH_IP_SRC) ||
++		    !(nfc->data & RXH_IP_DST) ||
++		    (nfc->data & RXH_L4_B_0_1) ||
++		    (nfc->data & RXH_L4_B_2_3))
++			return -EINVAL;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	/* if we changed something we need to update flags */
++	if (flags != adapter->flags) {
++		struct e1000_hw *hw = &adapter->hw;
++		u32 mrqc = rd32(E1000_MRQC);
++
++		if ((flags & UDP_RSS_FLAGS) &&
++		    !(adapter->flags & UDP_RSS_FLAGS))
++			dev_err(&adapter->pdev->dev,
++				"enabling UDP RSS: fragmented packets may arrive out of order to the stack above\n");
++
++		adapter->flags = flags;
++
++		/* Perform hash on these packet types */
++		mrqc |= E1000_MRQC_RSS_FIELD_IPV4 |
++			E1000_MRQC_RSS_FIELD_IPV4_TCP |
++			E1000_MRQC_RSS_FIELD_IPV6 |
++			E1000_MRQC_RSS_FIELD_IPV6_TCP;
++
++		mrqc &= ~(E1000_MRQC_RSS_FIELD_IPV4_UDP |
++			  E1000_MRQC_RSS_FIELD_IPV6_UDP);
++
++		if (flags & IGB_FLAG_RSS_FIELD_IPV4_UDP)
++			mrqc |= E1000_MRQC_RSS_FIELD_IPV4_UDP;
++
++		if (flags & IGB_FLAG_RSS_FIELD_IPV6_UDP)
++			mrqc |= E1000_MRQC_RSS_FIELD_IPV6_UDP;
++
++		wr32(E1000_MRQC, mrqc);
++	}
++
++	return 0;
++}
++
++static int igb_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
++{
++	struct igb_adapter *adapter = netdev_priv(dev);
++	int ret = -EOPNOTSUPP;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_SRXFH:
++		ret = igb_set_rss_hash_opt(adapter, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
+ static int igb_ethtool_begin(struct net_device *netdev)
+ {
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+@@ -2390,6 +2569,8 @@ static const struct ethtool_ops igb_ethtool_ops = {
+ 	.get_coalesce           = igb_get_coalesce,
+ 	.set_coalesce           = igb_set_coalesce,
+ 	.get_ts_info            = igb_get_ts_info,
++	.get_rxnfc		= igb_get_rxnfc,
++	.set_rxnfc		= igb_set_rxnfc,
+ 	.begin			= igb_ethtool_begin,
+ 	.complete		= igb_ethtool_complete,
+ };
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 082ce73..da9fd7b 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2874,18 +2874,21 @@ static void igb_setup_mrqc(struct igb_adapter *adapter)
  
-+	adapter->flags |= IXGBE_FLAG_IN_NETPOLL;
- 	ixgbevf_for_each_ring(ring, q_vector->rx)
- 		clean_complete &= ixgbevf_clean_rx_irq(q_vector, ring,
- 						       per_ring_budget);
-+	adapter->flags &= ~IXGBE_FLAG_IN_NETPOLL;
+ 	/* Don't need to set TUOFL or IPOFL, they default to 1 */
+ 	wr32(E1000_RXCSUM, rxcsum);
+-	/*
+-	 * Generate RSS hash based on TCP port numbers and/or
+-	 * IPv4/v6 src and dst addresses since UDP cannot be
+-	 * hashed reliably due to IP fragmentation
+-	 */
  
- 	/* If all work not completed, return budget and keep polling */
- 	if (!clean_complete)
++	/* Generate RSS hash based on packet types, TCP/UDP
++	 * port numbers and/or IPv4/v6 src and dst addresses
++	 */
+ 	mrqc = E1000_MRQC_RSS_FIELD_IPV4 |
+ 	       E1000_MRQC_RSS_FIELD_IPV4_TCP |
+ 	       E1000_MRQC_RSS_FIELD_IPV6 |
+ 	       E1000_MRQC_RSS_FIELD_IPV6_TCP |
+ 	       E1000_MRQC_RSS_FIELD_IPV6_TCP_EX;
+ 
++	if (adapter->flags & IGB_FLAG_RSS_FIELD_IPV4_UDP)
++		mrqc |= E1000_MRQC_RSS_FIELD_IPV4_UDP;
++	if (adapter->flags & IGB_FLAG_RSS_FIELD_IPV6_UDP)
++		mrqc |= E1000_MRQC_RSS_FIELD_IPV6_UDP;
++
+ 	/* If VMDq is enabled then we set the appropriate mode for that, else
+ 	 * we default to RSS so that an RSS hash is calculated per packet even
+ 	 * if we are only using one queue */
 -- 
 1.7.11.7
