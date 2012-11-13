@@ -1,82 +1,47 @@
 From: Shan Wei <shanwei88@gmail.com>
-Subject: [PATCH 0/9 v4] use efficient this_cpu_* helper
-Date: Tue, 13 Nov 2012 09:51:37 +0800
-Message-ID: <50A1A7A9.6050501@gmail.com>
+Subject: [PATCH v4 1/9] net: core: use this_cpu_ptr per-cpu helper
+Date: Tue, 13 Nov 2012 09:51:54 +0800
+Message-ID: <50A1A7BA.5000507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: cl@linux-foundation.org, David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>, timo.teras@iki.fi,
+	steffen.klassert@secunet.com, NetDev <netdev@vger.kernel.org>,
 	Kernel-Maillist <linux-kernel@vger.kernel.org>,
-	Shan Wei <shanwei88@gmail.com>
+	cl@linux-foundation.org, Shan Wei <shanwei88@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-this_cpu_ptr/this_cpu_read is faster than per_cpu_ptr(p, smp_processor_=
-id())=20
-and can reduce  memory accesses.
-The latter helper needs to find the offset for current cpu,
-and needs more assembler instructions which objdump shows in following.=
-=20
+From: Shan Wei <davidshan@tencent.com>
 
-this_cpu_ptr relocates and address. this_cpu_read() relocates the addre=
-ss
-and performs the fetch. If you want to operate on rda(defined as per_cp=
-u)=20
-then you can only use this_cpu_ptr. this_cpu_read() saves you more inst=
-ructions
-since it can do the relocation and the fetch in one instruction.
+flush_tasklet is a struct, not a pointer in percpu var.
+so use this_cpu_ptr to get the member pointer.
 
-per_cpu_ptr(p, smp_processor_id())=EF=BC=9A
-  1e:   65 8b 04 25 00 00 00 00         mov    %gs:0x0,%eax
-  26:   48 98                           cltq
-  28:   31 f6                           xor    %esi,%esi
-  2a:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
-  31:   48 8b 04 c5 00 00 00 00         mov    0x0(,%rax,8),%rax
-  39:   c7 44 10 04 14 00 00 00         movl   $0x14,0x4(%rax,%rdx,1)
+Signed-off-by: Shan Wei <davidshan@tencent.com>
+Reviewed-by: Christoph Lameter <cl@linux.com>
+---
+no changes vs v3.
+---
+ net/core/flow.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-this_cpu_ptr(p)
-  1e:   65 48 03 14 25 00 00 00 00      add    %gs:0x0,%rdx
-  27:   31 f6                           xor    %esi,%esi
-  29:   c7 42 04 14 00 00 00            movl   $0x14,0x4(%rdx)
-  30:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
-
-
-
-Changelog V4:
-1. [read|write]ing fields of struct rds_ib_cache_head using __this_cpu_=
-* operation for rds subsystem.
-   see patch2
-2. fix bug in xfrm to read pointer. see patch3.=20
-3. avoid type cast in patch7.
-
-Changelog V3:
-1. use this_cpu_read directly read member of per-cpu variable,
-   so that droping the this_cpu_ptr operation.
-2. for preemption off and bottom halves off case,
-   use __this_cpu_read instead of this_cpu_read.=20
-
-Changelog V2:
-1. Use this_cpu_read directly instead of ref to field of per-cpu variab=
-le.
-2. Patch5 about ftrace is dropped from this series.
-3. Add new patch9 to replace get_cpu;per_cpu_ptr;put_cpu with this_cpu_=
-add opt.
-4. For preemption disable case, use __this_cpu_read instead.
- =20
-
-$ git diff --stat d4185bbf62a5d8d777ee445db1581beb17882a07
- drivers/clocksource/arm_generic.c |    2 +-
- kernel/padata.c                   |    5 ++---
- kernel/rcutree.c                  |    2 +-
- kernel/trace/blktrace.c           |    2 +-
- kernel/trace/trace.c              |    5 +----
- net/batman-adv/main.h             |    4 +---
- net/core/flow.c                   |    4 +---
- net/openvswitch/datapath.c        |    4 ++--
- net/openvswitch/vport.c           |    5 ++---
- net/rds/ib.h                      |    2 +-
- net/rds/ib_recv.c                 |   24 +++++++++++++-----------
- net/xfrm/xfrm_ipcomp.c            |    8 +++-----
- 12 files changed, 29 insertions(+), 38 deletions(-)
+diff --git a/net/core/flow.c b/net/core/flow.c
+index e318c7e..b0901ee 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -327,11 +327,9 @@ static void flow_cache_flush_tasklet(unsigned long data)
+ static void flow_cache_flush_per_cpu(void *data)
+ {
+ 	struct flow_flush_info *info = data;
+-	int cpu;
+ 	struct tasklet_struct *tasklet;
+ 
+-	cpu = smp_processor_id();
+-	tasklet = &per_cpu_ptr(info->cache->percpu, cpu)->flush_tasklet;
++	tasklet = this_cpu_ptr(&info->cache->percpu->flush_tasklet);
+ 	tasklet->data = (unsigned long)info;
+ 	tasklet_schedule(tasklet);
+ }
+-- 
+1.7.1
