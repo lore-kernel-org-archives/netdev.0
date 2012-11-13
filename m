@@ -1,55 +1,55 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: Re: linux-next: manual merge of the arm-soc tree with the net-next tree
-Date: Tue, 13 Nov 2012 08:21:26 +0100
-Message-ID: <CAGhQ9Vx3Y3j0qqkEif09HebFyR+1UYmSbp=3jwuXnoiuWBdymQ@mail.gmail.com>
-References: <20121113151536.50d0292e8cb88b10686b576e@canb.auug.org.au>
+From: Sujith Manoharan <sujith-TPRpbcbO+rZAfugRpC6u6w@public.gmane.org>
+Subject: ath9k_htc-based adapter unfunctioning after commit ceb26a6013
+Date: Tue, 13 Nov 2012 12:58:02 +0530
+Message-ID: <20641.63106.943323.923565@gargle.gargle.HOWL>
+References: <CA++BO6SuRgOu7A4BKobrdEeSpSc3UUYHXaECmEGE=R17w7HjQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121113151536.50d0292e8cb88b10686b576e@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jouni-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
+	vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org
+To: Corey Richardson <corey-GAYEDG9L0ISsTnJN9+BGXg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA++BO6SuRgOu7A4BKobrdEeSpSc3UUYHXaECmEGE=R17w7HjQA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 13 November 2012 05:15, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> Hi all,
->
-> Today's linux-next merge of the arm-soc tree got a conflict in
-> drivers/net/ethernet/cadence/at91_ether.c between various commits from
-> the net-next tree and commit bcd2360c1ff9 ("arm: at91: move platfarm_data
-> to include/linux/platform_data/atmel.h") from the arm-soc tree.
->
-> I fixed it up (I think - see below) and can carry the fix as necessary
-> (no action is required).
->
-> --
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
->
-> diff --cc drivers/net/ethernet/cadence/at91_ether.c
-> index e7a476c,35fc6edb..0000000
-> --- a/drivers/net/ethernet/cadence/at91_ether.c
-> +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> @@@ -25,53 -31,728 +25,54 @@@
->   #include <linux/clk.h>
->   #include <linux/gfp.h>
->   #include <linux/phy.h>
->  +#include <linux/io.h>
->  +#include <linux/of.h>
->  +#include <linux/of_device.h>
->  +#include <linux/of_net.h>
->  +#include <linux/pinctrl/consumer.h>
-> + #include <linux/platform_data/atmel.h>
+Corey Richardson wrote:
+> I was giving 3.7-rc4 a whirl when I discovered my wireless adapter [0] wasn't
+> working: the LED didn't light up. Went and ran 'ip link' and it just hung there.
+> Tried a few other things and discovered that sudo was broken too. With
+> strace I found that they were hanging in sendto().
+> 
+> If I then unplug the adapter, everything comes out of the hang.
+> 
+> Bisected and found that commit ceb26a6013b962b82f644189ea29d802490fc8fc is
+> to blame.
 
-The platform_data/atmel.h include shouldn't be necessary since the
-driver already includes platform_data/macb.h.
+I can see this issue too. I am not entirely convinced that the commit in
+question is valid. If a HW reset fails for some reason in start(), bailing
+out seems the right thing to do instead of continuing to fiddle with the HW
+and silently returning a success code to mac80211.
 
-Otherwise the fix up looks correct.
+I was able to bring up the device with this patch.
 
-regards
-Joachim Eastwood
+diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/ath/ath9k/hw.c
+index 756191b..e06bcec 100644
+--- a/drivers/net/wireless/ath/ath9k/hw.c
++++ b/drivers/net/wireless/ath/ath9k/hw.c
+@@ -1456,7 +1456,7 @@ static bool ath9k_hw_set_reset_reg(struct ath_hw *ah, u32 type)
+ 	switch (type) {
+ 	case ATH9K_RESET_POWER_ON:
+ 		ret = ath9k_hw_set_reset_power_on(ah);
+-		if (!ret)
++		if (ret)
+ 			ah->reset_power_on = true;
+ 		break;
+ 	case ATH9K_RESET_WARM:
+
+Sujith
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
