@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: add knob to send unsolicited ND on link-layer
- address change
-Date: Tue, 13 Nov 2012 14:29:36 -0500 (EST)
-Message-ID: <20121113.142936.942170251981578218.davem@davemloft.net>
-References: <20121107024620.GD26398@order.stressinduktion.org>
+Subject: Re: [patch 0/2] s390: network bug fixes for net
+Date: Tue, 13 Nov 2012 14:31:35 -0500 (EST)
+Message-ID: <20121113.143135.969605064110482247.davem@davemloft.net>
+References: <20121113090515.223638702@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48244 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48265 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754731Ab2KMT3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:29:38 -0500
-In-Reply-To: <20121107024620.GD26398@order.stressinduktion.org>
+	with ESMTP id S1754731Ab2KMTbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 14:31:37 -0500
+In-Reply-To: <20121113090515.223638702@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Wed, 7 Nov 2012 03:46:20 +0100
+From: frank.blaschka@de.ibm.com
+Date: Tue, 13 Nov 2012 10:05:15 +0100
 
-> This patch introduces a new knob ndisc_notify. If enabled, the kernel
-> will transmit an unsolicited neighbour advertisement on link-layer address
-> change to update the neighbour tables of the corresponding hosts more quickly.
+> Hi Dave,
 > 
-> This is the equivalent to arp_notify in ipv4 world.
+> here are 2 bug fixes for net.
 > 
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> shortlog:
+> 
+> Ursula Braun (1)
+> qeth: set new mac even if old mac is gone
+> 
+> Stefan Raspl (1)
+> qeth: Fix IPA_CMD_QIPASSIST return code handling
 
-Applied to net-next, with the empty line removed.
-
-Thanks.
+All applied, thanks.
