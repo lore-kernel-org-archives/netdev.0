@@ -1,29 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3] wanrouter: Remove it and the drivers that depend on
- it
-Date: Tue, 13 Nov 2012 20:44:37 -0500 (EST)
-Message-ID: <20121113.204437.197646115673556624.davem@davemloft.net>
-References: <1352846164.17444.16.camel@joe-AO722>
-	<20121113.182215.2003568859498195687.davem@davemloft.net>
-	<CAP=VYLqiLpVn99bp08gkSQ+jLFiw8T7vsohJ6e+TdzOtyDwKBQ@mail.gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next] 8021q: validate SAN MAC address
+Date: Tue, 13 Nov 2012 17:50:50 -0800
+Message-ID: <1352857850.6276.71.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1352845788.6276.28.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <20121113.181600.667479923208656972.davem@davemloft.net>
+ <1352850029.6276.52.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <20121113.202408.79469396824848499.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52334 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756063Ab2KNBoi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 20:44:38 -0500
-In-Reply-To: <CAP=VYLqiLpVn99bp08gkSQ+jLFiw8T7vsohJ6e+TdzOtyDwKBQ@mail.gmail.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:2097 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756123Ab2KNBvF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 20:51:05 -0500
+In-Reply-To: <20121113.202408.79469396824848499.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Paul, you can't have HTML content to the list and one of your MIME
-sections was HTML, so it was rejected by vger's filters.
-
-Please repost with the HTML stuff removed.
-
-Thanks.
+On Tue, 2012-11-13 at 20:24 -0500, David Miller wrote:
+> From: "Michael Chan" <mchan@broadcom.com>
+> Date: Tue, 13 Nov 2012 15:40:29 -0800
+> 
+> > I suppose we can just put the SAN MAC into the real netdev->dev_addr so
+> > that the VLAN will automatically get it.  But this doesn't seem very
+> > nice as we would be pretending to have a normal MAC address (for
+> > networking) in this SAN device.  The networking MAC address is in a
+> > different PCI function.
+> 
+> I certainly would prefer if you took that approach.  At least in that
+> way the addressing of the netdev objects would appear more consistent.
+> 
+Ok.  To be more complete, I think we need to add a flag or something to
+such a netdev to indicate that it is a SAN device only.  What's your
+opinion on that?
