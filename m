@@ -1,50 +1,152 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Subject: Re: [v6 PATCH 1/8] cxgb4/cxgb4vf: Chelsio FCoE offload driver
- submission (common header updates).
-Date: Tue, 13 Nov 2012 18:26:48 -0800
-Message-ID: <1352860008.28921.2.camel@dabdike>
-References: <1351158621-32222-1-git-send-email-naresh@chelsio.com>
-	 <1351158621-32222-2-git-send-email-naresh@chelsio.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RFC PATCH 03/13] net: Add net protocol offload registration
+ infrustructure
+Date: Wed, 14 Nov 2012 09:22:30 +0100
+Message-ID: <50A354C6.20805@6wind.com>
+References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com> <1352856254-29667-4-git-send-email-vyasevic@redhat.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-scsi@vger.kernel.org, dm@chelsio.com, leedom@chelsio.com,
-	netdev@vger.kernel.org, chethan@chelsio.com
-To: Naresh Kumar Inna <naresh@chelsio.com>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.com
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bedivere.hansenpartnership.com ([66.63.167.143]:55984 "EHLO
-	bedivere.hansenpartnership.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755145Ab2KNHDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 02:03:01 -0500
-In-Reply-To: <1351158621-32222-2-git-send-email-naresh@chelsio.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:50016 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932187Ab2KNIWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 03:22:34 -0500
+Received: by mail-we0-f174.google.com with SMTP id t9so57776wey.19
+        for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 00:22:33 -0800 (PST)
+In-Reply-To: <1352856254-29667-4-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-10-25 at 15:20 +0530, Naresh Kumar Inna wrote:
-> This patch contains updates to firmware/hardware header files shared
-> between csiostor and cxgb4/cxgb4vf, and the resulting changes to the
-> cxgb4/cxgb4vf source files.
->=20
-> Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
+Le 14/11/2012 02:24, Vlad Yasevich a =C3=A9crit :
+> Create a new data structure for IPv4 protocols that holds GRO/GSO
+> callbacks and a new array to track the protocols that register GRO/GS=
+O.
+>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 > ---
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    8 ++--
->  drivers/net/ethernet/chelsio/cxgb4/sge.c        |    6 ++--
->  drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   20 +++++-----
->  drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    1 +
->  drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   36 +++++++++++++=
-++++++-
->  drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   41 +++++++++++++=
-+++++++---
->  drivers/net/ethernet/chelsio/cxgb4vf/sge.c      |    8 ++--
->  7 files changed, 92 insertions(+), 28 deletions(-)
-
-This still doesn't compile:
-
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c: In function =E2=80=98a=
-dap_init0=E2=80=99:
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:3932:10: error: =E2=80=98=
-struct fw_caps_config_cmd=E2=80=99 has no member named =E2=80=98retval_=
-len16=E2=80=99
-make[5]: *** [drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.o] Error 1
-
-James
+>   include/net/protocol.h |   12 ++++++++++++
+>   net/ipv4/af_inet.c     |   12 ++++++++++++
+>   net/ipv4/protocol.c    |   22 +++++++++++++++++++++-
+>   3 files changed, 45 insertions(+), 1 deletions(-)
+>
+> diff --git a/include/net/protocol.h b/include/net/protocol.h
+> index 929528c..d8ecb17 100644
+> --- a/include/net/protocol.h
+> +++ b/include/net/protocol.h
+> @@ -77,6 +77,15 @@ struct inet6_protocol {
+>   #define INET6_PROTO_GSO_EXTHDR	0x4
+>   #endif
+>
+> +struct net_offload {
+> +	int			(*gso_send_check)(struct sk_buff *skb);
+> +	struct sk_buff	       *(*gso_segment)(struct sk_buff *skb,
+> +					       netdev_features_t features);
+> +	struct sk_buff	      **(*gro_receive)(struct sk_buff **head,
+> +					       struct sk_buff *skb);
+> +	int			(*gro_complete)(struct sk_buff *skb);
+> +};
+> +
+>   /* This is used to register socket interfaces for IP protocols.  */
+>   struct inet_protosw {
+>   	struct list_head list;
+> @@ -96,6 +105,7 @@ struct inet_protosw {
+>   #define INET_PROTOSW_ICSK      0x04  /* Is this an inet_connection_=
+sock? */
+>
+>   extern const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS=
+];
+> +extern const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS=
+];
+>
+>   #if IS_ENABLED(CONFIG_IPV6)
+>   extern const struct inet6_protocol __rcu *inet6_protos[MAX_INET_PRO=
+TOS];
+> @@ -103,6 +113,8 @@ extern const struct inet6_protocol __rcu *inet6_p=
+rotos[MAX_INET_PROTOS];
+>
+>   extern int	inet_add_protocol(const struct net_protocol *prot, unsig=
+ned char num);
+>   extern int	inet_del_protocol(const struct net_protocol *prot, unsig=
+ned char num);
+> +extern int	inet_add_offload(const struct net_offload *prot, unsigned=
+ char num);
+> +extern int	inet_del_offload(const struct net_offload *prot, unsigned=
+ char num);
+>   extern void	inet_register_protosw(struct inet_protosw *p);
+>   extern void	inet_unregister_protosw(struct inet_protosw *p);
+>
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index 4c99c5f..3918d86 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -1566,6 +1566,13 @@ static const struct net_protocol tcp_protocol =
+=3D {
+>   	.netns_ok	=3D	1,
+>   };
+>
+> +static const struct net_offload tcp_offload =3D {
+> +	.gso_send_check	=3D	tcp_v4_gso_send_check,
+> +	.gso_segment	=3D	tcp_tso_segment,
+> +	.gro_receive	=3D	tcp4_gro_receive,
+> +	.gro_complete	=3D	tcp4_gro_complete,
+> +};
+> +
+>   static const struct net_protocol udp_protocol =3D {
+>   	.handler =3D	udp_rcv,
+>   	.err_handler =3D	udp_err,
+> @@ -1575,6 +1582,11 @@ static const struct net_protocol udp_protocol =
+=3D {
+>   	.netns_ok =3D	1,
+>   };
+>
+> +static const struct net_offload udp_offload =3D {
+> +	.gso_send_check =3D udp4_ufo_send_check,
+> +	.gso_segment =3D udp4_ufo_fragment,
+> +};
+> +
+>   static const struct net_protocol icmp_protocol =3D {
+>   	.handler =3D	icmp_rcv,
+>   	.err_handler =3D	ping_err,
+> diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
+> index 8918eff..1278db8 100644
+> --- a/net/ipv4/protocol.c
+> +++ b/net/ipv4/protocol.c
+> @@ -29,6 +29,7 @@
+>   #include <net/protocol.h>
+>
+>   const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS] __rea=
+d_mostly;
+> +const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __rea=
+d_mostly;
+>
+>   /*
+>    *	Add a protocol handler to the hash tables
+> @@ -41,6 +42,13 @@ int inet_add_protocol(const struct net_protocol *p=
+rot, unsigned char protocol)
+>   }
+>   EXPORT_SYMBOL(inet_add_protocol);
+>
+> +int inet_add_offload(const struct net_offload *prot, unsigned char p=
+rotocol)
+> +{
+> +	return !cmpxchg((const struct net_offload **)&inet_offloads[protoco=
+l],
+> +			NULL, prot) ? 0 : -1;
+> +}
+> +EXPORT_SYMBOL(inet_add_offload);
+> +
+>   /*
+>    *	Remove a protocol from the hash tables.
+>    */
+> @@ -56,4 +64,16 @@ int inet_del_protocol(const struct net_protocol *p=
+rot, unsigned char protocol)
+>
+>   	return ret;
+>   }
+> -EXPORT_SYMBOL(inet_del_protocol);
+This line should probably not be removed ;-)
