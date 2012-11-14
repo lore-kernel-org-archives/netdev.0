@@ -1,79 +1,42 @@
 From: "Dave, Tushar N" <tushar.n.dave@intel.com>
 Subject: RE: 82571EB: Detected Hardware Unit Hang
-Date: Wed, 14 Nov 2012 03:43:33 +0000
-Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA8913348B0E7@ORSMSX102.amr.corp.intel.com>
+Date: Wed, 14 Nov 2012 03:45:30 +0000
+Message-ID: <061C8A8601E8EE4CA8D8FD6990CEA8913348B105@ORSMSX102.amr.corp.intel.com>
 References: <509B5038.8090304@oracle.com>
  <061C8A8601E8EE4CA8D8FD6990CEA89133487884@ORSMSX102.amr.corp.intel.com>
- <50A311E9.9030702@gmail.com>
+ <50A30656.6090508@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Joe Jin <joe.jin@oracle.com>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	Mary Mcgrath <mary.mcgrath@oracle.com>
-To: Li Yu <raise.sail@gmail.com>
+To: Joe Jin <joe.jin@oracle.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50A311E9.9030702@gmail.com>
+In-Reply-To: <50A30656.6090508@oracle.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogTGkgWXUgW21haWx0bzpyYWlzZS5z
-YWlsQGdtYWlsLmNvbV0NCj5TZW50OiBUdWVzZGF5LCBOb3ZlbWJlciAxMywgMjAxMiA3OjM3IFBN
-DQo+VG86IERhdmUsIFR1c2hhciBODQo+Q2M6IEpvZSBKaW47IGUxMDAwLWRldmVsQGxpc3RzLnNm
-Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgbGludXgtDQo+a2VybmVsQHZnZXIua2VybmVs
-Lm9yZzsgTWFyeSBNY2dyYXRoDQo+U3ViamVjdDogUmU6IDgyNTcxRUI6IERldGVjdGVkIEhhcmR3
-YXJlIFVuaXQgSGFuZw0KPg0KPuS6jiAyMDEy5bm0MTHmnIgwOeaXpSAwNDozNSwgRGF2ZSwgVHVz
-aGFyIE4g5YaZ6YGTOg0KPj4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+Pj4gRnJvbTog
-bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZw0KPj4+IFttYWlsdG86bmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZ10NCj4+PiBPbiBCZWhhbGYgT2YgSm9lIEppbg0KPj4+IFNlbnQ6IFdlZG5l
-c2RheSwgTm92ZW1iZXIgMDcsIDIwMTIgMTA6MjUgUE0NCj4+PiBUbzogZTEwMDAtZGV2ZWxAbGlz
-dHMuc2YubmV0DQo+Pj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2
-Z2VyLmtlcm5lbC5vcmc7IE1hcnkNCj4+PiBNY2dyYXRoDQo+Pj4gU3ViamVjdDogODI1NzFFQjog
-RGV0ZWN0ZWQgSGFyZHdhcmUgVW5pdCBIYW5nDQo+Pj4NCj4+PiBIaSBsaXN0LA0KPj4+DQo+Pj4g
-SUhBQyByZXBvcnRlZCAiODI1NzFFQiBEZXRlY3RlZCBIYXJkd2FyZSBVbml0IEhhbmciIG9uIEhQ
-IFByb0xpYW50DQo+Pj4gREwzNjAgRzYsIGFuZCBoYXZlIHRvIHJlYm9vdCB0aGUgc2VydmVyIHRv
-IHJlY292ZXI6DQo+Pj4NCj4+PiBlMTAwMGUgMDAwMDowNjowMC4xOiBldGgzOiBEZXRlY3RlZCBI
-YXJkd2FyZSBVbml0IEhhbmc6DQo+Pj4gICBUREggICAgICAgICAgICAgICAgICA8MWE+DQo+Pj4g
-ICBURFQgICAgICAgICAgICAgICAgICA8MWE+DQo+Pj4gICBuZXh0X3RvX3VzZSAgICAgICAgICA8
-MWE+DQo+Pj4gICBuZXh0X3RvX2NsZWFuICAgICAgICA8MTg+DQo+Pj4gYnVmZmVyX2luZm9bbmV4
-dF90b19jbGVhbl06DQo+Pj4gICB0aW1lX3N0YW1wICAgICAgICAgICA8MTAwNDdhNzRlPg0KPj4+
-ICAgbmV4dF90b193YXRjaCAgICAgICAgPDE4Pg0KPj4+ICAgamlmZmllcyAgICAgICAgICAgICAg
-PDEwMDQ3YTg4Yz4NCj4+PiAgIG5leHRfdG9fd2F0Y2guc3RhdHVzIDwxPg0KPj4+IE1BQyBTdGF0
-dXMgICAgICAgICAgICAgPDgwMzgzPg0KPj4+IFBIWSBTdGF0dXMgICAgICAgICAgICAgPDc5MmQ+
-DQo+Pj4gUEhZIDEwMDBCQVNFLVQgU3RhdHVzICA8MzgwMD4NCj4+PiBQSFkgRXh0ZW5kZWQgU3Rh
-dHVzICAgIDwzMDAwPg0KPj4+IFBDSSBTdGF0dXMgICAgICAgICAgICAgPDEwPg0KPj4+DQo+Pj4g
-V2l0aCBuZXdlciBrZXJuZWwgMi4wLjAuMSB0aGUgaXNzdWUgc3RpbGwgcmVwcm9kdWNpYmxlLg0K
-Pj4+DQo+Pj4gRGV2aWNlIGluZm86DQo+Pj4gMDY6MDAuMSBFdGhlcm5ldCBjb250cm9sbGVyOiBJ
-bnRlbCBDb3Jwb3JhdGlvbiA4MjU3MUVCIEdpZ2FiaXQNCj4+PiBFdGhlcm5ldCBDb250cm9sbGVy
-IChDb3BwZXIpIChyZXYgMDYpDQo+Pj4gMDY6MDAuMSAwMjAwOiA4MDg2OjEwYmMgKHJldiAwNikN
-Cj4+Pg0KPj4+IEkgY29tcGFyZWQgbHNwY2kgb3V0cHV0IGJlZm9yZSBhbmQgYWZ0ZXIgdGhlIGlz
-c3VlLCBkaWZmZXJlbnQgYXMgYmVsb3c6DQo+Pj4gMDY6MDAuMSBFdGhlcm5ldCBjb250cm9sbGVy
-OiBJbnRlbCBDb3Jwb3JhdGlvbiA4MjU3MUVCIEdpZ2FiaXQNCj4+PiBFdGhlcm5ldCBDb250cm9s
-bGVyIChDb3BwZXIpIChyZXYgMDYpDQo+Pj4gCVN1YnN5c3RlbTogSGV3bGV0dC1QYWNrYXJkIENv
-bXBhbnkgTkMzNjRUIFBDSSBFeHByZXNzIFF1YWQgUG9ydA0KPj4+IEdpZ2FiaXQgU2VydmVyIEFk
-YXB0ZXINCj4+PiAJQ29udHJvbDogSS9PKyBNZW0rIEJ1c01hc3RlcisgU3BlY0N5Y2xlLSBNZW1X
-SU5WLSBWR0FTbm9vcC0gUGFyRXJyKw0KPj4+IFN0ZXBwaW5nLSBTRVJSLSBGYXN0QjJCLSBEaXNJ
-TlR4LQ0KPj4+IC0JU3RhdHVzOiBDYXArIDY2TUh6LSBVREYtIEZhc3RCMkItIFBhckVyci0gREVW
-U0VMPWZhc3QgPlRBYm9ydC0NCj4+PiA8VEFib3J0LSA8TUFib3J0LSA+U0VSUi0gPFBFUlItIElO
-VHgtDQo+Pj4gKwlTdGF0dXM6IENhcCsgNjZNSHotIFVERi0gRmFzdEIyQi0gUGFyRXJyLSBERVZT
-RUw9ZmFzdCA+VEFib3J0LQ0KPj4+ICs8VEFib3J0LSA8TUFib3J0LSA+U0VSUi0gPFBFUlItIElO
-VHgrDQo+Pg0KPj4gQXJlIHlvdSBzdXJlIHRoaXMgaXMgbm90IHNpbWlsYXIgaXNzdWUgYXMgYmVm
-b3JlIHRoYXQgeW91IHJlcG9ydGVkLg0KPj4gaS5lLg0KPj4gT24gTW9uLCAyMDEyLTA3LTA5IGF0
-IDE2OjUxICswODAwLCBKb2UgSmluIHdyb3RlOg0KPj4+IEknbSBzZWVpbmcgYSBVbml0IEhhbmcg
-ZXZlbiB3aXRoIHRoZSBsYXRlc3QgZTEwMDBlIGRyaXZlciAyLjAuMCB3aGVuDQo+Pj4gZG9pbmcg
-c2NwIHRlc3QuIHRoaXMgaXNzdWUgaXMgZWFzeSBkbyByZXByb2R1Y2VkIG9uIFNVTiBGSVJFIFgy
-MjcwDQo+Pj4gTTIsIGp1c3QgY29weSBhIGJpZyBmaWxlICg+NTAwTSkgZnJvbSBhbm90aGVyIHNl
-cnZlciB3aWxsIGhpdCBpdCBhdA0KPm9uY2UuDQo+Pg0KPj4gQWxsIGRldmljZXMgaW4gcGF0aCBm
-cm9tIHJvb3QgY29tcGxleCB0byA4MjU3MSwgc2hvdWxkIGhhdmUgKnNhbWUqIG1heA0KPnBheWxv
-YWQgc2l6ZSBvdGhlcndpc2UgaXQgY2FuIGNhdXNlIGhhbmcuDQo+PiBDYW4geW91IGRvdWJsZSBj
-aGVjayB0aGlzPw0KPj4NCj4NCj5XZSBhbHNvIGZvdW5kIHN1Y2ggaGFuZyBwcm9ibGVtIG9uIDgy
-NTk5RUIgKGl4Z2JlIGRyaXZlcikgaW4gUkhFTDYuMw0KPmtlcm5lbCwgd2UgZXZlciB0cmllZCB0
-byB1cGdyYWRlIHRvIGxhdGVzdCB2ZXJzaW9uICgzLjguMjEgb3IgMy4xMC4xNyksDQo+YnV0IGl0
-IHN0aWxsIGhhcHBlbnMuDQo+DQo+SXMgaXQgcHJvYmFibHkgYWxzbyBkdWUgdG8gd3JvbmcgIm1h
-eCBwYXlsb2FkIHNpemUiIHNldCBpbiBCSU9TPw0KPg0KSXQgY291bGQgYmUgb3IgY291bGQgbm90
-IGJlLiBJIHdvdWxkIHN1Z2dlc3QgcGxlYXNlIGNyZWF0ZSBhbm90aGVyIHRocmVhZCB3aXRoIHRo
-YXQgaXNzdWUgYXMgdGhlc2UgdHdvIGRldmljZXMgYXJlIHNpZ25pZmljYW50bHkgZGlmZmVyZW50
-Lg0KDQotVHVzaGFyDQo=
+>-----Original Message-----
+>From: Joe Jin [mailto:joe.jin@oracle.com]
+>Sent: Tuesday, November 13, 2012 6:48 PM
+>To: Dave, Tushar N
+>Cc: e1000-devel@lists.sf.net; netdev@vger.kernel.org; linux-
+>kernel@vger.kernel.org; Mary Mcgrath
+>Subject: Re: 82571EB: Detected Hardware Unit Hang
+>
+>On 11/09/12 04:35, Dave, Tushar N wrote:
+>> All devices in path from root complex to 82571, should have *same* max
+>payload size otherwise it can cause hang.
+>> Can you double check this?
+>
+>Hi Tushar,
+>
+>Checked with hardware vendor and they said no way to modify the max
+>payload size from BIOS, can I modify it from driver side?
+
+If you want to change value for 82571 device you can do it from eeprom but for other upstream devices I am not sure. I will check with my team.
+
+-Tushar
