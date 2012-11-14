@@ -1,243 +1,59 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 06/10] ipip: add support of link creation via rtnl
-Date: Wed, 14 Nov 2012 16:14:03 +0100
-Message-ID: <1352906047-11604-7-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 02/10] ip6tnl: rename rtnl functions for consistency
+Date: Wed, 14 Nov 2012 16:13:59 +0100
+Message-ID: <1352906047-11604-3-git-send-email-nicolas.dichtel@6wind.com>
 References: <1352906047-11604-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34746 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34722 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964807Ab2KNPQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 10:16:12 -0500
+	with ESMTP id S964771Ab2KNPQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 10:16:10 -0500
 In-Reply-To: <1352906047-11604-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch add the support of 'ip link .. type ipip'.
+Functions in this file start with ip6_tnl_.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/ipv4/ipip.c | 165 +++++++++++++++++++++++++++++++++++++++++++++++---------
- 1 file changed, 141 insertions(+), 24 deletions(-)
+ net/ipv6/ip6_tunnel.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 1204da3..889735a 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -265,6 +265,32 @@ static void ipip_tunnel_link(struct ipip_net *ipn, struct ip_tunnel *t)
- 	rcu_assign_pointer(*tp, t);
- }
- 
-+static int ipip_tunnel_create(struct net_device *dev)
-+{
-+	struct ip_tunnel *t = netdev_priv(dev);
-+	struct net *net = dev_net(dev);
-+	struct ipip_net *ipn = net_generic(net, ipip_net_id);
-+	int err;
-+
-+	err = ipip_tunnel_init(dev);
-+	if (err < 0)
-+		goto out;
-+
-+	err = register_netdevice(dev);
-+	if (err < 0)
-+		goto out;
-+
-+	strcpy(t->parms.name, dev->name);
-+	dev->rtnl_link_ops = &ipip_link_ops;
-+
-+	dev_hold(dev);
-+	ipip_tunnel_link(ipn, t);
-+	return 0;
-+
-+out:
-+	return err;
-+}
-+
- static struct ip_tunnel *ipip_tunnel_locate(struct net *net,
- 		struct ip_tunnel_parm *parms, int create)
- {
-@@ -299,17 +325,9 @@ static struct ip_tunnel *ipip_tunnel_locate(struct net *net,
- 	nt = netdev_priv(dev);
- 	nt->parms = *parms;
- 
--	if (ipip_tunnel_init(dev) < 0)
-+	if (ipip_tunnel_create(dev) < 0)
- 		goto failed_free;
- 
--	if (register_netdevice(dev) < 0)
--		goto failed_free;
--
--	strcpy(nt->parms.name, dev->name);
--	dev->rtnl_link_ops = &ipip_link_ops;
--
--	dev_hold(dev);
--	ipip_tunnel_link(ipn, nt);
- 	return nt;
- 
- failed_free:
-@@ -641,6 +659,28 @@ static void ipip_tunnel_bind_dev(struct net_device *dev)
- 	dev->iflink = tunnel->parms.link;
- }
- 
-+static void ipip_tunnel_update(struct ip_tunnel *t, struct ip_tunnel_parm *p)
-+{
-+	struct net *net = dev_net(t->dev);
-+	struct ipip_net *ipn = net_generic(net, ipip_net_id);
-+
-+	ipip_tunnel_unlink(ipn, t);
-+	synchronize_net();
-+	t->parms.iph.saddr = p->iph.saddr;
-+	t->parms.iph.daddr = p->iph.daddr;
-+	memcpy(t->dev->dev_addr, &p->iph.saddr, 4);
-+	memcpy(t->dev->broadcast, &p->iph.daddr, 4);
-+	ipip_tunnel_link(ipn, t);
-+	t->parms.iph.ttl = p->iph.ttl;
-+	t->parms.iph.tos = p->iph.tos;
-+	t->parms.iph.frag_off = p->iph.frag_off;
-+	if (t->parms.link != p->link) {
-+		t->parms.link = p->link;
-+		ipip_tunnel_bind_dev(t->dev);
-+	}
-+	netdev_state_change(t->dev);
-+}
-+
- static int
- ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
- {
-@@ -701,21 +741,7 @@ ipip_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
- 				t = netdev_priv(dev);
- 			}
- 
--			ipip_tunnel_unlink(ipn, t);
--			synchronize_net();
--			t->parms.iph.saddr = p.iph.saddr;
--			t->parms.iph.daddr = p.iph.daddr;
--			memcpy(dev->dev_addr, &p.iph.saddr, 4);
--			memcpy(dev->broadcast, &p.iph.daddr, 4);
--			ipip_tunnel_link(ipn, t);
--			t->parms.iph.ttl = p.iph.ttl;
--			t->parms.iph.tos = p.iph.tos;
--			t->parms.iph.frag_off = p.iph.frag_off;
--			if (t->parms.link != p.link) {
--				t->parms.link = p.link;
--				ipip_tunnel_bind_dev(dev);
--			}
--			netdev_state_change(dev);
-+			ipip_tunnel_update(t, &p);
- 		}
- 
- 		if (t) {
-@@ -841,6 +867,84 @@ static int __net_init ipip_fb_tunnel_init(struct net_device *dev)
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 9a7d8c7..6d35426 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1506,7 +1506,7 @@ static int __net_init ip6_fb_tnl_dev_init(struct net_device *dev)
  	return 0;
  }
  
-+static void ipip_netlink_parms(struct nlattr *data[],
-+			       struct ip_tunnel_parm *parms)
-+{
-+	memset(parms, 0, sizeof(*parms));
-+
-+	parms->iph.version = 4;
-+	parms->iph.protocol = IPPROTO_IPIP;
-+	parms->iph.ihl = 5;
-+
-+	if (!data)
-+		return;
-+
-+	if (data[IFLA_IPTUN_LINK])
-+		parms->link = nla_get_u32(data[IFLA_IPTUN_LINK]);
-+
-+	if (data[IFLA_IPTUN_LOCAL])
-+		parms->iph.saddr = nla_get_u32(data[IFLA_IPTUN_LOCAL]);
-+
-+	if (data[IFLA_IPTUN_REMOTE])
-+		parms->iph.daddr = nla_get_u32(data[IFLA_IPTUN_REMOTE]);
-+
-+	if (data[IFLA_IPTUN_TTL]) {
-+		parms->iph.ttl = nla_get_u8(data[IFLA_IPTUN_TTL]);
-+		if (parms->iph.ttl)
-+			parms->iph.frag_off = htons(IP_DF);
-+	}
-+
-+	if (data[IFLA_IPTUN_TOS])
-+		parms->iph.tos = nla_get_u8(data[IFLA_IPTUN_TOS]);
-+
-+	if (!data[IFLA_IPTUN_PMTUDISC] || nla_get_u8(data[IFLA_IPTUN_PMTUDISC]))
-+		parms->iph.frag_off = htons(IP_DF);
-+}
-+
-+static int ipip_newlink(struct net *src_net, struct net_device *dev,
-+			struct nlattr *tb[], struct nlattr *data[])
-+{
-+	struct net *net = dev_net(dev);
-+	struct ip_tunnel *nt;
-+
-+	nt = netdev_priv(dev);
-+	ipip_netlink_parms(data, &nt->parms);
-+
-+	if (ipip_tunnel_locate(net, &nt->parms, 0))
-+		return -EEXIST;
-+
-+	return ipip_tunnel_create(dev);
-+}
-+
-+static int ipip_changelink(struct net_device *dev, struct nlattr *tb[],
-+			   struct nlattr *data[])
-+{
-+	struct ip_tunnel *t;
-+	struct ip_tunnel_parm p;
-+	struct net *net = dev_net(dev);
-+	struct ipip_net *ipn = net_generic(net, ipip_net_id);
-+
-+	if (dev == ipn->fb_tunnel_dev)
-+		return -EINVAL;
-+
-+	ipip_netlink_parms(data, &p);
-+
-+	if (((dev->flags & IFF_POINTOPOINT) && !p.iph.daddr) ||
-+	    (!(dev->flags & IFF_POINTOPOINT) && p.iph.daddr))
-+		return -EINVAL;
-+
-+	t = ipip_tunnel_locate(net, &p, 0);
-+
-+	if (t) {
-+		if (t->dev != dev)
-+			return -EEXIST;
-+	} else
-+		t = netdev_priv(dev);
-+
-+	ipip_tunnel_update(t, &p);
-+	return 0;
-+}
-+
- static size_t ipip_get_size(const struct net_device *dev)
+-static size_t ip6_get_size(const struct net_device *dev)
++static size_t ip6_tnl_get_size(const struct net_device *dev)
  {
  	return
-@@ -878,10 +982,23 @@ nla_put_failure:
- 	return -EMSGSIZE;
+ 		/* IFLA_IPTUN_LINK */
+@@ -1528,7 +1528,7 @@ static size_t ip6_get_size(const struct net_device *dev)
+ 		0;
  }
  
-+static const struct nla_policy ipip_policy[IFLA_IPTUN_MAX + 1] = {
-+	[IFLA_IPTUN_LINK]		= { .type = NLA_U32 },
-+	[IFLA_IPTUN_LOCAL]		= { .type = NLA_U32 },
-+	[IFLA_IPTUN_REMOTE]		= { .type = NLA_U32 },
-+	[IFLA_IPTUN_TTL]		= { .type = NLA_U8 },
-+	[IFLA_IPTUN_TOS]		= { .type = NLA_U8 },
-+	[IFLA_IPTUN_PMTUDISC]		= { .type = NLA_U8 },
-+};
-+
- static struct rtnl_link_ops ipip_link_ops __read_mostly = {
- 	.kind		= "ipip",
+-static int ip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
++static int ip6_tnl_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ {
+ 	struct ip6_tnl *tunnel = netdev_priv(dev);
+ 	struct __ip6_tnl_parm *parm = &tunnel->parms;
+@@ -1554,8 +1554,8 @@ static struct rtnl_link_ops ip6_link_ops __read_mostly = {
+ 	.kind		= "ip6tnl",
  	.maxtype	= IFLA_IPTUN_MAX,
-+	.policy		= ipip_policy,
- 	.priv_size	= sizeof(struct ip_tunnel),
-+	.setup		= ipip_tunnel_setup,
-+	.newlink	= ipip_newlink,
-+	.changelink	= ipip_changelink,
- 	.get_size	= ipip_get_size,
- 	.fill_info	= ipip_fill_info,
+ 	.priv_size	= sizeof(struct ip6_tnl),
+-	.get_size	= ip6_get_size,
+-	.fill_info	= ip6_fill_info,
++	.get_size	= ip6_tnl_get_size,
++	.fill_info	= ip6_tnl_fill_info,
  };
+ 
+ static struct xfrm6_tunnel ip4ip6_handler __read_mostly = {
 -- 
 1.7.12
