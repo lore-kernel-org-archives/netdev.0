@@ -1,46 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4/ip_vti.c: VTI fix post-decryption forwarding
-Date: Wed, 14 Nov 2012 18:54:30 -0500 (EST)
-Message-ID: <20121114.185430.1119501564965650216.davem@davemloft.net>
-References: <20121112221731.GA2772@debian-saurabh-64.vyatta.com>
+Subject: Re: [PATCH] ipv6: fix two typos in a comment in xfrm6_init()
+Date: Wed, 14 Nov 2012 18:55:28 -0500 (EST)
+Message-ID: <20121114.185528.2167305838484743723.davem@davemloft.net>
+References: <20121108.145939.2274479010583117059.davem@davemloft.net>
+	<20121109075726.GD22290@secunet.com>
+	<20121113090006.GI22290@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saurabh.mohan@vyatta.com
+Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36965 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36972 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755412Ab2KNXye (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 18:54:34 -0500
-In-Reply-To: <20121112221731.GA2772@debian-saurabh-64.vyatta.com>
+	with ESMTP id S1755412Ab2KNXza (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 18:55:30 -0500
+In-Reply-To: <20121113090006.GI22290@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saurabh <saurabh.mohan@vyatta.com>
-Date: Mon, 12 Nov 2012 14:17:31 -0800
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 13 Nov 2012 10:00:06 +0100
 
+> Subject: [PATCH] xfrm: Fix the gc threshold value for ipv4
 > 
+> The xfrm gc threshold value depends on ip_rt_max_size. This
+> value was set to INT_MAX with the routing cache removal patch,
+> so we start doing garbage collecting when we have INT_MAX/2
+> IPsec routes cached. Fix this by going back to the static
+> threshold of 1024 routes.
 > 
-> With the latest kernel there are two things that must be done post decryption
->  so that the packet are forwarded.
->  1. Remove the mark from the packet. This will cause the packet to not match
->  the ipsec-policy again. However doing this causes the post-decryption check to
->  fail also and the packet will get dropped. (cat /proc/net/xfrm_stat).
->  2. Remove the sp association in the skbuff so that no policy check is done on
->  the packet for VTI tunnels.
-> 
-> Due to #2 above we must now do a security-policy check in the vti rcv path
-> prior to resetting the mark in the skbuff.
-> 
-> Signed-off-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
-> Reported-by: Ruben Herold <ruben@puettmann.net>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-Please fix your email configuration so that the From: field
-properly lists your full name, "Saurabh Mohan" instead of
-just plain "Saurabh".
-
-Otherwise the author of the commit will not be set properly
-when I apply this.
-
-Thanks.
+This looks fine to me.
