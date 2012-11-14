@@ -1,96 +1,156 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/3] myri10ge: Add vlan rx for better GRO perf.
-Date: Wed, 14 Nov 2012 06:46:48 -0800
-Message-ID: <1352904408.4497.11.camel@edumazet-glaptop>
-References: <50A3975B.7020608@myri.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v7] Network driver for the Armada 370 and Armada XP ARM Marvell SoCs
+Date: Wed, 14 Nov 2012 15:56:44 +0100
+Message-ID: <1352905010-24172-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Andrew Gallatin <gallatin@myri.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Lennert Buytenhek <kernel@wantstofly.org>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Dmitri Epshtein <dima@marvell.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:43851 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422838Ab2KNOqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 09:46:50 -0500
-Received: by mail-ie0-f174.google.com with SMTP id k13so673224iea.19
-        for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 06:46:50 -0800 (PST)
-In-Reply-To: <50A3975B.7020608@myri.com>
+Received: from mail.free-electrons.com ([88.190.12.23]:33130 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932095Ab2KNO5H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 09:57:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-11-14 at 08:06 -0500, Andrew Gallatin wrote:
-> 
-> Unlike LRO, GRO requires that vlan tags be removed before
-> aggregation can occur.  Since the myri10ge NIC does not support
-> hardware vlan tag offload, we must remove the tag in the driver
-> to achieve performance comparable to LRO for vlan tagged frames.
-> 
-> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
-> ---
->   drivers/net/ethernet/myricom/myri10ge/myri10ge.c |   47 
-> ++++++++++++++++++++++
->   1 file changed, 47 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c 
-> b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> index a5ab2f2..b9b6dfd 100644
-> --- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> +++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> @@ -1264,6 +1264,48 @@ myri10ge_unmap_rx_page(struct pci_dev *pdev,
->   	}
->   }
-> 
-> +/*
-> + * GRO does not support acceleration of tagged vlan frames, and
-> + * this NIC does not support vlan tag offload, so we must pop
-> + * the tag ourselves to be able to achieve GRO performance that
-> + * is comparable to LRO.
-> + */
-> +
-> +static inline void
-> +myri10ge_vlan_rx(struct net_device *dev, void *addr, struct sk_buff *skb)
-> +{
-> +	u8 *va;
-> +	struct vlan_ethhdr *veh;
-> +	struct ethhdr *eh;
-> +	struct skb_frag_struct *frag;
-> +	u16 proto;
-> +
-> +	va = addr;
-> +	va += MXGEFW_PAD;
-> +	veh = (struct vlan_ethhdr *) va;
-> +	if ((dev->features & (NETIF_F_HW_VLAN_RX | NETIF_F_GRO)) ==
-> +	    (NETIF_F_HW_VLAN_RX | NETIF_F_GRO) &&
-> +	    (veh->h_vlan_proto == ntohs(ETH_P_8021Q))) {
-> +		/* fixup csum if needed */
-> +		if (skb->ip_summed == CHECKSUM_COMPLETE)
-> +			skb->csum = csum_sub(skb->csum,
-> +					     csum_partial(va + ETH_HLEN,
-> +							  VLAN_HLEN, 0));
-> +		/* pop tag */
-> +		__vlan_hwaccel_put_tag(skb, ntohs(veh->h_vlan_TCI));
-> +		proto = veh->h_vlan_encapsulated_proto;
-I am not sure you need this @proto ?
+David,
 
-> +		memmove(va + VLAN_HLEN, va, ETH_HLEN);
+This patch set adds a new network driver for the network unit
+available in the newest Marvell ARM SoCs Armada 370 and Armada XP, as
+well as the necessary Device Tree information to use this driver in
+the two evaluation platforms of those SoCs.
 
-You could only memmove the mac addresses (2 * ETH_ALEN)
-To not touch the proto (and avoid possible aliasing problems)
+The previous versions of this patch set have been sent on September
+4th (v1), October 11th (v2), October 23rd (v3), October 26th (v4),
+November 12th (v5), November 13th (v6) and now comes the v7 of the
+driver. The number of comments over the last versions have been really
+small, and I would really appreciate if this driver could land into
+the 3.8 kernel release.
 
-> +		va += VLAN_HLEN;
-> +		eh = (struct ethhdr *)va;
-> +		eh->h_proto = proto;
+People interested in testing this driver can find it at:
 
-and this should not be needed ?
+ git@github.com:MISL-EBU-System-SW/mainline-public.git marvell-neta-v7
 
+In details:
 
-> +		skb->len -= VLAN_HLEN;
-> +		skb->data_len -= VLAN_HLEN;
-> +		frag = skb_shinfo(skb)->frags;
+ * Patch 1 contains a small driver for the MDIO interface of this
+   Ethernet controller. Having a separate driver is useful to more
+   easily handle concurrent accesses on this MDIO interface that is
+   shared between all Ethernet ports.
 
-> +		frag->page_offset += VLAN_HLEN;
-> +		skb_frag_size_set(frag, skb_frag_size(frag) - VLAN_HLEN);
-> +	}
-> +}
-> +
+ * Patch 3 contains the driver itself. The commit log contains a
+   detailed explanation about why a new driver is needed for this new
+   Marvell SoC, compared to older Marvell SoCs (Orion, Kirkwood, Dove)
+   that use the mv643xx_eth driver.
+
+ * Patch 4 adds the necessary entry to the MAINTAINERS file.
+
+ * Patch 5 adds the SoC-level Device Tree information for Armada 370
+   and Armada XP.
+
+ * Patch 6 adds the board-level Device Tree information for the
+   Marvell evaluation boards of Armada 370 and Armada XP.
+
+ * Patch 6 adds the board-level Device Tree information for the
+   PlatHome OpenBlocks AX3-4 platform (based on the Armada XP SoC).
+
+ * Patch 7 adds the board-level Device Tree information for the
+   GlobalScale Mirabox platform (based on the Armada 370 SoC).
+
+Changes since v6:
+ * Add more macros to make the MVNETA_RX_PKT_SIZE() math easier to
+   understand.
+ * Use ETH_FCS_LEN instead of our custom
+   MVNETA_ETH_CRC_SIZE. Suggested by Fran=C3=A7ois Romieu.
+ * Add a comment explaining why we have MVNETA_MH_SIZE.
+ * Added missing newlines at the end of some error/info
+   messages. Suggested by Joe Perches.
+ * Removed the useless error handling of mvneta_mac_addr_set(), and
+   tested once for all the value of rxq_def at probe() time. Suggested
+   by Francois Romieu.
+ * Use napi_schedule() instead of an hand-crafted version of
+   time. Suggested by Francois Romieu.
+ * Don't use IRQF_DISABLED. Suggested by Francois Romieu.
+ * Fix leak in mvneta_probe() on an error path (missing call to
+   mvneta_deinit()). Re-arranged the goto labels for better
+   clarity. Suggested by Francois Romieu.
+ * Use the return value of mvneta_init() and register_netdev() as the
+   return value of the ->probe() function on failure. Suggested by
+   Francois Romieu.
+
+Changes since v5:
+ * Take into account comments from Fran=C3=A7ois Romieu (mainly coding
+   style fixes + addition of a mvneta_rxq_desc_is_first_last() helper
+   function)
+ * Fix a wrong argument passed to dma_alloc_coherent():
+   DMA_BIDIRECTIONAL should have been GFP_KERNEL. Thanks to Fran=C3=A7o=
+is
+   Romieu for having pointed the issue in his review.
+ * Removed calls to smp_call_function_many() that were useless.
+ * Ordered alphabetically entries in the Kconfig and Makefile.
+
+Changes since v4:
+ * Added a separate MDIO driver, which allow to easily handle
+   concurrent accesses to the MDIO interface.
+ * The Device Tree now has separate nodes for the PHY devices, which
+   belong to the MDIO bus handled by the separate MDIO driver.
+ * Fix tabulation issues in some Device Tree files.
+ * Rebased on top of 3.7-rc5
+ * Added the Device Tree code necessary for the GlobalScale Mirabox
+   platform and the PlatHome OpenBlocks AX3-4 platform.
+
+Changes since v3:
+ * Use phy_find_first() to get the correct PHY. Suggested by Florian
+   Fainelli.
+ * Make pp->cause_rx_tx a simple variable instead of a per-CPU array
+   since it is not useful. Fixes a comment raised by David Miller.
+
+Changes since v2:
+ * Change compatible string from 'marvell,neta' to
+   'marvell,armada-370-neta'. Requested by Rob Herring.
+ * Rename Ethernet DT nodes from eth@... to ethernet@... Requested by
+   Rob Herring.
+ * Remove device_type DT property. Requested by Rob Herring.
+ * Change the PHY interface for eth0/eth1 to be rgmii-id, which allows
+   to enable TX/RX delay mechanisms at the PHY level. This fixes CRC
+   errors on received packets during iperf tests (it was a bug in v2).
+ * Remove the mvneta_ prefix from module parameters. Requested by
+   Baruch Siach.
+ * Many code style improvements suggested by Fran=C3=A7ois Romieu.
+ * Properly stop/restart the TX queue when the number of TX
+   descriptors available becomes low, instead of returning
+   NETDEV_TX_BUSY. Requested by Fran=C3=A7ois Romieu.
+ * Properly drop packets on the TX path when DMA mapping functions
+   return an error, instead of returning NETDEV_TX_BUSY. Requested by
+   Fran=C3=A7ois Romieu.
+ * Rebased on top of Linux 3.7-rc2.
+
+Changes since v1:
+ * Reduced the Cc: list in order to make the patch set acceptable for
+   the netdev@ mailing list.
+ * Merge the mvneta.h contents into mvneta.c, since the header was
+   only used by the driver. Requested by Arnd Bergmann.
+ * Completely reorganize the organization of the register list and
+   register values, in order to make it more consistent, and hopefully
+   easier to read (especially easier to match register values with the
+   corresponding register).
+ * Integrate with the phylib, as suggested by Florian Fainelli, and
+   remove the link management code that has become useless as the
+   result of this integration
+ * Fix many small details suggested by Florian Fainelli in his review
+   of the first driver
+ * Simplify various parts of the driver (descriptors array allocation,
+   data structures, etc.)
+
+Thanks,
+
+Thomas Petazzoni
