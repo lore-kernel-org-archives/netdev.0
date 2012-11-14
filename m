@@ -1,66 +1,58 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH 03/13] net: Add net protocol offload registration
- infrustructure
-Date: Wed, 14 Nov 2012 08:08:32 -0500
-Message-ID: <50A397D0.4040406@redhat.com>
-References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com> <1352856254-29667-4-git-send-email-vyasevic@redhat.com> <50A354C6.20805@6wind.com>
+Subject: Re: [RFC PATCH 00/13] Always build GSO/GRO functionality into the
+ kernel
+Date: Wed, 14 Nov 2012 08:10:19 -0500
+Message-ID: <50A3983B.4010303@redhat.com>
+References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com> <1352859928.4497.1.camel@edumazet-glaptop>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.com
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36396 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44936 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422804Ab2KNNIg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2012 08:08:36 -0500
-In-Reply-To: <50A354C6.20805@6wind.com>
+	id S1422805Ab2KNNKi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2012 08:10:38 -0500
+In-Reply-To: <1352859928.4497.1.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/14/2012 03:22 AM, Nicolas Dichtel wrote:
-> Le 14/11/2012 02:24, Vlad Yasevich a =C3=A9crit :
->> diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
->> index 8918eff..1278db8 100644
->> --- a/net/ipv4/protocol.c
->> +++ b/net/ipv4/protocol.c
->> @@ -29,6 +29,7 @@
->>   #include <net/protocol.h>
+On 11/13/2012 09:25 PM, Eric Dumazet wrote:
+> On Tue, 2012-11-13 at 20:24 -0500, Vlad Yasevich wrote:
+>> This patch series is a revision suggested by Eric to solve the problem where
+>> a host without IPv6 support drops GSO frames from the guest.
 >>
->>   const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS]
->> __read_mostly;
->> +const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS]
->> __read_mostly;
+>> The problem is that GSO/GRO support is per protocol, and when said protocol
+>> is not loaded or is disabled, packets attempting to go through GSO/GRO code paths
+>> are dropped.  This causes retransmissions and a two orders of magnitude drop in
+>> performance.
 >>
->>   /*
->>    *    Add a protocol handler to the hash tables
->> @@ -41,6 +42,13 @@ int inet_add_protocol(const struct net_protocol
->> *prot, unsigned char protocol)
->>   }
->>   EXPORT_SYMBOL(inet_add_protocol);
+>> Prior attempt to solve the problem simply enabled enough GSO/GRO functionality
+>> for IPv6 protocol when IPv6 was diabled.  This did not solve the problem when
+>> the protocol was not build in or was blacklisted.
+>> To solve the problem, it was suggested that we separate GSO/GRO callback
+>> registration from packet processing registrations.  That way
+>> GSO/GRO callbacks can be built into the kernel and always be there.
+>> This patch series attempts to do just that.
+>> * Patches 1 and 2 split the GSO/GRO handlers from packet_type and convert
+>>    to the new structure.
+>> * Patches 3, 4 and 5 do the same thing for net_protocol structure.
+>> * The rest of the patches try to incrementally move the IPv6 GSO/GRO
+>>    code out of the module and into the static kernel build.  Some IPv6
+>>    helper functions also had to move as well.
 >>
->> +int inet_add_offload(const struct net_offload *prot, unsigned char
->> protocol)
->> +{
->> +    return !cmpxchg((const struct net_offload
->> **)&inet_offloads[protocol],
->> +            NULL, prot) ? 0 : -1;
->> +}
->> +EXPORT_SYMBOL(inet_add_offload);
->> +
->>   /*
->>    *    Remove a protocol from the hash tables.
->>    */
->> @@ -56,4 +64,16 @@ int inet_del_protocol(const struct net_protocol
->> *prot, unsigned char protocol)
->>
->>       return ret;
->>   }
->> -EXPORT_SYMBOL(inet_del_protocol);
-> This line should probably not be removed ;-)
+>> I am currently testing the patches, but if folks could look this over
+>> and send me any comments, I'd appreciate it.
+>
+> Seems very nice !
+>
+> I am just wondering if GSO/GRO is fully enabled at every step ?
+>
 
-Yep,  good catch... thanks...
+I think so.  I ran basic tests along most of the steps and it seemed to 
+be enabled.  That's why this is a 13 patch series :)  Tried to do it 
+incrementally without impacting functionality.
 
--vald
+-vlad
