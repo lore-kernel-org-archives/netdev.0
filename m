@@ -1,57 +1,66 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: [PATCH net-next 3/3] myri10ge: Use skb_fill_page_desc().
-Date: Wed, 14 Nov 2012 08:06:42 -0500
-Message-ID: <50A39762.1070707@myri.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [RFC PATCH 03/13] net: Add net protocol offload registration
+ infrustructure
+Date: Wed, 14 Nov 2012 08:08:32 -0500
+Message-ID: <50A397D0.4040406@redhat.com>
+References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com> <1352856254-29667-4-git-send-email-vyasevic@redhat.com> <50A354C6.20805@6wind.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:37840 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422804Ab2KNNGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 08:06:45 -0500
-Received: by mail-gg0-f174.google.com with SMTP id k2so45932ggd.19
-        for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 05:06:44 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:36396 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422804Ab2KNNIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2012 08:08:36 -0500
+In-Reply-To: <50A354C6.20805@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/14/2012 03:22 AM, Nicolas Dichtel wrote:
+> Le 14/11/2012 02:24, Vlad Yasevich a =C3=A9crit :
+>> diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
+>> index 8918eff..1278db8 100644
+>> --- a/net/ipv4/protocol.c
+>> +++ b/net/ipv4/protocol.c
+>> @@ -29,6 +29,7 @@
+>>   #include <net/protocol.h>
+>>
+>>   const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS]
+>> __read_mostly;
+>> +const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS]
+>> __read_mostly;
+>>
+>>   /*
+>>    *    Add a protocol handler to the hash tables
+>> @@ -41,6 +42,13 @@ int inet_add_protocol(const struct net_protocol
+>> *prot, unsigned char protocol)
+>>   }
+>>   EXPORT_SYMBOL(inet_add_protocol);
+>>
+>> +int inet_add_offload(const struct net_offload *prot, unsigned char
+>> protocol)
+>> +{
+>> +    return !cmpxchg((const struct net_offload
+>> **)&inet_offloads[protocol],
+>> +            NULL, prot) ? 0 : -1;
+>> +}
+>> +EXPORT_SYMBOL(inet_add_offload);
+>> +
+>>   /*
+>>    *    Remove a protocol from the hash tables.
+>>    */
+>> @@ -56,4 +64,16 @@ int inet_del_protocol(const struct net_protocol
+>> *prot, unsigned char protocol)
+>>
+>>       return ret;
+>>   }
+>> -EXPORT_SYMBOL(inet_del_protocol);
+> This line should probably not be removed ;-)
 
-Now that LRO is gone, the receive routine is much simpler, and
-we are able to use the standard skb_fill_page_desc() in myri10ge.
+Yep,  good catch... thanks...
 
-Signed-off-by: Andrew Gallatin <gallatin@myri.com>
----
-  drivers/net/ethernet/myricom/myri10ge/myri10ge.c |   11 ++++-------
-  1 file changed, 4 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c 
-b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index b9b6dfd..82e9dcc 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -1347,17 +1347,14 @@ myri10ge_rx_done(struct myri10ge_slice_state 
-*ss, int len, __wsum csum)
-  	/* Fill skb_frag_struct(s) with data from our receive */
-  	for (i = 0, remainder = len; remainder > 0; i++) {
-  		myri10ge_unmap_rx_page(pdev, &rx->info[idx], bytes);
--		__skb_frag_set_page(&rx_frags[i], rx->info[idx].page);
--		rx_frags[i].page_offset = rx->info[idx].page_offset;
--		if (remainder < MYRI10GE_ALLOC_SIZE)
--			skb_frag_size_set(&rx_frags[i], remainder);
--		else
--			skb_frag_size_set(&rx_frags[i], MYRI10GE_ALLOC_SIZE);
-+		skb_fill_page_desc(skb, i, rx->info[idx].page,
-+				   rx->info[idx].page_offset,
-+				   remainder < MYRI10GE_ALLOC_SIZE ?
-+				   remainder : MYRI10GE_ALLOC_SIZE);
-  		rx->cnt++;
-  		idx = rx->cnt & rx->mask;
-  		remainder -= MYRI10GE_ALLOC_SIZE;
-  	}
--	skb_shinfo(skb)->nr_frags = i;
-
-  	/* remove padding */
-  	rx_frags[0].page_offset += MXGEFW_PAD;
--- 
-1.7.9.5
+-vald
