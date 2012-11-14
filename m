@@ -1,167 +1,147 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [RFC PATCH 01/13] net:  Add generic packet offload infrastructure.
-Date: Tue, 13 Nov 2012 20:24:02 -0500
-Message-ID: <1352856254-29667-2-git-send-email-vyasevic@redhat.com>
+Subject: [RFC PATCH 02/13] core:  Switch to using the new packet offload infrustructure
+Date: Tue, 13 Nov 2012 20:24:03 -0500
+Message-ID: <1352856254-29667-3-git-send-email-vyasevic@redhat.com>
 References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com>
 Cc: eric.dumazet@gmail.com, davem@davemloft.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29909 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:2125 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932335Ab2KNBYS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 20:24:18 -0500
+	id S932315Ab2KNBYU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 20:24:20 -0500
 In-Reply-To: <1352856254-29667-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create a new data structure to contain the GRO/GSO callbacks and add
-a new registration mechanism.
+Convert to using the new GSO/GRO registration mechanism and new
+packet offload structure.
 
-Singed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/linux/netdevice.h |   15 ++++++++
- net/core/dev.c            |   80 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 95 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |    6 ------
+ net/core/dev.c            |   13 ++++++-------
+ net/ipv4/af_inet.c        |    5 +++++
+ net/ipv6/af_inet6.c       |    6 ++++++
+ 4 files changed, 17 insertions(+), 13 deletions(-)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f8eda02..d15af51 100644
+index d15af51..d683508 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -1511,6 +1511,18 @@ struct packet_type {
- 	struct list_head	list;
- };
- 
-+struct packet_offload {
-+	__be16			type;	/* This is really htons(ether_type). */
-+	struct net_device	*dev;	/* NULL is wildcarded here	     */
-+	struct sk_buff		*(*gso_segment)(struct sk_buff *skb,
-+						netdev_features_t features);
-+	int			(*gso_send_check)(struct sk_buff *skb);
-+	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
-+					       struct sk_buff *skb);
-+	int			(*gro_complete)(struct sk_buff *skb);
-+	struct list_head	list;
-+};
-+
- #include <linux/notifier.h>
- 
- /* netdevice notifier chain. Please remember to update the rtnetlink
-@@ -1605,6 +1617,9 @@ extern struct net_device *__dev_getfirstbyhwtype(struct net *net, unsigned short
- extern void		dev_add_pack(struct packet_type *pt);
- extern void		dev_remove_pack(struct packet_type *pt);
- extern void		__dev_remove_pack(struct packet_type *pt);
-+extern void		dev_add_offload(struct packet_offload *po);
-+extern void		dev_remove_offload(struct packet_offload *po);
-+extern void		__dev_remove_offload(struct packet_offload *po);
- 
- extern struct net_device	*dev_get_by_flags_rcu(struct net *net, unsigned short flags,
- 						      unsigned short mask);
+@@ -1499,12 +1499,6 @@ struct packet_type {
+ 					 struct net_device *,
+ 					 struct packet_type *,
+ 					 struct net_device *);
+-	struct sk_buff		*(*gso_segment)(struct sk_buff *skb,
+-						netdev_features_t features);
+-	int			(*gso_send_check)(struct sk_buff *skb);
+-	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
+-					       struct sk_buff *skb);
+-	int			(*gro_complete)(struct sk_buff *skb);
+ 	bool			(*id_match)(struct packet_type *ptype,
+ 					    struct sock *sk);
+ 	void			*af_packet_priv;
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 09cb3f6..10967e5 100644
+index 10967e5..64d4302 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -176,8 +176,10 @@
- #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
+@@ -2072,7 +2072,7 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb,
+ 	netdev_features_t features)
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EPROTONOSUPPORT);
+-	struct packet_type *ptype;
++	struct packet_offload *ptype;
+ 	__be16 type = skb->protocol;
+ 	int vlan_depth = ETH_HLEN;
+ 	int err;
+@@ -2101,8 +2101,7 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb,
+ 	}
  
- static DEFINE_SPINLOCK(ptype_lock);
-+static DEFINE_SPINLOCK(offload_lock);
- static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
- static struct list_head ptype_all __read_mostly;	/* Taps */
-+static struct list_head offload_base __read_mostly;
+ 	rcu_read_lock();
+-	list_for_each_entry_rcu(ptype,
+-			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
++	list_for_each_entry_rcu(ptype, &offload_base, list) {
+ 		if (ptype->type == type && !ptype->dev && ptype->gso_segment) {
+ 			if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
+ 				err = ptype->gso_send_check(skb);
+@@ -3522,9 +3521,9 @@ static void flush_backlog(void *arg)
  
- /*
-  * The @dev_base_head list is protected by @dev_base_lock and the rtnl
-@@ -470,6 +472,82 @@ void dev_remove_pack(struct packet_type *pt)
+ static int napi_gro_complete(struct sk_buff *skb)
+ {
+-	struct packet_type *ptype;
++	struct packet_offload *ptype;
+ 	__be16 type = skb->protocol;
+-	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
++	struct list_head *head = &offload_base;
+ 	int err = -ENOENT;
+ 
+ 	if (NAPI_GRO_CB(skb)->count == 1) {
+@@ -3584,9 +3583,9 @@ EXPORT_SYMBOL(napi_gro_flush);
+ enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	struct sk_buff **pp = NULL;
+-	struct packet_type *ptype;
++	struct packet_offload *ptype;
+ 	__be16 type = skb->protocol;
+-	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
++	struct list_head *head = &offload_base;
+ 	int same_flow;
+ 	int mac_len;
+ 	enum gro_result ret;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 766c596..4c99c5f 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1662,6 +1662,10 @@ static int ipv4_proc_init(void);
+ static struct packet_type ip_packet_type __read_mostly = {
+ 	.type = cpu_to_be16(ETH_P_IP),
+ 	.func = ip_rcv,
++};
++
++static struct packet_offload ip_packet_offload __read_mostly = {
++	.type = cpu_to_be16(ETH_P_IP),
+ 	.gso_send_check = inet_gso_send_check,
+ 	.gso_segment = inet_gso_segment,
+ 	.gro_receive = inet_gro_receive,
+@@ -1781,6 +1785,7 @@ static int __init inet_init(void)
+ 
+ 	ipfrag_init();
+ 
++	dev_add_offload(&ip_packet_offload);
+ 	dev_add_pack(&ip_packet_type);
+ 
+ 	rc = 0;
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index a974247..6e24517 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -938,6 +938,10 @@ out_unlock:
+ static struct packet_type ipv6_packet_type __read_mostly = {
+ 	.type = cpu_to_be16(ETH_P_IPV6),
+ 	.func = ipv6_rcv,
++};
++
++static struct packet_offload ipv6_packet_offload __read_mostly = {
++	.type = cpu_to_be16(ETH_P_IPV6),
+ 	.gso_send_check = ipv6_gso_send_check,
+ 	.gso_segment = ipv6_gso_segment,
+ 	.gro_receive = ipv6_gro_receive,
+@@ -946,6 +950,7 @@ static struct packet_type ipv6_packet_type __read_mostly = {
+ 
+ static int __init ipv6_packet_init(void)
+ {
++	dev_add_offload(&ipv6_packet_offload);
+ 	dev_add_pack(&ipv6_packet_type);
+ 	return 0;
  }
- EXPORT_SYMBOL(dev_remove_pack);
+@@ -953,6 +958,7 @@ static int __init ipv6_packet_init(void)
+ static void ipv6_packet_cleanup(void)
+ {
+ 	dev_remove_pack(&ipv6_packet_type);
++	dev_remove_offload(&ipv6_packet_offload);
+ }
  
-+
-+/**
-+ *	dev_add_offload - register offload handlers
-+ *	@po: protocol offload declaration
-+ *
-+ *	Add protocol offload handlers to the networking stack. The passed
-+ *	&proto_offload is linked into kernel lists and may not be freed until
-+ *	it has been removed from the kernel lists.
-+ *
-+ *	This call does not sleep therefore it can not
-+ *	guarantee all CPU's that are in middle of receiving packets
-+ *	will see the new offload handlers (until the next received packet).
-+ */
-+void dev_add_offload(struct packet_offload *po)
-+{
-+	struct list_head *head = &offload_base;
-+
-+	spin_lock(&offload_lock);
-+	list_add_rcu(&po->list, head);
-+	spin_unlock(&offload_lock);
-+}
-+EXPORT_SYMBOL(dev_add_offload);
-+
-+/**
-+ *	__dev_remove_offload	 - remove offload handler
-+ *	@po: packet offload declaration
-+ *
-+ *	Remove a protocol offload handler that was previously added to the
-+ *	kernel offload handlers by dev_add_offload(). The passed &offload_type
-+ *	is removed from the kernel lists and can be freed or reused once this
-+ *	function returns.
-+ *
-+ *      The packet type might still be in use by receivers
-+ *	and must not be freed until after all the CPU's have gone
-+ *	through a quiescent state.
-+ */
-+void __dev_remove_offload(struct packet_offload *po)
-+{
-+	struct list_head *head = &offload_base;
-+	struct packet_offload *po1;
-+
-+	spin_lock(&ptype_lock);
-+
-+	list_for_each_entry(po1, head, list) {
-+		if (po == po1) {
-+			list_del_rcu(&po->list);
-+			goto out;
-+		}
-+	}
-+
-+	pr_warn("dev_remove_offload: %p not found\n", po);
-+out:
-+	spin_unlock(&ptype_lock);
-+}
-+EXPORT_SYMBOL(__dev_remove_offload);
-+
-+/**
-+ *	dev_remove_offload	 - remove packet offload handler
-+ *	@po: packet offload declaration
-+ *
-+ *	Remove a packet offload handler that was previously added to the kernel
-+ *	offload handlers by dev_add_offload(). The passed &offload_type is
-+ *	removed from the kernel lists and can be freed or reused once this
-+ *	function returns.
-+ *
-+ *	This call sleeps to guarantee that no CPU is looking at the packet
-+ *	type after return.
-+ */
-+void dev_remove_offload(struct packet_offload *po)
-+{
-+	__dev_remove_offload(po);
-+
-+	synchronize_net();
-+}
-+EXPORT_SYMBOL(dev_remove_offload);
-+
- /******************************************************************************
- 
- 		      Device Boot-time Settings Routines
-@@ -6662,6 +6740,8 @@ static int __init net_dev_init(void)
- 	for (i = 0; i < PTYPE_HASH_SIZE; i++)
- 		INIT_LIST_HEAD(&ptype_base[i]);
- 
-+	INIT_LIST_HEAD(&offload_base);
-+
- 	if (register_pernet_subsys(&netdev_net_ops))
- 		goto out;
- 
+ static int __net_init ipv6_init_mibs(struct net *net)
 -- 
 1.7.7.6
