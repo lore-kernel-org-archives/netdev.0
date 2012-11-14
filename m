@@ -1,64 +1,46 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH 01/13] net:  Add generic packet offload infrastructure.
-Date: Wed, 14 Nov 2012 08:03:42 -0500
-Message-ID: <50A396AE.5090608@redhat.com>
-References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com>  <1352856254-29667-2-git-send-email-vyasevic@redhat.com> <1352859861.4497.0.camel@edumazet-glaptop>
-Reply-To: vyasevic@redhat.com
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: [PATCH net-next 0/3] myri10ge: LRO to GRO conversion
+Date: Wed, 14 Nov 2012 08:06:15 -0500
+Message-ID: <50A39747.3030207@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2534 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422711Ab2KNNDo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2012 08:03:44 -0500
-In-Reply-To: <1352859861.4497.0.camel@edumazet-glaptop>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:47427 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422804Ab2KNNGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 08:06:18 -0500
+Received: by mail-yh0-f46.google.com with SMTP id m54so46690yhm.19
+        for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 05:06:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/13/2012 09:24 PM, Eric Dumazet wrote:
-> On Tue, 2012-11-13 at 20:24 -0500, Vlad Yasevich wrote:
->> Create a new data structure to contain the GRO/GSO callbacks and add
->> a new registration mechanism.
->>
->> Singed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>   include/linux/netdevice.h |   15 ++++++++
->>   net/core/dev.c            |   80 +++++++++++++++++++++++++++++++++++++++++++++
->>   2 files changed, 95 insertions(+), 0 deletions(-)
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index f8eda02..d15af51 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -1511,6 +1511,18 @@ struct packet_type {
->>   	struct list_head	list;
->>   };
->>
->> +struct packet_offload {
->> +	__be16			type;	/* This is really htons(ether_type). */
->> +	struct net_device	*dev;	/* NULL is wildcarded here	     */
->
-> Shouldnt this dev pointer be removed at some point in the patch serie ?
+Hi,
 
-yes.  i was thinking about this as well.  I actually shouldn't have been 
-carried into this struct to begin with since its not really being used 
-by the offload calls.
+The following patchset converts myri10ge from using the old inet_lro
+interface to GRO.
 
--vlad
+Note that a naive LRO->GRO conversion of myri10ge will result in a
+performance regression for vlan tagged frames.  This is because
+myri10ge does not offer hardware vlan tag offload, and because GRO
+requires hardware vlan tag offload to aggregate vlan tagged frames.
 
->
->> +	struct sk_buff		*(*gso_segment)(struct sk_buff *skb,
->> +						netdev_features_t features);
->> +	int			(*gso_send_check)(struct sk_buff *skb);
->> +	struct sk_buff		**(*gro_receive)(struct sk_buff **head,
->> +					       struct sk_buff *skb);
->> +	int			(*gro_complete)(struct sk_buff *skb);
->> +	struct list_head	list;
->> +};
->> +
->>   #include <linux/notifier.h>
->>
->
+To address this performance regression, I have implemented vlan tag
+popping in the myri10ge driver, as it seems to be the lesser of two
+evils.  As eric.dumazet@gmail.com commented when I asked about this on
+netdev last week: "Given GRO assumes NIC does hardware vlan
+offloading, I guess I would chose to do that.  It seems unfortunate to
+add vlan decap in GRO path, already very complex."
+
+
+Andrew Gallatin (3):
+myri10ge: Convert from LRO to GRO
+myri10ge: Add vlan rx for better GRO perf.
+myri10ge: Use skb_fill_page_desc().
+
+
+  drivers/net/ethernet/myricom/Kconfig             |    1 -
+  drivers/net/ethernet/myricom/myri10ge/myri10ge.c |  281 
+++++++----------------
+  2 files changed, 80 insertions(+), 202 deletions(-)
