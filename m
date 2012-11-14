@@ -1,63 +1,61 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 05/10] ipip/rtnl: add IFLA_IPTUN_PMTUDISC on dump
-Date: Wed, 14 Nov 2012 16:14:02 +0100
-Message-ID: <1352906047-11604-6-git-send-email-nicolas.dichtel@6wind.com>
-References: <1352906047-11604-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net] net: correct check in dev_addr_del()
+Date: Wed, 14 Nov 2012 16:22:25 +0100
+Message-ID: <20121114152225.GB2531@minipsycho.brq.redhat.com>
+References: <1352897464-832-1-git-send-email-jiri@resnulli.us>
+ <1352902715.4497.3.camel@edumazet-glaptop>
+ <20121114142941.GA2531@minipsycho.brq.redhat.com>
+ <1352903939.4497.6.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
+	john.r.fastabend@intel.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:34747 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964808Ab2KNPQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 10:16:12 -0500
-In-Reply-To: <1352906047-11604-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:60603 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964811Ab2KNPWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 10:22:31 -0500
+Received: by mail-vc0-f174.google.com with SMTP id fk26so522151vcb.19
+        for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 07:22:30 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1352903939.4497.6.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This parameter was missing in the dump.
+Wed, Nov 14, 2012 at 03:38:59PM CET, eric.dumazet@gmail.com wrote:
+>On Wed, 2012-11-14 at 15:29 +0100, Jiri Pirko wrote:
+>> Wed, Nov 14, 2012 at 03:18:35PM CET, eric.dumazet@gmail.com wrote:
+>> >On Wed, 2012-11-14 at 13:51 +0100, Jiri Pirko wrote:
+>> >> Check (ha->addr == dev->dev_addr) is always true because dev_addr_init()
+>> >> sets this. Correct the check to behave properly on addr removal.
+>> >> 
+>> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> >> ---
+>> >
+>> >Please add in the changelog which commit added the bug, to ease
+>> >stable teams work.
+>> 
+>> bug introduced by:
+>> 
+>> commit a748ee2426817a95b1f03012d8f339c45c722ae1
+>> Author: Jiri Pirko <jpirko@redhat.com>
+>> Date:   Thu Apr 1 21:22:09 2010 +0000
+>> 
+>>     net: move address list functions to a separate file
+>
+>Good, the usual way is then to add in the changelog :
+>
+>Bug added in commit a748ee242681
+>(net: move address list functions to a separate file)
+>
+>
+>(No need to give the author/date, and we can shorten the SHA1 to 10 or
+>12 digits)
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/uapi/linux/if_tunnel.h | 1 +
- net/ipv4/ipip.c                | 6 +++++-
- 2 files changed, 6 insertions(+), 1 deletion(-)
+Mind noted. Thanks Eric.
 
-diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
-index f5ea6b7..5ab0c8d 100644
---- a/include/uapi/linux/if_tunnel.h
-+++ b/include/uapi/linux/if_tunnel.h
-@@ -48,6 +48,7 @@ enum {
- 	IFLA_IPTUN_FLOWINFO,
- 	IFLA_IPTUN_FLAGS,
- 	IFLA_IPTUN_PROTO,
-+	IFLA_IPTUN_PMTUDISC,
- 	__IFLA_IPTUN_MAX,
- };
- #define IFLA_IPTUN_MAX	(__IFLA_IPTUN_MAX - 1)
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 40984fa..1204da3 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -854,6 +854,8 @@ static size_t ipip_get_size(const struct net_device *dev)
- 		nla_total_size(1) +
- 		/* IFLA_IPTUN_TOS */
- 		nla_total_size(1) +
-+		/* IFLA_IPTUN_PMTUDISC */
-+		nla_total_size(1) +
- 		0;
- }
- 
-@@ -866,7 +868,9 @@ static int ipip_fill_info(struct sk_buff *skb, const struct net_device *dev)
- 	    nla_put_be32(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
- 	    nla_put_be32(skb, IFLA_IPTUN_REMOTE, parm->iph.daddr) ||
- 	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->iph.ttl) ||
--	    nla_put_u8(skb, IFLA_IPTUN_TOS, parm->iph.tos))
-+	    nla_put_u8(skb, IFLA_IPTUN_TOS, parm->iph.tos) ||
-+	    nla_put_u8(skb, IFLA_IPTUN_PMTUDISC,
-+		       !!(parm->iph.frag_off & htons(IP_DF))))
- 		goto nla_put_failure;
- 	return 0;
- 
--- 
-1.7.12
+>
+>Thanks
+>
+>
