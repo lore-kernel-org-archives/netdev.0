@@ -1,157 +1,83 @@
-From: Xiaotian Feng <xtfeng@gmail.com>
-Subject: [PATCH] drivers/net: fix tasklet misuse issue
-Date: Wed, 14 Nov 2012 13:47:36 +0800
-Message-ID: <1352872056-5637-1-git-send-email-xtfeng@gmail.com>
-Cc: Xiaotian Feng <xtfeng@gmail.com>,
-	Xiaotian Feng <dannyfeng@tencent.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [3.0.y, 3.2.y, 3.4.y] Re: [PATCH 2/2] [sky2] Fix for interrupt
+ handler
+Date: Wed, 14 Nov 2012 05:49:00 +0000
+Message-ID: <1352872140.4867.16.camel@deadeye.wl.decadent.org.uk>
+References: <1341394726.14972.41.camel@mlindner-lin.skd.de>
+	 <20121025223646.GA1131@elie.Belkin> <20121103100447.GA2003@elie.Belkin>
+	 <20121113.031446.1481052044099452015.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Ua5du1jNVhzzXL3vXicH"
+Cc: jrnieder@gmail.com, jdg@debian.org, mlindner@marvell.com,
+	shemminger@vyatta.org, netdev@vger.kernel.org,
+	stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:54902 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750835Ab2KNFtR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 00:49:17 -0500
+In-Reply-To: <20121113.031446.1481052044099452015.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In commit 175c0dff, drivers uses tasklet_kill to avoid put disabled tasklet
-on the tasklet vec. But some of the drivers uses tasklet_init & tasklet_disable
-in the driver init code, then tasklet_enable when it is opened. This makes
-tasklet_enable on a killed tasklet and make ksoftirqd crazy then. Normally,
-drivers should use tasklet_init/tasklet_kill on device open/remove, and use
-tasklet_disable/tasklet_enable on device suspend/resume.
 
-Reported-by: Peter Wu <lekensteyn@gmail.com>
-Tested-by: Peter Wu <lekensteyn@gmail.com>
-Signed-off-by: Xiaotian Feng <dannyfeng@tencent.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org 
----
- drivers/net/ethernet/jme.c                        |   28 ++++++---------------
- drivers/net/ethernet/micrel/ksz884x.c             |   16 +++---------
- drivers/net/ethernet/xilinx/xilinx_axienet_main.c |   12 ++++-----
- 3 files changed, 18 insertions(+), 38 deletions(-)
+--=-Ua5du1jNVhzzXL3vXicH
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
-index 92317e9..c0314c1 100644
---- a/drivers/net/ethernet/jme.c
-+++ b/drivers/net/ethernet/jme.c
-@@ -1860,10 +1860,14 @@ jme_open(struct net_device *netdev)
- 	jme_clear_pm(jme);
- 	JME_NAPI_ENABLE(jme);
- 
--	tasklet_enable(&jme->linkch_task);
--	tasklet_enable(&jme->txclean_task);
--	tasklet_hi_enable(&jme->rxclean_task);
--	tasklet_hi_enable(&jme->rxempty_task);
-+	tasklet_init(&jme->linkch_task, jme_link_change_tasklet,
-+		     (unsigned long) jme);
-+	tasklet_init(&jme->txclean_task, jme_tx_clean_tasklet,
-+		     (unsigned long) jme);
-+	tasklet_init(&jme->rxclean_task, jme_rx_clean_tasklet,
-+		     (unsigned long) jme);
-+	tasklet_init(&jme->rxempty_task, jme_rx_empty_tasklet,
-+		     (unsigned long) jme);
- 
- 	rc = jme_request_irq(jme);
- 	if (rc)
-@@ -3079,22 +3083,6 @@ jme_init_one(struct pci_dev *pdev,
- 	tasklet_init(&jme->pcc_task,
- 		     jme_pcc_tasklet,
- 		     (unsigned long) jme);
--	tasklet_init(&jme->linkch_task,
--		     jme_link_change_tasklet,
--		     (unsigned long) jme);
--	tasklet_init(&jme->txclean_task,
--		     jme_tx_clean_tasklet,
--		     (unsigned long) jme);
--	tasklet_init(&jme->rxclean_task,
--		     jme_rx_clean_tasklet,
--		     (unsigned long) jme);
--	tasklet_init(&jme->rxempty_task,
--		     jme_rx_empty_tasklet,
--		     (unsigned long) jme);
--	tasklet_disable_nosync(&jme->linkch_task);
--	tasklet_disable_nosync(&jme->txclean_task);
--	tasklet_disable_nosync(&jme->rxclean_task);
--	tasklet_disable_nosync(&jme->rxempty_task);
- 	jme->dpi.cur = PCC_P1;
- 
- 	jme->reg_ghc = 0;
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index e558edd..b66b285 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -5459,8 +5459,10 @@ static int prepare_hardware(struct net_device *dev)
- 	rc = request_irq(dev->irq, netdev_intr, IRQF_SHARED, dev->name, dev);
- 	if (rc)
- 		return rc;
--	tasklet_enable(&hw_priv->rx_tasklet);
--	tasklet_enable(&hw_priv->tx_tasklet);
-+	tasklet_init(&hw_priv->rx_tasklet, rx_proc_task,
-+		     (unsigned long) hw_priv);
-+	tasklet_init(&hw_priv->tx_tasklet, tx_proc_task,
-+		     (unsigned long) hw_priv);
- 
- 	hw->promiscuous = 0;
- 	hw->all_multi = 0;
-@@ -7033,16 +7035,6 @@ static int __devinit pcidev_init(struct pci_dev *pdev,
- 	spin_lock_init(&hw_priv->hwlock);
- 	mutex_init(&hw_priv->lock);
- 
--	/* tasklet is enabled. */
--	tasklet_init(&hw_priv->rx_tasklet, rx_proc_task,
--		(unsigned long) hw_priv);
--	tasklet_init(&hw_priv->tx_tasklet, tx_proc_task,
--		(unsigned long) hw_priv);
--
--	/* tasklet_enable will decrement the atomic counter. */
--	tasklet_disable(&hw_priv->rx_tasklet);
--	tasklet_disable(&hw_priv->tx_tasklet);
--
- 	for (i = 0; i < TOTAL_PORT_NUM; i++)
- 		init_waitqueue_head(&hw_priv->counter[i].counter);
- 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-index 1d04754..7740f4b 100644
---- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
-@@ -942,6 +942,10 @@ static int axienet_open(struct net_device *ndev)
- 		phy_start(lp->phy_dev);
- 	}
- 
-+	/* Enable tasklets for Axi DMA error handling */
-+	tasklet_init(&lp->dma_err_tasklet, axienet_dma_err_handler,
-+		     (unsigned long) lp);
-+
- 	/* Enable interrupts for Axi DMA Tx */
- 	ret = request_irq(lp->tx_irq, axienet_tx_irq, 0, ndev->name, ndev);
- 	if (ret)
-@@ -950,8 +954,7 @@ static int axienet_open(struct net_device *ndev)
- 	ret = request_irq(lp->rx_irq, axienet_rx_irq, 0, ndev->name, ndev);
- 	if (ret)
- 		goto err_rx_irq;
--	/* Enable tasklets for Axi DMA error handling */
--	tasklet_enable(&lp->dma_err_tasklet);
-+
- 	return 0;
- 
- err_rx_irq:
-@@ -960,6 +963,7 @@ err_tx_irq:
- 	if (lp->phy_dev)
- 		phy_disconnect(lp->phy_dev);
- 	lp->phy_dev = NULL;
-+	tasklet_kill(&lp->dma_err_tasklet);
- 	dev_err(lp->dev, "request_irq() failed\n");
- 	return ret;
- }
-@@ -1613,10 +1617,6 @@ static int __devinit axienet_of_probe(struct platform_device *op)
- 		goto err_iounmap_2;
- 	}
- 
--	tasklet_init(&lp->dma_err_tasklet, axienet_dma_err_handler,
--		     (unsigned long) lp);
--	tasklet_disable(&lp->dma_err_tasklet);
--
- 	return 0;
- 
- err_iounmap_2:
--- 
-1.7.9.6 (Apple Git-31.1)
+On Tue, 2012-11-13 at 03:14 -0500, David Miller wrote:
+> From: Jonathan Nieder <jrnieder@gmail.com>
+> Date: Sat, 3 Nov 2012 03:04:48 -0700
+>=20
+> > On October 25, Jonathan Nieder wrote:
+> >> Mirko Lindner wrote:
+> >=20
+> >>> Re-enable interrupts if it is not our interrupt
+> >>>
+> >>> Signed-off-by: Mirko Lindner <mlindner@marvell.com>
+> > [...]
+> >> Tested-by: Julian Gilbey <jdg@debian.org> # 3.2.y, Inspiron 1545
+> >=20
+> > Ping.  Dave, is
+> >=20
+> >   d663d181b9e9 sky2: Fix for interrupt handler
+> >=20
+> > a candidate for inclusion in 3.0-, 3.2-, and 3.4-stable?  (It was
+> > applied upstream during the 3.6 merge window.)  I don't see it in
+> > the list at [2].
+>=20
+> This looks fine.
+
+Queued up for 3.2, thanks all.
+
+Ben.
+
+--=20
+Ben Hutchings
+friends: People who know you well, but like you anyway.
+
+--=-Ua5du1jNVhzzXL3vXicH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUKMwzOe/yOyVhhEJAQpFPhAAhIdK6k5vQFYrLDcI5LipAP2D4Qs6TTEp
+mOYQ77Pndhvi6pUY48fkh6Jq4zKsmG+Hg7t8QOxJDUvtbyDpaw1fShleLv1KmOgS
+V3J7dJNOWvMLby4WjKcWHZhlyF8PTq75FjBH+q1HLZEOuVLNVcJx3QNmB9PRxECL
+oogUQH8Abz7+51TDzRxn/XNoxWRrWbjOpqR4btK47mgudvQonCEcdhsmg5d5vlEM
+OcvZiupIgn5iBqWcTl0e4T6ypqbUDLGMqTPTeN61dH/xRLhI6YsNFWC1ohNIH5lv
+vpoFVmXyGy403vS1ihrCFPJhBflFnJko4wf4qpQQ/q1M+IEVqwaUC66fVE/no3NZ
+tVv6gdwq4G/XdncC371zB97TenNwMnVq3mbQV6CgGM3IxxDIghpzdleWEDEX3y1o
+YMisJiO2pfAUxL29Cw0+ueBD+CHDsoR8YpsqLLalLWuNi3f3152QJerR9mTln/Cw
+t/xZLJCfYaG7zJnj0pha4uekDCfHuzqiWi3Mba1J74PFLazaiBbOuxjvBIl6aRuU
+pRISt1iZUekIMOha7uHYS2sFB8iRsnL27KhaYrnIisOcdal+QYCAzkmvBJya90Ol
+yCwN5o6mB+Uvz/vPlP6CKRugxwp6jPccAW2Gy1ZTN1WAaexLD439AG1M+V6+BUD+
+PUPEbCIJE98=
+=M3mT
+-----END PGP SIGNATURE-----
+
+--=-Ua5du1jNVhzzXL3vXicH--
