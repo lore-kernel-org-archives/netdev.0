@@ -1,48 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Linux kernel handling of IPv6 temporary addresses
-Date: Wed, 14 Nov 2012 18:08:24 -0500 (EST)
-Message-ID: <20121114.180824.1930899985436392426.davem@davemloft.net>
-References: <20121114231411.4328fc47@lola.kot>
-	<20121114.162956.610530798200803185.davem@davemloft.net>
-	<20121115010324.2707950c@lola.kot>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFC PATCH 03/13] net: Add net protocol offload registration infrustructure
+Date: Thu, 15 Nov 2012 00:14:52 +0100
+Message-ID: <20121114231452.GH27068@electric-eye.fr.zoreil.com>
+References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com> <1352856254-29667-4-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kargig@void.gr
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.com
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36459 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932436Ab2KNXIZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 18:08:25 -0500
-In-Reply-To: <20121115010324.2707950c@lola.kot>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:49996 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932216Ab2KNXiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 18:38:00 -0500
+Content-Disposition: inline
+In-Reply-To: <1352856254-29667-4-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: George Kargiotakis <kargig@void.gr>
-Date: Thu, 15 Nov 2012 01:03:24 +0200
+Vlad Yasevich <vyasevic@redhat.com> :
+[...]
+> diff --git a/include/net/protocol.h b/include/net/protocol.h
+> index 929528c..d8ecb17 100644
+> --- a/include/net/protocol.h
+> +++ b/include/net/protocol.h
+> @@ -77,6 +77,15 @@ struct inet6_protocol {
+>  #define INET6_PROTO_GSO_EXTHDR	0x4
+>  #endif
+>  
+> +struct net_offload {
+> +	int			(*gso_send_check)(struct sk_buff *skb);
+> +	struct sk_buff	       *(*gso_segment)(struct sk_buff *skb,
+> +					       netdev_features_t features);
+> +	struct sk_buff	      **(*gro_receive)(struct sk_buff **head,
+> +					       struct sk_buff *skb);
+> +	int			(*gro_complete)(struct sk_buff *skb);
+> +};
 
-> I think it's an issue that a LAN root user can disable a
-> locally enabled kernel "feature" for good. The kernel could provide a
-> somewhat more informative message on such an occasion taking place,
-> since it knows that max_addresses limit has been reached and it's not a
-> DAD failure.
-> 
-> My point is that I'd like the kernel to handle this situation a bit 
-> differently than it currently does.
+Would it be worth adding a #14 where packet_offload and net_offload
+share a common offload struct instead of duplicating (currently) identical
+members ?
 
-Read my example again, it's the same thing for ipv4.
-
-The root LAN user can disable all IPV4 communications to arbitrary IP
-addresses on the local LAN by emitting bogus ARP requests and
-poisoning everyone's caches.  What's the difference between that
-and this arbitrary ipv6 issue?
-
-There is none at all.
-
-If you have a root person on your local LAN you're subject to injection
-of bogus addressing and routing information.  This issue is not specific
-to ipv4 or ipv6 and is fundamental in nature.
-
-So it is misleading to bring this up as an ipv6 specific problem, it's
-not.
+-- 
+Ueimor
