@@ -1,73 +1,31 @@
-From: George Kargiotakis <kargig@void.gr>
-Subject: Linux kernel handling of IPv6 temporary addresses
-Date: Wed, 14 Nov 2012 23:14:11 +0200
-Message-ID: <20121114231411.4328fc47@lola.kot>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Linux kernel handling of IPv6 temporary addresses
+Date: Wed, 14 Nov 2012 16:29:56 -0500 (EST)
+Message-ID: <20121114.162956.610530798200803185.davem@davemloft.net>
+References: <20121114231411.4328fc47@lola.kot>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: kargig@void.gr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting-16.ecomm.gr ([85.17.213.16]:55385 "EHLO foo.wimax.gr"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1422641Ab2KNVU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2012 16:20:29 -0500
-Received: from lola.kot (unknown [IPv6:2a02:580:8f00:222:5dda:47e9:6289:25e6])
-	by foo.wimax.gr (Postfix) with ESMTPSA id 908CA8FA0A0
-	for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 22:14:12 +0100 (CET)
+Received: from shards.monkeyblade.net ([149.20.54.216]:34844 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933092Ab2KNVaB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 16:30:01 -0500
+In-Reply-To: <20121114231411.4328fc47@lola.kot>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all,
+From: George Kargiotakis <kargig@void.gr>
+Date: Wed, 14 Nov 2012 23:14:11 +0200
 
-Due to the way the Linux kernel handles the creation of IPv6 temporary
-addresses a malicious LAN user can remotely disable them altogether
-which may lead to privacy violations and information disclosure.
+> Due to the way the Linux kernel handles the creation of IPv6 temporary
+> addresses a malicious LAN user can remotely disable them altogether
+> which may lead to privacy violations and information disclosure.
 
-By default the Linux kernel uses the 'ipv6.max_addresses' option to
-specify how many IPv6 addresses an interface may have. The
-'ipv6.regen_max_retry' option specifies how many times the kernel will
-try to create a new address.
+A malicious user who can emit random packets as root on your LAN can
+also corrupt your ARP cache with entries that point to the wrong MAC
+address.
 
-Currently, in net/ipv6/addrconf.c,lines 898-910, there is no
-distinction between the events of reaching max_addresses for an
-interface and failing to generate a new address. Upon
-reaching any of the above conditions the following error is emitted by
-the kernel times 'regen_max_retry' (default value 3): 
-
-[183.793393] ipv6_create_tempaddr(): retry temporary address
-regeneration [183.793405] ipv6_create_tempaddr(): retry temporary
-address regeneration [183.793411] ipv6_create_tempaddr(): retry
-temporary address regeneration
-
-After 'regen_max_retry' is reached the kernel completely disables
-temporary address generation for that interface.
-
-[183.793413] ipv6_create_tempaddr(): regeneration time exceeded -
-disabled temporary address support
-
-RFC4941 3.3.7 specifies that disabling temp_addresses MUST happen upon
-failure to create non-unique addresses which is not the above case.
-Addresses would have been created if the kernel had a higher
-'ipv6.max_addresses' limit.
-
-A malicious LAN user can send a limited amount of RA prefixes and thus
-disable IPv6 temporary address creation for any Linux host. Recent
-distributions which enable the IPv6 Privacy extensions by default, like
-Ubuntu 12.04 and 12.10, are vulnerable to such attacks.
-
-Due to the kernel's default values for valid (604800) and preferred
-(86400) lifetimes, this scenario may even occur under normal usage when
-a Router sends both a public and a ULA prefix, which is not an uncommon
-scenario for IPv6. 16 addresses are not enough with the current default
-timers when more than 1 prefix is advertised.
-
-The kernel should at least differentiate between the two cases of
-reaching max_addresses and being unable to create new addresses, due to
-DAD conflicts for example.
-
-Best regards,
--- 
-George Kargiotakis
-https://void.gr
-GPG KeyID: 0xE4F4FFE6
-GPG Fingerprint: 9EB8 31BE C618 07CE 1B51 818D 4A0A 1BC8 E4F4 FFE6
+What's your point?
