@@ -1,12 +1,16 @@
 From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: pull request: batman-adv 2012-11-14
-Date: Wed, 14 Nov 2012 21:16:18 +0100
-Message-ID: <1352924189-18843-1-git-send-email-ordex@autistici.org>
+Subject: [PATCH 01/11] batman-adv: don't rely on positions in
+	struct for hashing
+Date: Wed, 14 Nov 2012 21:16:19 +0100
+Message-ID: <1352924189-18843-2-git-send-email-ordex@autistici.org>
+References: <1352924189-18843-1-git-send-email-ordex@autistici.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1352924189-18843-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
  <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
@@ -18,64 +22,95 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hello David,
+From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
 
-here is again our new patchset intended for net-next/linux-3.8.
-Patch 1/11 has been modified to address the problems you pointed out last time;
-however hash_bytes has kept its inline tag and it has been moved to hash.h (in
-this way it becomes usable by the rest of the batman-adv code for new changes).
+The hash functions in the bridge loop avoidance code expects the
+VLAN vid to be right after the mac address, but this is not guaranteed.
 
-Let me know if there is any problem!
+Fix this by explicitly hashing over the right fields of the struct.
 
-Thanks a lot!
-	Antonio
+Reported-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Signed-off-by: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
+Signed-off-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+---
+ net/batman-adv/bridge_loop_avoidance.c | 20 ++++++--------------
+ net/batman-adv/hash.h                  | 22 ++++++++++++++++++++++
+ 2 files changed, 28 insertions(+), 14 deletions(-)
 
-The following changes since commit bf0098f22ca7b59e8844ac6882bbae230d34b98d:
-
-  ARM: net: bpf_jit_32: add VLAN instructions for BPF JIT (2012-11-13 18:21:10 -0500)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
-
-for you to fetch changes up to 170173bf37342dab486daaa2a0381d802c10fb21:
-
-  batman-adv: Remove instant overwritten variable initialization (2012-11-14 21:00:37 +0100)
-
-----------------------------------------------------------------
-Included changes:
-- hash computation improvements
-- Bridge Loop Avoidance set-up phase optimisations
-- Roaming handling code redesign
-- some code cleanups
-
-----------------------------------------------------------------
-Antonio Quartulli (6):
-      batman-adv: fix wrong spinlock inline comment
-      batman-adv: prevent using any virtual device created on batman-adv as hard-interface
-      batman-adv: substitute tt_poss_change with a per-tt_entry flag
-      batman-adv: refactor code to simplify long lines
-      batman-adv: refactor tt_global_del_struct()
-      batman-adv: roaming handling mechanism redesign
-
-Simon Wunderlich (4):
-      batman-adv: don't rely on positions in struct for hashing
-      batman-adv: send announcement when backbone gw is registered
-      batman-adv: allow bla traffic only after first worker period
-      batman-adv: wait multiple periods before activating bla
-
-Sven Eckelmann (1):
-      batman-adv: Remove instant overwritten variable initialization
-
- net/batman-adv/bridge_loop_avoidance.c |  59 ++++---
- net/batman-adv/hard-interface.c        |  41 ++++-
- net/batman-adv/hash.h                  |  22 +++
- net/batman-adv/main.h                  |   1 +
- net/batman-adv/originator.c            |   1 -
- net/batman-adv/routing.c               | 173 +++++++++++++++------
- net/batman-adv/soft-interface.c        |   1 -
- net/batman-adv/sysfs.c                 |   2 +-
- net/batman-adv/translation-table.c     | 276 ++++++++++++++++++++++-----------
- net/batman-adv/translation-table.h     |   2 +
- net/batman-adv/types.h                 |  11 +-
- 11 files changed, 416 insertions(+), 173 deletions(-)
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 29a5542..49c35a6 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -40,15 +40,11 @@ static void batadv_bla_send_announce(struct batadv_priv *bat_priv,
+ /* return the index of the claim */
+ static inline uint32_t batadv_choose_claim(const void *data, uint32_t size)
+ {
+-	const unsigned char *key = data;
++	struct batadv_claim *claim = (struct batadv_claim *)data;
+ 	uint32_t hash = 0;
+-	size_t i;
+ 
+-	for (i = 0; i < ETH_ALEN + sizeof(short); i++) {
+-		hash += key[i];
+-		hash += (hash << 10);
+-		hash ^= (hash >> 6);
+-	}
++	hash = batadv_hash_bytes(hash, &claim->addr, sizeof(claim->addr));
++	hash = batadv_hash_bytes(hash, &claim->vid, sizeof(claim->vid));
+ 
+ 	hash += (hash << 3);
+ 	hash ^= (hash >> 11);
+@@ -61,15 +57,11 @@ static inline uint32_t batadv_choose_claim(const void *data, uint32_t size)
+ static inline uint32_t batadv_choose_backbone_gw(const void *data,
+ 						 uint32_t size)
+ {
+-	const unsigned char *key = data;
++	struct batadv_claim *claim = (struct batadv_claim *)data;
+ 	uint32_t hash = 0;
+-	size_t i;
+ 
+-	for (i = 0; i < ETH_ALEN + sizeof(short); i++) {
+-		hash += key[i];
+-		hash += (hash << 10);
+-		hash ^= (hash >> 6);
+-	}
++	hash = batadv_hash_bytes(hash, &claim->addr, sizeof(claim->addr));
++	hash = batadv_hash_bytes(hash, &claim->vid, sizeof(claim->vid));
+ 
+ 	hash += (hash << 3);
+ 	hash ^= (hash >> 11);
+diff --git a/net/batman-adv/hash.h b/net/batman-adv/hash.h
+index 977de9c..e053339 100644
+--- a/net/batman-adv/hash.h
++++ b/net/batman-adv/hash.h
+@@ -82,6 +82,28 @@ static inline void batadv_hash_delete(struct batadv_hashtable *hash,
+ }
+ 
+ /**
++ *	batadv_hash_bytes - hash some bytes and add them to the previous hash
++ *	@hash: previous hash value
++ *	@data: data to be hashed
++ *	@size: number of bytes to be hashed
++ *
++ *	Returns the new hash value.
++ */
++static inline uint32_t batadv_hash_bytes(uint32_t hash, void *data,
++					 uint32_t size)
++{
++	const unsigned char *key = data;
++	int i;
++
++	for (i = 0; i < size; i++) {
++		hash += key[i];
++		hash += (hash << 10);
++		hash ^= (hash >> 6);
++	}
++	return hash;
++}
++
++/**
+  *	batadv_hash_add - adds data to the hashtable
+  *	@hash: storage hash table
+  *	@compare: callback to determine if 2 hash elements are identical
+-- 
+1.8.0
