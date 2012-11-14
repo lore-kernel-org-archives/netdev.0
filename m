@@ -1,61 +1,73 @@
-From: Daniele Venzano <venza@brownhat.org>
-Subject: Re: PROBLEM: freeze when resuming from suspend-to-ram
-Date: Wed, 14 Nov 2012 22:11:15 +0100
-Message-ID: <20121114211115.GD14880@ge.brownhat.org>
-References: <1560844.T75lq5MbC7@brinja>
+From: George Kargiotakis <kargig@void.gr>
+Subject: Linux kernel handling of IPv6 temporary addresses
+Date: Wed, 14 Nov 2012 23:14:11 +0200
+Message-ID: <20121114231411.4328fc47@lola.kot>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Francois Romieu <romieu@fr.zoreil.com>
-To: medhefgo@web.de
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp3.infomaniak.ch ([84.16.68.91]:54868 "EHLO
-	smtp3.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422641Ab2KNVTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 16:19:07 -0500
-Content-Disposition: inline
-In-Reply-To: <1560844.T75lq5MbC7@brinja>
+Received: from hosting-16.ecomm.gr ([85.17.213.16]:55385 "EHLO foo.wimax.gr"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1422641Ab2KNVU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2012 16:20:29 -0500
+Received: from lola.kot (unknown [IPv6:2a02:580:8f00:222:5dda:47e9:6289:25e6])
+	by foo.wimax.gr (Postfix) with ESMTPSA id 908CA8FA0A0
+	for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 22:14:12 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 11, 2012 at 08:47:45PM +0100, medhefgo@web.de wrote:
-> Hello, 
-> 
-> When resuming from suspend-to-ram the kernel freezes. Git bisect output below. 
-> When removing the sis900 module or if eth0 hasn't yet been brought up with "ip 
-> link set eth0 up", resuming works fine.
-> 
-> This is happening on a up-to-date Arch installation with kernel 3.6.6 and is 
-> still present in 3.7-rc5. Reverting the patch is possible and fixes the 
-> freezing.
+Hello all,
 
-The patch is big and, while by looking at it nothing jumps to my eyes as
-clearly wrong, I currently do not have access to sis900 hardware to test
-it. Francois Romieu (in CC), who did the patch, perhaps can shed some light.
+Due to the way the Linux kernel handles the creation of IPv6 temporary
+addresses a malicious LAN user can remotely disable them altogether
+which may lead to privacy violations and information disclosure.
 
-Otherwise I cannot work on it before next month, when I'll be able to
-put my hands on the hardware.
+By default the Linux kernel uses the 'ipv6.max_addresses' option to
+specify how many IPv6 addresses an interface may have. The
+'ipv6.regen_max_retry' option specifies how many times the kernel will
+try to create a new address.
 
-> 57d6d456cfb89264f87d24f52640ede23fdf12bd is the first bad commit
-> commit 57d6d456cfb89264f87d24f52640ede23fdf12bd
-> Author: Francois Romieu <romieu@fr.zoreil.com>
-> Date:   Tue Mar 13 11:14:17 2012 +0100
-> 
->     sis900: stop using net_device.{base_addr, irq} and convert to __iomem.
->     
->     - pci_resource_start() can be removed from sis900_get_mac_addr() because
->       the IO range is maped and stored into the device private struct early
->       in the device probe function.
->     - the driver contains a few direct accesses to low IO ports that forbid
->       to re(#)define the usual out{l, w, b} macros.
->     
->     Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
->     Cc: Daniele Venzano <venza@brownhat.org>
-> 
-> :040000 040000 f328a3383c1ff9b9ed16de7272b4c8a302ae2812 
-> 44c07bfe1bd23b381fd407dfaa9591ed26165afd M      drivers
+Currently, in net/ipv6/addrconf.c,lines 898-910, there is no
+distinction between the events of reaching max_addresses for an
+interface and failing to generate a new address. Upon
+reaching any of the above conditions the following error is emitted by
+the kernel times 'regen_max_retry' (default value 3): 
 
-Thanks.
+[183.793393] ipv6_create_tempaddr(): retry temporary address
+regeneration [183.793405] ipv6_create_tempaddr(): retry temporary
+address regeneration [183.793411] ipv6_create_tempaddr(): retry
+temporary address regeneration
 
+After 'regen_max_retry' is reached the kernel completely disables
+temporary address generation for that interface.
+
+[183.793413] ipv6_create_tempaddr(): regeneration time exceeded -
+disabled temporary address support
+
+RFC4941 3.3.7 specifies that disabling temp_addresses MUST happen upon
+failure to create non-unique addresses which is not the above case.
+Addresses would have been created if the kernel had a higher
+'ipv6.max_addresses' limit.
+
+A malicious LAN user can send a limited amount of RA prefixes and thus
+disable IPv6 temporary address creation for any Linux host. Recent
+distributions which enable the IPv6 Privacy extensions by default, like
+Ubuntu 12.04 and 12.10, are vulnerable to such attacks.
+
+Due to the kernel's default values for valid (604800) and preferred
+(86400) lifetimes, this scenario may even occur under normal usage when
+a Router sends both a public and a ULA prefix, which is not an uncommon
+scenario for IPv6. 16 addresses are not enough with the current default
+timers when more than 1 prefix is advertised.
+
+The kernel should at least differentiate between the two cases of
+reaching max_addresses and being unable to create new addresses, due to
+DAD conflicts for example.
+
+Best regards,
 -- 
-Daniele Venzano
-http://www.brownhat.org
+George Kargiotakis
+https://void.gr
+GPG KeyID: 0xE4F4FFE6
+GPG Fingerprint: 9EB8 31BE C618 07CE 1B51 818D 4A0A 1BC8 E4F4 FFE6
