@@ -1,63 +1,121 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH v5 3/9] net: xfrm: use __this_cpu_read per-cpu helper
-Date: Wed, 14 Nov 2012 09:43:55 +0100
-Message-ID: <20121114084355.GK22290@secunet.com>
-References: <50A1A7C9.3060703@gmail.com>
- <20121113072101.GG22290@secunet.com>
- <50A213DF.1040103@gmail.com>
- <20121113104839.GJ22290@secunet.com>
- <50A23EB0.1060808@gmail.com>
+From: Kirill Smelkov <kirr@mns.spb.ru>
+Subject: Re: [REGRESSION] r8169: jumbo fixes caused jumbo regressions!
+Date: Wed, 14 Nov 2012 13:25:30 +0400
+Message-ID: <20121114092530.GA22323@tugrik.mns.mnsspb.ru>
+References: <20121113170655.GA20291@tugrik.mns.mnsspb.ru>
+ <20121113223512.GA29342@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	NetDev <netdev@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Shan Wei <shanwei88@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
+	Hayes Wang <hayeswang@realtek.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.mnsspb.ru ([84.204.75.2]:42286 "EHLO mail.mnsspb.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932651Ab2KNJYr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2012 04:24:47 -0500
 Content-Disposition: inline
-In-Reply-To: <50A23EB0.1060808@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20121113223512.GA29342@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 13, 2012 at 08:36:00PM +0800, Shan Wei wrote:
-> Steffen Klassert said, at 2012/11/13 18:48:
-> >=20
-> > Ok, so please add a commit message to describe your changes.
-> >=20
-> > Thanks.
-> >=20
->=20
-> [PATCH v5] net: xfrm: use __this_cpu_read per-cpu helper
->=20
-> this_cpu_ptr/this_cpu_read is faster than per_cpu_ptr(p, smp_processo=
-r_id())=20
-> and can reduce  memory accesses.
-> The latter helper needs to find the offset for current cpu,
-> and needs more assembler instructions which objdump shows in followin=
-g.=20
->=20
-> this_cpu_ptr relocates and address. this_cpu_read() relocates the add=
-ress
-> and performs the fetch. this_cpu_read() saves you more instructions
-> since it can do the relocation and the fetch in one instruction.
->=20
-> per_cpu_ptr(p, smp_processor_id())=EF=BC=9A
->   1e:   65 8b 04 25 00 00 00 00         mov    %gs:0x0,%eax
->   26:   48 98                           cltq
->   28:   31 f6                           xor    %esi,%esi
->   2a:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
->   31:   48 8b 04 c5 00 00 00 00         mov    0x0(,%rax,8),%rax
->   39:   c7 44 10 04 14 00 00 00         movl   $0x14,0x4(%rax,%rdx,1)
->=20
-> this_cpu_ptr(p)
->   1e:   65 48 03 14 25 00 00 00 00      add    %gs:0x0,%rdx
->   27:   31 f6                           xor    %esi,%esi
->   29:   c7 42 04 14 00 00 00            movl   $0x14,0x4(%rdx)
->   30:   48 c7 c7 00 00 00 00            mov    $0x0,%rdi
->=20
-> Signed-off-by: Shan Wei <davidshan@tencent.com>
+On Tue, Nov 13, 2012 at 11:35:12PM +0100, Francois Romieu wrote:
+> Kirill Smelkov <kirr@mns.spb.ru> :
+> [...]
+> > My test is to stream raw video from 8 PAL cameras to net - 4 for 720x576@25 and
+> > 4 for 360x288@25 which for YUYV format occupies ~ 860 Mbps of bandwidth. The
+> > program to transmit/receive video is here: http://repo.or.cz/w/rawv.git
+> 
+> $ git clone  http://repo.or.cz/w/rawv.git
+> Cloning into 'rawv'...
+> fatal: http://repo.or.cz/w/rawv.git/info/refs not valid: is this a git repository?
 
-Applied to ipsec-next, thanks!
+That's a gitweb view. The actual git repo is here:
+
+    git://repo.or.cz/rawv.git
+
+sorry for confusion.
+
+( if you'll want to test with vivi on a slow system, you'll need my
+  patches, currently staging in media-tree patchwork, or available here:
+
+  git://repo.or.cz/linux-2.6/kirr.git   vivi-speedup-and-fps.over-net-next )
+
+
+> [...]
+> > (by the way, on atom system, without tx csum offload, half of cpu time
+> > is spent only to calculate checksums...)
+> 
+> :o(
+
+yes, that large. In top, my workload is
+
+                                %sy     %id     %si
+    
+    default driver load         ~25     ~45     ~27
+    (ethtool -k shows
+     tx-checksumming: off)
+
+    after                        ~8     ~81     ~11
+    `ethtool -K eth0 tx on`
+     
+
+that's why the issue is important.
+
+
+> > Now I wonder, where that 6K limit came from and why they say it is now
+> > not possible to use jumbos together with tx csum offload ?
+> 
+> Here is an excerpt from a mail where Hayes explained the rules of
+> engagement back in may 2011 (John Lumby and Chris Friesen were Cced then):
+
+Can't find that mail in gmane netdev archive and on google, to restore
+full context. Was that in private?
+
+
+> ! The Max tx sizes for 8168 series are as following:
+> ! 
+> ! 8168B is 4K bytes.
+> ! 8168C and 8168CP are 6K bytes.
+> ! 8168D and later are 9K bytes.
+> ! 
+> ! Note that these sizes all include head size. That is, the mtu must less than
+> ! these values.
+> ! You have to enable Jumbo frame feature when the tx size is large, otherwise the
+> ! packet would not be sent. Because the hw doesn't provide the threshold, the
+> ! checking for MTU > 1500 is just for convenience for sw.
+
+This part is clear.
+
+
+> ! The TSO couldn't work with some feature which need to disable hw checksum, such
+> ! as Jumbo frame. The hw checksum have to be disabled in certain situations, so
+> ! the TSO feature should be checked in these situations, too.
+
+I don't enable TSO nor I need it. The text indirectly says that hw
+checksum should be disabled when jumbo frames are used.
+
+~~~~
+
+Hayes, Realtek linux nic maintainers,
+
+    could you please confirm that for all 8168C and 8168CP jumbo_max is
+    6K and that when jumbos are used, tx checksumming should be off?
+
+    If so, how come my two chips work stable with ~7K jumbos and tx checksum
+    offload on (tested this night again for ~16 hours without any problem).
+
+    thanks beforehand.
+
+
+> > Is my testing enough to justify raising the limits and allowing tx offload ?
+> 
+> I don't oppose knobs to go off-limits but I'll need some rather good reason
+> before changing the manufacturer's suggested defaults.
+
+Thanks. Let's see what Realtek people say.
+
+Kirill
