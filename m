@@ -1,51 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH 00/13] Always build GSO/GRO functionality into the
- kernel
-Date: Tue, 13 Nov 2012 18:25:28 -0800
-Message-ID: <1352859928.4497.1.camel@edumazet-glaptop>
-References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next] 8021q: validate SAN MAC address
+Date: Tue, 13 Nov 2012 18:41:36 -0800
+Message-ID: <1352860896.6276.88.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1352845788.6276.28.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <20121113.181600.667479923208656972.davem@davemloft.net>
+ <1352850029.6276.52.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <20121113.202408.79469396824848499.davem@davemloft.net>
+ <1352857850.6276.71.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+ <50A2FAB8.8010803@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.com
-To: Vlad Yasevich <vyasevic@redhat.com>
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: "John Fastabend" <john.r.fastabend@intel.com>, eilong@broadcom.com,
+	ariele@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:60251 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932375Ab2KNCZb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Nov 2012 21:25:31 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so29900pbc.19
-        for <netdev@vger.kernel.org>; Tue, 13 Nov 2012 18:25:30 -0800 (PST)
-In-Reply-To: <1352856254-29667-1-git-send-email-vyasevic@redhat.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:4148 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932452Ab2KNCly (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 21:41:54 -0500
+In-Reply-To: <50A2FAB8.8010803@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-11-13 at 20:24 -0500, Vlad Yasevich wrote:
-> This patch series is a revision suggested by Eric to solve the problem where
-> a host without IPv6 support drops GSO frames from the guest.
+On Tue, 2012-11-13 at 17:58 -0800, John Fastabend wrote: 
+> On 11/13/2012 5:50 PM, Michael Chan wrote:
+> > On Tue, 2012-11-13 at 20:24 -0500, David Miller wrote:
+> >> From: "Michael Chan" <mchan@broadcom.com>
+> >> Date: Tue, 13 Nov 2012 15:40:29 -0800
+> >>
+> >>> I suppose we can just put the SAN MAC into the real netdev->dev_addr so
+> >>> that the VLAN will automatically get it.  But this doesn't seem very
+> >>> nice as we would be pretending to have a normal MAC address (for
+> >>> networking) in this SAN device.  The networking MAC address is in a
+> >>> different PCI function.
+> >>
+> >> I certainly would prefer if you took that approach.  At least in that
+> >> way the addressing of the netdev objects would appear more consistent.
+> >>
+> > Ok.  To be more complete, I think we need to add a flag or something to
+> > such a netdev to indicate that it is a SAN device only.  What's your
+> > opinion on that?
 > 
-> The problem is that GSO/GRO support is per protocol, and when said protocol
-> is not loaded or is disabled, packets attempting to go through GSO/GRO code paths
-> are dropped.  This causes retransmissions and a two orders of magnitude drop in
-> performance.
+> Michael, how do you determine a L2 packet is a SAN type? Do you have
+> ACLs in the FW/hardware to prevent other types of L2 traffic from being
+> sent? I guess I'm asking what makes it a SAN only device.
 > 
-> Prior attempt to solve the problem simply enabled enough GSO/GRO functionality
-> for IPv6 protocol when IPv6 was diabled.  This did not solve the problem when
-> the protocol was not build in or was blacklisted.
-> To solve the problem, it was suggested that we separate GSO/GRO callback
-> registration from packet processing registrations.  That way
-> GSO/GRO callbacks can be built into the kernel and always be there.
-> This patch series attempts to do just that.
-> * Patches 1 and 2 split the GSO/GRO handlers from packet_type and convert
->   to the new structure.
-> * Patches 3, 4 and 5 do the same thing for net_protocol structure.
-> * The rest of the patches try to incrementally move the IPv6 GSO/GRO
->   code out of the module and into the static kernel build.  Some IPv6
->   helper functions also had to move as well.
-> 
-> I am currently testing the patches, but if folks could look this over
-> and send me any comments, I'd appreciate it.
+Adding Eilon and Ariel from the bnx2x team to help answer the question.
+I think we use ndo_select_queue() to put all FCoE related packets onto
+the proper ring that is programmed with the proper DCB parameters.
+Packets to the other rings will be dropped on such a device.
 
-Seems very nice !
+That's why a flag will be useful so that tools will know its limitation.
 
-I am just wondering if GSO/GRO is fully enabled at every step ?
+
+> 
