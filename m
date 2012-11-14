@@ -1,332 +1,311 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [RFC PATCH 09/13] ipv6: Separate out UDP offload functionality
-Date: Tue, 13 Nov 2012 20:24:10 -0500
-Message-ID: <1352856254-29667-10-git-send-email-vyasevic@redhat.com>
+Subject: [RFC PATCH 06/13] ipv6: Switch to using new offload infrastructure.
+Date: Tue, 13 Nov 2012 20:24:07 -0500
+Message-ID: <1352856254-29667-7-git-send-email-vyasevic@redhat.com>
 References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com>
 Cc: eric.dumazet@gmail.com, davem@davemloft.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6304 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35647 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932397Ab2KNBYd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Nov 2012 20:24:33 -0500
+	id S932377Ab2KNBY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Nov 2012 20:24:28 -0500
 In-Reply-To: <1352856254-29667-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pull UDP GSO code into a separate file in preparation for moving
-the code out of the module.
+Switch IPv6 protocol to using the new GRO/GSO calls and data.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/ipv6/Makefile      |    2 +-
- net/ipv6/ip6_offload.h |    3 +
- net/ipv6/udp.c         |  104 ++---------------------------------------
- net/ipv6/udp_offload.c |  122 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 130 insertions(+), 101 deletions(-)
- create mode 100644 net/ipv6/udp_offload.c
+ include/net/protocol.h |    8 --------
+ net/ipv6/af_inet6.c    |   22 +++++++++++-----------
+ net/ipv6/exthdrs.c     |   38 +++++++++++++++++++++++++++++++++++---
+ net/ipv6/tcp_ipv6.c    |   17 ++++++++++-------
+ net/ipv6/udp.c         |   11 ++++++++---
+ 5 files changed, 64 insertions(+), 32 deletions(-)
 
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index f47ad9f..04b5c96 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -10,7 +10,7 @@ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
- 		raw.o protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
- 		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o
- 
--ipv6-offload :=	ip6_offload.o tcpv6_offload.o
-+ipv6-offload :=	ip6_offload.o tcpv6_offload.o udp_offload.o
- 
- ipv6-$(CONFIG_SYSCTL) = sysctl_net_ipv6.o
- ipv6-$(CONFIG_IPV6_MROUTE) += ip6mr.o
-diff --git a/net/ipv6/ip6_offload.h b/net/ipv6/ip6_offload.h
-index 1891946..dff7936 100644
---- a/net/ipv6/ip6_offload.h
-+++ b/net/ipv6/ip6_offload.h
-@@ -11,6 +11,9 @@
- #ifndef __ip6_offload_h
- #define __ip6_offload_h
- 
-+int udp_offload_init(void);
-+void udp_offload_cleanup(void);
-+
- int tcpv6_offload_init(void);
- void tcpv6_offload_cleanup(void);
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index e4cc1f4..013fef7 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -50,6 +50,7 @@
- #include <linux/seq_file.h>
- #include <trace/events/skb.h>
- #include "udp_impl.h"
-+#include "ip6_offload.h"
- 
- int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2)
- {
-@@ -1343,109 +1344,12 @@ int compat_udpv6_getsockopt(struct sock *sk, int level, int optname,
- }
- #endif
- 
--static int udp6_ufo_send_check(struct sk_buff *skb)
--{
--	const struct ipv6hdr *ipv6h;
--	struct udphdr *uh;
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index 3bb7051..7019c16 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -54,14 +54,6 @@ struct inet6_protocol {
+ 			       struct inet6_skb_parm *opt,
+ 			       u8 type, u8 code, int offset,
+ 			       __be32 info);
 -
--	if (!pskb_may_pull(skb, sizeof(*uh)))
--		return -EINVAL;
+-	int	(*gso_send_check)(struct sk_buff *skb);
+-	struct sk_buff *(*gso_segment)(struct sk_buff *skb,
+-				       netdev_features_t features);
+-	struct sk_buff **(*gro_receive)(struct sk_buff **head,
+-					struct sk_buff *skb);
+-	int	(*gro_complete)(struct sk_buff *skb);
 -
--	ipv6h = ipv6_hdr(skb);
--	uh = udp_hdr(skb);
--
--	uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, skb->len,
--				     IPPROTO_UDP, 0);
--	skb->csum_start = skb_transport_header(skb) - skb->head;
--	skb->csum_offset = offsetof(struct udphdr, check);
--	skb->ip_summed = CHECKSUM_PARTIAL;
--	return 0;
--}
--
--static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
--	netdev_features_t features)
--{
--	struct sk_buff *segs = ERR_PTR(-EINVAL);
--	unsigned int mss;
--	unsigned int unfrag_ip6hlen, unfrag_len;
--	struct frag_hdr *fptr;
--	u8 *mac_start, *prevhdr;
--	u8 nexthdr;
--	u8 frag_hdr_sz = sizeof(struct frag_hdr);
--	int offset;
--	__wsum csum;
--
--	mss = skb_shinfo(skb)->gso_size;
--	if (unlikely(skb->len <= mss))
--		goto out;
--
--	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
--		/* Packet is from an untrusted source, reset gso_segs. */
--		int type = skb_shinfo(skb)->gso_type;
--
--		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY) ||
--			     !(type & (SKB_GSO_UDP))))
--			goto out;
--
--		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
--
--		segs = NULL;
--		goto out;
--	}
--
--	/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
--	 * do checksum of UDP packets sent as multiple IP fragments.
--	 */
--	offset = skb_checksum_start_offset(skb);
--	csum = skb_checksum(skb, offset, skb->len - offset, 0);
--	offset += skb->csum_offset;
--	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
--	skb->ip_summed = CHECKSUM_NONE;
--
--	/* Check if there is enough headroom to insert fragment header. */
--	if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
--	    pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
--		goto out;
--
--	/* Find the unfragmentable header and shift it left by frag_hdr_sz
--	 * bytes to insert fragment header.
--	 */
--	unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
--	nexthdr = *prevhdr;
--	*prevhdr = NEXTHDR_FRAGMENT;
--	unfrag_len = skb_network_header(skb) - skb_mac_header(skb) +
--		     unfrag_ip6hlen;
--	mac_start = skb_mac_header(skb);
--	memmove(mac_start-frag_hdr_sz, mac_start, unfrag_len);
--
--	skb->mac_header -= frag_hdr_sz;
--	skb->network_header -= frag_hdr_sz;
--
--	fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
--	fptr->nexthdr = nexthdr;
--	fptr->reserved = 0;
--	ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
--
--	/* Fragment the skb. ipv6 header and the remaining fields of the
--	 * fragment header are updated in ipv6_gso_segment()
--	 */
--	segs = skb_segment(skb, features);
--
--out:
--	return segs;
--}
--
- static const struct inet6_protocol udpv6_protocol = {
- 	.handler	=	udpv6_rcv,
- 	.err_handler	=	udpv6_err,
- 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ 	unsigned int	flags;	/* INET6_PROTO_xxx */
  };
  
--static const struct net_offload udpv6_offload = {
--	.gso_send_check =	udp6_ufo_send_check,
--	.gso_segment	=	udp6_ufo_fragment,
--};
--
- /* ------------------------------------------------------------------------ */
- #ifdef CONFIG_PROC_FS
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 6e24517..eb63dac 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -701,14 +701,14 @@ EXPORT_SYMBOL_GPL(ipv6_opt_accepted);
  
-@@ -1568,7 +1472,7 @@ int __init udpv6_init(void)
+ static int ipv6_gso_pull_exthdrs(struct sk_buff *skb, int proto)
+ {
+-	const struct inet6_protocol *ops = NULL;
++	const struct net_offload *ops = NULL;
+ 
+ 	for (;;) {
+ 		struct ipv6_opt_hdr *opth;
+ 		int len;
+ 
+ 		if (proto != NEXTHDR_HOP) {
+-			ops = rcu_dereference(inet6_protos[proto]);
++			ops = rcu_dereference(inet6_offloads[proto]);
+ 
+ 			if (unlikely(!ops))
+ 				break;
+@@ -736,7 +736,7 @@ static int ipv6_gso_pull_exthdrs(struct sk_buff *skb, int proto)
+ static int ipv6_gso_send_check(struct sk_buff *skb)
+ {
+ 	const struct ipv6hdr *ipv6h;
+-	const struct inet6_protocol *ops;
++	const struct net_offload *ops;
+ 	int err = -EINVAL;
+ 
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
+@@ -747,7 +747,7 @@ static int ipv6_gso_send_check(struct sk_buff *skb)
+ 	err = -EPROTONOSUPPORT;
+ 
+ 	rcu_read_lock();
+-	ops = rcu_dereference(inet6_protos[
++	ops = rcu_dereference(inet6_offloads[
+ 		ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr)]);
+ 
+ 	if (likely(ops && ops->gso_send_check)) {
+@@ -765,7 +765,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+ 	struct ipv6hdr *ipv6h;
+-	const struct inet6_protocol *ops;
++	const struct net_offload *ops;
+ 	int proto;
+ 	struct frag_hdr *fptr;
+ 	unsigned int unfrag_ip6hlen;
+@@ -792,7 +792,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 
+ 	proto = ipv6_gso_pull_exthdrs(skb, ipv6h->nexthdr);
+ 	rcu_read_lock();
+-	ops = rcu_dereference(inet6_protos[proto]);
++	ops = rcu_dereference(inet6_offloads[proto]);
+ 	if (likely(ops && ops->gso_segment)) {
+ 		skb_reset_transport_header(skb);
+ 		segs = ops->gso_segment(skb, features);
+@@ -825,7 +825,7 @@ out:
+ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 					 struct sk_buff *skb)
+ {
+-	const struct inet6_protocol *ops;
++	const struct net_offload *ops;
+ 	struct sk_buff **pp = NULL;
+ 	struct sk_buff *p;
+ 	struct ipv6hdr *iph;
+@@ -852,7 +852,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 
+ 	rcu_read_lock();
+ 	proto = iph->nexthdr;
+-	ops = rcu_dereference(inet6_protos[proto]);
++	ops = rcu_dereference(inet6_offloads[proto]);
+ 	if (!ops || !ops->gro_receive) {
+ 		__pskb_pull(skb, skb_gro_offset(skb));
+ 		proto = ipv6_gso_pull_exthdrs(skb, proto);
+@@ -860,7 +860,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
+ 		skb_reset_transport_header(skb);
+ 		__skb_push(skb, skb_gro_offset(skb));
+ 
+-		ops = rcu_dereference(inet6_protos[proto]);
++		ops = rcu_dereference(inet6_offloads[proto]);
+ 		if (!ops || !ops->gro_receive)
+ 			goto out_unlock;
+ 
+@@ -915,7 +915,7 @@ out:
+ 
+ static int ipv6_gro_complete(struct sk_buff *skb)
+ {
+-	const struct inet6_protocol *ops;
++	const struct net_offload *ops;
+ 	struct ipv6hdr *iph = ipv6_hdr(skb);
+ 	int err = -ENOSYS;
+ 
+@@ -923,7 +923,7 @@ static int ipv6_gro_complete(struct sk_buff *skb)
+ 				 sizeof(*iph));
+ 
+ 	rcu_read_lock();
+-	ops = rcu_dereference(inet6_protos[NAPI_GRO_CB(skb)->proto]);
++	ops = rcu_dereference(inet6_offloads[NAPI_GRO_CB(skb)->proto]);
+ 	if (WARN_ON(!ops || !ops->gro_complete))
+ 		goto out_unlock;
+ 
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index 8c01574..d5a807d 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -549,14 +549,44 @@ static const struct inet6_protocol nodata_protocol = {
+ 	.flags		=	INET6_PROTO_NOPOLICY,
+ };
+ 
++static int ipv6_exthdrs_offload_init(void)
++{
++	int ret;
++
++	ret = inet6_add_offload(&rthdr_offload, IPPROTO_ROUTING);
++	if (!ret)
++		goto out;
++
++	ret = inet6_add_offload(&dstopt_offload, IPPROTO_DSTOPTS);
++	if (!ret)
++		goto out_rt;
++
++out:
++	return ret;
++
++out_rt:
++	inet_del_offload(&rthdr_offload, IPPROTO_ROUTING);
++	goto out;
++}
++
++static void ipv6_exthdrs_offload_exit(void)
++{
++	inet_del_offload(&rthdr_offload, IPPROTO_ROUTING);
++	inet_del_offload(&rthdr_offload, IPPROTO_DSTOPTS);
++}
++
+ int __init ipv6_exthdrs_init(void)
  {
  	int ret;
  
--	ret = inet6_add_offload(&udpv6_offload, IPPROTO_UDP);
-+	ret = udp_offload_init();
+-	ret = inet6_add_protocol(&rthdr_protocol, IPPROTO_ROUTING);
++	ret = ipv6_exthdrs_offload_init();
  	if (ret)
  		goto out;
  
-@@ -1585,7 +1489,7 @@ out:
- out_udpv6_protocol:
- 	inet6_del_protocol(&udpv6_protocol, IPPROTO_UDP);
- out_offload:
--	inet6_del_offload(&udpv6_offload, IPPROTO_UDP);
-+	udp_offload_cleanup();
++	ret = inet6_add_protocol(&rthdr_protocol, IPPROTO_ROUTING);
++	if (ret)
++		goto out_offload;
++
+ 	ret = inet6_add_protocol(&destopt_protocol, IPPROTO_DSTOPTS);
+ 	if (ret)
+ 		goto out_rthdr;
+@@ -567,10 +597,12 @@ int __init ipv6_exthdrs_init(void)
+ 
+ out:
+ 	return ret;
+-out_rthdr:
+-	inet6_del_protocol(&rthdr_protocol, IPPROTO_ROUTING);
+ out_destopt:
+ 	inet6_del_protocol(&destopt_protocol, IPPROTO_DSTOPTS);
++out_rthdr:
++	inet6_del_protocol(&rthdr_protocol, IPPROTO_ROUTING);
++out_offload:
++	ipv6_exthdrs_offload_exit();
+ 	goto out;
+ };
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 8ce2c30..ac59c84 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -2063,10 +2063,6 @@ static const struct inet6_protocol tcpv6_protocol = {
+ 	.early_demux	=	tcp_v6_early_demux,
+ 	.handler	=	tcp_v6_rcv,
+ 	.err_handler	=	tcp_v6_err,
+-	.gso_send_check	=	tcp_v6_gso_send_check,
+-	.gso_segment	=	tcp_tso_segment,
+-	.gro_receive	=	tcp6_gro_receive,
+-	.gro_complete	=	tcp6_gro_complete,
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
+ 
+@@ -2113,10 +2109,14 @@ int __init tcpv6_init(void)
+ {
+ 	int ret;
+ 
+-	ret = inet6_add_protocol(&tcpv6_protocol, IPPROTO_TCP);
++	ret = inet6_add_offload(&tcpv6_offload, IPPROTO_TCP);
+ 	if (ret)
+ 		goto out;
+ 
++	ret = inet6_add_protocol(&tcpv6_protocol, IPPROTO_TCP);
++	if (ret)
++		goto out_offload;
++
+ 	/* register inet6 protocol */
+ 	ret = inet6_register_protosw(&tcpv6_protosw);
+ 	if (ret)
+@@ -2128,10 +2128,12 @@ int __init tcpv6_init(void)
+ out:
+ 	return ret;
+ 
+-out_tcpv6_protocol:
+-	inet6_del_protocol(&tcpv6_protocol, IPPROTO_TCP);
+ out_tcpv6_protosw:
+ 	inet6_unregister_protosw(&tcpv6_protosw);
++out_tcpv6_protocol:
++	inet6_del_protocol(&tcpv6_protocol, IPPROTO_TCP);
++out_offload:
++	inet6_del_offload(&tcpv6_offload, IPPROTO_TCP);
  	goto out;
  }
  
-@@ -1593,5 +1497,5 @@ void udpv6_exit(void)
+@@ -2140,4 +2142,5 @@ void tcpv6_exit(void)
+ 	unregister_pernet_subsys(&tcpv6_net_ops);
+ 	inet6_unregister_protosw(&tcpv6_protosw);
+ 	inet6_del_protocol(&tcpv6_protocol, IPPROTO_TCP);
++	inet6_del_offload(&tcpv6_offload, IPPROTO_TCP);
+ }
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 3ad44e1..e4cc1f4 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1438,8 +1438,6 @@ out:
+ static const struct inet6_protocol udpv6_protocol = {
+ 	.handler	=	udpv6_rcv,
+ 	.err_handler	=	udpv6_err,
+-	.gso_send_check =	udp6_ufo_send_check,
+-	.gso_segment	=	udp6_ufo_fragment,
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
+ 
+@@ -1570,10 +1568,14 @@ int __init udpv6_init(void)
+ {
+ 	int ret;
+ 
+-	ret = inet6_add_protocol(&udpv6_protocol, IPPROTO_UDP);
++	ret = inet6_add_offload(&udpv6_offload, IPPROTO_UDP);
+ 	if (ret)
+ 		goto out;
+ 
++	ret = inet6_add_protocol(&udpv6_protocol, IPPROTO_UDP);
++	if (ret)
++		goto out_offload;
++
+ 	ret = inet6_register_protosw(&udpv6_protosw);
+ 	if (ret)
+ 		goto out_udpv6_protocol;
+@@ -1582,6 +1584,8 @@ out:
+ 
+ out_udpv6_protocol:
+ 	inet6_del_protocol(&udpv6_protocol, IPPROTO_UDP);
++out_offload:
++	inet6_del_offload(&udpv6_offload, IPPROTO_UDP);
+ 	goto out;
+ }
+ 
+@@ -1589,4 +1593,5 @@ void udpv6_exit(void)
  {
  	inet6_unregister_protosw(&udpv6_protosw);
  	inet6_del_protocol(&udpv6_protocol, IPPROTO_UDP);
--	inet6_del_offload(&udpv6_offload, IPPROTO_UDP);
-+	udp_offload_cleanup();
- }
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-new file mode 100644
-index 0000000..f964d2b
---- /dev/null
-+++ b/net/ipv6/udp_offload.c
-@@ -0,0 +1,122 @@
-+/*
-+ *	IPV6 GSO/GRO offload support
-+ *	Linux INET6 implementation
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *      modify it under the terms of the GNU General Public License
-+ *      as published by the Free Software Foundation; either version
-+ *      2 of the License, or (at your option) any later version.
-+ *
-+ *      UDPv6 GSO support
-+ */
-+#include <linux/skbuff.h>
-+#include <net/protocol.h>
-+#include <net/ipv6.h>
-+#include <net/udp.h>
-+#include "ip6_offload.h"
-+
-+static int udp6_ufo_send_check(struct sk_buff *skb)
-+{
-+	const struct ipv6hdr *ipv6h;
-+	struct udphdr *uh;
-+
-+	if (!pskb_may_pull(skb, sizeof(*uh)))
-+		return -EINVAL;
-+
-+	ipv6h = ipv6_hdr(skb);
-+	uh = udp_hdr(skb);
-+
-+	uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, skb->len,
-+				     IPPROTO_UDP, 0);
-+	skb->csum_start = skb_transport_header(skb) - skb->head;
-+	skb->csum_offset = offsetof(struct udphdr, check);
-+	skb->ip_summed = CHECKSUM_PARTIAL;
-+	return 0;
-+}
-+
-+static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
-+	netdev_features_t features)
-+{
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	unsigned int mss;
-+	unsigned int unfrag_ip6hlen, unfrag_len;
-+	struct frag_hdr *fptr;
-+	u8 *mac_start, *prevhdr;
-+	u8 nexthdr;
-+	u8 frag_hdr_sz = sizeof(struct frag_hdr);
-+	int offset;
-+	__wsum csum;
-+
-+	mss = skb_shinfo(skb)->gso_size;
-+	if (unlikely(skb->len <= mss))
-+		goto out;
-+
-+	if (skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
-+		/* Packet is from an untrusted source, reset gso_segs. */
-+		int type = skb_shinfo(skb)->gso_type;
-+
-+		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY) ||
-+			     !(type & (SKB_GSO_UDP))))
-+			goto out;
-+
-+		skb_shinfo(skb)->gso_segs = DIV_ROUND_UP(skb->len, mss);
-+
-+		segs = NULL;
-+		goto out;
-+	}
-+
-+	/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
-+	 * do checksum of UDP packets sent as multiple IP fragments.
-+	 */
-+	offset = skb_checksum_start_offset(skb);
-+	csum = skb_checksum(skb, offset, skb->len - offset, 0);
-+	offset += skb->csum_offset;
-+	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
-+	skb->ip_summed = CHECKSUM_NONE;
-+
-+	/* Check if there is enough headroom to insert fragment header. */
-+	if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
-+	    pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
-+		goto out;
-+
-+	/* Find the unfragmentable header and shift it left by frag_hdr_sz
-+	 * bytes to insert fragment header.
-+	 */
-+	unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
-+	nexthdr = *prevhdr;
-+	*prevhdr = NEXTHDR_FRAGMENT;
-+	unfrag_len = skb_network_header(skb) - skb_mac_header(skb) +
-+		     unfrag_ip6hlen;
-+	mac_start = skb_mac_header(skb);
-+	memmove(mac_start-frag_hdr_sz, mac_start, unfrag_len);
-+
-+	skb->mac_header -= frag_hdr_sz;
-+	skb->network_header -= frag_hdr_sz;
-+
-+	fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
-+	fptr->nexthdr = nexthdr;
-+	fptr->reserved = 0;
-+	ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
-+
-+	/* Fragment the skb. ipv6 header and the remaining fields of the
-+	 * fragment header are updated in ipv6_gso_segment()
-+	 */
-+	segs = skb_segment(skb, features);
-+
-+out:
-+	return segs;
-+}
-+static const struct net_offload udpv6_offload = {
-+	.gso_send_check =	udp6_ufo_send_check,
-+	.gso_segment	=	udp6_ufo_fragment,
-+};
-+
-+int __init udp_offload_init(void)
-+{
-+	return inet6_add_offload(&udpv6_offload, IPPROTO_UDP);
-+}
-+
-+void udp_offload_cleanup(void)
-+{
 +	inet6_del_offload(&udpv6_offload, IPPROTO_UDP);
-+}
+ }
 -- 
 1.7.7.6
