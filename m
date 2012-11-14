@@ -1,50 +1,41 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
-Date: Wed, 14 Nov 2012 08:42:44 -0800 (PST)
-Message-ID: <1636188668.22560872.1352911364387.JavaMail.root@vmware.com>
-References: <50A01FB1.1080502@gmail.com>
+From: Michael Richardson <mcr@sandelman.ca>
+Subject: Re: vlan tagged packets and libpcap breakage
+Date: Wed, 14 Nov 2012 13:58:31 -0500
+Message-ID: <9640.1352919511@obiwan.sandelman.ca>
+References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
+	<3246.1351717319@obiwan.sandelman.ca>
+	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
+	<5422DBB2-EABF-4C9F-B0CD-8C77E91F9FF8@alum.mit.edu>
+	<CAF4SogYMyANyZ4-RYoVHf3TewPVQgR49m5HLDdwVMJ7sn8_XxQ@mail.gmail.com>
+	<CAOxq_8N7mSY9rLTeSdUohV5ufU+QF7DtrjwZ3xnAbuP9mRm3jQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net,
-	George Zhang <georgezhang@vmware.com>
-To: Sasha Levin <levinsasha928@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <50A01FB1.1080502@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Francesco Ruggeri <fruggeri@aristanetworks.com>,
+	tcpdump-workers@lists.tcpdump.org, netdev@vger.kernel.org
+To: Ani Sinha <ani@aristanetworks.com>
+Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
+In-Reply-To: <CAOxq_8N7mSY9rLTeSdUohV5ufU+QF7DtrjwZ3xnAbuP9mRm3jQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
+List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
+List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
+List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
+List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
+Sender: tcpdump-workers-bounces@lists.tcpdump.org
+Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sasha,
 
-Thanks for taking a look.
+>>>>> "Ani" == Ani Sinha <ani@aristanetworks.com> writes:
+    Ani> I'm wondering if there has been any progress on this. Are there
+    Ani> any thoughts on what Bill wrote in his email?
 
-> So all the documentation I see in the VMCI Socket Programming Guide
-> is about userspace programming, and the documentation in af_vsock.c
-> is all around implementation considerations.
+I don't think so.
 
-Agreed, we're sorely lacking in proper documentation for the internal
-protocol.  We're in the process of writing such a specification and
-will post it to LKML next week at the latest.
-
-> example, whats the deal with REQUEST/REQUEST2? it appears like
-> something to deal with legacy code, but I'd really like to have it
-> documented somewhere instead of trying to figure how everything
-
-Correct, we have a legacy protocol and a v2, the latter now being
-the default.  This particular packet is sent by the client when
-initiating a STREAM connection.  The sequence is REQUEST(2)->
-NEGOTIATE(2)->OFFER->ACCEPT.  It will be properly documented in
-the specification we post next week.
-
-Thanks!
-- Andy
+Do you have time?
+_______________________________________________
+tcpdump-workers mailing list
+tcpdump-workers@lists.tcpdump.org
+https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
