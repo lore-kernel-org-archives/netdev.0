@@ -1,104 +1,479 @@
 From: Naresh Kumar Inna <naresh@chelsio.com>
-Subject: [v6 PATCH 0/8] csiostor: Chelsio FCoE offload driver submission
-Date: Thu, 15 Nov 2012 22:41:16 +0530
-Message-ID: <1352999484-17812-1-git-send-email-naresh@chelsio.com>
+Subject: [v6 PATCH 1/8] cxgb4/cxgb4vf: Chelsio FCoE offload driver submission (common header updates).
+Date: Thu, 15 Nov 2012 22:41:17 +0530
+Message-ID: <1352999484-17812-2-git-send-email-naresh@chelsio.com>
+References: <1352999484-17812-1-git-send-email-naresh@chelsio.com>
 Cc: netdev@vger.kernel.org, naresh@chelsio.com, chethan@chelsio.com
 To: JBottomley@parallels.com, linux-scsi@vger.kernel.org,
 	dm@chelsio.com, leedom@chelsio.com
 Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1352999484-17812-1-git-send-email-naresh@chelsio.com>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is the initial submission of the Chelsio FCoE offload driver (csiostor)
-to the upstream kernel. This driver currently supports FCoE offload
-functionality over Chelsio T4-based 10Gb Converged Network Adapters.
+This patch contains updates to firmware/hardware header files shared
+between csiostor and cxgb4/cxgb4vf, and the resulting changes to the
+cxgb4/cxgb4vf source files.
 
-The following patches contain the driver sources for csiostor driver and
-updates to firmware/hardware header files shared between csiostor,
-cxgb4 (Chelsio T4-based NIC driver) and cxgb4vf (Chelsio T4-based Virtual
-Function NIC driver). The csiostor driver is dependent on these
-header updates. These patches have been generated against scsi 'misc' branch.
-
-csiostor is a low level SCSI driver that interfaces with PCI, SCSI midlayer and
-FC transport subsystems. This driver claims the FCoE PCIe function on
-Chelsio Converged Network Adapters. It relies on firmware events for slow path
-operations like discovery, thereby offloading session management. The driver
-programs firmware via Work Request interfaces for fast path I/O offload
-features.
-
-v6 has changes to make csiostor work with cxgb4 header files post 3.6 merge, as
-well as a few bug fixes in csiostor.
-
-Here is the brief description of patches:
-[v6 PATCH 1/8]: Updates to header files shared between cxgb4, cxgb4vf and
-                csiostor.
-[v6 PATCH 2/8]: Header files part 1.
-[v6 PATCH 3/8]: Header files part 2.
-[v6 PATCH 4/8]: Driver initialization and Work Request services.
-[v6 PATCH 5/8]: FC transport interfaces and mailbox services.
-[v6 PATCH 6/8]: Local and remote port state tracking functionality.
-[v6 PATCH 7/8]: Interrupt handling and fast path I/O functionality.
-[v6 PATCH 8/8]: Hardware interface, Makefile and Kconfig changes.
-
-Naresh Kumar Inna (8):
-  cxgb4/cxgb4vf: Chelsio FCoE offload driver submission (common header
-    updates).
-  csiostor: Chelsio FCoE offload driver submission (headers part 1).
-  csiostor: Chelsio FCoE offload driver submission (headers part 2).
-  csiostor: Chelsio FCoE offload driver submission (sources part 1).
-  csiostor: Chelsio FCoE offload driver submission (sources part 2).
-  csiostor: Chelsio FCoE offload driver submission (sources part 3).
-  csiostor: Chelsio FCoE offload driver submission (sources part 4).
-  csiostor: Chelsio FCoE offload driver submission (sources part 5).
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   10 +-
- drivers/net/ethernet/chelsio/cxgb4/sge.c        |    6 +-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   20 +-
+Signed-off-by: Naresh Kumar Inna <naresh@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   10 +++---
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |    6 ++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   20 +++++-----
  drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    1 +
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   36 +-
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   41 +-
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c      |    8 +-
- drivers/scsi/Kconfig                            |    1 +
- drivers/scsi/Makefile                           |    1 +
- drivers/scsi/csiostor/Kconfig                   |   19 +
- drivers/scsi/csiostor/Makefile                  |   11 +
- drivers/scsi/csiostor/csio_attr.c               |  796 ++++
- drivers/scsi/csiostor/csio_defs.h               |  121 +
- drivers/scsi/csiostor/csio_hw.c                 | 4395 +++++++++++++++++++++++
- drivers/scsi/csiostor/csio_hw.h                 |  667 ++++
- drivers/scsi/csiostor/csio_init.c               | 1274 +++++++
- drivers/scsi/csiostor/csio_init.h               |  158 +
- drivers/scsi/csiostor/csio_isr.c                |  624 ++++
- drivers/scsi/csiostor/csio_lnode.c              | 2133 +++++++++++
- drivers/scsi/csiostor/csio_lnode.h              |  255 ++
- drivers/scsi/csiostor/csio_mb.c                 | 1770 +++++++++
- drivers/scsi/csiostor/csio_mb.h                 |  278 ++
- drivers/scsi/csiostor/csio_rnode.c              |  912 +++++
- drivers/scsi/csiostor/csio_rnode.h              |  141 +
- drivers/scsi/csiostor/csio_scsi.c               | 2555 +++++++++++++
- drivers/scsi/csiostor/csio_scsi.h               |  342 ++
- drivers/scsi/csiostor/csio_wr.c                 | 1632 +++++++++
- drivers/scsi/csiostor/csio_wr.h                 |  512 +++
- drivers/scsi/csiostor/t4fw_api_stor.h           |  578 +++
- 29 files changed, 19268 insertions(+), 29 deletions(-)
- create mode 100644 drivers/scsi/csiostor/Kconfig
- create mode 100644 drivers/scsi/csiostor/Makefile
- create mode 100644 drivers/scsi/csiostor/csio_attr.c
- create mode 100644 drivers/scsi/csiostor/csio_defs.h
- create mode 100644 drivers/scsi/csiostor/csio_hw.c
- create mode 100644 drivers/scsi/csiostor/csio_hw.h
- create mode 100644 drivers/scsi/csiostor/csio_init.c
- create mode 100644 drivers/scsi/csiostor/csio_init.h
- create mode 100644 drivers/scsi/csiostor/csio_isr.c
- create mode 100644 drivers/scsi/csiostor/csio_lnode.c
- create mode 100644 drivers/scsi/csiostor/csio_lnode.h
- create mode 100644 drivers/scsi/csiostor/csio_mb.c
- create mode 100644 drivers/scsi/csiostor/csio_mb.h
- create mode 100644 drivers/scsi/csiostor/csio_rnode.c
- create mode 100644 drivers/scsi/csiostor/csio_rnode.h
- create mode 100644 drivers/scsi/csiostor/csio_scsi.c
- create mode 100644 drivers/scsi/csiostor/csio_scsi.h
- create mode 100644 drivers/scsi/csiostor/csio_wr.c
- create mode 100644 drivers/scsi/csiostor/csio_wr.h
- create mode 100644 drivers/scsi/csiostor/t4fw_api_stor.h
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   36 +++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |   41 ++++++++++++++++++++---
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c      |    8 ++--
+ 7 files changed, 93 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 0df1284..17ab96d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3203,7 +3203,7 @@ static int adap_init1(struct adapter *adap, struct fw_caps_config_cmd *c)
+ 	memset(c, 0, sizeof(*c));
+ 	c->op_to_write = htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
+ 			       FW_CMD_REQUEST | FW_CMD_READ);
+-	c->retval_len16 = htonl(FW_LEN16(*c));
++	c->cfvalid_to_len16 = htonl(FW_LEN16(*c));
+ 	ret = t4_wr_mbox(adap, adap->fn, c, sizeof(*c), c);
+ 	if (ret < 0)
+ 		return ret;
+@@ -3397,7 +3397,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 		htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
+ 		      FW_CMD_REQUEST |
+ 		      FW_CMD_READ);
+-	caps_cmd.retval_len16 =
++	caps_cmd.cfvalid_to_len16 =
+ 		htonl(FW_CAPS_CONFIG_CMD_CFVALID |
+ 		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF(mtype) |
+ 		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(maddr >> 16) |
+@@ -3422,7 +3422,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 		htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
+ 		      FW_CMD_REQUEST |
+ 		      FW_CMD_WRITE);
+-	caps_cmd.retval_len16 = htonl(FW_LEN16(caps_cmd));
++	caps_cmd.cfvalid_to_len16 = htonl(FW_LEN16(caps_cmd));
+ 	ret = t4_wr_mbox(adapter, adapter->mbox, &caps_cmd, sizeof(caps_cmd),
+ 			 NULL);
+ 	if (ret < 0)
+@@ -3497,7 +3497,7 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
+ 	memset(&caps_cmd, 0, sizeof(caps_cmd));
+ 	caps_cmd.op_to_write = htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
+ 				     FW_CMD_REQUEST | FW_CMD_READ);
+-	caps_cmd.retval_len16 = htonl(FW_LEN16(caps_cmd));
++	caps_cmd.cfvalid_to_len16 = htonl(FW_LEN16(caps_cmd));
+ 	ret = t4_wr_mbox(adapter, adapter->mbox, &caps_cmd, sizeof(caps_cmd),
+ 			 &caps_cmd);
+ 	if (ret < 0)
+@@ -3929,7 +3929,7 @@ static int adap_init0(struct adapter *adap)
+ 	memset(&caps_cmd, 0, sizeof(caps_cmd));
+ 	caps_cmd.op_to_write = htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
+ 				     FW_CMD_REQUEST | FW_CMD_READ);
+-	caps_cmd.retval_len16 = htonl(FW_LEN16(caps_cmd));
++	caps_cmd.cfvalid_to_len16 = htonl(FW_LEN16(caps_cmd));
+ 	ret = t4_wr_mbox(adap, adap->mbox, &caps_cmd, sizeof(caps_cmd),
+ 			 &caps_cmd);
+ 	if (ret < 0)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 3ecc087..fe9a2ea 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -508,7 +508,7 @@ static inline void ring_fl_db(struct adapter *adap, struct sge_fl *q)
+ {
+ 	if (q->pend_cred >= 8) {
+ 		wmb();
+-		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL), DBPRIO |
++		t4_write_reg(adap, MYPF_REG(SGE_PF_KDOORBELL), DBPRIO(1) |
+ 			     QID(q->cntxt_id) | PIDX(q->pend_cred / 8));
+ 		q->pend_cred &= 7;
+ 	}
+@@ -2082,10 +2082,10 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 			goto fl_nomem;
+ 
+ 		flsz = fl->size / 8 + s->stat_len / sizeof(struct tx_desc);
+-		c.iqns_to_fl0congen = htonl(FW_IQ_CMD_FL0PACKEN |
++		c.iqns_to_fl0congen = htonl(FW_IQ_CMD_FL0PACKEN(1) |
+ 					    FW_IQ_CMD_FL0FETCHRO(1) |
+ 					    FW_IQ_CMD_FL0DATARO(1) |
+-					    FW_IQ_CMD_FL0PADEN);
++					    FW_IQ_CMD_FL0PADEN(1));
+ 		c.fl0dcaen_to_fl0cidxfthresh = htons(FW_IQ_CMD_FL0FBMIN(2) |
+ 				FW_IQ_CMD_FL0FBMAX(3));
+ 		c.fl0size = htons(flsz);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 730ae2c..137e1f8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -648,12 +648,12 @@ static int sf1_read(struct adapter *adapter, unsigned int byte_cnt, int cont,
+ 
+ 	if (!byte_cnt || byte_cnt > 4)
+ 		return -EINVAL;
+-	if (t4_read_reg(adapter, SF_OP) & BUSY)
++	if (t4_read_reg(adapter, SF_OP) & SF_BUSY)
+ 		return -EBUSY;
+ 	cont = cont ? SF_CONT : 0;
+ 	lock = lock ? SF_LOCK : 0;
+ 	t4_write_reg(adapter, SF_OP, lock | cont | BYTECNT(byte_cnt - 1));
+-	ret = t4_wait_op_done(adapter, SF_OP, BUSY, 0, SF_ATTEMPTS, 5);
++	ret = t4_wait_op_done(adapter, SF_OP, SF_BUSY, 0, SF_ATTEMPTS, 5);
+ 	if (!ret)
+ 		*valp = t4_read_reg(adapter, SF_DATA);
+ 	return ret;
+@@ -676,14 +676,14 @@ static int sf1_write(struct adapter *adapter, unsigned int byte_cnt, int cont,
+ {
+ 	if (!byte_cnt || byte_cnt > 4)
+ 		return -EINVAL;
+-	if (t4_read_reg(adapter, SF_OP) & BUSY)
++	if (t4_read_reg(adapter, SF_OP) & SF_BUSY)
+ 		return -EBUSY;
+ 	cont = cont ? SF_CONT : 0;
+ 	lock = lock ? SF_LOCK : 0;
+ 	t4_write_reg(adapter, SF_DATA, val);
+ 	t4_write_reg(adapter, SF_OP, lock |
+ 		     cont | BYTECNT(byte_cnt - 1) | OP_WR);
+-	return t4_wait_op_done(adapter, SF_OP, BUSY, 0, SF_ATTEMPTS, 5);
++	return t4_wait_op_done(adapter, SF_OP, SF_BUSY, 0, SF_ATTEMPTS, 5);
+ }
+ 
+ /**
+@@ -2252,14 +2252,14 @@ int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
+ 		t4_write_reg(adap, EPIO_REG(DATA0), mask0);
+ 		t4_write_reg(adap, EPIO_REG(OP), ADDRESS(i) | EPIOWR);
+ 		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
+-		if (t4_read_reg(adap, EPIO_REG(OP)) & BUSY)
++		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY)
+ 			return -ETIMEDOUT;
+ 
+ 		/* write CRC */
+ 		t4_write_reg(adap, EPIO_REG(DATA0), crc);
+ 		t4_write_reg(adap, EPIO_REG(OP), ADDRESS(i + 32) | EPIOWR);
+ 		t4_read_reg(adap, EPIO_REG(OP));                /* flush */
+-		if (t4_read_reg(adap, EPIO_REG(OP)) & BUSY)
++		if (t4_read_reg(adap, EPIO_REG(OP)) & SF_BUSY)
+ 			return -ETIMEDOUT;
+ 	}
+ #undef EPIO_REG
+@@ -2405,7 +2405,7 @@ int t4_fw_hello(struct adapter *adap, unsigned int mbox, unsigned int evt_mbox,
+ retry:
+ 	memset(&c, 0, sizeof(c));
+ 	INIT_CMD(c, HELLO, WRITE);
+-	c.err_to_mbasyncnot = htonl(
++	c.err_to_clearinit = htonl(
+ 		FW_HELLO_CMD_MASTERDIS(master == MASTER_CANT) |
+ 		FW_HELLO_CMD_MASTERFORCE(master == MASTER_MUST) |
+ 		FW_HELLO_CMD_MBMASTER(master == MASTER_MUST ? mbox :
+@@ -2426,7 +2426,7 @@ retry:
+ 		return ret;
+ 	}
+ 
+-	v = ntohl(c.err_to_mbasyncnot);
++	v = ntohl(c.err_to_clearinit);
+ 	master_mbox = FW_HELLO_CMD_MBMASTER_GET(v);
+ 	if (state) {
+ 		if (v & FW_HELLO_CMD_ERR)
+@@ -2774,7 +2774,7 @@ int t4_fw_config_file(struct adapter *adap, unsigned int mbox,
+ 		htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
+ 		      FW_CMD_REQUEST |
+ 		      FW_CMD_READ);
+-	caps_cmd.retval_len16 =
++	caps_cmd.cfvalid_to_len16 =
+ 		htonl(FW_CAPS_CONFIG_CMD_CFVALID |
+ 		      FW_CAPS_CONFIG_CMD_MEMTYPE_CF(mtype) |
+ 		      FW_CAPS_CONFIG_CMD_MEMADDR64K_CF(maddr >> 16) |
+@@ -2797,7 +2797,7 @@ int t4_fw_config_file(struct adapter *adap, unsigned int mbox,
+ 		htonl(FW_CMD_OP(FW_CAPS_CONFIG_CMD) |
+ 		      FW_CMD_REQUEST |
+ 		      FW_CMD_WRITE);
+-	caps_cmd.retval_len16 = htonl(FW_LEN16(caps_cmd));
++	caps_cmd.cfvalid_to_len16 = htonl(FW_LEN16(caps_cmd));
+ 	return t4_wr_mbox(adap, mbox, &caps_cmd, sizeof(caps_cmd), NULL);
+ }
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index eb71b82..b760808 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -658,6 +658,7 @@ struct ulptx_sgl {
+ 	__be32 cmd_nsge;
+ #define ULPTX_CMD(x) ((x) << 24)
+ #define ULPTX_NSGE(x) ((x) << 0)
++#define ULPTX_MORE (1U << 23)
+ 	__be32 len0;
+ 	__be64 addr0;
+ 	struct ulptx_sge_pair sge[0];
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index a1a8b57..75393f5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -67,7 +67,7 @@
+ #define  QID_MASK    0xffff8000U
+ #define  QID_SHIFT   15
+ #define  QID(x)      ((x) << QID_SHIFT)
+-#define  DBPRIO      0x00004000U
++#define  DBPRIO(x)   ((x) << 14)
+ #define  PIDX_MASK   0x00003fffU
+ #define  PIDX_SHIFT  0
+ #define  PIDX(x)     ((x) << PIDX_SHIFT)
+@@ -193,6 +193,12 @@
+ #define SGE_FL_BUFFER_SIZE1 0x1048
+ #define SGE_FL_BUFFER_SIZE2 0x104c
+ #define SGE_FL_BUFFER_SIZE3 0x1050
++#define SGE_FL_BUFFER_SIZE4 0x1054
++#define SGE_FL_BUFFER_SIZE5 0x1058
++#define SGE_FL_BUFFER_SIZE6 0x105c
++#define SGE_FL_BUFFER_SIZE7 0x1060
++#define SGE_FL_BUFFER_SIZE8 0x1064
++
+ #define SGE_INGRESS_RX_THRESHOLD 0x10a0
+ #define  THRESHOLD_0_MASK   0x3f000000U
+ #define  THRESHOLD_0_SHIFT  24
+@@ -217,6 +223,17 @@
+ #define  EGRTHRESHOLD(x)     ((x) << EGRTHRESHOLDshift)
+ #define  EGRTHRESHOLD_GET(x) (((x) & EGRTHRESHOLD_MASK) >> EGRTHRESHOLDshift)
+ 
++#define SGE_DBFIFO_STATUS 0x10a4
++#define  HP_INT_THRESH_SHIFT 28
++#define  HP_INT_THRESH_MASK  0xfU
++#define  HP_INT_THRESH(x)    ((x) << HP_INT_THRESH_SHIFT)
++#define  LP_INT_THRESH_SHIFT 12
++#define  LP_INT_THRESH_MASK  0xfU
++#define  LP_INT_THRESH(x)    ((x) << LP_INT_THRESH_SHIFT)
++
++#define SGE_DOORBELL_CONTROL 0x10a8
++#define  ENABLE_DROP        (1 << 13)
++
+ #define SGE_TIMER_VALUE_0_AND_1 0x10b8
+ #define  TIMERVALUE0_MASK   0xffff0000U
+ #define  TIMERVALUE0_SHIFT  16
+@@ -277,6 +294,10 @@
+ #define A_SGE_CTXT_CMD 0x11fc
+ #define A_SGE_DBQ_CTXT_BADDR 0x1084
+ 
++#define PCIE_PF_CFG 0x40
++#define  AIVEC(x)	((x) << 4)
++#define  AIVEC_MASK	0x3ffU
++
+ #define PCIE_PF_CLI 0x44
+ #define PCIE_INT_CAUSE 0x3004
+ #define  UNXSPLCPLERR  0x20000000U
+@@ -322,6 +343,13 @@
+ #define PCIE_MEM_ACCESS_OFFSET 0x306c
+ 
+ #define PCIE_FW 0x30b8
++#define  PCIE_FW_ERR		0x80000000U
++#define  PCIE_FW_INIT		0x40000000U
++#define  PCIE_FW_HALT		0x20000000U
++#define  PCIE_FW_MASTER_VLD	0x00008000U
++#define  PCIE_FW_MASTER(x)	((x) << 12)
++#define  PCIE_FW_MASTER_MASK	0x7
++#define  PCIE_FW_MASTER_GET(x)	(((x) >> 12) & PCIE_FW_MASTER_MASK)
+ 
+ #define PCIE_CORE_UTL_SYSTEM_BUS_AGENT_STATUS 0x5908
+ #define  RNPP 0x80000000U
+@@ -432,6 +460,9 @@
+ #define  MBOWNER(x)     ((x) << MBOWNER_SHIFT)
+ #define  MBOWNER_GET(x) (((x) & MBOWNER_MASK) >> MBOWNER_SHIFT)
+ 
++#define CIM_PF_HOST_INT_ENABLE 0x288
++#define  MBMSGRDYINTEN(x) ((x) << 19)
++
+ #define CIM_PF_HOST_INT_CAUSE 0x28c
+ #define  MBMSGRDYINT 0x00080000U
+ 
+@@ -922,7 +953,7 @@
+ 
+ #define SF_DATA 0x193f8
+ #define SF_OP 0x193fc
+-#define  BUSY          0x80000000U
++#define  SF_BUSY       0x80000000U
+ #define  SF_LOCK       0x00000010U
+ #define  SF_CONT       0x00000008U
+ #define  BYTECNT_MASK  0x00000006U
+@@ -981,6 +1012,7 @@
+ #define  I2CM       0x00000002U
+ #define  CIM        0x00000001U
+ 
++#define PL_INT_ENABLE 0x19410
+ #define PL_INT_MAP0 0x19414
+ #define PL_RST 0x19428
+ #define  PIORST     0x00000002U
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index a636463..0abc864 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -68,6 +68,7 @@ struct fw_wr_hdr {
+ };
+ 
+ #define FW_WR_OP(x)	 ((x) << 24)
++#define FW_WR_OP_GET(x)	 (((x) >> 24) & 0xff)
+ #define FW_WR_ATOMIC(x)	 ((x) << 23)
+ #define FW_WR_FLUSH(x)   ((x) << 22)
+ #define FW_WR_COMPL(x)   ((x) << 21)
+@@ -222,6 +223,7 @@ struct fw_cmd_hdr {
+ #define FW_CMD_OP(x)		((x) << 24)
+ #define FW_CMD_OP_GET(x)        (((x) >> 24) & 0xff)
+ #define FW_CMD_REQUEST          (1U << 23)
++#define FW_CMD_REQUEST_GET(x)   (((x) >> 23) & 0x1)
+ #define FW_CMD_READ		(1U << 22)
+ #define FW_CMD_WRITE		(1U << 21)
+ #define FW_CMD_EXEC		(1U << 20)
+@@ -229,6 +231,7 @@ struct fw_cmd_hdr {
+ #define FW_CMD_RETVAL(x)	((x) << 8)
+ #define FW_CMD_RETVAL_GET(x)	(((x) >> 8) & 0xff)
+ #define FW_CMD_LEN16(x)         ((x) << 0)
++#define FW_LEN16(fw_struct)	FW_CMD_LEN16(sizeof(fw_struct) / 16)
+ 
+ enum fw_ldst_addrspc {
+ 	FW_LDST_ADDRSPC_FIRMWARE  = 0x0001,
+@@ -241,7 +244,8 @@ enum fw_ldst_addrspc {
+ 	FW_LDST_ADDRSPC_TP_MIB    = 0x0012,
+ 	FW_LDST_ADDRSPC_MDIO      = 0x0018,
+ 	FW_LDST_ADDRSPC_MPS       = 0x0020,
+-	FW_LDST_ADDRSPC_FUNC      = 0x0028
++	FW_LDST_ADDRSPC_FUNC      = 0x0028,
++	FW_LDST_ADDRSPC_FUNC_PCIE = 0x0029,
+ };
+ 
+ enum fw_ldst_mps_fid {
+@@ -303,6 +307,16 @@ struct fw_ldst_cmd {
+ 			__be64 data0;
+ 			__be64 data1;
+ 		} func;
++		struct fw_ldst_pcie {
++			u8 ctrl_to_fn;
++			u8 bnum;
++			u8 r;
++			u8 ext_r;
++			u8 select_naccess;
++			u8 pcie_fn;
++			__be16 nset_pkd;
++			__be32 data[12];
++		} pcie;
+ 	} u;
+ };
+ 
+@@ -312,6 +326,9 @@ struct fw_ldst_cmd {
+ #define FW_LDST_CMD_FID(x)	((x) << 15)
+ #define FW_LDST_CMD_CTL(x)	((x) << 0)
+ #define FW_LDST_CMD_RPLCPF(x)	((x) << 0)
++#define FW_LDST_CMD_LC		(1U << 4)
++#define FW_LDST_CMD_NACCESS(x)	((x) << 0)
++#define FW_LDST_CMD_FN(x)	((x) << 0)
+ 
+ struct fw_reset_cmd {
+ 	__be32 op_to_write;
+@@ -333,7 +350,7 @@ enum fw_hellow_cmd {
+ struct fw_hello_cmd {
+ 	__be32 op_to_write;
+ 	__be32 retval_len16;
+-	__be32 err_to_mbasyncnot;
++	__be32 err_to_clearinit;
+ #define FW_HELLO_CMD_ERR	    (1U << 31)
+ #define FW_HELLO_CMD_INIT	    (1U << 30)
+ #define FW_HELLO_CMD_MASTERDIS(x)   ((x) << 29)
+@@ -343,6 +360,7 @@ struct fw_hello_cmd {
+ #define FW_HELLO_CMD_MBMASTER(x)     ((x) << FW_HELLO_CMD_MBMASTER_SHIFT)
+ #define FW_HELLO_CMD_MBMASTER_GET(x) \
+ 	(((x) >> FW_HELLO_CMD_MBMASTER_SHIFT) & FW_HELLO_CMD_MBMASTER_MASK)
++#define FW_HELLO_CMD_MBASYNCNOTINT(x)	((x) << 23)
+ #define FW_HELLO_CMD_MBASYNCNOT(x)  ((x) << 20)
+ #define FW_HELLO_CMD_STAGE(x)       ((x) << 17)
+ #define FW_HELLO_CMD_CLEARINIT      (1U << 16)
+@@ -428,6 +446,7 @@ enum fw_caps_config_iscsi {
+ enum fw_caps_config_fcoe {
+ 	FW_CAPS_CONFIG_FCOE_INITIATOR	= 0x00000001,
+ 	FW_CAPS_CONFIG_FCOE_TARGET	= 0x00000002,
++	FW_CAPS_CONFIG_FCOE_CTRL_OFLD	= 0x00000004,
+ };
+ 
+ enum fw_memtype_cf {
+@@ -440,7 +459,7 @@ enum fw_memtype_cf {
+ 
+ struct fw_caps_config_cmd {
+ 	__be32 op_to_write;
+-	__be32 retval_len16;
++	__be32 cfvalid_to_len16;
+ 	__be32 r2;
+ 	__be32 hwmbitmap;
+ 	__be16 nbmcaps;
+@@ -701,8 +720,8 @@ struct fw_iq_cmd {
+ #define FW_IQ_CMD_FL0FETCHRO(x) ((x) << 6)
+ #define FW_IQ_CMD_FL0HOSTFCMODE(x) ((x) << 4)
+ #define FW_IQ_CMD_FL0CPRIO(x) ((x) << 3)
+-#define FW_IQ_CMD_FL0PADEN (1U << 2)
+-#define FW_IQ_CMD_FL0PACKEN (1U << 1)
++#define FW_IQ_CMD_FL0PADEN(x) ((x) << 2)
++#define FW_IQ_CMD_FL0PACKEN(x) ((x) << 1)
+ #define FW_IQ_CMD_FL0CONGEN (1U << 0)
+ 
+ #define FW_IQ_CMD_FL0DCAEN(x) ((x) << 15)
+@@ -1190,6 +1209,14 @@ enum fw_port_dcb_cfg_rc {
+ 	FW_PORT_DCB_CFG_ERROR	= 0x1
+ };
+ 
++enum fw_port_dcb_type {
++	FW_PORT_DCB_TYPE_PGID		= 0x00,
++	FW_PORT_DCB_TYPE_PGRATE		= 0x01,
++	FW_PORT_DCB_TYPE_PRIORATE	= 0x02,
++	FW_PORT_DCB_TYPE_PFC		= 0x03,
++	FW_PORT_DCB_TYPE_APP_ID		= 0x04,
++};
++
+ struct fw_port_cmd {
+ 	__be32 op_to_portid;
+ 	__be32 action_to_len16;
+@@ -1257,6 +1284,7 @@ struct fw_port_cmd {
+ #define FW_PORT_CMD_TXIPG(x) ((x) << 19)
+ 
+ #define FW_PORT_CMD_LSTATUS (1U << 31)
++#define FW_PORT_CMD_LSTATUS_GET(x) (((x) >> 31) & 0x1)
+ #define FW_PORT_CMD_LSPEED(x) ((x) << 24)
+ #define FW_PORT_CMD_LSPEED_GET(x) (((x) >> 24) & 0x3f)
+ #define FW_PORT_CMD_TXPAUSE (1U << 23)
+@@ -1305,6 +1333,9 @@ enum fw_port_module_type {
+ 	FW_PORT_MOD_TYPE_TWINAX_PASSIVE,
+ 	FW_PORT_MOD_TYPE_TWINAX_ACTIVE,
+ 	FW_PORT_MOD_TYPE_LRM,
++	FW_PORT_MOD_TYPE_ERROR		= FW_PORT_CMD_MODTYPE_MASK - 3,
++	FW_PORT_MOD_TYPE_UNKNOWN	= FW_PORT_CMD_MODTYPE_MASK - 2,
++	FW_PORT_MOD_TYPE_NOTSUPPORTED	= FW_PORT_CMD_MODTYPE_MASK - 1,
+ 
+ 	FW_PORT_MOD_TYPE_NONE = FW_PORT_CMD_MODTYPE_MASK
+ };
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index f16745f..92170d5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -536,7 +536,7 @@ static inline void ring_fl_db(struct adapter *adapter, struct sge_fl *fl)
+ 	if (fl->pend_cred >= FL_PER_EQ_UNIT) {
+ 		wmb();
+ 		t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_KDOORBELL,
+-			     DBPRIO |
++			     DBPRIO(1) |
+ 			     QID(fl->cntxt_id) |
+ 			     PIDX(fl->pend_cred / FL_PER_EQ_UNIT));
+ 		fl->pend_cred %= FL_PER_EQ_UNIT;
+@@ -952,7 +952,7 @@ static inline void ring_tx_db(struct adapter *adapter, struct sge_txq *tq,
+ 	 * Warn if we write doorbells with the wrong priority and write
+ 	 * descriptors before telling HW.
+ 	 */
+-	WARN_ON((QID(tq->cntxt_id) | PIDX(n)) & DBPRIO);
++	WARN_ON((QID(tq->cntxt_id) | PIDX(n)) & DBPRIO(1));
+ 	wmb();
+ 	t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_KDOORBELL,
+ 		     QID(tq->cntxt_id) | PIDX(n));
+@@ -2126,8 +2126,8 @@ int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
+ 		cmd.iqns_to_fl0congen =
+ 			cpu_to_be32(
+ 				FW_IQ_CMD_FL0HOSTFCMODE(SGE_HOSTFCMODE_NONE) |
+-				FW_IQ_CMD_FL0PACKEN |
+-				FW_IQ_CMD_FL0PADEN);
++				FW_IQ_CMD_FL0PACKEN(1) |
++				FW_IQ_CMD_FL0PADEN(1));
+ 		cmd.fl0dcaen_to_fl0cidxfthresh =
+ 			cpu_to_be16(
+ 				FW_IQ_CMD_FL0FBMIN(SGE_FETCHBURSTMIN_64B) |
+-- 
+1.7.1
 
