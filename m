@@ -1,59 +1,52 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: handle tcp_net_metrics_init() order-5 memory
- allocation failures
-Date: Thu, 15 Nov 2012 15:41:04 -0800
-Message-ID: <1353022864.10798.6.camel@edumazet-glaptop>
+Subject: Re: GRO + splice panics in 3.7.0-rc5
+Date: Thu, 15 Nov 2012 15:49:04 -0800
+Message-ID: <1353023344.10798.8.camel@edumazet-glaptop>
+References: <20121115222812.GA647@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Julien Tinnes <jln@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:60238 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750788Ab2KOXlN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 18:41:13 -0500
-Received: by mail-pa0-f46.google.com with SMTP id hz1so1435546pad.19
-        for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 15:41:12 -0800 (PST)
+Received: from mail-da0-f46.google.com ([209.85.210.46]:43059 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456Ab2KOXtG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 18:49:06 -0500
+Received: by mail-da0-f46.google.com with SMTP id n41so882812dak.19
+        for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 15:49:06 -0800 (PST)
+In-Reply-To: <20121115222812.GA647@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, 2012-11-15 at 23:28 +0100, Willy Tarreau wrote:
+> Hello,
+> 
+> I was just about to make a quick comparison between LRO and GRO in
+> 3.7.0-rc5 to see if LRO still had the big advantage I've always observed,
+> but I failed the test because as soon as I enable LRO + splice, the kernel
+> panics and reboots.
+> 
+> I could not yet manage to catch the panic output, I could just reliably
+> reproduce it, it crashes instantly.
+> 
+> All I can say at the moment is the following :
+>   - test consist in forwarding HTTP traffic between two NICs via haproxy
+>   - driver used was myri10ge
+>   - LRO + recv+send : OK
+>   - LRO + splice : OK
+>   - GRO + recv+send : OK
+>   - GRO + splice : panic
+>   - no such problem was observed in 3.6.6 so I think this is a recent
+>     regression.
+> 
+> I'll go back digging for more information, but as I'm used to often see
+> Eric suggest the right candidates for reverting, I wanted to report the
+> issue here in case there are easy ones to try first.
 
-order-5 allocations can fail with current kernels, we should
-try to reduce allocation sizes to allow network namespace
-creation.
+Hi Willy
 
-Reported-by: Julien Tinnes <jln@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_metrics.c |   13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+Nothing particular comes to mind, there were a lot of recent changes
+that could trigger this kind of bug.
 
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 53bc584..15e93c4 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -1030,14 +1030,17 @@ static int __net_init tcp_net_metrics_init(struct net *net)
- 		else
- 			slots = 8 * 1024;
- 	}
--
-+retry:
- 	net->ipv4.tcp_metrics_hash_log = order_base_2(slots);
- 	size = sizeof(struct tcpm_hash_bucket) << net->ipv4.tcp_metrics_hash_log;
- 
--	net->ipv4.tcp_metrics_hash = kzalloc(size, GFP_KERNEL);
--	if (!net->ipv4.tcp_metrics_hash)
--		return -ENOMEM;
--
-+	net->ipv4.tcp_metrics_hash = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
-+	if (!net->ipv4.tcp_metrics_hash) {
-+		if (slots <= 16)
-+			return -ENOMEM;
-+		slots >>= 1;
-+		goto retry;
-+	}
- 	return 0;
- }
- 
+A stack trace would be useful of course ;)
