@@ -1,61 +1,59 @@
 From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 33/50] net/ipv4/ipip.c:867:34: sparse: incorrect type in assignment (different base types)
-Date: Thu, 15 Nov 2012 13:16:48 +0800
-Message-ID: <50a47ac0.a2q7mGhdQ7lwFkgq%fengguang.wu@intel.com>
+Subject: [net-next:master 35/50] net/ipv6/sit.c:1232:52: sparse: incorrect type in argument 3 (different base types)
+Date: Thu, 15 Nov 2012 13:31:07 +0800
+Message-ID: <50a47e1b.44+0DGGKGr4JHNPK%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:33484 "EHLO mga11.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:19376 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750784Ab2KOFRF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 00:17:05 -0500
+	id S1751008Ab2KOFbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 00:31:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
 head:   702ed3c1a9dfe4dfe112f13542d0c9d689f5008b
-commit: be42da0e1012bf67d8f6899b7d9162e35527da4b [33/50] ipip: add support of link creation via rtnl
+commit: a12c9a85813e927e1143989876d70697eb85aac9 [35/50] sit/rtnl: add missing parameters on dump
 
 
 sparse warnings:
 
-+ net/ipv4/ipip.c:867:34: sparse: incorrect type in assignment (different base types)
-net/ipv4/ipip.c:867:34:    expected restricted __be32 [usertype] saddr
-net/ipv4/ipip.c:867:34:    got unsigned int
-net/ipv4/ipip.c:870:34: sparse: incorrect type in assignment (different base types)
-net/ipv4/ipip.c:870:34:    expected restricted __be32 [usertype] daddr
-net/ipv4/ipip.c:870:34:    got unsigned int
+net/ipv6/sit.c:263:18: sparse: restricted __be16 degrades to integer
++ net/ipv6/sit.c:1232:52: sparse: incorrect type in argument 3 (different base types)
+net/ipv6/sit.c:1232:52:    expected unsigned short [unsigned] [usertype] value
+net/ipv6/sit.c:1232:52:    got restricted __be16 [usertype] i_flags
 
-vim +867 net/ipv4/ipip.c
+vim +1232 net/ipv6/sit.c
 
-be42da0e Nicolas Dichtel 2012-11-14  851  static void ipip_netlink_parms(struct nlattr *data[],
-be42da0e Nicolas Dichtel 2012-11-14  852  			       struct ip_tunnel_parm *parms)
-be42da0e Nicolas Dichtel 2012-11-14  853  {
-be42da0e Nicolas Dichtel 2012-11-14  854  	memset(parms, 0, sizeof(*parms));
-be42da0e Nicolas Dichtel 2012-11-14  855  
-be42da0e Nicolas Dichtel 2012-11-14  856  	parms->iph.version = 4;
-be42da0e Nicolas Dichtel 2012-11-14  857  	parms->iph.protocol = IPPROTO_IPIP;
-be42da0e Nicolas Dichtel 2012-11-14  858  	parms->iph.ihl = 5;
-be42da0e Nicolas Dichtel 2012-11-14  859  
-be42da0e Nicolas Dichtel 2012-11-14  860  	if (!data)
-be42da0e Nicolas Dichtel 2012-11-14  861  		return;
-be42da0e Nicolas Dichtel 2012-11-14  862  
-be42da0e Nicolas Dichtel 2012-11-14  863  	if (data[IFLA_IPTUN_LINK])
-be42da0e Nicolas Dichtel 2012-11-14  864  		parms->link = nla_get_u32(data[IFLA_IPTUN_LINK]);
-be42da0e Nicolas Dichtel 2012-11-14  865  
-be42da0e Nicolas Dichtel 2012-11-14  866  	if (data[IFLA_IPTUN_LOCAL])
-be42da0e Nicolas Dichtel 2012-11-14 @867  		parms->iph.saddr = nla_get_u32(data[IFLA_IPTUN_LOCAL]);
-be42da0e Nicolas Dichtel 2012-11-14  868  
-be42da0e Nicolas Dichtel 2012-11-14  869  	if (data[IFLA_IPTUN_REMOTE])
-be42da0e Nicolas Dichtel 2012-11-14  870  		parms->iph.daddr = nla_get_u32(data[IFLA_IPTUN_REMOTE]);
-be42da0e Nicolas Dichtel 2012-11-14  871  
-be42da0e Nicolas Dichtel 2012-11-14  872  	if (data[IFLA_IPTUN_TTL]) {
-be42da0e Nicolas Dichtel 2012-11-14  873  		parms->iph.ttl = nla_get_u8(data[IFLA_IPTUN_TTL]);
-be42da0e Nicolas Dichtel 2012-11-14  874  		if (parms->iph.ttl)
-be42da0e Nicolas Dichtel 2012-11-14  875  			parms->iph.frag_off = htons(IP_DF);
+a12c9a85 Nicolas Dichtel 2012-11-14  1216  		nla_total_size(2) +
+ba3e3f50 Nicolas Dichtel 2012-11-09  1217  		0;
+ba3e3f50 Nicolas Dichtel 2012-11-09  1218  }
+ba3e3f50 Nicolas Dichtel 2012-11-09  1219  
+ba3e3f50 Nicolas Dichtel 2012-11-09  1220  static int sit_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ba3e3f50 Nicolas Dichtel 2012-11-09  1221  {
+ba3e3f50 Nicolas Dichtel 2012-11-09  1222  	struct ip_tunnel *tunnel = netdev_priv(dev);
+ba3e3f50 Nicolas Dichtel 2012-11-09  1223  	struct ip_tunnel_parm *parm = &tunnel->parms;
+ba3e3f50 Nicolas Dichtel 2012-11-09  1224  
+ba3e3f50 Nicolas Dichtel 2012-11-09  1225  	if (nla_put_u32(skb, IFLA_IPTUN_LINK, parm->link) ||
+ba3e3f50 Nicolas Dichtel 2012-11-09  1226  	    nla_put_be32(skb, IFLA_IPTUN_LOCAL, parm->iph.saddr) ||
+ba3e3f50 Nicolas Dichtel 2012-11-09  1227  	    nla_put_be32(skb, IFLA_IPTUN_REMOTE, parm->iph.daddr) ||
+ba3e3f50 Nicolas Dichtel 2012-11-09  1228  	    nla_put_u8(skb, IFLA_IPTUN_TTL, parm->iph.ttl) ||
+a12c9a85 Nicolas Dichtel 2012-11-14  1229  	    nla_put_u8(skb, IFLA_IPTUN_TOS, parm->iph.tos) ||
+a12c9a85 Nicolas Dichtel 2012-11-14  1230  	    nla_put_u8(skb, IFLA_IPTUN_PMTUDISC,
+a12c9a85 Nicolas Dichtel 2012-11-14  1231  		       !!(parm->iph.frag_off & htons(IP_DF))) ||
+a12c9a85 Nicolas Dichtel 2012-11-14 @1232  	    nla_put_u16(skb, IFLA_IPTUN_FLAGS, parm->i_flags))
+ba3e3f50 Nicolas Dichtel 2012-11-09  1233  		goto nla_put_failure;
+ba3e3f50 Nicolas Dichtel 2012-11-09  1234  	return 0;
+ba3e3f50 Nicolas Dichtel 2012-11-09  1235  
+ba3e3f50 Nicolas Dichtel 2012-11-09  1236  nla_put_failure:
+ba3e3f50 Nicolas Dichtel 2012-11-09  1237  	return -EMSGSIZE;
+ba3e3f50 Nicolas Dichtel 2012-11-09  1238  }
+ba3e3f50 Nicolas Dichtel 2012-11-09  1239  
+ba3e3f50 Nicolas Dichtel 2012-11-09  1240  static struct rtnl_link_ops sit_link_ops __read_mostly = {
 
 ---
 0-DAY kernel build testing backend         Open Source Technology Center
