@@ -1,65 +1,56 @@
-From: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Subject: [PATCH] ipv4/ip_vti.c: VTI fix post-decryption forwarding
-Date: Wed, 14 Nov 2012 18:08:15 -0800
-Message-ID: <20121115020815.GA2732@debian-saurabh-64.vyatta.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [RFC PATCH 03/13] net: Add net protocol offload registration
+ infrustructure
+Date: Wed, 14 Nov 2012 21:16:22 -0500
+Message-ID: <50A45076.3040905@redhat.com>
+References: <1352856254-29667-1-git-send-email-vyasevic@redhat.com> <1352856254-29667-4-git-send-email-vyasevic@redhat.com> <20121114231452.GH27068@electric-eye.fr.zoreil.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54609 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44582 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2992457Ab2KOCJL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2012 21:09:11 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id 8E0AC1410569
-	for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 18:09:10 -0800 (PST)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id Sh-Y+AjLZp0I for <netdev@vger.kernel.org>;
-	Wed, 14 Nov 2012 18:09:09 -0800 (PST)
-Received: from localhost (eng-dhcp-109.vyatta.com [10.3.0.109])
-	by mail.vyatta.com (Postfix) with ESMTP id CC9471410333
-	for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 18:09:09 -0800 (PST)
-Content-Disposition: inline
+	id S1423422Ab2KOCQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2012 21:16:28 -0500
+In-Reply-To: <20121114231452.GH27068@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 11/14/2012 06:14 PM, Francois Romieu wrote:
+> Vlad Yasevich <vyasevic@redhat.com> :
+> [...]
+>> diff --git a/include/net/protocol.h b/include/net/protocol.h
+>> index 929528c..d8ecb17 100644
+>> --- a/include/net/protocol.h
+>> +++ b/include/net/protocol.h
+>> @@ -77,6 +77,15 @@ struct inet6_protocol {
+>>   #define INET6_PROTO_GSO_EXTHDR	0x4
+>>   #endif
+>>
+>> +struct net_offload {
+>> +	int			(*gso_send_check)(struct sk_buff *skb);
+>> +	struct sk_buff	       *(*gso_segment)(struct sk_buff *skb,
+>> +					       netdev_features_t features);
+>> +	struct sk_buff	      **(*gro_receive)(struct sk_buff **head,
+>> +					       struct sk_buff *skb);
+>> +	int			(*gro_complete)(struct sk_buff *skb);
+>> +};
+>
+> Would it be worth adding a #14 where packet_offload and net_offload
+> share a common offload struct instead of duplicating (currently) identical
+> members ?
+>
 
+I'll look...  There are some very minor diffs between the structs, so 
+one could at least be based on another.
 
-With the latest kernel there are two things that must be done post decryption
- so that the packet are forwarded.
- 1. Remove the mark from the packet. This will cause the packet to not match
- the ipsec-policy again. However doing this causes the post-decryption check to
- fail also and the packet will get dropped. (cat /proc/net/xfrm_stat).
- 2. Remove the sp association in the skbuff so that no policy check is done on
- the packet for VTI tunnels.
+What bugs me more actually is the duplication between IPv4 and IPv6 
+lists.  One idea I had before was to have packet_offload be a container
+for the array of net_offloads.  We would then have a single set of 
+functions to register tcp/udp callbacks for both ipv4 and ipv6.  I might
+resurrect that patch and send it for comments as well.
 
-Due to #2 above we must now do a security-policy check in the vti rcv path
-prior to resetting the mark in the skbuff.
-
-Signed-off-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
-Reported-by: Ruben Herold <ruben@puettmann.net>
-
----
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 1831092..858fddf 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -338,12 +338,17 @@ static int vti_rcv(struct sk_buff *skb)
- 	if (tunnel != NULL) {
- 		struct pcpu_tstats *tstats;
- 
-+		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
-+			return -1;
-+
- 		tstats = this_cpu_ptr(tunnel->dev->tstats);
- 		u64_stats_update_begin(&tstats->syncp);
- 		tstats->rx_packets++;
- 		tstats->rx_bytes += skb->len;
- 		u64_stats_update_end(&tstats->syncp);
- 
-+		skb->mark = 0;
-+		secpath_reset(skb);
- 		skb->dev = tunnel->dev;
- 		return 1;
- 	}
+-vlad
