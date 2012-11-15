@@ -1,49 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3.7.0-rc4] of/net/mdio-gpio: Fix pdev->id issue when
- using devicetrees.
-Date: Wed, 14 Nov 2012 18:59:40 -0500 (EST)
-Message-ID: <20121114.185940.648295821386414260.davem@davemloft.net>
-References: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 4/4] tg3: Use tp->rxq_cnt when checking RSS
+ tables.
+Date: Wed, 14 Nov 2012 16:44:29 -0800
+Message-ID: <1352940269-23821-4-git-send-email-mchan@broadcom.com>
+References: <1352940269-23821-1-git-send-email-mchan@broadcom.com>
+ <1352940269-23821-2-git-send-email-mchan@broadcom.com>
+ <1352940269-23821-3-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-To: srinivas.kandagatla@st.com
+Cc: netdev@vger.kernel.org, nsujir@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37014 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755412Ab2KNX7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 18:59:42 -0500
-In-Reply-To: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:4036 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755462Ab2KOAa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2012 19:30:27 -0500
+In-Reply-To: <1352940269-23821-3-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Date: Tue, 13 Nov 2012 14:26:13 +0000
+irq_cnt is no longer reliable since rxq_cnt can be independently configured.
 
-> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-> 
-> When the mdio-gpio driver is probed via device trees, the platform
-> device id is set as -1, However the id is re-used in the code while
-> creating an mdio bus.
-> So, setting up the id via aliases from device tree is a sensible
-> solution to fix this issue.
-> 
-> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+Update version to 3.127.
 
-This seems rather pointless unless you also update every single device
-tree out there.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-Also you need to describe what are the ramifications of this problem
-otherwise it is impossible to figure out how serious this change is.
-
-Does it prevent probing?  Does it cause a crash?
-
-Basically, what I'm saying is that this is a very poor submission and
-you need to substantially improve it and communicate better.
-
-If the problem is basically benign, then you should target this change
-to net-next instead of the net tree, along with the necessary dt file
-updates.
-
-Thanks.
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index ffff018..5cc976d 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -90,10 +90,10 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+ 
+ #define DRV_MODULE_NAME		"tg3"
+ #define TG3_MAJ_NUM			3
+-#define TG3_MIN_NUM			126
++#define TG3_MIN_NUM			127
+ #define DRV_MODULE_VERSION	\
+ 	__stringify(TG3_MAJ_NUM) "." __stringify(TG3_MIN_NUM)
+-#define DRV_MODULE_RELDATE	"November 05, 2012"
++#define DRV_MODULE_RELDATE	"November 14, 2012"
+ 
+ #define RESET_KIND_SHUTDOWN	0
+ #define RESET_KIND_INIT		1
+@@ -8710,14 +8710,14 @@ static void tg3_rss_check_indir_tbl(struct tg3 *tp)
+ 	if (!tg3_flag(tp, SUPPORT_MSIX))
+ 		return;
+ 
+-	if (tp->irq_cnt <= 2) {
++	if (tp->rxq_cnt == 1) {
+ 		memset(&tp->rss_ind_tbl[0], 0, sizeof(tp->rss_ind_tbl));
+ 		return;
+ 	}
+ 
+ 	/* Validate table against current IRQ count */
+ 	for (i = 0; i < TG3_RSS_INDIR_TBL_SIZE; i++) {
+-		if (tp->rss_ind_tbl[i] >= tp->irq_cnt - 1)
++		if (tp->rss_ind_tbl[i] >= tp->rxq_cnt)
+ 			break;
+ 	}
+ 
+-- 
+1.7.1
