@@ -1,54 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: fix retransmission in repair mode
-Date: Thu, 15 Nov 2012 07:03:04 -0800
-Message-ID: <1352991784.4497.37.camel@edumazet-glaptop>
-References: <1352988197-14414-1-git-send-email-avagin@openvz.org>
+From: =?UTF-8?Q?Nie=C5=9Bcierowicz_Adam?= <adam.niescierowicz@justnet.pl>
+Subject: Re: tc adding two filters with different protocols
+Date: Thu, 15 Nov 2012 16:04:41 +0100
+Message-ID: <1bafdbfd5d324dc2b8bebfc8b91e5110@justnet.pl>
+Reply-To: <adam.niescierowicz@justnet.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, criu@openvz.org,
-	linux-kernel@vger.kernel.org,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352988197-14414-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from host-91.230.163.37.ltv.pl ([91.230.163.37]:46737 "EHLO
+	mail.justnet.pl" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1768118Ab2KOPEu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 10:04:50 -0500
+Received: from [91.230.163.37] (helo=mail.justnet.pl)
+	by service with esmtpa (Exim 4.72)
+	(envelope-from <adam.niescierowicz@justnet.pl>)
+	id 1TZ0zh-0008Rn-GZ
+	for netdev@vger.kernel.org; Thu, 15 Nov 2012 16:04:41 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-15 at 18:03 +0400, Andrey Vagin wrote:
-> From: Andrew Vagin <avagin@openvz.org>
-> 
-> Currently if a socket was repaired with a few packet in a write queue,
-> a kernel bug may be triggered:
-> 
-> kernel BUG at net/ipv4/tcp_output.c:2330!
-> RIP: 0010:[<ffffffff8155784f>] tcp_retransmit_skb+0x5ff/0x610
-> 
-> According to the initial realization v3.4-rc2-963-gc0e88ff,
-> all skb-s should look like already posted. This patch fixes code
-> according with this sentence.
-> 
-> Here are three points, which were not done in the initial patch:
-> 1. A tcp send head should not be changed
-> 2. Initialize TSO state of a skb
-> 3. Reset the retransmission time
-> 
-> This patch moves logic from tcp_sendmsg to tcp_write_xmit. A packet
-> passes the ussual way, but isn't sent to network. This patch solves
-> all described problems and handles tcp_sendpages.
-> 
-> Cc: Pavel Emelyanov <xemul@parallels.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+Hi,
 
-Any chance these tcp repair hacks could be done outside of tcp fast
-path ?
+anyone can help, or explain what i do wrong?
+
+W dniu 12.11.2012 20:45, Nie=C5=9Bcierowicz Adam napisa=C5=82(a):
+
+> Hello,
+>
+> writes the qos where i want classify traffic for two protocol: ip and
+> pppoe. Example below
+>
+> ---
+> tc qdisc del root dev eth2
+> tc qdisc add dev eth2 root handle 1: htb
+> tc class add dev eth2 parent 1:0 classid 1:1 htb rate 500Mbit ceil
+> 500Mbit
+>
+> tc filter add dev eth2 parent 1:0 prio 5 protocol ip u32
+> tc filter add dev eth2 parent 1:0 prio 5 handle 9: protocol ip u32
+> divisor 256
+> tc filter add dev eth2 protocol ip parent 1:0 prio 5 u32 ht 800::=20
+> match
+> ip dst 172.16.0.0/22 hashkey mask 0x000000ff at 16 link 9:
+>
+> tc filter add dev eth2 parent 1:0 prio 6 protocol ppp_ses u32
+> tc filter add dev eth2 parent 1:0 prio 6 handle 4a: protocol ppp_ses
+> u32 divisor 256
+> tc filter add dev eth2 protocol ppp_ses parent 1:0 prio 6 u32 ht=20
+> 800::
+> match ip dst 31.41.209.0/24 at 24 hashkey mask 0x000000ff at 24 link=20
+> 4a:
+> ---
+>
+> Unfortunately, when you add lines "tc filter add dev eth2 protocol
+> ppp_ses parent 1:0 prio 6 u32 ht 800:: match ip dst 31.41.209.0/24 at=
+=20
+> 24
+> hashkey mask 0x000000ff at 24 link 4a:" protocol change to ip
+>
+> command "tc -s -d filter show dev eth2" shows
+> ---
+> filter parent 1: protocol ip pref 5 u32
+> filter parent 1: protocol ip pref 5 u32 fh 9: ht divisor 256
+> filter parent 1: protocol ip pref 5 u32 fh 800: ht divisor 1
+> filter parent 1: protocol ip pref 5 u32 fh 800::800 order 2048 key ht
+> 800 bkt 0 link 9: (rule hit 557082 success 0)
+> match ac100000/fffffc00 at 16 (success 267341 )
+> hash mask 000000ff at 16
+> filter parent 1: protocol ip pref 5 u32 fh 800::801 order 2049 key ht
+> 800 bkt 0 link 4a: (rule hit 557039 success 0)
+> match 1f29d100/ffffff00 at 24 (success 0 )
+> hash mask 000000ff at 24
+> filter parent 1: protocol ppp_ses pref 6 u32
+> filter parent 1: protocol ppp_ses pref 6 u32 fh 4a: ht divisor 256
+> filter parent 1: protocol ppp_ses pref 6 u32 fh 801: ht divisor 1
+> ---
+> if i change order and first protocol is ppp_ses the hashkey for ip
+> protocol is changed to ppp_ses.
+>
+> Is this correct behavior and I do something wrong?
+>
+> Thanks
+> Adam N.
+>
