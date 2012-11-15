@@ -1,100 +1,97 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 0/4] Implement persistent grant in
- xen-netfront/netback
-Date: Thu, 15 Nov 2012 13:29:28 -0500
-Message-ID: <20121115182928.GB22320@phenom.dumpdata.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
- <20121115074057.GO8912@reaktio.net>
- <50A4AA06.8080900@oracle.com>
- <50A4CA51.8080208@citrix.com>
- <1352978106.3499.101.camel@zakaz.uk.xensource.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Thu, 15 Nov 2012 10:33:18 -0800
+Message-ID: <50A5356E.8030901@hp.com>
+References: <1347868144.26523.71.camel@edumazet-glaptop> <CAAM7YAm+XJKTxJStLMoo4RRV85oogN5wCHfXorkEiUHKqNKHDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Roger Pau Monne <roger.pau@citrix.com>,
-	ANNIE LI <annie.li@oracle.com>,
-	Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Yan, Zheng " <yanzheng@21cn.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:38122 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1768585Ab2KOS3r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 13:29:47 -0500
-Content-Disposition: inline
-In-Reply-To: <1352978106.3499.101.camel@zakaz.uk.xensource.com>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:44894 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423636Ab2KOSdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 13:33:20 -0500
+In-Reply-To: <CAAM7YAm+XJKTxJStLMoo4RRV85oogN5wCHfXorkEiUHKqNKHDQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 15, 2012 at 11:15:06AM +0000, Ian Campbell wrote:
-> On Thu, 2012-11-15 at 10:56 +0000, Roger Pau Monne wrote:
-> > On 15/11/12 09:38, ANNIE LI wrote:
-> > >=20
-> > >=20
-> > > On 2012-11-15 15:40, Pasi K=E4rkk=E4inen wrote:
-> > >> Hello,
-> > >>
-> > >> On Thu, Nov 15, 2012 at 03:03:07PM +0800, Annie Li wrote:
-> > >>> This patch implements persistent grants for xen-netfront/netbac=
-k. This
-> > >>> mechanism maintains page pools in netback/netfront, these page =
-pools is used to
-> > >>> save grant pages which are mapped. This way improve performance=
- which is wasted
-> > >>> when doing grant operations.
-> > >>>
-> > >>> Current netback/netfront does map/unmap grant operations freque=
-ntly when
-> > >>> transmitting/receiving packets, and grant operations costs much=
- cpu clock. In
-> > >>> this patch, netfront/netback maps grant pages when needed and t=
-hen saves them
-> > >>> into a page pool for future use. All these pages will be unmapp=
-ed when
-> > >>> removing/releasing the net device.
-> > >>>
-> > >> Do you have performance numbers available already? with/without =
-persistent grants?
-> > > I have some simple netperf/netserver test result with/without per=
-sistent=20
-> > > grants,
-> > >=20
-> > > Following is result of with persistent grant patch,
-> > >=20
-> > > Guests, Sum,      Avg,     Min,     Max
-> > >   1,  15106.4,  15106.4, 15106.36, 15106.36
-> > >   2,  13052.7,  6526.34,  6261.81,  6790.86
-> > >   3,  12675.1,  6337.53,  6220.24,  6454.83
-> > >   4,  13194,  6596.98,  6274.70,  6919.25
-> > >=20
-> > >=20
-> > > Following are result of without persistent patch
-> > >=20
-> > > Guests, Sum,     Avg,    Min,        Max
-> > >   1,  10864.1,  10864.1, 10864.10, 10864.10
-> > >   2,  10898.5,  5449.24,  4862.08,  6036.40
-> > >   3,  10734.5,  5367.26,  5261.43,  5473.08
-> > >   4,  10924,    5461.99,  5314.84,  5609.14
-> >=20
-> > In the block case, performance improvement is seen when using a lar=
-ge
-> > number of guests, could you perform the same benchmark increasing t=
-he
-> > number of guests to 15?
->=20
-> It would also be nice to see some analysis of the numbers which justi=
-fy
-> why this change is a good one without every reviewer having to evalua=
-te
-> the raw data themselves. In fact this should really be part of the
-> commit message.
+On 11/14/2012 11:52 PM, Yan, Zheng wrote:
+> This commit makes one of our test case on core 2 machine drop in
+> performance by about 60%. The test case runs 2048 instances of
+> netperf 64k stream test at the same time.
 
-You mean like a nice graph, eh?
+I'm impressed that 2048 concurrent netperf TCP_STREAM tests ran to 
+completion in the first place :)
 
-I will run these patches on my 32GB box and see if I can give you
-a nice PDF/jpg.
+> Analysis showed using order-3 pages causes more LLC misses, most new
+> LLC misses happen when the senders copy data to the socket buffer.
 
->=20
-> Ian.
->=20
+> If revert to use single page, the sender side only trigger a few LLC
+>  misses, most LLC misses happen on the receiver size. It means most
+> pages allocated by the senders are cache hot. But when using order-3
+> pages, 2048 * 32k = 64M, 64M is much larger than LLC size. Should
+> this regression be worried? or our test case is too unpractical?
+
+Even before the page change I would have expected the buffers that 
+netperf itself uses would have exceeded the LLC.  If you were not using 
+test-specific -s and -S options to set an explicit socket buffer size, I 
+believe that under Linux (most of the time) the default SO_SNDBUF size 
+will be 86KB.  Coupled with your statement that the send size was 64K it 
+means the send ring being used by netperf will be 2, 64KB buffers, which 
+would then be 256MB across 2048 concurrent netperfs.  Even if we go with 
+"only the one send buffer in play at a time matters" that is still 128 
+MB of space up in netperf itself even before one gets to the stack.
+
+Still, sharing the analysis tool output might be helpful.
+
+By the way the "default" size of the buffer netperf posts in recv() 
+calls will depend on the initial value of SO_RCVBUF after the data 
+socket is created and had any -s or -S option values applied to it.
+
+I cannot say that the scripts distributed with netperf are consistently 
+good about doing it themselves, but I would suggest for the "canonical" 
+bulk streak test something like:
+
+netperf -t TCP_STREAM -H <dest> -l 60 -- -s 1M -S 1M -m 64K -M 64K
+
+as that will reduce the number of variables.  Those -s and -S values 
+though will probably call for tweaking sysctl settings or they will be 
+clipped by net.core.rmem_max and net.core.wmem_max.  At a minimum I 
+would suggest having the -m and -M option.  I might also tack-on a "-o 
+all" at the end, but that is a matter of preference - it will cause a 
+great deal of output...
+
+Eric Dumazet later says:
+> Number of in flight bytes do not depend on the order of the pages, but
+> sizes of TCP buffers (receiver, sender)
+
+And unless you happened to use explicit -s and -S options, there is even 
+more variability in how much may be inflight.  If you do not add those 
+you can at least get netperf to report what the socket buffer sizes 
+became by the end of the test:
+
+netperf -t TCP_STREAM ... -- ... -o lss_size_end,rsr_size_end
+
+for "local socket send size" and "remote socket receive size" respectively.
+
+> If the sender is faster (because of this commit), but receiver is slow
+> to drain the receive queues, then you can have a situation where the
+> consumed memory on receiver is higher and the receiver might be actually
+> slower.
+
+Netperf can be told to report the number of receive calls and the bytes 
+per receive - either by tacking-on a global "-v 2" or by requesting them 
+explicitly via omni output selection.  Presumably, if the receiving 
+netserver processes are not keeping-up as well, that should manifest as 
+the bytes per receive being larger in the "after" case than the "before" 
+case.
+
+netperf ... -- ... -o 
+remote_recv_size,remote_recv_calls,remote_bytes_per_recv
+
+happy benchmarking,
+
+rick jones
