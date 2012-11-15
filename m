@@ -1,98 +1,40 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: Optics (SFP) monitoring on ixgbe and igbe
-Date: Thu, 15 Nov 2012 14:46:47 -0800
-Message-ID: <50A570D7.3080409@gmail.com>
-References: <CAPN4dA8WUdox2k_F_9cYw=hR=xZHia=z3CXwy-36_t9Hh58zBg@mail.gmail.com> <1352318339.2725.34.camel@bwh-desktop.uk.solarflarecom.com> <CAPN4dA95RQ+xyvY+qo0CDc=KmaKhuqHATx_KyMjppvauYtUyzQ@mail.gmail.com> <1352473713.3159.4.camel@bwh-desktop.uk.solarflarecom.com> <CAPN4dA_kb4Gy6JWEW1h4YsGf5QwsOz58gGJqS0OcPTvHoAL7Xw@mail.gmail.com> <CAPN4dA-moLxn_jQW4e906j9wLU+tZVLxvkWeLOxDEbZpGtJ28g@mail.gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH V2 00/14] Always build GSO/GRO functionality into the
+ kernel
+Date: Thu, 15 Nov 2012 17:48:33 -0500
+Message-ID: <50A57141.1000803@redhat.com>
+References: <1353005363-6974-1-git-send-email-vyasevic@redhat.com> <20121115.174205.2002769827912724231.davem@davemloft.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="------------enigFE88DE79A7F49BBC2197BD8A"
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: footplus@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:42226 "EHLO mga03.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57107 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750712Ab2KOWqv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 17:46:51 -0500
-In-Reply-To: <CAPN4dA-moLxn_jQW4e906j9wLU+tZVLxvkWeLOxDEbZpGtJ28g@mail.gmail.com>
+	id S1750733Ab2KOWsh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 17:48:37 -0500
+In-Reply-To: <20121115.174205.2002769827912724231.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigFE88DE79A7F49BBC2197BD8A
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 11/15/2012 01:36 PM, Aur=C3=A9lien wrote:
->> On Fri, Nov 9, 2012 at 4:08 PM, Ben Hutchings <bhutchings@solarflare.c=
-om> wrote:
->>> No, the driver also needs to implement ethtool_ops::get_module_info a=
-nd
->>> ethtool_ops::get_module_eeprom.  But those should be quite easy to do=
-=2E
->>>
-> Hi !
+On 11/15/2012 05:42 PM, David Miller wrote:
 >
-> I started to implement these operations in ixgbe.
+> All applied to net-next, but there were some minor conflicts (an
+> IS_ENABLED() conversion happened in ip6_output.c in net-next but the
+> context in your patch didn't have it) and git warnings (trailing
+> whitespace in the final patch).
 >
-> So far, the result is the attached patch, which applies on dave-m's
-> net-next @ 1ff05fb7114a6b4118e0f7d89fed2659f7131b0a. It's not yet
-> finished, and since it is my first peek at network drivers I need some
-> advice on:
+> I fixed them all up, but this is something you can easily take care
+> of yourself in the future.
 >
-> - whether the implementation seems correct for ixgbe and all its
-> supported MAC/PHY combinations ?
-> - what would be the best way to manage SFF-8472 A0/A2 bank swapping
-> mechanism for reading A2h ? (it seems I need to lock the whole -
-> adress change sequence - read A2h - address change again - operation)
-> in case it's needed. I may not be able to test that, so I may add an
-> unsupported return code for now.
-> - Is the supported PHY selection correct, or should other PHYs be
-> supported ? What should be the rule ?
+> Thanks.
 >
-> I have been able to get correct temperature readings with a patched-up
-> ethtool, so it seems to work correctly on at least my card (Ethernet
-> controller [0200]: Intel Corporation 82599EB 10-Gigabit Network
-> Connection [8086:10fb] (rev 01)).
->
-> About ethtool, I was thinking about making a -O option for optical
-> diagnostics, which would have a readable output. I will make a
-> function to parse the A2 register contents, so it can be reused in
-> other daemons/libs (SNMP, etc).
->
-> Thanks,
-> Best regards,
-Can you please add me <jeffrey.t.kirsher@intel.com> to the CC on future
-patches for ixgbe or ixgb, as I will be the one applying the patch to my
-queue?
 
-Thanks
-Jeff
+sorry,  the patches were bases on net-2.6.  That's probably why you saw 
+the conflicts.  I wasn't sure where they should go since they actually 
+fix a long standing issue, so I bases them net-2.6.
 
-
---------------enigFE88DE79A7F49BBC2197BD8A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJQpXDYAAoJEOVv75VaS+3OMqUP/29vkrH6ebLPRyck/HmXGwW8
-o9KQMAQD84UvxPEQ5GOx9SAbZyEUI50oE7M6bvxXVUv9DlV+21hvzMYk+uynFu5p
-ESzi+La7swEkxaPc/TSezgywe7zW//wvnnztUz6R2KXApEAga9Z/lrw1lJ9+oMBz
-xRkUuTl69ivlHNfULAkGzJLEfu9ZuwR3alA3cgJTWtfK5eJZFnzRESwJif2/L717
-hxJDyk8NZnJ/AuvQQKnLF0oRYN+dTCaHUtCjXZD3tfCPphS7L5uqMWHzB84sNvIY
-qDMBj6MkYhNLRRvxAuo13j9jhQwR/697+b63nHmDVTkaD7dqV60XMxiZmFj7vXRm
-VYxinPiStxG2XvwHyNXtZ1J2c7i/H8KnWLM0ORcrL+229xk4nEmXN2IDfkplYiJA
-qfL4clTPWGRFRdQLT0YyPY9SZceXF0NSs8Ss7jL1VyWtrcSryB86b/vv6MTAytjm
-HPtZG3b7VGJFCD+Ti1lnRoqMlwm3araWdu6smKPI83B+KroDKLyVIAr5dLRy7H2x
-flemYRWCTodTzkrsje92V9P7kmKdzM2M+HPE8K7yyeyrZmthVFcjeIQX0xtllFxx
-BvgTo2UsltE+30yEqXDzc1d3bnNY+E3Eqic+2kkxxxzAjMYNwRjiVYVPYif9kTFQ
-eXw1Sjdv+IvoD/8hjzeR
-=QoGt
------END PGP SIGNATURE-----
-
---------------enigFE88DE79A7F49BBC2197BD8A--
+Sorry, and thanks for fixing things up.
+-vlad
