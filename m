@@ -1,30 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 00/14] Always build GSO/GRO functionality into the
- kernel
-Date: Thu, 15 Nov 2012 17:42:05 -0500 (EST)
-Message-ID: <20121115.174205.2002769827912724231.davem@davemloft.net>
-References: <1353005363-6974-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH] tcp: fix retransmission in repair mode
+Date: Thu, 15 Nov 2012 17:45:46 -0500 (EST)
+Message-ID: <20121115.174546.336072708541078221.davem@davemloft.net>
+References: <1352988197-14414-1-git-send-email-avagin@openvz.org>
+	<50A4F7F3.5080500@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49068 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740Ab2KOWmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 17:42:07 -0500
-In-Reply-To: <1353005363-6974-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: avagin@openvz.org, netdev@vger.kernel.org, criu@openvz.org,
+	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: xemul@parallels.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50A4F7F3.5080500@parallels.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Thu, 15 Nov 2012 18:10:59 +0400
 
-All applied to net-next, but there were some minor conflicts (an
-IS_ENABLED() conversion happened in ip6_output.c in net-next but the
-context in your patch didn't have it) and git warnings (trailing
-whitespace in the final patch).
+> On 11/15/2012 06:03 PM, Andrey Vagin wrote:
+>> From: Andrew Vagin <avagin@openvz.org>
+>> 
+>> Currently if a socket was repaired with a few packet in a write queue,
+>> a kernel bug may be triggered:
+>> 
+>> kernel BUG at net/ipv4/tcp_output.c:2330!
+>> RIP: 0010:[<ffffffff8155784f>] tcp_retransmit_skb+0x5ff/0x610
+>> 
+>> According to the initial realization v3.4-rc2-963-gc0e88ff,
+>> all skb-s should look like already posted. This patch fixes code
+>> according with this sentence.
+>> 
+>> Here are three points, which were not done in the initial patch:
+>> 1. A tcp send head should not be changed
+>> 2. Initialize TSO state of a skb
+>> 3. Reset the retransmission time
+>> 
+>> This patch moves logic from tcp_sendmsg to tcp_write_xmit. A packet
+>> passes the ussual way, but isn't sent to network. This patch solves
+>> all described problems and handles tcp_sendpages.
+ ...
+>> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> 
+> Acked-by: Pavel Emelyanov <xemul@parallels.com>
 
-I fixed them all up, but this is something you can easily take care
-of yourself in the future.
-
-Thanks.
+Applied and queued up for -stable, thanks.
