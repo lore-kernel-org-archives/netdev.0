@@ -1,33 +1,69 @@
-From: David Rientjes <rientjes@google.com>
-Subject: RE: Latest 3.6.6 are not compiling due tg3 network driver,
- hwmon_device_unregister
-Date: Wed, 14 Nov 2012 23:51:14 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1211142349310.4410@chino.kir.corp.google.com>
-References: <8b566c4a9ee622737212dc17291ee238@visp.net.lb> <50A4606D.4020402@broadcom.com> <alpine.DEB.2.00.1211141929510.14414@chino.kir.corp.google.com> <DAAFBCC105999F468732FA900576CB4510069F69@IRVEXCHMB08.corp.ad.broadcom.com>
+From: "Yan, Zheng " <yanzheng@21cn.com>
+Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
+Date: Thu, 15 Nov 2012 15:52:07 +0800
+Message-ID: <CAAM7YAm+XJKTxJStLMoo4RRV85oogN5wCHfXorkEiUHKqNKHDQ@mail.gmail.com>
+References: <1347868144.26523.71.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Denys Fedoryshchenko <denys@visp.net.lb>,
-	Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nithin Sujir <nsujir@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <DAAFBCC105999F468732FA900576CB4510069F69@IRVEXCHMB08.corp.ad.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:44269 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752536Ab2KOHwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 02:52:08 -0500
+Received: by mail-vb0-f46.google.com with SMTP id ff1so1373621vbb.19
+        for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 23:52:07 -0800 (PST)
+In-Reply-To: <1347868144.26523.71.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Nov 2012, Nithin Sujir wrote:
+On Mon, Sep 17, 2012 at 3:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> We currently use per socket page reserve for tcp_sendmsg() operations.
+>
+> Its done to raise the probability of coalescing small write() in to
+> single segments in the skbs.
+>
+> But it wastes a lot of memory for applications handling a lot of mostly
+> idle sockets, since each socket holds one page in sk->sk_sndmsg_page
+>
+> I did a small experiment to use order-3 pages and it gave me a 10% boost
+> of performance, because each TSO skb can use only two frags of 32KB,
+> instead of 16 frags of 4KB, so we spend less time in ndo_start_xmit() to
+> setup the tx descriptor and TX completion path to unmap the frags and
+> free them.
+>
+> We also spend less time in tcp_sendmsg(), because we call page allocator
+> 8x less often.
+>
+> Now back to the per socket page, what about trying to factorize it ?
+>
+> Since we can sleep (or/and do a cpu migration) in tcp_sendmsg(), we cant
+> really use a percpu page reserve as we do in __netdev_alloc_frag()
+>
+> We could instead use a per thread reserve, at the cost of adding a test
+> in task exit handler.
+>
+> Recap :
+>
+> 1) Use a per thread page reserve instead of a per socket one
+> 2) Use order-3 pages (or order-0 pages if page size is >= 32768)
+>
+>
 
-> > Would you mind submitting this for stable by following the procedure
-> > described in Documentation/stable_kernel_rules.txt?
-> 
-> 
-> Seems to have been taken into stable already. 
-> http://git.kernel.org/?p=linux/kernel/git/stable/linux-stable.git;a=commitdiff;h=aecdc33e111b2c447b622e287c6003726daa1426
-> 
+Hi,
 
-You're looking at the wrong shortlog (that's 3.7-rc4, not a stable tree), 
-you'll want to backport this on top of 3.6.6 and send it to 
-stable@vger.kernel.org following the procedure in 
-Documentation/stable_kernel_rules.txt.
+This commit makes one of our test case on core 2 machine drop in performance
+by about 60%. The test case runs 2048 instances of netperf 64k stream test at
+the same time.  Analysis showed using order-3 pages causes more LLC misses,
+most new LLC misses happen when the senders copy data to the socket buffer.
+If revert to use single page, the sender side only trigger a few LLC
+misses, most
+LLC misses happen on the receiver size. It means most pages allocated by the
+senders are cache hot. But when using order-3 pages, 2048 * 32k = 64M, 64M
+is much larger than LLC size. Should this regression be worried? or
+our test case
+is too unpractical?
+
+Regards
+Yan, Zheng
