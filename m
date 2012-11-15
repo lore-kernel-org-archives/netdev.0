@@ -1,97 +1,91 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
-Date: Thu, 15 Nov 2012 10:33:18 -0800
-Message-ID: <50A5356E.8030901@hp.com>
-References: <1347868144.26523.71.camel@edumazet-glaptop> <CAAM7YAm+XJKTxJStLMoo4RRV85oogN5wCHfXorkEiUHKqNKHDQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: "Yan, Zheng " <yanzheng@21cn.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH V2 00/14] Always build GSO/GRO functionality into the kernel
+Date: Thu, 15 Nov 2012 13:49:09 -0500
+Message-ID: <1353005363-6974-1-git-send-email-vyasevic@redhat.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:44894 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423636Ab2KOSdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 13:33:20 -0500
-In-Reply-To: <CAAM7YAm+XJKTxJStLMoo4RRV85oogN5wCHfXorkEiUHKqNKHDQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:47281 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1768600Ab2KOSt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 13:49:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/14/2012 11:52 PM, Yan, Zheng wrote:
-> This commit makes one of our test case on core 2 machine drop in
-> performance by about 60%. The test case runs 2048 instances of
-> netperf 64k stream test at the same time.
+This patch series is a revision suggested by Eric to solve the problem where
+a host without IPv6 support drops GSO frames from the guest.
 
-I'm impressed that 2048 concurrent netperf TCP_STREAM tests ran to 
-completion in the first place :)
+The problem is that GSO/GRO support is per protocol, and when said protocol
+is not loaded or is disabled, packets attempting to go through GSO/GRO code paths
+are dropped.  This causes retransmissions and a two orders of magnitude drop in
+performance.
 
-> Analysis showed using order-3 pages causes more LLC misses, most new
-> LLC misses happen when the senders copy data to the socket buffer.
+Prior attempt to solve the problem simply enabled enough GSO/GRO functionality
+for IPv6 protocol when IPv6 was diabled.  This did not solve the problem when
+the protocol was not build in or was blacklisted.
+To solve the problem, it was suggested that we separate GSO/GRO callback
+registration from packet processing registrations.  That way
+GSO/GRO callbacks can be built into the kernel and always be there.
+This patch series attempts to do just that.
+* Patches 1 and 2 split the GSO/GRO handlers from packet_type and convert
+  to the new structure.
+* Patches 3, 4 and 5 do the same thing for net_protocol structure.
+* The rest of the patches try to incrementally move the IPv6 GSO/GRO
+  code out of the module and into the static kernel build.  Some IPv6
+  helper functions also had to move as well.
+* The last patch just moves the offload callbacks into its own function.
 
-> If revert to use single page, the sender side only trigger a few LLC
->  misses, most LLC misses happen on the receiver size. It means most
-> pages allocated by the senders are cache hot. But when using order-3
-> pages, 2048 * 32k = 64M, 64M is much larger than LLC size. Should
-> this regression be worried? or our test case is too unpractical?
+Changes since V1:
+  - Removed dev pointer from the packet_offload, since it's not used.
+  - Added a erroneousely removed EXPORT_SYMBOL
+  - Fix build issues with different states of IPv6 support.
 
-Even before the page change I would have expected the buffers that 
-netperf itself uses would have exceeded the LLC.  If you were not using 
-test-specific -s and -S options to set an explicit socket buffer size, I 
-believe that under Linux (most of the time) the default SO_SNDBUF size 
-will be 86KB.  Coupled with your statement that the send size was 64K it 
-means the send ring being used by netperf will be 2, 64KB buffers, which 
-would then be 256MB across 2048 concurrent netperfs.  Even if we go with 
-"only the one send buffer in play at a time matters" that is still 128 
-MB of space up in netperf itself even before one gets to the stack.
+Thanks
+-vlad
 
-Still, sharing the analysis tool output might be helpful.
+Vlad Yasevich (14):
+  net:  Add generic packet offload infrastructure.
+  net:  Switch to using the new packet offload infrustructure
+  net: Add net protocol offload registration infrustructure
+  ipv6: Add new offload registration infrastructure.
+  ipv4: Switch to using the new offload infrastructure.
+  ipv6: Switch to using new offload infrastructure.
+  ipv6: Separate ipv6 offload support
+  ipv6: Separate tcp offload functionality
+  ipv6: Separate out UDP offload functionality
+  ipv6: Move exthdr offload support into separate file
+  ipv6: Update ipv6 static library with newly needed functions
+  ipv4: Pull GSO registration out of inet_init()
+  ipv6: Pull IPv6 GSO registration out of the module
+  net: Remove code duplication between offload structures
 
-By the way the "default" size of the buffer netperf posts in recv() 
-calls will depend on the initial value of SO_RCVBUF after the data 
-socket is created and had any -s or -S option values applied to it.
+ include/linux/netdevice.h  |   20 +++-
+ include/net/ip6_checksum.h |   35 ++++++
+ include/net/protocol.h     |   31 +++---
+ net/core/dev.c             |  107 +++++++++++++++--
+ net/ipv4/af_inet.c         |   84 +++++++++----
+ net/ipv4/protocol.c        |   21 ++++
+ net/ipv6/Makefile          |    7 +-
+ net/ipv6/af_inet6.c        |  240 -------------------------------------
+ net/ipv6/exthdrs.c         |   52 +--------
+ net/ipv6/exthdrs_core.c    |   44 +++++++
+ net/ipv6/exthdrs_offload.c |   41 +++++++
+ net/ipv6/ip6_offload.c     |  282 ++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/ip6_offload.h     |   18 +++
+ net/ipv6/ip6_output.c      |   65 ----------
+ net/ipv6/output_core.c     |   76 ++++++++++++
+ net/ipv6/protocol.c        |   25 ++++
+ net/ipv6/tcp_ipv6.c        |  107 +----------------
+ net/ipv6/tcpv6_offload.c   |   95 +++++++++++++++
+ net/ipv6/udp.c             |   94 ---------------
+ net/ipv6/udp_offload.c     |  119 +++++++++++++++++++
+ 20 files changed, 949 insertions(+), 614 deletions(-)
+ create mode 100644 net/ipv6/exthdrs_offload.c
+ create mode 100644 net/ipv6/ip6_offload.c
+ create mode 100644 net/ipv6/ip6_offload.h
+ create mode 100644 net/ipv6/output_core.c
+ create mode 100644 net/ipv6/tcpv6_offload.c
+ create mode 100644 net/ipv6/udp_offload.c
 
-I cannot say that the scripts distributed with netperf are consistently 
-good about doing it themselves, but I would suggest for the "canonical" 
-bulk streak test something like:
-
-netperf -t TCP_STREAM -H <dest> -l 60 -- -s 1M -S 1M -m 64K -M 64K
-
-as that will reduce the number of variables.  Those -s and -S values 
-though will probably call for tweaking sysctl settings or they will be 
-clipped by net.core.rmem_max and net.core.wmem_max.  At a minimum I 
-would suggest having the -m and -M option.  I might also tack-on a "-o 
-all" at the end, but that is a matter of preference - it will cause a 
-great deal of output...
-
-Eric Dumazet later says:
-> Number of in flight bytes do not depend on the order of the pages, but
-> sizes of TCP buffers (receiver, sender)
-
-And unless you happened to use explicit -s and -S options, there is even 
-more variability in how much may be inflight.  If you do not add those 
-you can at least get netperf to report what the socket buffer sizes 
-became by the end of the test:
-
-netperf -t TCP_STREAM ... -- ... -o lss_size_end,rsr_size_end
-
-for "local socket send size" and "remote socket receive size" respectively.
-
-> If the sender is faster (because of this commit), but receiver is slow
-> to drain the receive queues, then you can have a situation where the
-> consumed memory on receiver is higher and the receiver might be actually
-> slower.
-
-Netperf can be told to report the number of receive calls and the bytes 
-per receive - either by tacking-on a global "-v 2" or by requesting them 
-explicitly via omni output selection.  Presumably, if the receiving 
-netserver processes are not keeping-up as well, that should manifest as 
-the bytes per receive being larger in the "after" case than the "before" 
-case.
-
-netperf ... -- ... -o 
-remote_recv_size,remote_recv_calls,remote_bytes_per_recv
-
-happy benchmarking,
-
-rick jones
+-- 
+1.7.7.6
