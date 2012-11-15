@@ -1,33 +1,38 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 0/4] Implement persistent grant in xen-netfront/netback
-Date: Thu, 15 Nov 2012 08:53:09 +0000
-Message-ID: <1352969589.3499.31.camel@zakaz.uk.xensource.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Annie Li <annie.li@oracle.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 1/3] ipip: fix sparse warnings in ipip_netlink_parms()
+Date: Thu, 15 Nov 2012 09:53:34 +0100
+Message-ID: <1352969616-30476-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:37803 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2993145Ab2KOIx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 03:53:58 -0500
-In-Reply-To: <1352962987-541-1-git-send-email-annie.li@oracle.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35920 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751970Ab2KOIyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 03:54:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-15 at 07:03 +0000, Annie Li wrote:
-> 
-> This patch is based on linux3.4-rc3. I hit netperf/netserver failure
-> on linux latest version v3.7-rc1, v3.7-rc2 and v3.7-rc4. Not sure
-> whether thisnetperf/netserver failure connects compound page commit in
-> v3.7-rc1, but I did hit BUG_ON with debug patch from thread
-> http://lists.xen.org/archives/html/xen-devel/2012-10/msg00893.html
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv4/ipip.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Do you think you could cook up a netfront fix similar in principal to
-the 6a8ed462f16b8455eec5ae00eb6014159a6721f0 fix for netback?
-
-Ian.
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 64686e1..c26c171 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -864,10 +864,10 @@ static void ipip_netlink_parms(struct nlattr *data[],
+ 		parms->link = nla_get_u32(data[IFLA_IPTUN_LINK]);
+ 
+ 	if (data[IFLA_IPTUN_LOCAL])
+-		parms->iph.saddr = nla_get_u32(data[IFLA_IPTUN_LOCAL]);
++		parms->iph.saddr = nla_get_be32(data[IFLA_IPTUN_LOCAL]);
+ 
+ 	if (data[IFLA_IPTUN_REMOTE])
+-		parms->iph.daddr = nla_get_u32(data[IFLA_IPTUN_REMOTE]);
++		parms->iph.daddr = nla_get_be32(data[IFLA_IPTUN_REMOTE]);
+ 
+ 	if (data[IFLA_IPTUN_TTL]) {
+ 		parms->iph.ttl = nla_get_u8(data[IFLA_IPTUN_TTL]);
+-- 
+1.7.12
