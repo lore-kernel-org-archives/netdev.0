@@ -1,32 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 4/4] tg3: Use tp->rxq_cnt when checking RSS
- tables.
-Date: Wed, 14 Nov 2012 22:05:28 -0500 (EST)
-Message-ID: <20121114.220528.1874954243909118983.davem@davemloft.net>
-References: <1352940269-23821-2-git-send-email-mchan@broadcom.com>
-	<1352940269-23821-3-git-send-email-mchan@broadcom.com>
-	<1352940269-23821-4-git-send-email-mchan@broadcom.com>
+Subject: Re: pull request: wireless-next 2012-11-14
+Date: Wed, 14 Nov 2012 22:07:31 -0500 (EST)
+Message-ID: <20121114.220731.278562830655607486.davem@davemloft.net>
+References: <20121114190510.GA6128@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nsujir@broadcom.com
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38792 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933282Ab2KODF3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 22:05:29 -0500
-In-Reply-To: <1352940269-23821-4-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121114190510.GA6128@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Wed, 14 Nov 2012 16:44:29 -0800
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 14 Nov 2012 14:05:11 -0500
 
-> irq_cnt is no longer reliable since rxq_cnt can be independently configured.
-> 
-> Update version to 3.127.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> This pull request is intended for the 3.8 stream...
 
-Applied.
+Pulled, thanks John.
