@@ -1,69 +1,52 @@
-From: "Yan, Zheng " <yanzheng@21cn.com>
-Subject: Re: [RFC] tcp: use order-3 pages in tcp_sendmsg()
-Date: Thu, 15 Nov 2012 15:52:07 +0800
-Message-ID: <CAAM7YAm+XJKTxJStLMoo4RRV85oogN5wCHfXorkEiUHKqNKHDQ@mail.gmail.com>
-References: <1347868144.26523.71.camel@edumazet-glaptop>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH v7] Network driver for the Armada 370 and Armada XP ARM
+ Marvell SoCs
+Date: Thu, 15 Nov 2012 09:02:57 +0100
+Message-ID: <20121115090257.4b9e20c5@skate>
+References: <1352905010-24172-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<20121114.215922.1242337385782766449.davem@davemloft.net>
+	<20121115083319.76483256@skate>
+	<20121115.024213.1356436436054345008.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, kernel@wantstofly.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	jason@lakedaemon.net, andrew@lunn.ch,
+	gregory.clement@free-electrons.com, alior@marvell.com,
+	dima@marvell.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:44269 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752536Ab2KOHwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 02:52:08 -0500
-Received: by mail-vb0-f46.google.com with SMTP id ff1so1373621vbb.19
-        for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 23:52:07 -0800 (PST)
-In-Reply-To: <1347868144.26523.71.camel@edumazet-glaptop>
+Received: from mail.free-electrons.com ([88.190.12.23]:52366 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992679Ab2KOIDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 03:03:09 -0500
+In-Reply-To: <20121115.024213.1356436436054345008.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 17, 2012 at 3:49 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> We currently use per socket page reserve for tcp_sendmsg() operations.
->
-> Its done to raise the probability of coalescing small write() in to
-> single segments in the skbs.
->
-> But it wastes a lot of memory for applications handling a lot of mostly
-> idle sockets, since each socket holds one page in sk->sk_sndmsg_page
->
-> I did a small experiment to use order-3 pages and it gave me a 10% boost
-> of performance, because each TSO skb can use only two frags of 32KB,
-> instead of 16 frags of 4KB, so we spend less time in ndo_start_xmit() to
-> setup the tx descriptor and TX completion path to unmap the frags and
-> free them.
->
-> We also spend less time in tcp_sendmsg(), because we call page allocator
-> 8x less often.
->
-> Now back to the per socket page, what about trying to factorize it ?
->
-> Since we can sleep (or/and do a cpu migration) in tcp_sendmsg(), we cant
-> really use a percpu page reserve as we do in __netdev_alloc_frag()
->
-> We could instead use a per thread reserve, at the cost of adding a test
-> in task exit handler.
->
-> Recap :
->
-> 1) Use a per thread page reserve instead of a per socket one
-> 2) Use order-3 pages (or order-0 pages if page size is >= 32768)
->
->
+David,
 
-Hi,
+On Thu, 15 Nov 2012 02:42:13 -0500 (EST), David Miller wrote:
+> From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Date: Thu, 15 Nov 2012 08:33:19 +0100
+> 
+> > Would you mind if we take, with your Ack, the network driver through
+> > the arm-soc tree, so that we can carry the related patches modifying
+> > the Device Tree and so on? If not, then I'll send you a pull request
+> > with just the drivers/net changes, and we'll integrate the ARM-related
+> > changes through the arm-soc tree, in which we will have the necessary
+> > dependencies. I'm fine with any of those solutions.
+> 
+> Sure, no problem, take it via the ARM tree:
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-This commit makes one of our test case on core 2 machine drop in performance
-by about 60%. The test case runs 2048 instances of netperf 64k stream test at
-the same time.  Analysis showed using order-3 pages causes more LLC misses,
-most new LLC misses happen when the senders copy data to the socket buffer.
-If revert to use single page, the sender side only trigger a few LLC
-misses, most
-LLC misses happen on the receiver size. It means most pages allocated by the
-senders are cache hot. But when using order-3 pages, 2048 * 32k = 64M, 64M
-is much larger than LLC size. Should this regression be worried? or
-our test case
-is too unpractical?
+Excellent, thanks!
 
-Regards
-Yan, Zheng
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
