@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 2012-11-14
-Date: Wed, 14 Nov 2012 22:11:11 -0500 (EST)
-Message-ID: <20121114.221111.1784435467222988184.davem@davemloft.net>
-References: <1352924189-18843-1-git-send-email-ordex@autistici.org>
+Subject: Re: [PATCH v2 0/3] macb add support for phy gpio interrupt
+Date: Wed, 14 Nov 2012 22:23:20 -0500 (EST)
+Message-ID: <20121114.222320.669612825338017157.davem@davemloft.net>
+References: <1352678188-18647-1-git-send-email-manabian@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: ordex@autistici.org
+Cc: nicolas.ferre@atmel.com, plagnioj@jcrosoft.com,
+	netdev@vger.kernel.org
+To: manabian@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38839 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38903 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933136Ab2KODLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 22:11:13 -0500
-In-Reply-To: <1352924189-18843-1-git-send-email-ordex@autistici.org>
+	with ESMTP id S933294Ab2KODXV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 22:23:21 -0500
+In-Reply-To: <1352678188-18647-1-git-send-email-manabian@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex@autistici.org>
-Date: Wed, 14 Nov 2012 21:16:18 +0100
+From: Joachim Eastwood <manabian@gmail.com>
+Date: Mon, 12 Nov 2012 00:56:25 +0100
 
-> here is again our new patchset intended for net-next/linux-3.8.
-> Patch 1/11 has been modified to address the problems you pointed out last time;
-> however hash_bytes has kept its inline tag and it has been moved to hash.h (in
-> this way it becomes usable by the rest of the batman-adv code for new changes).
+> Main feature of this patch set is phy gpio interrupt for macb.
+ ...
+> Patch series was tested on a custom board with DM9161AEP and AT91RM9200 EMAC.
 
-Pulled, thanks.
+Applied.
+
+If there are problems found during testing we can fix or revert.
