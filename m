@@ -1,171 +1,96 @@
-From: David L Stevens <dlstevens@us.ibm.com>
-Subject: [PATCHv2 iproute2] add DOVE extensions for iproute2
-Date: Thu, 15 Nov 2012 08:49:50 -0500
-Message-ID: <201211151351.qAFDnoh6023176@lab1.dls>
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:48518 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1767845Ab2KONwH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 08:52:07 -0500
-Received: from /spool/local
-	by e3.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Thu, 15 Nov 2012 08:52:06 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 3A66CC90044
-	for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 08:52:04 -0500 (EST)
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id qAFDq4xK285546
-	for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 08:52:04 -0500
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id qAFDq3xS030881
-	for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 11:52:03 -0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] tcp: fix retransmission in repair mode
+Date: Thu, 15 Nov 2012 18:03:17 +0400
+Message-ID: <1352988197-14414-1-git-send-email-avagin@openvz.org>
+Cc: criu@openvz.org, linux-kernel@vger.kernel.org,
+	Andrew Vagin <avagin@openvz.org>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Andrew Vagin <avagin@openvz.org>
 
-	This patch adds a new flag to iproute2 for vxlan devices to enable
-DOVE features. It also adds support for L2 and L3 switch lookup miss
-netlink messages to "ip monitor".
+Currently if a socket was repaired with a few packet in a write queue,
+a kernel bug may be triggered:
 
-Changes since v1:
-	- split "dove" flag into separate feature flags:
-		- "proxy" for ARP reduction
-		- "rsc" for route short circuiting
-		- "l2miss" for L2 switch miss notifications
-		- "l3miss" for L3 switch miss notifications
+kernel BUG at net/ipv4/tcp_output.c:2330!
+RIP: 0010:[<ffffffff8155784f>] tcp_retransmit_skb+0x5ff/0x610
 
-Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+According to the initial realization v3.4-rc2-963-gc0e88ff,
+all skb-s should look like already posted. This patch fixes code
+according with this sentence.
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 012d95a..a163702 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -283,6 +283,10 @@ enum {
- 	IFLA_VXLAN_AGEING,
- 	IFLA_VXLAN_LIMIT,
- 	IFLA_VXLAN_PORT_RANGE,
-+	IFLA_VXLAN_PROXY,
-+	IFLA_VXLAN_RSC,
-+	IFLA_VXLAN_L2MISS,
-+	IFLA_VXLAN_L3MISS,
- 	__IFLA_VXLAN_MAX
- };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index ba5c4ab..f2e6bef 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -26,6 +26,8 @@ static void explain(void)
- 	fprintf(stderr, "Usage: ... vxlan id VNI [ group ADDR ] [ local ADDR ]\n");
- 	fprintf(stderr, "                 [ ttl TTL ] [ tos TOS ] [ dev PHYS_DEV ]\n");
- 	fprintf(stderr, "                 [ port MIN MAX ] [ [no]learning ]\n");
-+	fprintf(stderr, "                 [ [no]proxy ] [ [no]rsc ]\n");
-+	fprintf(stderr, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "Where: VNI := 0-16777215\n");
- 	fprintf(stderr, "       ADDR := { IP_ADDRESS | any }\n");
-@@ -44,6 +46,10 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 tos = 0;
- 	__u8 ttl = 0;
- 	__u8 learning = 1;
-+	__u8 proxy = 0;
-+	__u8 rsc = 0;
-+	__u8 l2miss = 0;
-+	__u8 l3miss = 0;
- 	__u8 noage = 0;
- 	__u32 age = 0;
- 	__u32 maxaddr = 0;
-@@ -123,6 +129,22 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			learning = 0;
- 		} else if (!matches(*argv, "learning")) {
- 			learning = 1;
-+		} else if (!matches(*argv, "noproxy")) {
-+			proxy = 0;
-+		} else if (!matches(*argv, "proxy")) {
-+			proxy = 1;
-+		} else if (!matches(*argv, "norsc")) {
-+			rsc = 0;
-+		} else if (!matches(*argv, "rsc")) {
-+			rsc = 1;
-+		} else if (!matches(*argv, "nol2miss")) {
-+			l2miss = 0;
-+		} else if (!matches(*argv, "l2miss")) {
-+			l2miss = 1;
-+		} else if (!matches(*argv, "nol3miss")) {
-+			l3miss = 0;
-+		} else if (!matches(*argv, "l3miss")) {
-+			l3miss = 1;
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -148,6 +170,10 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	addattr8(n, 1024, IFLA_VXLAN_TTL, ttl);
- 	addattr8(n, 1024, IFLA_VXLAN_TOS, tos);
- 	addattr8(n, 1024, IFLA_VXLAN_LEARNING, learning);
-+	addattr8(n, 1024, IFLA_VXLAN_PROXY, proxy);
-+	addattr8(n, 1024, IFLA_VXLAN_RSC, rsc);
-+	addattr8(n, 1024, IFLA_VXLAN_L2MISS, l2miss);
-+	addattr8(n, 1024, IFLA_VXLAN_L3MISS, l3miss);
- 	if (noage)
- 		addattr32(n, 1024, IFLA_VXLAN_AGEING, 0);
- 	else if (age)
-@@ -213,6 +239,18 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (tb[IFLA_VXLAN_LEARNING] &&
- 	    !rta_getattr_u8(tb[IFLA_VXLAN_LEARNING]))
- 		fputs("nolearning ", f);
-+ 
-+	if (tb[IFLA_VXLAN_PROXY] && rta_getattr_u8(tb[IFLA_VXLAN_PROXY]))
-+		fputs("proxy ", f);
-+ 
-+	if (tb[IFLA_VXLAN_RSC] && rta_getattr_u8(tb[IFLA_VXLAN_RSC]))
-+		fputs("rsc ", f);
-+
-+	if (tb[IFLA_VXLAN_L2MISS] && rta_getattr_u8(tb[IFLA_VXLAN_L2MISS]))
-+		fputs("l2miss ", f);
-+
-+	if (tb[IFLA_VXLAN_L3MISS] && rta_getattr_u8(tb[IFLA_VXLAN_L3MISS]))
-+		fputs("l3miss ", f);
- 	
- 	if (tb[IFLA_VXLAN_TOS] &&
- 	    (tos = rta_getattr_u8(tb[IFLA_VXLAN_TOS]))) {
-diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
-index 4b1d469..7a7cc88 100644
---- a/ip/ipmonitor.c
-+++ b/ip/ipmonitor.c
-@@ -67,7 +67,8 @@ int accept_msg(const struct sockaddr_nl *who,
- 		print_addrlabel(who, n, arg);
- 		return 0;
+Here are three points, which were not done in the initial patch:
+1. A tcp send head should not be changed
+2. Initialize TSO state of a skb
+3. Reset the retransmission time
+
+This patch moves logic from tcp_sendmsg to tcp_write_xmit. A packet
+passes the ussual way, but isn't sent to network. This patch solves
+all described problems and handles tcp_sendpages.
+
+Cc: Pavel Emelyanov <xemul@parallels.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+---
+ net/ipv4/tcp.c        | 4 ++--
+ net/ipv4/tcp_output.c | 4 ++++
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 197c000..083092e 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1212,7 +1212,7 @@ new_segment:
+ wait_for_sndbuf:
+ 			set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
+ wait_for_memory:
+-			if (copied && likely(!tp->repair))
++			if (copied)
+ 				tcp_push(sk, flags & ~MSG_MORE, mss_now, TCP_NAGLE_PUSH);
+ 
+ 			if ((err = sk_stream_wait_memory(sk, &timeo)) != 0)
+@@ -1223,7 +1223,7 @@ wait_for_memory:
  	}
--	if (n->nlmsg_type == RTM_NEWNEIGH || n->nlmsg_type == RTM_DELNEIGH) {
-+	if (n->nlmsg_type == RTM_NEWNEIGH || n->nlmsg_type == RTM_DELNEIGH ||
-+	    n->nlmsg_type == RTM_GETNEIGH) {
- 		if (prefix_banner)
- 			fprintf(fp, "[NEIGH]");
- 		print_neigh(who, n, arg);
-diff --git a/ip/ipneigh.c b/ip/ipneigh.c
-index 56e56b2..1b7600b 100644
---- a/ip/ipneigh.c
-+++ b/ip/ipneigh.c
-@@ -189,7 +189,8 @@ int print_neigh(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 	struct rtattr * tb[NDA_MAX+1];
- 	char abuf[256];
  
--	if (n->nlmsg_type != RTM_NEWNEIGH && n->nlmsg_type != RTM_DELNEIGH) {
-+	if (n->nlmsg_type != RTM_NEWNEIGH && n->nlmsg_type != RTM_DELNEIGH &&
-+	    n->nlmsg_type != RTM_GETNEIGH) {
- 		fprintf(stderr, "Not RTM_NEWNEIGH: %08x %08x %08x\n",
- 			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
+ out:
+-	if (copied && likely(!tp->repair))
++	if (copied)
+ 		tcp_push(sk, flags, mss_now, tp->nonagle);
+ 	release_sock(sk);
+ 	return copied + copied_syn;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index cfe6ffe..2798706 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1986,6 +1986,9 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		tso_segs = tcp_init_tso_segs(sk, skb, mss_now);
+ 		BUG_ON(!tso_segs);
  
-@@ -251,6 +252,8 @@ int print_neigh(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
++		if (unlikely(tp->repair) && tp->repair_queue == TCP_SEND_QUEUE)
++			goto repair; /* Skip network transmission */
++
+ 		cwnd_quota = tcp_cwnd_test(tp, skb);
+ 		if (!cwnd_quota)
+ 			break;
+@@ -2026,6 +2029,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
+ 		if (unlikely(tcp_transmit_skb(sk, skb, 1, gfp)))
+ 			break;
  
- 	if (n->nlmsg_type == RTM_DELNEIGH)
- 		fprintf(fp, "delete ");
-+	else if (n->nlmsg_type == RTM_GETNEIGH)
-+		fprintf(fp, "miss ");
- 	if (tb[NDA_DST]) {
- 		fprintf(fp, "%s ",
- 			format_host(r->ndm_family,
++repair:
+ 		/* Advance the send_head.  This one is sent out.
+ 		 * This call will increment packets_out.
+ 		 */
+-- 
+1.7.11.7
