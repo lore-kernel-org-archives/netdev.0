@@ -1,69 +1,71 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 37/50] net/ipv6/sit.c:1243:34: sparse: incorrect type in assignment (different base types)
-Date: Thu, 15 Nov 2012 13:42:22 +0800
-Message-ID: <50a480be.gHpxrfRWyxrf9cw9%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+From: Annie Li <annie.li@oracle.com>
+Subject: [PATCH 0/4] Implement persistent grant in xen-netfront/netback
+Date: Thu, 15 Nov 2012 15:03:07 +0800
+Message-ID: <1352962987-541-1-git-send-email-annie.li@oracle.com>
+Cc: annie.li@oracle.com
+To: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	konrad.wilk@oracle.com, Ian.Campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:46692 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750980Ab2KOFmi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 00:42:38 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:28740 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932145Ab2KOHET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 02:04:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   702ed3c1a9dfe4dfe112f13542d0c9d689f5008b
-commit: f37234160233561f2a2e3332272ae5b3725b620b [37/50] sit: add support of link creation via rtnl
+This patch implements persistent grants for xen-netfront/netback. This
+mechanism maintains page pools in netback/netfront, these page pools is used to
+save grant pages which are mapped. This way improve performance which is wasted
+when doing grant operations.
+
+Current netback/netfront does map/unmap grant operations frequently when
+transmitting/receiving packets, and grant operations costs much cpu clock. In
+this patch, netfront/netback maps grant pages when needed and then saves them
+into a page pool for future use. All these pages will be unmapped when
+removing/releasing the net device.
+
+In netfront, two pools are maintained for transmitting and receiving packets.
+When new grant pages are needed, the driver gets grant pages from this pool
+first. If no free grant page exists, it allocates new page, maps it and then
+saves it into the pool. The pool size for transmit/receive is exactly tx/rx
+ring size. The driver uses memcpy(not grantcopy) to copy data grant pages.
+Here, memcpy is copying the whole page size data. I tried to copy len size data
+from offset, but network does not seem work well. I am trying to find the root
+cause now.
+
+In netback, it also maintains two page pools for tx/rx. When netback gets a
+request, it does a search first to find out whether the grant reference of
+this request is already mapped into its page pool. If the grant ref is mapped,
+the address of this mapped page is gotten and memcpy is used to copy data
+between grant pages. However, if the grant ref is not mapped, a new page is
+allocated, mapped with this grant ref, and then saved into page pool for
+future use. Similarly, memcpy replaces grant copy to copy data between grant
+pages. In this implementation, two arrays(gnttab_tx_vif,gnttab_rx_vif) are
+used to save vif pointer for every request because current netback is not
+per-vif based. This would be changed after implementing 1:1 model in netback.
+
+This patch supports both persistent-grant and non persistent grant. A new
+xenstore key "feature-persistent-grants" is used to represent this feature.
+
+This patch is based on linux3.4-rc3. I hit netperf/netserver failure on
+linux latest version v3.7-rc1, v3.7-rc2 and v3.7-rc4. Not sure whether this
+netperf/netserver failure connects compound page commit in v3.7-rc1, but I did
+hit BUG_ON with debug patch from thread
+http://lists.xen.org/archives/html/xen-devel/2012-10/msg00893.html
 
 
-sparse warnings:
+Annie Li (4):
+  xen/netback: implements persistent grant with one page pool.
+  xen/netback: Split one page pool into two(tx/rx) page pool.
+  Xen/netfront: Implement persistent grant in netfront.
+  fix code indent issue in xen-netfront.
 
-net/ipv6/sit.c:231:21: sparse: restricted __be16 degrades to integer
-+ net/ipv6/sit.c:1243:34: sparse: incorrect type in assignment (different base types)
-net/ipv6/sit.c:1243:34:    expected restricted __be32 [usertype] saddr
-net/ipv6/sit.c:1243:34:    got unsigned int
-net/ipv6/sit.c:1246:34: sparse: incorrect type in assignment (different base types)
-net/ipv6/sit.c:1246:34:    expected restricted __be32 [usertype] daddr
-net/ipv6/sit.c:1246:34:    got unsigned int
-net/ipv6/sit.c:1261:32: sparse: incorrect type in assignment (different base types)
-net/ipv6/sit.c:1261:32:    expected restricted __be16 [usertype] i_flags
-net/ipv6/sit.c:1261:32:    got unsigned short
-net/ipv6/sit.c:1340:52: sparse: incorrect type in argument 3 (different base types)
-net/ipv6/sit.c:1340:52:    expected unsigned short [unsigned] [usertype] value
-net/ipv6/sit.c:1340:52:    got restricted __be16 [usertype] i_flags
+ drivers/net/xen-netback/common.h    |   24 ++-
+ drivers/net/xen-netback/interface.c |   26 +++
+ drivers/net/xen-netback/netback.c   |  215 ++++++++++++++++++--
+ drivers/net/xen-netback/xenbus.c    |   14 ++-
+ drivers/net/xen-netfront.c          |  378 +++++++++++++++++++++++++++++------
+ 5 files changed, 570 insertions(+), 87 deletions(-)
 
-vim +1243 net/ipv6/sit.c
-
-f3723416 Nicolas Dichtel 2012-11-14  1227  				struct ip_tunnel_parm *parms)
-f3723416 Nicolas Dichtel 2012-11-14  1228  {
-f3723416 Nicolas Dichtel 2012-11-14  1229  	memset(parms, 0, sizeof(*parms));
-f3723416 Nicolas Dichtel 2012-11-14  1230  
-f3723416 Nicolas Dichtel 2012-11-14  1231  	parms->iph.version = 4;
-f3723416 Nicolas Dichtel 2012-11-14  1232  	parms->iph.protocol = IPPROTO_IPV6;
-f3723416 Nicolas Dichtel 2012-11-14  1233  	parms->iph.ihl = 5;
-f3723416 Nicolas Dichtel 2012-11-14  1234  	parms->iph.ttl = 64;
-f3723416 Nicolas Dichtel 2012-11-14  1235  
-f3723416 Nicolas Dichtel 2012-11-14  1236  	if (!data)
-f3723416 Nicolas Dichtel 2012-11-14  1237  		return;
-f3723416 Nicolas Dichtel 2012-11-14  1238  
-f3723416 Nicolas Dichtel 2012-11-14  1239  	if (data[IFLA_IPTUN_LINK])
-f3723416 Nicolas Dichtel 2012-11-14  1240  		parms->link = nla_get_u32(data[IFLA_IPTUN_LINK]);
-f3723416 Nicolas Dichtel 2012-11-14  1241  
-f3723416 Nicolas Dichtel 2012-11-14  1242  	if (data[IFLA_IPTUN_LOCAL])
-f3723416 Nicolas Dichtel 2012-11-14 @1243  		parms->iph.saddr = nla_get_u32(data[IFLA_IPTUN_LOCAL]);
-f3723416 Nicolas Dichtel 2012-11-14  1244  
-f3723416 Nicolas Dichtel 2012-11-14  1245  	if (data[IFLA_IPTUN_REMOTE])
-f3723416 Nicolas Dichtel 2012-11-14  1246  		parms->iph.daddr = nla_get_u32(data[IFLA_IPTUN_REMOTE]);
-f3723416 Nicolas Dichtel 2012-11-14  1247  
-f3723416 Nicolas Dichtel 2012-11-14  1248  	if (data[IFLA_IPTUN_TTL]) {
-f3723416 Nicolas Dichtel 2012-11-14  1249  		parms->iph.ttl = nla_get_u8(data[IFLA_IPTUN_TTL]);
-f3723416 Nicolas Dichtel 2012-11-14  1250  		if (parms->iph.ttl)
-f3723416 Nicolas Dichtel 2012-11-14  1251  			parms->iph.frag_off = htons(IP_DF);
-
----
-0-DAY kernel build testing backend         Open Source Technology Center
-Fengguang Wu, Yuanhan Liu                              Intel Corporation
+-- 
+1.7.3.4
