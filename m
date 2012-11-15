@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7] Network driver for the Armada 370 and Armada XP ARM
- Marvell SoCs
-Date: Wed, 14 Nov 2012 21:59:22 -0500 (EST)
-Message-ID: <20121114.215922.1242337385782766449.davem@davemloft.net>
-References: <1352905010-24172-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH net-next 0/10] Add support of tunnel management via
+ rtnetlink
+Date: Wed, 14 Nov 2012 22:03:02 -0500 (EST)
+Message-ID: <20121114.220302.223301083420624516.davem@davemloft.net>
+References: <1352906047-11604-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, kernel@wantstofly.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	jason@lakedaemon.net, andrew@lunn.ch,
-	gregory.clement@free-electrons.com, alior@marvell.com,
-	dima@marvell.com
-To: thomas.petazzoni@free-electrons.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38703 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38758 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933136Ab2KOC7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 21:59:24 -0500
-In-Reply-To: <1352905010-24172-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	with ESMTP id S933136Ab2KODDE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 22:03:04 -0500
+In-Reply-To: <1352906047-11604-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Wed, 14 Nov 2012 15:56:44 +0100
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 14 Nov 2012 16:13:57 +0100
 
-> The previous versions of this patch set have been sent on September
-> 4th (v1), October 11th (v2), October 23rd (v3), October 26th (v4),
-> November 12th (v5), November 13th (v6) and now comes the v7 of the
-> driver. The number of comments over the last versions have been really
-> small, and I would really appreciate if this driver could land into
-> the 3.8 kernel release.
+> The goal of this serie is to add the support of ipip, sit and ip6tnl tunnels
+> via rtnetlink.
+> 
+> The patch against iproute2 will be sent once the patches are included and
+> net-next merged. I can send it on demand.
 
-I can't apply this patch to net-next, because for one thing there
-are missing dependencies.  For example, the file:
+Great work, all applied to net-next.
 
-arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
-
-doesn't exist there, therefore patch #6 won't apply.
+Thanks Nicolas!
