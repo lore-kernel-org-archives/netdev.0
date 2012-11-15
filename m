@@ -1,66 +1,35 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/9] ixgbevf: Streamline the rx buffer allocation
-Date: Thu, 15 Nov 2012 06:39:40 -0800
-Message-ID: <1352990387-3872-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1352990387-3872-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Tejun Heo <htejun@gmail.com>
+Subject: Re: [PATCH 0/9 v4] use efficient this_cpu_* helper
+Date: Thu, 15 Nov 2012 06:53:25 -0800
+Message-ID: <20121115145325.GC7306@mtj.dyndns.org>
+References: <50A1A7A9.6050501@gmail.com>
+ <0000013b047079ab-01971b64-07e2-4f2e-a204-6baff2180fc3-000000@email.amazonses.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	NetDev <netdev@vger.kernel.org>, Shan Wei <shanwei88@gmail.com>,
+	Kernel-Maillist <linux-kernel@vger.kernel.org>
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:10434 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2993466Ab2KOOjx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 09:39:53 -0500
-In-Reply-To: <1352990387-3872-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:37788 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1768070Ab2KOOx3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 09:53:29 -0500
+Content-Disposition: inline
+In-Reply-To: <0000013b047079ab-01971b64-07e2-4f2e-a204-6baff2180fc3-000000@email.amazonses.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+On Thu, Nov 15, 2012 at 02:19:38PM +0000, Christoph Lameter wrote:
+> Tejon: Could you pick up this patchset?
 
-Moves allocation of local variable to section where it is needed and
-removes unnecessary if statement.
+Sure, but, Shan, when posting patchset, please make the patches
+replies to the head message; otherwise, it's pretty difficult to track
+what's going on with the patchset as a whole.  I see that some patches
+are being picked up by respective subsystems.  If you have patches
+left, please let me know.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Thanks.
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 9d88153..b46dff8 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -341,15 +341,16 @@ static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
- 	struct pci_dev *pdev = adapter->pdev;
- 	union ixgbe_adv_rx_desc *rx_desc;
- 	struct ixgbevf_rx_buffer *bi;
--	struct sk_buff *skb;
- 	unsigned int i = rx_ring->next_to_use;
- 
- 	bi = &rx_ring->rx_buffer_info[i];
- 
- 	while (cleaned_count--) {
- 		rx_desc = IXGBEVF_RX_DESC(rx_ring, i);
--		skb = bi->skb;
--		if (!skb) {
-+
-+		if (!bi->skb) {
-+			struct sk_buff *skb;
-+
- 			skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
- 							rx_ring->rx_buf_len);
- 			if (!skb) {
-@@ -357,8 +358,7 @@ static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
- 				goto no_buffers;
- 			}
- 			bi->skb = skb;
--		}
--		if (!bi->dma) {
-+
- 			bi->dma = dma_map_single(&pdev->dev, skb->data,
- 						 rx_ring->rx_buf_len,
- 						 DMA_FROM_DEVICE);
 -- 
-1.7.11.7
+tejun
