@@ -1,8 +1,8 @@
 From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH v2 net-next 18/22] bnx2x: Support of PF driver of a VF
- close request
-Date: Thu, 15 Nov 2012 18:47:43 +0200
-Message-ID: <1352998067-9707-19-git-send-email-ariele@broadcom.com>
+Subject: [PATCH v2 net-next 14/22] bnx2x: Support statistics collection
+ for VFs by the PF
+Date: Thu, 15 Nov 2012 18:47:39 +0200
+Message-ID: <1352998067-9707-15-git-send-email-ariele@broadcom.com>
 References: <1352998067-9707-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,208 +12,518 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3479 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3472 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1768495Ab2KOQqN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1768443Ab2KOQqN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 15 Nov 2012 11:46:13 -0500
 In-Reply-To: <1352998067-9707-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 'close' command is the opposite of an init request. Here the
-queues of the VF are closed (if any are opened) and released.
-This flow applies the 'q_teardown' flow on all the queues.
-The VF state is changed by this request.
-Interrupts are disabled for the VF when closed.
+Statistics are collected by the PF driver. The collection is
+performed via a query sent to the device which is basically an array
+of 3-tuples of the form (statistics client, function, DMAE address).
+In this patch the PF driver adds to the query, on top of the
+statistics clients it is maintaining for itself (rss queues, storage,
+etc), the 3-tuples for the VFs it is maintaining. The addresses used
+are the GPAs of the statistics buffers supplied by the VF in the
+init message on the VF <-> PF channel. The function parameter
+ensures that the iommu will translate the GPA to the correct physical
+address.
 
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |   96 +++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |    4 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |   27 ++++++
- 3 files changed, 127 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   78 +--------------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c    |   21 ++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h    |   11 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |   94 ++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |    2 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c |  108 +++++++++++++++++----
+ 6 files changed, 222 insertions(+), 92 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 146ad65..888e3ec 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -137,6 +137,11 @@ enum bnx2x_vfop_mcast_state {
- 	   BNX2X_VFOP_MCAST_CHK_DONE
- };
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 7c2fc15..1f82d8b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -5233,7 +5233,9 @@ static void bnx2x_timer(unsigned long data)
+ 	if (!netif_running(bp->dev))
+ 		return;
  
-+enum bnx2x_vfop_close_state {
-+	   BNX2X_VFOP_CLOSE_QUEUES,
-+	   BNX2X_VFOP_CLOSE_HW
-+};
+-	if (!BP_NOMCP(bp)) {
 +
- enum bnx2x_vfop_rxmode_state {
- 	   BNX2X_VFOP_RXMODE_CONFIG,
- 	   BNX2X_VFOP_RXMODE_DONE
-@@ -2298,6 +2303,28 @@ static void bnx2x_vf_qtbl_set_q(struct bnx2x *bp, u8 abs_vfid, u8 qid,
- 	REG_WR(bp, reg, val);
++	if (IS_PF(bp) &&
++	    !BP_NOMCP(bp)) {
+ 		int mb_idx = BP_FW_MB_IDX(bp);
+ 		u32 drv_pulse;
+ 		u32 mcp_pulse;
+@@ -7654,66 +7656,6 @@ void bnx2x_free_mem(struct bnx2x *bp)
+ 		       BCM_PAGE_SIZE * NUM_EQ_PAGES);
  }
  
-+static void bnx2x_vf_clr_qtbl(struct bnx2x *bp, struct bnx2x_virtf *vf)
+-static int bnx2x_alloc_fw_stats_mem(struct bnx2x *bp)
+-{
+-	int num_groups;
+-	int is_fcoe_stats = NO_FCOE(bp) ? 0 : 1;
+-
+-	/* number of queues for statistics is number of eth queues + FCoE */
+-	u8 num_queue_stats = BNX2X_NUM_ETH_QUEUES(bp) + is_fcoe_stats;
+-
+-	/* Total number of FW statistics requests =
+-	 * 1 for port stats + 1 for PF stats + potential 1 for FCoE stats +
+-	 * num of queues
+-	 */
+-	bp->fw_stats_num = 2 + is_fcoe_stats + num_queue_stats;
+-
+-
+-	/* Request is built from stats_query_header and an array of
+-	 * stats_query_cmd_group each of which contains
+-	 * STATS_QUERY_CMD_COUNT rules. The real number or requests is
+-	 * configured in the stats_query_header.
+-	 */
+-	num_groups = ((bp->fw_stats_num) / STATS_QUERY_CMD_COUNT) +
+-		     (((bp->fw_stats_num) % STATS_QUERY_CMD_COUNT) ? 1 : 0);
+-
+-	bp->fw_stats_req_sz = sizeof(struct stats_query_header) +
+-			num_groups * sizeof(struct stats_query_cmd_group);
+-
+-	/* Data for statistics requests + stats_conter
+-	 *
+-	 * stats_counter holds per-STORM counters that are incremented
+-	 * when STORM has finished with the current request.
+-	 *
+-	 * memory for FCoE offloaded statistics are counted anyway,
+-	 * even if they will not be sent.
+-	 */
+-	bp->fw_stats_data_sz = sizeof(struct per_port_stats) +
+-		sizeof(struct per_pf_stats) +
+-		sizeof(struct fcoe_statistics_params) +
+-		sizeof(struct per_queue_stats) * num_queue_stats +
+-		sizeof(struct stats_counter);
+-
+-	BNX2X_PCI_ALLOC(bp->fw_stats, &bp->fw_stats_mapping,
+-			bp->fw_stats_data_sz + bp->fw_stats_req_sz);
+-
+-	/* Set shortcuts */
+-	bp->fw_stats_req = (struct bnx2x_fw_stats_req *)bp->fw_stats;
+-	bp->fw_stats_req_mapping = bp->fw_stats_mapping;
+-
+-	bp->fw_stats_data = (struct bnx2x_fw_stats_data *)
+-		((u8 *)bp->fw_stats + bp->fw_stats_req_sz);
+-
+-	bp->fw_stats_data_mapping = bp->fw_stats_mapping +
+-				   bp->fw_stats_req_sz;
+-	return 0;
+-
+-alloc_mem_err:
+-	BNX2X_PCI_FREE(bp->fw_stats, bp->fw_stats_mapping,
+-		       bp->fw_stats_data_sz + bp->fw_stats_req_sz);
+-	BNX2X_ERR("Can't allocate memory\n");
+-	return -ENOMEM;
+-}
+ 
+ int bnx2x_alloc_mem_cnic(struct bnx2x *bp)
+ {
+@@ -7760,10 +7702,6 @@ int bnx2x_alloc_mem(struct bnx2x *bp)
+ 	BNX2X_PCI_ALLOC(bp->slowpath, &bp->slowpath_mapping,
+ 			sizeof(struct bnx2x_slowpath));
+ 
+-	/* Allocated memory for FW statistics  */
+-	if (bnx2x_alloc_fw_stats_mem(bp))
+-		goto alloc_mem_err;
+-
+ 	/* Allocate memory for CDU context:
+ 	 * This memory is allocated separately and not in the generic ILT
+ 	 * functions because CDU differs in few aspects:
+@@ -7792,6 +7730,9 @@ int bnx2x_alloc_mem(struct bnx2x *bp)
+ 	if (bnx2x_ilt_mem_op(bp, ILT_MEMOP_ALLOC))
+ 		goto alloc_mem_err;
+ 
++	if (bnx2x_iov_alloc_mem(bp))
++		goto alloc_mem_err;
++
+ 	/* Slow path ring */
+ 	BNX2X_PCI_ALLOC(bp->spq, &bp->spq_mapping, BCM_PAGE_SIZE);
+ 
+@@ -7799,13 +7740,6 @@ int bnx2x_alloc_mem(struct bnx2x *bp)
+ 	BNX2X_PCI_ALLOC(bp->eq_ring, &bp->eq_mapping,
+ 			BCM_PAGE_SIZE * NUM_EQ_PAGES);
+ 
+-
+-	/* fastpath */
+-	/* need to be done at the end, since it's self adjusting to amount
+-	 * of memory available for RSS queues
+-	 */
+-	if (bnx2x_alloc_fp_mem(bp))
+-		goto alloc_mem_err;
+ 	return 0;
+ 
+ alloc_mem_err:
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+index b8b4b74..1eb92b8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
+@@ -5199,6 +5199,27 @@ void bnx2x_init_queue_obj(struct bnx2x *bp,
+ 	obj->set_pending = bnx2x_queue_set_pending;
+ }
+ 
++/* return a queue object's logical state*/
++int bnx2x_get_q_logical_state(struct bnx2x *bp,
++			       struct bnx2x_queue_sp_obj *obj)
++{
++	switch (obj->state) {
++	case BNX2X_Q_STATE_ACTIVE:
++	case BNX2X_Q_STATE_MULTI_COS:
++		return BNX2X_Q_LOGICAL_STATE_ACTIVE;
++	case BNX2X_Q_STATE_RESET:
++	case BNX2X_Q_STATE_INITIALIZED:
++	case BNX2X_Q_STATE_MCOS_TERMINATED:
++	case BNX2X_Q_STATE_INACTIVE:
++	case BNX2X_Q_STATE_STOPPED:
++	case BNX2X_Q_STATE_TERMINATED:
++	case BNX2X_Q_STATE_FLRED:
++		return BNX2X_Q_LOGICAL_STATE_STOPPED;
++	default:
++		return -EINVAL;
++	}
++}
++
+ /********************** Function state object *********************************/
+ enum bnx2x_func_state bnx2x_func_get_state(struct bnx2x *bp,
+ 					   struct bnx2x_func_sp_obj *o)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+index adbd91b..157fc4f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.h
+@@ -776,6 +776,13 @@ enum bnx2x_q_state {
+ 	BNX2X_Q_STATE_MAX,
+ };
+ 
++/* Allowed Queue states */
++enum bnx2x_q_logical_state {
++	BNX2X_Q_LOGICAL_STATE_ACTIVE,
++	BNX2X_Q_LOGICAL_STATE_STOPPED,
++};
++
++
+ /* Allowed commands */
+ enum bnx2x_queue_cmd {
+ 	BNX2X_Q_CMD_INIT,
+@@ -1261,6 +1268,10 @@ void bnx2x_init_queue_obj(struct bnx2x *bp,
+ int bnx2x_queue_state_change(struct bnx2x *bp,
+ 			     struct bnx2x_queue_state_params *params);
+ 
++int bnx2x_get_q_logical_state(struct bnx2x *bp,
++			       struct bnx2x_queue_sp_obj *obj);
++
++
+ /********************* VLAN-MAC ****************/
+ void bnx2x_init_mac_obj(struct bnx2x *bp,
+ 			struct bnx2x_vlan_mac_obj *mac_obj,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 6141c73..f027332 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -1059,6 +1059,82 @@ void bnx2x_iov_sp_event(struct bnx2x *bp, int vf_cid, bool queue_work)
+ 			queue_delayed_work(bnx2x_wq, &bp->sp_task, 0);
+ 	}
+ }
++
++void bnx2x_iov_adjust_stats_req(struct bnx2x *bp)
 +{
 +	int i;
++	int first_queue_query_index, num_queues_req;
++	dma_addr_t cur_data_offset;
++	struct stats_query_entry *cur_query_entry;
++	u8 stats_count = 0;
++	bool is_fcoe = false;
 +
-+	for_each_vfq(vf, i)
-+		bnx2x_vf_qtbl_set_q(bp, vf->abs_vfid,
-+				    vfq_qzone_id(vf, vfq_get(vf, i)), false);
++	if (!IS_SRIOV(bp))
++		return;
++
++	if (!NO_FCOE(bp))
++		is_fcoe = true;
++
++	/* fcoe adds one global request and one queue request */
++	num_queues_req = BNX2X_NUM_ETH_QUEUES(bp) + is_fcoe;
++
++	first_queue_query_index = BNX2X_FIRST_QUEUE_QUERY_IDX -
++		(is_fcoe ? 0 : 1);
++
++	DP(BNX2X_MSG_IOV,
++	   "BNX2X_NUM_ETH_QUEUES %d, is_fcoe %d, first_queue_query_index %d => determined the last non virtual statistics query index is %d. Will add queries on top of that\n",
++	   BNX2X_NUM_ETH_QUEUES(bp), is_fcoe, first_queue_query_index,
++	   first_queue_query_index + num_queues_req);
++
++	cur_data_offset = bp->fw_stats_data_mapping +
++		offsetof(struct bnx2x_fw_stats_data, queue_stats) +
++		num_queues_req * sizeof(struct per_queue_stats);
++
++	cur_query_entry = &bp->fw_stats_req->
++		query[first_queue_query_index + num_queues_req];
++
++	for_each_vf(bp, i) {
++		int j;
++		struct bnx2x_virtf *vf = BP_VF(bp, i);
++		if (vf->state != VF_ENABLED) {
++			DP(BNX2X_MSG_IOV,
++			   "vf %d not enabled so no stats for it\n",
++			   vf->abs_vfid);
++			continue;
++		}
++
++		DP(BNX2X_MSG_IOV, "add addresses for vf %d\n", vf->abs_vfid);
++
++		for_each_vfq(vf, j) {
++			struct bnx2x_vf_queue *rxq = vfq_get(vf, j);
++
++			/* collect stats fro active queues only */
++			if (bnx2x_get_q_logical_state(bp, &rxq->sp_obj) ==
++			    BNX2X_Q_LOGICAL_STATE_STOPPED)
++				continue;
++
++			/* create stats query entry for this queue */
++			cur_query_entry->kind = STATS_TYPE_QUEUE;
++			cur_query_entry->index = vfq_cl_id(vf, rxq);
++			cur_query_entry->funcID =
++				cpu_to_le16(FW_VF_HANDLE(vf->abs_vfid));
++			cur_query_entry->address.hi =
++				cpu_to_le32(U64_HI(vf->fw_stat_map));
++			cur_query_entry->address.lo =
++				cpu_to_le32(U64_LO(vf->fw_stat_map));
++			DP(BNX2X_MSG_IOV,
++			   "added address %x %x for vf %d queue %d client %d\n",
++			   cur_query_entry->address.hi,
++			   cur_query_entry->address.lo, cur_query_entry->funcID,
++			   j, cur_query_entry->index);
++			cur_query_entry++;
++			cur_data_offset += sizeof(struct per_queue_stats);
++			stats_count++;
++		}
++	}
++	bp->fw_stats_req->hdr.cmd_num = bp->fw_stats_num + stats_count;
 +}
 +
-+static void bnx2x_vf_igu_disable(struct bnx2x *bp, struct bnx2x_virtf *vf)
-+{
-+	u32 val;
-+
-+	/* clear the VF configuration - pretend */
-+	bnx2x_pretend_func(bp, HW_VF_HANDLE(bp, vf->abs_vfid));
-+	val = REG_RD(bp, IGU_REG_VF_CONFIGURATION);
-+	val &= ~(IGU_VF_CONF_MSI_MSIX_EN | IGU_VF_CONF_SINGLE_ISR_EN |
-+		 IGU_VF_CONF_FUNC_EN | IGU_VF_CONF_PARENT_MASK);
-+	REG_WR(bp, IGU_REG_VF_CONFIGURATION, val);
-+	bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
-+}
-+
- u8 bnx2x_vf_max_queue_cnt(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ void bnx2x_iov_sp_task(struct bnx2x *bp)
  {
- 	return min_t(u8, min_t(u8, vf_sb_count(vf), BNX2X_CIDS_PER_VF),
-@@ -2469,6 +2496,75 @@ int bnx2x_vf_init(struct bnx2x *bp, struct bnx2x_virtf *vf, dma_addr_t *sb_map)
+ 	int i;
+@@ -1079,6 +1155,24 @@ void bnx2x_iov_sp_task(struct bnx2x *bp)
+ 		}
+ 	}
+ }
++
++static inline
++struct bnx2x_virtf *__vf_from_stat_id(struct bnx2x *bp, u8 stat_id)
++{
++	int i;
++	struct bnx2x_virtf *vf = NULL;
++
++	for_each_vf(bp, i) {
++		vf = BP_VF(bp, i);
++		if (stat_id >= vf->igu_base_id &&
++		    stat_id < vf->igu_base_id + vf_sb_count(vf))
++			break;
++	}
++	return vf;
++
++}
++
++/* VF API helpers */
+ static void bnx2x_vf_qtbl_set_q(struct bnx2x *bp, u8 abs_vfid, u8 qid,
+ 				u8 enable)
+ {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index a3a8240..698ff71 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -425,6 +425,8 @@ void bnx2x_iov_set_queue_sp_obj(struct bnx2x *bp, int vf_cid,
+ 				struct bnx2x_queue_sp_obj **q_obj);
+ void bnx2x_iov_sp_event(struct bnx2x *bp, int vf_cid, bool queue_work);
+ int bnx2x_iov_eq_sp_event(struct bnx2x *bp, union event_ring_elem *elem);
++void bnx2x_iov_adjust_stats_req(struct bnx2x *bp);
++void bnx2x_iov_storm_stats_update(struct bnx2x *bp);
+ void bnx2x_iov_sp_task(struct bnx2x *bp);
+ /* global vf mailbox routines */
+ void bnx2x_vf_mbx(struct bnx2x *bp, struct vf_pf_event_data *vfpf_event);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 348ed02..73cd0eb 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -19,7 +19,7 @@
+ 
+ #include "bnx2x_stats.h"
+ #include "bnx2x_cmn.h"
+-
++#include "bnx2x_sriov.h"
+ 
+ /* Statistics */
+ 
+@@ -79,6 +79,41 @@ static inline u16 bnx2x_get_port_stats_dma_len(struct bnx2x *bp)
+  * Init service functions
+  */
+ 
++static void bnx2x_dp_stats(struct bnx2x *bp)
++{
++	int i;
++	DP(BNX2X_MSG_STATS, "dumping stats:\n"
++	   "fw_stats_req\n"
++	   "    hdr\n"
++	   "        cmd_num %d\n"
++	   "        reserved0 %d\n"
++	   "        drv_stats_counter %d\n"
++	   "        reserved1 %d\n"
++	   "        stats_counters_addrs %x %x\n",
++	   bp->fw_stats_req->hdr.cmd_num,
++	   bp->fw_stats_req->hdr.reserved0,
++	   bp->fw_stats_req->hdr.drv_stats_counter,
++	   bp->fw_stats_req->hdr.reserved1,
++	   bp->fw_stats_req->hdr.stats_counters_addrs.hi,
++	   bp->fw_stats_req->hdr.stats_counters_addrs.lo);
++
++	for (i = 0; i < bp->fw_stats_req->hdr.cmd_num; i++) {
++		DP(BNX2X_MSG_STATS,
++		   "query[%d]\n"
++		   "              kind %d\n"
++		   "              index %d\n"
++		   "              funcID %d\n"
++		   "              reserved %d\n"
++		   "              address %x %x\n",
++		   i, bp->fw_stats_req->query[i].kind,
++		   bp->fw_stats_req->query[i].index,
++		   bp->fw_stats_req->query[i].funcID,
++		   bp->fw_stats_req->query[i].reserved,
++		   bp->fw_stats_req->query[i].address.hi,
++		   bp->fw_stats_req->query[i].address.lo);
++	}
++}
++
+ /* Post the next statistics ramrod. Protect it with the spin in
+  * order to ensure the strict order between statistics ramrods
+  * (each ramrod has a sequence number passed in a
+@@ -103,7 +138,10 @@ static void bnx2x_storm_stats_post(struct bnx2x *bp)
+ 		DP(BNX2X_MSG_STATS, "Sending statistics ramrod %d\n",
+ 			bp->fw_stats_req->hdr.drv_stats_counter);
+ 
++		/* adjust the ramrod to include VF queues statistics */
++		bnx2x_iov_adjust_stats_req(bp);
+ 
++		bnx2x_dp_stats(bp);
+ 
+ 		/* send FW stats ramrod */
+ 		rc = bnx2x_sp_post(bp, RAMROD_CMD_ID_COMMON_STAT_QUERY, 0,
+@@ -482,6 +520,12 @@ static void bnx2x_func_stats_init(struct bnx2x *bp)
+ 
+ static void bnx2x_stats_start(struct bnx2x *bp)
+ {
++	/* vfs travel through here as part of the statistics FSM, but no action
++	 * is required
++	 */
++	if (IS_VF(bp))
++		return;
++
+ 	if (bp->port.pmf)
+ 		bnx2x_port_stats_init(bp);
+ 
+@@ -501,6 +545,11 @@ static void bnx2x_stats_pmf_start(struct bnx2x *bp)
+ 
+ static void bnx2x_stats_restart(struct bnx2x *bp)
+ {
++	/* vfs travel through here as part of the statistics FSM, but no action
++	 * is required
++	 */
++	if (IS_VF(bp))
++		return;
+ 	bnx2x_stats_comp(bp);
+ 	bnx2x_stats_start(bp);
+ }
+@@ -832,19 +881,10 @@ static int bnx2x_hw_stats_update(struct bnx2x *bp)
  	return 0;
  }
  
-+/* VFOP close (teardown the queues, delete mcasts and close HW) */
-+static void bnx2x_vfop_close(struct bnx2x *bp, struct bnx2x_virtf *vf)
+-static int bnx2x_storm_stats_update(struct bnx2x *bp)
++static int bnx2x_storm_stats_validate_counters(struct bnx2x *bp)
+ {
+-	struct tstorm_per_port_stats *tport =
+-				&bp->fw_stats_data->port.tstorm_port_statistics;
+-	struct tstorm_per_pf_stats *tfunc =
+-				&bp->fw_stats_data->pf.tstorm_pf_statistics;
+-	struct host_func_stats *fstats = &bp->func_stats;
+-	struct bnx2x_eth_stats *estats = &bp->eth_stats;
+-	struct bnx2x_eth_stats_old *estats_old = &bp->eth_stats_old;
+ 	struct stats_counter *counters = &bp->fw_stats_data->storm_counters;
+-	int i;
+ 	u16 cur_stats_counter;
+-
+ 	/* Make sure we use the value of the counter
+ 	 * used for sending the last stats ramrod.
+ 	 */
+@@ -880,6 +920,23 @@ static int bnx2x_storm_stats_update(struct bnx2x *bp)
+ 		   le16_to_cpu(counters->tstats_counter), bp->stats_counter);
+ 		return -EAGAIN;
+ 	}
++	return 0;
++}
++
++static int bnx2x_storm_stats_update(struct bnx2x *bp)
 +{
-+	struct bnx2x_vfop *vfop = bnx2x_vfop_cur(bp, vf);
-+	struct bnx2x_vfop_args_qx *qx = &vfop->args.qx;
-+	enum bnx2x_vfop_close_state state = vfop->state;
-+	struct bnx2x_vfop_cmd cmd = {
-+		.done = bnx2x_vfop_close,
-+		.block = false,
-+	};
++	struct tstorm_per_port_stats *tport =
++				&bp->fw_stats_data->port.tstorm_port_statistics;
++	struct tstorm_per_pf_stats *tfunc =
++				&bp->fw_stats_data->pf.tstorm_pf_statistics;
++	struct host_func_stats *fstats = &bp->func_stats;
++	struct bnx2x_eth_stats *estats = &bp->eth_stats;
++	struct bnx2x_eth_stats_old *estats_old = &bp->eth_stats_old;
++	int i;
 +
-+	if (vfop->rc < 0)
-+		goto op_err;
-+
-+	DP(BNX2X_MSG_IOV, "vf[%d] STATE: %d\n", vf->abs_vfid, state);
-+
-+	switch (state) {
-+	case BNX2X_VFOP_CLOSE_QUEUES:
-+
-+		if (++(qx->qid) < vf_rxq_count(vf)) {
-+			vfop->rc = bnx2x_vfop_qdown_cmd(bp, vf, &cmd, qx->qid);
-+			if (vfop->rc)
-+				goto op_err;
++	/* vfs stat counter is managed by pf */
++	if (IS_PF(bp) && bnx2x_storm_stats_validate_counters(bp))
++		return -EAGAIN;
+ 
+ 	estats->error_bytes_received_hi = 0;
+ 	estats->error_bytes_received_lo = 0;
+@@ -1173,23 +1230,34 @@ static void bnx2x_stats_update(struct bnx2x *bp)
+ 	if (bnx2x_edebug_stats_stopped(bp))
+ 		return;
+ 
+-	if (*stats_comp != DMAE_COMP_VAL)
+-		return;
++	if (IS_PF(bp)) {
++		if (*stats_comp != DMAE_COMP_VAL)
 +			return;
-+		}
-+
-+		/* remove multicasts */
-+		vfop->state = BNX2X_VFOP_CLOSE_HW;
-+		vfop->rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, NULL, 0, false);
-+		if (vfop->rc)
-+			goto op_err;
+ 
+-	if (bp->port.pmf)
+-		bnx2x_hw_stats_update(bp);
++		if (bp->port.pmf)
++			bnx2x_hw_stats_update(bp);
+ 
+-	if (bnx2x_storm_stats_update(bp)) {
+-		if (bp->stats_pending++ == 3) {
+-			BNX2X_ERR("storm stats were not updated for 3 times\n");
+-			bnx2x_panic();
++		if (bnx2x_storm_stats_update(bp)) {
++			if (bp->stats_pending++ == 3) {
++				BNX2X_ERR("storm stats were not updated for 3 times\n");
++				bnx2x_panic();
++			}
++			return;
+ 		}
+-		return;
++	} else {
++		/* vf doesn't collect HW statistics, and doesn't get completions
++		 * perform only update
++		 */
++		bnx2x_storm_stats_update(bp);
+ 	}
+ 
+ 	bnx2x_net_stats_update(bp);
+ 	bnx2x_drv_stats_update(bp);
+ 
++	/* vf is done */
++	if (IS_VF(bp))
 +		return;
 +
-+	case BNX2X_VFOP_CLOSE_HW:
-+
-+		/* disable the interrupts */
-+		DP(BNX2X_MSG_IOV, "disabling igu\n");
-+		bnx2x_vf_igu_disable(bp, vf);
-+
-+		/* disable the VF */
-+		DP(BNX2X_MSG_IOV, "clearing qtbl\n");
-+		bnx2x_vf_clr_qtbl(bp, vf);
-+
-+		goto op_done;
-+	default:
-+		bnx2x_vfop_default(state);
-+	}
-+op_err:
-+	BNX2X_ERR("VF[%d] CLOSE error: rc %d\n", vf->abs_vfid, vfop->rc);
-+op_done:
-+	vf->state = VF_ACQUIRED;
-+	DP(BNX2X_MSG_IOV, "set state to acquired\n");
-+	bnx2x_vfop_end(bp, vf, vfop);
-+}
-+
-+int bnx2x_vfop_close_cmd(struct bnx2x *bp,
-+			 struct bnx2x_virtf *vf,
-+			 struct bnx2x_vfop_cmd *cmd)
-+{
-+	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
-+	if (vfop) {
-+		vfop->args.qx.qid = -1; /* loop */
-+		bnx2x_vfop_opset(BNX2X_VFOP_CLOSE_QUEUES,
-+				 bnx2x_vfop_close, cmd->done);
-+		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_close,
-+					     cmd->block);
-+	}
-+	return -ENOMEM;
-+}
- void bnx2x_lock_vf_pf_channel(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 			      enum channel_tlvs tlv)
- {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index 4a79741..9fadabc 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -661,6 +661,10 @@ int bnx2x_vfop_rxmode_cmd(struct bnx2x *bp,
- 			  struct bnx2x_vfop_cmd *cmd,
- 			  int qid, unsigned long accept_flags);
+ 	if (netif_msg_timer(bp)) {
+ 		struct bnx2x_eth_stats *estats = &bp->eth_stats;
  
-+int bnx2x_vfop_close_cmd(struct bnx2x *bp,
-+			 struct bnx2x_virtf *vf,
-+			 struct bnx2x_vfop_cmd *cmd);
-+
- int bnx2x_vf_idx_by_abs_fid(struct bnx2x *bp, u16 abs_vfid);
- u8 bnx2x_vf_max_queue_cnt(struct bnx2x *bp, struct bnx2x_virtf *vf);
- /* VF FLR helpers */
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-index 832aa31..96a1de3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-@@ -811,6 +811,30 @@ static void bnx2x_vf_mbx_teardown_q(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 		bnx2x_vf_mbx_resp(bp, vf);
- }
- 
-+/* Done handler for 'close' operation: send response and reopen the
-+ * channel.
-+ */
-+static void bnx2x_vf_mbx_close_done(struct bnx2x *bp, struct bnx2x_virtf *vf)
-+{
-+	bnx2x_vf_mbx_resp(bp, vf);
-+	bnx2x_vf_enable_mbx(bp, vf->abs_vfid);
-+}
-+
-+static void bnx2x_vf_mbx_close_vf(struct bnx2x *bp, struct bnx2x_virtf *vf,
-+				  struct bnx2x_vf_mbx *mbx)
-+{
-+	struct bnx2x_vfop_cmd cmd = {
-+		.done = bnx2x_vf_mbx_close_done,
-+		.block = false,
-+	};
-+
-+	DP(BNX2X_MSG_IOV, "VF[%d] VF_CLOSE\n", vf->abs_vfid);
-+
-+	vf->op_rc = bnx2x_vfop_close_cmd(bp, vf, &cmd);
-+	if (vf->op_rc)
-+		bnx2x_vf_mbx_close_done(bp, vf);
-+}
-+
- /* dispatch request */
- static void bnx2x_vf_mbx_request(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 				  struct bnx2x_vf_mbx *mbx)
-@@ -842,6 +866,9 @@ static void bnx2x_vf_mbx_request(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 		case CHANNEL_TLV_TEARDOWN_Q:
- 			bnx2x_vf_mbx_teardown_q(bp, vf, mbx);
- 			break;
-+		case CHANNEL_TLV_CLOSE:
-+			bnx2x_vf_mbx_close_vf(bp, vf, mbx);
-+			break;
- 		}
- 
- 	/* unknown TLV - this may belong to a VF driver from the future - a
 -- 
 1.7.9.GIT
