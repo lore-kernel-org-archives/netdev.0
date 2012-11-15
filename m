@@ -1,36 +1,39 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 3/3] ip6tnl: fix sparse warnings in ip6_tnl_netlink_parms()
-Date: Thu, 15 Nov 2012 09:53:36 +0100
-Message-ID: <1352969616-30476-3-git-send-email-nicolas.dichtel@6wind.com>
-References: <1352969616-30476-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 0/4] Implement persistent grant in xen-netfront/netback
+Date: Thu, 15 Nov 2012 08:56:11 +0000
+Message-ID: <1352969771.3499.34.camel@zakaz.uk.xensource.com>
+References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Annie Li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:35926 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756022Ab2KOIy5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 03:54:57 -0500
-In-Reply-To: <1352969616-30476-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:7329 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992885Ab2KOI4N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 03:56:13 -0500
+In-Reply-To: <1352962987-541-1-git-send-email-annie.li@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/ip6_tunnel.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Thu, 2012-11-15 at 07:03 +0000, Annie Li wrote:
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index ab4d056..bf3a549 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1568,7 +1568,7 @@ static void ip6_tnl_netlink_parms(struct nlattr *data[],
- 		parms->encap_limit = nla_get_u8(data[IFLA_IPTUN_ENCAP_LIMIT]);
- 
- 	if (data[IFLA_IPTUN_FLOWINFO])
--		parms->flowinfo = nla_get_u32(data[IFLA_IPTUN_FLOWINFO]);
-+		parms->flowinfo = nla_get_be32(data[IFLA_IPTUN_FLOWINFO]);
- 
- 	if (data[IFLA_IPTUN_FLAGS])
- 		parms->flags = nla_get_u32(data[IFLA_IPTUN_FLAGS]);
--- 
-1.7.12
+> 
+> This patch implements persistent grants for xen-netfront/netback. This
+> mechanism maintains page pools in netback/netfront, these page pools
+> is used to save grant pages which are mapped. This way improve
+> performance which is wasted when doing grant operations. 
+
+Please can you send a patch against xen-unstable.hg to document this new
+protocol variant in xen/include/public/io/netif.h. This header is a bit
+under-documented but lets not let it fall further behind (if you want to
+go further and document the existing features, in the style of the
+current blkif.h, then that would be awesome!).
+
+You may also want to provide a similar patch to Linux's copy which is in
+linux/include/xen/interface/io/netif.h
+
+Ian.
