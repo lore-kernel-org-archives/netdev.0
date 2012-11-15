@@ -1,40 +1,44 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH V2 00/14] Always build GSO/GRO functionality into the
- kernel
-Date: Thu, 15 Nov 2012 17:48:33 -0500
-Message-ID: <50A57141.1000803@redhat.com>
-References: <1353005363-6974-1-git-send-email-vyasevic@redhat.com> <20121115.174205.2002769827912724231.davem@davemloft.net>
-Reply-To: vyasevic@redhat.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: smsc: Re-enable EDPD mode for LAN87xx
+Date: Thu, 15 Nov 2012 17:49:10 -0500 (EST)
+Message-ID: <20121115.174910.1186195664618812261.davem@davemloft.net>
+References: <1353006057-7593-1-git-send-email-patrick.trantham@fuel7.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net,
+	otavio@ossystems.com.br, marex@denx.de, chohnstaedt@innominate.com,
+	jkosina@suse.cz
+To: patrick.trantham@fuel7.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57107 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750733Ab2KOWsh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 17:48:37 -0500
-In-Reply-To: <20121115.174205.2002769827912724231.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49143 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729Ab2KOWtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 17:49:12 -0500
+In-Reply-To: <1353006057-7593-1-git-send-email-patrick.trantham@fuel7.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/15/2012 05:42 PM, David Miller wrote:
->
-> All applied to net-next, but there were some minor conflicts (an
-> IS_ENABLED() conversion happened in ip6_output.c in net-next but the
-> context in your patch didn't have it) and git warnings (trailing
-> whitespace in the final patch).
->
-> I fixed them all up, but this is something you can easily take care
-> of yourself in the future.
->
-> Thanks.
->
+From: Patrick Trantham <patrick.trantham@fuel7.com>
+Date: Thu, 15 Nov 2012 13:00:57 -0600
 
-sorry,  the patches were bases on net-2.6.  That's probably why you saw 
-the conflicts.  I wasn't sure where they should go since they actually 
-fix a long standing issue, so I bases them net-2.6.
+> This patch re-enables Energy Detect Power Down (EDPD) mode for the
+> LAN8710/LAN8720.  EDPD mode was disabled in a previous commit,
+> (b629820d18fa65cc598390e4b9712fd5f83ee693), because it was causing the
+> PHY to not be able to detect a link when cold started without a cable
+> connected.
+> 
+> The LAN8710/LAN8720 requires a minimum of 2 link pulses within 64ms of
+> each other in order to set the ENERGYON bit and exit EDPD mode.  If a
+> link partner does send the pulses within this interval, the PHY will
+> remained powered down.
+> 
+> This workaround will manually toggle the PHY on/off upon calls to
+> read_status in order to generate link test pulses if the link is down.
+> If a link partner is present, it will respond to the pulses, which will
+> cause the ENERGYON bit to be set and will cause the EDPD mode to be
+> exited.
+> 
+> Signed-off-by: Patrick Trantham <patrick.trantham@fuel7.com>
 
-Sorry, and thanks for fixing things up.
--vlad
+Applied to net-next, thanks.
