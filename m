@@ -1,8 +1,7 @@
 From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH v2 net-next 07/22] bnx2x: Support ndo_set_rxmode in VF
- driver
-Date: Thu, 15 Nov 2012 18:47:32 +0200
-Message-ID: <1352998067-9707-8-git-send-email-ariele@broadcom.com>
+Subject: [PATCH v2 net-next 08/22] bnx2x: VF fastpath
+Date: Thu, 15 Nov 2012 18:47:33 +0200
+Message-ID: <1352998067-9707-9-git-send-email-ariele@broadcom.com>
 References: <1352998067-9707-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,275 +11,189 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1531 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1542 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1768459Ab2KOQpq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 11:45:46 -0500
+	id S1768463Ab2KOQpp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 11:45:45 -0500
 In-Reply-To: <1352998067-9707-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VF driver uses the 'q_filter' request in the VF <-> PF channel to
-have the PF configure the requested rxmode to device. ndo_set_rxmode
-is called under bottom half lock, so sleeping until the response
-arrives over the VF <-> PF channel is out of the question. For this reason
-the VF driver returns from the ndo after scheduling a work item, which
-in turn processes the rx mode request and adds the classification
-information through the VF <-> PF channel accordingly.
+When VF driver is transmitting it must supply the correct mac
+address in the parsing BD. This is used for firmware validation
+and enforcement and also for tx-switching.
+Refactor interrupt ack flow to allow for different BAR addresses of
+the hardware in the PF BAR vs the VF BAR.
 
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    5 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  175 +++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h |    7 +
- 3 files changed, 181 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |   20 ++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |   68 +++++++++++-----------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   13 +----
+ 3 files changed, 52 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index cd8c645..d1806e3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1194,6 +1194,8 @@ enum {
- 	BNX2X_SP_RTNL_TX_TIMEOUT,
- 	BNX2X_SP_RTNL_AFEX_F_UPDATE,
- 	BNX2X_SP_RTNL_FAN_FAILURE,
-+	BNX2X_SP_RTNL_VFPF_MCAST,
-+	BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
- };
- 
- 
-@@ -2230,6 +2232,9 @@ void bnx2x_vfpf_close_vf(struct bnx2x *bp);
- int bnx2x_vfpf_setup_q(struct bnx2x *bp, int fp_idx);
- int bnx2x_vfpf_teardown_queue(struct bnx2x *bp, int qidx);
- int bnx2x_vfpf_set_mac(struct bnx2x *bp);
-+int bnx2x_vfpf_set_mcast(struct net_device *dev);
-+int bnx2x_vfpf_storm_rx_mode(struct bnx2x *bp);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 2519d5a..ba51259 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3462,8 +3462,21 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		    cpu_to_le16(vlan_tx_tag_get(skb));
+ 		tx_start_bd->bd_flags.as_bitfield |=
+ 		    (X_ETH_OUTBAND_VLAN << ETH_TX_BD_FLAGS_VLAN_MODE_SHIFT);
+-	} else
+-		tx_start_bd->vlan_or_ethertype = cpu_to_le16(pkt_prod);
++	} else {
 +
- int bnx2x_nic_load_analyze_req(struct bnx2x *bp, u32 load_code);
- /* Congestion management fairness mode */
- #define CMNG_FNS_NONE		0
++		/* when transmitting in a vf, start bd must hold the ethertype
++		 * for fw to enforce it
++		 */
++		if (IS_VF(bp)) {
++			struct ethhdr *hdr = (struct ethhdr *)skb->data;
++			tx_start_bd->vlan_or_ethertype =
++				cpu_to_le16(ntohs(hdr->h_proto));
++		} else {
++			/* used by FW for packet accounting */
++			tx_start_bd->vlan_or_ethertype = cpu_to_le16(pkt_prod);
++
++		}
++	}
+ 
+ 	/* turn on parsing and get a BD */
+ 	bd_prod = TX_BD(NEXT_TX_IDX(bd_prod));
+@@ -3479,7 +3492,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			hlen = bnx2x_set_pbd_csum_e2(bp, skb,
+ 						     &pbd_e2_parsing_data,
+ 						     xmit_type);
+-		if (IS_MF_SI(bp)) {
++
++		if (IS_MF_SI(bp) || IS_VF(bp)) {
+ 			/*
+ 			 * fill in the MAC addresses in the PBD - for local
+ 			 * switching
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 2e32a21..948949d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -499,6 +499,39 @@ int bnx2x_setup_tc(struct net_device *dev, u8 num_tc);
+ /* select_queue callback */
+ u16 bnx2x_select_queue(struct net_device *dev, struct sk_buff *skb);
+ 
++static inline void bnx2x_update_rx_prod(struct bnx2x *bp,
++					struct bnx2x_fastpath *fp,
++					u16 bd_prod, u16 rx_comp_prod,
++					u16 rx_sge_prod)
++{
++	struct ustorm_eth_rx_producers rx_prods = {0};
++	u32 i;
++
++	/* Update producers */
++	rx_prods.bd_prod = bd_prod;
++	rx_prods.cqe_prod = rx_comp_prod;
++	rx_prods.sge_prod = rx_sge_prod;
++
++	/* Make sure that the BD and SGE data is updated before updating the
++	 * producers since FW might read the BD/SGE right after the producer
++	 * is updated.
++	 * This is only applicable for weak-ordered memory model archs such
++	 * as IA-64. The following barrier is also mandatory since FW will
++	 * assumes BDs must have buffers.
++	 */
++	wmb();
++
++	for (i = 0; i < sizeof(rx_prods)/4; i++)
++		REG_WR(bp, fp->ustorm_rx_prods_offset + i*4,
++		       ((u32 *)&rx_prods)[i]);
++
++	mmiowb(); /* keep prod updates ordered */
++
++	DP(NETIF_MSG_RX_STATUS,
++	   "queue[%d]:  wrote  bd_prod %u  cqe_prod %u  sge_prod %u\n",
++	   fp->index, bd_prod, rx_comp_prod, rx_sge_prod);
++}
++
+ /* reload helper */
+ int bnx2x_reload_if_running(struct net_device *dev);
+ 
+@@ -507,9 +540,6 @@ int bnx2x_change_mac_addr(struct net_device *dev, void *p);
+ /* NAPI poll Rx part */
+ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget);
+ 
+-void bnx2x_update_rx_prod(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+-			u16 bd_prod, u16 rx_comp_prod, u16 rx_sge_prod);
+-
+ /* NAPI poll Tx part */
+ int bnx2x_tx_int(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata);
+ 
+@@ -612,38 +642,6 @@ static inline void bnx2x_update_fpsb_idx(struct bnx2x_fastpath *fp)
+ 	fp->fp_hc_idx = fp->sb_running_index[SM_RX_ID];
+ }
+ 
+-static inline void bnx2x_update_rx_prod_gen(struct bnx2x *bp,
+-			struct bnx2x_fastpath *fp, u16 bd_prod,
+-			u16 rx_comp_prod, u16 rx_sge_prod, u32 start)
+-{
+-	struct ustorm_eth_rx_producers rx_prods = {0};
+-	u32 i;
+-
+-	/* Update producers */
+-	rx_prods.bd_prod = bd_prod;
+-	rx_prods.cqe_prod = rx_comp_prod;
+-	rx_prods.sge_prod = rx_sge_prod;
+-
+-	/*
+-	 * Make sure that the BD and SGE data is updated before updating the
+-	 * producers since FW might read the BD/SGE right after the producer
+-	 * is updated.
+-	 * This is only applicable for weak-ordered memory model archs such
+-	 * as IA-64. The following barrier is also mandatory since FW will
+-	 * assumes BDs must have buffers.
+-	 */
+-	wmb();
+-
+-	for (i = 0; i < sizeof(rx_prods)/4; i++)
+-		REG_WR(bp, start + i*4, ((u32 *)&rx_prods)[i]);
+-
+-	mmiowb(); /* keep prod updates ordered */
+-
+-	DP(NETIF_MSG_RX_STATUS,
+-	   "queue[%d]:  wrote  bd_prod %u  cqe_prod %u  sge_prod %u\n",
+-	   fp->index, bd_prod, rx_comp_prod, rx_sge_prod);
+-}
+-
+ static inline void bnx2x_igu_ack_sb_gen(struct bnx2x *bp, u8 igu_sb_id,
+ 					u8 segment, u16 index, u8 op,
+ 					u8 update, u32 igu_addr)
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 66ff9bc..16f73d3 100644
+index 16f73d3..bf575a9 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9380,6 +9380,19 @@ sp_rtnl_not_reset:
- 		bnx2x_close(bp->dev);
- 	}
- 
-+	if (test_and_clear_bit(BNX2X_SP_RTNL_VFPF_MCAST, &bp->sp_rtnl_state)) {
-+		DP(BNX2X_MSG_SP,
-+		   "sending set mcast vf pf channel message from rtnl sp-task\n");
-+		bnx2x_vfpf_set_mcast(bp->dev);
-+	}
-+
-+	if (test_and_clear_bit(BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
-+			       &bp->sp_rtnl_state)) {
-+		DP(BNX2X_MSG_SP,
-+		   "sending set storm rx mode vf pf channel message from rtnl sp-task\n");
-+		bnx2x_vfpf_storm_rx_mode(bp);
-+	}
-+
- sp_rtnl_exit:
- 	rtnl_unlock();
- }
-@@ -11399,12 +11412,25 @@ void bnx2x_set_rx_mode(struct net_device *dev)
- 		  CHIP_IS_E1(bp)))
- 		rx_mode = BNX2X_RX_MODE_ALLMULTI;
- 	else {
--		/* some multicasts */
--		if (bnx2x_set_mc_list(bp) < 0)
--			rx_mode = BNX2X_RX_MODE_ALLMULTI;
-+		if (IS_PF(bp)) {
-+			/* some multicasts */
-+			if (bnx2x_set_mc_list(bp) < 0)
-+				rx_mode = BNX2X_RX_MODE_ALLMULTI;
- 
--		if (bnx2x_set_uc_list(bp) < 0)
--			rx_mode = BNX2X_RX_MODE_PROMISC;
-+			if (bnx2x_set_uc_list(bp) < 0)
-+				rx_mode = BNX2X_RX_MODE_PROMISC;
-+		} else {
-+			/* configuring mcast to a vf involves sleeping (when we
-+			 * wait for the pf's response). Since this function is
-+			 * called from non sleepable context we must schedule
-+			 * a work item for this purpose
-+			 */
-+			smp_mb__before_clear_bit();
-+			set_bit(BNX2X_SP_RTNL_VFPF_MCAST,
-+				&bp->sp_rtnl_state);
-+			smp_mb__after_clear_bit();
-+			schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+		}
- 	}
- 
- 	bp->rx_mode = rx_mode;
-@@ -11418,7 +11444,20 @@ void bnx2x_set_rx_mode(struct net_device *dev)
- 		return;
- 	}
- 
--	bnx2x_set_storm_rx_mode(bp);
-+	if (IS_PF(bp)) {
-+		bnx2x_set_storm_rx_mode(bp);
-+	} else {
-+		/* configuring rx mode to storms in a vf involves sleeping (when
-+		 * we wait for the pf's response). Since this function is
-+		 * called from non sleepable context we must schedule
-+		 * a work item for this purpose
-+		 */
-+		smp_mb__before_clear_bit();
-+		set_bit(BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
-+			&bp->sp_rtnl_state);
-+		smp_mb__after_clear_bit();
-+		schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+	}
+@@ -1697,15 +1697,6 @@ void bnx2x_sp_event(struct bnx2x_fastpath *fp, union eth_rx_cqe *rr_cqe)
+ 	return;
  }
  
- /* called with rtnl_lock */
-@@ -13610,3 +13649,127 @@ int bnx2x_vfpf_set_mac(struct bnx2x *bp)
- 
- 	return 0;
+-void bnx2x_update_rx_prod(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+-			u16 bd_prod, u16 rx_comp_prod, u16 rx_sge_prod)
+-{
+-	u32 start = BAR_USTRORM_INTMEM + fp->ustorm_rx_prods_offset;
+-
+-	bnx2x_update_rx_prod_gen(bp, fp, bd_prod, rx_comp_prod, rx_sge_prod,
+-				 start);
+-}
+-
+ irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev_instance);
+@@ -4602,8 +4593,8 @@ static void bnx2x_attn_int(struct bnx2x *bp)
+ void bnx2x_igu_ack_sb(struct bnx2x *bp, u8 igu_sb_id, u8 segment,
+ 		      u16 index, u8 op, u8 update)
+ {
+-	u32 igu_addr = BAR_IGU_INTMEM + (IGU_CMD_INT_ACK_BASE + igu_sb_id)*8;
+-
++	u32 igu_addr = bp->igu_base_addr;
++	igu_addr += (IGU_CMD_INT_ACK_BASE + igu_sb_id)*8;
+ 	bnx2x_igu_ack_sb_gen(bp, igu_sb_id, segment, index, op, update,
+ 			     igu_addr);
  }
-+
-+int bnx2x_vfpf_set_mcast(struct net_device *dev)
-+{
-+	struct bnx2x *bp = netdev_priv(dev);
-+	struct vfpf_set_q_filters_tlv *req = &bp->vf2pf_mbox->req.set_q_filters;
-+	struct pfvf_general_resp_tlv *resp = &bp->vf2pf_mbox->resp.general_resp;
-+	int rc, i = 0;
-+	struct netdev_hw_addr *ha;
-+
-+	if (bp->state != BNX2X_STATE_OPEN) {
-+		DP(NETIF_MSG_IFUP, "state is %x, returning\n", bp->state);
-+		return -EINVAL;
-+	}
-+
-+	/* clear mailbox and prep first tlv */
-+	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_SET_Q_FILTERS,
-+			sizeof(*req));
-+
-+	/* Get Rx mode requested */
-+	DP(NETIF_MSG_IFUP, "dev->flags = %x\n", dev->flags);
-+
-+	netdev_for_each_mc_addr(ha, dev) {
-+		DP(NETIF_MSG_IFUP, "Adding mcast MAC: %pM\n",
-+		   bnx2x_mc_addr(ha));
-+		memcpy(req->multicast[i], bnx2x_mc_addr(ha),
-+		       sizeof(req->multicast[i]));
-+		i++;
-+	}
-+
-+	/* We support four PFVF_MAX_MULTICAST_PER_VF mcast
-+	 * addresses tops
-+	 */
-+	if (i >= PFVF_MAX_MULTICAST_PER_VF) {
-+		DP(NETIF_MSG_IFUP,
-+		   "VF supports not more than %d multicast MAC addresses\n",
-+		   PFVF_MAX_MULTICAST_PER_VF);
-+		return -EINVAL;
-+	}
-+
-+	req->n_multicast = i;
-+	req->flags |= VFPF_SET_Q_FILTERS_MULTICAST_CHANGED;
-+
-+	req->vf_qid = 0;
-+
-+	/* add list termination tlv */
-+	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
-+		      sizeof(struct channel_list_end_tlv));
-+
-+	/* output tlvs list */
-+	bnx2x_dp_tlv_list(bp, req);
-+
-+	rc = bnx2x_send_msg2pf(bp, &resp->hdr.status, bp->vf2pf_mbox_mapping);
-+	if (rc) {
-+		BNX2X_ERR("Sending a message failed: %d\n", rc);
-+		return rc;
-+	}
-+
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		BNX2X_ERR("Set Rx mode/multicast failed: %d\n",
-+			  resp->hdr.status);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+int bnx2x_vfpf_storm_rx_mode(struct bnx2x *bp)
-+{
-+	int mode = bp->rx_mode;
-+	struct vfpf_set_q_filters_tlv *req = &bp->vf2pf_mbox->req.set_q_filters;
-+	struct pfvf_general_resp_tlv *resp = &bp->vf2pf_mbox->resp.general_resp;
-+	int rc;
-+
-+	/* clear mailbox and prep first tlv */
-+	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_SET_Q_FILTERS,
-+			sizeof(*req));
-+
-+	DP(NETIF_MSG_IFUP, "Rx mode is %d\n", mode);
-+
-+	switch (mode) {
-+	case BNX2X_RX_MODE_NONE: /* no Rx */
-+		req->rx_mask = VFPF_RX_MASK_ACCEPT_NONE;
-+		break;
-+	case BNX2X_RX_MODE_NORMAL:
-+		req->rx_mask = VFPF_RX_MASK_ACCEPT_MATCHED_MULTICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_MATCHED_UNICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_BROADCAST;
-+		break;
-+	case BNX2X_RX_MODE_ALLMULTI:
-+		req->rx_mask = VFPF_RX_MASK_ACCEPT_ALL_MULTICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_MATCHED_UNICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_BROADCAST;
-+		break;
-+	case BNX2X_RX_MODE_PROMISC:
-+		req->rx_mask = VFPF_RX_MASK_ACCEPT_ALL_UNICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_ALL_MULTICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_BROADCAST;
-+		break;
-+	default:
-+		BNX2X_ERR("BAD rx mode (%d)\n", mode);
-+		return -EINVAL;
-+	}
-+
-+	req->flags |= VFPF_SET_Q_FILTERS_RX_MASK_CHANGED;
-+	req->vf_qid = 0;
-+
-+	/* add list termination tlv */
-+	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
-+		      sizeof(struct channel_list_end_tlv));
-+
-+	/* output tlvs list */
-+	bnx2x_dp_tlv_list(bp, req);
-+
-+	rc = bnx2x_send_msg2pf(bp, &resp->hdr.status, bp->vf2pf_mbox_mapping);
-+	if (rc)
-+		BNX2X_ERR("Sending a message failed: %d\n", rc);
-+
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		BNX2X_ERR("Set Rx mode failed: %d\n", resp->hdr.status);
-+		return -EINVAL;
-+	}
-+
-+	return rc;
-+}
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-index 80fdfad..95f5c2b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-@@ -53,6 +53,13 @@ struct hw_sb_info {
- #define VFPF_QUEUE_DROP_TTL0		(1 << 2)
- #define VFPF_QUEUE_DROP_UDP_CS_ERR	(1 << 3)
- 
-+#define VFPF_RX_MASK_ACCEPT_NONE		0x00000000
-+#define VFPF_RX_MASK_ACCEPT_MATCHED_UNICAST	0x00000001
-+#define VFPF_RX_MASK_ACCEPT_MATCHED_MULTICAST	0x00000002
-+#define VFPF_RX_MASK_ACCEPT_ALL_UNICAST		0x00000004
-+#define VFPF_RX_MASK_ACCEPT_ALL_MULTICAST	0x00000008
-+#define VFPF_RX_MASK_ACCEPT_BROADCAST		0x00000010
-+
- enum {
- 	PFVF_STATUS_WAITING = 0,
- 	PFVF_STATUS_SUCCESS,
 -- 
 1.7.9.GIT
