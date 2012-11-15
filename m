@@ -1,61 +1,60 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCHES] Networking fixes for -stable.
-Date: Wed, 14 Nov 2012 20:06:24 -0800
-Message-ID: <20121115040624.GA20536@kroah.com>
-References: <20121112.002558.46179003870204789.davem@davemloft.net>
- <1352836286.16264.102.camel@deadeye.wl.decadent.org.uk>
- <20121114.223145.1718907430767854932.davem@davemloft.net>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [net-next:master 30/50] net/ipv6/ip6_tunnel.c:1571:33: sparse:
+ incorrect type in assignment (different base types)
+Date: Thu, 15 Nov 2012 12:53:27 +0800
+Message-ID: <50a47547.LCw999aGW0MWrHAq%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ben@decadent.org.uk, peter.senna@gmail.com, stable@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:48606 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933309Ab2KOEFm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 23:05:42 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so866266pbc.19
-        for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 20:05:41 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20121114.223145.1718907430767854932.davem@davemloft.net>
+Received: from mga03.intel.com ([143.182.124.21]:46402 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992535Ab2KOExn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2012 23:53:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 14, 2012 at 10:31:45PM -0500, David Miller wrote:
-> From: Ben Hutchings <ben@decadent.org.uk>
-> Date: Tue, 13 Nov 2012 19:51:26 +0000
-> 
-> > On Mon, 2012-11-12 at 00:25 -0500, David Miller wrote:
-> >> Please queue up the following networking bug fixes for
-> >> 3.0.x, 3.2.x, 3.4.x, and 3.6.x, respectively.
-> > [...]
-> >> From 2204849a85383fbde75680aa199142abe504adbb Mon Sep 17 00:00:00 2001
-> >> From: Peter Senna Tschudin <peter.senna@gmail.com>
-> >> Date: Sun, 28 Oct 2012 06:12:01 +0000
-> >> Subject: [PATCH 7/9] drivers/net/phy/mdio-bitbang.c: Call mdiobus_unregister
-> >>  before mdiobus_free
-> >> 
-> >> [ Upstream commit aa731872f7d33dcb8b54dad0cfb82d4e4d195d7e ]
-> >> 
-> >> Based on commit b27393aecf66199f5ddad37c302d3e0cfadbe6c0
-> >> 
-> >> Calling mdiobus_free without calling mdiobus_unregister causes
-> >> BUG_ON(). This patch fixes the issue.
-> > [...]
-> > 
-> > This introduces a regresssion, as mdiobus_unregister() is not safe to
-> > call if the bus isn't registered.  Registration is controlled by the
-> > drivers that use mdio-bitbang, and they should take care of
-> > unregistration too - and most of them do.
-> > 
-> > This should be reverted in mainline and not applied to any stable
-> > series.
-> 
-> Ok, I'll revert.
-> 
-> Greg, please toss it from your -stable queue as well.
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   702ed3c1a9dfe4dfe112f13542d0c9d689f5008b
+commit: 0b112457229d8a17198a02f3cca32922d2e374f1 [30/50] ip6tnl: add support of link creation via rtnl
 
-Now tossed, thanks.
 
-greg k-h
+sparse warnings:
+
++ net/ipv6/ip6_tunnel.c:1571:33: sparse: incorrect type in assignment (different base types)
+net/ipv6/ip6_tunnel.c:1571:33:    expected restricted __be32 [usertype] flowinfo
+net/ipv6/ip6_tunnel.c:1571:33:    got unsigned int
+
+vim +1571 net/ipv6/ip6_tunnel.c
+
+0b112457 Nicolas Dichtel 2012-11-14  1555  
+0b112457 Nicolas Dichtel 2012-11-14  1556  	if (data[IFLA_IPTUN_LOCAL])
+0b112457 Nicolas Dichtel 2012-11-14  1557  		nla_memcpy(&parms->laddr, data[IFLA_IPTUN_LOCAL],
+0b112457 Nicolas Dichtel 2012-11-14  1558  			   sizeof(struct in6_addr));
+0b112457 Nicolas Dichtel 2012-11-14  1559  
+0b112457 Nicolas Dichtel 2012-11-14  1560  	if (data[IFLA_IPTUN_REMOTE])
+0b112457 Nicolas Dichtel 2012-11-14  1561  		nla_memcpy(&parms->raddr, data[IFLA_IPTUN_REMOTE],
+0b112457 Nicolas Dichtel 2012-11-14  1562  			   sizeof(struct in6_addr));
+0b112457 Nicolas Dichtel 2012-11-14  1563  
+0b112457 Nicolas Dichtel 2012-11-14  1564  	if (data[IFLA_IPTUN_TTL])
+0b112457 Nicolas Dichtel 2012-11-14  1565  		parms->hop_limit = nla_get_u8(data[IFLA_IPTUN_TTL]);
+0b112457 Nicolas Dichtel 2012-11-14  1566  
+0b112457 Nicolas Dichtel 2012-11-14  1567  	if (data[IFLA_IPTUN_ENCAP_LIMIT])
+0b112457 Nicolas Dichtel 2012-11-14  1568  		parms->encap_limit = nla_get_u8(data[IFLA_IPTUN_ENCAP_LIMIT]);
+0b112457 Nicolas Dichtel 2012-11-14  1569  
+0b112457 Nicolas Dichtel 2012-11-14  1570  	if (data[IFLA_IPTUN_FLOWINFO])
+0b112457 Nicolas Dichtel 2012-11-14 @1571  		parms->flowinfo = nla_get_u32(data[IFLA_IPTUN_FLOWINFO]);
+0b112457 Nicolas Dichtel 2012-11-14  1572  
+0b112457 Nicolas Dichtel 2012-11-14  1573  	if (data[IFLA_IPTUN_FLAGS])
+0b112457 Nicolas Dichtel 2012-11-14  1574  		parms->flags = nla_get_u32(data[IFLA_IPTUN_FLAGS]);
+0b112457 Nicolas Dichtel 2012-11-14  1575  
+0b112457 Nicolas Dichtel 2012-11-14  1576  	if (data[IFLA_IPTUN_PROTO])
+0b112457 Nicolas Dichtel 2012-11-14  1577  		parms->proto = nla_get_u8(data[IFLA_IPTUN_PROTO]);
+0b112457 Nicolas Dichtel 2012-11-14  1578  }
+0b112457 Nicolas Dichtel 2012-11-14  1579  
+
+---
+0-DAY kernel build testing backend         Open Source Technology Center
+Fengguang Wu, Yuanhan Liu                              Intel Corporation
