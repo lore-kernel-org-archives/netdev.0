@@ -1,39 +1,41 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 0/4] Implement persistent grant in xen-netfront/netback
-Date: Thu, 15 Nov 2012 08:56:11 +0000
-Message-ID: <1352969771.3499.34.camel@zakaz.uk.xensource.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next] tunnel: use the correct endian for some fields
+Date: Thu, 15 Nov 2012 09:57:38 +0100
+Message-ID: <50A4AE82.3040602@6wind.com>
+References: <1352969482-29836-1-git-send-email-amwang@redhat.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Annie Li <annie.li@oracle.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:7329 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992885Ab2KOI4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 03:56:13 -0500
-In-Reply-To: <1352962987-541-1-git-send-email-annie.li@oracle.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:62795 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S2992592Ab2KOI5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 03:57:42 -0500
+Received: by mail-wg0-f44.google.com with SMTP id dr13so675736wgb.1
+        for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 00:57:41 -0800 (PST)
+In-Reply-To: <1352969482-29836-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-15 at 07:03 +0000, Annie Li wrote:
-
-> 
-> This patch implements persistent grants for xen-netfront/netback. This
-> mechanism maintains page pools in netback/netfront, these page pools
-> is used to save grant pages which are mapped. This way improve
-> performance which is wasted when doing grant operations. 
-
-Please can you send a patch against xen-unstable.hg to document this new
-protocol variant in xen/include/public/io/netif.h. This header is a bit
-under-documented but lets not let it fall further behind (if you want to
-go further and document the existing features, in the style of the
-current blkif.h, then that would be awesome!).
-
-You may also want to provide a similar patch to Linux's copy which is in
-linux/include/xen/interface/io/netif.h
-
-Ian.
+Le 15/11/2012 09:51, Cong Wang a =C3=A9crit :
+> Fengguang reported:
+>
+> net/ipv6/ip6_tunnel.c:1571:33: sparse: incorrect type in assignment (=
+different base types)
+> net/ipv6/ip6_tunnel.c:1571:33:    expected restricted __be32 [usertyp=
+e] flowinfo
+> net/ipv6/ip6_tunnel.c:1571:33:    got unsigned int
+>
+> for these fields, we need to use the correct endian wrapers.
+>
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+Just one minute before my patch.
+Your patch does not fix all warnings (i_flags & SIT_ISATAP in ip6_tunne=
+l.c).
