@@ -1,55 +1,54 @@
-From: Annie Li <annie.li@oracle.com>
-Subject: [PATCH 4/4] fix code indent issue in xen-netfront.
-Date: Thu, 15 Nov 2012 15:05:33 +0800
-Message-ID: <1352963133-657-1-git-send-email-annie.li@oracle.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
-Cc: annie.li@oracle.com
-To: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	konrad.wilk@oracle.com, Ian.Campbell@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:37253 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753895Ab2KOHGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 02:06:47 -0500
-In-Reply-To: <1352962987-541-1-git-send-email-annie.li@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Nithin Sujir" <nsujir@broadcom.com>
+Subject: RE: Latest 3.6.6 are not compiling due tg3 network driver,
+ hwmon_device_unregister
+Date: Thu, 15 Nov 2012 07:22:20 +0000
+Message-ID: <DAAFBCC105999F468732FA900576CB4510069F69@IRVEXCHMB08.corp.ad.broadcom.com>
+References: <8b566c4a9ee622737212dc17291ee238@visp.net.lb>
+ <50A4606D.4020402@broadcom.com>
+ <alpine.DEB.2.00.1211141929510.14414@chino.kir.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Denys Fedoryshchenko" <denys@visp.net.lb>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "David Rientjes" <rientjes@google.com>,
+	"Paul Gortmaker" <paul.gortmaker@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1211141929510.14414@chino.kir.corp.google.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Annie Li <annie.li@oracle.com>
----
- drivers/net/xen-netfront.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 17b81c0..66bb29f 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -202,7 +202,7 @@ static struct sk_buff *xennet_get_rx_skb(struct netfront_info *np,
- }
- 
- static grant_ref_t xennet_get_rx_ref(struct netfront_info *np,
--					    RING_IDX ri)
-+				     RING_IDX ri)
- {
- 	int i = xennet_rxidx(ri);
- 	grant_ref_t ref = np->grant_rx_ref[i];
-@@ -1420,7 +1420,7 @@ static void xennet_uninit(struct net_device *dev)
- }
- 
- static netdev_features_t xennet_fix_features(struct net_device *dev,
--	netdev_features_t features)
-+					     netdev_features_t features)
- {
- 	struct netfront_info *np = netdev_priv(dev);
- 	int val;
-@@ -1447,7 +1447,7 @@ static netdev_features_t xennet_fix_features(struct net_device *dev,
- }
- 
- static int xennet_set_features(struct net_device *dev,
--	netdev_features_t features)
-+			       netdev_features_t features)
- {
- 	if (!(features & NETIF_F_SG) && dev->mtu > ETH_DATA_LEN) {
- 		netdev_info(dev, "Reducing MTU because no SG offload");
--- 
-1.7.3.4
+
+> -----Original Message-----
+> From: David Rientjes [mailto:rientjes@google.com]
+> Sent: Wednesday, November 14, 2012 7:31 PM
+> To: Nithin Sujir; Paul Gortmaker
+> Cc: Denys Fedoryshchenko; Michael Chan; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org
+> Subject: Re: Latest 3.6.6 are not compiling due tg3 network driver,
+> hwmon_device_unregister
+> 
+> On Wed, 14 Nov 2012, Nithin Nayak Sujir wrote:
+> 
+> > This was fixed by
+> >
+> > commit de0a41484c47d783dd4d442914815076aa2caac2
+> > Author: Paul Gortmaker <paul.gortmaker@windriver.com>
+> > Date:   Mon Oct 1 11:43:49 2012 -0400
+> >
+> >     tg3: unconditionally select HWMON support when tg3 is enabled.
+> >
+> 
+> Would you mind submitting this for stable by following the procedure
+> described in Documentation/stable_kernel_rules.txt?
+
+
+Seems to have been taken into stable already. 
+http://git.kernel.org/?p=linux/kernel/git/stable/linux-stable.git;a=commitdiff;h=aecdc33e111b2c447b622e287c6003726daa1426
+
+Nithin.
