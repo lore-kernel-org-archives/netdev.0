@@ -1,52 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: GRO + splice panics in 3.7.0-rc5
-Date: Thu, 15 Nov 2012 15:49:04 -0800
-Message-ID: <1353023344.10798.8.camel@edumazet-glaptop>
-References: <20121115222812.GA647@1wt.eu>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] tcp: handle tcp_net_metrics_init() order-5 memory
+ allocation failures
+Date: Thu, 15 Nov 2012 15:55:52 -0800
+Message-ID: <1353023752.24310.1.camel@joe-AO722>
+References: <1353022864.10798.6.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Julien Tinnes <jln@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:43059 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751456Ab2KOXtG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 18:49:06 -0500
-Received: by mail-da0-f46.google.com with SMTP id n41so882812dak.19
-        for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 15:49:06 -0800 (PST)
-In-Reply-To: <20121115222812.GA647@1wt.eu>
+Received: from perches-mx.perches.com ([206.117.179.246]:41901 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751283Ab2KOXzw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 18:55:52 -0500
+In-Reply-To: <1353022864.10798.6.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-15 at 23:28 +0100, Willy Tarreau wrote:
-> Hello,
+On Thu, 2012-11-15 at 15:41 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> I was just about to make a quick comparison between LRO and GRO in
-> 3.7.0-rc5 to see if LRO still had the big advantage I've always observed,
-> but I failed the test because as soon as I enable LRO + splice, the kernel
-> panics and reboots.
+> order-5 allocations can fail with current kernels, we should
+> try to reduce allocation sizes to allow network namespace
+> creation.
 > 
-> I could not yet manage to catch the panic output, I could just reliably
-> reproduce it, it crashes instantly.
+> Reported-by: Julien Tinnes <jln@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/ipv4/tcp_metrics.c |   13 ++++++++-----
+>  1 file changed, 8 insertions(+), 5 deletions(-)
 > 
-> All I can say at the moment is the following :
->   - test consist in forwarding HTTP traffic between two NICs via haproxy
->   - driver used was myri10ge
->   - LRO + recv+send : OK
->   - LRO + splice : OK
->   - GRO + recv+send : OK
->   - GRO + splice : panic
->   - no such problem was observed in 3.6.6 so I think this is a recent
->     regression.
-> 
-> I'll go back digging for more information, but as I'm used to often see
-> Eric suggest the right candidates for reverting, I wanted to report the
-> issue here in case there are easy ones to try first.
+> diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+> index 53bc584..15e93c4 100644
+> --- a/net/ipv4/tcp_metrics.c
+> +++ b/net/ipv4/tcp_metrics.c
+> @@ -1030,14 +1030,17 @@ static int __net_init tcp_net_metrics_init(struct net *net)
+>  		else
+>  			slots = 8 * 1024;
+>  	}
+> -
+> +retry:
+>  	net->ipv4.tcp_metrics_hash_log = order_base_2(slots);
+>  	size = sizeof(struct tcpm_hash_bucket) << net->ipv4.tcp_metrics_hash_log;
+>  
+> -	net->ipv4.tcp_metrics_hash = kzalloc(size, GFP_KERNEL);
+> -	if (!net->ipv4.tcp_metrics_hash)
+> -		return -ENOMEM;
+> -
+> +	net->ipv4.tcp_metrics_hash = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
+> +	if (!net->ipv4.tcp_metrics_hash) {
+> +		if (slots <= 16)
+> +			return -ENOMEM;
 
-Hi Willy
-
-Nothing particular comes to mind, there were a lot of recent changes
-that could trigger this kind of bug.
-
-A stack trace would be useful of course ;)
+maybe readd the warning for OOM reporting here?
