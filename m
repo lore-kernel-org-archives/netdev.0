@@ -1,32 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/10] Add support of tunnel management via
- rtnetlink
-Date: Wed, 14 Nov 2012 22:03:02 -0500 (EST)
-Message-ID: <20121114.220302.223301083420624516.davem@davemloft.net>
-References: <1352906047-11604-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Latest 3.6.6 are not compiling due tg3 network driver,
+ =?UTF-8?Q?hwmon=5Fdevice=5Funregister?=
+Date: Thu, 15 Nov 2012 05:03:48 +0200
+Message-ID: <8b566c4a9ee622737212dc17291ee238@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38758 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933136Ab2KODDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 22:03:04 -0500
-In-Reply-To: <1352906047-11604-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 14 Nov 2012 16:13:57 +0100
+Hi
 
-> The goal of this serie is to add the support of ipip, sit and ip6tnl tunnels
-> via rtnetlink.
-> 
-> The patch against iproute2 will be sent once the patches are included and
-> net-next merged. I can send it on demand.
+During compiling i am getting that:
 
-Great work, all applied to net-next.
+drivers/built-in.o: In function `tg3_close':
+tg3.c:(.text+0x12902e): undefined reference to 
+`hwmon_device_unregister'
+drivers/built-in.o: In function `tg3_hwmon_open':
+tg3.c:(.text+0x12ae09): undefined reference to `hwmon_device_register'
 
-Thanks Nicolas!
+Kernel config are at http://nuclearcat.com/config-tg3.txt  , but i 
+noticed this error are appearing at x86, x64 kernels, probably also 
+other 3.6.x series kernels.
+Disabling TG3 driver helps, but i believe it is not a solution.
+
+---
+Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
