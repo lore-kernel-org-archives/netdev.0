@@ -1,70 +1,49 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 3.7.0-rc4] of/net/mdio-gpio: Fix pdev->id issue when using devicetrees.
-Date: Thu, 15 Nov 2012 16:59:49 +0000
-Message-ID: <20121115165949.942993E194B@localhost>
-References: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com>
-Cc: devicetree-discuss@lists.ozlabs.org, davem@davemloft.net
-To: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>,
-	netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next] tunnel: use the correct endian for some fields
+Date: Thu, 15 Nov 2012 09:08:21 -0800
+Message-ID: <20121115090821.31b41e95@s6510.linuxnetplumber.net>
+References: <1352969482-29836-1-git-send-email-amwang@redhat.com>
+	<50A4AE82.3040602@6wind.com>
+	<1352970275.31884.37.camel@cr0>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:44100 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1768440Ab2KOQ7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 11:59:54 -0500
-Received: by mail-wg0-f44.google.com with SMTP id dr13so939790wgb.1
-        for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 08:59:53 -0800 (PST)
-In-Reply-To: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com>
+Received: from mail.vyatta.com ([76.74.103.46]:36424 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1768440Ab2KORIY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 12:08:24 -0500
+In-Reply-To: <1352970275.31884.37.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Nov 2012 14:26:13 +0000, Srinivas KANDAGATLA <srinivas.kandagatla@st.com> wrote:
-> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-> 
-> When the mdio-gpio driver is probed via device trees, the platform
-> device id is set as -1, However the id is re-used in the code while
-> creating an mdio bus.
-> So, setting up the id via aliases from device tree is a sensible
-> solution to fix this issue.
-> 
-> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-> ---
->  .../devicetree/bindings/net/mdio-gpio.txt          |    9 ++++++++-
->  drivers/net/phy/mdio-gpio.c                        |    1 +
->  2 files changed, 9 insertions(+), 1 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/mdio-gpio.txt b/Documentation/devicetree/bindings/net/mdio-gpio.txt
-> index bc95495..c79bab0 100644
-> --- a/Documentation/devicetree/bindings/net/mdio-gpio.txt
-> +++ b/Documentation/devicetree/bindings/net/mdio-gpio.txt
-> @@ -8,9 +8,16 @@ gpios property as described in section VIII.1 in the following order:
->  
->  MDC, MDIO.
->  
-> +Note: Each gpio-mdio bus should have an alias correctly numbered in "aliases"
-> +node.
-> +
->  Example:
->  
-> -mdio {
-> +aliases {
-> +	mdio-gpio0 = <&mdio0>;
-> +};
-> +
-> +mdio0: mdio {
->  	compatible = "virtual,mdio-gpio";
->  	#address-cells = <1>;
->  	#size-cells = <0>;
-> diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-> index 899274f..e3f3115 100644
-> --- a/drivers/net/phy/mdio-gpio.c
-> +++ b/drivers/net/phy/mdio-gpio.c
-> @@ -56,6 +56,7 @@ static void *mdio_gpio_of_get_data(struct platform_device *pdev)
->  	if (ret < 0)
->  		return NULL;
->  	pdata->mdio = ret;
-> +	pdev->id = of_alias_get_id(np, "mdio-gpio");
+On Thu, 15 Nov 2012 17:04:35 +0800
+Cong Wang <amwang@redhat.com> wrote:
 
-This is actually illegal. Once a device is registered, pdev->id must not
-be changed. Same goes for pdev->name and pdev->dev.platform_data.
+> On Thu, 2012-11-15 at 09:57 +0100, Nicolas Dichtel wrote:
+> > Le 15/11/2012 09:51, Cong Wang a =C3=A9crit :
+> > > Fengguang reported:
+> > >
+> > > net/ipv6/ip6_tunnel.c:1571:33: sparse: incorrect type in assignme=
+nt (different base types)
+> > > net/ipv6/ip6_tunnel.c:1571:33:    expected restricted __be32 [use=
+rtype] flowinfo
+> > > net/ipv6/ip6_tunnel.c:1571:33:    got unsigned int
+> > >
+> > > for these fields, we need to use the correct endian wrapers.
+> > >
+> > > Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> > > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> > > Cc: David S. Miller <davem@davemloft.net>
+> > > Signed-off-by: Cong Wang <amwang@redhat.com>
+> > Just one minute before my patch.
+> > Your patch does not fix all warnings (i_flags & SIT_ISATAP in ip6_t=
+unnel.c).
+>=20
+> Yeah, then ignore this patch. :)
 
-g.
+i_flags is a mess right now, it mixed host and bigendian values in the
+same field. Also SIT and VTI flags overlap.
