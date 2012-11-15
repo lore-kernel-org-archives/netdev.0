@@ -1,43 +1,30 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: GRO + splice panics in 3.7.0-rc5
-Date: Thu, 15 Nov 2012 23:28:12 +0100
-Message-ID: <20121115222812.GA647@1wt.eu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 00/14] Always build GSO/GRO functionality into the
+ kernel
+Date: Thu, 15 Nov 2012 17:42:05 -0500 (EST)
+Message-ID: <20121115.174205.2002769827912724231.davem@davemloft.net>
+References: <1353005363-6974-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:35780 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750851Ab2KOW2S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 17:28:18 -0500
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([149.20.54.216]:49068 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740Ab2KOWmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 17:42:07 -0500
+In-Reply-To: <1353005363-6974-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-I was just about to make a quick comparison between LRO and GRO in
-3.7.0-rc5 to see if LRO still had the big advantage I've always observed,
-but I failed the test because as soon as I enable LRO + splice, the kernel
-panics and reboots.
+All applied to net-next, but there were some minor conflicts (an
+IS_ENABLED() conversion happened in ip6_output.c in net-next but the
+context in your patch didn't have it) and git warnings (trailing
+whitespace in the final patch).
 
-I could not yet manage to catch the panic output, I could just reliably
-reproduce it, it crashes instantly.
+I fixed them all up, but this is something you can easily take care
+of yourself in the future.
 
-All I can say at the moment is the following :
-  - test consist in forwarding HTTP traffic between two NICs via haproxy
-  - driver used was myri10ge
-  - LRO + recv+send : OK
-  - LRO + splice : OK
-  - GRO + recv+send : OK
-  - GRO + splice : panic
-  - no such problem was observed in 3.6.6 so I think this is a recent
-    regression.
-
-I'll go back digging for more information, but as I'm used to often see
-Eric suggest the right candidates for reverting, I wanted to report the
-issue here in case there are easy ones to try first.
-
-Thanks,
-Willy
+Thanks.
