@@ -1,350 +1,70 @@
-From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH v2 net-next 13/22] bnx2x: Support of PF driver of a VF
- init request
-Date: Thu, 15 Nov 2012 18:47:38 +0200
-Message-ID: <1352998067-9707-14-git-send-email-ariele@broadcom.com>
-References: <1352998067-9707-1-git-send-email-ariele@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 3.7.0-rc4] of/net/mdio-gpio: Fix pdev->id issue when using devicetrees.
+Date: Thu, 15 Nov 2012 16:59:49 +0000
+Message-ID: <20121115165949.942993E194B@localhost>
+References: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com>
+Cc: devicetree-discuss@lists.ozlabs.org, davem@davemloft.net
+To: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1538 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1768460Ab2KOQpp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 11:45:45 -0500
-In-Reply-To: <1352998067-9707-1-git-send-email-ariele@broadcom.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:44100 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1768440Ab2KOQ7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 11:59:54 -0500
+Received: by mail-wg0-f44.google.com with SMTP id dr13so939790wgb.1
+        for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 08:59:53 -0800 (PST)
+In-Reply-To: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VF driver will send an 'init' request as part of its nic load
-flow. This message is used by the VF to publish the GPA's of its
-status blocks, slow path ring and statistics buffer.
-The PF driver notes all this down in the VF database, and also uses
-this message to transfer the VF to VF_INIT state internally.
+On Tue, 13 Nov 2012 14:26:13 +0000, Srinivas KANDAGATLA <srinivas.kandagatla@st.com> wrote:
+> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+> 
+> When the mdio-gpio driver is probed via device trees, the platform
+> device id is set as -1, However the id is re-used in the code while
+> creating an mdio bus.
+> So, setting up the id via aliases from device tree is a sensible
+> solution to fix this issue.
+> 
+> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+> ---
+>  .../devicetree/bindings/net/mdio-gpio.txt          |    9 ++++++++-
+>  drivers/net/phy/mdio-gpio.c                        |    1 +
+>  2 files changed, 9 insertions(+), 1 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/mdio-gpio.txt b/Documentation/devicetree/bindings/net/mdio-gpio.txt
+> index bc95495..c79bab0 100644
+> --- a/Documentation/devicetree/bindings/net/mdio-gpio.txt
+> +++ b/Documentation/devicetree/bindings/net/mdio-gpio.txt
+> @@ -8,9 +8,16 @@ gpios property as described in section VIII.1 in the following order:
+>  
+>  MDC, MDIO.
+>  
+> +Note: Each gpio-mdio bus should have an alias correctly numbered in "aliases"
+> +node.
+> +
+>  Example:
+>  
+> -mdio {
+> +aliases {
+> +	mdio-gpio0 = <&mdio0>;
+> +};
+> +
+> +mdio0: mdio {
+>  	compatible = "virtual,mdio-gpio";
+>  	#address-cells = <1>;
+>  	#size-cells = <0>;
+> diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+> index 899274f..e3f3115 100644
+> --- a/drivers/net/phy/mdio-gpio.c
+> +++ b/drivers/net/phy/mdio-gpio.c
+> @@ -56,6 +56,7 @@ static void *mdio_gpio_of_get_data(struct platform_device *pdev)
+>  	if (ret < 0)
+>  		return NULL;
+>  	pdata->mdio = ret;
+> +	pdev->id = of_alias_get_id(np, "mdio-gpio");
 
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |    2 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |    2 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h   |    4 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |  159 +++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |    7 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |   20 +++
- 6 files changed, 193 insertions(+), 1 deletions(-)
+This is actually illegal. Once a device is registered, pdev->id must not
+be changed. Same goes for pdev->name and pdev->dev.platform_data.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 52012f2..4d89ef6 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1853,6 +1853,8 @@ int bnx2x_del_all_macs(struct bnx2x *bp,
- 
- /* Init Function API  */
- void bnx2x_func_init(struct bnx2x *bp, struct bnx2x_func_init_params *p);
-+void bnx2x_init_sb(struct bnx2x *bp, dma_addr_t mapping, int vfid,
-+			  u8 vf_valid, int fw_sb_id, int igu_sb_id);
- u32 bnx2x_get_pretend_reg(struct bnx2x *bp);
- int bnx2x_get_gpio(struct bnx2x *bp, int gpio_num, u8 port);
- int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode, u8 port);
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index cd80552..7c2fc15 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -5402,7 +5402,7 @@ static void bnx2x_map_sb_state_machines(struct hc_index_data *index_data)
- 		SM_TX_ID << HC_INDEX_DATA_SM_ID_SHIFT;
- }
- 
--static void bnx2x_init_sb(struct bnx2x *bp, dma_addr_t mapping, int vfid,
-+void bnx2x_init_sb(struct bnx2x *bp, dma_addr_t mapping, int vfid,
- 			  u8 vf_valid, int fw_sb_id, int igu_sb_id)
- {
- 	int igu_seg_id;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index 50d825e..3997f63 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -3726,6 +3726,10 @@
- #define PXP_REG_HST_DISCARD_INTERNAL_WRITES_STATUS		 0x10309c
- /* [WB 160] Used for initialization of the inbound interrupts memory */
- #define PXP_REG_HST_INBOUND_INT 				 0x103800
-+/* [RW 7] Indirect access to the permission table. The fields are : {Valid;
-+ * VFID[5:0]}
-+ */
-+#define PXP_REG_HST_ZONE_PERMISSION_TABLE			 0x103400
- /* [RW 32] Interrupt mask register #0 read/write */
- #define PXP_REG_PXP_INT_MASK_0					 0x103074
- #define PXP_REG_PXP_INT_MASK_1					 0x103084
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index b91cb00..6141c73 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -63,6 +63,40 @@ struct bnx2x_virtf *bnx2x_vf_by_abs_fid(struct bnx2x *bp, u16 abs_vfid)
- 	return (idx < BNX2X_NR_VIRTFN(bp)) ? BP_VF(bp, idx) : NULL;
- }
- 
-+static void bnx2x_vf_igu_ack_sb(struct bnx2x *bp, struct bnx2x_virtf *vf,
-+				u8 igu_sb_id, u8 segment, u16 index, u8 op,
-+				u8 update)
-+{
-+	/* acking a VF sb through the PF - use the GRC */
-+	u32 ctl;
-+	u32 igu_addr_data = IGU_REG_COMMAND_REG_32LSB_DATA;
-+	u32 igu_addr_ctl = IGU_REG_COMMAND_REG_CTRL;
-+	u32 func_encode = vf->abs_vfid;
-+	u32 addr_encode = IGU_CMD_E2_PROD_UPD_BASE + igu_sb_id;
-+	struct igu_regular cmd_data = {0};
-+
-+	cmd_data.sb_id_and_flags =
-+			((index << IGU_REGULAR_SB_INDEX_SHIFT) |
-+			 (segment << IGU_REGULAR_SEGMENT_ACCESS_SHIFT) |
-+			 (update << IGU_REGULAR_BUPDATE_SHIFT) |
-+			 (op << IGU_REGULAR_ENABLE_INT_SHIFT));
-+
-+	ctl = addr_encode << IGU_CTRL_REG_ADDRESS_SHIFT		|
-+	      func_encode << IGU_CTRL_REG_FID_SHIFT		|
-+	      IGU_CTRL_CMD_TYPE_WR << IGU_CTRL_REG_TYPE_SHIFT;
-+
-+	DP(NETIF_MSG_HW, "write 0x%08x to IGU(via GRC) addr 0x%x\n",
-+	   cmd_data.sb_id_and_flags, igu_addr_data);
-+	REG_WR(bp, igu_addr_data, cmd_data.sb_id_and_flags);
-+	mmiowb();
-+	barrier();
-+
-+	DP(NETIF_MSG_HW, "write 0x%08x to IGU(via GRC) addr 0x%x\n",
-+	   ctl, igu_addr_ctl);
-+	REG_WR(bp, igu_addr_ctl, ctl);
-+	mmiowb();
-+	barrier();
-+}
- static int bnx2x_ari_enabled(struct pci_dev *dev)
- {
- 	return dev->bus->self && dev->bus->self->ari_enabled;
-@@ -355,6 +389,52 @@ static void bnx2x_vf_pglue_clear_err(struct bnx2x *bp, u8 abs_vfid)
- 	REG_WR(bp, was_err_reg, 1 << (abs_vfid & 0x1f));
- }
- 
-+static void bnx2x_vf_igu_reset(struct bnx2x *bp, struct bnx2x_virtf *vf)
-+{
-+	int i;
-+	u32 val;
-+
-+	/* Set VF masks and configuration - pretend */
-+	bnx2x_pretend_func(bp, HW_VF_HANDLE(bp, vf->abs_vfid));
-+
-+	REG_WR(bp, IGU_REG_SB_INT_BEFORE_MASK_LSB, 0);
-+	REG_WR(bp, IGU_REG_SB_INT_BEFORE_MASK_MSB, 0);
-+	REG_WR(bp, IGU_REG_SB_MASK_LSB, 0);
-+	REG_WR(bp, IGU_REG_SB_MASK_MSB, 0);
-+	REG_WR(bp, IGU_REG_PBA_STATUS_LSB, 0);
-+	REG_WR(bp, IGU_REG_PBA_STATUS_MSB, 0);
-+
-+	val = REG_RD(bp, IGU_REG_VF_CONFIGURATION);
-+	val |= (IGU_VF_CONF_FUNC_EN | IGU_VF_CONF_MSI_MSIX_EN);
-+	if (vf->cfg_flags & VF_CFG_INT_SIMD)
-+		val |= IGU_VF_CONF_SINGLE_ISR_EN;
-+	val &= ~IGU_VF_CONF_PARENT_MASK;
-+	val |= BP_FUNC(bp) << IGU_VF_CONF_PARENT_SHIFT;	/* parent PF */
-+	REG_WR(bp, IGU_REG_VF_CONFIGURATION, val);
-+
-+	DP(BNX2X_MSG_IOV,
-+	   "value in IGU_REG_VF_CONFIGURATION of vf %d after write %x\n",
-+	   vf->abs_vfid, REG_RD(bp, IGU_REG_VF_CONFIGURATION));
-+
-+	bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
-+
-+	/* iterate over all queues, clear sb consumer */
-+	for (i = 0; i < vf_sb_count(vf); i++) {
-+		u8 igu_sb_id = vf_igu_sb(vf, i);
-+
-+		/* zero prod memory */
-+		REG_WR(bp, IGU_REG_PROD_CONS_MEMORY + igu_sb_id * 4, 0);
-+
-+		/* clear sb state machine */
-+		bnx2x_igu_clear_sb_gen(bp, vf->abs_vfid, igu_sb_id,
-+				       false /* VF */);
-+
-+		/* disable + update */
-+		bnx2x_vf_igu_ack_sb(bp, vf, igu_sb_id, USTORM_ID, 0,
-+				    IGU_INT_DISABLE, 1);
-+	}
-+}
-+
- void bnx2x_vf_enable_access(struct bnx2x *bp, u8 abs_vfid)
- {
- 	/* set the VF-PF association in the FW */
-@@ -372,6 +452,17 @@ void bnx2x_vf_enable_access(struct bnx2x *bp, u8 abs_vfid)
- 	bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
- }
- 
-+static void bnx2x_vf_enable_traffic(struct bnx2x *bp, struct bnx2x_virtf *vf)
-+{
-+	/* Reset vf in IGU  interrupts are still disabled */
-+	bnx2x_vf_igu_reset(bp, vf);
-+
-+	/* pretend to enable the vf with the PBF */
-+	bnx2x_pretend_func(bp, HW_VF_HANDLE(bp, vf->abs_vfid));
-+	REG_WR(bp, PBF_REG_DISABLE_VF, 0);
-+	bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
-+}
-+
- static u8 bnx2x_vf_is_pcie_pending(struct bnx2x *bp, u8 abs_vfid)
- {
- 	struct pci_dev *dev;
-@@ -988,6 +1079,13 @@ void bnx2x_iov_sp_task(struct bnx2x *bp)
- 		}
- 	}
- }
-+static void bnx2x_vf_qtbl_set_q(struct bnx2x *bp, u8 abs_vfid, u8 qid,
-+				u8 enable)
-+{
-+	u32 reg = PXP_REG_HST_ZONE_PERMISSION_TABLE + qid * 4;
-+	u32 val = enable ? (abs_vfid | (1 << 6)) : 0;
-+	REG_WR(bp, reg, val);
-+}
- 
- u8 bnx2x_vf_max_queue_cnt(struct bnx2x *bp, struct bnx2x_virtf *vf)
- {
-@@ -1099,6 +1197,67 @@ int bnx2x_vf_acquire(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 	return 0;
- }
- 
-+int bnx2x_vf_init(struct bnx2x *bp, struct bnx2x_virtf *vf, dma_addr_t *sb_map)
-+{
-+	struct bnx2x_func_init_params func_init = {0};
-+	u16 flags = 0;
-+	int i;
-+
-+	/* the sb resources are initialized at this point, do the
-+	 * FW/HW initializations
-+	 */
-+	for_each_vf_sb(vf, i)
-+		bnx2x_init_sb(bp, (dma_addr_t)sb_map[i], vf->abs_vfid, true,
-+			      vf_igu_sb(vf, i), vf_igu_sb(vf, i));
-+
-+	/* Sanity checks */
-+	if (vf->state != VF_ACQUIRED) {
-+		DP(BNX2X_MSG_IOV, "VF[%d] is not in VF_ACQUIRED, but %d\n",
-+		   vf->abs_vfid, vf->state);
-+		return -EINVAL;
-+	}
-+	/* FLR cleanup epilogue */
-+	if (bnx2x_vf_flr_clnup_epilog(bp, vf->abs_vfid))
-+		return -EBUSY;
-+
-+	/* reset IGU VF statistics: MSIX */
-+	REG_WR(bp, IGU_REG_STATISTIC_NUM_MESSAGE_SENT + vf->abs_vfid * 4 , 0);
-+
-+	/* vf init */
-+	if (vf->cfg_flags & VF_CFG_STATS)
-+		flags |= (FUNC_FLG_STATS | FUNC_FLG_SPQ);
-+
-+	if (vf->cfg_flags & VF_CFG_TPA)
-+		flags |= FUNC_FLG_TPA;
-+
-+	if (is_vf_multi(vf))
-+		flags |= FUNC_FLG_RSS;
-+
-+	/* function setup */
-+	func_init.func_flgs = flags;
-+	func_init.pf_id = BP_FUNC(bp);
-+	func_init.func_id = FW_VF_HANDLE(vf->abs_vfid);
-+	func_init.fw_stat_map = vf->fw_stat_map;
-+	func_init.spq_map = vf->spq_map;
-+	func_init.spq_prod = 0;
-+	bnx2x_func_init(bp, &func_init);
-+
-+	/* Configure RSS TBD */
-+
-+	/* Enable the vf */
-+	bnx2x_vf_enable_access(bp, vf->abs_vfid);
-+	bnx2x_vf_enable_traffic(bp, vf);
-+
-+	/* queue protection table */
-+	for_each_vfq(vf, i)
-+		bnx2x_vf_qtbl_set_q(bp, vf->abs_vfid,
-+				    vfq_qzone_id(vf, vfq_get(vf, i)), true);
-+
-+	vf->state = VF_ENABLED;
-+
-+	return 0;
-+}
-+
- void bnx2x_lock_vf_pf_channel(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 			      enum channel_tlvs tlv)
- {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index a6ae7f0..a3a8240 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -269,6 +269,8 @@ struct bnx2x_virtf {
- #define for_each_vf_sb(vf, var) \
- 		for ((var) = 0; (var) < vf_sb_count(vf); (var)++)
- 
-+#define is_vf_multi(vf)	(vf_rxq_count(vf) > 1)
-+
- #define HW_VF_HANDLE(bp, abs_vfid) \
- 	(u16)(BP_ABS_FUNC((bp)) | (1<<3) |  ((u16)(abs_vfid) << 4))
- 
-@@ -431,6 +433,11 @@ void bnx2x_vf_enable_mbx(struct bnx2x *bp, u8 abs_vfid);
- int bnx2x_vf_acquire(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 			  struct vf_pf_resc_request *resc);
- 
-+/* init */
-+int bnx2x_vf_init(struct bnx2x *bp, struct bnx2x_virtf *vf,
-+		  dma_addr_t *sb_map);
-+
-+
- static inline struct bnx2x_vfop *bnx2x_vfop_cur(struct bnx2x *bp,
- 						struct bnx2x_virtf *vf)
- {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-index 01ee50a..1dfe734 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-@@ -22,6 +22,8 @@
-  */
- #include "bnx2x.h"
- #include "bnx2x_sriov.h"
-+#include <linux/crc32.h>
-+
- /* place a given tlv on the tlv buffer at a given offset */
- void bnx2x_add_tlv(struct bnx2x *bp, void *tlvs_list, u16 offset, u16 type,
- 		   u16 length)
-@@ -360,6 +362,21 @@ static void bnx2x_vf_mbx_acquire(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 	bnx2x_vf_mbx_acquire_resp(bp, vf, mbx, rc);
- }
- 
-+static void bnx2x_vf_mbx_init_vf(struct bnx2x *bp, struct bnx2x_virtf *vf,
-+			      struct bnx2x_vf_mbx *mbx)
-+{
-+	struct vfpf_init_tlv *init = &mbx->msg->req.init;
-+
-+	/* record ghost addresses from vf message */
-+	vf->spq_map = init->spq_addr;
-+	vf->fw_stat_map = init->stats_addr;
-+
-+	vf->op_rc = bnx2x_vf_init(bp, vf, (dma_addr_t *)init->sb_addr);
-+
-+	/* response */
-+	bnx2x_vf_mbx_resp(bp, vf);
-+}
-+
- /* dispatch request */
- static void bnx2x_vf_mbx_request(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 				  struct bnx2x_vf_mbx *mbx)
-@@ -379,6 +396,9 @@ static void bnx2x_vf_mbx_request(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 		case CHANNEL_TLV_ACQUIRE:
- 			bnx2x_vf_mbx_acquire(bp, vf, mbx);
- 			break;
-+		case CHANNEL_TLV_INIT:
-+			bnx2x_vf_mbx_init_vf(bp, vf, mbx);
-+			break;
- 		}
- 
- 	/* unknown TLV - this may belong to a VF driver from the future - a
--- 
-1.7.9.GIT
+g.
