@@ -1,102 +1,78 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2012-11-15
-Date: Thu, 15 Nov 2012 21:30:27 +0100
-Message-ID: <50A550E3.4060600@pengutronix.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: gro vs vlan in myri10ge
+Date: Thu, 15 Nov 2012 20:39:56 +0000
+Message-ID: <1353011996.4867.74.camel@deadeye.wl.decadent.org.uk>
+References: <509C6858.6010105@myri.com>
+	 <1352428870.19779.496.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigA3B35DEF76B4057DA08160B3"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Gallatin <gallatin@myri.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:29310 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750871Ab2KOU7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 15:59:23 -0500
+In-Reply-To: <1352428870.19779.496.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigA3B35DEF76B4057DA08160B3
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2012-11-08 at 18:41 -0800, Eric Dumazet wrote:
+> On Thu, 2012-11-08 at 21:20 -0500, Andrew Gallatin wrote:
+> > Hi,
+> > 
+> > I've wanted to convert myri10ge from LRO to GRO for quite a while.
+> > The problem I'm facing is that the NIC cannot perform hardware vlan
+> > tag offload, so GRO performance is far below LRO performance when
+> > receiving vlan tagged TCP traffic.
 
-Hello David
+Thanks for the reminder; I need to deal with this in sfc as well.
 
-this pull request is for net-next, for the v3.8 release cycle. Muhammad
-Ghias added support another board to the plx_pci sja1000 driver.
-Matthias Fuchs improved the esd_usb2 driver with listen-only mode and
-CAN-USB/Micro support. Andreas Larsson contributed a driver for the
-GRHCAN CAN IP-Core
+> > If a vlan tagged frame is passed to lro_receive_frags(), inet_lro will
+> > look at the encapsulated IPv4 frame and TCP aggregation will succeed.
+> > However, it appears that GRO will not do this.  When I patch the
+> > driver to use GRO, and configure a vlan interface, I see high CPU
+> > utilization and poor bandwidth when I'm receiving a netperf TCP stream
+> > on the vlan interface.  If I use LRO in an unpatched driver, then I
+> > see good receive performance in the same scenario.
+> > 
+> > What is the best way to "fix" this?
+> > 
+> > Unless I'm just using GRO wrong, it seems that the simplest thing for
+> > me to do is to claim NETIF_F_HW_VLAN_RX, but pop the tags in the
+> > driver so as to allow myri10ge to pass up a non-encapsulated frame the
+> > same way that (nearly?) every other 10GbE NIC does.  I've got a quick
+> > and dirty patch that confirms doing the vtag pop in the driver gives
+> > me roughly the same performance with GRO as I used to have with LRO.
+> > 
+> > Is this (popping vlan tags in the driver) acceptable, or is it
+> > too much of a layering violation?
+> 
+> Given GRO assumes NIC does hardware vlan offloading, I guess
+> I would chose to do that.
 
-regards,
-Marc
+Really, after all the changes in 2.6.37 to unify behaviour between the
+offloaded and non-offloaded paths?
 
----
+> It seems unfortunate to add vlan decap in GRO path, already very
+> complex.
 
-The following changes since commit 702ed3c1a9dfe4dfe112f13542d0c9d689f500=
-8b:
+True but can't this be done at the top?
 
-  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge=
- (2012-11-14 22:10:50 -0500)
+I'll post a patch for this shortly.
 
-are available in the git repository at:
+Ben.
 
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to 6cec9b07fe6a0c4dfbcdcee7c6283529f087c521:
-
-  can: grcan: Add device driver for GRCAN and GRHCAN cores (2012-11-15 20=
-:47:26 +0100)
-
-----------------------------------------------------------------
-Andreas Larsson (1):
-      can: grcan: Add device driver for GRCAN and GRHCAN cores
-
-Chuansheng Liu (1):
-      can: janz-ican3: Fix the usage of wait_for_completion_timeout
-
-Matthias Fuchs (2):
-      can: usb: esd_usb2: Add support for listen-only mode
-      can: usb: esd_usb2: Add support for CAN-USB/Micro
-
-Muhammad Ghias (1):
-      can: sja1000: plx_pci: add support for Connect Tech Inc's Canpro/10=
-4-Plus Opto CAN board
-
- Documentation/ABI/testing/sysfs-class-net-grcan    |   35 +
- .../devicetree/bindings/net/can/grcan.txt          |   28 +
- Documentation/kernel-parameters.txt                |   18 +
- drivers/net/can/Kconfig                            |    9 +
- drivers/net/can/Makefile                           |    1 +
- drivers/net/can/grcan.c                            | 1756 ++++++++++++++=
-++++++
- drivers/net/can/janz-ican3.c                       |    4 +-
- drivers/net/can/sja1000/Kconfig                    |    1 +
- drivers/net/can/sja1000/plx_pci.c                  |   19 +
- drivers/net/can/usb/esd_usb2.c                     |   35 +-
- 10 files changed, 1898 insertions(+), 8 deletions(-)
- create mode 100644 Documentation/ABI/testing/sysfs-class-net-grcan
- create mode 100644 Documentation/devicetree/bindings/net/can/grcan.txt
- create mode 100644 drivers/net/can/grcan.c
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
 
---------------enigA3B35DEF76B4057DA08160B3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iEYEARECAAYFAlClUOkACgkQjTAFq1RaXHOqawCeP8+mnHA18h4HkTvtaWjx2fEI
-42MAn3HfoB1f9KUS08Atq7v3Tnwnx1eQ
-=FmO+
------END PGP SIGNATURE-----
-
---------------enigA3B35DEF76B4057DA08160B3--
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
