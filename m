@@ -1,186 +1,160 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH V2 10/14] ipv6: Move exthdr offload support into separate file
-Date: Thu, 15 Nov 2012 13:49:19 -0500
-Message-ID: <1353005363-6974-11-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH V2 04/14] ipv6: Add new offload registration infrastructure.
+Date: Thu, 15 Nov 2012 13:49:13 -0500
+Message-ID: <1353005363-6974-5-git-send-email-vyasevic@redhat.com>
 References: <1353005363-6974-1-git-send-email-vyasevic@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8530 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:17120 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1768708Ab2KOSth (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 13:49:37 -0500
+	id S1768684Ab2KOStb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 13:49:31 -0500
 In-Reply-To: <1353005363-6974-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the exthdr offload functionality into a separeate
-file in preparate for moving it out of the module
+Create a new data structure for IPv6 protocols that holds GRO/GSO
+callbacks and a new array to track the protocols that register GRO/GSO.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/ipv6/Makefile          |    2 +-
- net/ipv6/exthdrs.c         |   40 +++---------------------------------
- net/ipv6/exthdrs_offload.c |   47 ++++++++++++++++++++++++++++++++++++++++++++
- net/ipv6/ip6_offload.h     |    3 ++
- 4 files changed, 55 insertions(+), 37 deletions(-)
- create mode 100644 net/ipv6/exthdrs_offload.c
+ include/net/protocol.h |    4 ++++
+ net/ipv6/exthdrs.c     |    8 ++++++++
+ net/ipv6/protocol.c    |   21 +++++++++++++++++++++
+ net/ipv6/tcp_ipv6.c    |    7 +++++++
+ net/ipv6/udp.c         |    5 +++++
+ 5 files changed, 45 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 04b5c96..7f25077 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -10,7 +10,7 @@ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
- 		raw.o protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
- 		exthdrs.o datagram.o ip6_flowlabel.o inet6_connection_sock.o
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index d8ecb17..637e1bb 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -84,6 +84,7 @@ struct net_offload {
+ 	struct sk_buff	      **(*gro_receive)(struct sk_buff **head,
+ 					       struct sk_buff *skb);
+ 	int			(*gro_complete)(struct sk_buff *skb);
++	unsigned int		flags;	/* Flags used by IPv6 for now */
+ };
  
--ipv6-offload :=	ip6_offload.o tcpv6_offload.o udp_offload.o
-+ipv6-offload :=	ip6_offload.o tcpv6_offload.o udp_offload.o exthdrs_offload.o
+ /* This is used to register socket interfaces for IP protocols.  */
+@@ -109,6 +110,7 @@ extern const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS];
  
- ipv6-$(CONFIG_SYSCTL) = sysctl_net_ipv6.o
- ipv6-$(CONFIG_IPV6_MROUTE) += ip6mr.o
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index d5a807d..dc0faab 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -48,6 +48,7 @@
+ #if IS_ENABLED(CONFIG_IPV6)
+ extern const struct inet6_protocol __rcu *inet6_protos[MAX_INET_PROTOS];
++extern const struct net_offload __rcu *inet6_offloads[MAX_INET_PROTOS];
  #endif
  
- #include <asm/uaccess.h>
-+#include "ip6_offload.h"
- 
- int ipv6_find_tlv(struct sk_buff *skb, int offset, int type)
- {
-@@ -528,20 +529,12 @@ unknown_rh:
- 
- static const struct inet6_protocol rthdr_protocol = {
- 	.handler	=	ipv6_rthdr_rcv,
--	.flags		=	INET6_PROTO_NOPOLICY | INET6_PROTO_GSO_EXTHDR,
--};
--
--static const struct net_offload rthdr_offload = {
--	.flags		=	INET6_PROTO_GSO_EXTHDR,
-+	.flags		=	INET6_PROTO_NOPOLICY,
+ extern int	inet_add_protocol(const struct net_protocol *prot, unsigned char num);
+@@ -121,6 +123,8 @@ extern void	inet_unregister_protosw(struct inet_protosw *p);
+ #if IS_ENABLED(CONFIG_IPV6)
+ extern int	inet6_add_protocol(const struct inet6_protocol *prot, unsigned char num);
+ extern int	inet6_del_protocol(const struct inet6_protocol *prot, unsigned char num);
++extern int	inet6_add_offload(const struct net_offload *prot, unsigned char num);
++extern int	inet6_del_offload(const struct net_offload *prot, unsigned char num);
+ extern int	inet6_register_protosw(struct inet_protosw *p);
+ extern void	inet6_unregister_protosw(struct inet_protosw *p);
+ #endif
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index fa3d9c3..8c01574 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -531,11 +531,19 @@ static const struct inet6_protocol rthdr_protocol = {
+ 	.flags		=	INET6_PROTO_NOPOLICY | INET6_PROTO_GSO_EXTHDR,
  };
  
- static const struct inet6_protocol destopt_protocol = {
- 	.handler	=	ipv6_destopt_rcv,
--	.flags		=	INET6_PROTO_NOPOLICY | INET6_PROTO_GSO_EXTHDR,
--};
--
--static const struct net_offload dstopt_offload = {
--	.flags		=	INET6_PROTO_GSO_EXTHDR,
-+	.flags		=	INET6_PROTO_NOPOLICY,
- };
- 
- static const struct inet6_protocol nodata_protocol = {
-@@ -549,32 +542,6 @@ static const struct inet6_protocol nodata_protocol = {
- 	.flags		=	INET6_PROTO_NOPOLICY,
- };
- 
--static int ipv6_exthdrs_offload_init(void)
--{
--	int ret;
--
--	ret = inet6_add_offload(&rthdr_offload, IPPROTO_ROUTING);
--	if (!ret)
--		goto out;
--
--	ret = inet6_add_offload(&dstopt_offload, IPPROTO_DSTOPTS);
--	if (!ret)
--		goto out_rt;
--
--out:
--	return ret;
--
--out_rt:
--	inet_del_offload(&rthdr_offload, IPPROTO_ROUTING);
--	goto out;
--}
--
--static void ipv6_exthdrs_offload_exit(void)
--{
--	inet_del_offload(&rthdr_offload, IPPROTO_ROUTING);
--	inet_del_offload(&rthdr_offload, IPPROTO_DSTOPTS);
--}
--
- int __init ipv6_exthdrs_init(void)
- {
- 	int ret;
-@@ -608,6 +575,7 @@ out_offload:
- 
- void ipv6_exthdrs_exit(void)
- {
-+	ipv6_exthdrs_offload_exit();
- 	inet6_del_protocol(&nodata_protocol, IPPROTO_NONE);
- 	inet6_del_protocol(&destopt_protocol, IPPROTO_DSTOPTS);
- 	inet6_del_protocol(&rthdr_protocol, IPPROTO_ROUTING);
-diff --git a/net/ipv6/exthdrs_offload.c b/net/ipv6/exthdrs_offload.c
-new file mode 100644
-index 0000000..271bf4a
---- /dev/null
-+++ b/net/ipv6/exthdrs_offload.c
-@@ -0,0 +1,47 @@
-+/*
-+ *	IPV6 GSO/GRO offload support
-+ *	Linux INET6 implementation
-+ *
-+ *	This program is free software; you can redistribute it and/or
-+ *      modify it under the terms of the GNU General Public License
-+ *      as published by the Free Software Foundation; either version
-+ *      2 of the License, or (at your option) any later version.
-+ *
-+ *      IPV6 Extension Header GSO/GRO support
-+ */
-+#include <net/protocol.h>
-+#include "ip6_offload.h"
-+
 +static const struct net_offload rthdr_offload = {
 +	.flags		=	INET6_PROTO_GSO_EXTHDR,
 +};
 +
+ static const struct inet6_protocol destopt_protocol = {
+ 	.handler	=	ipv6_destopt_rcv,
+ 	.flags		=	INET6_PROTO_NOPOLICY | INET6_PROTO_GSO_EXTHDR,
+ };
+ 
 +static const struct net_offload dstopt_offload = {
 +	.flags		=	INET6_PROTO_GSO_EXTHDR,
 +};
 +
-+int __init ipv6_exthdrs_offload_init(void)
+ static const struct inet6_protocol nodata_protocol = {
+ 	.handler	=	dst_discard,
+ 	.flags		=	INET6_PROTO_NOPOLICY,
+diff --git a/net/ipv6/protocol.c b/net/ipv6/protocol.c
+index 053082d..f7c53a7 100644
+--- a/net/ipv6/protocol.c
++++ b/net/ipv6/protocol.c
+@@ -26,6 +26,7 @@
+ #include <net/protocol.h>
+ 
+ const struct inet6_protocol __rcu *inet6_protos[MAX_INET_PROTOS] __read_mostly;
++const struct net_offload __rcu *inet6_offloads[MAX_INET_PROTOS] __read_mostly;
+ 
+ int inet6_add_protocol(const struct inet6_protocol *prot, unsigned char protocol)
+ {
+@@ -34,6 +35,13 @@ int inet6_add_protocol(const struct inet6_protocol *prot, unsigned char protocol
+ }
+ EXPORT_SYMBOL(inet6_add_protocol);
+ 
++int inet6_add_offload(const struct net_offload *prot, unsigned char protocol)
++{
++	return !cmpxchg((const struct net_offload **)&inet6_offloads[protocol],
++			NULL, prot) ? 0 : -1;
++}
++EXPORT_SYMBOL(inet6_add_offload);
++
+ /*
+  *	Remove a protocol from the hash tables.
+  */
+@@ -50,3 +58,16 @@ int inet6_del_protocol(const struct inet6_protocol *prot, unsigned char protocol
+ 	return ret;
+ }
+ EXPORT_SYMBOL(inet6_del_protocol);
++
++int inet6_del_offload(const struct net_offload *prot, unsigned char protocol)
 +{
 +	int ret;
 +
-+	ret = inet6_add_offload(&rthdr_offload, IPPROTO_ROUTING);
-+	if (!ret)
-+		goto out;
++	ret = (cmpxchg((const struct net_offload **)&inet6_offloads[protocol],
++		       prot, NULL) == prot) ? 0 : -1;
 +
-+	ret = inet6_add_offload(&dstopt_offload, IPPROTO_DSTOPTS);
-+	if (!ret)
-+		goto out_rt;
++	synchronize_net();
 +
-+out:
 +	return ret;
-+
-+out_rt:
-+	inet_del_offload(&rthdr_offload, IPPROTO_ROUTING);
-+	goto out;
 +}
-+
-+void ipv6_exthdrs_offload_exit(void)
-+{
-+	inet_del_offload(&rthdr_offload, IPPROTO_ROUTING);
-+	inet_del_offload(&rthdr_offload, IPPROTO_DSTOPTS);
-+}
-diff --git a/net/ipv6/ip6_offload.h b/net/ipv6/ip6_offload.h
-index dff7936..4e88ddb 100644
---- a/net/ipv6/ip6_offload.h
-+++ b/net/ipv6/ip6_offload.h
-@@ -11,6 +11,9 @@
- #ifndef __ip6_offload_h
- #define __ip6_offload_h
++EXPORT_SYMBOL(inet6_del_offload);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 26175bf..8ce2c30 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -2070,6 +2070,13 @@ static const struct inet6_protocol tcpv6_protocol = {
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
  
-+int ipv6_exthdrs_offload_init(void);
-+void ipv6_exthdrs_offload_exit(void);
++static const struct net_offload tcpv6_offload = {
++	.gso_send_check	=	tcp_v6_gso_send_check,
++	.gso_segment	=	tcp_tso_segment,
++	.gro_receive	=	tcp6_gro_receive,
++	.gro_complete	=	tcp6_gro_complete,
++};
 +
- int udp_offload_init(void);
- void udp_offload_cleanup(void);
+ static struct inet_protosw tcpv6_protosw = {
+ 	.type		=	SOCK_STREAM,
+ 	.protocol	=	IPPROTO_TCP,
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index fc99972..3ad44e1 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1443,6 +1443,11 @@ static const struct inet6_protocol udpv6_protocol = {
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
+ 
++static const struct net_offload udpv6_offload = {
++	.gso_send_check =	udp6_ufo_send_check,
++	.gso_segment	=	udp6_ufo_fragment,
++};
++
+ /* ------------------------------------------------------------------------ */
+ #ifdef CONFIG_PROC_FS
  
 -- 
 1.7.7.6
