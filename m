@@ -1,126 +1,71 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: stp issue and "bridge: send proper message_age in config BPDU"
-Date: Thu, 15 Nov 2012 21:09:30 +0100
-Message-ID: <20121115200930.GE730@wantstofly.org>
-References: <20121115195200.GD730@wantstofly.org>
- <20121115115853.6b9a3ec3@s6510.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 01/22] bnx2x: Support probing and removing
+ of VF device
+Date: Thu, 15 Nov 2012 15:09:54 -0500 (EST)
+Message-ID: <20121115.150954.101071502783675300.davem@davemloft.net>
+References: <1352998067-9707-1-git-send-email-ariele@broadcom.com>
+	<1352998067-9707-2-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Steven Kath <steven.kath@vyatta.com>,
-	Chris Healy <cphealy@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: ariele@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:62304 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1768435Ab2KOUJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 15:09:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20121115115853.6b9a3ec3@s6510.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47657 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1768435Ab2KOUJ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 15:09:58 -0500
+In-Reply-To: <1352998067-9707-2-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 15, 2012 at 11:58:53AM -0800, Stephen Hemminger wrote:
+From: "Ariel Elior" <ariele@broadcom.com>
+Date: Thu, 15 Nov 2012 18:47:26 +0200
 
-> > FWIW, I've been debugging an STP issue on an old product kernel tree
-> > that I couldn't find an upstream fix for, but after having debugged the
-> > issue, there does actually appear to be an upstream commit that makes
-> > the issue go away, but the commit message on that commit is somewhat
-> > unclear about what the issue is that it's fixing and why the given fix
-> > fixes it, and given that I spent considerable time debugging it I
-> > figured I'd send this out for the sake of the next person googling for
-> > this.
-> > 
-> > The symptoms are pretty much what's described in this bug:
-> > 
-> > 	https://bugzilla.vyatta.com/show_bug.cgi?id=7164
-> > 
-> > And the upstream commit is:
-> > 
-> > 	https://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commit;h=0c03150e7ea8f7fcd03cfef29385e0010b22ee92
-> > 
-> > 	commit 0c03150e7ea8f7fcd03cfef29385e0010b22ee92
-> > 	Author: stephen hemminger <shemminger@vyatta.com>
-> > 	Date:   Fri Jul 22 07:47:06 2011 +0000
-> > 
-> > 	    bridge: send proper message_age in config BPDU
-> > 
-> > What I was seeing was that as a non-root bridge, Linux STP would often
-> > fail to transmit BPDUs out of designated ports upon reception of a BPDU
-> > from an upstream port.
-> > 
-> > br_received_config_bpdu() handles the received BPDU, and calls into
-> > br_record_config_information(), which resets the message age timer on
-> > this port to jiffies + (p->br->max_age - bpdu->message_age);
-> > 
-> > When br_received_config_bpdu() then calls br_config_bpdu_generation(),
-> > the latter will call into br_transmit_config() for each enabled
-> > designated port, which will send out BPDUs with age br->max_age
-> > - (root->message_age_timer.expires - jiffies) + MESSAGE_AGE_INCR if
-> > we're not the root bridge, which if you plug in the previously
-> > computed timeout simplifies to bpdu->message_age + MESSAGE_AGE_INCR,
-> > which is exactly what we want it to be and this computation isn't
-> > wrong per se.
-> > 
-> > The problem with the above logic, though, is that it fails to
-> > consider that mod_timer() can round up the timeout you give it (i.e.
-> > add timer slack), and that reading back root->message_age_timer.expires
-> > in br_transmit_config() won't necessarily return the value that was
-> > plugged into mod_timer() for this timer in br_record_config_information().
-> > 
-> > E.g. if mod_timer() decides to add 5 jiffies to the timeout, the message
-> > age value that br_transmit_config() will compute will be:
-> > 
-> > 	br->max_age - (root->message_age_timer.expires - jiffies) +
-> > 		MESSAGE_AGE_INCR
-> > 
-> > 	= br->max_age - (jiffies + (p->br->max_age - bpdu->message_age) + 5
-> > 		- jiffies) + MESSAGE_AGE_INCR
-> > 
-> > 	= br->max_age - (p->br->max_age - bpdu->message_age + 5) +
-> > 		MESSAGE_AGE_INCR
-> > 
-> > 	= bpdu->message_age - 5 + MESSAGE_AGE_INCR
-> > 
-> > Which will likely make the computed message age value negative.
-> > This message age is stored in a signed int, but is then compared
-> > against the bridge max age time:
-> > 
-> > 	if (bpdu.message_age < br->max_age) {
-> > 
-> > and br->max_age is an unsigned long, causing the comparison to be
-> > unsigned and always fail if the computed message age was negative,
-> > and no BPDU to be sent (causing our downstream neighbours to time
-> > us out after some time and etc).
-> > 
-> > Commit 0c03150e7ea fixes the issue because it avoids reading back the
-> > expiration time (possibly with timer slack included) of a previously
-> > set timer.  Disabling timer slack on the message age timer achieves
-> > the same thing (and is what I did initially):
-> > 
-> > --- a/net/bridge/br_stp_timer.c
-> > +++ b/net/bridge/br_stp_timer.c
-> > @@ -158,6 +158,7 @@ void br_stp_port_timer_init(struct net_bridge_port *p)
-> >  {
-> >         setup_timer(&p->message_age_timer, br_message_age_timer_expired,
-> >                       (unsigned long) p);
-> > +       set_timer_slack(&p->message_age_timer, 0);
-> >  
-> >         setup_timer(&p->forward_delay_timer, br_forward_delay_timer_expired,
-> >                       (unsigned long) p);
+I'm very angry, I told you guys to fix the coding style issues in this
+patch set, and you didn't even fix the class of problems I
+specifically asked to be fixed.  Even the very first hunk in the very
+first patch has the exact problem I said you MUST resolve.
+
+> To support probing and removing of a bnx2x virtual function
+> the following were added:
+> 1. add bnx2x_vfpf.h: defines the VF to PF channel
+> 2. add bnx2x_sriov.h: header for bnx2x SR-IOV functionality
+> 3. enumerate VF hw types (identify VFs)
+> 4. if driving a VF, map VF bar
+> 5. if driving a VF, allocate Vf to PF channel
+> 6. refactor interrupt flows to include VF
 > 
-> Disabling timer slack causes additional power consumption because
-> the tick wakeup has to be immediate. I prefer to handle late timer
-> in the code. 
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-ACK, I wasn't advocating that we do this instead.
+Please stop wasting reviewer resources, because that is what
+you are doing when the very first hunk we see in a huge patch
+submission is something like this:
 
+> +enum bnx2x_int_mode {
+> +	BNX2X_INT_MODE_MSIX,
+> +	BNX2X_INT_MODE_INTX,
+> +	BNX2X_INT_MODE_MSI
+> +};
+> +
+> +
+> +
 
-> P.s: not sure if timer slack existed back when I first saw the problem.
+There is no reason to have 3 blank lines here, one is more than
+sufficient.
 
-Timer slack was introduced in March 2010, and first appeared in
-2.6.34, and this bug was reported against Vyatta 6.2, which has 2.6.35.
-(I ran into it on 2.6.35.3.)
+Tell me, what exactly was NOT clear in the directives I gave you for
+the previous submission 2 days ago:
 
-In fact, timer slack is the only reason why this issue triggers in
-the first place.  Without timer slack, BPDU generation works fine on
-either version of the STP code.
+http://marc.info/?l=linux-netdev&m=135283453929818&w=2
+
+I said, remove graduitous empty lines.  That's what I asked for, and
+the very first first patch starts by adding gratuitous empty lines.
+
+Re-audit this entire patch series and do not even think about
+resubmitting this until such coding style problems are eliminated.
+
+In fact, I'm going to ignore any patches you submit for the next week,
+you're officially on my crap list.  Don't even think about
+resubmitting this patch series until next Thursday at the earliest.
