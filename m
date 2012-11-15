@@ -1,38 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: question about RT_TABLE_MAX
-Date: Wed, 14 Nov 2012 20:28:02 -0500 (EST)
-Message-ID: <20121114.202802.23715201166879903.davem@davemloft.net>
-References: <20121112145135.GA32199@elgon.mountain>
+From: Saurabh Mohan <saurabh.mohan@vyatta.com>
+Subject: [PATCH] ipv4/ip_vti.c: VTI fix post-decryption forwarding
+Date: Wed, 14 Nov 2012 18:08:15 -0800
+Message-ID: <20121115020815.GA2732@debian-saurabh-64.vyatta.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dan.carpenter@oracle.com
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37797 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992520Ab2KOB2F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 20:28:05 -0500
-In-Reply-To: <20121112145135.GA32199@elgon.mountain>
+Received: from mail.vyatta.com ([76.74.103.46]:54609 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2992457Ab2KOCJL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2012 21:09:11 -0500
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 8E0AC1410569
+	for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 18:09:10 -0800 (PST)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id Sh-Y+AjLZp0I for <netdev@vger.kernel.org>;
+	Wed, 14 Nov 2012 18:09:09 -0800 (PST)
+Received: from localhost (eng-dhcp-109.vyatta.com [10.3.0.109])
+	by mail.vyatta.com (Postfix) with ESMTP id CC9471410333
+	for <netdev@vger.kernel.org>; Wed, 14 Nov 2012 18:09:09 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Mon, 12 Nov 2012 17:51:35 +0300
 
-> RT_TABLE_MAX is 0xFFFFFFFF.  It's always compared against an unsigned
-> int so the checks against it don't test anything.
 
-It used to be 256, that's why the spurious tests are there, they
-just need to be cleaned up.
+With the latest kernel there are two things that must be done post decryption
+ so that the packet are forwarded.
+ 1. Remove the mark from the packet. This will cause the packet to not match
+ the ipsec-policy again. However doing this causes the post-decryption check to
+ fail also and the packet will get dropped. (cat /proc/net/xfrm_stat).
+ 2. Remove the sp association in the skbuff so that no policy check is done on
+ the packet for VTI tunnels.
 
-This change happened in commit:
+Due to #2 above we must now do a security-policy check in the vti rcv path
+prior to resetting the mark in the skbuff.
 
-commit b801f54917b7c6e8540f877ee562cd0725e62ebd
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Thu Aug 10 23:12:34 2006 -0700
+Signed-off-by: Saurabh Mohan <saurabh.mohan@vyatta.com>
+Reported-by: Ruben Herold <ruben@puettmann.net>
 
-    [NET]: Increate RT_TABLE_MAX to 2^32
-
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 1831092..858fddf 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -338,12 +338,17 @@ static int vti_rcv(struct sk_buff *skb)
+ 	if (tunnel != NULL) {
+ 		struct pcpu_tstats *tstats;
+ 
++		if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
++			return -1;
++
+ 		tstats = this_cpu_ptr(tunnel->dev->tstats);
+ 		u64_stats_update_begin(&tstats->syncp);
+ 		tstats->rx_packets++;
+ 		tstats->rx_bytes += skb->len;
+ 		u64_stats_update_end(&tstats->syncp);
+ 
++		skb->mark = 0;
++		secpath_reset(skb);
+ 		skb->dev = tunnel->dev;
+ 		return 1;
+ 	}
