@@ -1,51 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/smsc911x: Fix ready check in cases where WORD_SWAP
- is needed
-Date: Wed, 14 Nov 2012 21:51:11 -0500 (EST)
-Message-ID: <20121114.215111.963000574513325881.davem@davemloft.net>
-References: <1352893298-20058-1-git-send-email-kamlakant.patel@broadcom.com>
+Subject: Re: [patch net] net: correct check in dev_addr_del()
+Date: Wed, 14 Nov 2012 21:52:54 -0500 (EST)
+Message-ID: <20121114.215254.973344009331632746.davem@davemloft.net>
+References: <1352897464-832-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve@shawell.net,
-	linus.walleij@linaro.org, robert.marklund@stericsson.com
-To: kamlakant.patel@broadcom.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	shemminger@vyatta.com, john.r.fastabend@intel.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38638 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38655 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S2992461Ab2KOCvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 21:51:12 -0500
-In-Reply-To: <1352893298-20058-1-git-send-email-kamlakant.patel@broadcom.com>
+	with ESMTP id S933167Ab2KOCwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 21:52:55 -0500
+In-Reply-To: <1352897464-832-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kamlakant Patel" <kamlakant.patel@broadcom.com>
-Date: Wed, 14 Nov 2012 17:11:38 +0530
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 14 Nov 2012 13:51:04 +0100
 
-> The chip ready check added by the commit 3ac3546e [Always wait for
-> the chip to be ready] does not work when the register read/write
-> is word swapped. This check has been added before the WORD_SWAP
-> register is programmed, so we need to check for swapped register
-> value as well.
+> Check (ha->addr == dev->dev_addr) is always true because dev_addr_init()
+> sets this. Correct the check to behave properly on addr removal.
 > 
-> Bit 16 is marked as RESERVED in SMSC datasheet, Steve Glendinning
-> <steve@shawell.net> checked with SMSC and wrote:
-> 
->   The chip architects have concluded we should be reading PMT_CTRL
->   until we see any of bits 0, 8, 16 or 24 set.  Then we should read
->   BYTE_TEST to check the byte order is correct (as we already do).
-> 
->   The rationale behind this is that some of the chip variants have
->   word order swapping features too, so the READY bit could actually
->   be in any of the 4 possible locations.  The architects have confirmed
->   that if any of these 4 positions is set the chip is ready.  The other
->   3 locations will either never be set or can only go high after READY
->   does (so also indicate the device is ready).
-> 
-> This change will check for the READY bit at the 16th position. We do
-> not check the other two cases (bit 8 and 24) since the driver does not
-> support byte-swapped register read/write.
-> 
-> Signed-off-by: Kamlakant Patel <kamlakant.patel@broadcom.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied, thank you.
+I'm pretty sure this is very intentional.
+
+It's trying to prevent deletion of the implicit dev->dev_addr
+entry.  But it will allow decementing the reference count to
+1, but no further.
+
+I'm not applying this.
