@@ -1,8 +1,8 @@
 From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH v2 net-next 21/22] bnx2x: Support PF <-> VF Bulletin
- Board
-Date: Thu, 15 Nov 2012 18:47:46 +0200
-Message-ID: <1352998067-9707-22-git-send-email-ariele@broadcom.com>
+Subject: [PATCH v2 net-next 02/22] bnx2x: VF <-> PF channel 'acquire' at
+ vf probe
+Date: Thu, 15 Nov 2012 18:47:27 +0200
+Message-ID: <1352998067-9707-3-git-send-email-ariele@broadcom.com>
 References: <1352998067-9707-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,561 +12,541 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3500 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1530 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1768478Ab2KOQqN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 11:46:13 -0500
+	id S1768491Ab2KOQpp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 11:45:45 -0500
 In-Reply-To: <1352998067-9707-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PF <-> VF Bulletin Board is a simple interface between the
-PF and the VF. The main reason for the Bulletin Board is to allow
-the PF to be the initiator. The VF publishes at 'acquire' stage
-the GPA of a Bulletin Board structure it has allocated. The PF notes
-this GPA in the VF database. The VF samples the Bulletin Board
-periodically for new messages. The latest version of the BB is always
-used.
+Add the 'acquire' request to VF <-> PF channel and use it at
+VF probe. In the acquire request the VF driver lists the resources
+it would like to have. In the response the PF either ratifies the
+request, or denies it and supplies the maximum values supported.
+The VF may then attempt another acquire request.
+This patch adds the bnx2x_vfpf.c file which contains the
+implementation of the VF to PF hardware channel.
 
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |    6 ++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   |   89 +++++++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h   |    2 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   95 ++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |   13 +++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |   17 ++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |   67 +++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h  |   38 ++++++++
- 8 files changed, 326 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/Makefile      |    2 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |   13 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |  189 +++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h   |    5 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |    5 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |   81 +++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h  |  114 ++++++++++++-
+ 7 files changed, 407 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/Makefile b/drivers/net/ethernet/broadcom/bnx2x/Makefile
+index 48fbdd4..d862ea6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/Makefile
++++ b/drivers/net/ethernet/broadcom/bnx2x/Makefile
+@@ -4,4 +4,4 @@
+ 
+ obj-$(CONFIG_BNX2X) += bnx2x.o
+ 
+-bnx2x-objs := bnx2x_main.o bnx2x_link.o bnx2x_cmn.o bnx2x_ethtool.o bnx2x_stats.o bnx2x_dcb.o bnx2x_sp.o
++bnx2x-objs := bnx2x_main.o bnx2x_link.o bnx2x_cmn.o bnx2x_ethtool.o bnx2x_stats.o bnx2x_dcb.o bnx2x_sp.o bnx2x_vfpf.o
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index dfae9b0..91beeaf 100644
+index 40db837..3de66ef 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1261,6 +1261,12 @@ struct bnx2x {
- 	/* we set aside a copy of the acquire response */
- 	struct pfvf_acquire_resp_tlv acquire_resp;
+@@ -49,6 +49,7 @@
+ #include "bnx2x_sp.h"
+ #include "bnx2x_dcb.h"
+ #include "bnx2x_stats.h"
++#include "bnx2x_vfpf.h"
  
-+	/* bulletin board for messages from pf to vf*/
-+	union pf_vf_bulletin   *pf2vf_bulletin;
-+	dma_addr_t		pf2vf_bulletin_mapping;
-+
-+	struct pf_vf_bulletin_content	old_bulletin;
+ enum bnx2x_int_mode {
+ 	BNX2X_INT_MODE_MSIX,
+@@ -1246,6 +1247,9 @@ struct bnx2x {
+ 	struct bnx2x_vf_mbx_msg	*vf2pf_mbox;
+ 	dma_addr_t		vf2pf_mbox_mapping;
+ 
++	/* we set aside a copy of the acquire response */
++	struct pfvf_acquire_resp_tlv acquire_resp;
 +
  	struct net_device	*dev;
  	struct pci_dev		*pdev;
  
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index df65695..c73ba72 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3791,6 +3791,95 @@ int bnx2x_setup_tc(struct net_device *dev, u8 num_tc)
- 	return 0;
- }
+@@ -2208,6 +2212,15 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ #define BNX2X_VPD_LEN			128
+ #define VENDOR_ID_LEN			4
  
-+/* New mac for VF. Consider these cases:
-+ * 1. VF hasn't been acquired yet - save the mac in local bulletin board and
-+ *    supply at acquire.
-+ * 2. VF has already been acquired but has not yet initialized - store in local
-+ *    bulletin board. mac will be posted on VF bulletin board after VF init. VF
-+ *    will configure this mac when it is ready.
-+ * 3. VF has already initialized but has not yet setup a queue - post the new
-+ *    mac on VF's bulletin board right now. VF will configure this mac when it
-+ *    is ready.
-+ * 4. VF has already set a queue - delete any macs already configured for this
-+ *    queue and manually config the new mac.
-+ * In any event, once this function has been called refuse any attempts by the
-+ * VF to configure any mac for itself except for this mac. In case of a race
-+ * where the VF fails to see the new post on its bulletin board before sending a
-+ * mac configuration request, the PF will simply fail the request and VF can try
-+ * again after consulting its bulletin board
-+ */
-+int bnx2x_set_vf_mac(struct net_device *dev, int queue, u8 *mac)
-+{
++#define VF_ACQUIRE_THRESH 3
++#define VF_ACQUIRE_MAC_FILTERS 1
++#define VF_ACQUIRE_MC_FILTERS 10
 +
-+	struct bnx2x *bp = netdev_priv(dev);
-+	int rc, q_logical_state, vfidx = queue;
-+	struct bnx2x_virtf *vf = BP_VF(bp, vfidx);
-+	struct pf_vf_bulletin_content *bulletin = BP_VF_BULLETIN(bp, vfidx);
-+
-+	/* if SRIOV is disabled there is nothing to do (and somewhere, someone
-+	 * has erred).
-+	 */
-+	if (!IS_SRIOV(bp)) {
-+		BNX2X_ERR("bnx2x_set_vf_mac called though sriov is disabled\n");
-+		return -EINVAL;
-+	}
-+
-+	if (!is_valid_ether_addr(mac)) {
-+		BNX2X_ERR("mac address invalid\n");
-+		return -EINVAL;
-+	}
-+
-+	/* update PF's copy of the VF's bulletin. will no longer accept mac
-+	 * configuration requests from vf unless match this mac
-+	 */
-+	bulletin->valid_bitmap |= 1 << MAC_ADDR_VALID;
-+	memcpy(bulletin->mac, mac, ETH_ALEN);
-+
-+	/* Post update on VF's bulletin board */
-+	rc = bnx2x_post_vf_bulletin(bp, vfidx);
-+	if (rc) {
-+		BNX2X_ERR("failed to update VF[%d] bulletin", vfidx);
-+		return rc;
-+	}
-+
-+	/* is vf initialized and queue set up? */
-+	q_logical_state =
-+		bnx2x_get_q_logical_state(bp, &bnx2x_vfq(vf, 0, sp_obj));
-+	if (vf->state == VF_ENABLED &&
-+	    q_logical_state == BNX2X_Q_LOGICAL_STATE_ACTIVE) {
-+
-+		/* configure the mac in device on this vf's queue */
-+		unsigned long flags = 0;
-+		struct bnx2x_vlan_mac_obj *mac_obj = &bnx2x_vfq(vf, 0, mac_obj);
-+
-+		/* must lock vfpf channel to protect against vf flows */
-+		bnx2x_lock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_MAC);
-+
-+		/* remove existing eth macs */
-+		rc = bnx2x_del_all_macs(bp, mac_obj, BNX2X_ETH_MAC, true);
-+		if (rc) {
-+			BNX2X_ERR("failed to delete eth macs\n");
-+			return -EINVAL;
-+		}
-+
-+		/* remove existing uc list macs */
-+		rc = bnx2x_del_all_macs(bp, mac_obj, BNX2X_UC_LIST_MAC, true);
-+		if (rc) {
-+			BNX2X_ERR("failed to delete uc_list macs\n");
-+			return -EINVAL;
-+		}
-+
-+		/* configure the new mac to device */
-+		__set_bit(RAMROD_COMP_WAIT, &flags);
-+		bnx2x_set_mac_one(bp, (u8 *)&bulletin->mac, mac_obj, true,
-+				  BNX2X_ETH_MAC, &flags);
-+
-+		bnx2x_unlock_vf_pf_channel(bp, vf, CHANNEL_TLV_PF_SET_MAC);
-+	}
-+
-+	return rc;
-+}
-+
- /* called with rtnl_lock */
- int bnx2x_change_mac_addr(struct net_device *dev, void *p)
- {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index 2dfde45..b80c456 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -496,6 +496,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev);
- /* setup_tc callback */
- int bnx2x_setup_tc(struct net_device *dev, u8 num_tc);
- 
-+int bnx2x_set_vf_mac(struct net_device *dev, int queue, u8 *mac);
-+
- /* select_queue callback */
- u16 bnx2x_select_queue(struct net_device *dev, struct sk_buff *skb);
- 
++#define GOOD_ME_REG(me_reg) (((me_reg) & ME_REG_VF_VALID) && \
++			    (!((me_reg) & ME_REG_VF_ERR)))
++int bnx2x_get_vf_id(struct bnx2x *bp, u32 *vf_id);
++int bnx2x_send_msg2pf(struct bnx2x *bp, u8 *done, dma_addr_t msg_mapping);
++int __devinit bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count);
+ /* Congestion management fairness mode */
+ #define CMNG_FNS_NONE		0
+ #define CMNG_FNS_MINMAX		1
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 42e572e..5c077fc 100644
+index 78392de..89092b0 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -5230,6 +5230,62 @@ void bnx2x_drv_pulse(struct bnx2x *bp)
- 		 bp->fw_drv_pulse_wr_seq);
- }
- 
-+/* crc is the first field in the bulletin board. compute the crc over the
-+ * entire bulletin board excluding the crc field itself */
-+u32 bnx2x_crc_vf_bulletin(struct bnx2x *bp,
-+			  struct pf_vf_bulletin_content *bulletin)
-+{
-+	return crc32(BULLETIN_CRC_SEED,
-+		 ((u8 *)bulletin) + sizeof(bulletin->crc),
-+		 BULLETIN_CONTENT_SIZE - sizeof(bulletin->crc));
-+}
-+
-+/* Check for new posts on the bulletin board */
-+enum sample_bulletin_result bnx2x_sample_bulletin(struct bnx2x *bp)
-+{
-+	struct pf_vf_bulletin_content bulletin = bp->pf2vf_bulletin->content;
-+	int attempts;
-+
-+	/* bulletin board hasn't changed since last sample */
-+	if (bp->old_bulletin.version == bulletin.version)
-+		return PFVF_BULLETIN_UNCHANGED;
-+
-+	/* validate crc of new bulletin board */
-+	if (bp->old_bulletin.version != bp->pf2vf_bulletin->content.version) {
-+
-+		/* sampling structure in mid post may result with corrupted data
-+		 * validate crc to ensure coherency.
-+		 */
-+		for (attempts = 0; attempts < BULLETIN_ATTEMPTS; attempts++) {
-+			bulletin = bp->pf2vf_bulletin->content;
-+			if (bulletin.crc == bnx2x_crc_vf_bulletin(bp,
-+								  &bulletin))
-+				break;
-+
-+			BNX2X_ERR("bad crc on bulletin board. contained %x computed %x\n",
-+				  bulletin.crc,
-+				  bnx2x_crc_vf_bulletin(bp, &bulletin));
-+		}
-+		if (attempts >= BULLETIN_ATTEMPTS) {
-+			BNX2X_ERR("pf to vf bulletin board crc was wrong %d consecutive times. Aborting\n",
-+				  attempts);
-+			return PFVF_BULLETIN_CRC_ERR;
-+		}
-+	}
-+
-+	/* the mac address in bulletin board is valid and is new */
-+	if (bulletin.valid_bitmap & 1 << MAC_ADDR_VALID &&
-+	    memcmp(bulletin.mac, bp->old_bulletin.mac, ETH_ALEN)) {
-+
-+		/* update new mac to net device */
-+		memcpy(bp->dev->dev_addr, bulletin.mac, ETH_ALEN);
-+	}
-+
-+	/* copy new bulletin board to bp */
-+	bp->old_bulletin = bulletin;
-+
-+	return PFVF_BULLETIN_UPDATED;
-+}
- 
- static void bnx2x_timer(unsigned long data)
- {
-@@ -5267,6 +5323,10 @@ static void bnx2x_timer(unsigned long data)
- 	if (bp->state == BNX2X_STATE_OPEN)
- 		bnx2x_stats_handle(bp, STATS_EVENT_UPDATE);
- 
-+	/* sample pf vf bulletin board for new posts from pf */
-+	if (IS_VF(bp))
-+		bnx2x_sample_bulletin(bp);
-+
- 	mod_timer(&bp->timer, jiffies + bp->current_interval);
- }
- 
-@@ -11581,7 +11641,7 @@ static const struct net_device_ops bnx2x_netdev_ops = {
- 	.ndo_poll_controller	= poll_bnx2x,
- #endif
- 	.ndo_setup_tc		= bnx2x_setup_tc,
--
-+	.ndo_set_vf_mac		= bnx2x_set_vf_mac,
- #ifdef NETDEV_FCOE_WWNN
- 	.ndo_fcoe_get_wwn	= bnx2x_fcoe_get_wwn,
- #endif
-@@ -12243,6 +12303,11 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
- 		/* allocate vf2pf mailbox for vf to pf channel */
- 		BNX2X_PCI_ALLOC(bp->vf2pf_mbox, &bp->vf2pf_mbox_mapping,
- 				sizeof(struct bnx2x_vf_mbx_msg));
-+
-+		/* allocate pf 2 vf bulletin board */
-+		BNX2X_PCI_ALLOC(bp->pf2vf_bulletin, &bp->pf2vf_bulletin_mapping,
-+				sizeof(union pf_vf_bulletin));
-+
- 	} else {
- 		doorbell_size = BNX2X_L2_MAX_CID(bp) * (1 << BNX2X_DB_SHIFT);
- 		if (doorbell_size > pci_resource_len(pdev, 2)) {
-@@ -13308,6 +13373,9 @@ int __devinit bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count,
- 	req->resc_request.num_mac_filters = VF_ACQUIRE_MAC_FILTERS;
- 	req->resc_request.num_mc_filters = VF_ACQUIRE_MC_FILTERS;
- 
-+	/* pf 2 vf bulletin board address */
-+	req->bulletin_addr = bp->pf2vf_bulletin_mapping;
-+
- 	/* add list termination tlv */
- 	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
- 		      sizeof(struct channel_list_end_tlv));
-@@ -13664,6 +13732,9 @@ int bnx2x_vfpf_set_mac(struct bnx2x *bp)
- 	req->filters[0].flags =
- 		VFPF_Q_FILTER_DEST_MAC_VALID | VFPF_Q_FILTER_SET_MAC;
- 
-+	/* sample bulletin board for new mac */
-+	bnx2x_sample_bulletin(bp);
-+
- 	/* copy mac from device to request */
- 	memcpy(req->filters[0].mac, bp->dev->dev_addr, ETH_ALEN);
- 
-@@ -13681,6 +13752,28 @@ int bnx2x_vfpf_set_mac(struct bnx2x *bp)
- 		return rc;
+@@ -12149,6 +12149,12 @@ static int __devinit bnx2x_init_one(struct pci_dev *pdev,
+ 		goto init_one_exit;
  	}
  
-+	/* failure may mean PF was configured with a new mac for us */
-+	while (resp->hdr.status == PFVF_STATUS_FAILURE) {
++	if (IS_VF(bp)) {
++		rc = bnx2x_vfpf_acquire(bp, tx_count, rx_count);
++		if (rc)
++			goto init_one_exit;
++	}
 +
-+		DP(BNX2X_MSG_IOV,
-+		   "vfpf SET MAC failed. Check bulletin board for new posts\n");
+ 	/* calc qm_cid_count */
+ 	bp->qm_cid_count = bnx2x_set_qm_cid_count(bp);
+ 	BNX2X_DEV_INFO("qm_cid_count %d\n", bp->qm_cid_count);
+@@ -13077,3 +13083,186 @@ struct cnic_eth_dev *bnx2x_cnic_probe(struct net_device *dev)
+ EXPORT_SYMBOL(bnx2x_cnic_probe);
+ 
+ 
++int bnx2x_send_msg2pf(struct bnx2x *bp, u8 *done, dma_addr_t msg_mapping)
++{
++	struct cstorm_vf_zone_data __iomem *zone_data =
++		REG_ADDR(bp, PXP_VF_ADDR_CSDM_GLOBAL_START);
++	int tout = 600, interval = 100; /* wait for 60 seconds */
 +
-+		/* check if bulletin board was updated */
-+		if (bnx2x_sample_bulletin(bp) == PFVF_BULLETIN_UPDATED) {
++	if (*done) {
++		BNX2X_ERR("done was non zero before message to pf was sent");
++		WARN_ON(true);
++		return -EINVAL;
++	}
 +
-+			/* copy mac from device to request */
-+			memcpy(req->filters[0].mac, bp->dev->dev_addr,
-+			       ETH_ALEN);
++	/* Write message address */
++	writel(U64_LO(msg_mapping),
++	       &zone_data->non_trigger.vf_pf_channel.msg_addr_lo);
++	writel(U64_HI(msg_mapping),
++	       &zone_data->non_trigger.vf_pf_channel.msg_addr_hi);
 +
-+			/* send message to pf */
-+			rc = bnx2x_send_msg2pf(bp, &resp->hdr.status,
-+					       bp->vf2pf_mbox_mapping);
-+		} else {
-+			/* no new info in bulletin */
++	/* Trigger the PF FW */
++	writeb(1, &zone_data->trigger.vf_pf_channel.addr_valid);
++
++	/* Wait for PF to complete */
++	while ((tout >= 0) && (!*done)) {
++		msleep(interval);
++		tout -= 1;
++
++		/* progress indicator - HV can take its own sweet time in
++		 * answering VFs...
++		 */
++		DP_CONT(BNX2X_MSG_IOV, ".");
++	}
++
++	if (!*done) {
++		BNX2X_ERR("PF response has timed out\n");
++		return -EAGAIN;
++	}
++	DP(BNX2X_MSG_SP, "Got a response from PF\n");
++	return 0;
++}
++
++int bnx2x_get_vf_id(struct bnx2x *bp, u32 *vf_id)
++{
++	u32 me_reg;
++	int tout = 10, interval = 100; /* Wait for 1 sec */
++
++	do {
++		/* pxp traps vf read of doorbells and returns me reg value */
++		me_reg = readl(bp->doorbells);
++		if (GOOD_ME_REG(me_reg))
 +			break;
++
++		msleep(interval);
++
++		BNX2X_ERR("Invalid ME register value: 0x%08x\n. Is pf driver up?",
++			  me_reg);
++	} while (tout-- > 0);
++
++	if (!GOOD_ME_REG(me_reg)) {
++		BNX2X_ERR("Invalid ME register value: 0x%08x\n", me_reg);
++		return -EINVAL;
++	}
++
++	BNX2X_ERR("valid ME register value: 0x%08x\n", me_reg);
++
++	*vf_id = (me_reg & ME_REG_VF_NUM_MASK) >> ME_REG_VF_NUM_SHIFT;
++
++	return 0;
++}
++
++#define VF_ACQUIRE_THRESH 3
++#define VF_ACQUIRE_MAC_FILTERS 1
++#define VF_ACQUIRE_MC_FILTERS 10
++
++int __devinit bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count,
++				       u8 rx_count)
++{
++	int rc = 0, attempts = 0;
++	struct vfpf_acquire_tlv *req = &bp->vf2pf_mbox->req.acquire;
++	struct pfvf_acquire_resp_tlv *resp = &bp->vf2pf_mbox->resp.acquire_resp;
++	u32 vf_id;
++	bool resources_acquired = false;
++
++	/* clear mailbox and prep first tlv */
++	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_ACQUIRE, sizeof(*req));
++
++	if (bnx2x_get_vf_id(bp, &vf_id))
++		return -EAGAIN;
++
++	req->vfdev_info.vf_id = vf_id;
++	req->vfdev_info.vf_os = 0;
++
++	req->resc_request.num_rxqs = rx_count;
++	req->resc_request.num_txqs = tx_count;
++	req->resc_request.num_sbs = bp->igu_sb_cnt;
++	req->resc_request.num_mac_filters = VF_ACQUIRE_MAC_FILTERS;
++	req->resc_request.num_mc_filters = VF_ACQUIRE_MC_FILTERS;
++
++	/* add list termination tlv */
++	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
++		      sizeof(struct channel_list_end_tlv));
++
++	/* output tlvs list */
++	bnx2x_dp_tlv_list(bp, req);
++
++	while (!resources_acquired) {
++		DP(BNX2X_MSG_SP, "attempting to acquire resources");
++
++		/* send acquire request */
++		rc = bnx2x_send_msg2pf(bp,
++				       &resp->hdr.status,
++				       bp->vf2pf_mbox_mapping);
++
++		/* copy acquire response from buffer to bp */
++		memcpy(&bp->acquire_resp, resp, sizeof(bp->acquire_resp));
++
++		attempts++;
++
++		/* PF timeout */
++		if (rc)
++			return rc;
++
++		/* PF agrees to allocate our resources */
++		if (bp->acquire_resp.hdr.status == PFVF_STATUS_SUCCESS) {
++			DP(BNX2X_MSG_SP, "resources acquired");
++			resources_acquired = true;
++
++		/* PF refuses to allocate our resources */
++		} else if (bp->acquire_resp.hdr.status ==
++			   PFVF_STATUS_NO_RESOURCE &&
++			   attempts < VF_ACQUIRE_THRESH) {
++			DP(BNX2X_MSG_SP,
++			   "PF unwilling to fulfill resource request. Try PF recommended amount");
++
++			/* humble our request */
++			req->resc_request.num_txqs =
++				bp->acquire_resp.resc.num_txqs;
++			req->resc_request.num_rxqs =
++				bp->acquire_resp.resc.num_rxqs;
++			req->resc_request.num_sbs =
++				bp->acquire_resp.resc.num_sbs;
++			req->resc_request.num_mac_filters =
++				bp->acquire_resp.resc.num_mac_filters;
++			req->resc_request.num_vlan_filters =
++				bp->acquire_resp.resc.num_vlan_filters;
++			req->resc_request.num_mc_filters =
++				bp->acquire_resp.resc.num_mc_filters;
++
++			/* Clear response buffer */
++			memset(&bp->vf2pf_mbox->resp, 0,
++			       sizeof(union pfvf_tlvs));
++
++		/* PF reports error */
++		} else {
++			BNX2X_ERR("Failed to get the requested amount of resources: %d. Breaking...\n",
++				  bp->acquire_resp.hdr.status);
++			return -EAGAIN;
 +		}
 +	}
 +
- 	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
- 		BNX2X_ERR("vfpf SET MAC failed: %d\n", resp->hdr.status);
- 		return -EINVAL;
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 104978a..41a56eb 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -2053,6 +2053,10 @@ void bnx2x_iov_free_mem(struct bnx2x *bp)
- 	BNX2X_PCI_FREE(BP_VF_MBX_DMA(bp)->addr,
- 		       BP_VF_MBX_DMA(bp)->mapping,
- 		       BP_VF_MBX_DMA(bp)->size);
++	/* get HW info */
++	bp->common.chip_id |= (bp->acquire_resp.pfdev_info.chip_num & 0xffff);
++	bp->link_params.chip_id = bp->common.chip_id;
++	bp->db_size = bp->acquire_resp.pfdev_info.db_size;
++	bp->common.int_block = INT_BLOCK_IGU;
++	bp->common.chip_port_mode = CHIP_2_PORT_MODE;
++	bp->igu_dsb_id = -1;
++	bp->mf_ov = 0;
++	bp->mf_mode = 0;
++	bp->common.flash_size = 0;
++	bp->flags |=
++		NO_WOL_FLAG | NO_ISCSI_OOO_FLAG | NO_ISCSI_FLAG | NO_FCOE_FLAG;
++	bp->igu_sb_cnt = 1;
++	bp->igu_base_sb = bp->acquire_resp.resc.hw_sbs[0].hw_sb_id;
++	strlcpy(bp->fw_ver, bp->acquire_resp.pfdev_info.fw_ver,
++		sizeof(bp->fw_ver));
 +
-+	BNX2X_PCI_FREE(BP_VF_BULLETIN_DMA(bp)->addr,
-+		       BP_VF_BULLETIN_DMA(bp)->mapping,
-+		       BP_VF_BULLETIN_DMA(bp)->size);
- }
- 
- 
-@@ -2093,6 +2097,12 @@ int bnx2x_iov_alloc_mem(struct bnx2x *bp)
- 			tot_size);
- 	BP_VF_MBX_DMA(bp)->size = tot_size;
- 
-+	/* allocate local bulletin boards */
-+	tot_size = BNX2X_NR_VIRTFN(bp) * BULLETIN_CONTENT_SIZE;
-+	BNX2X_PCI_ALLOC(BP_VF_BULLETIN_DMA(bp)->addr,
-+			&BP_VF_BULLETIN_DMA(bp)->mapping, tot_size);
-+	BP_VF_BULLETIN_DMA(bp)->size = tot_size;
++	if (is_valid_ether_addr(bp->acquire_resp.resc.current_mac_addr))
++		memcpy(bp->dev->dev_addr,
++		       bp->acquire_resp.resc.current_mac_addr,
++		       ETH_ALEN);
 +
- 	return 0;
- 
- alloc_mem_err:
-@@ -2810,6 +2820,9 @@ int bnx2x_vf_init(struct bnx2x *bp, struct bnx2x_virtf *vf, dma_addr_t *sb_map)
- 
- 	vf->state = VF_ENABLED;
- 
-+	/* update vf bulletin board */
-+	bnx2x_post_vf_bulletin(bp, vf->index);
++	return 0;
++}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index be8c2c4..4c51f43 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -6542,6 +6542,11 @@
+ #define PXP_VF_ADDR_IGU_SIZE		(0x3000)
+ #define PXP_VF_ADDR_IGU_END\
+ 	((PXP_VF_ADDR_IGU_START) + (PXP_VF_ADDR_IGU_SIZE) - 1)
++#define PXP_VF_ADDR_CSDM_GLOBAL_START		0x7600
++#define PXP_VF_ADDR_CSDM_GLOBAL_SIZE		(PXP_ADDR_REG_SIZE)
++#define PXP_VF_ADDR_CSDM_GLOBAL_END\
++	((PXP_VF_ADDR_CSDM_GLOBAL_START) + (PXP_VF_ADDR_CSDM_GLOBAL_SIZE) - 1)
 +
- 	return 0;
- }
- 
+ #define PXP_VF_ADDR_DB_START				0x7c00
+ #define PXP_VF_ADDR_DB_SIZE					(0x200)
+ #define PXP_VF_ADDR_DB_END\
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index f3c60ef..bd2edc3 100644
+index 181f30f..a23b69f 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -382,6 +382,11 @@ struct bnx2x_vfdb {
- 	struct bnx2x_vf_mbx	mbxs[BNX2X_MAX_NUM_OF_VFS];
- #define BP_VF_MBX(bp, vfid)	(&((bp)->vfdb->mbxs[(vfid)]))
+@@ -24,4 +24,9 @@ struct bnx2x_vf_mbx_msg {
+ 	union pfvf_tlvs resp;
+ };
  
-+	struct hw_dma		bulletin_dma;
-+#define BP_VF_BULLETIN_DMA(bp)	(&((bp)->vfdb->bulletin_dma))
-+#define	BP_VF_BULLETIN(bp, vf) \
-+	(((struct pf_vf_bulletin_content *)(BP_VF_BULLETIN_DMA(bp)->addr)) + vf)
-+
- 	struct hw_dma		sp_dma;
- #define bnx2x_vf_sp(bp, vf, field) ((bp)->vfdb->sp_dma.addr +		\
- 		(vf)->index * sizeof(struct bnx2x_vf_sp) +		\
-@@ -708,4 +713,16 @@ void bnx2x_dp_tlv_list(struct bnx2x *bp, void *tlvs_list);
- 
- bool bnx2x_tlv_supported(u16 tlvtype);
- 
-+u32 bnx2x_crc_vf_bulletin(struct bnx2x *bp,
-+			  struct pf_vf_bulletin_content *bulletin);
-+int bnx2x_post_vf_bulletin(struct bnx2x *bp, int vf);
-+
-+enum sample_bulletin_result {
-+	   PFVF_BULLETIN_UNCHANGED,
-+	   PFVF_BULLETIN_UPDATED,
-+	   PFVF_BULLETIN_CRC_ERR
-+};
-+
-+enum sample_bulletin_result bnx2x_sample_bulletin(struct bnx2x *bp);
-+
++void bnx2x_add_tlv(struct bnx2x *bp, void *tlvs_list, u16 offset, u16 type,
++		   u16 length);
++void bnx2x_vfpf_prep(struct bnx2x *bp, struct vfpf_first_tlv *first_tlv,
++		     u16 type, u16 length);
++void bnx2x_dp_tlv_list(struct bnx2x *bp, void *tlvs_list);
  #endif /* bnx2x_sriov.h */
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-index 0955ba4..8a01cc3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+new file mode 100644
+index 0000000..5bc9016
+--- /dev/null
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-@@ -303,6 +303,10 @@ static void bnx2x_vf_mbx_acquire_resp(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 		resc->num_mc_filters = 0;
- 
- 		if (status == PFVF_STATUS_SUCCESS) {
-+			/* fill in the allocated resources */
-+			struct pf_vf_bulletin_content *bulletin =
-+				BP_VF_BULLETIN(bp, vf->index);
+@@ -0,0 +1,81 @@
++/* bnx2x_vfpf.c: Broadcom Everest network driver.
++ *
++ * Copyright 2009-2012 Broadcom Corporation
++ *
++ * Unless you and Broadcom execute a separate written software license
++ * agreement governing use of this software, this software is licensed to you
++ * under the terms of the GNU General Public License version 2, available
++ * at http://www.gnu.org/licenses/old-licenses/gpl-2.0.html (the "GPL").
++ *
++ * Notwithstanding the above, under no circumstances may you combine this
++ * software in any way with any other Broadcom software provided under a
++ * license other than the GPL, without Broadcom's express prior written
++ * consent.
++ *
++ * Maintained by: Eilon Greenstein <eilong@broadcom.com>
++ * Written by: Shmulik Ravid <shmulikr@broadcom.com>
++ *
++ */
 +
- 			for_each_vfq(vf, i)
- 				resc->hw_qid[i] =
- 					vfq_qzone_id(vf, vfq_get(vf, i));
-@@ -311,6 +315,12 @@ static void bnx2x_vf_mbx_acquire_resp(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 				resc->hw_sbs[i].hw_sb_id = vf_igu_sb(vf, i);
- 				resc->hw_sbs[i].sb_qid = vf_hc_qzone(vf, i);
- 			}
++/**
++ * VF MBX (aka vf-pf channel)
++ */
++#include "bnx2x.h"
++#include "bnx2x_sriov.h"
++/* place a given tlv on the tlv buffer at a given offset */
++void bnx2x_add_tlv(struct bnx2x *bp, void *tlvs_list, u16 offset, u16 type,
++		   u16 length)
++{
++	struct channel_tlv *tl =
++		(struct channel_tlv *)(tlvs_list + offset);
++	tl->type = type;
++	tl->length = length;
++}
 +
-+			/* if a mac has been set for this vf, supply it */
-+			if (bulletin->valid_bitmap & 1 << MAC_ADDR_VALID) {
-+				memcpy(resc->current_mac_addr, bulletin->mac,
-+				       ETH_ALEN);
-+			}
- 		}
- 	}
- 
-@@ -362,6 +372,9 @@ static void bnx2x_vf_mbx_acquire(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 	/* acquire the resources */
- 	rc = bnx2x_vf_acquire(bp, vf, &acquire->resc_request);
- 
-+	/* store address of vf's bulletin board */
-+	vf->bulletin_map = acquire->bulletin_addr;
++/* Clear the mailbox and init the header of the first tlv */
++void bnx2x_vfpf_prep(struct bnx2x *bp, struct vfpf_first_tlv *first_tlv,
++		     u16 type, u16 length)
++{
++	DP(BNX2X_MSG_IOV, "preparing to send %d tlv over vf pf channel",
++	   type);
 +
- 	/* response */
- 	bnx2x_vf_mbx_acquire_resp(bp, vf, mbx, rc);
- }
-@@ -773,11 +786,39 @@ static void bnx2x_vf_mbx_set_q_filters(struct bnx2x *bp,
- 				       struct bnx2x_vf_mbx *mbx)
- {
- 	struct vfpf_set_q_filters_tlv *filters = &mbx->msg->req.set_q_filters;
-+	struct pf_vf_bulletin_content *bulletin = BP_VF_BULLETIN(bp, vf->index);
- 	struct bnx2x_vfop_cmd cmd = {
- 		.done = bnx2x_vf_mbx_resp,
- 		.block = false,
- 	};
- 
-+	/* if a mac was already set for this VF via the set vf mac ndo, we only
-+	 * accept mac configurations of that mac. Why accept them at all?
-+	 * because PF may have been unable to configure the mac at the time
-+	 * since queue was not set up.
-+	 */
-+	if (bulletin->valid_bitmap & 1 << MAC_ADDR_VALID) {
++	/* Clear mailbox */
++	memset(bp->vf2pf_mbox, 0, sizeof(struct bnx2x_vf_mbx_msg));
 +
-+		/* once a mac was set by ndo can only accept a single mac... */
-+		if (filters->n_mac_vlan_filters > 1) {
-+			BNX2X_ERR("VF[%d] requested the addition of multiple macs after set_vf_mac ndo was called\n",
-+				  vf->abs_vfid);
-+			vf->op_rc = -EPERM;
-+			goto response;
-+		}
++	/* init type and length */
++	bnx2x_add_tlv(bp, &first_tlv->tl, 0, type, length);
 +
-+		/* ...and only the mac set by the ndo */
-+		if (filters->n_mac_vlan_filters == 1 &&
-+		    memcmp(filters->filters->mac, bulletin->mac, ETH_ALEN)) {
++	/* init first tlv header */
++	first_tlv->resp_msg_offset = sizeof(bp->vf2pf_mbox->req);
++}
 +
-+			BNX2X_ERR("VF[%d] requested the addition of a mac address not matching the one configured by set_vf_mac ndo\n",
-+				  vf->abs_vfid);
++/* list the types and lengths of the tlvs on the buffer */
++void bnx2x_dp_tlv_list(struct bnx2x *bp, void *tlvs_list)
++{
++	int i = 1;
++	struct channel_tlv *tlv = (struct channel_tlv *)tlvs_list;
 +
++	while (tlv->type != CHANNEL_TLV_LIST_END) {
 +
-+			vf->op_rc = -EPERM;
-+			goto response;
++		/* output tlv */
++		DP(BNX2X_MSG_IOV, "TLV number %d: type %d, length %d\n", i,
++		   tlv->type, tlv->length);
++
++		/* advance to next tlv */
++		tlvs_list += tlv->length;
++
++		/* cast general tlv list pointer to channel tlv header*/
++		tlv = (struct channel_tlv *)tlvs_list;
++
++		i++;
++
++		if (i > 50) {
++			WARN(true, "corrupt tlvs");
++			return;
 +		}
 +	}
- 
- 	/* verify vf_qid */
- 	if (filters->vf_qid > vf_rxq_count(vf))
-@@ -991,3 +1032,29 @@ mbx_error:
- mbx_done:
- 	return;
- }
 +
-+/* propagate local bulletin board to vf */
-+int bnx2x_post_vf_bulletin(struct bnx2x *bp, int vf)
-+{
-+	struct pf_vf_bulletin_content *bulletin = BP_VF_BULLETIN(bp, vf);
-+	dma_addr_t pf_addr = BP_VF_BULLETIN_DMA(bp)->mapping +
-+		vf * BULLETIN_CONTENT_SIZE;
-+	dma_addr_t vf_addr = bnx2x_vf(bp, vf, bulletin_map);
-+	u32 len = BULLETIN_CONTENT_SIZE;
-+	int rc;
-+
-+	/* can only update vf after init took place */
-+	if (bnx2x_vf(bp, vf, state) != VF_ENABLED &&
-+	    bnx2x_vf(bp, vf, state) != VF_ACQUIRED)
-+		return 0;
-+
-+	/* increment bulletin board version and compute crc */
-+	bulletin->version++;
-+	bulletin->crc = bnx2x_crc_vf_bulletin(bp, bulletin);
-+
-+	/* propagate bulletin board via dmae to vm memory */
-+	rc = bnx2x_copy32_vf_dmae(bp, false, pf_addr,
-+				  bnx2x_vf(bp, vf, abs_vfid), U64_HI(vf_addr),
-+				  U64_LO(vf_addr), len/4);
-+	return rc;
++	/* output last tlv */
++	DP(BNX2X_MSG_IOV, "TLV number %d: type %d, length %d\n", i,
++	   tlv->type, tlv->length);
 +}
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-index 299bbcc..98f28aa 100644
+index 82edebb..8f124fe 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-@@ -36,6 +36,7 @@ struct hw_sb_info {
+@@ -18,20 +18,132 @@
+ #ifndef VF_PF_IF_H
+ #define VF_PF_IF_H
+ 
++/* Common definitions for all HVs */
++struct vf_pf_resc_request {
++	u8  num_rxqs;
++	u8  num_txqs;
++	u8  num_sbs;
++	u8  num_mac_filters;
++	u8  num_vlan_filters;
++	u8  num_mc_filters; /* No limit  so superfluous */
++};
++
++struct hw_sb_info {
++	u8 hw_sb_id;	/* aka absolute igu id, used to ack the sb */
++	u8 sb_qid;	/* used to update DHC for sb */
++};
+ /* HW VF-PF channel definitions
   * A.K.A VF-PF mailbox
   */
  #define TLV_BUFFER_SIZE			1024
-+#define PF_VF_BULLETIN_SIZE		512
  
- #define VFPF_QUEUE_FLG_TPA		0x0001
- #define VFPF_QUEUE_FLG_TPA_IPV6		0x0002
-@@ -59,6 +60,9 @@ struct hw_sb_info {
- #define VFPF_RX_MASK_ACCEPT_ALL_UNICAST		0x00000004
- #define VFPF_RX_MASK_ACCEPT_ALL_MULTICAST	0x00000008
- #define VFPF_RX_MASK_ACCEPT_BROADCAST		0x00000010
-+#define BULLETIN_CONTENT_SIZE		(sizeof(struct pf_vf_bulletin_content))
-+#define BULLETIN_ATTEMPTS	5 /* crc failures before throwing towel */
-+#define BULLETIN_CRC_SEED	0
- 
- enum {
- 	PFVF_STATUS_WAITING = 0,
-@@ -295,6 +299,39 @@ union pfvf_tlvs {
- 	struct channel_list_end_tlv	list_end;
++enum {
++	PFVF_STATUS_WAITING = 0,
++	PFVF_STATUS_SUCCESS,
++	PFVF_STATUS_FAILURE,
++	PFVF_STATUS_NOT_SUPPORTED,
++	PFVF_STATUS_NO_RESOURCE
++};
++
++/* vf pf channel tlvs */
++/* general tlv header (used for both vf->pf request and pf->vf response) */
++struct channel_tlv {
++	u16 type;
++	u16 length;
++};
++
++/* header of first vf->pf tlv carries the offset used to calculate response
++ * buffer address
++ */
++struct vfpf_first_tlv {
++	struct channel_tlv tl;
++	u32 resp_msg_offset;
++};
++
++/* header of pf->vf tlvs, carries the status of handling the request */
++struct pfvf_tlv {
++	struct channel_tlv tl;
++	u8 status;
++	u8 padding[3];
++};
++
++/* used to terminate and pad a tlv list */
++struct channel_list_end_tlv {
++	struct channel_tlv tl;
++	u8 padding[4];
++};
++
++/* Acquire */
++struct vfpf_acquire_tlv {
++	struct vfpf_first_tlv first_tlv;
++
++	struct vf_pf_vfdev_info {
++		/* the following fields are for debug purposes */
++		u8  vf_id;		/* ME register value */
++		u8  vf_os;		/* e.g. Linux, W2K8 */
++		u8 padding[2];
++	} vfdev_info;
++
++	struct vf_pf_resc_request resc_request;
++
++	aligned_u64 bulletin_addr;
++};
++
++/* acquire response tlv - carries the allocated resources */
++struct pfvf_acquire_resp_tlv {
++	struct pfvf_tlv hdr;
++	struct pf_vf_pfdev_info {
++		u32 chip_num;
++		u32 pf_cap;
++		#define PFVF_CAP_RSS        0x00000001
++		#define PFVF_CAP_DHC        0x00000002
++		#define PFVF_CAP_TPA        0x00000004
++		char fw_ver[32];
++		u16 db_size;
++		u8  indices_per_sb;
++		u8  padding;
++	} pfdev_info;
++	struct pf_vf_resc {
++		/* in case of status NO_RESOURCE in message hdr, pf will fill
++		 * this struct with suggested amount of resources for next
++		 * acquire request
++		 */
++		#define PFVF_MAX_QUEUES_PER_VF         16
++		#define PFVF_MAX_SBS_PER_VF            16
++		struct hw_sb_info hw_sbs[PFVF_MAX_SBS_PER_VF];
++		u8	hw_qid[PFVF_MAX_QUEUES_PER_VF];
++		u8	num_rxqs;
++		u8	num_txqs;
++		u8	num_sbs;
++		u8	num_mac_filters;
++		u8	num_vlan_filters;
++		u8	num_mc_filters;
++		u8	permanent_mac_addr[ETH_ALEN];
++		u8	current_mac_addr[ETH_ALEN];
++		u8	padding[2];
++	} resc;
++};
++
+ struct tlv_buffer_size {
+ 	u8 tlv_buffer[TLV_BUFFER_SIZE];
+ };
+ union vfpf_tlvs {
+-
++	struct vfpf_first_tlv		first_tlv;
++	struct vfpf_acquire_tlv		acquire;
++	struct channel_list_end_tlv     list_end;
  	struct tlv_buffer_size		tlv_buf_size;
  };
-+
-+/* This is a structure which is allocated in the VF, which the PF may update
-+ * when it deems it necessary to do so. The bulletin board is sampled
-+ * periodically by the VF. A copy per VF is maintained in the PF (to prevent
-+ * loss of data upon multiple updates (or the need for read modify write)).
-+ */
-+struct pf_vf_bulletin_size {
-+	u8 size[PF_VF_BULLETIN_SIZE];
-+};
-+
-+struct pf_vf_bulletin_content {
-+	u32 crc;			/* crc of structure to ensure is not in
-+					 * mid-update
-+					 */
-+	u32 version;
-+
-+	aligned_u64 valid_bitmap;	/* bitmap indicating which fields
-+					 * hold valid values
-+					 */
-+
-+#define MAC_ADDR_VALID		0	/* alert the vf that a new mac address
-+					 * is available for it
-+					 */
-+
-+	u8 mac[ETH_ALEN];
-+	u8 padding[2];
-+};
-+
-+union pf_vf_bulletin {
-+	struct pf_vf_bulletin_content content;
-+	struct pf_vf_bulletin_size size;
-+};
-+
- enum channel_tlvs {
- 	   CHANNEL_TLV_NONE, /* ends tlv sequence */
- 	   CHANNEL_TLV_ACQUIRE,
-@@ -307,6 +344,7 @@ enum channel_tlvs {
- 	   CHANNEL_TLV_PF_RELEASE_VF,
- 	   CHANNEL_TLV_LIST_END,
- 	   CHANNEL_TLV_FLR,
-+	   CHANNEL_TLV_PF_SET_MAC,
- 	   CHANNEL_TLV_MAX
- };
  
+ union pfvf_tlvs {
++	struct pfvf_acquire_resp_tlv	acquire_resp;
++	struct channel_list_end_tlv	list_end;
+ 	struct tlv_buffer_size		tlv_buf_size;
+ };
++enum channel_tlvs {
++	   CHANNEL_TLV_NONE, /* ends tlv sequence */
++	   CHANNEL_TLV_ACQUIRE,
++	   CHANNEL_TLV_LIST_END,
++	   CHANNEL_TLV_MAX
++};
++
+ #endif /* VF_PF_IF_H */
 -- 
 1.7.9.GIT
