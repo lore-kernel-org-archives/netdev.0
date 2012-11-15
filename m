@@ -1,136 +1,112 @@
-From: Patrick Trantham <patrick.trantham@fuel7.com>
-Subject: [PATCH] net: phy: smsc: Re-enable EDPD mode for LAN87xx
-Date: Thu, 15 Nov 2012 13:00:57 -0600
-Message-ID: <1353006057-7593-1-git-send-email-patrick.trantham@fuel7.com>
-Cc: steve.glendinning@shawell.net, davem@davemloft.net,
-	otavio@ossystems.com.br, marex@denx.de, chohnstaedt@innominate.com,
-	jkosina@suse.cz, Patrick Trantham <patrick.trantham@fuel7.com>
-To: netdev@vger.kernel.org
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: stp issue and "bridge: send proper message_age in config BPDU"
+Date: Thu, 15 Nov 2012 20:52:00 +0100
+Message-ID: <20121115195200.GD730@wantstofly.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Steven Kath <steven.kath@vyatta.com>,
+	Anatoly Kaplan <anatoly.kaplan@vyatta.com>,
+	Arthur Xiong <arthur.xiong@vyatta.com>,
+	Chris Healy <cphealy@gmail.com>
+To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fuel7.com ([74.222.0.51]:60728 "EHLO mail.fuel7.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1768790Ab2KOTb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 14:31:57 -0500
+Received: from fw.wantstofly.org ([80.101.37.227]:61706 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1767627Ab2KOTwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 14:52:05 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch re-enables Energy Detect Power Down (EDPD) mode for the
-LAN8710/LAN8720.  EDPD mode was disabled in a previous commit,
-(b629820d18fa65cc598390e4b9712fd5f83ee693), because it was causing the
-PHY to not be able to detect a link when cold started without a cable
-connected.
+Hi!
 
-The LAN8710/LAN8720 requires a minimum of 2 link pulses within 64ms of
-each other in order to set the ENERGYON bit and exit EDPD mode.  If a
-link partner does send the pulses within this interval, the PHY will
-remained powered down.
+FWIW, I've been debugging an STP issue on an old product kernel tree
+that I couldn't find an upstream fix for, but after having debugged the
+issue, there does actually appear to be an upstream commit that makes
+the issue go away, but the commit message on that commit is somewhat
+unclear about what the issue is that it's fixing and why the given fix
+fixes it, and given that I spent considerable time debugging it I
+figured I'd send this out for the sake of the next person googling for
+this.
 
-This workaround will manually toggle the PHY on/off upon calls to
-read_status in order to generate link test pulses if the link is down.
-If a link partner is present, it will respond to the pulses, which will
-cause the ENERGYON bit to be set and will cause the EDPD mode to be
-exited.
+The symptoms are pretty much what's described in this bug:
 
-Signed-off-by: Patrick Trantham <patrick.trantham@fuel7.com>
----
- drivers/net/phy/smsc.c |   73 +++++++++++++++++++++++++++++-------------------
- 1 file changed, 45 insertions(+), 28 deletions(-)
+	https://bugzilla.vyatta.com/show_bug.cgi?id=7164
 
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index 88e3991..16dceed 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -56,37 +56,54 @@ static int smsc_phy_config_init(struct phy_device *phydev)
- 	return smsc_phy_ack_interrupt (phydev);
- }
- 
--static int lan87xx_config_init(struct phy_device *phydev)
--{
--	/*
--	 * Make sure the EDPWRDOWN bit is NOT set. Setting this bit on
--	 * LAN8710/LAN8720 PHY causes the PHY to misbehave, likely due
--	 * to a bug on the chip.
--	 *
--	 * When the system is powered on with the network cable being
--	 * disconnected all the way until after ifconfig ethX up is
--	 * issued for the LAN port with this PHY, connecting the cable
--	 * afterwards does not cause LINK change detection, while the
--	 * expected behavior is the Link UP being detected.
--	 */
--	int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
--	if (rc < 0)
--		return rc;
--
--	rc &= ~MII_LAN83C185_EDPWRDOWN;
--
--	rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS, rc);
--	if (rc < 0)
--		return rc;
--
--	return smsc_phy_ack_interrupt(phydev);
--}
--
- static int lan911x_config_init(struct phy_device *phydev)
+And the upstream commit is:
+
+	https://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commit;h=0c03150e7ea8f7fcd03cfef29385e0010b22ee92
+
+	commit 0c03150e7ea8f7fcd03cfef29385e0010b22ee92
+	Author: stephen hemminger <shemminger@vyatta.com>
+	Date:   Fri Jul 22 07:47:06 2011 +0000
+
+	    bridge: send proper message_age in config BPDU
+
+What I was seeing was that as a non-root bridge, Linux STP would often
+fail to transmit BPDUs out of designated ports upon reception of a BPDU
+from an upstream port.
+
+br_received_config_bpdu() handles the received BPDU, and calls into
+br_record_config_information(), which resets the message age timer on
+this port to jiffies + (p->br->max_age - bpdu->message_age);
+
+When br_received_config_bpdu() then calls br_config_bpdu_generation(),
+the latter will call into br_transmit_config() for each enabled
+designated port, which will send out BPDUs with age br->max_age
+- (root->message_age_timer.expires - jiffies) + MESSAGE_AGE_INCR if
+we're not the root bridge, which if you plug in the previously
+computed timeout simplifies to bpdu->message_age + MESSAGE_AGE_INCR,
+which is exactly what we want it to be and this computation isn't
+wrong per se.
+
+The problem with the above logic, though, is that it fails to
+consider that mod_timer() can round up the timeout you give it (i.e.
+add timer slack), and that reading back root->message_age_timer.expires
+in br_transmit_config() won't necessarily return the value that was
+plugged into mod_timer() for this timer in br_record_config_information().
+
+E.g. if mod_timer() decides to add 5 jiffies to the timeout, the message
+age value that br_transmit_config() will compute will be:
+
+	br->max_age - (root->message_age_timer.expires - jiffies) +
+		MESSAGE_AGE_INCR
+
+	= br->max_age - (jiffies + (p->br->max_age - bpdu->message_age) + 5
+		- jiffies) + MESSAGE_AGE_INCR
+
+	= br->max_age - (p->br->max_age - bpdu->message_age + 5) +
+		MESSAGE_AGE_INCR
+
+	= bpdu->message_age - 5 + MESSAGE_AGE_INCR
+
+Which will likely make the computed message age value negative.
+This message age is stored in a signed int, but is then compared
+against the bridge max age time:
+
+	if (bpdu.message_age < br->max_age) {
+
+and br->max_age is an unsigned long, causing the comparison to be
+unsigned and always fail if the computed message age was negative,
+and no BPDU to be sent (causing our downstream neighbours to time
+us out after some time and etc).
+
+Commit 0c03150e7ea fixes the issue because it avoids reading back the
+expiration time (possibly with timer slack included) of a previously
+set timer.  Disabling timer slack on the message age timer achieves
+the same thing (and is what I did initially):
+
+--- a/net/bridge/br_stp_timer.c
++++ b/net/bridge/br_stp_timer.c
+@@ -158,6 +158,7 @@ void br_stp_port_timer_init(struct net_bridge_port *p)
  {
- 	return smsc_phy_ack_interrupt(phydev);
- }
+        setup_timer(&p->message_age_timer, br_message_age_timer_expired,
+                      (unsigned long) p);
++       set_timer_slack(&p->message_age_timer, 0);
  
-+/*
-+ * The LAN8710/LAN8720 requires a minimum of 2 link pulses within 64ms of each
-+ * other in order to set the ENERGYON bit and exit EDPD mode.  If a link partner
-+ * does send the pulses within this interval, the PHY will remained powered
-+ * down.
-+ *
-+ * This workaround will manually toggle the PHY on/off upon calls to read_status
-+ * in order to generate link test pulses if the link is down.  If a link partner
-+ * is present, it will respond to the pulses, which will cause the ENERGYON bit
-+ * to be set and will cause the EDPD mode to be exited.
-+ */
-+static int lan87xx_read_status(struct phy_device *phydev)
-+{
-+	int err = genphy_read_status(phydev);
-+
-+	if (!phydev->link) {
-+		/* Disable EDPD to wake up PHY */
-+		int rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-+		if (rc < 0)
-+			return rc;
-+
-+		rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
-+			       rc & ~MII_LAN83C185_EDPWRDOWN);
-+		if (rc < 0)
-+			return rc;
-+
-+		/* Sleep 64 ms to allow ~5 link test pulses to be sent */
-+		msleep(64);
-+
-+		/* Re-enable EDPD */
-+		rc = phy_read(phydev, MII_LAN83C185_CTRL_STATUS);
-+		if (rc < 0)
-+			return rc;
-+
-+		rc = phy_write(phydev, MII_LAN83C185_CTRL_STATUS,
-+			       rc | MII_LAN83C185_EDPWRDOWN);
-+		if (rc < 0)
-+			return rc;
-+	}
-+
-+	return err;
-+}
-+
- static struct phy_driver smsc_phy_driver[] = {
- {
- 	.phy_id		= 0x0007c0a0, /* OUI=0x00800f, Model#=0x0a */
-@@ -187,8 +204,8 @@ static struct phy_driver smsc_phy_driver[] = {
- 
- 	/* basic functions */
- 	.config_aneg	= genphy_config_aneg,
--	.read_status	= genphy_read_status,
--	.config_init	= lan87xx_config_init,
-+	.read_status	= lan87xx_read_status,
-+	.config_intr	= smsc_phy_config_intr,
- 
- 	/* IRQ related */
- 	.ack_interrupt	= smsc_phy_ack_interrupt,
--- 
-1.7.9.5
+        setup_timer(&p->forward_delay_timer, br_forward_delay_timer_expired,
+                      (unsigned long) p);
+
+
+thanks,
+Lennert
