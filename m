@@ -1,42 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 15 Nov 2012 06:39:38 -0800
-Message-ID: <1352990387-3872-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 8/9] ixgbevf: Remove unneeded and obsolete comment
+Date: Thu, 15 Nov 2012 06:39:46 -0800
+Message-ID: <1352990387-3872-9-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1352990387-3872-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:53540 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:59047 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S2993283Ab2KOOjv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 09:39:51 -0500
+	id S1768071Ab2KOOj4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 09:39:56 -0500
+In-Reply-To: <1352990387-3872-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ioat (DCA) and ixgbevf.
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The following are changes since commit 702ed3c1a9dfe4dfe112f13542d0c9d689f5008b:
-  Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-Alexander Duyck (1):
-  ioat: Do not enable DCA if tag map is invalid
-
-Greg Rose (8):
-  ixgbevf: Streamline the rx buffer allocation
-  ixgbevf: Fix unnecessary dereference where local var is available.
-  ixgbevf: Remove the ring adapter pointer value
-  ixgbevf: Remove checking for mac.ops function pointers
-  ixgbevf: Remove mailbox spinlock from the reset function
-  ixgbevf: White space and comments clean up
-  ixgbevf: Remove unneeded and obsolete comment
-  ixgbevf: Add checksum statistics counters to rings
-
- drivers/dma/ioat/dca.c                            |  23 ++++
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   3 +-
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 123 +++++++++-------------
- 3 files changed, 72 insertions(+), 77 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 57ae5cd..a52b14e 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1681,13 +1681,6 @@ void ixgbevf_reinit_locked(struct ixgbevf_adapter *adapter)
+ 	while (test_and_set_bit(__IXGBEVF_RESETTING, &adapter->state))
+ 		msleep(1);
+ 
+-	/*
+-	 * Check if PF is up before re-init.  If not then skip until
+-	 * later when the PF is up and ready to service requests from
+-	 * the VF via mailbox.  If the VF is up and running then the
+-	 * watchdog task will continue to schedule reset tasks until
+-	 * the PF is up and running.
+-	 */
+ 	ixgbevf_down(adapter);
+ 	ixgbevf_up(adapter);
+ 
 -- 
 1.7.11.7
