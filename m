@@ -1,308 +1,138 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH V2 11/14] ipv6: Update ipv6 static library with newly needed functions
-Date: Thu, 15 Nov 2012 13:49:20 -0500
-Message-ID: <1353005363-6974-12-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH V2 03/14] net: Add net protocol offload registration infrustructure
+Date: Thu, 15 Nov 2012 13:49:12 -0500
+Message-ID: <1353005363-6974-4-git-send-email-vyasevic@redhat.com>
 References: <1353005363-6974-1-git-send-email-vyasevic@redhat.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36075 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:24247 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1768726Ab2KOSti (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Nov 2012 13:49:38 -0500
+	id S1768600Ab2KOSta (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 13:49:30 -0500
 In-Reply-To: <1353005363-6974-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UDP offload needs some additional functions to be in the static kernel
-for it work correclty.  Move those functions into the core.
+Create a new data structure for IPv4 protocols that holds GRO/GSO
+callbacks and a new array to track the protocols that register GRO/GSO.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/ipv6/Makefile       |    2 +-
- net/ipv6/exthdrs.c      |   44 ---------------------------
- net/ipv6/exthdrs_core.c |   44 +++++++++++++++++++++++++++
- net/ipv6/ip6_output.c   |   65 ----------------------------------------
- net/ipv6/output_core.c  |   76 +++++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 121 insertions(+), 110 deletions(-)
- create mode 100644 net/ipv6/output_core.c
+ include/net/protocol.h |   12 ++++++++++++
+ net/ipv4/af_inet.c     |   12 ++++++++++++
+ net/ipv4/protocol.c    |   21 +++++++++++++++++++++
+ 3 files changed, 45 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index 7f25077..cdca302 100644
---- a/net/ipv6/Makefile
-+++ b/net/ipv6/Makefile
-@@ -41,6 +41,6 @@ obj-$(CONFIG_IPV6_SIT) += sit.o
- obj-$(CONFIG_IPV6_TUNNEL) += ip6_tunnel.o
- obj-$(CONFIG_IPV6_GRE) += ip6_gre.o
+diff --git a/include/net/protocol.h b/include/net/protocol.h
+index 929528c..d8ecb17 100644
+--- a/include/net/protocol.h
++++ b/include/net/protocol.h
+@@ -77,6 +77,15 @@ struct inet6_protocol {
+ #define INET6_PROTO_GSO_EXTHDR	0x4
+ #endif
  
--obj-y += addrconf_core.o exthdrs_core.o
-+obj-y += addrconf_core.o exthdrs_core.o output_core.o
++struct net_offload {
++	int			(*gso_send_check)(struct sk_buff *skb);
++	struct sk_buff	       *(*gso_segment)(struct sk_buff *skb,
++					       netdev_features_t features);
++	struct sk_buff	      **(*gro_receive)(struct sk_buff **head,
++					       struct sk_buff *skb);
++	int			(*gro_complete)(struct sk_buff *skb);
++};
++
+ /* This is used to register socket interfaces for IP protocols.  */
+ struct inet_protosw {
+ 	struct list_head list;
+@@ -96,6 +105,7 @@ struct inet_protosw {
+ #define INET_PROTOSW_ICSK      0x04  /* Is this an inet_connection_sock? */
  
- obj-$(subst m,y,$(CONFIG_IPV6)) += inet6_hashtables.o
-diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
-index dc0faab..e9b5b33 100644
---- a/net/ipv6/exthdrs.c
-+++ b/net/ipv6/exthdrs.c
-@@ -50,50 +50,6 @@
- #include <asm/uaccess.h>
- #include "ip6_offload.h"
+ extern const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS];
++extern const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS];
  
--int ipv6_find_tlv(struct sk_buff *skb, int offset, int type)
--{
--	const unsigned char *nh = skb_network_header(skb);
--	int packet_len = skb->tail - skb->network_header;
--	struct ipv6_opt_hdr *hdr;
--	int len;
--
--	if (offset + 2 > packet_len)
--		goto bad;
--	hdr = (struct ipv6_opt_hdr *)(nh + offset);
--	len = ((hdr->hdrlen + 1) << 3);
--
--	if (offset + len > packet_len)
--		goto bad;
--
--	offset += 2;
--	len -= 2;
--
--	while (len > 0) {
--		int opttype = nh[offset];
--		int optlen;
--
--		if (opttype == type)
--			return offset;
--
--		switch (opttype) {
--		case IPV6_TLV_PAD1:
--			optlen = 1;
--			break;
--		default:
--			optlen = nh[offset + 1] + 2;
--			if (optlen > len)
--				goto bad;
--			break;
--		}
--		offset += optlen;
--		len -= optlen;
--	}
--	/* not_found */
-- bad:
--	return -1;
--}
--EXPORT_SYMBOL_GPL(ipv6_find_tlv);
--
+ #if IS_ENABLED(CONFIG_IPV6)
+ extern const struct inet6_protocol __rcu *inet6_protos[MAX_INET_PROTOS];
+@@ -103,6 +113,8 @@ extern const struct inet6_protocol __rcu *inet6_protos[MAX_INET_PROTOS];
+ 
+ extern int	inet_add_protocol(const struct net_protocol *prot, unsigned char num);
+ extern int	inet_del_protocol(const struct net_protocol *prot, unsigned char num);
++extern int	inet_add_offload(const struct net_offload *prot, unsigned char num);
++extern int	inet_del_offload(const struct net_offload *prot, unsigned char num);
+ extern void	inet_register_protosw(struct inet_protosw *p);
+ extern void	inet_unregister_protosw(struct inet_protosw *p);
+ 
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index 4c99c5f..3918d86 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1566,6 +1566,13 @@ static const struct net_protocol tcp_protocol = {
+ 	.netns_ok	=	1,
+ };
+ 
++static const struct net_offload tcp_offload = {
++	.gso_send_check	=	tcp_v4_gso_send_check,
++	.gso_segment	=	tcp_tso_segment,
++	.gro_receive	=	tcp4_gro_receive,
++	.gro_complete	=	tcp4_gro_complete,
++};
++
+ static const struct net_protocol udp_protocol = {
+ 	.handler =	udp_rcv,
+ 	.err_handler =	udp_err,
+@@ -1575,6 +1582,11 @@ static const struct net_protocol udp_protocol = {
+ 	.netns_ok =	1,
+ };
+ 
++static const struct net_offload udp_offload = {
++	.gso_send_check = udp4_ufo_send_check,
++	.gso_segment = udp4_ufo_fragment,
++};
++
+ static const struct net_protocol icmp_protocol = {
+ 	.handler =	icmp_rcv,
+ 	.err_handler =	ping_err,
+diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
+index 8918eff..0f9d09f 100644
+--- a/net/ipv4/protocol.c
++++ b/net/ipv4/protocol.c
+@@ -29,6 +29,7 @@
+ #include <net/protocol.h>
+ 
+ const struct net_protocol __rcu *inet_protos[MAX_INET_PROTOS] __read_mostly;
++const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __read_mostly;
+ 
  /*
-  *	Parsing tlv encoded headers.
-  *
-diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
-index f73d59a..e7d756e 100644
---- a/net/ipv6/exthdrs_core.c
-+++ b/net/ipv6/exthdrs_core.c
-@@ -111,3 +111,47 @@ int ipv6_skip_exthdr(const struct sk_buff *skb, int start, u8 *nexthdrp,
- 	return start;
+  *	Add a protocol handler to the hash tables
+@@ -41,6 +42,13 @@ int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
  }
- EXPORT_SYMBOL(ipv6_skip_exthdr);
-+
-+int ipv6_find_tlv(struct sk_buff *skb, int offset, int type)
-+{
-+	const unsigned char *nh = skb_network_header(skb);
-+	int packet_len = skb->tail - skb->network_header;
-+	struct ipv6_opt_hdr *hdr;
-+	int len;
-+
-+	if (offset + 2 > packet_len)
-+		goto bad;
-+	hdr = (struct ipv6_opt_hdr *)(nh + offset);
-+	len = ((hdr->hdrlen + 1) << 3);
-+
-+	if (offset + len > packet_len)
-+		goto bad;
-+
-+	offset += 2;
-+	len -= 2;
-+
-+	while (len > 0) {
-+		int opttype = nh[offset];
-+		int optlen;
-+
-+		if (opttype == type)
-+			return offset;
-+
-+		switch (opttype) {
-+		case IPV6_TLV_PAD1:
-+			optlen = 1;
-+			break;
-+		default:
-+			optlen = nh[offset + 1] + 2;
-+			if (optlen > len)
-+				goto bad;
-+			break;
-+		}
-+		offset += optlen;
-+		len -= optlen;
-+	}
-+	/* not_found */
-+ bad:
-+	return -1;
-+}
-+EXPORT_SYMBOL_GPL(ipv6_find_tlv);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index aece3e7..45e6558 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -545,71 +545,6 @@ static void ip6_copy_metadata(struct sk_buff *to, struct sk_buff *from)
- 	skb_copy_secmark(to, from);
- }
+ EXPORT_SYMBOL(inet_add_protocol);
  
--int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
--{
--	u16 offset = sizeof(struct ipv6hdr);
--	struct ipv6_opt_hdr *exthdr =
--				(struct ipv6_opt_hdr *)(ipv6_hdr(skb) + 1);
--	unsigned int packet_len = skb->tail - skb->network_header;
--	int found_rhdr = 0;
--	*nexthdr = &ipv6_hdr(skb)->nexthdr;
--
--	while (offset + 1 <= packet_len) {
--
--		switch (**nexthdr) {
--
--		case NEXTHDR_HOP:
--			break;
--		case NEXTHDR_ROUTING:
--			found_rhdr = 1;
--			break;
--		case NEXTHDR_DEST:
--#if defined(CONFIG_IPV6_MIP6) || defined(CONFIG_IPV6_MIP6_MODULE)
--			if (ipv6_find_tlv(skb, offset, IPV6_TLV_HAO) >= 0)
--				break;
--#endif
--			if (found_rhdr)
--				return offset;
--			break;
--		default :
--			return offset;
--		}
--
--		offset += ipv6_optlen(exthdr);
--		*nexthdr = &exthdr->nexthdr;
--		exthdr = (struct ipv6_opt_hdr *)(skb_network_header(skb) +
--						 offset);
--	}
--
--	return offset;
--}
--
--void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
--{
--	static atomic_t ipv6_fragmentation_id;
--	int old, new;
--
--	if (rt && !(rt->dst.flags & DST_NOPEER)) {
--		struct inet_peer *peer;
--		struct net *net;
--
--		net = dev_net(rt->dst.dev);
--		peer = inet_getpeer_v6(net->ipv6.peers, &rt->rt6i_dst.addr, 1);
--		if (peer) {
--			fhdr->identification = htonl(inet_getid(peer, 0));
--			inet_putpeer(peer);
--			return;
--		}
--	}
--	do {
--		old = atomic_read(&ipv6_fragmentation_id);
--		new = old + 1;
--		if (!new)
--			new = 1;
--	} while (atomic_cmpxchg(&ipv6_fragmentation_id, old, new) != old);
--	fhdr->identification = htonl(new);
--}
--
- int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- {
- 	struct sk_buff *frag;
-diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
-new file mode 100644
-index 0000000..c2e73e6
---- /dev/null
-+++ b/net/ipv6/output_core.c
-@@ -0,0 +1,76 @@
-+/*
-+ * IPv6 library code, needed by static components when full IPv6 support is
-+ * not configured or static.  These functions are needed by GSO/GRO implementation.
-+ */
-+#include <linux/export.h>
-+#include <net/ipv6.h>
-+#include <net/ip6_fib.h>
-+
-+void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt)
++int inet_add_offload(const struct net_offload *prot, unsigned char protocol)
 +{
-+	static atomic_t ipv6_fragmentation_id;
-+	int old, new;
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (rt && !(rt->dst.flags & DST_NOPEER)) {
-+		struct inet_peer *peer;
-+		struct net *net;
-+
-+		net = dev_net(rt->dst.dev);
-+		peer = inet_getpeer_v6(net->ipv6.peers, &rt->rt6i_dst.addr, 1);
-+		if (peer) {
-+			fhdr->identification = htonl(inet_getid(peer, 0));
-+			inet_putpeer(peer);
-+			return;
-+		}
-+	}
-+#endif
-+	do {
-+		old = atomic_read(&ipv6_fragmentation_id);
-+		new = old + 1;
-+		if (!new)
-+			new = 1;
-+	} while (atomic_cmpxchg(&ipv6_fragmentation_id, old, new) != old);
-+	fhdr->identification = htonl(new);
++	return !cmpxchg((const struct net_offload **)&inet_offloads[protocol],
++			NULL, prot) ? 0 : -1;
 +}
-+EXPORT_SYMBOL(ipv6_select_ident);
++EXPORT_SYMBOL(inet_add_offload);
 +
-+int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
+ /*
+  *	Remove a protocol from the hash tables.
+  */
+@@ -57,3 +65,16 @@ int inet_del_protocol(const struct net_protocol *prot, unsigned char protocol)
+ 	return ret;
+ }
+ EXPORT_SYMBOL(inet_del_protocol);
++
++int inet_del_offload(const struct net_offload *prot, unsigned char protocol)
 +{
-+	u16 offset = sizeof(struct ipv6hdr);
-+	struct ipv6_opt_hdr *exthdr =
-+				(struct ipv6_opt_hdr *)(ipv6_hdr(skb) + 1);
-+	unsigned int packet_len = skb->tail - skb->network_header;
-+	int found_rhdr = 0;
-+	*nexthdr = &ipv6_hdr(skb)->nexthdr;
++	int ret;
 +
-+	while (offset + 1 <= packet_len) {
++	ret = (cmpxchg((const struct net_offload **)&inet_offloads[protocol],
++		       prot, NULL) == prot) ? 0 : -1;
 +
-+		switch (**nexthdr) {
++	synchronize_net();
 +
-+		case NEXTHDR_HOP:
-+			break;
-+		case NEXTHDR_ROUTING:
-+			found_rhdr = 1;
-+			break;
-+		case NEXTHDR_DEST:
-+#if IS_ENABLED(CONFIG_IPV6_MIP6)
-+			if (ipv6_find_tlv(skb, offset, IPV6_TLV_HAO) >= 0)
-+				break;
-+#endif
-+			if (found_rhdr)
-+				return offset;
-+			break;
-+		default :
-+			return offset;
-+		}
-+
-+		offset += ipv6_optlen(exthdr);
-+		*nexthdr = &exthdr->nexthdr;
-+		exthdr = (struct ipv6_opt_hdr *)(skb_network_header(skb) +
-+						 offset);
-+	}
-+
-+	return offset;
++	return ret;
 +}
-+EXPORT_SYMBOL(ip6_find_1stfragopt);
++EXPORT_SYMBOL(inet_del_offload);
 -- 
 1.7.7.6
