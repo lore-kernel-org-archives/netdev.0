@@ -1,84 +1,79 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 0/4] Implement persistent grant in
- xen-netfront/netback
-Date: Thu, 15 Nov 2012 08:51:59 +0000
-Message-ID: <1352969519.3499.30.camel@zakaz.uk.xensource.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
-	 <20121115074057.GO8912@reaktio.net> <50A4AA06.8080900@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: ANNIE LI <annie.li@oracle.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH net-next] tunnel: use the correct endian for some fields
+Date: Thu, 15 Nov 2012 16:51:22 +0800
+Message-ID: <1352969482-29836-1-git-send-email-amwang@redhat.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.ctxuk.citrix.com ([62.200.22.115]:8426 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756187Ab2KOIwB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 03:52:01 -0500
-In-Reply-To: <50A4AA06.8080900@oracle.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38167 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S2993226Ab2KOIvh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Nov 2012 03:51:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-15 at 08:38 +0000, ANNIE LI wrote:
->=20
-> On 2012-11-15 15:40, Pasi K=C3=A4rkk=C3=A4inen wrote:
-> > Hello,
-> >
-> > On Thu, Nov 15, 2012 at 03:03:07PM +0800, Annie Li wrote:
-> >> This patch implements persistent grants for xen-netfront/netback. =
-This
-> >> mechanism maintains page pools in netback/netfront, these page poo=
-ls is used to
-> >> save grant pages which are mapped. This way improve performance wh=
-ich is wasted
-> >> when doing grant operations.
-> >>
-> >> Current netback/netfront does map/unmap grant operations frequentl=
-y when
-> >> transmitting/receiving packets, and grant operations costs much cp=
-u clock. In
-> >> this patch, netfront/netback maps grant pages when needed and then=
- saves them
-> >> into a page pool for future use. All these pages will be unmapped =
-when
-> >> removing/releasing the net device.
-> >>
-> > Do you have performance numbers available already? with/without per=
-sistent grants?
-> I have some simple netperf/netserver test result with/without persist=
-ent=20
-> grants,
->=20
-> Following is result of with persistent grant patch,
+Fengguang reported:
 
-> Guests, Sum,      Avg,     Min,     Max
->   1,  15106.4,  15106.4, 15106.36, 15106.36
->   2,  13052.7,  6526.34,  6261.81,  6790.86
->   3,  12675.1,  6337.53,  6220.24,  6454.83
->   4,  13194,  6596.98,  6274.70,  6919.25
+net/ipv6/ip6_tunnel.c:1571:33: sparse: incorrect type in assignment (different base types)
+net/ipv6/ip6_tunnel.c:1571:33:    expected restricted __be32 [usertype] flowinfo
+net/ipv6/ip6_tunnel.c:1571:33:    got unsigned int
 
-Are these pairs of guests or individual ones?
+for these fields, we need to use the correct endian wrapers.
 
-I think the really interesting cases are when you get up to larger
-numbers of guests, aren't they? ISTR that for blkio things got most
-interesting WRT persistent grants at the dozens of guests stage. Do you
-have any numbers for those?
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Have you run any tests other than netperf?
+---
 
-Do you have numbers for a a persistent capable backend with a
-non-persistent frontend and vice versa?
-
-
->=20
->=20
-> Following are result of without persistent patch
->=20
-> Guests, Sum,     Avg,    Min,        Max
->   1,  10864.1,  10864.1, 10864.10, 10864.10
->   2,  10898.5,  5449.24,  4862.08,  6036.40
->   3,  10734.5,  5367.26,  5261.43,  5473.08
->   4,  10924,    5461.99,  5314.84,  5609.14
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 64686e1..54477d8 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -864,7 +864,7 @@ static void ipip_netlink_parms(struct nlattr *data[],
+ 		parms->link = nla_get_u32(data[IFLA_IPTUN_LINK]);
+ 
+ 	if (data[IFLA_IPTUN_LOCAL])
+-		parms->iph.saddr = nla_get_u32(data[IFLA_IPTUN_LOCAL]);
++		parms->iph.saddr = nla_get_be32(data[IFLA_IPTUN_LOCAL]);
+ 
+ 	if (data[IFLA_IPTUN_REMOTE])
+ 		parms->iph.daddr = nla_get_u32(data[IFLA_IPTUN_REMOTE]);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index ab4d056..bf3a549 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1568,7 +1568,7 @@ static void ip6_tnl_netlink_parms(struct nlattr *data[],
+ 		parms->encap_limit = nla_get_u8(data[IFLA_IPTUN_ENCAP_LIMIT]);
+ 
+ 	if (data[IFLA_IPTUN_FLOWINFO])
+-		parms->flowinfo = nla_get_u32(data[IFLA_IPTUN_FLOWINFO]);
++		parms->flowinfo = nla_get_be32(data[IFLA_IPTUN_FLOWINFO]);
+ 
+ 	if (data[IFLA_IPTUN_FLAGS])
+ 		parms->flags = nla_get_u32(data[IFLA_IPTUN_FLAGS]);
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 7bd2a06..e137750 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1240,7 +1240,7 @@ static void ipip6_netlink_parms(struct nlattr *data[],
+ 		parms->link = nla_get_u32(data[IFLA_IPTUN_LINK]);
+ 
+ 	if (data[IFLA_IPTUN_LOCAL])
+-		parms->iph.saddr = nla_get_u32(data[IFLA_IPTUN_LOCAL]);
++		parms->iph.saddr = nla_get_be32(data[IFLA_IPTUN_LOCAL]);
+ 
+ 	if (data[IFLA_IPTUN_REMOTE])
+ 		parms->iph.daddr = nla_get_u32(data[IFLA_IPTUN_REMOTE]);
+@@ -1337,7 +1337,7 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 	    nla_put_u8(skb, IFLA_IPTUN_TOS, parm->iph.tos) ||
+ 	    nla_put_u8(skb, IFLA_IPTUN_PMTUDISC,
+ 		       !!(parm->iph.frag_off & htons(IP_DF))) ||
+-	    nla_put_u16(skb, IFLA_IPTUN_FLAGS, parm->i_flags))
++	    nla_put_be16(skb, IFLA_IPTUN_FLAGS, parm->i_flags))
+ 		goto nla_put_failure;
+ 	return 0;
+ 
