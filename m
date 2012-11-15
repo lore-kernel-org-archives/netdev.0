@@ -1,28 +1,75 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 1/3] ipip: fix sparse warnings in ipip_netlink_parms()
-Date: Thu, 15 Nov 2012 10:41:04 +0100
-Message-ID: <50A4B8B0.1090409@6wind.com>
-References: <1352969616-30476-1-git-send-email-nicolas.dichtel@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:57414 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423637Ab2KOJlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 04:41:08 -0500
-Received: by mail-wg0-f44.google.com with SMTP id dr13so699445wgb.1
-        for <netdev@vger.kernel.org>; Thu, 15 Nov 2012 01:41:06 -0800 (PST)
-In-Reply-To: <1352969616-30476-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zheng Li <zheng.x.li@oracle.com>
+Subject: [PATCH] bonding: rlb mode of bond should not alter ARP originating via bridge
+Date: Thu, 15 Nov 2012 17:47:41 +0800
+Message-ID: <1352972861-17577-1-git-send-email-zheng.x.li@oracle.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	joe.jin@oracle.com, zheng.x.li@oracle.com
+To: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 15/11/2012 09:53, Nicolas Dichtel a =C3=A9crit :
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-I forget "Reported-by: Fengguang Wu <fengguang.wu@intel.com>"
+ARP traffic passing through a bridge and out via the bond (when the bond is a 
+port of the bridge) should not have its source MAC address adjusted by the 
+receive load balance code in rlb_arp_xmit.
 
-Should I resend the serie?
+Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+
+---
+ drivers/net/bonding/bond_alb.c |    6 ++++++
+ drivers/net/bonding/bonding.h  |   13 +++++++++++++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index e15cc11..75f6f0d 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -694,6 +694,12 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
+ 	struct arp_pkt *arp = arp_pkt(skb);
+ 	struct slave *tx_slave = NULL;
+ 
++	/* Only modify ARP's MAC if it originates locally;
++	 * don't change ARPs arriving via a bridge.
++	 */
++	if (!bond_slave_has_mac(bond, arp->mac_src))
++		return NULL;
++
+ 	if (arp->op_code == htons(ARPOP_REPLY)) {
+ 		/* the arp must be sent on the selected
+ 		* rx channel
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index f8af2fc..6dded56 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -22,6 +22,7 @@
+ #include <linux/in6.h>
+ #include <linux/netpoll.h>
+ #include <linux/inetdevice.h>
++#include <linux/etherdevice.h>
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
+ 
+@@ -450,6 +451,18 @@ static inline void bond_destroy_proc_dir(struct bond_net *bn)
+ }
+ #endif
+ 
++static inline struct slave *bond_slave_has_mac(struct bonding *bond,
++					       const u8 *mac)
++{
++	int i = 0;
++	struct slave *tmp;
++
++	bond_for_each_slave(bond, tmp, i)
++		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
++			return tmp;
++
++	return NULL;
++}
+ 
+ /* exported from bond_main.c */
+ extern int bond_net_id;
+-- 
+1.7.6.5
