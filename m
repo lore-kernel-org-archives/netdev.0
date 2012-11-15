@@ -1,78 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: gro vs vlan in myri10ge
-Date: Thu, 15 Nov 2012 20:39:56 +0000
-Message-ID: <1353011996.4867.74.camel@deadeye.wl.decadent.org.uk>
-References: <509C6858.6010105@myri.com>
-	 <1352428870.19779.496.camel@edumazet-glaptop>
+From: Anthony Liguori <aliguori@us.ibm.com>
+Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Thu, 15 Nov 2012 15:32:07 -0600
+Message-ID: <50A55F57.7080804@us.ibm.com>
+References: <783561822.12637564.1352139592543.JavaMail.root@vmware.com> <509A06AB.2020700@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Gallatin <gallatin@myri.com>
+Cc: Andy King <acking@vmware.com>, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, David Miller <davem@davemloft.net>,
+	georgezhang@vmware.com,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: Gerd Hoffmann <kraxel@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29310 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750871Ab2KOU7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 15:59:23 -0500
-In-Reply-To: <1352428870.19779.496.camel@edumazet-glaptop>
+Received: from e28smtp08.in.ibm.com ([122.248.162.8]:43221 "EHLO
+	e28smtp08.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050Ab2KOVcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 16:32:19 -0500
+Received: from /spool/local
+	by e28smtp08.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <aliguori@us.ibm.com>;
+	Fri, 16 Nov 2012 03:02:16 +0530
+In-Reply-To: <509A06AB.2020700@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-08 at 18:41 -0800, Eric Dumazet wrote:
-> On Thu, 2012-11-08 at 21:20 -0500, Andrew Gallatin wrote:
-> > Hi,
-> > 
-> > I've wanted to convert myri10ge from LRO to GRO for quite a while.
-> > The problem I'm facing is that the NIC cannot perform hardware vlan
-> > tag offload, so GRO performance is far below LRO performance when
-> > receiving vlan tagged TCP traffic.
+On 11/07/2012 12:58 AM, Gerd Hoffmann wrote:
+> On 11/05/12 19:19, Andy King wrote:
+>> Hi David,
+>>
+>>> The big and only question is whether anyone can actually use any of
+>>> this stuff without your proprietary bits?
+>>
+>> Do you mean the VMCI calls?  The VMCI driver is in the process of being
+>> upstreamed into the drivers/misc tree.  Greg (cc'd on these patches) is
+>> actively reviewing that code and we are addressing feedback.
+>>
+>> Also, there was some interest from RedHat into using vSockets as a unified
+>> interface, routed over a hypervisor-specific transport (virtio or
+>> otherwise, although for now VMCI is the only one implemented).
+>
+> Can you outline how this can be done?  From a quick look over the code
+> it seems like vsock has a hard dependency on vmci, is that correct?
+>
+> When making vsock a generic, reusable kernel service it should be the
+> other way around:  vsock should provide the core implementation and an
+> interface where hypervisor-specific transports (vmci, virtio, xenbus,
+> ...) can register themself.
 
-Thanks for the reminder; I need to deal with this in sfc as well.
+This was already done in a hypervisor neutral way using virtio:
 
-> > If a vlan tagged frame is passed to lro_receive_frags(), inet_lro will
-> > look at the encapsulated IPv4 frame and TCP aggregation will succeed.
-> > However, it appears that GRO will not do this.  When I patch the
-> > driver to use GRO, and configure a vlan interface, I see high CPU
-> > utilization and poor bandwidth when I'm receiving a netperf TCP stream
-> > on the vlan interface.  If I use LRO in an unpatched driver, then I
-> > see good receive performance in the same scenario.
-> > 
-> > What is the best way to "fix" this?
-> > 
-> > Unless I'm just using GRO wrong, it seems that the simplest thing for
-> > me to do is to claim NETIF_F_HW_VLAN_RX, but pop the tags in the
-> > driver so as to allow myri10ge to pass up a non-encapsulated frame the
-> > same way that (nearly?) every other 10GbE NIC does.  I've got a quick
-> > and dirty patch that confirms doing the vtag pop in the driver gives
-> > me roughly the same performance with GRO as I used to have with LRO.
-> > 
-> > Is this (popping vlan tags in the driver) acceptable, or is it
-> > too much of a layering violation?
-> 
-> Given GRO assumes NIC does hardware vlan offloading, I guess
-> I would chose to do that.
+http://lists.openwall.net/netdev/2008/12/14/8
 
-Really, after all the changes in 2.6.37 to unify behaviour between the
-offloaded and non-offloaded paths?
+The concept was Nacked and that led to the abomination of virtio-serial.  If an 
+address family for virtualization is on the table, we should reconsider 
+AF_VMCHANNEL.
 
-> It seems unfortunate to add vlan decap in GRO path, already very
-> complex.
+I'd be thrilled to get rid of virtio-serial...
 
-True but can't this be done at the top?
+Regards,
 
-I'll post a patch for this shortly.
+Anthony Liguori
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>
+> cheers,
+>    Gerd
