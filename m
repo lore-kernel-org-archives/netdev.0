@@ -1,320 +1,243 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 2/4] tg3: Prevent spurious tx timeout by
- setting carrier off before tx disable.
-Date: Wed, 14 Nov 2012 16:44:27 -0800
-Message-ID: <1352940269-23821-2-git-send-email-mchan@broadcom.com>
-References: <1352940269-23821-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 1/4] tg3: Set 10_100_ONLY flag for additional
+ 10/100 Mbps devices
+Date: Wed, 14 Nov 2012 16:44:26 -0800
+Message-ID: <1352940269-23821-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, nsujir@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4035 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4034 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755455Ab2KOAa1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Nov 2012 19:30:27 -0500
-In-Reply-To: <1352940269-23821-1-git-send-email-mchan@broadcom.com>
+	id S932299Ab2KOAa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 14 Nov 2012 19:30:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nithin Nayak Sujir <nsujir@broadcom.com>
 
-The watchdog will not trigger when the carrier is off when reconfiguring
-the device.  Because carrier state is now off during reset, we need to
-introduce a link_up flag to keep track of link state during PHY setup.
+- Also refactor the conditional to use the existing tg3_pci_tbl array.
+- Set flags in the driver_data field of the pci_device_id structure to
+identify these devices.
+- Add PCI_DEVICE_SUB() to pci.h to declare PCI 4-part IDs to match these
+devices.
 
 Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   98 ++++++++++++++++++++---------------
- drivers/net/ethernet/broadcom/tg3.h |    1 +
- 2 files changed, 57 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   87 ++++++++++++++++++++++++-----------
+ drivers/net/ethernet/broadcom/tg3.h |    5 ++
+ include/linux/pci.h                 |   14 ++++++
+ 3 files changed, 79 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 8d4581b..f533e17 100644
+index 038ce02..8d4581b 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -2473,6 +2473,18 @@ static int tg3_phy_reset_5703_4_5(struct tg3 *tp)
- 	return err;
+@@ -226,6 +226,9 @@ static int tg3_debug = -1;	/* -1 == use TG3_DEF_MSG_ENABLE as value */
+ module_param(tg3_debug, int, 0);
+ MODULE_PARM_DESC(tg3_debug, "Tigon3 bitmapped debugging message enable value");
+ 
++#define TG3_DRV_DATA_FLAG_10_100_ONLY	0x0001
++#define TG3_DRV_DATA_FLAG_5705_10_100	0x0002
++
+ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5700)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5701)},
+@@ -245,20 +248,28 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5782)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5788)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5789)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5901)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5901_2)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5901),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY |
++			TG3_DRV_DATA_FLAG_5705_10_100},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5901_2),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY |
++			TG3_DRV_DATA_FLAG_5705_10_100},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5704S_2)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5705F)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5705F),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY |
++			TG3_DRV_DATA_FLAG_5705_10_100},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5721)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5722)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5751)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5751M)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5751F)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5751F),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5752)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5752M)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5753)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5753M)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5753F)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5753F),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5754)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5754M)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5755)},
+@@ -266,8 +277,13 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5756)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5786)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5787)},
++	{PCI_DEVICE_SUB(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5787M,
++			PCI_VENDOR_ID_LENOVO,
++			TG3PCI_SUBDEVICE_ID_LENOVO_5787M),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5787M)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5787F)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5787F),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5714)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5714S)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5715)},
+@@ -286,9 +302,16 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5761SE)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5785_G)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5785_F)},
++	{PCI_DEVICE_SUB(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57780,
++			PCI_VENDOR_ID_AI, TG3PCI_SUBDEVICE_ID_ACER_57780_A),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY},
++	{PCI_DEVICE_SUB(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57780,
++			PCI_VENDOR_ID_AI, TG3PCI_SUBDEVICE_ID_ACER_57780_B),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57780)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57760)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57790)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57790),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57788)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5717)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5717_C)},
+@@ -297,8 +320,10 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57785)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57761)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57765)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57791)},
+-	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57795)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57791),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57795),
++	 .driver_data = TG3_DRV_DATA_FLAG_10_100_ONLY},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5719)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5720)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57762)},
+@@ -14466,7 +14491,30 @@ static void __devinit tg3_detect_asic_rev(struct tg3 *tp, u32 misc_ctrl_reg)
+ 		tg3_flag_set(tp, 5705_PLUS);
  }
  
-+static void tg3_carrier_on(struct tg3 *tp)
+-static int __devinit tg3_get_invariants(struct tg3 *tp)
++static bool tg3_10_100_only_device(struct tg3 *tp,
++				   const struct pci_device_id *ent)
 +{
-+	netif_carrier_on(tp->dev);
-+	tp->link_up = true;
-+}
++	u32 grc_misc_cfg = tr32(GRC_MISC_CFG) & GRC_MISC_CFG_BOARD_ID_MASK;
 +
-+static void tg3_carrier_off(struct tg3 *tp)
-+{
-+	netif_carrier_off(tp->dev);
-+	tp->link_up = false;
-+}
-+
- /* This will reset the tigon3 PHY if there is no valid
-  * link unless the FORCE argument is non-zero.
-  */
-@@ -2491,8 +2503,8 @@ static int tg3_phy_reset(struct tg3 *tp)
- 	if (err != 0)
- 		return -EBUSY;
- 
--	if (netif_running(tp->dev) && netif_carrier_ok(tp->dev)) {
--		netif_carrier_off(tp->dev);
-+	if (netif_running(tp->dev) && tp->link_up) {
-+		tg3_carrier_off(tp);
- 		tg3_link_report(tp);
- 	}
- 
-@@ -4186,6 +4198,24 @@ static bool tg3_phy_copper_fetch_rmtadv(struct tg3 *tp, u32 *rmtadv)
- 	return true;
- }
- 
-+static bool tg3_test_and_report_link_chg(struct tg3 *tp, int curr_link_up)
-+{
-+	if (curr_link_up != tp->link_up) {
-+		if (curr_link_up) {
-+			tg3_carrier_on(tp);
-+		} else {
-+			tg3_carrier_off(tp);
-+			if (tp->phy_flags & TG3_PHYFLG_MII_SERDES)
-+				tp->phy_flags &= ~TG3_PHYFLG_PARALLEL_DETECT;
-+		}
-+
-+		tg3_link_report(tp);
++	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 &&
++	    (grc_misc_cfg == 0x8000 || grc_misc_cfg == 0x4000)) ||
++	    (tp->phy_flags & TG3_PHYFLG_IS_FET))
 +		return true;
++
++	if (ent->driver_data & TG3_DRV_DATA_FLAG_10_100_ONLY) {
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705) {
++			if (ent->driver_data & TG3_DRV_DATA_FLAG_5705_10_100)
++				return true;
++		} else {
++			return true;
++		}
 +	}
 +
 +	return false;
 +}
 +
- static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
++static int __devinit tg3_get_invariants(struct tg3 *tp,
++					const struct pci_device_id *ent)
  {
- 	int current_link_up;
-@@ -4218,7 +4248,7 @@ static int tg3_setup_copper_phy(struct tg3 *tp, int force_reset)
- 	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 ||
- 	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 ||
- 	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705) &&
--	    netif_carrier_ok(tp->dev)) {
-+	    tp->link_up) {
- 		tg3_readphy(tp, MII_BMSR, &bmsr);
- 		if (!tg3_readphy(tp, MII_BMSR, &bmsr) &&
- 		    !(bmsr & BMSR_LSTATUS))
-@@ -4460,13 +4490,7 @@ relink:
- 						 PCI_EXP_LNKCTL_CLKREQ_EN);
- 	}
+ 	u32 misc_ctrl_reg;
+ 	u32 pci_state_reg, grc_misc_cfg;
+@@ -15145,22 +15193,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	else
+ 		tp->mac_mode = 0;
  
--	if (current_link_up != netif_carrier_ok(tp->dev)) {
--		if (current_link_up)
--			netif_carrier_on(tp->dev);
--		else
--			netif_carrier_off(tp->dev);
--		tg3_link_report(tp);
--	}
-+	tg3_test_and_report_link_chg(tp, current_link_up);
+-	/* these are limited to 10/100 only */
+-	if ((GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 &&
+-	     (grc_misc_cfg == 0x8000 || grc_misc_cfg == 0x4000)) ||
+-	    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705 &&
+-	     tp->pdev->vendor == PCI_VENDOR_ID_BROADCOM &&
+-	     (tp->pdev->device == PCI_DEVICE_ID_TIGON3_5901 ||
+-	      tp->pdev->device == PCI_DEVICE_ID_TIGON3_5901_2 ||
+-	      tp->pdev->device == PCI_DEVICE_ID_TIGON3_5705F)) ||
+-	    (tp->pdev->vendor == PCI_VENDOR_ID_BROADCOM &&
+-	     (tp->pdev->device == PCI_DEVICE_ID_TIGON3_5751F ||
+-	      tp->pdev->device == PCI_DEVICE_ID_TIGON3_5753F ||
+-	      tp->pdev->device == PCI_DEVICE_ID_TIGON3_5787F)) ||
+-	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_57790 ||
+-	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_57791 ||
+-	    tp->pdev->device == TG3PCI_DEVICE_TIGON3_57795 ||
+-	    (tp->phy_flags & TG3_PHYFLG_IS_FET))
++	if (tg3_10_100_only_device(tp, ent))
+ 		tp->phy_flags |= TG3_PHYFLG_10_100_ONLY;
  
- 	return 0;
- }
-@@ -5106,7 +5130,7 @@ static int tg3_setup_fiber_phy(struct tg3 *tp, int force_reset)
- 	orig_active_duplex = tp->link_config.active_duplex;
+ 	err = tg3_phy_probe(tp);
+@@ -16039,7 +16072,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
+ 	dev->netdev_ops = &tg3_netdev_ops;
+ 	dev->irq = pdev->irq;
  
- 	if (!tg3_flag(tp, HW_AUTONEG) &&
--	    netif_carrier_ok(tp->dev) &&
-+	    tp->link_up &&
- 	    tg3_flag(tp, INIT_COMPLETE)) {
- 		mac_status = tr32(MAC_STATUS);
- 		mac_status &= (MAC_STATUS_PCS_SYNCED |
-@@ -5184,13 +5208,7 @@ static int tg3_setup_fiber_phy(struct tg3 *tp, int force_reset)
- 				    LED_CTRL_TRAFFIC_OVERRIDE));
- 	}
- 
--	if (current_link_up != netif_carrier_ok(tp->dev)) {
--		if (current_link_up)
--			netif_carrier_on(tp->dev);
--		else
--			netif_carrier_off(tp->dev);
--		tg3_link_report(tp);
--	} else {
-+	if (!tg3_test_and_report_link_chg(tp, current_link_up)) {
- 		u32 now_pause_cfg = tp->link_config.active_flowctrl;
- 		if (orig_pause_cfg != now_pause_cfg ||
- 		    orig_active_speed != tp->link_config.active_speed ||
-@@ -5283,7 +5301,7 @@ static int tg3_setup_fiber_mii_phy(struct tg3 *tp, int force_reset)
- 			new_bmcr |= BMCR_SPEED1000;
- 
- 			/* Force a linkdown */
--			if (netif_carrier_ok(tp->dev)) {
-+			if (tp->link_up) {
- 				u32 adv;
- 
- 				err |= tg3_readphy(tp, MII_ADVERTISE, &adv);
-@@ -5295,7 +5313,7 @@ static int tg3_setup_fiber_mii_phy(struct tg3 *tp, int force_reset)
- 							   BMCR_ANRESTART |
- 							   BMCR_ANENABLE);
- 				udelay(10);
--				netif_carrier_off(tp->dev);
-+				tg3_carrier_off(tp);
- 			}
- 			tg3_writephy(tp, MII_BMCR, new_bmcr);
- 			bmcr = new_bmcr;
-@@ -5361,15 +5379,7 @@ static int tg3_setup_fiber_mii_phy(struct tg3 *tp, int force_reset)
- 	tp->link_config.active_speed = current_speed;
- 	tp->link_config.active_duplex = current_duplex;
- 
--	if (current_link_up != netif_carrier_ok(tp->dev)) {
--		if (current_link_up)
--			netif_carrier_on(tp->dev);
--		else {
--			netif_carrier_off(tp->dev);
--			tp->phy_flags &= ~TG3_PHYFLG_PARALLEL_DETECT;
--		}
--		tg3_link_report(tp);
--	}
-+	tg3_test_and_report_link_chg(tp, current_link_up);
- 	return err;
- }
- 
-@@ -5381,7 +5391,7 @@ static void tg3_serdes_parallel_detect(struct tg3 *tp)
- 		return;
- 	}
- 
--	if (!netif_carrier_ok(tp->dev) &&
-+	if (!tp->link_up &&
- 	    (tp->link_config.autoneg == AUTONEG_ENABLE)) {
- 		u32 bmcr;
- 
-@@ -5411,7 +5421,7 @@ static void tg3_serdes_parallel_detect(struct tg3 *tp)
- 				tp->phy_flags |= TG3_PHYFLG_PARALLEL_DETECT;
- 			}
- 		}
--	} else if (netif_carrier_ok(tp->dev) &&
-+	} else if (tp->link_up &&
- 		   (tp->link_config.autoneg == AUTONEG_ENABLE) &&
- 		   (tp->phy_flags & TG3_PHYFLG_PARALLEL_DETECT)) {
- 		u32 phy2;
-@@ -5477,7 +5487,7 @@ static int tg3_setup_phy(struct tg3 *tp, int force_reset)
- 		     (32 << TX_LENGTHS_SLOT_TIME_SHIFT));
- 
- 	if (!tg3_flag(tp, 5705_PLUS)) {
--		if (netif_carrier_ok(tp->dev)) {
-+		if (tp->link_up) {
- 			tw32(HOSTCC_STAT_COAL_TICKS,
- 			     tp->coal.stats_block_coalesce_usecs);
- 		} else {
-@@ -5487,7 +5497,7 @@ static int tg3_setup_phy(struct tg3 *tp, int force_reset)
- 
- 	if (tg3_flag(tp, ASPM_WORKAROUND)) {
- 		val = tr32(PCIE_PWR_MGMT_THRESH);
--		if (!netif_carrier_ok(tp->dev))
-+		if (!tp->link_up)
- 			val = (val & ~PCIE_PWR_MGMT_L1_THRESH_MSK) |
- 			      tp->pwrmgmt_thresh;
- 		else
-@@ -6503,6 +6513,7 @@ static inline void tg3_netif_stop(struct tg3 *tp)
- {
- 	tp->dev->trans_start = jiffies;	/* prevent tx timeout */
- 	tg3_napi_disable(tp);
-+	netif_carrier_off(tp->dev);
- 	netif_tx_disable(tp->dev);
- }
- 
-@@ -6514,6 +6525,9 @@ static inline void tg3_netif_start(struct tg3 *tp)
- 	 */
- 	netif_tx_wake_all_queues(tp->dev);
- 
-+	if (tp->link_up)
-+		netif_carrier_on(tp->dev);
-+
- 	tg3_napi_enable(tp);
- 	tp->napi[0].hw_status->status |= SD_STATUS_UPDATED;
- 	tg3_enable_ints(tp);
-@@ -8412,7 +8426,7 @@ static void __tg3_set_coalesce(struct tg3 *tp, struct ethtool_coalesce *ec)
- 		tw32(HOSTCC_RXCOAL_TICK_INT, ec->rx_coalesce_usecs_irq);
- 		tw32(HOSTCC_TXCOAL_TICK_INT, ec->tx_coalesce_usecs_irq);
- 
--		if (!netif_carrier_ok(tp->dev))
-+		if (!tp->link_up)
- 			val = 0;
- 
- 		tw32(HOSTCC_STAT_COAL_TICKS, val);
-@@ -9705,7 +9719,7 @@ static void tg3_periodic_fetch_stats(struct tg3 *tp)
- {
- 	struct tg3_hw_stats *sp = tp->hw_stats;
- 
--	if (!netif_carrier_ok(tp->dev))
-+	if (!tp->link_up)
- 		return;
- 
- 	TG3_STAT_ADD32(&sp->tx_octets, MAC_TX_STATS_OCTETS);
-@@ -9849,11 +9863,11 @@ static void tg3_timer(unsigned long __opaque)
- 			u32 mac_stat = tr32(MAC_STATUS);
- 			int need_setup = 0;
- 
--			if (netif_carrier_ok(tp->dev) &&
-+			if (tp->link_up &&
- 			    (mac_stat & MAC_STATUS_LNKSTATE_CHANGED)) {
- 				need_setup = 1;
- 			}
--			if (!netif_carrier_ok(tp->dev) &&
-+			if (!tp->link_up &&
- 			    (mac_stat & (MAC_STATUS_PCS_SYNCED |
- 					 MAC_STATUS_SIGNAL_DET))) {
- 				need_setup = 1;
-@@ -10505,7 +10519,7 @@ static int tg3_open(struct net_device *dev)
- 		}
- 	}
- 
--	netif_carrier_off(tp->dev);
-+	tg3_carrier_off(tp);
- 
- 	err = tg3_power_up(tp);
- 	if (err)
-@@ -10538,7 +10552,7 @@ static int tg3_close(struct net_device *dev)
- 
- 	tg3_power_down(tp);
- 
--	netif_carrier_off(tp->dev);
-+	tg3_carrier_off(tp);
- 
- 	return 0;
- }
-@@ -10912,7 +10926,7 @@ static int tg3_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 			cmd->advertising |= ADVERTISED_Asym_Pause;
- 		}
- 	}
--	if (netif_running(dev) && netif_carrier_ok(dev)) {
-+	if (netif_running(dev) && tp->link_up) {
- 		ethtool_cmd_speed_set(cmd, tp->link_config.active_speed);
- 		cmd->duplex = tp->link_config.active_duplex;
- 		cmd->lp_advertising = tp->link_config.rmt_adv;
-@@ -11430,7 +11444,7 @@ static int tg3_set_channels(struct net_device *dev,
- 
- 	tg3_stop(tp);
- 
--	netif_carrier_off(dev);
-+	tg3_carrier_off(tp);
- 
- 	tg3_start(tp, true, false);
- 
-@@ -11779,7 +11793,7 @@ static int tg3_test_link(struct tg3 *tp)
- 		max = TG3_COPPER_TIMEOUT_SEC;
- 
- 	for (i = 0; i < max; i++) {
--		if (netif_carrier_ok(tp->dev))
-+		if (tp->link_up)
- 			return 0;
- 
- 		if (msleep_interruptible(1000))
+-	err = tg3_get_invariants(tp);
++	err = tg3_get_invariants(tp, ent);
+ 	if (err) {
+ 		dev_err(&pdev->dev,
+ 			"Problem fetching invariants of chip, aborting\n");
 diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 6ff9964..4534804 100644
+index b3c2bf2..6ff9964 100644
 --- a/drivers/net/ethernet/broadcom/tg3.h
 +++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -3269,6 +3269,7 @@ struct tg3 {
- #if IS_ENABLED(CONFIG_HWMON)
- 	struct device			*hwmon_dev;
- #endif
-+	bool				link_up;
- };
+@@ -44,6 +44,7 @@
+ #define  TG3PCI_DEVICE_TIGON3_5761S	 0x1688
+ #define  TG3PCI_DEVICE_TIGON3_5761SE	 0x1689
+ #define  TG3PCI_DEVICE_TIGON3_57780	 0x1692
++#define  TG3PCI_DEVICE_TIGON3_5787M	 0x1693
+ #define  TG3PCI_DEVICE_TIGON3_57760	 0x1690
+ #define  TG3PCI_DEVICE_TIGON3_57790	 0x1694
+ #define  TG3PCI_DEVICE_TIGON3_57788	 0x1691
+@@ -96,6 +97,10 @@
+ #define TG3PCI_SUBDEVICE_ID_COMPAQ_NC7780_2	0x0099
+ #define TG3PCI_SUBVENDOR_ID_IBM			PCI_VENDOR_ID_IBM
+ #define TG3PCI_SUBDEVICE_ID_IBM_5703SAX2	0x0281
++#define TG3PCI_SUBDEVICE_ID_ACER_57780_A	0x0601
++#define TG3PCI_SUBDEVICE_ID_ACER_57780_B	0x0612
++#define TG3PCI_SUBDEVICE_ID_LENOVO_5787M	0x3056
++
+ /* 0x30 --> 0x64 unused */
+ #define TG3PCI_MSI_DATA			0x00000064
+ /* 0x66 --> 0x68 unused */
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index ee21795..9cbd670 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -604,6 +604,20 @@ struct pci_driver {
+ 	.subvendor = PCI_ANY_ID, .subdevice = PCI_ANY_ID
  
- #endif /* !(_T3_H) */
+ /**
++ * PCI_DEVICE_SUB - macro used to describe a specific pci device with subsystem
++ * @vend: the 16 bit PCI Vendor ID
++ * @dev: the 16 bit PCI Device ID
++ * @subvend: the 16 bit PCI Subvendor ID
++ * @subdev: the 16 bit PCI Subdevice ID
++ *
++ * This macro is used to create a struct pci_device_id that matches a
++ * specific device with subsystem information.
++ */
++#define PCI_DEVICE_SUB(vend, dev, subvend, subdev) \
++	.vendor = (vend), .device = (dev), \
++	.subvendor = (subvend), .subdevice = (subdev)
++
++/**
+  * PCI_DEVICE_CLASS - macro used to describe a specific pci device class
+  * @dev_class: the class, subclass, prog-if triple for this device
+  * @dev_class_mask: the class mask for this device
 -- 
 1.7.1
