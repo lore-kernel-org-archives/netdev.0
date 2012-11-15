@@ -1,30 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] macb add support for phy gpio interrupt
-Date: Wed, 14 Nov 2012 22:23:20 -0500 (EST)
-Message-ID: <20121114.222320.669612825338017157.davem@davemloft.net>
-References: <1352678188-18647-1-git-send-email-manabian@gmail.com>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: Latest 3.6.6 are not compiling due tg3 network driver,
+ hwmon_device_unregister
+Date: Wed, 14 Nov 2012 19:24:29 -0800
+Message-ID: <50A4606D.4020402@broadcom.com>
+References: <8b566c4a9ee622737212dc17291ee238@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=utf-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, plagnioj@jcrosoft.com,
-	netdev@vger.kernel.org
-To: manabian@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38903 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933294Ab2KODXV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Nov 2012 22:23:21 -0500
-In-Reply-To: <1352678188-18647-1-git-send-email-manabian@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael Chan" <mchan@broadcom.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Denys Fedoryshchenko" <denys@visp.net.lb>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8b566c4a9ee622737212dc17291ee238@visp.net.lb>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joachim Eastwood <manabian@gmail.com>
-Date: Mon, 12 Nov 2012 00:56:25 +0100
+This was fixed by
 
-> Main feature of this patch set is phy gpio interrupt for macb.
- ...
-> Patch series was tested on a custom board with DM9161AEP and AT91RM9200 EMAC.
+commit de0a41484c47d783dd4d442914815076aa2caac2
+Author: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date:   Mon Oct 1 11:43:49 2012 -0400
 
-Applied.
+     tg3: unconditionally select HWMON support when tg3 is enabled.
 
-If there are problems found during testing we can fix or revert.
+
+Nithin.
+
+
+On 11/14/2012 07:03 PM, Denys Fedoryshchenko wrote:
+> Hi
+>
+> During compiling i am getting that:
+>
+> drivers/built-in.o: In function `tg3_close':
+> tg3.c:(.text+0x12902e): undefined reference to `hwmon_device_unregister'
+> drivers/built-in.o: In function `tg3_hwmon_open':
+> tg3.c:(.text+0x12ae09): undefined reference to `hwmon_device_register'
+>
+> Kernel config are at http://nuclearcat.com/config-tg3.txt  , but i noticed this error are 
+> appearing at x86, x64 kernels, probably also other 3.6.x series kernels.
+> Disabling TG3 driver helps, but i believe it is not a solution.
+>
+> ---
+> Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
