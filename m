@@ -1,242 +1,266 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH] openvswitch: Make IPv6 packet parsing dependent on IPv6 config
-Date: Fri, 16 Nov 2012 10:43:03 -0500
-Message-ID: <1353080583-14432-1-git-send-email-vyasevic@redhat.com>
-References: <50a5c2e5.lgIvZwesNLp78CVD%fengguang.wu@intel.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 2/4] sit: allow to configure 6rd tunnels via netlink
+Date: Fri, 16 Nov 2012 17:14:14 +0100
+Message-ID: <1353082456-21234-3-git-send-email-nicolas.dichtel@6wind.com>
+References: <1353082456-21234-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55915 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752432Ab2KPPnF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2012 10:43:05 -0500
-Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id qAGFh5GL009699
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Fri, 16 Nov 2012 10:43:05 -0500
-In-Reply-To: <50a5c2e5.lgIvZwesNLp78CVD%fengguang.wu@intel.com>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:37993 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752148Ab2KPQNb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 11:13:31 -0500
+In-Reply-To: <1353082456-21234-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Openvswitch attempts to use IPv6 packet parsing functions without
-any dependency on IPv6 (unlike every other place in kernel).  Pull
-the IPv6 code in openvswitch togeter and put a conditional that's
-dependent on CONFIG_IPV6.
+This patch add the support of 6RD tunnels management via netlink.
+Note that netdev_state_change() is now called when 6RD parameters are updated.
 
-Resolves:
-net/built-in.o: In function `ovs_flow_extract':
-(.text+0xbf5d5): undefined reference to `ipv6_skip_exthdr'
+6RD parameters are updated only if there is at least one 6RD attribute.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/openvswitch/flow.c |  168 ++++++++++++++++++++++++-----------------------
- 1 files changed, 86 insertions(+), 82 deletions(-)
+ include/uapi/linux/if_tunnel.h |   4 ++
+ net/ipv6/sit.c                 | 149 ++++++++++++++++++++++++++++++++++-------
+ 2 files changed, 128 insertions(+), 25 deletions(-)
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 98c7063..6dfaf60 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -124,6 +124,7 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies)
- 	(offsetof(struct sw_flow_key, field) +	\
- 	 FIELD_SIZEOF(struct sw_flow_key, field))
- 
-+#if IS_ENABLED(CONFIG_IPV6)
- static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key,
- 			 int *key_lenp)
- {
-@@ -175,6 +176,89 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
- 				  sizeof(struct icmp6hdr));
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 5ab0c8d..aee73d0 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -49,6 +49,10 @@ enum {
+ 	IFLA_IPTUN_FLAGS,
+ 	IFLA_IPTUN_PROTO,
+ 	IFLA_IPTUN_PMTUDISC,
++	IFLA_IPTUN_6RD_PREFIX,
++	IFLA_IPTUN_6RD_RELAY_PREFIX,
++	IFLA_IPTUN_6RD_PREFIXLEN,
++	IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
+ 	__IFLA_IPTUN_MAX,
+ };
+ #define IFLA_IPTUN_MAX	(__IFLA_IPTUN_MAX - 1)
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index ca6c2c8..504422d 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -936,6 +936,38 @@ static void ipip6_tunnel_update(struct ip_tunnel *t, struct ip_tunnel_parm *p)
+ 	netdev_state_change(t->dev);
  }
  
-+static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
-+			int *key_lenp, int nh_len)
++#ifdef CONFIG_IPV6_SIT_6RD
++static int ipip6_tunnel_update_6rd(struct ip_tunnel *t,
++				   struct ip_tunnel_6rd *ip6rd)
 +{
-+	struct icmp6hdr *icmp = icmp6_hdr(skb);
-+	int error = 0;
-+	int key_len;
++	struct in6_addr prefix;
++	__be32 relay_prefix;
 +
-+	/* The ICMPv6 type and code fields use the 16-bit transport port
-+	 * fields, so we need to store them in 16-bit network byte order.
-+	 */
-+	key->ipv6.tp.src = htons(icmp->icmp6_type);
-+	key->ipv6.tp.dst = htons(icmp->icmp6_code);
-+	key_len = SW_FLOW_KEY_OFFSET(ipv6.tp);
++	if (ip6rd->relay_prefixlen > 32 ||
++	    ip6rd->prefixlen + (32 - ip6rd->relay_prefixlen) > 64)
++		return -EINVAL;
 +
-+	if (icmp->icmp6_code == 0 &&
-+	    (icmp->icmp6_type == NDISC_NEIGHBOUR_SOLICITATION ||
-+	     icmp->icmp6_type == NDISC_NEIGHBOUR_ADVERTISEMENT)) {
-+		int icmp_len = skb->len - skb_transport_offset(skb);
-+		struct nd_msg *nd;
-+		int offset;
++	ipv6_addr_prefix(&prefix, &ip6rd->prefix, ip6rd->prefixlen);
++	if (!ipv6_addr_equal(&prefix, &ip6rd->prefix))
++		return -EINVAL;
++	if (ip6rd->relay_prefixlen)
++		relay_prefix = ip6rd->relay_prefix &
++			       htonl(0xffffffffUL <<
++				     (32 - ip6rd->relay_prefixlen));
++	else
++		relay_prefix = 0;
++	if (relay_prefix != ip6rd->relay_prefix)
++		return -EINVAL;
 +
-+		key_len = SW_FLOW_KEY_OFFSET(ipv6.nd);
-+
-+		/* In order to process neighbor discovery options, we need the
-+		 * entire packet.
-+		 */
-+		if (unlikely(icmp_len < sizeof(*nd)))
-+			goto out;
-+		if (unlikely(skb_linearize(skb))) {
-+			error = -ENOMEM;
-+			goto out;
-+		}
-+
-+		nd = (struct nd_msg *)skb_transport_header(skb);
-+		key->ipv6.nd.target = nd->target;
-+		key_len = SW_FLOW_KEY_OFFSET(ipv6.nd);
-+
-+		icmp_len -= sizeof(*nd);
-+		offset = 0;
-+		while (icmp_len >= 8) {
-+			struct nd_opt_hdr *nd_opt =
-+				 (struct nd_opt_hdr *)(nd->opt + offset);
-+			int opt_len = nd_opt->nd_opt_len * 8;
-+
-+			if (unlikely(!opt_len || opt_len > icmp_len))
-+				goto invalid;
-+
-+			/* Store the link layer address if the appropriate
-+			 * option is provided.  It is considered an error if
-+			 * the same link layer option is specified twice.
-+			 */
-+			if (nd_opt->nd_opt_type == ND_OPT_SOURCE_LL_ADDR
-+			    && opt_len == 8) {
-+				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.sll)))
-+					goto invalid;
-+				memcpy(key->ipv6.nd.sll,
-+				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
-+			} else if (nd_opt->nd_opt_type == ND_OPT_TARGET_LL_ADDR
-+				   && opt_len == 8) {
-+				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.tll)))
-+					goto invalid;
-+				memcpy(key->ipv6.nd.tll,
-+				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
-+			}
-+
-+			icmp_len -= opt_len;
-+			offset += opt_len;
-+		}
-+	}
-+
-+	goto out;
-+
-+invalid:
-+	memset(&key->ipv6.nd.target, 0, sizeof(key->ipv6.nd.target));
-+	memset(key->ipv6.nd.sll, 0, sizeof(key->ipv6.nd.sll));
-+	memset(key->ipv6.nd.tll, 0, sizeof(key->ipv6.nd.tll));
-+
-+out:
-+	*key_lenp = key_len;
-+	return error;
++	t->ip6rd.prefix = prefix;
++	t->ip6rd.relay_prefix = relay_prefix;
++	t->ip6rd.prefixlen = ip6rd->prefixlen;
++	t->ip6rd.relay_prefixlen = ip6rd->relay_prefixlen;
++	netdev_state_change(t->dev);
++	return 0;
 +}
 +#endif
 +
- #define TCP_FLAGS_OFFSET 13
- #define TCP_FLAG_MASK 0x3f
+ static int
+ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+@@ -1105,31 +1137,9 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		t = netdev_priv(dev);
  
-@@ -487,88 +571,6 @@ static __be16 parse_ethertype(struct sk_buff *skb)
- 	return llc->ethertype;
+ 		if (cmd != SIOCDEL6RD) {
+-			struct in6_addr prefix;
+-			__be32 relay_prefix;
+-
+-			err = -EINVAL;
+-			if (ip6rd.relay_prefixlen > 32 ||
+-			    ip6rd.prefixlen + (32 - ip6rd.relay_prefixlen) > 64)
+-				goto done;
+-
+-			ipv6_addr_prefix(&prefix, &ip6rd.prefix,
+-					 ip6rd.prefixlen);
+-			if (!ipv6_addr_equal(&prefix, &ip6rd.prefix))
++			err = ipip6_tunnel_update_6rd(t, &ip6rd);
++			if (err < 0)
+ 				goto done;
+-			if (ip6rd.relay_prefixlen)
+-				relay_prefix = ip6rd.relay_prefix &
+-					       htonl(0xffffffffUL <<
+-						     (32 - ip6rd.relay_prefixlen));
+-			else
+-				relay_prefix = 0;
+-			if (relay_prefix != ip6rd.relay_prefix)
+-				goto done;
+-
+-			t->ip6rd.prefix = prefix;
+-			t->ip6rd.relay_prefix = relay_prefix;
+-			t->ip6rd.prefixlen = ip6rd.prefixlen;
+-			t->ip6rd.relay_prefixlen = ip6rd.relay_prefixlen;
+ 		} else
+ 			ipip6_tunnel_clone_6rd(dev, sitn);
+ 
+@@ -1261,11 +1271,53 @@ static void ipip6_netlink_parms(struct nlattr *data[],
+ 		parms->i_flags = nla_get_be16(data[IFLA_IPTUN_FLAGS]);
  }
  
--static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
--			int *key_lenp, int nh_len)
--{
--	struct icmp6hdr *icmp = icmp6_hdr(skb);
--	int error = 0;
--	int key_len;
--
--	/* The ICMPv6 type and code fields use the 16-bit transport port
--	 * fields, so we need to store them in 16-bit network byte order.
--	 */
--	key->ipv6.tp.src = htons(icmp->icmp6_type);
--	key->ipv6.tp.dst = htons(icmp->icmp6_code);
--	key_len = SW_FLOW_KEY_OFFSET(ipv6.tp);
--
--	if (icmp->icmp6_code == 0 &&
--	    (icmp->icmp6_type == NDISC_NEIGHBOUR_SOLICITATION ||
--	     icmp->icmp6_type == NDISC_NEIGHBOUR_ADVERTISEMENT)) {
--		int icmp_len = skb->len - skb_transport_offset(skb);
--		struct nd_msg *nd;
--		int offset;
--
--		key_len = SW_FLOW_KEY_OFFSET(ipv6.nd);
--
--		/* In order to process neighbor discovery options, we need the
--		 * entire packet.
--		 */
--		if (unlikely(icmp_len < sizeof(*nd)))
--			goto out;
--		if (unlikely(skb_linearize(skb))) {
--			error = -ENOMEM;
--			goto out;
--		}
--
--		nd = (struct nd_msg *)skb_transport_header(skb);
--		key->ipv6.nd.target = nd->target;
--		key_len = SW_FLOW_KEY_OFFSET(ipv6.nd);
--
--		icmp_len -= sizeof(*nd);
--		offset = 0;
--		while (icmp_len >= 8) {
--			struct nd_opt_hdr *nd_opt =
--				 (struct nd_opt_hdr *)(nd->opt + offset);
--			int opt_len = nd_opt->nd_opt_len * 8;
--
--			if (unlikely(!opt_len || opt_len > icmp_len))
--				goto invalid;
--
--			/* Store the link layer address if the appropriate
--			 * option is provided.  It is considered an error if
--			 * the same link layer option is specified twice.
--			 */
--			if (nd_opt->nd_opt_type == ND_OPT_SOURCE_LL_ADDR
--			    && opt_len == 8) {
--				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.sll)))
--					goto invalid;
--				memcpy(key->ipv6.nd.sll,
--				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
--			} else if (nd_opt->nd_opt_type == ND_OPT_TARGET_LL_ADDR
--				   && opt_len == 8) {
--				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.tll)))
--					goto invalid;
--				memcpy(key->ipv6.nd.tll,
--				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
--			}
--
--			icmp_len -= opt_len;
--			offset += opt_len;
--		}
--	}
--
--	goto out;
--
--invalid:
--	memset(&key->ipv6.nd.target, 0, sizeof(key->ipv6.nd.target));
--	memset(key->ipv6.nd.sll, 0, sizeof(key->ipv6.nd.sll));
--	memset(key->ipv6.nd.tll, 0, sizeof(key->ipv6.nd.tll));
--
--out:
--	*key_lenp = key_len;
--	return error;
--}
--
- /**
-  * ovs_flow_extract - extracts a flow key from an Ethernet frame.
-  * @skb: sk_buff that contains the frame, with skb->data pointing to the
-@@ -712,6 +714,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
- 				key_len = SW_FLOW_KEY_OFFSET(ipv4.arp);
- 			}
- 		}
-+#if IS_ENABLED(CONFIG_IPV6)
- 	} else if (key->eth.type == htons(ETH_P_IPV6)) {
- 		int nh_len;             /* IPv6 Header + Extensions */
- 
-@@ -752,6 +755,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
- 					goto out;
- 			}
- 		}
++#ifdef CONFIG_IPV6_SIT_6RD
++/* This function returns true when 6RD attributes are present in the nl msg */
++static bool ipip6_netlink_6rd_parms(struct nlattr *data[],
++				    struct ip_tunnel_6rd *ip6rd)
++{
++	bool ret = false;
++	memset(ip6rd, 0, sizeof(*ip6rd));
++
++	if (!data)
++		return ret;
++
++	if (data[IFLA_IPTUN_6RD_PREFIX]) {
++		ret = true;
++		nla_memcpy(&ip6rd->prefix, data[IFLA_IPTUN_6RD_PREFIX],
++			   sizeof(struct in6_addr));
++	}
++
++	if (data[IFLA_IPTUN_6RD_RELAY_PREFIX]) {
++		ret = true;
++		ip6rd->relay_prefix =
++			nla_get_be32(data[IFLA_IPTUN_6RD_RELAY_PREFIX]);
++	}
++
++	if (data[IFLA_IPTUN_6RD_PREFIXLEN]) {
++		ret = true;
++		ip6rd->prefixlen = nla_get_u16(data[IFLA_IPTUN_6RD_PREFIXLEN]);
++	}
++
++	if (data[IFLA_IPTUN_6RD_RELAY_PREFIXLEN]) {
++		ret = true;
++		ip6rd->relay_prefixlen =
++			nla_get_u16(data[IFLA_IPTUN_6RD_RELAY_PREFIXLEN]);
++	}
++
++	return ret;
++}
 +#endif
- 	}
++
+ static int ipip6_newlink(struct net *src_net, struct net_device *dev,
+ 			 struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct net *net = dev_net(dev);
+ 	struct ip_tunnel *nt;
++#ifdef CONFIG_IPV6_SIT_6RD
++	struct ip_tunnel_6rd ip6rd;
++#endif
++	int err;
  
- out:
+ 	nt = netdev_priv(dev);
+ 	ipip6_netlink_parms(data, &nt->parms);
+@@ -1273,7 +1325,16 @@ static int ipip6_newlink(struct net *src_net, struct net_device *dev,
+ 	if (ipip6_tunnel_locate(net, &nt->parms, 0))
+ 		return -EEXIST;
+ 
+-	return ipip6_tunnel_create(dev);
++	err = ipip6_tunnel_create(dev);
++	if (err < 0)
++		return err;
++
++#ifdef CONFIG_IPV6_SIT_6RD
++	if (ipip6_netlink_6rd_parms(data, &ip6rd))
++		err = ipip6_tunnel_update_6rd(nt, &ip6rd);
++#endif
++
++	return err;
+ }
+ 
+ static int ipip6_changelink(struct net_device *dev, struct nlattr *tb[],
+@@ -1283,6 +1344,9 @@ static int ipip6_changelink(struct net_device *dev, struct nlattr *tb[],
+ 	struct ip_tunnel_parm p;
+ 	struct net *net = dev_net(dev);
+ 	struct sit_net *sitn = net_generic(net, sit_net_id);
++#ifdef CONFIG_IPV6_SIT_6RD
++	struct ip_tunnel_6rd ip6rd;
++#endif
+ 
+ 	if (dev == sitn->fb_tunnel_dev)
+ 		return -EINVAL;
+@@ -1302,6 +1366,12 @@ static int ipip6_changelink(struct net_device *dev, struct nlattr *tb[],
+ 		t = netdev_priv(dev);
+ 
+ 	ipip6_tunnel_update(t, &p);
++
++#ifdef CONFIG_IPV6_SIT_6RD
++	if (ipip6_netlink_6rd_parms(data, &ip6rd))
++		return ipip6_tunnel_update_6rd(t, &ip6rd);
++#endif
++
+ 	return 0;
+ }
+ 
+@@ -1322,6 +1392,16 @@ static size_t ipip6_get_size(const struct net_device *dev)
+ 		nla_total_size(1) +
+ 		/* IFLA_IPTUN_FLAGS */
+ 		nla_total_size(2) +
++#ifdef CONFIG_IPV6_SIT_6RD
++		/* IFLA_IPTUN_6RD_PREFIX */
++		nla_total_size(sizeof(struct in6_addr)) +
++		/* IFLA_IPTUN_6RD_RELAY_PREFIX */
++		nla_total_size(4) +
++		/* IFLA_IPTUN_6RD_PREFIXLEN */
++		nla_total_size(2) +
++		/* IFLA_IPTUN_6RD_RELAY_PREFIXLEN */
++		nla_total_size(2) +
++#endif
+ 		0;
+ }
+ 
+@@ -1339,6 +1419,19 @@ static int ipip6_fill_info(struct sk_buff *skb, const struct net_device *dev)
+ 		       !!(parm->iph.frag_off & htons(IP_DF))) ||
+ 	    nla_put_be16(skb, IFLA_IPTUN_FLAGS, parm->i_flags))
+ 		goto nla_put_failure;
++
++#ifdef CONFIG_IPV6_SIT_6RD
++	if (nla_put(skb, IFLA_IPTUN_6RD_PREFIX, sizeof(struct in6_addr),
++		    &tunnel->ip6rd.prefix) ||
++	    nla_put_be32(skb, IFLA_IPTUN_6RD_RELAY_PREFIX,
++			 tunnel->ip6rd.relay_prefix) ||
++	    nla_put_u16(skb, IFLA_IPTUN_6RD_PREFIXLEN,
++			tunnel->ip6rd.prefixlen) ||
++	    nla_put_u16(skb, IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
++			tunnel->ip6rd.relay_prefixlen))
++		goto nla_put_failure;
++#endif
++
+ 	return 0;
+ 
+ nla_put_failure:
+@@ -1353,6 +1446,12 @@ static const struct nla_policy ipip6_policy[IFLA_IPTUN_MAX + 1] = {
+ 	[IFLA_IPTUN_TOS]		= { .type = NLA_U8 },
+ 	[IFLA_IPTUN_PMTUDISC]		= { .type = NLA_U8 },
+ 	[IFLA_IPTUN_FLAGS]		= { .type = NLA_U16 },
++#ifdef CONFIG_IPV6_SIT_6RD
++	[IFLA_IPTUN_6RD_PREFIX]		= { .len = sizeof(struct in6_addr) },
++	[IFLA_IPTUN_6RD_RELAY_PREFIX]	= { .type = NLA_U32 },
++	[IFLA_IPTUN_6RD_PREFIXLEN]	= { .type = NLA_U16 },
++	[IFLA_IPTUN_6RD_RELAY_PREFIXLEN] = { .type = NLA_U16 },
++#endif
+ };
+ 
+ static struct rtnl_link_ops sit_link_ops __read_mostly = {
 -- 
-1.7.7.6
+1.7.12
