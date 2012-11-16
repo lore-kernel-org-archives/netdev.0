@@ -1,42 +1,91 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH 0/9 v4] use efficient this_cpu_* helper
-Date: Fri, 16 Nov 2012 16:30:21 +0800
-Message-ID: <50A5F99D.8020503@gmail.com>
-References: <50A1A7A9.6050501@gmail.com> <0000013b047079ab-01971b64-07e2-4f2e-a204-6baff2180fc3-000000@email.amazonses.com> <20121115145325.GC7306@mtj.dyndns.org>
+From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v4 4/9] net: openvswitch: use this_cpu_ptr
+	per-cpu helper
+Date: Fri, 16 Nov 2012 16:35:55 +0800
+Message-ID: <50A5FAEB.7090202@gmail.com>
+References: <50A1A7D9.2040506@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Lameter <cl@linux.com>, NetDev <netdev@vger.kernel.org>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>
-To: Tejun Heo <htejun@gmail.com>, David Miller <davem@davemloft.net>,
-	paulmck@linux.vnet.ibm.com, rostedt@goodmis.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121115145325.GC7306@mtj.dyndns.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Tejun Heo <htejun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <50A1A7D9.2040506-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Tejun Heo:
-
-Tejun Heo said, at 2012/11/15 22:53:
-> On Thu, Nov 15, 2012 at 02:19:38PM +0000, Christoph Lameter wrote:
->> Tejon: Could you pick up this patchset?
+Shan Wei said, at 2012/11/13 9:52:
+> From: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
 > 
-> Sure, but, Shan, when posting patchset, please make the patches
-> replies to the head message; otherwise, it's pretty difficult to track
-> what's going on with the patchset as a whole.  I see that some patches
-> are being picked up by respective subsystems.  If you have patches
-> left, please let me know.
-
-OK, next time i will do as you suggest.
-
-This patchset include more subsystem, i.e network, rcu, trace.
-The best way to avoid code conflict is subsystem maintainer to pick them up
-to their code tree. I will remind them in each patch that not yet applied and 
-add you to the receiver list.
-
-Best Regards
-Shan Wei
-
+> just use more faster this_cpu_ptr instead of per_cpu_ptr(p, smp_processor_id());
 > 
-> Thanks.
+> 
+> Signed-off-by: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
+> Reviewed-by: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+
+Jesse Gross,  would you like to pick it up to your tree?
+
+> ---
+> no changes vs v3,v2.
+> ---
+>  net/openvswitch/datapath.c |    4 ++--
+>  net/openvswitch/vport.c    |    5 ++---
+>  2 files changed, 4 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 4c4b62c..77d16a5 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -208,7 +208,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
+>  	int error;
+>  	int key_len;
+>  
+> -	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
+> +	stats = this_cpu_ptr(dp->stats_percpu);
+>  
+>  	/* Extract flow from 'skb' into 'key'. */
+>  	error = ovs_flow_extract(skb, p->port_no, &key, &key_len);
+> @@ -282,7 +282,7 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
+>  	return 0;
+>  
+>  err:
+> -	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
+> +	stats = this_cpu_ptr(dp->stats_percpu);
+>  
+>  	u64_stats_update_begin(&stats->sync);
+>  	stats->n_lost++;
+> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+> index 03779e8..70af0be 100644
+> --- a/net/openvswitch/vport.c
+> +++ b/net/openvswitch/vport.c
+> @@ -333,8 +333,7 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
+>  {
+>  	struct vport_percpu_stats *stats;
+>  
+> -	stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());
+> -
+> +	stats = this_cpu_ptr(vport->percpu_stats);
+>  	u64_stats_update_begin(&stats->sync);
+>  	stats->rx_packets++;
+>  	stats->rx_bytes += skb->len;
+> @@ -359,7 +358,7 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
+>  	if (likely(sent)) {
+>  		struct vport_percpu_stats *stats;
+>  
+> -		stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());
+> +		stats = this_cpu_ptr(vport->percpu_stats);
+>  
+>  		u64_stats_update_begin(&stats->sync);
+>  		stats->tx_packets++;
 > 
