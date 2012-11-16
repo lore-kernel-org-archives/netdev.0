@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ipv6: Fix build error with udp_offload
-Date: Thu, 15 Nov 2012 22:49:14 -0500 (EST)
-Message-ID: <20121115.224914.221499324977781840.davem@davemloft.net>
-References: <50a584d5.9dutnkC1pLuFHpWQ%fengguang.wu@intel.com>
-	<1353033337-2772-1-git-send-email-vyasevic@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50892 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751084Ab2KPDtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Nov 2012 22:49:15 -0500
-In-Reply-To: <1353033337-2772-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Marchi <simon.marchi@polymtl.ca>
+Subject: [PATCH] tilegx: request_irq with a non-null device name
+Date: Thu, 15 Nov 2012 23:13:19 -0500
+Message-ID: <1353039199-12520-1-git-send-email-simon.marchi@polymtl.ca>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	cmetcalf@tilera.com, Simon Marchi <simon.marchi@polymtl.ca>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Thu, 15 Nov 2012 21:35:37 -0500
+This patch simply makes the tilegx net driver call request_irq with a
+non-null name. It makes the output in /proc/interrupts more obvious, but
+also helps tools that don't expect to find null there.
 
-> Add ip6_checksum.h include.  This should resolve the following issue
-> that shows up on power:
-> 
-> net/ipv6/udp_offload.c: In function 'udp6_ufo_send_check':
-> net/ipv6/udp_offload.c:29:2: error: implicit declaration of function
-> 'csum_ipv6_magic' [-Werror=implicit-function-declaration]
-> cc1: some warnings being treated as errors
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+Signed-off-by: Simon Marchi <simon.marchi@polymtl.ca>
+Acked-by: Chris Metcalf <cmetcalf@tilera.com>
+---
+I am not sure if this patch will get picked up directly by David Miller
+of it should go through Chris Metcalf's tree first. Hopefully it is
+simple enough that it can get merged directly.
 
-Applied.
+ drivers/net/ethernet/tile/tilegx.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index 4e98100..66e025a 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -917,7 +917,7 @@ static int tile_net_setup_interrupts(struct net_device *dev)
+ 	ingress_irq = rc;
+ 	tile_irq_activate(ingress_irq, TILE_IRQ_PERCPU);
+ 	rc = request_irq(ingress_irq, tile_net_handle_ingress_irq,
+-			 0, NULL, NULL);
++			 0, "tile_net", NULL);
+ 	if (rc != 0) {
+ 		netdev_err(dev, "request_irq failed: %d\n", rc);
+ 		destroy_irq(ingress_irq);
+-- 
+1.7.1
