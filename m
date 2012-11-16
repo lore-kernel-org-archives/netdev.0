@@ -1,10 +1,10 @@
 From: Tushar Behera <tushar.behera@linaro.org>
-Subject: [PATCH 08/14] xen: netback: Remove redundant check on unsigned variable
-Date: Fri, 16 Nov 2012 12:20:40 +0530
-Message-ID: <1353048646-10935-9-git-send-email-tushar.behera@linaro.org>
+Subject: [PATCH 14/14] wlcore: Remove redundant check on unsigned variable
+Date: Fri, 16 Nov 2012 12:20:46 +0530
+Message-ID: <1353048646-10935-15-git-send-email-tushar.behera@linaro.org>
 References: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>
-Cc: patches@linaro.org, Ian Campbell <ian.campbell@citrix.com>,
-	xen-devel@lists.xensource.com, netdev@vger.kernel.org
+Cc: patches@linaro.org, Luciano Coelho <coelho@ti.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>
@@ -13,34 +13,26 @@ List-Id: netdev.vger.kernel.org
 
 No need to check whether unsigned variable is less than 0.
 
-CC: Ian Campbell <ian.campbell@citrix.com>
-CC: xen-devel@lists.xensource.com
+CC: Luciano Coelho <coelho@ti.com>
+CC: linux-wireless@vger.kernel.org
 CC: netdev@vger.kernel.org
 Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
 ---
- drivers/net/xen-netback/netback.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ti/wlcore/debugfs.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index aab8677..515e10c 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -190,14 +190,14 @@ static int get_page_ext(struct page *pg,
+diff --git a/drivers/net/wireless/ti/wlcore/debugfs.c b/drivers/net/wireless/ti/wlcore/debugfs.c
+index c86bb00..93f801d 100644
+--- a/drivers/net/wireless/ti/wlcore/debugfs.c
++++ b/drivers/net/wireless/ti/wlcore/debugfs.c
+@@ -993,7 +993,7 @@ static ssize_t sleep_auth_write(struct file *file,
+ 		return -EINVAL;
+ 	}
  
- 	group = ext.e.group - 1;
- 
--	if (group < 0 || group >= xen_netbk_group_nr)
-+	if (group >= xen_netbk_group_nr)
- 		return 0;
- 
- 	netbk = &xen_netbk[group];
- 
- 	idx = ext.e.idx;
- 
--	if ((idx < 0) || (idx >= MAX_PENDING_REQS))
-+	if (idx >= MAX_PENDING_REQS)
- 		return 0;
- 
- 	if (netbk->mmap_pages[idx] != pg)
+-	if (value < 0 || value > WL1271_PSM_MAX) {
++	if (value > WL1271_PSM_MAX) {
+ 		wl1271_warning("sleep_auth must be between 0 and %d",
+ 			       WL1271_PSM_MAX);
+ 		return -ERANGE;
 -- 
 1.7.4.1
