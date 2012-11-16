@@ -1,72 +1,84 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
-Date: Thu, 15 Nov 2012 22:51:22 -0800
-Message-ID: <87mwyi9h1x.fsf@xmission.com>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	<3246.1351717319@obiwan.sandelman.ca>
-	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
-	tcpdump-workers@lists.tcpdump.org,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>
-To: Ani Sinha <ani@aristanetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:40479 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148Ab2KPGvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 01:51:49 -0500
-In-Reply-To: <CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	(Ani Sinha's message of "Wed, 31 Oct 2012 14:50:27 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tushar Behera <tushar.behera@linaro.org>
+Subject: [PATCH 00/14] Modify signed comparisons of unsigned variables
+Date: Fri, 16 Nov 2012 12:20:32 +0530
+Message-ID: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>
+Cc: patches@linaro.org, Mauro Carvalho Chehab <mchehab@infradead.org>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Chas Williams <chas@cmf.nrl.navy.mil>,
+	Jack Steiner <steiner@sgi.com>, Arnd Bergmann <arnd@arndb.de>,
+	Luciano Coelho <coelho@ti.com>, Jiri Kosina <jkosina@suse.cz>,
+	ivtv-devel@ivtvdriver.org, linux-media@vger.kernel.org,
+	xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	linux-atm-general@lists.sourceforge.net, linux-usb@vger.kernel.org,
+	linux-input@vger.kernel.org, linux-wireless@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-input-owner@vger.kernel.org>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ani Sinha <ani@aristanetworks.com> writes:
+The occurrences were identified through the coccinelle script at
+following location.
 
-> cc'ing netdev.
->
->
-> On Wed, Oct 31, 2012 at 2:01 PM, Michael Richardson <mcr@sandelman.ca> wrote:
->>
->> Thanks for this email.
->>
->>>>>>> "Ani" == Ani Sinha <ani@aristanetworks.com> writes:
->>     Ani> remove "inline" from vlan_core.c functions
->>     Ani> Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->>     Ani> As a result of this patch, with or without HW acceleration support in
->>     Ani> the kernel driver, the vlan tag information is pulled out from the
->>     Ani> packet and is inserted in the skb metadata. Thereafter, the vlan tag
->>     Ani> information for a 802.1q packet can be obtained my applications
->>     Ani> running in the user space by using the auxdata and cmsg
->>     Ani> structure.
->>
->> Do you think that the existance of this behaviour could be exposed in
->> sysctl, /proc/net or /sys equivalent (we still don't have /sys/net...)?
->> As a read only file that had a 0/1 in it?
->
-> yes, we definitely need a run time check. Whether this could be in the
-> form of a socket option or a /proc entry I don't know.
+http://www.emn.fr/z-info/coccinelle/rules/find_unsigned.cocci
 
-I don't see any need to add any kernel code to allow checking if vlan
-tags are stripped.  Vlan headers are stripped on all kernel interfaces
-today.  Vlan headers have been stripped on all but a handful of software
-interfaces for 6+ years.  For all kernels if the vlan header is stripped
-it is reported in the auxdata, upon packet reception.  Careful code
-should also look for TP_STATUS_VLAN_VALID which allows for
-distinguishing a striped vlan header of 0 from no vlan header.
+Signed checks for unsigned variables are removed if it is also checked
+for upper error limit. For error checks, IS_ERR_VALUE() macros is used.
 
-The safe assumption then is that testing for vlan headers and vlan
-values in bpf filters is not possible without the new bpf extentions.
+Tushar Behera (14):
+  [media] ivtv: Remove redundant check on unsigned variable
+  [media] meye: Remove redundant check on unsigned variable
+  [media] saa7134: Remove redundant check on unsigned variable
+  [media] tlg2300: Remove redundant check on unsigned variable
+  [media] atmel-isi: Update error check for unsigned variables
+  pinctrl: samsung: Update error check for unsigned variables
+  pinctrl: SPEAr: Update error check for unsigned variables
+  xen: netback: Remove redundant check on unsigned variable
+  xen: events: Remove redundant check on unsigned variable
+  atm: Removed redundant check on unsigned variable
+  HID: hiddev: Remove redundant check on unsigned variable
+  gru: Remove redundant check on unsigned variable
+  misc: tsl2550: Remove redundant check on unsigned variable
+  wlcore: Remove redundant check on unsigned variable
 
-It is possible to test for the presence of support of the new vlan bpf
-extensions by attempting to load a filter that uses them.  As only valid
-filters can be loaded, old kernels that do not support filtering of vlan
-tags will fail to load the a test filter with uses them.
+ drivers/atm/fore200e.c                        |    2 +-
+ drivers/hid/usbhid/hiddev.c                   |    2 +-
+ drivers/media/pci/ivtv/ivtv-ioctl.c           |    2 +-
+ drivers/media/pci/meye/meye.c                 |    2 +-
+ drivers/media/pci/saa7134/saa7134-video.c     |    2 +-
+ drivers/media/platform/soc_camera/atmel-isi.c |    2 +-
+ drivers/media/usb/tlg2300/pd-video.c          |    2 +-
+ drivers/misc/sgi-gru/grukdump.c               |    2 +-
+ drivers/misc/tsl2550.c                        |    4 ++--
+ drivers/net/wireless/ti/wlcore/debugfs.c      |    2 +-
+ drivers/net/xen-netback/netback.c             |    4 ++--
+ drivers/pinctrl/pinctrl-samsung.c             |    2 +-
+ drivers/pinctrl/spear/pinctrl-plgpio.c        |    2 +-
+ drivers/xen/events.c                          |    2 +-
+ 14 files changed, 16 insertions(+), 16 deletions(-)
 
-For old kernels that do not support the new extensions it is possible to
-generate code that looks at the ethernet header and sees if the
-ethertype is 0x8100 and then does things with it, but that will only
-work on a small handful of software only interfaces.
+-- 
+1.7.4.1
 
-Eric
+CC: Mauro Carvalho Chehab <mchehab@infradead.org>
+CC: Linus Walleij <linus.walleij@linaro.org>
+CC: Ian Campbell <ian.campbell@citrix.com>
+CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+CC: Jeremy Fitzhardinge <jeremy@goop.org>
+CC: Chas Williams <chas@cmf.nrl.navy.mil>
+CC: Jack Steiner <steiner@sgi.com>
+CC: Arnd Bergmann <arnd@arndb.de>
+CC: Luciano Coelho <coelho@ti.com>
+CC: Jiri Kosina <jkosina@suse.cz>
+CC: ivtv-devel@ivtvdriver.org
+CC: linux-media@vger.kernel.org
+CC: xen-devel@lists.xensource.com
+CC: netdev@vger.kernel.org
+CC: virtualization@lists.linux-foundation.org
+CC: linux-atm-general@lists.sourceforge.net
+CC: linux-usb@vger.kernel.org
+CC: linux-input@vger.kernel.org
+CC: linux-wireless@vger.kernel.org
