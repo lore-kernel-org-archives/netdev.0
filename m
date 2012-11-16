@@ -1,47 +1,42 @@
-From: ANNIE LI <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 3/4] Xen/netfront: Implement persistent grant
- in netfront.
-Date: Fri, 16 Nov 2012 15:58:54 +0800
-Message-ID: <50A5F23E.4090506@oracle.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com> <1352963114-628-1-git-send-email-annie.li@oracle.com> <50A4C987.3020308@citrix.com> <50A5CD7F.2010609@oracle.com>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: Re: [PATCH 0/9 v4] use efficient this_cpu_* helper
+Date: Fri, 16 Nov 2012 16:30:21 +0800
+Message-ID: <50A5F99D.8020503@gmail.com>
+References: <50A1A7A9.6050501@gmail.com> <0000013b047079ab-01971b64-07e2-4f2e-a204-6baff2180fc3-000000@email.amazonses.com> <20121115145325.GC7306@mtj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: =?ISO-8859-1?Q?Roger_Pau_Monn=E9?= <roger.pau@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:34890 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750817Ab2KPH7D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 02:59:03 -0500
-In-Reply-To: <50A5CD7F.2010609@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <cl@linux.com>, NetDev <netdev@vger.kernel.org>,
+	Kernel-Maillist <linux-kernel@vger.kernel.org>
+To: Tejun Heo <htejun@gmail.com>, David Miller <davem@davemloft.net>,
+	paulmck@linux.vnet.ibm.com, rostedt@goodmis.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121115145325.GC7306@mtj.dyndns.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Tejun Heo:
 
+Tejun Heo said, at 2012/11/15 22:53:
+> On Thu, Nov 15, 2012 at 02:19:38PM +0000, Christoph Lameter wrote:
+>> Tejon: Could you pick up this patchset?
+> 
+> Sure, but, Shan, when posting patchset, please make the patches
+> replies to the head message; otherwise, it's pretty difficult to track
+> what's going on with the patchset as a whole.  I see that some patches
+> are being picked up by respective subsystems.  If you have patches
+> left, please let me know.
 
-On 2012-11-16 13:22, ANNIE LI wrote:
->
->
-> On 2012-11-15 18:52, Roger Pau Monn=E9 wrote:
->>> +       err =3D xenbus_printf(xbt, dev->nodename,=20
->>> "feature-persistent-grants",
->>> +                           "%u", info->persistent_gnt);
->> As in netback, I think "feature-persistent" should be used.
->
-> Same in blkback, I assume it is  "feature-persistent-grants", right?
-> I referred your RFC patch, did you change it later? Or I missed=20
-> something?
->
->
-My mistake.
-In your v2 patch, it is "feature-persistent". I will change the code as=
-=20
-blkback/blkfront.
+OK, next time i will do as you suggest.
 
-Thanks
-Annie
+This patchset include more subsystem, i.e network, rcu, trace.
+The best way to avoid code conflict is subsystem maintainer to pick them up
+to their code tree. I will remind them in each patch that not yet applied and 
+add you to the receiver list.
+
+Best Regards
+Shan Wei
+
+> 
+> Thanks.
+> 
