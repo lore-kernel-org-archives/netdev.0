@@ -1,49 +1,128 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 0/3] Remove inet_lro remnants
-Date: Fri, 16 Nov 2012 22:40:35 +0000
-Message-ID: <1353105635.2743.49.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 1/3] mlx4_en: Remove remnants of LRO support
+Date: Fri, 16 Nov 2012 22:44:56 +0000
+Message-ID: <1353105896.2743.53.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1353105635.2743.49.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>
+Cc: <netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Roland Dreier <roland@purestorage.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:61860 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:61954 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753723Ab2KPWki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 17:40:38 -0500
+	with ESMTP id S1753755Ab2KPWo7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 17:44:59 -0500
+In-Reply-To: <1353105635.2743.49.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric's comments on LRO/GRO conversion prompted me to check what was
-still using inet_lro.  Not very many drivers, but there are a few
-unnecessary references outside the code.
+Commit fa37a9586f92051de03a13e55e5ec3880bb6783e ('mlx4_en: Moving to
+work with GRO') left behind the Kconfig depends/select, some dead
+code and comments referring to LRO.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+The check for GRO eligibility in mlx4_en_process_rx_cq() should also be
+redundant, but I didn't touch it.
 
 Ben.
 
-Ben Hutchings (3):
-  mlx4_en: Remove remnants of LRO support
-  ehea: Remove remnants of LRO support
-  net: Remove bogus dependencies on INET
-
- drivers/net/ethernet/chelsio/Kconfig         |    4 ++--
- drivers/net/ethernet/cisco/Kconfig           |    2 +-
- drivers/net/ethernet/cisco/enic/Kconfig      |    2 +-
- drivers/net/ethernet/emulex/Kconfig          |    2 +-
- drivers/net/ethernet/emulex/benet/Kconfig    |    2 +-
- drivers/net/ethernet/ibm/Kconfig             |    5 ++---
- drivers/net/ethernet/ibm/ehea/ehea_main.c    |    2 +-
- drivers/net/ethernet/intel/Kconfig           |    2 +-
- drivers/net/ethernet/mellanox/Kconfig        |    2 +-
  drivers/net/ethernet/mellanox/mlx4/Kconfig   |    3 +--
  drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    9 +++------
  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |   17 -----------------
- drivers/net/ethernet/neterion/Kconfig        |    2 +-
- drivers/net/ethernet/sfc/Kconfig             |    2 +-
- 14 files changed, 17 insertions(+), 39 deletions(-)
+ 3 files changed, 4 insertions(+), 25 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+index 5f027f9..eb520ab 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+@@ -4,9 +4,8 @@
+ 
+ config MLX4_EN
+ 	tristate "Mellanox Technologies 10Gbit Ethernet support"
+-	depends on PCI && INET
++	depends on PCI
+ 	select MLX4_CORE
+-	select INET_LRO
+ 	---help---
+ 	  This driver supports Mellanox Technologies ConnectX Ethernet
+ 	  devices.
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 5aba5ec..f76c967 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -630,7 +630,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 			if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
+ 			    (cqe->checksum == cpu_to_be16(0xffff))) {
+ 				ring->csum_ok++;
+-				/* This packet is eligible for LRO if it is:
++				/* This packet is eligible for GRO if it is:
+ 				 * - DIX Ethernet (type interpretation)
+ 				 * - TCP/IP (v4)
+ 				 * - without IP options
+@@ -667,7 +667,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 					goto next;
+ 				}
+ 
+-				/* LRO not possible, complete processing here */
++				/* GRO not possible, complete processing here */
+ 				ip_summed = CHECKSUM_UNNECESSARY;
+ 			} else {
+ 				ip_summed = CHECKSUM_NONE;
+@@ -710,11 +710,8 @@ next:
+ 		++cq->mcq.cons_index;
+ 		index = (cq->mcq.cons_index) & ring->size_mask;
+ 		cqe = &cq->buf[index];
+-		if (++polled == budget) {
+-			/* We are here because we reached the NAPI budget -
+-			 * flush only pending LRO sessions */
++		if (++polled == budget)
+ 			goto out;
+-		}
+ 	}
+ 
+ out:
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 9d27e42..1809a8b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -95,8 +95,6 @@
+ #define MLX4_EN_ALLOC_SIZE	PAGE_ALIGN(16384)
+ #define MLX4_EN_ALLOC_ORDER	get_order(MLX4_EN_ALLOC_SIZE)
+ 
+-#define MLX4_EN_MAX_LRO_DESCRIPTORS	32
+-
+ /* Receive fragment sizes; we use at most 4 fragments (for 9600 byte MTU
+  * and 4K allocations) */
+ enum {
+@@ -290,21 +288,6 @@ struct mlx4_en_rx_ring {
+ 	unsigned long csum_none;
+ };
+ 
+-
+-static inline int mlx4_en_can_lro(__be16 status)
+-{
+-	return (status & cpu_to_be16(MLX4_CQE_STATUS_IPV4	|
+-				     MLX4_CQE_STATUS_IPV4F	|
+-				     MLX4_CQE_STATUS_IPV6	|
+-				     MLX4_CQE_STATUS_IPV4OPT	|
+-				     MLX4_CQE_STATUS_TCP	|
+-				     MLX4_CQE_STATUS_UDP	|
+-				     MLX4_CQE_STATUS_IPOK)) ==
+-		cpu_to_be16(MLX4_CQE_STATUS_IPV4 |
+-			    MLX4_CQE_STATUS_IPOK |
+-			    MLX4_CQE_STATUS_TCP);
+-}
+-
+ struct mlx4_en_cq {
+ 	struct mlx4_cq          mcq;
+ 	struct mlx4_hwq_resources wqres;
 -- 
 1.7.7.6
+
 
 
 -- 
