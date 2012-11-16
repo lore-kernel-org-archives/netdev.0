@@ -1,59 +1,107 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 0/4] Implement persistent grant in xen-netfront/netback
-Date: Fri, 16 Nov 2012 09:57:01 +0000
-Message-ID: <1353059821.3499.190.camel@zakaz.uk.xensource.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
+From: Srinivas KANDAGATLA <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+Subject: [PATCH v2 3.7.0-rc4] of/net/mdio-gpio: Fix pdev->id issue when using
+ devicetrees.
+Date: Fri, 16 Nov 2012 10:33:59 +0000
+Message-ID: <1353062039-31336-1-git-send-email-srinivas.kandagatla@st.com>
+References: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Annie Li <annie.li@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:8718 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750894Ab2KPJ5F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 04:57:05 -0500
-In-Reply-To: <1352962987-541-1-git-send-email-annie.li@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, srinivas.kandagatla-qxv4g6HH51o@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1352816773-17837-1-git-send-email-srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-11-15 at 07:03 +0000, Annie Li wrote:
-> This patch implements persistent grants for xen-netfront/netback.
+From: Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
 
-Hang on a sec. It has just occurred to me that netfront/netback in the
-current mainline kernels don't currently use grant maps at all, they use
-grant copy on both the tx and rx paths.
+When the mdio-gpio driver is probed via device trees, the platform
+device id is set as -1, However the pdev->id is re-used as bus-id for
+while creating mdio gpio bus.
+So
+For device tree case the mdio-gpio bus name appears as "gpio-ffffffff"
+where as
+for non-device tree case the bus name appears as "gpio-<bus-num>"
 
-The supposed benefit of persistent grants is to avoid the TLB shootdowns
-on grant unmap, but in the current code there should be exactly zero of
-those.
+Which means the bus_id is fixed in device tree case, so we can't have
+two mdio gpio buses via device trees. Assigning a logical bus number
+via device tree solves the problem and the bus name is much consistent
+with non-device tree bus name.
 
-If I understand correctly this patch goes from using grant copy
-operations to persistently mapping frames and then using memcpy on those
-buffers to copy in/out to local buffers. I'm finding it hard to think of
-a reason why this should perform any better, do you have a theory which
-explains it? (my best theory is that it has a beneficial impact on where
-the cache locality of the data, but netperf doesn't typically actually
-access the data so I'm not sure why that would matter)
+Without this patch
+1. we can't support two mdio-gpio buses via device trees.
+2. we should always pass gpio-ffffffff as bus name to phy_connect, very
+different to non-device tree bus name.
 
-Also AIUI this is also doing persistent grants for both Tx and Rx
-directions?
+So, setting up the bus_id via aliases from device tree is the right
+solution and other drivers do similar thing.
 
-For guest Rx does this mean it now copies twice, in dom0 from the DMA
-buffer to the guest provided buffer and then again in the guest from the
-granted buffer to a normal one?
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+---
+ .../devicetree/bindings/net/mdio-gpio.txt          |    9 ++++++++-
+ drivers/net/phy/mdio-gpio.c                        |   11 +++++++----
+ 2 files changed, 15 insertions(+), 5 deletions(-)
 
-For guest Tx how do you handle the lifecycle of the grant mapped pages
-which are being sent up into the dom0 network stack? Or are you also now
-copying twice in this case? (i.e. guest copies into a granted buffer and
-dom0 copies out into a local buffer?)
-
-Did you do measurement of the Tx and Rx cases independently? Do you know
-that they both benefit from this change (rather than for example an
-improvement in one direction masking a regression in the other). Were
-the numbers you previously posted in one particular direction or did you
-measure both?
-
-Ian.
+diff --git a/Documentation/devicetree/bindings/net/mdio-gpio.txt b/Documentation/devicetree/bindings/net/mdio-gpio.txt
+index bc95495..c79bab0 100644
+--- a/Documentation/devicetree/bindings/net/mdio-gpio.txt
++++ b/Documentation/devicetree/bindings/net/mdio-gpio.txt
+@@ -8,9 +8,16 @@ gpios property as described in section VIII.1 in the following order:
+ 
+ MDC, MDIO.
+ 
++Note: Each gpio-mdio bus should have an alias correctly numbered in "aliases"
++node.
++
+ Example:
+ 
+-mdio {
++aliases {
++	mdio-gpio0 = <&mdio0>;
++};
++
++mdio0: mdio {
+ 	compatible = "virtual,mdio-gpio";
+ 	#address-cells = <1>;
+ 	#size-cells = <0>;
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index 899274f..2ed1140 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -185,17 +185,20 @@ static int __devinit mdio_gpio_probe(struct platform_device *pdev)
+ {
+ 	struct mdio_gpio_platform_data *pdata;
+ 	struct mii_bus *new_bus;
+-	int ret;
++	int ret, bus_id;
+ 
+-	if (pdev->dev.of_node)
++	if (pdev->dev.of_node) {
+ 		pdata = mdio_gpio_of_get_data(pdev);
+-	else
++		bus_id = of_alias_get_id(pdev->dev.of_node, "mdio-gpio");
++	} else {
+ 		pdata = pdev->dev.platform_data;
++		bus_id = pdev->id;
++	}
+ 
+ 	if (!pdata)
+ 		return -ENODEV;
+ 
+-	new_bus = mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
++	new_bus = mdio_gpio_bus_init(&pdev->dev, pdata, bus_id);
+ 	if (!new_bus)
+ 		return -ENODEV;
+ 
+-- 
+1.7.0.4
