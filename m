@@ -1,34 +1,56 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2 net-next] sctp: Add support to per-association
- statistics via a new SCTP_GET_ASSOC_STATS call
-Date: Fri, 16 Nov 2012 21:47:42 +0000
-Message-ID: <20121116214742.GH10831@casper.infradead.org>
-References: <1352991680-12289-1-git-send-email-michele@acksyn.org>
- <20121116163922.GA9722@hmsreliant.think-freely.org>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: linux-next: Tree for Nov 15 (pch_gbe)
+Date: Fri, 16 Nov 2012 13:48:41 -0800
+Message-ID: <50A6B4B9.4060804@xenotime.net>
+References: <20121115181740.4fb08780f0b92149a5ed2ca4@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michele Baldessari <michele@acksyn.org>,
-	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:47315 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751451Ab2KPVrs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 16:47:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20121116163922.GA9722@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LAPIS SEMICONDUCTOR <tshimizu818@gmail.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121115181740.4fb08780f0b92149a5ed2ca4@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/16/12 at 11:39am, Neil Horman wrote:
-> Yes, I think this is good, I still don't like the idea of having to do these via
-> an ioctl, but I suppose it fits well enough.
+On 11/14/2012 11:17 PM, Stephen Rothwell wrote:
 
-I'm with you on this. I have started scribbling notes on paper for
-a netlink based stats retriever. We should discuss this at some
-point making sure we get everyone on board with interests in this
-and solve this nice and clean for everyone to enjoy.
+> Hi all,
+> 
+> News: this one will be the last release until next-20121126 (which should
+> be just be after -rc7, I guess - assuming that Linus does not release
+> v3.7 before then).
+> 
+> Changes since 20121114:
+> 
 
-I guess the ioctl is the best we can do as long as we don't have
-the above.
+
+on x86_64:
+
+drivers/built-in.o: In function `pch_tx_timestamp':
+pch_gbe_main.c:(.text+0x5b9b08): undefined reference to `pch_ch_event_read'
+pch_gbe_main.c:(.text+0x5b9b39): undefined reference to `pch_tx_snap_read'
+pch_gbe_main.c:(.text+0x5b9b6c): undefined reference to `pch_ch_event_write'
+drivers/built-in.o: In function `pch_rx_timestamp':
+pch_gbe_main.c:(.text+0x5ba648): undefined reference to `pch_ch_event_read'
+pch_gbe_main.c:(.text+0x5ba658): undefined reference to `pch_src_uuid_lo_read'
+pch_gbe_main.c:(.text+0x5ba663): undefined reference to `pch_src_uuid_hi_read'
+pch_gbe_main.c:(.text+0x5ba709): undefined reference to `pch_ch_event_write'
+pch_gbe_main.c:(.text+0x5ba717): undefined reference to `pch_rx_snap_read'
+drivers/built-in.o: In function `hwtstamp_ioctl.clone.13':
+pch_gbe_main.c:(.text+0x5bb3b0): undefined reference to `pch_ch_control_write'
+pch_gbe_main.c:(.text+0x5bb3c9): undefined reference to `pch_ch_control_write'
+pch_gbe_main.c:(.text+0x5bb3e2): undefined reference to `pch_ch_control_write'
+pch_gbe_main.c:(.text+0x5bb406): undefined reference to `pch_ch_control_write'
+pch_gbe_main.c:(.text+0x5bb426): undefined reference to `pch_set_station_address'
+pch_gbe_main.c:(.text+0x5bb433): undefined reference to `pch_ch_event_write'
+
+when PTP_1588_CLOCK_PCH is not enabled.
+
+Want to select PTP_1588_CLOCK_PCH for PCH_GBE?
+
+-- 
+~Randy
