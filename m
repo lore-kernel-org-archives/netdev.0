@@ -1,8 +1,8 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 15/17] net: Enable some sysctls that are safe for the
-	userns root
-Date: Fri, 16 Nov 2012 05:03:10 -0800
-Message-ID: <1353070992-5552-15-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 12/17] net: Allow userns root to control llc,
+	netfilter, netlink, packet, and xfrm
+Date: Fri, 16 Nov 2012 05:03:07 -0800
+Message-ID: <1353070992-5552-12-git-send-email-ebiederm@xmission.com>
 References: <87d2zd8zwn.fsf@xmission.com>
 	<1353070992-5552-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
@@ -27,155 +27,151 @@ List-Id: netdev.vger.kernel.org
 
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-- Enable the per device ipv4 sysctls:
-   net/ipv4/conf/<if>/forwarding
-   net/ipv4/conf/<if>/mc_forwarding
-   net/ipv4/conf/<if>/accept_redirects
-   net/ipv4/conf/<if>/secure_redirects
-   net/ipv4/conf/<if>/shared_media
-   net/ipv4/conf/<if>/rp_filter
-   net/ipv4/conf/<if>/send_redirects
-   net/ipv4/conf/<if>/accept_source_route
-   net/ipv4/conf/<if>/accept_local
-   net/ipv4/conf/<if>/src_valid_mark
-   net/ipv4/conf/<if>/proxy_arp
-   net/ipv4/conf/<if>/medium_id
-   net/ipv4/conf/<if>/bootp_relay
-   net/ipv4/conf/<if>/log_martians
-   net/ipv4/conf/<if>/tag
-   net/ipv4/conf/<if>/arp_filter
-   net/ipv4/conf/<if>/arp_announce
-   net/ipv4/conf/<if>/arp_ignore
-   net/ipv4/conf/<if>/arp_accept
-   net/ipv4/conf/<if>/arp_notify
-   net/ipv4/conf/<if>/proxy_arp_pvlan
-   net/ipv4/conf/<if>/disable_xfrm
-   net/ipv4/conf/<if>/disable_policy
-   net/ipv4/conf/<if>/force_igmp_version
-   net/ipv4/conf/<if>/promote_secondaries
-   net/ipv4/conf/<if>/route_localnet
+Allow an unpriviled user who has created a user namespace, and then
+created a network namespace to effectively use the new network
+namespace, by reducing capable(CAP_NET_ADMIN) and
+capable(CAP_NET_RAW) calls to be ns_capable(net->user_ns,
+CAP_NET_ADMIN), or capable(net->user_ns, CAP_NET_RAW) calls.
 
-- Enable the global ipv4 sysctl:
-   net/ipv4/ip_forward
+Allow creation of af_key sockets.
+Allow creation of llc sockets.
+Allow creation of af_packet sockets.
 
-- Enable the per device ipv6 sysctls:
-   net/ipv6/conf/<if>/forwarding
-   net/ipv6/conf/<if>/hop_limit
-   net/ipv6/conf/<if>/mtu
-   net/ipv6/conf/<if>/accept_ra
-   net/ipv6/conf/<if>/accept_redirects
-   net/ipv6/conf/<if>/autoconf
-   net/ipv6/conf/<if>/dad_transmits
-   net/ipv6/conf/<if>/router_solicitations
-   net/ipv6/conf/<if>/router_solicitation_interval
-   net/ipv6/conf/<if>/router_solicitation_delay
-   net/ipv6/conf/<if>/force_mld_version
-   net/ipv6/conf/<if>/use_tempaddr
-   net/ipv6/conf/<if>/temp_valid_lft
-   net/ipv6/conf/<if>/temp_prefered_lft
-   net/ipv6/conf/<if>/regen_max_retry
-   net/ipv6/conf/<if>/max_desync_factor
-   net/ipv6/conf/<if>/max_addresses
-   net/ipv6/conf/<if>/accept_ra_defrtr
-   net/ipv6/conf/<if>/accept_ra_pinfo
-   net/ipv6/conf/<if>/accept_ra_rtr_pref
-   net/ipv6/conf/<if>/router_probe_interval
-   net/ipv6/conf/<if>/accept_ra_rt_info_max_plen
-   net/ipv6/conf/<if>/proxy_ndp
-   net/ipv6/conf/<if>/accept_source_route
-   net/ipv6/conf/<if>/optimistic_dad
-   net/ipv6/conf/<if>/mc_forwarding
-   net/ipv6/conf/<if>/disable_ipv6
-   net/ipv6/conf/<if>/accept_dad
-   net/ipv6/conf/<if>/force_tllao
+Allow sending xfrm netlink control messages.
 
-- Enable the global ipv6 sysctls:
-   net/ipv6/bindv6only
-   net/ipv6/icmp/ratelimit
+Allow binding to netlink multicast groups.
+Allow sending to netlink multicast groups.
+Allow adding and dropping netlink multicast groups.
+Allow sending to all netlink multicast groups and port ids.
+
+Allow reading the netfilter SO_IP_SET socket option.
+Allow sending netfilter netlink messages.
+Allow setting and getting ip_vs netfilter socket options.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- net/ipv4/devinet.c         |    8 --------
- net/ipv6/addrconf.c        |    4 ----
- net/ipv6/icmp.c            |    7 +------
- net/ipv6/sysctl_net_ipv6.c |    4 ----
- 4 files changed, 1 insertions(+), 22 deletions(-)
+ net/key/af_key.c                  |    2 +-
+ net/llc/af_llc.c                  |    2 +-
+ net/netfilter/ipset/ip_set_core.c |    2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c    |    4 ++--
+ net/netfilter/nfnetlink.c         |    2 +-
+ net/netlink/af_netlink.c          |    2 +-
+ net/packet/af_packet.c            |    2 +-
+ net/xfrm/xfrm_user.c              |    2 +-
+ 8 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index f75f4f6..446b1b9 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1643,10 +1643,6 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
- 		t->devinet_vars[i].extra2 = net;
- 	}
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 08897a3..5b426a6 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -141,7 +141,7 @@ static int pfkey_create(struct net *net, struct socket *sock, int protocol,
+ 	struct sock *sk;
+ 	int err;
  
--	/* Don't export sysctls to unprivileged users */
--	if (net->user_ns != &init_user_ns)
--		t->devinet_vars[0].procname = NULL;
--
- 	snprintf(path, sizeof(path), "net/ipv4/conf/%s", dev_name);
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 	if (sock->type != SOCK_RAW)
+ 		return -ESOCKTNOSUPPORT;
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index c219000..8870988 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -160,7 +160,7 @@ static int llc_ui_create(struct net *net, struct socket *sock, int protocol,
+ 	struct sock *sk;
+ 	int rc = -ESOCKTNOSUPPORT;
  
- 	t->sysctl_header = register_net_sysctl(net, path, t->devinet_vars);
-@@ -1732,10 +1728,6 @@ static __net_init int devinet_init_net(struct net *net)
- 		tbl[0].data = &all->data[IPV4_DEVCONF_FORWARDING - 1];
- 		tbl[0].extra1 = all;
- 		tbl[0].extra2 = net;
--
--		/* Don't export sysctls to unprivileged users */
--		if (net->user_ns != &init_user_ns)
--			tbl[0].procname = NULL;
- #endif
- 	}
+-	if (!capable(CAP_NET_RAW))
++	if (!ns_capable(net->user_ns, CAP_NET_RAW))
+ 		return -EPERM;
  
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index b8e0a62..5f1967b 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4588,10 +4588,6 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
- 		t->addrconf_vars[i].extra2 = net;
- 	}
+ 	if (!net_eq(net, &init_net))
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 778465f..fed899f 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -1643,7 +1643,7 @@ ip_set_sockfn_get(struct sock *sk, int optval, void __user *user, int *len)
+ 	void *data;
+ 	int copylen = *len, ret = 0;
  
--	/* Don't export sysctls to unprivileged users */
--	if (net->user_ns != &init_user_ns)
--		t->addrconf_vars[0].procname = NULL;
--
- 	snprintf(path, sizeof(path), "net/ipv6/conf/%s", dev_name);
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 	if (optval != SO_IP_SET)
+ 		return -EBADF;
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index c6cebd5..ec664cb 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2339,7 +2339,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ 	struct ip_vs_dest_user_kern udest;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
  
- 	t->sysctl_header = register_net_sysctl(net, path, t->addrconf_vars);
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index db9df8a..24d69db 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -967,14 +967,9 @@ struct ctl_table * __net_init ipv6_icmp_sysctl_init(struct net *net)
- 			sizeof(ipv6_icmp_table_template),
- 			GFP_KERNEL);
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
  
--	if (table) {
-+	if (table)
- 		table[0].data = &net->ipv6.sysctl.icmpv6_time;
+ 	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX)
+@@ -2632,7 +2632,7 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
  
--		/* Don't export sysctls to unprivileged users */
--		if (net->user_ns != &init_user_ns)
--			table[0].procname = NULL;
--	}
--
- 	return table;
+ 	BUG_ON(!net);
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX)
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index ffb92c0..58a09b7 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -138,7 +138,7 @@ static int nfnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	const struct nfnetlink_subsystem *ss;
+ 	int type, err;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	/* All the messages must at least contain nfgenmsg */
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 4da797f..c8a1eb6 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -612,7 +612,7 @@ retry:
+ static inline int netlink_capable(const struct socket *sock, unsigned int flag)
+ {
+ 	return (nl_table[sock->sk->sk_protocol].flags & flag) ||
+-	       capable(CAP_NET_ADMIN);
++		ns_capable(sock_net(sock->sk)->user_ns, CAP_NET_ADMIN);
  }
- #endif
-diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index b06fd07..e85c48b 100644
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -52,10 +52,6 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
- 		goto out;
- 	ipv6_table[0].data = &net->ipv6.sysctl.bindv6only;
  
--	/* Don't export sysctls to unprivileged users */
--	if (net->user_ns != &init_user_ns)
--		ipv6_table[0].procname = NULL;
--
- 	ipv6_route_table = ipv6_route_sysctl_init(net);
- 	if (!ipv6_route_table)
- 		goto out_ipv6_table;
+ static void
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 94060ed..6d95278 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2478,7 +2478,7 @@ static int packet_create(struct net *net, struct socket *sock, int protocol,
+ 	__be16 proto = (__force __be16)protocol; /* weird, but documented */
+ 	int err;
+ 
+-	if (!capable(CAP_NET_RAW))
++	if (!ns_capable(net->user_ns, CAP_NET_RAW))
+ 		return -EPERM;
+ 	if (sock->type != SOCK_DGRAM && sock->type != SOCK_RAW &&
+ 	    sock->type != SOCK_PACKET)
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 421f984..eb872b2 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2349,7 +2349,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	link = &xfrm_dispatch[type];
+ 
+ 	/* All operations require privileges, even GET */
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	if ((type == (XFRM_MSG_GETSA - XFRM_MSG_BASE) ||
 -- 
 1.7.5.4
