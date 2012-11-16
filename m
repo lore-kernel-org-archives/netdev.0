@@ -1,171 +1,77 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 3/3] net: Remove bogus dependencies on INET
-Date: Fri, 16 Nov 2012 22:47:39 +0000
-Message-ID: <1353106059.2743.56.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1353105635.2743.49.camel@bwh-desktop.uk.solarflarecom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] gro: Handle inline VLAN tags
+Date: Fri, 16 Nov 2012 15:01:05 -0800
+Message-ID: <1353106865.10798.61.camel@edumazet-glaptop>
+References: <1353097030.2743.28.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com,
+	Andrew Gallatin <gallatin@myri.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:23236 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753465Ab2KPWrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 17:47:42 -0500
-In-Reply-To: <1353105635.2743.49.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:41087 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753280Ab2KPXBK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 18:01:10 -0500
+Received: by mail-da0-f46.google.com with SMTP id n41so1329397dak.19
+        for <netdev@vger.kernel.org>; Fri, 16 Nov 2012 15:01:10 -0800 (PST)
+In-Reply-To: <1353097030.2743.28.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Various drivers depend on INET because they used to select INET_LRO,
-but they have all been converted to use GRO which has no such
-dependency.
+On Fri, 2012-11-16 at 20:17 +0000, Ben Hutchings wrote:
+> The receive paths for skbs with inline and out-of-line VLAN tags (VLAN
+> RX accleration) were made largely consistent in 2.6.37, with tags
+> pulled out by software as necessary.  However GRO doesn't do this, so
+> it is not effective for VLAN-tagged packets received on devices
+> without VLAN RX acceleration.
+> 
+> napi_gro_frags() must not free the skb and does not advance the
+> skb->data pointer, so cannot use vlan_untag().  Extract the core of
+> vlan_untag() into a new function __vlan_untag() that allows the offset
+> to the VLAN tag to be specified and returns an error code.  Add
+> kernel-doc comments for both those functions.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+> Tested with sfc using both napi_gro_receive() and napi_gro_frags().  On
+> a Core i7 920 (Nehalem) system it increased TCP/IPv4 receive throughput
+> over a VLAN from ~8.0 to ~9.3 Gbit/s.
+> 
+> Ben.
+> 
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-Compile-tested with INET disabled.
+> index b4978e2..9d658eb 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3668,6 +3668,13 @@ static void skb_gro_reset_offset(struct sk_buff *skb)
+>  
+>  gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+>  {
+> +	if (unlikely(skb->protocol == htons(ETH_P_8021Q)) &&
+> +	    !vlan_tx_tag_present(skb)) {
+> +		skb = vlan_untag(skb);
+> +		if (unlikely(!skb))
+> +			return GRO_DROP;
+> +	}
+> +
+>  	skb_gro_reset_offset(skb);
 
-Ben.
+I am not very convinced.
 
- drivers/net/ethernet/chelsio/Kconfig      |    4 ++--
- drivers/net/ethernet/cisco/Kconfig        |    2 +-
- drivers/net/ethernet/cisco/enic/Kconfig   |    2 +-
- drivers/net/ethernet/emulex/Kconfig       |    2 +-
- drivers/net/ethernet/emulex/benet/Kconfig |    2 +-
- drivers/net/ethernet/intel/Kconfig        |    2 +-
- drivers/net/ethernet/mellanox/Kconfig     |    2 +-
- drivers/net/ethernet/neterion/Kconfig     |    2 +-
- drivers/net/ethernet/sfc/Kconfig          |    2 +-
- 9 files changed, 10 insertions(+), 10 deletions(-)
+So for some drivers _not_ doing vlan acceleration, we are slowing down
+GRO.
 
-diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
-index 2de50f9..a71c0f3 100644
---- a/drivers/net/ethernet/chelsio/Kconfig
-+++ b/drivers/net/ethernet/chelsio/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_CHELSIO
- 	bool "Chelsio devices"
- 	default y
--	depends on PCI || INET
-+	depends on PCI
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-@@ -48,7 +48,7 @@ config CHELSIO_T1_1G
- 
- config CHELSIO_T3
- 	tristate "Chelsio Communications T3 10Gb Ethernet support"
--	depends on PCI && INET
-+	depends on PCI
- 	select FW_LOADER
- 	select MDIO
- 	---help---
-diff --git a/drivers/net/ethernet/cisco/Kconfig b/drivers/net/ethernet/cisco/Kconfig
-index 94606f7..1c7b884 100644
---- a/drivers/net/ethernet/cisco/Kconfig
-+++ b/drivers/net/ethernet/cisco/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_CISCO
- 	bool "Cisco devices"
- 	default y
--	depends on PCI && INET
-+	depends on PCI
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-diff --git a/drivers/net/ethernet/cisco/enic/Kconfig b/drivers/net/ethernet/cisco/enic/Kconfig
-index 9cc706a..b63f8d8 100644
---- a/drivers/net/ethernet/cisco/enic/Kconfig
-+++ b/drivers/net/ethernet/cisco/enic/Kconfig
-@@ -4,6 +4,6 @@
- 
- config ENIC
- 	tristate "Cisco VIC Ethernet NIC Support"
--	depends on PCI && INET
-+	depends on PCI
- 	---help---
- 	  This enables the support for the Cisco VIC Ethernet card.
-diff --git a/drivers/net/ethernet/emulex/Kconfig b/drivers/net/ethernet/emulex/Kconfig
-index 7a28a64..1b8d638 100644
---- a/drivers/net/ethernet/emulex/Kconfig
-+++ b/drivers/net/ethernet/emulex/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_EMULEX
- 	bool "Emulex devices"
- 	default y
--	depends on PCI && INET
-+	depends on PCI
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-diff --git a/drivers/net/ethernet/emulex/benet/Kconfig b/drivers/net/ethernet/emulex/benet/Kconfig
-index 804db04..231129d 100644
---- a/drivers/net/ethernet/emulex/benet/Kconfig
-+++ b/drivers/net/ethernet/emulex/benet/Kconfig
-@@ -1,6 +1,6 @@
- config BE2NET
- 	tristate "ServerEngines' 10Gbps NIC - BladeEngine"
--	depends on PCI && INET
-+	depends on PCI
- 	---help---
- 	  This driver implements the NIC functionality for ServerEngines'
- 	  10Gbps network adapter - BladeEngine.
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 73d28d5..ddee406 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -166,7 +166,7 @@ config IXGB
- 
- config IXGBE
- 	tristate "Intel(R) 10GbE PCI Express adapters support"
--	depends on PCI && INET
-+	depends on PCI
- 	select MDIO
- 	select PTP_1588_CLOCK
- 	---help---
-diff --git a/drivers/net/ethernet/mellanox/Kconfig b/drivers/net/ethernet/mellanox/Kconfig
-index d8099a7..bcdbc14 100644
---- a/drivers/net/ethernet/mellanox/Kconfig
-+++ b/drivers/net/ethernet/mellanox/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_MELLANOX
- 	bool "Mellanox devices"
- 	default y
--	depends on PCI && INET
-+	depends on PCI
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-diff --git a/drivers/net/ethernet/neterion/Kconfig b/drivers/net/ethernet/neterion/Kconfig
-index ff26b54..87abb4f 100644
---- a/drivers/net/ethernet/neterion/Kconfig
-+++ b/drivers/net/ethernet/neterion/Kconfig
-@@ -32,7 +32,7 @@ config S2IO
- 
- config VXGE
- 	tristate "Exar X3100 Series 10GbE PCIe Server Adapter"
--	depends on PCI && INET
-+	depends on PCI
- 	---help---
- 	  This driver supports Exar Corp's X3100 Series 10 GbE PCIe
- 	  I/O Virtualized Server Adapter.
-diff --git a/drivers/net/ethernet/sfc/Kconfig b/drivers/net/ethernet/sfc/Kconfig
-index fb3cbc2..059e5e9 100644
---- a/drivers/net/ethernet/sfc/Kconfig
-+++ b/drivers/net/ethernet/sfc/Kconfig
-@@ -1,6 +1,6 @@
- config SFC
- 	tristate "Solarflare SFC4000/SFC9000-family support"
--	depends on PCI && INET
-+	depends on PCI
- 	select MDIO
- 	select CRC32
- 	select I2C
--- 
-1.7.7.6
+I mean, driver authors should know if they need to call a helper before
+calling napi_gro_receive()
 
+To date, only two drivers would need this, and it was discovered very
+recently.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Also at GRO point, we totally own the skb and the vlan decap cannot
+possibly fail (and free the skb)
+
+A packet sniffer should see all skbs delivered to napi_gro_receive()
