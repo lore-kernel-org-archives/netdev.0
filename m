@@ -1,8 +1,7 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 07/17] user_ns: get rid of duplicate code in
-	net_ctl_permissions
-Date: Fri, 16 Nov 2012 05:03:02 -0800
-Message-ID: <1353070992-5552-7-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 08/17] net: Allow userns root to force the scm creds
+Date: Fri, 16 Nov 2012 05:03:03 -0800
+Message-ID: <1353070992-5552-8-git-send-email-ebiederm@xmission.com>
 References: <87d2zd8zwn.fsf@xmission.com>
 	<1353070992-5552-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
@@ -25,32 +24,35 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Zhao Hongjiang <zhaohongjiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-Get rid of duplicate code in net_ctl_permissions and fix the comment.
+If the user calling sendmsg has the appropriate privieleges
+in their user namespace allow them to set the uid, gid, and
+pid in the SCM_CREDENTIALS control message to any valid value.
 
-Signed-off-by: Zhao Hongjiang <zhaohongjiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Eric W. Biederman <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- net/sysctl_net.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/core/scm.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/sysctl_net.c b/net/sysctl_net.c
-index 6410436..9bc6db0 100644
---- a/net/sysctl_net.c
-+++ b/net/sysctl_net.c
-@@ -51,10 +51,10 @@ static int net_ctl_permissions(struct ctl_table_header *head,
- 		int mode = (table->mode >> 6) & 7;
- 		return (mode << 6) | (mode << 3) | mode;
+diff --git a/net/core/scm.c b/net/core/scm.c
+index ab57084..57fb1ee 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -51,11 +51,11 @@ static __inline__ int scm_check_creds(struct ucred *creds)
+ 	if (!uid_valid(uid) || !gid_valid(gid))
+ 		return -EINVAL;
+ 
+-	if ((creds->pid == task_tgid_vnr(current) || capable(CAP_SYS_ADMIN)) &&
++	if ((creds->pid == task_tgid_vnr(current) || nsown_capable(CAP_SYS_ADMIN)) &&
+ 	    ((uid_eq(uid, cred->uid)   || uid_eq(uid, cred->euid) ||
+-	      uid_eq(uid, cred->suid)) || capable(CAP_SETUID)) &&
++	      uid_eq(uid, cred->suid)) || nsown_capable(CAP_SETUID)) &&
+ 	    ((gid_eq(gid, cred->gid)   || gid_eq(gid, cred->egid) ||
+-	      gid_eq(gid, cred->sgid)) || capable(CAP_SETGID))) {
++	      gid_eq(gid, cred->sgid)) || nsown_capable(CAP_SETGID))) {
+ 	       return 0;
  	}
--	/* Allow netns root group to have the same assess as the root group */
-+	/* Allow netns root group to have the same access as the root group */
- 	if (gid_eq(root_gid, current_gid())) {
- 		int mode = (table->mode >> 3) & 7;
--		return (mode << 3) | (mode << 3) | mode;
-+		return (mode << 3) | mode;
- 	}
- 	return table->mode;
- }
+ 	return -EPERM;
 -- 
 1.7.5.4
