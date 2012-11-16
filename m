@@ -1,96 +1,242 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 0/4] Implement persistent grant in
- xen-netfront/netback
-Date: Fri, 16 Nov 2012 10:34:12 -0500
-Message-ID: <20121116153412.GJ22320@phenom.dumpdata.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
- <20121115074057.GO8912@reaktio.net>
- <50A4AA06.8080900@oracle.com>
- <CAOsiSVU+9fkGQhVhnrx=xxUD8hej55XXJGpKGWAxe1USPEhiEQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ANNIE LI <annie.li@oracle.com>,
-	Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>,
-	netdev@vger.kernel.org,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Wei Liu <liuw@liuw.name>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH] openvswitch: Make IPv6 packet parsing dependent on IPv6 config
+Date: Fri, 16 Nov 2012 10:43:03 -0500
+Message-ID: <1353080583-14432-1-git-send-email-vyasevic@redhat.com>
+References: <50a5c2e5.lgIvZwesNLp78CVD%fengguang.wu@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:41911 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752065Ab2KPPec convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 10:34:32 -0500
-Content-Disposition: inline
-In-Reply-To: <CAOsiSVU+9fkGQhVhnrx=xxUD8hej55XXJGpKGWAxe1USPEhiEQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55915 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752432Ab2KPPnF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2012 10:43:05 -0500
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id qAGFh5GL009699
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 16 Nov 2012 10:43:05 -0500
+In-Reply-To: <50a5c2e5.lgIvZwesNLp78CVD%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 15, 2012 at 05:35:13PM +0800, Wei Liu wrote:
-> On Thu, Nov 15, 2012 at 4:38 PM, ANNIE LI <annie.li@oracle.com> wrote=
-:
->=20
-> >
-> >
-> > On 2012-11-15 15:40, Pasi K=E4rkk=E4inen wrote:
-> >
-> >> Hello,
-> >>
-> >> On Thu, Nov 15, 2012 at 03:03:07PM +0800, Annie Li wrote:
-> >>
-> >>> This patch implements persistent grants for xen-netfront/netback.=
- This
-> >>> mechanism maintains page pools in netback/netfront, these page po=
-ols is
-> >>> used to
-> >>> save grant pages which are mapped. This way improve performance w=
-hich is
-> >>> wasted
-> >>> when doing grant operations.
-> >>>
-> >>> Current netback/netfront does map/unmap grant operations frequent=
-ly when
-> >>> transmitting/receiving packets, and grant operations costs much c=
-pu
-> >>> clock. In
-> >>> this patch, netfront/netback maps grant pages when needed and the=
-n saves
-> >>> them
-> >>> into a page pool for future use. All these pages will be unmapped=
- when
-> >>> removing/releasing the net device.
-> >>>
-> >>>  Do you have performance numbers available already? with/without
-> >> persistent grants?
-> >>
-> > I have some simple netperf/netserver test result with/without persi=
-stent
-> > grants,
-> >
-> > Following is result of with persistent grant patch,
-> >
-> > Guests, Sum,      Avg,     Min,     Max
-> >  1,  15106.4,  15106.4, 15106.36, 15106.36
-> >  2,  13052.7,  6526.34,  6261.81,  6790.86
-> >  3,  12675.1,  6337.53,  6220.24,  6454.83
-> >  4,  13194,  6596.98,  6274.70,  6919.25
-> >
-> >
-> > Following are result of without persistent patch
-> >
-> > Guests, Sum,     Avg,    Min,        Max
-> >  1,  10864.1,  10864.1, 10864.10, 10864.10
-> >  2,  10898.5,  5449.24,  4862.08,  6036.40
-> >  3,  10734.5,  5367.26,  5261.43,  5473.08
-> >  4,  10924,    5461.99,  5314.84,  5609.14
-> >
-> >
-> >
-> Interesting results. Have you tested how good it is on a 10G nic, i.e=
-=2E
-> guest sending packets
-> through physical network to another host.
+Openvswitch attempts to use IPv6 packet parsing functions without
+any dependency on IPv6 (unlike every other place in kernel).  Pull
+the IPv6 code in openvswitch togeter and put a conditional that's
+dependent on CONFIG_IPV6.
 
-Not yet. This was done with two guests pounding each other. I am
-setting two machines up for Annie so she can do that type of testing
-and also with more guests.
+Resolves:
+net/built-in.o: In function `ovs_flow_extract':
+(.text+0xbf5d5): undefined reference to `ipv6_skip_exthdr'
+
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/openvswitch/flow.c |  168 ++++++++++++++++++++++++-----------------------
+ 1 files changed, 86 insertions(+), 82 deletions(-)
+
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 98c7063..6dfaf60 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -124,6 +124,7 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies)
+ 	(offsetof(struct sw_flow_key, field) +	\
+ 	 FIELD_SIZEOF(struct sw_flow_key, field))
+ 
++#if IS_ENABLED(CONFIG_IPV6)
+ static int parse_ipv6hdr(struct sk_buff *skb, struct sw_flow_key *key,
+ 			 int *key_lenp)
+ {
+@@ -175,6 +176,89 @@ static bool icmp6hdr_ok(struct sk_buff *skb)
+ 				  sizeof(struct icmp6hdr));
+ }
+ 
++static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
++			int *key_lenp, int nh_len)
++{
++	struct icmp6hdr *icmp = icmp6_hdr(skb);
++	int error = 0;
++	int key_len;
++
++	/* The ICMPv6 type and code fields use the 16-bit transport port
++	 * fields, so we need to store them in 16-bit network byte order.
++	 */
++	key->ipv6.tp.src = htons(icmp->icmp6_type);
++	key->ipv6.tp.dst = htons(icmp->icmp6_code);
++	key_len = SW_FLOW_KEY_OFFSET(ipv6.tp);
++
++	if (icmp->icmp6_code == 0 &&
++	    (icmp->icmp6_type == NDISC_NEIGHBOUR_SOLICITATION ||
++	     icmp->icmp6_type == NDISC_NEIGHBOUR_ADVERTISEMENT)) {
++		int icmp_len = skb->len - skb_transport_offset(skb);
++		struct nd_msg *nd;
++		int offset;
++
++		key_len = SW_FLOW_KEY_OFFSET(ipv6.nd);
++
++		/* In order to process neighbor discovery options, we need the
++		 * entire packet.
++		 */
++		if (unlikely(icmp_len < sizeof(*nd)))
++			goto out;
++		if (unlikely(skb_linearize(skb))) {
++			error = -ENOMEM;
++			goto out;
++		}
++
++		nd = (struct nd_msg *)skb_transport_header(skb);
++		key->ipv6.nd.target = nd->target;
++		key_len = SW_FLOW_KEY_OFFSET(ipv6.nd);
++
++		icmp_len -= sizeof(*nd);
++		offset = 0;
++		while (icmp_len >= 8) {
++			struct nd_opt_hdr *nd_opt =
++				 (struct nd_opt_hdr *)(nd->opt + offset);
++			int opt_len = nd_opt->nd_opt_len * 8;
++
++			if (unlikely(!opt_len || opt_len > icmp_len))
++				goto invalid;
++
++			/* Store the link layer address if the appropriate
++			 * option is provided.  It is considered an error if
++			 * the same link layer option is specified twice.
++			 */
++			if (nd_opt->nd_opt_type == ND_OPT_SOURCE_LL_ADDR
++			    && opt_len == 8) {
++				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.sll)))
++					goto invalid;
++				memcpy(key->ipv6.nd.sll,
++				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
++			} else if (nd_opt->nd_opt_type == ND_OPT_TARGET_LL_ADDR
++				   && opt_len == 8) {
++				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.tll)))
++					goto invalid;
++				memcpy(key->ipv6.nd.tll,
++				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
++			}
++
++			icmp_len -= opt_len;
++			offset += opt_len;
++		}
++	}
++
++	goto out;
++
++invalid:
++	memset(&key->ipv6.nd.target, 0, sizeof(key->ipv6.nd.target));
++	memset(key->ipv6.nd.sll, 0, sizeof(key->ipv6.nd.sll));
++	memset(key->ipv6.nd.tll, 0, sizeof(key->ipv6.nd.tll));
++
++out:
++	*key_lenp = key_len;
++	return error;
++}
++#endif
++
+ #define TCP_FLAGS_OFFSET 13
+ #define TCP_FLAG_MASK 0x3f
+ 
+@@ -487,88 +571,6 @@ static __be16 parse_ethertype(struct sk_buff *skb)
+ 	return llc->ethertype;
+ }
+ 
+-static int parse_icmpv6(struct sk_buff *skb, struct sw_flow_key *key,
+-			int *key_lenp, int nh_len)
+-{
+-	struct icmp6hdr *icmp = icmp6_hdr(skb);
+-	int error = 0;
+-	int key_len;
+-
+-	/* The ICMPv6 type and code fields use the 16-bit transport port
+-	 * fields, so we need to store them in 16-bit network byte order.
+-	 */
+-	key->ipv6.tp.src = htons(icmp->icmp6_type);
+-	key->ipv6.tp.dst = htons(icmp->icmp6_code);
+-	key_len = SW_FLOW_KEY_OFFSET(ipv6.tp);
+-
+-	if (icmp->icmp6_code == 0 &&
+-	    (icmp->icmp6_type == NDISC_NEIGHBOUR_SOLICITATION ||
+-	     icmp->icmp6_type == NDISC_NEIGHBOUR_ADVERTISEMENT)) {
+-		int icmp_len = skb->len - skb_transport_offset(skb);
+-		struct nd_msg *nd;
+-		int offset;
+-
+-		key_len = SW_FLOW_KEY_OFFSET(ipv6.nd);
+-
+-		/* In order to process neighbor discovery options, we need the
+-		 * entire packet.
+-		 */
+-		if (unlikely(icmp_len < sizeof(*nd)))
+-			goto out;
+-		if (unlikely(skb_linearize(skb))) {
+-			error = -ENOMEM;
+-			goto out;
+-		}
+-
+-		nd = (struct nd_msg *)skb_transport_header(skb);
+-		key->ipv6.nd.target = nd->target;
+-		key_len = SW_FLOW_KEY_OFFSET(ipv6.nd);
+-
+-		icmp_len -= sizeof(*nd);
+-		offset = 0;
+-		while (icmp_len >= 8) {
+-			struct nd_opt_hdr *nd_opt =
+-				 (struct nd_opt_hdr *)(nd->opt + offset);
+-			int opt_len = nd_opt->nd_opt_len * 8;
+-
+-			if (unlikely(!opt_len || opt_len > icmp_len))
+-				goto invalid;
+-
+-			/* Store the link layer address if the appropriate
+-			 * option is provided.  It is considered an error if
+-			 * the same link layer option is specified twice.
+-			 */
+-			if (nd_opt->nd_opt_type == ND_OPT_SOURCE_LL_ADDR
+-			    && opt_len == 8) {
+-				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.sll)))
+-					goto invalid;
+-				memcpy(key->ipv6.nd.sll,
+-				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
+-			} else if (nd_opt->nd_opt_type == ND_OPT_TARGET_LL_ADDR
+-				   && opt_len == 8) {
+-				if (unlikely(!is_zero_ether_addr(key->ipv6.nd.tll)))
+-					goto invalid;
+-				memcpy(key->ipv6.nd.tll,
+-				    &nd->opt[offset+sizeof(*nd_opt)], ETH_ALEN);
+-			}
+-
+-			icmp_len -= opt_len;
+-			offset += opt_len;
+-		}
+-	}
+-
+-	goto out;
+-
+-invalid:
+-	memset(&key->ipv6.nd.target, 0, sizeof(key->ipv6.nd.target));
+-	memset(key->ipv6.nd.sll, 0, sizeof(key->ipv6.nd.sll));
+-	memset(key->ipv6.nd.tll, 0, sizeof(key->ipv6.nd.tll));
+-
+-out:
+-	*key_lenp = key_len;
+-	return error;
+-}
+-
+ /**
+  * ovs_flow_extract - extracts a flow key from an Ethernet frame.
+  * @skb: sk_buff that contains the frame, with skb->data pointing to the
+@@ -712,6 +714,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
+ 				key_len = SW_FLOW_KEY_OFFSET(ipv4.arp);
+ 			}
+ 		}
++#if IS_ENABLED(CONFIG_IPV6)
+ 	} else if (key->eth.type == htons(ETH_P_IPV6)) {
+ 		int nh_len;             /* IPv6 Header + Extensions */
+ 
+@@ -752,6 +755,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
+ 					goto out;
+ 			}
+ 		}
++#endif
+ 	}
+ 
+ out:
+-- 
+1.7.7.6
