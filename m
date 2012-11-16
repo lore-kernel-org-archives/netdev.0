@@ -1,8 +1,7 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 16/17] net: Enable a userns root rtnl calls that are
-	safe for unprivilged users
-Date: Fri, 16 Nov 2012 05:03:11 -0800
-Message-ID: <1353070992-5552-16-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 11/17] net: Allow userns root to control ipv6
+Date: Fri, 16 Nov 2012 05:03:06 -0800
+Message-ID: <1353070992-5552-11-git-send-email-ebiederm@xmission.com>
 References: <87d2zd8zwn.fsf@xmission.com>
 	<1353070992-5552-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
@@ -27,257 +26,345 @@ List-Id: netdev.vger.kernel.org
 
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-- Only allow moving network devices to network namespaces you have
-  CAP_NET_ADMIN privileges over.
+Allow an unpriviled user who has created a user namespace, and then
+created a network namespace to effectively use the new network
+namespace, by reducing capable(CAP_NET_ADMIN) and
+capable(CAP_NET_RAW) calls to be ns_capable(net->user_ns,
+CAP_NET_ADMIN), or capable(net->user_ns, CAP_NET_RAW) calls.
 
-- Enable creating/deleting/modifying interfaces
-- Enable adding/deleting addresses
-- Enable adding/setting/deleting neighbour entries
-- Enable adding/removing routes
-- Enable adding/removing fib rules
-- Enable setting the forwarding state
-- Enable adding/removing ipv6 address labels
-- Enable setting bridge parameter
+Settings that merely control a single network device are allowed.
+Either the network device is a logical network device where
+restrictions make no difference or the network device is hardware NIC
+that has been explicity moved from the initial network namespace.
+
+In general policy and network stack state changes are allowed while
+resource control is left unchanged.
+
+Allow the SIOCSIFADDR ioctl to add ipv6 addresses.
+Allow the SIOCDIFADDR ioctl to delete ipv6 addresses.
+Allow the SIOCADDRT ioctl to add ipv6 routes.
+Allow the SIOCDELRT ioctl to delete ipv6 routes.
+
+Allow creation of ipv6 raw sockets.
+
+Allow setting the IPV6_JOIN_ANYCAST socket option.
+Allow setting the IPV6_FL_A_RENEW parameter of the IPV6_FLOWLABEL_MGR
+socket option.
+
+Allow setting the IPV6_TRANSPARENT socket option.
+Allow setting the IPV6_HOPOPTS socket option.
+Allow setting the IPV6_RTHDRDSTOPTS socket option.
+Allow setting the IPV6_DSTOPTS socket option.
+Allow setting the IPV6_IPSEC_POLICY socket option.
+Allow setting the IPV6_XFRM_POLICY socket option.
+
+Allow sending packets with the IPV6_2292HOPOPTS control message.
+Allow sending packets with the IPV6_2292DSTOPTS control message.
+Allow sending packets with the IPV6_RTHDRDSTOPTS control message.
+
+Allow setting the multicast routing socket options on non multicast
+routing sockets.
+
+Allow the SIOCADDTUNNEL, SIOCCHGTUNNEL, and SIOCDELTUNNEL ioctls for
+setting up, changing and deleting tunnels over ipv6.
+
+Allow the SIOCADDTUNNEL, SIOCCHGTUNNEL, SIOCDELTUNNEL ioctls for
+setting up, changing and deleting ipv6 over ipv4 tunnels.
+
+Allow the SIOCADDPRL, SIOCDELPRL, SIOCCHGPRL ioctls for adding,
+deleting, and changing the potential router list for ISATAP tunnels.
 
 Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- net/bridge/br_netlink.c |    3 ---
- net/core/fib_rules.c    |    6 ------
- net/core/neighbour.c    |    9 ---------
- net/core/rtnetlink.c    |   13 ++++---------
- net/ipv4/devinet.c      |    6 ------
- net/ipv4/fib_frontend.c |    6 ------
- net/ipv6/addrconf.c     |    6 ------
- net/ipv6/addrlabel.c    |    3 ---
- net/ipv6/route.c        |    6 ------
- 9 files changed, 4 insertions(+), 54 deletions(-)
+ net/ipv6/addrconf.c             |    4 ++--
+ net/ipv6/af_inet6.c             |    3 ++-
+ net/ipv6/anycast.c              |    2 +-
+ net/ipv6/datagram.c             |    6 +++---
+ net/ipv6/ip6_flowlabel.c        |    3 ++-
+ net/ipv6/ip6_gre.c              |    4 ++--
+ net/ipv6/ip6_tunnel.c           |    4 ++--
+ net/ipv6/ip6mr.c                |    2 +-
+ net/ipv6/ipv6_sockglue.c        |    7 ++++---
+ net/ipv6/netfilter/ip6_tables.c |    8 ++++----
+ net/ipv6/route.c                |    2 +-
+ net/ipv6/sit.c                  |    8 ++++----
+ 12 files changed, 28 insertions(+), 25 deletions(-)
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 251d558..093f527 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -153,9 +153,6 @@ static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
- 	struct net_bridge_port *p;
- 	u8 new_state;
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	if (nlmsg_len(nlh) < sizeof(*ifm))
- 		return -EINVAL;
- 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index bf5b5b8..58a4ba2 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -275,9 +275,6 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	struct nlattr *tb[FRA_MAX+1];
- 	int err = -EINVAL, unresolved = 0;
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
- 		goto errout;
- 
-@@ -427,9 +424,6 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
- 	struct nlattr *tb[FRA_MAX+1];
- 	int err = -EINVAL;
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	if (nlh->nlmsg_len < nlmsg_msg_size(sizeof(*frh)))
- 		goto errout;
- 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 7adcdaf..f1c0c2e 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1620,9 +1620,6 @@ static int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct net_device *dev = NULL;
- 	int err = -EINVAL;
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	ASSERT_RTNL();
- 	if (nlmsg_len(nlh) < sizeof(*ndm))
- 		goto out;
-@@ -1687,9 +1684,6 @@ static int neigh_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct net_device *dev = NULL;
- 	int err;
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	ASSERT_RTNL();
- 	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL);
- 	if (err < 0)
-@@ -1968,9 +1962,6 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct nlattr *tb[NDTA_MAX+1];
- 	int err;
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = nlmsg_parse(nlh, sizeof(*ndtmsg), tb, NDTA_MAX,
- 			  nl_neightbl_policy);
- 	if (err < 0)
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 5d55c30..06dcf44 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1316,6 +1316,10 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 			err = PTR_ERR(net);
- 			goto errout;
- 		}
-+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN)) {
-+			err = -EPERM;
-+			goto errout;
-+		}
- 		err = dev_change_net_namespace(dev, net, ifname);
- 		put_net(net);
- 		if (err)
-@@ -1547,9 +1551,6 @@ static int rtnl_setlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct nlattr *tb[IFLA_MAX+1];
- 	char ifname[IFNAMSIZ];
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
- 	if (err < 0)
- 		goto errout;
-@@ -1593,9 +1594,6 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	int err;
- 	LIST_HEAD(list_kill);
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
- 	if (err < 0)
- 		return err;
-@@ -1726,9 +1724,6 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct nlattr *linkinfo[IFLA_INFO_MAX+1];
- 	int err;
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- #ifdef CONFIG_MODULES
- replay:
- #endif
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 446b1b9..7059d6f 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -538,9 +538,6 @@ static int inet_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg
- 
- 	ASSERT_RTNL();
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv4_policy);
- 	if (err < 0)
- 		goto errout;
-@@ -648,9 +645,6 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg
- 
- 	ASSERT_RTNL();
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	ifa = rtm_to_ifaddr(net, nlh);
- 	if (IS_ERR(ifa))
- 		return PTR_ERR(ifa);
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 784716a..5cd75e2 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -613,9 +613,6 @@ static int inet_rtm_delroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *ar
- 	struct fib_table *tb;
- 	int err;
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = rtm_to_fib_config(net, skb, nlh, &cfg);
- 	if (err < 0)
- 		goto errout;
-@@ -638,9 +635,6 @@ static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh, void *ar
- 	struct fib_table *tb;
- 	int err;
- 
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = rtm_to_fib_config(net, skb, nlh, &cfg);
- 	if (err < 0)
- 		goto errout;
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 5f1967b..27b1e8f 100644
+index 47c591d..b8e0a62 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -3369,9 +3369,6 @@ inet6_rtm_deladdr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	struct in6_addr *pfx;
+@@ -2268,7 +2268,7 @@ int addrconf_add_ifaddr(struct net *net, void __user *arg)
+ 	struct in6_ifreq ireq;
  	int err;
  
 -	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
- 	if (err < 0)
- 		return err;
-@@ -3442,9 +3439,6 @@ inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	u8 ifa_flags;
++	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	if (copy_from_user(&ireq, arg, sizeof(struct in6_ifreq)))
+@@ -2287,7 +2287,7 @@ int addrconf_del_ifaddr(struct net *net, void __user *arg)
+ 	struct in6_ifreq ireq;
  	int err;
  
 -	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFA_MAX, ifa_ipv6_policy);
- 	if (err < 0)
- 		return err;
-diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
-index b106f80..ff76eec 100644
---- a/net/ipv6/addrlabel.c
-+++ b/net/ipv6/addrlabel.c
-@@ -425,9 +425,6 @@ static int ip6addrlbl_newdel(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	u32 label;
- 	int err = 0;
++	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	if (copy_from_user(&ireq, arg, sizeof(struct in6_ifreq)))
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index a974247..19f68b2 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -160,7 +160,8 @@ lookup_protocol:
+ 	}
+ 
+ 	err = -EPERM;
+-	if (sock->type == SOCK_RAW && !kern && !capable(CAP_NET_RAW))
++	if (sock->type == SOCK_RAW && !kern &&
++	    !ns_capable(net->user_ns, CAP_NET_RAW))
+ 		goto out_rcu_unlock;
+ 
+ 	sock->ops = answer->ops;
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+index cdf02be..0808df6 100644
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -64,7 +64,7 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 	int	ishost = !net->ipv6.devconf_all->forwarding;
+ 	int	err = 0;
  
 -	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = nlmsg_parse(nlh, sizeof(*ifal), tb, IFAL_MAX, ifal_policy);
- 	if (err < 0)
- 		return err;
++	if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 	if (ipv6_addr_is_multicast(addr))
+ 		return -EINVAL;
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index be2b67d6..2d84f49 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -701,7 +701,7 @@ int datagram_send_ctl(struct net *net, struct sock *sk,
+ 				err = -EINVAL;
+ 				goto exit_f;
+ 			}
+-			if (!capable(CAP_NET_RAW)) {
++			if (!ns_capable(net->user_ns, CAP_NET_RAW)) {
+ 				err = -EPERM;
+ 				goto exit_f;
+ 			}
+@@ -721,7 +721,7 @@ int datagram_send_ctl(struct net *net, struct sock *sk,
+ 				err = -EINVAL;
+ 				goto exit_f;
+ 			}
+-			if (!capable(CAP_NET_RAW)) {
++			if (!ns_capable(net->user_ns, CAP_NET_RAW)) {
+ 				err = -EPERM;
+ 				goto exit_f;
+ 			}
+@@ -746,7 +746,7 @@ int datagram_send_ctl(struct net *net, struct sock *sk,
+ 				err = -EINVAL;
+ 				goto exit_f;
+ 			}
+-			if (!capable(CAP_NET_RAW)) {
++			if (!ns_capable(net->user_ns, CAP_NET_RAW)) {
+ 				err = -EPERM;
+ 				goto exit_f;
+ 			}
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index 90bbefb..29124b7 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -519,7 +519,8 @@ int ipv6_flowlabel_opt(struct sock *sk, char __user *optval, int optlen)
+ 		}
+ 		read_unlock_bh(&ip6_sk_fl_lock);
+ 
+-		if (freq.flr_share == IPV6_FL_S_NONE && capable(CAP_NET_ADMIN)) {
++		if (freq.flr_share == IPV6_FL_S_NONE &&
++		    ns_capable(net->user_ns, CAP_NET_ADMIN)) {
+ 			fl = fl_lookup(net, freq.flr_label);
+ 			if (fl) {
+ 				err = fl6_renew(fl, freq.flr_linger, freq.flr_expires);
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 0185679..f822527 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1161,7 +1161,7 @@ static int ip6gre_tunnel_ioctl(struct net_device *dev,
+ 	case SIOCADDTUNNEL:
+ 	case SIOCCHGTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			goto done;
+ 
+ 		err = -EFAULT;
+@@ -1209,7 +1209,7 @@ static int ip6gre_tunnel_ioctl(struct net_device *dev,
+ 
+ 	case SIOCDELTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			goto done;
+ 
+ 		if (dev == ign->fb_tunnel_dev) {
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index cb7e2de..9140def 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1325,7 +1325,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case SIOCADDTUNNEL:
+ 	case SIOCCHGTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			break;
+ 		err = -EFAULT;
+ 		if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof (p)))
+@@ -1362,7 +1362,7 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 		break;
+ 	case SIOCDELTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			break;
+ 
+ 		if (dev == ip6n->fb_tnl_dev) {
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index f7c7c63..d7330f8 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -1583,7 +1583,7 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
+ 		return -ENOENT;
+ 
+ 	if (optname != MRT6_INIT) {
+-		if (sk != mrt->mroute6_sk && !capable(CAP_NET_ADMIN))
++		if (sk != mrt->mroute6_sk && !ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			return -EACCES;
+ 	}
+ 
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index ba6d13d..2429889 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -343,7 +343,8 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 		break;
+ 
+ 	case IPV6_TRANSPARENT:
+-		if (valbool && !capable(CAP_NET_ADMIN) && !capable(CAP_NET_RAW)) {
++		if (valbool && !ns_capable(net->user_ns, CAP_NET_ADMIN) &&
++		    !ns_capable(net->user_ns, CAP_NET_RAW)) {
+ 			retv = -EPERM;
+ 			break;
+ 		}
+@@ -381,7 +382,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+ 
+ 		/* hop-by-hop / destination options are privileged option */
+ 		retv = -EPERM;
+-		if (optname != IPV6_RTHDR && !capable(CAP_NET_RAW))
++		if (optname != IPV6_RTHDR && !ns_capable(net->user_ns, CAP_NET_RAW))
+ 			break;
+ 
+ 		opt = ipv6_renew_options(sk, np->opt, optname,
+@@ -754,7 +755,7 @@ done:
+ 	case IPV6_IPSEC_POLICY:
+ 	case IPV6_XFRM_POLICY:
+ 		retv = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			break;
+ 		retv = xfrm_user_policy(sk, optname, optval, optlen);
+ 		break;
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index d7cb045..636a296 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1856,7 +1856,7 @@ compat_do_ip6t_set_ctl(struct sock *sk, int cmd, void __user *user,
+ {
+ 	int ret;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	switch (cmd) {
+@@ -1971,7 +1971,7 @@ compat_do_ip6t_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ {
+ 	int ret;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	switch (cmd) {
+@@ -1993,7 +1993,7 @@ do_ip6t_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ {
+ 	int ret;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	switch (cmd) {
+@@ -2018,7 +2018,7 @@ do_ip6t_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ {
+ 	int ret;
+ 
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	switch (cmd) {
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index be2c173..c7f7fda 100644
+index 2a98397..be2c173 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -2336,9 +2336,6 @@ static int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *a
- 	struct fib6_config cfg;
- 	int err;
+@@ -1987,7 +1987,7 @@ int ipv6_route_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 	switch(cmd) {
+ 	case SIOCADDRT:		/* Add a route */
+ 	case SIOCDELRT:		/* Delete a route */
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 		err = copy_from_user(&rtmsg, arg,
+ 				     sizeof(struct in6_rtmsg));
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 3ed54ff..df92301 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -966,7 +966,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case SIOCADDTUNNEL:
+ 	case SIOCCHGTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			goto done;
  
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = rtm_to_fib6_config(skb, nlh, &cfg);
- 	if (err < 0)
- 		return err;
-@@ -2351,9 +2348,6 @@ static int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *a
- 	struct fib6_config cfg;
- 	int err;
+ 		err = -EFAULT;
+@@ -1025,7 +1025,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
  
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
- 	err = rtm_to_fib6_config(skb, nlh, &cfg);
- 	if (err < 0)
- 		return err;
+ 	case SIOCDELTUNNEL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			goto done;
+ 
+ 		if (dev == sitn->fb_tunnel_dev) {
+@@ -1058,7 +1058,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case SIOCDELPRL:
+ 	case SIOCCHGPRL:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			goto done;
+ 		err = -EINVAL;
+ 		if (dev == sitn->fb_tunnel_dev)
+@@ -1087,7 +1087,7 @@ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	case SIOCCHG6RD:
+ 	case SIOCDEL6RD:
+ 		err = -EPERM;
+-		if (!capable(CAP_NET_ADMIN))
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			goto done;
+ 
+ 		err = -EFAULT;
 -- 
 1.7.5.4
