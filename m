@@ -1,8 +1,8 @@
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH net-next 17/17] net: Make CAP_NET_BIND_SERVICE per user
-	namespace
-Date: Fri, 16 Nov 2012 05:03:12 -0800
-Message-ID: <1353070992-5552-17-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH net-next 15/17] net: Enable some sysctls that are safe for the
+	userns root
+Date: Fri, 16 Nov 2012 05:03:10 -0800
+Message-ID: <1353070992-5552-15-git-send-email-ebiederm@xmission.com>
 References: <87d2zd8zwn.fsf@xmission.com>
 	<1353070992-5552-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
@@ -27,99 +27,155 @@ List-Id: netdev.vger.kernel.org
 
 From: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 
-Allow privileged users in any user namespace to bind to
-privileged sockets in network namespaces they control.
+- Enable the per device ipv4 sysctls:
+   net/ipv4/conf/<if>/forwarding
+   net/ipv4/conf/<if>/mc_forwarding
+   net/ipv4/conf/<if>/accept_redirects
+   net/ipv4/conf/<if>/secure_redirects
+   net/ipv4/conf/<if>/shared_media
+   net/ipv4/conf/<if>/rp_filter
+   net/ipv4/conf/<if>/send_redirects
+   net/ipv4/conf/<if>/accept_source_route
+   net/ipv4/conf/<if>/accept_local
+   net/ipv4/conf/<if>/src_valid_mark
+   net/ipv4/conf/<if>/proxy_arp
+   net/ipv4/conf/<if>/medium_id
+   net/ipv4/conf/<if>/bootp_relay
+   net/ipv4/conf/<if>/log_martians
+   net/ipv4/conf/<if>/tag
+   net/ipv4/conf/<if>/arp_filter
+   net/ipv4/conf/<if>/arp_announce
+   net/ipv4/conf/<if>/arp_ignore
+   net/ipv4/conf/<if>/arp_accept
+   net/ipv4/conf/<if>/arp_notify
+   net/ipv4/conf/<if>/proxy_arp_pvlan
+   net/ipv4/conf/<if>/disable_xfrm
+   net/ipv4/conf/<if>/disable_policy
+   net/ipv4/conf/<if>/force_igmp_version
+   net/ipv4/conf/<if>/promote_secondaries
+   net/ipv4/conf/<if>/route_localnet
+
+- Enable the global ipv4 sysctl:
+   net/ipv4/ip_forward
+
+- Enable the per device ipv6 sysctls:
+   net/ipv6/conf/<if>/forwarding
+   net/ipv6/conf/<if>/hop_limit
+   net/ipv6/conf/<if>/mtu
+   net/ipv6/conf/<if>/accept_ra
+   net/ipv6/conf/<if>/accept_redirects
+   net/ipv6/conf/<if>/autoconf
+   net/ipv6/conf/<if>/dad_transmits
+   net/ipv6/conf/<if>/router_solicitations
+   net/ipv6/conf/<if>/router_solicitation_interval
+   net/ipv6/conf/<if>/router_solicitation_delay
+   net/ipv6/conf/<if>/force_mld_version
+   net/ipv6/conf/<if>/use_tempaddr
+   net/ipv6/conf/<if>/temp_valid_lft
+   net/ipv6/conf/<if>/temp_prefered_lft
+   net/ipv6/conf/<if>/regen_max_retry
+   net/ipv6/conf/<if>/max_desync_factor
+   net/ipv6/conf/<if>/max_addresses
+   net/ipv6/conf/<if>/accept_ra_defrtr
+   net/ipv6/conf/<if>/accept_ra_pinfo
+   net/ipv6/conf/<if>/accept_ra_rtr_pref
+   net/ipv6/conf/<if>/router_probe_interval
+   net/ipv6/conf/<if>/accept_ra_rt_info_max_plen
+   net/ipv6/conf/<if>/proxy_ndp
+   net/ipv6/conf/<if>/accept_source_route
+   net/ipv6/conf/<if>/optimistic_dad
+   net/ipv6/conf/<if>/mc_forwarding
+   net/ipv6/conf/<if>/disable_ipv6
+   net/ipv6/conf/<if>/accept_dad
+   net/ipv6/conf/<if>/force_tllao
+
+- Enable the global ipv6 sysctls:
+   net/ipv6/bindv6only
+   net/ipv6/icmp/ratelimit
 
 Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
 ---
- net/ipv4/af_inet.c  |    6 ++++--
- net/ipv6/af_inet6.c |    2 +-
- net/sctp/socket.c   |    8 +++++---
- 3 files changed, 10 insertions(+), 6 deletions(-)
+ net/ipv4/devinet.c         |    8 --------
+ net/ipv6/addrconf.c        |    4 ----
+ net/ipv6/icmp.c            |    7 +------
+ net/ipv6/sysctl_net_ipv6.c |    4 ----
+ 4 files changed, 1 insertions(+), 22 deletions(-)
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 7449bcf..6a76956 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -474,6 +474,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	struct sockaddr_in *addr = (struct sockaddr_in *)uaddr;
- 	struct sock *sk = sock->sk;
- 	struct inet_sock *inet = inet_sk(sk);
-+	struct net *net = sock_net(sk);
- 	unsigned short snum;
- 	int chk_addr_ret;
- 	int err;
-@@ -497,7 +498,7 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 			goto out;
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index f75f4f6..446b1b9 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1643,10 +1643,6 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
+ 		t->devinet_vars[i].extra2 = net;
  	}
  
--	chk_addr_ret = inet_addr_type(sock_net(sk), addr->sin_addr.s_addr);
-+	chk_addr_ret = inet_addr_type(net, addr->sin_addr.s_addr);
+-	/* Don't export sysctls to unprivileged users */
+-	if (net->user_ns != &init_user_ns)
+-		t->devinet_vars[0].procname = NULL;
+-
+ 	snprintf(path, sizeof(path), "net/ipv4/conf/%s", dev_name);
  
- 	/* Not specified by any standard per-se, however it breaks too
- 	 * many applications when removed.  It is unfortunate since
-@@ -517,7 +518,8 @@ int inet_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ 	t->sysctl_header = register_net_sysctl(net, path, t->devinet_vars);
+@@ -1732,10 +1728,6 @@ static __net_init int devinet_init_net(struct net *net)
+ 		tbl[0].data = &all->data[IPV4_DEVCONF_FORWARDING - 1];
+ 		tbl[0].extra1 = all;
+ 		tbl[0].extra2 = net;
+-
+-		/* Don't export sysctls to unprivileged users */
+-		if (net->user_ns != &init_user_ns)
+-			tbl[0].procname = NULL;
+ #endif
+ 	}
  
- 	snum = ntohs(addr->sin_port);
- 	err = -EACCES;
--	if (snum && snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
-+	if (snum && snum < PROT_SOCK &&
-+	    !ns_capable(net->user_ns, CAP_NET_BIND_SERVICE))
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index b8e0a62..5f1967b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4588,10 +4588,6 @@ static int __addrconf_sysctl_register(struct net *net, char *dev_name,
+ 		t->addrconf_vars[i].extra2 = net;
+ 	}
+ 
+-	/* Don't export sysctls to unprivileged users */
+-	if (net->user_ns != &init_user_ns)
+-		t->addrconf_vars[0].procname = NULL;
+-
+ 	snprintf(path, sizeof(path), "net/ipv6/conf/%s", dev_name);
+ 
+ 	t->sysctl_header = register_net_sysctl(net, path, t->addrconf_vars);
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index db9df8a..24d69db 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -967,14 +967,9 @@ struct ctl_table * __net_init ipv6_icmp_sysctl_init(struct net *net)
+ 			sizeof(ipv6_icmp_table_template),
+ 			GFP_KERNEL);
+ 
+-	if (table) {
++	if (table)
+ 		table[0].data = &net->ipv6.sysctl.icmpv6_time;
+ 
+-		/* Don't export sysctls to unprivileged users */
+-		if (net->user_ns != &init_user_ns)
+-			table[0].procname = NULL;
+-	}
+-
+ 	return table;
+ }
+ #endif
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index b06fd07..e85c48b 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -52,10 +52,6 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
  		goto out;
+ 	ipv6_table[0].data = &net->ipv6.sysctl.bindv6only;
  
- 	/*      We keep a pair of addresses. rcv_saddr is the one
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 19f68b2..5d4e45e 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -283,7 +283,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 		return -EINVAL;
- 
- 	snum = ntohs(addr->sin6_port);
--	if (snum && snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
-+	if (snum && snum < PROT_SOCK && !ns_capable(net->user_ns, CAP_NET_BIND_SERVICE))
- 		return -EACCES;
- 
- 	lock_sock(sk);
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 59d16ea..e4a362d 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -336,6 +336,7 @@ static struct sctp_af *sctp_sockaddr_af(struct sctp_sock *opt,
- /* Bind a local address either to an endpoint or to an association.  */
- SCTP_STATIC int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
- {
-+	struct net *net = sock_net(sk);
- 	struct sctp_sock *sp = sctp_sk(sk);
- 	struct sctp_endpoint *ep = sp->ep;
- 	struct sctp_bind_addr *bp = &ep->base.bind_addr;
-@@ -379,7 +380,8 @@ SCTP_STATIC int sctp_do_bind(struct sock *sk, union sctp_addr *addr, int len)
- 		}
- 	}
- 
--	if (snum && snum < PROT_SOCK && !capable(CAP_NET_BIND_SERVICE))
-+	if (snum && snum < PROT_SOCK &&
-+	    !ns_capable(net->user_ns, CAP_NET_BIND_SERVICE))
- 		return -EACCES;
- 
- 	/* See if the address matches any of the addresses we may have
-@@ -1162,7 +1164,7 @@ static int __sctp_connect(struct sock* sk,
- 				 * be permitted to open new associations.
- 				 */
- 				if (ep->base.bind_addr.port < PROT_SOCK &&
--				    !capable(CAP_NET_BIND_SERVICE)) {
-+				    !ns_capable(net->user_ns, CAP_NET_BIND_SERVICE)) {
- 					err = -EACCES;
- 					goto out_free;
- 				}
-@@ -1791,7 +1793,7 @@ SCTP_STATIC int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
- 			 * associations.
- 			 */
- 			if (ep->base.bind_addr.port < PROT_SOCK &&
--			    !capable(CAP_NET_BIND_SERVICE)) {
-+			    !ns_capable(net->user_ns, CAP_NET_BIND_SERVICE)) {
- 				err = -EACCES;
- 				goto out_unlock;
- 			}
+-	/* Don't export sysctls to unprivileged users */
+-	if (net->user_ns != &init_user_ns)
+-		ipv6_table[0].procname = NULL;
+-
+ 	ipv6_route_table = ipv6_route_sysctl_init(net);
+ 	if (!ipv6_route_table)
+ 		goto out_ipv6_table;
 -- 
 1.7.5.4
