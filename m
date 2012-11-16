@@ -1,103 +1,71 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH v4 2/9] net: rds: use this_cpu_* per-cpu helper
-Date: Fri, 16 Nov 2012 16:38:33 +0800
-Message-ID: <50A5FB89.4000400@gmail.com>
-References: <50A1A7C1.50308@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Shan Wei <shanwei88@gmail.com>, venkat.x.venkatsubra@oracle.com,
-	rds-devel@oss.oracle.com, NetDev <netdev@vger.kernel.org>,
-	Kernel-Maillist <linux-kernel@vger.kernel.org>,
-	cl@linux-foundation.org, Tejun Heo <htejun@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50A1A7C1.50308@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: pull request: batman-adv 2012-11-16
+Date: Fri, 16 Nov 2012 09:49:14 +0100
+Message-ID: <1353055758-2901-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org,
+	Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Sven Eckelmann <sven@narfation.org>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from contumacia.investici.org ([178.255.144.35]:34795 "EHLO
+	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750833Ab2KPIuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 03:50:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Shan Wei said, at 2012/11/13 9:52:
-> From: Shan Wei <davidshan@tencent.com>
-> 
-> 
-> Signed-off-by: Shan Wei <davidshan@tencent.com>
-> Reviewed-by: Christoph Lameter <cl@linux.com>
+Hello David,
 
-David Miller,  would you like to pick it up to your net-next tree?
+here is small set of fixes intended for net/linux-3.7.
+These patches are fixing some interoperability problems due to the features we
+added in 3.7. Mainly we have two big issues: one is preventing clients connected
+to the mesh network to contact any other hosts, caused by a not proper
+translation table handling; the second one compromises the AP isolation feature
+causing it to be completely useless, no matter it was on or off.
+
+Please, let me know if there is any problem.
+
+Thank you very much!
+		Antonio
 
 
-> ---
-> v4:
-> 1. add missing __percpu annotations.
-> 2. [read|write]ing fields of struct rds_ib_cache_head
-> using __this_cpu_* operation, drop per_cpu_ptr.
-> ---
->  net/rds/ib.h      |    2 +-
->  net/rds/ib_recv.c |   24 +++++++++++++-----------
->  2 files changed, 14 insertions(+), 12 deletions(-)
-> 
-> diff --git a/net/rds/ib.h b/net/rds/ib.h
-> index 8d2b3d5..7280ab8 100644
-> --- a/net/rds/ib.h
-> +++ b/net/rds/ib.h
-> @@ -50,7 +50,7 @@ struct rds_ib_cache_head {
->  };
->  
->  struct rds_ib_refill_cache {
-> -	struct rds_ib_cache_head *percpu;
-> +	struct rds_ib_cache_head __percpu *percpu;
->  	struct list_head	 *xfer;
->  	struct list_head	 *ready;
->  };
-> diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-> index 8d19491..8c5bc85 100644
-> --- a/net/rds/ib_recv.c
-> +++ b/net/rds/ib_recv.c
-> @@ -418,20 +418,21 @@ static void rds_ib_recv_cache_put(struct list_head *new_item,
->  				 struct rds_ib_refill_cache *cache)
->  {
->  	unsigned long flags;
-> -	struct rds_ib_cache_head *chp;
->  	struct list_head *old;
-> +	struct list_head __percpu *chpfirst;
->  
->  	local_irq_save(flags);
->  
-> -	chp = per_cpu_ptr(cache->percpu, smp_processor_id());
-> -	if (!chp->first)
-> +	chpfirst = __this_cpu_read(cache->percpu->first);
-> +	if (!chpfirst)
->  		INIT_LIST_HEAD(new_item);
->  	else /* put on front */
-> -		list_add_tail(new_item, chp->first);
-> -	chp->first = new_item;
-> -	chp->count++;
-> +		list_add_tail(new_item, chpfirst);
->  
-> -	if (chp->count < RDS_IB_RECYCLE_BATCH_COUNT)
-> +	__this_cpu_write(chpfirst, new_item);
-> +	__this_cpu_inc(cache->percpu->count);
-> +
-> +	if (__this_cpu_read(cache->percpu->count) < RDS_IB_RECYCLE_BATCH_COUNT)
->  		goto end;
->  
->  	/*
-> @@ -443,12 +444,13 @@ static void rds_ib_recv_cache_put(struct list_head *new_item,
->  	do {
->  		old = xchg(&cache->xfer, NULL);
->  		if (old)
-> -			list_splice_entire_tail(old, chp->first);
-> -		old = cmpxchg(&cache->xfer, NULL, chp->first);
-> +			list_splice_entire_tail(old, chpfirst);
-> +		old = cmpxchg(&cache->xfer, NULL, chpfirst);
->  	} while (old);
->  
-> -	chp->first = NULL;
-> -	chp->count = 0;
-> +
-> +	__this_cpu_write(chpfirst, NULL);
-> +	__this_cpu_write(cache->percpu->count, 0);
->  end:
->  	local_irq_restore(flags);
->  }
-> 
+
+The following changes since commit 80d11788fb8f4d9fcfae5ad508c7f1b65e8b28a3:
+
+  Revert "drivers/net/phy/mdio-bitbang.c: Call mdiobus_unregister before mdiobus_free" (2012-11-14 22:32:15 -0500)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to 74490f969155caf1ec945ad2d35d3a8eec6be71d:
+
+  batman-adv: process broadcast packets in BLA earlier (2012-11-16 09:36:54 +0100)
+
+----------------------------------------------------------------
+Included fixes are:
+- update the client entry status flags when using the "early client
+  detection". This makes the Distributed AP isolation correctly work;
+- transfer the client entry status flags when recovering the translation
+  table from another node. This makes the Distributed AP isolation correctly
+  work;
+- prevent the "early client detection mechanism" to add clients belonging to
+  other backbone nodes in the same LAN. This breaks connectivity when using this
+  mechanism together with the Bridge Loop Avoidance
+- process broadcast packets with the Bridge Loop Avoidance before any other
+  component. BLA can possibly drop the packets based on the source address. This
+  makes the "early client detection mechanism" correctly work when used with
+  BLA.
+
+----------------------------------------------------------------
+Antonio Quartulli (4):
+      batman-adv: fix tt_global_entries flags update
+      batman-adv: correctly pass the client flag on tt_response
+      batman-adv: don't add TEMP clients belonging to other backbone nodes
+      batman-adv: process broadcast packets in BLA earlier
+
+ net/batman-adv/soft-interface.c    | 12 ++++++------
+ net/batman-adv/translation-table.c | 15 ++++++++++++++-
+ 2 files changed, 20 insertions(+), 7 deletions(-)
