@@ -1,81 +1,60 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 0/4] Implement persistent grant in xen-netfront/netback
-Date: Fri, 16 Nov 2012 11:46:22 +0000
-Message-ID: <1353066382.3499.227.camel@zakaz.uk.xensource.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
-	 <1353059821.3499.190.camel@zakaz.uk.xensource.com>
-	 <50A6255C.10108@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: ANNIE LI <annie.li@oracle.com>
+From: pablo@netfilter.org
+Subject: [PATCH 0/4] netfilter updates for nf-next (try 2)
+Date: Fri, 16 Nov 2012 13:40:49 +0100
+Message-ID: <1353069653-3231-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([62.200.22.115]:28550 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231Ab2KPLqZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 06:46:25 -0500
-In-Reply-To: <50A6255C.10108@oracle.com>
+Received: from mail.us.es ([193.147.175.20]:44462 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750817Ab2KPMlB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2012 07:41:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-16 at 11:37 +0000, ANNIE LI wrote:
-> 
-> On 2012-11-16 17:57, Ian Campbell wrote:
-> > On Thu, 2012-11-15 at 07:03 +0000, Annie Li wrote:
-> >> This patch implements persistent grants for xen-netfront/netback.
-> > Hang on a sec. It has just occurred to me that netfront/netback in the
-> > current mainline kernels don't currently use grant maps at all, they use
-> > grant copy on both the tx and rx paths.
-> 
-> Ah, this patch is based on v3.4-rc3.
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Nothing has changed in more recent kernels in this regard.
+Hi David,
 
-> >
-> > The supposed benefit of persistent grants is to avoid the TLB shootdowns
-> > on grant unmap, but in the current code there should be exactly zero of
-> > those.
-> 
-> Is there any performance document about current grant copy code in 
-> mainline kernel?
+This is the second try to include the following four patches that contain
+updates for your net-next tree, they are:
 
-Not AFAIK.
+* Little cleanup for IPVS the use of a strange notation to assign the
+  conntrack object, from Alan Cox.
 
-> > If I understand correctly this patch goes from using grant copy
-> > operations to persistently mapping frames and then using memcpy on those
-> > buffers to copy in/out to local buffers. I'm finding it hard to think of
-> > a reason why this should perform any better, do you have a theory which
-> > explains it?
-> 
-> This patch is aiming to fix spin lock issue of grant operations, it 
-> comes out to avoid possible grant operations(including grant map and copy).
+* Another little cleanup for nf_nat to save a couple of lines by using
+  PTR_RET, from Wu Fengguan
 
-Makes sense. This is the sort of thing which ought to feature
-prominently in commit messages and/or introductory mails.
+* getsockopt support to obtain the original IPv6 address after NAT,
+  similar to the one that IPv4 provides, from Florian Westphal.
 
-> > Do you know
-> > that they both benefit from this change (rather than for example an
-> > improvement in one direction masking a regression in the other).
-> 
-> On theory, this implementation avoid spinlock issue of grant operation, 
-> so they should both benefit from it.
+* Follow-up patch pointed out by YOSHIFUJI Hideaki to only provide
+  the scope_id in case that link is local, again from Florian Westphal.
 
-It seems like having netfront simply allocate itself a pool of grant
-references which it reuses would give equivalent benefits whilst being a
-smaller patch, with no protocol change and avoiding double copying. In
-fact by avoiding the double copy I'd expect it to be even better.
+You can pull these changes from:
 
-> > Were
-> > the numbers you previously posted in one particular direction or did you
-> > measure both?
-> 
-> One particular direction, one runs as server, the other runs as client.
+git://1984.lsi.us.es/nf-next master
 
-I think you need to measure both dom0->domU and domU->dom0 to get the
-full picture since AIUI netperf sends the bulk data in only one
-direction with just ACKs coming back the other way.
+Thanks!
 
-Ian.
+Alan Cox (1):
+  ipvs: remove silly double assignment
+
+Florian Westphal (2):
+  netfilter: ipv6: add getsockopt to retrieve origdst
+  netfilter: ipv6: only provide sk_bound_dev_if for link-local addr
+
+Wu Fengguang (1):
+  netfilter: nf_nat: use PTR_RET
+
+ include/uapi/linux/in6.h                       |    1 +
+ include/uapi/linux/netfilter_ipv6/ip6_tables.h |    3 ++
+ net/ipv4/netfilter/iptable_nat.c               |    4 +-
+ net/ipv6/netfilter/ip6table_nat.c              |    4 +-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   66 ++++++++++++++++++++++++
+ net/netfilter/ipvs/ip_vs_nfct.c                |    2 +-
+ net/netfilter/ipvs/ip_vs_xmit.c                |    8 +--
+ 7 files changed, 77 insertions(+), 11 deletions(-)
+
+-- 
+1.7.10.4
