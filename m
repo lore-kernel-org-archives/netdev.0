@@ -1,37 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] openvswitch: Make IPv6 packet parsing dependent on
- IPv6 config
-Date: Fri, 16 Nov 2012 13:53:41 -0500 (EST)
-Message-ID: <20121116.135341.453792886356015492.davem@davemloft.net>
-References: <CAEP_g=9ge1dq8ahinM075hjdfdmXaou4a9fqPyLPJQinths6pQ@mail.gmail.com>
-	<50A67B44.9040508@redhat.com>
-	<CAEP_g=80_P=sLkQCGXwdTLKOFN5FgqYYoDbVDXMTipbtM-GhbA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net-rps: Fix brokeness causing OOO packets
+Date: Fri, 16 Nov 2012 11:04:15 -0800
+Message-ID: <1353092655.10798.44.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, dev@openvswitch.org, netdev@vger.kernel.org,
-	fengguang.wu@intel.com
-To: jesse@nicira.com
+Cc: netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58750 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752936Ab2KPSxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 13:53:43 -0500
-In-Reply-To: <CAEP_g=80_P=sLkQCGXwdTLKOFN5FgqYYoDbVDXMTipbtM-GhbA@mail.gmail.com>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:50325 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753242Ab2KPTER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 14:04:17 -0500
+Received: by mail-pb0-f46.google.com with SMTP id wy7so2126129pbc.19
+        for <netdev@vger.kernel.org>; Fri, 16 Nov 2012 11:04:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Fri, 16 Nov 2012 10:46:17 -0800
+From: Tom Herbert <therbert@google.com>
 
-> I guess the simplest thing to do seems to just make Open vSwitch
-> depend on CONFIG_INET seeing as it is practically useless without
-> upper layer protocol support anyways.
+In commit c445477d74ab3779 which adds aRFS to the kernel, the CPU
+selected for RFS is not set correctly when CPU is changing.
+This is causing OOO packets and probably other issues.
 
-The reason we have the ipv6 extension header parsing in a seperate,
-always compiled statically into the kernel, module is exactly for
-situations like this.
+Signed-off-by: Tom Herbert <therbert@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ net/core/dev.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-We need to think seriously if we want to go down this road of only
-using INET as protection for every module that has some kind of ipv6
-component to it.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index bda6d00..c0946cb 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2818,8 +2818,10 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 		if (unlikely(tcpu != next_cpu) &&
+ 		    (tcpu == RPS_NO_CPU || !cpu_online(tcpu) ||
+ 		     ((int)(per_cpu(softnet_data, tcpu).input_queue_head -
+-		      rflow->last_qtail)) >= 0))
++		      rflow->last_qtail)) >= 0)) {
++			tcpu = next_cpu;
+ 			rflow = set_rps_cpu(dev, skb, rflow, next_cpu);
++		}
+ 
+ 		if (tcpu != RPS_NO_CPU && cpu_online(tcpu)) {
+ 			*rflowp = rflow;
