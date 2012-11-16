@@ -1,56 +1,40 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: linux-next: Tree for Nov 15 (pch_gbe)
-Date: Fri, 16 Nov 2012 13:48:41 -0800
-Message-ID: <50A6B4B9.4060804@xenotime.net>
-References: <20121115181740.4fb08780f0b92149a5ed2ca4@canb.auug.org.au>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v4 4/9] net: openvswitch: use this_cpu_ptr
+	per-cpu helper
+Date: Fri, 16 Nov 2012 13:53:45 -0800
+Message-ID: <CAEP_g=9bP9iQv=59wYv32ppOhftpsarJM9ET3U9jDxwvatdbQg@mail.gmail.com>
+References: <50A1A7D9.2040506@gmail.com> <50A5FAEB.7090202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LAPIS SEMICONDUCTOR <tshimizu818@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121115181740.4fb08780f0b92149a5ed2ca4@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Tejun Heo <htejun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <50A5FAEB.7090202-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 11/14/2012 11:17 PM, Stephen Rothwell wrote:
+On Fri, Nov 16, 2012 at 12:35 AM, Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Shan Wei said, at 2012/11/13 9:52:
+>> From: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
+>>
+>> just use more faster this_cpu_ptr instead of per_cpu_ptr(p, smp_processor_id());
+>>
+>>
+>> Signed-off-by: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
+>> Reviewed-by: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+>
+> Jesse Gross,  would you like to pick it up to your tree?
 
-> Hi all,
-> 
-> News: this one will be the last release until next-20121126 (which should
-> be just be after -rc7, I guess - assuming that Linus does not release
-> v3.7 before then).
-> 
-> Changes since 20121114:
-> 
-
-
-on x86_64:
-
-drivers/built-in.o: In function `pch_tx_timestamp':
-pch_gbe_main.c:(.text+0x5b9b08): undefined reference to `pch_ch_event_read'
-pch_gbe_main.c:(.text+0x5b9b39): undefined reference to `pch_tx_snap_read'
-pch_gbe_main.c:(.text+0x5b9b6c): undefined reference to `pch_ch_event_write'
-drivers/built-in.o: In function `pch_rx_timestamp':
-pch_gbe_main.c:(.text+0x5ba648): undefined reference to `pch_ch_event_read'
-pch_gbe_main.c:(.text+0x5ba658): undefined reference to `pch_src_uuid_lo_read'
-pch_gbe_main.c:(.text+0x5ba663): undefined reference to `pch_src_uuid_hi_read'
-pch_gbe_main.c:(.text+0x5ba709): undefined reference to `pch_ch_event_write'
-pch_gbe_main.c:(.text+0x5ba717): undefined reference to `pch_rx_snap_read'
-drivers/built-in.o: In function `hwtstamp_ioctl.clone.13':
-pch_gbe_main.c:(.text+0x5bb3b0): undefined reference to `pch_ch_control_write'
-pch_gbe_main.c:(.text+0x5bb3c9): undefined reference to `pch_ch_control_write'
-pch_gbe_main.c:(.text+0x5bb3e2): undefined reference to `pch_ch_control_write'
-pch_gbe_main.c:(.text+0x5bb406): undefined reference to `pch_ch_control_write'
-pch_gbe_main.c:(.text+0x5bb426): undefined reference to `pch_set_station_address'
-pch_gbe_main.c:(.text+0x5bb433): undefined reference to `pch_ch_event_write'
-
-when PTP_1588_CLOCK_PCH is not enabled.
-
-Want to select PTP_1588_CLOCK_PCH for PCH_GBE?
-
--- 
-~Randy
+Applied, thanks.
