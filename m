@@ -1,14 +1,14 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 3/4] sit: allow to deactivate the creation of fb device
-Date: Fri, 16 Nov 2012 17:14:15 +0100
-Message-ID: <1353082456-21234-4-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 4/4] ip6tnl: allow to deactivate the creation of fb dev
+Date: Fri, 16 Nov 2012 17:14:16 +0100
+Message-ID: <1353082456-21234-5-git-send-email-nicolas.dichtel@6wind.com>
 References: <1353082456-21234-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:37994 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:37995 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751665Ab2KPQNb (ORCPT
+	with ESMTP id S1751696Ab2KPQNb (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 11:13:31 -0500
 In-Reply-To: <1353082456-21234-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,126 +17,83 @@ List-ID: <netdev.vger.kernel.org>
 Now that tunnels can be configured via rtnetlink, this device is not mandatory.
 The default is conservative.
 
-The fb device was also used by 6RD as a template for default 6RD parameters.
-User was able to update this template for each netns, hence when the fb device
-is not created, this option does not exist. However, user can now set 6RD
-parameters in the same netlink message that create the tunnel (before two
-ioctl were needed) thus user can directly set the right value.
-
-Last point is about ISATAP. The potential routers list (prl) management has not
-been converted to netlink, but the ioctl is anyway performed on the related
-device directly and not on the fb device.
-
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/ipv6/sit.c | 62 +++++++++++++++++++++++++++++++++++++---------------------
- 1 file changed, 40 insertions(+), 22 deletions(-)
+ net/ipv6/ip6_tunnel.c | 43 +++++++++++++++++++++++++++----------------
+ 1 file changed, 27 insertions(+), 16 deletions(-)
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 504422d..d789a55 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -65,6 +65,15 @@
- #define HASH_SIZE  16
- #define HASH(addr) (((__force u32)addr^((__force u32)addr>>4))&0xF)
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index bf3a549..fe2028e 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -62,6 +62,11 @@ MODULE_DESCRIPTION("IPv6 tunneling device");
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS_NETDEV("ip6tnl0");
  
 +static bool setup_fb = true;
 +module_param(setup_fb, bool, 0644);
 +MODULE_PARM_DESC(setup_fb,
 +		 "Setup the fb device to configure tunnel via IOCTL");
 +
-+#ifdef CONFIG_IPV6_SIT_6RD
-+static struct ip_tunnel_6rd_parm ip6rd_template;
-+#endif
-+
- static int ipip6_tunnel_init(struct net_device *dev);
- static void ipip6_tunnel_setup(struct net_device *dev);
- static void ipip6_dev_free(struct net_device *dev);
-@@ -204,12 +213,9 @@ static void ipip6_tunnel_clone_6rd(struct net_device *dev, struct sit_net *sitn)
- #ifdef CONFIG_IPV6_SIT_6RD
- 	struct ip_tunnel *t = netdev_priv(dev);
- 
--	if (t->dev == sitn->fb_tunnel_dev) {
--		ipv6_addr_set(&t->ip6rd.prefix, htonl(0x20020000), 0, 0, 0);
--		t->ip6rd.relay_prefix = 0;
--		t->ip6rd.prefixlen = 16;
--		t->ip6rd.relay_prefixlen = 0;
--	} else {
-+	if (t->dev == sitn->fb_tunnel_dev || setup_fb == false)
-+		memcpy(&t->ip6rd, &ip6rd_template, sizeof(t->ip6rd));
-+	else {
- 		struct ip_tunnel *t0 = netdev_priv(sitn->fb_tunnel_dev);
- 		memcpy(&t->ip6rd, &t0->ip6rd, sizeof(t->ip6rd));
+ #ifdef IP6_TNL_DEBUG
+ #define IP6_TNL_TRACE(x...) pr_debug("%s:" x "\n", __func__)
+ #else
+@@ -1711,8 +1716,10 @@ static void __net_exit ip6_tnl_destroy_tunnels(struct ip6_tnl_net *ip6n)
  	}
-@@ -1501,26 +1507,30 @@ static int __net_init sit_init_net(struct net *net)
- 	sitn->tunnels[2] = sitn->tunnels_r;
- 	sitn->tunnels[3] = sitn->tunnels_r_l;
  
--	sitn->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel), "sit0",
--					   ipip6_tunnel_setup);
--	if (!sitn->fb_tunnel_dev) {
--		err = -ENOMEM;
--		goto err_alloc_dev;
--	}
--	dev_net_set(sitn->fb_tunnel_dev, net);
+ 	t = rtnl_dereference(ip6n->tnls_wc[0]);
+-	unregister_netdevice_queue(t->dev, &list);
+-	unregister_netdevice_many(&list);
++	if (t) {
++		unregister_netdevice_queue(t->dev, &list);
++		unregister_netdevice_many(&list);
++	}
+ }
+ 
+ static int __net_init ip6_tnl_init_net(struct net *net)
+@@ -1724,25 +1731,29 @@ static int __net_init ip6_tnl_init_net(struct net *net)
+ 	ip6n->tnls[0] = ip6n->tnls_wc;
+ 	ip6n->tnls[1] = ip6n->tnls_r_l;
+ 
+-	err = -ENOMEM;
+-	ip6n->fb_tnl_dev = alloc_netdev(sizeof(struct ip6_tnl), "ip6tnl0",
+-				      ip6_tnl_dev_setup);
 +	if (setup_fb) {
-+		sitn->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel),
-+						   "sit0", ipip6_tunnel_setup);
-+		if (!sitn->fb_tunnel_dev) {
-+			err = -ENOMEM;
++		err = -ENOMEM;
++		ip6n->fb_tnl_dev = alloc_netdev(sizeof(struct ip6_tnl),
++						"ip6tnl0", ip6_tnl_dev_setup);
+ 
+-	if (!ip6n->fb_tnl_dev)
+-		goto err_alloc_dev;
+-	dev_net_set(ip6n->fb_tnl_dev, net);
++		if (!ip6n->fb_tnl_dev)
 +			goto err_alloc_dev;
-+		}
-+		dev_net_set(sitn->fb_tunnel_dev, net);
++		dev_net_set(ip6n->fb_tnl_dev, net);
  
--	err = ipip6_fb_tunnel_init(sitn->fb_tunnel_dev);
--	if (err)
--		goto err_dev_free;
-+		err = ipip6_fb_tunnel_init(sitn->fb_tunnel_dev);
-+		if (err)
-+			goto err_dev_free;
+-	err = ip6_fb_tnl_dev_init(ip6n->fb_tnl_dev);
+-	if (err < 0)
+-		goto err_register;
++		err = ip6_fb_tnl_dev_init(ip6n->fb_tnl_dev);
++		if (err < 0)
++			goto err_register;
  
--	ipip6_tunnel_clone_6rd(sitn->fb_tunnel_dev, sitn);
-+		ipip6_tunnel_clone_6rd(sitn->fb_tunnel_dev, sitn);
+-	err = register_netdev(ip6n->fb_tnl_dev);
+-	if (err < 0)
+-		goto err_register;
++		err = register_netdev(ip6n->fb_tnl_dev);
++		if (err < 0)
++			goto err_register;
++
++		t = netdev_priv(ip6n->fb_tnl_dev);
  
--	if ((err = register_netdev(sitn->fb_tunnel_dev)))
--		goto err_reg_dev;
-+		err = register_netdev(sitn->fb_tunnel_dev);
-+		if (err)
-+			goto err_reg_dev;
- 
--	t = netdev_priv(sitn->fb_tunnel_dev);
-+		t = netdev_priv(sitn->fb_tunnel_dev);
- 
--	strcpy(t->parms.name, sitn->fb_tunnel_dev->name);
-+		strcpy(t->parms.name, sitn->fb_tunnel_dev->name);
+-	t = netdev_priv(ip6n->fb_tnl_dev);
++		strcpy(t->parms.name, ip6n->fb_tnl_dev->name);
 +	} else
-+		sitn->fb_tunnel_dev = NULL;
++		ip6n->fb_tnl_dev = NULL;
+ 
+-	strcpy(t->parms.name, ip6n->fb_tnl_dev->name);
  	return 0;
  
- err_reg_dev:
-@@ -1538,7 +1548,8 @@ static void __net_exit sit_exit_net(struct net *net)
- 
- 	rtnl_lock();
- 	sit_destroy_tunnels(sitn, &list);
--	unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
-+	if (setup_fb)
-+		unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
- 	unregister_netdevice_many(&list);
- 	rtnl_unlock();
- }
-@@ -1565,6 +1576,13 @@ static int __init sit_init(void)
- 
- 	pr_info("IPv6 over IPv4 tunneling driver\n");
- 
-+#ifdef CONFIG_IPV6_SIT_6RD
-+	ipv6_addr_set(&ip6rd_template.prefix, htonl(0x20020000), 0, 0, 0);
-+	ip6rd_template.relay_prefix = 0;
-+	ip6rd_template.prefixlen = 16;
-+	ip6rd_template.relay_prefixlen = 0;
-+#endif
-+
- 	err = register_pernet_device(&sit_net_ops);
- 	if (err < 0)
- 		return err;
+ err_register:
 -- 
 1.7.12
