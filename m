@@ -1,175 +1,148 @@
-From: pablo@netfilter.org
-Subject: [PATCH 3/4] netfilter: ipv6: add getsockopt to retrieve origdst
-Date: Fri, 16 Nov 2012 13:40:52 +0100
-Message-ID: <1353069653-3231-4-git-send-email-pablo@netfilter.org>
-References: <1353069653-3231-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44488 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751480Ab2KPMlF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 16 Nov 2012 07:41:05 -0500
-In-Reply-To: <1353069653-3231-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: [PATCH net-next 0/17] Make the network stack usable by userns root
+Date: Fri, 16 Nov 2012 05:01:44 -0800
+Message-ID: <87d2zd8zwn.fsf@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
 
-userspace can query the original ipv4 destination address of a REDIRECTed
-connection via
-getsockopt(m_sock, SOL_IP, SO_ORIGINAL_DST, &m_server_addr, &addrsize)
+In a secondary user namespace the root user only has CAP_NET_ADMIN,
+CAP_NET_RAW and CAP_NET_BIND_SERVICE with respect to the secondary user
+namespace.  The test "capable(CAP_NET_ADMIN)" tests for capabilities in
+the initial user namespace.
 
-but for ipv6 no such option existed.
+The following set of patches goes through the networking stack.  First
+pushing the capable(CAP_NET_ADMIN) admin calls down farther in the stack
+so individual instances can be changed.  Then where I have I it appears
+safe I have relaxed the permission checks.
 
-This adds getsockopt(..., IPPROTO_IPV6, IP6T_SO_ORIGINAL_DST, ...).
+The code is available in git from:
+git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git netns-v73
 
-Without this, userspace needs to parse /proc or use ctnetlink, which
-appears to be overkill.
+The netns-v73 branch is against v3.7-rc3 and merges cleanly with net-next.
 
-This uses option number 80 for IP6T_SO_ORIGINAL_DST, which is spare,
-to use the same number we use in the IPv4 socket option SO_ORIGINAL_DST.
+In my user namespace tree I am working to allow unprivileged users to
+create user namespace, and to allow the user namespace root able to
+create network namespaces.  Making these patches really about allowing
+unprivileged users able to use the networking stack (not that they will
+be able to talk to anyone).
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/uapi/linux/in6.h                       |    1 +
- include/uapi/linux/netfilter_ipv6/ip6_tables.h |    3 ++
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   61 ++++++++++++++++++++++++
- 3 files changed, 65 insertions(+)
+David I have some small dependencies on the first two patches of this
+series in my later user namespace work.  So after these changes have
+been reviewed if you can pull my netns-v73 branch (which is just these
+patches) into net-next that will help me avoid unnecessary conflicts.
 
-diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
-index 1e31599..f79c372 100644
---- a/include/uapi/linux/in6.h
-+++ b/include/uapi/linux/in6.h
-@@ -240,6 +240,7 @@ struct in6_flowlabel_req {
-  *
-  * IP6T_SO_GET_REVISION_MATCH	68
-  * IP6T_SO_GET_REVISION_TARGET	69
-+ * IP6T_SO_ORIGINAL_DST		80
-  */
- 
- /* RFC5014: Source address selection */
-diff --git a/include/uapi/linux/netfilter_ipv6/ip6_tables.h b/include/uapi/linux/netfilter_ipv6/ip6_tables.h
-index bf1ef65..649c680 100644
---- a/include/uapi/linux/netfilter_ipv6/ip6_tables.h
-+++ b/include/uapi/linux/netfilter_ipv6/ip6_tables.h
-@@ -178,6 +178,9 @@ struct ip6t_error {
- #define IP6T_SO_GET_REVISION_TARGET	(IP6T_BASE_CTL + 5)
- #define IP6T_SO_GET_MAX			IP6T_SO_GET_REVISION_TARGET
- 
-+/* obtain original address if REDIRECT'd connection */
-+#define IP6T_SO_ORIGINAL_DST            80
-+
- /* ICMP matching stuff */
- struct ip6t_icmp {
- 	__u8 type;				/* type to match */
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 8860d23..02dcafd 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -21,6 +21,7 @@
- 
- #include <linux/netfilter_bridge.h>
- #include <linux/netfilter_ipv6.h>
-+#include <linux/netfilter_ipv6/ip6_tables.h>
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_helper.h>
- #include <net/netfilter/nf_conntrack_l4proto.h>
-@@ -295,6 +296,50 @@ static struct nf_hook_ops ipv6_conntrack_ops[] __read_mostly = {
- 	},
- };
- 
-+static int
-+ipv6_getorigdst(struct sock *sk, int optval, void __user *user, int *len)
-+{
-+	const struct inet_sock *inet = inet_sk(sk);
-+	const struct ipv6_pinfo *inet6 = inet6_sk(sk);
-+	const struct nf_conntrack_tuple_hash *h;
-+	struct sockaddr_in6 sin6;
-+	struct nf_conntrack_tuple tuple = { .src.l3num = NFPROTO_IPV6 };
-+	struct nf_conn *ct;
-+
-+	tuple.src.u3.in6 = inet6->rcv_saddr;
-+	tuple.src.u.tcp.port = inet->inet_sport;
-+	tuple.dst.u3.in6 = inet6->daddr;
-+	tuple.dst.u.tcp.port = inet->inet_dport;
-+	tuple.dst.protonum = sk->sk_protocol;
-+
-+	if (sk->sk_protocol != IPPROTO_TCP && sk->sk_protocol != IPPROTO_SCTP)
-+		return -ENOPROTOOPT;
-+
-+	if (*len < 0 || (unsigned int) *len < sizeof(sin6))
-+		return -EINVAL;
-+
-+	h = nf_conntrack_find_get(sock_net(sk), NF_CT_DEFAULT_ZONE, &tuple);
-+	if (!h) {
-+		pr_debug("IP6T_SO_ORIGINAL_DST: Can't find %pI6c/%u-%pI6c/%u.\n",
-+			 &tuple.src.u3.ip6, ntohs(tuple.src.u.tcp.port),
-+			 &tuple.dst.u3.ip6, ntohs(tuple.dst.u.tcp.port));
-+		return -ENOENT;
-+	}
-+
-+	ct = nf_ct_tuplehash_to_ctrack(h);
-+
-+	sin6.sin6_family = AF_INET6;
-+	sin6.sin6_port = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.tcp.port;
-+	sin6.sin6_flowinfo = inet6->flow_label & IPV6_FLOWINFO_MASK;
-+	memcpy(&sin6.sin6_addr,
-+		&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u3.in6,
-+					sizeof(sin6.sin6_addr));
-+	sin6.sin6_scope_id = sk->sk_bound_dev_if;
-+
-+	nf_ct_put(ct);
-+	return copy_to_user(user, &sin6, sizeof(sin6)) ? -EFAULT : 0;
-+}
-+
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
- 
- #include <linux/netfilter/nfnetlink.h>
-@@ -359,6 +404,14 @@ MODULE_ALIAS("nf_conntrack-" __stringify(AF_INET6));
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Yasuyuki KOZAKAI @USAGI <yasuyuki.kozakai@toshiba.co.jp>");
- 
-+static struct nf_sockopt_ops so_getorigdst6 = {
-+	.pf		= NFPROTO_IPV6,
-+	.get_optmin	= IP6T_SO_ORIGINAL_DST,
-+	.get_optmax	= IP6T_SO_ORIGINAL_DST + 1,
-+	.get		= ipv6_getorigdst,
-+	.owner		= THIS_MODULE,
-+};
-+
- static int ipv6_net_init(struct net *net)
- {
- 	int ret = 0;
-@@ -425,6 +478,12 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
- 	need_conntrack();
- 	nf_defrag_ipv6_enable();
- 
-+	ret = nf_register_sockopt(&so_getorigdst6);
-+	if (ret < 0) {
-+		pr_err("Unable to register netfilter socket option\n");
-+		return ret;
-+	}
-+
- 	ret = register_pernet_subsys(&ipv6_net_ops);
- 	if (ret < 0)
- 		goto cleanup_pernet;
-@@ -440,6 +499,7 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
-  cleanup_ipv6:
- 	unregister_pernet_subsys(&ipv6_net_ops);
-  cleanup_pernet:
-+	nf_unregister_sockopt(&so_getorigdst6);
- 	return ret;
- }
- 
-@@ -448,6 +508,7 @@ static void __exit nf_conntrack_l3proto_ipv6_fini(void)
- 	synchronize_net();
- 	nf_unregister_hooks(ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
- 	unregister_pernet_subsys(&ipv6_net_ops);
-+	nf_unregister_sockopt(&so_getorigdst6);
- }
- 
- module_init(nf_conntrack_l3proto_ipv6_init);
--- 
-1.7.10.4
+Eric
+
+Eric W. Biederman (16):
+      netns: Deduplicate and fix copy_net_ns when !CONFIG_NET_NS
+      userns: make each net (net_ns) belong to a user_ns
+      sysctl: Pass useful parameters to sysctl permissions
+      net: Don't export sysctls to unprivileged users
+      net: Push capable(CAP_NET_ADMIN) into the rtnl methods
+      net: Update the per network namespace sysctls to be available to the network namespace owner
+      net: Allow userns root to force the scm creds
+      net: Allow userns root control of the core of the network stack.
+      net: Allow userns root to control ipv4
+      net: Allow userns root to control ipv6
+      net: Allow userns root to control llc, netfilter, netlink, packet, and xfrm
+      net: Allow userns root to control the network bridge code.
+      net: Allow the userns root to control vlans.
+      net: Enable some sysctls that are safe for the userns root
+      net: Enable a userns root rtnl calls that are safe for unprivilged users
+      net: Make CAP_NET_BIND_SERVICE per user namespace
+
+Zhao Hongjiang (1):
+      user_ns: get rid of duplicate code in net_ctl_permissions
+
+ fs/proc/proc_sysctl.c                   |    9 +++++----
+ include/linux/sysctl.h                  |    3 +--
+ include/net/net_namespace.h             |   24 ++++++++++++++++--------
+ kernel/nsproxy.c                        |    2 +-
+ net/8021q/vlan.c                        |   12 ++++++------
+ net/bridge/br_ioctl.c                   |   25 +++++++++++++------------
+ net/bridge/br_sysfs_br.c                |   10 +++++-----
+ net/bridge/br_sysfs_if.c                |    2 +-
+ net/can/gw.c                            |    6 ++++++
+ net/core/dev.c                          |   17 +++++++++++++----
+ net/core/ethtool.c                      |    2 +-
+ net/core/neighbour.c                    |    4 ++++
+ net/core/net-sysfs.c                    |   15 ++++++++++-----
+ net/core/net_namespace.c                |   23 ++++++++++++-----------
+ net/core/rtnetlink.c                    |   12 +++++++++++-
+ net/core/scm.c                          |    6 +++---
+ net/core/sock.c                         |    7 ++++---
+ net/core/sysctl_net_core.c              |    5 +++++
+ net/dcb/dcbnl.c                         |    3 +++
+ net/decnet/dn_dev.c                     |    6 ++++++
+ net/decnet/dn_fib.c                     |    6 ++++++
+ net/ipv4/af_inet.c                      |    9 ++++++---
+ net/ipv4/arp.c                          |    2 +-
+ net/ipv4/devinet.c                      |    4 ++--
+ net/ipv4/fib_frontend.c                 |    2 +-
+ net/ipv4/ip_fragment.c                  |    4 ++++
+ net/ipv4/ip_gre.c                       |    4 ++--
+ net/ipv4/ip_options.c                   |    6 +++---
+ net/ipv4/ip_sockglue.c                  |    5 +++--
+ net/ipv4/ip_vti.c                       |    4 ++--
+ net/ipv4/ipip.c                         |    4 ++--
+ net/ipv4/ipmr.c                         |    2 +-
+ net/ipv4/netfilter/arp_tables.c         |    8 ++++----
+ net/ipv4/netfilter/ip_tables.c          |    8 ++++----
+ net/ipv4/route.c                        |    4 ++++
+ net/ipv4/sysctl_net_ipv4.c              |    3 +++
+ net/ipv4/tcp.c                          |    2 +-
+ net/ipv4/tcp_cong.c                     |    3 ++-
+ net/ipv6/addrconf.c                     |    4 ++--
+ net/ipv6/af_inet6.c                     |    5 +++--
+ net/ipv6/anycast.c                      |    2 +-
+ net/ipv6/datagram.c                     |    6 +++---
+ net/ipv6/ip6_flowlabel.c                |    3 ++-
+ net/ipv6/ip6_gre.c                      |    4 ++--
+ net/ipv6/ip6_tunnel.c                   |    4 ++--
+ net/ipv6/ip6mr.c                        |    2 +-
+ net/ipv6/ipv6_sockglue.c                |    7 ++++---
+ net/ipv6/netfilter/ip6_tables.c         |    8 ++++----
+ net/ipv6/reassembly.c                   |    4 ++++
+ net/ipv6/route.c                        |    6 +++++-
+ net/ipv6/sit.c                          |    8 ++++----
+ net/key/af_key.c                        |    2 +-
+ net/llc/af_llc.c                        |    2 +-
+ net/netfilter/ipset/ip_set_core.c       |    2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c          |    8 ++++++--
+ net/netfilter/ipvs/ip_vs_lblc.c         |    7 ++++++-
+ net/netfilter/ipvs/ip_vs_lblcr.c        |    4 ++++
+ net/netfilter/nf_conntrack_acct.c       |    4 ++++
+ net/netfilter/nf_conntrack_ecache.c     |    4 ++++
+ net/netfilter/nf_conntrack_helper.c     |    4 ++++
+ net/netfilter/nf_conntrack_proto_dccp.c |    8 ++++++--
+ net/netfilter/nf_conntrack_standalone.c |    4 ++++
+ net/netfilter/nf_conntrack_timestamp.c  |    4 ++++
+ net/netfilter/nfnetlink.c               |    2 +-
+ net/netlink/af_netlink.c                |    2 +-
+ net/packet/af_packet.c                  |    2 +-
+ net/phonet/pn_netlink.c                 |    6 ++++++
+ net/sched/act_api.c                     |    3 +++
+ net/sched/cls_api.c                     |    2 ++
+ net/sched/sch_api.c                     |    9 +++++++++
+ net/sctp/socket.c                       |    8 +++++---
+ net/sysctl_net.c                        |   15 ++++++++++++---
+ net/unix/sysctl_net_unix.c              |    4 ++++
+ net/xfrm/xfrm_sysctl.c                  |    4 ++++
+ net/xfrm/xfrm_user.c                    |    2 +-
+ 75 files changed, 308 insertions(+), 140 deletions(-)
