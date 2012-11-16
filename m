@@ -1,77 +1,59 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-Subject: Re: [PATCH 3.7.0-rc4] of/net/mdio-gpio: Fix pdev->id issue when using
- devicetrees.
-Date: Fri, 16 Nov 2012 09:54:47 +0000
-Message-ID: <50A60D67.6000100@st.com>
-References: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com> <20121114.185940.648295821386414260.davem@davemloft.net>
-Reply-To: srinivas.kandagatla@st.com
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 0/4] Implement persistent grant in xen-netfront/netback
+Date: Fri, 16 Nov 2012 09:57:01 +0000
+Message-ID: <1353059821.3499.190.camel@zakaz.uk.xensource.com>
+References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-To: David Miller <davem@davemloft.net>,
-	Grant Likely <grant.likely@secretlab.ca>
+Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Annie Li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:33319 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751243Ab2KPJ4h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 04:56:37 -0500
-In-Reply-To: <20121114.185940.648295821386414260.davem@davemloft.net>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:8718 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750894Ab2KPJ5F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 04:57:05 -0500
+In-Reply-To: <1352962987-541-1-git-send-email-annie.li@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14/11/12 23:59, David Miller wrote:
-> From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
-> Date: Tue, 13 Nov 2012 14:26:13 +0000
->
->> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
->>
->> When the mdio-gpio driver is probed via device trees, the platform
->> device id is set as -1, However the id is re-used in the code while
->> creating an mdio bus.
->> So, setting up the id via aliases from device tree is a sensible
->> solution to fix this issue.
->>
->> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
-> This seems rather pointless unless you also update every single device
-> tree out there.
->
-> Also you need to describe what are the ramifications of this problem
-> otherwise it is impossible to figure out how serious this change is.
->
-> Does it prevent probing?  Does it cause a crash?
-I apologies, I should have explained the full use-case.
+On Thu, 2012-11-15 at 07:03 +0000, Annie Li wrote:
+> This patch implements persistent grants for xen-netfront/netback.
 
-use-case is if the mac driver want to connect via phy_connect() to
-mdio-gpio phy it would use bus name to do so.
+Hang on a sec. It has just occurred to me that netfront/netback in the
+current mainline kernels don't currently use grant maps at all, they use
+grant copy on both the tx and rx paths.
 
-mdio-gpio phy bus name is formated as "gpio-<bus-number>:<phy-addr>.
-In the existing code the bus number for mdio-gpio if probed from device
-trees will be set to -1 which results in bus name set to
-"gpio-ffffffff:<phy-addr>" which is the problem here.
-fffffff is result of pdev->id set to -1 which should be set to a logical
-number, and this is only possible via aliases.
+The supposed benefit of persistent grants is to avoid the TLB shootdowns
+on grant unmap, but in the current code there should be exactly zero of
+those.
 
-Having fffffff as bus-id also means that we can't have two mdio-gpio
-buses via device trees as it will result in same bus-id.
-This patch attempts to fix this issue.
-So getting the id from alias would be a right choice.
+If I understand correctly this patch goes from using grant copy
+operations to persistently mapping frames and then using memcpy on those
+buffers to copy in/out to local buffers. I'm finding it hard to think of
+a reason why this should perform any better, do you have a theory which
+explains it? (my best theory is that it has a beneficial impact on where
+the cache locality of the data, but netperf doesn't typically actually
+access the data so I'm not sure why that would matter)
 
-I also agree with Grant's comments about setting up pdev->id.
+Also AIUI this is also doing persistent grants for both Tx and Rx
+directions?
 
-Will send v2 patch with considering Grant's comments.
+For guest Rx does this mean it now copies twice, in dom0 from the DMA
+buffer to the guest provided buffer and then again in the guest from the
+granted buffer to a normal one?
 
->
-> Basically, what I'm saying is that this is a very poor submission and
-> you need to substantially improve it and communicate better.
->
-> If the problem is basically benign, then you should target this change
-> to net-next instead of the net tree, along with the necessary dt file
-> updates.
-I have looked in net-next and there are no dt files which use this driver.
+For guest Tx how do you handle the lifecycle of the grant mapped pages
+which are being sent up into the dom0 network stack? Or are you also now
+copying twice in this case? (i.e. guest copies into a granted buffer and
+dom0 copies out into a local buffer?)
 
-Thanks,
-srini
-> Thanks.
->
->
+Did you do measurement of the Tx and Rx cases independently? Do you know
+that they both benefit from this change (rather than for example an
+improvement in one direction masking a regression in the other). Were
+the numbers you previously posted in one particular direction or did you
+measure both?
+
+Ian.
