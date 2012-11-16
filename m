@@ -1,50 +1,282 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next 09/17] net: Allow userns root control of the core of the network stack.
-Date: Fri, 16 Nov 2012 06:32:21 -0800
-Message-ID: <871uft8vpm.fsf@xmission.com>
-References: <87d2zd8zwn.fsf@xmission.com>
-	<1353070992-5552-1-git-send-email-ebiederm@xmission.com>
-	<1353070992-5552-9-git-send-email-ebiederm@xmission.com>
-	<50A645C2.1000604@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Linux Containers <containers@lists.linux-foundation.org>
-To: Glauber Costa <glommer@parallels.com>
+From: Joachim Eastwood <manabian@gmail.com>
+Subject: [net-next PATCH v2] net/ethernet: remove useless is_valid_ether_addr from drivers ndo_open
+Date: Fri, 16 Nov 2012 15:47:15 +0100
+Message-ID: <1353077235-342-1-git-send-email-manabian@gmail.com>
+Cc: netdev@vger.kernel.org, Joachim Eastwood <manabian@gmail.com>
+To: davem@davemloft.net, nicolas.ferre@atmel.com,
+	shemminger@vyatta.com, steve.glendinning@shawell.net,
+	stigge@antcom.de, msink@permonline.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:48524 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751243Ab2KPOcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 09:32:35 -0500
-In-Reply-To: <50A645C2.1000604@parallels.com> (Glauber Costa's message of
-	"Fri, 16 Nov 2012 17:55:14 +0400")
+Received: from mail-la0-f46.google.com ([209.85.215.46]:36538 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752353Ab2KPOrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 09:47:51 -0500
+Received: by mail-la0-f46.google.com with SMTP id h6so2164905lag.19
+        for <netdev@vger.kernel.org>; Fri, 16 Nov 2012 06:47:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Glauber Costa <glommer@parallels.com> writes:
+If ndo_validate_addr is set to the generic eth_validate_addr
+function there is no point in calling is_valid_ether_addr
+from driver ndo_open if ndo_open is not used elsewhere in
+the driver.
 
-> On 11/16/2012 05:03 PM, Eric W. Biederman wrote:
->> +	if (!capable(CAP_NET_ADMIN))
->> +		return -EPERM;
->> +
->>  	return netdev_store(dev, attr, buf, len, change_tx_queue_len);
->
-> You mean ns_capable here?
+With this change is_valid_ether_addr will be called from the
+generic eth_validate_addr function. So there should be no change
+in the actual behavior.
 
-No.  There I meant capable.
+Signed-off-by: Joachim Eastwood <manabian@gmail.com>
+---
+Hi,
 
-I deliberately call capable here because I don't understand what
-the tx_queue_len well enough to be certain it is safe to relax
-that check to be just ns_capable.
+v2: Audit changed drivers to ensure ndo_open functions is
+only called from net core and not used elsewhere in the
+drivers.
 
-My get feel is that allowing an unprivileged user to be able to
-arbitrarily change the tx_queue_len on a networking device would be a
-nice way to allow queuing as many network packets as you would like with
-kernel memory and DOSing the machine.
+net/core/dev.c __dev_open does
+ 1165        if (ops->ndo_validate_addr)
+ 1166                ret = ops->ndo_validate_addr(dev);
+ 1167
+ 1168        if (!ret && ops->ndo_open)
+ 1169                ret = ops->ndo_open(dev);
 
-So since with a quick read of the code I could not convince myself it
-was safe to allow unprivilged users to change tx_queue_len I left it
-protected by capable.  While at the same time I relaxed the check in
-netdev_store to be ns_capable.
+so there shouldn't be a need for a is_valid_ether_addr in
+ndo_open if the open function is not used elsewhere in the
+driver.
 
-Eric
+ndo_validate_addr is set to eth_validate_addr in all
+changed drivers.
+
+regards
+Joachim Eastwood
+
+ drivers/net/ethernet/8390/etherh.c        |  6 ------
+ drivers/net/ethernet/cadence/at91_ether.c |  3 ---
+ drivers/net/ethernet/cadence/macb.c       |  3 ---
+ drivers/net/ethernet/dnet.c               |  3 ---
+ drivers/net/ethernet/i825xx/ether1.c      |  6 ------
+ drivers/net/ethernet/micrel/ks8695net.c   |  3 ---
+ drivers/net/ethernet/nxp/lpc_eth.c        |  4 +---
+ drivers/net/ethernet/seeq/ether3.c        |  6 ------
+ drivers/net/ethernet/smsc/smc911x.c       | 10 ----------
+ drivers/net/ethernet/smsc/smc91x.c        | 10 ----------
+ drivers/net/ethernet/smsc/smsc911x.c      |  5 -----
+ drivers/net/ethernet/wiznet/w5100.c       |  2 --
+ drivers/net/ethernet/wiznet/w5300.c       |  2 --
+ 13 files changed, 1 insertion(+), 62 deletions(-)
+
+diff --git a/drivers/net/ethernet/8390/etherh.c b/drivers/net/ethernet/8390/etherh.c
+index 8322c54..6414e84 100644
+--- a/drivers/net/ethernet/8390/etherh.c
++++ b/drivers/net/ethernet/8390/etherh.c
+@@ -463,12 +463,6 @@ etherh_open(struct net_device *dev)
+ {
+ 	struct ei_device *ei_local = netdev_priv(dev);
+ 
+-	if (!is_valid_ether_addr(dev->dev_addr)) {
+-		printk(KERN_WARNING "%s: invalid ethernet MAC address\n",
+-			dev->name);
+-		return -EINVAL;
+-	}
+-
+ 	if (request_irq(dev->irq, __ei_interrupt, 0, dev->name, dev))
+ 		return -EAGAIN;
+ 
+diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
+index e7a476c..716cc01 100644
+--- a/drivers/net/ethernet/cadence/at91_ether.c
++++ b/drivers/net/ethernet/cadence/at91_ether.c
+@@ -97,9 +97,6 @@ static int at91ether_open(struct net_device *dev)
+ 	u32 ctl;
+ 	int ret;
+ 
+-	if (!is_valid_ether_addr(dev->dev_addr))
+-		return -EADDRNOTAVAIL;
+-
+ 	/* Clear internal statistics */
+ 	ctl = macb_readl(lp, NCR);
+ 	macb_writel(lp, NCR, ctl | MACB_BIT(CLRSTAT));
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index edb2aba..d556c52 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -1218,9 +1218,6 @@ static int macb_open(struct net_device *dev)
+ 	if (!bp->phy_dev)
+ 		return -EAGAIN;
+ 
+-	if (!is_valid_ether_addr(dev->dev_addr))
+-		return -EADDRNOTAVAIL;
+-
+ 	err = macb_alloc_consistent(bp);
+ 	if (err) {
+ 		netdev_err(dev, "Unable to allocate DMA memory (error %d)\n",
+diff --git a/drivers/net/ethernet/dnet.c b/drivers/net/ethernet/dnet.c
+index 290b26f..feb5095 100644
+--- a/drivers/net/ethernet/dnet.c
++++ b/drivers/net/ethernet/dnet.c
+@@ -664,9 +664,6 @@ static int dnet_open(struct net_device *dev)
+ 	if (!bp->phy_dev)
+ 		return -EAGAIN;
+ 
+-	if (!is_valid_ether_addr(dev->dev_addr))
+-		return -EADDRNOTAVAIL;
+-
+ 	napi_enable(&bp->napi);
+ 	dnet_init_hw(bp);
+ 
+diff --git a/drivers/net/ethernet/i825xx/ether1.c b/drivers/net/ethernet/i825xx/ether1.c
+index 067db3f..7b9609d 100644
+--- a/drivers/net/ethernet/i825xx/ether1.c
++++ b/drivers/net/ethernet/i825xx/ether1.c
+@@ -638,12 +638,6 @@ ether1_txalloc (struct net_device *dev, int size)
+ static int
+ ether1_open (struct net_device *dev)
+ {
+-	if (!is_valid_ether_addr(dev->dev_addr)) {
+-		printk(KERN_WARNING "%s: invalid ethernet MAC address\n",
+-			dev->name);
+-		return -EINVAL;
+-	}
+-
+ 	if (request_irq(dev->irq, ether1_interrupt, 0, "ether1", dev))
+ 		return -EAGAIN;
+ 
+diff --git a/drivers/net/ethernet/micrel/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
+index dccae1d..e62c312 100644
+--- a/drivers/net/ethernet/micrel/ks8695net.c
++++ b/drivers/net/ethernet/micrel/ks8695net.c
+@@ -1249,9 +1249,6 @@ ks8695_open(struct net_device *ndev)
+ 	struct ks8695_priv *ksp = netdev_priv(ndev);
+ 	int ret;
+ 
+-	if (!is_valid_ether_addr(ndev->dev_addr))
+-		return -EADDRNOTAVAIL;
+-
+ 	ks8695_reset(ksp);
+ 
+ 	ks8695_update_mac(ksp);
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index af8b414..db6e101 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -1219,9 +1219,6 @@ static int lpc_eth_open(struct net_device *ndev)
+ 	if (netif_msg_ifup(pldat))
+ 		dev_dbg(&pldat->pdev->dev, "enabling %s\n", ndev->name);
+ 
+-	if (!is_valid_ether_addr(ndev->dev_addr))
+-		return -EADDRNOTAVAIL;
+-
+ 	__lpc_eth_clock_enable(pldat, true);
+ 
+ 	/* Reset and initialize */
+@@ -1301,6 +1298,7 @@ static const struct net_device_ops lpc_netdev_ops = {
+ 	.ndo_set_rx_mode	= lpc_eth_set_multicast_list,
+ 	.ndo_do_ioctl		= lpc_eth_ioctl,
+ 	.ndo_set_mac_address	= lpc_set_mac_address,
++	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_change_mtu		= eth_change_mtu,
+ };
+ 
+diff --git a/drivers/net/ethernet/seeq/ether3.c b/drivers/net/ethernet/seeq/ether3.c
+index 6a40dd0..72a0174 100644
+--- a/drivers/net/ethernet/seeq/ether3.c
++++ b/drivers/net/ethernet/seeq/ether3.c
+@@ -399,12 +399,6 @@ ether3_probe_bus_16(struct net_device *dev, int val)
+ static int
+ ether3_open(struct net_device *dev)
+ {
+-	if (!is_valid_ether_addr(dev->dev_addr)) {
+-		printk(KERN_WARNING "%s: invalid ethernet MAC address\n",
+-			dev->name);
+-		return -EINVAL;
+-	}
+-
+ 	if (request_irq(dev->irq, ether3_interrupt, 0, "ether3", dev))
+ 		return -EAGAIN;
+ 
+diff --git a/drivers/net/ethernet/smsc/smc911x.c b/drivers/net/ethernet/smsc/smc911x.c
+index 8d15f7a..990f574 100644
+--- a/drivers/net/ethernet/smsc/smc911x.c
++++ b/drivers/net/ethernet/smsc/smc911x.c
+@@ -1400,16 +1400,6 @@ smc911x_open(struct net_device *dev)
+ 
+ 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __func__);
+ 
+-	/*
+-	 * Check that the address is valid.  If its not, refuse
+-	 * to bring the device up.	 The user must specify an
+-	 * address using ifconfig eth0 hw ether xx:xx:xx:xx:xx:xx
+-	 */
+-	if (!is_valid_ether_addr(dev->dev_addr)) {
+-		PRINTK("%s: no valid ethernet hw addr\n", __func__);
+-		return -EINVAL;
+-	}
+-
+ 	/* reset the hardware */
+ 	smc911x_reset(dev);
+ 
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
+index 318adc9..f516e5a 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -1474,16 +1474,6 @@ smc_open(struct net_device *dev)
+ 
+ 	DBG(2, "%s: %s\n", dev->name, __func__);
+ 
+-	/*
+-	 * Check that the address is valid.  If its not, refuse
+-	 * to bring the device up.  The user must specify an
+-	 * address using ifconfig eth0 hw ether xx:xx:xx:xx:xx:xx
+-	 */
+-	if (!is_valid_ether_addr(dev->dev_addr)) {
+-		PRINTK("%s: no valid ethernet hw addr\n", __func__);
+-		return -EINVAL;
+-	}
+-
+ 	/* Setup the default Register Modes */
+ 	lp->tcr_cur_mode = TCR_DEFAULT;
+ 	lp->rcr_cur_mode = RCR_DEFAULT;
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 62d1baf..a088c4f 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -1463,11 +1463,6 @@ static int smsc911x_open(struct net_device *dev)
+ 		return -EAGAIN;
+ 	}
+ 
+-	if (!is_valid_ether_addr(dev->dev_addr)) {
+-		SMSC_WARN(pdata, hw, "dev_addr is not a valid MAC address");
+-		return -EADDRNOTAVAIL;
+-	}
+-
+ 	/* Reset the LAN911x */
+ 	if (smsc911x_soft_reset(pdata)) {
+ 		SMSC_WARN(pdata, hw, "soft reset failed");
+diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
+index 2c08bf6..7daf92e 100644
+--- a/drivers/net/ethernet/wiznet/w5100.c
++++ b/drivers/net/ethernet/wiznet/w5100.c
+@@ -580,8 +580,6 @@ static int w5100_open(struct net_device *ndev)
+ 	struct w5100_priv *priv = netdev_priv(ndev);
+ 
+ 	netif_info(priv, ifup, ndev, "enabling\n");
+-	if (!is_valid_ether_addr(ndev->dev_addr))
+-		return -EINVAL;
+ 	w5100_hw_start(priv);
+ 	napi_enable(&priv->napi);
+ 	netif_start_queue(ndev);
+diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
+index 88943d9..bd9eec6 100644
+--- a/drivers/net/ethernet/wiznet/w5300.c
++++ b/drivers/net/ethernet/wiznet/w5300.c
+@@ -500,8 +500,6 @@ static int w5300_open(struct net_device *ndev)
+ 	struct w5300_priv *priv = netdev_priv(ndev);
+ 
+ 	netif_info(priv, ifup, ndev, "enabling\n");
+-	if (!is_valid_ether_addr(ndev->dev_addr))
+-		return -EINVAL;
+ 	w5300_hw_start(priv);
+ 	napi_enable(&priv->napi);
+ 	netif_start_queue(ndev);
+-- 
+1.8.0
