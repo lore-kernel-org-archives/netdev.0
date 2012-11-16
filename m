@@ -1,42 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] netfilter updates for nf-next (try 2)
-Date: Fri, 16 Nov 2012 13:00:44 -0500 (EST)
-Message-ID: <20121116.130044.936556420105398924.davem@davemloft.net>
-References: <1353069653-3231-1-git-send-email-pablo@netfilter.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: use right lock in __dev_remove_offload
+Date: Fri, 16 Nov 2012 10:08:23 -0800
+Message-ID: <1353089303.10798.38.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1353069653-3231-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:36903 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752069Ab2KPSI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 13:08:27 -0500
+Received: by mail-pb0-f46.google.com with SMTP id wy7so2095356pbc.19
+        for <netdev@vger.kernel.org>; Fri, 16 Nov 2012 10:08:26 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Fri, 16 Nov 2012 13:40:49 +0100
+From: Eric Dumazet <edumazet@google.com>
 
-> This is the second try to include the following four patches that contain
-> updates for your net-next tree, they are:
-> 
-> * Little cleanup for IPVS the use of a strange notation to assign the
->   conntrack object, from Alan Cox.
-> 
-> * Another little cleanup for nf_nat to save a couple of lines by using
->   PTR_RET, from Wu Fengguan
-> 
-> * getsockopt support to obtain the original IPv6 address after NAT,
->   similar to the one that IPv4 provides, from Florian Westphal.
-> 
-> * Follow-up patch pointed out by YOSHIFUJI Hideaki to only provide
->   the scope_id in case that link is local, again from Florian Westphal.
-> 
-> You can pull these changes from:
-> 
-> git://1984.lsi.us.es/nf-next master
+offload_base is protected by offload_lock, not ptype_lock
 
-Pulled, thanks.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/core/dev.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-There was a conflict I had to resolve because the net-next tree
-had a series of IS_ENABLED conversions that overlapped with some
-of the changes in your tree.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index cf105e8..2705a2a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -513,7 +513,7 @@ void __dev_remove_offload(struct packet_offload *po)
+ 	struct list_head *head = &offload_base;
+ 	struct packet_offload *po1;
+ 
+-	spin_lock(&ptype_lock);
++	spin_lock(&offload_lock);
+ 
+ 	list_for_each_entry(po1, head, list) {
+ 		if (po == po1) {
+@@ -524,7 +524,7 @@ void __dev_remove_offload(struct packet_offload *po)
+ 
+ 	pr_warn("dev_remove_offload: %p not found\n", po);
+ out:
+-	spin_unlock(&ptype_lock);
++	spin_unlock(&offload_lock);
+ }
+ EXPORT_SYMBOL(__dev_remove_offload);
+ 
