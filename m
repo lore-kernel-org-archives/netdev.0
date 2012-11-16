@@ -1,125 +1,73 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 1/3] mlx4_en: Remove remnants of LRO support
-Date: Fri, 16 Nov 2012 22:44:56 +0000
-Message-ID: <1353105896.2743.53.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 2/3] ehea: Remove remnants of LRO support
+Date: Fri, 16 Nov 2012 22:46:43 +0000
+Message-ID: <1353106003.2743.55.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1353105635.2743.49.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Roland Dreier <roland@purestorage.com>
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:61954 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:23206 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753755Ab2KPWo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 17:44:59 -0500
+	with ESMTP id S1753761Ab2KPWqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 17:46:46 -0500
 In-Reply-To: <1353105635.2743.49.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit fa37a9586f92051de03a13e55e5ec3880bb6783e ('mlx4_en: Moving to
-work with GRO') left behind the Kconfig depends/select, some dead
-code and comments referring to LRO.
+Commit 2cb1deb56f5bf413da83491e0cb5a0474393c8ef ('ehea: Remove LRO
+support') left behind the Kconfig depends/select and feature flag.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
-The check for GRO eligibility in mlx4_en_process_rx_cq() should also be
-redundant, but I didn't touch it.
+This is not even compile-tested, as I don't have a suitable
+cross-compiler to hand.
 
 Ben.
 
- drivers/net/ethernet/mellanox/mlx4/Kconfig   |    3 +--
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   |    9 +++------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |   17 -----------------
- 3 files changed, 4 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/ibm/Kconfig          |    5 ++---
+ drivers/net/ethernet/ibm/ehea/ehea_main.c |    2 +-
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-index 5f027f9..eb520ab 100644
---- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
-+++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
-@@ -4,9 +4,8 @@
- 
- config MLX4_EN
- 	tristate "Mellanox Technologies 10Gbit Ethernet support"
--	depends on PCI && INET
-+	depends on PCI
- 	select MLX4_CORE
--	select INET_LRO
+diff --git a/drivers/net/ethernet/ibm/Kconfig b/drivers/net/ethernet/ibm/Kconfig
+index b9773d2..6529d31 100644
+--- a/drivers/net/ethernet/ibm/Kconfig
++++ b/drivers/net/ethernet/ibm/Kconfig
+@@ -6,7 +6,7 @@ config NET_VENDOR_IBM
+ 	bool "IBM devices"
+ 	default y
+ 	depends on MCA || PPC_PSERIES || PPC_PSERIES || PPC_DCR || \
+-		   (IBMEBUS && INET && SPARSEMEM)
++		   (IBMEBUS && SPARSEMEM)
  	---help---
- 	  This driver supports Mellanox Technologies ConnectX Ethernet
- 	  devices.
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 5aba5ec..f76c967 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -630,7 +630,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			if ((cqe->status & cpu_to_be16(MLX4_CQE_STATUS_IPOK)) &&
- 			    (cqe->checksum == cpu_to_be16(0xffff))) {
- 				ring->csum_ok++;
--				/* This packet is eligible for LRO if it is:
-+				/* This packet is eligible for GRO if it is:
- 				 * - DIX Ethernet (type interpretation)
- 				 * - TCP/IP (v4)
- 				 * - without IP options
-@@ -667,7 +667,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 					goto next;
- 				}
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -33,8 +33,7 @@ source "drivers/net/ethernet/ibm/emac/Kconfig"
  
--				/* LRO not possible, complete processing here */
-+				/* GRO not possible, complete processing here */
- 				ip_summed = CHECKSUM_UNNECESSARY;
- 			} else {
- 				ip_summed = CHECKSUM_NONE;
-@@ -710,11 +710,8 @@ next:
- 		++cq->mcq.cons_index;
- 		index = (cq->mcq.cons_index) & ring->size_mask;
- 		cqe = &cq->buf[index];
--		if (++polled == budget) {
--			/* We are here because we reached the NAPI budget -
--			 * flush only pending LRO sessions */
-+		if (++polled == budget)
- 			goto out;
--		}
- 	}
+ config EHEA
+ 	tristate "eHEA Ethernet support"
+-	depends on IBMEBUS && INET && SPARSEMEM
+-	select INET_LRO
++	depends on IBMEBUS && SPARSEMEM
+ 	---help---
+ 	  This driver supports the IBM pSeries eHEA ethernet adapter.
  
- out:
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 9d27e42..1809a8b 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -95,8 +95,6 @@
- #define MLX4_EN_ALLOC_SIZE	PAGE_ALIGN(16384)
- #define MLX4_EN_ALLOC_ORDER	get_order(MLX4_EN_ALLOC_SIZE)
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index f4d2da0..09faf33 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -3028,7 +3028,7 @@ static struct ehea_port *ehea_setup_single_port(struct ehea_adapter *adapter,
+ 	ehea_set_ethtool_ops(dev);
  
--#define MLX4_EN_MAX_LRO_DESCRIPTORS	32
--
- /* Receive fragment sizes; we use at most 4 fragments (for 9600 byte MTU
-  * and 4K allocations) */
- enum {
-@@ -290,21 +288,6 @@ struct mlx4_en_rx_ring {
- 	unsigned long csum_none;
- };
- 
--
--static inline int mlx4_en_can_lro(__be16 status)
--{
--	return (status & cpu_to_be16(MLX4_CQE_STATUS_IPV4	|
--				     MLX4_CQE_STATUS_IPV4F	|
--				     MLX4_CQE_STATUS_IPV6	|
--				     MLX4_CQE_STATUS_IPV4OPT	|
--				     MLX4_CQE_STATUS_TCP	|
--				     MLX4_CQE_STATUS_UDP	|
--				     MLX4_CQE_STATUS_IPOK)) ==
--		cpu_to_be16(MLX4_CQE_STATUS_IPV4 |
--			    MLX4_CQE_STATUS_IPOK |
--			    MLX4_CQE_STATUS_TCP);
--}
--
- struct mlx4_en_cq {
- 	struct mlx4_cq          mcq;
- 	struct mlx4_hwq_resources wqres;
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_TSO
+-		      | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX | NETIF_F_LRO;
++		      | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX;
+ 	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO
+ 		      | NETIF_F_HIGHDMA | NETIF_F_IP_CSUM | NETIF_F_HW_VLAN_TX
+ 		      | NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER
 -- 
 1.7.7.6
 
