@@ -1,57 +1,84 @@
 From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 08/14] xen: netback: Remove redundant check on unsigned
- variable
-Date: Fri, 16 Nov 2012 09:16:34 +0000
-Message-ID: <1353057394.3499.159.camel@zakaz.uk.xensource.com>
-References: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>
-	 <1353048646-10935-9-git-send-email-tushar.behera@linaro.org>
+Subject: Re: [Xen-devel] [PATCH 1/4] xen/netback: implements persistent
+ grant with one page pool.
+Date: Fri, 16 Nov 2012 09:27:54 +0000
+Message-ID: <1353058074.3499.166.camel@zakaz.uk.xensource.com>
+References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
+	 <1352963066-570-1-git-send-email-annie.li@oracle.com>
+	 <1352970612.3499.43.camel@zakaz.uk.xensource.com>
+	 <50A5A285.1030805@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"patches@linaro.org" <patches@linaro.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Tushar Behera <tushar.behera@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1353048646-10935-9-git-send-email-tushar.behera@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: ANNIE LI <annie.li@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([62.200.22.115]:5400 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750826Ab2KPJ14 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 04:27:56 -0500
+In-Reply-To: <50A5A285.1030805@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-16 at 06:50 +0000, Tushar Behera wrote:
-> No need to check whether unsigned variable is less than 0.
+On Fri, 2012-11-16 at 02:18 +0000, ANNIE LI wrote:
+> In this patch,
+> The maximum of memory overhead is about
 > 
-> CC: Ian Campbell <ian.campbell@citrix.com>
-> CC: xen-devel@lists.xensource.com
-> CC: netdev@vger.kernel.org
-> Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
-
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
-
-Thanks.
-
-> ---
->  drivers/net/xen-netback/netback.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+> (XEN_NETIF_TX_RING_SIZE+XEN_NETIF_RX_RING_SIZE)*PAGE_SIZE  (plus size of grant_ref_t and handle)
+> which is about 512 PAGE_SIZE. Normally, without heavy network offload, this maximum can not be reached.
 > 
-> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-> index aab8677..515e10c 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -190,14 +190,14 @@ static int get_page_ext(struct page *pg,
->  
->  	group = ext.e.group - 1;
->  
-> -	if (group < 0 || group >= xen_netbk_group_nr)
-> +	if (group >= xen_netbk_group_nr)
->  		return 0;
->  
->  	netbk = &xen_netbk[group];
->  
->  	idx = ext.e.idx;
->  
-> -	if ((idx < 0) || (idx >= MAX_PENDING_REQS))
-> +	if (idx >= MAX_PENDING_REQS)
->  		return 0;
->  
->  	if (netbk->mmap_pages[idx] != pg)
+> In next patch of splitting tx/rx pool, the maximum is about
+
+"about" or just "is"?
+
+>  (256+512)PAGE_SIZE.
+
+IOW 3MB.
+
+> >
+> >> +
+> >> +       return NULL;
+> >> +}
+> >> +
+> >> @@ -1338,7 +1497,11 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+> >>                  gop->source.domid = vif->domid;
+> >>                  gop->source.offset = txreq.offset;
+> >>
+> >> -               gop->dest.u.gmfn = virt_to_mfn(page_address(page));
+> >> +               if (!vif->persistent_grant)
+> >> +                       gop->dest.u.gmfn = virt_to_mfn(page_address(page));
+> >> +               else
+> >> +                       gop->dest.u.gmfn = (unsigned long)page_address(page);
+> > page_address doesn't return any sort of frame number, does it? This is
+> > rather confusing...
+> 
+> Yes. I only use dest.u.gmfn element to save the page_address here for 
+> future memcpy, and it does not mean to use frame number actually. To 
+> avoid confusion, here I can use
+> 
+> gop->dest.u.gmfn = virt_to_mfn(page_address(page));
+> 
+> and then call mfn_to_virt when doing memcpy.
+
+It seems a bit odd to be using the gop structure in this way when you
+aren't actually doing a grant op on it. 
+
+While investigating I noticed:
++static int
++grant_memory_copy_op(unsigned int cmd, void *vuop, unsigned int count,
++                    struct xen_netbk *netbk, bool tx_pool)
+...
++       struct gnttab_copy *uop = vuop;
+
+Why void *vuop? Why not struct gnttab_copy * in the parameter?
+
+I also noticed your new grant_memory_copy_op() seems to have unbatched
+the grant ops in the non-persistent case, which is going to suck for
+performance in non-persistent mode. You need to pull the conditional and
+the HYPERVISOR_grant_table_op outside the loop and pass it full array
+instead of doing them one at a time.
+
+Ian
