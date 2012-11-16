@@ -1,91 +1,53 @@
-From: Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v4 4/9] net: openvswitch: use this_cpu_ptr
-	per-cpu helper
-Date: Fri, 16 Nov 2012 16:35:55 +0800
-Message-ID: <50A5FAEB.7090202@gmail.com>
-References: <50A1A7D9.2040506@gmail.com>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: Re: [PATCH v4 1/9] net: core: use this_cpu_ptr per-cpu helper
+Date: Fri, 16 Nov 2012 16:38:01 +0800
+Message-ID: <50A5FB69.8000907@gmail.com>
+References: <50A1A7BA.5000507@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Tejun Heo <htejun-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Kernel-Maillist <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shan Wei <shanwei88-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <50A1A7D9.2040506-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: Shan Wei <shanwei88@gmail.com>, timo.teras@iki.fi,
+	steffen.klassert@secunet.com, NetDev <netdev@vger.kernel.org>,
+	Kernel-Maillist <linux-kernel@vger.kernel.org>,
+	cl@linux-foundation.org, Tejun Heo <htejun@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50A1A7BA.5000507@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shan Wei said, at 2012/11/13 9:52:
-> From: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
+Shan Wei said, at 2012/11/13 9:51:
+> From: Shan Wei <davidshan@tencent.com>
 > 
-> just use more faster this_cpu_ptr instead of per_cpu_ptr(p, smp_processor_id());
+> flush_tasklet is a struct, not a pointer in percpu var.
+> so use this_cpu_ptr to get the member pointer.
 > 
-> 
-> Signed-off-by: Shan Wei <davidshan-1Nz4purKYjRBDgjK7y7TUQ@public.gmane.org>
-> Reviewed-by: Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Shan Wei <davidshan@tencent.com>
+> Reviewed-by: Christoph Lameter <cl@linux.com>
 
-Jesse Gross,  would you like to pick it up to your tree?
+David Miller,  would you like to pick it up to your net-next tree?
 
 > ---
-> no changes vs v3,v2.
+> no changes vs v3.
 > ---
->  net/openvswitch/datapath.c |    4 ++--
->  net/openvswitch/vport.c    |    5 ++---
->  2 files changed, 4 insertions(+), 5 deletions(-)
+>  net/core/flow.c |    4 +---
+>  1 files changed, 1 insertions(+), 3 deletions(-)
 > 
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index 4c4b62c..77d16a5 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -208,7 +208,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
->  	int error;
->  	int key_len;
->  
-> -	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
-> +	stats = this_cpu_ptr(dp->stats_percpu);
->  
->  	/* Extract flow from 'skb' into 'key'. */
->  	error = ovs_flow_extract(skb, p->port_no, &key, &key_len);
-> @@ -282,7 +282,7 @@ int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
->  	return 0;
->  
->  err:
-> -	stats = per_cpu_ptr(dp->stats_percpu, smp_processor_id());
-> +	stats = this_cpu_ptr(dp->stats_percpu);
->  
->  	u64_stats_update_begin(&stats->sync);
->  	stats->n_lost++;
-> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-> index 03779e8..70af0be 100644
-> --- a/net/openvswitch/vport.c
-> +++ b/net/openvswitch/vport.c
-> @@ -333,8 +333,7 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
+> diff --git a/net/core/flow.c b/net/core/flow.c
+> index e318c7e..b0901ee 100644
+> --- a/net/core/flow.c
+> +++ b/net/core/flow.c
+> @@ -327,11 +327,9 @@ static void flow_cache_flush_tasklet(unsigned long data)
+>  static void flow_cache_flush_per_cpu(void *data)
 >  {
->  	struct vport_percpu_stats *stats;
+>  	struct flow_flush_info *info = data;
+> -	int cpu;
+>  	struct tasklet_struct *tasklet;
 >  
-> -	stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());
-> -
-> +	stats = this_cpu_ptr(vport->percpu_stats);
->  	u64_stats_update_begin(&stats->sync);
->  	stats->rx_packets++;
->  	stats->rx_bytes += skb->len;
-> @@ -359,7 +358,7 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
->  	if (likely(sent)) {
->  		struct vport_percpu_stats *stats;
->  
-> -		stats = per_cpu_ptr(vport->percpu_stats, smp_processor_id());
-> +		stats = this_cpu_ptr(vport->percpu_stats);
->  
->  		u64_stats_update_begin(&stats->sync);
->  		stats->tx_packets++;
+> -	cpu = smp_processor_id();
+> -	tasklet = &per_cpu_ptr(info->cache->percpu, cpu)->flush_tasklet;
+> +	tasklet = this_cpu_ptr(&info->cache->percpu->flush_tasklet);
+>  	tasklet->data = (unsigned long)info;
+>  	tasklet_schedule(tasklet);
+>  }
 > 
