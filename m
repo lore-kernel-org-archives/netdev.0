@@ -1,10 +1,10 @@
 From: Tushar Behera <tushar.behera@linaro.org>
-Subject: [PATCH 14/14] wlcore: Remove redundant check on unsigned variable
-Date: Fri, 16 Nov 2012 12:20:46 +0530
-Message-ID: <1353048646-10935-15-git-send-email-tushar.behera@linaro.org>
+Subject: [PATCH 10/14] atm: Removed redundant check on unsigned variable
+Date: Fri, 16 Nov 2012 12:20:42 +0530
+Message-ID: <1353048646-10935-11-git-send-email-tushar.behera@linaro.org>
 References: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>
-Cc: patches@linaro.org, Luciano Coelho <coelho@ti.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Cc: patches@linaro.org, Chas Williams <chas@cmf.nrl.navy.mil>,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>
@@ -13,26 +13,26 @@ List-Id: netdev.vger.kernel.org
 
 No need to check whether unsigned variable is less than 0.
 
-CC: Luciano Coelho <coelho@ti.com>
-CC: linux-wireless@vger.kernel.org
+CC: Chas Williams <chas@cmf.nrl.navy.mil>
+CC: linux-atm-general@lists.sourceforge.net
 CC: netdev@vger.kernel.org
 Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
 ---
- drivers/net/wireless/ti/wlcore/debugfs.c |    2 +-
+ drivers/atm/fore200e.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wireless/ti/wlcore/debugfs.c b/drivers/net/wireless/ti/wlcore/debugfs.c
-index c86bb00..93f801d 100644
---- a/drivers/net/wireless/ti/wlcore/debugfs.c
-+++ b/drivers/net/wireless/ti/wlcore/debugfs.c
-@@ -993,7 +993,7 @@ static ssize_t sleep_auth_write(struct file *file,
- 		return -EINVAL;
+diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+index 361f5ae..fdd3fe7 100644
+--- a/drivers/atm/fore200e.c
++++ b/drivers/atm/fore200e.c
+@@ -972,7 +972,7 @@ int bsq_audit(int where, struct host_bsq* bsq, int scheme, int magn)
+ 		   where, scheme, magn, buffer->index, buffer->scheme);
  	}
  
--	if (value < 0 || value > WL1271_PSM_MAX) {
-+	if (value > WL1271_PSM_MAX) {
- 		wl1271_warning("sleep_auth must be between 0 and %d",
- 			       WL1271_PSM_MAX);
- 		return -ERANGE;
+-	if ((buffer->index < 0) || (buffer->index >= fore200e_rx_buf_nbr[ scheme ][ magn ])) {
++	if (buffer->index >= fore200e_rx_buf_nbr[ scheme ][ magn ]) {
+ 	    printk(FORE200E "bsq_audit(%d): queue %d.%d, out of range buffer index = %ld !\n",
+ 		   where, scheme, magn, buffer->index);
+ 	}
 -- 
 1.7.4.1
