@@ -1,90 +1,69 @@
-From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] openvswitch: Make IPv6 packet parsing
-	dependent on IPv6 config
-Date: Fri, 16 Nov 2012 10:46:17 -0800
-Message-ID: <CAEP_g=80_P=sLkQCGXwdTLKOFN5FgqYYoDbVDXMTipbtM-GhbA@mail.gmail.com>
-References: <50a5c2e5.lgIvZwesNLp78CVD%fengguang.wu@intel.com>
-	<1353080434-14165-1-git-send-email-vyasevic@redhat.com>
-	<CAEP_g=9ge1dq8ahinM075hjdfdmXaou4a9fqPyLPJQinths6pQ@mail.gmail.com>
-	<50A67B44.9040508@redhat.com>
+From: Julien Tinnes <jln@google.com>
+Subject: Re: [PATCH] tcp: handle tcp_net_metrics_init() order-5 memory
+ allocation failures
+Date: Fri, 16 Nov 2012 10:51:24 -0800
+Message-ID: <CAKyRK=iKnoRZbjyEXSYbKoFq8=wtVKAJYTQYeE9y_84YevdagA@mail.gmail.com>
+References: <1353022864.10798.6.camel@edumazet-glaptop>
+	<20121116.013940.813652515905883288.davem@davemloft.net>
+	<1353079913.10798.31.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <50A67B44.9040508-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:50238 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752950Ab2KPSvZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 13:51:25 -0500
+Received: by mail-qa0-f53.google.com with SMTP id k31so2075538qat.19
+        for <netdev@vger.kernel.org>; Fri, 16 Nov 2012 10:51:24 -0800 (PST)
+In-Reply-To: <1353079913.10798.31.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 16, 2012 at 9:43 AM, Vlad Yasevich <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On 11/16/2012 12:26 PM, Jesse Gross wrote:
+On Fri, Nov 16, 2012 at 7:31 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2012-11-16 at 01:39 -0500, David Miller wrote:
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Thu, 15 Nov 2012 15:41:04 -0800
 >>
->> On Fri, Nov 16, 2012 at 7:40 AM, Vlad Yasevich <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->> wrote:
+>> > From: Eric Dumazet <edumazet@google.com>
+>> >
+>> > order-5 allocations can fail with current kernels, we should
+>> > try to reduce allocation sizes to allow network namespace
+>> > creation.
+>> >
+>> > Reported-by: Julien Tinnes <jln@google.com>
+>> > Signed-off-by: Eric Dumazet <edumazet@google.com>
 >>
->>> Openvswitch attempts to use IPv6 packet parsing functions without
->>> any dependency on IPv6 (unlike every other place in kernel).  Pull
->>> the IPv6 code in openvswitch togeter and put a conditional that's
->>> dependent on CONFIG_IPV6.
->>>
->>> Resolves:
->>> net/built-in.o: In function `ovs_flow_extract':
->>> (.text+0xbf5d5): undefined reference to `ipv6_skip_exthdr'
->>>
->>> Signed-off-by: Vlad Yasevich <vyasevic-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> Indeed, this has to be done better.
 >>
+>> But this kind of retry solution results in non-deterministic behavior.
+>> Yes the tcp metrics cache is best effort, but it's size can influence
+>> behavior in a substantial way depending upon the workload.
 >>
+>> I would suggest that we instead use different limits, ones which the
+>> page allocator will satisfy for us always with GFP_KERNEL.
 >>
->> Doesn't this move in the opposite direction of your patches to make IPv6
->> GSO/GRO always available?  The packets being processed here
->> are generally created by the guest but with Open vSwitch running on the
->> host.  Also, ipv6_skip_exthdr() is in exthdrs_core.c, so it actually is
->> always available.  I suspect that the real problem is that the dependency
->> on the ipv6 directory changed to CONFIG_INET and Open vSwitch should now
->> depend on this.
+>> 1) include linux/mmzone.h
 >>
+>> 2) Make the two limits based upon PAGE_ALLOC_COSTLY_ORDER.
+>>
+>> That is, make the larger table size PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER
+>> and the smaller one PAGE_SIZE << (PAGE_ALLOC_COSTLY_ORDER - 1).
 >
-> Yes and no... :)  IPv6 uses a bunch of IPv4 code all over.  IPv4 is enabled
-> with CONFIG_INET and IPv6 with CONFIG_NET.  So creates a strange imbalance.
-> By shifting IPv6 to CONFIG_INET (which is where it
-> lives and what enables its selection during config process), we now have a
-> dependency with openvswitch.
+> Well, we dont really know what the size needs to be, and your proposal
+> reduces the size by a 4 factor, even for the initial namespace.
 >
-> All other users of ipv6_skip_exthdr have it either under the IS_ENABLED
-> conditional or through some other means that don't build it when INET is
-> completely turned off.  This patch does the same for openvswitch.
->
-> I see 2 alternatives to this:
->  1) Make openvswitch depend on CONFIG_INET.
->  2) Pull a ton of code out of CONFIG_INET (v4 and v6) and into CONFIG_NET.
-> This could start with IPv6 header parsing and maybe even
-> include GSO/TSO (but not sure how much sense that would be).
->
-> What's your take?
+> Julien report was about Chrome browser own netns, on a suspend/resume
+> cycle (or something like that)
 
-I agree the IPv4 and IPv6 code is all tangled together and that IPv6
-should use CONFIG_INET as well.  I think in an ideal world we would
-separate them out but it seems like a lot of work for not much
-practical benefit.
+It happens when users start Chrome. Chrome will create one new network
+NS (for the sandbox).
 
-I think if you took this to the logical extension and restricted all
-the protocols based on the kernel config (i.e. IPv4, TCP, and UDP are
-conditional on CONFIG_INET) then you end up with a confusing mess.  On
-the other hand, if you do it only for IPv6 it's also confusing because
-the fact that the other protocols are simple enough to parse on their
-own and IPv6 is more complicated is really an implementation detail
-that shouldn't be exposed.
+This has been used for a few years now, but we had our first report in
+January of this year and we've been getting a few reports very
+recently at a rate that is starting to worry me (crbug.com/110756).
 
-I guess the simplest thing to do seems to just make Open vSwitch
-depend on CONFIG_INET seeing as it is practically useless without
-upper layer protocol support anyways.
+Thanks a lot for helping with this!
+
+Julien
