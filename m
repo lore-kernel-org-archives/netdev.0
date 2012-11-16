@@ -1,107 +1,84 @@
-From: Srinivas KANDAGATLA <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
-Subject: [PATCH v2 3.7.0-rc4] of/net/mdio-gpio: Fix pdev->id issue when using
- devicetrees.
-Date: Fri, 16 Nov 2012 10:33:59 +0000
-Message-ID: <1353062039-31336-1-git-send-email-srinivas.kandagatla@st.com>
-References: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH 4/5] ath6kl/wmi.c: eliminate possible double free
+Date: Fri, 16 Nov 2012 13:17:04 +0200
+Message-ID: <50A620B0.6020007@qca.qualcomm.com>
+References: <1350816727-1381-1-git-send-email-Julia.Lawall@lip6.fr> <1350816727-1381-5-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, srinivas.kandagatla-qxv4g6HH51o@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1352816773-17837-1-git-send-email-srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Cc: <kernel-janitors@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1350816727-1381-5-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
+Hi Julia,
 
-When the mdio-gpio driver is probed via device trees, the platform
-device id is set as -1, However the pdev->id is re-used as bus-id for
-while creating mdio gpio bus.
-So
-For device tree case the mdio-gpio bus name appears as "gpio-ffffffff"
-where as
-for non-device tree case the bus name appears as "gpio-<bus-num>"
+On 10/21/2012 01:52 PM, Julia Lawall wrote:
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
+> 
+> This makes two changes.  In ath6kl_wmi_cmd_send, a call to dev_kfree_skb on
+> the skb argument is added to the initial sanity check to more completely
+> establish the invariant that ath6kl_wmi_cmd_send owns its skb argument.
+> Then, in ath6kl_wmi_sync_point, on failure of the call to
+> ath6kl_wmi_cmd_send, the clearing of the local skb variable is moved up, so
+> that the error-handling code at the end of the function does not free it
+> again.
+> 
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @r@
+> identifier f,free,a;
+> parameter list[n] ps;
+> type T;
+> expression e;
+> @@
+> 
+> f(ps,T a,...) {
+>   ... when any
+>       when != a = e
+>   if(...) { ... free(a); ... return ...; }
+>   ... when any
+> }
+> 
+> @@
+> identifier r.f,r.free;
+> expression x,a;
+> expression list[r.n] xs;
+> @@
+> 
+> * x = f(xs,a,...);
+>   if (...) { ... free(a); ... return ...; }
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Which means the bus_id is fixed in device tree case, so we can't have
-two mdio gpio buses via device trees. Assigning a logical bus number
-via device tree solves the problem and the bus name is much consistent
-with non-device tree bus name.
+I think this patch which is commited to ath6kl.git has fixed this.
 
-Without this patch
-1. we can't support two mdio-gpio buses via device trees.
-2. we should always pass gpio-ffffffff as bus name to phy_connect, very
-different to non-device tree bus name.
+commit 0616dc1f2bef563d7916c0dcedbb1bff7d9bd80b
+Author: Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>
+Date:   Tue Aug 14 10:10:33 2012 +0530
 
-So, setting up the bus_id via aliases from device tree is the right
-solution and other drivers do similar thing.
+    ath6kl: Fix potential skb double free in ath6kl_wmi_sync_point()
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla-qxv4g6HH51o@public.gmane.org>
----
- .../devicetree/bindings/net/mdio-gpio.txt          |    9 ++++++++-
- drivers/net/phy/mdio-gpio.c                        |   11 +++++++----
- 2 files changed, 15 insertions(+), 5 deletions(-)
+    skb given to ath6kl_control_tx() is owned by ath6kl_control_tx().
+    Calling function should not free the skb for error cases.
+    This is found during code review.
 
-diff --git a/Documentation/devicetree/bindings/net/mdio-gpio.txt b/Documentation/devicetree/bindings/net/mdio-gpio.txt
-index bc95495..c79bab0 100644
---- a/Documentation/devicetree/bindings/net/mdio-gpio.txt
-+++ b/Documentation/devicetree/bindings/net/mdio-gpio.txt
-@@ -8,9 +8,16 @@ gpios property as described in section VIII.1 in the following order:
- 
- MDC, MDIO.
- 
-+Note: Each gpio-mdio bus should have an alias correctly numbered in "aliases"
-+node.
-+
- Example:
- 
--mdio {
-+aliases {
-+	mdio-gpio0 = <&mdio0>;
-+};
-+
-+mdio0: mdio {
- 	compatible = "virtual,mdio-gpio";
- 	#address-cells = <1>;
- 	#size-cells = <0>;
-diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
-index 899274f..2ed1140 100644
---- a/drivers/net/phy/mdio-gpio.c
-+++ b/drivers/net/phy/mdio-gpio.c
-@@ -185,17 +185,20 @@ static int __devinit mdio_gpio_probe(struct platform_device *pdev)
- {
- 	struct mdio_gpio_platform_data *pdata;
- 	struct mii_bus *new_bus;
--	int ret;
-+	int ret, bus_id;
- 
--	if (pdev->dev.of_node)
-+	if (pdev->dev.of_node) {
- 		pdata = mdio_gpio_of_get_data(pdev);
--	else
-+		bus_id = of_alias_get_id(pdev->dev.of_node, "mdio-gpio");
-+	} else {
- 		pdata = pdev->dev.platform_data;
-+		bus_id = pdev->id;
-+	}
- 
- 	if (!pdata)
- 		return -ENODEV;
- 
--	new_bus = mdio_gpio_bus_init(&pdev->dev, pdata, pdev->id);
-+	new_bus = mdio_gpio_bus_init(&pdev->dev, pdata, bus_id);
- 	if (!new_bus)
- 		return -ENODEV;
- 
--- 
-1.7.0.4
+    kvalo: fix a checkpatch warning in ath6kl_wmi_cmd_send()
+
+    Signed-off-by: Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>
+    Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
+
+https://github.com/kvalo/ath6kl/commit/0616dc1f2bef563d7916c0dcedbb1bff7d9bd80b
+
+If you have the time, I would appreciate if you could take a look and
+confirm.
+
+Kalle
