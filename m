@@ -1,35 +1,78 @@
-From: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH net-next 09/17] net: Allow userns root control of the
-	core of the network stack.
-Date: Fri, 16 Nov 2012 17:55:14 +0400
-Message-ID: <50A645C2.1000604@parallels.com>
-References: <87d2zd8zwn.fsf@xmission.com>
-	<1353070992-5552-1-git-send-email-ebiederm@xmission.com>
-	<1353070992-5552-9-git-send-email-ebiederm@xmission.com>
+From: Jan =?UTF-8?Q?Dvo=C5=99=C3=A1k?= <mordae@anilinux.org>
+Subject: losing addresses if reusing interface names too fast
+Date: Fri, 16 Nov 2012 14:43:50 +0100
+Message-ID: <20121116144350.fc4012c3179b5c452832a24e@anilinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1353070992-5552-9-git-send-email-ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [80.79.23.148] ([80.79.23.148]:51783 "EHLO anilinux.org"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751840Ab2KPOLO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Nov 2012 09:11:14 -0500
+Received: from [88.103.20.104] (helo=gesher)
+	by anilinux.org with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.77)
+	(envelope-from <mordae@anilinux.org>)
+	id 1TZMD6-0004H2-MX
+	for netdev@vger.kernel.org; Fri, 16 Nov 2012 14:43:57 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/16/2012 05:03 PM, Eric W. Biederman wrote:
-> +	if (!capable(CAP_NET_ADMIN))
-> +		return -EPERM;
-> +
->  	return netdev_store(dev, attr, buf, len, change_tx_queue_len);
+Hello,
 
-You mean ns_capable here?
+I have noticed a surprising behavior when removing virtual interfaces.
+For example, removing a bridge with configured IP addresses and then
+quickly creating another interface with identical name will cause the
+addresses to be removed from the new interface a second or so later.
+
+To demonstrate the issue:
+
+brctl addbr foobar
+ip addr add 10.20.30.40/24 dev foobar
+ip addr show dev foobar
+
+# 40: foobar: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+#     link/ether 12:12:f5:1b:c6:8e brd ff:ff:ff:ff:ff:ff
+#     inet 10.20.30.40/24 scope global foobar
+
+sleep 1
+
+ip link set down dev foobar
+brctl delbr foobar
+ip link add name foobar link em1 type vlan id 42
+ip addr add 10.20.30.40/24 dev foobar
+ip addr show dev foobar
+
+# 41: foobar@em1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
+#     link/ether 00:21:cc:63:ec:3c brd ff:ff:ff:ff:ff:ff
+#     inet 10.20.30.40/24 scope global foobar
+
+sleep 3
+
+ip addr show dev foobar
+# 41: foobar@em1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
+#     link/ether 00:21:cc:63:ec:3c brd ff:ff:ff:ff:ff:ff
+
+ip link del foobar type vlan
+
+
+If you monitor udev during course of this script, you will get following
+sequence, spaces where sleeps were:
+
+KERNEL[457506.286789] add      /devices/virtual/net/foobar (net)
+
+KERNEL[457507.298630] remove   /devices/virtual/net/foobar (net)
+KERNEL[457507.309597] add      /devices/virtual/net/foobar (net)
+
+KERNEL[457510.324433] remove   /devices/virtual/net/foobar (net)
+
+
+This means that I can't event wait for the bridge to get completely
+removed, kernel tells me it's gone as soon as I delete it.
+
+Could you please advise a workaround or confirm this as a bug?
+
+Best regards,
+	Jan Dvorak
