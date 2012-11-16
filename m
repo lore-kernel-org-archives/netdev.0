@@ -1,282 +1,121 @@
-From: Joachim Eastwood <manabian@gmail.com>
-Subject: [net-next PATCH v2] net/ethernet: remove useless is_valid_ether_addr from drivers ndo_open
-Date: Fri, 16 Nov 2012 15:47:15 +0100
-Message-ID: <1353077235-342-1-git-send-email-manabian@gmail.com>
-Cc: netdev@vger.kernel.org, Joachim Eastwood <manabian@gmail.com>
-To: davem@davemloft.net, nicolas.ferre@atmel.com,
-	shemminger@vyatta.com, steve.glendinning@shawell.net,
-	stigge@antcom.de, msink@permonline.ru
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [PATCH 0/4] Implement persistent grant in xen-netfront/netback
+Date: Fri, 16 Nov 2012 10:18:40 -0500
+Message-ID: <20121116151840.GE22320@phenom.dumpdata.com>
+References: <1352962987-541-1-git-send-email-annie.li@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	Ian.Campbell@citrix.com
+To: Annie Li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:36538 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752353Ab2KPOrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 09:47:51 -0500
-Received: by mail-la0-f46.google.com with SMTP id h6so2164905lag.19
-        for <netdev@vger.kernel.org>; Fri, 16 Nov 2012 06:47:49 -0800 (PST)
+Received: from userp1040.oracle.com ([156.151.31.81]:27147 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752073Ab2KPPSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 10:18:50 -0500
+Content-Disposition: inline
+In-Reply-To: <1352962987-541-1-git-send-email-annie.li@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If ndo_validate_addr is set to the generic eth_validate_addr
-function there is no point in calling is_valid_ether_addr
-from driver ndo_open if ndo_open is not used elsewhere in
-the driver.
+On Thu, Nov 15, 2012 at 03:03:07PM +0800, Annie Li wrote:
+> This patch implements persistent grants for xen-netfront/netback. This
+> mechanism maintains page pools in netback/netfront, these page pools is used to
+> save grant pages which are mapped. This way improve performance which is wasted
+> when doing grant operations.
+> 
+> Current netback/netfront does map/unmap grant operations frequently when
+> transmitting/receiving packets, and grant operations costs much cpu clock. In
+> this patch, netfront/netback maps grant pages when needed and then saves them
+> into a page pool for future use. All these pages will be unmapped when
+> removing/releasing the net device.
+> 
+> In netfront, two pools are maintained for transmitting and receiving packets.
+> When new grant pages are needed, the driver gets grant pages from this pool
+> first. If no free grant page exists, it allocates new page, maps it and then
+> saves it into the pool. The pool size for transmit/receive is exactly tx/rx
+> ring size. The driver uses memcpy(not grantcopy) to copy data grant pages.
+> Here, memcpy is copying the whole page size data. I tried to copy len size data
+> from offset, but network does not seem work well. I am trying to find the root
+> cause now.
+> 
+> In netback, it also maintains two page pools for tx/rx. When netback gets a
+> request, it does a search first to find out whether the grant reference of
+> this request is already mapped into its page pool. If the grant ref is mapped,
+> the address of this mapped page is gotten and memcpy is used to copy data
+> between grant pages. However, if the grant ref is not mapped, a new page is
+> allocated, mapped with this grant ref, and then saved into page pool for
+> future use. Similarly, memcpy replaces grant copy to copy data between grant
+> pages. In this implementation, two arrays(gnttab_tx_vif,gnttab_rx_vif) are
+> used to save vif pointer for every request because current netback is not
+> per-vif based. This would be changed after implementing 1:1 model in netback.
+> 
+> This patch supports both persistent-grant and non persistent grant. A new
+> xenstore key "feature-persistent-grants" is used to represent this feature.
+> 
+> This patch is based on linux3.4-rc3. I hit netperf/netserver failure on
+> linux latest version v3.7-rc1, v3.7-rc2 and v3.7-rc4. Not sure whether this
+> netperf/netserver failure connects compound page commit in v3.7-rc1, but I did
+> hit BUG_ON with debug patch from thread
+> http://lists.xen.org/archives/html/xen-devel/2012-10/msg00893.html
 
-With this change is_valid_ether_addr will be called from the
-generic eth_validate_addr function. So there should be no change
-in the actual behavior.
+FYI, I get this:
 
-Signed-off-by: Joachim Eastwood <manabian@gmail.com>
----
-Hi,
+ 477.814511] BUG: sleeping function called from invalid context at /home/konrad/ssd/linux/mm/page_alloc.c:2487
+[  477.815281] in_atomic(): 1, irqs_disabled(): 1, pid: 3017, name: netperf
+[  477.815281] Pid: 3017, comm: netperf Not tainted 3.5.0upstream-00004-g69047bb #1
+[  477.815281] Call Trace:
+[  477.815281]  [<ffffffff810b990a>] __might_sleep+0xda/0x100
+[  477.815281]  [<ffffffff81142e93>] __alloc_pages_nodemask+0x223/0x920
+[  477.815281]  [<ffffffff81158439>] ? zone_statistics+0x99/0xc0
+[  477.815281]  [<ffffffff81076e79>] ? default_spin_lock_flags+0x9/0x10
+[  477.815281]  [<ffffffff81615e3a>] ? _raw_spin_lock_irqsave+0x3a/0x50
+[  477.815281]  [<ffffffff81076e79>] ? default_spin_lock_flags+0x9/0x10
+[  477.815281]  [<ffffffff81098977>] ? lock_timer_base+0x37/0x70
+[  477.815281]  [<ffffffff8109a03d>] ? mod_timer_pending+0x11d/0x230
+[  477.815281]  [<ffffffff81616144>] ? _raw_spin_unlock_bh+0x24/0x30
+[  477.815281]  [<ffffffff8117e7e1>] alloc_pages_current+0xb1/0x110
+[  477.815281]  [<ffffffffa0034238>] xennet_alloc_tx_ref+0x78/0x1c0 [xen_netfront]
+[  477.815281]  [<ffffffffa00344eb>] xennet_start_xmit+0x16b/0x9f0 [xen_netfront]
+[  477.815281]  [<ffffffff814c69eb>] dev_hard_start_xmit+0x2fb/0x6f0
+[  477.815281]  [<ffffffff814e4566>] sch_direct_xmit+0x116/0x1e0
+[  477.815281]  [<ffffffff814c6f6a>] dev_queue_xmit+0x18a/0x6b0
+[  477.815281]  [<ffffffff8151264e>] ip_finish_output+0x18e/0x300
+[  477.815281]  [<ffffffff81512821>] ip_output+0x61/0xa0
+[  477.815281]  [<ffffffff81511b82>] ? __ip_local_out+0xa2/0xb0
+[  477.815281]  [<ffffffff81511bb4>] ip_local_out+0x24/0x30
+[  477.815281]  [<ffffffff81511ffe>] ip_queue_xmit+0x15e/0x410
+[  477.815281]  [<ffffffff81528354>] tcp_transmit_skb+0x424/0x8f0
+[  477.815281]  [<ffffffff8152a8c2>] tcp_write_xmit+0x1f2/0x9c0
+[  477.815281]  [<ffffffff81182194>] ? ksize+0x14/0x70
+[  477.815281]  [<ffffffff8152b711>] __tcp_push_pending_frames+0x21/0x90
+[  477.815281]  [<ffffffff8151db23>] tcp_sendmsg+0x983/0xcd0
+[  477.815281]  [<ffffffff81540daf>] inet_sendmsg+0x7f/0xd0
+[  477.815281]  [<ffffffff81290dde>] ? selinux_socket_sendmsg+0x1e/0x20
+[  477.815281]  [<ffffffff814aed13>] sock_sendmsg+0xf3/0x120
+[  477.815281]  [<ffffffff81076f48>] ? pvclock_clocksource_read+0x58/0xd0
+[  477.815281]  [<ffffffff812de7c0>] ? timerqueue_add+0x60/0xb0
+[  477.815281]  [<ffffffff810b0b85>] ? enqueue_hrtimer+0x25/0xb0
+[  477.815281]  [<ffffffff814af4d4>] sys_sendto+0x104/0x140
+[  477.815281]  [<ffffffff81041279>] ? xen_clocksource_read+0x39/0x50
+[  477.815281]  [<ffffffff81041419>] ? xen_clocksource_get_cycles+0x9/0x10
+[  477.815281]  [<ffffffff810d3242>] ? getnstimeofday+0x52/0xe0
+[  477.815281]  [<ffffffff8161dfb9>] system_call_fastpath+0x16/0x1b
 
-v2: Audit changed drivers to ensure ndo_open functions is
-only called from net core and not used elsewhere in the
-drivers.
-
-net/core/dev.c __dev_open does
- 1165        if (ops->ndo_validate_addr)
- 1166                ret = ops->ndo_validate_addr(dev);
- 1167
- 1168        if (!ret && ops->ndo_open)
- 1169                ret = ops->ndo_open(dev);
-
-so there shouldn't be a need for a is_valid_ether_addr in
-ndo_open if the open function is not used elsewhere in the
-driver.
-
-ndo_validate_addr is set to eth_validate_addr in all
-changed drivers.
-
-regards
-Joachim Eastwood
-
- drivers/net/ethernet/8390/etherh.c        |  6 ------
- drivers/net/ethernet/cadence/at91_ether.c |  3 ---
- drivers/net/ethernet/cadence/macb.c       |  3 ---
- drivers/net/ethernet/dnet.c               |  3 ---
- drivers/net/ethernet/i825xx/ether1.c      |  6 ------
- drivers/net/ethernet/micrel/ks8695net.c   |  3 ---
- drivers/net/ethernet/nxp/lpc_eth.c        |  4 +---
- drivers/net/ethernet/seeq/ether3.c        |  6 ------
- drivers/net/ethernet/smsc/smc911x.c       | 10 ----------
- drivers/net/ethernet/smsc/smc91x.c        | 10 ----------
- drivers/net/ethernet/smsc/smsc911x.c      |  5 -----
- drivers/net/ethernet/wiznet/w5100.c       |  2 --
- drivers/net/ethernet/wiznet/w5300.c       |  2 --
- 13 files changed, 1 insertion(+), 62 deletions(-)
-
-diff --git a/drivers/net/ethernet/8390/etherh.c b/drivers/net/ethernet/8390/etherh.c
-index 8322c54..6414e84 100644
---- a/drivers/net/ethernet/8390/etherh.c
-+++ b/drivers/net/ethernet/8390/etherh.c
-@@ -463,12 +463,6 @@ etherh_open(struct net_device *dev)
- {
- 	struct ei_device *ei_local = netdev_priv(dev);
- 
--	if (!is_valid_ether_addr(dev->dev_addr)) {
--		printk(KERN_WARNING "%s: invalid ethernet MAC address\n",
--			dev->name);
--		return -EINVAL;
--	}
--
- 	if (request_irq(dev->irq, __ei_interrupt, 0, dev->name, dev))
- 		return -EAGAIN;
- 
-diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-index e7a476c..716cc01 100644
---- a/drivers/net/ethernet/cadence/at91_ether.c
-+++ b/drivers/net/ethernet/cadence/at91_ether.c
-@@ -97,9 +97,6 @@ static int at91ether_open(struct net_device *dev)
- 	u32 ctl;
- 	int ret;
- 
--	if (!is_valid_ether_addr(dev->dev_addr))
--		return -EADDRNOTAVAIL;
--
- 	/* Clear internal statistics */
- 	ctl = macb_readl(lp, NCR);
- 	macb_writel(lp, NCR, ctl | MACB_BIT(CLRSTAT));
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index edb2aba..d556c52 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1218,9 +1218,6 @@ static int macb_open(struct net_device *dev)
- 	if (!bp->phy_dev)
- 		return -EAGAIN;
- 
--	if (!is_valid_ether_addr(dev->dev_addr))
--		return -EADDRNOTAVAIL;
--
- 	err = macb_alloc_consistent(bp);
- 	if (err) {
- 		netdev_err(dev, "Unable to allocate DMA memory (error %d)\n",
-diff --git a/drivers/net/ethernet/dnet.c b/drivers/net/ethernet/dnet.c
-index 290b26f..feb5095 100644
---- a/drivers/net/ethernet/dnet.c
-+++ b/drivers/net/ethernet/dnet.c
-@@ -664,9 +664,6 @@ static int dnet_open(struct net_device *dev)
- 	if (!bp->phy_dev)
- 		return -EAGAIN;
- 
--	if (!is_valid_ether_addr(dev->dev_addr))
--		return -EADDRNOTAVAIL;
--
- 	napi_enable(&bp->napi);
- 	dnet_init_hw(bp);
- 
-diff --git a/drivers/net/ethernet/i825xx/ether1.c b/drivers/net/ethernet/i825xx/ether1.c
-index 067db3f..7b9609d 100644
---- a/drivers/net/ethernet/i825xx/ether1.c
-+++ b/drivers/net/ethernet/i825xx/ether1.c
-@@ -638,12 +638,6 @@ ether1_txalloc (struct net_device *dev, int size)
- static int
- ether1_open (struct net_device *dev)
- {
--	if (!is_valid_ether_addr(dev->dev_addr)) {
--		printk(KERN_WARNING "%s: invalid ethernet MAC address\n",
--			dev->name);
--		return -EINVAL;
--	}
--
- 	if (request_irq(dev->irq, ether1_interrupt, 0, "ether1", dev))
- 		return -EAGAIN;
- 
-diff --git a/drivers/net/ethernet/micrel/ks8695net.c b/drivers/net/ethernet/micrel/ks8695net.c
-index dccae1d..e62c312 100644
---- a/drivers/net/ethernet/micrel/ks8695net.c
-+++ b/drivers/net/ethernet/micrel/ks8695net.c
-@@ -1249,9 +1249,6 @@ ks8695_open(struct net_device *ndev)
- 	struct ks8695_priv *ksp = netdev_priv(ndev);
- 	int ret;
- 
--	if (!is_valid_ether_addr(ndev->dev_addr))
--		return -EADDRNOTAVAIL;
--
- 	ks8695_reset(ksp);
- 
- 	ks8695_update_mac(ksp);
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index af8b414..db6e101 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -1219,9 +1219,6 @@ static int lpc_eth_open(struct net_device *ndev)
- 	if (netif_msg_ifup(pldat))
- 		dev_dbg(&pldat->pdev->dev, "enabling %s\n", ndev->name);
- 
--	if (!is_valid_ether_addr(ndev->dev_addr))
--		return -EADDRNOTAVAIL;
--
- 	__lpc_eth_clock_enable(pldat, true);
- 
- 	/* Reset and initialize */
-@@ -1301,6 +1298,7 @@ static const struct net_device_ops lpc_netdev_ops = {
- 	.ndo_set_rx_mode	= lpc_eth_set_multicast_list,
- 	.ndo_do_ioctl		= lpc_eth_ioctl,
- 	.ndo_set_mac_address	= lpc_set_mac_address,
-+	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_change_mtu		= eth_change_mtu,
- };
- 
-diff --git a/drivers/net/ethernet/seeq/ether3.c b/drivers/net/ethernet/seeq/ether3.c
-index 6a40dd0..72a0174 100644
---- a/drivers/net/ethernet/seeq/ether3.c
-+++ b/drivers/net/ethernet/seeq/ether3.c
-@@ -399,12 +399,6 @@ ether3_probe_bus_16(struct net_device *dev, int val)
- static int
- ether3_open(struct net_device *dev)
- {
--	if (!is_valid_ether_addr(dev->dev_addr)) {
--		printk(KERN_WARNING "%s: invalid ethernet MAC address\n",
--			dev->name);
--		return -EINVAL;
--	}
--
- 	if (request_irq(dev->irq, ether3_interrupt, 0, "ether3", dev))
- 		return -EAGAIN;
- 
-diff --git a/drivers/net/ethernet/smsc/smc911x.c b/drivers/net/ethernet/smsc/smc911x.c
-index 8d15f7a..990f574 100644
---- a/drivers/net/ethernet/smsc/smc911x.c
-+++ b/drivers/net/ethernet/smsc/smc911x.c
-@@ -1400,16 +1400,6 @@ smc911x_open(struct net_device *dev)
- 
- 	DBG(SMC_DEBUG_FUNC, "%s: --> %s\n", dev->name, __func__);
- 
--	/*
--	 * Check that the address is valid.  If its not, refuse
--	 * to bring the device up.	 The user must specify an
--	 * address using ifconfig eth0 hw ether xx:xx:xx:xx:xx:xx
--	 */
--	if (!is_valid_ether_addr(dev->dev_addr)) {
--		PRINTK("%s: no valid ethernet hw addr\n", __func__);
--		return -EINVAL;
--	}
--
- 	/* reset the hardware */
- 	smc911x_reset(dev);
- 
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 318adc9..f516e5a 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -1474,16 +1474,6 @@ smc_open(struct net_device *dev)
- 
- 	DBG(2, "%s: %s\n", dev->name, __func__);
- 
--	/*
--	 * Check that the address is valid.  If its not, refuse
--	 * to bring the device up.  The user must specify an
--	 * address using ifconfig eth0 hw ether xx:xx:xx:xx:xx:xx
--	 */
--	if (!is_valid_ether_addr(dev->dev_addr)) {
--		PRINTK("%s: no valid ethernet hw addr\n", __func__);
--		return -EINVAL;
--	}
--
- 	/* Setup the default Register Modes */
- 	lp->tcr_cur_mode = TCR_DEFAULT;
- 	lp->rcr_cur_mode = RCR_DEFAULT;
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 62d1baf..a088c4f 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -1463,11 +1463,6 @@ static int smsc911x_open(struct net_device *dev)
- 		return -EAGAIN;
- 	}
- 
--	if (!is_valid_ether_addr(dev->dev_addr)) {
--		SMSC_WARN(pdata, hw, "dev_addr is not a valid MAC address");
--		return -EADDRNOTAVAIL;
--	}
--
- 	/* Reset the LAN911x */
- 	if (smsc911x_soft_reset(pdata)) {
- 		SMSC_WARN(pdata, hw, "soft reset failed");
-diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
-index 2c08bf6..7daf92e 100644
---- a/drivers/net/ethernet/wiznet/w5100.c
-+++ b/drivers/net/ethernet/wiznet/w5100.c
-@@ -580,8 +580,6 @@ static int w5100_open(struct net_device *ndev)
- 	struct w5100_priv *priv = netdev_priv(ndev);
- 
- 	netif_info(priv, ifup, ndev, "enabling\n");
--	if (!is_valid_ether_addr(ndev->dev_addr))
--		return -EINVAL;
- 	w5100_hw_start(priv);
- 	napi_enable(&priv->napi);
- 	netif_start_queue(ndev);
-diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
-index 88943d9..bd9eec6 100644
---- a/drivers/net/ethernet/wiznet/w5300.c
-+++ b/drivers/net/ethernet/wiznet/w5300.c
-@@ -500,8 +500,6 @@ static int w5300_open(struct net_device *ndev)
- 	struct w5300_priv *priv = netdev_priv(ndev);
- 
- 	netif_info(priv, ifup, ndev, "enabling\n");
--	if (!is_valid_ether_addr(ndev->dev_addr))
--		return -EINVAL;
- 	w5300_hw_start(priv);
- 	napi_enable(&priv->napi);
- 	netif_start_queue(ndev);
--- 
-1.8.0
+> 
+> 
+> Annie Li (4):
+>   xen/netback: implements persistent grant with one page pool.
+>   xen/netback: Split one page pool into two(tx/rx) page pool.
+>   Xen/netfront: Implement persistent grant in netfront.
+>   fix code indent issue in xen-netfront.
+> 
+>  drivers/net/xen-netback/common.h    |   24 ++-
+>  drivers/net/xen-netback/interface.c |   26 +++
+>  drivers/net/xen-netback/netback.c   |  215 ++++++++++++++++++--
+>  drivers/net/xen-netback/xenbus.c    |   14 ++-
+>  drivers/net/xen-netfront.c          |  378 +++++++++++++++++++++++++++++------
+>  5 files changed, 570 insertions(+), 87 deletions(-)
+> 
+> -- 
+> 1.7.3.4
