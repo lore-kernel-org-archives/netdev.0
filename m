@@ -1,99 +1,77 @@
-From: ANNIE LI <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH 1/4] xen/netback: implements persistent grant
- with one page pool.
-Date: Fri, 16 Nov 2012 17:55:41 +0800
-Message-ID: <50A60D9D.80601@oracle.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>  <1352963066-570-1-git-send-email-annie.li@oracle.com>  <1352970612.3499.43.camel@zakaz.uk.xensource.com>  <50A5A285.1030805@oracle.com> <1353058074.3499.166.camel@zakaz.uk.xensource.com>
+From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+Subject: Re: [PATCH 3.7.0-rc4] of/net/mdio-gpio: Fix pdev->id issue when using
+ devicetrees.
+Date: Fri, 16 Nov 2012 09:54:47 +0000
+Message-ID: <50A60D67.6000100@st.com>
+References: <1352816773-17837-1-git-send-email-srinivas.kandagatla@st.com> <20121114.185940.648295821386414260.davem@davemloft.net>
+Reply-To: srinivas.kandagatla@st.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
+To: David Miller <davem@davemloft.net>,
+	Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:27442 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751600Ab2KPJzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 04:55:50 -0500
-In-Reply-To: <1353058074.3499.166.camel@zakaz.uk.xensource.com>
+Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:33319 "EHLO
+	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751243Ab2KPJ4h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 04:56:37 -0500
+In-Reply-To: <20121114.185940.648295821386414260.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2012-11-16 17:27, Ian Campbell wrote:
-> On Fri, 2012-11-16 at 02:18 +0000, ANNIE LI wrote:
->> In this patch,
->> The maximum of memory overhead is about
+On 14/11/12 23:59, David Miller wrote:
+> From: Srinivas KANDAGATLA <srinivas.kandagatla@st.com>
+> Date: Tue, 13 Nov 2012 14:26:13 +0000
+>
+>> From: Srinivas Kandagatla <srinivas.kandagatla@st.com>
 >>
->> (XEN_NETIF_TX_RING_SIZE+XEN_NETIF_RX_RING_SIZE)*PAGE_SIZE  (plus size of grant_ref_t and handle)
->> which is about 512 PAGE_SIZE. Normally, without heavy network offload, this maximum can not be reached.
+>> When the mdio-gpio driver is probed via device trees, the platform
+>> device id is set as -1, However the id is re-used in the code while
+>> creating an mdio bus.
+>> So, setting up the id via aliases from device tree is a sensible
+>> solution to fix this issue.
 >>
->> In next patch of splitting tx/rx pool, the maximum is about
-> "about" or just "is"?
+>> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@st.com>
+> This seems rather pointless unless you also update every single device
+> tree out there.
+>
+> Also you need to describe what are the ramifications of this problem
+> otherwise it is impossible to figure out how serious this change is.
+>
+> Does it prevent probing?  Does it cause a crash?
+I apologies, I should have explained the full use-case.
 
-For only grant pages, it is this value. I took into account other 
-element of grant_ref_t and map(change to handle in future)....
+use-case is if the mac driver want to connect via phy_connect() to
+mdio-gpio phy it would use bus name to do so.
+
+mdio-gpio phy bus name is formated as "gpio-<bus-number>:<phy-addr>.
+In the existing code the bus number for mdio-gpio if probed from device
+trees will be set to -1 which results in bus name set to
+"gpio-ffffffff:<phy-addr>" which is the problem here.
+fffffff is result of pdev->id set to -1 which should be set to a logical
+number, and this is only possible via aliases.
+
+Having fffffff as bus-id also means that we can't have two mdio-gpio
+buses via device trees as it will result in same bus-id.
+This patch attempts to fix this issue.
+So getting the id from alias would be a right choice.
+
+I also agree with Grant's comments about setting up pdev->id.
+
+Will send v2 patch with considering Grant's comments.
 
 >
->>   (256+512)PAGE_SIZE.
-> IOW 3MB.
+> Basically, what I'm saying is that this is a very poor submission and
+> you need to substantially improve it and communicate better.
 >
->>>> +
->>>> +       return NULL;
->>>> +}
->>>> +
->>>> @@ -1338,7 +1497,11 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
->>>>                   gop->source.domid = vif->domid;
->>>>                   gop->source.offset = txreq.offset;
->>>>
->>>> -               gop->dest.u.gmfn = virt_to_mfn(page_address(page));
->>>> +               if (!vif->persistent_grant)
->>>> +                       gop->dest.u.gmfn = virt_to_mfn(page_address(page));
->>>> +               else
->>>> +                       gop->dest.u.gmfn = (unsigned long)page_address(page);
->>> page_address doesn't return any sort of frame number, does it? This is
->>> rather confusing...
->> Yes. I only use dest.u.gmfn element to save the page_address here for
->> future memcpy, and it does not mean to use frame number actually. To
->> avoid confusion, here I can use
->>
->> gop->dest.u.gmfn = virt_to_mfn(page_address(page));
->>
->> and then call mfn_to_virt when doing memcpy.
-> It seems a bit odd to be using the gop structure in this way when you
-> aren't actually doing a grant op on it.
+> If the problem is basically benign, then you should target this change
+> to net-next instead of the net tree, along with the necessary dt file
+> updates.
+I have looked in net-next and there are no dt files which use this driver.
+
+Thanks,
+srini
+> Thanks.
 >
-> While investigating I noticed:
-> +static int
-> +grant_memory_copy_op(unsigned int cmd, void *vuop, unsigned int count,
-> +                    struct xen_netbk *netbk, bool tx_pool)
-> ...
-> +       struct gnttab_copy *uop = vuop;
->
-> Why void *vuop? Why not struct gnttab_copy * in the parameter?
-
-Sorry, my mistake.
-
->
-> I also noticed your new grant_memory_copy_op() seems to have unbatched
-> the grant ops in the non-persistent case, which is going to suck for
-> performance in non-persistent mode. You need to pull the conditional and
-> the HYPERVISOR_grant_table_op outside the loop and pass it full array
-> instead of doing them one at a time.
-
-This still connects with netback per-VIF implementation.
-Currently, these could not be pulled out outside since netback queue may 
-contains persistent and nonpersistent in the same queue. I did consider 
-to implement per-VIF first and then the persistent grant,
-but thinking of it is part of wei's patch combined with other patches, 
-and finally decided to implement per-VIF later.
-
-But this does limit implementation of persistent grant.
-
-Thanks
-Annie
->
-> Ian
 >
