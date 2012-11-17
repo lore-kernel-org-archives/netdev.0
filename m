@@ -1,47 +1,37 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: [PATCH v2] checkpatch: add double empty line check
-Date: Sat, 17 Nov 2012 13:17:37 +0200
-Message-ID: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
-Reply-To: eilong@broadcom.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: PROBLEM: freeze when resuming from suspend-to-ram
+Date: Sat, 17 Nov 2012 11:57:02 +0100
+Message-ID: <20121117105702.GA25549@electric-eye.fr.zoreil.com>
+References: <1560844.T75lq5MbC7@brinja> <20121114211115.GD14880@ge.brownhat.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Joe Perches" <joe@perches.com>,
-	"David Rientjes" <rientjes@google.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: "Andy Whitcroft" <apw@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: medhefgo@web.de, netdev@vger.kernel.org
+To: Daniele Venzano <venza@brownhat.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57101 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742Ab2KQLUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2012 06:20:20 -0500
+Content-Disposition: inline
+In-Reply-To: <20121114211115.GD14880@ge.brownhat.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Changes from previous attempt:
-- Use CHK instead of WARN
-- Issue only one warning per empty lines block
+Thanks for Cc:ing Daniele.
 
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- scripts/checkpatch.pl |    8 ++++++++
- 1 file changed, 8 insertions(+)
+Daniele Venzano <venza@brownhat.org> :
+> On Sun, Nov 11, 2012 at 08:47:45PM +0100, medhefgo@web.de wrote:
+[...]
+> The patch is big and, while by looking at it nothing jumps to my eyes as
+> clearly wrong, I currently do not have access to sis900 hardware to test
+> it. Francois Romieu (in CC), who did the patch, perhaps can shed some light.
 
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 21a9f5d..13d264f 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -3579,6 +3579,14 @@ sub process {
- 			WARN("EXPORTED_WORLD_WRITABLE",
- 			     "Exporting world writable files is usually an error. Consider more restrictive permissions.\n" . $herecurr);
- 		}
-+
-+# check for double empty lines
-+		if ($line =~ /^\+\s*$/ &&
-+		    ($rawlines[$linenr] =~ /^\s*$/ ||
-+		     $prevline =~ /^\+?\s*$/ && $rawlines[$linenr] !~ /^\+\s*$/)) {
-+			CHK("DOUBLE_EMPTY_LINE",
-+			    "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
-+		}
- 	}
- 
- 	# If we have no input at all, then there is nothing to report on
+Nothing here. I'll search harder but I won't mind some brute force approach
+at the same time.
+
+Jan, is it ok if I split this changeset in smaller chunks to identify
+which part bugs / triggers the problem ? If so please specify a kernel
+version - linusish or stable - I should work with.
+
 -- 
-1.7.9.5
+Ueimor
