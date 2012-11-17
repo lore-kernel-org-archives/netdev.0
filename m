@@ -1,43 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next patch] vxlan: remove unused variable.
-Date: Sat, 17 Nov 2012 09:52:25 -0800
-Message-ID: <20121117095225.48bd9ab1@nehalam.linuxnetplumber.net>
-References: <1353161287-22493-1-git-send-email-ramirose@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: PROBLEM: freeze when resuming from suspend-to-ram
+Date: Sat, 17 Nov 2012 20:20:36 +0100
+Message-ID: <20121117192036.GA29018@electric-eye.fr.zoreil.com>
+References: <1560844.T75lq5MbC7@brinja> <20121114211115.GD14880@ge.brownhat.org> <20121117105702.GA25549@electric-eye.fr.zoreil.com> <2582926.dI8WEMfVKW@brinja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Rami Rosen <ramirose@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniele Venzano <venza@brownhat.org>, netdev@vger.kernel.org
+To: Jan Janssen <medhefgo@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33438 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751765Ab2KQRx3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Nov 2012 12:53:29 -0500
-In-Reply-To: <1353161287-22493-1-git-send-email-ramirose@gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57433 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752060Ab2KQTn5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2012 14:43:57 -0500
+Content-Disposition: inline
+In-Reply-To: <2582926.dI8WEMfVKW@brinja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 17 Nov 2012 16:08:07 +0200
-Rami Rosen <ramirose@gmail.com> wrote:
+Jan Janssen <medhefgo@web.de> :
+[...]
+> I'd be glad to help you with that. The bug happens with 3.6.6 and with 3.7-
+> rc6. Pick one that suits you best, I can work with both.
 
-> This patch removes addrexceeded member from vxlan_dev struct as it is unused.
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
-> ---
->  drivers/net/vxlan.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 9814d67..288ad3a 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -117,7 +117,6 @@ struct vxlan_dev {
->  	spinlock_t	  hash_lock;
->  	unsigned int	  addrcnt;
->  	unsigned int	  addrmax;
-> -	unsigned int	  addrexceeded;
->  
->  	struct hlist_head fdb_head[FDB_HASH_SIZE];
->  };
+/me slaps head.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Please try the patch below against v3.7-rc6
+
+diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
+index fb9f6b3..edf5edb 100644
+--- a/drivers/net/ethernet/sis/sis900.c
++++ b/drivers/net/ethernet/sis/sis900.c
+@@ -2479,7 +2479,7 @@ static int sis900_resume(struct pci_dev *pci_dev)
+ 	netif_start_queue(net_dev);
+ 
+ 	/* Workaround for EDB */
+-	sis900_set_mode(ioaddr, HW_SPEED_10_MBPS, FDX_CAPABLE_HALF_SELECTED);
++	sis900_set_mode(sis_priv, HW_SPEED_10_MBPS, FDX_CAPABLE_HALF_SELECTED);
+ 
+ 	/* Enable all known interrupts by setting the interrupt mask. */
+ 	sw32(imr, RxSOVR | RxORN | RxERR | RxOK | TxURN | TxERR | TxIDLE);
