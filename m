@@ -1,67 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [rfc net-next v6 2/3] virtio_net: multiqueue support
-Date: Sat, 17 Nov 2012 00:35:29 +0000
-Message-ID: <1353112529.2743.83.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1351591403-23065-1-git-send-email-jasowang@redhat.com>
-	<1351591403-23065-3-git-send-email-jasowang@redhat.com>
-	<87y5igyhyg.fsf@rustcorp.com.au> <20121113064026.GA27416@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] checkpatch: add double empty line check
+Date: Fri, 16 Nov 2012 16:50:54 -0800
+Message-ID: <1353113454.2512.21.camel@joe-AO722>
+References: <1353094919.14327.4.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <alpine.DEB.2.00.1211161154280.2788@chino.kir.corp.google.com>
+	 <1353096274.14327.9.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, edumazet@google.com,
-	davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121113064026.GA27416@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: David Rientjes <rientjes@google.com>,
+	Andy Whitcroft <apw@canonical.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: eilong@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1353096274.14327.9.camel@lb-tlvb-eilong.il.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-11-13 at 08:40 +0200, Michael S. Tsirkin wrote:
-> On Mon, Nov 05, 2012 at 11:38:39AM +1030, Rusty Russell wrote:
-> > > @@ -924,11 +1032,10 @@ static void virtnet_get_ringparam(struct net_device *dev,
-> > >  {
-> > >  	struct virtnet_info *vi = netdev_priv(dev);
-> > >  
-> > > -	ring->rx_max_pending = virtqueue_get_vring_size(vi->rvq);
-> > > -	ring->tx_max_pending = virtqueue_get_vring_size(vi->svq);
-> > > +	ring->rx_max_pending = virtqueue_get_vring_size(vi->rq[0].vq);
-> > > +	ring->tx_max_pending = virtqueue_get_vring_size(vi->sq[0].vq);
-> > >  	ring->rx_pending = ring->rx_max_pending;
-> > >  	ring->tx_pending = ring->tx_max_pending;
-> > > -
-> > >  }
+On Fri, 2012-11-16 at 22:04 +0200, Eilon Greenstein wrote:
+> On Fri, 2012-11-16 at 11:55 -0800, David Rientjes wrote:
+> > On Fri, 16 Nov 2012, Eilon Greenstein wrote:
 > > 
-> > This assumes all vqs are the same size.  I think this should probably
-> > check: for mq mode, use the first vq, otherewise use the 0th.
+> > > diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+> > > index 21a9f5d..7a9c153 100755
+> > > --- a/scripts/checkpatch.pl
+> > > +++ b/scripts/checkpatch.pl
+> > > @@ -3579,6 +3579,13 @@ sub process {
+> > >  			WARN("EXPORTED_WORLD_WRITABLE",
+> > >  			     "Exporting world writable files is usually an error. Consider more restrictive permissions.\n" . $herecurr);
+> > >  		}
+> > > +
+> > > +# check for double empty lines
+> > > +		if ($line =~ /^\+\s*$/ &&
+> > > +		    ($prevline =~ /^\+?\s*$/ || $rawlines[$linenr] =~ /^\s*$/)) {
+> > > +			WARN("DOUBLE_EMPTY_LINE",
+> > > +			     "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
+> > > +		}
+> > >  	}
+> > >  
+> > >  	# If we have no input at all, then there is nothing to report on
+> > 
+> > This is fairly common in all the acpi code where variables declared in a 
+> > function are separated from the code in a function.
+> > 
 > 
-> For rx_pending/tx_pending I think what is required here is the
-> actual number of outstanding buffers.
-> Dave, Eric - right?
+> Indeed, I see that you do use it in some functions.
 > 
-> So this should be the total over all rings and to be useful,
-> rx_max_pending/tx_max_pending should be the total too.
+> Maybe we can limit it only to the networking tree (similar to the
+> networking comments style) or if the ACPI is the exception, we can apply
+> to all but ACPI.
 
-So far as I know, all current implementations use the number of
-descriptors per ring here. virtio_net should be consistent with this.
+I'm not sure this should be done.
+Double line spacing has some utility and
+is pretty common.
 
-Ben.
-
-> > For bonus points, check this assertion at probe time.
-> 
-> Looks like we can easily support different queues too.
-> 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Perhaps make this a --strict/CHK option
+and also perhaps make sure this isn't
+emitted on consecutive lines.
