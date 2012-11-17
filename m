@@ -1,91 +1,38 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH v2 net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
- to return an interface name
-Date: Sat, 17 Nov 2012 09:06:24 +0400
-Message-ID: <50A71B50.3030603@parallels.com>
-References: <50A6A8FB.3050901@hp.com>
+From: "MICHELA ZARA" <michela.zara@ao-legnano.it>
+Subject: Dear Sir/Madam,
+Date: Sat, 17 Nov 2012 01:09:04 +0100 (CET)
+Message-ID: <56072.10.1.1.12.1353110944.squirrel__48846.2128364064$1353129616$gmane$org@192.168.150.254>
+Reply-To: allenvioletlarge823@yahoo.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:47641 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750728Ab2KQFGu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 17 Nov 2012 00:06:50 -0500
-In-Reply-To: <50A6A8FB.3050901@hp.com>
+Received: from mx2.ao-legnano.it ([89.96.134.133]:58017 "EHLO
+	mx2.ao-legnano.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751071Ab2KQFTn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2012 00:19:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> @@ -4165,6 +4180,8 @@ static int dev_ifname(struct net *net, struct ifreq __user
-> *arg)
-> 
->  	strcpy(ifr.ifr_name, dev->name);
->  	rcu_read_unlock();
-> +	if (read_seqretry(&devnet_rename_seq, seq))
-> +		goto retry;
 
-I believe it makes sense to make the seqcount protection as a separate patch
-with description of what may happen.
 
-> 
->  	if (copy_to_user(arg, &ifr, sizeof(struct ifreq)))
->  		return -EFAULT;
+Dear Sir/Madam,
 
-> @@ -562,6 +563,59 @@ out:
->  	return ret;
->  }
-> 
-> +static int sock_getbindtodevice(struct sock *sk, char __user *optval,
-> +				int __user *optlen, int len)
-> +{
-> +	int ret = -ENOPROTOOPT;
-> +#ifdef CONFIG_NETDEVICES
-> +	struct net *net = sock_net(sk);
-> +	struct net_device *dev;
-> +	char devname[IFNAMSIZ];
-> +	unsigned seq;
-> +
-> +	if (sk->sk_bound_dev_if == 0) {
-> +		len = 0;
-> +		goto zero;
-> +	}
-> +
-> +	ret = -EINVAL;
-> +	if (len < IFNAMSIZ)
-> +		goto out;
-> +
-> +retry:
-> +	seq = read_seqbegin(&devnet_rename_seq);
-> +	rcu_read_lock();
-> +	dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
+I saw your email address during the course of my  research today. My Name
+is Allen my wife and I won a Jackpot Lottery of 11.3 million USD in july
+and during
+the process my wife passed away as a result of cancer illness, we are
+donating the sum of $1000,000.00 USD  to 6 lucky individual  over the
+world and if you received this email then you are one of the luck
+recipients and all you have to do is get back to me, so that we can send
+your details to the payout bank.Please note that you have to contact my
+private email for more information(allenvioletlarge823@yahoo.ca)
 
-The sk->sk_bound_dev_if might have changed to 0 while we did read_seqretry (or
-did the len check above, but the race window is smaller) and this code will
-report -ENODEV instead of zero lenght.
+You can verify this by visiting the web pages below.
 
-Other than this, the intention looks OK to me.
+http://www.dailymail.co.uk/news/article-1326473/Canadian-couple-Allen-Violet-Large-away-entire-11-2m-lottery-win.html
 
-> +	ret = -ENODEV;
-> +	if (!dev) {
-> +		rcu_read_unlock();
-> +		goto out;
-> +	}
-> +
-> +	strcpy(devname, dev->name);
-> +	rcu_read_unlock();
-> +	if (read_seqretry(&devnet_rename_seq, seq))
-> +		goto retry;
-> +
-> +	len = strlen(devname) + 1;
-> +
-> +	ret = -EFAULT;
-> +	if (copy_to_user(optval, devname, len))
-> +		goto out;
-> +
-
-Thanks,
-Pavel
+Goodluck,
+Allen and Violet Large
+Email:allenvioletlarge823@yahoo.ca
