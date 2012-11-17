@@ -1,59 +1,47 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] checkpatch: add double empty line check
-Date: Fri, 16 Nov 2012 16:50:54 -0800
-Message-ID: <1353113454.2512.21.camel@joe-AO722>
-References: <1353094919.14327.4.camel@lb-tlvb-eilong.il.broadcom.com>
-	 <alpine.DEB.2.00.1211161154280.2788@chino.kir.corp.google.com>
-	 <1353096274.14327.9.camel@lb-tlvb-eilong.il.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] gro: Handle inline VLAN tags
+Date: Fri, 16 Nov 2012 17:09:19 -0800
+Message-ID: <1353114559.10798.66.camel@edumazet-glaptop>
+References: <1353097030.2743.28.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1353106865.10798.61.camel@edumazet-glaptop>
+	 <1353110430.2743.73.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1353111414.10798.64.camel@edumazet-glaptop>
+	 <1353112324.2743.81.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Rientjes <rientjes@google.com>,
-	Andy Whitcroft <apw@canonical.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: eilong@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1353096274.14327.9.camel@lb-tlvb-eilong.il.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com,
+	Andrew Gallatin <gallatin@myri.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:61271 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753647Ab2KQBJV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 20:09:21 -0500
+Received: by mail-da0-f46.google.com with SMTP id n41so1363021dak.19
+        for <netdev@vger.kernel.org>; Fri, 16 Nov 2012 17:09:21 -0800 (PST)
+In-Reply-To: <1353112324.2743.81.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-16 at 22:04 +0200, Eilon Greenstein wrote:
-> On Fri, 2012-11-16 at 11:55 -0800, David Rientjes wrote:
-> > On Fri, 16 Nov 2012, Eilon Greenstein wrote:
+On Sat, 2012-11-17 at 00:32 +0000, Ben Hutchings wrote:
+> On Fri, 2012-11-16 at 16:16 -0800, Eric Dumazet wrote:
+> > On Sat, 2012-11-17 at 00:00 +0000, Ben Hutchings wrote:
 > > 
-> > > diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-> > > index 21a9f5d..7a9c153 100755
-> > > --- a/scripts/checkpatch.pl
-> > > +++ b/scripts/checkpatch.pl
-> > > @@ -3579,6 +3579,13 @@ sub process {
-> > >  			WARN("EXPORTED_WORLD_WRITABLE",
-> > >  			     "Exporting world writable files is usually an error. Consider more restrictive permissions.\n" . $herecurr);
-> > >  		}
-> > > +
-> > > +# check for double empty lines
-> > > +		if ($line =~ /^\+\s*$/ &&
-> > > +		    ($prevline =~ /^\+?\s*$/ || $rawlines[$linenr] =~ /^\s*$/)) {
-> > > +			WARN("DOUBLE_EMPTY_LINE",
-> > > +			     "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
-> > > +		}
-> > >  	}
-> > >  
-> > >  	# If we have no input at all, then there is nothing to report on
+> > > I'm not sure what you mean by this.  Is your point that the
+> > > copy-on-write is never needed?  It is still possible for pskb_may_pull()
+> > > to fail.
+> > > 
 > > 
-> > This is fairly common in all the acpi code where variables declared in a 
-> > function are separated from the code in a function.
+> > A packet sniffer should have a copy of bad frames, even if dropped later
+> > in our stacks.
 > > 
+> > GRO layer is not allowed to drop a frame, even if not 'correct'.
 > 
-> Indeed, I see that you do use it in some functions.
-> 
-> Maybe we can limit it only to the networking tree (similar to the
-> networking comments style) or if the ACPI is the exception, we can apply
-> to all but ACPI.
+> What do you think the accelerated hardware does with frames that have a
+> truncated VLAN tag?
 
-I'm not sure this should be done.
-Double line spacing has some utility and
-is pretty common.
-
-Perhaps make this a --strict/CHK option
-and also perhaps make sure this isn't
-emitted on consecutive lines.
+The hardware should send us the frame, exactly like when RX checksum is
+wrong.
