@@ -1,101 +1,93 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v7 2/6] net: mvneta: driver for Marvell Armada 370/XP
- network unit
-Date: Fri, 16 Nov 2012 23:04:12 +0000
-Message-ID: <1353107052.2743.65.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1352905010-24172-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	 <1352905010-24172-3-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH net-next] gro: Handle inline VLAN tags
+Date: Sat, 17 Nov 2012 00:00:30 +0000
+Message-ID: <1353110430.2743.73.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1353097030.2743.28.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1353106865.10798.61.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Lennert Buytenhek <kernel@wantstofly.org>,
-	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Dmitri Epshtein <dima@marvell.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-net-drivers@solarflare.com>,
+	Andrew Gallatin <gallatin@myri.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:61893 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:10962 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753280Ab2KPXEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 18:04:16 -0500
-In-Reply-To: <1352905010-24172-3-git-send-email-thomas.petazzoni@free-electrons.com>
+	with ESMTP id S1753173Ab2KQAAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 19:00:34 -0500
+In-Reply-To: <1353106865.10798.61.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-11-14 at 15:56 +0100, Thomas Petazzoni wrote:
-[...]
-> --- /dev/null
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-[...]
-> +/* Set interrupt coalescing for ethtools */
-> +static int mvneta_ethtool_set_coalesce(struct net_device *dev,
-> +				       struct ethtool_coalesce *c)
-> +{
-> +	struct mvneta_port *pp = netdev_priv(dev);
-> +	int queue;
-> +
-> +	for (queue = 0; queue < rxq_number; queue++) {
-> +		struct mvneta_rx_queue *rxq = &pp->rxqs[queue];
-> +		rxq->time_coal = c->rx_coalesce_usecs;
-> +		rxq->pkts_coal = c->rx_max_coalesced_frames;
-> +		mvneta_rx_pkts_coal_set(pp, rxq, rxq->pkts_coal);
-> +		mvneta_rx_time_coal_set(pp, rxq, rxq->time_coal);
-> +	}
+On Fri, 2012-11-16 at 15:01 -0800, Eric Dumazet wrote:
+> On Fri, 2012-11-16 at 20:17 +0000, Ben Hutchings wrote:
+> > The receive paths for skbs with inline and out-of-line VLAN tags (VLAN
+> > RX accleration) were made largely consistent in 2.6.37, with tags
+> > pulled out by software as necessary.  However GRO doesn't do this, so
+> > it is not effective for VLAN-tagged packets received on devices
+> > without VLAN RX acceleration.
+> > 
+> > napi_gro_frags() must not free the skb and does not advance the
+> > skb->data pointer, so cannot use vlan_untag().  Extract the core of
+> > vlan_untag() into a new function __vlan_untag() that allows the offset
+> > to the VLAN tag to be specified and returns an error code.  Add
+> > kernel-doc comments for both those functions.
+> > 
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> > ---
+> > Tested with sfc using both napi_gro_receive() and napi_gro_frags().  On
+> > a Core i7 920 (Nehalem) system it increased TCP/IPv4 receive throughput
+> > over a VLAN from ~8.0 to ~9.3 Gbit/s.
+> > 
+> > Ben.
+> > 
+> 
+> > index b4978e2..9d658eb 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -3668,6 +3668,13 @@ static void skb_gro_reset_offset(struct sk_buff *skb)
+> >  
+> >  gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+> >  {
+> > +	if (unlikely(skb->protocol == htons(ETH_P_8021Q)) &&
+> > +	    !vlan_tx_tag_present(skb)) {
+> > +		skb = vlan_untag(skb);
+> > +		if (unlikely(!skb))
+> > +			return GRO_DROP;
+> > +	}
+> > +
+> >  	skb_gro_reset_offset(skb);
+> 
+> I am not very convinced.
+> 
+> So for some drivers _not_ doing vlan acceleration, we are slowing down
+> GRO.
 
-Please check that c->rx_coalesce_usecs || c->rx_max_coalesced_frames
-(see the comments in <linux/ethtool.h>).  Also please check that the
-other fields, up to and including use_adaptive_tx_coalesce, are all set
-to 0.
+It's a single comparison, hinted as 'unlikely'.
 
-> +	for (queue = 0; queue < txq_number; queue++) {
-> +		struct mvneta_tx_queue *txq = &pp->txqs[queue];
-> +		txq->done_pkts_coal = c->tx_max_coalesced_frames;
-> +		mvneta_tx_done_pkts_coal_set(pp, txq, txq->done_pkts_coal);
-> +	}
-> +
-> +	return 0;
-> +}
-[...]
-> +static int mvneta_ethtool_set_ringparam(struct net_device *dev,
-> +					struct ethtool_ringparam *ring)
-> +{
-> +	struct mvneta_port *pp = netdev_priv(dev);
-> +
-> +	if ((ring->rx_pending == 0) || (ring->tx_pending == 0))
-> +		return -EINVAL;
+> I mean, driver authors should know if they need to call a helper before
+> calling napi_gro_receive()
+> 
+> To date, only two drivers would need this, and it was discovered very
+> recently.
 
-Please check that the other fields are all set to 0.
+It's not only two drivers.  qlcnic fakes RX VLAN acceleration precisely
+to work around this limitation.  netxen, niu and Calxeda's xgmac might
+also benefit (it's not clear whether the hardware does checksum
+validation for VLAN-tagged packets).
 
-> +	pp->rx_ring_size = ring->rx_pending < MVNETA_MAX_RXD ?
-> +		ring->rx_pending : MVNETA_MAX_RXD;
-> +	pp->tx_ring_size = ring->tx_pending < MVNETA_MAX_TXD ?
-> +		ring->tx_pending : MVNETA_MAX_TXD;
-> +
-> +	if (netif_running(dev)) {
-> +		mvneta_stop(dev);
-> +		if (mvneta_open(dev)) {
-> +			netdev_err(dev,
-> +				   "error on opening device after ring param change\n");
-> +			return -ENOMEM;
-> +		}
+> Also at GRO point, we totally own the skb and the vlan decap cannot
+> possibly fail (and free the skb)
+> 
+> A packet sniffer should see all skbs delivered to napi_gro_receive()
 
-This is nasty because the stack will still considers the interface to be
-up.  Ideally you would hold onto the old rings and revert to using them
-in case of failure.  If that's not possible then use dev_close() and
-dev_open() so that the stack knows the interface didn't come up again.
+I'm not sure what you mean by this.  Is your point that the
+copy-on-write is never needed?  It is still possible for pskb_may_pull()
+to fail.
 
 Ben.
-
-> +	}
-> +
-> +	return 0;
-> +}
-[...]
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
