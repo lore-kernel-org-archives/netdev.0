@@ -1,20 +1,20 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: [PATCH net-next] pch_gbe, ptp_pch: Fix the dependency direction
  between these drivers
-Date: Sat, 17 Nov 2012 01:43:36 +0000
-Message-ID: <1353116616.2743.87.camel@bwh-desktop.uk.solarflarecom.com>
+Date: Sat, 17 Nov 2012 01:43:59 +0000
+Message-ID: <1353116639.2743.88.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, Randy Dunlap <rdunlap@xenotime.net>,
-	Takahiro Shimizu <tshimizu818@gmail.com>,
+	"Takahiro Shimizu" <tshimizu818@gmail.com>,
 	Richard Cochran <richardcochran@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:26189 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:26203 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753806Ab2KQBnk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 20:43:40 -0500
+	with ESMTP id S1753806Ab2KQBoC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 20:44:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,6 +24,7 @@ PTP_1588_CLOCK_PCH depend on PCH_GBE.  The dependency is really the
 other way around.  Therefore make PCH_GBE select PTP_1588_CLOCK_PCH
 and remove the 'default y' from the latter.
 
+Reported-by: Randy Dunlap <rdunlap@xenotime.net>
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
  drivers/net/ethernet/oki-semi/pch_gbe/Kconfig |    1 +
