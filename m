@@ -1,46 +1,91 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [PATCH 0/4] Implement persistent grant in xen-netfront/netback
-Date: Sat, 17 Nov 2012 12:39:21 +0800
-Message-ID: <50A714F9.4040206@oracle.com>
-References: <1352962987-541-1-git-send-email-annie.li@oracle.com>	 <1353059821.3499.190.camel@zakaz.uk.xensource.com>	 <50A6255C.10108@oracle.com> <1353066382.3499.227.camel@zakaz.uk.xensource.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH v2 net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
+ to return an interface name
+Date: Sat, 17 Nov 2012 09:06:24 +0400
+Message-ID: <50A71B50.3030603@parallels.com>
+References: <50A6A8FB.3050901@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:37982 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752054Ab2KQEjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Nov 2012 23:39:37 -0500
-In-Reply-To: <1353066382.3499.227.camel@zakaz.uk.xensource.com>
+Received: from mailhub.sw.ru ([195.214.232.25]:47641 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750728Ab2KQFGu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Nov 2012 00:06:50 -0500
+In-Reply-To: <50A6A8FB.3050901@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> @@ -4165,6 +4180,8 @@ static int dev_ifname(struct net *net, struct ifreq __user
+> *arg)
+> 
+>  	strcpy(ifr.ifr_name, dev->name);
+>  	rcu_read_unlock();
+> +	if (read_seqretry(&devnet_rename_seq, seq))
+> +		goto retry;
 
+I believe it makes sense to make the seqcount protection as a separate patch
+with description of what may happen.
 
-On 2012-11-16 19:46, Ian Campbell wrote:
->
-> It seems like having netfront simply allocate itself a pool of grant
-> references which it reuses would give equivalent benefits whilst being a
-> smaller patch, with no protocol change and avoiding double copying. In
-> fact by avoiding the double copy I'd expect it to be even better.
->
->   
+> 
+>  	if (copy_to_user(arg, &ifr, sizeof(struct ifreq)))
+>  		return -EFAULT;
 
-OK, I can try this implementation.
-And I'd better to compare the performance between double copy and this 
-implementation to see how much grant lock affects grant copy too.
+> @@ -562,6 +563,59 @@ out:
+>  	return ret;
+>  }
+> 
+> +static int sock_getbindtodevice(struct sock *sk, char __user *optval,
+> +				int __user *optlen, int len)
+> +{
+> +	int ret = -ENOPROTOOPT;
+> +#ifdef CONFIG_NETDEVICES
+> +	struct net *net = sock_net(sk);
+> +	struct net_device *dev;
+> +	char devname[IFNAMSIZ];
+> +	unsigned seq;
+> +
+> +	if (sk->sk_bound_dev_if == 0) {
+> +		len = 0;
+> +		goto zero;
+> +	}
+> +
+> +	ret = -EINVAL;
+> +	if (len < IFNAMSIZ)
+> +		goto out;
+> +
+> +retry:
+> +	seq = read_seqbegin(&devnet_rename_seq);
+> +	rcu_read_lock();
+> +	dev = dev_get_by_index_rcu(net, sk->sk_bound_dev_if);
 
-> I think you need to measure both dom0->domU and domU->dom0 to get the
-> full picture since AIUI netperf sends the bulk data in only one
-> direction with just ACKs coming back the other way.
->   
-Yes.
-My environment does not meet requirement of more VMs, I would do more 
-thorough test after Konrad setups the environment.
+The sk->sk_bound_dev_if might have changed to 0 while we did read_seqretry (or
+did the len check above, but the race window is smaller) and this code will
+report -ENODEV instead of zero lenght.
 
-Thanks
-Annie
+Other than this, the intention looks OK to me.
+
+> +	ret = -ENODEV;
+> +	if (!dev) {
+> +		rcu_read_unlock();
+> +		goto out;
+> +	}
+> +
+> +	strcpy(devname, dev->name);
+> +	rcu_read_unlock();
+> +	if (read_seqretry(&devnet_rename_seq, seq))
+> +		goto retry;
+> +
+> +	len = strlen(devname) + 1;
+> +
+> +	ret = -EFAULT;
+> +	if (copy_to_user(optval, devname, len))
+> +		goto out;
+> +
+
+Thanks,
+Pavel
