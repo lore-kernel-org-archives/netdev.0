@@ -1,59 +1,47 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] checkpatch: add double empty line check
-Date: Sat, 17 Nov 2012 13:12:56 +0200
-Message-ID: <1353150776.14327.13.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1353094919.14327.4.camel@lb-tlvb-eilong.il.broadcom.com>
- <alpine.DEB.2.00.1211161154280.2788@chino.kir.corp.google.com>
- <1353096274.14327.9.camel@lb-tlvb-eilong.il.broadcom.com>
- <1353113454.2512.21.camel@joe-AO722>
+Subject: [PATCH v2] checkpatch: add double empty line check
+Date: Sat, 17 Nov 2012 13:17:37 +0200
+Message-ID: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
 Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David Rientjes" <rientjes@google.com>,
-	"Andy Whitcroft" <apw@canonical.com>, linux-kernel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>
-To: "Joe Perches" <joe@perches.com>
+Cc: "Joe Perches" <joe@perches.com>,
+	"David Rientjes" <rientjes@google.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: "Andy Whitcroft" <apw@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1353113454.2512.21.camel@joe-AO722>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-11-16 at 16:50 -0800, Joe Perches wrote:
+Changes from previous attempt:
+- Use CHK instead of WARN
+- Issue only one warning per empty lines block
 
-Hi Joe, thanks for replying.
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ scripts/checkpatch.pl |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-> On Fri, 2012-11-16 at 22:04 +0200, Eilon Greenstein wrote:
-> > On Fri, 2012-11-16 at 11:55 -0800, David Rientjes wrote:
-> > > On Fri, 16 Nov 2012, Eilon Greenstein wrote:
-
-> > > This is fairly common in all the acpi code where variables declared in a 
-> > > function are separated from the code in a function.
-> > > 
-> > 
-> > Indeed, I see that you do use it in some functions.
-> > 
-> > Maybe we can limit it only to the networking tree (similar to the
-> > networking comments style) or if the ACPI is the exception, we can apply
-> > to all but ACPI.
-> 
-> I'm not sure this should be done.
-> Double line spacing has some utility and
-> is pretty common.
-
-Since adding double empty line can cause a patch to be rejected, we
-should have an easy way to catch it before submitting.
-
-> Perhaps make this a --strict/CHK option
-> and also perhaps make sure this isn't
-> emitted on consecutive lines.
-
-Indeed, CHK makes more sense. I wanted to have a warning per redundant
-line, but since it can be annoying when adding 3 or more empty lines
-intentionally, I will issue one comment for consecutive lines.
-
-v2 is on its way.
-
-Thanks,
-Eilon
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 21a9f5d..13d264f 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -3579,6 +3579,14 @@ sub process {
+ 			WARN("EXPORTED_WORLD_WRITABLE",
+ 			     "Exporting world writable files is usually an error. Consider more restrictive permissions.\n" . $herecurr);
+ 		}
++
++# check for double empty lines
++		if ($line =~ /^\+\s*$/ &&
++		    ($rawlines[$linenr] =~ /^\s*$/ ||
++		     $prevline =~ /^\+?\s*$/ && $rawlines[$linenr] !~ /^\+\s*$/)) {
++			CHK("DOUBLE_EMPTY_LINE",
++			    "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
++		}
+ 	}
+ 
+ 	# If we have no input at all, then there is nothing to report on
+-- 
+1.7.9.5
