@@ -1,40 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pch_gbe, ptp_pch: Fix the dependency
- direction between these drivers
-Date: Sat, 17 Nov 2012 22:12:20 -0500 (EST)
-Message-ID: <20121117.221220.439160764788131857.davem@davemloft.net>
-References: <1353116639.2743.88.camel@bwh-desktop.uk.solarflarecom.com>
-	<50A6F01C.4010304@xenotime.net>
+Subject: Re: [PATCH net-next 1/2] PPC: net: bpf_jit_comp: add XOR
+ instruction for BPF JIT
+Date: Sat, 17 Nov 2012 22:13:02 -0500 (EST)
+Message-ID: <20121117.221302.2292045858181105294.davem@davemloft.net>
+References: <20121108213939.GA29696@thinkbox>
+	<744A32A4-3F1F-4253-9ECB-59DBCC240847@ozlabs.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	tshimizu818@gmail.com, richardcochran@gmail.com
-To: rdunlap@xenotime.net
+Cc: dxchgb@gmail.com, benh@kernel.crashing.org, netdev@vger.kernel.org
+To: matt@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44434 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44440 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752527Ab2KRDMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2012 22:12:22 -0500
-In-Reply-To: <50A6F01C.4010304@xenotime.net>
+	with ESMTP id S1752527Ab2KRDNF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Nov 2012 22:13:05 -0500
+In-Reply-To: <744A32A4-3F1F-4253-9ECB-59DBCC240847@ozlabs.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@xenotime.net>
-Date: Fri, 16 Nov 2012 18:02:04 -0800
+From: Matt Evans <matt@ozlabs.org>
+Date: Sat, 17 Nov 2012 00:00:38 +0000
 
-> On 11/16/2012 05:43 PM, Ben Hutchings wrote:
+> Hi Daniel,
 > 
->> In commit a24006ed12616bde1bbdb26868495906a212d8dc ('ptp: Enable clock
->> drivers along with associated net/PHY drivers') I wrongly made
->> PTP_1588_CLOCK_PCH depend on PCH_GBE.  The dependency is really the
->> other way around.  Therefore make PCH_GBE select PTP_1588_CLOCK_PCH
->> and remove the 'default y' from the latter.
+> 
+> On 08/11/2012, at 9:39 PM, Daniel Borkmann wrote:
+> 
+>> This patch is a follow-up for patch "filter: add XOR instruction for use
+>> with X/K" that implements BPF PowerPC JIT parts for the BPF XOR operation.
 >> 
->> Reported-by: Randy Dunlap <rdunlap@xenotime.net>
->> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+>> Signed-off-by: Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>
+>> Cc: Matt Evans <matt@ozlabs.org>
+>> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+>> ---
+>> Disclaimer: uncompiled and untested, since I don't have a PPC machine,
+>> but it should (hopefully) integrate cleanly; impl. after PPC instruction
+>> reference.
+> 
+> Unfortunately I can only compile and test this mentally, but it looks fine, instruction formats correct etc.  Thanks!
 > 
 > 
-> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+> Acked-by: Matt Evans <matt@ozlabs.org>
 
-Applied, thanks everyone.
+Applied.
