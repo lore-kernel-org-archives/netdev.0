@@ -1,40 +1,45 @@
-From: David Rientjes <rientjes@google.com>
-Subject: Re: Latest 3.6.6 are not compiling due tg3 network driver,
- hwmon_device_unregister
-Date: Sun, 18 Nov 2012 14:42:48 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1211181441470.5080@chino.kir.corp.google.com>
-References: <8b566c4a9ee622737212dc17291ee238@visp.net.lb> <50A4606D.4020402@broadcom.com> <alpine.DEB.2.00.1211141929510.14414@chino.kir.corp.google.com> <50A464E4.1080105@broadcom.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net 1/1] sis900: fix sis900_set_mode call parameters.
+Date: Sun, 18 Nov 2012 23:41:50 +0100
+Message-ID: <20121118224150.GA6755@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nithin Nayak Sujir <nsujir@broadcom.com>,
-	Denys Fedoryshchenko <denys@visp.net.lb>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50A464E4.1080105@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jan Janssen <medhefgo@web.de>,
+	Daniele Venzano <venza@brownhat.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:58405 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752639Ab2KRXFW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Nov 2012 18:05:22 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 14 Nov 2012, Nithin Nayak Sujir wrote:
+Leftover of 57d6d456cfb89264f87d24f52640ede23fdf12bd ("sis900: stop
+using net_device.{base_addr, irq} and convert to __iomem.").
 
-> On 11/14/2012 07:30 PM, David Rientjes wrote:
-> > On Wed, 14 Nov 2012, Nithin Nayak Sujir wrote:
-> > 
-> > > This was fixed by
-> > > 
-> > > commit de0a41484c47d783dd4d442914815076aa2caac2
-> > > Author: Paul Gortmaker <paul.gortmaker@windriver.com>
-> > > Date:   Mon Oct 1 11:43:49 2012 -0400
-> > > 
-> > >      tg3: unconditionally select HWMON support when tg3 is enabled.
-> > > 
-> > Would you mind submitting this for stable by following the procedure
-> > described in Documentation/stable_kernel_rules.txt?
-> > 
-> 
-> Will do. Thank you for bringing this to our attention.
-> 
+It is needed for suspend / resume to work.
 
-Thanks for submitting the patch to stable, Greg has queued it for the 
-kernels he maintains.  Denys, expect to see this fix in 3.6.8.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Tested-by: Jan Janssen <medhefgo@web.de>
+Cc: Daniele Venzano <venza@brownhat.org>
+---
+ drivers/net/ethernet/sis/sis900.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
+index fb9f6b3..edf5edb 100644
+--- a/drivers/net/ethernet/sis/sis900.c
++++ b/drivers/net/ethernet/sis/sis900.c
+@@ -2479,7 +2479,7 @@ static int sis900_resume(struct pci_dev *pci_dev)
+ 	netif_start_queue(net_dev);
+ 
+ 	/* Workaround for EDB */
+-	sis900_set_mode(ioaddr, HW_SPEED_10_MBPS, FDX_CAPABLE_HALF_SELECTED);
++	sis900_set_mode(sis_priv, HW_SPEED_10_MBPS, FDX_CAPABLE_HALF_SELECTED);
+ 
+ 	/* Enable all known interrupts by setting the interrupt mask. */
+ 	sw32(imr, RxSOVR | RxORN | RxERR | RxOK | TxURN | TxERR | TxIDLE);
+-- 
+1.7.11.7
