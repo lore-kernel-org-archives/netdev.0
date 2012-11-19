@@ -1,50 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/macb: move to circ_buf macros and fix initial
- condition
-Date: Mon, 19 Nov 2012 14:22:41 -0500 (EST)
-Message-ID: <20121119.142241.1136499358405707363.davem@davemloft.net>
-References: <1353338244-11506-1-git-send-email-nicolas.ferre@atmel.com>
-	<1353340821-12658-1-git-send-email-nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 200/493] irda: remove use of __devinit
+Date: Mon, 19 Nov 2012 14:24:46 -0500 (EST)
+Message-ID: <20121119.142446.1954365383179623684.davem@davemloft.net>
+References: <1353349642-3677-200-git-send-email-wfp5p@virginia.edu>
+	<20121119.140654.780679585475336928.davem@davemloft.net>
+	<20121119192121.GA16694@kroah.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, plagnioj@jcrosoft.com, manabian@gmail.com,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1353340821-12658-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: wfp5p@virginia.edu, samuel@sortiz.org, netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60680 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754273Ab2KSTYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 14:24:48 -0500
+In-Reply-To: <20121119192121.GA16694@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Mon, 19 Nov 2012 17:00:21 +0100
+From: Greg KH <gregkh@linuxfoundation.org>
+Date: Mon, 19 Nov 2012 11:21:21 -0800
 
-> Move to circular buffers management macro and correct an error
-> with circular buffer initial condition.
+> On Mon, Nov 19, 2012 at 02:06:54PM -0500, David Miller wrote:
+>> 
+>> It is absolutely not reasonable to post nearly 500 patches all
+>> at the same time.
+>> 
+>> Do not do this ever again.
 > 
-> Without this patch, the macb_tx_ring_avail() function was
-> not reporting the proper ring availability at startup:
-> macb macb: eth0: BUG! Tx Ring full when queue awake!
-> macb macb: eth0: tx_head = 0, tx_tail = 0
-> And hanginig forever...
+> Bill did this with the assumption that I would take them through my
+> driver-core tree, as I asked that he do this work.  The 000 message said
+> that, but that wasn't sent out to all of the recipients, so I can
+> understand how you didn't see this.
 > 
-> I remove the macb_tx_ring_avail() function and use the
-> proven macros from circ_buf.h. CIRC_CNT() is used in the
-> "consumer" part of the driver: macb_tx_interrupt() to match
-> advice from Documentation/circular-buffers.txt.
-> 
-> Reported-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Tested-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> Also, I was the only one that got all 500 emails, everyone else should
+> have only seen a small quantity.
 
-Applied, thanks.
+I had to purge nearly 100 out of networking's patchwork.
 
-> ---
-> v2: - added tags from Jean-Christophe PLAGNIOL-VILLARD
-
-Note that under normal circumstances, if the only change is the
-tags that people added in replies, you don't need to do this.
-
-Patchwork accumulates all of the signoffs, acks, tested-by,
-reviewed-by, etc. tags made in replies to the patch automatically for
-me, so when I apply the patch they will be there.
+This is unacceptable.
