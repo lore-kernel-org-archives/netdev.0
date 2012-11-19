@@ -1,83 +1,128 @@
-From: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] net,
-	batman: don't crash on zero length strings in routing_algo
-Date: Mon, 19 Nov 2012 15:08:15 -0500
-Message-ID: <1353355695-23252-1-git-send-email-sasha.levin@oracle.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: lindner_marek-LWAfsSFWpa4@public.gmane.org, siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org, ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH V5 7/7] arm/dts: am33xx: Add CPSW and MDIO module nodes for AM33XX
+Date: Mon, 19 Nov 2012 21:24:53 +0100
+Message-ID: <877gphl4ru.fsf@dell.be.48ers.dk>
+References: <1352920080-6179-1-git-send-email-mugunthanvnm@ti.com>
+	<1352920080-6179-8-git-send-email-mugunthanvnm@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<devicetree-discuss@lists.ozlabs.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
+	Vaibhav Hiremath <hvaibhav@ti.com>
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:64793 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754782Ab2KSUY6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 15:24:58 -0500
+In-Reply-To: <1352920080-6179-8-git-send-email-mugunthanvnm@ti.com> (Mugunthan
+	V. N.'s message of "Thu, 15 Nov 2012 00:38:00 +0530")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The code that works with routing_algo assumes that the string passed is non
-empty, this assumption is wrong:
+>>>>> "M" == Mugunthan V N <mugunthanvnm@ti.com> writes:
 
-sh-4.2# echo -ne '\0' > /sys/module/batman_adv/parameters/routing_algo
-[   34.531340] BUG: unable to handle kernel paging request at ffff880015142fff
-[   34.539191] IP: [<ffffffff8390ac7a>] batadv_param_set_ra+0x3a/0x90
-[   34.541128] PGD 5027063 PUD 502b063 PMD 1bfc6067 PTE 15142160
-[   34.541128] Oops: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[   34.541128] CPU 0
-[   34.541128] Pid: 6612, comm: sh Tainted: G        W    3.7.0-rc6-sasha-00024-g33da443-dirty #157
-[   34.541128] RIP: 0010:[<ffffffff8390ac7a>]  [<ffffffff8390ac7a>] batadv_param_set_ra+0x3a/0x90
-[   34.541128] RSP: 0018:ffff880014f81e48  EFLAGS: 00010292
-[   34.541128] RAX: 000000000000003b RBX: ffff880015143000 RCX: 0000000000000006
-[   34.550025] RDX: 0000000000000006 RSI: ffff8800151cb960 RDI: 0000000000000282
-[   34.550025] RBP: ffff880014f81e68 R08: 0000000000000003 R09: 0000000000000000
-[   34.550025] R10: 0000000000000000 R11: 0000000000000001 R12: ffff880015142fff
-[   34.550025] R13: ffffffff84e6b390 R14: ffff880014f86a00 R15: ffffffff83c35170
-[   34.550025] FS:  00007f9ebc796700(0000) GS:ffff88001a600000(0000) knlGS:0000000000000000
-[   34.550025] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   34.550025] CR2: ffff880015142fff CR3: 000000001522f000 CR4: 00000000000406f0
-[   34.550025] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[   34.550025] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[   34.550025] Process sh (pid: 6612, threadinfo ffff880014f80000, task ffff8800151cb000)
-[   34.550025] Stack:
-[   34.550025]  ffff880014f81e68 ffff8800198ee020 0000000000000001 ffff880015143000
-[   34.550025]  ffff880014f81e98 ffffffff81133776 ffff880014f81ea8 ffff880014f86a20
-[   34.550025]  ffff880014f81f50 ffff880019d86d20 ffff880014f81ea8 ffffffff811335f8
-[   34.550025] Call Trace:
-[   34.550025]  [<ffffffff81133776>] param_attr_store+0x46/0x80
-[   34.550025]  [<ffffffff811335f8>] module_attr_store+0x18/0x40
-[   34.550025]  [<ffffffff812ed751>] sysfs_write_file+0x101/0x170
-[   34.550025]  [<ffffffff8126fcb8>] vfs_write+0xb8/0x180
-[   34.550025]  [<ffffffff8126fe70>] sys_write+0x50/0xa0
-[   34.550025]  [<ffffffff83b30018>] tracesys+0xe1/0xe6
-[   34.550025] Code: 4c 89 65 f0 4c 89 6d f8 49 89 f5 e8 71 c5 0b fe 48 c7 c7 38 2e df 84 4c 8d 60 ff 48 89 c6 31 c0 4c 89 e2 49 01 dc e8 a6 d8 15 00 <41> 80 3c 24 0a 75 05 41 c6 04 24 00 48 89 df e8 62 ff ff ff 48
-[   34.550025] RIP  [<ffffffff8390ac7a>] batadv_param_set_ra+0x3a/0x90
-[   34.550025]  RSP <ffff880014f81e48>
-[   34.550025] CR2: ffff880015142fff
-[   34.550025] ---[ end trace 6c53b662c574774b ]---
+ M> Add CPSW and MDIO related device tree data for AM33XX.
+ M> Also enable them into board/evm dts files by providing
+ M> respective phy-id.
 
-Signed-off-by: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
----
- net/batman-adv/main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ M> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+ M> Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
+ M> Cc: Benoit Cousson <b-cousson@ti.com>
+ M> Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
+ M> Acked-by: Richard Cochran <richardcochran@gmail.com>
 
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index dc33a0c..3b8e368 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -426,7 +426,7 @@ static int batadv_param_set_ra(const char *val, const struct kernel_param *kp)
- 	char *algo_name = (char *)val;
- 	size_t name_len = strlen(algo_name);
- 
--	if (algo_name[name_len - 1] == '\n')
-+	if (name_len > 0 && algo_name[name_len - 1] == '\n')
- 		algo_name[name_len - 1] = '\0';
- 
- 	bat_algo_ops = batadv_algo_get(algo_name);
+ M> +++ b/arch/arm/boot/dts/am335x-bone.dts
+ M> @@ -78,3 +78,11 @@
+ M>  		};
+ M>  	};
+ M>  };
+ M> +
+ M> +&cpsw_emac0 {
+ M> +	phy_id = <&davinci_mdio>, <0>;
+ M> +};
+ M> +
+ M> +&cpsw_emac1 {
+ M> +	phy_id = <&davinci_mdio>, <1>;
+ M> +};
+
+I already acked this and the problem isn't caused by this patch itself,
+but it isn't really nice that you have to add a dummy emac1 even though
+only the first port is used on the bone.
+
+It would imho be nicer to get rid of the 'slaves' property in cpsw (just
+let the driver count available slave children), mark both slaves in
+am33xx.dtsi with status = 'disabled' and only loop over the available
+slaves in cpsw_probe_dt(), similar to E.G. how the uarts/i2c are handled.
+
+Then am335x-bone.dts would just need to add:
+
+&cpsw_emac0 {
+    status = 'ok';
+    phy_id = <&davinci_mdio>, <0>;
+};
+
+I'll send a patch shortly to implement this.
+
+
+ M> diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+ M> index bb31bff..a4615b4 100644
+ M> --- a/arch/arm/boot/dts/am33xx.dtsi
+ M> +++ b/arch/arm/boot/dts/am33xx.dtsi
+ M> @@ -210,5 +210,53 @@
+ M>  			interrupt-parent = <&intc>;
+ M>  			interrupts = <91>;
+ M>  		};
+ M> +
+ M> +		mac: ethernet@4a100000 {
+ M> +			compatible = "ti,cpsw";
+ M> +			ti,hwmods = "cpgmac0";
+ M> +			cpdma_channels = <8>;
+ M> +			ale_entries = <1024>;
+ M> +			bd_ram_size = <0x2000>;
+ M> +			no_bd_ram = <0>;
+ M> +			rx_descs = <64>;
+ M> +			mac_control = <0x20>;
+ M> +			slaves = <2>;
+ M> +			cpts_active_slave = <0>;
+ M> +			cpts_clock_mult = <0x80000000>;
+ M> +			cpts_clock_shift = <29>;
+ M> +			reg = <0x4a100000 0x800
+ M> +			       0x4a101200 0x100>;
+ M> +			#address-cells = <1>;
+ M> +			#size-cells = <1>;
+ M> +			interrupt-parent = <&intc>;
+ M> +			/*
+ M> +			 * c0_rx_thresh_pend
+ M> +			 * c0_rx_pend
+ M> +			 * c0_tx_pend
+ M> +			 * c0_misc_pend
+ M> +			 */
+ M> +			interrupts = <40 41 42 43>;
+ M> +			ranges;
+ M> +
+ M> +			davinci_mdio: mdio@4a101000 {
+ M> +				compatible = "ti,davinci_mdio";
+ M> +				#address-cells = <1>;
+ M> +				#size-cells = <0>;
+ M> +				ti,hwmods = "davinci_mdio";
+ M> +				bus_freq = <1000000>;
+ M> +				reg = <0x4a101000 0x100>;
+ M> +			};
+ M> +
+ M> +			cpsw_emac0: slave@4a100200 {
+ M> +				/* Filled in by U-Boot */
+ M> +				mac-address = [ 00 00 00 00 00 00 ];
+ M> +			};
+ M> +
+ M> +			cpsw_emac1: slave@4a100300 {
+ M> +				/* Filled in by U-Boot */
+ M> +				mac-address = [ 00 00 00 00 00 00 ];
+ M> +			};
+ M> +
+ M> +		};
+
 -- 
-1.8.0
+Bye, Peter Korsgaard
