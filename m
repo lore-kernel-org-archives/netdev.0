@@ -1,128 +1,75 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH V5 7/7] arm/dts: am33xx: Add CPSW and MDIO module nodes for AM33XX
-Date: Mon, 19 Nov 2012 21:24:53 +0100
-Message-ID: <877gphl4ru.fsf@dell.be.48ers.dk>
-References: <1352920080-6179-1-git-send-email-mugunthanvnm@ti.com>
-	<1352920080-6179-8-git-send-email-mugunthanvnm@ti.com>
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Re: Re: [B.A.T.M.A.N.] [PATCH 04/10] batman-adv: export compatibility version via debugfs
+Date: Mon, 19 Nov 2012 21:25:23 +0100
+Message-ID: <2101957.c21FspBRQs@sven-laptop.home.narfation.org>
+References: <1353313451-2930-1-git-send-email-ordex@autistici.org> <5268262.CIrZ93ERtB@bentobox> <1353354018.4156.13.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<devicetree-discuss@lists.ozlabs.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
-	Vaibhav Hiremath <hvaibhav@ti.com>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: multipart/signed; boundary="nextPart1390365.niZB4vpOmQ"; micalg="pgp-sha512"; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7Bit
+Cc: b.a.t.m.a.n@lists.open-mesh.org,
+	Antonio Quartulli <ordex@autistici.org>,
+	netdev@vger.kernel.org, Marek Lindner <lindner_marek@yahoo.de>,
+	davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:64793 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754782Ab2KSUY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 15:24:58 -0500
-In-Reply-To: <1352920080-6179-8-git-send-email-mugunthanvnm@ti.com> (Mugunthan
-	V. N.'s message of "Thu, 15 Nov 2012 00:38:00 +0530")
+Received: from narfation.org ([79.140.41.39]:40175 "EHLO v3-1039.vlinux.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754782Ab2KSUZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Nov 2012 15:25:33 -0500
+In-Reply-To: <1353354018.4156.13.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "M" == Mugunthan V N <mugunthanvnm@ti.com> writes:
 
- M> Add CPSW and MDIO related device tree data for AM33XX.
- M> Also enable them into board/evm dts files by providing
- M> respective phy-id.
+--nextPart1390365.niZB4vpOmQ
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="UTF-8"
 
- M> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
- M> Signed-off-by: Vaibhav Hiremath <hvaibhav@ti.com>
- M> Cc: Benoit Cousson <b-cousson@ti.com>
- M> Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
- M> Acked-by: Richard Cochran <richardcochran@gmail.com>
+On Monday 19 November 2012 19:40:18 Ben Hutchings wrote:
+[...]
+> > > I do hope that you're not planning to use unstable debugfs interfaces
+> > > indefinitely.
+> > 
+> > Why are you refering to the adding of an file as "incompatible" debugfs
+> > interface? I would call it additional information. And the rest of the
+> > commit message is talking about *possible* protocol incompatibilies of
+> > the network protocol (which caused this uncontrolled erruption of anger
+> > in a network maintainer).
+> 
+> I didn't say that.  But debugfs tends to be exempted from expectations
+> of interface stability or cleanliness (as it's for development, not
+> production... right?).  It's also an optional feature that might not be
+> enabled at compile time or run-time.  If BATMAN is ever going to be
+> ready for general use it will need stable interfaces that are updated in
+> a backward-compatible way and don't depend on debugfs.
 
- M> +++ b/arch/arm/boot/dts/am335x-bone.dts
- M> @@ -78,3 +78,11 @@
- M>  		};
- M>  	};
- M>  };
- M> +
- M> +&cpsw_emac0 {
- M> +	phy_id = <&davinci_mdio>, <0>;
- M> +};
- M> +
- M> +&cpsw_emac1 {
- M> +	phy_id = <&davinci_mdio>, <1>;
- M> +};
+Ok, I thought this file was meant for an optional developer information (the 
+interface to work with batman-adv is in /sys) and concluded too fast that you 
+are questioning this change because it makes something "unstable" (sry, for 
+using the wrong term before).
 
-I already acked this and the problem isn't caused by this patch itself,
-but it isn't really nice that you have to add a dummy emac1 even though
-only the first port is used on the bone.
+Thanks,
+	Sven
+--nextPart1390365.niZB4vpOmQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
 
-It would imho be nicer to get rid of the 'slaves' property in cpsw (just
-let the driver count available slave children), mark both slaves in
-am33xx.dtsi with status = 'disabled' and only loop over the available
-slaves in cpsw_probe_dt(), similar to E.G. how the uarts/i2c are handled.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-Then am335x-bone.dts would just need to add:
+iQIcBAABCgAGBQJQqpWzAAoJEF2HCgfBJntGVskQALB+Qb3QzenDoW2MwGYn1A3d
+qg/64+Iiu92jVAdAUpPA7XIyHDAc2JmLPp4uWN3LOFO3Z9GN3yjt81bgbNFUg2Z7
+rhWTrmt/ai8Ojp8Lqp28aM5un1DRJfBAmDQ8JcEZ8KgzdSd5WtRd6ibcfMcMryYO
+oApGrDL0uELWgDCKNpbHz067B8qymp+lpXHTzZoaxZcm+lQ+r5z1LE6yRnilG/CK
+i1atjZuZvxqTa/YZgVJDUqJFLSHMSkWnvoORsOEM0WdDx9xxkQ1fX580JWXS8M9/
+bMz79SWI0AqGpbOku3EbmWD0pt8ZJ1HfuEgxpKhUsEJ32OUAcB+GlA6GAs95Er0m
+/J/JYP3SlKex/q1xSSAv3/ik3AN66GGWZomxrMMyAbRHhTyaDd9mxQK0PRTkeYgp
+PwRLiRjqssfwuioHfuUSNI0m4pygwNyuY4hBe3fTj27v4+ICBpMAOmYdiQRE0IZd
+WVtdWM4HDw8ZNIzzEri0aa1zVxgvbd3GR9JBIeJ5UuaHNFLciBho4Il6OAavikVh
+UWJFheZGKSpfrOECD251o4HEczjURqZxv8p/T6qsJObgM0zAZ692g9+Suj0w3kRT
+VEDWTnU+Ai5fCYm82FHqRumUOIRiorakpDK7hS4SpzEYOl4vCyKEIy3Anc44LpAw
+G0ROW+ol5JntOc6Vs1gZ
+=RWLk
+-----END PGP SIGNATURE-----
 
-&cpsw_emac0 {
-    status = 'ok';
-    phy_id = <&davinci_mdio>, <0>;
-};
-
-I'll send a patch shortly to implement this.
-
-
- M> diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
- M> index bb31bff..a4615b4 100644
- M> --- a/arch/arm/boot/dts/am33xx.dtsi
- M> +++ b/arch/arm/boot/dts/am33xx.dtsi
- M> @@ -210,5 +210,53 @@
- M>  			interrupt-parent = <&intc>;
- M>  			interrupts = <91>;
- M>  		};
- M> +
- M> +		mac: ethernet@4a100000 {
- M> +			compatible = "ti,cpsw";
- M> +			ti,hwmods = "cpgmac0";
- M> +			cpdma_channels = <8>;
- M> +			ale_entries = <1024>;
- M> +			bd_ram_size = <0x2000>;
- M> +			no_bd_ram = <0>;
- M> +			rx_descs = <64>;
- M> +			mac_control = <0x20>;
- M> +			slaves = <2>;
- M> +			cpts_active_slave = <0>;
- M> +			cpts_clock_mult = <0x80000000>;
- M> +			cpts_clock_shift = <29>;
- M> +			reg = <0x4a100000 0x800
- M> +			       0x4a101200 0x100>;
- M> +			#address-cells = <1>;
- M> +			#size-cells = <1>;
- M> +			interrupt-parent = <&intc>;
- M> +			/*
- M> +			 * c0_rx_thresh_pend
- M> +			 * c0_rx_pend
- M> +			 * c0_tx_pend
- M> +			 * c0_misc_pend
- M> +			 */
- M> +			interrupts = <40 41 42 43>;
- M> +			ranges;
- M> +
- M> +			davinci_mdio: mdio@4a101000 {
- M> +				compatible = "ti,davinci_mdio";
- M> +				#address-cells = <1>;
- M> +				#size-cells = <0>;
- M> +				ti,hwmods = "davinci_mdio";
- M> +				bus_freq = <1000000>;
- M> +				reg = <0x4a101000 0x100>;
- M> +			};
- M> +
- M> +			cpsw_emac0: slave@4a100200 {
- M> +				/* Filled in by U-Boot */
- M> +				mac-address = [ 00 00 00 00 00 00 ];
- M> +			};
- M> +
- M> +			cpsw_emac1: slave@4a100300 {
- M> +				/* Filled in by U-Boot */
- M> +				mac-address = [ 00 00 00 00 00 00 ];
- M> +			};
- M> +
- M> +		};
-
--- 
-Bye, Peter Korsgaard
+--nextPart1390365.niZB4vpOmQ--
