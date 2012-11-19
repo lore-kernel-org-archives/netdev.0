@@ -1,31 +1,17 @@
 From: Bill Pemberton <wfp5p@virginia.edu>
-Subject: [PATCH 196/493] net/wireless: remove use of __devinit
-Date: Mon, 19 Nov 2012 13:22:25 -0500
-Message-ID: <1353349642-3677-196-git-send-email-wfp5p@virginia.edu>
+Subject: [PATCH 202/493] can: remove use of __devinit
+Date: Mon, 19 Nov 2012 13:22:31 -0500
+Message-ID: <1353349642-3677-202-git-send-email-wfp5p@virginia.edu>
 References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	Simon Kelley <simon@thekelleys.org.uk>,
-	Stefano Brivio <stefano.brivio@polimi.it>,
-	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	Dan Williams <dcbw@redhat.com>,
-	Christian Lamparter <chunkeey@googlemail.com>,
-	Herton Ronaldo Krzesinski <herton@canonical.com>,
-	Hin-Tak Leung <htl10@users.sourceforge.net>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Luciano Coelho <coelho@ti.com>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, ath5k-devel@lists.ath5k.org,
-	b43-dev@lists.infradead.org, brcm80211-dev-list@broadcom.com,
-	libertas-dev@lists.infradead.org
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viridian.itc.Virginia.EDU ([128.143.12.139]:41313 "EHLO
+Received: from viridian.itc.Virginia.EDU ([128.143.12.139]:41322 "EHLO
 	viridian.itc.virginia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754114Ab2KSScf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:32:35 -0500
+	with ESMTP id S1753782Ab2KSScw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:32:52 -0500
 In-Reply-To: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -34,438 +20,500 @@ CONFIG_HOTPLUG is going away as an option so __devinit is no longer
 needed.
 
 Signed-off-by: Bill Pemberton <wfp5p@virginia.edu>
-Cc: "John W. Linville" <linville@tuxdriver.com> 
-Cc: Jiri Slaby <jirislaby@gmail.com> 
-Cc: Nick Kossifidis <mickflemm@gmail.com> 
-Cc: "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com> 
-Cc: Simon Kelley <simon@thekelleys.org.uk> 
-Cc: Stefano Brivio <stefano.brivio@polimi.it> 
-Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com> 
-Cc: Dan Williams <dcbw@redhat.com> 
-Cc: Christian Lamparter <chunkeey@googlemail.com> 
-Cc: Herton Ronaldo Krzesinski <herton@canonical.com> 
-Cc: Hin-Tak Leung <htl10@users.sourceforge.net> 
-Cc: Larry Finger <Larry.Finger@lwfinger.net> 
-Cc: Chaoming Li <chaoming_li@realsil.com.cn> 
-Cc: Luciano Coelho <coelho@ti.com> 
-Cc: linux-wireless@vger.kernel.org 
+Cc: Wolfgang Grandegger <wg@grandegger.com> 
+Cc: Marc Kleine-Budde <mkl@pengutronix.de> 
+Cc: linux-can@vger.kernel.org 
 Cc: netdev@vger.kernel.org 
-Cc: ath5k-devel@lists.ath5k.org 
-Cc: b43-dev@lists.infradead.org 
-Cc: brcm80211-dev-list@broadcom.com 
-Cc: libertas-dev@lists.infradead.org 
 ---
- drivers/net/wireless/adm8211.c                        | 2 +-
- drivers/net/wireless/airo.c                           | 2 +-
- drivers/net/wireless/ath/ath5k/base.c                 | 4 ++--
- drivers/net/wireless/ath/ath5k/led.c                  | 2 +-
- drivers/net/wireless/ath/ath5k/pci.c                  | 2 +-
- drivers/net/wireless/atmel_pci.c                      | 2 +-
- drivers/net/wireless/b43/pcmcia.c                     | 2 +-
- drivers/net/wireless/b43/sdio.c                       | 2 +-
- drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c | 2 +-
- drivers/net/wireless/ipw2x00/ipw2200.c                | 4 ++--
- drivers/net/wireless/libertas/if_spi.c                | 2 +-
- drivers/net/wireless/mwl8k.c                          | 2 +-
- drivers/net/wireless/p54/p54pci.c                     | 2 +-
- drivers/net/wireless/p54/p54spi.c                     | 2 +-
- drivers/net/wireless/p54/p54usb.c                     | 2 +-
- drivers/net/wireless/rtl818x/rtl8180/dev.c            | 2 +-
- drivers/net/wireless/rtl818x/rtl8187/dev.c            | 2 +-
- drivers/net/wireless/rtlwifi/pci.c                    | 2 +-
- drivers/net/wireless/rtlwifi/pci.h                    | 2 +-
- drivers/net/wireless/rtlwifi/usb.c                    | 2 +-
- drivers/net/wireless/rtlwifi/usb.h                    | 2 +-
- drivers/net/wireless/ti/wl1251/spi.c                  | 2 +-
- drivers/net/wireless/ti/wl12xx/main.c                 | 2 +-
- drivers/net/wireless/ti/wl18xx/main.c                 | 2 +-
- drivers/net/wireless/ti/wlcore/main.c                 | 2 +-
- drivers/net/wireless/ti/wlcore/sdio.c                 | 2 +-
- drivers/net/wireless/ti/wlcore/spi.c                  | 2 +-
- drivers/net/wireless/ti/wlcore/wlcore.h               | 2 +-
- 28 files changed, 30 insertions(+), 30 deletions(-)
+ drivers/net/can/at91_can.c                    |  2 +-
+ drivers/net/can/bfin_can.c                    |  2 +-
+ drivers/net/can/c_can/c_can_pci.c             |  2 +-
+ drivers/net/can/c_can/c_can_platform.c        |  2 +-
+ drivers/net/can/cc770/cc770_isa.c             |  2 +-
+ drivers/net/can/cc770/cc770_platform.c        |  6 +++---
+ drivers/net/can/flexcan.c                     |  4 ++--
+ drivers/net/can/janz-ican3.c                  | 16 ++++++++--------
+ drivers/net/can/mcp251x.c                     |  2 +-
+ drivers/net/can/mscan/mpc5xxx_can.c           | 10 +++++-----
+ drivers/net/can/pch_can.c                     |  2 +-
+ drivers/net/can/sja1000/ems_pci.c             |  2 +-
+ drivers/net/can/sja1000/ems_pcmcia.c          |  4 ++--
+ drivers/net/can/sja1000/kvaser_pci.c          |  2 +-
+ drivers/net/can/sja1000/peak_pci.c            |  2 +-
+ drivers/net/can/sja1000/peak_pcmcia.c         |  2 +-
+ drivers/net/can/sja1000/plx_pci.c             |  2 +-
+ drivers/net/can/sja1000/sja1000_isa.c         |  2 +-
+ drivers/net/can/sja1000/sja1000_of_platform.c |  2 +-
+ drivers/net/can/sja1000/tscan1.c              |  2 +-
+ drivers/net/can/softing/softing_cs.c          |  6 +++---
+ drivers/net/can/softing/softing_main.c        |  8 ++++----
+ 22 files changed, 42 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/net/wireless/adm8211.c b/drivers/net/wireless/adm8211.c
-index a05bac2..bd89a29 100644
---- a/drivers/net/wireless/adm8211.c
-+++ b/drivers/net/wireless/adm8211.c
-@@ -1761,7 +1761,7 @@ static const struct ieee80211_ops adm8211_ops = {
- 	.get_tsf		= adm8211_get_tsft
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index 0f08305..32e60dd 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -1241,7 +1241,7 @@ static struct attribute_group at91_sysfs_attr_group = {
+ 	.attrs = at91_sysfs_attrs,
  };
  
--static int __devinit adm8211_probe(struct pci_dev *pdev,
-+static int adm8211_probe(struct pci_dev *pdev,
- 				   const struct pci_device_id *id)
+-static int __devinit at91_can_probe(struct platform_device *pdev)
++static int at91_can_probe(struct platform_device *pdev)
  {
- 	struct ieee80211_hw *dev;
-diff --git a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
-index af1096b..b010f41 100644
---- a/drivers/net/wireless/airo.c
-+++ b/drivers/net/wireless/airo.c
-@@ -5584,7 +5584,7 @@ static void timer_func( struct net_device *dev ) {
- }
- 
- #ifdef CONFIG_PCI
--static int __devinit airo_pci_probe(struct pci_dev *pdev,
-+static int airo_pci_probe(struct pci_dev *pdev,
- 				    const struct pci_device_id *pent)
- {
- 	struct net_device *dev;
-diff --git a/drivers/net/wireless/ath/ath5k/base.c b/drivers/net/wireless/ath/ath5k/base.c
-index 9f31cfa..026ae8a 100644
---- a/drivers/net/wireless/ath/ath5k/base.c
-+++ b/drivers/net/wireless/ath/ath5k/base.c
-@@ -2434,7 +2434,7 @@ static const struct ieee80211_iface_combination if_comb = {
- 	.num_different_channels = 1,
+ 	const struct at91_devtype_data *devtype_data;
+ 	enum at91_devtype devtype;
+diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+index ee4983a..16515e3 100644
+--- a/drivers/net/can/bfin_can.c
++++ b/drivers/net/can/bfin_can.c
+@@ -531,7 +531,7 @@ static const struct net_device_ops bfin_can_netdev_ops = {
+ 	.ndo_start_xmit         = bfin_can_start_xmit,
  };
  
--int __devinit
-+int
- ath5k_init_ah(struct ath5k_hw *ah, const struct ath_bus_ops *bus_ops)
- {
- 	struct ieee80211_hw *hw = ah->hw;
-@@ -2860,7 +2860,7 @@ static void ath5k_reset_work(struct work_struct *work)
- 	mutex_unlock(&ah->lock);
- }
- 
--static int __devinit
-+static int
- ath5k_init(struct ieee80211_hw *hw)
- {
- 
-diff --git a/drivers/net/wireless/ath/ath5k/led.c b/drivers/net/wireless/ath/ath5k/led.c
-index b9f708a..f77ef36 100644
---- a/drivers/net/wireless/ath/ath5k/led.c
-+++ b/drivers/net/wireless/ath/ath5k/led.c
-@@ -158,7 +158,7 @@ void ath5k_unregister_leds(struct ath5k_hw *ah)
- 	ath5k_unregister_led(&ah->tx_led);
- }
- 
--int __devinit ath5k_init_leds(struct ath5k_hw *ah)
-+int ath5k_init_leds(struct ath5k_hw *ah)
- {
- 	int ret = 0;
- 	struct ieee80211_hw *hw = ah->hw;
-diff --git a/drivers/net/wireless/ath/ath5k/pci.c b/drivers/net/wireless/ath/ath5k/pci.c
-index c3ba483..1a78ba3 100644
---- a/drivers/net/wireless/ath/ath5k/pci.c
-+++ b/drivers/net/wireless/ath/ath5k/pci.c
-@@ -155,7 +155,7 @@ static const struct ath_bus_ops ath_pci_bus_ops = {
- * PCI Initialization *
- \********************/
- 
--static int __devinit
-+static int
- ath5k_pci_probe(struct pci_dev *pdev,
- 		const struct pci_device_id *id)
- {
-diff --git a/drivers/net/wireless/atmel_pci.c b/drivers/net/wireless/atmel_pci.c
-index fbe6580..1c12fec 100644
---- a/drivers/net/wireless/atmel_pci.c
-+++ b/drivers/net/wireless/atmel_pci.c
-@@ -49,7 +49,7 @@ static struct pci_driver atmel_driver = {
- };
- 
- 
--static int __devinit atmel_pci_probe(struct pci_dev *pdev,
-+static int atmel_pci_probe(struct pci_dev *pdev,
- 				     const struct pci_device_id *pent)
- {
- 	struct net_device *dev;
-diff --git a/drivers/net/wireless/b43/pcmcia.c b/drivers/net/wireless/b43/pcmcia.c
-index 3477213..3506cca 100644
---- a/drivers/net/wireless/b43/pcmcia.c
-+++ b/drivers/net/wireless/b43/pcmcia.c
-@@ -60,7 +60,7 @@ static int b43_pcmcia_resume(struct pcmcia_device *dev)
- # define b43_pcmcia_resume		NULL
- #endif /* CONFIG_PM */
- 
--static int __devinit b43_pcmcia_probe(struct pcmcia_device *dev)
-+static int b43_pcmcia_probe(struct pcmcia_device *dev)
- {
- 	struct ssb_bus *ssb;
- 	int err = -ENOMEM;
-diff --git a/drivers/net/wireless/b43/sdio.c b/drivers/net/wireless/b43/sdio.c
-index 80b0755..d2b1f98 100644
---- a/drivers/net/wireless/b43/sdio.c
-+++ b/drivers/net/wireless/b43/sdio.c
-@@ -93,7 +93,7 @@ void b43_sdio_free_irq(struct b43_wldev *dev)
- 	sdio->irq_handler = NULL;
- }
- 
--static int __devinit b43_sdio_probe(struct sdio_func *func,
-+static int b43_sdio_probe(struct sdio_func *func,
- 				    const struct sdio_device_id *id)
- {
- 	struct b43_sdio *sdio;
-diff --git a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-index cdd5aa2..7e65f9a 100644
---- a/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-+++ b/drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c
-@@ -1093,7 +1093,7 @@ fail:
-  *
-  * Perimeter lock is initialized in the course of this function.
-  */
--static int __devinit brcms_bcma_probe(struct bcma_device *pdev)
-+static int brcms_bcma_probe(struct bcma_device *pdev)
- {
- 	struct brcms_info *wl;
- 	struct ieee80211_hw *hw;
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-index b809b99..3f099a6 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -10774,7 +10774,7 @@ static void ipw_bg_link_down(struct work_struct *work)
- 	mutex_unlock(&priv->mutex);
- }
- 
--static int __devinit ipw_setup_deferred_work(struct ipw_priv *priv)
-+static int ipw_setup_deferred_work(struct ipw_priv *priv)
- {
- 	int ret = 0;
- 
-@@ -11722,7 +11722,7 @@ static const struct net_device_ops ipw_netdev_ops = {
- 	.ndo_validate_addr	= eth_validate_addr,
- };
- 
--static int __devinit ipw_pci_probe(struct pci_dev *pdev,
-+static int ipw_pci_probe(struct pci_dev *pdev,
- 				   const struct pci_device_id *ent)
- {
- 	int err = 0;
-diff --git a/drivers/net/wireless/libertas/if_spi.c b/drivers/net/wireless/libertas/if_spi.c
-index 98cccc7..abc32e3 100644
---- a/drivers/net/wireless/libertas/if_spi.c
-+++ b/drivers/net/wireless/libertas/if_spi.c
-@@ -1124,7 +1124,7 @@ static void if_spi_resume_worker(struct work_struct *work)
- 	}
- }
- 
--static int __devinit if_spi_probe(struct spi_device *spi)
-+static int if_spi_probe(struct spi_device *spi)
- {
- 	struct if_spi_card *card;
- 	struct lbs_private *priv = NULL;
-diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
-index c26cfaa..1bbdc63 100644
---- a/drivers/net/wireless/mwl8k.c
-+++ b/drivers/net/wireless/mwl8k.c
-@@ -5755,7 +5755,7 @@ err_free_cookie:
- 
- 	return rc;
- }
--static int __devinit mwl8k_probe(struct pci_dev *pdev,
-+static int mwl8k_probe(struct pci_dev *pdev,
- 				 const struct pci_device_id *id)
- {
- 	static int printed_version;
-diff --git a/drivers/net/wireless/p54/p54pci.c b/drivers/net/wireless/p54/p54pci.c
-index b382469..e5b29e9 100644
---- a/drivers/net/wireless/p54/p54pci.c
-+++ b/drivers/net/wireless/p54/p54pci.c
-@@ -540,7 +540,7 @@ out:
- 	pci_dev_put(pdev);
- }
- 
--static int __devinit p54p_probe(struct pci_dev *pdev,
-+static int p54p_probe(struct pci_dev *pdev,
- 				const struct pci_device_id *id)
- {
- 	struct p54p_priv *priv;
-diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
-index 51129f4..d75ab3e 100644
---- a/drivers/net/wireless/p54/p54spi.c
-+++ b/drivers/net/wireless/p54/p54spi.c
-@@ -595,7 +595,7 @@ static void p54spi_op_stop(struct ieee80211_hw *dev)
- 	cancel_work_sync(&priv->work);
- }
- 
--static int __devinit p54spi_probe(struct spi_device *spi)
-+static int p54spi_probe(struct spi_device *spi)
- {
- 	struct p54s_priv *priv = NULL;
- 	struct ieee80211_hw *hw;
-diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
-index 0463ac2..000f7ba 100644
---- a/drivers/net/wireless/p54/p54usb.c
-+++ b/drivers/net/wireless/p54/p54usb.c
-@@ -986,7 +986,7 @@ static int p54u_load_firmware(struct ieee80211_hw *dev,
- 	return err;
- }
- 
--static int __devinit p54u_probe(struct usb_interface *intf,
-+static int p54u_probe(struct usb_interface *intf,
- 				const struct usb_device_id *id)
- {
- 	struct usb_device *udev = interface_to_usbdev(intf);
-diff --git a/drivers/net/wireless/rtl818x/rtl8180/dev.c b/drivers/net/wireless/rtl818x/rtl8180/dev.c
-index b117541..6a5c0b8 100644
---- a/drivers/net/wireless/rtl818x/rtl8180/dev.c
-+++ b/drivers/net/wireless/rtl818x/rtl8180/dev.c
-@@ -901,7 +901,7 @@ static void rtl8180_eeprom_register_write(struct eeprom_93cx6 *eeprom)
- 	udelay(10);
- }
- 
--static int __devinit rtl8180_probe(struct pci_dev *pdev,
-+static int rtl8180_probe(struct pci_dev *pdev,
- 				   const struct pci_device_id *id)
- {
- 	struct ieee80211_hw *dev;
-diff --git a/drivers/net/wireless/rtl818x/rtl8187/dev.c b/drivers/net/wireless/rtl818x/rtl8187/dev.c
-index 9892310..f879bc3 100644
---- a/drivers/net/wireless/rtl818x/rtl8187/dev.c
-+++ b/drivers/net/wireless/rtl818x/rtl8187/dev.c
-@@ -1411,7 +1411,7 @@ static void rtl8187_eeprom_register_write(struct eeprom_93cx6 *eeprom)
- 	udelay(10);
- }
- 
--static int __devinit rtl8187_probe(struct usb_interface *intf,
-+static int rtl8187_probe(struct usb_interface *intf,
- 				   const struct usb_device_id *id)
- {
- 	struct usb_device *udev = interface_to_usbdev(intf);
-diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
-index f38e30a..f2bd68e 100644
---- a/drivers/net/wireless/rtlwifi/pci.c
-+++ b/drivers/net/wireless/rtlwifi/pci.c
-@@ -1756,7 +1756,7 @@ static bool _rtl_pci_find_adapter(struct pci_dev *pdev,
- 	return true;
- }
- 
--int __devinit rtl_pci_probe(struct pci_dev *pdev,
-+int rtl_pci_probe(struct pci_dev *pdev,
- 			    const struct pci_device_id *id)
- {
- 	struct ieee80211_hw *hw = NULL;
-diff --git a/drivers/net/wireless/rtlwifi/pci.h b/drivers/net/wireless/rtlwifi/pci.h
-index f71b12a..5eee0fa 100644
---- a/drivers/net/wireless/rtlwifi/pci.h
-+++ b/drivers/net/wireless/rtlwifi/pci.h
-@@ -236,7 +236,7 @@ int rtl_pci_reset_trx_ring(struct ieee80211_hw *hw);
- 
- extern struct rtl_intf_ops rtl_pci_ops;
- 
--int __devinit rtl_pci_probe(struct pci_dev *pdev,
-+int rtl_pci_probe(struct pci_dev *pdev,
- 			    const struct pci_device_id *id);
- void rtl_pci_disconnect(struct pci_dev *pdev);
- int rtl_pci_suspend(struct device *dev);
-diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
-index e3ea4b3..29f0969 100644
---- a/drivers/net/wireless/rtlwifi/usb.c
-+++ b/drivers/net/wireless/rtlwifi/usb.c
-@@ -940,7 +940,7 @@ static struct rtl_intf_ops rtl_usb_ops = {
- 	.waitq_insert = rtl_usb_tx_chk_waitq_insert,
- };
- 
--int __devinit rtl_usb_probe(struct usb_interface *intf,
-+int rtl_usb_probe(struct usb_interface *intf,
- 			const struct usb_device_id *id)
+-static int __devinit bfin_can_probe(struct platform_device *pdev)
++static int bfin_can_probe(struct platform_device *pdev)
  {
  	int err;
-diff --git a/drivers/net/wireless/rtlwifi/usb.h b/drivers/net/wireless/rtlwifi/usb.h
-index 43846b3..5235136 100644
---- a/drivers/net/wireless/rtlwifi/usb.h
-+++ b/drivers/net/wireless/rtlwifi/usb.h
-@@ -156,7 +156,7 @@ struct rtl_usb_priv {
+ 	struct net_device *dev;
+diff --git a/drivers/net/can/c_can/c_can_pci.c b/drivers/net/can/c_can/c_can_pci.c
+index 019cf71..27db0f2 100644
+--- a/drivers/net/can/c_can/c_can_pci.c
++++ b/drivers/net/can/c_can/c_can_pci.c
+@@ -63,7 +63,7 @@ static void c_can_pci_write_reg_aligned_to_32bit(struct c_can_priv *priv,
+ 	writew(val, priv->base + 2 * priv->regs[index]);
+ }
  
- 
- 
--int __devinit rtl_usb_probe(struct usb_interface *intf,
-+int rtl_usb_probe(struct usb_interface *intf,
- 			    const struct usb_device_id *id);
- void rtl_usb_disconnect(struct usb_interface *intf);
- int rtl_usb_suspend(struct usb_interface *pusb_intf, pm_message_t message);
-diff --git a/drivers/net/wireless/ti/wl1251/spi.c b/drivers/net/wireless/ti/wl1251/spi.c
-index 3ec61b9..640a3d5 100644
---- a/drivers/net/wireless/ti/wl1251/spi.c
-+++ b/drivers/net/wireless/ti/wl1251/spi.c
-@@ -237,7 +237,7 @@ static const struct wl1251_if_operations wl1251_spi_ops = {
- 	.power = wl1251_spi_set_power,
+-static int __devinit c_can_pci_probe(struct pci_dev *pdev,
++static int c_can_pci_probe(struct pci_dev *pdev,
+ 				     const struct pci_device_id *ent)
+ {
+ 	struct c_can_pci_data *c_can_pci_data = (void *)ent->driver_data;
+diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
+index fed1dd1..91e7d2b 100644
+--- a/drivers/net/can/c_can/c_can_platform.c
++++ b/drivers/net/can/c_can/c_can_platform.c
+@@ -90,7 +90,7 @@ static const struct of_device_id c_can_of_table[] = {
+ 	{ /* sentinel */ },
  };
  
--static int __devinit wl1251_spi_probe(struct spi_device *spi)
-+static int wl1251_spi_probe(struct spi_device *spi)
+-static int __devinit c_can_plat_probe(struct platform_device *pdev)
++static int c_can_plat_probe(struct platform_device *pdev)
  {
- 	struct wl12xx_platform_data *pdata;
- 	struct ieee80211_hw *hw;
-diff --git a/drivers/net/wireless/ti/wl12xx/main.c b/drivers/net/wireless/ti/wl12xx/main.c
-index bc522b6..c10e691 100644
---- a/drivers/net/wireless/ti/wl12xx/main.c
-+++ b/drivers/net/wireless/ti/wl12xx/main.c
-@@ -1696,7 +1696,7 @@ static int wl12xx_setup(struct wl1271 *wl)
+ 	int ret;
+ 	void __iomem *addr;
+diff --git a/drivers/net/can/cc770/cc770_isa.c b/drivers/net/can/cc770/cc770_isa.c
+index dfa9a45..9ca0461 100644
+--- a/drivers/net/can/cc770/cc770_isa.c
++++ b/drivers/net/can/cc770/cc770_isa.c
+@@ -166,7 +166,7 @@ static void cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
+ 	spin_unlock_irqrestore(&cc770_isa_port_lock, flags);
+ }
+ 
+-static int __devinit cc770_isa_probe(struct platform_device *pdev)
++static int cc770_isa_probe(struct platform_device *pdev)
+ {
+ 	struct net_device *dev;
+ 	struct cc770_priv *priv;
+diff --git a/drivers/net/can/cc770/cc770_platform.c b/drivers/net/can/cc770/cc770_platform.c
+index a294926..fef046f 100644
+--- a/drivers/net/can/cc770/cc770_platform.c
++++ b/drivers/net/can/cc770/cc770_platform.c
+@@ -74,7 +74,7 @@ static void cc770_platform_write_reg(const struct cc770_priv *priv, int reg,
+ 	iowrite8(val, priv->reg_base + reg);
+ }
+ 
+-static int __devinit cc770_get_of_node_data(struct platform_device *pdev,
++static int cc770_get_of_node_data(struct platform_device *pdev,
+ 					    struct cc770_priv *priv)
+ {
+ 	struct device_node *np = pdev->dev.of_node;
+@@ -147,7 +147,7 @@ static int __devinit cc770_get_of_node_data(struct platform_device *pdev,
  	return 0;
  }
  
--static int __devinit wl12xx_probe(struct platform_device *pdev)
-+static int wl12xx_probe(struct platform_device *pdev)
+-static int __devinit cc770_get_platform_data(struct platform_device *pdev,
++static int cc770_get_platform_data(struct platform_device *pdev,
+ 					     struct cc770_priv *priv)
  {
- 	struct wl1271 *wl;
- 	struct ieee80211_hw *hw;
-diff --git a/drivers/net/wireless/ti/wl18xx/main.c b/drivers/net/wireless/ti/wl18xx/main.c
-index 2d037d5..7171c93 100644
---- a/drivers/net/wireless/ti/wl18xx/main.c
-+++ b/drivers/net/wireless/ti/wl18xx/main.c
-@@ -1499,7 +1499,7 @@ static int wl18xx_setup(struct wl1271 *wl)
+ 
+@@ -163,7 +163,7 @@ static int __devinit cc770_get_platform_data(struct platform_device *pdev,
  	return 0;
  }
  
--static int __devinit wl18xx_probe(struct platform_device *pdev)
-+static int wl18xx_probe(struct platform_device *pdev)
+-static int __devinit cc770_platform_probe(struct platform_device *pdev)
++static int cc770_platform_probe(struct platform_device *pdev)
  {
- 	struct wl1271 *wl;
- 	struct ieee80211_hw *hw;
-diff --git a/drivers/net/wireless/ti/wlcore/main.c b/drivers/net/wireless/ti/wlcore/main.c
-index 25530c8..2dd4ada 100644
---- a/drivers/net/wireless/ti/wlcore/main.c
-+++ b/drivers/net/wireless/ti/wlcore/main.c
-@@ -5659,7 +5659,7 @@ out:
- 	complete_all(&wl->nvs_loading_complete);
+ 	struct net_device *dev;
+ 	struct cc770_priv *priv;
+diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+index 01e0201..dd3c933 100644
+--- a/drivers/net/can/flexcan.c
++++ b/drivers/net/can/flexcan.c
+@@ -922,7 +922,7 @@ static const struct net_device_ops flexcan_netdev_ops = {
+ 	.ndo_start_xmit	= flexcan_start_xmit,
+ };
+ 
+-static int __devinit register_flexcandev(struct net_device *dev)
++static int register_flexcandev(struct net_device *dev)
+ {
+ 	struct flexcan_priv *priv = netdev_priv(dev);
+ 	struct flexcan_regs __iomem *regs = priv->base;
+@@ -985,7 +985,7 @@ static const struct platform_device_id flexcan_id_table[] = {
+ 	{ /* sentinel */ },
+ };
+ 
+-static int __devinit flexcan_probe(struct platform_device *pdev)
++static int flexcan_probe(struct platform_device *pdev)
+ {
+ 	const struct of_device_id *of_id;
+ 	const struct flexcan_devtype_data *devtype_data;
+diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
+index a9dfcb9..6eb1916 100644
+--- a/drivers/net/can/janz-ican3.c
++++ b/drivers/net/can/janz-ican3.c
+@@ -365,7 +365,7 @@ static int ican3_old_send_msg(struct ican3_dev *mod, struct ican3_msg *msg)
+  * ICAN3 "new-style" Host Interface Setup
+  */
+ 
+-static void __devinit ican3_init_new_host_interface(struct ican3_dev *mod)
++static void ican3_init_new_host_interface(struct ican3_dev *mod)
+ {
+ 	struct ican3_new_desc desc;
+ 	unsigned long flags;
+@@ -444,7 +444,7 @@ static void __devinit ican3_init_new_host_interface(struct ican3_dev *mod)
+  * ICAN3 Fast Host Interface Setup
+  */
+ 
+-static void __devinit ican3_init_fast_host_interface(struct ican3_dev *mod)
++static void ican3_init_fast_host_interface(struct ican3_dev *mod)
+ {
+ 	struct ican3_fast_desc desc;
+ 	unsigned long flags;
+@@ -631,7 +631,7 @@ static int ican3_recv_msg(struct ican3_dev *mod, struct ican3_msg *msg)
+  * Quick Pre-constructed Messages
+  */
+ 
+-static int __devinit ican3_msg_connect(struct ican3_dev *mod)
++static int ican3_msg_connect(struct ican3_dev *mod)
+ {
+ 	struct ican3_msg msg;
+ 
+@@ -653,7 +653,7 @@ static int __devexit ican3_msg_disconnect(struct ican3_dev *mod)
+ 	return ican3_send_msg(mod, &msg);
  }
  
--int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
-+int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev)
+-static int __devinit ican3_msg_newhostif(struct ican3_dev *mod)
++static int ican3_msg_newhostif(struct ican3_dev *mod)
+ {
+ 	struct ican3_msg msg;
+ 	int ret;
+@@ -674,7 +674,7 @@ static int __devinit ican3_msg_newhostif(struct ican3_dev *mod)
+ 	return 0;
+ }
+ 
+-static int __devinit ican3_msg_fasthostif(struct ican3_dev *mod)
++static int ican3_msg_fasthostif(struct ican3_dev *mod)
+ {
+ 	struct ican3_msg msg;
+ 	unsigned int addr;
+@@ -707,7 +707,7 @@ static int __devinit ican3_msg_fasthostif(struct ican3_dev *mod)
+  * Setup the CAN filter to either accept or reject all
+  * messages from the CAN bus.
+  */
+-static int __devinit ican3_set_id_filter(struct ican3_dev *mod, bool accept)
++static int ican3_set_id_filter(struct ican3_dev *mod, bool accept)
+ {
+ 	struct ican3_msg msg;
+ 	int ret;
+@@ -1430,7 +1430,7 @@ static void __devexit ican3_shutdown_module(struct ican3_dev *mod)
+ /*
+  * Startup an ICAN module, bringing it into fast mode
+  */
+-static int __devinit ican3_startup_module(struct ican3_dev *mod)
++static int ican3_startup_module(struct ican3_dev *mod)
  {
  	int ret;
  
-diff --git a/drivers/net/wireless/ti/wlcore/sdio.c b/drivers/net/wireless/ti/wlcore/sdio.c
-index 830bf0d..6fa2a01 100644
---- a/drivers/net/wireless/ti/wlcore/sdio.c
-+++ b/drivers/net/wireless/ti/wlcore/sdio.c
-@@ -214,7 +214,7 @@ static struct wl1271_if_operations sdio_ops = {
- 	.set_block_size = wl1271_sdio_set_block_size,
- };
+@@ -1760,7 +1760,7 @@ static struct attribute_group ican3_sysfs_attr_group = {
+  * PCI Subsystem
+  */
  
--static int __devinit wl1271_probe(struct sdio_func *func,
-+static int wl1271_probe(struct sdio_func *func,
- 				  const struct sdio_device_id *id)
+-static int __devinit ican3_probe(struct platform_device *pdev)
++static int ican3_probe(struct platform_device *pdev)
  {
- 	struct wl12xx_platform_data *wlan_data;
-diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
-index b183001..ee39484 100644
---- a/drivers/net/wireless/ti/wlcore/spi.c
-+++ b/drivers/net/wireless/ti/wlcore/spi.c
-@@ -324,7 +324,7 @@ static struct wl1271_if_operations spi_ops = {
- 	.set_block_size = NULL,
+ 	struct janz_platform_data *pdata;
+ 	struct net_device *ndev;
+diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
+index 7a059d1..767fdbd 100644
+--- a/drivers/net/can/mcp251x.c
++++ b/drivers/net/can/mcp251x.c
+@@ -981,7 +981,7 @@ static const struct net_device_ops mcp251x_netdev_ops = {
+ 	.ndo_start_xmit = mcp251x_hard_start_xmit,
  };
  
--static int __devinit wl1271_probe(struct spi_device *spi)
-+static int wl1271_probe(struct spi_device *spi)
+-static int __devinit mcp251x_can_probe(struct spi_device *spi)
++static int mcp251x_can_probe(struct spi_device *spi)
  {
- 	struct wl12xx_spi_glue *glue;
- 	struct wl12xx_platform_data *pdata;
-diff --git a/drivers/net/wireless/ti/wlcore/wlcore.h b/drivers/net/wireless/ti/wlcore/wlcore.h
-index 68584aa..adc6152 100644
---- a/drivers/net/wireless/ti/wlcore/wlcore.h
-+++ b/drivers/net/wireless/ti/wlcore/wlcore.h
-@@ -414,7 +414,7 @@ struct wl1271 {
- 	struct completion nvs_loading_complete;
+ 	struct net_device *net;
+ 	struct mcp251x_priv *priv;
+diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
+index db59bbc..752bfed 100644
+--- a/drivers/net/can/mscan/mpc5xxx_can.c
++++ b/drivers/net/can/mscan/mpc5xxx_can.c
+@@ -48,7 +48,7 @@ static struct of_device_id __devinitdata mpc52xx_cdm_ids[] = {
+ 	{}
  };
  
--int __devinit wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
-+int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
- int __devexit wlcore_remove(struct platform_device *pdev);
- struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size);
- int wlcore_free_hw(struct wl1271 *wl);
+-static u32 __devinit mpc52xx_can_get_clock(struct platform_device *ofdev,
++static u32 mpc52xx_can_get_clock(struct platform_device *ofdev,
+ 					   const char *clock_name,
+ 					   int *mscan_clksrc)
+ {
+@@ -101,7 +101,7 @@ static u32 __devinit mpc52xx_can_get_clock(struct platform_device *ofdev,
+ 	return freq;
+ }
+ #else /* !CONFIG_PPC_MPC52xx */
+-static u32 __devinit mpc52xx_can_get_clock(struct platform_device *ofdev,
++static u32 mpc52xx_can_get_clock(struct platform_device *ofdev,
+ 					   const char *clock_name,
+ 					   int *mscan_clksrc)
+ {
+@@ -129,7 +129,7 @@ static struct of_device_id __devinitdata mpc512x_clock_ids[] = {
+ 	{}
+ };
+ 
+-static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
++static u32 mpc512x_can_get_clock(struct platform_device *ofdev,
+ 					   const char *clock_name,
+ 					   int *mscan_clksrc)
+ {
+@@ -239,7 +239,7 @@ exit_put:
+ 	return freq;
+ }
+ #else /* !CONFIG_PPC_MPC512x */
+-static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
++static u32 mpc512x_can_get_clock(struct platform_device *ofdev,
+ 					   const char *clock_name,
+ 					   int *mscan_clksrc)
+ {
+@@ -248,7 +248,7 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
+ #endif /* CONFIG_PPC_MPC512x */
+ 
+ static const struct of_device_id mpc5xxx_can_table[];
+-static int __devinit mpc5xxx_can_probe(struct platform_device *ofdev)
++static int mpc5xxx_can_probe(struct platform_device *ofdev)
+ {
+ 	const struct of_device_id *match;
+ 	const struct mpc5xxx_can_data *data;
+diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+index 56145f9..fad4625 100644
+--- a/drivers/net/can/pch_can.c
++++ b/drivers/net/can/pch_can.c
+@@ -1178,7 +1178,7 @@ static int pch_can_get_berr_counter(const struct net_device *dev,
+ 	return 0;
+ }
+ 
+-static int __devinit pch_can_probe(struct pci_dev *pdev,
++static int pch_can_probe(struct pci_dev *pdev,
+ 				   const struct pci_device_id *id)
+ {
+ 	struct net_device *ndev;
+diff --git a/drivers/net/can/sja1000/ems_pci.c b/drivers/net/can/sja1000/ems_pci.c
+index 5c6d412..f232bc8 100644
+--- a/drivers/net/can/sja1000/ems_pci.c
++++ b/drivers/net/can/sja1000/ems_pci.c
+@@ -220,7 +220,7 @@ static void ems_pci_card_reset(struct ems_pci_card *card)
+  * Probe PCI device for EMS CAN signature and register each available
+  * CAN channel to SJA1000 Socket-CAN subsystem.
+  */
+-static int __devinit ems_pci_add_card(struct pci_dev *pdev,
++static int ems_pci_add_card(struct pci_dev *pdev,
+ 					const struct pci_device_id *ent)
+ {
+ 	struct sja1000_priv *priv;
+diff --git a/drivers/net/can/sja1000/ems_pcmcia.c b/drivers/net/can/sja1000/ems_pcmcia.c
+index 075a545..46fc313 100644
+--- a/drivers/net/can/sja1000/ems_pcmcia.c
++++ b/drivers/net/can/sja1000/ems_pcmcia.c
+@@ -166,7 +166,7 @@ static void ems_pcmcia_del_card(struct pcmcia_device *pdev)
+  * Probe PCI device for EMS CAN signature and register each available
+  * CAN channel to SJA1000 Socket-CAN subsystem.
+  */
+-static int __devinit ems_pcmcia_add_card(struct pcmcia_device *pdev,
++static int ems_pcmcia_add_card(struct pcmcia_device *pdev,
+ 					 unsigned long base)
+ {
+ 	struct sja1000_priv *priv;
+@@ -256,7 +256,7 @@ failure_cleanup:
+ /*
+  * Setup PCMCIA socket and probe for EMS CPC-CARD
+  */
+-static int __devinit ems_pcmcia_probe(struct pcmcia_device *dev)
++static int ems_pcmcia_probe(struct pcmcia_device *dev)
+ {
+ 	int csval;
+ 
+diff --git a/drivers/net/can/sja1000/kvaser_pci.c b/drivers/net/can/sja1000/kvaser_pci.c
+index be95c42..a6191ac 100644
+--- a/drivers/net/can/sja1000/kvaser_pci.c
++++ b/drivers/net/can/sja1000/kvaser_pci.c
+@@ -290,7 +290,7 @@ failure:
+ 	return err;
+ }
+ 
+-static int __devinit kvaser_pci_init_one(struct pci_dev *pdev,
++static int kvaser_pci_init_one(struct pci_dev *pdev,
+ 					 const struct pci_device_id *ent)
+ {
+ 	int err;
+diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
+index 0247efa..fbf61cf 100644
+--- a/drivers/net/can/sja1000/peak_pci.c
++++ b/drivers/net/can/sja1000/peak_pci.c
+@@ -551,7 +551,7 @@ static void peak_pci_post_irq(const struct sja1000_priv *priv)
+ 		writew(chan->icr_mask, chan->cfg_base + PITA_ICR);
+ }
+ 
+-static int __devinit peak_pci_probe(struct pci_dev *pdev,
++static int peak_pci_probe(struct pci_dev *pdev,
+ 				    const struct pci_device_id *ent)
+ {
+ 	struct sja1000_priv *priv;
+diff --git a/drivers/net/can/sja1000/peak_pcmcia.c b/drivers/net/can/sja1000/peak_pcmcia.c
+index 272a85f..f117514 100644
+--- a/drivers/net/can/sja1000/peak_pcmcia.c
++++ b/drivers/net/can/sja1000/peak_pcmcia.c
+@@ -632,7 +632,7 @@ static void pcan_free(struct pcmcia_device *pdev)
+ /*
+  * setup PCMCIA socket and probe for PEAK-System PC-CARD
+  */
+-static int __devinit pcan_probe(struct pcmcia_device *pdev)
++static int pcan_probe(struct pcmcia_device *pdev)
+ {
+ 	struct pcan_pccard *card;
+ 	int err;
+diff --git a/drivers/net/can/sja1000/plx_pci.c b/drivers/net/can/sja1000/plx_pci.c
+index 8bc9598..619b96c 100644
+--- a/drivers/net/can/sja1000/plx_pci.c
++++ b/drivers/net/can/sja1000/plx_pci.c
+@@ -465,7 +465,7 @@ static void plx_pci_del_card(struct pci_dev *pdev)
+  * Probe PLX90xx based device for the SJA1000 chips and register each
+  * available CAN channel to SJA1000 Socket-CAN subsystem.
+  */
+-static int __devinit plx_pci_add_card(struct pci_dev *pdev,
++static int plx_pci_add_card(struct pci_dev *pdev,
+ 				      const struct pci_device_id *ent)
+ {
+ 	struct sja1000_priv *priv;
+diff --git a/drivers/net/can/sja1000/sja1000_isa.c b/drivers/net/can/sja1000/sja1000_isa.c
+index f910102..3f12e85 100644
+--- a/drivers/net/can/sja1000/sja1000_isa.c
++++ b/drivers/net/can/sja1000/sja1000_isa.c
+@@ -117,7 +117,7 @@ static void sja1000_isa_port_write_reg_indirect(const struct sja1000_priv *priv,
+ 	outb(val, base + 1);
+ }
+ 
+-static int __devinit sja1000_isa_probe(struct platform_device *pdev)
++static int sja1000_isa_probe(struct platform_device *pdev)
+ {
+ 	struct net_device *dev;
+ 	struct sja1000_priv *priv;
+diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
+index a330fe8..259d5a1d 100644
+--- a/drivers/net/can/sja1000/sja1000_of_platform.c
++++ b/drivers/net/can/sja1000/sja1000_of_platform.c
+@@ -88,7 +88,7 @@ static int __devexit sja1000_ofp_remove(struct platform_device *ofdev)
+ 	return 0;
+ }
+ 
+-static int __devinit sja1000_ofp_probe(struct platform_device *ofdev)
++static int sja1000_ofp_probe(struct platform_device *ofdev)
+ {
+ 	struct device_node *np = ofdev->dev.of_node;
+ 	struct net_device *dev;
+diff --git a/drivers/net/can/sja1000/tscan1.c b/drivers/net/can/sja1000/tscan1.c
+index 04a9001..9b608d8 100644
+--- a/drivers/net/can/sja1000/tscan1.c
++++ b/drivers/net/can/sja1000/tscan1.c
+@@ -88,7 +88,7 @@ static void tscan1_write(const struct sja1000_priv *priv, int reg, u8 val)
+ }
+ 
+ /* Probe for a TS-CAN1 board with JP2:JP1 jumper setting ID */
+-static int __devinit tscan1_probe(struct device *dev, unsigned id)
++static int tscan1_probe(struct device *dev, unsigned id)
+ {
+ 	struct net_device *netdev;
+ 	struct sja1000_priv *priv;
+diff --git a/drivers/net/can/softing/softing_cs.c b/drivers/net/can/softing/softing_cs.c
+index ab132c5..04e1539 100644
+--- a/drivers/net/can/softing/softing_cs.c
++++ b/drivers/net/can/softing/softing_cs.c
+@@ -159,7 +159,7 @@ MODULE_FIRMWARE(fw_dir "bcard2.bin");
+ MODULE_FIRMWARE(fw_dir "ldcard2.bin");
+ MODULE_FIRMWARE(fw_dir "cancrd2.bin");
+ 
+-static __devinit const struct softing_platform_data
++static const struct softing_platform_data
+ *softingcs_find_platform_data(unsigned int manf, unsigned int prod)
+ {
+ 	const struct softing_platform_data *lp;
+@@ -193,7 +193,7 @@ static int softingcs_enable_irq(struct platform_device *pdev, int v)
+ /*
+  * pcmcia check
+  */
+-static __devinit int softingcs_probe_config(struct pcmcia_device *pcmcia,
++static int softingcs_probe_config(struct pcmcia_device *pcmcia,
+ 		void *priv_data)
+ {
+ 	struct softing_platform_data *pdat = priv_data;
+@@ -235,7 +235,7 @@ static void softingcs_pdev_release(struct device *dev)
+ 	kfree(pdev);
+ }
+ 
+-static __devinit int softingcs_probe(struct pcmcia_device *pcmcia)
++static int softingcs_probe(struct pcmcia_device *pcmcia)
+ {
+ 	int ret;
+ 	struct platform_device *pdev;
+diff --git a/drivers/net/can/softing/softing_main.c b/drivers/net/can/softing/softing_main.c
+index 6337581..aefd297 100644
+--- a/drivers/net/can/softing/softing_main.c
++++ b/drivers/net/can/softing/softing_main.c
+@@ -478,7 +478,7 @@ static void softing_card_shutdown(struct softing *card)
+ 	mutex_unlock(&card->fw.lock);
+ }
+ 
+-static __devinit int softing_card_boot(struct softing *card)
++static int softing_card_boot(struct softing *card)
+ {
+ 	int ret, j;
+ 	static const uint8_t stream[] = {
+@@ -645,7 +645,7 @@ static const struct can_bittiming_const softing_btr_const = {
+ };
+ 
+ 
+-static __devinit struct net_device *softing_netdev_create(struct softing *card,
++static struct net_device *softing_netdev_create(struct softing *card,
+ 		uint16_t chip_id)
+ {
+ 	struct net_device *netdev;
+@@ -676,7 +676,7 @@ static __devinit struct net_device *softing_netdev_create(struct softing *card,
+ 	return netdev;
+ }
+ 
+-static __devinit int softing_netdev_register(struct net_device *netdev)
++static int softing_netdev_register(struct net_device *netdev)
+ {
+ 	int ret;
+ 
+@@ -766,7 +766,7 @@ static __devexit int softing_pdev_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static __devinit int softing_pdev_probe(struct platform_device *pdev)
++static int softing_pdev_probe(struct platform_device *pdev)
+ {
+ 	const struct softing_platform_data *pdat = pdev->dev.platform_data;
+ 	struct softing *card;
 -- 
 1.8.0
