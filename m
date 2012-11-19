@@ -1,53 +1,50 @@
 From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 080/493] fddi: remove use of __devexit_p
-Date: Mon, 19 Nov 2012 11:29:49 -0800
-Message-ID: <20121119192949.GA16976@kroah.com>
-References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
- <1353349642-3677-80-git-send-email-wfp5p@virginia.edu>
- <alpine.LFD.2.02.1211191842180.25230@eddie.linux-mips.org>
- <alpine.LFD.2.02.1211191912040.25230@eddie.linux-mips.org>
+Subject: Re: [PATCH 200/493] irda: remove use of __devinit
+Date: Mon, 19 Nov 2012 11:30:02 -0800
+Message-ID: <20121119193002.GB16976@kroah.com>
+References: <1353349642-3677-200-git-send-email-wfp5p@virginia.edu>
+ <20121119.140654.780679585475336928.davem@davemloft.net>
+ <20121119192121.GA16694@kroah.com>
+ <20121119.142446.1954365383179623684.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bill Pemberton <wfp5p@virginia.edu>, netdev@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Cc: wfp5p@virginia.edu, samuel@sortiz.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-pa0-f46.google.com ([209.85.220.46]:33723 "EHLO
 	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754438Ab2KST3w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 14:29:52 -0500
+	with ESMTP id S1754438Ab2KSTaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 14:30:05 -0500
 Received: by mail-pa0-f46.google.com with SMTP id bh2so667315pad.19
-        for <netdev@vger.kernel.org>; Mon, 19 Nov 2012 11:29:52 -0800 (PST)
+        for <netdev@vger.kernel.org>; Mon, 19 Nov 2012 11:30:05 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.02.1211191912040.25230@eddie.linux-mips.org>
+In-Reply-To: <20121119.142446.1954365383179623684.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 19, 2012 at 07:16:44PM +0000, Maciej W. Rozycki wrote:
-> On Mon, 19 Nov 2012, Maciej W. Rozycki wrote:
+On Mon, Nov 19, 2012 at 02:24:46PM -0500, David Miller wrote:
+> From: Greg KH <gregkh@linuxfoundation.org>
+> Date: Mon, 19 Nov 2012 11:21:21 -0800
 > 
-> > > CONFIG_HOTPLUG is going away as an option so __devexit_p is no longer
-> > > needed.
+> > On Mon, Nov 19, 2012 at 02:06:54PM -0500, David Miller wrote:
+> >> 
+> >> It is absolutely not reasonable to post nearly 500 patches all
+> >> at the same time.
+> >> 
+> >> Do not do this ever again.
 > > 
-> >  Shouldn't this be switching to __exit_p() instead?  Likewise all the 
-> > other changes concerned (i.e. s/__dev\(init\|exit\)/__\1/), for the sake 
-> > of drivers built into the kernel proper (yes, there are people out there 
-> > still doing that).  Am I missing something?
+> > Bill did this with the assumption that I would take them through my
+> > driver-core tree, as I asked that he do this work.  The 000 message said
+> > that, but that wasn't sent out to all of the recipients, so I can
+> > understand how you didn't see this.
 > > 
-> >  This change scores my NAK as it stands, until updated accordingly or 
-> > further justified.
+> > Also, I was the only one that got all 500 emails, everyone else should
+> > have only seen a small quantity.
 > 
->  I have unconfused myself now, so please replace the above with the 
-> following question: what about configurations (e.g. buses) that not 
-> support hotplug at all?  For example apart from PCI the defxx driver 
-> concerned here supports the TURBOchannel bus that by design does not have 
-> the concept of live option card removal (no such circuitry).  So should 
-> now the precious memory be wasted on systems that will never ever handle 
-> hotplug?
+> I had to purge nearly 100 out of networking's patchwork.
+> 
+> This is unacceptable.
 
-CONFIG_HOTPLUG is always enabled now, so that's not an option anymore.
-And again, a user can "hot unbind" a driver from a device from
-userspace, no matter if the bus physically supports it or not.
-
-thanks,
+Ok, fair enough, sorry about that.
 
 greg k-h
