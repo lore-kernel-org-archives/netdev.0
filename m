@@ -1,34 +1,37 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 1/1] vhost: Remove duplicate inclusion of linux/vhost.h
-Date: Mon, 19 Nov 2012 16:58:28 +0530
-Message-ID: <1353324508-22083-1-git-send-email-sachin.kamat@linaro.org>
-Cc: mst@redhat.com, nab@linux-iscsi.org, sachin.kamat@linaro.org,
-	patches@linaro.org
-To: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
+From: Sachin Kamat <sachin.kamat-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 1/1] iwlwifi: Remove duplicate inclusion of iwl-trans.h in pcie/drv.c
+Date: Mon, 19 Nov 2012 17:15:40 +0530
+Message-ID: <1353325540-9338-1-git-send-email-sachin.kamat@linaro.org>
+Cc: johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sachin.kamat-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-linux/vhost.h was included twice.
+iwl-trans.h was included twice.
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Sachin Kamat <sachin.kamat-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 ---
- drivers/vhost/tcm_vhost.c |    1 -
+ drivers/net/wireless/iwlwifi/pcie/drv.c |    1 -
  1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/vhost/tcm_vhost.c b/drivers/vhost/tcm_vhost.c
-index 73bbc46..798792b 100644
---- a/drivers/vhost/tcm_vhost.c
-+++ b/drivers/vhost/tcm_vhost.c
-@@ -34,7 +34,6 @@
- #include <linux/ctype.h>
- #include <linux/compat.h>
- #include <linux/eventfd.h>
--#include <linux/vhost.h>
- #include <linux/fs.h>
- #include <linux/miscdevice.h>
- #include <asm/unaligned.h>
+diff --git a/drivers/net/wireless/iwlwifi/pcie/drv.c b/drivers/net/wireless/iwlwifi/pcie/drv.c
+index 2a46753..956fe6c 100644
+--- a/drivers/net/wireless/iwlwifi/pcie/drv.c
++++ b/drivers/net/wireless/iwlwifi/pcie/drv.c
+@@ -69,7 +69,6 @@
+ 
+ #include "iwl-trans.h"
+ #include "iwl-drv.h"
+-#include "iwl-trans.h"
+ 
+ #include "cfg.h"
+ #include "internal.h"
 -- 
 1.7.4.1
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
