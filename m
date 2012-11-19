@@ -1,191 +1,230 @@
-From: Rui Xiang <leo.ruixiang@gmail.com>
-Subject: [PATCH RFC 1/5] Syslog_ns: add syslog_namespace struct and API
-Date: Mon, 19 Nov 2012 16:16:29 +0800
-Message-ID: <50A9EADD.4040709@gmail.com>
+From: Rui Xiang <leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH RFC 2/5] Syslog_ns: add CLONE_NEWSYSLOG and create syslog_ns
+	when copying process
+Date: Mon, 19 Nov 2012 16:16:38 +0800
+Message-ID: <50A9EAE6.50909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>, netdev@vger.kernel.org
-To: serge.hallyn@canonical.com, containers@lists.linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:43297 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753011Ab2KSIQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 03:16:40 -0500
-Received: by mail-pa0-f46.google.com with SMTP id bh2so279329pad.19
-        for <netdev@vger.kernel.org>; Mon, 19 Nov 2012 00:16:40 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Xiang Rui <rui.xiang@huawei.com>
+From: Xiang Rui <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
-This patch add a struct syslog_namespace which contains the necessary member
-when handling syslog.
+We add a new clone flag named CLONE_NEWSYSLOG, and use 0x02000000 which was
+previously the unused CLONE_STOPPED and is now available for re-use.
 
-We realize gut_syslog_ns and put_syslog_ns API, and syslog_ns is initialized
-by init_syslog_ns. CONFIG_SYSLOG_NS is defined to allow to create syslog_ns.
+In syslog_namespaces.c, the interface copy_syslog_ns is implemented for create
+a new syslog_ns. When a new namespace was created for one process copying, the
+interface was used.
 
-Signed-off-by: Xiang Rui <rui.xiang@huawei.com>
-Signed-off-by: Libo Chen <clbchenlibo.chen@huawei.com>
+Signed-off-by: Xiang Rui <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 ---
- include/linux/syslog_namespace.h |   78 ++++++++++++++++++++++++++++++++++++++
- init/Kconfig                     |    7 +++
- kernel/Makefile                  |    1 +
- kernel/syslog_namespace.c        |   31 +++++++++++++++
- 4 files changed, 117 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/syslog_namespace.h
- create mode 100644 kernel/syslog_namespace.c
+ include/linux/nsproxy.h          |    2 ++
+ include/linux/syslog_namespace.h |   19 +++++++++++++++++++
+ include/uapi/linux/sched.h       |    3 +--
+ kernel/nsproxy.c                 |   16 +++++++++++++++-
+ kernel/syslog_namespace.c        |   32 ++++++++++++++++++++++++++++++++
+ 5 files changed, 69 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/nsproxy.h b/include/linux/nsproxy.h
+index cc37a55..9db2527 100644
+--- a/include/linux/nsproxy.h
++++ b/include/linux/nsproxy.h
+@@ -8,6 +8,7 @@ struct mnt_namespace;
+ struct uts_namespace;
+ struct ipc_namespace;
+ struct pid_namespace;
++struct syslog_namespace;
+ struct fs_struct;
+
+ /*
+@@ -29,6 +30,7 @@ struct nsproxy {
+ 	struct mnt_namespace *mnt_ns;
+ 	struct pid_namespace *pid_ns;
+ 	struct net 	     *net_ns;
++	struct syslog_namespace *syslog_ns;
+ };
+ extern struct nsproxy init_nsproxy;
 
 diff --git a/include/linux/syslog_namespace.h b/include/linux/syslog_namespace.h
-new file mode 100644
-index 0000000..8c8ac5a
---- /dev/null
+index 8c8ac5a..1ecb8b8 100644
+--- a/include/linux/syslog_namespace.h
 +++ b/include/linux/syslog_namespace.h
-@@ -0,0 +1,78 @@
-+#ifndef _LINUX_SYSLOG_NAMESPACE_H
-+#define _LINUX_SYSLOG_NAMESPACE_H
-+
-+#include <linux/kref.h>
-+
-+/* record buffer */
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-+#define LOG_ALIGN 4
-+#else
-+#define LOG_ALIGN __alignof__(struct log)
-+#endif
-+
-+#define CONTAINER_BUF_LEN 4096
-+
-+#define __LOG_BUF_LEN (1 << CONFIG_LOG_BUF_SHIFT)
-+
-+struct syslog_namespace {
-+	struct kref kref;       /* syslog_ns reference count & control */
-+
-+	raw_spinlock_t logbuf_lock; /* access conflict locker */
-+
-+	/* index and sequence number of the first record stored in the buffer */
-+	u64 log_first_seq;
-+	u32 log_first_idx;
-+
-+	/* index and sequence number of the next record stored in the buffer */
-+	u64 log_next_seq;
-+	u32 log_next_idx;
-+
-+	/* the next printk record to read after the last 'clear' command */
-+	u64 clear_seq;
-+	u32 clear_idx;
-+
-+	char *log_buf;
-+	u32 log_buf_len;
-+
-+	/* the next printk record to write to the console */
-+	u64 console_seq;
-+	u32 console_idx;
-+
-+	/* the next printk record to read by syslog(READ) or /proc/kmsg */
-+	u64 syslog_seq;
-+	u32 syslog_idx;
-+	int  syslog_prev;
-+	size_t syslog_partial;
-+};
-+
-+extern struct syslog_namespace init_syslog_ns;
-+
-+#ifdef CONFIG_SYSLOG_NS
-+extern void free_syslog_ns(struct kref *kref);
-+static inline struct syslog_namespace *get_syslog_ns(
-+				struct syslog_namespace *ns)
-+{
-+	if (ns != &init_syslog_ns)
-+		kref_get(&ns->kref);
-+	return ns;
-+}
-+
-+static inline void put_syslog_ns(struct syslog_namespace *ns)
-+{
-+	if (ns != &init_syslog_ns)
-+		kref_put(&ns->kref, free_syslog_ns);
-+}
-+
-+#else
-+static inline struct syslog_namespace *get_syslog_ns(
-+				struct syslog_namespace *ns)
-+{
-+	return ns;
-+}
-+
-+static inline void put_syslog_ns(struct syslog_namespace *ns)
-+{
-+}
-+#endif
-+
-+#endif
-diff --git a/init/Kconfig b/init/Kconfig
-index 6fdd6e3..82771e0 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -988,6 +988,13 @@ config NET_NS
- 	  Allow user space to create what appear to be multiple instances
- 	  of the network stack.
+@@ -2,6 +2,9 @@
+ #define _LINUX_SYSLOG_NAMESPACE_H
 
-+config SYSLOG_NS
-+	bool "Syslog namespace"
-+	default y
-+	help
-+	  Allow containers to use syslog namespaces to provide different
-+	  syslog for containers.
-+
- endif # NAMESPACES
+ #include <linux/kref.h>
++#include <linux/sched.h>
++#include <linux/nsproxy.h>
++#include <linux/err.h>
 
- config UIDGID_CONVERTED
-diff --git a/kernel/Makefile b/kernel/Makefile
-index 0dfeca4..cb3cba0 100644
---- a/kernel/Makefile
-+++ b/kernel/Makefile
-@@ -28,6 +28,7 @@ obj-y += power/
- ifeq ($(CONFIG_CHECKPOINT_RESTORE),y)
- obj-$(CONFIG_X86) += kcmp.o
- endif
-+obj-$(CONFIG_SYSLOG_NS) += syslog_namespace.o
- obj-$(CONFIG_FREEZER) += freezer.o
- obj-$(CONFIG_PROFILING) += profile.o
- obj-$(CONFIG_STACKTRACE) += stacktrace.o
-diff --git a/kernel/syslog_namespace.c b/kernel/syslog_namespace.c
-new file mode 100644
-index 0000000..9482927
---- /dev/null
-+++ b/kernel/syslog_namespace.c
-@@ -0,0 +1,31 @@
-+/*
-+ *  This program is free software; you can redistribute it and/or
-+ *  modify it under the terms of the GNU General Public License as
-+ *  published by the Free Software Foundation, version 2 of the
-+ *  License.
-+ */
+ /* record buffer */
+ #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
+@@ -47,8 +50,16 @@ struct syslog_namespace {
+
+ extern struct syslog_namespace init_syslog_ns;
+
++static inline struct syslog_namespace *current_syslog_ns(void)
++{
++	return current->nsproxy->syslog_ns;
++}
 +
-+#include <linux/slab.h>
-+#include <linux/module.h>
+ #ifdef CONFIG_SYSLOG_NS
+ extern void free_syslog_ns(struct kref *kref);
++extern struct syslog_namespace *copy_syslog_ns(unsigned long flags,
++					struct task_struct *tsk);
++
+ static inline struct syslog_namespace *get_syslog_ns(
+ 				struct syslog_namespace *ns)
+ {
+@@ -64,6 +75,14 @@ static inline void put_syslog_ns(struct syslog_namespace *ns)
+ }
+
+ #else
++static inline struct syslog_namespace *copy_syslog_ns(unsigned long flags,
++					struct task_struct *tsk)
++{
++	if (flags & CLONE_NEWSYSLOG)
++		return ERR_PTR(-EINVAL);
++	return tsk->nsproxy->syslog_ns;
++}
++
+ static inline struct syslog_namespace *get_syslog_ns(
+ 				struct syslog_namespace *ns)
+ {
+diff --git a/include/uapi/linux/sched.h b/include/uapi/linux/sched.h
+index 5a0f945..906a3da 100644
+--- a/include/uapi/linux/sched.h
++++ b/include/uapi/linux/sched.h
+@@ -21,8 +21,7 @@
+ #define CLONE_DETACHED		0x00400000	/* Unused, ignored */
+ #define CLONE_UNTRACED		0x00800000	/* set if the tracing process can't force CLONE_PTRACE on this clone */
+ #define CLONE_CHILD_SETTID	0x01000000	/* set the TID in the child */
+-/* 0x02000000 was previously the unused CLONE_STOPPED (Start in stopped state)
+-   and is now available for re-use. */
++#define CLONE_NEWSYSLOG	0x02000000      /* New syslog namespace */
+ #define CLONE_NEWUTS		0x04000000	/* New utsname group? */
+ #define CLONE_NEWIPC		0x08000000	/* New ipcs */
+ #define CLONE_NEWUSER		0x10000000	/* New user namespace */
+diff --git a/kernel/nsproxy.c b/kernel/nsproxy.c
+index b576f7f..331d31f 100644
+--- a/kernel/nsproxy.c
++++ b/kernel/nsproxy.c
+@@ -22,6 +22,7 @@
+ #include <linux/pid_namespace.h>
+ #include <net/net_namespace.h>
+ #include <linux/ipc_namespace.h>
 +#include <linux/syslog_namespace.h>
+ #include <linux/proc_fs.h>
+ #include <linux/file.h>
+ #include <linux/syscalls.h>
+@@ -36,6 +37,7 @@ struct nsproxy init_nsproxy = {
+ #endif
+ 	.mnt_ns	= NULL,
+ 	.pid_ns	= &init_pid_ns,
++	.syslog_ns = &init_syslog_ns,
+ #ifdef CONFIG_NET
+ 	.net_ns	= &init_net,
+ #endif
+@@ -96,8 +98,17 @@ static struct nsproxy *create_new_namespaces(unsigned long flags,
+ 		goto out_net;
+ 	}
+
++	new_nsp->syslog_ns = copy_syslog_ns(flags, tsk);
++	if (IS_ERR(new_nsp->syslog_ns)) {
++		err = PTR_ERR(new_nsp->syslog_ns);
++		goto out_syslog;
++	}
 +
-+static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
-+
-+struct syslog_namespace init_syslog_ns = {
-+	.kref = {
-+		.refcount = ATOMIC_INIT(2),
-+	},
-+	.logbuf_lock = __RAW_SPIN_LOCK_UNLOCKED(init_syslog_ns.logbuf_lock),
-+	.log_buf_len = __LOG_BUF_LEN,
-+	.log_buf = __log_buf,
-+};
-+EXPORT_SYMBOL_GPL(init_syslog_ns);
-+
-+void free_syslog_ns(struct kref *kref)
+ 	return new_nsp;
+
++out_syslog:
++	if (new_nsp->net_ns)
++		put_net(new_nsp->net_ns);
+ out_net:
+ 	if (new_nsp->pid_ns)
+ 		put_pid_ns(new_nsp->pid_ns);
+@@ -131,7 +142,8 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
+ 	get_nsproxy(old_ns);
+
+ 	if (!(flags & (CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
+-				CLONE_NEWPID | CLONE_NEWNET)))
++				CLONE_NEWPID | CLONE_NEWNET |
++				CLONE_NEWSYSLOG)))
+ 		return 0;
+
+ 	if (!capable(CAP_SYS_ADMIN)) {
+@@ -174,6 +186,8 @@ void free_nsproxy(struct nsproxy *ns)
+ 		put_ipc_ns(ns->ipc_ns);
+ 	if (ns->pid_ns)
+ 		put_pid_ns(ns->pid_ns);
++	if (ns->syslog_ns)
++		put_syslog_ns(ns->syslog_ns);
+ 	put_net(ns->net_ns);
+ 	kmem_cache_free(nsproxy_cachep, ns);
+ }
+diff --git a/kernel/syslog_namespace.c b/kernel/syslog_namespace.c
+index 9482927..a12e1c1 100644
+--- a/kernel/syslog_namespace.c
++++ b/kernel/syslog_namespace.c
+@@ -7,6 +7,7 @@
+
+ #include <linux/slab.h>
+ #include <linux/module.h>
++#include <linux/bootmem.h>
+ #include <linux/syslog_namespace.h>
+
+ static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
+@@ -21,6 +22,37 @@ struct syslog_namespace init_syslog_ns = {
+ };
+ EXPORT_SYMBOL_GPL(init_syslog_ns);
+
++static struct syslog_namespace *create_syslog_ns(unsigned int buf_len)
 +{
 +	struct syslog_namespace *ns;
-+	ns = container_of(kref, struct syslog_namespace, kref);
 +
-+	kfree(ns->log_buf);
-+	kfree(ns);
++	if (buf_len <= 0)
++		return ERR_PTR(-EINVAL);
++	ns = kzalloc(sizeof(*ns), GFP_KERNEL);
++	if (!ns)
++		return ERR_PTR(-ENOMEM);
++
++	kref_init(&(ns->kref));
++
++	ns->log_buf_len = buf_len;
++	ns->log_buf = kzalloc(buf_len, GFP_KERNEL);
++	if (!ns->log_buf) {
++		kfree(ns);
++		return ERR_PTR(-ENOMEM);
++	}
++	raw_spin_lock_init(&(ns->logbuf_lock));
++
++	return ns;
 +}
++
++struct syslog_namespace *copy_syslog_ns(unsigned long flags,
++					struct task_struct *tsk)
++{
++	if (!(flags & CLONE_NEWSYSLOG))
++		return get_syslog_ns(tsk->nsproxy->syslog_ns);
++	return create_syslog_ns(CONTAINER_BUF_LEN);
++}
++
+ void free_syslog_ns(struct kref *kref)
+ {
+ 	struct syslog_namespace *ns;
 -- 
 1.7.1
