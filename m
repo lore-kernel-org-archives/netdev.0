@@ -1,50 +1,63 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 200/493] irda: remove use of __devinit
-Date: Mon, 19 Nov 2012 11:30:02 -0800
-Message-ID: <20121119193002.GB16976@kroah.com>
-References: <1353349642-3677-200-git-send-email-wfp5p@virginia.edu>
- <20121119.140654.780679585475336928.davem@davemloft.net>
- <20121119192121.GA16694@kroah.com>
- <20121119.142446.1954365383179623684.davem@davemloft.net>
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Subject: Re: [PATCH 04/10] batman-adv: export compatibility
+ version via debugfs
+Date: Mon, 19 Nov 2012 19:40:18 +0000
+Message-ID: <1353354018.4156.13.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1353313451-2930-1-git-send-email-ordex@autistici.org>
+ <1353313451-2930-5-git-send-email-ordex@autistici.org>
+ <1353351150.4156.4.camel@bwh-desktop.uk.solarflarecom.com>
+ <5268262.CIrZ93ERtB@bentobox>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: wfp5p@virginia.edu, samuel@sortiz.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33723 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754438Ab2KSTaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 14:30:05 -0500
-Received: by mail-pa0-f46.google.com with SMTP id bh2so667315pad.19
-        for <netdev@vger.kernel.org>; Mon, 19 Nov 2012 11:30:05 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20121119.142446.1954365383179623684.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <5268262.CIrZ93ERtB@bentobox>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 19, 2012 at 02:24:46PM -0500, David Miller wrote:
-> From: Greg KH <gregkh@linuxfoundation.org>
-> Date: Mon, 19 Nov 2012 11:21:21 -0800
-> 
-> > On Mon, Nov 19, 2012 at 02:06:54PM -0500, David Miller wrote:
-> >> 
-> >> It is absolutely not reasonable to post nearly 500 patches all
-> >> at the same time.
-> >> 
-> >> Do not do this ever again.
+On Mon, 2012-11-19 at 20:29 +0100, Sven Eckelmann wrote:
+> On Monday 19 November 2012 18:52:30 Ben Hutchings wrote:
+> > On Mon, 2012-11-19 at 09:24 +0100, Antonio Quartulli wrote:
+> > > Different versions of the batman-adv module may use the same compatibility
+> > > version, but this is not understandable at runtime (the only way is to
+> > > parse the kernel log and fetch the batman-adv advertisement message on
+> > > loading). The user may want to know whether two nodes using different
+> > > versions can communicate or not. For this purpose the module has to
+> > > export this value through debugfs.
+> > [...]
 > > 
-> > Bill did this with the assumption that I would take them through my
-> > driver-core tree, as I asked that he do this work.  The 000 message said
-> > that, but that wasn't sent out to all of the recipients, so I can
-> > understand how you didn't see this.
-> > 
-> > Also, I was the only one that got all 500 emails, everyone else should
-> > have only seen a small quantity.
+> > I do hope that you're not planning to use unstable debugfs interfaces
+> > indefinitely.
 > 
-> I had to purge nearly 100 out of networking's patchwork.
-> 
-> This is unacceptable.
+> Why are you refering to the adding of an file as "incompatible" debugfs 
+> interface? I would call it additional information. And the rest of the commit 
+> message is talking about *possible* protocol incompatibilies of the network 
+> protocol (which caused this uncontrolled erruption of anger in a network 
+> maintainer).
 
-Ok, fair enough, sorry about that.
+I didn't say that.  But debugfs tends to be exempted from expectations
+of interface stability or cleanliness (as it's for development, not
+production... right?).  It's also an optional feature that might not be
+enabled at compile time or run-time.  If BATMAN is ever going to be
+ready for general use it will need stable interfaces that are updated in
+a backward-compatible way and don't depend on debugfs.
 
-greg k-h
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
