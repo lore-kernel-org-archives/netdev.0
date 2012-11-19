@@ -1,68 +1,40 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 379/493] net: remove use of __devinitconst
-Date: Mon, 19 Nov 2012 19:51:47 +0100
-Message-ID: <50AA7FC3.8060905@pengutronix.de>
-References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu> <1353349642-3677-379-git-send-email-wfp5p@virginia.edu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 04/10] batman-adv: export compatibility version via
+ debugfs
+Date: Mon, 19 Nov 2012 18:52:30 +0000
+Message-ID: <1353351150.4156.4.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1353313451-2930-1-git-send-email-ordex@autistici.org>
+	 <1353313451-2930-5-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig50DA8157DA398FBB356357B5"
-Cc: gregkh@linuxfoundation.org,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Luciano Coelho <coelho@ti.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org
-To: Bill Pemberton <wfp5p@virginia.edu>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1353349642-3677-379-git-send-email-wfp5p@virginia.edu>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<b.a.t.m.a.n@lists.open-mesh.org>,
+	Marek Lindner <lindner_marek@yahoo.de>
+To: Antonio Quartulli <ordex@autistici.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:32719 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753987Ab2KSSwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:52:34 -0500
+In-Reply-To: <1353313451-2930-5-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig50DA8157DA398FBB356357B5
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2012-11-19 at 09:24 +0100, Antonio Quartulli wrote:
+> Different versions of the batman-adv module may use the same compatibility
+> version, but this is not understandable at runtime (the only way is to parse the
+> kernel log and fetch the batman-adv advertisement message on loading). The user
+> may want to know whether two nodes using different versions can communicate or
+> not. For this purpose the module has to export this value through debugfs.
+[...]
 
-On 11/19/2012 07:25 PM, Bill Pemberton wrote:
-> CONFIG_HOTPLUG is going away as an option so __devinitconst is no
-> longer needed.
->=20
-> Signed-off-by: Bill Pemberton <wfp5p@virginia.edu>
-> Cc: Wolfgang Grandegger <wg@grandegger.com>=20
-> Cc: Marc Kleine-Budde <mkl@pengutronix.de>=20
-> Cc: Luciano Coelho <coelho@ti.com>=20
-> Cc: "John W. Linville" <linville@tuxdriver.com>=20
-> Cc: linux-can@vger.kernel.org=20
-> Cc: netdev@vger.kernel.org=20
-> Cc: linux-wireless@vger.kernel.org=20
+I do hope that you're not planning to use unstable debugfs interfaces
+indefinitely.
 
-You've missed (mainlined via net-next/master):
-> ./grcan.c:1732:static struct of_device_id grcan_match[] __devinitconst =
-=3D {
+Ben.
 
-Otherwise...
-Acked-by: Marc Kleine-Budde <mkl@pengutronix.de> (for the CAN part)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig50DA8157DA398FBB356357B5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
-
-iEYEARECAAYFAlCqf8MACgkQjTAFq1RaXHOGwgCfc2mmGrH8Mai0AYPG5N/mIhq2
-eKcAn3ho/MPfbYVKuNNprlnYMSJ2h1ll
-=3DaY
------END PGP SIGNATURE-----
-
---------------enig50DA8157DA398FBB356357B5--
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
