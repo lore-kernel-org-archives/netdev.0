@@ -1,32 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] sis900: fix sis900_set_mode call parameters.
-Date: Sun, 18 Nov 2012 18:28:44 -0500 (EST)
-Message-ID: <20121118.182844.1217736137926302548.davem@davemloft.net>
-References: <20121118224150.GA6755@electric-eye.fr.zoreil.com>
+From: Sony Chacko <sony.chacko@qlogic.com>
+Subject: RE: [net-next:master 83/84]
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c:1551:19: sparse: incorrect
+ type in return expression (different base types)
+Date: Sun, 18 Nov 2012 17:10:57 -0800
+Message-ID: <A26832265F3C994CBA2F7DA55BFAE70E74A0C9DA9F@AVEXMB2.qlogic.org>
+References: <50a89f9f.oTR4cFYr2+4dX7g+%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, medhefgo@web.de, venza@brownhat.org
-To: romieu@fr.zoreil.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: kbuild test robot <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53180 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752663Ab2KRX2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Nov 2012 18:28:49 -0500
-In-Reply-To: <20121118224150.GA6755@electric-eye.fr.zoreil.com>
+Received: from co9ehsobe003.messaging.microsoft.com ([207.46.163.26]:38835
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752722Ab2KSBLa convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Nov 2012 20:11:30 -0500
+In-Reply-To: <50a89f9f.oTR4cFYr2+4dX7g+%fengguang.wu@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sun, 18 Nov 2012 23:41:50 +0100
+> -----Original Message-----
+> From: kbuild test robot [mailto:fengguang.wu@intel.com]
+> Sent: Sunday, November 18, 2012 12:43 AM
+> To: Sony Chacko
+> Cc: netdev
+> Subject: [net-next:master 83/84]
+> drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c:1551:19: sparse: incorrect
+> type in return expression (different base types)
 
-> Leftover of 57d6d456cfb89264f87d24f52640ede23fdf12bd ("sis900: stop
-> using net_device.{base_addr, irq} and convert to __iomem.").
-> 
-> It is needed for suspend / resume to work.
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Tested-by: Jan Janssen <medhefgo@web.de>
-> Cc: Daniele Venzano <venza@brownhat.org>
-
-Ouch, applied, thanks!
+We will submit the fixes after testing the changes.
