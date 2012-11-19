@@ -1,62 +1,58 @@
-From: Bill Pemberton <wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org>
-Subject: [PATCH 126/493] rfkill: remove use of __devexit_p
-Date: Mon, 19 Nov 2012 13:21:15 -0500
-Message-ID: <1353349642-3677-126-git-send-email-wfp5p@virginia.edu>
+From: Bill Pemberton <wfp5p@virginia.edu>
+Subject: [PATCH 018/493] net: remove CONFIG_HOTPLUG ifdefs
+Date: Mon, 19 Nov 2012 13:19:27 -0500
+Message-ID: <1353349642-3677-18-git-send-email-wfp5p@virginia.edu>
 References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1353349642-3677-1-git-send-email-wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from viridian.itc.Virginia.EDU ([128.143.12.139]:41656 "EHLO
+	viridian.itc.virginia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754520Ab2KSSiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:38:08 -0500
+In-Reply-To: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CONFIG_HOTPLUG is going away as an option so __devexit_p is no longer
-needed.
+Remove conditional code based on CONFIG_HOTPLUG being false.  It's
+always on now in preparation of it going away as an option.
 
-Signed-off-by: Bill Pemberton <wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org>
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> 
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> 
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> 
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org 
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org 
+Signed-off-by: Bill Pemberton <wfp5p@virginia.edu>
+Cc: "David S. Miller" <davem@davemloft.net> 
+Cc: netdev@vger.kernel.org 
 ---
- net/rfkill/rfkill-gpio.c      | 2 +-
- net/rfkill/rfkill-regulator.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/core/net-sysfs.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/net/rfkill/rfkill-gpio.c b/net/rfkill/rfkill-gpio.c
-index 865adb6..78fc093 100644
---- a/net/rfkill/rfkill-gpio.c
-+++ b/net/rfkill/rfkill-gpio.c
-@@ -213,7 +213,7 @@ static int rfkill_gpio_remove(struct platform_device *pdev)
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index bcf02f6..adcb1b5 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1320,7 +1320,6 @@ struct kobj_ns_type_operations net_ns_type_operations = {
+ };
+ EXPORT_SYMBOL_GPL(net_ns_type_operations);
  
- static struct platform_driver rfkill_gpio_driver = {
- 	.probe = rfkill_gpio_probe,
--	.remove = __devexit_p(rfkill_gpio_remove),
-+	.remove = rfkill_gpio_remove,
- 	.driver = {
- 		   .name = "rfkill_gpio",
- 		   .owner = THIS_MODULE,
-diff --git a/net/rfkill/rfkill-regulator.c b/net/rfkill/rfkill-regulator.c
-index 11da301..a87710d 100644
---- a/net/rfkill/rfkill-regulator.c
-+++ b/net/rfkill/rfkill-regulator.c
-@@ -137,7 +137,7 @@ static int __devexit rfkill_regulator_remove(struct platform_device *pdev)
+-#ifdef CONFIG_HOTPLUG
+ static int netdev_uevent(struct device *d, struct kobj_uevent_env *env)
+ {
+ 	struct net_device *dev = to_net_dev(d);
+@@ -1339,7 +1338,6 @@ static int netdev_uevent(struct device *d, struct kobj_uevent_env *env)
+ exit:
+ 	return retval;
+ }
+-#endif
  
- static struct platform_driver rfkill_regulator_driver = {
- 	.probe = rfkill_regulator_probe,
--	.remove = __devexit_p(rfkill_regulator_remove),
-+	.remove = rfkill_regulator_remove,
- 	.driver = {
- 		.name = "rfkill-regulator",
- 		.owner = THIS_MODULE,
+ /*
+  *	netdev_release -- destroy and free a dead device.
+@@ -1368,9 +1366,7 @@ static struct class net_class = {
+ #ifdef CONFIG_SYSFS
+ 	.dev_attrs = net_class_attributes,
+ #endif /* CONFIG_SYSFS */
+-#ifdef CONFIG_HOTPLUG
+ 	.dev_uevent = netdev_uevent,
+-#endif
+ 	.ns_type = &net_ns_type_operations,
+ 	.namespace = net_namespace,
+ };
 -- 
 1.8.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
