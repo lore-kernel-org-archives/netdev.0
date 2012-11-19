@@ -1,16 +1,16 @@
 From: Bill Pemberton <wfp5p@virginia.edu>
-Subject: [PATCH 204/493] atm: remove use of __devinit
-Date: Mon, 19 Nov 2012 13:22:33 -0500
-Message-ID: <1353349642-3677-204-git-send-email-wfp5p@virginia.edu>
+Subject: [PATCH 232/493] isdn: remove use of __devinit
+Date: Mon, 19 Nov 2012 13:23:01 -0500
+Message-ID: <1353349642-3677-232-git-send-email-wfp5p@virginia.edu>
 References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	Armin Schindler <mac@melware.de>, netdev@vger.kernel.org
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viridian.itc.Virginia.EDU ([128.143.12.139]:41322 "EHLO
+Received: from viridian.itc.Virginia.EDU ([128.143.12.139]:41412 "EHLO
 	viridian.itc.virginia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754065Ab2KSScy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:32:54 -0500
+	with ESMTP id S1753975Ab2KSSdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:33:31 -0500
 In-Reply-To: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,876 +19,1242 @@ CONFIG_HOTPLUG is going away as an option so __devinit is no longer
 needed.
 
 Signed-off-by: Bill Pemberton <wfp5p@virginia.edu>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil> 
-Cc: linux-atm-general@lists.sourceforge.net 
+Cc: Karsten Keil <isdn@linux-pingi.de> 
+Cc: Armin Schindler <mac@melware.de> 
 Cc: netdev@vger.kernel.org 
 ---
- drivers/atm/ambassador.c | 24 ++++++++++++------------
- drivers/atm/eni.c        | 10 +++++-----
- drivers/atm/firestream.c | 16 ++++++++--------
- drivers/atm/fore200e.c   | 38 +++++++++++++++++++-------------------
- drivers/atm/he.c         | 20 ++++++++++----------
- drivers/atm/horizon.c    |  6 +++---
- drivers/atm/idt77252.c   | 10 +++++-----
- drivers/atm/iphase.c     |  6 +++---
- drivers/atm/lanai.c      | 24 ++++++++++++------------
- drivers/atm/nicstar.c    | 10 +++++-----
- drivers/atm/zatm.c       | 18 +++++++++---------
- 11 files changed, 91 insertions(+), 91 deletions(-)
+ drivers/isdn/hardware/avm/b1pci.c           |  2 +-
+ drivers/isdn/hardware/avm/c4.c              |  2 +-
+ drivers/isdn/hardware/avm/t1pci.c           |  2 +-
+ drivers/isdn/hardware/eicon/divasmain.c     |  2 +-
+ drivers/isdn/hardware/mISDN/avmfritz.c      |  4 ++--
+ drivers/isdn/hardware/mISDN/hfcpci.c        |  2 +-
+ drivers/isdn/hardware/mISDN/mISDNinfineon.c | 11 +++++------
+ drivers/isdn/hardware/mISDN/netjet.c        |  4 ++--
+ drivers/isdn/hardware/mISDN/speedfax.c      |  8 ++++----
+ drivers/isdn/hardware/mISDN/w6692.c         |  2 +-
+ drivers/isdn/hisax/amd7930_fn.c             |  2 +-
+ drivers/isdn/hisax/asuscom.c                |  2 +-
+ drivers/isdn/hisax/avm_a1.c                 |  2 +-
+ drivers/isdn/hisax/avm_a1p.c                |  2 +-
+ drivers/isdn/hisax/avm_pci.c                | 12 ++++++------
+ drivers/isdn/hisax/avma1_cs.c               |  6 +++---
+ drivers/isdn/hisax/bkm_a4t.c                |  6 +++---
+ drivers/isdn/hisax/bkm_a8.c                 |  4 ++--
+ drivers/isdn/hisax/config.c                 |  6 +++---
+ drivers/isdn/hisax/diva.c                   | 16 ++++++++--------
+ drivers/isdn/hisax/elsa.c                   | 14 +++++++-------
+ drivers/isdn/hisax/elsa_cs.c                |  6 +++---
+ drivers/isdn/hisax/enternow_pci.c           |  8 ++++----
+ drivers/isdn/hisax/gazel.c                  |  6 +++---
+ drivers/isdn/hisax/hfc4s8s_l1.c             |  4 ++--
+ drivers/isdn/hisax/hfc_pci.c                |  2 +-
+ drivers/isdn/hisax/hfc_sx.c                 |  2 +-
+ drivers/isdn/hisax/hfcscard.c               |  2 +-
+ drivers/isdn/hisax/hisax_fcpcipnp.c         |  9 ++++-----
+ drivers/isdn/hisax/icc.c                    |  2 +-
+ drivers/isdn/hisax/isac.c                   |  4 ++--
+ drivers/isdn/hisax/isurf.c                  |  2 +-
+ drivers/isdn/hisax/ix1_micro.c              |  2 +-
+ drivers/isdn/hisax/mic.c                    |  2 +-
+ drivers/isdn/hisax/niccy.c                  |  2 +-
+ drivers/isdn/hisax/nj_s.c                   |  8 ++++----
+ drivers/isdn/hisax/nj_u.c                   |  8 ++++----
+ drivers/isdn/hisax/s0box.c                  |  2 +-
+ drivers/isdn/hisax/saphir.c                 |  2 +-
+ drivers/isdn/hisax/sedlbauer.c              | 10 +++++-----
+ drivers/isdn/hisax/sedlbauer_cs.c           |  6 +++---
+ drivers/isdn/hisax/sportster.c              |  4 ++--
+ drivers/isdn/hisax/teleint.c                |  2 +-
+ drivers/isdn/hisax/teles0.c                 |  2 +-
+ drivers/isdn/hisax/teles3.c                 |  2 +-
+ drivers/isdn/hisax/teles_cs.c               |  6 +++---
+ drivers/isdn/hisax/telespci.c               |  2 +-
+ drivers/isdn/hisax/w6692.c                  |  2 +-
+ drivers/isdn/hysdn/hysdn_init.c             |  2 +-
+ 49 files changed, 110 insertions(+), 112 deletions(-)
 
-diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
-index 9e9df4f..eb8d486 100644
---- a/drivers/atm/ambassador.c
-+++ b/drivers/atm/ambassador.c
-@@ -1507,7 +1507,7 @@ static void do_housekeeping (unsigned long arg) {
+diff --git a/drivers/isdn/hardware/avm/b1pci.c b/drivers/isdn/hardware/avm/b1pci.c
+index cc1b671..cedf68d 100644
+--- a/drivers/isdn/hardware/avm/b1pci.c
++++ b/drivers/isdn/hardware/avm/b1pci.c
+@@ -299,7 +299,7 @@ static void b1pciv4_remove(struct pci_dev *pdev)
  
- /********** creation of communication queues **********/
+ #endif /* CONFIG_ISDN_DRV_AVMB1_B1PCIV4 */
  
--static int __devinit create_queues (amb_dev * dev, unsigned int cmds,
-+static int create_queues (amb_dev * dev, unsigned int cmds,
- 				 unsigned int txs, unsigned int * rxs,
- 				 unsigned int * rx_buffer_sizes) {
-   unsigned char pool;
-@@ -1737,7 +1737,7 @@ static  int decode_loader_result (loader_command cmd, u32 result)
- 	return res;
- }
- 
--static int __devinit do_loader_command (volatile loader_block * lb,
-+static int do_loader_command (volatile loader_block * lb,
- 				     const amb_dev * dev, loader_command cmd) {
-   
-   unsigned long timeout;
-@@ -1793,7 +1793,7 @@ static int __devinit do_loader_command (volatile loader_block * lb,
- 
- /* loader: determine loader version */
- 
--static int __devinit get_loader_version (loader_block * lb,
-+static int get_loader_version (loader_block * lb,
- 				      const amb_dev * dev, u32 * version) {
-   int res;
-   
-@@ -1809,7 +1809,7 @@ static int __devinit get_loader_version (loader_block * lb,
- 
- /* loader: write memory data blocks */
- 
--static int __devinit loader_write (loader_block* lb,
-+static int loader_write (loader_block* lb,
- 				   const amb_dev *dev,
- 				   const struct ihex_binrec *rec) {
-   transfer_block * tb = &lb->payload.transfer;
-@@ -1824,7 +1824,7 @@ static int __devinit loader_write (loader_block* lb,
- 
- /* loader: verify memory data blocks */
- 
--static int __devinit loader_verify (loader_block * lb,
-+static int loader_verify (loader_block * lb,
- 				    const amb_dev *dev,
- 				    const struct ihex_binrec *rec) {
-   transfer_block * tb = &lb->payload.transfer;
-@@ -1842,7 +1842,7 @@ static int __devinit loader_verify (loader_block * lb,
- 
- /* loader: start microcode */
- 
--static int __devinit loader_start (loader_block * lb,
-+static int loader_start (loader_block * lb,
- 				const amb_dev * dev, u32 address) {
-   PRINTD (DBG_FLOW|DBG_LOAD, "loader_start");
-   
-@@ -1918,7 +1918,7 @@ static int amb_reset (amb_dev * dev, int diags) {
- 
- /********** transfer and start the microcode **********/
- 
--static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
-+static int ucode_init (loader_block * lb, amb_dev * dev) {
-   const struct firmware *fw;
-   unsigned long start_address;
-   const struct ihex_binrec *rec;
-@@ -1979,7 +1979,7 @@ static inline __be32 bus_addr(void * addr) {
-     return cpu_to_be32 (virt_to_bus (addr));
- }
- 
--static int __devinit amb_talk (amb_dev * dev) {
-+static int amb_talk (amb_dev * dev) {
-   adap_talk_block a;
-   unsigned char pool;
-   unsigned long timeout;
-@@ -2026,7 +2026,7 @@ static int __devinit amb_talk (amb_dev * dev) {
- }
- 
- // get microcode version
--static void __devinit amb_ucode_version (amb_dev * dev) {
-+static void amb_ucode_version (amb_dev * dev) {
-   u32 major;
-   u32 minor;
-   command cmd;
-@@ -2041,7 +2041,7 @@ static void __devinit amb_ucode_version (amb_dev * dev) {
- }
-   
- // get end station address
--static void __devinit amb_esi (amb_dev * dev, u8 * esi) {
-+static void amb_esi (amb_dev * dev, u8 * esi) {
-   u32 lower4;
-   u16 upper2;
-   command cmd;
-@@ -2087,7 +2087,7 @@ static void fixup_plx_window (amb_dev *dev, loader_block *lb)
- 	return;
- }
- 
--static int __devinit amb_init (amb_dev * dev)
-+static int amb_init (amb_dev * dev)
+-static int __devinit b1pci_pci_probe(struct pci_dev *pdev,
++static int b1pci_pci_probe(struct pci_dev *pdev,
+ 				     const struct pci_device_id *ent)
  {
-   loader_block lb;
-   
-@@ -2183,7 +2183,7 @@ static void setup_pci_dev(struct pci_dev *pci_dev)
+ 	struct capicardparams param;
+diff --git a/drivers/isdn/hardware/avm/c4.c b/drivers/isdn/hardware/avm/c4.c
+index 98f1881..9c3cf39 100644
+--- a/drivers/isdn/hardware/avm/c4.c
++++ b/drivers/isdn/hardware/avm/c4.c
+@@ -1249,7 +1249,7 @@ err:
+ 
+ /* ------------------------------------------------------------- */
+ 
+-static int __devinit c4_probe(struct pci_dev *dev,
++static int c4_probe(struct pci_dev *dev,
+ 			      const struct pci_device_id *ent)
+ {
+ 	int nr = ent->driver_data;
+diff --git a/drivers/isdn/hardware/avm/t1pci.c b/drivers/isdn/hardware/avm/t1pci.c
+index cb9a304..be431ff 100644
+--- a/drivers/isdn/hardware/avm/t1pci.c
++++ b/drivers/isdn/hardware/avm/t1pci.c
+@@ -187,7 +187,7 @@ static char *t1pci_procinfo(struct capi_ctr *ctrl)
+ 
+ /* ------------------------------------------------------------- */
+ 
+-static int __devinit t1pci_probe(struct pci_dev *dev,
++static int t1pci_probe(struct pci_dev *dev,
+ 				 const struct pci_device_id *ent)
+ {
+ 	struct capicardparams param;
+diff --git a/drivers/isdn/hardware/eicon/divasmain.c b/drivers/isdn/hardware/eicon/divasmain.c
+index 3dfe2bb..26454e2 100644
+--- a/drivers/isdn/hardware/eicon/divasmain.c
++++ b/drivers/isdn/hardware/eicon/divasmain.c
+@@ -688,7 +688,7 @@ static int __init divas_register_chrdev(void)
+ /* --------------------------------------------------------------------------
+    PCI driver section
+    -------------------------------------------------------------------------- */
+-static int __devinit divas_init_one(struct pci_dev *pdev,
++static int divas_init_one(struct pci_dev *pdev,
+ 				    const struct pci_device_id *ent)
+ {
+ 	void *pdiva = NULL;
+diff --git a/drivers/isdn/hardware/mISDN/avmfritz.c b/drivers/isdn/hardware/mISDN/avmfritz.c
+index 922f29f..44f57dc 100644
+--- a/drivers/isdn/hardware/mISDN/avmfritz.c
++++ b/drivers/isdn/hardware/mISDN/avmfritz.c
+@@ -1034,7 +1034,7 @@ release_card(struct fritzcard *card)
+ 	AVM_cnt--;
+ }
+ 
+-static int __devinit
++static int
+ setup_instance(struct fritzcard *card)
+ {
+ 	int i, err;
+@@ -1096,7 +1096,7 @@ error:
+ 	return err;
+ }
+ 
+-static int __devinit
++static int
+ fritzpci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	int err = -ENOMEM;
+diff --git a/drivers/isdn/hardware/mISDN/hfcpci.c b/drivers/isdn/hardware/mISDN/hfcpci.c
+index 580e629..ff06897 100644
+--- a/drivers/isdn/hardware/mISDN/hfcpci.c
++++ b/drivers/isdn/hardware/mISDN/hfcpci.c
+@@ -2215,7 +2215,7 @@ static struct pci_device_id hfc_ids[] =
+ 	{},
+ };
+ 
+-static int __devinit
++static int
+ hfc_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	int		err = -ENOMEM;
+diff --git a/drivers/isdn/hardware/mISDN/mISDNinfineon.c b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
+index a43fddf..6810521 100644
+--- a/drivers/isdn/hardware/mISDN/mISDNinfineon.c
++++ b/drivers/isdn/hardware/mISDN/mISDNinfineon.c
+@@ -603,7 +603,7 @@ inf_ctrl(struct inf_hw *hw, u32 cmd, u_long arg)
+ 	return ret;
+ }
+ 
+-static int __devinit
++static int
+ init_irq(struct inf_hw *hw)
+ {
+ 	int	ret, cnt = 3;
+@@ -662,7 +662,7 @@ release_io(struct inf_hw *hw)
  	}
  }
  
--static int __devinit amb_probe(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
-+static int amb_probe(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
+-static int __devinit
++static int
+ setup_io(struct inf_hw *hw)
  {
- 	amb_dev * dev;
+ 	int err = 0;
+@@ -896,7 +896,7 @@ release_card(struct inf_hw *card) {
+ 	inf_cnt--;
+ }
+ 
+-static int __devinit
++static int
+ setup_instance(struct inf_hw *card)
+ {
  	int err;
-diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-index 2dd26f9..34416f6 100644
---- a/drivers/atm/eni.c
-+++ b/drivers/atm/eni.c
-@@ -1591,7 +1591,7 @@ static char * const media_name[] __devinitconst = {
-   } })
- 
- 
--static int __devinit get_esi_asic(struct atm_dev *dev)
-+static int get_esi_asic(struct atm_dev *dev)
- {
- 	struct eni_dev *eni_dev;
- 	unsigned char tonga;
-@@ -1683,7 +1683,7 @@ static int __devinit get_esi_asic(struct atm_dev *dev)
- #undef GET_SEPROM
- 
- 
--static int __devinit get_esi_fpga(struct atm_dev *dev, void __iomem *base)
-+static int get_esi_fpga(struct atm_dev *dev, void __iomem *base)
- {
- 	void __iomem *mac_base;
- 	int i;
-@@ -1694,7 +1694,7 @@ static int __devinit get_esi_fpga(struct atm_dev *dev, void __iomem *base)
- }
- 
- 
--static int __devinit eni_do_init(struct atm_dev *dev)
-+static int eni_do_init(struct atm_dev *dev)
- {
- 	struct midway_eprom __iomem *eprom;
- 	struct eni_dev *eni_dev;
-@@ -1797,7 +1797,7 @@ static void eni_do_release(struct atm_dev *dev)
- 	iounmap(ed->ioaddr);
- }
- 
--static int __devinit eni_start(struct atm_dev *dev)
-+static int eni_start(struct atm_dev *dev)
- {
- 	struct eni_dev *eni_dev;
- 	
-@@ -2226,7 +2226,7 @@ static const struct atmdev_ops ops = {
- };
- 
- 
--static int __devinit eni_init_one(struct pci_dev *pci_dev,
-+static int eni_init_one(struct pci_dev *pci_dev,
- 				  const struct pci_device_id *ent)
- {
- 	struct atm_dev *dev;
-diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
-index 5aae55d..a173c77 100644
---- a/drivers/atm/firestream.c
-+++ b/drivers/atm/firestream.c
-@@ -1295,7 +1295,7 @@ static const struct atmdev_ops ops = {
- };
- 
- 
--static void __devinit undocumented_pci_fix (struct pci_dev *pdev)
-+static void undocumented_pci_fix (struct pci_dev *pdev)
- {
- 	u32 tint;
- 
-@@ -1319,13 +1319,13 @@ static void __devinit undocumented_pci_fix (struct pci_dev *pdev)
-  *                              PHY routines                              *
-  **************************************************************************/
- 
--static void __devinit write_phy (struct fs_dev *dev, int regnum, int val)
-+static void write_phy (struct fs_dev *dev, int regnum, int val)
- {
- 	submit_command (dev,  &dev->hp_txq, QE_CMD_PRP_WR | QE_CMD_IMM_INQ,
- 			regnum, val, 0);
- }
- 
--static int __devinit init_phy (struct fs_dev *dev, struct reginit_item *reginit)
-+static int init_phy (struct fs_dev *dev, struct reginit_item *reginit)
- {
- 	int i;
- 
-@@ -1381,7 +1381,7 @@ static void reset_chip (struct fs_dev *dev)
+@@ -1060,8 +1060,7 @@ static const struct inf_cinfo inf_card_info[] = {
  	}
- }
+ };
  
--static void __devinit *aligned_kmalloc (int size, gfp_t flags, int alignment)
-+static void *aligned_kmalloc (int size, gfp_t flags, int alignment)
+-static const struct inf_cinfo * __devinit
+-get_card_info(enum inf_types typ)
++static const struct inf_cinfo *get_card_info(enum inf_types typ)
  {
- 	void  *t;
+ 	const struct inf_cinfo *ci = inf_card_info;
  
-@@ -1398,7 +1398,7 @@ static void __devinit *aligned_kmalloc (int size, gfp_t flags, int alignment)
+@@ -1073,7 +1072,7 @@ get_card_info(enum inf_types typ)
  	return NULL;
  }
  
--static int __devinit init_q (struct fs_dev *dev, 
-+static int init_q (struct fs_dev *dev,
- 			  struct queue *txq, int queue, int nentries, int is_rq)
+-static int __devinit
++static int
+ inf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  {
- 	int sz = nentries * sizeof (struct FS_QENTRY);
-@@ -1434,7 +1434,7 @@ static int __devinit init_q (struct fs_dev *dev,
+ 	int err = -ENOMEM;
+diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
+index 2cfed9f..d464735 100644
+--- a/drivers/isdn/hardware/mISDN/netjet.c
++++ b/drivers/isdn/hardware/mISDN/netjet.c
+@@ -1008,7 +1008,7 @@ nj_setup(struct tiger_hw *card)
  }
  
  
--static int __devinit init_fp (struct fs_dev *dev, 
-+static int init_fp (struct fs_dev *dev,
- 			   struct freepool *fp, int queue, int bufsize, int nr_buffers)
+-static int __devinit
++static int
+ setup_instance(struct tiger_hw *card)
  {
- 	func_enter ();
-@@ -1662,7 +1662,7 @@ static void fs_poll (unsigned long data)
+ 	int i, err;
+@@ -1059,7 +1059,7 @@ error:
+ 	return err;
  }
+ 
+-static int __devinit
++static int
+ nj_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	int err = -ENOMEM;
+diff --git a/drivers/isdn/hardware/mISDN/speedfax.c b/drivers/isdn/hardware/mISDN/speedfax.c
+index 92c6059..c292507 100644
+--- a/drivers/isdn/hardware/mISDN/speedfax.c
++++ b/drivers/isdn/hardware/mISDN/speedfax.c
+@@ -282,7 +282,7 @@ sfax_dctrl(struct mISDNchannel *ch, u32 cmd, void *arg)
+ 	return err;
+ }
+ 
+-static int __devinit
++static int
+ init_card(struct sfax_hw *sf)
+ {
+ 	int	ret, cnt = 3;
+@@ -321,7 +321,7 @@ init_card(struct sfax_hw *sf)
+ }
+ 
+ 
+-static int __devinit
++static int
+ setup_speedfax(struct sfax_hw *sf)
+ {
+ 	u_long flags;
+@@ -371,7 +371,7 @@ release_card(struct sfax_hw *card) {
+ 	sfax_cnt--;
+ }
+ 
+-static int __devinit
++static int
+ setup_instance(struct sfax_hw *card)
+ {
+ 	const struct firmware *firmware;
+@@ -451,7 +451,7 @@ error_fw:
+ 	return err;
+ }
+ 
+-static int __devinit
++static int
+ sfaxpci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	int err = -ENOMEM;
+diff --git a/drivers/isdn/hardware/mISDN/w6692.c b/drivers/isdn/hardware/mISDN/w6692.c
+index 34be200..6033fa1 100644
+--- a/drivers/isdn/hardware/mISDN/w6692.c
++++ b/drivers/isdn/hardware/mISDN/w6692.c
+@@ -1355,7 +1355,7 @@ error_setup:
+ 	return err;
+ }
+ 
+-static int __devinit
++static int
+ w6692_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	int		err = -ENOMEM;
+diff --git a/drivers/isdn/hisax/amd7930_fn.c b/drivers/isdn/hisax/amd7930_fn.c
+index 525471e..5215152 100644
+--- a/drivers/isdn/hisax/amd7930_fn.c
++++ b/drivers/isdn/hisax/amd7930_fn.c
+@@ -786,7 +786,7 @@ void Amd7930_init(struct IsdnCardState *cs)
+ 	}
+ }
+ 
+-void __devinit
++void
+ setup_Amd7930(struct IsdnCardState *cs)
+ {
+ 	INIT_WORK(&cs->tqueue, Amd7930_bh);
+diff --git a/drivers/isdn/hisax/asuscom.c b/drivers/isdn/hisax/asuscom.c
+index 2b74a40..e324be4 100644
+--- a/drivers/isdn/hisax/asuscom.c
++++ b/drivers/isdn/hisax/asuscom.c
+@@ -315,7 +315,7 @@ static struct isapnp_device_id *ipid __devinitdata = &asus_ids[0];
+ static struct pnp_card *pnp_c __devinitdata = NULL;
  #endif
  
--static int __devinit fs_init (struct fs_dev *dev)
-+static int fs_init (struct fs_dev *dev)
+-int __devinit
++int
+ setup_asuscom(struct IsdnCard *card)
  {
- 	struct pci_dev  *pci_dev;
- 	int isr, to;
-@@ -1897,7 +1897,7 @@ unmap:
+ 	int bytecnt;
+diff --git a/drivers/isdn/hisax/avm_a1.c b/drivers/isdn/hisax/avm_a1.c
+index 402d489..915d166 100644
+--- a/drivers/isdn/hisax/avm_a1.c
++++ b/drivers/isdn/hisax/avm_a1.c
+@@ -177,7 +177,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-int __devinit
++int
+ setup_avm_a1(struct IsdnCard *card)
+ {
+ 	u_char val;
+diff --git a/drivers/isdn/hisax/avm_a1p.c b/drivers/isdn/hisax/avm_a1p.c
+index 3934719..bc52d54 100644
+--- a/drivers/isdn/hisax/avm_a1p.c
++++ b/drivers/isdn/hisax/avm_a1p.c
+@@ -213,7 +213,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return 0;
+ }
+ 
+-int __devinit setup_avm_a1_pcmcia(struct IsdnCard *card)
++int setup_avm_a1_pcmcia(struct IsdnCard *card)
+ {
+ 	u_char model, vers;
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/avm_pci.c b/drivers/isdn/hisax/avm_pci.c
+index 979492d..2536aa4 100644
+--- a/drivers/isdn/hisax/avm_pci.c
++++ b/drivers/isdn/hisax/avm_pci.c
+@@ -718,7 +718,7 @@ AVM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-static int __devinit avm_setup_rest(struct IsdnCardState *cs)
++static int avm_setup_rest(struct IsdnCardState *cs)
+ {
+ 	u_int val, ver;
+ 
+@@ -770,7 +770,7 @@ static int __devinit avm_setup_rest(struct IsdnCardState *cs)
+ 
+ #ifndef __ISAPNP__
+ 
+-static int __devinit avm_pnp_setup(struct IsdnCardState *cs)
++static int avm_pnp_setup(struct IsdnCardState *cs)
+ {
+ 	return (1);	/* no-op: success */
+ }
+@@ -779,7 +779,7 @@ static int __devinit avm_pnp_setup(struct IsdnCardState *cs)
+ 
+ static struct pnp_card *pnp_avm_c __devinitdata = NULL;
+ 
+-static int __devinit avm_pnp_setup(struct IsdnCardState *cs)
++static int avm_pnp_setup(struct IsdnCardState *cs)
+ {
+ 	struct pnp_dev *pnp_avm_d = NULL;
+ 
+@@ -825,7 +825,7 @@ static int __devinit avm_pnp_setup(struct IsdnCardState *cs)
+ 
+ #ifndef CONFIG_PCI
+ 
+-static int __devinit avm_pci_setup(struct IsdnCardState *cs)
++static int avm_pci_setup(struct IsdnCardState *cs)
+ {
+ 	return (1);	/* no-op: success */
+ }
+@@ -834,7 +834,7 @@ static int __devinit avm_pci_setup(struct IsdnCardState *cs)
+ 
+ static struct pci_dev *dev_avm __devinitdata = NULL;
+ 
+-static int __devinit avm_pci_setup(struct IsdnCardState *cs)
++static int avm_pci_setup(struct IsdnCardState *cs)
+ {
+ 	if ((dev_avm = hisax_find_pci_device(PCI_VENDOR_ID_AVM,
+ 					     PCI_DEVICE_ID_AVM_A1, dev_avm))) {
+@@ -867,7 +867,7 @@ static int __devinit avm_pci_setup(struct IsdnCardState *cs)
+ 
+ #endif /* CONFIG_PCI */
+ 
+-int __devinit
++int
+ setup_avm_pcipnp(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/avma1_cs.c b/drivers/isdn/hisax/avma1_cs.c
+index 7f5d8b6..ed534d3 100644
+--- a/drivers/isdn/hisax/avma1_cs.c
++++ b/drivers/isdn/hisax/avma1_cs.c
+@@ -38,11 +38,11 @@ module_param(isdnprot, int, 0);
+ 
+ /*====================================================================*/
+ 
+-static int avma1cs_config(struct pcmcia_device *link) __devinit;
++static int avma1cs_config(struct pcmcia_device *link);
+ static void avma1cs_release(struct pcmcia_device *link);
+ static void avma1cs_detach(struct pcmcia_device *p_dev) __devexit;
+ 
+-static int __devinit avma1cs_probe(struct pcmcia_device *p_dev)
++static int avma1cs_probe(struct pcmcia_device *p_dev)
+ {
+ 	dev_dbg(&p_dev->dev, "avma1cs_attach()\n");
+ 
+@@ -72,7 +72,7 @@ static int avma1cs_configcheck(struct pcmcia_device *p_dev, void *priv_data)
+ }
+ 
+ 
+-static int __devinit avma1cs_config(struct pcmcia_device *link)
++static int avma1cs_config(struct pcmcia_device *link)
+ {
+ 	int i = -1;
+ 	char devname[128];
+diff --git a/drivers/isdn/hisax/bkm_a4t.c b/drivers/isdn/hisax/bkm_a4t.c
+index f6bf9c6..f186b02 100644
+--- a/drivers/isdn/hisax/bkm_a4t.c
++++ b/drivers/isdn/hisax/bkm_a4t.c
+@@ -253,7 +253,7 @@ BKM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-static int __devinit a4t_pci_probe(struct pci_dev *dev_a4t,
++static int a4t_pci_probe(struct pci_dev *dev_a4t,
+ 				   struct IsdnCardState *cs,
+ 				   u_int *found,
+ 				   u_int *pci_memaddr)
+@@ -275,7 +275,7 @@ static int __devinit a4t_pci_probe(struct pci_dev *dev_a4t,
+ 	return (-1);			/* continue looping */
+ }
+ 
+-static int __devinit a4t_cs_init(struct IsdnCard *card,
++static int a4t_cs_init(struct IsdnCard *card,
+ 				 struct IsdnCardState *cs,
+ 				 u_int pci_memaddr)
+ {
+@@ -325,7 +325,7 @@ static int __devinit a4t_cs_init(struct IsdnCard *card,
+ 
+ static struct pci_dev *dev_a4t __devinitdata = NULL;
+ 
+-int __devinit
++int
+ setup_bkm_a4t(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/bkm_a8.c b/drivers/isdn/hisax/bkm_a8.c
+index c9c98f0..48c50cf 100644
+--- a/drivers/isdn/hisax/bkm_a8.c
++++ b/drivers/isdn/hisax/bkm_a8.c
+@@ -255,7 +255,7 @@ BKM_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-static int __devinit
++static int
+ sct_alloc_io(u_int adr, u_int len)
+ {
+ 	if (!request_region(adr, len, "scitel")) {
+@@ -274,7 +274,7 @@ static u_char pci_bus __devinitdata = 0;
+ static u_char pci_device_fn __devinitdata = 0;
+ static u_char pci_irq __devinitdata = 0;
+ 
+-int __devinit
++int
+ setup_sct_quadro(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/config.c b/drivers/isdn/hisax/config.c
+index 386f544..420e3be 100644
+--- a/drivers/isdn/hisax/config.c
++++ b/drivers/isdn/hisax/config.c
+@@ -852,7 +852,7 @@ static int init_card(struct IsdnCardState *cs)
+ 	return 3;
+ }
+ 
+-static int __devinit hisax_cs_setup_card(struct IsdnCard *card)
++static int hisax_cs_setup_card(struct IsdnCard *card)
+ {
+ 	int ret;
+ 
+@@ -1171,7 +1171,7 @@ outf_cs:
+ 	return 0;
+ }
+ 
+-/* Used from an exported function but calls __devinit functions.
++/* Used from an exported function but calls functions.
+  * Tell modpost not to warn (__ref)
+  */
+ static int __ref checkcard(int cardnr, char *id, int *busy_flag,
+@@ -1547,7 +1547,7 @@ static void __exit HiSax_exit(void)
+ 	printk(KERN_INFO "HiSax module removed\n");
+ }
+ 
+-int __devinit hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
++int hisax_init_pcmcia(void *pcm_iob, int *busy_flag, struct IsdnCard *card)
+ {
+ 	u_char ids[16];
+ 	int ret = -1;
+diff --git a/drivers/isdn/hisax/diva.c b/drivers/isdn/hisax/diva.c
+index 62a2945..1360ec4 100644
+--- a/drivers/isdn/hisax/diva.c
++++ b/drivers/isdn/hisax/diva.c
+@@ -904,7 +904,7 @@ Diva_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-static int __devinit setup_diva_common(struct IsdnCardState *cs)
++static int setup_diva_common(struct IsdnCardState *cs)
+ {
+ 	int bytecnt;
+ 	u_char val;
+@@ -997,7 +997,7 @@ static int __devinit setup_diva_common(struct IsdnCardState *cs)
+ 
+ #ifdef CONFIG_ISA
+ 
+-static int __devinit setup_diva_isa(struct IsdnCard *card)
++static int setup_diva_isa(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+ 	u_char val;
+@@ -1033,7 +1033,7 @@ static int __devinit setup_diva_isa(struct IsdnCard *card)
+ 
+ #else	/* if !CONFIG_ISA */
+ 
+-static int __devinit setup_diva_isa(struct IsdnCard *card)
++static int setup_diva_isa(struct IsdnCard *card)
+ {
+ 	return (-1);	/* card not found; continue search */
+ }
+@@ -1066,7 +1066,7 @@ static struct isapnp_device_id diva_ids[] __devinitdata = {
+ static struct isapnp_device_id *ipid __devinitdata = &diva_ids[0];
+ static struct pnp_card *pnp_c __devinitdata = NULL;
+ 
+-static int __devinit setup_diva_isapnp(struct IsdnCard *card)
++static int setup_diva_isapnp(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+ 	struct pnp_dev *pnp_d;
+@@ -1141,7 +1141,7 @@ static int __devinit setup_diva_isapnp(struct IsdnCard *card)
+ 
+ #else	/* if !ISAPNP */
+ 
+-static int __devinit setup_diva_isapnp(struct IsdnCard *card)
++static int setup_diva_isapnp(struct IsdnCard *card)
+ {
+ 	return (-1);	/* card not found; continue search */
+ }
+@@ -1154,7 +1154,7 @@ static struct pci_dev *dev_diva_u __devinitdata = NULL;
+ static struct pci_dev *dev_diva201 __devinitdata = NULL;
+ static struct pci_dev *dev_diva202 __devinitdata = NULL;
+ 
+-static int __devinit setup_diva_pci(struct IsdnCard *card)
++static int setup_diva_pci(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+ 
+@@ -1231,14 +1231,14 @@ static int __devinit setup_diva_pci(struct IsdnCard *card)
+ 
+ #else	/* if !CONFIG_PCI */
+ 
+-static int __devinit setup_diva_pci(struct IsdnCard *card)
++static int setup_diva_pci(struct IsdnCard *card)
+ {
+ 	return (-1);	/* card not found; continue search */
+ }
+ 
+ #endif	/* CONFIG_PCI */
+ 
+-int __devinit
++int
+ setup_diva(struct IsdnCard *card)
+ {
+ 	int rc, have_card = 0;
+diff --git a/drivers/isdn/hisax/elsa.c b/drivers/isdn/hisax/elsa.c
+index 64ba26a..97a51ba 100644
+--- a/drivers/isdn/hisax/elsa.c
++++ b/drivers/isdn/hisax/elsa.c
+@@ -831,7 +831,7 @@ probe_elsa(struct IsdnCardState *cs)
+ 	return (CARD_portlist[i]);
+ }
+ 
+-static int __devinit
++static int
+ setup_elsa_isa(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+@@ -916,7 +916,7 @@ static struct isapnp_device_id *ipid __devinitdata = &elsa_ids[0];
+ static struct pnp_card *pnp_c __devinitdata = NULL;
+ #endif	/* __ISAPNP__ */
+ 
+-static int __devinit
++static int
+ setup_elsa_isapnp(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+@@ -994,7 +994,7 @@ setup_elsa_isapnp(struct IsdnCard *card)
+ 	return (1);
+ }
+ 
+-static void __devinit
++static void
+ setup_elsa_pcmcia(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+@@ -1030,7 +1030,7 @@ setup_elsa_pcmcia(struct IsdnCard *card)
+ static	struct pci_dev *dev_qs1000 __devinitdata = NULL;
+ static	struct pci_dev *dev_qs3000 __devinitdata = NULL;
+ 
+-static int __devinit
++static int
+ setup_elsa_pci(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+@@ -1089,14 +1089,14 @@ setup_elsa_pci(struct IsdnCard *card)
+ 
+ #else
+ 
+-static int __devinit
++static int
+ setup_elsa_pci(struct IsdnCard *card)
+ {
+ 	return (1);
+ }
+ #endif /* CONFIG_PCI */
+ 
+-static int __devinit
++static int
+ setup_elsa_common(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+@@ -1212,7 +1212,7 @@ setup_elsa_common(struct IsdnCard *card)
+ 	return (1);
+ }
+ 
+-int __devinit
++int
+ setup_elsa(struct IsdnCard *card)
+ {
+ 	int rc;
+diff --git a/drivers/isdn/hisax/elsa_cs.c b/drivers/isdn/hisax/elsa_cs.c
+index 231ec71..8366a37 100644
+--- a/drivers/isdn/hisax/elsa_cs.c
++++ b/drivers/isdn/hisax/elsa_cs.c
+@@ -62,7 +62,7 @@ MODULE_LICENSE("Dual MPL/GPL");
+ static int protocol = 2;        /* EURO-ISDN Default */
+ module_param(protocol, int, 0);
+ 
+-static int elsa_cs_config(struct pcmcia_device *link) __devinit;
++static int elsa_cs_config(struct pcmcia_device *link);
+ static void elsa_cs_release(struct pcmcia_device *link);
+ static void elsa_cs_detach(struct pcmcia_device *p_dev) __devexit;
+ 
+@@ -72,7 +72,7 @@ typedef struct local_info_t {
+ 	int			cardnr;
+ } local_info_t;
+ 
+-static int __devinit elsa_cs_probe(struct pcmcia_device *link)
++static int elsa_cs_probe(struct pcmcia_device *link)
+ {
+ 	local_info_t *local;
+ 
+@@ -126,7 +126,7 @@ static int elsa_cs_configcheck(struct pcmcia_device *p_dev, void *priv_data)
+ 	return -ENODEV;
+ }
+ 
+-static int __devinit elsa_cs_config(struct pcmcia_device *link)
++static int elsa_cs_config(struct pcmcia_device *link)
+ {
+ 	int i;
+ 	IsdnCard_t icard;
+diff --git a/drivers/isdn/hisax/enternow_pci.c b/drivers/isdn/hisax/enternow_pci.c
+index b1e38b5..98696d2 100644
+--- a/drivers/isdn/hisax/enternow_pci.c
++++ b/drivers/isdn/hisax/enternow_pci.c
+@@ -300,7 +300,7 @@ enpci_interrupt(int intno, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
+ 
+-static int __devinit en_pci_probe(struct pci_dev *dev_netjet,
++static int en_pci_probe(struct pci_dev *dev_netjet,
+ 				  struct IsdnCardState *cs)
+ {
+ 	if (pci_enable_device(dev_netjet))
+@@ -326,7 +326,7 @@ static int __devinit en_pci_probe(struct pci_dev *dev_netjet,
+ 	return (1);
+ }
+ 
+-static void __devinit en_cs_init(struct IsdnCard *card,
++static void en_cs_init(struct IsdnCard *card,
+ 				 struct IsdnCardState *cs)
+ {
+ 	cs->hw.njet.auxa = cs->hw.njet.base + NETJET_AUXDATA;
+@@ -350,7 +350,7 @@ static void __devinit en_cs_init(struct IsdnCard *card,
+ 	outb(cs->hw.njet.auxd, cs->hw.njet.auxa);
+ }
+ 
+-static int __devinit en_cs_init_rest(struct IsdnCard *card,
++static int en_cs_init_rest(struct IsdnCard *card,
+ 				     struct IsdnCardState *cs)
+ {
+ 	const int bytecnt = 256;
+@@ -387,7 +387,7 @@ static int __devinit en_cs_init_rest(struct IsdnCard *card,
+ static struct pci_dev *dev_netjet __devinitdata = NULL;
+ 
+ /* called by config.c */
+-int __devinit
++int
+ setup_enternow_pci(struct IsdnCard *card)
+ {
+ 	int ret;
+diff --git a/drivers/isdn/hisax/gazel.c b/drivers/isdn/hisax/gazel.c
+index 4fef775..23afa66 100644
+--- a/drivers/isdn/hisax/gazel.c
++++ b/drivers/isdn/hisax/gazel.c
+@@ -483,7 +483,7 @@ error:
  	return 1;
  }
  
--static int __devinit firestream_init_one (struct pci_dev *pci_dev,
-+static int firestream_init_one (struct pci_dev *pci_dev,
- 				       const struct pci_device_id *ent) 
- {
- 	struct atm_dev *atm_dev;
-diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
-index c162162..4b34891 100644
---- a/drivers/atm/fore200e.c
-+++ b/drivers/atm/fore200e.c
-@@ -527,7 +527,7 @@ fore200e_pca_reset(struct fore200e* fore200e)
- }
- 
- 
 -static int __devinit
 +static int
- fore200e_pca_map(struct fore200e* fore200e)
+ setup_gazelisa(struct IsdnCard *card, struct IsdnCardState *cs)
  {
-     DPRINTK(2, "device %s being mapped in memory\n", fore200e->name);
-@@ -561,7 +561,7 @@ fore200e_pca_unmap(struct fore200e* fore200e)
- }
- 
- 
--static int __devinit
-+static int
- fore200e_pca_configure(struct fore200e* fore200e)
- {
-     struct pci_dev* pci_dev = (struct pci_dev*)fore200e->bus_dev;
-@@ -2028,7 +2028,7 @@ fore200e_change_qos(struct atm_vcc* vcc,struct atm_qos* qos, int flags)
- }
-     
- 
--static int __devinit
-+static int
- fore200e_irq_request(struct fore200e* fore200e)
- {
-     if (request_irq(fore200e->irq, fore200e_interrupt, IRQF_SHARED, fore200e->name, fore200e->atm_dev) < 0) {
-@@ -2051,7 +2051,7 @@ fore200e_irq_request(struct fore200e* fore200e)
- }
- 
- 
--static int __devinit
-+static int
- fore200e_get_esi(struct fore200e* fore200e)
- {
-     struct prom_data* prom = kzalloc(sizeof(struct prom_data), GFP_KERNEL | GFP_DMA);
-@@ -2081,7 +2081,7 @@ fore200e_get_esi(struct fore200e* fore200e)
- }
- 
- 
--static int __devinit
-+static int
- fore200e_alloc_rx_buf(struct fore200e* fore200e)
- {
-     int scheme, magn, nbr, size, i;
-@@ -2146,7 +2146,7 @@ fore200e_alloc_rx_buf(struct fore200e* fore200e)
- }
- 
- 
--static int __devinit
-+static int
- fore200e_init_bs_queue(struct fore200e* fore200e)
- {
-     int scheme, magn, i;
-@@ -2209,7 +2209,7 @@ fore200e_init_bs_queue(struct fore200e* fore200e)
- }
- 
- 
--static int __devinit
-+static int
- fore200e_init_rx_queue(struct fore200e* fore200e)
- {
-     struct host_rxq*     rxq =  &fore200e->host_rxq;
-@@ -2269,7 +2269,7 @@ fore200e_init_rx_queue(struct fore200e* fore200e)
- }
- 
- 
--static int __devinit
-+static int
- fore200e_init_tx_queue(struct fore200e* fore200e)
- {
-     struct host_txq*     txq =  &fore200e->host_txq;
-@@ -2332,7 +2332,7 @@ fore200e_init_tx_queue(struct fore200e* fore200e)
- }
- 
- 
--static int __devinit
-+static int
- fore200e_init_cmd_queue(struct fore200e* fore200e)
- {
-     struct host_cmdq*     cmdq =  &fore200e->host_cmdq;
-@@ -2374,7 +2374,7 @@ fore200e_init_cmd_queue(struct fore200e* fore200e)
- }
- 
- 
--static void __devinit
-+static void
- fore200e_param_bs_queue(struct fore200e* fore200e,
- 			enum buffer_scheme scheme, enum buffer_magn magn,
- 			int queue_length, int pool_size, int supply_blksize)
-@@ -2388,7 +2388,7 @@ fore200e_param_bs_queue(struct fore200e* fore200e,
- }
- 
- 
--static int __devinit
-+static int
- fore200e_initialize(struct fore200e* fore200e)
- {
-     struct cp_queues __iomem * cpq;
-@@ -2440,7 +2440,7 @@ fore200e_initialize(struct fore200e* fore200e)
- }
- 
- 
--static void __devinit
-+static void
- fore200e_monitor_putc(struct fore200e* fore200e, char c)
- {
-     struct cp_monitor __iomem * monitor = fore200e->cp_monitor;
-@@ -2452,7 +2452,7 @@ fore200e_monitor_putc(struct fore200e* fore200e, char c)
- }
- 
- 
--static int __devinit
-+static int
- fore200e_monitor_getc(struct fore200e* fore200e)
- {
-     struct cp_monitor __iomem * monitor = fore200e->cp_monitor;
-@@ -2477,7 +2477,7 @@ fore200e_monitor_getc(struct fore200e* fore200e)
- }
- 
- 
--static void __devinit
-+static void
- fore200e_monitor_puts(struct fore200e* fore200e, char* str)
- {
-     while (*str) {
-@@ -2497,7 +2497,7 @@ fore200e_monitor_puts(struct fore200e* fore200e, char* str)
- #define FW_EXT "_ecd.bin2"
- #endif
- 
--static int __devinit
-+static int
- fore200e_load_and_start_fw(struct fore200e* fore200e)
- {
-     const struct firmware *firmware;
-@@ -2566,7 +2566,7 @@ release:
- }
- 
- 
--static int __devinit
-+static int
- fore200e_register(struct fore200e* fore200e, struct device *parent)
- {
-     struct atm_dev* atm_dev;
-@@ -2593,7 +2593,7 @@ fore200e_register(struct fore200e* fore200e, struct device *parent)
- }
- 
- 
--static int __devinit
-+static int
- fore200e_init(struct fore200e* fore200e, struct device *parent)
- {
-     if (fore200e_register(fore200e, parent) < 0)
-@@ -2644,7 +2644,7 @@ fore200e_init(struct fore200e* fore200e, struct device *parent)
- 
- #ifdef CONFIG_SBUS
- static const struct of_device_id fore200e_sba_match[];
--static int __devinit fore200e_sba_probe(struct platform_device *op)
-+static int fore200e_sba_probe(struct platform_device *op)
- {
- 	const struct of_device_id *match;
- 	const struct fore200e_bus *bus;
-@@ -2712,7 +2712,7 @@ static struct platform_driver fore200e_sba_driver = {
- #endif
- 
+ 	printk(KERN_INFO "Gazel: ISA PnP card automatic recognition\n");
+@@ -534,7 +534,7 @@ setup_gazelisa(struct IsdnCard *card, struct IsdnCardState *cs)
  #ifdef CONFIG_PCI
--static int __devinit
-+static int
- fore200e_pca_detect(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
- {
-     const struct fore200e_bus* bus = (struct fore200e_bus*) pci_ent->driver_data;
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index c372814..dac5144 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -349,7 +349,7 @@ __find_vcc(struct he_dev *he_dev, unsigned cid)
- 	return NULL;
- }
+ static struct pci_dev *dev_tel __devinitdata = NULL;
  
 -static int __devinit
 +static int
- he_init_one(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
+ setup_gazelpci(struct IsdnCardState *cs)
  {
- 	struct atm_dev *atm_dev = NULL;
-@@ -445,7 +445,7 @@ rate_to_atmf(unsigned rate)		/* cps to atm forum format */
- 	return (NONZERO | (exp << 9) | (rate & 0x1ff));
+ 	u_int pci_ioaddr0 = 0, pci_ioaddr1 = 0;
+@@ -622,7 +622,7 @@ setup_gazelpci(struct IsdnCardState *cs)
  }
+ #endif /* CONFIG_PCI */
  
--static void __devinit
-+static void
- he_init_rx_lbfp0(struct he_dev *he_dev)
+-int __devinit
++int
+ setup_gazel(struct IsdnCard *card)
  {
- 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
-@@ -476,7 +476,7 @@ he_init_rx_lbfp0(struct he_dev *he_dev)
- 	he_writel(he_dev, he_dev->r0_numbuffs, RLBF0_C);
- }
- 
--static void __devinit
-+static void
- he_init_rx_lbfp1(struct he_dev *he_dev)
- {
- 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
-@@ -507,7 +507,7 @@ he_init_rx_lbfp1(struct he_dev *he_dev)
- 	he_writel(he_dev, he_dev->r1_numbuffs, RLBF1_C);
- }
- 
--static void __devinit
-+static void
- he_init_tx_lbfp(struct he_dev *he_dev)
- {
- 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
-@@ -537,7 +537,7 @@ he_init_tx_lbfp(struct he_dev *he_dev)
- 	he_writel(he_dev, lbufd_index - 1, TLBF_T);
- }
- 
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/hfc4s8s_l1.c b/drivers/isdn/hisax/hfc4s8s_l1.c
+index e85b612..ef7c07b 100644
+--- a/drivers/isdn/hisax/hfc4s8s_l1.c
++++ b/drivers/isdn/hisax/hfc4s8s_l1.c
+@@ -1497,7 +1497,7 @@ enable_pci_ports(hfc4s8s_hw *hw)
+ /* initialise the HFC-4s/8s hardware */
+ /* return 0 on success.              */
+ /*************************************/
 -static int __devinit
 +static int
- he_init_tpdrq(struct he_dev *he_dev)
+ setup_instance(hfc4s8s_hw *hw)
  {
- 	he_dev->tpdrq_base = pci_alloc_consistent(he_dev->pci_dev,
-@@ -559,7 +559,7 @@ he_init_tpdrq(struct he_dev *he_dev)
- 	return 0;
- }
- 
--static void __devinit
-+static void
- he_init_cs_block(struct he_dev *he_dev)
- {
- 	unsigned clock, rate, delta;
-@@ -655,7 +655,7 @@ he_init_cs_block(struct he_dev *he_dev)
- 
- }
- 
+ 	int err = -EIO;
+@@ -1585,7 +1585,7 @@ out:
+ /*****************************************/
+ /* PCI hotplug interface: probe new card */
+ /*****************************************/
 -static int __devinit
 +static int
- he_init_cs_block_rcm(struct he_dev *he_dev)
+ hfc4s8s_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  {
- 	unsigned (*rategrid)[16][16];
-@@ -776,7 +776,7 @@ he_init_cs_block_rcm(struct he_dev *he_dev)
- 	return 0;
- }
+ 	int err = -ENOMEM;
+diff --git a/drivers/isdn/hisax/hfc_pci.c b/drivers/isdn/hisax/hfc_pci.c
+index f60d4be..8da93ae 100644
+--- a/drivers/isdn/hisax/hfc_pci.c
++++ b/drivers/isdn/hisax/hfc_pci.c
+@@ -1634,7 +1634,7 @@ hfcpci_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ /* this variable is used as card index when more than one cards are present */
+ static struct pci_dev *dev_hfcpci __devinitdata = NULL;
  
--static int __devinit
-+static int
- he_init_group(struct he_dev *he_dev, int group)
+-int __devinit
++int
+ setup_hfcpci(struct IsdnCard *card)
  {
- 	struct he_buff *heb, *next;
-@@ -915,7 +915,7 @@ out_free_rbpl_table:
- 	return -ENOMEM;
- }
- 
--static int __devinit
-+static int
- he_init_irq(struct he_dev *he_dev)
- {
- 	int i;
-@@ -978,7 +978,7 @@ he_init_irq(struct he_dev *he_dev)
- 	return 0;
- }
- 
--static int __devinit
-+static int
- he_start(struct atm_dev *dev)
- {
- 	struct he_dev *he_dev;
-diff --git a/drivers/atm/horizon.c b/drivers/atm/horizon.c
-index 9d98421..67b570a 100644
---- a/drivers/atm/horizon.c
-+++ b/drivers/atm/horizon.c
-@@ -1789,7 +1789,7 @@ static void CLOCK_IT (const hrz_dev *dev, u32 ctrl)
- 	WRITE_IT_WAIT(dev, ctrl | SEEPROM_SK);
- }
- 
--static u16 __devinit read_bia (const hrz_dev * dev, u16 addr)
-+static u16 read_bia (const hrz_dev * dev, u16 addr)
- {
-   u32 ctrl = rd_regl (dev, CONTROL_0_REG);
-   
-@@ -1845,7 +1845,7 @@ static u16 __devinit read_bia (const hrz_dev * dev, u16 addr)
- 
- /********** initialise a card **********/
- 
--static int __devinit hrz_init (hrz_dev * dev) {
-+static int hrz_init (hrz_dev * dev) {
-   int onefivefive;
-   
-   u16 chan;
-@@ -2681,7 +2681,7 @@ static const struct atmdev_ops hrz_ops = {
-   .owner	= THIS_MODULE,
- };
- 
--static int __devinit hrz_probe(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
-+static int hrz_probe(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
- {
- 	hrz_dev * dev;
- 	int err = 0;
-diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
-index 8974bd2..cfa6a9d 100644
---- a/drivers/atm/idt77252.c
-+++ b/drivers/atm/idt77252.c
-@@ -3109,7 +3109,7 @@ deinit_card(struct idt77252_dev *card)
- }
- 
- 
--static void __devinit
-+static void
- init_sram(struct idt77252_dev *card)
- {
- 	int i;
-@@ -3257,7 +3257,7 @@ init_sram(struct idt77252_dev *card)
- 	IPRINTK("%s: SRAM initialization complete.\n", card->name);
- }
- 
--static int __devinit
-+static int
- init_card(struct atm_dev *dev)
- {
- 	struct idt77252_dev *card = dev->dev_data;
-@@ -3537,7 +3537,7 @@ init_card(struct atm_dev *dev)
- /*****************************************************************************/
- 
- 
--static int __devinit
-+static int
- idt77252_preset(struct idt77252_dev *card)
- {
- 	u16 pci_command;
-@@ -3579,7 +3579,7 @@ idt77252_preset(struct idt77252_dev *card)
- }
- 
- 
--static unsigned long __devinit
-+static unsigned long
- probe_sram(struct idt77252_dev *card)
- {
- 	u32 data, addr;
-@@ -3601,7 +3601,7 @@ probe_sram(struct idt77252_dev *card)
- 	return addr * sizeof(u32);
- }
- 
--static int __devinit
-+static int
- idt77252_init_one(struct pci_dev *pcidev, const struct pci_device_id *id)
- {
- 	static struct idt77252_dev **last = &idt77252_chain;
-diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index 23b3627..444e81e 100644
---- a/drivers/atm/iphase.c
-+++ b/drivers/atm/iphase.c
-@@ -2299,7 +2299,7 @@ static int reset_sar(struct atm_dev *dev)
- }  
- 	  
- 	  
--static int __devinit ia_init(struct atm_dev *dev)
-+static int ia_init(struct atm_dev *dev)
- {  
- 	IADEV *iadev;  
- 	unsigned long real_base;
-@@ -2492,7 +2492,7 @@ static void ia_free_rx(IADEV *iadev)
- 			  iadev->rx_dle_dma);  
- }
- 
--static int __devinit ia_start(struct atm_dev *dev)
-+static int ia_start(struct atm_dev *dev)
- {  
- 	IADEV *iadev;  
- 	int error;  
-@@ -3168,7 +3168,7 @@ static const struct atmdev_ops ops = {
- 	.owner		= THIS_MODULE,
- };  
- 	  
--static int __devinit ia_init_one(struct pci_dev *pdev,
-+static int ia_init_one(struct pci_dev *pdev,
- 				 const struct pci_device_id *ent)
- {  
- 	struct atm_dev *dev;  
-diff --git a/drivers/atm/lanai.c b/drivers/atm/lanai.c
-index 68c7588..e6d132b 100644
---- a/drivers/atm/lanai.c
-+++ b/drivers/atm/lanai.c
-@@ -551,7 +551,7 @@ static inline void sram_write(const struct lanai_dev *lanai,
- 	writel(val, sram_addr(lanai, offset));
- }
- 
--static int __devinit sram_test_word(const struct lanai_dev *lanai,
-+static int sram_test_word(const struct lanai_dev *lanai,
- 				    int offset, u32 pattern)
- {
- 	u32 readback;
-@@ -566,7 +566,7 @@ static int __devinit sram_test_word(const struct lanai_dev *lanai,
- 	return -EIO;
- }
- 
--static int __devinit sram_test_pass(const struct lanai_dev *lanai, u32 pattern)
-+static int sram_test_pass(const struct lanai_dev *lanai, u32 pattern)
- {
- 	int offset, result = 0;
- 	for (offset = 0; offset < SRAM_BYTES && result == 0; offset += 4)
-@@ -574,7 +574,7 @@ static int __devinit sram_test_pass(const struct lanai_dev *lanai, u32 pattern)
- 	return result;
- }
- 
--static int __devinit sram_test_and_clear(const struct lanai_dev *lanai)
-+static int sram_test_and_clear(const struct lanai_dev *lanai)
- {
- #ifdef FULL_MEMORY_TEST
- 	int result;
-@@ -860,7 +860,7 @@ static inline void aal0_buffer_free(struct lanai_dev *lanai)
- #ifndef READ_EEPROM
- 
- /* Stub functions to use if EEPROM reading is disabled */
--static int __devinit eeprom_read(struct lanai_dev *lanai)
-+static int eeprom_read(struct lanai_dev *lanai)
- {
- 	printk(KERN_INFO DEV_LABEL "(itf %d): *NOT* reading EEPROM\n",
- 	    lanai->number);
-@@ -868,7 +868,7 @@ static int __devinit eeprom_read(struct lanai_dev *lanai)
- 	return 0;
- }
- 
--static int __devinit eeprom_validate(struct lanai_dev *lanai)
-+static int eeprom_validate(struct lanai_dev *lanai)
- {
- 	lanai->serialno = 0;
- 	lanai->magicno = EEPROM_MAGIC_VALUE;
-@@ -877,7 +877,7 @@ static int __devinit eeprom_validate(struct lanai_dev *lanai)
- 
- #else /* READ_EEPROM */
- 
--static int __devinit eeprom_read(struct lanai_dev *lanai)
-+static int eeprom_read(struct lanai_dev *lanai)
- {
- 	int i, address;
- 	u8 data;
-@@ -953,7 +953,7 @@ static inline u32 eeprom_be4(const struct lanai_dev *lanai, int address)
- }
- 
- /* Checksum/validate EEPROM contents */
--static int __devinit eeprom_validate(struct lanai_dev *lanai)
-+static int eeprom_validate(struct lanai_dev *lanai)
- {
- 	int i, s;
- 	u32 v;
-@@ -1448,7 +1448,7 @@ static void vcc_rx_aal0(struct lanai_dev *lanai)
- #include <linux/vmalloc.h>
+ 	u_long flags;
+diff --git a/drivers/isdn/hisax/hfc_sx.c b/drivers/isdn/hisax/hfc_sx.c
+index 4ec279c..d7b95d0 100644
+--- a/drivers/isdn/hisax/hfc_sx.c
++++ b/drivers/isdn/hisax/hfc_sx.c
+@@ -1392,7 +1392,7 @@ static struct isapnp_device_id *ipid __devinitdata = &hfc_ids[0];
+ static struct pnp_card *pnp_c __devinitdata = NULL;
  #endif
  
--static int __devinit vcc_table_allocate(struct lanai_dev *lanai)
-+static int vcc_table_allocate(struct lanai_dev *lanai)
+-int __devinit
++int
+ setup_hfcsx(struct IsdnCard *card)
  {
- #ifdef VCCTABLE_GETFREEPAGE
- 	APRINTK((lanai->num_vci) * sizeof(struct lanai_vcc *) <= PAGE_SIZE,
-@@ -1588,7 +1588,7 @@ static void lanai_reset(struct lanai_dev *lanai)
- /*
-  * Allocate service buffer and tell card about it
-  */
--static int __devinit service_buffer_allocate(struct lanai_dev *lanai)
-+static int service_buffer_allocate(struct lanai_dev *lanai)
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/hfcscard.c b/drivers/isdn/hisax/hfcscard.c
+index a5f048b..5b228c0 100644
+--- a/drivers/isdn/hisax/hfcscard.c
++++ b/drivers/isdn/hisax/hfcscard.c
+@@ -165,7 +165,7 @@ static struct isapnp_device_id *ipid __devinitdata = &hfc_ids[0];
+ static struct pnp_card *pnp_c __devinitdata = NULL;
+ #endif
+ 
+-int __devinit
++int
+ setup_hfcs(struct IsdnCard *card)
  {
- 	lanai_buf_allocate(&lanai->service, SERVICE_ENTRIES * 4, 8,
- 	    lanai->pci);
-@@ -1942,7 +1942,7 @@ static int check_board_id_and_rev(const char *name, u32 val, int *revp)
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/hisax_fcpcipnp.c b/drivers/isdn/hisax/hisax_fcpcipnp.c
+index 3d063d1..9b37d22 100644
+--- a/drivers/isdn/hisax/hisax_fcpcipnp.c
++++ b/drivers/isdn/hisax/hisax_fcpcipnp.c
+@@ -712,7 +712,7 @@ static inline void fcpci_init(struct fritz_adapter *adapter)
  
- /* -------------------- PCI INITIALIZATION/SHUTDOWN: */
+ // ----------------------------------------------------------------------
  
--static int __devinit lanai_pci_start(struct lanai_dev *lanai)
-+static int lanai_pci_start(struct lanai_dev *lanai)
+-static int __devinit fcpcipnp_setup(struct fritz_adapter *adapter)
++static int fcpcipnp_setup(struct fritz_adapter *adapter)
  {
- 	struct pci_dev *pci = lanai->pci;
- 	int result;
-@@ -2123,7 +2123,7 @@ static inline void lanai_cbr_shutdown(struct lanai_dev *lanai)
- /* -------------------- OPERATIONS: */
+ 	u32 val = 0;
+ 	int retval;
+@@ -836,8 +836,7 @@ static void __devexit fcpcipnp_release(struct fritz_adapter *adapter)
  
- /* setup a newly detected device */
--static int __devinit lanai_dev_open(struct atm_dev *atmdev)
-+static int lanai_dev_open(struct atm_dev *atmdev)
+ // ----------------------------------------------------------------------
+ 
+-static struct fritz_adapter * __devinit
+-new_adapter(void)
++static struct fritz_adapter *new_adapter(void)
  {
- 	struct lanai_dev *lanai = (struct lanai_dev *) atmdev->dev_data;
- 	unsigned long raw_base;
-@@ -2566,7 +2566,7 @@ static const struct atmdev_ops ops = {
- };
- 
- /* initialize one probed card */
--static int __devinit lanai_init_one(struct pci_dev *pci,
-+static int lanai_init_one(struct pci_dev *pci,
- 				    const struct pci_device_id *ident)
- {
- 	struct lanai_dev *lanai;
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index cd4b90b..a6845a0 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -121,8 +121,8 @@
- static u32 ns_read_sram(ns_dev * card, u32 sram_address);
- static void ns_write_sram(ns_dev * card, u32 sram_address, u32 * value,
- 			  int count);
--static int __devinit ns_init_card(int i, struct pci_dev *pcidev);
--static void __devinit ns_init_card_error(ns_dev * card, int error);
-+static int ns_init_card(int i, struct pci_dev *pcidev);
-+static void ns_init_card_error(ns_dev * card, int error);
- static scq_info *get_scq(ns_dev *card, int size, u32 scd);
- static void free_scq(ns_dev *card, scq_info * scq, struct atm_vcc *vcc);
- static void push_rxbufs(ns_dev *, struct sk_buff *);
-@@ -180,7 +180,7 @@ MODULE_LICENSE("GPL");
- 
- /* Functions */
- 
--static int __devinit nicstar_init_one(struct pci_dev *pcidev,
-+static int nicstar_init_one(struct pci_dev *pcidev,
- 				      const struct pci_device_id *ent)
- {
- 	static int index = -1;
-@@ -351,7 +351,7 @@ static void ns_write_sram(ns_dev * card, u32 sram_address, u32 * value,
- 	spin_unlock_irqrestore(&card->res_lock, flags);
+ 	struct fritz_adapter *adapter;
+ 	struct hisax_b_if *b_if[2];
+@@ -876,7 +875,7 @@ static void delete_adapter(struct fritz_adapter *adapter)
+ 	kfree(adapter);
  }
  
--static int __devinit ns_init_card(int i, struct pci_dev *pcidev)
-+static int ns_init_card(int i, struct pci_dev *pcidev)
+-static int __devinit fcpci_probe(struct pci_dev *pdev,
++static int fcpci_probe(struct pci_dev *pdev,
+ 				 const struct pci_device_id *ent)
  {
- 	int j;
- 	struct ns_dev *card = NULL;
-@@ -821,7 +821,7 @@ static int __devinit ns_init_card(int i, struct pci_dev *pcidev)
- 	return error;
+ 	struct fritz_adapter *adapter;
+@@ -917,7 +916,7 @@ err:
  }
  
--static void __devinit ns_init_card_error(ns_dev * card, int error)
-+static void ns_init_card_error(ns_dev * card, int error)
+ #ifdef CONFIG_PNP
+-static int __devinit fcpnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *dev_id)
++static int fcpnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *dev_id)
  {
- 	if (error >= 17) {
- 		writel(0x00000000, card->membase + CFG);
-diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
-index abe4e20..7436362 100644
---- a/drivers/atm/zatm.c
-+++ b/drivers/atm/zatm.c
-@@ -1094,7 +1094,7 @@ static irqreturn_t zatm_int(int irq,void *dev_id)
- /*----------------------------- (E)EPROM access -----------------------------*/
+ 	struct fritz_adapter *adapter;
+ 	int retval;
+diff --git a/drivers/isdn/hisax/icc.c b/drivers/isdn/hisax/icc.c
+index 7be762b..cb8897a 100644
+--- a/drivers/isdn/hisax/icc.c
++++ b/drivers/isdn/hisax/icc.c
+@@ -673,7 +673,7 @@ clear_pending_icc_ints(struct IsdnCardState *cs)
+ 	cs->writeisac(cs, ICC_MASK, 0xFF);
+ }
+ 
+-void __devinit
++void
+ setup_icc(struct IsdnCardState *cs)
+ {
+ 	INIT_WORK(&cs->tqueue, icc_bh);
+diff --git a/drivers/isdn/hisax/isac.c b/drivers/isdn/hisax/isac.c
+index bcd70a3..0e7cd86 100644
+--- a/drivers/isdn/hisax/isac.c
++++ b/drivers/isdn/hisax/isac.c
+@@ -28,7 +28,7 @@ static char *ISACVer[] __devinitdata =
+ {"2086/2186 V1.1", "2085 B1", "2085 B2",
+  "2085 V2.3"};
+ 
+-void __devinit ISACVersion(struct IsdnCardState *cs, char *s)
++void ISACVersion(struct IsdnCardState *cs, char *s)
+ {
+ 	int val;
+ 
+@@ -669,7 +669,7 @@ void clear_pending_isac_ints(struct IsdnCardState *cs)
+ 	cs->writeisac(cs, ISAC_MASK, 0xFF);
+ }
+ 
+-void __devinit
++void
+ setup_isac(struct IsdnCardState *cs)
+ {
+ 	INIT_WORK(&cs->tqueue, isac_bh);
+diff --git a/drivers/isdn/hisax/isurf.c b/drivers/isdn/hisax/isurf.c
+index c1530fe..fb3b691 100644
+--- a/drivers/isdn/hisax/isurf.c
++++ b/drivers/isdn/hisax/isurf.c
+@@ -197,7 +197,7 @@ isurf_auxcmd(struct IsdnCardState *cs, isdn_ctrl *ic) {
+ static struct pnp_card *pnp_c __devinitdata = NULL;
+ #endif
+ 
+-int __devinit
++int
+ setup_isurf(struct IsdnCard *card)
+ {
+ 	int ver;
+diff --git a/drivers/isdn/hisax/ix1_micro.c b/drivers/isdn/hisax/ix1_micro.c
+index 5f299f8..2683050 100644
+--- a/drivers/isdn/hisax/ix1_micro.c
++++ b/drivers/isdn/hisax/ix1_micro.c
+@@ -224,7 +224,7 @@ static struct pnp_card *pnp_c __devinitdata = NULL;
+ #endif
  
  
--static void __devinit eprom_set(struct zatm_dev *zatm_dev,unsigned long value,
-+static void eprom_set(struct zatm_dev *zatm_dev,unsigned long value,
-     unsigned short cmd)
+-int __devinit
++int
+ setup_ix1micro(struct IsdnCard *card)
  {
- 	int error;
-@@ -1105,7 +1105,7 @@ static void __devinit eprom_set(struct zatm_dev *zatm_dev,unsigned long value,
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/mic.c b/drivers/isdn/hisax/mic.c
+index 08a6b7f..1a62df5 100644
+--- a/drivers/isdn/hisax/mic.c
++++ b/drivers/isdn/hisax/mic.c
+@@ -187,7 +187,7 @@ mic_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-int __devinit
++int
+ setup_mic(struct IsdnCard *card)
+ {
+ 	int bytecnt;
+diff --git a/drivers/isdn/hisax/niccy.c b/drivers/isdn/hisax/niccy.c
+index 6569e03..6ec3936 100644
+--- a/drivers/isdn/hisax/niccy.c
++++ b/drivers/isdn/hisax/niccy.c
+@@ -226,7 +226,7 @@ static int niccy_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ static struct pnp_card *pnp_c __devinitdata = NULL;
+ #endif
+ 
+-int __devinit setup_niccy(struct IsdnCard *card)
++int setup_niccy(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+ 	char tmp[64];
+diff --git a/drivers/isdn/hisax/nj_s.c b/drivers/isdn/hisax/nj_s.c
+index f36ff69..11e7e77 100644
+--- a/drivers/isdn/hisax/nj_s.c
++++ b/drivers/isdn/hisax/nj_s.c
+@@ -148,7 +148,7 @@ NETjet_S_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-static int __devinit njs_pci_probe(struct pci_dev *dev_netjet,
++static int njs_pci_probe(struct pci_dev *dev_netjet,
+ 				   struct IsdnCardState *cs)
+ {
+ 	u32 cfg;
+@@ -187,7 +187,7 @@ static int __devinit njs_pci_probe(struct pci_dev *dev_netjet,
+ 	return (1);
+ }
+ 
+-static int __devinit njs_cs_init(struct IsdnCard *card,
++static int njs_cs_init(struct IsdnCard *card,
+ 				 struct IsdnCardState *cs)
+ {
+ 
+@@ -225,7 +225,7 @@ static int __devinit njs_cs_init(struct IsdnCard *card,
+ 	return 1;			/* end loop */
+ }
+ 
+-static int __devinit njs_cs_init_rest(struct IsdnCard *card,
++static int njs_cs_init_rest(struct IsdnCard *card,
+ 				      struct IsdnCardState *cs)
+ {
+ 	const int bytecnt = 256;
+@@ -258,7 +258,7 @@ static int __devinit njs_cs_init_rest(struct IsdnCard *card,
+ 
+ static struct pci_dev *dev_netjet __devinitdata = NULL;
+ 
+-int __devinit
++int
+ setup_netjet_s(struct IsdnCard *card)
+ {
+ 	int ret;
+diff --git a/drivers/isdn/hisax/nj_u.c b/drivers/isdn/hisax/nj_u.c
+index 333484a..2dbc349 100644
+--- a/drivers/isdn/hisax/nj_u.c
++++ b/drivers/isdn/hisax/nj_u.c
+@@ -128,7 +128,7 @@ NETjet_U_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-static int __devinit nju_pci_probe(struct pci_dev *dev_netjet,
++static int nju_pci_probe(struct pci_dev *dev_netjet,
+ 				   struct IsdnCardState *cs)
+ {
+ 	if (pci_enable_device(dev_netjet))
+@@ -148,7 +148,7 @@ static int __devinit nju_pci_probe(struct pci_dev *dev_netjet,
+ 	return (1);
+ }
+ 
+-static int __devinit nju_cs_init(struct IsdnCard *card,
++static int nju_cs_init(struct IsdnCard *card,
+ 				 struct IsdnCardState *cs)
+ {
+ 	cs->hw.njet.auxa = cs->hw.njet.base + NETJET_AUXDATA;
+@@ -187,7 +187,7 @@ static int __devinit nju_cs_init(struct IsdnCard *card,
+ 	return 1;			/* end loop */
+ }
+ 
+-static int __devinit nju_cs_init_rest(struct IsdnCard *card,
++static int nju_cs_init_rest(struct IsdnCard *card,
+ 				      struct IsdnCardState *cs)
+ {
+ 	const int bytecnt = 256;
+@@ -221,7 +221,7 @@ static int __devinit nju_cs_init_rest(struct IsdnCard *card,
+ 
+ static struct pci_dev *dev_netjet __devinitdata = NULL;
+ 
+-int __devinit
++int
+ setup_netjet_u(struct IsdnCard *card)
+ {
+ 	int ret;
+diff --git a/drivers/isdn/hisax/s0box.c b/drivers/isdn/hisax/s0box.c
+index 383c4e7..15ec277 100644
+--- a/drivers/isdn/hisax/s0box.c
++++ b/drivers/isdn/hisax/s0box.c
+@@ -210,7 +210,7 @@ S0Box_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-int __devinit
++int
+ setup_s0box(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/saphir.c b/drivers/isdn/hisax/saphir.c
+index 75dcae6..fbf8b745 100644
+--- a/drivers/isdn/hisax/saphir.c
++++ b/drivers/isdn/hisax/saphir.c
+@@ -240,7 +240,7 @@ saphir_card_msg(struct IsdnCardState *cs, int mt, void *arg)
  }
  
  
--static unsigned long __devinit eprom_get(struct zatm_dev *zatm_dev,
-+static unsigned long eprom_get(struct zatm_dev *zatm_dev,
-     unsigned short cmd)
+-int __devinit
++int
+ setup_saphir(struct IsdnCard *card)
  {
- 	unsigned int value;
-@@ -1118,7 +1118,7 @@ static unsigned long __devinit eprom_get(struct zatm_dev *zatm_dev,
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/sedlbauer.c b/drivers/isdn/hisax/sedlbauer.c
+index 1ee531b..c0b06a0 100644
+--- a/drivers/isdn/hisax/sedlbauer.c
++++ b/drivers/isdn/hisax/sedlbauer.c
+@@ -530,7 +530,7 @@ static struct isapnp_device_id sedl_ids[] __devinitdata = {
+ static struct isapnp_device_id *ipid __devinitdata = &sedl_ids[0];
+ static struct pnp_card *pnp_c __devinitdata = NULL;
+ 
+-static int __devinit
++static int
+ setup_sedlbauer_isapnp(struct IsdnCard *card, int *bytecnt)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+@@ -591,7 +591,7 @@ setup_sedlbauer_isapnp(struct IsdnCard *card, int *bytecnt)
+ }
+ #else
+ 
+-static int __devinit
++static int
+ setup_sedlbauer_isapnp(struct IsdnCard *card, int *bytecnt)
+ {
+ 	return -1;
+@@ -601,7 +601,7 @@ setup_sedlbauer_isapnp(struct IsdnCard *card, int *bytecnt)
+ #ifdef CONFIG_PCI
+ static struct pci_dev *dev_sedl __devinitdata = NULL;
+ 
+-static int __devinit
++static int
+ setup_sedlbauer_pci(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+@@ -667,7 +667,7 @@ setup_sedlbauer_pci(struct IsdnCard *card)
+ 
+ #else
+ 
+-static int __devinit
++static int
+ setup_sedlbauer_pci(struct IsdnCard *card)
+ {
+ 	return (1);
+@@ -675,7 +675,7 @@ setup_sedlbauer_pci(struct IsdnCard *card)
+ 
+ #endif /* CONFIG_PCI */
+ 
+-int __devinit
++int
+ setup_sedlbauer(struct IsdnCard *card)
+ {
+ 	int bytecnt = 8, ver, val, rc;
+diff --git a/drivers/isdn/hisax/sedlbauer_cs.c b/drivers/isdn/hisax/sedlbauer_cs.c
+index 42abb24..ac3f9fd 100644
+--- a/drivers/isdn/hisax/sedlbauer_cs.c
++++ b/drivers/isdn/hisax/sedlbauer_cs.c
+@@ -62,7 +62,7 @@ MODULE_LICENSE("Dual MPL/GPL");
+ static int protocol = 2;        /* EURO-ISDN Default */
+ module_param(protocol, int, 0);
+ 
+-static int sedlbauer_config(struct pcmcia_device *link) __devinit;
++static int sedlbauer_config(struct pcmcia_device *link);
+ static void sedlbauer_release(struct pcmcia_device *link);
+ 
+ static void sedlbauer_detach(struct pcmcia_device *p_dev) __devexit;
+@@ -73,7 +73,7 @@ typedef struct local_info_t {
+ 	int			cardnr;
+ } local_info_t;
+ 
+-static int __devinit sedlbauer_probe(struct pcmcia_device *link)
++static int sedlbauer_probe(struct pcmcia_device *link)
+ {
+ 	local_info_t *local;
+ 
+@@ -110,7 +110,7 @@ static int sedlbauer_config_check(struct pcmcia_device *p_dev, void *priv_data)
+ 	return pcmcia_request_io(p_dev);
  }
  
- 
--static void __devinit eprom_put_bits(struct zatm_dev *zatm_dev,
-+static void eprom_put_bits(struct zatm_dev *zatm_dev,
-     unsigned long data,int bits,unsigned short cmd)
+-static int __devinit sedlbauer_config(struct pcmcia_device *link)
++static int sedlbauer_config(struct pcmcia_device *link)
  {
- 	unsigned long value;
-@@ -1133,7 +1133,7 @@ static void __devinit eprom_put_bits(struct zatm_dev *zatm_dev,
+ 	int ret;
+ 	IsdnCard_t  icard;
+diff --git a/drivers/isdn/hisax/sportster.c b/drivers/isdn/hisax/sportster.c
+index 1267298..c8ce100 100644
+--- a/drivers/isdn/hisax/sportster.c
++++ b/drivers/isdn/hisax/sportster.c
+@@ -183,7 +183,7 @@ Sportster_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
  }
  
+-static int __devinit
++static int
+ get_io_range(struct IsdnCardState *cs)
+ {
+ 	int i, j, adr;
+@@ -208,7 +208,7 @@ get_io_range(struct IsdnCardState *cs)
+ 	}
+ }
  
--static void __devinit eprom_get_byte(struct zatm_dev *zatm_dev,
-+static void eprom_get_byte(struct zatm_dev *zatm_dev,
-     unsigned char *byte,unsigned short cmd)
+-int __devinit
++int
+ setup_sportster(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/teleint.c b/drivers/isdn/hisax/teleint.c
+index fa329e2..e8f12ab 100644
+--- a/drivers/isdn/hisax/teleint.c
++++ b/drivers/isdn/hisax/teleint.c
+@@ -259,7 +259,7 @@ TeleInt_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-int __devinit
++int
+ setup_TeleInt(struct IsdnCard *card)
+ {
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/teles0.c b/drivers/isdn/hisax/teles0.c
+index 49b4a26..277dda5 100644
+--- a/drivers/isdn/hisax/teles0.c
++++ b/drivers/isdn/hisax/teles0.c
+@@ -263,7 +263,7 @@ Teles_card_msg(struct IsdnCardState *cs, int mt, void *arg)
+ 	return (0);
+ }
+ 
+-int __devinit
++int
+ setup_teles0(struct IsdnCard *card)
+ {
+ 	u_char val;
+diff --git a/drivers/isdn/hisax/teles3.c b/drivers/isdn/hisax/teles3.c
+index 220b919..d0d5cb7 100644
+--- a/drivers/isdn/hisax/teles3.c
++++ b/drivers/isdn/hisax/teles3.c
+@@ -270,7 +270,7 @@ static struct isapnp_device_id *ipid __devinitdata = &teles_ids[0];
+ static struct pnp_card *pnp_c __devinitdata = NULL;
+ #endif
+ 
+-int __devinit
++int
+ setup_teles3(struct IsdnCard *card)
+ {
+ 	u_char val;
+diff --git a/drivers/isdn/hisax/teles_cs.c b/drivers/isdn/hisax/teles_cs.c
+index a36fa04..685ecab 100644
+--- a/drivers/isdn/hisax/teles_cs.c
++++ b/drivers/isdn/hisax/teles_cs.c
+@@ -43,7 +43,7 @@ MODULE_LICENSE("GPL");
+ static int protocol = 2;        /* EURO-ISDN Default */
+ module_param(protocol, int, 0);
+ 
+-static int teles_cs_config(struct pcmcia_device *link) __devinit;
++static int teles_cs_config(struct pcmcia_device *link);
+ static void teles_cs_release(struct pcmcia_device *link);
+ static void teles_detach(struct pcmcia_device *p_dev) __devexit;
+ 
+@@ -53,7 +53,7 @@ typedef struct local_info_t {
+ 	int			cardnr;
+ } local_info_t;
+ 
+-static int __devinit teles_probe(struct pcmcia_device *link)
++static int teles_probe(struct pcmcia_device *link)
+ {
+ 	local_info_t *local;
+ 
+@@ -108,7 +108,7 @@ static int teles_cs_configcheck(struct pcmcia_device *p_dev, void *priv_data)
+ 	return -ENODEV;
+ }
+ 
+-static int __devinit teles_cs_config(struct pcmcia_device *link)
++static int teles_cs_config(struct pcmcia_device *link)
  {
  	int i;
-@@ -1149,7 +1149,7 @@ static void __devinit eprom_get_byte(struct zatm_dev *zatm_dev,
- }
+ 	IsdnCard_t icard;
+diff --git a/drivers/isdn/hisax/telespci.c b/drivers/isdn/hisax/telespci.c
+index 9c002c9..87d0678 100644
+--- a/drivers/isdn/hisax/telespci.c
++++ b/drivers/isdn/hisax/telespci.c
+@@ -285,7 +285,7 @@ TelesPCI_card_msg(struct IsdnCardState *cs, int mt, void *arg)
  
+ static struct pci_dev *dev_tel __devinitdata = NULL;
  
--static unsigned char __devinit eprom_try_esi(struct atm_dev *dev,
-+static unsigned char eprom_try_esi(struct atm_dev *dev,
-     unsigned short cmd,int offset,int swap)
+-int __devinit
++int
+ setup_telespci(struct IsdnCard *card)
  {
- 	unsigned char buf[ZEPROM_SIZE];
-@@ -1170,7 +1170,7 @@ static unsigned char __devinit eprom_try_esi(struct atm_dev *dev,
- }
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hisax/w6692.c b/drivers/isdn/hisax/w6692.c
+index 0f0d094..6b44081 100644
+--- a/drivers/isdn/hisax/w6692.c
++++ b/drivers/isdn/hisax/w6692.c
+@@ -993,7 +993,7 @@ static int id_idx;
  
+ static struct pci_dev *dev_w6692 __devinitdata = NULL;
  
--static void __devinit eprom_get_esi(struct atm_dev *dev)
-+static void eprom_get_esi(struct atm_dev *dev)
+-int __devinit
++int
+ setup_w6692(struct IsdnCard *card)
  {
- 	if (eprom_try_esi(dev,ZEPROM_V1_REG,ZEPROM_V1_ESI_OFF,1)) return;
- 	(void) eprom_try_esi(dev,ZEPROM_V2_REG,ZEPROM_V2_ESI_OFF,0);
-@@ -1180,7 +1180,7 @@ static void __devinit eprom_get_esi(struct atm_dev *dev)
- /*--------------------------------- entries ---------------------------------*/
+ 	struct IsdnCardState *cs = card->cs;
+diff --git a/drivers/isdn/hysdn/hysdn_init.c b/drivers/isdn/hysdn/hysdn_init.c
+index c103c28..f2603aa 100644
+--- a/drivers/isdn/hysdn/hysdn_init.c
++++ b/drivers/isdn/hysdn/hysdn_init.c
+@@ -56,7 +56,7 @@ static hysdn_card *card_last = NULL;	/* pointer to first card */
+ /* is assumed and the module will not be kept in memory.                    */
+ /****************************************************************************/
  
- 
--static int __devinit zatm_init(struct atm_dev *dev)
-+static int zatm_init(struct atm_dev *dev)
+-static int __devinit hysdn_pci_init_one(struct pci_dev *akt_pcidev,
++static int hysdn_pci_init_one(struct pci_dev *akt_pcidev,
+ 					const struct pci_device_id *ent)
  {
- 	struct zatm_dev *zatm_dev;
- 	struct pci_dev *pci_dev;
-@@ -1257,7 +1257,7 @@ static int __devinit zatm_init(struct atm_dev *dev)
- }
- 
- 
--static int __devinit zatm_start(struct atm_dev *dev)
-+static int zatm_start(struct atm_dev *dev)
- {
- 	struct zatm_dev *zatm_dev = ZATM_DEV(dev);
- 	struct pci_dev *pdev = zatm_dev->pci_dev;
-@@ -1584,7 +1584,7 @@ static const struct atmdev_ops ops = {
- 	.change_qos	= zatm_change_qos,
- };
- 
--static int __devinit zatm_init_one(struct pci_dev *pci_dev,
-+static int zatm_init_one(struct pci_dev *pci_dev,
- 				   const struct pci_device_id *ent)
- {
- 	struct atm_dev *dev;
+ 	hysdn_card *card;
 -- 
 1.8.0
