@@ -1,106 +1,530 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2] net/macb: move to circ_buf macros and fix initial condition
-Date: Mon, 19 Nov 2012 17:00:21 +0100
-Message-ID: <1353340821-12658-1-git-send-email-nicolas.ferre@atmel.com>
-References: <1353338244-11506-1-git-send-email-nicolas.ferre@atmel.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v2 net-next] sctp: Add support to per-association statistics
+ via a new SCTP_GET_ASSOC_STATS call
+Date: Mon, 19 Nov 2012 11:01:46 -0500
+Message-ID: <50AA57EA.4000907@gmail.com>
+References: <1352991680-12289-1-git-send-email-michele@acksyn.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	Joachim Eastwood <manabian@gmail.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1353338244-11506-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Michele Baldessari <michele@acksyn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:53775 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752845Ab2KSQBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 11:01:50 -0500
+In-Reply-To: <1352991680-12289-1-git-send-email-michele@acksyn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Move to circular buffers management macro and correct an error
-with circular buffer initial condition.
+On 11/15/2012 10:01 AM, Michele Baldessari wrote:
+> The current SCTP stack is lacking a mechanism to have per association
+> statistics. This is an implementation modeled after OpenSolaris'
+> SCTP_GET_ASSOC_STATS.
+>
+> Userspace part will follow on lksctp if/when there is a general ACK on
+> this.
+>
+> V2)
+>    - Implement partial retrieval of stat struct to cope for future expansion
+>    - Kill the rtxpackets counter as it cannot be precise anyway
+>    - Rename outseqtsns to outofseqtsns to make it clearer that these are out
+>      of sequence unexpected TSNs
+>    - Move asoc->ipackets++ under a lock to avoid potential miscounts
+>    - Fold asoc->opackets++ into the already existing asoc check
+>    - Kill unneeded (q->asoc) test when increasing rtxchunks
+>    - Do not count octrlchunks if sending failed (SCTP_XMIT_OK != 0)
+>    - Don't count SHUTDOWNs as SACKs
+>    - Move SCTP_GET_ASSOC_STATS to the private space API
+>    - Adjust the len check in sctp_getsockopt_assoc_stats() to allow for
+>      future struct growth
+>    - Move association statistics in their own struct
+>    - Update idupchunks when we send a SACK with dup TSNs
+>    - return min_rto in max_rto when RTO has not changed. Also return the
+>      transport when max_rto last changed.
+>
+> Signed-off: Michele Baldessari <michele@acksyn.org>
+> Acked-by: Thomas Graf <tgraf@suug.ch>
+> ---
+>   include/net/sctp/sctp.h    | 12 ++++++++
+>   include/net/sctp/structs.h | 36 +++++++++++++++++++++++
+>   include/net/sctp/user.h    | 27 +++++++++++++++++
+>   net/sctp/associola.c       |  9 +++++-
+>   net/sctp/endpointola.c     |  5 +++-
+>   net/sctp/input.c           |  2 ++
+>   net/sctp/output.c          | 14 +++++----
+>   net/sctp/outqueue.c        | 12 ++++++--
+>   net/sctp/sm_make_chunk.c   |  5 ++--
+>   net/sctp/sm_sideeffect.c   |  1 +
+>   net/sctp/sm_statefuns.c    | 10 +++++--
+>   net/sctp/socket.c          | 72 ++++++++++++++++++++++++++++++++++++++++++++++
+>   net/sctp/transport.c       |  2 ++
+>   13 files changed, 194 insertions(+), 13 deletions(-)
+>
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index 9c6414f..7fdf298 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -272,6 +272,18 @@ struct sctp_mib {
+>           unsigned long   mibs[SCTP_MIB_MAX];
+>   };
+>
+> +/* helper function to track stats about max rto and related transport */
+> +static inline void sctp_max_rto(struct sctp_association *asoc,
+> +				struct sctp_transport *trans)
+> +{
+> +	if (asoc->stats.max_obs_rto < (__u64)trans->rto) {
+> +		asoc->stats.max_obs_rto = trans->rto;
+> +		memset(&asoc->stats.obs_rto_ipaddr, 0,
+> +			sizeof(struct sockaddr_storage));
+> +		memcpy(&asoc->stats.obs_rto_ipaddr, &trans->ipaddr,
+> +			trans->af_specific->sockaddr_len);
+> +	}
+> +}
+>
+>   /* Print debugging messages.  */
+>   #if SCTP_DEBUG
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index 2b2f61d..bf94ddf 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -1312,6 +1312,40 @@ struct sctp_inithdr_host {
+>   	__u32 initial_tsn;
+>   };
+>
+> +/* SCTP_GET_ASSOC_STATS counters */
+> +struct sctp_priv_assoc_stats {
+> +	/* Maximum observed rto in the association. Value is set to
+> +	 * 0 when read and the max rto did not change. The transport where
+> +	 * the max_rto was observed is returned in obs_rto_ipaddr
+> +	 */
+> +	struct sockaddr_storage obs_rto_ipaddr;
+> +	__u64 max_obs_rto;
+> +	__u64 max_prev_obs_rto;
+> +	/* Total In and Out SACKs received and sent */
+> +	__u64 isacks;
+> +	__u64 osacks;
+> +	/* Total In and Out packets received and sent */
+> +	__u64 opackets;
+> +	__u64 ipackets;
+> +	/* Total retransmitted chunks */
+> +	__u64 rtxchunks;
+> +	/* TSN received > next expected */
+> +	__u64 outofseqtsns;
+> +	/* Duplicate Chunks received */
+> +	__u64 idupchunks;
+> +	/* Gap Ack Blocks received */
+> +	__u64 gapcnt;
+> +	/* Unordered data chunks sent and received */
+> +	__u64 ouodchunks;
+> +	__u64 iuodchunks;
+> +	/* Ordered data chunks sent and received */
+> +	__u64 oodchunks;
+> +	__u64 iodchunks;
+> +	/* Control chunks sent and received */
+> +	__u64 octrlchunks;
+> +	__u64 ictrlchunks;
+> +};
+> +
+>   /* RFC2960
+>    *
+>    * 12. Recommended Transmission Control Block (TCB) Parameters
+> @@ -1830,6 +1864,8 @@ struct sctp_association {
+>
+>   	__u8 need_ecne:1,	/* Need to send an ECNE Chunk? */
+>   	     temp:1;		/* Is it a temporary association? */
+> +
+> +	struct sctp_priv_assoc_stats stats;
+>   };
+>
+>
+> diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
+> index 1b02d7a..c851e72 100644
+> --- a/include/net/sctp/user.h
+> +++ b/include/net/sctp/user.h
+> @@ -107,6 +107,7 @@ typedef __s32 sctp_assoc_t;
+>   #define SCTP_GET_LOCAL_ADDRS	109		/* Get all local address. */
+>   #define SCTP_SOCKOPT_CONNECTX	110		/* CONNECTX requests. */
+>   #define SCTP_SOCKOPT_CONNECTX3	111	/* CONNECTX requests (updated) */
+> +#define SCTP_GET_ASSOC_STATS	112	/* Read only */
+>
+>   /*
+>    * 5.2.1 SCTP Initiation Structure (SCTP_INIT)
+> @@ -719,6 +720,32 @@ struct sctp_getaddrs {
+>   	__u8			addrs[0]; /*output, variable size*/
+>   };
+>
+> +/* A socket user request obtained via SCTP_GET_ASSOC_STATS that retrieves
+> + * association stats. All stats are counts except sas_maxrto and
+> + * sas_obs_rto_ipaddr. maxrto is the max observed rto + transport since
+> + * the last call. Will return 0 when did not change since last call
+> + */
+> +struct sctp_assoc_stats {
+> +	sctp_assoc_t	sas_assoc_id;    /* Input */
+> +					 /* Transport of observed max RTO */
+> +	struct sockaddr_storage sas_obs_rto_ipaddr;
+> +	__u64		sas_maxrto;      /* Maximum Observed RTO for period */
+> +	__u64		sas_isacks;	 /* SACKs received */
+> +	__u64		sas_osacks;	 /* SACKs sent */
+> +	__u64		sas_opackets;	 /* Packets sent */
+> +	__u64		sas_ipackets;	 /* Packets received */
+> +	__u64		sas_rtxchunks;   /* Retransmitted Chunks */
+> +	__u64		sas_outofseqtsns;/* TSN received > next expected */
+> +	__u64		sas_idupchunks;  /* Dups received (ordered+unordered) */
+> +	__u64		sas_gapcnt;      /* Gap Acknowledgements Received */
+> +	__u64		sas_ouodchunks;  /* Unordered data chunks sent */
+> +	__u64		sas_iuodchunks;  /* Unordered data chunks received */
+> +	__u64		sas_oodchunks;	 /* Ordered data chunks sent */
+> +	__u64		sas_iodchunks;	 /* Ordered data chunks received */
+> +	__u64		sas_octrlchunks; /* Control chunks sent */
+> +	__u64		sas_ictrlchunks; /* Control chunks received */
+> +};
+> +
+>   /* These are bit fields for msghdr->msg_flags.  See section 5.1.  */
+>   /* On user space Linux, these live in <bits/socket.h> as an enum.  */
+>   enum sctp_msg_flags {
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index b1ef3bc..afb7522 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -321,6 +321,9 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+>   	asoc->default_timetolive = sp->default_timetolive;
+>   	asoc->default_rcv_context = sp->default_rcv_context;
+>
+> +	/* SCTP_GET_ASSOC_STATS COUNTERS */
+> +	memset(&asoc->stats, 0, sizeof(struct sctp_priv_assoc_stats));
+> +
+>   	/* AUTH related initializations */
+>   	INIT_LIST_HEAD(&asoc->endpoint_shared_keys);
+>   	err = sctp_auth_asoc_copy_shkeys(ep, asoc, gfp);
+> @@ -760,6 +763,7 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
+>
+>   	/* Set the transport's RTO.initial value */
+>   	peer->rto = asoc->rto_initial;
+> +	sctp_max_rto(asoc, peer);
+>
+>   	/* Set the peer's active state. */
+>   	peer->state = peer_state;
+> @@ -1152,8 +1156,11 @@ static void sctp_assoc_bh_rcv(struct work_struct *work)
+>   		 */
+>   		if (sctp_chunk_is_data(chunk))
+>   			asoc->peer.last_data_from = chunk->transport;
+> -		else
+> +		else {
+>   			SCTP_INC_STATS(net, SCTP_MIB_INCTRLCHUNKS);
+> +			if (chunk->chunk_hdr->type == SCTP_CID_SACK)
+> +				asoc->stats.isacks++;
+> +		}
 
-Without this patch, the macb_tx_ring_avail() function was
-not reporting the proper ring availability at startup:
-macb macb: eth0: BUG! Tx Ring full when queue awake!
-macb macb: eth0: tx_head = 0, tx_tail = 0
-And hanginig forever...
+Should the above include asoc->stats.ictrlchunks++; just like ep_bh_rcv()?
 
-I remove the macb_tx_ring_avail() function and use the
-proven macros from circ_buf.h. CIRC_CNT() is used in the
-"consumer" part of the driver: macb_tx_interrupt() to match
-advice from Documentation/circular-buffers.txt.
+>
+>   		if (chunk->transport)
+>   			chunk->transport->last_time_heard = jiffies;
+> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+> index 1859e2b..32ab55b 100644
+> --- a/net/sctp/endpointola.c
+> +++ b/net/sctp/endpointola.c
+> @@ -480,8 +480,11 @@ normal:
+>   		 */
+>   		if (asoc && sctp_chunk_is_data(chunk))
+>   			asoc->peer.last_data_from = chunk->transport;
+> -		else
+> +		else {
+>   			SCTP_INC_STATS(sock_net(ep->base.sk), SCTP_MIB_INCTRLCHUNKS);
+> +			if (asoc)
+> +				asoc->stats.ictrlchunks++;
+> +		}
+>
+>   		if (chunk->transport)
+>   			chunk->transport->last_time_heard = jiffies;
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index 8bd3c27..54c449b 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -281,6 +281,8 @@ int sctp_rcv(struct sk_buff *skb)
+>   		SCTP_INC_STATS_BH(net, SCTP_MIB_IN_PKT_SOFTIRQ);
+>   		sctp_inq_push(&chunk->rcvr->inqueue, chunk);
+>   	}
+> +	if (asoc)
+> +		asoc->stats.ipackets++;
+>
+>   	sctp_bh_unlock_sock(sk);
 
-Reported-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Tested-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
----
-v2: - added tags from Jean-Christophe PLAGNIOL-VILLARD
+This needs a bit more thought.  Current counting behaves differently 
+depending on whether the user holds a socket lock or not.
+If the user holds the lock, we'll end counting the packet before it is 
+processed.  If the user isn't holding the lock, we'll count the packet 
+after it is processed.
 
- drivers/net/ethernet/cadence/macb.c | 17 +++++++----------
- 1 file changed, 7 insertions(+), 10 deletions(-)
+>
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 4e90188bf..f5200a2 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -311,6 +311,8 @@ static sctp_xmit_t __sctp_packet_append_chunk(struct sctp_packet *packet,
+>
+>   	    case SCTP_CID_SACK:
+>   		packet->has_sack = 1;
+> +		if (chunk->asoc)
+> +			chunk->asoc->stats.osacks++;
+>   		break;
+>
+>   	    case SCTP_CID_AUTH:
+> @@ -584,11 +586,13 @@ int sctp_packet_transmit(struct sctp_packet *packet)
+>   	 */
+>
+>   	/* Dump that on IP!  */
+> -	if (asoc && asoc->peer.last_sent_to != tp) {
+> -		/* Considering the multiple CPU scenario, this is a
+> -		 * "correcter" place for last_sent_to.  --xguo
+> -		 */
+> -		asoc->peer.last_sent_to = tp;
+> +	if (asoc) {
+> +		asoc->stats.opackets++;
+> +		if (asoc->peer.last_sent_to != tp)
+> +			/* Considering the multiple CPU scenario, this is a
+> +			 * "correcter" place for last_sent_to.  --xguo
+> +			 */
+> +			asoc->peer.last_sent_to = tp;
+>   	}
+>
+>   	if (has_data) {
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index 1b4a7f8..379c81d 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -667,6 +667,7 @@ redo:
+>   				chunk->fast_retransmit = SCTP_DONT_FRTX;
+>
+>   			q->empty = 0;
+> +			q->asoc->stats.rtxchunks++;
+>   			break;
+>   		}
+>
+> @@ -876,12 +877,14 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
+>   			if (status  != SCTP_XMIT_OK) {
+>   				/* put the chunk back */
+>   				list_add(&chunk->list, &q->control_chunk_list);
+> -			} else if (chunk->chunk_hdr->type == SCTP_CID_FWD_TSN) {
+> +			} else {
+> +				asoc->stats.octrlchunks++;
+>   				/* PR-SCTP C5) If a FORWARD TSN is sent, the
+>   				 * sender MUST assure that at least one T3-rtx
+>   				 * timer is running.
+>   				 */
+> -				sctp_transport_reset_timers(transport);
+> +				if (chunk->chunk_hdr->type == SCTP_CID_FWD_TSN)
+> +					sctp_transport_reset_timers(transport);
+>   			}
+>   			break;
+>
+> @@ -1055,6 +1058,10 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
+>   				 */
+>   				if (asoc->state == SCTP_STATE_SHUTDOWN_PENDING)
+>   					chunk->chunk_hdr->flags |= SCTP_DATA_SACK_IMM;
+> +				if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
+> +					asoc->stats.ouodchunks++;
+> +				else
+> +					asoc->stats.oodchunks++;
+>
+>   				break;
+>
+> @@ -1162,6 +1169,7 @@ int sctp_outq_sack(struct sctp_outq *q, struct sctp_chunk *chunk)
+>
+>   	sack_ctsn = ntohl(sack->cum_tsn_ack);
+>   	gap_ack_blocks = ntohs(sack->num_gap_ack_blocks);
+> +	asoc->stats.gapcnt += gap_ack_blocks;
+>   	/*
+>   	 * SFR-CACC algorithm:
+>   	 * On receipt of a SACK the sender SHOULD execute the
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index fbe1636..eb7633f 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -804,10 +804,11 @@ struct sctp_chunk *sctp_make_sack(const struct sctp_association *asoc)
+>   				 gabs);
+>
+>   	/* Add the duplicate TSN information.  */
+> -	if (num_dup_tsns)
+> +	if (num_dup_tsns) {
+> +		aptr->stats.idupchunks += num_dup_tsns;
+>   		sctp_addto_chunk(retval, sizeof(__u32) * num_dup_tsns,
+>   				 sctp_tsnmap_get_dups(map));
+> -
+> +	}
+>   	/* Once we have a sack generated, check to see what our sack
+>   	 * generation is, if its 0, reset the transports to 0, and reset
+>   	 * the association generation to 1
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index 6eecf7e..363727e 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -542,6 +542,7 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
+>   	 */
+>   	if (!is_hb || transport->hb_sent) {
+>   		transport->rto = min((transport->rto * 2), transport->asoc->rto_max);
+> +		sctp_max_rto(asoc, transport);
+>   	}
+>   }
+>
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index b6adef8..ecf7a17 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -6127,6 +6127,8 @@ static int sctp_eat_data(const struct sctp_association *asoc,
+>   		/* The TSN is too high--silently discard the chunk and
+>   		 * count on it getting retransmitted later.
+>   		 */
+> +		if (chunk->asoc)
+> +			chunk->asoc->stats.outofseqtsns++;
+>   		return SCTP_IERROR_HIGH_TSN;
+>   	} else if (tmp > 0) {
+>   		/* This is a duplicate.  Record it.  */
+> @@ -6226,10 +6228,14 @@ static int sctp_eat_data(const struct sctp_association *asoc,
+>   	/* Note: Some chunks may get overcounted (if we drop) or overcounted
+>   	 * if we renege and the chunk arrives again.
+>   	 */
+> -	if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
+> +	if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED) {
+>   		SCTP_INC_STATS(net, SCTP_MIB_INUNORDERCHUNKS);
+> -	else {
+> +		if (chunk->asoc)
+> +			chunk->asoc->stats.iuodchunks++;
+> +	} else {
+>   		SCTP_INC_STATS(net, SCTP_MIB_INORDERCHUNKS);
+> +		if (chunk->asoc)
+> +			chunk->asoc->stats.iodchunks++;
+>   		ordered = 1;
+>   	}
+>
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 15379ac..8113249 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -609,6 +609,7 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
+>   				    2*asoc->pathmtu, 4380));
+>   				trans->ssthresh = asoc->peer.i.a_rwnd;
+>   				trans->rto = asoc->rto_initial;
+> +				sctp_max_rto(asoc, trans);
+>   				trans->rtt = trans->srtt = trans->rttvar = 0;
+>   				sctp_transport_route(trans, NULL,
+>   				    sctp_sk(asoc->base.sk));
+> @@ -5633,6 +5634,74 @@ static int sctp_getsockopt_paddr_thresholds(struct sock *sk,
+>   	return 0;
+>   }
+>
+> +/*
+> + * SCTP_GET_ASSOC_STATS
+> + *
+> + * This option retrieves local per endpoint statistics. It is modeled
+> + * after OpenSolaris' implementation
+> + */
+> +static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
+> +				       char __user *optval,
+> +				       int __user *optlen)
+> +{
+> +	struct sctp_assoc_stats sas;
+> +	struct sctp_association *asoc = NULL;
+> +
+> +	/* User must provide at least the assoc id */
+> +	if (len < sizeof(sctp_assoc_t))
+> +		return -EINVAL;
+> +
+> +	if (copy_from_user(&sas, optval, len))
+> +		return -EFAULT;
+> +
+> +	asoc = sctp_id2assoc(sk, sas.sas_assoc_id);
+> +	if (!asoc)
+> +		return -EINVAL;
+> +
+> +	sas.sas_rtxchunks = asoc->stats.rtxchunks;
+> +	sas.sas_gapcnt = asoc->stats.gapcnt;
+> +	sas.sas_outofseqtsns = asoc->stats.outofseqtsns;
+> +	sas.sas_osacks = asoc->stats.osacks;
+> +	sas.sas_isacks = asoc->stats.isacks;
+> +	sas.sas_octrlchunks = asoc->stats.octrlchunks;
+> +	sas.sas_ictrlchunks = asoc->stats.ictrlchunks;
+> +	sas.sas_oodchunks = asoc->stats.oodchunks;
+> +	sas.sas_iodchunks = asoc->stats.iodchunks;
+> +	sas.sas_ouodchunks = asoc->stats.ouodchunks;
+> +	sas.sas_iuodchunks = asoc->stats.iuodchunks;
+> +	sas.sas_idupchunks = asoc->stats.idupchunks;
+> +	sas.sas_opackets = asoc->stats.opackets;
+> +	sas.sas_ipackets = asoc->stats.ipackets;
+> +
+> +	memcpy(&sas.sas_obs_rto_ipaddr, &asoc->stats.obs_rto_ipaddr,
+> +		sizeof(struct sockaddr_storage));
+> +	/* New high max rto observed */
+> +	if (asoc->stats.max_obs_rto > asoc->stats.max_prev_obs_rto)
+> +		sas.sas_maxrto = asoc->stats.max_obs_rto;
+> +	else /* return min_rto since max rto has not changed */
+> +		sas.sas_maxrto = asoc->rto_min;
+> +
+> +	/* Record the value sent to the user this period */
+> +	asoc->stats.max_prev_obs_rto = sas.sas_maxrto;
+> +
+> +	/* Mark beginning of a new observation period */
+> +	asoc->stats.max_obs_rto = 0;
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index edb2aba..27991dd 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -14,6 +14,7 @@
- #include <linux/moduleparam.h>
- #include <linux/kernel.h>
- #include <linux/types.h>
-+#include <linux/circ_buf.h>
- #include <linux/slab.h>
- #include <linux/init.h>
- #include <linux/gpio.h>
-@@ -38,8 +39,8 @@
- #define TX_RING_SIZE		128 /* must be power of 2 */
- #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
- 
--/* minimum number of free TX descriptors before waking up TX process */
--#define MACB_TX_WAKEUP_THRESH	(TX_RING_SIZE / 4)
-+/* level of occupied TX descriptors under which we wake up TX process */
-+#define MACB_TX_WAKEUP_THRESH	(3 * TX_RING_SIZE / 4)
- 
- #define MACB_RX_INT_FLAGS	(MACB_BIT(RCOMP) | MACB_BIT(RXUBR)	\
- 				 | MACB_BIT(ISR_ROVR))
-@@ -60,11 +61,6 @@ static unsigned int macb_tx_ring_wrap(unsigned int index)
- 	return index & (TX_RING_SIZE - 1);
- }
- 
--static unsigned int macb_tx_ring_avail(struct macb *bp)
--{
--	return (bp->tx_tail - bp->tx_head) & (TX_RING_SIZE - 1);
--}
--
- static struct macb_dma_desc *macb_tx_desc(struct macb *bp, unsigned int index)
- {
- 	return &bp->tx_ring[macb_tx_ring_wrap(index)];
-@@ -524,7 +520,8 @@ static void macb_tx_interrupt(struct macb *bp)
- 
- 	bp->tx_tail = tail;
- 	if (netif_queue_stopped(bp->dev)
--			&& macb_tx_ring_avail(bp) > MACB_TX_WAKEUP_THRESH)
-+			&& CIRC_CNT(bp->tx_head, bp->tx_tail,
-+				    TX_RING_SIZE) <= MACB_TX_WAKEUP_THRESH)
- 		netif_wake_queue(bp->dev);
- }
- 
-@@ -818,7 +815,7 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	spin_lock_irqsave(&bp->lock, flags);
- 
- 	/* This is a hard error, log it. */
--	if (macb_tx_ring_avail(bp) < 1) {
-+	if (CIRC_SPACE(bp->tx_head, bp->tx_tail, TX_RING_SIZE) < 1) {
- 		netif_stop_queue(dev);
- 		spin_unlock_irqrestore(&bp->lock, flags);
- 		netdev_err(bp->dev, "BUG! Tx Ring full when queue awake!\n");
-@@ -855,7 +852,7 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
- 
--	if (macb_tx_ring_avail(bp) < 1)
-+	if (CIRC_SPACE(bp->tx_head, bp->tx_tail, TX_RING_SIZE) < 1)
- 		netif_stop_queue(dev);
- 
- 	spin_unlock_irqrestore(&bp->lock, flags);
--- 
-1.8.0
+I don't think the logic above behaves correctly.  The fact that 
+max_obs_rto < max_prev_obs_rto doesn't not mean that max_obs_rto has
+not changed.  It just means that the networks had smaller latency this 
+this time slice then it had in the privouse one.  Returning rto_min is 
+mis-information in this case.
+
+-vlad
+
+> +
+> +	/* Allow the struct to grow and fill in as much as possible */
+> +	len = min_t(size_t, len, sizeof(sas));
+> +
+> +	if (put_user(len, optlen))
+> +		return -EFAULT;
+> +
+> +	SCTP_DEBUG_PRINTK("sctp_getsockopt_assoc_stat(%d): %d\n",
+> +			  len, sas.sas_assoc_id);
+> +
+> +	if (copy_to_user(optval, &sas, len))
+> +		return -EFAULT;
+> +
+> +	return 0;
+> +}
+> +
+>   SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
+>   				char __user *optval, int __user *optlen)
+>   {
+> @@ -5774,6 +5843,9 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
+>   	case SCTP_PEER_ADDR_THLDS:
+>   		retval = sctp_getsockopt_paddr_thresholds(sk, optval, len, optlen);
+>   		break;
+> +	case SCTP_GET_ASSOC_STATS:
+> +		retval = sctp_getsockopt_assoc_stats(sk, len, optval, optlen);
+> +		break;
+>   	default:
+>   		retval = -ENOPROTOOPT;
+>   		break;
+> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+> index 953c21e..8c6920d 100644
+> --- a/net/sctp/transport.c
+> +++ b/net/sctp/transport.c
+> @@ -350,6 +350,7 @@ void sctp_transport_update_rto(struct sctp_transport *tp, __u32 rtt)
+>
+>   	/* 6.3.1 C3) After the computation, update RTO <- SRTT + 4 * RTTVAR. */
+>   	tp->rto = tp->srtt + (tp->rttvar << 2);
+> +	sctp_max_rto(tp->asoc, tp);
+>
+>   	/* 6.3.1 C6) Whenever RTO is computed, if it is less than RTO.Min
+>   	 * seconds then it is rounded up to RTO.Min seconds.
+> @@ -620,6 +621,7 @@ void sctp_transport_reset(struct sctp_transport *t)
+>   	t->burst_limited = 0;
+>   	t->ssthresh = asoc->peer.i.a_rwnd;
+>   	t->rto = asoc->rto_initial;
+> +	sctp_max_rto(asoc, t);
+>   	t->rtt = 0;
+>   	t->srtt = 0;
+>   	t->rttvar = 0;
+>
