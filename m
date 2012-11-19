@@ -1,58 +1,54 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 200/493] irda: remove use of __devinit
-Date: Mon, 19 Nov 2012 12:25:32 -0800
-Message-ID: <20121119122532.4903bea3@nehalam.linuxnetplumber.net>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: [PATCH 085/493] net/wireless: remove use of __devexit_p
+Date: Mon, 19 Nov 2012 21:56:14 +0100
+Message-ID: <50AA9CEE.2030205@broadcom.com>
 References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
-	<1353349642-3677-200-git-send-email-wfp5p@virginia.edu>
-	<20121119.140654.780679585475336928.davem@davemloft.net>
-	<20121119192121.GA16694@kroah.com>
+ <1353349642-3677-85-git-send-email-wfp5p@virginia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, wfp5p@virginia.edu,
-	samuel@sortiz.org, netdev@vger.kernel.org
-To: Greg KH <gregkh@linuxfoundation.org>
+Cc: gregkh@linuxfoundation.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Jiri Slaby" <jirislaby@gmail.com>,
+	"Nick Kossifidis" <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
+	"Simon Kelley" <simon@thekelleys.org.uk>,
+	"Stefano Brivio" <stefano.brivio@polimi.it>,
+	"Stanislav Yakovlev" <stas.yakovlev@gmail.com>,
+	"Dan Williams" <dcbw@redhat.com>,
+	"Christian Lamparter" <chunkeey@googlemail.com>,
+	"Ivo van Doorn" <IvDoorn@gmail.com>,
+	"Gertjan van Wingerde" <gwingerde@gmail.com>,
+	"Helmut Schaa" <helmut.schaa@googlemail.com>,
+	"Herton Ronaldo Krzesinski" <herton@canonical.com>,
+	"Hin-Tak Leung" <htl10@users.sourceforge.net>,
+	"Larry Finger" <Larry.Finger@lwfinger.net>,
+	"Luciano Coelho" <coelho@ti.com>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, ath5k-devel@lists.ath5k.org,
+	b43-dev@lists.infradead.org, brcm80211-dev-list@broadcom.com,
+	libertas-
+To: "Bill Pemberton" <wfp5p@virginia.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52041 "EHLO mail.vyatta.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3239 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754778Ab2KSU0k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Nov 2012 15:26:40 -0500
-In-Reply-To: <20121119192121.GA16694@kroah.com>
+	id S1751791Ab2KSU4d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Nov 2012 15:56:33 -0500
+In-Reply-To: <1353349642-3677-85-git-send-email-wfp5p@virginia.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 Nov 2012 11:21:21 -0800
-Greg KH <gregkh@linuxfoundation.org> wrote:
+On 11/19/2012 07:20 PM, Bill Pemberton wrote:
+> CONFIG_HOTPLUG is going away as an option so __devexit_p is no longer
+> needed.
 
-> On Mon, Nov 19, 2012 at 02:06:54PM -0500, David Miller wrote:
-> > 
-> > It is absolutely not reasonable to post nearly 500 patches all
-> > at the same time.
-> > 
-> > Do not do this ever again.
-> 
-> Bill did this with the assumption that I would take them through my
-> driver-core tree, as I asked that he do this work.  The 000 message said
-> that, but that wasn't sent out to all of the recipients, so I can
-> understand how you didn't see this.
-> 
-> Also, I was the only one that got all 500 emails, everyone else should
-> have only seen a small quantity.
-> 
-> As you object to these, that's fine, I'll not apply anything to my
-> treethat touches the drivers/net/ or net/ tree at this point in time, is
-> that ok?
-> 
-> But the end goal is to drop CONFIG_HOTPLUG entirely, and these __dev*
-> markings, as they don't do anything anymore.
-> 
-> thanks,
-> 
-> greg k-h
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Arend van Spriel <arend@broadcom.com>
+> Signed-off-by: Bill Pemberton <wfp5p@virginia.edu>
+> Cc: brcm80211-dev-list@broadcom.com
+ >
+>   drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c | 2 +-
 
-This seems like a case where a pull-request should have been used,
-rather spamming everyone and every mailing list.
+For this part of the patch obviously.
+
+Gr. AvS
