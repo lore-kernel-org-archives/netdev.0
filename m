@@ -1,44 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 080/493] fddi: remove use of __devexit_p
-Date: Mon, 19 Nov 2012 18:57:39 +0000
-Message-ID: <1353351459.4156.5.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
-	 <1353349642-3677-80-git-send-email-wfp5p@virginia.edu>
-	 <alpine.LFD.2.02.1211191842180.25230@eddie.linux-mips.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3/3] net: mvneta: adjust multiline comments to net/
+ style
+Date: Mon, 19 Nov 2012 14:01:02 -0500 (EST)
+Message-ID: <20121119.140102.642494594218015592.davem@davemloft.net>
+References: <1353322834-16952-1-git-send-email-thomas.petazzoni@free-electrons.com>
+	<1353322834-16952-4-git-send-email-thomas.petazzoni@free-electrons.com>
+	<50AA2AD4.6030007@mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Bill Pemberton <wfp5p@virginia.edu>, <gregkh@linuxfoundation.org>,
-	<netdev@vger.kernel.org>
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Cc: thomas.petazzoni@free-electrons.com, jason@lakedaemon.net,
+	alior@marvell.com, andrew@lunn.ch, netdev@vger.kernel.org,
+	gregory.clement@free-electrons.com,
+	linux-arm-kernel@lists.infradead.org
+To: sshtylyov@mvista.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32833 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754018Ab2KSS5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:57:42 -0500
-In-Reply-To: <alpine.LFD.2.02.1211191842180.25230@eddie.linux-mips.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60372 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754056Ab2KSTBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 14:01:04 -0500
+In-Reply-To: <50AA2AD4.6030007@mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-11-19 at 18:49 +0000, Maciej W. Rozycki wrote:
-> On Mon, 19 Nov 2012, Bill Pemberton wrote:
-> 
-> > CONFIG_HOTPLUG is going away as an option so __devexit_p is no longer
-> > needed.
-> 
->  Shouldn't this be switching to __exit_p() instead?  Likewise all the 
-> other changes concerned (i.e. s/__dev\(init\|exit\)/__\1/), for the sake 
-> of drivers built into the kernel proper (yes, there are people out there 
-> still doing that).  Am I missing something?
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Date: Mon, 19 Nov 2012 16:49:24 +0400
 
-Drivers can be unbound by poking in sysfs.
+>    Why the heck you're doing this? It's the preferred style, see
+>    Documentation/CodingStyle, chapter 8.
 
-Ben.
+Not in the networking code, we prefer:
 
->  This change scores my NAK as it stands, until updated accordingly or 
-> further justified.
+	/* Doing it,
+	 * like this.
+	 */
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+there.
