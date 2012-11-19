@@ -1,168 +1,133 @@
 From: Bill Pemberton <wfp5p@virginia.edu>
-Subject: [PATCH 389/493] atm: remove use of __devexit
-Date: Mon, 19 Nov 2012 13:25:38 -0500
-Message-ID: <1353349642-3677-389-git-send-email-wfp5p@virginia.edu>
+Subject: [PATCH 379/493] net: remove use of __devinitconst
+Date: Mon, 19 Nov 2012 13:25:28 -0500
+Message-ID: <1353349642-3677-379-git-send-email-wfp5p@virginia.edu>
 References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Luciano Coelho <coelho@ti.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viridian.itc.Virginia.EDU ([128.143.12.139]:41487 "EHLO
+Received: from viridian.itc.Virginia.EDU ([128.143.12.139]:41484 "EHLO
 	viridian.itc.virginia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754243Ab2KSSev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:34:51 -0500
+	with ESMTP id S1754226Ab2KSSer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:34:47 -0500
 In-Reply-To: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CONFIG_HOTPLUG is going away as an option so __devexit is no
+CONFIG_HOTPLUG is going away as an option so __devinitconst is no
 longer needed.
 
 Signed-off-by: Bill Pemberton <wfp5p@virginia.edu>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil> 
-Cc: linux-atm-general@lists.sourceforge.net 
+Cc: Wolfgang Grandegger <wg@grandegger.com> 
+Cc: Marc Kleine-Budde <mkl@pengutronix.de> 
+Cc: Luciano Coelho <coelho@ti.com> 
+Cc: "John W. Linville" <linville@tuxdriver.com> 
+Cc: linux-can@vger.kernel.org 
 Cc: netdev@vger.kernel.org 
+Cc: linux-wireless@vger.kernel.org 
 ---
- drivers/atm/ambassador.c | 2 +-
- drivers/atm/eni.c        | 2 +-
- drivers/atm/firestream.c | 6 +++---
- drivers/atm/fore200e.c   | 4 ++--
- drivers/atm/he.c         | 2 +-
- drivers/atm/horizon.c    | 2 +-
- drivers/atm/iphase.c     | 2 +-
- drivers/atm/nicstar.c    | 2 +-
- 8 files changed, 11 insertions(+), 11 deletions(-)
+ drivers/net/can/at91_can.c            | 2 +-
+ drivers/net/can/mscan/mpc5xxx_can.c   | 6 +++---
+ drivers/net/can/sja1000/tscan1.c      | 2 +-
+ drivers/net/wireless/ti/wl12xx/main.c | 2 +-
+ drivers/net/wireless/ti/wl18xx/main.c | 2 +-
+ drivers/net/wireless/ti/wlcore/sdio.c | 2 +-
+ 6 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
-index eb8d486..6d69032 100644
---- a/drivers/atm/ambassador.c
-+++ b/drivers/atm/ambassador.c
-@@ -2284,7 +2284,7 @@ out_disable:
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index 32e60dd..da807f3 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -154,7 +154,7 @@ struct at91_priv {
+ 	canid_t mb0_id;
+ };
+ 
+-static const struct at91_devtype_data at91_devtype_data[] __devinitconst = {
++static const struct at91_devtype_data at91_devtype_data[] = {
+ 	[AT91_DEVTYPE_SAM9263] = {
+ 		.rx_first = 1,
+ 		.rx_split = 8,
+diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
+index 254c168..508cbad 100644
+--- a/drivers/net/can/mscan/mpc5xxx_can.c
++++ b/drivers/net/can/mscan/mpc5xxx_can.c
+@@ -380,17 +380,17 @@ static int mpc5xxx_can_resume(struct platform_device *ofdev)
  }
+ #endif
  
+-static const struct mpc5xxx_can_data __devinitconst mpc5200_can_data = {
++static const struct mpc5xxx_can_data mpc5200_can_data = {
+ 	.type = MSCAN_TYPE_MPC5200,
+ 	.get_clock = mpc52xx_can_get_clock,
+ };
  
--static void __devexit amb_remove_one(struct pci_dev *pci_dev)
-+static void amb_remove_one(struct pci_dev *pci_dev)
- {
- 	struct amb_dev *dev;
+-static const struct mpc5xxx_can_data __devinitconst mpc5121_can_data = {
++static const struct mpc5xxx_can_data mpc5121_can_data = {
+ 	.type = MSCAN_TYPE_MPC5121,
+ 	.get_clock = mpc512x_can_get_clock,
+ };
  
-diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-index 1f1aa57..9d062d5 100644
---- a/drivers/atm/eni.c
-+++ b/drivers/atm/eni.c
-@@ -2292,7 +2292,7 @@ static struct pci_device_id eni_pci_tbl[] = {
- MODULE_DEVICE_TABLE(pci,eni_pci_tbl);
+-static const struct of_device_id __devinitconst mpc5xxx_can_table[] = {
++static const struct of_device_id mpc5xxx_can_table[] = {
+ 	{ .compatible = "fsl,mpc5200-mscan", .data = &mpc5200_can_data, },
+ 	/* Note that only MPC5121 Rev. 2 (and later) is supported */
+ 	{ .compatible = "fsl,mpc5121-mscan", .data = &mpc5121_can_data, },
+diff --git a/drivers/net/can/sja1000/tscan1.c b/drivers/net/can/sja1000/tscan1.c
+index 9b608d8..6a6db7e 100644
+--- a/drivers/net/can/sja1000/tscan1.c
++++ b/drivers/net/can/sja1000/tscan1.c
+@@ -71,7 +71,7 @@ MODULE_LICENSE("GPL");
+ #define TSCAN1_SJA1000_XTAL 16000000
  
+ /* SJA1000 IO base addresses */
+-static const unsigned short tscan1_sja1000_addresses[] __devinitconst = {
++static const unsigned short tscan1_sja1000_addresses[] = {
+ 	0x100, 0x120, 0x180, 0x1a0, 0x200, 0x240, 0x280, 0x320
+ };
  
--static void __devexit eni_remove_one(struct pci_dev *pdev)
-+static void eni_remove_one(struct pci_dev *pdev)
- {
- 	struct atm_dev *dev = pci_get_drvdata(pdev);
- 	struct eni_dev *ed = ENI_DEV(dev);
-diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
-index c8c81e4..d5967f9 100644
---- a/drivers/atm/firestream.c
-+++ b/drivers/atm/firestream.c
-@@ -1528,7 +1528,7 @@ static void top_off_fp (struct fs_dev *dev, struct freepool *fp,
- 	fs_dprintk (FS_DEBUG_QUEUE, "Added %d entries. \n", n);
- }
- 
--static void __devexit free_queue (struct fs_dev *dev, struct queue *txq)
-+static void free_queue (struct fs_dev *dev, struct queue *txq)
- {
- 	func_enter ();
- 
-@@ -1544,7 +1544,7 @@ static void __devexit free_queue (struct fs_dev *dev, struct queue *txq)
- 	func_exit ();
- }
- 
--static void __devexit free_freepool (struct fs_dev *dev, struct freepool *fp)
-+static void free_freepool (struct fs_dev *dev, struct freepool *fp)
- {
- 	func_enter ();
- 
-@@ -1934,7 +1934,7 @@ static int firestream_init_one (struct pci_dev *pci_dev,
- 	return -ENODEV;
- }
- 
--static void __devexit firestream_remove_one (struct pci_dev *pdev)
-+static void firestream_remove_one (struct pci_dev *pdev)
- {
- 	int i;
- 	struct fs_dev *dev, *nxtdev;
-diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
-index 4b34891..e356284 100644
---- a/drivers/atm/fore200e.c
-+++ b/drivers/atm/fore200e.c
-@@ -2681,7 +2681,7 @@ static int fore200e_sba_probe(struct platform_device *op)
- 	return 0;
- }
- 
--static int __devexit fore200e_sba_remove(struct platform_device *op)
-+static int fore200e_sba_remove(struct platform_device *op)
- {
- 	struct fore200e *fore200e = dev_get_drvdata(&op->dev);
- 
-@@ -2766,7 +2766,7 @@ out_disable:
- }
- 
- 
--static void __devexit fore200e_pca_remove_one(struct pci_dev *pci_dev)
-+static void fore200e_pca_remove_one(struct pci_dev *pci_dev)
- {
-     struct fore200e *fore200e;
- 
-diff --git a/drivers/atm/he.c b/drivers/atm/he.c
-index dac5144..a7e18f8 100644
---- a/drivers/atm/he.c
-+++ b/drivers/atm/he.c
-@@ -406,7 +406,7 @@ init_one_failure:
- 	return err;
- }
- 
--static void __devexit
-+static void
- he_remove_one (struct pci_dev *pci_dev)
- {
- 	struct atm_dev *atm_dev;
-diff --git a/drivers/atm/horizon.c b/drivers/atm/horizon.c
-index 67b570a..ca81449 100644
---- a/drivers/atm/horizon.c
-+++ b/drivers/atm/horizon.c
-@@ -2836,7 +2836,7 @@ out_disable:
- 	goto out;
- }
- 
--static void __devexit hrz_remove_one(struct pci_dev *pci_dev)
-+static void hrz_remove_one(struct pci_dev *pci_dev)
- {
- 	hrz_dev *dev;
- 
-diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
-index 444e81e..5036908 100644
---- a/drivers/atm/iphase.c
-+++ b/drivers/atm/iphase.c
-@@ -3229,7 +3229,7 @@ err_out:
+diff --git a/drivers/net/wireless/ti/wl12xx/main.c b/drivers/net/wireless/ti/wl12xx/main.c
+index c10e691..e5f5f8f 100644
+--- a/drivers/net/wireless/ti/wl12xx/main.c
++++ b/drivers/net/wireless/ti/wl12xx/main.c
+@@ -1725,7 +1725,7 @@ out:
  	return ret;
  }
  
--static void __devexit ia_remove_one(struct pci_dev *pdev)
-+static void ia_remove_one(struct pci_dev *pdev)
- {
- 	struct atm_dev *dev = pci_get_drvdata(pdev);
- 	IADEV *iadev = INPH_IA_DEV(dev);
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index bc9adf2..7e6063c 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -200,7 +200,7 @@ err_out:
- 	return -ENODEV;
+-static const struct platform_device_id wl12xx_id_table[] __devinitconst = {
++static const struct platform_device_id wl12xx_id_table[] = {
+ 	{ "wl12xx", 0 },
+ 	{  } /* Terminating Entry */
+ };
+diff --git a/drivers/net/wireless/ti/wl18xx/main.c b/drivers/net/wireless/ti/wl18xx/main.c
+index 7171c93..8d8c1f8 100644
+--- a/drivers/net/wireless/ti/wl18xx/main.c
++++ b/drivers/net/wireless/ti/wl18xx/main.c
+@@ -1528,7 +1528,7 @@ out:
+ 	return ret;
  }
  
--static void __devexit nicstar_remove_one(struct pci_dev *pcidev)
-+static void nicstar_remove_one(struct pci_dev *pcidev)
- {
- 	int i, j;
- 	ns_dev *card = pci_get_drvdata(pcidev);
+-static const struct platform_device_id wl18xx_id_table[] __devinitconst = {
++static const struct platform_device_id wl18xx_id_table[] = {
+ 	{ "wl18xx", 0 },
+ 	{  } /* Terminating Entry */
+ };
+diff --git a/drivers/net/wireless/ti/wlcore/sdio.c b/drivers/net/wireless/ti/wlcore/sdio.c
+index 6fa2a01..7bf612c 100644
+--- a/drivers/net/wireless/ti/wlcore/sdio.c
++++ b/drivers/net/wireless/ti/wlcore/sdio.c
+@@ -54,7 +54,7 @@ struct wl12xx_sdio_glue {
+ 	struct platform_device *core;
+ };
+ 
+-static const struct sdio_device_id wl1271_devices[] __devinitconst = {
++static const struct sdio_device_id wl1271_devices[] = {
+ 	{ SDIO_DEVICE(SDIO_VENDOR_ID_TI, SDIO_DEVICE_ID_TI_WL1271) },
+ 	{}
+ };
 -- 
 1.8.0
