@@ -1,32 +1,44 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
-Date: Mon, 19 Nov 2012 20:59:18 +1100
-Message-ID: <1353319158.23412.88.camel@pasglop>
-References: <783561822.12637564.1352139592543.JavaMail.root@vmware.com>
-	 <509A06AB.2020700@redhat.com> <50A55F57.7080804@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Gerd Hoffmann <kraxel@redhat.com>, Andy King <acking@vmware.com>,
-	pv-drivers@vmware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, David Miller <davem@davemloft.net>,
-	georgezhang@vmware.com
-To: Anthony Liguori <aliguori@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50A55F57.7080804@us.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH 1/3] net: mvmdio: use <linux/delay.h> instead of <asm/delay.h>
+Date: Mon, 19 Nov 2012 12:00:32 +0100
+Message-ID: <1353322834-16952-2-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1353322834-16952-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>, netdev@vger.kernel.org
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([88.190.12.23]:35944 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751490Ab2KSLAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 06:00:52 -0500
+In-Reply-To: <1353322834-16952-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-15 at 15:32 -0600, Anthony Liguori wrote:
-> 
-> The concept was Nacked and that led to the abomination of virtio-serial.  If an 
-> address family for virtualization is on the table, we should reconsider 
-> AF_VMCHANNEL.
-> 
-> I'd be thrilled to get rid of virtio-serial...
+As suggested by checkpatch, using <linux/delay.h> instead of
+<asm/delay.h> is appropriate.
 
-Ack.
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvmdio.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Ben.
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 82fbd23..114a0f1 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -27,8 +27,7 @@
+ #include <linux/of_address.h>
+ #include <linux/of_mdio.h>
+ #include <linux/platform_device.h>
+-
+-#include <asm/delay.h>
++#include <linux/delay.h>
+ 
+ #define MVMDIO_SMI_DATA_SHIFT              0
+ #define MVMDIO_SMI_PHY_ADDR_SHIFT          16
+-- 
+1.7.9.5
