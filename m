@@ -1,139 +1,108 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 08/10] batman-adv: Fix broadcast duplist for fragmentation
-Date: Mon, 19 Nov 2012 09:24:09 +0100
-Message-ID: <1353313451-2930-9-git-send-email-ordex@autistici.org>
+Subject: [PATCH 07/10] batman-adv: Add function to calculate crc32c for the skb payload
+Date: Mon, 19 Nov 2012 09:24:08 +0100
+Message-ID: <1353313451-2930-8-git-send-email-ordex@autistici.org>
 References: <1353313451-2930-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
-	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
+	Sven Eckelmann <sven@narfation.org>,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:64257 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:64178 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753218Ab2KSIZ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 03:25:26 -0500
+	with ESMTP id S1753218Ab2KSIZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 03:25:24 -0500
 In-Reply-To: <1353313451-2930-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
+From: Sven Eckelmann <sven@narfation.org>
 
-If the skb is fragmented, the checksum must be computed on the
-individual fragments, just using skb->data may fail on fragmented
-data. Instead of doing linearizing the packet, use the new
-batadv_crc32 to do that more efficiently- it should not hurt
-replacing the old crc16 by the new crc32.
-
-Reported-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bridge_loop_avoidance.c | 18 +++++++-----------
- net/batman-adv/bridge_loop_avoidance.h |  6 ++----
- net/batman-adv/routing.c               |  8 +-------
- net/batman-adv/types.h                 |  2 +-
- 4 files changed, 11 insertions(+), 23 deletions(-)
+ net/batman-adv/Kconfig |  1 +
+ net/batman-adv/main.c  | 34 ++++++++++++++++++++++++++++++++++
+ net/batman-adv/main.h  |  1 +
+ 3 files changed, 36 insertions(+)
 
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 7ffef8b..5aebe93 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -1249,8 +1249,7 @@ int batadv_bla_init(struct batadv_priv *bat_priv)
- /**
-  * batadv_bla_check_bcast_duplist
-  * @bat_priv: the bat priv with all the soft interface information
-- * @bcast_packet: encapsulated broadcast frame plus batman header
-- * @bcast_packet_len: length of encapsulated broadcast frame plus batman header
-+ * @skb: contains the bcast_packet to be checked
-  *
-  * check if it is on our broadcast list. Another gateway might
-  * have sent the same packet because it is connected to the same backbone,
-@@ -1262,20 +1261,17 @@ int batadv_bla_init(struct batadv_priv *bat_priv)
-  * the same host however as this might be intended.
+diff --git a/net/batman-adv/Kconfig b/net/batman-adv/Kconfig
+index 250e0b5..8d8afb1 100644
+--- a/net/batman-adv/Kconfig
++++ b/net/batman-adv/Kconfig
+@@ -6,6 +6,7 @@ config BATMAN_ADV
+ 	tristate "B.A.T.M.A.N. Advanced Meshing Protocol"
+ 	depends on NET
+ 	select CRC16
++	select LIBCRC32C
+         default n
+ 	help
+           B.A.T.M.A.N. (better approach to mobile ad-hoc networking) is
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 70797de..253e240 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -17,6 +17,8 @@
+  * 02110-1301, USA
   */
- int batadv_bla_check_bcast_duplist(struct batadv_priv *bat_priv,
--				   struct batadv_bcast_packet *bcast_packet,
--				   int bcast_packet_len)
-+				   struct sk_buff *skb)
- {
--	int i, length, curr, ret = 0;
--	uint8_t *content;
--	uint16_t crc;
-+	int i, curr, ret = 0;
-+	__be32 crc;
-+	struct batadv_bcast_packet *bcast_packet;
- 	struct batadv_bcast_duplist_entry *entry;
  
--	length = bcast_packet_len - sizeof(*bcast_packet);
--	content = (uint8_t *)bcast_packet;
--	content += sizeof(*bcast_packet);
-+	bcast_packet = (struct batadv_bcast_packet *)skb->data;
- 
- 	/* calculate the crc ... */
--	crc = crc16(0, content, length);
-+	crc = batadv_skb_crc32(skb, (u8 *)(bcast_packet + 1));
- 
- 	spin_lock_bh(&bat_priv->bla.bcast_duplist_lock);
- 
-diff --git a/net/batman-adv/bridge_loop_avoidance.h b/net/batman-adv/bridge_loop_avoidance.h
-index 789cb73..196d9a0 100644
---- a/net/batman-adv/bridge_loop_avoidance.h
-+++ b/net/batman-adv/bridge_loop_avoidance.h
-@@ -31,8 +31,7 @@ int batadv_bla_backbone_table_seq_print_text(struct seq_file *seq,
- 					     void *offset);
- int batadv_bla_is_backbone_gw_orig(struct batadv_priv *bat_priv, uint8_t *orig);
- int batadv_bla_check_bcast_duplist(struct batadv_priv *bat_priv,
--				   struct batadv_bcast_packet *bcast_packet,
--				   int hdr_size);
-+				   struct sk_buff *skb);
- void batadv_bla_update_orig_address(struct batadv_priv *bat_priv,
- 				    struct batadv_hard_iface *primary_if,
- 				    struct batadv_hard_iface *oldif);
-@@ -81,8 +80,7 @@ static inline int batadv_bla_is_backbone_gw_orig(struct batadv_priv *bat_priv,
- 
- static inline int
- batadv_bla_check_bcast_duplist(struct batadv_priv *bat_priv,
--			       struct batadv_bcast_packet *bcast_packet,
--			       int hdr_size)
-+			       struct sk_buff *skb)
- {
++#include <linux/crc32c.h>
++#include <linux/highmem.h>
+ #include "main.h"
+ #include "sysfs.h"
+ #include "debugfs.h"
+@@ -432,6 +434,38 @@ int batadv_compat_seq_print_text(struct seq_file *seq, void *offset)
  	return 0;
  }
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 8d64348..1aa1722 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -1196,14 +1196,8 @@ int batadv_recv_bcast_packet(struct sk_buff *skb,
  
- 	spin_unlock_bh(&orig_node->bcast_seqno_lock);
++/**
++ * batadv_skb_crc32 - calculate CRC32 of the whole packet and skip bytes in
++ *  the header
++ * @skb: skb pointing to fragmented socket buffers
++ * @payload_ptr: Pointer to position inside the head buffer of the skb
++ *  marking the start of the data to be CRC'ed
++ *
++ * payload_ptr must always point to an address in the skb head buffer and not to
++ * a fragment.
++ */
++__be32 batadv_skb_crc32(struct sk_buff *skb, u8 *payload_ptr)
++{
++	u32 crc = 0;
++	unsigned int from;
++	unsigned int to = skb->len;
++	struct skb_seq_state st;
++	const u8 *data;
++	unsigned int len;
++	unsigned int consumed = 0;
++
++	from = (unsigned int)(payload_ptr - skb->data);
++
++	skb_prepare_seq_read(skb, from, to, &st);
++	while ((len = skb_seq_read(consumed, &data, &st)) != 0) {
++		crc = crc32c(crc, data, len);
++		consumed += len;
++	}
++	skb_abort_seq_read(&st);
++
++	return htonl(crc);
++}
++
+ static int batadv_param_set_ra(const char *val, const struct kernel_param *kp)
+ {
+ 	struct batadv_algo_ops *bat_algo_ops;
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 3243189..0213cb5 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -175,6 +175,7 @@ int batadv_algo_register(struct batadv_algo_ops *bat_algo_ops);
+ int batadv_algo_select(struct batadv_priv *bat_priv, char *name);
+ int batadv_algo_seq_print_text(struct seq_file *seq, void *offset);
+ int batadv_compat_seq_print_text(struct seq_file *seq, void *offset);
++__be32 batadv_skb_crc32(struct sk_buff *skb, u8 *payload_ptr);
  
--	/* keep skb linear for crc calculation */
--	if (skb_linearize(skb) < 0)
--		goto out;
--
--	bcast_packet = (struct batadv_bcast_packet *)skb->data;
--
- 	/* check whether this has been sent by another originator before */
--	if (batadv_bla_check_bcast_duplist(bat_priv, bcast_packet, skb->len))
-+	if (batadv_bla_check_bcast_duplist(bat_priv, skb))
- 		goto out;
- 
- 	/* rebroadcast packet */
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 7b3d0d7..ae9ac9a 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -156,7 +156,7 @@ struct batadv_neigh_node {
- #ifdef CONFIG_BATMAN_ADV_BLA
- struct batadv_bcast_duplist_entry {
- 	uint8_t orig[ETH_ALEN];
--	uint16_t crc;
-+	__be32 crc;
- 	unsigned long entrytime;
- };
- #endif
+ /**
+  * enum batadv_dbg_level - available log levels
 -- 
 1.8.0
