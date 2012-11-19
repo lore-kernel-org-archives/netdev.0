@@ -1,38 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] Marvell mvneta Ethernet/MDIO drivers checkpatch
- fixes
-Date: Mon, 19 Nov 2012 14:16:53 -0500 (EST)
-Message-ID: <20121119.141653.1660827388689535803.davem@davemloft.net>
-References: <1353322834-16952-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 1/1] vhost: Remove duplicate inclusion of linux/vhost.h
+Date: Mon, 19 Nov 2012 14:18:13 -0500 (EST)
+Message-ID: <20121119.141813.2249570877638146916.davem@davemloft.net>
+References: <1353324508-22083-1-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jason@lakedaemon.net, andrew@lunn.ch,
-	gregory.clement@free-electrons.com,
-	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
-	netdev@vger.kernel.org
-To: thomas.petazzoni@free-electrons.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60545 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754105Ab2KSTQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 14:16:55 -0500
-In-Reply-To: <1353322834-16952-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, mst@redhat.com, nab@linux-iscsi.org,
+	patches@linaro.org
+To: sachin.kamat@linaro.org
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1353324508-22083-1-git-send-email-sachin.kamat@linaro.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Mon, 19 Nov 2012 12:00:31 +0100
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Mon, 19 Nov 2012 16:58:28 +0530
 
-> Sebastian Hesselbarth noticed that the new mvmdio and mvneta drivers
-> produce a number of checkpatch warnings, related to the incluse of
-> <asm/delay.h> and to the style of multiline comments. The following
-> three patches fix those checkpatch warnings. Feel free to integrate
-> them either as follow-up patches of the network driver patches, or to
-> squash them into the driver patches as you prefer.
+> linux/vhost.h was included twice.
 > 
-> David, are you OK with those patches and the fact that we carry them
-> through the arm-soc tree, as we agreed to do for the mvmdio and mvneta
-> drivers? Those patches are really simple/stupid fixes.
+> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
 
-No problem, thanks.
+Michael, are you gonna take this?
+
+Thanks.
