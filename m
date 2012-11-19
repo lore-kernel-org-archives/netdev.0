@@ -1,48 +1,74 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH 2/2] net: mvneta: fix section mismatch warning caused by mvneta_deinit()
-Date: Mon, 19 Nov 2012 15:13:16 +0100
-Message-ID: <1353334396-26128-3-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1353334396-26128-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	linux-arm-kernel@lists.infradead.org
-To: Jason Cooper <jason@lakedaemon.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([88.190.12.23]:38258 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752463Ab2KSONm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 09:13:42 -0500
-In-Reply-To: <1353334396-26128-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next ] net: Allow userns root to control tun and
+	tap devices
+Date: Mon, 19 Nov 2012 14:23:31 +0000
+Message-ID: <20121119142331.GA4453@mail.hallyn.com>
+References: <87a9uekpvw.fsf@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <87a9uekpvw.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-mvneta_deinit() can be called from the ->probe() hook in the error
-path, so it shouldn't be marked as __devexit. It fixes the following
-section mismatch warning:
+Quoting Eric W. Biederman (ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org):
+> 
+> Allow an unpriviled user who has created a user namespace, and then
+> created a network namespace to effectively use the new network
+> namespace, by reducing capable(CAP_NET_ADMIN) calls to
+> ns_capable(net->user_ns,CAP_NET_ADMIN) calls.
+> 
+> Allow setting of the tun iff flags.
+> Allow creating of tun devices.
+> Allow adding a new queue to a tun device.
+> 
 
-WARNING: vmlinux.o(.devinit.text+0x239c): Section mismatch in reference
-from the function mvneta_probe() to the function .devexit.text:mvneta_deinit()
-The function __devinit mvneta_probe() references
-a function __devexit mvneta_deinit().
+Acked-by: Serge Hallyn <serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index c90382a..ad0b551 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -2605,7 +2605,7 @@ static int __devinit mvneta_init(struct mvneta_port *pp, int phy_addr)
- 	return 0;
- }
- 
--static void __devexit mvneta_deinit(struct mvneta_port *pp)
-+static void mvneta_deinit(struct mvneta_port *pp)
- {
- 	kfree(pp->txqs);
- 	kfree(pp->rxqs);
--- 
-1.7.9.5
+> Signed-off-by: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+> ---
+>  drivers/net/tun.c |    5 +++--
+>  1 files changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index b44d7b7..b01e8c0 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -373,10 +373,11 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
+>  static inline bool tun_not_capable(struct tun_struct *tun)
+>  {
+>  	const struct cred *cred = current_cred();
+> +	struct net *net = dev_net(tun->dev);
+>  
+>  	return ((uid_valid(tun->owner) && !uid_eq(cred->euid, tun->owner)) ||
+>  		  (gid_valid(tun->group) && !in_egroup_p(tun->group))) &&
+> -		!capable(CAP_NET_ADMIN);
+> +		!ns_capable(net->user_ns, CAP_NET_ADMIN);
+>  }
+>  
+>  static void tun_set_real_num_queues(struct tun_struct *tun)
+> @@ -1559,7 +1560,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  		char *name;
+>  		unsigned long flags = 0;
+>  
+> -		if (!capable(CAP_NET_ADMIN))
+> +		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+>  			return -EPERM;
+>  		err = security_tun_dev_create();
+>  		if (err < 0)
+> -- 
+> 1.7.5.4
