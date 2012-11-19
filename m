@@ -1,38 +1,100 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH RFC 3/5] printk: modify printk interface for
- syslog_namespace
-Date: Mon, 19 Nov 2012 06:53:34 -0800
-Message-ID: <1353336814.5287.2.camel@joe-AO722>
-References: <50A9EAF0.4000902@gmail.com>
-	 <20121119142926.GB4453@mail.hallyn.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH] net/macb: move to circ_buf macros and fix initial condition
+Date: Mon, 19 Nov 2012 16:17:24 +0100
+Message-ID: <1353338244-11506-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Rui Xiang <leo.ruixiang@gmail.com>, serge.hallyn@canonical.com,
-	containers@lists.linux-foundation.org, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: "Serge E. Hallyn" <serge@hallyn.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:57179 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751798Ab2KSOxe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Nov 2012 09:53:34 -0500
-In-Reply-To: <20121119142926.GB4453@mail.hallyn.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	Joachim Eastwood <manabian@gmail.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-11-19 at 14:29 +0000, Serge E. Hallyn wrote:
-> > diff --git a/drivers/base/core.c b/drivers/base/core.c
+Move to circular buffers management macro and correct an error
+with circular buffer initial condition.
 
-48kb of quoted text...
+Without this patch, the macb_tx_ring_avail() function was
+not reporting the proper ring availability at startup:
+macb macb: eth0: BUG! Tx Ring full when queue awake!
+macb macb: eth0: tx_head = 0, tx_tail = 0
+And hanginig forever...
 
-> > @@ -1678,7 +1674,7 @@ asmlinkage int printk(const char *fmt, ...)
-> >  	}
-> >  #endif
-> >  	va_start(args, fmt);
-> > -	r = vprintk_emit(0, -1, NULL, 0, fmt, args);
-> > +	r = vprintk_emit(0, -1, NULL, 0, fmt, args, current_syslog_ns());
-> 
-> Current is meaningless here.  The default should be using init_syslog_ns.
+I remove the macb_tx_ring_avail() function and use the
+proven macros from circ_buf.h. CIRC_CNT() is used in the
+"consumer" part of the driver: macb_tx_interrupt() to match
+advice from Documentation/circular-buffers.txt.
 
-For a single sentence.  Please remember to trim your replies.
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index edb2aba..27991dd 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -14,6 +14,7 @@
+ #include <linux/moduleparam.h>
+ #include <linux/kernel.h>
+ #include <linux/types.h>
++#include <linux/circ_buf.h>
+ #include <linux/slab.h>
+ #include <linux/init.h>
+ #include <linux/gpio.h>
+@@ -38,8 +39,8 @@
+ #define TX_RING_SIZE		128 /* must be power of 2 */
+ #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
+ 
+-/* minimum number of free TX descriptors before waking up TX process */
+-#define MACB_TX_WAKEUP_THRESH	(TX_RING_SIZE / 4)
++/* level of occupied TX descriptors under which we wake up TX process */
++#define MACB_TX_WAKEUP_THRESH	(3 * TX_RING_SIZE / 4)
+ 
+ #define MACB_RX_INT_FLAGS	(MACB_BIT(RCOMP) | MACB_BIT(RXUBR)	\
+ 				 | MACB_BIT(ISR_ROVR))
+@@ -60,11 +61,6 @@ static unsigned int macb_tx_ring_wrap(unsigned int index)
+ 	return index & (TX_RING_SIZE - 1);
+ }
+ 
+-static unsigned int macb_tx_ring_avail(struct macb *bp)
+-{
+-	return (bp->tx_tail - bp->tx_head) & (TX_RING_SIZE - 1);
+-}
+-
+ static struct macb_dma_desc *macb_tx_desc(struct macb *bp, unsigned int index)
+ {
+ 	return &bp->tx_ring[macb_tx_ring_wrap(index)];
+@@ -524,7 +520,8 @@ static void macb_tx_interrupt(struct macb *bp)
+ 
+ 	bp->tx_tail = tail;
+ 	if (netif_queue_stopped(bp->dev)
+-			&& macb_tx_ring_avail(bp) > MACB_TX_WAKEUP_THRESH)
++			&& CIRC_CNT(bp->tx_head, bp->tx_tail,
++				    TX_RING_SIZE) <= MACB_TX_WAKEUP_THRESH)
+ 		netif_wake_queue(bp->dev);
+ }
+ 
+@@ -818,7 +815,7 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	spin_lock_irqsave(&bp->lock, flags);
+ 
+ 	/* This is a hard error, log it. */
+-	if (macb_tx_ring_avail(bp) < 1) {
++	if (CIRC_SPACE(bp->tx_head, bp->tx_tail, TX_RING_SIZE) < 1) {
+ 		netif_stop_queue(dev);
+ 		spin_unlock_irqrestore(&bp->lock, flags);
+ 		netdev_err(bp->dev, "BUG! Tx Ring full when queue awake!\n");
+@@ -855,7 +852,7 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
+ 
+-	if (macb_tx_ring_avail(bp) < 1)
++	if (CIRC_SPACE(bp->tx_head, bp->tx_tail, TX_RING_SIZE) < 1)
+ 		netif_stop_queue(dev);
+ 
+ 	spin_unlock_irqrestore(&bp->lock, flags);
+-- 
+1.8.0
