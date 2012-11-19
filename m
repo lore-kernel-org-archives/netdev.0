@@ -1,27 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] vhost: Remove duplicate inclusion of linux/vhost.h
-Date: Mon, 19 Nov 2012 14:18:13 -0500 (EST)
-Message-ID: <20121119.141813.2249570877638146916.davem@davemloft.net>
-References: <1353324508-22083-1-git-send-email-sachin.kamat@linaro.org>
+Subject: Re: [patch 0/6] s390: network patches for net-next
+Date: Mon, 19 Nov 2012 14:19:11 -0500 (EST)
+Message-ID: <20121119.141911.344952307458858343.davem@davemloft.net>
+References: <20121119124644.679089322@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, mst@redhat.com, nab@linux-iscsi.org,
-	patches@linaro.org
-To: sachin.kamat@linaro.org
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1353324508-22083-1-git-send-email-sachin.kamat@linaro.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60591 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754091Ab2KSTTM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 14:19:12 -0500
+In-Reply-To: <20121119124644.679089322@de.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Date: Mon, 19 Nov 2012 16:58:28 +0530
+From: frank.blaschka@de.ibm.com
+Date: Mon, 19 Nov 2012 13:46:44 +0100
 
-> linux/vhost.h was included twice.
-> 
-> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+> here are some s390 related patches for net-next
 
-Michael, are you gonna take this?
-
-Thanks.
+All applied, thanks.
