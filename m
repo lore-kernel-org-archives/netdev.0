@@ -1,44 +1,38 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH 080/493] fddi: remove use of __devexit_p
-Date: Mon, 19 Nov 2012 19:16:44 +0000 (GMT)
-Message-ID: <alpine.LFD.2.02.1211191912040.25230@eddie.linux-mips.org>
-References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu> <1353349642-3677-80-git-send-email-wfp5p@virginia.edu> <alpine.LFD.2.02.1211191842180.25230@eddie.linux-mips.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] Marvell mvneta Ethernet/MDIO drivers checkpatch
+ fixes
+Date: Mon, 19 Nov 2012 14:16:53 -0500 (EST)
+Message-ID: <20121119.141653.1660827388689535803.davem@davemloft.net>
+References: <1353322834-16952-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org
-To: Bill Pemberton <wfp5p@virginia.edu>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jason@lakedaemon.net, andrew@lunn.ch,
+	gregory.clement@free-electrons.com,
+	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
+	netdev@vger.kernel.org
+To: thomas.petazzoni@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:54259 "EHLO
-	eddie.linux-mips.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754105Ab2KSTQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 14:16:44 -0500
-Received: from localhost.localdomain ([127.0.0.1]:36353 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S6825754Ab2KSTQoNJ3H2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 20:16:44 +0100
-In-Reply-To: <alpine.LFD.2.02.1211191842180.25230@eddie.linux-mips.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60545 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754105Ab2KSTQz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 14:16:55 -0500
+In-Reply-To: <1353322834-16952-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 19 Nov 2012, Maciej W. Rozycki wrote:
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Date: Mon, 19 Nov 2012 12:00:31 +0100
 
-> > CONFIG_HOTPLUG is going away as an option so __devexit_p is no longer
-> > needed.
+> Sebastian Hesselbarth noticed that the new mvmdio and mvneta drivers
+> produce a number of checkpatch warnings, related to the incluse of
+> <asm/delay.h> and to the style of multiline comments. The following
+> three patches fix those checkpatch warnings. Feel free to integrate
+> them either as follow-up patches of the network driver patches, or to
+> squash them into the driver patches as you prefer.
 > 
->  Shouldn't this be switching to __exit_p() instead?  Likewise all the 
-> other changes concerned (i.e. s/__dev\(init\|exit\)/__\1/), for the sake 
-> of drivers built into the kernel proper (yes, there are people out there 
-> still doing that).  Am I missing something?
-> 
->  This change scores my NAK as it stands, until updated accordingly or 
-> further justified.
+> David, are you OK with those patches and the fact that we carry them
+> through the arm-soc tree, as we agreed to do for the mvmdio and mvneta
+> drivers? Those patches are really simple/stupid fixes.
 
- I have unconfused myself now, so please replace the above with the 
-following question: what about configurations (e.g. buses) that not 
-support hotplug at all?  For example apart from PCI the defxx driver 
-concerned here supports the TURBOchannel bus that by design does not have 
-the concept of live option card removal (no such circuitry).  So should 
-now the precious memory be wasted on systems that will never ever handle 
-hotplug?
-
-  Maciej
+No problem, thanks.
