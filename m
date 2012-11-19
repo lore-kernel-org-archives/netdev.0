@@ -1,17 +1,16 @@
 From: Bill Pemberton <wfp5p@virginia.edu>
-Subject: [PATCH 202/493] can: remove use of __devinit
-Date: Mon, 19 Nov 2012 13:22:31 -0500
-Message-ID: <1353349642-3677-202-git-send-email-wfp5p@virginia.edu>
+Subject: [PATCH 204/493] atm: remove use of __devinit
+Date: Mon, 19 Nov 2012 13:22:33 -0500
+Message-ID: <1353349642-3677-204-git-send-email-wfp5p@virginia.edu>
 References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from viridian.itc.Virginia.EDU ([128.143.12.139]:41322 "EHLO
 	viridian.itc.virginia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753782Ab2KSScw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:32:52 -0500
+	with ESMTP id S1754065Ab2KSScy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 13:32:54 -0500
 In-Reply-To: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -20,500 +19,876 @@ CONFIG_HOTPLUG is going away as an option so __devinit is no longer
 needed.
 
 Signed-off-by: Bill Pemberton <wfp5p@virginia.edu>
-Cc: Wolfgang Grandegger <wg@grandegger.com> 
-Cc: Marc Kleine-Budde <mkl@pengutronix.de> 
-Cc: linux-can@vger.kernel.org 
+Cc: Chas Williams <chas@cmf.nrl.navy.mil> 
+Cc: linux-atm-general@lists.sourceforge.net 
 Cc: netdev@vger.kernel.org 
 ---
- drivers/net/can/at91_can.c                    |  2 +-
- drivers/net/can/bfin_can.c                    |  2 +-
- drivers/net/can/c_can/c_can_pci.c             |  2 +-
- drivers/net/can/c_can/c_can_platform.c        |  2 +-
- drivers/net/can/cc770/cc770_isa.c             |  2 +-
- drivers/net/can/cc770/cc770_platform.c        |  6 +++---
- drivers/net/can/flexcan.c                     |  4 ++--
- drivers/net/can/janz-ican3.c                  | 16 ++++++++--------
- drivers/net/can/mcp251x.c                     |  2 +-
- drivers/net/can/mscan/mpc5xxx_can.c           | 10 +++++-----
- drivers/net/can/pch_can.c                     |  2 +-
- drivers/net/can/sja1000/ems_pci.c             |  2 +-
- drivers/net/can/sja1000/ems_pcmcia.c          |  4 ++--
- drivers/net/can/sja1000/kvaser_pci.c          |  2 +-
- drivers/net/can/sja1000/peak_pci.c            |  2 +-
- drivers/net/can/sja1000/peak_pcmcia.c         |  2 +-
- drivers/net/can/sja1000/plx_pci.c             |  2 +-
- drivers/net/can/sja1000/sja1000_isa.c         |  2 +-
- drivers/net/can/sja1000/sja1000_of_platform.c |  2 +-
- drivers/net/can/sja1000/tscan1.c              |  2 +-
- drivers/net/can/softing/softing_cs.c          |  6 +++---
- drivers/net/can/softing/softing_main.c        |  8 ++++----
- 22 files changed, 42 insertions(+), 42 deletions(-)
+ drivers/atm/ambassador.c | 24 ++++++++++++------------
+ drivers/atm/eni.c        | 10 +++++-----
+ drivers/atm/firestream.c | 16 ++++++++--------
+ drivers/atm/fore200e.c   | 38 +++++++++++++++++++-------------------
+ drivers/atm/he.c         | 20 ++++++++++----------
+ drivers/atm/horizon.c    |  6 +++---
+ drivers/atm/idt77252.c   | 10 +++++-----
+ drivers/atm/iphase.c     |  6 +++---
+ drivers/atm/lanai.c      | 24 ++++++++++++------------
+ drivers/atm/nicstar.c    | 10 +++++-----
+ drivers/atm/zatm.c       | 18 +++++++++---------
+ 11 files changed, 91 insertions(+), 91 deletions(-)
 
-diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index 0f08305..32e60dd 100644
---- a/drivers/net/can/at91_can.c
-+++ b/drivers/net/can/at91_can.c
-@@ -1241,7 +1241,7 @@ static struct attribute_group at91_sysfs_attr_group = {
- 	.attrs = at91_sysfs_attrs,
- };
+diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
+index 9e9df4f..eb8d486 100644
+--- a/drivers/atm/ambassador.c
++++ b/drivers/atm/ambassador.c
+@@ -1507,7 +1507,7 @@ static void do_housekeeping (unsigned long arg) {
  
--static int __devinit at91_can_probe(struct platform_device *pdev)
-+static int at91_can_probe(struct platform_device *pdev)
- {
- 	const struct at91_devtype_data *devtype_data;
- 	enum at91_devtype devtype;
-diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
-index ee4983a..16515e3 100644
---- a/drivers/net/can/bfin_can.c
-+++ b/drivers/net/can/bfin_can.c
-@@ -531,7 +531,7 @@ static const struct net_device_ops bfin_can_netdev_ops = {
- 	.ndo_start_xmit         = bfin_can_start_xmit,
- };
+ /********** creation of communication queues **********/
  
--static int __devinit bfin_can_probe(struct platform_device *pdev)
-+static int bfin_can_probe(struct platform_device *pdev)
+-static int __devinit create_queues (amb_dev * dev, unsigned int cmds,
++static int create_queues (amb_dev * dev, unsigned int cmds,
+ 				 unsigned int txs, unsigned int * rxs,
+ 				 unsigned int * rx_buffer_sizes) {
+   unsigned char pool;
+@@ -1737,7 +1737,7 @@ static  int decode_loader_result (loader_command cmd, u32 result)
+ 	return res;
+ }
+ 
+-static int __devinit do_loader_command (volatile loader_block * lb,
++static int do_loader_command (volatile loader_block * lb,
+ 				     const amb_dev * dev, loader_command cmd) {
+   
+   unsigned long timeout;
+@@ -1793,7 +1793,7 @@ static int __devinit do_loader_command (volatile loader_block * lb,
+ 
+ /* loader: determine loader version */
+ 
+-static int __devinit get_loader_version (loader_block * lb,
++static int get_loader_version (loader_block * lb,
+ 				      const amb_dev * dev, u32 * version) {
+   int res;
+   
+@@ -1809,7 +1809,7 @@ static int __devinit get_loader_version (loader_block * lb,
+ 
+ /* loader: write memory data blocks */
+ 
+-static int __devinit loader_write (loader_block* lb,
++static int loader_write (loader_block* lb,
+ 				   const amb_dev *dev,
+ 				   const struct ihex_binrec *rec) {
+   transfer_block * tb = &lb->payload.transfer;
+@@ -1824,7 +1824,7 @@ static int __devinit loader_write (loader_block* lb,
+ 
+ /* loader: verify memory data blocks */
+ 
+-static int __devinit loader_verify (loader_block * lb,
++static int loader_verify (loader_block * lb,
+ 				    const amb_dev *dev,
+ 				    const struct ihex_binrec *rec) {
+   transfer_block * tb = &lb->payload.transfer;
+@@ -1842,7 +1842,7 @@ static int __devinit loader_verify (loader_block * lb,
+ 
+ /* loader: start microcode */
+ 
+-static int __devinit loader_start (loader_block * lb,
++static int loader_start (loader_block * lb,
+ 				const amb_dev * dev, u32 address) {
+   PRINTD (DBG_FLOW|DBG_LOAD, "loader_start");
+   
+@@ -1918,7 +1918,7 @@ static int amb_reset (amb_dev * dev, int diags) {
+ 
+ /********** transfer and start the microcode **********/
+ 
+-static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
++static int ucode_init (loader_block * lb, amb_dev * dev) {
+   const struct firmware *fw;
+   unsigned long start_address;
+   const struct ihex_binrec *rec;
+@@ -1979,7 +1979,7 @@ static inline __be32 bus_addr(void * addr) {
+     return cpu_to_be32 (virt_to_bus (addr));
+ }
+ 
+-static int __devinit amb_talk (amb_dev * dev) {
++static int amb_talk (amb_dev * dev) {
+   adap_talk_block a;
+   unsigned char pool;
+   unsigned long timeout;
+@@ -2026,7 +2026,7 @@ static int __devinit amb_talk (amb_dev * dev) {
+ }
+ 
+ // get microcode version
+-static void __devinit amb_ucode_version (amb_dev * dev) {
++static void amb_ucode_version (amb_dev * dev) {
+   u32 major;
+   u32 minor;
+   command cmd;
+@@ -2041,7 +2041,7 @@ static void __devinit amb_ucode_version (amb_dev * dev) {
+ }
+   
+ // get end station address
+-static void __devinit amb_esi (amb_dev * dev, u8 * esi) {
++static void amb_esi (amb_dev * dev, u8 * esi) {
+   u32 lower4;
+   u16 upper2;
+   command cmd;
+@@ -2087,7 +2087,7 @@ static void fixup_plx_window (amb_dev *dev, loader_block *lb)
+ 	return;
+ }
+ 
+-static int __devinit amb_init (amb_dev * dev)
++static int amb_init (amb_dev * dev)
  {
+   loader_block lb;
+   
+@@ -2183,7 +2183,7 @@ static void setup_pci_dev(struct pci_dev *pci_dev)
+ 	}
+ }
+ 
+-static int __devinit amb_probe(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
++static int amb_probe(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
+ {
+ 	amb_dev * dev;
  	int err;
- 	struct net_device *dev;
-diff --git a/drivers/net/can/c_can/c_can_pci.c b/drivers/net/can/c_can/c_can_pci.c
-index 019cf71..27db0f2 100644
---- a/drivers/net/can/c_can/c_can_pci.c
-+++ b/drivers/net/can/c_can/c_can_pci.c
-@@ -63,7 +63,7 @@ static void c_can_pci_write_reg_aligned_to_32bit(struct c_can_priv *priv,
- 	writew(val, priv->base + 2 * priv->regs[index]);
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index 2dd26f9..34416f6 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -1591,7 +1591,7 @@ static char * const media_name[] __devinitconst = {
+   } })
+ 
+ 
+-static int __devinit get_esi_asic(struct atm_dev *dev)
++static int get_esi_asic(struct atm_dev *dev)
+ {
+ 	struct eni_dev *eni_dev;
+ 	unsigned char tonga;
+@@ -1683,7 +1683,7 @@ static int __devinit get_esi_asic(struct atm_dev *dev)
+ #undef GET_SEPROM
+ 
+ 
+-static int __devinit get_esi_fpga(struct atm_dev *dev, void __iomem *base)
++static int get_esi_fpga(struct atm_dev *dev, void __iomem *base)
+ {
+ 	void __iomem *mac_base;
+ 	int i;
+@@ -1694,7 +1694,7 @@ static int __devinit get_esi_fpga(struct atm_dev *dev, void __iomem *base)
  }
  
--static int __devinit c_can_pci_probe(struct pci_dev *pdev,
-+static int c_can_pci_probe(struct pci_dev *pdev,
- 				     const struct pci_device_id *ent)
+ 
+-static int __devinit eni_do_init(struct atm_dev *dev)
++static int eni_do_init(struct atm_dev *dev)
  {
- 	struct c_can_pci_data *c_can_pci_data = (void *)ent->driver_data;
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index fed1dd1..91e7d2b 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -90,7 +90,7 @@ static const struct of_device_id c_can_of_table[] = {
- 	{ /* sentinel */ },
+ 	struct midway_eprom __iomem *eprom;
+ 	struct eni_dev *eni_dev;
+@@ -1797,7 +1797,7 @@ static void eni_do_release(struct atm_dev *dev)
+ 	iounmap(ed->ioaddr);
+ }
+ 
+-static int __devinit eni_start(struct atm_dev *dev)
++static int eni_start(struct atm_dev *dev)
+ {
+ 	struct eni_dev *eni_dev;
+ 	
+@@ -2226,7 +2226,7 @@ static const struct atmdev_ops ops = {
  };
  
--static int __devinit c_can_plat_probe(struct platform_device *pdev)
-+static int c_can_plat_probe(struct platform_device *pdev)
- {
- 	int ret;
- 	void __iomem *addr;
-diff --git a/drivers/net/can/cc770/cc770_isa.c b/drivers/net/can/cc770/cc770_isa.c
-index dfa9a45..9ca0461 100644
---- a/drivers/net/can/cc770/cc770_isa.c
-+++ b/drivers/net/can/cc770/cc770_isa.c
-@@ -166,7 +166,7 @@ static void cc770_isa_port_write_reg_indirect(const struct cc770_priv *priv,
- 	spin_unlock_irqrestore(&cc770_isa_port_lock, flags);
- }
  
--static int __devinit cc770_isa_probe(struct platform_device *pdev)
-+static int cc770_isa_probe(struct platform_device *pdev)
+-static int __devinit eni_init_one(struct pci_dev *pci_dev,
++static int eni_init_one(struct pci_dev *pci_dev,
+ 				  const struct pci_device_id *ent)
  {
- 	struct net_device *dev;
- 	struct cc770_priv *priv;
-diff --git a/drivers/net/can/cc770/cc770_platform.c b/drivers/net/can/cc770/cc770_platform.c
-index a294926..fef046f 100644
---- a/drivers/net/can/cc770/cc770_platform.c
-+++ b/drivers/net/can/cc770/cc770_platform.c
-@@ -74,7 +74,7 @@ static void cc770_platform_write_reg(const struct cc770_priv *priv, int reg,
- 	iowrite8(val, priv->reg_base + reg);
- }
- 
--static int __devinit cc770_get_of_node_data(struct platform_device *pdev,
-+static int cc770_get_of_node_data(struct platform_device *pdev,
- 					    struct cc770_priv *priv)
- {
- 	struct device_node *np = pdev->dev.of_node;
-@@ -147,7 +147,7 @@ static int __devinit cc770_get_of_node_data(struct platform_device *pdev,
- 	return 0;
- }
- 
--static int __devinit cc770_get_platform_data(struct platform_device *pdev,
-+static int cc770_get_platform_data(struct platform_device *pdev,
- 					     struct cc770_priv *priv)
- {
- 
-@@ -163,7 +163,7 @@ static int __devinit cc770_get_platform_data(struct platform_device *pdev,
- 	return 0;
- }
- 
--static int __devinit cc770_platform_probe(struct platform_device *pdev)
-+static int cc770_platform_probe(struct platform_device *pdev)
- {
- 	struct net_device *dev;
- 	struct cc770_priv *priv;
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index 01e0201..dd3c933 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -922,7 +922,7 @@ static const struct net_device_ops flexcan_netdev_ops = {
- 	.ndo_start_xmit	= flexcan_start_xmit,
+ 	struct atm_dev *dev;
+diff --git a/drivers/atm/firestream.c b/drivers/atm/firestream.c
+index 5aae55d..a173c77 100644
+--- a/drivers/atm/firestream.c
++++ b/drivers/atm/firestream.c
+@@ -1295,7 +1295,7 @@ static const struct atmdev_ops ops = {
  };
  
--static int __devinit register_flexcandev(struct net_device *dev)
-+static int register_flexcandev(struct net_device *dev)
- {
- 	struct flexcan_priv *priv = netdev_priv(dev);
- 	struct flexcan_regs __iomem *regs = priv->base;
-@@ -985,7 +985,7 @@ static const struct platform_device_id flexcan_id_table[] = {
- 	{ /* sentinel */ },
- };
  
--static int __devinit flexcan_probe(struct platform_device *pdev)
-+static int flexcan_probe(struct platform_device *pdev)
+-static void __devinit undocumented_pci_fix (struct pci_dev *pdev)
++static void undocumented_pci_fix (struct pci_dev *pdev)
  {
- 	const struct of_device_id *of_id;
- 	const struct flexcan_devtype_data *devtype_data;
-diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
-index a9dfcb9..6eb1916 100644
---- a/drivers/net/can/janz-ican3.c
-+++ b/drivers/net/can/janz-ican3.c
-@@ -365,7 +365,7 @@ static int ican3_old_send_msg(struct ican3_dev *mod, struct ican3_msg *msg)
-  * ICAN3 "new-style" Host Interface Setup
-  */
+ 	u32 tint;
  
--static void __devinit ican3_init_new_host_interface(struct ican3_dev *mod)
-+static void ican3_init_new_host_interface(struct ican3_dev *mod)
+@@ -1319,13 +1319,13 @@ static void __devinit undocumented_pci_fix (struct pci_dev *pdev)
+  *                              PHY routines                              *
+  **************************************************************************/
+ 
+-static void __devinit write_phy (struct fs_dev *dev, int regnum, int val)
++static void write_phy (struct fs_dev *dev, int regnum, int val)
  {
- 	struct ican3_new_desc desc;
- 	unsigned long flags;
-@@ -444,7 +444,7 @@ static void __devinit ican3_init_new_host_interface(struct ican3_dev *mod)
-  * ICAN3 Fast Host Interface Setup
-  */
- 
--static void __devinit ican3_init_fast_host_interface(struct ican3_dev *mod)
-+static void ican3_init_fast_host_interface(struct ican3_dev *mod)
- {
- 	struct ican3_fast_desc desc;
- 	unsigned long flags;
-@@ -631,7 +631,7 @@ static int ican3_recv_msg(struct ican3_dev *mod, struct ican3_msg *msg)
-  * Quick Pre-constructed Messages
-  */
- 
--static int __devinit ican3_msg_connect(struct ican3_dev *mod)
-+static int ican3_msg_connect(struct ican3_dev *mod)
- {
- 	struct ican3_msg msg;
- 
-@@ -653,7 +653,7 @@ static int __devexit ican3_msg_disconnect(struct ican3_dev *mod)
- 	return ican3_send_msg(mod, &msg);
+ 	submit_command (dev,  &dev->hp_txq, QE_CMD_PRP_WR | QE_CMD_IMM_INQ,
+ 			regnum, val, 0);
  }
  
--static int __devinit ican3_msg_newhostif(struct ican3_dev *mod)
-+static int ican3_msg_newhostif(struct ican3_dev *mod)
+-static int __devinit init_phy (struct fs_dev *dev, struct reginit_item *reginit)
++static int init_phy (struct fs_dev *dev, struct reginit_item *reginit)
  {
- 	struct ican3_msg msg;
- 	int ret;
-@@ -674,7 +674,7 @@ static int __devinit ican3_msg_newhostif(struct ican3_dev *mod)
- 	return 0;
+ 	int i;
+ 
+@@ -1381,7 +1381,7 @@ static void reset_chip (struct fs_dev *dev)
+ 	}
  }
  
--static int __devinit ican3_msg_fasthostif(struct ican3_dev *mod)
-+static int ican3_msg_fasthostif(struct ican3_dev *mod)
+-static void __devinit *aligned_kmalloc (int size, gfp_t flags, int alignment)
++static void *aligned_kmalloc (int size, gfp_t flags, int alignment)
  {
- 	struct ican3_msg msg;
- 	unsigned int addr;
-@@ -707,7 +707,7 @@ static int __devinit ican3_msg_fasthostif(struct ican3_dev *mod)
-  * Setup the CAN filter to either accept or reject all
-  * messages from the CAN bus.
-  */
--static int __devinit ican3_set_id_filter(struct ican3_dev *mod, bool accept)
-+static int ican3_set_id_filter(struct ican3_dev *mod, bool accept)
- {
- 	struct ican3_msg msg;
- 	int ret;
-@@ -1430,7 +1430,7 @@ static void __devexit ican3_shutdown_module(struct ican3_dev *mod)
- /*
-  * Startup an ICAN module, bringing it into fast mode
-  */
--static int __devinit ican3_startup_module(struct ican3_dev *mod)
-+static int ican3_startup_module(struct ican3_dev *mod)
- {
- 	int ret;
+ 	void  *t;
  
-@@ -1760,7 +1760,7 @@ static struct attribute_group ican3_sysfs_attr_group = {
-  * PCI Subsystem
-  */
- 
--static int __devinit ican3_probe(struct platform_device *pdev)
-+static int ican3_probe(struct platform_device *pdev)
- {
- 	struct janz_platform_data *pdata;
- 	struct net_device *ndev;
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index 7a059d1..767fdbd 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -981,7 +981,7 @@ static const struct net_device_ops mcp251x_netdev_ops = {
- 	.ndo_start_xmit = mcp251x_hard_start_xmit,
- };
- 
--static int __devinit mcp251x_can_probe(struct spi_device *spi)
-+static int mcp251x_can_probe(struct spi_device *spi)
- {
- 	struct net_device *net;
- 	struct mcp251x_priv *priv;
-diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
-index db59bbc..752bfed 100644
---- a/drivers/net/can/mscan/mpc5xxx_can.c
-+++ b/drivers/net/can/mscan/mpc5xxx_can.c
-@@ -48,7 +48,7 @@ static struct of_device_id __devinitdata mpc52xx_cdm_ids[] = {
- 	{}
- };
- 
--static u32 __devinit mpc52xx_can_get_clock(struct platform_device *ofdev,
-+static u32 mpc52xx_can_get_clock(struct platform_device *ofdev,
- 					   const char *clock_name,
- 					   int *mscan_clksrc)
- {
-@@ -101,7 +101,7 @@ static u32 __devinit mpc52xx_can_get_clock(struct platform_device *ofdev,
- 	return freq;
+@@ -1398,7 +1398,7 @@ static void __devinit *aligned_kmalloc (int size, gfp_t flags, int alignment)
+ 	return NULL;
  }
- #else /* !CONFIG_PPC_MPC52xx */
--static u32 __devinit mpc52xx_can_get_clock(struct platform_device *ofdev,
-+static u32 mpc52xx_can_get_clock(struct platform_device *ofdev,
- 					   const char *clock_name,
- 					   int *mscan_clksrc)
- {
-@@ -129,7 +129,7 @@ static struct of_device_id __devinitdata mpc512x_clock_ids[] = {
- 	{}
- };
  
--static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
-+static u32 mpc512x_can_get_clock(struct platform_device *ofdev,
- 					   const char *clock_name,
- 					   int *mscan_clksrc)
+-static int __devinit init_q (struct fs_dev *dev, 
++static int init_q (struct fs_dev *dev,
+ 			  struct queue *txq, int queue, int nentries, int is_rq)
  {
-@@ -239,7 +239,7 @@ exit_put:
- 	return freq;
+ 	int sz = nentries * sizeof (struct FS_QENTRY);
+@@ -1434,7 +1434,7 @@ static int __devinit init_q (struct fs_dev *dev,
  }
- #else /* !CONFIG_PPC_MPC512x */
--static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
-+static u32 mpc512x_can_get_clock(struct platform_device *ofdev,
- 					   const char *clock_name,
- 					   int *mscan_clksrc)
- {
-@@ -248,7 +248,7 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
- #endif /* CONFIG_PPC_MPC512x */
  
- static const struct of_device_id mpc5xxx_can_table[];
--static int __devinit mpc5xxx_can_probe(struct platform_device *ofdev)
-+static int mpc5xxx_can_probe(struct platform_device *ofdev)
+ 
+-static int __devinit init_fp (struct fs_dev *dev, 
++static int init_fp (struct fs_dev *dev,
+ 			   struct freepool *fp, int queue, int bufsize, int nr_buffers)
+ {
+ 	func_enter ();
+@@ -1662,7 +1662,7 @@ static void fs_poll (unsigned long data)
+ }
+ #endif
+ 
+-static int __devinit fs_init (struct fs_dev *dev)
++static int fs_init (struct fs_dev *dev)
+ {
+ 	struct pci_dev  *pci_dev;
+ 	int isr, to;
+@@ -1897,7 +1897,7 @@ unmap:
+ 	return 1;
+ }
+ 
+-static int __devinit firestream_init_one (struct pci_dev *pci_dev,
++static int firestream_init_one (struct pci_dev *pci_dev,
+ 				       const struct pci_device_id *ent) 
+ {
+ 	struct atm_dev *atm_dev;
+diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+index c162162..4b34891 100644
+--- a/drivers/atm/fore200e.c
++++ b/drivers/atm/fore200e.c
+@@ -527,7 +527,7 @@ fore200e_pca_reset(struct fore200e* fore200e)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_pca_map(struct fore200e* fore200e)
+ {
+     DPRINTK(2, "device %s being mapped in memory\n", fore200e->name);
+@@ -561,7 +561,7 @@ fore200e_pca_unmap(struct fore200e* fore200e)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_pca_configure(struct fore200e* fore200e)
+ {
+     struct pci_dev* pci_dev = (struct pci_dev*)fore200e->bus_dev;
+@@ -2028,7 +2028,7 @@ fore200e_change_qos(struct atm_vcc* vcc,struct atm_qos* qos, int flags)
+ }
+     
+ 
+-static int __devinit
++static int
+ fore200e_irq_request(struct fore200e* fore200e)
+ {
+     if (request_irq(fore200e->irq, fore200e_interrupt, IRQF_SHARED, fore200e->name, fore200e->atm_dev) < 0) {
+@@ -2051,7 +2051,7 @@ fore200e_irq_request(struct fore200e* fore200e)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_get_esi(struct fore200e* fore200e)
+ {
+     struct prom_data* prom = kzalloc(sizeof(struct prom_data), GFP_KERNEL | GFP_DMA);
+@@ -2081,7 +2081,7 @@ fore200e_get_esi(struct fore200e* fore200e)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_alloc_rx_buf(struct fore200e* fore200e)
+ {
+     int scheme, magn, nbr, size, i;
+@@ -2146,7 +2146,7 @@ fore200e_alloc_rx_buf(struct fore200e* fore200e)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_init_bs_queue(struct fore200e* fore200e)
+ {
+     int scheme, magn, i;
+@@ -2209,7 +2209,7 @@ fore200e_init_bs_queue(struct fore200e* fore200e)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_init_rx_queue(struct fore200e* fore200e)
+ {
+     struct host_rxq*     rxq =  &fore200e->host_rxq;
+@@ -2269,7 +2269,7 @@ fore200e_init_rx_queue(struct fore200e* fore200e)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_init_tx_queue(struct fore200e* fore200e)
+ {
+     struct host_txq*     txq =  &fore200e->host_txq;
+@@ -2332,7 +2332,7 @@ fore200e_init_tx_queue(struct fore200e* fore200e)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_init_cmd_queue(struct fore200e* fore200e)
+ {
+     struct host_cmdq*     cmdq =  &fore200e->host_cmdq;
+@@ -2374,7 +2374,7 @@ fore200e_init_cmd_queue(struct fore200e* fore200e)
+ }
+ 
+ 
+-static void __devinit
++static void
+ fore200e_param_bs_queue(struct fore200e* fore200e,
+ 			enum buffer_scheme scheme, enum buffer_magn magn,
+ 			int queue_length, int pool_size, int supply_blksize)
+@@ -2388,7 +2388,7 @@ fore200e_param_bs_queue(struct fore200e* fore200e,
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_initialize(struct fore200e* fore200e)
+ {
+     struct cp_queues __iomem * cpq;
+@@ -2440,7 +2440,7 @@ fore200e_initialize(struct fore200e* fore200e)
+ }
+ 
+ 
+-static void __devinit
++static void
+ fore200e_monitor_putc(struct fore200e* fore200e, char c)
+ {
+     struct cp_monitor __iomem * monitor = fore200e->cp_monitor;
+@@ -2452,7 +2452,7 @@ fore200e_monitor_putc(struct fore200e* fore200e, char c)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_monitor_getc(struct fore200e* fore200e)
+ {
+     struct cp_monitor __iomem * monitor = fore200e->cp_monitor;
+@@ -2477,7 +2477,7 @@ fore200e_monitor_getc(struct fore200e* fore200e)
+ }
+ 
+ 
+-static void __devinit
++static void
+ fore200e_monitor_puts(struct fore200e* fore200e, char* str)
+ {
+     while (*str) {
+@@ -2497,7 +2497,7 @@ fore200e_monitor_puts(struct fore200e* fore200e, char* str)
+ #define FW_EXT "_ecd.bin2"
+ #endif
+ 
+-static int __devinit
++static int
+ fore200e_load_and_start_fw(struct fore200e* fore200e)
+ {
+     const struct firmware *firmware;
+@@ -2566,7 +2566,7 @@ release:
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_register(struct fore200e* fore200e, struct device *parent)
+ {
+     struct atm_dev* atm_dev;
+@@ -2593,7 +2593,7 @@ fore200e_register(struct fore200e* fore200e, struct device *parent)
+ }
+ 
+ 
+-static int __devinit
++static int
+ fore200e_init(struct fore200e* fore200e, struct device *parent)
+ {
+     if (fore200e_register(fore200e, parent) < 0)
+@@ -2644,7 +2644,7 @@ fore200e_init(struct fore200e* fore200e, struct device *parent)
+ 
+ #ifdef CONFIG_SBUS
+ static const struct of_device_id fore200e_sba_match[];
+-static int __devinit fore200e_sba_probe(struct platform_device *op)
++static int fore200e_sba_probe(struct platform_device *op)
  {
  	const struct of_device_id *match;
- 	const struct mpc5xxx_can_data *data;
-diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 56145f9..fad4625 100644
---- a/drivers/net/can/pch_can.c
-+++ b/drivers/net/can/pch_can.c
-@@ -1178,7 +1178,7 @@ static int pch_can_get_berr_counter(const struct net_device *dev,
+ 	const struct fore200e_bus *bus;
+@@ -2712,7 +2712,7 @@ static struct platform_driver fore200e_sba_driver = {
+ #endif
+ 
+ #ifdef CONFIG_PCI
+-static int __devinit
++static int
+ fore200e_pca_detect(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
+ {
+     const struct fore200e_bus* bus = (struct fore200e_bus*) pci_ent->driver_data;
+diff --git a/drivers/atm/he.c b/drivers/atm/he.c
+index c372814..dac5144 100644
+--- a/drivers/atm/he.c
++++ b/drivers/atm/he.c
+@@ -349,7 +349,7 @@ __find_vcc(struct he_dev *he_dev, unsigned cid)
+ 	return NULL;
+ }
+ 
+-static int __devinit
++static int
+ he_init_one(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
+ {
+ 	struct atm_dev *atm_dev = NULL;
+@@ -445,7 +445,7 @@ rate_to_atmf(unsigned rate)		/* cps to atm forum format */
+ 	return (NONZERO | (exp << 9) | (rate & 0x1ff));
+ }
+ 
+-static void __devinit
++static void
+ he_init_rx_lbfp0(struct he_dev *he_dev)
+ {
+ 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
+@@ -476,7 +476,7 @@ he_init_rx_lbfp0(struct he_dev *he_dev)
+ 	he_writel(he_dev, he_dev->r0_numbuffs, RLBF0_C);
+ }
+ 
+-static void __devinit
++static void
+ he_init_rx_lbfp1(struct he_dev *he_dev)
+ {
+ 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
+@@ -507,7 +507,7 @@ he_init_rx_lbfp1(struct he_dev *he_dev)
+ 	he_writel(he_dev, he_dev->r1_numbuffs, RLBF1_C);
+ }
+ 
+-static void __devinit
++static void
+ he_init_tx_lbfp(struct he_dev *he_dev)
+ {
+ 	unsigned i, lbm_offset, lbufd_index, lbuf_addr, lbuf_count;
+@@ -537,7 +537,7 @@ he_init_tx_lbfp(struct he_dev *he_dev)
+ 	he_writel(he_dev, lbufd_index - 1, TLBF_T);
+ }
+ 
+-static int __devinit
++static int
+ he_init_tpdrq(struct he_dev *he_dev)
+ {
+ 	he_dev->tpdrq_base = pci_alloc_consistent(he_dev->pci_dev,
+@@ -559,7 +559,7 @@ he_init_tpdrq(struct he_dev *he_dev)
  	return 0;
  }
  
--static int __devinit pch_can_probe(struct pci_dev *pdev,
-+static int pch_can_probe(struct pci_dev *pdev,
- 				   const struct pci_device_id *id)
+-static void __devinit
++static void
+ he_init_cs_block(struct he_dev *he_dev)
  {
- 	struct net_device *ndev;
-diff --git a/drivers/net/can/sja1000/ems_pci.c b/drivers/net/can/sja1000/ems_pci.c
-index 5c6d412..f232bc8 100644
---- a/drivers/net/can/sja1000/ems_pci.c
-+++ b/drivers/net/can/sja1000/ems_pci.c
-@@ -220,7 +220,7 @@ static void ems_pci_card_reset(struct ems_pci_card *card)
-  * Probe PCI device for EMS CAN signature and register each available
-  * CAN channel to SJA1000 Socket-CAN subsystem.
-  */
--static int __devinit ems_pci_add_card(struct pci_dev *pdev,
-+static int ems_pci_add_card(struct pci_dev *pdev,
- 					const struct pci_device_id *ent)
- {
- 	struct sja1000_priv *priv;
-diff --git a/drivers/net/can/sja1000/ems_pcmcia.c b/drivers/net/can/sja1000/ems_pcmcia.c
-index 075a545..46fc313 100644
---- a/drivers/net/can/sja1000/ems_pcmcia.c
-+++ b/drivers/net/can/sja1000/ems_pcmcia.c
-@@ -166,7 +166,7 @@ static void ems_pcmcia_del_card(struct pcmcia_device *pdev)
-  * Probe PCI device for EMS CAN signature and register each available
-  * CAN channel to SJA1000 Socket-CAN subsystem.
-  */
--static int __devinit ems_pcmcia_add_card(struct pcmcia_device *pdev,
-+static int ems_pcmcia_add_card(struct pcmcia_device *pdev,
- 					 unsigned long base)
- {
- 	struct sja1000_priv *priv;
-@@ -256,7 +256,7 @@ failure_cleanup:
- /*
-  * Setup PCMCIA socket and probe for EMS CPC-CARD
-  */
--static int __devinit ems_pcmcia_probe(struct pcmcia_device *dev)
-+static int ems_pcmcia_probe(struct pcmcia_device *dev)
- {
- 	int csval;
+ 	unsigned clock, rate, delta;
+@@ -655,7 +655,7 @@ he_init_cs_block(struct he_dev *he_dev)
  
-diff --git a/drivers/net/can/sja1000/kvaser_pci.c b/drivers/net/can/sja1000/kvaser_pci.c
-index be95c42..a6191ac 100644
---- a/drivers/net/can/sja1000/kvaser_pci.c
-+++ b/drivers/net/can/sja1000/kvaser_pci.c
-@@ -290,7 +290,7 @@ failure:
- 	return err;
  }
  
--static int __devinit kvaser_pci_init_one(struct pci_dev *pdev,
-+static int kvaser_pci_init_one(struct pci_dev *pdev,
- 					 const struct pci_device_id *ent)
+-static int __devinit
++static int
+ he_init_cs_block_rcm(struct he_dev *he_dev)
  {
- 	int err;
-diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
-index 0247efa..fbf61cf 100644
---- a/drivers/net/can/sja1000/peak_pci.c
-+++ b/drivers/net/can/sja1000/peak_pci.c
-@@ -551,7 +551,7 @@ static void peak_pci_post_irq(const struct sja1000_priv *priv)
- 		writew(chan->icr_mask, chan->cfg_base + PITA_ICR);
- }
- 
--static int __devinit peak_pci_probe(struct pci_dev *pdev,
-+static int peak_pci_probe(struct pci_dev *pdev,
- 				    const struct pci_device_id *ent)
- {
- 	struct sja1000_priv *priv;
-diff --git a/drivers/net/can/sja1000/peak_pcmcia.c b/drivers/net/can/sja1000/peak_pcmcia.c
-index 272a85f..f117514 100644
---- a/drivers/net/can/sja1000/peak_pcmcia.c
-+++ b/drivers/net/can/sja1000/peak_pcmcia.c
-@@ -632,7 +632,7 @@ static void pcan_free(struct pcmcia_device *pdev)
- /*
-  * setup PCMCIA socket and probe for PEAK-System PC-CARD
-  */
--static int __devinit pcan_probe(struct pcmcia_device *pdev)
-+static int pcan_probe(struct pcmcia_device *pdev)
- {
- 	struct pcan_pccard *card;
- 	int err;
-diff --git a/drivers/net/can/sja1000/plx_pci.c b/drivers/net/can/sja1000/plx_pci.c
-index 8bc9598..619b96c 100644
---- a/drivers/net/can/sja1000/plx_pci.c
-+++ b/drivers/net/can/sja1000/plx_pci.c
-@@ -465,7 +465,7 @@ static void plx_pci_del_card(struct pci_dev *pdev)
-  * Probe PLX90xx based device for the SJA1000 chips and register each
-  * available CAN channel to SJA1000 Socket-CAN subsystem.
-  */
--static int __devinit plx_pci_add_card(struct pci_dev *pdev,
-+static int plx_pci_add_card(struct pci_dev *pdev,
- 				      const struct pci_device_id *ent)
- {
- 	struct sja1000_priv *priv;
-diff --git a/drivers/net/can/sja1000/sja1000_isa.c b/drivers/net/can/sja1000/sja1000_isa.c
-index f910102..3f12e85 100644
---- a/drivers/net/can/sja1000/sja1000_isa.c
-+++ b/drivers/net/can/sja1000/sja1000_isa.c
-@@ -117,7 +117,7 @@ static void sja1000_isa_port_write_reg_indirect(const struct sja1000_priv *priv,
- 	outb(val, base + 1);
- }
- 
--static int __devinit sja1000_isa_probe(struct platform_device *pdev)
-+static int sja1000_isa_probe(struct platform_device *pdev)
- {
- 	struct net_device *dev;
- 	struct sja1000_priv *priv;
-diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
-index a330fe8..259d5a1d 100644
---- a/drivers/net/can/sja1000/sja1000_of_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_of_platform.c
-@@ -88,7 +88,7 @@ static int __devexit sja1000_ofp_remove(struct platform_device *ofdev)
+ 	unsigned (*rategrid)[16][16];
+@@ -776,7 +776,7 @@ he_init_cs_block_rcm(struct he_dev *he_dev)
  	return 0;
  }
  
--static int __devinit sja1000_ofp_probe(struct platform_device *ofdev)
-+static int sja1000_ofp_probe(struct platform_device *ofdev)
+-static int __devinit
++static int
+ he_init_group(struct he_dev *he_dev, int group)
  {
- 	struct device_node *np = ofdev->dev.of_node;
- 	struct net_device *dev;
-diff --git a/drivers/net/can/sja1000/tscan1.c b/drivers/net/can/sja1000/tscan1.c
-index 04a9001..9b608d8 100644
---- a/drivers/net/can/sja1000/tscan1.c
-+++ b/drivers/net/can/sja1000/tscan1.c
-@@ -88,7 +88,7 @@ static void tscan1_write(const struct sja1000_priv *priv, int reg, u8 val)
+ 	struct he_buff *heb, *next;
+@@ -915,7 +915,7 @@ out_free_rbpl_table:
+ 	return -ENOMEM;
  }
  
- /* Probe for a TS-CAN1 board with JP2:JP1 jumper setting ID */
--static int __devinit tscan1_probe(struct device *dev, unsigned id)
-+static int tscan1_probe(struct device *dev, unsigned id)
+-static int __devinit
++static int
+ he_init_irq(struct he_dev *he_dev)
  {
- 	struct net_device *netdev;
- 	struct sja1000_priv *priv;
-diff --git a/drivers/net/can/softing/softing_cs.c b/drivers/net/can/softing/softing_cs.c
-index ab132c5..04e1539 100644
---- a/drivers/net/can/softing/softing_cs.c
-+++ b/drivers/net/can/softing/softing_cs.c
-@@ -159,7 +159,7 @@ MODULE_FIRMWARE(fw_dir "bcard2.bin");
- MODULE_FIRMWARE(fw_dir "ldcard2.bin");
- MODULE_FIRMWARE(fw_dir "cancrd2.bin");
- 
--static __devinit const struct softing_platform_data
-+static const struct softing_platform_data
- *softingcs_find_platform_data(unsigned int manf, unsigned int prod)
- {
- 	const struct softing_platform_data *lp;
-@@ -193,7 +193,7 @@ static int softingcs_enable_irq(struct platform_device *pdev, int v)
- /*
-  * pcmcia check
-  */
--static __devinit int softingcs_probe_config(struct pcmcia_device *pcmcia,
-+static int softingcs_probe_config(struct pcmcia_device *pcmcia,
- 		void *priv_data)
- {
- 	struct softing_platform_data *pdat = priv_data;
-@@ -235,7 +235,7 @@ static void softingcs_pdev_release(struct device *dev)
- 	kfree(pdev);
+ 	int i;
+@@ -978,7 +978,7 @@ he_init_irq(struct he_dev *he_dev)
+ 	return 0;
  }
  
--static __devinit int softingcs_probe(struct pcmcia_device *pcmcia)
-+static int softingcs_probe(struct pcmcia_device *pcmcia)
+-static int __devinit
++static int
+ he_start(struct atm_dev *dev)
  {
- 	int ret;
- 	struct platform_device *pdev;
-diff --git a/drivers/net/can/softing/softing_main.c b/drivers/net/can/softing/softing_main.c
-index 6337581..aefd297 100644
---- a/drivers/net/can/softing/softing_main.c
-+++ b/drivers/net/can/softing/softing_main.c
-@@ -478,7 +478,7 @@ static void softing_card_shutdown(struct softing *card)
- 	mutex_unlock(&card->fw.lock);
+ 	struct he_dev *he_dev;
+diff --git a/drivers/atm/horizon.c b/drivers/atm/horizon.c
+index 9d98421..67b570a 100644
+--- a/drivers/atm/horizon.c
++++ b/drivers/atm/horizon.c
+@@ -1789,7 +1789,7 @@ static void CLOCK_IT (const hrz_dev *dev, u32 ctrl)
+ 	WRITE_IT_WAIT(dev, ctrl | SEEPROM_SK);
  }
  
--static __devinit int softing_card_boot(struct softing *card)
-+static int softing_card_boot(struct softing *card)
+-static u16 __devinit read_bia (const hrz_dev * dev, u16 addr)
++static u16 read_bia (const hrz_dev * dev, u16 addr)
  {
- 	int ret, j;
- 	static const uint8_t stream[] = {
-@@ -645,7 +645,7 @@ static const struct can_bittiming_const softing_btr_const = {
+   u32 ctrl = rd_regl (dev, CONTROL_0_REG);
+   
+@@ -1845,7 +1845,7 @@ static u16 __devinit read_bia (const hrz_dev * dev, u16 addr)
+ 
+ /********** initialise a card **********/
+ 
+-static int __devinit hrz_init (hrz_dev * dev) {
++static int hrz_init (hrz_dev * dev) {
+   int onefivefive;
+   
+   u16 chan;
+@@ -2681,7 +2681,7 @@ static const struct atmdev_ops hrz_ops = {
+   .owner	= THIS_MODULE,
  };
  
- 
--static __devinit struct net_device *softing_netdev_create(struct softing *card,
-+static struct net_device *softing_netdev_create(struct softing *card,
- 		uint16_t chip_id)
+-static int __devinit hrz_probe(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
++static int hrz_probe(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
  {
- 	struct net_device *netdev;
-@@ -676,7 +676,7 @@ static __devinit struct net_device *softing_netdev_create(struct softing *card,
- 	return netdev;
+ 	hrz_dev * dev;
+ 	int err = 0;
+diff --git a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
+index 8974bd2..cfa6a9d 100644
+--- a/drivers/atm/idt77252.c
++++ b/drivers/atm/idt77252.c
+@@ -3109,7 +3109,7 @@ deinit_card(struct idt77252_dev *card)
  }
  
--static __devinit int softing_netdev_register(struct net_device *netdev)
-+static int softing_netdev_register(struct net_device *netdev)
- {
- 	int ret;
  
-@@ -766,7 +766,7 @@ static __devexit int softing_pdev_remove(struct platform_device *pdev)
+-static void __devinit
++static void
+ init_sram(struct idt77252_dev *card)
+ {
+ 	int i;
+@@ -3257,7 +3257,7 @@ init_sram(struct idt77252_dev *card)
+ 	IPRINTK("%s: SRAM initialization complete.\n", card->name);
+ }
+ 
+-static int __devinit
++static int
+ init_card(struct atm_dev *dev)
+ {
+ 	struct idt77252_dev *card = dev->dev_data;
+@@ -3537,7 +3537,7 @@ init_card(struct atm_dev *dev)
+ /*****************************************************************************/
+ 
+ 
+-static int __devinit
++static int
+ idt77252_preset(struct idt77252_dev *card)
+ {
+ 	u16 pci_command;
+@@ -3579,7 +3579,7 @@ idt77252_preset(struct idt77252_dev *card)
+ }
+ 
+ 
+-static unsigned long __devinit
++static unsigned long
+ probe_sram(struct idt77252_dev *card)
+ {
+ 	u32 data, addr;
+@@ -3601,7 +3601,7 @@ probe_sram(struct idt77252_dev *card)
+ 	return addr * sizeof(u32);
+ }
+ 
+-static int __devinit
++static int
+ idt77252_init_one(struct pci_dev *pcidev, const struct pci_device_id *id)
+ {
+ 	static struct idt77252_dev **last = &idt77252_chain;
+diff --git a/drivers/atm/iphase.c b/drivers/atm/iphase.c
+index 23b3627..444e81e 100644
+--- a/drivers/atm/iphase.c
++++ b/drivers/atm/iphase.c
+@@ -2299,7 +2299,7 @@ static int reset_sar(struct atm_dev *dev)
+ }  
+ 	  
+ 	  
+-static int __devinit ia_init(struct atm_dev *dev)
++static int ia_init(struct atm_dev *dev)
+ {  
+ 	IADEV *iadev;  
+ 	unsigned long real_base;
+@@ -2492,7 +2492,7 @@ static void ia_free_rx(IADEV *iadev)
+ 			  iadev->rx_dle_dma);  
+ }
+ 
+-static int __devinit ia_start(struct atm_dev *dev)
++static int ia_start(struct atm_dev *dev)
+ {  
+ 	IADEV *iadev;  
+ 	int error;  
+@@ -3168,7 +3168,7 @@ static const struct atmdev_ops ops = {
+ 	.owner		= THIS_MODULE,
+ };  
+ 	  
+-static int __devinit ia_init_one(struct pci_dev *pdev,
++static int ia_init_one(struct pci_dev *pdev,
+ 				 const struct pci_device_id *ent)
+ {  
+ 	struct atm_dev *dev;  
+diff --git a/drivers/atm/lanai.c b/drivers/atm/lanai.c
+index 68c7588..e6d132b 100644
+--- a/drivers/atm/lanai.c
++++ b/drivers/atm/lanai.c
+@@ -551,7 +551,7 @@ static inline void sram_write(const struct lanai_dev *lanai,
+ 	writel(val, sram_addr(lanai, offset));
+ }
+ 
+-static int __devinit sram_test_word(const struct lanai_dev *lanai,
++static int sram_test_word(const struct lanai_dev *lanai,
+ 				    int offset, u32 pattern)
+ {
+ 	u32 readback;
+@@ -566,7 +566,7 @@ static int __devinit sram_test_word(const struct lanai_dev *lanai,
+ 	return -EIO;
+ }
+ 
+-static int __devinit sram_test_pass(const struct lanai_dev *lanai, u32 pattern)
++static int sram_test_pass(const struct lanai_dev *lanai, u32 pattern)
+ {
+ 	int offset, result = 0;
+ 	for (offset = 0; offset < SRAM_BYTES && result == 0; offset += 4)
+@@ -574,7 +574,7 @@ static int __devinit sram_test_pass(const struct lanai_dev *lanai, u32 pattern)
+ 	return result;
+ }
+ 
+-static int __devinit sram_test_and_clear(const struct lanai_dev *lanai)
++static int sram_test_and_clear(const struct lanai_dev *lanai)
+ {
+ #ifdef FULL_MEMORY_TEST
+ 	int result;
+@@ -860,7 +860,7 @@ static inline void aal0_buffer_free(struct lanai_dev *lanai)
+ #ifndef READ_EEPROM
+ 
+ /* Stub functions to use if EEPROM reading is disabled */
+-static int __devinit eeprom_read(struct lanai_dev *lanai)
++static int eeprom_read(struct lanai_dev *lanai)
+ {
+ 	printk(KERN_INFO DEV_LABEL "(itf %d): *NOT* reading EEPROM\n",
+ 	    lanai->number);
+@@ -868,7 +868,7 @@ static int __devinit eeprom_read(struct lanai_dev *lanai)
  	return 0;
  }
  
--static __devinit int softing_pdev_probe(struct platform_device *pdev)
-+static int softing_pdev_probe(struct platform_device *pdev)
+-static int __devinit eeprom_validate(struct lanai_dev *lanai)
++static int eeprom_validate(struct lanai_dev *lanai)
  {
- 	const struct softing_platform_data *pdat = pdev->dev.platform_data;
- 	struct softing *card;
+ 	lanai->serialno = 0;
+ 	lanai->magicno = EEPROM_MAGIC_VALUE;
+@@ -877,7 +877,7 @@ static int __devinit eeprom_validate(struct lanai_dev *lanai)
+ 
+ #else /* READ_EEPROM */
+ 
+-static int __devinit eeprom_read(struct lanai_dev *lanai)
++static int eeprom_read(struct lanai_dev *lanai)
+ {
+ 	int i, address;
+ 	u8 data;
+@@ -953,7 +953,7 @@ static inline u32 eeprom_be4(const struct lanai_dev *lanai, int address)
+ }
+ 
+ /* Checksum/validate EEPROM contents */
+-static int __devinit eeprom_validate(struct lanai_dev *lanai)
++static int eeprom_validate(struct lanai_dev *lanai)
+ {
+ 	int i, s;
+ 	u32 v;
+@@ -1448,7 +1448,7 @@ static void vcc_rx_aal0(struct lanai_dev *lanai)
+ #include <linux/vmalloc.h>
+ #endif
+ 
+-static int __devinit vcc_table_allocate(struct lanai_dev *lanai)
++static int vcc_table_allocate(struct lanai_dev *lanai)
+ {
+ #ifdef VCCTABLE_GETFREEPAGE
+ 	APRINTK((lanai->num_vci) * sizeof(struct lanai_vcc *) <= PAGE_SIZE,
+@@ -1588,7 +1588,7 @@ static void lanai_reset(struct lanai_dev *lanai)
+ /*
+  * Allocate service buffer and tell card about it
+  */
+-static int __devinit service_buffer_allocate(struct lanai_dev *lanai)
++static int service_buffer_allocate(struct lanai_dev *lanai)
+ {
+ 	lanai_buf_allocate(&lanai->service, SERVICE_ENTRIES * 4, 8,
+ 	    lanai->pci);
+@@ -1942,7 +1942,7 @@ static int check_board_id_and_rev(const char *name, u32 val, int *revp)
+ 
+ /* -------------------- PCI INITIALIZATION/SHUTDOWN: */
+ 
+-static int __devinit lanai_pci_start(struct lanai_dev *lanai)
++static int lanai_pci_start(struct lanai_dev *lanai)
+ {
+ 	struct pci_dev *pci = lanai->pci;
+ 	int result;
+@@ -2123,7 +2123,7 @@ static inline void lanai_cbr_shutdown(struct lanai_dev *lanai)
+ /* -------------------- OPERATIONS: */
+ 
+ /* setup a newly detected device */
+-static int __devinit lanai_dev_open(struct atm_dev *atmdev)
++static int lanai_dev_open(struct atm_dev *atmdev)
+ {
+ 	struct lanai_dev *lanai = (struct lanai_dev *) atmdev->dev_data;
+ 	unsigned long raw_base;
+@@ -2566,7 +2566,7 @@ static const struct atmdev_ops ops = {
+ };
+ 
+ /* initialize one probed card */
+-static int __devinit lanai_init_one(struct pci_dev *pci,
++static int lanai_init_one(struct pci_dev *pci,
+ 				    const struct pci_device_id *ident)
+ {
+ 	struct lanai_dev *lanai;
+diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
+index cd4b90b..a6845a0 100644
+--- a/drivers/atm/nicstar.c
++++ b/drivers/atm/nicstar.c
+@@ -121,8 +121,8 @@
+ static u32 ns_read_sram(ns_dev * card, u32 sram_address);
+ static void ns_write_sram(ns_dev * card, u32 sram_address, u32 * value,
+ 			  int count);
+-static int __devinit ns_init_card(int i, struct pci_dev *pcidev);
+-static void __devinit ns_init_card_error(ns_dev * card, int error);
++static int ns_init_card(int i, struct pci_dev *pcidev);
++static void ns_init_card_error(ns_dev * card, int error);
+ static scq_info *get_scq(ns_dev *card, int size, u32 scd);
+ static void free_scq(ns_dev *card, scq_info * scq, struct atm_vcc *vcc);
+ static void push_rxbufs(ns_dev *, struct sk_buff *);
+@@ -180,7 +180,7 @@ MODULE_LICENSE("GPL");
+ 
+ /* Functions */
+ 
+-static int __devinit nicstar_init_one(struct pci_dev *pcidev,
++static int nicstar_init_one(struct pci_dev *pcidev,
+ 				      const struct pci_device_id *ent)
+ {
+ 	static int index = -1;
+@@ -351,7 +351,7 @@ static void ns_write_sram(ns_dev * card, u32 sram_address, u32 * value,
+ 	spin_unlock_irqrestore(&card->res_lock, flags);
+ }
+ 
+-static int __devinit ns_init_card(int i, struct pci_dev *pcidev)
++static int ns_init_card(int i, struct pci_dev *pcidev)
+ {
+ 	int j;
+ 	struct ns_dev *card = NULL;
+@@ -821,7 +821,7 @@ static int __devinit ns_init_card(int i, struct pci_dev *pcidev)
+ 	return error;
+ }
+ 
+-static void __devinit ns_init_card_error(ns_dev * card, int error)
++static void ns_init_card_error(ns_dev * card, int error)
+ {
+ 	if (error >= 17) {
+ 		writel(0x00000000, card->membase + CFG);
+diff --git a/drivers/atm/zatm.c b/drivers/atm/zatm.c
+index abe4e20..7436362 100644
+--- a/drivers/atm/zatm.c
++++ b/drivers/atm/zatm.c
+@@ -1094,7 +1094,7 @@ static irqreturn_t zatm_int(int irq,void *dev_id)
+ /*----------------------------- (E)EPROM access -----------------------------*/
+ 
+ 
+-static void __devinit eprom_set(struct zatm_dev *zatm_dev,unsigned long value,
++static void eprom_set(struct zatm_dev *zatm_dev,unsigned long value,
+     unsigned short cmd)
+ {
+ 	int error;
+@@ -1105,7 +1105,7 @@ static void __devinit eprom_set(struct zatm_dev *zatm_dev,unsigned long value,
+ }
+ 
+ 
+-static unsigned long __devinit eprom_get(struct zatm_dev *zatm_dev,
++static unsigned long eprom_get(struct zatm_dev *zatm_dev,
+     unsigned short cmd)
+ {
+ 	unsigned int value;
+@@ -1118,7 +1118,7 @@ static unsigned long __devinit eprom_get(struct zatm_dev *zatm_dev,
+ }
+ 
+ 
+-static void __devinit eprom_put_bits(struct zatm_dev *zatm_dev,
++static void eprom_put_bits(struct zatm_dev *zatm_dev,
+     unsigned long data,int bits,unsigned short cmd)
+ {
+ 	unsigned long value;
+@@ -1133,7 +1133,7 @@ static void __devinit eprom_put_bits(struct zatm_dev *zatm_dev,
+ }
+ 
+ 
+-static void __devinit eprom_get_byte(struct zatm_dev *zatm_dev,
++static void eprom_get_byte(struct zatm_dev *zatm_dev,
+     unsigned char *byte,unsigned short cmd)
+ {
+ 	int i;
+@@ -1149,7 +1149,7 @@ static void __devinit eprom_get_byte(struct zatm_dev *zatm_dev,
+ }
+ 
+ 
+-static unsigned char __devinit eprom_try_esi(struct atm_dev *dev,
++static unsigned char eprom_try_esi(struct atm_dev *dev,
+     unsigned short cmd,int offset,int swap)
+ {
+ 	unsigned char buf[ZEPROM_SIZE];
+@@ -1170,7 +1170,7 @@ static unsigned char __devinit eprom_try_esi(struct atm_dev *dev,
+ }
+ 
+ 
+-static void __devinit eprom_get_esi(struct atm_dev *dev)
++static void eprom_get_esi(struct atm_dev *dev)
+ {
+ 	if (eprom_try_esi(dev,ZEPROM_V1_REG,ZEPROM_V1_ESI_OFF,1)) return;
+ 	(void) eprom_try_esi(dev,ZEPROM_V2_REG,ZEPROM_V2_ESI_OFF,0);
+@@ -1180,7 +1180,7 @@ static void __devinit eprom_get_esi(struct atm_dev *dev)
+ /*--------------------------------- entries ---------------------------------*/
+ 
+ 
+-static int __devinit zatm_init(struct atm_dev *dev)
++static int zatm_init(struct atm_dev *dev)
+ {
+ 	struct zatm_dev *zatm_dev;
+ 	struct pci_dev *pci_dev;
+@@ -1257,7 +1257,7 @@ static int __devinit zatm_init(struct atm_dev *dev)
+ }
+ 
+ 
+-static int __devinit zatm_start(struct atm_dev *dev)
++static int zatm_start(struct atm_dev *dev)
+ {
+ 	struct zatm_dev *zatm_dev = ZATM_DEV(dev);
+ 	struct pci_dev *pdev = zatm_dev->pci_dev;
+@@ -1584,7 +1584,7 @@ static const struct atmdev_ops ops = {
+ 	.change_qos	= zatm_change_qos,
+ };
+ 
+-static int __devinit zatm_init_one(struct pci_dev *pci_dev,
++static int zatm_init_one(struct pci_dev *pci_dev,
+ 				   const struct pci_device_id *ent)
+ {
+ 	struct atm_dev *dev;
 -- 
 1.8.0
