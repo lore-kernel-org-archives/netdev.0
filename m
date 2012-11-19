@@ -1,96 +1,67 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 03/10] batman-adv: support array of debugfs general attributes
-Date: Mon, 19 Nov 2012 09:24:04 +0100
-Message-ID: <1353313451-2930-4-git-send-email-ordex@autistici.org>
-References: <1353313451-2930-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:64118 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753191Ab2KSIZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 03:25:18 -0500
-In-Reply-To: <1353313451-2930-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH RFC 0/5] Containerize syslog
+Date: Mon, 19 Nov 2012 01:51:09 -0800
+Message-ID: <874nklkjjm.fsf@xmission.com>
+References: <50A9EAD8.9090501@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rui Xiang <leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <50A9EAD8.9090501-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Rui Xiang's message of "Mon, 19 Nov
+	2012 16:16:24 +0800")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds support for an array of debugfs general (not soft_iface
-specific) attributes. With this change it will be possible to add more general
-attributes by simply appending them to the array without touching the rest of
-the code.
+Rui Xiang <leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-Reported-by: Marek Lindner <lindner_marek@yahoo.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-Acked-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
----
- net/batman-adv/debugfs.c | 34 +++++++++++++++++++++++++---------
- 1 file changed, 25 insertions(+), 9 deletions(-)
+> From: Xiang Rui <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>
+> In Serge's patch (http://lwn.net/Articles/525629/), syslog_namespace was tied to a user
+> namespace. We add syslog_ns tied to nsproxy instead, and implement ns_printk in
+> ip_table context.
+>
+> We add syslog_namespace as a part of nsproxy, and a new flag CLONE_SYSLOG to unshare
+> syslog area.
+>
+> In syslog_namespace, some necessary identifiers for handling syslog buf are contained.
+> When one container creates a new syslog namespace,containerized buf will be allocated
+> to store log ownned this container. Containerized identifiers such as log_first_seq
+> instead of global variable only affect their own buf.The buf will not be free until
+> syslog_namespace is destructed by host.
+>
+> Printk should be re-implimented because log buf is isolated into syslog_ns. The function
+> include printk, /dev/kmsg, do_syslog and kmsg_dump should be realized in container. So,
+> to make these funtions available in container, a parameter syslog_ns is necessory for
+> their interfaces.
+>
+> For container context, the value syslog namespace is reasonable if we use current method
+> to get syslog_ns when using iptable. Because the log info belong to each containers will
+> be printed in host.
+>
+> We add a pointer in net namespace, and use it to track the syslog_ns which was created
+> when the log was generated in container. Then add ns_printk to provide a new interface
+> while using syslog_ns.
 
-diff --git a/net/batman-adv/debugfs.c b/net/batman-adv/debugfs.c
-index 3f679cb..6f58ddd 100644
---- a/net/batman-adv/debugfs.c
-+++ b/net/batman-adv/debugfs.c
-@@ -323,7 +323,17 @@ struct batadv_debuginfo batadv_debuginfo_##_name = {	\
- 		}					\
- };
- 
-+/* the following attributes are general and therefore they will be directly
-+ * placed in the BATADV_DEBUGFS_SUBDIR subdirectory of debugfs
-+ */
- static BATADV_DEBUGINFO(routing_algos, S_IRUGO, batadv_algorithms_open);
-+
-+static struct batadv_debuginfo *batadv_general_debuginfos[] = {
-+	&batadv_debuginfo_routing_algos,
-+	NULL,
-+};
-+
-+/* The following attributes are per soft interface */
- static BATADV_DEBUGINFO(originators, S_IRUGO, batadv_originators_open);
- static BATADV_DEBUGINFO(gateways, S_IRUGO, batadv_gateways_open);
- static BATADV_DEBUGINFO(transtable_global, S_IRUGO,
-@@ -358,7 +368,7 @@ static struct batadv_debuginfo *batadv_mesh_debuginfos[] = {
- 
- void batadv_debugfs_init(void)
- {
--	struct batadv_debuginfo *bat_debug;
-+	struct batadv_debuginfo **bat_debug;
- 	struct dentry *file;
- 
- 	batadv_debugfs = debugfs_create_dir(BATADV_DEBUGFS_SUBDIR, NULL);
-@@ -366,17 +376,23 @@ void batadv_debugfs_init(void)
- 		batadv_debugfs = NULL;
- 
- 	if (!batadv_debugfs)
--		goto out;
-+		goto err;
- 
--	bat_debug = &batadv_debuginfo_routing_algos;
--	file = debugfs_create_file(bat_debug->attr.name,
--				   S_IFREG | bat_debug->attr.mode,
--				   batadv_debugfs, NULL, &bat_debug->fops);
--	if (!file)
--		pr_err("Can't add debugfs file: %s\n", bat_debug->attr.name);
-+	for (bat_debug = batadv_general_debuginfos; *bat_debug; ++bat_debug) {
-+		file = debugfs_create_file(((*bat_debug)->attr).name,
-+					   S_IFREG | ((*bat_debug)->attr).mode,
-+					   batadv_debugfs, NULL,
-+					   &(*bat_debug)->fops);
-+		if (!file) {
-+			pr_err("Can't add general debugfs file: %s\n",
-+			       ((*bat_debug)->attr).name);
-+			goto err;
-+		}
-+	}
- 
--out:
- 	return;
-+err:
-+	debugfs_remove_recursive(batadv_debugfs);
- }
- 
- void batadv_debugfs_destroy(void)
--- 
-1.8.0
+It occurs to me that calling this a syslog namespace is a misnomer.
+Syslog in general uses unix domain sockets.  This is about the linux
+kernel specific kernel log interface that tends to be put in syslog.
+
+Are there any kernel print statements besides networking stack printks
+that we want to move to show up in a new "kernel log" namespace?
+
+For the kernel generated pieces of information that are interesting (and
+their don't seem to be many of those) would we be better off using
+another kernel method that is already per namespace.  Something like
+netlink.
+
+Eric
