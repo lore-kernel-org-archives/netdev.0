@@ -1,60 +1,53 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [rfc net-next v6 3/3] virtio-net: change the number of queues
-	through ethtool
-Date: Mon, 19 Nov 2012 14:22:40 +0800
-Message-ID: <50A9D030.7070100@redhat.com>
-References: <1351591403-23065-1-git-send-email-jasowang@redhat.com>
-	<1351591403-23065-4-git-send-email-jasowang@redhat.com>
-	<871ug9yls5.fsf@rustcorp.com.au>
+From: Denys Fedoryshchenko <denys@visp.net.lb>
+Subject: Re: Latest 3.6.6 are not compiling due tg3 network driver,
+ =?UTF-8?Q?hwmon=5Fdevice=5Funregister?=
+Date: Mon, 19 Nov 2012 08:59:37 +0200
+Message-ID: <d7418ec9ab1ae59a0ce5a101c6ff55e1@visp.net.lb>
+References: <8b566c4a9ee622737212dc17291ee238@visp.net.lb>
+ <50A4606D.4020402@broadcom.com>
+ <alpine.DEB.2.00.1211141929510.14414@chino.kir.corp.google.com>
+ <50A464E4.1080105@broadcom.com>
+ <alpine.DEB.2.00.1211181441470.5080@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <871ug9yls5.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Michael Chan <mchan@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: David Rientjes <rientjes@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1211181441470.5080@chino.kir.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/05/2012 07:46 AM, Rusty Russell wrote:
-> Jason Wang <jasowang@redhat.com> writes:
->> This patch implement the {set|get}_channels method of ethool to allow user to
->> change the number of queues dymaically when the device is running. This would
->> let the user to tune the device for specific applications.
-> ...
->> +	/* Only two modes were support currently */
->> +	if (queue_pairs == 0)
->> +		return -EINVAL;
->> +	if (queue_pairs != vi->total_queue_pairs - 1 && queue_pairs != 1)
->> +		return -EINVAL;
-> OK, so you let them do all or nothing, but this three-way test is
-> pretty unclear.
+On 2012-11-19 00:42, David Rientjes wrote:
+> On Wed, 14 Nov 2012, Nithin Nayak Sujir wrote:
+>
+>> On 11/14/2012 07:30 PM, David Rientjes wrote:
+>> > On Wed, 14 Nov 2012, Nithin Nayak Sujir wrote:
+>> >
+>> > > This was fixed by
+>> > >
+>> > > commit de0a41484c47d783dd4d442914815076aa2caac2
+>> > > Author: Paul Gortmaker <paul.gortmaker@windriver.com>
+>> > > Date:   Mon Oct 1 11:43:49 2012 -0400
+>> > >
+>> > >      tg3: unconditionally select HWMON support when tg3 is 
+>> enabled.
+>> > >
+>> > Would you mind submitting this for stable by following the 
+>> procedure
+>> > described in Documentation/stable_kernel_rules.txt?
+>> >
+>>
+>> Will do. Thank you for bringing this to our attention.
+>>
+>
+> Thanks for submitting the patch to stable, Greg has queued it for the
+> kernels he maintains.  Denys, expect to see this fix in 3.6.8.
+Thank you!
 
-True, looks like the first check could be removed.
->
-> In fact, the whole total_queue_pairs/num_queue_pairs thing is weird (and
-> uncommented).  I think for "total" you mean "max"; the maximum possible
-> queue pair number.
-
-Yes, "total" means "max", will add a comment or change the name to 
-max_queue_pairs/current_queue_pairs.
->
-> Let me go back and review the previous patch again...
->
-> Cheers,
-> Rusty.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+---
+Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
