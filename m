@@ -1,7 +1,8 @@
 From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 2/7] netprio_cgroup: simplify write_priomap()
-Date: Tue, 20 Nov 2012 00:30:06 -0800
-Message-ID: <1353400211-5182-3-git-send-email-tj@kernel.org>
+Subject: [PATCH 3/7] netprio_cgroup: shorten variable names in
+	extend_netdev_table()
+Date: Tue, 20 Nov 2012 00:30:07 -0800
+Message-ID: <1353400211-5182-4-git-send-email-tj@kernel.org>
 References: <1353400211-5182-1-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,94 +25,57 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-sscanf() doesn't bite.
+The function is about to go through a rewrite.  In preparation,
+shorten the variable names so that we don't repeat "priomap" so often.
+
+This patch is cosmetic.
 
 Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 ---
- net/core/netprio_cgroup.c | 56 ++++++++++-------------------------------------
- 1 file changed, 11 insertions(+), 45 deletions(-)
+ net/core/netprio_cgroup.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
 
 diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index f0b6b0d..66d98da 100644
+index 66d98da..92cc54c 100644
 --- a/net/core/netprio_cgroup.c
 +++ b/net/core/netprio_cgroup.c
-@@ -176,66 +176,32 @@ static int read_priomap(struct cgroup *cont, struct cftype *cft,
- static int write_priomap(struct cgroup *cgrp, struct cftype *cft,
- 			 const char *buffer)
+@@ -71,26 +71,25 @@ static int extend_netdev_table(struct net_device *dev, u32 new_len)
  {
--	char *devname = kstrdup(buffer, GFP_KERNEL);
--	int ret = -EINVAL;
- 	u32 prioidx = cgrp_netprio_state(cgrp)->prioidx;
--	unsigned long priority;
--	char *priostr;
-+	char devname[IFNAMSIZ + 1];
- 	struct net_device *dev;
- 	struct netprio_map *map;
-+	u32 prio;
-+	int ret;
+ 	size_t new_size = sizeof(struct netprio_map) +
+ 			   ((sizeof(u32) * new_len));
+-	struct netprio_map *new_priomap = kzalloc(new_size, GFP_KERNEL);
+-	struct netprio_map *old_priomap;
++	struct netprio_map *new = kzalloc(new_size, GFP_KERNEL);
++	struct netprio_map *old;
  
--	if (!devname)
--		return -ENOMEM;
--
--	/*
--	 * Minimally sized valid priomap string
--	 */
--	if (strlen(devname) < 3)
--		goto out_free_devname;
--
--	priostr = strstr(devname, " ");
--	if (!priostr)
--		goto out_free_devname;
--
--	/*
--	 *Separate the devname from the associated priority
--	 *and advance the priostr pointer to the priority value
--	 */
--	*priostr = '\0';
--	priostr++;
--
--	/*
--	 * If the priostr points to NULL, we're at the end of the passed
--	 * in string, and its not a valid write
--	 */
--	if (*priostr == '\0')
--		goto out_free_devname;
--
--	ret = kstrtoul(priostr, 10, &priority);
--	if (ret < 0)
--		goto out_free_devname;
--
--	ret = -ENODEV;
-+	if (sscanf(buffer, "%"__stringify(IFNAMSIZ)"s %u", devname, &prio) != 2)
-+		return -EINVAL;
+-	old_priomap  = rtnl_dereference(dev->priomap);
++	old = rtnl_dereference(dev->priomap);
  
- 	dev = dev_get_by_name(&init_net, devname);
- 	if (!dev)
--		goto out_free_devname;
-+		return -ENODEV;
+-	if (!new_priomap) {
++	if (!new) {
+ 		pr_warn("Unable to alloc new priomap!\n");
+ 		return -ENOMEM;
+ 	}
  
- 	rtnl_lock();
-+
- 	ret = write_update_netdev_table(dev);
--	if (ret < 0)
--		goto out_put_dev;
-+	if (ret)
-+		goto out_unlock;
+-	if (old_priomap)
+-		memcpy(new_priomap->priomap, old_priomap->priomap,
+-		       old_priomap->priomap_len *
+-		       sizeof(old_priomap->priomap[0]));
++	if (old)
++		memcpy(new->priomap, old->priomap,
++		       old->priomap_len * sizeof(old->priomap[0]));
  
- 	map = rtnl_dereference(dev->priomap);
- 	if (map)
--		map->priomap[prioidx] = priority;
--
--out_put_dev:
-+		map->priomap[prioidx] = prio;
-+out_unlock:
- 	rtnl_unlock();
- 	dev_put(dev);
--
--out_free_devname:
--	kfree(devname);
- 	return ret;
+-	new_priomap->priomap_len = new_len;
++	new->priomap_len = new_len;
+ 
+-	rcu_assign_pointer(dev->priomap, new_priomap);
+-	if (old_priomap)
+-		kfree_rcu(old_priomap, rcu);
++	rcu_assign_pointer(dev->priomap, new);
++	if (old)
++		kfree_rcu(old, rcu);
+ 	return 0;
  }
  
 -- 
