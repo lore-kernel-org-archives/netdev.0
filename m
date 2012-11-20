@@ -1,126 +1,146 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [Suggestion] net/netfilter: strcpy for timeout->name
-Date: Tue, 20 Nov 2012 16:47:02 +0800
-Message-ID: <50AB4386.3080603@asianux.com>
-References: <50AB0249.20802@asianux.com> <50AB12EE.6050802@gmail.com>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH 4/7] netprio_cgroup: reimplement priomap expansion
+Date: Tue, 20 Nov 2012 09:46:22 +0100
+Message-ID: <50AB435E.8060901@monom.org>
+References: <1353400211-5182-1-git-send-email-tj@kernel.org> <1353400211-5182-5-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Shan Wei <shanwei88@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Xue Ying <ying.xue0@gmail.com>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:38312 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750953Ab2KTIqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 03:46:09 -0500
-In-Reply-To: <50AB12EE.6050802@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1353400211-5182-5-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello Xue Ying, David Miller:
+Hi Tejun,
 
-Please help checking net/netfilter/nfnetlink_cttimeout.c:
-  I suggest, we use strncpy instead of strcpy at line 143. 
-  just like we have already used strncmp at line 94.
+On 20.11.2012 09:30, Tejun Heo wrote:
+> netprio kept track of the highest prioidx allocated and resized
+> priomaps accordingly when necessary.  This makes it necessary to keep
+> track of prioidx allocation and may end up resizing on every new
+> prioidx.
+> 
+> Update extend_netdev_table() such that it takes @target_idx which the
+> priomap should be able to accomodate.  If the priomap is large enough,
+> nothing happens; otherwise, the size is doubled until @target_idx can
+> be accomodated.
+> 
+> This makes max_prioidx and write_update_netdev_table() unnecessary.
+> write_priomap() now calls extend_netdev_table() directly.
+> 
+> Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> ---
+>   net/core/netprio_cgroup.c | 56 ++++++++++++++++++++++++++++-------------------
+>   1 file changed, 33 insertions(+), 23 deletions(-)
+> 
+> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> index 92cc54c..569d83d 100644
+> --- a/net/core/netprio_cgroup.c
+> +++ b/net/core/netprio_cgroup.c
+> @@ -27,11 +27,11 @@
+>   
+>   #include <linux/fdtable.h>
+>   
+> +#define PRIOMAP_MIN_SZ		128
+>   #define PRIOIDX_SZ 128
+>   
+>   static unsigned long prioidx_map[PRIOIDX_SZ];
+>   static DEFINE_SPINLOCK(prioidx_map_lock);
+> -static atomic_t max_prioidx = ATOMIC_INIT(0);
+>   
+>   static inline struct cgroup_netprio_state *cgrp_netprio_state(struct cgroup *cgrp)
+>   {
+> @@ -51,8 +51,6 @@ static int get_prioidx(u32 *prio)
+>   		return -ENOSPC;
+>   	}
+>   	set_bit(prioidx, prioidx_map);
+> -	if (atomic_read(&max_prioidx) < prioidx)
+> -		atomic_set(&max_prioidx, prioidx);
+>   	spin_unlock_irqrestore(&prioidx_map_lock, flags);
+>   	*prio = prioidx;
+>   	return 0;
+> @@ -67,15 +65,40 @@ static void put_prioidx(u32 idx)
+>   	spin_unlock_irqrestore(&prioidx_map_lock, flags);
+>   }
+>   
+> -static int extend_netdev_table(struct net_device *dev, u32 new_len)
+> +/*
+> + * Extend @dev->priomap so that it's large enough to accomodate
+> + * @target_idx.  @dev->priomap.priomap_len > @target_idx after successful
+> + * return.  Must be called under rtnl lock.
+> + */
+> +static int extend_netdev_table(struct net_device *dev, u32 target_idx)
+>   {
+> -	size_t new_size = sizeof(struct netprio_map) +
+> -			   ((sizeof(u32) * new_len));
+> -	struct netprio_map *new = kzalloc(new_size, GFP_KERNEL);
+> -	struct netprio_map *old;
+> +	struct netprio_map *old, *new;
+> +	size_t new_sz, new_len;
+>   
+> +	/* is the existing priomap large enough? */
+>   	old = rtnl_dereference(dev->priomap);
+> +	if (old && old->priomap_len > target_idx)
+> +		return 0;
+> +
+> +	/*
+> +	 * Determine the new size.  Let's keep it power-of-two.  We start
+> +	 * from PRIOMAP_MIN_SZ and double it until it's large enough to
+> +	 * accommodate @target_idx.
+> +	 */
+> +	new_sz = PRIOMAP_MIN_SZ;
+> +	while (true) {
+> +		new_len = (new_sz - offsetof(struct netprio_map, priomap)) /
+> +			sizeof(new->priomap[0]);
+> +		if (new_len > target_idx)
+> +			break;
+> +		new_sz *= 2;
+> +		/* overflowed? */
+> +		if (WARN_ON(new_sz < PRIOMAP_MIN_SZ))
+> +			return -ENOSPC;
+> +	}
+>   
+> +	/* allocate & copy */
+> +	new = kzalloc(new_sz, GFP_KERNEL);
+>   	if (!new) {
+>   		pr_warn("Unable to alloc new priomap!\n");
+>   		return -ENOMEM;
+> @@ -87,26 +110,13 @@ static int extend_netdev_table(struct net_device *dev, u32 new_len)
+>   
+>   	new->priomap_len = new_len;
+>   
+> +	/* install the new priomap */
+>   	rcu_assign_pointer(dev->priomap, new);
+>   	if (old)
+>   		kfree_rcu(old, rcu);
+>   	return 0;
+>   }
 
-  after checking the calling work flow:
-    the length of nla_data(cda[CTA_TIMEOUT_NAME]) is not limited in server side.
-    one of calling work flows is:
-       netlink_unicast -> netlink_unicast_kernel -> nfnetlink_rcv -> netlink_rcv_skb
-       -> nfnetlink_rcv_msg -> cttimeout_new_timeout
+Okay, I might be just to stupid to see the beauty in what you are doing. So
+please bear with me when I ask these question.
 
-  thanks.
+struct netprio_map {
+	struct rcu_head rcu;
+	struct netprio_aux *aux;	/* auxiliary config array */
+	u32 priomap_len;
+	u32 priomap[];
+};
 
-gchen.
+Is there a specific reason why aux and priomap is handled differently? Couldn't you 
+just use same approach for both variables, e.g. re/allocating only them here and
+leave the allocation struct netprio_map in cgrp_css_alloc()?
 
+Also the algorithm to figure out the size of the array might be a bit too aggressive
+in my opinion. So you always start at PRIOMAP_MIN_SIZE and then try to double
+the size until target_idx fits. Wouldn't it make sense to start to look
+for the new size beginning at old->priomap_len and then do the power-of-two
+increase?
 
-
- 70 static int
- 71 cttimeout_new_timeout(struct sock *ctnl, struct sk_buff *skb,
- 72                       const struct nlmsghdr *nlh,
- 73                       const struct nlattr * const cda[])
- 74 {
- 75         __u16 l3num;
- 76         __u8 l4num;
- 77         struct nf_conntrack_l4proto *l4proto;
- 78         struct ctnl_timeout *timeout, *matching = NULL;
- 79         struct net *net = sock_net(skb->sk);
- 80         char *name;
- 81         int ret;
- 82 
- 83         if (!cda[CTA_TIMEOUT_NAME] ||
- 84             !cda[CTA_TIMEOUT_L3PROTO] ||
- 85             !cda[CTA_TIMEOUT_L4PROTO] ||
- 86             !cda[CTA_TIMEOUT_DATA])
- 87                 return -EINVAL;
- 88 
- 89         name = nla_data(cda[CTA_TIMEOUT_NAME]);
- 90         l3num = ntohs(nla_get_be16(cda[CTA_TIMEOUT_L3PROTO]));
- 91         l4num = nla_get_u8(cda[CTA_TIMEOUT_L4PROTO]);
- 92 
- 93         list_for_each_entry(timeout, &cttimeout_list, head) {
- 94                 if (strncmp(timeout->name, name, CTNL_TIMEOUT_NAME_MAX) != 0)
- 95                         continue;
- 96 
- 97                 if (nlh->nlmsg_flags & NLM_F_EXCL)
- 98                         return -EEXIST;
- 99 
-100                 matching = timeout;
-101                 break;
-102         }
-103 
-104         l4proto = nf_ct_l4proto_find_get(l3num, l4num);
-105 
-106         /* This protocol is not supportted, skip. */
-107         if (l4proto->l4proto != l4num) {
-108                 ret = -EOPNOTSUPP;
-109                 goto err_proto_put;
-110         }
-111 
-112         if (matching) {
-113                 if (nlh->nlmsg_flags & NLM_F_REPLACE) {
-114                         /* You cannot replace one timeout policy by another of
-115                          * different kind, sorry.
-116                          */
-117                         if (matching->l3num != l3num ||
-118                             matching->l4proto->l4proto != l4num) {
-119                                 ret = -EINVAL;
-120                                 goto err_proto_put;
-121                         }
-122 
-123                         ret = ctnl_timeout_parse_policy(matching, l4proto, net,
-124                                                         cda[CTA_TIMEOUT_DATA]);
-125                         return ret;
-126                 }
-127                 ret = -EBUSY;
-128                 goto err_proto_put;
-129         }
-130 
-131         timeout = kzalloc(sizeof(struct ctnl_timeout) +
-132                           l4proto->ctnl_timeout.obj_size, GFP_KERNEL);
-133         if (timeout == NULL) {
-134                 ret = -ENOMEM;
-135                 goto err_proto_put;
-136         }
-137 
-138         ret = ctnl_timeout_parse_policy(timeout, l4proto, net,
-139                                         cda[CTA_TIMEOUT_DATA]);
-140         if (ret < 0)
-141                 goto err;
-142 
-143         strcpy(timeout->name, nla_data(cda[CTA_TIMEOUT_NAME]));
-144         timeout->l3num = l3num;
-145         timeout->l4proto = l4proto;
-146         atomic_set(&timeout->refcnt, 1);
-147         list_add_tail_rcu(&timeout->head, &cttimeout_list);
-148 
-149         return 0;
-150 err:
-151         kfree(timeout);
-152 err_proto_put:
-153         nf_ct_l4proto_put(l4proto);
-154         return ret;
-155 }
-156 
+cheers,
+daniel
