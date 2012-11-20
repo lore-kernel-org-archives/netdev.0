@@ -1,8 +1,7 @@
 From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 3/7] netprio_cgroup: shorten variable names in
-	extend_netdev_table()
-Date: Tue, 20 Nov 2012 00:30:07 -0800
-Message-ID: <1353400211-5182-4-git-send-email-tj@kernel.org>
+Subject: [PATCH 4/7] netprio_cgroup: reimplement priomap expansion
+Date: Tue, 20 Nov 2012 00:30:08 -0800
+Message-ID: <1353400211-5182-5-git-send-email-tj@kernel.org>
 References: <1353400211-5182-1-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,58 +24,133 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The function is about to go through a rewrite.  In preparation,
-shorten the variable names so that we don't repeat "priomap" so often.
+netprio kept track of the highest prioidx allocated and resized
+priomaps accordingly when necessary.  This makes it necessary to keep
+track of prioidx allocation and may end up resizing on every new
+prioidx.
 
-This patch is cosmetic.
+Update extend_netdev_table() such that it takes @target_idx which the
+priomap should be able to accomodate.  If the priomap is large enough,
+nothing happens; otherwise, the size is doubled until @target_idx can
+be accomodated.
+
+This makes max_prioidx and write_update_netdev_table() unnecessary.
+write_priomap() now calls extend_netdev_table() directly.
 
 Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 ---
- net/core/netprio_cgroup.c | 23 +++++++++++------------
- 1 file changed, 11 insertions(+), 12 deletions(-)
+ net/core/netprio_cgroup.c | 56 ++++++++++++++++++++++++++++-------------------
+ 1 file changed, 33 insertions(+), 23 deletions(-)
 
 diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index 66d98da..92cc54c 100644
+index 92cc54c..569d83d 100644
 --- a/net/core/netprio_cgroup.c
 +++ b/net/core/netprio_cgroup.c
-@@ -71,26 +71,25 @@ static int extend_netdev_table(struct net_device *dev, u32 new_len)
+@@ -27,11 +27,11 @@
+ 
+ #include <linux/fdtable.h>
+ 
++#define PRIOMAP_MIN_SZ		128
+ #define PRIOIDX_SZ 128
+ 
+ static unsigned long prioidx_map[PRIOIDX_SZ];
+ static DEFINE_SPINLOCK(prioidx_map_lock);
+-static atomic_t max_prioidx = ATOMIC_INIT(0);
+ 
+ static inline struct cgroup_netprio_state *cgrp_netprio_state(struct cgroup *cgrp)
  {
- 	size_t new_size = sizeof(struct netprio_map) +
- 			   ((sizeof(u32) * new_len));
--	struct netprio_map *new_priomap = kzalloc(new_size, GFP_KERNEL);
--	struct netprio_map *old_priomap;
-+	struct netprio_map *new = kzalloc(new_size, GFP_KERNEL);
-+	struct netprio_map *old;
+@@ -51,8 +51,6 @@ static int get_prioidx(u32 *prio)
+ 		return -ENOSPC;
+ 	}
+ 	set_bit(prioidx, prioidx_map);
+-	if (atomic_read(&max_prioidx) < prioidx)
+-		atomic_set(&max_prioidx, prioidx);
+ 	spin_unlock_irqrestore(&prioidx_map_lock, flags);
+ 	*prio = prioidx;
+ 	return 0;
+@@ -67,15 +65,40 @@ static void put_prioidx(u32 idx)
+ 	spin_unlock_irqrestore(&prioidx_map_lock, flags);
+ }
  
--	old_priomap  = rtnl_dereference(dev->priomap);
-+	old = rtnl_dereference(dev->priomap);
+-static int extend_netdev_table(struct net_device *dev, u32 new_len)
++/*
++ * Extend @dev->priomap so that it's large enough to accomodate
++ * @target_idx.  @dev->priomap.priomap_len > @target_idx after successful
++ * return.  Must be called under rtnl lock.
++ */
++static int extend_netdev_table(struct net_device *dev, u32 target_idx)
+ {
+-	size_t new_size = sizeof(struct netprio_map) +
+-			   ((sizeof(u32) * new_len));
+-	struct netprio_map *new = kzalloc(new_size, GFP_KERNEL);
+-	struct netprio_map *old;
++	struct netprio_map *old, *new;
++	size_t new_sz, new_len;
  
--	if (!new_priomap) {
-+	if (!new) {
++	/* is the existing priomap large enough? */
+ 	old = rtnl_dereference(dev->priomap);
++	if (old && old->priomap_len > target_idx)
++		return 0;
++
++	/*
++	 * Determine the new size.  Let's keep it power-of-two.  We start
++	 * from PRIOMAP_MIN_SZ and double it until it's large enough to
++	 * accommodate @target_idx.
++	 */
++	new_sz = PRIOMAP_MIN_SZ;
++	while (true) {
++		new_len = (new_sz - offsetof(struct netprio_map, priomap)) /
++			sizeof(new->priomap[0]);
++		if (new_len > target_idx)
++			break;
++		new_sz *= 2;
++		/* overflowed? */
++		if (WARN_ON(new_sz < PRIOMAP_MIN_SZ))
++			return -ENOSPC;
++	}
+ 
++	/* allocate & copy */
++	new = kzalloc(new_sz, GFP_KERNEL);
+ 	if (!new) {
  		pr_warn("Unable to alloc new priomap!\n");
  		return -ENOMEM;
- 	}
+@@ -87,26 +110,13 @@ static int extend_netdev_table(struct net_device *dev, u32 new_len)
  
--	if (old_priomap)
--		memcpy(new_priomap->priomap, old_priomap->priomap,
--		       old_priomap->priomap_len *
--		       sizeof(old_priomap->priomap[0]));
-+	if (old)
-+		memcpy(new->priomap, old->priomap,
-+		       old->priomap_len * sizeof(old->priomap[0]));
+ 	new->priomap_len = new_len;
  
--	new_priomap->priomap_len = new_len;
-+	new->priomap_len = new_len;
- 
--	rcu_assign_pointer(dev->priomap, new_priomap);
--	if (old_priomap)
--		kfree_rcu(old_priomap, rcu);
-+	rcu_assign_pointer(dev->priomap, new);
-+	if (old)
-+		kfree_rcu(old, rcu);
++	/* install the new priomap */
+ 	rcu_assign_pointer(dev->priomap, new);
+ 	if (old)
+ 		kfree_rcu(old, rcu);
  	return 0;
  }
+ 
+-static int write_update_netdev_table(struct net_device *dev)
+-{
+-	int ret = 0;
+-	u32 max_len;
+-	struct netprio_map *map;
+-
+-	max_len = atomic_read(&max_prioidx) + 1;
+-	map = rtnl_dereference(dev->priomap);
+-	if (!map || map->priomap_len < max_len)
+-		ret = extend_netdev_table(dev, max_len);
+-
+-	return ret;
+-}
+-
+ static struct cgroup_subsys_state *cgrp_css_alloc(struct cgroup *cgrp)
+ {
+ 	struct cgroup_netprio_state *cs;
+@@ -191,7 +201,7 @@ static int write_priomap(struct cgroup *cgrp, struct cftype *cft,
+ 
+ 	rtnl_lock();
+ 
+-	ret = write_update_netdev_table(dev);
++	ret = extend_netdev_table(dev, prioidx);
+ 	if (ret)
+ 		goto out_unlock;
  
 -- 
 1.7.11.7
