@@ -1,46 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: /proc/net/softnet_stat & NAPI
-Date: Tue, 20 Nov 2012 10:25:43 -0800
-Message-ID: <1353435943.2590.25.camel@edumazet-glaptop>
-References: <CAB15j_Dv8hQCDzAYxkTGs5yjz5uhETuhgRxfAvbVbt5mx-P33A@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHSET REPOST v2 cgroup/for-3.8] netcls/prio_cgroup: update
+	hierarchy support
+Date: Tue, 20 Nov 2012 13:37:40 -0500 (EST)
+Message-ID: <20121120.133740.2078663535446438063.davem@davemloft.net>
+References: <1353400211-5182-1-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jon Schipp <jonschipp@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:39138 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751807Ab2KTSZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 13:25:46 -0500
-Received: by mail-da0-f46.google.com with SMTP id p5so1348006dak.19
-        for <netdev@vger.kernel.org>; Tue, 20 Nov 2012 10:25:46 -0800 (PST)
-In-Reply-To: <CAB15j_Dv8hQCDzAYxkTGs5yjz5uhETuhgRxfAvbVbt5mx-P33A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1353400211-5182-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-11-20 at 13:06 -0500, Jon Schipp wrote:
-> In relation to packet drops, assuming a new kernel, NAPI driver, and
-> no use of receive packet steering,
-> does /proc/net/softnet_stats provide any useful packet drop information?
-> 
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Date: Tue, 20 Nov 2012 00:30:04 -0800
 
-no
+>  0001-netcls_cgroup-move-config-inheritance-to-css_online-.patch
+>  0002-netprio_cgroup-simplify-write_priomap.patch
+>  0003-netprio_cgroup-shorten-variable-names-in-extend_netd.patch
+>  0004-netprio_cgroup-reimplement-priomap-expansion.patch
+>  0005-netprio_cgroup-use-cgroup-id-instead-of-cgroup_netpr.patch
+>  0006-netprio_cgroup-implement-netprio-_set-_prio-helpers.patch
+>  0007-netprio_cgroup-allow-nesting-and-inherit-config-on-c.patch
 
-> I know that on earlier 2.4 kernels one could grab the drops in the
-> backlog queue from 2nd column in /proc/net/softnet_stats.
-> In a modern systems that use NAPI, does softnet_stats serve a similar
-> purpose e.g. display drops in a NAPI poll queue?
+For series:
 
-Second column is number of dropped packets because
-one (percpu) queue reached netdev_max_backlog
-
-But its only in the case packet must be queued in the first place.
-
-With a NAPI driver and no RPS/RFS, packets wont be dropped here, as NAPI
-netif_receive_skb() directly calls the network stack.
-
-If frames are dropped, they should be dropped by the NIC itself.
-
-Even with 2.4 kernels or non NAPI driver, you could have drops at NIC
-level.
+Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
