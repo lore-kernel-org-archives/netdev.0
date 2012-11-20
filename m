@@ -1,38 +1,46 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Subject: Re: [RESEND PATCH net-next 1/1] sit: allow to configure 6rd tunnels
  via netlink
-Date: Tue, 20 Nov 2012 09:01:13 -0800
-Message-ID: <20121120090113.47ce16b5@nehalam.linuxnetplumber.net>
-References: <20121120.033405.490869980095149376.davem@davemloft.net>
-	<1353400905-28335-1-git-send-email-nicolas.dichtel@6wind.com>
+Date: Tue, 20 Nov 2012 18:11:41 +0100
+Message-ID: <50ABB9CD.6080506@6wind.com>
+References: <20121120.033405.490869980095149376.davem@davemloft.net> <1353400905-28335-1-git-send-email-nicolas.dichtel@6wind.com> <20121120090113.47ce16b5@nehalam.linuxnetplumber.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45981 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751653Ab2KTRCT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2012 12:02:19 -0500
-In-Reply-To: <1353400905-28335-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:35840 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752137Ab2KTRLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 12:11:48 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so2474085eaa.19
+        for <netdev@vger.kernel.org>; Tue, 20 Nov 2012 09:11:45 -0800 (PST)
+In-Reply-To: <20121120090113.47ce16b5@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Nov 2012 09:41:45 +0100
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-
-> This patch add the support of 6RD tunnels management via netlink.
-> Note that netdev_state_change() is now called when 6RD parameters are updated.
-> 
-> 6RD parameters are updated only if there is at least one 6RD attribute.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  include/uapi/linux/if_tunnel.h |   4 ++
->  net/ipv6/sit.c                 | 149 ++++++++++++++++++++++++++++++++++-------
->  2 files changed, 128 insertions(+), 25 deletions(-)
-> 
-
-Ok, but iproute2 git is currently for 3.6
-Please resubmit when 3.7 is finished during 3.8 merge window.
+Le 20/11/2012 18:01, Stephen Hemminger a =E9crit :
+> On Tue, 20 Nov 2012 09:41:45 +0100
+> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+>
+>> This patch add the support of 6RD tunnels management via netlink.
+>> Note that netdev_state_change() is now called when 6RD parameters ar=
+e updated.
+>>
+>> 6RD parameters are updated only if there is at least one 6RD attribu=
+te.
+>>
+>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> ---
+>>   include/uapi/linux/if_tunnel.h |   4 ++
+>>   net/ipv6/sit.c                 | 149 +++++++++++++++++++++++++++++=
++++++-------
+>>   2 files changed, 128 insertions(+), 25 deletions(-)
+>>
+>
+> Ok, but iproute2 git is currently for 3.6
+> Please resubmit when 3.7 is finished during 3.8 merge window.
+Hmm, not sure to understand. This is a kernel patch.
