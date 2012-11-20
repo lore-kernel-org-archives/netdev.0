@@ -1,49 +1,51 @@
-From: "Vick, Matthew" <matthew.vick@intel.com>
-Subject: RE: [PATCH] ixgbe: fix broken PPTP handling
-Date: Tue, 20 Nov 2012 17:12:17 +0000
-Message-ID: <06DFBC1E25D8024DB214DC7F41A3CD34489616B9@ORSMSX101.amr.corp.intel.com>
-References: <20121120163227.11935.57062.stgit@bob.linux.org.uk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RESEND PATCH net-next 1/1] sit: allow to configure 6rd tunnels
+ via netlink
+Date: Tue, 20 Nov 2012 09:17:48 -0800
+Message-ID: <20121120091748.359d95db@nehalam.linuxnetplumber.net>
+References: <20121120.033405.490869980095149376.davem@davemloft.net>
+	<1353400905-28335-1-git-send-email-nicolas.dichtel@6wind.com>
+	<20121120090113.47ce16b5@nehalam.linuxnetplumber.net>
+	<50ABB9CD.6080506@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:43991 "EHLO mga01.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:39150 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752255Ab2KTRMi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2012 12:12:38 -0500
-In-Reply-To: <20121120163227.11935.57062.stgit@bob.linux.org.uk>
-Content-Language: en-US
+	id S1751807Ab2KTRSy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 12:18:54 -0500
+In-Reply-To: <50ABB9CD.6080506@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBBbGFuIENveA0KPiBTZW50OiBUdWVzZGF5LCBOb3ZlbWJlciAyMCwgMjAxMiA4OjMz
-IEFNDQo+IFRvOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQQVRDSF0gaXhn
-YmU6IGZpeCBicm9rZW4gUFBUUCBoYW5kbGluZw0KPiANCj4gRnJvbTogQWxhbiBDb3ggPGFsYW5A
-bGludXguaW50ZWwuY29tPg0KPiANCj4gUmVwb3J0ZWQgdG8gdGhlIG1haW50YWluIDMgd2Vla3Mg
-YWdvIHNvIG5vdyBzZW5kaW5nIGEgcGF0Y2ggcmF0aGVyIHRoYW4NCj4gd2FpdGluZy4gaXhnYmUg
-cGFzc2VzIGEgcmFuZG9tIGV2ZW50IHR5cGUgdG8gdGhlIHBwdHAgY29kZQ0KPiANCj4gU2lnbmVk
-LW9mZi1ieTogQWxhbiBDb3ggPGFsYW5AbGludXguaW50ZWwuY29tPg0KPiAtLS0NCj4gDQo+ICBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9wdHAuYyB8ICAgIDEgKw0KPiAg
-MSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspDQo+IA0KPiANCj4gZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3B0cC5jDQo+IGIvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfcHRwLmMNCj4gaW5kZXggMDFkOTlhZi4uNzMy
-OTFmZSAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhn
-YmVfcHRwLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVf
-cHRwLmMNCj4gQEAgLTM5OCw2ICszOTgsNyBAQCB2b2lkIGl4Z2JlX3B0cF9jaGVja19wcHNfZXZl
-bnQoc3RydWN0IGl4Z2JlX2FkYXB0ZXINCj4gKmFkYXB0ZXIsIHUzMiBlaWNyKQ0KPiANCj4gIAlz
-d2l0Y2ggKGh3LT5tYWMudHlwZSkgew0KPiAgCWNhc2UgaXhnYmVfbWFjX1g1NDA6DQo+ICsJCWV2
-ZW50LnR5cGUgPSBQVFBfQ0xPQ0tfUFBTOw0KPiAgCQlwdHBfY2xvY2tfZXZlbnQoYWRhcHRlci0+
-cHRwX2Nsb2NrLCAmZXZlbnQpOw0KPiAgCQlicmVhazsNCj4gIAlkZWZhdWx0Og0KDQpDQ2luZyBl
-MTAwMC1kZXZlbCwgdGhlIG1haWxpbmcgbGlzdCBmb3IgSW50ZWwgV2lyZWQgRXRoZXJuZXQgc3Vw
-cG9ydC4NCg0KU29ycnksIEFsYW4tLUkgZGlkbid0IHNlZSBhbnkgbWVzc2FnZSBmcm9tIHlvdSBh
-Ym91dCB0aGlzIGJlZm9yZSBvciBJIHdvdWxkIGhhdmUgcmVzcG9uZGVkLiBOQUsgb24gdGhpcywg
-c2luY2UgSSBkb24ndCBzZWUgaG93IGl4Z2JlIGlzIHBhc3NpbmcgYSByYW5kb20gZXZlbnQgdHlw
-ZS4gVGhlIGV2ZW50IHR5cGUgZ2V0cyBzZXQgdG8gUFRQX0NMT0NLX1BQUyBqdXN0IGEgZmV3IGxp
-bmVzIGFib3ZlIChiZWZvcmUgdGhlIGlmICghYWRhcHRlci0+cHRwX2Nsb2NrKSBibG9jaykuDQoN
-Ck1hdHRoZXcNCg==
+On Tue, 20 Nov 2012 18:11:41 +0100
+Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+
+> Le 20/11/2012 18:01, Stephen Hemminger a =E9crit :
+> > On Tue, 20 Nov 2012 09:41:45 +0100
+> > Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+> >
+> >> This patch add the support of 6RD tunnels management via netlink.
+> >> Note that netdev_state_change() is now called when 6RD parameters =
+are updated.
+> >>
+> >> 6RD parameters are updated only if there is at least one 6RD attri=
+bute.
+> >>
+> >> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> >> ---
+> >>   include/uapi/linux/if_tunnel.h |   4 ++
+> >>   net/ipv6/sit.c                 | 149 +++++++++++++++++++++++++++=
++++++++-------
+> >>   2 files changed, 128 insertions(+), 25 deletions(-)
+> >>
+> >
+> > Ok, but iproute2 git is currently for 3.6
+> > Please resubmit when 3.7 is finished during 3.8 merge window.
+> Hmm, not sure to understand. This is a kernel patch.
+
+
+I assumed you would need a user space part as well.
