@@ -1,28 +1,67 @@
-From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-Subject: RE: [PATCH 1/1] caif: Remove redundant null check before kfree in
- cfctrl.c
-Date: Tue, 20 Nov 2012 12:04:23 +0100
-Message-ID: <81C3A93C17462B4BBD7E272753C105792457273283@EXDCVYMBSTM005.EQ1STM.local>
-References: <1353408838-28678-1-git-send-email-sachin.kamat@linaro.org>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [PATCH 3/3] net: mvneta: adjust multiline comments to net/ style
+Date: Tue, 20 Nov 2012 15:22:03 +0400
+Message-ID: <50AB67DB.3030309@mvista.com>
+References: <1353322834-16952-1-git-send-email-thomas.petazzoni@free-electrons.com> <1353322834-16952-4-git-send-email-thomas.petazzoni@free-electrons.com> <50AA2AD4.6030007@mvista.com> <20121119135609.3808b1c7@skate>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"patches@linaro.org" <patches@linaro.org>
-To: Sachin Kamat <sachin.kamat@linaro.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jason Cooper <jason@lakedaemon.net>,
+	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
+	netdev@vger.kernel.org,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:60844 "EHLO
-	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750953Ab2KTLEi convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2012 06:04:38 -0500
-In-Reply-To: <1353408838-28678-1-git-send-email-sachin.kamat@linaro.org>
-Content-Language: en-US
+Received: from mail-la0-f46.google.com ([209.85.215.46]:44230 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751426Ab2KTLXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 06:23:24 -0500
+Received: by mail-la0-f46.google.com with SMTP id p5so1846736lag.19
+        for <netdev@vger.kernel.org>; Tue, 20 Nov 2012 03:23:23 -0800 (PST)
+In-Reply-To: <20121119135609.3808b1c7@skate>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> kfree on a null pointer is a no-op.
->=20
-> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-Acked-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+Hello.
+
+On 19-11-2012 16:56, Thomas Petazzoni wrote:
+
+>>> -/*
+>>> - * The two bytes Marvell header. Either contains a special value used
+>>> +/* The two bytes Marvell header. Either contains a special value used
+>>
+>>      Why the heck you're doing this? It's the preferred style, see
+>> Documentation/CodingStyle, chapter 8.
+
+> No. Please read Documentation/CodingStyle, chapter 8 entirely:
+
+> ===============================================================
+> The preferred style for long (multi-line) comments is:
+>
+>          /*
+>           * This is the preferred style for multi-line
+>           * comments in the Linux kernel source code.
+>           * Please use it consistently.
+>           *
+>           * Description:  A column of asterisks on the left side,
+>           * with beginning and ending almost-blank lines.
+>           */
+>
+> For files in net/ and drivers/net/ the preferred style for long
+> (multi-line) comments is a little different.
+>
+>          /* The preferred comment style for files in net/ and drivers/net
+>           * looks like this.
+>           *
+>           * It is nearly the same as the generally preferred comment style,
+>           * but there is no initial almost-blank line.
+>           */
+> ===============================================================
+
+> Seen the second part?
+
+    Not until now probably. Sorry for the noise then. :-/
+
+WBR, Sergei
