@@ -1,36 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: QFQ Plus: fair-queueing service at DRR cost
-Date: Tue, 20 Nov 2012 13:02:02 -0500 (EST)
-Message-ID: <20121120.130202.1918742054229219388.davem@davemloft.net>
-References: <20121119.184828.628106002307042971.davem@davemloft.net>
-	<50ABC19E.9030209@unimore.it>
-	<20121120095304.420ded7c@nehalam.linuxnetplumber.net>
+From: Jon Schipp <jonschipp@gmail.com>
+Subject: /proc/net/softnet_stat & NAPI
+Date: Tue, 20 Nov 2012 13:06:52 -0500
+Message-ID: <CAB15j_Dv8hQCDzAYxkTGs5yjz5uhETuhgRxfAvbVbt5mx-P33A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: paolo.valente@unimore.it, jhs@mojatatu.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com
-To: shemminger@vyatta.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121120095304.420ded7c@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:50336 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751895Ab2KTSGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 13:06:52 -0500
+Received: by mail-oa0-f46.google.com with SMTP id h16so6185031oag.19
+        for <netdev@vger.kernel.org>; Tue, 20 Nov 2012 10:06:52 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Tue, 20 Nov 2012 09:53:04 -0800
+In relation to packet drops, assuming a new kernel, NAPI driver, and
+no use of receive packet steering,
+does /proc/net/softnet_stats provide any useful packet drop information?
 
-> There are actually lots of bogus warnings than seem to only occur
-> because gcc 4.4 does a bad job of checking. Later versions are fixed
-> and don't generate warnings.
-> 
-> My preference is to not add the unnecessary initialization because
-> if you get in the habit of doing it. The whole purpose of the uninitialized
-> check is lost. 
+I know that on earlier 2.4 kernels one could grab the drops in the
+backlog queue from 2nd column in /proc/net/softnet_stats.
+In a modern systems that use NAPI, does softnet_stats serve a similar
+purpose e.g. display drops in a NAPI poll queue?
 
-Try again, this was with gcc-4.7.2-2 on Fedora.
-
-There are too many preconditions, across multiple basic block, which
-together ensure the skb is in fact initialized at the point in
-question and the compiler simply isn't sophisticated enough to see
-that.
+Thanks
+Jon
