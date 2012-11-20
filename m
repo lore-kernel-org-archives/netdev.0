@@ -1,86 +1,118 @@
-From: Jan =?UTF-8?Q?Dvo=C5=99=C3=A1k?= <mordae@anilinux.org>
-Subject: PROBLEM: losing addresses if reusing interface names too fast
-Date: Tue, 20 Nov 2012 12:38:16 +0100
-Message-ID: <20121120123816.d576e0d2b0ac22f4809fec94@anilinux.org>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH] xen/netfront: handle compound page fragments on transmit
+Date: Tue, 20 Nov 2012 11:40:06 +0000
+Message-ID: <1353411606-15940-1-git-send-email-ian.campbell@citrix.com>
+References: <1353403286.18229.159.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
+Cc: Ian Campbell <ian.campbell@citrix.com>, xen-devel@lists.xen.org,
+	Eric Dumazet <edumazet@google.com>,
+	Konrad Rzeszutek Wilk <konrad@kernel.org>,
+	ANNIE LI <annie.li@oracle.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Stefan Bader <stefan.bader@canonical.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [80.79.23.148] ([80.79.23.148]:35241 "EHLO anilinux.org"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752196Ab2KTLi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2012 06:38:57 -0500
-Received: from [88.103.20.104] (helo=gesher)
-	by anilinux.org with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.77)
-	(envelope-from <mordae@anilinux.org>)
-	id 1Tam9n-0006jl-3D
-	for netdev@vger.kernel.org; Tue, 20 Nov 2012 12:38:23 +0100
+Received: from smtp.citrix.com ([66.165.176.89]:28329 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752996Ab2KTLkI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Nov 2012 06:40:08 -0500
+In-Reply-To: <1353403286.18229.159.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(re-sent with proper subject)
+An SKB paged fragment can consist of a compound page with order > 0.
+However the netchannel protocol deals only in PAGE_SIZE frames.
 
-Summary: If I reuse interface names too fast, I end up losing newly
-         configured addresses on the new interface.
+Handle this in xennet_make_frags by iterating over the frames which
+make up the page.
 
-Detailed Description:
+This is the netfront equivalent to 6a8ed462f16b for netback.
 
-I have noticed a surprising behavior when removing virtual interfaces.
-For example, removing a bridge with configured IP addresses and then
-quickly creating another interface with identical name will cause the
-addresses to be removed from the new interface a second or so later.
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: netdev@vger.kernel.org
+Cc: xen-devel@lists.xen.org
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
+Cc: ANNIE LI <annie.li@oracle.com>
+Cc: Sander Eikelenboom <linux@eikelenboom.it>
+Cc: Stefan Bader <stefan.bader@canonical.com>
+---
+ drivers/net/xen-netfront.c |   58 +++++++++++++++++++++++++++++++++----------
+ 1 files changed, 44 insertions(+), 14 deletions(-)
 
-How To Reproduce:
-
-brctl addbr foobar
-ip addr add 10.20.30.40/24 dev foobar
-ip addr show dev foobar
-
-# 40: foobar: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-#     link/ether 12:12:f5:1b:c6:8e brd ff:ff:ff:ff:ff:ff
-#     inet 10.20.30.40/24 scope global foobar
-
-sleep 1
-
-ip link set down dev foobar
-brctl delbr foobar
-ip link add name foobar link em1 type vlan id 42
-ip addr add 10.20.30.40/24 dev foobar
-ip addr show dev foobar
-
-# 41: foobar@em1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
-#     link/ether 00:21:cc:63:ec:3c brd ff:ff:ff:ff:ff:ff
-#     inet 10.20.30.40/24 scope global foobar
-
-sleep 3
-
-ip addr show dev foobar
-# 41: foobar@em1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
-#     link/ether 00:21:cc:63:ec:3c brd ff:ff:ff:ff:ff:ff
-
-ip link del foobar type vlan
-
-
-Other Relevant Observations:
-
-If you monitor udev during course of this script, you will get
-following sequence, spaces where sleeps were:
-
-KERNEL[457506.286789] add      /devices/virtual/net/foobar (net)
-
-KERNEL[457507.298630] remove   /devices/virtual/net/foobar (net)
-KERNEL[457507.309597] add      /devices/virtual/net/foobar (net)
-
-KERNEL[457510.324433] remove   /devices/virtual/net/foobar (net)
-
-
-This means that I can't event wait for the bridge to get completely
-removed, kernel tells me it's gone as soon as I delete it.
-
-
-Could you please advise a workaround or confirm this as a bug?
-
-Best regards,
-	Jan Dvorak
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index caa0110..a12b99a 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -452,24 +452,54 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
+ 	/* Grant backend access to each skb fragment page. */
+ 	for (i = 0; i < frags; i++) {
+ 		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
++		struct page *page = skb_frag_page(frag);
++		unsigned long size = skb_frag_size(frag);
++		unsigned long offset = frag->page_offset;
+ 
+-		tx->flags |= XEN_NETTXF_more_data;
++		/* Data must not cross a page boundary. */
++		BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
+ 
+-		id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
+-		np->tx_skbs[id].skb = skb_get(skb);
+-		tx = RING_GET_REQUEST(&np->tx, prod++);
+-		tx->id = id;
+-		ref = gnttab_claim_grant_reference(&np->gref_tx_head);
+-		BUG_ON((signed short)ref < 0);
++		/* Skip unused frames from start of page */
++		page += offset >> PAGE_SHIFT;
++		offset &= ~PAGE_MASK;
+ 
+-		mfn = pfn_to_mfn(page_to_pfn(skb_frag_page(frag)));
+-		gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
+-						mfn, GNTMAP_readonly);
++		while (size > 0) {
++			unsigned long bytes;
+ 
+-		tx->gref = np->grant_tx_ref[id] = ref;
+-		tx->offset = frag->page_offset;
+-		tx->size = skb_frag_size(frag);
+-		tx->flags = 0;
++			BUG_ON(offset >= PAGE_SIZE);
++
++			bytes = PAGE_SIZE - offset;
++			if (bytes > size)
++				bytes = size;
++
++			tx->flags |= XEN_NETTXF_more_data;
++
++			id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
++			np->tx_skbs[id].skb = skb_get(skb);
++			tx = RING_GET_REQUEST(&np->tx, prod++);
++			tx->id = id;
++			ref = gnttab_claim_grant_reference(&np->gref_tx_head);
++			BUG_ON((signed short)ref < 0);
++
++			mfn = pfn_to_mfn(page_to_pfn(page));
++			gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
++							mfn, GNTMAP_readonly);
++
++			tx->gref = np->grant_tx_ref[id] = ref;
++			tx->offset = offset;
++			tx->size = bytes;
++			tx->flags = 0;
++
++			offset += bytes;
++			size -= bytes;
++
++			/* Next frame */
++			if (offset == PAGE_SIZE && size) {
++				BUG_ON(!PageCompound(page));
++				page++;
++				offset = 0;
++			}
++		}
+ 	}
+ 
+ 	np->tx.req_prod_pvt = prod;
+-- 
+1.7.2.5
