@@ -1,72 +1,70 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH v2] checkpatch: add double empty line check
-Date: Tue, 20 Nov 2012 17:07:07 +0200
-Message-ID: <1353424027.6559.15.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120115239.GA7955@dm>
- <1353421624.6559.9.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120144329.GE7955@dm>
-Reply-To: eilong@broadcom.com
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [PATCH 4/7] netprio_cgroup: reimplement priomap expansion
+Date: Tue, 20 Nov 2012 16:09:22 +0100
+Message-ID: <50AB9D22.5030000@monom.org>
+References: <1353400211-5182-1-git-send-email-tj@kernel.org> <1353400211-5182-5-git-send-email-tj@kernel.org> <50AB435E.8060901@monom.org> <20121120143832.GO15971@htj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Joe Perches" <joe@perches.com>,
-	"David Rientjes" <rientjes@google.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: "Andy Whitcroft" <apw@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121120144329.GE7955@dm>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20121120143832.GO15971-Gd/HAXX7CRxy/B6EtB590w@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-11-20 at 14:43 +0000, Andy Whitcroft wrote:
+On 20.11.2012 15:38, Tejun Heo wrote:
+> Hello, Daniel.
+>
+> On Tue, Nov 20, 2012 at 09:46:22AM +0100, Daniel Wagner wrote:
+>> struct netprio_map {
+>> 	struct rcu_head rcu;
+>> 	struct netprio_aux *aux;	/* auxiliary config array */
+>> 	u32 priomap_len;
+>> 	u32 priomap[];
+>> };
+>>
+>> Is there a specific reason why aux and priomap is handled
+>> differently? Couldn't you just use same approach for both variables,
+>> e.g. re/allocating only them here and leave the allocation struct
+>> netprio_map in cgrp_css_alloc()?
+>
+> ->aux is no longer added, so the consistency issue doesn't exist
+> anymore.
 
-> > > Also this fails if the fragment
-> > > is at the top of the hunk emiting a perl warning.
-> > 
-> > I did not see this warning. Can you please share this example? I tried
-> > adding a couple of empty lines at the beginning of a file and it seemed
-> > to work just fine for me (using perl v5.14.2).lines
-> 
-> Ok, this is actually if it is at the bottom, not the top.  So if you
-> have a range of lines newly added to the bottom of the file.  Leading to
-> this warning:
-> 
-> Use of uninitialized value within @rawlines in pattern match (m//) at
-> ../checkpatch/scripts/checkpatch.pl line 3586.
+Right, I got confused looking at v1 and v2.
 
-Oh... of course, I should have seen that. I did not check changes at the
-end of the file.
+> The reason why they were handled differently before (or
+> rather why I didn't change priomap[] to be allocated separately) was
+> that pointer chasing tends to be more expensive than offsetting.  I
+> don't know how much effect it would have in this case but things
+> sitting in packet in/out paths can be very hot so didn't wanna disturb
+> it.
 
-What do you say about something like that (using nextline out of
-rawlines only if it defined):
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 21a9f5d..c0c610c 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -3579,6 +3579,19 @@ sub process {
-                        WARN("EXPORTED_WORLD_WRITABLE",
-                             "Exporting world writable files is usually an error. Consider more restrictive permissions.
-                }
-+
-+# check for double empty lines
-+               if ($line =~ /^\+\s*$/) {
-+                       my $nextline = "";
-+                       if (defined($rawlines[$linenr])) {
-+                               $nextline = $rawlines[$linenr];
-+                       }
-+                       if ($nextline =~ /^\s*$/ ||
-+                           $prevline =~ /^\+?\s*$/ && $nextline !~ /^\+\s*$/) {
-+                               CHK("DOUBLE_EMPTY_LINE",
-+                                   "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
-+                       }
-+               }
-        }
- 
+I see.
 
+>> Also the algorithm to figure out the size of the array might be a
+>> bit too aggressive in my opinion. So you always start at
+>> PRIOMAP_MIN_SIZE and then try to double the size until target_idx
+>> fits. Wouldn't it make sense to start to look for the new size
+>> beginning at old->priomap_len and then do the power-of-two increase?
+>
+> The only downside of always starting from PRIOMAP_MIN_SIZE is
+> iterating several more times in the sizing loop which isn't really
+> anything to worry about.  The loop is structured that way because I
+> wanted to keep the size of the whole thing power-of-two.  Due to the
+> fields before priomap[], if we size priomap_len power-of-two, we'll
+> always end up with something slightly over power-of-two, which is
+> usually the worst size to allocate.
 
-If you think it's appropriate, I will send a clean copy.
+Thanks for the explanation. I was pondering if the new size in power of 
+two could be a bit too excessive and the allocation step could be 
+linear, e.g. stick at 4096. target_id will increase linear, therefore 
+linear increase might also be enough, no?
 
-Thanks,
-Eilon
+cheers,
+daniel
