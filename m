@@ -1,56 +1,62 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RESEND PATCH net-next 1/1] sit: allow to configure 6rd tunnels
- via netlink
-Date: Tue, 20 Nov 2012 18:22:52 +0100
-Message-ID: <50ABBC6C.6020103@6wind.com>
-References: <20121120.033405.490869980095149376.davem@davemloft.net> <1353400905-28335-1-git-send-email-nicolas.dichtel@6wind.com> <20121120090113.47ce16b5@nehalam.linuxnetplumber.net> <50ABB9CD.6080506@6wind.com> <20121120091748.359d95db@nehalam.linuxnetplumber.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH] ixgbe: fix broken PPTP handling
+Date: Tue, 20 Nov 2012 17:27:50 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB583AF32E22@ORSMSX105.amr.corp.intel.com>
+References: <20121120163227.11935.57062.stgit@bob.linux.org.uk>
+ <06DFBC1E25D8024DB214DC7F41A3CD34489616B9@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "Vick, Matthew" <matthew.vick@intel.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:62423 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751238Ab2KTRW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 12:22:57 -0500
-Received: by mail-bk0-f46.google.com with SMTP id q16so2555391bkw.19
-        for <netdev@vger.kernel.org>; Tue, 20 Nov 2012 09:22:55 -0800 (PST)
-In-Reply-To: <20121120091748.359d95db@nehalam.linuxnetplumber.net>
+Received: from mga09.intel.com ([134.134.136.24]:3111 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751582Ab2KTR1v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Nov 2012 12:27:51 -0500
+In-Reply-To: <06DFBC1E25D8024DB214DC7F41A3CD34489616B9@ORSMSX101.amr.corp.intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 20/11/2012 18:17, Stephen Hemminger a =E9crit :
-> On Tue, 20 Nov 2012 18:11:41 +0100
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
->
->> Le 20/11/2012 18:01, Stephen Hemminger a =E9crit :
->>> On Tue, 20 Nov 2012 09:41:45 +0100
->>> Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
->>>
->>>> This patch add the support of 6RD tunnels management via netlink.
->>>> Note that netdev_state_change() is now called when 6RD parameters =
-are updated.
->>>>
->>>> 6RD parameters are updated only if there is at least one 6RD attri=
-bute.
->>>>
->>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->>>> ---
->>>>    include/uapi/linux/if_tunnel.h |   4 ++
->>>>    net/ipv6/sit.c                 | 149 ++++++++++++++++++++++++++=
-++++++++-------
->>>>    2 files changed, 128 insertions(+), 25 deletions(-)
->>>>
->>>
->>> Ok, but iproute2 git is currently for 3.6
->>> Please resubmit when 3.7 is finished during 3.8 merge window.
->> Hmm, not sure to understand. This is a kernel patch.
->
->
-> I assumed you would need a user space part as well.
->
-Oh yes. And I was waiting the proper time to send patches, like for net=
-conf ;-)
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
+YWxmIE9mIFZpY2ssIE1hdHRoZXcNCj4gU2VudDogVHVlc2RheSwgTm92ZW1iZXIgMjAsIDIwMTIg
+OToxMiBBTQ0KPiBUbzogQWxhbiBDb3g7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IGUx
+MDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldA0KPiBTdWJqZWN0OiBSRTogW1BBVENIXSBp
+eGdiZTogZml4IGJyb2tlbiBQUFRQIGhhbmRsaW5nDQo+IA0KPiA+IC0tLS0tT3JpZ2luYWwgTWVz
+c2FnZS0tLS0tDQo+ID4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRv
+Om5ldGRldi0NCj4gPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBBbGFuIENv
+eA0KPiA+IFNlbnQ6IFR1ZXNkYXksIE5vdmVtYmVyIDIwLCAyMDEyIDg6MzMgQU0NCj4gPiBUbzog
+bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+IFN1YmplY3Q6IFtQQVRDSF0gaXhnYmU6IGZpeCBi
+cm9rZW4gUFBUUCBoYW5kbGluZw0KPiA+DQo+ID4gRnJvbTogQWxhbiBDb3ggPGFsYW5AbGludXgu
+aW50ZWwuY29tPg0KPiA+DQo+ID4gUmVwb3J0ZWQgdG8gdGhlIG1haW50YWluIDMgd2Vla3MgYWdv
+IHNvIG5vdyBzZW5kaW5nIGEgcGF0Y2ggcmF0aGVyIHRoYW4NCj4gPiB3YWl0aW5nLiBpeGdiZSBw
+YXNzZXMgYSByYW5kb20gZXZlbnQgdHlwZSB0byB0aGUgcHB0cCBjb2RlDQo+ID4NCj4gPiBTaWdu
+ZWQtb2ZmLWJ5OiBBbGFuIENveCA8YWxhbkBsaW51eC5pbnRlbC5jb20+DQo+ID4gLS0tDQo+ID4N
+Cj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfcHRwLmMgfCAgICAx
+ICsNCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspDQo+ID4NCj4gPg0KPiA+IGRp
+ZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9wdHAuYw0K
+PiA+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfcHRwLmMNCj4gPiBp
+bmRleCAwMWQ5OWFmLi43MzI5MWZlIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3B0cC5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaW50ZWwvaXhnYmUvaXhnYmVfcHRwLmMNCj4gPiBAQCAtMzk4LDYgKzM5OCw3IEBAIHZvaWQg
+aXhnYmVfcHRwX2NoZWNrX3Bwc19ldmVudChzdHJ1Y3QgaXhnYmVfYWRhcHRlcg0KPiA+ICphZGFw
+dGVyLCB1MzIgZWljcikNCj4gPg0KPiA+ICAJc3dpdGNoIChody0+bWFjLnR5cGUpIHsNCj4gPiAg
+CWNhc2UgaXhnYmVfbWFjX1g1NDA6DQo+ID4gKwkJZXZlbnQudHlwZSA9IFBUUF9DTE9DS19QUFM7
+DQo+ID4gIAkJcHRwX2Nsb2NrX2V2ZW50KGFkYXB0ZXItPnB0cF9jbG9jaywgJmV2ZW50KTsNCj4g
+PiAgCQlicmVhazsNCj4gPiAgCWRlZmF1bHQ6DQo+IA0KPiBDQ2luZyBlMTAwMC1kZXZlbCwgdGhl
+IG1haWxpbmcgbGlzdCBmb3IgSW50ZWwgV2lyZWQgRXRoZXJuZXQgc3VwcG9ydC4NCj4gDQo+IFNv
+cnJ5LCBBbGFuLS1JIGRpZG4ndCBzZWUgYW55IG1lc3NhZ2UgZnJvbSB5b3UgYWJvdXQgdGhpcyBi
+ZWZvcmUgb3IgSQ0KPiB3b3VsZCBoYXZlIHJlc3BvbmRlZC4gTkFLIG9uIHRoaXMsIHNpbmNlIEkg
+ZG9uJ3Qgc2VlIGhvdyBpeGdiZSBpcyBwYXNzaW5nDQo+IGEgcmFuZG9tIGV2ZW50IHR5cGUuIFRo
+ZSBldmVudCB0eXBlIGdldHMgc2V0IHRvIFBUUF9DTE9DS19QUFMganVzdCBhIGZldw0KPiBsaW5l
+cyBhYm92ZSAoYmVmb3JlIHRoZSBpZiAoIWFkYXB0ZXItPnB0cF9jbG9jaykgYmxvY2spLg0KPiAN
+Cj4gTWF0dGhldw0KDQpTcGVjaWZpY2FsbHksIGNvbW1pdCAzNjQ1YWRiYiAiaXhnYmU6IGZpeCB1
+bmluaXRpYWxpemVkIGV2ZW50LnR5cGUgaW4gaXhnYmVfcHRwX2NoZWNrX3Bwc19ldmVudCINCg0K
+OikNCg0KU29ycnkgSSBkaWRuJ3QgcmVwbHkgZGlyZWN0bHkgdG8geW91ciBvcmlnaW5hbCBlbWFp
+bCB3aXRoIHRoZSBjb25jZXJuLCBvciBDQyB5b3UuIEkgd2lsbCBkbyBzbyBuZXh0IHRpbWUuDQoN
+ClRoYW5rcw0KDQotIEpha2UNCg==
