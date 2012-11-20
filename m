@@ -1,53 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] pkt_sched: QFQ Plus: fair-queueing service at DRR cost
-Date: Tue, 20 Nov 2012 10:44:00 -0800
-Message-ID: <20121120104400.4832dea1@nehalam.linuxnetplumber.net>
-References: <20121120095304.420ded7c@nehalam.linuxnetplumber.net>
-	<20121120.130202.1918742054229219388.davem@davemloft.net>
-	<20121120100958.010e7605@nehalam.linuxnetplumber.net>
-	<20121120.131516.311189144173456123.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND PATCH net-next 1/1] sit: allow to configure 6rd
+ tunnels via netlink
+Date: Tue, 20 Nov 2012 13:45:15 -0500 (EST)
+Message-ID: <20121120.134515.1372649705198223402.davem@davemloft.net>
+References: <20121120.033405.490869980095149376.davem@davemloft.net>
+	<1353400905-28335-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paolo.valente@unimore.it, jhs@mojatatu.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121120.131516.311189144173456123.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42527 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753423Ab2KTSpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 13:45:17 -0500
+In-Reply-To: <1353400905-28335-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Nov 2012 13:15:16 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 20 Nov 2012 09:41:45 +0100
 
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Tue, 20 Nov 2012 10:09:58 -0800
+> This patch add the support of 6RD tunnels management via netlink.
+> Note that netdev_state_change() is now called when 6RD parameters are updated.
 > 
-> > On Tue, 20 Nov 2012 13:02:02 -0500 (EST)
-> > David Miller <davem@davemloft.net> wrote:
-> > 
-> >> From: Stephen Hemminger <shemminger@vyatta.com>
-> >> Date: Tue, 20 Nov 2012 09:53:04 -0800
-> >> 
-> >> > There are actually lots of bogus warnings than seem to only occur
-> >> > because gcc 4.4 does a bad job of checking. Later versions are fixed
-> >> > and don't generate warnings.
-> >> > 
-> >> > My preference is to not add the unnecessary initialization because
-> >> > if you get in the habit of doing it. The whole purpose of the uninitialized
-> >> > check is lost. 
-> >> 
-> >> Try again, this was with gcc-4.7.2-2 on Fedora.
-> >> 
-> >> There are too many preconditions, across multiple basic block, which
-> >> together ensure the skb is in fact initialized at the point in
-> >> question and the compiler simply isn't sophisticated enough to see
-> >> that.
-> > 
-> > Weird, it compiles  clean on x86-84 on Debian.
-> > gcc-4.7.real (Debian 4.7.2-4) 4.7.2
+> 6RD parameters are updated only if there is at least one 6RD attribute.
 > 
-> Fedora backports a lot more stuff into gcc than Debian does.
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Probably. that's it. Plus Fedora has more gcc maintainers.
+Applied, thanks.
