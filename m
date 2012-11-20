@@ -1,49 +1,39 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH v2] checkpatch: add double empty line check
-Date: Tue, 20 Nov 2012 22:26:23 +0200
-Message-ID: <1353443183.10779.12.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <20121120115239.GA7955@dm>
- <1353421624.6559.9.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120144329.GE7955@dm>
- <1353424027.6559.15.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120154443.GK7955@dm>
- <1353427570.6559.21.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120161417.GA17797@dm> <20121120163607.GB17797@dm>
- <1353438635.10779.10.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120193249.GH17797@dm> <20121120201142.GI17797@dm>
-Reply-To: eilong@broadcom.com
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Joe Perches" <joe@perches.com>,
-	"David Rientjes" <rientjes@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: "Andy Whitcroft" <apw@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121120201142.GI17797@dm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Shiyan <shc_work@mail.ru>
+Subject: [PATCH] irda: sir_dev: Fix copy/paste typo
+Date: Tue, 20 Nov 2012 23:59:11 +0400
+Message-ID: <1353441551-4359-1-git-send-email-shc_work@mail.ru>
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+	Alexander Shiyan <shc_work@mail.ru>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fallback4.mail.ru ([94.100.176.42]:46042 "EHLO
+	fallback4.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751859Ab2KTUgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 15:36:39 -0500
+Received: from smtp36.i.mail.ru (smtp36.i.mail.ru [94.100.177.96])
+	by fallback4.mail.ru (mPOP.Fallback_MX) with ESMTP id 1C115145425
+	for <netdev@vger.kernel.org>; Tue, 20 Nov 2012 23:59:36 +0400 (MSK)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-11-20 at 20:11 +0000, Andy Whitcroft wrote:
-> > 
-> > Actually the version I sent should indeed cope with the deleted lines
-> > regardless of order.  It was cirtainly intended to.
-> 
-> ... and I think I thought of a couple more corner cases neither solution
-> will find.  So I am going to go away and make up a proper set of tests
-> for this apparently simple change.  As it is really annoying when it
-> false positives.  I will post against when I have something which works.
-> 
 
-Thanks Andy!
+Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
+---
+ drivers/net/irda/sir_dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-I will assist in testing it on all the scenarios I have created once you
-post it.
-
-I appreciate you taking the time to look into adding a test for this
-issue.
-
-Thanks,
-Eilon
+diff --git a/drivers/net/irda/sir_dev.c b/drivers/net/irda/sir_dev.c
+index 5039f08..43e9ab4 100644
+--- a/drivers/net/irda/sir_dev.c
++++ b/drivers/net/irda/sir_dev.c
+@@ -222,7 +222,7 @@ static void sirdev_config_fsm(struct work_struct *work)
+ 			break;
+ 
+ 		case SIRDEV_STATE_DONGLE_SPEED:
+-			if (dev->dongle_drv->reset) {
++			if (dev->dongle_drv->set_speed) {
+ 				ret = dev->dongle_drv->set_speed(dev, fsm->param);
+ 				if (ret < 0) {
+ 					fsm->result = ret;
+-- 
+1.7.8.6
