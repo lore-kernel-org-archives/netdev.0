@@ -1,178 +1,175 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH V2] xen/netfront: handle compound page fragments on transmit
-Date: Tue, 20 Nov 2012 16:00:57 +0000
-Message-ID: <1353427257-16789-1-git-send-email-ian.campbell@citrix.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH v2] checkpatch: add double empty line check
+Date: Tue, 20 Nov 2012 18:06:10 +0200
+Message-ID: <1353427570.6559.21.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
+ <20121120115239.GA7955@dm>
+ <1353421624.6559.9.camel@lb-tlvb-eilong.il.broadcom.com>
+ <20121120144329.GE7955@dm>
+ <1353424027.6559.15.camel@lb-tlvb-eilong.il.broadcom.com>
+ <20121120154443.GK7955@dm>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ian Campbell <ian.campbell@citrix.com>, xen-devel@lists.xen.org,
-	Eric Dumazet <edumazet@google.com>,
-	Konrad Rzeszutek Wilk <konrad@kernel.org>,
-	ANNIE LI <annie.li@oracle.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	Stefan Bader <stefan.bader@canonical.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:41281 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752343Ab2KTQFw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 11:05:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Joe Perches" <joe@perches.com>,
+	"David Rientjes" <rientjes@google.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: "Andy Whitcroft" <apw@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121120154443.GK7955@dm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-An SKB paged fragment can consist of a compound page with order > 0.
-However the netchannel protocol deals only in PAGE_SIZE frames.
+On Tue, 2012-11-20 at 15:44 +0000, Andy Whitcroft wrote:
+> On Tue, Nov 20, 2012 at 05:07:07PM +0200, Eilon Greenstein wrote:
+> > On Tue, 2012-11-20 at 14:43 +0000, Andy Whitcroft wrote:
+> > 
+> > > > > Also this fails if the fragment
+> > > > > is at the top of the hunk emiting a perl warning.
+> > > > 
+> > > > I did not see this warning. Can you please share this example? I tried
+> > > > adding a couple of empty lines at the beginning of a file and it seemed
+> > > > to work just fine for me (using perl v5.14.2).lines
+> > > 
+> > > Ok, this is actually if it is at the bottom, not the top.  So if you
+> > > have a range of lines newly added to the bottom of the file.  Leading to
+> > > this warning:
+> > > 
+> > > Use of uninitialized value within @rawlines in pattern match (m//) at
+> > > ../checkpatch/scripts/checkpatch.pl line 3586.
+> > 
+> > Oh... of course, I should have seen that. I did not check changes at the
+> > end of the file.
+> > 
+> > What do you say about something like that (using nextline out of
+> > rawlines only if it defined):
+> > diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+> > index 21a9f5d..c0c610c 100755
+> > --- a/scripts/checkpatch.pl
+> > +++ b/scripts/checkpatch.pl
+> > @@ -3579,6 +3579,19 @@ sub process {
+> >                         WARN("EXPORTED_WORLD_WRITABLE",
+> >                              "Exporting world writable files is usually an error. Consider more restrictive permissions.
+> >                 }
+> > +
+> > +# check for double empty lines
+> > +               if ($line =~ /^\+\s*$/) {
+> > +                       my $nextline = "";
+> > +                       if (defined($rawlines[$linenr])) {
+> > +                               $nextline = $rawlines[$linenr];
+> > +                       }
+> > +                       if ($nextline =~ /^\s*$/ ||
+> > +                           $prevline =~ /^\+?\s*$/ && $nextline !~ /^\+\s*$/) {
+> > +                               CHK("DOUBLE_EMPTY_LINE",
+> > +                                   "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
+> > +                       }
+> > +               }
+> >         }
+> >  
+> > 
+> > 
+> 
+> You cannot really rely on nextline even if valid as it may not even be
+> from this hunk.  This is why in my attempt I detected the top of a long
+> run of blanks and let the hunk start initialisation reset the detector.
 
-Handle this in xennet_make_frags by iterating over the frames which
-make up the page.
 
-This is the netfront equivalent to 6a8ed462f16b for netback.
+I'm only testing the nextline if the current line is newly added. If I
+got it right, when a line is newly added, the next line can be:
+a. another new line
+b. existing line (provided for context)
+c. Does not exist since this is the end of the file (I missed this one
+originally)
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: netdev@vger.kernel.org
-Cc: xen-devel@lists.xen.org
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
-Cc: ANNIE LI <annie.li@oracle.com>
-Cc: Sander Eikelenboom <linux@eikelenboom.it>
-Cc: Stefan Bader <stefan.bader@canonical.com>
----
-v2: check we have enough room in the ring and that the other end can
-    cope with the number of slots in a single frame
----
- drivers/net/xen-netfront.c |   95 ++++++++++++++++++++++++++++++++++----------
- 1 files changed, 74 insertions(+), 21 deletions(-)
+It cannot just jump to the next hunk and it cannot be a deleted line,
+right?
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index caa0110..d9b16f4 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -452,29 +452,82 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
- 	/* Grant backend access to each skb fragment page. */
- 	for (i = 0; i < frags; i++) {
- 		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-+		struct page *page = skb_frag_page(frag);
-+		unsigned long size = skb_frag_size(frag);
-+		unsigned long offset = frag->page_offset;
+> 
+> From 6556d7bc2f9447e1d179c1dd32a618b124c26e46 Mon Sep 17 00:00:00 2001
+> From: Andy Whitcroft <apw@canonical.com>
+> Date: Sat, 17 Nov 2012 13:17:37 +0200
+> Subject: [PATCH] checkpatch: strict warning for multiple blank lines
+> 
+> Signed-off-by: Andy Whitcroft <apw@canonical.com>
+> ---
+>  scripts/checkpatch.pl |   11 +++++++++++
+>  1 file changed, 11 insertions(+)
+> 
+> diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+> index fb67d47..ae01b90 100755
+> --- a/scripts/checkpatch.pl
+> +++ b/scripts/checkpatch.pl
+> @@ -1413,6 +1413,7 @@ sub process {
+>  	my %suppress_whiletrailers;
+>  	my %suppress_export;
+>  	my $suppress_statement = 0;
+> +	my $suppress_multipleblank = -1;
+>  
+>  	# Pre-scan the patch sanitizing the lines.
+>  	# Pre-scan the patch looking for any __setup documentation.
+> @@ -1523,6 +1524,7 @@ sub process {
+>  			%suppress_whiletrailers = ();
+>  			%suppress_export = ();
+>  			$suppress_statement = 0;
+> +			$suppress_multipleblank = -1;
+>  			next;
+>  
+>  # track the line number as we move through the hunk, note that
+> @@ -1945,6 +1947,15 @@ sub process {
+>  			      "use the SSYNC() macro in asm/blackfin.h\n" . $herevet);
+>  		}
+>  
+> +# multiple blank lines.
+> +		if ($line =~ /^-/ || ($suppress_multipleblank == $linenr && $line =~ /^[ \+]\s*$/)) {
+> +			$suppress_multipleblank++;
+> +		} elsif ($prevline =~ /^\+\s*$/ and $line =~ /^\+\s*$/) {
+> +			$suppress_multipleblank = $linenr + 1;
+> +			CHK("MULTIPLE_EMPTY_LINE",
+> +			    "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
+> +		}
+> +
+>  # Check for potential 'bare' types
+>  		my ($stat, $cond, $line_nr_next, $remain_next, $off_next,
+>  		    $realline_next);
+
+Please consider this patch as an example to three newly added double
+empty lines that are not caught by this version but are seen in the
+attempt I sent before:
+
+diff --git a/test.c b/test.c
+index e3f1362..5ced040 100644
+--- a/test.c
++++ b/test.c
+@@ -1,4 +1,5 @@
  
--		tx->flags |= XEN_NETTXF_more_data;
-+		/* Data must not cross a page boundary. */
-+		BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
++
+ /* there is an empty line just above me (the first line in this file)
+  * nothing
+  * nothing
+@@ -12,17 +13,8 @@
+  */
+  /* There is an empty line just below me */
  
--		id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
--		np->tx_skbs[id].skb = skb_get(skb);
--		tx = RING_GET_REQUEST(&np->tx, prod++);
--		tx->id = id;
--		ref = gnttab_claim_grant_reference(&np->gref_tx_head);
--		BUG_ON((signed short)ref < 0);
-+		/* Skip unused frames from start of page */
-+		page += offset >> PAGE_SHIFT;
-+		offset &= ~PAGE_MASK;
+-/* nothing
+- * nothing
+- * nothing
+- * nothing
+- * nothing
+- * nothing
+- * nothing
+- * nothing
+- * nothing
+- * nothing
+- */
++
++/* just added a new empty line after deleting a segment */
+ /* nothing
+  * nothing
+  * nothing
+@@ -36,3 +28,4 @@
+  */
+  /* The last line (right below me) is empty */
  
--		mfn = pfn_to_mfn(page_to_pfn(skb_frag_page(frag)));
--		gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
--						mfn, GNTMAP_readonly);
-+		while (size > 0) {
-+			unsigned long bytes;
- 
--		tx->gref = np->grant_tx_ref[id] = ref;
--		tx->offset = frag->page_offset;
--		tx->size = skb_frag_size(frag);
--		tx->flags = 0;
-+			BUG_ON(offset >= PAGE_SIZE);
 +
-+			bytes = PAGE_SIZE - offset;
-+			if (bytes > size)
-+				bytes = size;
-+
-+			tx->flags |= XEN_NETTXF_more_data;
-+
-+			id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
-+			np->tx_skbs[id].skb = skb_get(skb);
-+			tx = RING_GET_REQUEST(&np->tx, prod++);
-+			tx->id = id;
-+			ref = gnttab_claim_grant_reference(&np->gref_tx_head);
-+			BUG_ON((signed short)ref < 0);
-+
-+			mfn = pfn_to_mfn(page_to_pfn(page));
-+			gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
-+							mfn, GNTMAP_readonly);
-+
-+			tx->gref = np->grant_tx_ref[id] = ref;
-+			tx->offset = offset;
-+			tx->size = bytes;
-+			tx->flags = 0;
-+
-+			offset += bytes;
-+			size -= bytes;
-+
-+			/* Next frame */
-+			if (offset == PAGE_SIZE && size) {
-+				BUG_ON(!PageCompound(page));
-+				page++;
-+				offset = 0;
-+			}
-+		}
- 	}
- 
- 	np->tx.req_prod_pvt = prod;
- }
- 
-+/*
-+ * Count how many ring slots are required to send the frags of this
-+ * skb. Each frag might be a compound page.
-+ */
-+static int xennet_count_skb_frag_slots(struct sk_buff *skb)
-+{
-+	int i, frags = skb_shinfo(skb)->nr_frags;
-+	int pages = 0;
-+
-+	for (i = 0; i < frags; i++) {
-+		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-+		unsigned long size = skb_frag_size(frag);
-+		unsigned long offset = frag->page_offset;
-+
-+		/* Skip unused frames from start of page */
-+		offset &= ~PAGE_MASK;
-+
-+		pages += PFN_UP(offset + size);
-+	}
-+
-+	return pages;
-+}
-+
- static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	unsigned short id;
-@@ -487,23 +540,23 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	grant_ref_t ref;
- 	unsigned long mfn;
- 	int notify;
--	int frags = skb_shinfo(skb)->nr_frags;
-+	int slots;
- 	unsigned int offset = offset_in_page(data);
- 	unsigned int len = skb_headlen(skb);
- 	unsigned long flags;
- 
--	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
--	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
--		printk(KERN_ALERT "xennet: skb rides the rocket: %d frags\n",
--		       frags);
--		dump_stack();
-+	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
-+		xennet_count_skb_frag_slots(skb);
-+	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
-+		printk(KERN_ALERT "xennet: skb rides the rocket: %d slots\n",
-+		       slots);
- 		goto drop;
- 	}
- 
- 	spin_lock_irqsave(&np->tx_lock, flags);
- 
- 	if (unlikely(!netif_carrier_ok(dev) ||
--		     (frags > 1 && !xennet_can_sg(dev)) ||
-+		     (slots > 1 && !xennet_can_sg(dev)) ||
- 		     netif_needs_gso(skb, netif_skb_features(skb)))) {
- 		spin_unlock_irqrestore(&np->tx_lock, flags);
- 		goto drop;
--- 
-1.7.2.5
