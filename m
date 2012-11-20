@@ -1,102 +1,97 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH v2] checkpatch: add double empty line check
-Date: Tue, 20 Nov 2012 21:10:35 +0200
-Message-ID: <1353438635.10779.10.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120115239.GA7955@dm>
- <1353421624.6559.9.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120144329.GE7955@dm>
- <1353424027.6559.15.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120154443.GK7955@dm>
- <1353427570.6559.21.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120161417.GA17797@dm> <20121120163607.GB17797@dm>
-Reply-To: eilong@broadcom.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: send abort chunk when max_retrans exceeded
+Date: Tue, 20 Nov 2012 14:15:14 -0500
+Message-ID: <20121120191514.GA10287@shamino.rdu.redhat.com>
+References: <1353434344-17864-1-git-send-email-nhorman@tuxdriver.com>
+ <50ABCF87.2090901@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Joe Perches" <joe@perches.com>,
-	"David Rientjes" <rientjes@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: "Andy Whitcroft" <apw@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121120163607.GB17797@dm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:54581 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582Ab2KTTP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 14:15:29 -0500
+Content-Disposition: inline
+In-Reply-To: <50ABCF87.2090901@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-11-20 at 18:36 +0200, Andy Whitcroft wrote:
-> On Tue, Nov 20, 2012 at 04:14:17PM +0000, Andy Whitcroft wrote:
-> > On Tue, Nov 20, 2012 at 06:06:10PM +0200, Eilon Greenstein wrote:
-> > > I'm only testing the nextline if the current line is newly added. If I
-> > > got it right, when a line is newly added, the next line can be:
-> > > a. another new line
-> > > b. existing line (provided for context)
-> > > c. Does not exist since this is the end of the file (I missed this one
-> > > originally)
-> > > 
-> > > It cannot just jump to the next hunk and it cannot be a deleted line,
-> > > right?
+On Tue, Nov 20, 2012 at 01:44:23PM -0500, Vlad Yasevich wrote:
+> On 11/20/2012 12:59 PM, Neil Horman wrote:
+> >In the event that an association exceeds its max_retrans attempts, we should
+> >send an ABORT chunk indicating that we are closing the assocation as a result.
+> >Because of the nature of the error, its unlikely to be received, but its a nice
+> >clean way to close the association if it does make it through, and it will give
+> >anyone watching via tcpdump a clue as to what happened.
+> >
+> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >CC: Vlad Yasevich <vyasevich@gmail.com>
+> >CC: "David S. Miller" <davem@davemloft.net>
+> >CC: linux-sctp@vger.kernel.org
+> >---
+> >  include/net/sctp/sm.h    |  2 ++
+> >  net/sctp/sm_make_chunk.c | 26 +++++++++++++++++++++-----
+> >  net/sctp/sm_sideeffect.c |  9 ++++++++-
+> >  3 files changed, 31 insertions(+), 6 deletions(-)
+> >
+> >diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+> >index b5887e1..2a82d13 100644
+> >--- a/include/net/sctp/sm.h
+> >+++ b/include/net/sctp/sm.h
+> >@@ -234,6 +234,8 @@ struct sctp_chunk *sctp_make_abort_violation(const struct sctp_association *,
+> >  struct sctp_chunk *sctp_make_violation_paramlen(const struct sctp_association *,
+> >  				   const struct sctp_chunk *,
+> >  				   struct sctp_paramhdr *);
+> >+struct sctp_chunk *sctp_make_violation_max_retrans(const struct sctp_association *,
+> >+						   const struct sctp_chunk *);
+> >  struct sctp_chunk *sctp_make_heartbeat(const struct sctp_association *,
+> >  				  const struct sctp_transport *);
+> >  struct sctp_chunk *sctp_make_heartbeat_ack(const struct sctp_association *,
+> >diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> >index fbe1636..d6a8c80 100644
+> >--- a/net/sctp/sm_make_chunk.c
+> >+++ b/net/sctp/sm_make_chunk.c
+> >@@ -1074,17 +1074,33 @@ struct sctp_chunk *sctp_make_violation_paramlen(
+> >  {
+> >  	struct sctp_chunk *retval;
+> >  	static const char error[] = "The following parameter had invalid length:";
+> >-	size_t payload_len = sizeof(error) + sizeof(sctp_errhdr_t) +
+> >-				sizeof(sctp_paramhdr_t);
+> >+	size_t payload_len = sizeof(error) + sizeof(sctp_errhdr_t);
+> >
+> >  	retval = sctp_make_abort(asoc, chunk, payload_len);
+> >  	if (!retval)
+> >  		goto nodata;
+> >
+> >-	sctp_init_cause(retval, SCTP_ERROR_PROTO_VIOLATION,
+> >-			sizeof(error) + sizeof(sctp_paramhdr_t));
+> >+	sctp_init_cause(retval, SCTP_ERROR_PROTO_VIOLATION, sizeof(error));
+> >+	sctp_addto_chunk(retval, sizeof(error), error);
+> >+
+> >+nodata:
+> >+	return retval;
+> >+}
 > 
-> Oh and in theory at least it could be a - line, though diff never
-> generates things in that order.
+> Neil
 > 
+> You ended dropping the parameter information of the parameter that
+> caused the violation.  Was that intentional?
+> 
+Yes, it was, because theres not really IMO a specific parameter that causes this
+abort condition.  If a chunk needs to be resent more than max_retrans times, we
+abort the connection, theres no specific parameter that we can point to that
+says "this caused the problem", we're just aborting because we can't get a SACK 
+from the peer.  Likewise, I can't think of any information that we can include
+that would give the peer, or the anyone tcpdumping the connection an improved
+view as to why the abort happened, beyond the string this patch currently
+includes.
 
-Andy - I could not find any other perl warnings. In the current
-suggestion, only $line and $prevline are being accessed unconditionally
-and $rawlines[$linenr] is accessed only after checking it exists - so it
-seems safe.
+I know I had privately sent you an early version of the patch as a rough draft
+which did include space for a param header, but that patch never filled that
+space out, since we don't have any valid information to fill it out with.
 
-About the logic - true, if diff will show deleted lines after newly
-added lines, some new double line segments will be missed. However, it
-seems like few other things will break if diff will start acting out
-like that. The suggestion you posted earlier will miss those as well,
-and starting to check for this weird case (of deleted lines after the
-added lines) does not seem right.
-
-So this patch seems safe, it does not generate false positives and it
-does catch all the cases we can currently generate with diff - can you
-please consider applying it to checkpatch?
-
-I'm posting it again below for easier reference, please let me know if
-you would like me to send it in a clean email separately.
-
-Thanks,
-Eilon
-
->From 403038375a9c09046631f674d14c221758a0de61 Mon Sep 17 00:00:00 2001
-From: Eilon Greenstein <eilong@broadcom.com>
-Date: Tue, 20 Nov 2012 21:05:30 +0200
-Subject: [PATCH] checkpatch: add double empty line check
-
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- scripts/checkpatch.pl |   13 +++++++++++++
- 1 file changed, 13 insertions(+)
-
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 21a9f5d..c0c610c 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -3579,6 +3579,19 @@ sub process {
- 			WARN("EXPORTED_WORLD_WRITABLE",
- 			     "Exporting world writable files is usually an error. Consider more restrictive permissions.\n" . $herecurr);
- 		}
-+
-+# check for double empty lines
-+		if ($line =~ /^\+\s*$/) {
-+			my $nextline = "";
-+			if (defined($rawlines[$linenr])) {
-+				$nextline = $rawlines[$linenr];
-+			}
-+			if ($nextline =~ /^\s*$/ ||
-+			    $prevline =~ /^\+?\s*$/ && $nextline !~ /^\+\s*$/) {
-+				CHK("DOUBLE_EMPTY_LINE",
-+				    "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
-+			}
-+		}
- 	}
- 
- 	# If we have no input at all, then there is nothing to report on
--- 
-1.7.9.5
+Thanks & Regards
+Neil
