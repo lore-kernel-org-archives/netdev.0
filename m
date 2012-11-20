@@ -1,57 +1,88 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH v2] checkpatch: add double empty line check
-Date: Tue, 20 Nov 2012 18:22:24 +0200
-Message-ID: <1353428544.6559.26.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120115239.GA7955@dm>
- <1353421624.6559.9.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120144329.GE7955@dm>
- <1353424027.6559.15.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120154443.GK7955@dm>
- <1353427570.6559.21.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120161417.GA17797@dm>
-Reply-To: eilong@broadcom.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V2] xen/netfront: handle compound page fragments on
+ transmit
+Date: Tue, 20 Nov 2012 08:27:24 -0800
+Message-ID: <1353428844.2590.17.camel@edumazet-glaptop>
+References: <1353427257-16789-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Joe Perches" <joe@perches.com>,
-	"David Rientjes" <rientjes@google.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: "Andy Whitcroft" <apw@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121120161417.GA17797@dm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	Eric Dumazet <edumazet@google.com>,
+	Konrad Rzeszutek Wilk <konrad@kernel.org>,
+	ANNIE LI <annie.li@oracle.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Stefan Bader <stefan.bader@canonical.com>
+To: Ian Campbell <ian.campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:35010 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752923Ab2KTQ12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 11:27:28 -0500
+Received: by mail-da0-f46.google.com with SMTP id p5so1306004dak.19
+        for <netdev@vger.kernel.org>; Tue, 20 Nov 2012 08:27:27 -0800 (PST)
+In-Reply-To: <1353427257-16789-1-git-send-email-ian.campbell@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-11-20 at 16:14 +0000, Andy Whitcroft wrote:
-> On Tue, Nov 20, 2012 at 06:06:10PM +0200, Eilon Greenstein wrote:
-> > I'm only testing the nextline if the current line is newly added. If I
-> > got it right, when a line is newly added, the next line can be:
-> > a. another new line
-> > b. existing line (provided for context)
-> > c. Does not exist since this is the end of the file (I missed this one
-> > originally)
-> > 
-> > It cannot just jump to the next hunk and it cannot be a deleted line,
-> > right?
+On Tue, 2012-11-20 at 16:00 +0000, Ian Campbell wrote:
+> An SKB paged fragment can consist of a compound page with order > 0.
+> However the netchannel protocol deals only in PAGE_SIZE frames.
 > 
-> Mostly that would be true.  If the hunk is the last hunk and adds lines
-> at the bottom of a file _and_ the context around it has blank lines then
-> something.  I think that would trip up this algorithm, reporting beyond
-> the end of the hunk perhaps.
+> Handle this in xennet_make_frags by iterating over the frames which
+> make up the page.
+> 
+> This is the netfront equivalent to 6a8ed462f16b for netback.
+...
 
-I do not want to cause any perl warning, but adding a new segment that
-ends with a new empty line above an existing empty line is something
-that I want to catch - so checking the next line (even if it is not new)
-is desired. Do you have other suggestions on how to implement something
-like that?
+> -	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
+> -	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
+> -		printk(KERN_ALERT "xennet: skb rides the rocket: %d frags\n",
+> -		       frags);
+> -		dump_stack();
+> +	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
+> +		xennet_count_skb_frag_slots(skb);
+> +	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+> +		printk(KERN_ALERT "xennet: skb rides the rocket: %d slots\n",
+> +		       slots);
 
-I'm not saying that my patch is safe - I already missed a corner case
-when adding a line at the end of the file, but I'm willing to run more
-tests and see if I hit some perl warning. So how about running it on the
-last X changes in the kernel git tree? How many tests are enough to get
-reasonable confidant level?
+I think this is wrong.
 
-Thanks,
-Eilon
+You should change netfront_tx_slot_available() to stop the queue before
+this can happen.
+
+Yes, you dont hit this on your tests, but a driver should not drop a
+good packet.
+
+>  		goto drop;
+>  	}
+>  
+>  	spin_lock_irqsave(&np->tx_lock, flags);
+>  
+>  	if (unlikely(!netif_carrier_ok(dev) ||
+> -		     (frags > 1 && !xennet_can_sg(dev)) ||
+> +		     (slots > 1 && !xennet_can_sg(dev)) ||
+>  		     netif_needs_gso(skb, netif_skb_features(skb)))) {
+>  		spin_unlock_irqrestore(&np->tx_lock, flags);
+>  		goto drop;
+
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index caa0110..cb1e605 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -215,10 +215,13 @@ static void rx_refill_timeout(unsigned long data)
+        napi_schedule(&np->napi);
+ }
+ 
++/* Considering a 64Kb packet of 16 frags, each frag can be mapped
++ * to 3 order-0 parts on pathological cases
++ */
+ static int netfront_tx_slot_available(struct netfront_info *np)
+ {
+        return (np->tx.req_prod_pvt - np->tx.rsp_cons) <
+-               (TX_MAX_TARGET - MAX_SKB_FRAGS - 2);
++               (TX_MAX_TARGET - 3*MAX_SKB_FRAGS - 2);
+ }
+ 
+ static void xennet_maybe_wake_tx(struct net_device *dev)
