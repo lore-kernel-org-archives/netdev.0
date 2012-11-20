@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] caif: Remove redundant null check before kfree in
- cfctrl.c
-Date: Tue, 20 Nov 2012 15:53:25 -0500 (EST)
-Message-ID: <20121120.155325.2219030136886421819.davem@davemloft.net>
-References: <1353408838-28678-1-git-send-email-sachin.kamat@linaro.org>
-	<81C3A93C17462B4BBD7E272753C105792457273283@EXDCVYMBSTM005.EQ1STM.local>
+Subject: Re: [PATCH 1/2] net: Remove redundant null check before kfree in
+ dev.c
+Date: Tue, 20 Nov 2012 15:53:32 -0500 (EST)
+Message-ID: <20121120.155332.2259835383523668561.davem@davemloft.net>
+References: <1353409024-28853-1-git-send-email-sachin.kamat@linaro.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sachin.kamat@linaro.org, netdev@vger.kernel.org, patches@linaro.org
-To: sjur.brandeland@stericsson.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, patches@linaro.org
+To: sachin.kamat@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43972 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43975 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753210Ab2KTUx0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 15:53:26 -0500
-In-Reply-To: <81C3A93C17462B4BBD7E272753C105792457273283@EXDCVYMBSTM005.EQ1STM.local>
+	with ESMTP id S1753292Ab2KTUxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 15:53:33 -0500
+In-Reply-To: <1353409024-28853-1-git-send-email-sachin.kamat@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-Date: Tue, 20 Nov 2012 12:04:23 +0100
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Date: Tue, 20 Nov 2012 16:27:04 +0530
 
->> kfree on a null pointer is a no-op.
->>=20
->> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-> Acked-by: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+> kfree on a null pointer is a no-op.
+> 
+> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
 
 Applied.
