@@ -1,41 +1,43 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHSET REPOST v2 cgroup/for-3.8] netcls/prio_cgroup: update
-	hierarchy support
-Date: Tue, 20 Nov 2012 13:37:40 -0500 (EST)
-Message-ID: <20121120.133740.2078663535446438063.davem@davemloft.net>
-References: <1353400211-5182-1-git-send-email-tj@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 net-next] add DOVE extensions for VXLAN
+Date: Tue, 20 Nov 2012 13:41:53 -0500 (EST)
+Message-ID: <20121120.134153.1601157241229102533.davem@davemloft.net>
+References: <201211201251.qAKCoEN8003256@lab1.dls>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1353400211-5182-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: dlstevens@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42504 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751582Ab2KTSlz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 13:41:55 -0500
+In-Reply-To: <201211201251.qAKCoEN8003256@lab1.dls>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Date: Tue, 20 Nov 2012 00:30:04 -0800
+From: David L Stevens <dlstevens@us.ibm.com>
+Date: Tue, 20 Nov 2012 07:50:14 -0500
 
->  0001-netcls_cgroup-move-config-inheritance-to-css_online-.patch
->  0002-netprio_cgroup-simplify-write_priomap.patch
->  0003-netprio_cgroup-shorten-variable-names-in-extend_netd.patch
->  0004-netprio_cgroup-reimplement-priomap-expansion.patch
->  0005-netprio_cgroup-use-cgroup-id-instead-of-cgroup_netpr.patch
->  0006-netprio_cgroup-implement-netprio-_set-_prio-helpers.patch
->  0007-netprio_cgroup-allow-nesting-and-inherit-config-on-c.patch
+> 
+> 	This patch provides extensions to VXLAN for supporting Distributed
+> Overlay Virtual Ethernet (DOVE) networks. The patch includes:
+> 
+> 	+ a dove flag per VXLAN device to enable DOVE extensions
+> 	+ ARP reduction, whereby a bridge-connected VXLAN tunnel endpoint
+> 		answers ARP requests from the local bridge on behalf of
+> 		remote DOVE clients
+> 	+ route short-circuiting (aka L3 switching). Known destination IP
+> 		addresses use the corresponding destination MAC address for
+> 		switching rather than going to a (possibly remote) router first.
+> 	+ netlink notification messages for forwarding table and L3 switching
+> 		misses
+> 
+> Changes since v2
+> 	- combined bools into "u32 flags"
+> 	- replaced loop with !is_zero_ether_addr()
+> 
+> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-For series:
-
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Applied, thanks David.
