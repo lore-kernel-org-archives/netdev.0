@@ -1,67 +1,58 @@
-From: Rami Rosen <roszenrami@gmail.com>
-Subject: Re: question about eth_header
-Date: Tue, 20 Nov 2012 16:51:03 +0200
-Message-ID: <CAKoUArnRnx0txGWhNWpZAFBijWmtzdOe-D7Qb62-5AvBCfgHJQ@mail.gmail.com>
-References: <1353419044.16036.6.camel@lb-tlvb-dmitry>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH] xen/netfront: handle compound page fragments on transmit
+Date: Tue, 20 Nov 2012 15:05:41 +0000
+Message-ID: <1353423941.13542.47.camel@zakaz.uk.xensource.com>
+References: <1353403286.18229.159.camel@zakaz.uk.xensource.com>
+	 <1353411606-15940-1-git-send-email-ian.campbell@citrix.com>
+	 <1353422735.2590.6.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Konrad Rzeszutek Wilk <konrad@kernel.org>,
+	ANNIE LI <annie.li@oracle.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	"Stefan Bader" <stefan.bader@canonical.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:54236 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752418Ab2KTOvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 09:51:05 -0500
-Received: by mail-qa0-f53.google.com with SMTP id k31so810578qat.19
-        for <netdev@vger.kernel.org>; Tue, 20 Nov 2012 06:51:03 -0800 (PST)
-In-Reply-To: <1353419044.16036.6.camel@lb-tlvb-dmitry>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:20382 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751230Ab2KTPFp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 10:05:45 -0500
+In-Reply-To: <1353422735.2590.6.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I think that you should call skb_reset_mac_header()
-before calling eth_hdr() and that skb_reset_mac_header() should not be
-inside eth_hdr(). Following is explanation:
+On Tue, 2012-11-20 at 14:45 +0000, Eric Dumazet wrote:
+> > +		/* Skip unused frames from start of page */
+> 
+> 'frame' in the comment means an order-0 page ?
 
-In the RX path, when we get a packet in the driver, what essentially
-happens is that at this point, we have a pointer to
-the packet buffer in skb->data, and its length in skb->len.
+Yes. Confusing in the context of a network driver I know! I couldn't
+think of a better term.
 
-With ethernet packets, the driver will call eth_type_trans(); please
-look at ethernet drivers code.
-eth_type_trans() indeed sets the MAC header pointer by calling
-skb_reset_mac_header() on the skb.
+> > +			id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
+> > +			np->tx_skbs[id].skb = skb_get(skb);
+> 
+> BTW this skb_get() means extra atomic operations for every 4096 bytes
+> unit, and an extra atomic op (and test for final 0) at TX completion.
+> This could be avoided, by setting np->tx_skbs[id].skb = skb only for the
+> very last unit.
 
-Afterwards, the eth_type_trans() will advance skb->data by
-14, the size of the Ethernet header, and decrease skb->len
-by calling skb_pull_inline(skb, ETH_HLEN).
+Thanks. Might be tricky because guests can ack the individual requests
+in any order but it's something worth having a look at.
 
-In case you are wondering why the skb_reset_mac_header() is not inside
-the eth_hdr(), I think that the reason is that, once
-skb_reset_mac_header() on the skb was called, there are cases when we
-want to make several calls eth_hdr() without each time again resetting
-the mac header, for example, in the bridging code.  There is no reason
-to doing it in terms of performance.
+> >  	np->tx.req_prod_pvt = prod;
+> 
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> Thanks !
 
-rgs,
-Rami Rosen
+Thanks for the review.
 
-http://ramirose.wix.com/ramirosen
+Ian.
 
-
-On Tue, Nov 20, 2012 at 3:44 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
-> Hi,
->
-> I am trying to use eth_hdr() but it looks like it doesn't point to mac
-> header (mac header is present at skb->data). Shouldn't
-> skb_reset_mac_header() be called inside eth_header()?
->
-> Thanks.
->
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
