@@ -1,124 +1,95 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: rlb mode of bond should not alter ARP originating via bridge
-Date: Mon, 19 Nov 2012 17:02:34 -0800
-Message-ID: <30871.1353373354@death.nxdomain>
-References: <1352972861-17577-1-git-send-email-zheng.x.li@oracle.com>
-Cc: netdev@vger.kernel.org, andy@greyhouse.net,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	joe.jin@oracle.com
-To: Zheng Li <zheng.x.li@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <1352972861-17577-1-git-send-email-zheng.x.li@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [Suggestion] net/tipc: can delete checking: (if_local_len > TIPC_MAX_IF_NAME)
+ || (if_peer_len  > TIPC_MAX_IF_NAME)
+Date: Tue, 20 Nov 2012 12:08:41 +0800
+Message-ID: <50AB0249.20802@asianux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: Shan Wei <shanwei88@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:37770 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752681Ab2KTEHs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 23:07:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Zheng Li <zheng.x.li@oracle.com> wrote:
+Hello David Miller:
 
->ARP traffic passing through a bridge and out via the bond (when the bond is a 
->port of the bridge) should not have its source MAC address adjusted by the 
->receive load balance code in rlb_arp_xmit.
+  at net/tipc/link.c:212,213, we can delete the check (if_local_len > TIPC_MAX_IF_NAME) and (if_peer_len  > TIPC_MAX_IF_NAME)
+  for the total buffer length is no more than TIPC_MAX_IF_NAME, already (at line 182..186).
 
-	This patch differs from prior versions in that it does more than
-what's described here; it also disables the receive load balance logic
-for any ARPs (request or reply) that are passing through the bond (not
-of local origin).  For ARP replies, that's mostly harmless, as the ARPs
-passing through will simply always be sent from one particular slave
-(the active slave) instead of being balanced.
+  suggest to modify it, although it is minor.
 
-	For ARP requests, though, they are already always sent via the
-active slave, but there is also some logic in rlb_arp_xmit to limit the
-side effects from the broadcast ARP, in particular this part:
+thanks.
 
-		/* The ARP reply packets must be delayed so that
-		 * they can cancel out the influence of the ARP request.
-		 */
-		bond->alb_info.rlb_update_delay_counter = RLB_UPDATE_DELAY;
 
-		/* arp requests are broadcast and are sent on the primary
-		 * the arp request will collapse all clients on the subnet to
-		 * the primary slave. We must register these clients to be
-		 * updated with their assigned mac.
-		 */
-		rlb_req_update_subnet_clients(bond, arp->ip_src);
+ 167 static int link_name_validate(const char *name,
+ 168                                 struct tipc_link_name *name_parts)
+ 169 {
+ 170         char name_copy[TIPC_MAX_LINK_NAME];
+ 171         char *addr_local;
+ 172         char *if_local;
+ 173         char *addr_peer;
+ 174         char *if_peer;
+ 175         char dummy;
+ 176         u32 z_local, c_local, n_local;
+ 177         u32 z_peer, c_peer, n_peer;
+ 178         u32 if_local_len;
+ 179         u32 if_peer_len;
+ 180 
+ 181         /* copy link name & ensure length is OK */
+ 182         name_copy[TIPC_MAX_LINK_NAME - 1] = 0;
+ 183         /* need above in case non-Posix strncpy() doesn't pad with nulls */
+ 184         strncpy(name_copy, name, TIPC_MAX_LINK_NAME);
+ 185         if (name_copy[TIPC_MAX_LINK_NAME - 1] != 0)
+ 186                 return 0;
+ 187 
+ 188         /* ensure all component parts of link name are present */
+ 189         addr_local = name_copy;
+ 190         if_local = strchr(addr_local, ':');
+ 191         if (if_local == NULL)
+ 192                 return 0;
+ 193         *(if_local++) = 0;
+ 194         addr_peer = strchr(if_local, '-');
+ 195         if (addr_peer == NULL)
+ 196                 return 0;
+ 197         *(addr_peer++) = 0;
+ 198         if_local_len = addr_peer - if_local;
+ 199         if_peer = strchr(addr_peer, ':');
+ 200         if (if_peer == NULL)
+ 201                 return 0;
+ 202         *(if_peer++) = 0;
+ 203         if_peer_len = strlen(if_peer) + 1;
+ 204 
+ 205         /* validate component parts of link name */
+ 206         if ((sscanf(addr_local, "%u.%u.%u%c",
+ 207                     &z_local, &c_local, &n_local, &dummy) != 3) ||
+ 208             (sscanf(addr_peer, "%u.%u.%u%c",
+ 209                     &z_peer, &c_peer, &n_peer, &dummy) != 3) ||
+ 210             (z_local > 255) || (c_local > 4095) || (n_local > 4095) ||
+ 211             (z_peer  > 255) || (c_peer  > 4095) || (n_peer  > 4095) ||
+ 212             (if_local_len <= 1) || (if_local_len > TIPC_MAX_IF_NAME) ||
+ 213             (if_peer_len  <= 1) || (if_peer_len  > TIPC_MAX_IF_NAME))
+ 214                 return 0;
+ 215 
+ 216         /* return link name components, if necessary */
+ 217         if (name_parts) {
+ 218                 name_parts->addr_local = tipc_addr(z_local, c_local, n_local);
+ 219                 strcpy(name_parts->if_local, if_local);
+ 220                 name_parts->addr_peer = tipc_addr(z_peer, c_peer, n_peer);
+ 221                 strcpy(name_parts->if_peer, if_peer);
+ 222         }
+ 223         return 1;
+ 224 }
 
-	that arranges for clients to be given ARP updates for their
-slave assignments (which may change to the active slave, due to the ARP
-broadcast being sent via the active slave).
 
-	I think the ARP reply side of this is fine (and is what is
-described in teh changelog), but the ARP request behavior change is new
-with this version.
 
-	Since prior versions of the patch didn't cause this code to be
-skipped, is this change intentional?
+-- 
+Chen Gang
 
-	Did you check to see if the above logic is necessary for ARP
-requests passing through via a bridge to prevent peers from "stacking"
-(in terms of load balance assignment) on the active slave due to bridged
-ARP traffic?
-
-	-J
-
->Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
->Cc: Jay Vosburgh <fubar@us.ibm.com>
->Cc: Andy Gospodarek <andy@greyhouse.net>
->Cc: "David S. Miller" <davem@davemloft.net>
->
->---
-> drivers/net/bonding/bond_alb.c |    6 ++++++
-> drivers/net/bonding/bonding.h  |   13 +++++++++++++
-> 2 files changed, 19 insertions(+), 0 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->index e15cc11..75f6f0d 100644
->--- a/drivers/net/bonding/bond_alb.c
->+++ b/drivers/net/bonding/bond_alb.c
->@@ -694,6 +694,12 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
-> 	struct arp_pkt *arp = arp_pkt(skb);
-> 	struct slave *tx_slave = NULL;
->
->+	/* Only modify ARP's MAC if it originates locally;
->+	 * don't change ARPs arriving via a bridge.
->+	 */
->+	if (!bond_slave_has_mac(bond, arp->mac_src))
->+		return NULL;
->+
-> 	if (arp->op_code == htons(ARPOP_REPLY)) {
-> 		/* the arp must be sent on the selected
-> 		* rx channel
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->index f8af2fc..6dded56 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -22,6 +22,7 @@
-> #include <linux/in6.h>
-> #include <linux/netpoll.h>
-> #include <linux/inetdevice.h>
->+#include <linux/etherdevice.h>
-> #include "bond_3ad.h"
-> #include "bond_alb.h"
->
->@@ -450,6 +451,18 @@ static inline void bond_destroy_proc_dir(struct bond_net *bn)
-> }
-> #endif
->
->+static inline struct slave *bond_slave_has_mac(struct bonding *bond,
->+					       const u8 *mac)
->+{
->+	int i = 0;
->+	struct slave *tmp;
->+
->+	bond_for_each_slave(bond, tmp, i)
->+		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
->+			return tmp;
->+
->+	return NULL;
->+}
->
-> /* exported from bond_main.c */
-> extern int bond_net_id;
->-- 
->1.7.6.5
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Asianux Corporation
