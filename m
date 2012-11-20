@@ -1,209 +1,140 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen/netfront: handle compound page
- fragments on transmit
-Date: Tue, 20 Nov 2012 14:14:25 +0000
-Message-ID: <1353420865.13542.44.camel@zakaz.uk.xensource.com>
-References: <1353403286.18229.159.camel@zakaz.uk.xensource.com>
-	 <1353411606-15940-1-git-send-email-ian.campbell@citrix.com>
-	 <50AB856D02000078000A9EFD@nat28.tlf.novell.com>
-	 <1353418516.13542.38.camel@zakaz.uk.xensource.com>
-	 <50AB990602000078000A9F5B@nat28.tlf.novell.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH v2] checkpatch: add double empty line check
+Date: Tue, 20 Nov 2012 16:27:04 +0200
+Message-ID: <1353421624.6559.9.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
+ <20121120115239.GA7955@dm>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Bader <stefan.bader@canonical.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	Eric Dumazet <edumazet@google.com>,
-	"KonradRzeszutek Wilk" <konrad@kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	ANNIE LI <annie.li@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:3397 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751341Ab2KTOO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 09:14:28 -0500
-In-Reply-To: <50AB990602000078000A9F5B@nat28.tlf.novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Joe Perches" <joe@perches.com>,
+	"David Rientjes" <rientjes@google.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: "Andy Whitcroft" <apw@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121120115239.GA7955@dm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-11-20 at 13:51 +0000, Jan Beulich wrote:
-> >>> On 20.11.12 at 14:35, Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> > On Tue, 2012-11-20 at 12:28 +0000, Jan Beulich wrote:
-> >> >>> On 20.11.12 at 12:40, Ian Campbell <ian.campbell@citrix.com> wrote:
-> >> > An SKB paged fragment can consist of a compound page with order > 0.
-> >> > However the netchannel protocol deals only in PAGE_SIZE frames.
-> >> > 
-> >> > Handle this in xennet_make_frags by iterating over the frames which
-> >> > make up the page.
-> >> > 
-> >> > This is the netfront equivalent to 6a8ed462f16b for netback.
-> >> 
-> >> Wouldn't you need to be at least a little more conservative here
-> >> with respect to resource use: I realize that get_id_from_freelist()
-> >> return values were never checked, and failure of
-> >> gnttab_claim_grant_reference() was always dealt with via
-> >> BUG_ON(), but considering that netfront_tx_slot_available()
-> >> doesn't account for compound page fragments, I think this (lack
-> >> of) error handling needs improvement in the course of the
-> >> change here (regardless of - I think - someone having said that
-> >> usually the sum of all pages referenced from an skb's fragments
-> >> would not exceed MAX_SKB_FRAGS - "usually" just isn't enough
-> >> imo).
+On Tue, 2012-11-20 at 11:52 +0000, Andy Whitcroft wrote:
+
+Andy, thanks for reviewing this patch.
+
+> On Sat, Nov 17, 2012 at 01:17:37PM +0200, Eilon Greenstein wrote:
+> > Changes from previous attempt:
+> > - Use CHK instead of WARN
+> > - Issue only one warning per empty lines block
 > > 
-> > I think it is more than "usually", it is derived from the number of
-> > pages needed to contain 64K of data which is the maximum size of the
-> > data associated with an skb (AIUI).
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> > ---
+> >  scripts/checkpatch.pl |    8 ++++++++
+> >  1 file changed, 8 insertions(+)
 > > 
-> > Unwinding from failure in xennet_make_frags looks pretty tricky,
-> 
-> Yes, I agree.
-> 
-> > but how about this incremental patch:
-> 
-> Looks good, but can probably be simplified quite a bit:
-> 
-> > --- a/drivers/net/xen-netfront.c
-> > +++ b/drivers/net/xen-netfront.c
-> > @@ -505,6 +505,46 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
-> >  	np->tx.req_prod_pvt = prod;
-> >  }
-> >  
-> > +/*
-> > + * Count how many ring slots are required to send the frags of this
-> > + * skb. Each frag might be a compound page.
-> > + */
-> > +static int xennet_count_skb_frag_pages(struct sk_buff *skb)
-> > +{
-> > +	int i, frags = skb_shinfo(skb)->nr_frags;
-> > +	int pages = 0;
+> > diff --git a/scripts/checkpatch.pl b/scripts/linescheckpatch.pl
+> > index 21a9f5d..13d264f 100755
+> > --- a/scripts/checkpatch.pl
+> > +++ b/scripts/checkpatch.pl
+> > @@ -3579,6 +3579,14 @@ sub process {
+> >  			WARN("EXPORTED_WORLD_WRITABLE",
+> >  			     "Exporting world writable files is usually an error. Consider more restrictive permissions.\n" . $herecurr);
+> >  		}
 > > +
-> > +	for (i = 0; i < frags; i++) {
-> > +		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-> > +		unsigned long size = skb_frag_size(frag);
-> > +		unsigned long offset = frag->page_offset;
-> > +
-> > +		/* Skip unused frames from start of page */
-> > +		offset &= ~PAGE_MASK;
-> > +
-> > +		while (size > 0) {
-> > +			unsigned long bytes;
-> > +
-> > +			BUG_ON(offset >= PAGE_SIZE);
-> > +
-> > +			bytes = PAGE_SIZE - offset;
-> > +			if (bytes > size)
-> > +				bytes = size;
-> > +
-> > +			offset += bytes;
-> > +			size -= bytes;
-> > +
-> > +			/* Next frame */
-> > +			if (offset == PAGE_SIZE && size) {
-> > +				pages++;
-> > +				offset = 0;
-> > +			}
+> > +# check for double empty lines
+> > +		if ($line =~ /^\+\s*$/ &&
+> > +		    ($rawlines[$linenr] =~ /^\s*$/ ||
+> > +		     $prevline =~ /^\+?\s*$/ && $rawlines[$linenr] !~ /^\+\s*$/)) {
+> > +			CHK("DOUBLE_EMPTY_LINE",
+> > +			    "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
 > > +		}
-> 
-> Isn't the whole loop equivalent to 
-> 
-> 		pages = PFN_UP(offset + size);
-> 
-> (at least as long as size is not zero)?
-
-Er, yes. Wood for the trees etc...
-
-I think using PFN_UP overcounts a bit since the data needed start in the
-first frame of a compound frame, but if you keep the 
-        /* Skip unused frames from start of page */
-        offset &= ~PAGE_MASK;
-        
-I think that does the right thing
-
-> > @@ -517,12 +557,13 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  	grant_ref_t ref;
-> >  	unsigned long mfn;
-> >  	int notify;
-> > -	int frags = skb_shinfo(skb)->nr_frags;
-> > +	int frags;
-> >  	unsigned int offset = offset_in_page(data);
-> >  	unsigned int len = skb_headlen(skb);
-> >  	unsigned long flags;
+> >  	}
 > >  
-> > -	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
-> > +	frags = xennet_count_skb_frag_pages(skb) +
-> > +		DIV_ROUND_UP(offset + len, PAGE_SIZE);
-> >  	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
+> >  	# If we have no input at all, then there is nothing to report on
 > 
-> This condition would now need adjustment, though (because
-> "frags" is no longer what its name says).
+> In your previous version you indicated you would be emiting one per group
+> of lines, I do not see how this does that.
 
-I think it already wasn't what the name says, since it included the skb
-head too. Perhaps "slots" would be a better name?
+This is what I'm testing:
+Only if the current line is a new blank line and:
+	if the next line is empty but not newly added (this is the part that
+will make sure we get only one warning for a bunch of new lines - only
+the last newly added line will hit this condition)
+or
+	if the previous line was empty (either new empty line or existing empty
+line) and the next line is not a new empty line (so we will issue just
+one warning).
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index a12b99a..b744875 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -505,6 +505,29 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
- 	np->tx.req_prod_pvt = prod;
- }
- 
-+/*
-+ * Count how many ring slots are required to send the frags of this
-+ * skb. Each frag might be a compound page.
-+ */
-+static int xennet_count_skb_frag_slots(struct sk_buff *skb)
-+{
-+	int i, frags = skb_shinfo(skb)->nr_frags;
-+	int pages = 0;
-+
-+	for (i = 0; i < frags; i++) {
-+		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-+		unsigned long size = skb_frag_size(frag);
-+		unsigned long offset = frag->page_offset;
-+
-+		/* Skip unused frames from start of page */
-+		offset &= ~PAGE_MASK;
-+
-+		pages += PFN_UP(offset + size);
-+	}
-+
-+	return pages;
-+}
-+
- static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	unsigned short id;
-@@ -517,15 +540,16 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	grant_ref_t ref;
- 	unsigned long mfn;
- 	int notify;
--	int frags = skb_shinfo(skb)->nr_frags;
-+	int slots;
- 	unsigned int offset = offset_in_page(data);
- 	unsigned int len = skb_headlen(skb);
- 	unsigned long flags;
- 
--	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
--	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
--		printk(KERN_ALERT "xennet: skb rides the rocket: %d frags\n",
--		       frags);
-+	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
-+		xennet_count_skb_frag_slots(skb);
-+	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
-+		printk(KERN_ALERT "xennet: skb rides the rocket: %d slots\n",
-+		       slots);
- 		dump_stack();
- 		goto drop;
- 	}
-@@ -533,7 +557,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	spin_lock_irqsave(&np->tx_lock, flags);
- 
- 	if (unlikely(!netif_carrier_ok(dev) ||
--		     (frags > 1 && !xennet_can_sg(dev)) ||
-+		     (slots > 1 && !xennet_can_sg(dev)) ||
- 		     netif_needs_gso(skb, netif_skb_features(skb)))) {
- 		spin_unlock_irqrestore(&np->tx_lock, flags);
- 		goto drop;
+I tested it on few examples, and did not see a problem. Can you share an
+example where it issues more than a single warning for a newly
+introduced consecutive new lines?
+
+> Also this fails if the fragment
+> is at the top of the hunk emiting a perl warning.
+
+I did not see this warning. Can you please share this example? I tried
+adding a couple of empty lines at the beginning of a file and it seemed
+to work just fine for me (using perl v5.14.2).lines
+
+> We should probabally
+> use the suppress approach.
+> 
+> How about something like the below.
+> 
+> -apw
+> 
+> 
+> From 848ebffa8656a1ff96a91788ec0f1c04dab9c3e9 Mon Sep 17 00:00:00 2001
+> From: Andy Whitcroft <apw@canonical.com>
+> Date: Sat, 17 Nov 2012 13:17:37 +0200
+> Subject: [PATCH] checkpatch: strict warning for multiple blank lines
+> 
+> Signed-off-by: Andy Whitcroft <apw@canonical.com>
+> ---
+>  scripts/checkpatch.pl |   11 +++++++++++
+>  1 file changed, 11 insertions(+)
+> 
+> diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+> index f18750e..dbc68f3 100755
+> --- a/scripts/checkpatch.pl
+> +++ b/scripts/checkpatch.pl
+> @@ -1411,6 +1411,7 @@ sub process {
+>  	my %suppress_whiletrailers;
+>  	my %suppress_export;
+>  	my $suppress_statement = 0;
+> +	my $suppress_multipleblank = -1;
+>  
+>  	# Pre-scan the patch sanitizing the lines.
+>  	# Pre-scan the patch looking for any __setup documentation.
+> @@ -1521,6 +1522,7 @@ sub process {
+>  			%suppress_whiletrailers = ();
+>  			%suppress_export = ();
+>  			$suppress_statement = 0;
+> +			$suppress_multipleblank = -1;
+>  			next;
+>  
+>  # track the line number as we move through the hunk, note that
+> @@ -1930,6 +1932,15 @@ sub process {
+>  			      "use the SSYNC() macro in asm/blackfin.h\n" . $herevet);
+>  		}
+>  
+> +# multiple blank lines.
+> +		if ($line =~ /^-/ || ($suppress_multipleblank == $linenr && $line =~ /^[ \+]\s*$/)) {
+> +			$suppress_multipleblank++;
+> +		} elsif ($prevline =~ /^\+\s*$/ and $line =~ /^\+\s*$/) {
+> +			$suppress_multipleblank = $linenr + 1;
+> +			CHK("MULTIPLE_EMPTY_LINE",
+> +			    "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
+> +		}
+> +
+>  # Check for potential 'bare' types
+>  		my ($stat, $cond, $line_nr_next, $remain_next, $off_next,
+>  		    $realline_next);
+
+The problem with this version is that it only catches newly added empty
+lines. But if there was an empty line before or after this newly added
+empty line, there will be no warning. I would like to catch things like
+that as well.
+
+Thanks,
+Eilon
