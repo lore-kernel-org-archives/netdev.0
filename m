@@ -1,62 +1,67 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH] ixgbe: fix broken PPTP handling
-Date: Tue, 20 Nov 2012 17:27:50 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB583AF32E22@ORSMSX105.amr.corp.intel.com>
-References: <20121120163227.11935.57062.stgit@bob.linux.org.uk>
- <06DFBC1E25D8024DB214DC7F41A3CD34489616B9@ORSMSX101.amr.corp.intel.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: question about eth_header
+Date: Tue, 20 Nov 2012 17:39:30 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F1BF6DC59@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1353419044.16036.6.camel@lb-tlvb-dmitry>
+ <CAKoUArnRnx0txGWhNWpZAFBijWmtzdOe-D7Qb62-5AvBCfgHJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Vick, Matthew" <matthew.vick@intel.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Rami Rosen" <roszenrami@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:3111 "EHLO mga09.intel.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4528 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751582Ab2KTR1v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Nov 2012 12:27:51 -0500
-In-Reply-To: <06DFBC1E25D8024DB214DC7F41A3CD34489616B9@ORSMSX101.amr.corp.intel.com>
+	id S1751238Ab2KTRjy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 12:39:54 -0500
+In-Reply-To: <CAKoUArnRnx0txGWhNWpZAFBijWmtzdOe-D7Qb62-5AvBCfgHJQ@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIFZpY2ssIE1hdHRoZXcNCj4gU2VudDogVHVlc2RheSwgTm92ZW1iZXIgMjAsIDIwMTIg
-OToxMiBBTQ0KPiBUbzogQWxhbiBDb3g7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gQ2M6IGUx
-MDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldA0KPiBTdWJqZWN0OiBSRTogW1BBVENIXSBp
-eGdiZTogZml4IGJyb2tlbiBQUFRQIGhhbmRsaW5nDQo+IA0KPiA+IC0tLS0tT3JpZ2luYWwgTWVz
-c2FnZS0tLS0tDQo+ID4gRnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRv
-Om5ldGRldi0NCj4gPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBBbGFuIENv
-eA0KPiA+IFNlbnQ6IFR1ZXNkYXksIE5vdmVtYmVyIDIwLCAyMDEyIDg6MzMgQU0NCj4gPiBUbzog
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+IFN1YmplY3Q6IFtQQVRDSF0gaXhnYmU6IGZpeCBi
-cm9rZW4gUFBUUCBoYW5kbGluZw0KPiA+DQo+ID4gRnJvbTogQWxhbiBDb3ggPGFsYW5AbGludXgu
-aW50ZWwuY29tPg0KPiA+DQo+ID4gUmVwb3J0ZWQgdG8gdGhlIG1haW50YWluIDMgd2Vla3MgYWdv
-IHNvIG5vdyBzZW5kaW5nIGEgcGF0Y2ggcmF0aGVyIHRoYW4NCj4gPiB3YWl0aW5nLiBpeGdiZSBw
-YXNzZXMgYSByYW5kb20gZXZlbnQgdHlwZSB0byB0aGUgcHB0cCBjb2RlDQo+ID4NCj4gPiBTaWdu
-ZWQtb2ZmLWJ5OiBBbGFuIENveCA8YWxhbkBsaW51eC5pbnRlbC5jb20+DQo+ID4gLS0tDQo+ID4N
-Cj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfcHRwLmMgfCAgICAx
-ICsNCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspDQo+ID4NCj4gPg0KPiA+IGRp
-ZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9wdHAuYw0K
-PiA+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfcHRwLmMNCj4gPiBp
-bmRleCAwMWQ5OWFmLi43MzI5MWZlIDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX3B0cC5jDQo+ID4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvaW50ZWwvaXhnYmUvaXhnYmVfcHRwLmMNCj4gPiBAQCAtMzk4LDYgKzM5OCw3IEBAIHZvaWQg
-aXhnYmVfcHRwX2NoZWNrX3Bwc19ldmVudChzdHJ1Y3QgaXhnYmVfYWRhcHRlcg0KPiA+ICphZGFw
-dGVyLCB1MzIgZWljcikNCj4gPg0KPiA+ICAJc3dpdGNoIChody0+bWFjLnR5cGUpIHsNCj4gPiAg
-CWNhc2UgaXhnYmVfbWFjX1g1NDA6DQo+ID4gKwkJZXZlbnQudHlwZSA9IFBUUF9DTE9DS19QUFM7
-DQo+ID4gIAkJcHRwX2Nsb2NrX2V2ZW50KGFkYXB0ZXItPnB0cF9jbG9jaywgJmV2ZW50KTsNCj4g
-PiAgCQlicmVhazsNCj4gPiAgCWRlZmF1bHQ6DQo+IA0KPiBDQ2luZyBlMTAwMC1kZXZlbCwgdGhl
-IG1haWxpbmcgbGlzdCBmb3IgSW50ZWwgV2lyZWQgRXRoZXJuZXQgc3VwcG9ydC4NCj4gDQo+IFNv
-cnJ5LCBBbGFuLS1JIGRpZG4ndCBzZWUgYW55IG1lc3NhZ2UgZnJvbSB5b3UgYWJvdXQgdGhpcyBi
-ZWZvcmUgb3IgSQ0KPiB3b3VsZCBoYXZlIHJlc3BvbmRlZC4gTkFLIG9uIHRoaXMsIHNpbmNlIEkg
-ZG9uJ3Qgc2VlIGhvdyBpeGdiZSBpcyBwYXNzaW5nDQo+IGEgcmFuZG9tIGV2ZW50IHR5cGUuIFRo
-ZSBldmVudCB0eXBlIGdldHMgc2V0IHRvIFBUUF9DTE9DS19QUFMganVzdCBhIGZldw0KPiBsaW5l
-cyBhYm92ZSAoYmVmb3JlIHRoZSBpZiAoIWFkYXB0ZXItPnB0cF9jbG9jaykgYmxvY2spLg0KPiAN
-Cj4gTWF0dGhldw0KDQpTcGVjaWZpY2FsbHksIGNvbW1pdCAzNjQ1YWRiYiAiaXhnYmU6IGZpeCB1
-bmluaXRpYWxpemVkIGV2ZW50LnR5cGUgaW4gaXhnYmVfcHRwX2NoZWNrX3Bwc19ldmVudCINCg0K
-OikNCg0KU29ycnkgSSBkaWRuJ3QgcmVwbHkgZGlyZWN0bHkgdG8geW91ciBvcmlnaW5hbCBlbWFp
-bCB3aXRoIHRoZSBjb25jZXJuLCBvciBDQyB5b3UuIEkgd2lsbCBkbyBzbyBuZXh0IHRpbWUuDQoN
-ClRoYW5rcw0KDQotIEpha2UNCg==
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Rami Rosen
+> Sent: Tuesday, November 20, 2012 4:51 PM
+> To: Dmitry Kravkov
+> Cc: netdev@vger.kernel.org
+> Subject: Re: question about eth_header
+> 
+> Hi,
+> I think that you should call skb_reset_mac_header()
+> before calling eth_hdr() and that skb_reset_mac_header() should not be
+> inside eth_hdr(). Following is explanation:
+> 
+> In the RX path, when we get a packet in the driver, what essentially
+> happens is that at this point, we have a pointer to
+> the packet buffer in skb->data, and its length in skb->len.
+
+Actually I'm on TX path, and do not intend  to update skb, just received it 
+for transmission, I want to pick mac addresess from eth header.
+Now bnx2x does it by accessing skb->data (which points to the correct mac)
+and I wanted to replace it with eth_hrd instead of doing ugly casting in driver code.
+Moreover, in the future, when inner_mac_address will be used for tunneling
+acceleration, inner_mac_address will be updated with mac_address offset, and so
+may also point to the improper location.   
+ 
+> With ethernet packets, the driver will call eth_type_trans(); please
+> look at ethernet drivers code.
+> eth_type_trans() indeed sets the MAC header pointer by calling
+> skb_reset_mac_header() on the skb.
+> 
+> Afterwards, the eth_type_trans() will advance skb->data by
+> 14, the size of the Ethernet header, and decrease skb->len
+> by calling skb_pull_inline(skb, ETH_HLEN).
+> 
+> In case you are wondering why the skb_reset_mac_header() is not inside
+> the eth_hdr(), I think that the reason is that, once
+> skb_reset_mac_header() on the skb was called, there are cases when we
+> want to make several calls eth_hdr() without each time again resetting
+> the mac header, for example, in the bridging code.  There is no reason
+> to doing it in terms of performance.
+
+My question is about eth_header() function which is create() callback for
+eth_header_ops.
+
+Thanks.
