@@ -1,132 +1,123 @@
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: [PATCH 7/7] netprio_cgroup: allow nesting and inherit config on
-	cgroup creation
-Date: Tue, 20 Nov 2012 00:30:11 -0800
-Message-ID: <1353400211-5182-8-git-send-email-tj@kernel.org>
-References: <1353400211-5182-1-git-send-email-tj@kernel.org>
+From: Stefan Bader <stefan.bader@canonical.com>
+Subject: Re: [Xen-devel] compound skb frag pages appearing in start_xmit
+Date: Tue, 20 Nov 2012 09:30:21 +0100
+Message-ID: <50AB3F9D.4070905@canonical.com>
+References: <1349790467.21847.185.camel@zakaz.uk.xensource.com> <1349790863.21172.4406.camel@edumazet-glaptop> <1349792241.21847.199.camel@zakaz.uk.xensource.com> <1349792847.21172.4479.camel@edumazet-glaptop> <1349793630.21847.208.camel@zakaz.uk.xensource.com> <1349863984.10070.26.camel@zakaz.uk.xensource.com> <1349874598.10070.39.camel@zakaz.uk.xensource.com> <748966751.20121010164949@eikelenboom.it> <1349942546.14806.7.camel@zakaz.uk.xensource.com> <151954917.20121011120004@eikelenboom.it> <1349949924.21172.8462.camel@edumazet-glaptop> <1349950494.14806.29.camel@zakaz.uk.xensource.com> <50A4540E.1010601@oracle.com> <1333495676.20121119164304@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org, serge.hallyn-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1353400211-5182-1-git-send-email-tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="------------enig9491B69895AA4970D7941DA3"
+Cc: ANNIE LI <annie.li@oracle.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Marcos E. Matsunaga" <Marcos.Matsunaga@oracle.com>,
+	xen-devel <xen-devel@lists.xen.org>,
+	Konrad Rzeszutek Wilk <konrad@kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:49405 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752809Ab2KTIag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 03:30:36 -0500
+In-Reply-To: <1333495676.20121119164304@eikelenboom.it>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Inherit netprio configuration from ->css_online(), allow nesting and
-remove .broken_hierarchy marking.  This makes netprio_cgroup's
-behavior match netcls_cgroup's.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig9491B69895AA4970D7941DA3
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Note that this patch changes userland-visible behavior.  Nesting is
-allowed and the first level cgroups below the root cgroup behave
-differently - they inherit priorities from the root cgroup on creation
-instead of starting with 0.  This is unfortunate but not doing so is
-much crazier.
+On 19.11.2012 16:43, Sander Eikelenboom wrote:
+>=20
+> Thursday, November 15, 2012, 3:31:42 AM, you wrote:
+>=20
+>> On 2012-10-11 18:14, Ian Campbell wrote:
+>>> On Thu, 2012-10-11 at 11:05 +0100, Eric Dumazet wrote:
+>>>> On Thu, 2012-10-11 at 12:00 +0200, Sander Eikelenboom wrote:
+>>>>
+>>>>> Probably due to the BUG_ON from the patch below, i changed it into =
+a WARN_ON.
+>>>>> And i seem to hit it, but only in one of the guests at the moment a=
+nd it triggers quite irregularly.
+>>>> xennet_make_frags() is able to split the skb->head in multiple page-=
+size
+>>>> chunks.
+>>>>
+>>>> It should do the same for fragments
+>>> Right, I just want to be reproduce the issue so I can know I've fixed=
+ it
+>>> properly ;-)
+>> Hi Ian,
+>=20
+>> I can reproduce this BUG_ON when running netperf/netserver test betwee=
+n=20
+>> two domus running on the same dom0. The domu and dom0 all use v3.7-rc1=
+=2E
+>=20
+>> When I tried to rebase my persistent grant netfront/netback patch on=20
+>> latest kernel, netperf/netserver test never succeeded. I did some test=
+=20
+>> to find out that v3.6-rc7 works fine, but v3.7-rc1, v3.7-rc2 and=20
+>> v3.7-rc4 does not succeed in netperf/netserver test. So I keep my=20
+>> persistent grant patch only based on v3.4-rc3 now.
+>=20
+>> Konrad thought about commit 6a8ed462f16b8455eec5ae00eb6014159a6721f0 i=
+n=20
+>> v3.7-rc1, and suggested me to test your debug patch in netfront. This =
 
-Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
----
- Documentation/cgroups/net_prio.txt |  2 ++
- net/core/netprio_cgroup.c          | 42 ++++++++++++++++++++++----------------
- 2 files changed, 26 insertions(+), 18 deletions(-)
+>> BUG_ON happens soon after running the netperf/netserver test case.
+>=20
+>> Thanks
+>> Annie
+>=20
+> Is there any progression with this bug (rc6 is out the door, so the rel=
+ease of 3.7-final seems to be eminent and this bug completely cripples an=
+y networking with guests) ?
+>=20
 
-diff --git a/Documentation/cgroups/net_prio.txt b/Documentation/cgroups/net_prio.txt
-index 01b3226..a82cbd2 100644
---- a/Documentation/cgroups/net_prio.txt
-+++ b/Documentation/cgroups/net_prio.txt
-@@ -51,3 +51,5 @@ One usage for the net_prio cgroup is with mqprio qdisc allowing application
- traffic to be steered to hardware/driver based traffic classes. These mappings
- can then be managed by administrators or other networking protocols such as
- DCBX.
-+
-+A new net_prio cgroup inherits the parent's configuration.
-diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
-index b2af0d0..bde53da 100644
---- a/net/core/netprio_cgroup.c
-+++ b/net/core/netprio_cgroup.c
-@@ -136,9 +136,6 @@ static struct cgroup_subsys_state *cgrp_css_alloc(struct cgroup *cgrp)
- {
- 	struct cgroup_netprio_state *cs;
- 
--	if (cgrp->parent && cgrp->parent->id)
--		return ERR_PTR(-EINVAL);
--
- 	cs = kzalloc(sizeof(*cs), GFP_KERNEL);
- 	if (!cs)
- 		return ERR_PTR(-ENOMEM);
-@@ -146,16 +143,34 @@ static struct cgroup_subsys_state *cgrp_css_alloc(struct cgroup *cgrp)
- 	return &cs->css;
- }
- 
--static void cgrp_css_free(struct cgroup *cgrp)
-+static int cgrp_css_online(struct cgroup *cgrp)
- {
--	struct cgroup_netprio_state *cs = cgrp_netprio_state(cgrp);
-+	struct cgroup *parent = cgrp->parent;
- 	struct net_device *dev;
-+	int ret = 0;
-+
-+	if (!parent)
-+		return 0;
- 
- 	rtnl_lock();
--	for_each_netdev(&init_net, dev)
--		WARN_ON_ONCE(netprio_set_prio(cgrp, dev, 0));
-+	/*
-+	 * Inherit prios from the parent.  As all prios are set during
-+	 * onlining, there is no need to clear them on offline.
-+	 */
-+	for_each_netdev(&init_net, dev) {
-+		u32 prio = netprio_prio(parent, dev);
-+
-+		ret = netprio_set_prio(cgrp, dev, prio);
-+		if (ret)
-+			break;
-+	}
- 	rtnl_unlock();
--	kfree(cs);
-+	return ret;
-+}
-+
-+static void cgrp_css_free(struct cgroup *cgrp)
-+{
-+	kfree(cgrp_netprio_state(cgrp));
- }
- 
- static u64 read_prioidx(struct cgroup *cgrp, struct cftype *cft)
-@@ -237,21 +252,12 @@ static struct cftype ss_files[] = {
- struct cgroup_subsys net_prio_subsys = {
- 	.name		= "net_prio",
- 	.css_alloc	= cgrp_css_alloc,
-+	.css_online	= cgrp_css_online,
- 	.css_free	= cgrp_css_free,
- 	.attach		= net_prio_attach,
- 	.subsys_id	= net_prio_subsys_id,
- 	.base_cftypes	= ss_files,
- 	.module		= THIS_MODULE,
--
--	/*
--	 * net_prio has artificial limit on the number of cgroups and
--	 * disallows nesting making it impossible to co-mount it with other
--	 * hierarchical subsystems.  Remove the artificially low PRIOIDX_SZ
--	 * limit and properly nest configuration such that children follow
--	 * their parents' configurations by default and are allowed to
--	 * override and remove the following.
--	 */
--	.broken_hierarchy = true,
- };
- 
- static int netprio_device_event(struct notifier_block *unused,
--- 
-1.7.11.7
++1 on that. I was testing yesterday with a PVM domU running 3.7-rc5 on Xe=
+n 4.2
+(but also reported from EC2 running Xen 3.4.3) c with one VCPU. I actuall=
+y can
+trigger it by just ssh'ing into the domU (from another machine) and then =
+run
+"find /". Output starts to stutter and then stops completely. When this h=
+appens
+a new connection still can be made and as long as only shorter output is
+generated the ssh connection is ok. From a dump taken it looks like user-=
+space
+is waiting in some select call (without any warnon I rather won't see the=
+ tx path).
+
+-Stefan
+
+
+
+--------------enig9491B69895AA4970D7941DA3
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://www.enigmail.net/
+
+iQIcBAEBCgAGBQJQqz+kAAoJEOhnXe7L7s6juzcP/jOI3Ac4Nix8czBGsHJE9Rl5
+R7icGSpb8Dpr8tWeWd3l5U0EYzcyARcfy6SKHYHcMEQth35nWsHdR55koB7ATzZZ
+bZyooTSRGqsepuw9DWilgjvfR27zDFdymi/GIDaMVCIUxIvW0F+IVB++mstMUXZv
+PTemlzKQtvflgIuDhia26sd6PfV/9AhmU757gzpMwuciStKuPgkBWEr6STnFQzEe
+dCDCYCpFKYGcGRvnEsQT8p8ArLR9FEju/PmO1YjkSRiohTPGB1JFMSWTk83QIFj0
+lU7c2FZr6DB7gC3ITTUERfw6kyPgkjIbK5qAVLUtJEjuqOueI9HZQ8qEuo9i4rdt
+jRycw6Ff22qUCyKTvwcM9JK55GnFHmkUkC8n7hU4PRM2VuOS4+3K2o/Dia0vxgB0
+JOvhRQFH2NfmJgeVIkbXpInu2WuRhFGtTEHA4HWF2MoBLaJYktKoqq8GS80+gLe2
+pn31LUaj4NO/Ofb+7njY+dBiZLil4y3m02Qa0dVnuOcC58J5LaVAIYUhMhfGODCA
+unB71Y0OP3pHahK7shd5sVmTZ72f6hL4paBEi6zFz0JvBdrAGDGth7uzzfXDxG30
+cEyQUG0B7NexC3/WZhq1FDq1UsVcJHCly8Lp5CPkXPOdbchCqh3DukHlD12ozv2z
+atR22nwyftzXhcTVvXE7
+=zNki
+-----END PGP SIGNATURE-----
+
+--------------enig9491B69895AA4970D7941DA3--
