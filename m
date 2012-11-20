@@ -1,105 +1,145 @@
-From: Andy Whitcroft <apw@canonical.com>
-Subject: Re: [PATCH v2] checkpatch: add double empty line check
-Date: Tue, 20 Nov 2012 11:52:39 +0000
-Message-ID: <20121120115239.GA7955@dm>
-References: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH] xen/netfront: handle compound page
+ fragments on transmit
+Date: Tue, 20 Nov 2012 12:28:13 +0000
+Message-ID: <50AB856D02000078000A9EFD@nat28.tlf.novell.com>
+References: <1353403286.18229.159.camel@zakaz.uk.xensource.com>
+ <1353411606-15940-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>,
-	David Rientjes <rientjes@google.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eilon Greenstein <eilong@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: "Stefan Bader" <stefan.bader@canonical.com>,
+	"Sander Eikelenboom" <linux@eikelenboom.it>,
+	"Eric Dumazet" <edumazet@google.com>,
+	"Konrad Rzeszutek Wilk" <konrad@kernel.org>,
+	<xen-devel@lists.xen.org>, "ANNIE LI" <annie.li@oracle.com>,
+	<netdev@vger.kernel.org>
+To: "Ian Campbell" <ian.campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:54979 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752576Ab2KTM1U convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:8:1>);
+	Tue, 20 Nov 2012 07:27:20 -0500
+In-Reply-To: <1353411606-15940-1-git-send-email-ian.campbell@citrix.com>
 Content-Disposition: inline
-In-Reply-To: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 17, 2012 at 01:17:37PM +0200, Eilon Greenstein wrote:
-> Changes from previous attempt:
-> - Use CHK instead of WARN
-> - Issue only one warning per empty lines block
+>>> On 20.11.12 at 12:40, Ian Campbell <ian.campbell@citrix.com> wrote:
+> An SKB paged fragment can consist of a compound page with order > 0.
+> However the netchannel protocol deals only in PAGE_SIZE frames.
 > 
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> Handle this in xennet_make_frags by iterating over the frames which
+> make up the page.
+> 
+> This is the netfront equivalent to 6a8ed462f16b for netback.
+
+Wouldn't you need to be at least a little more conservative here
+with respect to resource use: I realize that get_id_from_freelist()
+return values were never checked, and failure of
+gnttab_claim_grant_reference() was always dealt with via
+BUG_ON(), but considering that netfront_tx_slot_available()
+doesn't account for compound page fragments, I think this (lack
+of) error handling needs improvement in the course of the
+change here (regardless of - I think - someone having said that
+usually the sum of all pages referenced from an skb's fragments
+would not exceed MAX_SKB_FRAGS - "usually" just isn't enough
+imo).
+
+Jan
+
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: netdev@vger.kernel.org 
+> Cc: xen-devel@lists.xen.org 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
+> Cc: ANNIE LI <annie.li@oracle.com>
+> Cc: Sander Eikelenboom <linux@eikelenboom.it>
+> Cc: Stefan Bader <stefan.bader@canonical.com>
 > ---
->  scripts/checkpatch.pl |    8 ++++++++
->  1 file changed, 8 insertions(+)
+>  drivers/net/xen-netfront.c |   58 +++++++++++++++++++++++++++++++++----------
+>  1 files changed, 44 insertions(+), 14 deletions(-)
 > 
-> diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-> index 21a9f5d..13d264f 100755
-> --- a/scripts/checkpatch.pl
-> +++ b/scripts/checkpatch.pl
-> @@ -3579,6 +3579,14 @@ sub process {
->  			WARN("EXPORTED_WORLD_WRITABLE",
->  			     "Exporting world writable files is usually an error. Consider more restrictive permissions.\n" . $herecurr);
->  		}
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index caa0110..a12b99a 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -452,24 +452,54 @@ static void xennet_make_frags(struct sk_buff *skb, 
+> struct net_device *dev,
+>  	/* Grant backend access to each skb fragment page. */
+>  	for (i = 0; i < frags; i++) {
+>  		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
+> +		struct page *page = skb_frag_page(frag);
+> +		unsigned long size = skb_frag_size(frag);
+> +		unsigned long offset = frag->page_offset;
+>  
+> -		tx->flags |= XEN_NETTXF_more_data;
+> +		/* Data must not cross a page boundary. */
+> +		BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
+>  
+> -		id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
+> -		np->tx_skbs[id].skb = skb_get(skb);
+> -		tx = RING_GET_REQUEST(&np->tx, prod++);
+> -		tx->id = id;
+> -		ref = gnttab_claim_grant_reference(&np->gref_tx_head);
+> -		BUG_ON((signed short)ref < 0);
+> +		/* Skip unused frames from start of page */
+> +		page += offset >> PAGE_SHIFT;
+> +		offset &= ~PAGE_MASK;
+>  
+> -		mfn = pfn_to_mfn(page_to_pfn(skb_frag_page(frag)));
+> -		gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
+> -						mfn, GNTMAP_readonly);
+> +		while (size > 0) {
+> +			unsigned long bytes;
+>  
+> -		tx->gref = np->grant_tx_ref[id] = ref;
+> -		tx->offset = frag->page_offset;
+> -		tx->size = skb_frag_size(frag);
+> -		tx->flags = 0;
+> +			BUG_ON(offset >= PAGE_SIZE);
 > +
-> +# check for double empty lines
-> +		if ($line =~ /^\+\s*$/ &&
-> +		    ($rawlines[$linenr] =~ /^\s*$/ ||
-> +		     $prevline =~ /^\+?\s*$/ && $rawlines[$linenr] !~ /^\+\s*$/)) {
-> +			CHK("DOUBLE_EMPTY_LINE",
-> +			    "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
+> +			bytes = PAGE_SIZE - offset;
+> +			if (bytes > size)
+> +				bytes = size;
+> +
+> +			tx->flags |= XEN_NETTXF_more_data;
+> +
+> +			id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
+> +			np->tx_skbs[id].skb = skb_get(skb);
+> +			tx = RING_GET_REQUEST(&np->tx, prod++);
+> +			tx->id = id;
+> +			ref = gnttab_claim_grant_reference(&np->gref_tx_head);
+> +			BUG_ON((signed short)ref < 0);
+> +
+> +			mfn = pfn_to_mfn(page_to_pfn(page));
+> +			gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
+> +							mfn, GNTMAP_readonly);
+> +
+> +			tx->gref = np->grant_tx_ref[id] = ref;
+> +			tx->offset = offset;
+> +			tx->size = bytes;
+> +			tx->flags = 0;
+> +
+> +			offset += bytes;
+> +			size -= bytes;
+> +
+> +			/* Next frame */
+> +			if (offset == PAGE_SIZE && size) {
+> +				BUG_ON(!PageCompound(page));
+> +				page++;
+> +				offset = 0;
+> +			}
 > +		}
 >  	}
 >  
->  	# If we have no input at all, then there is nothing to report on
-
-In your previous version you indicated you would be emiting one per group
-of lines, I do not see how this does that.  Also this fails if the fragment
-is at the top of the hunk emiting a perl warning.  We should probabally
-use the suppress approach.
-
-How about something like the below.
-
--apw
-
-
->From 848ebffa8656a1ff96a91788ec0f1c04dab9c3e9 Mon Sep 17 00:00:00 2001
-From: Andy Whitcroft <apw@canonical.com>
-Date: Sat, 17 Nov 2012 13:17:37 +0200
-Subject: [PATCH] checkpatch: strict warning for multiple blank lines
-
-Signed-off-by: Andy Whitcroft <apw@canonical.com>
----
- scripts/checkpatch.pl |   11 +++++++++++
- 1 file changed, 11 insertions(+)
-
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index f18750e..dbc68f3 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -1411,6 +1411,7 @@ sub process {
- 	my %suppress_whiletrailers;
- 	my %suppress_export;
- 	my $suppress_statement = 0;
-+	my $suppress_multipleblank = -1;
- 
- 	# Pre-scan the patch sanitizing the lines.
- 	# Pre-scan the patch looking for any __setup documentation.
-@@ -1521,6 +1522,7 @@ sub process {
- 			%suppress_whiletrailers = ();
- 			%suppress_export = ();
- 			$suppress_statement = 0;
-+			$suppress_multipleblank = -1;
- 			next;
- 
- # track the line number as we move through the hunk, note that
-@@ -1930,6 +1932,15 @@ sub process {
- 			      "use the SSYNC() macro in asm/blackfin.h\n" . $herevet);
- 		}
- 
-+# multiple blank lines.
-+		if ($line =~ /^-/ || ($suppress_multipleblank == $linenr && $line =~ /^[ \+]\s*$/)) {
-+			$suppress_multipleblank++;
-+		} elsif ($prevline =~ /^\+\s*$/ and $line =~ /^\+\s*$/) {
-+			$suppress_multipleblank = $linenr + 1;
-+			CHK("MULTIPLE_EMPTY_LINE",
-+			    "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
-+		}
-+
- # Check for potential 'bare' types
- 		my ($stat, $cond, $line_nr_next, $remain_next, $off_next,
- 		    $realline_next);
--- 
-1.7.10.4
+>  	np->tx.req_prod_pvt = prod;
+> -- 
+> 1.7.2.5
+> 
+> 
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org 
+> http://lists.xen.org/xen-devel 
