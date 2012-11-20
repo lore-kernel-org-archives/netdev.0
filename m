@@ -1,46 +1,30 @@
-From: Andy Whitcroft <apw@canonical.com>
-Subject: Re: [PATCH v2] checkpatch: add double empty line check
-Date: Tue, 20 Nov 2012 20:11:42 +0000
-Message-ID: <20121120201142.GI17797@dm>
-References: <20121120115239.GA7955@dm>
- <1353421624.6559.9.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120144329.GE7955@dm>
- <1353424027.6559.15.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120154443.GK7955@dm>
- <1353427570.6559.21.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120161417.GA17797@dm>
- <20121120163607.GB17797@dm>
- <1353438635.10779.10.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120193249.GH17797@dm>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC 1/2] ixp4xx_eth: avoid calling dma_pool_create()
+ with NULL dev
+Date: Tue, 20 Nov 2012 15:13:24 -0500 (EST)
+Message-ID: <20121120.151324.2243475860866740066.davem@davemloft.net>
+References: <1353219910-24690-1-git-send-email-xi.wang@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>,
-	David Rientjes <rientjes@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eilon Greenstein <eilong@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20121120193249.GH17797@dm>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: khc@pm.waw.pl, netdev@vger.kernel.org, akpm@linux-foundation.org
+To: xi.wang@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43641 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752680Ab2KTUN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 15:13:26 -0500
+In-Reply-To: <1353219910-24690-1-git-send-email-xi.wang@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 20, 2012 at 07:32:49PM +0000, Andy Whitcroft wrote:
-> On Tue, Nov 20, 2012 at 09:10:35PM +0200, Eilon Greenstein wrote:
+From: Xi Wang <xi.wang@gmail.com>
+Date: Sun, 18 Nov 2012 01:25:09 -0500
+
+> Use &port->netdev->dev instead of NULL since dma_pool_create() doesn't
+> allow NULL dev.
 > 
-> > About the logic - true, if diff will show deleted lines after newly
-> > added lines, some new double line segments will be missed. However, it
-> > seems like few other things will break if diff will start acting out
-> > like that. The suggestion you posted earlier will miss those as well,
-> > and starting to check for this weird case (of deleted lines after the
-> > added lines) does not seem right.
-> 
-> Actually the version I sent should indeed cope with the deleted lines
-> regardless of order.  It was cirtainly intended to.
+> Signed-off-by: Xi Wang <xi.wang@gmail.com>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
 
-... and I think I thought of a couple more corner cases neither solution
-will find.  So I am going to go away and make up a proper set of tests
-for this apparently simple change.  As it is really annoying when it
-false positives.  I will post against when I have something which works.
-
--apw
+Applied.
