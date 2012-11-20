@@ -1,52 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/4] ipip: allow to deactivate the creation of
- fb dev
-Date: Mon, 19 Nov 2012 19:06:48 -0500 (EST)
-Message-ID: <20121119.190648.56478321385493529.davem@davemloft.net>
-References: <1353082456-21234-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1353082456-21234-2-git-send-email-nicolas.dichtel@6wind.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] netfilter: Remove the spurious \ in __ip_vs_lblc_init
+Date: Tue, 20 Nov 2012 09:06:49 +0900
+Message-ID: <20121120000649.GC13829@verge.net.au>
+References: <87zk2d7gwp.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34777 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752541Ab2KTAGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 19:06:49 -0500
-In-Reply-To: <1353082456-21234-2-git-send-email-nicolas.dichtel@6wind.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:45888 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752541Ab2KTAGx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Nov 2012 19:06:53 -0500
+Content-Disposition: inline
+In-Reply-To: <87zk2d7gwp.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri, 16 Nov 2012 17:14:13 +0100
-
-> Now that tunnels can be configured via rtnetlink, this device is not mandatory.
-> The default is conservative.
+On Mon, Nov 19, 2012 at 07:26:30AM -0800, Eric W. Biederman wrote:
 > 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> In (464dc801c76a net: Don't export sysctls to unprivileged users)
+> I typoed and introduced a spurious backslash.  Delete it.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-I'm not too thrilled about this change, mostly because of my dislike of
-module parameters in general.
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-But in this case there appears to be real bugs in the two sets of changes
-where you add this setup_fb thing.
+Pablo, can you take this directly through your tree?
 
-> @@ -1057,7 +1066,8 @@ static void __net_exit ipip_exit_net(struct net *net)
+> ---
+>  net/netfilter/ipvs/ip_vs_lblc.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+> index d742aa9..fdd89b9 100644
+> --- a/net/netfilter/ipvs/ip_vs_lblc.c
+> +++ b/net/netfilter/ipvs/ip_vs_lblc.c
+> @@ -574,7 +574,7 @@ static int __net_init __ip_vs_lblc_init(struct net *net)
+>  		register_net_sysctl(net, "net/ipv4/vs", ipvs->lblc_ctl_table);
+>  	if (!ipvs->lblc_ctl_header) {
+>  		if (!net_eq(net, &init_net))
+> -			kfree(ipvs->lblc_ctl_table);\
+> +			kfree(ipvs->lblc_ctl_table);
+>  		return -ENOMEM;
+>  	}
 >  
->  	rtnl_lock();
->  	ipip_destroy_tunnels(ipn, &list);
-> -	unregister_netdevice_queue(ipn->fb_tunnel_dev, &list);
-> +	if (setup_fb)
-> +		unregister_netdevice_queue(ipn->fb_tunnel_dev, &list);
->  	unregister_netdevice_many(&list);
->  	rtnl_unlock();
->  }
-
-Users can modify module parameter values via sysfs after the module
-is loaded, so you need a more internal and protected state to use
-to decide whether you really need to unregister the thing or not.
-
-But to me it's just symptomatic of what a bad idea this is in the
-first place.
+> -- 
+> 1.7.5.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
