@@ -1,7 +1,7 @@
 From: Joe Jin <joe.jin@oracle.com>
 Subject: Re: 82571EB: Detected Hardware Unit Hang
-Date: Tue, 20 Nov 2012 21:24:01 +0800
-Message-ID: <50AB8471.7080607@oracle.com>
+Date: Tue, 20 Nov 2012 21:24:33 +0800
+Message-ID: <50AB8491.4070508@oracle.com>
 References: <509B5038.8090304@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA89133487884@ORSMSX102.amr.corp.intel.com> <50A30656.6090508@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA8913348B105@ORSMSX102.amr.corp.intel.com> <50A43828.6000702@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA8913349A0B4@ORSMSX102.amr.corp.intel.com> <50A9C5CC.1030300@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA8913349EB41@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
@@ -19,7 +19,9 @@ List-Id: netdev.vger.kernel.org
 On 11/20/12 16:59, Dave, Tushar N wrote:
 > Have you power off the system completely after modifying eeprom? If not please do so.
 
-seems not works for me, would you please help to check what is wrong of my operations?
+Hi Tushar,
+
+Seems not works for me, would you please help to check what is wrong of my operations?
 
 Original eeprom dump:
 
