@@ -1,62 +1,117 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] pkt_sched: QFQ Plus: fair-queueing service at DRR cost
-Date: Tue, 20 Nov 2012 09:53:04 -0800
-Message-ID: <20121120095304.420ded7c@nehalam.linuxnetplumber.net>
-References: <20121112164833.GA12970@paolo-ThinkPad-W520>
-	<20121119.184828.628106002307042971.davem@davemloft.net>
-	<50ABC19E.9030209@unimore.it>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-7
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, jhs@mojatatu.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com
-To: Paolo Valente <paolo.valente@unimore.it>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50ABC19E.9030209@unimore.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] sctp: send abort chunk when max_retrans exceeded
+Date: Tue, 20 Nov 2012 12:59:04 -0500
+Message-ID: <1353434344-17864-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53261 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751613Ab2KTR7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 12:59:24 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 20 Nov 2012 18:45:02 +0100
-Paolo Valente <paolo.valente@unimore.it> wrote:
+In the event that an association exceeds its max_retrans attempts, we should
+send an ABORT chunk indicating that we are closing the assocation as a result.
+Because of the nature of the error, its unlikely to be received, but its a nice
+clean way to close the association if it does make it through, and it will give
+anyone watching via tcpdump a clue as to what happened.
 
-> Il 20/11/2012 00:48, David Miller ha scritto:
-> > From: Paolo Valente <paolo.valente@unimore.it>
-> > Date: Mon, 12 Nov 2012 17:48:33 +0100
-> >
-> >> [This patch received positive feedback from Stephen Hemminger ("pu=
-t in
-> >> net-next"), but no further feedback or decision. So I am (re)sendi=
-ng
-> >> an updated version of it. The only differences with respect to the
-> >> previous version are the support for TSO/GSO (taken from QFQ), and=
- a
-> >> hopefully improved description.]
-> >
-> > Can you rearrange the logic so that the compiler doesn't emit this
-> > warning?
-> >
-> > In file included from net/sched/sch_qfq.c:18:0:
-> > net/sched/sch_qfq.c: In function =A1qfq_dequeue=A2:
-> > include/net/sch_generic.h:480:15: warning: =A1skb=A2 may be used un=
-initialized in this function [-Wmaybe-uninitialized]
-> > net/sched/sch_qfq.c:1007:18: note: =A1skb=A2 was declared here
-> >
-> > You and I both know that SKB will be initialized at this point, but
-> > the compiler can't see it clearly enough.
-> >
-> Unfortunately I could not reproduce the warning (with
-> gcc-4.7 -Wmaybe-uninitialized). I am however about to send a new vers=
-ion=20
-> with skb initialized to NULL. I hope that this fix properly addresses=
-=20
-> this issue.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: linux-sctp@vger.kernel.org
+---
+ include/net/sctp/sm.h    |  2 ++
+ net/sctp/sm_make_chunk.c | 26 +++++++++++++++++++++-----
+ net/sctp/sm_sideeffect.c |  9 ++++++++-
+ 3 files changed, 31 insertions(+), 6 deletions(-)
 
-There are actually lots of bogus warnings than seem to only occur
-because gcc 4.4 does a bad job of checking. Later versions are fixed
-and don't generate warnings.
-
-My preference is to not add the unnecessary initialization because
-if you get in the habit of doing it. The whole purpose of the uninitial=
-ized
-check is lost.=20
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index b5887e1..2a82d13 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -234,6 +234,8 @@ struct sctp_chunk *sctp_make_abort_violation(const struct sctp_association *,
+ struct sctp_chunk *sctp_make_violation_paramlen(const struct sctp_association *,
+ 				   const struct sctp_chunk *,
+ 				   struct sctp_paramhdr *);
++struct sctp_chunk *sctp_make_violation_max_retrans(const struct sctp_association *,
++						   const struct sctp_chunk *);
+ struct sctp_chunk *sctp_make_heartbeat(const struct sctp_association *,
+ 				  const struct sctp_transport *);
+ struct sctp_chunk *sctp_make_heartbeat_ack(const struct sctp_association *,
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index fbe1636..d6a8c80 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1074,17 +1074,33 @@ struct sctp_chunk *sctp_make_violation_paramlen(
+ {
+ 	struct sctp_chunk *retval;
+ 	static const char error[] = "The following parameter had invalid length:";
+-	size_t payload_len = sizeof(error) + sizeof(sctp_errhdr_t) +
+-				sizeof(sctp_paramhdr_t);
++	size_t payload_len = sizeof(error) + sizeof(sctp_errhdr_t);
+ 
+ 	retval = sctp_make_abort(asoc, chunk, payload_len);
+ 	if (!retval)
+ 		goto nodata;
+ 
+-	sctp_init_cause(retval, SCTP_ERROR_PROTO_VIOLATION,
+-			sizeof(error) + sizeof(sctp_paramhdr_t));
++	sctp_init_cause(retval, SCTP_ERROR_PROTO_VIOLATION, sizeof(error));
++	sctp_addto_chunk(retval, sizeof(error), error);
++
++nodata:
++	return retval;
++}
++
++struct sctp_chunk *sctp_make_violation_max_retrans(
++	const struct sctp_association *asoc,
++	const struct sctp_chunk *chunk)
++{
++	struct sctp_chunk *retval;
++	static const char error[] = "Association exceeded its max_retans count";
++	size_t payload_len = sizeof(error) + sizeof(sctp_errhdr_t);
++
++	retval = sctp_make_abort(asoc, chunk, payload_len);
++	if (!retval)
++		goto nodata;
++
++	sctp_init_cause(retval, SCTP_ERROR_PROTO_VIOLATION, sizeof(error));
+ 	sctp_addto_chunk(retval, sizeof(error), error);
+-	sctp_addto_param(retval, sizeof(sctp_paramhdr_t), param);
+ 
+ nodata:
+ 	return retval;
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 6eecf7e..c076956 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -577,7 +577,7 @@ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
+ 				  unsigned int error)
+ {
+ 	struct sctp_ulpevent *event;
+-
++	struct sctp_chunk *abort;
+ 	/* Cancel any partial delivery in progress. */
+ 	sctp_ulpq_abort_pd(&asoc->ulpq, GFP_ATOMIC);
+ 
+@@ -593,6 +593,13 @@ static void sctp_cmd_assoc_failed(sctp_cmd_seq_t *commands,
+ 		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
+ 				SCTP_ULPEVENT(event));
+ 
++	if (asoc->overall_error_count >= asoc->max_retrans) {
++		abort = sctp_make_violation_max_retrans(asoc, chunk);
++		if (abort)
++			sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
++					SCTP_CHUNK(abort));
++	}
++
+ 	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
+ 			SCTP_STATE(SCTP_STATE_CLOSED));
+ 
+-- 
+1.7.11.7
