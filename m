@@ -1,88 +1,135 @@
-From: Andy Whitcroft <apw@canonical.com>
-Subject: Re: [PATCH v2] checkpatch: add double empty line check
-Date: Tue, 20 Nov 2012 14:43:29 +0000
-Message-ID: <20121120144329.GE7955@dm>
-References: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
- <20121120115239.GA7955@dm>
- <1353421624.6559.9.camel@lb-tlvb-eilong.il.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] xen/netfront: handle compound page fragments on
+ transmit
+Date: Tue, 20 Nov 2012 06:45:35 -0800
+Message-ID: <1353422735.2590.6.camel@edumazet-glaptop>
+References: <1353403286.18229.159.camel@zakaz.uk.xensource.com>
+	 <1353411606-15940-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>,
-	David Rientjes <rientjes@google.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eilon Greenstein <eilong@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1353421624.6559.9.camel@lb-tlvb-eilong.il.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	Eric Dumazet <edumazet@google.com>,
+	Konrad Rzeszutek Wilk <konrad@kernel.org>,
+	ANNIE LI <annie.li@oracle.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Stefan Bader <stefan.bader@canonical.com>
+To: Ian Campbell <ian.campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:48376 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753451Ab2KTOpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Nov 2012 09:45:39 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k13so8642526iea.19
+        for <netdev@vger.kernel.org>; Tue, 20 Nov 2012 06:45:38 -0800 (PST)
+In-Reply-To: <1353411606-15940-1-git-send-email-ian.campbell@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 20, 2012 at 04:27:04PM +0200, Eilon Greenstein wrote:
-> On Tue, 2012-11-20 at 11:52 +0000, Andy Whitcroft wrote:
+On Tue, 2012-11-20 at 11:40 +0000, Ian Campbell wrote:
+> An SKB paged fragment can consist of a compound page with order > 0.
+> However the netchannel protocol deals only in PAGE_SIZE frames.
 > 
-> Andy, thanks for reviewing this patch.
+> Handle this in xennet_make_frags by iterating over the frames which
+> make up the page.
 > 
-> > On Sat, Nov 17, 2012 at 01:17:37PM +0200, Eilon Greenstein wrote:
-> > > Changes from previous attempt:
-> > > - Use CHK instead of WARN
-> > > - Issue only one warning per empty lines block
-> > > 
-> > > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> > > ---
-> > >  scripts/checkpatch.pl |    8 ++++++++
-> > >  1 file changed, 8 insertions(+)
-> > > 
-> > > diff --git a/scripts/checkpatch.pl b/scripts/linescheckpatch.pl
-> > > index 21a9f5d..13d264f 100755
-> > > --- a/scripts/checkpatch.pl
-> > > +++ b/scripts/checkpatch.pl
-> > > @@ -3579,6 +3579,14 @@ sub process {
-> > >  			WARN("EXPORTED_WORLD_WRITABLE",
-> > >  			     "Exporting world writable files is usually an error. Consider more restrictive permissions.\n" . $herecurr);
-> > >  		}
-> > > +
-> > > +# check for double empty lines
-> > > +		if ($line =~ /^\+\s*$/ &&
-> > > +		    ($rawlines[$linenr] =~ /^\s*$/ ||
-> > > +		     $prevline =~ /^\+?\s*$/ && $rawlines[$linenr] !~ /^\+\s*$/)) {
-> > > +			CHK("DOUBLE_EMPTY_LINE",
-> > > +			    "One empty line should be sufficient. Consider removing this one.\n" . $herecurr);
-> > > +		}
-> > >  	}
-> > >  
-> > >  	# If we have no input at all, then there is nothing to report on
-> > 
-> > In your previous version you indicated you would be emiting one per group
-> > of lines, I do not see how this does that.
+> This is the netfront equivalent to 6a8ed462f16b for netback.
 > 
-> This is what I'm testing:
-> Only if the current line is a new blank line and:
-> 	if the next line is empty but not newly added (this is the part that
-> will make sure we get only one warning for a bunch of new lines - only
-> the last newly added line will hit this condition)
-> or
-> 	if the previous line was empty (either new empty line or existing empty
-> line) and the next line is not a new empty line (so we will issue just
-> one warning).
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: netdev@vger.kernel.org
+> Cc: xen-devel@lists.xen.org
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
+> Cc: ANNIE LI <annie.li@oracle.com>
+> Cc: Sander Eikelenboom <linux@eikelenboom.it>
+> Cc: Stefan Bader <stefan.bader@canonical.com>
+> ---
+>  drivers/net/xen-netfront.c |   58 +++++++++++++++++++++++++++++++++----------
+>  1 files changed, 44 insertions(+), 14 deletions(-)
 > 
-> I tested it on few examples, and did not see a problem. Can you share an
-> example where it issues more than a single warning for a newly
-> introduced consecutive new lines?
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index caa0110..a12b99a 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -452,24 +452,54 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
+>  	/* Grant backend access to each skb fragment page. */
+>  	for (i = 0; i < frags; i++) {
+>  		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
+> +		struct page *page = skb_frag_page(frag);
+> +		unsigned long size = skb_frag_size(frag);
+> +		unsigned long offset = frag->page_offset;
+>  
+> -		tx->flags |= XEN_NETTXF_more_data;
+> +		/* Data must not cross a page boundary. */
+> +		BUG_ON(size + offset > PAGE_SIZE<<compound_order(page));
+>  
+> -		id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
+> -		np->tx_skbs[id].skb = skb_get(skb);
+> -		tx = RING_GET_REQUEST(&np->tx, prod++);
+> -		tx->id = id;
+> -		ref = gnttab_claim_grant_reference(&np->gref_tx_head);
+> -		BUG_ON((signed short)ref < 0);
+> +		/* Skip unused frames from start of page */
 
-No indeed.  That was testing failure on my behalf.
-> 
-> > Also this fails if the fragment
-> > is at the top of the hunk emiting a perl warning.
-> 
-> I did not see this warning. Can you please share this example? I tried
-> adding a couple of empty lines at the beginning of a file and it seemed
-> to work just fine for me (using perl v5.14.2).lines
+'frame' in the comment means an order-0 page ?
 
-Ok, this is actually if it is at the bottom, not the top.  So if you
-have a range of lines newly added to the bottom of the file.  Leading to
-this warning:
+> +		page += offset >> PAGE_SHIFT;
+> +		offset &= ~PAGE_MASK;
+>  
+> -		mfn = pfn_to_mfn(page_to_pfn(skb_frag_page(frag)));
+> -		gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
+> -						mfn, GNTMAP_readonly);
+> +		while (size > 0) {
+> +			unsigned long bytes;
+>  
+> -		tx->gref = np->grant_tx_ref[id] = ref;
+> -		tx->offset = frag->page_offset;
+> -		tx->size = skb_frag_size(frag);
+> -		tx->flags = 0;
+> +			BUG_ON(offset >= PAGE_SIZE);
+> +
+> +			bytes = PAGE_SIZE - offset;
+> +			if (bytes > size)
+> +				bytes = size;
+> +
+> +			tx->flags |= XEN_NETTXF_more_data;
+> +
+> +			id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
+> +			np->tx_skbs[id].skb = skb_get(skb);
 
-Use of uninitialized value within @rawlines in pattern match (m//) at
-../checkpatch/scripts/checkpatch.pl line 3586.
+BTW this skb_get() means extra atomic operations for every 4096 bytes
+unit, and an extra atomic op (and test for final 0) at TX completion.
+This could be avoided, by setting np->tx_skbs[id].skb = skb only for the
+very last unit.
 
--apw
+> +			tx = RING_GET_REQUEST(&np->tx, prod++);
+> +			tx->id = id;
+> +			ref = gnttab_claim_grant_reference(&np->gref_tx_head);
+> +			BUG_ON((signed short)ref < 0);
+> +
+> +			mfn = pfn_to_mfn(page_to_pfn(page));
+> +			gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
+> +							mfn, GNTMAP_readonly);
+> +
+> +			tx->gref = np->grant_tx_ref[id] = ref;
+> +			tx->offset = offset;
+> +			tx->size = bytes;
+> +			tx->flags = 0;
+> +
+> +			offset += bytes;
+> +			size -= bytes;
+> +
+> +			/* Next frame */
+> +			if (offset == PAGE_SIZE && size) {
+> +				BUG_ON(!PageCompound(page));
+> +				page++;
+> +				offset = 0;
+> +			}
+> +		}
+>  	}
+>  
+>  	np->tx.req_prod_pvt = prod;
+
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Thanks !
