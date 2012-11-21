@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] bonding: Bonding driver does not consider the
- gso_max_size/gso_max_segs setting of slave devices.
-Date: Wed, 21 Nov 2012 11:51:24 -0500 (EST)
-Message-ID: <20121121.115124.1062713458949050915.davem@davemloft.net>
-References: <649de771-427a-4876-af3c-9f84a164a7f1@CMEXHTCAS2.ad.emulex.com>
-	<1353509706.2590.33.camel@edumazet-glaptop>
+Subject: Re: [patch net] team: bcast: convert return value of
+ team_dev_queue_xmit() to bool correctly
+Date: Wed, 21 Nov 2012 11:55:47 -0500 (EST)
+Message-ID: <20121121.115547.1062092538532584924.davem@davemloft.net>
+References: <1353501285-1340-1-git-send-email-jiri@resnulli.us>
+	<20121121125328.GA6812@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sarveshwar.bandi@emulex.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53385 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53412 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755328Ab2KUQv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 11:51:26 -0500
-In-Reply-To: <1353509706.2590.33.camel@edumazet-glaptop>
+	with ESMTP id S1755335Ab2KUQzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 11:55:50 -0500
+In-Reply-To: <20121121125328.GA6812@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 21 Nov 2012 06:55:06 -0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 21 Nov 2012 13:53:28 +0100
 
-> On Wed, 2012-11-21 at 20:05 +0530, sarveshwar.bandi@emulex.com wrote:
->> From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
->> 
->> Patch sets the lowest gso_max_size and gso_max_segs values of the slave devices during enslave and detach.
->> 
->> Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
- ...
-> Acked-by: Eric Dumazet <edumazet@google.com>
+> 
+> I forgot to mention this bug was introduced by:
+> team: add broadcast mode (5fc889911a99043a97da1daa0d010ad72cbc3042)
+> 
+> Wed, Nov 21, 2012 at 01:34:45PM CET, jiri@resnulli.us wrote:
+>>The thing is that team_dev_queue_xmit() returns NET_XMIT_* or -E*.
+>>bc_trasmit() should return true in case all went well. So use ! to get
+>>correct retval from team_dev_queue_xmit() result.
+>>This bug caused iface statistics to be badly computed.
+>>
+>>Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+>>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied.
+I incorporated the reference to the bug introducing commit and
+applied this patch, thanks.
