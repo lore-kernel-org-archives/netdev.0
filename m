@@ -1,100 +1,100 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/10] ixgbe: convert to use simple_open()
-Date: Wed, 21 Nov 2012 02:47:28 -0800
-Message-ID: <1353494856-12344-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/10] ixgbe: ethtool correctly identify autoneg setting
+Date: Wed, 21 Nov 2012 02:47:31 -0800
+Message-ID: <1353494856-12344-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:6953 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:51330 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753385Ab2KUKrl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2012 05:47:41 -0500
+	id S1754493Ab2KUKrn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2012 05:47:43 -0500
 In-Reply-To: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This removes an open coded simple_open() function and
-replaces file operations references to the function
-with simple_open() instead.
+This patch enables ethtool to correctly identify flow control (pause
+frame) auto negotiation, as well as disallow enabling it when it is not
+supported. The ixgbe_device_supports_autoneg_fc function is exported and
+used for this purpose.
 
-dpatch engine is used to auto generate this patch.
-(https://github.com/weiyj/dpatch)
+There is also one minor cleanup of the device_supports_autoneg_fc by
+removing an unnecessary return statement.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c | 32 ++----------------------
- 1 file changed, 2 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 3 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  | 1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 5 +++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 3 ++-
+ 4 files changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
-index 8d3a218..efaf9a7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
-@@ -37,20 +37,6 @@ static struct dentry *ixgbe_dbg_root;
- static char ixgbe_dbg_reg_ops_buf[256] = "";
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 8f285ed..5af1eeb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -65,13 +65,12 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
+  *  function check the device id to see if the associated phy supports
+  *  autoneg flow control.
+  **/
+-static s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
++s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
+ {
  
- /**
-- * ixgbe_dbg_reg_ops_open - prep the debugfs pokee data item when opened
-- * @inode: inode that was opened
-- * @filp:  file info
-- *
-- * Stash the adapter pointer hiding in the inode into the file pointer where
-- * we can find it later in the read and write calls
-- **/
--static int ixgbe_dbg_reg_ops_open(struct inode *inode, struct file *filp)
--{
--	filp->private_data = inode->i_private;
--	return 0;
--}
--
--/**
-  * ixgbe_dbg_reg_ops_read - read for reg_ops datum
-  * @filp: the opened file
-  * @buffer: where to write the data for the user to read
-@@ -142,7 +128,7 @@ static ssize_t ixgbe_dbg_reg_ops_write(struct file *filp,
+ 	switch (hw->device_id) {
+ 	case IXGBE_DEV_ID_X540T:
+ 	case IXGBE_DEV_ID_X540T1:
+-		return 0;
+ 	case IXGBE_DEV_ID_82599_T3_LOM:
+ 		return 0;
+ 	default:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 587db47..1b65b6c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -78,6 +78,7 @@ s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval);
+ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw);
++s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw);
+ void ixgbe_fc_autoneg(struct ixgbe_hw *hw);
  
- static const struct file_operations ixgbe_dbg_reg_ops_fops = {
- 	.owner = THIS_MODULE,
--	.open =  ixgbe_dbg_reg_ops_open,
-+	.open = simple_open,
- 	.read =  ixgbe_dbg_reg_ops_read,
- 	.write = ixgbe_dbg_reg_ops_write,
- };
-@@ -150,20 +136,6 @@ static const struct file_operations ixgbe_dbg_reg_ops_fops = {
- static char ixgbe_dbg_netdev_ops_buf[256] = "";
+ s32 ixgbe_validate_mac_addr(u8 *mac_addr);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index a545728..3268584 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -383,6 +383,11 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
+ 	    (adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+ 		return -EINVAL;
  
- /**
-- * ixgbe_dbg_netdev_ops_open - prep the debugfs netdev_ops data item
-- * @inode: inode that was opened
-- * @filp: file info
-- *
-- * Stash the adapter pointer hiding in the inode into the file pointer
-- * where we can find it later in the read and write calls
-- **/
--static int ixgbe_dbg_netdev_ops_open(struct inode *inode, struct file *filp)
--{
--	filp->private_data = inode->i_private;
--	return 0;
--}
--
--/**
-  * ixgbe_dbg_netdev_ops_read - read for netdev_ops datum
-  * @filp: the opened file
-  * @buffer: where to write the data for the user to read
-@@ -238,7 +210,7 @@ static ssize_t ixgbe_dbg_netdev_ops_write(struct file *filp,
++	/* some devices do not support autoneg of link flow control */
++	if ((pause->autoneg == AUTONEG_ENABLE) &&
++	    (ixgbe_device_supports_autoneg_fc(hw) != 0))
++		return -EINVAL;
++
+ 	fc.disable_fc_autoneg = (pause->autoneg != AUTONEG_ENABLE);
  
- static const struct file_operations ixgbe_dbg_netdev_ops_fops = {
- 	.owner = THIS_MODULE,
--	.open = ixgbe_dbg_netdev_ops_open,
-+	.open = simple_open,
- 	.read = ixgbe_dbg_netdev_ops_read,
- 	.write = ixgbe_dbg_netdev_ops_write,
- };
+ 	if ((pause->rx_pause && pause->tx_pause) || pause->autoneg)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 004ea6c..4f67fdc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4567,7 +4567,8 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	ixgbe_pbthresh_setup(adapter);
+ 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
+ 	hw->fc.send_xon = true;
+-	hw->fc.disable_fc_autoneg = false;
++	hw->fc.disable_fc_autoneg =
++		(ixgbe_device_supports_autoneg_fc(hw) == 0) ? false : true;
+ 
+ #ifdef CONFIG_PCI_IOV
+ 	/* assign number of SR-IOV VFs */
 -- 
 1.7.11.7
