@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3] xen/netfront: handle compound page fragments on
- transmit
-Date: Wed, 21 Nov 2012 11:49:57 -0500 (EST)
-Message-ID: <20121121.114957.441218567286373485.davem@davemloft.net>
-References: <1353499336-28952-1-git-send-email-ian.campbell@citrix.com>
-	<20121121151625.GA13127@konrad-lan.dumpdata.com>
+Subject: Re: [PATCH net-2.6] bonding: Bonding driver does not consider the
+ gso_max_size/gso_max_segs setting of slave devices.
+Date: Wed, 21 Nov 2012 11:51:24 -0500 (EST)
+Message-ID: <20121121.115124.1062713458949050915.davem@davemloft.net>
+References: <649de771-427a-4876-af3c-9f84a164a7f1@CMEXHTCAS2.ad.emulex.com>
+	<1353509706.2590.33.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ian.campbell@citrix.com, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org, edumazet@google.com, annie.li@oracle.com,
-	linux@eikelenboom.it, stefan.bader@canonical.com
-To: konrad@kernel.org
+Cc: sarveshwar.bandi@emulex.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53367 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53385 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755328Ab2KUQt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 11:49:59 -0500
-In-Reply-To: <20121121151625.GA13127@konrad-lan.dumpdata.com>
+	with ESMTP id S1755328Ab2KUQv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 11:51:26 -0500
+In-Reply-To: <1353509706.2590.33.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Konrad Rzeszutek Wilk <konrad@kernel.org>
-Date: Wed, 21 Nov 2012 10:16:27 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 21 Nov 2012 06:55:06 -0800
 
-> On Wed, Nov 21, 2012 at 12:02:16PM +0000, Ian Campbell wrote:
->> An SKB paged fragment can consist of a compound page with order > 0.
->> However the netchannel protocol deals only in PAGE_SIZE frames.
+> On Wed, 2012-11-21 at 20:05 +0530, sarveshwar.bandi@emulex.com wrote:
+>> From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 >> 
->> Handle this in xennet_make_frags by iterating over the frames which
->> make up the page.
+>> Patch sets the lowest gso_max_size and gso_max_segs values of the slave devices during enslave and detach.
 >> 
->> This is the netfront equivalent to 6a8ed462f16b for netback.
->> 
->> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
->> Cc: netdev@vger.kernel.org
->> Cc: xen-devel@lists.xen.org
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
-> 
-> Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> 
-> David, would you like me to send it to Linus via my tree or are you
-> OK sending him a git pull with this patch (and hopefully some other
-> ones?)
+>> Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+ ...
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-I'll merge this to Linus via my net tree, thanks.
+Applied.
