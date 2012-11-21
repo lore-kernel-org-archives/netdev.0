@@ -1,31 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Konrad Rzeszutek Wilk <konrad@kernel.org>
 Subject: Re: [PATCH V3] xen/netfront: handle compound page fragments on
  transmit
-Date: Wed, 21 Nov 2012 07:13:52 -0800
-Message-ID: <1353510832.2590.39.camel@edumazet-glaptop>
+Date: Wed, 21 Nov 2012 10:16:27 -0500
+Message-ID: <20121121151625.GA13127@konrad-lan.dumpdata.com>
 References: <1353499336-28952-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
 	Eric Dumazet <edumazet@google.com>,
-	Konrad Rzeszutek Wilk <konrad@kernel.org>,
 	ANNIE LI <annie.li@oracle.com>,
 	Sander Eikelenboom <linux@eikelenboom.it>,
 	Stefan Bader <stefan.bader@canonical.com>
-To: Ian Campbell <ian.campbell@citrix.com>
+To: Ian Campbell <ian.campbell@citrix.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:40185 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755107Ab2KUPN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 10:13:56 -0500
-Received: by mail-ie0-f174.google.com with SMTP id k11so371882iea.19
-        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 07:13:55 -0800 (PST)
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:37579 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755090Ab2KUPQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 10:16:35 -0500
+Received: by mail-qa0-f53.google.com with SMTP id k31so1691508qat.19
+        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 07:16:34 -0800 (PST)
+Content-Disposition: inline
 In-Reply-To: <1353499336-28952-1-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-11-21 at 12:02 +0000, Ian Campbell wrote:
+On Wed, Nov 21, 2012 at 12:02:16PM +0000, Ian Campbell wrote:
 > An SKB paged fragment can consist of a compound page with order > 0.
 > However the netchannel protocol deals only in PAGE_SIZE frames.
 > 
@@ -39,6 +38,15 @@ On Wed, 2012-11-21 at 12:02 +0000, Ian Campbell wrote:
 > Cc: xen-devel@lists.xen.org
 > Cc: Eric Dumazet <edumazet@google.com>
 > Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
+
+Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+
+David, would you like me to send it to Linus via my tree or are you
+OK sending him a git pull with this patch (and hopefully some other
+ones?)
+
+Thank you.
+
 > Cc: ANNIE LI <annie.li@oracle.com>
 > Cc: Sander Eikelenboom <linux@eikelenboom.it>
 > Cc: Stefan Bader <stefan.bader@canonical.com>
@@ -47,5 +55,144 @@ On Wed, 2012-11-21 at 12:02 +0000, Ian Campbell wrote:
 > v2: check we have enough room in the ring and that the other end can
 >     cope with the number of slots in a single frame
 > ---
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+>  drivers/net/xen-netfront.c |   98 ++++++++++++++++++++++++++++++++++---------
+>  1 files changed, 77 insertions(+), 21 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index caa0110..fc24eb9 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -452,29 +452,85 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
+>  	/* Grant backend access to each skb fragment page. */
+>  	for (i = 0; i < frags; i++) {
+>  		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
+> +		struct page *page = skb_frag_page(frag);
+>  
+> -		tx->flags |= XEN_NETTXF_more_data;
+> +		len = skb_frag_size(frag);
+> +		offset = frag->page_offset;
+>  
+> -		id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
+> -		np->tx_skbs[id].skb = skb_get(skb);
+> -		tx = RING_GET_REQUEST(&np->tx, prod++);
+> -		tx->id = id;
+> -		ref = gnttab_claim_grant_reference(&np->gref_tx_head);
+> -		BUG_ON((signed short)ref < 0);
+> +		/* Data must not cross a page boundary. */
+> +		BUG_ON(len + offset > PAGE_SIZE<<compound_order(page));
+>  
+> -		mfn = pfn_to_mfn(page_to_pfn(skb_frag_page(frag)));
+> -		gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
+> -						mfn, GNTMAP_readonly);
+> +		/* Skip unused frames from start of page */
+> +		page += offset >> PAGE_SHIFT;
+> +		offset &= ~PAGE_MASK;
+>  
+> -		tx->gref = np->grant_tx_ref[id] = ref;
+> -		tx->offset = frag->page_offset;
+> -		tx->size = skb_frag_size(frag);
+> -		tx->flags = 0;
+> +		while (len > 0) {
+> +			unsigned long bytes;
+> +
+> +			BUG_ON(offset >= PAGE_SIZE);
+> +
+> +			bytes = PAGE_SIZE - offset;
+> +			if (bytes > len)
+> +				bytes = len;
+> +
+> +			tx->flags |= XEN_NETTXF_more_data;
+> +
+> +			id = get_id_from_freelist(&np->tx_skb_freelist,
+> +						  np->tx_skbs);
+> +			np->tx_skbs[id].skb = skb_get(skb);
+> +			tx = RING_GET_REQUEST(&np->tx, prod++);
+> +			tx->id = id;
+> +			ref = gnttab_claim_grant_reference(&np->gref_tx_head);
+> +			BUG_ON((signed short)ref < 0);
+> +
+> +			mfn = pfn_to_mfn(page_to_pfn(page));
+> +			gnttab_grant_foreign_access_ref(ref,
+> +							np->xbdev->otherend_id,
+> +							mfn, GNTMAP_readonly);
+> +
+> +			tx->gref = np->grant_tx_ref[id] = ref;
+> +			tx->offset = offset;
+> +			tx->size = bytes;
+> +			tx->flags = 0;
+> +
+> +			offset += bytes;
+> +			len -= bytes;
+> +
+> +			/* Next frame */
+> +			if (offset == PAGE_SIZE && len) {
+> +				BUG_ON(!PageCompound(page));
+> +				page++;
+> +				offset = 0;
+> +			}
+> +		}
+>  	}
+>  
+>  	np->tx.req_prod_pvt = prod;
+>  }
+>  
+> +/*
+> + * Count how many ring slots are required to send the frags of this
+> + * skb. Each frag might be a compound page.
+> + */
+> +static int xennet_count_skb_frag_slots(struct sk_buff *skb)
+> +{
+> +	int i, frags = skb_shinfo(skb)->nr_frags;
+> +	int pages = 0;
+> +
+> +	for (i = 0; i < frags; i++) {
+> +		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
+> +		unsigned long size = skb_frag_size(frag);
+> +		unsigned long offset = frag->page_offset;
+> +
+> +		/* Skip unused frames from start of page */
+> +		offset &= ~PAGE_MASK;
+> +
+> +		pages += PFN_UP(offset + size);
+> +	}
+> +
+> +	return pages;
+> +}
+> +
+>  static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  {
+>  	unsigned short id;
+> @@ -487,23 +543,23 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	grant_ref_t ref;
+>  	unsigned long mfn;
+>  	int notify;
+> -	int frags = skb_shinfo(skb)->nr_frags;
+> +	int slots;
+>  	unsigned int offset = offset_in_page(data);
+>  	unsigned int len = skb_headlen(skb);
+>  	unsigned long flags;
+>  
+> -	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
+> -	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
+> -		printk(KERN_ALERT "xennet: skb rides the rocket: %d frags\n",
+> -		       frags);
+> -		dump_stack();
+> +	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
+> +		xennet_count_skb_frag_slots(skb);
+> +	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
+> +		net_alert_ratelimited(
+> +			"xennet: skb rides the rocket: %d slots\n", slots);
+>  		goto drop;
+>  	}
+>  
+>  	spin_lock_irqsave(&np->tx_lock, flags);
+>  
+>  	if (unlikely(!netif_carrier_ok(dev) ||
+> -		     (frags > 1 && !xennet_can_sg(dev)) ||
+> +		     (slots > 1 && !xennet_can_sg(dev)) ||
+>  		     netif_needs_gso(skb, netif_skb_features(skb)))) {
+>  		spin_unlock_irqrestore(&np->tx_lock, flags);
+>  		goto drop;
+> -- 
+> 1.7.2.5
+> 
