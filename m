@@ -1,74 +1,114 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH 1/1] asix: use ramdom hw addr if the one read is not valid
-Date: Wed, 21 Nov 2012 11:22:42 +0100
-Message-ID: <1353493362-30418-1-git-send-email-plagnioj@jcrosoft.com>
-Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: [PATCH 1/1] net: add micrel KSZ8873MLL switch support
+Date: Wed, 21 Nov 2012 11:27:10 +0100
+Message-ID: <1353493630-30867-1-git-send-email-plagnioj@jcrosoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+ Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- drivers/net/usb/asix_devices.c |   24 +++++++++++++++++++++---
- 1 file changed, 21 insertions(+), 3 deletions(-)
+this will allow to detect the link between the switch and the soc
 
-diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-index 33ab824..7ebec5b 100644
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -225,7 +225,13 @@ static int ax88172_bind(struct usbnet *dev, struct usb_interface *intf)
- 			   ret);
- 		goto out;
- 	}
--	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-+
-+	if (is_valid_ether_addr(buf)) {
-+		memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-+	} else {
-+		netdev_info(dev->net, "invalid hw address, using random\n");
-+		eth_hw_addr_random(dev->net);
-+	}
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/phy/micrel.c   |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/micrel_phy.h |    1 +
+ 2 files changed, 45 insertions(+)
+
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 2165d5f..38d7034 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -127,6 +127,39 @@ static int ks8051_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
  
- 	/* Initialize MII structure */
- 	dev->mii.dev = dev->net;
-@@ -423,7 +429,13 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
- 		return ret;
- 	}
--	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
++#define KSZ8873MLL_GLOBAL_CONTROL_4	0x06
++#define KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX	(1 << 6)
++#define KSZ8873MLL_GLOBAL_CONTROL_4_SPEED	(1 << 4)
++int ksz8873mll_read_status(struct phy_device *phydev)
++{
++	int regval;
 +
-+	if (is_valid_ether_addr(buf)) {
-+		memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-+	} else {
-+		netdev_info(dev->net, "invalid hw address, using random\n");
-+		eth_hw_addr_random(dev->net);
-+	}
- 
- 	/* Initialize MII structure */
- 	dev->mii.dev = dev->net;
-@@ -777,7 +789,13 @@ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
- 		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
- 		return ret;
- 	}
--	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
++	/* dummy read */
++	regval = phy_read(phydev, KSZ8873MLL_GLOBAL_CONTROL_4);
 +
-+	if (is_valid_ether_addr(buf)) {
-+		memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-+	} else {
-+		netdev_info(dev->net, "invalid hw address, using random\n");
-+		eth_hw_addr_random(dev->net);
-+	}
++	regval = phy_read(phydev, KSZ8873MLL_GLOBAL_CONTROL_4);
++
++	if (regval & KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX)
++		phydev->duplex = DUPLEX_HALF;
++	else
++		phydev->duplex = DUPLEX_FULL;
++
++	if (regval & KSZ8873MLL_GLOBAL_CONTROL_4_SPEED)
++		phydev->speed = SPEED_10;
++	else
++		phydev->speed = SPEED_100;
++
++	phydev->link = 1;
++	phydev->pause = phydev->asym_pause = 0;
++
++	return 0;
++}
++
++static int ksz8873mll_config_aneg(struct phy_device *phydev)
++{
++	return 0;
++}
++
+ static struct phy_driver ksphy_driver[] = {
+ {
+ 	.phy_id		= PHY_ID_KS8737,
+@@ -204,6 +237,16 @@ static struct phy_driver ksphy_driver[] = {
+ 	.ack_interrupt	= kszphy_ack_interrupt,
+ 	.config_intr	= ksz9021_config_intr,
+ 	.driver		= { .owner = THIS_MODULE, },
++}, {
++	.phy_id		= PHY_ID_KSZ8873MLL,
++	.phy_id_mask	= 0x00fffff0,
++	.name		= "Micrel KSZ8873MLL Swithch",
++	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
++	.flags		= PHY_HAS_MAGICANEG,
++	.config_init	= kszphy_config_init,
++	.config_aneg	= ksz8873mll_config_aneg,
++	.read_status	= ksz8873mll_read_status,
++	.driver		= { .owner = THIS_MODULE, },
+ } };
  
- 	/* Initialize MII structure */
- 	dev->mii.dev = dev->net;
+ static int __init ksphy_init(void)
+@@ -232,6 +275,7 @@ static struct mdio_device_id __maybe_unused micrel_tbl[] = {
+ 	{ PHY_ID_KSZ8021, 0x00ffffff },
+ 	{ PHY_ID_KSZ8041, 0x00fffff0 },
+ 	{ PHY_ID_KSZ8051, 0x00fffff0 },
++	{ PHY_ID_KSZ8873MLL, 0x00fffff0 },
+ 	{ }
+ };
+ 
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index de20120..adfe8c0 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -15,6 +15,7 @@
+ 
+ #define MICREL_PHY_ID_MASK	0x00fffff0
+ 
++#define PHY_ID_KSZ8873MLL	0x000e7237
+ #define PHY_ID_KSZ9021		0x00221610
+ #define PHY_ID_KS8737		0x00221720
+ #define PHY_ID_KSZ8021		0x00221555
 -- 
 1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
