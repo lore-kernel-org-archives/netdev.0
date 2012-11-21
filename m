@@ -1,338 +1,87 @@
-From: Steve Glendinning <steve.glendinning@shawell.net>
-Subject: [PATCH 3/5] smsc95xx: support PHY wakeup source
-Date: Thu, 22 Nov 2012 18:05:24 +0000
-Message-ID: <1353607526-19307-4-git-send-email-steve.glendinning@shawell.net>
-References: <1353607526-19307-1-git-send-email-steve.glendinning@shawell.net>
-Cc: Steve Glendinning <steve.glendinning@shawell.net>
+From: Bernhard Schmidt <berni@birkenwald.de>
+Subject: VXLAN multicast receive not working
+Date: Wed, 21 Nov 2012 23:27:27 +0000 (UTC)
+Message-ID: <k8jo0v$8hn$1@ger.gmane.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:59736 "EHLO
-	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753917Ab2KVSf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:35:28 -0500
-In-Reply-To: <1353607526-19307-1-git-send-email-steve.glendinning@shawell.net>
+Received: from plane.gmane.org ([80.91.229.3]:49868 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753815Ab2KVW1Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Nov 2012 17:27:24 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1TbJhs-0008M8-HI
+	for netdev@vger.kernel.org; Thu, 22 Nov 2012 00:27:48 +0100
+Received: from nat64.discard.me.uk ([90.155.46.46])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 22 Nov 2012 00:27:48 +0100
+Received: from berni by nat64.discard.me.uk with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 22 Nov 2012 00:27:48 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables LAN9500 family devices to wake from suspend
-on either link up or link down events
+Hello,
 
-It also adds _nopm versions of mdio access functions, so we can
-safely call them from suspend and resume functions
+I'm just trying to play with VXLAN a bit and wanted to build a Linux
+gateway routing into seperate VXLAN segments.
 
-Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
----
- drivers/net/usb/smsc95xx.c |  164 +++++++++++++++++++++++++++++++++++++++-----
- drivers/net/usb/smsc95xx.h |   17 +++++
- 2 files changed, 164 insertions(+), 17 deletions(-)
+Debian Wheezy, running 3.7-rc6, with current git HEAD of iproute2.
+It's a VMware VM but that should not matter much.
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 3bacb41..e98ff8c 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -48,7 +48,7 @@
- #define SMSC95XX_INTERNAL_PHY_ID	(1)
- #define SMSC95XX_TX_OVERHEAD		(8)
- #define SMSC95XX_TX_OVERHEAD_CSUM	(12)
--#define SUPPORTED_WAKE			(WAKE_UCAST | WAKE_BCAST | \
-+#define SUPPORTED_WAKE			(WAKE_PHY | WAKE_UCAST | WAKE_BCAST | \
- 					 WAKE_MCAST | WAKE_ARP | WAKE_MAGIC)
- 
- #define FEATURE_8_WAKEUP_FILTERS	(0x01)
-@@ -176,14 +176,15 @@ static int smsc95xx_clear_feature(struct usbnet *dev, u32 feature)
- 
- /* Loop until the read is completed with timeout
-  * called with phy_mutex held */
--static int __must_check smsc95xx_phy_wait_not_busy(struct usbnet *dev)
-+static int __must_check __smsc95xx_phy_wait_not_busy(struct usbnet *dev,
-+						     int in_pm)
- {
- 	unsigned long start_time = jiffies;
- 	u32 val;
- 	int ret;
- 
- 	do {
--		ret = smsc95xx_read_reg(dev, MII_ADDR, &val);
-+		ret = __smsc95xx_read_reg(dev, MII_ADDR, &val, in_pm);
- 		check_warn_return(ret, "Error reading MII_ACCESS");
- 		if (!(val & MII_BUSY_))
- 			return 0;
-@@ -192,7 +193,8 @@ static int __must_check smsc95xx_phy_wait_not_busy(struct usbnet *dev)
- 	return -EIO;
- }
- 
--static int smsc95xx_mdio_read(struct net_device *netdev, int phy_id, int idx)
-+static int __smsc95xx_mdio_read(struct net_device *netdev, int phy_id, int idx,
-+				int in_pm)
- {
- 	struct usbnet *dev = netdev_priv(netdev);
- 	u32 val, addr;
-@@ -201,20 +203,20 @@ static int smsc95xx_mdio_read(struct net_device *netdev, int phy_id, int idx)
- 	mutex_lock(&dev->phy_mutex);
- 
- 	/* confirm MII not busy */
--	ret = smsc95xx_phy_wait_not_busy(dev);
-+	ret = __smsc95xx_phy_wait_not_busy(dev, in_pm);
- 	check_warn_goto_done(ret, "MII is busy in smsc95xx_mdio_read");
- 
- 	/* set the address, index & direction (read from PHY) */
- 	phy_id &= dev->mii.phy_id_mask;
- 	idx &= dev->mii.reg_num_mask;
- 	addr = (phy_id << 11) | (idx << 6) | MII_READ_ | MII_BUSY_;
--	ret = smsc95xx_write_reg(dev, MII_ADDR, addr);
-+	ret = __smsc95xx_write_reg(dev, MII_ADDR, addr, in_pm);
- 	check_warn_goto_done(ret, "Error writing MII_ADDR");
- 
--	ret = smsc95xx_phy_wait_not_busy(dev);
-+	ret = __smsc95xx_phy_wait_not_busy(dev, in_pm);
- 	check_warn_goto_done(ret, "Timed out reading MII reg %02X", idx);
- 
--	ret = smsc95xx_read_reg(dev, MII_DATA, &val);
-+	ret = __smsc95xx_read_reg(dev, MII_DATA, &val, in_pm);
- 	check_warn_goto_done(ret, "Error reading MII_DATA");
- 
- 	ret = (u16)(val & 0xFFFF);
-@@ -224,8 +226,8 @@ done:
- 	return ret;
- }
- 
--static void smsc95xx_mdio_write(struct net_device *netdev, int phy_id, int idx,
--				int regval)
-+static void __smsc95xx_mdio_write(struct net_device *netdev, int phy_id,
-+				  int idx, int regval, int in_pm)
- {
- 	struct usbnet *dev = netdev_priv(netdev);
- 	u32 val, addr;
-@@ -234,27 +236,50 @@ static void smsc95xx_mdio_write(struct net_device *netdev, int phy_id, int idx,
- 	mutex_lock(&dev->phy_mutex);
- 
- 	/* confirm MII not busy */
--	ret = smsc95xx_phy_wait_not_busy(dev);
-+	ret = __smsc95xx_phy_wait_not_busy(dev, in_pm);
- 	check_warn_goto_done(ret, "MII is busy in smsc95xx_mdio_write");
- 
- 	val = regval;
--	ret = smsc95xx_write_reg(dev, MII_DATA, val);
-+	ret = __smsc95xx_write_reg(dev, MII_DATA, val, in_pm);
- 	check_warn_goto_done(ret, "Error writing MII_DATA");
- 
- 	/* set the address, index & direction (write to PHY) */
- 	phy_id &= dev->mii.phy_id_mask;
- 	idx &= dev->mii.reg_num_mask;
- 	addr = (phy_id << 11) | (idx << 6) | MII_WRITE_ | MII_BUSY_;
--	ret = smsc95xx_write_reg(dev, MII_ADDR, addr);
-+	ret = __smsc95xx_write_reg(dev, MII_ADDR, addr, in_pm);
- 	check_warn_goto_done(ret, "Error writing MII_ADDR");
- 
--	ret = smsc95xx_phy_wait_not_busy(dev);
-+	ret = __smsc95xx_phy_wait_not_busy(dev, in_pm);
- 	check_warn_goto_done(ret, "Timed out writing MII reg %02X", idx);
- 
- done:
- 	mutex_unlock(&dev->phy_mutex);
- }
- 
-+static int smsc95xx_mdio_read_nopm(struct net_device *netdev, int phy_id,
-+				   int idx)
-+{
-+	return __smsc95xx_mdio_read(netdev, phy_id, idx, 1);
-+}
-+
-+static void smsc95xx_mdio_write_nopm(struct net_device *netdev, int phy_id,
-+				     int idx, int regval)
-+{
-+	__smsc95xx_mdio_write(netdev, phy_id, idx, regval, 1);
-+}
-+
-+static int smsc95xx_mdio_read(struct net_device *netdev, int phy_id, int idx)
-+{
-+	return __smsc95xx_mdio_read(netdev, phy_id, idx, 0);
-+}
-+
-+static void smsc95xx_mdio_write(struct net_device *netdev, int phy_id, int idx,
-+				int regval)
-+{
-+	__smsc95xx_mdio_write(netdev, phy_id, idx, regval, 0);
-+}
-+
- static int __must_check smsc95xx_wait_eeprom(struct usbnet *dev)
- {
- 	unsigned long start_time = jiffies;
-@@ -1068,18 +1093,61 @@ static u16 smsc_crc(const u8 *buffer, size_t len, int filter)
- 	return bitrev16(crc16(0xFFFF, buffer, len)) << ((filter % 2) * 16);
- }
- 
-+static int smsc95xx_enable_phy_wakeup_interrupts(struct usbnet *dev, u16 mask)
-+{
-+	struct mii_if_info *mii = &dev->mii;
-+	int ret;
-+
-+	netdev_dbg(dev->net, "enabling PHY wakeup interrupts");
-+
-+	/* read to clear */
-+	ret = smsc95xx_mdio_read_nopm(dev->net, mii->phy_id, PHY_INT_SRC);
-+	check_warn_return(ret, "Error reading PHY_INT_SRC");
-+
-+	/* enable interrupt source */
-+	ret = smsc95xx_mdio_read_nopm(dev->net, mii->phy_id, PHY_INT_MASK);
-+	check_warn_return(ret, "Error reading PHY_INT_MASK");
-+
-+	ret |= mask;
-+
-+	smsc95xx_mdio_write_nopm(dev->net, mii->phy_id, PHY_INT_MASK, ret);
-+
-+	return 0;
-+}
-+
-+static int smsc95xx_link_ok_nopm(struct usbnet *dev)
-+{
-+	struct mii_if_info *mii = &dev->mii;
-+	int ret;
-+
-+	/* first, a dummy read, needed to latch some MII phys */
-+	ret = smsc95xx_mdio_read_nopm(dev->net, mii->phy_id, MII_BMSR);
-+	check_warn_return(ret, "Error reading MII_BMSR");
-+
-+	ret = smsc95xx_mdio_read_nopm(dev->net, mii->phy_id, MII_BMSR);
-+	check_warn_return(ret, "Error reading MII_BMSR");
-+
-+	return !!(ret & BMSR_LSTATUS);
-+}
-+
- static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
- {
- 	struct usbnet *dev = usb_get_intfdata(intf);
- 	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
-+	u32 val, link_up;
- 	int ret;
--	u32 val;
- 
- 	ret = usbnet_suspend(intf, message);
- 	check_warn_return(ret, "usbnet_suspend error");
- 
--	/* if no wol options set, enter lowest power SUSPEND2 mode */
--	if (!(pdata->wolopts & SUPPORTED_WAKE)) {
-+	/* determine if link is up using only _nopm functions */
-+	link_up = smsc95xx_link_ok_nopm(dev);
-+
-+	/* if no wol options set, or if link is down and we're not waking on
-+	 * PHY activity, enter lowest power SUSPEND2 mode
-+	 */
-+	if (!(pdata->wolopts & SUPPORTED_WAKE) ||
-+		!(link_up || (pdata->wolopts & WAKE_PHY))) {
- 		netdev_info(dev->net, "entering SUSPEND2 mode");
- 
- 		/* disable energy detect (link up) & wake up events */
-@@ -1112,6 +1180,59 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
- 		return 0;
- 	}
- 
-+	if (pdata->wolopts & WAKE_PHY) {
-+		ret = smsc95xx_enable_phy_wakeup_interrupts(dev,
-+			(PHY_INT_MASK_ANEG_COMP_ | PHY_INT_MASK_LINK_DOWN_));
-+		check_warn_return(ret, "error enabling PHY wakeup ints");
-+
-+		/* if link is down then configure EDPD and enter SUSPEND1,
-+		 * otherwise enter SUSPEND0 below
-+		 */
-+		if (!link_up) {
-+			struct mii_if_info *mii = &dev->mii;
-+			netdev_info(dev->net, "entering SUSPEND1 mode");
-+
-+			/* reconfigure link pulse detection timing for
-+			 * compatibility with non-standard link partners
-+			 */
-+			if (pdata->features & FEATURE_PHY_NLP_CROSSOVER)
-+				smsc95xx_mdio_write_nopm(dev->net, mii->phy_id,
-+					PHY_EDPD_CONFIG,
-+					PHY_EDPD_CONFIG_DEFAULT);
-+
-+			/* enable energy detect power-down mode */
-+			ret = smsc95xx_mdio_read_nopm(dev->net, mii->phy_id,
-+				PHY_MODE_CTRL_STS);
-+			check_warn_return(ret, "Error reading PHY_MODE_CTRL_STS");
-+
-+			ret |= MODE_CTRL_STS_EDPWRDOWN_;
-+
-+			smsc95xx_mdio_write_nopm(dev->net, mii->phy_id,
-+				PHY_MODE_CTRL_STS, ret);
-+
-+			/* enter SUSPEND1 mode */
-+			ret = smsc95xx_read_reg_nopm(dev, PM_CTRL, &val);
-+			check_warn_return(ret, "Error reading PM_CTRL");
-+
-+			val &= ~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_);
-+			val |= PM_CTL_SUS_MODE_1;
-+
-+			ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
-+			check_warn_return(ret, "Error writing PM_CTRL");
-+
-+			/* clear wol status, enable energy detection */
-+			val &= ~PM_CTL_WUPS_;
-+			val |= (PM_CTL_WUPS_ED_ | PM_CTL_ED_EN_);
-+
-+			ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
-+			check_warn_return(ret, "Error writing PM_CTRL");
-+
-+			smsc95xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
-+
-+			return 0;
-+		}
-+	}
-+
- 	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
- 		u32 *filter_mask = kzalloc(32, GFP_KERNEL);
- 		u32 command[2];
-@@ -1250,6 +1371,10 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
- 
- 	val |= PM_CTL_WOL_EN_;
- 
-+	/* phy energy detect wakeup source */
-+	if (pdata->wolopts & WAKE_PHY)
-+		val |= PM_CTL_ED_EN_;
-+
- 	ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
- 	check_warn_return(ret, "Error writing PM_CTRL");
- 
-@@ -1271,6 +1396,11 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
- 	/* clear wol status */
- 	val &= ~PM_CTL_WUPS_;
- 	val |= PM_CTL_WUPS_WOL_;
-+
-+	/* enable energy detection */
-+	if (pdata->wolopts & WAKE_PHY)
-+		val |= PM_CTL_WUPS_ED_;
-+
- 	ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
- 	check_warn_return(ret, "Error writing PM_CTRL");
- 
-diff --git a/drivers/net/usb/smsc95xx.h b/drivers/net/usb/smsc95xx.h
-index 99f04a2..f360ee3 100644
---- a/drivers/net/usb/smsc95xx.h
-+++ b/drivers/net/usb/smsc95xx.h
-@@ -226,6 +226,23 @@
- 
- /* Vendor-specific PHY Definitions */
- 
-+/* EDPD NLP / crossover time configuration (LAN9500A only) */
-+#define PHY_EDPD_CONFIG			(16)
-+#define PHY_EDPD_CONFIG_TX_NLP_EN_	((u16)0x8000)
-+#define PHY_EDPD_CONFIG_TX_NLP_1000_	((u16)0x0000)
-+#define PHY_EDPD_CONFIG_TX_NLP_768_	((u16)0x2000)
-+#define PHY_EDPD_CONFIG_TX_NLP_512_	((u16)0x4000)
-+#define PHY_EDPD_CONFIG_TX_NLP_256_	((u16)0x6000)
-+#define PHY_EDPD_CONFIG_RX_1_NLP_	((u16)0x1000)
-+#define PHY_EDPD_CONFIG_RX_NLP_64_	((u16)0x0000)
-+#define PHY_EDPD_CONFIG_RX_NLP_256_	((u16)0x0400)
-+#define PHY_EDPD_CONFIG_RX_NLP_512_	((u16)0x0800)
-+#define PHY_EDPD_CONFIG_RX_NLP_1000_	((u16)0x0C00)
-+#define PHY_EDPD_CONFIG_EXT_CROSSOVER_	((u16)0x0001)
-+#define PHY_EDPD_CONFIG_DEFAULT		(PHY_EDPD_CONFIG_TX_NLP_EN_ | \
-+					 PHY_EDPD_CONFIG_TX_NLP_768_ | \
-+					 PHY_EDPD_CONFIG_RX_1_NLP_)
-+
- /* Mode Control/Status Register */
- #define PHY_MODE_CTRL_STS		(17)
- #define MODE_CTRL_STS_EDPWRDOWN_	((u16)0x2000)
--- 
-1.7.10.4
+Two vmxnet3 NICs, one with management and one with my VXLAN transport
+network.
+
+4: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UNKNOWN qlen 1000
+    link/ether 00:50:56:8e:0d:c8 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.0.250/24 scope global eth1
+    inet6 fe80::250:56ff:fe8e:dc8/64 scope link 
+       valid_lft forever preferred_lft forever
+
+In the same network segment are two VMware ESXi 5.0 hosts with Nexus
+1000V for VLAN termination (10.0.0.1 and 10.0.0.2)
+
+On top of that there is a VXLAN interface defined, with ID 12340 and
+group 239.0.0.42.
+
+6: vxlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue
+state UNKNOWN mode DEFAULT 
+    link/ether f6:59:e7:db:82:92 brd ff:ff:ff:ff:ff:ff
+    vxlan id 12340 group 239.0.0.42 dev eth1 port 32768 61000 ageing 300 
+
+That interface has an address as well
+
+6: vxlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue
+state UNKNOWN 
+    link/ether f6:59:e7:db:82:92 brd ff:ff:ff:ff:ff:ff
+    inet 10.1.1.1/24 scope global vxlan0
+    inet6 fe80::f459:e7ff:fedb:8292/64 scope link 
+       valid_lft forever preferred_lft forever
+
+The same VXLAN domain is defined on the Nexus 1000V and a VM is attached
+to it. When I send some broadcast traffic down vxlan0 (i.e. ping
+10.1.1.2 which generates an ARP request) the VM sees the packet just
+fine.
+
+When I do it the other way around (the VM sends a broadcast ARP for
+10.1.1.3) I see a packet coming into eth1 on the multicast group, but
+vxlan0 stays silent. 
+
+I have captured one of those packets, wireshark does not support
+disecting it yet but in my eyes the packet is correct. I've put it
+online at http://users.birkenwald.de/~berni/temp/vxlan.pcap
+
+Weirdly enough, as soon as I populate the ARP and VXLAN forwarding table
+by pinging back from the destination to the source (so the source can
+learn both MAC->Nexthop for VXLAN and IP->MAC from the ARP request) it
+starts working. 
+
+To summarize, Multicast/Broadcast from N1k to Linux seems to be broken,
+the encapsulated packet is seen on the Ethernet but the decapsulated
+packet is not seen on vxlan0. Broadcast/Multicast in the other direction
+works just fine as well as Unicast in both directions.
+
+Thanks for any pointers,
+Bernhard
