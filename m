@@ -1,73 +1,131 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net 1/1] 8139cp: revert "set ring address before enabling receiver"
-Date: Wed, 21 Nov 2012 21:07:29 +0100
-Message-ID: <20121121200729.GA17603@electric-eye.fr.zoreil.com>
+From: George Zhang <georgezhang@vmware.com>
+Subject: [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Wed, 21 Nov 2012 12:39:11 -0800
+Message-ID: <20121121203715.14395.27632.stgit@promb-2n-dhcp175.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>,
-	Jason Wang <jasowang@redhat.com>,
-	Jeff Garzik <jgarzik@pobox.com>, gilboad@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:39099 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756405Ab2KUUcx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 15:32:53 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, gregkh@linuxfoundation.org, davem@davemloft.net
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	georgezhang@vmware.com, virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch reverts b01af4579ec41f48e9b9c774e70bd6474ad210db.
 
-The original patch was tested with emulated hardware. Real
-hardware chokes.
+* * *
+This series of VSOCK linux upstreaming patches include latest udpate from
+VMware.
 
-Fixes https://bugzilla.kernel.org/show_bug.cgi?id=47041
+Summary of changes:
+        - Sparse clean.
+        - Checkpatch clean with one exception, a "complex macro" in
+          which we can't add parentheses.
+        - Remove all runtime assertions.
+        - Fix device name, so that existing user clients work.
+        - Fix VMCI handle lookup.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+* * *
+
+In an effort to improve the out-of-the-box experience with Linux
+kernels for VMware users, VMware is working on readying the Virtual
+Machine Communication Interface (vmw_vmci) and VMCI Sockets (VSOCK)
+(vmw_vsock) kernel modules for inclusion in the Linux kernel. The
+purpose of this post is to acquire feedback on the vmw_vsock kernel
+module. The vmw_vmci kernel module has been presented in an early post.
+
+
+* * *
+
+VMCI Sockets allows virtual machines to communicate with host kernel
+modules and the VMware hypervisors. VMCI Sockets kernel module has
+dependency on VMCI kernel module. User level applications both in
+a virtual machine and on the host can use vmw_vmci through VMCI
+Sockets API which facilitates fast and efficient communication
+between guest virtual machines and their host. A socket
+address family designed to be compatible with UDP and TCP at the
+interface level. Today, VMCI and VMCI Sockets are used by the VMware
+shared folders (HGFS) and various VMware Tools components inside the
+guest for zero-config, network-less access to VMware host services. In
+addition to this, VMware's users are using VMCI Sockets for various
+applications, where network access of the virtual machine is
+restricted or non-existent. Examples of this are VMs communicating
+with device proxies for proprietary hardware running as host
+applications and automated testing of applications running within
+virtual machines.
+
+The VMware VMCI Sockets are similar to other socket types, like
+Berkeley UNIX socket interface. The VMCI sockets module supports
+both connection-oriented stream sockets like TCP, and connectionless
+datagram sockets like UDP. The VSOCK protocol family is defined as
+"AF_VSOCK" and the socket operations split for SOCK_DGRAM and
+SOCK_STREAM.
+
+For additional information about the use of VMCI and in particular
+VMCI Sockets, please refer to the VMCI Socket Programming Guide
+available at https://www.vmware.com/support/developer/vmci-sdk/.
+
+
+
 ---
- drivers/net/ethernet/realtek/8139cp.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 1c81825..b01f83a 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -979,17 +979,6 @@ static void cp_init_hw (struct cp_private *cp)
- 	cpw32_f (MAC0 + 0, le32_to_cpu (*(__le32 *) (dev->dev_addr + 0)));
- 	cpw32_f (MAC0 + 4, le32_to_cpu (*(__le32 *) (dev->dev_addr + 4)));
- 
--	cpw32_f(HiTxRingAddr, 0);
--	cpw32_f(HiTxRingAddr + 4, 0);
--
--	ring_dma = cp->ring_dma;
--	cpw32_f(RxRingAddr, ring_dma & 0xffffffff);
--	cpw32_f(RxRingAddr + 4, (ring_dma >> 16) >> 16);
--
--	ring_dma += sizeof(struct cp_desc) * CP_RX_RING_SIZE;
--	cpw32_f(TxRingAddr, ring_dma & 0xffffffff);
--	cpw32_f(TxRingAddr + 4, (ring_dma >> 16) >> 16);
--
- 	cp_start_hw(cp);
- 	cpw8(TxThresh, 0x06); /* XXX convert magic num to a constant */
- 
-@@ -1003,6 +992,17 @@ static void cp_init_hw (struct cp_private *cp)
- 
- 	cpw8(Config5, cpr8(Config5) & PMEStatus);
- 
-+	cpw32_f(HiTxRingAddr, 0);
-+	cpw32_f(HiTxRingAddr + 4, 0);
-+
-+	ring_dma = cp->ring_dma;
-+	cpw32_f(RxRingAddr, ring_dma & 0xffffffff);
-+	cpw32_f(RxRingAddr + 4, (ring_dma >> 16) >> 16);
-+
-+	ring_dma += sizeof(struct cp_desc) * CP_RX_RING_SIZE;
-+	cpw32_f(TxRingAddr, ring_dma & 0xffffffff);
-+	cpw32_f(TxRingAddr + 4, (ring_dma >> 16) >> 16);
-+
- 	cpw16(MultiIntr, 0);
- 
- 	cpw8_f(Cfg9346, Cfg9346_Lock);
+George Zhang (6):
+      VSOCK: vsock protocol implementation.
+      VSOCK: vsock address implementaion.
+      VSOCK: notification implementation.
+      VSOCK: statistics implementation.
+      VSOCK: utility functions.
+      VSOCK: header and config files.
+
+
+ include/linux/socket.h              |    4 
+ net/Kconfig                         |    1 
+ net/Makefile                        |    1 
+ net/vmw_vsock/Kconfig               |   14 
+ net/vmw_vsock/Makefile              |    4 
+ net/vmw_vsock/af_vsock.c            | 4054 +++++++++++++++++++++++++++++++++++
+ net/vmw_vsock/af_vsock.h            |  180 ++
+ net/vmw_vsock/notify.c              |  983 ++++++++
+ net/vmw_vsock/notify.h              |  130 +
+ net/vmw_vsock/notify_qstate.c       |  625 +++++
+ net/vmw_vsock/stats.c               |   37 
+ net/vmw_vsock/stats.h               |  217 ++
+ net/vmw_vsock/util.c                |  620 +++++
+ net/vmw_vsock/util.h                |  314 +++
+ net/vmw_vsock/vmci_sockets.h        |  517 ++++
+ net/vmw_vsock/vmci_sockets_packet.h |   90 +
+ net/vmw_vsock/vsock_addr.c          |  246 ++
+ net/vmw_vsock/vsock_addr.h          |   40 
+ net/vmw_vsock/vsock_common.h        |  127 +
+ net/vmw_vsock/vsock_packet.h        |  124 +
+ net/vmw_vsock/vsock_version.h       |   28 
+ 21 files changed, 8355 insertions(+), 1 deletions(-)
+ create mode 100644 net/vmw_vsock/Kconfig
+ create mode 100644 net/vmw_vsock/Makefile
+ create mode 100644 net/vmw_vsock/af_vsock.c
+ create mode 100644 net/vmw_vsock/af_vsock.h
+ create mode 100644 net/vmw_vsock/notify.c
+ create mode 100644 net/vmw_vsock/notify.h
+ create mode 100644 net/vmw_vsock/notify_qstate.c
+ create mode 100644 net/vmw_vsock/stats.c
+ create mode 100644 net/vmw_vsock/stats.h
+ create mode 100644 net/vmw_vsock/util.c
+ create mode 100644 net/vmw_vsock/util.h
+ create mode 100644 net/vmw_vsock/vmci_sockets.h
+ create mode 100644 net/vmw_vsock/vmci_sockets_packet.h
+ create mode 100644 net/vmw_vsock/vsock_addr.c
+ create mode 100644 net/vmw_vsock/vsock_addr.h
+ create mode 100644 net/vmw_vsock/vsock_common.h
+ create mode 100644 net/vmw_vsock/vsock_packet.h
+ create mode 100644 net/vmw_vsock/vsock_version.h
+
 -- 
-1.7.11.7
+Signature
