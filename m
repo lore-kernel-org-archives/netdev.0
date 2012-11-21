@@ -1,198 +1,122 @@
-From: Konrad Rzeszutek Wilk <konrad@kernel.org>
-Subject: Re: [PATCH V3] xen/netfront: handle compound page fragments on
- transmit
-Date: Wed, 21 Nov 2012 10:16:27 -0500
-Message-ID: <20121121151625.GA13127@konrad-lan.dumpdata.com>
-References: <1353499336-28952-1-git-send-email-ian.campbell@citrix.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: [PATCH 1/1 v2] net: add micrel KSZ8873MLL switch support
+Date: Wed, 21 Nov 2012 16:38:07 +0100
+Message-ID: <1353512287-24048-1-git-send-email-plagnioj@jcrosoft.com>
+References: <1353493630-30867-1-git-send-email-plagnioj@jcrosoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	Eric Dumazet <edumazet@google.com>,
-	ANNIE LI <annie.li@oracle.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	Stefan Bader <stefan.bader@canonical.com>
-To: Ian Campbell <ian.campbell@citrix.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:37579 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755090Ab2KUPQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 10:16:35 -0500
-Received: by mail-qa0-f53.google.com with SMTP id k31so1691508qat.19
-        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 07:16:34 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1353499336-28952-1-git-send-email-ian.campbell@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+ Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1353493630-30867-1-git-send-email-plagnioj@jcrosoft.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 21, 2012 at 12:02:16PM +0000, Ian Campbell wrote:
-> An SKB paged fragment can consist of a compound page with order > 0.
-> However the netchannel protocol deals only in PAGE_SIZE frames.
-> 
-> Handle this in xennet_make_frags by iterating over the frames which
-> make up the page.
-> 
-> This is the netfront equivalent to 6a8ed462f16b for netback.
-> 
-> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> Cc: netdev@vger.kernel.org
-> Cc: xen-devel@lists.xen.org
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
+this will allow to detect the link between the switch and the soc
 
-Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Cc: netdev@vger.kernel.org
+---
+v2:
 
-David, would you like me to send it to Linus via my tree or are you
-OK sending him a git pull with this patch (and hopefully some other
-ones?)
+	fix typo in the phy_driver name
 
-Thank you.
+Best Regards,
+J.
+ drivers/net/phy/micrel.c   |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/micrel_phy.h |    1 +
+ 2 files changed, 45 insertions(+)
 
-> Cc: ANNIE LI <annie.li@oracle.com>
-> Cc: Sander Eikelenboom <linux@eikelenboom.it>
-> Cc: Stefan Bader <stefan.bader@canonical.com>
-> ---
-> v3: limit to 80-characters. Use net_alert_ratelimited.
-> v2: check we have enough room in the ring and that the other end can
->     cope with the number of slots in a single frame
-> ---
->  drivers/net/xen-netfront.c |   98 ++++++++++++++++++++++++++++++++++---------
->  1 files changed, 77 insertions(+), 21 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index caa0110..fc24eb9 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -452,29 +452,85 @@ static void xennet_make_frags(struct sk_buff *skb, struct net_device *dev,
->  	/* Grant backend access to each skb fragment page. */
->  	for (i = 0; i < frags; i++) {
->  		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-> +		struct page *page = skb_frag_page(frag);
->  
-> -		tx->flags |= XEN_NETTXF_more_data;
-> +		len = skb_frag_size(frag);
-> +		offset = frag->page_offset;
->  
-> -		id = get_id_from_freelist(&np->tx_skb_freelist, np->tx_skbs);
-> -		np->tx_skbs[id].skb = skb_get(skb);
-> -		tx = RING_GET_REQUEST(&np->tx, prod++);
-> -		tx->id = id;
-> -		ref = gnttab_claim_grant_reference(&np->gref_tx_head);
-> -		BUG_ON((signed short)ref < 0);
-> +		/* Data must not cross a page boundary. */
-> +		BUG_ON(len + offset > PAGE_SIZE<<compound_order(page));
->  
-> -		mfn = pfn_to_mfn(page_to_pfn(skb_frag_page(frag)));
-> -		gnttab_grant_foreign_access_ref(ref, np->xbdev->otherend_id,
-> -						mfn, GNTMAP_readonly);
-> +		/* Skip unused frames from start of page */
-> +		page += offset >> PAGE_SHIFT;
-> +		offset &= ~PAGE_MASK;
->  
-> -		tx->gref = np->grant_tx_ref[id] = ref;
-> -		tx->offset = frag->page_offset;
-> -		tx->size = skb_frag_size(frag);
-> -		tx->flags = 0;
-> +		while (len > 0) {
-> +			unsigned long bytes;
-> +
-> +			BUG_ON(offset >= PAGE_SIZE);
-> +
-> +			bytes = PAGE_SIZE - offset;
-> +			if (bytes > len)
-> +				bytes = len;
-> +
-> +			tx->flags |= XEN_NETTXF_more_data;
-> +
-> +			id = get_id_from_freelist(&np->tx_skb_freelist,
-> +						  np->tx_skbs);
-> +			np->tx_skbs[id].skb = skb_get(skb);
-> +			tx = RING_GET_REQUEST(&np->tx, prod++);
-> +			tx->id = id;
-> +			ref = gnttab_claim_grant_reference(&np->gref_tx_head);
-> +			BUG_ON((signed short)ref < 0);
-> +
-> +			mfn = pfn_to_mfn(page_to_pfn(page));
-> +			gnttab_grant_foreign_access_ref(ref,
-> +							np->xbdev->otherend_id,
-> +							mfn, GNTMAP_readonly);
-> +
-> +			tx->gref = np->grant_tx_ref[id] = ref;
-> +			tx->offset = offset;
-> +			tx->size = bytes;
-> +			tx->flags = 0;
-> +
-> +			offset += bytes;
-> +			len -= bytes;
-> +
-> +			/* Next frame */
-> +			if (offset == PAGE_SIZE && len) {
-> +				BUG_ON(!PageCompound(page));
-> +				page++;
-> +				offset = 0;
-> +			}
-> +		}
->  	}
->  
->  	np->tx.req_prod_pvt = prod;
->  }
->  
-> +/*
-> + * Count how many ring slots are required to send the frags of this
-> + * skb. Each frag might be a compound page.
-> + */
-> +static int xennet_count_skb_frag_slots(struct sk_buff *skb)
-> +{
-> +	int i, frags = skb_shinfo(skb)->nr_frags;
-> +	int pages = 0;
-> +
-> +	for (i = 0; i < frags; i++) {
-> +		skb_frag_t *frag = skb_shinfo(skb)->frags + i;
-> +		unsigned long size = skb_frag_size(frag);
-> +		unsigned long offset = frag->page_offset;
-> +
-> +		/* Skip unused frames from start of page */
-> +		offset &= ~PAGE_MASK;
-> +
-> +		pages += PFN_UP(offset + size);
-> +	}
-> +
-> +	return pages;
-> +}
-> +
->  static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  {
->  	unsigned short id;
-> @@ -487,23 +543,23 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	grant_ref_t ref;
->  	unsigned long mfn;
->  	int notify;
-> -	int frags = skb_shinfo(skb)->nr_frags;
-> +	int slots;
->  	unsigned int offset = offset_in_page(data);
->  	unsigned int len = skb_headlen(skb);
->  	unsigned long flags;
->  
-> -	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
-> -	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
-> -		printk(KERN_ALERT "xennet: skb rides the rocket: %d frags\n",
-> -		       frags);
-> -		dump_stack();
-> +	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
-> +		xennet_count_skb_frag_slots(skb);
-> +	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
-> +		net_alert_ratelimited(
-> +			"xennet: skb rides the rocket: %d slots\n", slots);
->  		goto drop;
->  	}
->  
->  	spin_lock_irqsave(&np->tx_lock, flags);
->  
->  	if (unlikely(!netif_carrier_ok(dev) ||
-> -		     (frags > 1 && !xennet_can_sg(dev)) ||
-> +		     (slots > 1 && !xennet_can_sg(dev)) ||
->  		     netif_needs_gso(skb, netif_skb_features(skb)))) {
->  		spin_unlock_irqrestore(&np->tx_lock, flags);
->  		goto drop;
-> -- 
-> 1.7.2.5
-> 
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 2165d5f..b983596 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -127,6 +127,39 @@ static int ks8051_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++#define KSZ8873MLL_GLOBAL_CONTROL_4	0x06
++#define KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX	(1 << 6)
++#define KSZ8873MLL_GLOBAL_CONTROL_4_SPEED	(1 << 4)
++int ksz8873mll_read_status(struct phy_device *phydev)
++{
++	int regval;
++
++	/* dummy read */
++	regval = phy_read(phydev, KSZ8873MLL_GLOBAL_CONTROL_4);
++
++	regval = phy_read(phydev, KSZ8873MLL_GLOBAL_CONTROL_4);
++
++	if (regval & KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX)
++		phydev->duplex = DUPLEX_HALF;
++	else
++		phydev->duplex = DUPLEX_FULL;
++
++	if (regval & KSZ8873MLL_GLOBAL_CONTROL_4_SPEED)
++		phydev->speed = SPEED_10;
++	else
++		phydev->speed = SPEED_100;
++
++	phydev->link = 1;
++	phydev->pause = phydev->asym_pause = 0;
++
++	return 0;
++}
++
++static int ksz8873mll_config_aneg(struct phy_device *phydev)
++{
++	return 0;
++}
++
+ static struct phy_driver ksphy_driver[] = {
+ {
+ 	.phy_id		= PHY_ID_KS8737,
+@@ -204,6 +237,16 @@ static struct phy_driver ksphy_driver[] = {
+ 	.ack_interrupt	= kszphy_ack_interrupt,
+ 	.config_intr	= ksz9021_config_intr,
+ 	.driver		= { .owner = THIS_MODULE, },
++}, {
++	.phy_id		= PHY_ID_KSZ8873MLL,
++	.phy_id_mask	= 0x00fffff0,
++	.name		= "Micrel KSZ8873MLL Switch",
++	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
++	.flags		= PHY_HAS_MAGICANEG,
++	.config_init	= kszphy_config_init,
++	.config_aneg	= ksz8873mll_config_aneg,
++	.read_status	= ksz8873mll_read_status,
++	.driver		= { .owner = THIS_MODULE, },
+ } };
+ 
+ static int __init ksphy_init(void)
+@@ -232,6 +275,7 @@ static struct mdio_device_id __maybe_unused micrel_tbl[] = {
+ 	{ PHY_ID_KSZ8021, 0x00ffffff },
+ 	{ PHY_ID_KSZ8041, 0x00fffff0 },
+ 	{ PHY_ID_KSZ8051, 0x00fffff0 },
++	{ PHY_ID_KSZ8873MLL, 0x00fffff0 },
+ 	{ }
+ };
+ 
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+index de20120..adfe8c0 100644
+--- a/include/linux/micrel_phy.h
++++ b/include/linux/micrel_phy.h
+@@ -15,6 +15,7 @@
+ 
+ #define MICREL_PHY_ID_MASK	0x00fffff0
+ 
++#define PHY_ID_KSZ8873MLL	0x000e7237
+ #define PHY_ID_KSZ9021		0x00221610
+ #define PHY_ID_KS8737		0x00221720
+ #define PHY_ID_KSZ8021		0x00221555
+-- 
+1.7.10.4
