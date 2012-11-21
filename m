@@ -1,83 +1,108 @@
-From: Rui Xiang <leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFC 3/5] printk: modify printk interface for
-	syslog_namespace
-Date: Wed, 21 Nov 2012 17:41:58 +0800
-Message-ID: <50ACA1E6.2040404@gmail.com>
-References: <50A9EAF0.4000902@gmail.com>
-	<20121119142926.GB4453@mail.hallyn.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH v2] checkpatch: add double empty line check
+Date: Wed, 21 Nov 2012 11:42:01 +0200
+Message-ID: <1353490921.6559.40.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1353151057.14327.18.camel@lb-tlvb-eilong.il.broadcom.com>
+ <20121120115239.GA7955@dm> <1353448728.17819.33.camel@joe-AO722>
+ <20121120231930.GA27492@localhost>
+ <1353454874.17819.41.camel@joe-AO722>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20121119142926.GB4453-7LNsyQBKDXoIagZqoN9o3w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "David Rientjes" <rientjes@google.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: "Joe Perches" <joe@perches.com>,
+	"Andy Whitcroft" <apw@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3060 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752729Ab2KUJms (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2012 04:42:48 -0500
+In-Reply-To: <1353454874.17819.41.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+On Tue, 2012-11-20 at 15:41 -0800, Joe Perches wrote:
+> On Tue, 2012-11-20 at 23:19 +0000, Andy Whitcroft wrote:
+> > On Tue, Nov 20, 2012 at 01:58:48PM -0800, Joe Perches wrote:
+> > 
+> > > +# check for multiple blank lines, warn only on the second one in a block
+> > > +		if ($rawline =~ /^.\s*$/ &&
+> > > +		    $prevrawline =~ /^.\s*$/ &&
+> > > +		    $linenr != $last_blank_linenr + 1) {
+> > > +			CHK("DOUBLE_EMPTY_LINE",
+> > > +			    "One blank line separating blocks is generally sufficient\n" . $herecurr);
+> > > +			$last_blank_linenr = $linenr;
+> > > +		}
+> > > +
+> > >  # check for line continuations in quoted strings with odd counts of "
+> > >  		if ($rawline =~ /\\$/ && $rawline =~ tr/"/"/ % 2) {
+> > >  			WARN("LINE_CONTINUATIONS",
+> > 
+> > Pretty sure that will fail with combination which have removed lines.
+> 
+> Not as far as I can tell.
+> Deleted lines followed by inserted lines seem
+> to work OK.
+> 
+> This check is located after the test that ensures
+> the current $line/$rawline is an insertion.
+> 
 
-On 2012-11-19 22:29, Serge E. Hallyn wrote:> Quoting Rui Xiang (leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org):
->> From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
->>
->> We re-implement printk by additional syslog_ns.
->>
->> The function include printk, /dev/kmsg, do_syslog and kmsg_dump should be modifyed
->> for syslog_ns. Previous identifier *** such as log_first_seq should be replaced
->> by syslog_ns->***.
->>
->> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
->> Signed-off-by: Xiang Rui <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
->> ---
+But you do not look at the next line, so you will miss something like
+that:
 
-.......
+diff --git a/test.c b/test.c
+index e3c46d4..e1c6ffc 100644
+--- a/test.c
++++ b/test.c
+@@ -15,7 +15,8 @@
+  * something
+  * something
+  * something
+- * next line was already empty */
++ * next line was already empty, but I'm adding another one now*/
++
+ 
+ /* something else
+  * something else
 
->>  	lockdep_on();
->> @@ -1624,7 +1618,8 @@ EXPORT_SYMBOL(vprintk_emit);
->>
->>  asmlinkage int vprintk(const char *fmt, va_list args)
->>  {
->> -	return vprintk_emit(0, -1, NULL, 0, fmt, args);
->> +	return vprintk_emit(0, -1, NULL, 0, fmt, args,
->> +				current_syslog_ns());
->>  }
->>  EXPORT_SYMBOL(vprintk);
->>
->> @@ -1636,7 +1631,8 @@ asmlinkage int printk_emit(int facility, int level,
->>  	int r;
->>
->>  	va_start(args, fmt);
->> -	r = vprintk_emit(facility, level, dict, dictlen, fmt, args);
->> +	r = vprintk_emit(facility, level, dict, dictlen, fmt, args,
->> +						current_syslog_ns());
->>  	va_end(args);
->>
->>  	return r;
->> @@ -1678,7 +1674,7 @@ asmlinkage int printk(const char *fmt, ...)
->>  	}
->>  #endif
->>  	va_start(args, fmt);
->> -	r = vprintk_emit(0, -1, NULL, 0, fmt, args);
->> +	r = vprintk_emit(0, -1, NULL, 0, fmt, args, current_syslog_ns());
->
-> Current is meaningless here.  The default should be using init_syslog_ns.
+> > I have a version here which I am testing with the combinations I have
+> > isolated to far ...
+> 
+> Enjoy.
+> Can you please test my proposal against those combinations too?
+> 
 
-Thank for your attention.
+The way I see it, we have to handle the following cases:
+a. The patch adds more than a single consecutive empty line - easy
+enough, the only "problem" here is to warn only once and there are many
+ways to do that.
+b. The patch is adding a new empty line after an existing empty line -
+for that, we must check the previous line.
+c. The patch is adding a new empty line before an existing empty line -
+for that, we must check the next line. If we are already checking the
+next line, we can tell if this is the last empty line added and
+therefore do not need to save anything in order to warn only once per
+block.
 
-I understand what you mean.
-printk -> init_syslog_log
-nsprintk(ns) -> container syslog
+My version of the patch addresses all 3 cases above, and I do not see
+how we can do it without looking at the next line and the previous line
+- so I think it is a valid approach.
 
-I think it makes sense.
+The only identified down side is that it might fail to warn about double
+empty lines if we will find a diff utility that will add the deleted
+lines after the inserted lines - but even in that case, it will not
+generate any annoying false positives and no other perl warnings. To
+address this issue, I can add a loop that will look forward if the next
+line after a newly added empty line is a deleted line, but I think this
+is excessive and I will only be able to test it on manually generated
+files since the diff utilities I'm familiar with are behaving nicely and
+delete before adding.
 
-thanks
-Libo Chen
+Anyway, I'm looking forward for your version.
+
+Thanks,
+Eilon
