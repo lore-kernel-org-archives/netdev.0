@@ -1,52 +1,56 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: 8139cp: set ring address before enabling receiver
-Date: Wed, 21 Nov 2012 13:12:02 -0500
-Message-ID: <50AD1972.5080403@pobox.com>
-References: <20120602235020.2C0A57C006C@ra.kernel.org> <1353517042.26346.130.camel@shinybook.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:53168 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755353Ab2KUSMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 13:12:09 -0500
-Received: by mail-vc0-f174.google.com with SMTP id m18so3828498vcm.19
-        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 10:12:08 -0800 (PST)
-In-Reply-To: <1353517042.26346.130.camel@shinybook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] brcmsmac: Add __printf verification to logging prototypes
+Date: Wed, 21 Nov 2012 10:17:34 -0800
+Message-ID: <a74034e340d7db52dfb0b1a01c18759eb091fd18.1353521783.git.joe@perches.com>
+Cc: Brett Rudley <brudley@broadcom.com>,
+	Roland Vossen <rvossen@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Kan Yan <kanyan@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/21/2012 11:57 AM, David Woodhouse wrote:
-> On Sat, 2012-06-02 at 23:50 +0000, Linux Kernel Mailing List wrote:
->> Gitweb:     http://git.kernel.org/linus/;a=commit;h=b01af4579ec41f48e9b9c774e70bd6474ad210db
->> Commit:     b01af4579ec41f48e9b9c774e70bd6474ad210db
->> Parent:     20e2a86485967c385d7c7befc1646e4d1d39362e
->> Author:     Jason Wang <jasowang@redhat.com>
->> AuthorDate: Thu May 31 18:19:39 2012 +0000
->> Committer:  David S. Miller <davem@davemloft.net>
->> CommitDate: Fri Jun 1 14:22:11 2012 -0400
->>
->>      8139cp: set ring address before enabling receiver
->>
->>      Currently, we enable the receiver before setting the ring address which could
->>      lead the card DMA into unexpected areas. Solving this by set the ring address
->>      before enabling the receiver.
->>
->>      btw. I find and test this in qemu as I didn't have a 8139cp card in hand. please
->>      review it carefully.
+Adding __printf helps spot format and argument mismatches.
 
-What sticks out at me from the commit message?
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/wireless/brcm80211/brcmsmac/debug.h |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-It was not tested on the famously quirky 8139 hardware at all.
-
-While I have not looked at the 8139C+ data sheet in a while, sometimes 
-the hardware _did_ have a strange init order.
-
-As this works in a simulator but fails on real hardware, it seems like 
-an obvious regression caused by an untested [on read hardware] patch.
-
-	Jeff
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/debug.h b/drivers/net/wireless/brcm80211/brcmsmac/debug.h
+index c0d2cf7..f77066b 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/debug.h
++++ b/drivers/net/wireless/brcm80211/brcmsmac/debug.h
+@@ -8,17 +8,23 @@
+ #include "main.h"
+ #include "mac80211_if.h"
+ 
++__printf(2, 3)
+ void __brcms_info(struct device *dev, const char *fmt, ...);
++__printf(2, 3)
+ void __brcms_warn(struct device *dev, const char *fmt, ...);
++__printf(2, 3)
+ void __brcms_err(struct device *dev, const char *fmt, ...);
++__printf(2, 3)
+ void __brcms_crit(struct device *dev, const char *fmt, ...);
+ 
+ #if defined(CONFIG_BRCMDBG) || defined(CONFIG_BRCM_TRACING)
++__printf(4, 5)
+ void __brcms_dbg(struct device *dev, u32 level, const char *func,
+ 		 const char *fmt, ...);
+ #else
+-static inline void __brcms_dbg(struct device *dev, u32 level,
+-			       const char *func, const char *fmt, ...)
++static inline __printf(4, 5)
++void __brcms_dbg(struct device *dev, u32 level, const char *func,
++		 const char *fmt, ...)
+ {
+ }
+ #endif
+-- 
+1.7.8.112.g3fd21
