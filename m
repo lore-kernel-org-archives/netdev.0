@@ -1,165 +1,163 @@
-From: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-Subject: Re: net, bluetooth: object debug warning in bt_host_release()
-Date: Wed, 21 Nov 2012 15:27:09 -0200
-Message-ID: <20121121172709.GB15370@joana>
-References: <50A272E7.9080103@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Wed, 21 Nov 2012 12:36:56 -0500 (EST)
+Message-ID: <20121121.123656.455774002301921111.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="wq9mPyueHGvFACwf"
-Cc: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Dave Jones <davej-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <50A272E7.9080103-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---wq9mPyueHGvFACwf
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+1) inet6_csk_update_pmtu() must return NULL or non-NULL, so translate
+   ERR_PTR to NULL, as needed.  Fix from Eric Dumazet.
 
-* Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> [2012-11-13 11:18:47 -0500]:
+2) Fix copy&paste error in IRDA sir_dev ->set_speed method invocation,
+   it was testing the NULL'ness of a different method to guard the call.
+   Fix from Alexander Shiyan.
 
-> Hi all,
->=20
-> While fuzzing with trinity on a KVM tools (lkvm) guest running latest -ne=
-xt kernel I've
-> stumbled on the following:
->=20
-> [ 1434.201149] ------------[ cut here ]------------
-> [ 1434.204998] WARNING: at lib/debugobjects.c:261 debug_print_object+0x8e=
-/0xb0()
-> [ 1434.208324] ODEBUG: free active (active state 0) object type: work_str=
-uct hint: hci_power_on+0x0/0x90
-> [ 1434.210386] Pid: 8564, comm: trinity-child25 Tainted: G        W    3.=
-7.0-rc5-next-20121112-sasha-00018-g2f4ce0e #127
-> [ 1434.210760] Call Trace:
-> [ 1434.210760]  [<ffffffff819f3d6e>] ? debug_print_object+0x8e/0xb0
-> [ 1434.210760]  [<ffffffff8110b887>] warn_slowpath_common+0x87/0xb0
-> [ 1434.210760]  [<ffffffff8110b911>] warn_slowpath_fmt+0x41/0x50
-> [ 1434.210760]  [<ffffffff819f3d6e>] debug_print_object+0x8e/0xb0
-> [ 1434.210760]  [<ffffffff8376b750>] ? hci_dev_open+0x310/0x310
-> [ 1434.210760]  [<ffffffff83bf94e5>] ? _raw_spin_unlock_irqrestore+0x55/0=
-xa0
-> [ 1434.210760]  [<ffffffff819f3ee5>] __debug_check_no_obj_freed+0xa5/0x230
-> [ 1434.210760]  [<ffffffff83785db0>] ? bt_host_release+0x10/0x20
-> [ 1434.210760]  [<ffffffff819f4d15>] debug_check_no_obj_freed+0x15/0x20
-> [ 1434.210760]  [<ffffffff8125eee7>] kfree+0x227/0x330
-> [ 1434.210760]  [<ffffffff83785db0>] bt_host_release+0x10/0x20
-> [ 1434.210760]  [<ffffffff81e539e5>] device_release+0x65/0xc0
-> [ 1434.210760]  [<ffffffff819d3975>] kobject_cleanup+0x145/0x190
-> [ 1434.210760]  [<ffffffff819d39cd>] kobject_release+0xd/0x10
-> [ 1434.210760]  [<ffffffff819d33cc>] kobject_put+0x4c/0x60
-> [ 1434.210760]  [<ffffffff81e548b2>] put_device+0x12/0x20
-> [ 1434.210760]  [<ffffffff8376a334>] hci_free_dev+0x24/0x30
-> [ 1434.210760]  [<ffffffff82fd8fe1>] vhci_release+0x31/0x60
-> [ 1434.210760]  [<ffffffff8127be12>] __fput+0x122/0x250
-> [ 1434.210760]  [<ffffffff811cab0d>] ? rcu_user_exit+0x9d/0xd0
-> [ 1434.210760]  [<ffffffff8127bf49>] ____fput+0x9/0x10
-> [ 1434.210760]  [<ffffffff81133402>] task_work_run+0xb2/0xf0
-> [ 1434.210760]  [<ffffffff8106cfa7>] do_notify_resume+0x77/0xa0
-> [ 1434.210760]  [<ffffffff83bfb0ea>] int_signal+0x12/0x17
-> [ 1434.210760] ---[ end trace a6d57fefbc8a8cc7 ]---
->=20
-> Not that the guest doesn't emulate anything that looks like a bluetooth d=
-evice or
-> has bluetooth capabilities.
+3) Fix build regression of xilinx driver, from Jeff Mahoney.
 
-You have a virtual bluetooth device (vhci). That is why you get a bluetooth
-crash. I think the following patch will fix this issue.
+4) Make XEN netfront (like XEN netback) handle compound pages
+   in SKBs properly.  From Ian Campbell.
 
-	Gustavo
+5) Fix inverted logic of team_dev_queue_xmit() return value checks,
+   from Jiri Pirko and Dan Carpenter.
 
----
-Author: Gustavo Padovan <gustavo.padovan-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
-Date:   Wed Nov 21 00:50:21 2012 -0200
+6) dma_poll_create() no longer allows a NULL device argument, breaking
+   both ixp4xx drivers.  Fix from Xi Wang.
 
-    Bluetooth: cancel power_on work when unregistering the device
-   =20
-    We need to cancel the hci_power_on work in order to avoid it run when we
-    try to free the hdev.
-   =20
-    [ 1434.201149] ------------[ cut here ]------------
-    [ 1434.204998] WARNING: at lib/debugobjects.c:261 debug_print_object+0x=
-8e/0xb0()
-    [ 1434.208324] ODEBUG: free active (active state 0) object type: work_s=
-truct hint:
-    _power_on+0x0/0x90
-    [ 1434.210386] Pid: 8564, comm: trinity-child25 Tainted: G        W    =
-3.7.0-rc5-n
-    20121112-sasha-00018-g2f4ce0e #127
-    [ 1434.210760] Call Trace:
-    [ 1434.210760]  [<ffffffff819f3d6e>] ? debug_print_object+0x8e/0xb0
-    [ 1434.210760]  [<ffffffff8110b887>] warn_slowpath_common+0x87/0xb0
-    [ 1434.210760]  [<ffffffff8110b911>] warn_slowpath_fmt+0x41/0x50
-    [ 1434.210760]  [<ffffffff819f3d6e>] debug_print_object+0x8e/0xb0
-    [ 1434.210760]  [<ffffffff8376b750>] ? hci_dev_open+0x310/0x310
-    [ 1434.210760]  [<ffffffff83bf94e5>] ? _raw_spin_unlock_irqrestore+0x55=
-/0xa0
-    [ 1434.210760]  [<ffffffff819f3ee5>] __debug_check_no_obj_freed+0xa5/0x=
-230
-    [ 1434.210760]  [<ffffffff83785db0>] ? bt_host_release+0x10/0x20
-    [ 1434.210760]  [<ffffffff819f4d15>] debug_check_no_obj_freed+0x15/0x20
-    [ 1434.210760]  [<ffffffff8125eee7>] kfree+0x227/0x330
-    [ 1434.210760]  [<ffffffff83785db0>] bt_host_release+0x10/0x20
-    [ 1434.210760]  [<ffffffff81e539e5>] device_release+0x65/0xc0
-    [ 1434.210760]  [<ffffffff819d3975>] kobject_cleanup+0x145/0x190
-    [ 1434.210760]  [<ffffffff819d39cd>] kobject_release+0xd/0x10
-    [ 1434.210760]  [<ffffffff819d33cc>] kobject_put+0x4c/0x60
-    [ 1434.210760]  [<ffffffff81e548b2>] put_device+0x12/0x20
-    [ 1434.210760]  [<ffffffff8376a334>] hci_free_dev+0x24/0x30
-    [ 1434.210760]  [<ffffffff82fd8fe1>] vhci_release+0x31/0x60
-    [ 1434.210760]  [<ffffffff8127be12>] __fput+0x122/0x250
-    [ 1434.210760]  [<ffffffff811cab0d>] ? rcu_user_exit+0x9d/0xd0
-    [ 1434.210760]  [<ffffffff8127bf49>] ____fput+0x9/0x10
-    [ 1434.210760]  [<ffffffff81133402>] task_work_run+0xb2/0xf0
-    [ 1434.210760]  [<ffffffff8106cfa7>] do_notify_resume+0x77/0xa0
-    [ 1434.210760]  [<ffffffff83bfb0ea>] int_signal+0x12/0x17
-    [ 1434.210760] ---[ end trace a6d57fefbc8a8cc7 ]---
-   =20
-    Reported-by: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-    Signed-off-by: Gustavo Padovan <gustavo.padovan-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>
+7) ne2000 driver doesn't hook up the parent device properly, breaking
+   udev matching.  Fix from Alan Cox.
 
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index 81f4bac..69eb644 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -1854,6 +1854,8 @@ void hci_unregister_dev(struct hci_dev *hdev)
-        for (i =3D 0; i < NUM_REASSEMBLY; i++)
-                kfree_skb(hdev->reassembly[i]);
-=20
-+       cancel_work_sync(&hdev->power_on);
-+
-        if (!test_bit(HCI_INIT, &hdev->flags) &&
-            !test_bit(HCI_SETUP, &hdev->dev_flags)) {
-                hci_dev_lock(hdev);
+8) Locking and memory leak fixes in Near Field Communications layer.
+   From Thierry Escande, Szymon Janc, and Waldemar Rymarkiewicz.
 
+9) sis900 resume regression, sis900_set_mode() is being called with
+   the iomem pointer instead of the expected device private.  Fix
+   from Francois Romieu.
 
---wq9mPyueHGvFACwf
-Content-Type: application/pgp-signature
+10) Fix IBSS regression caused by uninitializing the ibss-internals
+    before performing an emptyness check, from Simon WUnderlich.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+11) Fix SNIFFER mode regression in iwlwifi driver, from Johannes Berg.
 
-iQIcBAEBAgAGBQJQrQ7sAAoJEPs3PUX4s20olbsP/0eu6HagUf9SEOek9DSNogCF
-6sT//DU7IJPiY9kw21yHwmYbxWpv+EiGqmO2ryfk5l7IQI1fGuvWWA+MT+YWkfIj
-wNlqpzmSGjE0v3WBh6sswTCbx2kTAHLYyGu8ebvNazIrr+zMrRRYTm3jMk6YW4Q0
-3fxUhl6yYnTgs3uD9Tt8EIzkk5zsDbsrxeyf6F2lrLBoKHCSXmHRd7RsVT3HAplH
-HILixhkj8l/+nSfJMi0Xf025d65PdzbTfMhPyoSkNpJeSGg4MJNbgkVyhU3StNiV
-ivFBUGaRUJXPuHdNA0Wvlnzqf+l6Z9OKfh4Om6vWDtW5pYTZozhISGov1pnq4K7H
-FUe6npeTN0KwDJ15VHjSzfWIQZj/E32YmidhW7g1iK/P9BVDtfxOTtLPPWBnTssQ
-n71Inuisu74L7iRwY6HQlaOqKZ97tsZoCnADZOQ/rVoF1hGkArUze/svvzTJpkIm
-c++LawVqXM+SgCxq1OX9LzlsNGw3kQthrE5g7gc+EbLFY0gNOBrkWETvaLt1X3en
-svOpsJNZGS6KLUKuybSVX7NxjOYeurXmb5iAQo8sjIgK/bHj6Ol1Vz/yLeyrwRN2
-A89m0fr2VY851bh9A4iySl0GiUhDGPftPI6aqBOYKL17G7EwWJ2fz1YS4qhAH0Zg
-zJQA20U29MMbGyC5aHGo
-=u5vq
------END PGP SIGNATURE-----
+12) Fix task wedges in mwifiex_cmd_timeout_func(), from Bing Zhao.
 
---wq9mPyueHGvFACwf--
+13) Add back wireless sysfs directory, too much stuff depends upon it
+    being there.  (actually I'd say it never should have been removed
+    to begin with)  From Johannes Berg.
+
+14) Fix hang introduced by suspend/resume changes in ath9k.  Fix from
+    Sujith Manoharan.
+
+Please pull, thanks a lot!
+
+The following changes since commit 3587b1b097d70c2eb9fee95ea7995d13c05f66e5:
+
+  fanotify: fix FAN_Q_OVERFLOW case of fanotify_read() (2012-11-18 09:30:00 -1000)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net master
+
+for you to fetch changes up to 403f43c937d24832b18524f65415c0bbba6b5064:
+
+  team: bcast: convert return value of team_dev_queue_xmit() to bool correctly (2012-11-21 11:55:07 -0500)
+
+----------------------------------------------------------------
+Alan Cox (1):
+      ne2000: add the right platform device
+
+Albert Pool (1):
+      rtlwifi: rtl8192cu: Add new USB ID
+
+Alexander Shiyan (1):
+      irda: sir_dev: Fix copy/paste typo
+
+Bing Zhao (2):
+      mwifiex: fix system hang issue in cmd timeout error case
+      mwifiex: report error to MMC core if we cannot suspend
+
+Emmanuel Grumbach (1):
+      iwlwifi: don't WARN when a non empty queue is disabled
+
+Eric Dumazet (1):
+      ipv6: fix inet6_csk_update_pmtu() return value
+
+Francois Romieu (1):
+      sis900: fix sis900_set_mode call parameters.
+
+Ian Campbell (1):
+      xen/netfront: handle compound page fragments on transmit
+
+Jeff Mahoney (1):
+      net: fix build failure in xilinx
+
+Jiri Pirko (1):
+      team: bcast: convert return value of team_dev_queue_xmit() to bool correctly
+
+Johannes Berg (2):
+      iwlwifi: fix monitor mode FCS flag
+      wireless: add back sysfs directory
+
+John W. Linville (4):
+      Merge branch 'for-john' of git://git.kernel.org/.../jberg/mac80211
+      Merge branch 'for-john' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+      Merge tag 'nfc-fixes-3.7-1' of git://git.kernel.org/.../sameo/nfc-3.0
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless into for-davem
+
+Sarveshwar Bandi (1):
+      bonding: Bonding driver does not consider the gso_max_size/gso_max_segs setting of slave devices.
+
+Simon Wunderlich (1):
+      mac80211: deinitialize ibss-internals after emptiness check
+
+Srinivas Kandagatla (1):
+      of/net/mdio-gpio: Fix pdev->id issue when using devicetrees.
+
+Sujith Manoharan (1):
+      ath9k_hw: Fix regression in device reset
+
+Szymon Janc (2):
+      NFC: pn533: Fix missing lock while operating on commands list
+      NFC: pn533: Fix use after free
+
+Thierry Escande (2):
+      NFC: Fix nfc_llcp_local chained list insertion
+      NFC: Fix pn533 target mode memory leak
+
+Waldemar Rymarkiewicz (1):
+      NFC: pn533: Fix mem leak in pn533_in_dep_link_up
+
+Xi Wang (2):
+      ixp4xx_eth: avoid calling dma_pool_create() with NULL dev
+      ixp4xx_hss: avoid calling dma_pool_create() with NULL dev
+
+ Documentation/devicetree/bindings/net/mdio-gpio.txt |  9 +++++-
+ drivers/net/bonding/bond_main.c                     |  7 +++++
+ drivers/net/ethernet/8390/ne.c                      |  1 +
+ drivers/net/ethernet/sis/sis900.c                   |  2 +-
+ drivers/net/ethernet/xilinx/xilinx_axienet_main.c   |  2 ++
+ drivers/net/ethernet/xscale/ixp4xx_eth.c            |  8 +++--
+ drivers/net/irda/sir_dev.c                          |  2 +-
+ drivers/net/phy/mdio-gpio.c                         | 11 ++++---
+ drivers/net/team/team_mode_broadcast.c              |  6 ++--
+ drivers/net/wan/ixp4xx_hss.c                        |  8 +++--
+ drivers/net/wireless/ath/ath9k/hw.c                 |  2 +-
+ drivers/net/wireless/iwlwifi/dvm/mac80211.c         | 14 +++++++++
+ drivers/net/wireless/iwlwifi/pcie/tx.c              |  8 -----
+ drivers/net/wireless/mwifiex/cmdevt.c               | 11 +++++--
+ drivers/net/wireless/mwifiex/sdio.c                 | 11 ++++---
+ drivers/net/wireless/rtlwifi/rtl8192cu/sw.c         |  1 +
+ drivers/net/xen-netfront.c                          | 98 +++++++++++++++++++++++++++++++++++++++++++++-------------
+ drivers/nfc/pn533.c                                 | 25 ++++++++-------
+ net/core/net-sysfs.c                                | 20 ++++++++++++
+ net/ipv6/inet6_connection_sock.c                    |  3 +-
+ net/mac80211/ibss.c                                 |  8 ++---
+ net/nfc/llcp/llcp.c                                 |  2 +-
+ 22 files changed, 188 insertions(+), 71 deletions(-)
