@@ -1,74 +1,43 @@
-From: <sarveshwar.bandi@emulex.com>
-Subject: [PATCH net-2.6] bonding: Bonding driver does not consider the gso_max_size setting of slaves.
-Date: Wed, 21 Nov 2012 16:48:56 +0530
-Message-ID: <8814d83f-7213-4a32-91ec-39088a1a60a6@CMEXHTCAS1.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
-To: <davem@davemloft.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH 1/1] netfilter: cttimeout: fix buffer overflow
+Date: Wed, 21 Nov 2012 12:37:38 +0100
+Message-ID: <1353497858-29404-1-git-send-email-fw@strlen.de>
+Cc: netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>
+To: netfilter-devel <netfilter-devel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:3553 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753482Ab2KULSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 06:18:42 -0500
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:32790 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753542Ab2KULgB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 06:36:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+Chen Gang reports:
+the length of nla_data(cda[CTA_TIMEOUT_NAME]) is not limited in server side.
 
-Patch sets the lowest non-zero gso_max_size value of the slaves during enslave
-and detach.
+And indeed, its used to strcpy to a fixed-sized buffer.
 
-Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+Fortunately, nfnetlink users need CAP_NET_ADMIN.
+
+Reported-by: Chen Gang <gang.chen@asianux.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- drivers/net/bonding/bond_main.c |   27 +++++++++++++++++++++++++++
- 1 file changed, 27 insertions(+)
+ net/netfilter/nfnetlink_cttimeout.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b2530b0..5f19d16 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1198,6 +1198,31 @@ static void bond_attach_slave(struct bonding *bond, struct slave *new_slave)
- 	bond->slave_cnt++;
- }
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index 8847b4d..701c88a 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -41,7 +41,8 @@ MODULE_DESCRIPTION("cttimeout: Extended Netfilter Connection Tracking timeout tu
+ static LIST_HEAD(cttimeout_list);
  
-+static void bond_set_gso_max_size(struct bonding *bond)
-+{
-+	struct slave *slave;
-+	struct net_device *bond_dev = bond->dev;
-+	unsigned int gso_max_size = 0;
-+	bool reset_gso_size = true;
-+	int i;
-+
-+	bond_for_each_slave(bond, slave, i) {
-+		if (!slave->dev->gso_max_size)
-+			continue;
-+
-+		reset_gso_size = false;
-+
-+		if (!gso_max_size ||
-+		    slave->dev->gso_max_size < gso_max_size)
-+			gso_max_size = slave->dev->gso_max_size;
-+	}
-+
-+	if (gso_max_size && gso_max_size < bond_dev->gso_max_size)
-+		netif_set_gso_max_size(bond_dev, gso_max_size);
-+	else if (reset_gso_size)
-+		netif_set_gso_max_size(bond_dev, 0);
-+}
-+
- /*
-  * This function detaches the slave from the list.
-  * WARNING: no check is made to verify if the slave effectively
-@@ -1403,6 +1428,8 @@ done:
- 	flags = bond_dev->priv_flags & ~IFF_XMIT_DST_RELEASE;
- 	bond_dev->priv_flags = flags | dst_release_flag;
- 
-+	bond_set_gso_max_size(bond);
-+
- 	read_unlock(&bond->lock);
- 
- 	netdev_change_features(bond_dev);
+ static const struct nla_policy cttimeout_nla_policy[CTA_TIMEOUT_MAX+1] = {
+-	[CTA_TIMEOUT_NAME]	= { .type = NLA_NUL_STRING },
++	[CTA_TIMEOUT_NAME]	= { .type = NLA_NUL_STRING,
++				    .len  = CTNL_TIMEOUT_NAME_MAX - 1},
+ 	[CTA_TIMEOUT_L3PROTO]	= { .type = NLA_U16 },
+ 	[CTA_TIMEOUT_L4PROTO]	= { .type = NLA_U8 },
+ 	[CTA_TIMEOUT_DATA]	= { .type = NLA_NESTED },
 -- 
-1.7.9.5
+1.7.8.6
