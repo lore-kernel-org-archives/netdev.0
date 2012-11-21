@@ -1,53 +1,52 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] team: bcast: convert return value of team_dev_queue_xmit() to bool correctly
-Date: Wed, 21 Nov 2012 13:34:45 +0100
-Message-ID: <1353501285-1340-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, dan.carpenter@oracle.com
-To: netdev@vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [GIT PULL] Marvell Ethernet driver clk support + section
+ mismatch fix
+Date: Wed, 21 Nov 2012 13:35:45 +0100
+Message-ID: <20121121133545.1a45263c@skate>
+References: <1353334396-26128-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:52794 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750958Ab2KUMev (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 07:34:51 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so2241670eek.19
-        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 04:34:49 -0800 (PST)
+Received: from mail.free-electrons.com ([88.190.12.23]:39759 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750958Ab2KUMf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 07:35:58 -0500
+In-Reply-To: <1353334396-26128-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The thing is that team_dev_queue_xmit() returns NET_XMIT_* or -E*.
-bc_trasmit() should return true in case all went well. So use ! to get
-correct retval from team_dev_queue_xmit() result.
-This bug caused iface statistics to be badly computed.
+David,
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/team/team_mode_broadcast.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On Mon, 19 Nov 2012 15:13:14 +0100, Thomas Petazzoni wrote:
 
-diff --git a/drivers/net/team/team_mode_broadcast.c b/drivers/net/team/team_mode_broadcast.c
-index 9db0171..c5db428 100644
---- a/drivers/net/team/team_mode_broadcast.c
-+++ b/drivers/net/team/team_mode_broadcast.c
-@@ -29,8 +29,8 @@ static bool bc_transmit(struct team *team, struct sk_buff *skb)
- 			if (last) {
- 				skb2 = skb_clone(skb, GFP_ATOMIC);
- 				if (skb2) {
--					ret = team_dev_queue_xmit(team, last,
--								  skb2);
-+					ret = !team_dev_queue_xmit(team, last,
-+								   skb2);
- 					if (!sum_ret)
- 						sum_ret = ret;
- 				}
-@@ -39,7 +39,7 @@ static bool bc_transmit(struct team *team, struct sk_buff *skb)
- 		}
- 	}
- 	if (last) {
--		ret = team_dev_queue_xmit(team, last, skb);
-+		ret = !team_dev_queue_xmit(team, last, skb);
- 		if (!sum_ret)
- 			sum_ret = ret;
- 	}
+>  * One adding clk support. It's not a fix, but I think it's better if
+>    we can get the Device Tree binding correct directly in 3.8. This
+>    commit basically replaces the clock-frequency DT property by a
+>    proper 'clocks' DT property that references a DT clock. If we don't
+>    get this in 3.8, we'll have to support the legacy clock-frequency
+>    DT property for ever as it will be part of the kernel-to-DT ABI. So
+>    it would be nicer to get this patch in for 3.8.
+> 
+>    The DT patches related to this one are coming into a separate pull
+>    request.
+> 
+>  * The second one fixes a section mismatch warning, so it is certainly
+>    important.
+
+Do you agree with those two changes? If so, shall we carry them with
+the rest of the mvneta driver through arm-soc with your Acked-by?
+
+Thanks!
+
+Thomas
 -- 
-1.8.0
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
