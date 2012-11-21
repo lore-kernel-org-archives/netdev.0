@@ -1,74 +1,49 @@
 From: David Woodhouse <dwmw2@infradead.org>
 Subject: Re: [PATCH] 8139cp: set ring address after enabling C+ mode
-Date: Thu, 22 Nov 2012 23:12:53 +0000
-Message-ID: <1353625973.26346.223.camel@shinybook.infradead.org>
-References: <50AD1972.5080403@pobox.com>
-	 <1353529639.26346.164.camel@shinybook.infradead.org>
-	 <50ADA05B.2000308@pobox.com>
-	 <20121121.233945.2225341904551631404.davem@davemloft.net>
-	 <50ADAFB7.7070704@pobox.com>
-	 <20121122213950.GA8873@electric-eye.fr.zoreil.com>
+Date: Wed, 21 Nov 2012 22:52:54 +0000
+Message-ID: <1353538374.26346.203.camel@shinybook.infradead.org>
+References: <1353529639.26346.164.camel@shinybook.infradead.org>
+	 <20121121204045.GA17627@electric-eye.fr.zoreil.com>
+	 <1353537131.26346.199.camel@shinybook.infradead.org>
+	 <20121121.174014.268181096393133050.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-jJzSTCBWlJfyfwUJlqU4"
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	David Miller <davem@davemloft.net>, jasowang@redhat.com,
-	netdev@vger.kernel.org, slacky@cheapnet.it, rggjan@gmail.com,
-	gilboad@gmail.com, Hayes Wang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+	boundary="=-mXBoqf41N5SUJLf1qveM"
+Cc: romieu@fr.zoreil.com, jgarzik@pobox.com, jasowang@redhat.com,
+	netdev@vger.kernel.org, hayeswang@realtek.com, gilboad@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:58054 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:39579 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120Ab2KVXNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 18:13:07 -0500
-In-Reply-To: <20121122213950.GA8873@electric-eye.fr.zoreil.com>
+	with ESMTP id S1752268Ab2KWAHY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 19:07:24 -0500
+In-Reply-To: <20121121.174014.268181096393133050.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-jJzSTCBWlJfyfwUJlqU4
+--=-mXBoqf41N5SUJLf1qveM
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2012-11-22 at 22:39 +0100, Francois Romieu wrote:
-> Btw David W., could consider adding artificial delays between the
-> writes and see if / when things start to fail (CpCmd write in
-> cp_start_hw is an unflushed posted write for instance).
+On Wed, 2012-11-21 at 17:40 -0500, David Miller wrote:
+> On the contrary, for networking I submit everything manually and I
+> remove the CC: tags.
+>=20
+> I have a queue on patchwork that I add such patches to, so that they
+> do not get lost.
 
-That's how I tracked it down to the CpCmd write. I littered the whole of
-the init path with
- printk("at line %d TxRingAddr %08x%08 (sb %08x)\n", __LINE__,
-         cpr32(TxRingAddr+4), cpr32(TxRingAddr), cp->ring_dma + whatever);
-... until the output looked something like this:
-
-root@geos:~# insmod ./8139cp.ko=20
-[ 1331.492486] 8139cp: 8139cp: 10/100 PCI Ethernet driver v1.3 (Mar 22, 200=
-4)
-[ 1331.500388] 8139cp 0000:00:0a.0: eth0: RTL-8139Cx at 0xd10a6000, 00:0a:f=
-a:22:
-00:96, IRQ 10
-[ 1331.509608] 8139cp 0000:00:0b.0: eth1: RTL-8139Cx at 0xd10a8100, 00:0a:f=
-a:22:
-00:97, IRQ 11
-root@geos:~# [ 1331.644393] at line 995 TxRingAddr   000000000f3c6400 (sb f=
-3c6400)
-[ 1331.650579] at line 960 TxRingAddr   000000000f3c6400 (sb f3c6400)
-[ 1331.656820] at line 962 TxRingAddr   000000000f3e4400 (sb f3c6400)
-[ 1331.663020] at line 964 TxRingAddr   000000000f3e4400 (sb f3c6400)
-[ 1331.669205] at line 998 TxRingAddr   000000000f3e4400 (sb f3c6400)
-[ 1331.675412] at line 1001 TxRingAddr   000000000f3e4400 (sb f3c6400)
-[ 1331.681706] at line 1003 TxRingAddr   000000000f3e4400 (sb f3c6400)
-[ 1331.687977] at line 1005 TxRingAddr   000000000f3e4400 (sb f3c6400)
-
-Each of those printks will have effectively flushed any prior posted
-writes... not that this AMD Geode platform actually *does* post writes,
-to my knowledge. And at 115200 baud, each one was about a 6ms delay.
+Ah, right. Thanks for the correction. Is it even worth giving the hint
+that this should be for the stable tree (from v3.5 onwards), or should I
+leave you to work that all out for yourself? And if it *is* worth giving
+that hint, is it better to do it in a comment after --- at the end of
+the commit comment, rather than the "normal" 'Cc: stable' tag?
 
 --=20
 dwmw2
 
 
---=-jJzSTCBWlJfyfwUJlqU4
+--=-mXBoqf41N5SUJLf1qveM
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -169,19 +144,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTIyMjMxMjUzWjAjBgkqhkiG9w0BCQQx
-FgQU2ZuXZ6dct0+1ntGKGi6QWIqZiLwwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTIxMjI1MjU0WjAjBgkqhkiG9w0BCQQx
+FgQUsBEN6jaaZsBDFz28Fyf+BNok4jMwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQB9sfasI69A4uRLjQDsa6xj7k8e
-lZII77snOK7F8CUl8FVafVVlChy4dgA5a28gVZblegDjfdcOhY85jnQuvUd1C+tWb60kYPXi3IXi
-sfu/9U3ayPkxH+jWER/oXV7c3PirMI0gHMI/PXxKX0DpQ663o7JSei2kF27Ysw48BAxfAXzR6Qfl
-YNFf7KT9JTMhtJDohqJ3HchxzpfSnj9+dnjm2Fw/R+ddsjOl4EValaRecdoQzAW7xaokT8LWsCXc
-qhCJJ4bubaBpqcPMZKd/2VME0/bjVHuuYM+Vvm5EwEduCDADoRVwAQ8UalY0dYgI6pvaScb/aHqh
-YKJXgDzHGAY7AAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQC0z/eEgrMet4Sp4mHGbEtmD0+y
+KsX2X6SZQM3aGMEiAqRI6BuUbqIcpr01GP4CDWnYeM9J+xKUOFvM7wQMEi0IWTuWj3sjP8moJN4c
+LfkaZ5Ray9HDkTe8D2E0j0aog8HoIhCrKudgEDSDAjjJnMHmOnfoRXE7Hhaui13R4NxI4AzfyoD6
+zN0oGX//7EAXAxNbpJ5mmo3Uctu0xjKHS8YLqf8lmcGn28dyBDcWHkAfyFixYUvmExNkjtVR/jZU
+G4EOv8D1Xud35M2631s/ULzIfc7VUV+BA0J5iiBIYKW83h8gx1+M/JBqp2Iuh3gsmNbfU0/vDaKZ
+i7jqj80lxWmUAAAAAAAA
 
 
---=-jJzSTCBWlJfyfwUJlqU4--
+--=-mXBoqf41N5SUJLf1qveM--
