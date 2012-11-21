@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pkt_sched: QFQ Plus: fair-queueing service at DRR cost
-Date: Wed, 21 Nov 2012 12:04:47 -0500 (EST)
-Message-ID: <20121121.120447.533618493809264831.davem@davemloft.net>
-References: <20121120174513.GA21618@paolo-ThinkPad-W520>
-	<20121120.135409.1810847883436963918.davem@davemloft.net>
-	<50ACA2AA.1020206@unimore.it>
+Subject: Re: [PATCH 1/2] smsc95xx: detect chip revision specific features
+Date: Wed, 21 Nov 2012 12:06:24 -0500 (EST)
+Message-ID: <20121121.120624.1065160311329180185.davem@davemloft.net>
+References: <1353504577-5719-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, shemminger@vyatta.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com
-To: paolo.valente@unimore.it
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50ACA2AA.1020206@unimore.it>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: steve.glendinning@shawell.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53513 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750958Ab2KURG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 12:06:26 -0500
+In-Reply-To: <1353504577-5719-1-git-send-email-steve.glendinning@shawell.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paolo Valente <paolo.valente@unimore.it>
-Date: Wed, 21 Nov 2012 10:45:14 +0100
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Wed, 21 Nov 2012 13:29:36 +0000
 
-> Got it. Actually, if the first qfq_peek_skb returns NULL, then the
-> example version that you are proposing apparently may behave in a
-> different way than the original one: in your proposal the scheduler
-> tries to switch to a new aggregate and may return a non-NULL value,
-> whereas the original version would immediately return NULL. I guess
-> that this slightly different behavior is fine as well, and I am
-> preparing a new patch that integrates these changes.
+> +	if ((val == ID_REV_CHIP_ID_9500A_) || (val == ID_REV_CHIP_ID_9530_) ||
+> +		(val == ID_REV_CHIP_ID_89530_) || (val == ID_REV_CHIP_ID_9730_))
+> +		pdata->features = FEATURE_8_WAKEUP_FILTERS
+> +			| FEATURE_PHY_NLP_CROSSOVER | FEATURE_AUTOSUSPEND;
 
-Thanks.
+Please style this properly.
+
+	if ((val == ID_REV_CHIP_ID_9500A_) || (val == ID_REV_CHIP_ID_9530_) ||
+	    (val == ID_REV_CHIP_ID_89530_) || (val == ID_REV_CHIP_ID_9730_))
+		pdata->features = (FEATURE_8_WAKEUP_FILTERS |
+				   FEATURE_PHY_NLP_CROSSOVER |
+				   FEATURE_AUTOSUSPEND);
