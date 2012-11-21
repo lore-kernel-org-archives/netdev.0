@@ -1,58 +1,60 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: kmem accounting netperf data
-Date: Tue, 20 Nov 2012 23:52:24 -0800
-Message-ID: <20121120235224.f4e9e1c6.akpm@linux-foundation.org>
-References: <xr937gplwkcn.fsf@gthelen.mtv.corp.google.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [Suggestion] net/core: cpumask_scnprintf, use (PAGE_SIZE - 1) instead
+ of PAGE_SIZE
+Date: Wed, 21 Nov 2012 15:55:20 +0800
+Message-ID: <50AC88E8.4040202@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: glommer@parallels.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org
-To: Greg Thelen <gthelen@google.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <xr937gplwkcn.fsf@gthelen.mtv.corp.google.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:48707 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752585Ab2KUHy0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 02:54:26 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 Nov 2012 09:03:52 -0800 Greg Thelen <gthelen@google.com> wrote:
+Hi David Miller:
 
-> We ran some netperf comparisons measuring the overhead of enabling
-> CONFIG_MEMCG_KMEM with a kmem limit.  Short answer: no regression seen.
-> 
-> This is a multiple machine (client,server) netperf test.  Both client
-> and server machines were running the same kernel with the same
-> configuration.
-> 
-> A baseline run (with CONFIG_MEMCG_KMEM unset) was compared with a full
-> featured run (CONFIG_MEMCG_KMEM=y and a kmem limit large enough not to
-> put additional pressure on the workload).  We saw no noticeable
-> regression running:
-> - TCP_CRR efficiency, latency
-> - TCP_RR latency, rate
-> - TCP_STREAM efficiency, throughput
-> - UDP_RR efficiency, latency
-> The tests were run with a varying number of concurrent connections
-> (between 1 and 200).
-> 
-> The source came from one of Glauber's branches
-> (git://git.kernel.org/pub/scm/linux/kernel/git/glommer/memcg
-> kmemcg-slab):
->   commit 70506dcf756aaafd92f4a34752d6b8d8ff4ed360
->   Author: Glauber Costa <glommer@parallels.com>
->   Date:   Thu Aug 16 17:16:21 2012 +0400
-> 
->       Add slab-specific documentation about the kmem controller
-> 
-> It's not the latest source, but I figured the data might still be
-> useful.
+in net/core/net-sysfs.c:
 
-Let's cc the netdev guys, who will be pleased to hear that we didn't
-break their stuff for once ;)
+  at line 496, we need use (PAGE_SIZE -1) instead of PAGE_SIZE.
+  since at line 505, we append '\n'.
 
-Thanks for testing - it was a concern.
+  regard
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+gchen
+
+
+ 479 static ssize_t show_rps_map(struct netdev_rx_queue *queue,
+ 480                             struct rx_queue_attribute *attribute, char *buf)
+ 481 {
+ 482         struct rps_map *map;
+ 483         cpumask_var_t mask;
+ 484         size_t len = 0;
+ 485         int i;
+ 486 
+ 487         if (!zalloc_cpumask_var(&mask, GFP_KERNEL))
+ 488                 return -ENOMEM;
+ 489 
+ 490         rcu_read_lock();
+ 491         map = rcu_dereference(queue->rps_map);
+ 492         if (map)
+ 493                 for (i = 0; i < map->len; i++)
+ 494                         cpumask_set_cpu(map->cpus[i], mask);
+ 495 
+ 496         len += cpumask_scnprintf(buf + len, PAGE_SIZE, mask);
+ 497         if (PAGE_SIZE - len < 3) {
+ 498                 rcu_read_unlock();
+ 499                 free_cpumask_var(mask);
+ 500                 return -EINVAL;
+ 501         }
+ 502         rcu_read_unlock();
+ 503 
+ 504         free_cpumask_var(mask);
+ 505         len += sprintf(buf + len, "\n");
+ 506         return len;
+ 507 }
+ 508 
