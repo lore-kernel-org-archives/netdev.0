@@ -1,169 +1,59 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] net: ipv6: change %8s to %s for rt->dst.dev->name in
- seq_printf of rt6_info_route
-Date: Thu, 22 Nov 2012 16:37:27 +0800
-Message-ID: <50ADE447.8030300@asianux.com>
-References: <50AD9351.5020805@asianux.com> <50ADB7E7.1000009@gmail.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH 080/493] fddi: remove use of __devexit_p
+Date: Wed, 21 Nov 2012 23:49:50 +0000 (GMT)
+Message-ID: <alpine.LFD.2.02.1211212334080.25230@eddie.linux-mips.org>
+References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu> <1353349642-3677-80-git-send-email-wfp5p@virginia.edu> <alpine.LFD.2.02.1211191842180.25230@eddie.linux-mips.org> <alpine.LFD.2.02.1211191912040.25230@eddie.linux-mips.org>
+ <20121119192949.GA16976@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Shan Wei <shanwei88@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Bill Pemberton <wfp5p@virginia.edu>, netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:59930 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755320Ab2KVS4q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:56:46 -0500
-In-Reply-To: <50ADB7E7.1000009@gmail.com>
+Received: from arrakis.dune.hu ([78.24.191.176]:37307 "EHLO
+	eddie.linux-mips.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754093Ab2KVTAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 14:00:25 -0500
+Received: from localhost.localdomain ([127.0.0.1]:44805 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S6828054Ab2KUXturht0N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 00:49:50 +0100
+In-Reply-To: <20121119192949.GA16976@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D3=DA 2012=C4=EA11=D4=C222=C8=D5 13:28, Shan Wei =D0=B4=B5=C0:
-> Hi chen gang:
->=20
-> For length of device name which less than 8 char=A3=AC
-> your patch changes them to be print from align right=20
-> to align left. But at least since 2005(git age-time),
-> we keep this style so far.
-> Maybe, since birth of this code, just align right. :-)
->=20
+Greg,
 
-  originally, it is a solid output length, the length is "#define
-RT6_INFO_LEN (32 + 4 + 32 + 4 + 32 + 40 + 5 + 1)"
-  and RHEL5 (kernel-2.6.18-308.20.el5) still use it.
-  it assume that the length of rt->rt6i_dev->name (in RHEL5) is 8.
+> >  I have unconfused myself now, so please replace the above with the 
+> > following question: what about configurations (e.g. buses) that not 
+> > support hotplug at all?  For example apart from PCI the defxx driver 
+> > concerned here supports the TURBOchannel bus that by design does not have 
+> > the concept of live option card removal (no such circuitry).  So should 
+> > now the precious memory be wasted on systems that will never ever handle 
+> > hotplug?
+> 
+> CONFIG_HOTPLUG is always enabled now, so that's not an option anymore.
+> And again, a user can "hot unbind" a driver from a device from
+> userspace, no matter if the bus physically supports it or not.
 
-> Why we *should* change this style?
-> just keep be consistent with the case which length of device
-> name greater than 8 char?
->=20
+ Hmm, what purpose does this serve for devices that cannot be physically 
+removed?  If there is none, shouldn't that policy be set by individual 
+drivers or platform even?  Even if HOTPLUG as a whole is unconditional (I 
+suppose the amount of space core support itself takes is much less to what 
+driver code can).
 
-  as a solid length, 8 is not suitable, firstly I suggest to '%16s' (I
-call it 'beautiful',  but for RHEL5, it is a correctness issue)
-  and Eric Dumazet suggest use '%s' is better, since it is not solid
-length any more (have already let seq_printf instead of arg->buffer)
-  and I think: as a result, what he said is reasonable
+ TURBOchannel, although valid, is an old exotic case that might not be 
+worth arguing for, except for purity maybe.  But there are surely many 
+contemporary systems out there that are known they are never going to 
+support hot device replacement.  Consider most of the embedded systems for 
+example, where devices may even physically be cast into a single SOC (with 
+no prospect of chipping off any pieces ever ;) ), that certainly could not 
+care less of device replacement, but they do care a lot about memory 
+consumption.
 
-> Not only old name rule i.e. eth0,eth1, but also new name rule
-> base on pci address ,i.e. em1,p3p1. most of them are less than 8 char=
-=2E
-> Should not we take more attention on the case less than 8 char?
->=20
+ Was this implication considered, discussed and diregarded as not 
+important enough compared to benefits from hardcoding HOTPLUG support?  
+I'm seriously asking for a pointer, not trying to cause any stir-up -- 
+regrettably I fail to follow most discussions these days, but I would like 
+to know what the background behind this decision was.  Thanks a lot!
 
-  I have ever seen such a device name is more than 8 characters.
-  I am not quite sure: maybe they are eth-route* or eth-usb* ...
-  I will check it in these days, please wait for some days.
-
-
-> By addition, if we want to add new field in the future,
-> align right is a better choice.
->=20
-
-  maybe what you said is better (still keep it 'beautiful', but need us=
-e
-'%16s' instead of '%8s')
-
-  for this, Eric Dumazet maybe have his opinions.
-
-
- Regards
-
-gchen.
-
->=20
-> Chen Gang said, at 2012/11/22 10:52:
->> Hi Shan Wei, Eric Dumazet
->>
->>   is this patch integrated into main branch ?
->>   if need me for additional completion (such as: merge another 2 tri=
-vial patches into this patch, too)
->>   please tell me, I will do.=20
->>
->>   I understand you are working overtime, maybe no time for any minor=
- and trivial patches.
->>   if surely it is, I think:
->>     you can modify these code manually, and obsolete these minor and=
- trivial patches which I provided.
->>     I do not mind whether mention me in another new patches (you can=
- mention me or not mention me, both are OK).
->>     since our goal is to provide contributes to outside, efficiently=
-=2E
->>
->>  regards
->>
->> gchen
->>
->>
->> =D3=DA 2012=C4=EA11=D4=C205=C8=D5 11:02, Chen Gang =D0=B4=B5=C0:
->>>
->>> 1. not to send same patch triple times.=20
->>
->>   thanks, I shall notice, next time.
->>   (I shall 'believe' another members).
->>
->>> 2. config your email client,because tab is changed to space.
->>>    you can read Documentation/email-clients.txt.
->>
->>   1) thanks. I shall notice, next time.
->>   2) now, I get gvim as extention editor for thounderbird
->>   3) the patch is generated by `git format-patch -s --summary --stat=
-`
->>      it use "' '\t" as head, I do not touch it, maybe it is correct.
->>
->> welcome any members to giving additional suggestions and completions=
-=2E
->>
->> thanks
->>
->> the modified contents are below,
->> --------------------------------------------------------------------=
----------------
->>
->>   the length of rt->dst.dev->name is 16 (IFNAMSIZ)
->>   in seq_printf, it is not suitable to use %8s for rt->dst.dev->name=
-=2E
->>   so change it to %s, since each line has not been solid any more.
->>
->>   additional information:
->>
->>     %8s  limit the width, not for the original string output length
->>          if name length is more than 8, it still can be fully displa=
-yed.
->>          if name length is less than 8, the ' ' will be filled befor=
-e name.
->>
->>     %.8s truly limit the original string output length (precision)
->>
->> Signed-off-by: Chen Gang <gang.chen@asianux.com>
->> ---
->>  net/ipv6/route.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index c42650c..b60bc52 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -2835,7 +2835,7 @@ static int rt6_info_route(struct rt6_info *rt,=
- void *p_arg)
->>  	} else {
->>  		seq_puts(m, "00000000000000000000000000000000");
->>  	}
->> -	seq_printf(m, " %08x %08x %08x %08x %8s\n",
->> +	seq_printf(m, " %08x %08x %08x %08x %s\n",
->>  		   rt->rt6i_metric, atomic_read(&rt->dst.__refcnt),
->>  		   rt->dst.__use, rt->rt6i_flags,
->>  		   rt->dst.dev ? rt->dst.dev->name : "");
->>
->>
->>
->=20
->=20
->=20
-
-
---=20
-Chen Gang
-
-Asianux Corporation
+  Maciej
