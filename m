@@ -1,85 +1,119 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH V2] xen/netfront: handle compound page fragments on
- transmit
-Date: Wed, 21 Nov 2012 12:08:47 +0000
-Message-ID: <1353499727.13542.137.camel@zakaz.uk.xensource.com>
-References: <1353427257-16789-1-git-send-email-ian.campbell@citrix.com>
-	 <1353428844.2590.17.camel@edumazet-glaptop>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: pull request: batman-adv 2012-11-21
+Date: Wed, 21 Nov 2012 13:11:50 +0100
+Message-ID: <1353499919-28596-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Konrad Rzeszutek Wilk <konrad@kernel.org>,
-	ANNIE LI <annie.li@oracle.com>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	"Stefan Bader" <stefan.bader@canonical.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:45121 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754587Ab2KUMIu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 07:08:50 -0500
-In-Reply-To: <1353428844.2590.17.camel@edumazet-glaptop>
+Received: from contumacia.investici.org ([178.255.144.35]:50387 "EHLO
+	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751428Ab2KUMMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 07:12:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-11-20 at 16:27 +0000, Eric Dumazet wrote:
-> On Tue, 2012-11-20 at 16:00 +0000, Ian Campbell wrote:
-> > An SKB paged fragment can consist of a compound page with order > 0.
-> > However the netchannel protocol deals only in PAGE_SIZE frames.
-> > 
-> > Handle this in xennet_make_frags by iterating over the frames which
-> > make up the page.
-> > 
-> > This is the netfront equivalent to 6a8ed462f16b for netback.
-> ...
-> 
-> > -	frags += DIV_ROUND_UP(offset + len, PAGE_SIZE);
-> > -	if (unlikely(frags > MAX_SKB_FRAGS + 1)) {
-> > -		printk(KERN_ALERT "xennet: skb rides the rocket: %d frags\n",
-> > -		       frags);
-> > -		dump_stack();
-> > +	slots = DIV_ROUND_UP(offset + len, PAGE_SIZE) +
-> > +		xennet_count_skb_frag_slots(skb);
-> > +	if (unlikely(slots > MAX_SKB_FRAGS + 1)) {
-> > +		printk(KERN_ALERT "xennet: skb rides the rocket: %d slots\n",
-> > +		       slots);
-> 
-> I think this is wrong.
-> 
-> You should change netfront_tx_slot_available() to stop the queue before
-> this can happen.
->
-> Yes, you dont hit this on your tests, but a driver should not drop a
-> good packet.
+Hello David,
 
-The max-frag related limitation comes from the "wire" protocol used
-between front and back. As it stands either the frontend or the backend
-is more than likely going to drop the sort of pathalogical skbs you are
-worried.
+here is again our changeset intended for net-next/linux-3.8.
+Since the last pull request I removed the patch we were discussing abou=
+t (the
+one exporting the batman-adv compatibility version) as we intend to do =
+not
+provide the user the feeling of being "incompatible everyday".
 
-I agree that this absolutely needs to be fixed in the protocol (and I've
-posted a call to arms on this topic on xen-devel) but I'd like to do it
-in a coordinated manner as part of a protocol extension (where the front
-and backend negotiate the maximum number of order-0 pages per Ethernet
-frame they are willing to handle) rather than as a side effect of this
-patch.
+As we discussed some time ago, we are doing what we can to speed our
+stabilisation process up and we are not going to break compatibility an=
+ymore
+before we ultimate such process.
 
-So right now I don't want to introduce frontends which default to
-sending increased numbers of pages in to the wild, since that makes
-things more complex when we come to extend the protocol.
+However, I see that every now and then you have the feeling we are not =
+really
+doing so. In that case, please, point out what you think is not adequat=
+e so that
+we can quickly fix it.
 
-Perhaps in the short term doing an skb_linearize when we hit this case
-would help, that will turn the pathalogical skb into a much more normal
-one. It'll be expensive but it should be rare. That assumes you can
-linearize such a large skb, which depends on the ability to allocate
-large order pages which isn't a given. Herm, maybe that doesn't work
-then.
+Again: we want to stabilise the protocol/messages format and any help/s=
+uggestion
+from you or the other maintainers is always well accepted (other than b=
+eing
+"rude" only or not answering at all. When you do so, then we have to sp=
+end the
+entire day in trying to decrypt what was wrong and what we should do to=
+ address
+the problem, limiting our fun and productivity).
 
-AFAIK we don't have an existing skb_foo operation which copies an skb,
-including (or only) the frags, with the side effect of aligning and
-coalescing them. Do we?
 
-Ian.
+Please pull or let me know if there is any other problem in this batch.
+
+
+Thank you very much,
+		Antonio
+
+
+The following changes since commit de4594a51c904ddcd6c3a6cdd100f7c1d94d=
+3239:
+
+  sctp: send abort chunk when max_retrans exceeded (2012-11-20 15:50:37=
+ -0500)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to e022b956c11084f3ee1c6ece523e14ac07b7c645=
+:
+
+  batman-adv: Use packing of 2 for all headers before an ethernet heade=
+r (2012-11-21 12:35:47 +0100)
+
+----------------------------------------------------------------
+Included changes:
+- Increase batman-adv version
+- Bridge Loop Avoidance: compute checksum (using crc32) on skb fragment=
+s instead
+  of linearising it
+- sort the sysfs documentation
+- some other minor cleanups
+
+----------------------------------------------------------------
+Antonio Quartulli (1):
+      batman-adv: support array of debugfs general attributes
+
+Marek Lindner (1):
+      batman-adv: sysfs documentation should keep alphabetical order
+
+Martin Hundeb=C3=B8ll (1):
+      batman-adv: Add wrapper to look up neighbor and send skb
+
+Simon Wunderlich (2):
+      batman-adv: fix bla compare function
+      batman-adv: Fix broadcast duplist for fragmentation
+
+Sven Eckelmann (4):
+      batman-adv: Mark best gateway in transtable_global debugfs
+      batman-adv: Add function to calculate crc32c for the skb payload
+      batman-adv: Start new development cycle
+      batman-adv: Use packing of 2 for all headers before an ethernet h=
+eader
+
+ .../ABI/testing/sysfs-class-net-batman-adv         |  11 +-
+ Documentation/ABI/testing/sysfs-class-net-mesh     |  40 +++---
+ net/batman-adv/Kconfig                             |   1 +
+ net/batman-adv/bridge_loop_avoidance.c             |  36 +++--
+ net/batman-adv/bridge_loop_avoidance.h             |   6 +-
+ net/batman-adv/debugfs.c                           |  34 +++--
+ net/batman-adv/main.c                              |  34 +++++
+ net/batman-adv/main.h                              |   3 +-
+ net/batman-adv/packet.h                            |  16 ++-
+ net/batman-adv/routing.c                           |  45 ++----
+ net/batman-adv/send.c                              |  33 +++++
+ net/batman-adv/send.h                              |   3 +
+ net/batman-adv/translation-table.c                 | 155 +++++++++++--=
+--------
+ net/batman-adv/types.h                             |   2 +-
+ net/batman-adv/unicast.c                           |   8 +-
+ net/batman-adv/vis.c                               |  35 ++---
+ 16 files changed, 268 insertions(+), 194 deletions(-)
