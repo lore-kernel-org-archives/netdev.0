@@ -1,61 +1,58 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH 1/1] net: add micrel KSZ8873MLL switch support
-Date: Wed, 21 Nov 2012 12:40:14 +0200
-Message-ID: <20121121104014.GC28785@sapphire.tkos.co.il>
-References: <1353493630-30867-1-git-send-email-plagnioj@jcrosoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1353493630-30867-1-git-send-email-plagnioj@jcrosoft.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/10][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 21 Nov 2012 02:47:26 -0800
+Message-ID: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:28698 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753385Ab2KUKrj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2012 05:47:39 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jean-Christophe,
+This series contains updates to ixgbe and igb.
 
-On Wed, Nov 21, 2012 at 11:27:10AM +0100, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> this will allow to detect the link between the switch and the soc
-> 
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> Cc: netdev@vger.kernel.org
+The following are changes since commit de4594a51c904ddcd6c3a6cdd100f7c1d94d3239:
+  sctp: send abort chunk when max_retrans exceeded
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-[...]
+Alexander Duyck (1):
+  igb: Do not parse past IP header on fragments beyond the first
 
-> @@ -204,6 +237,16 @@ static struct phy_driver ksphy_driver[] = {
->  	.ack_interrupt	= kszphy_ack_interrupt,
->  	.config_intr	= ksz9021_config_intr,
->  	.driver		= { .owner = THIS_MODULE, },
-> +}, {
-> +	.phy_id		= PHY_ID_KSZ8873MLL,
-> +	.phy_id_mask	= 0x00fffff0,
-> +	.name		= "Micrel KSZ8873MLL Swithch",
+Jacob Keller (3):
+  ixgbe: use ETQF filter name instead of magic number
+  ixgbe: remove needless queuing for L4 ptp packets
+  ixgbe: ethtool correctly identify autoneg setting
 
-s/Swithch/Switch/
+John Fastabend (1):
+  ixgbe: fdb: only allow NUD_PERM fdb entries
 
-> +	.features	= (SUPPORTED_Pause | SUPPORTED_Asym_Pause),
-> +	.flags		= PHY_HAS_MAGICANEG,
-> +	.config_init	= kszphy_config_init,
-> +	.config_aneg	= ksz8873mll_config_aneg,
-> +	.read_status	= ksz8873mll_read_status,
-> +	.driver		= { .owner = THIS_MODULE, },
->  } };
->  
->  static int __init ksphy_init(void)
+Josh Hay (2):
+  ixgbe: Reformat output of ixgbe_dump
+  ixgbe: eliminate Smatch warnings in ixgbe_debugfs.c
 
-baruch
+Matthew Vick (2):
+  igb: Update PTP Rx filters
+  igb: No longer rely on APME to determine WoL settings
+
+Wei Yongjun (1):
+  ixgbe: convert to use simple_open()
+
+ drivers/net/ethernet/intel/igb/igb.h             |   3 +-
+ drivers/net/ethernet/intel/igb/igb_ethtool.c     |  56 +----------
+ drivers/net/ethernet/intel/igb/igb_main.c        |  51 ++++++----
+ drivers/net/ethernet/intel/igb/igb_ptp.c         |  47 ++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c | 115 ++++++++++-------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   5 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  83 +++++++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c     |  40 +-------
+ 10 files changed, 163 insertions(+), 241 deletions(-)
 
 -- 
-     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+1.7.11.7
