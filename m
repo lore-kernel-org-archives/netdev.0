@@ -1,51 +1,83 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: team: add broadcast mode
-Date: Wed, 21 Nov 2012 10:36:58 +0100
-Message-ID: <20121121093658.GA1629@minipsycho.orion>
-References: <20121120192307.GA10278@elgon.mountain>
+From: Rui Xiang <leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RFC 3/5] printk: modify printk interface for
+	syslog_namespace
+Date: Wed, 21 Nov 2012 17:41:58 +0800
+Message-ID: <50ACA1E6.2040404@gmail.com>
+References: <50A9EAF0.4000902@gmail.com>
+	<20121119142926.GB4453@mail.hallyn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jpirko@redhat.com, netdev@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:50525 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752143Ab2KUJhD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 04:37:03 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so2156273eek.19
-        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 01:37:01 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20121120192307.GA10278@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20121119142926.GB4453-7LNsyQBKDXoIagZqoN9o3w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Nov 20, 2012 at 08:23:07PM CET, dan.carpenter@oracle.com wrote:
->Hello Jiri Pirko,
->
->The patch 5fc889911a99: "team: add broadcast mode" from Jul 11, 2012, 
->leads to the following Smatch warning:
->drivers/net/team/team_mode_broadcast.c:46 bc_transmit()
->	 warn: signedness bug returning '18446744073709551516'
->
->The error message sucks because 18446744073709551516 is -100 as an int,
->and I'm not sure how it figures this returns -100...
->
->But actually there is a signedness bug in bc_transmit().  We return
->error codes from team_dev_queue_xmit() and cast them to 1 as bool.  This
->function is supposed to return 1 on success but instead it returns zero.
+From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
+On 2012-11-19 22:29, Serge E. Hallyn wrote:> Quoting Rui Xiang (leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org):
+>> From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>>
+>> We re-implement printk by additional syslog_ns.
+>>
+>> The function include printk, /dev/kmsg, do_syslog and kmsg_dump should be modifyed
+>> for syslog_ns. Previous identifier *** such as log_first_seq should be replaced
+>> by syslog_ns->***.
+>>
+>> Signed-off-by: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: Xiang Rui <rui.xiang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> ---
 
-Thanks Dan for finding this. You are correct.                            
-I'm going to send patch introducing "!" in front of both
-team_dev_queue_xmit() calls in bc_transmit(). That will correct this.                          
-	                                                                         
-Jiri 
+.......
 
+>>  	lockdep_on();
+>> @@ -1624,7 +1618,8 @@ EXPORT_SYMBOL(vprintk_emit);
+>>
+>>  asmlinkage int vprintk(const char *fmt, va_list args)
+>>  {
+>> -	return vprintk_emit(0, -1, NULL, 0, fmt, args);
+>> +	return vprintk_emit(0, -1, NULL, 0, fmt, args,
+>> +				current_syslog_ns());
+>>  }
+>>  EXPORT_SYMBOL(vprintk);
+>>
+>> @@ -1636,7 +1631,8 @@ asmlinkage int printk_emit(int facility, int level,
+>>  	int r;
+>>
+>>  	va_start(args, fmt);
+>> -	r = vprintk_emit(facility, level, dict, dictlen, fmt, args);
+>> +	r = vprintk_emit(facility, level, dict, dictlen, fmt, args,
+>> +						current_syslog_ns());
+>>  	va_end(args);
+>>
+>>  	return r;
+>> @@ -1678,7 +1674,7 @@ asmlinkage int printk(const char *fmt, ...)
+>>  	}
+>>  #endif
+>>  	va_start(args, fmt);
+>> -	r = vprintk_emit(0, -1, NULL, 0, fmt, args);
+>> +	r = vprintk_emit(0, -1, NULL, 0, fmt, args, current_syslog_ns());
 >
->regards,
->dan carpenter
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Current is meaningless here.  The default should be using init_syslog_ns.
+
+Thank for your attention.
+
+I understand what you mean.
+printk -> init_syslog_log
+nsprintk(ns) -> container syslog
+
+I think it makes sense.
+
+thanks
+Libo Chen
