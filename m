@@ -1,51 +1,38 @@
-From: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH RFC 3/5] printk: modify printk interface for
-	syslog_namespace
-Date: Wed, 21 Nov 2012 17:49:17 +0000
-Message-ID: <20121121174917.GA9108@mail.hallyn.com>
-References: <50A9EAF0.4000902@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 9/9] batman-adv: Use packing of 2 for all headers
+ before an ethernet header
+Date: Wed, 21 Nov 2012 12:57:59 -0500 (EST)
+Message-ID: <20121121.125759.322762083309845086.davem@davemloft.net>
+References: <1353499919-28596-1-git-send-email-ordex@autistici.org>
+	<1353499919-28596-10-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rui Xiang <leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <50A9EAF0.4000902-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	sven@narfation.org, lindner_marek@yahoo.de
+To: ordex@autistici.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54090 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754470Ab2KUR6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 12:58:01 -0500
+In-Reply-To: <1353499919-28596-10-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I notice that you haven't made any changes to the struct cont.  I
-suspect this means that to-be-continued msgs from one ns can be
-erroneously mixed with another ns.
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Wed, 21 Nov 2012 13:11:59 +0100
 
-You said you don't mind putting the syslogns into the userns.  If
-there's no reason not to do that, then we should do so as it will
-remove a bunch of code (plus the use of a new CLONE flag) from your
-patch, and the new syslog(NEW_NS) command from mine.
+> +#pragma pack(2)
+ ...
+> -} __packed;
 
-Now IMO the ideal place for syslog_ns would be in the devices ns,
-but that does not yet exist, and may never.  The bonus to that would
-be that the consoles sort of belong there.  I avoid this by not
-having consoles in child syslog namespaces.  You put the console in
-the ns.  I haven't looked closely enough to see if what you do is
-ok (will do so soon).
+The __packed attribute is an abstraction of the actual syntax
+the compiler uses, if it is supported at all.
 
-WOuld you mind looking through my patch to see if it suffices for
-your needs?  Where it does not, patches would be greatly appreciated
-if simple enough.
+Therefore, you can't just unconditionally use the #pragma, and
+you would need to use some kind of similar compiler abstraction
+for it.
 
-Note I'm not at all wedded to my patchset.  I'm happy to go with
-something else entirely.  My set was just a proof of concept.
-
-thanks,
--serge
+But to be honest this is really ugly and for very little, if any,
+gain.
