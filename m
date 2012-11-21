@@ -1,43 +1,36 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 1/1] netfilter: cttimeout: fix buffer overflow
-Date: Wed, 21 Nov 2012 12:37:38 +0100
-Message-ID: <1353497858-29404-1-git-send-email-fw@strlen.de>
-Cc: netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>
-To: netfilter-devel <netfilter-devel@vger.kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [net-next 08/10] igb: Update PTP Rx filters
+Date: Wed, 21 Nov 2012 12:37:18 +0100
+Message-ID: <20121121113718.GA2270@netboy.at.omicron.at>
+References: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1353494856-12344-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Matthew Vick <matthew.vick@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:32790 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753542Ab2KULgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 06:36:01 -0500
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:38566 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753542Ab2KULhX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 06:37:23 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so2755720eaa.19
+        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 03:37:22 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1353494856-12344-9-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chen Gang reports:
-the length of nla_data(cda[CTA_TIMEOUT_NAME]) is not limited in server side.
+On Wed, Nov 21, 2012 at 02:47:34AM -0800, Jeff Kirsher wrote:
+> From: Matthew Vick <matthew.vick@intel.com>
+> 
+> Update the filters to be more consistent with what the driver wants to do.
+> For example, for devices that timestamp all packets, report that the filter
+> is set for timestamping all packets.
+> 
+> Signed-off-by: Matthew Vick <matthew.vick@intel.com>
+> Cc: Richard Cochran <richardcochran@gmail.com>
+> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-And indeed, its used to strcpy to a fixed-sized buffer.
-
-Fortunately, nfnetlink users need CAP_NET_ADMIN.
-
-Reported-by: Chen Gang <gang.chen@asianux.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/netfilter/nfnetlink_cttimeout.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index 8847b4d..701c88a 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -41,7 +41,8 @@ MODULE_DESCRIPTION("cttimeout: Extended Netfilter Connection Tracking timeout tu
- static LIST_HEAD(cttimeout_list);
- 
- static const struct nla_policy cttimeout_nla_policy[CTA_TIMEOUT_MAX+1] = {
--	[CTA_TIMEOUT_NAME]	= { .type = NLA_NUL_STRING },
-+	[CTA_TIMEOUT_NAME]	= { .type = NLA_NUL_STRING,
-+				    .len  = CTNL_TIMEOUT_NAME_MAX - 1},
- 	[CTA_TIMEOUT_L3PROTO]	= { .type = NLA_U16 },
- 	[CTA_TIMEOUT_L4PROTO]	= { .type = NLA_U8 },
- 	[CTA_TIMEOUT_DATA]	= { .type = NLA_NESTED },
--- 
-1.7.8.6
+Acked-by: Richard Cochran <richardcochran@gmail.com>
