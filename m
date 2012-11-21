@@ -1,110 +1,144 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/10] ixgbe: remove needless queuing for L4 ptp packets
-Date: Wed, 21 Nov 2012 02:47:30 -0800
-Message-ID: <1353494856-12344-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/10] ixgbe: Reformat output of ixgbe_dump
+Date: Wed, 21 Nov 2012 02:47:27 -0800
+Message-ID: <1353494856-12344-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Josh Hay <joshua.a.hay@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:6953 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:28698 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754455Ab2KUKrm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2012 05:47:42 -0500
+	id S1754455Ab2KUKrk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Nov 2012 05:47:40 -0500
 In-Reply-To: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Josh Hay <joshua.a.hay@intel.com>
 
-This patch removes the queuing that was previously done for L4 packets
-as it is not needed. The filter does not provide functionality, and it
-is possible that queue setup here could trample settings done else-where
-in the driver. (for example it may use a queue which isn't setup.)
-Setting of the queue is not required for hardware timestamping and could
-have inadverdent side effects.
+Reformats the output of the Tx/Rx descriptor dumps to more
+appropriately align the output of the ixgbe_dump and improve readability.
+Prevents empty Tx descriptors from being displayed to decrease the size
+of the dump and make it more manageable.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Josh Hay <joshua.a.hay@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c | 34 ++--------------------------
- 1 file changed, 2 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 75 +++++++++++++++------------
+ 1 file changed, 41 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index 29ca293..1a751c9 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -633,8 +633,7 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 	struct hwtstamp_config config;
- 	u32 tsync_tx_ctl = IXGBE_TSYNCTXCTL_ENABLED;
- 	u32 tsync_rx_ctl = IXGBE_TSYNCRXCTL_ENABLED;
--	u32 tsync_rx_mtrl = 0;
--	bool is_l4 = false;
-+	u32 tsync_rx_mtrl = PTP_EV_PORT << 16;
- 	bool is_l2 = false;
- 	u32 regval;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 38fc186..004ea6c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -336,11 +336,13 @@ static void ixgbe_dump(struct ixgbe_adapter *adapter)
+ 		goto exit;
  
-@@ -657,16 +656,15 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 	switch (config.rx_filter) {
- 	case HWTSTAMP_FILTER_NONE:
- 		tsync_rx_ctl = 0;
-+		tsync_rx_mtrl = 0;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
- 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_L4_V1;
- 		tsync_rx_mtrl = IXGBE_RXMTRL_V1_SYNC_MSG;
--		is_l4 = true;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
- 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_L4_V1;
- 		tsync_rx_mtrl = IXGBE_RXMTRL_V1_DELAY_REQ_MSG;
--		is_l4 = true;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
- 	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
-@@ -679,7 +677,6 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
- 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_EVENT_V2;
- 		is_l2 = true;
--		is_l4 = true;
- 		config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
- 		break;
- 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
-@@ -713,33 +710,6 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 	else
- 		IXGBE_WRITE_REG(hw, IXGBE_ETQF(IXGBE_ETQF_FILTER_1588), 0);
+ 	dev_info(&adapter->pdev->dev, "TX Rings Summary\n");
+-	pr_info("Queue [NTU] [NTC] [bi(ntc)->dma  ] leng ntw timestamp\n");
++	pr_info(" %s     %s              %s        %s\n",
++		"Queue [NTU] [NTC] [bi(ntc)->dma  ]",
++		"leng", "ntw", "timestamp");
+ 	for (n = 0; n < adapter->num_tx_queues; n++) {
+ 		tx_ring = adapter->tx_ring[n];
+ 		tx_buffer = &tx_ring->tx_buffer_info[tx_ring->next_to_clean];
+-		pr_info(" %5d %5X %5X %016llX %04X %p %016llX\n",
++		pr_info(" %5d %5X %5X %016llX %08X %p %016llX\n",
+ 			   n, tx_ring->next_to_use, tx_ring->next_to_clean,
+ 			   (u64)dma_unmap_addr(tx_buffer, dma),
+ 			   dma_unmap_len(tx_buffer, len),
+@@ -394,40 +396,43 @@ static void ixgbe_dump(struct ixgbe_adapter *adapter)
+ 		pr_info("------------------------------------\n");
+ 		pr_info("TX QUEUE INDEX = %d\n", tx_ring->queue_index);
+ 		pr_info("------------------------------------\n");
+-		pr_info("T [desc]     [address 63:0  ] "
+-			"[PlPOIdStDDt Ln] [bi->dma       ] "
+-			"leng  ntw timestamp        bi->skb\n");
++		pr_info("%s%s    %s              %s        %s          %s\n",
++			"T [desc]     [address 63:0  ] ",
++			"[PlPOIdStDDt Ln] [bi->dma       ] ",
++			"leng", "ntw", "timestamp", "bi->skb");
  
--#define PTP_PORT 319
--	/* L4 Queue Filter[3]: filter by destination port and protocol */
--	if (is_l4) {
--		u32 ftqf = (IXGBE_FTQF_PROTOCOL_UDP /* UDP */
--			    | IXGBE_FTQF_POOL_MASK_EN /* Pool not compared */
--			    | IXGBE_FTQF_QUEUE_ENABLE);
+ 		for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
+ 			tx_desc = IXGBE_TX_DESC(tx_ring, i);
+ 			tx_buffer = &tx_ring->tx_buffer_info[i];
+ 			u0 = (struct my_u0 *)tx_desc;
+-			pr_info("T [0x%03X]    %016llX %016llX %016llX"
+-				" %04X  %p %016llX %p", i,
+-				le64_to_cpu(u0->a),
+-				le64_to_cpu(u0->b),
+-				(u64)dma_unmap_addr(tx_buffer, dma),
+-				dma_unmap_len(tx_buffer, len),
+-				tx_buffer->next_to_watch,
+-				(u64)tx_buffer->time_stamp,
+-				tx_buffer->skb);
+-			if (i == tx_ring->next_to_use &&
+-				i == tx_ring->next_to_clean)
+-				pr_cont(" NTC/U\n");
+-			else if (i == tx_ring->next_to_use)
+-				pr_cont(" NTU\n");
+-			else if (i == tx_ring->next_to_clean)
+-				pr_cont(" NTC\n");
+-			else
+-				pr_cont("\n");
 -
--		ftqf |= ((IXGBE_FTQF_PROTOCOL_COMP_MASK /* protocol check */
--			  & IXGBE_FTQF_DEST_PORT_MASK /* dest check */
--			  & IXGBE_FTQF_SOURCE_PORT_MASK) /* source check */
--			 << IXGBE_FTQF_5TUPLE_MASK_SHIFT);
--
--		IXGBE_WRITE_REG(hw, IXGBE_L34T_IMIR(3),
--				(3 << IXGBE_IMIR_RX_QUEUE_SHIFT_82599 |
--				 IXGBE_IMIR_SIZE_BP_82599));
--
--		/* enable port check */
--		IXGBE_WRITE_REG(hw, IXGBE_SDPQF(3),
--				(htons(PTP_PORT) |
--				 htons(PTP_PORT) << 16));
--
--		IXGBE_WRITE_REG(hw, IXGBE_FTQF(3), ftqf);
--
--		tsync_rx_mtrl |= PTP_PORT << 16;
--	} else {
--		IXGBE_WRITE_REG(hw, IXGBE_FTQF(3), 0);
--	}
+-			if (netif_msg_pktdata(adapter) &&
+-			    tx_buffer->skb)
+-				print_hex_dump(KERN_INFO, "",
+-					DUMP_PREFIX_ADDRESS, 16, 1,
+-					tx_buffer->skb->data,
++			if (dma_unmap_len(tx_buffer, len) > 0) {
++				pr_info("T [0x%03X]    %016llX %016llX %016llX %08X %p %016llX %p",
++					i,
++					le64_to_cpu(u0->a),
++					le64_to_cpu(u0->b),
++					(u64)dma_unmap_addr(tx_buffer, dma),
+ 					dma_unmap_len(tx_buffer, len),
+-					true);
++					tx_buffer->next_to_watch,
++					(u64)tx_buffer->time_stamp,
++					tx_buffer->skb);
++				if (i == tx_ring->next_to_use &&
++					i == tx_ring->next_to_clean)
++					pr_cont(" NTC/U\n");
++				else if (i == tx_ring->next_to_use)
++					pr_cont(" NTU\n");
++				else if (i == tx_ring->next_to_clean)
++					pr_cont(" NTC\n");
++				else
++					pr_cont("\n");
++
++				if (netif_msg_pktdata(adapter) &&
++				    tx_buffer->skb)
++					print_hex_dump(KERN_INFO, "",
++						DUMP_PREFIX_ADDRESS, 16, 1,
++						tx_buffer->skb->data,
++						dma_unmap_len(tx_buffer, len),
++						true);
++			}
+ 		}
+ 	}
  
- 	/* enable/disable TX */
- 	regval = IXGBE_READ_REG(hw, IXGBE_TSYNCTXCTL);
+@@ -497,11 +502,13 @@ rx_ring_summary:
+ 		pr_info("------------------------------------\n");
+ 		pr_info("RX QUEUE INDEX = %d\n", rx_ring->queue_index);
+ 		pr_info("------------------------------------\n");
+-		pr_info("R  [desc]      [ PktBuf     A0] "
+-			"[  HeadBuf   DD] [bi->dma       ] [bi->skb] "
++		pr_info("%s%s%s",
++			"R  [desc]      [ PktBuf     A0] ",
++			"[  HeadBuf   DD] [bi->dma       ] [bi->skb       ] ",
+ 			"<-- Adv Rx Read format\n");
+-		pr_info("RWB[desc]      [PcsmIpSHl PtRs] "
+-			"[vl er S cks ln] ---------------- [bi->skb] "
++		pr_info("%s%s%s",
++			"RWB[desc]      [PcsmIpSHl PtRs] ",
++			"[vl er S cks ln] ---------------- [bi->skb       ] ",
+ 			"<-- Adv Rx Write-Back format\n");
+ 
+ 		for (i = 0; i < rx_ring->count; i++) {
 -- 
 1.7.11.7
