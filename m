@@ -1,175 +1,74 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 1/9] batman-adv: Mark best gateway in transtable_global debugfs
-Date: Wed, 21 Nov 2012 13:11:51 +0100
-Message-ID: <1353499919-28596-2-git-send-email-ordex@autistici.org>
+Subject: [PATCH 2/9] batman-adv: fix bla compare function
+Date: Wed, 21 Nov 2012 13:11:52 +0100
+Message-ID: <1353499919-28596-3-git-send-email-ordex@autistici.org>
 References: <1353499919-28596-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
+	Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:50424 "EHLO
+Received: from contumacia.investici.org ([178.255.144.35]:50467 "EHLO
 	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751594Ab2KUMMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 07:12:55 -0500
+	with ESMTP id S1752847Ab2KUMM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 07:12:56 -0500
 In-Reply-To: <1353499919-28596-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
+From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
 
-The transtable_global debug file can show multiple entries for a single client
-when multiple gateways exist. The chosen gateway isn't marked in the list and
-therefore the user cannot easily debug the situation when there is a problem
-with the currently used gateway.
+The address and the VLAN VID may not be packed in the respective
+structs. Fix this by comparing the elements individually.
 
-The best gateway is now marked with "*" and secondary gateways are marked with
-"+".
-
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Reported-by: Marek Lindner <lindner_marek@yahoo.de>
+Reported-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/translation-table.c | 90 +++++++++++++++++++++++++++-----------
- 1 file changed, 64 insertions(+), 26 deletions(-)
+ net/batman-adv/bridge_loop_avoidance.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 582f134..cdad824 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -911,8 +911,44 @@ out:
- 	return ret;
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index bda8b17..7ffef8b 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -77,8 +77,15 @@ static int batadv_compare_backbone_gw(const struct hlist_node *node,
+ {
+ 	const void *data1 = container_of(node, struct batadv_backbone_gw,
+ 					 hash_entry);
++	const struct batadv_backbone_gw *gw1 = data1, *gw2 = data2;
+ 
+-	return (memcmp(data1, data2, ETH_ALEN + sizeof(short)) == 0 ? 1 : 0);
++	if (!batadv_compare_eth(gw1->orig, gw2->orig))
++		return 0;
++
++	if (gw1->vid != gw2->vid)
++		return 0;
++
++	return 1;
  }
  
--/* print all orig nodes who announce the address for this global entry.
-- * it is assumed that the caller holds rcu_read_lock();
-+/* batadv_transtable_best_orig - Get best originator list entry from tt entry
-+ * @tt_global_entry: global translation table entry to be analyzed
-+ *
-+ * This functon assumes the caller holds rcu_read_lock().
-+ * Returns best originator list entry or NULL on errors.
-+ */
-+static struct batadv_tt_orig_list_entry *
-+batadv_transtable_best_orig(struct batadv_tt_global_entry *tt_global_entry)
-+{
-+	struct batadv_neigh_node *router = NULL;
-+	struct hlist_head *head;
-+	struct hlist_node *node;
-+	struct batadv_tt_orig_list_entry *orig_entry, *best_entry = NULL;
-+	int best_tq = 0;
-+
-+	head = &tt_global_entry->orig_list;
-+	hlist_for_each_entry_rcu(orig_entry, node, head, list) {
-+		router = batadv_orig_node_get_router(orig_entry->orig_node);
-+		if (!router)
-+			continue;
-+
-+		if (router->tq_avg > best_tq) {
-+			best_entry = orig_entry;
-+			best_tq = router->tq_avg;
-+		}
-+
-+		batadv_neigh_node_free_ref(router);
-+	}
-+
-+	return best_entry;
-+}
-+
-+/* batadv_tt_global_print_entry - print all orig nodes who announce the address
-+ * for this global entry
-+ * @tt_global_entry: global translation table entry to be printed
-+ * @seq: debugfs table seq_file struct
-+ *
-+ * This functon assumes the caller holds rcu_read_lock().
-  */
- static void
- batadv_tt_global_print_entry(struct batadv_tt_global_entry *tt_global_entry,
-@@ -920,21 +956,37 @@ batadv_tt_global_print_entry(struct batadv_tt_global_entry *tt_global_entry,
+ /* compares address and vid of two claims */
+@@ -87,8 +94,15 @@ static int batadv_compare_claim(const struct hlist_node *node,
  {
- 	struct hlist_head *head;
- 	struct hlist_node *node;
--	struct batadv_tt_orig_list_entry *orig_entry;
-+	struct batadv_tt_orig_list_entry *orig_entry, *best_entry;
- 	struct batadv_tt_common_entry *tt_common_entry;
- 	uint16_t flags;
- 	uint8_t last_ttvn;
+ 	const void *data1 = container_of(node, struct batadv_claim,
+ 					 hash_entry);
++	const struct batadv_claim *cl1 = data1, *cl2 = data2;
  
- 	tt_common_entry = &tt_global_entry->common;
-+	flags = tt_common_entry->flags;
+-	return (memcmp(data1, data2, ETH_ALEN + sizeof(short)) == 0 ? 1 : 0);
++	if (!batadv_compare_eth(cl1->addr, cl2->addr))
++		return 0;
 +
-+	best_entry = batadv_transtable_best_orig(tt_global_entry);
-+	if (best_entry) {
-+		last_ttvn = atomic_read(&best_entry->orig_node->last_ttvn);
-+		seq_printf(seq,	" %c %pM  (%3u) via %pM     (%3u)   [%c%c%c]\n",
-+			   '*', tt_global_entry->common.addr,
-+			   best_entry->ttvn, best_entry->orig_node->orig,
-+			   last_ttvn,
-+			   (flags & BATADV_TT_CLIENT_ROAM ? 'R' : '.'),
-+			   (flags & BATADV_TT_CLIENT_WIFI ? 'W' : '.'),
-+			   (flags & BATADV_TT_CLIENT_TEMP ? 'T' : '.'));
-+	}
- 
- 	head = &tt_global_entry->orig_list;
- 
- 	hlist_for_each_entry_rcu(orig_entry, node, head, list) {
--		flags = tt_common_entry->flags;
-+		if (best_entry == orig_entry)
-+			continue;
++	if (cl1->vid != cl2->vid)
++		return 0;
 +
- 		last_ttvn = atomic_read(&orig_entry->orig_node->last_ttvn);
--		seq_printf(seq,	" * %pM  (%3u) via %pM     (%3u)   [%c%c%c]\n",
--			   tt_global_entry->common.addr, orig_entry->ttvn,
--			   orig_entry->orig_node->orig, last_ttvn,
-+		seq_printf(seq,	" %c %pM  (%3u) via %pM     (%3u)   [%c%c%c]\n",
-+			   '+', tt_global_entry->common.addr,
-+			   orig_entry->ttvn, orig_entry->orig_node->orig,
-+			   last_ttvn,
- 			   (flags & BATADV_TT_CLIENT_ROAM ? 'R' : '.'),
- 			   (flags & BATADV_TT_CLIENT_WIFI ? 'W' : '.'),
- 			   (flags & BATADV_TT_CLIENT_TEMP ? 'T' : '.'));
-@@ -1280,11 +1332,7 @@ struct batadv_orig_node *batadv_transtable_search(struct batadv_priv *bat_priv,
- 	struct batadv_tt_local_entry *tt_local_entry = NULL;
- 	struct batadv_tt_global_entry *tt_global_entry = NULL;
- 	struct batadv_orig_node *orig_node = NULL;
--	struct batadv_neigh_node *router = NULL;
--	struct hlist_head *head;
--	struct hlist_node *node;
--	struct batadv_tt_orig_list_entry *orig_entry;
--	int best_tq;
-+	struct batadv_tt_orig_list_entry *best_entry;
++	return 1;
+ }
  
- 	if (src && atomic_read(&bat_priv->ap_isolation)) {
- 		tt_local_entry = batadv_tt_local_hash_find(bat_priv, src);
-@@ -1304,25 +1352,15 @@ struct batadv_orig_node *batadv_transtable_search(struct batadv_priv *bat_priv,
- 	    _batadv_is_ap_isolated(tt_local_entry, tt_global_entry))
- 		goto out;
- 
--	best_tq = 0;
--
- 	rcu_read_lock();
--	head = &tt_global_entry->orig_list;
--	hlist_for_each_entry_rcu(orig_entry, node, head, list) {
--		router = batadv_orig_node_get_router(orig_entry->orig_node);
--		if (!router)
--			continue;
--
--		if (router->tq_avg > best_tq) {
--			orig_node = orig_entry->orig_node;
--			best_tq = router->tq_avg;
--		}
--		batadv_neigh_node_free_ref(router);
--	}
-+	best_entry = batadv_transtable_best_orig(tt_global_entry);
- 	/* found anything? */
-+	if (best_entry)
-+		orig_node = best_entry->orig_node;
- 	if (orig_node && !atomic_inc_not_zero(&orig_node->refcount))
- 		orig_node = NULL;
- 	rcu_read_unlock();
-+
- out:
- 	if (tt_global_entry)
- 		batadv_tt_global_entry_free_ref(tt_global_entry);
+ /* free a backbone gw */
 -- 
 1.8.0
