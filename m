@@ -1,35 +1,53 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-2.6] be2net: Bonding driver does not considerthe
- gso_max_size setting of slaves.
-Date: Wed, 21 Nov 2012 12:32:31 +0000
-Message-ID: <1353501151.19537.13.camel@deadeye.wl.decadent.org.uk>
-References: <da008f0e-76b7-4f34-aa9d-511fe8ce47ac@CMEXHTCAS2.ad.emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <sarveshwar.bandi@emulex.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] team: bcast: convert return value of team_dev_queue_xmit() to bool correctly
+Date: Wed, 21 Nov 2012 13:34:45 +0100
+Message-ID: <1353501285-1340-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, dan.carpenter@oracle.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:33381 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904Ab2KUMci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 07:32:38 -0500
-In-Reply-To: <da008f0e-76b7-4f34-aa9d-511fe8ce47ac@CMEXHTCAS2.ad.emulex.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:52794 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750958Ab2KUMev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 07:34:51 -0500
+Received: by mail-ee0-f46.google.com with SMTP id e53so2241670eek.19
+        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 04:34:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-11-21 at 16:37 +0530, sarveshwar.bandi@emulex.com wrote:
-> From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
-> 
-> Patch sets the lowest non-zero gso_max_size value of the slaves during enslave
-> and detach.
-[...]
+The thing is that team_dev_queue_xmit() returns NET_XMIT_* or -E*.
+bc_trasmit() should return true in case all went well. So use ! to get
+correct retval from team_dev_queue_xmit() result.
+This bug caused iface statistics to be badly computed.
 
-The same should be done for gso_max_segs, I think.
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/team/team_mode_broadcast.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Ben.
-
+diff --git a/drivers/net/team/team_mode_broadcast.c b/drivers/net/team/team_mode_broadcast.c
+index 9db0171..c5db428 100644
+--- a/drivers/net/team/team_mode_broadcast.c
++++ b/drivers/net/team/team_mode_broadcast.c
+@@ -29,8 +29,8 @@ static bool bc_transmit(struct team *team, struct sk_buff *skb)
+ 			if (last) {
+ 				skb2 = skb_clone(skb, GFP_ATOMIC);
+ 				if (skb2) {
+-					ret = team_dev_queue_xmit(team, last,
+-								  skb2);
++					ret = !team_dev_queue_xmit(team, last,
++								   skb2);
+ 					if (!sum_ret)
+ 						sum_ret = ret;
+ 				}
+@@ -39,7 +39,7 @@ static bool bc_transmit(struct team *team, struct sk_buff *skb)
+ 		}
+ 	}
+ 	if (last) {
+-		ret = team_dev_queue_xmit(team, last, skb);
++		ret = !team_dev_queue_xmit(team, last, skb);
+ 		if (!sum_ret)
+ 			sum_ret = ret;
+ 	}
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.0
