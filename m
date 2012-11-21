@@ -1,45 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2012-11-21
-Date: Wed, 21 Nov 2012 11:49:27 -0500 (EST)
-Message-ID: <20121121.114927.2236597401100258829.davem@davemloft.net>
-References: <20121121162406.GA2066@tuxdriver.com>
+Subject: Re: [PATCH V3] xen/netfront: handle compound page fragments on
+ transmit
+Date: Wed, 21 Nov 2012 11:49:57 -0500 (EST)
+Message-ID: <20121121.114957.441218567286373485.davem@davemloft.net>
+References: <1353499336-28952-1-git-send-email-ian.campbell@citrix.com>
+	<20121121151625.GA13127@konrad-lan.dumpdata.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121121162406.GA2066@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ian.campbell@citrix.com, netdev@vger.kernel.org,
+	xen-devel@lists.xen.org, edumazet@google.com, annie.li@oracle.com,
+	linux@eikelenboom.it, stefan.bader@canonical.com
+To: konrad@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53367 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755328Ab2KUQt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 11:49:59 -0500
+In-Reply-To: <20121121151625.GA13127@konrad-lan.dumpdata.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 21 Nov 2012 11:24:06 -0500
+From: Konrad Rzeszutek Wilk <konrad@kernel.org>
+Date: Wed, 21 Nov 2012 10:16:27 -0500
 
-> Included are two pulls.  Regarding the mac80211 tree, Johannes says:
+> On Wed, Nov 21, 2012 at 12:02:16PM +0000, Ian Campbell wrote:
+>> An SKB paged fragment can consist of a compound page with order > 0.
+>> However the netchannel protocol deals only in PAGE_SIZE frames.
+>> 
+>> Handle this in xennet_make_frags by iterating over the frames which
+>> make up the page.
+>> 
+>> This is the netfront equivalent to 6a8ed462f16b for netback.
+>> 
+>> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+>> Cc: netdev@vger.kernel.org
+>> Cc: xen-devel@lists.xen.org
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: Konrad Rzeszutek Wilk <konrad@kernel.org>
 > 
-> "Please pull my mac80211.git tree (see below) to get two more fixes for
-> 3.7. Both fix regressions introduced *before* this cycle that weren't
-> noticed until now, one for IBSS not cleaning up properly and the other
-> to add back the "wireless" sysfs directory for Fedora's startup scripts."
+> Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 > 
-> Regarding the iwlwifi tree, Johannes says:
-> 
-> "Please also pull my iwlwifi.git tree, I have two fixes: one to remove a
-> spurious warning that can actually trigger in legitimate situations, and
-> the other to fix a regression from when monitor mode was changed to use
-> the "sniffer" firmware mode."
-> 
-> Also included is an nfc tree pull.  Samuel says:
-> 
-> "We mostly have pn533 fixes here, 2 memory leaks and an early unlocking fix.
-> Moreover, we also have an LLCP adapter linked list insertion fix."
-> 
-> On top of that, a few more bits...  Albert Pool adds a USB ID
-> to rtlwifi.  Bing Zhao provides two mwifiex fixes -- one to fix
-> a system hang during a command timeout, and the other to properly
-> report a suspend error to the MMC core.  Finally, Sujith Manoharan
-> fixes a thinko that would trigger an ath9k hang during device reset.
+> David, would you like me to send it to Linus via my tree or are you
+> OK sending him a git pull with this patch (and hopefully some other
+> ones?)
 
-Pulled, thanks John.
+I'll merge this to Linus via my net tree, thanks.
