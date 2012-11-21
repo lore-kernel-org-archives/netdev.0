@@ -1,100 +1,69 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/10] ixgbe: ethtool correctly identify autoneg setting
-Date: Wed, 21 Nov 2012 02:47:31 -0800
-Message-ID: <1353494856-12344-6-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [net-next 06/10] ixgbe: eliminate Smatch warnings in
+ ixgbe_debugfs.c
+Date: Wed, 21 Nov 2012 14:04:09 +0300
+Message-ID: <20121121110409.GG6186@mwanda>
 References: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+ <1353494856-12344-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Josh Hay <joshua.a.hay@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:51330 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754493Ab2KUKrn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2012 05:47:43 -0500
-In-Reply-To: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:45641 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751789Ab2KULEb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 06:04:31 -0500
+Content-Disposition: inline
+In-Reply-To: <1353494856-12344-7-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+On Wed, Nov 21, 2012 at 02:47:32AM -0800, Jeff Kirsher wrote:
+> +	len = simple_write_to_buffer(ixgbe_dbg_reg_ops_buf,
+> +				     sizeof(ixgbe_dbg_reg_ops_buf)-1,
+> +				     ppos,
+> +				     buffer,
+> +				     count);
+> +	if (len < 0)
+> +		return -EFAULT;
 
-This patch enables ethtool to correctly identify flow control (pause
-frame) auto negotiation, as well as disallow enabling it when it is not
-supported. The ixgbe_device_supports_autoneg_fc function is exported and
-used for this purpose.
+Any negative return is bad.
 
-There is also one minor cleanup of the device_supports_autoneg_fc by
-removing an unnecessary return statement.
+	if (len)
+		return len;
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 3 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 5 +++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 3 ++-
- 4 files changed, 9 insertions(+), 3 deletions(-)
+> +
+> +	ixgbe_dbg_reg_ops_buf[len] = '\0';
+>  
+>  	if (strncmp(ixgbe_dbg_reg_ops_buf, "write", 5) == 0) {
+>  		u32 reg, value;
+> @@ -187,15 +196,15 @@ static ssize_t ixgbe_dbg_netdev_ops_write(struct file *filp,
+>  	if (count >= sizeof(ixgbe_dbg_netdev_ops_buf))
+>  		return -ENOSPC;
+>  
+> -	bytes_not_copied = copy_from_user(ixgbe_dbg_netdev_ops_buf,
+> -					  buffer, count);
+> -	if (bytes_not_copied < 0)
+> -		return bytes_not_copied;
+> -	else if (bytes_not_copied < count)
+> -		count -= bytes_not_copied;
+> -	else
+> -		return -ENOSPC;
+> -	ixgbe_dbg_netdev_ops_buf[count] = '\0';
+> +	len = simple_write_to_buffer(ixgbe_dbg_netdev_ops_buf,
+> +				     sizeof(ixgbe_dbg_netdev_ops_buf)-1,
+> +				     ppos,
+> +				     buffer,
+> +				     count);
+> +	if (len < 0)
+> +		return -EFAULT;
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 8f285ed..5af1eeb 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -65,13 +65,12 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
-  *  function check the device id to see if the associated phy supports
-  *  autoneg flow control.
-  **/
--static s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
-+s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
- {
- 
- 	switch (hw->device_id) {
- 	case IXGBE_DEV_ID_X540T:
- 	case IXGBE_DEV_ID_X540T1:
--		return 0;
- 	case IXGBE_DEV_ID_82599_T3_LOM:
- 		return 0;
- 	default:
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 587db47..1b65b6c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -78,6 +78,7 @@ s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw);
- s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw);
- s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval);
- s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw);
-+s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw);
- void ixgbe_fc_autoneg(struct ixgbe_hw *hw);
- 
- s32 ixgbe_validate_mac_addr(u8 *mac_addr);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index a545728..3268584 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -383,6 +383,11 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
- 	    (adapter->flags & IXGBE_FLAG_DCB_ENABLED))
- 		return -EINVAL;
- 
-+	/* some devices do not support autoneg of link flow control */
-+	if ((pause->autoneg == AUTONEG_ENABLE) &&
-+	    (ixgbe_device_supports_autoneg_fc(hw) != 0))
-+		return -EINVAL;
-+
- 	fc.disable_fc_autoneg = (pause->autoneg != AUTONEG_ENABLE);
- 
- 	if ((pause->rx_pause && pause->tx_pause) || pause->autoneg)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 004ea6c..4f67fdc 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4567,7 +4567,8 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	ixgbe_pbthresh_setup(adapter);
- 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
- 	hw->fc.send_xon = true;
--	hw->fc.disable_fc_autoneg = false;
-+	hw->fc.disable_fc_autoneg =
-+		(ixgbe_device_supports_autoneg_fc(hw) == 0) ? false : true;
- 
- #ifdef CONFIG_PCI_IOV
- 	/* assign number of SR-IOV VFs */
--- 
-1.7.11.7
+Same.
+
+> +
+> +	ixgbe_dbg_netdev_ops_buf[len] = '\0';
+
+regards,
+dan carpenter
