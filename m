@@ -1,65 +1,126 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] team: bcast: convert return value of
- team_dev_queue_xmit() to bool correctly
-Date: Wed, 21 Nov 2012 13:53:28 +0100
-Message-ID: <20121121125328.GA6812@minipsycho.orion>
-References: <1353501285-1340-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, dan.carpenter@oracle.com
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCH 1/2] smsc95xx: detect chip revision specific features
+Date: Wed, 21 Nov 2012 13:29:36 +0000
+Message-ID: <1353504577-5719-1-git-send-email-steve.glendinning@shawell.net>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:50098 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753869Ab2KUMxc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 07:53:32 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so2250473eek.19
-        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 04:53:31 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1353501285-1340-1-git-send-email-jiri@resnulli.us>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:48579 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752147Ab2KUN3q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 08:29:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Instead of storing the number of wake-up frame filter registers
+in the pdata structure, this patch changes the driver to detect
+the type of device we have and store its available features.
 
-I forgot to mention this bug was introduced by:
-team: add broadcast mode (5fc889911a99043a97da1daa0d010ad72cbc3042)
+The new two features will be used in future patches.
 
-Wed, Nov 21, 2012 at 01:34:45PM CET, jiri@resnulli.us wrote:
->The thing is that team_dev_queue_xmit() returns NET_XMIT_* or -E*.
->bc_trasmit() should return true in case all went well. So use ! to get
->correct retval from team_dev_queue_xmit() result.
->This bug caused iface statistics to be badly computed.
->
->Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
->Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->---
-> drivers/net/team/team_mode_broadcast.c | 6 +++---
-> 1 file changed, 3 insertions(+), 3 deletions(-)
->
->diff --git a/drivers/net/team/team_mode_broadcast.c b/drivers/net/team/team_mode_broadcast.c
->index 9db0171..c5db428 100644
->--- a/drivers/net/team/team_mode_broadcast.c
->+++ b/drivers/net/team/team_mode_broadcast.c
->@@ -29,8 +29,8 @@ static bool bc_transmit(struct team *team, struct sk_buff *skb)
-> 			if (last) {
-> 				skb2 = skb_clone(skb, GFP_ATOMIC);
-> 				if (skb2) {
->-					ret = team_dev_queue_xmit(team, last,
->-								  skb2);
->+					ret = !team_dev_queue_xmit(team, last,
->+								   skb2);
-> 					if (!sum_ret)
-> 						sum_ret = ret;
-> 				}
->@@ -39,7 +39,7 @@ static bool bc_transmit(struct team *team, struct sk_buff *skb)
-> 		}
-> 	}
-> 	if (last) {
->-		ret = team_dev_queue_xmit(team, last, skb);
->+		ret = !team_dev_queue_xmit(team, last, skb);
-> 		if (!sum_ret)
-> 			sum_ret = ret;
-> 	}
->-- 
->1.8.0
->
+This patch is intended to have no change in behaviour.
+
+Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+---
+ drivers/net/usb/smsc95xx.c |   28 +++++++++++++++++++---------
+ drivers/net/usb/smsc95xx.h |    3 +++
+ 2 files changed, 22 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index e083f53..42fc1df 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -51,6 +51,10 @@
+ #define SUPPORTED_WAKE			(WAKE_UCAST | WAKE_BCAST | \
+ 					 WAKE_MCAST | WAKE_ARP | WAKE_MAGIC)
+ 
++#define FEATURE_8_WAKEUP_FILTERS	(0x01)
++#define FEATURE_PHY_NLP_CROSSOVER	(0x02)
++#define FEATURE_AUTOSUSPEND		(0x04)
++
+ #define check_warn(ret, fmt, args...) \
+ 	({ if (ret < 0) netdev_warn(dev->net, fmt, ##args); })
+ 
+@@ -66,7 +70,7 @@ struct smsc95xx_priv {
+ 	u32 hash_lo;
+ 	u32 wolopts;
+ 	spinlock_t mac_cr_lock;
+-	int wuff_filter_count;
++	u8 features;
+ };
+ 
+ static bool turbo_mode = true;
+@@ -1031,10 +1035,13 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	ret = smsc95xx_read_reg(dev, ID_REV, &val);
+ 	check_warn_return(ret, "Failed to read ID_REV: %d\n", ret);
+ 	val >>= 16;
+-	if ((val == ID_REV_CHIP_ID_9500A_) || (val == ID_REV_CHIP_ID_9512_))
+-		pdata->wuff_filter_count = LAN9500A_WUFF_NUM;
+-	else
+-		pdata->wuff_filter_count = LAN9500_WUFF_NUM;
++
++	if ((val == ID_REV_CHIP_ID_9500A_) || (val == ID_REV_CHIP_ID_9530_) ||
++		(val == ID_REV_CHIP_ID_89530_) || (val == ID_REV_CHIP_ID_9730_))
++		pdata->features = FEATURE_8_WAKEUP_FILTERS
++			| FEATURE_PHY_NLP_CROSSOVER | FEATURE_AUTOSUSPEND;
++	else if (val == ID_REV_CHIP_ID_9512_)
++		pdata->features = FEATURE_8_WAKEUP_FILTERS;
+ 
+ 	dev->net->netdev_ops = &smsc95xx_netdev_ops;
+ 	dev->net->ethtool_ops = &smsc95xx_ethtool_ops;
+@@ -1109,6 +1116,9 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 		u32 command[2];
+ 		u32 offset[2];
+ 		u32 crc[4];
++		int wuff_filter_count =
++			(pdata->features & FEATURE_8_WAKEUP_FILTERS) ?
++			LAN9500A_WUFF_NUM : LAN9500_WUFF_NUM;
+ 		int i, filter = 0;
+ 
+ 		memset(command, 0, sizeof(command));
+@@ -1166,7 +1176,7 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 			filter++;
+ 		}
+ 
+-		for (i = 0; i < (pdata->wuff_filter_count * 4); i++) {
++		for (i = 0; i < (wuff_filter_count * 4); i++) {
+ 			ret = smsc95xx_write_reg_nopm(dev, WUFF, filter_mask[i]);
+ 			if (ret < 0)
+ 				kfree(filter_mask);
+@@ -1174,17 +1184,17 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 		}
+ 		kfree(filter_mask);
+ 
+-		for (i = 0; i < (pdata->wuff_filter_count / 4); i++) {
++		for (i = 0; i < (wuff_filter_count / 4); i++) {
+ 			ret = smsc95xx_write_reg_nopm(dev, WUFF, command[i]);
+ 			check_warn_return(ret, "Error writing WUFF");
+ 		}
+ 
+-		for (i = 0; i < (pdata->wuff_filter_count / 4); i++) {
++		for (i = 0; i < (wuff_filter_count / 4); i++) {
+ 			ret = smsc95xx_write_reg_nopm(dev, WUFF, offset[i]);
+ 			check_warn_return(ret, "Error writing WUFF");
+ 		}
+ 
+-		for (i = 0; i < (pdata->wuff_filter_count / 2); i++) {
++		for (i = 0; i < (wuff_filter_count / 2); i++) {
+ 			ret = smsc95xx_write_reg_nopm(dev, WUFF, crc[i]);
+ 			check_warn_return(ret, "Error writing WUFF");
+ 		}
+diff --git a/drivers/net/usb/smsc95xx.h b/drivers/net/usb/smsc95xx.h
+index 1f86269..99f04a2 100644
+--- a/drivers/net/usb/smsc95xx.h
++++ b/drivers/net/usb/smsc95xx.h
+@@ -55,6 +55,9 @@
+ #define ID_REV_CHIP_ID_9500_		(0x9500)
+ #define ID_REV_CHIP_ID_9500A_		(0x9E00)
+ #define ID_REV_CHIP_ID_9512_		(0xEC00)
++#define ID_REV_CHIP_ID_9530_		(0x9530)
++#define ID_REV_CHIP_ID_89530_		(0x9E08)
++#define ID_REV_CHIP_ID_9730_		(0x9730)
+ 
+ #define INT_STS				(0x08)
+ #define INT_STS_TX_STOP_		(0x00020000)
+-- 
+1.7.10.4
