@@ -1,59 +1,33 @@
-From: "Bandi,Sarveshwar" <Sarveshwar.Bandi@Emulex.Com>
-Subject: RE: [PATCH net-2.6] bonding: Bonding driver does not consider the
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-2.6] bonding: Bonding driver does not consider the
  gso_max_size setting of slaves.
-Date: Wed, 21 Nov 2012 14:44:37 +0000
-Message-ID: <9D1F9FE58F08ED47AA451ABB038550E90A8AF60F@CMEXMB1.ad.emulex.com>
+Date: Wed, 21 Nov 2012 06:44:47 -0800
+Message-ID: <1353509087.2590.32.camel@edumazet-glaptop>
 References: <8814d83f-7213-4a32-91ec-39088a1a60a6@CMEXHTCAS1.ad.emulex.com>
- <1353509025.2590.31.camel@edumazet-glaptop>
+	 <20121121115601.GA5579@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: sarveshwar.bandi@emulex.com, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:56832 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754809Ab2KUOoj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 09:44:39 -0500
-In-Reply-To: <1353509025.2590.31.camel@edumazet-glaptop>
-Content-Language: en-US
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:57840 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754809Ab2KUOot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 09:44:49 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y25so5075712iay.19
+        for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 06:44:49 -0800 (PST)
+In-Reply-To: <20121121115601.GA5579@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RXJpYywNCiBJIHJlYWxpemVkIHRoZSBnb29kIHVwIGFuZCBJIGhhdmUgcmVwb3N0ZWQgdGhpcyBw
-YXRjaC4gUGxlYXNlIHJldmlldyB0aGUgbGF0ZXN0Lg0KDQpUaGFua3MsDQpTYXJ2ZXNoDQoNCi0t
-LS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzplcmlj
-LmR1bWF6ZXRAZ21haWwuY29tXSANClNlbnQ6IFdlZG5lc2RheSwgTm92ZW1iZXIgMjEsIDIwMTIg
-ODoxNCBQTQ0KVG86IEJhbmRpLFNhcnZlc2h3YXINCkNjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnDQpTdWJqZWN0OiBSZTogW1BBVENIIG5ldC0yLjZdIGJvbmRp
-bmc6IEJvbmRpbmcgZHJpdmVyIGRvZXMgbm90IGNvbnNpZGVyIHRoZSBnc29fbWF4X3NpemUgc2V0
-dGluZyBvZiBzbGF2ZXMuDQoNCk9uIFdlZCwgMjAxMi0xMS0yMSBhdCAxNjo0OCArMDUzMCwgc2Fy
-dmVzaHdhci5iYW5kaUBlbXVsZXguY29tIHdyb3RlOg0KPiBGcm9tOiBTYXJ2ZXNod2FyIEJhbmRp
-IDxzYXJ2ZXNod2FyLmJhbmRpQGVtdWxleC5jb20+DQo+IA0KPiBQYXRjaCBzZXRzIHRoZSBsb3dl
-c3Qgbm9uLXplcm8gZ3NvX21heF9zaXplIHZhbHVlIG9mIHRoZSBzbGF2ZXMgZHVyaW5nIA0KPiBl
-bnNsYXZlIGFuZCBkZXRhY2guDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBTYXJ2ZXNod2FyIEJhbmRp
-IDxzYXJ2ZXNod2FyLmJhbmRpQGVtdWxleC5jb20+DQo+IC0tLQ0KPiAgZHJpdmVycy9uZXQvYm9u
-ZGluZy9ib25kX21haW4uYyB8ICAgMjcgKysrKysrKysrKysrKysrKysrKysrKysrKysrDQo+ICAx
-IGZpbGUgY2hhbmdlZCwgMjcgaW5zZXJ0aW9ucygrKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMgDQo+IGIvZHJpdmVycy9uZXQvYm9uZGluZy9ib25k
-X21haW4uYyBpbmRleCBiMjUzMGIwLi41ZjE5ZDE2IDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25l
-dC9ib25kaW5nL2JvbmRfbWFpbi5jDQo+ICsrKyBiL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9t
-YWluLmMNCj4gQEAgLTExOTgsNiArMTE5OCwzMSBAQCBzdGF0aWMgdm9pZCBib25kX2F0dGFjaF9z
-bGF2ZShzdHJ1Y3QgYm9uZGluZyAqYm9uZCwgc3RydWN0IHNsYXZlICpuZXdfc2xhdmUpDQo+ICAJ
-Ym9uZC0+c2xhdmVfY250Kys7DQo+ICB9DQo+ICANCj4gK3N0YXRpYyB2b2lkIGJvbmRfc2V0X2dz
-b19tYXhfc2l6ZShzdHJ1Y3QgYm9uZGluZyAqYm9uZCkgew0KPiArCXN0cnVjdCBzbGF2ZSAqc2xh
-dmU7DQo+ICsJc3RydWN0IG5ldF9kZXZpY2UgKmJvbmRfZGV2ID0gYm9uZC0+ZGV2Ow0KPiArCXVu
-c2lnbmVkIGludCBnc29fbWF4X3NpemUgPSAwOw0KPiArCWJvb2wgcmVzZXRfZ3NvX3NpemUgPSB0
-cnVlOw0KPiArCWludCBpOw0KPiArDQo+ICsJYm9uZF9mb3JfZWFjaF9zbGF2ZShib25kLCBzbGF2
-ZSwgaSkgew0KPiArCQlpZiAoIXNsYXZlLT5kZXYtPmdzb19tYXhfc2l6ZSkNCj4gKwkJCWNvbnRp
-bnVlOw0KPiArDQo+ICsJCXJlc2V0X2dzb19zaXplID0gZmFsc2U7DQo+ICsNCj4gKwkJaWYgKCFn
-c29fbWF4X3NpemUgfHwNCj4gKwkJICAgIHNsYXZlLT5kZXYtPmdzb19tYXhfc2l6ZSA8IGdzb19t
-YXhfc2l6ZSkNCj4gKwkJCWdzb19tYXhfc2l6ZSA9IHNsYXZlLT5kZXYtPmdzb19tYXhfc2l6ZTsN
-Cj4gKwl9DQo+ICsNCj4gKwlpZiAoZ3NvX21heF9zaXplICYmIGdzb19tYXhfc2l6ZSA8IGJvbmRf
-ZGV2LT5nc29fbWF4X3NpemUpDQo+ICsJCW5ldGlmX3NldF9nc29fbWF4X3NpemUoYm9uZF9kZXYs
-IGdzb19tYXhfc2l6ZSk7DQo+ICsJZWxzZSBpZiAocmVzZXRfZ3NvX3NpemUpDQo+ICsJCW5ldGlm
-X3NldF9nc29fbWF4X3NpemUoYm9uZF9kZXYsIDApOyB9DQo+ICsNCg0KVGhpcyBzZWVtcyBhIGJp
-dCBjb21wbGV4LCBhbmQgSSBoYXZlIG5vIGlkZWEgd2h5IHlvdSBjYWxsIG5ldGlmX3NldF9nc29f
-bWF4X3NpemUoYm9uZF9kZXYsIDApOw0KDQpEZWZhdWx0IGdzb19tYXhfc2l6ZSBpcyBHU09fTUFY
-X1NJWkUsIG5vdCAwDQoNCg0KDQo=
+On Wed, 2012-11-21 at 06:56 -0500, Neil Horman wrote:
+
+> This seems a bit overly complex.  It doesn't seem like you need the
+> reset_go_size bool in here at all.  Just initalize gso_max_size to GSO_MAX_SIZE
+> and reduce it every time you find a smaller gso value on a slave.  Then you can
+> unilaterally set the bond devices gso_max_size without having to check any bools
+> or do any comparisons.
+
+Oh well, I should have read your answer ;)
