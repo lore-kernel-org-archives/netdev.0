@@ -1,40 +1,85 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/1 v2] net: add micrel KSZ8873MLL switch support
-Date: Wed, 21 Nov 2012 11:03:56 -0800
-Message-ID: <1353524636.24807.28.camel@joe-AO722>
-References: <1353493630-30867-1-git-send-email-plagnioj@jcrosoft.com>
-	 <1353512287-24048-1-git-send-email-plagnioj@jcrosoft.com>
+From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 1/1] asix: use ramdom hw addr if the one read is not valid
+Date: Wed, 21 Nov 2012 23:16:40 +0300
+Message-ID: <50AD36A8.6000702@mvista.com>
+References: <1353493362-30418-1-git-send-email-plagnioj@jcrosoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:59860 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755566Ab2KUTD5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Nov 2012 14:03:57 -0500
-In-Reply-To: <1353512287-24048-1-git-send-email-plagnioj@jcrosoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1353493362-30418-1-git-send-email-plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-11-21 at 16:38 +0100, Jean-Christophe PLAGNIOL-VILLARD
-wrote:
-> this will allow to detect the link between the switch and the soc
-[]
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-[]
-> @@ -127,6 +127,39 @@ static int ks8051_config_init(struct phy_device *phydev)
-[]
-> +int ksz8873mll_read_status(struct phy_device *phydev)
-> +{
-[]
-> +	regval = phy_read(phydev, KSZ8873MLL_GLOBAL_CONTROL_4);
+Hello.
+
+On 11/21/2012 01:22 PM, Jean-Christophe PLAGNIOL-VILLARD wrote:
+
+> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
+> Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> ---
+>  drivers/net/usb/asix_devices.c |   24 +++++++++++++++++++++---
+>  1 file changed, 21 insertions(+), 3 deletions(-)
+
+> diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+> index 33ab824..7ebec5b 100644
+> --- a/drivers/net/usb/asix_devices.c
+> +++ b/drivers/net/usb/asix_devices.c
+> @@ -225,7 +225,13 @@ static int ax88172_bind(struct usbnet *dev, struct usb_interface *intf)
+>  			   ret);
+>  		goto out;
+>  	}
+> -	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
 > +
-> +	if (regval & KSZ8873MLL_GLOBAL_CONTROL_4_DUPLEX)
-> +		phydev->duplex = DUPLEX_HALF;
-> +	else
-> +		phydev->duplex = DUPLEX_FULL;
+> +	if (is_valid_ether_addr(buf)) {
+> +		memcpy(dev->net->dev_addr, buf, ETH_ALEN);
+> +	} else {
+> +		netdev_info(dev->net, "invalid hw address, using random\n");
+> +		eth_hw_addr_random(dev->net);
+> +	}
+>  
+>  	/* Initialize MII structure */
+>  	dev->mii.dev = dev->net;
+> @@ -423,7 +429,13 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
+>  		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
+>  		return ret;
+>  	}
+> -	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
+> +
+> +	if (is_valid_ether_addr(buf)) {
+> +		memcpy(dev->net->dev_addr, buf, ETH_ALEN);
+> +	} else {
+> +		netdev_info(dev->net, "invalid hw address, using random\n");
+> +		eth_hw_addr_random(dev->net);
+> +	}
+>  
+>  	/* Initialize MII structure */
+>  	dev->mii.dev = dev->net;
+> @@ -777,7 +789,13 @@ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
+>  		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
+>  		return ret;
+>  	}
+> -	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
+> +
+> +	if (is_valid_ether_addr(buf)) {
+> +		memcpy(dev->net->dev_addr, buf, ETH_ALEN);
+> +	} else {
+> +		netdev_info(dev->net, "invalid hw address, using random\n");
+> +		eth_hw_addr_random(dev->net);
+> +	}
+>  
+>  	/* Initialize MII structure */
+>  	dev->mii.dev = dev->net;
 
-This doesn't check for phy_read errors.
-Shouldn't it?
+   Repeated thrice, this asks to be put into subroutine...
+
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
