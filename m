@@ -1,85 +1,96 @@
-From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/1] asix: use ramdom hw addr if the one read is not valid
-Date: Wed, 21 Nov 2012 23:16:40 +0300
-Message-ID: <50AD36A8.6000702@mvista.com>
-References: <1353493362-30418-1-git-send-email-plagnioj@jcrosoft.com>
+From: Martin Tessun <martin.tessun@gmx.de>
+Subject: Re: Packet Corruption with Atheros Communications Inc. AR8121/AR8113/AR8114
+ Gigabit or Fast Ethernet (rev b0) Interface
+Date: Wed, 21 Nov 2012 20:34:24 +0100
+Message-ID: <50AD2CC0.5010806@gmx.de>
+References: <50ACEB1D.2020303@gmx.de> <1353518049.2590.41.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1353493362-30418-1-git-send-email-plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.die-tessuns.de ([87.106.49.97]:34570 "EHLO
+	s15403472.onlinehome-server.info" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755748Ab2KUTel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Nov 2012 14:34:41 -0500
+Received: from chewie.die-tessuns.de (p548F653F.dip.t-dialin.net [84.143.101.63])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by s15403472.onlinehome-server.info (Postfix) with ESMTPSA id C955C531851A
+	for <netdev@vger.kernel.org>; Wed, 21 Nov 2012 20:34:39 +0100 (CET)
+In-Reply-To: <1353518049.2590.41.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Am 21.11.2012 18:14, schrieb Eric Dumazet:
+> On Wed, 2012-11-21 at 15:54 +0100, Martin Tessun wrote:
+[snip bug description]
+>
+> Is it only happening for IPv6 traffic, or is it also buggy for IPv4 ?
+>
+> If you disable tso , does the bug disappear ?
+>
+>
+>
 
-On 11/21/2012 01:22 PM, Jean-Christophe PLAGNIOL-VILLARD wrote:
+It also happens with IPv4 (usually not so fast as with IPv6):
 
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
-> Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> ---
->  drivers/net/usb/asix_devices.c |   24 +++++++++++++++++++++---
->  1 file changed, 21 insertions(+), 3 deletions(-)
+SCP from client:
 
-> diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-> index 33ab824..7ebec5b 100644
-> --- a/drivers/net/usb/asix_devices.c
-> +++ b/drivers/net/usb/asix_devices.c
-> @@ -225,7 +225,13 @@ static int ax88172_bind(struct usbnet *dev, struct usb_interface *intf)
->  			   ret);
->  		goto out;
->  	}
-> -	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-> +
-> +	if (is_valid_ether_addr(buf)) {
-> +		memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-> +	} else {
-> +		netdev_info(dev->net, "invalid hw address, using random\n");
-> +		eth_hw_addr_random(dev->net);
-> +	}
->  
->  	/* Initialize MII structure */
->  	dev->mii.dev = dev->net;
-> @@ -423,7 +429,13 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
->  		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
->  		return ret;
->  	}
-> -	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-> +
-> +	if (is_valid_ether_addr(buf)) {
-> +		memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-> +	} else {
-> +		netdev_info(dev->net, "invalid hw address, using random\n");
-> +		eth_hw_addr_random(dev->net);
-> +	}
->  
->  	/* Initialize MII structure */
->  	dev->mii.dev = dev->net;
-> @@ -777,7 +789,13 @@ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
->  		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
->  		return ret;
->  	}
-> -	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-> +
-> +	if (is_valid_ether_addr(buf)) {
-> +		memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-> +	} else {
-> +		netdev_info(dev->net, "invalid hw address, using random\n");
-> +		eth_hw_addr_random(dev->net);
-> +	}
->  
->  	/* Initialize MII structure */
->  	dev->mii.dev = dev->net;
+$ scp -4 server:/export/no_backup/burn/openSUSE-12.2-DVD-x86_64.iso .
+openSUSE-12.2-DVD-x86_64.iso 
+ 
+                  4%  184MB   9.3MB/s   07:37 ETA
+Corrupted MAC on input.
+Disconnecting: Packet corrupt
+openSUSE-12.2-DVD-x86_64.iso 
+ 
+                  4%  193MB   9.2MB/s   07:40 ETA
+lost connection
 
-   Repeated thrice, this asks to be put into subroutine...
+SCP initiated from the server:
+$ scp -4 openSUSE-12.2-DVD-x86_64.iso uhura:/tmp
+openSUSE-12.2-DVD-x86_64.iso 
+ 
+                  3%  149MB   8.8MB/s   08:10 ETA
+Received disconnect from 10.100.14.100: 2: Packet corrupt
+lost connection
 
-WBR, Sergei
+With TSO disabled:
+$ sudo ethtool -K eth0 tso off
+$ sudo ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: off
+tx-checksumming: on
+scatter-gather: on
+tcp-segmentation-offload: off
+udp-fragmentation-offload: off
+generic-segmentation-offload: on
+generic-receive-offload: on
+large-receive-offload: off
+rx-vlan-offload: on
+tx-vlan-offload: on
+ntuple-filters: off
+receive-hashing: off
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+SCP (IPv4) initiated from client:
+$ scp -4 server:/export/no_backup/burn/openSUSE-12.2-DVD-x86_64.iso .
+openSUSE-12.2-DVD-x86_64.iso 
+ 
+                  2%   93MB  10.4MB/s   06:59 ETA
+Corrupted MAC on input.
+Disconnecting: Packet corrupt
+lost connection
+
+SCP (IPv4) initated from server:
+$ scp -4 openSUSE-12.2-DVD-x86_64.iso uhura:/tmp
+openSUSE-12.2-DVD-x86_64.iso 
+ 
+                  4%  179MB   9.2MB/s   07:46 ETA
+Received disconnect from 10.100.14.100: 2: Packet corrupt
+lost connection
+
+
+Regards,
+Martin
