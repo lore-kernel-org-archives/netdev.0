@@ -1,90 +1,107 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: [PATCH 1/1 v2] asix: use ramdom hw addr if the one read is not valid
-Date: Thu, 22 Nov 2012 08:35:17 +0100
-Message-ID: <1353569717-1260-1-git-send-email-plagnioj@jcrosoft.com>
-References: <1353493362-30418-1-git-send-email-plagnioj@jcrosoft.com>
+From: Kevin Curtis <Kevin.Curtis-AP8L3A0T/wRBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH 9/9] batman-adv: Use packing of 2 for all
+ headers before an ethernet header
+Date: Thu, 22 Nov 2012 08:12:38 +0000
+Message-ID: <E603DC592C92B54A89CEF6B0919A0B1CA7D5A6CC87@SOLO.hq.farsitecommunications.com>
+References: <1353499919-28596-1-git-send-email-ordex@autistici.org>
+ <1353499919-28596-10-git-send-email-ordex@autistici.org>
+ <20121121.125759.322762083309845086.davem@davemloft.net>
+ <8108710.8oNxxR0rRd@sven-laptop.home.narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
- Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1353493362-30418-1-git-send-email-plagnioj@jcrosoft.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org" <fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ "b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org" <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>,
+ "rmody-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org" <rmody-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>,
+ "ron.mercer-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <ron.mercer-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+ "linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+ "lindner_marek-LWAfsSFWpa4@public.gmane.org" <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
+ "jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
+ "andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org" <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>
+To: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <8108710.8oNxxR0rRd-S/pmIDWWJIwhrEaHGRlFQnOel7F/LzPIcbWoRP8EXgk@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Cc: linux-usb@vger.kernel.org
-Cc: netdev@vger.kernel.org
----
-v2:
+>> Agree. But we should get this message also to the other guys
 
-	introduce asix_set_netdev_dev_addr
+What message would this be?
+Are you advocating a different use of #pragma pack()?
 
-Best Regards,
-J.
- drivers/net/usb/asix_devices.c |   19 ++++++++++++++++---
- 1 file changed, 16 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
-index 33ab824..7a6e758 100644
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -64,6 +64,16 @@ static void asix_status(struct usbnet *dev, struct urb *urb)
- 	}
- }
- 
-+static void asix_set_netdev_dev_addr(struct usbnet *dev, u8 *addr)
-+{
-+	if (is_valid_ether_addr(addr)) {
-+		memcpy(dev->net->dev_addr, addr, ETH_ALEN);
-+	} else {
-+		netdev_info(dev->net, "invalid hw address, using random\n");
-+		eth_hw_addr_random(dev->net);
-+	}
-+}
-+
- /* Get the PHY Identifier from the PHYSID1 & PHYSID2 MII registers */
- static u32 asix_get_phyid(struct usbnet *dev)
- {
-@@ -225,7 +235,8 @@ static int ax88172_bind(struct usbnet *dev, struct usb_interface *intf)
- 			   ret);
- 		goto out;
- 	}
--	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-+
-+	asix_set_netdev_dev_addr(dev, buf);
- 
- 	/* Initialize MII structure */
- 	dev->mii.dev = dev->net;
-@@ -423,7 +434,8 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
- 		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
- 		return ret;
- 	}
--	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-+
-+	asix_set_netdev_dev_addr(dev, buf);
- 
- 	/* Initialize MII structure */
- 	dev->mii.dev = dev->net;
-@@ -777,7 +789,8 @@ static int ax88178_bind(struct usbnet *dev, struct usb_interface *intf)
- 		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
- 		return ret;
- 	}
--	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
-+
-+	asix_set_netdev_dev_addr(dev, buf);
- 
- 	/* Initialize MII structure */
- 	dev->mii.dev = dev->net;
--- 
-1.7.10.4
+Kevin Curtis
+Linux Development
+FarSite Communications Ltd http://www.farsite.com
+Winner of The Queen's Award for Enterprise 2009
+tel:=A0 +44 1256 330461
+fax:=A0 +44 1256 854931
+
+
+
+-----Original Message-----
+From: Sven Eckelmann [mailto:sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org]=20
+Sent: 21 November 2012 18:20
+To: David Miller
+Cc: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; b.a.t.m.a.n-ZwoEplunGu2QeL92YiVCHQ@public.gmane.org=
+h.org; lindner_marek-LWAfsSFWpa4@public.gmane.org; Kevin Curtis; linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org; ron.m=
+ercer-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org; jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org; rmody-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org; andy@gre=
+yhouse.net; fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
+Subject: Re: Re: [PATCH 9/9] batman-adv: Use packing of 2 for all headers b=
+efore an ethernet header
+
+On Wednesday 21 November 2012 12:57:59 David Miller wrote:
+> From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+> Date: Wed, 21 Nov 2012 13:11:59 +0100
+>=20
+> > +#pragma pack(2)
+>=20
+>  ...
+>=20
+> > -} __packed;
+>=20
+> The __packed attribute is an abstraction of the actual syntax the=20
+> compiler uses, if it is supported at all.
+>=20
+> Therefore, you can't just unconditionally use the #pragma, and you=20
+> would need to use some kind of similar compiler abstraction for it.
+>=20
+> But to be honest this is really ugly and for very little, if any,=20
+> gain.
+
+Agree. But we should get this message also to the other guys
+
+$ git grep pragma -- drivers/net
+drivers/net/bonding/bond_3ad.h:#pragma pack(1) drivers/net/bonding/bond_3ad=
+.h:#pragma pack() drivers/net/bonding/bond_3ad.h:#pragma pack(8) drivers/ne=
+t/bonding/bond_3ad.h:#pragma pack() drivers/net/bonding/bond_alb.c:#pragma =
+pack(1) drivers/net/bonding/bond_alb.c:#pragma pack() drivers/net/ethernet/=
+brocade/bna/bfa_defs.h:#pragma pack(1) drivers/net/ethernet/brocade/bna/bfa=
+_defs.h:#pragma pack() drivers/net/ethernet/brocade/bna/bfa_defs_cna.h:#pra=
+gma pack(1) drivers/net/ethernet/brocade/bna/bfa_defs_cna.h:#pragma pack() =
+drivers/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h:#pragma pack(1) driver=
+s/net/ethernet/brocade/bna/bfa_defs_mfg_comm.h:#pragma pack() drivers/net/e=
+thernet/brocade/bna/bfi.h:#pragma pack(1) drivers/net/ethernet/brocade/bna/=
+bfi.h:#pragma pack() drivers/net/ethernet/brocade/bna/bfi_cna.h:#pragma pac=
+k(1) drivers/net/ethernet/brocade/bna/bfi_cna.h:#pragma pack() drivers/net/=
+ethernet/brocade/bna/bfi_enet.h:#pragma pack(1) drivers/net/ethernet/brocad=
+e/bna/bfi_enet.h:#pragma pack() drivers/net/ethernet/brocade/bna/cna.h:#pra=
+gma pack(1) drivers/net/ethernet/brocade/bna/cna.h:#pragma pack() drivers/n=
+et/ethernet/qlogic/qla3xxx.h:#pragma pack(1) drivers/net/ethernet/qlogic/ql=
+a3xxx.h:#pragma pack() drivers/net/wan/farsync.c:#pragma pack(1) drivers/ne=
+t/wan/farsync.c:#pragma pack()
+
+Kind regards,
+	Sven
