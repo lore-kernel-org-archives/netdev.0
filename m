@@ -1,44 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] 8139cp: revert "set ring address before
- enabling receiver"
-Date: Wed, 21 Nov 2012 23:39:01 -0500 (EST)
-Message-ID: <20121121.233901.947301057462707828.davem@davemloft.net>
-References: <20121121200729.GA17603@electric-eye.fr.zoreil.com>
-	<50AD9F82.6030609@pobox.com>
+From: "Ariel Elior" <ariele@broadcom.com>
+Subject: [PATCH net] bnx2x: remove redundant warning log
+Date: Thu, 22 Nov 2012 19:16:17 +0200
+Message-ID: <1353604577-1272-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org, dwmw2@infradead.org,
-	jasowang@redhat.com, gilboad@gmail.com
-To: jgarzik@pobox.com
+Cc: netdev <netdev@vger.kernel.org>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35298 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752429Ab2KVSpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:45:32 -0500
-In-Reply-To: <50AD9F82.6030609@pobox.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:1118 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753945Ab2KVSrX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Nov 2012 13:47:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Garzik <jgarzik@pobox.com>
-Date: Wed, 21 Nov 2012 22:44:02 -0500
+fix bug where a register which was only meant to be read in 578xx/57712
+devices causes a bogus error message to be logged when read from other
+devices.
 
-> On 11/21/2012 03:07 PM, Francois Romieu wrote:
->> This patch reverts b01af4579ec41f48e9b9c774e70bd6474ad210db.
->>
->> The original patch was tested with emulated hardware. Real
->> hardware chokes.
->>
->> Fixes https://bugzilla.kernel.org/show_bug.cgi?id=47041
->>
->> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> 
-> Acked-by: Jeff Garzik <jgarzik@redhat.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
 
-I'm definitely not applying the revert, because it hurts the largest
-user of this driver, which is the virtual hardware.
-
-David Woodhouse's patch is the only reasonable way forward at this
-point, so I'd apprecite it if you'd give his patch a review too.
-
-Thank you.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index bd1fd3d..01611b3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -9545,10 +9545,13 @@ static int __devinit bnx2x_prev_unload_common(struct bnx2x *bp)
+  */
+ static void __devinit bnx2x_prev_interrupted_dmae(struct bnx2x *bp)
+ {
+-	u32 val = REG_RD(bp, PGLUE_B_REG_PGLUE_B_INT_STS);
+-	if (val & PGLUE_B_PGLUE_B_INT_STS_REG_WAS_ERROR_ATTN) {
+-		BNX2X_ERR("was error bit was found to be set in pglueb upon startup. Clearing");
+-		REG_WR(bp, PGLUE_B_REG_WAS_ERROR_PF_7_0_CLR, 1 << BP_FUNC(bp));
++	if (!CHIP_IS_E1x(bp)) {
++		u32 val = REG_RD(bp, PGLUE_B_REG_PGLUE_B_INT_STS);
++		if (val & PGLUE_B_PGLUE_B_INT_STS_REG_WAS_ERROR_ATTN) {
++			BNX2X_ERR("was error bit was found to be set in pglueb upon startup. Clearing");
++			REG_WR(bp, PGLUE_B_REG_WAS_ERROR_PF_7_0_CLR,
++			       1 << BP_FUNC(bp));
++		}
+ 	}
+ }
+ 
+-- 
+1.7.9.GIT
