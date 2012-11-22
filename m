@@ -1,78 +1,88 @@
 From: Bernhard Schmidt <berni@birkenwald.de>
-Subject: Re: VXLAN multicast receive not working
-Date: Thu, 22 Nov 2012 01:09:13 +0100
-Message-ID: <20121122000913.GB3447@fliwatuet.svr02.mucip.net>
-References: <20121122000525.GA3447@fliwatuet.svr02.mucip.net>
+Subject: VXLAN multicast receive not working
+Date: Thu, 22 Nov 2012 01:05:26 +0100
+Message-ID: <20121122000525.GA3447@fliwatuet.svr02.mucip.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.svr02.mucip.net ([83.170.6.69]:57037 "EHLO
+Received: from mail.svr02.mucip.net ([83.170.6.69]:56536 "EHLO
 	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932166Ab2KVSum (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:50:42 -0500
+	with ESMTP id S932296Ab2KVSun (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:50:43 -0500
 Received: from localhost (mail.svr02.mucip.net [127.0.0.1])
-	by mailout.mucip.net (Postfix) with ESMTP id B6408A1F
-	for <netdev@vger.kernel.org>; Thu, 22 Nov 2012 01:09:17 +0100 (CET)
+	by mailout.mucip.net (Postfix) with ESMTP id E54AC95A
+	for <netdev@vger.kernel.org>; Thu, 22 Nov 2012 01:05:29 +0100 (CET)
 Received: from mailout.mucip.net ([127.0.0.1])
 	by localhost (mail.svr02.mucip.net [127.0.0.1]) (amavisd-new, port 10125)
-	with ESMTP id B0CM3FUZzu75 for <netdev@vger.kernel.org>;
-	Thu, 22 Nov 2012 01:09:17 +0100 (CET)
+	with ESMTP id BEWgrtlDWOnq for <netdev@vger.kernel.org>;
+	Thu, 22 Nov 2012 01:05:29 +0100 (CET)
 Content-Disposition: inline
-In-Reply-To: <20121122000525.GA3447@fliwatuet.svr02.mucip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 22, 2012 at 01:05:25AM +0100, Bernhard Schmidt wrote:
+[Apologies if you receive this twice, my original mail seems to be lost]
 
-> The same VXLAN domain is defined on the Nexus 1000V and a VM is attached
-> to it. When I send some broadcast traffic down vxlan0 (i.e. ping
-> 10.1.1.2 which generates an ARP request) the VM sees the packet just
-> fine.
-> 
-> When I do it the other way around (the VM sends a broadcast ARP for
-> 10.1.1.3) I see a packet coming into eth1 on the multicast group, but
-> vxlan0 stays silent. 
+Hello,
 
-I think I found a possible reason, my vxlan interface is on top of eth1
+I'm just trying to play with VXLAN a bit and wanted to build a Linux
+gateway routing into seperate VXLAN segments.
 
-7: vxlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue
+Debian Wheezy, running 3.7-rc6, with current git HEAD of iproute2.
+It's a VMware VM but that should not matter much.
+
+Two vmxnet3 NICs, one with management and one with my VXLAN transport
+network.
+
+4: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UNKNOWN qlen 1000
+    link/ether 00:50:56:8e:0d:c8 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.0.250/24 scope global eth1
+    inet6 fe80::250:56ff:fe8e:dc8/64 scope link 
+       valid_lft forever preferred_lft forever
+
+In the same network segment are two VMware ESXi 5.0 hosts with Nexus
+1000V for VLAN termination (10.0.0.1 and 10.0.0.2)
+
+On top of that there is a VXLAN interface defined, with ID 12340 and
+group 239.0.0.42.
+
+6: vxlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue
 state UNKNOWN mode DEFAULT 
-    link/ether 96:06:c6:cf:a0:2e brd ff:ff:ff:ff:ff:ff
+    link/ether f6:59:e7:db:82:92 brd ff:ff:ff:ff:ff:ff
     vxlan id 12340 group 239.0.0.42 dev eth1 port 32768 61000 ageing 300 
 
-but the multicast group is joined only on eth0
+That interface has an address as well
 
-root@lxbscDA-VXLAN:~/iproute2# ip maddr
-1:	lo
-	inet  224.0.0.1
-	inet6 ff02::1
-2:	eth0
-	link  33:33:00:00:00:01
-	link  01:00:5e:00:00:01
-	link  33:33:ff:8e:0d:c7
-	link  01:00:5e:00:00:2a
-	inet  239.0.0.42
-	inet  224.0.0.1
-	inet6 ff02::1:ff8e:dc7 users 2
-	inet6 ff02::1
-4:	eth1
-	link  33:33:00:00:00:01
-	link  01:00:5e:00:00:01
-	link  33:33:ff:8e:0d:c8
-	inet  224.0.0.1
-	inet6 ff02::1:ff8e:dc8
-	inet6 ff02::1
-7:	vxlan0
-	link  33:33:00:00:00:01
-	link  01:00:5e:00:00:01
-	link  33:33:ff:cf:a0:2e
-	inet  224.0.0.1
-	inet6 ff02::1:ffcf:a02e
-	inet6 ff02::1
+6: vxlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue
+state UNKNOWN 
+    link/ether f6:59:e7:db:82:92 brd ff:ff:ff:ff:ff:ff
+    inet 10.1.1.1/24 scope global vxlan0
+    inet6 fe80::f459:e7ff:fedb:8292/64 scope link 
+       valid_lft forever preferred_lft forever
 
-At first glance I did not spot the issue with my two weeks of C, so
-someone else has to hunt this down.
+The same VXLAN domain is defined on the Nexus 1000V and a VM is attached
+to it. When I send some broadcast traffic down vxlan0 (i.e. ping
+10.1.1.2 which generates an ARP request) the VM sees the packet just
+fine.
 
-Regards,
+When I do it the other way around (the VM sends a broadcast ARP for
+10.1.1.3) I see a packet coming into eth1 on the multicast group, but
+vxlan0 stays silent. 
+
+I have captured one of those packets, wireshark does not support
+disecting it yet but in my eyes the packet is correct. I've put it
+online at http://users.birkenwald.de/~berni/temp/vxlan.pcap
+
+Weirdly enough, as soon as I populate the ARP and VXLAN forwarding table
+by pinging back from the destination to the source (so the source can
+learn both MAC->Nexthop for VXLAN and IP->MAC from the ARP request) it
+starts working. 
+
+To summarize, Multicast/Broadcast from N1k to Linux seems to be broken,
+the encapsulated packet is seen on the Ethernet but the decapsulated
+packet is not seen on vxlan0. Broadcast/Multicast in the other direction
+works just fine as well as Unicast in both directions.
+
+Thanks for any pointers,
 Bernhard
