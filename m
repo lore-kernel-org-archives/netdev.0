@@ -1,59 +1,55 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH 080/493] fddi: remove use of __devexit_p
-Date: Wed, 21 Nov 2012 23:49:50 +0000 (GMT)
-Message-ID: <alpine.LFD.2.02.1211212334080.25230@eddie.linux-mips.org>
-References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu> <1353349642-3677-80-git-send-email-wfp5p@virginia.edu> <alpine.LFD.2.02.1211191842180.25230@eddie.linux-mips.org> <alpine.LFD.2.02.1211191912040.25230@eddie.linux-mips.org>
- <20121119192949.GA16976@kroah.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Bill Pemberton <wfp5p@virginia.edu>, netdev@vger.kernel.org
-To: Greg KH <gregkh@linuxfoundation.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/4] xfrm: remove redundant replay_esn check
+Date: Thu, 22 Nov 2012 09:02:39 +0100
+Message-ID: <1353571362-6774-2-git-send-email-steffen.klassert@secunet.com>
+References: <1353571362-6774-1-git-send-email-steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arrakis.dune.hu ([78.24.191.176]:37307 "EHLO
-	eddie.linux-mips.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754093Ab2KVTAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 14:00:25 -0500
-Received: from localhost.localdomain ([127.0.0.1]:44805 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S6828054Ab2KUXturht0N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 00:49:50 +0100
-In-Reply-To: <20121119192949.GA16976@kroah.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:36102 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932389Ab2KVTBS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Nov 2012 14:01:18 -0500
+In-Reply-To: <1353571362-6774-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greg,
+From: Ulrich Weber <ulrich.weber@sophos.com>
 
-> >  I have unconfused myself now, so please replace the above with the 
-> > following question: what about configurations (e.g. buses) that not 
-> > support hotplug at all?  For example apart from PCI the defxx driver 
-> > concerned here supports the TURBOchannel bus that by design does not have 
-> > the concept of live option card removal (no such circuitry).  So should 
-> > now the precious memory be wasted on systems that will never ever handle 
-> > hotplug?
-> 
-> CONFIG_HOTPLUG is always enabled now, so that's not an option anymore.
-> And again, a user can "hot unbind" a driver from a device from
-> userspace, no matter if the bus physically supports it or not.
+x->replay_esn is already checked in if clause,
+so remove check and ident properly
 
- Hmm, what purpose does this serve for devices that cannot be physically 
-removed?  If there is none, shouldn't that policy be set by individual 
-drivers or platform even?  Even if HOTPLUG as a whole is unconditional (I 
-suppose the amount of space core support itself takes is much less to what 
-driver code can).
+Signed-off-by: Ulrich Weber <ulrich.weber@sophos.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/xfrm/xfrm_replay.c |   13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
 
- TURBOchannel, although valid, is an old exotic case that might not be 
-worth arguing for, except for purity maybe.  But there are surely many 
-contemporary systems out there that are known they are never going to 
-support hot device replacement.  Consider most of the embedded systems for 
-example, where devices may even physically be cast into a single SOC (with 
-no prospect of chipping off any pieces ever ;) ), that certainly could not 
-care less of device replacement, but they do care a lot about memory 
-consumption.
-
- Was this implication considered, discussed and diregarded as not 
-important enough compared to benefits from hardcoding HOTPLUG support?  
-I'm seriously asking for a pointer, not trying to cause any stir-up -- 
-regrettably I fail to follow most discussions these days, but I would like 
-to know what the background behind this decision was.  Thanks a lot!
-
-  Maciej
+diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
+index 3efb07d..765f6fe 100644
+--- a/net/xfrm/xfrm_replay.c
++++ b/net/xfrm/xfrm_replay.c
+@@ -521,13 +521,12 @@ int xfrm_init_replay(struct xfrm_state *x)
+ 		    replay_esn->bmp_len * sizeof(__u32) * 8)
+ 			return -EINVAL;
+ 
+-	if ((x->props.flags & XFRM_STATE_ESN) && replay_esn->replay_window == 0)
+-		return -EINVAL;
+-
+-	if ((x->props.flags & XFRM_STATE_ESN) && x->replay_esn)
+-		x->repl = &xfrm_replay_esn;
+-	else
+-		x->repl = &xfrm_replay_bmp;
++		if (x->props.flags & XFRM_STATE_ESN) {
++			if (replay_esn->replay_window == 0)
++				return -EINVAL;
++			x->repl = &xfrm_replay_esn;
++		} else
++			x->repl = &xfrm_replay_bmp;
+ 	} else
+ 		x->repl = &xfrm_replay_legacy;
+ 
+-- 
+1.7.9.5
