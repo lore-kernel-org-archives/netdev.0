@@ -1,79 +1,56 @@
-From: Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-Subject: Re: [PATCH 196/493] net/wireless: remove use of __devinit
-Date: Thu, 22 Nov 2012 06:13:40 +0000 (GMT)
-Message-ID: <1353564820.51519.YahooMailClassic@web172303.mail.ir2.yahoo.com>
-References: <1353349642-3677-196-git-send-email-wfp5p@virginia.edu>
-Reply-To: htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v6] can: kvaser_usb: Add support for Kvaser CAN/USB
+ devices
+Date: Thu, 22 Nov 2012 13:30:22 -0800
+Message-ID: <20121122213022.GB1461@kroah.com>
+References: <1343626352-24760-1-git-send-email-olivier@sobrie.be>
+ <1353481873-3214-1-git-send-email-olivier@sobrie.be>
+ <20121122150149.GB11612@hposo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, Bill Pemberton <wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1353349642-3677-196-git-send-email-wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, Daniel Berglund <db@kvaser.com>
+To: Olivier Sobrie <olivier@sobrie.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:38414 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754662Ab2KVV3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 16:29:09 -0500
+Received: by mail-da0-f46.google.com with SMTP id p5so2345728dak.19
+        for <netdev@vger.kernel.org>; Thu, 22 Nov 2012 13:29:09 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20121122150149.GB11612@hposo>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Nov 22, 2012 at 04:01:49PM +0100, Olivier Sobrie wrote:
+> Hi linux-usb folks,
+> 
+> Is there someone who can help me to fix the following errors?
+> 
+> smatch warnings:
+> 
+> + drivers/net/can/usb/kvaser_usb.c:431 kvaser_usb_send_simple_msg() error: doing
+> +dma on the stack ((null))
+> + drivers/net/can/usb/kvaser_usb.c:1073 kvaser_usb_set_opt_mode() error: doing
+> +dma on the stack ((null))
+> + drivers/net/can/usb/kvaser_usb.c:1174 kvaser_usb_flush_queue() error: doing
+> +dma on the stack ((null))
+> + drivers/net/can/usb/kvaser_usb.c:1384 kvaser_usb_set_bittiming() error: doing
+> +dma on the stack ((null))
+> 
+> I assume it's due to the buffer I pass to the function usb_bulk_msg()
+> which is on the stack and can't be.
+> Do I just have to kmalloc a buffer and give it to the usb_bulk_msg()
+> function? That's what I understood by reading
+> "Documentation/DMA-API-HOWTO.txt" section "What memory is DMA'able?"...
+> and from commit
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=32ec4576c3fb37316b1d11a04b220527822f3f0d
 
+Yes, that is all that is needed.
 
---- On Mon, 19/11/12, Bill Pemberton <wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org> wrote:
+thanks,
 
-> From: Bill Pemberton <wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org>
-> Subject: [PATCH 196/493] net/wireless: remove use of __devinit
-> To: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org
-> Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, "Jiri Slaby" <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "Nick Kossifidis" <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>, "Simon Kelley" <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>, "Stefano Brivio" <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>, "Stanislav Yakovlev" <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, "Dan Williams" <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "Christian Lamparter" <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>, "Herton Ronaldo Krzesinski" <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, "Hin-Tak Leung" <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, "Larry Finger" <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, "Chaoming Li" <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>, "Luciano Coelho" <coelho-l0cyMroinI0@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> Date: Monday, 19 November, 2012, 18:22
-> CONFIG_HOTPLUG is going away as an
-> option so __devinit is no longer
-> needed.
-> 
-> Signed-off-by: Bill Pemberton <wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org>
-> Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> 
-> Cc: Jiri Slaby <jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Cc: Nick Kossifidis <mickflemm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Cc: "Luis R. Rodriguez" <mcgrof-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-> 
-> Cc: Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>
-> 
-> Cc: Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>
-> 
-> Cc: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> 
-> Cc: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-> 
-> Cc: Herton Ronaldo Krzesinski <herton-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> 
-> Cc: Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-> 
-> Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> 
-> Cc: Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-> 
-> Cc: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org> 
-> Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> 
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> 
-> Cc: ath5k-devel-xDcbHBWguxEUs3QNXV6qNA@public.gmane.org
-> 
-> Cc: b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> 
-> Cc: brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
-> 
-> Cc: libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> 
-> ---
-
-Acked-by: Hin-Tak Leung <htl10-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-
-The rtl818x parts.
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+greg k-h
