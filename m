@@ -1,231 +1,100 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 8/9] igb: No longer rely on APME to determine WoL settings
-Date: Thu, 22 Nov 2012 02:11:16 -0800
-Message-ID: <1353579077-12097-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/9] ixgbe: ethtool correctly identify autoneg setting
+Date: Thu, 22 Nov 2012 02:11:13 -0800
+Message-ID: <1353579077-12097-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1353579077-12097-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:8499 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:32084 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754035Ab2KVSf4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Nov 2012 13:35:56 -0500
+	id S1753988Ab2KVSfw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Nov 2012 13:35:52 -0500
 In-Reply-To: <1353579077-12097-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Historically, we've been using the APME bit to determine whether a device
-supports wake on a given port or not. However, this bit specifies the
-default wake setting, rather than the wake support. Change the behavior so
-that we use a flag to keep the capabilities separate from the enablement
-while meeting customer requirements.
+This patch enables ethtool to correctly identify flow control (pause
+frame) auto negotiation, as well as disallow enabling it when it is not
+supported. The ixgbe_device_supports_autoneg_fc function is exported and
+used for this purpose.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+There is also one minor cleanup of the device_supports_autoneg_fc by
+removing an unnecessary return statement.
+
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h         |  3 +-
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 56 +---------------------------
- drivers/net/ethernet/intel/igb/igb_main.c    | 40 +++++++++++++-------
- 3 files changed, 29 insertions(+), 70 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c  | 3 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.h  | 1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 5 +++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 3 ++-
+ 4 files changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index d8fd5b6..c15a481 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -370,8 +370,6 @@ struct igb_adapter {
- 	u32 eims_other;
- 
- 	/* to not mess up cache alignment, always add to the bottom */
--	u32 eeprom_wol;
--
- 	u16 tx_ring_count;
- 	u16 rx_ring_count;
- 	unsigned int vfs_allocated_count;
-@@ -401,6 +399,7 @@ struct igb_adapter {
- #define IGB_FLAG_PTP			(1 << 5)
- #define IGB_FLAG_RSS_FIELD_IPV4_UDP	(1 << 6)
- #define IGB_FLAG_RSS_FIELD_IPV6_UDP	(1 << 7)
-+#define IGB_FLAG_WOL_SUPPORTED		(1 << 8)
- 
- /* DMA Coalescing defines */
- #define IGB_MIN_TXPBSIZE           20408
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 0acf590..e2288b5 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1966,54 +1966,6 @@ static void igb_diag_test(struct net_device *netdev,
- 	msleep_interruptible(4 * 1000);
- }
- 
--static int igb_wol_exclusion(struct igb_adapter *adapter,
--			     struct ethtool_wolinfo *wol)
--{
--	struct e1000_hw *hw = &adapter->hw;
--	int retval = 1; /* fail by default */
--
--	switch (hw->device_id) {
--	case E1000_DEV_ID_82575GB_QUAD_COPPER:
--		/* WoL not supported */
--		wol->supported = 0;
--		break;
--	case E1000_DEV_ID_82575EB_FIBER_SERDES:
--	case E1000_DEV_ID_82576_FIBER:
--	case E1000_DEV_ID_82576_SERDES:
--		/* Wake events not supported on port B */
--		if (rd32(E1000_STATUS) & E1000_STATUS_FUNC_1) {
--			wol->supported = 0;
--			break;
--		}
--		/* return success for non excluded adapter ports */
--		retval = 0;
--		break;
--	case E1000_DEV_ID_82576_QUAD_COPPER:
--	case E1000_DEV_ID_82576_QUAD_COPPER_ET2:
--		/* quad port adapters only support WoL on port A */
--		if (!(adapter->flags & IGB_FLAG_QUAD_PORT_A)) {
--			wol->supported = 0;
--			break;
--		}
--		/* return success for non excluded adapter ports */
--		retval = 0;
--		break;
--	default:
--		/* dual port cards only support WoL on port A from now on
--		 * unless it was enabled in the eeprom for port B
--		 * so exclude FUNC_1 ports from having WoL enabled */
--		if ((rd32(E1000_STATUS) & E1000_STATUS_FUNC_MASK) &&
--		    !adapter->eeprom_wol) {
--			wol->supported = 0;
--			break;
--		}
--
--		retval = 0;
--	}
--
--	return retval;
--}
--
- static void igb_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 8f285ed..5af1eeb 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -65,13 +65,12 @@ static s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw);
+  *  function check the device id to see if the associated phy supports
+  *  autoneg flow control.
+  **/
+-static s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
++s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw)
  {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
-@@ -2023,10 +1975,7 @@ static void igb_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	                 WAKE_PHY;
- 	wol->wolopts = 0;
  
--	/* this function will set ->supported = 0 and return 1 if wol is not
--	 * supported by this hardware */
--	if (igb_wol_exclusion(adapter, wol) ||
--	    !device_can_wakeup(&adapter->pdev->dev))
-+	if (!(adapter->flags & IGB_FLAG_WOL_SUPPORTED))
- 		return;
+ 	switch (hw->device_id) {
+ 	case IXGBE_DEV_ID_X540T:
+ 	case IXGBE_DEV_ID_X540T1:
+-		return 0;
+ 	case IXGBE_DEV_ID_82599_T3_LOM:
+ 		return 0;
+ 	default:
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+index 587db47..1b65b6c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
+@@ -78,6 +78,7 @@ s32 ixgbe_disable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_buff_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_enable_rx_dma_generic(struct ixgbe_hw *hw, u32 regval);
+ s32 ixgbe_fc_enable_generic(struct ixgbe_hw *hw);
++s32 ixgbe_device_supports_autoneg_fc(struct ixgbe_hw *hw);
+ void ixgbe_fc_autoneg(struct ixgbe_hw *hw);
  
- 	/* apply any specific unsupported masks here */
-@@ -2054,8 +2003,7 @@ static int igb_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
- 	if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE))
- 		return -EOPNOTSUPP;
+ s32 ixgbe_validate_mac_addr(u8 *mac_addr);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index a545728..3268584 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -383,6 +383,11 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
+ 	    (adapter->flags & IXGBE_FLAG_DCB_ENABLED))
+ 		return -EINVAL;
  
--	if (igb_wol_exclusion(adapter, wol) ||
--	    !device_can_wakeup(&adapter->pdev->dev))
-+	if (!(adapter->flags & IGB_FLAG_WOL_SUPPORTED))
- 		return wol->wolopts ? -EOPNOTSUPP : 0;
- 
- 	/* these settings will always override what we currently have */
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 7044aaa..0fe2521 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1837,7 +1837,6 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 	const struct e1000_info *ei = igb_info_tbl[ent->driver_data];
- 	unsigned long mmio_start, mmio_len;
- 	int err, pci_using_dac;
--	u16 eeprom_apme_mask = IGB_EEPROM_APME;
- 	u8 part_str[E1000_PBANUM_LENGTH];
- 
- 	/* Catch broken hardware that put the wrong VF device ID in
-@@ -2045,28 +2044,27 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 
- 	igb_validate_mdi_setting(hw);
- 
--	/* Initial Wake on LAN setting If APM wake is enabled in the EEPROM,
--	 * enable the ACPI Magic Packet filter
--	 */
--
-+	/* By default, support wake on port A */
- 	if (hw->bus.func == 0)
--		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_A, 1, &eeprom_data);
--	else if (hw->mac.type >= e1000_82580)
-+		adapter->flags |= IGB_FLAG_WOL_SUPPORTED;
++	/* some devices do not support autoneg of link flow control */
++	if ((pause->autoneg == AUTONEG_ENABLE) &&
++	    (ixgbe_device_supports_autoneg_fc(hw) != 0))
++		return -EINVAL;
 +
-+	/* Check the NVM for wake support on non-port A ports */
-+	if (hw->mac.type >= e1000_82580)
- 		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_A +
- 		                 NVM_82580_LAN_FUNC_OFFSET(hw->bus.func), 1,
- 		                 &eeprom_data);
- 	else if (hw->bus.func == 1)
- 		hw->nvm.ops.read(hw, NVM_INIT_CONTROL3_PORT_B, 1, &eeprom_data);
+ 	fc.disable_fc_autoneg = (pause->autoneg != AUTONEG_ENABLE);
  
--	if (eeprom_data & eeprom_apme_mask)
--		adapter->eeprom_wol |= E1000_WUFC_MAG;
-+	if (eeprom_data & IGB_EEPROM_APME)
-+		adapter->flags |= IGB_FLAG_WOL_SUPPORTED;
+ 	if ((pause->rx_pause && pause->tx_pause) || pause->autoneg)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 004ea6c..4f67fdc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4567,7 +4567,8 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	ixgbe_pbthresh_setup(adapter);
+ 	hw->fc.pause_time = IXGBE_DEFAULT_FCPAUSE;
+ 	hw->fc.send_xon = true;
+-	hw->fc.disable_fc_autoneg = false;
++	hw->fc.disable_fc_autoneg =
++		(ixgbe_device_supports_autoneg_fc(hw) == 0) ? false : true;
  
- 	/* now that we have the eeprom settings, apply the special cases where
- 	 * the eeprom may be wrong or the board simply won't support wake on
- 	 * lan on a particular port */
- 	switch (pdev->device) {
- 	case E1000_DEV_ID_82575GB_QUAD_COPPER:
--		adapter->eeprom_wol = 0;
-+		adapter->flags &= ~IGB_FLAG_WOL_SUPPORTED;
- 		break;
- 	case E1000_DEV_ID_82575EB_FIBER_SERDES:
- 	case E1000_DEV_ID_82576_FIBER:
-@@ -2074,24 +2072,38 @@ static int __devinit igb_probe(struct pci_dev *pdev,
- 		/* Wake events only supported on port A for dual fiber
- 		 * regardless of eeprom setting */
- 		if (rd32(E1000_STATUS) & E1000_STATUS_FUNC_1)
--			adapter->eeprom_wol = 0;
-+			adapter->flags &= ~IGB_FLAG_WOL_SUPPORTED;
- 		break;
- 	case E1000_DEV_ID_82576_QUAD_COPPER:
- 	case E1000_DEV_ID_82576_QUAD_COPPER_ET2:
- 		/* if quad port adapter, disable WoL on all but port A */
- 		if (global_quad_port_a != 0)
--			adapter->eeprom_wol = 0;
-+			adapter->flags &= ~IGB_FLAG_WOL_SUPPORTED;
- 		else
- 			adapter->flags |= IGB_FLAG_QUAD_PORT_A;
- 		/* Reset for multiple quad port adapters */
- 		if (++global_quad_port_a == 4)
- 			global_quad_port_a = 0;
- 		break;
-+	default:
-+		/* If the device can't wake, don't set software support */
-+		if (!device_can_wakeup(&adapter->pdev->dev))
-+			adapter->flags &= ~IGB_FLAG_WOL_SUPPORTED;
- 	}
- 
- 	/* initialize the wol settings based on the eeprom settings */
--	adapter->wol = adapter->eeprom_wol;
--	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-+	if (adapter->flags & IGB_FLAG_WOL_SUPPORTED)
-+		adapter->wol |= E1000_WUFC_MAG;
-+
-+	/* Some vendors want WoL disabled by default, but still supported */
-+	if ((hw->mac.type == e1000_i350) &&
-+	    (pdev->subsystem_vendor == PCI_VENDOR_ID_HP)) {
-+		adapter->flags |= IGB_FLAG_WOL_SUPPORTED;
-+		adapter->wol = 0;
-+	}
-+
-+	device_set_wakeup_enable(&adapter->pdev->dev,
-+				 adapter->flags & IGB_FLAG_WOL_SUPPORTED);
- 
- 	/* reset the hardware with the new settings */
- 	igb_reset(adapter);
+ #ifdef CONFIG_PCI_IOV
+ 	/* assign number of SR-IOV VFs */
 -- 
 1.7.11.7
