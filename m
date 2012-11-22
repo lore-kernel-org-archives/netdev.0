@@ -1,84 +1,56 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: [PATCH 9/9] batman-adv: Use packing of 2 for all
-	headers before an ethernet header
-Date: Thu, 22 Nov 2012 09:28:36 +0100
-Message-ID: <3602626.rWyvU1cq5r@bentobox>
-References: <1353499919-28596-1-git-send-email-ordex@autistici.org>
- <8108710.8oNxxR0rRd@sven-laptop.home.narfation.org>
- <E603DC592C92B54A89CEF6B0919A0B1CA7D5A6CC87@SOLO.hq.farsitecommunications.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 1/1] asix: use ramdom hw addr if the one read is not valid
+Date: Thu, 22 Nov 2012 09:55:30 +0100
+Message-ID: <878v9uow3h.fsf@nemi.mork.no>
+References: <1353493362-30418-1-git-send-email-plagnioj@jcrosoft.com>
+ <50AD36A8.6000702@mvista.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart1882661.efN5j1IJCI";
- micalg="pgp-sha512"; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7Bit
-Cc: "fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org" <fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
- "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- "b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org" <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>,
- "jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
- "rmody-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org" <rmody-43mecJUBy8ZBDgjK7y7TUQ@public.gmane.org>,
- "ron.mercer-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <ron.mercer-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
- "linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org" <linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>,
- "lindner_marek-LWAfsSFWpa4@public.gmane.org" <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
- David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, "andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org" <andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org>
-To: Kevin Curtis <Kevin.Curtis-AP8L3A0T/wRBDgjK7y7TUQ@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <E603DC592C92B54A89CEF6B0919A0B1CA7D5A6CC87-uLMF5YoEu3cpvdBnIIuIUrTzKHr1x449ALKb+EK9MtIAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, Sergei Shtylyov <sshtylyov@mvista.com>
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <50AD36A8.6000702@mvista.com> (Sergei Shtylyov's message of "Wed,
+ 21 Nov 2012 23:16:40 +0300")
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-
---nextPart1882661.efN5j1IJCI
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="us-ascii"
-
-On Thursday 22 November 2012 08:12:38 Kevin Curtis wrote:
-> >> Agree. But we should get this message also to the other guys
-> 
-> What message would this be?
-> Are you advocating a different use of #pragma pack()?
-
-David started this discussion and his statement was:
-
-> The __packed attribute is an abstraction of the actual syntax the 
-> compiler uses, if it is supported at all.
-> 
-> Therefore, you can't just unconditionally use the #pragma, and you 
-> would need to use some kind of similar compiler abstraction for it.
-
-So yes, it sounds to me like "don't use #pragma but think about some 
-abstraction".
-
-Kind regards,
-	Sven
---nextPart1882661.efN5j1IJCI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJQreI0AAoJEF2HCgfBJntGoBcQAIY7c2z8xYjk4ff4LlQ3/cZT
-3XeMujBuFzHuK2uYq0MtM6yvgPjFAiviNzUjgUv5457QQlYsrm9PXHQ/vvT63htB
-xJi0V1dFwjokCBCOCdK4iKtPvGe+jDZzv3igBFhSB7htPTwOQWwP/QNRnzfyGo78
-HrNg0gpTsniMzPWNOxEY63R3QQ6VqnqifpmaUOXYPYbrVryclkl4KlKC/daTG2OJ
-PAOBv5pwu5F10KM+Oajyy9vx8uBjK74mpTvNhZQBADFLhSyHrdjKNjGyGcy64s0Q
-JA41/lroR7R1YnlSkd7UwJmpvF+LpzPQH3FCHVvCVl326bhwrwU0G7jkarb0HaPC
-85fDye+B2iCuOfk5wWZTt6RHRLCUgvsS4RZsV+6E6nfJnb41o1A8uCJVRk5yrWUp
-t9PzNM7eZMiDb+e0izRAKnOAFlk8Thzou4n6tvC+YybZtnlKzduPUR1V+5hSF9p1
-4C1fbPKNOjL9zqfMB5qUv+IhUrJ9lc9He25dpR95Vg6WFbkH5EC7OJ7nOKVB76WM
-3XpHIb96KoLZfP2TQDPzaR6tVuVpGsT0eIgE4X11CWPr2QBKmbXJoRlwMv5CDG6e
-8utkKPJhKk9kUXGAeHHuiPGLJSPdLCyUaHkfTeJBZkn1jGndQ+96T5WdA1pa3wxp
-cwxG0FImhPmEZ2oqWKX+
-=JqPT
------END PGP SIGNATURE-----
-
---nextPart1882661.efN5j1IJCI--
+U2VyZ2VpIFNodHlseW92IDxzc2h0eWx5b3ZAbXZpc3RhLmNvbT4gd3JpdGVzOgo+IE9uIDExLzIx
+LzIwMTIgMDE6MjIgUE0sIEplYW4tQ2hyaXN0b3BoZSBQTEFHTklPTC1WSUxMQVJEIHdyb3RlOgo+
+Cj4+IFNpZ25lZC1vZmYtYnk6IEplYW4tQ2hyaXN0b3BoZSBQTEFHTklPTC1WSUxMQVJEIDxwbGFn
+bmlvakBqY3Jvc29mdC5jb20+Cj4+IENjOiBsaW51eC11c2JAdmdlci5rZXJuZWwub3JnCj4+IENj
+OiBuZXRkZXZAdmdlci5rZXJuZWwub3JnCj4+IC0tLQo+PiAgZHJpdmVycy9uZXQvdXNiL2FzaXhf
+ZGV2aWNlcy5jIHwgICAyNCArKysrKysrKysrKysrKysrKysrKystLS0KPj4gIDEgZmlsZSBjaGFu
+Z2VkLCAyMSBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQo+Cj4+IGRpZmYgLS1naXQgYS9k
+cml2ZXJzL25ldC91c2IvYXNpeF9kZXZpY2VzLmMgYi9kcml2ZXJzL25ldC91c2IvYXNpeF9kZXZp
+Y2VzLmMKPj4gaW5kZXggMzNhYjgyNC4uN2ViZWM1YiAxMDA2NDQKPj4gLS0tIGEvZHJpdmVycy9u
+ZXQvdXNiL2FzaXhfZGV2aWNlcy5jCj4+ICsrKyBiL2RyaXZlcnMvbmV0L3VzYi9hc2l4X2Rldmlj
+ZXMuYwo+PiBAQCAtMjI1LDcgKzIyNSwxMyBAQCBzdGF0aWMgaW50IGF4ODgxNzJfYmluZChzdHJ1
+Y3QgdXNibmV0ICpkZXYsIHN0cnVjdCB1c2JfaW50ZXJmYWNlICppbnRmKQo+PiAgCQkJICAgcmV0
+KTsKPj4gIAkJZ290byBvdXQ7Cj4+ICAJfQo+PiAtCW1lbWNweShkZXYtPm5ldC0+ZGV2X2FkZHIs
+IGJ1ZiwgRVRIX0FMRU4pOwo+PiArCj4+ICsJaWYgKGlzX3ZhbGlkX2V0aGVyX2FkZHIoYnVmKSkg
+ewo+PiArCQltZW1jcHkoZGV2LT5uZXQtPmRldl9hZGRyLCBidWYsIEVUSF9BTEVOKTsKPj4gKwl9
+IGVsc2Ugewo+PiArCQluZXRkZXZfaW5mbyhkZXYtPm5ldCwgImludmFsaWQgaHcgYWRkcmVzcywg
+dXNpbmcgcmFuZG9tXG4iKTsKPj4gKwkJZXRoX2h3X2FkZHJfcmFuZG9tKGRldi0+bmV0KTsKPj4g
+Kwl9Cj4+ICAKPj4gIAkvKiBJbml0aWFsaXplIE1JSSBzdHJ1Y3R1cmUgKi8KPj4gIAlkZXYtPm1p
+aS5kZXYgPSBkZXYtPm5ldDsKWy4uXQo+Cj4gICAgUmVwZWF0ZWQgdGhyaWNlLCB0aGlzIGFza3Mg
+dG8gYmUgcHV0IGludG8gc3Vicm91dGluZS4uLgoKWWVzLiAgTG9va2luZyBhdCB0aGUgZHJpdmVy
+LCB0aGlzIHByb2JhYmx5IGdvZXMgZm9yIG1vc3Qgb2YgdGhlIHRocmVlCl9iaW5kKCkgZnVuY3Rp
+b25zLiAgVGhlcmUgaXMgYSBsb3Qgb2YgY29tbW9uIGNvZGUgdGhlcmUuCgpCdXQgbW9yZSBpbXBv
+cnRhbnQgd3J0IHRoZSBldGhfaHdfYWRkcl9yYW5kb20oKSBjaGFuZ2U6IERvZXMgdGhpcwphY3R1
+YWxseSB3b3JrIHdpdGggcmVhbCBkZXZpY2VzPyAgVGhlIGRyaXZlciBpbXBsZW1lbnRzIGEKYXNp
+eF9zZXRfbWFjX2FkZHJlc3MoKSB3aGljaCB3cml0ZXMgdGhlIGFkZHJlc3MgYmFjayB0byB0aGUg
+ZGV2aWNlIHdoZW4KeW91IGNoYW5nZSBpdC4gIEkgYXNzdW1lIHRoZXJlIGlzIGEgcmVhc29uIGZv
+ciBkb2luZyB0aGF0LiAgV2h5IGRvbid0CnlvdSBkbyBpdCBoZXJlPwoKCkJqw7hybgoKX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5l
+bCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6
+Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
