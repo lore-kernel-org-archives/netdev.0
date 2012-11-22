@@ -1,67 +1,85 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 2/9] tipc: return POLLOUT for sockets in an unconnected state
-Date: Thu, 22 Nov 2012 15:59:47 -0500
-Message-ID: <1353617994-3962-3-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 9/9] tipc: delete TIPC_ADVANCED Kconfig variable
+Date: Thu, 22 Nov 2012 15:59:54 -0500
+Message-ID: <1353617994-3962-10-git-send-email-paul.gortmaker@windriver.com>
 References: <1353617994-3962-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Erik Hugne <erik.hugne@ericsson.com>,
+Cc: <netdev@vger.kernel.org>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:59981 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757205Ab2KVVAI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 16:00:08 -0500
+Received: from mail.windriver.com ([147.11.1.11]:43260 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932605Ab2KVVAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 16:00:16 -0500
 In-Reply-To: <1353617994-3962-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+There used to be a time when TIPC had lots of Kconfig knobs the
+end user could alter, but they have all been made automatic or
+obsolete, with the exception of CONFIG_TIPC_PORTS.  This
+previously existing set of options was all hidden under the
+TIPC_ADVANCED setting, which does not exist in any code, but
+only in Kconfig scope.
 
-If an implied connect is attempted on a nonblocking STREAM/SEQPACKET
-socket during link congestion, the connect message will be discarded
-and sendmsg will return EAGAIN. This is normal behavior, and the
-application is expected to poll the socket until POLLOUT is set,
-after which the connection attempt can be retried.
-However, the POLLOUT flag is never set for unconnected sockets and
-poll() always returns a zero mask. The application is then left without
-a trigger for when it can make another attempt at sending the message.
+Having this now, just to hide the one remaining "advanced"
+option no longer makes sense.  Remove it.  Also get rid of the
+ifdeffery in the TIPC code that allowed for TIPC_PORTS to be
+possibly undefined.
 
-The solution is to check if we're polling on an unconnected socket
-and set the POLLOUT flag if the TIPC port owned by this socket
-is not congested. The TIPC ports waiting on a specific link will be
-marked as 'not congested' when the link congestion have abated.
-
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/socket.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ net/tipc/Kconfig | 13 +------------
+ net/tipc/core.c  |  5 -----
+ 2 files changed, 1 insertion(+), 17 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index b5fc8ed..59adc76 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -412,7 +412,7 @@ static int get_name(struct socket *sock, struct sockaddr *uaddr,
-  * socket state		flags set
-  * ------------		---------
-  * unconnected		no read flags
-- *			no write flags
-+ *			POLLOUT if port is not congested
-  *
-  * connecting		POLLIN/POLLRDNORM if ACK/NACK in rx queue
-  *			no write flags
-@@ -442,6 +442,10 @@ static unsigned int poll(struct file *file, struct socket *sock,
- 	sock_poll_wait(file, sk_sleep(sk), wait);
+diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
+index 5854601..bc41bd3 100644
+--- a/net/tipc/Kconfig
++++ b/net/tipc/Kconfig
+@@ -20,18 +20,9 @@ menuconfig TIPC
  
- 	switch ((int)sock->state) {
-+	case SS_UNCONNECTED:
-+		if (!tipc_sk_port(sk)->congested)
-+			mask |= POLLOUT;
-+		break;
- 	case SS_READY:
- 	case SS_CONNECTED:
- 		if (!tipc_sk_port(sk)->congested)
+ 	  If in doubt, say N.
+ 
+-if TIPC
+-
+-config TIPC_ADVANCED
+-	bool "Advanced TIPC configuration"
+-	default n
+-	help
+-	  Saying Y here will open some advanced configuration for TIPC.
+-	  Most users do not need to bother; if unsure, just say N.
+-
+ config TIPC_PORTS
+ 	int "Maximum number of ports in a node"
+-	depends on TIPC_ADVANCED
++	depends on TIPC
+ 	range 127 65535
+ 	default "8191"
+ 	help
+@@ -40,5 +31,3 @@ config TIPC_PORTS
+ 
+ 	  Setting this to a smaller value saves some memory,
+ 	  setting it to higher allows for more ports.
+-
+-endif # TIPC
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index bfe8af8..fc05cec 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -42,11 +42,6 @@
+ 
+ #include <linux/module.h>
+ 
+-#ifndef CONFIG_TIPC_PORTS
+-#define CONFIG_TIPC_PORTS 8191
+-#endif
+-
+-
+ /* global variables used by multiple sub-systems within TIPC */
+ int tipc_random __read_mostly;
+ 
 -- 
 1.7.12.1
