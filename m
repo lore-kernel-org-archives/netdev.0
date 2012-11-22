@@ -1,81 +1,74 @@
 From: David Woodhouse <dwmw2@infradead.org>
 Subject: Re: [PATCH] 8139cp: set ring address after enabling C+ mode
-Date: Wed, 21 Nov 2012 22:32:11 +0000
-Message-ID: <1353537131.26346.199.camel@shinybook.infradead.org>
-References: <20120602235020.2C0A57C006C@ra.kernel.org>
-	 <1353517042.26346.130.camel@shinybook.infradead.org>
-	 <50AD1972.5080403@pobox.com>
+Date: Thu, 22 Nov 2012 23:12:53 +0000
+Message-ID: <1353625973.26346.223.camel@shinybook.infradead.org>
+References: <50AD1972.5080403@pobox.com>
 	 <1353529639.26346.164.camel@shinybook.infradead.org>
-	 <20121121204045.GA17627@electric-eye.fr.zoreil.com>
+	 <50ADA05B.2000308@pobox.com>
+	 <20121121.233945.2225341904551631404.davem@davemloft.net>
+	 <50ADAFB7.7070704@pobox.com>
+	 <20121122213950.GA8873@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-qiroF1YsKsgy1ff4Fbxc"
-Cc: Jeff Garzik <jgarzik@pobox.com>, Jason Wang <jasowang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hayes Wang <hayeswang@realtek.com>, gilboad@gmail.com
+	boundary="=-jJzSTCBWlJfyfwUJlqU4"
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	David Miller <davem@davemloft.net>, jasowang@redhat.com,
+	netdev@vger.kernel.org, slacky@cheapnet.it, rggjan@gmail.com,
+	gilboad@gmail.com, Hayes Wang <hayeswang@realtek.com>
 To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:56928 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:58054 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751399Ab2KVXH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 18:07:58 -0500
-In-Reply-To: <20121121204045.GA17627@electric-eye.fr.zoreil.com>
+	with ESMTP id S1751120Ab2KVXNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 18:13:07 -0500
+In-Reply-To: <20121122213950.GA8873@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-qiroF1YsKsgy1ff4Fbxc
+--=-jJzSTCBWlJfyfwUJlqU4
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2012-11-21 at 21:40 +0100, Francois Romieu wrote:
-> Straight to -stable ?
+On Thu, 2012-11-22 at 22:39 +0100, Francois Romieu wrote:
+> Btw David W., could consider adding artificial delays between the
+> writes and see if / when things start to fail (CpCmd write in
+> cp_start_hw is an unflushed posted write for instance).
 
-That's the way it works. You put the Cc: stable on the *original* commit
-that goes upstream. There's no sane way to retroactively add that tag
-after it's already been merged and tested.
+That's how I tracked it down to the CpCmd write. I littered the whole of
+the init path with
+ printk("at line %d TxRingAddr %08x%08 (sb %08x)\n", __LINE__,
+         cpr32(TxRingAddr+4), cpr32(TxRingAddr), cp->ring_dma + whatever);
+... until the output looked something like this:
 
-Yes, you can bug Greg manually to 'please add this upstream commit which
-we forgot to mark as Cc: stable' but that isn't the way it's usually
-done.
+root@geos:~# insmod ./8139cp.ko=20
+[ 1331.492486] 8139cp: 8139cp: 10/100 PCI Ethernet driver v1.3 (Mar 22, 200=
+4)
+[ 1331.500388] 8139cp 0000:00:0a.0: eth0: RTL-8139Cx at 0xd10a6000, 00:0a:f=
+a:22:
+00:96, IRQ 10
+[ 1331.509608] 8139cp 0000:00:0b.0: eth1: RTL-8139Cx at 0xd10a8100, 00:0a:f=
+a:22:
+00:97, IRQ 11
+root@geos:~# [ 1331.644393] at line 995 TxRingAddr   000000000f3c6400 (sb f=
+3c6400)
+[ 1331.650579] at line 960 TxRingAddr   000000000f3c6400 (sb f3c6400)
+[ 1331.656820] at line 962 TxRingAddr   000000000f3e4400 (sb f3c6400)
+[ 1331.663020] at line 964 TxRingAddr   000000000f3e4400 (sb f3c6400)
+[ 1331.669205] at line 998 TxRingAddr   000000000f3e4400 (sb f3c6400)
+[ 1331.675412] at line 1001 TxRingAddr   000000000f3e4400 (sb f3c6400)
+[ 1331.681706] at line 1003 TxRingAddr   000000000f3e4400 (sb f3c6400)
+[ 1331.687977] at line 1005 TxRingAddr   000000000f3e4400 (sb f3c6400)
 
-> Afaik nobody complained from the original (pre b01af457) problem on
-> real hardware.
->
-> May be someone @realtek (hi Hayes) can give an explanation regarding
-> the CpCmd, RingAddr, Cmd init sequence and the start of DMA.
-
-That would be really useful; thanks. To recap for Hayes' benefit: the
-concern is that if we follow the instructions in =C2=A76.33 of the data
-sheet:
-
-Recommendation to C+ mode programming: Enable C+ mode functions in C+CR
-register first, =3D> Enable transmit/receive in Command register (offset
-37h), =3D> Configure other related registers (ex. Descriptor start
-address, TCR, RCR, ...).
-
-... then we appear to be starting up the DMA before we actually tell it
-the descriptor ring addresses, which will cause stray DMA to random
-unconfigured addresses!
-
-Is there some detail of the hardware which prevents this from actually
-happening? Or if not, is my proposed workaround (enabling Tx/Rx in the
-C+ Command Register *first*, then setting the descriptor addresses, and
-enabling Tx/Rx in the old-style Command register last) OK?
-
-It was observed that when setting the descriptor addresses *first*, the
-Transmit Descriptor Start Address Register was getting overwritten with
-garbage when we enabled Tx in the C+ Command Register.
-
-I note that we're also setting a bunch of other things in the Rx and Tx
-config registers *after* operation all seems to have started up... is
-that OK too?
+Each of those printks will have effectively flushed any prior posted
+writes... not that this AMD Geode platform actually *does* post writes,
+to my knowledge. And at 115200 baud, each one was about a 6ms delay.
 
 --=20
 dwmw2
 
 
---=-qiroF1YsKsgy1ff4Fbxc
+--=-jJzSTCBWlJfyfwUJlqU4
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -176,19 +169,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTIxMjIzMjExWjAjBgkqhkiG9w0BCQQx
-FgQUTOj1drZbokIeIeFTVdP6S8AS9dgwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTIyMjMxMjUzWjAjBgkqhkiG9w0BCQQx
+FgQU2ZuXZ6dct0+1ntGKGi6QWIqZiLwwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBJz4ncITNvhZjTEV5F5oNGMeCa
-h8ytyTM/uFmcCP0NUh51jw5KDiHfrXEHK6gDRLrx4Zl2dcKu73eQDOfOja8yXKMbFVZ42XLi9zh4
-AoP8RkavIqLuqiVT+wg5UWraGpBnSHBQ3fEFJVW+a8Pq8ij+NRRIEzzCl3u7TpcBTH8Yu5c5Q4XO
-qiRAtvh2GTXf/3DDw8xAq37hmZixB4TX92Tdcd2pAyC9N1Ffe3g+eMN4jGLz+f4UKMWIzed2ebCr
-OOfHaNU1aCClCAKEeXjLelGTs3PnNaWdjzFCWsyy5grtYG0V1RRnd7eQ5j/xXPC1VpiN4rK1ZYNR
-TUaTzBQQNqp4AAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQB9sfasI69A4uRLjQDsa6xj7k8e
+lZII77snOK7F8CUl8FVafVVlChy4dgA5a28gVZblegDjfdcOhY85jnQuvUd1C+tWb60kYPXi3IXi
+sfu/9U3ayPkxH+jWER/oXV7c3PirMI0gHMI/PXxKX0DpQ663o7JSei2kF27Ysw48BAxfAXzR6Qfl
+YNFf7KT9JTMhtJDohqJ3HchxzpfSnj9+dnjm2Fw/R+ddsjOl4EValaRecdoQzAW7xaokT8LWsCXc
+qhCJJ4bubaBpqcPMZKd/2VME0/bjVHuuYM+Vvm5EwEduCDADoRVwAQ8UalY0dYgI6pvaScb/aHqh
+YKJXgDzHGAY7AAAAAAAA
 
 
---=-qiroF1YsKsgy1ff4Fbxc--
+--=-jJzSTCBWlJfyfwUJlqU4--
