@@ -1,151 +1,48 @@
 From: pablo@netfilter.org
-Subject: [PATCH 1/2] netfilter: ipset: Fix range bug in hash:ip,port,net
-Date: Thu, 22 Nov 2012 10:10:51 +0100
-Message-ID: <1353575452-3127-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/2] netfilter: cttimeout: fix buffer overflow
+Date: Thu, 22 Nov 2012 10:10:52 +0100
+Message-ID: <1353575452-3127-3-git-send-email-pablo@netfilter.org>
 References: <1353575452-3127-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:52524 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757155Ab2KVURq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Nov 2012 15:17:46 -0500
 In-Reply-To: <1353575452-3127-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Florian Westphal <fw@strlen.de>
 
-Due to the missing ininitalization at adding/deleting entries, when
-a plain_ip,port,net element was the object, multiple elements were
-added/deleted instead. The bug came from the missing dangling
-default initialization.
+Chen Gang reports:
+the length of nla_data(cda[CTA_TIMEOUT_NAME]) is not limited in server side.
 
-The error-prone default initialization is corrected in all hash:* types.
+And indeed, its used to strcpy to a fixed-sized buffer.
 
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Fortunately, nfnetlink users need CAP_NET_ADMIN.
+
+Reported-by: Chen Gang <gang.chen@asianux.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_hash_ip.c        |    4 ++--
- net/netfilter/ipset/ip_set_hash_ipport.c    |    7 +++----
- net/netfilter/ipset/ip_set_hash_ipportip.c  |    7 +++----
- net/netfilter/ipset/ip_set_hash_ipportnet.c |    7 +++++--
- 4 files changed, 13 insertions(+), 12 deletions(-)
+ net/netfilter/nfnetlink_cttimeout.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipset/ip_set_hash_ip.c b/net/netfilter/ipset/ip_set_hash_ip.c
-index ec3dba5..5c0b785 100644
---- a/net/netfilter/ipset/ip_set_hash_ip.c
-+++ b/net/netfilter/ipset/ip_set_hash_ip.c
-@@ -173,6 +173,7 @@ hash_ip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		return adtfn(set, &nip, timeout, flags);
- 	}
+diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
+index 8847b4d..701c88a 100644
+--- a/net/netfilter/nfnetlink_cttimeout.c
++++ b/net/netfilter/nfnetlink_cttimeout.c
+@@ -41,7 +41,8 @@ MODULE_DESCRIPTION("cttimeout: Extended Netfilter Connection Tracking timeout tu
+ static LIST_HEAD(cttimeout_list);
  
-+	ip_to = ip;
- 	if (tb[IPSET_ATTR_IP_TO]) {
- 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &ip_to);
- 		if (ret)
-@@ -185,8 +186,7 @@ hash_ip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		if (!cidr || cidr > 32)
- 			return -IPSET_ERR_INVALID_CIDR;
- 		ip_set_mask_from_to(ip, ip_to, cidr);
--	} else
--		ip_to = ip;
-+	}
- 
- 	hosts = h->netmask == 32 ? 1 : 2 << (32 - h->netmask - 1);
- 
-diff --git a/net/netfilter/ipset/ip_set_hash_ipport.c b/net/netfilter/ipset/ip_set_hash_ipport.c
-index 0171f75..6283351 100644
---- a/net/netfilter/ipset/ip_set_hash_ipport.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipport.c
-@@ -162,7 +162,7 @@ hash_ipport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	const struct ip_set_hash *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipport4_elem data = { };
--	u32 ip, ip_to = 0, p = 0, port, port_to;
-+	u32 ip, ip_to, p = 0, port, port_to;
- 	u32 timeout = h->timeout;
- 	bool with_ports = false;
- 	int ret;
-@@ -210,7 +210,7 @@ hash_ipport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		return ip_set_eexist(ret, flags) ? 0 : ret;
- 	}
- 
--	ip = ntohl(data.ip);
-+	ip_to = ip = ntohl(data.ip);
- 	if (tb[IPSET_ATTR_IP_TO]) {
- 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &ip_to);
- 		if (ret)
-@@ -223,8 +223,7 @@ hash_ipport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		if (!cidr || cidr > 32)
- 			return -IPSET_ERR_INVALID_CIDR;
- 		ip_set_mask_from_to(ip, ip_to, cidr);
--	} else
--		ip_to = ip;
-+	}
- 
- 	port_to = port = ntohs(data.port);
- 	if (with_ports && tb[IPSET_ATTR_PORT_TO]) {
-diff --git a/net/netfilter/ipset/ip_set_hash_ipportip.c b/net/netfilter/ipset/ip_set_hash_ipportip.c
-index 6344ef5..6a21271 100644
---- a/net/netfilter/ipset/ip_set_hash_ipportip.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipportip.c
-@@ -166,7 +166,7 @@ hash_ipportip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	const struct ip_set_hash *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipportip4_elem data = { };
--	u32 ip, ip_to = 0, p = 0, port, port_to;
-+	u32 ip, ip_to, p = 0, port, port_to;
- 	u32 timeout = h->timeout;
- 	bool with_ports = false;
- 	int ret;
-@@ -218,7 +218,7 @@ hash_ipportip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		return ip_set_eexist(ret, flags) ? 0 : ret;
- 	}
- 
--	ip = ntohl(data.ip);
-+	ip_to = ip = ntohl(data.ip);
- 	if (tb[IPSET_ATTR_IP_TO]) {
- 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &ip_to);
- 		if (ret)
-@@ -231,8 +231,7 @@ hash_ipportip4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		if (!cidr || cidr > 32)
- 			return -IPSET_ERR_INVALID_CIDR;
- 		ip_set_mask_from_to(ip, ip_to, cidr);
--	} else
--		ip_to = ip;
-+	}
- 
- 	port_to = port = ntohs(data.port);
- 	if (with_ports && tb[IPSET_ATTR_PORT_TO]) {
-diff --git a/net/netfilter/ipset/ip_set_hash_ipportnet.c b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-index cb71f9a..2d5cd4e 100644
---- a/net/netfilter/ipset/ip_set_hash_ipportnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-@@ -215,8 +215,8 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 	const struct ip_set_hash *h = set->data;
- 	ipset_adtfn adtfn = set->variant->adt[adt];
- 	struct hash_ipportnet4_elem data = { .cidr = HOST_MASK - 1 };
--	u32 ip, ip_to = 0, p = 0, port, port_to;
--	u32 ip2_from = 0, ip2_to, ip2_last, ip2;
-+	u32 ip, ip_to, p = 0, port, port_to;
-+	u32 ip2_from, ip2_to, ip2_last, ip2;
- 	u32 timeout = h->timeout;
- 	bool with_ports = false;
- 	u8 cidr;
-@@ -286,6 +286,7 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		return ip_set_eexist(ret, flags) ? 0 : ret;
- 	}
- 
-+	ip_to = ip;
- 	if (tb[IPSET_ATTR_IP_TO]) {
- 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP_TO], &ip_to);
- 		if (ret)
-@@ -306,6 +307,8 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		if (port > port_to)
- 			swap(port, port_to);
- 	}
-+
-+	ip2_to = ip2_from;
- 	if (tb[IPSET_ATTR_IP2_TO]) {
- 		ret = ip_set_get_hostipaddr4(tb[IPSET_ATTR_IP2_TO], &ip2_to);
- 		if (ret)
+ static const struct nla_policy cttimeout_nla_policy[CTA_TIMEOUT_MAX+1] = {
+-	[CTA_TIMEOUT_NAME]	= { .type = NLA_NUL_STRING },
++	[CTA_TIMEOUT_NAME]	= { .type = NLA_NUL_STRING,
++				    .len  = CTNL_TIMEOUT_NAME_MAX - 1},
+ 	[CTA_TIMEOUT_L3PROTO]	= { .type = NLA_U16 },
+ 	[CTA_TIMEOUT_L4PROTO]	= { .type = NLA_U8 },
+ 	[CTA_TIMEOUT_DATA]	= { .type = NLA_NESTED },
 -- 
 1.7.10.4
-
