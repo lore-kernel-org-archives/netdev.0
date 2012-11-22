@@ -1,97 +1,155 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] ipv6: adapt connect for repair move
-Date: Thu, 22 Nov 2012 15:13:58 +0400
-Message-ID: <1353582838-18876-1-git-send-email-avagin@openvz.org>
-Cc: criu@openvz.org, linux-kernel@vger.kernel.org,
-	Andrey Vagin <avagin@openvz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Pavel Emelyanov <xemul@parallels.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v6] can: kvaser_usb: Add support for Kvaser CAN/USB devices
+Date: Thu, 22 Nov 2012 12:01:29 +0100
+Message-ID: <50AE0609.1030101@pengutronix.de>
+References: <1343626352-24760-1-git-send-email-olivier@sobrie.be> <1353481873-3214-1-git-send-email-olivier@sobrie.be>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigAB31021B077780C55D49AB74"
+Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Daniel Berglund <db@kvaser.com>
+To: Olivier Sobrie <olivier@sobrie.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:57892 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751919Ab2KVSo5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:44:57 -0500
+In-Reply-To: <1353481873-3214-1-git-send-email-olivier@sobrie.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is work the same as for ipv4.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigAB31021B077780C55D49AB74
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-All other hacks about tcp repair are in common code for ipv4 and ipv6,
-so this patch is enough for repairing ipv6 connections.
+On 11/21/2012 08:11 AM, Olivier Sobrie wrote:
+> This driver provides support for several Kvaser CAN/USB devices.
+> Such kind of devices supports up to three CAN network interfaces.
+>=20
+> It has been tested with a Kvaser USB Leaf Light (one network interface)=
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Pavel Emelyanov <xemul@parallels.com>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
----
- net/ipv4/tcp_ipv4.c   | 13 +------------
- net/ipv4/tcp_output.c |  5 +++++
- net/ipv6/tcp_ipv6.c   |  2 +-
- 3 files changed, 7 insertions(+), 13 deletions(-)
+> connected to a pch_can interface.
+> The firmware version of the Kvaser device was 2.5.205.
+>=20
+> List of Kvaser devices supported by the driver:
+>   - Kvaser Leaf Light
+>   - Kvaser Leaf Professional HS
+>   - Kvaser Leaf SemiPro HS
+>   - Kvaser Leaf Professional LS
+>   - Kvaser Leaf Professional SWC
+>   - Kvaser Leaf Professional LIN
+>   - Kvaser Leaf SemiPro LS
+>   - Kvaser Leaf SemiPro SWC
+>   - Kvaser Memorator II HS/HS
+>   - Kvaser USBcan Professional HS/HS
+>   - Kvaser Leaf Light GI
+>   - Kvaser Leaf Professional HS (OBD-II connector)
+>   - Kvaser Memorator Professional HS/LS
+>   - Kvaser Leaf Light "China"
+>   - Kvaser BlackBird SemiPro
+>   - Kvaser USBcan R
+>=20
+> Signed-off-by: Daniel Berglund <db@kvaser.com>
+> Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+> ---
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 0c4a643..801eac4 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -138,14 +138,6 @@ int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
- }
- EXPORT_SYMBOL_GPL(tcp_twsk_unique);
- 
--static int tcp_repair_connect(struct sock *sk)
--{
--	tcp_connect_init(sk);
--	tcp_finish_connect(sk, NULL);
--
--	return 0;
--}
--
- /* This will initiate an outgoing connection. */
- int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- {
-@@ -250,10 +242,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 
- 	inet->inet_id = tp->write_seq ^ jiffies;
- 
--	if (likely(!tp->repair))
--		err = tcp_connect(sk);
--	else
--		err = tcp_repair_connect(sk);
-+	err = tcp_connect(sk);
- 
- 	rt = NULL;
- 	if (err)
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 9aac058..695984f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3000,6 +3000,11 @@ int tcp_connect(struct sock *sk)
- 
- 	tcp_connect_init(sk);
- 
-+	if (unlikely(tp->repair)) {
-+		tcp_finish_connect(sk, NULL);
-+		return 0;
-+	}
-+
- 	buff = alloc_skb_fclone(MAX_TCP_HEADER + 15, sk->sk_allocation);
- 	if (unlikely(buff == NULL))
- 		return -ENOBUFS;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 26175bf..4968a53 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -306,7 +306,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	if (err)
- 		goto late_failure;
- 
--	if (!tp->write_seq)
-+	if (!tp->write_seq && likely(!tp->repair))
- 		tp->write_seq = secure_tcpv6_sequence_number(np->saddr.s6_addr32,
- 							     np->daddr.s6_addr32,
- 							     inet->inet_sport,
--- 
-1.7.11.7
+[...]
+> +static struct usb_device_id kvaser_usb_table[] =3D {
+
+this can be const
+
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_DEVEL_PRODUCT_ID) },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LITE_PRODUCT_ID) },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_PRO_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_SPRO_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_PRO_LS_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_PRO_SWC_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_PRO_LIN_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_SPRO_LS_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_SPRO_SWC_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MEMO2_DEVEL_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MEMO2_HSHS_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_UPRO_HSHS_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LITE_GI_PRODUCT_ID) },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_PRO_OBDII_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS |
+> +			       KVASER_HAS_SILENT_MODE },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MEMO2_HSLS_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LITE_CH_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_BLACKBIRD_SPRO_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_OEM_MERCURY_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_OEM_LEAF_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS },
+> +	{ USB_DEVICE(KVASER_VENDOR_ID, USB_CAN_R_PRODUCT_ID),
+> +		.driver_info =3D KVASER_HAS_TXRX_ERRORS },
+> +	{ }
+> +};
+[...]
+
+> +static struct can_bittiming_const kvaser_usb_bittiming_const =3D {
+
+this, too.
+
+> +	.name =3D "kvaser_usb",
+> +	.tseg1_min =3D KVASER_USB_TSEG1_MIN,
+> +	.tseg1_max =3D KVASER_USB_TSEG1_MAX,
+> +	.tseg2_min =3D KVASER_USB_TSEG2_MIN,
+> +	.tseg2_max =3D KVASER_USB_TSEG2_MAX,
+> +	.sjw_max =3D KVASER_USB_SJW_MAX,
+> +	.brp_min =3D KVASER_USB_BRP_MIN,
+> +	.brp_max =3D KVASER_USB_BRP_MAX,
+> +	.brp_inc =3D KVASER_USB_BRP_INC,
+> +};
+
+I'm adding the consts while applying the patch.
+
+Thanks,
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigAB31021B077780C55D49AB74
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with undefined - http://www.enigmail.net/
+
+iEYEARECAAYFAlCuBg4ACgkQjTAFq1RaXHN4ggCgjk+EsutCMWXjbrknr3C8EBRH
+WYsAn3KQNk6T0ckjIVSvSzquKOVcedLJ
+=iRgH
+-----END PGP SIGNATURE-----
+
+--------------enigAB31021B077780C55D49AB74--
