@@ -1,53 +1,128 @@
-From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH net] bnx2x: remove redundant warning log
-Date: Thu, 22 Nov 2012 19:16:17 +0200
-Message-ID: <1353604577-1272-1-git-send-email-ariele@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
+From: Tommi Rantala <tt.rantala@gmail.com>
+Subject: [PATCH] sctp: fix -ENOMEM result with invalid user space pointer in sendto() syscall
+Date: Thu, 22 Nov 2012 15:23:16 +0200
+Message-ID: <1353590596-12216-1-git-send-email-tt.rantala@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Dave Jones <davej@redhat.com>,
+	Tommi Rantala <tt.rantala@gmail.com>
+To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1118 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753945Ab2KVSrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Nov 2012 13:47:23 -0500
+Received: from mail-we0-f174.google.com ([74.125.82.174]:35042 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932189Ab2KVSsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:48:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix bug where a register which was only meant to be read in 578xx/57712
-devices causes a bogus error message to be logged when read from other
-devices.
+Consider the following program, that sets the second argument to the
+sendto() syscall incorrectly:
 
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   11 +++++++----
- 1 files changed, 7 insertions(+), 4 deletions(-)
+ #include <string.h>
+ #include <arpa/inet.h>
+ #include <sys/socket.h>
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index bd1fd3d..01611b3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9545,10 +9545,13 @@ static int __devinit bnx2x_prev_unload_common(struct bnx2x *bp)
-  */
- static void __devinit bnx2x_prev_interrupted_dmae(struct bnx2x *bp)
+ int main(void)
  {
--	u32 val = REG_RD(bp, PGLUE_B_REG_PGLUE_B_INT_STS);
--	if (val & PGLUE_B_PGLUE_B_INT_STS_REG_WAS_ERROR_ATTN) {
--		BNX2X_ERR("was error bit was found to be set in pglueb upon startup. Clearing");
--		REG_WR(bp, PGLUE_B_REG_WAS_ERROR_PF_7_0_CLR, 1 << BP_FUNC(bp));
-+	if (!CHIP_IS_E1x(bp)) {
-+		u32 val = REG_RD(bp, PGLUE_B_REG_PGLUE_B_INT_STS);
-+		if (val & PGLUE_B_PGLUE_B_INT_STS_REG_WAS_ERROR_ATTN) {
-+			BNX2X_ERR("was error bit was found to be set in pglueb upon startup. Clearing");
-+			REG_WR(bp, PGLUE_B_REG_WAS_ERROR_PF_7_0_CLR,
-+			       1 << BP_FUNC(bp));
+         int fd;
+         struct sockaddr_in sa;
+
+         fd = socket(AF_INET, SOCK_STREAM, 132 /*IPPROTO_SCTP*/);
+         if (fd < 0)
+                 return 1;
+
+         memset(&sa, 0, sizeof(sa));
+         sa.sin_family = AF_INET;
+         sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+         sa.sin_port = htons(11111);
+
+         sendto(fd, NULL, 1, 0, (struct sockaddr *)&sa, sizeof(sa));
+
+         return 0;
+ }
+
+We get -ENOMEM:
+
+ $ strace -e sendto ./demo
+ sendto(3, NULL, 1, 0, {sa_family=AF_INET, sin_port=htons(11111), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 ENOMEM (Cannot allocate memory)
+
+Propagate the error code from sctp_user_addto_chunk(), so that we will
+tell user space what actually went wrong:
+
+ $ strace -e sendto ./demo
+ sendto(3, NULL, 1, 0, {sa_family=AF_INET, sin_port=htons(11111), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EFAULT (Bad address)
+
+Noticed while running Trinity (the syscall fuzzer).
+
+Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
+---
+ net/sctp/chunk.c  |   13 +++++++++----
+ net/sctp/socket.c |    4 ++--
+ 2 files changed, 11 insertions(+), 6 deletions(-)
+
+diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
+index d241ef5..3952ca9 100644
+--- a/net/sctp/chunk.c
++++ b/net/sctp/chunk.c
+@@ -183,7 +183,7 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
+ 
+ 	msg = sctp_datamsg_new(GFP_KERNEL);
+ 	if (!msg)
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	/* Note: Calculate this outside of the loop, so that all fragments
+ 	 * have the same expiration.
+@@ -280,8 +280,11 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
+ 
+ 		chunk = sctp_make_datafrag_empty(asoc, sinfo, len, frag, 0);
+ 
+-		if (!chunk)
++		if (!chunk) {
++			err = -ENOMEM;
+ 			goto errout;
 +		}
++
+ 		err = sctp_user_addto_chunk(chunk, offset, len, msgh->msg_iov);
+ 		if (err < 0)
+ 			goto errout_chunk_put;
+@@ -315,8 +318,10 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
+ 
+ 		chunk = sctp_make_datafrag_empty(asoc, sinfo, over, frag, 0);
+ 
+-		if (!chunk)
++		if (!chunk) {
++			err = -ENOMEM;
+ 			goto errout;
++		}
+ 
+ 		err = sctp_user_addto_chunk(chunk, offset, over,msgh->msg_iov);
+ 
+@@ -342,7 +347,7 @@ errout:
+ 		sctp_chunk_free(chunk);
  	}
+ 	sctp_datamsg_put(msg);
+-	return NULL;
++	return ERR_PTR(err);
  }
  
+ /* Check whether this message has expired. */
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index a60d1f8..406d957 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -1915,8 +1915,8 @@ SCTP_STATIC int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 
+ 	/* Break the message into multiple chunks of maximum size. */
+ 	datamsg = sctp_datamsg_from_user(asoc, sinfo, msg, msg_len);
+-	if (!datamsg) {
+-		err = -ENOMEM;
++	if (IS_ERR(datamsg)) {
++		err = PTR_ERR(datamsg);
+ 		goto out_free;
+ 	}
+ 
 -- 
-1.7.9.GIT
+1.7.9.5
