@@ -1,48 +1,87 @@
-From: pablo@netfilter.org
-Subject: [PATCH 2/2] netfilter: cttimeout: fix buffer overflow
-Date: Thu, 22 Nov 2012 10:10:52 +0100
-Message-ID: <1353575452-3127-3-git-send-email-pablo@netfilter.org>
-References: <1353575452-3127-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Tommi Rantala <tt.rantala@gmail.com>
+Subject: [PATCH] sctp: fix memory leak in sctp_datamsg_from_user() when copy from user space fails
+Date: Thu, 22 Nov 2012 15:21:31 +0200
+Message-ID: <1353590491-12166-1-git-send-email-tt.rantala@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Dave Jones <davej@redhat.com>,
+	Tommi Rantala <tt.rantala@gmail.com>
+To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52524 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757155Ab2KVURq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Nov 2012 15:17:46 -0500
-In-Reply-To: <1353575452-3127-1-git-send-email-pablo@netfilter.org>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:55638 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932418Ab2KVUXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 15:23:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+Trinity (the syscall fuzzer) discovered a memory leak in SCTP,
+reproducible e.g. with the sendto() syscall by passing invalid
+user space pointer in the second argument:
 
-Chen Gang reports:
-the length of nla_data(cda[CTA_TIMEOUT_NAME]) is not limited in server side.
+ #include <string.h>
+ #include <arpa/inet.h>
+ #include <sys/socket.h>
 
-And indeed, its used to strcpy to a fixed-sized buffer.
+ int main(void)
+ {
+         int fd;
+         struct sockaddr_in sa;
 
-Fortunately, nfnetlink users need CAP_NET_ADMIN.
+         fd = socket(AF_INET, SOCK_STREAM, 132 /*IPPROTO_SCTP*/);
+         if (fd < 0)
+                 return 1;
 
-Reported-by: Chen Gang <gang.chen@asianux.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+         memset(&sa, 0, sizeof(sa));
+         sa.sin_family = AF_INET;
+         sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+         sa.sin_port = htons(11111);
+
+         sendto(fd, NULL, 1, 0, (struct sockaddr *)&sa, sizeof(sa));
+
+         return 0;
+ }
+
+As far as I can tell, the leak has been around since ~2003.
+
+Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
 ---
- net/netfilter/nfnetlink_cttimeout.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/sctp/chunk.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index 8847b4d..701c88a 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -41,7 +41,8 @@ MODULE_DESCRIPTION("cttimeout: Extended Netfilter Connection Tracking timeout tu
- static LIST_HEAD(cttimeout_list);
+diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
+index 7c2df9c..d241ef5 100644
+--- a/net/sctp/chunk.c
++++ b/net/sctp/chunk.c
+@@ -284,7 +284,7 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
+ 			goto errout;
+ 		err = sctp_user_addto_chunk(chunk, offset, len, msgh->msg_iov);
+ 		if (err < 0)
+-			goto errout;
++			goto errout_chunk_put;
  
- static const struct nla_policy cttimeout_nla_policy[CTA_TIMEOUT_MAX+1] = {
--	[CTA_TIMEOUT_NAME]	= { .type = NLA_NUL_STRING },
-+	[CTA_TIMEOUT_NAME]	= { .type = NLA_NUL_STRING,
-+				    .len  = CTNL_TIMEOUT_NAME_MAX - 1},
- 	[CTA_TIMEOUT_L3PROTO]	= { .type = NLA_U16 },
- 	[CTA_TIMEOUT_L4PROTO]	= { .type = NLA_U8 },
- 	[CTA_TIMEOUT_DATA]	= { .type = NLA_NESTED },
+ 		offset += len;
+ 
+@@ -324,7 +324,7 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
+ 		__skb_pull(chunk->skb, (__u8 *)chunk->chunk_hdr
+ 			   - (__u8 *)chunk->skb->data);
+ 		if (err < 0)
+-			goto errout;
++			goto errout_chunk_put;
+ 
+ 		sctp_datamsg_assign(msg, chunk);
+ 		list_add_tail(&chunk->frag_list, &msg->chunks);
+@@ -332,6 +332,9 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
+ 
+ 	return msg;
+ 
++errout_chunk_put:
++	sctp_chunk_put(chunk);
++
+ errout:
+ 	list_for_each_safe(pos, temp, &msg->chunks) {
+ 		list_del_init(pos);
 -- 
-1.7.10.4
+1.7.9.5
