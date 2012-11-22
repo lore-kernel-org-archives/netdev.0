@@ -1,35 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH net 1/1] 8139cp: revert "set ring address before enabling
- receiver"
-Date: Wed, 21 Nov 2012 22:44:02 -0500
-Message-ID: <50AD9F82.6030609@pobox.com>
-References: <20121121200729.GA17603@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 0/9][pull request] Intel Wired LAN Driver Updates
+Date: Thu, 22 Nov 2012 15:13:01 -0500 (EST)
+Message-ID: <20121122.151301.1514351006048903169.davem@davemloft.net>
+References: <1353579077-12097-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	David Woodhouse <dwmw2@infradead.org>,
-	Jason Wang <jasowang@redhat.com>, gilboad@gmail.com
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:54140 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754294Ab2KVUJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 15:09:24 -0500
-Received: by mail-vc0-f174.google.com with SMTP id m18so5008983vcm.19
-        for <netdev@vger.kernel.org>; Thu, 22 Nov 2012 12:09:24 -0800 (PST)
-In-Reply-To: <20121121200729.GA17603@electric-eye.fr.zoreil.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36369 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754210Ab2KVUNO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 15:13:14 -0500
+In-Reply-To: <1353579077-12097-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2012 03:07 PM, Francois Romieu wrote:
-> This patch reverts b01af4579ec41f48e9b9c774e70bd6474ad210db.
->
-> The original patch was tested with emulated hardware. Real
-> hardware chokes.
->
-> Fixes https://bugzilla.kernel.org/show_bug.cgi?id=47041
->
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 22 Nov 2012 02:11:08 -0800
 
-Acked-by: Jeff Garzik <jgarzik@redhat.com>
+> This series contains updates to ixgbe and igb.
+> 
+> v2- drop "ixgbe: eliminate Smatch warnings in ixgbe_debugfs.c" patch while
+> we validate the suggested changes by Dan Carpenter
+> 
+> The following are changes since commit 76e0d67a08bb195bd0ddea2fcba8c15c85eab243:
+>   Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Pulled, thanks Jeff.
