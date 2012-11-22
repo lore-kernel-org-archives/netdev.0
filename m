@@ -1,102 +1,67 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 5/9] tipc: remove supportable flag from bclink structure
-Date: Thu, 22 Nov 2012 15:59:50 -0500
-Message-ID: <1353617994-3962-6-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 2/9] tipc: return POLLOUT for sockets in an unconnected state
+Date: Thu, 22 Nov 2012 15:59:47 -0500
+Message-ID: <1353617994-3962-3-git-send-email-paul.gortmaker@windriver.com>
 References: <1353617994-3962-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Ying Xue <ying.xue@windriver.com>,
-	Jon Maloy <jon.maloy@ericsson.com>,
+Cc: <netdev@vger.kernel.org>, Erik Hugne <erik.hugne@ericsson.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43255 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932575Ab2KVVAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 16:00:15 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:59981 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757205Ab2KVVAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 16:00:08 -0500
 In-Reply-To: <1353617994-3962-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-The "supportable" flag in bclink structure is a compatibility flag
-indicating whether a peer node is capable of receiving TIPC broadcast
-messages. However, all TIPC versions since tipc-1.5, and after the
-inclusion in the upstream Linux kernel in 2006, support this capability.
-It is highly unlikely that anybody is still using such an old
-version of TIPC, let alone that they want to mix it with TIPC-2.0
-nodes. Therefore, we now remove the "supportable" flag.
+If an implied connect is attempted on a nonblocking STREAM/SEQPACKET
+socket during link congestion, the connect message will be discarded
+and sendmsg will return EAGAIN. This is normal behavior, and the
+application is expected to poll the socket until POLLOUT is set,
+after which the connection attempt can be retried.
+However, the POLLOUT flag is never set for unconnected sockets and
+poll() always returns a zero mask. The application is then left without
+a trigger for when it can make another attempt at sending the message.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+The solution is to check if we're polling on an unconnected socket
+and set the POLLOUT flag if the TIPC port owned by this socket
+is not congested. The TIPC ports waiting on a specific link will be
+marked as 'not congested' when the link congestion have abated.
+
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/link.c | 4 +---
- net/tipc/node.c | 8 +++-----
- net/tipc/node.h | 2 --
- 3 files changed, 4 insertions(+), 10 deletions(-)
+ net/tipc/socket.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 0cc6480..f3a078f 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -1426,8 +1426,7 @@ static void link_retransmit_failure(struct tipc_link *l_ptr,
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index b5fc8ed..59adc76 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -412,7 +412,7 @@ static int get_name(struct socket *sock, struct sockaddr *uaddr,
+  * socket state		flags set
+  * ------------		---------
+  * unconnected		no read flags
+- *			no write flags
++ *			POLLOUT if port is not congested
+  *
+  * connecting		POLLIN/POLLRDNORM if ACK/NACK in rx queue
+  *			no write flags
+@@ -442,6 +442,10 @@ static unsigned int poll(struct file *file, struct socket *sock,
+ 	sock_poll_wait(file, sk_sleep(sk), wait);
  
- 		tipc_addr_string_fill(addr_string, n_ptr->addr);
- 		pr_info("Broadcast link info for %s\n", addr_string);
--		pr_info("Supportable: %d,  Supported: %d,  Acked: %u\n",
--			n_ptr->bclink.supportable,
-+		pr_info("Supported: %d,  Acked: %u\n",
- 			n_ptr->bclink.supported,
- 			n_ptr->bclink.acked);
- 		pr_info("Last in: %u,  Oos state: %u,  Last sent: %u\n",
-@@ -2014,7 +2013,6 @@ static void link_recv_proto_msg(struct tipc_link *l_ptr, struct sk_buff *buf)
- 		} else {
- 			l_ptr->max_pkt = l_ptr->max_pkt_target;
- 		}
--		l_ptr->owner->bclink.supportable = (max_pkt_info != 0);
- 
- 		/* Synchronize broadcast link info, if not done previously */
- 		if (!tipc_node_is_up(l_ptr->owner)) {
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index d21db20..6f3e9b3 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -264,11 +264,9 @@ static void node_established_contact(struct tipc_node *n_ptr)
- {
- 	tipc_k_signal((Handler)tipc_named_node_up, n_ptr->addr);
- 
--	if (n_ptr->bclink.supportable) {
--		n_ptr->bclink.acked = tipc_bclink_get_last_sent();
--		tipc_bclink_add_node(n_ptr->addr);
--		n_ptr->bclink.supported = 1;
--	}
-+	n_ptr->bclink.acked = tipc_bclink_get_last_sent();
-+	tipc_bclink_add_node(n_ptr->addr);
-+	n_ptr->bclink.supported = 1;
- }
- 
- static void node_name_purge_complete(unsigned long node_addr)
-diff --git a/net/tipc/node.h b/net/tipc/node.h
-index cfcaf4d..3ac905f 100644
---- a/net/tipc/node.h
-+++ b/net/tipc/node.h
-@@ -67,7 +67,6 @@
-  * @permit_changeover: non-zero if node has redundant links to this system
-  * @signature: node instance identifier
-  * @bclink: broadcast-related info
-- *    @supportable: non-zero if node supports TIPC b'cast link capability
-  *    @supported: non-zero if node supports TIPC b'cast capability
-  *    @acked: sequence # of last outbound b'cast message acknowledged by node
-  *    @last_in: sequence # of last in-sequence b'cast message received from node
-@@ -92,7 +91,6 @@ struct tipc_node {
- 	int permit_changeover;
- 	u32 signature;
- 	struct {
--		u8 supportable;
- 		u8 supported;
- 		u32 acked;
- 		u32 last_in;
+ 	switch ((int)sock->state) {
++	case SS_UNCONNECTED:
++		if (!tipc_sk_port(sk)->congested)
++			mask |= POLLOUT;
++		break;
+ 	case SS_READY:
+ 	case SS_CONNECTED:
+ 		if (!tipc_sk_port(sk)->congested)
 -- 
 1.7.12.1
