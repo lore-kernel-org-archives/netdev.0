@@ -1,128 +1,78 @@
-From: Tommi Rantala <tt.rantala@gmail.com>
-Subject: [PATCH] sctp: fix -ENOMEM result with invalid user space pointer in sendto() syscall
-Date: Thu, 22 Nov 2012 15:23:16 +0200
-Message-ID: <1353590596-12216-1-git-send-email-tt.rantala@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dave Jones <davej@redhat.com>,
-	Tommi Rantala <tt.rantala@gmail.com>
-To: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+From: Bernhard Schmidt <berni@birkenwald.de>
+Subject: Re: VXLAN multicast receive not working
+Date: Thu, 22 Nov 2012 01:09:13 +0100
+Message-ID: <20121122000913.GB3447@fliwatuet.svr02.mucip.net>
+References: <20121122000525.GA3447@fliwatuet.svr02.mucip.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:35042 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932189Ab2KVSsu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:48:50 -0500
+Received: from mail.svr02.mucip.net ([83.170.6.69]:57037 "EHLO
+	mailout.mucip.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932166Ab2KVSum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:50:42 -0500
+Received: from localhost (mail.svr02.mucip.net [127.0.0.1])
+	by mailout.mucip.net (Postfix) with ESMTP id B6408A1F
+	for <netdev@vger.kernel.org>; Thu, 22 Nov 2012 01:09:17 +0100 (CET)
+Received: from mailout.mucip.net ([127.0.0.1])
+	by localhost (mail.svr02.mucip.net [127.0.0.1]) (amavisd-new, port 10125)
+	with ESMTP id B0CM3FUZzu75 for <netdev@vger.kernel.org>;
+	Thu, 22 Nov 2012 01:09:17 +0100 (CET)
+Content-Disposition: inline
+In-Reply-To: <20121122000525.GA3447@fliwatuet.svr02.mucip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Consider the following program, that sets the second argument to the
-sendto() syscall incorrectly:
+On Thu, Nov 22, 2012 at 01:05:25AM +0100, Bernhard Schmidt wrote:
 
- #include <string.h>
- #include <arpa/inet.h>
- #include <sys/socket.h>
+> The same VXLAN domain is defined on the Nexus 1000V and a VM is attached
+> to it. When I send some broadcast traffic down vxlan0 (i.e. ping
+> 10.1.1.2 which generates an ARP request) the VM sees the packet just
+> fine.
+> 
+> When I do it the other way around (the VM sends a broadcast ARP for
+> 10.1.1.3) I see a packet coming into eth1 on the multicast group, but
+> vxlan0 stays silent. 
 
- int main(void)
- {
-         int fd;
-         struct sockaddr_in sa;
+I think I found a possible reason, my vxlan interface is on top of eth1
 
-         fd = socket(AF_INET, SOCK_STREAM, 132 /*IPPROTO_SCTP*/);
-         if (fd < 0)
-                 return 1;
+7: vxlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1450 qdisc noqueue
+state UNKNOWN mode DEFAULT 
+    link/ether 96:06:c6:cf:a0:2e brd ff:ff:ff:ff:ff:ff
+    vxlan id 12340 group 239.0.0.42 dev eth1 port 32768 61000 ageing 300 
 
-         memset(&sa, 0, sizeof(sa));
-         sa.sin_family = AF_INET;
-         sa.sin_addr.s_addr = inet_addr("127.0.0.1");
-         sa.sin_port = htons(11111);
+but the multicast group is joined only on eth0
 
-         sendto(fd, NULL, 1, 0, (struct sockaddr *)&sa, sizeof(sa));
+root@lxbscDA-VXLAN:~/iproute2# ip maddr
+1:	lo
+	inet  224.0.0.1
+	inet6 ff02::1
+2:	eth0
+	link  33:33:00:00:00:01
+	link  01:00:5e:00:00:01
+	link  33:33:ff:8e:0d:c7
+	link  01:00:5e:00:00:2a
+	inet  239.0.0.42
+	inet  224.0.0.1
+	inet6 ff02::1:ff8e:dc7 users 2
+	inet6 ff02::1
+4:	eth1
+	link  33:33:00:00:00:01
+	link  01:00:5e:00:00:01
+	link  33:33:ff:8e:0d:c8
+	inet  224.0.0.1
+	inet6 ff02::1:ff8e:dc8
+	inet6 ff02::1
+7:	vxlan0
+	link  33:33:00:00:00:01
+	link  01:00:5e:00:00:01
+	link  33:33:ff:cf:a0:2e
+	inet  224.0.0.1
+	inet6 ff02::1:ffcf:a02e
+	inet6 ff02::1
 
-         return 0;
- }
+At first glance I did not spot the issue with my two weeks of C, so
+someone else has to hunt this down.
 
-We get -ENOMEM:
-
- $ strace -e sendto ./demo
- sendto(3, NULL, 1, 0, {sa_family=AF_INET, sin_port=htons(11111), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 ENOMEM (Cannot allocate memory)
-
-Propagate the error code from sctp_user_addto_chunk(), so that we will
-tell user space what actually went wrong:
-
- $ strace -e sendto ./demo
- sendto(3, NULL, 1, 0, {sa_family=AF_INET, sin_port=htons(11111), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EFAULT (Bad address)
-
-Noticed while running Trinity (the syscall fuzzer).
-
-Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
----
- net/sctp/chunk.c  |   13 +++++++++----
- net/sctp/socket.c |    4 ++--
- 2 files changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-index d241ef5..3952ca9 100644
---- a/net/sctp/chunk.c
-+++ b/net/sctp/chunk.c
-@@ -183,7 +183,7 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
- 
- 	msg = sctp_datamsg_new(GFP_KERNEL);
- 	if (!msg)
--		return NULL;
-+		return ERR_PTR(-ENOMEM);
- 
- 	/* Note: Calculate this outside of the loop, so that all fragments
- 	 * have the same expiration.
-@@ -280,8 +280,11 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
- 
- 		chunk = sctp_make_datafrag_empty(asoc, sinfo, len, frag, 0);
- 
--		if (!chunk)
-+		if (!chunk) {
-+			err = -ENOMEM;
- 			goto errout;
-+		}
-+
- 		err = sctp_user_addto_chunk(chunk, offset, len, msgh->msg_iov);
- 		if (err < 0)
- 			goto errout_chunk_put;
-@@ -315,8 +318,10 @@ struct sctp_datamsg *sctp_datamsg_from_user(struct sctp_association *asoc,
- 
- 		chunk = sctp_make_datafrag_empty(asoc, sinfo, over, frag, 0);
- 
--		if (!chunk)
-+		if (!chunk) {
-+			err = -ENOMEM;
- 			goto errout;
-+		}
- 
- 		err = sctp_user_addto_chunk(chunk, offset, over,msgh->msg_iov);
- 
-@@ -342,7 +347,7 @@ errout:
- 		sctp_chunk_free(chunk);
- 	}
- 	sctp_datamsg_put(msg);
--	return NULL;
-+	return ERR_PTR(err);
- }
- 
- /* Check whether this message has expired. */
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index a60d1f8..406d957 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1915,8 +1915,8 @@ SCTP_STATIC int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
- 
- 	/* Break the message into multiple chunks of maximum size. */
- 	datamsg = sctp_datamsg_from_user(asoc, sinfo, msg, msg_len);
--	if (!datamsg) {
--		err = -ENOMEM;
-+	if (IS_ERR(datamsg)) {
-+		err = PTR_ERR(datamsg);
- 		goto out_free;
- 	}
- 
--- 
-1.7.9.5
+Regards,
+Bernhard
