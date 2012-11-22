@@ -1,43 +1,46 @@
-From: Jan Synacek <jsynacek@redhat.com>
-Subject: [PATCH] arping: Fix find_device_by_ifaddrs()
-Date: Thu, 22 Nov 2012 09:51:15 +0100
-Message-ID: <1353574275-21742-1-git-send-email-jsynacek@redhat.com>
-Cc: netdev@vger.kernel.org, Jan Synacek <jsynacek@redhat.com>
-To: yoshfuji@linux-ipv6.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH] tc: add canid ematch to ematch_map
+Date: Thu, 22 Nov 2012 20:53:44 +0100
+Message-ID: <1353614024-18248-1-git-send-email-mkl@pengutronix.de>
+Cc: Rostislav Lisovy <lisovy@gmail.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12257 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756087Ab2KVTbW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Nov 2012 14:31:22 -0500
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:41752 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965097Ab2KVTxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 14:53:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Look for another device if the device name and the currently found one are the
-same, not different.
+From: Rostislav Lisovy <lisovy@gmail.com>
 
-Also, make checking for the device's flags nonfatal.
+The canid ematch has been added in commit:
 
-Signed-off-by: Jan Synacek <jsynacek@redhat.com>
+7b5f30e Ematch used to classify CAN frames according to their identifiers
+
+But the corresponding entry in etc/iproute2/ematch_map was lost. This patch
+adds the missing entry in ematch_map, otherweise tc would complain:
+
+Error: Unable to find ematch "canid" in /etc/iproute2/ematch_map
+Please assign a unique ID to the ematch kind the suggested entry is:
+        7       canid
+
+Signed-off-by: Rostislav Lisovy <lisovy@gmail.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- arping.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ etc/iproute2/ematch_map |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arping.c b/arping.c
-index ff77bec..d0edccf 100644
---- a/arping.c
-+++ b/arping.c
-@@ -550,10 +550,10 @@ static int find_device_by_ifaddrs(void)
- 			continue;
- 		if (ifa->ifa_addr->sa_family != AF_PACKET)
- 			continue;
--		if (device.name && ifa->ifa_name && strcmp(ifa->ifa_name, device.name))
-+		if (device.name && ifa->ifa_name && !strcmp(ifa->ifa_name, device.name))
- 			continue;
- 
--		if (check_ifflags(ifa->ifa_flags, device.name != NULL) < 0)
-+		if (check_ifflags(ifa->ifa_flags, 0) < 0)
- 			continue;
- 
- 		if (!((struct sockaddr_ll *)ifa->ifa_addr)->sll_halen)
+diff --git a/etc/iproute2/ematch_map b/etc/iproute2/ematch_map
+index 69b007d..1823983 100644
+--- a/etc/iproute2/ematch_map
++++ b/etc/iproute2/ematch_map
+@@ -3,4 +3,5 @@
+ 2	nbyte
+ 3	u32
+ 4	meta
++7	canid
+ 8	ipset
 -- 
-1.7.11.7
+1.7.10.4
