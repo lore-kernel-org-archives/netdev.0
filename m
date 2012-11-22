@@ -1,79 +1,140 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 0/9] tipc: updates for what will be v3.8
-Date: Thu, 22 Nov 2012 15:59:45 -0500
-Message-ID: <1353617994-3962-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 1/9] tipc: fix race/inefficiencies in poll/wait behaviour
+Date: Thu, 22 Nov 2012 15:59:46 -0500
+Message-ID: <1353617994-3962-2-git-send-email-paul.gortmaker@windriver.com>
+References: <1353617994-3962-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
+Cc: <netdev@vger.kernel.org>, Ying Xue <ying.xue@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:42957 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757564Ab2KVVAE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 16:00:04 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:59963 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757329Ab2KVVAD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 16:00:03 -0500
+In-Reply-To: <1353617994-3962-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The most interesting thing here, at least from a user perspective,
-is the broadcast link fix -- where there was a corner case where
-two endpoints could get in a state where they disagree on where
-to start Rx and ack of broadcast packets.
+From: Ying Xue <ying.xue@windriver.com>
 
-There is also the poll/wait changes which could also impact
-end users for certain use cases - the fixes there also better
-align tipc with the rest of the networking code.
+When an application blocks at poll/select on a TIPC socket
+while requesting a specific event mask, both the filter_rcv() and
+wakeupdispatch() case will wake it up unconditionally whenever
+the state changes (i.e an incoming message arrives, or congestion
+has subsided).  No mask is used.
 
-The rest largely falls into routine cleanup category, by getting
-rid of some unused routines, some Kconfig clutter, etc.
+To avoid this, we populate sk->sk_data_ready and sk->sk_write_space
+with tipc_data_ready and tipc_write_space respectively, which makes
+tipc more in alignment with the rest of the networking code.  These
+pass the exact set of possible events to the waker in fs/select.c
+hence avoiding waking up blocked processes unnecessarily.
 
-Assuming there is nothing that jumps out as needing a rework,
-the full set can be found as per below.
+In doing so, we uncover another issue -- that there needs to be a
+memory barrier in these poll/receive callbacks, otherwise we are
+subject to the the same race as documented above wq_has_sleeper()
+[in commit a57de0b4 "net: adding memory barrier to the poll and
+receive callbacks"].  So we need to replace poll_wait() with
+sock_poll_wait() and use rcu protection for the sk->sk_wq pointer
+in these two new functions.
 
-Thanks,
-Paul.
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
+ net/tipc/socket.c | 45 ++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 40 insertions(+), 5 deletions(-)
 
-The following changes since commit de4594a51c904ddcd6c3a6cdd100f7c1d94d3239:
-
-  sctp: send abort chunk when max_retrans exceeded (2012-11-20 15:50:37 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git tipc_net-next
-
-for you to fetch changes up to 94fc9c4719f53264c7cce62ee558781fee7b7128:
-
-  tipc: delete TIPC_ADVANCED Kconfig variable (2012-11-22 14:33:29 -0500)
-
-----------------------------------------------------------------
-Erik Hugne (1):
-      tipc: return POLLOUT for sockets in an unconnected state
-
-Jon Maloy (1):
-      tipc: introduce message to synchronize broadcast link
-
-Paul Gortmaker (1):
-      tipc: delete TIPC_ADVANCED Kconfig variable
-
-Ying Xue (6):
-      tipc: fix race/inefficiencies in poll/wait behaviour
-      tipc: wake up all waiting threads at socket shutdown
-      tipc: remove the bearer congestion mechanism
-      tipc: remove supportable flag from bclink structure
-      tipc: rename supported flag to recv_permitted
-      tipc: eliminate an unnecessary cast of node variable
-
- net/tipc/Kconfig      |  13 +---
- net/tipc/bcast.c      |  27 ++++----
- net/tipc/bearer.c     | 110 +++--------------------------
- net/tipc/bearer.h     |  24 +------
- net/tipc/core.c       |   5 --
- net/tipc/discover.c   |   2 +-
- net/tipc/link.c       | 188 ++++++++++++++++++++++++++------------------------
- net/tipc/link.h       |   4 --
- net/tipc/name_distr.c |   2 +-
- net/tipc/node.c       |  15 ++--
- net/tipc/node.h       |   6 +-
- net/tipc/socket.c     |  58 +++++++++++++---
- 12 files changed, 185 insertions(+), 269 deletions(-)
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index fd5f042..b5fc8ed 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -62,6 +62,8 @@ struct tipc_sock {
+ static int backlog_rcv(struct sock *sk, struct sk_buff *skb);
+ static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf);
+ static void wakeupdispatch(struct tipc_port *tport);
++static void tipc_data_ready(struct sock *sk, int len);
++static void tipc_write_space(struct sock *sk);
+ 
+ static const struct proto_ops packet_ops;
+ static const struct proto_ops stream_ops;
+@@ -221,6 +223,8 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol,
+ 	sock_init_data(sock, sk);
+ 	sk->sk_backlog_rcv = backlog_rcv;
+ 	sk->sk_rcvbuf = TIPC_FLOW_CONTROL_WIN * 2 * TIPC_MAX_USER_MSG_SIZE * 2;
++	sk->sk_data_ready = tipc_data_ready;
++	sk->sk_write_space = tipc_write_space;
+ 	tipc_sk(sk)->p = tp_ptr;
+ 	tipc_sk(sk)->conn_timeout = CONN_TIMEOUT_DEFAULT;
+ 
+@@ -435,7 +439,7 @@ static unsigned int poll(struct file *file, struct socket *sock,
+ 	struct sock *sk = sock->sk;
+ 	u32 mask = 0;
+ 
+-	poll_wait(file, sk_sleep(sk), wait);
++	sock_poll_wait(file, sk_sleep(sk), wait);
+ 
+ 	switch ((int)sock->state) {
+ 	case SS_READY:
+@@ -1126,6 +1130,39 @@ exit:
+ }
+ 
+ /**
++ * tipc_write_space - wake up thread if port congestion is released
++ * @sk: socket
++ */
++static void tipc_write_space(struct sock *sk)
++{
++	struct socket_wq *wq;
++
++	rcu_read_lock();
++	wq = rcu_dereference(sk->sk_wq);
++	if (wq_has_sleeper(wq))
++		wake_up_interruptible_sync_poll(&wq->wait, POLLOUT |
++						POLLWRNORM | POLLWRBAND);
++	rcu_read_unlock();
++}
++
++/**
++ * tipc_data_ready - wake up threads to indicate messages have been received
++ * @sk: socket
++ * @len: the length of messages
++ */
++static void tipc_data_ready(struct sock *sk, int len)
++{
++	struct socket_wq *wq;
++
++	rcu_read_lock();
++	wq = rcu_dereference(sk->sk_wq);
++	if (wq_has_sleeper(wq))
++		wake_up_interruptible_sync_poll(&wq->wait, POLLIN |
++						POLLRDNORM | POLLRDBAND);
++	rcu_read_unlock();
++}
++
++/**
+  * rx_queue_full - determine if receive queue can accept another message
+  * @msg: message to be added to queue
+  * @queue_size: current size of queue
+@@ -1222,8 +1259,7 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
+ 		tipc_disconnect_port(tipc_sk_port(sk));
+ 	}
+ 
+-	if (waitqueue_active(sk_sleep(sk)))
+-		wake_up_interruptible(sk_sleep(sk));
++	sk->sk_data_ready(sk, 0);
+ 	return TIPC_OK;
+ }
+ 
+@@ -1290,8 +1326,7 @@ static void wakeupdispatch(struct tipc_port *tport)
+ {
+ 	struct sock *sk = (struct sock *)tport->usr_handle;
+ 
+-	if (waitqueue_active(sk_sleep(sk)))
+-		wake_up_interruptible(sk_sleep(sk));
++	sk->sk_write_space(sk);
+ }
+ 
+ /**
+-- 
+1.7.12.1
