@@ -1,33 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next v2 0/9][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 22 Nov 2012 15:13:01 -0500 (EST)
-Message-ID: <20121122.151301.1514351006048903169.davem@davemloft.net>
-References: <1353579077-12097-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36369 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754210Ab2KVUNO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 15:13:14 -0500
-In-Reply-To: <1353579077-12097-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: pablo@netfilter.org
+Subject: [PATCH 0/2] netfilter fixes for net
+Date: Thu, 22 Nov 2012 10:10:50 +0100
+Message-ID: <1353575452-3127-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 22 Nov 2012 02:11:08 -0800
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-> This series contains updates to ixgbe and igb.
-> 
-> v2- drop "ixgbe: eliminate Smatch warnings in ixgbe_debugfs.c" patch while
-> we validate the suggested changes by Dan Carpenter
-> 
-> The following are changes since commit 76e0d67a08bb195bd0ddea2fcba8c15c85eab243:
->   Merge tag 'batman-adv-for-davem' of git://git.open-mesh.org/linux-merge
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Hi David,
 
-Pulled, thanks Jeff.
+The following patchset contains two Netfilter fixes:
+
+* Fix buffer overflow in the name of the timeout policy object
+  in the cttimeout infrastructure, from Florian Westphal.
+
+* Fix a bug in the hash set in case that IP ranges are
+  specified, from Jozsef Kadlecsik.
+
+You can pull these changes from:
+
+git://1984.lsi.us.es/nf master
+
+Thanks!
+
+Florian Westphal (1):
+  netfilter: cttimeout: fix buffer overflow
+
+Jozsef Kadlecsik (1):
+  netfilter: ipset: Fix range bug in hash:ip,port,net
+
+ net/netfilter/ipset/ip_set_hash_ip.c        |    4 ++--
+ net/netfilter/ipset/ip_set_hash_ipport.c    |    7 +++----
+ net/netfilter/ipset/ip_set_hash_ipportip.c  |    7 +++----
+ net/netfilter/ipset/ip_set_hash_ipportnet.c |    7 +++++--
+ net/netfilter/nfnetlink_cttimeout.c         |    3 ++-
+ 5 files changed, 15 insertions(+), 13 deletions(-)
+
+-- 
+1.7.10.4
+
