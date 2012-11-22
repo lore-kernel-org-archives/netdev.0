@@ -1,38 +1,100 @@
-From: Steve Glendinning <steve.glendinning@shawell.net>
-Subject: [PATCH 1/5] smsc95xx: fix error checking of usbnet_resume
-Date: Thu, 22 Nov 2012 18:05:22 +0000
-Message-ID: <1353607526-19307-2-git-send-email-steve.glendinning@shawell.net>
-References: <1353607526-19307-1-git-send-email-steve.glendinning@shawell.net>
-Cc: Steve Glendinning <steve.glendinning@shawell.net>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 2/9] ixgbe: convert to use simple_open()
+Date: Thu, 22 Nov 2012 02:11:10 -0800
+Message-ID: <1353579077-12097-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1353579077-12097-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:59701 "EHLO
-	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752522Ab2KVSaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Nov 2012 13:30:25 -0500
-In-Reply-To: <1353607526-19307-1-git-send-email-steve.glendinning@shawell.net>
+Received: from mga11.intel.com ([192.55.52.93]:52735 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753760Ab2KVSeg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Nov 2012 13:34:36 -0500
+In-Reply-To: <1353579077-12097-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-without this patch the two lines below won't ever execute
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+This removes an open coded simple_open() function and
+replaces file operations references to the function
+with simple_open() instead.
+
+dpatch engine is used to auto generate this patch.
+(https://github.com/weiyj/dpatch)
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/usb/smsc95xx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c | 32 ++----------------------
+ 1 file changed, 2 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index e083f53..e8465fe 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1304,7 +1304,7 @@ static int smsc95xx_resume(struct usb_interface *intf)
- 		check_warn_return(ret, "Error writing PM_CTRL");
- 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
+index 8d3a218..efaf9a7 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
+@@ -37,20 +37,6 @@ static struct dentry *ixgbe_dbg_root;
+ static char ixgbe_dbg_reg_ops_buf[256] = "";
  
--	return usbnet_resume(intf);
-+	ret = usbnet_resume(intf);
- 	check_warn_return(ret, "usbnet_resume error");
+ /**
+- * ixgbe_dbg_reg_ops_open - prep the debugfs pokee data item when opened
+- * @inode: inode that was opened
+- * @filp:  file info
+- *
+- * Stash the adapter pointer hiding in the inode into the file pointer where
+- * we can find it later in the read and write calls
+- **/
+-static int ixgbe_dbg_reg_ops_open(struct inode *inode, struct file *filp)
+-{
+-	filp->private_data = inode->i_private;
+-	return 0;
+-}
+-
+-/**
+  * ixgbe_dbg_reg_ops_read - read for reg_ops datum
+  * @filp: the opened file
+  * @buffer: where to write the data for the user to read
+@@ -142,7 +128,7 @@ static ssize_t ixgbe_dbg_reg_ops_write(struct file *filp,
  
- 	return 0;
+ static const struct file_operations ixgbe_dbg_reg_ops_fops = {
+ 	.owner = THIS_MODULE,
+-	.open =  ixgbe_dbg_reg_ops_open,
++	.open = simple_open,
+ 	.read =  ixgbe_dbg_reg_ops_read,
+ 	.write = ixgbe_dbg_reg_ops_write,
+ };
+@@ -150,20 +136,6 @@ static const struct file_operations ixgbe_dbg_reg_ops_fops = {
+ static char ixgbe_dbg_netdev_ops_buf[256] = "";
+ 
+ /**
+- * ixgbe_dbg_netdev_ops_open - prep the debugfs netdev_ops data item
+- * @inode: inode that was opened
+- * @filp: file info
+- *
+- * Stash the adapter pointer hiding in the inode into the file pointer
+- * where we can find it later in the read and write calls
+- **/
+-static int ixgbe_dbg_netdev_ops_open(struct inode *inode, struct file *filp)
+-{
+-	filp->private_data = inode->i_private;
+-	return 0;
+-}
+-
+-/**
+  * ixgbe_dbg_netdev_ops_read - read for netdev_ops datum
+  * @filp: the opened file
+  * @buffer: where to write the data for the user to read
+@@ -238,7 +210,7 @@ static ssize_t ixgbe_dbg_netdev_ops_write(struct file *filp,
+ 
+ static const struct file_operations ixgbe_dbg_netdev_ops_fops = {
+ 	.owner = THIS_MODULE,
+-	.open = ixgbe_dbg_netdev_ops_open,
++	.open = simple_open,
+ 	.read = ixgbe_dbg_netdev_ops_read,
+ 	.write = ixgbe_dbg_netdev_ops_write,
+ };
 -- 
-1.7.10.4
+1.7.11.7
