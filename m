@@ -1,53 +1,59 @@
-From: Help Desk <info@helpdesk.org>
-Subject: Scheduled Maintenance & Upgrade
-Date: Tue, 20 Nov 2012 10:05:53 -0600
-Message-ID: <20121120100553.65391jb74ui57cyp@webmail.prisonhealth.az>
-Reply-To: tech.team@tech-center.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Fwd: Re: RTL 8169  linux driver question
+Date: Fri, 23 Nov 2012 20:20:56 +0100
+Message-ID: <20121123192056.GA30290@electric-eye.fr.zoreil.com>
+References: <50AFC971.7010103@free.fr> <50AFCB1D.8080002@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, sancelot@numalliance.com,
+	Hayes Wang <hayeswang@realtek.com>
+To: =?utf-8?B?U3TDqXBoYW5l?= ANCELOT <sancelot@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aze.azerlotereya.com ([174.121.48.66]:59041 "EHLO
-	aze.azerlotereya.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407Ab2KWTfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 14:35:04 -0500
+Received: from violet.fr.zoreil.com ([92.243.8.30]:44703 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752407Ab2KWToz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 14:44:55 -0500
 Content-Disposition: inline
+In-Reply-To: <50AFCB1D.8080002@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+St=C3=A9phane ANCELOT <sancelot@free.fr> :
+[...]
+> I have an adapted version of this driver for a realtime linux kernel
+> and a 8168/811B rev 2 component (as listed by lspci).
 
-Help Desk
+You should grep for the XID line in the kernel dmesg to identify
+the chipset version.
 
-Attention Account User,
+> I had problem with it, my application sends a frame that is
+> immediately transmitted back by some slaves, there was abnormally
+> 100us lost between the send and receive call.
+>=20
+> Finally I found it was coming from the following register setup in
+> the driver :
+>=20
+> RTL_W16(IntrMitigate, 0x5151);
+>=20
+> Can you give me some details about it, since I do not have the
+> RTL8169 programming guide.
 
-Scheduled Maintenance & Upgrade
+"Reserved" in my 2007 8168c rev1.0 datasheet.
 
-Your account is in the process of being upgraded to a newest  
-Windows-based servers and an enhanced online email interface inline  
-with internet infrastructure Maintenance. The new servers will provide  
-better anti-spam and anti-virus functions, along with IMAP Support for  
-mobile devices to enhance your usage.
+I merged it long ago from Realtek's driver. It has now changed to 0x5f5=
+1.
 
-To ensure that your account is not disrupted but active during and  
-after this upgrade, you are required to kindly confirm your account by  
-stating the details below:
+On the old PCI 8169, bits 15..8 relate to Tx and 7..0 to Rx. Bits 7..4
+count in units of 125 us and bits 0..3 in packet units. You may give
+0x..00 a try.
 
-* User name:
-* Password:
+Hayes knows better for the 8168 line.
 
-This will prompt the upgarde of your account.
+> /100us is important since this component acts as an Ethercat Master
+> running at 1ms./
 
-Failure to acknowledge the receipt of this notification, might result  
-to a temporal deactivation of your account from our database. Your  
-account shall remain active upon your confirmation of your login  
-details.
+Which realtime kernel is it ?
 
-We do apologize for any inconvenience caused.
-
-Help Desk Team.
-
-(c) Copyright 2012, All Rights Reserved.
+--=20
+Ueimor
