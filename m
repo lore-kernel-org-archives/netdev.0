@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] 8139cp: revert "set ring address before
- enabling receiver"
-Date: Fri, 23 Nov 2012 14:01:38 -0500 (EST)
-Message-ID: <20121123.140138.1311321489349790895.davem@davemloft.net>
-References: <20121121200729.GA17603@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] vxlan: fix command usage in its doc
+Date: Fri, 23 Nov 2012 14:04:36 -0500 (EST)
+Message-ID: <20121123.140436.1650547432405253921.davem@davemloft.net>
+References: <1353579001-31052-1-git-send-email-zwu.kernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dwmw2@infradead.org, jasowang@redhat.com,
-	jgarzik@pobox.com, gilboad@gmail.com
-To: romieu@fr.zoreil.com
+Cc: netdev@vger.kernel.org, wuzhy@linux.vnet.ibm.com
+To: zwu.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49290 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49303 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752715Ab2KWTB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 14:01:56 -0500
-In-Reply-To: <20121121200729.GA17603@electric-eye.fr.zoreil.com>
+	with ESMTP id S1752787Ab2KWTEk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 14:04:40 -0500
+In-Reply-To: <1353579001-31052-1-git-send-email-zwu.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 21 Nov 2012 21:07:29 +0100
+From: zwu.kernel@gmail.com
+Date: Thu, 22 Nov 2012 18:10:01 +0800
 
-> This patch reverts b01af4579ec41f48e9b9c774e70bd6474ad210db.
+> From: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 > 
-> The original patch was tested with emulated hardware. Real
-> hardware chokes.
+>   Some commands don't work in its example doc. The patch will fix it.
 > 
-> Fixes https://bugzilla.kernel.org/show_bug.cgi?id=47041
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Signed-off-by: Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>
 
-I leiu of a response from the realtec folks, I'm applying this
-for now.
-
-What I'll do, the next time I merge net into net-next, is revert
-this revert and apply Dave's patch.
+Applied, thanks.
