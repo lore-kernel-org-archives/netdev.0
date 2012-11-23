@@ -1,8 +1,9 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [RFC net-next PATCH V1 0/9] net: fragmentation performance
-	scalability on NUMA/SMP systems
-Date: Fri, 23 Nov 2012 14:08:01 +0100
-Message-ID: <20121123130749.18764.25962.stgit@dragon>
+Subject: [RFC net-next PATCH V1 4/9] net: frag helper functions for mem limit
+	tracking
+Date: Fri, 23 Nov 2012 14:08:21 +0100
+Message-ID: <20121123130821.18764.46316.stgit@dragon>
+References: <20121123130749.18764.25962.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -16,270 +17,315 @@ To: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9052 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56140 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753257Ab2KWNKq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2012 08:10:46 -0500
+	id S1751448Ab2KWNMA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2012 08:12:00 -0500
+In-Reply-To: <20121123130749.18764.25962.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset implements significant performance improvements for
-fragmentation handling in the kernel, with a focus on NUMA and SMP
-based systems.
+This change is primarily a preparation to ease the extension of memory
+limit tracking.
 
-Review:
+The change does reduce the number atomic operation, during freeing of
+a frag queue.  This does introduce a fairly good performance improvement, as
+these atomic operations are at the core of the performance problems
+seen on NUMA systems.
 
- Please review these patches.  I have on purpose added comments in the
- code with the "//" comments style.  These comments are to be removed
- before applying.  They serve as a questions to, you, the reviewer.
-
-The fragmentation code today:
-
- The fragmentation code "protects" kernel resources, by implementing
- some memory resource limitation code.  This is centered around a
- global readers-writer lock, and (per network namespace) an atomic mem
- counter and a LRU (Least-Recently-Used) list.  (Although separate
- global variables and namespace resources, are kept for IPv4, IPv6
- and Netfilter reassembly.)
-
- The code tries to keep the memory usage between a high and low
- threshold (see: /proc/sys/net/ipv4/ipfrag_{high,low}_thresh).  The
- "evictor" code cleans up fragments, when the high threshold is
- exceeded, and stops only, when the low threshold is reached.
-
-The scalability problem:
-
- Having a global/central variable for a resource limit is obviously a
- scalability issue on SMP systems, and even amplified on a NUMA based
- system.
-
- When profiling the code, the scalability problems appeared to be the
- readers-writer lock.  But, surprise, the primary scalability issue
- was caused by the global atomic mem limit counter, which, especially
- on NUMA systems, would prolong the time spend inside the
- readers-writer lock sections.  It is not trivial to remove the
- readers-writer lock, but it is possible to reduce the number of
- writer lock sections.
-
-Testlab:
-
- My original big-testlab were based on four Intel based 10Gbit/s NICs
- on two identical Sandy-Bridge-E NUMA system.  The testlab
- used/available, while rebasing to net-next, were not as powerful.
- Its based on a single Sandy-Bridge-E NUMA system with the same Intel
- 10G NICs, but the generator machine was an old Core-i7 920 with some
- older NICs. This means that I have not been able to generate full 4x
- 10G wirespeed.  I have chosen (mostly) to include 2x 10G test results
- due to the generator machine (although the 4x 10G results from the
- big system looks more impressive).
-
- The tests are performed with netperf -t UDP_STREAM (which default
- send UDP packets with size 65507 bytes, which gets fragmented).  The
- netserver's get numactl pinned and the CPU sockets get smp_affinity
- aligned to the physical NIC connected to its own NUMA node.
-
-Performance results:
-
- For the impressive 4x 10Gbit/s big-testlab results, performance goes
-  from (a collective) 496 Mbit/s to 38463 Mbit/s (per stream 9615 Mbit/s)
-  (at packet size 65507 bytes)
-
- For the results to be fair/meaningful, I'll report the used packet
- size, as (after the fixes) bigger UDP packets scale better, because
- smaller packets will require/create more frag queues to handle.
-
- I'll report packet size 65507 and three fragments 1472*3=4416 bytes.
-
- Disabled Ethernet Flow Control (via ethtool -A).  To show the real
- effect of the patches, the system needs to be in an "overload"
- situation.  When Ethernet Flow Control is enabled, the system will
- make the generator back-off, and the code path will be less stressed.
- Thus, I have disabled Ethernet Flow Control.
-
-No patches:
- -------
- Results without any patches, and no flow control:
-
-  2x10G size(65507) result:(7+50)     =57   Mbit/s (gen:9613+9473 Mbit/s)
-  2x10G size(4416)  result:(3619+3772)=7391 Mbit/s (gen:8339+9105 Mbit/s)
-
- The very pure result with large frames is a result of the "evictor"
- code, which gets fixed in patch-01.
-
-Patch-01: net: frag evictor, avoid killing warm frag queues
- -------
- The fragmentation evictor system have a very unfortunate eviction
- system for killing fragment, when the system is put under pressure.
- The evictor code basically kills "warm" fragments too quickly.
- Resulting in a massive, DoS like, performance drop, as seen above
- (no-patch) results with large packets.
-
- The solution is to avoid killing "warm" fragments, and rather block
- new incoming in case mem limit is exceeded. This is solved by
- introducing a creation time-stamp, which set to "jiffies" in
- inet_frag_alloc().
-
-  2x10G size(65507) result:(3011+2568)=5579 Mbit/s (gen:9613+9553 Mbit/s)
-  2x10G size(4416)  result:(3716+3518)=7234 Mbit/s (gen:9037+8614 Mbit/s)
-
-Patch-02: cache line adjust inet_frag_queue.net (netns)
- -------
- Avoid possible cache-line bounces in struct inet_frag_queue.  By
- moving the net pointer (struct netns_frags) because its placed on the
- same write-often cache-line as e.g. refcnt and lock.
-
-  2x10G size(65507) result:(2960+2613)=5573 Mbit/s (gen:9614+9465 Mbit/s)
-  2x10G size(4416)  result:(3858+3650)=7508 Mbit/s (gen:8076+7633 Mbit/s)
-
- The performance benefit looks small. We can discuss if this patch is
- needed or not.
-
-Patch-03: move LRU list maintenance outside of rwlock
- -------
- Updating the fragmentation queues LRU (Least-Recently-Used) list,
- required taking the hash writer lock.  However, the LRU list isn't
- tied to the hash at all, so we can use a separate lock for it.
-
- This patch looks like a performance loss for big packets, but the LRU
- locking changes are needed, by later patches.
-
-  2x10G size(65507) result:(2533+2138)=4671 Mbit/s (gen:9612+9461 Mbit/s)
-  2x10G size(4416)  result:(3952+3713)=7665 Mbit/s (gen:9168+8415 Mbit/s)
-
-Patch-04: frag helper functions for mem limit tracking
- -------
- This patch is only meant as a preparation patch, towards the next
- patch.  The performance improvement comes from reduce the number
- atomic operation, during freeing of a frag queue, by summing the mem
- accounting before and doing a single atomic dec.
-
-  2x10G size(65507) result:(2475+3101)=5576 Mbit/s (gen:9614+9439 Mbit/s)
-  2x10G size(4416)  result:(3928+4129)=8057 Mbit/s (gen:7259+8131 Mbit/s)
-
-Patch-05: per CPU mem limit and LRU list accounting
- -------
- The major performance bottleneck on NUMA systems, is the mem limit
- counter, which is based on an atomic counter.  This patch removes the
- cache-bouncing of the atomic counter, by moving this accounting to be
- bound to each CPU.  The LRU list also need to be done per CPU,
- in-order to keep the accounting straight.
-
-  2x10G size(65507) result:(9603+9458)=19061 Mbit/s (gen:9614+9458 Mbit/s)
-  2x10G size(4416)  result:(4871+4848)=9719 Mbit/s (gen:9107+8378 Mbit/s)
-
- To compare the benefit of the next patches, its necessary to increase
- the stress on the code, but doing 4x 10Gbit/s tests.
-
-  4x10G size(65507) result:(8631+9337+7534+6928)=32430 Mbit/s
-                       (gen:8646+9613+7547+6937 =32743 Mbit/s)
-  4x10G size(4416)  result:(2870+2990+2993+3016)=11869 Mbit/s
-                       (gen:4819+7767+6893+5043 =24522 Mbit/s)
-
-Patch-06: nqueues_under_LRU_lock
- -------
- This patch just moves the nqueues counter under the LRU lock (and
- per CPU), instead of the write lock, to prepare for next patch.  No
- need for performance testing this part.
-
-Patch-07: hash_bucket_locking
- -------
- This patch implements per hash bucket locking for the frag queue
- hash.  This removes two write locks, and the only remaining write
- lock is for protecting hash rebuild.  This essentially reduces the
- readers-writer lock to a rebuild lock.
-
- UPDATE: This patch can result in a OOPS during hash rebuilding.
- Needs more work before its safe to apply.
-
-  2x10G size(65507) result:(9602+9466)=19068 Mbit/s (gen:9613+9472 Mbit/s)
-  2x10G size(4416)  result:(5024+4925)= 9949 Mbit/s (gen:8581+8957 Mbit/s)
-
- To see the real benefit of this patch, we need to crank up the load
- and stress on the code, with 4x 10Gbit/s at small packets,
- improvement at size(4416): before 11869 Mbit/s now 17155 Mbit/s. Also
- note the regression at size(65507) 32430 -> 31021.
-
-  4x10G size(65507) result:(7618+8708+7381+7314)=31021 Mbit/s
-                       (gen:7628+9501+8728+7321 =33178 Mbit/s)
-  4x10G size(4416)  result:(4156+4714+4300+3985)=17155 Mbit/s
-                       (gen:6614+5330+7745+5366 =25055 Mbit/s)
-
- At 4x10G size(4416) I have seen 206 frag queues in use, and hash size is 64.
-
-Patch-08: cache_align_hash_bucket
- -------
- Increase frag queue hash size and assure cache-line alignment to
- avoid false sharing.  Hash size is set to 256, because I have
- observed 206 frag queues in use at 4x10G with packet size 4416 bytes.
-
-  2x10G size(65507) result:(9601+9414)=19015 Mbit/s (gen:9614+9434 Mbit/s)
-  2x10G size(4416)  result:(5421+5268)=10689 Mbit/s (gen:8028+7457 Mbit/s)
-
- This does introduce an improvement (although not as big as I
- expected), but most importantly the regression seen in patch-07 4x10G
- at size(65507) is gone (patch-05:32430 Mbits/s -> 32676 Mbit).
-
-  4x10G size(65507) result:(7604+8307+9593+7172)=32676 Mbit/s
-                       (gen:7615+8713+9606+7184 =33118 Mbit/s)
-  4x10G size(4416)  result:(4890+4364+4139+4530)=17923 Mbit/s
-                       (gen:5170+6873+5215+7632 =24890 Mbit/s)
-
- After this patch it looks like the read lock is now the new
- contention point.
-
-Patch-09: Hack disable rebuild and remove rw_lock
- -------
- I've done a quick hack patch, that remove the readers-writer lock, by
- disabling/breaking hash rebuilding.  Just to see how big the
- performance gain would be.
-
-  2x10G size(4416) result: 6481+6764 = 13245 Mbit/s (gen: 7652+8077 Mbit/s)
-
-  4x10G size(4416) result:(5610+6283+5735+5238)=22866 Mbit/s
-                     (gen: 6530+7860+5967+5238 =25595 Mbit/s)
-
- And the results show, that its a big win. With 4x10G size(4416)
- before: 17923 Mbit/s -> now: 22866 Mbit/s increase 4943 Mbit/s.
- With 2x10G size(4416) before 10689 Mbit/s -> 13245 Mbit/s
- increase 2556 Mbit/s.
-
- I'll work on a real solution for removing the rw_lock while still
- supporting hash rebuilding.  Suggestions and ideas are welcome.
-
-
-This patchset is based upon:
-  Davem's net-next tree:
-    git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-  On top of:
-    commit ff33c0e1885cda44dd14c79f70df4706f83582a0
-    (net: Remove bogus dependencies on INET)
-
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
-Jesper Dangaard Brouer (9):
-      net: frag remove readers-writer lock (hack)
-      net: increase frag queue hash size and cache-line
-      net: frag queue locking per hash bucket
-      net: frag, move nqueues counter under LRU lock protection
-      net: frag per CPU mem limit and LRU list accounting
-      net: frag helper functions for mem limit tracking
-      net: frag, move LRU list maintenance outside of rwlock
-      net: frag cache line adjust inet_frag_queue.net
-      net: frag evictor, avoid killing warm frag queues
+ include/net/inet_frag.h                 |   28 ++++++++++++++++++++++++++++
+ include/net/ipv6.h                      |    2 +-
+ net/ipv4/inet_fragment.c                |   27 +++++++++++++--------------
+ net/ipv4/ip_fragment.c                  |   24 +++++++++++-------------
+ net/ipv6/netfilter/nf_conntrack_reasm.c |    6 +++---
+ net/ipv6/reassembly.c                   |    6 +++---
+ 6 files changed, 59 insertions(+), 34 deletions(-)
 
-
- include/net/inet_frag.h                 |  120 +++++++++++++++++++++++--
- include/net/ipv6.h                      |    4 -
- net/ipv4/inet_fragment.c                |  150 ++++++++++++++++++++++---------
- net/ipv4/ip_fragment.c                  |   43 +++++----
- net/ipv6/netfilter/nf_conntrack_reasm.c |   13 +--
- net/ipv6/reassembly.c                   |   16 ++-
- 6 files changed, 259 insertions(+), 87 deletions(-)
-
-
---
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 312a3fa..9bbef17 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -95,4 +95,32 @@ static inline void inet_frag_lru_add(struct netns_frags *nf,
+ 	list_add_tail(&q->lru_list, &nf->lru_list);
+ 	spin_unlock(&nf->lru_lock);
+ }
++
++/* Memory Tracking Functions. */
++
++static inline int frag_mem_limit(struct netns_frags *nf)
++{
++	return atomic_read(&nf->mem);
++}
++
++static inline void sub_frag_mem_limit(struct inet_frag_queue *q, int i)
++{
++	atomic_sub(i, &q->net->mem);
++}
++
++static inline void add_frag_mem_limit(struct inet_frag_queue *q, int i)
++{
++	atomic_add(i, &q->net->mem);
++}
++
++static inline void init_frag_mem_limit(struct netns_frags *nf)
++{
++	atomic_set(&nf->mem, 0);
++}
++
++static inline int sum_frag_mem_limit(struct netns_frags *nf)
++{
++	return atomic_read(&nf->mem);
++}
++
+ #endif
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 979bf6c..a5c1cf1 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -279,7 +279,7 @@ static inline int ip6_frag_nqueues(struct net *net)
+ 
+ static inline int ip6_frag_mem(struct net *net)
+ {
+-	return atomic_read(&net->ipv6.frags.mem);
++	return sum_frag_mem_limit(&net->ipv6.frags);
+ }
+ #endif
+ 
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 47141ab..4f1ab8a 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -73,7 +73,7 @@ EXPORT_SYMBOL(inet_frags_init);
+ void inet_frags_init_net(struct netns_frags *nf)
+ {
+ 	nf->nqueues = 0;
+-	atomic_set(&nf->mem, 0);
++	init_frag_mem_limit(nf);
+ 	INIT_LIST_HEAD(&nf->lru_list);
+ 	spin_lock_init(&nf->lru_lock);
+ }
+@@ -118,12 +118,8 @@ void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
+ EXPORT_SYMBOL(inet_frag_kill);
+ 
+ static inline void frag_kfree_skb(struct netns_frags *nf, struct inet_frags *f,
+-		struct sk_buff *skb, int *work)
++		struct sk_buff *skb)
+ {
+-	if (work)
+-		*work -= skb->truesize;
+-
+-	atomic_sub(skb->truesize, &nf->mem);
+ 	if (f->skb_free)
+ 		f->skb_free(skb);
+ 	kfree_skb(skb);
+@@ -134,6 +130,7 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f,
+ {
+ 	struct sk_buff *fp;
+ 	struct netns_frags *nf;
++	unsigned int sum, sum_truesize = 0;
+ 
+ 	WARN_ON(!(q->last_in & INET_FRAG_COMPLETE));
+ 	WARN_ON(del_timer(&q->timer) != 0);
+@@ -144,13 +141,14 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f,
+ 	while (fp) {
+ 		struct sk_buff *xp = fp->next;
+ 
+-		frag_kfree_skb(nf, f, fp, work);
++		sum_truesize += fp->truesize;
++		frag_kfree_skb(nf, f, fp);
+ 		fp = xp;
+ 	}
+-
++	sum = sum_truesize + f->qsize;
+ 	if (work)
+-		*work -= f->qsize;
+-	atomic_sub(f->qsize, &nf->mem);
++		*work -= sum;
++	sub_frag_mem_limit(q, sum);
+ 
+ 	if (f->destructor)
+ 		f->destructor(q);
+@@ -165,11 +163,11 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
+ 	int work, evicted = 0;
+ 
+ 	if (!force) {
+-		if (atomic_read(&nf->mem) <= nf->high_thresh)
++		if (frag_mem_limit(nf) <= nf->high_thresh)
+ 			return 0;
+ 	}
+ 
+-	work = atomic_read(&nf->mem) - nf->low_thresh;
++	work = frag_mem_limit(nf) - nf->low_thresh;
+ 	while (work > 0) {
+ 		spin_lock(&nf->lru_lock);
+ 
+@@ -269,7 +267,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 	/* Guard creations of new frag queues if mem limit reached, as
+ 	 * we allow warm/recent elements to survive in inet_frag_evictor()
+ 	 */
+-	if (atomic_read(&nf->mem) > nf->high_thresh)
++	if (frag_mem_limit(nf) > nf->high_thresh)
+ 		return NULL;
+ 
+ 	q = kzalloc(f->qsize, GFP_ATOMIC);
+@@ -279,7 +277,8 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 	q->creation_ts = (u32) jiffies;
+ 	q->net = nf;
+ 	f->constructor(q, arg);
+-	atomic_add(f->qsize, &nf->mem);
++	add_frag_mem_limit(q, f->qsize);
++
+ 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
+ 	spin_lock_init(&q->lock);
+ 	atomic_set(&q->refcnt, 1);
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 04c9e53..cc36a0b 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -122,7 +122,7 @@ int ip_frag_nqueues(struct net *net)
+ 
+ int ip_frag_mem(struct net *net)
+ {
+-	return atomic_read(&net->ipv4.frags.mem);
++	return sum_frag_mem_limit(&net->ipv4.frags);
+ }
+ 
+ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+@@ -161,13 +161,6 @@ static bool ip4_frag_match(struct inet_frag_queue *q, void *a)
+ 		qp->user == arg->user;
+ }
+ 
+-/* Memory Tracking Functions. */
+-static void frag_kfree_skb(struct netns_frags *nf, struct sk_buff *skb)
+-{
+-	atomic_sub(skb->truesize, &nf->mem);
+-	kfree_skb(skb);
+-}
+-
+ static void ip4_frag_init(struct inet_frag_queue *q, void *a)
+ {
+ 	struct ipq *qp = container_of(q, struct ipq, q);
+@@ -340,6 +333,7 @@ static inline int ip_frag_too_far(struct ipq *qp)
+ static int ip_frag_reinit(struct ipq *qp)
+ {
+ 	struct sk_buff *fp;
++	unsigned int sum_truesize = 0;
+ 
+ 	if (!mod_timer(&qp->q.timer, jiffies + qp->q.net->timeout)) {
+ 		atomic_inc(&qp->q.refcnt);
+@@ -349,9 +343,12 @@ static int ip_frag_reinit(struct ipq *qp)
+ 	fp = qp->q.fragments;
+ 	do {
+ 		struct sk_buff *xp = fp->next;
+-		frag_kfree_skb(qp->q.net, fp);
++
++		sum_truesize += fp->truesize;
++		kfree_skb(fp);
+ 		fp = xp;
+ 	} while (fp);
++	sub_frag_mem_limit(&qp->q, sum_truesize);
+ 
+ 	qp->q.last_in = 0;
+ 	qp->q.len = 0;
+@@ -496,7 +493,8 @@ found:
+ 				qp->q.fragments = next;
+ 
+ 			qp->q.meat -= free_it->len;
+-			frag_kfree_skb(qp->q.net, free_it);
++			sub_frag_mem_limit(&qp->q, free_it->truesize);
++			kfree_skb(free_it);
+ 		}
+ 	}
+ 
+@@ -519,7 +517,7 @@ found:
+ 	qp->q.stamp = skb->tstamp;
+ 	qp->q.meat += skb->len;
+ 	qp->ecn |= ecn;
+-	atomic_add(skb->truesize, &qp->q.net->mem);
++	add_frag_mem_limit(&qp->q, skb->truesize);
+ 	if (offset == 0)
+ 		qp->q.last_in |= INET_FRAG_FIRST_IN;
+ 
+@@ -614,7 +612,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 		head->len -= clone->len;
+ 		clone->csum = 0;
+ 		clone->ip_summed = head->ip_summed;
+-		atomic_add(clone->truesize, &qp->q.net->mem);
++		add_frag_mem_limit(&qp->q, clone->truesize);
+ 	}
+ 
+ 	skb_push(head, head->data - skb_network_header(head));
+@@ -642,7 +640,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 		}
+ 		fp = next;
+ 	}
+-	atomic_sub(sum_truesize, &qp->q.net->mem);
++	sub_frag_mem_limit(&qp->q, sum_truesize);
+ 
+ 	head->next = NULL;
+ 	head->dev = dev;
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index b0a1c96..c088831 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -316,7 +316,7 @@ found:
+ 	fq->q.meat += skb->len;
+ 	if (payload_len > fq->q.max_size)
+ 		fq->q.max_size = payload_len;
+-	atomic_add(skb->truesize, &fq->q.net->mem);
++	add_frag_mem_limit(&fq->q, skb->truesize);
+ 
+ 	/* The first fragment.
+ 	 * nhoffset is obtained from the first fragment, of course.
+@@ -394,7 +394,7 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct net_device *dev)
+ 		clone->ip_summed = head->ip_summed;
+ 
+ 		NFCT_FRAG6_CB(clone)->orig = NULL;
+-		atomic_add(clone->truesize, &fq->q.net->mem);
++		add_frag_mem_limit(&fq->q, clone->truesize);
+ 	}
+ 
+ 	/* We have to remove fragment header from datagram and to relocate
+@@ -418,7 +418,7 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct net_device *dev)
+ 			head->csum = csum_add(head->csum, fp->csum);
+ 		head->truesize += fp->truesize;
+ 	}
+-	atomic_sub(head->truesize, &fq->q.net->mem);
++	sub_frag_mem_limit(&fq->q, head->truesize);
+ 
+ 	head->local_df = 1;
+ 	head->next = NULL;
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index b38f290..9cfe047 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -327,7 +327,7 @@ found:
+ 	}
+ 	fq->q.stamp = skb->tstamp;
+ 	fq->q.meat += skb->len;
+-	atomic_add(skb->truesize, &fq->q.net->mem);
++	add_frag_mem_limit(&fq->q, skb->truesize);
+ 
+ 	/* The first fragment.
+ 	 * nhoffset is obtained from the first fragment, of course.
+@@ -426,7 +426,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 		head->len -= clone->len;
+ 		clone->csum = 0;
+ 		clone->ip_summed = head->ip_summed;
+-		atomic_add(clone->truesize, &fq->q.net->mem);
++		add_frag_mem_limit(&fq->q, clone->truesize);
+ 	}
+ 
+ 	/* We have to remove fragment header from datagram and to relocate
+@@ -464,7 +464,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 		}
+ 		fp = next;
+ 	}
+-	atomic_sub(sum_truesize, &fq->q.net->mem);
++	sub_frag_mem_limit(&fq->q, sum_truesize);
+ 
+ 	head->next = NULL;
+ 	head->dev = dev;
