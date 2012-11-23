@@ -1,73 +1,65 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 1/3] net: stmmac: change GMAC control register for SGMII
-Date: Fri, 23 Nov 2012 10:31:21 +0100
-Message-ID: <50AF4269.1070404@st.com>
-References: <004b01cdc959$80af8030$820e8090$%an@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, kgene.kim@samsung.com,
-	linux-kernel@vger.kernel.org
-To: Byungho An <bh74.an@samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <004b01cdc959$80af8030$820e8090$%an@samsung.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Peter Lieven <pl@dlhnet.de>
+Subject: Re: [Qemu-devel] tap devices not receiving packets from a bridge
+Date: Fri, 23 Nov 2012 10:41:21 +0100
+Message-ID: <E85C6011-548D-4507-A776-1028DD3E3515@dlhnet.de>
+References: <50AE36E0.8000307@dlhnet.de> <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
+Mime-Version: 1.0 (Apple Message framework v1283)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: qemu-devel@nongnu.org, netdev@vger.kernel.org, mst@redhat.com
+To: Stefan Hajnoczi <stefanha@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ssl.dlhnet.de ([91.198.192.8]:54144 "EHLO ssl.dlh.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759179Ab2KWJlR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 04:41:17 -0500
+In-Reply-To: <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello An
 
-On 11/23/2012 10:04 AM, Byungho An wrote:
->
-> This patch changes GMAC control register (TC(Transmit
-> Configuration) and PS(Port Selection) bit for SGMII.
-> In case of SGMII, TC bit is '1' and PS bit is 0.
+Am 23.11.2012 um 08:02 schrieb Stefan Hajnoczi:
 
-I was looking at this too. In particular, I was working on the rgmii 
-interrupt so I guess we could improve this part together.
+> On Thu, Nov 22, 2012 at 03:29:52PM +0100, Peter Lieven wrote:
+>> is anyone aware of a problem with the linux network bridge that in very rare circumstances stops
+>> a bridge from sending pakets to a tap device?
+>> 
+>> My problem occurs in conjunction with vanilla qemu-kvm-1.2.0 and Ubuntu Kernel 3.2.0-34.53
+>> which is based on Linux 3.2.33.
+>> 
+>> I was not yet able to reproduce the issue, it happens in really rare cases. The symptom is that
+>> the tap does not have any TX packets. RX is working fine. I see the packets coming in at
+>> the physical interface on the host, but they are not forwarded to the tap interface.
+>> The bridge itself has learnt the mac address of the vServer that is connected to the tap interface.
+>> It does not help to toggle the bridge link status,  the tap interface status or the interface in the vServer.
+>> It seems that problem occurs if a tap interface that has previously been used, but set to nonpersistent
+>> is set persistent again and then is by chance assigned to the same vServer (=same mac address on same
+>> bridge) again. Unfortunately it seems not to be reproducible.
+> 
+> Not sure but this patch from Michael Tsirkin may help - it solves an
+> issue with persistent tap devices:
+> 
+> http://patchwork.ozlabs.org/patch/198598/
 
-First my note is that I would like to have this kind of code never 
-placed in the stmmac_main. It should stay in the core part.
-Also I 'd like to avoid the Kconfig option where possible.
+Hi Stefan,
 
-At any rate, I'll come back with further details soon.
+thanks for the pointer. I have seen this patch, but I have neglected it because it was dealing
+with persistent taps. But maybe the taps in the kernel are not deleted directly. 
+Can you remember what the syptomps of the above issue have been? Sorry for
+being vague, but I currently have no clue whats going on.
 
-BR,
-Peppe
+Can someone who has more internal knowledge of the bridging/tap code say if qemu can
+be responsible at all if the tap device is not receiving packets from the bridge.
 
->
-> Signed-off-by: Byungho An <bh74.an@samsung.com>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   10 ++++++++++
->   1 file changed, 10 insertions(+)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index c6cdbc4..a719c87 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1037,6 +1037,7 @@ static int stmmac_open(struct net_device *dev)
->   {
->   	struct stmmac_priv *priv = netdev_priv(dev);
->   	int ret;
-> +	u32 value;
->
->   #ifdef CONFIG_STMMAC_TIMER
->   	priv->tm = kzalloc(sizeof(struct stmmac_timer *), GFP_KERNEL);
-> @@ -1088,6 +1089,15 @@ static int stmmac_open(struct net_device *dev)
->   	/* Initialize the MAC Core */
->   	priv->hw->mac->core_init(priv->ioaddr);
->
-> +	if (priv->phydev->interface == PHY_INTERFACE_MODE_SGMII) {
-> +		value = readl(priv->ioaddr);
-> +		/* GMAC_CONTROL_TC : transmit config in RGMII/SGMII */
-> +		value |= 0x1000000;
-> +		/* GMAC_CONTROL_PS : Port Selection for GMII */
-> +		value &= ~(0x8000);
-> +		writel(value, priv->ioaddr);
-> +	}
-> +
->   	/* Request the IRQ lines */
->   	ret = request_irq(dev->irq, stmmac_interrupt,
->   			 IRQF_SHARED, dev->name, dev);
->
+If I have the following config. Lets say packets coming in via physical interface eth1.123,
+and a bridge called br123.I further have a virtual machine with tap0. Both eth1.123
+and tap0 are member of br123. 
+
+If the issue occurs the vServer has no network connectivity inbound. If I sent a ping
+from the vServer I see it on tap0 and leaving on eth1.123. I see further the arp reply coming
+in via eth1.123, but the reply can't be seen on tap0.
+
+Peter
+
+> 
+> Stefan
