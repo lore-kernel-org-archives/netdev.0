@@ -1,105 +1,44 @@
-From: KINGDOM NELSON <kingdomnelson1@gmail.com>
-Subject: KINGDOM NELSON
-Date: Thu, 22 Nov 2012 22:48:07 -0800 (PST)
-Message-ID: <1353653287.86187.YahooMailClassic__5331.6633952365$1353653659$gmane$org@web5706.biz.mail.ne1.yahoo.com>
-Reply-To: nelson.kingdom@yahoo.com
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [Qemu-devel] tap devices not receiving packets from a bridge
+Date: Fri, 23 Nov 2012 08:02:11 +0100
+Message-ID: <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
+References: <50AE36E0.8000307@dlhnet.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="805399167-21125228-1353653287=:86187"
-To: undisclosed recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: "qemu-devel@nongnu.org" <qemu-devel@nongnu.org>,
+	netdev@vger.kernel.org
+To: Peter Lieven <pl@dlhnet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm35-vm0.bullet.mail.bf1.yahoo.com ([72.30.238.72]:26605 "EHLO
-	nm35-vm0.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932553Ab2KWGyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 01:54:04 -0500
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:53779 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932352Ab2KWHCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 02:02:15 -0500
+Received: by mail-bk0-f46.google.com with SMTP id q16so3695386bkw.19
+        for <netdev@vger.kernel.org>; Thu, 22 Nov 2012 23:02:13 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <50AE36E0.8000307@dlhnet.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---805399167-21125228-1353653287=:86187
-Content-Type: text/plain; charset=us-ascii
+On Thu, Nov 22, 2012 at 03:29:52PM +0100, Peter Lieven wrote:
+> is anyone aware of a problem with the linux network bridge that in very rare circumstances stops
+> a bridge from sending pakets to a tap device?
+> 
+> My problem occurs in conjunction with vanilla qemu-kvm-1.2.0 and Ubuntu Kernel 3.2.0-34.53
+> which is based on Linux 3.2.33.
+> 
+> I was not yet able to reproduce the issue, it happens in really rare cases. The symptom is that
+> the tap does not have any TX packets. RX is working fine. I see the packets coming in at
+> the physical interface on the host, but they are not forwarded to the tap interface.
+> The bridge itself has learnt the mac address of the vServer that is connected to the tap interface.
+> It does not help to toggle the bridge link status,  the tap interface status or the interface in the vServer.
+> It seems that problem occurs if a tap interface that has previously been used, but set to nonpersistent
+> is set persistent again and then is by chance assigned to the same vServer (=same mac address on same
+> bridge) again. Unfortunately it seems not to be reproducible.
 
+Not sure but this patch from Michael Tsirkin may help - it solves an
+issue with persistent tap devices:
 
---805399167-21125228-1353653287=:86187
-Content-Type: application/msword; name=KINGDOM
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="KINGDOM NELSON.rtf"
+http://patchwork.ozlabs.org/patch/198598/
 
-e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzEwMzN7XGZv
-bnR0Ymx7XGYwXGZzd2lzc1xmY2hhcnNldDAgQXJpYWw7fX0NCntcKlxnZW5l
-cmF0b3IgTXNmdGVkaXQgNS40MS4xNS4xNTA3O31cdmlld2tpbmQ0XHVjMVxw
-YXJkXGYwXGZzMjAgIEZST00gS0lOR0RPTSBORUxTT05ccGFyDQpHTEVORE9W
-RU4gRkFSTVMsIFpJTUJBQldFIERlYXIgUGFydG5lcixOYXR1cmFsbHksdGhp
-cyBsZXR0ZXIgd2lsbCBjb21lIHRvIHlvdSBhcyBhIHN1cnByaXNlIHNpbmNl
-IHdlIGhhdmUgbm90IG1ldCxwZXJtaXQgbWUgaG93ZXZlciB0byBpbnRyb2R1
-Y2UgbXlzZWxmLEkgYW0gS2luZ2RvbSBOZWxzb24sYSBibGFjayBaaW1iYWJ3
-ZWFuIGZhcm1lcixjdXJyZW50bHkgaW4gc291dGggYWZyaWNhIGFzIHJlZmZ1
-Z2UuIEkgdXNlZCB0byB3b3JrIGluIHRocmVlIHRvYmFjY28gZmFybXMgaW4g
-Q2hpcGluZ2UsYW5kIEkgd2FzIGFsc28gcGFydCBvd25lciBvZiB0aGVzZSBm
-YXJtcyB3aGljaCB3ZXJlIG93bmVkIGJ5IG15IGxhdGUgZmF0aGVyLiBJIGFt
-IGNvbnRhY3RpbmcgeW91IGFzIHRoZSBuZWVkIGZvciBtZSB0byBoYXZlIGEg
-Zm9yZWlnbiBwYXJ0bmVyIGluIHlvdXIgY291bnRyeSBoYXMgYmVjb21lIG5l
-Y2Vzc2FyeSBkdWUgdG8gbXkgcGxhbnMgdG8gcmVsb2NhdGUgdG8gdGhhdCBj
-b3VudHJ5IHNvIHRoYXQgSSBjYW4gcHVyY2hhc2Ugc29tZSBsYW5kIGFuZCBz
-dGFydCBmYXJtaW5nIGFsbCBvdmVyIGFnYWluLGFzIHRoZSBwcmVzZW50IHBv
-bGl0aWNhbCBpbnN0YWJpbGl0eSBpbiBaaW1iYWJ3ZSxkb2VzIG5vdCBlbmNv
-dXJhZ2UgZmluYW5jaWFsIGludmVzdG1lbnQgYXMgdGhlIGVudmlyb25tZW50
-IGlzIG5vIGxvbmdlciBjb25kdWNpdmUgZm9yIGZhcm1pbmcgaW52ZXN0bWVu
-dCBhbmQgbW9zdCBvZiBhbGwsc2VjdXJpdHkgaXMgbm90IGd1YXJhbnRlZWQs
-anVzdCBhcyByZXBvcnRlZCBieSBpbnRlcm5hdGlvbmFsIG1lZGlhLlRoaXMg
-cHJvYmxlbSBzdGFydGVkIHdoZW4gdGhlIFppbWJhYndlYW4gZ292ZXJubWVu
-dCB1bmRlciB0aGUgbGVhZGVyc2hpcCBvZiBQcmVzaWRlbnQgUm9iZXJ0IE11
-Z2FiZSBhbm5vdW5jZWQgYSBkZWNyZWUgb24gTWF5IDMxc3QgMjAwMCB0byBz
-ZWl6ZSBtb3JlIHRoYW44NDlccGFyDQp3aGl0ZS1vd25lZCBmYXJtcy5EdXJp
-bmcgdGhpcyBwZXJpb2QsYXMgcmVwb3J0ZWQgYnkgaW50ZXJuYXRpb25hbCBt
-ZWRpYSBhbmQgaGUgQ05OLG1vcmUgdGhhbiA2MDAgZmFybWVycyhpbmNsdWRp
-bmcgbXkgZmF0aGVyKSB3ZXJlIGtpbGxlZDsgdGhlIGdvdmVybm1lbnQgaXMg
-bm90IHN0b3BwaW5nIGF0IHRoaXMsIGFzIHRoZSBnb3Zlcm5tZW50IGhhcyBh
-bHJlYWR5IGFza2VkIGFsbCBmYXJtZXJzIHRvIGdpdmUgdXAgdGhlaXIgZmFy
-bXMgdG8gZ292ZXJubWVudCBvciByaXNrIGdvaW5nIHRvIHByaXNvbi5TbyBm
-YXIsbW9yZSB0aGFuIDEsNDAwIG93bmVkIGZhcm1zIGhhdmUgYmVlbiBpbnZh
-ZGVkIGFuZCBjb25maXNjYXRlZCxhcyB3ZWxsIGFzIGNsYWltaW5nIHRoZSBw
-cm9wZXJ0aWVzIG9mIHRoZSBmYXJtZXJzLiBBbHNvLGFib3V0IDEzMzMgZmFy
-bWVycyBhcnJlc3RlZCBmb3IgZGVmeWluZyB0aGUgb3JkZXJzIHRvIGxlYXZl
-IHRoZWlyIGZhcm1zIHVuZGVyIHRoZSBjb250cm92ZXJzaWFsIGxhbmQgcmVm
-b3JtIHByb2dyYW0gb2YgdGhlIGdvdmVybm1lbnQuIEhhdmluZyBsaXZlZCBp
-biB0aGlzIGNvdW50cnkgc291dGggYWZyaWNhIGZvciB5ZWFycyxBbSByZWZm
-dWdlIHNvbWUgeWVhcnMgdGhlcmVmb3JlLEkgZGVjaWRlZCB0byBjb250YWN0
-IHlvdSxmb3IgeW91ciBhc3Npc3RhbmNlLHNvIHRoYXQgSSBjYW4gZGl2ZXJ0
-IG15IGludGVyZXN0IGluIHNvdXRoIGFmcmljYSB0byBhIG1vcmUgc3RhYmxl
-IGNvdW50cnkgYXMgeW91cnMuIEFsc28sSSBtdXN0IHJlLWl0ZXJhdGUgdGhl
-IGltcG9ydGFuY2Ugb2YgaGF2aW5nIGEgY2l0aXplbiBvZiB5b3VyIGNvdW50
-cnkgdG8gZnJvbnQgb3IgbWUsc2luY2UgaSBpbnRlbmQgdG8gcHVyY2hhc2Ug
-c29tZSBsYW5kIGZvciBmYXJtaW5nLEkgZG8gbm90IGtub3cgbXVjaCBhYm91
-dCB5b3VyIGxhbmQtb3duZXJzaGlwIGxhd3MsSSB0aG91Z2h0IGl0IHdpc2Ug
-dG9ccGFyDQpzZWVrIHRoZSBoZWxwIG9mIGEgZm9yZWlnbmVyIHRvIGFjdCBh
-cyBwcm94eSBmb3IgbWUuRm9yIHRoaXMgcHVycG9zZSxJIGhhdmUgcHV0IGlu
-IGEgc2VjdXJpdHkgZGVwb3NpdCBhbGwgbW9uaWVzIGZyb20gdGhlIHNhbGUg
-b2YgbXkgZmFybWluZyBlcXVpcG1lbnQoaW5jbHVkaW5nIHRyYWN0b3JzIGV0
-YykgYW5kIGFsc28gYWxsIGZpbmFuY2lhbCBwcm9maXRzLkFsbCB0aGVzZSBh
-cmUgYSB0b3RhbCBvZiBVUyQxOC41bWlsbGlvbi5JIHdpbGwgdXBvbiByZWNl
-aXZpbmcgeW91ciBjb25zZW50IHByZXBhcmUgZXZlcnkgZG9jdW1lbnQgdG8g
-ZW5hYmxlIHlvdSByZWNlaXZlIHRoaXMgbW9uZXkgb24gbXkgYmVoYWxmLHBl
-bmRpbmcgbXkgYXJyaXZhbCB0byBtZWV0IHdpdGggeW91IGluIHlvdXIgY291
-bnRyeSBzbyB0aGF0IHdlIGNhbiBib3RoIG1ha2UgZnVydGhlciBhcnJhbmdl
-bWVudHMgd2l0aCByZWdhcmRzIHRvIHRoZSBwdXJjaGFzZSBvZiBsYW5kLkZv
-ciB5b3VyIGFzc2lzdGFuY2UgdG8gbWUseW91IHdpbGwgYmUgZW50aXRsZWQg
-dG8gYSBjb21taXNzaW9uIG9mIDE1JSBvZiB0aGUgdG90YWwgc3VtIHRoYXQg
-eW91IHdpbGwgYmUgcmVjZWl2aW5nIG9uIG15IGJlaGFsZiBmb3IgdGhlIGFi
-b3ZlIHB1cnBvc2UuSWYgeW91IGFyZSBpbnRlcmVzdGVkIGFuZCB3aWxsaW5n
-IHRvIGFzc2lzdCBtZSx5b3Ugc2hvdWxkIHBsZWFzZSBmb3J3YXJkIHRvIG1l
-IHRoZSBmb2xsb3dpbmcgaW5mb3JtYXRpb24gc28gdGhhdCBJIGNhbiByZWFj
-aCB5b3Ugb3IgY2FsbCBtZSBpbiB0aGlzIG51bWJlciArMjctNzg0MDIzMjA2
-IEkgd2lsbCB0ZWxsIHlvdSBtb3JlIGRldGFpbHMuIDEuIFlPVVIgQ09OVEFD
-VCBBRERSRVNTIDIuIFlPVVIgVEVMRVBIT05FIEFORCBGQVggTlVNQkVSLCAz
-LiBWQUxJRCBJRCBPRiBZT1VSU0VMRiwgSSBhbSB3YWl0aW5nIHVyZ2VudGx5
-IGZvciB5b3VyIHJlc3BvbnNlLHdoaWxlIGFsc29ccGFyDQpyZXF1ZXN0aW5n
-IHRoYXQgeW91IHRyZWF0IHRoaXMgbWF0dGVyIGluIHN0cmljdCBwcml2YWN5
-LkNoZWVycyBhbmQgR29kIGJsZXNzLiBJIHdpbGwgZ2l2ZSB5b3UgbW9yZSBk
-ZXRhaWxzIHdoZW4gaSBoZWFyIGZyb20geW91LllvdSBjYW4gY2xpY2sgb24g
-dGhlIGxpbmsgYmVsb3cgdG8gZ2V0IGEgYmV0dGVyIHVuZGVyc3RhbmRpbmcg
-bXkgc2l0dWF0aW9uIGFuZCB3aHkgaSBuZWVkIHRvIG1vdmUgb3V0IG15IG1v
-bmV5OiBodHRwOi8vbmV3cy5iYmMuY28udWsvMS9oaS93b3JsZC9hZnJpY2Ev
-MTA2ODUyOC5zdG0gQmVzdCBSZWdhcmRzXHBhcg0KXHBhcg0KS2luZ2RvbSBO
-ZWxzb25ccGFyDQpccGFyDQpccGFyDQpccGFyDQpccGFyDQpccGFyDQp9DQoA
-
-
---805399167-21125228-1353653287=:86187--
+Stefan
