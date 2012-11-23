@@ -1,56 +1,49 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
+From: Olivier Sobrie <olivier@sobrie.be>
 Subject: Re: [PATCH v2] kvaser_usb: fix "dma on the stack" errors
-Date: Fri, 23 Nov 2012 15:08:08 +0100
-Message-ID: <50AF8348.6080701@pengutronix.de>
-References: <20121123134027.GA32098@hposo> <1353678883-23136-1-git-send-email-olivier@sobrie.be>
+Date: Fri, 23 Nov 2012 15:16:00 +0100
+Message-ID: <20121123141600.GA27562@hposo>
+References: <20121123134027.GA32098@hposo>
+ <1353678883-23136-1-git-send-email-olivier@sobrie.be>
+ <50AF8348.6080701@pengutronix.de>
+Reply-To: Olivier Sobrie <olivier@sobrie.be>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig1AC991CBB89EAEC8B51EA79C"
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-can@vger.kernel.org, Wolfgang Grandegge <wg@grandegger.com>,
 	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Olivier Sobrie <olivier@sobrie.be>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1353678883-23136-1-git-send-email-olivier@sobrie.be>
+Content-Disposition: inline
+In-Reply-To: <50AF8348.6080701@pengutronix.de>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig1AC991CBB89EAEC8B51EA79C
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Fri, Nov 23, 2012 at 03:08:08PM +0100, Marc Kleine-Budde wrote:
+> On 11/23/2012 02:54 PM, Olivier Sobrie wrote:
+> > The dma buffer given to usb_bulk_msg() must be allocated and not on
+> > the stack.
+> > See Documentation/DMA-API-HOWTO.txt section "What memory is DMA'able?"
+> > 
+> > Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+> 
+> Thanks, I've squashed it into the original patch and pushed to
+> linux-can-next/for-davem
 
-On 11/23/2012 02:54 PM, Olivier Sobrie wrote:
-> The dma buffer given to usb_bulk_msg() must be allocated and not on
-> the stack.
-> See Documentation/DMA-API-HOWTO.txt section "What memory is DMA'able?"
->=20
-> Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+Ok thanks.
+Have a good week-end,
 
-Thanks, I've squashed it into the original patch and pushed to
-linux-can-next/for-davem
+Olivier
 
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+> 
+> Marc
+> 
+> -- 
+> Pengutronix e.K.                  | Marc Kleine-Budde           |
+> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+> 
 
 
---------------enig1AC991CBB89EAEC8B51EA79C
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with undefined - http://www.enigmail.net/
-
-iEYEARECAAYFAlCvg0wACgkQjTAFq1RaXHOZpgCeOdVwenQnGJpid/M8jLfag6/i
-LfcAoIt0AobHXJbhN1KSZUALHqmGjvPE
-=y2c8
------END PGP SIGNATURE-----
-
---------------enig1AC991CBB89EAEC8B51EA79C--
+-- 
+Olivier
