@@ -1,116 +1,401 @@
-From: Peter Lieven <pl@dlhnet.de>
-Subject: Re: [Qemu-devel] tap devices not receiving packets from a bridge
-Date: Fri, 23 Nov 2012 12:02:19 +0100
-Message-ID: <FCB0B287-87C9-4EC2-ADF7-88DE07B258D4@dlhnet.de>
-References: <50AE36E0.8000307@dlhnet.de> <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home> <E85C6011-548D-4507-A776-1028DD3E3515@dlhnet.de> <20121123110146.GC7051@redhat.com>
-Mime-Version: 1.0 (Apple Message framework v1283)
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv5] virtio-spec: virtio network device RFS support
+Date: Fri, 23 Nov 2012 14:05:10 +0200
+Message-ID: <20121123120509.GA8463@redhat.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Stefan Hajnoczi <stefanha@gmail.com>, qemu-devel@nongnu.org,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: rusty@rustcorp.com.au, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ssl.dlhnet.de ([91.198.192.8]:54580 "EHLO ssl.dlh.net"
+Received: from mx1.redhat.com ([209.132.183.28]:4876 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754452Ab2KWLCQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 06:02:16 -0500
-In-Reply-To: <20121123110146.GC7051@redhat.com>
+	id S1752169Ab2KWMC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2012 07:02:27 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add RFS support to virtio network device.
+Add a new feature flag VIRTIO_NET_F_RFS for this feature, a new
+configuration field max_virtqueue_pairs to detect supported number of
+virtqueues as well as a new command VIRTIO_NET_CTRL_RFS to program
+packet steering for unidirectional protocols.
 
-Am 23.11.2012 um 12:01 schrieb Michael S. Tsirkin:
+---
 
-> On Fri, Nov 23, 2012 at 10:41:21AM +0100, Peter Lieven wrote:
->> 
->> Am 23.11.2012 um 08:02 schrieb Stefan Hajnoczi:
->> 
->>> On Thu, Nov 22, 2012 at 03:29:52PM +0100, Peter Lieven wrote:
->>>> is anyone aware of a problem with the linux network bridge that in very rare circumstances stops
->>>> a bridge from sending pakets to a tap device?
->>>> 
->>>> My problem occurs in conjunction with vanilla qemu-kvm-1.2.0 and Ubuntu Kernel 3.2.0-34.53
->>>> which is based on Linux 3.2.33.
->>>> 
->>>> I was not yet able to reproduce the issue, it happens in really rare cases. The symptom is that
->>>> the tap does not have any TX packets. RX is working fine. I see the packets coming in at
->>>> the physical interface on the host, but they are not forwarded to the tap interface.
->>>> The bridge itself has learnt the mac address of the vServer that is connected to the tap interface.
->>>> It does not help to toggle the bridge link status,  the tap interface status or the interface in the vServer.
->>>> It seems that problem occurs if a tap interface that has previously been used, but set to nonpersistent
->>>> is set persistent again and then is by chance assigned to the same vServer (=same mac address on same
->>>> bridge) again. Unfortunately it seems not to be reproducible.
->>> 
->>> Not sure but this patch from Michael Tsirkin may help - it solves an
->>> issue with persistent tap devices:
->>> 
->>> http://patchwork.ozlabs.org/patch/198598/
->> 
->> Hi Stefan,
->> 
->> thanks for the pointer. I have seen this patch, but I have neglected it because it was dealing
->> with persistent taps. But maybe the taps in the kernel are not deleted directly. 
->> Can you remember what the syptomps of the above issue have been? Sorry for
->> being vague, but I currently have no clue whats going on.
->> 
->> Can someone who has more internal knowledge of the bridging/tap code say if qemu can
->> be responsible at all if the tap device is not receiving packets from the bridge.
->> 
->> If I have the following config. Lets say packets coming in via physical interface eth1.123,
->> and a bridge called br123.I further have a virtual machine with tap0. Both eth1.123
->> and tap0 are member of br123. 
->> 
->> If the issue occurs the vServer has no network connectivity inbound. If I sent a ping
->> from the vServer I see it on tap0 and leaving on eth1.123. I see further the arp reply coming
->> in via eth1.123, but the reply can't be seen on tap0.
->> 
->> Peter
-> 
-> If guest is not consuming packets, a TX queue in tap device
-> will with time overrun (there's space for 1000 packets there).
-> This is code from tun:
+Changes from v4:
+- address Jason's comments
+- have configuration specify the number of VQ pairs and not pairs - 1
 
->From what I remember there where zero TX packets and no TX errors
-on the device.
+Changes from v3:
+- rename multiqueue -> rfs this is what we support
+- Be more explicit about what driver should do.
+- Simplify layout making VQs functionality depend on feature.
+- Remove unused commands, only leave in programming # of queues
 
-Might it be that this queue is somehow not cleared correctly when
-the device is reassigned (although it was nonpersistant in between).
+Changes from v2:
+Address Jason's comments on v2:
+- Changed STEERING_HOST to STEERING_RX_FOLLOWS_TX:
+   this is both clearer and easier to support.
+   It does not look like we need a separate steering command
+   since host can just watch tx packets as they go.
+- Moved RX and TX steering sections near each other.
+- Add motivation for other changes in v2
 
-Thank you,
-Peter
+Changes from Jason's rfc:
+- reserved vq 3: this makes all rx vqs even and tx vqs odd, which
+   looks nicer to me.
+- documented packet steering, added a generalized steering programming
+   command. Current modes are single queue and host driven multiqueue,
+   but I envision support for guest driven multiqueue in the future.
+- make default vqs unused when in mq mode - this wastes some memory
+   but makes it more efficient to switch between modes as
+   we can avoid this causing packet reordering.
 
-> 
->        if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
->> = dev->tx_queue_len / tun->numqueues){
->                if (!(tun->flags & TUN_ONE_QUEUE)) {
->                        /* Normal queueing mode. */
->                        /* Packet scheduler handles dropping of further
-> * packets. */
->                        netif_stop_subqueue(dev, txq);
-> 
->                        /* We won't see all dropped packets
-> * individually, so overrun
->                         * error is more appropriate. */
->                        dev->stats.tx_fifo_errors++;
-> 
-> 
-> So you can detect that this triggered by looking at fifo errors counter in device.
-> 
-> Once this happens TX queue is stopped, then you hit this path:
-> 
->                        if (!netif_xmit_stopped(txq)) {
->                                __this_cpu_inc(xmit_recursion);
->                                rc = dev_hard_start_xmit(skb, dev, txq);
->                                __this_cpu_dec(xmit_recursion);
->                                if (dev_xmit_complete(rc)) {
->                                        HARD_TX_UNLOCK(dev, txq);
->                                        goto out;
->                                }
->                        }
-> 
-> so packets are not passed to device anymore.
-> It will stay this way until guest consumes some packets and
-> queue is restarted.
-> 
->>> 
->>> Stefan
+Rusty, could you please take a look and comment soon?
+If this looks OK to everyone, we can proceed with finalizing the
+implementation. Would be nice to try and put it in 3.8.
+
+diff --git a/virtio-spec.lyx b/virtio-spec.lyx
+index d2f0da9..53ddeec 100644
+--- a/virtio-spec.lyx
++++ b/virtio-spec.lyx
+@@ -59,6 +59,7 @@
+ \author -608949062 "Rusty Russell,,," 
+ \author -385801441 "Cornelia Huck" cornelia.huck@de.ibm.com
+ \author 1531152142 "Paolo Bonzini,,," 
++\author 1986246365 "Michael S. Tsirkin"
+ \end_header
+ 
+ \begin_body
+@@ -4170,9 +4171,42 @@ ID 1
+ \end_layout
+ 
+ \begin_layout Description
+-Virtqueues 0:receiveq.
+- 1:transmitq.
+- 2:controlq
++Virtqueues 0:receiveq
++\change_inserted 1986246365 1352742829
++0
++\change_unchanged
++.
++ 1:transmitq
++\change_inserted 1986246365 1352742832
++0
++\change_deleted 1986246365 1352742947
++.
++
++\change_inserted 1986246365 1352742952
++.
++ ....
++ 2N
++\begin_inset Foot
++status open
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1352743187
++N=0 if VIRTIO_NET_F_RFS is not negotiated, otherwise N is indicated by max_
++\emph on
++virtqueue_pairs control
++\emph default
++ field.
++
++\end_layout
++
++\end_inset
++
++: receivqN.
++ 2N+1: transmitqN.
++ 2N+
++\change_unchanged
++2:controlq
+ \begin_inset Foot
+ status open
+ 
+@@ -4343,6 +4377,16 @@ VIRTIO_NET_F_CTRL_VLAN
+ 
+ \begin_layout Description
+ VIRTIO_NET_F_GUEST_ANNOUNCE(21) Guest can send gratuitous packets.
++\change_inserted 1986246365 1352742767
++
++\end_layout
++
++\begin_layout Description
++
++\change_inserted 1986246365 1352742808
++VIRTIO_NET_F_RFS(22) Device supports Receive Flow Steering.
++\change_unchanged
++
+ \end_layout
+ 
+ \end_deeper
+@@ -4355,11 +4399,45 @@ configuration
+ \begin_inset space ~
+ \end_inset
+ 
+-layout Two configuration fields are currently defined.
++layout
++\change_deleted 1986246365 1352743300
++Two
++\change_inserted 1986246365 1352743301
++Four
++\change_unchanged
++ configuration fields are currently defined.
+  The mac address field always exists (though is only valid if VIRTIO_NET_F_MAC
+  is set), and the status field only exists if VIRTIO_NET_F_STATUS is set.
+  Two read-only bits are currently defined for the status field: VIRTIO_NET_S_LIN
+ K_UP and VIRTIO_NET_S_ANNOUNCE.
++
++\change_inserted 1986246365 1353595219
++ The following read-only field,
++\emph on
++max_virtqueue_pairs
++\emph default
++ only exists if VIRTIO_NET_F_RFS is set.
++ This field specifies the maximum number of each of transmit and receive
++ virtqueues (receiveq0..receiveq
++\emph on
++N
++\emph default
++ and transmitq0..transmitq
++\emph on
++N
++\emph default
++ respectively;
++\emph on
++N
++\emph default
++=
++\emph on
++max_virtqueue_pairs - 1
++\emph default
++) that can be configured once VIRTIO_NET_F_RFS is negotiated.
++Legal values for this field are 1 to 8000h.
++
++\change_unchanged
+  
+ \begin_inset listings
+ inline false
+@@ -4410,7 +4488,24 @@ Device Initialization
+ 
+ \begin_layout Enumerate
+ The initialization routine should identify the receive and transmission
+- virtqueues.
++ virtqueues
++\change_inserted 1986246365 1352744077
++, up to N+1 of each kind
++\change_unchanged
++.
++
++\change_inserted 1986246365 1352743942
++ If VIRTIO_NET_F_RFS feature bit is negotiated, 
++\emph on
++N=max_virtqueue_pairs-1
++\emph default
++, otherwise identify 
++\emph on
++N=0
++\emph default
++.
++\change_unchanged
++
+ \end_layout
+ 
+ \begin_layout Enumerate
+@@ -4455,7 +4550,11 @@ status
+ \end_layout
+ 
+ \begin_layout Enumerate
+-The receive virtqueue should be filled with receive buffers.
++The receive virtqueue
++\change_inserted 1986246365 1352743953
++s
++\change_unchanged
++ should be filled with receive buffers.
+  This is described in detail below in 
+ \begin_inset Quotes eld
+ \end_inset
+@@ -4550,8 +4649,15 @@ Device Operation
+ \end_layout
+ 
+ \begin_layout Standard
+-Packets are transmitted by placing them in the transmitq, and buffers for
+- incoming packets are placed in the receiveq.
++Packets are transmitted by placing them in the transmitq
++\change_inserted 1986246365 1353593685
++0..transmitqN
++\change_unchanged
++, and buffers for incoming packets are placed in the receiveq
++\change_inserted 1986246365 1353593692
++0..receiveqN
++\change_unchanged
++.
+  In each case, the packet itself is preceeded by a header:
+ \end_layout
+ 
+@@ -4861,6 +4967,17 @@ If VIRTIO_NET_F_MRG_RXBUF is negotiated, each buffer must be at least the
+ struct virtio_net_hdr
+ \family default
+ .
++\change_inserted 1986246365 1353594518
++
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1353594638
++If VIRTIO_NET_F_RFS is negotiated, each of the receiveq0...receiveqN that will
++ be used should be populated with receive buffers.
++\change_unchanged
++
+ \end_layout
+ 
+ \begin_layout Subsection*
+@@ -5293,8 +5410,143 @@ Sending VIRTIO_NET_CTRL_ANNOUNCE_ACK command through control vq.
+  
+ \end_layout
+ 
+-\begin_layout Enumerate
++\begin_layout Subsection*
++
++\change_inserted 1986246365 1353593879
++Packet Receive Flow Steering
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1353594403
++If the driver negotiates the VIRTIO_NET_F_RFS (depends on VIRTIO_NET_F_CTRL_VQ),
++ it can transmit outgoing packets on one of the multiple transmitq0..transmitqN
++ and ask the device to queue incoming packets into one the multiple receiveq0..rec
++eiveqN depending on the packet flow.
++\change_unchanged
++
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1353594292
++\begin_inset listings
++inline false
++status open
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594178
++
++struct virtio_net_ctrl_rfs {
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594212
++
++	u16 virtqueue_pairs;
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594172
++
++};
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594172
++
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594263
++
++#define VIRTIO_NET_CTRL_RFS    1
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594273
++
++ #define VIRTIO_NET_CTRL_RFS_VQ_PAIRS_SET        0 
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594273
++
++ #define VIRTIO_NET_CTRL_RFS_VQ_PAIRS_MIN        1 
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594273
++
++ #define VIRTIO_NET_CTRL_RFS_VQ_PAIRS_MAX        0x8000
++\end_layout
++\end_inset
++
++
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1353594884
++RFS acceleration is disabled by default.
++ Driver enables RFS by executing the VIRTIO_NET_CTRL_RFS_VQ_PAIRS_SET command,
++ specifying the number of the transmit and receive queues that is going
++ to be used; thus out of transmitq0..transmitqn and receiveq0..receiveqn where
++ 
++\emph on
++n=virtqueue_pairs-1
++\emph default
++ will be used.
++ All these virtqueues must have been pre-configured in advance.
++ The range of legal values for the
++\emph on
++ virtqueue_pairs
++\emph off
++ field is between 1 and 8000h.
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1353595328
++Programming of the receive flow classificator is implicit.
++ Transmitting a packet of a specific flow on transmitqX will cause incoming
++ packets for this flow to be steered to receiveqX.
++ For uni-directional protocols, or where no packets have been transmitted
++ yet, device will steer a packet to a random queue out of the specified
++ receiveq0..receiveqn.
++\change_unchanged
++
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1353595040
++RFS acceleration is disabled by setting 
++\emph on
++virtqueue_pairs = 1
++\emph default
++ (this is the default).
++ Following this, driver should not transmit new packets on virtqueues other
++ than transmitq0 and device will not steer new packets on virtqueues other
++ than receiveq0.
++\change_unchanged
++
++\end_layout
++
++\begin_layout Standard
++
++\change_deleted 1986246365 1353593873
+ .
++
++\change_unchanged
+  
+ \end_layout
+ 
