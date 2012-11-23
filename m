@@ -1,49 +1,32 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: Re: [PATCH v2] kvaser_usb: fix "dma on the stack" errors
-Date: Fri, 23 Nov 2012 15:16:00 +0100
-Message-ID: <20121123141600.GA27562@hposo>
-References: <20121123134027.GA32098@hposo>
- <1353678883-23136-1-git-send-email-olivier@sobrie.be>
- <50AF8348.6080701@pengutronix.de>
-Reply-To: Olivier Sobrie <olivier@sobrie.be>
+From: "Mercy Stokes" <mercy5love5@yahoo.de>
+Subject: Hello my dear
+Date: Fri, 23 Nov 2012 15:10:10 +0100
+Message-ID: <20121123140826.M62723@yahoo.de>
+Reply-To: mercy5love5@yahoo.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-can@vger.kernel.org, Wolfgang Grandegge <wg@grandegger.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <50AF8348.6080701@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=euc-jp
+To: mercy5love5@yahoo.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [163.20.79.129] ([163.20.79.129]:3819 "EHLO
+	freebsd.ccyes.ntpc.edu.tw" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1752749Ab2KWOa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 09:30:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 23, 2012 at 03:08:08PM +0100, Marc Kleine-Budde wrote:
-> On 11/23/2012 02:54 PM, Olivier Sobrie wrote:
-> > The dma buffer given to usb_bulk_msg() must be allocated and not on
-> > the stack.
-> > See Documentation/DMA-API-HOWTO.txt section "What memory is DMA'able?"
-> > 
-> > Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
-> 
-> Thanks, I've squashed it into the original patch and pushed to
-> linux-can-next/for-davem
+Hello my dear
 
-Ok thanks.
-Have a good week-end,
+My name is Mercy.
+I saw your email address when i was browsing through the internet searching
+for honest partner.
+I want us to be friends and to know more about each other.
+Please contact me back through my email address so that i can
+send my picture to you and also tell you more about myself.
+I believe that age, distance or color doesn't matter in a Serious relationship
+but love matters most.
+I will be waiting to hear from you soon.
+Thanks for your understanding.
 
-Olivier
-
-> 
-> Marc
-> 
-> -- 
-> Pengutronix e.K.                  | Marc Kleine-Budde           |
-> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-> 
-
-
-
--- 
-Olivier
+With love from,
+Mercy.
