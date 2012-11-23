@@ -1,28 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 v2] net: add micrel KSZ8873MLL switch support
-Date: Fri, 23 Nov 2012 14:30:04 -0500 (EST)
-Message-ID: <20121123.143004.441200290993567228.davem@davemloft.net>
-References: <1353493630-30867-1-git-send-email-plagnioj@jcrosoft.com>
-	<1353512287-24048-1-git-send-email-plagnioj@jcrosoft.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/1 v2] asix: use ramdom hw addr if the one read is not
+ valid
+Date: Fri, 23 Nov 2012 14:30:23 -0500 (EST)
+Message-ID: <20121123.143023.363645682831291797.davem@davemloft.net>
+References: <1353493362-30418-1-git-send-email-plagnioj@jcrosoft.com>
+	<1353569717-1260-1-git-send-email-plagnioj@jcrosoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: plagnioj@jcrosoft.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49564 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407Ab2KWTaH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Nov 2012 14:30:07 -0500
-In-Reply-To: <1353512287-24048-1-git-send-email-plagnioj@jcrosoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1353569717-1260-1-git-send-email-plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Date: Wed, 21 Nov 2012 16:38:07 +0100
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
+Date: Thu, 22 Nov 2012 08:35:17 +0100
 
-> this will allow to detect the link between the switch and the soc
-> 
-> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>
 
 Applied to net-next.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
