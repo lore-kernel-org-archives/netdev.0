@@ -1,44 +1,48 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC net-next PATCH V1 1/9] net: frag evictor, avoid killing
- warm frag queues
-Date: Sat, 24 Nov 2012 12:36:52 +0100
-Message-ID: <1353757012.11754.110.camel@localhost>
-References: <20121123130749.18764.25962.stgit@dragon>
-	 <20121123130806.18764.41854.stgit@dragon>
-	 <20121123195815.GA32625@breakpoint.cc>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: [PATCH] ewrk3: silence GCC warning
+Date: Sat, 24 Nov 2012 13:12:45 +0100
+Message-ID: <1353759165.1420.33.camel@x61.thuisdomein>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11450 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751183Ab2KXLjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 24 Nov 2012 06:39:09 -0500
-In-Reply-To: <20121123195815.GA32625@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-11-23 at 20:58 +0100, Florian Westphal wrote:
-> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> > +// TODO: Idea what about also looking at flag INET_FRAG_FIRST_IN
-> > +// just as safe-guard against frags with a dropped "head" packet
-> > +		if (!force && q->creation_ts == (u32) jiffies) {
-> 
-> I think we should not rely on head fragment arriving first.
+Building ewrk3.o triggers this GCC warning:
+    drivers/net/ethernet/dec/ewrk3.c: In function '__check_irq':
+    drivers/net/ethernet/dec/ewrk3.c:1915:1: warning: return from incompatible pointer type [enabled by default]
 
-Good point.  Lets keep the current approach.
+This can be trivially fixed by changing the 'irq' parameter from int to
+byte (which is the alias for unsigned char for module parameters).
 
+While we're touching this code also drop an outdated comment, that
+should have been dropped with the patch named "MODULE_PARM conversions"
+from early 2005.
+
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
+---
+Compile tested only.
+
+ drivers/net/ethernet/dec/ewrk3.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/dec/ewrk3.c b/drivers/net/ethernet/dec/ewrk3.c
+index 17ae8c6..9f992b9 100644
+--- a/drivers/net/ethernet/dec/ewrk3.c
++++ b/drivers/net/ethernet/dec/ewrk3.c
+@@ -1910,9 +1910,8 @@ static struct net_device *ewrk3_devs[MAX_NUM_EWRK3S];
+ static int ndevs;
+ static int io[MAX_NUM_EWRK3S+1] = { 0x300, 0, };
+ 
+-/* '21' below should really be 'MAX_NUM_EWRK3S' */
+ module_param_array(io, int, NULL, 0);
+-module_param_array(irq, int, NULL, 0);
++module_param_array(irq, byte, NULL, 0);
+ MODULE_PARM_DESC(io, "EtherWORKS 3 I/O base address(es)");
+ MODULE_PARM_DESC(irq, "EtherWORKS 3 IRQ number(s)");
+ 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+1.7.7.6
