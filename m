@@ -1,69 +1,80 @@
 From: Sven Eckelmann <sven@narfation.org>
-Subject: [PATCH 2/7] batman-adv: Move deinitialization of soft-interface to destructor
-Date: Sat, 24 Nov 2012 01:02:07 +0100
-Message-ID: <1353715332-4284-2-git-send-email-sven@narfation.org>
+Subject: [PATCH 5/7] batman-adv: Allow to postpone softif unregistration
+Date: Sat, 24 Nov 2012 01:02:10 +0100
+Message-ID: <1353715332-4284-5-git-send-email-sven@narfation.org>
 References: <1353715332-4284-1-git-send-email-sven@narfation.org>
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	Sven Eckelmann <sven@narfation.org>
 To: b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:40429 "EHLO v3-1039.vlinux.de"
+Received: from narfation.org ([79.140.41.39]:40441 "EHLO v3-1039.vlinux.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932322Ab2KXACV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Nov 2012 19:02:21 -0500
+	id S932348Ab2KXACW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Nov 2012 19:02:22 -0500
 In-Reply-To: <1353715332-4284-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The deinitialization of the soft-interface created in ndo_init/constructor
-should be done in the destructor and not directly before calling
-unregister_netdevice
+The caller of batadv_softif_destroy may want to postpone the unregistration of
+the soft-interface. This is necessary when the rtnl_link configuration hooks
+are used.
 
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 ---
- net/batman-adv/soft-interface.c |   15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+ net/batman-adv/hard-interface.c |    2 +-
+ net/batman-adv/soft-interface.c |    5 +++--
+ net/batman-adv/soft-interface.h |    3 ++-
+ 3 files changed, 6 insertions(+), 4 deletions(-)
 
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index daeb632..5e2655d 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -447,7 +447,7 @@ void batadv_hardif_disable_interface(struct batadv_hard_iface *hard_iface,
+ 
+ 	/* nobody uses this interface anymore */
+ 	if (!bat_priv->num_ifaces && autodel == BATADV_IF_CLEANUP_AUTO)
+-		batadv_softif_destroy(hard_iface->soft_iface);
++		batadv_softif_destroy(hard_iface->soft_iface, NULL);
+ 
+ 	hard_iface->soft_iface = NULL;
+ 	batadv_hardif_free_ref(hard_iface);
 diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index b545595..8467b9f 100644
+index 5fd0560..68832f5 100644
 --- a/net/batman-adv/soft-interface.c
 +++ b/net/batman-adv/soft-interface.c
-@@ -487,6 +487,17 @@ static const struct net_device_ops batadv_netdev_ops = {
- 	.ndo_validate_addr = eth_validate_addr
- };
- 
-+/**
-+ * batadv_interface_free - Deconstructor of batadv_soft_interface
-+ * @dev: Device to cleanup and remove
-+ */
-+static void batadv_interface_free(struct net_device *dev)
-+{
-+	batadv_debugfs_del_meshif(dev);
-+	batadv_mesh_free(dev);
-+	free_netdev(dev);
-+}
-+
- static void batadv_interface_setup(struct net_device *dev)
- {
- 	struct batadv_priv *priv = netdev_priv(dev);
-@@ -494,7 +505,7 @@ static void batadv_interface_setup(struct net_device *dev)
- 	ether_setup(dev);
- 
- 	dev->netdev_ops = &batadv_netdev_ops;
--	dev->destructor = free_netdev;
-+	dev->destructor = batadv_interface_free;
- 	dev->tx_queue_len = 0;
- 
- 	/* can't call min_mtu, because the needed variables
-@@ -535,9 +546,7 @@ struct net_device *batadv_softif_create(const char *name)
- 
- void batadv_softif_destroy(struct net_device *soft_iface)
- {
--	batadv_debugfs_del_meshif(soft_iface);
- 	batadv_sysfs_del_meshif(soft_iface);
--	batadv_mesh_free(soft_iface);
- 	unregister_netdevice(soft_iface);
+@@ -544,7 +544,8 @@ struct net_device *batadv_softif_create(const char *name)
+ 	return soft_iface;
  }
  
+-void batadv_softif_destroy(struct net_device *soft_iface)
++void batadv_softif_destroy(struct net_device *soft_iface,
++			   struct list_head *head)
+ {
+ 	struct batadv_hard_iface *hard_iface;
+ 
+@@ -555,7 +556,7 @@ void batadv_softif_destroy(struct net_device *soft_iface)
+ 	}
+ 
+ 	batadv_sysfs_del_meshif(soft_iface);
+-	unregister_netdevice(soft_iface);
++	unregister_netdevice_queue(soft_iface, head);
+ }
+ 
+ int batadv_softif_is_valid(const struct net_device *net_dev)
+diff --git a/net/batman-adv/soft-interface.h b/net/batman-adv/soft-interface.h
+index 07a08fe..fe9b0f7 100644
+--- a/net/batman-adv/soft-interface.h
++++ b/net/batman-adv/soft-interface.h
+@@ -25,7 +25,8 @@ void batadv_interface_rx(struct net_device *soft_iface,
+ 			 struct sk_buff *skb, struct batadv_hard_iface *recv_if,
+ 			 int hdr_size, struct batadv_orig_node *orig_node);
+ struct net_device *batadv_softif_create(const char *name);
+-void batadv_softif_destroy(struct net_device *soft_iface);
++void batadv_softif_destroy(struct net_device *soft_iface,
++			   struct list_head *head);
+ int batadv_softif_is_valid(const struct net_device *net_dev);
+ 
+ #endif /* _NET_BATMAN_ADV_SOFT_INTERFACE_H_ */
 -- 
 1.7.10.4
