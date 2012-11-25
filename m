@@ -1,35 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atm: br2684: Fix excessive queue bloat
-Date: Sun, 25 Nov 2012 16:09:33 -0500 (EST)
-Message-ID: <20121125.160933.2139090715980641530.davem@davemloft.net>
-References: <1353715292.26346.237.camel@shinybook.infradead.org>
+Subject: Re: [PATCH V2 resend] net: dsa/slave: Fix compilation warnings
+Date: Sun, 25 Nov 2012 16:12:22 -0500 (EST)
+Message-ID: <20121125.161222.556166144789386280.davem@davemloft.net>
+References: <ecc711bf44722707f57188ee953bbde2f1e20c8c.1353736229.git.viresh.kumar@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, blogic@openwrt.org, dave.taht@gmail.com,
-	krzysiek@podlesie.net, chas@cmf.nrl.navy.mil
-To: dwmw2@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40734 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753390Ab2KYVJi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2012 16:09:38 -0500
-In-Reply-To: <1353715292.26346.237.camel@shinybook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bhutchings@solarflare.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linaro-dev@lists.linaro.org,
+	linux-kernel@vger.kernel.org, patches@linaro.org
+To: viresh.kumar@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ecc711bf44722707f57188ee953bbde2f1e20c8c.1353736229.git.viresh.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Sat, 24 Nov 2012 00:01:32 +0000
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Date: Sat, 24 Nov 2012 11:23:54 +0530
 
-> +	/* Allow two packets in the ATM queue. One actually being sent, and one
-> +	   for the ATM 'TX done' handler to send. It shouldn't take long to get
-> +	   the next one from the netdev queue, when we need it. More than that
-> +	   would be bufferbloat. */
+> Currently when none of CONFIG_NET_DSA_TAG_DSA, CONFIG_NET_DSA_TAG_EDSA and
+> CONFIG_NET_DSA_TAG_TRAILER is defined, we get following compilation warnings:
+> 
+> net/dsa/slave.c:51:12: warning: 'dsa_slave_init' defined but not used [-Wunused-function]
+> net/dsa/slave.c:60:12: warning: 'dsa_slave_open' defined but not used [-Wunused-function]
+> net/dsa/slave.c:98:12: warning: 'dsa_slave_close' defined but not used [-Wunused-function]
+> net/dsa/slave.c:116:13: warning: 'dsa_slave_change_rx_flags' defined but not used [-Wunused-function]
+> net/dsa/slave.c:127:13: warning: 'dsa_slave_set_rx_mode' defined but not used [-Wunused-function]
+> net/dsa/slave.c:136:12: warning: 'dsa_slave_set_mac_address' defined but not used [-Wunused-function]
+> net/dsa/slave.c:164:12: warning: 'dsa_slave_ioctl' defined but not used [-Wunused-function]
+> 
+> Earlier approach to fix this was discussed here:
+> 
+> lkml.org/lkml/2012/10/29/549
+> 
+> This is another approach to fix it. This is done by some changes in config
+> options, which make more sense than the earlier approach. As, atleast one
+> tagging option must always be selected for using net/dsa/ infrastructure, this
+> patch selects NET_DSA from tagging configs instead of having it as an selectable
+> config.
+> 
+> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
 
-Please format this:
-
-	/* Like
-	 * this.
-	 */
-
-and I'll apply this, thanks.
+Applied to net-next, thanks.
