@@ -1,31 +1,51 @@
-From: richard -rw- weinberger <richard.weinberger@gmail.com>
-Subject: Re: [PATCH] ewrk3: silence GCC warning
-Date: Sun, 25 Nov 2012 11:45:43 +0100
-Message-ID: <CAFLxGvyfH3WdNpsGzV2OgvyT_8hu4U03+HEuv3u9DvSkOmNBtA@mail.gmail.com>
-References: <1353759165.1420.33.camel@x61.thuisdomein>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH] net: qmi_wwan: add Huawei E173
+Date: Sun, 25 Nov 2012 17:03:59 +0100
+Message-ID: <1353859439-18260-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1353759165.1420.33.camel@x61.thuisdomein>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org,
+	=?UTF-8?q?Thomas=20Sch=C3=A4fer?= <tschaefer@t-online.de>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:57024 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753098Ab2KYQEN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Nov 2012 11:04:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Nov 24, 2012 at 1:12 PM, Paul Bolle <pebolle@tiscali.nl> wrote:
-> Building ewrk3.o triggers this GCC warning:
->     drivers/net/ethernet/dec/ewrk3.c: In function '__check_irq':
->     drivers/net/ethernet/dec/ewrk3.c:1915:1: warning: return from incompatible pointer type [enabled by default]
->
-> This can be trivially fixed by changing the 'irq' parameter from int to
-> byte (which is the alias for unsigned char for module parameters).
->
-> While we're touching this code also drop an outdated comment, that
-> should have been dropped with the patch named "MODULE_PARM conversions"
-> from early 2005.
+The Huawei E173 is a QMI/wwan device which normally appear
+as 12d1:1436 in Linux. The descriptors displayed in that
+mode will be picked up by cdc_ether.  But the modem has
+another mode with a different device ID and a slightly
+different set of descriptors. This is the mode used by
+Windows like this:
 
-Please send this change as an additional patch.
+3Modem:      USB\VID_12D1&PID_140C&MI_00\6&3A1D2012&0&0000
+Networkcard: USB\VID_12D1&PID_140C&MI_01\6&3A1D2012&0&0001
+Appli.Inter: USB\VID_12D1&PID_140C&MI_02\6&3A1D2012&0&0002
+PC UI Inter: USB\VID_12D1&PID_140C&MI_03\6&3A1D2012&0&0003
 
--- 
-Thanks,
-//richard
+Reported-by: Thomas Sch=C3=A4fer <tschaefer@t-online.de>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+---
+ drivers/net/usb/qmi_wwan.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 3b566fa..1ea91f4 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -385,6 +385,7 @@ static const struct usb_device_id products[] =3D {
+ 	},
+=20
+ 	/* 3. Combined interface devices matching on interface number */
++	{QMI_FIXED_INTF(0x12d1, 0x140c, 1)},	/* Huawei E173 */
+ 	{QMI_FIXED_INTF(0x19d2, 0x0002, 1)},
+ 	{QMI_FIXED_INTF(0x19d2, 0x0012, 1)},
+ 	{QMI_FIXED_INTF(0x19d2, 0x0017, 3)},
+--=20
+1.7.10.4
