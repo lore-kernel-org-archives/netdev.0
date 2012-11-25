@@ -1,51 +1,38 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] net: qmi_wwan: add Huawei E173
-Date: Sun, 25 Nov 2012 17:03:59 +0100
-Message-ID: <1353859439-18260-1-git-send-email-bjorn@mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC net-next PATCH V1 0/9] net: fragmentation performance
+ scalability on NUMA/SMP systems
+Date: Sun, 25 Nov 2012 08:11:31 -0800
+Message-ID: <1353859891.30446.634.camel@edumazet-glaptop>
+References: <20121123130749.18764.25962.stgit@dragon>
+	 <1353810665.2590.4774.camel@edumazet-glaptop>
+	 <1353833627.11754.134.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	=?UTF-8?q?Thomas=20Sch=C3=A4fer?= <tschaefer@t-online.de>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:57024 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753098Ab2KYQEN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Nov 2012 11:04:13 -0500
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:35074 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752964Ab2KYQLe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2012 11:11:34 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k11so5214340iea.19
+        for <netdev@vger.kernel.org>; Sun, 25 Nov 2012 08:11:34 -0800 (PST)
+In-Reply-To: <1353833627.11754.134.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Huawei E173 is a QMI/wwan device which normally appear
-as 12d1:1436 in Linux. The descriptors displayed in that
-mode will be picked up by cdc_ether.  But the modem has
-another mode with a different device ID and a slightly
-different set of descriptors. This is the mode used by
-Windows like this:
+On Sun, 2012-11-25 at 09:53 +0100, Jesper Dangaard Brouer wrote:
 
-3Modem:      USB\VID_12D1&PID_140C&MI_00\6&3A1D2012&0&0000
-Networkcard: USB\VID_12D1&PID_140C&MI_01\6&3A1D2012&0&0001
-Appli.Inter: USB\VID_12D1&PID_140C&MI_02\6&3A1D2012&0&0002
-PC UI Inter: USB\VID_12D1&PID_140C&MI_03\6&3A1D2012&0&0003
+> Yes, for the default large 64k packets size, its just a "fake"
+> benchmark.  And notice with my fixes, we are even faster than the
+> none-frag/single-UDP packet case... but its because we are getting a
+> GSO/GRO effect.
 
-Reported-by: Thomas Sch=C3=A4fer <tschaefer@t-online.de>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/qmi_wwan.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 3b566fa..1ea91f4 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -385,6 +385,7 @@ static const struct usb_device_id products[] =3D {
- 	},
-=20
- 	/* 3. Combined interface devices matching on interface number */
-+	{QMI_FIXED_INTF(0x12d1, 0x140c, 1)},	/* Huawei E173 */
- 	{QMI_FIXED_INTF(0x19d2, 0x0002, 1)},
- 	{QMI_FIXED_INTF(0x19d2, 0x0012, 1)},
- 	{QMI_FIXED_INTF(0x19d2, 0x0017, 3)},
---=20
-1.7.10.4
+Could you elaborate on this GSO/GRO effect ?
