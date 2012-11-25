@@ -1,63 +1,165 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] atm: br2684: Fix excessive queue bloat
-Date: Sun, 25 Nov 2012 22:01:32 +0000
-Message-ID: <1353880892.26346.300.camel@shinybook.infradead.org>
-References: <1353715292.26346.237.camel@shinybook.infradead.org>
-	 <20121125214332.GA2722@shrek.podlesie.net>
+Subject: [PATCH v2] atm: br2684: Fix excessive queue bloat
+Date: Sun, 25 Nov 2012 22:06:52 +0000
+Message-ID: <1353881212.26346.303.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-grknsNvFyQ+57m4FFKwo"
-Cc: netdev@vger.kernel.org, John Crispin <blogic@openwrt.org>,
+	boundary="=-ATey7YelQApB+P8ub6vh"
+To: netdev@vger.kernel.org, John Crispin <blogic@openwrt.org>,
 	Dave =?ISO-8859-1?Q?T=E4ht?= <dave.taht@gmail.com>,
 	"Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-To: Krzysztof Mazur <krzysiek@podlesie.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:45547 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:45559 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753451Ab2KYWBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2012 17:01:41 -0500
-In-Reply-To: <20121125214332.GA2722@shrek.podlesie.net>
+	with ESMTP id S1753466Ab2KYWG4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2012 17:06:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-grknsNvFyQ+57m4FFKwo
+--=-ATey7YelQApB+P8ub6vh
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, 2012-11-25 at 22:43 +0100, Krzysztof Mazur wrote:
-> On Sat, Nov 24, 2012 at 12:01:32AM +0000, David Woodhouse wrote:
-> > There's really no excuse for an additional wmem_default of buffering
-> > between the netdev queue and the ATM device. Two packets (one in-flight=
-,
-> > and one ready to send) ought to be fine. It's not as if it should take
-> > long to get another from the netdev queue when we need it.
-> >=20
-> > If necessary we can make the queue space configurable later, but I don'=
-t
-> > think it's likely to be necessary.
->=20
-> Maybe some high-speed devices will require larger queue, especially for
-> smaller packets, but 2 packet queue should be sufficient in almost all ca=
-ses.
+There's really no excuse for an additional wmem_default of buffering
+between the netdev queue and the ATM device. Two packets (one in-flight,
+and one ready to send) ought to be fine. It's not as if it should take
+long to get another from the netdev queue when we need it.
 
-Yeah. This is fairly much the same conversation I ended up having when I
-did the same for PPPoATM.
+If necessary we can make the queue space configurable later, but I don't
+think it's likely to be necessary.
 
-Some day *perhaps* we might look at doing something adaptive, so it'll
-detect a TX underrun and increase the amount of buffering. But this
-seems perfectly good for now.
+cf. commit 9d02daf754238adac48fa075ee79e7edd3d79ed3 (pppoatm: Fix
+excessive queue bloat) which did something very similar for PPPoATM.
 
-> Maybe this magic "2" and the comment should be moved to some #define.
+Note that there is a tremendously unlikely race condition which may
+result in qspace temporarily going negative. If a CPU running the
+br2684_pop() function goes off into the weeds for a long period of time
+after incrementing qspace to 1, but before calling netdev_wake_queue()...
+and another CPU ends up calling br2684_start_xmit() and *stopping* the
+queue again before the first CPU comes back, the netdev queue could
+end up being woken when qspace has already reached zero.
 
-Doesn't make it any less magic. I'm happier with it as it is, with a
-clear comment describing why it's done that way.
+An alternative approach to coping with this race would be to check in
+br2684_start_xmit() for qspace=3D=3D0 and return NETDEV_TX_BUSY, but just
+using '> 0' and '< 1' for comparison instead of '=3D=3D 0' and '!=3D 0' is
+simpler. It just warranted a mention of *why* we do it that way...
+
+Move the call to atmvcc->send() to happen *after* the accounting and
+potentially stopping the netdev queue, in br2684_xmit_vcc(). This matters
+if the ->send() call suffers an immediate failure, because it'll call
+br2684_pop() with the offending skb before returning. We want that to
+happen *after* we've done the initial accounting for the packet in
+question. Also make it return an appropriate success/failure indication
+while we're at it.
+
+Tested by running 'ping -l 1000 bottomless.aaisp.net.uk' from within my
+network, with only a single PPPoE-over-BR2684 link running. And after
+setting txqueuelen on the nas0 interface to something low (5, in fact).
+Before the patch, we'd see about 15 packets being queued and a resulting
+latency of ~56ms being reached. After the patch, we see only about 8,
+which is fairly much what we expect. And a max latency of ~36ms. On this
+OpenWRT box, wmem_default is 163840.
+
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+Reviewed-by: Krzysztof Mazur <krzysiek@podlesie.net>
+---
+[v2: Comment format fixed]
+
+ net/atm/br2684.c | 36 ++++++++++++++++++++++--------------
+ 1 file changed, 22 insertions(+), 14 deletions(-)
+
+diff --git a/net/atm/br2684.c b/net/atm/br2684.c
+index 4819d315..8eb6fbe 100644
+--- a/net/atm/br2684.c
++++ b/net/atm/br2684.c
+@@ -74,6 +74,7 @@ struct br2684_vcc {
+ 	struct br2684_filter filter;
+ #endif /* CONFIG_ATM_BR2684_IPFILTER */
+ 	unsigned int copies_needed, copies_failed;
++	atomic_t qspace;
+ };
+=20
+ struct br2684_dev {
+@@ -181,18 +182,15 @@ static struct notifier_block atm_dev_notifier =3D {
+ static void br2684_pop(struct atm_vcc *vcc, struct sk_buff *skb)
+ {
+ 	struct br2684_vcc *brvcc =3D BR2684_VCC(vcc);
+-	struct net_device *net_dev =3D skb->dev;
+=20
+-	pr_debug("(vcc %p ; net_dev %p )\n", vcc, net_dev);
++	pr_debug("(vcc %p ; net_dev %p )\n", vcc, brvcc->device);
+ 	brvcc->old_pop(vcc, skb);
+=20
+-	if (!net_dev)
+-		return;
+-
+-	if (atm_may_send(vcc, 0))
+-		netif_wake_queue(net_dev);
+-
++	/* If the queue space just went up from zero, wake */
++	if (atomic_inc_return(&brvcc->qspace) =3D=3D 1)
++		netif_wake_queue(brvcc->device);
+ }
++
+ /*
+  * Send a packet out a particular vcc.  Not to useful right now, but paves
+  * the way for multiple vcc's per itf.  Returns true if we can send,
+@@ -256,16 +254,19 @@ static int br2684_xmit_vcc(struct sk_buff *skb, struc=
+t net_device *dev,
+ 	ATM_SKB(skb)->atm_options =3D atmvcc->atm_options;
+ 	dev->stats.tx_packets++;
+ 	dev->stats.tx_bytes +=3D skb->len;
+-	atmvcc->send(atmvcc, skb);
+=20
+-	if (!atm_may_send(atmvcc, 0)) {
++	if (atomic_dec_return(&brvcc->qspace) < 1) {
++		/* No more please! */
+ 		netif_stop_queue(brvcc->device);
+-		/*check for race with br2684_pop*/
+-		if (atm_may_send(atmvcc, 0))
+-			netif_start_queue(brvcc->device);
++		/* We might have raced with br2684_pop() */
++		if (unlikely(atomic_read(&brvcc->qspace) > 0))
++			netif_wake_queue(brvcc->device);
+ 	}
+=20
+-	return 1;
++	/* If this fails immediately, the skb will be freed and br2684_pop()
++	   will wake the queue if appropriate. Just return an error so that
++	   the stats are updated correctly */
++	return !atmvcc->send(atmvcc, skb);
+ }
+=20
+ static inline struct br2684_vcc *pick_outgoing_vcc(const struct sk_buff *s=
+kb,
+@@ -504,6 +505,13 @@ static int br2684_regvcc(struct atm_vcc *atmvcc, void =
+__user * arg)
+ 	brvcc =3D kzalloc(sizeof(struct br2684_vcc), GFP_KERNEL);
+ 	if (!brvcc)
+ 		return -ENOMEM;
++	/*
++	 * Allow two packets in the ATM queue. One actually being sent, and one
++	 * for the ATM 'TX done' handler to send. It shouldn't take long to get
++	 * the next one from the netdev queue, when we need it. More than that
++	 * would be bufferbloat.
++	 */
++	atomic_set(&brvcc->qspace, 2);
+ 	write_lock_irq(&devs_lock);
+ 	net_dev =3D br2684_find_dev(&be.ifspec);
+ 	if (net_dev =3D=3D NULL) {
+--=20
+1.8.0
+
 
 --=20
-dwmw2
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
 
---=-grknsNvFyQ+57m4FFKwo
+
+
+--=-ATey7YelQApB+P8ub6vh
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -158,19 +260,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTI1MjIwMTMyWjAjBgkqhkiG9w0BCQQx
-FgQUj2xVsxUylE/VefhdlucEjLxk+ZUwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTI1MjIwNjUyWjAjBgkqhkiG9w0BCQQx
+FgQUAE9Tq59QpNAyyyxBsa7T9NQbrGkwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQCu+CT70Rdirhck9qtFNw7sWuIb
-HdoePNH/kl+4wEbXm0lBI20uSavIJ/C95vG83jiimPrVmQDQd7PAWeObYLRClEmxr761gWMElZ+i
-F8OX4K4PZU7LVMPbAcJYd88fVf9hOEGoB7awx+2326c3E0wSnEg6SDvOup+nofe16/qHGY7di0E/
-xnuxjiqDGrITf/22fyZlveOrHKYAAHrj3+zjbovWpHiNMKeiZQVHn2cmq0LgR+gIIy43k0tHyPeg
-2EZzK3YeCWyQe5sbFu45mvwEn6wDODzJ4xFtMAuk2Z9FfSHEY+BizCYREn/rErPk7edvp1fbCX/W
-u6mlZcA8Uca/AAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBFbUwrrwdXYupXlZMo+hkZ6WX/
+oPbG/ozZA0gJ6fM4sx2Hk9U7qINOPlgt8VuPa+zkrUZWxdPBYBJUG+RRAZVv3BcXRryTbDaNGtpc
+IPC/wfEZzTWDONYYMkD/dpvyxJoRosiXiFteVu/ooI4LGNkMiQHd/nFV2o59nlzKlxWpv9eQfZqT
+VRZPGyvSDA/ii+5ZBrPrmnG/xIqqhq26LvPz88bFBSddX2eQEE1N+3yZJVq11k0PFE9VXBhRFlAD
+RJtc3L1OsiIbZ0yWSBOs3NQ+ZW+it1YAyEtuAQDXqqkEmhnrCqLsX1rD/A7Sx2/YSuajU1MkkJv0
+50Fphq6ELHYAAAAAAAAA
 
 
---=-grknsNvFyQ+57m4FFKwo--
+--=-ATey7YelQApB+P8ub6vh--
