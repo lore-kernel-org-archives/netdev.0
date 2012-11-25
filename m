@@ -1,70 +1,45 @@
-From: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH RFC 3/5] printk: modify printk interface for
-	syslog_namespace
-Date: Sun, 25 Nov 2012 04:28:02 +0000
-Message-ID: <20121125042802.GB4523@mail.hallyn.com>
-References: <50B0ADDB.4000303@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
-To: Libo Chen <chenlibo.3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <50B0ADDB.4000303-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] ipv4: avoid passing NULL to inet_putpeer() in icmpv4_xrlim_allow()
+Date: Sat, 24 Nov 2012 23:54:37 -0500
+Message-ID: <1353819277-2350-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f74.google.com ([74.125.83.74]:56588 "EHLO
+	mail-ee0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752625Ab2KYEyl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Nov 2012 23:54:41 -0500
+Received: by mail-ee0-f74.google.com with SMTP id t10so700436eei.1
+        for <netdev@vger.kernel.org>; Sat, 24 Nov 2012 20:54:40 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Libo Chen (chenlibo.3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org):
-> On 2012/11/22 1:49, Serge E. Hallyn wrote:
-> 
-> > I notice that you haven't made any changes to the struct cont.  I
-> > suspect this means that to-be-continued msgs from one ns can be
-> > erroneously mixed with another ns.
-> >
-> Yes, I confirmed this problem. There will be erroneously mixed with another ns.
-> Thank you very much.
-> 
-> > You said you don't mind putting the syslogns into the userns.  If
-> > there's no reason not to do that, then we should do so as it will
-> > remove a bunch of code (plus the use of a new CLONE flag) from your
-> > patch, and the new syslog(NEW_NS) command from mine.
-> >
-> I agree with you, both are removable.
-> 
-> > Now IMO the ideal place for syslog_ns would be in the devices ns,
-> > but that does not yet exist, and may never.  The bonus to that would
-> > be that the consoles sort of belong there.  I avoid this by not
-> > having consoles in child syslog namespaces.  You put the console in
-> > the ns.  I haven't looked closely enough to see if what you do is
-> > ok (will do so soon).
-> >
-> > WOuld you mind looking through my patch to see if it suffices for
-> > your needs?  Where it does not, patches would be greatly appreciated
-> > if simple enough.
-> 
-> follow your patch, I can see inject message by "dmesg call" in container, is right?
+inet_getpeer_v4() can return NULL under OOM conditions, and while
+inet_peer_xrlim_allow() is OK with a NULL peer, inet_putpeer() will
+crash.
 
-If I understand you right, yes.
+This code path now uses the same idiom as the others from:
+1d861aa4b3fb08822055345f480850205ffe6170 ("inet: Minimize use of
+cached route inetpeer.").
 
-> I am worry that I debug  or see messages from serial ports console in some embedded system,
-> since console belongs to init_syslog,  so the message in container can`t be printed. 
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/icmp.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Sorry, I don't understand which way you're going with that.  Could you
-rephrase?  You want to prevent console messages from going to a
-container?  (That should definately not happen)  Or something else?
-
-> > Note I'm not at all wedded to my patchset.  I'm happy to go with
-> > something else entirely.  My set was just a proof of concept.
-
-thanks,
--serge
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index f2eccd5..17ff9fd 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -257,7 +257,8 @@ static inline bool icmpv4_xrlim_allow(struct net *net, struct rtable *rt,
+ 		struct inet_peer *peer = inet_getpeer_v4(net->ipv4.peers, fl4->daddr, 1);
+ 		rc = inet_peer_xrlim_allow(peer,
+ 					   net->ipv4.sysctl_icmp_ratelimit);
+-		inet_putpeer(peer);
++		if (peer)
++			inet_putpeer(peer);
+ 	}
+ out:
+ 	return rc;
+-- 
+1.7.7.3
