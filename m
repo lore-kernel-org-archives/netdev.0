@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: fix memory leak in sctp_datamsg_from_user() when
- copy from user space fails
-Date: Sun, 25 Nov 2012 16:01:37 -0500 (EST)
-Message-ID: <20121125.160137.2302577116716864395.davem@davemloft.net>
-References: <1353590491-12166-1-git-send-email-tt.rantala@gmail.com>
+Subject: Re: [PATCH] sctp: fix -ENOMEM result with invalid user space
+ pointer in sendto() syscall
+Date: Sun, 25 Nov 2012 16:03:11 -0500 (EST)
+Message-ID: <20121125.160311.1193801954973499889.davem@davemloft.net>
+References: <1353590596-12216-1-git-send-email-tt.rantala@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,23 +12,22 @@ Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
 	davej@redhat.com
 To: tt.rantala@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40674 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40694 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753390Ab2KYVBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2012 16:01:42 -0500
-In-Reply-To: <1353590491-12166-1-git-send-email-tt.rantala@gmail.com>
+	with ESMTP id S1753390Ab2KYVDP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2012 16:03:15 -0500
+In-Reply-To: <1353590596-12216-1-git-send-email-tt.rantala@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tommi Rantala <tt.rantala@gmail.com>
-Date: Thu, 22 Nov 2012 15:21:31 +0200
+Date: Thu, 22 Nov 2012 15:23:16 +0200
 
-> Trinity (the syscall fuzzer) discovered a memory leak in SCTP,
-> reproducible e.g. with the sendto() syscall by passing invalid
-> user space pointer in the second argument:
+> Consider the following program, that sets the second argument to the
+> sendto() syscall incorrectly:
  ...
-> As far as I can tell, the leak has been around since ~2003.
-> 
 > Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
 
-Looks good to me, Vlad please review.
+This also looks good, Vlad please review this.
+
+Thanks.
