@@ -1,46 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 8139cp: set ring address after enabling C+ mode
-Date: Sun, 25 Nov 2012 15:54:57 -0500 (EST)
-Message-ID: <20121125.155457.1039099162410338935.davem@davemloft.net>
-References: <1353517042.26346.130.camel@shinybook.infradead.org>
-	<50AD1972.5080403@pobox.com>
-	<1353529639.26346.164.camel@shinybook.infradead.org>
+Subject: Re: [PATCH] 8139cp: enable bql
+Date: Sun, 25 Nov 2012 15:55:29 -0500 (EST)
+Message-ID: <20121125.155529.142681105479432173.davem@davemloft.net>
+References: <1353590218.26346.214.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, jasowang@redhat.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, codel@lists.bufferbloat.net
 To: dwmw2@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40581 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753387Ab2KYUzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2012 15:55:08 -0500
-In-Reply-To: <1353529639.26346.164.camel@shinybook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <codel-bounces@lists.bufferbloat.net>
+In-Reply-To: <1353590218.26346.214.camel@shinybook.infradead.org>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/codel>
+List-Post: <mailto:codel@lists.bufferbloat.net>
+List-Help: <mailto:codel-request@lists.bufferbloat.net?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/codel>,
+	<mailto:codel-request@lists.bufferbloat.net?subject=subscribe>
+Sender: codel-bounces@lists.bufferbloat.net
+Errors-To: codel-bounces@lists.bufferbloat.net
+List-Id: netdev.vger.kernel.org
 
 From: David Woodhouse <dwmw2@infradead.org>
-Date: Wed, 21 Nov 2012 20:27:19 +0000
+Date: Thu, 22 Nov 2012 13:16:58 +0000
 
-> This fixes (for me) a regression introduced by commit b01af457 ("8139cp:
-> set ring address before enabling receiver"). That commit configured the
-> descriptor ring addresses earlier in the initialisation sequence, in
-> order to avoid the possibility of triggering stray DMA before the
-> correct address had been set up.
-> 
-> Unfortunately, it seems that the hardware will scribble garbage into the
-> TxRingAddr registers when we enable "plus mode" Tx in the CpCmd
-> register. Observed on a Traverse Geos router board.
-> 
-> To deal with this, while not reintroducing the problem which led to the
-> original commit, we augment cp_start_hw() to write to the CpCmd register
-> *first*, then set the descriptor ring addresses, and then finally to
-> enable Rx and Tx in the original 8139 Cmd register. The datasheet
-> actually indicates that we should enable Tx/Rx in the Cmd register
-> *before* configuring the descriptor addresses, but that would appear to
-> re-introduce the problem that the offending commit b01af457 was trying
-> to solve. And this variant appears to work fine on real hardware.
-> 
+> This adds support for byte queue limits on RTL8139C+
+> =
+
+> Tested on real hardware.
+> =
+
 > Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+> Acked-By: Dave T=E4ht <dave.taht@bufferbloat.net>
 
 Applied to net-next.
+
+> --- drivers/net/ethernet/realtek/8139cp.c~	2012-11-21 20:49:47.000000000 =
++0000
+> +++ drivers/net/ethernet/realtek/8139cp.c	2012-11-22 13:07:26.119076315 +=
+0000
+
+Please "-p1" root your patches in the future.
