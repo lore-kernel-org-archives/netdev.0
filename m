@@ -1,84 +1,77 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BQL support in gianfar causes network hickup
-Date: Sat, 24 Nov 2012 15:43:36 -0800
-Message-ID: <1353800616.2590.4562.camel@edumazet-glaptop>
-References: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6E@Exchange1.lawo.de>
-	 <50AFA599.9040108@windriver.com>  <loom.20121124T213422-650@post.gmane.org>
+Subject: Re: [RFC net-next PATCH V1 0/9] net: fragmentation performance
+ scalability on NUMA/SMP systems
+Date: Sat, 24 Nov 2012 18:31:05 -0800
+Message-ID: <1353810665.2590.4774.camel@edumazet-glaptop>
+References: <20121123130749.18764.25962.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tino Keitel <tino.keitel@tikei.de>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f174.google.com ([209.85.210.174]:49256 "EHLO
-	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752650Ab2KXXns (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Nov 2012 18:43:48 -0500
-Received: by mail-ia0-f174.google.com with SMTP id y25so7196296iay.19
-        for <netdev@vger.kernel.org>; Sat, 24 Nov 2012 15:43:46 -0800 (PST)
-In-Reply-To: <loom.20121124T213422-650@post.gmane.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:52678 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752772Ab2KYCbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Nov 2012 21:31:09 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k11so4868450iea.19
+        for <netdev@vger.kernel.org>; Sat, 24 Nov 2012 18:31:08 -0800 (PST)
+In-Reply-To: <20121123130749.18764.25962.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-11-24 at 20:42 +0000, Tino Keitel wrote:
-> Paul Gortmaker <paul.gortmaker <at> windriver.com> writes:
+On Fri, 2012-11-23 at 14:08 +0100, Jesper Dangaard Brouer wrote:
+> This patchset implements significant performance improvements for
+> fragmentation handling in the kernel, with a focus on NUMA and SMP
+> based systems.
 > 
-> > 
-> > On 12-11-23 10:58 AM, Keitel, Tino (ALC NetworX GmbH) wrote:
-> > > Hi,
-> > > 
-> > > commit d8a0f1b0af67679bba886784de10d8c21acc4e0e causes the following
-> > > trace on a Freescale RDB8313 board:
-> > 
-> > Thanks for the report.
-> > 
-> > > 
-> > > NETDEV WATCHDOG: eth1 (fsl-gianfar): transmit queue 0 timed out
-> > > ------------[ cut here ]------------
-> > > WARNING:
-> > > at /home/keitelt1/src/git/linux-stable/net/sched/sch_generic.c:255
-> > > Modules linked in:
-> > > NIP: c02448b0 LR: c02448b0 CTR: c01c19b8
-> > > REGS: c7ffbe40 TRAP: 0700   Not tainted  (3.7.0-rc6-rt18)
-> >                                             ^^^^^^^^^^^^^^^
-> > I almost overlooked the above.  It would have been nice to
-> > see more explicit information on what kernel you are running.
-> > I say that because the above concerns me.  For several reasons.
-> > 
-> > 1) it looks to be not mainline, but preempt_rt
-> > 2) There is no RT on 3.7 yet, so I'm assuming this is a custom
-> >    forward port of the 250 odd RT patches.  (The RT is 3.6.7-rt18,
-> >    i.e. based on the 3.6 gregKH stable tree.)
+> Review:
 > 
-> Sorry for the confusion. This was a 3.7.0-rc6 tree, and I forgot git clean after
-> trying the rt-patches and git reset --hard v3.7.0-rc6, so the localversion file
-> for -rt was still present, and the kernel was named 3.7.0-rc6-rt18. If I got
-> this right, this should be a normal kernel with just the version file modified.
+>  Please review these patches.  I have on purpose added comments in the
+>  code with the "//" comments style.  These comments are to be removed
+>  before applying.  They serve as a questions to, you, the reviewer.
 > 
-> I tried kernel 3.3, which doesnt have the issue. I tried 3.4, 3.6.7 and 3.7-rc6,
-> which all show the kernel trace and ptp client misbehaviour. I tried 3.4, 3.6.7,
-> 3.7-rc6 and 3.6.5-rt18 with the patch I posted, and they were ok.
+> The fragmentation code today:
 > 
-> The patch I posted is for 3.7-rc6.
+>  The fragmentation code "protects" kernel resources, by implementing
+>  some memory resource limitation code.  This is centered around a
+>  global readers-writer lock, and (per network namespace) an atomic mem
+>  counter and a LRU (Least-Recently-Used) list.  (Although separate
+>  global variables and namespace resources, are kept for IPv4, IPv6
+>  and Netfilter reassembly.)
+> 
+>  The code tries to keep the memory usage between a high and low
+>  threshold (see: /proc/sys/net/ipv4/ipfrag_{high,low}_thresh).  The
+>  "evictor" code cleans up fragments, when the high threshold is
+>  exceeded, and stops only, when the low threshold is reached.
+> 
+> The scalability problem:
+> 
+>  Having a global/central variable for a resource limit is obviously a
+>  scalability issue on SMP systems, and even amplified on a NUMA based
+>  system.
 > 
 
-Hmm, I wonder if BQL makes a particular bug showing more often.
 
-I see gianfar uses a very small watchdog_timeo of 1 second, while many
-drivers use 5 seconds.
+But ... , what practical workload even use fragments ?
 
-What happens if you change this to 5 seconds ?
+Sure, netperf -t UDP_STREAM uses frags, but its a benchmark.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 19ac096..3a994f9 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -101,7 +101,7 @@
- 
- #include "gianfar.h"
- 
--#define TX_TIMEOUT      (1*HZ)
-+#define TX_TIMEOUT      (5*HZ)
- 
- const char gfar_driver_version[] = "1.3";
- 
+The only heavy user was NFS in the days it was using UDP, a very long
+time ago.
+
+A single lost fragment means the whole packet is lost.
+
+Another problem with fragments is the lack of 4-tuple hashing, as only
+the first frag contains the dst/src ports.
+
+Also there is the sysctl_ipfrag_max_dist issue...
+
+Hint : many NIC provide TSO (TCP offload), but none provide UFO,
+probably because there is no demand for it.
