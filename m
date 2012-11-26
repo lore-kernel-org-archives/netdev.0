@@ -1,134 +1,41 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next.git 4/6 (V2)] stmmac: get/set coalesce parameters via ethtool
-Date: Mon, 26 Nov 2012 10:10:44 +0100
-Message-ID: <1353921046-5121-5-git-send-email-peppe.cavallaro@st.com>
+Subject: [net-next.git 6/6] stmmac: update the driver version to Nov_2012
+Date: Mon, 26 Nov 2012 10:10:46 +0100
+Message-ID: <1353921046-5121-7-git-send-email-peppe.cavallaro@st.com>
 References: <1353921046-5121-1-git-send-email-peppe.cavallaro@st.com>
 Cc: bhutchings@solarflare.com, davem@davemloft.net,
 	Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:52769 "EHLO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754539Ab2KZJLo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 04:11:44 -0500
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:42437 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754539Ab2KZJLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 04:11:50 -0500
 In-Reply-To: <1353921046-5121-1-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to get/set the tx/rx coalesce parameters
-via ethtool interface.
-
-Tests have been done on several platform with different GMAC chips w/o and w/
-RX watchdog feature.
-
-V2: reject coalesce settings that are not supported.
+Many new feauture have been introduced in the driver:
+ethtool coalesce options, Rx HW watchdog... so this patch updates the
+driver's version.
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   83 ++++++++++++++++++++
- 1 files changed, 83 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 240acd2..f2aa013 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -524,6 +524,87 @@ static int stmmac_ethtool_op_set_eee(struct net_device *dev,
- 	return phy_ethtool_set_eee(priv->phydev, edata);
- }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index fe0535c..023a4fb 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -24,7 +24,7 @@
+ #define __STMMAC_H__
  
-+static u32 stmmac_usec2riwt(u32 usec, struct stmmac_priv *priv)
-+{
-+	unsigned long clk = clk_get_rate(priv->stmmac_clk);
-+
-+	if (!clk)
-+		return 0;
-+
-+	return (usec * (clk / 1000000)) / 256;
-+}
-+
-+static u32 stmmac_riwt2usec(u32 riwt, struct stmmac_priv *priv)
-+{
-+	unsigned long clk = clk_get_rate(priv->stmmac_clk);
-+
-+	if (!clk)
-+		return 0;
-+
-+	return (riwt * 256) / (clk / 1000000);
-+}
-+
-+static int stmmac_get_coalesce(struct net_device *dev,
-+			       struct ethtool_coalesce *ec)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+
-+	ec->tx_coalesce_usecs = priv->tx_coal_timer;
-+	ec->tx_max_coalesced_frames = priv->tx_coal_frames;
-+
-+	if (priv->use_riwt)
-+		ec->rx_coalesce_usecs = stmmac_riwt2usec(priv->rx_riwt, priv);
-+
-+	return 0;
-+}
-+
-+static int stmmac_set_coalesce(struct net_device *dev,
-+			       struct ethtool_coalesce *ec)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+	unsigned int rx_riwt;
-+
-+	/* Check not supported parameters  */
-+	if ((ec->rx_max_coalesced_frames) || (ec->rx_coalesce_usecs_irq) ||
-+	    (ec->rx_max_coalesced_frames_irq) || (ec->tx_coalesce_usecs_irq) ||
-+	    (ec->use_adaptive_rx_coalesce) || (ec->use_adaptive_tx_coalesce) ||
-+	    (ec->pkt_rate_low) || (ec->rx_coalesce_usecs_low) ||
-+	    (ec->rx_max_coalesced_frames_low) || (ec->tx_coalesce_usecs_high) ||
-+	    (ec->tx_max_coalesced_frames_low) || (ec->pkt_rate_high) ||
-+	    (ec->tx_coalesce_usecs_low) || (ec->rx_coalesce_usecs_high) ||
-+	    (ec->rx_max_coalesced_frames_high) ||
-+	    (ec->tx_max_coalesced_frames_irq) ||
-+	    (ec->stats_block_coalesce_usecs) ||
-+	    (ec->tx_max_coalesced_frames_high) || (ec->rate_sample_interval))
-+		return -EOPNOTSUPP;
-+
-+	if (ec->rx_coalesce_usecs == 0)
-+		return -EINVAL;
-+
-+	if ((ec->tx_coalesce_usecs == 0) &&
-+	    (ec->tx_max_coalesced_frames == 0))
-+		return -EINVAL;
-+
-+	if ((ec->tx_coalesce_usecs > STMMAC_COAL_TX_TIMER) ||
-+	    (ec->tx_max_coalesced_frames > STMMAC_TX_MAX_FRAMES))
-+		return -EINVAL;
-+
-+	rx_riwt = stmmac_usec2riwt(ec->rx_coalesce_usecs, priv);
-+
-+	if ((rx_riwt > MAX_DMA_RIWT) || (rx_riwt < MIN_DMA_RIWT))
-+		return -EINVAL;
-+	else if (!priv->use_riwt)
-+		return -EOPNOTSUPP;
-+
-+	/* Only copy relevant parameters, ignore all others. */
-+	priv->tx_coal_frames = ec->tx_max_coalesced_frames;
-+	priv->tx_coal_timer = ec->tx_coalesce_usecs;
-+	priv->rx_riwt = rx_riwt;
-+	priv->hw->dma->rx_watchdog(priv->ioaddr, priv->rx_riwt);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.begin = stmmac_check_if_running,
- 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
-@@ -544,6 +625,8 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
- 	.set_eee = stmmac_ethtool_op_set_eee,
- 	.get_sset_count	= stmmac_get_sset_count,
- 	.get_ts_info = ethtool_op_get_ts_info,
-+	.get_coalesce = stmmac_get_coalesce,
-+	.set_coalesce = stmmac_set_coalesce,
- };
+ #define STMMAC_RESOURCE_NAME   "stmmaceth"
+-#define DRV_MODULE_VERSION	"March_2012"
++#define DRV_MODULE_VERSION	"Nov_2012"
  
- void stmmac_set_ethtool_ops(struct net_device *netdev)
+ #include <linux/clk.h>
+ #include <linux/stmmac.h>
 -- 
 1.7.4.4
