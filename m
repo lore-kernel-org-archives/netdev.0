@@ -1,57 +1,37 @@
-From: Jan Synacek <jsynacek@redhat.com>
-Subject: Re: [PATCH] arping: Fix find_device_by_ifaddrs()
-Date: Mon, 26 Nov 2012 10:26:17 +0100
-Message-ID: <50B335B9.1080209@redhat.com>
-References: <1353574275-21742-1-git-send-email-jsynacek@redhat.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 080/493] fddi: remove use of __devexit_p
+Date: Mon, 26 Nov 2012 09:33:05 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70BE@saturn3.aculab.com>
+References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu> <1353349642-3677-80-git-send-email-wfp5p@virginia.edu> <alpine.LFD.2.02.1211191842180.25230@eddie.linux-mips.org> <alpine.LFD.2.02.1211191912040.25230@eddie.linux-mips.org> <20121119192949.GA16976@kroah.com> <alpine.LFD.2.02.1211212334080.25230@eddie.linux-mips.org> <20121122002337.GA16151@kroah.com> <alpine.LFD.2.02.1211260425240.25230@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Bill Pemberton" <wfp5p@virginia.edu>, <netdev@vger.kernel.org>
+To: "Maciej W. Rozycki" <macro@linux-mips.org>,
+	"Greg KH" <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19584 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753316Ab2KZJ0V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Nov 2012 04:26:21 -0500
-In-Reply-To: <1353574275-21742-1-git-send-email-jsynacek@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:40345 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754485Ab2KZJeU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 04:34:20 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 09183-02 for <netdev@vger.kernel.org>;
+ Mon, 26 Nov 2012 09:34:11 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <alpine.LFD.2.02.1211260425240.25230@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/22/2012 09:51 AM, Jan Synacek wrote:
-> Look for another device if the device name and the currently found one are the
-> same, not different.
+> > Even those don't care about less than 5k of memory, do they?
 > 
-> Also, make checking for the device's flags nonfatal.
-> 
-> Signed-off-by: Jan Synacek <jsynacek@redhat.com>
-> ---
->  arping.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arping.c b/arping.c
-> index ff77bec..d0edccf 100644
-> --- a/arping.c
-> +++ b/arping.c
-> @@ -550,10 +550,10 @@ static int find_device_by_ifaddrs(void)
->  			continue;
->  		if (ifa->ifa_addr->sa_family != AF_PACKET)
->  			continue;
-> -		if (device.name && ifa->ifa_name && strcmp(ifa->ifa_name, device.name))
-> +		if (device.name && ifa->ifa_name && !strcmp(ifa->ifa_name, device.name))
->  			continue;
->  
-> -		if (check_ifflags(ifa->ifa_flags, device.name != NULL) < 0)
-> +		if (check_ifflags(ifa->ifa_flags, 0) < 0)
->  			continue;
->  
->  		if (!((struct sockaddr_ll *)ifa->ifa_addr)->sll_halen)
-> 
+>  I guess you're right.  As long as it's not 5k per driver +
+> who_knows_how_much per platform for some generic stuff that is.  Of course
+> this is still a waste, but I can accept it as a compromise between the use
 
-Please, disregard this patch. I found a problem with it and will send a proper
-patch soon.
+If you are worried about that much memory (eg for a small embedded Linux)
+I'r worry about the sizes of all the hash tables that keep popping up.
+At least some of them really need converting to some kind of tree.
 
-Cheers,
-
--- 
-Jan Synacek
-Software Engineer, BaseOS team Brno, Red Hat
+	David
