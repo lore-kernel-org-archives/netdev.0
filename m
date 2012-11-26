@@ -1,341 +1,45 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [net-next.git 3/6 (V4)] stmmac: add Rx watchdog support to mitigate the DMA irqs
-Date: Mon, 26 Nov 2012 10:10:43 +0100
-Message-ID: <1353921046-5121-4-git-send-email-peppe.cavallaro@st.com>
-References: <1353921046-5121-1-git-send-email-peppe.cavallaro@st.com>
-Cc: bhutchings@solarflare.com, davem@davemloft.net,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: Re: RTL 8169  linux driver question
+Date: Mon, 26 Nov 2012 09:15:19 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70BD@saturn3.aculab.com>
+References: <50AFC971.7010103@free.fr> <50AFCB1D.8080002@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <sancelot@numalliance.com>
+To: =?Windows-1252?Q?St=E9phane_ANCELOT?= <sancelot@free.fr>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:54970 "EHLO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754111Ab2KZJLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 04:11:31 -0500
-In-Reply-To: <1353921046-5121-1-git-send-email-peppe.cavallaro@st.com>
+Received: from mx0.aculab.com ([213.249.233.131]:40041 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753364Ab2KZJQf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 04:16:35 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 02113-05 for <netdev@vger.kernel.org>;
+ Mon, 26 Nov 2012 09:16:26 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <50AFCB1D.8080002@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GMAC devices newer than databook 3.40 has an embedded timer
-that can be used for mitigating the number of interrupts.
-So this patch adds this optimizations.
+> I had problem with it, my application sends a frame that is immediately
+> transmitted back by some slaves, there was abnormally 100us  lost
+> between the send and receive call.
+> 
+> Finally I found it was coming from the following register setup in the
+> driver :
+> 
+> RTL_W16(IntrMitigate, 0x5151);
+> 
+> Can you give me some details about it, since I do not have the RTL8169
+> programming guide.
 
-At any rate, the Rx watchdog can be disable (on bugged HW) by
-passing from the platform the riwt_off field.
+That sounds like an 'interrupt mitigation' setting - which will cause
+RX interrupts to be delayed a short time in order to reduce the
+interrupt load on the kernel.
 
-In this implementation the rx timer stored in the Reg9 is fixed
-to the max value. This will be tuned by using ethtool.
+There is usually an 'ethtool' setting to disable interrupt mitigation.
 
-V2: added a platform parameter to force to disable the rx-watchdog
-for example on new core where it is bugged.
-
-V3: do not disable NAPI when Rx watchdog is used.
-
-V4: a new extra statistic field has been added to show the early
-receive status in the interrupt handler.
-This patch also adds an extra check to avoid to call
-napi_schedule when the DMA_INTR_ENA_RIE bit is disabled in the
-Interrupt Mask register.
-
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h       |   17 +++++++++--
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    3 --
- .../net/ethernet/stmicro/stmmac/dwmac1000_dma.c    |    6 ++++
- drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h    |    5 ++-
- drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c    |   19 ++++++++++--
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |    2 +
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    9 ++++--
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   30 ++++++++++++++++----
- include/linux/stmmac.h                             |    1 +
- 9 files changed, 72 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index d17eeef..98203f6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -48,6 +48,10 @@
- #define CHIP_DBG(fmt, args...)  do { } while (0)
- #endif
- 
-+/* Synopsys Core versions */
-+#define	DWMAC_CORE_3_40	0x34
-+#define	DWMAC_CORE_3_50	0x35
-+
- #undef FRAME_FILTER_DEBUG
- /* #define FRAME_FILTER_DEBUG */
- 
-@@ -81,7 +85,7 @@ struct stmmac_extra_stats {
- 	unsigned long rx_missed_cntr;
- 	unsigned long rx_overflow_cntr;
- 	unsigned long rx_vlan;
--	/* Tx/Rx IRQ errors */
-+	/* Tx/Rx IRQ error info */
- 	unsigned long tx_undeflow_irq;
- 	unsigned long tx_process_stopped_irq;
- 	unsigned long tx_jabber_irq;
-@@ -91,7 +95,8 @@ struct stmmac_extra_stats {
- 	unsigned long rx_watchdog_irq;
- 	unsigned long tx_early_irq;
- 	unsigned long fatal_bus_error_irq;
--	/* Extra info */
-+	/* Tx/Rx IRQ Events */
-+	unsigned long rx_early_irq;
- 	unsigned long threshold;
- 	unsigned long tx_pkt_n;
- 	unsigned long rx_pkt_n;
-@@ -101,11 +106,12 @@ struct stmmac_extra_stats {
- 	unsigned long tx_normal_irq_n;
- 	unsigned long tx_clean;
- 	unsigned long tx_reset_ic_bit;
-+	unsigned long irq_receive_pmt_irq_n;
-+	/* MMC info */
- 	unsigned long mmc_tx_irq_n;
- 	unsigned long mmc_rx_irq_n;
- 	unsigned long mmc_rx_csum_offload_irq_n;
- 	/* EEE */
--	unsigned long irq_receive_pmt_irq_n;
- 	unsigned long irq_tx_path_in_lpi_mode_n;
- 	unsigned long irq_tx_path_exit_lpi_mode_n;
- 	unsigned long irq_rx_path_in_lpi_mode_n;
-@@ -165,6 +171,9 @@ struct stmmac_extra_stats {
- #define DMA_HW_FEAT_ACTPHYIF	0x70000000 /* Active/selected PHY interface */
- #define DEFAULT_DMA_PBL		8
- 
-+/* Max/Min RI Watchdog Timer count value */
-+#define MAX_DMA_RIWT		0xff
-+#define MIN_DMA_RIWT		0x20
- /* Tx coalesce parameters */
- #define STMMAC_COAL_TX_TIMER	40000
- #define STMMAC_MAX_COAL_TX_TICK	100000
-@@ -306,6 +315,8 @@ struct stmmac_dma_ops {
- 			      struct stmmac_extra_stats *x);
- 	/* If supported then get the optional core features */
- 	unsigned int (*get_hw_feature) (void __iomem *ioaddr);
-+	/* Program the HW RX Watchdog */
-+	void (*rx_watchdog) (void __iomem *ioaddr, u32 riwt);
- };
- 
- struct stmmac_ops {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-index 0e4cace..7ad56af 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-@@ -230,8 +230,5 @@ enum rtc_control {
- #define GMAC_MMC_TX_INTR   0x108
- #define GMAC_MMC_RX_CSUM_OFFLOAD   0x208
- 
--/* Synopsys Core versions */
--#define	DWMAC_CORE_3_40	0x34
--
- extern const struct stmmac_dma_ops dwmac1000_dma_ops;
- #endif /* __DWMAC1000_H__ */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-index 0335000..bf83c03 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_dma.c
-@@ -174,6 +174,11 @@ static unsigned int dwmac1000_get_hw_feature(void __iomem *ioaddr)
- 	return readl(ioaddr + DMA_HW_FEATURE);
- }
- 
-+static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt)
-+{
-+	writel(riwt, ioaddr + DMA_RX_WATCHDOG);
-+}
-+
- const struct stmmac_dma_ops dwmac1000_dma_ops = {
- 	.init = dwmac1000_dma_init,
- 	.dump_regs = dwmac1000_dump_dma_regs,
-@@ -187,4 +192,5 @@ const struct stmmac_dma_ops dwmac1000_dma_ops = {
- 	.stop_rx = dwmac_dma_stop_rx,
- 	.dma_interrupt = dwmac_dma_interrupt,
- 	.get_hw_feature = dwmac1000_get_hw_feature,
-+	.rx_watchdog = dwmac1000_rx_watchdog,
- };
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-index e49c9a0..807f303 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_dma.h
-@@ -35,7 +35,10 @@
- #define DMA_CONTROL		0x00001018	/* Ctrl (Operational Mode) */
- #define DMA_INTR_ENA		0x0000101c	/* Interrupt Enable */
- #define DMA_MISSED_FRAME_CTR	0x00001020	/* Missed Frame Counter */
--#define DMA_AXI_BUS_MODE       0x00001028      /* AXI Bus Mode */
-+/* Rx watchdog register */
-+#define DMA_RX_WATCHDOG		0x00001024
-+/* AXI Bus Mode */
-+#define DMA_AXI_BUS_MODE	0x00001028
- #define DMA_CUR_TX_BUF_ADDR	0x00001050	/* Current Host Tx Buffer */
- #define DMA_CUR_RX_BUF_ADDR	0x00001054	/* Current Host Rx Buffer */
- #define DMA_HW_FEATURE		0x00001058	/* HW Feature Register */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-index 73766e6..491d7e9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac_lib.c
-@@ -204,17 +204,28 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
- 		}
- 	}
- 	/* TX/RX NORMAL interrupts */
--	if (intr_status & DMA_STATUS_NIS) {
-+	if (likely(intr_status & DMA_STATUS_NIS)) {
- 		x->normal_irq_n++;
--		if (likely(intr_status & DMA_STATUS_RI))
--			ret |= handle_rx;
--		if (intr_status & (DMA_STATUS_TI))
-+		if (likely(intr_status & DMA_STATUS_RI)) {
-+			u32 value = readl(ioaddr + DMA_INTR_ENA);
-+			/* to schedule NAPI on real RIE event. */
-+			if (likely(value & DMA_INTR_ENA_RIE)) {
-+				x->rx_normal_irq_n++;
-+				ret |= handle_rx;
-+			}
-+		}
-+		if (likely(intr_status & DMA_STATUS_TI)) {
-+			x->tx_normal_irq_n++;
- 			ret |= handle_tx;
-+		}
-+		if (unlikely(intr_status & DMA_STATUS_ERI))
-+			x->rx_early_irq++;
- 	}
- 	/* Optional hardware blocks, interrupts should be disabled */
- 	if (unlikely(intr_status &
- 		     (DMA_STATUS_GPI | DMA_STATUS_GMI | DMA_STATUS_GLI)))
- 		pr_info("%s: unexpected status %08x\n", __func__, intr_status);
-+
- 	/* Clear the interrupt by writing a logic 1 to the CSR5[15-0] */
- 	writel((intr_status & 0x1ffff), ioaddr + DMA_STATUS);
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index 01b3451..fe0535c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -91,6 +91,8 @@ struct stmmac_priv {
- 	u32 tx_count_frames;
- 	u32 tx_coal_frames;
- 	u32 tx_coal_timer;
-+	int use_riwt;
-+	u32 rx_riwt;
- };
- 
- extern int phyaddr;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index de2210c..240acd2 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -76,7 +76,7 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(rx_missed_cntr),
- 	STMMAC_STAT(rx_overflow_cntr),
- 	STMMAC_STAT(rx_vlan),
--	/* Tx/Rx IRQ errors */
-+	/* Tx/Rx IRQ error info */
- 	STMMAC_STAT(tx_undeflow_irq),
- 	STMMAC_STAT(tx_process_stopped_irq),
- 	STMMAC_STAT(tx_jabber_irq),
-@@ -86,7 +86,8 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(rx_watchdog_irq),
- 	STMMAC_STAT(tx_early_irq),
- 	STMMAC_STAT(fatal_bus_error_irq),
--	/* Extra info */
-+	/* Tx/Rx IRQ Events */
-+	STMMAC_STAT(rx_early_irq),
- 	STMMAC_STAT(threshold),
- 	STMMAC_STAT(tx_pkt_n),
- 	STMMAC_STAT(rx_pkt_n),
-@@ -96,10 +97,12 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
- 	STMMAC_STAT(tx_normal_irq_n),
- 	STMMAC_STAT(tx_clean),
- 	STMMAC_STAT(tx_reset_ic_bit),
-+	STMMAC_STAT(irq_receive_pmt_irq_n),
-+	/* MMC info */
- 	STMMAC_STAT(mmc_tx_irq_n),
- 	STMMAC_STAT(mmc_rx_irq_n),
- 	STMMAC_STAT(mmc_rx_csum_offload_irq_n),
--	STMMAC_STAT(irq_receive_pmt_irq_n),
-+	/* EEE */
- 	STMMAC_STAT(irq_tx_path_in_lpi_mode_n),
- 	STMMAC_STAT(irq_tx_path_exit_lpi_mode_n),
- 	STMMAC_STAT(irq_rx_path_in_lpi_mode_n),
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index d40cf9e..2fb0e5f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -603,6 +603,8 @@ static void init_dma_desc_rings(struct net_device *dev)
- 	priv->dirty_tx = 0;
- 	priv->cur_tx = 0;
- 
-+	if (priv->use_riwt)
-+		dis_ic = 1;
- 	/* Clear the Rx/Tx descriptors */
- 	priv->hw->desc->init_rx_desc(priv->dma_rx, rxsize, dis_ic);
- 	priv->hw->desc->init_tx_desc(priv->dma_tx, txsize);
-@@ -1106,6 +1108,11 @@ static int stmmac_open(struct net_device *dev)
- 
- 	stmmac_init_tx_coalesce(priv);
- 
-+	if ((priv->use_riwt) && (priv->hw->dma->rx_watchdog)) {
-+		priv->rx_riwt = MAX_DMA_RIWT;
-+		priv->hw->dma->rx_watchdog(priv->ioaddr, MAX_DMA_RIWT);
-+	}
-+
- 	napi_enable(&priv->napi);
- 	netif_start_queue(dev);
- 
-@@ -1423,14 +1430,12 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit)
- #endif
- 			skb->protocol = eth_type_trans(skb, priv->dev);
- 
--			if (unlikely(!priv->plat->rx_coe)) {
--				/* No RX COE for old mac10/100 devices */
-+			if (unlikely(!priv->plat->rx_coe))
- 				skb_checksum_none_assert(skb);
--				netif_receive_skb(skb);
--			} else {
-+			else
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
--				napi_gro_receive(&priv->napi, skb);
--			}
-+
-+			napi_gro_receive(&priv->napi, skb);
- 
- 			priv->dev->stats.rx_packets++;
- 			priv->dev->stats.rx_bytes += frame_len;
-@@ -2001,6 +2006,16 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
- 	if (flow_ctrl)
- 		priv->flow_ctrl = FLOW_AUTO;	/* RX/TX pause on */
- 
-+	/* Rx Watchdog is available in the COREs newer than the 3.40.
-+	 * In some case, for example on bugged HW this feature
-+	 * has to be disable and this can be done by passing the
-+	 * riwt_off field from the platform.
-+	 */
-+	if ((priv->synopsys_id >= DWMAC_CORE_3_50) && (!priv->plat->riwt_off)) {
-+		priv->use_riwt = 1;
-+		pr_info(" Enable RX Mitigation via HW Watchdog Timer\n");
-+	}
-+
- 	netif_napi_add(ndev, &priv->napi, stmmac_poll, 64);
- 
- 	spin_lock_init(&priv->lock);
-@@ -2092,6 +2107,9 @@ int stmmac_suspend(struct net_device *ndev)
- 	netif_device_detach(ndev);
- 	netif_stop_queue(ndev);
- 
-+	if (priv->use_riwt)
-+		dis_ic = 1;
-+
- 	napi_disable(&priv->napi);
- 
- 	/* Stop TX/RX DMA */
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index a1547ea..de5b2f8 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -104,6 +104,7 @@ struct plat_stmmacenet_data {
- 	int bugged_jumbo;
- 	int pmt;
- 	int force_sf_dma_mode;
-+	int riwt_off;
- 	void (*fix_mac_speed)(void *priv, unsigned int speed);
- 	void (*bus_setup)(void __iomem *ioaddr);
- 	int (*init)(struct platform_device *pdev);
--- 
-1.7.4.4
+	David
