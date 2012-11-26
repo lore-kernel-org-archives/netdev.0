@@ -1,30 +1,64 @@
 From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next 0/2] tun: trivial fixes.
-Date: Mon, 26 Nov 2012 10:07:39 +0200
-Message-ID: <1353917261-2974-1-git-send-email-ramirose@gmail.com>
+Subject: [PATCH net-next 1/2] vtun: fix typos.
+Date: Mon, 26 Nov 2012 10:07:40 +0200
+Message-ID: <1353917261-2974-2-git-send-email-ramirose@gmail.com>
+References: <1353917261-2974-1-git-send-email-ramirose@gmail.com>
 Cc: maxk@qti.qualcomm.com, netdev@vger.kernel.org,
 	Rami Rosen <ramirose@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:56810 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754206Ab2KZIId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 03:08:33 -0500
-Received: by mail-we0-f174.google.com with SMTP id d7so3309528wer.19
-        for <netdev@vger.kernel.org>; Mon, 26 Nov 2012 00:08:32 -0800 (PST)
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:55628 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754322Ab2KZIIp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 03:08:45 -0500
+Received: by mail-wi0-f178.google.com with SMTP id hm6so3092179wib.1
+        for <netdev@vger.kernel.org>; Mon, 26 Nov 2012 00:08:44 -0800 (PST)
+In-Reply-To: <1353917261-2974-1-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These two patches contain trivial fixes to the tun driver.
-  First patch fixes 4 typos.
-  Second patch puts the correct method name in a debug message in tun_do_read().
+This patch fixes four typos in drivers/net/vtun.c.
 
-Rami Rosen (2):
-  [PATCH net-next 1/2] vtun: fix typos.
-  [PATCH net-next 2/2] tun: put correct method name in a debug message.
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+---
+ drivers/net/tun.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
- drivers/net/tun.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 3bd9932..1dfb135 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -121,11 +121,11 @@ struct tap_filter {
+  * also contains all socket related strctures (except sock_fprog and tap_filter)
+  * to serve as one transmit queue for tuntap device. The sock_fprog and
+  * tap_filter were kept in tun_struct since they were used for filtering for the
+- * netdevice not for a specific queue (at least I didn't see the reqirement for
++ * netdevice not for a specific queue (at least I didn't see the requirement for
+  * this).
+  *
+  * RCU usage:
+- * The tun_file and tun_struct are loosely coupled, the pointer from on to the
++ * The tun_file and tun_struct are loosely coupled, the pointer from one to the
+  * other can only be read while rcu_read_lock or rtnl_lock is held.
+  */
+ struct tun_file {
+@@ -153,7 +153,7 @@ struct tun_flow_entry {
+ #define TUN_NUM_FLOW_ENTRIES 1024
+ 
+ /* Since the socket were moved to tun_file, to preserve the behavior of persist
+- * device, socket fileter, sndbuf and vnet header size were restore when the
++ * device, socket filter, sndbuf and vnet header size were restore when the
+  * file were attached to a persist device.
+  */
+ struct tun_struct {
+@@ -689,7 +689,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	    sk_filter(tfile->socket.sk, skb))
+ 		goto drop;
+ 
+-	/* Limit the number of packets queued by divining txq length with the
++	/* Limit the number of packets queued by dividing txq length with the
+ 	 * number of queues.
+ 	 */
+ 	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
 -- 
 1.7.11.7
