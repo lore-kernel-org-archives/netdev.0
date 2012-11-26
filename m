@@ -1,55 +1,70 @@
-From: Dmitry Torokhov <dtor@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH 471/493] net: remove use of __devexit
-Date: Mon, 26 Nov 2012 09:39:15 -0800
-Message-ID: <20121126173915.GE11127@dtor-ws.eng.vmware.com>
-References: <1353349642-3677-1-git-send-email-wfp5p@virginia.edu>
-	<1353349642-3677-471-git-send-email-wfp5p@virginia.edu>
+From: "Keitel, Tino (ALC NetworX GmbH)" <Tino.Keitel@alcnetworx.de>
+Subject: Re: BQL support in gianfar causes network hickup
+Date: Mon, 26 Nov 2012 18:08:19 +0100
+Message-ID: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6F@Exchange1.lawo.de>
+References: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6E@Exchange1.lawo.de>
+ <50AFA599.9040108@windriver.com> <loom.20121124T213422-650@post.gmane.org>
+ <1353800616.2590.4562.camel@edumazet-glaptop>
+ <20121126100111.GA3728@mac.home> <1353947677.7553.2.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>, "Michael S. Tsirkin" <mst@redhat.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>,
-	virtualization@lists.linux-foundation.org,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	Christian Lamparter <chunkeey@googlemail.com>,
-	Hin-Tak Leung <htl10@users.sourceforge.net>,
-	Luciano Coelho <coelho@ti.com>, Stefano Brivio <stefano.brivio@polimi.it>,
-	libertas-dev@lists.infradead.org, Dan Williams <dcbw@redhat.com>,
-	ath5k-devel@lists.ath5k.org, "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	linux-hippi@sunsite.dk, Nick Kossifidis <mickflemm@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Herton Ronaldo Krzesinski <herton@canonical.com>,
-	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	b43-dev@lists.infradead.org, Samuel Ortiz <samuel@sortiz.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-can@vger.kernel.org, xen-devel@lists.xensource.com,
-	Marc K
-To: Bill Pemberton <wfp5p@virginia.edu>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1353349642-3677-471-git-send-email-wfp5p@virginia.edu>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Tino Keitel <tino.keitel@tikei.de>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.lawo.de ([80.149.95.33]:26316 "EHLO mail2.lawo.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933237Ab2KZRI0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Nov 2012 12:08:26 -0500
+In-Reply-To: <1353947677.7553.2.camel@edumazet-glaptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Nov 19, 2012 at 01:27:00PM -0500, Bill Pemberton wrote:
-> CONFIG_HOTPLUG is going away as an option so __devexit is no
-> longer needed.
-
-...
-
->  drivers/net/vmxnet3/vmxnet3_drv.c             |  2 +-
-
-For VMXNET3:
-
-Acked-by: Dmitry Torokhov <dtor@vmware.com>
-
-Thanks,
-Dmitry
+T24gTW8sIDIwMTItMTEtMjYgYXQgMDg6MzQgLTA4MDAsIEVyaWMgRHVtYXpldCB3cm90ZToKPiBP
+biBNb24sIDIwMTItMTEtMjYgYXQgMTE6MDEgKzAxMDAsIFRpbm8gS2VpdGVsIHdyb3RlOgo+ID4g
+T24gU2F0LCBOb3YgMjQsIDIwMTIgYXQgMTU6NDM6MzYgLTA4MDAsIEVyaWMgRHVtYXpldCB3cm90
+ZToKPiA+IAo+ID4gWy4uLl0KPiA+IAo+ID4gPiBIbW0sIEkgd29uZGVyIGlmIEJRTCBtYWtlcyBh
+IHBhcnRpY3VsYXIgYnVnIHNob3dpbmcgbW9yZSBvZnRlbi4KPiA+ID4gCj4gPiA+IEkgc2VlIGdp
+YW5mYXIgdXNlcyBhIHZlcnkgc21hbGwgd2F0Y2hkb2dfdGltZW8gb2YgMSBzZWNvbmQsIHdoaWxl
+IG1hbnkKPiA+ID4gZHJpdmVycyB1c2UgNSBzZWNvbmRzLgo+ID4gPiAKPiA+ID4gV2hhdCBoYXBw
+ZW5zIGlmIHlvdSBjaGFuZ2UgdGhpcyB0byA1IHNlY29uZHMgPwo+ID4gCj4gPiBJIHN0aWxsIGdv
+dCB0aGUgdHJhY2UgYW5kIGEgZmFpbGluZyBwdHAgY2xpZW50Lgo+ID4gCj4gCj4gVGhhbmtzLiBJ
+cyB0aGlzIGJ1ZyBlYXN5IHRvIHRyaWdnZXIgPwo+IAo+IEkgc3VzcGVjdCBhIGNvcmUgaXNzdWUg
+YW5kIGEgcmFjZSwgbGlrZWx5IHRvIGhhcHBlbiBvbiB5b3VyIChub24geDg2KQo+IGhhcmR3YXJl
+Cj4gCj4gQ291bGQgeW91IGFkZCB0aGUgZm9sbG93aW5nIGRlYnVnZ2luZyBwYXRjaCA/CgpObyB2
+aXNpYmxlIGRpZmZlcmVuY2U6CgpORVRERVYgV0FUQ0hET0c6IGV0aDEgKGZzbC1naWFuZmFyKTog
+dHJhbnNtaXQgcXVldWUgMCB0aW1lZCBvdXQKLS0tLS0tLS0tLS0tWyBjdXQgaGVyZSBdLS0tLS0t
+LS0tLS0tCldBUk5JTkc6CmF0IC9ob21lL2tlaXRlbHQxL3NyYy9naXQvbGludXgtc3RhYmxlL25l
+dC9zY2hlZC9zY2hfZ2VuZXJpYy5jOjI1NQpNb2R1bGVzIGxpbmtlZCBpbjoKTklQOiBjMDI0NDhi
+MCBMUjogYzAyNDQ4YjAgQ1RSOiBjMDFjMTliOApSRUdTOiBjN2ZmYmU0MCBUUkFQOiAwNzAwICAg
+Tm90IHRhaW50ZWQgICgzLjcuMC1yYzYtZGlydHkpCk1TUjogMDAwMjkwMzIgPEVFLE1FLElSLERS
+LFJJPiAgQ1I6IDIyMDAyMDQ0ICBYRVI6IDIwMDAwMDAwClRBU0sgPSBjMDNkZDM3MFswXSAnc3dh
+cHBlcicgVEhSRUFEOiBjMDNmZTAwMApHUFIwMDogYzAyNDQ4YjAgYzdmZmJlZjAgYzAzZGQzNzAg
+MDAwMDAwM2YgMDAwMDAwMDEgYzAwMWFlYTggMDAwMDAwMDAKMDAwMDAwMDEKR1BSMDg6IDAwMDAw
+MDAxIGMwM2UwMDAwIDAwMDAwMDAwIDAwMDAwMDlkIDIyMDAyMDg0IDEwMDhlYjVjIDA3ZmZiMDAw
+CmZmZmZmZmZmCkdQUjE2OiAwMDAwMDAwNCBjMDM2MmM3YyBjMDNkZmJmOCAwMDIwMDAwMCBjMDQx
+MWVkMCBjMDQxMWNkMCBjMDQxMWFkMApmZmZmZmZmZgpHUFIyNDogMDAwMDAwMDAgYzc0OWUxZDgg
+MDAwMDAwMDQgYzc4M2MxYjAgYzA0MDAwMDAgYzAzZTAwMDAgYzc0OWUwMDAKMDAwMDAwMDAKTklQ
+IFtjMDI0NDhiMF0gZGV2X3dhdGNoZG9nKzB4Mjg4LzB4Mjk4CkxSIFtjMDI0NDhiMF0gZGV2X3dh
+dGNoZG9nKzB4Mjg4LzB4Mjk4CkNhbGwgVHJhY2U6CltjN2ZmYmVmMF0gW2MwMjQ0OGIwXSBkZXZf
+d2F0Y2hkb2crMHgyODgvMHgyOTggKHVucmVsaWFibGUpCltjN2ZmYmYyMF0gW2MwMDI2N2Y4XSBj
+YWxsX3RpbWVyX2ZuKzB4NmMvMHhkOApbYzdmZmJmNTBdIFtjMDAyNjllNF0gcnVuX3RpbWVyX3Nv
+ZnRpcnErMHgxODAvMHgxZjgKW2M3ZmZiZmEwXSBbYzAwMjExNDRdIF9fZG9fc29mdGlycSsweGM0
+LzB4MTYwCltjN2ZmYmZmMF0gW2MwMDBkMGI4XSBjYWxsX2RvX3NvZnRpcnErMHgxNC8weDI0Cltj
+MDNmZmUwMF0gW2MwMDA1OGU4XSBkb19zb2Z0aXJxKzB4OGMvMHhiOApbYzAzZmZlMjBdIFtjMDAy
+MTM1OF0gaXJxX2V4aXQrMHg5OC8weGI0CltjMDNmZmUzMF0gW2MwMDA5ZmIwXSB0aW1lcl9pbnRl
+cnJ1cHQrMHgxNTgvMHgxNzAKW2MwM2ZmZTUwXSBbYzAwMGYwMmNdIHJldF9mcm9tX2V4Y2VwdCsw
+eDAvMHgxNAotLS0gRXhjZXB0aW9uOiA5MDEgYXQgX3Jhd19zcGluX3VubG9ja19pcnErMHgzYy8w
+eDc4CiAgICBMUiA9IF9yYXdfc3Bpbl91bmxvY2tfaXJxKzB4MmMvMHg3OApbYzAzZmZmMjBdIFtj
+MDA0MzRjOF0gZmluaXNoX3Rhc2tfc3dpdGNoLmNvbnN0cHJvcC42OSsweDVjLzB4ZGMKW2MwM2Zm
+ZjQwXSBbYzAyZDM1NGNdIF9fc2NoZWR1bGUrMHgxZTAvMHg0MTAKW2MwM2ZmZjkwXSBbYzAyZDNh
+NzhdIHNjaGVkdWxlX3ByZWVtcHRfZGlzYWJsZWQrMHgxOC8weDMwCltjMDNmZmZhMF0gW2MwMDA4
+OThjXSBjcHVfaWRsZSsweGZjLzB4MTAwCltjMDNmZmZjMF0gW2MwM2IzN2IwXSBzdGFydF9rZXJu
+ZWwrMHgyZGMvMHgyZjAKW2MwM2ZmZmYwXSBbMDAwMDM0MzhdIDB4MzQzOApJbnN0cnVjdGlvbiBk
+dW1wOgo3ZDI5MDNhNiA0ZTgwMDQyMSA4MGZlMDFmYyA0YmZmZmY3NCA3ZmMzZjM3OCA0YmZlY2I3
+ZCA3ZmM0ZjM3OCA3ZmU2ZmI3OCAKN2M2NTFiNzggM2M2MGMwMzggMzg2MzcyODAgNDgwOTBlNTEg
+PDBmZTAwMDAwPiAzOTIwMDAwMSA5OTNjYzdjOQo0YmZmZmZiOCAKLS0tWyBlbmQgdHJhY2UgYzE3
+MGY1NmEwNTAzY2RkMiBdLS0tCgpSZWdhcmRzLApUaW5vCgo=
