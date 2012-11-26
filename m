@@ -1,55 +1,80 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH] atm: br2684: Fix excessive queue bloat
-Date: Mon, 26 Nov 2012 00:52:10 +0100
-Message-ID: <20121125235210.GA17935@shrek.podlesie.net>
-References: <1353715292.26346.237.camel@shinybook.infradead.org>
- <20121125214332.GA2722@shrek.podlesie.net>
- <1353880892.26346.300.camel@shinybook.infradead.org>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] net: ipmr: limit MRT_TABLE identifiers
+Date: Mon, 26 Nov 2012 09:22:56 +0800
+Message-ID: <50B2C470.5090802@asianux.com>
+References: <50AC9CF6.2020501@asianux.com> <1353872669.30446.863.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, John Crispin <blogic@openwrt.org>,
-	Dave =?iso-8859-1?Q?T=E4ht?= <dave.taht@gmail.com>,
-	"Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [93.179.225.50] ([93.179.225.50]:59991 "EHLO shrek.podlesie.net"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753430Ab2KYXwM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Nov 2012 18:52:12 -0500
-Content-Disposition: inline
-In-Reply-To: <1353880892.26346.300.camel@shinybook.infradead.org>
+Received: from intranet.asianux.com ([58.214.24.6]:11743 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753864Ab2KZBWB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Nov 2012 20:22:01 -0500
+In-Reply-To: <1353872669.30446.863.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Nov 25, 2012 at 10:01:32PM +0000, David Woodhouse wrote:
-> 
-> Yeah. This is fairly much the same conversation I ended up having when I
-> did the same for PPPoATM.
-> 
-> Some day *perhaps* we might look at doing something adaptive, so it'll
-> detect a TX underrun and increase the amount of buffering. But this
-> seems perfectly good for now.
+=E4=BA=8E 2012=E5=B9=B411=E6=9C=8826=E6=97=A5 03:44, Eric Dumazet =E5=86=
+=99=E9=81=93:
+> From: Eric Dumazet <edumazet@google.com>
+>=20
+> Name of pimreg devices are built from following format :
+>=20
+> char name[IFNAMSIZ]; // IFNAMSIZ =3D=3D 16
+>=20
+> sprintf(name, "pimreg%u", mrt->id);
+>=20
+> We must therefore limit mrt->id to 9 decimal digits
+> or risk a buffer overflow and a crash.
+>=20
+> Restrict table identifiers in [0 ... 999999999] interval.
+>=20
 
-The biggest problem is the existence of additional, mostly unnecessary
-huge software queue that we have between us and the hardware on "ATM sockets".
-Most of ATM drivers have some hardware queue, but accept and queue
-additional frames in software and it just adds unnecessary delay
-- it's much better to queue those frames in netdev queue. With this patch
-we limit this queue by limiting the number of frames in this queue and
-hardware queue to 2 frames, but the hardware may require larger *hardware*
-queue to saturate the link. If we had only the hardware queue, the queue
-would be probably sized adequately in ATM driver or could be tuned by user.
+  if we have to stick to "pimreg%u" (or will hurt the functional featur=
+es)
+  suggest to let user mode know this limitation.=20
+    define a macro in public header (user mode can know it) and give co=
+mments.
+    use macro instead of number.
+    remove the comments which is inside internal function.
 
-I think that the 2 frame queue is much better than the huge queue,
-that we have now.
+  thanks.
 
-> 
-> > Maybe this magic "2" and the comment should be moved to some #define.
-> 
-> Doesn't make it any less magic. I'm happier with it as it is, with a
-> clear comment describing why it's done that way.
-> 
+gchen.
 
-In PPPoATM we have NONE_INFLIGHT.
 
-Krzysiek
+> Reported-by: Chen Gang <gang.chen@asianux.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  net/ipv4/ipmr.c |    4 ++++
+>  1 file changed, 4 insertions(+)
+>=20
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index 6168c4d..3eab2b2 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -1318,6 +1318,10 @@ int ip_mroute_setsockopt(struct sock *sk, int =
+optname, char __user *optval, unsi
+>  		if (get_user(v, (u32 __user *)optval))
+>  			return -EFAULT;
+> =20
+> +		/* "pimreg%u" should not exceed 16 bytes (IFNAMSIZ) */
+> +		if (v !=3D RT_TABLE_DEFAULT && v >=3D 1000000000)
+> +			return -EINVAL;
+> +
+>  		rtnl_lock();
+>  		ret =3D 0;
+>  		if (sk =3D=3D rtnl_dereference(mrt->mroute_sk)) {
+>=20
+>=20
+>=20
+>=20
+
+
+--=20
+Chen Gang
+
+Asianux Corporation
