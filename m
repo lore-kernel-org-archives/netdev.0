@@ -1,88 +1,30 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next RFC] pktgen: don't wait for the device who doesn't free skb
-	immediately after sent
-Date: Mon, 26 Nov 2012 15:56:52 +0800
-Message-ID: <1353916612-6357-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com
-To: rusty@rustcorp.com.au, mst@redhat.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next 0/2] tun: trivial fixes.
+Date: Mon, 26 Nov 2012 10:07:39 +0200
+Message-ID: <1353917261-2974-1-git-send-email-ramirose@gmail.com>
+Cc: maxk@qti.qualcomm.com, netdev@vger.kernel.org,
+	Rami Rosen <ramirose@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:56810 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754206Ab2KZIId (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 03:08:33 -0500
+Received: by mail-we0-f174.google.com with SMTP id d7so3309528wer.19
+        for <netdev@vger.kernel.org>; Mon, 26 Nov 2012 00:08:32 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some deivces do not free the old tx skbs immediately after it has been sent
-(usually in tx interrupt). One such example is virtio-net which optimizes for
-virt and only free the possible old tx skbs during the next packet sending. This
-would lead the pktgen to wait forever in the refcount of the skb if no other
-pakcet will be sent afterwards.
+These two patches contain trivial fixes to the tun driver.
+  First patch fixes 4 typos.
+  Second patch puts the correct method name in a debug message in tun_do_read().
 
-Solving this issue by introducing a new flag IFF_TX_SKB_FREE_DELAY which could
-notify the pktgen that the device does not free skb immediately after it has
-been sent and let it not to wait for the refcount to be one.
+Rami Rosen (2):
+  [PATCH net-next 1/2] vtun: fix typos.
+  [PATCH net-next 2/2] tun: put correct method name in a debug message.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
+ drivers/net/tun.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-Another choice is to introduce an new .ndo which could be called by pktgen
-during the waiting to free the old tx skbs.
-
- drivers/net/virtio_net.c |    3 ++-
- include/uapi/linux/if.h  |    2 ++
- net/core/pktgen.c        |    3 ++-
- 3 files changed, 6 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 26c502e..8262232 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1058,7 +1058,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		return -ENOMEM;
- 
- 	/* Set up network device as normal. */
--	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE;
-+	dev->priv_flags |= IFF_UNICAST_FLT | IFF_LIVE_ADDR_CHANGE |
-+			   IFF_TX_SKB_FREE_DELAY;
- 	dev->netdev_ops = &virtnet_netdev;
- 	dev->features = NETIF_F_HIGHDMA;
- 
-diff --git a/include/uapi/linux/if.h b/include/uapi/linux/if.h
-index 1ec407b..a0d2168 100644
---- a/include/uapi/linux/if.h
-+++ b/include/uapi/linux/if.h
-@@ -83,6 +83,8 @@
- #define IFF_SUPP_NOFCS	0x80000		/* device supports sending custom FCS */
- #define IFF_LIVE_ADDR_CHANGE 0x100000	/* device supports hardware address
- 					 * change when it's running */
-+#define IFF_TX_SKB_FREE_DELAY 0x200000	/* device does free the tx skb
-+					 * immediately when it is sent */
- 
- 
- #define IF_GET_IFACE	0x0001		/* for querying only */
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index b29dacf..85d4e53 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3269,7 +3269,8 @@ unlock:
- 
- 	/* If pkt_dev->count is zero, then run forever */
- 	if ((pkt_dev->count != 0) && (pkt_dev->sofar >= pkt_dev->count)) {
--		pktgen_wait_for_skb(pkt_dev);
-+		if (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_FREE_DELAY))
-+			pktgen_wait_for_skb(pkt_dev);
- 
- 		/* Done with this */
- 		pktgen_stop_device(pkt_dev);
 -- 
-1.7.1
+1.7.11.7
