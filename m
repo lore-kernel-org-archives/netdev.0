@@ -1,48 +1,35 @@
-From: Xiaotian Feng <xtfeng@gmail.com>
-Subject: Re: linux-next: manual merge of the akpm tree with Linus' tree
-Date: Mon, 26 Nov 2012 21:25:14 +0800
-Message-ID: <CAJn8CcFVOS-pR6O7AGTLKE-47qWOUCDaMXA9Xa-BsdJ7ks2stw@mail.gmail.com>
-References: <20121126234844.1952cdd84c3ba041cfe7a9af@canb.auug.org.au>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [PATCH net-next v2] net: clean up locking in inet_frag_find()
+Date: Mon, 26 Nov 2012 14:42:31 +0100
+Message-ID: <1353937351.11754.207.camel@localhost>
+References: <1353909184.11282.3.camel@cr0>
+	 <1353914786-10426-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20121126234844.1952cdd84c3ba041cfe7a9af@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Mon, Nov 26, 2012 at 8:48 PM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> Hi Andrew,
->
-> Today's linux-next merge of the akpm tree got a conflict in
-> drivers/net/ethernet/jme.c between commit 71c6c837a0fe ("drivers/net: fix
-> tasklet misuse issue") from Linus' tree and commit  "tasklet: ignore
-> disabled tasklet in tasklet_action()" from the akpm tree.
->
-
-You can simply remove the following part of the patch
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: Cong Wang <amwang@redhat.com>, David Miller <davem@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:27977 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753975Ab2KZNme (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Nov 2012 08:42:34 -0500
+In-Reply-To: <1353914786-10426-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-@@ -1862,8 +1862,8 @@ jme_open(struct net_device *netdev)
+Could we please hold back on this cleanup patch, as I have a stack of 9
+patches modifying this area.
 
-         tasklet_enable(&jme->linkch_task);
-         tasklet_enable(&jme->txclean_task);
--       tasklet_hi_enable(&jme->rxclean_task);
--       tasklet_hi_enable(&jme->rxempty_task);
-+       tasklet_enable(&jme->rxclean_task);
-+       tasklet_enable(&jme->rxempty_task);
+If people find this cleanup useful/correct?, I can integrate it into my
+patch stack...
 
-         rc = jme_request_irq(jme);
-         if (rc)
+--Jesper
 
-Do you want me to re-generate a patch for you?
-
-
-> I am not sure what to do here, so I have dropped the akpm patch.
->
-> --
-> Cheers,
-> Stephen Rothwell                    sfr@canb.auug.org.au
+On Mon, 2012-11-26 at 15:26 +0800, Cong Wang wrote:
+> It is weird to take the read lock outside of inet_frag_find()
+> but release it inside...  This can be improved by refactoring
+> the code, that is, introducing inet{4,6}_frag_find() which call
+> the their own hash function, inet{4,6}_hash_frag(), hiding the
+> details from their callers.
