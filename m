@@ -1,42 +1,53 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Subject: Re: [net-next:master 20/25] warning: (NET_DSA_TAG_DSA &&
- NET_DSA_TAG_EDSA && NET_DSA_TAG_TRAILER) selects NET_DSA which has unmet
- direct dependencies (NET && EXPERIMENTAL && NETDEVICES && !S390)
-Date: Mon, 26 Nov 2012 11:43:06 +0530
-Message-ID: <CAKohpo=r2ZTp5uSp_5duc+zwWvkkwr8dMbz+Yn=WC+ngFy3-0g@mail.gmail.com>
-References: <50b2f66a.czw+uqRm3Q/zfbER%fengguang.wu@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC] [INET]: Get cirtical word in first 64bit of cache
+ line
+Date: Sun, 25 Nov 2012 22:44:01 -0800
+Message-ID: <1353912241.30446.1257.camel@edumazet-glaptop>
+References: <1353900555-5966-1-git-send-email-ling.ma.program@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: kbuild test robot <fengguang.wu@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:58888 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752311Ab2KZGNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 01:13:07 -0500
-Received: by mail-ie0-f174.google.com with SMTP id k11so5790519iea.19
-        for <netdev@vger.kernel.org>; Sun, 25 Nov 2012 22:13:07 -0800 (PST)
-In-Reply-To: <50b2f66a.czw+uqRm3Q/zfbER%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: ling.ma.program@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1353900555-5966-1-git-send-email-ling.ma.program@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Ben/Dave,
+On Mon, 2012-11-26 at 11:29 +0800, ling.ma.program@gmail.com wrote:
+> From: Ma Ling <ling.ma.program@gmail.com>
+> 
+> In order to reduce memory latency when last level cache miss occurs,
+> modern CPUs i.e. x86 and arm introduced Critical Word First(CWF) or
+> Early Restart(ER) to get data ASAP. For CWF if critical word is first member
+> in cache line, memory feed CPU with critical word, then fill others
+> data in cache line one by one, otherwise after critical word it must
+> cost more cycle to fill the remaining cache line. For Early First CPU will
+> restart until critical word in cache line reaches.
+> 
+> Hash value is critical word, so in this patch we place it as first member
+> in cache line(sock address is cache-line aligned), and it is also good for
+> Early Restart platform as well .
+> 
+> Thanks
+> Ling
 
-On 26 November 2012 10:26, kbuild test robot <fengguang.wu@intel.com> wrote:
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-> head:   53d6841d225b93c20d561878637c3cd307c11648
-> commit: 82167cb8c6b2f8166d5c7532e5ef4b5e0cc46a72 [20/25] net: dsa/slave: Fix compilation warnings
-> config: make ARCH=s390 allmodconfig
->
-> All warnings:
->
-> warning: (NET_DSA_TAG_DSA && NET_DSA_TAG_EDSA && NET_DSA_TAG_TRAILER) selects NET_DSA which has unmet direct dependencies (NET && EXPERIMENTAL && NETDEVICES && !S390)
-> warning: (NET_DSA_TAG_DSA && NET_DSA_TAG_EDSA && NET_DSA_TAG_TRAILER) selects NET_DSA which has unmet direct dependencies (NET && EXPERIMENTAL && NETDEVICES && !S390)
-> --
-> warning: (NET_DSA_TAG_DSA && NET_DSA_TAG_EDSA && NET_DSA_TAG_TRAILER) selects NET_DSA which has unmet direct dependencies (NET && EXPERIMENTAL && NETDEVICES && !S390)
+networking patches should be sent to netdev.
 
-I am not really sure how to fix this up. Can you help?
+(I understand this patch is more a generic one, but at least CC netdev)
 
---
-viresh
+You give no performance numbers for this change...
+
+I never heard of this CWF/ER, where are the official Intel documents
+about this, and what models really benefit from it ?
+
+Also, why not moving skc_net as well ?
+
+BTW, skc_daddr & skc_rcv_saddr are 'critical' as well, we use them in
+INET_MATCH()
+
+It seems we have a 32bit hole on 64bit arches, so we probably should
+move inet_dport/inet_num in it. It could well remove a full cache line
+miss (I'll send a patch for this after tests)
+
+Thanks
