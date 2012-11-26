@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next.git 0/6 (V5)] stmmac: remove dead code for
- STMMAC_TIMER and add new mitigation schema
-Date: Mon, 26 Nov 2012 17:23:03 -0500 (EST)
-Message-ID: <20121126.172303.1672761221381936338.davem@davemloft.net>
-References: <1353921046-5121-1-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCH net-next 1/2] ptp: reduce stack usage when reading
+ external time stamps
+Date: Mon, 26 Nov 2012 17:23:29 -0500 (EST)
+Message-ID: <20121126.172329.619135499941355889.davem@davemloft.net>
+References: <20121102020631.GI16883@yliu-dev.sh.intel.com>
+	<1146e32bcb835ebf394bab91db3161600ab5213a.1353929829.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: peppe.cavallaro@st.com
+Cc: netdev@vger.kernel.org
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54934 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54940 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932133Ab2KZWXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 17:23:06 -0500
-In-Reply-To: <1353921046-5121-1-git-send-email-peppe.cavallaro@st.com>
+	with ESMTP id S1757277Ab2KZWXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 17:23:33 -0500
+In-Reply-To: <1146e32bcb835ebf394bab91db3161600ab5213a.1353929829.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Mon, 26 Nov 2012 10:10:40 +0100
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Mon, 26 Nov 2012 12:44:34 +0100
 
-> These patch series remove the STMMAC_TIMER option no longer updated
-> and never used and add a new mitigation schema.
-> Having removed the Timer opt, this has made the driver slim.
-> On top of this work, it has been easier to introduce the new
-> mitigation schema based on HW RX-watchdog (available in new cores).
-> In fact, 3.50 and newer cores have an HW RX-Watchdog that can be used for 
-> mitigating the Rx-interrupts and first results look promising.
+> This patch removes the large buffer from the stack of the read file
+> operation and replaces it with a kmalloced buffer.
+> 
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 
-All applied to net-next
+Applied.
