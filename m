@@ -1,46 +1,57 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: private netdev flags into UAPI?
-Date: Mon, 26 Nov 2012 09:22:41 +0000
-Message-ID: <10845.1353921761@warthog.procyon.org.uk>
-References: <50B1CC1B.20104@mellanox.com>
-Cc: dhowells@redhat.com, netdev <netdev@vger.kernel.org>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+From: Jan Synacek <jsynacek@redhat.com>
+Subject: Re: [PATCH] arping: Fix find_device_by_ifaddrs()
+Date: Mon, 26 Nov 2012 10:26:17 +0100
+Message-ID: <50B335B9.1080209@redhat.com>
+References: <1353574275-21742-1-git-send-email-jsynacek@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5672 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:19584 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753996Ab2KZJWr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Nov 2012 04:22:47 -0500
-In-Reply-To: <50B1CC1B.20104@mellanox.com>
+	id S1753316Ab2KZJ0V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Nov 2012 04:26:21 -0500
+In-Reply-To: <1353574275-21742-1-git-send-email-jsynacek@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Or Gerlitz <ogerlitz@mellanox.com> wrote:
+On 11/22/2012 09:51 AM, Jan Synacek wrote:
+> Look for another device if the device name and the currently found one are the
+> same, not different.
+> 
+> Also, make checking for the device's flags nonfatal.
+> 
+> Signed-off-by: Jan Synacek <jsynacek@redhat.com>
+> ---
+>  arping.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/arping.c b/arping.c
+> index ff77bec..d0edccf 100644
+> --- a/arping.c
+> +++ b/arping.c
+> @@ -550,10 +550,10 @@ static int find_device_by_ifaddrs(void)
+>  			continue;
+>  		if (ifa->ifa_addr->sa_family != AF_PACKET)
+>  			continue;
+> -		if (device.name && ifa->ifa_name && strcmp(ifa->ifa_name, device.name))
+> +		if (device.name && ifa->ifa_name && !strcmp(ifa->ifa_name, device.name))
+>  			continue;
+>  
+> -		if (check_ifflags(ifa->ifa_flags, device.name != NULL) < 0)
+> +		if (check_ifflags(ifa->ifa_flags, 0) < 0)
+>  			continue;
+>  
+>  		if (!((struct sockaddr_ll *)ifa->ifa_addr)->sll_halen)
+> 
 
-> not sure if this has been brought up before, but I realized that the private
-> IFF_yyy netdevice flags which weren't exposed to user space so far have been
-> moved to include/uapi/linux/if.h, isn't that wrong?
+Please, disregard this patch. I found a problem with it and will send a proper
+patch soon.
 
-They were exposed to userspace already.  On my Fedora 16 test box, I see:
+Cheers,
 
-	[root@andromeda ~]# grep -r IFF_EBRIDGE /usr/include/linux
-	/usr/include/linux/if.h:#define IFF_EBRIDGE     0x2             /* Ethernet bridging device.    */
-
-which is from:
-
-	kernel-headers-3.3.6-3.fc16.x86_64
-
-which was built before UAPI proper started going in:
-
-	[root@andromeda ~]# rpm -qfi /usr/include/linux/if.h | grep "Build Date"
-	Build Date  : Wed 16 May 2012 23:05:59 BST
-
-Looking at commit 607ca46e97a1b6594b29647d98a32d545c24bdff, I see:
-
-	--------------------------- include/uapi/linux/if.h ---------------------------
-	similarity index 100%
-	rename from include/linux/if.h
-	rename to include/uapi/linux/if.h
-
-so my script just moved it without alteration.
-
-David
+-- 
+Jan Synacek
+Software Engineer, BaseOS team Brno, Red Hat
