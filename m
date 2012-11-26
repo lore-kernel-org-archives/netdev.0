@@ -1,44 +1,34 @@
-From: Tommi Rantala <tt.rantala@gmail.com>
-Subject: [PATCH] irda: irttp: fix memory leak in irttp_open_tsap() error path
-Date: Mon, 26 Nov 2012 16:16:44 +0200
-Message-ID: <1353939404-19264-1-git-send-email-tt.rantala@gmail.com>
-Cc: Samuel Ortiz <samuel@sortiz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Dave Jones <davej@redhat.com>,
-	Tommi Rantala <tt.rantala@gmail.com>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH v2] atm: br2684: Fix excessive queue bloat
+Date: Mon, 26 Nov 2012 15:16:57 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.1211261504240.17614@ask.diku.dk>
+References: <1353881212.26346.303.camel@shinybook.infradead.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev <netdev@vger.kernel.org>, John Crispin <blogic@openwrt.org>,
+	=?iso-8859-1?Q?Dave_T=E4ht?= <dave.taht@gmail.com>,
+	"Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>,
+	Jesper Brouer <brouer@redhat.com>
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:56772 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752260Ab2KZOQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 09:16:58 -0500
-Received: by mail-wg0-f44.google.com with SMTP id dr13so2168469wgb.1
-        for <netdev@vger.kernel.org>; Mon, 26 Nov 2012 06:16:57 -0800 (PST)
+Received: from mgw2.diku.dk ([130.225.96.92]:49697 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752260Ab2KZORi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Nov 2012 09:17:38 -0500
+In-Reply-To: <1353881212.26346.303.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cleanup the memory we allocated earlier in irttp_open_tsap() when we hit
-this error path. The leak goes back to at least 1da177e4
-("Linux-2.6.12-rc2").
 
-Discovered with Trinity (the syscall fuzzer).
+Nice work David Woodhouse.  What OpenWRT supported box have this 
+hardware? (I want one so I can play with it ;-))
 
-Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
----
- net/irda/irttp.c |    1 +
- 1 file changed, 1 insertion(+)
+Cheers,
+   Jesper Brouer
 
-diff --git a/net/irda/irttp.c b/net/irda/irttp.c
-index 1002e33..ae43c62 100644
---- a/net/irda/irttp.c
-+++ b/net/irda/irttp.c
-@@ -441,6 +441,7 @@ struct tsap_cb *irttp_open_tsap(__u8 stsap_sel, int credit, notify_t *notify)
- 	lsap = irlmp_open_lsap(stsap_sel, &ttp_notify, 0);
- 	if (lsap == NULL) {
- 		IRDA_DEBUG(0, "%s: unable to allocate LSAP!!\n", __func__);
-+		__irttp_close_tsap(self);
- 		return NULL;
- 	}
- 
--- 
-1.7.9.5
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
