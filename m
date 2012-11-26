@@ -1,56 +1,127 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next:master 20/25] net/dsa: make DSA tagging depend
- on NETDEVICES and !S390
-Date: Mon, 26 Nov 2012 18:57:35 +0000
-Message-ID: <1353956255.2717.1.camel@bwh-desktop.uk.solarflarecom.com>
-References: <50b2f66a.czw+uqRm3Q/zfbER%fengguang.wu@intel.com>
-	 <CAKohpo=r2ZTp5uSp_5duc+zwWvkkwr8dMbz+Yn=WC+ngFy3-0g@mail.gmail.com>
-	 <50B3B9F6.5060509@infradead.org>
+Subject: [PATCH net-next] dsa: Hide core config options; make drivers select
+ what they need
+Date: Mon, 26 Nov 2012 19:16:10 +0000
+Message-ID: <1353957370.2717.3.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Viresh Kumar <viresh.kumar@linaro.org>,
-	kbuild test robot <fengguang.wu@intel.com>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Randy Dunlap <rdunlap@infradead.org>
+Cc: <netdev@vger.kernel.org>, Viresh Kumar <viresh.kumar@linaro.org>,
+	"Randy Dunlap" <rdunlap@infradead.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:31563 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:43659 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751345Ab2KZS5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 13:57:42 -0500
-In-Reply-To: <50B3B9F6.5060509@infradead.org>
+	with ESMTP id S1754613Ab2KZTQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 14:16:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-11-26 at 10:50 -0800, Randy Dunlap wrote:
-> From: Randy Dunlap <rdunlap@infradead.org>
-> 
-> Fix kconfig dependency warning by making DSA support depend on the
-> same kconfig symbols that NET_DSA depend on.
-> 
-> warning: (NET_DSA_TAG_DSA && NET_DSA_TAG_EDSA && NET_DSA_TAG_TRAILER) selects NET_DSA which has unmet direct dependencies (NET && NETDEVICES && !S390)
+Commit 82167cb8c6b2f8166d5c7532e5ef4b5e0cc46a72 ('net: dsa/slave: Fix
+compilation warnings') fixed one possible invalid configuration
+(NET_DSA enabled with no trailer formats) but added others: drivers
+can select NET_DSA without its dependencies being met.
 
-This perhaps ought to be abstracted into a HAVE_NET_DSA rather than
-reepated here.  Also, in net-next NET_DSA still depends on EXPERIMENTAL,
-which should be removed.
+It's not very useful to make either the DSA core or the tagging
+formats manually selectable without a driver to use them, so:
 
-Ben.
+1. Define a hidden HAVE_NET_DSA option and move the dependencies of
+   NET_DSA to that.  While we're at it, drop the deprecated
+   EXPERIMENTAL dependency.
+2. Make NET_DSA and the drivers dependent on HAVE_NET_DSA.
+3. Hide the tagging format options again.
+4. Make drivers select both NET_DSA and the appropriate tagging format
+   option.
 
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-> ---
->  net/dsa/Kconfig |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> --- linux-next-20121126.orig/net/dsa/Kconfig
-> +++ linux-next-20121126/net/dsa/Kconfig
-> @@ -9,6 +9,7 @@ config NET_DSA
->  
-> 
->  menu "Distributed Switch Architecture support"
-> +	depends on NETDEVICES && !S390
->  
->  # tagging formats
->  config NET_DSA_TAG_DSA
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/dsa/Kconfig |    4 ++++
+ net/dsa/Kconfig         |   30 +++++++++++++-----------------
+ 2 files changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+index 96eae22..b8fe808 100644
+--- a/drivers/net/dsa/Kconfig
++++ b/drivers/net/dsa/Kconfig
+@@ -1,4 +1,5 @@
+ menu "Distributed Switch Architecture drivers"
++	depends on HAVE_NET_DSA
+ 
+ config NET_DSA_MV88E6XXX
+ 	tristate
+@@ -6,6 +7,7 @@ config NET_DSA_MV88E6XXX
+ 
+ config NET_DSA_MV88E6060
+ 	tristate "Marvell 88E6060 ethernet switch chip support"
++	select NET_DSA
+ 	select NET_DSA_TAG_TRAILER
+ 	---help---
+ 	  This enables support for the Marvell 88E6060 ethernet switch
+@@ -17,6 +19,7 @@ config NET_DSA_MV88E6XXX_NEED_PPU
+ 
+ config NET_DSA_MV88E6131
+ 	tristate "Marvell 88E6085/6095/6095F/6131 ethernet switch chip support"
++	select NET_DSA
+ 	select NET_DSA_MV88E6XXX
+ 	select NET_DSA_MV88E6XXX_NEED_PPU
+ 	select NET_DSA_TAG_DSA
+@@ -26,6 +29,7 @@ config NET_DSA_MV88E6131
+ 
+ config NET_DSA_MV88E6123_61_65
+ 	tristate "Marvell 88E6123/6161/6165 ethernet switch chip support"
++	select NET_DSA
+ 	select NET_DSA_MV88E6XXX
+ 	select NET_DSA_TAG_EDSA
+ 	---help---
+diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
+index 0f5dc34..f5eede1 100644
+--- a/net/dsa/Kconfig
++++ b/net/dsa/Kconfig
+@@ -1,28 +1,24 @@
++config HAVE_NET_DSA
++	def_bool y
++	depends on NETDEVICES && !S390
++
++# Drivers must select NET_DSA and the appropriate tagging format
++
+ config NET_DSA
+ 	tristate
+-	default n
+-	depends on EXPERIMENTAL && NETDEVICES && !S390
++	depends on HAVE_NET_DSA
+ 	select PHYLIB
+-	---help---
+-	  This allows you to use hardware switch chips that use
+-	  the Distributed Switch Architecture.
+ 
+-
+-menu "Distributed Switch Architecture support"
++if NET_DSA
+ 
+ # tagging formats
+ config NET_DSA_TAG_DSA
+-	bool "Original DSA packet tagging format"
+-	select NET_DSA
+-	default n
++	bool
+ 
+ config NET_DSA_TAG_EDSA
+-	bool "Ethertype DSA packet tagging format"
+-	select NET_DSA
+-	default n
++	bool
+ 
+ config NET_DSA_TAG_TRAILER
+-	bool "Trailer DSA packet tagging format"
+-	select NET_DSA
+-	default n
+-endmenu
++	bool
++
++endif
+-- 
+1.7.7.6
+
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
