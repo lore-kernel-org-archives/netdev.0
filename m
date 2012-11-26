@@ -1,126 +1,60 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: iputils-s20121126
-Date: Mon, 26 Nov 2012 21:13:54 +0900
-Message-ID: <50B35D02.7020404@linux-ipv6.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm tree with Linus' tree
+Date: Mon, 26 Nov 2012 23:48:44 +1100
+Message-ID: <20121126234844.1952cdd84c3ba041cfe7a9af@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__26_Nov_2012_23_48_44_+1100_GmJ.OBQ7wz9vv9oM"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Xiaotian Feng <xtfeng@gmail.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:53063 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754142Ab2KZMN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 07:13:57 -0500
+Received: from haggis.pcug.org.au ([203.10.76.10]:40545 "EHLO
+	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753767Ab2KZMss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 07:48:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+--Signature=_Mon__26_Nov_2012_23_48_44_+1100_GmJ.OBQ7wz9vv9oM
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-iputils-s20121126 comes with a lot of bug fixes and improvements.
+Hi Andrew,
 
-New features and bux fixes (selected) since s20121114:
-        - static link support for libidn.
-        - arping: select default interface.
-        - ninfod: rejects queries from global addresses.
-        - ping: do not free uninitialized value (bug since s20121112).
-        - ping6: -N subject-ipv6 and subject-ipv4 sub-options fixed.
-        - ping6: Randomize nonce field in NI Queries.
-        - ping6: source routing deprecated.
-        - tracepath: broken if port was omitted (bug since s20121112).
+Today's linux-next merge of the akpm tree got a conflict in
+drivers/net/ethernet/jme.c between commit 71c6c837a0fe ("drivers/net: fix
+tasklet misuse issue") from Linus' tree and commit  "tasklet: ignore
+disabled tasklet in tasklet_action()" from the akpm tree.
 
-Files:
-        https://sourceforge.net/projects/iputils/files/
-        http://www.skbuff.net/iputils/
-Tree:
-        http://www.linux-ipv6.org/gitweb/gitweb.cgi?p=gitroot/iputils.git
-        https://sourceforge.net/p/iputils/code/ci/HEAD/tree/
+I am not sure what to do here, so I have dropped the akpm patch.
 
-Regards,
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
---yoshfuji
-----------
-Changelogs:
+--Signature=_Mon__26_Nov_2012_23_48_44_+1100_GmJ.OBQ7wz9vv9oM
+Content-Type: application/pgp-signature
 
-Jan Synacek (2):
-      ping,ping6: Add newline to error message.
-      ping: Don't free an unintialized value.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-YOSHIFUJI Hideaki (69):
-      arping,clockdiff,ping,rarpd,rdisc,traceroute6 doc:
-s/CAP_NET_RAWIO/CAP_NET_RAW/.
-      ping,ping6: Do not assume radix point is denoted by '.' (-i option).
-      arping,ping,ping6,rdisc,traceroute6: Fix version string.
-      makefile: Give -fno-strict-aliasing to compiler by default.
-      ping6: Use SCOPE_DELIMITER.
-      Makefile: Remove -lm from ADDLIB.
-      rdisc_srv,Makefile: Fix build.
-      rdisc_srv,Makefile: Build rdisc_srv with make all.
-      arping: set_device_broadcast() does not need to store return value
-of sub-functions.
-      arping,Makefile: Make default interface configurable.
-      arping: Do not allow empty device name (-I option).
-      arping: Introduce check_ifflags() helper function.
-      arping: Introduce device structure to hold output device information.
-      arping: ALlow no default interface and select one by getifaddrs().
-      arping: Introduce 2nd (legacy) method to select interface by ioctls.
-      arping,Makefile: Allow build without getifaddrs() with
-WITHOUT_IFADDRS=yes.
-      Makefile: Use $< instead of $^ to complile C source code.
-      ping,ping6: Reorder command-line options in alphabetical order.
-      ping6: Show suboptions for Node Information Queries if -N
-suboption is invalid.
-      ping,ping6 doc: Readability for TOS (-Q) option.
-      rdisc: Missing new line after usage.
-      rdisc: Make rdisc with responder support if configured.
-      Makefile: distclean depends on clean.
-      Makefile: Default to -O3.
-      Makefile: Minimize options to gcc.
-      Makefile: Add rule to build assembly files.
-      arping,Makefile: 3rd legacy implementation to check network devices.
-      arping: Less ifdefs.
-      rdisc doc: Document -r, -p and -T options.
-      ping6: NI Subjecet address did not work (-N subject-{ipv6,ipv4]
-suboptions).
-      ping6: Ensure to detect subject type conflicts.
-      iputils-s20121121
-      ping6: Use IN6_IS_ADDR_UNSPECIFIED() instead of our own helper
-function.
-      ping6 doc: Explicitly describe ping6 is IPv6 version if ping.
-      ping6: Deprecate source routing by default (RFC5095).
-      ping6: Use RFC3542 functions and definition for source routing.
-      ping6: Introduce niquery_is_enabled() for readability.
-      arping doc: interface is optional (-I option).
-      ping: Eliminate dirty hack to cope with ancient egcs bug.
-      Makefile: Fix missing right parenthese in comment.
-      arping: Fix build failure with USE_SYSFS=yes and/or
-WITHOUT_IFADDRS=yes
-      arping: Unify source files.
-      arping: Reorder functions and comment out unsued code.
-      arping,ping,ping6,tracepath,traceroute6 Makefile: Support static
-link of libidn by USE_IDN=static.
-      Makefile: Minimize statically linked libraries.
-      ping6: Do not clear seq check array twice for NI.
-      ping6: Use MD5_DIGEST_LENGTH instead of magic value 16.
-      ping6: Introduce helper functions for nonce in NI.
-      ping6: Introduce NI_NONCE_SIZE macro instead of magic value 8.
-      ping6: Ensure to call srand() to get some randomness in NI Nonce.
-      ping6: Generate different NI Nonce in each NI Query (Memory version).
-      ping6: Generate different NI Nonce in each NI Query (MD5 version).
-      ping6: Cache NI Nonce.
-      ping6: Print 'sequence number' embedded in NI Nonce.
-      ninfod: Do noy try to memcpy to self.
-      ninfod Makefile: More precise dependencies.
-      ninfod: Discard multicat packet outside linklocal scope.
-      ninfod: Apply default policy to refuse queries from global addresses.
-      ninfod: Normalize timespec for delay.
-      ninfod: Fix double-free without pthreads.
-      ninfod: Do not mix output from multiple threads.
-      ninfod: Employ internal buffer in stderrlog() for common case.
-      iputils-s20121125
-      tracepath: Repair tracepath without -p option.
-      tracepath,tracepath6: -p option in usage.
-      ping,ping6: Use MAX_DUP_CHK directly, not using mx_dup_chk variable.
-      ping,ping6: Abstract received bitmap macros/definitions.
-      ping,ping6: Use __u64 or __u32 for bitmap.
-      iputils-s20121126
+iQIcBAEBCAAGBQJQs2UsAAoJEECxmPOUX5FEissP/Al9ZrIlDPMjIp6WX0sj1ETj
+8BeVeNkdwwdxrsc8JvzV5Wt2bSZv5KEiFPLOHGF/dKqho1BDgW5BX/cNYN6XixZt
+NavUJcoIJ6Uv9qhlvDyoRc9k7No2BQ425jeE9QdbnXw6Vo3T7txFYpZo4Sg43R+c
+KVKIhdZovIsI0JTZxmG/nHEQouHFnttnw6z1XG32iU3KzrW8DaKHpJ9xnl1pJWwp
+CNRIPvDjcC7rBxFGC0vlrrEyWeQI+u4Q99YvvCydVOCUKDvEjLURAcGprUJDy5PB
+DXhsYHopTpi+pmzUqtwb7u8NHutR/5UTullc8kp20xwnWlZXnk1YRB206BPq3t1X
+DD6VTx0yEkEH+KmrbgYpJNURgpfzhDd/YRFJgej+uhTWQfgFBohrIB0rlMk0NmII
+RDZNb9I3VyXLwO9RiymSBMcyKzbDmMm9+LeVlLrP19SIXxCUcNgQH+hv6aqtgoJs
+djCjxcgnwX1yY0NiCXke3Vy0shpQHZn3W4oKekvTllYTYoOi+IjKvyE+Mo0DJ4M/
+F0dhVNniYsSw7/uMNdr5lSrT0QyeYhtRNApda2kgKA9SsL/PRq/9ZKTqXhdW3fq1
+czS+oMNBI+5mYk/8Ke+GQ7RjWAGxrL8DIQRt7BeTOS3DrWLS+XEOPy06I+uj1Pkn
+y8t9XNyIl2WJ5g/QQIpJ
+=VdPw
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__26_Nov_2012_23_48_44_+1100_GmJ.OBQ7wz9vv9oM--
