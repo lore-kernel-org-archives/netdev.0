@@ -1,67 +1,105 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 1/3] net: stmmac: change GMAC control register for SGMII
-Date: Mon, 26 Nov 2012 11:31:24 +0100
-Message-ID: <50B344FC.4070405@st.com>
-References: <004b01cdc959$80af8030$820e8090$%an@samsung.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH] net/macb: Use non-coherent memory for rx buffers
+Date: Mon, 26 Nov 2012 11:44:03 +0100
+Message-ID: <50B347F3.7050109@atmel.com>
+References: <1353678601-26888-1-git-send-email-nicolas.ferre@atmel.com> <CAGhQ9VwWmP_B17LnAEqDHcL8Yd-s0C-Bf35z3+=vnJmK_NoCSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, kgene.kim@samsung.com,
-	linux-kernel@vger.kernel.org
-To: Byungho An <bh74.an@samsung.com>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	Havard Skinnemoen <havard@skinnemoen.net>
+To: Joachim Eastwood <manabian@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <004b01cdc959$80af8030$820e8090$%an@samsung.com>
+In-Reply-To: <CAGhQ9VwWmP_B17LnAEqDHcL8Yd-s0C-Bf35z3+=vnJmK_NoCSw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/23/2012 10:04 AM, Byungho An wrote:
->
-> This patch changes GMAC control register (TC(Transmit
-> Configuration) and PS(Port Selection) bit for SGMII.
-> In case of SGMII, TC bit is '1' and PS bit is 0.
+On 11/23/2012 05:12 PM, Joachim Eastwood :
+> Hi Nicolas,
+> 
+> On 23 November 2012 14:50, Nicolas Ferre <nicolas.ferre@atmel.com> wrote:
+>> From: Havard Skinnemoen <havard@skinnemoen.net>
+>>
+>> Allocate regular pages to use as backing for the RX ring and use the
+>> DMA API to sync the caches. This should give a bit better performance
+>> since it allows the CPU to do burst transfers from memory. It is also
+>> a necessary step on the way to reduce the amount of copying done by
+>> the driver.
+>>
+>> Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
+>> [nicolas.ferre@atmel.com: adapt to newer kernel]
+>> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+>> ---
+>>  drivers/net/ethernet/cadence/macb.c | 206 +++++++++++++++++++++++-------------
+>>  drivers/net/ethernet/cadence/macb.h |  20 +++-
+>>  2 files changed, 148 insertions(+), 78 deletions(-)
+> 
+> <snip>
+> 
+>> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+>> index 570908b..74e68a3 100644
+>> --- a/drivers/net/ethernet/cadence/macb.h
+>> +++ b/drivers/net/ethernet/cadence/macb.h
+>> @@ -453,6 +453,23 @@ struct macb_dma_desc {
+>>  #define MACB_TX_USED_SIZE                      1
+>>
+>>  /**
+>> + * struct macb_rx_page - data associated with a page used as RX buffers
+>> + * @page: Physical page used as storage for the buffers
+>> + * @phys: DMA address of the page
+>> + *
+>> + * Each page is used to provide %MACB_RX_BUFFERS_PER_PAGE RX buffers.
+>> + * The page gets an initial reference when it is inserted into the
+>> + * ring, and an additional reference each time it is passed up the
+>> + * stack as a fragment. When all the buffers have been used, we drop
+>> + * the initial reference and allocate a new page. Any additional
+>> + * references are dropped when the higher layers free the skb.
+>> + */
+>> +struct macb_rx_page {
+>> +       struct page             *page;
+>> +       dma_addr_t              phys;
+>> +};
+>> +
+>> +/**
+>>   * struct macb_tx_skb - data about an skb which is being transmitted
+>>   * @skb: skb currently being transmitted
+>>   * @mapping: DMA address of the skb's data buffer
+>> @@ -543,7 +560,7 @@ struct macb {
+>>
+>>         unsigned int            rx_tail;
+>>         struct macb_dma_desc    *rx_ring;
+>> -       void                    *rx_buffers;
+>> +       struct macb_rx_page     *rx_page;
+>>
+>>         unsigned int            tx_head, tx_tail;
+>>         struct macb_dma_desc    *tx_ring;
+>> @@ -564,7 +581,6 @@ struct macb {
+>>
+>>         dma_addr_t              rx_ring_dma;
+>>         dma_addr_t              tx_ring_dma;
+>> -       dma_addr_t              rx_buffers_dma;
+>>
+>>         struct mii_bus          *mii_bus;
+>>         struct phy_device       *phy_dev;
+>> --
+> 
+> struct macb is shared between at91_ether and macb. Removing
+> rx_buffers_dma and rx_buffers will break compilation on at91_ether.
 
-IMO this new support that should be released for net-next and further 
-effort is actually needed.
+OMG, you are absolutely right.
 
-The availability of the PCS registers is given by looking at the HW 
-feature register. In fact, these are optional registers.
-I don't want to break the compatibility with old chips.
+> So please either leave the two struct members alone, for now, or fix
+> up at91_ether at the same time.
 
-I do not see why we have to use Kconfig macro to select ANE etc
-(as you do in your patches).
-The driver could directly manage the phy device by itself if possible 
-and the stmmac_init_phy should be reworked.
+Well, I do not plan to touch at91_ether driver for the moment, so I
+certainly will keep the two struct members for now.
 
-There are several things that need to be implemented. For example:
+I will wait a little more feedback before sending a v2 patch with these
+changes.
 
-The ISR (e.g. priv->hw->mac->host_irq_status) should be able to manage 
-these new interrupts.
-The code has to be able to maintain the user interface.
-For example if you want to enable ANE or manage Advertisement caps.
-
-> Signed-off-by: Byungho An <bh74.an@samsung.com>
-> ---
-
-[snip]
-
-> +	if (priv->phydev->interface == PHY_INTERFACE_MODE_SGMII) {
-> +		value = readl(priv->ioaddr);
-> +		/* GMAC_CONTROL_TC : transmit config in RGMII/SGMII */
-> +		value |= 0x1000000;
-> +		/* GMAC_CONTROL_PS : Port Selection for GMII */
-> +		value &= ~(0x8000);
-> +		writel(value, priv->ioaddr);
-> +	}
-> +
-
-
-This parts of code have to be moved in
-drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-
-Pls, do not use value |= 0x1000000 but provide the appropriate defines.
-
->   	/* Request the IRQ lines */
->   	ret = request_irq(dev->irq, stmmac_interrupt,
->   			 IRQF_SHARED, dev->name, dev);
->
+Best regards,
+-- 
+Nicolas Ferre
