@@ -1,105 +1,93 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net/macb: Use non-coherent memory for rx buffers
-Date: Mon, 26 Nov 2012 11:44:03 +0100
-Message-ID: <50B347F3.7050109@atmel.com>
-References: <1353678601-26888-1-git-send-email-nicolas.ferre@atmel.com> <CAGhQ9VwWmP_B17LnAEqDHcL8Yd-s0C-Bf35z3+=vnJmK_NoCSw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	Havard Skinnemoen <havard@skinnemoen.net>
-To: Joachim Eastwood <manabian@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGhQ9VwWmP_B17LnAEqDHcL8Yd-s0C-Bf35z3+=vnJmK_NoCSw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH net-next 1/2] ptp: reduce stack usage when reading external time stamps
+Date: Mon, 26 Nov 2012 12:44:34 +0100
+Message-ID: <1146e32bcb835ebf394bab91db3161600ab5213a.1353929829.git.richardcochran@gmail.com>
+References: <20121102020631.GI16883@yliu-dev.sh.intel.com>
+Cc: David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:51179 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753279Ab2KZLoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 06:44:46 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so4359895eaa.19
+        for <netdev@vger.kernel.org>; Mon, 26 Nov 2012 03:44:45 -0800 (PST)
+In-Reply-To: <20121102020631.GI16883@yliu-dev.sh.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/23/2012 05:12 PM, Joachim Eastwood :
-> Hi Nicolas,
-> 
-> On 23 November 2012 14:50, Nicolas Ferre <nicolas.ferre@atmel.com> wrote:
->> From: Havard Skinnemoen <havard@skinnemoen.net>
->>
->> Allocate regular pages to use as backing for the RX ring and use the
->> DMA API to sync the caches. This should give a bit better performance
->> since it allows the CPU to do burst transfers from memory. It is also
->> a necessary step on the way to reduce the amount of copying done by
->> the driver.
->>
->> Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
->> [nicolas.ferre@atmel.com: adapt to newer kernel]
->> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
->> ---
->>  drivers/net/ethernet/cadence/macb.c | 206 +++++++++++++++++++++++-------------
->>  drivers/net/ethernet/cadence/macb.h |  20 +++-
->>  2 files changed, 148 insertions(+), 78 deletions(-)
-> 
-> <snip>
-> 
->> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
->> index 570908b..74e68a3 100644
->> --- a/drivers/net/ethernet/cadence/macb.h
->> +++ b/drivers/net/ethernet/cadence/macb.h
->> @@ -453,6 +453,23 @@ struct macb_dma_desc {
->>  #define MACB_TX_USED_SIZE                      1
->>
->>  /**
->> + * struct macb_rx_page - data associated with a page used as RX buffers
->> + * @page: Physical page used as storage for the buffers
->> + * @phys: DMA address of the page
->> + *
->> + * Each page is used to provide %MACB_RX_BUFFERS_PER_PAGE RX buffers.
->> + * The page gets an initial reference when it is inserted into the
->> + * ring, and an additional reference each time it is passed up the
->> + * stack as a fragment. When all the buffers have been used, we drop
->> + * the initial reference and allocate a new page. Any additional
->> + * references are dropped when the higher layers free the skb.
->> + */
->> +struct macb_rx_page {
->> +       struct page             *page;
->> +       dma_addr_t              phys;
->> +};
->> +
->> +/**
->>   * struct macb_tx_skb - data about an skb which is being transmitted
->>   * @skb: skb currently being transmitted
->>   * @mapping: DMA address of the skb's data buffer
->> @@ -543,7 +560,7 @@ struct macb {
->>
->>         unsigned int            rx_tail;
->>         struct macb_dma_desc    *rx_ring;
->> -       void                    *rx_buffers;
->> +       struct macb_rx_page     *rx_page;
->>
->>         unsigned int            tx_head, tx_tail;
->>         struct macb_dma_desc    *tx_ring;
->> @@ -564,7 +581,6 @@ struct macb {
->>
->>         dma_addr_t              rx_ring_dma;
->>         dma_addr_t              tx_ring_dma;
->> -       dma_addr_t              rx_buffers_dma;
->>
->>         struct mii_bus          *mii_bus;
->>         struct phy_device       *phy_dev;
->> --
-> 
-> struct macb is shared between at91_ether and macb. Removing
-> rx_buffers_dma and rx_buffers will break compilation on at91_ether.
+This patch removes the large buffer from the stack of the read file
+operation and replaces it with a kmalloced buffer.
 
-OMG, you are absolutely right.
+Signed-off-by: Richard Cochran <richardcochran@gmail.com>
+---
+ drivers/ptp/ptp_chardev.c |   22 +++++++++++++++++-----
+ 1 files changed, 17 insertions(+), 5 deletions(-)
 
-> So please either leave the two struct members alone, for now, or fix
-> up at91_ether at the same time.
-
-Well, I do not plan to touch at91_ether driver for the moment, so I
-certainly will keep the two struct members for now.
-
-I will wait a little more feedback before sending a v2 patch with these
-changes.
-
-Best regards,
+diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
+index 4f8ae80..9d7542e 100644
+--- a/drivers/ptp/ptp_chardev.c
++++ b/drivers/ptp/ptp_chardev.c
+@@ -21,6 +21,7 @@
+ #include <linux/posix-clock.h>
+ #include <linux/poll.h>
+ #include <linux/sched.h>
++#include <linux/slab.h>
+ 
+ #include "ptp_private.h"
+ 
+@@ -136,20 +137,23 @@ unsigned int ptp_poll(struct posix_clock *pc, struct file *fp, poll_table *wait)
+ 	return queue_cnt(&ptp->tsevq) ? POLLIN : 0;
+ }
+ 
++#define EXTTS_BUFSIZE (PTP_BUF_TIMESTAMPS * sizeof(struct ptp_extts_event))
++
+ ssize_t ptp_read(struct posix_clock *pc,
+ 		 uint rdflags, char __user *buf, size_t cnt)
+ {
+ 	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
+ 	struct timestamp_event_queue *queue = &ptp->tsevq;
+-	struct ptp_extts_event event[PTP_BUF_TIMESTAMPS];
++	struct ptp_extts_event *event;
+ 	unsigned long flags;
+ 	size_t qcnt, i;
++	int result;
+ 
+ 	if (cnt % sizeof(struct ptp_extts_event) != 0)
+ 		return -EINVAL;
+ 
+-	if (cnt > sizeof(event))
+-		cnt = sizeof(event);
++	if (cnt > EXTTS_BUFSIZE)
++		cnt = EXTTS_BUFSIZE;
+ 
+ 	cnt = cnt / sizeof(struct ptp_extts_event);
+ 
+@@ -167,6 +171,12 @@ ssize_t ptp_read(struct posix_clock *pc,
+ 		return -ENODEV;
+ 	}
+ 
++	event = kmalloc(EXTTS_BUFSIZE, GFP_KERNEL);
++	if (!event) {
++		mutex_unlock(&ptp->tsevq_mux);
++		return -ENOMEM;
++	}
++
+ 	spin_lock_irqsave(&queue->lock, flags);
+ 
+ 	qcnt = queue_cnt(queue);
+@@ -185,8 +195,10 @@ ssize_t ptp_read(struct posix_clock *pc,
+ 
+ 	mutex_unlock(&ptp->tsevq_mux);
+ 
++	result = cnt;
+ 	if (copy_to_user(buf, event, cnt))
+-		return -EFAULT;
++		result = -EFAULT;
+ 
+-	return cnt;
++	kfree(event);
++	return result;
+ }
 -- 
-Nicolas Ferre
+1.7.2.5
