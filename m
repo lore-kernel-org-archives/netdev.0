@@ -1,38 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost: fix length for cross region descriptor
-Date: Mon, 26 Nov 2012 17:57:27 +0200
-Message-ID: <20121126155727.GA21716@redhat.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC net-next PATCH V1 0/9] net: fragmentation performance
+ scalability on NUMA/SMP systems
+Date: Mon, 26 Nov 2012 16:29:58 +0100
+Message-ID: <1353943798.11754.233.camel@localhost>
+References: <20121123130749.18764.25962.stgit@dragon>
+	 <1353810665.2590.4774.camel@edumazet-glaptop>
+	 <1353833627.11754.134.camel@localhost>
+	 <1353859891.30446.634.camel@edumazet-glaptop>
+	 <1353940930.11754.221.camel@localhost>
+	 <1353942950.30446.1772.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:16132 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754201Ab2KZQGS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Nov 2012 11:06:18 -0500
+In-Reply-To: <1353942950.30446.1772.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If a single descriptor crosses a region, the
-second chunk length should be decremented
-by size translated so far, instead it includes
-the full descriptor length.
+On Mon, 2012-11-26 at 07:15 -0800, Eric Dumazet wrote:
+> On Mon, 2012-11-26 at 15:42 +0100, Jesper Dangaard Brouer wrote:
+> > On Sun, 2012-11-25 at 08:11 -0800, Eric Dumazet wrote:
+> > > On Sun, 2012-11-25 at 09:53 +0100, Jesper Dangaard Brouer wrote:
+> > > 
+> > > > Yes, for the default large 64k packets size, its just a "fake"
+> > > > benchmark.  And notice with my fixes, we are even faster than the
+> > > > none-frag/single-UDP packet case... but its because we are getting a
+> > > > GSO/GRO effect.
+> > > 
+> > > Could you elaborate on this GSO/GRO effect ?
+> > 
+> > On the big system, I saw none-frag UDP (1472 bytes) throughput of:
+> >   7356.57 + 7351.78 + 7330.60 + 7269.26 = 29308.21 Mbit/s
+> > 
+> > While with UDP fragments size 65507 bytes I saw:
+> >   9228.75 + 9207.81 + 9615.83 + 9615.87 = 37668.26 Mbit/s
+> > 
+> > Fragmented UDP is faster by:
+> >  37668.26 - 29308.21 = 8360.05 Mbit/s
+> > 
+> > The 65507 bytes UDP size is just a benchmark test, and have no real-life
+> > relevance.  As performance starts to drop (below none-frag/normal case)
+> > when the frag size is decreased, to more realistic sizes...
+> 
+> Yes, but I doubt GRO / GSO are the reason you get better performance.
+> GRO doesnt aggregate UDP frames.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/vhost/vhost.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Oh, now I think I understand your question.
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index ef8f598..5a3d0f1 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -1049,7 +1049,7 @@ static int translate_desc(struct vhost_dev *dev, u64 addr, u32 len,
- 		}
- 		_iov = iov + ret;
- 		size = reg->memory_size - addr + reg->guest_phys_addr;
--		_iov->iov_len = min((u64)len, size);
-+		_iov->iov_len = min((u64)len - s, size);
- 		_iov->iov_base = (void __user *)(unsigned long)
- 			(reg->userspace_addr + addr - reg->guest_phys_addr);
- 		s += size;
--- 
-MST
+I don't think GRO is helping me.  Its the same "effect" as GRO.  As (I
+think) that the reasm frag SKB will be a "bigger" SKB, which is passed
+to the rest of the stack.  Thus, less (but) bigger SKBs get the overhead
+of the rest of the stack.  It was actually Herbert that mentioned it to
+me...
+
+--Jesper
