@@ -1,38 +1,51 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [PATCH v2 net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
- to return an interface name
-Date: Mon, 26 Nov 2012 10:10:18 -0500
-Message-ID: <50B3865A.6090402@hp.com>
-References: <50A6A8FB.3050901@hp.com> <20121120.135842.249477087130415954.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] net: clean up locking in inet_frag_find()
+Date: Mon, 26 Nov 2012 07:12:31 -0800
+Message-ID: <1353942751.30446.1769.camel@edumazet-glaptop>
+References: <1353909184.11282.3.camel@cr0>
+	 <1353914786-10426-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: xemul@parallels.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:43695 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754901Ab2KZPKY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 10:10:24 -0500
-In-Reply-To: <20121120.135842.249477087130415954.davem@davemloft.net>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:36472 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753440Ab2KZPMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 10:12:35 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k11so6445813iea.19
+        for <netdev@vger.kernel.org>; Mon, 26 Nov 2012 07:12:35 -0800 (PST)
+In-Reply-To: <1353914786-10426-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/20/2012 01:58 PM, David Miller wrote:
->> v2: Added seqlock protection while copying device name.
->>
->> Signed-off-by: Brian Haley <brian.haley@hp.com>
+On Mon, 2012-11-26 at 15:26 +0800, Cong Wang wrote:
+> It is weird to take the read lock outside of inet_frag_find()
+> but release it inside...  This can be improved by refactoring
+> the code, that is, introducing inet{4,6}_frag_find() which call
+> the their own hash function, inet{4,6}_hash_frag(), hiding the
+> details from their callers.
 > 
-> Brian I was going to apply this, but something about how you email
-> patches results in them being corrupted.
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 > 
-> Go to:
-> 
-> http://patchwork.ozlabs.org/patch/199732/
-> 
-> Click on Download "mbox", and try to apply that to the net-next tree
-> to see what I mean.
+> ---
+>  include/net/inet_frag.h                 |   17 +++++-
+>  include/net/ipv6.h                      |    3 -
+>  net/ipv4/inet_fragment.c                |   82 +++++++++++++++++++++++++++++--
+>  net/ipv4/ip_fragment.c                  |   16 +-----
+>  net/ipv6/netfilter/nf_conntrack_reasm.c |    7 +--
+>  net/ipv6/reassembly.c                   |   34 +------------
+>  6 files changed, 97 insertions(+), 62 deletions(-)
 
-I'll take a look why that was wrapping and send a v3, been away...
 
--Brian
+Not clear to me its a win, as it adds 35 LOC. Nobody really complained
+of this locking schem in the past.
+
+Also Jesper is working on this stuff, so you dont really ease its work.
