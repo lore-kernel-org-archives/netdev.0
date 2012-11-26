@@ -1,45 +1,58 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: Re: RTL 8169  linux driver question
-Date: Mon, 26 Nov 2012 09:15:19 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70BD@saturn3.aculab.com>
-References: <50AFC971.7010103@free.fr> <50AFCB1D.8080002@free.fr>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [RFC net-next PATCH V1 9/9] net: frag remove readers-writer
+ lock (hack)
+Date: Mon, 26 Nov 2012 10:18:24 +0100
+Message-ID: <20121126091824.GB25197@breakpoint.cc>
+References: <20121123130749.18764.25962.stgit@dragon>
+ <20121123130847.18764.87682.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <sancelot@numalliance.com>
-To: =?Windows-1252?Q?St=E9phane_ANCELOT?= <sancelot@free.fr>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:40041 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753364Ab2KZJQf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 04:16:35 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02113-05 for <netdev@vger.kernel.org>;
- Mon, 26 Nov 2012 09:16:26 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <50AFCB1D.8080002@free.fr>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44902 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753533Ab2KZJSf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 04:18:35 -0500
+Content-Disposition: inline
+In-Reply-To: <20121123130847.18764.87682.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I had problem with it, my application sends a frame that is immediately
-> transmitted back by some slaves, there was abnormally 100us  lost
-> between the send and receive call.
+Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> After all the other patches, the rw_lock is now the contention point.
 > 
-> Finally I found it was coming from the following register setup in the
-> driver :
+> This is a quick hack, that remove the readers-writer lock, by
+> disabling/breaking hash rebuilding.  Just to see how big the
+> performance gain would be.
 > 
-> RTL_W16(IntrMitigate, 0x5151);
+>   2x10G size(4416) result: 6481+6764 = 13245 Mbit/s (gen: 7652+8077 Mbit/s)
 > 
-> Can you give me some details about it, since I do not have the RTL8169
-> programming guide.
+>   4x10G size(4416) result:(5610+6283+5735+5238)=22866 Mbit/s
+>                      (gen: 6530+7860+5967+5238 =25595 Mbit/s)
+> 
+> And the results show, that its a big win. With 4x10G size(4416)
+> before: 17923 Mbit/s -> now: 22866 Mbit/s increase 4943 Mbit/s.
+> With 2x10G size(4416) before 10689 Mbit/s -> 13245 Mbit/s
+> increase 2556 Mbit/s.
+> 
+> I'll work on a real solution for removing the rw_lock while still
+> supporting hash rebuilding.  Suggestions and ideas are welcome.
 
-That sounds like an 'interrupt mitigation' setting - which will cause
-RX interrupts to be delayed a short time in order to reduce the
-interrupt load on the kernel.
+<devils advocate>
+Why not kill it altogether, and just set new secret_interval
+without moving frag queues to new location?
 
-There is usually an 'ethtool' setting to disable interrupt mitigation.
+The only consequence is that all fragments queued at the time of
+changing secret_interval will be lost, and free'd by evictor/timer.
 
-	David
+Default secret rebuild interval is 10 minutes, should we care about
+small packet loss every 10 minutes?
+</devils advocate>
