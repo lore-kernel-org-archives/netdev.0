@@ -1,60 +1,45 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 1/1] net: ethernet: cpsw: fix build warnings for CPSW when CPTS not selected
-Date: Tue, 27 Nov 2012 23:23:40 +0530
-Message-ID: <1354038820-11095-1-git-send-email-mugunthanvnm@ti.com>
+From: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
+Date: Tue, 27 Nov 2012 17:55:33 +0000
+Message-ID: <CAKh2mn7f94a7La_EQ9L_qwr7FZEXfawUiAajPMDO8ScS2fJupg@mail.gmail.com>
+References: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
+	<1354026482-10443-2-git-send-email-steve.glendinning@shawell.net>
+	<87624r9k1f.fsf@nemi.mork.no>
+	<CAKh2mn4OiN7ZAX_0SJ_XHwRNPoyKUk=+4ha5esBMAajGD4BX=w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <richardcochran@gmail.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Sender: linux-omap-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKh2mn4OiN7ZAX_0SJ_XHwRNPoyKUk=+4ha5esBMAajGD4BX=w@mail.gmail.com>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-  CC      drivers/net/ethernet/ti/cpsw.o
-drivers/net/ethernet/ti/cpsw.c: In function 'cpsw_ndo_ioctl':
-drivers/net/ethernet/ti/cpsw.c:881:20: warning: unused variable 'priv'
+Hi Bjorn,
 
-The build warning is generated when CPTS is not selected in Kernel Build.
-Fixing by passing the net_device pointer to cpts IOCTL instead of passing priv
+On 27 November 2012 17:21, Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org> wrote:
+> Hi Bjorn,
+>
+>>> +     smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
+>>
+>> As mentioned in another comment to the smsc95xx driver: This is weird.
+>> Do you really need to do that?
+>>
+>> This is an USB interface driver.  The USB device is handled by the
+>> generic "usb" driver, which will do the right thing.  See
+>> drivers/usb/generic.c and drivers/usb/core/hub.c
+>
+> Thanks, I've tested removing all these calls from the driver and
+> wakeup functionality seems to still work.
+>
+> I'll resubmit my smsc75xx enhancement patchset with this change once
+> I've done some more testing.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 02c2477..c9714e1 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -812,8 +812,9 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
- 	__raw_writel(ETH_P_1588, &priv->regs->ts_ltype);
- }
- 
--static int cpsw_hwtstamp_ioctl(struct cpsw_priv *priv, struct ifreq *ifr)
-+static int cpsw_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
- {
-+	struct cpsw_priv *priv = netdev_priv(dev);
- 	struct cpts *cpts = &priv->cpts;
- 	struct hwtstamp_config cfg;
- 
-@@ -878,14 +879,12 @@ static int cpsw_hwtstamp_ioctl(struct cpsw_priv *priv, struct ifreq *ifr)
- 
- static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
- {
--	struct cpsw_priv *priv = netdev_priv(dev);
--
- 	if (!netif_running(dev))
- 		return -EINVAL;
- 
- #ifdef CONFIG_TI_CPTS
- 	if (cmd == SIOCSHWTSTAMP)
--		return cpsw_hwtstamp_ioctl(priv, req);
-+		return cpsw_hwtstamp_ioctl(dev, req);
- #endif
- 	return -ENOTSUPP;
- }
--- 
-1.7.0.4
-
+Further testing shows that removing these calls stop wakeup from
+system suspend working (although don't appear to impact runtime
+autosuspend).  Have I missed a flag or somewhere that causes
+udev->do_remote_wakeup to be set in the code you posted?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
