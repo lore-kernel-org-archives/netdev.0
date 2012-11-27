@@ -1,44 +1,47 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: linux-next: manual merge of the arm-soc tree with the net-next
- tree
-Date: Tue, 27 Nov 2012 16:52:28 +0530
-Message-ID: <50B4A274.5070601@ti.com>
-References: <20121126204546.ef1f1b55e903eda38a61d5d1@canb.auug.org.au>
+Subject: Re: [PATCH 1/1] net: cpts: fix for build break after ARM SoC integration
+Date: Tue, 27 Nov 2012 16:55:19 +0530
+Message-ID: <50B4A31F.5040504@ti.com>
+References: <1354012034-31686-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Vaibhav Hiremath <hvaibhav@ti.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	AnilKumar Ch <anilkumar@ti.com>,
-	Benoit Cousson <b-cousson@ti.com>,
-	Jon Hunter <jon-hunter@ti.com>, Afzal Mohammed <afzal@ti.com>,
-	"Philip, Avinash" <avinashphilip@ti.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20121126204546.ef1f1b55e903eda38a61d5d1@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
+	<richardcochran@gmail.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:58881 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755066Ab2K0LZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 06:25:51 -0500
+In-Reply-To: <1354012034-31686-1-git-send-email-mugunthanvnm@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/26/2012 3:15 PM, Stephen Rothwell wrote:
-> Hi all,
+On 11/27/2012 3:57 PM, Mugunthan V N wrote:
+>    CC      drivers/net/ethernet/ti/cpts.o
+> drivers/net/ethernet/ti/cpts.c:30:24: fatal error: plat/clock.h: No such file or directory
+> compilation terminated.
+> make[4]: *** [drivers/net/ethernet/ti/cpts.o] Error 1
+> make[3]: *** [drivers/net/ethernet/ti] Error 2
+> make[2]: *** [drivers/net/ethernet] Error 2
+> make[1]: *** [drivers/net] Error 2
 >
-> Today's linux-next merge of the arm-soc tree got a conflict in
-> arch/arm/boot/dts/am33xx.dtsi between commit 1a39a65cba08 ("arm/dts:
-> am33xx: Add CPSW and MDIO module nodes for AM33XX") from the net-next
-> tree and commits 059b185d5345 ("ARM: dts: AM33XX: Add D_CAN device tree
-> data") and 4c94ac29b5c1 ("ARM: dts: OMAP: Move interrupt-parent to the
-> root node to avoid duplication") (and a few others that added more later
-> nodes) from the arm-soc tree.
+> fix for build break as the header file is removed from plat-omap as part of
+> the below patch
 >
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
+> commit a135eaae524acba1509a3b19c97fae556e4da7cd
+> Author: Paul Walmsley <paul@pwsan.com>
+> Date:   Thu Sep 27 10:33:34 2012 -0600
 >
-Stephen Rothwell
-
-The fix is correct and I have tested CPSW from linux-next.
+>      ARM: OMAP: remove plat/clock.h
+>
+>      Remove arch/arm/plat-omap/include/plat/clock.h by merging it into
+>      arch/arm/mach-omap1/clock.h and arch/arm/mach-omap2/clock.h.
+>      The goal here is to facilitate ARM single image kernels by removing
+>      includes via the "plat/" symlink.
+The header removal patch can be found in linux-next git repo.
 
 Regards
 Mugunthan V N
