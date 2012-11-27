@@ -1,51 +1,45 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Tue, 27 Nov 2012 18:39:06 +0100
-Message-ID: <20121127173906.GA11390@shrek.podlesie.net>
-References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
- <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
- <1354036592.2534.6.camel@shinybook.infradead.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] smsc95xx: fix suspend buffer overflow
+Date: Tue, 27 Nov 2012 09:42:58 -0800
+Message-ID: <1354038178.8028.0.camel@joe-AO722>
+References: <1354022623-7317-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nathan@traverse.com.au
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1354036592.2534.6.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
+To: Steve Glendinning <steve.glendinning@shawell.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:40349 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755972Ab2K0Rm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 12:42:59 -0500
+In-Reply-To: <1354022623-7317-1-git-send-email-steve.glendinning@shawell.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 27, 2012 at 05:16:32PM +0000, David Woodhouse wrote:
-> Krzysztof, you've fixed a bunch of races... but I think there's one
-> still left.
+On Tue, 2012-11-27 at 13:23 +0000, Steve Glendinning wrote:
+> This patch fixes a buffer overflow introduced by bbd9f9e, where
+> the filter_mask array is accessed beyond its bounds.
 > 
-> An ATM driver will often have code like this, which gets called from
-> arbitrary contexts:
->         if (vcc->pop)
->                 vcc->pop(vcc, skb);
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+> ---
+>  drivers/net/usb/smsc95xx.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> Now, what happens if pppoatm_send(vcc, NULL) happens after the address
-> of vcc->pop (currently pppoatm_pop) has been loaded, but before the
-> function is actually called?
-> 
-> You tear down all the setup and set vcc->user_back to NULL. And then
-> pppoatm_pop() gets called. And promptly crashes because pvcc is NULL.
-> 
-> A lot of these problems exist for br2684 too, and in prodding at it a
-> little I can consistently crash the system by sending a flood of
-> outbound packets while I kill the br2684ctl program. I end up in
-> br2684_pop() with vcc->user_back == NULL. In looking to see how you'd
-> fixed that in pppoatm, I realised that you haven't... :)
-> 
+> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+> index 79d495d..6cdc504 100644
+> --- a/drivers/net/usb/smsc95xx.c
+> +++ b/drivers/net/usb/smsc95xx.c
+> @@ -1281,7 +1281,7 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+>  	}
+>  
+>  	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
+> -		u32 *filter_mask = kzalloc(32, GFP_KERNEL);
+> +		u32 *filter_mask = kzalloc(sizeof(u32) * 32, GFP_KERNEL);
 
-Yes, I missed that one - it's even worse, I introduced that bug 
-in "[PATCH 1/7] atm: detach protocol before closing vcc". Before that
-patch that scenario shouldn't happen because vcc was closed before
-calling pppoatm_send(vcc, NULL) - the driver should provide appropriate
-synchronization.
+It's also unchecked for alloc failure.
 
-I think that we should just drop that patch. With later changes it's not
-necessary - the pppoatm_send() can be safely called while closing vcc.
-
-Krzysiek
+>  		u32 command[2];
+>  		u32 offset[2];
+>  		u32 crc[4];
