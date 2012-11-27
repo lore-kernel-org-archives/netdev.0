@@ -1,39 +1,45 @@
-From: Saku Ytti <saku@ytti.fi>
-Subject: Re: TCP and reordering
-Date: Wed, 28 Nov 2012 20:44:38 +0200
-Message-ID: <20121128184438.GA26814@pob.ytti.fi>
-References: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com>
- <50B4F2DA.8020206@hp.com>
- <CAAeewD9MtEx4uF6ezbBj7Ci5OzX8VK7p=WQ2TB3PfjmznA4X0w@mail.gmail.com>
- <20121127.210611.1127622873924794001.davem@davemloft.net>
- <20121128072611.GA26010@pob.ytti.fi>
- <CAGK4HS_GVZqoGVjd87N6skM-SBWyPtY-AhiR9FDcR8ty5x6Xbg@mail.gmail.com>
- <20121128085404.GB26010@pob.ytti.fi>
- <50B656CC.1040001@hp.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [GIT net] Open vSwitch
+Date: Tue, 27 Nov 2012 10:37:01 -0800
+Message-ID: <1354041423-3050-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:35380 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754712Ab2K1Sop (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 13:44:45 -0500
-Received: by mail-la0-f46.google.com with SMTP id p5so7985001lag.19
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 10:44:43 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <50B656CC.1040001@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On (2012-11-28 10:24 -0800), Rick Jones wrote:
+These two small bug fixes are intended for 3.7/net if there is still time.
 
-> By increasing net.ipv4.tcp_reordering you make the sending TCP less
-> "sensitive" to duplicate ACKs and so less sensitive to reordering
-> detected by the receiver.  The receiver is generating as many
-> (duplicate) ACKs as before, it is just that the sender is ignoring
-> them a bit more.
+The following changes since commit ddffeb8c4d0331609ef2581d84de4d763607bd37:
 
-Thanks, I didn't know this.
+  Linux 3.7-rc1 (2012-10-14 14:41:04 -0700)
 
--- 
-  ++ytti
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fixes
+
+for you to fetch changes up to d04d382980c86bdee9960c3eb157a73f8ed230cc:
+
+  openvswitch: Store flow key len if ARP opcode is not request or reply. (2012-10-30 17:17:09 -0700)
+
+----------------------------------------------------------------
+Jesse Gross (1):
+      openvswitch: Print device when warning about over MTU packets.
+
+Mehak Mahajan (1):
+      openvswitch: Store flow key len if ARP opcode is not request or reply.
+
+ net/openvswitch/flow.c         |   14 +++++---------
+ net/openvswitch/vport-netdev.c |    2 +-
+ 2 files changed, 6 insertions(+), 10 deletions(-)
