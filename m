@@ -1,49 +1,58 @@
-From: Phil Oester <kernel@linuxace.com>
-Subject: Arp problems after upgrade to 3.6
-Date: Tue, 27 Nov 2012 08:29:54 -0800
-Message-ID: <20121127162954.GA18505@linuxace.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next RFC] pktgen: don't wait for the device who doesn't
+	free skb immediately after sent
+Date: Tue, 27 Nov 2012 08:49:19 -0800
+Message-ID: <20121127084919.1587c647@nehalam.linuxnetplumber.net>
+References: <1353916612-6357-1-git-send-email-jasowang@redhat.com>
+	<20121126093728.0a10f97f@nehalam.linuxnetplumber.net>
+	<50B46179.4040809@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:63787 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755861Ab2K0Q37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 11:29:59 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so9002153pbc.19
-        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 08:29:58 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <50B46179.4040809@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Upgraded a box to 3.6.7 yesterday, and started noticing it becoming
-unreachable occasionally.  Watching arp traffic, it appears it is
-sometimes arping for the gateway using the wrong source IP in the requests. 
-Sample trace from bond1:
+On Tue, 27 Nov 2012 14:45:13 +0800
+Jason Wang <jasowang@redhat.com> wrote:
 
-11:10:13.489388 ARP, Request who-has 10.253.128.13 tell 10.253.128.6, length 28
-11:10:14.489372 ARP, Request who-has 10.253.128.13 tell 10.253.128.6, length 28
-11:10:15.489358 ARP, Request who-has 10.253.128.13 tell 10.253.128.6, length 28
-11:10:16.489517 ARP, Request who-has 10.253.128.13 tell 10.253.128.6, length 28
-11:10:16.489518 ARP, Request who-has 10.253.128.13 tell 10.253.128.14, length 28
-11:10:16.490025 ARP, Reply 10.253.128.13 is-at 00:d0:04:b1:d4:00, length 46
-11:11:43.618851 ARP, Request who-has 10.253.128.13 tell 10.253.128.14, length 28
-11:11:43.619406 ARP, Reply 10.253.128.13 is-at 00:d0:04:b1:d4:00, length 46
-11:15:05.792656 ARP, Request who-has 10.253.128.13 tell 10.253.128.6, length 28
-11:15:06.789369 ARP, Request who-has 10.253.128.13 tell 10.253.128.6, length 28
-11:15:07.789338 ARP, Request who-has 10.253.128.13 tell 10.253.128.6, length 28
-11:15:08.789939 ARP, Request who-has 10.253.128.13 tell 10.253.128.6, length 28 
+> On 11/27/2012 01:37 AM, Stephen Hemminger wrote:
+> > On Mon, 26 Nov 2012 15:56:52 +0800
+> > Jason Wang <jasowang@redhat.com> wrote:
+> >
+> >> Some deivces do not free the old tx skbs immediately after it has been sent
+> >> (usually in tx interrupt). One such example is virtio-net which optimizes for
+> >> virt and only free the possible old tx skbs during the next packet sending. This
+> >> would lead the pktgen to wait forever in the refcount of the skb if no other
+> >> pakcet will be sent afterwards.
+> >>
+> >> Solving this issue by introducing a new flag IFF_TX_SKB_FREE_DELAY which could
+> >> notify the pktgen that the device does not free skb immediately after it has
+> >> been sent and let it not to wait for the refcount to be one.
+> >>
+> >> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > Another alternative would be using skb_orphan() and skb->destructor.
+> > There are other cases where skb's are not freed right away.
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Hi Stephen:
+> 
+> Do you mean registering a skb->destructor for pktgen then set and check 
+> bits in skb->tx_flag?
 
-Seems to be getting bond0 and bond1 IPs confused here:
-
-12: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
-    link/ether xx:xx:xx:xx:xx:20 brd ff:ff:ff:ff:ff:ff
-    inet 10.253.128.6/30 brd 10.253.128.7 scope global bond0
-17: bond1: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP 
-    link/ether xx:xx:xx:xx:xx:22 brd ff:ff:ff:ff:ff:ff
-    inet 10.253.128.14/30 brd 10.253.128.15 scope global bond1 
-
-This box is still up, so if there is any additional information I can provide
-before rebooting it, please let me know.
-
-Phil Oester
+Yes. Register a destructor that does something like update a counter (number of packets pending),
+then just spin while number of packets pending is over threshold.
