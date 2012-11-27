@@ -1,43 +1,180 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH v3 net-next] sockopt: Change getsockopt() of SO_BINDTODEVICE
- to return an interface name
-Date: Wed, 28 Nov 2012 00:36:01 +0400
-Message-ID: <50B52431.5090800@parallels.com>
-References: <50B388E4.7030600@hp.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH v6 2/6] PM / Runtime: introduce pm_runtime_set_memalloc_noio()
+Date: Tue, 27 Nov 2012 22:19:29 +0100
+Message-ID: <5434404.G1ERYjuorE@vostro.rjw.lan>
+References: <1353761958-12810-1-git-send-email-ming.lei@canonical.com> <1353761958-12810-3-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:48941 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755832Ab2K0UgS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 15:36:18 -0500
-In-Reply-To: <50B388E4.7030600@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: Ming Lei <ming.lei@canonical.com>, linux-kernel@vger.kernel.org,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>,
+	Minchan Kim <minchan@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jens Axboe <axboe@kernel.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-mm@kvack.org
+To: linux-pm@vger.kernel.org
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <1353761958-12810-3-git-send-email-ming.lei@canonical.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/26/2012 07:21 PM, Brian Haley wrote:
-> Instead of having the getsockopt() of SO_BINDTODEVICE return an index, which
-> will then require another call like if_indextoname() to get the actual interface
-> name, have it return the name directly.
+On Saturday, November 24, 2012 08:59:14 PM Ming Lei wrote:
+> The patch introduces the flag of memalloc_noio in 'struct dev_pm_info'
+> to help PM core to teach mm not allocating memory with GFP_KERNEL
+> flag for avoiding probable deadlock.
 > 
-> This also matches the existing man page description on socket(7) which mentions
-> the argument being an interface name.
+> As explained in the comment, any GFP_KERNEL allocation inside
+> runtime_resume() or runtime_suspend() on any one of device in
+> the path from one block or network device to the root device
+> in the device tree may cause deadlock, the introduced
+> pm_runtime_set_memalloc_noio() sets or clears the flag on
+> device in the path recursively.
 > 
-> If the value has not been set, zero is returned and optlen will be set to zero
-> to indicate there is no interface name present.
+> Cc: Alan Stern <stern@rowland.harvard.edu>
+> Cc: "Rafael J. Wysocki" <rjw@sisk.pl>
+> Signed-off-by: Ming Lei <ming.lei@canonical.com>
+> ---
+> v5:
+> 	- fix code style error
+> 	- add comment on clear the device memalloc_noio flag
+> v4:
+> 	- rename memalloc_noio_resume as memalloc_noio
+> 	- remove pm_runtime_get_memalloc_noio()
+> 	- add comments on pm_runtime_set_memalloc_noio
+> v3:
+> 	- introduce pm_runtime_get_memalloc_noio()
+> 	- hold one global lock on pm_runtime_set_memalloc_noio
+> 	- hold device power lock when accessing memalloc_noio_resume
+> 	  flag suggested by Alan Stern
+> 	- implement pm_runtime_set_memalloc_noio without recursion
+> 	  suggested by Alan Stern
+> v2:
+> 	- introduce pm_runtime_set_memalloc_noio()
+> ---
+>  drivers/base/power/runtime.c |   60 ++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/pm.h           |    1 +
+>  include/linux/pm_runtime.h   |    3 +++
+>  3 files changed, 64 insertions(+)
 > 
-> Added a seqlock to protect this code path, and dev_ifname(), from someone
-> changing the device name via dev_change_name().
-> 
-> v2: Added seqlock protection while copying device name.
-> 
-> v3: Fixed word wrap in patch.
-> 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> diff --git a/drivers/base/power/runtime.c b/drivers/base/power/runtime.c
+> index 3148b10..3e198a0 100644
+> --- a/drivers/base/power/runtime.c
+> +++ b/drivers/base/power/runtime.c
+> @@ -124,6 +124,66 @@ unsigned long pm_runtime_autosuspend_expiration(struct device *dev)
+>  }
+>  EXPORT_SYMBOL_GPL(pm_runtime_autosuspend_expiration);
+>  
+> +static int dev_memalloc_noio(struct device *dev, void *data)
+> +{
+> +	return dev->power.memalloc_noio;
+> +}
+> +
+> +/*
+> + * pm_runtime_set_memalloc_noio - Set a device's memalloc_noio flag.
+> + * @dev: Device to handle.
+> + * @enable: True for setting the flag and False for clearing the flag.
+> + *
+> + * Set the flag for all devices in the path from the device to the
+> + * root device in the device tree if @enable is true, otherwise clear
+> + * the flag for devices in the path whose siblings don't set the flag.
+> + *
 
-Acked-by: Pavel Emelyanov <xemul@parallels.com>
+Please use counters instead of walking the whole path every time.  Ie. in
+addition to the flag add a counter to store the number of the device's
+children having that flag set.
+
+Besides, don't you need to check children for the arg device itself?
+
+> + * The function should only be called by block device, or network
+> + * device driver for solving the deadlock problem during runtime
+> + * resume/suspend:
+> + *
+> + *     If memory allocation with GFP_KERNEL is called inside runtime
+> + *     resume/suspend callback of any one of its ancestors(or the
+> + *     block device itself), the deadlock may be triggered inside the
+> + *     memory allocation since it might not complete until the block
+> + *     device becomes active and the involed page I/O finishes. The
+> + *     situation is pointed out first by Alan Stern. Network device
+> + *     are involved in iSCSI kind of situation.
+> + *
+> + * The lock of dev_hotplug_mutex is held in the function for handling
+> + * hotplug race because pm_runtime_set_memalloc_noio() may be called
+> + * in async probe().
+> + *
+> + * The function should be called between device_add() and device_del()
+> + * on the affected device(block/network device).
+> + */
+> +void pm_runtime_set_memalloc_noio(struct device *dev, bool enable)
+> +{
+> +	static DEFINE_MUTEX(dev_hotplug_mutex);
+
+What's the mutex for?
+
+> +
+> +	mutex_lock(&dev_hotplug_mutex);
+> +	for (;;) {
+> +		/* hold power lock since bitfield is not SMP-safe. */
+> +		spin_lock_irq(&dev->power.lock);
+> +		dev->power.memalloc_noio = enable;
+> +		spin_unlock_irq(&dev->power.lock);
+> +
+> +		dev = dev->parent;
+> +
+> +		/*
+> +		 * clear flag of the parent device only if all the
+> +		 * children don't set the flag because ancestor's
+> +		 * flag was set by any one of the descendants.
+> +		 */
+> +		if (!dev || (!enable &&
+> +			     device_for_each_child(dev, NULL,
+> +						   dev_memalloc_noio)))
+> +			break;
+> +	}
+> +	mutex_unlock(&dev_hotplug_mutex);
+> +}
+> +EXPORT_SYMBOL_GPL(pm_runtime_set_memalloc_noio);
+> +
+>  /**
+>   * rpm_check_suspend_allowed - Test whether a device may be suspended.
+>   * @dev: Device to test.
+> diff --git a/include/linux/pm.h b/include/linux/pm.h
+> index 03d7bb1..1a8a69d 100644
+> --- a/include/linux/pm.h
+> +++ b/include/linux/pm.h
+> @@ -538,6 +538,7 @@ struct dev_pm_info {
+>  	unsigned int		irq_safe:1;
+>  	unsigned int		use_autosuspend:1;
+>  	unsigned int		timer_autosuspends:1;
+> +	unsigned int		memalloc_noio:1;
+>  	enum rpm_request	request;
+>  	enum rpm_status		runtime_status;
+>  	int			runtime_error;
+> diff --git a/include/linux/pm_runtime.h b/include/linux/pm_runtime.h
+> index f271860..775e063 100644
+> --- a/include/linux/pm_runtime.h
+> +++ b/include/linux/pm_runtime.h
+> @@ -47,6 +47,7 @@ extern void pm_runtime_set_autosuspend_delay(struct device *dev, int delay);
+>  extern unsigned long pm_runtime_autosuspend_expiration(struct device *dev);
+>  extern void pm_runtime_update_max_time_suspended(struct device *dev,
+>  						 s64 delta_ns);
+> +extern void pm_runtime_set_memalloc_noio(struct device *dev, bool enable);
+>  
+>  static inline bool pm_children_suspended(struct device *dev)
+>  {
+> @@ -149,6 +150,8 @@ static inline void pm_runtime_set_autosuspend_delay(struct device *dev,
+>  						int delay) {}
+>  static inline unsigned long pm_runtime_autosuspend_expiration(
+>  				struct device *dev) { return 0; }
+> +static inline void pm_runtime_set_memalloc_noio(struct device *dev,
+> +						bool enable){}
+>  
+>  #endif /* !CONFIG_PM_RUNTIME */
+>  
+> 
+-- 
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
