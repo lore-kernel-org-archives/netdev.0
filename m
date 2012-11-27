@@ -1,42 +1,100 @@
-From: pablo@netfilter.org
-Subject: [PATCH] netfilter: ipset: fix netiface set name overflow
-Date: Tue, 27 Nov 2012 02:03:05 +0100
-Message-ID: <1353978185-3564-2-git-send-email-pablo@netfilter.org>
-References: <1353978185-3564-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1353978185-3564-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Hay, Joshua A" <joshua.a.hay@intel.com>
+Subject: RE: [net-next 06/10] ixgbe: eliminate Smatch warnings in
+ ixgbe_debugfs.c
+Date: Tue, 27 Nov 2012 01:06:17 +0000
+Message-ID: <4329753313F5A742A09953EE6CC1B3CE28C7D984@ORSMSX108.amr.corp.intel.com>
+References: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1353494856-12344-7-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20121121110409.GG6186@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:34852 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757623Ab2K0BGT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 20:06:19 -0500
+In-Reply-To: <20121121110409.GG6186@mwanda>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+The return value will be changed to len to preserve error codes returned from simple_write_to_buffer.
 
-attribute is copied to IFNAMSIZ-size stack variable,
-but IFNAMSIZ is smaller than IPSET_MAXNAMELEN.
+However, changing the logic preceding this return breaks these functions.  If simple_write_to_buffer returns a positive value, other actions are performed with this value.  With this patch, the function will return immediately with that value instead.  This will effectively break the ixgbe_debugfs write operations.
 
-Fortunately nfnetlink needs CAP_NET_ADMIN.
+So ultimately, the change should be: 
+> +	len = simple_write_to_buffer(ixgbe_dbg_reg_ops_buf,
+> +				     sizeof(ixgbe_dbg_reg_ops_buf)-1,
+> +				     ppos,
+> +				     buffer,
+> +				     count);
+> +	if (len < 0)
+> +		return -EFAULT;
+	
+	if (len < 0)
+		return len;
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/ipset/ip_set_hash_netiface.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks,
+Josh Hay
 
-diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
-index b9a6338..45a1014 100644
---- a/net/netfilter/ipset/ip_set_hash_netiface.c
-+++ b/net/netfilter/ipset/ip_set_hash_netiface.c
-@@ -793,7 +793,7 @@ static struct ip_set_type hash_netiface_type __read_mostly = {
- 		[IPSET_ATTR_IP]		= { .type = NLA_NESTED },
- 		[IPSET_ATTR_IP_TO]	= { .type = NLA_NESTED },
- 		[IPSET_ATTR_IFACE]	= { .type = NLA_NUL_STRING,
--					    .len = IPSET_MAXNAMELEN - 1 },
-+					    .len  = IFNAMSIZ - 1 },
- 		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
- 		[IPSET_ATTR_CIDR]	= { .type = NLA_U8 },
- 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
--- 
-1.7.10.4
+-----Original Message-----
+From: Dan Carpenter [mailto:dan.carpenter@oracle.com] 
+Sent: Wednesday, November 21, 2012 3:04 AM
+To: Kirsher, Jeffrey T
+Cc: davem@davemloft.net; Hay, Joshua A; netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com
+Subject: Re: [net-next 06/10] ixgbe: eliminate Smatch warnings in ixgbe_debugfs.c
 
+On Wed, Nov 21, 2012 at 02:47:32AM -0800, Jeff Kirsher wrote:
+> +	len = simple_write_to_buffer(ixgbe_dbg_reg_ops_buf,
+> +				     sizeof(ixgbe_dbg_reg_ops_buf)-1,
+> +				     ppos,
+> +				     buffer,
+> +				     count);
+> +	if (len < 0)
+> +		return -EFAULT;
+
+Any negative return is bad.
+
+	if (len)
+		return len;
+
+> +
+> +	ixgbe_dbg_reg_ops_buf[len] = '\0';
+>  
+>  	if (strncmp(ixgbe_dbg_reg_ops_buf, "write", 5) == 0) {
+>  		u32 reg, value;
+> @@ -187,15 +196,15 @@ static ssize_t ixgbe_dbg_netdev_ops_write(struct file *filp,
+>  	if (count >= sizeof(ixgbe_dbg_netdev_ops_buf))
+>  		return -ENOSPC;
+>  
+> -	bytes_not_copied = copy_from_user(ixgbe_dbg_netdev_ops_buf,
+> -					  buffer, count);
+> -	if (bytes_not_copied < 0)
+> -		return bytes_not_copied;
+> -	else if (bytes_not_copied < count)
+> -		count -= bytes_not_copied;
+> -	else
+> -		return -ENOSPC;
+> -	ixgbe_dbg_netdev_ops_buf[count] = '\0';
+> +	len = simple_write_to_buffer(ixgbe_dbg_netdev_ops_buf,
+> +				     sizeof(ixgbe_dbg_netdev_ops_buf)-1,
+> +				     ppos,
+> +				     buffer,
+> +				     count);
+> +	if (len < 0)
+> +		return -EFAULT;
+
+Same.
+
+> +
+> +	ixgbe_dbg_netdev_ops_buf[len] = '\0';
+
+regards,
+dan carpenter
