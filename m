@@ -1,86 +1,70 @@
 From: Jan Synacek <jsynacek@redhat.com>
-Subject: [PATCH 1/2] arping: Fix finding of a default interface when no -I is specified.
-Date: Tue, 27 Nov 2012 13:19:34 +0100
-Message-ID: <1354018775-4966-1-git-send-email-jsynacek@redhat.com>
+Subject: [PATCH 2/2] arping: Call usage() before limiting capabilities.
+Date: Tue, 27 Nov 2012 13:19:35 +0100
+Message-ID: <1354018775-4966-2-git-send-email-jsynacek@redhat.com>
+References: <1354018775-4966-1-git-send-email-jsynacek@redhat.com>
 Cc: netdev@vger.kernel.org, Jan Synacek <jsynacek@redhat.com>
 To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20966 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:63711 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750771Ab2K0MTy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 07:19:54 -0500
+	id S1751413Ab2K0MT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 07:19:58 -0500
+In-Reply-To: <1354018775-4966-1-git-send-email-jsynacek@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By default, no interface string should be supplied. This ensures that we can
-recognize if an interface was specified or omitted. Previously, when -I was not
-used, default interface string was compiled-in and the automatic selection
-didn't work correctly.
+Otherwise, running arping binary without the capabilities set results in printing
+warnings with the usage.
 
-RH-Bugzilla: #879807
 Signed-off-by: Jan Synacek <jsynacek@redhat.com>
 ---
- Makefile |  4 +---
- arping.c | 11 ++---------
- 2 files changed, 3 insertions(+), 12 deletions(-)
+ arping.c | 26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/Makefile b/Makefile
-index ae92f34..b5bf84f 100644
---- a/Makefile
-+++ b/Makefile
-@@ -24,8 +24,6 @@ USE_SYSFS=no
- USE_IDN=no
- # Do not use getifaddrs
- WITHOUT_IFADDRS=no
--# arping default device
--ARPING_DEFAULT_DEVICE=eth0
- # rdisc server (-r option) support
- ENABLE_RDISC_SERVER=no
- # ping6 source routing (deprecated by RFC5095)
-@@ -99,7 +97,7 @@ $(TARGETS): %: %.o
- 
- # -------------------------------------
- # arping
--DEF_arping = $(DEF_SYSFS) $(DEF_CAP) $(DEF_IDN) $(DEF_WITHOUT_IFADDRS) -DDEFAULT_DEVICE=\"$(ARPING_DEFAULT_DEVICE)\"
-+DEF_arping = $(DEF_SYSFS) $(DEF_CAP) $(DEF_IDN) $(DEF_WITHOUT_IFADDRS)
- LIB_arping = $(LIB_SYSFS) $(LIB_CAP) $(LIB_IDN)
- 
- # clockdiff
 diff --git a/arping.c b/arping.c
-index f6433c2..ccb68a0 100644
+index ccb68a0..02e3d9c 100644
 --- a/arping.c
 +++ b/arping.c
-@@ -55,13 +55,6 @@ struct sysf_devattr_values;
+@@ -959,19 +959,6 @@ main(int argc, char **argv)
+ 	int socket_errno;
+ 	int ch;
  
- static void usage(void) __attribute__((noreturn));
- 
--#ifdef DEFAULT_DEVICE
--# define DEFAULT_DEVICE_STR	DEFAULT_DEVICE
--#else
--# define DEFAULT_DEVICE_STR	"no default"
--# define DEFAULT_DEVICE		NULL
+-	limit_capabilities();
+-
+-#ifdef USE_IDN
+-	setlocale(LC_ALL, "");
 -#endif
 -
- struct device {
- 	char *name;
- 	int ifindex;
-@@ -75,7 +68,7 @@ struct device {
+-	enable_capability_raw();
+-
+-	s = socket(PF_PACKET, SOCK_DGRAM, 0);
+-	socket_errno = errno;
+-
+-	disable_capability_raw();
+-
+ 	while ((ch = getopt(argc, argv, "h?bfDUAqc:w:s:I:V")) != EOF) {
+ 		switch(ch) {
+ 		case 'b':
+@@ -1023,6 +1010,19 @@ main(int argc, char **argv)
  
- int quit_on_reply=0;
- struct device device = {
--	.name = DEFAULT_DEVICE,
-+	.name = NULL,
- };
- char *source;
- struct in_addr src, dst;
-@@ -128,7 +121,7 @@ void usage(void)
- 		"  -V : print version and exit\n"
- 		"  -c count : how many packets to send\n"
- 		"  -w timeout : how long to wait for a reply\n"
--		"  -I device : which ethernet device to use (" DEFAULT_DEVICE_STR ")\n"
-+		"  -I device : which ethernet device to use\n"
- 		"  -s source : source ip address\n"
- 		"  destination : ask for what ip address\n"
- 		);
+ 	target = *argv;
+ 
++	limit_capabilities();
++
++#ifdef USE_IDN
++	setlocale(LC_ALL, "");
++#endif
++
++	enable_capability_raw();
++
++	s = socket(PF_PACKET, SOCK_DGRAM, 0);
++	socket_errno = errno;
++
++	disable_capability_raw();
++
+ 	if (device.name && !*device.name)
+ 		device.name = NULL;
+ 
 -- 
 1.7.11.7
