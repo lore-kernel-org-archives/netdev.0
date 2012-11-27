@@ -1,100 +1,32 @@
-From: "Hay, Joshua A" <joshua.a.hay@intel.com>
-Subject: RE: [net-next 06/10] ixgbe: eliminate Smatch warnings in
- ixgbe_debugfs.c
-Date: Tue, 27 Nov 2012 01:06:17 +0000
-Message-ID: <4329753313F5A742A09953EE6CC1B3CE28C7D984@ORSMSX108.amr.corp.intel.com>
-References: <1353494856-12344-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1353494856-12344-7-git-send-email-jeffrey.t.kirsher@intel.com>
- <20121121110409.GG6186@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Dan Carpenter <dan.carpenter@oracle.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: private netdev flags into UAPI?
+Date: Tue, 27 Nov 2012 02:03:09 +0000
+Message-ID: <990.1353981789@warthog.procyon.org.uk>
+References: <CAJZOPZLQSCNTfSm63z1P_S4ZmwL+9mbP7rOCH7yHgBFcjaz1UA@mail.gmail.com> <50B1CC1B.20104@mellanox.com> <10845.1353921761@warthog.procyon.org.uk>
+Cc: dhowells@redhat.com, Or Gerlitz <ogerlitz@mellanox.com>,
+	netdev <netdev@vger.kernel.org>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34852 "EHLO mga01.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:7125 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757623Ab2K0BGT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 20:06:19 -0500
-In-Reply-To: <20121121110409.GG6186@mwanda>
-Content-Language: en-US
+	id S932366Ab2K0CDR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Nov 2012 21:03:17 -0500
+In-Reply-To: <CAJZOPZLQSCNTfSm63z1P_S4ZmwL+9mbP7rOCH7yHgBFcjaz1UA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The return value will be changed to len to preserve error codes returned from simple_write_to_buffer.
+Or Gerlitz <or.gerlitz@gmail.com> wrote:
 
-However, changing the logic preceding this return breaks these functions.  If simple_write_to_buffer returns a positive value, other actions are performed with this value.  With this patch, the function will return immediately with that value instead.  This will effectively break the ixgbe_debugfs write operations.
+> On Mon, Nov 26, 2012 at 11:22 AM, David Howells <dhowells@redhat.com> wrote:
+> > They were exposed to userspace already
+> 
+> So the script carries the bug into a new directory... why? AFAIK,
+> intentionally there's no way to read private flags from user space, so
+> what's the point in defining them there?
 
-So ultimately, the change should be: 
-> +	len = simple_write_to_buffer(ixgbe_dbg_reg_ops_buf,
-> +				     sizeof(ixgbe_dbg_reg_ops_buf)-1,
-> +				     ppos,
-> +				     buffer,
-> +				     count);
-> +	if (len < 0)
-> +		return -EFAULT;
-	
-	if (len < 0)
-		return len;
+How should the script know what's private and what's not?  By the
+encapsulation of code inside __KERNEL__ blocks.  In their absence, everything
+is assumed to be public - given it is already part of the UAPI.  I don't know
+that the code is private rather than the comment is wrong.
 
-Thanks,
-Josh Hay
-
------Original Message-----
-From: Dan Carpenter [mailto:dan.carpenter@oracle.com] 
-Sent: Wednesday, November 21, 2012 3:04 AM
-To: Kirsher, Jeffrey T
-Cc: davem@davemloft.net; Hay, Joshua A; netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com
-Subject: Re: [net-next 06/10] ixgbe: eliminate Smatch warnings in ixgbe_debugfs.c
-
-On Wed, Nov 21, 2012 at 02:47:32AM -0800, Jeff Kirsher wrote:
-> +	len = simple_write_to_buffer(ixgbe_dbg_reg_ops_buf,
-> +				     sizeof(ixgbe_dbg_reg_ops_buf)-1,
-> +				     ppos,
-> +				     buffer,
-> +				     count);
-> +	if (len < 0)
-> +		return -EFAULT;
-
-Any negative return is bad.
-
-	if (len)
-		return len;
-
-> +
-> +	ixgbe_dbg_reg_ops_buf[len] = '\0';
->  
->  	if (strncmp(ixgbe_dbg_reg_ops_buf, "write", 5) == 0) {
->  		u32 reg, value;
-> @@ -187,15 +196,15 @@ static ssize_t ixgbe_dbg_netdev_ops_write(struct file *filp,
->  	if (count >= sizeof(ixgbe_dbg_netdev_ops_buf))
->  		return -ENOSPC;
->  
-> -	bytes_not_copied = copy_from_user(ixgbe_dbg_netdev_ops_buf,
-> -					  buffer, count);
-> -	if (bytes_not_copied < 0)
-> -		return bytes_not_copied;
-> -	else if (bytes_not_copied < count)
-> -		count -= bytes_not_copied;
-> -	else
-> -		return -ENOSPC;
-> -	ixgbe_dbg_netdev_ops_buf[count] = '\0';
-> +	len = simple_write_to_buffer(ixgbe_dbg_netdev_ops_buf,
-> +				     sizeof(ixgbe_dbg_netdev_ops_buf)-1,
-> +				     ppos,
-> +				     buffer,
-> +				     count);
-> +	if (len < 0)
-> +		return -EFAULT;
-
-Same.
-
-> +
-> +	ixgbe_dbg_netdev_ops_buf[len] = '\0';
-
-regards,
-dan carpenter
+David
