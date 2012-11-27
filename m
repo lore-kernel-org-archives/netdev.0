@@ -1,94 +1,57 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next rfc v7 3/3] virtio-net: change the number of queues through
-	ethtool
-Date: Tue, 27 Nov 2012 18:16:00 +0800
-Message-ID: <1354011360-39479-4-git-send-email-jasowang@redhat.com>
-References: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH 1/1] net: cpts: fix for build break after ARM SoC integration
+Date: Tue, 27 Nov 2012 15:57:14 +0530
+Message-ID: <1354012034-31686-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr, shiyer@redhat.com,
-	kvm@vger.kernel.org
-To: rusty@rustcorp.com.au, mst@redhat.com, krkumar2@in.ibm.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
+	<richardcochran@gmail.com>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch implement the {set|get}_channels method of ethool to allow user to
-change the number of queues dymaically when the device is running. This would
-let the user to configure it on demand.
+  CC      drivers/net/ethernet/ti/cpts.o
+drivers/net/ethernet/ti/cpts.c:30:24: fatal error: plat/clock.h: No such file or directory
+compilation terminated.
+make[4]: *** [drivers/net/ethernet/ti/cpts.o] Error 1
+make[3]: *** [drivers/net/ethernet/ti] Error 2
+make[2]: *** [drivers/net/ethernet] Error 2
+make[1]: *** [drivers/net] Error 2
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+fix for build break as the header file is removed from plat-omap as part of
+the below patch
+
+commit a135eaae524acba1509a3b19c97fae556e4da7cd
+Author: Paul Walmsley <paul@pwsan.com>
+Date:   Thu Sep 27 10:33:34 2012 -0600
+
+    ARM: OMAP: remove plat/clock.h
+
+    Remove arch/arm/plat-omap/include/plat/clock.h by merging it into
+    arch/arm/mach-omap1/clock.h and arch/arm/mach-omap2/clock.h.
+    The goal here is to facilitate ARM single image kernels by removing
+    includes via the "plat/" symlink.
+
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/virtio_net.c |   41 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 41 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/ti/cpts.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index bcaa6e5..f08ec2a 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1578,10 +1578,51 @@ static struct virtio_driver virtio_net_driver = {
- #endif
- };
+diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
+index 3377667..5e62c1a 100644
+--- a/drivers/net/ethernet/ti/cpts.c
++++ b/drivers/net/ethernet/ti/cpts.c
+@@ -27,8 +27,6 @@
+ #include <linux/uaccess.h>
+ #include <linux/workqueue.h>
  
-+/* TODO: Eliminate OOO packets during switching */
-+static int virtnet_set_channels(struct net_device *dev,
-+				struct ethtool_channels *channels)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	u16 queue_pairs = channels->combined_count;
-+
-+	/* We don't support separate rx/tx channels.
-+	 * We don't allow setting 'other' channels.
-+	 */
-+	if (channels->rx_count || channels->tx_count || channels->other_count)
-+		return -EINVAL;
-+
-+	/* Only two modes were support currently */
-+	if (queue_pairs != vi->max_queue_pairs && queue_pairs != 1)
-+		return -EINVAL;
-+
-+	vi->curr_queue_pairs = queue_pairs;
-+	BUG_ON(virtnet_set_queues(vi));
-+
-+	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
-+	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
-+
-+	return 0;
-+}
-+
-+static void virtnet_get_channels(struct net_device *dev,
-+				 struct ethtool_channels *channels)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+
-+	channels->combined_count = vi->curr_queue_pairs;
-+	channels->max_combined = vi->max_queue_pairs;
-+	channels->max_other = 0;
-+	channels->rx_count = 0;
-+	channels->tx_count = 0;
-+	channels->other_count = 0;
-+}
-+
- static const struct ethtool_ops virtnet_ethtool_ops = {
- 	.get_drvinfo = virtnet_get_drvinfo,
- 	.get_link = ethtool_op_get_link,
- 	.get_ringparam = virtnet_get_ringparam,
-+	.set_channels = virtnet_set_channels,
-+	.get_channels = virtnet_get_channels,
- };
+-#include <plat/clock.h>
+-
+ #include "cpts.h"
  
- static int __init init(void)
+ #ifdef CONFIG_TI_CPTS
 -- 
-1.7.1
+1.7.0.4
+
