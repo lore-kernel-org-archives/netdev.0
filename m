@@ -1,36 +1,47 @@
-From: Steve Glendinning <steve@shawell.net>
-Subject: Re: [PATCH 2/2] smsc75xx: support PHY wakeup source
-Date: Tue, 27 Nov 2012 17:23:15 +0000
-Message-ID: <CAKh2mn4xfpO-vMZGnikuS29xrCc_XJMGu0gexyn1EBeG4prgog@mail.gmail.com>
-References: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
-	<1354026482-10443-3-git-send-email-steve.glendinning@shawell.net>
-	<1354031804.2116.8.camel@joe-AO722>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] net: move inet_dport/inet_num in sock_common
+Date: Tue, 27 Nov 2012 09:23:20 -0800
+Message-ID: <1354037000.2116.19.camel@joe-AO722>
+References: <1354028815.14302.35.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Ling Ma <ling.ma.program@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:35405 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756244Ab2K0RXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 12:23:22 -0500
-Received: by mail-ea0-f174.google.com with SMTP id e13so4926870eaa.19
-        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 09:23:16 -0800 (PST)
-In-Reply-To: <1354031804.2116.8.camel@joe-AO722>
+Received: from perches-mx.perches.com ([206.117.179.246]:50970 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755450Ab2K0RXV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 12:23:21 -0500
+In-Reply-To: <1354028815.14302.35.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Joe,
+On Tue, 2012-11-27 at 07:06 -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> commit 68835aba4d9b (net: optimize INET input path further)
+> moved some fields used for tcp/udp sockets lookup in the first cache
+> line of struct sock_common.
+[]
+> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> index 5e11905..196ede4 100644
+> --- a/include/linux/ipv6.h
+> +++ b/include/linux/ipv6.h
+> @@ -365,19 +365,21 @@ static inline struct raw6_sock *raw6_sk(const struct sock *sk)
+>  #endif /* IS_ENABLED(CONFIG_IPV6) */
+>  
+>  #define INET6_MATCH(__sk, __net, __hash, __saddr, __daddr, __ports, __dif)\
+> +	(((__sk)->sk_hash == (__hash)) &&					\
+> +	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports)) &&	\
+> +	 ((__sk)->sk_family		== AF_INET6)		&&		\
 
-On 27 November 2012 15:56, Joe Perches <joe@perches.com> wrote:
-> On Tue, 2012-11-27 at 14:28 +0000, Steve Glendinning wrote:
->> +     ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
->> +     check_warn_return(ret, "Error reading PMT_CTL");
->
-> Hi Steve, can you please add newlines to these new
-> check_warn_<foo> messages and the netdev_<level> ones too?
-> It helps avoid message interleaving.
+Perhaps these could be |'d together to avoid the test/jump
+after each comparison by using some bit operations instead.
 
-Sorry about that, I did see your earlier patch to fix existing instances.
-
-David: please discard this patch too, I'll resubmit.
+> +	 ipv6_addr_equal(&inet6_sk(__sk)->daddr, (__saddr))	&&		\
+> +	 ipv6_addr_equal(&inet6_sk(__sk)->rcv_saddr, (__daddr))	&&		\
+> +	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))) && \
+> +	 net_eq(sock_net(__sk), (__net)))
