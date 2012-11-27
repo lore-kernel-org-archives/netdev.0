@@ -1,38 +1,44 @@
-From: Rick Jones <rick.jones2@hp.com>
+From: Saku Ytti <saku@ytti.fi>
 Subject: Re: TCP and reordering
-Date: Tue, 27 Nov 2012 09:05:30 -0800
-Message-ID: <50B4F2DA.8020206@hp.com>
+Date: Tue, 27 Nov 2012 19:15:20 +0200
+Message-ID: <CAAeewD9MtEx4uF6ezbBj7Ci5OzX8VK7p=WQ2TB3PfjmznA4X0w@mail.gmail.com>
 References: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com>
+	<50B4F2DA.8020206@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
 Cc: netdev@vger.kernel.org
-To: Saku Ytti <saku@ytti.fi>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:24857 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932122Ab2K0RFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 12:05:32 -0500
-In-Reply-To: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:35146 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752526Ab2K0RPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 12:15:22 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k11so8576920iea.19
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 09:15:22 -0800 (PST)
+In-Reply-To: <50B4F2DA.8020206@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/27/2012 01:32 AM, Saku Ytti wrote:
-> Today due to fast retransmit performance on links which cause
-> reordering is appalling.
->
-> Is it too esoteric situation to handle gracefully? Couldn't we
-> maintain 'reorder' counter in socket, which is increment when we get
-> two copies of same packet after duplicate ack, if this counter is
-> sufficiently high in relation to packet loss, we could start delaying
-> duplicate acks as we'd expect to receive the sequence very soon.
+On 27 November 2012 19:05, Rick Jones <rick.jones2@hp.com> wrote:
 
-Packet reordering is supposed to be the exception, not the rule.  Links 
-which habitually/constantly introduce reordering are, in my opinion, 
-broken.  Optimizing for them would be optimizing an error case.
+> Packet reordering is supposed to be the exception, not the rule.  Links
+> which habitually/constantly introduce reordering are, in my opinion, broken.
+> Optimizing for them would be optimizing an error case.
 
-That said, there is net.ipv4.tcp_reordering which you can increase from 
-the default of three to desensitize TCP to such broken links.  That will 
-though be on the sending rather than receiving side.
+TCP used to be friendly to reordering before fast retransmit
+optimization was implemented.
 
-rick jones
+It seems like minimal complexity in TCP algorithm and would
+dynamically work correctly depending on situation. It is rather slim
+comfort that network should work, when it does not, and you cannot
+affect it.
+
+But if the complexity is higher than I expect, then I fully agree,
+makes no sense to add it. Reason why reordering can happen in modern
+MPLS network is that you have to essentially duck type your traffic,
+and sometimes you duck type them wrong and you are then calculating
+ECMP on incorrect values, causing packets inside flow to take
+different ports.
+
+--
+  ++ytti
