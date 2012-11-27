@@ -1,47 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] net: move inet_dport/inet_num in sock_common
-Date: Tue, 27 Nov 2012 09:23:20 -0800
-Message-ID: <1354037000.2116.19.camel@joe-AO722>
-References: <1354028815.14302.35.camel@edumazet-glaptop>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] atm: forever loop loading ambassador firmware
+Date: Tue, 27 Nov 2012 20:29:35 +0300
+Message-ID: <20121127172935.GB1059@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ling Ma <ling.ma.program@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Chas Williams <chas@cmf.nrl.navy.mil>,
+	David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:50970 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755450Ab2K0RXV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 12:23:21 -0500
-In-Reply-To: <1354028815.14302.35.camel@edumazet-glaptop>
+Received: from userp1040.oracle.com ([156.151.31.81]:19775 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932117Ab2K0Rb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 12:31:56 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-11-27 at 07:06 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> commit 68835aba4d9b (net: optimize INET input path further)
-> moved some fields used for tcp/udp sockets lookup in the first cache
-> line of struct sock_common.
-[]
-> diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-> index 5e11905..196ede4 100644
-> --- a/include/linux/ipv6.h
-> +++ b/include/linux/ipv6.h
-> @@ -365,19 +365,21 @@ static inline struct raw6_sock *raw6_sk(const struct sock *sk)
->  #endif /* IS_ENABLED(CONFIG_IPV6) */
->  
->  #define INET6_MATCH(__sk, __net, __hash, __saddr, __daddr, __ports, __dif)\
-> +	(((__sk)->sk_hash == (__hash)) &&					\
-> +	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports)) &&	\
-> +	 ((__sk)->sk_family		== AF_INET6)		&&		\
+There was a forever loop introduced here when we converted this to
+request_firmware() back in 2008.
 
-Perhaps these could be |'d together to avoid the test/jump
-after each comparison by using some bit operations instead.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Spotted in code reading.  Untested.
 
-> +	 ipv6_addr_equal(&inet6_sk(__sk)->daddr, (__saddr))	&&		\
-> +	 ipv6_addr_equal(&inet6_sk(__sk)->rcv_saddr, (__daddr))	&&		\
-> +	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))) && \
-> +	 net_eq(sock_net(__sk), (__net)))
+diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
+index 89b30f3..ff7bb8a 100644
+--- a/drivers/atm/ambassador.c
++++ b/drivers/atm/ambassador.c
+@@ -1961,6 +1961,7 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
+     res = loader_verify(lb, dev, rec);
+     if (res)
+       break;
++    rec = ihex_next_binrec(rec);
+   }
+   release_firmware(fw);
+   if (!res)
