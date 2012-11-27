@@ -1,69 +1,50 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
-Date: Tue, 27 Nov 2012 14:46:38 -0500 (EST)
-Message-ID: <Pine.LNX.4.44L0.1211271443150.1489-100000@iolanthe.rowland.org>
-References: <87y5hm9ap5.fsf@nemi.mork.no>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: DHCP response received after 500mS not handled while having multiple
+ Ethernet interfaces
+Date: Wed, 28 Nov 2012 01:28:40 +0530
+Message-ID: <50B51B70.5050804@ti.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Steve Glendinning <steve@shawell.net>,
-	netdev <netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
-To: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from iolanthe.rowland.org ([192.131.102.54]:43088 "HELO
-	iolanthe.rowland.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753938Ab2K0Tqj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 14:46:39 -0500
-In-Reply-To: <87y5hm9ap5.fsf@nemi.mork.no>
+Received: from bear.ext.ti.com ([192.94.94.41]:53299 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752039Ab2K0T7I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 14:59:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Nov 2012, Bj=C3=B8rn Mork wrote:
+Hi
 
-> Steve Glendinning <steve@shawell.net> writes:
->=20
-> > Hi Bjorn,
-> >
-> > On 27 November 2012 17:21, Steve Glendinning <steve@shawell.net> wr=
-ote:
-> >> Hi Bjorn,
-> >>
-> >>>> +     smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
-> >>>
-> >>> As mentioned in another comment to the smsc95xx driver: This is w=
-eird.
-> >>> Do you really need to do that?
-> >>>
-> >>> This is an USB interface driver.  The USB device is handled by th=
-e
-> >>> generic "usb" driver, which will do the right thing.  See
-> >>> drivers/usb/generic.c and drivers/usb/core/hub.c
-> >>
-> >> Thanks, I've tested removing all these calls from the driver and
-> >> wakeup functionality seems to still work.
-> >>
-> >> I'll resubmit my smsc75xx enhancement patchset with this change on=
-ce
-> >> I've done some more testing.
-> >
-> > Further testing shows that removing these calls stop wakeup from
-> > system suspend working (although don't appear to impact runtime
-> > autosuspend).  Have I missed a flag or somewhere that causes
-> > udev->do_remote_wakeup to be set in the code you posted?
->=20
-> udev->do_remote_wakeup is set in choose_wakeup() in
-> drivers/usb/core/driver.c.  AFAICS it is always set as long as
-> device_may_wakeup(&udev->dev) is true.
+While testing AM335X which has Dual EMAC feature, I came across an issue.
 
-That's right.  But is device_may_wakeup(&udev->dev) true?
+Setup:
+     Board:  AM335X-EVMSK with Dual EMAC implementation with eth0 connected
+             and eth1 not connected to switch.
+     Router: Trendnet Wireless router TEW-652BRP
 
-By default it wouldn't be.  The normal way to set it is for the user or=
-=20
-a program to do:
+Issue:
+    While booting with multiple Ethernet interface, kernel logs as
+    "DHCP/BOOTP: Ignoring delayed packet" and ignores the DHCP response 
+packet.
 
-	echo enabled >/sys/bus/usb/devices/.../power/wakeup
+Analysis:
+The router is giving a DHCP response only after 500mS which I confirmed by
+capturing Ethernet packets
+While looking at net/ipv4/ipconfig.c, it seems that waiting period of DHCP
+response with multiple interface is 500mS, if we get a response from the
+server after 500mS, it is ignored as ic_dev_xid will hold the next interface
+xid which is updated while sending DHCP request after timeout on the next
+interface.
 
-Of course, a driver could disregard the user's choice and set the flag=20
-by itself.
+Is this 500mS waiting for response period is per protocol?
 
-Alan Stern
+In my view even if we get a response after 500mS and DHCP request has moved
+to next interface we need to handle the response.
+Can someone comment on this approach is right or is there some other way to
+handle the issue.
+
+Regards
+Mugunthan V N
