@@ -1,45 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] smsc95xx: fix suspend buffer overflow
-Date: Tue, 27 Nov 2012 09:42:58 -0800
-Message-ID: <1354038178.8028.0.camel@joe-AO722>
-References: <1354022623-7317-1-git-send-email-steve.glendinning@shawell.net>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH 1/1] net: ethernet: cpsw: fix build warnings for CPSW when CPTS not selected
+Date: Tue, 27 Nov 2012 23:23:40 +0530
+Message-ID: <1354038820-11095-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
-To: Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:40349 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755972Ab2K0Rm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 12:42:59 -0500
-In-Reply-To: <1354022623-7317-1-git-send-email-steve.glendinning@shawell.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <richardcochran@gmail.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-11-27 at 13:23 +0000, Steve Glendinning wrote:
-> This patch fixes a buffer overflow introduced by bbd9f9e, where
-> the filter_mask array is accessed beyond its bounds.
-> 
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
-> ---
->  drivers/net/usb/smsc95xx.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> index 79d495d..6cdc504 100644
-> --- a/drivers/net/usb/smsc95xx.c
-> +++ b/drivers/net/usb/smsc95xx.c
-> @@ -1281,7 +1281,7 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
->  	}
->  
->  	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
-> -		u32 *filter_mask = kzalloc(32, GFP_KERNEL);
-> +		u32 *filter_mask = kzalloc(sizeof(u32) * 32, GFP_KERNEL);
+  CC      drivers/net/ethernet/ti/cpsw.o
+drivers/net/ethernet/ti/cpsw.c: In function 'cpsw_ndo_ioctl':
+drivers/net/ethernet/ti/cpsw.c:881:20: warning: unused variable 'priv'
 
-It's also unchecked for alloc failure.
+The build warning is generated when CPTS is not selected in Kernel Build.
+Fixing by passing the net_device pointer to cpts IOCTL instead of passing priv
 
->  		u32 command[2];
->  		u32 offset[2];
->  		u32 crc[4];
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 02c2477..c9714e1 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -812,8 +812,9 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
+ 	__raw_writel(ETH_P_1588, &priv->regs->ts_ltype);
+ }
+ 
+-static int cpsw_hwtstamp_ioctl(struct cpsw_priv *priv, struct ifreq *ifr)
++static int cpsw_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ {
++	struct cpsw_priv *priv = netdev_priv(dev);
+ 	struct cpts *cpts = &priv->cpts;
+ 	struct hwtstamp_config cfg;
+ 
+@@ -878,14 +879,12 @@ static int cpsw_hwtstamp_ioctl(struct cpsw_priv *priv, struct ifreq *ifr)
+ 
+ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+ {
+-	struct cpsw_priv *priv = netdev_priv(dev);
+-
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+ 
+ #ifdef CONFIG_TI_CPTS
+ 	if (cmd == SIOCSHWTSTAMP)
+-		return cpsw_hwtstamp_ioctl(priv, req);
++		return cpsw_hwtstamp_ioctl(dev, req);
+ #endif
+ 	return -ENOTSUPP;
+ }
+-- 
+1.7.0.4
+
