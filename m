@@ -1,232 +1,84 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH for 3.8] iproute2: Add "ip netns pids" and "ip netns identify"
-Date: Mon, 26 Nov 2012 17:16:06 -0600
-Message-ID: <87a9u4q7k9.fsf@xmission.com>
+From: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
+Subject: linux-next: manual merge of the net-next tree with the infiniband
+ tree
+Date: Tue, 27 Nov 2012 11:47:51 +1100
+Message-ID: <20121127114751.6961da02245ed6851190aca2@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:45471 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757153Ab2KZXQP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Nov 2012 18:16:15 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__27_Nov_2012_11_47_51_+1100_Gy39B++J1yJCVRUm"
+Cc: linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+--Signature=_Tue__27_Nov_2012_11_47_51_+1100_Gy39B++J1yJCVRUm
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Add command that go between network namespace names and process
-identifiers.  The code builds and runs agains older kernels but
-only works on Linux 3.8+ kernels where I have fixed stat to work
-properly.
+Hi all,
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
----
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/mellanox/mlx4/en_rx.c between commit 08ff32352d6f
+("mlx4: 64-byte CQE/EQE support") from the infiniband tree and commit
+f1d29a3fa68b ("mlx4_en: Remove remnants of LRO support") from the
+net-next tree.
 
-I don't know if this is too soon to send this patch to iproute as the
-kernel code that fixes stat is currently sitting in my for-next branch
-of:
-git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-and has not hit Linus's tree yet.  Still the code runs and is harmless
-on older kernels so it should be harmless whatever happens with it.
+--=20
+Cheers,
+Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
 
- ip/ipnetns.c        |  141 +++++++++++++++++++++++++++++++++++++++++++++++++++
- man/man8/ip-netns.8 |    5 ++-
- 2 files changed, 145 insertions(+), 1 deletions(-)
+diff --cc drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 6fa106f,f76c967..0000000
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@@ -710,12 -709,9 +710,9 @@@ next
+ =20
+  		++cq->mcq.cons_index;
+  		index =3D (cq->mcq.cons_index) & ring->size_mask;
+ -		cqe =3D &cq->buf[index];
+ +		cqe =3D &cq->buf[(index << factor) + factor];
+- 		if (++polled =3D=3D budget) {
+- 			/* We are here because we reached the NAPI budget -
+- 			 * flush only pending LRO sessions */
++ 		if (++polled =3D=3D budget)
+  			goto out;
+- 		}
+  	}
+ =20
+  out:
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index e41a598..c55fe3a 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -13,6 +13,7 @@
- #include <dirent.h>
- #include <errno.h>
- #include <unistd.h>
-+#include <ctype.h>
- 
- #include "utils.h"
- #include "ip_common.h"
-@@ -48,6 +49,8 @@ static void usage(void)
- 	fprintf(stderr, "Usage: ip netns list\n");
- 	fprintf(stderr, "       ip netns add NAME\n");
- 	fprintf(stderr, "       ip netns delete NAME\n");
-+	fprintf(stderr, "       ip netns identify PID\n");
-+	fprintf(stderr, "       ip netns pids NAME\n");
- 	fprintf(stderr, "       ip netns exec NAME cmd ...\n");
- 	fprintf(stderr, "       ip netns monitor\n");
- 	exit(-1);
-@@ -171,6 +174,138 @@ static int netns_exec(int argc, char **argv)
- 	exit(-1);
- }
- 
-+static int is_pid(const char *str)
-+{
-+	int ch;
-+	for (; (ch = *str); str++) {
-+		if (!isdigit(ch))
-+			return 0;
-+	}
-+	return 1;
-+}
-+
-+static int netns_pids(int argc, char **argv)
-+{
-+	const char *name;
-+	char net_path[MAXPATHLEN];
-+	int netns;
-+	struct stat netst;
-+	DIR *dir;
-+	struct dirent *entry;
-+
-+	if (argc < 1) {
-+		fprintf(stderr, "No netns name specified\n");
-+		return -1;
-+	}
-+	if (argc > 1) {
-+		fprintf(stderr, "extra arguments specified\n");
-+		return -1;
-+	}
-+
-+	name = argv[0];
-+	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
-+	netns = open(net_path, O_RDONLY);
-+	if (netns < 0) {
-+		fprintf(stderr, "Cannot open network namespace: %s\n",
-+			strerror(errno));
-+		return -1;
-+	}
-+	if (fstat(netns, &netst) < 0) {
-+		fprintf(stderr, "Stat of netns failed: %s\n",
-+			strerror(errno));
-+		return -1;
-+	}
-+	dir = opendir("/proc/");
-+	if (!dir) {
-+		fprintf(stderr, "Open of /proc failed: %s\n",
-+			strerror(errno));
-+		return -1;
-+	}
-+	while((entry = readdir(dir))) {
-+		char pid_net_path[MAXPATHLEN];
-+		struct stat st;
-+		if (!is_pid(entry->d_name))
-+			continue;
-+		snprintf(pid_net_path, sizeof(pid_net_path), "/proc/%s/ns/net",
-+			entry->d_name);
-+		if (stat(pid_net_path, &st) != 0)
-+			continue;
-+		if ((st.st_dev == netst.st_dev) &&
-+		    (st.st_ino == netst.st_ino)) {
-+			printf("%s\n", entry->d_name);
-+		}
-+	}
-+	closedir(dir);
-+	return 0;
-+	
-+}
-+
-+static int netns_identify(int argc, char **argv)
-+{
-+	const char *pidstr;
-+	char net_path[MAXPATHLEN];
-+	int netns;
-+	struct stat netst;
-+	DIR *dir;
-+	struct dirent *entry;
-+
-+	if (argc < 1) {
-+		fprintf(stderr, "No pid specified\n");
-+		return -1;
-+	}
-+	if (argc > 1) {
-+		fprintf(stderr, "extra arguments specified\n");
-+		return -1;
-+	}
-+	pidstr = argv[0];
-+
-+	if (!is_pid(pidstr)) {
-+		fprintf(stderr, "Specified string '%s' is not a pid\n",
-+			pidstr);
-+		return -1;
-+	}
-+
-+	snprintf(net_path, sizeof(net_path), "/proc/%s/ns/net", pidstr);
-+	netns = open(net_path, O_RDONLY);
-+	if (netns < 0) {
-+		fprintf(stderr, "Cannot open network namespace: %s\n",
-+			strerror(errno));
-+		return -1;
-+	}
-+	if (fstat(netns, &netst) < 0) {
-+		fprintf(stderr, "Stat of netns failed: %s\n",
-+			strerror(errno));
-+		return -1;
-+	}
-+	dir = opendir(NETNS_RUN_DIR);
-+	if (!dir)
-+		return 0;
-+
-+	while((entry = readdir(dir))) {
-+		char name_path[MAXPATHLEN];
-+		struct stat st;
-+
-+		if (strcmp(entry->d_name, ".") == 0)
-+			continue;
-+		if (strcmp(entry->d_name, "..") == 0)
-+			continue;
-+
-+		snprintf(name_path, sizeof(name_path), "%s/%s",	NETNS_RUN_DIR,
-+			entry->d_name);
-+
-+		if (stat(name_path, &st) != 0)
-+			continue;
-+
-+		if ((st.st_dev == netst.st_dev) &&
-+		    (st.st_ino == netst.st_ino)) {
-+			printf("%s\n", entry->d_name);
-+		}
-+	}
-+	closedir(dir);
-+	return 0;
-+	
-+}
-+
- static int netns_delete(int argc, char **argv)
- {
- 	const char *name;
-@@ -298,6 +433,12 @@ int do_netns(int argc, char **argv)
- 	if (matches(*argv, "delete") == 0)
- 		return netns_delete(argc-1, argv+1);
- 
-+	if (matches(*argv, "identify") == 0)
-+		return netns_identify(argc-1, argv+1);
-+
-+	if (matches(*argv, "pids") == 0)
-+		return netns_pids(argc-1, argv+1);
-+
- 	if (matches(*argv, "exec") == 0)
- 		return netns_exec(argc-1, argv+1);
- 
-diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
-index 349ee7e..e639836 100644
---- a/man/man8/ip-netns.8
-+++ b/man/man8/ip-netns.8
-@@ -1,4 +1,4 @@
--.TH IP\-NETNS 8 "20 Dec 2011" "iproute2" "Linux"
-+.TH IP\-NETNS 8 "26 Dec 2012" "iproute2" "Linux"
- .SH NAME
- ip-netns \- process network namespace management
- .SH SYNOPSIS
-@@ -58,6 +58,9 @@ their traditional location in /etc.
- .SS ip netns delete NAME - delete the name of a network namespace
- .SS ip netns exec NAME cmd ... - Run cmd in the named network namespace
- 
-+.SS ip netns pids NAME - Report processes in the named network namespace
-+.SS ip netns identify PID - Report network namespaces names for process
-+
- .SH EXAMPLES
- 
- .SH SEE ALSO
--- 
-1.7.5.4
+--Signature=_Tue__27_Nov_2012_11_47_51_+1100_Gy39B++J1yJCVRUm
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQtA23AAoJEECxmPOUX5FEJcMP/2uAYVgOIr10CkQFnoiWvveh
+cExGTI7BMFm3VfzrZsXPH2vAGTzZoRwVyBnhQzobRHcjTplJkthAnNDq1xb7eDxt
+4EMF+6wcnqlnKmG27osfE5Fnh4/mFXZdDxhgbyHuzc9aa1nXhVD1n/jW/tyLBgsn
+OSQcTVAEkDVvAN6WohATaeyEQ+HkwWLYWdBtmMrPDdnjeH2GA3NgEuD904lJT2IU
+Z93w73/ITIj+8f7MtpxeTGH1SDx8XtrUYk5sQ5vaADSIdcVCGeDj/AZrsg8ezk//
+/I9AeqAHQUHY/Pu5MTO6aLPqFY7TkExjk89Fbm4fXuptA9u1Jp1a1DVXxrqnghjG
+UEpX1+8yqTwZSJT6QbwgVddseBN9mdDrjE9SOLHR9VeEa92oTiWQA2Uaaw5DDres
+dfTjozkpHL6BpOGmwx9fdmzGvZLwXfkwdvncyxUtouMft7gnNkFu61o5Y6AgXBSw
+a0N8IXqIcX2sNtJ35mqVVb0K34MrjV/8EfN9V1D32KWdqUWkBi4iHEySvc49FWdy
+XsQygg6VUIIqYIDuV0kLUXwc651wCbVF1GtjvDgAcWuKgjWZdcMFxLuv3co+kx+Y
+7HTSbgKM82zeI2Cw0WRgnhuepKbPVN/MWfM2ujuwFf+el5P0PAUdARqKcvAbe/rC
+wgzW2pkCenm+Ltk+H3D/
+=E4sO
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__27_Nov_2012_11_47_51_+1100_Gy39B++J1yJCVRUm--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
