@@ -1,50 +1,51 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: Fwd: Re: [PATCH] net: ipv6: change %8s to %s for rt->dst.dev->name
- in seq_printf of rt6_info_route
-Date: Tue, 27 Nov 2012 13:52:28 +0800
-Message-ID: <50B4551C.6030505@asianux.com>
-References: <50ADE447.8030300@asianux.com> <50AEEF08.4000707@asianux.com> <50B430B5.1080700@gmail.com> <50B43F12.1090709@asianux.com> <50B44563.8060905@asianux.com> <50B45265.9070303@asianux.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: performance regression on HiperSockets depending on MTU size
+Date: Tue, 27 Nov 2012 06:21:42 +0000 (UTC)
+Message-ID: <k91m5l$77a$1@ger.gmane.org>
+References: <20121126153242.GA61652@tuxmaker.boeblingen.de.ibm.com>
+ <1353946351.30446.1779.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Shan Wei <shanwei88@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:37483 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754075Ab2K0Fvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 00:51:33 -0500
-In-Reply-To: <50B45265.9070303@asianux.com>
+Received: from plane.gmane.org ([80.91.229.3]:42612 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755918Ab2K0GV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 01:21:57 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1TdEYW-0007OI-7i
+	for netdev@vger.kernel.org; Tue, 27 Nov 2012 07:22:04 +0100
+Received: from 112.132.205.99 ([112.132.205.99])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 07:22:04 +0100
+Received: from xiyou.wangcong by 112.132.205.99 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 07:22:04 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D3=DA 2012=C4=EA11=D4=C227=C8=D5 13:40, Chen Gang =D0=B4=B5=C0:
->=20
-> and now, I think:
->   A) both input and output through /proc/* are for os api level.
->   B) but both %8s and %s do not change the output interface format (i=
-ncluding contents, topology, separator mark, space redundancy).
->   C) so it is belong to 'User Experience', not belong to os api.
->=20
->   welcome any another members to giving suggestions and completions.
->=20
->   thanks.
->=20
->   :-)
->=20
+On Mon, 26 Nov 2012 at 16:12 GMT, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Hi Frank, thanks for this report.
+>
+> You could tweak tcp_limit_output_bytes, but IMO the root of the problem
+> is in the driver itself.
+>
+> For example, I had to change mlx4 driver for the same problem : Make
+> sure a TX packet can be "TX completed" in a short amount of time.
+>
+> In the case of mlx4, the wait time was 128 us, but I suspect on your
+> case its more like an infinite time or several ms.
+>  
+> The driver is delaying the free of TX skb by a fixed amount of time,
+> or relies on following transmits to perform the TX completion
+>
 
-  completion: 8 right alignment is not belong to interface format.
-    if it was belong to interface format,
-    it would cause correctness issue (the name len may be larger than 8=
-).
-    so if "8 right alignment" is belong to os api, it means the api is =
-not correct, need change.
+Eric,
 
-  :-)
+Do you have a full list of such commits? I am trying to backport TSQ
+to 2.6.32, and of course I don't want to miss these commits either.
 
---=20
-Chen Gang
-
-Asianux Corporation
+Thanks!
