@@ -1,64 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [E1000-devel] 82571EB: Detected Hardware Unit Hang
-Date: Tue, 27 Nov 2012 18:10:40 +0000
-Message-ID: <1354039840.2701.14.camel@bwh-desktop.uk.solarflarecom.com>
-References: <509B5038.8090304@oracle.com>
-	 <061C8A8601E8EE4CA8D8FD6990CEA89133487884@ORSMSX102.amr.corp.intel.com>
-	 <50A30656.6090508@oracle.com>
-	 <061C8A8601E8EE4CA8D8FD6990CEA8913348B105@ORSMSX102.amr.corp.intel.com>
-	 <50A43828.6000702@oracle.com>
-	 <061C8A8601E8EE4CA8D8FD6990CEA8913349A0B4@ORSMSX102.amr.corp.intel.com>
-	 <50A9C5CC.1030300@oracle.com>
-	 <061C8A8601E8EE4CA8D8FD6990CEA8913349EB41@ORSMSX102.amr.corp.intel.com>
-	 <50AB8471.7080607@oracle.com>
-	 <9B4A1B1917080E46B64F07F2989DADD62F2D62D6@ORSMSX102.amr.corp.intel.com>
-	 <50B41077.3080009@oracle.com>
-	 <b46b84cf-3688-4fd7-b741-4e96f2663517@default>
-	 <9B4A1B1917080E46B64F07F2989DADD62F2D8070@ORSMSX102.amr.corp.intel.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
+Date: Tue, 27 Nov 2012 19:12:38 +0100
+Message-ID: <87y5hm9ap5.fsf@nemi.mork.no>
+References: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
+	<1354026482-10443-2-git-send-email-steve.glendinning@shawell.net>
+	<87624r9k1f.fsf@nemi.mork.no>
+	<CAKh2mn4OiN7ZAX_0SJ_XHwRNPoyKUk=+4ha5esBMAajGD4BX=w@mail.gmail.com>
+	<CAKh2mn7f94a7La_EQ9L_qwr7FZEXfawUiAajPMDO8ScS2fJupg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Joe Jin <joe.jin@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: "Fujinaka, Todd" <todd.fujinaka@intel.com>,
-	Mary Mcgrath <mary.mcgrath@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:10857 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756264Ab2K0SKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 13:10:44 -0500
-In-Reply-To: <9B4A1B1917080E46B64F07F2989DADD62F2D8070@ORSMSX102.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKh2mn7f94a7La_EQ9L_qwr7FZEXfawUiAajPMDO8ScS2fJupg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Steve Glendinning's message of "Tue, 27 Nov 2012 17:55:33 +0000")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-11-27 at 17:32 +0000, Fujinaka, Todd wrote:
-> Forgive me if I'm being too repetitious as I think some of this has
-> been mentioned in the past.
-> 
-> We (and by we I mean the Ethernet part and driver) can only change the
-> advertised availability of a larger MaxPayloadSize. The size is
-> negotiated by both sides of the link when the link is established. The
-> driver should not change the size of the link as it would be poking at
-> registers outside of its scope and is controlled by the upstream
-> bridge (not us).
-[...]
+Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org> writes:
 
-MaxPayloadSize (MPS) is not negotiated between devices but is programmed
-by the system firmware (at least for devices present at boot - the
-kernel may be responsible in case of hotplug).  You can use the kernel
-parameter 'pci=pcie_bus_perf' (or one of several others) to set a policy
-that overrides this, but no policy will allow setting MPS above the
-device's MaxPayloadSizeSupported (MPSS).
+> Hi Bjorn,
+>
+> On 27 November 2012 17:21, Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org> wrot=
+e:
+>> Hi Bjorn,
+>>
+>>>> +     smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
+>>>
+>>> As mentioned in another comment to the smsc95xx driver: This is wei=
+rd.
+>>> Do you really need to do that?
+>>>
+>>> This is an USB interface driver.  The USB device is handled by the
+>>> generic "usb" driver, which will do the right thing.  See
+>>> drivers/usb/generic.c and drivers/usb/core/hub.c
+>>
+>> Thanks, I've tested removing all these calls from the driver and
+>> wakeup functionality seems to still work.
+>>
+>> I'll resubmit my smsc75xx enhancement patchset with this change once
+>> I've done some more testing.
+>
+> Further testing shows that removing these calls stop wakeup from
+> system suspend working (although don't appear to impact runtime
+> autosuspend).  Have I missed a flag or somewhere that causes
+> udev->do_remote_wakeup to be set in the code you posted?
 
-(These parameters are not documented in
-Documentation/kernel-parameters.txt!  Someone ought to fix that.)
+udev->do_remote_wakeup is set in choose_wakeup() in
+drivers/usb/core/driver.c.  AFAICS it is always set as long as
+device_may_wakeup(&udev->dev) is true.
 
-Ben.
+But I am just trying to get a grasp of this code.  Others on the
+linux-usb list will know these things much better than me...
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Just a thought: Did you remember to remove the clear_feature you have i=
+n
+resume?
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
