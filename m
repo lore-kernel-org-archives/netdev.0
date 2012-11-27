@@ -1,54 +1,32 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: smsc95xx: detect chip revision specific features
-Date: Tue, 27 Nov 2012 15:39:57 +0300
-Message-ID: <20121127123957.GT6186@mwanda>
-References: <20121126204722.GA26463@elgon.mountain>
- <CAKh2mn4x=0HwUdH8hSbk3fsa16RUBqze_n5XegVjRBsTnT08SA@mail.gmail.com>
+From: "Keitel, Tino (ALC NetworX GmbH)" <Tino.Keitel@alcnetworx.de>
+Subject: Re: BQL support in gianfar causes network hickup
+Date: Tue, 27 Nov 2012 13:42:36 +0100
+Message-ID: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE71@Exchange1.lawo.de>
+References: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6E@Exchange1.lawo.de>
+ <50AFA599.9040108@windriver.com> <loom.20121124T213422-650@post.gmane.org>
+ <1353800616.2590.4562.camel@edumazet-glaptop>
+ <20121126100111.GA3728@mac.home> <1353947677.7553.2.camel@edumazet-glaptop>
+ <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6F@Exchange1.lawo.de>
+ <1353950255.7553.6.camel@edumazet-glaptop>
+ <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE70@Exchange1.lawo.de>
+ <1354019816.7553.1585.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Steve Glendinning <steve@shawell.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Tino Keitel <tino.keitel@tikei.de>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:31125 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753280Ab2K0MkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 07:40:06 -0500
-Content-Disposition: inline
-In-Reply-To: <CAKh2mn4x=0HwUdH8hSbk3fsa16RUBqze_n5XegVjRBsTnT08SA@mail.gmail.com>
+Received: from mail2.lawo.de ([80.149.95.33]:9432 "EHLO mail2.lawo.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752349Ab2K0Mmk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 07:42:40 -0500
+In-Reply-To: <1354019816.7553.1585.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Nov 27, 2012 at 12:32:26PM +0000, Steve Glendinning wrote:
-> Hi Dan,
-> 
-> > drivers/net/usb/smsc95xx.c
-> >   1283          if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
-> >   1284                  u32 *filter_mask = kzalloc(32, GFP_KERNEL);
-> >                                                    ^^
-> > We allocate 8 unsigned 32 bit values.  I think this is the mistake here
-> > actually.  It is a typo and should say:
-> >
-> >                         u32 *filter_mask = kzalloc(sizeof(u32) * 32, GFP_KERNEL);
-> >
-> > If 8 elements was the intent then that's nasty.
-> 
-> Good spot!  8 32-bit elements was the intent, but all the following
-> code is actually accessing it using what should be byte offsets.  So I
-> think this should read:
-> 
->     u8 *filter_mask = kzalloc(32, GFP_KERNEL);
-> 
-> The rest of the code following makes sense then, up until:
-> 
-> >   1349                          ret = smsc95xx_write_reg_nopm(dev, WUFF, filter_mask[i]);
-> 
-> Which we'll need to change so it dereferences a u32 at that offset
-> instead of a u8, something like *((u32 *)&filter_mask[i])
-> 
-> If this looks good to you I'll prepare a patch?
-> 
-
-Sound fine to me.  Could you give me the Reported-by: tag?
-
-regards,
-dan carpenter
+T24gRGksIDIwMTItMTEtMjcgYXQgMDQ6MzYgLTA4MDAsIEVyaWMgRHVtYXpldCB3cm90ZToKPiAK
+PiBDYW4geW91IHJlcHJvZHVjZSB0aGUgcHJvYmxlbSB1c2luZyBhIHNpbmdsZSBjcHUgPwoKWWVz
+LCBpdCBpcyBhIHNpbmdsZS1DUFUgc3lzdGVtLgoKUmVnYXJkcywKVGlubwoK
