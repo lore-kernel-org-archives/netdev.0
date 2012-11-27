@@ -1,26 +1,114 @@
 From: Steve Glendinning <steve.glendinning@shawell.net>
-Subject: [PATCH 0/2] smsc75xx enhancements
-Date: Tue, 27 Nov 2012 14:28:00 +0000
-Message-ID: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
+Subject: [PATCH 1/2] smsc75xx: refactor entering suspend modes
+Date: Tue, 27 Nov 2012 14:28:01 +0000
+Message-ID: <1354026482-10443-2-git-send-email-steve.glendinning@shawell.net>
+References: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
 Cc: Steve Glendinning <steve.glendinning@shawell.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:47515 "EHLO
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:47517 "EHLO
 	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751086Ab2K0O2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 09:28:09 -0500
+	with ESMTP id S1751086Ab2K0O2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 09:28:10 -0500
+In-Reply-To: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset implements wake on PHY (link up or link down) for
-smsc75xx, please consider for net-next.
+This patch splits out the logic for entering suspend modes
+to separate functions, to reduce the complexity of the
+smsc75xx_suspend function.
 
-Steve Glendinning (2):
-  smsc75xx: refactor entering suspend modes
-  smsc75xx: support PHY wakeup source
+Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+---
+ drivers/net/usb/smsc75xx.c |   62 +++++++++++++++++++++++++++-----------------
+ 1 file changed, 38 insertions(+), 24 deletions(-)
 
- drivers/net/usb/smsc75xx.c |  224 ++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 186 insertions(+), 38 deletions(-)
-
+diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
+index 953c4f4..4655c01 100644
+--- a/drivers/net/usb/smsc75xx.c
++++ b/drivers/net/usb/smsc75xx.c
+@@ -1213,6 +1213,42 @@ static int smsc75xx_write_wuff(struct usbnet *dev, int filter, u32 wuf_cfg,
+ 	return 0;
+ }
+ 
++static int smsc75xx_enter_suspend0(struct usbnet *dev)
++{
++	u32 val;
++	int ret;
++
++	ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
++	check_warn_return(ret, "Error reading PMT_CTL\n");
++
++	val &= (~(PMT_CTL_SUS_MODE | PMT_CTL_PHY_RST));
++	val |= PMT_CTL_SUS_MODE_0 | PMT_CTL_WOL_EN | PMT_CTL_WUPS;
++
++	ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
++	check_warn_return(ret, "Error writing PMT_CTL\n");
++
++	smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
++
++	return 0;
++}
++
++static int smsc75xx_enter_suspend2(struct usbnet *dev)
++{
++	u32 val;
++	int ret;
++
++	ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
++	check_warn_return(ret, "Error reading PMT_CTL\n");
++
++	val &= ~(PMT_CTL_SUS_MODE | PMT_CTL_WUPS | PMT_CTL_PHY_RST);
++	val |= PMT_CTL_SUS_MODE_2;
++
++	ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
++	check_warn_return(ret, "Error writing PMT_CTL\n");
++
++	return 0;
++}
++
+ static int smsc75xx_suspend(struct usb_interface *intf, pm_message_t message)
+ {
+ 	struct usbnet *dev = usb_get_intfdata(intf);
+@@ -1244,17 +1280,7 @@ static int smsc75xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 		ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
+ 		check_warn_return(ret, "Error writing PMT_CTL\n");
+ 
+-		/* enter suspend2 mode */
+-		ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
+-		check_warn_return(ret, "Error reading PMT_CTL\n");
+-
+-		val &= ~(PMT_CTL_SUS_MODE | PMT_CTL_WUPS | PMT_CTL_PHY_RST);
+-		val |= PMT_CTL_SUS_MODE_2;
+-
+-		ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
+-		check_warn_return(ret, "Error writing PMT_CTL\n");
+-
+-		return 0;
++		return smsc75xx_enter_suspend2(dev);
+ 	}
+ 
+ 	if (pdata->wolopts & (WAKE_MCAST | WAKE_ARP)) {
+@@ -1368,19 +1394,7 @@ static int smsc75xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 
+ 	/* some wol options are enabled, so enter SUSPEND0 */
+ 	netdev_info(dev->net, "entering SUSPEND0 mode\n");
+-
+-	ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
+-	check_warn_return(ret, "Error reading PMT_CTL\n");
+-
+-	val &= (~(PMT_CTL_SUS_MODE | PMT_CTL_PHY_RST));
+-	val |= PMT_CTL_SUS_MODE_0 | PMT_CTL_WOL_EN | PMT_CTL_WUPS;
+-
+-	ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
+-	check_warn_return(ret, "Error writing PMT_CTL\n");
+-
+-	smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
+-
+-	return 0;
++	return smsc75xx_enter_suspend0(dev);
+ }
+ 
+ static int smsc75xx_resume(struct usb_interface *intf)
 -- 
 1.7.10.4
