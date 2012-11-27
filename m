@@ -1,96 +1,50 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: Ethernet deferred 'end of transmit' processing.
-Date: Tue, 27 Nov 2012 13:28:49 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70C6@saturn3.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BQL support in gianfar causes network hickup
+Date: Tue, 27 Nov 2012 05:32:42 -0800
+Message-ID: <1354023162.7553.1708.camel@edumazet-glaptop>
+References: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6E@Exchange1.lawo.de>
+	 <50AFA599.9040108@windriver.com> <loom.20121124T213422-650@post.gmane.org>
+	 <1353800616.2590.4562.camel@edumazet-glaptop>
+	 <20121126100111.GA3728@mac.home> <1353947677.7553.2.camel@edumazet-glaptop>
+	 <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6F@Exchange1.lawo.de>
+	 <1353950255.7553.6.camel@edumazet-glaptop>
+	 <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE70@Exchange1.lawo.de>
+	 <1354019816.7553.1585.camel@edumazet-glaptop>
+	 <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE71@Exchange1.lawo.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tino Keitel <tino.keitel@tikei.de>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Keitel, Tino (ALC NetworX GmbH)" <Tino.Keitel@alcnetworx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:34121 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751228Ab2K0NaG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 08:30:06 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 16194-09 for <netdev@vger.kernel.org>;
- Tue, 27 Nov 2012 13:29:56 +0000 (GMT)
-Content-class: urn:content-classes:message
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:62332 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771Ab2K0Ncp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 08:32:45 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k11so8160617iea.19
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 05:32:45 -0800 (PST)
+In-Reply-To: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE71@Exchange1.lawo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RXJpYyBhbmQgSSBoYXZlIGp1c3QgaGFkIGEgcHJpdmF0ZSBkaXNjdXNzaW9uIGFib3V0IGRlZmVy
-cmluZw0KKG9yIG5vdCkgdGhlIGV0aGVybmV0ICdlbmQgb2YgdHgnIHByb2Nlc3NpbmcuDQpCZWxv
-dyBpcyBFcmljJ3MgbGFzdCBlbWFpbC4NCg0KPiA+IFN1YmplY3Q6IFJFOiBwZXJmb3JtYW5jZSBy
-ZWdyZXNzaW9uIG9uIEhpcGVyU29ja2V0cyBkZXBlbmRpbmcgb24gTVRVIHNpemUNCj4gPiANCj4g
-PiBPbiBNb24sIDIwMTItMTEtMjYgYXQgMTY6MzggKzAwMDAsIERhdmlkIExhaWdodCB3cm90ZToN
-Cj4gPiA+ID4gRm9yIGV4YW1wbGUsIEkgaGFkIHRvIGNoYW5nZSBtbHg0IGRyaXZlciBmb3IgdGhl
-IHNhbWUgcHJvYmxlbSA6IE1ha2UNCj4gPiA+ID4gc3VyZSBhIFRYIHBhY2tldCBjYW4gYmUgIlRY
-IGNvbXBsZXRlZCIgaW4gYSBzaG9ydCBhbW91bnQgb2YgdGltZS4NCj4gPiA+DQo+ID4gPiBJJ20g
-aW50cmlndWVkIHRoYXQgTGludXggaXMgZ29pbmcgdGhhdCB3YXkuDQo+ID4gPiBJdCAoZWZmZWN0
-aXZlbHkpIHJlcXVpcmVzIHRoZSBoYXJkd2FyZSBnZW5lcmF0ZSBhbiBpbnRlcnJ1cHQNCj4gPiA+
-IGZvciBldmVyeSB0cmFuc21pdCBwYWNrZXQgaW4gb3JkZXIgdG8gZ2V0IGhpZ2ggdGhyb3VnaHB1
-dC4NCj4gPiA+DQo+ID4gPiBJIHJlbWVtYmVyIGNhcmVmdWxseSBkZXNpZ25pbmcgZXRoZXJuZXQg
-ZHJpdmVycyB0byBhdm9pZA0KPiA+ID4gdGFraW5nICd0eCBkb25lJyBpbnRlcnJ1cHRzIHVubGVz
-cyBhYnNvbHV0ZWx5IG5lY2Vzc2FyeQ0KPiA+ID4gaW4gb3JkZXIgdG8gcmVkdWNlIHN5c3RlbSBp
-bnRlcnJ1cHQgbG9hZC4NCj4gPiA+IFNvbWUgbW9kZXJuIGhhcmR3YXJlIHByb2JhYmx5IGFsbG93
-cyBmaW5lciBjb250cm9sIG9mICd0eCBkb25lJw0KPiA+ID4gaW50ZXJydXB0cywgYnV0IGl0IHdv
-bid0IGJlIHVuaXZlcnNhbC4NCj4gPiA+DQo+ID4gPiBJIHJlYWxpc2UgdGhhdCBoYXJkd2FyZSBU
-WCBzZWdtZW50YXRpb24gb2ZmbG9hZCBjYW4gY2F1c2UgYQ0KPiA+ID4gc2luZ2xlIHR4IHJpbmcg
-ZW50cnkgdG8gdGFrZSBhIHNpZ25pZmljYW50IGFtb3VudCBvZiB0aW1lIHRvDQo+ID4gPiB0cmFu
-c21pdCAtIHNvIGFsbG93aW5nIGEgbG90IG9mIHBhY2tldHMgdG8gc2l0IGluIHRoZSB0eA0KPiA+
-ID4gcmluZyBjYXVzZXMgbGF0ZW5jeSBpc3N1ZXMuDQo+ID4gPg0KPiA+ID4gQnV0IHRoZXJlIGhh
-cyB0byBiZSBhIGJldHRlciBzb2x1dGlvbiB0aGFuIHJlcXVpcmluZyBldmVyeQ0KPiA+ID4gdHgg
-dG8gY29tcGxldGUgdmVyeSBxdWlja2x5IC0gZXNwZWNpYWxseSBpZiB0aGUgdHggZmxvdw0KPiA+
-ID4gaXMgYWN0dWFsbHkgYSBsb3Qgb2Ygc21hbGwgcGFja2V0cy4NCj4gPiA+DQo+ID4gPiAJRGF2
-aWQNCj4gPiA+DQo+ID4gDQo+ID4gMjAgeWVhcnMgYWdvLCBpbnRlcnJ1cHRzIHdlcmUgZXhwZW5z
-aXZlIHNvIHlvdSBoYWQgdG8gYmF0Y2ggcGFja2V0cy4NCj4gPiANCj4gPiBJbiAyMDEyLCB3ZSB3
-YW50IGxvdyBsYXRlbmNpZXMsIGJlY2F1c2UgaGFyZHdhcmUgaXMgZmFzdCBhbmQgaXMgYWJsZSB0
-bw0KPiA+IGNvcGUgd2l0aCB0aGUgcmVxdWlyZW1lbnQuDQo+ID4gDQo+ID4gSW5zdGVhZCBvZiBv
-bmUgY3B1LCB3ZSBub3cgaGF2ZSAyNCBjcHVzIG9yIG1vcmUgcGVyIGhvc3QuDQo+ID4gDQo+ID4g
-QW5kIGlmIHRoZXJlIGlzIGVub3VnaCBsb2FkLCBOQVBJIHdpbGwgcmVhbGx5IGF2b2lkIGludGVy
-cnVwdHMsIGFuZCB5b3UNCj4gPiBnZXQgZnVsbCBiYXRjaCBhZHZhbnRhZ2VzIChsb3dlcmluZyB0
-aGUgbnVtYmVyIG9mIGNwdSBjeWNsZXMgcGVyIHBhY2tldCkNCj4NCj4gQUZBSUNUIHNvbWUgb2Yg
-dGhlIHN0dWZmIGJlaW5nIGRvbmUgdG8gZ2V0IDEwRysgc3BlZWRzIGlzDQo+IGFjdHVhbGx5IHNp
-bWlsYXIgdG8gd2hhdCBJIHdhcyBkb2luZyB0cnlpbmcgdG8gc2F0dXJhdGUNCj4gMTBNIGV0aGVy
-bmV0LiBOZXR3b3JrIHNwZWVkcyBoYXZlIGluY3JlYXNlZCBieSBhIGZhY3Rvcg0KPiBvZiAoYWJv
-dXQpIDgwMCwgY3B1IGNsb2NrIHNwZWVkcyBvbmx5IGJ5IDEwMCBvciBzbw0KPiAod2Ugd2VyZSBk
-b2luZyBxdWFkIGNwdSBzcGFyYyBzeXN0ZW1zIHdpdGggcXVpdGUgc2xvdw0KPiBjYWNoZSBjb2hl
-cmVuY3kgb3BlcmF0aW9ucykuDQo+IFNvbWV3aGVyZSBpbiB0aGUgbGFzdCAyMCB5ZWFycyBhIGxv
-dCBvZiBjb2RlIGhhcyBnb3QgdmVyeSBsYXp5IQ0KPiANCj4gVXNpbmcgJ3NvdXJjZSBhbGxvY2F0
-ZWQnIGJ5dGUgY291bnRzIGZvciBmbG93IGNvbnRyb2wNCj4gKHdoaWNoIGlzIHdoYXQgSSBwcmVz
-dW1lIHRoZSBzb2NrZXQgc2VuZCBjb2RlIGRvZXMpIHNvIHRoYXQNCj4gZWFjaCBzb2NrZXQgaGFz
-IGEgbGltaXRlZCBhbW91bnQgb2YgbGl2ZSBkYXRhIGluIHRoZSBrZXJuZWwNCj4gYW5kIGNhbid0
-IGFsbG9jYXRlIGEgbmV3IGJ1ZmZlciAoc2tiKSB1bnRpbCB0aGUgYW1vdW50IG9mDQo+IGtlcm5l
-bCBtZW1vcnkgYWxsb2NhdGVkIHRvIHRoZSAnbGl2ZScgYnVmZmVycyBkZWNyZWFzZXMNCj4gKGll
-IGEgdHJhbnNtaXQgY29tcGxldGVzKSBjZXJ0YWlubHkgd29ya3MgYSBsb3QgYmV0dGVyDQo+IHRo
-YXQgdGhlIHRhcmdldCBxdWV1ZSBzaXplIGZsb3cgY29udHJvbCBhdHRlbXB0ZWQgYnkgU1lTVg0K
-PiBTVFJFQU1TICh3aGljaCBkb2Vzbid0IHdvcmsgdmVyeSB3ZWxsIGF0IGFsbCEpLg0KPiANCj4g
-V2hhdCBtaWdodCB3b3JrIGlzIHRvIGFsbG93IHRoZSBldGhlcm5ldCBkcml2ZXIgdG8gcmVhc3Np
-Z24NCj4gc29tZSBieXRlcyBvZiB0aGUgU0tCIGZyb20gdGhlIHNvY2tldCAob3Igb3RoZXIgc291
-cmNlKSB0bw0KPiB0aGUgdHJhbnNtaXQgaW50ZXJmYWNlIC0gdGhlbiBpdCBuZWVkIG5vdCByZXF1
-ZXN0IGVuZCBvZiB0eA0KPiBpbW1lZGlhdGVseSBmb3IgdGhvc2UgYnl0ZXMuDQoNCkl0IHNlZW1z
-IHlvdSB1bmRlcnN0b29kIGhvdyBpdCBjdXJyZW50bHkgd29ya3MuDQoNCj4gVGhlIGFtb3VudCBp
-dCBjb3VsZCB0YWtlIGNhbiBiZSBxdWl0ZSBzbWFsbCAtIHBvc3NpYmx5IG9uZQ0KPiBvciB0d28g
-bWF4aW1hbCBzaXplZCByaW5nIGVudHJpZXMsIG9yIChzYXkpIDEwMHVzIG9mIG5ldHdvcmsNCj4g
-dGltZS4NCj4gDQo+IFdpdGggbXVsdGlwbGUgZmxvd3MgdGhpcyB3aWxsIG1ha2UgbGl0dGxlIGRp
-ZmZlcmVuY2UgdG8gdGhlDQo+IHNpemUgb2YgdGhlIGJ1cnN0IHRoYXQgZWFjaCBzb2NrZXQgZ2V0
-cyB0byBhZGQgaW50byB0aGUNCj4gaW50ZXJmYWNlcyB0eCBxdWV1ZSAodW5saWtlIGluY3JlYXNp
-bmcgdGhlIHNvY2tldCB0eCBidWZmZXIpLg0KPiBCdXQgd2l0aCBhIHNpbmdsZSBmbG93IGl0IHdp
-bGwgbGV0IHRoZSBzb2NrZXQgZ2V0IHRoZSBuZXh0DQo+IHR4IGRhdGEgcXVldWVkIGV2ZW4gaWYg
-dGhlIHR4IGludGVycnVwdHMgYXJlIGRlZmVycmVkLg0KPiANCj4gVGhlIG9ubHkgdGltZSBpdCBk
-b2Vzbid0IGhlbHAgaXMgd2hlbiB0aGUgbmV4dCB0cmFuc21pdA0KPiBjYW4ndCBiZSBkb25lIHVu
-dGlsIHRoZSByZWZlcmVuY2UgY291bnQgb24gdGhlIHNrYiBkZWNyZWFzZXMuDQo+IChXZSBoYWQg
-c29tZSBORlMgY29kZSBsaWtlIHRoYXQhKQ0KDQpJZiB5b3UgcmVhZCB0aGUgY29kZSwgeW91J2xs
-IHNlZSBjdXJyZW50IGltcGxlbWVudGF0aW9uIGlzIGFibGUgdG8ga2VlcA0KYSAyMEdiZSBsaW5r
-IGJ1c3kgd2l0aCBhIHNpbmdsZSB0Y3AgZmxvdywgd2l0aCAyIFRTTyBwYWNrZXRzIHBvc3RlZCBv
-bg0KdGhlIGRldmljZS4NCg0KQSBUU08gcGFja2V0IGlzIGFib3V0IDU0NTA0MCBiaXRzIG9uIHdp
-cmUsIG9yIDI3IHVzLg0KDQpUaGF0J3MgMzY2OTQgaW50ZXJydXB0cyBwZXIgc2Vjb25kLiBFdmVu
-IG15IHBob25lIGlzIGFibGUgdG8gc3VzdGFpbiB0aGlzDQpyYXRlIG9mIGludGVycnVwdHMuDQoN
-CkJ1dCBpZiB0aGUgZGV2aWNlIGhvbGRzIHRoZSBUWCBjb21wbGV0aW9uIGludGVycnVwdCBmb3Ig
-MTAwIHVzLA0KcGVyZm9ybWFuY2Ugb2YgYSBzaW5nbGUgVENQIGZsb3cgaXMgaHVydC4gSSBkb24n
-dCB0aGluayBpdCdzIGhhcmQgdG8NCnVuZGVyc3RhbmQuDQoNCm1seDQgZHJpdmVyIGhhbmRsZXMg
-NDBHYmUgbGlua3MsIDEzIHVzIGlzIHRoZSBuZWVkZWQgdmFsdWUsIG5vdCAxMDAgdXMuDQoNClBs
-ZWFzZSBwb3N0IHRoZXNlIG1haWxzIHRvIG5ldGRldiwgdGhlcmUgaXMgbm8gc2VjcmV0IHRvIHBy
-b3RlY3QuDQoNCg0KDQo=
+On Tue, 2012-11-27 at 13:42 +0100, Keitel, Tino (ALC NetworX GmbH)
+wrote:
+> On Di, 2012-11-27 at 04:36 -0800, Eric Dumazet wrote:
+> > 
+> > Can you reproduce the problem using a single cpu ?
+> 
+> Yes, it is a single-CPU system.
+
+Can you reproduce the problem without PTP running, or disabled in the
+driver ?
+
+(comment the "priv->hwts_tx_en = 1;" line)
+
+
+This looks like we miss an interrupt ( or TXBD_INTERRUPT not correctly
+set)
+
+And it could be a bug occurring if we try to send one skb with fragments
+and skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP 
