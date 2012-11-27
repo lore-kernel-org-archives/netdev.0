@@ -1,35 +1,39 @@
-From: Steve Glendinning <steve@shawell.net>
-Subject: Re: smsc95xx: detect chip revision specific features
-Date: Tue, 27 Nov 2012 13:21:13 +0000
-Message-ID: <CAKh2mn4RQDEfeMGBLm0s1kQtf_m4naKZO0mdV07BegsURzOWFw@mail.gmail.com>
-References: <20121126204722.GA26463@elgon.mountain>
-	<CAKh2mn4x=0HwUdH8hSbk3fsa16RUBqze_n5XegVjRBsTnT08SA@mail.gmail.com>
-	<20121127123957.GT6186@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCH] smsc95xx: fix suspend buffer overflow
+Date: Tue, 27 Nov 2012 13:23:43 +0000
+Message-ID: <1354022623-7317-1-git-send-email-steve.glendinning@shawell.net>
+Cc: dan.carpenter@oracle.com,
+	Steve Glendinning <steve.glendinning@shawell.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:35728 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752750Ab2K0NVO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 08:21:14 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so5094771eek.19
-        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 05:21:13 -0800 (PST)
-In-Reply-To: <20121127123957.GT6186@mwanda>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:47109 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750771Ab2K0NXu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 08:23:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> > drivers/net/usb/smsc95xx.c
->> >   1283          if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
->> >   1284                  u32 *filter_mask = kzalloc(32, GFP_KERNEL);
->> >                                                    ^^
->> > We allocate 8 unsigned 32 bit values.  I think this is the mistake here
->> > actually.  It is a typo and should say:
+This patch fixes a buffer overflow introduced by bbd9f9e, where
+the filter_mask array is accessed beyond its bounds.
 
-<snip>
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+---
+ drivers/net/usb/smsc95xx.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-On re-reading the datasheet we *do* need 32 u32's here so you were
-right the first time!  Patch on its way shortly.
-
-Steve
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 79d495d..6cdc504 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -1281,7 +1281,7 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 	}
+ 
+ 	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
+-		u32 *filter_mask = kzalloc(32, GFP_KERNEL);
++		u32 *filter_mask = kzalloc(sizeof(u32) * 32, GFP_KERNEL);
+ 		u32 command[2];
+ 		u32 offset[2];
+ 		u32 crc[4];
+-- 
+1.7.10.4
