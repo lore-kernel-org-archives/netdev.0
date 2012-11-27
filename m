@@ -1,366 +1,221 @@
-From: Michele Baldessari <michele@acksyn.org>
-Subject: Re: [PATCH v2 net-next] sctp: Add support to per-association
- statistics via a new SCTP_GET_ASSOC_STATS call
-Date: Tue, 27 Nov 2012 23:08:10 +0100
-Message-ID: <20121127220810.GB3869@fante.int.rhx>
-References: <1352991680-12289-1-git-send-email-michele@acksyn.org>
- <50AA57EA.4000907@gmail.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH] solos-pci: Wait for pending TX to complete when releasing
+ vcc
+Date: Tue, 27 Nov 2012 22:36:23 +0000
+Message-ID: <1354055783.2534.18.camel@shinybook.infradead.org>
+References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+	 <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
+	 <1354036592.2534.6.camel@shinybook.infradead.org>
+	 <20121127173906.GA11390@shrek.podlesie.net>
+	 <1354039349.2534.11.camel@shinybook.infradead.org>
+	 <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palahniuk.acksyn.org ([5.9.7.26]:49619 "EHLO
-	palahniuk.acksyn.org" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752728Ab2K0WId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 17:08:33 -0500
-Content-Disposition: inline
-In-Reply-To: <50AA57EA.4000907@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
+	boundary="=-Awn7Yk2utqKN++JGjNm4"
+Cc: Krzysztof Mazur <krzysiek@podlesie.net>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nathan@traverse.com.au
+To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Vlad,
 
-thanks a lot for your review.
+--=-Awn7Yk2utqKN++JGjNm4
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, Nov 19, 2012 at 11:01:46AM -0500, Vlad Yasevich wrote:
-<snip>
-> >@@ -1152,8 +1156,11 @@ static void sctp_assoc_bh_rcv(struct work_struct *work)
-> >  		 */
-> >  		if (sctp_chunk_is_data(chunk))
-> >  			asoc->peer.last_data_from = chunk->transport;
-> >-		else
-> >+		else {
-> >  			SCTP_INC_STATS(net, SCTP_MIB_INCTRLCHUNKS);
-> >+			if (chunk->chunk_hdr->type == SCTP_CID_SACK)
-> >+				asoc->stats.isacks++;
-> >+		}
-> 
-> Should the above include asoc->stats.ictrlchunks++; just like ep_bh_rcv()?
+We should no longer be calling the old pop routine for the vcc, after
+vcc_release() has completed. Make sure we wait for any pending TX skbs
+to complete, by waiting for our own PKT_PCLOSE control skb to be sent.
 
-Indeed, I will add that.
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+---
+On Tue, 2012-11-27 at 13:54 -0500, chas williams - CONTRACTOR wrote:
+> the driver's close routine should wait for any of the pending tx and
+> rx to complete.
 
-> >
-> >  		if (chunk->transport)
-> >  			chunk->transport->last_time_heard = jiffies;
-> >diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> >index 1859e2b..32ab55b 100644
-> >--- a/net/sctp/endpointola.c
-> >+++ b/net/sctp/endpointola.c
-> >@@ -480,8 +480,11 @@ normal:
-> >  		 */
-> >  		if (asoc && sctp_chunk_is_data(chunk))
-> >  			asoc->peer.last_data_from = chunk->transport;
-> >-		else
-> >+		else {
-> >  			SCTP_INC_STATS(sock_net(ep->base.sk), SCTP_MIB_INCTRLCHUNKS);
-> >+			if (asoc)
-> >+				asoc->stats.ictrlchunks++;
-> >+		}
-> >
-> >  		if (chunk->transport)
-> >  			chunk->transport->last_time_heard = jiffies;
-> >diff --git a/net/sctp/input.c b/net/sctp/input.c
-> >index 8bd3c27..54c449b 100644
-> >--- a/net/sctp/input.c
-> >+++ b/net/sctp/input.c
-> >@@ -281,6 +281,8 @@ int sctp_rcv(struct sk_buff *skb)
-> >  		SCTP_INC_STATS_BH(net, SCTP_MIB_IN_PKT_SOFTIRQ);
-> >  		sctp_inq_push(&chunk->rcvr->inqueue, chunk);
-> >  	}
-> >+	if (asoc)
-> >+		asoc->stats.ipackets++;
-> >
-> >  	sctp_bh_unlock_sock(sk);
-> 
-> This needs a bit more thought.  Current counting behaves differently
-> depending on whether the user holds a socket lock or not.
-> If the user holds the lock, we'll end counting the packet before it is
-> processed.  If the user isn't holding the lock, we'll count the packet after
-> it is processed.
+Nathan, does this help? I can test here to a certain extent, but when I
+use it in PPPoE mode and then crash the router, the DSLAM tends to
+refuse to talk to me for an arbitrary period of time after that. Which
+is something of a PITA.
 
-I see. What do you prefer: use atomic64 for this specific counter or
-since it is a temporary miscount we go ahead and ignore it or do you
-have other approaches in mind?
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 9851093..b5bb332 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -94,6 +94,7 @@ struct pkt_hdr {
+ struct solos_skb_cb {
+ 	struct atm_vcc *vcc;
+ 	uint32_t dma_addr;
++	struct completion *c;
+ };
+=20
+=20
+@@ -868,6 +869,7 @@ static void pclose(struct atm_vcc *vcc)
+ 	struct solos_card *card =3D vcc->dev->dev_data;
+ 	struct sk_buff *skb;
+ 	struct pkt_hdr *header;
++	DECLARE_COMPLETION_ONSTACK(c);
+=20
+ 	skb =3D alloc_skb(sizeof(*header), GFP_ATOMIC);
+ 	if (!skb) {
+@@ -881,11 +883,15 @@ static void pclose(struct atm_vcc *vcc)
+ 	header->vci =3D cpu_to_le16(vcc->vci);
+ 	header->type =3D cpu_to_le16(PKT_PCLOSE);
+=20
++	SKB_CB(skb)->c =3D &c;
++
+ 	fpga_queue(card, SOLOS_CHAN(vcc->dev), skb, NULL);
+=20
+ 	clear_bit(ATM_VF_ADDR, &vcc->flags);
+ 	clear_bit(ATM_VF_READY, &vcc->flags);
+=20
++	wait_for_completion(&c);
++
+ 	/* Hold up vcc_destroy_socket() (our caller) until solos_bh() in the
+ 	   tasklet has finished processing any incoming packets (and, more to
+ 	   the point, using the vcc pointer). */
+@@ -1011,9 +1017,12 @@ static uint32_t fpga_tx(struct solos_card *card)
+ 			if (vcc) {
+ 				atomic_inc(&vcc->stats->tx);
+ 				solos_pop(vcc, oldskb);
+-			} else
++			} else {
++				struct pkt_hdr *header =3D (void *)oldskb->data;
++				if (le16_to_cpu(header->type) =3D=3D PKT_PCLOSE)
++					complete(SKB_CB(oldskb)->c);
+ 				dev_kfree_skb_irq(oldskb);
+-
++			}
+ 		}
+ 	}
+ 	/* For non-DMA TX, write the 'TX start' bit for all four ports simultaneo=
+usly */
 
-> >
-> >diff --git a/net/sctp/output.c b/net/sctp/output.c
-> >index 4e90188bf..f5200a2 100644
-> >--- a/net/sctp/output.c
-> >+++ b/net/sctp/output.c
-> >@@ -311,6 +311,8 @@ static sctp_xmit_t __sctp_packet_append_chunk(struct sctp_packet *packet,
-> >
-> >  	    case SCTP_CID_SACK:
-> >  		packet->has_sack = 1;
-> >+		if (chunk->asoc)
-> >+			chunk->asoc->stats.osacks++;
-> >  		break;
-> >
-> >  	    case SCTP_CID_AUTH:
-> >@@ -584,11 +586,13 @@ int sctp_packet_transmit(struct sctp_packet *packet)
-> >  	 */
-> >
-> >  	/* Dump that on IP!  */
-> >-	if (asoc && asoc->peer.last_sent_to != tp) {
-> >-		/* Considering the multiple CPU scenario, this is a
-> >-		 * "correcter" place for last_sent_to.  --xguo
-> >-		 */
-> >-		asoc->peer.last_sent_to = tp;
-> >+	if (asoc) {
-> >+		asoc->stats.opackets++;
-> >+		if (asoc->peer.last_sent_to != tp)
-> >+			/* Considering the multiple CPU scenario, this is a
-> >+			 * "correcter" place for last_sent_to.  --xguo
-> >+			 */
-> >+			asoc->peer.last_sent_to = tp;
-> >  	}
-> >
-> >  	if (has_data) {
-> >diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> >index 1b4a7f8..379c81d 100644
-> >--- a/net/sctp/outqueue.c
-> >+++ b/net/sctp/outqueue.c
-> >@@ -667,6 +667,7 @@ redo:
-> >  				chunk->fast_retransmit = SCTP_DONT_FRTX;
-> >
-> >  			q->empty = 0;
-> >+			q->asoc->stats.rtxchunks++;
-> >  			break;
-> >  		}
-> >
-> >@@ -876,12 +877,14 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
-> >  			if (status  != SCTP_XMIT_OK) {
-> >  				/* put the chunk back */
-> >  				list_add(&chunk->list, &q->control_chunk_list);
-> >-			} else if (chunk->chunk_hdr->type == SCTP_CID_FWD_TSN) {
-> >+			} else {
-> >+				asoc->stats.octrlchunks++;
-> >  				/* PR-SCTP C5) If a FORWARD TSN is sent, the
-> >  				 * sender MUST assure that at least one T3-rtx
-> >  				 * timer is running.
-> >  				 */
-> >-				sctp_transport_reset_timers(transport);
-> >+				if (chunk->chunk_hdr->type == SCTP_CID_FWD_TSN)
-> >+					sctp_transport_reset_timers(transport);
-> >  			}
-> >  			break;
-> >
-> >@@ -1055,6 +1058,10 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
-> >  				 */
-> >  				if (asoc->state == SCTP_STATE_SHUTDOWN_PENDING)
-> >  					chunk->chunk_hdr->flags |= SCTP_DATA_SACK_IMM;
-> >+				if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
-> >+					asoc->stats.ouodchunks++;
-> >+				else
-> >+					asoc->stats.oodchunks++;
-> >
-> >  				break;
-> >
-> >@@ -1162,6 +1169,7 @@ int sctp_outq_sack(struct sctp_outq *q, struct sctp_chunk *chunk)
-> >
-> >  	sack_ctsn = ntohl(sack->cum_tsn_ack);
-> >  	gap_ack_blocks = ntohs(sack->num_gap_ack_blocks);
-> >+	asoc->stats.gapcnt += gap_ack_blocks;
-> >  	/*
-> >  	 * SFR-CACC algorithm:
-> >  	 * On receipt of a SACK the sender SHOULD execute the
-> >diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> >index fbe1636..eb7633f 100644
-> >--- a/net/sctp/sm_make_chunk.c
-> >+++ b/net/sctp/sm_make_chunk.c
-> >@@ -804,10 +804,11 @@ struct sctp_chunk *sctp_make_sack(const struct sctp_association *asoc)
-> >  				 gabs);
-> >
-> >  	/* Add the duplicate TSN information.  */
-> >-	if (num_dup_tsns)
-> >+	if (num_dup_tsns) {
-> >+		aptr->stats.idupchunks += num_dup_tsns;
-> >  		sctp_addto_chunk(retval, sizeof(__u32) * num_dup_tsns,
-> >  				 sctp_tsnmap_get_dups(map));
-> >-
-> >+	}
-> >  	/* Once we have a sack generated, check to see what our sack
-> >  	 * generation is, if its 0, reset the transports to 0, and reset
-> >  	 * the association generation to 1
-> >diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> >index 6eecf7e..363727e 100644
-> >--- a/net/sctp/sm_sideeffect.c
-> >+++ b/net/sctp/sm_sideeffect.c
-> >@@ -542,6 +542,7 @@ static void sctp_do_8_2_transport_strike(sctp_cmd_seq_t *commands,
-> >  	 */
-> >  	if (!is_hb || transport->hb_sent) {
-> >  		transport->rto = min((transport->rto * 2), transport->asoc->rto_max);
-> >+		sctp_max_rto(asoc, transport);
-> >  	}
-> >  }
-> >
-> >diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> >index b6adef8..ecf7a17 100644
-> >--- a/net/sctp/sm_statefuns.c
-> >+++ b/net/sctp/sm_statefuns.c
-> >@@ -6127,6 +6127,8 @@ static int sctp_eat_data(const struct sctp_association *asoc,
-> >  		/* The TSN is too high--silently discard the chunk and
-> >  		 * count on it getting retransmitted later.
-> >  		 */
-> >+		if (chunk->asoc)
-> >+			chunk->asoc->stats.outofseqtsns++;
-> >  		return SCTP_IERROR_HIGH_TSN;
-> >  	} else if (tmp > 0) {
-> >  		/* This is a duplicate.  Record it.  */
-> >@@ -6226,10 +6228,14 @@ static int sctp_eat_data(const struct sctp_association *asoc,
-> >  	/* Note: Some chunks may get overcounted (if we drop) or overcounted
-> >  	 * if we renege and the chunk arrives again.
-> >  	 */
-> >-	if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED)
-> >+	if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED) {
-> >  		SCTP_INC_STATS(net, SCTP_MIB_INUNORDERCHUNKS);
-> >-	else {
-> >+		if (chunk->asoc)
-> >+			chunk->asoc->stats.iuodchunks++;
-> >+	} else {
-> >  		SCTP_INC_STATS(net, SCTP_MIB_INORDERCHUNKS);
-> >+		if (chunk->asoc)
-> >+			chunk->asoc->stats.iodchunks++;
-> >  		ordered = 1;
-> >  	}
-> >
-> >diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> >index 15379ac..8113249 100644
-> >--- a/net/sctp/socket.c
-> >+++ b/net/sctp/socket.c
-> >@@ -609,6 +609,7 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
-> >  				    2*asoc->pathmtu, 4380));
-> >  				trans->ssthresh = asoc->peer.i.a_rwnd;
-> >  				trans->rto = asoc->rto_initial;
-> >+				sctp_max_rto(asoc, trans);
-> >  				trans->rtt = trans->srtt = trans->rttvar = 0;
-> >  				sctp_transport_route(trans, NULL,
-> >  				    sctp_sk(asoc->base.sk));
-> >@@ -5633,6 +5634,74 @@ static int sctp_getsockopt_paddr_thresholds(struct sock *sk,
-> >  	return 0;
-> >  }
-> >
-> >+/*
-> >+ * SCTP_GET_ASSOC_STATS
-> >+ *
-> >+ * This option retrieves local per endpoint statistics. It is modeled
-> >+ * after OpenSolaris' implementation
-> >+ */
-> >+static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
-> >+				       char __user *optval,
-> >+				       int __user *optlen)
-> >+{
-> >+	struct sctp_assoc_stats sas;
-> >+	struct sctp_association *asoc = NULL;
-> >+
-> >+	/* User must provide at least the assoc id */
-> >+	if (len < sizeof(sctp_assoc_t))
-> >+		return -EINVAL;
-> >+
-> >+	if (copy_from_user(&sas, optval, len))
-> >+		return -EFAULT;
-> >+
-> >+	asoc = sctp_id2assoc(sk, sas.sas_assoc_id);
-> >+	if (!asoc)
-> >+		return -EINVAL;
-> >+
-> >+	sas.sas_rtxchunks = asoc->stats.rtxchunks;
-> >+	sas.sas_gapcnt = asoc->stats.gapcnt;
-> >+	sas.sas_outofseqtsns = asoc->stats.outofseqtsns;
-> >+	sas.sas_osacks = asoc->stats.osacks;
-> >+	sas.sas_isacks = asoc->stats.isacks;
-> >+	sas.sas_octrlchunks = asoc->stats.octrlchunks;
-> >+	sas.sas_ictrlchunks = asoc->stats.ictrlchunks;
-> >+	sas.sas_oodchunks = asoc->stats.oodchunks;
-> >+	sas.sas_iodchunks = asoc->stats.iodchunks;
-> >+	sas.sas_ouodchunks = asoc->stats.ouodchunks;
-> >+	sas.sas_iuodchunks = asoc->stats.iuodchunks;
-> >+	sas.sas_idupchunks = asoc->stats.idupchunks;
-> >+	sas.sas_opackets = asoc->stats.opackets;
-> >+	sas.sas_ipackets = asoc->stats.ipackets;
-> >+
-> >+	memcpy(&sas.sas_obs_rto_ipaddr, &asoc->stats.obs_rto_ipaddr,
-> >+		sizeof(struct sockaddr_storage));
-> >+	/* New high max rto observed */
-> >+	if (asoc->stats.max_obs_rto > asoc->stats.max_prev_obs_rto)
-> >+		sas.sas_maxrto = asoc->stats.max_obs_rto;
-> >+	else /* return min_rto since max rto has not changed */
-> >+		sas.sas_maxrto = asoc->rto_min;
-> >+
-> >+	/* Record the value sent to the user this period */
-> >+	asoc->stats.max_prev_obs_rto = sas.sas_maxrto;
-> >+
-> >+	/* Mark beginning of a new observation period */
-> >+	asoc->stats.max_obs_rto = 0;
-> 
-> I don't think the logic above behaves correctly.  The fact that max_obs_rto
-> < max_prev_obs_rto doesn't not mean that max_obs_rto has
-> not changed.  It just means that the networks had smaller latency this this
-> time slice then it had in the privouse one.  Returning rto_min is
-> mis-information in this case.
 
-Ack. I will look into fixing this as well.
+--=20
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
-Thanks again and regards,
-Michele
 
-> 
-> -vlad
-> 
-> >+
-> >+	/* Allow the struct to grow and fill in as much as possible */
-> >+	len = min_t(size_t, len, sizeof(sas));
-> >+
-> >+	if (put_user(len, optlen))
-> >+		return -EFAULT;
-> >+
-> >+	SCTP_DEBUG_PRINTK("sctp_getsockopt_assoc_stat(%d): %d\n",
-> >+			  len, sas.sas_assoc_id);
-> >+
-> >+	if (copy_to_user(optval, &sas, len))
-> >+		return -EFAULT;
-> >+
-> >+	return 0;
-> >+}
-> >+
-> >  SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
-> >  				char __user *optval, int __user *optlen)
-> >  {
-> >@@ -5774,6 +5843,9 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk, int level, int optname,
-> >  	case SCTP_PEER_ADDR_THLDS:
-> >  		retval = sctp_getsockopt_paddr_thresholds(sk, optval, len, optlen);
-> >  		break;
-> >+	case SCTP_GET_ASSOC_STATS:
-> >+		retval = sctp_getsockopt_assoc_stats(sk, len, optval, optlen);
-> >+		break;
-> >  	default:
-> >  		retval = -ENOPROTOOPT;
-> >  		break;
-> >diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-> >index 953c21e..8c6920d 100644
-> >--- a/net/sctp/transport.c
-> >+++ b/net/sctp/transport.c
-> >@@ -350,6 +350,7 @@ void sctp_transport_update_rto(struct sctp_transport *tp, __u32 rtt)
-> >
-> >  	/* 6.3.1 C3) After the computation, update RTO <- SRTT + 4 * RTTVAR. */
-> >  	tp->rto = tp->srtt + (tp->rttvar << 2);
-> >+	sctp_max_rto(tp->asoc, tp);
-> >
-> >  	/* 6.3.1 C6) Whenever RTO is computed, if it is less than RTO.Min
-> >  	 * seconds then it is rounded up to RTO.Min seconds.
-> >@@ -620,6 +621,7 @@ void sctp_transport_reset(struct sctp_transport *t)
-> >  	t->burst_limited = 0;
-> >  	t->ssthresh = asoc->peer.i.a_rwnd;
-> >  	t->rto = asoc->rto_initial;
-> >+	sctp_max_rto(asoc, t);
-> >  	t->rtt = 0;
-> >  	t->srtt = 0;
-> >  	t->rttvar = 0;
-> >
-> 
 
--- 
-Michele Baldessari            <michele@acksyn.org>
-C2A5 9DA3 9961 4FFB E01B  D0BC DDD4 DCCB 7515 5C6D
+
+--=-Awn7Yk2utqKN++JGjNm4
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
+ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
+BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
+DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
+KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
+dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
+75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
++y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
+z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
+/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
+ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
+fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
+MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
+aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
+Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
+dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
+c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
+XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
+UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
+HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
+sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
+sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
++n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
+zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
+Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
+9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
+AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
+b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
+A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
+MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
+MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
+YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
+4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
+wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
+xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
+MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
+w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
+BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
+BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
+YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
+Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
+d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
+Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
+c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
+IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
+dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
+BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
+aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
+bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
+oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
+MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
+dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
+MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
+hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
+DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
+ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
+NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
+mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
+AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
+MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
+A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
+Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
+7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
+KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
+wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
+V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
+vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
+CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
+BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
+ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
+Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
+YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
+ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
+IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
+U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
+ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
+BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
+aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
+bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
+dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
+CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
+QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
+ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
+AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
+t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
+gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
+H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
+kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
+MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
+dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
+eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTI3MjIzNjIzWjAjBgkqhkiG9w0BCQQx
+FgQUyrbncC95KfknMtaotQxkkTWNNxcwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
+ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
+ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
+TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
+aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQB6Mt9aKkE2kWZYWcellBIDQ6v3
+iny4ov5ip4HVucc6oiojPPnITbctHNDJ77h2CL5b67HmcpZ2v56rsjoV0SC8rABNi6y7hhUsLXsG
+3VykENFBvdL/mNOxMMsxqrD/ZKKSCSVQLCIpF2kq6rkNrecrIXvtWSS/Fuyf9ST1dfhLx9IYv9px
+gjX80e8I9unubOEqaZ/SDasGXh5QaGmp/lvM98qRImuwOjPtDPW7OqkUtYw6yYaV5AamK0P4iYup
+C3jQ4d7wGOZTV4vZNAIXXWkjprSzSo4hAVblRD8zODFEmPM/dyXdZdIuiGX+ZDNbaeLnobtgh41s
+myPHmJK1Bv/tAAAAAAAA
+
+
+--=-Awn7Yk2utqKN++JGjNm4--
