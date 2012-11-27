@@ -1,98 +1,210 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC net-next PATCH V1 7/9] net: frag queue locking per hash
- bucket
-Date: Tue, 27 Nov 2012 16:00:07 +0100
-Message-ID: <1354028407.11754.258.camel@localhost>
-References: <20121123130749.18764.25962.stgit@dragon>
-	 <20121123130836.18764.9297.stgit@dragon>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: move inet_dport/inet_num in sock_common
+Date: Tue, 27 Nov 2012 07:06:55 -0800
+Message-ID: <1354028815.14302.35.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Ling Ma <ling.ma.program@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60429 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753280Ab2K0PCb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 10:02:31 -0500
-In-Reply-To: <20121123130836.18764.9297.stgit@dragon>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:57553 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755698Ab2K0PG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 10:06:59 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y25so9015636iay.19
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 07:06:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-23 at 14:08 +0100, Jesper Dangaard Brouer wrote:
-> DO NOT apply - patch not finished, can cause on OOPS/PANIC during hash rebuild
-> 
-> This patch implements per hash bucket locking for the frag queue
-> hash.  This removes two write locks, and the only remaining write
-> lock is for protecting hash rebuild.  This essentially reduce the
-> readers-writer lock to a rebuild lock.
-> 
-> NOT-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Eric Dumazet <edumazet@google.com>
 
-Last bug mentioned, were not the only one... fixing hopefully the last bug in this patch.
+commit 68835aba4d9b (net: optimize INET input path further)
+moved some fields used for tcp/udp sockets lookup in the first cache
+line of struct sock_common.
 
+This patch moves inet_dport/inet_num as well, filling a 32bit hole
+on 64 bit arches and reducing number of cache line misses.
 
-> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-> index 1620a21..447423f 100644
-> --- a/net/ipv4/inet_fragment.c
-> +++ b/net/ipv4/inet_fragment.c
-> @@ -35,20 +35,27 @@ static void inet_frag_secret_rebuild(unsigned long dummy)
->  	unsigned long now = jiffies;
->  	int i;
->  
-> +	/* Per bucket lock NOT needed here, due to write lock protection */
->  	write_lock(&f->lock);
-> +
->  	get_random_bytes(&f->rnd, sizeof(u32));
->  	for (i = 0; i < INETFRAGS_HASHSZ; i++) {
-> +		struct inet_frag_bucket *hb;
->  		struct inet_frag_queue *q;
->  		struct hlist_node *p, *n;
->  
-> -		hlist_for_each_entry_safe(q, p, n, &f->hash[i], list) {
-> +		hb = &f->hash[i];
-> +		hlist_for_each_entry_safe(q, p, n, &hb->chain, list) {
->  			unsigned int hval = f->hashfn(q);
->  
->  			if (hval != i) {
-> +				struct inet_frag_bucket *hb_dest;
-> +
->  				hlist_del(&q->list);
->  
->  				/* Relink to new hash chain. */
-> -				hlist_add_head(&q->list, &f->hash[hval]);
-> +				hb_dest = &f->hash[hval];
-> +				hlist_add_head(&q->list, &hb->chain);
+Also change INET_MATCH()/INET_TW_MATCH() to perform the ports match
+before addresses match, as this check is more discriminant.
+The namespace check can also be done at last.
 
-The above line were wrong, it should have been:
-   hlist_add_head(&q->list, &hb_dest->chain);
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ling Ma <ling.ma.program@gmail.com>
+---
+ include/linux/ipv6.h             |   26 ++++++++++---------
+ include/net/inet_hashtables.h    |   38 ++++++++++++++++-------------
+ include/net/inet_sock.h          |    4 +--
+ include/net/inet_timewait_sock.h |    5 ++-
+ include/net/sock.h               |   10 ++++++-
+ 5 files changed, 48 insertions(+), 35 deletions(-)
 
->  			}
->  		}
->  	}
-
-The patch seem quite stable now.  My test is to adjust to rebuild
-interval to 2 sec and then run 4x 10G with two fragments (packet size
-1472*2) to create as many fragments as possible (approx 300
-inet_frag_queue elements).
-
-30 min test run:
- 3726+3896+3960+3608 = 15190 Mbit/s
-
-(For reproducers, note, that changing ipfrag_secret_interval (e.g.
-sysctl -w net/ipv4/ipfrag_secret_interval=2), first take effect after
-the first interval/timer expires, which default is 10 min)
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 5e11905..196ede4 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -365,19 +365,21 @@ static inline struct raw6_sock *raw6_sk(const struct sock *sk)
+ #endif /* IS_ENABLED(CONFIG_IPV6) */
+ 
+ #define INET6_MATCH(__sk, __net, __hash, __saddr, __daddr, __ports, __dif)\
+-	(((__sk)->sk_hash == (__hash)) && sock_net((__sk)) == (__net)	&& \
+-	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports)) && \
+-	 ((__sk)->sk_family		== AF_INET6)		&& \
+-	 ipv6_addr_equal(&inet6_sk(__sk)->daddr, (__saddr))	&& \
+-	 ipv6_addr_equal(&inet6_sk(__sk)->rcv_saddr, (__daddr))	&& \
+-	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
++	(((__sk)->sk_hash == (__hash)) &&					\
++	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports)) &&	\
++	 ((__sk)->sk_family		== AF_INET6)		&&		\
++	 ipv6_addr_equal(&inet6_sk(__sk)->daddr, (__saddr))	&&		\
++	 ipv6_addr_equal(&inet6_sk(__sk)->rcv_saddr, (__daddr))	&&		\
++	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))) && \
++	 net_eq(sock_net(__sk), (__net)))
+ 
+ #define INET6_TW_MATCH(__sk, __net, __hash, __saddr, __daddr, __ports, __dif) \
+-	(((__sk)->sk_hash == (__hash)) && sock_net((__sk)) == (__net)	&& \
+-	 (*((__portpair *)&(inet_twsk(__sk)->tw_dport)) == (__ports))	&& \
+-	 ((__sk)->sk_family	       == PF_INET6)			&& \
+-	 (ipv6_addr_equal(&inet6_twsk(__sk)->tw_v6_daddr, (__saddr)))	&& \
+-	 (ipv6_addr_equal(&inet6_twsk(__sk)->tw_v6_rcv_saddr, (__daddr))) && \
+-	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
++	(((__sk)->sk_hash == (__hash)) &&					\
++	 (*((__portpair *)&(inet_twsk(__sk)->tw_dport)) == (__ports))	&&	\
++	 ((__sk)->sk_family	       == PF_INET6)			&&	\
++	 (ipv6_addr_equal(&inet6_twsk(__sk)->tw_v6_daddr, (__saddr)))	&&	\
++	 (ipv6_addr_equal(&inet6_twsk(__sk)->tw_v6_rcv_saddr, (__daddr))) &&	\
++	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))) && \
++	 net_eq(sock_net(__sk), (__net)))
+ 
+ #endif /* _IPV6_H */
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index 54be028..cd6766a 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -300,29 +300,33 @@ typedef __u64 __bitwise __addrpair;
+ 				   ((__force __u64)(__be32)(__saddr)));
+ #endif /* __BIG_ENDIAN */
+ #define INET_MATCH(__sk, __net, __hash, __cookie, __saddr, __daddr, __ports, __dif)\
+-	(((__sk)->sk_hash == (__hash)) && net_eq(sock_net(__sk), (__net)) &&	\
+-	 ((*((__addrpair *)&(inet_sk(__sk)->inet_daddr))) == (__cookie))  &&	\
+-	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports))   &&	\
+-	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
++	(((__sk)->sk_hash == (__hash)) &&					\
++	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports)) &&	\
++	 ((*((__addrpair *)&(inet_sk(__sk)->inet_daddr))) == (__cookie)) &&	\
++	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))) && \
++	 net_eq(sock_net(__sk), (__net)))
+ #define INET_TW_MATCH(__sk, __net, __hash, __cookie, __saddr, __daddr, __ports, __dif)\
+-	(((__sk)->sk_hash == (__hash)) && net_eq(sock_net(__sk), (__net)) &&	\
+-	 ((*((__addrpair *)&(inet_twsk(__sk)->tw_daddr))) == (__cookie)) &&	\
++	(((__sk)->sk_hash == (__hash)) &&					\
+ 	 ((*((__portpair *)&(inet_twsk(__sk)->tw_dport))) == (__ports)) &&	\
+-	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
++	 ((*((__addrpair *)&(inet_twsk(__sk)->tw_daddr))) == (__cookie)) &&	\
++	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))) && \
++	 net_eq(sock_net(__sk), (__net)))
+ #else /* 32-bit arch */
+ #define INET_ADDR_COOKIE(__name, __saddr, __daddr)
+ #define INET_MATCH(__sk, __net, __hash, __cookie, __saddr, __daddr, __ports, __dif)	\
+-	(((__sk)->sk_hash == (__hash)) && net_eq(sock_net(__sk), (__net))	&&	\
+-	 (inet_sk(__sk)->inet_daddr	== (__saddr))		&&	\
+-	 (inet_sk(__sk)->inet_rcv_saddr	== (__daddr))		&&	\
+-	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports))	&&	\
+-	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
++	(((__sk)->sk_hash == (__hash)) &&						\
++	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports))	&&		\
++	 (inet_sk(__sk)->inet_daddr	== (__saddr))		&&			\
++	 (inet_sk(__sk)->inet_rcv_saddr	== (__daddr))		&&			\
++	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))) &&	\
++	 net_eq(sock_net(__sk), (__net)))
+ #define INET_TW_MATCH(__sk, __net, __hash,__cookie, __saddr, __daddr, __ports, __dif)	\
+-	(((__sk)->sk_hash == (__hash)) && net_eq(sock_net(__sk), (__net))	&&	\
+-	 (inet_twsk(__sk)->tw_daddr	== (__saddr))		&&	\
+-	 (inet_twsk(__sk)->tw_rcv_saddr	== (__daddr))		&&	\
+-	 ((*((__portpair *)&(inet_twsk(__sk)->tw_dport))) == (__ports)) &&	\
+-	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))))
++	(((__sk)->sk_hash == (__hash)) &&						\
++	 ((*((__portpair *)&(inet_twsk(__sk)->tw_dport))) == (__ports)) &&		\
++	 (inet_twsk(__sk)->tw_daddr	== (__saddr))		&&			\
++	 (inet_twsk(__sk)->tw_rcv_saddr	== (__daddr))		&&			\
++	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))) &&	\
++	 net_eq(sock_net(__sk), (__net)))
+ #endif /* 64-bit arch */
+ 
+ /*
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 256c1ed..ae6cfa5 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -144,9 +144,9 @@ struct inet_sock {
+ 	/* Socket demultiplex comparisons on incoming packets. */
+ #define inet_daddr		sk.__sk_common.skc_daddr
+ #define inet_rcv_saddr		sk.__sk_common.skc_rcv_saddr
++#define inet_dport		sk.__sk_common.skc_dport
++#define inet_num		sk.__sk_common.skc_num
+ 
+-	__be16			inet_dport;
+-	__u16			inet_num;
+ 	__be32			inet_saddr;
+ 	__s16			uc_ttl;
+ 	__u16			cmsg_flags;
+diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
+index ba52c83..671dbb7 100644
+--- a/include/net/inet_timewait_sock.h
++++ b/include/net/inet_timewait_sock.h
+@@ -112,6 +112,9 @@ struct inet_timewait_sock {
+ #define tw_net			__tw_common.skc_net
+ #define tw_daddr        	__tw_common.skc_daddr
+ #define tw_rcv_saddr    	__tw_common.skc_rcv_saddr
++#define tw_dport		__tw_common.skc_dport
++#define tw_num			__tw_common.skc_num
++
+ 	int			tw_timeout;
+ 	volatile unsigned char	tw_substate;
+ 	unsigned char		tw_rcv_wscale;
+@@ -119,8 +122,6 @@ struct inet_timewait_sock {
+ 	/* Socket demultiplex comparisons on incoming packets. */
+ 	/* these three are in inet_sock */
+ 	__be16			tw_sport;
+-	__be16			tw_dport;
+-	__u16			tw_num;
+ 	kmemcheck_bitfield_begin(flags);
+ 	/* And these are ours. */
+ 	unsigned int		tw_ipv6only     : 1,
+diff --git a/include/net/sock.h b/include/net/sock.h
+index c945fba..e4bab2e 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -132,6 +132,8 @@ struct net;
+  *	@skc_rcv_saddr: Bound local IPv4 addr
+  *	@skc_hash: hash value used with various protocol lookup tables
+  *	@skc_u16hashes: two u16 hash values used by UDP lookup tables
++ *	@skc_dport: placeholder for inet_dport/tw_dport
++ *	@skc_num: placeholder for inet_num/tw_num
+  *	@skc_family: network address family
+  *	@skc_state: Connection state
+  *	@skc_reuse: %SO_REUSEADDR setting
+@@ -149,8 +151,8 @@ struct net;
+  *	for struct sock and struct inet_timewait_sock.
+  */
+ struct sock_common {
+-	/* skc_daddr and skc_rcv_saddr must be grouped :
+-	 * cf INET_MATCH() and INET_TW_MATCH()
++	/* skc_daddr and skc_rcv_saddr must be grouped on a 8 bytes aligned
++	 * address on 64bit arches : cf INET_MATCH() and INET_TW_MATCH()
+ 	 */
+ 	__be32			skc_daddr;
+ 	__be32			skc_rcv_saddr;
+@@ -159,6 +161,10 @@ struct sock_common {
+ 		unsigned int	skc_hash;
+ 		__u16		skc_u16hashes[2];
+ 	};
++	/* skc_dport && skc_num must be grouped as well */
++	__be16			skc_dport;
++	__u16			skc_num;
++
+ 	unsigned short		skc_family;
+ 	volatile unsigned char	skc_state;
+ 	unsigned char		skc_reuse;
