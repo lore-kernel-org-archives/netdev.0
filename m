@@ -1,60 +1,30 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Tue, 27 Nov 2012 19:28:43 +0100
-Message-ID: <20121127182843.GA11597@shrek.podlesie.net>
-References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
- <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
- <1354036592.2534.6.camel@shinybook.infradead.org>
- <20121127173906.GA11390@shrek.podlesie.net>
- <1354039349.2534.11.camel@shinybook.infradead.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/1] net: ethernet: cpsw: fix build warnings for CPSW
+ when CPTS not selected
+Date: Tue, 27 Nov 2012 19:31:30 +0100
+Message-ID: <20121127183130.GA7278@netboy.at.omicron.at>
+References: <1354038820-11095-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nathan@traverse.com.au
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1354039349.2534.11.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1354038820-11095-1-git-send-email-mugunthanvnm@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 27, 2012 at 06:02:29PM +0000, David Woodhouse wrote:
-> On Tue, 2012-11-27 at 18:39 +0100, Krzysztof Mazur wrote:
-> > Yes, I missed that one - it's even worse, I introduced that bug 
-> > in "[PATCH 1/7] atm: detach protocol before closing vcc". Before that
-> > patch that scenario shouldn't happen because vcc was closed before
-> > calling pppoatm_send(vcc, NULL) - the driver should provide appropriate
-> > synchronization.
-> > 
-> > I think that we should just drop that patch. With later changes it's not
-> > necessary - the pppoatm_send() can be safely called while closing vcc.
+On Tue, Nov 27, 2012 at 11:23:40PM +0530, Mugunthan V N wrote:
+>   CC      drivers/net/ethernet/ti/cpsw.o
+> drivers/net/ethernet/ti/cpsw.c: In function 'cpsw_ndo_ioctl':
+> drivers/net/ethernet/ti/cpsw.c:881:20: warning: unused variable 'priv'
 > 
-> I'm not running with that patch. This bug exists for br2684 even before
-> it, and I think also for pppoatm.
+> The build warning is generated when CPTS is not selected in Kernel Build.
+> Fixing by passing the net_device pointer to cpts IOCTL instead of passing priv
 > 
-> In solos-pci at least, the ops->close() function doesn't flush all
-> pending skbs for this vcc before returning. So can be a tasklet
-> somewhere which has loaded the address of the vcc->pop function from one
-> of them, and is going to call it in some unspecified amount of time.
-> 
-> Should we make the device's ->close function wait for all TX and RX skbs
-> for this vcc to complete? 
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Yes, the ->close() can sleep and after vcc is closed the ->pop() shouldn't be
-called.
+Thanks for this fix.
 
-
-While reviewing your br2684 patch I also found that some ATM drivers does
-not call ->pop() when ->send() fails, they should do:
-
-	if (vcc->pop)
-		vcc->pop(vcc, skb);
-	else
-		dev_kfree_skb(skb);
-
-but some drivers just call dev_kfree_skb(skb).
-
-I think that we should add atm_pop() function that does that and fix all
-drivers.
-
-Krzysiek
+Acked-by: Richard Cochran <richardcochran@gmail.com>
