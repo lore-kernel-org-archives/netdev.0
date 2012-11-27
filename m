@@ -1,30 +1,33 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/1] net: ethernet: cpsw: fix build warnings for CPSW
- when CPTS not selected
-Date: Tue, 27 Nov 2012 19:31:30 +0100
-Message-ID: <20121127183130.GA7278@netboy.at.omicron.at>
-References: <1354038820-11095-1-git-send-email-mugunthanvnm@ti.com>
+From: Krzysztof Mazur <krzysiek@podlesie.net>
+Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
+Date: Tue, 27 Nov 2012 19:39:37 +0100
+Message-ID: <20121127183937.GA1105@shrek.podlesie.net>
+References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+ <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
+ <1354036592.2534.6.camel@shinybook.infradead.org>
+ <20121127173906.GA11390@shrek.podlesie.net>
+ <1354039349.2534.11.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nathan@traverse.com.au
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1354038820-11095-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
+In-Reply-To: <1354039349.2534.11.camel@shinybook.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 27, 2012 at 11:23:40PM +0530, Mugunthan V N wrote:
->   CC      drivers/net/ethernet/ti/cpsw.o
-> drivers/net/ethernet/ti/cpsw.c: In function 'cpsw_ndo_ioctl':
-> drivers/net/ethernet/ti/cpsw.c:881:20: warning: unused variable 'priv'
+On Tue, Nov 27, 2012 at 06:02:29PM +0000, David Woodhouse wrote:
 > 
-> The build warning is generated when CPTS is not selected in Kernel Build.
-> Fixing by passing the net_device pointer to cpts IOCTL instead of passing priv
+> I'm not running with that patch. This bug exists for br2684 even before
+> it, and I think also for pppoatm.
 > 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Thanks for this fix.
+Did you use your "atm: br2684: Fix excessive queue bloat" patch?
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+With that patch for pppoatm the dev->close()/pppoatm_send() race
+was much easier to trigger. Maybe with an equivalent patch for br2684
+the races are also easier triggerable.
+
+Krzysiek
