@@ -1,51 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: performance regression on HiperSockets depending on MTU size
-Date: Tue, 27 Nov 2012 06:21:42 +0000 (UTC)
-Message-ID: <k91m5l$77a$1@ger.gmane.org>
-References: <20121126153242.GA61652@tuxmaker.boeblingen.de.ibm.com>
- <1353946351.30446.1779.camel@edumazet-glaptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next RFC] pktgen: don't wait for the device who doesn't
+	free skb immediately after sent
+Date: Tue, 27 Nov 2012 14:45:13 +0800
+Message-ID: <50B46179.4040809@redhat.com>
+References: <1353916612-6357-1-git-send-email-jasowang@redhat.com>
+	<20121126093728.0a10f97f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:42612 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755918Ab2K0GV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 01:21:57 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1TdEYW-0007OI-7i
-	for netdev@vger.kernel.org; Tue, 27 Nov 2012 07:22:04 +0100
-Received: from 112.132.205.99 ([112.132.205.99])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 07:22:04 +0100
-Received: from xiyou.wangcong by 112.132.205.99 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 07:22:04 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121126093728.0a10f97f@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Nov 2012 at 16:12 GMT, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Hi Frank, thanks for this report.
+On 11/27/2012 01:37 AM, Stephen Hemminger wrote:
+> On Mon, 26 Nov 2012 15:56:52 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
 >
-> You could tweak tcp_limit_output_bytes, but IMO the root of the problem
-> is in the driver itself.
->
-> For example, I had to change mlx4 driver for the same problem : Make
-> sure a TX packet can be "TX completed" in a short amount of time.
->
-> In the case of mlx4, the wait time was 128 us, but I suspect on your
-> case its more like an infinite time or several ms.
->  
-> The driver is delaying the free of TX skb by a fixed amount of time,
-> or relies on following transmits to perform the TX completion
->
+>> Some deivces do not free the old tx skbs immediately after it has been sent
+>> (usually in tx interrupt). One such example is virtio-net which optimizes for
+>> virt and only free the possible old tx skbs during the next packet sending. This
+>> would lead the pktgen to wait forever in the refcount of the skb if no other
+>> pakcet will be sent afterwards.
+>>
+>> Solving this issue by introducing a new flag IFF_TX_SKB_FREE_DELAY which could
+>> notify the pktgen that the device does not free skb immediately after it has
+>> been sent and let it not to wait for the refcount to be one.
+>>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Another alternative would be using skb_orphan() and skb->destructor.
+> There are other cases where skb's are not freed right away.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi Stephen:
 
-Eric,
-
-Do you have a full list of such commits? I am trying to backport TSQ
-to 2.6.32, and of course I don't want to miss these commits either.
-
-Thanks!
+Do you mean registering a skb->destructor for pktgen then set and check 
+bits in skb->tx_flag?
