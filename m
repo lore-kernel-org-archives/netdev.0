@@ -1,39 +1,94 @@
-From: Steve Glendinning <steve.glendinning@shawell.net>
-Subject: [PATCH] smsc95xx: fix suspend buffer overflow
-Date: Tue, 27 Nov 2012 13:23:43 +0000
-Message-ID: <1354022623-7317-1-git-send-email-steve.glendinning@shawell.net>
-Cc: dan.carpenter@oracle.com,
-	Steve Glendinning <steve.glendinning@shawell.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:47109 "EHLO
-	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750771Ab2K0NXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 08:23:50 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Libo Chen <chenlibo.3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RFC 3/5] printk: modify printk interface for
+	syslog_namespace
+Date: Tue, 27 Nov 2012 21:25:56 +0800
+Message-ID: <50B4BF64.6010707@gmail.com>
+References: <50B0ADDB.4000303@gmail.com>
+	<20121125042802.GB4523@mail.hallyn.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+To: "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <20121125042802.GB4523-7LNsyQBKDXoIagZqoN9o3w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes a buffer overflow introduced by bbd9f9e, where
-the filter_mask array is accessed beyond its bounds.
+From: Libo Chen <clbchenlibo.chen-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
----
- drivers/net/usb/smsc95xx.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 2012-11-25 12:28, Serge E. Hallyn wrote:
+> Quoting Libo Chen (chenlibo.3-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org):
+>> On 2012/11/22 1:49, Serge E. Hallyn wrote:
+>>
+>>> I notice that you haven't made any changes to the struct cont.  I
+>>> suspect this means that to-be-continued msgs from one ns can be
+>>> erroneously mixed with another ns.
+>>>
+>> Yes, I confirmed this problem. There will be erroneously mixed with another ns.
+>> Thank you very much.
+>>
+>>> You said you don't mind putting the syslogns into the userns.  If
+>>> there's no reason not to do that, then we should do so as it will
+>>> remove a bunch of code (plus the use of a new CLONE flag) from your
+>>> patch, and the new syslog(NEW_NS) command from mine.
+>>>
+>> I agree with you, both are removable.
+>>
+>>> Now IMO the ideal place for syslog_ns would be in the devices ns,
+>>> but that does not yet exist, and may never.  The bonus to that would
+>>> be that the consoles sort of belong there.  I avoid this by not
+>>> having consoles in child syslog namespaces.  You put the console in
+>>> the ns.  I haven't looked closely enough to see if what you do is
+>>> ok (will do so soon).
+>>>
+>>> WOuld you mind looking through my patch to see if it suffices for
+>>> your needs?  Where it does not, patches would be greatly appreciated
+>>> if simple enough.
+>>
+>> follow your patch, I can see inject message by "dmesg call" in container, is right?
+> 
+> If I understand you right, yes.
+> 
+>> I am worry that I debug  or see messages from serial ports console in some embedded system,
+>> since console belongs to init_syslog,  so the message in container can`t be printed. 
+> 
+> Sorry, I don't understand which way you're going with that.  Could you
+> rephrase?  You want to prevent console messages from going to a
+> container?  (That should definately not happen)  Or something else?
+> 
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 79d495d..6cdc504 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -1281,7 +1281,7 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
- 	}
- 
- 	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
--		u32 *filter_mask = kzalloc(32, GFP_KERNEL);
-+		u32 *filter_mask = kzalloc(sizeof(u32) * 32, GFP_KERNEL);
- 		u32 command[2];
- 		u32 offset[2];
- 		u32 crc[4];
--- 
-1.7.10.4
+I reviewed your patch, and found that console could only print messages
+belonging to init_syslog.
+
+So the message belongs to container syslog can not be printed from console,
+but only "dmesg call" in user space.  Is that right?
+
+For example, the messages can not be outputed automatically from serial port
+as a kind of consoles on some embedded system.
+
+And I am not sure if there are no other problems.
+
+thanks!
+
+
+>>> Note I'm not at all wedded to my patchset.  I'm happy to go with
+>>> something else entirely.  My set was just a proof of concept.
+> 
+> thanks,
+> -serge
+> _______________________________________________
+> Containers mailing list
+> Containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+> https://lists.linuxfoundation.org/mailman/listinfo/containers
+> 
+> 
