@@ -1,54 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: move inet_dport/inet_num in sock_common
-Date: Tue, 27 Nov 2012 20:11:58 -0800
-Message-ID: <1354075918.14302.77.camel@edumazet-glaptop>
-References: <1354028815.14302.35.camel@edumazet-glaptop>
-	 <1354037000.2116.19.camel@joe-AO722>
-	 <1354051475.14302.42.camel@edumazet-glaptop>
-	 <1354069414.8918.13.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ling Ma <ling.ma.program@gmail.com>
-To: Joe Perches <joe@perches.com>
+From: John Greene <jogreene@redhat.com>
+Subject: [RFC PATCH] 8139cp: properly support change of MTU values
+Date: Tue, 27 Nov 2012 15:08:52 -0500
+Message-ID: <1354046932-13606-1-git-send-email-jogreene@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:34701 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750889Ab2K1EMB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 23:12:01 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so9410862pbc.19
-        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 20:12:00 -0800 (PST)
-In-Reply-To: <1354069414.8918.13.camel@joe-AO722>
+Received: from cpe-075-189-159-031.nc.res.rr.com ([75.189.159.31]:43739 "EHLO
+	jgpicker" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750763Ab2K1EN6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 23:13:58 -0500
+Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
+	by jgpicker (8.14.5/8.14.5) with ESMTP id qARK8vtA013642
+	for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 15:08:57 -0500
+Received: (from jogreene@localhost)
+	by localhost.localdomain (8.14.5/8.14.5/Submit) id qARK8uBF013641
+	for netdev@vger.kernel.org; Tue, 27 Nov 2012 15:08:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-11-27 at 18:23 -0800, Joe Perches wrote:
+The 8139cp driver has a change_mtu function that has not been
+enabled since the dawn of the git repository. However, the
+generic eth_change_mtu is not used in its place, so that
+invalid MTU values can be set on the interface.
 
-> Still, the logical tests that are likely to be in the same
-> cacheline could be ANDed together to avoid a test and jump.
+Original patch salvages the broken code for the single case of
+setting the MTU while the interface is down, which is safe
+and also includes the range check.  Now enhanced to support up
+or down interface.
 
-The point of having the cond jump on sk_hash/hash was that in one
-compare, we catch the yes/no status with 99.999999 % success rate.
+Original patch from
+http://lkml.indiana.edu/hypermail/linux/kernel/1202.2/00770.html
 
-All the following compares are predicted by the cpu and essentially are
-free. Adding the AND or OR will basically have the same cpu cost.
+Testing: has been test on virtual 8139cp setup without issue,
+awaiting real hardware and retest again, but wanted to post now.
 
-If we wanted to do a full test of all tuple fields and a single
-conditional jump, we would not have to include hash test at all.
+Signed-Off-By: "John Greene" <jogreene@redhat.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ drivers/net/ethernet/realtek/8139cp.c | 22 +++-------------------
+ 1 file changed, 3 insertions(+), 19 deletions(-)
 
-(If the 4-tuple matches, then sk_hash/hash value _must_ be the same by
-definition)
-
-Note its quite different from the optimization we did in
-ipv6_addr_equal(), as it allowed fewer memory loads and instructions.
-
-I would say this can come later, as the meat of my patch was about
-avoiding a full cache line miss, which is far more expensive than any
-tricks we can even think about.
-
-Note it will be hard to actually measure any further gains, since I did
-TCP_RR tests (200 threads) and the lookup cost went from 1.4 % to 0.8 %
-of the grand total, mostly dominated by the atomic to increase socket
-refcount.
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index 6cb96b4..7847c83 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -1226,12 +1226,9 @@ static void cp_tx_timeout(struct net_device *dev)
+ 	spin_unlock_irqrestore(&cp->lock, flags);
+ }
+ 
+-#ifdef BROKEN
+ static int cp_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	struct cp_private *cp = netdev_priv(dev);
+-	int rc;
+-	unsigned long flags;
+ 
+ 	/* check for invalid MTU, according to hardware limits */
+ 	if (new_mtu < CP_MIN_MTU || new_mtu > CP_MAX_MTU)
+@@ -1244,22 +1241,11 @@ static int cp_change_mtu(struct net_device *dev, int new_mtu)
+ 		return 0;
+ 	}
+ 
+-	spin_lock_irqsave(&cp->lock, flags);
+-
+-	cp_stop_hw(cp);			/* stop h/w and free rings */
+-	cp_clean_rings(cp);
+-
++	/* network IS up, close it, reset MTU, and come up again. */
++	cp_close(dev);
+ 	dev->mtu = new_mtu;
+-	cp_set_rxbufsize(cp);		/* set new rx buf size */
+-
+-	rc = cp_init_rings(cp);		/* realloc and restart h/w */
+-	cp_start_hw(cp);
+-
+-	spin_unlock_irqrestore(&cp->lock, flags);
+-
+-	return rc;
++	return cp_open(dev);
+ }
+-#endif /* BROKEN */
+ 
+ static const char mii_2_8139_map[8] = {
+ 	BasicModeCtrl,
+@@ -1835,9 +1821,7 @@ static const struct net_device_ops cp_netdev_ops = {
+ 	.ndo_start_xmit		= cp_start_xmit,
+ 	.ndo_tx_timeout		= cp_tx_timeout,
+ 	.ndo_set_features	= cp_set_features,
+-#ifdef BROKEN
+ 	.ndo_change_mtu		= cp_change_mtu,
+-#endif
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= cp_poll_controller,
+-- 
+1.7.11.7
