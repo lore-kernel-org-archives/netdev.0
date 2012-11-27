@@ -1,32 +1,36 @@
-From: Jan Engelhardt <jengelh@inai.de>
+From: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
 Subject: Re: VPN traffic leaks in IPv6/IPv4 dual-stack networks/hosts
-Date: Tue, 27 Nov 2012 17:10:20 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1211271703530.8184@nerf07.vanv.qr>
-References: <50B4D43A.7030208@gont.com.ar>
+Date: Tue, 27 Nov 2012 17:22:47 +0100
+Message-ID: <11198745.Qe2H0cIWZB@alaris>
+References: <50B4D43A.7030208@gont.com.ar> <1354032252.14302.37.camel@edumazet-glaptop> <50B4E52C.8090507@gont.com.ar>
+Reply-To: Michal =?utf-8?B?S3ViZcSNZWs=?= <mkubecek@suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@vger.kernel.org>
-To: Fernando Gont <fernando@gont.com.ar>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares07.inai.de ([5.9.24.206]:51965 "EHLO ares07.inai.de"
+Received: from cantor2.suse.de ([195.135.220.15]:56011 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755514Ab2K0QKV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 11:10:21 -0500
-In-Reply-To: <50B4D43A.7030208@gont.com.ar>
+	id S1755913Ab2K0QWt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 11:22:49 -0500
+Received: from relay2.suse.de (unknown [195.135.220.254])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mx2.suse.de (Postfix) with ESMTP id 8803AA3A49
+	for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 17:22:48 +0100 (CET)
+In-Reply-To: <50B4E52C.8090507@gont.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 2012-11-27 15:54, Fernando Gont wrote:
+On Tuesday 27 of November 2012 13:07EN, Fernando Gont wrote:
+> > accept_ra on linux is set to 1, meaning that as soon as forwarding
+> > is
+> > enabled, RA are ignored.
+>=20
+> I don't follow. Why would RAs be ignored if accept_ra is set to 1??
 
->Folks,
->
->FYI. This is might affect Linux users employing e.g. OpenVPN:
-><http://tools.ietf.org/html/draft-gont-opsec-vpn-leakages>.
->
->For a project such as OpenVPN, a (portable) fix might be non-trivial.
+Value of 1 means "Accept Router Advertisements if forwarding is=20
+disabled.", see Documentation/networking/ip-sysct.txt
 
-If the VPN server does not even advertise to-be-secured IPv6 prefixes, 
-any client-side fix is questionable. Disabling all of IPv6 on the client 
-just because no IPv6 prefixes were sent is bogus.. it is like disabling 
-all my IPv4 internet just because the server only gave me one IPv6 route 
-into $internal_company_network.
+                                                        Michal Kube=E8e=
+k
