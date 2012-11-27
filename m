@@ -1,207 +1,39 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Re: RTL 8169  linux driver question
-Date: Tue, 27 Nov 2012 23:46:05 +0100
-Message-ID: <20121127224605.GA10228@electric-eye.fr.zoreil.com>
-References: <50AFC971.7010103@free.fr> <50AFCB1D.8080002@free.fr> <AE90C24D6B3A694183C094C60CF0A2F6026B70BD@saturn3.aculab.com>
+From: =?UTF-8?B?5Y+26Zuo6aOe?= <sunyucong@gmail.com>
+Subject: IPv4 route cache DOS attack
+Date: Tue, 27 Nov 2012 15:15:55 -0800
+Message-ID: <CAJygYd1OSTfpdbA57q0c6ppMtft3iB7uzo-RCXFOamGp2XVzBg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?B?U3TDqXBoYW5l?= ANCELOT <sancelot@free.fr>,
-	netdev@vger.kernel.org, sancelot@numalliance.com,
-	Hayes Wang <hayeswang@realtek.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:53498 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753810Ab2K0XKb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 18:10:31 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70BD@saturn3.aculab.com>
+Received: from mail-vc0-f174.google.com ([209.85.220.174]:63076 "EHLO
+	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754151Ab2K0XQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 18:16:19 -0500
+Received: by mail-vc0-f174.google.com with SMTP id m18so9557784vcm.19
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 15:16:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Laight <David.Laight@ACULAB.COM> :
-> St=C3=A9phane ANCELOT <sancelot@free.fr> :
-> > I had problem with it, my application sends a frame that is immedia=
-tely
-> > transmitted back by some slaves, there was abnormally 100us  lost
-> > between the send and receive call.
-> >=20
-> > Finally I found it was coming from the following register setup in =
-the
-> > driver :
-> >=20
-> > RTL_W16(IntrMitigate, 0x5151);
-> >=20
-> > Can you give me some details about it, since I do not have the RTL8=
-169
-> > programming guide.
->=20
-> That sounds like an 'interrupt mitigation' setting - which will cause
-> RX interrupts to be delayed a short time in order to reduce the
-> interrupt load on the kernel.
->=20
-> There is usually an 'ethtool' setting to disable interrupt mitigation=
-=2E
+Hi,
 
-Something like the patch below against net-next could help once I will
-have tested it.
+I have a linux router running kernel 3.2  that receive public ingress
+packets and route them through an GRE tunnel, return packets don't go
+through it
 
-I completely guessed the Tx usec scale factor at gigabit speed (125 us,=
-=20
-100 us, disabled, who knows ?) and I have no idea which specific chipse=
-ts
-it should work with.
+I've recently faced a serious issue with the route cache,  when the
+router received spoofed source , the route cache will quickly get
+exhausted (depending on the size of it) and soon the ip dst cache
+overflow will be printed and network subsystem will hang until
+restarted.
 
-Hayes, may I expect some hindsight regarding:
-1 - the availability of the IntrMitigate (0xe2) register through the
-    8169, 8168 and 810x line of chipsets
-2 - the Tx timer unit at gigabit speed
+So, my question is, how can I turn off the route cache without
+recompile the kernel or adding the  patch for removal  in 3.7?  I
+tried to set
 
-It would save me some time.
+echo 0 > /proc/sys/net/ipv4/route/max_size but that has no effect at all.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
-t/realtek/r8169.c
-index 248f883..2623b73 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -349,6 +349,12 @@ enum rtl_registers {
- 	RxMaxSize	=3D 0xda,
- 	CPlusCmd	=3D 0xe0,
- 	IntrMitigate	=3D 0xe2,
-+
-+#define RTL_COALESCE_MASK	0x0f
-+#define RTL_COALESCE_SHIFT	4
-+#define RTL_COALESCE_T_MAX	(RTL_COALESCE_MASK)
-+#define RTL_COALESCE_FRAME_MAX	(RTL_COALESCE_MASK << 2)
-+
- 	RxDescAddrLow	=3D 0xe4,
- 	RxDescAddrHigh	=3D 0xe8,
- 	EarlyTxThres	=3D 0xec,	/* 8169. Unit of 32 bytes. */
-@@ -1997,10 +2003,121 @@ static void rtl8169_get_strings(struct net_dev=
-ice *dev, u32 stringset, u8 *data)
- 	}
- }
-=20
-+static struct rtl_coalesce_scale {
-+	u32 speed;
-+	/* Rx / Tx */
-+	u16 usecs[2];
-+} rtl_coalesce_info[] =3D {
-+	{ .speed =3D SPEED_10,	.usecs =3D { 8000, 10000 } },
-+	{ .speed =3D SPEED_100,	.usecs =3D { 1000,  1000 } },
-+	{ .speed =3D SPEED_1000,	.usecs =3D {  125,   125 } }
-+};
-+
-+static struct rtl_coalesce_scale *rtl_coalesce_scale(struct net_device=
- *dev)
-+{
-+	struct ethtool_cmd ecmd;
-+	int rc, i;
-+
-+	rc =3D rtl8169_get_settings(dev, &ecmd);
-+	if (rc < 0)
-+		return ERR_PTR(rc);
-+
-+	for (i =3D 0; i < ARRAY_SIZE(rtl_coalesce_info); i++) {
-+		if (ethtool_cmd_speed(&ecmd) =3D=3D rtl_coalesce_info[i].speed)
-+			return rtl_coalesce_info + i;
-+	}
-+
-+	return ERR_PTR(-EINVAL);
-+}
-+
-+static int rtl_get_coalesce(struct net_device *dev, struct ethtool_coa=
-lesce *ec)
-+{
-+	struct rtl8169_private *tp =3D netdev_priv(dev);
-+	void __iomem *ioaddr =3D tp->mmio_addr;
-+	struct rtl_coalesce_scale *scale;
-+	struct {
-+		u32 *max_frames;
-+		u32 *usecs;
-+	} coal_settings [] =3D {
-+		{ &ec->rx_max_coalesced_frames, &ec->rx_coalesce_usecs },
-+		{ &ec->tx_max_coalesced_frames, &ec->tx_coalesce_usecs }
-+	}, *p =3D coal_settings;
-+	int i;
-+	u16 w;
-+
-+	memset(ec, 0, sizeof(*ec));
-+
-+	for (w =3D RTL_R16(IntrMitigate); w; w >>=3D RTL_COALESCE_SHIFT, p++)=
- {
-+		*p->max_frames =3D (w & RTL_COALESCE_MASK) << 2;
-+		w >>=3D RTL_COALESCE_SHIFT;
-+		*p->usecs =3D w & RTL_COALESCE_MASK;
-+	}
-+
-+	/* Except for null parameeters, the meaning of coalescing parameters
-+	 * depends on the link speed.
-+	 */
-+	scale =3D rtl_coalesce_scale(dev);
-+	if (PTR_ERR(scale) && (p !=3D coal_settings))
-+		return PTR_ERR(scale);
-+
-+	for (i =3D 0; i < 2; i++) {
-+		p =3D coal_settings + i;
-+		*p->usecs *=3D scale->usecs[i];
-+		if (!*p->usecs && !*p->max_frames)
-+			*p->max_frames =3D 1;
-+	}
-+
-+	return 0;
-+}
-+
-+static int rtl_set_coalesce(struct net_device *dev, struct ethtool_coa=
-lesce *ec)
-+{
-+	struct rtl8169_private *tp =3D netdev_priv(dev);
-+	void __iomem *ioaddr =3D tp->mmio_addr;
-+	struct rtl_coalesce_scale *scale;
-+	struct {
-+		u32 frames;
-+		u32 usecs;
-+	} coal_settings [] =3D {
-+		{ ec->rx_max_coalesced_frames, ec->rx_coalesce_usecs },
-+		{ ec->tx_max_coalesced_frames, ec->tx_coalesce_usecs }
-+	}, *p =3D coal_settings;
-+	int i, rc;
-+	u16 w =3D 0;
-+
-+	scale =3D rtl_coalesce_scale(dev);
-+	rc =3D PTR_ERR(scale);
-+
-+	for (i =3D 0; i < 2; i++) {
-+		u32 units;
-+
-+		if (!p->usecs && p->frames =3D=3D 1)
-+			continue;
-+		if (rc < 0)
-+			goto out;
-+
-+		units =3D p->usecs / scale->usecs[i];
-+		if (units > RTL_COALESCE_T_MAX || p->usecs % scale->usecs[i] ||
-+		    p->frames > RTL_COALESCE_FRAME_MAX || p->frames % 4)
-+			return -EINVAL;
-+
-+		w <<=3D RTL_COALESCE_SHIFT;
-+		w |=3D units;
-+		w <<=3D RTL_COALESCE_SHIFT;
-+		w |=3D p->frames >> 2;
-+	}
-+
-+	RTL_W16(IntrMitigate, swab16(w));
-+out:
-+	return rc;
-+}
-+
- static const struct ethtool_ops rtl8169_ethtool_ops =3D {
- 	.get_drvinfo		=3D rtl8169_get_drvinfo,
- 	.get_regs_len		=3D rtl8169_get_regs_len,
- 	.get_link		=3D ethtool_op_get_link,
-+	.get_coalesce		=3D rtl_get_coalesce,
-+	.set_coalesce		=3D rtl_set_coalesce,
- 	.get_settings		=3D rtl8169_get_settings,
- 	.set_settings		=3D rtl8169_set_settings,
- 	.get_msglevel		=3D rtl8169_get_msglevel,
+And if some one can share some insight on why when dst cache
+overflows, the network subsystem hangs, it would be great.
+
+Thanks.
