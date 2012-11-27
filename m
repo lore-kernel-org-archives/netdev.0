@@ -1,170 +1,98 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
-Date: Tue, 27 Nov 2012 15:50:52 +0100
-Message-ID: <87624r9k1f.fsf@nemi.mork.no>
-References: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
-	<1354026482-10443-2-git-send-email-steve.glendinning@shawell.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC net-next PATCH V1 7/9] net: frag queue locking per hash
+ bucket
+Date: Tue, 27 Nov 2012 16:00:07 +0100
+Message-ID: <1354028407.11754.258.camel@localhost>
+References: <20121123130749.18764.25962.stgit@dragon>
+	 <20121123130836.18764.9297.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1354026482-10443-2-git-send-email-steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
-	(Steve Glendinning's message of "Tue, 27 Nov 2012 14:28:01 +0000")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60429 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753280Ab2K0PCb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 10:02:31 -0500
+In-Reply-To: <20121123130836.18764.9297.stgit@dragon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I believe the drivers/net/usb patches should be CCed to linux-usb for
-review, because they often touch USB specific things.  So I added that
-CC and did not strip any of the quoted text.
+On Fri, 2012-11-23 at 14:08 +0100, Jesper Dangaard Brouer wrote:
+> DO NOT apply - patch not finished, can cause on OOPS/PANIC during hash rebuild
+> 
+> This patch implements per hash bucket locking for the frag queue
+> hash.  This removes two write locks, and the only remaining write
+> lock is for protecting hash rebuild.  This essentially reduce the
+> readers-writer lock to a rebuild lock.
+> 
+> NOT-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+Last bug mentioned, were not the only one... fixing hopefully the last bug in this patch.
 
 
-Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org> writes:
-
-> This patch splits out the logic for entering suspend modes
-> to separate functions, to reduce the complexity of the
-> smsc75xx_suspend function.
->
-> Signed-off-by: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>
-> ---
->  drivers/net/usb/smsc75xx.c |   62 +++++++++++++++++++++++++++-----------------
->  1 file changed, 38 insertions(+), 24 deletions(-)
->
-> diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
-> index 953c4f4..4655c01 100644
-> --- a/drivers/net/usb/smsc75xx.c
-> +++ b/drivers/net/usb/smsc75xx.c
-> @@ -1213,6 +1213,42 @@ static int smsc75xx_write_wuff(struct usbnet *dev, int filter, u32 wuf_cfg,
->  	return 0;
->  }
+> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> index 1620a21..447423f 100644
+> --- a/net/ipv4/inet_fragment.c
+> +++ b/net/ipv4/inet_fragment.c
+> @@ -35,20 +35,27 @@ static void inet_frag_secret_rebuild(unsigned long dummy)
+>  	unsigned long now = jiffies;
+>  	int i;
 >  
-> +static int smsc75xx_enter_suspend0(struct usbnet *dev)
-> +{
-> +	u32 val;
-> +	int ret;
+> +	/* Per bucket lock NOT needed here, due to write lock protection */
+>  	write_lock(&f->lock);
 > +
-> +	ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
-> +	check_warn_return(ret, "Error reading PMT_CTL\n");
-> +
-> +	val &= (~(PMT_CTL_SUS_MODE | PMT_CTL_PHY_RST));
-> +	val |= PMT_CTL_SUS_MODE_0 | PMT_CTL_WOL_EN | PMT_CTL_WUPS;
-> +
-> +	ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
-> +	check_warn_return(ret, "Error writing PMT_CTL\n");
-> +
-> +	smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
-
-As mentioned in another comment to the smsc95xx driver: This is weird.
-Do you really need to do that?
-
-This is an USB interface driver.  The USB device is handled by the
-generic "usb" driver, which will do the right thing.  See 
-drivers/usb/generic.c and drivers/usb/core/hub.c
-
-
-generic_suspend() calls usb_port_suspend() which does:
-
-        /* enable remote wakeup when appropriate; this lets the device
-         * wake up the upstream hub (including maybe the root hub).
-         *
-         * NOTE:  OTG devices may issue remote wakeup (or SRP) even when
-         * we don't explicitly enable it here.
-         */
-        if (udev->do_remote_wakeup) {
-                if (!hub_is_superspeed(hub->hdev)) {
-                        status = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
-                                        USB_REQ_SET_FEATURE, USB_RECIP_DEVICE,
-                                        USB_DEVICE_REMOTE_WAKEUP, 0,
-                                        NULL, 0,
-                                        USB_CTRL_SET_TIMEOUT);
-                } else {
-                        /* Assume there's only one function on the USB 3.0
-                         * device and enable remote wake for the first
-                         * interface. FIXME if the interface association
-                         * descriptor shows there's more than one function.
-                         */
-                        status = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
-                                        USB_REQ_SET_FEATURE,
-                                        USB_RECIP_INTERFACE,
-                                        USB_INTRF_FUNC_SUSPEND,
-                                        USB_INTRF_FUNC_SUSPEND_RW |
-                                        USB_INTRF_FUNC_SUSPEND_LP,
-                                        NULL, 0,
-                                        USB_CTRL_SET_TIMEOUT);
-                }
-
-
-
-
-So you should not need to touch the USB device feature directly from your
-interface driver.
-
-
-> +
-> +	return 0;
-> +}
-> +
-> +static int smsc75xx_enter_suspend2(struct usbnet *dev)
-> +{
-> +	u32 val;
-> +	int ret;
-> +
-> +	ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
-> +	check_warn_return(ret, "Error reading PMT_CTL\n");
-> +
-> +	val &= ~(PMT_CTL_SUS_MODE | PMT_CTL_WUPS | PMT_CTL_PHY_RST);
-> +	val |= PMT_CTL_SUS_MODE_2;
-> +
-> +	ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
-> +	check_warn_return(ret, "Error writing PMT_CTL\n");
-> +
-> +	return 0;
-> +}
-> +
->  static int smsc75xx_suspend(struct usb_interface *intf, pm_message_t message)
->  {
->  	struct usbnet *dev = usb_get_intfdata(intf);
-> @@ -1244,17 +1280,7 @@ static int smsc75xx_suspend(struct usb_interface *intf, pm_message_t message)
->  		ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
->  		check_warn_return(ret, "Error writing PMT_CTL\n");
+>  	get_random_bytes(&f->rnd, sizeof(u32));
+>  	for (i = 0; i < INETFRAGS_HASHSZ; i++) {
+> +		struct inet_frag_bucket *hb;
+>  		struct inet_frag_queue *q;
+>  		struct hlist_node *p, *n;
 >  
-> -		/* enter suspend2 mode */
-> -		ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
-> -		check_warn_return(ret, "Error reading PMT_CTL\n");
-> -
-> -		val &= ~(PMT_CTL_SUS_MODE | PMT_CTL_WUPS | PMT_CTL_PHY_RST);
-> -		val |= PMT_CTL_SUS_MODE_2;
-> -
-> -		ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
-> -		check_warn_return(ret, "Error writing PMT_CTL\n");
-> -
-> -		return 0;
-> +		return smsc75xx_enter_suspend2(dev);
+> -		hlist_for_each_entry_safe(q, p, n, &f->hash[i], list) {
+> +		hb = &f->hash[i];
+> +		hlist_for_each_entry_safe(q, p, n, &hb->chain, list) {
+>  			unsigned int hval = f->hashfn(q);
+>  
+>  			if (hval != i) {
+> +				struct inet_frag_bucket *hb_dest;
+> +
+>  				hlist_del(&q->list);
+>  
+>  				/* Relink to new hash chain. */
+> -				hlist_add_head(&q->list, &f->hash[hval]);
+> +				hb_dest = &f->hash[hval];
+> +				hlist_add_head(&q->list, &hb->chain);
+
+The above line were wrong, it should have been:
+   hlist_add_head(&q->list, &hb_dest->chain);
+
+>  			}
+>  		}
 >  	}
->  
->  	if (pdata->wolopts & (WAKE_MCAST | WAKE_ARP)) {
-> @@ -1368,19 +1394,7 @@ static int smsc75xx_suspend(struct usb_interface *intf, pm_message_t message)
->  
->  	/* some wol options are enabled, so enter SUSPEND0 */
->  	netdev_info(dev->net, "entering SUSPEND0 mode\n");
-> -
-> -	ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
-> -	check_warn_return(ret, "Error reading PMT_CTL\n");
-> -
-> -	val &= (~(PMT_CTL_SUS_MODE | PMT_CTL_PHY_RST));
-> -	val |= PMT_CTL_SUS_MODE_0 | PMT_CTL_WOL_EN | PMT_CTL_WUPS;
-> -
-> -	ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
-> -	check_warn_return(ret, "Error writing PMT_CTL\n");
-> -
-> -	smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
-> -
-> -	return 0;
-> +	return smsc75xx_enter_suspend0(dev);
->  }
->  
->  static int smsc75xx_resume(struct usb_interface *intf)
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+The patch seem quite stable now.  My test is to adjust to rebuild
+interval to 2 sec and then run 4x 10G with two fragments (packet size
+1472*2) to create as many fragments as possible (approx 300
+inet_frag_queue elements).
+
+30 min test run:
+ 3726+3896+3960+3608 = 15190 Mbit/s
+
+(For reproducers, note, that changing ipfrag_secret_interval (e.g.
+sysctl -w net/ipv4/ipfrag_secret_interval=2), first take effect after
+the first interval/timer expires, which default is 10 min)
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
