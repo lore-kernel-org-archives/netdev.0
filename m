@@ -1,29 +1,76 @@
-From: Saku Ytti <saku@ytti.fi>
-Subject: TCP and reordering
-Date: Tue, 27 Nov 2012 11:32:35 +0200
-Message-ID: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com>
+From: "Keitel, Tino (ALC NetworX GmbH)" <Tino.Keitel@alcnetworx.de>
+Subject: Re: BQL support in gianfar causes network hickup
+Date: Tue, 27 Nov 2012 10:36:54 +0100
+Message-ID: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE70@Exchange1.lawo.de>
+References: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6E@Exchange1.lawo.de>
+ <50AFA599.9040108@windriver.com> <loom.20121124T213422-650@post.gmane.org>
+ <1353800616.2590.4562.camel@edumazet-glaptop>
+ <20121126100111.GA3728@mac.home> <1353947677.7553.2.camel@edumazet-glaptop>
+ <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6F@Exchange1.lawo.de>
+ <1353950255.7553.6.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Tino Keitel <tino.keitel@tikei.de>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f174.google.com ([209.85.210.174]:63358 "EHLO
-	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758312Ab2K0Jcg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 04:32:36 -0500
-Received: by mail-ia0-f174.google.com with SMTP id y25so8812554iay.19
-        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 01:32:35 -0800 (PST)
+Received: from mail2.lawo.de ([80.149.95.33]:34058 "EHLO mail2.lawo.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758342Ab2K0Jg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 04:36:56 -0500
+In-Reply-To: <1353950255.7553.6.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Today due to fast retransmit performance on links which cause
-reordering is appalling.
-
-Is it too esoteric situation to handle gracefully? Couldn't we
-maintain 'reorder' counter in socket, which is increment when we get
-two copies of same packet after duplicate ack, if this counter is
-sufficiently high in relation to packet loss, we could start delaying
-duplicate acks as we'd expect to receive the sequence very soon.
-
-
---
-  ++ytti
+T24gTW8sIDIwMTItMTEtMjYgYXQgMDk6MTcgLTA4MDAsIEVyaWMgRHVtYXpldCB3cm90ZToKPiBP
+biBNb24sIDIwMTItMTEtMjYgYXQgMTg6MDggKzAxMDAsIEtlaXRlbCwgVGlubyAoQUxDIE5ldHdv
+clggR21iSCkKPiB3cm90ZToKPiA+IE9uIE1vLCAyMDEyLTExLTI2IGF0IDA4OjM0IC0wODAwLCBF
+cmljIER1bWF6ZXQgd3JvdGU6Cj4gPiA+IE9uIE1vbiwgMjAxMi0xMS0yNiBhdCAxMTowMSArMDEw
+MCwgVGlubyBLZWl0ZWwgd3JvdGU6Cj4gPiA+ID4gT24gU2F0LCBOb3YgMjQsIDIwMTIgYXQgMTU6
+NDM6MzYgLTA4MDAsIEVyaWMgRHVtYXpldCB3cm90ZToKPiA+ID4gPiAKPiA+ID4gPiBbLi4uXQo+
+ID4gPiA+IAo+ID4gPiA+ID4gSG1tLCBJIHdvbmRlciBpZiBCUUwgbWFrZXMgYSBwYXJ0aWN1bGFy
+IGJ1ZyBzaG93aW5nIG1vcmUgb2Z0ZW4uCj4gPiA+ID4gPiAKPiA+ID4gPiA+IEkgc2VlIGdpYW5m
+YXIgdXNlcyBhIHZlcnkgc21hbGwgd2F0Y2hkb2dfdGltZW8gb2YgMSBzZWNvbmQsIHdoaWxlIG1h
+bnkKPiA+ID4gPiA+IGRyaXZlcnMgdXNlIDUgc2Vjb25kcy4KPiA+ID4gPiA+IAo+ID4gPiA+ID4g
+V2hhdCBoYXBwZW5zIGlmIHlvdSBjaGFuZ2UgdGhpcyB0byA1IHNlY29uZHMgPwo+ID4gPiA+IAo+
+ID4gPiA+IEkgc3RpbGwgZ290IHRoZSB0cmFjZSBhbmQgYSBmYWlsaW5nIHB0cCBjbGllbnQuCj4g
+PiA+ID4gCj4gPiA+IAo+ID4gPiBUaGFua3MuIElzIHRoaXMgYnVnIGVhc3kgdG8gdHJpZ2dlciA/
+Cj4gPiA+IAo+ID4gPiBJIHN1c3BlY3QgYSBjb3JlIGlzc3VlIGFuZCBhIHJhY2UsIGxpa2VseSB0
+byBoYXBwZW4gb24geW91ciAobm9uIHg4NikKPiA+ID4gaGFyZHdhcmUKPiA+ID4gCj4gPiA+IENv
+dWxkIHlvdSBhZGQgdGhlIGZvbGxvd2luZyBkZWJ1Z2dpbmcgcGF0Y2ggPwo+ID4gCj4gPiBObyB2
+aXNpYmxlIGRpZmZlcmVuY2U6Cj4gCj4gT0sgaXQgc2VlbXMgeW91IHRyaWdnZXIgdGhlIHByb2Js
+ZW0gZmFzdCAhCj4gCj4gUGxlYXNlIHRyeSB0aGUgZm9sbG93aW5nIGFzIHdlbGwgOgoKSGksCgp5
+ZXMsIGl0IGNhbiBiZSB0cmlnZ2VyZWQgd2l0aGluIDIgbWludXRlcy4KClRoZSBwYXRjaCBtYWtl
+cyBubyBkaWZmZXJlbmNlOgoKTkVUREVWIFdBVENIRE9HOiBldGgxIChmc2wtZ2lhbmZhcik6IHRy
+YW5zbWl0IHF1ZXVlIDAgdGltZWQgb3V0Ci0tLS0tLS0tLS0tLVsgY3V0IGhlcmUgXS0tLS0tLS0t
+LS0tLQpXQVJOSU5HOgphdCAvaG9tZS9rZWl0ZWx0MS9zcmMvZ2l0L2xpbnV4LXN0YWJsZS9uZXQv
+c2NoZWQvc2NoX2dlbmVyaWMuYzoyNTUKTW9kdWxlcyBsaW5rZWQgaW46Ck5JUDogYzAyNDQ4ZTAg
+TFI6IGMwMjQ0OGUwIENUUjogYzAxYzE5YjgKUkVHUzogYzdmZmJlNDAgVFJBUDogMDcwMCAgIE5v
+dCB0YWludGVkICAoMy43LjAtcmM2LWRpcnR5KQpNU1I6IDAwMDI5MDMyIDxFRSxNRSxJUixEUixS
+ST4gIENSOiAyMjAwMjA0NCAgWEVSOiAyMDAwMDAwMApUQVNLID0gYzAzZGQzNzBbMF0gJ3N3YXBw
+ZXInIFRIUkVBRDogYzAzZmUwMDAKR1BSMDA6IGMwMjQ0OGUwIGM3ZmZiZWYwIGMwM2RkMzcwIDAw
+MDAwMDNmIDAwMDAwMDAxIGMwMDFhZWE4IDAwMDAwMDAwCjAwMDAwMDAxCkdQUjA4OiAwMDAwMDAw
+MSBjMDNlMDAwMCAwMDAwMDAwMCAwMDAwMDA5ZCAyMjAwMjA4NCAxMDA4ZWI1YyAwN2ZmYjAwMApm
+ZmZmZmZmZgpHUFIxNjogMDAwMDAwMDQgYzAzNjJjN2MgYzAzZGZiZjggMDAyMDAwMDAgYzA0MTFl
+ZDAgYzA0MTFjZDAgYzA0MTFhZDAKZmZmZmZmZmYKR1BSMjQ6IDAwMDAwMDAwIGM3NDllMWQ4IDAw
+MDAwMDA0IGM3ODNjMzMwIGMwNDAwMDAwIGMwM2UwMDAwIGM3NDllMDAwCjAwMDAwMDAwCk5JUCBb
+YzAyNDQ4ZTBdIGRldl93YXRjaGRvZysweDI4OC8weDI5OApMUiBbYzAyNDQ4ZTBdIGRldl93YXRj
+aGRvZysweDI4OC8weDI5OApDYWxsIFRyYWNlOgpbYzdmZmJlZjBdIFtjMDI0NDhlMF0gZGV2X3dh
+dGNoZG9nKzB4Mjg4LzB4Mjk4ICh1bnJlbGlhYmxlKQpbYzdmZmJmMjBdIFtjMDAyNjdmOF0gY2Fs
+bF90aW1lcl9mbisweDZjLzB4ZDgKW2M3ZmZiZjUwXSBbYzAwMjY5ZTRdIHJ1bl90aW1lcl9zb2Z0
+aXJxKzB4MTgwLzB4MWY4CltjN2ZmYmZhMF0gW2MwMDIxMTQ0XSBfX2RvX3NvZnRpcnErMHhjNC8w
+eDE2MApbYzdmZmJmZjBdIFtjMDAwZDBiOF0gY2FsbF9kb19zb2Z0aXJxKzB4MTQvMHgyNApbYzAz
+ZmZlOTBdIFtjMDAwNThlOF0gZG9fc29mdGlycSsweDhjLzB4YjgKW2MwM2ZmZWIwXSBbYzAwMjEz
+NThdIGlycV9leGl0KzB4OTgvMHhiNApbYzAzZmZlYzBdIFtjMDAwOWZiMF0gdGltZXJfaW50ZXJy
+dXB0KzB4MTU4LzB4MTcwCltjMDNmZmVlMF0gW2MwMDBmMDJjXSByZXRfZnJvbV9leGNlcHQrMHgw
+LzB4MTQKLS0tIEV4Y2VwdGlvbjogOTAxIGF0IGNwdV9pZGxlKzB4OTQvMHgxMDAKICAgIExSID0g
+Y3B1X2lkbGUrMHg5NC8weDEwMApbYzAzZmZmYTBdIFtjMDAwODhlY10gY3B1X2lkbGUrMHg1Yy8w
+eDEwMCAodW5yZWxpYWJsZSkKW2MwM2ZmZmMwXSBbYzAzYjM3YjBdIHN0YXJ0X2tlcm5lbCsweDJk
+Yy8weDJmMApbYzAzZmZmZjBdIFswMDAwMzQzOF0gMHgzNDM4Ckluc3RydWN0aW9uIGR1bXA6Cjdk
+MjkwM2E2IDRlODAwNDIxIDgwZmUwMWZjIDRiZmZmZjc0IDdmYzNmMzc4IDRiZmVjYjdkIDdmYzRm
+Mzc4IDdmZTZmYjc4CjdjNjUxYjc4IDNjNjBjMDM4IDM4NjM3MjgwIDQ4MDkwZTY5IDwwZmUwMDAw
+MD4gMzkyMDAwMDEgOTkzY2M3YzkKNGJmZmZmYjgKLS0tWyBlbmQgdHJhY2UgMjZhOWRhOWMyNzE3
+ZDY1YiBdLS0tCgpSZWdhcmRzLApUaW5vCgoK
