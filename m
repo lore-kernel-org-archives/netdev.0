@@ -1,38 +1,32 @@
-From: Fernando Gont <fernando@gont.com.ar>
+From: Jan Engelhardt <jengelh@inai.de>
 Subject: Re: VPN traffic leaks in IPv6/IPv4 dual-stack networks/hosts
-Date: Tue, 27 Nov 2012 13:07:08 -0300
-Message-ID: <50B4E52C.8090507@gont.com.ar>
-References: <50B4D43A.7030208@gont.com.ar> <1354032252.14302.37.camel@edumazet-glaptop>
+Date: Tue, 27 Nov 2012 17:10:20 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1211271703530.8184@nerf07.vanv.qr>
+References: <50B4D43A.7030208@gont.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Fernando Gont <fernando@gont.com.ar>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web01.jbserver.net ([93.186.182.34]:46944 "EHLO
-	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755778Ab2K0QHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 11:07:25 -0500
-In-Reply-To: <1354032252.14302.37.camel@edumazet-glaptop>
+Received: from ares07.inai.de ([5.9.24.206]:51965 "EHLO ares07.inai.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755514Ab2K0QKV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Nov 2012 11:10:21 -0500
+In-Reply-To: <50B4D43A.7030208@gont.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, Eric,
+On Tuesday 2012-11-27 15:54, Fernando Gont wrote:
 
-On 11/27/2012 01:04 PM, Eric Dumazet wrote:
->> P.S.: Not sure if this is the right list to send this note. Please
->> advice of a more appropriate one and/or feel free to forward this note
->> if deemed appropriate...
-> 
-> This seems a user space issue to me.
-> 
-> accept_ra on linux is set to 1, meaning that as soon as forwarding is
-> enabled, RA are ignored.
+>Folks,
+>
+>FYI. This is might affect Linux users employing e.g. OpenVPN:
+><http://tools.ietf.org/html/draft-gont-opsec-vpn-leakages>.
+>
+>For a project such as OpenVPN, a (portable) fix might be non-trivial.
 
-I don't follow. Why would RAs be ignored if accept_ra is set to 1??
-
-Cheers,
--- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@si6networks.com
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+If the VPN server does not even advertise to-be-secured IPv6 prefixes, 
+any client-side fix is questionable. Disabling all of IPv6 on the client 
+just because no IPv6 prefixes were sent is bogus.. it is like disabling 
+all my IPv4 internet just because the server only gave me one IPv6 route 
+into $internal_company_network.
