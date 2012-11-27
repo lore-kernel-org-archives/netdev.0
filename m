@@ -1,66 +1,71 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
-Date: Tue, 27 Nov 2012 19:12:38 +0100
-Message-ID: <87y5hm9ap5.fsf@nemi.mork.no>
-References: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
-	<1354026482-10443-2-git-send-email-steve.glendinning@shawell.net>
-	<87624r9k1f.fsf@nemi.mork.no>
-	<CAKh2mn4OiN7ZAX_0SJ_XHwRNPoyKUk=+4ha5esBMAajGD4BX=w@mail.gmail.com>
-	<CAKh2mn7f94a7La_EQ9L_qwr7FZEXfawUiAajPMDO8ScS2fJupg@mail.gmail.com>
+From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
+Subject: RE: [E1000-devel] 82571EB: Detected Hardware Unit Hang
+Date: Tue, 27 Nov 2012 18:24:33 +0000
+Message-ID: <9B4A1B1917080E46B64F07F2989DADD62F2D8116@ORSMSX102.amr.corp.intel.com>
+References: <509B5038.8090304@oracle.com>
+	 <061C8A8601E8EE4CA8D8FD6990CEA89133487884@ORSMSX102.amr.corp.intel.com>
+	 <50A30656.6090508@oracle.com>
+	 <061C8A8601E8EE4CA8D8FD6990CEA8913348B105@ORSMSX102.amr.corp.intel.com>
+	 <50A43828.6000702@oracle.com>
+	 <061C8A8601E8EE4CA8D8FD6990CEA8913349A0B4@ORSMSX102.amr.corp.intel.com>
+	 <50A9C5CC.1030300@oracle.com>
+	 <061C8A8601E8EE4CA8D8FD6990CEA8913349EB41@ORSMSX102.amr.corp.intel.com>
+	 <50AB8471.7080607@oracle.com>
+	 <9B4A1B1917080E46B64F07F2989DADD62F2D62D6@ORSMSX102.amr.corp.intel.com>
+	 <50B41077.3080009@oracle.com>
+	 <b46b84cf-3688-4fd7-b741-4e96f2663517@default>
+	 <9B4A1B1917080E46B64F07F2989DADD62F2D8070@ORSMSX102.amr.corp.intel.com>
+ <1354039840.2701.14.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKh2mn7f94a7La_EQ9L_qwr7FZEXfawUiAajPMDO8ScS2fJupg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-	(Steve Glendinning's message of "Tue, 27 Nov 2012 17:55:33 +0000")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Joe Jin <joe.jin@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-pci <linux-pci@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Mary Mcgrath <mary.mcgrath@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354039840.2701.14.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org> writes:
-
-> Hi Bjorn,
->
-> On 27 November 2012 17:21, Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org> wrot=
-e:
->> Hi Bjorn,
->>
->>>> +     smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
->>>
->>> As mentioned in another comment to the smsc95xx driver: This is wei=
-rd.
->>> Do you really need to do that?
->>>
->>> This is an USB interface driver.  The USB device is handled by the
->>> generic "usb" driver, which will do the right thing.  See
->>> drivers/usb/generic.c and drivers/usb/core/hub.c
->>
->> Thanks, I've tested removing all these calls from the driver and
->> wakeup functionality seems to still work.
->>
->> I'll resubmit my smsc75xx enhancement patchset with this change once
->> I've done some more testing.
->
-> Further testing shows that removing these calls stop wakeup from
-> system suspend working (although don't appear to impact runtime
-> autosuspend).  Have I missed a flag or somewhere that causes
-> udev->do_remote_wakeup to be set in the code you posted?
-
-udev->do_remote_wakeup is set in choose_wakeup() in
-drivers/usb/core/driver.c.  AFAICS it is always set as long as
-device_may_wakeup(&udev->dev) is true.
-
-But I am just trying to get a grasp of this code.  Others on the
-linux-usb list will know these things much better than me...
-
-Just a thought: Did you remember to remove the clear_feature you have i=
-n
-resume?
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+VGhhbmtzIGZvciB0aGUgY2xhcmlmaWNhdGlvbi4gSSB3YXMganVzdCBnb2luZyBieSB0aGUgUENJ
+ZSBzcGVjLCB3aGljaCBzYXlzIHRoZSBsb3dlc3QgdmFsdWUgb2YgYm90aCBlbmRzIGlzIHVzZWQs
+IGFuZCBJIGZpZ3VyZWQgU09NRVRISU5HIGhhZCB0byBiZSBsb29raW5nIGF0IHRoYXQgYW5kIGRv
+aW5nIHNvbWUgc29ydCBvZiBuZWdvdGlhdGlvbi4gSSdtIG5vIEJJT1MgZ3V5LCBzbyBJJ20gbm90
+IHN1cmUgd2hhdCdzIGFjdHVhbGx5IGdvaW5nIG9uLCB3aGV0aGVyIHNvbWV0aGluZyB3YWxrcyB0
+aGUgUENJZSB0cmVlIG9yIGlmIHRoZSBCSU9TIGp1c3Qgc2V0cyBhbGwgdGhlIHZhbHVlcyB0byB0
+aGUgbWluaW11bS4NCg0KVG9kZCBGdWppbmFrYQ0KVGVjaG5pY2FsIE1hcmtldGluZyBFbmdpbmVl
+cg0KTEFOIEFjY2VzcyBEaXZpc2lvbiAoTEFEKQ0KSW50ZWwgQ29ycG9yYXRpb24NCnRvZGQuZnVq
+aW5ha2FAaW50ZWwuY29tDQooNTAzKSA3MTItNDU2NQ0KDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2Fn
+ZS0tLS0tDQpGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJl
+LmNvbV0gDQpTZW50OiBUdWVzZGF5LCBOb3ZlbWJlciAyNywgMjAxMiAxMDoxMSBBTQ0KVG86IEZ1
+amluYWthLCBUb2RkOyBNYXJ5IE1jZ3JhdGgNCkNjOiBKb2UgSmluOyBuZXRkZXZAdmdlci5rZXJu
+ZWwub3JnOyBlMTAwMC1kZXZlbEBsaXN0cy5zZi5uZXQ7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5l
+bC5vcmc7IGxpbnV4LXBjaQ0KU3ViamVjdDogUkU6IFtFMTAwMC1kZXZlbF0gODI1NzFFQjogRGV0
+ZWN0ZWQgSGFyZHdhcmUgVW5pdCBIYW5nDQoNCk9uIFR1ZSwgMjAxMi0xMS0yNyBhdCAxNzozMiAr
+MDAwMCwgRnVqaW5ha2EsIFRvZGQgd3JvdGU6DQo+IEZvcmdpdmUgbWUgaWYgSSdtIGJlaW5nIHRv
+byByZXBldGl0aW91cyBhcyBJIHRoaW5rIHNvbWUgb2YgdGhpcyBoYXMgDQo+IGJlZW4gbWVudGlv
+bmVkIGluIHRoZSBwYXN0Lg0KPiANCj4gV2UgKGFuZCBieSB3ZSBJIG1lYW4gdGhlIEV0aGVybmV0
+IHBhcnQgYW5kIGRyaXZlcikgY2FuIG9ubHkgY2hhbmdlIHRoZSANCj4gYWR2ZXJ0aXNlZCBhdmFp
+bGFiaWxpdHkgb2YgYSBsYXJnZXIgTWF4UGF5bG9hZFNpemUuIFRoZSBzaXplIGlzIA0KPiBuZWdv
+dGlhdGVkIGJ5IGJvdGggc2lkZXMgb2YgdGhlIGxpbmsgd2hlbiB0aGUgbGluayBpcyBlc3RhYmxp
+c2hlZC4gVGhlIA0KPiBkcml2ZXIgc2hvdWxkIG5vdCBjaGFuZ2UgdGhlIHNpemUgb2YgdGhlIGxp
+bmsgYXMgaXQgd291bGQgYmUgcG9raW5nIGF0IA0KPiByZWdpc3RlcnMgb3V0c2lkZSBvZiBpdHMg
+c2NvcGUgYW5kIGlzIGNvbnRyb2xsZWQgYnkgdGhlIHVwc3RyZWFtIA0KPiBicmlkZ2UgKG5vdCB1
+cykuDQpbLi4uXQ0KDQpNYXhQYXlsb2FkU2l6ZSAoTVBTKSBpcyBub3QgbmVnb3RpYXRlZCBiZXR3
+ZWVuIGRldmljZXMgYnV0IGlzIHByb2dyYW1tZWQgYnkgdGhlIHN5c3RlbSBmaXJtd2FyZSAoYXQg
+bGVhc3QgZm9yIGRldmljZXMgcHJlc2VudCBhdCBib290IC0gdGhlIGtlcm5lbCBtYXkgYmUgcmVz
+cG9uc2libGUgaW4gY2FzZSBvZiBob3RwbHVnKS4gIFlvdSBjYW4gdXNlIHRoZSBrZXJuZWwgcGFy
+YW1ldGVyICdwY2k9cGNpZV9idXNfcGVyZicgKG9yIG9uZSBvZiBzZXZlcmFsIG90aGVycykgdG8g
+c2V0IGEgcG9saWN5IHRoYXQgb3ZlcnJpZGVzIHRoaXMsIGJ1dCBubyBwb2xpY3kgd2lsbCBhbGxv
+dyBzZXR0aW5nIE1QUyBhYm92ZSB0aGUgZGV2aWNlJ3MgTWF4UGF5bG9hZFNpemVTdXBwb3J0ZWQg
+KE1QU1MpLg0KDQooVGhlc2UgcGFyYW1ldGVycyBhcmUgbm90IGRvY3VtZW50ZWQgaW4NCkRvY3Vt
+ZW50YXRpb24va2VybmVsLXBhcmFtZXRlcnMudHh0ISAgU29tZW9uZSBvdWdodCB0byBmaXggdGhh
+dC4pDQoNCkJlbi4NCg0KLS0NCkJlbiBIdXRjaGluZ3MsIFN0YWZmIEVuZ2luZWVyLCBTb2xhcmZs
+YXJlIE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7IHRoYXQncyB0aGUgbWFya2V0aW5nIGRl
+cGFydG1lbnQncyBqb2IuDQpUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHBy
+b2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQo=
