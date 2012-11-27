@@ -1,125 +1,40 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH v6 5/6] PM / Runtime: force memory allocation with no I/O during Runtime PM callbcack
-Date: Tue, 27 Nov 2012 22:24:27 +0100
-Message-ID: <1354069667.BsTEhItmLz@vostro.rjw.lan>
-References: <1353761958-12810-1-git-send-email-ming.lei@canonical.com> <1353761958-12810-6-git-send-email-ming.lei@canonical.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: move inet_dport/inet_num in sock_common
+Date: Tue, 27 Nov 2012 13:23:21 -0800
+Message-ID: <1354051401.14302.40.camel@edumazet-glaptop>
+References: <1354028815.14302.35.camel@edumazet-glaptop>
+	 <1354043156.2701.17.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: Ming Lei <ming.lei@canonical.com>, linux-kernel@vger.kernel.org,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oneukum@suse.de>,
-	Minchan Kim <minchan@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jens Axboe <axboe@kernel.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-mm@kvack.org
-To: linux-pm@vger.kernel.org
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <1353761958-12810-6-git-send-email-ming.lei@canonical.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Ling Ma <ling.ma.program@gmail.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:50344 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753217Ab2K0VXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 16:23:24 -0500
+Received: by mail-pb0-f46.google.com with SMTP id wy7so9188044pbc.19
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 13:23:24 -0800 (PST)
+In-Reply-To: <1354043156.2701.17.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday, November 24, 2012 08:59:17 PM Ming Lei wrote:
-> This patch applies the introduced memalloc_noio_save() and
-> memalloc_noio_restore() to force memory allocation with no I/O
-> during runtime_resume/runtime_suspend callback on device with
-> the flag of 'memalloc_noio' set.
+On Tue, 2012-11-27 at 19:05 +0000, Ben Hutchings wrote:
+> On Tue, 2012-11-27 at 07:06 -0800, Eric Dumazet wrote:
+
+> >  struct sock_common {
+> > -	/* skc_daddr and skc_rcv_saddr must be grouped :
+> > -	 * cf INET_MATCH() and INET_TW_MATCH()
+> > +	/* skc_daddr and skc_rcv_saddr must be grouped on a 8 bytes aligned
+> > +	 * address on 64bit arches : cf INET_MATCH() and INET_TW_MATCH()
 > 
-> Cc: Alan Stern <stern@rowland.harvard.edu>
-> Cc: Oliver Neukum <oneukum@suse.de>
-> Cc: Rafael J. Wysocki <rjw@sisk.pl>
-> Signed-off-by: Ming Lei <ming.lei@canonical.com>
-> ---
-> v5:
-> 	- use inline memalloc_noio_save()
-> v4:
-> 	- runtime_suspend need this too because rpm_resume may wait for
-> 	completion of concurrent runtime_suspend, so deadlock still may
-> 	be triggered in runtime_suspend path.
-> ---
->  drivers/base/power/runtime.c |   32 ++++++++++++++++++++++++++++++--
->  1 file changed, 30 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/base/power/runtime.c b/drivers/base/power/runtime.c
-> index 3e198a0..96d99ea 100644
-> --- a/drivers/base/power/runtime.c
-> +++ b/drivers/base/power/runtime.c
-> @@ -371,6 +371,7 @@ static int rpm_suspend(struct device *dev, int rpmflags)
->  	int (*callback)(struct device *);
->  	struct device *parent = NULL;
->  	int retval;
-> +	unsigned int noio_flag;
->  
->  	trace_rpm_suspend(dev, rpmflags);
->  
-> @@ -480,7 +481,20 @@ static int rpm_suspend(struct device *dev, int rpmflags)
->  	if (!callback && dev->driver && dev->driver->pm)
->  		callback = dev->driver->pm->runtime_suspend;
->  
-> -	retval = rpm_callback(callback, dev);
-> +	/*
-> +	 * Deadlock might be caused if memory allocation with GFP_KERNEL
-> +	 * happens inside runtime_suspend callback of one block device's
-> +	 * ancestor or the block device itself. Network device might be
-> +	 * thought as part of iSCSI block device, so network device and
-> +	 * its ancestor should be marked as memalloc_noio.
-> +	 */
-> +	if (dev->power.memalloc_noio) {
-> +		noio_flag = memalloc_noio_save();
-> +		retval = rpm_callback(callback, dev);
-> +		memalloc_noio_restore(noio_flag);
-> +	} else {
-> +		retval = rpm_callback(callback, dev);
-> +	}
->  	if (retval)
->  		goto fail;
->  
-> @@ -563,6 +577,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
->  	int (*callback)(struct device *);
->  	struct device *parent = NULL;
->  	int retval = 0;
-> +	unsigned int noio_flag;
->  
->  	trace_rpm_resume(dev, rpmflags);
->  
-> @@ -712,7 +727,20 @@ static int rpm_resume(struct device *dev, int rpmflags)
->  	if (!callback && dev->driver && dev->driver->pm)
->  		callback = dev->driver->pm->runtime_resume;
->  
-> -	retval = rpm_callback(callback, dev);
-> +	/*
-> +	 * Deadlock might be caused if memory allocation with GFP_KERNEL
-> +	 * happens inside runtime_resume callback of one block device's
-> +	 * ancestor or the block device itself. Network device might be
-> +	 * thought as part of iSCSI block device, so network device and
-> +	 * its ancestor should be marked as memalloc_noio.
-> +	 */
-> +	if (dev->power.memalloc_noio) {
-> +		noio_flag = memalloc_noio_save();
-> +		retval = rpm_callback(callback, dev);
-> +		memalloc_noio_restore(noio_flag);
-> +	} else {
-> +		retval = rpm_callback(callback, dev);
-> +	}
+> __aligned(8)?
 
-Please don't duplicate code this way.
+Nope, only on 64 bit this requirement exists (since a long time)
 
-You can move that whole thing to rpm_callback().  Yes, you'll probably need to
-check dev->power.memalloc_noio twice in there, but that's OK.
+I am not sure we want complexity on this.
 
-
->  	if (retval) {
->  		__update_runtime_status(dev, RPM_SUSPENDED);
->  		pm_runtime_cancel_pending(dev);
-> 
-
-Thanks,
-Rafael
-
-
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+And we dont want holes to be automatically added here neither.
