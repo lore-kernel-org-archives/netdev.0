@@ -1,39 +1,36 @@
-From: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>
-Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
-Date: Tue, 27 Nov 2012 17:21:17 +0000
-Message-ID: <CAKh2mn4OiN7ZAX_0SJ_XHwRNPoyKUk=+4ha5esBMAajGD4BX=w@mail.gmail.com>
+From: Steve Glendinning <steve@shawell.net>
+Subject: Re: [PATCH 2/2] smsc75xx: support PHY wakeup source
+Date: Tue, 27 Nov 2012 17:23:15 +0000
+Message-ID: <CAKh2mn4xfpO-vMZGnikuS29xrCc_XJMGu0gexyn1EBeG4prgog@mail.gmail.com>
 References: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
-	<1354026482-10443-2-git-send-email-steve.glendinning@shawell.net>
-	<87624r9k1f.fsf@nemi.mork.no>
+	<1354026482-10443-3-git-send-email-steve.glendinning@shawell.net>
+	<1354031804.2116.8.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87624r9k1f.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:35405 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756244Ab2K0RXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 12:23:22 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so4926870eaa.19
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 09:23:16 -0800 (PST)
+In-Reply-To: <1354031804.2116.8.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Bjorn,
+Hi Joe,
 
->> +     smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
+On 27 November 2012 15:56, Joe Perches <joe@perches.com> wrote:
+> On Tue, 2012-11-27 at 14:28 +0000, Steve Glendinning wrote:
+>> +     ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
+>> +     check_warn_return(ret, "Error reading PMT_CTL");
 >
-> As mentioned in another comment to the smsc95xx driver: This is weird.
-> Do you really need to do that?
->
-> This is an USB interface driver.  The USB device is handled by the
-> generic "usb" driver, which will do the right thing.  See
-> drivers/usb/generic.c and drivers/usb/core/hub.c
+> Hi Steve, can you please add newlines to these new
+> check_warn_<foo> messages and the netdev_<level> ones too?
+> It helps avoid message interleaving.
 
-Thanks, I've tested removing all these calls from the driver and
-wakeup functionality seems to still work.
+Sorry about that, I did see your earlier patch to fix existing instances.
 
-I'll resubmit my smsc75xx enhancement patchset with this change once
-I've done some more testing.
-
-David: please discard this patch.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+David: please discard this patch too, I'll resubmit.
