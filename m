@@ -1,43 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/2] smsc75xx: support PHY wakeup source
-Date: Tue, 27 Nov 2012 07:56:44 -0800
-Message-ID: <1354031804.2116.8.camel@joe-AO722>
-References: <1354026482-10443-1-git-send-email-steve.glendinning@shawell.net>
-	 <1354026482-10443-3-git-send-email-steve.glendinning@shawell.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: VPN traffic leaks in IPv6/IPv4 dual-stack networks/hosts
+Date: Tue, 27 Nov 2012 08:04:12 -0800
+Message-ID: <1354032252.14302.37.camel@edumazet-glaptop>
+References: <50B4D43A.7030208@gont.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Steve Glendinning <steve.glendinning@shawell.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: Fernando Gont <fernando@gont.com.ar>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:53558 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754981Ab2K0P4o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 10:56:44 -0500
-In-Reply-To: <1354026482-10443-3-git-send-email-steve.glendinning@shawell.net>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:63214 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755514Ab2K0QEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 11:04:15 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y25so9065233iay.19
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 08:04:14 -0800 (PST)
+In-Reply-To: <50B4D43A.7030208@gont.com.ar>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-11-27 at 14:28 +0000, Steve Glendinning wrote:
-> This patch enables LAN7500 family devices to wake from suspend
-> on either link up or link down events.
-[]
-> diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
-[]
-> +static int smsc75xx_enter_suspend1(struct usbnet *dev)
-> +{
-> +	u32 val;
-> +	int ret;
-> +
-> +	ret = smsc75xx_read_reg_nopm(dev, PMT_CTL, &val);
-> +	check_warn_return(ret, "Error reading PMT_CTL");
+On Tue, 2012-11-27 at 11:54 -0300, Fernando Gont wrote:
+> Folks,
+> 
+> FYI. This is might affect Linux users employing e.g. OpenVPN:
+> <http://tools.ietf.org/html/draft-gont-opsec-vpn-leakages>.
+> 
+> For a project such as OpenVPN, a (portable) fix might be non-trivial.
+> However, I guess Linux might hook some iptables rules when establishing
+> the VPN tunnel, such that e.g. all v6 traffic is filtered (yes, this is
+> certainly not the most desirable fix, but still probably better than
+> having your supposedly-secured traffic being sent in the clear).
+> 
+> P.S.: Not sure if this is the right list to send this note. Please
+> advice of a more appropriate one and/or feel free to forward this note
+> if deemed appropriate...
 
-Hi Steve, can you please add newlines to these new
-check_warn_<foo> messages and the netdev_<level> ones too?
-It helps avoid message interleaving.
+This seems a user space issue to me.
 
-> +		if (!link_up) {
-> +			struct mii_if_info *mii = &dev->mii;
-> +			netdev_info(dev->net, "entering SUSPEND1 mode");
-
-etc..
+accept_ra on linux is set to 1, meaning that as soon as forwarding is
+enabled, RA are ignored.
