@@ -1,36 +1,36 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: VPN traffic leaks in IPv6/IPv4 dual-stack networks/hosts
-Date: Tue, 27 Nov 2012 11:54:50 -0300
-Message-ID: <50B4D43A.7030208@gont.com.ar>
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
+Date: Tue, 27 Nov 2012 10:23:33 -0500
+Message-ID: <20121127102333.68ac3234@thirdoffive.cmf.nrl.navy.mil>
+References: <201211112257.qABMvhP4021769@thirdoffive.cmf.nrl.navy.mil>
+	<1354022867.26346.334.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web01.jbserver.net ([93.186.182.34]:46718 "EHLO
-	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755875Ab2K0PVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 10:21:38 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Krzysztof Mazur <krzysiek@podlesie.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354022867.26346.334.camel@shinybook.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Folks,
+On Tue, 27 Nov 2012 13:27:47 +0000
+David Woodhouse <dwmw2@infradead.org> wrote:
 
-FYI. This is might affect Linux users employing e.g. OpenVPN:
-<http://tools.ietf.org/html/draft-gont-opsec-vpn-leakages>.
+> > i really would prefer not to use a strange name since it might confuse
+> > larger group of people who are more familiar with the traditional meaning
+> > of this function.  vcc_release() isnt exported so we could rename it if
+> > things get too confusing.
+> > 
+> > i have to look at this a bit more but we might be able to use release_cb
+> > to get rid of the null push to detach the underlying protocol.  that would
+> > be somewhat nice.
+> 
+> In the meantime, should I resend this patch with the name 'release_cb'
+> instead of 'unlock_cb'? I'll just put a comment in to make sure it isn't
+> confused with vcc_release(), and if we need to change vcc_release()
+> later we can.
+> 
 
-For a project such as OpenVPN, a (portable) fix might be non-trivial.
-However, I guess Linux might hook some iptables rules when establishing
-the VPN tunnel, such that e.g. all v6 traffic is filtered (yes, this is
-certainly not the most desirable fix, but still probably better than
-having your supposedly-secured traffic being sent in the clear).
-
-P.S.: Not sure if this is the right list to send this note. Please
-advice of a more appropriate one and/or feel free to forward this note
-if deemed appropriate...
-
-Thanks,
--- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@si6networks.com
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+yes, but dont call it 8/7 since that doesnt make sense.
