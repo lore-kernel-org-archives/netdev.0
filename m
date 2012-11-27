@@ -1,192 +1,95 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH for 3.8] iproute2: Add "ip netns pids" and "ip netns
- identify"
-Date: Tue, 27 Nov 2012 18:00:39 +0000
-Message-ID: <1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com>
-References: <87a9u4q7k9.fsf@xmission.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: TCP and reordering
+Date: Tue, 27 Nov 2012 10:00:58 -0800
+Message-ID: <50B4FFDA.1050808@hp.com>
+References: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com> <50B4F2DA.8020206@hp.com> <CAAeewD9MtEx4uF6ezbBj7Ci5OzX8VK7p=WQ2TB3PfjmznA4X0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	<netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: netdev@vger.kernel.org
+To: Saku Ytti <saku@ytti.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:14493 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755812Ab2K0SAr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 13:00:47 -0500
-In-Reply-To: <87a9u4q7k9.fsf@xmission.com>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:32163 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755812Ab2K0SBA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 13:01:00 -0500
+In-Reply-To: <CAAeewD9MtEx4uF6ezbBj7Ci5OzX8VK7p=WQ2TB3PfjmznA4X0w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-11-26 at 17:16 -0600, Eric W. Biederman wrote:
-> Add command that go between network namespace names and process
-> identifiers.  The code builds and runs agains older kernels but
-> only works on Linux 3.8+ kernels where I have fixed stat to work
-> properly.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
-> 
-> I don't know if this is too soon to send this patch to iproute as the
-> kernel code that fixes stat is currently sitting in my for-next branch
-> of:
-> git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git
-> 
-> and has not hit Linus's tree yet.  Still the code runs and is harmless
-> on older kernels so it should be harmless whatever happens with it.
-> 
->  ip/ipnetns.c        |  141 +++++++++++++++++++++++++++++++++++++++++++++++++++
->  man/man8/ip-netns.8 |    5 ++-
->  2 files changed, 145 insertions(+), 1 deletions(-)
-> 
-> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-> index e41a598..c55fe3a 100644
-> --- a/ip/ipnetns.c
-> +++ b/ip/ipnetns.c
-> @@ -13,6 +13,7 @@
->  #include <dirent.h>
->  #include <errno.h>
->  #include <unistd.h>
-> +#include <ctype.h>
->  
->  #include "utils.h"
->  #include "ip_common.h"
-> @@ -48,6 +49,8 @@ static void usage(void)
->  	fprintf(stderr, "Usage: ip netns list\n");
->  	fprintf(stderr, "       ip netns add NAME\n");
->  	fprintf(stderr, "       ip netns delete NAME\n");
-> +	fprintf(stderr, "       ip netns identify PID\n");
-> +	fprintf(stderr, "       ip netns pids NAME\n");
->  	fprintf(stderr, "       ip netns exec NAME cmd ...\n");
->  	fprintf(stderr, "       ip netns monitor\n");
->  	exit(-1);
-> @@ -171,6 +174,138 @@ static int netns_exec(int argc, char **argv)
->  	exit(-1);
->  }
->  
-> +static int is_pid(const char *str)
-> +{
-> +	int ch;
-> +	for (; (ch = *str); str++) {
-> +		if (!isdigit(ch))
+On 11/27/2012 09:15 AM, Saku Ytti wrote:
+> On 27 November 2012 19:05, Rick Jones <rick.jones2@hp.com> wrote:
+>
+>> Packet reordering is supposed to be the exception, not the rule.
+>> Links which habitually/constantly introduce reordering are, in my
+>> opinion, broken. Optimizing for them would be optimizing an error
+>> case.
+>
+> TCP used to be friendly to reordering before fast retransmit
+> optimization was implemented.
 
-ch must be cast to unsigned char before passing to isdigit().
+It remained "friendly" to reordering even after fast retransmit was 
+implemented - just not to particularly bad reordering.
 
-> +			return 0;
-> +	}
-> +	return 1;
-> +}
-> +
-> +static int netns_pids(int argc, char **argv)
-> +{
-> +	const char *name;
-> +	char net_path[MAXPATHLEN];
-> +	int netns;
-> +	struct stat netst;
-> +	DIR *dir;
-> +	struct dirent *entry;
-> +
-> +	if (argc < 1) {
-> +		fprintf(stderr, "No netns name specified\n");
-> +		return -1;
-> +	}
-> +	if (argc > 1) {
-> +		fprintf(stderr, "extra arguments specified\n");
-> +		return -1;
-> +	}
+And friendly is somewhat relative.  Even before fast retransmit came to 
+be, TCP would immediately ACK each out-of-order segment.
 
-These, and many other return statements in this file which set the
-process exit code, should return 1 (general failure) or 2 (user error)
-rather than -1 (likely to be interpreted as command not found).
+> It seems like minimal complexity in TCP algorithm and would
+> dynamically work correctly depending on situation. It is rather slim
+> comfort that network should work, when it does not, and you cannot
+> affect it.
 
-> +	name = argv[0];
-> +	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
+It is probably considered an "ancient" text these days, but one of the 
+chapter intros for The Mythical Man Month includes a quote from Ovid:
 
-No check for truncation?
+adde parvum parvo magnus acervus erit
 
-> +	netns = open(net_path, O_RDONLY);
+which if recollection serves the book translated as:
 
-This file descriptor is leaked, though that probably doesn't really
-matter.
+add little to little and soon there will be a big pile.
 
-[...]
-> +static int netns_identify(int argc, char **argv)
-> +{
-> +	const char *pidstr;
-> +	char net_path[MAXPATHLEN];
-> +	int netns;
-> +	struct stat netst;
-> +	DIR *dir;
-> +	struct dirent *entry;
-> +
-> +	if (argc < 1) {
-> +		fprintf(stderr, "No pid specified\n");
-> +		return -1;
-> +	}
-> +	if (argc > 1) {
-> +		fprintf(stderr, "extra arguments specified\n");
-> +		return -1;
-> +	}
-> +	pidstr = argv[0];
-> +
-> +	if (!is_pid(pidstr)) {
-> +		fprintf(stderr, "Specified string '%s' is not a pid\n",
-> +			pidstr);
-> +		return -1;
-> +	}
-> +
-> +	snprintf(net_path, sizeof(net_path), "/proc/%s/ns/net", pidstr);
-> +	netns = open(net_path, O_RDONLY);
-> +	if (netns < 0) {
-> +		fprintf(stderr, "Cannot open network namespace: %s\n",
-> +			strerror(errno));
-> +		return -1;
-> +	}
-> +	if (fstat(netns, &netst) < 0) {
-> +		fprintf(stderr, "Stat of netns failed: %s\n",
-> +			strerror(errno));
-> +		return -1;
-> +	}
-> +	dir = opendir(NETNS_RUN_DIR);
-> +	if (!dir)
-> +		return 0;
+> But if the complexity is higher than I expect, then I fully agree,
+> makes no sense to add it. Reason why reordering can happen in modern
+> MPLS network is that you have to essentially duck type your traffic,
+> and sometimes you duck type them wrong and you are then calculating
+> ECMP on incorrect values, causing packets inside flow to take
+> different ports.
 
-Shouldn't this be treated as an error?  Or, if you want it to succeed
-when the kernel does not have netns functionality, then treat it as an
-error if !dir && errno != ENOENT.
+I appreciate that one may not always have "access" and there can be 
+layer 8 and layer 9 issues involved, but if incorrect typing is the root 
+cause of the reordering, treating root cause rather than the symptom is 
+what should happen.  How many kludges, no matter how angelic, can fit in 
+a TCP implementation?
 
-> +	while((entry = readdir(dir))) {
-> +		char name_path[MAXPATHLEN];
-> +		struct stat st;
-> +
-> +		if (strcmp(entry->d_name, ".") == 0)
-> +			continue;
-> +		if (strcmp(entry->d_name, "..") == 0)
-> +			continue;
-> +
-> +		snprintf(name_path, sizeof(name_path), "%s/%s",	NETNS_RUN_DIR,
-> +			entry->d_name);
-> +
-> +		if (stat(name_path, &st) != 0)
-> +			continue;
-> +
-> +		if ((st.st_dev == netst.st_dev) &&
-> +		    (st.st_ino == netst.st_ino)) {
-> +			printf("%s\n", entry->d_name);
-> +		}
-> +	}
-> +	closedir(dir);
-> +	return 0;
-> +	
-> +}
-[...]
+For other reasons (CPU utilization) various stacks (HP-UX, Solaris, some 
+versions of MacOS) have had explicit ACK-avoidance heuristics.  They 
+would back-off from ack-every-other to back-every-N, N >> 2.  The 
+heuristics worked quite well in LAN environments and on bulk flows (eg 
+FTP, ttcp, netperf TCP_STREAM), not necessarily as well in other 
+environments.   One (very necessary) part of the heuristic in those is 
+to go back to ack-every-other when necessary.  That keyed off the 
+standalone ACK timer - if that ever fired the current avoidance count 
+would go back to 2, and the max allowed would be half what it was 
+before.  However, that took a non-trivial performance hit when there was 
+  "tail-drop" and something that wasn't a continuous stream of traffic - 
+the tail got dropped, nothing to cause out-of-order to force immediate 
+ACKs.  (*) Standalone ACK timer is then the only thing getting us back 
+out which means idleness.  I worked a number of "WAN performance 
+problems" involving one of those stacks where part of the solution was 
+turning down the limits on the ack avoidance heuristic by a considerable 
+quantity.  (And I say this as someone with a fondness for the schemes)
 
-It's a shame there isn't a more efficient way to do these lookups.
+I cannot say with certainty your idea would have the same problems but 
+as you look to work-out a solution to propose as a patch, you will have 
+to keep that in mind.
 
-Ben.
+rick
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+* yes, the same holds true for a non-ack-avoiding setup, the heuristic 
+simply made it worse - especially if the sender wanted to send but had 
+gotten limited by cwnd - the ACK(s) of the head of that chunk of data 
+were "avoided" and so wouldn't open the cwnd which might then allow 
+futher segments to enable detection of the dropped segments.  Even 
+without losses it also tended to interact poorly with sending TCPs which 
+wantend to increase the congestion window by one MSS for each ACK rather 
+than based on the quantity of bytes covered by the ACK.
