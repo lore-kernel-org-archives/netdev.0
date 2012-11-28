@@ -1,33 +1,34 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Move an interface to init_ne
-Date: Wed, 28 Nov 2012 10:28:43 -0600
-Message-ID: <87hao9elok.fsf@xmission.com>
-References: <CAJJAcodehJ3x2ZjOuoaV=KrWHH23013b3O20nqh0E1smFvFpHw@mail.gmail.com>
-	<CAChaegnKhq50mS+T7XrP9A1hYZbT7c+WGD=tUpWtUY2c-ngb7w@mail.gmail.com>
-	<CAJJAcofHM+D8_2u-w5jPJZKfeA0A7QOxX1gxTQ2vOgx-L9aZhQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] netfilter updates for net (3.7-rc7)
+Date: Wed, 28 Nov 2012 11:30:20 -0500 (EST)
+Message-ID: <20121128.113020.2017800323701706020.davem@davemloft.net>
+References: <1353978185-3564-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Renato Westphal <renatowestphal@gmail.com>, netdev@vger.kernel.org
-To: David Shwatrz <dshwatrz@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:41989 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752512Ab2K1Q2v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:28:51 -0500
-In-Reply-To: <CAJJAcofHM+D8_2u-w5jPJZKfeA0A7QOxX1gxTQ2vOgx-L9aZhQ@mail.gmail.com>
-	(David Shwatrz's message of "Wed, 28 Nov 2012 17:31:15 +0200")
+Received: from shards.monkeyblade.net ([149.20.54.216]:50159 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753211Ab2K1QaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:30:22 -0500
+In-Reply-To: <1353978185-3564-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Shwatrz <dshwatrz@gmail.com> writes:
+From: pablo@netfilter.org
+Date: Tue, 27 Nov 2012 02:03:04 +0100
 
-> But when I run "modprobe 8139too" on namespace1, a device named "eth1"
-> is created on the initial network namespace and not on namesapce1.
-> I expected that in such a case, a device named "eth0" will be created
-> on namespace1, since it was called from namespace1. Or maybe modprobe
-> does
-> not consider the namespace from which it was called ?
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> 
+> Hi David,
+> 
+> This update contains one patch to fix an overflow via the interface
+> name attribute in the ipset infrastructure, from Florian Westphal.
+> 
+> You can pull this change from:
+> 
+> git://1984.lsi.us.es/nf master
 
-modprobe has no concept of the namespace from which it was called.
-
-Eric
+Pulled, thanks Pablo.
