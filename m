@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2012-11-28
-Date: Wed, 28 Nov 2012 18:05:11 -0500 (EST)
-Message-ID: <20121128.180511.2060174154854501513.davem@davemloft.net>
-References: <20121128192352.GB9118@tuxdriver.com>
+Subject: Re: [PATCH] net: ICMPv6 packets transmitted on wrong interface if
+ nfmark is mangled
+Date: Wed, 28 Nov 2012 18:30:37 -0500 (EST)
+Message-ID: <20121128.183037.1780631404801131036.davem@davemloft.net>
+References: <22884633.2468.1354092935228.JavaMail.driesdw@sahwcmp0020>
+	<14515182.2480.1354093791878.JavaMail.driesdw@sahwcmp0020>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53774 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755990Ab2K1XFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 18:05:12 -0500
-In-Reply-To: <20121128192352.GB9118@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pablo@netfilter.org, kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: dries.dewinter@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <14515182.2480.1354093791878.JavaMail.driesdw@sahwcmp0020>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 28 Nov 2012 14:23:52 -0500
+From: Dries De Winter <dries.dewinter@gmail.com>
+Date: Wed, 28 Nov 2012 10:09:55 +0100 (CET)
 
-> This pull request is intended for the 3.8 stream.  It is a bit large
-> -- I guess Thanksgiving got me off track!  At least the code got to
-> spend some time in linux-next... :-)
+> I propose a patch which allows to mark a dst_entry as "non-reroutable".
+> icmp6_dst_alloc() (used by ndisc and MLD implementation) will always mark the
+> allocated dst_entry as such. A check is added to netfilter (IPv6-only) so
+> packets heading for a non-reroutable destination are never rerouted.
 
-Wow, that's a lot.
+What about addrconf_dst_alloc()?  Shouldn't it have this new flag set
+as well?
 
-Pulled, thanks.
-
-I'll push it out after I do a bunch of build tests.
+Regardless of the answer to that question, it should be explained
+in the commit message.
 
 Thanks.
+
