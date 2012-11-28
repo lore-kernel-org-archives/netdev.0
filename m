@@ -1,41 +1,38 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: Specific question about packet dropping
-Date: Wed, 28 Nov 2012 20:23:32 +0800
-Message-ID: <50B60244.9020605@gmail.com>
-References: <CALZVapnQrH9YvCOh8OnGFs1V28nPfX4p=GK=M0VnqHjZCU8=1Q@mail.gmail.com> <50B5F959.5080000@gmail.com> <CALZVapkZpRRh+ruf-QWbv_pFYtZgdx7US7Zc6x0kgMmmAsnAPg@mail.gmail.com>
+From: Alexey Perevalov <a.perevalov@samsung.com>
+Subject: Question about packet schedulers
+Date: Wed, 28 Nov 2012 16:24:42 +0400
+Message-ID: <50B6028A.3050105@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Javier Domingo <javierdo1@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:53822 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754655Ab2K1MXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 07:23:43 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so9685845pbc.19
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 04:23:42 -0800 (PST)
-In-Reply-To: <CALZVapkZpRRh+ruf-QWbv_pFYtZgdx7US7Zc6x0kgMmmAsnAPg@mail.gmail.com>
+Received: from mailout1.w1.samsung.com ([210.118.77.11]:43089 "EHLO
+	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754566Ab2K1MYp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 07:24:45 -0500
+Received: from eusync3.samsung.com (mailout1.w1.samsung.com [210.118.77.11])
+ by mailout1.w1.samsung.com
+ (Oracle Communications Messaging Server 7u4-24.01(7.0.4.24.0) 64bit (built Nov
+ 17 2011)) with ESMTP id <0ME700JUU6HQUX70@mailout1.w1.samsung.com> for
+ netdev@vger.kernel.org; Wed, 28 Nov 2012 12:25:02 +0000 (GMT)
+Received: from [106.109.9.222] by eusync3.samsung.com
+ (Oracle Communications Messaging Server 7u4-23.01(7.0.4.23.0) 64bit (built Aug
+ 10 2011)) with ESMTPA id <0ME700L7T6H7VG60@eusync3.samsung.com> for
+ netdev@vger.kernel.org; Wed, 28 Nov 2012 12:24:43 +0000 (GMT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Javier Domingo said, at 2012/11/28 19:50:
-> Thank you very much, I (don't know why) thought the packets were being
-> smashed in the dma memory.
+Hello All,
 
-Maybe your kernel/application handles the packets so slower than that
-NIC receives. 
+I need a packet scheduler with very interesting behavior.
 
->> Best Regards
->> Shan Wei
->>
->>>
->>> Javier Domingo
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
->>
->>
-> 
+Such packet scheduler should maximize idle time and send available 
+packets on tiny time frame,
+on huge time frame it should wait and accumulate packets. These time 
+intervals should be tweaked.
+
+
+-- 
+Best regards,
+Alexey Perevalov,
