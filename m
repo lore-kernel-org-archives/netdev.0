@@ -1,40 +1,75 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH v6 5/6] PM / Runtime: force memory allocation with no I/O
- during Runtime PM callbcack
-Date: Wed, 28 Nov 2012 11:06:43 +0800
-Message-ID: <CACVXFVOAt8hrNenEthRZEqv2d6g+gzSPUCBV=RU_u=bxs+9VTw@mail.gmail.com>
-References: <1353761958-12810-1-git-send-email-ming.lei@canonical.com>
-	<1353761958-12810-6-git-send-email-ming.lei@canonical.com>
-	<1354069667.BsTEhItmLz@vostro.rjw.lan>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] net: move inet_dport/inet_num in sock_common
+Date: Wed, 28 Nov 2012 03:12:31 +0000
+Message-ID: <1354072351.2701.41.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1354028815.14302.35.camel@edumazet-glaptop>
+	 <1354037000.2116.19.camel@joe-AO722>
+	 <1354051475.14302.42.camel@edumazet-glaptop>
+	 <1354069414.8918.13.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alan Stern <stern@rowland.harvard.edu>, Oliver Neukum <oneukum@suse.de>,
-	Minchan Kim <minchan@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jens Axboe <axboe@kernel.dk>, "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-mm@kvack.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1354069667.BsTEhItmLz@vostro.rjw.lan>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Ling Ma <ling.ma.program@gmail.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:33619 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053Ab2K1DMe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 22:12:34 -0500
+In-Reply-To: <1354069414.8918.13.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 28, 2012 at 5:24 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
->
-> Please don't duplicate code this way.
->
-> You can move that whole thing to rpm_callback().  Yes, you'll probably need to
-> check dev->power.memalloc_noio twice in there, but that's OK.
+On Tue, 2012-11-27 at 18:23 -0800, Joe Perches wrote:
+> On Tue, 2012-11-27 at 13:24 -0800, Eric Dumazet wrote:
+> > On Tue, 2012-11-27 at 09:23 -0800, Joe Perches wrote:
+> > > On Tue, 2012-11-27 at 07:06 -0800, Eric Dumazet wrote:
+> > > > From: Eric Dumazet <edumazet@google.com>
+> > > > 
+> > > > commit 68835aba4d9b (net: optimize INET input path further)
+> > > > moved some fields used for tcp/udp sockets lookup in the first cache
+> > > > line of struct sock_common.
+> > > []
+> > > > diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+> > > > index 5e11905..196ede4 100644
+> > > > --- a/include/linux/ipv6.h
+> > > > +++ b/include/linux/ipv6.h
+> > > > @@ -365,19 +365,21 @@ static inline struct raw6_sock *raw6_sk(const struct sock *sk)
+> > > >  #endif /* IS_ENABLED(CONFIG_IPV6) */
+> > > >  
+> > > >  #define INET6_MATCH(__sk, __net, __hash, __saddr, __daddr, __ports, __dif)\
+> > > > +	(((__sk)->sk_hash == (__hash)) &&					\
+> > > > +	 ((*((__portpair *)&(inet_sk(__sk)->inet_dport))) == (__ports)) &&	\
+> > > > +	 ((__sk)->sk_family		== AF_INET6)		&&		\
+> > > 
+> > > Perhaps these could be |'d together to avoid the test/jump
+> > > after each comparison by using some bit operations instead.
+> > > 
+> > > > +	 ipv6_addr_equal(&inet6_sk(__sk)->daddr, (__saddr))	&&		\
+> > > > +	 ipv6_addr_equal(&inet6_sk(__sk)->rcv_saddr, (__daddr))	&&		\
+> > > > +	 (!((__sk)->sk_bound_dev_if) || ((__sk)->sk_bound_dev_if == (__dif))) && \
+> > > > +	 net_eq(sock_net(__sk), (__net)))
+> > > 
+> > But it would be wrong.
+> 
+> OK, so it's an and not an or.  Duh.
+[...]
 
-Good idea, I will update it in v7.
+The way to combine these sorts of comparisons is along the lines of:
 
-Thanks,
---
-Ming Lei
+(((left->a ^ right->a) |
+  (left->b ^ right->b) |
+  ...) == 0)
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+But when there are big-endian types involved, sparse is likely to
+complain about combining them.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
