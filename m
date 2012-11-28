@@ -1,58 +1,57 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
-Date: Wed, 28 Nov 2012 00:48:17 +0000
-Message-ID: <1354063697.21562.4.camel@shinybook.infradead.org>
-References: <201211112257.qABMvhP4021769@thirdoffive.cmf.nrl.navy.mil>
-	 <1354022867.26346.334.camel@shinybook.infradead.org>
-	 <20121127102333.68ac3234@thirdoffive.cmf.nrl.navy.mil>
+Subject: Re: [PATCH] br2684: don't send frames on not-ready vcc
+Date: Wed, 28 Nov 2012 00:54:46 +0000
+Message-ID: <1354064086.21562.10.camel@shinybook.infradead.org>
+References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+	 <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
+	 <1354036592.2534.6.camel@shinybook.infradead.org>
+	 <20121127173906.GA11390@shrek.podlesie.net>
+	 <1354039349.2534.11.camel@shinybook.infradead.org>
+	 <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
+	 <1354055783.2534.18.camel@shinybook.infradead.org>
+	 <1354058916.2534.25.camel@shinybook.infradead.org>
+	 <20121127235129.GA20080@shrek.podlesie.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-R+V4R1zN/vdDSiVp7skd"
-Cc: Krzysztof Mazur <krzysiek@podlesie.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+	boundary="=-bWFcB+lRBehhOkEXGv0X"
+Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nathan@traverse.com.au
+To: Krzysztof Mazur <krzysiek@podlesie.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121127102333.68ac3234@thirdoffive.cmf.nrl.navy.mil>
+In-Reply-To: <20121127235129.GA20080@shrek.podlesie.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-R+V4R1zN/vdDSiVp7skd
+--=-bWFcB+lRBehhOkEXGv0X
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2012-11-27 at 10:23 -0500, chas williams - CONTRACTOR wrote:
-> yes, but dont call it 8/7 since that doesnt make sense.
+On Wed, 2012-11-28 at 00:51 +0100, Krzysztof Mazur wrote:
+> If you do this actually it's better to don't use patch 1/7 because
+> it introduces race condition that you found earlier.
 
-It made enough sense when it was a single patch appended to a thread of
-7 other patches from Krzysztof. But now it's all got a little more
-complex, so I've tried to collect together the latest version of
-everything we've discussed:
+Right. I've omitted that from the git tree I just pushed out.
 
- http://git.infradead.org/users/dwmw2/atm.git
-  git://git.infradead.org/users/dwmw2/atm.git
+> With this patch you have still theoretical race that was fixed in patches
+> 5 and 8 in pppoatm series, but I never seen that in practice.
 
-David Woodhouse (5):
-      solos-pci: Wait for pending TX to complete when releasing vcc
-      br2684: don't send frames on not-ready vcc
-      atm: Add release_cb() callback to vcc
-      pppoatm: fix missing wakeup in pppoatm_send()
-      br2684: fix module_put() race
+And I think it's even less likely for br2684. At least with pppoatm you
+might have had pppd sending frames. But for br2684 they *only* come from
+its start_xmit function... which is serialised anyway.
 
-Krzysztof Mazur (6):
-      atm: add owner of push() callback to atmvcc
-      pppoatm: allow assign only on a connected socket
-      pppoatm: fix module_put() race
-      pppoatm: take ATM socket lock in pppoatm_send()
-      pppoatm: drop frames to not-ready vcc
-      pppoatm: do not inline pppoatm_may_send()
+I do get strange oopses when I try to add BQL to br2684, but that's not
+something to be looking at at 1am...
 
+I *do* need the equivalent of your patch 4, which is the module_put
+race.
 
 --=20
 dwmw2
 
 
---=-R+V4R1zN/vdDSiVp7skd
+--=-bWFcB+lRBehhOkEXGv0X
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -153,19 +152,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTI4MDA0ODE3WjAjBgkqhkiG9w0BCQQx
-FgQUFvDEMkXEdPgY2K7OHsVk8q+CPbAwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTI4MDA1NDQ2WjAjBgkqhkiG9w0BCQQx
+FgQU5TCfSegC7mYnV1SO9qja0qF8440wgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAZZOVlSF4+5RFjIoZ19XOs4vih
-dwz+OO9ofkMfOxn4NpmDNJ6jVmBxdCLZM4isGs/SYr2O+EmY2zpQf2nmPD0ETvQde6bTA/whjc/G
-Q6Hgd7b5IYWj98KhOJWUMyHNTOWzsvFdoYV7QzrJR9hPihX1xVMI+CCAR7+ufwxq/LfGvqQ3RxpS
-KrV2WJ0TZteeZSFeQsJZ5EW6ellpXlsXQyWEpOfi2Wjg0YOMdc7HMaymU/U0o6M2qhzMpTAY0g15
-9KEel4R5b8OJsLC0KJ5O27FgOGVPZt+IsqWSF+YXL+txtRFdNI5hPdYbd64WoWWV8eG/5G/RHUJF
-L+q08iZ/fu/iAAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBoETWaRJM0NYTc+pATQGU5GWwW
+f2OerWoRonxFamOsQudriY9ynY/NAjwSyy48PbXlJciIjgfjZOTzgDZ6lax25LgNKhd0JcmjYcwB
+nwRwIMLTEHreJzpE90uPj4sEWXKFE/4Dvdt8Pvuzy/rvHMzR7J3N/6CNuFX2VL88htyulk93Cs/P
+jCDv4OA9WhKAMOeQE3+LYG21lRHY57pTk35LOMh1JIDiwUB2oA/xlKMl1LQ6ooagGe1BnL16eqKr
+TOAGjE+oFs+/kFBEcXS9fFxDClg0nbQx6EXFH2kKkE3tECZWXGhCXQ0jWirsptCGIgGqdQ7U1M1U
+0il0OkGjMNqnAAAAAAAA
 
 
---=-R+V4R1zN/vdDSiVp7skd--
+--=-bWFcB+lRBehhOkEXGv0X--
