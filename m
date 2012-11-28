@@ -1,44 +1,27 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: TCP and reordering
-Date: Wed, 28 Nov 2012 10:52:39 -0800
-Message-ID: <CAGK4HS-OQFGL6FY8jwXgh-pEjtjTo8oV6vTWg=GzFuJ66Lj15g@mail.gmail.com>
-References: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com>
-	<50B4F2DA.8020206@hp.com>
-	<CAAeewD9MtEx4uF6ezbBj7Ci5OzX8VK7p=WQ2TB3PfjmznA4X0w@mail.gmail.com>
-	<20121127.210611.1127622873924794001.davem@davemloft.net>
-	<20121128072611.GA26010@pob.ytti.fi>
-	<CAGK4HS_GVZqoGVjd87N6skM-SBWyPtY-AhiR9FDcR8ty5x6Xbg@mail.gmail.com>
-	<20121128085404.GB26010@pob.ytti.fi>
-	<50B656CC.1040001@hp.com>
-	<1354127585.14302.467.camel@edumazet-glaptop>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [GIT net] Open vSwitch
+Date: Wed, 28 Nov 2012 11:08:25 -0800
+Message-ID: <CAEP_g=__KkOtkEQ9Boe3EWsb5RBpBG7L_X2OLyWCkuXhPEYUtQ@mail.gmail.com>
+References: <1354041423-3050-1-git-send-email-jesse@nicira.com> <20121128.134839.2194749267751942776.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Rick Jones <rick.jones2@hp.com>, Saku Ytti <saku@ytti.fi>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:46412 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755685Ab2K1Swk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 13:52:40 -0500
-Received: by mail-oa0-f46.google.com with SMTP id h16so13713756oag.19
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 10:52:40 -0800 (PST)
-In-Reply-To: <1354127585.14302.467.camel@edumazet-glaptop>
+Received: from na3sys009aog135.obsmtp.com ([74.125.149.84]:54494 "HELO
+	na3sys009aog135.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932081Ab2K1TIq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 14:08:46 -0500
+Received: by mail-oa0-f70.google.com with SMTP id k14so63313733oag.1
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 11:08:45 -0800 (PST)
+In-Reply-To: <20121128.134839.2194749267751942776.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Nov 28, 2012 at 10:48 AM, David Miller <davem@davemloft.net> wrote:
 >
-> Note that this sysctl controls the initial value of the per socket
-> reordering value. It _does_ increase automatically (assuming SACK is
-> enabled of course)
+> Date: Tue, 27 Nov 2012 10:37:01 -0800
 >
->
->
+> Is it really Tuesday morning where you are?
 
-I believe enabling SACK is not a requirement. Even with plain Reno,
-reordering  is tracked in tp->reordering and the reordering event is
-counted in LINUX_MIB_TCPRENOREORDER.
-tcp_add_reno_sack()-->tcp_check_reno_reordering() is the code path.
-
-Thanks,
-Vijay
+Unfortunately, no.  It's VM clock slew, which I've fixed now.
