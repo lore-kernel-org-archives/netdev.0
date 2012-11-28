@@ -1,97 +1,53 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
-Date: Wed, 28 Nov 2012 13:57:33 +0100
-Message-ID: <87wqx528ci.fsf@nemi.mork.no>
-References: <87y5hm9ap5.fsf@nemi.mork.no>
-	<Pine.LNX.4.44L0.1211271443150.1489-100000@iolanthe.rowland.org>
-	<CAKh2mn7+0itrJNxmh6Wv9njGaNOY48N_zfJm6=gTeMoF2VzW4g@mail.gmail.com>
-	<874nka3wgx.fsf@nemi.mork.no>
-	<CAKh2mn5UGRN5U0w_bj25e4VnCwr9kK3f798nHSwmF4WE4dORMw@mail.gmail.com>
-	<87k3t62btw.fsf@nemi.mork.no>
-	<CAKh2mn7VsNYMO-qYyyqR==A2sXjkZo6QXj_kOuem4o1Vu-LLmw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Steve Glendinning <steve@shawell.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 28 Nov 2012 05:06:11 -0800
+Message-ID: <1354107978-24731-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:36213 "EHLO canardo.mork.no"
+Received: from mga09.intel.com ([134.134.136.24]:44342 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754136Ab2K1M5l convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 07:57:41 -0500
-In-Reply-To: <CAKh2mn7VsNYMO-qYyyqR==A2sXjkZo6QXj_kOuem4o1Vu-LLmw@mail.gmail.com>
-	(Steve Glendinning's message of "Wed, 28 Nov 2012 12:43:36 +0000")
+	id S1754843Ab2K1NGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2012 08:06:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steve Glendinning <steve@shawell.net> writes:
+This series contains updates to igb, igbvf and ixgbe.
 
->> Looking at the different ethernet drivers, the normal way do do this
->> seems to be something like this in their .set_wol implementation:
->>
->>         device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
->>
->>
->> where "adapter" is a netdev_priv private struct, "pdev" is a pci dev=
-ice
->> and "wol" is an u32.  I don't see any problem doing the same for USB
->> network devices implementing ethtool "set_wol".
->
-> Ahh, good spot.  I've implemented this (patch below for reference) an=
-d
-> it still doesn't work:
->
->
-> $ cat /sys/bus/usb/devices/2-1.2/power/wakeup
-> disabled
->
-> $ sudo ethtool -s eth2 wol p
->
-> [ 1607.237767] smsc75xx 2-1.2:1.0 eth2: set_wol before
-> device_can_wakeup=3D1 device_may_wakeup=3D0
-> [ 1607.237772] smsc75xx 2-1.2:1.0 eth2: set_wol after
-> device_can_wakeup=3D1 device_may_wakeup=3D1
->
-> $ cat /sys/bus/usb/devices/2-1.2/power/wakeup
-> disabled
->
->
-> Huh?!  My debugging printk statements tell me I've succesfully set it=
-,
-> but then the sysfs entry is disabled when I read it.  Is something
-> else setting this back?
->
-> My testing patch for reference (note this is against my tree with a
-> few to-be submitted patches so won't apply cleanly!):
+The following are changes since commit 03f52a0a554210d5049eeed9f1bb29047dc807cb:
+  ip6mr: Add sizeof verification to MRT6_ASSERT and MT6_PIM
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-[..]
+Alexander Duyck (1):
+  ixgbe: Drop RLPML configuration from x540 RXDCTL register
+    configuration
 
-> @@ -674,8 +653,19 @@ static int smsc75xx_ethtool_set_wol(struct net_d=
-evice *net,
->  {
->   struct usbnet *dev =3D netdev_priv(net);
->   struct smsc75xx_priv *pdata =3D (struct smsc75xx_priv *)(dev->data[=
-0]);
-> + int ret;
-> +
-> + netdev_info(dev->net, "set_wol before device_can_wakeup=3D%d
-> device_may_wakeup=3D%d\n",
-> + device_can_wakeup(&net->dev), device_may_wakeup(&net->dev));
->
->   pdata->wolopts =3D wolinfo->wolopts & SUPPORTED_WAKE;
-> +
-> + ret =3D device_set_wakeup_enable(&net->dev, pdata->wolopts);
+Don Skidmore (1):
+  ixgbe: bump version number
 
-You are touching the network device here.  That should have been the US=
-B
-device.  Try something like
+Greg Rose (1):
+  ixgbe: Make the bridge mode setting sticky
 
- ret =3D device_set_wakeup_enable(&dev->udev->dev, pdata->wolopts);
+Matthew Vick (1):
+  igb: Use a 32-bit mask when calculating the flow control watermarks
 
-instead.
+Mitch A Williams (2):
+  igbvf: work around i350 erratum
+  igbvf: update version number
 
+Neerav Parikh (1):
+  ixgbe: Fix incorrect disabling of Tx hang check in case of PFC
 
+ drivers/net/ethernet/intel/igb/igb_main.c      |  5 ++--
+ drivers/net/ethernet/intel/igbvf/defines.h     |  1 +
+ drivers/net/ethernet/intel/igbvf/igbvf.h       |  2 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c      | 17 +++++++++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 40 ++++++++++++--------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  1 +
+ 7 files changed, 39 insertions(+), 28 deletions(-)
 
-Bj=C3=B8rn
+-- 
+1.7.11.7
