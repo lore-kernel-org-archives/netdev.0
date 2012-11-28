@@ -1,93 +1,82 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH] br2684: don't send frames on not-ready vcc
-Date: Wed, 28 Nov 2012 09:08:04 +0100
-Message-ID: <20121128080804.GA23175@shrek.podlesie.net>
-References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
- <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
- <1354036592.2534.6.camel@shinybook.infradead.org>
- <20121127173906.GA11390@shrek.podlesie.net>
- <1354039349.2534.11.camel@shinybook.infradead.org>
- <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
- <1354055783.2534.18.camel@shinybook.infradead.org>
- <1354058916.2534.25.camel@shinybook.infradead.org>
- <20121127235129.GA20080@shrek.podlesie.net>
- <1354064086.21562.10.camel@shinybook.infradead.org>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: [net-next RFC v2] net_cls: traffic counter based on classification
+ control cgroup
+Date: Wed, 28 Nov 2012 09:09:15 +0100
+Message-ID: <50B5C6AB.6040208@monom.org>
+References: <50B49C6C.8030604@samsung.com> <50B49DEA.7010000@parallels.com> <50B4B9E2.4030200@monom.org> <50B59F54.8080401@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nathan@traverse.com.au
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1354064086.21562.10.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexey Perevalov <a.perevalov-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <50B59F54.8080401-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 28, 2012 at 12:54:46AM +0000, David Woodhouse wrote:
-> On Wed, 2012-11-28 at 00:51 +0100, Krzysztof Mazur wrote:
-> > If you do this actually it's better to don't use patch 1/7 because
-> > it introduces race condition that you found earlier.
-> 
-> Right. I've omitted that from the git tree I just pushed out.
-> 
-> > With this patch you have still theoretical race that was fixed in patches
-> > 5 and 8 in pppoatm series, but I never seen that in practice.
-> 
-> And I think it's even less likely for br2684. At least with pppoatm you
-> might have had pppd sending frames. But for br2684 they *only* come from
-> its start_xmit function... which is serialised anyway.
-> 
-> I do get strange oopses when I try to add BQL to br2684, but that's not
-> something to be looking at at 1am...
-> 
-> I *do* need the equivalent of your patch 4, which is the module_put
-> race.
-> 
+Hi Alexey,
 
-I think you might need also an equivalent of
-"[PATCH v3 3/7] pppoatm: allow assign only on a connected socket".
+On 28.11.2012 06:21, Alexey Perevalov wrote:
+>>> Daniel Wagner is working on something a lot similar.
+>> Yes, basically what I try to do is explained by this excellent article
+>>
+>> https://lwn.net/Articles/523058/
+> I read articles and agreed with aspects.
+> But problem of selecting preferred network for application can be solved 
+> using netprio cgroup.
 
-I'm not sure yet. In will test if I can trigger that Oops on pppoatm
-without that patch. Testing vcc flags might be sufficient - that's
-what I did in the first patch, but you asked what about SOCK_CONNECTED,
-and I think it was really needed.
+Choosing the which network to connect to is job of a connection manager.
+I don't see how a cgroup controller can help you there. I guess I do not 
+understand your statement. Can you rephrase please?
 
-Krzysiek
--- >8 --
-Subject: [PATCH] br2684: allow assign only on a connected socket
+>> The second implementation is adding a new iptables matcher which matches
+>> on LSM contexts. Then you can do something like this:
+>>
+>> iptables -t mangle -A OUTPUT -m secmark --secctx 
+>> unconfined_u:unconfined_r:foo_t:s0-s0:c0.c1023 -j MARK --set-mark 200
+> As I understand in LSM context it works for egress and ingress.
 
-The br2684 does not check if used vcc is in connected state,
-causing potential Oops in pppoatm_send() when vcc->send() is called
-on not fully connected socket.
+Yes, I am using CONNMARK in conjunction with the the above LSM context
+matcher. I am still playing around, but it looks quite promising.
 
-Now br2684 can be assigned only on connected sockets; otherwise
--EINVAL error is returned.
+>>> 2) When Daniel exposed his use case to me, it gave me the impression
+>>> that "counting traffic" is something that is totally doable by having a
+>>> dedicated interface in a separate namespace. Basically, we already count
+>>> traffic (rx and tx) for all interfaces anyway, so it suggests that it
+>>> could be an interesting way to see the problem.
+>> Moving applications into separate net namespaces is for sure a valid 
+>> solution.
+>> Though there is a one drawback in this approach. The namespaces need 
+>> to be
+>> attached to a bridge and then some NATting. That means every application
+>> would get it's own IP address. This might be okay for your certain use
+>> cases but I am still trying to work around this. Glauber and I had some
+>> discussion about this and he suggested to allow the physical networking
+>> device to be attached to several namespaces (e.g. via macvlan). Every
+>> namespace would get the same IP address. Unfortunately, this would 
+>> result in
+>> the same mess as several physical devices on a network get the same
+>> IP address assigned.
+> Is I truly understand what to make statistics works we need to put 
+> process to separate namespace?
 
-Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
----
- net/atm/br2684.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+If a process lives in its own network namespace then you can
+count the packets/bytes on the network interface level. The side effect
+is that is that each namespace is obviously a new network and has to be
+treated as such.
 
-diff --git a/net/atm/br2684.c b/net/atm/br2684.c
-index 59e8edb..e88998c 100644
---- a/net/atm/br2684.c
-+++ b/net/atm/br2684.c
-@@ -704,10 +704,13 @@ static int br2684_ioctl(struct socket *sock, unsigned int cmd,
- 			return -ENOIOCTLCMD;
- 		if (!capable(CAP_NET_ADMIN))
- 			return -EPERM;
--		if (cmd == ATM_SETBACKEND)
-+		if (cmd == ATM_SETBACKEND) {
-+			if (sock->state != SS_CONNECTED)
-+				return -EINVAL;
- 			return br2684_regvcc(atmvcc, argp);
--		else
-+		} else {
- 			return br2684_create(argp);
-+		}
- #ifdef CONFIG_ATM_BR2684_IPFILTER
- 	case BR2684_SETFILT:
- 		if (atmvcc->push != br2684_push)
--- 
-1.8.0.411.g71a7da8
+> Approach to keep counter in cgroup hasn't such side effects, but it has 
+> another ).
+
+cgroups are not for free. Currently a lot of effort is put into getting
+a reasonable performance and behavior into cgroups. In this situation
+any new feature added to cgroups will need a pretty good justification
+why it is needed and why it cant be done with existing infrastructure.
+
+Here is some background information on the state of cgroups:
+
+http://thread.gmane.org/gmane.linux.kernel.containers/23698
+
+cheers,
+daniel
