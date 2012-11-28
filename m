@@ -1,44 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] team: fix hw_features setup
-Date: Wed, 28 Nov 2012 17:13:10 +0100
-Message-ID: <1354119190-16100-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sctp: Error in calculation of RTTvar
+Date: Wed, 28 Nov 2012 11:13:54 -0500 (EST)
+Message-ID: <20121128.111354.177489902452717372.davem@davemloft.net>
+References: <1354115909-24172-1-git-send-email-vyasevich@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:62682 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752240Ab2K1QNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:13:15 -0500
-Received: by mail-ea0-f174.google.com with SMTP id e13so5327866eaa.19
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 08:13:14 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:49972 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553Ab2K1QN5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:13:57 -0500
+In-Reply-To: <1354115909-24172-1-git-send-email-vyasevich@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do this in the same way bonding does. This fixed setup resolves performance
-issues when using some cards with certain offloading.
+From: vyasevich@gmail.com
+Date: Wed, 28 Nov 2012 10:18:29 -0500
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/team/team.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+> From: Schoch Christian <e0326715@student.tuwien.ac.at>
+> 
+> The calculation of RTTVAR involves the subtraction of two unsigned
+> numbers which
+> may causes rollover and results in very high values of RTTVAR when RTT > SRTT.
+> With this patch it is possible to set RTOmin = 1 to get the minimum of RTO at
+> 4 times the clock granularity.
+> 
+> Change Notes:
+> 
+> v2)
+>         *Replaced abs() by abs64() and long by __s64, changed patch
+> description.
+> 
+> Signed-off-by: Christian Schoch <e0326715@student.tuwien.ac.at>
+> CC: Vlad Yasevich <vyasevich@gmail.com>
+> CC: Sridhar Samudrala <sri@us.ibm.com>
+> CC: Neil Horman <nhorman@tuxdriver.com>
+> CC: linux-sctp@vger.kernel.org
+> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+> Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index d44cca3..ad86660 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1794,10 +1794,12 @@ static void team_setup(struct net_device *dev)
- 
- 	dev->features |= NETIF_F_LLTX;
- 	dev->features |= NETIF_F_GRO;
--	dev->hw_features = NETIF_F_HW_VLAN_TX |
-+	dev->hw_features = TEAM_VLAN_FEATURES |
-+			   NETIF_F_HW_VLAN_TX |
- 			   NETIF_F_HW_VLAN_RX |
- 			   NETIF_F_HW_VLAN_FILTER;
- 
-+	dev->hw_features &= ~(NETIF_F_ALL_CSUM & ~NETIF_F_HW_CSUM);
- 	dev->features |= dev->hw_features;
- }
- 
--- 
-1.7.11.7
+Applied, thanks.
