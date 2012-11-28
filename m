@@ -1,179 +1,59 @@
-From: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>
-Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
-Date: Wed, 28 Nov 2012 12:43:36 +0000
-Message-ID: <CAKh2mn7VsNYMO-qYyyqR==A2sXjkZo6QXj_kOuem4o1Vu-LLmw@mail.gmail.com>
-References: <87y5hm9ap5.fsf@nemi.mork.no>
-	<Pine.LNX.4.44L0.1211271443150.1489-100000@iolanthe.rowland.org>
-	<CAKh2mn7+0itrJNxmh6Wv9njGaNOY48N_zfJm6=gTeMoF2VzW4g@mail.gmail.com>
-	<874nka3wgx.fsf@nemi.mork.no>
-	<CAKh2mn5UGRN5U0w_bj25e4VnCwr9kK3f798nHSwmF4WE4dORMw@mail.gmail.com>
-	<87k3t62btw.fsf@nemi.mork.no>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP and reordering
+Date: Wed, 28 Nov 2012 04:52:20 -0800
+Message-ID: <1354107140.14302.140.camel@edumazet-glaptop>
+References: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com>
+	 <50B4F2DA.8020206@hp.com>
+	 <CAAeewD9MtEx4uF6ezbBj7Ci5OzX8VK7p=WQ2TB3PfjmznA4X0w@mail.gmail.com>
+	 <20121127.210611.1127622873924794001.davem@davemloft.net>
+	 <1354089566.21562.20.camel@shinybook.infradead.org>
+	 <CAGK4HS8=NfcyvcNjC3h1wEjgQFCYoNeuWXj8n5Ruukeg+6j=SQ@mail.gmail.com>
+	 <1354093703.21562.23.camel@shinybook.infradead.org>
+	 <1354100552.14302.78.camel@edumazet-glaptop>
+	 <1354103355.21562.46.camel@shinybook.infradead.org>
+	 <1354105619.14302.89.camel@edumazet-glaptop>
+	 <1354106362.21562.51.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87k3t62btw.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Vijay Subramanian <subramanian.vijay@gmail.com>,
+	David Miller <davem@davemloft.net>, saku@ytti.fi,
+	rick.jones2@hp.com, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:45803 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754660Ab2K1MwY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 07:52:24 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y25so9827812iay.19
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 04:52:23 -0800 (PST)
+In-Reply-To: <1354106362.21562.51.camel@shinybook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Looking at the different ethernet drivers, the normal way do do this
-> seems to be something like this in their .set_wol implementation:
->
->         device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
->
->
-> where "adapter" is a netdev_priv private struct, "pdev" is a pci device
-> and "wol" is an u32.  I don't see any problem doing the same for USB
-> network devices implementing ethtool "set_wol".
+On Wed, 2012-11-28 at 12:39 +0000, David Woodhouse wrote:
 
-Ahh, good spot.  I've implemented this (patch below for reference) and
-it still doesn't work:
+> 
+> I'll go back to looking at TSQ, and BQL for PPP. If I have to use
+> skb_orphan() and install a destructor of my own in order to do BQL for
+> PPP, that'll upset TSQ a little. Is there a way we could *chain* the
+> destructors... skb_clone() to put the skbs on the PPP channels' queues,
+> perhaps, then free the original from the PPP destructor? Or is that too
+> much overhead?
+> 
+> I've killed most of the channel queue for PPPoATM and PPPoE now, but
+> L2TP still has a whole load of buffering all the way through the stack
+> again before it really leaves the host.
+> 
+> (And PPPoE will still have the txqueuelen on the Ethernet device too).
+> 
 
+BQL is nice for high speed adapters.
 
-$ cat /sys/bus/usb/devices/2-1.2/power/wakeup
-disabled
+For slow one, you always can stop the queue for each packet given to
+start_xmit()
 
-$ sudo ethtool -s eth2 wol p
+And restart the queue at TX completion.
 
-[ 1607.237767] smsc75xx 2-1.2:1.0 eth2: set_wol before
-device_can_wakeup=1 device_may_wakeup=0
-[ 1607.237772] smsc75xx 2-1.2:1.0 eth2: set_wol after
-device_can_wakeup=1 device_may_wakeup=1
-
-$ cat /sys/bus/usb/devices/2-1.2/power/wakeup
-disabled
-
-
-Huh?!  My debugging printk statements tell me I've succesfully set it,
-but then the sysfs entry is disabled when I read it.  Is something
-else setting this back?
-
-My testing patch for reference (note this is against my tree with a
-few to-be submitted patches so won't apply cleanly!):
-
-
-diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
-index d8fa649..4c17849 100644
---- a/drivers/net/usb/smsc75xx.c
-+++ b/drivers/net/usb/smsc75xx.c
-@@ -61,7 +61,6 @@
- #define SUSPEND_SUSPEND1 (0x02)
- #define SUSPEND_SUSPEND2 (0x04)
- #define SUSPEND_SUSPEND3 (0x08)
--#define SUSPEND_REMOTEWAKE (0x10)
- #define SUSPEND_ALLMODES (SUSPEND_SUSPEND0 | SUSPEND_SUSPEND1 | \
-  SUSPEND_SUSPEND2 | SUSPEND_SUSPEND3)
-
-@@ -172,26 +171,6 @@ static int __must_check smsc75xx_write_reg(struct
-usbnet *dev, u32 index,
-  return __smsc75xx_write_reg(dev, index, data, 0);
- }
-
--static int smsc75xx_set_feature(struct usbnet *dev, u32 feature)
--{
-- if (WARN_ON_ONCE(!dev))
-- return -EINVAL;
--
-- return usbnet_write_cmd_nopm(dev, USB_REQ_SET_FEATURE,
--     USB_DIR_OUT | USB_RECIP_DEVICE,
--     feature, 0, NULL, 0);
--}
--
--static int smsc75xx_clear_feature(struct usbnet *dev, u32 feature)
--{
-- if (WARN_ON_ONCE(!dev))
-- return -EINVAL;
--
-- return usbnet_write_cmd_nopm(dev, USB_REQ_CLEAR_FEATURE,
--     USB_DIR_OUT | USB_RECIP_DEVICE,
--     feature, 0, NULL, 0);
--}
--
- /* Loop until the read is completed with timeout
-  * called with phy_mutex held */
- static __must_check int __smsc75xx_phy_wait_not_busy(struct usbnet *dev,
-@@ -674,8 +653,19 @@ static int smsc75xx_ethtool_set_wol(struct net_device *net,
- {
-  struct usbnet *dev = netdev_priv(net);
-  struct smsc75xx_priv *pdata = (struct smsc75xx_priv *)(dev->data[0]);
-+ int ret;
-+
-+ netdev_info(dev->net, "set_wol before device_can_wakeup=%d
-device_may_wakeup=%d\n",
-+ device_can_wakeup(&net->dev), device_may_wakeup(&net->dev));
-
-  pdata->wolopts = wolinfo->wolopts & SUPPORTED_WAKE;
-+
-+ ret = device_set_wakeup_enable(&net->dev, pdata->wolopts);
-+ check_warn_return(ret, "device_set_wakeup_enable error %d\n", ret);
-+
-+ netdev_info(dev->net, "set_wol after device_can_wakeup=%d
-device_may_wakeup=%d\n",
-+ device_can_wakeup(&net->dev), device_may_wakeup(&net->dev));
-+
-  return 0;
- }
-
-@@ -1197,12 +1187,17 @@ static int smsc75xx_bind(struct usbnet *dev,
-struct usb_interface *intf)
-
-  /* Init all registers */
-  ret = smsc75xx_reset(dev);
-+ check_warn_return(ret, "smsc75xx_reset error %d\n", ret);
-
-  dev->net->netdev_ops = &smsc75xx_netdev_ops;
-  dev->net->ethtool_ops = &smsc75xx_ethtool_ops;
-  dev->net->flags |= IFF_MULTICAST;
-  dev->net->hard_header_len += SMSC75XX_TX_OVERHEAD;
-  dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
-+
-+ ret = device_init_wakeup(&dev->net->dev, 1);
-+ check_warn_return(ret, "device_init_wakeup error %d\n", ret);
-+
-  return 0;
- }
-
-@@ -1262,9 +1257,7 @@ static int smsc75xx_enter_suspend0(struct usbnet *dev)
-  ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
-  check_warn_return(ret, "Error writing PMT_CTL\n");
-
-- smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
--
-- pdata->suspend_flags |= SUSPEND_SUSPEND0 | SUSPEND_REMOTEWAKE;
-+ pdata->suspend_flags |= SUSPEND_SUSPEND0;
-
-  return 0;
- }
-@@ -1291,9 +1284,7 @@ static int smsc75xx_enter_suspend1(struct usbnet *dev)
-  ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
-  check_warn_return(ret, "Error writing PMT_CTL\n");
-
-- smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
--
-- pdata->suspend_flags |= SUSPEND_SUSPEND1 | SUSPEND_REMOTEWAKE;
-+ pdata->suspend_flags |= SUSPEND_SUSPEND1;
-
-  return 0;
- }
-@@ -1348,9 +1339,7 @@ static int smsc75xx_enter_suspend3(struct usbnet *dev)
-  ret = smsc75xx_write_reg_nopm(dev, PMT_CTL, val);
-  check_warn_return(ret, "Error writing PMT_CTL\n");
-
-- smsc75xx_set_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
--
-- pdata->suspend_flags |= SUSPEND_SUSPEND3 | SUSPEND_REMOTEWAKE;
-+ pdata->suspend_flags |= SUSPEND_SUSPEND3;
-
-  return 0;
-  }
-@@ -1650,11 +1639,6 @@ static int smsc75xx_resume(struct usb_interface *intf)
-  /* do this first to ensure it's cleared even in error case */
-  pdata->suspend_flags = 0;
-
-- if (suspend_flags & SUSPEND_REMOTEWAKE) {
-- ret = smsc75xx_clear_feature(dev, USB_DEVICE_REMOTE_WAKEUP);
-- check_warn_return(ret, "Error disabling remote wakeup\n");
-- }
+Some device drivers do that (because the hardware has a single slot, no
+ring buffer, not because they wanted to fight bufferbloat ;) )
