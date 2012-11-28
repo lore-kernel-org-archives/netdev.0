@@ -1,37 +1,57 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: Can set maxrate only for TC0
-Date: Wed, 28 Nov 2012 13:43:15 +0200
-Message-ID: <1354102995-27305-1-git-send-email-amirv@mellanox.com>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, Oren Duer <oren@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: Re: Specific question about packet dropping
+Date: Wed, 28 Nov 2012 19:45:29 +0800
+Message-ID: <50B5F959.5080000@gmail.com>
+References: <CALZVapnQrH9YvCOh8OnGFs1V28nPfX4p=GK=M0VnqHjZCU8=1Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Javier Domingo <javierdo1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:37100 "HELO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754338Ab2K1Ln1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 06:43:27 -0500
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:40180 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754358Ab2K1Lpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 06:45:39 -0500
+Received: by mail-pa0-f46.google.com with SMTP id bh2so6720518pad.19
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 03:45:39 -0800 (PST)
+In-Reply-To: <CALZVapnQrH9YvCOh8OnGFs1V28nPfX4p=GK=M0VnqHjZCU8=1Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Had a typo in memcpy.
+Javier Domingo said, at 2012/11/28 18:40:
+> Hi,
+> 
+> Where are packets dropped?
+> 
+> I reading code I think just found:
+> - In the NIC
+> - In the netif_receive_skb
+> 
+> Is there any other place I can have missed?
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+There is many reasons, following is not whole.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-index 5d367958..b799ab12 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c
-@@ -237,7 +237,7 @@ static int mlx4_en_dcbnl_ieee_setmaxrate(struct net_device *dev,
- 	if (err)
- 		return err;
- 
--	memcpy(priv->maxrate, tmp, sizeof(*priv->maxrate));
-+	memcpy(priv->maxrate, tmp, sizeof(priv->maxrate));
- 
- 	return 0;
- }
--- 
-1.7.8.2
+For receiver:
+1. NIC
+2. __netif_receive_skb(unknown packet type)
+3. ip_rcv(abnormal packet, route reason...)
+4. tcp/udp (unknown port, receive buff limit..)
+
+For Sender:
+1. tcp/udp(send buffer limit)
+2. ip(route reason....)
+3. arp(resolved_discards)
+4. qdisc(queue limit)
+
+
+Best Regards
+Shan Wei
+
+> 
+> Javier Domingo
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
