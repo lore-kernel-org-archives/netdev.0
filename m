@@ -1,96 +1,41 @@
-From: John Greene <jogreene@redhat.com>
-Subject: [RFC PATCH] 8139cp: properly support change of MTU values
-Date: Tue, 27 Nov 2012 15:08:52 -0500
-Message-ID: <1354046932-13606-1-git-send-email-jogreene@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpe-075-189-159-031.nc.res.rr.com ([75.189.159.31]:43739 "EHLO
-	jgpicker" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750763Ab2K1EN6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 23:13:58 -0500
-Received: from localhost.localdomain (localhost.localdomain [127.0.0.1])
-	by jgpicker (8.14.5/8.14.5) with ESMTP id qARK8vtA013642
-	for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 15:08:57 -0500
-Received: (from jogreene@localhost)
-	by localhost.localdomain (8.14.5/8.14.5/Submit) id qARK8uBF013641
-	for netdev@vger.kernel.org; Tue, 27 Nov 2012 15:08:56 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v6 2/6] PM / Runtime: introduce pm_runtime_set_memalloc_noio()
+Date: Wed, 28 Nov 2012 12:34:36 +0800
+Message-ID: <CACVXFVODD9fRqQc3kR58OJm3ERgBWojnx=790xGwu=MPGaSmMA@mail.gmail.com>
+References: <1353761958-12810-1-git-send-email-ming.lei@canonical.com>
+	<1353761958-12810-3-git-send-email-ming.lei@canonical.com>
+	<5434404.G1ERYjuorE@vostro.rjw.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alan Stern <stern@rowland.harvard.edu>, Oliver Neukum <oneukum@suse.de>,
+	Minchan Kim <minchan@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jens Axboe <axboe@kernel.dk>, "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-mm@kvack.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <5434404.G1ERYjuorE@vostro.rjw.lan>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The 8139cp driver has a change_mtu function that has not been
-enabled since the dawn of the git repository. However, the
-generic eth_change_mtu is not used in its place, so that
-invalid MTU values can be set on the interface.
+On Wed, Nov 28, 2012 at 5:19 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+>
+> Please use counters instead of walking the whole path every time.  Ie. in
+> addition to the flag add a counter to store the number of the device's
+> children having that flag set.
 
-Original patch salvages the broken code for the single case of
-setting the MTU while the interface is down, which is safe
-and also includes the range check.  Now enhanced to support up
-or down interface.
+Even though counter is added, walking the whole path can't be avoided too,
+and may be a explicit walking or recursion, because pm_runtime_set_memalloc_noio
+is required to set or clear the flag(or increase/decrease the counter) of
+devices in the whole path.
 
-Original patch from
-http://lkml.indiana.edu/hypermail/linux/kernel/1202.2/00770.html
+Thanks,
+--
+Ming Lei
 
-Testing: has been test on virtual 8139cp setup without issue,
-awaiting real hardware and retest again, but wanted to post now.
-
-Signed-Off-By: "John Greene" <jogreene@redhat.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- drivers/net/ethernet/realtek/8139cp.c | 22 +++-------------------
- 1 file changed, 3 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 6cb96b4..7847c83 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -1226,12 +1226,9 @@ static void cp_tx_timeout(struct net_device *dev)
- 	spin_unlock_irqrestore(&cp->lock, flags);
- }
- 
--#ifdef BROKEN
- static int cp_change_mtu(struct net_device *dev, int new_mtu)
- {
- 	struct cp_private *cp = netdev_priv(dev);
--	int rc;
--	unsigned long flags;
- 
- 	/* check for invalid MTU, according to hardware limits */
- 	if (new_mtu < CP_MIN_MTU || new_mtu > CP_MAX_MTU)
-@@ -1244,22 +1241,11 @@ static int cp_change_mtu(struct net_device *dev, int new_mtu)
- 		return 0;
- 	}
- 
--	spin_lock_irqsave(&cp->lock, flags);
--
--	cp_stop_hw(cp);			/* stop h/w and free rings */
--	cp_clean_rings(cp);
--
-+	/* network IS up, close it, reset MTU, and come up again. */
-+	cp_close(dev);
- 	dev->mtu = new_mtu;
--	cp_set_rxbufsize(cp);		/* set new rx buf size */
--
--	rc = cp_init_rings(cp);		/* realloc and restart h/w */
--	cp_start_hw(cp);
--
--	spin_unlock_irqrestore(&cp->lock, flags);
--
--	return rc;
-+	return cp_open(dev);
- }
--#endif /* BROKEN */
- 
- static const char mii_2_8139_map[8] = {
- 	BasicModeCtrl,
-@@ -1835,9 +1821,7 @@ static const struct net_device_ops cp_netdev_ops = {
- 	.ndo_start_xmit		= cp_start_xmit,
- 	.ndo_tx_timeout		= cp_tx_timeout,
- 	.ndo_set_features	= cp_set_features,
--#ifdef BROKEN
- 	.ndo_change_mtu		= cp_change_mtu,
--#endif
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= cp_poll_controller,
--- 
-1.7.11.7
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
