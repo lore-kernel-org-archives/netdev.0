@@ -1,53 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/7][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 28 Nov 2012 05:06:11 -0800
-Message-ID: <1354107978-24731-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 4/7] ixgbe: Drop RLPML configuration from x540 RXDCTL register configuration
+Date: Wed, 28 Nov 2012 05:06:15 -0800
+Message-ID: <1354107978-24731-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1354107978-24731-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:44342 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:63966 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754843Ab2K1NGW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Nov 2012 08:06:22 -0500
+	id S932097Ab2K1NGY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2012 08:06:24 -0500
+In-Reply-To: <1354107978-24731-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to igb, igbvf and ixgbe.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The following are changes since commit 03f52a0a554210d5049eeed9f1bb29047dc807cb:
-  ip6mr: Add sizeof verification to MRT6_ASSERT and MT6_PIM
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Since we are doing a page based receive there is no point in setting a maximum
+packet length on the x540 RXDCTL register.  As such we can drop the code from
+the driver entirely.
 
-Alexander Duyck (1):
-  ixgbe: Drop RLPML configuration from x540 RXDCTL register
-    configuration
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Marcus Dennis <marcusx.e.dennis@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 --------
+ 1 file changed, 8 deletions(-)
 
-Don Skidmore (1):
-  ixgbe: bump version number
-
-Greg Rose (1):
-  ixgbe: Make the bridge mode setting sticky
-
-Matthew Vick (1):
-  igb: Use a 32-bit mask when calculating the flow control watermarks
-
-Mitch A Williams (2):
-  igbvf: work around i350 erratum
-  igbvf: update version number
-
-Neerav Parikh (1):
-  ixgbe: Fix incorrect disabling of Tx hang check in case of PFC
-
- drivers/net/ethernet/intel/igb/igb_main.c      |  5 ++--
- drivers/net/ethernet/intel/igbvf/defines.h     |  1 +
- drivers/net/ethernet/intel/igbvf/igbvf.h       |  2 +-
- drivers/net/ethernet/intel/igbvf/netdev.c      | 17 +++++++++--
- drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 40 ++++++++++++--------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c |  1 +
- 7 files changed, 39 insertions(+), 28 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 80e3cb7..e6e1245 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3170,14 +3170,6 @@ void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
+ 	ixgbe_configure_srrctl(adapter, ring);
+ 	ixgbe_configure_rscctl(adapter, ring);
+ 
+-	/* If operating in IOV mode set RLPML for X540 */
+-	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) &&
+-	    hw->mac.type == ixgbe_mac_X540) {
+-		rxdctl &= ~IXGBE_RXDCTL_RLPMLMASK;
+-		rxdctl |= ((ring->netdev->mtu + ETH_HLEN +
+-			    ETH_FCS_LEN + VLAN_HLEN) | IXGBE_RXDCTL_RLPML_EN);
+-	}
+-
+ 	if (hw->mac.type == ixgbe_mac_82598EB) {
+ 		/*
+ 		 * enable cache line friendly hardware writes:
 -- 
 1.7.11.7
