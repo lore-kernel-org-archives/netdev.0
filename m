@@ -1,51 +1,76 @@
-From: Javier Domingo <javierdo1@gmail.com>
-Subject: Re: Specific question about packet dropping
-Date: Wed, 28 Nov 2012 17:52:12 +0100
-Message-ID: <CALZVap=jSEnHCYBp_FxdK=jnPORd_qfiaYGa6gVFmqUDHJ2f5A@mail.gmail.com>
-References: <CALZVapnQrH9YvCOh8OnGFs1V28nPfX4p=GK=M0VnqHjZCU8=1Q@mail.gmail.com>
- <50B5F959.5080000@gmail.com> <CALZVapkZpRRh+ruf-QWbv_pFYtZgdx7US7Zc6x0kgMmmAsnAPg@mail.gmail.com>
- <50B60244.9020605@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [net-next RFC] pktgen: don't wait for the device who doesn't
+	free skb immediately after sent
+Date: Wed, 28 Nov 2012 08:53:05 -0800
+Message-ID: <20121128085305.2b0503ce@nehalam.linuxnetplumber.net>
+References: <1353916612-6357-1-git-send-email-jasowang@redhat.com>
+	<20121126093728.0a10f97f@nehalam.linuxnetplumber.net>
+	<50B46179.4040809@redhat.com>
+	<20121127084919.1587c647@nehalam.linuxnetplumber.net>
+	<50B5B3D4.1070106@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Shan Wei <shanwei88@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:52242 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753284Ab2K1Qwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:52:33 -0500
-Received: by mail-vb0-f46.google.com with SMTP id ff1so8248677vbb.19
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 08:52:33 -0800 (PST)
-In-Reply-To: <50B60244.9020605@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <50B5B3D4.1070106@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-I have been reviewing and I think I must have confused terms.
+On Wed, 28 Nov 2012 14:48:52 +0800
+Jason Wang <jasowang@redhat.com> wrote:
 
-Then, inside the kernel, there are no packet drops for legitime ones.
-And I suppose that if an app doesn't read from its socket queue, the
-kernel will drop them in the socket queue?
-Javier Domingo
+> On 11/28/2012 12:49 AM, Stephen Hemminger wrote:
+> > On Tue, 27 Nov 2012 14:45:13 +0800
+> > Jason Wang <jasowang@redhat.com> wrote:
+> >
+> >> On 11/27/2012 01:37 AM, Stephen Hemminger wrote:
+> >>> On Mon, 26 Nov 2012 15:56:52 +0800
+> >>> Jason Wang <jasowang@redhat.com> wrote:
+> >>>
+> >>>> Some deivces do not free the old tx skbs immediately after it has been sent
+> >>>> (usually in tx interrupt). One such example is virtio-net which optimizes for
+> >>>> virt and only free the possible old tx skbs during the next packet sending. This
+> >>>> would lead the pktgen to wait forever in the refcount of the skb if no other
+> >>>> pakcet will be sent afterwards.
+> >>>>
+> >>>> Solving this issue by introducing a new flag IFF_TX_SKB_FREE_DELAY which could
+> >>>> notify the pktgen that the device does not free skb immediately after it has
+> >>>> been sent and let it not to wait for the refcount to be one.
+> >>>>
+> >>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> >>> Another alternative would be using skb_orphan() and skb->destructor.
+> >>> There are other cases where skb's are not freed right away.
+> >>> --
+> >>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >>> the body of a message to majordomo@vger.kernel.org
+> >>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >> Hi Stephen:
+> >>
+> >> Do you mean registering a skb->destructor for pktgen then set and check
+> >> bits in skb->tx_flag?
+> > Yes. Register a destructor that does something like update a counter (number of packets pending),
+> > then just spin while number of packets pending is over threshold.
+> > --
+> 
+> Not sure this is the best method, since pktgen was used to test the tx 
+> process of the device driver and NIC. If we use skb_orhpan(), we would 
+> miss the test of tx completion part.
 
+There are other places that delay freeing and your solution would mean finding
+and fixing all those. Code that does that already has to use skb_orphan() to
+work, and I was looking for a way that could use that. Introducing another flag
+value seems like a long term burden.
 
-2012/11/28 Shan Wei <shanwei88@gmail.com>:
-> Javier Domingo said, at 2012/11/28 19:50:
->> Thank you very much, I (don't know why) thought the packets were being
->> smashed in the dma memory.
->
-> Maybe your kernel/application handles the packets so slower than that
-> NIC receives.
->
->>> Best Regards
->>> Shan Wei
->>>
->>>>
->>>> Javier Domingo
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>>
->>>
->>>
->>
->
+Alternatively, virtio could do cleanup more aggressively. Maybe in response to
+ring getting half full, or add a cleanup timer or something to avoid the problem.
