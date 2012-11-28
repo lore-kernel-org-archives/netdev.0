@@ -1,50 +1,104 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Wed, 28 Nov 2012 16:20:01 -0500
-Message-ID: <20121128162001.3f326720@thirdoffive.cmf.nrl.navy.mil>
-References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
-	<1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
-	<1354036592.2534.6.camel@shinybook.infradead.org>
-	<20121127173906.GA11390@shrek.podlesie.net>
-	<1354039349.2534.11.camel@shinybook.infradead.org>
-	<20121127182843.GA11597@shrek.podlesie.net>
-	<20121128201837.GA912@shrek.podlesie.net>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: [PATCH resend net-next 2/3] myri10ge: Add vlan rx for better GRO
+ perf.
+Date: Wed, 28 Nov 2012 16:20:56 -0500
+Message-ID: <50B68038.5000304@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Krzysztof Mazur <krzysiek@podlesie.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121128201837.GA912@shrek.podlesie.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:36839 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932388Ab2K1VU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 16:20:59 -0500
+Received: by mail-qc0-f174.google.com with SMTP id o22so10089890qcr.19
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 13:20:59 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Nov 2012 21:18:37 +0100
-Krzysztof Mazur <krzysiek@podlesie.net> wrote:
 
-> On Tue, Nov 27, 2012 at 07:28:43PM +0100, Krzysztof Mazur wrote:
-> > I think that we should add atm_pop() function that does that and fix all
-> > drivers.
-> > 
-> 
-> I'm sending a patch that implements that idea.
-> 
-> Currently we need two arguments vcc and skb. However, we have reserved
-> ATM_SKB(skb)->vcc in skb control block for keeping vcc
-> and we can create single argument version vcc_pop(skb). In that case
-> we need to move:
-> 
-> 	ATM_SKB(skb)->vcc = vcc;
-> 
-> from ATM drivers to functions that call atmdev_ops->send().
+Unlike LRO, GRO requires that vlan tags be removed before
+aggregation can occur.  Since the myri10ge NIC does not support
+hardware vlan tag offload, we must remove the tag in the driver
+to achieve performance comparable to LRO for vlan tagged frames.
 
-i dont like the vcc->pop() implementation and at one point i had the
-crazy idea of using skb->destructors to handle it.  however, i think it
-would be necessary to clone the skb's so any existing destructor is
-preserved.
+Thanks to Eric Duzamet for his help simplifying the original patch.
 
-> +#define vcc_pop(vcc, skb) vcc_pop_any(vcc, skb)
-> +#define vcc_pop_irq(vcc, skb) vcc_pop_any(vcc, skb)
+Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+---
+  drivers/net/ethernet/myricom/myri10ge/myri10ge.c |   40 
+++++++++++++++++++++++
+  1 file changed, 40 insertions(+)
 
-don't define these if you dont plan on using them anway.
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c 
+b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index a5ab2f2..93ed089 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -1264,6 +1264,41 @@ myri10ge_unmap_rx_page(struct pci_dev *pdev,
+  	}
+  }
+
++/*
++ * GRO does not support acceleration of tagged vlan frames, and
++ * this NIC does not support vlan tag offload, so we must pop
++ * the tag ourselves to be able to achieve GRO performance that
++ * is comparable to LRO.
++ */
++
++static inline void
++myri10ge_vlan_rx(struct net_device *dev, void *addr, struct sk_buff *skb)
++{
++	u8 *va;
++	struct vlan_ethhdr *veh;
++	struct skb_frag_struct *frag;
++
++	va = addr;
++	va += MXGEFW_PAD;
++	veh = (struct vlan_ethhdr *) va;
++	if ((dev->features & (NETIF_F_HW_VLAN_RX)) == NETIF_F_HW_VLAN_RX &&
++	    (veh->h_vlan_proto == ntohs(ETH_P_8021Q))) {
++		/* fixup csum if needed */
++		if (skb->ip_summed == CHECKSUM_COMPLETE)
++			skb->csum = csum_sub(skb->csum,
++					     csum_partial(va + ETH_HLEN,
++							  VLAN_HLEN, 0));
++		/* pop tag */
++		__vlan_hwaccel_put_tag(skb, ntohs(veh->h_vlan_TCI));
++		memmove(va + VLAN_HLEN, va, 2 * ETH_ALEN);
++		skb->len -= VLAN_HLEN;
++		skb->data_len -= VLAN_HLEN;
++		frag = skb_shinfo(skb)->frags;
++		frag->page_offset += VLAN_HLEN;
++		skb_frag_size_set(frag, skb_frag_size(frag) - VLAN_HLEN);
++	}
++}
++
+  static inline int
+  myri10ge_rx_done(struct myri10ge_slice_state *ss, int len, __wsum csum)
+  {
+@@ -1329,6 +1364,7 @@ myri10ge_rx_done(struct myri10ge_slice_state *ss, 
+int len, __wsum csum)
+  		skb->ip_summed = CHECKSUM_COMPLETE;
+  		skb->csum = csum;
+  	}
++	myri10ge_vlan_rx(mgp->dev, va, skb);
+  	skb_record_rx_queue(skb, ss - &mgp->ss[0]);
+
+  	napi_gro_frags(&ss->napi);
+@@ -3854,6 +3890,10 @@ static int myri10ge_probe(struct pci_dev *pdev, 
+const struct pci_device_id *ent)
+  	netdev->netdev_ops = &myri10ge_netdev_ops;
+  	netdev->mtu = myri10ge_initial_mtu;
+  	netdev->hw_features = mgp->features | NETIF_F_RXCSUM;
++
++	/* fake NETIF_F_HW_VLAN_RX for good GRO performance */
++	netdev->hw_features |= NETIF_F_HW_VLAN_RX;
++
+  	netdev->features = netdev->hw_features;
+
+  	if (dac_enabled)
+-- 
+1.7.9.5
