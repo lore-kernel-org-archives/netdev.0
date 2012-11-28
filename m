@@ -1,53 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/7] ixgbe: Drop RLPML configuration from x540 RXDCTL register configuration
-Date: Wed, 28 Nov 2012 05:06:15 -0800
-Message-ID: <1354107978-24731-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 7/7] ixgbe: bump version number
+Date: Wed, 28 Nov 2012 05:06:18 -0800
+Message-ID: <1354107978-24731-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1354107978-24731-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:63966 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:44979 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932097Ab2K1NGY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Nov 2012 08:06:24 -0500
+	id S932097Ab2K1NG1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2012 08:06:27 -0500
 In-Reply-To: <1354107978-24731-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Since we are doing a page based receive there is no point in setting a maximum
-packet length on the x540 RXDCTL register.  As such we can drop the code from
-the driver entirely.
+Move the version string to better reflect the driver functionality with
+that of the out of tree driver.  Also since we no longer need the MAJ,
+MIN, BUILD defines remove them to clean up the code.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Marcus Dennis <marcusx.e.dennis@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 --------
- 1 file changed, 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 80e3cb7..e6e1245 100644
+index fee0f8c..484bbed 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3170,14 +3170,6 @@ void ixgbe_configure_rx_ring(struct ixgbe_adapter *adapter,
- 	ixgbe_configure_srrctl(adapter, ring);
- 	ixgbe_configure_rscctl(adapter, ring);
- 
--	/* If operating in IOV mode set RLPML for X540 */
--	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) &&
--	    hw->mac.type == ixgbe_mac_X540) {
--		rxdctl &= ~IXGBE_RXDCTL_RLPMLMASK;
--		rxdctl |= ((ring->netdev->mtu + ETH_HLEN +
--			    ETH_FCS_LEN + VLAN_HLEN) | IXGBE_RXDCTL_RLPML_EN);
--	}
--
- 	if (hw->mac.type == ixgbe_mac_82598EB) {
- 		/*
- 		 * enable cache line friendly hardware writes:
+@@ -63,11 +63,7 @@ char ixgbe_default_device_descr[] =
+ static char ixgbe_default_device_descr[] =
+ 			      "Intel(R) 10 Gigabit Network Connection";
+ #endif
+-#define MAJ 3
+-#define MIN 9
+-#define BUILD 15
+-#define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
+-	__stringify(BUILD) "-k"
++#define DRV_VERSION "3.11.33-k"
+ const char ixgbe_driver_version[] = DRV_VERSION;
+ static const char ixgbe_copyright[] =
+ 				"Copyright (c) 1999-2012 Intel Corporation.";
 -- 
 1.7.11.7
