@@ -1,45 +1,47 @@
-From: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>
-Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
-Date: Wed, 28 Nov 2012 08:34:59 +0000
-Message-ID: <CAKh2mn7+0itrJNxmh6Wv9njGaNOY48N_zfJm6=gTeMoF2VzW4g@mail.gmail.com>
-References: <87y5hm9ap5.fsf@nemi.mork.no>
-	<Pine.LNX.4.44L0.1211271443150.1489-100000@iolanthe.rowland.org>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: TCP and reordering
+Date: Wed, 28 Nov 2012 00:35:56 -0800
+Message-ID: <CAGK4HS_GVZqoGVjd87N6skM-SBWyPtY-AhiR9FDcR8ty5x6Xbg@mail.gmail.com>
+References: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com>
+	<50B4F2DA.8020206@hp.com>
+	<CAAeewD9MtEx4uF6ezbBj7Ci5OzX8VK7p=WQ2TB3PfjmznA4X0w@mail.gmail.com>
+	<20121127.210611.1127622873924794001.davem@davemloft.net>
+	<20121128072611.GA26010@pob.ytti.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alan Stern <stern-nwvwT67g6+6dFdvTe/nMLpVzexx5G7lz@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.44L0.1211271443150.1489-100000-IYeN2dnnYyZXsRXLowluHWD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	netdev@vger.kernel.org
+To: Saku Ytti <saku@ytti.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f174.google.com ([209.85.214.174]:42369 "EHLO
+	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752798Ab2K1If4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 03:35:56 -0500
+Received: by mail-ob0-f174.google.com with SMTP id wc20so11778552obb.19
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 00:35:56 -0800 (PST)
+In-Reply-To: <20121128072611.GA26010@pob.ytti.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Alan,
+>
+> My proposal (or question more accurately) was to add 'reorder' counter to
+> sockets, which would increment when duplicate ACK is followed by same
+> sequence twice.
+> Then you could automatically/dynamically delay duplicate acks, as you'd
+> start to expect to receive the frames, out-of-order. Giving non-lossy
+> reordering links pretty much 100% same performance as non-lossy in-order
+> links.
 
->> udev->do_remote_wakeup is set in choose_wakeup() in
->> drivers/usb/core/driver.c.  AFAICS it is always set as long as
->> device_may_wakeup(&udev->dev) is true.
->
-> That's right.  But is device_may_wakeup(&udev->dev) true?
->
-> By default it wouldn't be.  The normal way to set it is for the user or
-> a program to do:
->
->         echo enabled >/sys/bus/usb/devices/.../power/wakeup
->
-> Of course, a driver could disregard the user's choice and set the flag
-> by itself.
+RFC 5681 says that out-of-order packets should be acked immediately.
+Please see section 4.2 for detailed reasoning.
+It also explains why acks should not be delayed too much.
 
-If I set that from userspace the system is able to resume, but I can't
-work out how to successfully set this from the driver.  I believe the
-driver should be overriding this as if the user has asked for the
-device to wake on lan they're expecting this to resume the system.
+Also note that reordering is tracked on the sender side using the per
+flow variable tp->reordering . This measures the amount of reordering
+on the connection so that
+fast retransmit and other loss recovery mechanisms are not entered
+prematurely. Doesn't this behavior at the  sender already provide the
+behavior you seek?
 
-I've tried placing various combinations of device_set_wakeup_capable
-and device_set_wakeup_enable in different places (bind, suspend), but
-it still doesn't allow the device to resume from suspend.  How should
-I do this?
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+Vijay
