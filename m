@@ -1,46 +1,55 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
-Date: Wed, 28 Nov 2012 09:12:37 +0100
-Message-ID: <20121128081237.GA30488@shrek.podlesie.net>
-References: <201211112257.qABMvhP4021769@thirdoffive.cmf.nrl.navy.mil>
- <1354022867.26346.334.camel@shinybook.infradead.org>
- <20121127102333.68ac3234@thirdoffive.cmf.nrl.navy.mil>
- <1354063697.21562.4.camel@shinybook.infradead.org>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: TCP and reordering
+Date: Wed, 28 Nov 2012 09:21:52 +0100
+Message-ID: <2194699.8nM4x1vIbh@cpaasch-mac>
+References: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com> <20121127.210611.1127622873924794001.davem@davemloft.net> <1354089566.21562.20.camel@shinybook.infradead.org>
+Reply-To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, saku@ytti.fi,
+	rick.jones2@hp.com, netdev@vger.kernel.org
 To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1354063697.21562.4.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:47781 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519Ab2K1IV4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 03:21:56 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so5159181eaa.19
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 00:21:55 -0800 (PST)
+In-Reply-To: <1354089566.21562.20.camel@shinybook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 28, 2012 at 12:48:17AM +0000, David Woodhouse wrote:
-> On Tue, 2012-11-27 at 10:23 -0500, chas williams - CONTRACTOR wrote:
-> > yes, but dont call it 8/7 since that doesnt make sense.
-> 
-> It made enough sense when it was a single patch appended to a thread of
-> 7 other patches from Krzysztof. But now it's all got a little more
-> complex, so I've tried to collect together the latest version of
-> everything we've discussed:
+On Wednesday 28 November 2012 07:59:26 David Woodhouse wrote:
+> My 'strange justification' for reordering, albeit not entirely on
+> purpose, is that a single ADSL line at 8Mb/s down, 448Kb/s up is less
+> bandwidth than I had to my dorm room 16 years ago. So I bond two of
+> them, and naturally expect a certain amount of reordering.
 
-There was also discussion about patch 9/7 "pppoatm: wakeup after ATM
-unlock only when it's needed".
+You might want to have a look at MultiPath TCP [1], which allows the us=
+e of=20
+multiple interfaces for a single TCP connection. It is somehow similar =
+to=20
+SCTP-CMT, with the difference that MPTCP is able to pass by today's fir=
+ewalls=20
+and NATs and does not require any modifications to the applications.
 
-> 
->  http://git.infradead.org/users/dwmw2/atm.git
->   git://git.infradead.org/users/dwmw2/atm.git
-> 
-> David Woodhouse (5):
->       atm: Add release_cb() callback to vcc
->       pppoatm: fix missing wakeup in pppoatm_send()
->       br2684: fix module_put() race
 
-for the three patches above:
+E.g., you could install MPTCP on your end host and set up an HTTP-proxy=
+ on a=20
+public web hoster to terminate your MPTCP session -- as servers don't (=
+yet)=20
+support MPTCP, you will have to terminate the MPTCP session somewhere.
 
-Acked-by: Krzysztof Mazur <krzysiek@podlesie.net>
 
-Krzysiek
+Cheers,
+Christoph
+
+[1] http://multipath-tcp.org
+
+--=20
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
+Universit=E9 Catholique de Louvain
+--
