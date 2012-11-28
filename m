@@ -1,8 +1,8 @@
 From: Cong Wang <amwang@redhat.com>
 Subject: Re: [RFC PATCH 2/2] bridge: export multicast database via
 	netlink
-Date: Wed, 28 Nov 2012 12:38:33 +0800
-Message-ID: <1354077513.14447.10.camel@cr0>
+Date: Wed, 28 Nov 2012 13:19:16 +0800
+Message-ID: <1354079956.14447.12.camel@cr0>
 References: <1354009785-20014-1-git-send-email-amwang@redhat.com>
 	<1354009785-20014-2-git-send-email-amwang@redhat.com>
 	<20121127115905.GA16701@casper.infradead.org>
@@ -29,134 +29,59 @@ Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 On Tue, 2012-11-27 at 11:59 +0000, Thomas Graf wrote:
-> On 11/27/12 at 05:49pm, Cong Wang wrote:
-> > +static int br_rports_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
-> > +			       u32 seq, struct net_device *dev)
-> > +{
-> > +	struct net_bridge *br = netdev_priv(dev);
-> > +	struct net_bridge_port *p;
-> > +	struct hlist_node *n;
-> > +	struct nlattr *nest, *nest2;
-> > +
-> > +	if (!br->multicast_router || hlist_empty(&br->router_list)) {
-> > +		printk(KERN_INFO "no router on bridge\n");
-> > +		return 0;
-> > +	}
-> > +
-> > +	nest = nla_nest_start(skb, MDBA_ROUTER);
-> > +	if (nest == NULL)
-> > +		return -EMSGSIZE;
-> > +	nest2 = nla_nest_start(skb, MDBA_MDB_BRPORT);
-> > +	if (nest2 == NULL)
-> > +		goto fail;
-> > +
-> > +	hlist_for_each_entry_rcu(p, n, &br->router_list, rlist) {
-> > +		if (p && nla_put_u16(skb, MDBA_BRPORT_NO, p->port_no)) {
-> > +			nla_nest_cancel(skb, nest2);
-> > +			goto fail;
-> > +		}
-> > +	}
-> > +
-> > +	nla_nest_end(skb, nest2);
-> > +	nla_nest_end(skb, nest);
-> 
-> I would simplify the MDBA_ROUTER attribute to a u16[len(br->router_list)]. If
-> we ever need something more complex we can retire the MDBA_ROUTER
-> attribute and replace it with something newer.
-
-Makes sense, will do.
-
-I wanted to reserve some for adding new attributes to MDBA_ROUTER, but
-so far it is not necessary.
-
-> 
-> > +	nest = nla_nest_start(skb, MDBA_MDB);
-> > +	if (nest == NULL)
-> > +		return -EMSGSIZE;
-> > +
-> > +	for (i = 0; i < mdb->max; i++) {
-> > +		struct hlist_node *h;
-> > +		struct net_bridge_mdb_entry *mp;
-> > +		struct net_bridge_port_group *p, **pp;
-> > +		struct net_bridge_port *port;
-> > +
-> > +		hlist_for_each_entry_rcu(mp, h, &mdb->mhash[i], hlist[mdb->ver]) {
-> > +			if (nla_put_be32(skb, MDBA_MDB_MCADDR, mp->addr.u.ip4))
-> > +				goto fail;
-> > +
-> > +			nest2 = nla_nest_start(skb, MDBA_MDB_BRPORT);
-> > +			if (nest2 == NULL)
-> > +				goto fail;
-> 
-> What if you can't fit all theh hash entries into a single netlink
-> message? You need to allow splitting theh hash across multiple
-> messages. Therefore I suggest that you add a container attribute
-> for each mdb_entry like this:
-> 
-> MDBA_MDB = {
->   1 = {
->     MDBA_MDB_MCADDR = { ... },
->     MDBA_MDB_BRPORT = { ... },
->   },
->   2 = {
->     MDBA_MDB_MCADDR = { ... },
->     MDBA_MDB_BR_PORT = { ... },
->   },
->   [...]
-> }
-
-I thought the user-space will reassemble multiple-part messages, but I
-probably misunderstand this...
-
-Actually I was trying to reduce the size of the netlink message. :)
-
-> 
-> > +static int br_mdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
-> > +{
-> > +	struct net_device *dev;
-> > +	struct net *net = sock_net(skb->sk);
-> > +	struct nlmsghdr *nlh;
-> > +	u32 seq = cb->nlh->nlmsg_seq;
-> > +	int idx = 0, s_idx;
-> > +
-> > +	s_idx = cb->args[0];
-> > +
-> > +	rcu_read_lock();
-> > +	cb->seq = net->dev_base_seq;
 > 
 > Using RCU read lock is OK but that means you must be prepared to
 > handle additions/removals to the table between dump iterations
 > and thus you must introduce a seq counter bumped on each table
 > change and add it to the dev_base_seq above.
 
-Yeah, as you told me before. I will make another patch for this. Thanks
-for reminding!
+Something like this?
 
-> 
-> > +	for_each_netdev_rcu(net, dev) {
-> > +		if (dev->priv_flags & IFF_EBRIDGE) {
-> > +			struct br_port_msg *bpm;
-> > +
-> > +			if (idx < s_idx)
-> > +				goto cont;
-> > +
-> > +			nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid,
-> > +					seq, RTM_GETMDB,
-> > +					sizeof(*bpm), NLM_F_MULTI);
-> > +			if (nlh == NULL)
-> > +				break;
-> > +
-> > +			bpm = nlmsg_data(nlh);
-> > +			bpm->ifindex = dev->ifindex;
-> > +			if (br_mdb_fill_info(skb, cb, seq, dev) < 0) {
-> > +				printk(KERN_INFO "br_mdb_fill_info failed\n");
-> > +				goto fail;
-> 
-> As stated above I believe that you should allow for hashtable to be
-> split across multiple messages so you need to store the hash table
-> offset as well and properly finalize and send the message on error
-> here.
-
-You mean saving the offset into cb->args[1]?
-
-Thanks!
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index dc73091..4c3b097 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -74,6 +74,8 @@ static int br_mdb_fill_info(struct sk_buff *skb,
+struct netlink_callback *cb,
+ 		return 0;
+ 	}
+ 
++	cb->seq = mdb->seq;
++
+ 	nest = nla_nest_start(skb, MDBA_MDB);
+ 	if (nest == NULL)
+ 		return -EMSGSIZE;
+@@ -126,7 +128,6 @@ static int br_mdb_dump(struct sk_buff *skb, struct
+netlink_callback *cb)
+ 	s_idx = cb->args[0];
+ 
+ 	rcu_read_lock();
+-	cb->seq = net->dev_base_seq;
+ 
+ 	for_each_netdev_rcu(net, dev) {
+ 		if (dev->priv_flags & IFF_EBRIDGE) {
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 1e6ce50..ccf5cfb 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -322,6 +322,7 @@ static int br_mdb_rehash(struct
+net_bridge_mdb_htable __rcu **mdbp, int max,
+ 
+ 	mdb->size = old ? old->size : 0;
+ 	mdb->ver = old ? old->ver ^ 1 : 0;
++	mdb->seq = old ? (old->seq + 1): 0;
+ 
+ 	if (!old || elasticity)
+ 		get_random_bytes(&mdb->secret, sizeof(mdb->secret));
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index a02921e..2f5f5b8 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -105,6 +105,7 @@ struct net_bridge_mdb_htable
+ 	u32				max;
+ 	u32				secret;
+ 	u32				ver;
++	u32				seq;
+ };
+ 
+ struct net_bridge_port
