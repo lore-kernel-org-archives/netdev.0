@@ -1,79 +1,34 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
-Date: Wed, 28 Nov 2012 10:31:10 +0100
-Message-ID: <874nka3wgx.fsf@nemi.mork.no>
-References: <87y5hm9ap5.fsf@nemi.mork.no>
-	<Pine.LNX.4.44L0.1211271443150.1489-100000@iolanthe.rowland.org>
-	<CAKh2mn7+0itrJNxmh6Wv9njGaNOY48N_zfJm6=gTeMoF2VzW4g@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: Re: RTL 8169  linux driver question
+Date: Wed, 28 Nov 2012 09:33:59 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70CA@saturn3.aculab.com>
+References: <50AFC971.7010103@free.fr> <50AFCB1D.8080002@free.fr> <AE90C24D6B3A694183C094C60CF0A2F6026B70BD@saturn3.aculab.com> <20121127224605.GA10228@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alan Stern <stern@rowland.harvard.edu>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org
-To: Steve Glendinning <steve@shawell.net>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: =?UTF-8?B?U3TDqXBoYW5lIEFOQ0VMT1Q=?= <sancelot@free.fr>,
+	<netdev@vger.kernel.org>, <sancelot@numalliance.com>,
+	"Hayes Wang" <hayeswang@realtek.com>
+To: "Francois Romieu" <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:33641 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753509Ab2K1JbV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 04:31:21 -0500
-In-Reply-To: <CAKh2mn7+0itrJNxmh6Wv9njGaNOY48N_zfJm6=gTeMoF2VzW4g@mail.gmail.com>
-	(Steve Glendinning's message of "Wed, 28 Nov 2012 08:34:59 +0000")
+Received: from mx0.aculab.com ([213.249.233.131]:46811 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752084Ab2K1JfR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2012 04:35:17 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 19922-03 for <netdev@vger.kernel.org>;
+ Wed, 28 Nov 2012 09:35:08 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20121127224605.GA10228@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Steve Glendinning <steve@shawell.net> writes:
-
->>> udev->do_remote_wakeup is set in choose_wakeup() in
->>> drivers/usb/core/driver.c.  AFAICS it is always set as long as
->>> device_may_wakeup(&udev->dev) is true.
->>
->> That's right.  But is device_may_wakeup(&udev->dev) true?
->>
->> By default it wouldn't be.  The normal way to set it is for the user=
- or
->> a program to do:
->>
->>         echo enabled >/sys/bus/usb/devices/.../power/wakeup
->>
->> Of course, a driver could disregard the user's choice and set the fl=
-ag
->> by itself.
->
-> If I set that from userspace the system is able to resume, but I can'=
-t
-> work out how to successfully set this from the driver.  I believe the
-> driver should be overriding this as if the user has asked for the
-> device to wake on lan they're expecting this to resume the system.
->
-> I've tried placing various combinations of device_set_wakeup_capable
-> and device_set_wakeup_enable in different places (bind, suspend), but
-> it still doesn't allow the device to resume from suspend.  How should
-> I do this?
-
-I may be completely wrong here, but this is how I believe it is suppose=
-d
-to work...  The device can be suspended for two possible reasons:
-
-1) system suspend.  If the user want the device to wake the system, the=
-n
-   (s)he will do
-
-       echo enabled >/sys/bus/usb/devices/.../power/wakeup
-
-   If this isn't set, then there is no reason for the driver to request
-   remote wakeup while the system is suspended.
-
-2) autosuspend.  Any interface driver needing remote wakeup will set
-   intf->needs_remote_wakeup, which makes autosuspend_check() set
-   udev->do_remote_wakeup
-
-
-If all my guesses and assumptions are right, then you want to set
-intf->needs_remote_wakeup unconditionally.  This will make the USB core
-enable remote wakeup on autosuspend.
-
-Remote wakeup will not be enabled on system suspend unless the user (or
-a userspace program on the users behalf) has requested it.
-
-
-Bj=C3=B8rn
+PiArc3RhdGljIHN0cnVjdCBydGxfY29hbGVzY2Vfc2NhbGUgKnJ0bF9jb2FsZXNjZV9zY2FsZShz
+dHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPiArew0KLi4uDQo+ICt9DQo+ICsNCj4gK3N0YXRpYyBp
+bnQgcnRsX2dldF9jb2FsZXNjZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgZXRodG9v
+bF9jb2FsZXNjZSAqZWMpDQo+ICt7DQouLi4NCj4gK30NCj4gKw0KPiArc3RhdGljIGludCBydGxf
+c2V0X2NvYWxlc2NlKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVjdCBldGh0b29sX2NvYWxl
+c2NlICplYykNCj4gK3sNCi4uLg0KPiArfQ0KDQpUaG9zZSBmdW5jdGlvbnMgYXJlIGhvcnJpZCAt
+IHNvIGhvcnJpZCBJJ3ZlIGRlbGV0ZWQgdGhlIGNvbnRlbnRzLg0KDQoJRGF2aWQNCg0K
