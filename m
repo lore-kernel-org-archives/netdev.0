@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qmi_wwan: add Huawei E173
-Date: Wed, 28 Nov 2012 11:24:01 -0500 (EST)
-Message-ID: <20121128.112401.1001144507671878052.davem@davemloft.net>
-References: <1353859439-18260-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH] irda: irttp: fix memory leak in irttp_open_tsap()
+ error path
+Date: Wed, 28 Nov 2012 11:25:55 -0500 (EST)
+Message-ID: <20121128.112555.613351569257823002.davem@davemloft.net>
+References: <1353939404-19264-1-git-send-email-tt.rantala@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	tschaefer@t-online.de
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, samuel@sortiz.org, davej@redhat.com
+To: tt.rantala@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50113 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50127 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752545Ab2K1QYD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:24:03 -0500
-In-Reply-To: <1353859439-18260-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1752173Ab2K1QZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:25:58 -0500
+In-Reply-To: <1353939404-19264-1-git-send-email-tt.rantala@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Sun, 25 Nov 2012 17:03:59 +0100
+From: Tommi Rantala <tt.rantala@gmail.com>
+Date: Mon, 26 Nov 2012 16:16:44 +0200
 
-> The Huawei E173 is a QMI/wwan device which normally appear
-> as 12d1:1436 in Linux. The descriptors displayed in that
-> mode will be picked up by cdc_ether.  But the modem has
-> another mode with a different device ID and a slightly
-> different set of descriptors. This is the mode used by
-> Windows like this:
->=20
-> 3Modem:      USB\VID_12D1&PID_140C&MI_00\6&3A1D2012&0&0000
-> Networkcard: USB\VID_12D1&PID_140C&MI_01\6&3A1D2012&0&0001
-> Appli.Inter: USB\VID_12D1&PID_140C&MI_02\6&3A1D2012&0&0002
-> PC UI Inter: USB\VID_12D1&PID_140C&MI_03\6&3A1D2012&0&0003
->=20
-> Reported-by: Thomas Sch=E4fer <tschaefer@t-online.de>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> Cleanup the memory we allocated earlier in irttp_open_tsap() when we hit
+> this error path. The leak goes back to at least 1da177e4
+> ("Linux-2.6.12-rc2").
+> 
+> Discovered with Trinity (the syscall fuzzer).
+> 
+> Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
 
-Applied.
+Applied, thanks.
