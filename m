@@ -1,38 +1,28 @@
-From: Anders Kaseorg <andersk@MIT.EDU>
-Subject: Re: Wireless regression in workqueue: use mod_delayed_work() instead
- of __cancel + queue
-Date: Wed, 28 Nov 2012 10:17:28 -0500 (EST)
-Message-ID: <alpine.DEB.2.00.1211281016320.26602@dr-wily.mit.edu>
-References: <alpine.DEB.2.00.1211280953350.26602@dr-wily.mit.edu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: "tuntap: multiqueue support" causes udev fork bombs
+Date: Wed, 28 Nov 2012 10:25:49 -0500 (EST)
+Message-ID: <20121128.102549.1498532034068614087.davem@davemloft.net>
+References: <50B5E6A5.6040009@suse.cz>
+	<20121128113043.39a56f22@coolcat.suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jslaby@suse.cz, jasowang@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	maxk@qualcomm.com
+To: rmilasan@suse.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1211280953350.26602@dr-wily.mit.edu>
+In-Reply-To: <20121128113043.39a56f22@coolcat.suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Nov 2012, Anders Kaseorg wrote:
-> My Intel 6250 wireless card (iwldvm) can no longer associate with a 
-> WPA-Enterprise network (PEAP-MSCHAPv2).  To my surprise, I bisected this 
-> regression to commit e7c2f967445dd2041f0f8e3179cca22bb8bb7f79, 
-> workqueue: use mod_delayed_work() instead of __cancel + queue.
-> 
-> A bunch of logs collected by Ubuntu apport are in this bug report: 
->   https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1083980
-> 
-> How can I help to debug this?
-> 
-> I see that someone else reported another regression with the same commit 
-> last week, although this looks unrelated at first glance: 
->   http://thread.gmane.org/gmane.linux.kernel/1395938
-> 
-> Anders
 
-(Oops, re-sending to fix a typo in the LKML address.)
+Please DO NOT quote a huge email, just to give a small reply to the
+discussion.  It is never appropriate.
 
-Anders
+Doing so wastes bandwidth for every single person on the list.
+
+Just quote enough context, and in the case you really could have
+quoted nothing at all and everyone would have understood you.
+
+Thanks.
