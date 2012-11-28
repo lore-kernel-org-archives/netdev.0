@@ -1,68 +1,65 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: [linux-next-20121127 pcnet32] warning at check_unmap()
-Date: Wed, 28 Nov 2012 23:25:10 +0900
-Message-ID: <201211282325.BHI28612.SHJtOLOMOFFFVQ@I-love.SAKURA.ne.jp>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [PATCH][RESEND] bonding: delete migrated IP addresses from the
+ rlb hash table
+Date: Wed, 28 Nov 2012 15:38:53 +0100
+Message-ID: <20121128143853.GA2485@midget.suse.cz>
+References: <20120620203731.GA4957@midget.suse.cz>
+ <2699.1340319919@death.nxdomain>
+ <20121123124419.GA3002@midget.suse.cz>
+ <26343.1354064725@death.nxdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: pcnet32@frontier.com
+Cc: Jiri Bohac <jbohac@suse.cz>, Andy Gospodarek <andy@greyhouse.net>,
+	netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:62709 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755389Ab2K1OZN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 09:25:13 -0500
+Received: from cantor2.suse.de ([195.135.220.15]:48743 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755319Ab2K1Oi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2012 09:38:57 -0500
+Content-Disposition: inline
+In-Reply-To: <26343.1354064725@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dma_mapping_error() check seems to be missing at
+On Tue, Nov 27, 2012 at 05:05:25PM -0800, Jay Vosburgh wrote:
+> Jiri Bohac <jbohac@suse.cz> wrote:
 
-  static netdev_tx_t pcnet32_start_xmit(struct sk_buff *skb,
-                                        struct net_device *dev)
-  {
-(...snipped...)
-  	lp->tx_skbuff[entry] = skb;
-  	lp->tx_dma_addr[entry] =
-  	    pci_map_single(lp->pci_dev, skb->data, skb->len, PCI_DMA_TODEVICE);
-// this line
-  	lp->tx_ring[entry].base = cpu_to_le32(lp->tx_dma_addr[entry]);
-  	wmb();                  /* Make sure owner changes after all others are visible */
-  	lp->tx_ring[entry].status = cpu_to_le16(status);
-(...snipped...)
-  }
+> >Were there any results of your testing?  Good or bad?
+> 
+> 	I did test it quite a bit (and then neglected to follow up).  I
+> tried various deliberate hash collisions to try and make it fail in a
+> corner case, but was unable to induce incorrect behavior.
 
-but I don't know how to fix.
+Thanks for the review!
 
-[   20.908272] NET: Registered protocol family 10
-[   21.627711] pcnet32 0000:02:01.0 eth0: link up
-[   22.573436] ------------[ cut here ]------------
-[   22.574952] WARNING: at lib/dma-debug.c:933 check_unmap+0x4a6/0x920()
-[   22.575669] Hardware name: VMware Virtual Platform
-[   22.575669] pcnet32 0000:02:01.0: DMA-API: device driver failed to check map error[device address=0x000000001a3607f2] [size=90 bytes] [mapped as single]
-[   22.575669] Modules linked in: ipv6 binfmt_misc
-[   22.575669] Pid: 0, comm: swapper/1 Not tainted 3.7.0-rc7-next-20121127 #91
-[   22.575669] Call Trace:
-[   22.575669]  [<c103370d>] warn_slowpath_common+0x6d/0xa0
-[   22.575669]  [<c1249b46>] ? check_unmap+0x4a6/0x920
-[   22.575669]  [<c1249b46>] ? check_unmap+0x4a6/0x920
-[   22.575669]  [<c10337be>] warn_slowpath_fmt+0x2e/0x30
-[   22.575669]  [<c1249b46>] check_unmap+0x4a6/0x920
-[   22.575669]  [<c124a1bb>] debug_dma_unmap_page+0x5b/0x80
-[   22.575669]  [<c13199be>] pcnet32_poll+0x45e/0x850
-[   22.575669]  [<c105dc30>] ? __wake_up+0x40/0x50
-[   22.575669]  [<c138dc70>] net_rx_action+0x90/0x140
-[   22.575669]  [<c103b6f8>] __do_softirq+0x98/0x160
-[   22.575669]  [<c103b660>] ? irq_enter+0x60/0x60
-[   22.575669]  <IRQ>  [<c103b52d>] ? irq_exit+0x7d/0x80
-[   22.575669]  [<c1023cb4>] ? smp_apic_timer_interrupt+0x54/0x90
-[   22.575669]  [<c1230fb4>] ? trace_hardirqs_off_thunk+0xc/0x18
-[   22.575669]  [<c144c47e>] ? apic_timer_interrupt+0x32/0x38
-[   22.575669]  [<c100a071>] ? default_idle+0x21/0x40
-[   22.575669]  [<c100a729>] ? cpu_idle+0x69/0xc0
-[   22.575669]  [<c1444e7e>] ? start_secondary+0x1b5/0x1bc
-[   22.575669] ---[ end trace d906affb5c70936d ]---
-[   22.575669] Mapped at:
-[   22.575669]  [<c124a4c8>] debug_dma_map_page+0x68/0x140
-[   22.575669]  [<c131acbb>] pcnet32_start_xmit+0x12b/0x220
-[   22.575669]  [<c138bea6>] dev_hard_start_xmit+0x1d6/0x3d0
-[   22.575669]  [<c13a3bc9>] sch_direct_xmit+0x99/0x240
-[   22.575669]  [<c138e003>] dev_queue_xmit+0x143/0x5f0
+> 	The only issue I see is that a number of added lines run past 80
+> columns, e.g.,
+> 
+> +		if (!(client_info->assigned && client_info->ip_src == arp->ip_src)) {
+> +			/* ip_src is going to be updated, fix the src hash list */
+> +			u32 hash_src = _simple_hash((u8 *)&arp->ip_src, sizeof(arp->ip_src));
+> 
+> +	 * sending out client updates with this IP address and the old MAC address.
+> 
+> +	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->used_next) {
+> 
+> 	... and so on. 
+
+I'll re-send a new version with all the >80 column lines fixed.
+
+> I did not compile and test this version, just
+> applied it and inspected it; presumably it is functionally identical to
+> the prior version. 
+
+Yes, it's identical, only the comments and formatting changed.
+
+> There's also one typo I noted near the end of the
+> patch.
+
+Fixed as well. Thanks!
+
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
