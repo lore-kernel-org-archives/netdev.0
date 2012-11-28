@@ -1,57 +1,50 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH v6 2/6] PM / Runtime: introduce pm_runtime_set_memalloc_noio()
-Date: Wed, 28 Nov 2012 11:15:05 +0100
-Message-ID: <2662154.Tcp7v84XkT@vostro.rjw.lan>
-References: <1353761958-12810-1-git-send-email-ming.lei@canonical.com> <1408044.6czCGhbHJH@vostro.rjw.lan> <CACVXFVOk45wr8jv3w=KO7uTThGSTSkq0FRsPD6p_AyQZLWGQJg@mail.gmail.com>
+From: Einar Lueck <elelueck@linux.vnet.ibm.com>
+Subject: Re: [RFC PATCH] tcp: introduce raw access to experimental options
+Date: Wed, 28 Nov 2012 11:12:27 +0100
+Message-ID: <50B5E38B.4020107@linux.vnet.ibm.com>
+References: <1353084898-42264-1-git-send-email-elelueck@linux.vnet.ibm.com> <20121116.134424.1929556546744828875.davem@davemloft.net> <50ACE496.20705@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Oliver Neukum <oneukum@suse.de>,
-	Minchan Kim <minchan@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jens Axboe <axboe@kernel.dk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-mm@kvack.org
-To: Ming Lei <ming.lei@canonical.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <CACVXFVOk45wr8jv3w=KO7uTThGSTSkq0FRsPD6p_AyQZLWGQJg@mail.gmail.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, frankbla@de.ibm.com, raspl@de.ibm.com,
+	ubacher@de.ibm.com, samudrala@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:53572 "EHLO
+	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753507Ab2K1KMd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 05:12:33 -0500
+Received: from /spool/local
+	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <elelueck@linux.vnet.ibm.com>;
+	Wed, 28 Nov 2012 10:12:32 -0000
+Received: from d06av07.portsmouth.uk.ibm.com (d06av07.portsmouth.uk.ibm.com [9.149.37.248])
+	by b06cxnps4076.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id qASACLqC1835356
+	for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 10:12:21 GMT
+Received: from d06av07.portsmouth.uk.ibm.com (d06av07.portsmouth.uk.ibm.com [127.0.0.1])
+	by d06av07.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id qAS9QFIA013268
+	for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 04:26:15 -0500
+In-Reply-To: <50ACE496.20705@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, November 28, 2012 05:47:18 PM Ming Lei wrote:
-> On Wed, Nov 28, 2012 at 5:29 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> >
-> > But it doesn't have to walk the children.  Moreover, with counters it only
-> 
-> Yeah, I got it, it is the advantage of counter, but with extra 'int'
-> field introduced
-> in 'struct device'.
-> 
-> > needs to walk the whole path if all devices in it need to be updated.  For
-> > example, if you call pm_runtime_set_memalloc_noio(dev, true) for a device
-> > whose parent's counter is greater than zero already, you don't need to
-> > walk the path above the parent.
-> 
-> We still can do it with the flag only, pm_runtime_set_memalloc_noio(dev, true)
-> can return immediately if one parent or the 'dev' flag is true.
-> 
-> But considered that the pm_runtime_set_memalloc_noio(dev, false) is only
-> called in a very infrequent path(network/block device->remove()), looks the
-> introduced cost isn't worthy of the obtained advantage.
-> 
-> So could you accept not introducing counter? and I will update with the
-> above improvement you suggested.
+On 11/21/2012 03:26 PM, Einar Lueck wrote:
+> On 11/16/2012 07:44 PM, David Miller wrote:
+>>
+>> Unprivileged access to set and fetch these things?  I don't think
+>> that's a good idea.
+>>
+>> Also, your code has a lot of coding style errors.
+>>
+>
+> Would a restriction to a CAP_NET_ADMIN like privilege level address and
+> resolve your concerns?
+>
+> Thx,
+> Einar.
 
-Well, please see my other message I sent a while ago. :-)
+Would CAP_NET_ADMIN address your concerns? If would go ahead then and 
+work on a corresponding new version of the patch.
 
-Thanks,
-Rafael
-
-
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+Thx,
+Einar.
