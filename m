@@ -1,34 +1,54 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: Re: RTL 8169  linux driver question
-Date: Wed, 28 Nov 2012 09:33:59 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70CA@saturn3.aculab.com>
-References: <50AFC971.7010103@free.fr> <50AFCB1D.8080002@free.fr> <AE90C24D6B3A694183C094C60CF0A2F6026B70BD@saturn3.aculab.com> <20121127224605.GA10228@electric-eye.fr.zoreil.com>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v6 2/6] PM / Runtime: introduce pm_runtime_set_memalloc_noio()
+Date: Wed, 28 Nov 2012 17:47:18 +0800
+Message-ID: <CACVXFVOk45wr8jv3w=KO7uTThGSTSkq0FRsPD6p_AyQZLWGQJg@mail.gmail.com>
+References: <1353761958-12810-1-git-send-email-ming.lei@canonical.com>
+	<5434404.G1ERYjuorE@vostro.rjw.lan>
+	<CACVXFVODD9fRqQc3kR58OJm3ERgBWojnx=790xGwu=MPGaSmMA@mail.gmail.com>
+	<1408044.6czCGhbHJH@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: =?UTF-8?B?U3TDqXBoYW5lIEFOQ0VMT1Q=?= <sancelot@free.fr>,
-	<netdev@vger.kernel.org>, <sancelot@numalliance.com>,
-	"Hayes Wang" <hayeswang@realtek.com>
-To: "Francois Romieu" <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:46811 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752084Ab2K1JfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Nov 2012 04:35:17 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 19922-03 for <netdev@vger.kernel.org>;
- Wed, 28 Nov 2012 09:35:08 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20121127224605.GA10228@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alan Stern <stern@rowland.harvard.edu>, Oliver Neukum <oneukum@suse.de>,
+	Minchan Kim <minchan@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jens Axboe <axboe@kernel.dk>, "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-mm@kvack.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1408044.6czCGhbHJH@vostro.rjw.lan>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-PiArc3RhdGljIHN0cnVjdCBydGxfY29hbGVzY2Vfc2NhbGUgKnJ0bF9jb2FsZXNjZV9zY2FsZShz
-dHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPiArew0KLi4uDQo+ICt9DQo+ICsNCj4gK3N0YXRpYyBp
-bnQgcnRsX2dldF9jb2FsZXNjZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgZXRodG9v
-bF9jb2FsZXNjZSAqZWMpDQo+ICt7DQouLi4NCj4gK30NCj4gKw0KPiArc3RhdGljIGludCBydGxf
-c2V0X2NvYWxlc2NlKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVjdCBldGh0b29sX2NvYWxl
-c2NlICplYykNCj4gK3sNCi4uLg0KPiArfQ0KDQpUaG9zZSBmdW5jdGlvbnMgYXJlIGhvcnJpZCAt
-IHNvIGhvcnJpZCBJJ3ZlIGRlbGV0ZWQgdGhlIGNvbnRlbnRzLg0KDQoJRGF2aWQNCg0K
+On Wed, Nov 28, 2012 at 5:29 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+>
+> But it doesn't have to walk the children.  Moreover, with counters it only
+
+Yeah, I got it, it is the advantage of counter, but with extra 'int'
+field introduced
+in 'struct device'.
+
+> needs to walk the whole path if all devices in it need to be updated.  For
+> example, if you call pm_runtime_set_memalloc_noio(dev, true) for a device
+> whose parent's counter is greater than zero already, you don't need to
+> walk the path above the parent.
+
+We still can do it with the flag only, pm_runtime_set_memalloc_noio(dev, true)
+can return immediately if one parent or the 'dev' flag is true.
+
+But considered that the pm_runtime_set_memalloc_noio(dev, false) is only
+called in a very infrequent path(network/block device->remove()), looks the
+introduced cost isn't worthy of the obtained advantage.
+
+So could you accept not introducing counter? and I will update with the
+above improvement you suggested.
+
+Thanks,
+--
+Ming Lei
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
