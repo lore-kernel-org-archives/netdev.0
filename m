@@ -1,226 +1,171 @@
-From: =?UTF-8?B?U3TDqXBoYW5lIEFOQ0VMT1Q=?= <sancelot@free.fr>
-Subject: Re: RTL 8169  linux driver question
-Date: Wed, 28 Nov 2012 01:35:18 +0100
-Message-ID: <50B55C46.9090400@free.fr>
-References: <50AFC971.7010103@free.fr> <50AFCB1D.8080002@free.fr> <AE90C24D6B3A694183C094C60CF0A2F6026B70BD@saturn3.aculab.com> <20121127224605.GA10228@electric-eye.fr.zoreil.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
+Date: Wed, 28 Nov 2012 00:48:17 +0000
+Message-ID: <1354063697.21562.4.camel@shinybook.infradead.org>
+References: <201211112257.qABMvhP4021769@thirdoffive.cmf.nrl.navy.mil>
+	 <1354022867.26346.334.camel@shinybook.infradead.org>
+	 <20121127102333.68ac3234@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	=?UTF-8?B?U3TDqXBoYW5lIEFOQ0VM?= =?UTF-8?B?T1Q=?=
-	<sancelot@numalliance.com>, netdev@vger.kernel.org,
-	Hayes Wang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1-g21.free.fr ([212.27.42.1]:54624 "EHLO smtp1-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753412Ab2K1Afc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Nov 2012 19:35:32 -0500
-In-Reply-To: <20121127224605.GA10228@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 27/11/2012 23:46, Francois Romieu wrote:
-> David Laight <David.Laight@ACULAB.COM> :
->> St=C3=A9phane ANCELOT <sancelot@free.fr> :
->>> I had problem with it, my application sends a frame that is immedia=
-tely
->>> transmitted back by some slaves, there was abnormally 100us  lost
->>> between the send and receive call.
->>>
->>> Finally I found it was coming from the following register setup in =
-the
->>> driver :
->>>
->>> RTL_W16(IntrMitigate, 0x5151);
->>>
->>> Can you give me some details about it, since I do not have the RTL8=
-169
->>> programming guide.
->> That sounds like an 'interrupt mitigation' setting - which will caus=
-e
->> RX interrupts to be delayed a short time in order to reduce the
->> interrupt load on the kernel.
->>
->> There is usually an 'ethtool' setting to disable interrupt mitigatio=
-n.
-> Something like the patch below against net-next could help once I wil=
-l
-> have tested it.
->
-> I completely guessed the Tx usec scale factor at gigabit speed (125 u=
-s,
-> 100 us, disabled, who knows ?) and I have no idea which specific chip=
-sets
-> it should work with.
-using 0x5151 value at 100mb FDX, I know it introduced exactly 100us=20
-delay (Tx+Rx).
+Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
+	boundary="=-R+V4R1zN/vdDSiVp7skd"
+Cc: Krzysztof Mazur <krzysiek@podlesie.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121127102333.68ac3234@thirdoffive.cmf.nrl.navy.mil>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> Hayes, may I expect some hindsight regarding:
-> 1 - the availability of the IntrMitigate (0xe2) register through the
->      8169, 8168 and 810x line of chipsets
-> 2 - the Tx timer unit at gigabit speed
->
-> It would save me some time.*
-Hayes, it would have spared myself a lot of time ;-)
+--=-R+V4R1zN/vdDSiVp7skd
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Have a look at what is driving this r8169 component :
+On Tue, 2012-11-27 at 10:23 -0500, chas williams - CONTRACTOR wrote:
+> yes, but dont call it 8/7 since that doesnt make sense.
 
-http://www.youtube.com/watch?v=3Dwj30CeAFwuk&feature=3Dplcp
-A question to nic components developers : I do not understand what=20
-competitive advantage keeping these things like a secret....
+It made enough sense when it was a single patch appended to a thread of
+7 other patches from Krzysztof. But now it's all got a little more
+complex, so I've tried to collect together the latest version of
+everything we've discussed:
 
-These things are mostly boring for people and oem like myself at=20
-Numalliance.
+ http://git.infradead.org/users/dwmw2/atm.git
+  git://git.infradead.org/users/dwmw2/atm.git
 
-Regards,
-Stephane Ancelot
+David Woodhouse (5):
+      solos-pci: Wait for pending TX to complete when releasing vcc
+      br2684: don't send frames on not-ready vcc
+      atm: Add release_cb() callback to vcc
+      pppoatm: fix missing wakeup in pppoatm_send()
+      br2684: fix module_put() race
 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ether=
-net/realtek/r8169.c
-> index 248f883..2623b73 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -349,6 +349,12 @@ enum rtl_registers {
->   	RxMaxSize	=3D 0xda,
->   	CPlusCmd	=3D 0xe0,
->   	IntrMitigate	=3D 0xe2,
-> +
-> +#define RTL_COALESCE_MASK	0x0f
-> +#define RTL_COALESCE_SHIFT	4
-> +#define RTL_COALESCE_T_MAX	(RTL_COALESCE_MASK)
-> +#define RTL_COALESCE_FRAME_MAX	(RTL_COALESCE_MASK << 2)
-> +
->   	RxDescAddrLow	=3D 0xe4,
->   	RxDescAddrHigh	=3D 0xe8,
->   	EarlyTxThres	=3D 0xec,	/* 8169. Unit of 32 bytes. */
-> @@ -1997,10 +2003,121 @@ static void rtl8169_get_strings(struct net_d=
-evice *dev, u32 stringset, u8 *data)
->   	}
->   }
->  =20
-> +static struct rtl_coalesce_scale {
-> +	u32 speed;
-> +	/* Rx / Tx */
-> +	u16 usecs[2];
-> +} rtl_coalesce_info[] =3D {
-> +	{ .speed =3D SPEED_10,	.usecs =3D { 8000, 10000 } },
-> +	{ .speed =3D SPEED_100,	.usecs =3D { 1000,  1000 } },
-> +	{ .speed =3D SPEED_1000,	.usecs =3D {  125,   125 } }
-> +};
-> +
-> +static struct rtl_coalesce_scale *rtl_coalesce_scale(struct net_devi=
-ce *dev)
-> +{
-> +	struct ethtool_cmd ecmd;
-> +	int rc, i;
-> +
-> +	rc =3D rtl8169_get_settings(dev, &ecmd);
-> +	if (rc < 0)
-> +		return ERR_PTR(rc);
-> +
-> +	for (i =3D 0; i < ARRAY_SIZE(rtl_coalesce_info); i++) {
-> +		if (ethtool_cmd_speed(&ecmd) =3D=3D rtl_coalesce_info[i].speed)
-> +			return rtl_coalesce_info + i;
-> +	}
-> +
-> +	return ERR_PTR(-EINVAL);
-> +}
-> +
-> +static int rtl_get_coalesce(struct net_device *dev, struct ethtool_c=
-oalesce *ec)
-> +{
-> +	struct rtl8169_private *tp =3D netdev_priv(dev);
-> +	void __iomem *ioaddr =3D tp->mmio_addr;
-> +	struct rtl_coalesce_scale *scale;
-> +	struct {
-> +		u32 *max_frames;
-> +		u32 *usecs;
-> +	} coal_settings [] =3D {
-> +		{ &ec->rx_max_coalesced_frames, &ec->rx_coalesce_usecs },
-> +		{ &ec->tx_max_coalesced_frames, &ec->tx_coalesce_usecs }
-> +	}, *p =3D coal_settings;
-> +	int i;
-> +	u16 w;
-> +
-> +	memset(ec, 0, sizeof(*ec));
-> +
-> +	for (w =3D RTL_R16(IntrMitigate); w; w >>=3D RTL_COALESCE_SHIFT, p+=
-+) {
-> +		*p->max_frames =3D (w & RTL_COALESCE_MASK) << 2;
-> +		w >>=3D RTL_COALESCE_SHIFT;
-> +		*p->usecs =3D w & RTL_COALESCE_MASK;
-> +	}
-> +
-> +	/* Except for null parameeters, the meaning of coalescing parameter=
-s
-> +	 * depends on the link speed.
-> +	 */
-> +	scale =3D rtl_coalesce_scale(dev);
-> +	if (PTR_ERR(scale) && (p !=3D coal_settings))
-> +		return PTR_ERR(scale);
-> +
-> +	for (i =3D 0; i < 2; i++) {
-> +		p =3D coal_settings + i;
-> +		*p->usecs *=3D scale->usecs[i];
-> +		if (!*p->usecs && !*p->max_frames)
-> +			*p->max_frames =3D 1;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int rtl_set_coalesce(struct net_device *dev, struct ethtool_c=
-oalesce *ec)
-> +{
-> +	struct rtl8169_private *tp =3D netdev_priv(dev);
-> +	void __iomem *ioaddr =3D tp->mmio_addr;
-> +	struct rtl_coalesce_scale *scale;
-> +	struct {
-> +		u32 frames;
-> +		u32 usecs;
-> +	} coal_settings [] =3D {
-> +		{ ec->rx_max_coalesced_frames, ec->rx_coalesce_usecs },
-> +		{ ec->tx_max_coalesced_frames, ec->tx_coalesce_usecs }
-> +	}, *p =3D coal_settings;
-> +	int i, rc;
-> +	u16 w =3D 0;
-> +
-> +	scale =3D rtl_coalesce_scale(dev);
-> +	rc =3D PTR_ERR(scale);
-> +
-> +	for (i =3D 0; i < 2; i++) {
-> +		u32 units;
-> +
-> +		if (!p->usecs && p->frames =3D=3D 1)
-> +			continue;
-> +		if (rc < 0)
-> +			goto out;
-> +
-> +		units =3D p->usecs / scale->usecs[i];
-> +		if (units > RTL_COALESCE_T_MAX || p->usecs % scale->usecs[i] ||
-> +		    p->frames > RTL_COALESCE_FRAME_MAX || p->frames % 4)
-> +			return -EINVAL;
-> +
-> +		w <<=3D RTL_COALESCE_SHIFT;
-> +		w |=3D units;
-> +		w <<=3D RTL_COALESCE_SHIFT;
-> +		w |=3D p->frames >> 2;
-> +	}
-> +
-> +	RTL_W16(IntrMitigate, swab16(w));
-> +out:
-> +	return rc;
-> +}
-> +
->   static const struct ethtool_ops rtl8169_ethtool_ops =3D {
->   	.get_drvinfo		=3D rtl8169_get_drvinfo,
->   	.get_regs_len		=3D rtl8169_get_regs_len,
->   	.get_link		=3D ethtool_op_get_link,
-> +	.get_coalesce		=3D rtl_get_coalesce,
-> +	.set_coalesce		=3D rtl_set_coalesce,
->   	.get_settings		=3D rtl8169_get_settings,
->   	.set_settings		=3D rtl8169_set_settings,
->   	.get_msglevel		=3D rtl8169_get_msglevel,
+Krzysztof Mazur (6):
+      atm: add owner of push() callback to atmvcc
+      pppoatm: allow assign only on a connected socket
+      pppoatm: fix module_put() race
+      pppoatm: take ATM socket lock in pppoatm_send()
+      pppoatm: drop frames to not-ready vcc
+      pppoatm: do not inline pppoatm_may_send()
+
+
+--=20
+dwmw2
+
+
+--=-R+V4R1zN/vdDSiVp7skd
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
+ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
+BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
+DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
+KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
+dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
+75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
++y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
+z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
+/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
+ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
+fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
+MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
+aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
+Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
+dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
+c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
+XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
+UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
+HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
+sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
+sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
++n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
+zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
+Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
+9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
+AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
+b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
+A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
+MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
+MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
+YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
+4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
+wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
+xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
+MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
+w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
+BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
+BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
+YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
+Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
+d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
+Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
+c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
+IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
+dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
+BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
+aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
+bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
+oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
+MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
+dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
+MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
+hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
+DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
+ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
+NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
+mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
+AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
+MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
+A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
+Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
+7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
+KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
+wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
+V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
+vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
+CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
+BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
+ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
+Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
+YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
+ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
+IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
+U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
+ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
+BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
+aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
+bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
+dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
+CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
+QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
+ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
+AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
+t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
+gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
+H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
+kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
+MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
+dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
+eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTI4MDA0ODE3WjAjBgkqhkiG9w0BCQQx
+FgQUFvDEMkXEdPgY2K7OHsVk8q+CPbAwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
+ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
+ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
+TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
+aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAZZOVlSF4+5RFjIoZ19XOs4vih
+dwz+OO9ofkMfOxn4NpmDNJ6jVmBxdCLZM4isGs/SYr2O+EmY2zpQf2nmPD0ETvQde6bTA/whjc/G
+Q6Hgd7b5IYWj98KhOJWUMyHNTOWzsvFdoYV7QzrJR9hPihX1xVMI+CCAR7+ufwxq/LfGvqQ3RxpS
+KrV2WJ0TZteeZSFeQsJZ5EW6ellpXlsXQyWEpOfi2Wjg0YOMdc7HMaymU/U0o6M2qhzMpTAY0g15
+9KEel4R5b8OJsLC0KJ5O27FgOGVPZt+IsqWSF+YXL+txtRFdNI5hPdYbd64WoWWV8eG/5G/RHUJF
+L+q08iZ/fu/iAAAAAAAA
+
+
+--=-R+V4R1zN/vdDSiVp7skd--
