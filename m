@@ -1,35 +1,453 @@
-From: David Shwatrz <dshwatrz@gmail.com>
-Subject: Move an interface to init_ne
-Date: Wed, 28 Nov 2012 16:39:50 +0200
-Message-ID: <CAJJAcodehJ3x2ZjOuoaV=KrWHH23013b3O20nqh0E1smFvFpHw@mail.gmail.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [PATCH][RESEND] bonding: delete migrated IP addresses from the
+ rlb hash table
+Date: Wed, 28 Nov 2012 15:42:14 +0100
+Message-ID: <20121128144214.GB2485@midget.suse.cz>
+References: <20120620203731.GA4957@midget.suse.cz>
+ <2699.1340319919@death.nxdomain>
+ <20121123124419.GA3002@midget.suse.cz>
+ <26343.1354064725@death.nxdomain>
+ <20121128143853.GA2485@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:46048 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755319Ab2K1Ojv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 09:39:51 -0500
-Received: by mail-oa0-f46.google.com with SMTP id h16so13476632oag.19
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 06:39:50 -0800 (PST)
+Received: from cantor2.suse.de ([195.135.220.15]:49098 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753575Ab2K1OmS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2012 09:42:18 -0500
+Content-Disposition: inline
+In-Reply-To: <20121128143853.GA2485@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Bonding in balance-alb mode records information from ARP packets
+passing through the bond in a hash table (rx_hashtbl).
 
-How to I move an interface back to the original namespace ?
-I created three namespaces:
+At certain situations (e.g. link change of a slave),
+rlb_update_rx_clients() will send out ARP packets to update ARP
+caches of other hosts on the network to achieve RX load
+balancing.
 
-ip netns add namespace1
-ip netns add namespace2
-ip netns add namespace3
+The problem is that once an IP address is recorded in the hash
+table, it stays there indefinitely. If this IP address is
+migrated to a different host in the network, bonding still sends
+out ARP packets that poison other systems' ARP caches with
+invalid information.
 
-And move eth0 to namespace1:
-ip link set  eth0 netns namespace1
+This patch solves this by looking at all incoming ARP packets,
+and checking if the source IP address is one of the source
+addresses stored in the rx_hashtbl. If it is, but the MAC
+addresses differ, the corresponding hash table entries are
+removed. Thus, when an IP address is migrated, the first ARP
+broadcast by its new owner will purge the offending entries of
+rx_hashtbl.
 
-How do I return it back to the original, default network namespace ? (init_net)
+The hash table is hashed by ip_dst. To be able to do the above
+check efficiently (not walking the whole hash table), we need a
+reverse mapping (by ip_src).
 
-	
-Regards,
-DS
+I added three new members in struct rlb_client_info:
+   rx_hashtbl[x].src_first will point to the start of a list of
+      entries for which hash(ip_src) == x.
+   The list is linked with src_next and src_prev.
+
+When an incoming ARP packet arrives at rlb_arp_recv()
+rlb_purge_src_ip() can quickly walk only the entries on the
+corresponding lists, i.e. the entries that are likely to contain
+the offending IP address.
+
+To avoid confusion, I renamed these existing fields of struct 
+rlb_client_info:
+	next -> used_next
+	prev -> used_prev
+	rx_hashtbl_head -> rx_hashtbl_used_head
+
+(The current linked list is _not_ a list of hash table
+entries with colliding ip_dst. It's a list of entries that are
+being used; its purpose is to avoid walking the whole hash table
+when looking for used entries.)
+
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index e15cc11..74ce46a 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -84,6 +84,10 @@ static inline struct arp_pkt *arp_pkt(const struct sk_buff *skb)
+ 
+ /* Forward declaration */
+ static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[]);
++static void rlb_purge_src_ip(struct bonding *bond, struct arp_pkt *arp);
++static void rlb_src_unlink(struct bonding *bond, u32 index);
++static void rlb_src_link(struct bonding *bond, u32 ip_src_hash,
++			 u32 ip_dst_hash);
+ 
+ static inline u8 _simple_hash(const u8 *hash_start, int hash_size)
+ {
+@@ -354,6 +358,18 @@ static int rlb_arp_recv(const struct sk_buff *skb, struct bonding *bond,
+ 	if (!arp)
+ 		goto out;
+ 
++	/* We received an ARP from arp->ip_src.
++	 * We might have used this IP address previously (on the bonding host
++	 * itself or on a system that is bridged together with the bond).
++	 * However, if arp->mac_src is different than what is stored in
++	 * rx_hashtbl, some other host is now using the IP and we must prevent
++	 * sending out client updates with this IP address and the old MAC
++	 * address.
++	 * Clean up all hash table entries that have this address as ip_src but
++	 * have a different mac_src.
++	 */
++	rlb_purge_src_ip(bond, arp);
++
+ 	if (arp->op_code == htons(ARPOP_REPLY)) {
+ 		/* update rx hash table for this ARP */
+ 		rlb_update_entry_from_arp(bond, arp);
+@@ -432,9 +448,9 @@ static void rlb_clear_slave(struct bonding *bond, struct slave *slave)
+ 	_lock_rx_hashtbl_bh(bond);
+ 
+ 	rx_hash_table = bond_info->rx_hashtbl;
+-	index = bond_info->rx_hashtbl_head;
++	index = bond_info->rx_hashtbl_used_head;
+ 	for (; index != RLB_NULL_INDEX; index = next_index) {
+-		next_index = rx_hash_table[index].next;
++		next_index = rx_hash_table[index].used_next;
+ 		if (rx_hash_table[index].slave == slave) {
+ 			struct slave *assigned_slave = rlb_next_rx_slave(bond);
+ 
+@@ -519,8 +535,9 @@ static void rlb_update_rx_clients(struct bonding *bond)
+ 
+ 	_lock_rx_hashtbl_bh(bond);
+ 
+-	hash_index = bond_info->rx_hashtbl_head;
+-	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
++	hash_index = bond_info->rx_hashtbl_used_head;
++	for (; hash_index != RLB_NULL_INDEX;
++	     hash_index = client_info->used_next) {
+ 		client_info = &(bond_info->rx_hashtbl[hash_index]);
+ 		if (client_info->ntt) {
+ 			rlb_update_client(client_info);
+@@ -548,8 +565,9 @@ static void rlb_req_update_slave_clients(struct bonding *bond, struct slave *sla
+ 
+ 	_lock_rx_hashtbl_bh(bond);
+ 
+-	hash_index = bond_info->rx_hashtbl_head;
+-	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
++	hash_index = bond_info->rx_hashtbl_used_head;
++	for (; hash_index != RLB_NULL_INDEX;
++	     hash_index = client_info->used_next) {
+ 		client_info = &(bond_info->rx_hashtbl[hash_index]);
+ 
+ 		if ((client_info->slave == slave) &&
+@@ -578,8 +596,9 @@ static void rlb_req_update_subnet_clients(struct bonding *bond, __be32 src_ip)
+ 
+ 	_lock_rx_hashtbl(bond);
+ 
+-	hash_index = bond_info->rx_hashtbl_head;
+-	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
++	hash_index = bond_info->rx_hashtbl_used_head;
++	for (; hash_index != RLB_NULL_INDEX;
++	     hash_index = client_info->used_next) {
+ 		client_info = &(bond_info->rx_hashtbl[hash_index]);
+ 
+ 		if (!client_info->slave) {
+@@ -625,6 +644,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 				/* update mac address from arp */
+ 				memcpy(client_info->mac_dst, arp->mac_dst, ETH_ALEN);
+ 			}
++			memcpy(client_info->mac_src, arp->mac_src, ETH_ALEN);
+ 
+ 			assigned_slave = client_info->slave;
+ 			if (assigned_slave) {
+@@ -647,6 +667,17 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 	assigned_slave = rlb_next_rx_slave(bond);
+ 
+ 	if (assigned_slave) {
++		if (!(client_info->assigned &&
++		      client_info->ip_src == arp->ip_src)) {
++			/* ip_src is going to be updated,
++			 * fix the src hash list
++			 */
++			u32 hash_src = _simple_hash((u8 *)&arp->ip_src,
++						    sizeof(arp->ip_src));
++			rlb_src_unlink(bond, hash_index);
++			rlb_src_link(bond, hash_src, hash_index);
++		}
++
+ 		client_info->ip_src = arp->ip_src;
+ 		client_info->ip_dst = arp->ip_dst;
+ 		/* arp->mac_dst is broadcast for arp reqeusts.
+@@ -654,6 +685,7 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 		 * upon receiving an arp reply.
+ 		 */
+ 		memcpy(client_info->mac_dst, arp->mac_dst, ETH_ALEN);
++		memcpy(client_info->mac_src, arp->mac_src, ETH_ALEN);
+ 		client_info->slave = assigned_slave;
+ 
+ 		if (!ether_addr_equal_64bits(client_info->mac_dst, mac_bcast)) {
+@@ -669,11 +701,11 @@ static struct slave *rlb_choose_channel(struct sk_buff *skb, struct bonding *bon
+ 		}
+ 
+ 		if (!client_info->assigned) {
+-			u32 prev_tbl_head = bond_info->rx_hashtbl_head;
+-			bond_info->rx_hashtbl_head = hash_index;
+-			client_info->next = prev_tbl_head;
++			u32 prev_tbl_head = bond_info->rx_hashtbl_used_head;
++			bond_info->rx_hashtbl_used_head = hash_index;
++			client_info->used_next = prev_tbl_head;
+ 			if (prev_tbl_head != RLB_NULL_INDEX) {
+-				bond_info->rx_hashtbl[prev_tbl_head].prev =
++				bond_info->rx_hashtbl[prev_tbl_head].used_prev =
+ 					hash_index;
+ 			}
+ 			client_info->assigned = 1;
+@@ -740,8 +772,9 @@ static void rlb_rebalance(struct bonding *bond)
+ 	_lock_rx_hashtbl_bh(bond);
+ 
+ 	ntt = 0;
+-	hash_index = bond_info->rx_hashtbl_head;
+-	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
++	hash_index = bond_info->rx_hashtbl_used_head;
++	for (; hash_index != RLB_NULL_INDEX;
++	     hash_index = client_info->used_next) {
+ 		client_info = &(bond_info->rx_hashtbl[hash_index]);
+ 		assigned_slave = rlb_next_rx_slave(bond);
+ 		if (assigned_slave && (client_info->slave != assigned_slave)) {
+@@ -759,11 +792,113 @@ static void rlb_rebalance(struct bonding *bond)
+ }
+ 
+ /* Caller must hold rx_hashtbl lock */
++static void rlb_init_table_entry_dst(struct rlb_client_info *entry)
++{
++	entry->used_next = RLB_NULL_INDEX;
++	entry->used_prev = RLB_NULL_INDEX;
++	entry->assigned = 0;
++	entry->slave = NULL;
++	entry->tag = 0;
++}
++static void rlb_init_table_entry_src(struct rlb_client_info *entry)
++{
++	entry->src_first = RLB_NULL_INDEX;
++	entry->src_prev = RLB_NULL_INDEX;
++	entry->src_next = RLB_NULL_INDEX;
++}
++
+ static void rlb_init_table_entry(struct rlb_client_info *entry)
+ {
+ 	memset(entry, 0, sizeof(struct rlb_client_info));
+-	entry->next = RLB_NULL_INDEX;
+-	entry->prev = RLB_NULL_INDEX;
++	rlb_init_table_entry_dst(entry);
++	rlb_init_table_entry_src(entry);
++}
++
++static void rlb_delete_table_entry_dst(struct bonding *bond, u32 index)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	u32 next_index = bond_info->rx_hashtbl[index].used_next;
++	u32 prev_index = bond_info->rx_hashtbl[index].used_prev;
++
++	if (index == bond_info->rx_hashtbl_used_head)
++		bond_info->rx_hashtbl_used_head = next_index;
++	if (prev_index != RLB_NULL_INDEX)
++		bond_info->rx_hashtbl[prev_index].used_next = next_index;
++	if (next_index != RLB_NULL_INDEX)
++		bond_info->rx_hashtbl[next_index].used_prev = prev_index;
++}
++
++/* unlink a rlb hash table entry from the src list */
++static void rlb_src_unlink(struct bonding *bond, u32 index)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	u32 next_index = bond_info->rx_hashtbl[index].src_next;
++	u32 prev_index = bond_info->rx_hashtbl[index].src_prev;
++
++	bond_info->rx_hashtbl[index].src_next = RLB_NULL_INDEX;
++	bond_info->rx_hashtbl[index].src_prev = RLB_NULL_INDEX;
++
++	if (next_index != RLB_NULL_INDEX)
++		bond_info->rx_hashtbl[next_index].src_prev = prev_index;
++
++	if (prev_index == RLB_NULL_INDEX)
++		return;
++
++	/* is prev_index pointing to the head of this list? */
++	if (bond_info->rx_hashtbl[prev_index].src_first == index)
++		bond_info->rx_hashtbl[prev_index].src_first = next_index;
++	else
++		bond_info->rx_hashtbl[prev_index].src_next = next_index;
++
++}
++
++static void rlb_delete_table_entry(struct bonding *bond, u32 index)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	struct rlb_client_info *entry = &(bond_info->rx_hashtbl[index]);
++
++	rlb_delete_table_entry_dst(bond, index);
++	rlb_init_table_entry_dst(entry);
++
++	rlb_src_unlink(bond, index);
++}
++
++/* add the rx_hashtbl[ip_dst_hash] entry to the list
++ * of entries with identical ip_src_hash
++ */
++static void rlb_src_link(struct bonding *bond, u32 ip_src_hash, u32 ip_dst_hash)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	u32 next;
++
++	bond_info->rx_hashtbl[ip_dst_hash].src_prev = ip_src_hash;
++	next = bond_info->rx_hashtbl[ip_src_hash].src_first;
++	bond_info->rx_hashtbl[ip_dst_hash].src_next = next;
++	if (next != RLB_NULL_INDEX)
++		bond_info->rx_hashtbl[next].src_prev = ip_dst_hash;
++	bond_info->rx_hashtbl[ip_src_hash].src_first = ip_dst_hash;
++}
++
++/* deletes all rx_hashtbl entries with  arp->ip_src if their mac_src does
++ * not match arp->mac_src */
++static void rlb_purge_src_ip(struct bonding *bond, struct arp_pkt *arp)
++{
++	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
++	u32 ip_src_hash = _simple_hash((u8*)&(arp->ip_src), sizeof(arp->ip_src));
++	u32 index;
++
++	_lock_rx_hashtbl_bh(bond);
++
++	index = bond_info->rx_hashtbl[ip_src_hash].src_first;
++	while (index != RLB_NULL_INDEX) {
++		struct rlb_client_info *entry = &(bond_info->rx_hashtbl[index]);
++		u32 next_index = entry->src_next;
++		if (entry->ip_src == arp->ip_src &&
++		    !ether_addr_equal_64bits(arp->mac_src, entry->mac_src))
++				rlb_delete_table_entry(bond, index);
++		index = next_index;
++	}
++	_unlock_rx_hashtbl_bh(bond);
+ }
+ 
+ static int rlb_initialize(struct bonding *bond)
+@@ -781,7 +916,7 @@ static int rlb_initialize(struct bonding *bond)
+ 
+ 	bond_info->rx_hashtbl = new_hashtbl;
+ 
+-	bond_info->rx_hashtbl_head = RLB_NULL_INDEX;
++	bond_info->rx_hashtbl_used_head = RLB_NULL_INDEX;
+ 
+ 	for (i = 0; i < RLB_HASH_TABLE_SIZE; i++) {
+ 		rlb_init_table_entry(bond_info->rx_hashtbl + i);
+@@ -803,7 +938,7 @@ static void rlb_deinitialize(struct bonding *bond)
+ 
+ 	kfree(bond_info->rx_hashtbl);
+ 	bond_info->rx_hashtbl = NULL;
+-	bond_info->rx_hashtbl_head = RLB_NULL_INDEX;
++	bond_info->rx_hashtbl_used_head = RLB_NULL_INDEX;
+ 
+ 	_unlock_rx_hashtbl_bh(bond);
+ }
+@@ -815,25 +950,13 @@ static void rlb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
+ 
+ 	_lock_rx_hashtbl_bh(bond);
+ 
+-	curr_index = bond_info->rx_hashtbl_head;
++	curr_index = bond_info->rx_hashtbl_used_head;
+ 	while (curr_index != RLB_NULL_INDEX) {
+ 		struct rlb_client_info *curr = &(bond_info->rx_hashtbl[curr_index]);
+-		u32 next_index = bond_info->rx_hashtbl[curr_index].next;
+-		u32 prev_index = bond_info->rx_hashtbl[curr_index].prev;
+-
+-		if (curr->tag && (curr->vlan_id == vlan_id)) {
+-			if (curr_index == bond_info->rx_hashtbl_head) {
+-				bond_info->rx_hashtbl_head = next_index;
+-			}
+-			if (prev_index != RLB_NULL_INDEX) {
+-				bond_info->rx_hashtbl[prev_index].next = next_index;
+-			}
+-			if (next_index != RLB_NULL_INDEX) {
+-				bond_info->rx_hashtbl[next_index].prev = prev_index;
+-			}
++		u32 next_index = bond_info->rx_hashtbl[curr_index].used_next;
+ 
+-			rlb_init_table_entry(curr);
+-		}
++		if (curr->tag && (curr->vlan_id == vlan_id))
++			rlb_delete_table_entry(bond, curr_index);
+ 
+ 		curr_index = next_index;
+ 	}
+diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
+index 90f140a..e7a5b8b 100644
+--- a/drivers/net/bonding/bond_alb.h
++++ b/drivers/net/bonding/bond_alb.h
+@@ -94,15 +94,35 @@ struct tlb_client_info {
+ 
+ /* -------------------------------------------------------------------------
+  * struct rlb_client_info contains all info related to a specific rx client
+- * connection. This is the Clients Hash Table entry struct
++ * connection. This is the Clients Hash Table entry struct.
++ * Note that this is not a proper hash table; if a new client's IP address
++ * hash collides with an existing client entry, the old entry is replaced.
++ *
++ * There is a linked list (linked by the used_next and used_prev members)
++ * linking all the used entries of the hash table. This allows updating
++ * all the clients without walking over all the unused elements of the table.
++ *
++ * There are also linked lists of entries with identical hash(ip_src). These
++ * allow cleaning up the table from ip_src<->mac_src associations that have
++ * become outdated and would cause sending out invalid ARP updates to the
++ * network. These are linked by the (src_next and src_prev members).
+  * -------------------------------------------------------------------------
+  */
+ struct rlb_client_info {
+ 	__be32 ip_src;		/* the server IP address */
+ 	__be32 ip_dst;		/* the client IP address */
++	u8  mac_src[ETH_ALEN];	/* the server MAC address */
+ 	u8  mac_dst[ETH_ALEN];	/* the client MAC address */
+-	u32 next;		/* The next Hash table entry index */
+-	u32 prev;		/* The previous Hash table entry index */
++
++	/* list of used hash table entries, starting at rx_hashtbl_used_head */
++	u32 used_next;
++	u32 used_prev;
++
++	/* ip_src based hashing */
++	u32 src_next;	/* next entry with same hash(ip_src) */
++	u32 src_prev;	/* prev entry with same hash(ip_src) */
++	u32 src_first;	/* first entry with hash(ip_src) == this entry's index */
++
+ 	u8  assigned;		/* checking whether this entry is assigned */
+ 	u8  ntt;		/* flag - need to transmit client info */
+ 	struct slave *slave;	/* the slave assigned to this client */
+@@ -131,7 +151,7 @@ struct alb_bond_info {
+ 	int rlb_enabled;
+ 	struct rlb_client_info	*rx_hashtbl;	/* Receive hash table */
+ 	spinlock_t		rx_hashtbl_lock;
+-	u32			rx_hashtbl_head;
++	u32			rx_hashtbl_used_head;
+ 	u8			rx_ntt;	/* flag - need to transmit
+ 					 * to all rx clients
+ 					 */
+diff --git a/drivers/net/bonding/bond_debugfs.c b/drivers/net/bonding/bond_debugfs.c
+index 2cf084e..5fc4c23 100644
+--- a/drivers/net/bonding/bond_debugfs.c
++++ b/drivers/net/bonding/bond_debugfs.c
+@@ -31,8 +31,9 @@ static int bond_debug_rlb_hash_show(struct seq_file *m, void *v)
+ 
+ 	spin_lock_bh(&(BOND_ALB_INFO(bond).rx_hashtbl_lock));
+ 
+-	hash_index = bond_info->rx_hashtbl_head;
+-	for (; hash_index != RLB_NULL_INDEX; hash_index = client_info->next) {
++	hash_index = bond_info->rx_hashtbl_used_head;
++	for (; hash_index != RLB_NULL_INDEX;
++	     hash_index = client_info->used_next) {
+ 		client_info = &(bond_info->rx_hashtbl[hash_index]);
+ 		seq_printf(m, "%-15pI4 %-15pI4 %-17pM %s\n",
+ 			&client_info->ip_src,
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
