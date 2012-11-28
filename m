@@ -1,44 +1,54 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: TCP and reordering
-Date: Wed, 28 Nov 2012 00:22:34 -0800
-Message-ID: <CAGK4HS8=NfcyvcNjC3h1wEjgQFCYoNeuWXj8n5Ruukeg+6j=SQ@mail.gmail.com>
-References: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com>
-	<50B4F2DA.8020206@hp.com>
-	<CAAeewD9MtEx4uF6ezbBj7Ci5OzX8VK7p=WQ2TB3PfjmznA4X0w@mail.gmail.com>
-	<20121127.210611.1127622873924794001.davem@davemloft.net>
-	<1354089566.21562.20.camel@shinybook.infradead.org>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: [E1000-devel] 82571EB: Detected Hardware Unit Hang
+Date: Wed, 28 Nov 2012 16:31:14 +0800
+Message-ID: <50B5CBD2.5020804@oracle.com>
+References: <509B5038.8090304@oracle.com>  <061C8A8601E8EE4CA8D8FD6990CEA89133487884@ORSMSX102.amr.corp.intel.com>  <50A30656.6090508@oracle.com>  <061C8A8601E8EE4CA8D8FD6990CEA8913348B105@ORSMSX102.amr.corp.intel.com>  <50A43828.6000702@oracle.com>  <061C8A8601E8EE4CA8D8FD6990CEA8913349A0B4@ORSMSX102.amr.corp.intel.com>  <50A9C5CC.1030300@oracle.com>  <061C8A8601E8EE4CA8D8FD6990CEA8913349EB41@ORSMSX102.amr.corp.intel.com>  <50AB8471.7080607@oracle.com>  <9B4A1B1917080E46B64F07F2989DADD62F2D62D6@ORSMSX102.amr.corp.intel.com>  <50B41077.3080009@oracle.com>  <b46b84cf-3688-4fd7-b741-4e96f2663517@default>  <9B4A1B1917080E46B64F07F2989DADD62F2D8070@ORSMSX102.amr.corp.intel.com> <1354039840.2701.14.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, saku@ytti.fi,
-	rick.jones2@hp.com, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:39066 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751934Ab2K1IWe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 03:22:34 -0500
-Received: by mail-ob0-f174.google.com with SMTP id wc20so11772347obb.19
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 00:22:34 -0800 (PST)
-In-Reply-To: <1354089566.21562.20.camel@shinybook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Fujinaka, Todd" <todd.fujinaka@intel.com>,
+	Mary Mcgrath <mary.mcgrath@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-pci <linux-pci@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354039840.2701.14.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->
-> Short of going through whole dumps and looking, is there a good way to
-> get statistics?
->
+On 11/28/12 02:10, Ben Hutchings wrote:
+> On Tue, 2012-11-27 at 17:32 +0000, Fujinaka, Todd wrote:
+>> Forgive me if I'm being too repetitious as I think some of this has
+>> been mentioned in the past.
+>>
+>> We (and by we I mean the Ethernet part and driver) can only change the
+>> advertised availability of a larger MaxPayloadSize. The size is
+>> negotiated by both sides of the link when the link is established. The
+>> driver should not change the size of the link as it would be poking at
+>> registers outside of its scope and is controlled by the upstream
+>> bridge (not us).
+> [...]
+> 
+> MaxPayloadSize (MPS) is not negotiated between devices but is programmed
+> by the system firmware (at least for devices present at boot - the
+> kernel may be responsible in case of hotplug).  You can use the kernel
+> parameter 'pci=pcie_bus_perf' (or one of several others) to set a policy
+> that overrides this, but no policy will allow setting MPS above the
+> device's MaxPayloadSizeSupported (MPSS).
+> 
 
-Hi David,
+Ben,
 
-I don't believe reordering is tracked on the receiver side but on the
-sender, there are SNMB_MIB items.
-They can be tracked and can be viewed using nstat/netstat
+Unfortunately I'm using 3.0.x kernel and this is not included in the kernel.
+So I'm trying to use ethtool modify it from eeprom to see if help or no.
 
-# nstat -az | grep -i reorder
-TcpExtTCPFACKReorder            0                  0.0
-TcpExtTCPSACKReorder            0                  0.0
-TcpExtTCPRenoReorder            0                  0.0
-TcpExtTCPTSReorder              0                  0.0
 
-Regards,
-Vijay
+Todd, I'll review all MaxPayload for all devices, but need to say if it mismatch,
+customer could not modify it from BIOS for there was not entry at there, to
+test it, we have to find how to verify if this is the root cause, so still 
+need to find the offset in eeprom.
+
+Thanks in advance,
+Joe
