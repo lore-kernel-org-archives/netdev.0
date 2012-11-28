@@ -1,56 +1,57 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Wed, 28 Nov 2012 11:04:12 +0100
-Message-ID: <20121128100412.GA6269@shrek.podlesie.net>
-References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
- <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
- <1354036592.2534.6.camel@shinybook.infradead.org>
- <20121127173906.GA11390@shrek.podlesie.net>
- <1354039349.2534.11.camel@shinybook.infradead.org>
- <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
- <AE90C24D6B3A694183C094C60CF0A2F6026B70C9@saturn3.aculab.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH v6 2/6] PM / Runtime: introduce pm_runtime_set_memalloc_noio()
+Date: Wed, 28 Nov 2012 11:15:05 +0100
+Message-ID: <2662154.Tcp7v84XkT@vostro.rjw.lan>
+References: <1353761958-12810-1-git-send-email-ming.lei@canonical.com> <1408044.6czCGhbHJH@vostro.rjw.lan> <CACVXFVOk45wr8jv3w=KO7uTThGSTSkq0FRsPD6p_AyQZLWGQJg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	David Woodhouse <dwmw2@infradead.org>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nathan@traverse.com.au
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70C9@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Oliver Neukum <oneukum@suse.de>,
+	Minchan Kim <minchan@kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jens Axboe <axboe@kernel.dk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-mm@kvack.org
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <CACVXFVOk45wr8jv3w=KO7uTThGSTSkq0FRsPD6p_AyQZLWGQJg@mail.gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 28, 2012 at 09:21:37AM -0000, David Laight wrote:
-> > On Tue, 27 Nov 2012 18:02:29 +0000
-> > David Woodhouse <dwmw2@infradead.org> wrote:
-> > 
-> > > In solos-pci at least, the ops->close() function doesn't flush all
-> > > pending skbs for this vcc before returning. So can be a tasklet
-> > > somewhere which has loaded the address of the vcc->pop function from one
-> > > of them, and is going to call it in some unspecified amount of time.
-> > >
-> > > Should we make the device's ->close function wait for all TX and RX skbs
-> > > for this vcc to complete?
-> > 
-> > the driver's close routine should wait for any of the pending tx and rx
-> > to complete.  take a look at the he.c in driver/atm
+On Wednesday, November 28, 2012 05:47:18 PM Ming Lei wrote:
+> On Wed, Nov 28, 2012 at 5:29 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> >
+> > But it doesn't have to walk the children.  Moreover, with counters it only
 > 
-> I'm not sure that sleeping for long periods in close() is always a
-> good idea. If the process is event driven it will be unable to
-> handle events on other fd until the close completes.
-> This may be known not to be true in this case, but is more generally
-> a problem.
-> In this case the close should probably (IMHO at least) only sleep
-> while pending tx and rx are aborted/discarded.
+> Yeah, I got it, it is the advantage of counter, but with extra 'int'
+> field introduced
+> in 'struct device'.
 > 
-> Even when it might make sense to sleep in close until tx drains
-> there needs to be a finite timeout before it become abortive.
+> > needs to walk the whole path if all devices in it need to be updated.  For
+> > example, if you call pm_runtime_set_memalloc_noio(dev, true) for a device
+> > whose parent's counter is greater than zero already, you don't need to
+> > walk the path above the parent.
 > 
+> We still can do it with the flag only, pm_runtime_set_memalloc_noio(dev, true)
+> can return immediately if one parent or the 'dev' flag is true.
+> 
+> But considered that the pm_runtime_set_memalloc_noio(dev, false) is only
+> called in a very infrequent path(network/block device->remove()), looks the
+> introduced cost isn't worthy of the obtained advantage.
+> 
+> So could you accept not introducing counter? and I will update with the
+> above improvement you suggested.
 
-The ->close() routine can just abort any pending rx/tx and just wait
-for completion of currently running rx/tx code. That shouldn't take
-long.
+Well, please see my other message I sent a while ago. :-)
 
-Krzysiek
+Thanks,
+Rafael
+
+
+-- 
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
