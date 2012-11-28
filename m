@@ -1,93 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 5/7] ixgbe: Fix incorrect disabling of Tx hang check in case of PFC
-Date: Wed, 28 Nov 2012 05:06:16 -0800
-Message-ID: <1354107978-24731-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/7] igbvf: work around i350 erratum
+Date: Wed, 28 Nov 2012 05:06:12 -0800
+Message-ID: <1354107978-24731-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1354107978-24731-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Neerav Parikh <Neerav.Parikh@intel.com>,
+Cc: Mitch A Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:22067 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:44342 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932105Ab2K1NGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Nov 2012 08:06:25 -0500
+	id S932083Ab2K1NGW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2012 08:06:22 -0500
 In-Reply-To: <1354107978-24731-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <neerav.parikh@intel.com>
+From: Mitch A Williams <mitch.a.williams@intel.com>
 
-The XOFF received statistic registers are per priority based and not per
-traffic class. The ixgbe driver was incorrectly considering them to be for
-each traffic class; and then disabling the "Tx hang" check for the queues
-that belonged to the particular traffic class that had received PFC frames.
+On i350 VF devices, VLAN tags will be byte-swapped in the receive
+descriptor only when received packets are looped back from other
+VFs. Check for this condition and swab the tag if needed.
 
-The above logic worked fine in scenario where the user priority and traffic
-class number matched e.g. priority 0 is mapped to traffic class 0 and so on.
-But, when multiple user priorities are mapped to a single traffic class or
-when user priorities and traffic class numbers do not line up; the ixgbe
-driver may disable the "Tx hang" check for queues belonging to a traffic
-class that did not receive PFC frames and keep the "Tx hang" check enabled
-for the queues that did receive the PFC frames.
-
-This patch corrects the above in the code by considering the statistics
-on a per priority basis; then getting the traffic class the user priority
-belongs to and disabling the "Tx hang" check for queues that belong
-to that traffic class.
-
-Signed-off-by: Neerav Parikh <Neerav.Parikh@intel.com>
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Marcus Dennis <marcusx.e.dennis@intel.com>
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/igbvf/defines.h |  1 +
+ drivers/net/ethernet/intel/igbvf/igbvf.h   |  2 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c  | 15 +++++++++++++--
+ 3 files changed, 15 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index e6e1245..fc8cfad 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -703,6 +703,7 @@ static void ixgbe_update_xoff_received(struct ixgbe_adapter *adapter)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	struct ixgbe_hw_stats *hwstats = &adapter->stats;
- 	u32 xoff[8] = {0};
-+	u8 tc;
- 	int i;
- 	bool pfc_en = adapter->dcb_cfg.pfc_mode_enable;
+diff --git a/drivers/net/ethernet/intel/igbvf/defines.h b/drivers/net/ethernet/intel/igbvf/defines.h
+index 3e18045..d9fa999 100644
+--- a/drivers/net/ethernet/intel/igbvf/defines.h
++++ b/drivers/net/ethernet/intel/igbvf/defines.h
+@@ -46,6 +46,7 @@
+ #define E1000_RXD_ERR_SE        0x02    /* Symbol Error */
+ #define E1000_RXD_SPC_VLAN_MASK 0x0FFF  /* VLAN ID is in lower 12 bits */
  
-@@ -716,21 +717,26 @@ static void ixgbe_update_xoff_received(struct ixgbe_adapter *adapter)
++#define E1000_RXDEXT_STATERR_LB    0x00040000
+ #define E1000_RXDEXT_STATERR_CE    0x01000000
+ #define E1000_RXDEXT_STATERR_SE    0x02000000
+ #define E1000_RXDEXT_STATERR_SEQ   0x04000000
+diff --git a/drivers/net/ethernet/intel/igbvf/igbvf.h b/drivers/net/ethernet/intel/igbvf/igbvf.h
+index a895e2f..fdca7b6 100644
+--- a/drivers/net/ethernet/intel/igbvf/igbvf.h
++++ b/drivers/net/ethernet/intel/igbvf/igbvf.h
+@@ -295,7 +295,7 @@ struct igbvf_info {
  
- 	/* update stats for each tc, only valid with PFC enabled */
- 	for (i = 0; i < MAX_TX_PACKET_BUFFERS; i++) {
-+		u32 pxoffrxc;
+ /* hardware capability, feature, and workaround flags */
+ #define IGBVF_FLAG_RX_CSUM_DISABLED             (1 << 0)
+-
++#define IGBVF_FLAG_RX_LB_VLAN_BSWAP		(1 << 1)
+ #define IGBVF_RX_DESC_ADV(R, i)     \
+ 	(&((((R).desc))[i].rx_desc))
+ #define IGBVF_TX_DESC_ADV(R, i)     \
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 4051ec4..b44b9d3 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -107,12 +107,19 @@ static void igbvf_receive_skb(struct igbvf_adapter *adapter,
+                               struct sk_buff *skb,
+                               u32 status, u16 vlan)
+ {
++	u16 vid;
 +
- 		switch (hw->mac.type) {
- 		case ixgbe_mac_82598EB:
--			xoff[i] = IXGBE_READ_REG(hw, IXGBE_PXOFFRXC(i));
-+			pxoffrxc = IXGBE_READ_REG(hw, IXGBE_PXOFFRXC(i));
- 			break;
- 		default:
--			xoff[i] = IXGBE_READ_REG(hw, IXGBE_PXOFFRXCNT(i));
-+			pxoffrxc = IXGBE_READ_REG(hw, IXGBE_PXOFFRXCNT(i));
- 		}
--		hwstats->pxoffrxc[i] += xoff[i];
-+		hwstats->pxoffrxc[i] += pxoffrxc;
-+		/* Get the TC for given UP */
-+		tc = netdev_get_prio_tc_map(adapter->netdev, i);
-+		xoff[tc] += pxoffrxc;
+ 	if (status & E1000_RXD_STAT_VP) {
+-		u16 vid = le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
++		if ((adapter->flags & IGBVF_FLAG_RX_LB_VLAN_BSWAP) &&
++		    (status & E1000_RXDEXT_STATERR_LB))
++			vid = be16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
++		else
++			vid = le16_to_cpu(vlan) & E1000_RXD_SPC_VLAN_MASK;
+ 		if (test_bit(vid, adapter->active_vlans))
+ 			__vlan_hwaccel_put_tag(skb, vid);
  	}
+-	netif_receive_skb(skb);
++
++	napi_gro_receive(&adapter->rx_ring->napi, skb);
+ }
  
- 	/* disarm tx queues that have received xoff frames */
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
- 		struct ixgbe_ring *tx_ring = adapter->tx_ring[i];
--		u8 tc = tx_ring->dcb_tc;
+ static inline void igbvf_rx_checksum_adv(struct igbvf_adapter *adapter,
+@@ -2767,6 +2774,10 @@ static int __devinit igbvf_probe(struct pci_dev *pdev,
+ 	/* reset the hardware with the new settings */
+ 	igbvf_reset(adapter);
  
-+		tc = tx_ring->dcb_tc;
- 		if (xoff[tc])
- 			clear_bit(__IXGBE_HANG_CHECK_ARMED, &tx_ring->state);
- 	}
++	/* set hardware-specific flags */
++	if (adapter->hw.mac.type == e1000_vfadapt_i350)
++		adapter->flags |= IGBVF_FLAG_RX_LB_VLAN_BSWAP;
++
+ 	strcpy(netdev->name, "eth%d");
+ 	err = register_netdev(netdev);
+ 	if (err)
 -- 
 1.7.11.7
