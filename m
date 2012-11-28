@@ -1,61 +1,33 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: Re: RTL 8169  linux driver question
-Date: Wed, 28 Nov 2012 10:32:12 +0800
-Message-ID: <69AF1A3D48D2421CBA361D822F8D8894@realtek.com.tw>
-References: <50AFC971.7010103@free.fr> <50AFCB1D.8080002@free.fr> <AE90C24D6B3A694183C094C60CF0A2F6026B70BD@saturn3.aculab.com> <20121127224605.GA10228@electric-eye.fr.zoreil.com>
+From: =?UTF-8?B?5Y+26Zuo6aOe?= <sunyucong@gmail.com>
+Subject: Re: IPv4 route cache DOS attack
+Date: Tue, 27 Nov 2012 18:48:49 -0800
+Message-ID: <CAJygYd07h6dRuZeE4N9uz1FbbqtmN2MDC_+EVSpUvLOr_5MFHQ@mail.gmail.com>
+References: <CAJygYd1OSTfpdbA57q0c6ppMtft3iB7uzo-RCXFOamGp2XVzBg@mail.gmail.com>
+ <20121127.211403.2194859172416122879.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: =?iso-8859-1?Q?'St=E9phane_ANCELOT'?= <sancelot@free.fr>,
-	<netdev@vger.kernel.org>, <sancelot@numalliance.com>,
-	'nic_swsd' <nic_swsd@realtek.com>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>,
-	'David Laight' <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:56260 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763Ab2K1Cck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 21:32:40 -0500
-In-Reply-To: <20121127224605.GA10228@electric-eye.fr.zoreil.com>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:64882 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896Ab2K1CtK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 21:49:10 -0500
+Received: by mail-vb0-f46.google.com with SMTP id ff1so7603630vbb.19
+        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 18:49:09 -0800 (PST)
+In-Reply-To: <20121127.211403.2194859172416122879.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu [mailto:romieu@fr.zoreil.com] 
-[...]
-> Something like the patch below against net-next could help once I will
-> have tested it.
-> 
-> I completely guessed the Tx usec scale factor at gigabit 
-> speed (125 us, 
-> 100 us, disabled, who knows ?) and I have no idea which 
-> specific chipsets
-> it should work with.
-> 
-> Hayes, may I expect some hindsight regarding:
-> 1 - the availability of the IntrMitigate (0xe2) register through the
->     8169, 8168 and 810x line of chipsets
+my first email is to lartc@ and this one is to netdev@ .
 
-8169, 8168, and 8136(810x) serial chipsets support it.
-
-> 2 - the Tx timer unit at gigabit speed
-
-The unit of the timer depneds on both the speed and the setting of CPlusCmd
-(0xe0) bit 1 and bit 0.
-
-For 8169
-bit[1:0] \ speed	1000M		100M		10M
-0 0		320ns		2.56us		40.96us
-0 1		2.56us		20.48us		327.7us
-1 0		5.12us		40.96us		655.4us
-1 1		10.24us		81.92us		1.31ms
-
-For the other
-bit[1:0] \ speed	1000M		100M		10M
-0 0		5us		2.56us		40.96us
-0 1		40us		20.48us		327.7us
-1 0		80us		40.96us		655.4us
-1 1		160us		81.92us		1.31ms
-
- 
-Best Regards,
-Hayes
+On Tue, Nov 27, 2012 at 6:14 PM, David Miller <davem@davemloft.net> wrote:
+>
+> We saw your email the other day, do not resend the same exact
+> question over and over again.
+>
+> If nobody has time, or wants, to answer you, then you have to simply
+> accept that.  Repeating your posting only will make things worse
+> for you, trust me.
+>
+> Thank you.
