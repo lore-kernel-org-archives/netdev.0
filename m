@@ -1,99 +1,48 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH 1/3] net: stmmac: change GMAC control register for SGMII
-Date: Wed, 28 Nov 2012 19:57:02 +0900
-Message-ID: <009401cdcd57$18b275d0$4a176170$%an@samsung.com>
-References: <004b01cdc959$80af8030$820e8090$%an@samsung.com>
- <50B344FC.4070405@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP and reordering
+Date: Wed, 28 Nov 2012 03:02:32 -0800
+Message-ID: <1354100552.14302.78.camel@edumazet-glaptop>
+References: <CAAeewD8zsfb6QPFecvPab_oK3D3T7eG_M53MVvfJ2QrxUFxWSQ@mail.gmail.com>
+	 <50B4F2DA.8020206@hp.com>
+	 <CAAeewD9MtEx4uF6ezbBj7Ci5OzX8VK7p=WQ2TB3PfjmznA4X0w@mail.gmail.com>
+	 <20121127.210611.1127622873924794001.davem@davemloft.net>
+	 <1354089566.21562.20.camel@shinybook.infradead.org>
+	 <CAGK4HS8=NfcyvcNjC3h1wEjgQFCYoNeuWXj8n5Ruukeg+6j=SQ@mail.gmail.com>
+	 <1354093703.21562.23.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, kgene.kim@samsung.com,
-	linux-kernel@vger.kernel.org
-To: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <50B344FC.4070405@st.com>
-Content-language: ko
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Vijay Subramanian <subramanian.vijay@gmail.com>,
+	David Miller <davem@davemloft.net>, saku@ytti.fi,
+	rick.jones2@hp.com, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:36899 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753591Ab2K1LCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 06:02:35 -0500
+Received: by mail-ie0-f174.google.com with SMTP id k11so9832930iea.19
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 03:02:35 -0800 (PST)
+In-Reply-To: <1354093703.21562.23.camel@shinybook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/26/2012 07:31 PM, Giuseppe CABALLARO wrote:
-> On 11/23/2012 10:04 AM, Byungho An wrote:
-> >
-> > This patch changes GMAC control register (TC(Transmit
-> > Configuration) and PS(Port Selection) bit for SGMII.
-> > In case of SGMII, TC bit is '1' and PS bit is 0.
+On Wed, 2012-11-28 at 09:08 +0000, David Woodhouse wrote:
+> On Wed, 2012-11-28 at 00:22 -0800, Vijay Subramanian wrote:
+> > 
+> > I don't believe reordering is tracked on the receiver side but on the
+> > sender, there are SNMB_MIB items.
+> > They can be tracked and can be viewed using nstat/netstat
+> > 
+> > # nstat -az | grep -i reorder
+> > TcpExtTCPFACKReorder            0                  0.0
+> > TcpExtTCPSACKReorder            0                  0.0
+> > TcpExtTCPRenoReorder            0                  0.0
+> > TcpExtTCPTSReorder              0                  0.0
 > 
-> IMO this new support that should be released for net-next and further 
-> effort is actually needed.
->
-OK, I see but if possible, I want to support the new features which is
-included in this patch from v3.8
- 
-> The availability of the PCS registers is given by looking at the HW 
-> feature register. In fact, these are optional registers.
-> I don't want to break the compatibility with old chips.
-> 
-It means that old chip doesn't have this bit or this register? If that, how
-about using compatible in DT blob like snps,dwmac-3.70a and then in just
-this case trying to read this bit and this register.
+> Thanks. For me after a 64MiB download, I have an increase of one FACK,
+> one SACK and one TS reorder. So my connection probably does even less
+> reordering than I thought, and thus isn't particularly relevant to this
+> conversation. I'll shut up now and go back to playing with ATM.
 
-> I do not see why we have to use Kconfig macro to select ANE etc (as 
-> you do in your patches).
-OK. I agree with you.
-
-> The driver could directly manage the phy device by itself if possible 
-> and the stmmac_init_phy should be reworked.
-> 
-Could you explain more detail? As I understood, after set ANE bit in MAC
-side then PHY auto-negotiation can be enabled. If I'm wrong let me know.
-According to your mention, MAC and PHY auto-negotiation can be managed in
-stmmac_init_phy?
-
-> There are several things that need to be implemented. For example:
-> 
-> The ISR (e.g. priv->hw->mac->host_irq_status) should be able to manage 
-> these new interrupts.
-I think that there would be two additional interrupts."PCS Auto-Negotiation
-Complete" and "PCS Link Status Changed". These two interrupts are added to
-"stmmac_interrupt". In my opinion, there are no specific processing for
-these two irqs. What do you think about it?
-
-> The code has to be able to maintain the user interface.
-> For example if you want to enable ANE or manage Advertisement caps.
-> 
-Does it mean that command line or other network command(e.g. ifconfig...) or
-ioctol? Actually I don't understand exact user interface way. Could you
-recommend the method for user interface?
-
-> > Signed-off-by: Byungho An <bh74.an@samsung.com>
-> > ---
-> 
-> [snip]
-> 
-> > +	if (priv->phydev->interface == PHY_INTERFACE_MODE_SGMII) {
-> > +		value = readl(priv->ioaddr);
-> > +		/* GMAC_CONTROL_TC : transmit config in RGMII/SGMII */
-> > +		value |= 0x1000000;
-> > +		/* GMAC_CONTROL_PS : Port Selection for GMII */
-> > +		value &= ~(0x8000);
-> > +		writel(value, priv->ioaddr);
-> > +	}
-> > +
-> 
-> 
-> This parts of code have to be moved in 
-> drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> 
-OK.
-
-> Pls, do not use value |= 0x1000000 but provide the appropriate defines.
-> 
-OK.
-
-> >   	/* Request the IRQ lines */
-> >   	ret = request_irq(dev->irq, stmmac_interrupt,
-> >   			 IRQF_SHARED, dev->name, dev);
-> >
-Thank you.
-Byungho An.
+But you are the receiver. A receiver should not increase these counters.
