@@ -1,44 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: fix -ENOMEM result with invalid user space
- pointer in sendto() syscall
-Date: Wed, 28 Nov 2012 11:12:14 -0500 (EST)
-Message-ID: <20121128.111214.940932171814395302.davem@davemloft.net>
-References: <1353590596-12216-1-git-send-email-tt.rantala@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	nhorman@tuxdriver.com, vyasevich@gmail.com, sri@us.ibm.com,
-	davej@redhat.com
-To: tt.rantala@gmail.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] team: fix hw_features setup
+Date: Wed, 28 Nov 2012 17:13:10 +0100
+Message-ID: <1354119190-16100-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49948 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751553Ab2K1QMT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:12:19 -0500
-In-Reply-To: <1353590596-12216-1-git-send-email-tt.rantala@gmail.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:62682 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752240Ab2K1QNP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:13:15 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so5327866eaa.19
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 08:13:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tommi Rantala <tt.rantala@gmail.com>
-Date: Thu, 22 Nov 2012 15:23:16 +0200
+Do this in the same way bonding does. This fixed setup resolves performance
+issues when using some cards with certain offloading.
 
-> Consider the following program, that sets the second argument to the
-> sendto() syscall incorrectly:
- ...
-> We get -ENOMEM:
-> 
->  $ strace -e sendto ./demo
->  sendto(3, NULL, 1, 0, {sa_family=AF_INET, sin_port=htons(11111), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 ENOMEM (Cannot allocate memory)
-> 
-> Propagate the error code from sctp_user_addto_chunk(), so that we will
-> tell user space what actually went wrong:
-> 
->  $ strace -e sendto ./demo
->  sendto(3, NULL, 1, 0, {sa_family=AF_INET, sin_port=htons(11111), sin_addr=inet_addr("127.0.0.1")}, 16) = -1 EFAULT (Bad address)
-> 
-> Noticed while running Trinity (the syscall fuzzer).
-> 
-> Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/net/team/team.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Applied.
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index d44cca3..ad86660 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1794,10 +1794,12 @@ static void team_setup(struct net_device *dev)
+ 
+ 	dev->features |= NETIF_F_LLTX;
+ 	dev->features |= NETIF_F_GRO;
+-	dev->hw_features = NETIF_F_HW_VLAN_TX |
++	dev->hw_features = TEAM_VLAN_FEATURES |
++			   NETIF_F_HW_VLAN_TX |
+ 			   NETIF_F_HW_VLAN_RX |
+ 			   NETIF_F_HW_VLAN_FILTER;
+ 
++	dev->hw_features &= ~(NETIF_F_ALL_CSUM & ~NETIF_F_HW_CSUM);
+ 	dev->features |= dev->hw_features;
+ }
+ 
+-- 
+1.7.11.7
