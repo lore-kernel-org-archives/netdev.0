@@ -1,70 +1,64 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: Fwd: Re: [PATCH] net: ipv6: change %8s to %s for rt->dst.dev->name
- in seq_printf of rt6_info_route
-Date: Wed, 28 Nov 2012 13:54:53 +0800
-Message-ID: <50B5A72D.6070107@asianux.com>
-References: <50ADE447.8030300@asianux.com> <50AEEF08.4000707@asianux.com> <50B430B5.1080700@gmail.com> <50B43F12.1090709@asianux.com> <50B44563.8060905@asianux.com> <50B45265.9070303@asianux.com> <50B4551C.6030505@asianux.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next RFC] pktgen: don't wait for the device who doesn't
+	free skb immediately after sent
+Date: Wed, 28 Nov 2012 14:48:52 +0800
+Message-ID: <50B5B3D4.1070106@redhat.com>
+References: <1353916612-6357-1-git-send-email-jasowang@redhat.com>
+	<20121126093728.0a10f97f@nehalam.linuxnetplumber.net>
+	<50B46179.4040809@redhat.com>
+	<20121127084919.1587c647@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Shan Wei <shanwei88@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:17476 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031Ab2K1FyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 00:54:01 -0500
-In-Reply-To: <50B4551C.6030505@asianux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121127084919.1587c647@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-
-completion: "8 right alignment should not belong to os api level"
-  for api, we need keep as fewer contents as we can.
-  for output format api: "contents"+"topology"+"separator mark"+"space =
-redundancy" are enough.
-  so "8 right alignment" should not belong to api level (it only belong=
-s to "User Experience").
-
-
-  "User Experience" is most likely 'beautiful' !!
-
-  !-)
-
-
-gchen.
-
-
-=D3=DA 2012=C4=EA11=D4=C227=C8=D5 13:52, Chen Gang =D0=B4=B5=C0:
-> =D3=DA 2012=C4=EA11=D4=C227=C8=D5 13:40, Chen Gang =D0=B4=B5=C0:
+On 11/28/2012 12:49 AM, Stephen Hemminger wrote:
+> On Tue, 27 Nov 2012 14:45:13 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
+>
+>> On 11/27/2012 01:37 AM, Stephen Hemminger wrote:
+>>> On Mon, 26 Nov 2012 15:56:52 +0800
+>>> Jason Wang <jasowang@redhat.com> wrote:
+>>>
+>>>> Some deivces do not free the old tx skbs immediately after it has been sent
+>>>> (usually in tx interrupt). One such example is virtio-net which optimizes for
+>>>> virt and only free the possible old tx skbs during the next packet sending. This
+>>>> would lead the pktgen to wait forever in the refcount of the skb if no other
+>>>> pakcet will be sent afterwards.
+>>>>
+>>>> Solving this issue by introducing a new flag IFF_TX_SKB_FREE_DELAY which could
+>>>> notify the pktgen that the device does not free skb immediately after it has
+>>>> been sent and let it not to wait for the refcount to be one.
+>>>>
+>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>> Another alternative would be using skb_orphan() and skb->destructor.
+>>> There are other cases where skb's are not freed right away.
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Hi Stephen:
 >>
->> and now, I think:
->>   A) both input and output through /proc/* are for os api level.
->>   B) but both %8s and %s do not change the output interface format (=
-including contents, topology, separator mark, space redundancy).
->>   C) so it is belong to 'User Experience', not belong to os api.
->>
->>   welcome any another members to giving suggestions and completions.
->>
->>   thanks.
->>
->>   :-)
->>
->=20
->   completion: 8 right alignment is not belong to interface format.
->     if it was belong to interface format,
->     it would cause correctness issue (the name len may be larger than=
- 8).
->     so if "8 right alignment" is belong to os api, it means the api i=
-s not correct, need change.
->=20
->   :-)
->=20
+>> Do you mean registering a skb->destructor for pktgen then set and check
+>> bits in skb->tx_flag?
+> Yes. Register a destructor that does something like update a counter (number of packets pending),
+> then just spin while number of packets pending is over threshold.
+> --
 
-
---=20
-Chen Gang
-
-Asianux Corporation
+Not sure this is the best method, since pktgen was used to test the tx 
+process of the device driver and NIC. If we use skb_orhpan(), we would 
+miss the test of tx completion part.
