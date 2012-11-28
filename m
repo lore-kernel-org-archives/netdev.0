@@ -1,33 +1,40 @@
-From: =?UTF-8?B?5Y+26Zuo6aOe?= <sunyucong@gmail.com>
-Subject: Re: IPv4 route cache DOS attack
-Date: Tue, 27 Nov 2012 18:48:49 -0800
-Message-ID: <CAJygYd07h6dRuZeE4N9uz1FbbqtmN2MDC_+EVSpUvLOr_5MFHQ@mail.gmail.com>
-References: <CAJygYd1OSTfpdbA57q0c6ppMtft3iB7uzo-RCXFOamGp2XVzBg@mail.gmail.com>
- <20121127.211403.2194859172416122879.davem@davemloft.net>
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: [PATCH v6 5/6] PM / Runtime: force memory allocation with no I/O
+ during Runtime PM callbcack
+Date: Wed, 28 Nov 2012 11:06:43 +0800
+Message-ID: <CACVXFVOAt8hrNenEthRZEqv2d6g+gzSPUCBV=RU_u=bxs+9VTw@mail.gmail.com>
+References: <1353761958-12810-1-git-send-email-ming.lei@canonical.com>
+	<1353761958-12810-6-git-send-email-ming.lei@canonical.com>
+	<1354069667.BsTEhItmLz@vostro.rjw.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:64882 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896Ab2K1CtK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Nov 2012 21:49:10 -0500
-Received: by mail-vb0-f46.google.com with SMTP id ff1so7603630vbb.19
-        for <netdev@vger.kernel.org>; Tue, 27 Nov 2012 18:49:09 -0800 (PST)
-In-Reply-To: <20121127.211403.2194859172416122879.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alan Stern <stern@rowland.harvard.edu>, Oliver Neukum <oneukum@suse.de>,
+	Minchan Kim <minchan@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jens Axboe <axboe@kernel.dk>, "David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-mm@kvack.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1354069667.BsTEhItmLz@vostro.rjw.lan>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-my first email is to lartc@ and this one is to netdev@ .
+On Wed, Nov 28, 2012 at 5:24 AM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+>
+> Please don't duplicate code this way.
+>
+> You can move that whole thing to rpm_callback().  Yes, you'll probably need to
+> check dev->power.memalloc_noio twice in there, but that's OK.
 
-On Tue, Nov 27, 2012 at 6:14 PM, David Miller <davem@davemloft.net> wrote:
->
-> We saw your email the other day, do not resend the same exact
-> question over and over again.
->
-> If nobody has time, or wants, to answer you, then you have to simply
-> accept that.  Repeating your posting only will make things worse
-> for you, trust me.
->
-> Thank you.
+Good idea, I will update it in v7.
+
+Thanks,
+--
+Ming Lei
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
