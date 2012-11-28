@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_en: Can set maxrate only for TC0
-Date: Wed, 28 Nov 2012 11:16:52 -0500 (EST)
-Message-ID: <20121128.111652.1068873180427402990.davem@davemloft.net>
-References: <1354102995-27305-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH 0/6] smsc75xx enhancements
+Date: Wed, 28 Nov 2012 11:17:49 -0500 (EST)
+Message-ID: <20121128.111749.1104027254607313750.davem@davemloft.net>
+References: <1354118391-22666-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ogerlitz@mellanox.com, oren@mellanox.com, netdev@vger.kernel.org
-To: amirv@mellanox.com
+Cc: netdev@vger.kernel.org
+To: steve.glendinning@shawell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50004 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50018 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752359Ab2K1QQz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:16:55 -0500
-In-Reply-To: <1354102995-27305-1-git-send-email-amirv@mellanox.com>
+	with ESMTP id S1751486Ab2K1QRw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:17:52 -0500
+In-Reply-To: <1354118391-22666-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Wed, 28 Nov 2012 13:43:15 +0200
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Wed, 28 Nov 2012 15:59:44 +0000
 
-> Had a typo in memcpy.
+> This patchset implements wake on PHY (link up or link down) and
+> USB dynamic autosuspend for smsc75xx.
 > 
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> Please consider all for net-next.
 
-Applied.
+All applied, thanks Steve.
