@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] br2684: don't send frames on not-ready vcc
-Date: Wed, 28 Nov 2012 11:41:53 -0500 (EST)
-Message-ID: <20121128.114153.737074131307295783.davem@davemloft.net>
-References: <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
-	<1354055783.2534.18.camel@shinybook.infradead.org>
-	<1354058916.2534.25.camel@shinybook.infradead.org>
+Subject: Re: [PATCH net-next] gro: Handle inline VLAN tags
+Date: Wed, 28 Nov 2012 11:46:02 -0500 (EST)
+Message-ID: <20121128.114602.1208211617672057364.davem@davemloft.net>
+References: <1353114559.10798.66.camel@edumazet-glaptop>
+	<20121119.191002.1995098917961576324.davem@davemloft.net>
+	<50B3850C.4070902@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, krzysiek@podlesie.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nathan@traverse.com.au
-To: dwmw2@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354058916.2534.25.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	herbert@gondor.hengli.com.au
+To: gallatin@myri.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50372 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754438Ab2K1QqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:46:05 -0500
+In-Reply-To: <50B3850C.4070902@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Tue, 27 Nov 2012 23:28:36 +0000
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Mon, 26 Nov 2012 10:04:44 -0500
 
-> +	if (test_bit(ATM_VF_RELEASED, &atmvcc->flags)
-> +	    || test_bit(ATM_VF_CLOSE, &atmvcc->flags)
-> +	    || !test_bit(ATM_VF_READY, &atmvcc->flags)) {
+> How do you feel about the patchset I posted on 11/14/2012
+> ([PATCH net-next 0/3] myri10ge: LRO to GRO conversion,
+> http://marc.info/?l=linux-netdev&m=135289838223920&w=2)
+> which moves myri10ge from LRO to GRO?
+> 
+> Specifically, if doing vlan decap in GRO is not OK, then how
+> about doing it in the driver?
 
-Please:
-
-	if (X ||
-	    Y ||
-	    Z)
-
-not:
-
-	if (X
-	    || Y
-	    || Z)
+I'm going to trust Eric's judgment on this one, as he has been
+thinking more about the long term GRO issues than I have.
 
 Thanks.
