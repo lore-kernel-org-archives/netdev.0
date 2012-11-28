@@ -1,87 +1,55 @@
-From: Zheng Li <zheng.x.li@oracle.com>
-Subject: [PATCH] bonding: rlb mode of bond should not alter ARP originating via bridge
-Date: Wed, 28 Nov 2012 17:57:04 +0800
-Message-ID: <1354096624-22380-1-git-send-email-zheng.x.li@oracle.com>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	joe.jin@oracle.com, zheng.x.li@oracle.com
-To: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+From: Krzysztof Mazur <krzysiek@podlesie.net>
+Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
+Date: Wed, 28 Nov 2012 10:58:43 +0100
+Message-ID: <20121128095843.GA8974@shrek.podlesie.net>
+References: <201211112257.qABMvhP4021769@thirdoffive.cmf.nrl.navy.mil>
+ <1354022867.26346.334.camel@shinybook.infradead.org>
+ <20121127102333.68ac3234@thirdoffive.cmf.nrl.navy.mil>
+ <1354063697.21562.4.camel@shinybook.infradead.org>
+ <20121128081237.GA30488@shrek.podlesie.net>
+ <1354094649.21562.34.camel@shinybook.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1354094649.21562.34.camel@shinybook.infradead.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Do not modify or load balance ARP packets passing through balance-alb
-mode (wherein the ARP did not originate locally, and arrived via a bridge).
+On Wed, Nov 28, 2012 at 09:24:09AM +0000, David Woodhouse wrote:
+> On Wed, 2012-11-28 at 09:12 +0100, Krzysztof Mazur wrote:
+> > On Wed, Nov 28, 2012 at 12:48:17AM +0000, David Woodhouse wrote:
+> > > On Tue, 2012-11-27 at 10:23 -0500, chas williams - CONTRACTOR wrote:
+> > > > yes, but dont call it 8/7 since that doesnt make sense.
+> > > 
+> > > It made enough sense when it was a single patch appended to a thread of
+> > > 7 other patches from Krzysztof. But now it's all got a little more
+> > > complex, so I've tried to collect together the latest version of
+> > > everything we've discussed:
+> > 
+> > There was also discussion about patch 9/7 "pppoatm: wakeup after ATM
+> > unlock only when it's needed".
+> 
+> True. Is that really necessary? How often is the lock actually taken? Is
+> it once per packet that PPP sends (which is mostly just LCP
+> echo/response during an active connection)? And does that really warrant
+> the optimisation?
+> 
+> This is a tasklet that we used to run after absolutely *every* packet,
+> remember. Optimising *that* made sense, but I'm less sure it's worth the
+> added complexity for this case. As I have a vague recollection that we
+> decided we couldn't use the existing BLOCKED bit for it... or can we? 
+> 
+> Can this work? Feel free to replace that test_bit() and the
+> corresponding comment, with a test_and_clear_bit() and a new comment
+> explaining *why* it's safe... while I go make another cup of tea.
+> 
 
-Modifying pass-through ARP replies causes an incorrect MAC address 
-to be placed into the ARP packet, rendering peers unable to communicate 
-with the actual destination from which the ARP reply originated.
+ok, I think that we should just drop that patch, with test_bit()
+I think it's no longer an optimization.
 
-Load balancing pass-through ARP requests causes an entry to be
-created for the peer in the rlb table, and bond_alb_monitor will
-occasionally issue ARP updates to all peers in the table instrucing them
-as to which MAC address they should communicate with; this occurs when
-some event sets rx_ntt.  In the bridged case, however, the MAC address
-used for the update would be the MAC of the slave, not the actual source
-MAC of the originating destination.  This would render peers unable to
-communicate with the destinations beyond the bridge.
-
-Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-
----
- drivers/net/bonding/bond_alb.c |    6 ++++++
- drivers/net/bonding/bonding.h  |   13 +++++++++++++
- 2 files changed, 19 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index e15cc11..6fecb52 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -694,6 +694,12 @@ static struct slave *rlb_arp_xmit(struct sk_buff *skb, struct bonding *bond)
- 	struct arp_pkt *arp = arp_pkt(skb);
- 	struct slave *tx_slave = NULL;
- 
-+	/* Don't modify or load balance ARPs that do not originate locally
-+	 * (e.g.,arrive via a bridge).
-+	 */
-+	if (!bond_slave_has_mac(bond, arp->mac_src))
-+		return NULL;
-+
- 	if (arp->op_code == htons(ARPOP_REPLY)) {
- 		/* the arp must be sent on the selected
- 		* rx channel
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index f8af2fc..6dded56 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -22,6 +22,7 @@
- #include <linux/in6.h>
- #include <linux/netpoll.h>
- #include <linux/inetdevice.h>
-+#include <linux/etherdevice.h>
- #include "bond_3ad.h"
- #include "bond_alb.h"
- 
-@@ -450,6 +451,18 @@ static inline void bond_destroy_proc_dir(struct bond_net *bn)
- }
- #endif
- 
-+static inline struct slave *bond_slave_has_mac(struct bonding *bond,
-+					       const u8 *mac)
-+{
-+	int i = 0;
-+	struct slave *tmp;
-+
-+	bond_for_each_slave(bond, tmp, i)
-+		if (ether_addr_equal_64bits(mac, tmp->dev->dev_addr))
-+			return tmp;
-+
-+	return NULL;
-+}
- 
- /* exported from bond_main.c */
- extern int bond_net_id;
--- 
-1.7.6.5
+Krzysiek
