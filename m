@@ -1,72 +1,32 @@
-From: "Fujinaka, Todd" <todd.fujinaka@intel.com>
-Subject: RE: [E1000-devel] 82571EB: Detected Hardware Unit Hang
-Date: Wed, 28 Nov 2012 15:53:00 +0000
-Message-ID: <9B4A1B1917080E46B64F07F2989DADD62F2D8AAC@ORSMSX102.amr.corp.intel.com>
-References: <509B5038.8090304@oracle.com>
-  <061C8A8601E8EE4CA8D8FD6990CEA89133487884@ORSMSX102.amr.corp.intel.com>
-  <50A30656.6090508@oracle.com>
-  <061C8A8601E8EE4CA8D8FD6990CEA8913348B105@ORSMSX102.amr.corp.intel.com>
-  <50A43828.6000702@oracle.com>
-  <061C8A8601E8EE4CA8D8FD6990CEA8913349A0B4@ORSMSX102.amr.corp.intel.com>
-  <50A9C5CC.1030300@oracle.com>
-  <061C8A8601E8EE4CA8D8FD6990CEA8913349EB41@ORSMSX102.amr.corp.intel.com>
-  <50AB8471.7080607@oracle.com>
-  <9B4A1B1917080E46B64F07F2989DADD62F2D62D6@ORSMSX102.amr.corp.intel.com>
-  <50B41077.3080009@oracle.com>
-  <b46b84cf-3688-4fd7-b741-4e96f2663517@default>
-  <9B4A1B1917080E46B64F07F2989DADD62F2D8070@ORSMSX102.amr.corp.intel.com>
- <1354039840.2701.14.camel@bwh-desktop.uk.solarflarecom.com>
- <50B5CBD2.5020804@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Mary Mcgrath <mary.mcgrath@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-pci <linux-pci@vger.kernel.org>
-To: Joe Jin <joe.jin@oracle.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <50B5CBD2.5020804@oracle.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCH 0/6] smsc75xx enhancements
+Date: Wed, 28 Nov 2012 15:59:44 +0000
+Message-ID: <1354118391-22666-1-git-send-email-steve.glendinning@shawell.net>
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:57251 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752152Ab2K1P77 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 10:59:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIG9ubHkgRUVQUk9NIEkga25vdyBhYm91dCBvciBjYW4gc3BlYWsgdG8gaXMgdGhlIG9uZSBh
-dHRhY2hlZCB0byB0aGUgODI1NzEgYW5kIGl0IGRvZXNuJ3Qgc2V0IHRoZSBNYXhQYXlsb2FkU2l6
-ZS4gVGhhdCdzIGRvbmUgYnkgdGhlIEJJT1MuDQoNClRvZGQgRnVqaW5ha2ENClRlY2huaWNhbCBN
-YXJrZXRpbmcgRW5naW5lZXINCkxBTiBBY2Nlc3MgRGl2aXNpb24gKExBRCkNCkludGVsIENvcnBv
-cmF0aW9uDQp0b2RkLmZ1amluYWthQGludGVsLmNvbQ0KKDUwMykgNzEyLTQ1NjUNCg0KDQotLS0t
-LU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogSm9lIEppbiBbbWFpbHRvOmpvZS5qaW5Ab3Jh
-Y2xlLmNvbV0gDQpTZW50OiBXZWRuZXNkYXksIE5vdmVtYmVyIDI4LCAyMDEyIDEyOjMxIEFNDQpU
-bzogQmVuIEh1dGNoaW5ncw0KQ2M6IEZ1amluYWthLCBUb2RkOyBNYXJ5IE1jZ3JhdGg7IG5ldGRl
-dkB2Z2VyLmtlcm5lbC5vcmc7IGUxMDAwLWRldmVsQGxpc3RzLnNmLm5ldDsgbGludXgta2VybmVs
-QHZnZXIua2VybmVsLm9yZzsgbGludXgtcGNpDQpTdWJqZWN0OiBSZTogW0UxMDAwLWRldmVsXSA4
-MjU3MUVCOiBEZXRlY3RlZCBIYXJkd2FyZSBVbml0IEhhbmcNCg0KT24gMTEvMjgvMTIgMDI6MTAs
-IEJlbiBIdXRjaGluZ3Mgd3JvdGU6DQo+IE9uIFR1ZSwgMjAxMi0xMS0yNyBhdCAxNzozMiArMDAw
-MCwgRnVqaW5ha2EsIFRvZGQgd3JvdGU6DQo+PiBGb3JnaXZlIG1lIGlmIEknbSBiZWluZyB0b28g
-cmVwZXRpdGlvdXMgYXMgSSB0aGluayBzb21lIG9mIHRoaXMgaGFzIA0KPj4gYmVlbiBtZW50aW9u
-ZWQgaW4gdGhlIHBhc3QuDQo+Pg0KPj4gV2UgKGFuZCBieSB3ZSBJIG1lYW4gdGhlIEV0aGVybmV0
-IHBhcnQgYW5kIGRyaXZlcikgY2FuIG9ubHkgY2hhbmdlIA0KPj4gdGhlIGFkdmVydGlzZWQgYXZh
-aWxhYmlsaXR5IG9mIGEgbGFyZ2VyIE1heFBheWxvYWRTaXplLiBUaGUgc2l6ZSBpcyANCj4+IG5l
-Z290aWF0ZWQgYnkgYm90aCBzaWRlcyBvZiB0aGUgbGluayB3aGVuIHRoZSBsaW5rIGlzIGVzdGFi
-bGlzaGVkLiANCj4+IFRoZSBkcml2ZXIgc2hvdWxkIG5vdCBjaGFuZ2UgdGhlIHNpemUgb2YgdGhl
-IGxpbmsgYXMgaXQgd291bGQgYmUgDQo+PiBwb2tpbmcgYXQgcmVnaXN0ZXJzIG91dHNpZGUgb2Yg
-aXRzIHNjb3BlIGFuZCBpcyBjb250cm9sbGVkIGJ5IHRoZSANCj4+IHVwc3RyZWFtIGJyaWRnZSAo
-bm90IHVzKS4NCj4gWy4uLl0NCj4gDQo+IE1heFBheWxvYWRTaXplIChNUFMpIGlzIG5vdCBuZWdv
-dGlhdGVkIGJldHdlZW4gZGV2aWNlcyBidXQgaXMgDQo+IHByb2dyYW1tZWQgYnkgdGhlIHN5c3Rl
-bSBmaXJtd2FyZSAoYXQgbGVhc3QgZm9yIGRldmljZXMgcHJlc2VudCBhdCANCj4gYm9vdCAtIHRo
-ZSBrZXJuZWwgbWF5IGJlIHJlc3BvbnNpYmxlIGluIGNhc2Ugb2YgaG90cGx1ZykuICBZb3UgY2Fu
-IHVzZSANCj4gdGhlIGtlcm5lbCBwYXJhbWV0ZXIgJ3BjaT1wY2llX2J1c19wZXJmJyAob3Igb25l
-IG9mIHNldmVyYWwgb3RoZXJzKSB0byANCj4gc2V0IGEgcG9saWN5IHRoYXQgb3ZlcnJpZGVzIHRo
-aXMsIGJ1dCBubyBwb2xpY3kgd2lsbCBhbGxvdyBzZXR0aW5nIE1QUyANCj4gYWJvdmUgdGhlIGRl
-dmljZSdzIE1heFBheWxvYWRTaXplU3VwcG9ydGVkIChNUFNTKS4NCj4gDQoNCkJlbiwNCg0KVW5m
-b3J0dW5hdGVseSBJJ20gdXNpbmcgMy4wLngga2VybmVsIGFuZCB0aGlzIGlzIG5vdCBpbmNsdWRl
-ZCBpbiB0aGUga2VybmVsLg0KU28gSSdtIHRyeWluZyB0byB1c2UgZXRodG9vbCBtb2RpZnkgaXQg
-ZnJvbSBlZXByb20gdG8gc2VlIGlmIGhlbHAgb3Igbm8uDQoNCg0KVG9kZCwgSSdsbCByZXZpZXcg
-YWxsIE1heFBheWxvYWQgZm9yIGFsbCBkZXZpY2VzLCBidXQgbmVlZCB0byBzYXkgaWYgaXQgbWlz
-bWF0Y2gsIGN1c3RvbWVyIGNvdWxkIG5vdCBtb2RpZnkgaXQgZnJvbSBCSU9TIGZvciB0aGVyZSB3
-YXMgbm90IGVudHJ5IGF0IHRoZXJlLCB0byB0ZXN0IGl0LCB3ZSBoYXZlIHRvIGZpbmQgaG93IHRv
-IHZlcmlmeSBpZiB0aGlzIGlzIHRoZSByb290IGNhdXNlLCBzbyBzdGlsbCBuZWVkIHRvIGZpbmQg
-dGhlIG9mZnNldCBpbiBlZXByb20uDQoNClRoYW5rcyBpbiBhZHZhbmNlLA0KSm9lDQoNCg==
+This patchset implements wake on PHY (link up or link down) and
+USB dynamic autosuspend for smsc75xx.
+
+Please consider all for net-next.
+
+Steve Glendinning (6):
+  smsc75xx: check return code from smsc75xx_reset
+  smsc75xx: refactor entering suspend modes
+  smsc75xx: support PHY wakeup source
+  smsc75xx: fix error handling in suspend failure case
+  smsc75xx: add support for USB dynamic autosuspend
+  smsc75xx: don't enable remote wakeup directly
+
+ drivers/net/usb/smsc75xx.c |  415 +++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 330 insertions(+), 85 deletions(-)
+
+-- 
+1.7.10.4
