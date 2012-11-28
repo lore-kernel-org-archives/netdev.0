@@ -1,50 +1,47 @@
-From: Einar Lueck <elelueck@linux.vnet.ibm.com>
-Subject: Re: [RFC PATCH] tcp: introduce raw access to experimental options
-Date: Wed, 28 Nov 2012 11:12:27 +0100
-Message-ID: <50B5E38B.4020107@linux.vnet.ibm.com>
-References: <1353084898-42264-1-git-send-email-elelueck@linux.vnet.ibm.com> <20121116.134424.1929556546744828875.davem@davemloft.net> <50ACE496.20705@linux.vnet.ibm.com>
+From: Steve Glendinning <steve@shawell.net>
+Subject: Re: [PATCH 1/2] smsc75xx: refactor entering suspend modes
+Date: Wed, 28 Nov 2012 10:16:27 +0000
+Message-ID: <CAKh2mn5UGRN5U0w_bj25e4VnCwr9kK3f798nHSwmF4WE4dORMw@mail.gmail.com>
+References: <87y5hm9ap5.fsf@nemi.mork.no>
+	<Pine.LNX.4.44L0.1211271443150.1489-100000@iolanthe.rowland.org>
+	<CAKh2mn7+0itrJNxmh6Wv9njGaNOY48N_zfJm6=gTeMoF2VzW4g@mail.gmail.com>
+	<874nka3wgx.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, frankbla@de.ibm.com, raspl@de.ibm.com,
-	ubacher@de.ibm.com, samudrala@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alan Stern <stern@rowland.harvard.edu>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:53572 "EHLO
-	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753507Ab2K1KMd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 05:12:33 -0500
-Received: from /spool/local
-	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <elelueck@linux.vnet.ibm.com>;
-	Wed, 28 Nov 2012 10:12:32 -0000
-Received: from d06av07.portsmouth.uk.ibm.com (d06av07.portsmouth.uk.ibm.com [9.149.37.248])
-	by b06cxnps4076.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id qASACLqC1835356
-	for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 10:12:21 GMT
-Received: from d06av07.portsmouth.uk.ibm.com (d06av07.portsmouth.uk.ibm.com [127.0.0.1])
-	by d06av07.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id qAS9QFIA013268
-	for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 04:26:15 -0500
-In-Reply-To: <50ACE496.20705@linux.vnet.ibm.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:34636 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753856Ab2K1KQ2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 05:16:28 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so5195257eaa.19
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 02:16:27 -0800 (PST)
+In-Reply-To: <874nka3wgx.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/21/2012 03:26 PM, Einar Lueck wrote:
-> On 11/16/2012 07:44 PM, David Miller wrote:
->>
->> Unprivileged access to set and fetch these things?  I don't think
->> that's a good idea.
->>
->> Also, your code has a lot of coding style errors.
->>
->
-> Would a restriction to a CAP_NET_ADMIN like privilege level address and
-> resolve your concerns?
->
-> Thx,
-> Einar.
+Hi Bjorn,
 
-Would CAP_NET_ADMIN address your concerns? If would go ahead then and 
-work on a corresponding new version of the patch.
+On 28 November 2012 09:31, Bj=F8rn Mork <bjorn@mork.no> wrote:
+>
+> Remote wakeup will not be enabled on system suspend unless the user (=
+or
+> a userspace program on the users behalf) has requested it.
 
-Thx,
-Einar.
+If a user types "ethtool -s eth2 wol p" they *are* explicitly
+requesting the ethernet device to bring the system out of suspend, so
+I think the ethernet driver should set the feature automatically.
+
+from drivers/base/power/wakeup.c:
+
+ * By default, most devices should leave wakeup disabled.  The exceptio=
+ns are
+ * devices that everyone expects to be wakeup sources: keyboards, power=
+ buttons,
+ * possibly network interfaces, etc.
+
+Steve
