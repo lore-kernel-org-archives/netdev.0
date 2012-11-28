@@ -1,58 +1,38 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: [PATCH resend net-next 3/3] myri10ge: Use skb_fill_page_desc().
-Date: Wed, 28 Nov 2012 16:21:03 -0500
-Message-ID: <50B6803F.8020203@myri.com>
+From: Krzysztof Mazur <krzysiek@podlesie.net>
+Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
+Date: Wed, 28 Nov 2012 22:24:38 +0100
+Message-ID: <20121128212438.GA941@shrek.podlesie.net>
+References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+ <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
+ <1354036592.2534.6.camel@shinybook.infradead.org>
+ <20121127173906.GA11390@shrek.podlesie.net>
+ <1354039349.2534.11.camel@shinybook.infradead.org>
+ <20121127182843.GA11597@shrek.podlesie.net>
+ <20121128201837.GA912@shrek.podlesie.net>
+ <1354135481.21562.98.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:36839 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932347Ab2K1VVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 16:21:06 -0500
-Received: by mail-qc0-f174.google.com with SMTP id o22so10089890qcr.19
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 13:21:06 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1354135481.21562.98.camel@shinybook.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Nov 28, 2012 at 08:44:41PM +0000, David Woodhouse wrote:
+> On Wed, 2012-11-28 at 21:18 +0100, Krzysztof Mazur wrote:
+> > 
+> > +void vcc_pop_any(struct atm_vcc *vcc, struct sk_buff *skb)
+> > +{
+> > +       if (vcc->pop)
+> > +               vcc->pop(vcc, skb);
+> 
+> if (vcc && vcc->pop) perhaps? 
+> 
 
-Now that LRO is gone, the receive routine is much simpler, and
-we are able to use the standard skb_fill_page_desc() in myri10ge.
+yes, we can do that, at least "he" and "nicstar" use that in some cases.
 
-Signed-off-by: Andrew Gallatin <gallatin@myri.com>
----
-  drivers/net/ethernet/myricom/myri10ge/myri10ge.c |   11 ++++-------
-  1 file changed, 4 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c 
-b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index 93ed089..6bf1d26 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -1340,17 +1340,14 @@ myri10ge_rx_done(struct myri10ge_slice_state 
-*ss, int len, __wsum csum)
-  	/* Fill skb_frag_struct(s) with data from our receive */
-  	for (i = 0, remainder = len; remainder > 0; i++) {
-  		myri10ge_unmap_rx_page(pdev, &rx->info[idx], bytes);
--		__skb_frag_set_page(&rx_frags[i], rx->info[idx].page);
--		rx_frags[i].page_offset = rx->info[idx].page_offset;
--		if (remainder < MYRI10GE_ALLOC_SIZE)
--			skb_frag_size_set(&rx_frags[i], remainder);
--		else
--			skb_frag_size_set(&rx_frags[i], MYRI10GE_ALLOC_SIZE);
-+		skb_fill_page_desc(skb, i, rx->info[idx].page,
-+				   rx->info[idx].page_offset,
-+				   remainder < MYRI10GE_ALLOC_SIZE ?
-+				   remainder : MYRI10GE_ALLOC_SIZE);
-  		rx->cnt++;
-  		idx = rx->cnt & rx->mask;
-  		remainder -= MYRI10GE_ALLOC_SIZE;
-  	}
--	skb_shinfo(skb)->nr_frags = i;
-
-  	/* remove padding */
-  	rx_frags[0].page_offset += MXGEFW_PAD;
--- 
-1.7.9.5
+Krzysiek
