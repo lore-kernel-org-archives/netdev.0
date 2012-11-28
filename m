@@ -1,30 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2012-11-27
-Date: Wed, 28 Nov 2012 11:31:37 -0500 (EST)
-Message-ID: <20121128.113137.1176745335401792807.davem@davemloft.net>
-References: <50B4807E.8010607@pengutronix.de>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH] bonding: make arp_ip_target parameter checks consistent
+ with sysfs
+Date: Wed, 28 Nov 2012 17:33:56 +0100
+Message-ID: <50B63CF4.8070404@redhat.com>
+References: <1353759675-30511-1-git-send-email-nikolay@redhat.com> <20121128.112316.33060261620694469.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: mkl@pengutronix.de
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50174 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753963Ab2K1Qbi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:31:38 -0500
-In-Reply-To: <50B4807E.8010607@pengutronix.de>
+Received: from mx1.redhat.com ([209.132.183.28]:50045 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753259Ab2K1QeK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2012 11:34:10 -0500
+In-Reply-To: <20121128.112316.33060261620694469.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Tue, 27 Nov 2012 09:57:34 +0100
+Actually I did see it from kernel/module.c and didn't come up with it 
+myself.
+Anyway I will re-post with the change and will take a note for the future.
 
-> this is pull request is for net-next. Contains a patch by Andreas
-> Larsson, which enables the sja1000 of driver to work under sparc.
-> AnilKumar Ch contributed a patch to improve the c_can support under
-> omap, Olivier Sobrie's patch brings support for the CAN/USB dongles
-> from Kvaser. In a bunch of patches by me missing MODULE_ALIAS and/or
-> MODULE_DEVICE_TABLE entries were added to the CAN drivers.
+Thanks for the review
 
-Pulled, thanks.
+On 28/11/12 17:23, David Miller wrote:
+> From: Nikolay Aleksandrov<nikolay@redhat.com>
+> Date: Sat, 24 Nov 2012 13:21:15 +0100
+>
+>> @@ -4706,12 +4706,14 @@ static int bond_check_params(struct bond_params *params)
+>>   	     arp_ip_count++) {
+>>   		/* not complete check, but should be good enough to
+>>   		   catch mistakes */
+>> -		if (!isdigit(arp_ip_target[arp_ip_count][0])) {
+>> +		__be32 ip = in_aton(arp_ip_target[arp_ip_count]);
+>> +		if (!isdigit(arp_ip_target[arp_ip_count][0])
+>> +		    || ip == 0
+>> +		    || ip == htonl(INADDR_BROADCAST)) {
+> Please format this properly, put the connecting operators at the end,
+> not the beginning, of the lines of the if statement, like so:
+>
+> 		if (!isdigit(arp_ip_target[arp_ip_count][0]) ||
+> 		    ip == 0 ||
+> 		    ip == htonl(INADDR_BROADCAST)) {
+>
+> Where else did you see the layout you used?  It's not a prevalent
+> construct, so as far as I can tell you came up with it on your own.
+>
+> Please don't do this, and instead use existing practice as your guide.
+>
+> Thanks.
