@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] gro: Handle inline VLAN tags
-Date: Wed, 28 Nov 2012 11:46:02 -0500 (EST)
-Message-ID: <20121128.114602.1208211617672057364.davem@davemloft.net>
-References: <1353114559.10798.66.camel@edumazet-glaptop>
-	<20121119.191002.1995098917961576324.davem@davemloft.net>
-	<50B3850C.4070902@myri.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	herbert@gondor.hengli.com.au
-To: gallatin@myri.com
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH v2] bonding: make arp_ip_target parameter checks consistent with sysfs
+Date: Wed, 28 Nov 2012 17:44:12 +0100
+Message-ID: <1354121052-6263-1-git-send-email-nikolay@redhat.com>
+Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50372 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754438Ab2K1QqF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 11:46:05 -0500
-In-Reply-To: <50B3850C.4070902@myri.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43191 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754284Ab2K1QqR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Nov 2012 11:46:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Gallatin <gallatin@myri.com>
-Date: Mon, 26 Nov 2012 10:04:44 -0500
+ The module can be loaded with arp_ip_target="255.255.255.255" which makes it
+ impossible to remove as the function in sysfs checks for that value, so we make
+ the parameter checks consistent with sysfs.
 
-> How do you feel about the patchset I posted on 11/14/2012
-> ([PATCH net-next 0/3] myri10ge: LRO to GRO conversion,
-> http://marc.info/?l=linux-netdev&m=135289838223920&w=2)
-> which moves myri10ge from LRO to GRO?
-> 
-> Specifically, if doing vlan decap in GRO is not OK, then how
-> about doing it in the driver?
+ v2: Fix formatting
 
-I'm going to trust Eric's judgment on this one, as he has been
-thinking more about the long term GRO issues than I have.
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+ drivers/net/bonding/bond_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Thanks.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 5f5b69f..d29159a 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4706,12 +4706,13 @@ static int bond_check_params(struct bond_params *params)
+ 	     arp_ip_count++) {
+ 		/* not complete check, but should be good enough to
+ 		   catch mistakes */
+-		if (!isdigit(arp_ip_target[arp_ip_count][0])) {
++		__be32 ip = in_aton(arp_ip_target[arp_ip_count]);
++		if (!isdigit(arp_ip_target[arp_ip_count][0]) ||
++		    ip == 0 || ip == htonl(INADDR_BROADCAST)) {
+ 			pr_warning("Warning: bad arp_ip_target module parameter (%s), ARP monitoring will not be performed\n",
+ 				   arp_ip_target[arp_ip_count]);
+ 			arp_interval = 0;
+ 		} else {
+-			__be32 ip = in_aton(arp_ip_target[arp_ip_count]);
+ 			arp_target[arp_ip_count] = ip;
+ 		}
+ 	}
+-- 
+1.7.11.7
