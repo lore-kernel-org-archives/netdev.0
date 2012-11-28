@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb3: Restore dependency on INET
-Date: Wed, 28 Nov 2012 17:41:19 -0500 (EST)
-Message-ID: <20121128.174119.1603665513068752517.davem@davemloft.net>
-References: <1354132983.2768.1.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH 1/1] net: ethernet: cpsw: fix build warnings for CPSW
+ when CPTS not selected
+Date: Wed, 28 Nov 2012 17:51:34 -0500 (EST)
+Message-ID: <20121128.175134.357731690357578238.davem@davemloft.net>
+References: <1354038820-11095-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com, divy@chelsio.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org, richardcochran@gmail.com
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53602 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53694 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756338Ab2K1WlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 17:41:24 -0500
-In-Reply-To: <1354132983.2768.1.camel@bwh-desktop.uk.solarflarecom.com>
+	with ESMTP id S1755990Ab2K1Wvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 17:51:36 -0500
+In-Reply-To: <1354038820-11095-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 28 Nov 2012 20:03:03 +0000
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Tue, 27 Nov 2012 23:23:40 +0530
 
-> Commit ff33c0e1885cda44dd14c79f70df4706f83582a0 ('net: Remove bogus
-> dependencies on INET') wrongly removed this dependency.  cxgb3 uses
-> the arp_send() function defined in net/ipv4/arp.c.
+>   CC      drivers/net/ethernet/ti/cpsw.o
+> drivers/net/ethernet/ti/cpsw.c: In function 'cpsw_ndo_ioctl':
+> drivers/net/ethernet/ti/cpsw.c:881:20: warning: unused variable 'priv'
 > 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> The build warning is generated when CPTS is not selected in Kernel Build.
+> Fixing by passing the net_device pointer to cpts IOCTL instead of passing priv
+> 
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Applied, thanks.
+Applied.
