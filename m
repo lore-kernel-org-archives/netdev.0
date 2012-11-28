@@ -1,35 +1,34 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 1/2] arping: Fix finding of a default interface when no
- -I is specified.
-Date: Thu, 29 Nov 2012 03:38:29 +0900
-Message-ID: <50B65A25.1050501@linux-ipv6.org>
-References: <1354018775-4966-1-git-send-email-jsynacek@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] gro: Handle inline VLAN tags
+Date: Wed, 28 Nov 2012 13:39:31 -0500 (EST)
+Message-ID: <20121128.133931.1920292698414428662.davem@davemloft.net>
+References: <50B3850C.4070902@myri.com>
+	<20121128.114602.1208211617672057364.davem@davemloft.net>
+	<50B64A24.60200@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Jan Synacek <jsynacek@redhat.com>
+Cc: eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
+	herbert@gondor.hengli.com.au
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56345 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751236Ab2K1Sia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 13:38:30 -0500
-In-Reply-To: <1354018775-4966-1-git-send-email-jsynacek@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51532 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755536Ab2K1Sjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 13:39:36 -0500
+In-Reply-To: <50B64A24.60200@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jan Synacek wrote:
-> By default, no interface string should be supplied. This ensures that we can
-> recognize if an interface was specified or omitted. Previously, when -I was not
-> used, default interface string was compiled-in and the automatic selection
-> didn't work correctly.
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Wed, 28 Nov 2012 12:30:12 -0500
 
-Okay, but to retain default device support compiled in,
-different patch applied.
+> Perfect, thanks.  Eric seemed OK with doing the vlan decap
+> in the driver.  But.. I didn't get an "nack" or an "applied" from
+> you in response to that myri10ge patchset.  Do I need to re-submit it?
+> 
+> Sorry, I'm not terribly familiar with the etiquette for this sort
+> of thing.
 
-Thank you, anyway.
-
-P.S. Even if default interface compiled in, you can say "-I ''" to
-override that.
-
---yoshfuji
+Please just repost the patch set.
