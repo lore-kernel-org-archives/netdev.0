@@ -1,104 +1,59 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH v3 8/7] pppoatm: fix missing wakeup in pppoatm_send()
-Date: Wed, 28 Nov 2012 10:19:20 +0000
-Message-ID: <1354097960.21562.41.camel@shinybook.infradead.org>
-References: <201211112257.qABMvhP4021769@thirdoffive.cmf.nrl.navy.mil>
-	 <1354022867.26346.334.camel@shinybook.infradead.org>
-	 <20121127102333.68ac3234@thirdoffive.cmf.nrl.navy.mil>
-	 <1354063697.21562.4.camel@shinybook.infradead.org>
-	 <20121128081237.GA30488@shrek.podlesie.net>
-	 <1354094649.21562.34.camel@shinybook.infradead.org>
-	 <20121128095843.GA8974@shrek.podlesie.net>
+Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
+Date: Wed, 28 Nov 2012 10:24:28 +0000
+Message-ID: <1354098268.21562.44.camel@shinybook.infradead.org>
+References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+	 <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
+	 <1354036592.2534.6.camel@shinybook.infradead.org>
+	 <20121127173906.GA11390@shrek.podlesie.net>
+	 <1354039349.2534.11.camel@shinybook.infradead.org>
+	 <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B70C9@saturn3.aculab.com>
+	 <20121128100412.GA6269@shrek.podlesie.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-VyX/Gs/GPavwzdwUwmHr"
-Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
+	boundary="=-7qtd3vBVgeLqvSUIK5Pp"
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nathan@traverse.com.au
 To: Krzysztof Mazur <krzysiek@podlesie.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121128095843.GA8974@shrek.podlesie.net>
+In-Reply-To: <20121128100412.GA6269@shrek.podlesie.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-VyX/Gs/GPavwzdwUwmHr
+--=-7qtd3vBVgeLqvSUIK5Pp
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2012-11-28 at 10:58 +0100, Krzysztof Mazur wrote:
-> ok, I think that we should just drop that patch, with test_bit()
-> I think it's no longer an optimization.
+On Wed, 2012-11-28 at 11:04 +0100, Krzysztof Mazur wrote:
+>=20
+> The ->close() routine can just abort any pending rx/tx and just wait
+> for completion of currently running rx/tx code. That shouldn't take
+> long.
 
-After another cup of tea, it now uses test_and_clear_bit()... and
-doesn't break the carefully crafted handling of the BLOCKED bit in the
-normal flow control case, by setting it at the nospace: label!
+If it's been submitted to the hardware for DMA, it can't do that very
+easily.
 
-=46rom b2cf6a466697ecf19061cb11b8f4ec5bb381550a Mon Sep 17 00:00:00 2001
-From: David Woodhouse <David.Woodhouse@intel.com>
-Date: Wed, 28 Nov 2012 10:15:05 +0000
-Subject: [PATCH] pppoatm: optimise PPP channel wakeups after sock_owned_by_=
-user()
+And if I can't be bothered to write code to go through the entire damn
+queue and inspect every packet to see if it's a data packet and check
+the VCI/VPI and try to steal it, it can't be done for the software queue
+either :)
 
-We don't need to schedule the wakeup tasklet on *every* unlock; only if we
-actually blocked the channel in the first place.
+The queue ought to be short; if it isn't, then we already screwed up.
+The close therefore should be quick, and it *doesn't* have to be
+instant.
 
-Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
----
- net/atm/pppoatm.c | 21 +++++++++++++++++++--
- 1 file changed, 19 insertions(+), 2 deletions(-)
-
-diff --git a/net/atm/pppoatm.c b/net/atm/pppoatm.c
-index 446a7f0..172e44e 100644
---- a/net/atm/pppoatm.c
-+++ b/net/atm/pppoatm.c
-@@ -113,7 +113,17 @@ static void pppoatm_release_cb(struct atm_vcc *atmvcc)
- {
- 	struct pppoatm_vcc *pvcc =3D atmvcc_to_pvcc(atmvcc);
-=20
--	tasklet_schedule(&pvcc->wakeup_tasklet);
-+	/*
-+	 * As in pppoatm_pop(), it's safe to clear the BLOCKED bit here because
-+	 * the wakeup *can't* race with pppoatm_send(). They both hold the PPP
-+	 * channel's ->downl lock. And the potential race with *setting* it,
-+	 * which leads to the double-check dance in pppoatm_may_send(), doesn't
-+	 * exist here. In the sock_owned_by_user() case in pppoatm_send(), we
-+	 * set the BLOCKED bit while the socket is still locked. We know that
-+	 * ->release_cb() can't be called until that's done.
-+	 */
-+	if (test_and_clear_bit(BLOCKED, &pvcc->blocked))
-+		tasklet_schedule(&pvcc->wakeup_tasklet);
- 	if (pvcc->old_release_cb)
- 		pvcc->old_release_cb(atmvcc);
- }
-@@ -292,8 +302,15 @@ static int pppoatm_send(struct ppp_channel *chan, stru=
-ct sk_buff *skb)
-=20
- 	vcc =3D ATM_SKB(skb)->vcc;
- 	bh_lock_sock(sk_atm(vcc));
--	if (sock_owned_by_user(sk_atm(vcc)))
-+	if (sock_owned_by_user(sk_atm(vcc))) {
-+		/*
-+		 * Needs to happen (and be flushed, hence test_and_) before we unlock
-+		 * the socket. It needs to be seen by the time our ->release_cb gets
-+		 * called.
-+		 */
-+		test_and_set_bit(BLOCKED, &pvcc->blocked);
- 		goto nospace;
-+	}
- 	if (test_bit(ATM_VF_RELEASED, &vcc->flags)
- 			|| test_bit(ATM_VF_CLOSE, &vcc->flags)
- 			|| !test_bit(ATM_VF_READY, &vcc->flags)) {
---=20
-1.8.0
-
-
+If someone wants to return immediately, there's always
+vcc_release_async()...
 
 --=20
 dwmw2
 
 
---=-VyX/Gs/GPavwzdwUwmHr
+--=-7qtd3vBVgeLqvSUIK5Pp
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -199,19 +154,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTI4MTAxOTIwWjAjBgkqhkiG9w0BCQQx
-FgQU2svXW1UrKZ0Ixpw79CVkD9JT6NcwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTI4MTAyNDI4WjAjBgkqhkiG9w0BCQQx
+FgQU1T2FzKT5rTT+5vaVbX2yvESzAG8wgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBzQlMsg4FlM4MR+R3bDrJQCtx3
-2OIzJTVo+11wDrGyp+upg5jAU1nNNQ54ubFftzPLmrhN+DYDYCVnbKcdbypAWrC6leB01H7gYwUg
-W98ZBsmTuF+zhctnWrkWKCikUlrLzu8Y9UKARPLjmRv4BC7FREdGxT6IO3zCg//DDdiaFemuPqDF
-vKYu34Wkig/R211dz2jOR9vWbwKDVp7lxOZHlujSZh3y66nhkxGu5tNyUtYWVAVofYx6UHcCuwqV
-oYm1e9r8yuy1pggvJ2VMQB1wU8luG8Hhloj9HYu04X8hH18/9RZYME3KEi9rGJstE6U2VQG/K66S
-vqqUzkqiRMttAAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAzTp1vu0IqkBdVPjzHTUcI7lZQ
+7pda9TlFPvfqGL3P7XW9K7jXSQ7sa6iOz2l2i+aO16ubS/Y/wTbMfsJFrJwvu2BjqCBhF/cIWSLe
+lp0Fcx5OUQobZNaofyjL27H2nCv4+yArsiPQuT9yPiipeGv8kKw6Qk5Bx3OIL8zn5zk+5zG4avI9
+VCrRO+DDmFGQsDzaLTmSH0MIdtelTAY6NqNm0Cp3HHNpfYTozYQIw/RuOljhDLjiPZZFlzPwKJbX
+yyk6lfpIbWkVHp7XoH4mqLkEER35pTubMnLiwpnBWruZYWg1oFBJHg0EuOkAUNzmkpZUWBJQWM/o
+JZgrNnmmYEnNAAAAAAAA
 
 
---=-VyX/Gs/GPavwzdwUwmHr--
+--=-7qtd3vBVgeLqvSUIK5Pp--
