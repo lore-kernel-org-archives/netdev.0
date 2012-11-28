@@ -1,43 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: move inet_dport/inet_num in
- sock_common
-Date: Wed, 28 Nov 2012 12:02:43 -0500 (EST)
-Message-ID: <20121128.120243.1053933388686939425.davem@davemloft.net>
-References: <1354102061.14302.84.camel@edumazet-glaptop>
-	<1354107378.14302.149.camel@edumazet-glaptop>
-	<20121128.114835.1005932954047935079.davem@davemloft.net>
+Subject: Re: [PATCH] br2684: don't send frames on not-ready vcc
+Date: Wed, 28 Nov 2012 12:04:15 -0500 (EST)
+Message-ID: <20121128.120415.778262714601372592.davem@davemloft.net>
+References: <1354058916.2534.25.camel@shinybook.infradead.org>
+	<20121128.114153.737074131307295783.davem@davemloft.net>
+	<1354122070.21562.89.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, ling.ma.program@gmail.com, joe@perches.com,
-	bhutchings@solarflare.com
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: chas@cmf.nrl.navy.mil, krzysiek@podlesie.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nathan@traverse.com.au
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50597 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50613 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751407Ab2K1RCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 12:02:47 -0500
-In-Reply-To: <20121128.114835.1005932954047935079.davem@davemloft.net>
+	with ESMTP id S1751406Ab2K1RER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 12:04:17 -0500
+In-Reply-To: <1354122070.21562.89.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAyOCBO
-b3YgMjAxMiAxMTo0ODozNSAtMDUwMCAoRVNUKQ0KDQo+IEkgbGlrZSB0aGlzIGEgbG90LCBhcHBs
-aWVkLCB0aGFua3MgRXJpYyENCg0KQW5kIEknZCBsaWtlIGl0IGV2ZW4gbW9yZSBpZiBpdCB3YXMg
-YnVpbGQgdGVzdGVkIDotLw0KDQpuZXQvaXB2NC9pbmV0X2hhc2h0YWJsZXMuYzogSW4gZnVuY3Rp
-b24goV9faW5ldF9sb29rdXBfZXN0YWJsaXNoZWSiOg0KbmV0L2lwdjQvaW5ldF9oYXNodGFibGVz
-LmM6MjQyOjc6IGVycm9yOiBleHBlY3RlZCBleHByZXNzaW9uIGJlZm9yZSChKaIgdG9rZW4NCm5l
-dC9pcHY0L2luZXRfaGFzaHRhYmxlcy5jOjI0Njo4OiBlcnJvcjogZXhwZWN0ZWQgZXhwcmVzc2lv
-biBiZWZvcmUgoSmiIHRva2VuDQpuZXQvaXB2NC9pbmV0X2hhc2h0YWJsZXMuYzoyNjc6NzogZXJy
-b3I6IGV4cGVjdGVkIGV4cHJlc3Npb24gYmVmb3JlIKEpoiB0b2tlbg0KbmV0L2lwdjQvaW5ldF9o
-YXNodGFibGVzLmM6Mjc0Ojg6IGVycm9yOiBleHBlY3RlZCBleHByZXNzaW9uIGJlZm9yZSChKaIg
-dG9rZW4NCm5ldC9pcHY0L2luZXRfaGFzaHRhYmxlcy5jOjIyNjoyOiB3YXJuaW5nOiB1bnVzZWQg
-dmFyaWFibGUgoWFjb29raWWiIFstV3VudXNlZC12YXJpYWJsZV0NCm5ldC9pcHY0L2luZXRfaGFz
-aHRhYmxlcy5jOiBJbiBmdW5jdGlvbiChX19pbmV0X2NoZWNrX2VzdGFibGlzaGVkojoNCm5ldC9p
-cHY0L2luZXRfaGFzaHRhYmxlcy5jOjMyNjo3OiBlcnJvcjogZXhwZWN0ZWQgZXhwcmVzc2lvbiBi
-ZWZvcmUgoSmiIHRva2VuDQpuZXQvaXB2NC9pbmV0X2hhc2h0YWJsZXMuYzozNDE6NzogZXJyb3I6
-IGV4cGVjdGVkIGV4cHJlc3Npb24gYmVmb3JlIKEpoiB0b2tlbg0KbmV0L2lwdjQvaW5ldF9oYXNo
-dGFibGVzLmM6MzA3OjI6IHdhcm5pbmc6IHVudXNlZCB2YXJpYWJsZSChYWNvb2tpZaIgWy1XdW51
-c2VkLXZhcmlhYmxlXQ0KbmV0L2lwdjQvaW5ldF9oYXNodGFibGVzLmM6MzA2OjY6IHdhcm5pbmc6
-IHVudXNlZCB2YXJpYWJsZSChZGlmoiBbLVd1bnVzZWQtdmFyaWFibGVdDQoNClRoaXMgaXMgd2l0
-aCBnY2MtNC43LjItMiBvbiBGZWRvcmEgMTcgb24gYW4gYWxsbW9kY29uZmlnIGJ1aWxkLg0K
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Wed, 28 Nov 2012 17:01:10 +0000
+
+> On Wed, 2012-11-28 at 11:41 -0500, David Miller wrote:
+>> 
+>> Please:
+>> 
+>>         if (X ||
+>>             Y ||
+>>             Z)
+>> 
+>> not:
+>> 
+>>         if (X
+>>             || Y
+>>             || Z)
+> 
+> Thanks. Fixed in both Krzysztof's original pppoatm version, and my
+> br2684 patch, in the git tree at git://git.infradead.org/~dwmw2/atm.git
+> 
+> I knew there was something else that offended me about the original,
+> other than just the whitespace (which is also fixed).
+
+Do you want me to pull that tree into net-next or is there a plan to
+repost the entire series of work for a final submission?
