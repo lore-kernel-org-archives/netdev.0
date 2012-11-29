@@ -1,52 +1,106 @@
-From: Alexander Sverdlin <asv-uSbOeAmDUekAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/2] of_mdio: Honour "status=disabled" property of device
-Date: Thu, 29 Nov 2012 08:45:20 +0100
-Message-ID: <50B71290.2060200@sysgo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Barry.Song-kQvG35nSl+M@public.gmane.org, w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
- alexander sverdlin <alexander.sverdlin.ext-OYasijW0DpE@public.gmane.org>
-To: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
- Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH: net-next] core: make GRO methods static.
+Date: Thu, 29 Nov 2012 09:55:25 +0200
+Message-ID: <1354175725-23382-1-git-send-email-ramirose@gmail.com>
+Cc: netdev@vger.kernel.org, Rami Rosen <ramirose@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:56195 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752989Ab2K2H4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 02:56:17 -0500
+Received: by mail-wi0-f178.google.com with SMTP id hm6so6095273wib.1
+        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 23:56:15 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Sverdlin <alexander.sverdlin-uSbOeAmDUekAvxtiuMwx3w@public.gmane.org>
+This patch changes three methods to be static and removes their
+EXPORT_SYMBOLs in core/dev.c and their external declaration in
+netdevice.h. The methods, dev_gro_receive(), napi_frags_finish() and
+napi_skb_finish(), which are in the GRO rx path, are not used
+outside core/dev.c.
 
-of_mdio: Honour "status=disabled" property of device
-
-Currently of_mdiobus_register() function registers all PHY devices,
-independetly from their status property in device tree. According to
-"ePAPR 1.1" spec, device should only be registered if there is no
-"status" property, or it has "ok" (or "okay") value (see
-of_device_is_available()). In case of "platform devices",
-of_platform_device_create_pdata() checks for "status" and ensures
-that disabled devices are not pupulated. But such check for MDIO buses
-was missing until now. Fix it.
-
-Signed-off-by: Alexander Sverdlin <alexander.sverdlin-uSbOeAmDUekAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
 ---
---- linux.orig/drivers/of/of_mdio.c
-+++ linux/drivers/of/of_mdio.c
-@@ -53,7 +53,7 @@ int of_mdiobus_register(struct mii_bus *
- 		return rc;
+ include/linux/netdevice.h | 6 ------
+ net/core/dev.c            | 9 +++------
+ 2 files changed, 3 insertions(+), 12 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e9929ab..18c5dc9 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2153,16 +2153,10 @@ extern void dev_kfree_skb_any(struct sk_buff *skb);
+ extern int		netif_rx(struct sk_buff *skb);
+ extern int		netif_rx_ni(struct sk_buff *skb);
+ extern int		netif_receive_skb(struct sk_buff *skb);
+-extern gro_result_t	dev_gro_receive(struct napi_struct *napi,
+-					struct sk_buff *skb);
+-extern gro_result_t	napi_skb_finish(gro_result_t ret, struct sk_buff *skb);
+ extern gro_result_t	napi_gro_receive(struct napi_struct *napi,
+ 					 struct sk_buff *skb);
+ extern void		napi_gro_flush(struct napi_struct *napi, bool flush_old);
+ extern struct sk_buff *	napi_get_frags(struct napi_struct *napi);
+-extern gro_result_t	napi_frags_finish(struct napi_struct *napi,
+-					  struct sk_buff *skb,
+-					  gro_result_t ret);
+ extern gro_result_t	napi_gro_frags(struct napi_struct *napi);
  
- 	/* Loop over the child nodes and register a phy_device for each one */
--	for_each_child_of_node(np, child) {
-+	for_each_available_child_of_node(np, child) {
- 		const __be32 *paddr;
- 		u32 addr;
- 		int len;
+ static inline void napi_free_frags(struct napi_struct *napi)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2a5f5586..2f94df2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3592,7 +3592,7 @@ void napi_gro_flush(struct napi_struct *napi, bool flush_old)
+ }
+ EXPORT_SYMBOL(napi_gro_flush);
+ 
+-enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
++static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	struct sk_buff **pp = NULL;
+ 	struct packet_offload *ptype;
+@@ -3683,7 +3683,6 @@ normal:
+ 	ret = GRO_NORMAL;
+ 	goto pull;
+ }
+-EXPORT_SYMBOL(dev_gro_receive);
+ 
+ static inline gro_result_t
+ __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+@@ -3710,7 +3709,7 @@ __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ 	return dev_gro_receive(napi, skb);
+ }
+ 
+-gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
++static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
+ {
+ 	switch (ret) {
+ 	case GRO_NORMAL:
+@@ -3736,7 +3735,6 @@ gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL(napi_skb_finish);
+ 
+ static void skb_gro_reset_offset(struct sk_buff *skb)
+ {
+@@ -3788,7 +3786,7 @@ struct sk_buff *napi_get_frags(struct napi_struct *napi)
+ }
+ EXPORT_SYMBOL(napi_get_frags);
+ 
+-gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb,
++static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb,
+ 			       gro_result_t ret)
+ {
+ 	switch (ret) {
+@@ -3813,7 +3811,6 @@ gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb,
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL(napi_frags_finish);
+ 
+ static struct sk_buff *napi_frags_skb(struct napi_struct *napi)
+ {
+-- 
+1.7.11.7
