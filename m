@@ -1,46 +1,74 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH] solos-pci: don't call vcc->pop() after pclose()
-Date: Thu, 29 Nov 2012 15:55:08 +0100
-Message-ID: <20121129145508.GA16478@shrek.podlesie.net>
-References: <1354039349.2534.11.camel@shinybook.infradead.org>
- <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
- <AE90C24D6B3A694183C094C60CF0A2F6026B70C9@saturn3.aculab.com>
- <1354141115.21562.101.camel@shinybook.infradead.org>
- <20121129105715.GA10226@shrek.podlesie.net>
- <1354190143.21562.145.camel@shinybook.infradead.org>
- <20121129124344.GA7704@shrek.podlesie.net>
- <1354193837.21562.159.camel@shinybook.infradead.org>
- <20121129132021.GA15425@shrek.podlesie.net>
- <1354200137.21562.167.camel@shinybook.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nathan@traverse.com.au
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1354200137.21562.167.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH 0/5] Add LE hash collision bug fix for active and passive offloaded connections
+Date: Thu, 29 Nov 2012 20:22:20 +0530
+Message-ID: <1354200745-23598-1-git-send-email-vipul@chelsio.com>
+Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
+	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
+	abhishek@chelsio.com, Vipul Pandya <vipul@chelsio.com>
+To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:11264 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754175Ab2K2O5J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 09:57:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 29, 2012 at 02:42:17PM +0000, David Woodhouse wrote:
-> On Thu, 2012-11-29 at 14:20 +0100, Krzysztof Mazur wrote:
-> >                 if (card->tx_skb[port] == skb) {
-> >                         skb_get(skb);
-> >                         solos_pop(SKB_CB(skb)->vcc, skb);
-> >                         SKB_CB(skb)->vcc = NULL;
-> 
-> Um... yes, that would probably work. But it's subtle enough that it
-> bothers me. And if it *did* cause any strange issues, it's a rare case
-> and would be hard to reproduce/debug. Is it *really* necessary, just to
-> speed up the vcc close? I'm inclined to stick with the 'KISS' approach.
+This patch series fixes the LE hash collision issue in cxgb4 and RDMA/cxgb4
+drivers in kernel.org.
 
-That's why I proposed that simple loop that just calls ->pop() and
-sets vcc to NULL.
+If the hash functionality is enabled in T4 then tuple information of active and
+passive offloaded connections are stored in DDR3 memory. LE (Lookup Engine)
+implements the interface to search this tuple entries using hash algorithm. To
+avoid LE hash collision, firmware provides new mechanisms to setup active and
+passive open connections.
 
-Forget about that, Chas said that we cannot leave close() until we
-close that vcc, so we really need to wait.
+In case of active open connection, firmware detects LE hash collision situation
+and notifies driver. Driver uses fw_ofld_connection work request to offload
+that connection. Its tuple information will be stored in TCAM memory array. 
 
-Krzysiek
+In case of passive open connection, server filter region is created in TCAM.
+This region stores the filter which will redirect the incoming SYN packet to
+offload queues. After this driver tries to establish the connection using
+firmware work request.
+
+This patch series also adds framework for managing filters and to use T4's
+filter capabilities.
+
+Following testing has been carried out successfully on this patch series.
+1. 1000 active open connections created and saw that tcam_full counter is
+getting incremented through debugfs file.
+2. Multiple passive open connections were created and ran the same test
+repetatively to verify server filter is getting created and deleted properly.
+
+The patch-series is based on Roland's infiniband tree (for-next branch),
+and involves changes on cxgb4 and RDMA/cxgb4 drivers. Both linux-rdma and netdev
+are included in this post for review.
+
+We have some more bug fixes in RDMA/cxgb4 after this patch series. So, we would
+like to request this series to get mereged through Roland's infiniband for-next
+tree.
+
+Thanks,
+Vipul Pandya
+
+Vipul Pandya (5):
+  cxgb4: Add T4 filter support
+  cxgb4: Add LE hash collision bug fix path in LLD driver
+  RDMA/cxgb4: Fix LE hash collision bug for active open connection
+  RDMA/cxgb4: Fix LE hash collision bug for passive open connection
+  RDMA/cxgb4: Fix bug for active and passive LE hash collision path
+
+ drivers/infiniband/hw/cxgb4/cm.c                |  789 +++++++++++++++++++---
+ drivers/infiniband/hw/cxgb4/device.c            |  210 ++++++-
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   33 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  146 +++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  473 +++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   23 +-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c        |   34 +
+ drivers/net/ethernet/chelsio/cxgb4/l2t.h        |    3 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   23 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   66 ++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   37 ++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  388 +++++++++++
+ 12 files changed, 2100 insertions(+), 125 deletions(-)
