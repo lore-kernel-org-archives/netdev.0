@@ -1,120 +1,98 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH] ipv6: unify logic evaluating inet6_dev's accept_ra property
-Date: Thu, 29 Nov 2012 11:26:19 +0200
-Message-ID: <1354181179-16294-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Thomas Graf <tgraf@suug.ch>, Tore Anderson <tore@fud.no>,
-	shmulik.ladkani@gmail.com
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:49837 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392Ab2K2J0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 04:26:31 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so6259653eek.19
-        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 01:26:30 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next RFC] pktgen: don't wait for the device who doesn't free
+	skb immediately after sent
+Date: Thu, 29 Nov 2012 18:13:13 +0800
+Message-ID: <1570859.IePPxHAEX1@jason-thinkpad-t430s>
+References: <1353916612-6357-1-git-send-email-jasowang@redhat.com>
+	<50B5B3D4.1070106@redhat.com>
+	<20121128085305.2b0503ce@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121128085305.2b0503ce@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-As of 026359b [ipv6: Send ICMPv6 RSes only when RAs are accepted], the
-logic determining whether to send Router Solicitations is identical
-to the logic determining whether kernel accepts Router Advertisements.
+On Wednesday, November 28, 2012 08:53:05 AM Stephen Hemminger wrote:
+> On Wed, 28 Nov 2012 14:48:52 +0800
+> 
+> Jason Wang <jasowang@redhat.com> wrote:
+> > On 11/28/2012 12:49 AM, Stephen Hemminger wrote:
+> > > On Tue, 27 Nov 2012 14:45:13 +0800
+> > > 
+> > > Jason Wang <jasowang@redhat.com> wrote:
+> > >> On 11/27/2012 01:37 AM, Stephen Hemminger wrote:
+> > >>> On Mon, 26 Nov 2012 15:56:52 +0800
+> > >>> 
+> > >>> Jason Wang <jasowang@redhat.com> wrote:
+> > >>>> Some deivces do not free the old tx skbs immediately after it has
+> > >>>> been sent
+> > >>>> (usually in tx interrupt). One such example is virtio-net which
+> > >>>> optimizes for virt and only free the possible old tx skbs during the
+> > >>>> next packet sending. This would lead the pktgen to wait forever in
+> > >>>> the refcount of the skb if no other pakcet will be sent afterwards.
+> > >>>> 
+> > >>>> Solving this issue by introducing a new flag IFF_TX_SKB_FREE_DELAY
+> > >>>> which could notify the pktgen that the device does not free skb
+> > >>>> immediately after it has been sent and let it not to wait for the
+> > >>>> refcount to be one.
+> > >>>> 
+> > >>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > >>> 
+> > >>> Another alternative would be using skb_orphan() and skb->destructor.
+> > >>> There are other cases where skb's are not freed right away.
+> > >>> --
+> > >>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > >>> the body of a message to majordomo@vger.kernel.org
+> > >>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > >> 
+> > >> Hi Stephen:
+> > >> 
+> > >> Do you mean registering a skb->destructor for pktgen then set and check
+> > >> bits in skb->tx_flag?
+> > > 
+> > > Yes. Register a destructor that does something like update a counter
+> > > (number of packets pending), then just spin while number of packets
+> > > pending is over threshold.
+> > > --
+> > 
+> > Not sure this is the best method, since pktgen was used to test the tx
+> > process of the device driver and NIC. If we use skb_orhpan(), we would
+> > miss the test of tx completion part.
+> 
+> There are other places that delay freeing and your solution would mean
+> finding and fixing all those. Code that does that already has to use
+> skb_orphan() to work, and I was looking for a way that could use that.
+> Introducing another flag value seems like a long term burden.
+> 
 
-However the condition itself is repeated in several code locations.
+Get the point, will draft another version.
+> Alternatively, virtio could do cleanup more aggressively. Maybe in response
+> to ring getting half full, or add a cleanup timer or something to avoid the
+> problem.
 
-Unify it by introducing 'ipv6_accept_ra()' accessor.
+May worth to try. Another method is that virtio has a feature to notify guest 
+when tx ring is empty, we could free the old tx skbs there. But it may brings 
+extra overhead. If we could let virtio_net free the old tx skb timely, it 
+would be easier to bring BQL support to virtio_net also.
 
-Also, simplify the condition expression, making it more readable.
-No semantic change.
-
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
-
-Not sure about the proper header to place the 'ipv6_accept_ra' accessor.
-Currently placed in include/net/ipv6.h.
-Other candidates were if_inet6.h and addrconf.h.
-
- include/net/ipv6.h  |   10 ++++++++++
- net/ipv6/addrconf.c |    3 +--
- net/ipv6/ndisc.c    |   16 ++--------------
- 3 files changed, 13 insertions(+), 16 deletions(-)
-
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 979bf6c..cd15585 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -271,6 +271,16 @@ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
- 
- extern bool ipv6_opt_accepted(const struct sock *sk, const struct sk_buff *skb);
- 
-+static inline bool ipv6_accept_ra(struct inet6_dev *idev)
-+{
-+	/*
-+	 * If forwarding is enabled, RA are not accepted unless the special
-+	 * hybrid mode (accept_ra=2) is enabled.
-+	 */
-+	return idev->cnf.forwarding ? idev->cnf.accept_ra == 2 :
-+	    idev->cnf.accept_ra;
-+}
-+
- #if IS_ENABLED(CONFIG_IPV6)
- static inline int ip6_frag_nqueues(struct net *net)
- {
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 0424e4e..ca1ed8a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3005,8 +3005,7 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
- 	   router advertisements, start sending router solicitations.
- 	 */
- 
--	if (((ifp->idev->cnf.accept_ra == 1 && !ifp->idev->cnf.forwarding) ||
--	     ifp->idev->cnf.accept_ra == 2) &&
-+	if (ipv6_accept_ra(ifp->idev) &&
- 	    ifp->idev->cnf.rtr_solicits > 0 &&
- 	    (dev->flags&IFF_LOOPBACK) == 0 &&
- 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 2edce30..980cdc3 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1033,18 +1033,6 @@ errout:
- 	rtnl_set_sk_err(net, RTNLGRP_ND_USEROPT, err);
- }
- 
--static inline int accept_ra(struct inet6_dev *in6_dev)
--{
--	/*
--	 * If forwarding is enabled, RA are not accepted unless the special
--	 * hybrid mode (accept_ra=2) is enabled.
--	 */
--	if (in6_dev->cnf.forwarding && in6_dev->cnf.accept_ra < 2)
--		return 0;
--
--	return in6_dev->cnf.accept_ra;
--}
--
- static void ndisc_router_discovery(struct sk_buff *skb)
- {
- 	struct ra_msg *ra_msg = (struct ra_msg *)skb_transport_header(skb);
-@@ -1092,7 +1080,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 		return;
- 	}
- 
--	if (!accept_ra(in6_dev))
-+	if (!ipv6_accept_ra(in6_dev))
- 		goto skip_linkparms;
- 
- #ifdef CONFIG_IPV6_NDISC_NODETYPE
-@@ -1248,7 +1236,7 @@ skip_linkparms:
- 			     NEIGH_UPDATE_F_ISROUTER);
- 	}
- 
--	if (!accept_ra(in6_dev))
-+	if (!ipv6_accept_ra(in6_dev))
- 		goto out;
- 
- #ifdef CONFIG_IPV6_ROUTE_INFO
--- 
-1.7.9
+Thanks
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
