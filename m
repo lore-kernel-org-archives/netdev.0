@@ -1,42 +1,73 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] smsc95xx: fix suspend buffer overflow
-Date: Wed, 28 Nov 2012 20:54:26 -0800
-Message-ID: <1354164866.29762.24.camel@joe-AO722>
-References: <1354022623-7317-1-git-send-email-steve.glendinning@shawell.net>
-	 <1354038178.8028.0.camel@joe-AO722>
-	 <CAKh2mn4pJG-F4zxpBj3MmRSNSV1Gwnxjw=kvfD0xqqYxErdEHg@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: "tuntap: multiqueue support" causes udev fork bombs
+Date: Thu, 29 Nov 2012 13:47:04 +0800
+Message-ID: <4146845.d5imC0scLB@jason-thinkpad-t430s>
+References: <50B5E6A5.6040009@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-To: Steve Glendinning <steve@shawell.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:37289 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751062Ab2K2Ey2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Nov 2012 23:54:28 -0500
-In-Reply-To: <CAKh2mn4pJG-F4zxpBj3MmRSNSV1Gwnxjw=kvfD0xqqYxErdEHg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	ML netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, rmilasan@suse.cz,
+	Jiri Slaby <jirislaby@gmail.com>, maxk@qualcomm.com,
+	vtun@office.satix.net
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50B5E6A5.6040009@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-11-28 at 18:06 +0000, Steve Glendinning wrote:
-> that filter code isn't pretty!  If you have time
-> to knock up a patch I'd be happy to test it.
+On Wednesday, November 28, 2012 11:25:41 AM Jiri Slaby wrote:
+> Hi,
+> 
+> with this commit:
+> commit c8d68e6be1c3b242f1c598595830890b65cea64a
+> Author: Jason Wang <jasowang@redhat.com>
+> Date:   Wed Oct 31 19:46:00 2012 +0000
+> 
+>     tuntap: multiqueue support
+> 
+> 
+> I see fork bombs from udev. It is trying to create 2048 processes. 1024
+> for tx, 1024 for rx. OOM killer indeed steps in and kills everything.
 
-Looking a bit at the code, I don't know how it's supposed to work.
+Hi, thanks for the reporting, could you pls try the following patch?
 
-This function seems broken:
+---
 
-static u16 smsc_crc(const u8 *buffer, size_t len, int filter)
-{
-        return bitrev16(crc16(0xFFFF, buffer, len)) << ((filter % 2) * 16);
-}
-
-It always returns 0 when filter is odd.
-
-I imagine 2 things:
-o It should return u32
-o when multiple WAKE_<foo> flags are set,
-  the code doesn't work properly.
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index b44d7b7..cc3f878 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -492,9 +492,6 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+ 
+ 	tun_set_real_num_queues(tun);
+ 
+-	if (tun->numqueues == 1)
+-		netif_carrier_on(tun->dev);
+-
+ 	/* device is allowed to go away first, so no need to hold extra
+ 	 * refcnt.
+ 	 */
+@@ -1611,6 +1608,10 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 			TUN_USER_FEATURES;
+ 		dev->features = dev->hw_features;
+ 
++		err = tun_attach(tun, file);
++		if (err < 0)
++			goto err_free_dev;
++
+ 		err = register_netdevice(tun->dev);
+ 		if (err < 0)
+ 			goto err_free_dev;
+@@ -1620,9 +1621,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		    device_create_file(&tun->dev->dev, &dev_attr_group))
+ 			pr_err("Failed to create tun sysfs files\n");
+ 
+-		err = tun_attach(tun, file);
+-		if (err < 0)
+-			goto err_free_dev;
++		netif_carrier_on(tun->dev);
+ 	}
+ 
+ 	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
