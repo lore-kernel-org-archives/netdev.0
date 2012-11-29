@@ -1,135 +1,119 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next v1 2/3] net/mlx4_en: Fix TX moderation info loss after set_ringparam is called
-Date: Thu, 29 Nov 2012 21:21:42 +0200
-Message-ID: <1354216903-830-3-git-send-email-amirv@mellanox.com>
-References: <1354216903-830-1-git-send-email-amirv@mellanox.com>
-Cc: Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Oren Duer <oren@mellanox.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Subject: Re: RDS: sendto() with very large buffer triggering WARNING: at mm/page_alloc.c:2403
+Date: Thu, 29 Nov 2012 13:38:32 -0600
+Message-ID: <50B7B9B8.80707@oracle.com>
+References: <CA+ydwtrVyun4LhMufd44ip4eXSwXp9Tw34+5yEdm3UdTVb9hQA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rds-devel@oss.oracle.com,
+	Dave Jones <davej@redhat.com>
+To: Tommi Rantala <tt.rantala@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:38151 "HELO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753554Ab2K2TWB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 14:22:01 -0500
-In-Reply-To: <1354216903-830-1-git-send-email-amirv@mellanox.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:29031 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752545Ab2K2Tii (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 14:38:38 -0500
+In-Reply-To: <CA+ydwtrVyun4LhMufd44ip4eXSwXp9Tw34+5yEdm3UdTVb9hQA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to re-set tx moderation information after calling set_ringparam
-else default tx moderation will be used.
-Also avoid related code duplication, by putting it in a utility function.
+On 11/29/2012 2:39 AM, Tommi Rantala wrote:
+> Hello,
+>
+> Is RDS supposed to cap the sendto() buffer size? Saw the WARNING while
+> fuzzing with Trinity.
+>
+> #include<string.h>
+> #include<arpa/inet.h>
+> #include<sys/socket.h>
+>
+> static const char buf[1234000567];
+>
+> int main(void)
+> {
+>          int fd;
+>          struct sockaddr_in sa;
+>
+>          fd = socket(21 /* AF_RDS */, SOCK_SEQPACKET, 0);
+>          if (fd<  0)
+>                  return 1;
+>
+>          memset(&sa, 0, sizeof(sa));
+>          sa.sin_family = AF_INET;
+>          sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+>          sa.sin_port = htons(11111);
+>
+>          bind(fd, (struct sockaddr *)&sa, sizeof(sa));
+>
+>          sendto(fd, buf, sizeof(buf), 0, (struct sockaddr *)&sa, sizeof(sa));
+>
+>          return 0;
+> }
+>
+> $ strace -e sendto ./rds-sendto
+> sendto(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"...,
+> 1234000567, 0, {sa_family=AF_INET, sin_port=htons(11111),
+> sin_addr=inet_addr("127.0.0.1")}, 16) = -1 ENOMEM (Cannot allocate
+> memory)
+>
+> [ 7421.592595] ------------[ cut here ]------------
+> [ 7421.592621] WARNING: at mm/page_alloc.c:2403
+> __alloc_pages_nodemask+0x2c0/0x9f0()
+> [ 7421.592628] Hardware name: EB1012
+> [ 7421.592633] Modules linked in:
+> [ 7421.592645] Pid: 3082, comm: rds-sendto Not tainted 3.7.0-rc7+ #58
+> [ 7421.592650] Call Trace:
+> [ 7421.592667]  [<ffffffff810a197b>] warn_slowpath_common+0x7b/0xc0
+> [ 7421.592678]  [<ffffffff810a19d5>] warn_slowpath_null+0x15/0x20
+> [ 7421.592689]  [<ffffffff81171900>] __alloc_pages_nodemask+0x2c0/0x9f0
+> [ 7421.592700]  [<ffffffff81107c90>] ? __lock_acquire+0x3a0/0x9f0
+> [ 7421.592711]  [<ffffffff81107c90>] ? __lock_acquire+0x3a0/0x9f0
+> [ 7421.592724]  [<ffffffff811ac6bf>] alloc_pages_current+0x7f/0xf0
+> [ 7421.592735]  [<ffffffff8116cc19>] __get_free_pages+0x9/0x40
+> [ 7421.592746]  [<ffffffff811b3d8a>] kmalloc_order_trace+0x3a/0x190
+> [ 7421.592755]  [<ffffffff81107c90>] ? __lock_acquire+0x3a0/0x9f0
+> [ 7421.592765]  [<ffffffff811b4f59>] __kmalloc+0x229/0x240
+> [ 7421.592778]  [<ffffffff81d1b06e>] rds_message_alloc+0x1e/0xa0
+> [ 7421.592789]  [<ffffffff81d1db66>] rds_sendmsg+0x196/0x720
+> [ 7421.592802]  [<ffffffff81a72a80>] ? sock_update_classid+0xf0/0x2b0
+> [ 7421.592813]  [<ffffffff81a6abec>] sock_sendmsg+0xdc/0xf0
+> [ 7421.592828]  [<ffffffff8118e9e5>] ? might_fault+0x85/0x90
+> [ 7421.592838]  [<ffffffff8118e99c>] ? might_fault+0x3c/0x90
+> [ 7421.592848]  [<ffffffff81a6e0fa>] sys_sendto+0xfa/0x130
+> [ 7421.592859]  [<ffffffff8110953d>] ? trace_hardirqs_on_caller+0x10d/0x1a0
+> [ 7421.592868]  [<ffffffff811095dd>] ? trace_hardirqs_on+0xd/0x10
+> [ 7421.592881]  [<ffffffff81e94c9d>] ? _raw_spin_unlock_irq+0x3d/0x70
+> [ 7421.592892]  [<ffffffff810bab44>] ? ptrace_notify+0x74/0x90
+> [ 7421.592904]  [<ffffffff81e96250>] tracesys+0xdd/0xe2
+> [ 7421.592911] ---[ end trace d9d681d0d60abf69 ]---
+>
+> Tommi
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The man page of rds says this:
+        The  default values for the send and receive buffer size are 
+controlled
+        by the A given  RDS  socket  has  limited  transmit  buffer  
+space.  It
+        defaults  to  the  system  wide  socket  send  buffer  size  set 
+in the
+        wmem_default and rmem_default sysctls, respectively. They can 
+be  tuned
+        by  the application through the SO_SNDBUF and SO_RCVBUF socket 
+options.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   59 ++++++++++++-----------
- 1 files changed, 30 insertions(+), 29 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 9d0b88e..dc8ccb4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -43,6 +43,34 @@
- #define EN_ETHTOOL_SHORT_MASK cpu_to_be16(0xffff)
- #define EN_ETHTOOL_WORD_MASK  cpu_to_be32(0xffffffff)
- 
-+static int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
-+{
-+	int i;
-+	int err = 0;
-+
-+	for (i = 0; i < priv->tx_ring_num; i++) {
-+		priv->tx_cq[i].moder_cnt = priv->tx_frames;
-+		priv->tx_cq[i].moder_time = priv->tx_usecs;
-+		err = mlx4_en_set_cq_moder(priv, &priv->tx_cq[i]);
-+		if (err)
-+			return err;
-+	}
-+
-+	if (priv->adaptive_rx_coal)
-+		return 0;
-+
-+	for (i = 0; i < priv->rx_ring_num; i++) {
-+		priv->rx_cq[i].moder_cnt = priv->rx_frames;
-+		priv->rx_cq[i].moder_time = priv->rx_usecs;
-+		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
-+		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
-+		if (err)
-+			return err;
-+	}
-+
-+	return err;
-+}
-+
- static void
- mlx4_en_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
- {
-@@ -381,7 +409,6 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
- 			      struct ethtool_coalesce *coal)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
--	int err, i;
- 
- 	priv->rx_frames = (coal->rx_max_coalesced_frames ==
- 			   MLX4_EN_AUTO_CONF) ?
-@@ -397,14 +424,6 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
- 	    coal->tx_max_coalesced_frames != priv->tx_frames) {
- 		priv->tx_usecs = coal->tx_coalesce_usecs;
- 		priv->tx_frames = coal->tx_max_coalesced_frames;
--		for (i = 0; i < priv->tx_ring_num; i++) {
--			priv->tx_cq[i].moder_cnt = priv->tx_frames;
--			priv->tx_cq[i].moder_time = priv->tx_usecs;
--			if (mlx4_en_set_cq_moder(priv, &priv->tx_cq[i])) {
--				en_warn(priv, "Failed changing moderation "
--					      "for TX cq %d\n", i);
--			}
--		}
- 	}
- 
- 	/* Set adaptive coalescing params */
-@@ -414,18 +433,8 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
- 	priv->rx_usecs_high = coal->rx_coalesce_usecs_high;
- 	priv->sample_interval = coal->rate_sample_interval;
- 	priv->adaptive_rx_coal = coal->use_adaptive_rx_coalesce;
--	if (priv->adaptive_rx_coal)
--		return 0;
- 
--	for (i = 0; i < priv->rx_ring_num; i++) {
--		priv->rx_cq[i].moder_cnt = priv->rx_frames;
--		priv->rx_cq[i].moder_time = priv->rx_usecs;
--		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
--		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
--		if (err)
--			return err;
--	}
--	return 0;
-+	return mlx4_en_moderation_update(priv);
- }
- 
- static int mlx4_en_set_pauseparam(struct net_device *dev,
-@@ -466,7 +475,6 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
- 	u32 rx_size, tx_size;
- 	int port_up = 0;
- 	int err = 0;
--	int i;
- 
- 	if (param->rx_jumbo_pending || param->rx_mini_pending)
- 		return -EINVAL;
-@@ -505,14 +513,7 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
- 			en_err(priv, "Failed starting port\n");
- 	}
- 
--	for (i = 0; i < priv->rx_ring_num; i++) {
--		priv->rx_cq[i].moder_cnt = priv->rx_frames;
--		priv->rx_cq[i].moder_time = priv->rx_usecs;
--		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
--		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
--		if (err)
--			goto out;
--	}
-+	err = mlx4_en_moderation_update(priv);
- 
- out:
- 	mutex_unlock(&mdev->state_lock);
--- 
-1.7.8.2
+rds_sendmsg (net/rds/send.c) checks this limit a bit later (after 
+rds_message_alloc()):
+         while (!rds_send_queue_rm(rs, conn, rm, rs->rs_bound_port,
+                                   dport, &queued)) {
+                 rds_stats_inc(s_send_queue_full);
+                 /* XXX make sure this is reasonable */
+                 if (payload_len > rds_sk_sndbuf(rs)) {
+                         ret = -EMSGSIZE;
+                         goto out;
+                 }
+                 ....
+Venkat
