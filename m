@@ -1,91 +1,50 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2012-11-29
-Date: Thu, 29 Nov 2012 14:50:13 +0100
-Message-ID: <50B76815.8010907@pengutronix.de>
+From: Jan Synacek <jsynacek@redhat.com>
+Subject: iputils: ping -I <iface>
+Date: Thu, 29 Nov 2012 15:12:43 +0100
+Message-ID: <50B76D5B.8010804@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig7F8DD1AC1339AA301ED25436"
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:26536 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754338Ab2K2OMs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2012 09:12:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig7F8DD1AC1339AA301ED25436
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Hello,
 
-Hello David,
+There seems to be a bug(?) when calling ping with -I lo:
 
-this pull request is for net-next/master. There is a patch by Alexander
-Stein fixing a reference counter problem which can make driver
-unloading impossible (stable Cc'ed). And several patches by me which
-remove an obsolete mechanism from several drivers, which is already
-handled at the infrastructure level.
+$ ping -I lo kernel.org
 
-regards,
-Marc
+PING kernel.org (149.20.4.69) from 192.168.1.10 lo: 56(84) bytes of data.
+^C
 
----
+Note that 192.168.1.10 is my primary interface's address (em1). However, no
+replies are coming back.
 
-The following changes since commit 3177bf6f922f62743133abbcbbbb5545f4133b=
-2d:
+$ ping -I em1 kernel.org
 
-  net: ethernet: cpsw: fix build warnings for CPSW when CPTS not selected=
- (2012-11-28 17:51:16 -0500)
+PING kernel.org (149.20.4.69) from 192.168.1.10 em1: 56(84) bytes of data.
+64 bytes from pub2.kernel.org (149.20.4.69): icmp_seq=1 ttl=42 time=202 ms
+64 bytes from pub2.kernel.org (149.20.4.69): icmp_seq=2 ttl=42 time=187 ms
+^C
 
-are available in the git repository at:
+Works as expected.
 
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
+I know that binding to loopback probably doesn't make much sense, but I think
+that ping should be able to cope with that.
 
-for you to fetch changes up to 823d7a1f761d6404babaab04cc8b1724186cf2c8:
+Also, it would be nice to mention the difference between -I <ip> and -I <iface>
+in the manpage.
 
-  can: pcan_usb_core: remove obsolete variable open_time (2012-11-29 14:3=
-4:06 +0100)
+I don't understand the problem clearly enough to write a patch.
 
-----------------------------------------------------------------
-Alexander Stein (1):
-      can: Do not call dev_put if restart timer is running upon close
-
-Marc Kleine-Budde (5):
-      can: mscan: remove obsolete variable open_time
-      can: sja1000: remove obsolete variable open_time
-      can: ems_usb: remove obsolete variable open_time
-      can: esd_usb2: remove obsolete variable open_time
-      can: pcan_usb_core: remove obsolete variable open_time
-
- drivers/net/can/dev.c                        |    3 +--
- drivers/net/can/mscan/mscan.c                |    8 --------
- drivers/net/can/mscan/mscan.h                |    1 -
- drivers/net/can/sja1000/sja1000.c            |    8 --------
- drivers/net/can/sja1000/sja1000.h            |    1 -
- drivers/net/can/usb/ems_usb.c                |    7 -------
- drivers/net/can/usb/esd_usb2.c               |   10 ----------
- drivers/net/can/usb/peak_usb/pcan_usb_core.c |    5 -----
- drivers/net/can/usb/peak_usb/pcan_usb_core.h |    1 -
- 9 files changed, 1 insertion(+), 43 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig7F8DD1AC1339AA301ED25436
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with undefined - http://www.enigmail.net/
-
-iEYEARECAAYFAlC3aBsACgkQjTAFq1RaXHMm4ACfTvN3brwMWLodooo56qDVwoB7
-XK0An0Hwfe29g9o3SJoiHRyb1tl+fnRc
-=VgFz
------END PGP SIGNATURE-----
-
---------------enig7F8DD1AC1339AA301ED25436--
+Regards,
+-- 
+Jan Synacek
+Software Engineer, BaseOS team Brno, Red Hat
