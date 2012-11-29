@@ -1,65 +1,54 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Thu, 29 Nov 2012 17:28:18 +0100
-Message-ID: <20121129162818.GA6615@shrek.podlesie.net>
-References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
- <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
- <1354036592.2534.6.camel@shinybook.infradead.org>
- <20121127173906.GA11390@shrek.podlesie.net>
- <1354039349.2534.11.camel@shinybook.infradead.org>
- <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
- <AE90C24D6B3A694183C094C60CF0A2F6026B70C9@saturn3.aculab.com>
- <1354141115.21562.101.camel@shinybook.infradead.org>
- <20121129150945.GB16478@shrek.podlesie.net>
- <1354204077.21562.172.camel@shinybook.infradead.org>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [net-next PATCH V2 9/9] net: increase frag queue hash size andcache-line
+Date: Thu, 29 Nov 2012 16:39:30 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70D1@saturn3.aculab.com>
+References: <20121129161019.17754.29670.stgit@dragon> <20121129161552.17754.86087.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nathan@traverse.com.au
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1354204077.21562.172.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: <netdev@vger.kernel.org>,
+	"Pablo Neira Ayuso" <pablo@netfilter.org>,
+	"Thomas Graf" <tgraf@suug.ch>, "Cong Wang" <amwang@redhat.com>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"Herbert Xu" <herbert@gondor.hengli.com.au>
+To: "Jesper Dangaard Brouer" <brouer@redhat.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Florian Westphal" <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:45768 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751191Ab2K2Qku (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2012 11:40:50 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 11105-10 for <netdev@vger.kernel.org>;
+ Thu, 29 Nov 2012 16:40:40 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20121129161552.17754.86087.stgit@dragon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 29, 2012 at 03:47:57PM +0000, David Woodhouse wrote:
-> On Thu, 2012-11-29 at 16:09 +0100, Krzysztof Mazur wrote:
-> > 
-> > I don't like two thinks about this patch:
-> > 
-> >         - if allos_skb(sizeof(*header), GFP_ATOMIC) at beginning of
-> >           pclose() fails we will crash
-> > 
-> >         - if card wakes up after this timeout we will probably crash too
-> > 
-> > That's why proposed different approach, but it has other problems.
-> 
-> How about this variant on what you suggested. Yes, we can definitely
-> remove everything that's in the queue... as long as we use
-> skb_queue_walk_safe() instead of skb_queue_walk().
-> 
-> We can use GFP_KERNEL instead of GFP_ATOMIC, which at least reduces the
-> likelihood of failing to close the vcc.
-> 
-> We end up waiting *only* if there is a packet which is *currently* being
-> DMA'd to the card. And if the card doesn't take that within 5 seconds,
-> it almost certainly never will. So I can live with that.
-> 
-
-Yeah, that shouldn't happen.
-
-> +				if (!test_bit(ATM_VF_READY, &vcc->flags))
-> +					wake_up(&card->param_wq);
-> +			} else
-
-according to CodingStyle:
-
-+ } else {
->  				dev_kfree_skb_irq(oldskb);
-> -			}
-+ }
-
-Krzysiek
+PiBJbmNyZWFzZSBmcmFnIHF1ZXVlIGhhc2ggc2l6ZSBhbmQgYXNzdXJlIGNhY2hlLWxpbmUgYWxp
+Z25tZW50IHRvDQo+IGF2b2lkIGZhbHNlIHNoYXJpbmcuICBIYXNoIHNpemUgaXMgc2V0IHRvIDI1
+NiwgYmVjYXVzZSBJIGhhdmUNCj4gb2JzZXJ2ZWQgMjA2IGZyYWcgcXVldWVzIGluIHVzZSBhdCA0
+eDEwRyB3aXRoIHBhY2tldCBzaXplIDQ0MTYgYnl0ZXMNCj4gKHRocmVlIGZyYWdtZW50cykuDQoN
+ClNpbmNlIGl0IGlzIGEgaGFzaCBsaXN0LCB3b24ndCB0aGVyZSBhbHdheXMgYmUgd29ya2xvYWRz
+IHdoZXJlDQp0aGVyZSBhcmUgaGFzaCBjb2xsaXNpb25zPw0KSSdtIG5vdCBzdXJlIEknbSBpbiBm
+YXZvdXIgb2YgbWFzc2l2ZWx5IHBhZGRpbmcgb3V0IHN0cnVjdHVyZQ0KdG8gdGhlIHNpemUgb2Yg
+Y2FjaGUgbGluZXMuDQoNCkJvdGggdGhlc2UgY2hhbmdlcyBhZGQgYSBtb2RlcmF0ZSBhbW91bnQg
+dG8gdGhlIGtlcm5lbCBkYXRhIHNpemUNCih0aG9zZSBwZW9wbGUgd2hvIGFyZSB3b3JyaWVkIGFi
+b3V0IG5vdCBiZWluZyBhYmxlIHRvIGRpc2NhcmQNCmNvZGUgYmVjYXVzZSBob3RfcGx1ZyBpcyBh
+bHdheXMgY29uZmlndXJlZCByZWFsbHkgb3VnaHQgdG8NCmJlIHdvcnJpZWQgYWJvdXQgdGhlIGZv
+b3RwcmludCBvZiBzb21lIG9mIHRoZXNlIGhhc2ggdGFibGVzKS4NCg0KV2UgcnVuIExpbnV4IG9u
+IGVtYmVkZGVkIChzbWFsbCkgcHBjIHdoZXJlIHRoZXJlIG1pZ2h0IG9ubHkNCmJlIGEgaGFuZGZ1
+bCBvZiBUQ1AgY29ubmVjdGlvbnMsIHRoZXNlIHNvcnQgb2YgdGFibGVzIHVzZSB1cA0KcHJlY2lv
+dXMgbWVtb3J5Lg0KDQpXaGlsZSBwYWRkaW5nIHRvIGNhY2hlIGxpbmUgbWlnaHQgcmVkdWNlIHRo
+ZSBudW1iZXIgb2YgY2FjaGUNCnNub29wcyB3aGVuIGF0dGFja2luZyB0aGUgY29kZSwgaW4gYSBy
+ZWFsIGxpZmUgc2l0dWF0aW9uIEkNCnN1c3BlY3QgdGhlIGVmZmVjdCBvZiBtYWtpbmcgYW5vdGhl
+ciBjYWNoZSBsaW5lIGJ1c3kgaXMgYXMNCmxpa2VseSB0byBmbHVzaCBvdXQgc29tZSBvdGhlciBp
+bXBvcnRhbnQgZGF0YS4NClRoaXMgaXMgc2ltaWxhciB0byB0aGUgcmVhc29ucyB0aGF0IGV4Y2Vz
+c2l2ZSBmdW5jdGlvbiBpbmxpbmluZw0KYW5kIGxvb3AgdW5yb2xsaW5nIHdpbGwgc3BlZWQgdXAg
+YmVuY2htYXJrcyBidXQgc2xvdyBkb3duIHJlYWwNCmNvZGUuDQoNCglEYXZpZA0KDQo=
