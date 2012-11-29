@@ -1,145 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 28 Nov 2012 21:47:32 -0500 (EST)
-Message-ID: <20121128.214732.1634269294133625782.davem@davemloft.net>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [E1000-devel] 82571EB: Detected Hardware Unit Hang
+Date: Thu, 29 Nov 2012 11:10:23 +0800
+Message-ID: <CABawtvPrz=z_CLCvPeXkky7COyhjPyfBu3QCTbiiPpvr+5bicg@mail.gmail.com>
+References: <509B5038.8090304@oracle.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA89133487884@ORSMSX102.amr.corp.intel.com>
+	<50A30656.6090508@oracle.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA8913348B105@ORSMSX102.amr.corp.intel.com>
+	<50A43828.6000702@oracle.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA8913349A0B4@ORSMSX102.amr.corp.intel.com>
+	<50A9C5CC.1030300@oracle.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA8913349EB41@ORSMSX102.amr.corp.intel.com>
+	<50AB8471.7080607@oracle.com>
+	<9B4A1B1917080E46B64F07F2989DADD62F2D62D6@ORSMSX102.amr.corp.intel.com>
+	<50B41077.3080009@oracle.com>
+	<b46b84cf-3688-4fd7-b741-4e96f2663517@default>
+	<9B4A1B1917080E46B64F07F2989DADD62F2D8070@ORSMSX102.amr.corp.intel.com>
+	<1354039840.2701.14.camel@bwh-desktop.uk.solarflarecom.com>
+	<50B5CBD2.5020804@oracle.com>
+	<9B4A1B1917080E46B64F07F2989DADD62F2D8AAC@ORSMSX102.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Joe Jin <joe.jin@oracle.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Mary Mcgrath <mary.mcgrath@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-pci <linux-pci@vger.kernel.org>
+To: "Fujinaka, Todd" <todd.fujinaka@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9B4A1B1917080E46B64F07F2989DADD62F2D8AAC@ORSMSX102.amr.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Joe,
+    Possibly your customer is running a kernel without source code on
+a platform whose vendor wouldn't like to fix BIOS issue( Is that a
+HP/Dell server ?).
+    Anyway, to see if is a payload issue or,  you could change the
+payload size with setpci tool to those devices and set the link
+retrain bit to trigger the link retraining to debug the issue and
+identity the root cause.  I thinks it is much easier than modify the
+BIOS or  eeprom of NIC.
 
-Some more fixes trickled in over the past few days:
+    e.g.
+   set device control register to 0f 00   (128 bytes payload size)
+   #   setpci -v -s 00:02.0 98.w=000f
+   set device link control register to 60h (retrain the link)
+   #  setpci -v -s 00:02.0 a0.b=60
 
-1) PIM device names can overflow the IFNAMSIZ buffer unless we
-   properly limit the allowed indexes, fix from Eric Dumazet.
+  Hope it works,  Just my 2 cents.
 
-2) Under heavy load we can OOPS in icmp reply processing due to
-   an unchecked inet_putpeer() call.  Fix from Neal Cardwell.
+Ethan.zhao@oracle.com
 
-3) SCTP round trip calculations need to use 64-bit math to avoid
-   overflows, fix from Schoch Christian.
-
-4) Fix a memory leak and an error return flub in SCTP and IRDA
-   triggerable by userspace.  Fix from Tommi Rantala and found by
-   the syscall fuzzer (trinity).
-
-5) MLX4 driver gives bogus size to memcpy() call, fix from Amir
-   Vadai.
-
-6) Fix length calculation in VHOST descriptor translation, from
-   Michael S. Tsirkin.
-
-7) Ambassador ATM driver loops forever while loading firmware, fix
-   from Dan Carpenter.
-
-8) Over MTU packets in openvswitch warn about wrong device, fix
-   from Jesse Gross.
-
-9) Netfilter IPSET's netlink code can overrun a string buffer
-   because it's not properly limited to IFNAMSIZ.  Fix from
-   Florian Westphal.
-
-10) PCAN USB driver sets wrong timestamp in SKB, from Oliver
-    Hartkopp.
-
-11) Make sure the RX ifindex always has a valid value in the
-    CAN BCM driver, even if we haven't received a frame yet.
-    Fix also from Oliver Hartkopp.
-
-Please pull, thanks a lot!
-
-The following changes since commit 194d9831f0419b5125dc94ec0ece4434d8ef=
-74f0:
-
-  Merge tag 'sound-3.7' of git://git.kernel.org/pub/scm/linux/kernel/gi=
-t/tiwai/sound (2012-11-24 08:32:11 -1000)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-for you to fetch changes up to a45085f6a7801f95cd5682290195224e268627fd=
-:
-
-  Merge branch 'fixes' of git://git.kernel.org/pub/scm/linux/kernel/git=
-/jesse/openvswitch (2012-11-28 18:00:47 -0500)
-
-----------------------------------------------------------------
-
-Amir Vadai (1):
-      net/mlx4_en: Can set maxrate only for TC0
-
-Bj=F8rn Mork (1):
-      net: qmi_wwan: add Huawei E173
-
-Dan Carpenter (1):
-      atm: forever loop loading ambassador firmware
-
-David S. Miller (2):
-      Merge branch 'master' of git://1984.lsi.us.es/nf
-      Merge branch 'fixes' of git://git.kernel.org/.../jesse/openvswitc=
-h
-
-Eric Dumazet (1):
-      net: ipmr: limit MRT_TABLE identifiers
-
-=46lorian Westphal (1):
-      netfilter: ipset: fix netiface set name overflow
-
-Jesse Gross (1):
-      openvswitch: Print device when warning about over MTU packets.
-
-Jiri Pirko (1):
-      team: fix hw_features setup
-
-Mehak Mahajan (1):
-      openvswitch: Store flow key len if ARP opcode is not request or r=
-eply.
-
-Michael S. Tsirkin (1):
-      vhost: fix length for cross region descriptor
-
-Neal Cardwell (1):
-      ipv4: avoid passing NULL to inet_putpeer() in icmpv4_xrlim_allow(=
-)
-
-Oliver Hartkopp (2):
-      can: peak_usb: fix hwtstamp assignment
-      can: bcm: initialize ifindex for timeouts without previous frame =
-reception
-
-Schoch Christian (1):
-      sctp: Error in calculation of RTTvar
-
-Tommi Rantala (3):
-      sctp: fix memory leak in sctp_datamsg_from_user() when copy from =
-user space fails
-      sctp: fix -ENOMEM result with invalid user space pointer in sendt=
-o() syscall
-      irda: irttp: fix memory leak in irttp_open_tsap() error path
-
- drivers/atm/ambassador.c                       |  1 +
- drivers/net/can/usb/peak_usb/pcan_usb.c        |  8 ++++++--
- drivers/net/can/usb/peak_usb/pcan_usb_pro.c    |  8 ++++++--
- drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |  2 +-
- drivers/net/team/team.c                        |  4 +++-
- drivers/net/usb/qmi_wwan.c                     |  1 +
- drivers/vhost/vhost.c                          |  2 +-
- net/can/bcm.c                                  |  3 +++
- net/ipv4/icmp.c                                |  3 ++-
- net/ipv4/ipmr.c                                |  4 ++++
- net/irda/irttp.c                               |  1 +
- net/netfilter/ipset/ip_set_hash_netiface.c     |  2 +-
- net/openvswitch/flow.c                         | 14 +++++---------
- net/openvswitch/vport-netdev.c                 |  2 +-
- net/sctp/chunk.c                               | 20 ++++++++++++++----=
---
- net/sctp/socket.c                              |  4 ++--
- net/sctp/transport.c                           |  2 +-
- 17 files changed, 53 insertions(+), 28 deletions(-)
+On Wed, Nov 28, 2012 at 11:53 PM, Fujinaka, Todd
+<todd.fujinaka@intel.com> wrote:
+> The only EEPROM I know about or can speak to is the one attached to the 82571 and it doesn't set the MaxPayloadSize. That's done by the BIOS.
+>
+> Todd Fujinaka
+> Technical Marketing Engineer
+> LAN Access Division (LAD)
+> Intel Corporation
+> todd.fujinaka@intel.com
+> (503) 712-4565
+>
+>
+> -----Original Message-----
+> From: Joe Jin [mailto:joe.jin@oracle.com]
+> Sent: Wednesday, November 28, 2012 12:31 AM
+> To: Ben Hutchings
+> Cc: Fujinaka, Todd; Mary Mcgrath; netdev@vger.kernel.org; e1000-devel@lists.sf.net; linux-kernel@vger.kernel.org; linux-pci
+> Subject: Re: [E1000-devel] 82571EB: Detected Hardware Unit Hang
+>
+> On 11/28/12 02:10, Ben Hutchings wrote:
+>> On Tue, 2012-11-27 at 17:32 +0000, Fujinaka, Todd wrote:
+>>> Forgive me if I'm being too repetitious as I think some of this has
+>>> been mentioned in the past.
+>>>
+>>> We (and by we I mean the Ethernet part and driver) can only change
+>>> the advertised availability of a larger MaxPayloadSize. The size is
+>>> negotiated by both sides of the link when the link is established.
+>>> The driver should not change the size of the link as it would be
+>>> poking at registers outside of its scope and is controlled by the
+>>> upstream bridge (not us).
+>> [...]
+>>
+>> MaxPayloadSize (MPS) is not negotiated between devices but is
+>> programmed by the system firmware (at least for devices present at
+>> boot - the kernel may be responsible in case of hotplug).  You can use
+>> the kernel parameter 'pci=pcie_bus_perf' (or one of several others) to
+>> set a policy that overrides this, but no policy will allow setting MPS
+>> above the device's MaxPayloadSizeSupported (MPSS).
+>>
+>
+> Ben,
+>
+> Unfortunately I'm using 3.0.x kernel and this is not included in the kernel.
+> So I'm trying to use ethtool modify it from eeprom to see if help or no.
+>
+>
+> Todd, I'll review all MaxPayload for all devices, but need to say if it mismatch, customer could not modify it from BIOS for there was not entry at there, to test it, we have to find how to verify if this is the root cause, so still need to find the offset in eeprom.
+>
+> Thanks in advance,
+> Joe
+>
