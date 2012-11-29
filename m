@@ -1,101 +1,60 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH V2 9/9] net: increase frag queue hash size and
- cache-line
-Date: Thu, 29 Nov 2012 21:53:51 +0100
-Message-ID: <1354222431.11754.302.camel@localhost>
-References: <20121129161019.17754.29670.stgit@dragon>
-	 <20121129161552.17754.86087.stgit@dragon>
-	 <1354208113.14302.1855.camel@edumazet-glaptop>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: [PATCH v3 net-next 0/2] myri10ge: LRO to GRO conversion
+Date: Thu, 29 Nov 2012 16:07:15 -0500
+Message-ID: <50B7CE83.1020809@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	David Laight <David.Laight@ACULAB.COM>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11369 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752107Ab2K2Uza (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2012 15:55:30 -0500
-In-Reply-To: <1354208113.14302.1855.camel@edumazet-glaptop>
+Received: from mail-gh0-f174.google.com ([209.85.160.174]:63251 "EHLO
+	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753200Ab2K2VHT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 16:07:19 -0500
+Received: by mail-gh0-f174.google.com with SMTP id g15so2603302ghb.19
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 13:07:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-29 at 08:55 -0800, Eric Dumazet wrote:
-> On Thu, 2012-11-29 at 17:16 +0100, Jesper Dangaard Brouer wrote:
-> > Increase frag queue hash size and assure cache-line alignment to
-> > avoid false sharing.  Hash size is set to 256, because I have
-> > observed 206 frag queues in use at 4x10G with packet size 4416 bytes
-> > (three fragments).
-> > 
-[...]
-> >  struct inet_frag_bucket {
-> >  	struct hlist_head	chain;
-> >  	spinlock_t		chain_lock;
-> > -};
-> > +} ____cacheline_aligned_in_smp;
-> >  
-> 
-> This is a waste of memory.
+Hi,
 
-Do keep in mind this is only 16 Kbytes (256 * 64 bytes = 16384 bytes).
+The following patchset is a resubmission of '[PATCH resend net-next 0/3]
+myri10ge: LRO to GRO conversion', and converts myri10ge from using
+the old inet_lro interface to GRO, and to do vlan tag decap in
+the driver so as to not suffer a performance penalty for vlan
+tagged traffic due to the conversion.
 
+Changes this time are:
 
-> Most linux powered devices dont care at all about fragments.
-> 
-> Just increase hashsz if you really want, and rely on hash dispersion
-> to avoid false sharing.
+- Clean up some messy indenting & parens in
+   "2/3 myri10ge-Add-vlan-rx-for-better-GRO-perf"
+   and store the vlan hdr csum in a variable, so now we are not calling
+   csum_partial() nested so deeply it spreads across 3 lines
 
-I must agree, that it is perhaps better usage of the memory to just
-increase the hashsz (and drop ____cacheline_aligned_in_smp), especially
-with the measured performance gain.
+- Folded 3/3 myri10ge-Use-skb_fill_page_desc into 1/3
+   myri10ge-Convert-from-LRO-to-GRO.patch since it is really just small
+   part of the LRO removal cleanup.  It was originally a separate patch
+   because I noticed the cleanup at the last second, and was too lazy
+   to fold it into the first patch where it belonged.
 
-> You gave no performance results for this patch anyway.
+Note that a naive LRO->GRO conversion of myri10ge will result in a
+performance regression for vlan tagged frames.  This is because
+myri10ge does not offer hardware vlan tag offload, and because GRO
+requires hardware vlan tag offload to aggregate vlan tagged frames.
 
-Yes, I did! -- See cover-mail patch 08 vs 09.
-But the gain is really too small, to argue for this cache alignment.
+To address this performance regression, I have implemented vlan tag
+popping in the myri10ge driver, as it seems to be the lesser of two
+evils.  As eric.dumazet@gmail.com commented when I asked about this on
+netdev: "Given GRO assumes NIC does hardware vlan
+offloading, I guess I would chose to do that.  It seems unfortunate to
+add vlan decap in GRO path, already very complex."
 
+Andrew Gallatin (2):
+myri10ge: Convert from LRO to GRO
+myri10ge: Add vlan rx for better GRO perf.
 
-Patch-08:
-  2x10G size(4416)  result:(5024+4925)= 9949 Mbit/s
-                 V2 result:(5140+5206)=10346 Mbit/s
-
-  4x10G size(4416)  result:(4156+4714+4300+3985)=17155 Mbit/s
-                 V2 result:(4341+4607+3963+4450)=17361 Mbit/s
-                       (gen:6614+5330+7745+5366 =25055 Mbit/s)
-
-Patch-09:
-  2x10G size(4416)  result:(5421+5268)=10689 Mbit/s
-                 V2 result:(5377+5336)=10713 Mbit/s
-
-  4x10G size(4416) result:(4890+4364+4139+4530)=17923 Mbit/s
-                V2 result:(3860+4533+4936+4519)=17848 Mbit/s
-                      (gen:5170+6873+5215+7632 =24890 Mbit/s)
-  
-Improvements Patch 08 -> 09:
-
- 2x10G size(4416):
-   RunV1 (10689-9949) =740 Mbit/s
-   RunV2 (10713-10346)=367 Mbit/s
-
- 4x10G size(4416):
-   RunV1 (17923-17155)=768 Mbit/s
-   RunV2 (17848-17361)=487 Mbit/s
-
-Its consistently better performance, but given magnitude the other
-improvements, I don't want to argue over "wasting" 16Kbytes kernel
-memory.
-
-I have some debug patches for dumping the content of the hash, which
-shows that at 4x10G size(4416) three frags, 206 frag queues, cross CPU
-collisions occur anyhow.
-
-Lets focus on the other patches instead.
-
---Jesper
+  drivers/net/ethernet/myricom/Kconfig             |    1 -
+  drivers/net/ethernet/myricom/myri10ge/myri10ge.c |  275 
+++++++----------------
+  2 files changed, 74 insertions(+), 202 deletions(-)
