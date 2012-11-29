@@ -1,106 +1,90 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH: net-next] core: make GRO methods static.
-Date: Thu, 29 Nov 2012 09:55:25 +0200
-Message-ID: <1354175725-23382-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
+From: Tommi Rantala <tt.rantala@gmail.com>
+Subject: RDS: sendto() with very large buffer triggering WARNING: at mm/page_alloc.c:2403
+Date: Thu, 29 Nov 2012 10:39:30 +0200
+Message-ID: <CA+ydwtrVyun4LhMufd44ip4eXSwXp9Tw34+5yEdm3UdTVb9hQA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Dave Jones <davej@redhat.com>
+To: netdev@vger.kernel.org,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	rds-devel@oss.oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:56195 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752989Ab2K2H4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 02:56:17 -0500
-Received: by mail-wi0-f178.google.com with SMTP id hm6so6095273wib.1
-        for <netdev@vger.kernel.org>; Wed, 28 Nov 2012 23:56:15 -0800 (PST)
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:37937 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751155Ab2K2Ijc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 03:39:32 -0500
+Received: by mail-ee0-f46.google.com with SMTP id e53so6234328eek.19
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 00:39:31 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes three methods to be static and removes their
-EXPORT_SYMBOLs in core/dev.c and their external declaration in
-netdevice.h. The methods, dev_gro_receive(), napi_frags_finish() and
-napi_skb_finish(), which are in the GRO rx path, are not used
-outside core/dev.c.
+Hello,
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- include/linux/netdevice.h | 6 ------
- net/core/dev.c            | 9 +++------
- 2 files changed, 3 insertions(+), 12 deletions(-)
+Is RDS supposed to cap the sendto() buffer size? Saw the WARNING while
+fuzzing with Trinity.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e9929ab..18c5dc9 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2153,16 +2153,10 @@ extern void dev_kfree_skb_any(struct sk_buff *skb);
- extern int		netif_rx(struct sk_buff *skb);
- extern int		netif_rx_ni(struct sk_buff *skb);
- extern int		netif_receive_skb(struct sk_buff *skb);
--extern gro_result_t	dev_gro_receive(struct napi_struct *napi,
--					struct sk_buff *skb);
--extern gro_result_t	napi_skb_finish(gro_result_t ret, struct sk_buff *skb);
- extern gro_result_t	napi_gro_receive(struct napi_struct *napi,
- 					 struct sk_buff *skb);
- extern void		napi_gro_flush(struct napi_struct *napi, bool flush_old);
- extern struct sk_buff *	napi_get_frags(struct napi_struct *napi);
--extern gro_result_t	napi_frags_finish(struct napi_struct *napi,
--					  struct sk_buff *skb,
--					  gro_result_t ret);
- extern gro_result_t	napi_gro_frags(struct napi_struct *napi);
- 
- static inline void napi_free_frags(struct napi_struct *napi)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2a5f5586..2f94df2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3592,7 +3592,7 @@ void napi_gro_flush(struct napi_struct *napi, bool flush_old)
- }
- EXPORT_SYMBOL(napi_gro_flush);
- 
--enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
-+static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- {
- 	struct sk_buff **pp = NULL;
- 	struct packet_offload *ptype;
-@@ -3683,7 +3683,6 @@ normal:
- 	ret = GRO_NORMAL;
- 	goto pull;
- }
--EXPORT_SYMBOL(dev_gro_receive);
- 
- static inline gro_result_t
- __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
-@@ -3710,7 +3709,7 @@ __napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
- 	return dev_gro_receive(napi, skb);
- }
- 
--gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
-+static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
- {
- 	switch (ret) {
- 	case GRO_NORMAL:
-@@ -3736,7 +3735,6 @@ gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
- 
- 	return ret;
- }
--EXPORT_SYMBOL(napi_skb_finish);
- 
- static void skb_gro_reset_offset(struct sk_buff *skb)
- {
-@@ -3788,7 +3786,7 @@ struct sk_buff *napi_get_frags(struct napi_struct *napi)
- }
- EXPORT_SYMBOL(napi_get_frags);
- 
--gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb,
-+static gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb,
- 			       gro_result_t ret)
- {
- 	switch (ret) {
-@@ -3813,7 +3811,6 @@ gro_result_t napi_frags_finish(struct napi_struct *napi, struct sk_buff *skb,
- 
- 	return ret;
- }
--EXPORT_SYMBOL(napi_frags_finish);
- 
- static struct sk_buff *napi_frags_skb(struct napi_struct *napi)
- {
--- 
-1.7.11.7
+#include <string.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+
+static const char buf[1234000567];
+
+int main(void)
+{
+        int fd;
+        struct sockaddr_in sa;
+
+        fd = socket(21 /* AF_RDS */, SOCK_SEQPACKET, 0);
+        if (fd < 0)
+                return 1;
+
+        memset(&sa, 0, sizeof(sa));
+        sa.sin_family = AF_INET;
+        sa.sin_addr.s_addr = inet_addr("127.0.0.1");
+        sa.sin_port = htons(11111);
+
+        bind(fd, (struct sockaddr *)&sa, sizeof(sa));
+
+        sendto(fd, buf, sizeof(buf), 0, (struct sockaddr *)&sa, sizeof(sa));
+
+        return 0;
+}
+
+$ strace -e sendto ./rds-sendto
+sendto(3, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"...,
+1234000567, 0, {sa_family=AF_INET, sin_port=htons(11111),
+sin_addr=inet_addr("127.0.0.1")}, 16) = -1 ENOMEM (Cannot allocate
+memory)
+
+[ 7421.592595] ------------[ cut here ]------------
+[ 7421.592621] WARNING: at mm/page_alloc.c:2403
+__alloc_pages_nodemask+0x2c0/0x9f0()
+[ 7421.592628] Hardware name: EB1012
+[ 7421.592633] Modules linked in:
+[ 7421.592645] Pid: 3082, comm: rds-sendto Not tainted 3.7.0-rc7+ #58
+[ 7421.592650] Call Trace:
+[ 7421.592667]  [<ffffffff810a197b>] warn_slowpath_common+0x7b/0xc0
+[ 7421.592678]  [<ffffffff810a19d5>] warn_slowpath_null+0x15/0x20
+[ 7421.592689]  [<ffffffff81171900>] __alloc_pages_nodemask+0x2c0/0x9f0
+[ 7421.592700]  [<ffffffff81107c90>] ? __lock_acquire+0x3a0/0x9f0
+[ 7421.592711]  [<ffffffff81107c90>] ? __lock_acquire+0x3a0/0x9f0
+[ 7421.592724]  [<ffffffff811ac6bf>] alloc_pages_current+0x7f/0xf0
+[ 7421.592735]  [<ffffffff8116cc19>] __get_free_pages+0x9/0x40
+[ 7421.592746]  [<ffffffff811b3d8a>] kmalloc_order_trace+0x3a/0x190
+[ 7421.592755]  [<ffffffff81107c90>] ? __lock_acquire+0x3a0/0x9f0
+[ 7421.592765]  [<ffffffff811b4f59>] __kmalloc+0x229/0x240
+[ 7421.592778]  [<ffffffff81d1b06e>] rds_message_alloc+0x1e/0xa0
+[ 7421.592789]  [<ffffffff81d1db66>] rds_sendmsg+0x196/0x720
+[ 7421.592802]  [<ffffffff81a72a80>] ? sock_update_classid+0xf0/0x2b0
+[ 7421.592813]  [<ffffffff81a6abec>] sock_sendmsg+0xdc/0xf0
+[ 7421.592828]  [<ffffffff8118e9e5>] ? might_fault+0x85/0x90
+[ 7421.592838]  [<ffffffff8118e99c>] ? might_fault+0x3c/0x90
+[ 7421.592848]  [<ffffffff81a6e0fa>] sys_sendto+0xfa/0x130
+[ 7421.592859]  [<ffffffff8110953d>] ? trace_hardirqs_on_caller+0x10d/0x1a0
+[ 7421.592868]  [<ffffffff811095dd>] ? trace_hardirqs_on+0xd/0x10
+[ 7421.592881]  [<ffffffff81e94c9d>] ? _raw_spin_unlock_irq+0x3d/0x70
+[ 7421.592892]  [<ffffffff810bab44>] ? ptrace_notify+0x74/0x90
+[ 7421.592904]  [<ffffffff81e96250>] tracesys+0xdd/0xe2
+[ 7421.592911] ---[ end trace d9d681d0d60abf69 ]---
+
+Tommi
