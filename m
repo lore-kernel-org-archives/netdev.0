@@ -1,32 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH V2 5/9] net: frag, per CPU resource, mem limit
- and LRU list accounting
-Date: Thu, 29 Nov 2012 12:31:26 -0500 (EST)
-Message-ID: <20121129.123126.1852507751101669688.davem@davemloft.net>
-References: <20121129161019.17754.29670.stgit@dragon>
-	<20121129161303.17754.47046.stgit@dragon>
-	<1354208776.14302.1898.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, fw@strlen.de, netdev@vger.kernel.org,
-	pablo@netfilter.org, tgraf@suug.ch, amwang@redhat.com,
-	kaber@trash.net, paulmck@linux.vnet.ibm.com,
-	herbert@gondor.hengli.com.au
-To: eric.dumazet@gmail.com
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH 1/2] of_mdio: Honour "status=disabled" property of device
+Date: Thu, 29 Nov 2012 17:36:30 +0000
+Message-ID: <20121129173630.3EC073E0A04@localhost>
+References: <50B71290.2060200@sysgo.com>
+Cc: alexander sverdlin <alexander.sverdlin.ext@nsn.com>,
+	w.sang@pengutronix.de, Barry.Song@csr.com, netdev@vger.kernel.org
+To: Alexander Sverdlin <asv@sysgo.com>,
+	Stephen Warren <swarren@wwwdotorg.org>,
+	devicetree-discuss@lists.ozlabs.org,
+	Rob Herring <rob.herring@calxeda.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33407 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753633Ab2K2Rbb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 12:31:31 -0500
-In-Reply-To: <1354208776.14302.1898.camel@edumazet-glaptop>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:52120 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751003Ab2K2Rgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 12:36:35 -0500
+Received: by mail-wi0-f170.google.com with SMTP id hq7so5720763wib.1
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 09:36:33 -0800 (PST)
+In-Reply-To: <50B71290.2060200@sysgo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 29 Nov 2012 09:06:16 -0800
+On Thu, 29 Nov 2012 08:45:20 +0100, Alexander Sverdlin <asv@sysgo.com> wrote:
+> From: Alexander Sverdlin <alexander.sverdlin@sysgo.com>
+> 
+> of_mdio: Honour "status=disabled" property of device
+> 
+> Currently of_mdiobus_register() function registers all PHY devices,
+> independetly from their status property in device tree. According to
+> "ePAPR 1.1" spec, device should only be registered if there is no
+> "status" property, or it has "ok" (or "okay") value (see
+> of_device_is_available()). In case of "platform devices",
+> of_platform_device_create_pdata() checks for "status" and ensures
+> that disabled devices are not pupulated. But such check for MDIO buses
+> was missing until now. Fix it.
+> 
+> Signed-off-by: Alexander Sverdlin <alexander.sverdlin@sysgo.com>
 
-> Not counting the addition of a NR_CPUS array, which is really
-> unfortunate these days.
+Applied, thanks.
 
-That is addressed in patch #6.
+g.
+
+> ---
+> --- linux.orig/drivers/of/of_mdio.c
+> +++ linux/drivers/of/of_mdio.c
+> @@ -53,7 +53,7 @@ int of_mdiobus_register(struct mii_bus *
+>  		return rc;
+>  
+>  	/* Loop over the child nodes and register a phy_device for each one */
+> -	for_each_child_of_node(np, child) {
+> +	for_each_available_child_of_node(np, child) {
+>  		const __be32 *paddr;
+>  		u32 addr;
+>  		int len;
+
+-- 
+Grant Likely, B.Sc, P.Eng.
+Secret Lab Technologies, Ltd.
