@@ -1,352 +1,241 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [RFC PATCH 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Thu, 29 Nov 2012 17:06:37 -0500
-Message-ID: <20121129220637.30020.9980.stgit@sifl>
-References: <20121129215724.30020.69464.stgit@sifl>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
+Date: Thu, 29 Nov 2012 22:17:08 +0000
+Message-ID: <1354227428.21562.230.camel@shinybook.infradead.org>
+References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+	 <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
+	 <1354036592.2534.6.camel@shinybook.infradead.org>
+	 <20121127173906.GA11390@shrek.podlesie.net>
+	 <1354039349.2534.11.camel@shinybook.infradead.org>
+	 <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B70C9@saturn3.aculab.com>
+	 <1354141115.21562.101.camel@shinybook.infradead.org>
+	 <20121129150945.GB16478@shrek.podlesie.net>
+	 <1354204077.21562.172.camel@shinybook.infradead.org>
+	 <20121129105934.3e0c3a04@thirdoffive.cmf.nrl.navy.mil>
+	 <1354206269.21562.189.camel@shinybook.infradead.org>
+	 <20121129121701.21ab7c0b@thirdoffive.cmf.nrl.navy.mil>
+	 <1354212708.21562.205.camel@shinybook.infradead.org>
+	 <20121129132902.04373f49@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com
-To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20121129215724.30020.69464.stgit@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
+	boundary="=-65y2MVam50mkwiMLF4ys"
+Cc: Krzysztof Mazur <krzysiek@podlesie.net>,
+	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nathan@traverse.com.au
+To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from merlin.infradead.org ([205.233.59.134]:47255 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754886Ab2K2WRU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 17:17:20 -0500
+In-Reply-To: <20121129132902.04373f49@thirdoffive.cmf.nrl.navy.mil>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch corrects some problems with LSM/SELinux that were introduced
-with the multiqueue patchset.  The problem stems from the fact that the
-multiqueue work changed the relationship between the tun device and its
-associated socket; before the socket persisted for the life of the
-device, however after the multiqueue changes the socket only persisted
-for the life of the userspace connection (fd open).  For non-persistent
-devices this is not an issue, but for persistent devices this can cause
-the tun device to lose its SELinux label.
 
-We correct this problem by adding an opaque LSM security blob to the
-tun device struct which allows us to have the LSM security state, e.g.
-SELinux labeling information, persist for the lifetime of the tun
-device.
+--=-65y2MVam50mkwiMLF4ys
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Paul Moore <pmoore@redhat.com>
----
- drivers/net/tun.c                 |   13 ++++++++---
- include/linux/security.h          |   37 ++++++++++++++++++++++-----------
- security/capability.c             |   14 +++++++++---
- security/security.c               |   22 ++++++++++++-------
- security/selinux/hooks.c          |   42 +++++++++++++++++++++++--------------
- security/selinux/include/objsec.h |    4 ++++
- 6 files changed, 88 insertions(+), 44 deletions(-)
+On Thu, 2012-11-29 at 13:29 -0500, chas williams - CONTRACTOR wrote:
+> On Thu, 29 Nov 2012 18:11:48 +0000
+> David Woodhouse <dwmw2@infradead.org> wrote:
+>=20
+> > We do see the 'packet received for unknown VCC' complaint, after we
+> > reboot the host without resetting the card. And as shown in the commit =
+I
+> > just referenced, we rely on the !ATM_VF_READY check in order to prevent
+> > a use-after-free when the tasklet is sending packets up a VCC that's
+> > just been closed.
+>=20
+> well that behavior is just crap.  why is it delivering cells for a
+> vpi/vci pair that is not open?
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 877ffe2..85cc924 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -182,6 +182,7 @@ struct tun_struct {
- 	struct hlist_head flows[TUN_NUM_FLOW_ENTRIES];
- 	struct timer_list flow_gc_timer;
- 	unsigned long ageing_time;
-+	void *security;
- };
- 
- static inline u32 tun_hashfn(u32 rxhash)
-@@ -465,6 +466,10 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
- 	struct tun_file *tfile = file->private_data;
- 	int err;
- 
-+	err = security_tun_dev_attach(tfile->socket.sk, tun->security);
-+	if (err < 0)
-+		goto out;
-+
- 	err = -EINVAL;
- 	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
- 		goto out;
-@@ -1365,6 +1370,7 @@ static void tun_free_netdev(struct net_device *dev)
- 	struct tun_struct *tun = netdev_priv(dev);
- 
- 	tun_flow_uninit(tun);
-+	security_tun_dev_free_security(tun->security);
- 	free_netdev(dev);
- }
- 
-@@ -1548,9 +1554,6 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 
- 		if (tun_not_capable(tun))
- 			return -EPERM;
--		err = security_tun_dev_attach(tfile->socket.sk);
--		if (err < 0)
--			return err;
- 
- 		err = tun_attach(tun, file);
- 		if (err < 0)
-@@ -1601,7 +1604,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 
- 		spin_lock_init(&tun->lock);
- 
--		security_tun_dev_post_create(&tfile->sk);
-+		err = security_tun_dev_alloc_security(&tun->security);
-+		if (err < 0)
-+			goto err_free_dev;
- 
- 		tun_net_init(dev);
- 
-diff --git a/include/linux/security.h b/include/linux/security.h
-index 05e88bd..260e151 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -983,17 +983,23 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
-  *	tells the LSM to decrement the number of secmark labeling rules loaded
-  * @req_classify_flow:
-  *	Sets the flow's sid to the openreq sid.
-+ * @tun_dev_alloc_security:
-+ *	This hook allows a module to allocate a security structure for a TUN
-+ *	device.
-+ *	@security pointer to a security structure pointer.
-+ *	Returns a zero on success, negative values on failure.
-+ * @tun_dev_free_security:
-+ *	This hook allows a module to free the security structure for a TUN
-+ *	device.
-+ *	@security pointer to the TUN device's security structure
-  * @tun_dev_create:
-  *	Check permissions prior to creating a new TUN device.
-- * @tun_dev_post_create:
-- *	This hook allows a module to update or allocate a per-socket security
-- *	structure.
-- *	@sk contains the newly created sock structure.
-  * @tun_dev_attach:
-  *	Check permissions prior to attaching to a persistent TUN device.  This
-  *	hook can also be used by the module to update any security state
-  *	associated with the TUN device's sock structure.
-  *	@sk contains the existing sock structure.
-+ *	@security pointer to the TUN device's security structure.
-  *
-  * Security hooks for XFRM operations.
-  *
-@@ -1613,9 +1619,10 @@ struct security_operations {
- 	void (*secmark_refcount_inc) (void);
- 	void (*secmark_refcount_dec) (void);
- 	void (*req_classify_flow) (const struct request_sock *req, struct flowi *fl);
--	int (*tun_dev_create)(void);
--	void (*tun_dev_post_create)(struct sock *sk);
--	int (*tun_dev_attach)(struct sock *sk);
-+	int (*tun_dev_alloc_security) (void **security);
-+	void (*tun_dev_free_security) (void *security);
-+	int (*tun_dev_create) (void);
-+	int (*tun_dev_attach) (struct sock *sk, void *security);
- #endif	/* CONFIG_SECURITY_NETWORK */
- 
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-@@ -2553,9 +2560,10 @@ void security_inet_conn_established(struct sock *sk,
- int security_secmark_relabel_packet(u32 secid);
- void security_secmark_refcount_inc(void);
- void security_secmark_refcount_dec(void);
-+int security_tun_dev_alloc_security(void **security);
-+void security_tun_dev_free_security(void *security);
- int security_tun_dev_create(void);
--void security_tun_dev_post_create(struct sock *sk);
--int security_tun_dev_attach(struct sock *sk);
-+int security_tun_dev_attach(struct sock *sk, void *security);
- 
- #else	/* CONFIG_SECURITY_NETWORK */
- static inline int security_unix_stream_connect(struct sock *sock,
-@@ -2720,16 +2728,21 @@ static inline void security_secmark_refcount_dec(void)
- {
- }
- 
--static inline int security_tun_dev_create(void)
-+static inline int security_tun_dev_alloc_security(void **security)
- {
- 	return 0;
- }
- 
--static inline void security_tun_dev_post_create(struct sock *sk)
-+static inline void security_tun_dev_free_security(void *security)
- {
- }
- 
--static inline int security_tun_dev_attach(struct sock *sk)
-+static inline int security_tun_dev_create(void)
-+{
-+	return 0;
-+}
-+
-+static inline int security_tun_dev_attach(struct sock *sk, void *security)
- {
- 	return 0;
- }
-diff --git a/security/capability.c b/security/capability.c
-index b14a30c..fd6e2dc 100644
---- a/security/capability.c
-+++ b/security/capability.c
-@@ -704,16 +704,21 @@ static void cap_req_classify_flow(const struct request_sock *req,
- {
- }
- 
--static int cap_tun_dev_create(void)
-+static int cap_tun_dev_alloc_security(void **security)
- {
- 	return 0;
- }
- 
--static void cap_tun_dev_post_create(struct sock *sk)
-+static void cap_tun_dev_free_security(void *security)
-+{
-+}
-+
-+static int cap_tun_dev_create(void)
- {
-+	return 0;
- }
- 
--static int cap_tun_dev_attach(struct sock *sk)
-+static int cap_tun_dev_attach(struct sock *sk, void *security)
- {
- 	return 0;
- }
-@@ -1044,8 +1049,9 @@ void __init security_fixup_ops(struct security_operations *ops)
- 	set_to_cap_if_null(ops, secmark_refcount_inc);
- 	set_to_cap_if_null(ops, secmark_refcount_dec);
- 	set_to_cap_if_null(ops, req_classify_flow);
-+	set_to_cap_if_null(ops, tun_dev_alloc_security);
-+	set_to_cap_if_null(ops, tun_dev_free_security);
- 	set_to_cap_if_null(ops, tun_dev_create);
--	set_to_cap_if_null(ops, tun_dev_post_create);
- 	set_to_cap_if_null(ops, tun_dev_attach);
- #endif	/* CONFIG_SECURITY_NETWORK */
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-diff --git a/security/security.c b/security/security.c
-index 8dcd4ae..613ad36 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -1244,21 +1244,27 @@ void security_secmark_refcount_dec(void)
- }
- EXPORT_SYMBOL(security_secmark_refcount_dec);
- 
--int security_tun_dev_create(void)
-+int security_tun_dev_alloc_security(void **security)
- {
--	return security_ops->tun_dev_create();
-+	return security_ops->tun_dev_alloc_security(security);
- }
--EXPORT_SYMBOL(security_tun_dev_create);
-+EXPORT_SYMBOL(security_tun_dev_alloc_security);
- 
--void security_tun_dev_post_create(struct sock *sk)
-+void security_tun_dev_free_security(void *security)
- {
--	return security_ops->tun_dev_post_create(sk);
-+	security_ops->tun_dev_free_security(security);
- }
--EXPORT_SYMBOL(security_tun_dev_post_create);
-+EXPORT_SYMBOL(security_tun_dev_free_security);
-+
-+int security_tun_dev_create(void)
-+{
-+	return security_ops->tun_dev_create();
-+}
-+EXPORT_SYMBOL(security_tun_dev_create);
- 
--int security_tun_dev_attach(struct sock *sk)
-+int security_tun_dev_attach(struct sock *sk, void *security)
- {
--	return security_ops->tun_dev_attach(sk);
-+	return security_ops->tun_dev_attach(sk, security);
- }
- EXPORT_SYMBOL(security_tun_dev_attach);
- 
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 61a5336..67b3423 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4414,40 +4414,49 @@ static int selinux_tun_dev_create(void)
- 			    NULL);
- }
- 
--static void selinux_tun_dev_post_create(struct sock *sk)
-+static int selinux_tun_dev_alloc_security(void **security)
- {
--	struct sk_security_struct *sksec = sk->sk_security;
-+	struct tun_security_struct *tunsec;
- 
--	/* we don't currently perform any NetLabel based labeling here and it
--	 * isn't clear that we would want to do so anyway; while we could apply
--	 * labeling without the support of the TUN user the resulting labeled
--	 * traffic from the other end of the connection would almost certainly
--	 * cause confusion to the TUN user that had no idea network labeling
--	 * protocols were being used */
-+	tunsec = kzalloc(sizeof(*tunsec), GFP_KERNEL);
-+	if (!tunsec)
-+		return -ENOMEM;
-+	tunsec->sid = current_sid();
- 
--	/* see the comments in selinux_tun_dev_create() about why we don't use
--	 * the sockcreate SID here */
-+	*security = tunsec;
-+	return 0;
-+}
- 
--	sksec->sid = current_sid();
--	sksec->sclass = SECCLASS_TUN_SOCKET;
-+static void selinux_tun_dev_free_security(void *security)
-+{
-+	kfree(security);
- }
- 
--static int selinux_tun_dev_attach(struct sock *sk)
-+static int selinux_tun_dev_attach(struct sock *sk, void *security)
- {
-+	struct tun_security_struct *tunsec = security;
- 	struct sk_security_struct *sksec = sk->sk_security;
- 	u32 sid = current_sid();
- 	int err;
- 
-+	/* we don't currently perform any NetLabel based labeling here and it
-+	 * isn't clear that we would want to do so anyway; while we could apply
-+	 * labeling without the support of the TUN user the resulting labeled
-+	 * traffic from the other end of the connection would almost certainly
-+	 * cause confusion to the TUN user that had no idea network labeling
-+	 * protocols were being used */
-+
- 	err = avc_has_perm(sid, sksec->sid, SECCLASS_TUN_SOCKET,
- 			   TUN_SOCKET__RELABELFROM, NULL);
- 	if (err)
- 		return err;
--	err = avc_has_perm(sid, sid, SECCLASS_TUN_SOCKET,
-+	err = avc_has_perm(sid, tunsec->sid, SECCLASS_TUN_SOCKET,
- 			   TUN_SOCKET__RELABELTO, NULL);
- 	if (err)
- 		return err;
- 
--	sksec->sid = sid;
-+	sksec->sid = tunsec->sid;
-+	sksec->sclass = SECCLASS_TUN_SOCKET;
- 
- 	return 0;
- }
-@@ -5642,8 +5651,9 @@ static struct security_operations selinux_ops = {
- 	.secmark_refcount_inc =		selinux_secmark_refcount_inc,
- 	.secmark_refcount_dec =		selinux_secmark_refcount_dec,
- 	.req_classify_flow =		selinux_req_classify_flow,
-+	.tun_dev_alloc_security =	selinux_tun_dev_alloc_security,
-+	.tun_dev_free_security =	selinux_tun_dev_free_security,
- 	.tun_dev_create =		selinux_tun_dev_create,
--	.tun_dev_post_create = 		selinux_tun_dev_post_create,
- 	.tun_dev_attach =		selinux_tun_dev_attach,
- 
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
-index 26c7eee..aa47bca 100644
---- a/security/selinux/include/objsec.h
-+++ b/security/selinux/include/objsec.h
-@@ -110,6 +110,10 @@ struct sk_security_struct {
- 	u16 sclass;			/* sock security class */
- };
- 
-+struct tun_security_struct {
-+	u32 sid;			/* SID for the tun device sockets */
-+};
-+
- struct key_security_struct {
- 	u32 sid;	/* SID of key */
- };
+In the reboot case... Because it *was* open and the device has no way of
+knowing that the host just rebooted. We don't reset the card on loading
+the driver, because that would cause an ADSL resync.
 
+Perhaps we could send a 'close all VCCs' command to the firmware though.
+Nathan, could we add that to the firmware?
+
+Or we could just respond to any unwanted incoming packet by sending a
+close for that specific VCC. And be careful about potential races with
+open().
+
+In the close case... The *tasklet* is running to process an incoming
+packet, finds an open and active VCC and is *about* to send a packet up
+to it. Meanwhile, our close() runs and the VCC is destroyed. And then
+the tasklet... oops, use-after-free and crash.
+
+Hence commit 1f6ea6e51 which makes the tasklet refuse to process RX for
+a VCC which doesn't have the ATM_VF_READY flag set. Because it knows
+it's *being* closed. And the close() routine waits for any *existing*
+tasklet run to finish, to make sure nobody's referencing the VCC, before
+it returns and allows vcc_destroy_socket() to complete. It's the RCU
+principle, basically.
+
+> > You mean that (e.g.) pppoatm_push(vcc, NULL) should be waiting for any
+> > pending TX skb (that has already been passed off to the driver) to
+> > *complete*? How would it even do that?
+>=20
+> i think the order of the vcc_destroy_socket() operations is a bit
+> wrong.  it should call detach protocol (i.e. push a NULL).  this should
+> cause the attached protocol to stop any future sends and receives, and
+> it CAN sleep in this context (and only this context -- generally
+> sending cannot sleep which is why this might seem confusing) to do
+> whatever it needs to do to wait for the attached protocol to clean up
+> queues, flush data etc.
+>=20
+> then the driver close() should be called.  this takes care of cleaning
+> up any pending tx or rx that is in the hardware.  and of course,
+> close() can sleep since it will be in a interrutible context.
+
+This is basically what Krzysztof's patch 1/7 was doing, which we've now
+dropped from the series.
+
+There are issues with *either* ordering.
+
+The current case is that we call vcc->dev->ops->close(vcc) *first*,
+before vcc->push(vcc, NULL). And that means that the device is told to
+close the VCC while the protocol may still be pushing packets to it.
+Hence the patches to both pppoatm and br2684 to make them check for
+ATM_VF_READY and *stop* pushing packets if it's not set.
+
+If we flip it round and tell the protocol first, then it tears down all
+its data structures while the driver is still happily calling its
+->pop() on transmitted skbs. Which leads to the panic in br2684_pop()
+that we've *also* seen (because we weren't actually flushing the TX
+packets in the driver's close(), which had the same effect). Yes, you
+suggest that the protocol could keep track of the skbs it's sent down
+and wait for them... but surely it's better to let the driver get called
+first and *abort* them?
+
+At this point, I think we're better off as we are (with Krzysztof's
+patch 1/7 dropped, and leaving vcc->dev->ops->close() being called
+before vcc->push(NULL). We've fairly much solved the issues with that
+arrangement, by checking ATM_VF_READY in the protocols' ->push()
+functions.
+
+--=20
+dwmw2
+
+
+--=-65y2MVam50mkwiMLF4ys
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
+ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
+BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
+DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
+KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
+dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
+75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
++y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
+z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
+/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
+ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
+fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
+MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
+aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
+Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
+dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
+c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
+XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
+UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
+HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
+sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
+sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
++n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
+zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
+Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
+9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
+AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
+b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
+A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
+MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
+MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
+YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
+4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
+wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
+xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
+MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
+w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
+BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
+BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
+YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
+Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
+d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
+Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
+c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
+IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
+dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
+BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
+aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
+bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
+oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
+MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
+dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
+MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
+hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
+DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
+ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
+NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
+mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
+AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
+MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
+A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
+Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
+7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
+KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
+wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
+V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
+vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
+CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
+BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
+ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
+Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
+YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
+ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
+IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
+U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
+ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
+BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
+aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
+bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
+dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
+CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
+QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
+ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
+AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
+t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
+gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
+H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
+kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
+MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
+dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
+eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTI5MjIxNzA4WjAjBgkqhkiG9w0BCQQx
+FgQUMsBgrb027UwuVZ2bOAEKje3yXPcwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
+ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
+ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
+TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
+aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBNjKWKCxieBzzOoYyTDkG0DpXe
+zPuZDu2zFsZphu81rBYIQPxXQYSdFrUmvrnMx1mtrh+GsnCYKYORI0MuohxCGcVB6vwqDT1H+X2X
+EVobEBASDK7xZNrJ2+yhOwsM9cv3YXlPaCc9E4rKSPUqt9ccyUYDI1DMbYVR07O54o7od2NJaY+G
+s1gEZPFuLvdawKM6u40s7lpwDjTE+kM5krUwO2VkL2r3EK82Ej06uIGQU6GHGVWXi0gqKUKgIAti
+C6QzBr1WpqHhi7fWcXHieFCAn5dCCfdfosS537H3UtmaWAivd8AdKjb6XcUMCuodvbMvpPq5ba9K
+XW0YIXZDb+5wAAAAAAAA
+
+
+--=-65y2MVam50mkwiMLF4ys--
