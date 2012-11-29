@@ -1,41 +1,135 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next v1 0/3] mlx4_en: set number of rx/tx channels using ethtool
-Date: Thu, 29 Nov 2012 21:21:40 +0200
-Message-ID: <1354216903-830-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next v1 2/3] net/mlx4_en: Fix TX moderation info loss after set_ringparam is called
+Date: Thu, 29 Nov 2012 21:21:42 +0200
+Message-ID: <1354216903-830-3-git-send-email-amirv@mellanox.com>
+References: <1354216903-830-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Oren Duer <oren@mellanox.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:52350 "HELO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752133Ab2K2TWB (ORCPT
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:38151 "HELO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753554Ab2K2TWB (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 14:22:01 -0500
+In-Reply-To: <1354216903-830-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1. Added a record in the MAINTAINERS file for the mlx4_en driver
-2. Fix set_ringparam not to forget tx moderation info + remove code duplication
-3. Add support to changing number of rx/tx channels using ethtool
+We need to re-set tx moderation information after calling set_ringparam
+else default tx moderation will be used.
+Also avoid related code duplication, by putting it in a utility function.
 
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   59 ++++++++++++-----------
+ 1 files changed, 30 insertions(+), 29 deletions(-)
 
-Changes from V0:
-- Added file pattern to MAINAINERS file
-
-Amir Vadai (3):
-  MAINTAINERS: Add Mellanox ethernet driver - mlx4_en
-  net/mlx4_en: Fix TX moderation info loss after set_ringparam is
-    called
-  net/mlx4_en: Set number of rx/tx channels using ethtool
-
- MAINTAINERS                                     |    8 ++
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  128 +++++++++++++++++-----
- drivers/net/ethernet/mellanox/mlx4/en_main.c    |    2 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   26 +++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c      |    2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    8 ++-
- 6 files changed, 131 insertions(+), 43 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 9d0b88e..dc8ccb4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -43,6 +43,34 @@
+ #define EN_ETHTOOL_SHORT_MASK cpu_to_be16(0xffff)
+ #define EN_ETHTOOL_WORD_MASK  cpu_to_be32(0xffffffff)
+ 
++static int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
++{
++	int i;
++	int err = 0;
++
++	for (i = 0; i < priv->tx_ring_num; i++) {
++		priv->tx_cq[i].moder_cnt = priv->tx_frames;
++		priv->tx_cq[i].moder_time = priv->tx_usecs;
++		err = mlx4_en_set_cq_moder(priv, &priv->tx_cq[i]);
++		if (err)
++			return err;
++	}
++
++	if (priv->adaptive_rx_coal)
++		return 0;
++
++	for (i = 0; i < priv->rx_ring_num; i++) {
++		priv->rx_cq[i].moder_cnt = priv->rx_frames;
++		priv->rx_cq[i].moder_time = priv->rx_usecs;
++		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
++		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
++		if (err)
++			return err;
++	}
++
++	return err;
++}
++
+ static void
+ mlx4_en_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ {
+@@ -381,7 +409,6 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
+ 			      struct ethtool_coalesce *coal)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	int err, i;
+ 
+ 	priv->rx_frames = (coal->rx_max_coalesced_frames ==
+ 			   MLX4_EN_AUTO_CONF) ?
+@@ -397,14 +424,6 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
+ 	    coal->tx_max_coalesced_frames != priv->tx_frames) {
+ 		priv->tx_usecs = coal->tx_coalesce_usecs;
+ 		priv->tx_frames = coal->tx_max_coalesced_frames;
+-		for (i = 0; i < priv->tx_ring_num; i++) {
+-			priv->tx_cq[i].moder_cnt = priv->tx_frames;
+-			priv->tx_cq[i].moder_time = priv->tx_usecs;
+-			if (mlx4_en_set_cq_moder(priv, &priv->tx_cq[i])) {
+-				en_warn(priv, "Failed changing moderation "
+-					      "for TX cq %d\n", i);
+-			}
+-		}
+ 	}
+ 
+ 	/* Set adaptive coalescing params */
+@@ -414,18 +433,8 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
+ 	priv->rx_usecs_high = coal->rx_coalesce_usecs_high;
+ 	priv->sample_interval = coal->rate_sample_interval;
+ 	priv->adaptive_rx_coal = coal->use_adaptive_rx_coalesce;
+-	if (priv->adaptive_rx_coal)
+-		return 0;
+ 
+-	for (i = 0; i < priv->rx_ring_num; i++) {
+-		priv->rx_cq[i].moder_cnt = priv->rx_frames;
+-		priv->rx_cq[i].moder_time = priv->rx_usecs;
+-		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
+-		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
+-		if (err)
+-			return err;
+-	}
+-	return 0;
++	return mlx4_en_moderation_update(priv);
+ }
+ 
+ static int mlx4_en_set_pauseparam(struct net_device *dev,
+@@ -466,7 +475,6 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
+ 	u32 rx_size, tx_size;
+ 	int port_up = 0;
+ 	int err = 0;
+-	int i;
+ 
+ 	if (param->rx_jumbo_pending || param->rx_mini_pending)
+ 		return -EINVAL;
+@@ -505,14 +513,7 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
+ 			en_err(priv, "Failed starting port\n");
+ 	}
+ 
+-	for (i = 0; i < priv->rx_ring_num; i++) {
+-		priv->rx_cq[i].moder_cnt = priv->rx_frames;
+-		priv->rx_cq[i].moder_time = priv->rx_usecs;
+-		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
+-		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
+-		if (err)
+-			goto out;
+-	}
++	err = mlx4_en_moderation_update(priv);
+ 
+ out:
+ 	mutex_unlock(&mdev->state_lock);
 -- 
 1.7.8.2
