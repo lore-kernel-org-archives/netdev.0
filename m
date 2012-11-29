@@ -1,56 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH V2 3/9] net: frag, move LRU list maintenance
- outside of rwlock
-Date: Thu, 29 Nov 2012 09:43:24 -0800
-Message-ID: <1354211004.3299.12.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH V2 1/9] net: frag evictor, avoid killing warm
+ frag queues
+Date: Thu, 29 Nov 2012 12:44:27 -0500 (EST)
+Message-ID: <20121129.124427.1093031685966728935.davem@davemloft.net>
 References: <20121129161019.17754.29670.stgit@dragon>
-	 <20121129161137.17754.48002.stgit@dragon>
+	<20121129161052.17754.85017.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: eric.dumazet@gmail.com, fw@strlen.de, netdev@vger.kernel.org,
+	pablo@netfilter.org, tgraf@suug.ch, amwang@redhat.com,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	herbert@gondor.hengli.com.au
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:36254 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751331Ab2K2Rn1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 12:43:27 -0500
-Received: by mail-da0-f46.google.com with SMTP id p5so5358423dak.19
-        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 09:43:27 -0800 (PST)
-In-Reply-To: <20121129161137.17754.48002.stgit@dragon>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33622 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753749Ab2K2Roa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 12:44:30 -0500
+In-Reply-To: <20121129161052.17754.85017.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-11-29 at 17:12 +0100, Jesper Dangaard Brouer wrote:
-> Updating the fragmentation queues LRU (Least-Recently-Used) list,
-> required taking the hash writer lock.  However, the LRU list isn't
-> tied to the hash at all, so we can use a separate lock for it.
-> 
-> This change, in it self, does not improve performance significantly.
-> But its part of making the fragmentation code scale.
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Thu, 29 Nov 2012 17:11:09 +0100
 
+> The fragmentation evictor system have a very unfortunate eviction
+> system for killing fragment, when the system is put under pressure.
+> If packets are coming in too fast, the evictor code kills "warm"
+> fragments too quickly.  Resulting in a massive performance drop,
+> because we drop frag lists where we have already queue up a lot of
+> fragments/work, which gets killed before they have a chance to
+> complete.
 
-I would just remove the LRU completely.
+I think this is a trade-off where the decision is somewhat
+arbitrary.
 
-All this stuff is 20 years old, we dont need it anymore now we can use
-more than 64KB of memory. The design was OK on !SMP
+If you kill warm entries, the sending of all of the fragments is
+wasted.  If you retain warm entries and drop incoming new fragments,
+well then the sending of all of those newer fragments is wasted too.
 
-Here is what I would suggest :
+The only way I could see this making sense is if some "probability
+of fulfillment" was taken into account.  For example, if you have
+more than half of the fragments already, then yes it may be
+advisable to retain the warm entry.
 
-Use a schem with a hash table of 256 (or 1024) slots.
+Otherwise, as I said, the decision seems arbitrary.
 
-Each slot/bucket has : 
-  - Its own spinlock.
-  - List of items
-  - A limit of 5 (or so) elems in the list.
+Let's take a step back and think about why this is happening at all.
 
-No more LRU, no more rehash (thanks to jhash and the random seed at boot
-or first frag created), no more reader-writer lock.
+I wonder how reasonable the high and low thresholds really are.  Even
+once you move them to per-cpu, I think the limits are far too small.
 
-Use a percpu_counter to implement ipfrag_low_thresh/ipfrag_high_thresh
+I'm under the impression that it's common for skb->truesize for 1500
+MTU frames to be something rounded up to the next power of 2, so
+2048 bytes, or something like that.  Then add in the sk_buff control
+overhead, as well as the inet_frag head.
+
+So a 64K fragmented frame probably consumes close to 100K.
+
+So once we have three 64K frames in flight, we're already over the
+high threshold and will start dropping things.
+
+That's beyond stupid.
