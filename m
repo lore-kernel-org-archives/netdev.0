@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] doc: make the description of how tcp_ecn
- works more explicit and clear
-Date: Thu, 29 Nov 2012 13:16:27 -0500 (EST)
-Message-ID: <20121129.131627.987805831377793894.davem@davemloft.net>
-References: <20121128195310.C438D2900459@tardy>
+Subject: Re: [PATCH resend net-next 2/3] myri10ge: Add vlan rx for better
+ GRO perf.
+Date: Thu, 29 Nov 2012 13:17:38 -0500 (EST)
+Message-ID: <20121129.131738.1067398537384405805.davem@davemloft.net>
+References: <50B68038.5000304@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: raj@tardy.usa.hp.com
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33998 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34005 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894Ab2K2SQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 13:16:28 -0500
-In-Reply-To: <20121128195310.C438D2900459@tardy>
+	with ESMTP id S1752575Ab2K2SRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 13:17:39 -0500
+In-Reply-To: <50B68038.5000304@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: raj@tardy.usa.hp.com (Rick Jones)
-Date: Wed, 28 Nov 2012 11:53:10 -0800 (PST)
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Wed, 28 Nov 2012 16:20:56 -0500
 
-> From: Rick Jones <rick.jones2@hp.com>
-> 
-> Make the description of how tcp_ecn works a bit more explicit and clear.
-> 
-> Signed-off-by: Rick Jones <rick.jones2@hp.com>
+> + if ((dev->features & (NETIF_F_HW_VLAN_RX)) == NETIF_F_HW_VLAN_RX &&
+> +	    (veh->h_vlan_proto == ntohs(ETH_P_8021Q))) {
+> +		/* fixup csum if needed */
+> +		if (skb->ip_summed == CHECKSUM_COMPLETE)
+> +			skb->csum = csum_sub(skb->csum,
+> + csum_partial(va + ETH_HLEN,
+> + VLAN_HLEN, 0));
 
-Applied, thanks Rick.
-
-I think we should change the default to one, to be honest.  I thought
-that's what we were doing by now...
-
-'2' made sense 10 years ago, but it doesn't really today.
+This indentation looks like spaghetti, verify that this kind of error
+doesn't exist in the rest of your patches, and resend the series.
