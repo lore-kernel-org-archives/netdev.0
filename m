@@ -1,63 +1,38 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: [PATCH 1/2] of_mdio: Honour "status=disabled" property of device
-Date: Thu, 29 Nov 2012 11:12:02 -0600
-Message-ID: <50B79762.2040009@gmail.com>
-References: <50B71290.2060200@sysgo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Warren <swarren@wwwdotorg.org>,
-	devicetree-discuss@lists.ozlabs.org,
-	Rob Herring <rob.herring@calxeda.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, Barry.Song@csr.com, w.sang@pengutronix.de,
-	alexander sverdlin <alexander.sverdlin.ext@nsn.com>
-To: Alexander Sverdlin <asv@sysgo.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 0/3] mlx4_en: set number of rx/tx channels using ethtool
+Date: Thu, 29 Nov 2012 19:15:30 +0200
+Message-ID: <1354209333-27672-1-git-send-email-amirv@mellanox.com>
+References: <1354194894-16527-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Oren Duer <oren@mellanox.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:38561 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752497Ab2K2RML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 12:12:11 -0500
-Received: by mail-oa0-f46.google.com with SMTP id h16so14729805oag.19
-        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 09:12:10 -0800 (PST)
-In-Reply-To: <50B71290.2060200@sysgo.com>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:47765 "HELO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752493Ab2K2RPv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 12:15:51 -0500
+In-Reply-To: <1354194894-16527-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/29/2012 01:45 AM, Alexander Sverdlin wrote:
-> From: Alexander Sverdlin <alexander.sverdlin@sysgo.com>
-> 
-> of_mdio: Honour "status=disabled" property of device
-> 
-> Currently of_mdiobus_register() function registers all PHY devices,
-> independetly from their status property in device tree. According to
-> "ePAPR 1.1" spec, device should only be registered if there is no
-> "status" property, or it has "ok" (or "okay") value (see
-> of_device_is_available()). In case of "platform devices",
-> of_platform_device_create_pdata() checks for "status" and ensures
-> that disabled devices are not pupulated. But such check for MDIO buses
-> was missing until now. Fix it.
-> 
-> Signed-off-by: Alexander Sverdlin <alexander.sverdlin@sysgo.com>
-> ---
+1. Added a record in the MAINTAINERS file for the mlx4_en driver
+2. Fix set_ringparam not to forget tx moderation info + remove code duplication
+3. Add support to changing number of rx/tx channels using ethtool
 
-Applied.
+Amir Vadai (3):
+  MAINTAINERS: Add Mellanox ethernet driver - mlx4_en
+  net/mlx4_en: Fix TX moderation info loss after set_ringparam is
+    called
+  net/mlx4_en: Set number of rx/tx channels using ethtool
 
-Rob
+ MAINTAINERS                                     |    7 ++
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  128 +++++++++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/en_main.c    |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   26 +++--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    8 ++-
+ 6 files changed, 130 insertions(+), 43 deletions(-)
 
-> --- linux.orig/drivers/of/of_mdio.c
-> +++ linux/drivers/of/of_mdio.c
-> @@ -53,7 +53,7 @@ int of_mdiobus_register(struct mii_bus *
->  		return rc;
->  
->  	/* Loop over the child nodes and register a phy_device for each one */
-> -	for_each_child_of_node(np, child) {
-> +	for_each_available_child_of_node(np, child) {
->  		const __be32 *paddr;
->  		u32 addr;
->  		int len;
-> _______________________________________________
-> devicetree-discuss mailing list
-> devicetree-discuss@lists.ozlabs.org
-> https://lists.ozlabs.org/listinfo/devicetree-discuss
-> 
+-- 
+1.7.8.2
