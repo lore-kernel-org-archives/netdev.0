@@ -1,48 +1,41 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next v1 1/3] MAINTAINERS: Add Mellanox ethernet driver - mlx4_en
-Date: Thu, 29 Nov 2012 21:21:41 +0200
-Message-ID: <1354216903-830-2-git-send-email-amirv@mellanox.com>
-References: <1354216903-830-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next v1 0/3] mlx4_en: set number of rx/tx channels using ethtool
+Date: Thu, 29 Nov 2012 21:21:40 +0200
+Message-ID: <1354216903-830-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Oren Duer <oren@mellanox.com>, netdev@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
+	Oren Duer <oren@mellanox.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:53366 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753633Ab2K2TWB (ORCPT
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:52350 "HELO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752133Ab2K2TWB (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 14:22:01 -0500
-In-Reply-To: <1354216903-830-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set mlx4_en maintainer to Amir Vadai instead of Yevgeny Petrilin.
+1. Added a record in the MAINTAINERS file for the mlx4_en driver
+2. Fix set_ringparam not to forget tx moderation info + remove code duplication
+3. Add support to changing number of rx/tx channels using ethtool
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
-Cc: Yevgeny Petrilin <yevgenyp@mellanox.com>
 ---
- MAINTAINERS |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 5d72dd5..3c6e8cd 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -4822,6 +4822,14 @@ F:	Documentation/scsi/megaraid.txt
- F:	drivers/scsi/megaraid.*
- F:	drivers/scsi/megaraid/
- 
-+MELLANOX ETHERNET DRIVER (mlx4_en)
-+M:	Amir Vadai <amirv@mellanox.com>
-+L: 	netdev@vger.kernel.org
-+S:	Supported
-+W:	http://www.mellanox.com
-+Q:	http://patchwork.ozlabs.org/project/netdev/list/
-+F:	drivers/net/ethernet/mellanox/mlx4/en_*
-+
- MEMORY MANAGEMENT
- L:	linux-mm@kvack.org
- W:	http://www.linux-mm.org
+Changes from V0:
+- Added file pattern to MAINAINERS file
+
+Amir Vadai (3):
+  MAINTAINERS: Add Mellanox ethernet driver - mlx4_en
+  net/mlx4_en: Fix TX moderation info loss after set_ringparam is
+    called
+  net/mlx4_en: Set number of rx/tx channels using ethtool
+
+ MAINTAINERS                                     |    8 ++
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  128 +++++++++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/en_main.c    |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   26 +++--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    8 ++-
+ 6 files changed, 131 insertions(+), 43 deletions(-)
+
 -- 
 1.7.8.2
