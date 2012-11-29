@@ -1,1025 +1,791 @@
-From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 1/5] cxgb4: Add T4 filter support
-Date: Thu, 29 Nov 2012 20:22:21 +0530
-Message-ID: <1354200745-23598-2-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH 4/5] RDMA/cxgb4: Fix LE hash collision bug for passive open connection
+Date: Thu, 29 Nov 2012 20:22:24 +0530
+Message-ID: <1354200745-23598-5-git-send-email-vipul@chelsio.com>
 References: <1354200745-23598-1-git-send-email-vipul@chelsio.com>
-Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
-	abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1354200745-23598-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
+	dm@chelsio.com, kumaras@chelsio.com, swise@opengridcomputing.com,
+	abhishek@chelsio.com, Vipul Pandya <vipul@chelsio.com>
+To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:14718 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754935Ab2K2O5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 09:57:18 -0500
+In-Reply-To: <1354200745-23598-1-git-send-email-vipul@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The T4 architecture is capable of filtering ingress packets at line rate
-using the rule in TCAM. If packet hits a rule in the TCAM then it can be either
-dropped or passed to the receive queues based on a rule settings.
+It establishes passive open connection through firmware work request. Passive
+open connection will go through this path as now instead of listening server we
+create a server filter which will redirect the incoming SYN packet to the
+offload queue. After this driver tries to establish the connection using
+firmware work request.
 
-This patch adds framework for managing filters and to use T4's filter
-capabilities. It constructs a Firmware Filter Work Request which writes the
-filter at a specified index to get the work done. It hosts shadow copy of
-ingress filter entry to check field size limitations and save memory in the
-case where the filter table is large.
-
-Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  141 +++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  309 ++++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    2 +
- drivers/net/ethernet/chelsio/cxgb4/l2t.c        |   34 +++
- drivers/net/ethernet/chelsio/cxgb4/l2t.h        |    3 +
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   23 ++-
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    1 +
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  279 ++++++++++++++++++++
- 8 files changed, 787 insertions(+), 5 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c                |  411 ++++++++++++++++++++---
+ drivers/infiniband/hw/cxgb4/device.c            |   85 +++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    9 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   46 +++
+ 4 files changed, 496 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 378988b..8cfc1ba 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -545,6 +545,139 @@ struct adapter {
- 	spinlock_t stats_lock;
- };
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 560ca39..b5840b4 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -38,10 +38,12 @@
+ #include <linux/inetdevice.h>
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
++#include <linux/if_vlan.h>
  
-+/**
-+ * Defined bit width of user definable filter tuples
-+ */
-+#define ETHTYPE_BITWIDTH 16
-+#define FRAG_BITWIDTH 1
-+#define MACIDX_BITWIDTH 9
-+#define FCOE_BITWIDTH 1
-+#define IPORT_BITWIDTH 3
-+#define MATCHTYPE_BITWIDTH 3
-+#define PROTO_BITWIDTH 8
-+#define TOS_BITWIDTH 8
-+#define PF_BITWIDTH 8
-+#define VF_BITWIDTH 8
-+#define IVLAN_BITWIDTH 16
-+#define OVLAN_BITWIDTH 16
-+
-+/**
-+ * Filter matching rules.  These consist of a set of ingress packet field
-+ * (value, mask) tuples.  The associated ingress packet field matches the
-+ * tuple when ((field & mask) == value).  (Thus a wildcard "don't care" field
-+ * rule can be constructed by specifying a tuple of (0, 0).)  A filter rule
-+ * matches an ingress packet when all of the individual individual field
-+ * matching rules are true.
-+ *
-+ * Partial field masks are always valid, however, while it may be easy to
-+ * understand their meanings for some fields (e.g. IP address to match a
-+ * subnet), for others making sensible partial masks is less intuitive (e.g.
-+ * MPS match type) ...
-+ *
-+ * Most of the following data structures are modeled on T4 capabilities.
-+ * Drivers for earlier chips use the subsets which make sense for those chips.
-+ * We really need to come up with a hardware-independent mechanism to
-+ * represent hardware filter capabilities ...
-+ */
-+struct ch_filter_tuple {
-+	/**
-+	 * Compressed header matching field rules.  The TP_VLAN_PRI_MAP
-+	 * register selects which of these fields will participate in the
-+	 * filter match rules -- up to a maximum of 36 bits.  Because
-+	 * TP_VLAN_PRI_MAP is a global register, all filters must use the same
-+	 * set of fields.
-+	 */
-+	uint32_t ethtype:ETHTYPE_BITWIDTH;      /* Ethernet type */
-+	uint32_t frag:FRAG_BITWIDTH;            /* IP fragmentation header */
-+	uint32_t ivlan_vld:1;                   /* inner VLAN valid */
-+	uint32_t ovlan_vld:1;                   /* outer VLAN valid */
-+	uint32_t pfvf_vld:1;                    /* PF/VF valid */
-+	uint32_t macidx:MACIDX_BITWIDTH;        /* exact match MAC index */
-+	uint32_t fcoe:FCOE_BITWIDTH;            /* FCoE packet */
-+	uint32_t iport:IPORT_BITWIDTH;          /* ingress port */
-+	uint32_t matchtype:MATCHTYPE_BITWIDTH;  /* MPS match type */
-+	uint32_t proto:PROTO_BITWIDTH;          /* protocol type */
-+	uint32_t tos:TOS_BITWIDTH;              /* TOS/Traffic Type */
-+	uint32_t pf:PF_BITWIDTH;                /* PCI-E PF ID */
-+	uint32_t vf:VF_BITWIDTH;                /* PCI-E VF ID */
-+	uint32_t ivlan:IVLAN_BITWIDTH;          /* inner VLAN */
-+	uint32_t ovlan:OVLAN_BITWIDTH;          /* outer VLAN */
-+
-+	/**
-+	 * Uncompressed header matching field rules.  These are always
-+	 * available for field rules.
-+	 */
-+	uint8_t lip[16];        /* local IP address (IPv4 in [3:0]) */
-+	uint8_t fip[16];        /* foreign IP address (IPv4 in [3:0]) */
-+	uint16_t lport;         /* local port */
-+	uint16_t fport;         /* foreign port */
-+};
-+
-+/**
-+ * A filter ioctl command.
-+ */
-+struct ch_filter_specification {
-+	/**
-+	 * Administrative fields for filter.
-+	 */
-+	uint32_t hitcnts:1;     /* count filter hits in TCB */
-+	uint32_t prio:1;        /* filter has priority over active/server */
-+
-+	/**
-+	 * Fundamental filter typing.  This is the one element of filter
-+	 * matching that doesn't exist as a (value, mask) tuple.
-+	 */
-+	uint32_t type:1;        /* 0 => IPv4, 1 => IPv6 */
-+
-+	/**
-+	 * Packet dispatch information.  Ingress packets which match the
-+	 * filter rules will be dropped, passed to the host or switched back
-+	 * out as egress packets.
-+	 */
-+	uint32_t action:2;      /* drop, pass, switch */
-+
-+	uint32_t rpttid:1;      /* report TID in RSS hash field */
-+
-+	uint32_t dirsteer:1;    /* 0 => RSS, 1 => steer to iq */
-+	uint32_t iq:10;         /* ingress queue */
-+
-+	uint32_t maskhash:1;    /* dirsteer=0: store RSS hash in TCB */
-+	uint32_t dirsteerhash:1;/* dirsteer=1: 0 => TCB contains RSS hash */
-+				/*             1 => TCB contains IQ ID */
-+
-+	/**
-+	 * Switch proxy/rewrite fields.  An ingress packet which matches a
-+	 * filter with "switch" set will be looped back out as an egress
-+	 * packet -- potentially with some Ethernet header rewriting.
-+	 */
-+	uint32_t eport:2;       /* egress port to switch packet out */
-+	uint32_t newdmac:1;     /* rewrite destination MAC address */
-+	uint32_t newsmac:1;     /* rewrite source MAC address */
-+	uint32_t newvlan:2;     /* rewrite VLAN Tag */
-+	uint8_t dmac[ETH_ALEN]; /* new destination MAC address */
-+	uint8_t smac[ETH_ALEN]; /* new source MAC address */
-+	uint16_t vlan;          /* VLAN Tag to insert */
-+
-+	/**
-+	 * Filter rule value/mask pairs.
-+	 */
-+	struct ch_filter_tuple val;
-+	struct ch_filter_tuple mask;
-+};
-+
-+enum {
-+	FILTER_PASS = 0,        /* default */
-+	FILTER_DROP,
-+	FILTER_SWITCH
-+};
-+
-+enum {
-+	VLAN_NOCHANGE = 0,      /* default */
-+	VLAN_REMOVE,
-+	VLAN_INSERT,
-+	VLAN_REWRITE
-+};
-+
- static inline u32 t4_read_reg(struct adapter *adap, u32 reg_addr)
- {
- 	return readl(adap->regs + reg_addr);
-@@ -701,6 +834,12 @@ static inline int t4_wr_mbox_ns(struct adapter *adap, int mbox, const void *cmd,
- void t4_write_indirect(struct adapter *adap, unsigned int addr_reg,
- 		       unsigned int data_reg, const u32 *vals,
- 		       unsigned int nregs, unsigned int start_idx);
-+void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
-+		      unsigned int data_reg, u32 *vals, unsigned int nregs,
-+		      unsigned int start_idx);
-+
-+struct fw_filter_wr;
-+
- void t4_intr_enable(struct adapter *adapter);
- void t4_intr_disable(struct adapter *adapter);
- int t4_slow_intr_handler(struct adapter *adapter);
-@@ -737,6 +876,8 @@ void t4_tp_get_tcp_stats(struct adapter *adap, struct tp_tcp_stats *v4,
- void t4_load_mtus(struct adapter *adap, const unsigned short *mtus,
- 		  const unsigned short *alpha, const unsigned short *beta);
+ #include <net/neighbour.h>
+ #include <net/netevent.h>
+ #include <net/route.h>
++#include <net/tcp.h>
  
-+void t4_mk_filtdelwr(unsigned int ftid, struct fw_filter_wr *wr, int qid);
-+
- void t4_wol_magic_enable(struct adapter *adap, unsigned int port,
- 			 const u8 *addr);
- int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 0df1284..4934eda 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -175,6 +175,33 @@ enum {
- 	MIN_FL_ENTRIES       = 16
- };
+ #include "iw_cxgb4.h"
  
-+/*
-+ * Host shadow copy of ingress filter entry.  This is in host native format
-+ * and doesn't match the ordering or bit order, etc. of the hardware of the
-+ * firmware command.  The use of bit-field structure elements is purely to
-+ * remind ourselves of the field size limitations and save memory in the case
-+ * where the filter table is large.
-+ */
-+struct filter_entry {
-+	/*
-+	 * Administrative fields for filter.
-+	 */
-+	u32 valid:1;            /* filter allocated and valid */
-+	u32 locked:1;           /* filter is administratively locked */
-+
-+	u32 pending:1;          /* filter action is pending firmware reply */
-+	u32 smtidx:8;           /* Source MAC Table index for smac */
-+	struct l2t_entry *l2t;  /* Layer Two Table entry for dmac */
-+
-+	/**
-+	 * The filter itself.  Most of this is a straight copy of information
-+	 * provided by the extended ioctl().  Some fields are translated to
-+	 * internal forms -- for instance the Ingress Queue ID passed in from
-+	 * the ioctl() is translated into the Absolute Ingress Queue ID.
-+	 */
-+	struct ch_filter_specification fs;
-+};
-+
- #define DFLT_MSG_ENABLE (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK | \
- 			 NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |\
- 			 NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
-@@ -325,6 +352,9 @@ enum {
+@@ -1570,13 +1572,14 @@ static int pass_open_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	struct c4iw_listen_ep *ep = lookup_stid(t, stid);
  
- static unsigned int tp_vlan_pri_map = TP_VLAN_PRI_MAP_DEFAULT;
+ 	if (!ep) {
+-		printk(KERN_ERR MOD "stid %d lookup failure!\n", stid);
+-		return 0;
++		PDBG("%s stid %d lookup failure!\n", __func__, stid);
++		goto out;
+ 	}
+ 	PDBG("%s ep %p status %d error %d\n", __func__, ep,
+ 	     rpl->status, status2errno(rpl->status));
+ 	c4iw_wake_up(&ep->com.wr_wait, status2errno(rpl->status));
  
-+module_param(tp_vlan_pri_map, uint, 0644);
-+MODULE_PARM_DESC(tp_vlan_pri_map, "global compressed filter configuration");
-+
- static struct dentry *cxgb4_debugfs_root;
- 
- static LIST_HEAD(adapter_list);
-@@ -507,6 +537,72 @@ static int link_start(struct net_device *dev)
- }
- 
- /*
-+ * Clear a filter and release any of its resources that we own.  This also
-+ * clears the filter's "pending" status.
-+ */
-+static void clear_filter(struct adapter *adap, struct filter_entry *f)
-+{
-+	/*
-+	 * If the new or old filter have loopback rewriteing rules then we'll
-+	 * need to free any existing Layer Two Table (L2T) entries of the old
-+	 * filter rule.  The firmware will handle freeing up any Source MAC
-+	 * Table (SMT) entries used for rewriting Source MAC Addresses in
-+	 * loopback rules.
-+	 */
-+	if (f->l2t)
-+		cxgb4_l2t_release(f->l2t);
-+
-+	/**
-+	 * The zeroing of the filter rule below clears the filter valid,
-+	 * pending, locked flags, l2t pointer, etc. so it's all we need for
-+	 * this operation.
-+	 */
-+	memset(f, 0, sizeof(*f));
-+}
-+
-+/**
-+ * Handle a filter write/deletion reply.
-+ */
-+static void filter_rpl(struct adapter *adap, const struct cpl_set_tcb_rpl *rpl)
-+{
-+	unsigned int idx = GET_TID(rpl);
-+	unsigned int nidx = idx - adap->tids.ftid_base;
-+	unsigned int ret;
-+	struct filter_entry *f;
-+
-+	if (idx >= adap->tids.ftid_base && nidx <
-+	   (adap->tids.nftids + adap->tids.nsftids)) {
-+		idx = nidx;
-+		ret = GET_TCB_COOKIE(rpl->cookie);
-+		f = &adap->tids.ftid_tab[idx];
-+
-+		if (ret == FW_FILTER_WR_FLT_DELETED) {
-+			/**
-+			 * Clear the filter when we get confirmation from the
-+			 * hardware that the filter has been deleted.
-+			 */
-+			clear_filter(adap, f);
-+		} else if (ret == FW_FILTER_WR_SMT_TBL_FULL) {
-+			dev_err(adap->pdev_dev, "filter %u setup failed due to full SMT\n",
-+				idx);
-+			clear_filter(adap, f);
-+		} else if (ret == FW_FILTER_WR_FLT_ADDED) {
-+			f->smtidx = (be64_to_cpu(rpl->oldval) >> 24) & 0xff;
-+			f->pending = 0;  /* asynchronous setup completed */
-+			f->valid = 1;
-+		} else {
-+			/**
-+			 * Something went wrong.  Issue a warning about the
-+			 * problem and clear everything out.
-+			 */
-+			dev_err(adap->pdev_dev, "filter %u setup failed with error %u\n",
-+				idx, ret);
-+			clear_filter(adap, f);
-+		}
-+	}
-+}
-+
-+/**
-  * Response queue handler for the FW event queue.
-  */
- static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
-@@ -542,6 +638,10 @@ static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
- 		const struct cpl_l2t_write_rpl *p = (void *)rsp;
- 
- 		do_l2t_write_rpl(q->adap, p);
-+	} else if (opcode == CPL_SET_TCB_RPL) {
-+		const struct cpl_set_tcb_rpl *p = (void *)rsp;
-+
-+		filter_rpl(q->adap, p);
- 	} else
- 		dev_err(q->adap->pdev_dev,
- 			"unexpected CPL %#x on FW event queue\n", opcode);
-@@ -983,6 +1083,154 @@ static void t4_free_mem(void *addr)
- 		kfree(addr);
- }
- 
-+/*
-+ * Send a Work Request to write the filter at a specified index.  We construct
-+ * a Firmware Filter Work Request to have the work done and put the indicated
-+ * filter into "pending" mode which will prevent any further actions against
-+ * it till we get a reply from the firmware on the completion status of the
-+ * request.
-+ */
-+static int set_filter_wr(struct adapter *adapter, int fidx)
-+{
-+	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
-+	struct sk_buff *skb;
-+	struct fw_filter_wr *fwr;
-+	unsigned int ftid;
-+
-+	/**
-+	 * If the new filter requires loopback Destination MAC and/or VLAN
-+	 * rewriting then we need to allocate a Layer 2 Table (L2T) entry for
-+	 * the filter.
-+	 */
-+	if (f->fs.newdmac || f->fs.newvlan) {
-+		/* allocate L2T entry for new filter */
-+		f->l2t = t4_l2t_alloc_switching(adapter->l2t);
-+		if (f->l2t == NULL)
-+			return -EAGAIN;
-+		if (t4_l2t_set_switching(adapter, f->l2t, f->fs.vlan,
-+					f->fs.eport, f->fs.dmac)) {
-+			cxgb4_l2t_release(f->l2t);
-+			f->l2t = NULL;
-+			return -ENOMEM;
-+		}
-+	}
-+
-+	ftid = adapter->tids.ftid_base + fidx;
-+
-+	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL | __GFP_NOFAIL);
-+	fwr = (struct fw_filter_wr *)__skb_put(skb, sizeof(*fwr));
-+	memset(fwr, 0, sizeof(*fwr));
-+
-+	/**
-+	 * It would be nice to put most of the following in t4_hw.c but most
-+	 * of the work is translating the cxgbtool ch_filter_specification
-+	 * into the Work Request and the definition of that structure is
-+	 * currently in cxgbtool.h which isn't appropriate to pull into the
-+	 * common code.  We may eventually try to come up with a more neutral
-+	 * filter specification structure but for now it's easiest to simply
-+	 * put this fairly direct code in line ...
-+	 */
-+	fwr->op_pkd = htonl(FW_WR_OP(FW_FILTER_WR));
-+	fwr->len16_pkd = htonl(FW_WR_LEN16(sizeof(*fwr)/16));
-+	fwr->tid_to_iq =
-+		htonl(V_FW_FILTER_WR_TID(ftid) |
-+		      V_FW_FILTER_WR_RQTYPE(f->fs.type) |
-+		      V_FW_FILTER_WR_NOREPLY(0) |
-+		      V_FW_FILTER_WR_IQ(f->fs.iq));
-+	fwr->del_filter_to_l2tix =
-+		htonl(V_FW_FILTER_WR_RPTTID(f->fs.rpttid) |
-+		      V_FW_FILTER_WR_DROP(f->fs.action == FILTER_DROP) |
-+		      V_FW_FILTER_WR_DIRSTEER(f->fs.dirsteer) |
-+		      V_FW_FILTER_WR_MASKHASH(f->fs.maskhash) |
-+		      V_FW_FILTER_WR_DIRSTEERHASH(f->fs.dirsteerhash) |
-+		      V_FW_FILTER_WR_LPBK(f->fs.action == FILTER_SWITCH) |
-+		      V_FW_FILTER_WR_DMAC(f->fs.newdmac) |
-+		      V_FW_FILTER_WR_SMAC(f->fs.newsmac) |
-+		      V_FW_FILTER_WR_INSVLAN(f->fs.newvlan == VLAN_INSERT ||
-+					     f->fs.newvlan == VLAN_REWRITE) |
-+		      V_FW_FILTER_WR_RMVLAN(f->fs.newvlan == VLAN_REMOVE ||
-+					    f->fs.newvlan == VLAN_REWRITE) |
-+		      V_FW_FILTER_WR_HITCNTS(f->fs.hitcnts) |
-+		      V_FW_FILTER_WR_TXCHAN(f->fs.eport) |
-+		      V_FW_FILTER_WR_PRIO(f->fs.prio) |
-+		      V_FW_FILTER_WR_L2TIX(f->l2t ? f->l2t->idx : 0));
-+	fwr->ethtype = htons(f->fs.val.ethtype);
-+	fwr->ethtypem = htons(f->fs.mask.ethtype);
-+	fwr->frag_to_ovlan_vldm =
-+		(V_FW_FILTER_WR_FRAG(f->fs.val.frag) |
-+		 V_FW_FILTER_WR_FRAGM(f->fs.mask.frag) |
-+		 V_FW_FILTER_WR_IVLAN_VLD(f->fs.val.ivlan_vld) |
-+		 V_FW_FILTER_WR_OVLAN_VLD(f->fs.val.ovlan_vld) |
-+		 V_FW_FILTER_WR_IVLAN_VLDM(f->fs.mask.ivlan_vld) |
-+		 V_FW_FILTER_WR_OVLAN_VLDM(f->fs.mask.ovlan_vld));
-+	fwr->smac_sel = 0;
-+	fwr->rx_chan_rx_rpl_iq =
-+		htons(V_FW_FILTER_WR_RX_CHAN(0) |
-+		      V_FW_FILTER_WR_RX_RPL_IQ(adapter->sge.fw_evtq.abs_id));
-+	fwr->maci_to_matchtypem =
-+		htonl(V_FW_FILTER_WR_MACI(f->fs.val.macidx) |
-+		      V_FW_FILTER_WR_MACIM(f->fs.mask.macidx) |
-+		      V_FW_FILTER_WR_FCOE(f->fs.val.fcoe) |
-+		      V_FW_FILTER_WR_FCOEM(f->fs.mask.fcoe) |
-+		      V_FW_FILTER_WR_PORT(f->fs.val.iport) |
-+		      V_FW_FILTER_WR_PORTM(f->fs.mask.iport) |
-+		      V_FW_FILTER_WR_MATCHTYPE(f->fs.val.matchtype) |
-+		      V_FW_FILTER_WR_MATCHTYPEM(f->fs.mask.matchtype));
-+	fwr->ptcl = f->fs.val.proto;
-+	fwr->ptclm = f->fs.mask.proto;
-+	fwr->ttyp = f->fs.val.tos;
-+	fwr->ttypm = f->fs.mask.tos;
-+	fwr->ivlan = htons(f->fs.val.ivlan);
-+	fwr->ivlanm = htons(f->fs.mask.ivlan);
-+	fwr->ovlan = htons(f->fs.val.ovlan);
-+	fwr->ovlanm = htons(f->fs.mask.ovlan);
-+	memcpy(fwr->lip, f->fs.val.lip, sizeof(fwr->lip));
-+	memcpy(fwr->lipm, f->fs.mask.lip, sizeof(fwr->lipm));
-+	memcpy(fwr->fip, f->fs.val.fip, sizeof(fwr->fip));
-+	memcpy(fwr->fipm, f->fs.mask.fip, sizeof(fwr->fipm));
-+	fwr->lp = htons(f->fs.val.lport);
-+	fwr->lpm = htons(f->fs.mask.lport);
-+	fwr->fp = htons(f->fs.val.fport);
-+	fwr->fpm = htons(f->fs.mask.fport);
-+	if (f->fs.newsmac)
-+		memcpy(fwr->sma, f->fs.smac, sizeof(fwr->sma));
-+
-+	/**
-+	 * Mark the filter as "pending" and ship off the Filter Work Request.
-+	 * When we get the Work Request Reply we'll clear the pending status.
-+	 */
-+	f->pending = 1;
-+	set_wr_txq(skb, CPL_PRIORITY_CONTROL, f->fs.val.iport & 0x3);
-+	t4_ofld_send(adapter, skb);
-+	return 0;
-+}
-+
-+/**
-+ * Delete the filter at a specified index.
-+ */
-+static int del_filter_wr(struct adapter *adapter, int fidx)
-+{
-+	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
-+	struct sk_buff *skb;
-+	struct fw_filter_wr *fwr;
-+	unsigned int len, ftid;
-+
-+	len = sizeof(*fwr);
-+	ftid = adapter->tids.ftid_base + fidx;
-+
-+	skb = alloc_skb(len, GFP_KERNEL | __GFP_NOFAIL);
-+	fwr = (struct fw_filter_wr *)__skb_put(skb, len);
-+	t4_mk_filtdelwr(ftid, fwr, adapter->sge.fw_evtq.abs_id);
-+
-+	/**
-+	 * Mark the filter as "pending" and ship off the Filter Work Request.
-+	 * When we get the Work Request Reply we'll clear the pending status.
-+	 */
-+	f->pending = 1;
-+	t4_mgmt_tx(adapter, skb);
-+	return 0;
-+}
-+
- static inline int is_offload(const struct adapter *adap)
- {
- 	return adap->params.offload;
-@@ -2195,7 +2443,7 @@ int cxgb4_alloc_atid(struct tid_info *t, void *data)
- 	if (t->afree) {
- 		union aopen_entry *p = t->afree;
- 
--		atid = p - t->atid_tab;
-+		atid = (p - t->atid_tab) + t->atid_base;
- 		t->afree = p->next;
- 		p->data = data;
- 		t->atids_in_use++;
-@@ -2210,7 +2458,7 @@ EXPORT_SYMBOL(cxgb4_alloc_atid);
-  */
- void cxgb4_free_atid(struct tid_info *t, unsigned int atid)
- {
--	union aopen_entry *p = &t->atid_tab[atid];
-+	union aopen_entry *p = &t->atid_tab[atid - t->atid_base];
- 
- 	spin_lock_bh(&t->atid_lock);
- 	p->next = t->afree;
-@@ -2362,11 +2610,16 @@ EXPORT_SYMBOL(cxgb4_remove_tid);
- static int tid_init(struct tid_info *t)
- {
- 	size_t size;
-+	unsigned int stid_bmap_size;
- 	unsigned int natids = t->natids;
- 
--	size = t->ntids * sizeof(*t->tid_tab) + natids * sizeof(*t->atid_tab) +
-+	stid_bmap_size = BITS_TO_LONGS(t->nstids);
-+	size = t->ntids * sizeof(*t->tid_tab) +
-+	       natids * sizeof(*t->atid_tab) +
- 	       t->nstids * sizeof(*t->stid_tab) +
--	       BITS_TO_LONGS(t->nstids) * sizeof(long);
-+	       stid_bmap_size * sizeof(long) +
-+	       t->nftids * sizeof(*t->ftid_tab);
-+
- 	t->tid_tab = t4_alloc_mem(size);
- 	if (!t->tid_tab)
- 		return -ENOMEM;
-@@ -2374,6 +2627,7 @@ static int tid_init(struct tid_info *t)
- 	t->atid_tab = (union aopen_entry *)&t->tid_tab[t->ntids];
- 	t->stid_tab = (struct serv_entry *)&t->atid_tab[natids];
- 	t->stid_bmap = (unsigned long *)&t->stid_tab[t->nstids];
-+	t->ftid_tab = (struct filter_entry *)&t->stid_bmap[stid_bmap_size];
- 	spin_lock_init(&t->stid_lock);
- 	spin_lock_init(&t->atid_lock);
- 
-@@ -2999,6 +3253,42 @@ static int cxgb_close(struct net_device *dev)
- 	return t4_enable_vi(adapter, adapter->fn, pi->viid, false, false);
- }
- 
-+/*
-+ * Return an error number if the indicated filter isn't writable ...
-+ */
-+static int writable_filter(struct filter_entry *f)
-+{
-+	if (f->locked)
-+		return -EPERM;
-+	if (f->pending)
-+		return -EBUSY;
-+
-+	return 0;
-+}
-+
-+/**
-+ * Delete the filter at the specified index (if valid).  The checks for all
-+ * the common problems with doing this like the filter being locked, currently
-+ * pending in another operation, etc.
-+ */
-+static int delete_filter(struct adapter *adapter, unsigned int fidx)
-+{
-+	struct filter_entry *f;
-+	int ret;
-+
-+	if (fidx >= adapter->tids.nftids)
-+		return -EINVAL;
-+
-+	f = &adapter->tids.ftid_tab[fidx];
-+	ret = writable_filter(f);
-+	if (ret)
-+		return ret;
-+	if (f->valid)
-+		return del_filter_wr(adapter, fidx);
-+
-+	return 0;
-+}
-+
- static struct rtnl_link_stats64 *cxgb_get_stats(struct net_device *dev,
- 						struct rtnl_link_stats64 *ns)
- {
-@@ -4662,6 +4952,17 @@ static void __devexit remove_one(struct pci_dev *pdev)
- 		if (adapter->debugfs_root)
- 			debugfs_remove_recursive(adapter->debugfs_root);
- 
-+		/*
-+		 * If we allocated filters, free up state associated with any
-+		 * valid filters ...
-+		 */
-+		if (adapter->tids.ftid_tab) {
-+			struct filter_entry *f = &adapter->tids.ftid_tab[0];
-+			for (i = 0; i < adapter->tids.nftids; i++, f++)
-+				if (f->valid)
-+					clear_filter(adapter, f);
-+		}
-+
- 		if (adapter->flags & FULL_INIT_DONE)
- 			cxgb_down(adapter);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 39bec73..59a6133 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -97,7 +97,9 @@ struct tid_info {
- 
- 	union aopen_entry *atid_tab;
- 	unsigned int natids;
-+	unsigned int atid_base;
- 
-+	struct filter_entry *ftid_tab;
- 	unsigned int nftids;
- 	unsigned int ftid_base;
- 	unsigned int aftid_base;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
-index 6ac77a6..abd4180 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/l2t.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
-@@ -484,6 +484,40 @@ void t4_l2t_update(struct adapter *adap, struct neighbour *neigh)
- 		handle_failed_resolution(adap, arpq);
- }
- 
-+/*
-+ * Allocate an L2T entry for use by a switching rule.  Such need to be
-+ * explicitly freed and while busy they are not on any hash chain, so normal
-+ * address resolution updates do not see them.
-+ */
-+struct l2t_entry *t4_l2t_alloc_switching(struct l2t_data *d)
-+{
-+	struct l2t_entry *e;
-+
-+	write_lock_bh(&d->lock);
-+	e = alloc_l2e(d);
-+	if (e) {
-+		spin_lock(&e->lock);          /* avoid race with t4_l2t_free */
-+		e->state = L2T_STATE_SWITCHING;
-+		atomic_set(&e->refcnt, 1);
-+		spin_unlock(&e->lock);
-+	}
-+	write_unlock_bh(&d->lock);
-+	return e;
-+}
-+
-+/**
-+ * Sets/updates the contents of a switching L2T entry that has been allocated
-+ * with an earlier call to @t4_l2t_alloc_switching.
-+ */
-+int t4_l2t_set_switching(struct adapter *adap, struct l2t_entry *e, u16 vlan,
-+		u8 port, u8 *eth_addr)
-+{
-+	e->vlan = vlan;
-+	e->lport = port;
-+	memcpy(e->dmac, eth_addr, ETH_ALEN);
-+	return write_l2e(adap, e, 0);
-+}
-+
- struct l2t_data *t4_init_l2t(void)
- {
- 	int i;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.h b/drivers/net/ethernet/chelsio/cxgb4/l2t.h
-index 02b31d0..108c0f1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/l2t.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.h
-@@ -100,6 +100,9 @@ struct l2t_entry *cxgb4_l2t_get(struct l2t_data *d, struct neighbour *neigh,
- 				unsigned int priority);
- 
- void t4_l2t_update(struct adapter *adap, struct neighbour *neigh);
-+struct l2t_entry *t4_l2t_alloc_switching(struct l2t_data *d);
-+int t4_l2t_set_switching(struct adapter *adap, struct l2t_entry *e, u16 vlan,
-+			 u8 port, u8 *eth_addr);
- struct l2t_data *t4_init_l2t(void);
- void do_l2t_write_rpl(struct adapter *p, const struct cpl_l2t_write_rpl *rpl);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 730ae2c..7638181 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -109,7 +109,7 @@ void t4_set_reg_field(struct adapter *adapter, unsigned int addr, u32 mask,
-  *	Reads registers that are accessed indirectly through an address/data
-  *	register pair.
-  */
--static void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
-+void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
- 			     unsigned int data_reg, u32 *vals,
- 			     unsigned int nregs, unsigned int start_idx)
- {
-@@ -2268,6 +2268,27 @@ int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
++out:
  	return 0;
  }
  
-+/*
-+ *     t4_mk_filtdelwr - create a delete filter WR
-+ *     @ftid: the filter ID
-+ *     @wr: the filter work request to populate
-+ *     @qid: ingress queue to receive the delete notification
-+ *
-+ *     Creates a filter work request to delete the supplied filter.  If @qid is
-+ *     negative the delete notification is suppressed.
-+ */
-+void t4_mk_filtdelwr(unsigned int ftid, struct fw_filter_wr *wr, int qid)
+@@ -1780,15 +1783,23 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	unsigned int hwtid = GET_TID(req);
+ 	struct dst_entry *dst;
+ 	struct rtable *rt;
+-	__be32 local_ip, peer_ip;
++	__be32 local_ip, peer_ip = 0;
+ 	__be16 local_port, peer_port;
+ 	int err;
++	u16 peer_mss = ntohs(req->tcpopt.mss);
+ 
+ 	parent_ep = lookup_stid(t, stid);
+-	PDBG("%s parent ep %p tid %u\n", __func__, parent_ep, hwtid);
+-
++	if (!parent_ep) {
++		PDBG("%s connect request on invalid stid %d\n", __func__, stid);
++		goto reject;
++	}
+ 	get_4tuple(req, &local_ip, &peer_ip, &local_port, &peer_port);
+ 
++	PDBG("%s parent ep %p hwtid %u laddr 0x%x raddr 0x%x lport %d " \
++	     "rport %d peer_mss %d\n", __func__, parent_ep, hwtid,
++	     ntohl(local_ip), ntohl(peer_ip), ntohs(local_port),
++	     ntohs(peer_port), peer_mss);
++
+ 	if (state_read(&parent_ep->com) != LISTEN) {
+ 		printk(KERN_ERR "%s - listening ep not in LISTEN\n",
+ 		       __func__);
+@@ -1822,6 +1833,9 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		goto reject;
+ 	}
+ 
++	if (peer_mss && child_ep->mtu > (peer_mss + 40))
++		child_ep->mtu = peer_mss + 40;
++
+ 	state_set(&child_ep->com, CONNECTING);
+ 	child_ep->com.dev = dev;
+ 	child_ep->com.cm_id = NULL;
+@@ -1862,6 +1876,9 @@ static int pass_establish(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	ep->snd_seq = be32_to_cpu(req->snd_isn);
+ 	ep->rcv_seq = be32_to_cpu(req->rcv_isn);
+ 
++	PDBG("%s ep %p hwtid %u tcp_opt 0x%02x\n", __func__, ep, tid,
++	     ntohs(req->tcp_opt));
++
+ 	set_emss(ep, ntohs(req->tcp_opt));
+ 
+ 	dst_confirm(ep->dst);
+@@ -2479,7 +2496,6 @@ int c4iw_create_listen(struct iw_cm_id *cm_id, int backlog)
+ 	struct c4iw_dev *dev = to_c4iw_dev(cm_id->device);
+ 	struct c4iw_listen_ep *ep;
+ 
+-
+ 	might_sleep();
+ 
+ 	ep = alloc_ep(sizeof(*ep), GFP_KERNEL);
+@@ -2498,30 +2514,49 @@ int c4iw_create_listen(struct iw_cm_id *cm_id, int backlog)
+ 	/*
+ 	 * Allocate a server TID.
+ 	 */
+-	ep->stid = cxgb4_alloc_stid(dev->rdev.lldi.tids, PF_INET, ep);
++	if (dev->rdev.lldi.enable_fw_ofld_conn)
++		ep->stid = cxgb4_alloc_sftid(dev->rdev.lldi.tids, PF_INET, ep);
++	else
++		ep->stid = cxgb4_alloc_stid(dev->rdev.lldi.tids, PF_INET, ep);
++
+ 	if (ep->stid == -1) {
+ 		printk(KERN_ERR MOD "%s - cannot alloc stid.\n", __func__);
+ 		err = -ENOMEM;
+ 		goto fail2;
+ 	}
+-
+ 	state_set(&ep->com, LISTEN);
+-	c4iw_init_wr_wait(&ep->com.wr_wait);
+-	err = cxgb4_create_server(ep->com.dev->rdev.lldi.ports[0], ep->stid,
+-				  ep->com.local_addr.sin_addr.s_addr,
+-				  ep->com.local_addr.sin_port,
+-				  ep->com.dev->rdev.lldi.rxq_ids[0]);
+-	if (err)
+-		goto fail3;
+-
+-	/* wait for pass_open_rpl */
+-	err = c4iw_wait_for_reply(&ep->com.dev->rdev, &ep->com.wr_wait, 0, 0,
+-				  __func__);
++	if (dev->rdev.lldi.enable_fw_ofld_conn) {
++		do {
++			err = cxgb4_create_server_filter(
++				ep->com.dev->rdev.lldi.ports[0], ep->stid,
++				ep->com.local_addr.sin_addr.s_addr,
++				ep->com.local_addr.sin_port,
++				ep->com.dev->rdev.lldi.rxq_ids[0]);
++			if (err == -EBUSY) {
++				set_current_state(TASK_UNINTERRUPTIBLE);
++				schedule_timeout(usecs_to_jiffies(100));
++			}
++		} while (err == -EBUSY);
++	} else {
++		c4iw_init_wr_wait(&ep->com.wr_wait);
++		err = cxgb4_create_server(ep->com.dev->rdev.lldi.ports[0],
++				ep->stid, ep->com.local_addr.sin_addr.s_addr,
++				ep->com.local_addr.sin_port,
++				ep->com.dev->rdev.lldi.rxq_ids[0]);
++		if (!err)
++			err = c4iw_wait_for_reply(&ep->com.dev->rdev,
++						  &ep->com.wr_wait,
++						  0, 0, __func__);
++	}
+ 	if (!err) {
+ 		cm_id->provider_data = ep;
+ 		goto out;
+ 	}
+-fail3:
++	pr_err("%s cxgb4_create_server/filter failed err %d " \
++	       "stid %d laddr %08x lport %d\n", \
++	       __func__, err, ep->stid,
++	       ntohl(ep->com.local_addr.sin_addr.s_addr),
++	       ntohs(ep->com.local_addr.sin_port));
+ 	cxgb4_free_stid(ep->com.dev->rdev.lldi.tids, ep->stid, PF_INET);
+ fail2:
+ 	cm_id->rem_ref(cm_id);
+@@ -2540,12 +2575,18 @@ int c4iw_destroy_listen(struct iw_cm_id *cm_id)
+ 
+ 	might_sleep();
+ 	state_set(&ep->com, DEAD);
+-	c4iw_init_wr_wait(&ep->com.wr_wait);
+-	err = listen_stop(ep);
+-	if (err)
+-		goto done;
+-	err = c4iw_wait_for_reply(&ep->com.dev->rdev, &ep->com.wr_wait, 0, 0,
+-				  __func__);
++	if (ep->com.dev->rdev.lldi.enable_fw_ofld_conn) {
++		err = cxgb4_remove_server_filter(
++			ep->com.dev->rdev.lldi.ports[0], ep->stid,
++			ep->com.dev->rdev.lldi.rxq_ids[0], 0);
++	} else {
++		c4iw_init_wr_wait(&ep->com.wr_wait);
++		err = listen_stop(ep);
++		if (err)
++			goto done;
++		err = c4iw_wait_for_reply(&ep->com.dev->rdev, &ep->com.wr_wait,
++					  0, 0, __func__);
++	}
+ 	cxgb4_free_stid(ep->com.dev->rdev.lldi.tids, ep->stid, PF_INET);
+ done:
+ 	cm_id->rem_ref(cm_id);
+@@ -2622,10 +2663,298 @@ int c4iw_ep_disconnect(struct c4iw_ep *ep, int abrupt, gfp_t gfp)
+ 	return ret;
+ }
+ 
+-static int async_event(struct c4iw_dev *dev, struct sk_buff *skb)
++static void active_ofld_conn_reply(struct c4iw_dev *dev, struct sk_buff *skb,
++			struct cpl_fw6_msg_ofld_connection_wr_rpl *req)
 +{
-+	memset(wr, 0, sizeof(*wr));
-+	wr->op_pkd = htonl(FW_WR_OP(FW_FILTER_WR));
-+	wr->len16_pkd = htonl(FW_WR_LEN16(sizeof(*wr) / 16));
-+	wr->tid_to_iq = htonl(V_FW_FILTER_WR_TID(ftid) |
-+			V_FW_FILTER_WR_NOREPLY(qid < 0));
-+	wr->del_filter_to_l2tix = htonl(F_FW_FILTER_WR_DEL_FILTER);
-+	if (qid >= 0)
-+		wr->rx_chan_rx_rpl_iq = htons(V_FW_FILTER_WR_RX_RPL_IQ(qid));
++	struct c4iw_ep *ep;
++
++	ep = (struct c4iw_ep *)lookup_atid(dev->rdev.lldi.tids, req->tid);
++	if (!ep)
++		return;
++
++	switch (req->retval) {
++	case FW_ENOMEM:
++	case FW_EADDRINUSE:
++		PDBG("%s ofld conn wr ret %d\n", __func__, req->retval);
++		break;
++	default:
++		pr_info("%s unexpected ofld conn wr retval %d\n",
++		       __func__, req->retval);
++		break;
++	}
++	connect_reply_upcall(ep, status2errno(req->retval));
 +}
 +
- #define INIT_CMD(var, cmd, rd_wr) do { \
- 	(var).op_to_write = htonl(FW_CMD_OP(FW_##cmd##_CMD) | \
- 				  FW_CMD_REQUEST | FW_CMD_##rd_wr); \
++static void passive_ofld_conn_reply(struct c4iw_dev *dev, struct sk_buff *skb,
++			struct cpl_fw6_msg_ofld_connection_wr_rpl *req)
++{
++	struct sk_buff *rpl_skb;
++	struct cpl_pass_accept_req *cpl;
++	int ret;
++
++	rpl_skb = (struct sk_buff *)cpu_to_be64(req->cookie);
++	BUG_ON(!rpl_skb);
++	if (req->retval) {
++		PDBG("%s passive open failure %d\n", __func__, req->retval);
++		kfree_skb(rpl_skb);
++	} else {
++		cpl = (struct cpl_pass_accept_req *)cplhdr(rpl_skb);
++		OPCODE_TID(cpl) = htonl(MK_OPCODE_TID(CPL_PASS_ACCEPT_REQ,
++						      htonl(req->tid)));
++		ret = pass_accept_req(dev, rpl_skb);
++		if (!ret)
++			kfree_skb(rpl_skb);
++	}
++	return;
++}
++
++static int deferred_fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
+ {
+ 	struct cpl_fw6_msg *rpl = cplhdr(skb);
+-	c4iw_ev_dispatch(dev, (struct t4_cqe *)&rpl->data[0]);
++	struct cpl_fw6_msg_ofld_connection_wr_rpl *req;
++
++	switch (rpl->type) {
++	case FW6_TYPE_CQE:
++		c4iw_ev_dispatch(dev, (struct t4_cqe *)&rpl->data[0]);
++		break;
++	case FW6_TYPE_OFLD_CONNECTION_WR_RPL:
++		req = (struct cpl_fw6_msg_ofld_connection_wr_rpl *)rpl->data;
++		switch (req->t_state) {
++		case TCP_SYN_SENT:
++			active_ofld_conn_reply(dev, skb, req);
++			break;
++		case TCP_SYN_RECV:
++			passive_ofld_conn_reply(dev, skb, req);
++			break;
++		default:
++			pr_err("%s unexpected ofld conn wr state %d\n",
++			       __func__, req->t_state);
++			break;
++		}
++		break;
++	}
++	return 0;
++}
++
++static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
++{
++	u32 l2info;
++	u16 vlantag, len, hdr_len;
++	u8 intf;
++	struct cpl_rx_pkt *cpl = cplhdr(skb);
++	struct cpl_pass_accept_req *req;
++	struct tcp_options_received tmp_opt;
++
++	/* Store values from cpl_rx_pkt in temporary location. */
++	vlantag = cpl->vlan;
++	len = cpl->len;
++	l2info  = cpl->l2info;
++	hdr_len = cpl->hdr_len;
++	intf = cpl->iff;
++
++	__skb_pull(skb, sizeof(*req) + sizeof(struct rss_header));
++
++	/* We need to parse the TCP options from SYN packet.
++	 * to generate cpl_pass_accept_req.
++	 */
++	memset(&tmp_opt, 0, sizeof(tmp_opt));
++	tcp_clear_options(&tmp_opt);
++	tcp_parse_options(skb, &tmp_opt, 0, 0, NULL);
++
++	req = (struct cpl_pass_accept_req *)__skb_push(skb, sizeof(*req));
++	memset(req, 0, sizeof(*req));
++	req->l2info = cpu_to_be16(V_SYN_INTF(intf) |
++			 V_SYN_MAC_IDX(G_RX_MACIDX(htonl(l2info))) |
++			 F_SYN_XACT_MATCH);
++	req->hdr_len = cpu_to_be32(V_SYN_RX_CHAN(G_RX_CHAN(htonl(l2info))) |
++				V_TCP_HDR_LEN(G_RX_TCPHDR_LEN(htons(hdr_len))) |
++				V_IP_HDR_LEN(G_RX_IPHDR_LEN(htons(hdr_len))) |
++				V_ETH_HDR_LEN(G_RX_ETHHDR_LEN(htonl(l2info))));
++	req->vlan = vlantag;
++	req->len = len;
++	req->tos_stid = cpu_to_be32(PASS_OPEN_TID(stid) |
++				    PASS_OPEN_TOS(tos));
++	req->tcpopt.mss = htons(tmp_opt.mss_clamp);
++	if (tmp_opt.wscale_ok)
++		req->tcpopt.wsf = tmp_opt.snd_wscale;
++	req->tcpopt.tstamp = tmp_opt.saw_tstamp;
++	if (tmp_opt.sack_ok)
++		req->tcpopt.sack = 1;
++	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_ACCEPT_REQ, 0));
++	return;
++}
++
++static void send_fw_pass_open_req(struct c4iw_dev *dev, struct sk_buff *skb,
++				  __be32 laddr, __be16 lport,
++				  __be32 raddr, __be16 rport,
++				  u32 rcv_isn, u32 filter, u16 window,
++				  u32 rss_qid, u8 port_id)
++{
++	struct sk_buff *req_skb;
++	struct fw_ofld_connection_wr *req;
++	struct cpl_pass_accept_req *cpl = cplhdr(skb);
++
++	req_skb = alloc_skb(sizeof(struct fw_ofld_connection_wr), GFP_KERNEL);
++	req = (struct fw_ofld_connection_wr *)__skb_put(req_skb, sizeof(*req));
++	memset(req, 0, sizeof(*req));
++	req->op_compl = htonl(V_WR_OP(FW_OFLD_CONNECTION_WR) | FW_WR_COMPL(1));
++	req->len16_pkd = htonl(FW_WR_LEN16(DIV_ROUND_UP(sizeof(*req), 16)));
++	req->le.version_cpl = htonl(F_FW_OFLD_CONNECTION_WR_CPL);
++	req->le.filter = filter;
++	req->le.lport = lport;
++	req->le.pport = rport;
++	req->le.u.ipv4.lip = laddr;
++	req->le.u.ipv4.pip = raddr;
++	req->tcb.rcv_nxt = htonl(rcv_isn + 1);
++	req->tcb.rcv_adv = htons(window);
++	req->tcb.t_state_to_astid =
++		 htonl(V_FW_OFLD_CONNECTION_WR_T_STATE(TCP_SYN_RECV) |
++			V_FW_OFLD_CONNECTION_WR_RCV_SCALE(cpl->tcpopt.wsf) |
++			V_FW_OFLD_CONNECTION_WR_ASTID(
++			GET_PASS_OPEN_TID(ntohl(cpl->tos_stid))));
++
++	/*
++	 * We store the qid in opt2 which will be used by the firmware
++	 * to send us the wr response.
++	 */
++	req->tcb.opt2 = htonl(V_RSS_QUEUE(rss_qid));
++
++	/*
++	 * We initialize the MSS index in TCB to 0xF.
++	 * So that when driver sends cpl_pass_accept_rpl
++	 * TCB picks up the correct value. If this was 0
++	 * TP will ignore any value > 0 for MSS index.
++	 */
++	req->tcb.opt0 = cpu_to_be64(V_MSS_IDX(0xF));
++	req->cookie = cpu_to_be64((u64)skb);
++
++	set_wr_txq(req_skb, CPL_PRIORITY_CONTROL, port_id);
++	cxgb4_ofld_send(dev->rdev.lldi.ports[0], req_skb);
++}
++
++/*
++ * Handler for CPL_RX_PKT message. Need to handle cpl_rx_pkt
++ * messages when a filter is being used instead of server to
++ * redirect a syn packet. When packets hit filter they are redirected
++ * to the offload queue and driver tries to establish the connection
++ * using firmware work request.
++ */
++static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
++{
++	int stid;
++	unsigned int filter;
++	struct ethhdr *eh = NULL;
++	struct vlan_ethhdr *vlan_eh = NULL;
++	struct iphdr *iph;
++	struct tcphdr *tcph;
++	struct rss_header *rss = (void *)skb->data;
++	struct cpl_rx_pkt *cpl = (void *)skb->data;
++	struct cpl_pass_accept_req *req = (void *)(rss + 1);
++	struct l2t_entry *e;
++	struct dst_entry *dst;
++	struct rtable *rt;
++	struct c4iw_ep *lep;
++	u16 window;
++	struct port_info *pi;
++	struct net_device *pdev;
++	u16 rss_qid;
++	int step;
++	u32 tx_chan;
++	struct neighbour *neigh;
++
++	/* Drop all non-SYN packets */
++	if (!(cpl->l2info & cpu_to_be32(F_RXF_SYN)))
++		goto reject;
++
++	/*
++	 * Drop all packets which did not hit the filter.
++	 * Unlikely to happen.
++	 */
++	if (!(rss->filter_hit && rss->filter_tid))
++		goto reject;
++
++	/*
++	 * Calculate the server tid from filter hit index from cpl_rx_pkt.
++	 */
++	stid = cpu_to_be32(rss->hash_val) - dev->rdev.lldi.tids->sftid_base
++					  + dev->rdev.lldi.tids->nstids;
++
++	lep = (struct c4iw_ep *)lookup_stid(dev->rdev.lldi.tids, stid);
++	if (!lep) {
++		PDBG("%s connect request on invalid stid %d\n", __func__, stid);
++		goto reject;
++	}
++
++	if (G_RX_ETHHDR_LEN(ntohl(cpl->l2info)) == ETH_HLEN) {
++		eh = (struct ethhdr *)(req + 1);
++		iph = (struct iphdr *)(eh + 1);
++	} else {
++		vlan_eh = (struct vlan_ethhdr *)(req + 1);
++		iph = (struct iphdr *)(vlan_eh + 1);
++		skb->vlan_tci = ntohs(cpl->vlan);
++	}
++
++	if (iph->version != 0x4)
++		goto reject;
++
++	tcph = (struct tcphdr *)(iph + 1);
++	skb_set_network_header(skb, (void *)iph - (void *)rss);
++	skb_set_transport_header(skb, (void *)tcph - (void *)rss);
++	skb_get(skb);
++
++	PDBG("%s lip 0x%x lport %u pip 0x%x pport %u tos %d\n", __func__,
++	     ntohl(iph->daddr), ntohs(tcph->dest), ntohl(iph->saddr),
++	     ntohs(tcph->source), iph->tos);
++
++	rt = find_route(dev, iph->daddr, iph->saddr, tcph->dest, tcph->source,
++			iph->tos);
++	if (!rt) {
++		pr_err("%s - failed to find dst entry!\n",
++		       __func__);
++		goto reject;
++	}
++	dst = &rt->dst;
++	neigh = dst_neigh_lookup_skb(dst, skb);
++
++	if (neigh->dev->flags & IFF_LOOPBACK) {
++		pdev = ip_dev_find(&init_net, iph->daddr);
++		e = cxgb4_l2t_get(dev->rdev.lldi.l2t, neigh,
++				    pdev, 0);
++		pi = (struct port_info *)netdev_priv(pdev);
++		tx_chan = cxgb4_port_chan(pdev);
++		dev_put(pdev);
++	} else {
++		e = cxgb4_l2t_get(dev->rdev.lldi.l2t, neigh,
++					neigh->dev, 0);
++		pi = (struct port_info *)netdev_priv(neigh->dev);
++		tx_chan = cxgb4_port_chan(neigh->dev);
++	}
++	if (!e) {
++		pr_err("%s - failed to allocate l2t entry!\n",
++		       __func__);
++		goto free_dst;
++	}
++
++	step = dev->rdev.lldi.nrxq / dev->rdev.lldi.nchan;
++	rss_qid = dev->rdev.lldi.rxq_ids[pi->port_id * step];
++	window = htons(tcph->window);
++
++	/* Calcuate filter portion for LE region. */
++	filter = cpu_to_be32(select_ntuple(dev, dst, e));
++
++	/*
++	 * Synthesize the cpl_pass_accept_req. We have everything except the
++	 * TID. Once firmware sends a reply with TID we update the TID field
++	 * in cpl and pass it through the regular cpl_pass_accept_req path.
++	 */
++	build_cpl_pass_accept_req(skb, stid, iph->tos);
++	send_fw_pass_open_req(dev, skb, iph->daddr, tcph->dest, iph->saddr,
++			      tcph->source, ntohl(tcph->seq), filter, window,
++			      rss_qid, pi->port_id);
++	cxgb4_l2t_release(e);
++free_dst:
++	dst_release(dst);
++reject:
+ 	return 0;
+ }
+ 
+@@ -2648,7 +2977,8 @@ static c4iw_handler_func work_handlers[NUM_CPL_CMDS] = {
+ 	[CPL_CLOSE_CON_RPL] = close_con_rpl,
+ 	[CPL_RDMA_TERMINATE] = terminate,
+ 	[CPL_FW4_ACK] = fw4_ack,
+-	[CPL_FW6_MSG] = async_event
++	[CPL_FW6_MSG] = deferred_fw6_msg,
++	[CPL_RX_PKT] = rx_pkt
+ };
+ 
+ static void process_timeout(struct c4iw_ep *ep)
+@@ -2776,9 +3106,6 @@ static int fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	struct cpl_fw6_msg *rpl = cplhdr(skb);
+ 	struct c4iw_wr_wait *wr_waitp;
+ 	int ret;
+-	u8 opcode;
+-	struct cpl_fw6_msg_ofld_connection_wr_rpl *req;
+-	struct c4iw_ep *ep;
+ 
+ 	PDBG("%s type %u\n", __func__, rpl->type);
+ 
+@@ -2792,23 +3119,8 @@ static int fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		kfree_skb(skb);
+ 		break;
+ 	case FW6_TYPE_CQE:
+-		sched(dev, skb);
+-		break;
+ 	case FW6_TYPE_OFLD_CONNECTION_WR_RPL:
+-		opcode = *(const u8 *)rpl->data;
+-		if (opcode == FW_OFLD_CONNECTION_WR) {
+-			req =
+-			(struct cpl_fw6_msg_ofld_connection_wr_rpl *)rpl->data;
+-			if (req->t_state == TCP_SYN_SENT
+-			    && (req->retval == FW_ENOMEM
+-				|| req->retval == FW_EADDRINUSE)) {
+-				ep = (struct c4iw_ep *)
+-				     lookup_atid(dev->rdev.lldi.tids,
+-						 req->tid);
+-				c4iw_l2t_send(&dev->rdev, skb, ep->l2t);
+-				return 0;
+-			}
+-		}
++		sched(dev, skb);
+ 		break;
+ 	default:
+ 		printk(KERN_ERR MOD "%s unexpected fw6 msg type %u\n", __func__,
+@@ -2870,7 +3182,8 @@ c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS] = {
+ 	[CPL_RDMA_TERMINATE] = sched,
+ 	[CPL_FW4_ACK] = sched,
+ 	[CPL_SET_TCB_RPL] = set_tcb_rpl,
+-	[CPL_FW6_MSG] = fw6_msg
++	[CPL_FW6_MSG] = fw6_msg,
++	[CPL_RX_PKT] = sched
+ };
+ 
+ int __init c4iw_cm_init(void)
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index cb4ecd7..6b5b3d1 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -279,6 +279,7 @@ static int stats_show(struct seq_file *seq, void *v)
+ 	seq_printf(seq, " DB State: %s Transitions %llu\n",
+ 		   db_state_str[dev->db_state],
+ 		   dev->rdev.stats.db_state_transitions);
++	seq_printf(seq, "TCAM_FULL: %10llu\n", dev->rdev.stats.tcam_full);
+ 	return 0;
+ }
+ 
+@@ -577,14 +578,76 @@ out:
+ 	return ctx;
+ }
+ 
++static inline struct sk_buff *copy_gl_to_skb_pkt(const struct pkt_gl *gl,
++						 const __be64 *rsp,
++						 u32 pktshift)
++{
++	struct sk_buff *skb;
++
++	/*
++	 * Allocate space for cpl_pass_accept_req which will be synthesized by
++	 * driver. Once the driver synthesizes the request the skb will go
++	 * through the regular cpl_pass_accept_req processing.
++	 * The math here assumes sizeof cpl_pass_accept_req >= sizeof
++	 * cpl_rx_pkt.
++	 */
++	skb = alloc_skb(gl->tot_len + sizeof(struct cpl_pass_accept_req) +
++			sizeof(struct rss_header) - pktshift, GFP_ATOMIC);
++	if (unlikely(!skb))
++		return NULL;
++
++	 __skb_put(skb, gl->tot_len + sizeof(struct cpl_pass_accept_req) +
++		   sizeof(struct rss_header) - pktshift);
++
++	/*
++	 * This skb will contain:
++	 *   rss_header from the rspq descriptor (1 flit)
++	 *   cpl_rx_pkt struct from the rspq descriptor (2 flits)
++	 *   space for the difference between the size of an
++	 *      rx_pkt and pass_accept_req cpl (1 flit)
++	 *   the packet data from the gl
++	 */
++	skb_copy_to_linear_data(skb, rsp, sizeof(struct cpl_pass_accept_req) +
++				sizeof(struct rss_header));
++	skb_copy_to_linear_data_offset(skb, sizeof(struct rss_header) +
++				       sizeof(struct cpl_pass_accept_req),
++				       gl->va + pktshift,
++				       gl->tot_len - pktshift);
++	return skb;
++}
++
++static inline int recv_rx_pkt(struct c4iw_dev *dev, const struct pkt_gl *gl,
++			   const __be64 *rsp)
++{
++	unsigned int opcode = *(u8 *)rsp;
++	struct sk_buff *skb;
++
++	if (opcode != CPL_RX_PKT)
++		goto out;
++
++	skb = copy_gl_to_skb_pkt(gl , rsp, dev->rdev.lldi.sge_pktshift);
++	if (skb == NULL)
++		goto out;
++
++	if (c4iw_handlers[opcode] == NULL) {
++		pr_info("%s no handler opcode 0x%x...\n", __func__,
++		       opcode);
++		kfree_skb(skb);
++		goto out;
++	}
++	c4iw_handlers[opcode](dev, skb);
++	return 1;
++out:
++	return 0;
++}
++
+ static int c4iw_uld_rx_handler(void *handle, const __be64 *rsp,
+ 			const struct pkt_gl *gl)
+ {
+ 	struct uld_ctx *ctx = handle;
+ 	struct c4iw_dev *dev = ctx->dev;
+ 	struct sk_buff *skb;
+-	const struct cpl_act_establish *rpl;
+-	unsigned int opcode;
++	u8 opcode;
+ 
+ 	if (gl == NULL) {
+ 		/* omit RSS and rsp_ctrl at end of descriptor */
+@@ -601,19 +664,29 @@ static int c4iw_uld_rx_handler(void *handle, const __be64 *rsp,
+ 		u32 qid = be32_to_cpu(rc->pldbuflen_qid);
+ 		c4iw_ev_handler(dev, qid);
+ 		return 0;
++	} else if (unlikely(*(u8 *)rsp != *(u8 *)gl->va)) {
++		if (recv_rx_pkt(dev, gl, rsp))
++			return 0;
++
++		pr_info("%s: unexpected FL contents at %p, " \
++		       "RSS %#llx, FL %#llx, len %u\n",
++		       pci_name(ctx->lldi.pdev), gl->va,
++		       (unsigned long long)be64_to_cpu(*rsp),
++		       (unsigned long long)be64_to_cpu(*(u64 *)gl->va),
++		       gl->tot_len);
++
++		return 0;
+ 	} else {
+ 		skb = cxgb4_pktgl_to_skb(gl, 128, 128);
+ 		if (unlikely(!skb))
+ 			goto nomem;
+ 	}
+ 
+-	rpl = cplhdr(skb);
+-	opcode = rpl->ot.opcode;
+-
++	opcode = *(u8 *)rsp;
+ 	if (c4iw_handlers[opcode])
+ 		c4iw_handlers[opcode](dev, skb);
+ 	else
+-		printk(KERN_INFO "%s no handler opcode 0x%x...\n", __func__,
++		pr_info("%s no handler opcode 0x%x...\n", __func__,
+ 		       opcode);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index d0cd65b..b9ce750 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3337,6 +3337,10 @@ int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
+ 
+ 	adap = netdev2adap(dev);
+ 
++	/* Adjust stid to correct filter index */
++	stid -= adap->tids.nstids;
++	stid += adap->tids.nftids;
++
+ 	/**
+ 	 * Check to make sure the filter requested is writable ...
+ 	 */
+@@ -3387,6 +3391,11 @@ int cxgb4_remove_server_filter(const struct net_device *dev, unsigned int stid,
+ 	struct adapter *adap;
+ 
+ 	adap = netdev2adap(dev);
++
++	/* Adjust stid to correct filter index */
++	stid -= adap->tids.nstids;
++	stid += adap->tids.nftids;
++
+ 	f = &adap->tids.ftid_tab[stid];
+ 	/* Unlock the filter */
+ 	f->locked = 0;
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-index eb71b82..480eb43 100644
+index 5b51c01..1179616 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-@@ -332,6 +332,7 @@ struct cpl_set_tcb_field {
- 	__be16 word_cookie;
- #define TCB_WORD(x)   ((x) << 0)
- #define TCB_COOKIE(x) ((x) << 5)
-+#define GET_TCB_COOKIE(x) (((x) >> 5) & 7)
- 	__be64 mask;
- 	__be64 val;
+@@ -199,6 +199,18 @@ struct work_request_hdr {
+ 
+ #define WR_HDR struct work_request_hdr wr
+ 
++/* option 0 fields */
++#define S_MSS_IDX    60
++#define M_MSS_IDX    0xF
++#define V_MSS_IDX(x) ((__u64)(x) << S_MSS_IDX)
++#define G_MSS_IDX(x) (((x) >> S_MSS_IDX) & M_MSS_IDX)
++
++/* option 2 fields */
++#define S_RSS_QUEUE    0
++#define M_RSS_QUEUE    0x3FF
++#define V_RSS_QUEUE(x) ((x) << S_RSS_QUEUE)
++#define G_RSS_QUEUE(x) (((x) >> S_RSS_QUEUE) & M_RSS_QUEUE)
++
+ struct cpl_pass_open_req {
+ 	WR_HDR;
+ 	union opcode_tid ot;
+@@ -300,6 +312,9 @@ struct cpl_pass_establish {
+ 	union opcode_tid ot;
+ 	__be32 rsvd;
+ 	__be32 tos_stid;
++#define PASS_OPEN_TID(x) ((x) << 0)
++#define PASS_OPEN_TOS(x) ((x) << 24)
++#define GET_PASS_OPEN_TID(x)	(((x) >> 0) & 0xFFFFFF)
+ #define GET_POPEN_TID(x) ((x) & 0xffffff)
+ #define GET_POPEN_TOS(x) (((x) >> 24) & 0xff)
+ 	__be16 mac_idx;
+@@ -545,6 +560,37 @@ struct cpl_rx_pkt {
+ 	__be16 err_vec;
  };
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index a636463..b4dc560 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -35,6 +35,10 @@
- #ifndef _T4FW_INTERFACE_H_
- #define _T4FW_INTERFACE_H_
  
-+enum fw_ret_val {
-+	FW_ENOEXEC      = 8,            /* Exec format error; inv microcode */
-+};
++/* rx_pkt.l2info fields */
++#define S_RX_ETHHDR_LEN    0
++#define M_RX_ETHHDR_LEN    0x1F
++#define V_RX_ETHHDR_LEN(x) ((x) << S_RX_ETHHDR_LEN)
++#define G_RX_ETHHDR_LEN(x) (((x) >> S_RX_ETHHDR_LEN) & M_RX_ETHHDR_LEN)
 +
- #define FW_T4VF_SGE_BASE_ADDR      0x0000
- #define FW_T4VF_MPS_BASE_ADDR      0x0100
- #define FW_T4VF_PL_BASE_ADDR       0x0200
-@@ -81,6 +85,281 @@ struct fw_wr_hdr {
- 
- #define HW_TPL_FR_MT_PR_IV_P_FC         0X32B
- 
-+/* filter wr reply code in cookie in CPL_SET_TCB_RPL */
-+enum fw_filter_wr_cookie {
-+	FW_FILTER_WR_SUCCESS,
-+	FW_FILTER_WR_FLT_ADDED,
-+	FW_FILTER_WR_FLT_DELETED,
-+	FW_FILTER_WR_SMT_TBL_FULL,
-+	FW_FILTER_WR_EINVAL,
-+};
++#define S_RX_MACIDX    8
++#define M_RX_MACIDX    0x1FF
++#define V_RX_MACIDX(x) ((x) << S_RX_MACIDX)
++#define G_RX_MACIDX(x) (((x) >> S_RX_MACIDX) & M_RX_MACIDX)
 +
-+struct fw_filter_wr {
-+	__be32 op_pkd;
-+	__be32 len16_pkd;
-+	__be64 r3;
-+	__be32 tid_to_iq;
-+	__be32 del_filter_to_l2tix;
-+	__be16 ethtype;
-+	__be16 ethtypem;
-+	__u8   frag_to_ovlan_vldm;
-+	__u8   smac_sel;
-+	__be16 rx_chan_rx_rpl_iq;
-+	__be32 maci_to_matchtypem;
-+	__u8   ptcl;
-+	__u8   ptclm;
-+	__u8   ttyp;
-+	__u8   ttypm;
-+	__be16 ivlan;
-+	__be16 ivlanm;
-+	__be16 ovlan;
-+	__be16 ovlanm;
-+	__u8   lip[16];
-+	__u8   lipm[16];
-+	__u8   fip[16];
-+	__u8   fipm[16];
-+	__be16 lp;
-+	__be16 lpm;
-+	__be16 fp;
-+	__be16 fpm;
-+	__be16 r7;
-+	__u8   sma[6];
-+};
++#define S_RXF_SYN    21
++#define V_RXF_SYN(x) ((x) << S_RXF_SYN)
++#define F_RXF_SYN    V_RXF_SYN(1U)
 +
-+#define S_FW_FILTER_WR_TID      12
-+#define M_FW_FILTER_WR_TID      0xfffff
-+#define V_FW_FILTER_WR_TID(x)   ((x) << S_FW_FILTER_WR_TID)
-+#define G_FW_FILTER_WR_TID(x)   \
-+	(((x) >> S_FW_FILTER_WR_TID) & M_FW_FILTER_WR_TID)
++#define S_RX_CHAN    28
++#define M_RX_CHAN    0xF
++#define V_RX_CHAN(x) ((x) << S_RX_CHAN)
++#define G_RX_CHAN(x) (((x) >> S_RX_CHAN) & M_RX_CHAN)
 +
-+#define S_FW_FILTER_WR_RQTYPE           11
-+#define M_FW_FILTER_WR_RQTYPE           0x1
-+#define V_FW_FILTER_WR_RQTYPE(x)        ((x) << S_FW_FILTER_WR_RQTYPE)
-+#define G_FW_FILTER_WR_RQTYPE(x)        \
-+	(((x) >> S_FW_FILTER_WR_RQTYPE) & M_FW_FILTER_WR_RQTYPE)
-+#define F_FW_FILTER_WR_RQTYPE   V_FW_FILTER_WR_RQTYPE(1U)
++/* rx_pkt.hdr_len fields */
++#define S_RX_TCPHDR_LEN    0
++#define M_RX_TCPHDR_LEN    0x3F
++#define V_RX_TCPHDR_LEN(x) ((x) << S_RX_TCPHDR_LEN)
++#define G_RX_TCPHDR_LEN(x) (((x) >> S_RX_TCPHDR_LEN) & M_RX_TCPHDR_LEN)
 +
-+#define S_FW_FILTER_WR_NOREPLY          10
-+#define M_FW_FILTER_WR_NOREPLY          0x1
-+#define V_FW_FILTER_WR_NOREPLY(x)       ((x) << S_FW_FILTER_WR_NOREPLY)
-+#define G_FW_FILTER_WR_NOREPLY(x)       \
-+	(((x) >> S_FW_FILTER_WR_NOREPLY) & M_FW_FILTER_WR_NOREPLY)
-+#define F_FW_FILTER_WR_NOREPLY  V_FW_FILTER_WR_NOREPLY(1U)
++#define S_RX_IPHDR_LEN    6
++#define M_RX_IPHDR_LEN    0x3FF
++#define V_RX_IPHDR_LEN(x) ((x) << S_RX_IPHDR_LEN)
++#define G_RX_IPHDR_LEN(x) (((x) >> S_RX_IPHDR_LEN) & M_RX_IPHDR_LEN)
 +
-+#define S_FW_FILTER_WR_IQ       0
-+#define M_FW_FILTER_WR_IQ       0x3ff
-+#define V_FW_FILTER_WR_IQ(x)    ((x) << S_FW_FILTER_WR_IQ)
-+#define G_FW_FILTER_WR_IQ(x)    \
-+	(((x) >> S_FW_FILTER_WR_IQ) & M_FW_FILTER_WR_IQ)
-+
-+#define S_FW_FILTER_WR_DEL_FILTER       31
-+#define M_FW_FILTER_WR_DEL_FILTER       0x1
-+#define V_FW_FILTER_WR_DEL_FILTER(x)    ((x) << S_FW_FILTER_WR_DEL_FILTER)
-+#define G_FW_FILTER_WR_DEL_FILTER(x)    \
-+	(((x) >> S_FW_FILTER_WR_DEL_FILTER) & M_FW_FILTER_WR_DEL_FILTER)
-+#define F_FW_FILTER_WR_DEL_FILTER       V_FW_FILTER_WR_DEL_FILTER(1U)
-+
-+#define S_FW_FILTER_WR_RPTTID           25
-+#define M_FW_FILTER_WR_RPTTID           0x1
-+#define V_FW_FILTER_WR_RPTTID(x)        ((x) << S_FW_FILTER_WR_RPTTID)
-+#define G_FW_FILTER_WR_RPTTID(x)        \
-+	(((x) >> S_FW_FILTER_WR_RPTTID) & M_FW_FILTER_WR_RPTTID)
-+#define F_FW_FILTER_WR_RPTTID   V_FW_FILTER_WR_RPTTID(1U)
-+
-+#define S_FW_FILTER_WR_DROP     24
-+#define M_FW_FILTER_WR_DROP     0x1
-+#define V_FW_FILTER_WR_DROP(x)  ((x) << S_FW_FILTER_WR_DROP)
-+#define G_FW_FILTER_WR_DROP(x)  \
-+	(((x) >> S_FW_FILTER_WR_DROP) & M_FW_FILTER_WR_DROP)
-+#define F_FW_FILTER_WR_DROP     V_FW_FILTER_WR_DROP(1U)
-+
-+#define S_FW_FILTER_WR_DIRSTEER         23
-+#define M_FW_FILTER_WR_DIRSTEER         0x1
-+#define V_FW_FILTER_WR_DIRSTEER(x)      ((x) << S_FW_FILTER_WR_DIRSTEER)
-+#define G_FW_FILTER_WR_DIRSTEER(x)      \
-+	(((x) >> S_FW_FILTER_WR_DIRSTEER) & M_FW_FILTER_WR_DIRSTEER)
-+#define F_FW_FILTER_WR_DIRSTEER V_FW_FILTER_WR_DIRSTEER(1U)
-+
-+#define S_FW_FILTER_WR_MASKHASH         22
-+#define M_FW_FILTER_WR_MASKHASH         0x1
-+#define V_FW_FILTER_WR_MASKHASH(x)      ((x) << S_FW_FILTER_WR_MASKHASH)
-+#define G_FW_FILTER_WR_MASKHASH(x)      \
-+	(((x) >> S_FW_FILTER_WR_MASKHASH) & M_FW_FILTER_WR_MASKHASH)
-+#define F_FW_FILTER_WR_MASKHASH V_FW_FILTER_WR_MASKHASH(1U)
-+
-+#define S_FW_FILTER_WR_DIRSTEERHASH     21
-+#define M_FW_FILTER_WR_DIRSTEERHASH     0x1
-+#define V_FW_FILTER_WR_DIRSTEERHASH(x)  ((x) << S_FW_FILTER_WR_DIRSTEERHASH)
-+#define G_FW_FILTER_WR_DIRSTEERHASH(x)  \
-+	(((x) >> S_FW_FILTER_WR_DIRSTEERHASH) & M_FW_FILTER_WR_DIRSTEERHASH)
-+#define F_FW_FILTER_WR_DIRSTEERHASH     V_FW_FILTER_WR_DIRSTEERHASH(1U)
-+
-+#define S_FW_FILTER_WR_LPBK     20
-+#define M_FW_FILTER_WR_LPBK     0x1
-+#define V_FW_FILTER_WR_LPBK(x)  ((x) << S_FW_FILTER_WR_LPBK)
-+#define G_FW_FILTER_WR_LPBK(x)  \
-+	(((x) >> S_FW_FILTER_WR_LPBK) & M_FW_FILTER_WR_LPBK)
-+#define F_FW_FILTER_WR_LPBK     V_FW_FILTER_WR_LPBK(1U)
-+
-+#define S_FW_FILTER_WR_DMAC     19
-+#define M_FW_FILTER_WR_DMAC     0x1
-+#define V_FW_FILTER_WR_DMAC(x)  ((x) << S_FW_FILTER_WR_DMAC)
-+#define G_FW_FILTER_WR_DMAC(x)  \
-+	(((x) >> S_FW_FILTER_WR_DMAC) & M_FW_FILTER_WR_DMAC)
-+#define F_FW_FILTER_WR_DMAC     V_FW_FILTER_WR_DMAC(1U)
-+
-+#define S_FW_FILTER_WR_SMAC     18
-+#define M_FW_FILTER_WR_SMAC     0x1
-+#define V_FW_FILTER_WR_SMAC(x)  ((x) << S_FW_FILTER_WR_SMAC)
-+#define G_FW_FILTER_WR_SMAC(x)  \
-+	(((x) >> S_FW_FILTER_WR_SMAC) & M_FW_FILTER_WR_SMAC)
-+#define F_FW_FILTER_WR_SMAC     V_FW_FILTER_WR_SMAC(1U)
-+
-+#define S_FW_FILTER_WR_INSVLAN          17
-+#define M_FW_FILTER_WR_INSVLAN          0x1
-+#define V_FW_FILTER_WR_INSVLAN(x)       ((x) << S_FW_FILTER_WR_INSVLAN)
-+#define G_FW_FILTER_WR_INSVLAN(x)       \
-+	(((x) >> S_FW_FILTER_WR_INSVLAN) & M_FW_FILTER_WR_INSVLAN)
-+#define F_FW_FILTER_WR_INSVLAN  V_FW_FILTER_WR_INSVLAN(1U)
-+
-+#define S_FW_FILTER_WR_RMVLAN           16
-+#define M_FW_FILTER_WR_RMVLAN           0x1
-+#define V_FW_FILTER_WR_RMVLAN(x)        ((x) << S_FW_FILTER_WR_RMVLAN)
-+#define G_FW_FILTER_WR_RMVLAN(x)        \
-+	(((x) >> S_FW_FILTER_WR_RMVLAN) & M_FW_FILTER_WR_RMVLAN)
-+#define F_FW_FILTER_WR_RMVLAN   V_FW_FILTER_WR_RMVLAN(1U)
-+
-+#define S_FW_FILTER_WR_HITCNTS          15
-+#define M_FW_FILTER_WR_HITCNTS          0x1
-+#define V_FW_FILTER_WR_HITCNTS(x)       ((x) << S_FW_FILTER_WR_HITCNTS)
-+#define G_FW_FILTER_WR_HITCNTS(x)       \
-+	(((x) >> S_FW_FILTER_WR_HITCNTS) & M_FW_FILTER_WR_HITCNTS)
-+#define F_FW_FILTER_WR_HITCNTS  V_FW_FILTER_WR_HITCNTS(1U)
-+
-+#define S_FW_FILTER_WR_TXCHAN           13
-+#define M_FW_FILTER_WR_TXCHAN           0x3
-+#define V_FW_FILTER_WR_TXCHAN(x)        ((x) << S_FW_FILTER_WR_TXCHAN)
-+#define G_FW_FILTER_WR_TXCHAN(x)        \
-+	(((x) >> S_FW_FILTER_WR_TXCHAN) & M_FW_FILTER_WR_TXCHAN)
-+
-+#define S_FW_FILTER_WR_PRIO     12
-+#define M_FW_FILTER_WR_PRIO     0x1
-+#define V_FW_FILTER_WR_PRIO(x)  ((x) << S_FW_FILTER_WR_PRIO)
-+#define G_FW_FILTER_WR_PRIO(x)  \
-+	(((x) >> S_FW_FILTER_WR_PRIO) & M_FW_FILTER_WR_PRIO)
-+#define F_FW_FILTER_WR_PRIO     V_FW_FILTER_WR_PRIO(1U)
-+
-+#define S_FW_FILTER_WR_L2TIX    0
-+#define M_FW_FILTER_WR_L2TIX    0xfff
-+#define V_FW_FILTER_WR_L2TIX(x) ((x) << S_FW_FILTER_WR_L2TIX)
-+#define G_FW_FILTER_WR_L2TIX(x) \
-+	(((x) >> S_FW_FILTER_WR_L2TIX) & M_FW_FILTER_WR_L2TIX)
-+
-+#define S_FW_FILTER_WR_FRAG     7
-+#define M_FW_FILTER_WR_FRAG     0x1
-+#define V_FW_FILTER_WR_FRAG(x)  ((x) << S_FW_FILTER_WR_FRAG)
-+#define G_FW_FILTER_WR_FRAG(x)  \
-+	(((x) >> S_FW_FILTER_WR_FRAG) & M_FW_FILTER_WR_FRAG)
-+#define F_FW_FILTER_WR_FRAG     V_FW_FILTER_WR_FRAG(1U)
-+
-+#define S_FW_FILTER_WR_FRAGM    6
-+#define M_FW_FILTER_WR_FRAGM    0x1
-+#define V_FW_FILTER_WR_FRAGM(x) ((x) << S_FW_FILTER_WR_FRAGM)
-+#define G_FW_FILTER_WR_FRAGM(x) \
-+	(((x) >> S_FW_FILTER_WR_FRAGM) & M_FW_FILTER_WR_FRAGM)
-+#define F_FW_FILTER_WR_FRAGM    V_FW_FILTER_WR_FRAGM(1U)
-+
-+#define S_FW_FILTER_WR_IVLAN_VLD        5
-+#define M_FW_FILTER_WR_IVLAN_VLD        0x1
-+#define V_FW_FILTER_WR_IVLAN_VLD(x)     ((x) << S_FW_FILTER_WR_IVLAN_VLD)
-+#define G_FW_FILTER_WR_IVLAN_VLD(x)     \
-+	(((x) >> S_FW_FILTER_WR_IVLAN_VLD) & M_FW_FILTER_WR_IVLAN_VLD)
-+#define F_FW_FILTER_WR_IVLAN_VLD        V_FW_FILTER_WR_IVLAN_VLD(1U)
-+
-+#define S_FW_FILTER_WR_OVLAN_VLD        4
-+#define M_FW_FILTER_WR_OVLAN_VLD        0x1
-+#define V_FW_FILTER_WR_OVLAN_VLD(x)     ((x) << S_FW_FILTER_WR_OVLAN_VLD)
-+#define G_FW_FILTER_WR_OVLAN_VLD(x)     \
-+	(((x) >> S_FW_FILTER_WR_OVLAN_VLD) & M_FW_FILTER_WR_OVLAN_VLD)
-+#define F_FW_FILTER_WR_OVLAN_VLD        V_FW_FILTER_WR_OVLAN_VLD(1U)
-+
-+#define S_FW_FILTER_WR_IVLAN_VLDM       3
-+#define M_FW_FILTER_WR_IVLAN_VLDM       0x1
-+#define V_FW_FILTER_WR_IVLAN_VLDM(x)    ((x) << S_FW_FILTER_WR_IVLAN_VLDM)
-+#define G_FW_FILTER_WR_IVLAN_VLDM(x)    \
-+	(((x) >> S_FW_FILTER_WR_IVLAN_VLDM) & M_FW_FILTER_WR_IVLAN_VLDM)
-+#define F_FW_FILTER_WR_IVLAN_VLDM       V_FW_FILTER_WR_IVLAN_VLDM(1U)
-+
-+#define S_FW_FILTER_WR_OVLAN_VLDM       2
-+#define M_FW_FILTER_WR_OVLAN_VLDM       0x1
-+#define V_FW_FILTER_WR_OVLAN_VLDM(x)    ((x) << S_FW_FILTER_WR_OVLAN_VLDM)
-+#define G_FW_FILTER_WR_OVLAN_VLDM(x)    \
-+	(((x) >> S_FW_FILTER_WR_OVLAN_VLDM) & M_FW_FILTER_WR_OVLAN_VLDM)
-+#define F_FW_FILTER_WR_OVLAN_VLDM       V_FW_FILTER_WR_OVLAN_VLDM(1U)
-+
-+#define S_FW_FILTER_WR_RX_CHAN          15
-+#define M_FW_FILTER_WR_RX_CHAN          0x1
-+#define V_FW_FILTER_WR_RX_CHAN(x)       ((x) << S_FW_FILTER_WR_RX_CHAN)
-+#define G_FW_FILTER_WR_RX_CHAN(x)       \
-+	(((x) >> S_FW_FILTER_WR_RX_CHAN) & M_FW_FILTER_WR_RX_CHAN)
-+#define F_FW_FILTER_WR_RX_CHAN  V_FW_FILTER_WR_RX_CHAN(1U)
-+
-+#define S_FW_FILTER_WR_RX_RPL_IQ        0
-+#define M_FW_FILTER_WR_RX_RPL_IQ        0x3ff
-+#define V_FW_FILTER_WR_RX_RPL_IQ(x)     ((x) << S_FW_FILTER_WR_RX_RPL_IQ)
-+#define G_FW_FILTER_WR_RX_RPL_IQ(x)     \
-+	(((x) >> S_FW_FILTER_WR_RX_RPL_IQ) & M_FW_FILTER_WR_RX_RPL_IQ)
-+
-+#define S_FW_FILTER_WR_MACI     23
-+#define M_FW_FILTER_WR_MACI     0x1ff
-+#define V_FW_FILTER_WR_MACI(x)  ((x) << S_FW_FILTER_WR_MACI)
-+#define G_FW_FILTER_WR_MACI(x)  \
-+	(((x) >> S_FW_FILTER_WR_MACI) & M_FW_FILTER_WR_MACI)
-+
-+#define S_FW_FILTER_WR_MACIM    14
-+#define M_FW_FILTER_WR_MACIM    0x1ff
-+#define V_FW_FILTER_WR_MACIM(x) ((x) << S_FW_FILTER_WR_MACIM)
-+#define G_FW_FILTER_WR_MACIM(x) \
-+	(((x) >> S_FW_FILTER_WR_MACIM) & M_FW_FILTER_WR_MACIM)
-+
-+#define S_FW_FILTER_WR_FCOE     13
-+#define M_FW_FILTER_WR_FCOE     0x1
-+#define V_FW_FILTER_WR_FCOE(x)  ((x) << S_FW_FILTER_WR_FCOE)
-+#define G_FW_FILTER_WR_FCOE(x)  \
-+	(((x) >> S_FW_FILTER_WR_FCOE) & M_FW_FILTER_WR_FCOE)
-+#define F_FW_FILTER_WR_FCOE     V_FW_FILTER_WR_FCOE(1U)
-+
-+#define S_FW_FILTER_WR_FCOEM    12
-+#define M_FW_FILTER_WR_FCOEM    0x1
-+#define V_FW_FILTER_WR_FCOEM(x) ((x) << S_FW_FILTER_WR_FCOEM)
-+#define G_FW_FILTER_WR_FCOEM(x) \
-+	(((x) >> S_FW_FILTER_WR_FCOEM) & M_FW_FILTER_WR_FCOEM)
-+#define F_FW_FILTER_WR_FCOEM    V_FW_FILTER_WR_FCOEM(1U)
-+
-+#define S_FW_FILTER_WR_PORT     9
-+#define M_FW_FILTER_WR_PORT     0x7
-+#define V_FW_FILTER_WR_PORT(x)  ((x) << S_FW_FILTER_WR_PORT)
-+#define G_FW_FILTER_WR_PORT(x)  \
-+	(((x) >> S_FW_FILTER_WR_PORT) & M_FW_FILTER_WR_PORT)
-+
-+#define S_FW_FILTER_WR_PORTM    6
-+#define M_FW_FILTER_WR_PORTM    0x7
-+#define V_FW_FILTER_WR_PORTM(x) ((x) << S_FW_FILTER_WR_PORTM)
-+#define G_FW_FILTER_WR_PORTM(x) \
-+	(((x) >> S_FW_FILTER_WR_PORTM) & M_FW_FILTER_WR_PORTM)
-+
-+#define S_FW_FILTER_WR_MATCHTYPE        3
-+#define M_FW_FILTER_WR_MATCHTYPE        0x7
-+#define V_FW_FILTER_WR_MATCHTYPE(x)     ((x) << S_FW_FILTER_WR_MATCHTYPE)
-+#define G_FW_FILTER_WR_MATCHTYPE(x)     \
-+	(((x) >> S_FW_FILTER_WR_MATCHTYPE) & M_FW_FILTER_WR_MATCHTYPE)
-+
-+#define S_FW_FILTER_WR_MATCHTYPEM       0
-+#define M_FW_FILTER_WR_MATCHTYPEM       0x7
-+#define V_FW_FILTER_WR_MATCHTYPEM(x)    ((x) << S_FW_FILTER_WR_MATCHTYPEM)
-+#define G_FW_FILTER_WR_MATCHTYPEM(x)    \
-+	(((x) >> S_FW_FILTER_WR_MATCHTYPEM) & M_FW_FILTER_WR_MATCHTYPEM)
-+
- struct fw_ulptx_wr {
- 	__be32 op_to_compl;
- 	__be32 flowid_len16;
+ struct cpl_trace_pkt {
+ 	u8 opcode;
+ 	u8 intf;
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
