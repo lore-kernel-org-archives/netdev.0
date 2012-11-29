@@ -1,92 +1,38 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Thu, 29 Nov 2012 16:09:45 +0100
-Message-ID: <20121129150945.GB16478@shrek.podlesie.net>
-References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
- <1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
- <1354036592.2534.6.camel@shinybook.infradead.org>
- <20121127173906.GA11390@shrek.podlesie.net>
- <1354039349.2534.11.camel@shinybook.infradead.org>
- <20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
- <AE90C24D6B3A694183C094C60CF0A2F6026B70C9@saturn3.aculab.com>
- <1354141115.21562.101.camel@shinybook.infradead.org>
+From: Noel Grandin <noelgrandin@gmail.com>
+Subject: Re: TCP and reordering
+Date: Thu, 29 Nov 2012 15:10:45 +0000 (UTC)
+Message-ID: <loom.20121129T160915-947@post.gmane.org>
+References: <20121127.210611.1127622873924794001.davem@davemloft.net>  <1354089566.21562.20.camel@shinybook.infradead.org>  <CAGK4HS8=NfcyvcNjC3h1wEjgQFCYoNeuWXj8n5Ruukeg+6j=SQ@mail.gmail.com>  <1354093703.21562.23.camel@shinybook.infradead.org>  <1354100552.14302.78.camel@edumazet-glaptop>  <1354103355.21562.46.camel@shinybook.infradead.org>  <1354105619.14302.89.camel@edumazet-glaptop>  <1354106362.21562.51.camel@shinybook.infradead.org>  <1354107140.14302.140.camel@edumazet-glaptop>  <1354117635.21562.63.camel@shinybook.infradead.org>  <20121128161930.GB19042@kvack.org>  <1354120887.21562.87.camel@shinybook.infradead.org>  <1354122996.14302.427.camel@edumazet-glaptop> <1354125688.21562.95.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nathan@traverse.com.au
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1354141115.21562.101.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:48384 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751349Ab2K2PPD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2012 10:15:03 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Te5pR-0001ME-Hg
+	for netdev@vger.kernel.org; Thu, 29 Nov 2012 16:15:05 +0100
+Received: from 41.164.8.42 ([41.164.8.42])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 16:15:05 +0100
+Received: from noelgrandin by 41.164.8.42 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 16:15:05 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Nov 28, 2012 at 10:18:35PM +0000, David Woodhouse wrote:
-> On Wed, 2012-11-28 at 09:21 +0000, David Laight wrote:
-> > Even when it might make sense to sleep in close until tx drains
-> > there needs to be a finite timeout before it become abortive.
+David Woodhouse <dwmw2 <at> infradead.org> writes:
+> On Wed, 2012-11-28 at 09:16 -0800, Eric Dumazet wrote:
+> > BQL was really something to control/limit queueing on ethernet links,
+> > not for stacked devices, as stacked devices normally have no queue.
 > 
-> You are, of course, right. We should never wait for hardware for ever.
-> And just to serve me right, I seem to have hit a bug in the latest Solos
-> firmware (1.11) which makes it sometimes lock up when I reboot. So it
-> never responds to the PKT_PCLOSE packet... and thus it deadlocks when I
-> try to kill pppd and unload the module to reset it :)
+> Stacked devices have more queue than anything else :)
 > 
-> New version...
-> 
-> From 53dd01c08fec5b26006a009b25e4210127fdb27a Mon Sep 17 00:00:00 2001
-> From: David Woodhouse <David.Woodhouse@intel.com>
-> Date: Tue, 27 Nov 2012 23:49:24 +0000
-> Subject: [PATCH] solos-pci: Wait for pending TX to complete when releasing
->  vcc
-> 
-> We should no longer be calling the old pop routine for the vcc, after
-> vcc_release() has completed. Make sure we wait for any pending TX skbs
-> to complete, by waiting for our own PKT_PCLOSE control skb to be sent.
-> 
-> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
-> ---
->  drivers/atm/solos-pci.c | 17 +++++++++++++++--
->  1 file changed, 15 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-> index 9851093..3720670 100644
-> --- a/drivers/atm/solos-pci.c
-> +++ b/drivers/atm/solos-pci.c
-> @@ -92,6 +92,7 @@ struct pkt_hdr {
->  };
->  
->  struct solos_skb_cb {
-> +	struct completion c;
->  	struct atm_vcc *vcc;
->  	uint32_t dma_addr;
->  };
-> @@ -881,11 +882,18 @@ static void pclose(struct atm_vcc *vcc)
->  	header->vci = cpu_to_le16(vcc->vci);
->  	header->type = cpu_to_le16(PKT_PCLOSE);
->  
-> +	init_completion(&SKB_CB(skb)->c);
-> +
->  	fpga_queue(card, SOLOS_CHAN(vcc->dev), skb, NULL);
->  
->  	clear_bit(ATM_VF_ADDR, &vcc->flags);
->  	clear_bit(ATM_VF_READY, &vcc->flags);
->  
-> +	if (!wait_for_completion_timeout(&SKB_CB(skb)->c,
-> +					 jiffies + msecs_to_jiffies(5000)))
-> +		dev_warn(&card->dev->dev, "Timeout waiting for VCC close on port %d\n",
-> +			 SOLOS_CHAN(vcc->dev));
-> +
 
-I don't like two thinks about this patch:
-
-	- if allos_skb(sizeof(*header), GFP_ATOMIC) at beginning of
-	  pclose() fails we will crash
-
-	- if card wakes up after this timeout we will probably crash too
-
-That's why proposed different approach, but it has other problems.
-
-Krzysiek
+Surely BQL is something that should only be implemented on the device at the 
+bottom of the stack, and everything above that shouldn't be bothering?
