@@ -1,60 +1,72 @@
-From: Peter Lieven <pl@dlhnet.de>
-Subject: Re: [Qemu-devel] tap devices not receiving packets from a bridge
-Date: Thu, 29 Nov 2012 19:58:19 +0100
-Message-ID: <50B7B04B.2010504@dlhnet.de>
-References: <50AE36E0.8000307@dlhnet.de> <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] doc: make the description of how tcp_ecn works
+ more explicit and clear
+Date: Thu, 29 Nov 2012 10:58:28 -0800
+Message-ID: <50B7B054.3090607@hp.com>
+References: <20121128195310.C438D2900459@tardy> <20121129.131627.987805831377793894.davem@davemloft.net> <1354214521.3299.30.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "qemu-devel@nongnu.org" <qemu-devel@nongnu.org>,
-	netdev@vger.kernel.org, mst@redhat.com
-To: Stefan Hajnoczi <stefanha@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ssl.dlhnet.de ([91.198.192.8]:59284 "EHLO ssl.dlh.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751013Ab2K2S6Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2012 13:58:25 -0500
-In-Reply-To: <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:37856 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752545Ab2K2S63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 13:58:29 -0500
+In-Reply-To: <1354214521.3299.30.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 23.11.2012 08:02, schrieb Stefan Hajnoczi:
-> On Thu, Nov 22, 2012 at 03:29:52PM +0100, Peter Lieven wrote:
->> is anyone aware of a problem with the linux network bridge that in very rare circumstances stops
->> a bridge from sending pakets to a tap device?
+On 11/29/2012 10:42 AM, Eric Dumazet wrote:
+> On Thu, 2012-11-29 at 13:16 -0500, David Miller wrote:
+>> From: raj@tardy.usa.hp.com (Rick Jones)
+>> Date: Wed, 28 Nov 2012 11:53:10 -0800 (PST)
 >>
->> My problem occurs in conjunction with vanilla qemu-kvm-1.2.0 and Ubuntu Kernel 3.2.0-34.53
->> which is based on Linux 3.2.33.
+>>> From: Rick Jones <rick.jones2@hp.com>
+>>>
+>>> Make the description of how tcp_ecn works a bit more explicit and clear.
+>>>
+>>> Signed-off-by: Rick Jones <rick.jones2@hp.com>
 >>
->> I was not yet able to reproduce the issue, it happens in really rare cases. The symptom is that
->> the tap does not have any TX packets. RX is working fine. I see the packets coming in at
->> the physical interface on the host, but they are not forwarded to the tap interface.
->> The bridge itself has learnt the mac address of the vServer that is connected to the tap interface.
->> It does not help to toggle the bridge link status,  the tap interface status or the interface in the vServer.
->> It seems that problem occurs if a tap interface that has previously been used, but set to nonpersistent
->> is set persistent again and then is by chance assigned to the same vServer (=same mac address on same
->> bridge) again. Unfortunately it seems not to be reproducible.
-> 
-> Not sure but this patch from Michael Tsirkin may help - it solves an
-> issue with persistent tap devices:
-> 
-> http://patchwork.ozlabs.org/patch/198598/
+>> Applied, thanks Rick.
 
-I have tried that patch (even if I do not use persistant taps), but it doesn't help.
+Am I correct in assuming that the documentation is supposed to word-wrap 
+somewhere around 72 columns?  If so, as I have time for floor sweeping I 
+can try to go through more of it.
 
-What I can say now is that if a VM is not working with a tap - lets say tap10 then
-it will not work with tap10, even if the vm is shut down. tap10 is set to non-persistant.
-then the vm is started again, assigned occasionally again tap10 and is not working again.
+>> I think we should change the default to one, to be honest.  I thought
+>> that's what we were doing by now...
 
-BUT, if I use qemu-kvm-1.0.1 in the second case it is working. I have seen that there is
-a lot of changes between 1.0.1 and 1.2.0 in the tap code. Maybe there is a bug in the
-inititialization since then.
+You weren't the only one - what triggered my looking at that description 
+in the first place was an assertion in the tcpm mailing list that Linux 
+defaulted to ecn enabled.
 
-What also seem to have changed is that vlans have been removed. I was not aware of that,
-so I still use vlans which are now emulated via hubs. Maybe this is related.
+>> '2' made sense 10 years ago, but it doesn't really today.
+>
+> With 1 setting, I for example was enable to connect to a HP device,
+> when I was still working for SFR.
+>
+> (It was an HTTP/HTTPS based administrative software, to manage HP c7000
+> enclosures)
 
-Peter
+If you have some of the particulars, feel free to send them to me 
+offline.  Being one of the cobbler's children I cannot make promises but 
+I can try to see if whatever it was has evolved since then.
 
-> 
-> Stefan
-> 
+> I would suggest making a large scale experiment before doing this 2->1
+> move.
+
+Perhaps one or more of the "development oriented" (term?) distros can 
+ship with a sysctl.conf file that sets it to one?  Or some companies 
+with rather large Internet presence.
+
+At the time of the tcpm message I went ahead and set it to one on 
+netperf.org but that is far from a large scale experiment.  It has been 
+a couple weeks and I've captured almost 250000 SYN segments (netperf.org 
+isn't all that busy).  My recollection is that at least one search 
+engine provider's bots were negotiating ECN and one noteable one was 
+not.  I'd think a search engine provider's crawlers would be a large 
+scale experiment.
+
+rick jones
