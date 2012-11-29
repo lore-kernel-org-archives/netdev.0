@@ -1,50 +1,34 @@
-From: Jan Synacek <jsynacek@redhat.com>
-Subject: iputils: ping -I <iface>
-Date: Thu, 29 Nov 2012 15:12:43 +0100
-Message-ID: <50B76D5B.8010804@redhat.com>
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
+Date: Thu, 29 Nov 2012 09:29:35 -0500
+Message-ID: <20121129092935.71efec7c@thirdoffive.cmf.nrl.navy.mil>
+References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
+	<1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
+	<1354036592.2534.6.camel@shinybook.infradead.org>
+	<20121127173906.GA11390@shrek.podlesie.net>
+	<1354039349.2534.11.camel@shinybook.infradead.org>
+	<20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B70C9@saturn3.aculab.com>
+	<1354141115.21562.101.camel@shinybook.infradead.org>
+	<20121129105715.GA10226@shrek.podlesie.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26536 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754338Ab2K2OMs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2012 09:12:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nathan@traverse.com.au
+To: Krzysztof Mazur <krzysiek@podlesie.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121129105715.GA10226@shrek.podlesie.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Thu, 29 Nov 2012 11:57:15 +0100
+Krzysztof Mazur <krzysiek@podlesie.net> wrote:
 
-There seems to be a bug(?) when calling ping with -I lo:
+> or if we really want to call vcc->pop() for such skbs:
 
-$ ping -I lo kernel.org
-
-PING kernel.org (149.20.4.69) from 192.168.1.10 lo: 56(84) bytes of data.
-^C
-
-Note that 192.168.1.10 is my primary interface's address (em1). However, no
-replies are coming back.
-
-$ ping -I em1 kernel.org
-
-PING kernel.org (149.20.4.69) from 192.168.1.10 em1: 56(84) bytes of data.
-64 bytes from pub2.kernel.org (149.20.4.69): icmp_seq=1 ttl=42 time=202 ms
-64 bytes from pub2.kernel.org (149.20.4.69): icmp_seq=2 ttl=42 time=187 ms
-^C
-
-Works as expected.
-
-I know that binding to loopback probably doesn't make much sense, but I think
-that ping should be able to cope with that.
-
-Also, it would be nice to mention the difference between -I <ip> and -I <iface>
-in the manpage.
-
-I don't understand the problem clearly enough to write a patch.
-
-Regards,
--- 
-Jan Synacek
-Software Engineer, BaseOS team Brno, Red Hat
+you need to call ->pop() to cleaning up the wmem_alloc accounting.
+otherwise you will get complaints from the atm stack later about
+freeing a vcc that had outstanding data.
