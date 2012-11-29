@@ -1,128 +1,86 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net-next 3/7] ipv6: improve ipv6_find_hdr() to skip empty routing headers
-Date: Thu, 29 Nov 2012 10:35:45 -0800
-Message-ID: <1354214149-33651-4-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 7/7] openvswitch: Use RCU callback when detaching netdevices.
+Date: Thu, 29 Nov 2012 10:35:49 -0800
+Message-ID: <1354214149-33651-8-git-send-email-jesse@nicira.com>
 References: <1354214149-33651-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org,
-	Ansis Atteka <aatteka@nicira.com>
+	Justin Pettit <jpettit@nicira.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:48706 "HELO
-	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753902Ab2K2SgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 13:36:01 -0500
-Received: by mail-pa0-f70.google.com with SMTP id hz11so15483087pad.1
-        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 10:36:00 -0800 (PST)
+Received: from na3sys009aog128.obsmtp.com ([74.125.149.141]:37567 "HELO
+	na3sys009aog128.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754590Ab2K2SgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 13:36:06 -0500
+Received: by mail-pb0-f70.google.com with SMTP id ro2so16813605pbb.1
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 10:36:06 -0800 (PST)
 In-Reply-To: <1354214149-33651-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ansis Atteka <aatteka@nicira.com>
+Currently, each time a device is detached from an OVS datapath
+we call synchronize RCU before freeing associated data structures.
+However, if a bridge is deleted (which detaches all ports) when
+many devices are connected then there can be a long delay.  This
+switches to use call_rcu() to group the cost together.
 
-This patch prepares ipv6_find_hdr() function so that it could be
-able to skip routing headers, where segements_left is 0. This is
-required to handle multiple routing header case correctly when
-changing IPv6 addresses.
-
-Signed-off-by: Ansis Atteka <aatteka@nicira.com>
+Reported-by: Justin Pettit <jpettit@nicira.com>
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- include/net/ipv6.h      |    5 +++--
- net/ipv6/exthdrs_core.c |   36 ++++++++++++++++++++++++++++--------
- 2 files changed, 31 insertions(+), 10 deletions(-)
+ net/openvswitch/vport-netdev.c |   14 ++++++++++----
+ net/openvswitch/vport-netdev.h |    3 +++
+ 2 files changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index b2f0cfb..acbd8e0 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -631,8 +631,9 @@ extern int			ipv6_skip_exthdr(const struct sk_buff *, int start,
- extern bool			ipv6_ext_hdr(u8 nexthdr);
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index a903348..a9327e2 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -114,6 +114,15 @@ error:
+ 	return ERR_PTR(err);
+ }
  
- enum {
--	IP6_FH_F_FRAG	= (1 << 0),
--	IP6_FH_F_AUTH	= (1 << 1),
-+	IP6_FH_F_FRAG		= (1 << 0),
-+	IP6_FH_F_AUTH		= (1 << 1),
-+	IP6_FH_F_SKIP_RH	= (1 << 2),
++static void free_port_rcu(struct rcu_head *rcu)
++{
++	struct netdev_vport *netdev_vport = container_of(rcu,
++					struct netdev_vport, rcu);
++
++	dev_put(netdev_vport->dev);
++	ovs_vport_free(vport_from_priv(netdev_vport));
++}
++
+ static void netdev_destroy(struct vport *vport)
+ {
+ 	struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
+@@ -122,10 +131,7 @@ static void netdev_destroy(struct vport *vport)
+ 	netdev_rx_handler_unregister(netdev_vport->dev);
+ 	dev_set_promiscuity(netdev_vport->dev, -1);
+ 
+-	synchronize_rcu();
+-
+-	dev_put(netdev_vport->dev);
+-	ovs_vport_free(vport);
++	call_rcu(&netdev_vport->rcu, free_port_rcu);
+ }
+ 
+ const char *ovs_netdev_get_name(const struct vport *vport)
+diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
+index f7072a2..6478079 100644
+--- a/net/openvswitch/vport-netdev.h
++++ b/net/openvswitch/vport-netdev.h
+@@ -20,12 +20,15 @@
+ #define VPORT_NETDEV_H 1
+ 
+ #include <linux/netdevice.h>
++#include <linux/rcupdate.h>
+ 
+ #include "vport.h"
+ 
+ struct vport *ovs_netdev_get_vport(struct net_device *dev);
+ 
+ struct netdev_vport {
++	struct rcu_head rcu;
++
+ 	struct net_device *dev;
  };
  
- /* find specified header and get offset to it */
-diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
-index 8ea253a..11b4e29 100644
---- a/net/ipv6/exthdrs_core.c
-+++ b/net/ipv6/exthdrs_core.c
-@@ -132,9 +132,11 @@ EXPORT_SYMBOL(ipv6_skip_exthdr);
-  * *offset is meaningless and fragment offset is stored in *fragoff if fragoff
-  * isn't NULL.
-  *
-- * if flags is not NULL and it's a fragment, then the frag flag IP6_FH_F_FRAG
-- * will be set. If it's an AH header, the IP6_FH_F_AUTH flag is set and
-- * target < 0, then this function will stop at the AH header.
-+ * if flags is not NULL and it's a fragment, then the frag flag
-+ * IP6_FH_F_FRAG will be set. If it's an AH header, the
-+ * IP6_FH_F_AUTH flag is set and target < 0, then this function will
-+ * stop at the AH header. If IP6_FH_F_SKIP_RH flag was passed, then this
-+ * function will skip all those routing headers, where segements_left was 0.
-  */
- int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 		  int target, unsigned short *fragoff, int *flags)
-@@ -142,6 +144,7 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 	unsigned int start = skb_network_offset(skb) + sizeof(struct ipv6hdr);
- 	u8 nexthdr = ipv6_hdr(skb)->nexthdr;
- 	unsigned int len;
-+	bool found;
- 
- 	if (fragoff)
- 		*fragoff = 0;
-@@ -159,9 +162,10 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 	}
- 	len = skb->len - start;
- 
--	while (nexthdr != target) {
-+	do {
- 		struct ipv6_opt_hdr _hdr, *hp;
- 		unsigned int hdrlen;
-+		found = (nexthdr == target);
- 
- 		if ((!ipv6_ext_hdr(nexthdr)) || nexthdr == NEXTHDR_NONE) {
- 			if (target < 0)
-@@ -172,6 +176,20 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 		hp = skb_header_pointer(skb, start, sizeof(_hdr), &_hdr);
- 		if (hp == NULL)
- 			return -EBADMSG;
-+
-+		if (nexthdr == NEXTHDR_ROUTING) {
-+			struct ipv6_rt_hdr _rh, *rh;
-+
-+			rh = skb_header_pointer(skb, start, sizeof(_rh),
-+						&_rh);
-+			if (rh == NULL)
-+				return -EBADMSG;
-+
-+			if (flags && (*flags & IP6_FH_F_SKIP_RH) &&
-+			    rh->segments_left == 0)
-+				found = false;
-+		}
-+
- 		if (nexthdr == NEXTHDR_FRAGMENT) {
- 			unsigned short _frag_off;
- 			__be16 *fp;
-@@ -205,10 +223,12 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
- 		} else
- 			hdrlen = ipv6_optlen(hp);
- 
--		nexthdr = hp->nexthdr;
--		len -= hdrlen;
--		start += hdrlen;
--	}
-+		if (!found) {
-+			nexthdr = hp->nexthdr;
-+			len -= hdrlen;
-+			start += hdrlen;
-+		}
-+	} while (!found);
- 
- 	*offset = start;
- 	return nexthdr;
 -- 
 1.7.9.5
