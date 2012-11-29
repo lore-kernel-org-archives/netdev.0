@@ -1,8 +1,9 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V2 0/9] net: fragmentation performance scalability on
-	NUMA/SMP systems
-Date: Thu, 29 Nov 2012 17:10:47 +0100
-Message-ID: <20121129161019.17754.29670.stgit@dragon>
+Subject: [net-next PATCH V2 1/9] net: frag evictor,
+	avoid killing warm frag queues
+Date: Thu, 29 Nov 2012 17:11:09 +0100
+Message-ID: <20121129161052.17754.85017.stgit@dragon>
+References: <20121129161019.17754.29670.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -16,329 +17,127 @@ To: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26525 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:2024 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755171Ab2K2QMT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2012 11:12:19 -0500
+	id S1754677Ab2K2QMp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2012 11:12:45 -0500
+In-Reply-To: <20121129161019.17754.29670.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset implements significant performance improvements for
-fragmentation handling in the kernel, with a focus on NUMA and SMP
-based systems.
-
-This is V2 of the patchset, previously send as an RFC patchset.
-(Notice an extra patch is inserted after patch-05, thus shifting the
-patch numbers.)
-
-To reviewers:
-
- Please give me your signoff's or ack's, or comment on the code,
- explaining what I should change.
-
-The fragmentation code today:
-
- The fragmentation code "protects" kernel resources, by implementing
- some memory resource limitation code.  This is centered around a
- global readers-writer lock, and (per network namespace) an atomic mem
- counter and a LRU (Least-Recently-Used) list.  (Although separate
- global variables and namespace resources, are kept for IPv4, IPv6
- and Netfilter reassembly.)
-
- The code tries to keep the memory usage between a high and low
- threshold (see: /proc/sys/net/ipv4/ipfrag_{high,low}_thresh).  The
- "evictor" code cleans up fragments, when the high threshold is
- exceeded, and stops only, when the low threshold is reached.
-
-The scalability problem:
-
- Having a global/central variable for a resource limit is obviously a
- scalability issue on SMP systems, and even amplified on a NUMA based
- system.
-
- When profiling the code, the scalability problems appeared to be the
- readers-writer lock.  But, surprise, the primary scalability issue
- was caused by the global atomic mem limit counter, which, especially
- on NUMA systems, would prolong the time spend inside the
- readers-writer lock sections.  It is not trivial to remove the
- readers-writer lock, but it is possible to reduce the number of
- writer lock sections.
-
-Testlab:
-
- My original big-testlab were based on four Intel based 10Gbit/s NICs
- on two identical Sandy-Bridge-E NUMA system.  The testlab
- used/available, while rebasing to net-next, were not as powerful.
- Its based on a single Sandy-Bridge-E NUMA system with the same Intel
- 10G NICs, but the generator machine was an old Core-i7 920 with some
- older NICs. This means that I have not been able to generate full 4x
- 10G wirespeed.  I have chosen (mostly) to include 2x 10G test results
- due to the generator machine (although the 4x 10G results from the
- big system looks more impressive).
-
- The tests are performed with netperf -t UDP_STREAM (which default
- send UDP packets with size 65507 bytes, which gets fragmented).  The
- netserver's get numactl pinned and the CPU sockets get smp_affinity
- aligned to the physical NIC connected to its own NUMA node.
-
-Performance results:
-
- For the impressive 4x 10Gbit/s big-testlab results, performance goes
-  from (a collective) 496 Mbit/s to 38463 Mbit/s (per stream 9615 Mbit/s)
-  (at packet size 65507 bytes)
-
- For the results to be fair/meaningful, I'll report the used packet
- size, as (after the fixes) bigger UDP packets scale better, because
- smaller packets will require/create more frag queues to handle.
-
- I'll report packet size 65507 and three fragments 1472*3=4416 bytes.
-
- Disabled Ethernet Flow Control (via ethtool -A).  To show the real
- effect of the patches, the system needs to be in an "overload"
- situation.  When Ethernet Flow Control is enabled, the system will
- make the generator back-off, and the code path will be less stressed.
- Thus, I have disabled Ethernet Flow Control.
-
-No patches:
- -------
- Results without any patches, and no flow control:
-
-  2x10G size(65507) result:(7+50)     =57   Mbit/s (gen:9613+9473 Mbit/s)
-  2x10G size(4416)  result:(3619+3772)=7391 Mbit/s (gen:8339+9105 Mbit/s)
-
- The very pure result with large frames is a result of the "evictor"
- code, which gets fixed in patch-01.
-
-Patch-01: net: frag evictor, avoid killing warm frag queues
- -------
- The fragmentation evictor system have a very unfortunate eviction
- system for killing fragment, when the system is put under pressure.
- The evictor code basically kills "warm" fragments too quickly.
- Resulting in a massive, DoS like, performance drop, as seen above
- (no-patch) results with large packets.
-
- The solution is to avoid killing "warm" fragments, and rather block
- new incoming in case mem limit is exceeded. This is solved by
- introducing a creation time-stamp, which set to "jiffies" in
- inet_frag_alloc().
-
- UPDATE V2:
-  - Drop the INET_FRAG_FIRST_IN idea for detecting dropped "head" packets
-
-  2x10G size(65507) result:(3011+2568)=5579 Mbit/s (gen:9613+9553 Mbit/s)
-  2x10G size(4416)  result:(3716+3518)=7234 Mbit/s (gen:9037+8614 Mbit/s)
-
-Patch-02: cache line adjust inet_frag_queue.net (netns)
- -------
- Avoid possible cache-line bounces in struct inet_frag_queue.  By
- moving the net pointer (struct netns_frags) because its placed on the
- same write-often cache-line as e.g. refcnt and lock.
-
-  2x10G size(65507) result:(2960+2613)=5573 Mbit/s (gen:9614+9465 Mbit/s)
-  2x10G size(4416)  result:(3858+3650)=7508 Mbit/s (gen:8076+7633 Mbit/s)
-
- The performance benefit looks small. We can discuss if this patch is
- needed or not.
-
-Patch-03: move LRU list maintenance outside of rwlock
- -------
- Updating the fragmentation queues LRU (Least-Recently-Used) list,
- required taking the hash writer lock.  However, the LRU list isn't
- tied to the hash at all, so we can use a separate lock for it.
-
- This patch looks like a performance loss for big packets, but the LRU
- locking changes are needed, by later patches.
-
- UPDATE V2:
-  - Don't perform inet_frag_lru_move() outside the q.lock (inet_frag_queue)
-    Because there were a theoretical chance of a race between
-    inet_frag_lru_move() and fq_unlink() which is called under the
-    q.lock. I have not been able to provoke this though (it should
-    result in a list poison error)
-
-  2x10G size(65507) result:(2533+2138)=4671 Mbit/s (gen:9612+9461 Mbit/s)
-  2x10G size(4416)  result:(3952+3713)=7665 Mbit/s (gen:9168+8415 Mbit/s)
-
-Patch-04: frag helper functions for mem limit tracking
- -------
- This patch is only meant as a preparation patch, towards the next
- patch.  The performance improvement comes from reduce the number
- atomic operation, during freeing of a frag queue, by summing the mem
- accounting before and doing a single atomic dec.
-
-  2x10G size(65507) result:(2475+3101)=5576 Mbit/s (gen:9614+9439 Mbit/s)
-  2x10G size(4416)  result:(3928+4129)=8057 Mbit/s (gen:7259+8131 Mbit/s)
-
-Patch-05: per CPU resource, mem limit and LRU list accounting
- -------
- The major performance bottleneck on NUMA systems, is the mem limit
- counter, which is based on an atomic counter.  This patch removes the
- cache-bouncing of the atomic counter, by moving this accounting to be
- bound to each CPU.  The LRU list also need to be done per CPU,
- in-order to keep the accounting straight.
-
- UPDATE V2:
-   - Rename struct cpu_resource -> frag_cpu_limit
-   - Move init functions from inet_frag.h to inet_fragment.c
-   - Cleanup per CPU in inet_frags_exit_net()
-
-  2x10G size(65507) result:(9603+9458)=19061 Mbit/s (gen:9614+9458 Mbit/s)
-  2x10G size(4416)  result:(4871+4848)= 9719 Mbit/s (gen:9107+8378 Mbit/s)
-
- To compare the benefit of the next patches, its necessary to increase
- the stress on the code, but doing 4x 10Gbit/s tests.
-
-  4x10G size(65507) result:(8631+9337+7534+6928)=32430 Mbit/s
-                       (gen:8646+9613+7547+6937 =32743 Mbit/s)
-  4x10G size(4416)  result:(2870+2990+2993+3016)=11869 Mbit/s
-                       (gen:4819+7767+6893+5043 =24522 Mbit/s)
-
-Patch-06: implement dynamic percpu alloc of frag_cpu_limit
- -------
- Use the percpu API to implement dynamic per CPU allocation of the
- frag_cpu_limit in struct netns_frags.  This replaces the static array
- percpu[NR_CPUS].
-
- UPDATE V2:
-  - This is a new patch.
-  - Keeping it separate to get explicit review of this
-  - (as this the first time I use the percpu API)
-
- 2x10G size(65507) result:(9603+9367)=18970 Mbit/s (gen: 9614+9379=18993 Mbit/s)
- 2x10G size(4416)  result:(4887+4773)= 9660 Mbit/s (gen: 7966+7412=15378 Mbit/s)
-
- 4x10G size(65507) result:(7821+7723+6784+7859)=30187 Mbit/s
-                     (gen: 8017+9545+6798+7863 =32223 Mbit/s)
- 4x10G size(4416)  result:(2706+2684+2647+2669)=10706 Mbit/s
-                     (gen: 4943+7483+7291+4271 =23988 Mbit/s)
-
- At first sight it looks like performance went down a bit, but as you
- can see in the next patches, my V2 results are (almost) the same.
-
-Patch-07: nqueues_under_LRU_lock
- -------
- This patch just moves the nqueues counter under the LRU lock (and
- per CPU), instead of the write lock, to prepare for next patch.  No
- need for performance testing this part.
-
-Patch-08: hash_bucket_locking
- -------
- This patch implements per hash bucket locking for the frag queue
- hash.  This removes two write locks, and the only remaining write
- lock is for protecting hash rebuild.  This essentially reduces the
- readers-writer lock to a rebuild lock.
-
- UPDATE V2:
-  - Fixed two bugs
-  - 1) Missed/too-late read_lock() for protecting hashfn in fq_unlink()
-  - 2) Used old hash bucket instead of new dest bucket in inet_frag_secret_rebuild()
-
-  2x10G size(65507) result:(9602+9466)=19068 Mbit/s (gen:9613+9472 Mbit/s)
-                 V2 result:(9521+9505)=19026 Mbit/s
-
-  2x10G size(4416)  result:(5024+4925)= 9949 Mbit/s (gen:8581+8957 Mbit/s)
-                 V2 result:(5140+5206)=10346 Mbit/s
-
- To see the real benefit of this patch, we need to crank up the load
- and stress on the code, with 4x 10Gbit/s at small packets,
- improvement at size(4416): before 11869 Mbit/s now 17155 Mbit/s. Also
- note the regression at size(65507) 32430 -> 31021.
-
-  4x10G size(65507) result:(7618+8708+7381+7314)=31021 Mbit/s
-                 V2 result:(7488+8350+6834+8562)=31234 Mbit/s
-                       (gen:7628+9501+8728+7321 =33178 Mbit/s)
-
-  4x10G size(4416)  result:(4156+4714+4300+3985)=17155 Mbit/s
-                 V2 result:(4341+4607+3963+4450)=17361 Mbit/s
-                       (gen:6614+5330+7745+5366 =25055 Mbit/s)
-
- At 4x10G size(4416) I have seen 206 frag queues in use, and hash size is 64.
-
-Patch-09: cache_align_hash_bucket
- -------
- Increase frag queue hash size and assure cache-line alignment to
- avoid false sharing.  Hash size is set to 256, because I have
- observed 206 frag queues in use at 4x10G with packet size 4416 bytes.
-
-  2x10G size(65507) result:(9601+9414)=19015 Mbit/s (gen:9614+9434 Mbit/s)
-                 V2 result:(9599+9427)=19026 Mbit/s
-
-  2x10G size(4416)  result:(5421+5268)=10689 Mbit/s (gen:8028+7457 Mbit/s)
-                 V2 result:(5377+5336)=10713 Mbit/s
-
- This does introduce an improvement (although not as big as I
- expected), but most importantly the regression seen in patch-08 4x10G
- at size(65507) is gone (patch-05:32430 Mbits/s -> 32676 Mbit).
-
-  4x10G size(65507) result:(7604+8307+9593+7172)=32676 Mbit/s
-                 V2 result:(7612+8063+9580+7265)=32520 Mbit/s
-                       (gen:7615+8713+9606+7184 =33118 Mbit/s)
-
-  4x10G size(4416)  result:(4890+4364+4139+4530)=17923 Mbit/s
-                 V2 result:(3860+4533+4936+4519)=17848 Mbit/s
-                       (gen:5170+6873+5215+7632 =24890 Mbit/s)
-
- After this patch it looks like the read lock is now the new
- contention point.
-
-DROPPED Patch-10: Hack disable rebuild and remove rw_lock
- -------
- I've done a quick hack patch, that remove the readers-writer lock, by
- disabling/breaking hash rebuilding.  Just to see how big the
- performance gain would be.
-
- UPDATE V2:
-  - I have dropped this patch.  It was just to show the potential.
-  - Lets first integrate the other patches, and leave this for the future
-
-  2x10G size(4416) result: 6481+6764 = 13245 Mbit/s (gen: 7652+8077 Mbit/s)
-
-  4x10G size(4416) result:(5610+6283+5735+5238)=22866 Mbit/s
-                     (gen: 6530+7860+5967+5238 =25595 Mbit/s)
-
- And the results show, that its a big win. With 4x10G size(4416)
- before: 17923 Mbit/s -> now: 22866 Mbit/s increase 4943 Mbit/s.
- With 2x10G size(4416) before 10689 Mbit/s -> 13245 Mbit/s
- increase 2556 Mbit/s.
-
- In the future, I'll work on a real solution for removing the rw_lock
- while still supporting hash rebuilding.  Suggestions and ideas are
- welcome.
-
-
-This patchset is based upon:
-  Davem's net-next tree:
-    git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-  On top of:
-    commit ff33c0e1885cda44dd14c79f70df4706f83582a0
-    (net: Remove bogus dependencies on INET)
+The fragmentation evictor system have a very unfortunate eviction
+system for killing fragment, when the system is put under pressure.
+If packets are coming in too fast, the evictor code kills "warm"
+fragments too quickly.  Resulting in a massive performance drop,
+because we drop frag lists where we have already queue up a lot of
+fragments/work, which gets killed before they have a chance to
+complete.
+
+This is perhaps amplified by the CPUs fighting for the same lru_list
+element q in inet_frag_evictor(), and the atomic_dec_and_test(&q->refcnt)
+which will cause another trip round the loop.
+
+The solution idea (orig conceived by Florian Westphal) is to avoid
+killing "warm" fragments, and rather block new incoming in case mem
+limit is exceeded. This is solved by introducing a creation time-stamp
+(creation_ts) in inet_frag_queue, which set to "jiffies" in
+inet_frag_alloc().
+
+In inet_frag_evictor() we don't kill "warm" queue elements. A "warm"
+queue element is an element reaching inet_frag_evictor() within the
+same "jiffie".
+
+To maintain the queue limit (/proc/sys/net/ipv4/ipfrag_high_thresh) we
+don't allow, new frag queue's to be allocated in inet_frag_alloc().
+This will result in kernel log messages, which have been adjusted to
+"ip_frag_create: mem limit reached".  We should consider dropping this
+text, to avoid confusing end-users.
+
+Notice, this is not the complete solution to fixing fragmentation
+performance, but it allow us to see what is going on.
+
+Original-idea-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Jesper Dangaard Brouer <jbrouer@redhat.com>
 
 ---
+V2:
+ - Drop the INET_FRAG_FIRST_IN idea for detecting dropped "head" packets
 
-Jesper Dangaard Brouer (9):
-      net: increase frag queue hash size and cache-line
-      net: frag queue locking per hash bucket
-      net: frag, move nqueues counter under LRU lock protection
-      net: frag, implement dynamic percpu alloc of frag_cpu_limit
-      net: frag, per CPU resource, mem limit and LRU list accounting
-      net: frag helper functions for mem limit tracking
-      net: frag, move LRU list maintenance outside of rwlock
-      net: frag cache line adjust inet_frag_queue.net
-      net: frag evictor, avoid killing warm frag queues
+ include/net/inet_frag.h  |    1 +
+ net/ipv4/inet_fragment.c |   19 +++++++++++++++++++
+ net/ipv4/ip_fragment.c   |    6 +++---
+ 3 files changed, 23 insertions(+), 3 deletions(-)
 
-
- include/net/inet_frag.h                 |  114 ++++++++++++++++++++--
- include/net/ipv6.h                      |    4 -
- net/ipv4/inet_fragment.c                |  162 ++++++++++++++++++++++++-------
- net/ipv4/ip_fragment.c                  |   39 +++----
- net/ipv6/netfilter/nf_conntrack_reasm.c |   13 +-
- net/ipv6/reassembly.c                   |   12 +-
- 6 files changed, 260 insertions(+), 84 deletions(-)
-
-
---
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 32786a0..7b897b2 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -24,6 +24,7 @@ struct inet_frag_queue {
+ 	ktime_t			stamp;
+ 	int			len;        /* total length of orig datagram */
+ 	int			meat;
++	u32			creation_ts;/* jiffies when queue was created*/
+ 	__u8			last_in;    /* first/last segment arrived? */
+ 
+ #define INET_FRAG_COMPLETE	4
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 4750d2b..9bb6237 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -178,6 +178,18 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
+ 
+ 		q = list_first_entry(&nf->lru_list,
+ 				struct inet_frag_queue, lru_list);
++
++		/* queue entry is warm, i.e. new frags are arriving
++		 * too fast.  instead of evicting warm entry, give it
++		 * a chance to complete.  Instead, inet_frag_alloc()
++		 * will fail until more time has elapsed or queue
++		 * completes.
++		 */
++		if (!force && q->creation_ts == (u32) jiffies) {
++			read_unlock(&f->lock);
++			break;
++		}
++
+ 		atomic_inc(&q->refcnt);
+ 		read_unlock(&f->lock);
+ 
+@@ -244,10 +256,17 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ {
+ 	struct inet_frag_queue *q;
+ 
++	/* Guard creations of new frag queues if mem limit reached, as
++	 * we allow warm/recent elements to survive in inet_frag_evictor()
++	 */
++	if (atomic_read(&nf->mem) > nf->high_thresh)
++		return NULL;
++
+ 	q = kzalloc(f->qsize, GFP_ATOMIC);
+ 	if (q == NULL)
+ 		return NULL;
+ 
++	q->creation_ts = (u32) jiffies;
+ 	q->net = nf;
+ 	f->constructor(q, arg);
+ 	atomic_add(f->qsize, &nf->mem);
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 1cf6a76..ef00d0a 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -300,12 +300,12 @@ static inline struct ipq *ip_find(struct net *net, struct iphdr *iph, u32 user)
+ 
+ 	q = inet_frag_find(&net->ipv4.frags, &ip4_frags, &arg, hash);
+ 	if (q == NULL)
+-		goto out_nomem;
++		goto out_memlimit;
+ 
+ 	return container_of(q, struct ipq, q);
+ 
+-out_nomem:
+-	LIMIT_NETDEBUG(KERN_ERR pr_fmt("ip_frag_create: no memory left !\n"));
++out_memlimit:
++	LIMIT_NETDEBUG(KERN_ERR pr_fmt("ip_frag_create: mem limit reached!\n"));
+ 	return NULL;
+ }
+ 
