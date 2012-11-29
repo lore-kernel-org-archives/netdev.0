@@ -1,54 +1,145 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Re: VPN traffic leaks in IPv6/IPv4 dual-stack networks/hosts
-Date: Wed, 28 Nov 2012 23:29:57 -0300
-Message-ID: <50B6C8A5.2090404@gont.com.ar>
-References: <50B4D43A.7030208@gont.com.ar> <alpine.LNX.2.01.1211271703530.8184@nerf07.vanv.qr> <50B66CA1.5050907@gont.com.ar> <alpine.LNX.2.01.1211282102240.11155@nerf07.vanv.qr> <50B6708A.8020701@gont.com.ar> <alpine.LNX.2.01.1211282203310.11510@nerf07.vanv.qr>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Wed, 28 Nov 2012 21:47:32 -0500 (EST)
+Message-ID: <20121128.214732.1634269294133625782.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web01.jbserver.net ([93.186.182.34]:55050 "EHLO
-	web01.jbserver.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755310Ab2K2CrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Nov 2012 21:47:20 -0500
-In-Reply-To: <alpine.LNX.2.01.1211282203310.11510@nerf07.vanv.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/28/2012 06:37 PM, Jan Engelhardt wrote:
->> On 11/28/2012 05:06 PM, Jan Engelhardt wrote:
->>>> If the VPN is supposed to secure all traffic, and the VPN just fails to
->>>> support v6, then for me, it's questionable to have your traffic leak out
->>>> the VPN just because of that lack of IPv6 support.
->>>
->>> Well, what I am saying is that a server may not
->>> be conveying "all", but only "0.0.0.0/0"[0/0].
->>
->> In such scenarios, doing nothing about IPv6 would be an oversight/error,
-> 
-> Without additional input from the user, e.g. by means of a config 
-> setting, the software itself cannot distinguish between an 
-> oversight/error and a deliberate configuration.
 
-Exactly. So fail on the safe side, and disable IPv6. Most users
-forwarding all IPv4 traffic are meaning to secure all their traffic with
-the VPN.
+Some more fixes trickled in over the past few days:
 
-If you do nothing about v6, then it just takes a local attacker to
-trigger v6 connectivity (or the user to connect to a dual-stacked
-network) for the supposedly-secure traffic to go out in the clear.
+1) PIM device names can overflow the IFNAMSIZ buffer unless we
+   properly limit the allowed indexes, fix from Eric Dumazet.
 
-Many people don't realize that v6 and v4, while being to different
-protocols, are sticked together by means of the DNS. And the
-aforementioned issue will come up as a surprise in most scenario.
+2) Under heavy load we can OOPS in icmp reply processing due to
+   an unchecked inet_putpeer() call.  Fix from Neal Cardwell.
 
-Not to mention that nowadays, you will miss virtually nothing on the
-Internet by having v6 off.
+3) SCTP round trip calculations need to use 64-bit math to avoid
+   overflows, fix from Schoch Christian.
 
-Thanks,
--- 
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@si6networks.com
-PGP Fingerprint: 7809 84F5 322E 45C7 F1C9 3945 96EE A9EF D076 FFF1
+4) Fix a memory leak and an error return flub in SCTP and IRDA
+   triggerable by userspace.  Fix from Tommi Rantala and found by
+   the syscall fuzzer (trinity).
+
+5) MLX4 driver gives bogus size to memcpy() call, fix from Amir
+   Vadai.
+
+6) Fix length calculation in VHOST descriptor translation, from
+   Michael S. Tsirkin.
+
+7) Ambassador ATM driver loops forever while loading firmware, fix
+   from Dan Carpenter.
+
+8) Over MTU packets in openvswitch warn about wrong device, fix
+   from Jesse Gross.
+
+9) Netfilter IPSET's netlink code can overrun a string buffer
+   because it's not properly limited to IFNAMSIZ.  Fix from
+   Florian Westphal.
+
+10) PCAN USB driver sets wrong timestamp in SKB, from Oliver
+    Hartkopp.
+
+11) Make sure the RX ifindex always has a valid value in the
+    CAN BCM driver, even if we haven't received a frame yet.
+    Fix also from Oliver Hartkopp.
+
+Please pull, thanks a lot!
+
+The following changes since commit 194d9831f0419b5125dc94ec0ece4434d8ef=
+74f0:
+
+  Merge tag 'sound-3.7' of git://git.kernel.org/pub/scm/linux/kernel/gi=
+t/tiwai/sound (2012-11-24 08:32:11 -1000)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+
+for you to fetch changes up to a45085f6a7801f95cd5682290195224e268627fd=
+:
+
+  Merge branch 'fixes' of git://git.kernel.org/pub/scm/linux/kernel/git=
+/jesse/openvswitch (2012-11-28 18:00:47 -0500)
+
+----------------------------------------------------------------
+
+Amir Vadai (1):
+      net/mlx4_en: Can set maxrate only for TC0
+
+Bj=F8rn Mork (1):
+      net: qmi_wwan: add Huawei E173
+
+Dan Carpenter (1):
+      atm: forever loop loading ambassador firmware
+
+David S. Miller (2):
+      Merge branch 'master' of git://1984.lsi.us.es/nf
+      Merge branch 'fixes' of git://git.kernel.org/.../jesse/openvswitc=
+h
+
+Eric Dumazet (1):
+      net: ipmr: limit MRT_TABLE identifiers
+
+=46lorian Westphal (1):
+      netfilter: ipset: fix netiface set name overflow
+
+Jesse Gross (1):
+      openvswitch: Print device when warning about over MTU packets.
+
+Jiri Pirko (1):
+      team: fix hw_features setup
+
+Mehak Mahajan (1):
+      openvswitch: Store flow key len if ARP opcode is not request or r=
+eply.
+
+Michael S. Tsirkin (1):
+      vhost: fix length for cross region descriptor
+
+Neal Cardwell (1):
+      ipv4: avoid passing NULL to inet_putpeer() in icmpv4_xrlim_allow(=
+)
+
+Oliver Hartkopp (2):
+      can: peak_usb: fix hwtstamp assignment
+      can: bcm: initialize ifindex for timeouts without previous frame =
+reception
+
+Schoch Christian (1):
+      sctp: Error in calculation of RTTvar
+
+Tommi Rantala (3):
+      sctp: fix memory leak in sctp_datamsg_from_user() when copy from =
+user space fails
+      sctp: fix -ENOMEM result with invalid user space pointer in sendt=
+o() syscall
+      irda: irttp: fix memory leak in irttp_open_tsap() error path
+
+ drivers/atm/ambassador.c                       |  1 +
+ drivers/net/can/usb/peak_usb/pcan_usb.c        |  8 ++++++--
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c    |  8 ++++++--
+ drivers/net/ethernet/mellanox/mlx4/en_dcb_nl.c |  2 +-
+ drivers/net/team/team.c                        |  4 +++-
+ drivers/net/usb/qmi_wwan.c                     |  1 +
+ drivers/vhost/vhost.c                          |  2 +-
+ net/can/bcm.c                                  |  3 +++
+ net/ipv4/icmp.c                                |  3 ++-
+ net/ipv4/ipmr.c                                |  4 ++++
+ net/irda/irttp.c                               |  1 +
+ net/netfilter/ipset/ip_set_hash_netiface.c     |  2 +-
+ net/openvswitch/flow.c                         | 14 +++++---------
+ net/openvswitch/vport-netdev.c                 |  2 +-
+ net/sctp/chunk.c                               | 20 ++++++++++++++----=
+--
+ net/sctp/socket.c                              |  4 ++--
+ net/sctp/transport.c                           |  2 +-
+ 17 files changed, 53 insertions(+), 28 deletions(-)
