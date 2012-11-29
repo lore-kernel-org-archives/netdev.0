@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V2 7/9] net: frag,
-	move nqueues counter under LRU lock protection
-Date: Thu, 29 Nov 2012 17:15:07 +0100
-Message-ID: <20121129161447.17754.21568.stgit@dragon>
+Subject: [net-next PATCH V2 6/9] net: frag,
+	implement dynamic percpu alloc of frag_cpu_limit
+Date: Thu, 29 Nov 2012 17:14:42 +0100
+Message-ID: <20121129161343.17754.96847.stgit@dragon>
 References: <20121129161019.17754.29670.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,138 +17,210 @@ To: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3621 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57866 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753852Ab2K2QQg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 29 Nov 2012 11:16:36 -0500
+	id S1754765Ab2K2QQ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2012 11:16:59 -0500
 In-Reply-To: <20121129161019.17754.29670.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Preparation patch for per hash bucket locking.
-
-This patch just moves the nqueues counter under the LRU lock (and
-per CPU), instead of the write lock, to prepare for next patch.
+Use the percpu API to implement dynamic per CPU allocation
+of the frag_cpu_limit in struct netns_frags.  This replaces
+the static array percpu[NR_CPUS].
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
+Its the first time I use the percpu API, please let me know
+if I'm using it correctly.
 
- include/net/inet_frag.h  |   19 +++++++++++++++++--
- include/net/ipv6.h       |    2 +-
- net/ipv4/inet_fragment.c |    4 +---
- net/ipv4/ip_fragment.c   |    2 +-
- 4 files changed, 20 insertions(+), 7 deletions(-)
+ include/net/inet_frag.h  |   39 ++++++++++++++++++++++++++-------------
+ net/ipv4/inet_fragment.c |   34 +++++++++++++++++++++++-----------
+ 2 files changed, 49 insertions(+), 24 deletions(-)
 
 diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 3eadf42..f58590f 100644
+index 8421904..3eadf42 100644
 --- a/include/net/inet_frag.h
 +++ b/include/net/inet_frag.h
-@@ -12,11 +12,10 @@ struct frag_cpu_limit {
- 	atomic_t                mem;
- 	struct list_head        lru_list;
- 	spinlock_t              lru_lock;
-+	int			nqueues;
- } ____cacheline_aligned_in_smp;
+@@ -3,6 +3,7 @@
  
+ #include <linux/spinlock.h>
+ #include <linux/atomic.h>
++#include <linux/percpu.h>
+ 
+ /* Need to maintain these resource limits per CPU, else we will kill
+  * performance due to cache-line bouncing
+@@ -16,7 +17,7 @@ struct frag_cpu_limit {
  struct netns_frags {
--	int			nqueues;
--
- 	struct frag_cpu_limit __percpu *percpu;
+ 	int			nqueues;
+ 
+-	struct frag_cpu_limit	percpu[NR_CPUS];
++	struct frag_cpu_limit __percpu *percpu;
  
  	/* sysctls */
-@@ -107,6 +106,7 @@ static inline void inet_frag_lru_del(struct inet_frag_queue *q)
+ 	int			timeout;
+@@ -92,26 +93,32 @@ static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f
+ static inline void inet_frag_lru_move(struct inet_frag_queue *q)
+ {
+ 	int cpu = q->cpu_alloc;
+-	spin_lock(&q->net->percpu[cpu].lru_lock);
+-	list_move_tail(&q->lru_list, &q->net->percpu[cpu].lru_list);
+-	spin_unlock(&q->net->percpu[cpu].lru_lock);
++	struct frag_cpu_limit *percpu = per_cpu_ptr(q->net->percpu, cpu);
++
++	spin_lock(&percpu->lru_lock);
++	list_move_tail(&q->lru_list, &percpu->lru_list);
++	spin_unlock(&percpu->lru_lock);
+ }
  
- 	spin_lock(&percpu->lru_lock);
+ static inline void inet_frag_lru_del(struct inet_frag_queue *q)
+ {
+ 	int cpu = q->cpu_alloc;
+-	spin_lock(&q->net->percpu[cpu].lru_lock);
++	struct frag_cpu_limit *percpu = per_cpu_ptr(q->net->percpu, cpu);
++
++	spin_lock(&percpu->lru_lock);
  	list_del(&q->lru_list);
-+	percpu->nqueues--;
- 	spin_unlock(&percpu->lru_lock);
+-	spin_unlock(&q->net->percpu[cpu].lru_lock);
++	spin_unlock(&percpu->lru_lock);
  }
  
-@@ -118,6 +118,7 @@ static inline void inet_frag_lru_add(struct netns_frags *nf,
- 
- 	spin_lock(&percpu->lru_lock);
- 	list_add_tail(&q->lru_list, &percpu->lru_list);
-+	percpu->nqueues++;
- 	spin_unlock(&percpu->lru_lock);
+ static inline void inet_frag_lru_add(struct netns_frags *nf,
+ 				     struct inet_frag_queue *q)
+ {
+ 	int cpu = q->cpu_alloc;
+-	spin_lock(&nf->percpu[cpu].lru_lock);
+-	list_add_tail(&q->lru_list, &nf->percpu[cpu].lru_list);
+-	spin_unlock(&nf->percpu[cpu].lru_lock);
++	struct frag_cpu_limit *percpu = per_cpu_ptr(nf->percpu, cpu);
++
++	spin_lock(&percpu->lru_lock);
++	list_add_tail(&q->lru_list, &percpu->lru_list);
++	spin_unlock(&percpu->lru_lock);
  }
  
-@@ -150,4 +151,18 @@ static inline int sum_frag_mem_limit(struct netns_frags *nf)
- 	return sum;
+ /* Memory Tracking Functions. */
+@@ -119,21 +126,27 @@ static inline void inet_frag_lru_add(struct netns_frags *nf,
+ static inline void sub_frag_mem_limit(struct inet_frag_queue *q, int i)
+ {
+ 	int cpu = q->cpu_alloc;
+-	atomic_sub(i, &q->net->percpu[cpu].mem);
++	struct frag_cpu_limit *percpu = per_cpu_ptr(q->net->percpu, cpu);
++	atomic_sub(i, &percpu->mem);
  }
  
-+static inline int sum_frag_nqueues(struct netns_frags *nf)
-+{
-+	unsigned int sum = 0;
-+	int cpu;
+ static inline void add_frag_mem_limit(struct inet_frag_queue *q, int i)
+ {
+ 	int cpu = q->cpu_alloc;
+-	atomic_add(i, &q->net->percpu[cpu].mem);
++	struct frag_cpu_limit *percpu = per_cpu_ptr(q->net->percpu, cpu);
++	atomic_add(i, &percpu->mem);
+ }
+ 
+ static inline int sum_frag_mem_limit(struct netns_frags *nf)
+ {
+ 	unsigned int sum = 0;
+ 	int cpu;
+-	for_each_possible_cpu(cpu)
+-		sum += atomic_read(&nf->percpu[cpu].mem);
++
 +	for_each_possible_cpu(cpu) {
 +		struct frag_cpu_limit *percpu = per_cpu_ptr(nf->percpu, cpu);
 +
-+		spin_lock(&percpu->lru_lock);
-+		sum += percpu->nqueues;
-+		spin_unlock(&percpu->lru_lock);
++		sum += atomic_read(&percpu->mem);
 +	}
-+	return sum;
-+}
-+
- #endif
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index a5c1cf1..27edfcf 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -274,7 +274,7 @@ extern bool ipv6_opt_accepted(const struct sock *sk, const struct sk_buff *skb);
- #if IS_ENABLED(CONFIG_IPV6)
- static inline int ip6_frag_nqueues(struct net *net)
- {
--	return net->ipv6.frags.nqueues;
-+	return sum_frag_nqueues(&net->ipv6.frags);
+ 	return sum;
  }
  
- static inline int ip6_frag_mem(struct net *net)
 diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 0099f0c..9b97f2e 100644
+index 068aabe..0099f0c 100644
 --- a/net/ipv4/inet_fragment.c
 +++ b/net/ipv4/inet_fragment.c
-@@ -96,13 +96,13 @@ static int inet_frags_init_percpu_limit(struct netns_frags *nf)
- 		INIT_LIST_HEAD(&percpu->lru_list);
- 		spin_lock_init(&percpu->lru_lock);
- 		atomic_set(&percpu->mem, 0);
-+		percpu->nqueues = 0;
+@@ -25,7 +25,8 @@
+ 
+ static inline int frag_mem_limit_on_cpu(struct netns_frags *nf, int on_cpu)
+ {
+-	return atomic_read(&nf->percpu[on_cpu].mem);
++	struct frag_cpu_limit *percpu = per_cpu_ptr(nf->percpu, on_cpu);
++	return atomic_read(&percpu->mem);
+ }
+ 
+ static inline int frag_mem_limit(struct netns_frags *nf)
+@@ -81,14 +82,22 @@ void inet_frags_init(struct inet_frags *f)
+ }
+ EXPORT_SYMBOL(inet_frags_init);
+ 
+-static void inet_frags_init_percpu_limit(struct netns_frags *nf)
++static int inet_frags_init_percpu_limit(struct netns_frags *nf)
+ {
+ 	int cpu;
++
++	nf->percpu = alloc_percpu(struct frag_cpu_limit);
++	if (!nf->percpu)
++		return -ENOMEM;
++
+ 	for_each_possible_cpu(cpu) {
+-		INIT_LIST_HEAD(&nf->percpu[cpu].lru_list);
+-		spin_lock_init(&nf->percpu[cpu].lru_lock);
+-		atomic_set(&nf->percpu[cpu].mem, 0);
++		struct frag_cpu_limit *percpu = per_cpu_ptr(nf->percpu, cpu);
++
++		INIT_LIST_HEAD(&percpu->lru_list);
++		spin_lock_init(&percpu->lru_lock);
++		atomic_set(&percpu->mem, 0);
  	}
- 	return 1;
++	return 1;
  }
  
  void inet_frags_init_net(struct netns_frags *nf)
- {
--	nf->nqueues = 0;
- 	inet_frags_init_percpu_limit(nf);
+@@ -113,6 +122,8 @@ void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
+ 	for_each_possible_cpu(cpu)
+ 		inet_frag_evictor(nf, f, true, cpu);
+ 	local_bh_enable();
++
++	free_percpu(nf->percpu);
  }
- EXPORT_SYMBOL(inet_frags_init_net);
-@@ -131,7 +131,6 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
- {
- 	write_lock(&f->lock);
- 	hlist_del(&fq->list);
--	fq->net->nqueues--;
- 	write_unlock(&f->lock);
- 	inet_frag_lru_del(fq);
- }
-@@ -280,7 +279,6 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ EXPORT_SYMBOL(inet_frags_exit_net);
  
- 	atomic_inc(&qp->refcnt);
- 	hlist_add_head(&qp->list, &f->hash[hash]);
--	nf->nqueues++;
- 	write_unlock(&f->lock);
- 	inet_frag_lru_add(nf, qp);
- 	return qp;
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 99944a8..26fd2b7 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -118,7 +118,7 @@ static struct inet_frags ip4_frags;
+@@ -184,6 +195,7 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f,
+ 	struct inet_frag_queue *q;
+ 	int work, evicted = 0;
+ 	int cpu = (likely(on_cpu < 0)) ? smp_processor_id() : on_cpu;
++	struct frag_cpu_limit *percpu = per_cpu_ptr(nf->percpu, cpu);
  
- int ip_frag_nqueues(struct net *net)
- {
--	return net->ipv4.frags.nqueues;
-+	return sum_frag_nqueues(&net->ipv4.frags);
- }
+ 	if (!force) {
+ 		if (frag_mem_limit_on_cpu(nf, cpu) <= nf->high_thresh)
+@@ -192,14 +204,14 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f,
  
- int ip_frag_mem(struct net *net)
+ 	work = frag_mem_limit_on_cpu(nf, cpu) - nf->low_thresh;
+ 	while (work > 0) {
+-		spin_lock(&nf->percpu[cpu].lru_lock);
++		spin_lock(&percpu->lru_lock);
+ 
+-		if (list_empty(&nf->percpu[cpu].lru_list)) {
+-			spin_unlock(&nf->percpu[cpu].lru_lock);
++		if (list_empty(&percpu->lru_list)) {
++			spin_unlock(&percpu->lru_lock);
+ 			break;
+ 		}
+ 
+-		q = list_first_entry(&nf->percpu[cpu].lru_list,
++		q = list_first_entry(&percpu->lru_list,
+ 				struct inet_frag_queue, lru_list);
+ 
+ 		/* queue entry is warm, i.e. new frags are arriving
+@@ -209,12 +221,12 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f,
+ 		 * completes.
+ 		 */
+ 		if (!force && q->creation_ts == (u32) jiffies) {
+-			spin_unlock(&nf->percpu[cpu].lru_lock);
++			spin_unlock(&percpu->lru_lock);
+ 			break;
+ 		}
+ 
+ 		atomic_inc(&q->refcnt);
+-		spin_unlock(&nf->percpu[cpu].lru_lock);
++		spin_unlock(&percpu->lru_lock);
+ 
+ 		spin_lock(&q->lock);
+ 		if (!(q->last_in & INET_FRAG_COMPLETE))
