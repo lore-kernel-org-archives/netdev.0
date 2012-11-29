@@ -1,77 +1,47 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Thu, 29 Nov 2012 13:29:02 -0500
-Message-ID: <20121129132902.04373f49@thirdoffive.cmf.nrl.navy.mil>
-References: <1350926091-12642-1-git-send-email-krzysiek@podlesie.net>
-	<1350926091-12642-3-git-send-email-krzysiek@podlesie.net>
-	<1354036592.2534.6.camel@shinybook.infradead.org>
-	<20121127173906.GA11390@shrek.podlesie.net>
-	<1354039349.2534.11.camel@shinybook.infradead.org>
-	<20121127135434.0728cd4f@thirdoffive.cmf.nrl.navy.mil>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B70C9@saturn3.aculab.com>
-	<1354141115.21562.101.camel@shinybook.infradead.org>
-	<20121129150945.GB16478@shrek.podlesie.net>
-	<1354204077.21562.172.camel@shinybook.infradead.org>
-	<20121129105934.3e0c3a04@thirdoffive.cmf.nrl.navy.mil>
-	<1354206269.21562.189.camel@shinybook.infradead.org>
-	<20121129121701.21ab7c0b@thirdoffive.cmf.nrl.navy.mil>
-	<1354212708.21562.205.camel@shinybook.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH V2 3/9] net: frag, move LRU list maintenance
+ outside of rwlock
+Date: Thu, 29 Nov 2012 13:31:08 -0500 (EST)
+Message-ID: <20121129.133108.427624036846294750.davem@davemloft.net>
+References: <1354211659.3299.15.camel@edumazet-glaptop>
+	<20121129.130506.329791401604974668.davem@davemloft.net>
+	<1354213492.3299.22.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Mazur <krzysiek@podlesie.net>,
-	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nathan@traverse.com.au
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354212708.21562.205.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: brouer@redhat.com, fw@strlen.de, netdev@vger.kernel.org,
+	pablo@netfilter.org, tgraf@suug.ch, amwang@redhat.com,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	herbert@gondor.hengli.com.au
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34159 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754259Ab2K2SbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 13:31:11 -0500
+In-Reply-To: <1354213492.3299.22.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 Nov 2012 18:11:48 +0000
-David Woodhouse <dwmw2@infradead.org> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 29 Nov 2012 10:24:52 -0800
 
-> We do see the 'packet received for unknown VCC' complaint, after we
-> reboot the host without resetting the card. And as shown in the commit I
-> just referenced, we rely on the !ATM_VF_READY check in order to prevent
-> a use-after-free when the tasklet is sending packets up a VCC that's
-> just been closed.
-
-well that behavior is just crap.  why is it delivering cells for a
-vpi/vci pair that is not open?  regardless, i pointed out the behavior
-of find_vcc() just in case you need to do some clean up on data that is
-coming back while you are attempting to finish operations during your
-driver's close() but this cleanup might not be happening since you
-arent able to get a reference to the vcc so you can pop() the data or
-whatever you might need to do.
-
-> > again part of this is poor synchronization.  the detach protocol (i.e.
-> > push of a NULL skb) should be flushing any pending transmits and
-> > shutting down whatever in the protocol is doing any sending and
-> > receiving.  however, i release this might be difficult to do since the
-> > detach protocol is invoked in such a strange way.
+> On Thu, 2012-11-29 at 13:05 -0500, David Miller wrote:
 > 
-> You mean that (e.g.) pppoatm_push(vcc, NULL) should be waiting for any
-> pending TX skb (that has already been passed off to the driver) to
-> *complete*? How would it even do that?
+>> Replace 1024 in your formula with X and the limit is therefore
+>> controlled by X.
+>> 
+>> So it seems the high_thresh can be replaced with an appropriate
+>> determination of X to size the hash.
+>> 
+>> If X is 256, that limits us to ~130MB per cpu.
+>> 
+> 
+> per host, as the table would be shared by all cpus.
 
-i think the order of the vcc_destroy_socket() operations is a bit
-wrong.  it should call detach protocol (i.e. push a NULL).  this should
-cause the attached protocol to stop any future sends and receives, and
-it CAN sleep in this context (and only this context -- generally
-sending cannot sleep which is why this might seem confusing) to do
-whatever it needs to do to wait for the attached protocol to clean up
-queues, flush data etc.
+I think a per-cpu hash might make more sense.
 
-then the driver close() should be called.  this takes care of cleaning
-up any pending tx or rx that is in the hardware.  and of course,
-close() can sleep since it will be in a interrutible context.
+This would scale our limits to the size of the system.
 
-the pop() might be screwed up here though.  you might have skb's in the
-driver that should be pop()'ed with the formerly attached protocol.
-
-you could wait for pending tx's sent to the driver.  you know that your
-attached protocol's pop() will be called.  keep count of the
-outstanding transmit skb's.  you cant do this though if you close() the
-vcc before you detach the protocol.
+I'm willing to be convinced otherwise, but it seems the most
+sensible thing to do.
