@@ -1,64 +1,60 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 1/3] MAINTAINERS: Add Mellanox ethernet driver - mlx4_en
-Date: Thu, 29 Nov 2012 20:55:15 +0200
-Message-ID: <CAPcc5PhCAi7EnjCG_7-W0jNvQ2tGrX4vMCt-6m8dVS+Jmwf_JQ@mail.gmail.com>
-References: <1354194894-16527-1-git-send-email-amirv@mellanox.com>
-	<1354209333-27672-1-git-send-email-amirv@mellanox.com>
-	<1354209333-27672-2-git-send-email-amirv@mellanox.com>
-	<1354210184.9874.8.camel@joe-AO722>
+From: Peter Lieven <pl@dlhnet.de>
+Subject: Re: [Qemu-devel] tap devices not receiving packets from a bridge
+Date: Thu, 29 Nov 2012 19:58:19 +0100
+Message-ID: <50B7B04B.2010504@dlhnet.de>
+References: <50AE36E0.8000307@dlhnet.de> <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Oren Duer <oren@mellanox.com>, netdev@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Joe Perches <joe@perches.com>
+Content-Transfer-Encoding: 7bit
+Cc: "qemu-devel@nongnu.org" <qemu-devel@nongnu.org>,
+	netdev@vger.kernel.org, mst@redhat.com
+To: Stefan Hajnoczi <stefanha@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:47330 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751136Ab2K2SzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 13:55:16 -0500
-Received: by mail-ea0-f174.google.com with SMTP id e13so5829456eaa.19
-        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 10:55:15 -0800 (PST)
-In-Reply-To: <1354210184.9874.8.camel@joe-AO722>
+Received: from ssl.dlhnet.de ([91.198.192.8]:59284 "EHLO ssl.dlh.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751013Ab2K2S6Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2012 13:58:25 -0500
+In-Reply-To: <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 29, 2012 at 7:29 PM, Joe Perches <joe@perches.com> wrote:
-> On Thu, 2012-11-29 at 19:15 +0200, Amir Vadai wrote:
->> Set mlx4_en maintainer to Amir Vadai instead of Yevgeny Petrilin.
+Am 23.11.2012 08:02, schrieb Stefan Hajnoczi:
+> On Thu, Nov 22, 2012 at 03:29:52PM +0100, Peter Lieven wrote:
+>> is anyone aware of a problem with the linux network bridge that in very rare circumstances stops
+>> a bridge from sending pakets to a tap device?
 >>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->> Cc: Yevgeny Petrilin <yevgenyp@mellanox.com>
->> ---
->>  MAINTAINERS |    7 +++++++
->>  1 files changed, 7 insertions(+), 0 deletions(-)
+>> My problem occurs in conjunction with vanilla qemu-kvm-1.2.0 and Ubuntu Kernel 3.2.0-34.53
+>> which is based on Linux 3.2.33.
 >>
->> diff --git a/MAINTAINERS b/MAINTAINERS
->> index 5d72dd5..67fd3de 100644
->> --- a/MAINTAINERS
->> +++ b/MAINTAINERS
->> @@ -4822,6 +4822,13 @@ F:     Documentation/scsi/megaraid.txt
->>  F:   drivers/scsi/megaraid.*
->>  F:   drivers/scsi/megaraid/
->>
->> +MELLANOX ETHERNET DRIVER (mlx4_en)
->> +M:   Amir Vadai <amirv@mellanox.com>
->> +L:   netdev@vger.kernel.org
->> +S:   Supported
->> +W:   http://www.mellanox.com
->> +Q:   http://patchwork.ozlabs.org/project/netdev/list/
->
-> What about a file pattern?  Maybe
-> F:      drivers/net/ethernet/mellanox/mlx/
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> I was not yet able to reproduce the issue, it happens in really rare cases. The symptom is that
+>> the tap does not have any TX packets. RX is working fine. I see the packets coming in at
+>> the physical interface on the host, but they are not forwarded to the tap interface.
+>> The bridge itself has learnt the mac address of the vServer that is connected to the tap interface.
+>> It does not help to toggle the bridge link status,  the tap interface status or the interface in the vServer.
+>> It seems that problem occurs if a tap interface that has previously been used, but set to nonpersistent
+>> is set persistent again and then is by chance assigned to the same vServer (=same mac address on same
+>> bridge) again. Unfortunately it seems not to be reproducible.
+> 
+> Not sure but this patch from Michael Tsirkin may help - it solves an
+> issue with persistent tap devices:
+> 
+> http://patchwork.ozlabs.org/patch/198598/
 
-Right - will fix it
+I have tried that patch (even if I do not use persistant taps), but it doesn't help.
 
-Thanks,
-Amir
+What I can say now is that if a VM is not working with a tap - lets say tap10 then
+it will not work with tap10, even if the vm is shut down. tap10 is set to non-persistant.
+then the vm is started again, assigned occasionally again tap10 and is not working again.
+
+BUT, if I use qemu-kvm-1.0.1 in the second case it is working. I have seen that there is
+a lot of changes between 1.0.1 and 1.2.0 in the tap code. Maybe there is a bug in the
+inititialization since then.
+
+What also seem to have changed is that vlans have been removed. I was not aware of that,
+so I still use vlans which are now emulated via hubs. Maybe this is related.
+
+Peter
+
+> 
+> Stefan
+> 
