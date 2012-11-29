@@ -1,113 +1,92 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next RFC] pktgen: don't wait for the device who doesn't
-	free skb immediately after sent
-Date: Thu, 29 Nov 2012 13:30:13 +0200
-Message-ID: <20121129113012.GA7866@redhat.com>
-References: <1353916612-6357-1-git-send-email-jasowang@redhat.com>
-	<50B5B3D4.1070106@redhat.com>
-	<20121128085305.2b0503ce@nehalam.linuxnetplumber.net>
-	<1570859.IePPxHAEX1@jason-thinkpad-t430s>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1570859.IePPxHAEX1@jason-thinkpad-t430s>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Subject: [PATCH] mISDN: improve bitops usage
+Date: Thu, 29 Nov 2012 20:27:45 +0900
+Message-ID: <1354188465-29012-1-git-send-email-akinobu.mita@gmail.com>
+Cc: Akinobu Mita <akinobu.mita@gmail.com>,
+	Karsten Keil <isdn@linux-pingi.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:38129 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752760Ab2K2L2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 06:28:10 -0500
+Received: by mail-pa0-f46.google.com with SMTP id bh2so7553682pad.19
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 03:28:10 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Nov 29, 2012 at 06:13:13PM +0800, Jason Wang wrote:
-> On Wednesday, November 28, 2012 08:53:05 AM Stephen Hemminger wrote:
-> > On Wed, 28 Nov 2012 14:48:52 +0800
-> > 
-> > Jason Wang <jasowang@redhat.com> wrote:
-> > > On 11/28/2012 12:49 AM, Stephen Hemminger wrote:
-> > > > On Tue, 27 Nov 2012 14:45:13 +0800
-> > > > 
-> > > > Jason Wang <jasowang@redhat.com> wrote:
-> > > >> On 11/27/2012 01:37 AM, Stephen Hemminger wrote:
-> > > >>> On Mon, 26 Nov 2012 15:56:52 +0800
-> > > >>> 
-> > > >>> Jason Wang <jasowang@redhat.com> wrote:
-> > > >>>> Some deivces do not free the old tx skbs immediately after it has
-> > > >>>> been sent
-> > > >>>> (usually in tx interrupt). One such example is virtio-net which
-> > > >>>> optimizes for virt and only free the possible old tx skbs during the
-> > > >>>> next packet sending. This would lead the pktgen to wait forever in
-> > > >>>> the refcount of the skb if no other pakcet will be sent afterwards.
-> > > >>>> 
-> > > >>>> Solving this issue by introducing a new flag IFF_TX_SKB_FREE_DELAY
-> > > >>>> which could notify the pktgen that the device does not free skb
-> > > >>>> immediately after it has been sent and let it not to wait for the
-> > > >>>> refcount to be one.
-> > > >>>> 
-> > > >>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > > >>> 
-> > > >>> Another alternative would be using skb_orphan() and skb->destructor.
-> > > >>> There are other cases where skb's are not freed right away.
-> > > >>> --
-> > > >>> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > > >>> the body of a message to majordomo@vger.kernel.org
-> > > >>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > > >> 
-> > > >> Hi Stephen:
-> > > >> 
-> > > >> Do you mean registering a skb->destructor for pktgen then set and check
-> > > >> bits in skb->tx_flag?
-> > > > 
-> > > > Yes. Register a destructor that does something like update a counter
-> > > > (number of packets pending), then just spin while number of packets
-> > > > pending is over threshold.
-> > > > --
-> > > 
-> > > Not sure this is the best method, since pktgen was used to test the tx
-> > > process of the device driver and NIC. If we use skb_orhpan(), we would
-> > > miss the test of tx completion part.
-> > 
-> > There are other places that delay freeing and your solution would mean
-> > finding and fixing all those. Code that does that already has to use
-> > skb_orphan() to work, and I was looking for a way that could use that.
-> > Introducing another flag value seems like a long term burden.
-> > 
-> 
-> Get the point, will draft another version.
->
-> > Alternatively, virtio could do cleanup more aggressively. Maybe in response
-> > to ring getting half full, or add a cleanup timer or something to avoid the
-> > problem.
+This improves bitops usages in several points:
 
-Timer would prevent complete deadlock but it is very expensive
-in the virt scenario.
-pulling at ring half full would only help if ring gets half full :)
-which it does not have to.
+- Convert u64 to a proper bitmap declaration.  This enables to remove
+  superfluous typecasting from 'u64' to 'unsigned long *'.
 
-> 
-> May worth to try. Another method is that virtio has a feature to notify guest 
-> when tx ring is empty, we could free the old tx skbs there.
-> But it may brings 
-> extra overhead. If we could let virtio_net free the old tx skb timely, it 
-> would be easier to bring BQL support to virtio_net also.
-> 
-> Thanks
+- Convert superfluous atomic bitops to non atomic bitops.  The bitmap
+  is allocated on the stack and it is not accessed by any other threads,
+  so using atomic bitops is not necessary.
 
-We used to use notify on empty - it's still very slow.
+- Use find_next_zero_bit and find_next_zero_bit instead of calling
+  test_bit() for each bit.
 
-> > 
-> > 
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: netdev@vger.kernel.org
+---
+ drivers/isdn/mISDN/tei.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/isdn/mISDN/tei.c b/drivers/isdn/mISDN/tei.c
+index be88728..592f597 100644
+--- a/drivers/isdn/mISDN/tei.c
++++ b/drivers/isdn/mISDN/tei.c
+@@ -250,7 +250,7 @@ tei_debug(struct FsmInst *fi, char *fmt, ...)
+ static int
+ get_free_id(struct manager *mgr)
+ {
+-	u64		ids = 0;
++	DECLARE_BITMAP(ids, 64) = { [0 ... BITS_TO_LONGS(64) - 1] = 0 };
+ 	int		i;
+ 	struct layer2	*l2;
+ 
+@@ -261,11 +261,11 @@ get_free_id(struct manager *mgr)
+ 			       __func__);
+ 			return -EBUSY;
+ 		}
+-		test_and_set_bit(l2->ch.nr, (u_long *)&ids);
++		__set_bit(l2->ch.nr, ids);
+ 	}
+-	for (i = 1; i < 64; i++)
+-		if (!test_bit(i, (u_long *)&ids))
+-			return i;
++	i = find_next_zero_bit(ids, 64, 1);
++	if (i < 64)
++		return i;
+ 	printk(KERN_WARNING "%s: more as 63 layer2 for one device\n",
+ 	       __func__);
+ 	return -EBUSY;
+@@ -274,7 +274,7 @@ get_free_id(struct manager *mgr)
+ static int
+ get_free_tei(struct manager *mgr)
+ {
+-	u64		ids = 0;
++	DECLARE_BITMAP(ids, 64) = { [0 ... BITS_TO_LONGS(64) - 1] = 0 };
+ 	int		i;
+ 	struct layer2	*l2;
+ 
+@@ -288,11 +288,11 @@ get_free_tei(struct manager *mgr)
+ 			continue;
+ 		i -= 64;
+ 
+-		test_and_set_bit(i, (u_long *)&ids);
++		__set_bit(i, ids);
+ 	}
+-	for (i = 0; i < 64; i++)
+-		if (!test_bit(i, (u_long *)&ids))
+-			return i + 64;
++	i = find_first_zero_bit(ids, 64);
++	if (i < 64)
++		return i + 64;
+ 	printk(KERN_WARNING "%s: more as 63 dynamic tei for one device\n",
+ 	       __func__);
+ 	return -1;
+-- 
+1.7.11.7
