@@ -1,40 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bonding: fix race condition in
- bonding_store_slaves_active
-Date: Thu, 29 Nov 2012 13:14:10 -0500 (EST)
-Message-ID: <20121129.131410.2283343599770817054.davem@davemloft.net>
-References: <1353759595-30452-1-git-send-email-nikolay@redhat.com>
-	<1354189079-15754-1-git-send-email-nikolay@redhat.com>
-	<13839.1354210676@death.nxdomain>
+Subject: Re: [PATCH v3] bonding: make arp_ip_target parameter checks
+ consistent with sysfs
+Date: Thu, 29 Nov 2012 13:14:18 -0500 (EST)
+Message-ID: <20121129.131418.2087045655456588072.davem@davemloft.net>
+References: <1354121052-6263-1-git-send-email-nikolay@redhat.com>
+	<1354188846-15577-1-git-send-email-nikolay@redhat.com>
+	<13894.1354210749@death.nxdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: nikolay@redhat.com, netdev@vger.kernel.org, andy@greyhouse.net
 To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33976 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33984 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753259Ab2K2SOL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 13:14:11 -0500
-In-Reply-To: <13839.1354210676@death.nxdomain>
+	with ESMTP id S1753881Ab2K2SO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 13:14:28 -0500
+In-Reply-To: <13894.1354210749@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Thu, 29 Nov 2012 09:37:56 -0800
+Date: Thu, 29 Nov 2012 09:39:09 -0800
 
 > Nikolay Aleksandrov <nikolay@redhat.com> wrote:
 > 
->> Race between bonding_store_slaves_active() and slave manipulation 
->> functions. The bond_for_each_slave use in bonding_store_slaves_active()
->> is not protected by any synchronization mechanism.
->> NULL pointer dereference is easy to reach.
->> Fixed by acquiring the bond->lock for the slave walk.
+>> The module can be loaded with arp_ip_target="255.255.255.255" which makes
+>> it impossible to remove as the function in sysfs checks for that value,
+>> so we make the parameter checks consistent with sysfs.
 >>
->> v2: Make description text < 75 columns
+>> v2: Fix formatting
+>> v3: Make description text < 75 columns
 >>
 >>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 > 
 > Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
 Applied.
+
+Thanks a lot everyone.
