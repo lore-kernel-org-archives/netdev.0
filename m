@@ -1,69 +1,56 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH v3] bonding: make arp_ip_target parameter checks consistent with sysfs
-Date: Thu, 29 Nov 2012 09:39:09 -0800
-Message-ID: <13894.1354210749@death.nxdomain>
-References: <1354121052-6263-1-git-send-email-nikolay@redhat.com> <1354188846-15577-1-git-send-email-nikolay@redhat.com>
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH V2 3/9] net: frag, move LRU list maintenance
+ outside of rwlock
+Date: Thu, 29 Nov 2012 09:43:24 -0800
+Message-ID: <1354211004.3299.12.camel@edumazet-glaptop>
+References: <20121129161019.17754.29670.stgit@dragon>
+	 <20121129161137.17754.48002.stgit@dragon>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:36271 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753297Ab2K2Rj2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 12:39:28 -0500
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 29 Nov 2012 10:39:27 -0700
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 56B6D19D8036
-	for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 10:39:24 -0700 (MST)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id qATHdBu2139190
-	for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 10:39:14 -0700
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id qATHf6J6003563
-	for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 10:41:07 -0700
-In-reply-to: <1354188846-15577-1-git-send-email-nikolay@redhat.com>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:36254 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751331Ab2K2Rn1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 12:43:27 -0500
+Received: by mail-da0-f46.google.com with SMTP id p5so5358423dak.19
+        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 09:43:27 -0800 (PST)
+In-Reply-To: <20121129161137.17754.48002.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+On Thu, 2012-11-29 at 17:12 +0100, Jesper Dangaard Brouer wrote:
+> Updating the fragmentation queues LRU (Least-Recently-Used) list,
+> required taking the hash writer lock.  However, the LRU list isn't
+> tied to the hash at all, so we can use a separate lock for it.
+> 
+> This change, in it self, does not improve performance significantly.
+> But its part of making the fragmentation code scale.
 
-> The module can be loaded with arp_ip_target="255.255.255.255" which makes
-> it impossible to remove as the function in sysfs checks for that value,
-> so we make the parameter checks consistent with sysfs.
->
-> v2: Fix formatting
-> v3: Make description text < 75 columns
->
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+I would just remove the LRU completely.
 
->---
-> drivers/net/bonding/bond_main.c | 5 +++--
-> 1 file changed, 3 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 5f5b69f..d29159a 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -4706,12 +4706,13 @@ static int bond_check_params(struct bond_params *params)
-> 	     arp_ip_count++) {
-> 		/* not complete check, but should be good enough to
-> 		   catch mistakes */
->-		if (!isdigit(arp_ip_target[arp_ip_count][0])) {
->+		__be32 ip = in_aton(arp_ip_target[arp_ip_count]);
->+		if (!isdigit(arp_ip_target[arp_ip_count][0]) ||
->+		    ip == 0 || ip == htonl(INADDR_BROADCAST)) {
-> 			pr_warning("Warning: bad arp_ip_target module parameter (%s), ARP monitoring will not be performed\n",
-> 				   arp_ip_target[arp_ip_count]);
-> 			arp_interval = 0;
-> 		} else {
->-			__be32 ip = in_aton(arp_ip_target[arp_ip_count]);
-> 			arp_target[arp_ip_count] = ip;
-> 		}
-> 	}
->-- 
->1.7.11.7
->
+All this stuff is 20 years old, we dont need it anymore now we can use
+more than 64KB of memory. The design was OK on !SMP
+
+Here is what I would suggest :
+
+Use a schem with a hash table of 256 (or 1024) slots.
+
+Each slot/bucket has : 
+  - Its own spinlock.
+  - List of items
+  - A limit of 5 (or so) elems in the list.
+
+No more LRU, no more rehash (thanks to jhash and the random seed at boot
+or first frag created), no more reader-writer lock.
+
+Use a percpu_counter to implement ipfrag_low_thresh/ipfrag_high_thresh
