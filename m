@@ -1,58 +1,317 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 1/2] of_mdio: Honour "status=disabled" property of device
-Date: Thu, 29 Nov 2012 17:36:30 +0000
-Message-ID: <20121129173630.3EC073E0A04@localhost>
-References: <50B71290.2060200@sysgo.com>
-Cc: alexander sverdlin <alexander.sverdlin.ext@nsn.com>,
-	w.sang@pengutronix.de, Barry.Song@csr.com, netdev@vger.kernel.org
-To: Alexander Sverdlin <asv@sysgo.com>,
-	Stephen Warren <swarren@wwwdotorg.org>,
-	devicetree-discuss@lists.ozlabs.org,
-	Rob Herring <rob.herring@calxeda.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH v2] bonding: fix miimon and arp_interval delayed work race conditions
+Date: Thu, 29 Nov 2012 09:37:31 -0800
+Message-ID: <13828.1354210651@death.nxdomain>
+References: <1353759471-30323-1-git-send-email-nikolay@redhat.com> <1354188691-15509-1-git-send-email-nikolay@redhat.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:52120 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751003Ab2K2Rgf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 12:36:35 -0500
-Received: by mail-wi0-f170.google.com with SMTP id hq7so5720763wib.1
-        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 09:36:33 -0800 (PST)
-In-Reply-To: <50B71290.2060200@sysgo.com>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:48475 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753498Ab2K2Rhr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 29 Nov 2012 12:37:47 -0500
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Thu, 29 Nov 2012 12:37:46 -0500
+Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id AFEF66E8040
+	for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 12:37:37 -0500 (EST)
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id qATHbXlh49938560
+	for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 12:37:33 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id qATHbW9a017149
+	for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 15:37:33 -0200
+In-reply-to: <1354188691-15509-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 29 Nov 2012 08:45:20 +0100, Alexander Sverdlin <asv@sysgo.com> wrote:
-> From: Alexander Sverdlin <alexander.sverdlin@sysgo.com>
-> 
-> of_mdio: Honour "status=disabled" property of device
-> 
-> Currently of_mdiobus_register() function registers all PHY devices,
-> independetly from their status property in device tree. According to
-> "ePAPR 1.1" spec, device should only be registered if there is no
-> "status" property, or it has "ok" (or "okay") value (see
-> of_device_is_available()). In case of "platform devices",
-> of_platform_device_create_pdata() checks for "status" and ensures
-> that disabled devices are not pupulated. But such check for MDIO buses
-> was missing until now. Fix it.
-> 
-> Signed-off-by: Alexander Sverdlin <alexander.sverdlin@sysgo.com>
+Nikolay Aleksandrov <nikolay@redhat.com> wrote:
 
-Applied, thanks.
+>First I would give three observations which will be used later.
+>Observation 1: if (delayed_work_pending(wq)) cancel_delayed_work(wq)
+> This usage is wrong because the pending bit is cleared just before the
+> work's fn is executed and if the function re-arms itself we might end up
+> with the work still running. It's safe to call cancel_delayed_work_sync()
+> even if the work is not queued at all.
+>Observation 2: Use of INIT_DELAYED_WORK()
+> Work needs to be initialized only once prior to (de/en)queueing.
+>Observation 3: IFF_UP is set only after ndo_open is called
+>
+>Related race conditions:
+>1. Race between bonding_store_miimon() and bonding_store_arp_interval()
+> Because of Obs.1 we can end up having both works enqueued.
+>2. Multiple races with INIT_DELAYED_WORK()
+> Since the works are not protected by anything between INIT_DELAYED_WORK()
+> and calls to (en/de)queue it is possible for races between the following
+> functions:
+> (races are also possible between the calls to INIT_DELAYED_WORK()
+>  and workqueue code)
+> bonding_store_miimon() - bonding_store_arp_interval(), bond_close(),
+>			  bond_open(), enqueued functions
+> bonding_store_arp_interval() - bonding_store_miimon(), bond_close(),
+>				bond_open(), enqueued functions
+>3. By Obs.1 we need to change bond_cancel_all()
+>
+>Bugs 1 and 2 are fixed by moving all work initializations in bond_open
+>which by Obs. 2 and Obs. 3 and the fact that we make sure that all works
+>are cancelled in bond_close(), is guaranteed not to have any work
+>enqueued.
+>Also RTNL lock is now acquired in bonding_store_miimon/arp_interval so
+>they can't race with bond_close and bond_open. The opposing work is
+>cancelled only if the IFF_UP flag is set and it is cancelled
+>unconditionally. The opposing work is already cancelled if the interface
+>is down so no need to cancel it again. This way we don't need new
+>synchronizations for the bonding workqueue. These bugs (and fixes) are
+>tied together and belong in the same patch.
+>Note: I have left 1 line intentionally over 80 characters (84) because I
+>      didn't like how it looks broken down. If you'd prefer it otherwise,
+>      then simply break it.
+>
+> v2: Make description text < 75 columns
+>
+>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 
-g.
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-> ---
-> --- linux.orig/drivers/of/of_mdio.c
-> +++ linux/drivers/of/of_mdio.c
-> @@ -53,7 +53,7 @@ int of_mdiobus_register(struct mii_bus *
->  		return rc;
->  
->  	/* Loop over the child nodes and register a phy_device for each one */
-> -	for_each_child_of_node(np, child) {
-> +	for_each_available_child_of_node(np, child) {
->  		const __be32 *paddr;
->  		u32 addr;
->  		int len;
-
--- 
-Grant Likely, B.Sc, P.Eng.
-Secret Lab Technologies, Ltd.
+>---
+> drivers/net/bonding/bond_main.c  | 88 ++++++++++++----------------------------
+> drivers/net/bonding/bond_sysfs.c | 34 +++++-----------
+> 2 files changed, 36 insertions(+), 86 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 5f5b69f..1445c7d 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -3459,6 +3459,28 @@ static int bond_xmit_hash_policy_l34(struct sk_buff *skb, int count)
+>
+> /*-------------------------- Device entry points ----------------------------*/
+>
+>+static void bond_work_init_all(struct bonding *bond)
+>+{
+>+	INIT_DELAYED_WORK(&bond->mcast_work,
+>+			  bond_resend_igmp_join_requests_delayed);
+>+	INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
+>+	INIT_DELAYED_WORK(&bond->mii_work, bond_mii_monitor);
+>+	if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
+>+		INIT_DELAYED_WORK(&bond->arp_work, bond_activebackup_arp_mon);
+>+	else
+>+		INIT_DELAYED_WORK(&bond->arp_work, bond_loadbalance_arp_mon);
+>+	INIT_DELAYED_WORK(&bond->ad_work, bond_3ad_state_machine_handler);
+>+}
+>+
+>+static void bond_work_cancel_all(struct bonding *bond)
+>+{
+>+	cancel_delayed_work_sync(&bond->mii_work);
+>+	cancel_delayed_work_sync(&bond->arp_work);
+>+	cancel_delayed_work_sync(&bond->alb_work);
+>+	cancel_delayed_work_sync(&bond->ad_work);
+>+	cancel_delayed_work_sync(&bond->mcast_work);
+>+}
+>+
+> static int bond_open(struct net_device *bond_dev)
+> {
+> 	struct bonding *bond = netdev_priv(bond_dev);
+>@@ -3481,41 +3503,27 @@ static int bond_open(struct net_device *bond_dev)
+> 	}
+> 	read_unlock(&bond->lock);
+>
+>-	INIT_DELAYED_WORK(&bond->mcast_work, bond_resend_igmp_join_requests_delayed);
+>+	bond_work_init_all(bond);
+>
+> 	if (bond_is_lb(bond)) {
+> 		/* bond_alb_initialize must be called before the timer
+> 		 * is started.
+> 		 */
+>-		if (bond_alb_initialize(bond, (bond->params.mode == BOND_MODE_ALB))) {
+>-			/* something went wrong - fail the open operation */
+>+		if (bond_alb_initialize(bond, (bond->params.mode == BOND_MODE_ALB)))
+> 			return -ENOMEM;
+>-		}
+>-
+>-		INIT_DELAYED_WORK(&bond->alb_work, bond_alb_monitor);
+> 		queue_delayed_work(bond->wq, &bond->alb_work, 0);
+> 	}
+>
+>-	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
+>-		INIT_DELAYED_WORK(&bond->mii_work, bond_mii_monitor);
+>+	if (bond->params.miimon)  /* link check interval, in milliseconds. */
+> 		queue_delayed_work(bond->wq, &bond->mii_work, 0);
+>-	}
+>
+> 	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
+>-		if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
+>-			INIT_DELAYED_WORK(&bond->arp_work,
+>-					  bond_activebackup_arp_mon);
+>-		else
+>-			INIT_DELAYED_WORK(&bond->arp_work,
+>-					  bond_loadbalance_arp_mon);
+>-
+> 		queue_delayed_work(bond->wq, &bond->arp_work, 0);
+> 		if (bond->params.arp_validate)
+> 			bond->recv_probe = bond_arp_rcv;
+> 	}
+>
+> 	if (bond->params.mode == BOND_MODE_8023AD) {
+>-		INIT_DELAYED_WORK(&bond->ad_work, bond_3ad_state_machine_handler);
+> 		queue_delayed_work(bond->wq, &bond->ad_work, 0);
+> 		/* register to receive LACPDUs */
+> 		bond->recv_probe = bond_3ad_lacpdu_recv;
+>@@ -3530,34 +3538,10 @@ static int bond_close(struct net_device *bond_dev)
+> 	struct bonding *bond = netdev_priv(bond_dev);
+>
+> 	write_lock_bh(&bond->lock);
+>-
+> 	bond->send_peer_notif = 0;
+>-
+> 	write_unlock_bh(&bond->lock);
+>
+>-	if (bond->params.miimon) {  /* link check interval, in milliseconds. */
+>-		cancel_delayed_work_sync(&bond->mii_work);
+>-	}
+>-
+>-	if (bond->params.arp_interval) {  /* arp interval, in milliseconds. */
+>-		cancel_delayed_work_sync(&bond->arp_work);
+>-	}
+>-
+>-	switch (bond->params.mode) {
+>-	case BOND_MODE_8023AD:
+>-		cancel_delayed_work_sync(&bond->ad_work);
+>-		break;
+>-	case BOND_MODE_TLB:
+>-	case BOND_MODE_ALB:
+>-		cancel_delayed_work_sync(&bond->alb_work);
+>-		break;
+>-	default:
+>-		break;
+>-	}
+>-
+>-	if (delayed_work_pending(&bond->mcast_work))
+>-		cancel_delayed_work_sync(&bond->mcast_work);
+>-
+>+	bond_work_cancel_all(bond);
+> 	if (bond_is_lb(bond)) {
+> 		/* Must be called only after all
+> 		 * slaves have been released
+>@@ -4436,26 +4420,6 @@ static void bond_setup(struct net_device *bond_dev)
+> 	bond_dev->features |= bond_dev->hw_features;
+> }
+>
+>-static void bond_work_cancel_all(struct bonding *bond)
+>-{
+>-	if (bond->params.miimon && delayed_work_pending(&bond->mii_work))
+>-		cancel_delayed_work_sync(&bond->mii_work);
+>-
+>-	if (bond->params.arp_interval && delayed_work_pending(&bond->arp_work))
+>-		cancel_delayed_work_sync(&bond->arp_work);
+>-
+>-	if (bond->params.mode == BOND_MODE_ALB &&
+>-	    delayed_work_pending(&bond->alb_work))
+>-		cancel_delayed_work_sync(&bond->alb_work);
+>-
+>-	if (bond->params.mode == BOND_MODE_8023AD &&
+>-	    delayed_work_pending(&bond->ad_work))
+>-		cancel_delayed_work_sync(&bond->ad_work);
+>-
+>-	if (delayed_work_pending(&bond->mcast_work))
+>-		cancel_delayed_work_sync(&bond->mcast_work);
+>-}
+>-
+> /*
+> * Destroy a bonding device.
+> * Must be under rtnl_lock when this function is called.
+>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>index ef8d2a0..3327a07 100644
+>--- a/drivers/net/bonding/bond_sysfs.c
+>+++ b/drivers/net/bonding/bond_sysfs.c
+>@@ -513,6 +513,8 @@ static ssize_t bonding_store_arp_interval(struct device *d,
+> 	int new_value, ret = count;
+> 	struct bonding *bond = to_bond(d);
+>
+>+	if (!rtnl_trylock())
+>+		return restart_syscall();
+> 	if (sscanf(buf, "%d", &new_value) != 1) {
+> 		pr_err("%s: no arp_interval value specified.\n",
+> 		       bond->dev->name);
+>@@ -539,10 +541,6 @@ static ssize_t bonding_store_arp_interval(struct device *d,
+> 		pr_info("%s: ARP monitoring cannot be used with MII monitoring. %s Disabling MII monitoring.\n",
+> 			bond->dev->name, bond->dev->name);
+> 		bond->params.miimon = 0;
+>-		if (delayed_work_pending(&bond->mii_work)) {
+>-			cancel_delayed_work(&bond->mii_work);
+>-			flush_workqueue(bond->wq);
+>-		}
+> 	}
+> 	if (!bond->params.arp_targets[0]) {
+> 		pr_info("%s: ARP monitoring has been set up, but no ARP targets have been specified.\n",
+>@@ -554,19 +552,12 @@ static ssize_t bonding_store_arp_interval(struct device *d,
+> 		 * timer will get fired off when the open function
+> 		 * is called.
+> 		 */
+>-		if (!delayed_work_pending(&bond->arp_work)) {
+>-			if (bond->params.mode == BOND_MODE_ACTIVEBACKUP)
+>-				INIT_DELAYED_WORK(&bond->arp_work,
+>-						  bond_activebackup_arp_mon);
+>-			else
+>-				INIT_DELAYED_WORK(&bond->arp_work,
+>-						  bond_loadbalance_arp_mon);
+>-
+>-			queue_delayed_work(bond->wq, &bond->arp_work, 0);
+>-		}
+>+		cancel_delayed_work_sync(&bond->mii_work);
+>+		queue_delayed_work(bond->wq, &bond->arp_work, 0);
+> 	}
+>
+> out:
+>+	rtnl_unlock();
+> 	return ret;
+> }
+> static DEVICE_ATTR(arp_interval, S_IRUGO | S_IWUSR,
+>@@ -962,6 +953,8 @@ static ssize_t bonding_store_miimon(struct device *d,
+> 	int new_value, ret = count;
+> 	struct bonding *bond = to_bond(d);
+>
+>+	if (!rtnl_trylock())
+>+		return restart_syscall();
+> 	if (sscanf(buf, "%d", &new_value) != 1) {
+> 		pr_err("%s: no miimon value specified.\n",
+> 		       bond->dev->name);
+>@@ -993,10 +986,6 @@ static ssize_t bonding_store_miimon(struct device *d,
+> 				bond->params.arp_validate =
+> 					BOND_ARP_VALIDATE_NONE;
+> 			}
+>-			if (delayed_work_pending(&bond->arp_work)) {
+>-				cancel_delayed_work(&bond->arp_work);
+>-				flush_workqueue(bond->wq);
+>-			}
+> 		}
+>
+> 		if (bond->dev->flags & IFF_UP) {
+>@@ -1005,15 +994,12 @@ static ssize_t bonding_store_miimon(struct device *d,
+> 			 * timer will get fired off when the open function
+> 			 * is called.
+> 			 */
+>-			if (!delayed_work_pending(&bond->mii_work)) {
+>-				INIT_DELAYED_WORK(&bond->mii_work,
+>-						  bond_mii_monitor);
+>-				queue_delayed_work(bond->wq,
+>-						   &bond->mii_work, 0);
+>-			}
+>+			cancel_delayed_work_sync(&bond->arp_work);
+>+			queue_delayed_work(bond->wq, &bond->mii_work, 0);
+> 		}
+> 	}
+> out:
+>+	rtnl_unlock();
+> 	return ret;
+> }
+> static DEVICE_ATTR(miimon, S_IRUGO | S_IWUSR,
+>-- 
+>1.7.11.7
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
