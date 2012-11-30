@@ -1,138 +1,90 @@
 From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Fri, 30 Nov 2012 10:53:54 +0100
-Message-ID: <20121130095354.GA15126@shrek.podlesie.net>
-References: <201211300138.qAU1c8sE003388@thirdoffive.cmf.nrl.navy.mil>
- <1354240620.21562.256.camel@shinybook.infradead.org>
- <1354263922.21562.270.camel@shinybook.infradead.org>
+Subject: Re: [PATCH 05/17] pppoatm: drop frames to not-ready vcc
+Date: Fri, 30 Nov 2012 11:27:09 +0100
+Message-ID: <20121130102709.GA29335@shrek.podlesie.net>
+References: <1354235736-26833-1-git-send-email-dwmw2@infradead.org>
+ <1354235736-26833-6-git-send-email-dwmw2@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>,
-	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nathan@traverse.com.au
+Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
+	David Woodhouse <David.Woodhouse@intel.com>
 To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shrek-wifi.podlesie.net ([93.179.225.50]:43133 "EHLO
+	shrek.podlesie.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932225Ab2K3K1M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 05:27:12 -0500
 Content-Disposition: inline
-In-Reply-To: <1354263922.21562.270.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1354235736-26833-6-git-send-email-dwmw2@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 30, 2012 at 08:25:22AM +0000, David Woodhouse wrote:
-> On Fri, 2012-11-30 at 01:57 +0000, David Woodhouse wrote:
-> > I think it's actually fixed for pppoatm by the bh_lock_sock() and the
-> > sock_owned_by_user() check. As soon as vcc_release() calls lock_sock(),
-> > pppoatm stops accepting packets.
-> > 
-> > It should be simple enough to do the same in br2684.
+On Fri, Nov 30, 2012 at 12:35:24AM +0000, David Woodhouse wrote:
+> From: Krzysztof Mazur <krzysiek@podlesie.net>
 > 
-> Um... but now I come to look at it... Krzysztof, doesn't your 'pppoatm:
-> take ATM socket lock in pppoatm_send()' patch actually *break* the case
-> of sending via vcc_sendmsg()?
+> Patches "atm: detach protocol before closing vcc"
+> and "pppoatm: allow assign only on a connected socket" fixed
+> common cases where the pppoatm_send() crashes while sending
+> frame to not-ready vcc. However there are still some other cases
+> where we can send frames to vcc, which is flagged as ATM_VF_CLOSE
+> (for instance after vcc_release_async()) or it's opened but not
+> ready yet.
 
-no, in case of
+We should update the paragraph above, with something like:
 
-	pppoatm_send()
-			vcc_sendmsg()
-
-the vcc_sendmsg() will just wait for releasing sk->sk_lock.slock.
-
-When the vcc_sendmsg() gets lock first
-
-			vcc_sendmsg()
-	pppoatm_send()
-
-The pppoatm_send() might spin for a while for sk->sk_lock.slock, but
-after lock_sock() the vcc_sendmsg() releases that lock and
-pppoatm_send() will acquire it and notice that locked is locked
-(sock_owned_by_user() returns true) and will just block pppoatm,
-and will be woken up in release_sock() (fix was fixed by your 10/17
-patch).
+The vcc_destroy_socket() closes vcc before the protocol is detached
+from vcc by calling vcc->push() with NULL skb. This leaves some time
+window, where the protocol may call vcc->send() on closed vcc
+and crash.
 
 > 
-> Why did you include the sock_owned_by_user() check in there and not just
-> use bh_lock_sock()?
-
-because bh_lock_sock() will succeeds even with concurrent vcc_sendmsg()
-and will have some races in that case.
-
+> Now pppoatm_send(), like vcc_sendmsg(), checks for vcc flags that
+> indicate that vcc is not ready. If the vcc is not ready we just
+> drop frame. Queueing frames is much more complicated because we
+> don't have callbacks that inform us about vcc flags changes.
 > 
-> With the sock_owned_by_user() check, it'll *always* drop packets
-> submitted through vcc_sendmsg(), won't it?
+> Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
+> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
-No, sock_owned_by_user() is just in pppoatm_send() and instead of
-dropping packets we block pppd.
-
-> 
-> Admittedly, for PPPoATM and BR2684 we never do want to have packets
-> submitted directly from userspace that way; they should all come via the
-> PPP channel or the netdev respectively. So we might want to keep the
-> sock_owned_by_user() check because it fixes the close race, and
-> explicitly document it.
-
-It fixes also races with vcc_sendmsg(). If we really don't wont
-vcc_sendmsg() with pppoatm and br2684 we must do some protection
-than vcc_sendmsg() will fail instead of racing with pppoatm_send()
-and crashing with some drivers that does not support concurent
-->send().
-
-> 
-> But it doesn't necessarily work for other protocols, so we may need a
-> better solution for the general case. Perhaps drop the
-> sock_owned_by_user() check, and put bh_lock_sock() around the beginning
-> of vcc_destroy_socket() where it clears ATM_VF_READY? That'll ensure
-> that no ->push() is *currently* operating on a skb having seen that the
-> VCC is still open.
-> 
-> Or maybe we just make the *devices* check the ATM_VF_CLOSE flag and
-> refuse to send the skb? Put the entire thing into their domain. Although
-> that may involve extra locking in the driver to synchronise send() and
-> close() sufficiently.
-
-We need some additional synchronizization with pppoatm_send(), now
-we use:
-
-	tasklet_kill(&pvcc->wakeup_tasklet);
-	ppp_unregister_channel(&pvcc->chan);
-
-In ppp_unregister_channel() we will synchronize with the function
-calling pppoatm_send() using "downl" lock.
-
-And this must be done in pppoatm.
-
-> 
-> I'm still reluctant to swap the order of the device/protocol close in
-> vcc_destroy_socket(). I think that'll just swap one set of problems
-> which is now fairly well-understood and mostly solved, for another set.
-> In particular, I think the device needs to see the close first, because
-> *it* can actually abort or flush any pending TX and RX (including
-> synchronising with its tasklet as solos-pci does, etc.). Only then does
-> the protocol tear its data structures down. But I suppose the new set of
-> problems could be found and overcome, if Chas wants to propose an
-> alternative patch set...
-> 
-
-I think that the current order is good, now we have:
-
-	1. stop_sending_fames	to protocol
-		now TX is shut down
-		(currently done by
-			set_bit(ATM_VF_CLOSE, &vcc->flags);
-			clear_bit(ATM_VF_READY, &vcc->flags);
-		)
-	2. close_device		to device
-		now RX is shut down
-	3. device_was_closed	to protocol
-		ugly push(NULL), but we can add some other callback.
-
-we also can do:
-
-	1. disable RX		to device
-		now RX is shut down
-	2. detach	to protocol
-		now TX is shut down
-		(now protocol can fully detach because RX is disabled)
-	3. close_device		to device
-		(device is not used anymore)
+I'm sending the updated version. The only difference is the commit
+message.
 
 Krzysiek
+-- >8 --
+Subject: [PATCH 05/17] pppoatm: drop frames to not-ready vcc
+
+The vcc_destroy_socket() closes vcc before the protocol is detached
+from vcc by calling vcc->push() with NULL skb. This leaves some time
+window, where the protocol may call vcc->send() on closed vcc
+and crash.
+
+Now pppoatm_send(), like vcc_sendmsg(), checks for vcc flags that
+indicate that vcc is not ready. If the vcc is not ready we just
+drop frame. Queueing frames is much more complicated because we
+don't have callbacks that inform us about vcc flags changes.
+
+Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
+---
+ net/atm/pppoatm.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/atm/pppoatm.c b/net/atm/pppoatm.c
+index c4a57bc..aeb726c 100644
+--- a/net/atm/pppoatm.c
++++ b/net/atm/pppoatm.c
+@@ -284,6 +284,13 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
+ 	bh_lock_sock(sk_atm(vcc));
+ 	if (sock_owned_by_user(sk_atm(vcc)))
+ 		goto nospace;
++	if (test_bit(ATM_VF_RELEASED, &vcc->flags) ||
++	    test_bit(ATM_VF_CLOSE, &vcc->flags) ||
++	    !test_bit(ATM_VF_READY, &vcc->flags)) {
++		bh_unlock_sock(sk_atm(vcc));
++		kfree_skb(skb);
++		return DROP_PACKET;
++	}
+ 
+ 	switch (pvcc->encaps) {		/* LLC encapsulation needed */
+ 	case e_llc:
+-- 
+1.8.0.411.g71a7da8
