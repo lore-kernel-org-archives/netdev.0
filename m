@@ -1,50 +1,82 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Fri, 30 Nov 2012 18:00:07 +0100
-Message-ID: <20121130170007.GA25818@shrek.podlesie.net>
-References: <201211300138.qAU1c8sE003388@thirdoffive.cmf.nrl.navy.mil>
- <1354240620.21562.256.camel@shinybook.infradead.org>
- <1354263922.21562.270.camel@shinybook.infradead.org>
- <20121130095354.GA15126@shrek.podlesie.net>
- <1354277415.21562.284.camel@shinybook.infradead.org>
- <1354292626.21562.298.camel@shinybook.infradead.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: "tuntap: multiqueue support" causes udev fork bombs
+Date: Fri, 30 Nov 2012 18:01:29 +0100
+Message-ID: <50B8E669.6040200@suse.cz>
+References: <50B5E6A5.6040009@suse.cz> <4146845.d5imC0scLB@jason-thinkpad-t430s>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>,
-	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nathan@traverse.com.au
-To: David Woodhouse <dwmw2@infradead.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	ML netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, rmilasan@suse.cz,
+	Jiri Slaby <jirislaby@gmail.com>, maxk@qualcomm.com,
+	vtun@office.satix.net
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1354292626.21562.298.camel@shinybook.infradead.org>
+In-Reply-To: <4146845.d5imC0scLB@jason-thinkpad-t430s>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 30, 2012 at 04:23:46PM +0000, David Woodhouse wrote:
+On 11/29/2012 06:47 AM, Jason Wang wrote:
+> On Wednesday, November 28, 2012 11:25:41 AM Jiri Slaby wrote:
+>> Hi,
+>>
+>> with this commit:
+>> commit c8d68e6be1c3b242f1c598595830890b65cea64a
+>> Author: Jason Wang <jasowang@redhat.com>
+>> Date:   Wed Oct 31 19:46:00 2012 +0000
+>>
+>>     tuntap: multiqueue support
+>>
+>>
+>> I see fork bombs from udev. It is trying to create 2048 processes. 1024
+>> for tx, 1024 for rx. OOM killer indeed steps in and kills everything.
 > 
-> +static void br2684_release_cb(struct atm_vcc *atmvcc)
-> +{
-> +	struct br2684_vcc *brvcc = BR2684_VCC(atmvcc);
+> Hi, thanks for the reporting, could you pls try the following patch?
+
+Hi, it is gone with this patch.
+
+> ---
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index b44d7b7..cc3f878 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -492,9 +492,6 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>  
+>  	tun_set_real_num_queues(tun);
+>  
+> -	if (tun->numqueues == 1)
+> -		netif_carrier_on(tun->dev);
+> -
+>  	/* device is allowed to go away first, so no need to hold extra
+>  	 * refcnt.
+>  	 */
+> @@ -1611,6 +1608,10 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  			TUN_USER_FEATURES;
+>  		dev->features = dev->hw_features;
+>  
+> +		err = tun_attach(tun, file);
+> +		if (err < 0)
+> +			goto err_free_dev;
 > +
-> +	/*
-> +	 * A race with br2684_xmit_vcc() might cause a spurious wakeup just
-> +	 * after that function *stops* the queue, and qspace might actually
-> +	 * go negative before the queue stops again. We cope with that.
-> +	 */
+>  		err = register_netdevice(tun->dev);
+>  		if (err < 0)
+>  			goto err_free_dev;
+> @@ -1620,9 +1621,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  		    device_create_file(&tun->dev->dev, &dev_attr_group))
+>  			pr_err("Failed to create tun sysfs files\n");
+>  
+> -		err = tun_attach(tun, file);
+> -		if (err < 0)
+> -			goto err_free_dev;
+> +		netif_carrier_on(tun->dev);
+>  	}
+>  
+>  	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
+> 
 
-We cannot race with br2684_xmit_vcc() because both br2684_xmit_vcc()
-and br2684_release_cb() are called with locked sk->sk_lock.slock.
 
-> +	if (atomic_read(&brvcc->qspace) > 0)
-> +		netif_wake_queue(brvcc->device);
-> +
-> +	if (brvcc->old_release_cb)
-> +		brvcc->old_release_cb(atmvcc);
-> +}
-
-Except that comment, the patch looks good:
-
-Acked-by: Krzysztof Mazur <krzysiek@podlesie.net>
-
-Krzysiek
+-- 
+js
+suse labs
