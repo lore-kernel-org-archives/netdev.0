@@ -1,74 +1,63 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: verify length provided in heartbeat information
- parameter
-Date: Fri, 30 Nov 2012 12:34:12 -0500
-Message-ID: <50B8EE14.7050804@gmail.com>
-References: <20121130121627.GG30697@casper.infradead.org>
+From: Krzysztof Mazur <krzysiek@podlesie.net>
+Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
+Date: Fri, 30 Nov 2012 18:39:36 +0100
+Message-ID: <20121130173936.GA11668@shrek.podlesie.net>
+References: <201211300138.qAU1c8sE003388@thirdoffive.cmf.nrl.navy.mil>
+ <1354240620.21562.256.camel@shinybook.infradead.org>
+ <1354263922.21562.270.camel@shinybook.infradead.org>
+ <20121130095354.GA15126@shrek.podlesie.net>
+ <1354277415.21562.284.camel@shinybook.infradead.org>
+ <1354292626.21562.298.camel@shinybook.infradead.org>
+ <20121130121256.77685fef@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:55810 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757288Ab2K3ReT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 12:34:19 -0500
-In-Reply-To: <20121130121627.GG30697@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Woodhouse <dwmw2@infradead.org>,
+	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nathan@traverse.com.au
+To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121130121256.77685fef@thirdoffive.cmf.nrl.navy.mil>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 11/30/2012 07:16 AM, Thomas Graf wrote:
-> If the variable parameter length provided in the mandatory
-> heartbeat information parameter exceeds the calculated payload
-> length the packet has been corrupted. Reply with a parameter
-> length protocol violation message.
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+On Fri, Nov 30, 2012 at 12:12:56PM -0500, chas williams - CONTRACTOR wrote:
+> >Really, what we're saying is that *one* of the driver or protocol close
+> >functions needs to be split, and we need to do DPD or PDP. Since the
+> >device driver *can* abort/flush the TX queue and also any pending RX
+> >being handled by a tasklet, I think it makes most sense to keep it in
+> >the middle, with the protocol being handled first and last... which is
+> >the current order, as long as we consider setting ATM_VF_CLOSE to be the
+> >first part.
+> 
+> i believe this is essentially already done with the release_cb()
+> implementation right?  that is splitting the protocol detach/shutdown
+> into two parts.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+partially, release_cb() is about ATM socket locking. To avoid some races
+we need to take the ATM socket lock in protocol send function
+(br2684_start_xmit, pppoatm_send, ...). That functions are executed
+in bh context and we cannot sleep and wait for releasing the ATM socket
+lock, so we just block sending and when the ATM socket is unlocked
+release_cb() is called and we re-enabling sending.
 
--vlad
 
-> ---
->   net/sctp/sm_statefuns.c | 10 ++++++++--
->   1 file changed, 8 insertions(+), 2 deletions(-)
->
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index b6adef8..e92079d 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -1055,6 +1055,7 @@ sctp_disposition_t sctp_sf_beat_8_3(struct net *net,
->   				    void *arg,
->   				    sctp_cmd_seq_t *commands)
->   {
-> +	sctp_paramhdr_t *param_hdr;
->   	struct sctp_chunk *chunk = arg;
->   	struct sctp_chunk *reply;
->   	size_t paylen = 0;
-> @@ -1072,12 +1073,17 @@ sctp_disposition_t sctp_sf_beat_8_3(struct net *net,
->   	 * Information field copied from the received HEARTBEAT chunk.
->   	 */
->   	chunk->subh.hb_hdr = (sctp_heartbeathdr_t *) chunk->skb->data;
-> +	param_hdr = (sctp_paramhdr_t *) chunk->subh.hb_hdr;
->   	paylen = ntohs(chunk->chunk_hdr->length) - sizeof(sctp_chunkhdr_t);
-> +
-> +	if (ntohs(param_hdr->length) > paylen)
-> +		return sctp_sf_violation_paramlen(net, ep, asoc, type, arg,
-> +						  param_hdr, commands);
-> +
->   	if (!pskb_pull(chunk->skb, paylen))
->   		goto nomem;
->
-> -	reply = sctp_make_heartbeat_ack(asoc, chunk,
-> -					chunk->subh.hb_hdr, paylen);
-> +	reply = sctp_make_heartbeat_ack(asoc, chunk, param_hdr, paylen);
->   	if (!reply)
->   		goto nomem;
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Currently the first part of detach is just:
+
+	lock_sock(sk)
+
+	(without latest "br2684: don't send frames on not-ready vcc"
+	the first part was
+
+	set_bit(ATM_VF_CLOSE, &vcc->flags);
+	clear_bit(ATM_VF_READY, &vcc->flags);
+
+	for br2684)
+
+After that the protocol stops sending new packets so the vcc may be
+fully closed by ATM driver. The protocol is still ready to process
+received packets. After vcc is closed the protocol can safely detach
+knowing that no new packets will be received.
+
+Krzysiek
