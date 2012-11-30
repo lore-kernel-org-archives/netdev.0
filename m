@@ -1,37 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mISDN: improve bitops usage
-Date: Fri, 30 Nov 2012 12:11:22 -0500 (EST)
-Message-ID: <20121130.121122.1152311583758662933.davem@davemloft.net>
-References: <1354188465-29012-1-git-send-email-akinobu.mita@gmail.com>
+Subject: Re: [PATCH] ipv6: unify logic evaluating inet6_dev's accept_ra
+ property
+Date: Fri, 30 Nov 2012 12:09:43 -0500 (EST)
+Message-ID: <20121130.120943.1397811156693287841.davem@davemloft.net>
+References: <1354181179-16294-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, isdn@linux-pingi.de
-To: akinobu.mita@gmail.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, tgraf@suug.ch,
+	tore@fud.no
+To: shmulik.ladkani@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44543 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44517 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1031268Ab2K3RLY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 12:11:24 -0500
-In-Reply-To: <1354188465-29012-1-git-send-email-akinobu.mita@gmail.com>
+	with ESMTP id S1758559Ab2K3RJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 12:09:44 -0500
+In-Reply-To: <1354181179-16294-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Thu, 29 Nov 2012 20:27:45 +0900
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Date: Thu, 29 Nov 2012 11:26:19 +0200
 
-> This improves bitops usages in several points:
-> 
-> - Convert u64 to a proper bitmap declaration.  This enables to remove
->   superfluous typecasting from 'u64' to 'unsigned long *'.
-> 
-> - Convert superfluous atomic bitops to non atomic bitops.  The bitmap
->   is allocated on the stack and it is not accessed by any other threads,
->   so using atomic bitops is not necessary.
-> 
-> - Use find_next_zero_bit and find_next_zero_bit instead of calling
->   test_bit() for each bit.
-> 
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+> +	/*
+> +	 * If forwarding is enabled, RA are not accepted unless the special
+> +	 * hybrid mode (accept_ra=2) is enabled.
+> +	 */
 
-Applied, thanks.
+Please format this comment correctly, in the networking we use
+the style:
+
+	/* That looks
+	 * like this.
+	 */
+
+	/*
+	 * Not
+	 * like this.
+	 */
+
+Thanks.
