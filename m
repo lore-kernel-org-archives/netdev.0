@@ -1,51 +1,47 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH] MAINTAINERS: fix bouncing tun/tap entries
-Date: Fri, 30 Nov 2012 18:05:40 +0100
-Message-ID: <1354295140-6355-1-git-send-email-jslaby@suse.cz>
-Cc: netdev@vger.kernel.org, jirislaby@gmail.com,
-	linux-kernel@vger.kernel.org
-To: maxk@qti.qualcomm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bonding: rlb mode of bond should not alter ARP
+ originating via bridge
+Date: Fri, 30 Nov 2012 12:08:13 -0500 (EST)
+Message-ID: <20121130.120813.1360888707923955813.davem@davemloft.net>
+References: <1354096624-22380-1-git-send-email-zheng.x.li@oracle.com>
+	<15005.1354213705@death.nxdomain>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: zheng.x.li@oracle.com, netdev@vger.kernel.org, andy@greyhouse.net,
+	linux-kernel@vger.kernel.org, joe.jin@oracle.com
+To: fubar@us.ibm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <15005.1354213705@death.nxdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Delivery to the following recipient failed permanently:
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Thu, 29 Nov 2012 10:28:25 -0800
 
-     vtun@office.satix.net
+> Zheng Li <zheng.x.li@oracle.com> wrote:
+> 
+>>Do not modify or load balance ARP packets passing through balance-alb
+>>mode (wherein the ARP did not originate locally, and arrived via a bridge).
+>>
+>>Modifying pass-through ARP replies causes an incorrect MAC address 
+>>to be placed into the ARP packet, rendering peers unable to communicate 
+>>with the actual destination from which the ARP reply originated.
+>>
+>>Load balancing pass-through ARP requests causes an entry to be
+>>created for the peer in the rlb table, and bond_alb_monitor will
+>>occasionally issue ARP updates to all peers in the table instrucing them
+>>as to which MAC address they should communicate with; this occurs when
+>>some event sets rx_ntt.  In the bridged case, however, the MAC address
+>>used for the update would be the MAC of the slave, not the actual source
+>>MAC of the originating destination.  This would render peers unable to
+>>communicate with the destinations beyond the bridge.
+>>
+>>Signed-off-by: Zheng Li <zheng.x.li@oracle.com>
+>>Cc: Jay Vosburgh <fubar@us.ibm.com>
+>>Cc: Andy Gospodarek <andy@greyhouse.net>
+>>Cc: "David S. Miller" <davem@davemloft.net>
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Technical details of permanent failure:
-DNS Error: Domain name not found
-
-Of course:
-$ host office.satix.net
-Host office.satix.net not found: 3(NXDOMAIN)
-
-===========
-
-And "Change of Email Address Notification":
-Old Address        New Address           Email Subject
-------------------------------------------------------
-maxk@qualcomm.com  maxk@qti.qualcomm.com "tuntap: multiqueue...
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Maxim Krasnyansky <maxk@qti.qualcomm.com>
----
- MAINTAINERS | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 61b2e14..75d3b88 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7696,8 +7696,7 @@ S:	Maintained
- F:	drivers/net/ethernet/dec/tulip/
- 
- TUN/TAP driver
--M:	Maxim Krasnyansky <maxk@qualcomm.com>
--L:	vtun@office.satix.net
-+M:	Maxim Krasnyansky <maxk@qti.qualcomm.com>
- W:	http://vtun.sourceforge.net/tun
- S:	Maintained
- F:	Documentation/networking/tuntap.txt
--- 
-1.8.0.1
+Applied.
