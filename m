@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: unify logic evaluating inet6_dev's accept_ra
- property
-Date: Fri, 30 Nov 2012 15:02:16 -0500 (EST)
-Message-ID: <20121130.150216.558209297528016175.davem@davemloft.net>
-References: <1354181179-16294-1-git-send-email-shmulik.ladkani@gmail.com>
-	<20121130.120943.1397811156693287841.davem@davemloft.net>
-	<20121130215113.7a81bc16.shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next,1/1] hyperv: Add an error message to
+ rndis_filter_set_device_mac()
+Date: Fri, 30 Nov 2012 15:03:08 -0500 (EST)
+Message-ID: <20121130.150308.1302355065124987824.davem@davemloft.net>
+References: <1354303421-26149-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, tgraf@suug.ch,
-	tore@fud.no
-To: shmulik.ladkani@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46709 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933648Ab2K3UCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 15:02:17 -0500
-In-Reply-To: <20121130215113.7a81bc16.shmulik.ladkani@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
+	jasowang@redhat.com, linux-kernel@vger.kernel.org,
+	devel@linuxdriverproject.org
+To: haiyangz@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354303421-26149-1-git-send-email-haiyangz@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Date: Fri, 30 Nov 2012 21:51:13 +0200
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Fri, 30 Nov 2012 11:23:41 -0800
 
-> BTW the "Not like this" style has many occurrences in net/ipv6.
-> One of which was the comment relocated by my patch :-)
+> This message indicates an error returned from the host when changing MAC address.
+> 
+> Reported-by: Michal Kubecek <mkubecek@suse.com>
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Patches to fix this are more than welcome :-)
+Applied.
