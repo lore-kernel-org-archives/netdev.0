@@ -1,70 +1,48 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH 14/17] pppoatm: optimise PPP channel wakeups after sock_owned_by_user()
-Date: Fri, 30 Nov 2012 00:35:33 +0000
-Message-ID: <1354235736-26833-15-git-send-email-dwmw2@infradead.org>
+Subject: [PATCH 02/17] pppoatm: allow assign only on a connected socket
+Date: Fri, 30 Nov 2012 00:35:21 +0000
+Message-ID: <1354235736-26833-3-git-send-email-dwmw2@infradead.org>
 References: <1354235736-26833-1-git-send-email-dwmw2@infradead.org>
 Cc: chas@cmf.nrl.navy.mil, krzysiek@podlesie.net,
 	David Woodhouse <David.Woodhouse@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:47051
+Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:47038
 	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754887Ab2K3Agm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 19:36:42 -0500
+	by vger.kernel.org with ESMTP id S1754887Ab2K3Agl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 19:36:41 -0500
 In-Reply-To: <1354235736-26833-1-git-send-email-dwmw2@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <David.Woodhouse@intel.com>
+From: Krzysztof Mazur <krzysiek@podlesie.net>
 
-We don't need to schedule the wakeup tasklet on *every* unlock; only if we
-actually blocked the channel in the first place.
+The pppoatm does not check if used vcc is in connected state,
+causing an Oops in pppoatm_send() when vcc->send() is called
+on not fully connected socket.
 
+Now pppoatm can be assigned only on connected sockets; otherwise
+-EINVAL error is returned.
+
+Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
+Cc: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
-Acked-by: Krzysztof Mazur <krzysiek@podlesie.net>
 ---
- net/atm/pppoatm.c | 21 +++++++++++++++++++--
- 1 file changed, 19 insertions(+), 2 deletions(-)
+ net/atm/pppoatm.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/net/atm/pppoatm.c b/net/atm/pppoatm.c
-index 9fcda8c..8c93267 100644
+index 226dca9..f27a07a 100644
 --- a/net/atm/pppoatm.c
 +++ b/net/atm/pppoatm.c
-@@ -113,7 +113,17 @@ static void pppoatm_release_cb(struct atm_vcc *atmvcc)
- {
- 	struct pppoatm_vcc *pvcc = atmvcc_to_pvcc(atmvcc);
- 
--	tasklet_schedule(&pvcc->wakeup_tasklet);
-+	/*
-+	 * As in pppoatm_pop(), it's safe to clear the BLOCKED bit here because
-+	 * the wakeup *can't* race with pppoatm_send(). They both hold the PPP
-+	 * channel's ->downl lock. And the potential race with *setting* it,
-+	 * which leads to the double-check dance in pppoatm_may_send(), doesn't
-+	 * exist here. In the sock_owned_by_user() case in pppoatm_send(), we
-+	 * set the BLOCKED bit while the socket is still locked. We know that
-+	 * ->release_cb() can't be called until that's done.
-+	 */
-+	if (test_and_clear_bit(BLOCKED, &pvcc->blocked))
-+		tasklet_schedule(&pvcc->wakeup_tasklet);
- 	if (pvcc->old_release_cb)
- 		pvcc->old_release_cb(atmvcc);
- }
-@@ -292,8 +302,15 @@ static int pppoatm_send(struct ppp_channel *chan, struct sk_buff *skb)
- 
- 	vcc = ATM_SKB(skb)->vcc;
- 	bh_lock_sock(sk_atm(vcc));
--	if (sock_owned_by_user(sk_atm(vcc)))
-+	if (sock_owned_by_user(sk_atm(vcc))) {
-+		/*
-+		 * Needs to happen (and be flushed, hence test_and_) before we unlock
-+		 * the socket. It needs to be seen by the time our ->release_cb gets
-+		 * called.
-+		 */
-+		test_and_set_bit(BLOCKED, &pvcc->blocked);
- 		goto nospace;
-+	}
- 	if (test_bit(ATM_VF_RELEASED, &vcc->flags) ||
- 	    test_bit(ATM_VF_CLOSE, &vcc->flags) ||
- 	    !test_bit(ATM_VF_READY, &vcc->flags)) {
+@@ -406,6 +406,8 @@ static int pppoatm_ioctl(struct socket *sock, unsigned int cmd,
+ 			return -ENOIOCTLCMD;
+ 		if (!capable(CAP_NET_ADMIN))
+ 			return -EPERM;
++		if (sock->state != SS_CONNECTED)
++			return -EINVAL;
+ 		return pppoatm_assign_vcc(atmvcc, argp);
+ 		}
+ 	case PPPIOCGCHAN:
 -- 
 1.8.0
