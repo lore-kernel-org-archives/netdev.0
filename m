@@ -1,43 +1,48 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH V2 8/9] net: frag queue locking per hash bucket
-Date: Fri, 30 Nov 2012 13:55:32 +0100
-Message-ID: <1354280132.11754.435.camel@localhost>
-References: <20121129161019.17754.29670.stgit@dragon>
-	 <20121129161512.17754.93933.stgit@dragon>
-	 <1354208920.14302.1907.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9804 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751036Ab2K3M4y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2012 07:56:54 -0500
-In-Reply-To: <1354208920.14302.1907.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH] [trivial] wireless: mwifiex: Fix typo in wireless/mwifiex driver
+Date: Fri, 30 Nov 2012 22:08:31 +0900
+Message-ID: <1354280911-4866-1-git-send-email-standby24x7@gmail.com>
+Cc: Masanari Iida <standby24x7@gmail.com>
+To: bzhao@marvell.com, linux-wireless@vger.kernel.org,
+	trivial@kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-11-29 at 09:08 -0800, Eric Dumazet wrote:
+Correct spelling typo in wireless/mwifiex driver.
 
-> So we still have this huge contention on the reader-writer lock cache
-> line...
-> I would just remove it. (And remove hash rebuild, or make it RCU
-> compatible )
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
+---
+ drivers/net/wireless/mwifiex/sta_ioctl.c | 2 +-
+ drivers/net/wireless/mwifiex/usb.c       | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-I vote for removing the rebuild feature.  It really doesn't make sense
-to protect a 256Kb memory (using) hash, with very short lived elements,
-against hash collision attacks, every 10 minutes. (Especially as we saw
-a 7 GBit/s performance improvement)
-
-Making the hash RCU "compatible" is not going to work, because the
-elements are too short lived, thus we cannot free them fast enough
-(call_rcu stuff). (I actually did the RCU implementation, to realize
-this...)
+diff --git a/drivers/net/wireless/mwifiex/sta_ioctl.c b/drivers/net/wireless/mwifiex/sta_ioctl.c
+index 552d72e..21035e6 100644
+--- a/drivers/net/wireless/mwifiex/sta_ioctl.c
++++ b/drivers/net/wireless/mwifiex/sta_ioctl.c
+@@ -463,7 +463,7 @@ int mwifiex_enable_hs(struct mwifiex_adapter *adapter)
+ 	}
+ 
+ 	if (adapter->hs_activated) {
+-		dev_dbg(adapter->dev, "cmd: HS Already actived\n");
++		dev_dbg(adapter->dev, "cmd: HS Already activated\n");
+ 		return true;
+ 	}
+ 
+diff --git a/drivers/net/wireless/mwifiex/usb.c b/drivers/net/wireless/mwifiex/usb.c
+index 22a5916..5eb3b33 100644
+--- a/drivers/net/wireless/mwifiex/usb.c
++++ b/drivers/net/wireless/mwifiex/usb.c
+@@ -351,7 +351,7 @@ static int mwifiex_usb_probe(struct usb_interface *intf,
+ 	card->udev = udev;
+ 	card->intf = intf;
+ 
+-	pr_debug("info: bcdUSB=%#x Device Class=%#x SubClass=%#x Protocl=%#x\n",
++	pr_debug("info: bcdUSB=%#x Device Class=%#x SubClass=%#x Protocol=%#x\n",
+ 		 udev->descriptor.bcdUSB, udev->descriptor.bDeviceClass,
+ 		 udev->descriptor.bDeviceSubClass,
+ 		 udev->descriptor.bDeviceProtocol);
+-- 
+1.8.0.1.347.gf94c325
