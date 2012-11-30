@@ -1,46 +1,53 @@
-From: Max Krasnyansky <maxk@qti.qualcomm.com>
-Subject: Re: [PATCH] MAINTAINERS: fix bouncing tun/tap entries
-Date: Fri, 30 Nov 2012 10:52:43 -0800
-Message-ID: <50B9007B.4070508@qti.qualcomm.com>
-References: <1354295140-6355-1-git-send-email-jslaby@suse.cz> <20121130.122813.1136966656907114890.davem@davemloft.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next,
+ 1/1] hyperv: Add an error message to rndis_filter_set_device_mac()
+Date: Fri, 30 Nov 2012 11:23:41 -0800
+Message-ID: <1354303421-26149-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <jslaby@suse.cz>, <netdev@vger.kernel.org>, <jirislaby@gmail.com>,
-	<linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121130.122813.1136966656907114890.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: olaf@aepfle.de, jasowang@redhat.com, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: "devel" <devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-On 11/30/2012 09:28 AM, David Miller wrote:
-> From: Jiri Slaby <jslaby@suse.cz>
-> Date: Fri, 30 Nov 2012 18:05:40 +0100
-> 
->> Delivery to the following recipient failed permanently:
->>
->>      vtun@office.satix.net
->>
->> Technical details of permanent failure:
->> DNS Error: Domain name not found
->>
->> Of course:
->> $ host office.satix.net
->> Host office.satix.net not found: 3(NXDOMAIN)
->>
->> ===========
->>
->> And "Change of Email Address Notification":
->> Old Address        New Address           Email Subject
->> ------------------------------------------------------
->> maxk@qualcomm.com  maxk@qti.qualcomm.com "tuntap: multiqueue...
->>
->> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-> 
-> Applied.
-> 
+This message indicates an error returned from the host when changing MAC address.
 
-Thanks for fixing that guys.
+Reported-by: Michal Kubecek <mkubecek@suse.com>
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Max
+---
+ drivers/net/hyperv/rndis_filter.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 7fdeb52..2b657d4 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -605,8 +605,11 @@ int rndis_filter_set_device_mac(struct hv_device *hdev, char *mac)
+ 		return -EBUSY;
+ 	} else {
+ 		set_complete = &request->response_msg.msg.set_complete;
+-		if (set_complete->status != RNDIS_STATUS_SUCCESS)
++		if (set_complete->status != RNDIS_STATUS_SUCCESS) {
++			netdev_err(ndev, "Fail to set MAC on host side:0x%x\n",
++				   set_complete->status);
+ 			ret = -EINVAL;
++		}
+ 	}
+ 
+ cleanup:
+-- 
+1.7.4.1
