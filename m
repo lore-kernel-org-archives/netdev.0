@@ -1,216 +1,1009 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Fri, 30 Nov 2012 12:10:15 +0000
-Message-ID: <1354277415.21562.284.camel@shinybook.infradead.org>
-References: <201211300138.qAU1c8sE003388@thirdoffive.cmf.nrl.navy.mil>
-	 <1354240620.21562.256.camel@shinybook.infradead.org>
-	 <1354263922.21562.270.camel@shinybook.infradead.org>
-	 <20121130095354.GA15126@shrek.podlesie.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-eq2tmYlSAM52jHJFiK03"
-Cc: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>,
-	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nathan@traverse.com.au
-To: Krzysztof Mazur <krzysiek@podlesie.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121130095354.GA15126@shrek.podlesie.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH V2 1/5] cxgb4: Add T4 filter support
+Date: Fri, 30 Nov 2012 17:39:28 +0530
+Message-ID: <1354277370-8727-1-git-send-email-vipul@chelsio.com>
+Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
+	abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+The T4 architecture is capable of filtering ingress packets at line rate
+using the rule in TCAM. If packet hits a rule in the TCAM then it can be either
+dropped or passed to the receive queues based on a rule settings.
 
---=-eq2tmYlSAM52jHJFiK03
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This patch adds framework for managing filters and to use T4's filter
+capabilities. It constructs a Firmware Filter Work Request which writes the
+filter at a specified index to get the work done. It hosts shadow copy of
+ingress filter entry to check field size limitations and save memory in the
+case where the filter table is large.
 
-On Fri, 2012-11-30 at 10:53 +0100, Krzysztof Mazur wrote:
-> On Fri, Nov 30, 2012 at 08:25:22AM +0000, David Woodhouse wrote:
-> > On Fri, 2012-11-30 at 01:57 +0000, David Woodhouse wrote:
-> > > I think it's actually fixed for pppoatm by the bh_lock_sock() and the
-> > > sock_owned_by_user() check. As soon as vcc_release() calls lock_sock(=
-),
-> > > pppoatm stops accepting packets.
-> > >=20
-> > > It should be simple enough to do the same in br2684.
-> >=20
-> > Um... but now I come to look at it... Krzysztof, doesn't your 'pppoatm:
-> > take ATM socket lock in pppoatm_send()' patch actually *break* the case
-> > of sending via vcc_sendmsg()?
->=20
-> no,=20
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+---
+V2: Changed commenting style from kernel-doc format('/**') to normal
 
-... oops, sorry. My sleep-deprived brain thought that we were calling
-pppoatm_send() *from* vcc_sendmsg() with the lock held. But of course
-we're not; we're calling directly into the driver. So that's OK.
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  134 ++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  301 ++++++++++++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    2 +
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c        |   33 +++
+ drivers/net/ethernet/chelsio/cxgb4/l2t.h        |    3 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   23 ++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |    1 +
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  279 +++++++++++++++++++++
+ 8 files changed, 770 insertions(+), 6 deletions(-)
 
-In that case I think we're fine. I'll just do the same thing in
-br2684_push(), fix up the comment you just corrected, and we're all
-good.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 378988b..b6403d1 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -545,6 +545,132 @@ struct adapter {
+ 	spinlock_t stats_lock;
+ };
+ 
++/*
++ * Defined bit width of user definable filter tuples
++ */
++#define ETHTYPE_BITWIDTH 16
++#define FRAG_BITWIDTH 1
++#define MACIDX_BITWIDTH 9
++#define FCOE_BITWIDTH 1
++#define IPORT_BITWIDTH 3
++#define MATCHTYPE_BITWIDTH 3
++#define PROTO_BITWIDTH 8
++#define TOS_BITWIDTH 8
++#define PF_BITWIDTH 8
++#define VF_BITWIDTH 8
++#define IVLAN_BITWIDTH 16
++#define OVLAN_BITWIDTH 16
++
++/* Filter matching rules.  These consist of a set of ingress packet field
++ * (value, mask) tuples.  The associated ingress packet field matches the
++ * tuple when ((field & mask) == value).  (Thus a wildcard "don't care" field
++ * rule can be constructed by specifying a tuple of (0, 0).)  A filter rule
++ * matches an ingress packet when all of the individual individual field
++ * matching rules are true.
++ *
++ * Partial field masks are always valid, however, while it may be easy to
++ * understand their meanings for some fields (e.g. IP address to match a
++ * subnet), for others making sensible partial masks is less intuitive (e.g.
++ * MPS match type) ...
++ *
++ * Most of the following data structures are modeled on T4 capabilities.
++ * Drivers for earlier chips use the subsets which make sense for those chips.
++ * We really need to come up with a hardware-independent mechanism to
++ * represent hardware filter capabilities ...
++ */
++struct ch_filter_tuple {
++	/*
++	 * Compressed header matching field rules.  The TP_VLAN_PRI_MAP
++	 * register selects which of these fields will participate in the
++	 * filter match rules -- up to a maximum of 36 bits.  Because
++	 * TP_VLAN_PRI_MAP is a global register, all filters must use the same
++	 * set of fields.
++	 */
++	uint32_t ethtype:ETHTYPE_BITWIDTH;      /* Ethernet type */
++	uint32_t frag:FRAG_BITWIDTH;            /* IP fragmentation header */
++	uint32_t ivlan_vld:1;                   /* inner VLAN valid */
++	uint32_t ovlan_vld:1;                   /* outer VLAN valid */
++	uint32_t pfvf_vld:1;                    /* PF/VF valid */
++	uint32_t macidx:MACIDX_BITWIDTH;        /* exact match MAC index */
++	uint32_t fcoe:FCOE_BITWIDTH;            /* FCoE packet */
++	uint32_t iport:IPORT_BITWIDTH;          /* ingress port */
++	uint32_t matchtype:MATCHTYPE_BITWIDTH;  /* MPS match type */
++	uint32_t proto:PROTO_BITWIDTH;          /* protocol type */
++	uint32_t tos:TOS_BITWIDTH;              /* TOS/Traffic Type */
++	uint32_t pf:PF_BITWIDTH;                /* PCI-E PF ID */
++	uint32_t vf:VF_BITWIDTH;                /* PCI-E VF ID */
++	uint32_t ivlan:IVLAN_BITWIDTH;          /* inner VLAN */
++	uint32_t ovlan:OVLAN_BITWIDTH;          /* outer VLAN */
++
++	/* Uncompressed header matching field rules.  These are always
++	 * available for field rules.
++	 */
++	uint8_t lip[16];        /* local IP address (IPv4 in [3:0]) */
++	uint8_t fip[16];        /* foreign IP address (IPv4 in [3:0]) */
++	uint16_t lport;         /* local port */
++	uint16_t fport;         /* foreign port */
++};
++
++/* A filter ioctl command.
++ */
++struct ch_filter_specification {
++	/*
++	 * Administrative fields for filter.
++	 */
++	uint32_t hitcnts:1;     /* count filter hits in TCB */
++	uint32_t prio:1;        /* filter has priority over active/server */
++
++	/* Fundamental filter typing.  This is the one element of filter
++	 * matching that doesn't exist as a (value, mask) tuple.
++	 */
++	uint32_t type:1;        /* 0 => IPv4, 1 => IPv6 */
++
++	/* Packet dispatch information.  Ingress packets which match the
++	 * filter rules will be dropped, passed to the host or switched back
++	 * out as egress packets.
++	 */
++	uint32_t action:2;      /* drop, pass, switch */
++
++	uint32_t rpttid:1;      /* report TID in RSS hash field */
++
++	uint32_t dirsteer:1;    /* 0 => RSS, 1 => steer to iq */
++	uint32_t iq:10;         /* ingress queue */
++
++	uint32_t maskhash:1;    /* dirsteer=0: store RSS hash in TCB */
++	uint32_t dirsteerhash:1;/* dirsteer=1: 0 => TCB contains RSS hash */
++				/*             1 => TCB contains IQ ID */
++
++	/* Switch proxy/rewrite fields.  An ingress packet which matches a
++	 * filter with "switch" set will be looped back out as an egress
++	 * packet -- potentially with some Ethernet header rewriting.
++	 */
++	uint32_t eport:2;       /* egress port to switch packet out */
++	uint32_t newdmac:1;     /* rewrite destination MAC address */
++	uint32_t newsmac:1;     /* rewrite source MAC address */
++	uint32_t newvlan:2;     /* rewrite VLAN Tag */
++	uint8_t dmac[ETH_ALEN]; /* new destination MAC address */
++	uint8_t smac[ETH_ALEN]; /* new source MAC address */
++	uint16_t vlan;          /* VLAN Tag to insert */
++
++	/* Filter rule value/mask pairs.
++	 */
++	struct ch_filter_tuple val;
++	struct ch_filter_tuple mask;
++};
++
++enum {
++	FILTER_PASS = 0,        /* default */
++	FILTER_DROP,
++	FILTER_SWITCH
++};
++
++enum {
++	VLAN_NOCHANGE = 0,      /* default */
++	VLAN_REMOVE,
++	VLAN_INSERT,
++	VLAN_REWRITE
++};
++
+ static inline u32 t4_read_reg(struct adapter *adap, u32 reg_addr)
+ {
+ 	return readl(adap->regs + reg_addr);
+@@ -701,6 +827,12 @@ static inline int t4_wr_mbox_ns(struct adapter *adap, int mbox, const void *cmd,
+ void t4_write_indirect(struct adapter *adap, unsigned int addr_reg,
+ 		       unsigned int data_reg, const u32 *vals,
+ 		       unsigned int nregs, unsigned int start_idx);
++void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
++		      unsigned int data_reg, u32 *vals, unsigned int nregs,
++		      unsigned int start_idx);
++
++struct fw_filter_wr;
++
+ void t4_intr_enable(struct adapter *adapter);
+ void t4_intr_disable(struct adapter *adapter);
+ int t4_slow_intr_handler(struct adapter *adapter);
+@@ -737,6 +869,8 @@ void t4_tp_get_tcp_stats(struct adapter *adap, struct tp_tcp_stats *v4,
+ void t4_load_mtus(struct adapter *adap, const unsigned short *mtus,
+ 		  const unsigned short *alpha, const unsigned short *beta);
+ 
++void t4_mk_filtdelwr(unsigned int ftid, struct fw_filter_wr *wr, int qid);
++
+ void t4_wol_magic_enable(struct adapter *adap, unsigned int port,
+ 			 const u8 *addr);
+ int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 0df1284..a678287 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -175,6 +175,32 @@ enum {
+ 	MIN_FL_ENTRIES       = 16
+ };
+ 
++/*
++ * Host shadow copy of ingress filter entry.  This is in host native format
++ * and doesn't match the ordering or bit order, etc. of the hardware of the
++ * firmware command.  The use of bit-field structure elements is purely to
++ * remind ourselves of the field size limitations and save memory in the case
++ * where the filter table is large.
++ */
++struct filter_entry {
++	/*
++	 * Administrative fields for filter.
++	 */
++	u32 valid:1;            /* filter allocated and valid */
++	u32 locked:1;           /* filter is administratively locked */
++
++	u32 pending:1;          /* filter action is pending firmware reply */
++	u32 smtidx:8;           /* Source MAC Table index for smac */
++	struct l2t_entry *l2t;  /* Layer Two Table entry for dmac */
++
++	/* The filter itself.  Most of this is a straight copy of information
++	 * provided by the extended ioctl().  Some fields are translated to
++	 * internal forms -- for instance the Ingress Queue ID passed in from
++	 * the ioctl() is translated into the Absolute Ingress Queue ID.
++	 */
++	struct ch_filter_specification fs;
++};
++
+ #define DFLT_MSG_ENABLE (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK | \
+ 			 NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |\
+ 			 NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
+@@ -325,6 +351,9 @@ enum {
+ 
+ static unsigned int tp_vlan_pri_map = TP_VLAN_PRI_MAP_DEFAULT;
+ 
++module_param(tp_vlan_pri_map, uint, 0644);
++MODULE_PARM_DESC(tp_vlan_pri_map, "global compressed filter configuration");
++
+ static struct dentry *cxgb4_debugfs_root;
+ 
+ static LIST_HEAD(adapter_list);
+@@ -507,7 +536,70 @@ static int link_start(struct net_device *dev)
+ }
+ 
+ /*
+- * Response queue handler for the FW event queue.
++ * Clear a filter and release any of its resources that we own.  This also
++ * clears the filter's "pending" status.
++ */
++static void clear_filter(struct adapter *adap, struct filter_entry *f)
++{
++	/*
++	 * If the new or old filter have loopback rewriteing rules then we'll
++	 * need to free any existing Layer Two Table (L2T) entries of the old
++	 * filter rule.  The firmware will handle freeing up any Source MAC
++	 * Table (SMT) entries used for rewriting Source MAC Addresses in
++	 * loopback rules.
++	 */
++	if (f->l2t)
++		cxgb4_l2t_release(f->l2t);
++
++	/* The zeroing of the filter rule below clears the filter valid,
++	 * pending, locked flags, l2t pointer, etc. so it's all we need for
++	 * this operation.
++	 */
++	memset(f, 0, sizeof(*f));
++}
++
++/* Handle a filter write/deletion reply.
++ */
++static void filter_rpl(struct adapter *adap, const struct cpl_set_tcb_rpl *rpl)
++{
++	unsigned int idx = GET_TID(rpl);
++	unsigned int nidx = idx - adap->tids.ftid_base;
++	unsigned int ret;
++	struct filter_entry *f;
++
++	if (idx >= adap->tids.ftid_base && nidx <
++	   (adap->tids.nftids + adap->tids.nsftids)) {
++		idx = nidx;
++		ret = GET_TCB_COOKIE(rpl->cookie);
++		f = &adap->tids.ftid_tab[idx];
++
++		if (ret == FW_FILTER_WR_FLT_DELETED) {
++			/*
++			 * Clear the filter when we get confirmation from the
++			 * hardware that the filter has been deleted.
++			 */
++			clear_filter(adap, f);
++		} else if (ret == FW_FILTER_WR_SMT_TBL_FULL) {
++			dev_err(adap->pdev_dev, "filter %u setup failed due to full SMT\n",
++				idx);
++			clear_filter(adap, f);
++		} else if (ret == FW_FILTER_WR_FLT_ADDED) {
++			f->smtidx = (be64_to_cpu(rpl->oldval) >> 24) & 0xff;
++			f->pending = 0;  /* asynchronous setup completed */
++			f->valid = 1;
++		} else {
++			/*
++			 * Something went wrong.  Issue a warning about the
++			 * problem and clear everything out.
++			 */
++			dev_err(adap->pdev_dev, "filter %u setup failed with error %u\n",
++				idx, ret);
++			clear_filter(adap, f);
++		}
++	}
++}
++
++/* Response queue handler for the FW event queue.
+  */
+ static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
+ 			  const struct pkt_gl *gl)
+@@ -542,6 +634,10 @@ static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
+ 		const struct cpl_l2t_write_rpl *p = (void *)rsp;
+ 
+ 		do_l2t_write_rpl(q->adap, p);
++	} else if (opcode == CPL_SET_TCB_RPL) {
++		const struct cpl_set_tcb_rpl *p = (void *)rsp;
++
++		filter_rpl(q->adap, p);
+ 	} else
+ 		dev_err(q->adap->pdev_dev,
+ 			"unexpected CPL %#x on FW event queue\n", opcode);
+@@ -983,6 +1079,149 @@ static void t4_free_mem(void *addr)
+ 		kfree(addr);
+ }
+ 
++/*
++ * Send a Work Request to write the filter at a specified index.  We construct
++ * a Firmware Filter Work Request to have the work done and put the indicated
++ * filter into "pending" mode which will prevent any further actions against
++ * it till we get a reply from the firmware on the completion status of the
++ * request.
++ */
++static int set_filter_wr(struct adapter *adapter, int fidx)
++{
++	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
++	struct sk_buff *skb;
++	struct fw_filter_wr *fwr;
++	unsigned int ftid;
++
++	/* If the new filter requires loopback Destination MAC and/or VLAN
++	 * rewriting then we need to allocate a Layer 2 Table (L2T) entry for
++	 * the filter.
++	 */
++	if (f->fs.newdmac || f->fs.newvlan) {
++		/* allocate L2T entry for new filter */
++		f->l2t = t4_l2t_alloc_switching(adapter->l2t);
++		if (f->l2t == NULL)
++			return -EAGAIN;
++		if (t4_l2t_set_switching(adapter, f->l2t, f->fs.vlan,
++					f->fs.eport, f->fs.dmac)) {
++			cxgb4_l2t_release(f->l2t);
++			f->l2t = NULL;
++			return -ENOMEM;
++		}
++	}
++
++	ftid = adapter->tids.ftid_base + fidx;
++
++	skb = alloc_skb(sizeof(*fwr), GFP_KERNEL | __GFP_NOFAIL);
++	fwr = (struct fw_filter_wr *)__skb_put(skb, sizeof(*fwr));
++	memset(fwr, 0, sizeof(*fwr));
++
++	/* It would be nice to put most of the following in t4_hw.c but most
++	 * of the work is translating the cxgbtool ch_filter_specification
++	 * into the Work Request and the definition of that structure is
++	 * currently in cxgbtool.h which isn't appropriate to pull into the
++	 * common code.  We may eventually try to come up with a more neutral
++	 * filter specification structure but for now it's easiest to simply
++	 * put this fairly direct code in line ...
++	 */
++	fwr->op_pkd = htonl(FW_WR_OP(FW_FILTER_WR));
++	fwr->len16_pkd = htonl(FW_WR_LEN16(sizeof(*fwr)/16));
++	fwr->tid_to_iq =
++		htonl(V_FW_FILTER_WR_TID(ftid) |
++		      V_FW_FILTER_WR_RQTYPE(f->fs.type) |
++		      V_FW_FILTER_WR_NOREPLY(0) |
++		      V_FW_FILTER_WR_IQ(f->fs.iq));
++	fwr->del_filter_to_l2tix =
++		htonl(V_FW_FILTER_WR_RPTTID(f->fs.rpttid) |
++		      V_FW_FILTER_WR_DROP(f->fs.action == FILTER_DROP) |
++		      V_FW_FILTER_WR_DIRSTEER(f->fs.dirsteer) |
++		      V_FW_FILTER_WR_MASKHASH(f->fs.maskhash) |
++		      V_FW_FILTER_WR_DIRSTEERHASH(f->fs.dirsteerhash) |
++		      V_FW_FILTER_WR_LPBK(f->fs.action == FILTER_SWITCH) |
++		      V_FW_FILTER_WR_DMAC(f->fs.newdmac) |
++		      V_FW_FILTER_WR_SMAC(f->fs.newsmac) |
++		      V_FW_FILTER_WR_INSVLAN(f->fs.newvlan == VLAN_INSERT ||
++					     f->fs.newvlan == VLAN_REWRITE) |
++		      V_FW_FILTER_WR_RMVLAN(f->fs.newvlan == VLAN_REMOVE ||
++					    f->fs.newvlan == VLAN_REWRITE) |
++		      V_FW_FILTER_WR_HITCNTS(f->fs.hitcnts) |
++		      V_FW_FILTER_WR_TXCHAN(f->fs.eport) |
++		      V_FW_FILTER_WR_PRIO(f->fs.prio) |
++		      V_FW_FILTER_WR_L2TIX(f->l2t ? f->l2t->idx : 0));
++	fwr->ethtype = htons(f->fs.val.ethtype);
++	fwr->ethtypem = htons(f->fs.mask.ethtype);
++	fwr->frag_to_ovlan_vldm =
++		(V_FW_FILTER_WR_FRAG(f->fs.val.frag) |
++		 V_FW_FILTER_WR_FRAGM(f->fs.mask.frag) |
++		 V_FW_FILTER_WR_IVLAN_VLD(f->fs.val.ivlan_vld) |
++		 V_FW_FILTER_WR_OVLAN_VLD(f->fs.val.ovlan_vld) |
++		 V_FW_FILTER_WR_IVLAN_VLDM(f->fs.mask.ivlan_vld) |
++		 V_FW_FILTER_WR_OVLAN_VLDM(f->fs.mask.ovlan_vld));
++	fwr->smac_sel = 0;
++	fwr->rx_chan_rx_rpl_iq =
++		htons(V_FW_FILTER_WR_RX_CHAN(0) |
++		      V_FW_FILTER_WR_RX_RPL_IQ(adapter->sge.fw_evtq.abs_id));
++	fwr->maci_to_matchtypem =
++		htonl(V_FW_FILTER_WR_MACI(f->fs.val.macidx) |
++		      V_FW_FILTER_WR_MACIM(f->fs.mask.macidx) |
++		      V_FW_FILTER_WR_FCOE(f->fs.val.fcoe) |
++		      V_FW_FILTER_WR_FCOEM(f->fs.mask.fcoe) |
++		      V_FW_FILTER_WR_PORT(f->fs.val.iport) |
++		      V_FW_FILTER_WR_PORTM(f->fs.mask.iport) |
++		      V_FW_FILTER_WR_MATCHTYPE(f->fs.val.matchtype) |
++		      V_FW_FILTER_WR_MATCHTYPEM(f->fs.mask.matchtype));
++	fwr->ptcl = f->fs.val.proto;
++	fwr->ptclm = f->fs.mask.proto;
++	fwr->ttyp = f->fs.val.tos;
++	fwr->ttypm = f->fs.mask.tos;
++	fwr->ivlan = htons(f->fs.val.ivlan);
++	fwr->ivlanm = htons(f->fs.mask.ivlan);
++	fwr->ovlan = htons(f->fs.val.ovlan);
++	fwr->ovlanm = htons(f->fs.mask.ovlan);
++	memcpy(fwr->lip, f->fs.val.lip, sizeof(fwr->lip));
++	memcpy(fwr->lipm, f->fs.mask.lip, sizeof(fwr->lipm));
++	memcpy(fwr->fip, f->fs.val.fip, sizeof(fwr->fip));
++	memcpy(fwr->fipm, f->fs.mask.fip, sizeof(fwr->fipm));
++	fwr->lp = htons(f->fs.val.lport);
++	fwr->lpm = htons(f->fs.mask.lport);
++	fwr->fp = htons(f->fs.val.fport);
++	fwr->fpm = htons(f->fs.mask.fport);
++	if (f->fs.newsmac)
++		memcpy(fwr->sma, f->fs.smac, sizeof(fwr->sma));
++
++	/* Mark the filter as "pending" and ship off the Filter Work Request.
++	 * When we get the Work Request Reply we'll clear the pending status.
++	 */
++	f->pending = 1;
++	set_wr_txq(skb, CPL_PRIORITY_CONTROL, f->fs.val.iport & 0x3);
++	t4_ofld_send(adapter, skb);
++	return 0;
++}
++
++/* Delete the filter at a specified index.
++ */
++static int del_filter_wr(struct adapter *adapter, int fidx)
++{
++	struct filter_entry *f = &adapter->tids.ftid_tab[fidx];
++	struct sk_buff *skb;
++	struct fw_filter_wr *fwr;
++	unsigned int len, ftid;
++
++	len = sizeof(*fwr);
++	ftid = adapter->tids.ftid_base + fidx;
++
++	skb = alloc_skb(len, GFP_KERNEL | __GFP_NOFAIL);
++	fwr = (struct fw_filter_wr *)__skb_put(skb, len);
++	t4_mk_filtdelwr(ftid, fwr, adapter->sge.fw_evtq.abs_id);
++
++	/* Mark the filter as "pending" and ship off the Filter Work Request.
++	 * When we get the Work Request Reply we'll clear the pending status.
++	 */
++	f->pending = 1;
++	t4_mgmt_tx(adapter, skb);
++	return 0;
++}
++
+ static inline int is_offload(const struct adapter *adap)
+ {
+ 	return adap->params.offload;
+@@ -2195,7 +2434,7 @@ int cxgb4_alloc_atid(struct tid_info *t, void *data)
+ 	if (t->afree) {
+ 		union aopen_entry *p = t->afree;
+ 
+-		atid = p - t->atid_tab;
++		atid = (p - t->atid_tab) + t->atid_base;
+ 		t->afree = p->next;
+ 		p->data = data;
+ 		t->atids_in_use++;
+@@ -2210,7 +2449,7 @@ EXPORT_SYMBOL(cxgb4_alloc_atid);
+  */
+ void cxgb4_free_atid(struct tid_info *t, unsigned int atid)
+ {
+-	union aopen_entry *p = &t->atid_tab[atid];
++	union aopen_entry *p = &t->atid_tab[atid - t->atid_base];
+ 
+ 	spin_lock_bh(&t->atid_lock);
+ 	p->next = t->afree;
+@@ -2362,11 +2601,16 @@ EXPORT_SYMBOL(cxgb4_remove_tid);
+ static int tid_init(struct tid_info *t)
+ {
+ 	size_t size;
++	unsigned int stid_bmap_size;
+ 	unsigned int natids = t->natids;
+ 
+-	size = t->ntids * sizeof(*t->tid_tab) + natids * sizeof(*t->atid_tab) +
++	stid_bmap_size = BITS_TO_LONGS(t->nstids);
++	size = t->ntids * sizeof(*t->tid_tab) +
++	       natids * sizeof(*t->atid_tab) +
+ 	       t->nstids * sizeof(*t->stid_tab) +
+-	       BITS_TO_LONGS(t->nstids) * sizeof(long);
++	       stid_bmap_size * sizeof(long) +
++	       t->nftids * sizeof(*t->ftid_tab);
++
+ 	t->tid_tab = t4_alloc_mem(size);
+ 	if (!t->tid_tab)
+ 		return -ENOMEM;
+@@ -2374,6 +2618,7 @@ static int tid_init(struct tid_info *t)
+ 	t->atid_tab = (union aopen_entry *)&t->tid_tab[t->ntids];
+ 	t->stid_tab = (struct serv_entry *)&t->atid_tab[natids];
+ 	t->stid_bmap = (unsigned long *)&t->stid_tab[t->nstids];
++	t->ftid_tab = (struct filter_entry *)&t->stid_bmap[stid_bmap_size];
+ 	spin_lock_init(&t->stid_lock);
+ 	spin_lock_init(&t->atid_lock);
+ 
+@@ -2999,6 +3244,41 @@ static int cxgb_close(struct net_device *dev)
+ 	return t4_enable_vi(adapter, adapter->fn, pi->viid, false, false);
+ }
+ 
++/*
++ * Return an error number if the indicated filter isn't writable ...
++ */
++static int writable_filter(struct filter_entry *f)
++{
++	if (f->locked)
++		return -EPERM;
++	if (f->pending)
++		return -EBUSY;
++
++	return 0;
++}
++
++/* Delete the filter at the specified index (if valid).  The checks for all
++ * the common problems with doing this like the filter being locked, currently
++ * pending in another operation, etc.
++ */
++static int delete_filter(struct adapter *adapter, unsigned int fidx)
++{
++	struct filter_entry *f;
++	int ret;
++
++	if (fidx >= adapter->tids.nftids)
++		return -EINVAL;
++
++	f = &adapter->tids.ftid_tab[fidx];
++	ret = writable_filter(f);
++	if (ret)
++		return ret;
++	if (f->valid)
++		return del_filter_wr(adapter, fidx);
++
++	return 0;
++}
++
+ static struct rtnl_link_stats64 *cxgb_get_stats(struct net_device *dev,
+ 						struct rtnl_link_stats64 *ns)
+ {
+@@ -4662,6 +4942,17 @@ static void __devexit remove_one(struct pci_dev *pdev)
+ 		if (adapter->debugfs_root)
+ 			debugfs_remove_recursive(adapter->debugfs_root);
+ 
++		/*
++		 * If we allocated filters, free up state associated with any
++		 * valid filters ...
++		 */
++		if (adapter->tids.ftid_tab) {
++			struct filter_entry *f = &adapter->tids.ftid_tab[0];
++			for (i = 0; i < adapter->tids.nftids; i++, f++)
++				if (f->valid)
++					clear_filter(adapter, f);
++		}
++
+ 		if (adapter->flags & FULL_INIT_DONE)
+ 			cxgb_down(adapter);
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index 39bec73..59a6133 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -97,7 +97,9 @@ struct tid_info {
+ 
+ 	union aopen_entry *atid_tab;
+ 	unsigned int natids;
++	unsigned int atid_base;
+ 
++	struct filter_entry *ftid_tab;
+ 	unsigned int nftids;
+ 	unsigned int ftid_base;
+ 	unsigned int aftid_base;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+index 6ac77a6..18ca67f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/l2t.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+@@ -484,6 +484,39 @@ void t4_l2t_update(struct adapter *adap, struct neighbour *neigh)
+ 		handle_failed_resolution(adap, arpq);
+ }
+ 
++/*
++ * Allocate an L2T entry for use by a switching rule.  Such need to be
++ * explicitly freed and while busy they are not on any hash chain, so normal
++ * address resolution updates do not see them.
++ */
++struct l2t_entry *t4_l2t_alloc_switching(struct l2t_data *d)
++{
++	struct l2t_entry *e;
++
++	write_lock_bh(&d->lock);
++	e = alloc_l2e(d);
++	if (e) {
++		spin_lock(&e->lock);          /* avoid race with t4_l2t_free */
++		e->state = L2T_STATE_SWITCHING;
++		atomic_set(&e->refcnt, 1);
++		spin_unlock(&e->lock);
++	}
++	write_unlock_bh(&d->lock);
++	return e;
++}
++
++/* Sets/updates the contents of a switching L2T entry that has been allocated
++ * with an earlier call to @t4_l2t_alloc_switching.
++ */
++int t4_l2t_set_switching(struct adapter *adap, struct l2t_entry *e, u16 vlan,
++		u8 port, u8 *eth_addr)
++{
++	e->vlan = vlan;
++	e->lport = port;
++	memcpy(e->dmac, eth_addr, ETH_ALEN);
++	return write_l2e(adap, e, 0);
++}
++
+ struct l2t_data *t4_init_l2t(void)
+ {
+ 	int i;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.h b/drivers/net/ethernet/chelsio/cxgb4/l2t.h
+index 02b31d0..108c0f1 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/l2t.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.h
+@@ -100,6 +100,9 @@ struct l2t_entry *cxgb4_l2t_get(struct l2t_data *d, struct neighbour *neigh,
+ 				unsigned int priority);
+ 
+ void t4_l2t_update(struct adapter *adap, struct neighbour *neigh);
++struct l2t_entry *t4_l2t_alloc_switching(struct l2t_data *d);
++int t4_l2t_set_switching(struct adapter *adap, struct l2t_entry *e, u16 vlan,
++			 u8 port, u8 *eth_addr);
+ struct l2t_data *t4_init_l2t(void);
+ void do_l2t_write_rpl(struct adapter *p, const struct cpl_l2t_write_rpl *rpl);
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 730ae2c..7638181 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -109,7 +109,7 @@ void t4_set_reg_field(struct adapter *adapter, unsigned int addr, u32 mask,
+  *	Reads registers that are accessed indirectly through an address/data
+  *	register pair.
+  */
+-static void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
++void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
+ 			     unsigned int data_reg, u32 *vals,
+ 			     unsigned int nregs, unsigned int start_idx)
+ {
+@@ -2268,6 +2268,27 @@ int t4_wol_pat_enable(struct adapter *adap, unsigned int port, unsigned int map,
+ 	return 0;
+ }
+ 
++/*
++ *     t4_mk_filtdelwr - create a delete filter WR
++ *     @ftid: the filter ID
++ *     @wr: the filter work request to populate
++ *     @qid: ingress queue to receive the delete notification
++ *
++ *     Creates a filter work request to delete the supplied filter.  If @qid is
++ *     negative the delete notification is suppressed.
++ */
++void t4_mk_filtdelwr(unsigned int ftid, struct fw_filter_wr *wr, int qid)
++{
++	memset(wr, 0, sizeof(*wr));
++	wr->op_pkd = htonl(FW_WR_OP(FW_FILTER_WR));
++	wr->len16_pkd = htonl(FW_WR_LEN16(sizeof(*wr) / 16));
++	wr->tid_to_iq = htonl(V_FW_FILTER_WR_TID(ftid) |
++			V_FW_FILTER_WR_NOREPLY(qid < 0));
++	wr->del_filter_to_l2tix = htonl(F_FW_FILTER_WR_DEL_FILTER);
++	if (qid >= 0)
++		wr->rx_chan_rx_rpl_iq = htons(V_FW_FILTER_WR_RX_RPL_IQ(qid));
++}
++
+ #define INIT_CMD(var, cmd, rd_wr) do { \
+ 	(var).op_to_write = htonl(FW_CMD_OP(FW_##cmd##_CMD) | \
+ 				  FW_CMD_REQUEST | FW_CMD_##rd_wr); \
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index eb71b82..480eb43 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -332,6 +332,7 @@ struct cpl_set_tcb_field {
+ 	__be16 word_cookie;
+ #define TCB_WORD(x)   ((x) << 0)
+ #define TCB_COOKIE(x) ((x) << 5)
++#define GET_TCB_COOKIE(x) (((x) >> 5) & 7)
+ 	__be64 mask;
+ 	__be64 val;
+ };
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index a636463..b4dc560 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -35,6 +35,10 @@
+ #ifndef _T4FW_INTERFACE_H_
+ #define _T4FW_INTERFACE_H_
+ 
++enum fw_ret_val {
++	FW_ENOEXEC      = 8,            /* Exec format error; inv microcode */
++};
++
+ #define FW_T4VF_SGE_BASE_ADDR      0x0000
+ #define FW_T4VF_MPS_BASE_ADDR      0x0100
+ #define FW_T4VF_PL_BASE_ADDR       0x0200
+@@ -81,6 +85,281 @@ struct fw_wr_hdr {
+ 
+ #define HW_TPL_FR_MT_PR_IV_P_FC         0X32B
+ 
++/* filter wr reply code in cookie in CPL_SET_TCB_RPL */
++enum fw_filter_wr_cookie {
++	FW_FILTER_WR_SUCCESS,
++	FW_FILTER_WR_FLT_ADDED,
++	FW_FILTER_WR_FLT_DELETED,
++	FW_FILTER_WR_SMT_TBL_FULL,
++	FW_FILTER_WR_EINVAL,
++};
++
++struct fw_filter_wr {
++	__be32 op_pkd;
++	__be32 len16_pkd;
++	__be64 r3;
++	__be32 tid_to_iq;
++	__be32 del_filter_to_l2tix;
++	__be16 ethtype;
++	__be16 ethtypem;
++	__u8   frag_to_ovlan_vldm;
++	__u8   smac_sel;
++	__be16 rx_chan_rx_rpl_iq;
++	__be32 maci_to_matchtypem;
++	__u8   ptcl;
++	__u8   ptclm;
++	__u8   ttyp;
++	__u8   ttypm;
++	__be16 ivlan;
++	__be16 ivlanm;
++	__be16 ovlan;
++	__be16 ovlanm;
++	__u8   lip[16];
++	__u8   lipm[16];
++	__u8   fip[16];
++	__u8   fipm[16];
++	__be16 lp;
++	__be16 lpm;
++	__be16 fp;
++	__be16 fpm;
++	__be16 r7;
++	__u8   sma[6];
++};
++
++#define S_FW_FILTER_WR_TID      12
++#define M_FW_FILTER_WR_TID      0xfffff
++#define V_FW_FILTER_WR_TID(x)   ((x) << S_FW_FILTER_WR_TID)
++#define G_FW_FILTER_WR_TID(x)   \
++	(((x) >> S_FW_FILTER_WR_TID) & M_FW_FILTER_WR_TID)
++
++#define S_FW_FILTER_WR_RQTYPE           11
++#define M_FW_FILTER_WR_RQTYPE           0x1
++#define V_FW_FILTER_WR_RQTYPE(x)        ((x) << S_FW_FILTER_WR_RQTYPE)
++#define G_FW_FILTER_WR_RQTYPE(x)        \
++	(((x) >> S_FW_FILTER_WR_RQTYPE) & M_FW_FILTER_WR_RQTYPE)
++#define F_FW_FILTER_WR_RQTYPE   V_FW_FILTER_WR_RQTYPE(1U)
++
++#define S_FW_FILTER_WR_NOREPLY          10
++#define M_FW_FILTER_WR_NOREPLY          0x1
++#define V_FW_FILTER_WR_NOREPLY(x)       ((x) << S_FW_FILTER_WR_NOREPLY)
++#define G_FW_FILTER_WR_NOREPLY(x)       \
++	(((x) >> S_FW_FILTER_WR_NOREPLY) & M_FW_FILTER_WR_NOREPLY)
++#define F_FW_FILTER_WR_NOREPLY  V_FW_FILTER_WR_NOREPLY(1U)
++
++#define S_FW_FILTER_WR_IQ       0
++#define M_FW_FILTER_WR_IQ       0x3ff
++#define V_FW_FILTER_WR_IQ(x)    ((x) << S_FW_FILTER_WR_IQ)
++#define G_FW_FILTER_WR_IQ(x)    \
++	(((x) >> S_FW_FILTER_WR_IQ) & M_FW_FILTER_WR_IQ)
++
++#define S_FW_FILTER_WR_DEL_FILTER       31
++#define M_FW_FILTER_WR_DEL_FILTER       0x1
++#define V_FW_FILTER_WR_DEL_FILTER(x)    ((x) << S_FW_FILTER_WR_DEL_FILTER)
++#define G_FW_FILTER_WR_DEL_FILTER(x)    \
++	(((x) >> S_FW_FILTER_WR_DEL_FILTER) & M_FW_FILTER_WR_DEL_FILTER)
++#define F_FW_FILTER_WR_DEL_FILTER       V_FW_FILTER_WR_DEL_FILTER(1U)
++
++#define S_FW_FILTER_WR_RPTTID           25
++#define M_FW_FILTER_WR_RPTTID           0x1
++#define V_FW_FILTER_WR_RPTTID(x)        ((x) << S_FW_FILTER_WR_RPTTID)
++#define G_FW_FILTER_WR_RPTTID(x)        \
++	(((x) >> S_FW_FILTER_WR_RPTTID) & M_FW_FILTER_WR_RPTTID)
++#define F_FW_FILTER_WR_RPTTID   V_FW_FILTER_WR_RPTTID(1U)
++
++#define S_FW_FILTER_WR_DROP     24
++#define M_FW_FILTER_WR_DROP     0x1
++#define V_FW_FILTER_WR_DROP(x)  ((x) << S_FW_FILTER_WR_DROP)
++#define G_FW_FILTER_WR_DROP(x)  \
++	(((x) >> S_FW_FILTER_WR_DROP) & M_FW_FILTER_WR_DROP)
++#define F_FW_FILTER_WR_DROP     V_FW_FILTER_WR_DROP(1U)
++
++#define S_FW_FILTER_WR_DIRSTEER         23
++#define M_FW_FILTER_WR_DIRSTEER         0x1
++#define V_FW_FILTER_WR_DIRSTEER(x)      ((x) << S_FW_FILTER_WR_DIRSTEER)
++#define G_FW_FILTER_WR_DIRSTEER(x)      \
++	(((x) >> S_FW_FILTER_WR_DIRSTEER) & M_FW_FILTER_WR_DIRSTEER)
++#define F_FW_FILTER_WR_DIRSTEER V_FW_FILTER_WR_DIRSTEER(1U)
++
++#define S_FW_FILTER_WR_MASKHASH         22
++#define M_FW_FILTER_WR_MASKHASH         0x1
++#define V_FW_FILTER_WR_MASKHASH(x)      ((x) << S_FW_FILTER_WR_MASKHASH)
++#define G_FW_FILTER_WR_MASKHASH(x)      \
++	(((x) >> S_FW_FILTER_WR_MASKHASH) & M_FW_FILTER_WR_MASKHASH)
++#define F_FW_FILTER_WR_MASKHASH V_FW_FILTER_WR_MASKHASH(1U)
++
++#define S_FW_FILTER_WR_DIRSTEERHASH     21
++#define M_FW_FILTER_WR_DIRSTEERHASH     0x1
++#define V_FW_FILTER_WR_DIRSTEERHASH(x)  ((x) << S_FW_FILTER_WR_DIRSTEERHASH)
++#define G_FW_FILTER_WR_DIRSTEERHASH(x)  \
++	(((x) >> S_FW_FILTER_WR_DIRSTEERHASH) & M_FW_FILTER_WR_DIRSTEERHASH)
++#define F_FW_FILTER_WR_DIRSTEERHASH     V_FW_FILTER_WR_DIRSTEERHASH(1U)
++
++#define S_FW_FILTER_WR_LPBK     20
++#define M_FW_FILTER_WR_LPBK     0x1
++#define V_FW_FILTER_WR_LPBK(x)  ((x) << S_FW_FILTER_WR_LPBK)
++#define G_FW_FILTER_WR_LPBK(x)  \
++	(((x) >> S_FW_FILTER_WR_LPBK) & M_FW_FILTER_WR_LPBK)
++#define F_FW_FILTER_WR_LPBK     V_FW_FILTER_WR_LPBK(1U)
++
++#define S_FW_FILTER_WR_DMAC     19
++#define M_FW_FILTER_WR_DMAC     0x1
++#define V_FW_FILTER_WR_DMAC(x)  ((x) << S_FW_FILTER_WR_DMAC)
++#define G_FW_FILTER_WR_DMAC(x)  \
++	(((x) >> S_FW_FILTER_WR_DMAC) & M_FW_FILTER_WR_DMAC)
++#define F_FW_FILTER_WR_DMAC     V_FW_FILTER_WR_DMAC(1U)
++
++#define S_FW_FILTER_WR_SMAC     18
++#define M_FW_FILTER_WR_SMAC     0x1
++#define V_FW_FILTER_WR_SMAC(x)  ((x) << S_FW_FILTER_WR_SMAC)
++#define G_FW_FILTER_WR_SMAC(x)  \
++	(((x) >> S_FW_FILTER_WR_SMAC) & M_FW_FILTER_WR_SMAC)
++#define F_FW_FILTER_WR_SMAC     V_FW_FILTER_WR_SMAC(1U)
++
++#define S_FW_FILTER_WR_INSVLAN          17
++#define M_FW_FILTER_WR_INSVLAN          0x1
++#define V_FW_FILTER_WR_INSVLAN(x)       ((x) << S_FW_FILTER_WR_INSVLAN)
++#define G_FW_FILTER_WR_INSVLAN(x)       \
++	(((x) >> S_FW_FILTER_WR_INSVLAN) & M_FW_FILTER_WR_INSVLAN)
++#define F_FW_FILTER_WR_INSVLAN  V_FW_FILTER_WR_INSVLAN(1U)
++
++#define S_FW_FILTER_WR_RMVLAN           16
++#define M_FW_FILTER_WR_RMVLAN           0x1
++#define V_FW_FILTER_WR_RMVLAN(x)        ((x) << S_FW_FILTER_WR_RMVLAN)
++#define G_FW_FILTER_WR_RMVLAN(x)        \
++	(((x) >> S_FW_FILTER_WR_RMVLAN) & M_FW_FILTER_WR_RMVLAN)
++#define F_FW_FILTER_WR_RMVLAN   V_FW_FILTER_WR_RMVLAN(1U)
++
++#define S_FW_FILTER_WR_HITCNTS          15
++#define M_FW_FILTER_WR_HITCNTS          0x1
++#define V_FW_FILTER_WR_HITCNTS(x)       ((x) << S_FW_FILTER_WR_HITCNTS)
++#define G_FW_FILTER_WR_HITCNTS(x)       \
++	(((x) >> S_FW_FILTER_WR_HITCNTS) & M_FW_FILTER_WR_HITCNTS)
++#define F_FW_FILTER_WR_HITCNTS  V_FW_FILTER_WR_HITCNTS(1U)
++
++#define S_FW_FILTER_WR_TXCHAN           13
++#define M_FW_FILTER_WR_TXCHAN           0x3
++#define V_FW_FILTER_WR_TXCHAN(x)        ((x) << S_FW_FILTER_WR_TXCHAN)
++#define G_FW_FILTER_WR_TXCHAN(x)        \
++	(((x) >> S_FW_FILTER_WR_TXCHAN) & M_FW_FILTER_WR_TXCHAN)
++
++#define S_FW_FILTER_WR_PRIO     12
++#define M_FW_FILTER_WR_PRIO     0x1
++#define V_FW_FILTER_WR_PRIO(x)  ((x) << S_FW_FILTER_WR_PRIO)
++#define G_FW_FILTER_WR_PRIO(x)  \
++	(((x) >> S_FW_FILTER_WR_PRIO) & M_FW_FILTER_WR_PRIO)
++#define F_FW_FILTER_WR_PRIO     V_FW_FILTER_WR_PRIO(1U)
++
++#define S_FW_FILTER_WR_L2TIX    0
++#define M_FW_FILTER_WR_L2TIX    0xfff
++#define V_FW_FILTER_WR_L2TIX(x) ((x) << S_FW_FILTER_WR_L2TIX)
++#define G_FW_FILTER_WR_L2TIX(x) \
++	(((x) >> S_FW_FILTER_WR_L2TIX) & M_FW_FILTER_WR_L2TIX)
++
++#define S_FW_FILTER_WR_FRAG     7
++#define M_FW_FILTER_WR_FRAG     0x1
++#define V_FW_FILTER_WR_FRAG(x)  ((x) << S_FW_FILTER_WR_FRAG)
++#define G_FW_FILTER_WR_FRAG(x)  \
++	(((x) >> S_FW_FILTER_WR_FRAG) & M_FW_FILTER_WR_FRAG)
++#define F_FW_FILTER_WR_FRAG     V_FW_FILTER_WR_FRAG(1U)
++
++#define S_FW_FILTER_WR_FRAGM    6
++#define M_FW_FILTER_WR_FRAGM    0x1
++#define V_FW_FILTER_WR_FRAGM(x) ((x) << S_FW_FILTER_WR_FRAGM)
++#define G_FW_FILTER_WR_FRAGM(x) \
++	(((x) >> S_FW_FILTER_WR_FRAGM) & M_FW_FILTER_WR_FRAGM)
++#define F_FW_FILTER_WR_FRAGM    V_FW_FILTER_WR_FRAGM(1U)
++
++#define S_FW_FILTER_WR_IVLAN_VLD        5
++#define M_FW_FILTER_WR_IVLAN_VLD        0x1
++#define V_FW_FILTER_WR_IVLAN_VLD(x)     ((x) << S_FW_FILTER_WR_IVLAN_VLD)
++#define G_FW_FILTER_WR_IVLAN_VLD(x)     \
++	(((x) >> S_FW_FILTER_WR_IVLAN_VLD) & M_FW_FILTER_WR_IVLAN_VLD)
++#define F_FW_FILTER_WR_IVLAN_VLD        V_FW_FILTER_WR_IVLAN_VLD(1U)
++
++#define S_FW_FILTER_WR_OVLAN_VLD        4
++#define M_FW_FILTER_WR_OVLAN_VLD        0x1
++#define V_FW_FILTER_WR_OVLAN_VLD(x)     ((x) << S_FW_FILTER_WR_OVLAN_VLD)
++#define G_FW_FILTER_WR_OVLAN_VLD(x)     \
++	(((x) >> S_FW_FILTER_WR_OVLAN_VLD) & M_FW_FILTER_WR_OVLAN_VLD)
++#define F_FW_FILTER_WR_OVLAN_VLD        V_FW_FILTER_WR_OVLAN_VLD(1U)
++
++#define S_FW_FILTER_WR_IVLAN_VLDM       3
++#define M_FW_FILTER_WR_IVLAN_VLDM       0x1
++#define V_FW_FILTER_WR_IVLAN_VLDM(x)    ((x) << S_FW_FILTER_WR_IVLAN_VLDM)
++#define G_FW_FILTER_WR_IVLAN_VLDM(x)    \
++	(((x) >> S_FW_FILTER_WR_IVLAN_VLDM) & M_FW_FILTER_WR_IVLAN_VLDM)
++#define F_FW_FILTER_WR_IVLAN_VLDM       V_FW_FILTER_WR_IVLAN_VLDM(1U)
++
++#define S_FW_FILTER_WR_OVLAN_VLDM       2
++#define M_FW_FILTER_WR_OVLAN_VLDM       0x1
++#define V_FW_FILTER_WR_OVLAN_VLDM(x)    ((x) << S_FW_FILTER_WR_OVLAN_VLDM)
++#define G_FW_FILTER_WR_OVLAN_VLDM(x)    \
++	(((x) >> S_FW_FILTER_WR_OVLAN_VLDM) & M_FW_FILTER_WR_OVLAN_VLDM)
++#define F_FW_FILTER_WR_OVLAN_VLDM       V_FW_FILTER_WR_OVLAN_VLDM(1U)
++
++#define S_FW_FILTER_WR_RX_CHAN          15
++#define M_FW_FILTER_WR_RX_CHAN          0x1
++#define V_FW_FILTER_WR_RX_CHAN(x)       ((x) << S_FW_FILTER_WR_RX_CHAN)
++#define G_FW_FILTER_WR_RX_CHAN(x)       \
++	(((x) >> S_FW_FILTER_WR_RX_CHAN) & M_FW_FILTER_WR_RX_CHAN)
++#define F_FW_FILTER_WR_RX_CHAN  V_FW_FILTER_WR_RX_CHAN(1U)
++
++#define S_FW_FILTER_WR_RX_RPL_IQ        0
++#define M_FW_FILTER_WR_RX_RPL_IQ        0x3ff
++#define V_FW_FILTER_WR_RX_RPL_IQ(x)     ((x) << S_FW_FILTER_WR_RX_RPL_IQ)
++#define G_FW_FILTER_WR_RX_RPL_IQ(x)     \
++	(((x) >> S_FW_FILTER_WR_RX_RPL_IQ) & M_FW_FILTER_WR_RX_RPL_IQ)
++
++#define S_FW_FILTER_WR_MACI     23
++#define M_FW_FILTER_WR_MACI     0x1ff
++#define V_FW_FILTER_WR_MACI(x)  ((x) << S_FW_FILTER_WR_MACI)
++#define G_FW_FILTER_WR_MACI(x)  \
++	(((x) >> S_FW_FILTER_WR_MACI) & M_FW_FILTER_WR_MACI)
++
++#define S_FW_FILTER_WR_MACIM    14
++#define M_FW_FILTER_WR_MACIM    0x1ff
++#define V_FW_FILTER_WR_MACIM(x) ((x) << S_FW_FILTER_WR_MACIM)
++#define G_FW_FILTER_WR_MACIM(x) \
++	(((x) >> S_FW_FILTER_WR_MACIM) & M_FW_FILTER_WR_MACIM)
++
++#define S_FW_FILTER_WR_FCOE     13
++#define M_FW_FILTER_WR_FCOE     0x1
++#define V_FW_FILTER_WR_FCOE(x)  ((x) << S_FW_FILTER_WR_FCOE)
++#define G_FW_FILTER_WR_FCOE(x)  \
++	(((x) >> S_FW_FILTER_WR_FCOE) & M_FW_FILTER_WR_FCOE)
++#define F_FW_FILTER_WR_FCOE     V_FW_FILTER_WR_FCOE(1U)
++
++#define S_FW_FILTER_WR_FCOEM    12
++#define M_FW_FILTER_WR_FCOEM    0x1
++#define V_FW_FILTER_WR_FCOEM(x) ((x) << S_FW_FILTER_WR_FCOEM)
++#define G_FW_FILTER_WR_FCOEM(x) \
++	(((x) >> S_FW_FILTER_WR_FCOEM) & M_FW_FILTER_WR_FCOEM)
++#define F_FW_FILTER_WR_FCOEM    V_FW_FILTER_WR_FCOEM(1U)
++
++#define S_FW_FILTER_WR_PORT     9
++#define M_FW_FILTER_WR_PORT     0x7
++#define V_FW_FILTER_WR_PORT(x)  ((x) << S_FW_FILTER_WR_PORT)
++#define G_FW_FILTER_WR_PORT(x)  \
++	(((x) >> S_FW_FILTER_WR_PORT) & M_FW_FILTER_WR_PORT)
++
++#define S_FW_FILTER_WR_PORTM    6
++#define M_FW_FILTER_WR_PORTM    0x7
++#define V_FW_FILTER_WR_PORTM(x) ((x) << S_FW_FILTER_WR_PORTM)
++#define G_FW_FILTER_WR_PORTM(x) \
++	(((x) >> S_FW_FILTER_WR_PORTM) & M_FW_FILTER_WR_PORTM)
++
++#define S_FW_FILTER_WR_MATCHTYPE        3
++#define M_FW_FILTER_WR_MATCHTYPE        0x7
++#define V_FW_FILTER_WR_MATCHTYPE(x)     ((x) << S_FW_FILTER_WR_MATCHTYPE)
++#define G_FW_FILTER_WR_MATCHTYPE(x)     \
++	(((x) >> S_FW_FILTER_WR_MATCHTYPE) & M_FW_FILTER_WR_MATCHTYPE)
++
++#define S_FW_FILTER_WR_MATCHTYPEM       0
++#define M_FW_FILTER_WR_MATCHTYPEM       0x7
++#define V_FW_FILTER_WR_MATCHTYPEM(x)    ((x) << S_FW_FILTER_WR_MATCHTYPEM)
++#define G_FW_FILTER_WR_MATCHTYPEM(x)    \
++	(((x) >> S_FW_FILTER_WR_MATCHTYPEM) & M_FW_FILTER_WR_MATCHTYPEM)
++
+ struct fw_ulptx_wr {
+ 	__be32 op_to_compl;
+ 	__be32 flowid_len16;
+-- 
+1.7.1
 
-> I think that the current order is good, now we have:
->=20
-> 	1. stop_sending_fames	to protocol
-> 		now TX is shut down
-> 		(currently done by
-> 			set_bit(ATM_VF_CLOSE, &vcc->flags);
-> 			clear_bit(ATM_VF_READY, &vcc->flags);
-> 		)
-
-Right, with the caveat the the socket lock is required for
-synchronisation on this. But that's OK. Or we *could* perhaps introduce
-an explicit call into the protocol for it, if we really wanted. But I'm
-inclined not to.
-
-> 	2. close_device		to device
-> 		now RX is shut down
-> 	3. device_was_closed	to protocol
-> 		ugly push(NULL), but we can add some other callback.
-
-
-
-> we also can do:
->=20
-> 	1. disable RX		to device
-> 		now RX is shut down
-> 	2. detach	to protocol
-> 		now TX is shut down
-> 		(now protocol can fully detach because RX is disabled)
-
-Careful. You have to flush the TX packets which are currently in-flight.
-It's not sufficient just to stop sending any more. And you have to do it
-*before* the data structures are torn down.
-
-> 	3. close_device		to device
-> 		(device is not used anymore)
-
-
-Really, what we're saying is that *one* of the driver or protocol close
-functions needs to be split, and we need to do DPD or PDP. Since the
-device driver *can* abort/flush the TX queue and also any pending RX
-being handled by a tasklet, I think it makes most sense to keep it in
-the middle, with the protocol being handled first and last... which is
-the current order, as long as we consider setting ATM_VF_CLOSE to be the
-first part.
-
---=20
-dwmw2
-
-
---=-eq2tmYlSAM52jHJFiK03
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
-AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
-4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
-wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
-xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
-MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
-w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
-d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
-Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
-c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
-IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
-dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
-BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
-aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
-bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
-oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
-MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
-dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
-MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
-hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
-DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
-ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
-NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
-mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
-AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
-MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
-A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
-Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
-7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
-KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
-wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
-V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
-vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
-BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
-YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
-ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
-IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
-U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
-ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
-BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
-aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
-bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
-dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
-CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
-QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
-ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
-AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
-t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
-gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
-H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
-kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
-MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
-dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
-eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTMwMTIxMDE1WjAjBgkqhkiG9w0BCQQx
-FgQUlFo2+rMtyN6aaqRRlOHXXN8aShkwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
-SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
-ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
-TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
-aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQCGdH+rzTuCPTrSov6Gt03b1sHI
-21+1cl7cEQulRPLz/WxqZvIJXvyofa0zBegBMf4aWGuNLWtVCrO0yoc2wU6Fcwlb/TBE5Xd9joaO
-Cn3ikBOaajrPC+QfwzlksPvykUfhUHm3SW824DIYGC4+rhBs7MHLItdxDUO+Vj0YdVU0pn/ZHrdW
-tAVDLFecBGurhkk3FDCOruLkecTzGt+bTWmjaS2Jp5f42bfXhoi1Uj/c1ESgKHgQx8U5oQqgPqK7
-KdoaXBqg4SMczbCnmWfYWSDoa5CtjrzcFRfgVDpbOxf4waQClNEND6b0jTPSYVGnvy0JMBSRJIjn
-auJMvZ1wy+JGAAAAAAAA
-
-
---=-eq2tmYlSAM52jHJFiK03--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
