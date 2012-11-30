@@ -1,7 +1,7 @@
 From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH V2 2/5] cxgb4: Add LE hash collision bug fix path in LLD driver
-Date: Fri, 30 Nov 2012 17:39:29 +0530
-Message-ID: <1354277370-8727-2-git-send-email-vipul@chelsio.com>
+Subject: [PATCH V2 4/5] RDMA/cxgb4: Fix LE hash collision bug for passive open connection
+Date: Fri, 30 Nov 2012 17:39:30 +0530
+Message-ID: <1354277370-8727-3-git-send-email-vipul@chelsio.com>
 References: <1354277370-8727-1-git-send-email-vipul@chelsio.com>
 Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
 	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
@@ -12,375 +12,779 @@ In-Reply-To: <1354277370-8727-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@publ
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-It supports establishing passive open connection through firmware filter work
-request. Passive open connection will go through this path as now instead of
-listening server we create a server filter which will redirect the incoming SYN
-packet to the offload queue.
-
-It divides filter region into regular filters and server filter portion. It
-introduces new server filter region which will be exclusively used for creating
-server filters. This region will not overlap with regular filter region.
-
-It provides new API cxgb4_alloc_sftid in LLD for getting stid in case of LE
-hash collision path. This new stid will be used to open server filter in the
-filter region.
+It establishes passive open connection through firmware work request. Passive
+open connection will go through this path as now instead of listening server we
+create a server filter which will redirect the incoming SYN packet to the
+offload queue. After this driver tries to establish the connection using
+firmware work request.
 
 Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
 V2: Changed commenting style from kernel-doc format('/**') to normal
 
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    4 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  150 +++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   15 ++-
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   33 +++++
- 4 files changed, 193 insertions(+), 9 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c                |  411 ++++++++++++++++++++---
+ drivers/infiniband/hw/cxgb4/device.c            |   85 +++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    9 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   46 +++
+ 4 files changed, 496 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index b6403d1..868acde 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -35,6 +35,8 @@
- #ifndef __CXGB4_H__
- #define __CXGB4_H__
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index 4878704..2ac6a2c 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -38,10 +38,12 @@
+ #include <linux/inetdevice.h>
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
++#include <linux/if_vlan.h>
  
-+#include "t4_hw.h"
+ #include <net/neighbour.h>
+ #include <net/netevent.h>
+ #include <net/route.h>
++#include <net/tcp.h>
+ 
+ #include "iw_cxgb4.h"
+ 
+@@ -1569,13 +1571,14 @@ static int pass_open_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	struct c4iw_listen_ep *ep = lookup_stid(t, stid);
+ 
+ 	if (!ep) {
+-		printk(KERN_ERR MOD "stid %d lookup failure!\n", stid);
+-		return 0;
++		PDBG("%s stid %d lookup failure!\n", __func__, stid);
++		goto out;
+ 	}
+ 	PDBG("%s ep %p status %d error %d\n", __func__, ep,
+ 	     rpl->status, status2errno(rpl->status));
+ 	c4iw_wake_up(&ep->com.wr_wait, status2errno(rpl->status));
+ 
++out:
+ 	return 0;
+ }
+ 
+@@ -1779,15 +1782,23 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	unsigned int hwtid = GET_TID(req);
+ 	struct dst_entry *dst;
+ 	struct rtable *rt;
+-	__be32 local_ip, peer_ip;
++	__be32 local_ip, peer_ip = 0;
+ 	__be16 local_port, peer_port;
+ 	int err;
++	u16 peer_mss = ntohs(req->tcpopt.mss);
+ 
+ 	parent_ep = lookup_stid(t, stid);
+-	PDBG("%s parent ep %p tid %u\n", __func__, parent_ep, hwtid);
+-
++	if (!parent_ep) {
++		PDBG("%s connect request on invalid stid %d\n", __func__, stid);
++		goto reject;
++	}
+ 	get_4tuple(req, &local_ip, &peer_ip, &local_port, &peer_port);
+ 
++	PDBG("%s parent ep %p hwtid %u laddr 0x%x raddr 0x%x lport %d " \
++	     "rport %d peer_mss %d\n", __func__, parent_ep, hwtid,
++	     ntohl(local_ip), ntohl(peer_ip), ntohs(local_port),
++	     ntohs(peer_port), peer_mss);
 +
- #include <linux/bitops.h>
- #include <linux/cache.h>
- #include <linux/interrupt.h>
-@@ -212,6 +214,8 @@ struct tp_err_stats {
- struct tp_params {
- 	unsigned int ntxchan;        /* # of Tx channels */
- 	unsigned int tre;            /* log2 of core clocks per TP tick */
-+	unsigned short tx_modq_map;  /* TX modulation scheduler queue to */
-+				     /* channel map */
+ 	if (state_read(&parent_ep->com) != LISTEN) {
+ 		printk(KERN_ERR "%s - listening ep not in LISTEN\n",
+ 		       __func__);
+@@ -1821,6 +1832,9 @@ static int pass_accept_req(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		goto reject;
+ 	}
  
- 	uint32_t dack_re;            /* DACK timer resolution */
- 	unsigned short tx_modq[NCHAN];	/* channel to modulation queue map */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index a678287..f55386b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2489,7 +2489,34 @@ int cxgb4_alloc_stid(struct tid_info *t, int family, void *data)
- EXPORT_SYMBOL(cxgb4_alloc_stid);
++	if (peer_mss && child_ep->mtu > (peer_mss + 40))
++		child_ep->mtu = peer_mss + 40;
++
+ 	state_set(&child_ep->com, CONNECTING);
+ 	child_ep->com.dev = dev;
+ 	child_ep->com.cm_id = NULL;
+@@ -1861,6 +1875,9 @@ static int pass_establish(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	ep->snd_seq = be32_to_cpu(req->snd_isn);
+ 	ep->rcv_seq = be32_to_cpu(req->rcv_isn);
  
- /*
-- * Release a server TID.
-+ * Allocate a server filter TID and set it to the supplied value.
++	PDBG("%s ep %p hwtid %u tcp_opt 0x%02x\n", __func__, ep, tid,
++	     ntohs(req->tcp_opt));
++
+ 	set_emss(ep, ntohs(req->tcp_opt));
+ 
+ 	dst_confirm(ep->dst);
+@@ -2478,7 +2495,6 @@ int c4iw_create_listen(struct iw_cm_id *cm_id, int backlog)
+ 	struct c4iw_dev *dev = to_c4iw_dev(cm_id->device);
+ 	struct c4iw_listen_ep *ep;
+ 
+-
+ 	might_sleep();
+ 
+ 	ep = alloc_ep(sizeof(*ep), GFP_KERNEL);
+@@ -2497,30 +2513,49 @@ int c4iw_create_listen(struct iw_cm_id *cm_id, int backlog)
+ 	/*
+ 	 * Allocate a server TID.
+ 	 */
+-	ep->stid = cxgb4_alloc_stid(dev->rdev.lldi.tids, PF_INET, ep);
++	if (dev->rdev.lldi.enable_fw_ofld_conn)
++		ep->stid = cxgb4_alloc_sftid(dev->rdev.lldi.tids, PF_INET, ep);
++	else
++		ep->stid = cxgb4_alloc_stid(dev->rdev.lldi.tids, PF_INET, ep);
++
+ 	if (ep->stid == -1) {
+ 		printk(KERN_ERR MOD "%s - cannot alloc stid.\n", __func__);
+ 		err = -ENOMEM;
+ 		goto fail2;
+ 	}
+-
+ 	state_set(&ep->com, LISTEN);
+-	c4iw_init_wr_wait(&ep->com.wr_wait);
+-	err = cxgb4_create_server(ep->com.dev->rdev.lldi.ports[0], ep->stid,
+-				  ep->com.local_addr.sin_addr.s_addr,
+-				  ep->com.local_addr.sin_port,
+-				  ep->com.dev->rdev.lldi.rxq_ids[0]);
+-	if (err)
+-		goto fail3;
+-
+-	/* wait for pass_open_rpl */
+-	err = c4iw_wait_for_reply(&ep->com.dev->rdev, &ep->com.wr_wait, 0, 0,
+-				  __func__);
++	if (dev->rdev.lldi.enable_fw_ofld_conn) {
++		do {
++			err = cxgb4_create_server_filter(
++				ep->com.dev->rdev.lldi.ports[0], ep->stid,
++				ep->com.local_addr.sin_addr.s_addr,
++				ep->com.local_addr.sin_port,
++				ep->com.dev->rdev.lldi.rxq_ids[0]);
++			if (err == -EBUSY) {
++				set_current_state(TASK_UNINTERRUPTIBLE);
++				schedule_timeout(usecs_to_jiffies(100));
++			}
++		} while (err == -EBUSY);
++	} else {
++		c4iw_init_wr_wait(&ep->com.wr_wait);
++		err = cxgb4_create_server(ep->com.dev->rdev.lldi.ports[0],
++				ep->stid, ep->com.local_addr.sin_addr.s_addr,
++				ep->com.local_addr.sin_port,
++				ep->com.dev->rdev.lldi.rxq_ids[0]);
++		if (!err)
++			err = c4iw_wait_for_reply(&ep->com.dev->rdev,
++						  &ep->com.wr_wait,
++						  0, 0, __func__);
++	}
+ 	if (!err) {
+ 		cm_id->provider_data = ep;
+ 		goto out;
+ 	}
+-fail3:
++	pr_err("%s cxgb4_create_server/filter failed err %d " \
++	       "stid %d laddr %08x lport %d\n", \
++	       __func__, err, ep->stid,
++	       ntohl(ep->com.local_addr.sin_addr.s_addr),
++	       ntohs(ep->com.local_addr.sin_port));
+ 	cxgb4_free_stid(ep->com.dev->rdev.lldi.tids, ep->stid, PF_INET);
+ fail2:
+ 	cm_id->rem_ref(cm_id);
+@@ -2539,12 +2574,18 @@ int c4iw_destroy_listen(struct iw_cm_id *cm_id)
+ 
+ 	might_sleep();
+ 	state_set(&ep->com, DEAD);
+-	c4iw_init_wr_wait(&ep->com.wr_wait);
+-	err = listen_stop(ep);
+-	if (err)
+-		goto done;
+-	err = c4iw_wait_for_reply(&ep->com.dev->rdev, &ep->com.wr_wait, 0, 0,
+-				  __func__);
++	if (ep->com.dev->rdev.lldi.enable_fw_ofld_conn) {
++		err = cxgb4_remove_server_filter(
++			ep->com.dev->rdev.lldi.ports[0], ep->stid,
++			ep->com.dev->rdev.lldi.rxq_ids[0], 0);
++	} else {
++		c4iw_init_wr_wait(&ep->com.wr_wait);
++		err = listen_stop(ep);
++		if (err)
++			goto done;
++		err = c4iw_wait_for_reply(&ep->com.dev->rdev, &ep->com.wr_wait,
++					  0, 0, __func__);
++	}
+ 	cxgb4_free_stid(ep->com.dev->rdev.lldi.tids, ep->stid, PF_INET);
+ done:
+ 	cm_id->rem_ref(cm_id);
+@@ -2621,10 +2662,298 @@ int c4iw_ep_disconnect(struct c4iw_ep *ep, int abrupt, gfp_t gfp)
+ 	return ret;
+ }
+ 
+-static int async_event(struct c4iw_dev *dev, struct sk_buff *skb)
++static void active_ofld_conn_reply(struct c4iw_dev *dev, struct sk_buff *skb,
++			struct cpl_fw6_msg_ofld_connection_wr_rpl *req)
++{
++	struct c4iw_ep *ep;
++
++	ep = (struct c4iw_ep *)lookup_atid(dev->rdev.lldi.tids, req->tid);
++	if (!ep)
++		return;
++
++	switch (req->retval) {
++	case FW_ENOMEM:
++	case FW_EADDRINUSE:
++		PDBG("%s ofld conn wr ret %d\n", __func__, req->retval);
++		break;
++	default:
++		pr_info("%s unexpected ofld conn wr retval %d\n",
++		       __func__, req->retval);
++		break;
++	}
++	connect_reply_upcall(ep, status2errno(req->retval));
++}
++
++static void passive_ofld_conn_reply(struct c4iw_dev *dev, struct sk_buff *skb,
++			struct cpl_fw6_msg_ofld_connection_wr_rpl *req)
++{
++	struct sk_buff *rpl_skb;
++	struct cpl_pass_accept_req *cpl;
++	int ret;
++
++	rpl_skb = (struct sk_buff *)cpu_to_be64(req->cookie);
++	BUG_ON(!rpl_skb);
++	if (req->retval) {
++		PDBG("%s passive open failure %d\n", __func__, req->retval);
++		kfree_skb(rpl_skb);
++	} else {
++		cpl = (struct cpl_pass_accept_req *)cplhdr(rpl_skb);
++		OPCODE_TID(cpl) = htonl(MK_OPCODE_TID(CPL_PASS_ACCEPT_REQ,
++						      htonl(req->tid)));
++		ret = pass_accept_req(dev, rpl_skb);
++		if (!ret)
++			kfree_skb(rpl_skb);
++	}
++	return;
++}
++
++static int deferred_fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
+ {
+ 	struct cpl_fw6_msg *rpl = cplhdr(skb);
+-	c4iw_ev_dispatch(dev, (struct t4_cqe *)&rpl->data[0]);
++	struct cpl_fw6_msg_ofld_connection_wr_rpl *req;
++
++	switch (rpl->type) {
++	case FW6_TYPE_CQE:
++		c4iw_ev_dispatch(dev, (struct t4_cqe *)&rpl->data[0]);
++		break;
++	case FW6_TYPE_OFLD_CONNECTION_WR_RPL:
++		req = (struct cpl_fw6_msg_ofld_connection_wr_rpl *)rpl->data;
++		switch (req->t_state) {
++		case TCP_SYN_SENT:
++			active_ofld_conn_reply(dev, skb, req);
++			break;
++		case TCP_SYN_RECV:
++			passive_ofld_conn_reply(dev, skb, req);
++			break;
++		default:
++			pr_err("%s unexpected ofld conn wr state %d\n",
++			       __func__, req->t_state);
++			break;
++		}
++		break;
++	}
++	return 0;
++}
++
++static void build_cpl_pass_accept_req(struct sk_buff *skb, int stid , u8 tos)
++{
++	u32 l2info;
++	u16 vlantag, len, hdr_len;
++	u8 intf;
++	struct cpl_rx_pkt *cpl = cplhdr(skb);
++	struct cpl_pass_accept_req *req;
++	struct tcp_options_received tmp_opt;
++
++	/* Store values from cpl_rx_pkt in temporary location. */
++	vlantag = cpl->vlan;
++	len = cpl->len;
++	l2info  = cpl->l2info;
++	hdr_len = cpl->hdr_len;
++	intf = cpl->iff;
++
++	__skb_pull(skb, sizeof(*req) + sizeof(struct rss_header));
++
++	/* We need to parse the TCP options from SYN packet.
++	 * to generate cpl_pass_accept_req.
++	 */
++	memset(&tmp_opt, 0, sizeof(tmp_opt));
++	tcp_clear_options(&tmp_opt);
++	tcp_parse_options(skb, &tmp_opt, 0, 0, NULL);
++
++	req = (struct cpl_pass_accept_req *)__skb_push(skb, sizeof(*req));
++	memset(req, 0, sizeof(*req));
++	req->l2info = cpu_to_be16(V_SYN_INTF(intf) |
++			 V_SYN_MAC_IDX(G_RX_MACIDX(htonl(l2info))) |
++			 F_SYN_XACT_MATCH);
++	req->hdr_len = cpu_to_be32(V_SYN_RX_CHAN(G_RX_CHAN(htonl(l2info))) |
++				V_TCP_HDR_LEN(G_RX_TCPHDR_LEN(htons(hdr_len))) |
++				V_IP_HDR_LEN(G_RX_IPHDR_LEN(htons(hdr_len))) |
++				V_ETH_HDR_LEN(G_RX_ETHHDR_LEN(htonl(l2info))));
++	req->vlan = vlantag;
++	req->len = len;
++	req->tos_stid = cpu_to_be32(PASS_OPEN_TID(stid) |
++				    PASS_OPEN_TOS(tos));
++	req->tcpopt.mss = htons(tmp_opt.mss_clamp);
++	if (tmp_opt.wscale_ok)
++		req->tcpopt.wsf = tmp_opt.snd_wscale;
++	req->tcpopt.tstamp = tmp_opt.saw_tstamp;
++	if (tmp_opt.sack_ok)
++		req->tcpopt.sack = 1;
++	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_ACCEPT_REQ, 0));
++	return;
++}
++
++static void send_fw_pass_open_req(struct c4iw_dev *dev, struct sk_buff *skb,
++				  __be32 laddr, __be16 lport,
++				  __be32 raddr, __be16 rport,
++				  u32 rcv_isn, u32 filter, u16 window,
++				  u32 rss_qid, u8 port_id)
++{
++	struct sk_buff *req_skb;
++	struct fw_ofld_connection_wr *req;
++	struct cpl_pass_accept_req *cpl = cplhdr(skb);
++
++	req_skb = alloc_skb(sizeof(struct fw_ofld_connection_wr), GFP_KERNEL);
++	req = (struct fw_ofld_connection_wr *)__skb_put(req_skb, sizeof(*req));
++	memset(req, 0, sizeof(*req));
++	req->op_compl = htonl(V_WR_OP(FW_OFLD_CONNECTION_WR) | FW_WR_COMPL(1));
++	req->len16_pkd = htonl(FW_WR_LEN16(DIV_ROUND_UP(sizeof(*req), 16)));
++	req->le.version_cpl = htonl(F_FW_OFLD_CONNECTION_WR_CPL);
++	req->le.filter = filter;
++	req->le.lport = lport;
++	req->le.pport = rport;
++	req->le.u.ipv4.lip = laddr;
++	req->le.u.ipv4.pip = raddr;
++	req->tcb.rcv_nxt = htonl(rcv_isn + 1);
++	req->tcb.rcv_adv = htons(window);
++	req->tcb.t_state_to_astid =
++		 htonl(V_FW_OFLD_CONNECTION_WR_T_STATE(TCP_SYN_RECV) |
++			V_FW_OFLD_CONNECTION_WR_RCV_SCALE(cpl->tcpopt.wsf) |
++			V_FW_OFLD_CONNECTION_WR_ASTID(
++			GET_PASS_OPEN_TID(ntohl(cpl->tos_stid))));
++
++	/*
++	 * We store the qid in opt2 which will be used by the firmware
++	 * to send us the wr response.
++	 */
++	req->tcb.opt2 = htonl(V_RSS_QUEUE(rss_qid));
++
++	/*
++	 * We initialize the MSS index in TCB to 0xF.
++	 * So that when driver sends cpl_pass_accept_rpl
++	 * TCB picks up the correct value. If this was 0
++	 * TP will ignore any value > 0 for MSS index.
++	 */
++	req->tcb.opt0 = cpu_to_be64(V_MSS_IDX(0xF));
++	req->cookie = cpu_to_be64((u64)skb);
++
++	set_wr_txq(req_skb, CPL_PRIORITY_CONTROL, port_id);
++	cxgb4_ofld_send(dev->rdev.lldi.ports[0], req_skb);
++}
++
++/*
++ * Handler for CPL_RX_PKT message. Need to handle cpl_rx_pkt
++ * messages when a filter is being used instead of server to
++ * redirect a syn packet. When packets hit filter they are redirected
++ * to the offload queue and driver tries to establish the connection
++ * using firmware work request.
 + */
-+int cxgb4_alloc_sftid(struct tid_info *t, int family, void *data)
++static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
 +{
 +	int stid;
++	unsigned int filter;
++	struct ethhdr *eh = NULL;
++	struct vlan_ethhdr *vlan_eh = NULL;
++	struct iphdr *iph;
++	struct tcphdr *tcph;
++	struct rss_header *rss = (void *)skb->data;
++	struct cpl_rx_pkt *cpl = (void *)skb->data;
++	struct cpl_pass_accept_req *req = (void *)(rss + 1);
++	struct l2t_entry *e;
++	struct dst_entry *dst;
++	struct rtable *rt;
++	struct c4iw_ep *lep;
++	u16 window;
++	struct port_info *pi;
++	struct net_device *pdev;
++	u16 rss_qid;
++	int step;
++	u32 tx_chan;
++	struct neighbour *neigh;
 +
-+	spin_lock_bh(&t->stid_lock);
-+	if (family == PF_INET) {
-+		stid = find_next_zero_bit(t->stid_bmap,
-+				t->nstids + t->nsftids, t->nstids);
-+		if (stid < (t->nstids + t->nsftids))
-+			__set_bit(stid, t->stid_bmap);
-+		else
-+			stid = -1;
++	/* Drop all non-SYN packets */
++	if (!(cpl->l2info & cpu_to_be32(F_RXF_SYN)))
++		goto reject;
++
++	/*
++	 * Drop all packets which did not hit the filter.
++	 * Unlikely to happen.
++	 */
++	if (!(rss->filter_hit && rss->filter_tid))
++		goto reject;
++
++	/*
++	 * Calculate the server tid from filter hit index from cpl_rx_pkt.
++	 */
++	stid = cpu_to_be32(rss->hash_val) - dev->rdev.lldi.tids->sftid_base
++					  + dev->rdev.lldi.tids->nstids;
++
++	lep = (struct c4iw_ep *)lookup_stid(dev->rdev.lldi.tids, stid);
++	if (!lep) {
++		PDBG("%s connect request on invalid stid %d\n", __func__, stid);
++		goto reject;
++	}
++
++	if (G_RX_ETHHDR_LEN(ntohl(cpl->l2info)) == ETH_HLEN) {
++		eh = (struct ethhdr *)(req + 1);
++		iph = (struct iphdr *)(eh + 1);
 +	} else {
-+		stid = -1;
++		vlan_eh = (struct vlan_ethhdr *)(req + 1);
++		iph = (struct iphdr *)(vlan_eh + 1);
++		skb->vlan_tci = ntohs(cpl->vlan);
 +	}
-+	if (stid >= 0) {
-+		t->stid_tab[stid].data = data;
-+		stid += t->stid_base;
-+		t->stids_in_use++;
-+	}
-+	spin_unlock_bh(&t->stid_lock);
-+	return stid;
-+}
-+EXPORT_SYMBOL(cxgb4_alloc_sftid);
 +
-+/* Release a server TID.
-  */
- void cxgb4_free_stid(struct tid_info *t, unsigned int stid, int family)
- {
-@@ -2604,12 +2631,14 @@ static int tid_init(struct tid_info *t)
- 	unsigned int stid_bmap_size;
- 	unsigned int natids = t->natids;
- 
--	stid_bmap_size = BITS_TO_LONGS(t->nstids);
-+	stid_bmap_size = BITS_TO_LONGS(t->nstids + t->nsftids);
- 	size = t->ntids * sizeof(*t->tid_tab) +
- 	       natids * sizeof(*t->atid_tab) +
- 	       t->nstids * sizeof(*t->stid_tab) +
-+	       t->nsftids * sizeof(*t->stid_tab) +
- 	       stid_bmap_size * sizeof(long) +
--	       t->nftids * sizeof(*t->ftid_tab);
-+	       t->nftids * sizeof(*t->ftid_tab) +
-+	       t->nsftids * sizeof(*t->ftid_tab);
- 
- 	t->tid_tab = t4_alloc_mem(size);
- 	if (!t->tid_tab)
-@@ -2617,7 +2646,7 @@ static int tid_init(struct tid_info *t)
- 
- 	t->atid_tab = (union aopen_entry *)&t->tid_tab[t->ntids];
- 	t->stid_tab = (struct serv_entry *)&t->atid_tab[natids];
--	t->stid_bmap = (unsigned long *)&t->stid_tab[t->nstids];
-+	t->stid_bmap = (unsigned long *)&t->stid_tab[t->nstids + t->nsftids];
- 	t->ftid_tab = (struct filter_entry *)&t->stid_bmap[stid_bmap_size];
- 	spin_lock_init(&t->stid_lock);
- 	spin_lock_init(&t->atid_lock);
-@@ -2633,7 +2662,7 @@ static int tid_init(struct tid_info *t)
- 			t->atid_tab[natids - 1].next = &t->atid_tab[natids];
- 		t->afree = t->atid_tab;
- 	}
--	bitmap_zero(t->stid_bmap, t->nstids);
-+	bitmap_zero(t->stid_bmap, t->nstids + t->nsftids);
++	if (iph->version != 0x4)
++		goto reject;
++
++	tcph = (struct tcphdr *)(iph + 1);
++	skb_set_network_header(skb, (void *)iph - (void *)rss);
++	skb_set_transport_header(skb, (void *)tcph - (void *)rss);
++	skb_get(skb);
++
++	PDBG("%s lip 0x%x lport %u pip 0x%x pport %u tos %d\n", __func__,
++	     ntohl(iph->daddr), ntohs(tcph->dest), ntohl(iph->saddr),
++	     ntohs(tcph->source), iph->tos);
++
++	rt = find_route(dev, iph->daddr, iph->saddr, tcph->dest, tcph->source,
++			iph->tos);
++	if (!rt) {
++		pr_err("%s - failed to find dst entry!\n",
++		       __func__);
++		goto reject;
++	}
++	dst = &rt->dst;
++	neigh = dst_neigh_lookup_skb(dst, skb);
++
++	if (neigh->dev->flags & IFF_LOOPBACK) {
++		pdev = ip_dev_find(&init_net, iph->daddr);
++		e = cxgb4_l2t_get(dev->rdev.lldi.l2t, neigh,
++				    pdev, 0);
++		pi = (struct port_info *)netdev_priv(pdev);
++		tx_chan = cxgb4_port_chan(pdev);
++		dev_put(pdev);
++	} else {
++		e = cxgb4_l2t_get(dev->rdev.lldi.l2t, neigh,
++					neigh->dev, 0);
++		pi = (struct port_info *)netdev_priv(neigh->dev);
++		tx_chan = cxgb4_port_chan(neigh->dev);
++	}
++	if (!e) {
++		pr_err("%s - failed to allocate l2t entry!\n",
++		       __func__);
++		goto free_dst;
++	}
++
++	step = dev->rdev.lldi.nrxq / dev->rdev.lldi.nchan;
++	rss_qid = dev->rdev.lldi.rxq_ids[pi->port_id * step];
++	window = htons(tcph->window);
++
++	/* Calcuate filter portion for LE region. */
++	filter = cpu_to_be32(select_ntuple(dev, dst, e));
++
++	/*
++	 * Synthesize the cpl_pass_accept_req. We have everything except the
++	 * TID. Once firmware sends a reply with TID we update the TID field
++	 * in cpl and pass it through the regular cpl_pass_accept_req path.
++	 */
++	build_cpl_pass_accept_req(skb, stid, iph->tos);
++	send_fw_pass_open_req(dev, skb, iph->daddr, tcph->dest, iph->saddr,
++			      tcph->source, ntohl(tcph->seq), filter, window,
++			      rss_qid, pi->port_id);
++	cxgb4_l2t_release(e);
++free_dst:
++	dst_release(dst);
++reject:
  	return 0;
  }
  
-@@ -2995,6 +3024,7 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
- {
- 	void *handle;
- 	struct cxgb4_lld_info lli;
-+	unsigned short i;
- 
- 	lli.pdev = adap->pdev;
- 	lli.l2t = adap->l2t;
-@@ -3021,10 +3051,16 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
- 	lli.ucq_density = 1 << QUEUESPERPAGEPF0_GET(
- 			t4_read_reg(adap, SGE_INGRESS_QUEUES_PER_PAGE_PF) >>
- 			(adap->fn * 4));
-+	lli.filt_mode = tp_vlan_pri_map;
-+	/* MODQ_REQ_MAP sets queues 0-3 to chan 0-3 */
-+	for (i = 0; i < NCHAN; i++)
-+		lli.tx_modq[i] = i;
- 	lli.gts_reg = adap->regs + MYPF_REG(SGE_PF_GTS);
- 	lli.db_reg = adap->regs + MYPF_REG(SGE_PF_KDOORBELL);
- 	lli.fw_vers = adap->params.fw_vers;
- 	lli.dbfifo_int_thresh = dbfifo_int_thresh;
-+	lli.sge_pktshift = adap->sge.pktshift;
-+	lli.enable_fw_ofld_conn = adap->flags & FW_OFLD_CONN;
- 
- 	handle = ulds[uld].add(&lli);
- 	if (IS_ERR(handle)) {
-@@ -3266,7 +3302,7 @@ static int delete_filter(struct adapter *adapter, unsigned int fidx)
- 	struct filter_entry *f;
- 	int ret;
- 
--	if (fidx >= adapter->tids.nftids)
-+	if (fidx >= adapter->tids.nftids + adapter->tids.nsftids)
- 		return -EINVAL;
- 
- 	f = &adapter->tids.ftid_tab[fidx];
-@@ -3279,6 +3315,77 @@ static int delete_filter(struct adapter *adapter, unsigned int fidx)
- 	return 0;
- }
- 
-+int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
-+		__be32 sip, __be16 sport, unsigned int queue)
-+{
-+	int ret;
-+	struct filter_entry *f;
-+	struct adapter *adap;
-+	int i;
-+	u8 *val;
-+
-+	adap = netdev2adap(dev);
-+
-+	/* Check to make sure the filter requested is writable ...
-+	 */
-+	f = &adap->tids.ftid_tab[stid];
-+	ret = writable_filter(f);
-+	if (ret)
-+		return ret;
-+
-+	/* Clear out any old resources being used by the filter before
-+	 * we start constructing the new filter.
-+	 */
-+	if (f->valid)
-+		clear_filter(adap, f);
-+
-+	/* Clear out filter specifications */
-+	memset(&f->fs, 0, sizeof(struct ch_filter_specification));
-+	f->fs.val.lport = cpu_to_be16(sport);
-+	f->fs.mask.lport  = ~0;
-+	val = (u8 *)&sip;
-+	if ((val[0] | val[1] | val[2] | val[3]) != 0)
-+		for (i = 0; i < 4; i++) {
-+			f->fs.val.lip[i] = val[i];
-+			f->fs.mask.lip[i] = ~0;
-+		}
-+
-+	f->fs.dirsteer = 1;
-+	f->fs.iq = queue;
-+	/* Mark filter as locked */
-+	f->locked = 1;
-+	f->fs.rpttid = 1;
-+
-+	ret = set_filter_wr(adap, stid);
-+	if (ret) {
-+		clear_filter(adap, f);
-+		return ret;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(cxgb4_create_server_filter);
-+
-+int cxgb4_remove_server_filter(const struct net_device *dev, unsigned int stid,
-+		unsigned int queue, bool ipv6)
-+{
-+	int ret;
-+	struct filter_entry *f;
-+	struct adapter *adap;
-+
-+	adap = netdev2adap(dev);
-+	f = &adap->tids.ftid_tab[stid];
-+	/* Unlock the filter */
-+	f->locked = 0;
-+
-+	ret = delete_filter(adap, stid);
-+	if (ret)
-+		return ret;
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(cxgb4_remove_server_filter);
-+
- static struct rtnl_link_stats64 *cxgb_get_stats(struct net_device *dev,
- 						struct rtnl_link_stats64 *ns)
- {
-@@ -3525,6 +3632,34 @@ static int adap_init1(struct adapter *adap, struct fw_caps_config_cmd *c)
- 	v = t4_read_reg(adap, TP_PIO_DATA);
- 	t4_write_reg(adap, TP_PIO_DATA, v & ~CSUM_HAS_PSEUDO_HDR);
- 
-+	/* first 4 Tx modulation queues point to consecutive Tx channels */
-+	adap->params.tp.tx_modq_map = 0xE4;
-+	t4_write_reg(adap, A_TP_TX_MOD_QUEUE_REQ_MAP,
-+		     V_TX_MOD_QUEUE_REQ_MAP(adap->params.tp.tx_modq_map));
-+
-+	/* associate each Tx modulation queue with consecutive Tx channels */
-+	v = 0x84218421;
-+	t4_write_indirect(adap, TP_PIO_ADDR, TP_PIO_DATA,
-+			  &v, 1, A_TP_TX_SCHED_HDR);
-+	t4_write_indirect(adap, TP_PIO_ADDR, TP_PIO_DATA,
-+			  &v, 1, A_TP_TX_SCHED_FIFO);
-+	t4_write_indirect(adap, TP_PIO_ADDR, TP_PIO_DATA,
-+			  &v, 1, A_TP_TX_SCHED_PCMD);
-+
-+#define T4_TX_MODQ_10G_WEIGHT_DEFAULT 16 /* in KB units */
-+	if (is_offload(adap)) {
-+		t4_write_reg(adap, A_TP_TX_MOD_QUEUE_WEIGHT0,
-+			     V_TX_MODQ_WEIGHT0(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     V_TX_MODQ_WEIGHT1(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     V_TX_MODQ_WEIGHT2(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     V_TX_MODQ_WEIGHT3(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
-+		t4_write_reg(adap, A_TP_TX_MOD_CHANNEL_WEIGHT,
-+			     V_TX_MODQ_WEIGHT0(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     V_TX_MODQ_WEIGHT1(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     V_TX_MODQ_WEIGHT2(T4_TX_MODQ_10G_WEIGHT_DEFAULT) |
-+			     V_TX_MODQ_WEIGHT3(T4_TX_MODQ_10G_WEIGHT_DEFAULT));
-+	}
-+
- 	/* get basic stuff going */
- 	return t4_early_init(adap, adap->fn);
- }
-@@ -4948,7 +5083,8 @@ static void __devexit remove_one(struct pci_dev *pdev)
- 		 */
- 		if (adapter->tids.ftid_tab) {
- 			struct filter_entry *f = &adapter->tids.ftid_tab[0];
--			for (i = 0; i < adapter->tids.nftids; i++, f++)
-+			for (i = 0; i < (adapter->tids.nftids +
-+					adapter->tids.nsftids); i++, f++)
- 				if (f->valid)
- 					clear_filter(adapter, f);
- 		}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 59a6133..065bbd5 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -131,7 +131,7 @@ static inline void *lookup_atid(const struct tid_info *t, unsigned int atid)
- static inline void *lookup_stid(const struct tid_info *t, unsigned int stid)
- {
- 	stid -= t->stid_base;
--	return stid < t->nstids ? t->stid_tab[stid].data : NULL;
-+	return stid < (t->nstids + t->nsftids) ? t->stid_tab[stid].data : NULL;
- }
- 
- static inline void cxgb4_insert_tid(struct tid_info *t, void *data,
-@@ -143,6 +143,7 @@ static inline void cxgb4_insert_tid(struct tid_info *t, void *data,
- 
- int cxgb4_alloc_atid(struct tid_info *t, void *data);
- int cxgb4_alloc_stid(struct tid_info *t, int family, void *data);
-+int cxgb4_alloc_sftid(struct tid_info *t, int family, void *data);
- void cxgb4_free_atid(struct tid_info *t, unsigned int atid);
- void cxgb4_free_stid(struct tid_info *t, unsigned int stid, int family);
- void cxgb4_remove_tid(struct tid_info *t, unsigned int qid, unsigned int tid);
-@@ -151,7 +152,10 @@ struct in6_addr;
- 
- int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
- 			__be32 sip, __be16 sport, unsigned int queue);
--
-+int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
-+			       __be32 sip, __be16 sport, unsigned int queue);
-+int cxgb4_remove_server_filter(const struct net_device *dev, unsigned int stid,
-+			       unsigned int queue, bool ipv6);
- static inline void set_wr_txq(struct sk_buff *skb, int prio, int queue)
- {
- 	skb_set_queue_mapping(skb, (queue << 1) | prio);
-@@ -223,9 +227,16 @@ struct cxgb4_lld_info {
- 	unsigned int iscsi_iolen;            /* iSCSI max I/O length */
- 	unsigned short udb_density;          /* # of user DB/page */
- 	unsigned short ucq_density;          /* # of user CQs/page */
-+	unsigned short filt_mode;            /* filter optional components */
-+	unsigned short tx_modq[NCHAN];       /* maps each tx channel to a */
-+					     /* scheduler queue */
- 	void __iomem *gts_reg;               /* address of GTS register */
- 	void __iomem *db_reg;                /* address of kernel doorbell */
- 	int dbfifo_int_thresh;		     /* doorbell fifo int threshold */
-+	unsigned int sge_pktshift;           /* Padding between CPL and */
-+					     /*	packet data */
-+	bool enable_fw_ofld_conn;            /* Enable connection through fw */
-+					     /* WR */
+@@ -2647,7 +2976,8 @@ static c4iw_handler_func work_handlers[NUM_CPL_CMDS] = {
+ 	[CPL_CLOSE_CON_RPL] = close_con_rpl,
+ 	[CPL_RDMA_TERMINATE] = terminate,
+ 	[CPL_FW4_ACK] = fw4_ack,
+-	[CPL_FW6_MSG] = async_event
++	[CPL_FW6_MSG] = deferred_fw6_msg,
++	[CPL_RX_PKT] = rx_pkt
  };
  
- struct cxgb4_uld_info {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index a1a8b57..66ab614 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -1032,4 +1032,37 @@
- #define  ADDRESS(x)     ((x) << ADDRESS_SHIFT)
+ static void process_timeout(struct c4iw_ep *ep)
+@@ -2774,9 +3104,6 @@ static int fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
+ 	struct cpl_fw6_msg *rpl = cplhdr(skb);
+ 	struct c4iw_wr_wait *wr_waitp;
+ 	int ret;
+-	u8 opcode;
+-	struct cpl_fw6_msg_ofld_connection_wr_rpl *req;
+-	struct c4iw_ep *ep;
  
- #define XGMAC_PORT_INT_CAUSE 0x10dc
+ 	PDBG("%s type %u\n", __func__, rpl->type);
+ 
+@@ -2790,23 +3117,8 @@ static int fw6_msg(struct c4iw_dev *dev, struct sk_buff *skb)
+ 		kfree_skb(skb);
+ 		break;
+ 	case FW6_TYPE_CQE:
+-		sched(dev, skb);
+-		break;
+ 	case FW6_TYPE_OFLD_CONNECTION_WR_RPL:
+-		opcode = *(const u8 *)rpl->data;
+-		if (opcode == FW_OFLD_CONNECTION_WR) {
+-			req =
+-			(struct cpl_fw6_msg_ofld_connection_wr_rpl *)rpl->data;
+-			if (req->t_state == TCP_SYN_SENT
+-			    && (req->retval == FW_ENOMEM
+-				|| req->retval == FW_EADDRINUSE)) {
+-				ep = (struct c4iw_ep *)
+-				     lookup_atid(dev->rdev.lldi.tids,
+-						 req->tid);
+-				c4iw_l2t_send(&dev->rdev, skb, ep->l2t);
+-				return 0;
+-			}
+-		}
++		sched(dev, skb);
+ 		break;
+ 	default:
+ 		printk(KERN_ERR MOD "%s unexpected fw6 msg type %u\n", __func__,
+@@ -2868,7 +3180,8 @@ c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS] = {
+ 	[CPL_RDMA_TERMINATE] = sched,
+ 	[CPL_FW4_ACK] = sched,
+ 	[CPL_SET_TCB_RPL] = set_tcb_rpl,
+-	[CPL_FW6_MSG] = fw6_msg
++	[CPL_FW6_MSG] = fw6_msg,
++	[CPL_RX_PKT] = sched
+ };
+ 
+ int __init c4iw_cm_init(void)
+diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
+index cb4ecd7..6b5b3d1 100644
+--- a/drivers/infiniband/hw/cxgb4/device.c
++++ b/drivers/infiniband/hw/cxgb4/device.c
+@@ -279,6 +279,7 @@ static int stats_show(struct seq_file *seq, void *v)
+ 	seq_printf(seq, " DB State: %s Transitions %llu\n",
+ 		   db_state_str[dev->db_state],
+ 		   dev->rdev.stats.db_state_transitions);
++	seq_printf(seq, "TCAM_FULL: %10llu\n", dev->rdev.stats.tcam_full);
+ 	return 0;
+ }
+ 
+@@ -577,14 +578,76 @@ out:
+ 	return ctx;
+ }
+ 
++static inline struct sk_buff *copy_gl_to_skb_pkt(const struct pkt_gl *gl,
++						 const __be64 *rsp,
++						 u32 pktshift)
++{
++	struct sk_buff *skb;
 +
-+#define A_TP_TX_MOD_QUEUE_REQ_MAP 0x7e28
++	/*
++	 * Allocate space for cpl_pass_accept_req which will be synthesized by
++	 * driver. Once the driver synthesizes the request the skb will go
++	 * through the regular cpl_pass_accept_req processing.
++	 * The math here assumes sizeof cpl_pass_accept_req >= sizeof
++	 * cpl_rx_pkt.
++	 */
++	skb = alloc_skb(gl->tot_len + sizeof(struct cpl_pass_accept_req) +
++			sizeof(struct rss_header) - pktshift, GFP_ATOMIC);
++	if (unlikely(!skb))
++		return NULL;
 +
-+#define A_TP_TX_MOD_CHANNEL_WEIGHT 0x7e34
++	 __skb_put(skb, gl->tot_len + sizeof(struct cpl_pass_accept_req) +
++		   sizeof(struct rss_header) - pktshift);
 +
-+#define S_TX_MOD_QUEUE_REQ_MAP    0
-+#define M_TX_MOD_QUEUE_REQ_MAP    0xffffU
-+#define V_TX_MOD_QUEUE_REQ_MAP(x) ((x) << S_TX_MOD_QUEUE_REQ_MAP)
++	/*
++	 * This skb will contain:
++	 *   rss_header from the rspq descriptor (1 flit)
++	 *   cpl_rx_pkt struct from the rspq descriptor (2 flits)
++	 *   space for the difference between the size of an
++	 *      rx_pkt and pass_accept_req cpl (1 flit)
++	 *   the packet data from the gl
++	 */
++	skb_copy_to_linear_data(skb, rsp, sizeof(struct cpl_pass_accept_req) +
++				sizeof(struct rss_header));
++	skb_copy_to_linear_data_offset(skb, sizeof(struct rss_header) +
++				       sizeof(struct cpl_pass_accept_req),
++				       gl->va + pktshift,
++				       gl->tot_len - pktshift);
++	return skb;
++}
 +
-+#define A_TP_TX_MOD_QUEUE_WEIGHT0 0x7e30
++static inline int recv_rx_pkt(struct c4iw_dev *dev, const struct pkt_gl *gl,
++			   const __be64 *rsp)
++{
++	unsigned int opcode = *(u8 *)rsp;
++	struct sk_buff *skb;
 +
-+#define S_TX_MODQ_WEIGHT3    24
-+#define M_TX_MODQ_WEIGHT3    0xffU
-+#define V_TX_MODQ_WEIGHT3(x) ((x) << S_TX_MODQ_WEIGHT3)
++	if (opcode != CPL_RX_PKT)
++		goto out;
 +
-+#define S_TX_MODQ_WEIGHT2    16
-+#define M_TX_MODQ_WEIGHT2    0xffU
-+#define V_TX_MODQ_WEIGHT2(x) ((x) << S_TX_MODQ_WEIGHT2)
++	skb = copy_gl_to_skb_pkt(gl , rsp, dev->rdev.lldi.sge_pktshift);
++	if (skb == NULL)
++		goto out;
 +
-+#define S_TX_MODQ_WEIGHT1    8
-+#define M_TX_MODQ_WEIGHT1    0xffU
-+#define V_TX_MODQ_WEIGHT1(x) ((x) << S_TX_MODQ_WEIGHT1)
++	if (c4iw_handlers[opcode] == NULL) {
++		pr_info("%s no handler opcode 0x%x...\n", __func__,
++		       opcode);
++		kfree_skb(skb);
++		goto out;
++	}
++	c4iw_handlers[opcode](dev, skb);
++	return 1;
++out:
++	return 0;
++}
 +
-+#define S_TX_MODQ_WEIGHT0    0
-+#define M_TX_MODQ_WEIGHT0    0xffU
-+#define V_TX_MODQ_WEIGHT0(x) ((x) << S_TX_MODQ_WEIGHT0)
+ static int c4iw_uld_rx_handler(void *handle, const __be64 *rsp,
+ 			const struct pkt_gl *gl)
+ {
+ 	struct uld_ctx *ctx = handle;
+ 	struct c4iw_dev *dev = ctx->dev;
+ 	struct sk_buff *skb;
+-	const struct cpl_act_establish *rpl;
+-	unsigned int opcode;
++	u8 opcode;
+ 
+ 	if (gl == NULL) {
+ 		/* omit RSS and rsp_ctrl at end of descriptor */
+@@ -601,19 +664,29 @@ static int c4iw_uld_rx_handler(void *handle, const __be64 *rsp,
+ 		u32 qid = be32_to_cpu(rc->pldbuflen_qid);
+ 		c4iw_ev_handler(dev, qid);
+ 		return 0;
++	} else if (unlikely(*(u8 *)rsp != *(u8 *)gl->va)) {
++		if (recv_rx_pkt(dev, gl, rsp))
++			return 0;
 +
-+#define A_TP_TX_SCHED_HDR 0x23
++		pr_info("%s: unexpected FL contents at %p, " \
++		       "RSS %#llx, FL %#llx, len %u\n",
++		       pci_name(ctx->lldi.pdev), gl->va,
++		       (unsigned long long)be64_to_cpu(*rsp),
++		       (unsigned long long)be64_to_cpu(*(u64 *)gl->va),
++		       gl->tot_len);
 +
-+#define A_TP_TX_SCHED_FIFO 0x24
++		return 0;
+ 	} else {
+ 		skb = cxgb4_pktgl_to_skb(gl, 128, 128);
+ 		if (unlikely(!skb))
+ 			goto nomem;
+ 	}
+ 
+-	rpl = cplhdr(skb);
+-	opcode = rpl->ot.opcode;
+-
++	opcode = *(u8 *)rsp;
+ 	if (c4iw_handlers[opcode])
+ 		c4iw_handlers[opcode](dev, skb);
+ 	else
+-		printk(KERN_INFO "%s no handler opcode 0x%x...\n", __func__,
++		pr_info("%s no handler opcode 0x%x...\n", __func__,
+ 		       opcode);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index f55386b..1a26e3f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3326,6 +3326,10 @@ int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
+ 
+ 	adap = netdev2adap(dev);
+ 
++	/* Adjust stid to correct filter index */
++	stid -= adap->tids.nstids;
++	stid += adap->tids.nftids;
 +
-+#define A_TP_TX_SCHED_PCMD 0x25
+ 	/* Check to make sure the filter requested is writable ...
+ 	 */
+ 	f = &adap->tids.ftid_tab[stid];
+@@ -3374,6 +3378,11 @@ int cxgb4_remove_server_filter(const struct net_device *dev, unsigned int stid,
+ 	struct adapter *adap;
+ 
+ 	adap = netdev2adap(dev);
 +
- #endif /* __T4_REGS_H */
++	/* Adjust stid to correct filter index */
++	stid -= adap->tids.nstids;
++	stid += adap->tids.nftids;
++
+ 	f = &adap->tids.ftid_tab[stid];
+ 	/* Unlock the filter */
+ 	f->locked = 0;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index 5b51c01..1179616 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -199,6 +199,18 @@ struct work_request_hdr {
+ 
+ #define WR_HDR struct work_request_hdr wr
+ 
++/* option 0 fields */
++#define S_MSS_IDX    60
++#define M_MSS_IDX    0xF
++#define V_MSS_IDX(x) ((__u64)(x) << S_MSS_IDX)
++#define G_MSS_IDX(x) (((x) >> S_MSS_IDX) & M_MSS_IDX)
++
++/* option 2 fields */
++#define S_RSS_QUEUE    0
++#define M_RSS_QUEUE    0x3FF
++#define V_RSS_QUEUE(x) ((x) << S_RSS_QUEUE)
++#define G_RSS_QUEUE(x) (((x) >> S_RSS_QUEUE) & M_RSS_QUEUE)
++
+ struct cpl_pass_open_req {
+ 	WR_HDR;
+ 	union opcode_tid ot;
+@@ -300,6 +312,9 @@ struct cpl_pass_establish {
+ 	union opcode_tid ot;
+ 	__be32 rsvd;
+ 	__be32 tos_stid;
++#define PASS_OPEN_TID(x) ((x) << 0)
++#define PASS_OPEN_TOS(x) ((x) << 24)
++#define GET_PASS_OPEN_TID(x)	(((x) >> 0) & 0xFFFFFF)
+ #define GET_POPEN_TID(x) ((x) & 0xffffff)
+ #define GET_POPEN_TOS(x) (((x) >> 24) & 0xff)
+ 	__be16 mac_idx;
+@@ -545,6 +560,37 @@ struct cpl_rx_pkt {
+ 	__be16 err_vec;
+ };
+ 
++/* rx_pkt.l2info fields */
++#define S_RX_ETHHDR_LEN    0
++#define M_RX_ETHHDR_LEN    0x1F
++#define V_RX_ETHHDR_LEN(x) ((x) << S_RX_ETHHDR_LEN)
++#define G_RX_ETHHDR_LEN(x) (((x) >> S_RX_ETHHDR_LEN) & M_RX_ETHHDR_LEN)
++
++#define S_RX_MACIDX    8
++#define M_RX_MACIDX    0x1FF
++#define V_RX_MACIDX(x) ((x) << S_RX_MACIDX)
++#define G_RX_MACIDX(x) (((x) >> S_RX_MACIDX) & M_RX_MACIDX)
++
++#define S_RXF_SYN    21
++#define V_RXF_SYN(x) ((x) << S_RXF_SYN)
++#define F_RXF_SYN    V_RXF_SYN(1U)
++
++#define S_RX_CHAN    28
++#define M_RX_CHAN    0xF
++#define V_RX_CHAN(x) ((x) << S_RX_CHAN)
++#define G_RX_CHAN(x) (((x) >> S_RX_CHAN) & M_RX_CHAN)
++
++/* rx_pkt.hdr_len fields */
++#define S_RX_TCPHDR_LEN    0
++#define M_RX_TCPHDR_LEN    0x3F
++#define V_RX_TCPHDR_LEN(x) ((x) << S_RX_TCPHDR_LEN)
++#define G_RX_TCPHDR_LEN(x) (((x) >> S_RX_TCPHDR_LEN) & M_RX_TCPHDR_LEN)
++
++#define S_RX_IPHDR_LEN    6
++#define M_RX_IPHDR_LEN    0x3FF
++#define V_RX_IPHDR_LEN(x) ((x) << S_RX_IPHDR_LEN)
++#define G_RX_IPHDR_LEN(x) (((x) >> S_RX_IPHDR_LEN) & M_RX_IPHDR_LEN)
++
+ struct cpl_trace_pkt {
+ 	u8 opcode;
+ 	u8 intf;
 -- 
 1.7.1
 
