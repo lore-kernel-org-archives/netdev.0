@@ -1,57 +1,30 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Fri, 30 Nov 2012 12:12:56 -0500
-Message-ID: <20121130121256.77685fef@thirdoffive.cmf.nrl.navy.mil>
-References: <201211300138.qAU1c8sE003388@thirdoffive.cmf.nrl.navy.mil>
-	<1354240620.21562.256.camel@shinybook.infradead.org>
-	<1354263922.21562.270.camel@shinybook.infradead.org>
-	<20121130095354.GA15126@shrek.podlesie.net>
-	<1354277415.21562.284.camel@shinybook.infradead.org>
-	<1354292626.21562.298.camel@shinybook.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v1 3/3] net/mlx4_en: Set number of rx/tx
+ channels using ethtool
+Date: Fri, 30 Nov 2012 12:16:39 -0500 (EST)
+Message-ID: <20121130.121639.619094396601908341.davem@davemloft.net>
+References: <1354216903-830-1-git-send-email-amirv@mellanox.com>
+	<1354216903-830-4-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Krzysztof Mazur <krzysiek@podlesie.net>,
-	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nathan@traverse.com.au
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354292626.21562.298.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ogerlitz@mellanox.com, oren@mellanox.com, netdev@vger.kernel.org
+To: amirv@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44606 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751593Ab2K3RQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 12:16:41 -0500
+In-Reply-To: <1354216903-830-4-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Nov 2012 16:23:46 +0000
-David Woodhouse <dwmw2@infradead.org> wrote:
+From: Amir Vadai <amirv@mellanox.com>
+Date: Thu, 29 Nov 2012 21:21:43 +0200
 
-> On Fri, 2012-11-30 at 12:10 +0000, David Woodhouse wrote:
-> > In that case I think we're fine. I'll just do the same thing in
-> > br2684_push(), fix up the comment you just corrected, and we're all
-> > good.
-> 
-> OK, here's an update to me my patch 8/17 'br2684: don't send frames on
-> not-ready vcc'. It takes the socket lock and does fairly much the same
-> thing as your pppoatm version. It returns NETDEV_TX_BUSY and stops the
-> queue if the socket is locked, and it gets woken from the ->release_cb
-> callback.
-> 
-> I've dropped your Acked-By: since it's mostly new, but feel free to give
-> me a fresh one. With this I think we're done.
-> 
-> Unless Chas has any objections, I'll ask Dave to pull it...
+> +static void mlx4_en_get_channels(struct net_device *dev,
+> +		struct ethtool_channels *channel)
 
-no objections.  i think this deals with my concerns.  as for splitting
-the close functions, from one of your previous messages:
-
-
->Really, what we're saying is that *one* of the driver or protocol close
->functions needs to be split, and we need to do DPD or PDP. Since the
->device driver *can* abort/flush the TX queue and also any pending RX
->being handled by a tasklet, I think it makes most sense to keep it in
->the middle, with the protocol being handled first and last... which is
->the current order, as long as we consider setting ATM_VF_CLOSE to be the
->first part.
-
-i believe this is essentially already done with the release_cb()
-implementation right?  that is splitting the protocol detach/shutdown
-into two parts.
+This is not formatted correctly, the argument on the second line
+must line up with the first column after the openning "(" on the
+previous line.
