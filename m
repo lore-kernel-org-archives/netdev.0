@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: verify length provided in heartbeat information
- parameter
-Date: Fri, 30 Nov 2012 12:26:34 -0500 (EST)
-Message-ID: <20121130.122634.395602436506279741.davem@davemloft.net>
-References: <20121130121627.GG30697@casper.infradead.org>
-	<20121130160156.GC6039@hmsreliant.think-freely.org>
+Subject: Re: [PATCH 0/2] smsc75xx enhancements
+Date: Fri, 30 Nov 2012 12:27:49 -0500 (EST)
+Message-ID: <20121130.122749.1244577379515178237.davem@davemloft.net>
+References: <1354287164-9884-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org
+To: steve.glendinning@shawell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44766 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44772 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750709Ab2K3R0h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 12:26:37 -0500
-In-Reply-To: <20121130160156.GC6039@hmsreliant.think-freely.org>
+	with ESMTP id S1750709Ab2K3R1u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 12:27:50 -0500
+In-Reply-To: <1354287164-9884-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 30 Nov 2012 11:01:57 -0500
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Fri, 30 Nov 2012 14:52:42 +0000
 
-> On Fri, Nov 30, 2012 at 12:16:27PM +0000, Thomas Graf wrote:
->> If the variable parameter length provided in the mandatory
->> heartbeat information parameter exceeds the calculated payload
->> length the packet has been corrupted. Reply with a parameter
->> length protocol violation message.
->> 
->> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-...
->> 
-> Looks good, thanks Thomas.
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> This patchset, as requestes, expands the macros used in
+> smsc75xx to make the flow control clearer.
 > 
+> I've left the fix in a separate patch, so the macro-
+> expanding patch should have zero functional change.
 
-Applied, thanks.
+Applied, thanks for fixing this up.
