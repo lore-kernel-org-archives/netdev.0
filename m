@@ -1,81 +1,56 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next v1 1/2] bridge: export port_no and port_id via IFA_INFO_DATA
-Date: Fri, 30 Nov 2012 17:58:32 +0800
-Message-ID: <1354269514-1863-1-git-send-email-amwang@redhat.com>
-Cc: bridge@lists.linux-foundation.org, Cong Wang <amwang@redhat.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH]realtek:r8169: Bugfix or workaround for missing extended GigaMAC registers settings
+Date: Fri, 30 Nov 2012 07:35:00 +0100
+Message-ID: <20121130063500.GA9436@electric-eye.fr.zoreil.com>
+References: <20121130050619.GA12862@udknight>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: nic_swsd@realtek.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
+To: Wang YanQing <udknight@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6966 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752460Ab2K3J7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2012 04:59:25 -0500
+Received: from violet.fr.zoreil.com ([92.243.8.30]:60980 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007Ab2K3G7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 01:59:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20121130050619.GA12862@udknight>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-port_no will be used to get ifindex of a port in user-space,
-export it togather with port_id.
+Wang YanQing <udknight@gmail.com> :
+[...]
+> After add some debug code, I found this NIC only accept ethernet
+> broadcast package, it can't filter out the package send to its
+> MAC address, but it works good for sending.So ifconfig show the
+> RX/TX status means it can receive ARP package.(It don't its MAC
+> address, so below)
 
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Thomas Graf <tgraf@suug.ch>
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-Acked-by: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- include/uapi/linux/if_link.h |    2 ++
- net/bridge/br_netlink.c      |    8 +++++++-
- 2 files changed, 9 insertions(+), 1 deletions(-)
+Which kernel version is it ?
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index bb58aeb..9cd91a9 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -218,6 +218,8 @@ enum {
- 	IFLA_BRPORT_MODE,	/* mode (hairpin)          */
- 	IFLA_BRPORT_GUARD,	/* bpdu guard              */
- 	IFLA_BRPORT_PROTECT,	/* root port protection    */
-+	IFLA_BRPORT_NO,		/* port no                 */
-+	IFLA_BRPORT_ID,		/* port id                 */
- 	__IFLA_BRPORT_MAX
- };
- #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 65429b9..7b7414e 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -28,6 +28,8 @@ static inline size_t br_port_info_size(void)
- 		+ nla_total_size(1)	/* IFLA_BRPORT_MODE */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_GUARD */
- 		+ nla_total_size(1)	/* IFLA_BRPORT_PROTECT */
-+		+ nla_total_size(2)	/* IFLA_BRPORT_NO */
-+		+ nla_total_size(2)	/* IFLA_BRPORT_ID */
- 		+ 0;
- }
- 
-@@ -53,7 +55,9 @@ static int br_port_fill_attrs(struct sk_buff *skb,
- 	    nla_put_u32(skb, IFLA_BRPORT_COST, p->path_cost) ||
- 	    nla_put_u8(skb, IFLA_BRPORT_MODE, mode) ||
- 	    nla_put_u8(skb, IFLA_BRPORT_GUARD, !!(p->flags & BR_BPDU_GUARD)) ||
--	    nla_put_u8(skb, IFLA_BRPORT_PROTECT, !!(p->flags & BR_ROOT_BLOCK)))
-+	    nla_put_u8(skb, IFLA_BRPORT_PROTECT, !!(p->flags & BR_ROOT_BLOCK)) ||
-+	    nla_put_u16(skb, IFLA_BRPORT_NO, p->port_no) ||
-+	    nla_put_u16(skb, IFLA_BRPORT_ID, p->port_id))
- 		return -EMSGSIZE;
- 
- 	return 0;
-@@ -168,6 +172,8 @@ static const struct nla_policy ifla_brport_policy[IFLA_BRPORT_MAX + 1] = {
- 	[IFLA_BRPORT_MODE]	= { .type = NLA_U8 },
- 	[IFLA_BRPORT_GUARD]	= { .type = NLA_U8 },
- 	[IFLA_BRPORT_PROTECT]	= { .type = NLA_U8 },
-+	[IFLA_BRPORT_NO]	= { .type = NLA_U16 },
-+	[IFLA_BRPORT_ID]	= { .type = NLA_U16 },
- };
- 
- /* Change the state of the port and notify spanning tree */
+[...]
+> I haven't see any code to set GigaMAC registers in kernel when boot,
+> so I guess BIOS or NIC's circuit make it, but of course one miss
+
+I'd appreciate to figure it out (and understand why I did not notice
+it when testing).
+
+> the extended GigaMAC registers  in this problem. The probe code can
+> get MAC address right, so MAC{0,4} must had been setted, but some
+> guys forget the extended GigaMAC registers.
+> 
+> This patch fix it.
+
+It is a good analysis job.
+
+I'd rather see the GigaMAC registers written through a call to
+rtl_rar_set when the mac address is read in rtl_init_one instead
+of duplicating most of rtl_rar_set in a quite different place.
+
+Hayes, can you specify if it would work or if it may mess the registers
+init sequence ordering ?
+
+Thanks.
+
+-- 
+Ueimor
