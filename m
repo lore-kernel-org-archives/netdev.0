@@ -1,62 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] net: move inet_dport/inet_num in
- sock_common
-Date: Fri, 30 Nov 2012 15:03:18 -0500 (EST)
-Message-ID: <20121130.150318.1614281860316607800.davem@davemloft.net>
-References: <1354304967.20109.10.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] tcp: change default tcp hash size
+Date: Fri, 30 Nov 2012 12:08:52 -0800
+Message-ID: <1354306132.20109.41.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ling.ma.program@gmail.com,
-	bhutchings@solarflare.com, joe@perches.com
-To: eric.dumazet@gmail.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46738 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933620Ab2K3UDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 15:03:20 -0500
-In-Reply-To: <1354304967.20109.10.camel@edumazet-glaptop>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:51716 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751398Ab2K3UIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 15:08:54 -0500
+Received: by mail-pa0-f46.google.com with SMTP id bh2so578603pad.19
+        for <netdev@vger.kernel.org>; Fri, 30 Nov 2012 12:08:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 30 Nov 2012 11:49:27 -0800
+From: Eric Dumazet <edumazet@google.com>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> commit 68835aba4d9b (net: optimize INET input path further)
-> moved some fields used for tcp/udp sockets lookup in the first cache
-> line of struct sock_common.
-> 
-> This patch moves inet_dport/inet_num as well, filling a 32bit hole
-> on 64 bit arches and reducing number of cache line misses in lookups.
-> 
-> Also change INET_MATCH()/INET_TW_MATCH() to perform the ports match
-> before addresses match, as this check is more discriminant.
-> 
-> Remove the hash check from MATCH() macros because we dont need to
-> re validate the hash value after taking a refcount on socket, and
-> use likely/unlikely compiler hints, as the sk_hash/hash check
-> makes the following conditional tests 100% predicted by cpu.
-> 
-> Introduce skc_addrpair/skc_portpair pair values to better
-> document the alignment requirements of the port/addr pairs
-> used in the various MATCH() macros, and remove some casts.
-> 
-> The namespace check can also be done at last.
-> 
-> This slightly improves TCP/UDP lookup times.
-> 
-> IP/TCP early demux needs inet->rx_dst_ifindex and
-> TCP needs inet->min_ttl, lets group them together in same cache line.
-> 
-> With help from Ben Hutchings & Joe Perches.
-> 
-> Idea of this patch came after Ling Ma proposal to move skc_hash
-> to the beginning of struct sock_common, and should allow him
-> to submit a final version of his patch. My tests show an improvement
-> doing so.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+As time passed, available memory increased faster than number of
+concurrent tcp sockets. 
 
-Applied, thanks for fixing this up.
+As a result, a machine with 4GB of ram gets a hash table
+with 524288 slots, using 8388608 bytes of memory.
+
+Lets change that by a 16x factor (one slot for 128 KB of ram)
+
+Even if a small machine needs a _lot_ of sockets, tcp lookups are now
+very efficient, using one cache line per socket.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index e6eace1..1aca02c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -3590,8 +3590,7 @@ void __init tcp_init(void)
+ 		alloc_large_system_hash("TCP established",
+ 					sizeof(struct inet_ehash_bucket),
+ 					thash_entries,
+-					(totalram_pages >= 128 * 1024) ?
+-					13 : 15,
++					17, /* one slot per 128 KB of memory */
+ 					0,
+ 					NULL,
+ 					&tcp_hashinfo.ehash_mask,
+@@ -3607,8 +3606,7 @@ void __init tcp_init(void)
+ 		alloc_large_system_hash("TCP bind",
+ 					sizeof(struct inet_bind_hashbucket),
+ 					tcp_hashinfo.ehash_mask + 1,
+-					(totalram_pages >= 128 * 1024) ?
+-					13 : 15,
++					17, /* one slot per 128 KB of memory */
+ 					0,
+ 					&tcp_hashinfo.bhash_size,
+ 					NULL,
