@@ -1,73 +1,59 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: ip6_rt_gc_elasticity and ip6_rt_gc_min_interval race in
- rt6_alloc_cow() ?
-Date: Fri, 30 Nov 2012 19:43:36 +0100
-Message-ID: <20121130184336.GB7113@midget.suse.cz>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH] Smack: Add missing depends on INET in Kconfig
+Date: Fri, 30 Nov 2012 13:43:49 -0500
+Message-ID: <8363749.LmN8tGshhp@sifl>
+References: <20121129174057.99da02b15426c76054d05592@canb.auug.org.au> <50B8ECB3.2090801@schaufler-ca.com> <50B8EF79.4080907@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mkubecek@suse.cz
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:46861 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1031365Ab2K3Snk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2012 13:43:40 -0500
-Received: from relay1.suse.de (unknown [195.135.220.254])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mx2.suse.de (Postfix) with ESMTP id BCEEEA5239
-	for <netdev@vger.kernel.org>; Fri, 30 Nov 2012 19:43:38 +0100 (CET)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-security-module@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>,
+	Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <50B8EF79.4080907@xenotime.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Friday, November 30, 2012 09:40:09 AM Randy Dunlap wrote:
+> On 11/30/2012 09:28 AM, Casey Schaufler wrote:
+> > Because NETLABEL depends on INET SECURITY_SMACK
+> > has to explicitly call out the dependency.
+> > 
+> > Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
+> 
+> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+> 
+> Thanks for the quick fix.
 
-I came across this code in rt6_alloc_cow():
++1
 
+Thanks Casey.
 
-	if (rt6_bind_neighbour(rt, rt->dst.dev)) {
-		struct net *net = dev_net(rt->dst.dev);
-		int saved_rt_min_interval =
-			net->ipv6.sysctl.ip6_rt_gc_min_interval;
-		int saved_rt_elasticity =
-			net->ipv6.sysctl.ip6_rt_gc_elasticity;
-
-		if (attempts-- > 0) {
-			net->ipv6.sysctl.ip6_rt_gc_elasticity = 1;
-			net->ipv6.sysctl.ip6_rt_gc_min_interval = 0;
-
-			ip6_dst_gc(&net->ipv6.ip6_dst_ops);
-
-			net->ipv6.sysctl.ip6_rt_gc_elasticity =
-				saved_rt_elasticity;
-			net->ipv6.sysctl.ip6_rt_gc_min_interval =
-				saved_rt_min_interval;
-			goto retry;
-		}
-
-		net_warn_ratelimited("Neighbour table overflow\n");
-		dst_free(&rt->dst);
-		return NULL;
-	}
-
-I believe there is a race condition in the setting of
-ip6_rt_gc_elasticity and ip6_rt_gc_min_interval. I have not seen
-happen, though:
-
-1) a setting made by the user via sysctl while ip6_dst_gc() is
-   running will get lost
-
-2) another instance of rt6_alloc_cow() may save the temporary
-   values in the saved_* variables, making those permanent.
-
-Am I overlooking some synchronization or should I send a
-patch to fix this?
-
-
-Thanks,
-
-
+> > ---
+> > 
+> >  security/smack/Kconfig |    1 +
+> >  1 file changed, 1 insertion(+)
+> > 
+> > diff --git a/security/smack/Kconfig b/security/smack/Kconfig
+> > index 9fb14ef..1be1088 100644
+> > --- a/security/smack/Kconfig
+> > +++ b/security/smack/Kconfig
+> > @@ -1,5 +1,6 @@
+> > 
+> >  config SECURITY_SMACK
+> >  
+> >  	bool "Simplified Mandatory Access Control Kernel Support"
+> > 
+> > +	depends on INET
+> > 
+> >  	depends on NET
+> >  	depends on SECURITY
+> >  	select NETLABEL
+> > 
+> > --
 -- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+paul moore
+www.paul-moore.com
