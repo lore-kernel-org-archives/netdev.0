@@ -1,63 +1,57 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Fri, 30 Nov 2012 18:39:36 +0100
-Message-ID: <20121130173936.GA11668@shrek.podlesie.net>
-References: <201211300138.qAU1c8sE003388@thirdoffive.cmf.nrl.navy.mil>
- <1354240620.21562.256.camel@shinybook.infradead.org>
- <1354263922.21562.270.camel@shinybook.infradead.org>
- <20121130095354.GA15126@shrek.podlesie.net>
- <1354277415.21562.284.camel@shinybook.infradead.org>
- <1354292626.21562.298.camel@shinybook.infradead.org>
- <20121130121256.77685fef@thirdoffive.cmf.nrl.navy.mil>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: [PATCH] Smack: Add missing depends on INET in Kconfig
+Date: Fri, 30 Nov 2012 09:40:09 -0800
+Message-ID: <50B8EF79.4080907@xenotime.net>
+References: <20121129174057.99da02b15426c76054d05592@canb.auug.org.au> <50B7F846.70202@infradead.org> <3694027.VYznNcdp7C@sifl> <2664553.2TRaVqlkGg@sifl> <50B8E4E6.2040901@xenotime.net> <50B8ECB3.2090801@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nathan@traverse.com.au
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20121130121256.77685fef@thirdoffive.cmf.nrl.navy.mil>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Randy Dunlap <rdunlap@xenotime.net>,
+	Paul Moore <paul@paul-moore.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-security-module@vger.kernel.org
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from oproxy7-pub.bluehost.com ([67.222.55.9]:40475 "HELO
+	oproxy7-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1759008Ab2K3RkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 12:40:18 -0500
+In-Reply-To: <50B8ECB3.2090801@schaufler-ca.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 30, 2012 at 12:12:56PM -0500, chas williams - CONTRACTOR wrote:
-> >Really, what we're saying is that *one* of the driver or protocol close
-> >functions needs to be split, and we need to do DPD or PDP. Since the
-> >device driver *can* abort/flush the TX queue and also any pending RX
-> >being handled by a tasklet, I think it makes most sense to keep it in
-> >the middle, with the protocol being handled first and last... which is
-> >the current order, as long as we consider setting ATM_VF_CLOSE to be the
-> >first part.
+On 11/30/2012 09:28 AM, Casey Schaufler wrote:
+
+> Because NETLABEL depends on INET SECURITY_SMACK
+> has to explicitly call out the dependency.
 > 
-> i believe this is essentially already done with the release_cb()
-> implementation right?  that is splitting the protocol detach/shutdown
-> into two parts.
-
-partially, release_cb() is about ATM socket locking. To avoid some races
-we need to take the ATM socket lock in protocol send function
-(br2684_start_xmit, pppoatm_send, ...). That functions are executed
-in bh context and we cannot sleep and wait for releasing the ATM socket
-lock, so we just block sending and when the ATM socket is unlocked
-release_cb() is called and we re-enabling sending.
+> Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
 
 
-Currently the first part of detach is just:
+Acked-by: Randy Dunlap <rdunlap@xenotime.net>
 
-	lock_sock(sk)
+Thanks for the quick fix.
 
-	(without latest "br2684: don't send frames on not-ready vcc"
-	the first part was
+> ---
+>  security/smack/Kconfig |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/security/smack/Kconfig b/security/smack/Kconfig
+> index 9fb14ef..1be1088 100644
+> --- a/security/smack/Kconfig
+> +++ b/security/smack/Kconfig
+> @@ -1,5 +1,6 @@
+>  config SECURITY_SMACK
+>  	bool "Simplified Mandatory Access Control Kernel Support"
+> +	depends on INET
+>  	depends on NET
+>  	depends on SECURITY
+>  	select NETLABEL
+> 
+> --
 
-	set_bit(ATM_VF_CLOSE, &vcc->flags);
-	clear_bit(ATM_VF_READY, &vcc->flags);
 
-	for br2684)
-
-After that the protocol stops sending new packets so the vcc may be
-fully closed by ATM driver. The protocol is still ready to process
-received packets. After vcc is closed the protocol can safely detach
-knowing that no new packets will be received.
-
-Krzysiek
+-- 
+~Randy
