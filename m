@@ -1,87 +1,76 @@
-From: Wang YanQing <udknight@gmail.com>
-Subject: [PATCH v3]realtek:r8169: Bugfix or workaround for missing extended
- GigaMAC registers settings
-Date: Sat, 1 Dec 2012 07:21:52 +0800
-Message-ID: <20121130232152.GA10960@udknight>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH V2 1/9] net: frag evictor, avoid killing warm
+ frag queues
+Date: Sat, 01 Dec 2012 00:23:35 +0100
+Message-ID: <1354317815.11754.498.camel@localhost>
+References: <20121129161019.17754.29670.stgit@dragon>
+	 <20121129161052.17754.85017.stgit@dragon>
+	 <20121129.124427.1093031685966728935.davem@davemloft.net>
+	 <1354227470.11754.348.camel@localhost>
+	 <1354230100.3299.40.camel@edumazet-glaptop>
+	 <1354269846.11754.381.camel@localhost>
+	 <1354287134.3299.67.camel@edumazet-glaptop>
+	 <1354290335.11754.447.camel@localhost>
+	 <1354293469.3299.81.camel@edumazet-glaptop>
+	 <1354311437.11754.459.camel@localhost>
+	 <1354314319.20109.179.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nic_swsd@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
+	netdev@vger.kernel.org, pablo@netfilter.org, tgraf@suug.ch,
+	amwang@redhat.com, kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	herbert@gondor.hengli.com.au
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:22035 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756486Ab2K3X1A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2012 18:27:00 -0500
+In-Reply-To: <1354314319.20109.179.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I get a board with 8168e-vl(10ec:8168 with RTL_GIGA_MAC_VER_34),
-everything looks well first, I can use ifconfig to set ip, netmask,
-etc. And the rx/tx statistics show by ifconfig looks good when I
-ping another host or ping it from another host. But it don't work,
-I can't get ICMP REPLAY from both sides, although the RX/TX statistics
-seem good.
+On Fri, 2012-11-30 at 14:25 -0800, Eric Dumazet wrote:
+> On Fri, 2012-11-30 at 22:37 +0100, Jesper Dangaard Brouer wrote:
+>
+> > Come on Eric, you are smart than this.  When will you realize, that
+> > dropping partly completed fragment queue are bad for performance? (And
+> > thus a bad algorithmic choice in the evictor)
+> 
+> Sorry I must be dumb, so I'll stop commenting.
 
-After add some debug code, I found this NIC only accept ethernet
-broadcast package, it can't filter out the package send to its
-MAC address, but it works good for sending.So ifconfig show the
-RX/TX status means it can receive ARP package.(It don't know its
-MAC address, so below)
+Come on Eric, you are one of the smartest and most enlightened persons I
+know.
 
-I have try the driver provided by realtek's website, it have the
-same problem at the first time. BUT IT WORK AFTER I REBOOT with
-CRTL-ALT-DEL, the reason is that realtek's driver call rtl8168_rar_set
-in the .shutdown function register with pci_register_driver. Yes,
-the really reason to make it work is rtl8689_rar_set, this function
-set extended GigaMAC registers, so after reboot without lost the power,
-NIC keep the status before reboot.
+I'm just a little puzzled (and perhaps annoyed) that you don't agree
+that the evictor code is a problem, given the tests I have provided and
+the discussion we have had.
 
-I haven't see any code to set GigaMAC registers in kernel when boot,
-so I guess BIOS or NIC's circuit make it, but of course one miss
-the extended GigaMAC registers  in this problem. The probe code can
-get MAC address right, so MAC{0,4} must had been setted, but some
-guys forget the extended GigaMAC registers.
+On this mailing list we challenge and give each other a hard time on the
+technical side, as it should be.  This is nothing personal -- I don't
+take it personal, I just believe this patch is important and makes a
+difference.
 
-This patch fix it.
 
-[ I don't known whether others' realtek's NIC with extended GigaMAC
-reigisters have the same problem, I meet it in 8168e-vl with
-RTL_GIGA_MAC_VER_34, so I make this patch just for it.]
+I want us to discuss the evictor code as such.  Not trying to come up
+with, workarounds avoiding the evictor code.
 
-Changes:
-V1-V2:
-I follow Francois Romieu 's below opinion to make this patch oneline:
+The dropping choice in the evictor code is not sound.
 
-I'd rather see the GigaMAC registers written through a call to
-rtl_rar_set when the mac address is read in rtl_init_one instead of
-duplicating most of rtl_rar_set in a quite different place.
+We are dealing with assembling fragments.  If a single fragment is lost,
+the complete fragment is lost.  The evictor code, will kill off one or
+several fragments, knowing that this will invalidate the remaining
+fragments.  Under high load, the LRU list has no effect, and cannot
+guide the drop choice.  The result is dropping on an "even"/fair basis,
+which will basically kill all fragments, letting none complete.  Just as
+my tests indicate, it severely affects performance with nearly no
+throughput as a result.
 
-V2-V3:
-1:Add conditon code to around this fix, because it make no sense for
-most NIC
-2:Add comment in code
 
-Signed-off-by: Wang YanQing <udknight@gmail.com>
----
- drivers/net/ethernet/realtek/r8169.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 927aa33..5d98296 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -6903,6 +6903,14 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		dev->dev_addr[i] = RTL_R8(MAC0 + i);
- 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
- 
-+	/*
-+	 *This is a fix for BIOS forget to set
-+	 *extend GigaMAC registers
-+	 *Wang YanQing 12/1/2012
-+	 */
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_34) {
-+	    rtl_rar_set(tp, dev->dev_addr);
-+	}
- 	SET_ETHTOOL_OPS(dev, &rtl8169_ethtool_ops);
- 	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
- 
 -- 
-1.7.11.1.116.g8228a23
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
