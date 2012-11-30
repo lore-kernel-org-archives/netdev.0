@@ -1,51 +1,43 @@
-From: Dries De Winter <dries.dewinter@gmail.com>
-Subject: Re: [PATCH] net: ICMPv6 packets transmitted on wrong interface if
- nfmark is mangled
-Date: Fri, 30 Nov 2012 13:29:20 +0100
-Message-ID: <CA+e04fhY1KjYFwbQ6P=V==kyU3fqMrvrzRJSyz6sy=RwHki07Q@mail.gmail.com>
-References: <22884633.2468.1354092935228.JavaMail.driesdw@sahwcmp0020>
-	<14515182.2480.1354093791878.JavaMail.driesdw@sahwcmp0020>
-	<20121128.183037.1780631404801131036.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH V2 8/9] net: frag queue locking per hash bucket
+Date: Fri, 30 Nov 2012 13:55:32 +0100
+Message-ID: <1354280132.11754.435.camel@localhost>
+References: <20121129161019.17754.29670.stgit@dragon>
+	 <20121129161512.17754.93933.stgit@dragon>
+	 <1354208920.14302.1907.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: pablo@netfilter.org, kaber@trash.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20121128.183037.1780631404801131036.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:9804 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751036Ab2K3M4y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2012 07:56:54 -0500
+In-Reply-To: <1354208920.14302.1907.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2012/11/29 David Miller <davem@davemloft.net>:
-> From: Dries De Winter <dries.dewinter@gmail.com>
-> Date: Wed, 28 Nov 2012 10:09:55 +0100 (CET)
->
->> I propose a patch which allows to mark a dst_entry as "non-reroutable".
->> icmp6_dst_alloc() (used by ndisc and MLD implementation) will always mark
->> the
->> allocated dst_entry as such. A check is added to netfilter (IPv6-only) so
->> packets heading for a non-reroutable destination are never rerouted.
->
-> What about addrconf_dst_alloc()?  Shouldn't it have this new flag set
-> as well?
-I don't think so. I'm not sure if I understand all of IPv6 routing
-correctly, but it looks like dst entries allocated by
-addrconf_dst_alloc() are added to the routing table pretty much like
-normal routes and skbuffs get assigned such dst entries by normal rule
-lookup / route lookup.
+On Thu, 2012-11-29 at 09:08 -0800, Eric Dumazet wrote:
 
-If an skbuff got assigned such a dst entry by normal routing in the
-first place, and the changes done by the mangle table don't affect
-routing (e.g. skb->mark changed but no policy based routing), I guess
-that rerouting the packet will get you there too. In the meantime, by
-not specifying DST_NOREROUTE for such destinations, you don't lose the
-capability to mangle a packet so it should really be routed
-differently.
+> So we still have this huge contention on the reader-writer lock cache
+> line...
+> I would just remove it. (And remove hash rebuild, or make it RCU
+> compatible )
 
-> Regardless of the answer to that question, it should be explained
-> in the commit message.
-Should I post a new patch email including this comment?
+I vote for removing the rebuild feature.  It really doesn't make sense
+to protect a 256Kb memory (using) hash, with very short lived elements,
+against hash collision attacks, every 10 minutes. (Especially as we saw
+a 7 GBit/s performance improvement)
 
-Regards,
-
-Dries.
+Making the hash RCU "compatible" is not going to work, because the
+elements are too short lived, thus we cannot free them fast enough
+(call_rcu stuff). (I actually did the RCU implementation, to realize
+this...)
