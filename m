@@ -1,79 +1,38 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH iproute2 v1] Add mdb command to bridge
-Date: Fri, 30 Nov 2012 10:54:49 +0000
-Message-ID: <20121130105449.GE30697@casper.infradead.org>
-References: <1354269514-1863-1-git-send-email-amwang@redhat.com>
- <1354269514-1863-3-git-send-email-amwang@redhat.com>
+From: Wang YanQing <udknight@gmail.com>
+Subject: Re: [PATCH]realtek:r8169: Bugfix or workaround for missing extended
+ GigaMAC registers settings
+Date: Fri, 30 Nov 2012 18:00:02 +0800
+Message-ID: <20121130100002.GA6253@udknight>
+References: <20121130050619.GA12862@udknight>
+ <20121130063500.GA9436@electric-eye.fr.zoreil.com>
+ <20121130090429.GA14439@udknight>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Cong Wang <amwang@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>, nic_swsd@realtek.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hayes Wang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:41781 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757467Ab2K3Kyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 05:54:51 -0500
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:36977 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756938Ab2K3KAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 05:00:42 -0500
 Content-Disposition: inline
-In-Reply-To: <1354269514-1863-3-git-send-email-amwang@redhat.com>
+In-Reply-To: <20121130090429.GA14439@udknight>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/30/12 at 05:58pm, Cong Wang wrote:
-> diff --git a/bridge/br_common.h b/bridge/br_common.h
-> index 718ecb9..83b2b9f 100644
-> --- a/bridge/br_common.h
-> +++ b/bridge/br_common.h
-> @@ -5,6 +5,7 @@ extern int print_fdb(const struct sockaddr_nl *who,
->  		     struct nlmsghdr *n, void *arg);
->  
->  extern int do_fdb(int argc, char **argv);
-> +extern int do_mdb(int argc, char **argv);
->  extern int do_monitor(int argc, char **argv);
->  
->  extern int preferred_family;
-> @@ -12,3 +13,37 @@ extern int show_stats;
->  extern int show_detail;
->  extern int timestamp;
->  extern struct rtnl_handle rth;
-> +
-> +/* Bridge multicast database attributes
-> + * [MDBA_MDB] = {
-> + *    [MDBA_MCADDR]
-> + *    [MDBA_BRPORT_NO]
-> + * }
-> + * [MDBA_ROUTER] = {
-> + *    [MDBA_BRPORT_NO]
-> + * }
-> + */
-> +enum {
-> +	MDBA_UNSPEC,
-> +	MDBA_MDB,
-> +	MDBA_ROUTER,
-> +	__MDBA_MAX,
-> +};
-> +#define MDBA_MAX (__MDBA_MAX - 1)
-> +
-> +enum {
-> +	MDBA_MDB_UNSPEC,
-> +	MDBA_MCADDR,
-> +	MDBA_BRPORT_NO,
-> +	__MDBA_MDB_MAX,
-> +};
-> +#define MDBA_MDB_MAX (__MDBA_MDB_MAX - 1)
-> +
-> +struct br_port_msg {
-> +        int ifindex;
-> +};
-> +
-> +#ifndef MDBA_RTA
-> +#define MDBA_RTA(r) \
-> +	((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct br_port_msg))))
-> +#endif
+On Fri, Nov 30, 2012 at 05:04:29PM +0800, Wang YanQing wrote:
+> On Fri, Nov 30, 2012 at 07:35:00AM +0100, Francois Romieu wrote:
+> > Which kernel version is it ?
+> I have done the test and debug  with mainline 
+> e23739b4ade80a3a7f87198f008f6c44a7cbc9fd, v3.7-rc7-51-ge23739b
+More exactly, I find the problem in 3.0 stable tree, and fix it
+for 3.0 stable tree first, then re test and debug for mainline,
+e23739b4ade80a3a7f87198f008f6c44a7cbc9fd, v3.7-rc7-51-ge23739b.
 
-You shouldn't need to duplicate the attribute ids and struct br_port_msg
-in iproute2. Just put these definitions in a uapi kernel header and
-include the header from iproute2.
+I found the mainline's r8169 works the same as realtek's driver,
+the first time don't work, but it works after reboot, the reason
+is the pci driver's shutdown don't call rtl_rar_set in 3.0 stable
+tree but the mainline does.
+
+Thanks.
