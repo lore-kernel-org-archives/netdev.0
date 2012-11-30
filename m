@@ -1,101 +1,113 @@
-From: Peter Turczak <pt@netconsequence.de>
-Subject: [PATCH] smsc: RFC: Workaround for problems with lan8710 phy auto MDI-X
-Date: Fri, 30 Nov 2012 14:11:19 +0100
-Message-ID: <8D7E9026-6276-452B-9E0C-AEB8CF38C9FD@netconsequence.de>
-Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: David Miller <davem@davemloft.net>,
-	"Otavio Salvador" <otavio@ossystems.com.br>,
-	"Javier Martinez Canillas" <javier@dowhile0.org>,
-	"Jiri Kosina" <jkosina@suse.cz>,
-	"Christian Hohnstaedt" <chohnstaedt@innominate.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH] sctp: fix CONFIG_SCTP_DBG_MSG=y null pointer dereference
+ in sctp_v6_get_dst()
+Date: Fri, 30 Nov 2012 09:18:26 -0500
+Message-ID: <50B8C032.7030307@gmail.com>
+References: <1354267062-15888-1-git-send-email-tt.rantala@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Dave Jones <davej@redhat.com>
+To: Tommi Rantala <tt.rantala@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:51196 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758350Ab2K3OSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 09:18:30 -0500
+In-Reply-To: <1354267062-15888-1-git-send-email-tt.rantala@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On 11/30/2012 04:17 AM, Tommi Rantala wrote:
+> Trinity (the syscall fuzzer) triggered the following BUG, reproducible
+> only when the kernel is configured with CONFIG_SCTP_DBG_MSG=y.
+>
+> When CONFIG_SCTP_DBG_MSG is not set, the null pointer is never
+> dereferenced.
+>
+> ---[ end trace a4de0bfcb38a3642 ]---
+> BUG: unable to handle kernel NULL pointer dereference at 0000000000000100
+> IP: [<ffffffff8136796e>] ip6_string+0x1e/0xa0
+> PGD 4eead067 PUD 4e472067 PMD 0
+> Oops: 0000 [#1] PREEMPT SMP
+> Modules linked in:
+> CPU 3
+> Pid: 21324, comm: trinity-child11 Tainted: G        W    3.7.0-rc7+ #61 ASUSTeK Computer INC. EB1012/EB1012
+> RIP: 0010:[<ffffffff8136796e>]  [<ffffffff8136796e>] ip6_string+0x1e/0xa0
+> RSP: 0018:ffff88004e4637a0  EFLAGS: 00010046
+> RAX: ffff88004e4637da RBX: ffff88004e4637da RCX: 0000000000000000
+> RDX: ffffffff8246e92a RSI: 0000000000000100 RDI: ffff88004e4637da
+> RBP: ffff88004e4637a8 R08: 000000000000ffff R09: 000000000000ffff
+> R10: 0000000000000000 R11: 0000000000000000 R12: ffffffff8289d600
+> R13: ffffffff8289d230 R14: ffffffff8246e928 R15: ffffffff8289d600
+> FS:  00007fed95153700(0000) GS:ffff88005fd80000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 0000000000000100 CR3: 000000004eeac000 CR4: 00000000000007e0
+> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> Process trinity-child11 (pid: 21324, threadinfo ffff88004e462000, task ffff8800524b0000)
+> Stack:
+>   ffff88004e4637da ffff88004e463828 ffffffff81368eee 000000004e4637d8
+>   ffffffff0000ffff ffff88000000ffff 0000000000000000 000000004e4637f8
+>   ffffffff826285d8 ffff88004e4637f8 0000000000000000 ffff8800524b06b0
+> Call Trace:
+>   [<ffffffff81368eee>] ip6_addr_string.isra.11+0x3e/0xa0
+>   [<ffffffff81369183>] pointer.isra.12+0x233/0x2d0
+>   [<ffffffff810a413a>] ? vprintk_emit+0x1ba/0x450
+>   [<ffffffff8110953d>] ? trace_hardirqs_on_caller+0x10d/0x1a0
+>   [<ffffffff81369757>] vsnprintf+0x187/0x5d0
+>   [<ffffffff81369c62>] vscnprintf+0x12/0x30
+>   [<ffffffff810a4028>] vprintk_emit+0xa8/0x450
+>   [<ffffffff81e5cb00>] printk+0x49/0x4b
+>   [<ffffffff81d17221>] sctp_v6_get_dst+0x731/0x780
+>   [<ffffffff81d16e15>] ? sctp_v6_get_dst+0x325/0x780
+>   [<ffffffff81d00a96>] sctp_transport_route+0x46/0x120
+>   [<ffffffff81cff0f1>] sctp_assoc_add_peer+0x161/0x350
+>   [<ffffffff81d0fd8d>] sctp_sendmsg+0x6cd/0xcb0
+>   [<ffffffff81b55bf0>] ? inet_create+0x670/0x670
+>   [<ffffffff81b55cfb>] inet_sendmsg+0x10b/0x220
+>   [<ffffffff81b55bf0>] ? inet_create+0x670/0x670
+>   [<ffffffff81a72a64>] ? sock_update_classid+0xa4/0x2b0
+>   [<ffffffff81a72ab0>] ? sock_update_classid+0xf0/0x2b0
+>   [<ffffffff81a6ac1c>] sock_sendmsg+0xdc/0xf0
+>   [<ffffffff8118e9e5>] ? might_fault+0x85/0x90
+>   [<ffffffff8118e99c>] ? might_fault+0x3c/0x90
+>   [<ffffffff81a6e12a>] sys_sendto+0xfa/0x130
+>   [<ffffffff810a9887>] ? do_setitimer+0x197/0x380
+>   [<ffffffff81e960d5>] ? sysret_check+0x22/0x5d
+>   [<ffffffff81e960a9>] system_call_fastpath+0x16/0x1b
+> Code: 01 eb 89 66 2e 0f 1f 84 00 00 00 00 00 55 48 89 f8 31 c9 48 89 e5 53 eb 12 0f 1f 40 00 48 83 c1 01 48 83 c0 04 48 83 f9 08 74 70 <0f> b6 3c 4e 89 fb 83 e7 0f c0 eb 04 41 89 d8 41 83 e0 0f 0f b6
+> RIP  [<ffffffff8136796e>] ip6_string+0x1e/0xa0
+>   RSP <ffff88004e4637a0>
+> CR2: 0000000000000100
+> ---[ end trace a4de0bfcb38a3643 ]---
+>
+> Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
 
-while debugging network outages on a customers hardware I found, that the MDI-X function of the lan8710 phy seemed to cause trouble.
-When connecting to almost any kind of 100/1000MBit switch, the link would seem to come up and data where sent out to the network. But all incoming packets got lost somehow. This is quite bad, as the system runs from nfsroot while booting up during development.
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-When I disabled the auto MDI-X function of the phy the problem went away.
+Thanks
+-vlad
 
-Signed-off-by: Peter Turczak <pt@netconsequence.de>
----
- drivers/net/phy/Kconfig |   10 ++++++++++
- drivers/net/phy/smsc.c  |   15 +++++++++++++++
- include/linux/smscphy.h |    5 +++++
- 3 files changed, 30 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 961f0b2..341f5aa 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -60,6 +60,16 @@ config SMSC_PHY
- 	---help---
- 	  Currently supports the LAN83C185, LAN8187 and LAN8700 PHYs
- 
-+config SMSC_PHY_DISABLE_AUTOX
-+	bool "Disable MDI-X upon start"
-+	depends on SMSC_PHY
-+	---help---
-+	  When you experience problems estabishing a stable connection
-+	  to a network and you have e.g. a LAN8710 ethernet phy
-+	  this option might help you out.
-+
-+	  In doubt, say N
-+
- config BROADCOM_PHY
- 	tristate "Drivers for Broadcom PHYs"
- 	---help---
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index 88e3991..651f71e 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -24,6 +24,8 @@
- #include <linux/netdevice.h>
- #include <linux/smscphy.h>
- 
-+static struct phy_driver lan8710_driver;
-+
- static int smsc_phy_config_intr(struct phy_device *phydev)
- {
- 	int rc = phy_write (phydev, MII_LAN83C185_IM,
-@@ -53,6 +55,19 @@ static int smsc_phy_config_init(struct phy_device *phydev)
- 	if (rc < 0)
- 		return rc;
- 
-+#ifdef CONFIG_SMSC_PHY_DISABLE_AUTOX
-+	if (phydev->drv == &lan8710_driver) {
-+		rc = phy_read(phydev, MII_LAN8710_SCSI);
-+		if (rc < 0)
-+			return rc;
-+		rc = phy_write(phydev, MII_LAN8710_SCSI,
-+			rc | MII_LAN8710_SCSI_AMDIXCTRL);
-+
-+		if (rc < 0)
-+			return rc;
-+	}
-+#endif
-+
- 	return smsc_phy_ack_interrupt (phydev);
- }
- 
-diff --git a/include/linux/smscphy.h b/include/linux/smscphy.h
-index ce718cb..4084b64 100644
---- a/include/linux/smscphy.h
-+++ b/include/linux/smscphy.h
-@@ -22,4 +22,9 @@
- #define MII_LAN83C185_EDPWRDOWN (1 << 13) /* EDPWRDOWN */
- #define MII_LAN83C185_ENERGYON  (1 << 1)  /* ENERGYON */
- 
-+#define MII_LAN8710_SCSI  27 /* Special Control/Status register */
-+
-+#define MII_LAN8710_SCSI_AMDIXCTRL (1<<15) /* Flag to disable Auto-MDIX */
-+
-+
- #endif /* __LINUX_SMSCPHY_H__ */
--- 
-1.7.0.4
+> ---
+>   net/sctp/ipv6.c |    2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index ea14cb4..f3f0f4d 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -345,7 +345,7 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+>   	}
+>
+>   out:
+> -	if (!IS_ERR(dst)) {
+> +	if (!IS_ERR_OR_NULL(dst)) {
+>   		struct rt6_info *rt;
+>   		rt = (struct rt6_info *)dst;
+>   		t->dst = dst;
+>
