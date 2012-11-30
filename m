@@ -1,196 +1,117 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
-Date: Fri, 30 Nov 2012 20:22:09 +0000
-Message-ID: <1354306929.21562.313.camel@shinybook.infradead.org>
-References: <1354235736-26833-1-git-send-email-dwmw2@infradead.org>
-	 <20121130104411.GA16410@shrek.podlesie.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-mo/ly8l6ZOejwe01Epi4"
-Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	Krzysztof Mazur <krzysiek@podlesie.net>
-To: davem@davemloft.net
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH v2] ipv6: unify logic evaluating inet6_dev's accept_ra property
+Date: Fri, 30 Nov 2012 22:25:59 +0200
+Message-ID: <1354307159-24193-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Thomas Graf <tgraf@suug.ch>, Tore Anderson <tore@fud.no>,
+	shmulik.ladkani@gmail.com
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:44764 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759572Ab2K3UWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 15:22:16 -0500
-In-Reply-To: <20121130104411.GA16410@shrek.podlesie.net>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:42701 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755844Ab2K3U0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 15:26:25 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so352490eaa.19
+        for <netdev@vger.kernel.org>; Fri, 30 Nov 2012 12:26:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+As of 026359b [ipv6: Send ICMPv6 RSes only when RAs are accepted], the
+logic determining whether to send Router Solicitations is identical
+to the logic determining whether kernel accepts Router Advertisements.
 
---=-mo/ly8l6ZOejwe01Epi4
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+However the condition itself is repeated in several code locations.
 
-On Fri, 2012-11-30 at 11:44 +0100, Krzysztof Mazur wrote:
-> > The patch series can be pulled from
-> >       git://git.infradead.org/users/dwmw2/atm.git
-> > or viewed at=20
-> >       http://git.infradead.org/users/dwmw2/atm.git
-> >=20
-> > DaveM, please wait for an ack from Krzysztof and Chas before pulling th=
-is.
->=20
-> looks good to me, except [<fixed>]
+Unify it by introducing 'ipv6_accept_ra()' accessor.
 
-On Fri, 2012-11-30 at 12:12 -0500, chas williams - CONTRACTOR wrote:
-> no objections.  i think this deals with my concerns.=20
+Also, simplify the condition expression, making it more readable.
+No semantic change.
 
-Dave, if you're not now ignoring this thread entirely, please pull into
-net-next from
-	git://git.infradead.org/users/dwmw2/atm.git
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+---
 
-David Woodhouse (9):
-      solos-pci: wait for pending TX to complete when releasing vcc
-      atm: add release_cb() callback to vcc
-      br2684: don't send frames on not-ready vcc
-      pppoatm: fix missing wakeup in pppoatm_send()
-      br2684: fix module_put() race
-      pppoatm: optimise PPP channel wakeups after sock_owned_by_user()
-      solos-pci: clean up pclose() function
-      solos-pci: use GFP_KERNEL where possible, not GFP_ATOMIC
-      solos-pci: remove list_vccs() debugging function
+v2: proper comment styling
 
-Krzysztof Mazur (7):
-      atm: add owner of push() callback to atmvcc
-      pppoatm: allow assign only on a connected socket
-      pppoatm: fix module_put() race
-      pppoatm: take ATM socket lock in pppoatm_send()
-      pppoatm: drop frames to not-ready vcc
-      pppoatm: do not inline pppoatm_may_send()
-      br2684: allow assign only on a connected socket
+ include/net/ipv6.h  |    9 +++++++++
+ net/ipv6/addrconf.c |    3 +--
+ net/ipv6/ndisc.c    |   16 ++--------------
+ 3 files changed, 12 insertions(+), 16 deletions(-)
 
-Nathan Williams (1):
-      solos-pci: Fix leak of skb received for unknown vcc
-
- drivers/atm/solos-pci.c | 85 ++++++++++++++++++++-------------------------=
-----
- include/linux/atmdev.h  |  2 ++
- net/atm/br2684.c        | 55 ++++++++++++++++++++++++++++----
- net/atm/common.c        | 12 +++++++
- net/atm/pppoatm.c       | 68 ++++++++++++++++++++++++++++++++++++---
- 5 files changed, 160 insertions(+), 62 deletions(-)
-
---=20
-dwmw2
-
-
---=-mo/ly8l6ZOejwe01Epi4
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
-AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
-4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
-wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
-xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
-MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
-w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
-d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
-Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
-c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
-IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
-dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
-BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
-aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
-bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
-oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
-MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
-dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
-MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
-hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
-DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
-ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
-NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
-mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
-AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
-MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
-A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
-Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
-7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
-KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
-wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
-V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
-vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
-BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
-YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
-ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
-IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
-U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
-ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
-BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
-aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
-bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
-dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
-CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
-QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
-ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
-AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
-t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
-gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
-H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
-kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
-MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
-dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
-eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTMwMjAyMjA5WjAjBgkqhkiG9w0BCQQx
-FgQUejfDbl1OQ9Zn4ZSMkjobEPw+AQMwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
-SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
-ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
-TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
-aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQASMnNILYf0lYw+Cwg2QMVmmXoJ
-VxvpS7T4IAyjYDe9g8/DvMSnSmLZeru5TYqYkiFULuPfmZEte20KVSNphjAbqPkn8VpLSl4412p4
-6hweZ+obEYwHB8UVC+r4iOmmCrHa4ycO0AfHIXPJvHgDKW0TIbj2PP02PXepqZwxuASyMT1ayosi
-1AAaK52DNBhjFRXsqq5QCHt4D2q5f8NLnQiNbklUf9n/CA0ggDHdFH7ozdiumeyt5Ht9oZ1yV/Bd
-e5Itq0mGTqAVWVKfP4IshfuIJstVGT86TBr7MCIPJUx6xyeheynl7HGzT7ssBVi4t3uGsMb4MraD
-gwr4SIyz2gDAAAAAAAAA
-
-
---=-mo/ly8l6ZOejwe01Epi4--
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 979bf6c..985c6fa 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -271,6 +271,15 @@ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
+ 
+ extern bool ipv6_opt_accepted(const struct sock *sk, const struct sk_buff *skb);
+ 
++static inline bool ipv6_accept_ra(struct inet6_dev *idev)
++{
++	/* If forwarding is enabled, RA are not accepted unless the special
++	 * hybrid mode (accept_ra=2) is enabled.
++	 */
++	return idev->cnf.forwarding ? idev->cnf.accept_ra == 2 :
++	    idev->cnf.accept_ra;
++}
++
+ #if IS_ENABLED(CONFIG_IPV6)
+ static inline int ip6_frag_nqueues(struct net *net)
+ {
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 0424e4e..ca1ed8a 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3005,8 +3005,7 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
+ 	   router advertisements, start sending router solicitations.
+ 	 */
+ 
+-	if (((ifp->idev->cnf.accept_ra == 1 && !ifp->idev->cnf.forwarding) ||
+-	     ifp->idev->cnf.accept_ra == 2) &&
++	if (ipv6_accept_ra(ifp->idev) &&
+ 	    ifp->idev->cnf.rtr_solicits > 0 &&
+ 	    (dev->flags&IFF_LOOPBACK) == 0 &&
+ 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 2edce30..980cdc3 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1033,18 +1033,6 @@ errout:
+ 	rtnl_set_sk_err(net, RTNLGRP_ND_USEROPT, err);
+ }
+ 
+-static inline int accept_ra(struct inet6_dev *in6_dev)
+-{
+-	/*
+-	 * If forwarding is enabled, RA are not accepted unless the special
+-	 * hybrid mode (accept_ra=2) is enabled.
+-	 */
+-	if (in6_dev->cnf.forwarding && in6_dev->cnf.accept_ra < 2)
+-		return 0;
+-
+-	return in6_dev->cnf.accept_ra;
+-}
+-
+ static void ndisc_router_discovery(struct sk_buff *skb)
+ {
+ 	struct ra_msg *ra_msg = (struct ra_msg *)skb_transport_header(skb);
+@@ -1092,7 +1080,7 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 		return;
+ 	}
+ 
+-	if (!accept_ra(in6_dev))
++	if (!ipv6_accept_ra(in6_dev))
+ 		goto skip_linkparms;
+ 
+ #ifdef CONFIG_IPV6_NDISC_NODETYPE
+@@ -1248,7 +1236,7 @@ skip_linkparms:
+ 			     NEIGH_UPDATE_F_ISROUTER);
+ 	}
+ 
+-	if (!accept_ra(in6_dev))
++	if (!ipv6_accept_ra(in6_dev))
+ 		goto out;
+ 
+ #ifdef CONFIG_IPV6_ROUTE_INFO
+-- 
+1.7.9
