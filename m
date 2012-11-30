@@ -1,55 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next:master 98/98]
- drivers/net/ethernet/myricom/myri10ge/myri10ge.c:1286:34: sparse: cast to
- restricted __be16
-Date: Fri, 30 Nov 2012 13:53:56 -0800
-Message-ID: <20121130135356.41a0f855@nehalam.linuxnetplumber.net>
-References: <50b91efa.B0WbOtcWMs7eOSaC%fengguang.wu@intel.com>
-	<50B92A6D.8000600@myri.com>
+From: Eric Paris <eparis@parisplace.org>
+Subject: Re: [PATCH] Smack: Add missing depends on INET in Kconfig
+Date: Fri, 30 Nov 2012 17:01:55 -0500
+Message-ID: <CACLa4ptazSZCpk5Ug0mZLZRS1PxZ7KnwYxEXsXFwn3zG90YzNg@mail.gmail.com>
+References: <20121129174057.99da02b15426c76054d05592@canb.auug.org.au>
+	<50B7F846.70202@infradead.org>
+	<3694027.VYznNcdp7C@sifl>
+	<2664553.2TRaVqlkGg@sifl>
+	<50B8E4E6.2040901@xenotime.net>
+	<50B8ECB3.2090801@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kbuild test robot <fengguang.wu@intel.com>, netdev@vger.kernel.org
-To: Andrew Gallatin <gallatin@myri.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34478 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751838Ab2K3VzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2012 16:55:09 -0500
-In-Reply-To: <50B92A6D.8000600@myri.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Randy Dunlap <rdunlap@xenotime.net>,
+	Paul Moore <paul@paul-moore.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LSM List <linux-security-module@vger.kernel.org>
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <50B8ECB3.2090801@schaufler-ca.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 30 Nov 2012 16:51:41 -0500
-Andrew Gallatin <gallatin@myri.com> wrote:
+Do other LSMs need this too Casey?  I remember we mentioned how select
+was dangerous  :-(
 
-> On 11/30/12 16:02, kbuild test robot wrote:
-> > tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-> > head:   1b4c44e6369dbbafd113f1e00b406f1eda5ab5b2
-> > commit: 1b4c44e6369dbbafd113f1e00b406f1eda5ab5b2 [98/98] myri10ge: Add vlan rx for better GRO perf.
-> > 
-> > 
-> > sparse warnings:
-> > 
-> > + drivers/net/ethernet/myricom/myri10ge/myri10ge.c:1286:34: sparse: cast to restricted __be16
-> > + drivers/net/ethernet/myricom/myri10ge/myri10ge.c:1286:34: sparse: cast to restricted __be16
-> > + drivers/net/ethernet/myricom/myri10ge/myri10ge.c:1286:34: sparse: cast to restricted __be16
-> > + drivers/net/ethernet/myricom/myri10ge/myri10ge.c:1286:34: sparse: cast to restricted __be16
-> > + drivers/net/ethernet/myricom/myri10ge/myri10ge.c:1286:16: sparse: restricted __be16 degrades to integer
-> 
-> 
-> OK, maybe a dumb question again, but how do I get sparse to produce
-> the 'cast to restricted' warnings?  I ran sparse before submission,
-> but it only showed the pre-existing, non "cast to restricted"
-> warnings, so I did not know I was introducing a new warning.
-> Do I need to use a different architecture? (I was using x86_64).
-
-See Documentation/sparse.txt
-  
-  The optional make variable CF can be used to pass arguments to sparse.  The
-  build system passes -Wbitwise to sparse automatically.  To perform endianness
-  checks, you may define __CHECK_ENDIAN__:
-
-        make C=2 CF="-D__CHECK_ENDIAN__"
-
-  These checks are disabled by default as they generate a host of warnings.
+On Fri, Nov 30, 2012 at 12:28 PM, Casey Schaufler
+<casey@schaufler-ca.com> wrote:
+> Because NETLABEL depends on INET SECURITY_SMACK
+> has to explicitly call out the dependency.
+>
+> Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
+> ---
+>  security/smack/Kconfig |    1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/security/smack/Kconfig b/security/smack/Kconfig
+> index 9fb14ef..1be1088 100644
+> --- a/security/smack/Kconfig
+> +++ b/security/smack/Kconfig
+> @@ -1,5 +1,6 @@
+>  config SECURITY_SMACK
+>         bool "Simplified Mandatory Access Control Kernel Support"
+> +       depends on INET
+>         depends on NET
+>         depends on SECURITY
+>         select NETLABEL
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
