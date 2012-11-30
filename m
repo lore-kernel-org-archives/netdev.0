@@ -1,169 +1,424 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
-Date: Fri, 30 Nov 2012 18:33:34 +0000
-Message-ID: <1354300414.21562.306.camel@shinybook.infradead.org>
-References: <201211300138.qAU1c8sE003388@thirdoffive.cmf.nrl.navy.mil>
-	 <1354240620.21562.256.camel@shinybook.infradead.org>
-	 <1354263922.21562.270.camel@shinybook.infradead.org>
-	 <20121130095354.GA15126@shrek.podlesie.net>
-	 <1354277415.21562.284.camel@shinybook.infradead.org>
-	 <1354292626.21562.298.camel@shinybook.infradead.org>
-	 <20121130170007.GA25818@shrek.podlesie.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-hKpTRqEEWI1royRE6YdA"
-Cc: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>,
-	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	nathan@traverse.com.au
-To: Krzysztof Mazur <krzysiek@podlesie.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121130170007.GA25818@shrek.podlesie.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: [PATCH v3 resend net-next 1/2] myri10ge: Convert from LRO to GRO
+Date: Fri, 30 Nov 2012 13:31:58 -0500
+Message-ID: <1354300319-30771-2-git-send-email-gallatin@myri.com>
+References: <20121130.121705.1923519039781698493.davem@davemloft.net>
+ <1354300319-30771-1-git-send-email-gallatin@myri.com>
+Cc: netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gh0-f174.google.com ([209.85.160.174]:64353 "EHLO
+	mail-gh0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751736Ab2K3SiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 13:38:08 -0500
+Received: by mail-gh0-f174.google.com with SMTP id g15so118022ghb.19
+        for <netdev@vger.kernel.org>; Fri, 30 Nov 2012 10:38:07 -0800 (PST)
+In-Reply-To: <1354300319-30771-1-git-send-email-gallatin@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Convert myri10ge from LRO to GRO, and simplify the driver by removing
+various LRO-related code which is no longer needed including
+ndo_fix_features op, custom skb building from frags, and LRO
+header parsing.
 
---=-hKpTRqEEWI1royRE6YdA
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+---
+ drivers/net/ethernet/myricom/Kconfig             |    1 -
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c |  236 ++++------------------
+ 2 files changed, 34 insertions(+), 203 deletions(-)
 
-On Fri, 2012-11-30 at 18:00 +0100, Krzysztof Mazur wrote:
-> On Fri, Nov 30, 2012 at 04:23:46PM +0000, David Woodhouse wrote:
-> >=20
-> > +static void br2684_release_cb(struct atm_vcc *atmvcc)
-> > +{
-> > +	struct br2684_vcc *brvcc =3D BR2684_VCC(atmvcc);
-> > +
-> > +	/*
-> > +	 * A race with br2684_xmit_vcc() might cause a spurious wakeup just
-> > +	 * after that function *stops* the queue, and qspace might actually
-> > +	 * go negative before the queue stops again. We cope with that.
-> > +	 */
->=20
-> We cannot race with br2684_xmit_vcc() because both br2684_xmit_vcc()
-> and br2684_release_cb() are called with locked sk->sk_lock.slock.
-
-Ah, right. For some reason I thought the lock was already dropped when
-->release_cb() was called. In that case I'll remove the comment. Thanks.
-
---=20
-dwmw2
-
-
---=-hKpTRqEEWI1royRE6YdA
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
-AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
-4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
-wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
-xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
-MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
-w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
-d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
-Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
-c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
-IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
-dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
-BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
-aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
-bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
-oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
-MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
-dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
-MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
-hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
-DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
-ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
-NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
-mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
-AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
-MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
-A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
-Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
-7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
-KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
-wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
-V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
-vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
-BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
-YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
-ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
-IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
-U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
-ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
-BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
-aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
-bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
-dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
-CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
-QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
-ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
-AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
-t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
-gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
-H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
-kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
-MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
-dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
-eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMTMwMTgzMzM0WjAjBgkqhkiG9w0BCQQx
-FgQUKBsQrSdq+InE+x6aQJsGa5afjoIwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
-SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
-ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
-TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
-aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQCD+zbZxJFo0a4NCvHcRabH41J/
-jjzk0/AVtmu+ORiHbZAaDHEgunEqjMQ+TZWhuPariHmR48SMqevzG3rL65U6mdXj0XiiXZmbHRuY
-Zm0KT9tGXbEj7932w3G16OLb0/ndYKWNCMvb6FmVKF5m1cn4njrUSkj1ftmJDBwcseyq8qE3dGM1
-yU7Rd23slSfYJoiHlwctfNg9pwIYPGeu3gnJQRjJYZTcOsyVstYTg9wxVes33qwvh7bptQoIj4oZ
-7AX2LykNAKcorqoKS0jfZrPxvdLCbb0VXOlOfawEBwD6yq7ODjk5m6m9+ONxWl0TI5VNcdoUdgOc
-dO1DUM1t95L6AAAAAAAA
-
-
---=-hKpTRqEEWI1royRE6YdA--
+diff --git a/drivers/net/ethernet/myricom/Kconfig b/drivers/net/ethernet/myricom/Kconfig
+index 540f0c6..3932d08 100644
+--- a/drivers/net/ethernet/myricom/Kconfig
++++ b/drivers/net/ethernet/myricom/Kconfig
+@@ -23,7 +23,6 @@ config MYRI10GE
+ 	depends on PCI && INET
+ 	select FW_LOADER
+ 	select CRC32
+-	select INET_LRO
+ 	---help---
+ 	  This driver supports Myricom Myri-10G Dual Protocol interface in
+ 	  Ethernet mode. If the eeprom on your board is not recent enough,
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 83516e3..84207c0 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -50,7 +50,6 @@
+ #include <linux/etherdevice.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_vlan.h>
+-#include <linux/inet_lro.h>
+ #include <linux/dca.h>
+ #include <linux/ip.h>
+ #include <linux/inet.h>
+@@ -96,8 +95,6 @@ MODULE_LICENSE("Dual BSD/GPL");
+ 
+ #define MYRI10GE_EEPROM_STRINGS_SIZE 256
+ #define MYRI10GE_MAX_SEND_DESC_TSO ((65536 / 2048) * 2)
+-#define MYRI10GE_MAX_LRO_DESCRIPTORS 8
+-#define MYRI10GE_LRO_MAX_PKTS 64
+ 
+ #define MYRI10GE_NO_CONFIRM_DATA htonl(0xffffffff)
+ #define MYRI10GE_NO_RESPONSE_RESULT 0xffffffff
+@@ -165,8 +162,6 @@ struct myri10ge_rx_done {
+ 	dma_addr_t bus;
+ 	int cnt;
+ 	int idx;
+-	struct net_lro_mgr lro_mgr;
+-	struct net_lro_desc lro_desc[MYRI10GE_MAX_LRO_DESCRIPTORS];
+ };
+ 
+ struct myri10ge_slice_netstats {
+@@ -338,11 +333,6 @@ static int myri10ge_debug = -1;	/* defaults above */
+ module_param(myri10ge_debug, int, 0);
+ MODULE_PARM_DESC(myri10ge_debug, "Debug level (0=none,...,16=all)");
+ 
+-static int myri10ge_lro_max_pkts = MYRI10GE_LRO_MAX_PKTS;
+-module_param(myri10ge_lro_max_pkts, int, S_IRUGO);
+-MODULE_PARM_DESC(myri10ge_lro_max_pkts,
+-		 "Number of LRO packets to be aggregated");
+-
+ static int myri10ge_fill_thresh = 256;
+ module_param(myri10ge_fill_thresh, int, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(myri10ge_fill_thresh, "Number of empty rx slots allowed");
+@@ -1197,36 +1187,6 @@ static inline void myri10ge_vlan_ip_csum(struct sk_buff *skb, __wsum hw_csum)
+ 	}
+ }
+ 
+-static inline void
+-myri10ge_rx_skb_build(struct sk_buff *skb, u8 * va,
+-		      struct skb_frag_struct *rx_frags, int len, int hlen)
+-{
+-	struct skb_frag_struct *skb_frags;
+-
+-	skb->len = skb->data_len = len;
+-	/* attach the page(s) */
+-
+-	skb_frags = skb_shinfo(skb)->frags;
+-	while (len > 0) {
+-		memcpy(skb_frags, rx_frags, sizeof(*skb_frags));
+-		len -= skb_frag_size(rx_frags);
+-		skb_frags++;
+-		rx_frags++;
+-		skb_shinfo(skb)->nr_frags++;
+-	}
+-
+-	/* pskb_may_pull is not available in irq context, but
+-	 * skb_pull() (for ether_pad and eth_type_trans()) requires
+-	 * the beginning of the packet in skb_headlen(), move it
+-	 * manually */
+-	skb_copy_to_linear_data(skb, va, hlen);
+-	skb_shinfo(skb)->frags[0].page_offset += hlen;
+-	skb_frag_size_sub(&skb_shinfo(skb)->frags[0], hlen);
+-	skb->data_len -= hlen;
+-	skb->tail += hlen;
+-	skb_pull(skb, MXGEFW_PAD);
+-}
+-
+ static void
+ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp, struct myri10ge_rx_buf *rx,
+ 			int bytes, int watchdog)
+@@ -1304,18 +1264,14 @@ myri10ge_unmap_rx_page(struct pci_dev *pdev,
+ 	}
+ }
+ 
+-#define MYRI10GE_HLEN 64	/* The number of bytes to copy from a
+-				 * page into an skb */
+-
+ static inline int
+-myri10ge_rx_done(struct myri10ge_slice_state *ss, int len, __wsum csum,
+-		 bool lro_enabled)
++myri10ge_rx_done(struct myri10ge_slice_state *ss, int len, __wsum csum)
+ {
+ 	struct myri10ge_priv *mgp = ss->mgp;
+ 	struct sk_buff *skb;
+-	struct skb_frag_struct rx_frags[MYRI10GE_MAX_FRAGS_PER_FRAME];
++	struct skb_frag_struct *rx_frags;
+ 	struct myri10ge_rx_buf *rx;
+-	int i, idx, hlen, remainder, bytes;
++	int i, idx, remainder, bytes;
+ 	struct pci_dev *pdev = mgp->pdev;
+ 	struct net_device *dev = mgp->dev;
+ 	u8 *va;
+@@ -1332,67 +1288,47 @@ myri10ge_rx_done(struct myri10ge_slice_state *ss, int len, __wsum csum,
+ 	idx = rx->cnt & rx->mask;
+ 	va = page_address(rx->info[idx].page) + rx->info[idx].page_offset;
+ 	prefetch(va);
++
++	skb = napi_get_frags(&ss->napi);
++	if (unlikely(skb == NULL)) {
++		ss->stats.rx_dropped++;
++		for (i = 0, remainder = len; remainder > 0; i++) {
++			myri10ge_unmap_rx_page(pdev, &rx->info[idx], bytes);
++			put_page(rx->info[idx].page);
++			rx->cnt++;
++			idx = rx->cnt & rx->mask;
++			remainder -= MYRI10GE_ALLOC_SIZE;
++		}
++		return 0;
++	}
++	rx_frags = skb_shinfo(skb)->frags;
+ 	/* Fill skb_frag_struct(s) with data from our receive */
+ 	for (i = 0, remainder = len; remainder > 0; i++) {
+ 		myri10ge_unmap_rx_page(pdev, &rx->info[idx], bytes);
+-		__skb_frag_set_page(&rx_frags[i], rx->info[idx].page);
+-		rx_frags[i].page_offset = rx->info[idx].page_offset;
+-		if (remainder < MYRI10GE_ALLOC_SIZE)
+-			skb_frag_size_set(&rx_frags[i], remainder);
+-		else
+-			skb_frag_size_set(&rx_frags[i], MYRI10GE_ALLOC_SIZE);
++		skb_fill_page_desc(skb, i, rx->info[idx].page,
++				   rx->info[idx].page_offset,
++				   remainder < MYRI10GE_ALLOC_SIZE ?
++				   remainder : MYRI10GE_ALLOC_SIZE);
+ 		rx->cnt++;
+ 		idx = rx->cnt & rx->mask;
+ 		remainder -= MYRI10GE_ALLOC_SIZE;
+ 	}
+ 
+-	if (lro_enabled) {
+-		rx_frags[0].page_offset += MXGEFW_PAD;
+-		skb_frag_size_sub(&rx_frags[0], MXGEFW_PAD);
+-		len -= MXGEFW_PAD;
+-		lro_receive_frags(&ss->rx_done.lro_mgr, rx_frags,
+-				  /* opaque, will come back in get_frag_header */
+-				  len, len,
+-				  (void *)(__force unsigned long)csum, csum);
++	/* remove padding */
++	rx_frags[0].page_offset += MXGEFW_PAD;
++	rx_frags[0].size -= MXGEFW_PAD;
++	len -= MXGEFW_PAD;
+ 
+-		return 1;
+-	}
+-
+-	hlen = MYRI10GE_HLEN > len ? len : MYRI10GE_HLEN;
+-
+-	/* allocate an skb to attach the page(s) to. This is done
+-	 * after trying LRO, so as to avoid skb allocation overheads */
+-
+-	skb = netdev_alloc_skb(dev, MYRI10GE_HLEN + 16);
+-	if (unlikely(skb == NULL)) {
+-		ss->stats.rx_dropped++;
+-		do {
+-			i--;
+-			__skb_frag_unref(&rx_frags[i]);
+-		} while (i != 0);
+-		return 0;
+-	}
+-
+-	/* Attach the pages to the skb, and trim off any padding */
+-	myri10ge_rx_skb_build(skb, va, rx_frags, len, hlen);
+-	if (skb_frag_size(&skb_shinfo(skb)->frags[0]) <= 0) {
+-		skb_frag_unref(skb, 0);
+-		skb_shinfo(skb)->nr_frags = 0;
+-	} else {
+-		skb->truesize += bytes * skb_shinfo(skb)->nr_frags;
++	skb->len = len;
++	skb->data_len = len;
++	skb->truesize += len;
++	if (dev->features & NETIF_F_RXCSUM) {
++		skb->ip_summed = CHECKSUM_COMPLETE;
++		skb->csum = csum;
+ 	}
+-	skb->protocol = eth_type_trans(skb, dev);
+ 	skb_record_rx_queue(skb, ss - &mgp->ss[0]);
+ 
+-	if (dev->features & NETIF_F_RXCSUM) {
+-		if ((skb->protocol == htons(ETH_P_IP)) ||
+-		    (skb->protocol == htons(ETH_P_IPV6))) {
+-			skb->csum = csum;
+-			skb->ip_summed = CHECKSUM_COMPLETE;
+-		} else
+-			myri10ge_vlan_ip_csum(skb, csum);
+-	}
+-	netif_receive_skb(skb);
++	napi_gro_frags(&ss->napi);
+ 	return 1;
+ }
+ 
+@@ -1480,18 +1416,11 @@ myri10ge_clean_rx_done(struct myri10ge_slice_state *ss, int budget)
+ 	u16 length;
+ 	__wsum checksum;
+ 
+-	/*
+-	 * Prevent compiler from generating more than one ->features memory
+-	 * access to avoid theoretical race condition with functions that
+-	 * change NETIF_F_LRO flag at runtime.
+-	 */
+-	bool lro_enabled = !!(ACCESS_ONCE(mgp->dev->features) & NETIF_F_LRO);
+-
+ 	while (rx_done->entry[idx].length != 0 && work_done < budget) {
+ 		length = ntohs(rx_done->entry[idx].length);
+ 		rx_done->entry[idx].length = 0;
+ 		checksum = csum_unfold(rx_done->entry[idx].checksum);
+-		rx_ok = myri10ge_rx_done(ss, length, checksum, lro_enabled);
++		rx_ok = myri10ge_rx_done(ss, length, checksum);
+ 		rx_packets += rx_ok;
+ 		rx_bytes += rx_ok * (unsigned long)length;
+ 		cnt++;
+@@ -1503,9 +1432,6 @@ myri10ge_clean_rx_done(struct myri10ge_slice_state *ss, int budget)
+ 	ss->stats.rx_packets += rx_packets;
+ 	ss->stats.rx_bytes += rx_bytes;
+ 
+-	if (lro_enabled)
+-		lro_flush_all(&rx_done->lro_mgr);
+-
+ 	/* restock receive rings if needed */
+ 	if (ss->rx_small.fill_cnt - ss->rx_small.cnt < myri10ge_fill_thresh)
+ 		myri10ge_alloc_rx_pages(mgp, &ss->rx_small,
+@@ -1779,7 +1705,6 @@ static const char myri10ge_gstrings_slice_stats[][ETH_GSTRING_LEN] = {
+ 	"tx_pkt_start", "tx_pkt_done", "tx_req", "tx_done",
+ 	"rx_small_cnt", "rx_big_cnt",
+ 	"wake_queue", "stop_queue", "tx_linearized",
+-	"LRO aggregated", "LRO flushed", "LRO avg aggr", "LRO no_desc",
+ };
+ 
+ #define MYRI10GE_NET_STATS_LEN      21
+@@ -1880,14 +1805,6 @@ myri10ge_get_ethtool_stats(struct net_device *netdev,
+ 		data[i++] = (unsigned int)ss->tx.wake_queue;
+ 		data[i++] = (unsigned int)ss->tx.stop_queue;
+ 		data[i++] = (unsigned int)ss->tx.linearized;
+-		data[i++] = ss->rx_done.lro_mgr.stats.aggregated;
+-		data[i++] = ss->rx_done.lro_mgr.stats.flushed;
+-		if (ss->rx_done.lro_mgr.stats.flushed)
+-			data[i++] = ss->rx_done.lro_mgr.stats.aggregated /
+-			    ss->rx_done.lro_mgr.stats.flushed;
+-		else
+-			data[i++] = 0;
+-		data[i++] = ss->rx_done.lro_mgr.stats.no_desc;
+ 	}
+ }
+ 
+@@ -2271,67 +2188,6 @@ static void myri10ge_free_irq(struct myri10ge_priv *mgp)
+ 		pci_disable_msix(pdev);
+ }
+ 
+-static int
+-myri10ge_get_frag_header(struct skb_frag_struct *frag, void **mac_hdr,
+-			 void **ip_hdr, void **tcpudp_hdr,
+-			 u64 * hdr_flags, void *priv)
+-{
+-	struct ethhdr *eh;
+-	struct vlan_ethhdr *veh;
+-	struct iphdr *iph;
+-	u8 *va = skb_frag_address(frag);
+-	unsigned long ll_hlen;
+-	/* passed opaque through lro_receive_frags() */
+-	__wsum csum = (__force __wsum) (unsigned long)priv;
+-
+-	/* find the mac header, aborting if not IPv4 */
+-
+-	eh = (struct ethhdr *)va;
+-	*mac_hdr = eh;
+-	ll_hlen = ETH_HLEN;
+-	if (eh->h_proto != htons(ETH_P_IP)) {
+-		if (eh->h_proto == htons(ETH_P_8021Q)) {
+-			veh = (struct vlan_ethhdr *)va;
+-			if (veh->h_vlan_encapsulated_proto != htons(ETH_P_IP))
+-				return -1;
+-
+-			ll_hlen += VLAN_HLEN;
+-
+-			/*
+-			 *  HW checksum starts ETH_HLEN bytes into
+-			 *  frame, so we must subtract off the VLAN
+-			 *  header's checksum before csum can be used
+-			 */
+-			csum = csum_sub(csum, csum_partial(va + ETH_HLEN,
+-							   VLAN_HLEN, 0));
+-		} else {
+-			return -1;
+-		}
+-	}
+-	*hdr_flags = LRO_IPV4;
+-
+-	iph = (struct iphdr *)(va + ll_hlen);
+-	*ip_hdr = iph;
+-	if (iph->protocol != IPPROTO_TCP)
+-		return -1;
+-	if (ip_is_fragment(iph))
+-		return -1;
+-	*hdr_flags |= LRO_TCP;
+-	*tcpudp_hdr = (u8 *) (*ip_hdr) + (iph->ihl << 2);
+-
+-	/* verify the IP checksum */
+-	if (unlikely(ip_fast_csum((u8 *) iph, iph->ihl)))
+-		return -1;
+-
+-	/* verify the  checksum */
+-	if (unlikely(csum_tcpudp_magic(iph->saddr, iph->daddr,
+-				       ntohs(iph->tot_len) - (iph->ihl << 2),
+-				       IPPROTO_TCP, csum)))
+-		return -1;
+-
+-	return 0;
+-}
+-
+ static int myri10ge_get_txrx(struct myri10ge_priv *mgp, int slice)
+ {
+ 	struct myri10ge_cmd cmd;
+@@ -2402,7 +2258,6 @@ static int myri10ge_open(struct net_device *dev)
+ 	struct myri10ge_cmd cmd;
+ 	int i, status, big_pow2, slice;
+ 	u8 *itable;
+-	struct net_lro_mgr *lro_mgr;
+ 
+ 	if (mgp->running != MYRI10GE_ETH_STOPPED)
+ 		return -EBUSY;
+@@ -2513,19 +2368,6 @@ static int myri10ge_open(struct net_device *dev)
+ 			goto abort_with_rings;
+ 		}
+ 
+-		lro_mgr = &ss->rx_done.lro_mgr;
+-		lro_mgr->dev = dev;
+-		lro_mgr->features = LRO_F_NAPI;
+-		lro_mgr->ip_summed = CHECKSUM_COMPLETE;
+-		lro_mgr->ip_summed_aggr = CHECKSUM_UNNECESSARY;
+-		lro_mgr->max_desc = MYRI10GE_MAX_LRO_DESCRIPTORS;
+-		lro_mgr->lro_arr = ss->rx_done.lro_desc;
+-		lro_mgr->get_frag_header = myri10ge_get_frag_header;
+-		lro_mgr->max_aggr = myri10ge_lro_max_pkts;
+-		lro_mgr->frag_align_pad = 2;
+-		if (lro_mgr->max_aggr > MAX_SKB_FRAGS)
+-			lro_mgr->max_aggr = MAX_SKB_FRAGS;
+-
+ 		/* must happen prior to any irq */
+ 		napi_enable(&(ss)->napi);
+ 	}
+@@ -3143,15 +2985,6 @@ static int myri10ge_set_mac_address(struct net_device *dev, void *addr)
+ 	return 0;
+ }
+ 
+-static netdev_features_t myri10ge_fix_features(struct net_device *dev,
+-	netdev_features_t features)
+-{
+-	if (!(features & NETIF_F_RXCSUM))
+-		features &= ~NETIF_F_LRO;
+-
+-	return features;
+-}
+-
+ static int myri10ge_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	struct myri10ge_priv *mgp = netdev_priv(dev);
+@@ -3878,7 +3711,6 @@ static const struct net_device_ops myri10ge_netdev_ops = {
+ 	.ndo_get_stats64	= myri10ge_get_stats,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_change_mtu		= myri10ge_change_mtu,
+-	.ndo_fix_features	= myri10ge_fix_features,
+ 	.ndo_set_rx_mode	= myri10ge_set_multicast_list,
+ 	.ndo_set_mac_address	= myri10ge_set_mac_address,
+ };
+@@ -4018,7 +3850,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	netdev->netdev_ops = &myri10ge_netdev_ops;
+ 	netdev->mtu = myri10ge_initial_mtu;
+-	netdev->hw_features = mgp->features | NETIF_F_LRO | NETIF_F_RXCSUM;
++	netdev->hw_features = mgp->features | NETIF_F_RXCSUM;
+ 	netdev->features = netdev->hw_features;
+ 
+ 	if (dac_enabled)
+-- 
+1.7.9.5
