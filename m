@@ -1,57 +1,34 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH] Smack: Add missing depends on INET in Kconfig
-Date: Fri, 30 Nov 2012 14:18:54 -0800
-Message-ID: <50B930CE.1080806@schaufler-ca.com>
-References: <20121129174057.99da02b15426c76054d05592@canb.auug.org.au> <50B7F846.70202@infradead.org> <3694027.VYznNcdp7C@sifl> <2664553.2TRaVqlkGg@sifl> <50B8E4E6.2040901@xenotime.net> <50B8ECB3.2090801@schaufler-ca.com> <CACLa4ptazSZCpk5Ug0mZLZRS1PxZ7KnwYxEXsXFwn3zG90YzNg@mail.gmail.com>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [net-next:master 98/98] drivers/net/ethernet/myricom/myri10ge/myri10ge.c:1286:34:
+ sparse: cast to restricted __be16
+Date: Fri, 30 Nov 2012 17:19:05 -0500
+Message-ID: <50B930D9.9040209@myri.com>
+References: <50b91efa.B0WbOtcWMs7eOSaC%fengguang.wu@intel.com> <50B92A6D.8000600@myri.com> <20121130220228.GA22050@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Randy Dunlap <rdunlap@xenotime.net>,
-	Paul Moore <paul@paul-moore.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LSM List <linux-security-module@vger.kernel.org>,
-	Casey Schaufler <casey@schaufler-ca.com>
-To: Eric Paris <eparis@parisplace.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CACLa4ptazSZCpk5Ug0mZLZRS1PxZ7KnwYxEXsXFwn3zG90YzNg@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Christopher Li <sparse@chrisli.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Fengguang Wu <fengguang.wu@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ye0-f174.google.com ([209.85.213.174]:44362 "EHLO
+	mail-ye0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751838Ab2K3WTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 17:19:09 -0500
+Received: by mail-ye0-f174.google.com with SMTP id m6so155897yen.19
+        for <netdev@vger.kernel.org>; Fri, 30 Nov 2012 14:19:08 -0800 (PST)
+In-Reply-To: <20121130220228.GA22050@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/30/2012 2:01 PM, Eric Paris wrote:
-> Do other LSMs need this too Casey?  I remember we mentioned how select
-> was dangerous  :-(
+Thanks guys.
 
-I don't see any missing dependencies, but then, I missed INET.
-Yes, you mentioned that it was dangerous.
+In this case, it found a real typo (use of ntohs() rather than htons()).
+If it would not have been for this tool making me stare at it, I never
+would have seen this.
 
->
-> On Fri, Nov 30, 2012 at 12:28 PM, Casey Schaufler
-> <casey@schaufler-ca.com> wrote:
->> Because NETLABEL depends on INET SECURITY_SMACK
->> has to explicitly call out the dependency.
->>
->> Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
->> ---
->>  security/smack/Kconfig |    1 +
->>  1 file changed, 1 insertion(+)
->>
->> diff --git a/security/smack/Kconfig b/security/smack/Kconfig
->> index 9fb14ef..1be1088 100644
->> --- a/security/smack/Kconfig
->> +++ b/security/smack/Kconfig
->> @@ -1,5 +1,6 @@
->>  config SECURITY_SMACK
->>         bool "Simplified Mandatory Access Control Kernel Support"
->> +       depends on INET
->>         depends on NET
->>         depends on SECURITY
->>         select NETLABEL
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
+I need audit the rest of the warnings in the driver..
+
+Sorry for the noise & thanks for this service!
+
+Drew
