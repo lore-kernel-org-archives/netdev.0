@@ -1,40 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: fix bouncing tun/tap entries
-Date: Fri, 30 Nov 2012 12:28:13 -0500 (EST)
-Message-ID: <20121130.122813.1136966656907114890.davem@davemloft.net>
-References: <1354295140-6355-1-git-send-email-jslaby@suse.cz>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: [PATCH] Smack: Add missing depends on INET in Kconfig
+Date: Fri, 30 Nov 2012 09:28:19 -0800
+Message-ID: <50B8ECB3.2090801@schaufler-ca.com>
+References: <20121129174057.99da02b15426c76054d05592@canb.auug.org.au> <50B7F846.70202@infradead.org> <3694027.VYznNcdp7C@sifl> <2664553.2TRaVqlkGg@sifl> <50B8E4E6.2040901@xenotime.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: maxk@qti.qualcomm.com, netdev@vger.kernel.org, jirislaby@gmail.com,
-	linux-kernel@vger.kernel.org
-To: jslaby@suse.cz
+Cc: Paul Moore <paul@paul-moore.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-security-module@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354295140-6355-1-git-send-email-jslaby@suse.cz>
+In-Reply-To: <50B8E4E6.2040901@xenotime.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Fri, 30 Nov 2012 18:05:40 +0100
+Because NETLABEL depends on INET SECURITY_SMACK
+has to explicitly call out the dependency.
 
-> Delivery to the following recipient failed permanently:
-> 
->      vtun@office.satix.net
-> 
-> Technical details of permanent failure:
-> DNS Error: Domain name not found
-> 
-> Of course:
-> $ host office.satix.net
-> Host office.satix.net not found: 3(NXDOMAIN)
-> 
-> ===========
-> 
-> And "Change of Email Address Notification":
-> Old Address        New Address           Email Subject
-> ------------------------------------------------------
-> maxk@qualcomm.com  maxk@qti.qualcomm.com "tuntap: multiqueue...
-> 
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
+---
+ security/smack/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
-Applied.
+diff --git a/security/smack/Kconfig b/security/smack/Kconfig
+index 9fb14ef..1be1088 100644
+--- a/security/smack/Kconfig
++++ b/security/smack/Kconfig
+@@ -1,5 +1,6 @@
+ config SECURITY_SMACK
+ 	bool "Simplified Mandatory Access Control Kernel Support"
++	depends on INET
+ 	depends on NET
+ 	depends on SECURITY
+ 	select NETLABEL
