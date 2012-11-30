@@ -1,71 +1,37 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: verify length provided in heartbeat information
- parameter
-Date: Fri, 30 Nov 2012 11:01:57 -0500
-Message-ID: <20121130160156.GC6039@hmsreliant.think-freely.org>
-References: <20121130121627.GG30697@casper.infradead.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/5] smsc95xx: fix suspend buffer overflow
+Date: Fri, 30 Nov 2012 08:03:41 -0800
+Message-ID: <1354291421.11903.25.camel@joe-AO722>
+References: <1354290952-27109-1-git-send-email-steve.glendinning@shawell.net>
+	 <1354290952-27109-2-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Bjorn Mork <bjorn@mork.no>
+To: Steve Glendinning <steve.glendinning@shawell.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44053 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932387Ab2K3QCK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 11:02:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20121130121627.GG30697@casper.infradead.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:52723 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933180Ab2K3QDl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Nov 2012 11:03:41 -0500
+In-Reply-To: <1354290952-27109-2-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 30, 2012 at 12:16:27PM +0000, Thomas Graf wrote:
-> If the variable parameter length provided in the mandatory
-> heartbeat information parameter exceeds the calculated payload
-> length the packet has been corrupted. Reply with a parameter
-> length protocol violation message.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  net/sctp/sm_statefuns.c | 10 ++++++++--
->  1 file changed, 8 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index b6adef8..e92079d 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -1055,6 +1055,7 @@ sctp_disposition_t sctp_sf_beat_8_3(struct net *net,
->  				    void *arg,
->  				    sctp_cmd_seq_t *commands)
->  {
-> +	sctp_paramhdr_t *param_hdr;
->  	struct sctp_chunk *chunk = arg;
->  	struct sctp_chunk *reply;
->  	size_t paylen = 0;
-> @@ -1072,12 +1073,17 @@ sctp_disposition_t sctp_sf_beat_8_3(struct net *net,
->  	 * Information field copied from the received HEARTBEAT chunk.
->  	 */
->  	chunk->subh.hb_hdr = (sctp_heartbeathdr_t *) chunk->skb->data;
-> +	param_hdr = (sctp_paramhdr_t *) chunk->subh.hb_hdr;
->  	paylen = ntohs(chunk->chunk_hdr->length) - sizeof(sctp_chunkhdr_t);
-> +
-> +	if (ntohs(param_hdr->length) > paylen)
-> +		return sctp_sf_violation_paramlen(net, ep, asoc, type, arg,
-> +						  param_hdr, commands);
-> +
->  	if (!pskb_pull(chunk->skb, paylen))
->  		goto nomem;
+On Fri, 2012-11-30 at 15:55 +0000, Steve Glendinning wrote:
+> This patch fixes a buffer overflow introduced by bbd9f9e, where
+> the filter_mask array is accessed beyond its bounds.
+[]
+> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+[]
+> @@ -1281,7 +1281,7 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+>  	}
 >  
-> -	reply = sctp_make_heartbeat_ack(asoc, chunk,
-> -					chunk->subh.hb_hdr, paylen);
-> +	reply = sctp_make_heartbeat_ack(asoc, chunk, param_hdr, paylen);
->  	if (!reply)
->  		goto nomem;
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Looks good, thanks Thomas.
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+>  	if (pdata->wolopts & (WAKE_BCAST | WAKE_MCAST | WAKE_ARP | WAKE_UCAST)) {
+> -		u32 *filter_mask = kzalloc(32, GFP_KERNEL);
+> +		u32 *filter_mask = kzalloc(sizeof(u32) * 32, GFP_KERNEL);
+
+Just get rid of the alloc and use 32 u8's on stack.
+It's small enough
+No filter value is > FF and the compiler with expand
+the u8 to u32 when writing to the card.
