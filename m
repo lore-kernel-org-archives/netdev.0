@@ -1,33 +1,28 @@
-From: i trilok <itrilok@gmail.com>
-Subject: regarding netlink usage
-Date: Fri, 30 Nov 2012 07:06:29 +0530
-Message-ID: <CAMr2Gz737cL8hwJ1mTcMYGG2CXZ=dussDc_cJnd+GL0iQ6c4Zw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f174.google.com ([209.85.210.174]:33642 "EHLO
-	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753530Ab2K3Bg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 29 Nov 2012 20:36:29 -0500
-Received: by mail-ia0-f174.google.com with SMTP id y25so11430244iay.19
-        for <netdev@vger.kernel.org>; Thu, 29 Nov 2012 17:36:29 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH v2 3/3] pppoatm: protect against freeing of vcc
+Date: Thu, 29 Nov 2012 20:38:08 -0500
+Message-ID: <201211300138.qAU1c8sE003388@thirdoffive.cmf.nrl.navy.mil>
+References: <1354227428.21562.230.camel@shinybook.infradead.org>
+Cc: Krzysztof Mazur <krzysiek@podlesie.net>,
+	David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nathan@traverse.com.au
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <1354227428.21562.230.camel@shinybook.infradead.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+In message <1354227428.21562.230.camel@shinybook.infradead.org>,David Woodhouse writes:
+>At this point, I think we're better off as we are (with Krzysztof's
+>patch 1/7 dropped, and leaving vcc->dev->ops->close() being called
+>before vcc->push(NULL). We've fairly much solved the issues with that
+>arrangement, by checking ATM_VF_READY in the protocols' ->push()
+>functions.
 
-I was trying to port some module code from 2.6.29 to 2.6.34.10 kernel.
-I'm using netlink for communication between kernel module and user
-application. In the netlink receive call back function I'm retrieving
-netlink message header from (struct nlmsghdr*)skb->data and the same
-was working in 2.6.29 kernel but when I ported this to 2.6.34.10 I was
-seeing (struct nlmsghdr*)skb->head is holding the netlink message
-header instead of skb->data, what could be wrong, is this intended
-behavior?.
-
-Thanks in advance.
-
-
-Thanks,
-Ina.
+it isnt clear to me that fixes the race entirely either.
+vcc_destroy_socket() and any of the push()/sends()'s are not serialized.
+while you may clear the ATM_VF_READY flag, you might not clear it soon
+enough for any particular push() that is already running.  so it still
+seems like you are racing close() against push() at this point.  the
+window is greatly reduced, but it still exists.
