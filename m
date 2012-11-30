@@ -1,76 +1,39 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH V2 1/9] net: frag evictor, avoid killing warm
- frag queues
-Date: Sat, 01 Dec 2012 00:23:35 +0100
-Message-ID: <1354317815.11754.498.camel@localhost>
-References: <20121129161019.17754.29670.stgit@dragon>
-	 <20121129161052.17754.85017.stgit@dragon>
-	 <20121129.124427.1093031685966728935.davem@davemloft.net>
-	 <1354227470.11754.348.camel@localhost>
-	 <1354230100.3299.40.camel@edumazet-glaptop>
-	 <1354269846.11754.381.camel@localhost>
-	 <1354287134.3299.67.camel@edumazet-glaptop>
-	 <1354290335.11754.447.camel@localhost>
-	 <1354293469.3299.81.camel@edumazet-glaptop>
-	 <1354311437.11754.459.camel@localhost>
-	 <1354314319.20109.179.camel@edumazet-glaptop>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: respin of __dev* removal patches
+Date: Fri, 30 Nov 2012 15:39:47 -0800
+Message-ID: <20121130233947.GA17353@kroah.com>
+References: <20121130221555.2AA738019A@viridian.itc.virginia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
-	netdev@vger.kernel.org, pablo@netfilter.org, tgraf@suug.ch,
-	amwang@redhat.com, kaber@trash.net, paulmck@linux.vnet.ibm.com,
-	herbert@gondor.hengli.com.au
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Bill Pemberton <wfp5p@viridian.itc.virginia.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22035 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756486Ab2K3X1A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2012 18:27:00 -0500
-In-Reply-To: <1354314319.20109.179.camel@edumazet-glaptop>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:61274 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753215Ab2K3Xjv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 18:39:51 -0500
+Received: by mail-pa0-f46.google.com with SMTP id bh2so678771pad.19
+        for <netdev@vger.kernel.org>; Fri, 30 Nov 2012 15:39:51 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20121130221555.2AA738019A@viridian.itc.virginia.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-30 at 14:25 -0800, Eric Dumazet wrote:
-> On Fri, 2012-11-30 at 22:37 +0100, Jesper Dangaard Brouer wrote:
->
-> > Come on Eric, you are smart than this.  When will you realize, that
-> > dropping partly completed fragment queue are bad for performance? (And
-> > thus a bad algorithmic choice in the evictor)
+On Fri, Nov 30, 2012 at 05:15:54PM -0500, Bill Pemberton wrote:
+> I've got a respin of the hotplug removal patches for the networking
+> subsystem.  I don't want to irritate you like the big patch set did,
+> so before I submit them, what do you want to see that will keep your
+> pain to a minimum?
 > 
-> Sorry I must be dumb, so I'll stop commenting.
+> I've redone them so that all the __dev* removals are done at once so
+> there won't be one patch for __devinit, one for __devexit, etc.  I've
+> also broken them down into chunks following what's in the MAINTAINERS
+> file.  The result is 103 patches.
 
-Come on Eric, you are one of the smartest and most enlightened persons I
-know.
+As that's a lot of patches to handle through patchwork, would it be
+easier for the network maintainers for me to just put these in a tree
+they can pull from?  I will base it off of net-next.
 
-I'm just a little puzzled (and perhaps annoyed) that you don't agree
-that the evictor code is a problem, given the tests I have provided and
-the discussion we have had.
+thanks,
 
-On this mailing list we challenge and give each other a hard time on the
-technical side, as it should be.  This is nothing personal -- I don't
-take it personal, I just believe this patch is important and makes a
-difference.
-
-
-I want us to discuss the evictor code as such.  Not trying to come up
-with, workarounds avoiding the evictor code.
-
-The dropping choice in the evictor code is not sound.
-
-We are dealing with assembling fragments.  If a single fragment is lost,
-the complete fragment is lost.  The evictor code, will kill off one or
-several fragments, knowing that this will invalidate the remaining
-fragments.  Under high load, the LRU list has no effect, and cannot
-guide the drop choice.  The result is dropping on an "even"/fair basis,
-which will basically kill all fragments, letting none complete.  Just as
-my tests indicate, it severely affects performance with nearly no
-throughput as a result.
-
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+greg k-h
