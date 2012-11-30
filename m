@@ -1,60 +1,71 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 4/5] smsc95xx: fix smsc_crc return type
-Date: Fri, 30 Nov 2012 07:59:59 -0800
-Message-ID: <1354291199.11903.22.camel@joe-AO722>
-References: <1354290952-27109-1-git-send-email-steve.glendinning@shawell.net>
-	 <1354290952-27109-5-git-send-email-steve.glendinning@shawell.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] sctp: verify length provided in heartbeat information
+ parameter
+Date: Fri, 30 Nov 2012 11:01:57 -0500
+Message-ID: <20121130160156.GC6039@hmsreliant.think-freely.org>
+References: <20121130121627.GG30697@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Steve Glendinning <steve.glendinning@shawell.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:41368 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754053Ab2K3QAA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Nov 2012 11:00:00 -0500
-In-Reply-To: <1354290952-27109-5-git-send-email-steve.glendinning@shawell.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44053 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932387Ab2K3QCK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 11:02:10 -0500
+Content-Disposition: inline
+In-Reply-To: <20121130121627.GG30697@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-30 at 15:55 +0000, Steve Glendinning wrote:
-> This patch fixes a bug introduced in bbd9f9e which could prevent
-> some wakeups from working correctly if multiple wol options were
-> selected.
+On Fri, Nov 30, 2012 at 12:16:27PM +0000, Thomas Graf wrote:
+> If the variable parameter length provided in the mandatory
+> heartbeat information parameter exceeds the calculated payload
+> length the packet has been corrupted. Reply with a parameter
+> length protocol violation message.
 > 
-> This helper function calculates a 16-bit crc and shifts it into
-> either the high or low 16 bits of a u32 so the caller can or it
-> directly into place.  The function previously had a u16 return
-> type so would always have returned zero when filter was odd.
-> 
-> Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
-> Reported-by: Bjorn Mork <bjorn@mork.no>
-> Cc: Joe Perches <joe@perches.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 > ---
->  drivers/net/usb/smsc95xx.c |    5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
+>  net/sctp/sm_statefuns.c | 10 ++++++++--
+>  1 file changed, 8 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-> index 064df1a..b9eb490 100644
-> --- a/drivers/net/usb/smsc95xx.c
-> +++ b/drivers/net/usb/smsc95xx.c
-> @@ -1074,9 +1074,10 @@ static void smsc95xx_unbind(struct usbnet *dev, struct usb_interface *intf)
->  	}
->  }
->  
-> -static u16 smsc_crc(const u8 *buffer, size_t len, int filter)
-> +static u32 smsc_crc(const u8 *buffer, size_t len, int filter)
+> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+> index b6adef8..e92079d 100644
+> --- a/net/sctp/sm_statefuns.c
+> +++ b/net/sctp/sm_statefuns.c
+> @@ -1055,6 +1055,7 @@ sctp_disposition_t sctp_sf_beat_8_3(struct net *net,
+>  				    void *arg,
+>  				    sctp_cmd_seq_t *commands)
 >  {
-> -	return bitrev16(crc16(0xFFFF, buffer, len)) << ((filter % 2) * 16);
-> +	u32 crc = bitrev16(crc16(0xFFFF, buffer, len));
-> +	return crc << ((filter % 2) * 16);
->  }
+> +	sctp_paramhdr_t *param_hdr;
+>  	struct sctp_chunk *chunk = arg;
+>  	struct sctp_chunk *reply;
+>  	size_t paylen = 0;
+> @@ -1072,12 +1073,17 @@ sctp_disposition_t sctp_sf_beat_8_3(struct net *net,
+>  	 * Information field copied from the received HEARTBEAT chunk.
+>  	 */
+>  	chunk->subh.hb_hdr = (sctp_heartbeathdr_t *) chunk->skb->data;
+> +	param_hdr = (sctp_paramhdr_t *) chunk->subh.hb_hdr;
+>  	paylen = ntohs(chunk->chunk_hdr->length) - sizeof(sctp_chunkhdr_t);
+> +
+> +	if (ntohs(param_hdr->length) > paylen)
+> +		return sctp_sf_violation_paramlen(net, ep, asoc, type, arg,
+> +						  param_hdr, commands);
+> +
+>  	if (!pskb_pull(chunk->skb, paylen))
+>  		goto nomem;
 >  
->  static int smsc95xx_enable_phy_wakeup_interrupts(struct usbnet *dev, u16 mask)
-
-Having filter as an argument to this function really
-just confuses things.
-
-The shift should be done when the result is or'd onto the
-control variable.
+> -	reply = sctp_make_heartbeat_ack(asoc, chunk,
+> -					chunk->subh.hb_hdr, paylen);
+> +	reply = sctp_make_heartbeat_ack(asoc, chunk, param_hdr, paylen);
+>  	if (!reply)
+>  		goto nomem;
+>  
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Looks good, thanks Thomas.
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
