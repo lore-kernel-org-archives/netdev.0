@@ -1,28 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] mac802154: use kfree_skb() instead of
- dev_kfree_skb()
-Date: Fri, 30 Nov 2012 12:19:50 -0500 (EST)
-Message-ID: <20121130.121950.939471280361329069.davem@davemloft.net>
-References: <504EA95C.9010003@signal11.us>
-	<1354249511-8086-1-git-send-email-alan@signal11.us>
-	<1354249511-8086-2-git-send-email-alan@signal11.us>
+Subject: Re: [PATCH] sctp: fix CONFIG_SCTP_DBG_MSG=y null pointer
+ dereference in sctp_v6_get_dst()
+Date: Fri, 30 Nov 2012 12:21:46 -0500 (EST)
+Message-ID: <20121130.122146.1137813662572852735.davem@davemloft.net>
+References: <1354267062-15888-1-git-send-email-tt.rantala@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	eric.dumazet@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: alan@signal11.us
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354249511-8086-2-git-send-email-alan@signal11.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	nhorman@tuxdriver.com, vyasevich@gmail.com, sri@us.ibm.com,
+	davej@redhat.com
+To: tt.rantala@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44667 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933480Ab2K3RVs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 12:21:48 -0500
+In-Reply-To: <1354267062-15888-1-git-send-email-tt.rantala@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alan Ott <alan@signal11.us>
-Date: Thu, 29 Nov 2012 23:25:11 -0500
+From: Tommi Rantala <tt.rantala@gmail.com>
+Date: Fri, 30 Nov 2012 11:17:42 +0200
 
-> kfree_skb() indicates failure, which is where this is being used.
+> Trinity (the syscall fuzzer) triggered the following BUG, reproducible
+> only when the kernel is configured with CONFIG_SCTP_DBG_MSG=y.
 > 
-> Signed-off-by: Alan Ott <alan@signal11.us>
+> When CONFIG_SCTP_DBG_MSG is not set, the null pointer is never
+> dereferenced.
+ ...
+> Signed-off-by: Tommi Rantala <tt.rantala@gmail.com>
 
-Applied.
+Applied, thanks.
