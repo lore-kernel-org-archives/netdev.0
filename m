@@ -1,72 +1,136 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH V2 1/9] net: frag evictor, avoid killing warm
- frag queues
-Date: Fri, 30 Nov 2012 08:37:49 -0800
-Message-ID: <1354293469.3299.81.camel@edumazet-glaptop>
-References: <20121129161019.17754.29670.stgit@dragon>
-	 <20121129161052.17754.85017.stgit@dragon>
-	 <20121129.124427.1093031685966728935.davem@davemloft.net>
-	 <1354227470.11754.348.camel@localhost>
-	 <1354230100.3299.40.camel@edumazet-glaptop>
-	 <1354269846.11754.381.camel@localhost>
-	 <1354287134.3299.67.camel@edumazet-glaptop>
-	 <1354290335.11754.447.camel@localhost>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: linux-next: Tree for Nov 29 (netlabel)
+Date: Fri, 30 Nov 2012 08:55:02 -0800
+Message-ID: <50B8E4E6.2040901@xenotime.net>
+References: <20121129174057.99da02b15426c76054d05592@canb.auug.org.au> <50B7F846.70202@infradead.org> <3694027.VYznNcdp7C@sifl> <2664553.2TRaVqlkGg@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
-	netdev@vger.kernel.org, pablo@netfilter.org, tgraf@suug.ch,
-	amwang@redhat.com, kaber@trash.net, paulmck@linux.vnet.ibm.com,
-	herbert@gondor.hengli.com.au
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Casey Schaufler <casey@schaufler-ca.com>,
+	linux-security-module@vger.kernel.org
+To: Paul Moore <paul@paul-moore.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:55321 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932472Ab2K3QiA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 11:38:00 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so545618pbc.19
-        for <netdev@vger.kernel.org>; Fri, 30 Nov 2012 08:38:00 -0800 (PST)
-In-Reply-To: <1354290335.11754.447.camel@localhost>
+Received: from oproxy8-pub.bluehost.com ([69.89.22.20]:41336 "HELO
+	oproxy8-pub.bluehost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1758705Ab2K3QzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 11:55:12 -0500
+In-Reply-To: <2664553.2TRaVqlkGg@sifl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-30 at 16:45 +0100, Jesper Dangaard Brouer wrote:
-> On Fri, 2012-11-30 at 06:52 -0800, Eric Dumazet wrote:
+On 11/30/2012 07:31 AM, Paul Moore wrote:
 
+> On Friday, November 30, 2012 10:19:16 AM Paul Moore wrote:
+>> On Thursday, November 29, 2012 04:05:26 PM Randy Dunlap wrote:
+>>> On 11/28/2012 10:40 PM, Stephen Rothwell wrote:
+>>>> Hi all,
+>>>
+>>>> Changes since 20121128:
+>>> (on i386:)
+>>
+>> If I had to guess it looks like CONFIG_NETLABEL needs to be dependent on
+>> CONFIG_INET.  While the net/ Kconfig only pulls in the net/netlabel Kconfig
+>> if CONFIG_INET is defined, I'm guessing that without the explicit
+>> dependency there is nothing preventing someone from arriving at a bad
+>> configuration as we see here.
+>>
+>> Let me test this out to make sure my reasoning is right and if it is I'll
+>> post a patch to netdev later today.
+>>
+>> Thanks for catching this.
 > 
-> > I dont know how you expect that many
-> > datagrams being correctly reassembled with ipfrag_high_thresh=262144 
+> Hmmm.  The existing logic in net/Kconfig seems to disable CONFIG_NETLABEL at 
+> build time whenever CONFIG_INET is disabled in my .config file.  The only way 
+> I can recreate what you are seeing here is if I move the NetLabel include 
+> outside of the INET conditional in net/Kconfig.
 > 
-> That's my point... I'm showing that its not possible, with out current
-> implementation!
+> Regardless, adding an explicit dependency on INET to NETLABEL shouldn't hurt 
+> anything so I'll go ahead and post the patch to netdev.  Hopefully someone who 
+> understands Kconfig better than I do can help shed some light on this.
 
-What I was saying is that the limits are too small, and we should
-increase them for this particular need.
+Sorry, this patch doesn't help.
 
-This has little to do with the underlying algo.
+I just checked the kernel .config again.  SECURITY_SMACK
+selects NETLABEL even when INET is not enabled.  Bad SMACK.
 
-Assuming we have a hash table size of 1024 buckets, you could
-easily add the following :
+I added Casey and mailing list to the cc:
 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 448e685..bc1bdf9 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -849,13 +849,13 @@ static inline void ip4_frags_ctl_register(void)
- static int __net_init ipv4_frags_init_net(struct net *net)
- {
- 	/*
--	 * Fragment cache limits. We will commit 256K at one time. Should we
--	 * cross that limit we will prune down to 192K. This should cope with
-+	 * Fragment cache limits. We will commit 4M at one time. Should we
-+	 * cross that limit we will prune down to 3M. This should cope with
- 	 * even the most extreme cases without allowing an attacker to
- 	 * measurably harm machine performance.
- 	 */
--	net->ipv4.frags.high_thresh = 256 * 1024;
--	net->ipv4.frags.low_thresh = 192 * 1024;
-+	net->ipv4.frags.high_thresh = 4 << 20;
-+	net->ipv4.frags.low_thresh = 3 << 20;
- 	/*
- 	 * Important NOTE! Fragment queue must be destroyed before MSL expires.
- 	 * RFC791 is wrong proposing to prolongate timer each fragment arrival
+>>> net/built-in.o: In function `netlbl_cfg_cipsov4_add':
+>>> (.text+0x61757): undefined reference to `cipso_v4_doi_add'
+>>> net/built-in.o: In function `netlbl_cfg_cipsov4_del':
+>>> (.text+0x6177d): undefined reference to `cipso_v4_doi_remove'
+>>> net/built-in.o: In function `netlbl_cfg_cipsov4_map_add':
+>>> (.text+0x617ae): undefined reference to `cipso_v4_doi_getdef'
+>>> net/built-in.o: In function `netlbl_cfg_cipsov4_map_add':
+>>> (.text+0x61a49): undefined reference to `cipso_v4_doi_putdef'
+>>> net/built-in.o: In function `netlbl_sock_setattr':
+>>> (.text+0x6218c): undefined reference to `cipso_v4_sock_setattr'
+>>> net/built-in.o: In function `netlbl_sock_delattr':
+>>> (.text+0x6220b): undefined reference to `cipso_v4_sock_delattr'
+>>> net/built-in.o: In function `netlbl_sock_getattr':
+>>> (.text+0x62238): undefined reference to `cipso_v4_sock_getattr'
+>>> net/built-in.o: In function `netlbl_conn_setattr':
+>>> (.text+0x622de): undefined reference to `cipso_v4_sock_setattr'
+>>> net/built-in.o: In function `netlbl_conn_setattr':
+>>> (.text+0x62303): undefined reference to `cipso_v4_sock_delattr'
+>>> net/built-in.o: In function `netlbl_req_setattr':
+>>> (.text+0x62429): undefined reference to `cipso_v4_req_setattr'
+>>> net/built-in.o: In function `netlbl_req_setattr':
+>>> (.text+0x6244e): undefined reference to `cipso_v4_req_delattr'
+>>> net/built-in.o: In function `netlbl_req_delattr':
+>>> (.text+0x624ba): undefined reference to `cipso_v4_req_delattr'
+>>> net/built-in.o: In function `netlbl_skbuff_setattr':
+>>> (.text+0x62551): undefined reference to `cipso_v4_skbuff_setattr'
+>>> net/built-in.o: In function `netlbl_skbuff_setattr':
+>>> (.text+0x62576): undefined reference to `cipso_v4_skbuff_delattr'
+>>> net/built-in.o: In function `netlbl_skbuff_getattr':
+>>> (.text+0x62619): undefined reference to `cipso_v4_skbuff_getattr'
+>>> net/built-in.o: In function `netlbl_skbuff_err':
+>>> (.text+0x62685): undefined reference to `cipso_v4_error'
+>>> net/built-in.o: In function `netlbl_cache_invalidate':
+>>> (.text+0x626ab): undefined reference to `cipso_v4_cache_invalidate'
+>>> net/built-in.o: In function `netlbl_cache_add':
+>>> (.text+0x626ec): undefined reference to `cipso_v4_cache_add'
+>>> net/built-in.o: In function `netlbl_domhsh_remove_entry':
+>>> (.text+0x63294): undefined reference to `cipso_v4_doi_putdef'
+>>> net/built-in.o: In function `netlbl_domhsh_remove_entry':
+>>> (.text+0x632eb): undefined reference to `cipso_v4_doi_putdef'
+>>> net/built-in.o: In function `netlbl_domhsh_remove_af4':
+>>> (.text+0x6349b): undefined reference to `cipso_v4_doi_putdef'
+>>> net/built-in.o: In function `netlbl_mgmt_add_common.clone.1':
+>>> netlabel_mgmt.c:(.text+0x64a87): undefined reference to
+>>> `cipso_v4_doi_getdef' netlabel_mgmt.c:(.text+0x64c83): undefined reference
+>>> to `cipso_v4_doi_putdef' net/built-in.o: In function
+>>> `netlbl_cipsov4_listall':
+>>> netlabel_cipso_v4.c:(.text+0x66e52): undefined reference to
+>>> `cipso_v4_doi_walk' net/built-in.o: In function `netlbl_cipsov4_list':
+>>> netlabel_cipso_v4.c:(.text+0x67199): undefined reference to
+>>> `cipso_v4_doi_getdef' net/built-in.o: In function `netlbl_cipsov4_remove':
+>>> netlabel_cipso_v4.c:(.text+0x6771b): undefined reference to
+>>> `cipso_v4_doi_remove' net/built-in.o: In function
+>>> `netlbl_cipsov4_add_pass':
+>>> netlabel_cipso_v4.c:(.text+0x67a4b): undefined reference to
+>>> `cipso_v4_doi_add' netlabel_cipso_v4.c:(.text+0x67a76): undefined
+>>> reference
+>>> to `cipso_v4_doi_free' net/built-in.o: In function
+>>> `netlbl_cipsov4_add_local':
+>>> netlabel_cipso_v4.c:(.text+0x67b9a): undefined reference to
+>>> `cipso_v4_doi_add' netlabel_cipso_v4.c:(.text+0x67bc5): undefined
+>>> reference
+>>> to `cipso_v4_doi_free' net/built-in.o: In function
+>>> `netlbl_cipsov4_add_std':
+>>> netlabel_cipso_v4.c:(.text+0x68535): undefined reference to
+>>> `cipso_v4_doi_add' netlabel_cipso_v4.c:(.text+0x68575): undefined
+>>> reference
+>>> to `cipso_v4_doi_free'
+>>>
+>>>
+>>> Full randconfig file is attached.
+
+
+
+-- 
+~Randy
