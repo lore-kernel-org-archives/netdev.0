@@ -1,40 +1,38 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH] Smack: Add missing depends on INET in Kconfig
-Date: Fri, 30 Nov 2012 10:47:23 -0800
-Message-ID: <50B8FF3B.80003@schaufler-ca.com>
-References: <50B8E4E6.2040901@xenotime.net> <50B8ECB3.2090801@schaufler-ca.com> <50B8EF79.4080907@xenotime.net> <20121130.134326.730429492162984746.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ip6_rt_gc_elasticity and ip6_rt_gc_min_interval race in
+ rt6_alloc_cow() ?
+Date: Fri, 30 Nov 2012 13:50:14 -0500 (EST)
+Message-ID: <20121130.135014.1380924721756973206.davem@davemloft.net>
+References: <20121130184336.GB7113@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rdunlap@xenotime.net, paul@paul-moore.com, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20121130.134326.730429492162984746.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mkubecek@suse.cz
+To: jbohac@suse.cz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45499 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161104Ab2K3SuQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 13:50:16 -0500
+In-Reply-To: <20121130184336.GB7113@midget.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/30/2012 10:43 AM, David Miller wrote:
-> From: Randy Dunlap <rdunlap@xenotime.net>
-> Date: Fri, 30 Nov 2012 09:40:09 -0800
->
->> On 11/30/2012 09:28 AM, Casey Schaufler wrote:
->>
->>> Because NETLABEL depends on INET SECURITY_SMACK
->>> has to explicitly call out the dependency.
->>>
->>> Signed-off-by: Casey Schaufler <casey@schaufler-ca.com>
->>
->> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
->>
->> Thanks for the quick fix.
-> In what tree does this Kconfig file look like this?
+From: Jiri Bohac <jbohac@suse.cz>
+Date: Fri, 30 Nov 2012 19:43:36 +0100
 
-James Morris' security-next
+> I believe there is a race condition in the setting of
+> ip6_rt_gc_elasticity and ip6_rt_gc_min_interval. I have not seen
+> happen, though:
+> 
+> 1) a setting made by the user via sysctl while ip6_dst_gc() is
+>    running will get lost
+> 
+> 2) another instance of rt6_alloc_cow() may save the temporary
+>    values in the saved_* variables, making those permanent.
+> 
+> Am I overlooking some synchronization or should I send a
+> patch to fix this?
 
->
-> In my net-next tree the current dependencies are expressed as:
->
-> 	depends on NETLABEL && SECURITY_NETWORK
->
+The ipv4 routing cache had the same issue, I really and sincerely
+doubt this race matters in practice.
