@@ -1,42 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH V2 1/9] net: frag evictor, avoid killing warm
- frag queues
-Date: Fri, 30 Nov 2012 14:25:19 -0800
-Message-ID: <1354314319.20109.179.camel@edumazet-glaptop>
-References: <20121129161019.17754.29670.stgit@dragon>
-	 <20121129161052.17754.85017.stgit@dragon>
-	 <20121129.124427.1093031685966728935.davem@davemloft.net>
-	 <1354227470.11754.348.camel@localhost>
-	 <1354230100.3299.40.camel@edumazet-glaptop>
-	 <1354269846.11754.381.camel@localhost>
-	 <1354287134.3299.67.camel@edumazet-glaptop>
-	 <1354290335.11754.447.camel@localhost>
-	 <1354293469.3299.81.camel@edumazet-glaptop>
-	 <1354311437.11754.459.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
-	netdev@vger.kernel.org, pablo@netfilter.org, tgraf@suug.ch,
-	amwang@redhat.com, kaber@trash.net, paulmck@linux.vnet.ibm.com,
-	herbert@gondor.hengli.com.au
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: [PATCH net-next] myri10ge: fix incorrect use of ntohs()
+Date: Fri, 30 Nov 2012 17:31:26 -0500
+Message-ID: <1354314686-16149-1-git-send-email-gallatin@myri.com>
+Cc: netdev@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:50005 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753987Ab2K3WZV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 17:25:21 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so737256pbc.19
-        for <netdev@vger.kernel.org>; Fri, 30 Nov 2012 14:25:21 -0800 (PST)
-In-Reply-To: <1354311437.11754.459.camel@localhost>
+Received: from mail-gg0-f174.google.com ([209.85.161.174]:63571 "EHLO
+	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752302Ab2K3Wbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 17:31:38 -0500
+Received: by mail-gg0-f174.google.com with SMTP id k2so158605ggd.19
+        for <netdev@vger.kernel.org>; Fri, 30 Nov 2012 14:31:37 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-11-30 at 22:37 +0100, Jesper Dangaard Brouer wrote:
+1b4c44e6369dbbafd113f1e00b406f1eda5ab5b2 incorrectly used
+ntohs() rather than htons() in myri10ge_vlan_rx().
 
-> 
-> Come on Eric, you are smart than this.  When will you realize, that
-> dropping partly completed fragment queue are bad for performance? (And
-> thus a bad algorithmic choice in the evictor)
+Thanks to Fengguang Wu, Yuanhan Liu's kernel-build tester
+for pointing out this bug.
 
-Sorry I must be dumb, so I'll stop commenting.
+Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+---
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index 2fc984a..a40234e 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -1283,7 +1283,7 @@ myri10ge_vlan_rx(struct net_device *dev, void *addr, struct sk_buff *skb)
+ 	va += MXGEFW_PAD;
+ 	veh = (struct vlan_ethhdr *)va;
+ 	if ((dev->features & NETIF_F_HW_VLAN_RX) == NETIF_F_HW_VLAN_RX &&
+-	    veh->h_vlan_proto == ntohs(ETH_P_8021Q)) {
++	    veh->h_vlan_proto == htons(ETH_P_8021Q)) {
+ 		/* fixup csum if needed */
+ 		if (skb->ip_summed == CHECKSUM_COMPLETE) {
+ 			vsum = csum_partial(va + ETH_HLEN, VLAN_HLEN, 0);
+-- 
+1.7.9.5
