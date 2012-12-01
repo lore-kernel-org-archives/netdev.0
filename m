@@ -1,32 +1,28 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: GRO + splice panics in 3.7.0-rc5
-Date: Sat, 01 Dec 2012 18:58:31 -0800
-Message-ID: <1354417111.20109.559.camel@edumazet-glaptop>
-References: <20121115222812.GA647@1wt.eu>
-	 <1353023344.10798.8.camel@edumazet-glaptop> <20121201194304.GI25450@1wt.eu>
-	 <20121201205227.GA28390@1wt.eu>
-	 <1354398458.20109.528.camel@edumazet-glaptop>
-	 <1354401121.20109.531.camel@edumazet-glaptop>
-	 <20121201224044.GL25450@1wt.eu>
+From: "Webmail System Administrator" <webmailupdate@biofac.uni-sofia.bg>
+Subject: WEBMAIL ACCOUNT UPDATE NOW!!!
+Date: Sat, 1 Dec 2012 13:36:48 +0200
+Message-ID: <c351396665789a066aeaa82562ffb280.squirrel@webmail.biofac.uni-sofia.bg>
+Reply-To: gladstonestore@activ8.net.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=win-1251
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: recipient list not shown:;
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:54958 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751709Ab2LBC6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 21:58:35 -0500
-Received: by mail-vb0-f46.google.com with SMTP id b13so657101vby.19
-        for <netdev@vger.kernel.org>; Sat, 01 Dec 2012 18:58:35 -0800 (PST)
-In-Reply-To: <20121201224044.GL25450@1wt.eu>
+Received: from ns.biofac.uni-sofia.bg ([62.44.104.1]:44641 "HELO
+	mail.biofac.uni-sofia.bg" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752200Ab2LBE6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 23:58:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-12-01 at 23:40 +0100, Willy Tarreau wrote:
+ Your webmail account is corrupted by virus, you are to advise to upgra=
+de.
+ You need to upgrade your email limit quota to 10GB within the next 48
+hours. Use the below web link to upgrade your valid email account:
 
-> Excellent Eric, it's rock solid now both with the reproducer and with
-> haproxy!  Feel free to add my Tested-By if you want.
+https://docs.google.com/a/blumail.org/spreadsheet/viewform?formkey=3DdH=
+V1ODN5bnkxNDVxODgtb0RMTk9DNlE6MQ
 
-You did a very good work, thanks again Willy.
+Thank you for using our email.
+Copyright =A92012 Email Helpdesk Centre.
