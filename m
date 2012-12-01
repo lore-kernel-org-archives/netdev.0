@@ -1,142 +1,69 @@
-From: Alexander Shiyan <shc_work@mail.ru>
-Subject: [PATCH] irda: ep7211-sir: Convert to platform_diver
-Date: Sat,  1 Dec 2012 15:07:26 +0400
-Message-ID: <1354360046-4818-1-git-send-email-shc_work@mail.ru>
-Cc: Samuel Ortiz <samuel@sortiz.org>, Arnd Bergmann <arnd@arndb.de>,
-	Alexander Shiyan <shc_work@mail.ru>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
+Date: Sat,  1 Dec 2012 03:53:28 -0800
+Message-ID: <1354362817-26168-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback6.mail.ru ([94.100.176.134]:36348 "EHLO
-	fallback6.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751386Ab2LALHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 06:07:55 -0500
-Received: from smtp41.i.mail.ru (smtp41.i.mail.ru [94.100.177.101])
-	by fallback6.mail.ru (mPOP.Fallback_MX) with ESMTP id C09789C2928D
-	for <netdev@vger.kernel.org>; Sat,  1 Dec 2012 15:07:51 +0400 (MSK)
+Received: from mga03.intel.com ([143.182.124.21]:27557 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751646Ab2LALx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2012 06:53:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch converts ep7211-sir driver to platform_driver.
-Since driver can be used not only for EP7211 CPU, function names
-was be renamed to generic clps711x...
+This series contains updates to ixgbe, igb and e1000e.  Majority of the
+changes are against igb.
 
-Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
----
- drivers/net/irda/ep7211-sir.c |   73 +++++++++++++++--------------------------
- 1 files changed, 27 insertions(+), 46 deletions(-)
+The following are changes since commit 1b4c44e6369dbbafd113f1e00b406f1eda5ab5b2:
+  myri10ge: Add vlan rx for better GRO perf.
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-diff --git a/drivers/net/irda/ep7211-sir.c b/drivers/net/irda/ep7211-sir.c
-index f83c5b8..5fe1f4d 100644
---- a/drivers/net/irda/ep7211-sir.c
-+++ b/drivers/net/irda/ep7211-sir.c
-@@ -1,52 +1,18 @@
- /*
-- * IR port driver for the Cirrus Logic EP7211 processor.
-+ * IR port driver for the Cirrus Logic CLPS711X processors
-  *
-  * Copyright 2001, Blue Mug Inc.  All rights reserved.
-  * Copyright 2007, Samuel Ortiz <samuel@sortiz.org>
-  */
--#include <linux/module.h>
--#include <linux/delay.h>
--#include <linux/tty.h>
--#include <linux/init.h>
--#include <linux/spinlock.h>
- 
--#include <net/irda/irda.h>
--#include <net/irda/irda_device.h>
-+#include <linux/module.h>
-+#include <linux/platform_device.h>
- 
--#include <asm/io.h>
- #include <mach/hardware.h>
- 
- #include "sir-dev.h"
- 
--#define MIN_DELAY 25      /* 15 us, but wait a little more to be sure */
--#define MAX_DELAY 10000   /* 1 ms */
--
--static int ep7211_open(struct sir_dev *dev);
--static int ep7211_close(struct sir_dev *dev);
--static int ep7211_change_speed(struct sir_dev *dev, unsigned speed);
--static int ep7211_reset(struct sir_dev *dev);
--
--static struct dongle_driver ep7211 = {
--	.owner		= THIS_MODULE,
--	.driver_name	= "EP7211 IR driver",
--	.type		= IRDA_EP7211_DONGLE,
--	.open		= ep7211_open,
--	.close		= ep7211_close,
--	.reset		= ep7211_reset,
--	.set_speed	= ep7211_change_speed,
--};
--
--static int __init ep7211_sir_init(void)
--{
--	return irda_register_dongle(&ep7211);
--}
--
--static void __exit ep7211_sir_cleanup(void)
--{
--	irda_unregister_dongle(&ep7211);
--}
--
--static int ep7211_open(struct sir_dev *dev)
-+static int clps711x_dongle_open(struct sir_dev *dev)
- {
- 	unsigned int syscon;
- 
-@@ -58,7 +24,7 @@ static int ep7211_open(struct sir_dev *dev)
- 	return 0;
- }
- 
--static int ep7211_close(struct sir_dev *dev)
-+static int clps711x_dongle_close(struct sir_dev *dev)
- {
- 	unsigned int syscon;
- 
-@@ -70,20 +36,35 @@ static int ep7211_close(struct sir_dev *dev)
- 	return 0;
- }
- 
--static int ep7211_change_speed(struct sir_dev *dev, unsigned speed)
-+static struct dongle_driver clps711x_dongle = {
-+	.owner		= THIS_MODULE,
-+	.driver_name	= "EP7211 IR driver",
-+	.type		= IRDA_EP7211_DONGLE,
-+	.open		= clps711x_dongle_open,
-+	.close		= clps711x_dongle_close,
-+};
-+
-+static int clps711x_sir_probe(struct platform_device *pdev)
- {
--	return 0;
-+	return irda_register_dongle(&clps711x_dongle);
- }
- 
--static int ep7211_reset(struct sir_dev *dev)
-+static int clps711x_sir_remove(struct platform_device *pdev)
- {
--	return 0;
-+	return irda_unregister_dongle(&clps711x_dongle);
- }
- 
-+static struct platform_driver clps711x_sir_driver = {
-+	.driver	= {
-+		.name	= "sir-clps711x",
-+		.owner	= THIS_MODULE,
-+	},
-+	.probe	= clps711x_sir_probe,
-+	.remove	= clps711x_sir_remove,
-+};
-+module_platform_driver(clps711x_sir_driver);
-+
- MODULE_AUTHOR("Samuel Ortiz <samuel@sortiz.org>");
- MODULE_DESCRIPTION("EP7211 IR dongle driver");
- MODULE_LICENSE("GPL");
- MODULE_ALIAS("irda-dongle-13"); /* IRDA_EP7211_DONGLE */
--
--module_init(ep7211_sir_init);
--module_exit(ep7211_sir_cleanup);
+Akeem G. Abodunrin (1):
+  igb: Acquire, release semaphore for writing each EEPROM page
+
+Alexander Duyck (1):
+  ixgbe: Do not parse past IP header on fragments beyond the first
+
+Bruce Allan (1):
+  e1000e: cosmetic cleanup of comments
+
+Carolyn Wyborny (5):
+  igb: Updates to read nvm function for i211 device
+  igb: Refactoring of i210 file.
+  igb: Workaround for global device reset problem on 82580.
+  igb: Unset sigdetect for SERDES loopback on 82580 and i350
+  igb: Fix SerDes autoneg flow control.
+
+Joshua Hay (1):
+  ixgbe: eliminate Smatch warnings in ixgbe_debugfs.c
+
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c  |  66 ++---
+ drivers/net/ethernet/intel/e1000e/82571.c        | 115 +++------
+ drivers/net/ethernet/intel/e1000e/defines.h      |  27 +-
+ drivers/net/ethernet/intel/e1000e/e1000.h        |  17 +-
+ drivers/net/ethernet/intel/e1000e/ethtool.c      |  69 ++---
+ drivers/net/ethernet/intel/e1000e/hw.h           |   6 +-
+ drivers/net/ethernet/intel/e1000e/ich8lan.c      | 243 ++++++------------
+ drivers/net/ethernet/intel/e1000e/mac.c          | 135 ++++------
+ drivers/net/ethernet/intel/e1000e/manage.c       |   9 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c       | 313 +++++++++--------------
+ drivers/net/ethernet/intel/e1000e/nvm.c          |  15 +-
+ drivers/net/ethernet/intel/e1000e/param.c        |  50 ++--
+ drivers/net/ethernet/intel/e1000e/phy.c          | 141 ++++------
+ drivers/net/ethernet/intel/igb/e1000_82575.c     |  49 +++-
+ drivers/net/ethernet/intel/igb/e1000_defines.h   |   7 +
+ drivers/net/ethernet/intel/igb/e1000_i210.c      | 275 +++++++++++---------
+ drivers/net/ethernet/intel/igb/e1000_i210.h      |   6 +
+ drivers/net/ethernet/intel/igb/e1000_mac.c       | 124 +++++++++
+ drivers/net/ethernet/intel/igb/e1000_nvm.c       |  28 +-
+ drivers/net/ethernet/intel/igb/igb.h             |   2 +
+ drivers/net/ethernet/intel/igb/igb_ethtool.c     |  14 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c |  83 +++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  13 +-
+ 23 files changed, 823 insertions(+), 984 deletions(-)
+
 -- 
-1.7.8.6
+1.7.11.7
