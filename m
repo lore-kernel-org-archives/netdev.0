@@ -1,212 +1,127 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
-Date: Sat, 01 Dec 2012 17:33:46 +0000
-Message-ID: <1354383226.21562.351.camel@shinybook.infradead.org>
-References: <20121130104411.GA16410@shrek.podlesie.net>
-	 <1354306929.21562.313.camel@shinybook.infradead.org>
-	 <20121201.114320.103305992136431342.davem@davemloft.net>
-	 <20121201.114440.331740099591161757.davem@davemloft.net>
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Re: [B.A.T.M.A.N.] [PATCH] net: fix possible deadlocks in rtnl_trylock/unlock
+Date: Sat, 01 Dec 2012 19:07:56 +0100
+Message-ID: <5233033.Yg8T20E3Sl@sven-laptop.home.narfation.org>
+References: <1354382991-31350-1-git-send-email-siwu@hrz.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-LvX95CVN9TAdJtaPhsM8"
-Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	krzysiek@podlesie.net
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; boundary="nextPart4022694.fXEdSxRaOt"; micalg="pgp-sha512"; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7Bit
+Cc: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+To: b.a.t.m.a.n@lists.open-mesh.org, bridge@lists.linux-foundation.org,
+	linux-rdma@vger.kernel.org, linux-s390@vger.kernel.org,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Jay Vosburgh <fubar@us.ibm.com>, Divy Le Ray <divy@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:48409 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752652Ab2LARd6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 12:33:58 -0500
-In-Reply-To: <20121201.114440.331740099591161757.davem@davemloft.net>
+Received: from narfation.org ([79.140.41.39]:40776 "EHLO v3-1039.vlinux.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752679Ab2LASIC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2012 13:08:02 -0500
+In-Reply-To: <1354382991-31350-1-git-send-email-siwu@hrz.tu-chemnitz.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-LvX95CVN9TAdJtaPhsM8
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+--nextPart4022694.fXEdSxRaOt
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="ISO-8859-1"
 
-On Sat, 2012-12-01 at 11:44 -0500, David Miller wrote:
->=20
-> > drivers/atm/solos-pci.c: In function =E2=80=98solos_pci_init=E2=80=99:
-> > drivers/atm/solos-pci.c:1329:2: error: size of unnamed array is
-> negative
->=20
-> It's from adding the completion to the solos skb cb, you can't do
-> that.  It won't fit on 64-bit when all debugging kconfig options are
-> enabled.
+On Saturday 01 December 2012 18:29:51 Simon Wunderlich wrote:
+> If rtnl_trylock() is used to prevent circular dependencies, rtnl_unlock()
+> may destroy this attempt because it first unlocks rtnl_mutex but may
+> lock it again later. The callgraph roughly looks like:
+> 
+> rtnl_unlock()
+>    netdev_run_todo()
+>       __rtnl_unlock()
+>       netdev_wait_allrefs()
+>          rtnl_lock()
+>          ...
+>          __rtnl_unlock()
+> 
+> There are two users which have possible deadlocks and are fixed in this
+> patch: batman-adv and bridge. Their problematic access pattern is the same:
+> 
+> notifier_call handler:
+>  * holds rtnl lock when called
+>  * calls sysfs code at some point (acquiring sysfs locks)
+> 
+> sysfs code:
+>  * holds sysfs lock when called
+>  * calls rtnl_trylock() and rtnl_unlock(), rtnl_unlock() calls rtnl_lock
+>    implicitly
+> 
+> Fix this by exporting __rtnl_unlock() to just unlock the mutex without
+> implicitly locking again.
+> 
+> Reported-by: Sven Eckelmann <sven@narfation.org>
+> Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+> 
+> ---
+> Of course, an alternative would be to not lock again after unlocking
+> within rtnl_unlock(), or put the todo handling into the locked section.
+> I'm not familiar enough with this code to know what would be best.
+> 
+> There are others using rtnl_trylock(), but I'm not sure if they
+> are affected.
 
-This is a sane use of skb refcounting, right? It seems to work, so if
-it's OK I'll redo the offending patch with this change to avoid breaking
-the bisection, and submit a new pull request.
+At least they look like they have a problem in a parallel user scenario 
+involving another lock and locking order (most of them s_active or a device 
+lock). So just to list the places and poke some other users. They can better 
+decide for themself because they know the code.
 
-Very glad I added the BUILD_BUG_ON on the cb struct size now. Perhaps
-there should be a generic helper for that? Something like
- skb_cb_cast(struct foo_cb, skb) could do it automatically...?
+drivers/infiniband/ulp/ipoib/ipoib_cm.c:  if (!rtnl_trylock())
+drivers/infiniband/ulp/ipoib/ipoib_vlan.c:        if (!rtnl_trylock())
+drivers/infiniband/ulp/ipoib/ipoib_vlan.c:        if (!rtnl_trylock())
+drivers/net/bonding/bond_alb.c:                   if (!rtnl_trylock()) {
+drivers/net/bonding/bond_main.c:          if (!rtnl_trylock()) {
+drivers/net/bonding/bond_main.c:          if (!rtnl_trylock()) {
+drivers/net/bonding/bond_main.c:          if (!rtnl_trylock()) {
+drivers/net/bonding/bond_main.c:          if (!rtnl_trylock()) {
+drivers/net/bonding/bond_sysfs.c: if (!rtnl_trylock())
+drivers/net/bonding/bond_sysfs.c: if (!rtnl_trylock())
+drivers/net/bonding/bond_sysfs.c: if (!rtnl_trylock())
+drivers/net/bonding/bond_sysfs.c: if (!rtnl_trylock())
+drivers/net/bonding/bond_sysfs.c: if (!rtnl_trylock())
+drivers/net/bonding/bond_sysfs.c: if (!rtnl_trylock())
+drivers/net/ethernet/chelsio/cxgb3/cxgb3_main.c:  if (!rtnl_trylock())    /* 
+synchronize with ifdown */
+drivers/s390/net/qeth_l2_main.c:          if (rtnl_trylock()) {
+drivers/s390/net/qeth_l3_main.c:          if (rtnl_trylock()) {
+net/bridge/br_sysfs_br.c: if (!rtnl_trylock())
+net/bridge/br_sysfs_if.c:         if (!rtnl_trylock())
+net/core/net-sysfs.c:     if (!rtnl_trylock())
+net/core/net-sysfs.c:     if (!rtnl_trylock())
+net/core/net-sysfs.c:     if (!rtnl_trylock())
+net/core/net-sysfs.c:     if (!rtnl_trylock())
+net/core/net-sysfs.c:     if (!rtnl_trylock())
+net/ipv4/devinet.c:                       if (!rtnl_trylock()) {
+net/ipv6/addrconf.c:      if (!rtnl_trylock())
+net/ipv6/addrconf.c:      if (!rtnl_trylock())
 
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index e59bcfd..6fe62c5 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -92,7 +92,6 @@ struct pkt_hdr {
- };
-=20
- struct solos_skb_cb {
--	struct completion c;
- 	struct atm_vcc *vcc;
- 	uint32_t dma_addr;
- };
-@@ -853,14 +852,15 @@ static void pclose(struct atm_vcc *vcc)
- 	header->vci =3D cpu_to_le16(vcc->vci);
- 	header->type =3D cpu_to_le16(PKT_PCLOSE);
-=20
--	init_completion(&SKB_CB(skb)->c);
--
-+	skb_get(skb);
- 	fpga_queue(card, port, skb, NULL);
-=20
--	if (!wait_for_completion_timeout(&SKB_CB(skb)->c, 5 * HZ))
-+	if (!wait_event_timeout(card->param_wq, !skb_shared(skb), 5 * HZ))
- 		dev_warn(&card->dev->dev, "Timeout waiting for VCC close on port %d\n",
- 			 port);
-=20
-+	dev_kfree_skb_any(skb);
-+
- 	/* Hold up vcc_destroy_socket() (our caller) until solos_bh() in the
- 	   tasklet has finished processing any incoming packets (and, more to
- 	   the point, using the vcc pointer). */
-@@ -990,10 +990,8 @@ static uint32_t fpga_tx(struct solos_card *card)
- 				atomic_inc(&vcc->stats->tx);
- 				solos_pop(vcc, oldskb);
- 			} else {
--				struct pkt_hdr *header =3D (void *)oldskb->data;
--				if (le16_to_cpu(header->type) =3D=3D PKT_PCLOSE)
--					complete(&SKB_CB(oldskb)->c);
- 				dev_kfree_skb_irq(oldskb);
-+				wake_up(&card->param_wq);
- 			}
- 		}
- 	}
+Kind regards,
+	Sven
+--nextPart4022694.fXEdSxRaOt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
---=20
-dwmw2
+iQIcBAABCgAGBQJQukd8AAoJEF2HCgfBJntGjQAP/iZNTmIofZitO2/2cOQ8+87S
+PwWyB7onTT1f0YW96anwb/fas+X5+9gd2DhIX1b7IywuJ02Y8MiY5vaCUSkmCdi9
+2MUSGk4l+dRCu3H4Bo/8iNZyEFgDeZXp+YeJkq7Ry8riYWCAEnIG/zdigqBVUO+N
+3mMcs9wEbzj2tBBIzkXyPrB5Gm4sut6nmjOxNbDY7CIb7VWQI/s4r5kqb+uKYsLL
+Xl75m/HR45ZcS71uw7s62u+A+eyYW9o937If4rgMWmoO/MEl5LIXa7i7+xcfSNUQ
+HUT367nmM+AMjLozlFbGsqOKDlUQIZLRj1uVAjcXSIeqf7ObnTdlJp1Gp0NHlBv9
+4YRPldVO+wU5tB6zazvs4JLtf3/+9iz0bYQ0Afw4BFwSLWHhOfVc4JO4CGO2iHqP
+9CWgM+eirZ0lVTBgTrANpX+M+iVQN2zPGDuS/iNyh6BNtu0SHo/Wih1TIjivYKTn
+Z2B4bcms085ipdAMCoboBnmTeCYIUDm51Sf16To0oikZb45Z1DBhm6tMfIl1QyM2
+Dp4FinhmcZBuAO8LBVTYfQisLiL26XWs+q4g+MS5QJXe9NbfdjkvIAjGu/J2e9FL
+XEwXPhnlU9WDPIZn5dtiEftVPKF4zPdo0Dt5UPczvhvkaQaMIUzCu/NiAfuGNLgp
+kS9injKwBA5v1cZCfBZK
+=E+pM
+-----END PGP SIGNATURE-----
 
-
---=-LvX95CVN9TAdJtaPhsM8
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
-AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
-4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
-wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
-xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
-MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
-w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
-d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
-Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
-c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
-IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
-dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
-BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
-aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
-bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
-oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
-MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
-dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
-MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
-hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
-DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
-ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
-NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
-mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
-AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
-MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
-A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
-Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
-7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
-KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
-wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
-V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
-vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
-BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
-YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
-ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
-IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
-U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
-ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
-BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
-aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
-bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
-dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
-CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
-QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
-ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
-AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
-t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
-gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
-H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
-kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
-MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
-dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
-eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjAxMTczMzQ2WjAjBgkqhkiG9w0BCQQx
-FgQUjIBIsJ9ehGCFgVZ+5g2whRWPeQowgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
-SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
-ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
-TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
-aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBlZpJsCwWXC7x+6fyL0lCGYnaD
-yqi6N5/rZ2934ubY7VwAru3+Yoj6CG9dm5wZfAnLvsQab1aPgLgXQO3WZvfOTHKxOUCNfmgNRooG
-owRI6IefAfmJOVaK+ShTBv36sA1yPF2SwLowHXZ7t58IDjdDfxX5RfW0H9JbGE4ne0gYGqV5479U
-ZhUERwX7HEJbrZh5bQD1Pl+TStuQkGuVJUMIt3rak5G9j/Ym9ifR6LEuTJqc0PUgu6r5IGLfxUh2
-7SMujy6+aZd1LwV5lK8XZIznBZzUW6CrfVnAN7OU09tROXS+EMz+qEgNEYfvxEYx9j9fI7Q13VCY
-3u9V2Yf2TlTPAAAAAAAA
-
-
---=-LvX95CVN9TAdJtaPhsM8--
+--nextPart4022694.fXEdSxRaOt--
