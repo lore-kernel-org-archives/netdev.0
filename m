@@ -1,74 +1,100 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Pull request: sfc-next 2012-12-01
-Date: Sat, 1 Dec 2012 04:40:21 +0000
-Message-ID: <1354336821.2640.39.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH net-next 01/13] sfc: Fix byte order warnings for ethtool RX
+ filter interface
+Date: Sat, 1 Dec 2012 04:41:33 +0000
+Message-ID: <1354336893.2640.40.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1354336821.2640.39.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-net-drivers <linux-net-drivers@solarflare.com>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:55577 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:55599 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751420Ab2LAEkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 23:40:24 -0500
+	with ESMTP id S1751747Ab2LAElh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Nov 2012 23:41:37 -0500
+In-Reply-To: <1354336821.2640.39.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit bb728820fe7c42fdb838ab2745fb5fe6b18b5ffa:
+sparse has got a bit more picky since I last ran it over this.  Add
+forced casts for use of ~0 as a big-endian value.  Undo the pointless
+optimisation of parameter validation with '|'; using '||' avoids these
+warnings.
 
-  core: make GRO methods static. (2012-11-29 13:18:32 -0500)
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/ethtool.c |   25 ++++++++++++++-----------
+ 1 files changed, 14 insertions(+), 11 deletions(-)
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
+index 90f078e..8e61cd0 100644
+--- a/drivers/net/ethernet/sfc/ethtool.c
++++ b/drivers/net/ethernet/sfc/ethtool.c
+@@ -816,6 +816,9 @@ static int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
+ /* MAC address mask including only MC flag */
+ static const u8 mac_addr_mc_mask[ETH_ALEN] = { 0x01, 0, 0, 0, 0, 0 };
+ 
++#define IP4_ADDR_FULL_MASK	((__force __be32)~0)
++#define PORT_FULL_MASK		((__force __be16)~0)
++
+ static int efx_ethtool_get_class_rule(struct efx_nic *efx,
+ 				      struct ethtool_rx_flow_spec *rule)
+ {
+@@ -865,12 +868,12 @@ static int efx_ethtool_get_class_rule(struct efx_nic *efx,
+ 			&spec, &proto, &ip_entry->ip4dst, &ip_entry->pdst,
+ 			&ip_entry->ip4src, &ip_entry->psrc);
+ 		EFX_WARN_ON_PARANOID(rc);
+-		ip_mask->ip4src = ~0;
+-		ip_mask->psrc = ~0;
++		ip_mask->ip4src = IP4_ADDR_FULL_MASK;
++		ip_mask->psrc = PORT_FULL_MASK;
+ 	}
+ 	rule->flow_type = (proto == IPPROTO_TCP) ? TCP_V4_FLOW : UDP_V4_FLOW;
+-	ip_mask->ip4dst = ~0;
+-	ip_mask->pdst = ~0;
++	ip_mask->ip4dst = IP4_ADDR_FULL_MASK;
++	ip_mask->pdst = PORT_FULL_MASK;
+ 	return rc;
+ }
+ 
+@@ -971,7 +974,7 @@ static int efx_ethtool_set_class_rule(struct efx_nic *efx,
+ 
+ 	/* Check for unsupported extensions */
+ 	if ((rule->flow_type & FLOW_EXT) &&
+-	    (rule->m_ext.vlan_etype | rule->m_ext.data[0] |
++	    (rule->m_ext.vlan_etype || rule->m_ext.data[0] ||
+ 	     rule->m_ext.data[1]))
+ 		return -EINVAL;
+ 
+@@ -986,16 +989,16 @@ static int efx_ethtool_set_class_rule(struct efx_nic *efx,
+ 			    IPPROTO_TCP : IPPROTO_UDP);
+ 
+ 		/* Must match all of destination, */
+-		if ((__force u32)~ip_mask->ip4dst |
+-		    (__force u16)~ip_mask->pdst)
++		if (!(ip_mask->ip4dst == IP4_ADDR_FULL_MASK &&
++		      ip_mask->pdst == PORT_FULL_MASK))
+ 			return -EINVAL;
+ 		/* all or none of source, */
+-		if ((ip_mask->ip4src | ip_mask->psrc) &&
+-		    ((__force u32)~ip_mask->ip4src |
+-		     (__force u16)~ip_mask->psrc))
++		if ((ip_mask->ip4src || ip_mask->psrc) &&
++		    !(ip_mask->ip4src == IP4_ADDR_FULL_MASK &&
++		      ip_mask->psrc == PORT_FULL_MASK))
+ 			return -EINVAL;
+ 		/* and nothing else */
+-		if (ip_mask->tos | rule->m_ext.vlan_tci)
++		if (ip_mask->tos || rule->m_ext.vlan_tci)
+ 			return -EINVAL;
+ 
+ 		if (ip_mask->ip4src)
+-- 
+1.7.7.6
 
-(commit b9cc977d9d4d1866ee83df38815f4b3b34d99dd9)
 
-1. More workarounds for TX queue flush failures that can occur during
-   interface reconfiguration.
-2. Fix spurious failure of a firmware request running during a system
-   clock change, e.g. ntpd started at the same time as driver load.
-3. Fix inconsistent statistics after a firmware upgrade.
-4. Fix a variable (non-)initialisation in offline self-test that can
-   make it more disruptive than intended.
-5. Fix a race that can (at least) cause an assertion failure.
-6. Miscellaneous cleanup.
-
-Ben.
-
-
-Ben Hutchings (11):
-      sfc: Fix byte order warnings for ethtool RX filter interface
-      sfc: Fix byte order warning in self-test
-      sfc: Really disable flow control while flushing
-      sfc: Delete redundant page_addr variable from efx_init_rx_buffers_page()
-      sfc: Fix check for failure of MC_CMD_FLUSH_RX_QUEUES
-      sfc: Remove confusing MMIO functions
-      sfc: Correctly initialise reset_method in siena_test_chip()
-      sfc: Do not initialise buffer in efx_alloc_special_buffer()
-      sfc: Reset driver's MAC stats after MC reboot seen
-      sfc: Fix timekeeping in efx_mcdi_poll()
-      sfc: Make module parameters really boolean
-
-Daniel Pieczko (2):
-      sfc: Work-around flush timeout when flushes have completed
-      sfc: lock TX queues when calling netif_device_detach()
-
- drivers/net/ethernet/sfc/efx.c         |   12 ++--
- drivers/net/ethernet/sfc/efx.h         |   13 +++++
- drivers/net/ethernet/sfc/ethtool.c     |   25 ++++++----
- drivers/net/ethernet/sfc/falcon.c      |    2 +
- drivers/net/ethernet/sfc/io.h          |   43 ++++++-----------
- drivers/net/ethernet/sfc/mcdi.c        |   23 ++++++---
- drivers/net/ethernet/sfc/net_driver.h  |    3 +
- drivers/net/ethernet/sfc/nic.c         |   81 ++++++++++++++++++++++++++------
- drivers/net/ethernet/sfc/nic.h         |    2 +
- drivers/net/ethernet/sfc/rx.c          |    6 +--
- drivers/net/ethernet/sfc/selftest.c    |    4 +-
- drivers/net/ethernet/sfc/siena.c       |   17 ++++++-
- drivers/net/ethernet/sfc/siena_sriov.c |    8 +--
- 13 files changed, 156 insertions(+), 83 deletions(-)
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
