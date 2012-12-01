@@ -1,83 +1,121 @@
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: Re: [PATCH 6/7] batman-adv: Allow to use rntl_link
-	for device creation/deletion
-Date: Sat, 01 Dec 2012 14:39:26 +0100
-Message-ID: <3895612.sgriB1OUoY@sven-laptop.home.narfation.org>
-References: <1353715332-4284-1-git-send-email-sven@narfation.org>
- <15221362.NFC3M7kpXE@sven-laptop.home.narfation.org>
- <20121201132802.GM24115@ritirata.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Michele Baldessari <michele@acksyn.org>
+Subject: Re: [PATCH v3 net-next] sctp: Add support to per-association
+ statistics via a new SCTP_GET_ASSOC_STATS call
+Date: Sat, 1 Dec 2012 15:36:42 +0100
+Message-ID: <20121201143642.GA14332@marquez.int.rhx>
+References: <1354131552-24889-1-git-send-email-michele@acksyn.org>
+ <50B79BE5.7000500@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="nextPart1377346.UzvJhltQ9E";
- micalg="pgp-sha512"; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-To: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20121201132802.GM24115-E/2OGukznS5g9hUCZPvPmw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from palahniuk.acksyn.org ([5.9.7.26]:38490 "EHLO
+	palahniuk.acksyn.org" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751644Ab2LAOgw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 09:36:52 -0500
+Content-Disposition: inline
+In-Reply-To: <50B79BE5.7000500@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi Vlad,
 
---nextPart1377346.UzvJhltQ9E
-Content-Transfer-Encoding: 7Bit
-Content-Type: text/plain; charset="ISO-8859-1"
-
-On Saturday 01 December 2012 14:28:02 Antonio Quartulli wrote:
-> > Because this is the normal way to create virtual network devices (please
-> > feel free to correct me).
+On Thu, Nov 29, 2012 at 12:31:17PM -0500, Vlad Yasevich wrote:
+> On 11/28/2012 02:39 PM, Michele Baldessari wrote:
 > 
-> Well, I've seen different iface types using many tools, e.g. vconfig,
-> tunctl, brctl..
-> Not that this justifies the fact that we should do the same (imho having a
-> standard and unified way for creating interfaces would be the best option).
+> >diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
+> >index 397296f..7edc89d 100644
+> >--- a/net/sctp/inqueue.c
+> >+++ b/net/sctp/inqueue.c
+> >@@ -105,6 +105,9 @@ void sctp_inq_push(struct sctp_inq *q, struct sctp_chunk *chunk)
+> >  	 */
+> >  	list_add_tail(&chunk->list, &q->in_chunk_list);
+> >  	q->immediate.func(&q->immediate);
+> >+
+> >+	if (chunk->asoc)
+> >+		chunk->asoc->stats.ipackets++;
+> 
+> you may want to consider putting this before the immediate.func()
+> call, so that you record an incoming packet before it's fully
+> processed.  This
+> would mimic the behavior of the rest of the stats you are collecting, as
+> you typically increment the stat and then process the data.
 
-The device creation and enslaving using vconfig, tunctl and brctl can be 
-replaced using ip.
+ok, makes sense.
 
-> But, to be honest, I think it should better discuss how to entirely
-> moving/changing the existent API to a "better one" or to a "new one",
-> instead of starting to maintain two of them from now on with no plan, don't
-> you think so?
+> >  }
+> >
+> >  /* Peek at the next chunk on the inqeue. */
+> 
+> >
+> >+/*
+> >+ * SCTP_GET_ASSOC_STATS
+> >+ *
+> >+ * This option retrieves local per endpoint statistics. It is modeled
+> >+ * after OpenSolaris' implementation
+> >+ */
+> >+static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
+> >+				       char __user *optval,
+> >+				       int __user *optlen)
+> >+{
+> >+	struct sctp_assoc_stats sas;
+> >+	struct sctp_association *asoc = NULL;
+> >+
+> >+	/* User must provide at least the assoc id */
+> >+	if (len < sizeof(sctp_assoc_t))
+> >+		return -EINVAL;
+> >+
+> >+	if (copy_from_user(&sas, optval, len))
+> >+		return -EFAULT;
+> >+
+> >+	asoc = sctp_id2assoc(sk, sas.sas_assoc_id);
+> >+	if (!asoc)
+> >+		return -EINVAL;
+> >+
+> >+	sas.sas_rtxchunks = asoc->stats.rtxchunks;
+> >+	sas.sas_gapcnt = asoc->stats.gapcnt;
+> >+	sas.sas_outofseqtsns = asoc->stats.outofseqtsns;
+> >+	sas.sas_osacks = asoc->stats.osacks;
+> >+	sas.sas_isacks = asoc->stats.isacks;
+> >+	sas.sas_octrlchunks = asoc->stats.octrlchunks;
+> >+	sas.sas_ictrlchunks = asoc->stats.ictrlchunks;
+> >+	sas.sas_oodchunks = asoc->stats.oodchunks;
+> >+	sas.sas_iodchunks = asoc->stats.iodchunks;
+> >+	sas.sas_ouodchunks = asoc->stats.ouodchunks;
+> >+	sas.sas_iuodchunks = asoc->stats.iuodchunks;
+> >+	sas.sas_idupchunks = asoc->stats.idupchunks;
+> >+	sas.sas_opackets = asoc->stats.opackets;
+> >+	sas.sas_ipackets = asoc->stats.ipackets;
+> >+
+> >+	/* New high max rto observed, will return 0 if not a single
+> >+	 * RTO update took place. obs_rto_ipaddr will be bogus
+> >+	 * in such a case
+> >+	 */
+> >+	sas.sas_maxrto = asoc->stats.max_obs_rto;
+> >+	memcpy(&sas.sas_obs_rto_ipaddr, &asoc->stats.obs_rto_ipaddr,
+> >+		sizeof(struct sockaddr_storage));
+> >+
+> >+	/* Mark beginning of a new observation period */
+> >+	asoc->stats.max_obs_rto = 0;
+> 
+> Ok.  That's better.  If there are 2 fast queries you get 0 on the
+> second, but that still feels a bit strange to me.  I think resetting
+> max_obs_rto to rto_min might make more sense.  rto_min is the low bound
+> and rto can't go below that.  So, on the next rto measurement, that'll
+> be the smallest value of max_obs_rto.  IMO, it might be better to reset
+> the max_obs_rto to rto_min, so that
+>  1) We always see a valid rto value in the field.
+>  2) We can more easily see the variances in rto over time.
+> 
+> What do you think?
 
-I leave this discussion to the maintainers of batman-adv. Btw. removing the 
-old one without a time of coexistence sounds like a bad move. And therefore 
-maintaining of both interfaces like it is done in other network devices seems 
-to be necessary.
+I agree, it makes more sense (will send an updated version shortly)
 
-Kind regards,
-	Sven
---nextPart1377346.UzvJhltQ9E
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJQugiOAAoJEF2HCgfBJntGWjIP/in/ncBHssYGHQg1yWKixL15
-Nd1eepJwiFHvTECaUH56ZgeaVve60Dc9CS/xzsI2H+rhwxfe0lvcAyICuZZ4qyY8
-TU913ECdUsX6gPxcy2IUScqeUd8SuyX2rHlYhFv2B2deZrvjwy7aNnqsSo/8Qq/r
-L/3EbNdbuSLiWSmDB13WKUOwFJMueO0vK4kk6e3UnY1laayX9VDx1wNwCHjriK9B
-TijexhL7FBHPyGccUp5oGQPjXtGN6NYePAx+Fbf4LFsCYzT84HekhsMmuKYTS2xR
-3fEqfUcoqB9/Dr89BTK7H/EQuUT6z/nw16H8yr4cQVE0dHuGQaynE+ufSCV5jukM
-R0clTiMFpmphtxK6UN3c/UcLDv9L8gTB4cWYg2m61Tx1qo/V0FOfP3/lF8JMdakw
-w0D3o3S72s+7z2vis2jJl2kKRTVoP+8j0BPHGdjEz0OqZv1eoeJvcdn0CgHiHiTA
-fYeD8Rdp5EWBg959He51v8iuBE6MeTaKMS2QFAC+art1XxCVKXLCM9bmWvGJ5jwc
-Rflx8CaaYDQ4zHniyL3+xffGK7AQLl0pzuKMO/1WYWwhZMoI5uqw6t3QinRKz5kb
-bKrD/f2LQSBYXfupybWC/XvpC3PO4G0C3ySXcnuyBIKCqraiH6C6F7SEnBmHPq7y
-nYOoNPN6IRjQw3QUKHCh
-=NDgk
------END PGP SIGNATURE-----
-
---nextPart1377346.UzvJhltQ9E--
+thanks,
+Michele
+-- 
+Michele Baldessari            <michele@acksyn.org>
+C2A5 9DA3 9961 4FFB E01B  D0BC DDD4 DCCB 7515 5C6D
