@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: change default tcp hash size
-Date: Sat, 01 Dec 2012 11:36:56 -0500 (EST)
-Message-ID: <20121201.113656.763210835116576607.davem@davemloft.net>
-References: <1354306132.20109.41.camel@edumazet-glaptop>
+Subject: Re: [PATCH v2] ipv6: unify logic evaluating inet6_dev's accept_ra
+ property
+Date: Sat, 01 Dec 2012 11:37:06 -0500 (EST)
+Message-ID: <20121201.113706.939862337727720397.davem@davemloft.net>
+References: <1354307159-24193-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, tgraf@suug.ch,
+	tore@fud.no
+To: shmulik.ladkani@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53662 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53668 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752489Ab2LAQg5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:36:57 -0500
-In-Reply-To: <1354306132.20109.41.camel@edumazet-glaptop>
+	with ESMTP id S1752489Ab2LAQhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:37:08 -0500
+In-Reply-To: <1354307159-24193-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 30 Nov 2012 12:08:52 -0800
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Date: Fri, 30 Nov 2012 22:25:59 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> As of 026359b [ipv6: Send ICMPv6 RSes only when RAs are accepted], the
+> logic determining whether to send Router Solicitations is identical
+> to the logic determining whether kernel accepts Router Advertisements.
 > 
-> As time passed, available memory increased faster than number of
-> concurrent tcp sockets. 
+> However the condition itself is repeated in several code locations.
 > 
-> As a result, a machine with 4GB of ram gets a hash table
-> with 524288 slots, using 8388608 bytes of memory.
+> Unify it by introducing 'ipv6_accept_ra()' accessor.
 > 
-> Lets change that by a 16x factor (one slot for 128 KB of ram)
+> Also, simplify the condition expression, making it more readable.
+> No semantic change.
 > 
-> Even if a small machine needs a _lot_ of sockets, tcp lookups are now
-> very efficient, using one cache line per socket.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
-Agreed, applied, thanks Eric.
+Applied.
