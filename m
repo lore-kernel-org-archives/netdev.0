@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 3/3] net/mlx4_en: Set number of rx/tx
- channels using ethtool
-Date: Sat, 01 Dec 2012 11:25:55 -0500 (EST)
-Message-ID: <20121201.112555.1561917161372059709.davem@davemloft.net>
-References: <1354216903-830-4-git-send-email-amirv@mellanox.com>
-	<1354319925.2640.3.camel@bwh-desktop.uk.solarflarecom.com>
-	<CAJZOPZK98UOsK2HFSC3V6fdzvJfWVKg6pZzxptE97MTgOAk7-w@mail.gmail.com>
+Subject: Re: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
+Date: Sat, 01 Dec 2012 11:29:00 -0500 (EST)
+Message-ID: <20121201.112900.1259150099163805309.davem@davemloft.net>
+References: <1354362817-26168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, amirv@mellanox.com,
-	ogerlitz@mellanox.com, oren@mellanox.com, netdev@vger.kernel.org
-To: or.gerlitz@gmail.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53592 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53618 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752302Ab2LAQZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:25:57 -0500
-In-Reply-To: <CAJZOPZK98UOsK2HFSC3V6fdzvJfWVKg6pZzxptE97MTgOAk7-w@mail.gmail.com>
+	with ESMTP id S1752526Ab2LAQ3C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:29:02 -0500
+In-Reply-To: <1354362817-26168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Date: Sat, 1 Dec 2012 17:50:09 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sat,  1 Dec 2012 03:53:28 -0800
 
-> On Sat, Dec 1, 2012 at 1:58 AM, Ben Hutchings <bhutchings@solarflare.com> wrote:
->>
->> The values of max_tx and max_rx are passed in from userland, so you
->> can't trust them.
+> This series contains updates to ixgbe, igb and e1000e.  Majority of the
+> changes are against igb.
 > 
-> Is this a general statement re ethtool values passed from user space
-> or something specific here? can't one assume that the ethtool process
-> runs under the appropriate admin permission?
+> The following are changes since commit 1b4c44e6369dbbafd113f1e00b406f1eda5ab5b2:
+>   myri10ge: Add vlan rx for better GRO perf.
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-He's saying that you need to carefully validate the arguments, not
-that appropriate permissions haven't been checked.
+Pulled, thanks Jeff.
