@@ -1,47 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next:master 100/106] net/ipv4/inet_hashtables.c:242:21:
- sparse: restricted __portpair degrades to integer
-Date: Sat, 01 Dec 2012 10:46:12 -0800
-Message-ID: <1354387572.20109.524.camel@edumazet-glaptop>
-References: <50ba4a7c.o5mv0SK27e0dxcwD%fengguang.wu@intel.com>
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Re: Re: [B.A.T.M.A.N.] [PATCH] net: fix possible deadlocks in rtnl_trylock/unlock
+Date: Sat, 01 Dec 2012 20:04:26 +0100
+Message-ID: <10264267.HX5FJDguj3@sven-laptop.home.narfation.org>
+References: <1354382991-31350-1-git-send-email-siwu@hrz.tu-chemnitz.de> <1354386972.20109.523.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-To: kbuild test robot <fengguang.wu@intel.com>
+Content-Type: multipart/signed; boundary="nextPart1362211.nCRniLrfGX"; micalg="pgp-sha512"; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7Bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+To: b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:49449 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753029Ab2LASqQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 13:46:16 -0500
-Received: by mail-vc0-f174.google.com with SMTP id d16so679888vcd.19
-        for <netdev@vger.kernel.org>; Sat, 01 Dec 2012 10:46:16 -0800 (PST)
-In-Reply-To: <50ba4a7c.o5mv0SK27e0dxcwD%fengguang.wu@intel.com>
+Received: from narfation.org ([79.140.41.39]:40793 "EHLO v3-1039.vlinux.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752297Ab2LATEb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2012 14:04:31 -0500
+In-Reply-To: <1354386972.20109.523.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-12-02 at 02:20 +0800, kbuild test robot wrote:
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-> head:   577b981714b0b3530817569bf705bd74881efc83
-> commit: ce43b03e8889475817d427b1f3724c7e294b76eb [100/106] net: move inet_dport/inet_num in sock_common
-> 
-> 
-> sparse warnings:
-> 
-> + net/ipv4/inet_hashtables.c:242:21: sparse: restricted __portpair degrades to integer
-> net/ipv4/inet_hashtables.c:246:29: sparse: restricted __portpair degrades to integer
-> net/ipv4/inet_hashtables.c:267:21: sparse: restricted __portpair degrades to integer
-> net/ipv4/inet_hashtables.c:274:29: sparse: restricted __portpair degrades to integer
-> net/ipv4/inet_hashtables.c:326:21: sparse: restricted __portpair degrades to integer
-> net/ipv4/inet_hashtables.c:341:21: sparse: restricted __portpair degrades to integer
-> --
-> + net/ipv6/inet6_hashtables.c:92:21: sparse: restricted __portpair degrades to integer
-> net/ipv6/inet6_hashtables.c:95:29: sparse: restricted __portpair degrades to integer
-> net/ipv6/inet6_hashtables.c:111:21: sparse: restricted __portpair degrades to integer
-> net/ipv6/inet6_hashtables.c:117:29: sparse: restricted __portpair degrades to integer
-> net/ipv6/inet6_hashtables.c:248:21: sparse: restricted __portpair degrades to integer
-> net/ipv6/inet6_hashtables.c:263:21: sparse: restricted __portpair degrades to integer
-> 
-> vim +242 net/ipv4/inet_hashtables.c
 
-I'll send a fix, thanks for the report.
+--nextPart1362211.nCRniLrfGX
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="UTF-8"
+
+On Saturday 01 December 2012 10:36:12 Eric Dumazet wrote:
+[...]
+> > diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
+> > index 66518c7..41b74aa 100644
+> > --- a/net/batman-adv/sysfs.c
+> > +++ b/net/batman-adv/sysfs.c
+> > @@ -635,7 +635,7 @@ static ssize_t batadv_store_mesh_iface(struct kobject
+> > *kobj,> 
+> >  	ret = batadv_hardif_enable_interface(hard_iface, buff);
+> >  
+> >  unlock:
+> > -	rtnl_unlock();
+> > +	__rtnl_unlock();
+> > 
+> >  out:
+> >  	batadv_hardif_free_ref(hard_iface);
+> >  	return ret;
+> > 
+> > diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+> > index c5c0593..c122782 100644
+> > --- a/net/bridge/br_sysfs_br.c
+> > +++ b/net/bridge/br_sysfs_br.c
+> > @@ -142,7 +142,7 @@ static ssize_t store_stp_state(struct device *d,
+> > 
+> >  	if (!rtnl_trylock())
+> >  	
+> >  		return restart_syscall();
+> >  	
+> >  	br_stp_set_enabled(br, val);
+> > 
+> > -	rtnl_unlock();
+> > +	__rtnl_unlock();
+> > 
+> >  	return len;
+> >  
+> >  }
+> 
+> I have no idea of why you believe there is a problem here.
+> 
+> Could you explain how net_todo_list could be not empty ?
+> 
+> As long as no device is unregistered between
+> rtnl_trylock()/rtnl_unlock(), there is no possible deadlock.
+
+I am not sure what "here" means for your. At least batman-adv tries to 
+unregister a device -> problem [1]. I will not make any judgements about the 
+other uses in the kernel/other parts patched by Simon.
+
+Kind regards,
+	Sven
+
+[1] http://article.gmane.org/gmane.linux.kernel/1392295
+--nextPart1362211.nCRniLrfGX
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAABCgAGBQJQulS6AAoJEF2HCgfBJntGU8kQALxCkbt8UfgdEH3GELtpK3qk
+/I06dBXApEwGr3LgjMKbUnY8InjhiUNuoo/Sw9DQmPW24Nv9raSacpG0wnOIO8QH
+ltsNlie6pYEka8WUb0dGMVWD7l82sfgja6ExrNJIjLudeb6DAC4qsg3RL26oH2W/
+TUk6L7NbJAcg1v3nBs3c9Cjba58aEiNZVMghEEuXySWPi1Lvpa2Sp36PmJgapjVP
+Po6yyWvoQPvWR/0iRt/EmTy8Lmdroemexe5gjxTebdVvonagYqX1qudC1TYm3f9/
+pUQ2fmY86/bxatO7VIiEeGLM2Y3diQGs0d3PybyEq0AIpDWPmPkNbk5r0VpxREoR
+IFKmIrHbCO16leIR9o87GlY0nG2mw1mAsfAaNoNMtwJosUpSx4O5r9MUCDtdLt1s
+LUw2rXTg+N2lXCrB36pz5zEGf/rKw/FCmvEKToAtUiKiQE44dxjzBJO1MuEdVcOF
+kSO69gpmOFgj0if0Mt/6Wu1w1OiZbwczdlJ7JyVxr2HjGU74dSMxA12f9h7JA+qA
+ftm+NXZ/VTYUOoDNHyJ9vOzvZlH8UlpgRxHhbUa46O89qN5Hb2KAvo/HVppf358Q
+fIjr+1OegvvL/bk284diL5IUyjZrMsn4XF0sZRwyDdooX5yxnnd4axDp4L/vW8WR
+/DYp3R83n7V1f+EXhFqK
+=mu+A
+-----END PGP SIGNATURE-----
+
+--nextPart1362211.nCRniLrfGX--
