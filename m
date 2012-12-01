@@ -1,51 +1,119 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sky2: Correct mistakenly switched read/write sequence
-Date: Sat, 01 Dec 2012 12:27:01 -0500 (EST)
-Message-ID: <20121201.122701.2065141028797970034.davem@davemloft.net>
-References: <20121201124239.GB3914@neptun>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mlindner@marvell.com, netdev@vger.kernel.org
-To: LinoSanfilippo@gmx.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53928 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752615Ab2LAR1E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 12:27:04 -0500
-In-Reply-To: <20121201124239.GB3914@neptun>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Wunderlich <simon.wunderlich-Y4E02TeZ33kaBlGTGt4zH4SGEyLTKazZ@public.gmane.org>
+Subject: [PATCH] net: fix possible deadlocks in
+	rtnl_trylock/unlock
+Date: Sat,  1 Dec 2012 18:29:51 +0100
+Message-ID: <1354382991-31350-1-git-send-email-siwu@hrz.tu-chemnitz.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Sat, 1 Dec 2012 13:42:39 +0100
+If rtnl_trylock() is used to prevent circular dependencies, rtnl_unlock()
+may destroy this attempt because it first unlocks rtnl_mutex but may
+lock it again later. The callgraph roughly looks like:
 
-> In sky2_all_down() the order of the read()/write() access to B0_IMSK seems to
-> be mistakenly switched. The original intention was obviously to avoid PCI write
-> posting.
-> This patch fixes the order.
-> 
-> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+rtnl_unlock()
+   netdev_run_todo()
+      __rtnl_unlock()
+      netdev_wait_allrefs()
+         rtnl_lock()
+         ...
+         __rtnl_unlock()
 
-I would say that no such intention exists at all.
+There are two users which have possible deadlocks and are fixed in this
+patch: batman-adv and bridge. Their problematic access pattern is the same:
 
-The read is there because a long time ago the result as used
-to compute an 'imask' variable.
+notifier_call handler:
+ * holds rtnl lock when called
+ * calls sysfs code at some point (acquiring sysfs locks)
 
-Please see commit:
+sysfs code:
+ * holds sysfs lock when called
+ * calls rtnl_trylock() and rtnl_unlock(), rtnl_unlock() calls rtnl_lock
+   implicitly
 
-commit d72ff8fa7f8b344382963721f842256825c4660b
-Author: Mike McCormack <mikem@ring3k.org>
-Date:   Thu May 13 06:12:51 2010 +0000
+Fix this by exporting __rtnl_unlock() to just unlock the mutex without
+implicitly locking again.
 
-    sky2: Refactor down/up code out of sky2_restart()
-    
-    Code to bring down all sky2 interfaces and bring it up
-    again can be reused in sky2_suspend and sky2_resume.
-    
-    Factor the code to bring the interfaces down into
-    sky2_all_down and the up code into sky2_all_up.
-    
-    Signed-off-by: Mike McCormack <mikem@ring3k.org>
-    Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Reported-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Signed-off-by: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
+
+---
+Of course, an alternative would be to not lock again after unlocking
+within rtnl_unlock(), or put the todo handling into the locked section.
+I'm not familiar enough with this code to know what would be best.
+
+There are others using rtnl_trylock(), but I'm not sure if they
+are affected.
+---
+ net/batman-adv/sysfs.c   |    2 +-
+ net/bridge/br_sysfs_br.c |    2 +-
+ net/bridge/br_sysfs_if.c |    2 +-
+ net/core/rtnetlink.c     |    1 +
+ 4 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
+index 66518c7..41b74aa 100644
+--- a/net/batman-adv/sysfs.c
++++ b/net/batman-adv/sysfs.c
+@@ -635,7 +635,7 @@ static ssize_t batadv_store_mesh_iface(struct kobject *kobj,
+ 	ret = batadv_hardif_enable_interface(hard_iface, buff);
+ 
+ unlock:
+-	rtnl_unlock();
++	__rtnl_unlock();
+ out:
+ 	batadv_hardif_free_ref(hard_iface);
+ 	return ret;
+diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
+index c5c0593..c122782 100644
+--- a/net/bridge/br_sysfs_br.c
++++ b/net/bridge/br_sysfs_br.c
+@@ -142,7 +142,7 @@ static ssize_t store_stp_state(struct device *d,
+ 	if (!rtnl_trylock())
+ 		return restart_syscall();
+ 	br_stp_set_enabled(br, val);
+-	rtnl_unlock();
++	__rtnl_unlock();
+ 
+ 	return len;
+ }
+diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
+index 13b36bd..d99f394 100644
+--- a/net/bridge/br_sysfs_if.c
++++ b/net/bridge/br_sysfs_if.c
+@@ -223,7 +223,7 @@ static ssize_t brport_store(struct kobject * kobj,
+ 			if (ret == 0)
+ 				ret = count;
+ 		}
+-		rtnl_unlock();
++		__rtnl_unlock();
+ 	}
+ 	return ret;
+ }
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index fad649a..d95ba6f 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -72,6 +72,7 @@ void __rtnl_unlock(void)
+ {
+ 	mutex_unlock(&rtnl_mutex);
+ }
++EXPORT_SYMBOL(__rtnl_unlock);
+ 
+ void rtnl_unlock(void)
+ {
+-- 
+1.7.10.4
