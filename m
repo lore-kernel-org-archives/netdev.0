@@ -1,74 +1,47 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH net-next v1 2/2] bridge: export multicast
- database via netlink
-Date: Sat, 01 Dec 2012 11:56:18 +0800
-Message-ID: <1354334178.9680.7.camel@cr0>
-References: <1354269514-1863-1-git-send-email-amwang@redhat.com>
-	<1354269514-1863-2-git-send-email-amwang@redhat.com>
-	<20121130112618.GF30697@casper.infradead.org>
-	<1354287652.19865.10.camel@cr0>
-	<20121130152733.GH30697@casper.infradead.org>
+From: Anders Kaseorg <andersk@MIT.EDU>
+Subject: Re: Wireless regression in workqueue: use mod_delayed_work() instead
+ of __cancel + queue
+Date: Fri, 30 Nov 2012 23:15:50 -0500 (EST)
+Message-ID: <alpine.DEB.2.00.1211302234410.25064@dr-wily.mit.edu>
+References: <alpine.DEB.2.00.1211280953350.26602@dr-wily.mit.edu> <alpine.DEB.2.00.1211281016320.26602@dr-wily.mit.edu> <20121130211435.GJ3873@htj.dyndns.org> <20121130225619.GD6021@htj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121130152733.GH30697@casper.infradead.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121130225619.GD6021@htj.dyndns.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-11-30 at 15:27 +0000, Thomas Graf wrote:
-> On 11/30/12 at 11:00pm, Cong Wang wrote:
-> > I don't understand this. nla_put_flag() is used to put a flag (only one
-> > bit set) into a netlink message, so why should we use it to put
-> > p->port_no here? And why port_no 0 matters here?
+On Fri, 30 Nov 2012, Tejun Heo wrote:
+> Hey, again.
 > 
-> nla_put_flag() will simply add a netlink attribute with no payload,
-> i.e. just the header. Assuming that port_no == 0 is invalid the
-> port_no can be used as attribute id as both are 16bit integers.
+> Can you please test whether the following patch makes any difference?
 > 
-> It will look like this:
+> Thanks!
 > 
-> MDBA_ROUTERS = {
->   {
->     .nla_len = 4,
->     .nla_type = <port_no_1>,
->   },
->   {
->     .nla_len = 4,
->     .nla_type = <port_no_2>,
->   }
->   [...]
-> }
-> 
-> If you ever need to extend this you can just add payload to the
-> per port attribute and nothing will break.
+> diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+> index 042d221..26368ef 100644
+> --- a/kernel/workqueue.c
+> +++ b/kernel/workqueue.c
+> @@ -1477,7 +1477,10 @@ bool mod_delayed_work_on(int cpu, struct workqueue_struct *wq,
+>  	} while (unlikely(ret == -EAGAIN));
+>  
+>  	if (likely(ret >= 0)) {
+> -		__queue_delayed_work(cpu, wq, dwork, delay);
+> +		if (!delay)
+> +			__queue_work(cpu, wq, &dwork->work);
+> +		else
+> +			__queue_delayed_work(cpu, wq, dwork, delay);
+>  		local_irq_restore(flags);
+>  	}
+>  
 
-Never mind, I will use port->dev->ifindex instead of port->port_no. This
-will also make the user-space easier.
+Yes.  I tested that both directly on top of the bad commit, and on 
+v3.7-rc7, and it fixes the bug in both cases.
 
-> 
-> > So I should use net->dev_base_seq + mdb->seq ?
-> 
-> No you can't, mdb->seq is not stable throughout a dump. What you
-> can do is save mdb->seq in cb->args[] and in case you continue
-> dumping from the same mdb in the next call to your dump function
-> you check if it changed and bump cb->seq if it did to trigger an
-> interrupt.
-
-Ok, will do.
-
-Thanks!
+Thanks,
+Anders
