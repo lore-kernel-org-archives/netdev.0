@@ -1,33 +1,30 @@
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Subject: Re: [PATCH V2 1/5] cxgb4: Add T4 filter support
-Date: Fri, 30 Nov 2012 17:43:27 -0800
-Message-ID: <CAL1RGDWvGFT1i_iwwMbnwtX9tPGfd7FoCaSA_=5HqZmD9rrGjg@mail.gmail.com>
-References: <1354277370-8727-1-git-send-email-vipul@chelsio.com> <20121130.115609.2012589911292286826.davem@davemloft.net>
+From: Wang YanQing <udknight@gmail.com>
+Subject: Re: [PATCH]realtek:r8169: Bugfix or workaround for missing extended
+ GigaMAC registers settings
+Date: Sat, 1 Dec 2012 09:50:49 +0800
+Message-ID: <20121201015049.GA4209@udknight>
+References: <20121130050619.GA12862@udknight>
+ <20121130063500.GA9436@electric-eye.fr.zoreil.com>
+ <20121130090429.GA14439@udknight>
+ <20121130100002.GA6253@udknight>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Divy Le Ray <divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	Dimitrios Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	Kumar SANGHVI <kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-	Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>, abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20121130.115609.2012589911292286826.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+To: Francois Romieu <romieu@fr.zoreil.com>, nic_swsd@realtek.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121130100002.GA6253@udknight>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 30, 2012 at 8:56 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> I really don't understand how we're supposed to review your patches
-> when you only post some parts of the patch series to netdev, and
-> others not.
+On Fri, Nov 30, 2012 at 06:00:02PM +0800, Wang YanQing wrote:
+> I found the mainline's r8169 works the same as realtek's driver,
+> the first time don't work, but it works after reboot, the reason
+> is the pci driver's shutdown don't call rtl_rar_set in 3.0 stable
+> tree but the mainline does.
+Sorry, I make a mistake here, the boths pci driver's shutdown call 
+rtl_rar_set, but 3.0 stable tree don't include commit 
+c28aa38567101bad4e020f4392df41d0bf6c165c(r8169 : MAC address change fix for the 8168e-vl)
 
-I think he just didn't repost the patches that were unchanged from the
-first time around.
-
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks
