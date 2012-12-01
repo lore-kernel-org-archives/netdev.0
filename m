@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] myri10ge: fix incorrect use of ntohs()
-Date: Sat, 01 Dec 2012 11:37:15 -0500 (EST)
-Message-ID: <20121201.113715.969728576750598213.davem@davemloft.net>
-References: <1354314686-16149-1-git-send-email-gallatin@myri.com>
+Subject: Re: [PATCH -next] qlcnic: remove duplicated include from
+ qlcnic_sysfs.c
+Date: Sat, 01 Dec 2012 11:37:41 -0500 (EST)
+Message-ID: <20121201.113741.2297760483370075566.davem@davemloft.net>
+References: <CAPgLHd9rUSTcdop1coRzR00SxwHtetQ5vHwAfLN_Jw1VjaK68g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gallatin@myri.com
+Cc: jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
+	yongjun_wei@trendmicro.com.cn, linux-driver@qlogic.com,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53676 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53691 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752489Ab2LAQhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:37:16 -0500
-In-Reply-To: <1354314686-16149-1-git-send-email-gallatin@myri.com>
+	with ESMTP id S1752489Ab2LAQhm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:37:42 -0500
+In-Reply-To: <CAPgLHd9rUSTcdop1coRzR00SxwHtetQ5vHwAfLN_Jw1VjaK68g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Gallatin <gallatin@myri.com>
-Date: Fri, 30 Nov 2012 17:31:26 -0500
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Sat, 1 Dec 2012 01:01:25 -0500
 
-> 1b4c44e6369dbbafd113f1e00b406f1eda5ab5b2 incorrectly used
-> ntohs() rather than htons() in myri10ge_vlan_rx().
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> Thanks to Fengguang Wu, Yuanhan Liu's kernel-build tester
-> for pointing out this bug.
+> Remove duplicated include.
 > 
-> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
 Applied.
