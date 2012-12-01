@@ -1,116 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: GRO + splice panics in 3.7.0-rc5
-Date: Sat, 01 Dec 2012 13:47:38 -0800
-Message-ID: <1354398458.20109.528.camel@edumazet-glaptop>
-References: <20121115222812.GA647@1wt.eu>
-	 <1353023344.10798.8.camel@edumazet-glaptop> <20121201194304.GI25450@1wt.eu>
-	 <20121201205227.GA28390@1wt.eu>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFT PATCH] 8139cp: properly support change of MTU values
+Date: Sat, 1 Dec 2012 22:49:02 +0100
+Message-ID: <20121201214902.GA10513@electric-eye.fr.zoreil.com>
+References: <1354308680-9236-1-git-send-email-jogreene@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: John Greene <jogreene@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:61538 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753607Ab2LAVrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 16:47:43 -0500
-Received: by mail-vc0-f174.google.com with SMTP id d16so750792vcd.19
-        for <netdev@vger.kernel.org>; Sat, 01 Dec 2012 13:47:42 -0800 (PST)
-In-Reply-To: <20121201205227.GA28390@1wt.eu>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:36521 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753213Ab2LAWNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 17:13:50 -0500
+Content-Disposition: inline
+In-Reply-To: <1354308680-9236-1-git-send-email-jogreene@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-12-01 at 21:52 +0100, Willy Tarreau wrote:
-> OK now I have a simple and reliable reproducer for the bug. It
-> just creates 2 TCP sockets connected to each other and splices
-> from one to the other. It looks 100% reliable, I'm attaching it
-> hoping it can help, it's much easier and more reliable than
-> starting haproxy with clients and servers!
-> 
-> I'm noting that it only crashes when I send more than one page
-> of data. 4096 bytes and below are OK, 4097 and above do crash.
-> 
-> I have added a few printk() and it dies in get_page() called from
-> do_tcp_sendpages() :
-> 
->   888                  i = skb_shinfo(skb)->nr_frags;
->   889  printk(KERN_DEBUG "%d: page=%p i=%d skb=%p offset=%d\n", __LINE__, page, i, skb, offset);
->   890                  can_coalesce = skb_can_coalesce(skb, i, page, offset);
->   891  printk(KERN_DEBUG "%d: can_coalesce=%d\n", __LINE__, can_coalesce);
->   892                  if (!can_coalesce && i >= MAX_SKB_FRAGS) {
->   893  printk(KERN_DEBUG "%d\n", __LINE__);
->   894                          tcp_mark_push(tp, skb);
->   895                          goto new_segment;
->   896                  }
->   897                  if (!sk_wmem_schedule(sk, copy)) {
->   898  printk(KERN_DEBUG "%d\n", __LINE__);
->   899                          goto wait_for_memory;
->   900                  }
->   901
->   902                  if (can_coalesce) {
->   903  printk(KERN_DEBUG "%d\n", __LINE__);
->   904                          skb_frag_size_add(&skb_shinfo(skb)->frags[i - 1], copy);
->   905                  } else {
->   906  printk(KERN_DEBUG "%d\n", __LINE__);
->   907                          get_page(page);
->   908  printk(KERN_DEBUG "%d\n", __LINE__);
->   909                          skb_fill_page_desc(skb, i, page, offset, copy);
->   910                  }
->   911
->   912  printk(KERN_DEBUG "%d\n", __LINE__);
->   913                  skb->len += copy;
->   914                  skb->data_len += copy;
-> 
-> dmesg starts with :
-> 
->   889: page=f77b9ca0 i=0 skb=f5b91540 offset=0
->   891: can_coalesce=0
->   906
->   908
->   912
->   871
->   875
->   880
->   889: page=f6e7a300 i=0 skb=f46f5c80 offset=2513
->   891: can_coalesce=0
->   906
->   908
->   912
->   889: page=0000fb80 i=1 skb=f46f5c80 offset=0
->   891: can_coalesce=0
->   906
->   BUG: unable to handle kernel paging request at 0000fb80
-> IP: [<c13b4878>] tcp_sendpage+0x568/0x6d0
-> 
-> If that can help, I also noticed this one once with a
-> page that could look valid, so the error was propagated
-> further (the send() was 64kB) :
-> 
->   ...
->   906
->   908
->   912
->   889: page=f6e79f80 i=6 skb=f37a1c80 offset=0
->   891: can_coalesce=0
->   906
->   908
->   912
->   889: page=c13d58a7 i=7 skb=f37a1c80 offset=927
->   891: can_coalesce=0
->   906
->   908
->   912
->   889: page=c13b4310 i=8 skb=f37a1c80 offset=3877
->   891: can_coalesce=0
->   906
->   BUG: unable to handle kernel paging request at 8b31752a
->   IP: [<c1094371>] __get_page_tail+0x31/0x90
->   *pde = 00000000 
-> 
-> Now I'm really at loss, so do not hesitate to ask me for more
-> info, because I don't know where to look.
+John Greene <jogreene@redhat.com> :
+[...]
+> Testing: has been test on virtual 8139cp setup without issue,
+> have no access real hardware 8139cp, need testing help.
 
-Thanks a lot Willy
+You should Cc: David Woodhouse <dwmw2@infradead.org> for testing.
 
-I believe do_tcp_sendpages() needs a fix, I'll send a patch asap 
+[...]
+> diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+> index 6cb96b4..7847c83 100644
+> --- a/drivers/net/ethernet/realtek/8139cp.c
+> +++ b/drivers/net/ethernet/realtek/8139cp.c
+[...]
+> @@ -1244,22 +1241,11 @@ static int cp_change_mtu(struct net_device *dev, int new_mtu)
+>  		return 0;
+>  	}
+>  
+> -	spin_lock_irqsave(&cp->lock, flags);
+> -
+> -	cp_stop_hw(cp);			/* stop h/w and free rings */
+> -	cp_clean_rings(cp);
+> -
+> +	/* network IS up, close it, reset MTU, and come up again. */
+> +	cp_close(dev);
+>  	dev->mtu = new_mtu;
+> -	cp_set_rxbufsize(cp);		/* set new rx buf size */
+> -
+> -	rc = cp_init_rings(cp);		/* realloc and restart h/w */
+> -	cp_start_hw(cp);
+> -
+> -	spin_unlock_irqrestore(&cp->lock, flags);
+> -
+> -	return rc;
+> +	return cp_open(dev);
+
+netif_running is true since cp_close() is not running from dev_close.
+Bad things will happen if cp_open fails while cp_interrupt was waiting
+for the lock.
+
+-- 
+Ueimor
