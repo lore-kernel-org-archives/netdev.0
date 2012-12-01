@@ -1,47 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Pull request: sfc-next 2012-12-01
-Date: Sat, 01 Dec 2012 11:33:23 -0500 (EST)
-Message-ID: <20121201.113323.892001865049602196.davem@davemloft.net>
-References: <1354336821.2640.39.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH net-next] tcp: change default tcp hash size
+Date: Sat, 01 Dec 2012 11:36:56 -0500 (EST)
+Message-ID: <20121201.113656.763210835116576607.davem@davemloft.net>
+References: <1354306132.20109.41.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53643 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53662 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752489Ab2LAQdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:33:25 -0500
-In-Reply-To: <1354336821.2640.39.camel@bwh-desktop.uk.solarflarecom.com>
+	with ESMTP id S1752489Ab2LAQg5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:36:57 -0500
+In-Reply-To: <1354306132.20109.41.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sat, 1 Dec 2012 04:40:21 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 30 Nov 2012 12:08:52 -0800
 
-> The following changes since commit bb728820fe7c42fdb838ab2745fb5fe6b18b5ffa:
+> From: Eric Dumazet <edumazet@google.com>
 > 
->   core: make GRO methods static. (2012-11-29 13:18:32 -0500)
+> As time passed, available memory increased faster than number of
+> concurrent tcp sockets. 
 > 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+> As a result, a machine with 4GB of ram gets a hash table
+> with 524288 slots, using 8388608 bytes of memory.
 > 
-> (commit b9cc977d9d4d1866ee83df38815f4b3b34d99dd9)
+> Lets change that by a 16x factor (one slot for 128 KB of ram)
 > 
-> 1. More workarounds for TX queue flush failures that can occur during
->    interface reconfiguration.
-> 2. Fix spurious failure of a firmware request running during a system
->    clock change, e.g. ntpd started at the same time as driver load.
-> 3. Fix inconsistent statistics after a firmware upgrade.
-> 4. Fix a variable (non-)initialisation in offline self-test that can
->    make it more disruptive than intended.
-> 5. Fix a race that can (at least) cause an assertion failure.
-> 6. Miscellaneous cleanup.
+> Even if a small machine needs a _lot_ of sockets, tcp lookups are now
+> very efficient, using one cache line per socket.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Pulled, thanks a lot Ben.
-
-I just want to point out how much I like your commit messages,
-your patches are trivial to review because of them.
-
-Thanks again.
+Agreed, applied, thanks Eric.
