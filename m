@@ -1,10 +1,10 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
-Date: Sat, 01 Dec 2012 11:43:20 -0500 (EST)
-Message-ID: <20121201.114320.103305992136431342.davem@davemloft.net>
-References: <1354235736-26833-1-git-send-email-dwmw2@infradead.org>
-	<20121130104411.GA16410@shrek.podlesie.net>
+Date: Sat, 01 Dec 2012 11:44:40 -0500 (EST)
+Message-ID: <20121201.114440.331740099591161757.davem@davemloft.net>
+References: <20121130104411.GA16410@shrek.podlesie.net>
 	<1354306929.21562.313.camel@shinybook.infradead.org>
+	<20121201.114320.103305992136431342.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-7
 Content-Transfer-Encoding: base64
@@ -12,22 +12,26 @@ Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
 	krzysiek@podlesie.net
 To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53738 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53752 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752526Ab2LAQnW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:43:22 -0500
-In-Reply-To: <1354306929.21562.313.camel@shinybook.infradead.org>
+	with ESMTP id S1752237Ab2LAQom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 11:44:42 -0500
+In-Reply-To: <20121201.114320.103305992136431342.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgV29vZGhvdXNlIDxkd213MkBpbmZyYWRlYWQub3JnPg0KRGF0ZTogRnJpLCAz
-MCBOb3YgMjAxMiAyMDoyMjowOSArMDAwMA0KDQo+IERhdmUsIGlmIHlvdSdyZSBub3Qgbm93IGln
-bm9yaW5nIHRoaXMgdGhyZWFkIGVudGlyZWx5LCBwbGVhc2UgcHVsbCBpbnRvDQo+IG5ldC1uZXh0
-IGZyb20NCj4gCWdpdDovL2dpdC5pbmZyYWRlYWQub3JnL3VzZXJzL2R3bXcyL2F0bS5naXQNCg0K
-Q2FuIHlvdSBtYWtlIHRoaXMgYWN0dWFsbHkgYnVpbGQgZmlyc3Q/DQoNCmRyaXZlcnMvYXRtL2Ft
-YmFzc2Fkb3IuYzogSW4gZnVuY3Rpb24goXVjb2RlX2luaXSiOg0KZHJpdmVycy9hdG0vYW1iYXNz
-YWRvci5jOjE5NzI6MTk6IHdhcm5pbmc6IKFmd6IgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBp
-biB0aGlzIGZ1bmN0aW9uIFstV21heWJlLXVuaW5pdGlhbGl6ZWRdDQpkcml2ZXJzL2F0bS9zb2xv
-cy1wY2kuYzogSW4gZnVuY3Rpb24goXNvbG9zX3BjaV9pbml0ojoNCmRyaXZlcnMvYXRtL3NvbG9z
-LXBjaS5jOjEzMjk6MjogZXJyb3I6IHNpemUgb2YgdW5uYW1lZCBhcnJheSBpcyBuZWdhdGl2ZQ0K
-DQo=
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogU2F0LCAwMSBE
+ZWMgMjAxMiAxMTo0MzoyMCAtMDUwMCAoRVNUKQ0KDQo+IEZyb206IERhdmlkIFdvb2Rob3VzZSA8
+ZHdtdzJAaW5mcmFkZWFkLm9yZz4NCj4gRGF0ZTogRnJpLCAzMCBOb3YgMjAxMiAyMDoyMjowOSAr
+MDAwMA0KPiANCj4+IERhdmUsIGlmIHlvdSdyZSBub3Qgbm93IGlnbm9yaW5nIHRoaXMgdGhyZWFk
+IGVudGlyZWx5LCBwbGVhc2UgcHVsbCBpbnRvDQo+PiBuZXQtbmV4dCBmcm9tDQo+PiAJZ2l0Oi8v
+Z2l0LmluZnJhZGVhZC5vcmcvdXNlcnMvZHdtdzIvYXRtLmdpdA0KPiANCj4gQ2FuIHlvdSBtYWtl
+IHRoaXMgYWN0dWFsbHkgYnVpbGQgZmlyc3Q/DQo+IA0KPiBkcml2ZXJzL2F0bS9hbWJhc3NhZG9y
+LmM6IEluIGZ1bmN0aW9uIKF1Y29kZV9pbml0ojoNCj4gZHJpdmVycy9hdG0vYW1iYXNzYWRvci5j
+OjE5NzI6MTk6IHdhcm5pbmc6IKFmd6IgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlz
+IGZ1bmN0aW9uIFstV21heWJlLXVuaW5pdGlhbGl6ZWRdDQo+IGRyaXZlcnMvYXRtL3NvbG9zLXBj
+aS5jOiBJbiBmdW5jdGlvbiChc29sb3NfcGNpX2luaXSiOg0KPiBkcml2ZXJzL2F0bS9zb2xvcy1w
+Y2kuYzoxMzI5OjI6IGVycm9yOiBzaXplIG9mIHVubmFtZWQgYXJyYXkgaXMgbmVnYXRpdmUNCg0K
+SXQncyBmcm9tIGFkZGluZyB0aGUgY29tcGxldGlvbiB0byB0aGUgc29sb3Mgc2tiIGNiLCB5b3Ug
+Y2FuJ3QgZG8NCnRoYXQuICBJdCB3b24ndCBmaXQgb24gNjQtYml0IHdoZW4gYWxsIGRlYnVnZ2lu
+ZyBrY29uZmlnIG9wdGlvbnMgYXJlDQplbmFibGVkLg0KDQogDQo=
