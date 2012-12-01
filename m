@@ -1,69 +1,328 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 0/9][pull request] Intel Wired LAN Driver Updates
-Date: Sat,  1 Dec 2012 03:53:28 -0800
-Message-ID: <1354362817-26168-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 4/9] igb: Refactoring of i210 file.
+Date: Sat,  1 Dec 2012 03:53:32 -0800
+Message-ID: <1354362817-26168-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1354362817-26168-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:27557 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:27933 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751646Ab2LALx4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2012 06:53:56 -0500
+	id S1751702Ab2LALx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Dec 2012 06:53:57 -0500
+In-Reply-To: <1354362817-26168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe, igb and e1000e.  Majority of the
-changes are against igb.
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-The following are changes since commit 1b4c44e6369dbbafd113f1e00b406f1eda5ab5b2:
-  myri10ge: Add vlan rx for better GRO perf.
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+This patch refactors the functions in e1000_i210.c in order to remove need
+for prototypes.
 
-Akeem G. Abodunrin (1):
-  igb: Acquire, release semaphore for writing each EEPROM page
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/e1000_i210.c | 243 ++++++++++++++--------------
+ 1 file changed, 119 insertions(+), 124 deletions(-)
 
-Alexander Duyck (1):
-  ixgbe: Do not parse past IP header on fragments beyond the first
-
-Bruce Allan (1):
-  e1000e: cosmetic cleanup of comments
-
-Carolyn Wyborny (5):
-  igb: Updates to read nvm function for i211 device
-  igb: Refactoring of i210 file.
-  igb: Workaround for global device reset problem on 82580.
-  igb: Unset sigdetect for SERDES loopback on 82580 and i350
-  igb: Fix SerDes autoneg flow control.
-
-Joshua Hay (1):
-  ixgbe: eliminate Smatch warnings in ixgbe_debugfs.c
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c  |  66 ++---
- drivers/net/ethernet/intel/e1000e/82571.c        | 115 +++------
- drivers/net/ethernet/intel/e1000e/defines.h      |  27 +-
- drivers/net/ethernet/intel/e1000e/e1000.h        |  17 +-
- drivers/net/ethernet/intel/e1000e/ethtool.c      |  69 ++---
- drivers/net/ethernet/intel/e1000e/hw.h           |   6 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c      | 243 ++++++------------
- drivers/net/ethernet/intel/e1000e/mac.c          | 135 ++++------
- drivers/net/ethernet/intel/e1000e/manage.c       |   9 +-
- drivers/net/ethernet/intel/e1000e/netdev.c       | 313 +++++++++--------------
- drivers/net/ethernet/intel/e1000e/nvm.c          |  15 +-
- drivers/net/ethernet/intel/e1000e/param.c        |  50 ++--
- drivers/net/ethernet/intel/e1000e/phy.c          | 141 ++++------
- drivers/net/ethernet/intel/igb/e1000_82575.c     |  49 +++-
- drivers/net/ethernet/intel/igb/e1000_defines.h   |   7 +
- drivers/net/ethernet/intel/igb/e1000_i210.c      | 275 +++++++++++---------
- drivers/net/ethernet/intel/igb/e1000_i210.h      |   6 +
- drivers/net/ethernet/intel/igb/e1000_mac.c       | 124 +++++++++
- drivers/net/ethernet/intel/igb/e1000_nvm.c       |  28 +-
- drivers/net/ethernet/intel/igb/igb.h             |   2 +
- drivers/net/ethernet/intel/igb/igb_ethtool.c     |  14 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c |  83 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  13 +-
- 23 files changed, 823 insertions(+), 984 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
+index 239650e..fbcdbeb 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_i210.c
++++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
+@@ -35,11 +35,42 @@
+ #include "e1000_hw.h"
+ #include "e1000_i210.h"
+ 
+-static s32 igb_get_hw_semaphore_i210(struct e1000_hw *hw);
+-static void igb_put_hw_semaphore_i210(struct e1000_hw *hw);
+-static s32 igb_write_nvm_srwr(struct e1000_hw *hw, u16 offset, u16 words,
+-				u16 *data);
+-static s32 igb_pool_flash_update_done_i210(struct e1000_hw *hw);
++/**
++ * igb_get_hw_semaphore_i210 - Acquire hardware semaphore
++ *  @hw: pointer to the HW structure
++ *
++ *  Acquire the HW semaphore to access the PHY or NVM
++ */
++static s32 igb_get_hw_semaphore_i210(struct e1000_hw *hw)
++{
++	u32 swsm;
++	s32 ret_val = E1000_SUCCESS;
++	s32 timeout = hw->nvm.word_size + 1;
++	s32 i = 0;
++
++	/* Get the FW semaphore. */
++	for (i = 0; i < timeout; i++) {
++		swsm = rd32(E1000_SWSM);
++		wr32(E1000_SWSM, swsm | E1000_SWSM_SWESMBI);
++
++		/* Semaphore acquired if bit latched */
++		if (rd32(E1000_SWSM) & E1000_SWSM_SWESMBI)
++			break;
++
++		udelay(50);
++	}
++
++	if (i == timeout) {
++		/* Release semaphores */
++		igb_put_hw_semaphore(hw);
++		hw_dbg("Driver can't access the NVM\n");
++		ret_val = -E1000_ERR_NVM;
++		goto out;
++	}
++
++out:
++	return ret_val;
++}
+ 
+ /**
+  *  igb_acquire_nvm_i210 - Request for access to EEPROM
+@@ -68,6 +99,23 @@ void igb_release_nvm_i210(struct e1000_hw *hw)
+ }
+ 
+ /**
++ *  igb_put_hw_semaphore_i210 - Release hardware semaphore
++ *  @hw: pointer to the HW structure
++ *
++ *  Release hardware semaphore used to access the PHY or NVM
++ */
++static void igb_put_hw_semaphore_i210(struct e1000_hw *hw)
++{
++	u32 swsm;
++
++	swsm = rd32(E1000_SWSM);
++
++	swsm &= ~E1000_SWSM_SWESMBI;
++
++	wr32(E1000_SWSM, swsm);
++}
++
++/**
+  *  igb_acquire_swfw_sync_i210 - Acquire SW/FW semaphore
+  *  @hw: pointer to the HW structure
+  *  @mask: specifies which semaphore to acquire
+@@ -138,60 +186,6 @@ void igb_release_swfw_sync_i210(struct e1000_hw *hw, u16 mask)
+ }
+ 
+ /**
+- *  igb_get_hw_semaphore_i210 - Acquire hardware semaphore
+- *  @hw: pointer to the HW structure
+- *
+- *  Acquire the HW semaphore to access the PHY or NVM
+- **/
+-static s32 igb_get_hw_semaphore_i210(struct e1000_hw *hw)
+-{
+-	u32 swsm;
+-	s32 ret_val = E1000_SUCCESS;
+-	s32 timeout = hw->nvm.word_size + 1;
+-	s32 i = 0;
+-
+-	/* Get the FW semaphore. */
+-	for (i = 0; i < timeout; i++) {
+-		swsm = rd32(E1000_SWSM);
+-		wr32(E1000_SWSM, swsm | E1000_SWSM_SWESMBI);
+-
+-		/* Semaphore acquired if bit latched */
+-		if (rd32(E1000_SWSM) & E1000_SWSM_SWESMBI)
+-			break;
+-
+-		udelay(50);
+-	}
+-
+-	if (i == timeout) {
+-		/* Release semaphores */
+-		igb_put_hw_semaphore(hw);
+-		hw_dbg("Driver can't access the NVM\n");
+-		ret_val = -E1000_ERR_NVM;
+-		goto out;
+-	}
+-
+-out:
+-	return ret_val;
+-}
+-
+-/**
+- *  igb_put_hw_semaphore_i210 - Release hardware semaphore
+- *  @hw: pointer to the HW structure
+- *
+- *  Release hardware semaphore used to access the PHY or NVM
+- **/
+-static void igb_put_hw_semaphore_i210(struct e1000_hw *hw)
+-{
+-	u32 swsm;
+-
+-	swsm = rd32(E1000_SWSM);
+-
+-	swsm &= ~E1000_SWSM_SWESMBI;
+-
+-	wr32(E1000_SWSM, swsm);
+-}
+-
+-/**
+  *  igb_read_nvm_srrd_i210 - Reads Shadow Ram using EERD register
+  *  @hw: pointer to the HW structure
+  *  @offset: offset of word in the Shadow Ram to read
+@@ -229,49 +223,6 @@ s32 igb_read_nvm_srrd_i210(struct e1000_hw *hw, u16 offset, u16 words,
+ }
+ 
+ /**
+- *  igb_write_nvm_srwr_i210 - Write to Shadow RAM using EEWR
+- *  @hw: pointer to the HW structure
+- *  @offset: offset within the Shadow RAM to be written to
+- *  @words: number of words to write
+- *  @data: 16 bit word(s) to be written to the Shadow RAM
+- *
+- *  Writes data to Shadow RAM at offset using EEWR register.
+- *
+- *  If e1000_update_nvm_checksum is not called after this function , the
+- *  data will not be committed to FLASH and also Shadow RAM will most likely
+- *  contain an invalid checksum.
+- *
+- *  If error code is returned, data and Shadow RAM may be inconsistent - buffer
+- *  partially written.
+- **/
+-s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
+-			      u16 *data)
+-{
+-	s32 status = E1000_SUCCESS;
+-	u16 i, count;
+-
+-	/* We cannot hold synchronization semaphores for too long,
+-	 * because of forceful takeover procedure. However it is more efficient
+-	 * to write in bursts than synchronizing access for each word. */
+-	for (i = 0; i < words; i += E1000_EERD_EEWR_MAX_COUNT) {
+-		count = (words - i) / E1000_EERD_EEWR_MAX_COUNT > 0 ?
+-			E1000_EERD_EEWR_MAX_COUNT : (words - i);
+-		if (hw->nvm.ops.acquire(hw) == E1000_SUCCESS) {
+-			status = igb_write_nvm_srwr(hw, offset, count,
+-						      data + i);
+-			hw->nvm.ops.release(hw);
+-		} else {
+-			status = E1000_ERR_SWFW_SYNC;
+-		}
+-
+-		if (status != E1000_SUCCESS)
+-			break;
+-	}
+-
+-	return status;
+-}
+-
+-/**
+  *  igb_write_nvm_srwr - Write to Shadow Ram using EEWR
+  *  @hw: pointer to the HW structure
+  *  @offset: offset within the Shadow Ram to be written to
+@@ -329,6 +280,50 @@ out:
+ }
+ 
+ /**
++ *  igb_write_nvm_srwr_i210 - Write to Shadow RAM using EEWR
++ *  @hw: pointer to the HW structure
++ *  @offset: offset within the Shadow RAM to be written to
++ *  @words: number of words to write
++ *  @data: 16 bit word(s) to be written to the Shadow RAM
++ *
++ *  Writes data to Shadow RAM at offset using EEWR register.
++ *
++ *  If e1000_update_nvm_checksum is not called after this function , the
++ *  data will not be committed to FLASH and also Shadow RAM will most likely
++ *  contain an invalid checksum.
++ *
++ *  If error code is returned, data and Shadow RAM may be inconsistent - buffer
++ *  partially written.
++ */
++s32 igb_write_nvm_srwr_i210(struct e1000_hw *hw, u16 offset, u16 words,
++			      u16 *data)
++{
++	s32 status = E1000_SUCCESS;
++	u16 i, count;
++
++	/* We cannot hold synchronization semaphores for too long,
++	 * because of forceful takeover procedure. However it is more efficient
++	 * to write in bursts than synchronizing access for each word.
++	 */
++	for (i = 0; i < words; i += E1000_EERD_EEWR_MAX_COUNT) {
++		count = (words - i) / E1000_EERD_EEWR_MAX_COUNT > 0 ?
++			E1000_EERD_EEWR_MAX_COUNT : (words - i);
++		if (hw->nvm.ops.acquire(hw) == E1000_SUCCESS) {
++			status = igb_write_nvm_srwr(hw, offset, count,
++						      data + i);
++			hw->nvm.ops.release(hw);
++		} else {
++			status = E1000_ERR_SWFW_SYNC;
++		}
++
++		if (status != E1000_SUCCESS)
++			break;
++	}
++
++	return status;
++}
++
++/**
+  *  igb_read_nvm_i211 - Read NVM wrapper function for I211
+  *  @hw: pointer to the HW structure
+  *  @address: the word address (aka eeprom offset) to read
+@@ -637,6 +632,28 @@ out:
+ }
+ 
+ /**
++ *  igb_pool_flash_update_done_i210 - Pool FLUDONE status.
++ *  @hw: pointer to the HW structure
++ *
++ */
++static s32 igb_pool_flash_update_done_i210(struct e1000_hw *hw)
++{
++	s32 ret_val = -E1000_ERR_NVM;
++	u32 i, reg;
++
++	for (i = 0; i < E1000_FLUDONE_ATTEMPTS; i++) {
++		reg = rd32(E1000_EECD);
++		if (reg & E1000_EECD_FLUDONE_I210) {
++			ret_val = E1000_SUCCESS;
++			break;
++		}
++		udelay(5);
++	}
++
++	return ret_val;
++}
++
++/**
+  *  igb_update_flash_i210 - Commit EEPROM to the flash
+  *  @hw: pointer to the HW structure
+  *
+@@ -666,28 +683,6 @@ out:
+ }
+ 
+ /**
+- *  igb_pool_flash_update_done_i210 - Pool FLUDONE status.
+- *  @hw: pointer to the HW structure
+- *
+- **/
+-s32 igb_pool_flash_update_done_i210(struct e1000_hw *hw)
+-{
+-	s32 ret_val = -E1000_ERR_NVM;
+-	u32 i, reg;
+-
+-	for (i = 0; i < E1000_FLUDONE_ATTEMPTS; i++) {
+-		reg = rd32(E1000_EECD);
+-		if (reg & E1000_EECD_FLUDONE_I210) {
+-			ret_val = E1000_SUCCESS;
+-			break;
+-		}
+-		udelay(5);
+-	}
+-
+-	return ret_val;
+-}
+-
+-/**
+  *  igb_valid_led_default_i210 - Verify a valid default LED config
+  *  @hw: pointer to the HW structure
+  *  @data: pointer to the NVM (EEPROM)
 -- 
 1.7.11.7
