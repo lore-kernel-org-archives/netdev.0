@@ -1,93 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix crashes in do_tcp_sendpages()
-Date: Sat, 01 Dec 2012 15:07:02 -0800
-Message-ID: <1354403222.20109.539.camel@edumazet-glaptop>
-References: <20121115222812.GA647@1wt.eu>
-	 <1353023344.10798.8.camel@edumazet-glaptop> <20121201194304.GI25450@1wt.eu>
-	 <20121201205227.GA28390@1wt.eu>
-	 <1354398458.20109.528.camel@edumazet-glaptop>
-	 <1354401121.20109.531.camel@edumazet-glaptop>
-	 <20121201224044.GL25450@1wt.eu>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net 1/1] 8139cp: fix coherent mapping leak in error path.
+Date: Sun, 2 Dec 2012 00:08:50 +0100
+Message-ID: <20121201230850.GA10935@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, dwmw2@infradead.org,
+	jasowang@redhat.com, netdev@vger.kernel.org,
+	John Greene <jogreene@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:37202 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753714Ab2LAXHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 18:07:08 -0500
-Received: by mail-vb0-f46.google.com with SMTP id b13so586683vby.19
-        for <netdev@vger.kernel.org>; Sat, 01 Dec 2012 15:07:07 -0800 (PST)
-In-Reply-To: <20121201224044.GL25450@1wt.eu>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:36570 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753408Ab2LAXd7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 18:33:59 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+cp_open
+[...]
+        rc = cp_alloc_rings(cp);
+        if (rc)
+                return rc;
 
-Recent network changes allowed high order pages being used
-for skb fragments.
+cp_alloc_rings
+[...]
+        mem = dma_alloc_coherent(&cp->pdev->dev, CP_RING_BYTES,
+                                 &cp->ring_dma, GFP_KERNEL);
 
-This uncovered a bug in do_tcp_sendpages() which was assuming its caller
-provided an array of order-0 page pointers.
+- cp_alloc_rings never frees the coherent mapping it allocates
+- neither do cp_open when cp_alloc_rings fails
 
-We only have to deal with a single page in this function, and its order
-is irrelevant.
-
-Reported-by: Willy Tarreau <w@1wt.eu>
-Tested-by: Willy Tarreau <w@1wt.eu>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- net/ipv4/tcp.c |   15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/realtek/8139cp.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 083092e..e457c7a 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -830,8 +830,8 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
- 	return mss_now;
- }
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index b01f83a..609125a 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -1060,17 +1060,22 @@ static int cp_init_rings (struct cp_private *cp)
  
--static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
--			 size_t psize, int flags)
-+static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
-+				size_t size, int flags)
+ static int cp_alloc_rings (struct cp_private *cp)
  {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int mss_now, size_goal;
-@@ -858,12 +858,9 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffse
- 	if (sk->sk_err || (sk->sk_shutdown & SEND_SHUTDOWN))
- 		goto out_err;
++	struct device *d = &cp->pdev->dev;
+ 	void *mem;
++	int rc;
  
--	while (psize > 0) {
-+	while (size > 0) {
- 		struct sk_buff *skb = tcp_write_queue_tail(sk);
--		struct page *page = pages[poffset / PAGE_SIZE];
- 		int copy, i;
--		int offset = poffset % PAGE_SIZE;
--		int size = min_t(size_t, psize, PAGE_SIZE - offset);
- 		bool can_coalesce;
+-	mem = dma_alloc_coherent(&cp->pdev->dev, CP_RING_BYTES,
+-				 &cp->ring_dma, GFP_KERNEL);
++	mem = dma_alloc_coherent(d, CP_RING_BYTES, &cp->ring_dma, GFP_KERNEL);
+ 	if (!mem)
+ 		return -ENOMEM;
  
- 		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0) {
-@@ -912,8 +909,8 @@ new_segment:
- 			TCP_SKB_CB(skb)->tcp_flags &= ~TCPHDR_PSH;
+ 	cp->rx_ring = mem;
+ 	cp->tx_ring = &cp->rx_ring[CP_RX_RING_SIZE];
  
- 		copied += copy;
--		poffset += copy;
--		if (!(psize -= copy))
-+		offset += copy;
-+		if (!(size -= copy))
- 			goto out;
- 
- 		if (skb->len < size_goal || (flags & MSG_OOB))
-@@ -960,7 +957,7 @@ int tcp_sendpage(struct sock *sk, struct page *page, int offset,
- 					flags);
- 
- 	lock_sock(sk);
--	res = do_tcp_sendpages(sk, &page, offset, size, flags);
-+	res = do_tcp_sendpages(sk, page, offset, size, flags);
- 	release_sock(sk);
- 	return res;
+-	return cp_init_rings(cp);
++	rc = cp_init_rings(cp);
++	if (rc < 0)
++		dma_free_coherent(d, CP_RING_BYTES, cp->rx_ring, cp->ring_dma);
++
++	return rc;
  }
+ 
+ static void cp_clean_rings (struct cp_private *cp)
+-- 
+1.7.11.7
