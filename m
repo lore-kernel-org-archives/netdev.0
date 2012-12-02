@@ -1,27 +1,26 @@
-From: "Webmail System Administrator" <webmailupdate@biofac.uni-sofia.bg>
-Subject: WEBMAIL ACCOUNT UPDATE NOW!!!
-Date: Sat, 1 Dec 2012 04:40:13 +0200
-Message-ID: <38ca1c0da809e47633d43875eec5883b.squirrel@webmail.biofac.uni-sofia.bg>
-Reply-To: gladstonestore@activ8.net.au
-Mime-Version: 1.0
-Content-Type: text/plain; charset=win-1251
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: recipient list not shown:;
-To: unlisted-recipients:; (no To-header on input)
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
+Date: Sat, 01 Dec 2012 20:57:35 -0500
+Message-ID: <201212020157.qB21vZiN011233@thirdoffive.cmf.nrl.navy.mil>
+References: <1354382493.21562.347.camel@shinybook.infradead.org>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	krzysiek@podlesie.net
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.biofac.uni-sofia.bg ([62.44.104.1]:47269 "HELO
-	mail.biofac.uni-sofia.bg" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751369Ab2LBBxa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 20:53:30 -0500
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:40393 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751496Ab2LBB64 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 20:58:56 -0500
+In-reply-to: <1354382493.21562.347.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-your webmail account need to be updated. you are advise to use the webl=
-ink
-below to update now.
+In message <1354382493.21562.347.camel@shinybook.infradead.org>,David Woodhouse writes:
+>Possibly not even a bug at all, in fact =E2=80=94 GCC is fairly loose with =
+>those
+>warnings. But if it is a bug it's my fault. I'll take a look at that
+>too. Not tonight though; I'm going out shortly and will only just manage
+>the solos-pci fix.
 
-https://docs.google.com/a/blumail.org/spreadsheet/viewform?formkey=3DdG=
-RvTDVjdVIyY2RYMGlfSVhVQUw4NEE6MQ
-
-Thank you for using our email.
-Copyright =A92012 Email Helpdesk Centre.
+it is not a bug, just gcc being pedantic.  gcc doesn't believe
+that passing by reference it a form of initilization.
