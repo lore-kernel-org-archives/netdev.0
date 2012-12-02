@@ -1,70 +1,128 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 09/13] bnx2x: mask CPL_OF interrupt
-Date: Sun, 2 Dec 2012 16:05:53 +0200
-Message-ID: <1354457157-4730-10-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 04/13] bnx2x: Filter packets on FCoE rings
+Date: Sun, 2 Dec 2012 16:05:48 +0200
+Message-ID: <1354457157-4730-5-git-send-email-yuvalmin@broadcom.com>
 References: <1354457157-4730-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, ariele@broadcom.com,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:2488 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753190Ab2LBOFT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2012 09:05:19 -0500
+	id S1753156Ab2LBOFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Dec 2012 09:05:09 -0500
 In-Reply-To: <1354457157-4730-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unmasked interrupt caused "FATAL HW block attention set2 0x20" messages
-to erroneously appear, as the associated interrupt is fully recoverable.
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
+Whenever bnx2x fails to transmit a packet due to a full Tx ring, if the
+ring size is zero (indicating an FCoE ring) driver filters the packet out
+and gracefully continues.
+Driver also gathers statistics on such filtered packets.
+
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   21 ++++++++++-----------
- 1 files changed, 10 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |   11 ++++++++---
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    6 +++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h  |    3 +++
+ 4 files changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 5ff0bcb..983a0c8 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -6059,6 +6059,8 @@ static int bnx2x_int_mem_test(struct bnx2x *bp)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index e95174d..5e07aa5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3127,11 +3127,16 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			BDS_PER_TX_PKT +
+ 			NEXT_CNT_PER_TX_PKT(MAX_BDS_PER_TX_PKT))) {
+ 		/* Handle special storage cases separately */
+-		if (txdata->tx_ring_size != 0) {
+-			BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
++		if (txdata->tx_ring_size == 0) {
++			struct bnx2x_eth_q_stats *q_stats =
++				bnx2x_fp_qstats(bp, txdata->parent_fp);
++			q_stats->driver_filtered_tx_pkt++;
++			dev_kfree_skb(skb);
++			return NETDEV_TX_OK;
++		}
+ 			bnx2x_fp_qstats(bp, txdata->parent_fp)->driver_xoff++;
+ 			netif_tx_stop_queue(txq);
+-		}
++		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
  
- static void bnx2x_enable_blocks_attention(struct bnx2x *bp)
- {
-+	u32 val;
-+
- 	REG_WR(bp, PXP_REG_PXP_INT_MASK_0, 0);
- 	if (!CHIP_IS_E1x(bp))
- 		REG_WR(bp, PXP_REG_PXP_INT_MASK_1, 0x40);
-@@ -6092,17 +6094,14 @@ static void bnx2x_enable_blocks_attention(struct bnx2x *bp)
- /*	REG_WR(bp, CSEM_REG_CSEM_INT_MASK_0, 0); */
- /*	REG_WR(bp, CSEM_REG_CSEM_INT_MASK_1, 0); */
+ 		return NETDEV_TX_BUSY;
+ 	}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index e05f981..c7270c0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -62,7 +62,9 @@ static const struct {
+ 						8, "[%s]: tpa_aggregations" },
+ 	{ Q_STATS_OFFSET32(total_tpa_aggregated_frames_hi),
+ 					8, "[%s]: tpa_aggregated_frames"},
+-	{ Q_STATS_OFFSET32(total_tpa_bytes_hi),	8, "[%s]: tpa_bytes"}
++	{ Q_STATS_OFFSET32(total_tpa_bytes_hi),	8, "[%s]: tpa_bytes"},
++	{ Q_STATS_OFFSET32(driver_filtered_tx_pkt),
++					4, "[%s]: driver_filtered_tx_pkt" }
+ };
  
--	if (CHIP_REV_IS_FPGA(bp))
--		REG_WR(bp, PXP2_REG_PXP2_INT_MASK_0, 0x580000);
--	else if (!CHIP_IS_E1x(bp))
--		REG_WR(bp, PXP2_REG_PXP2_INT_MASK_0,
--			   (PXP2_PXP2_INT_MASK_0_REG_PGL_CPL_OF
--				| PXP2_PXP2_INT_MASK_0_REG_PGL_CPL_AFT
--				| PXP2_PXP2_INT_MASK_0_REG_PGL_PCIE_ATTN
--				| PXP2_PXP2_INT_MASK_0_REG_PGL_READ_BLOCKED
--				| PXP2_PXP2_INT_MASK_0_REG_PGL_WRITE_BLOCKED));
--	else
--		REG_WR(bp, PXP2_REG_PXP2_INT_MASK_0, 0x480000);
-+	val = PXP2_PXP2_INT_MASK_0_REG_PGL_CPL_AFT  |
-+		PXP2_PXP2_INT_MASK_0_REG_PGL_CPL_OF |
-+		PXP2_PXP2_INT_MASK_0_REG_PGL_PCIE_ATTN;
-+	if (!CHIP_IS_E1x(bp))
-+		val |= PXP2_PXP2_INT_MASK_0_REG_PGL_READ_BLOCKED |
-+			PXP2_PXP2_INT_MASK_0_REG_PGL_WRITE_BLOCKED;
-+	REG_WR(bp, PXP2_REG_PXP2_INT_MASK_0, val);
-+
- 	REG_WR(bp, TSDM_REG_TSDM_INT_MASK_0, 0);
- 	REG_WR(bp, TSDM_REG_TSDM_INT_MASK_1, 0);
- 	REG_WR(bp, TCM_REG_TCM_INT_MASK, 0);
+ #define BNX2X_NUM_Q_STATS ARRAY_SIZE(bnx2x_q_stats_arr)
+@@ -177,6 +179,8 @@ static const struct {
+ 			4, STATS_FLAGS_FUNC, "recoverable_errors" },
+ 	{ STATS_OFFSET32(unrecoverable_error),
+ 			4, STATS_FLAGS_FUNC, "unrecoverable_errors" },
++	{ STATS_OFFSET32(driver_filtered_tx_pkt),
++			4, STATS_FLAGS_FUNC, "driver_filtered_tx_pkt" },
+ 	{ STATS_OFFSET32(eee_tx_lpi),
+ 			4, STATS_FLAGS_PORT, "Tx LPI entry count"}
+ };
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+index 348ed02..89ec066 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
+@@ -1149,6 +1149,7 @@ static void bnx2x_drv_stats_update(struct bnx2x *bp)
+ 		UPDATE_ESTAT_QSTAT(rx_err_discard_pkt);
+ 		UPDATE_ESTAT_QSTAT(rx_skb_alloc_failed);
+ 		UPDATE_ESTAT_QSTAT(hw_csum_err);
++		UPDATE_ESTAT_QSTAT(driver_filtered_tx_pkt);
+ 	}
+ }
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+index 24b8e50..b4d7b26 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
+@@ -203,6 +203,7 @@ struct bnx2x_eth_stats {
+ 	/* Recovery */
+ 	u32 recoverable_error;
+ 	u32 unrecoverable_error;
++	u32 driver_filtered_tx_pkt;
+ 	/* src: Clear-on-Read register; Will not survive PMF Migration */
+ 	u32 eee_tx_lpi;
+ };
+@@ -264,6 +265,7 @@ struct bnx2x_eth_q_stats {
+ 	u32 total_tpa_aggregated_frames_lo;
+ 	u32 total_tpa_bytes_hi;
+ 	u32 total_tpa_bytes_lo;
++	u32 driver_filtered_tx_pkt;
+ };
+ 
+ struct bnx2x_eth_stats_old {
+@@ -315,6 +317,7 @@ struct bnx2x_eth_q_stats_old {
+ 	u32 rx_err_discard_pkt_old;
+ 	u32 rx_skb_alloc_failed_old;
+ 	u32 hw_csum_err_old;
++	u32 driver_filtered_tx_pkt_old;
+ };
+ 
+ struct bnx2x_net_stats_old {
 -- 
 1.7.1
