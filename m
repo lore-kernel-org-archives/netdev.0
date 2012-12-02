@@ -1,54 +1,33 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH net-next] ipv6: Make 'addrconf_rs_timer' send Router Solicitations (and re-arm itself) if Router Advertisements are accepted
-Date: Sun,  2 Dec 2012 13:44:53 +0200
-Message-ID: <1354448693-32155-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Thomas Graf <tgraf@suug.ch>, Tore Anderson <tore@fud.no>,
-	Ami Koren <amikoren@yahoo.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next v1 3/3] net/mlx4_en: Set number of rx/tx channels
+ using ethtool
+Date: Sun, 2 Dec 2012 14:23:52 +0200
+Message-ID: <CAJZOPZJ7OCyZtrhD+DjTBMdBECe+at-jtoRpUOXgw3YJyQ740w@mail.gmail.com>
+References: <1354216903-830-4-git-send-email-amirv@mellanox.com>
+	<1354319925.2640.3.camel@bwh-desktop.uk.solarflarecom.com>
+	<CAJZOPZK98UOsK2HFSC3V6fdzvJfWVKg6pZzxptE97MTgOAk7-w@mail.gmail.com>
+	<20121201.112555.1561917161372059709.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: bhutchings@solarflare.com, amirv@mellanox.com,
+	ogerlitz@mellanox.com, oren@mellanox.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:39994 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753292Ab2LBLp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 06:45:27 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so1083415eek.19
-        for <netdev@vger.kernel.org>; Sun, 02 Dec 2012 03:45:26 -0800 (PST)
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:34096 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752350Ab2LBMXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 07:23:53 -0500
+Received: by mail-ie0-f174.google.com with SMTP id c11so2839973ieb.19
+        for <netdev@vger.kernel.org>; Sun, 02 Dec 2012 04:23:52 -0800 (PST)
+In-Reply-To: <20121201.112555.1561917161372059709.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As of 026359b [ipv6: Send ICMPv6 RSes only when RAs are accepted],
-Router Solicitations are sent whenever kernel accepts Router
-Advertisements on the interface.
+On Sat, Dec 1, 2012 at 6:25 PM, David Miller <davem@davemloft.net> wrote:
 
-However, this logic isn't reflected in 'addrconf_rs_timer'.
+> He's saying that you need to carefully validate the arguments, not
+> that appropriate permissions haven't been checked.
 
-The timer fails to issue subsequent RS messages (and fails to re-arm
-itself) if forwarding is enabled and the special hybrid mode is
-enabled (accept_ra=2).
+OK, understood.
 
-Fix the condition determining whether next RS should be sent, by using
-'ipv6_accept_ra()'.
-
-Reported-by: Ami Koren <amikoren@yahoo.com>
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
- net/ipv6/addrconf.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index ca1ed8a..3b990a2 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2843,7 +2843,7 @@ static void addrconf_rs_timer(unsigned long data)
- 	if (idev->dead || !(idev->if_flags & IF_READY))
- 		goto out;
- 
--	if (idev->cnf.forwarding)
-+	if (!ipv6_accept_ra(idev))
- 		goto out;
- 
- 	/* Announcement received after solicitation was sent */
--- 
-1.7.9
+Or.
