@@ -1,105 +1,88 @@
 From: David Woodhouse <dwmw2@infradead.org>
 Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
-Date: Sun, 02 Dec 2012 00:35:47 +0000
-Message-ID: <1354408547.21562.363.camel@shinybook.infradead.org>
+Date: Sun, 02 Dec 2012 00:40:47 +0000
+Message-ID: <1354408847.21562.365.camel@shinybook.infradead.org>
 References: <20121130104411.GA16410@shrek.podlesie.net>
 	 <1354306929.21562.313.camel@shinybook.infradead.org>
 	 <20121201.114320.103305992136431342.davem@davemloft.net>
 	 <20121201.114440.331740099591161757.davem@davemloft.net>
+	 <1354383226.21562.351.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-Z+rQPxUniP/Vv09CueIs"
+	boundary="=-iA9sXbK02OMWCaa6dHfP"
 Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
 	krzysiek@podlesie.net
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:45185 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:45202 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753600Ab2LBAfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 19:35:52 -0500
-In-Reply-To: <20121201.114440.331740099591161757.davem@davemloft.net>
+	with ESMTP id S1753600Ab2LBAkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 19:40:51 -0500
+In-Reply-To: <1354383226.21562.351.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-Z+rQPxUniP/Vv09CueIs
+--=-iA9sXbK02OMWCaa6dHfP
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2012-12-01 at 11:44 -0500, David Miller wrote:
+On Sat, 2012-12-01 at 17:33 +0000, David Woodhouse wrote:
 >=20
-> > drivers/atm/solos-pci.c: In function =E2=80=98solos_pci_init=E2=80=99:
-> > drivers/atm/solos-pci.c:1329:2: error: size of unnamed array is
-> negative
->=20
-> It's from adding the completion to the solos skb cb, you can't do
-> that.  It won't fit on 64-bit when all debugging kconfig options are
-> enabled.
+> Very glad I added the BUILD_BUG_ON on the cb struct size now. Perhaps
+> there should be a generic helper for that? Something like
+>  skb_cb_cast(struct foo_cb, skb) could do it automatically...?
 
-Thanks for catching that. I've just posted a [v2] version of the
-offending patch, which no longer puts a completion into the skb cb.
+Something like this, perhaps? Using skb_cast_cb() would then make it
+fairly much impossible to accidentally overflow the size of the skb cb.
 
-I'd appreciate a slightly more clueful eye looking over the incremental
-patch (below) just to confirm that the new method is correct, but it
-certainly seems to work. This version is identical to the one I posted
-earlier, except that I use dev_kfree_skb() in the pclose() function
-instead of dev_kfree_skb_any(). We know this will be called from a
-suitable context, and it even uses GFP_KERNEL a few lines higher up.
-
-If that's OK, please pull the resulting tree from
-	git://git.infradead.org/users/dwmw2/atm.git
-
-
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f2af494..b4cb2cf 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -567,6 +567,11 @@ static inline struct rtable *skb_rtable(const struct s=
+k_buff *skb)
+ 	return (struct rtable *)skb_dst(skb);
+ }
+=20
++#define skb_cast_cb(skb, type)  ({				\
++	BUILD_BUG_ON(sizeof(type) > sizeof((skb)->cb));		\
++	(type *)(skb)->cb;					\
++	})
++
+ extern void kfree_skb(struct sk_buff *skb);
+ extern void skb_tx_error(struct sk_buff *skb);
+ extern void consume_skb(struct sk_buff *skb);
 diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index e59bcfd..6619a8a 100644
+index 6619a8a..8dccf82 100644
 --- a/drivers/atm/solos-pci.c
 +++ b/drivers/atm/solos-pci.c
-@@ -92,7 +92,6 @@ struct pkt_hdr {
+@@ -97,7 +97,7 @@ struct solos_skb_cb {
  };
 =20
- struct solos_skb_cb {
--	struct completion c;
- 	struct atm_vcc *vcc;
- 	uint32_t dma_addr;
- };
-@@ -853,13 +852,14 @@ static void pclose(struct atm_vcc *vcc)
- 	header->vci =3D cpu_to_le16(vcc->vci);
- 	header->type =3D cpu_to_le16(PKT_PCLOSE);
 =20
--	init_completion(&SKB_CB(skb)->c);
+-#define SKB_CB(skb)		((struct solos_skb_cb *)skb->cb)
++#define SKB_CB(skb)	skb_cast_cb(skb, struct solos_skb_cb)
+=20
+ #define PKT_DATA	0
+ #define PKT_COMMAND	1
+@@ -1324,8 +1324,6 @@ static struct pci_driver fpga_driver =3D {
+=20
+ static int __init solos_pci_init(void)
+ {
+-	BUILD_BUG_ON(sizeof(struct solos_skb_cb) > sizeof(((struct sk_buff *)0)->=
+cb));
 -
-+	skb_get(skb);
- 	fpga_queue(card, port, skb, NULL);
-=20
--	if (!wait_for_completion_timeout(&SKB_CB(skb)->c, 5 * HZ))
--		dev_warn(&card->dev->dev, "Timeout waiting for VCC close on port %d\n",
--			 port);
-+	if (!wait_event_timeout(card->param_wq, !skb_shared(skb), 5 * HZ))
-+		dev_warn(&card->dev->dev,
-+			 "Timeout waiting for VCC close on port %d\n", port);
-+
-+	dev_kfree_skb(skb);
-=20
- 	/* Hold up vcc_destroy_socket() (our caller) until solos_bh() in the
- 	   tasklet has finished processing any incoming packets (and, more to
-@@ -990,10 +990,8 @@ static uint32_t fpga_tx(struct solos_card *card)
- 				atomic_inc(&vcc->stats->tx);
- 				solos_pop(vcc, oldskb);
- 			} else {
--				struct pkt_hdr *header =3D (void *)oldskb->data;
--				if (le16_to_cpu(header->type) =3D=3D PKT_PCLOSE)
--					complete(&SKB_CB(oldskb)->c);
- 				dev_kfree_skb_irq(oldskb);
-+				wake_up(&card->param_wq);
- 			}
- 		}
- 	}
+ 	printk(KERN_INFO "Solos PCI Driver Version %s\n", VERSION);
+ 	return pci_register_driver(&fpga_driver);
+ }
+
 
 --=20
 dwmw2
 
 
---=-Z+rQPxUniP/Vv09CueIs
+--=-iA9sXbK02OMWCaa6dHfP
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -200,19 +183,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjAyMDAzNTQ3WjAjBgkqhkiG9w0BCQQx
-FgQU2l2oWpiAlkRd4DERZkLNlOuoq44wgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjAyMDA0MDQ3WjAjBgkqhkiG9w0BCQQx
+FgQU4b+q/xL65xL5NOiM6+nrYD4UTc8wgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAItuXygJMjmrtFa6dKtgMFV6HG
-MQ4Nwlgqqjxs448rqLIj/3oCppG8jsMU9Xhe3aHBEdKMuIceEAI2p3wK1/qj4yyNpCvLH1fypqkB
-6C8BAExHGEU0j2oTxuX+HYKQ80nUi2X/ATBfNMXTlzA9YOlzCD1hQxnaJGLrj5hpWzOfWPE4bkrX
-QU2QS+8DIIYe++P9raSKzNvFK7TRtnd9da8JtKDADcfqxwrHM0xxufOKVbdmxYLRQ6r5+Uw4nKet
-vwWC/TQyovcAkgNEQURJPw7lwIazuHlQ9pUKx+M/t5FOsLppsKelnaWjyXeajEHXn+B4YtwgbOq2
-QS7DUhcnooNnAAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAiorgajzI/l7tn5BmEbiuVexfc
+7dGWIOSJqgel+ENN7WwBzw0AbmXR9EN1kKHcj9YqeLLukwoiZ7HYJPIKr5NFR/nIXrj1Y+9Pl6dX
+QnOgdeye2+a+TSe/lLSOPde1Ulwfxvr+R2UEa0OSZjjKV2+EaqLSkQKPbFZ00fSwz3dXZEU9/APq
+4cEWUrt8RDaGwZ8i6aCC2gX3+BBee7FAdyy2z9kAV6CY+WULVVerx4Q8qVUU/Y6q76JlyFqkdXxo
+bymL4Xd75vX7qorvDdpiXO2azfGwuD+fmwWOpRshkeQ7kA28rVPtggmTRaQuILnjrdaT7I8jfD74
+Ggpm7neNhxEnAAAAAAAA
 
 
---=-Z+rQPxUniP/Vv09CueIs--
+--=-iA9sXbK02OMWCaa6dHfP--
