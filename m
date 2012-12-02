@@ -1,54 +1,73 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
-Date: Sun, 02 Dec 2012 08:14:00 +0000
-Message-ID: <1354436040.21562.386.camel@shinybook.infradead.org>
-References: <20121201.114440.331740099591161757.davem@davemloft.net>
-	 <1354383226.21562.351.camel@shinybook.infradead.org>
-	 <1354408847.21562.365.camel@shinybook.infradead.org>
-	 <20121201.204906.1703696018528746748.davem@davemloft.net>
+Subject: Re: TCP and reordering
+Date: Sun, 02 Dec 2012 09:31:25 +0000
+Message-ID: <1354440685.21562.399.camel@shinybook.infradead.org>
+References: <20121127.210611.1127622873924794001.davem@davemloft.net>
+	 <1354089566.21562.20.camel@shinybook.infradead.org>
+	 <CAGK4HS8=NfcyvcNjC3h1wEjgQFCYoNeuWXj8n5Ruukeg+6j=SQ@mail.gmail.com>
+	 <1354093703.21562.23.camel@shinybook.infradead.org>
+	 <1354100552.14302.78.camel@edumazet-glaptop>
+	 <1354103355.21562.46.camel@shinybook.infradead.org>
+	 <1354105619.14302.89.camel@edumazet-glaptop>
+	 <1354106362.21562.51.camel@shinybook.infradead.org>
+	 <1354107140.14302.140.camel@edumazet-glaptop>
+	 <1354117635.21562.63.camel@shinybook.infradead.org>
+	 <20121128161930.GB19042@kvack.org>
+	 <1354120887.21562.87.camel@shinybook.infradead.org>
+	 <1354122996.14302.427.camel@edumazet-glaptop>
+	 <1354411840.21562.373.camel@shinybook.infradead.org>
+	 <1354416005.20109.557.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-6IrwHIAATr1apKntU3mX"
-Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	krzysiek@podlesie.net
-To: David Miller <davem@davemloft.net>
+	boundary="=-bF8nfKIn9mZNJBu5Cbws"
+Cc: Benjamin LaHaise <bcrl@kvack.org>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>,
+	David Miller <davem@davemloft.net>, saku@ytti.fi,
+	rick.jones2@hp.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:55632 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:57051 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104Ab2LBIOF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 03:14:05 -0500
-In-Reply-To: <20121201.204906.1703696018528746748.davem@davemloft.net>
+	with ESMTP id S1751602Ab2LBJbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 04:31:38 -0500
+In-Reply-To: <1354416005.20109.557.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-6IrwHIAATr1apKntU3mX
+--=-bF8nfKIn9mZNJBu5Cbws
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Sat, 2012-12-01 at 20:49 -0500, David Miller wrote:
+On Sat, 2012-12-01 at 18:40 -0800, Eric Dumazet wrote:
+> > +static unsigned int skb_acct_len(struct sk_buff *skb)
+> > +{
+> > +	return skb_tail_pointer(skb) - skb_network_header(skb);
+> > +}
 >=20
-> I actually prefer what we do now, which is do the BUILD_BUG_ON()
-> once in the subsystem specific code, usually the initializer.
->=20
-> It's part of creating a new SKB cb, adding that assertion somewhere.
+> Apparently this driver doesnt add any feature at alloc_netdev() time, so
+> it might work. (no frags in any skb)
 
-Where it's *subsystem* code that's great... but *drivers* get to use the
-skb cb too. And driver authors aren't always so reliable :)
+Well... as long as no driver appends stuff to the *tail* of the skb. As
+long as they only *prepend* headers for the device to use, we're fine.
+But I think that's fairly safe, for now.
 
-Looking just at solos-pci, there was no feedback during the initial
-submission that I ought to be using a BUILD_BUG_ON to limit the size of
-struct solos_skb_cb. It was just luck, really, that I remembered to do
-it =E2=80=94 as an afterthought in a later iteration of the patch.
+For PPP I think I'll end up keeping a tuple of
+	{ skb, orig_len, orig_destructor, orig_sk }
+for each skb which is in-flight. Since the queues of those should be
+*short*, and should generally complete in-order, that shouldn't be too
+much overhead. It'll only need a small static array of them per-channel.
 
-Giving driver authors fewer ways to shoot themselves in the foot always
-seems like a good idea...=20
+(Before complaining about a *static* array holding metadata about items
+on a queue, stop thinking of the PPP channel being a queue and start
+thinking of it more like a ring buffer.)
 
 --=20
 dwmw2
 
 
---=-6IrwHIAATr1apKntU3mX
+
+--=-bF8nfKIn9mZNJBu5Cbws
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -149,19 +168,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjAyMDgxNDAwWjAjBgkqhkiG9w0BCQQx
-FgQUxGR+Tbormntv77lH6W2cLEQ0Yx0wgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjAyMDkzMTI1WjAjBgkqhkiG9w0BCQQx
+FgQUpsY2vZIqTiDcKjdabvkNjedUFQcwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBwlTmt+xsyO+yDJD7ZDzXGLa6M
-n3VJZkU6EY69b3CPJsJ0kRhH4AQh0E92X2KBXDYt7fhIkyDixIFapqk8blZMOJDgu0wmzTvvRMZH
-3BKYJgsj1M7M5vlGiXvScBODJlTCvDD2RuJbabqtbnRT+wnvBB87nqWUulW2Qw8XjPQcZOcCGLSG
-f96skPxyA51uLIC4QRq8mjE52mOK8ISOc17zsKaHN5Yf9zzibNvdN6wWKug63DemNeyg32wf8Mqf
-GZKMZeP036gTP7cb8SdnA5o2PIHIgYbD52kVRcn9iPDJGqfCuEG74xGe6O1GesQooruDGYySctGk
-eqiqBZ/EpLHSAAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBvyyWJkaUJLy/ZB9yI6dwl86c8
+biX6VEa2EWHtPH8/D2Qlc8N1uNi0vIMRy5zjLVRyxdjfduKExNxvsFLRk8wjTkjaeGbCg+YCSe2k
+fIxvoDMDrXQCURRVE2N9ZVy167Hgqa3V/LEhm7Yhjiizy3IsWbfK5pc2/TJ34JcHMxVE65yMKeai
+r8D7Gl+rT0LUx+vMA/NXpbnP3hN8hxPDc1urUbePtTEswqGPHZzqQnDfOu46aXC2kGbRw6txX9tk
+hNOK9IbUg0pQg0EhpLZyc+ZaLwd3qzA9tvIvb2Z7Usvp+6aXa7Q9cS51pPuItA0kGrDbyihbUQy3
+uRoEw72xFKJoAAAAAAAA
 
 
---=-6IrwHIAATr1apKntU3mX--
+--=-bF8nfKIn9mZNJBu5Cbws--
