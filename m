@@ -1,111 +1,105 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH v2 07/17] solos-pci: Wait for pending TX to complete when
- releasing vcc
-Date: Sun, 02 Dec 2012 00:17:49 +0000
-Message-ID: <1354407469.21562.356.camel@shinybook.infradead.org>
-References: <1354235736-26833-1-git-send-email-dwmw2@infradead.org>
-	 <1354235736-26833-8-git-send-email-dwmw2@infradead.org>
+Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
+Date: Sun, 02 Dec 2012 00:35:47 +0000
+Message-ID: <1354408547.21562.363.camel@shinybook.infradead.org>
+References: <20121130104411.GA16410@shrek.podlesie.net>
+	 <1354306929.21562.313.camel@shinybook.infradead.org>
+	 <20121201.114320.103305992136431342.davem@davemloft.net>
+	 <20121201.114440.331740099591161757.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-AZAsz9u32O4QL4crPJxk"
-Cc: chas@cmf.nrl.navy.mil, krzysiek@podlesie.net
-To: netdev@vger.kernel.org
+	boundary="=-Z+rQPxUniP/Vv09CueIs"
+Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
+	krzysiek@podlesie.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:43225 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:45185 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753524Ab2LBAR7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 19:17:59 -0500
-In-Reply-To: <1354235736-26833-8-git-send-email-dwmw2@infradead.org>
+	with ESMTP id S1753600Ab2LBAfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 19:35:52 -0500
+In-Reply-To: <20121201.114440.331740099591161757.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-AZAsz9u32O4QL4crPJxk
+--=-Z+rQPxUniP/Vv09CueIs
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-We should no longer be calling the old pop routine for the vcc, after
-vcc_release() has completed. Make sure we wait for any pending TX skbs
-to complete, by waiting for our own PKT_PCLOSE control skb to be sent.
+On Sat, 2012-12-01 at 11:44 -0500, David Miller wrote:
+>=20
+> > drivers/atm/solos-pci.c: In function =E2=80=98solos_pci_init=E2=80=99:
+> > drivers/atm/solos-pci.c:1329:2: error: size of unnamed array is
+> negative
+>=20
+> It's from adding the completion to the solos skb cb, you can't do
+> that.  It won't fit on 64-bit when all debugging kconfig options are
+> enabled.
 
-Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
----
-v2: Don't put a struct completion into skb->cb[]. It doesn't fit, so
-instead use the existing card->param_wq, hold a refcount on the skb, and
-wait for the fpga_tx code to free it.
+Thanks for catching that. I've just posted a [v2] version of the
+offending patch, which no longer puts a completion into the skb cb.
 
-I won't repost the rest of the series; they're materially unchanged
-apart from a tiny amount of massaging to make them apply with this
-change, so it would just be noise.
+I'd appreciate a slightly more clueful eye looking over the incremental
+patch (below) just to confirm that the new method is correct, but it
+certainly seems to work. This version is identical to the one I posted
+earlier, except that I use dev_kfree_skb() in the pclose() function
+instead of dev_kfree_skb_any(). We know this will be called from a
+suitable context, and it even uses GFP_KERNEL a few lines higher up.
 
- drivers/atm/solos-pci.c | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+If that's OK, please pull the resulting tree from
+	git://git.infradead.org/users/dwmw2/atm.git
+
 
 diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 9851093..026bdc1 100644
+index e59bcfd..6619a8a 100644
 --- a/drivers/atm/solos-pci.c
 +++ b/drivers/atm/solos-pci.c
-@@ -866,6 +866,7 @@ static int popen(struct atm_vcc *vcc)
- static void pclose(struct atm_vcc *vcc)
- {
- 	struct solos_card *card =3D vcc->dev->dev_data;
-+	unsigned char port =3D SOLOS_CHAN(vcc->dev);
- 	struct sk_buff *skb;
- 	struct pkt_hdr *header;
+@@ -92,7 +92,6 @@ struct pkt_hdr {
+ };
 =20
-@@ -881,11 +882,18 @@ static void pclose(struct atm_vcc *vcc)
+ struct solos_skb_cb {
+-	struct completion c;
+ 	struct atm_vcc *vcc;
+ 	uint32_t dma_addr;
+ };
+@@ -853,13 +852,14 @@ static void pclose(struct atm_vcc *vcc)
  	header->vci =3D cpu_to_le16(vcc->vci);
  	header->type =3D cpu_to_le16(PKT_PCLOSE);
 =20
--	fpga_queue(card, SOLOS_CHAN(vcc->dev), skb, NULL);
+-	init_completion(&SKB_CB(skb)->c);
+-
 +	skb_get(skb);
-+	fpga_queue(card, port, skb, NULL);
+ 	fpga_queue(card, port, skb, NULL);
 =20
- 	clear_bit(ATM_VF_ADDR, &vcc->flags);
- 	clear_bit(ATM_VF_READY, &vcc->flags);
-=20
+-	if (!wait_for_completion_timeout(&SKB_CB(skb)->c, 5 * HZ))
+-		dev_warn(&card->dev->dev, "Timeout waiting for VCC close on port %d\n",
+-			 port);
 +	if (!wait_event_timeout(card->param_wq, !skb_shared(skb), 5 * HZ))
 +		dev_warn(&card->dev->dev,
 +			 "Timeout waiting for VCC close on port %d\n", port);
 +
 +	dev_kfree_skb(skb);
-+
+=20
  	/* Hold up vcc_destroy_socket() (our caller) until solos_bh() in the
  	   tasklet has finished processing any incoming packets (and, more to
- 	   the point, using the vcc pointer). */
-@@ -1011,9 +1019,10 @@ static uint32_t fpga_tx(struct solos_card *card)
- 			if (vcc) {
+@@ -990,10 +990,8 @@ static uint32_t fpga_tx(struct solos_card *card)
  				atomic_inc(&vcc->stats->tx);
  				solos_pop(vcc, oldskb);
--			} else
-+			} else {
+ 			} else {
+-				struct pkt_hdr *header =3D (void *)oldskb->data;
+-				if (le16_to_cpu(header->type) =3D=3D PKT_PCLOSE)
+-					complete(&SKB_CB(oldskb)->c);
  				dev_kfree_skb_irq(oldskb);
--
 +				wake_up(&card->param_wq);
-+			}
+ 			}
  		}
  	}
- 	/* For non-DMA TX, write the 'TX start' bit for all four ports simultaneo=
-usly */
-@@ -1345,6 +1354,8 @@ static struct pci_driver fpga_driver =3D {
-=20
- static int __init solos_pci_init(void)
- {
-+	BUILD_BUG_ON(sizeof(struct solos_skb_cb) > sizeof(((struct sk_buff *)0)->=
-cb));
-+
- 	printk(KERN_INFO "Solos PCI Driver Version %s\n", VERSION);
- 	return pci_register_driver(&fpga_driver);
- }
---=20
-1.8.0
-
 
 --=20
 dwmw2
 
 
---=-AZAsz9u32O4QL4crPJxk
+--=-Z+rQPxUniP/Vv09CueIs
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -206,19 +200,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjAyMDAxNzQ5WjAjBgkqhkiG9w0BCQQx
-FgQUgRrVQKqN5X2iMq5Bi2MxSC+7ncIwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjAyMDAzNTQ3WjAjBgkqhkiG9w0BCQQx
+FgQU2l2oWpiAlkRd4DERZkLNlOuoq44wgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAw+5B3s7PG3dmimuqNODSWF2P/
-qNustn8Z3PcTBBS1KmcHy1uWB4NBB9RTpbaacrDN4BcQxfjk4PLkv88vP3qeoSWYvotbRSd1i1Hf
-T3Vzj+Ugs+sQpd6zikreUitX2c7N0bYU5a9VXV/uW4bwFfCJHH4s0HXzeMdZ1N5Hcbj/PMAFDsoY
-mr4+VHxAvXNt9DizERpQQHqTppGJGqcad3yQgJb8ehPEEvUQjcbcugR+c6bEfihwVF63qcelyhvD
-r5XnEBKlwnwlD7N47IYdtnDCfCXqZ+J2VaO3leq7qFZyludPQCa4uWv2YMeTmq6IwRCnXOymZS45
-0fHOWmv5CeQwAAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAItuXygJMjmrtFa6dKtgMFV6HG
+MQ4Nwlgqqjxs448rqLIj/3oCppG8jsMU9Xhe3aHBEdKMuIceEAI2p3wK1/qj4yyNpCvLH1fypqkB
+6C8BAExHGEU0j2oTxuX+HYKQ80nUi2X/ATBfNMXTlzA9YOlzCD1hQxnaJGLrj5hpWzOfWPE4bkrX
+QU2QS+8DIIYe++P9raSKzNvFK7TRtnd9da8JtKDADcfqxwrHM0xxufOKVbdmxYLRQ6r5+Uw4nKet
+vwWC/TQyovcAkgNEQURJPw7lwIazuHlQ9pUKx+M/t5FOsLppsKelnaWjyXeajEHXn+B4YtwgbOq2
+QS7DUhcnooNnAAAAAAAA
 
 
---=-AZAsz9u32O4QL4crPJxk--
+--=-Z+rQPxUniP/Vv09CueIs--
