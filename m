@@ -1,205 +1,136 @@
-From: Ling Ma <ling.ma.program@gmail.com>
-Subject: Re: [PATCH RFC] [INET]: Get cirtical word in first 64bit of cache line
-Date: Sun, 2 Dec 2012 21:25:06 +0800
-Message-ID: <CAOGi=dO2wZESX5o4Jr_XZu0oPM-Qe30DKt-4f_3TVBrVoR=12Q@mail.gmail.com>
-References: <1353900555-5966-1-git-send-email-ling.ma.program@gmail.com>
-	<1353912241.30446.1257.camel@edumazet-glaptop>
-	<CAOGi=dPQWC8hgt4jhMEHcVPb6j+jMTguNAchiLjdvvHjarCW4Q@mail.gmail.com>
-	<1354024683.7553.1768.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=047d7b5d8fa3ac907e04cfde8fce
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354024683.7553.1768.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next v2 2/3] net/mlx4_en: Fix TX moderation info loss after set_ringparam is called
+Date: Sun,  2 Dec 2012 15:49:22 +0200
+Message-ID: <1354456163-10497-3-git-send-email-amirv@mellanox.com>
+References: <1354456163-10497-1-git-send-email-amirv@mellanox.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Oren Duer <oren@mellanox.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:33574 "HELO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751770Ab2LBNtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 08:49:40 -0500
+In-Reply-To: <1354456163-10497-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---047d7b5d8fa3ac907e04cfde8fce
-Content-Type: text/plain; charset=ISO-8859-1
+We need to re-set tx moderation information after calling set_ringparam
+else default tx moderation will be used.
+Also avoid related code duplication, by putting it in a utility function.
 
-Hi Eric,
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   59 ++++++++++++-----------
+ 1 files changed, 30 insertions(+), 29 deletions(-)
 
-Attached benchmark test-cwf.c(cc -o test-cwf test-cwf.c), the result
-shows when last level cache(LLC) miss and CPU fetches data from
-memory, critical word as first 64bit member in cache line has better
-performance(costs 158290336 cycles ) than other positions(offset 0x10,
-costs 164100732 ) in cache line, the performance is improved by 3.6%
-in this case.
-cpu-info is also involved too.
-
-Thanks
-Ling
-
---047d7b5d8fa3ac907e04cfde8fce
-Content-Type: text/x-csrc; charset=US-ASCII; name="test-cwf.c"
-Content-Disposition: attachment; filename="test-cwf.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: file1
-
-I2luY2x1ZGU8c3RkaW8uaD4KI2luY2x1ZGU8c3RyaW5nLmg+CiNpbmNsdWRlPHN0ZGxpYi5oPgoj
-aW5jbHVkZTx1bmlzdGQuaD4KI2RlZmluZSBNQVhfQlVGX05VTSAoMSA8PCAyMCkKI2RlZmluZSBN
-QVhfQlVGX1NJWkUgKDEgPDwgOCkKI2RlZmluZSBBQ0NFU1NfT0ZGU0VUICgweDEwKQoKIyBkZWZp
-bmUgSFBfVElNSU5HX05PVyhWYXIpIFwKICh7IHVuc2lnbmVkIGxvbmcgbG9uZyBfaGksIF9sbzsg
-XAogIGFzbSB2b2xhdGlsZSAoInJkdHNjIiA6ICI9YSIgKF9sbyksICI9ZCIgKF9oaSkpOyBcCiAg
-KFZhcikgPSBfaGkgPDwgMzIgfCBfbG87IH0pCgojZGVmaW5lIHJlcGVhdF90aW1lcyAgKDY0KQoK
-c3RhdGljIHZvaWQgaW5pdF9idWYoY2hhciAqKmJ1ZikKewoJaW50IGkgPSAwOwoJY2hhciAqc3Rh
-cnQ7CgljaGFyICplbmQ7CglpbnQgcGFnZXNpemUgPSBnZXRwYWdlc2l6ZSgpOwoJKmJ1ZiA9IG1h
-bGxvYyhNQVhfQlVGX1NJWkUgKiBNQVhfQlVGX05VTSArIHBhZ2VzaXplKTsKCWlmKCpidWYgPT0g
-TlVMTCkgewoJCXByaW50ZigiXG5mYWl0IHRvIG1hbGxvYyBzcGFjZSFcbiIpOwoJCWV4aXQoMSk7
-Cgl9IGVsc2UgIHsKCQkqYnVmID0gKmJ1ZiArIHBhZ2VzaXplOwoJCSpidWYgPSAoY2hhciAqKSgo
-KHVuc2lnbmVkIGxvbmcpKmJ1ZikgJiAoLXBhZ2VzaXplKSk7Cgl9CgkKCXN0YXJ0ID0gKmJ1ZjsK
-CWVuZCA9ICpidWYgKyAoTUFYX0JVRl9TSVpFICogTUFYX0JVRl9OVU0pIC0gTUFYX0JVRl9TSVpF
-OwoKCXdoaWxlKDEpIHsKCQkqKCh1bnNpZ25lZCBjaGFyICoqKXN0YXJ0KSA9IGVuZDsKCQkqKCh1
-bnNpZ25lZCBjaGFyICoqKShzdGFydCArIEFDQ0VTU19PRkZTRVQpKSA9IChlbmQgKyBBQ0NFU1Nf
-T0ZGU0VUKTsKCQlzdGFydCA9IHN0YXJ0ICsgTUFYX0JVRl9TSVpFOwoJCWlmKHN0YXJ0ID09IGVu
-ZCkKCQkJYnJlYWs7CgkJKigodW5zaWduZWQgY2hhciAqKillbmQpID0gc3RhcnQ7CgkJKigodW5z
-aWduZWQgY2hhciAqKikoZW5kICsgQUNDRVNTX09GRlNFVCkpID0gc3RhcnQgKyBBQ0NFU1NfT0ZG
-U0VUOwoJCWVuZCA9IGVuZCAtIE1BWF9CVUZfU0laRTsKCX0KCn0KCnVuc2lnbmVkIGxvbmcgbG9v
-a2luZ3VwX21lbW1vcnkoY2hhciAqYWNjZXNzLCBpbnQgbnVtKQp7CglfX2FzbV9fKCJzdWIgJDEs
-ICVyc2kiKTsKCV9fYXNtX18oInhvciAlcmF4LCAlcmF4Iik7CglfX2FzbV9fKCIxOiIpOwoJX19h
-c21fXygibW92ICglcmRpKSwgJXI4Iik7CglfX2FzbV9fKCJhZGQgJXI4LCAlcmF4Iik7CglfX2Fz
-bV9fKCJtb3YgJXI4LCAlcmRpIik7CglfX2FzbV9fKCJzdWIgJDEsICVyc2kiKTsKCV9fYXNtX18o
-ImphZSAxYiIpOwp9CgpzdGF0aWMgdW5zaWduZWQgbG9uZyB0ZXN0X2xvb2t1cF90aW1lKGNoYXIg
-KmJ1ZikKewoJdW5zaWduZWQgbG9uZyBpLCBzdGFydCwgZW5kLCBiZXN0X3RpbWUgPSB+MDsKCglm
-b3IoaSA9IDA7IGkgPCByZXBlYXRfdGltZXM7IGkrKykgewoJCUhQX1RJTUlOR19OT1coc3RhcnQp
-OwoJCWxvb2tpbmd1cF9tZW1tb3J5KGJ1ZiwgTUFYX0JVRl9OVU0pOwoJCUhQX1RJTUlOR19OT1co
-ZW5kKTsKCQlpZihiZXN0X3RpbWUgPiAoZW5kIC0gc3RhcnQpKQoJCQliZXN0X3RpbWUgPSAoZW5k
-IC0gc3RhcnQpOwoJfQoKCXJldHVybiBiZXN0X3RpbWU7Cgp9CnZvaWQgbWFpbiAodm9pZCkKewoJ
-Y2hhciAqYnVmMSA9IE5VTEw7CgljaGFyICpidWYyID0gTlVMTDsKCXVuc2lnbmVkIGxvbmcgYWxp
-Z25lZF90aW1lLCB1bmFsaWduZWRfdGltZTsKCQoKCWluaXRfYnVmKCZidWYxKTsKCWluaXRfYnVm
-KCZidWYyKTsKCQoJYWxpZ25lZF90aW1lID0gdGVzdF9sb29rdXBfdGltZShidWYxKTsKCXVuYWxp
-Z25lZF90aW1lID0gdGVzdF9sb29rdXBfdGltZShidWYyICsgQUNDRVNTX09GRlNFVCk7CgoJcHJp
-bnRmKCJsb29raW5nLXVwIGFsaWduZWQgdGltZSAlbGQsIGxvb2tpbmctdXAgdW5hbGlnbmVkIHRp
-bWUgJWxkXG4iLCBhbGlnbmVkX3RpbWUsIHVuYWxpZ25lZF90aW1lKTsKfQoKCgoK
---047d7b5d8fa3ac907e04cfde8fce
-Content-Type: application/octet-stream; name=cpu-info
-Content-Disposition: attachment; filename=cpu-info
-Content-Transfer-Encoding: base64
-X-Attachment-Id: file2
-
-cHJvY2Vzc29yCTogMAp2ZW5kb3JfaWQJOiBHZW51aW5lSW50ZWwKY3B1IGZhbWlseQk6IDYKbW9k
-ZWwJCTogNDQKbW9kZWwgbmFtZQk6IEludGVsKFIpIFhlb24oUikgQ1BVICAgICAgICAgICBFNTYy
-MCAgQCAyLjQwR0h6CnN0ZXBwaW5nCTogMgptaWNyb2NvZGUJOiAweDEwCmNwdSBNSHoJCTogMjQw
-MC4wMDUKY2FjaGUgc2l6ZQk6IDEyMjg4IEtCCnBoeXNpY2FsIGlkCTogMApzaWJsaW5ncwk6IDgK
-Y29yZSBpZAkJOiAwCmNwdSBjb3Jlcwk6IDQKYXBpY2lkCQk6IDAKaW5pdGlhbCBhcGljaWQJOiAw
-CmZwdQkJOiB5ZXMKZnB1X2V4Y2VwdGlvbgk6IHllcwpjcHVpZCBsZXZlbAk6IDExCndwCQk6IHll
-cwpmbGFncwkJOiBmcHUgdm1lIGRlIHBzZSB0c2MgbXNyIHBhZSBtY2UgY3g4IGFwaWMgc2VwIG10
-cnIgcGdlIG1jYSBjbW92IHBhdCBwc2UzNiBjbGZsdXNoIGR0cyBhY3BpIG1teCBmeHNyIHNzZSBz
-c2UyIHNzIGh0IHRtIHBiZSBzeXNjYWxsIG54IHBkcGUxZ2IgcmR0c2NwIGxtIGNvbnN0YW50X3Rz
-YyBhcmNoX3BlcmZtb24gcGVicyBidHMgcmVwX2dvb2Qgbm9wbCB4dG9wb2xvZ3kgbm9uc3RvcF90
-c2MgYXBlcmZtcGVyZiBwbmkgcGNsbXVscWRxIGR0ZXM2NCBtb25pdG9yIGRzX2NwbCB2bXggc214
-IGVzdCB0bTIgc3NzZTMgY3gxNiB4dHByIHBkY20gcGNpZCBkY2Egc3NlNF8xIHNzZTRfMiBwb3Bj
-bnQgYWVzIGxhaGZfbG0gYXJhdCBlcGIgZHRoZXJtIHRwcl9zaGFkb3cgdm5taSBmbGV4cHJpb3Jp
-dHkgZXB0IHZwaWQKYm9nb21pcHMJOiA0ODAwLjAxCmNsZmx1c2ggc2l6ZQk6IDY0CmNhY2hlX2Fs
-aWdubWVudAk6IDY0CmFkZHJlc3Mgc2l6ZXMJOiA0MCBiaXRzIHBoeXNpY2FsLCA0OCBiaXRzIHZp
-cnR1YWwKcG93ZXIgbWFuYWdlbWVudDoKCnByb2Nlc3Nvcgk6IDEKdmVuZG9yX2lkCTogR2VudWlu
-ZUludGVsCmNwdSBmYW1pbHkJOiA2Cm1vZGVsCQk6IDQ0Cm1vZGVsIG5hbWUJOiBJbnRlbChSKSBY
-ZW9uKFIpIENQVSAgICAgICAgICAgRTU2MjAgIEAgMi40MEdIegpzdGVwcGluZwk6IDIKbWljcm9j
-b2RlCTogMHgxMApjcHUgTUh6CQk6IDI0MDAuMDA1CmNhY2hlIHNpemUJOiAxMjI4OCBLQgpwaHlz
-aWNhbCBpZAk6IDAKc2libGluZ3MJOiA4CmNvcmUgaWQJCTogMQpjcHUgY29yZXMJOiA0CmFwaWNp
-ZAkJOiAyCmluaXRpYWwgYXBpY2lkCTogMgpmcHUJCTogeWVzCmZwdV9leGNlcHRpb24JOiB5ZXMK
-Y3B1aWQgbGV2ZWwJOiAxMQp3cAkJOiB5ZXMKZmxhZ3MJCTogZnB1IHZtZSBkZSBwc2UgdHNjIG1z
-ciBwYWUgbWNlIGN4OCBhcGljIHNlcCBtdHJyIHBnZSBtY2EgY21vdiBwYXQgcHNlMzYgY2xmbHVz
-aCBkdHMgYWNwaSBtbXggZnhzciBzc2Ugc3NlMiBzcyBodCB0bSBwYmUgc3lzY2FsbCBueCBwZHBl
-MWdiIHJkdHNjcCBsbSBjb25zdGFudF90c2MgYXJjaF9wZXJmbW9uIHBlYnMgYnRzIHJlcF9nb29k
-IG5vcGwgeHRvcG9sb2d5IG5vbnN0b3BfdHNjIGFwZXJmbXBlcmYgcG5pIHBjbG11bHFkcSBkdGVz
-NjQgbW9uaXRvciBkc19jcGwgdm14IHNteCBlc3QgdG0yIHNzc2UzIGN4MTYgeHRwciBwZGNtIHBj
-aWQgZGNhIHNzZTRfMSBzc2U0XzIgcG9wY250IGFlcyBsYWhmX2xtIGFyYXQgZXBiIGR0aGVybSB0
-cHJfc2hhZG93IHZubWkgZmxleHByaW9yaXR5IGVwdCB2cGlkCmJvZ29taXBzCTogNDgwMC4wMQpj
-bGZsdXNoIHNpemUJOiA2NApjYWNoZV9hbGlnbm1lbnQJOiA2NAphZGRyZXNzIHNpemVzCTogNDAg
-Yml0cyBwaHlzaWNhbCwgNDggYml0cyB2aXJ0dWFsCnBvd2VyIG1hbmFnZW1lbnQ6Cgpwcm9jZXNz
-b3IJOiAyCnZlbmRvcl9pZAk6IEdlbnVpbmVJbnRlbApjcHUgZmFtaWx5CTogNgptb2RlbAkJOiA0
-NAptb2RlbCBuYW1lCTogSW50ZWwoUikgWGVvbihSKSBDUFUgICAgICAgICAgIEU1NjIwICBAIDIu
-NDBHSHoKc3RlcHBpbmcJOiAyCm1pY3JvY29kZQk6IDB4MTAKY3B1IE1IegkJOiAyNDAwLjAwNQpj
-YWNoZSBzaXplCTogMTIyODggS0IKcGh5c2ljYWwgaWQJOiAwCnNpYmxpbmdzCTogOApjb3JlIGlk
-CQk6IDkKY3B1IGNvcmVzCTogNAphcGljaWQJCTogMTgKaW5pdGlhbCBhcGljaWQJOiAxOApmcHUJ
-CTogeWVzCmZwdV9leGNlcHRpb24JOiB5ZXMKY3B1aWQgbGV2ZWwJOiAxMQp3cAkJOiB5ZXMKZmxh
-Z3MJCTogZnB1IHZtZSBkZSBwc2UgdHNjIG1zciBwYWUgbWNlIGN4OCBhcGljIHNlcCBtdHJyIHBn
-ZSBtY2EgY21vdiBwYXQgcHNlMzYgY2xmbHVzaCBkdHMgYWNwaSBtbXggZnhzciBzc2Ugc3NlMiBz
-cyBodCB0bSBwYmUgc3lzY2FsbCBueCBwZHBlMWdiIHJkdHNjcCBsbSBjb25zdGFudF90c2MgYXJj
-aF9wZXJmbW9uIHBlYnMgYnRzIHJlcF9nb29kIG5vcGwgeHRvcG9sb2d5IG5vbnN0b3BfdHNjIGFw
-ZXJmbXBlcmYgcG5pIHBjbG11bHFkcSBkdGVzNjQgbW9uaXRvciBkc19jcGwgdm14IHNteCBlc3Qg
-dG0yIHNzc2UzIGN4MTYgeHRwciBwZGNtIHBjaWQgZGNhIHNzZTRfMSBzc2U0XzIgcG9wY250IGFl
-cyBsYWhmX2xtIGFyYXQgZXBiIGR0aGVybSB0cHJfc2hhZG93IHZubWkgZmxleHByaW9yaXR5IGVw
-dCB2cGlkCmJvZ29taXBzCTogNDgwMC4wMQpjbGZsdXNoIHNpemUJOiA2NApjYWNoZV9hbGlnbm1l
-bnQJOiA2NAphZGRyZXNzIHNpemVzCTogNDAgYml0cyBwaHlzaWNhbCwgNDggYml0cyB2aXJ0dWFs
-CnBvd2VyIG1hbmFnZW1lbnQ6Cgpwcm9jZXNzb3IJOiAzCnZlbmRvcl9pZAk6IEdlbnVpbmVJbnRl
-bApjcHUgZmFtaWx5CTogNgptb2RlbAkJOiA0NAptb2RlbCBuYW1lCTogSW50ZWwoUikgWGVvbihS
-KSBDUFUgICAgICAgICAgIEU1NjIwICBAIDIuNDBHSHoKc3RlcHBpbmcJOiAyCm1pY3JvY29kZQk6
-IDB4MTAKY3B1IE1IegkJOiAyNDAwLjAwNQpjYWNoZSBzaXplCTogMTIyODggS0IKcGh5c2ljYWwg
-aWQJOiAwCnNpYmxpbmdzCTogOApjb3JlIGlkCQk6IDEwCmNwdSBjb3Jlcwk6IDQKYXBpY2lkCQk6
-IDIwCmluaXRpYWwgYXBpY2lkCTogMjAKZnB1CQk6IHllcwpmcHVfZXhjZXB0aW9uCTogeWVzCmNw
-dWlkIGxldmVsCTogMTEKd3AJCTogeWVzCmZsYWdzCQk6IGZwdSB2bWUgZGUgcHNlIHRzYyBtc3Ig
-cGFlIG1jZSBjeDggYXBpYyBzZXAgbXRyciBwZ2UgbWNhIGNtb3YgcGF0IHBzZTM2IGNsZmx1c2gg
-ZHRzIGFjcGkgbW14IGZ4c3Igc3NlIHNzZTIgc3MgaHQgdG0gcGJlIHN5c2NhbGwgbnggcGRwZTFn
-YiByZHRzY3AgbG0gY29uc3RhbnRfdHNjIGFyY2hfcGVyZm1vbiBwZWJzIGJ0cyByZXBfZ29vZCBu
-b3BsIHh0b3BvbG9neSBub25zdG9wX3RzYyBhcGVyZm1wZXJmIHBuaSBwY2xtdWxxZHEgZHRlczY0
-IG1vbml0b3IgZHNfY3BsIHZteCBzbXggZXN0IHRtMiBzc3NlMyBjeDE2IHh0cHIgcGRjbSBwY2lk
-IGRjYSBzc2U0XzEgc3NlNF8yIHBvcGNudCBhZXMgbGFoZl9sbSBhcmF0IGVwYiBkdGhlcm0gdHBy
-X3NoYWRvdyB2bm1pIGZsZXhwcmlvcml0eSBlcHQgdnBpZApib2dvbWlwcwk6IDQ4MDAuMDEKY2xm
-bHVzaCBzaXplCTogNjQKY2FjaGVfYWxpZ25tZW50CTogNjQKYWRkcmVzcyBzaXplcwk6IDQwIGJp
-dHMgcGh5c2ljYWwsIDQ4IGJpdHMgdmlydHVhbApwb3dlciBtYW5hZ2VtZW50OgoKcHJvY2Vzc29y
-CTogNAp2ZW5kb3JfaWQJOiBHZW51aW5lSW50ZWwKY3B1IGZhbWlseQk6IDYKbW9kZWwJCTogNDQK
-bW9kZWwgbmFtZQk6IEludGVsKFIpIFhlb24oUikgQ1BVICAgICAgICAgICBFNTYyMCAgQCAyLjQw
-R0h6CnN0ZXBwaW5nCTogMgptaWNyb2NvZGUJOiAweDEwCmNwdSBNSHoJCTogMjQwMC4wMDUKY2Fj
-aGUgc2l6ZQk6IDEyMjg4IEtCCnBoeXNpY2FsIGlkCTogMApzaWJsaW5ncwk6IDgKY29yZSBpZAkJ
-OiAwCmNwdSBjb3Jlcwk6IDQKYXBpY2lkCQk6IDEKaW5pdGlhbCBhcGljaWQJOiAxCmZwdQkJOiB5
-ZXMKZnB1X2V4Y2VwdGlvbgk6IHllcwpjcHVpZCBsZXZlbAk6IDExCndwCQk6IHllcwpmbGFncwkJ
-OiBmcHUgdm1lIGRlIHBzZSB0c2MgbXNyIHBhZSBtY2UgY3g4IGFwaWMgc2VwIG10cnIgcGdlIG1j
-YSBjbW92IHBhdCBwc2UzNiBjbGZsdXNoIGR0cyBhY3BpIG1teCBmeHNyIHNzZSBzc2UyIHNzIGh0
-IHRtIHBiZSBzeXNjYWxsIG54IHBkcGUxZ2IgcmR0c2NwIGxtIGNvbnN0YW50X3RzYyBhcmNoX3Bl
-cmZtb24gcGVicyBidHMgcmVwX2dvb2Qgbm9wbCB4dG9wb2xvZ3kgbm9uc3RvcF90c2MgYXBlcmZt
-cGVyZiBwbmkgcGNsbXVscWRxIGR0ZXM2NCBtb25pdG9yIGRzX2NwbCB2bXggc214IGVzdCB0bTIg
-c3NzZTMgY3gxNiB4dHByIHBkY20gcGNpZCBkY2Egc3NlNF8xIHNzZTRfMiBwb3BjbnQgYWVzIGxh
-aGZfbG0gYXJhdCBlcGIgZHRoZXJtIHRwcl9zaGFkb3cgdm5taSBmbGV4cHJpb3JpdHkgZXB0IHZw
-aWQKYm9nb21pcHMJOiA0ODAwLjAxCmNsZmx1c2ggc2l6ZQk6IDY0CmNhY2hlX2FsaWdubWVudAk6
-IDY0CmFkZHJlc3Mgc2l6ZXMJOiA0MCBiaXRzIHBoeXNpY2FsLCA0OCBiaXRzIHZpcnR1YWwKcG93
-ZXIgbWFuYWdlbWVudDoKCnByb2Nlc3Nvcgk6IDUKdmVuZG9yX2lkCTogR2VudWluZUludGVsCmNw
-dSBmYW1pbHkJOiA2Cm1vZGVsCQk6IDQ0Cm1vZGVsIG5hbWUJOiBJbnRlbChSKSBYZW9uKFIpIENQ
-VSAgICAgICAgICAgRTU2MjAgIEAgMi40MEdIegpzdGVwcGluZwk6IDIKbWljcm9jb2RlCTogMHgx
-MApjcHUgTUh6CQk6IDI0MDAuMDA1CmNhY2hlIHNpemUJOiAxMjI4OCBLQgpwaHlzaWNhbCBpZAk6
-IDAKc2libGluZ3MJOiA4CmNvcmUgaWQJCTogMQpjcHUgY29yZXMJOiA0CmFwaWNpZAkJOiAzCmlu
-aXRpYWwgYXBpY2lkCTogMwpmcHUJCTogeWVzCmZwdV9leGNlcHRpb24JOiB5ZXMKY3B1aWQgbGV2
-ZWwJOiAxMQp3cAkJOiB5ZXMKZmxhZ3MJCTogZnB1IHZtZSBkZSBwc2UgdHNjIG1zciBwYWUgbWNl
-IGN4OCBhcGljIHNlcCBtdHJyIHBnZSBtY2EgY21vdiBwYXQgcHNlMzYgY2xmbHVzaCBkdHMgYWNw
-aSBtbXggZnhzciBzc2Ugc3NlMiBzcyBodCB0bSBwYmUgc3lzY2FsbCBueCBwZHBlMWdiIHJkdHNj
-cCBsbSBjb25zdGFudF90c2MgYXJjaF9wZXJmbW9uIHBlYnMgYnRzIHJlcF9nb29kIG5vcGwgeHRv
-cG9sb2d5IG5vbnN0b3BfdHNjIGFwZXJmbXBlcmYgcG5pIHBjbG11bHFkcSBkdGVzNjQgbW9uaXRv
-ciBkc19jcGwgdm14IHNteCBlc3QgdG0yIHNzc2UzIGN4MTYgeHRwciBwZGNtIHBjaWQgZGNhIHNz
-ZTRfMSBzc2U0XzIgcG9wY250IGFlcyBsYWhmX2xtIGFyYXQgZXBiIGR0aGVybSB0cHJfc2hhZG93
-IHZubWkgZmxleHByaW9yaXR5IGVwdCB2cGlkCmJvZ29taXBzCTogNDgwMC4wMQpjbGZsdXNoIHNp
-emUJOiA2NApjYWNoZV9hbGlnbm1lbnQJOiA2NAphZGRyZXNzIHNpemVzCTogNDAgYml0cyBwaHlz
-aWNhbCwgNDggYml0cyB2aXJ0dWFsCnBvd2VyIG1hbmFnZW1lbnQ6Cgpwcm9jZXNzb3IJOiA2CnZl
-bmRvcl9pZAk6IEdlbnVpbmVJbnRlbApjcHUgZmFtaWx5CTogNgptb2RlbAkJOiA0NAptb2RlbCBu
-YW1lCTogSW50ZWwoUikgWGVvbihSKSBDUFUgICAgICAgICAgIEU1NjIwICBAIDIuNDBHSHoKc3Rl
-cHBpbmcJOiAyCm1pY3JvY29kZQk6IDB4MTAKY3B1IE1IegkJOiAyNDAwLjAwNQpjYWNoZSBzaXpl
-CTogMTIyODggS0IKcGh5c2ljYWwgaWQJOiAwCnNpYmxpbmdzCTogOApjb3JlIGlkCQk6IDkKY3B1
-IGNvcmVzCTogNAphcGljaWQJCTogMTkKaW5pdGlhbCBhcGljaWQJOiAxOQpmcHUJCTogeWVzCmZw
-dV9leGNlcHRpb24JOiB5ZXMKY3B1aWQgbGV2ZWwJOiAxMQp3cAkJOiB5ZXMKZmxhZ3MJCTogZnB1
-IHZtZSBkZSBwc2UgdHNjIG1zciBwYWUgbWNlIGN4OCBhcGljIHNlcCBtdHJyIHBnZSBtY2EgY21v
-diBwYXQgcHNlMzYgY2xmbHVzaCBkdHMgYWNwaSBtbXggZnhzciBzc2Ugc3NlMiBzcyBodCB0bSBw
-YmUgc3lzY2FsbCBueCBwZHBlMWdiIHJkdHNjcCBsbSBjb25zdGFudF90c2MgYXJjaF9wZXJmbW9u
-IHBlYnMgYnRzIHJlcF9nb29kIG5vcGwgeHRvcG9sb2d5IG5vbnN0b3BfdHNjIGFwZXJmbXBlcmYg
-cG5pIHBjbG11bHFkcSBkdGVzNjQgbW9uaXRvciBkc19jcGwgdm14IHNteCBlc3QgdG0yIHNzc2Uz
-IGN4MTYgeHRwciBwZGNtIHBjaWQgZGNhIHNzZTRfMSBzc2U0XzIgcG9wY250IGFlcyBsYWhmX2xt
-IGFyYXQgZXBiIGR0aGVybSB0cHJfc2hhZG93IHZubWkgZmxleHByaW9yaXR5IGVwdCB2cGlkCmJv
-Z29taXBzCTogNDgwMC4wMQpjbGZsdXNoIHNpemUJOiA2NApjYWNoZV9hbGlnbm1lbnQJOiA2NAph
-ZGRyZXNzIHNpemVzCTogNDAgYml0cyBwaHlzaWNhbCwgNDggYml0cyB2aXJ0dWFsCnBvd2VyIG1h
-bmFnZW1lbnQ6Cgpwcm9jZXNzb3IJOiA3CnZlbmRvcl9pZAk6IEdlbnVpbmVJbnRlbApjcHUgZmFt
-aWx5CTogNgptb2RlbAkJOiA0NAptb2RlbCBuYW1lCTogSW50ZWwoUikgWGVvbihSKSBDUFUgICAg
-ICAgICAgIEU1NjIwICBAIDIuNDBHSHoKc3RlcHBpbmcJOiAyCm1pY3JvY29kZQk6IDB4MTAKY3B1
-IE1IegkJOiAyNDAwLjAwNQpjYWNoZSBzaXplCTogMTIyODggS0IKcGh5c2ljYWwgaWQJOiAwCnNp
-YmxpbmdzCTogOApjb3JlIGlkCQk6IDEwCmNwdSBjb3Jlcwk6IDQKYXBpY2lkCQk6IDIxCmluaXRp
-YWwgYXBpY2lkCTogMjEKZnB1CQk6IHllcwpmcHVfZXhjZXB0aW9uCTogeWVzCmNwdWlkIGxldmVs
-CTogMTEKd3AJCTogeWVzCmZsYWdzCQk6IGZwdSB2bWUgZGUgcHNlIHRzYyBtc3IgcGFlIG1jZSBj
-eDggYXBpYyBzZXAgbXRyciBwZ2UgbWNhIGNtb3YgcGF0IHBzZTM2IGNsZmx1c2ggZHRzIGFjcGkg
-bW14IGZ4c3Igc3NlIHNzZTIgc3MgaHQgdG0gcGJlIHN5c2NhbGwgbnggcGRwZTFnYiByZHRzY3Ag
-bG0gY29uc3RhbnRfdHNjIGFyY2hfcGVyZm1vbiBwZWJzIGJ0cyByZXBfZ29vZCBub3BsIHh0b3Bv
-bG9neSBub25zdG9wX3RzYyBhcGVyZm1wZXJmIHBuaSBwY2xtdWxxZHEgZHRlczY0IG1vbml0b3Ig
-ZHNfY3BsIHZteCBzbXggZXN0IHRtMiBzc3NlMyBjeDE2IHh0cHIgcGRjbSBwY2lkIGRjYSBzc2U0
-XzEgc3NlNF8yIHBvcGNudCBhZXMgbGFoZl9sbSBhcmF0IGVwYiBkdGhlcm0gdHByX3NoYWRvdyB2
-bm1pIGZsZXhwcmlvcml0eSBlcHQgdnBpZApib2dvbWlwcwk6IDQ4MDAuMDEKY2xmbHVzaCBzaXpl
-CTogNjQKY2FjaGVfYWxpZ25tZW50CTogNjQKYWRkcmVzcyBzaXplcwk6IDQwIGJpdHMgcGh5c2lj
-YWwsIDQ4IGJpdHMgdmlydHVhbApwb3dlciBtYW5hZ2VtZW50OgoK
---047d7b5d8fa3ac907e04cfde8fce--
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 9d0b88e..dc8ccb4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -43,6 +43,34 @@
+ #define EN_ETHTOOL_SHORT_MASK cpu_to_be16(0xffff)
+ #define EN_ETHTOOL_WORD_MASK  cpu_to_be32(0xffffffff)
+ 
++static int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
++{
++	int i;
++	int err = 0;
++
++	for (i = 0; i < priv->tx_ring_num; i++) {
++		priv->tx_cq[i].moder_cnt = priv->tx_frames;
++		priv->tx_cq[i].moder_time = priv->tx_usecs;
++		err = mlx4_en_set_cq_moder(priv, &priv->tx_cq[i]);
++		if (err)
++			return err;
++	}
++
++	if (priv->adaptive_rx_coal)
++		return 0;
++
++	for (i = 0; i < priv->rx_ring_num; i++) {
++		priv->rx_cq[i].moder_cnt = priv->rx_frames;
++		priv->rx_cq[i].moder_time = priv->rx_usecs;
++		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
++		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
++		if (err)
++			return err;
++	}
++
++	return err;
++}
++
+ static void
+ mlx4_en_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ {
+@@ -381,7 +409,6 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
+ 			      struct ethtool_coalesce *coal)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	int err, i;
+ 
+ 	priv->rx_frames = (coal->rx_max_coalesced_frames ==
+ 			   MLX4_EN_AUTO_CONF) ?
+@@ -397,14 +424,6 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
+ 	    coal->tx_max_coalesced_frames != priv->tx_frames) {
+ 		priv->tx_usecs = coal->tx_coalesce_usecs;
+ 		priv->tx_frames = coal->tx_max_coalesced_frames;
+-		for (i = 0; i < priv->tx_ring_num; i++) {
+-			priv->tx_cq[i].moder_cnt = priv->tx_frames;
+-			priv->tx_cq[i].moder_time = priv->tx_usecs;
+-			if (mlx4_en_set_cq_moder(priv, &priv->tx_cq[i])) {
+-				en_warn(priv, "Failed changing moderation "
+-					      "for TX cq %d\n", i);
+-			}
+-		}
+ 	}
+ 
+ 	/* Set adaptive coalescing params */
+@@ -414,18 +433,8 @@ static int mlx4_en_set_coalesce(struct net_device *dev,
+ 	priv->rx_usecs_high = coal->rx_coalesce_usecs_high;
+ 	priv->sample_interval = coal->rate_sample_interval;
+ 	priv->adaptive_rx_coal = coal->use_adaptive_rx_coalesce;
+-	if (priv->adaptive_rx_coal)
+-		return 0;
+ 
+-	for (i = 0; i < priv->rx_ring_num; i++) {
+-		priv->rx_cq[i].moder_cnt = priv->rx_frames;
+-		priv->rx_cq[i].moder_time = priv->rx_usecs;
+-		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
+-		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
+-		if (err)
+-			return err;
+-	}
+-	return 0;
++	return mlx4_en_moderation_update(priv);
+ }
+ 
+ static int mlx4_en_set_pauseparam(struct net_device *dev,
+@@ -466,7 +475,6 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
+ 	u32 rx_size, tx_size;
+ 	int port_up = 0;
+ 	int err = 0;
+-	int i;
+ 
+ 	if (param->rx_jumbo_pending || param->rx_mini_pending)
+ 		return -EINVAL;
+@@ -505,14 +513,7 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
+ 			en_err(priv, "Failed starting port\n");
+ 	}
+ 
+-	for (i = 0; i < priv->rx_ring_num; i++) {
+-		priv->rx_cq[i].moder_cnt = priv->rx_frames;
+-		priv->rx_cq[i].moder_time = priv->rx_usecs;
+-		priv->last_moder_time[i] = MLX4_EN_AUTO_CONF;
+-		err = mlx4_en_set_cq_moder(priv, &priv->rx_cq[i]);
+-		if (err)
+-			goto out;
+-	}
++	err = mlx4_en_moderation_update(priv);
+ 
+ out:
+ 	mutex_unlock(&mdev->state_lock);
+-- 
+1.7.8.2
