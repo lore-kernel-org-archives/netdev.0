@@ -1,36 +1,54 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] p54: potential signedness issue in p54_parse_rssical()
-Date: Sun, 2 Dec 2012 13:36:09 +0300
-Message-ID: <20121202103609.GA16078@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Christian Lamparter <chunkeey@googlemail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH net-next] ipv6: Make 'addrconf_rs_timer' send Router Solicitations (and re-arm itself) if Router Advertisements are accepted
+Date: Sun,  2 Dec 2012 13:44:53 +0200
+Message-ID: <1354448693-32155-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Thomas Graf <tgraf@suug.ch>, Tore Anderson <tore@fud.no>,
+	Ami Koren <amikoren@yahoo.com>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:39994 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753292Ab2LBLp1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 06:45:27 -0500
+Received: by mail-ee0-f46.google.com with SMTP id e53so1083415eek.19
+        for <netdev@vger.kernel.org>; Sun, 02 Dec 2012 03:45:26 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"entries" is unsigned here, so it is never less than zero.  In theory,
-len could be less than offset so I have added a check for that.
+As of 026359b [ipv6: Send ICMPv6 RSes only when RAs are accepted],
+Router Solicitations are sent whenever kernel accepts Router
+Advertisements on the interface.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+However, this logic isn't reflected in 'addrconf_rs_timer'.
 
-diff --git a/drivers/net/wireless/p54/eeprom.c b/drivers/net/wireless/p54/eeprom.c
-index 1ef1bfe..d43e374 100644
---- a/drivers/net/wireless/p54/eeprom.c
-+++ b/drivers/net/wireless/p54/eeprom.c
-@@ -541,8 +541,9 @@ static int p54_parse_rssical(struct ieee80211_hw *dev,
- 		entries = (len - offset) /
- 			sizeof(struct pda_rssi_cal_ext_entry);
+The timer fails to issue subsequent RS messages (and fails to re-arm
+itself) if forwarding is enabled and the special hybrid mode is
+enabled (accept_ra=2).
+
+Fix the condition determining whether next RS should be sent, by using
+'ipv6_accept_ra()'.
+
+Reported-by: Ami Koren <amikoren@yahoo.com>
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+---
+ net/ipv6/addrconf.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index ca1ed8a..3b990a2 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2843,7 +2843,7 @@ static void addrconf_rs_timer(unsigned long data)
+ 	if (idev->dead || !(idev->if_flags & IF_READY))
+ 		goto out;
  
--		if ((len - offset) % sizeof(struct pda_rssi_cal_ext_entry) ||
--		    entries <= 0) {
-+		if (len < offset ||
-+		    (len - offset) % sizeof(struct pda_rssi_cal_ext_entry) ||
-+		    entries == 0) {
- 			wiphy_err(dev->wiphy, "invalid rssi database.\n");
- 			goto err_data;
- 		}
+-	if (idev->cnf.forwarding)
++	if (!ipv6_accept_ra(idev))
+ 		goto out;
+ 
+ 	/* Announcement received after solicitation was sent */
+-- 
+1.7.9
