@@ -1,128 +1,55 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 04/13] bnx2x: Filter packets on FCoE rings
-Date: Sun, 2 Dec 2012 16:05:48 +0200
-Message-ID: <1354457157-4730-5-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 13/13] bnx2x: Correct PFC disablement
+Date: Sun, 2 Dec 2012 16:05:57 +0200
+Message-ID: <1354457157-4730-14-git-send-email-yuvalmin@broadcom.com>
 References: <1354457157-4730-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, ariele@broadcom.com,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Barak Witkowski" <barak@broadcom.com>,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2488 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1627 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753156Ab2LBOFJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2012 09:05:09 -0500
+	id S1752399Ab2LBOF3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Dec 2012 09:05:29 -0500
 In-Reply-To: <1354457157-4730-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
+From: Barak Witkowski <barak@broadcom.com>
 
-Whenever bnx2x fails to transmit a packet due to a full Tx ring, if the
-ring size is zero (indicating an FCoE ring) driver filters the packet out
-and gracefully continues.
-Driver also gathers statistics on such filtered packets.
+bnx2x driver could only have enabled pfc via usage of dcbnl; now, it can
+also correctly disable it.
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Barak Witkowski <barak@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |   11 ++++++++---
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |    6 +++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c  |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h  |    3 +++
- 4 files changed, 17 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index e95174d..5e07aa5 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3127,11 +3127,16 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			BDS_PER_TX_PKT +
- 			NEXT_CNT_PER_TX_PKT(MAX_BDS_PER_TX_PKT))) {
- 		/* Handle special storage cases separately */
--		if (txdata->tx_ring_size != 0) {
--			BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
-+		if (txdata->tx_ring_size == 0) {
-+			struct bnx2x_eth_q_stats *q_stats =
-+				bnx2x_fp_qstats(bp, txdata->parent_fp);
-+			q_stats->driver_filtered_tx_pkt++;
-+			dev_kfree_skb(skb);
-+			return NETDEV_TX_OK;
-+		}
- 			bnx2x_fp_qstats(bp, txdata->parent_fp)->driver_xoff++;
- 			netif_tx_stop_queue(txq);
--		}
-+		BNX2X_ERR("BUG! Tx ring full when queue awake!\n");
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+index c8c0340..10bc093 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+@@ -2052,10 +2052,13 @@ static void bnx2x_dcbnl_set_pfc_cfg(struct net_device *netdev, int prio,
+ 	if (!bnx2x_dcbnl_set_valid(bp) || prio >= MAX_PFC_PRIORITIES)
+ 		return;
  
- 		return NETDEV_TX_BUSY;
- 	}
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index e05f981..c7270c0 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -62,7 +62,9 @@ static const struct {
- 						8, "[%s]: tpa_aggregations" },
- 	{ Q_STATS_OFFSET32(total_tpa_aggregated_frames_hi),
- 					8, "[%s]: tpa_aggregated_frames"},
--	{ Q_STATS_OFFSET32(total_tpa_bytes_hi),	8, "[%s]: tpa_bytes"}
-+	{ Q_STATS_OFFSET32(total_tpa_bytes_hi),	8, "[%s]: tpa_bytes"},
-+	{ Q_STATS_OFFSET32(driver_filtered_tx_pkt),
-+					4, "[%s]: driver_filtered_tx_pkt" }
- };
+-	bp->dcbx_config_params.admin_pfc_bitmap |= ((setting ? 1 : 0) << prio);
  
- #define BNX2X_NUM_Q_STATS ARRAY_SIZE(bnx2x_q_stats_arr)
-@@ -177,6 +179,8 @@ static const struct {
- 			4, STATS_FLAGS_FUNC, "recoverable_errors" },
- 	{ STATS_OFFSET32(unrecoverable_error),
- 			4, STATS_FLAGS_FUNC, "unrecoverable_errors" },
-+	{ STATS_OFFSET32(driver_filtered_tx_pkt),
-+			4, STATS_FLAGS_FUNC, "driver_filtered_tx_pkt" },
- 	{ STATS_OFFSET32(eee_tx_lpi),
- 			4, STATS_FLAGS_PORT, "Tx LPI entry count"}
- };
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-index 348ed02..89ec066 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.c
-@@ -1149,6 +1149,7 @@ static void bnx2x_drv_stats_update(struct bnx2x *bp)
- 		UPDATE_ESTAT_QSTAT(rx_err_discard_pkt);
- 		UPDATE_ESTAT_QSTAT(rx_skb_alloc_failed);
- 		UPDATE_ESTAT_QSTAT(hw_csum_err);
-+		UPDATE_ESTAT_QSTAT(driver_filtered_tx_pkt);
- 	}
+-	if (setting)
++	if (setting) {
++		bp->dcbx_config_params.admin_pfc_bitmap |= (1 << prio);
+ 		bp->dcbx_config_params.admin_pfc_tx_enable = 1;
++	} else {
++		bp->dcbx_config_params.admin_pfc_bitmap &= ~(1 << prio);
++	}
  }
  
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-index 24b8e50..b4d7b26 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_stats.h
-@@ -203,6 +203,7 @@ struct bnx2x_eth_stats {
- 	/* Recovery */
- 	u32 recoverable_error;
- 	u32 unrecoverable_error;
-+	u32 driver_filtered_tx_pkt;
- 	/* src: Clear-on-Read register; Will not survive PMF Migration */
- 	u32 eee_tx_lpi;
- };
-@@ -264,6 +265,7 @@ struct bnx2x_eth_q_stats {
- 	u32 total_tpa_aggregated_frames_lo;
- 	u32 total_tpa_bytes_hi;
- 	u32 total_tpa_bytes_lo;
-+	u32 driver_filtered_tx_pkt;
- };
- 
- struct bnx2x_eth_stats_old {
-@@ -315,6 +317,7 @@ struct bnx2x_eth_q_stats_old {
- 	u32 rx_err_discard_pkt_old;
- 	u32 rx_skb_alloc_failed_old;
- 	u32 hw_csum_err_old;
-+	u32 driver_filtered_tx_pkt_old;
- };
- 
- struct bnx2x_net_stats_old {
+ static void bnx2x_dcbnl_get_pfc_cfg(struct net_device *netdev, int prio,
 -- 
 1.7.1
