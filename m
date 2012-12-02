@@ -1,236 +1,890 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: TCP and reordering
-Date: Sun, 02 Dec 2012 01:30:40 +0000
-Message-ID: <1354411840.21562.373.camel@shinybook.infradead.org>
-References: <20121127.210611.1127622873924794001.davem@davemloft.net>
-	 <1354089566.21562.20.camel@shinybook.infradead.org>
-	 <CAGK4HS8=NfcyvcNjC3h1wEjgQFCYoNeuWXj8n5Ruukeg+6j=SQ@mail.gmail.com>
-	 <1354093703.21562.23.camel@shinybook.infradead.org>
-	 <1354100552.14302.78.camel@edumazet-glaptop>
-	 <1354103355.21562.46.camel@shinybook.infradead.org>
-	 <1354105619.14302.89.camel@edumazet-glaptop>
-	 <1354106362.21562.51.camel@shinybook.infradead.org>
-	 <1354107140.14302.140.camel@edumazet-glaptop>
-	 <1354117635.21562.63.camel@shinybook.infradead.org>
-	 <20121128161930.GB19042@kvack.org>
-	 <1354120887.21562.87.camel@shinybook.infradead.org>
-	 <1354122996.14302.427.camel@edumazet-glaptop>
+From: Asias He <asias@redhat.com>
+Subject: [PATCH] vhost-blk: Add vhost-blk support v6
+Date: Sun,  2 Dec 2012 09:33:53 +0800
+Message-ID: <1354412033-32372-1-git-send-email-asias@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-PJsnx4owWuUPT1gV7Kii"
-Cc: Benjamin LaHaise <bcrl@kvack.org>,
-	Vijay Subramanian <subramanian.vijay@gmail.com>,
-	David Miller <davem@davemloft.net>, saku@ytti.fi,
-	rick.jones2@hp.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:45399 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113Ab2LBBax (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 20:30:53 -0500
-In-Reply-To: <1354122996.14302.427.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jens Axboe <axboe@kernel.dk>, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Christoph Hellwig <hch@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+vhost-blk is an in-kernel virito-blk device accelerator.
 
---=-PJsnx4owWuUPT1gV7Kii
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Due to lack of proper in-kernel AIO interface, this version converts
+guest's I/O request to bio and use submit_bio() to submit I/O directly.
+So this version any supports raw block device as guest's disk image,
+e.g. /dev/sda, /dev/ram0. We can add file based image support to
+vhost-blk once we have in-kernel AIO interface. There are some work in
+progress for in-kernel AIO interface from Dave Kleikamp and Zach Brown:
 
-On Wed, 2012-11-28 at 09:16 -0800, Eric Dumazet wrote:
-> On Wed, 2012-11-28 at 16:41 +0000, David Woodhouse wrote:
->=20
-> > Another fun issue with tunnelling protocols and BQL... packets tend to
-> > *grow* as they get encapsulated. So you might end up calling
-> > netdev_sent_queue() with a given size, then netdev_completed_queue()
-> > with a bigger packet later...
->=20
-> Its the driver responsibility to maintain the coherent 'bytes' value for
-> each transmitted/completed packet.
->=20
-> If a driver calls an external entity, it cannot possibly use BQL, unless
-> doing an approximation (bytes becomes a fixed value)
->=20
-> BQL was really something to control/limit queueing on ethernet links,
-> not for stacked devices, as stacked devices normally have no queue.
+   http://marc.info/?l=linux-fsdevel&m=133312234313122
 
-Oh, of *course*... this is why my kernel would panic if I attempted to
-add BQL to BR2684. The ATM low-level driver was pushing a header onto
-the skb, and I ended up calling netdev_completed_queue() with a larger
-'bytes' value than the one I'd called netdev_sent_queue() with. Which
-leads to a BUG(), which immediately results in a panic. A moderately
-suboptimal failure mode, when a nasty warning and disabling BQL on this
-interface might have been nicer.
+Performance evaluation:
+-----------------------------
+LKVM: Fio with libaio ioengine on 1 Fusion IO device
+IOPS(k)    Before    After    Improvement
+seq-read   107       121      +13.0%
+seq-write  130       179      +37.6%
+rnd-read   102       122      +19.6%
+rnd-write  125       159      +27.0%
 
-However, *perhaps* it isn't so hard to get a consistent 'bytes' value.
-This version appears to work... can we use something along these lines
-in the general case? What if skb_is_nonlinear()?
+QEMU: Fio with libaio ioengine on 1 Fusion IO device
+IOPS(k)    Before    After    Improvement
+seq-read   76        123      +61.8%
+seq-write  139       173      +24.4%
+rnd-read   73        120      +64.3%
+rnd-write  75        156      +108.0%
 
-This probably doesn't work for L2TP where it's going to be passed down
-the whole stack and get a new network header and everything. But for
-BR2684 is this at least a salvageable approach?
+QEMU: Fio with libaio ioengine on 1 Ramdisk device
+IOPS(k)    Before    After    Improvement
+seq-read   138       437      +216%
+seq-write  191       436      +128%
+rnd-read   137       426      +210%
+rnd-write  140       415      +196%
 
---- net/atm/br2684.c~	2012-12-01 16:35:49.000000000 +0000
-+++ net/atm/br2684.c	2012-12-02 01:18:35.216607088 +0000
-@@ -180,6 +180,11 @@ static struct notifier_block atm_dev_not
- 	.notifier_call =3D atm_dev_event,
- };
-=20
-+static unsigned int skb_acct_len(struct sk_buff *skb)
+QEMU: Fio with libaio ioengine on 8 Ramdisk device
+50% read + 50% write
+IOPS(k)    Before    After    Improvement
+randrw     64/64     189/189  +195%/+195%
+
+Userspace bits:
+-----------------------------
+1) LKVM
+The latest vhost-blk userspace bits for kvm tool can be found here:
+git@github.com:asias/linux-kvm.git blk.vhost-blk
+
+2) QEMU
+The latest vhost-blk userspace prototype for QEMU can be found here:
+git@github.com:asias/qemu.git blk.vhost-blk
+
+Changes in v6:
+- Use inline req_page_list to reduce kmalloc
+- Switch to single thread model, thanks mst!
+- Wait until requests fired before vhost_blk_flush to be finished
+
+Changes in v5:
+- Do not assume the buffer layout
+- Fix wakeup race
+
+Changes in v4:
+- Mark req->status as userspace pointer
+- Use __copy_to_user() instead of copy_to_user() in vhost_blk_set_status()
+- Add if (need_resched()) schedule() in blk thread
+- Kill vhost_blk_stop_vq() and move it into vhost_blk_stop()
+- Use vq_err() instead of pr_warn()
+- Fail un Unsupported request
+- Add flush in vhost_blk_set_features()
+
+Changes in v3:
+- Sending REQ_FLUSH bio instead of vfs_fsync, thanks Christoph!
+- Check file passed by user is a raw block device file
+
+Acked-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Asias He <asias@redhat.com>
+---
+ drivers/vhost/Kconfig     |   1 +
+ drivers/vhost/Kconfig.blk |  10 +
+ drivers/vhost/Makefile    |   2 +
+ drivers/vhost/blk.c       | 724 ++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/blk.h       |   8 +
+ 5 files changed, 745 insertions(+)
+ create mode 100644 drivers/vhost/Kconfig.blk
+ create mode 100644 drivers/vhost/blk.c
+ create mode 100644 drivers/vhost/blk.h
+
+diff --git a/drivers/vhost/Kconfig b/drivers/vhost/Kconfig
+index 202bba6..acd8038 100644
+--- a/drivers/vhost/Kconfig
++++ b/drivers/vhost/Kconfig
+@@ -11,4 +11,5 @@ config VHOST_NET
+ 
+ if STAGING
+ source "drivers/vhost/Kconfig.tcm"
++source "drivers/vhost/Kconfig.blk"
+ endif
+diff --git a/drivers/vhost/Kconfig.blk b/drivers/vhost/Kconfig.blk
+new file mode 100644
+index 0000000..ff8ab76
+--- /dev/null
++++ b/drivers/vhost/Kconfig.blk
+@@ -0,0 +1,10 @@
++config VHOST_BLK
++	tristate "Host kernel accelerator for virtio blk (EXPERIMENTAL)"
++	depends on BLOCK &&  EXPERIMENTAL && m
++	---help---
++	  This kernel module can be loaded in host kernel to accelerate
++	  guest block with virtio_blk. Not to be confused with virtio_blk
++	  module itself which needs to be loaded in guest kernel.
++
++	  To compile this driver as a module, choose M here: the module will
++	  be called vhost_blk.
+diff --git a/drivers/vhost/Makefile b/drivers/vhost/Makefile
+index a27b053..1a8a4a5 100644
+--- a/drivers/vhost/Makefile
++++ b/drivers/vhost/Makefile
+@@ -2,3 +2,5 @@ obj-$(CONFIG_VHOST_NET) += vhost_net.o
+ vhost_net-y := vhost.o net.o
+ 
+ obj-$(CONFIG_TCM_VHOST) += tcm_vhost.o
++obj-$(CONFIG_VHOST_BLK) += vhost_blk.o
++vhost_blk-y := blk.o
+diff --git a/drivers/vhost/blk.c b/drivers/vhost/blk.c
+new file mode 100644
+index 0000000..e4ca4b6
+--- /dev/null
++++ b/drivers/vhost/blk.c
+@@ -0,0 +1,724 @@
++/*
++ * Copyright (C) 2011 Taobao, Inc.
++ * Author: Liu Yuan <tailai.ly@taobao.com>
++ *
++ * Copyright (C) 2012 Red Hat, Inc.
++ * Author: Asias He <asias@redhat.com>
++ *
++ * This work is licensed under the terms of the GNU GPL, version 2.
++ *
++ * virtio-blk server in host kernel.
++ */
++
++#include <linux/miscdevice.h>
++#include <linux/module.h>
++#include <linux/vhost.h>
++#include <linux/virtio_blk.h>
++#include <linux/mutex.h>
++#include <linux/file.h>
++#include <linux/kthread.h>
++#include <linux/blkdev.h>
++#include <linux/llist.h>
++
++#include "vhost.c"
++#include "vhost.h"
++#include "blk.h"
++
++static DEFINE_IDA(vhost_blk_index_ida);
++
++enum {
++	VHOST_BLK_VQ_REQ = 0,
++	VHOST_BLK_VQ_MAX = 1,
++};
++
++struct req_page_list {
++	struct page **pages;
++	int pages_nr;
++};
++
++#define NR_INLINE 16
++
++struct vhost_blk_req {
++	struct req_page_list inline_pl[NR_INLINE];
++	struct page *inline_page[NR_INLINE];
++	struct bio *inline_bio[NR_INLINE];
++	struct req_page_list *pl;
++	int during_flush;
++	bool use_inline;
++
++	struct llist_node llnode;
++
++	struct vhost_blk *blk;
++
++	struct iovec *iov;
++	int iov_nr;
++
++	struct bio **bio;
++	atomic_t bio_nr;
++
++	struct iovec status[1];
++
++	sector_t sector;
++	int write;
++	u16 head;
++	long len;
++};
++
++struct vhost_blk {
++	wait_queue_head_t flush_wait;
++	struct iovec iov[UIO_MAXIOV];
++	struct vhost_blk_req *reqs;
++	struct vhost_virtqueue vq;
++	struct llist_head llhead;
++	atomic_t req_inflight[2];
++	struct vhost_work work;
++	spinlock_t flush_lock;
++	struct vhost_dev dev;
++	int during_flush;
++	u16 reqs_nr;
++	int index;
++};
++
++static int move_iovec(struct iovec *from, struct iovec *to,
++		      size_t len, int iov_count)
 +{
-+	return skb_tail_pointer(skb) - skb_network_header(skb);
++	int seg = 0;
++	size_t size;
++
++	while (len && seg < iov_count) {
++		if (from->iov_len == 0) {
++			++from;
++			continue;
++		}
++		size = min(from->iov_len, len);
++		to->iov_base = from->iov_base;
++		to->iov_len = size;
++		from->iov_len -= size;
++		from->iov_base += size;
++		len -= size;
++		++from;
++		++to;
++		++seg;
++	}
++	return seg;
 +}
 +
- /* chained vcc->pop function.  Check if we should wake the netif_queue */
- static void br2684_pop(struct atm_vcc *vcc, struct sk_buff *skb)
- {
-@@ -191,6 +196,8 @@ static void br2684_pop(struct atm_vcc *v
- 	/* If the queue space just went up from zero, wake */
- 	if (atomic_inc_return(&brvcc->qspace) =3D=3D 1)
- 		netif_wake_queue(brvcc->device);
++static inline int iov_num_pages(struct iovec *iov)
++{
++	return (PAGE_ALIGN((unsigned long)iov->iov_base + iov->iov_len) -
++	       ((unsigned long)iov->iov_base & PAGE_MASK)) >> PAGE_SHIFT;
++}
 +
-+	netdev_completed_queue(brvcc->device, 1, skb_acct_len(skb));
- }
-=20
- /*
-@@ -265,6 +272,7 @@ static int br2684_xmit_vcc(struct sk_buf
- 			netif_wake_queue(brvcc->device);
- 	}
-=20
-+	netdev_sent_queue(brvcc->device, skb_acct_len(skb));
- 	/* If this fails immediately, the skb will be freed and br2684_pop()
- 	   will wake the queue if appropriate. Just return an error so that
- 	   the stats are updated correctly */
-@@ -710,6 +718,7 @@ static int br2684_create(void __user *ar
- 		return err;
- 	}
-=20
-+	netdev_reset_queue(netdev);
- 	write_lock_irq(&devs_lock);
-=20
- 	brdev->payload =3D payload;
-
-
-
-
---=20
-dwmw2
-
-
---=-PJsnx4owWuUPT1gV7Kii
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
-AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
-4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
-wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
-xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
-MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
-w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
-d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
-Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
-c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
-IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
-dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
-BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
-aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
-bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
-oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
-MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
-dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
-MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
-hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
-DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
-ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
-NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
-mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
-AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
-MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
-A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
-Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
-7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
-KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
-wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
-V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
-vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
-BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
-YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
-ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
-IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
-U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
-ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
-BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
-aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
-bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
-dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
-CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
-QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
-ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
-AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
-t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
-gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
-H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
-kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
-MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
-dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
-eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjAyMDEzMDQwWjAjBgkqhkiG9w0BCQQx
-FgQUVmZc9rbcyIi00RFdkfSTx8/bnHMwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
-SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
-ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
-TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
-aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQC1Bhj0IbRJ/TJmTurC4BNjbmZ0
-l1Tn++QnzBn448F5wFadJ0H6izHuTxhVPsYQT+GjYu3t67LI2X/OIEz0Dwf33NbZAZPzu1N0LWug
-LgF629aZ4tlfv4MD7WAR4s0wiGdIKoqf1oUr8AJSJ1oSTmLvp1erSUQiD199t83HLbhjCYK8qxW4
-hJDsVwAdH3esRBto2CSNrEwCANEQVtTI5OOJN/CsY6Z4koow/p5CpGj5nPkmLARa+6RVxb4aETSU
-ZL9+iTLRJqc83b18rEo9vdCfF+xZsilBmCG4Z7vYqkD8SKu2278Zxt4VpW/t9aXL8lcX1dhV29eM
-+OsetFEw2jAcAAAAAAAA
-
-
---=-PJsnx4owWuUPT1gV7Kii--
++static inline int vhost_blk_set_status(struct vhost_blk_req *req, u8 status)
++{
++	struct vhost_blk *blk = req->blk;
++	int ret;
++
++	ret = memcpy_toiovecend(req->status, &status, 0, sizeof(status));
++
++	if (ret) {
++		vq_err(&blk->vq, "Failed to write status\n");
++		return -EFAULT;
++	}
++
++	return 0;
++}
++
++static void vhost_blk_req_done(struct bio *bio, int err)
++{
++	struct vhost_blk_req *req = bio->bi_private;
++	struct vhost_blk *blk = req->blk;
++
++	if (err)
++		req->len = err;
++
++	if (atomic_dec_and_test(&req->bio_nr)) {
++		llist_add(&req->llnode, &blk->llhead);
++		vhost_work_queue(&blk->dev, &blk->work);
++	}
++
++	bio_put(bio);
++}
++
++static void vhost_blk_req_umap(struct vhost_blk_req *req)
++{
++	struct req_page_list *pl;
++	int i, j;
++
++	if (req->pl) {
++		for (i = 0; i < req->iov_nr; i++) {
++			pl = &req->pl[i];
++			for (j = 0; j < pl->pages_nr; j++) {
++				if (!req->write)
++					set_page_dirty_lock(pl->pages[j]);
++				page_cache_release(pl->pages[j]);
++			}
++		}
++	}
++
++	if (!req->use_inline)
++		kfree(req->pl);
++}
++
++static int vhost_blk_bio_make(struct vhost_blk_req *req,
++			      struct block_device *bdev)
++{
++	int pages_nr_total, i, j, ret;
++	struct iovec *iov = req->iov;
++	int iov_nr = req->iov_nr;
++	struct page **pages, *page;
++	struct bio *bio = NULL;
++	int bio_nr = 0;
++	void *buf;
++
++	pages_nr_total = 0;
++	for (i = 0; i < iov_nr; i++)
++		pages_nr_total += iov_num_pages(&iov[i]);
++
++	if (unlikely(req->write == WRITE_FLUSH)) {
++		req->use_inline = true;
++		req->pl = NULL;
++		req->bio = req->inline_bio;
++
++		bio = bio_alloc(GFP_KERNEL, 1);
++		if (!bio)
++			return -ENOMEM;
++
++		bio->bi_sector  = req->sector;
++		bio->bi_bdev    = bdev;
++		bio->bi_private = req;
++		bio->bi_end_io  = vhost_blk_req_done;
++		req->bio[bio_nr++] = bio;
++
++		goto out;
++	}
++
++	if (pages_nr_total > NR_INLINE) {
++		int pl_len, page_len, bio_len;
++
++		req->use_inline = false;
++		pl_len = iov_nr * sizeof(req->pl[0]);
++		page_len = pages_nr_total * sizeof(struct page *);
++		bio_len = pages_nr_total * sizeof(struct bio *);
++
++		buf = kmalloc(pl_len + page_len + bio_len, GFP_KERNEL);
++		if (!buf)
++			return -ENOMEM;
++
++		req->pl	= buf;
++		pages = buf + pl_len;
++		req->bio = buf + pl_len + page_len;
++	} else {
++		req->use_inline = true;
++		req->pl = req->inline_pl;
++		pages = req->inline_page;
++		req->bio = req->inline_bio;
++	}
++
++	req->iov_nr = 0;
++	for (i = 0; i < iov_nr; i++) {
++		int pages_nr = iov_num_pages(&iov[i]);
++		unsigned long iov_base, iov_len;
++		struct req_page_list *pl;
++
++		iov_base = (unsigned long)iov[i].iov_base;
++		iov_len  = (unsigned long)iov[i].iov_len;
++
++		/* TODO: Limit the total number of pages pinned */
++		ret = get_user_pages_fast(iov_base, pages_nr,
++					  !req->write, pages);
++		if (ret != pages_nr)
++			goto fail;
++
++		req->iov_nr++;
++		pl = &req->pl[i];
++		pl->pages_nr = pages_nr;
++		pl->pages = pages;
++
++		for (j = 0; j < pages_nr; j++) {
++			unsigned int off, len;
++			page = pages[j];
++			off = iov_base & ~PAGE_MASK;
++			len = PAGE_SIZE - off;
++			if (len > iov_len)
++				len = iov_len;
++
++			while (!bio || bio_add_page(bio, page, len, off) <= 0) {
++				bio = bio_alloc(GFP_KERNEL, pages_nr_total);
++				if (!bio)
++					goto fail;
++				bio->bi_sector  = req->sector;
++				bio->bi_bdev    = bdev;
++				bio->bi_private = req;
++				bio->bi_end_io  = vhost_blk_req_done;
++				req->bio[bio_nr++] = bio;
++			}
++			req->sector	+= len >> 9;
++			iov_base	+= len;
++			iov_len		-= len;
++		}
++
++		pages += pages_nr;
++	}
++out:
++	atomic_set(&req->bio_nr, bio_nr);
++	return 0;
++
++fail:
++	for (i = 0; i < bio_nr; i++)
++		bio_put(req->bio[i]);
++	vhost_blk_req_umap(req);
++	return -ENOMEM;
++}
++
++static inline void vhost_blk_bio_send(struct vhost_blk_req *req)
++{
++	struct blk_plug plug;
++	int i, bio_nr;
++
++	bio_nr = atomic_read(&req->bio_nr);
++	blk_start_plug(&plug);
++	for (i = 0; i < bio_nr; i++)
++		submit_bio(req->write, req->bio[i]);
++	blk_finish_plug(&plug);
++}
++
++static int vhost_blk_req_submit(struct vhost_blk_req *req, struct file *file)
++{
++
++	struct inode *inode = file->f_mapping->host;
++	struct block_device *bdev = inode->i_bdev;
++	int ret;
++
++	ret = vhost_blk_bio_make(req, bdev);
++	if (ret < 0)
++		return ret;
++
++	vhost_blk_bio_send(req);
++
++	spin_lock(&req->blk->flush_lock);
++	req->during_flush = req->blk->during_flush;
++	atomic_inc(&req->blk->req_inflight[req->during_flush]);
++	spin_unlock(&req->blk->flush_lock);
++
++	return ret;
++}
++
++static int vhost_blk_req_handle(struct vhost_virtqueue *vq,
++				struct virtio_blk_outhdr *hdr,
++				u16 head, u16 out, u16 in,
++				struct file *file)
++{
++	struct vhost_blk *blk = container_of(vq->dev, struct vhost_blk, dev);
++	unsigned char id[VIRTIO_BLK_ID_BYTES];
++	struct vhost_blk_req *req;
++	int ret, len;
++	u8 status;
++
++	req		= &blk->reqs[head];
++	req->head	= head;
++	req->blk	= blk;
++	req->sector	= hdr->sector;
++	req->iov	= blk->iov;
++
++	req->len	= iov_length(vq->iov, out + in) - sizeof(status);
++	req->iov_nr	= move_iovec(vq->iov, req->iov, req->len, out + in);
++
++	move_iovec(vq->iov, req->status, sizeof(status), out + in);
++
++	switch (hdr->type) {
++	case VIRTIO_BLK_T_OUT:
++		req->write = WRITE;
++		ret = vhost_blk_req_submit(req, file);
++		break;
++	case VIRTIO_BLK_T_IN:
++		req->write = READ;
++		ret = vhost_blk_req_submit(req, file);
++		break;
++	case VIRTIO_BLK_T_FLUSH:
++		req->write = WRITE_FLUSH;
++		ret = vhost_blk_req_submit(req, file);
++		break;
++	case VIRTIO_BLK_T_GET_ID:
++		ret = snprintf(id, VIRTIO_BLK_ID_BYTES,
++			       "vhost-blk%d", blk->index);
++		if (ret < 0)
++			break;
++		len = ret;
++		ret = memcpy_toiovecend(req->iov, id, 0, len);
++		status = ret < 0 ? VIRTIO_BLK_S_IOERR : VIRTIO_BLK_S_OK;
++		ret = vhost_blk_set_status(req, status);
++		if (ret)
++			break;
++		vhost_add_used_and_signal(&blk->dev, vq, head, len);
++		break;
++	default:
++		vq_err(vq, "Unsupported request type %d\n", hdr->type);
++		status = VIRTIO_BLK_S_UNSUPP;
++		ret = vhost_blk_set_status(req, status);
++		if (ret)
++			break;
++		vhost_add_used_and_signal(&blk->dev, vq, head, 0);
++	}
++
++	return ret;
++}
++
++/* Guest kick us for I/O submit */
++static void vhost_blk_handle_guest_kick(struct vhost_work *work)
++{
++	struct virtio_blk_outhdr hdr;
++	struct vhost_virtqueue *vq;
++	struct vhost_blk *blk;
++	int in, out, ret;
++	struct file *f;
++	u16 head;
++
++	vq = container_of(work, struct vhost_virtqueue, poll.work);
++	blk = container_of(vq->dev, struct vhost_blk, dev);
++
++	/* TODO: check that we are running from vhost_worker? */
++	f = rcu_dereference_check(vq->private_data, 1);
++	if (!f)
++		return;
++
++	vhost_disable_notify(&blk->dev, vq);
++	for (;;) {
++		head = vhost_get_vq_desc(&blk->dev, vq, vq->iov,
++					 ARRAY_SIZE(vq->iov),
++					 &out, &in, NULL, NULL);
++		if (unlikely(head < 0))
++			break;
++
++		if (unlikely(head == vq->num)) {
++			if (unlikely(vhost_enable_notify(&blk->dev, vq))) {
++				vhost_disable_notify(&blk->dev, vq);
++				continue;
++			}
++			break;
++		}
++		move_iovec(vq->iov, vq->hdr, sizeof(hdr), out);
++		ret = memcpy_fromiovecend((unsigned char *)&hdr, vq->hdr, 0,
++					   sizeof(hdr));
++		if (ret < 0) {
++			vq_err(vq, "Failed to get block header!\n");
++			vhost_discard_vq_desc(vq, 1);
++			break;
++		}
++
++		if (vhost_blk_req_handle(vq, &hdr, head, out, in, f) < 0)
++			break;
++
++		if (!llist_empty(&blk->llhead)) {
++			vhost_poll_queue(&vq->poll);
++			break;
++		}
++	}
++}
++
++/* Host kick us for I/O completion */
++static void vhost_blk_handle_host_kick(struct vhost_work *work)
++{
++
++	struct vhost_virtqueue *vq;
++	struct vhost_blk_req *req;
++	struct llist_node *llnode;
++	struct vhost_blk *blk;
++	bool added, zero;
++	u8 status;
++	int ret;
++
++	blk = container_of(work, struct vhost_blk, work);
++	vq = &blk->vq;
++
++	llnode = llist_del_all(&blk->llhead);
++	added = false;
++	while (llnode) {
++		req = llist_entry(llnode, struct vhost_blk_req, llnode);
++		llnode = llist_next(llnode);
++
++		vhost_blk_req_umap(req);
++
++		status = req->len > 0 ?  VIRTIO_BLK_S_OK : VIRTIO_BLK_S_IOERR;
++		ret = vhost_blk_set_status(req, status);
++		if (unlikely(ret))
++			continue;
++		vhost_add_used(&blk->vq, req->head, req->len);
++		added = true;
++
++		spin_lock(&req->blk->flush_lock);
++		zero = atomic_dec_and_test(
++				&req->blk->req_inflight[req->during_flush]);
++		if (zero && !req->during_flush)
++			wake_up(&blk->flush_wait);
++		spin_unlock(&req->blk->flush_lock);
++
++	}
++	if (likely(added))
++		vhost_signal(&blk->dev, &blk->vq);
++}
++
++static void vhost_blk_flush(struct vhost_blk *blk)
++{
++	spin_lock(&blk->flush_lock);
++	blk->during_flush = 1;
++	spin_unlock(&blk->flush_lock);
++
++	vhost_poll_flush(&blk->vq.poll);
++	vhost_work_flush(&blk->dev, &blk->work);
++	/*
++	 * Wait until requests fired before the flush to be finished
++	 * req_inflight[0] is used to track the requests fired before the flush
++	 * req_inflight[1] is used to track the requests fired during the flush
++	 */
++	wait_event(blk->flush_wait, !atomic_read(&blk->req_inflight[0]));
++
++	spin_lock(&blk->flush_lock);
++	blk->during_flush = 0;
++	spin_unlock(&blk->flush_lock);
++}
++
++static inline void vhost_blk_stop(struct vhost_blk *blk, struct file **file)
++{
++	struct vhost_virtqueue *vq = &blk->vq;
++	struct file *f;
++
++	mutex_lock(&vq->mutex);
++	f = rcu_dereference_protected(vq->private_data,
++				      lockdep_is_held(&vq->mutex));
++	rcu_assign_pointer(vq->private_data, NULL);
++	mutex_unlock(&vq->mutex);
++
++	*file = f;
++}
++
++static int vhost_blk_open(struct inode *inode, struct file *file)
++{
++	struct vhost_blk *blk;
++	int ret;
++
++	blk = kzalloc(sizeof(*blk), GFP_KERNEL);
++	if (!blk) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	ret = ida_simple_get(&vhost_blk_index_ida, 0, 0, GFP_KERNEL);
++	if (ret < 0)
++		goto out_dev;
++	blk->index = ret;
++
++	blk->vq.handle_kick = vhost_blk_handle_guest_kick;
++	atomic_set(&blk->req_inflight[0], 0);
++	atomic_set(&blk->req_inflight[1], 0);
++	blk->during_flush = 0;
++	spin_lock_init(&blk->flush_lock);
++	init_waitqueue_head(&blk->flush_wait);
++
++	ret = vhost_dev_init(&blk->dev, &blk->vq, VHOST_BLK_VQ_MAX);
++	if (ret < 0)
++		goto out_dev;
++	file->private_data = blk;
++
++	vhost_work_init(&blk->work, vhost_blk_handle_host_kick);
++
++	return ret;
++out_dev:
++	kfree(blk);
++out:
++	return ret;
++}
++
++static int vhost_blk_release(struct inode *inode, struct file *f)
++{
++	struct vhost_blk *blk = f->private_data;
++	struct file *file;
++
++	ida_simple_remove(&vhost_blk_index_ida, blk->index);
++	vhost_blk_stop(blk, &file);
++	vhost_blk_flush(blk);
++	vhost_dev_cleanup(&blk->dev, false);
++	if (file)
++		fput(file);
++	kfree(blk->reqs);
++	kfree(blk);
++
++	return 0;
++}
++
++static int vhost_blk_set_features(struct vhost_blk *blk, u64 features)
++{
++	mutex_lock(&blk->dev.mutex);
++	blk->dev.acked_features = features;
++	vhost_blk_flush(blk);
++	mutex_unlock(&blk->dev.mutex);
++
++	return 0;
++}
++
++static long vhost_blk_set_backend(struct vhost_blk *blk, unsigned index, int fd)
++{
++	struct vhost_virtqueue *vq = &blk->vq;
++	struct file *file, *oldfile;
++	struct inode *inode;
++	int ret;
++
++	mutex_lock(&blk->dev.mutex);
++	ret = vhost_dev_check_owner(&blk->dev);
++	if (ret)
++		goto out_dev;
++
++	if (index >= VHOST_BLK_VQ_MAX) {
++		ret = -ENOBUFS;
++		goto out_dev;
++	}
++
++	mutex_lock(&vq->mutex);
++
++	if (!vhost_vq_access_ok(vq)) {
++		ret = -EFAULT;
++		goto out_vq;
++	}
++
++	file = fget(fd);
++	if (IS_ERR(file)) {
++		ret = PTR_ERR(file);
++		goto out_vq;
++	}
++
++	/* Only raw block device is supported for now */
++	inode = file->f_mapping->host;
++	if (!S_ISBLK(inode->i_mode)) {
++		ret = -EFAULT;
++		goto out_file;
++	}
++
++	oldfile = rcu_dereference_protected(vq->private_data,
++			lockdep_is_held(&vq->mutex));
++	if (file != oldfile) {
++		rcu_assign_pointer(vq->private_data, file);
++
++		ret = vhost_init_used(vq);
++		if (ret)
++			goto out_file;
++	}
++
++	mutex_unlock(&vq->mutex);
++
++	if (oldfile) {
++		vhost_blk_flush(blk);
++		fput(oldfile);
++	}
++
++	mutex_unlock(&blk->dev.mutex);
++	return 0;
++
++out_file:
++	fput(file);
++out_vq:
++	mutex_unlock(&vq->mutex);
++out_dev:
++	mutex_unlock(&blk->dev.mutex);
++	return ret;
++}
++
++static long vhost_blk_reset_owner(struct vhost_blk *blk)
++{
++	struct file *file = NULL;
++	int err;
++
++	mutex_lock(&blk->dev.mutex);
++	err = vhost_dev_check_owner(&blk->dev);
++	if (err)
++		goto done;
++	vhost_blk_stop(blk, &file);
++	vhost_blk_flush(blk);
++	err = vhost_dev_reset_owner(&blk->dev);
++done:
++	mutex_unlock(&blk->dev.mutex);
++	if (file)
++		fput(file);
++	return err;
++}
++
++static int vhost_blk_setup(struct vhost_blk *blk)
++{
++	blk->reqs_nr = blk->vq.num;
++
++	blk->reqs = kmalloc(sizeof(struct vhost_blk_req) * blk->reqs_nr,
++			    GFP_KERNEL);
++	if (!blk->reqs)
++		return -ENOMEM;
++
++	return 0;
++}
++
++static long vhost_blk_ioctl(struct file *f, unsigned int ioctl,
++			    unsigned long arg)
++{
++	struct vhost_blk *blk = f->private_data;
++	void __user *argp = (void __user *)arg;
++	struct vhost_vring_file backend;
++	u64 __user *featurep = argp;
++	u64 features;
++	int ret;
++
++	switch (ioctl) {
++	case VHOST_BLK_SET_BACKEND:
++		if (copy_from_user(&backend, argp, sizeof(backend)))
++			return -EFAULT;
++		return vhost_blk_set_backend(blk, backend.index, backend.fd);
++	case VHOST_GET_FEATURES:
++		features = VHOST_BLK_FEATURES;
++		if (copy_to_user(featurep, &features, sizeof(features)))
++			return -EFAULT;
++		return 0;
++	case VHOST_SET_FEATURES:
++		if (copy_from_user(&features, featurep, sizeof(features)))
++			return -EFAULT;
++		if (features & ~VHOST_BLK_FEATURES)
++			return -EOPNOTSUPP;
++		return vhost_blk_set_features(blk, features);
++	case VHOST_RESET_OWNER:
++		return vhost_blk_reset_owner(blk);
++	default:
++		mutex_lock(&blk->dev.mutex);
++		ret = vhost_dev_ioctl(&blk->dev, ioctl, arg);
++		if (!ret && ioctl == VHOST_SET_VRING_NUM)
++			ret = vhost_blk_setup(blk);
++		vhost_blk_flush(blk);
++		mutex_unlock(&blk->dev.mutex);
++		return ret;
++	}
++}
++
++static const struct file_operations vhost_blk_fops = {
++	.owner          = THIS_MODULE,
++	.open           = vhost_blk_open,
++	.release        = vhost_blk_release,
++	.llseek		= noop_llseek,
++	.unlocked_ioctl = vhost_blk_ioctl,
++};
++
++static struct miscdevice vhost_blk_misc = {
++	MISC_DYNAMIC_MINOR,
++	"vhost-blk",
++	&vhost_blk_fops,
++};
++
++static int vhost_blk_init(void)
++{
++	return misc_register(&vhost_blk_misc);
++}
++
++static void vhost_blk_exit(void)
++{
++	misc_deregister(&vhost_blk_misc);
++}
++
++module_init(vhost_blk_init);
++module_exit(vhost_blk_exit);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Asias He");
++MODULE_DESCRIPTION("Host kernel accelerator for virtio_blk");
+diff --git a/drivers/vhost/blk.h b/drivers/vhost/blk.h
+new file mode 100644
+index 0000000..2f674f0
+--- /dev/null
++++ b/drivers/vhost/blk.h
+@@ -0,0 +1,8 @@
++#include <linux/vhost.h>
++
++enum {
++	VHOST_BLK_FEATURES = (1ULL << VIRTIO_RING_F_INDIRECT_DESC) |
++			     (1ULL << VIRTIO_RING_F_EVENT_IDX),
++};
++/* VHOST_BLK specific defines */
++#define VHOST_BLK_SET_BACKEND _IOW(VHOST_VIRTIO, 0x50, struct vhost_vring_file)
+-- 
+1.7.11.7
