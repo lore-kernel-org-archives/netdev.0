@@ -1,50 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net] tcp: fix crashes in do_tcp_sendpages()
-Date: Sat, 01 Dec 2012 17:43:02 -0800
-Message-ID: <1354412582.19578.3.camel@joe-AO722>
-References: <20121115222812.GA647@1wt.eu>
-	 <1353023344.10798.8.camel@edumazet-glaptop> <20121201194304.GI25450@1wt.eu>
-	 <20121201205227.GA28390@1wt.eu>
-	 <1354398458.20109.528.camel@edumazet-glaptop>
-	 <1354401121.20109.531.camel@edumazet-glaptop>
-	 <20121201224044.GL25450@1wt.eu>
-	 <1354403222.20109.539.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
+Date: Sat, 01 Dec 2012 20:47:56 -0500 (EST)
+Message-ID: <20121201.204756.753802347157128640.davem@davemloft.net>
+References: <20121201.114320.103305992136431342.davem@davemloft.net>
+	<20121201.114440.331740099591161757.davem@davemloft.net>
+	<1354408547.21562.363.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
+	krzysiek@podlesie.net
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:36468 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751611Ab2LBBnE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Dec 2012 20:43:04 -0500
-In-Reply-To: <1354403222.20109.539.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56275 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751369Ab2LBBr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 20:47:58 -0500
+In-Reply-To: <1354408547.21562.363.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-12-01 at 15:07 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Recent network changes allowed high order pages being used
-> for skb fragments.
-> 
-> This uncovered a bug in do_tcp_sendpages() which was assuming its caller
-> provided an array of order-0 page pointers.
-> 
-> We only have to deal with a single page in this function, and its order
-> is irrelevant.
-[]
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-[]
-> @@ -830,8 +830,8 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
->  	return mss_now;
->  }
->  
-> -static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
-> -			 size_t psize, int flags)
-> +static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
-> +				size_t size, int flags)
-
-Shouldn't this now be named do_tcp_sendpage ?
+RnJvbTogRGF2aWQgV29vZGhvdXNlIDxkd213MkBpbmZyYWRlYWQub3JnPg0KRGF0ZTogU3VuLCAw
+MiBEZWMgMjAxMiAwMDozNTo0NyArMDAwMA0KDQo+IE9uIFNhdCwgMjAxMi0xMi0wMSBhdCAxMTo0
+NCAtMDUwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPj4gDQo+PiA+IGRyaXZlcnMvYXRtL3NvbG9z
+LXBjaS5jOiBJbiBmdW5jdGlvbiChc29sb3NfcGNpX2luaXSiOg0KPj4gPiBkcml2ZXJzL2F0bS9z
+b2xvcy1wY2kuYzoxMzI5OjI6IGVycm9yOiBzaXplIG9mIHVubmFtZWQgYXJyYXkgaXMNCj4+IG5l
+Z2F0aXZlDQo+PiANCj4+IEl0J3MgZnJvbSBhZGRpbmcgdGhlIGNvbXBsZXRpb24gdG8gdGhlIHNv
+bG9zIHNrYiBjYiwgeW91IGNhbid0IGRvDQo+PiB0aGF0LiAgSXQgd29uJ3QgZml0IG9uIDY0LWJp
+dCB3aGVuIGFsbCBkZWJ1Z2dpbmcga2NvbmZpZyBvcHRpb25zIGFyZQ0KPj4gZW5hYmxlZC4NCj4g
+DQo+IFRoYW5rcyBmb3IgY2F0Y2hpbmcgdGhhdC4gSSd2ZSBqdXN0IHBvc3RlZCBhIFt2Ml0gdmVy
+c2lvbiBvZiB0aGUNCj4gb2ZmZW5kaW5nIHBhdGNoLCB3aGljaCBubyBsb25nZXIgcHV0cyBhIGNv
+bXBsZXRpb24gaW50byB0aGUgc2tiIGNiLg0KPiANCj4gSSdkIGFwcHJlY2lhdGUgYSBzbGlnaHRs
+eSBtb3JlIGNsdWVmdWwgZXllIGxvb2tpbmcgb3ZlciB0aGUgaW5jcmVtZW50YWwNCj4gcGF0Y2gg
+KGJlbG93KSBqdXN0IHRvIGNvbmZpcm0gdGhhdCB0aGUgbmV3IG1ldGhvZCBpcyBjb3JyZWN0LCBi
+dXQgaXQNCj4gY2VydGFpbmx5IHNlZW1zIHRvIHdvcmsuIFRoaXMgdmVyc2lvbiBpcyBpZGVudGlj
+YWwgdG8gdGhlIG9uZSBJIHBvc3RlZA0KPiBlYXJsaWVyLCBleGNlcHQgdGhhdCBJIHVzZSBkZXZf
+a2ZyZWVfc2tiKCkgaW4gdGhlIHBjbG9zZSgpIGZ1bmN0aW9uDQo+IGluc3RlYWQgb2YgZGV2X2tm
+cmVlX3NrYl9hbnkoKS4gV2Uga25vdyB0aGlzIHdpbGwgYmUgY2FsbGVkIGZyb20gYQ0KPiBzdWl0
+YWJsZSBjb250ZXh0LCBhbmQgaXQgZXZlbiB1c2VzIEdGUF9LRVJORUwgYSBmZXcgbGluZXMgaGln
+aGVyIHVwLg0KPiANCj4gSWYgdGhhdCdzIE9LLCBwbGVhc2UgcHVsbCB0aGUgcmVzdWx0aW5nIHRy
+ZWUgZnJvbQ0KPiAJZ2l0Oi8vZ2l0LmluZnJhZGVhZC5vcmcvdXNlcnMvZHdtdzIvYXRtLmdpdA0K
+DQpMb29rcyBnb29kLCBwdWxsZWQsIHRoYW5rcyBEYXZpZC4NCg==
