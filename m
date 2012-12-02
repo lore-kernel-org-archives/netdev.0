@@ -1,201 +1,117 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
-Date: Sun, 02 Dec 2012 00:40:47 +0000
-Message-ID: <1354408847.21562.365.camel@shinybook.infradead.org>
-References: <20121130104411.GA16410@shrek.podlesie.net>
-	 <1354306929.21562.313.camel@shinybook.infradead.org>
-	 <20121201.114320.103305992136431342.davem@davemloft.net>
-	 <20121201.114440.331740099591161757.davem@davemloft.net>
-	 <1354383226.21562.351.camel@shinybook.infradead.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH] workqueue: mod_delayed_work_on() shouldn't queue timer on 0
+ delay
+Date: Sat, 1 Dec 2012 17:11:57 -0800
+Message-ID: <20121202011157.GE2685@htj.dyndns.org>
+References: <alpine.DEB.2.00.1211280953350.26602@dr-wily.mit.edu>
+ <alpine.DEB.2.00.1211281016320.26602@dr-wily.mit.edu>
+ <20121130211435.GJ3873@htj.dyndns.org>
+ <20121130225619.GD6021@htj.dyndns.org>
+ <alpine.DEB.2.00.1211302234410.25064@dr-wily.mit.edu>
+ <20121201143926.GB2685@htj.dyndns.org>
+ <alpine.DEB.2.00.1212011852100.25064@dr-wily.mit.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-iA9sXbK02OMWCaa6dHfP"
-Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
-	krzysiek@podlesie.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:45202 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753600Ab2LBAkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 19:40:51 -0500
-In-Reply-To: <1354383226.21562.351.camel@shinybook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Zlatko Calusic <zlatko.calusic@iskon.hr>,
+	Joonsoo Kim <js1304@gmail.com>
+To: Anders Kaseorg <andersk@MIT.EDU>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1212011852100.25064@dr-wily.mit.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+>From 8852aac25e79e38cc6529f20298eed154f60b574 Mon Sep 17 00:00:00 2001
+From: Tejun Heo <tj@kernel.org>
+Date: Sat, 1 Dec 2012 16:23:42 -0800
 
---=-iA9sXbK02OMWCaa6dHfP
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+8376fe22c7 ("workqueue: implement mod_delayed_work[_on]()")
+implemented mod_delayed_work[_on]() using the improved
+try_to_grab_pending().  The function is later used, among others, to
+replace [__]candel_delayed_work() + queue_delayed_work() combinations.
 
-On Sat, 2012-12-01 at 17:33 +0000, David Woodhouse wrote:
->=20
-> Very glad I added the BUILD_BUG_ON on the cb struct size now. Perhaps
-> there should be a generic helper for that? Something like
->  skb_cb_cast(struct foo_cb, skb) could do it automatically...?
+Unfortunately, a delayed_work item w/ zero @delay is handled slightly
+differently by mod_delayed_work_on() compared to
+queue_delayed_work_on().  The latter skips timer altogether and
+directly queues it using queue_work_on() while the former schedules
+timer which will expire on the closest tick.  This means, when @delay
+is zero, that [__]cancel_delayed_work() + queue_delayed_work_on()
+makes the target item immediately executable while
+mod_delayed_work_on() may induce delay of upto a full tick.
 
-Something like this, perhaps? Using skb_cast_cb() would then make it
-fairly much impossible to accidentally overflow the size of the skb cb.
+This somewhat subtle difference breaks some of the converted users.
+e.g. block queue plugging uses delayed_work for deferred processing
+and uses mod_delayed_work_on() when the queue needs to be immediately
+unplugged.  The above problem manifested as noticeably higher number
+of context switches under certain circumstances.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index f2af494..b4cb2cf 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -567,6 +567,11 @@ static inline struct rtable *skb_rtable(const struct s=
-k_buff *skb)
- 	return (struct rtable *)skb_dst(skb);
- }
-=20
-+#define skb_cast_cb(skb, type)  ({				\
-+	BUILD_BUG_ON(sizeof(type) > sizeof((skb)->cb));		\
-+	(type *)(skb)->cb;					\
-+	})
+The difference in behavior was caused by missing special case handling
+for 0 delay in mod_delayed_work_on() compared to
+queue_delayed_work_on().  Joonsoo Kim posted a patch to add it -
+("workqueue: optimize mod_delayed_work_on() when @delay == 0")[1].
+The patch was queued for 3.8 but it was described as optimization and
+I missed that it was a correctness issue.
+
+As both queue_delayed_work_on() and mod_delayed_work_on() use
+__queue_delayed_work() for queueing, it seems that the better approach
+is to move the 0 delay special handling to the function instead of
+duplicating it in mod_delayed_work_on().
+
+Fix the problem by moving 0 delay special case handling from
+queue_delayed_work_on() to __queue_delayed_work().  This replaces
+Joonsoo's patch.
+
+[1] http://thread.gmane.org/gmane.linux.kernel/1379011/focus=1379012
+
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Reported-and-tested-by: Anders Kaseorg <andersk@MIT.EDU>
+Reported-and-tested-by: Zlatko Calusic <zlatko.calusic@iskon.hr>
+LKML-Reference: <alpine.DEB.2.00.1211280953350.26602@dr-wily.mit.edu>
+LKML-Reference: <50A78AA9.5040904@iskon.hr>
+Cc: Joonsoo Kim <js1304@gmail.com>
+---
+Applied to wq/for-3.7-fixes.  Pull request sent.
+
+Thanks!
+
+ kernel/workqueue.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+index ac25db1..084aa47 100644
+--- a/kernel/workqueue.c
++++ b/kernel/workqueue.c
+@@ -1364,6 +1364,17 @@ static void __queue_delayed_work(int cpu, struct workqueue_struct *wq,
+ 	BUG_ON(timer_pending(timer));
+ 	BUG_ON(!list_empty(&work->entry));
+ 
++	/*
++	 * If @delay is 0, queue @dwork->work immediately.  This is for
++	 * both optimization and correctness.  The earliest @timer can
++	 * expire is on the closest next tick and delayed_work users depend
++	 * on that there's no such delay when @delay is 0.
++	 */
++	if (!delay) {
++		__queue_work(cpu, wq, &dwork->work);
++		return;
++	}
 +
- extern void kfree_skb(struct sk_buff *skb);
- extern void skb_tx_error(struct sk_buff *skb);
- extern void consume_skb(struct sk_buff *skb);
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 6619a8a..8dccf82 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -97,7 +97,7 @@ struct solos_skb_cb {
- };
-=20
-=20
--#define SKB_CB(skb)		((struct solos_skb_cb *)skb->cb)
-+#define SKB_CB(skb)	skb_cast_cb(skb, struct solos_skb_cb)
-=20
- #define PKT_DATA	0
- #define PKT_COMMAND	1
-@@ -1324,8 +1324,6 @@ static struct pci_driver fpga_driver =3D {
-=20
- static int __init solos_pci_init(void)
- {
--	BUILD_BUG_ON(sizeof(struct solos_skb_cb) > sizeof(((struct sk_buff *)0)->=
-cb));
+ 	timer_stats_timer_set_start_info(&dwork->timer);
+ 
+ 	/*
+@@ -1417,9 +1428,6 @@ bool queue_delayed_work_on(int cpu, struct workqueue_struct *wq,
+ 	bool ret = false;
+ 	unsigned long flags;
+ 
+-	if (!delay)
+-		return queue_work_on(cpu, wq, &dwork->work);
 -
- 	printk(KERN_INFO "Solos PCI Driver Version %s\n", VERSION);
- 	return pci_register_driver(&fpga_driver);
- }
-
-
---=20
-dwmw2
-
-
---=-iA9sXbK02OMWCaa6dHfP
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
-AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
-4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
-wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
-xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
-MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
-w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
-d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
-Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
-c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
-IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
-dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
-BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
-aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
-bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
-oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
-MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
-dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
-MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
-hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
-DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
-ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
-NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
-mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
-AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
-MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
-A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
-Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
-7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
-KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
-wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
-V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
-vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
-BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
-YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
-ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
-IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
-U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
-ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
-BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
-aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
-bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
-dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
-CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
-QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
-ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
-AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
-t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
-gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
-H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
-kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
-MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
-dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
-eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjAyMDA0MDQ3WjAjBgkqhkiG9w0BCQQx
-FgQU4b+q/xL65xL5NOiM6+nrYD4UTc8wgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
-SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
-ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
-TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
-aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAiorgajzI/l7tn5BmEbiuVexfc
-7dGWIOSJqgel+ENN7WwBzw0AbmXR9EN1kKHcj9YqeLLukwoiZ7HYJPIKr5NFR/nIXrj1Y+9Pl6dX
-QnOgdeye2+a+TSe/lLSOPde1Ulwfxvr+R2UEa0OSZjjKV2+EaqLSkQKPbFZ00fSwz3dXZEU9/APq
-4cEWUrt8RDaGwZ8i6aCC2gX3+BBee7FAdyy2z9kAV6CY+WULVVerx4Q8qVUU/Y6q76JlyFqkdXxo
-bymL4Xd75vX7qorvDdpiXO2azfGwuD+fmwWOpRshkeQ7kA28rVPtggmTRaQuILnjrdaT7I8jfD74
-Ggpm7neNhxEnAAAAAAAA
-
-
---=-iA9sXbK02OMWCaa6dHfP--
+ 	/* read the comment in __queue_work() */
+ 	local_irq_save(flags);
+ 
+-- 
+1.7.11.7
