@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 00/17] ATM fixes for pppoatm/br2684
-Date: Sat, 01 Dec 2012 20:47:56 -0500 (EST)
-Message-ID: <20121201.204756.753802347157128640.davem@davemloft.net>
-References: <20121201.114320.103305992136431342.davem@davemloft.net>
-	<20121201.114440.331740099591161757.davem@davemloft.net>
-	<1354408547.21562.363.camel@shinybook.infradead.org>
+Date: Sat, 01 Dec 2012 20:49:06 -0500 (EST)
+Message-ID: <20121201.204906.1703696018528746748.davem@davemloft.net>
+References: <20121201.114440.331740099591161757.davem@davemloft.net>
+	<1354383226.21562.351.camel@shinybook.infradead.org>
+	<1354408847.21562.365.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, chas@cmf.nrl.navy.mil,
 	krzysiek@podlesie.net
 To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56275 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56289 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751369Ab2LBBr6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 20:47:58 -0500
-In-Reply-To: <1354408547.21562.363.camel@shinybook.infradead.org>
+	with ESMTP id S1751748Ab2LBBtI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Dec 2012 20:49:08 -0500
+In-Reply-To: <1354408847.21562.365.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgV29vZGhvdXNlIDxkd213MkBpbmZyYWRlYWQub3JnPg0KRGF0ZTogU3VuLCAw
-MiBEZWMgMjAxMiAwMDozNTo0NyArMDAwMA0KDQo+IE9uIFNhdCwgMjAxMi0xMi0wMSBhdCAxMTo0
-NCAtMDUwMCwgRGF2aWQgTWlsbGVyIHdyb3RlOg0KPj4gDQo+PiA+IGRyaXZlcnMvYXRtL3NvbG9z
-LXBjaS5jOiBJbiBmdW5jdGlvbiChc29sb3NfcGNpX2luaXSiOg0KPj4gPiBkcml2ZXJzL2F0bS9z
-b2xvcy1wY2kuYzoxMzI5OjI6IGVycm9yOiBzaXplIG9mIHVubmFtZWQgYXJyYXkgaXMNCj4+IG5l
-Z2F0aXZlDQo+PiANCj4+IEl0J3MgZnJvbSBhZGRpbmcgdGhlIGNvbXBsZXRpb24gdG8gdGhlIHNv
-bG9zIHNrYiBjYiwgeW91IGNhbid0IGRvDQo+PiB0aGF0LiAgSXQgd29uJ3QgZml0IG9uIDY0LWJp
-dCB3aGVuIGFsbCBkZWJ1Z2dpbmcga2NvbmZpZyBvcHRpb25zIGFyZQ0KPj4gZW5hYmxlZC4NCj4g
-DQo+IFRoYW5rcyBmb3IgY2F0Y2hpbmcgdGhhdC4gSSd2ZSBqdXN0IHBvc3RlZCBhIFt2Ml0gdmVy
-c2lvbiBvZiB0aGUNCj4gb2ZmZW5kaW5nIHBhdGNoLCB3aGljaCBubyBsb25nZXIgcHV0cyBhIGNv
-bXBsZXRpb24gaW50byB0aGUgc2tiIGNiLg0KPiANCj4gSSdkIGFwcHJlY2lhdGUgYSBzbGlnaHRs
-eSBtb3JlIGNsdWVmdWwgZXllIGxvb2tpbmcgb3ZlciB0aGUgaW5jcmVtZW50YWwNCj4gcGF0Y2gg
-KGJlbG93KSBqdXN0IHRvIGNvbmZpcm0gdGhhdCB0aGUgbmV3IG1ldGhvZCBpcyBjb3JyZWN0LCBi
-dXQgaXQNCj4gY2VydGFpbmx5IHNlZW1zIHRvIHdvcmsuIFRoaXMgdmVyc2lvbiBpcyBpZGVudGlj
-YWwgdG8gdGhlIG9uZSBJIHBvc3RlZA0KPiBlYXJsaWVyLCBleGNlcHQgdGhhdCBJIHVzZSBkZXZf
-a2ZyZWVfc2tiKCkgaW4gdGhlIHBjbG9zZSgpIGZ1bmN0aW9uDQo+IGluc3RlYWQgb2YgZGV2X2tm
-cmVlX3NrYl9hbnkoKS4gV2Uga25vdyB0aGlzIHdpbGwgYmUgY2FsbGVkIGZyb20gYQ0KPiBzdWl0
-YWJsZSBjb250ZXh0LCBhbmQgaXQgZXZlbiB1c2VzIEdGUF9LRVJORUwgYSBmZXcgbGluZXMgaGln
-aGVyIHVwLg0KPiANCj4gSWYgdGhhdCdzIE9LLCBwbGVhc2UgcHVsbCB0aGUgcmVzdWx0aW5nIHRy
-ZWUgZnJvbQ0KPiAJZ2l0Oi8vZ2l0LmluZnJhZGVhZC5vcmcvdXNlcnMvZHdtdzIvYXRtLmdpdA0K
-DQpMb29rcyBnb29kLCBwdWxsZWQsIHRoYW5rcyBEYXZpZC4NCg==
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Sun, 02 Dec 2012 00:40:47 +0000
+
+> On Sat, 2012-12-01 at 17:33 +0000, David Woodhouse wrote:
+>> 
+>> Very glad I added the BUILD_BUG_ON on the cb struct size now. Perhaps
+>> there should be a generic helper for that? Something like
+>>  skb_cb_cast(struct foo_cb, skb) could do it automatically...?
+> 
+> Something like this, perhaps? Using skb_cast_cb() would then make it
+> fairly much impossible to accidentally overflow the size of the skb cb.
+
+I actually prefer what we do now, which is do the BUILD_BUG_ON()
+once in the subsystem specific code, usually the initializer.
+
+It's part of creating a new SKB cb, adding that assertion somewhere.
