@@ -1,77 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/3] net: cpsw: implement ioctl for MII
-Date: Mon, 3 Dec 2012 14:16:51 +0000
-Message-ID: <1354544211.7030.32.camel@deadeye.wl.decadent.org.uk>
-References: <1354542569-6165-1-git-send-email-jlu@pengutronix.de>
-	 <1354542569-6165-3-git-send-email-jlu@pengutronix.de>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [patch net-next] net: call notifiers for mtu change even if
+ iface is not up
+Date: Mon, 3 Dec 2012 09:18:23 -0500
+Message-ID: <20121203141823.GA21816@hmsreliant.think-freely.org>
+References: <1354533392-9308-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Vaibhav Hiremath <hvaibhav@ti.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>
-To: Jan Luebbe <jlu@pengutronix.de>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1354542569-6165-3-git-send-email-jlu@pengutronix.de>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, psimerda@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:45312 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754745Ab2LCOSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 09:18:36 -0500
+Content-Disposition: inline
+In-Reply-To: <1354533392-9308-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-12-03 at 14:49 +0100, Jan Luebbe wrote:
-> This allows using tools like mii-diag on CPSW.
+On Mon, Dec 03, 2012 at 12:16:32PM +0100, Jiri Pirko wrote:
+> Do the same thing as in set mac. Call notifiers every time.
 > 
-> Signed-off-by: Jan Luebbe <jlu@pengutronix.de>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 > ---
->  drivers/net/ethernet/ti/cpsw.c |   15 +++++++++++++++
->  1 file changed, 15 insertions(+)
+>  net/core/dev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 8de3e92..f476c03 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -629,6 +629,20 @@ static void cpsw_ndo_change_rx_flags(struct net_device *ndev, int flags)
->  		dev_err(&ndev->dev, "multicast traffic cannot be filtered!\n");
->  }
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 2f94df2..0685a72 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -4971,7 +4971,7 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+>  	else
+>  		dev->mtu = new_mtu;
 >  
-> +static int cpsw_ndo_do_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
-> +{
-> +	struct cpsw_priv *priv = netdev_priv(ndev);
-> +	struct phy_device *phy = priv->slaves[0].phy;
-> +
-> +	if (!netif_running(ndev))
-> +		return -EINVAL;
+> -	if (!err && dev->flags & IFF_UP)
+> +	if (!err)
+>  		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
+>  	return err;
+>  }
 
-This is consistent with other drivers, and I'm not going to object to
-one more instance, but I don't think this is the proper error code - we
-don't know that there's anything wrong with the arguments, it's just
-that the *device* is in the wrong state.  I don't know what the right
-error code is, though.  Really I would prefer that MDIO would work even
-when the device is down, unless you know that all MDIO-manageable
-devices are powered off.
+I'm not opposed to this change, but is there something that it expressly fixes?
+While it doesn't hurt to send around mtu change events, one would presume that
+listeners would pick up mtu changes when the NETDEV_UP event went' around.
 
-Ben.
-
-> +	if (!phy)
-> +		return -ENODEV;
-> +
-> +	return phy_mii_ioctl(phy, rq, cmd);
-> +}
-> +
->  static void cpsw_ndo_tx_timeout(struct net_device *ndev)
->  {
->  	struct cpsw_priv *priv = netdev_priv(ndev);
-> @@ -670,6 +684,7 @@ static const struct net_device_ops cpsw_netdev_ops = {
->  	.ndo_start_xmit		= cpsw_ndo_start_xmit,
->  	.ndo_change_rx_flags	= cpsw_ndo_change_rx_flags,
->  	.ndo_validate_addr	= eth_validate_addr,
-> +	.ndo_do_ioctl		= cpsw_ndo_do_ioctl,
->  	.ndo_change_mtu		= eth_change_mtu,
->  	.ndo_tx_timeout		= cpsw_ndo_tx_timeout,
->  	.ndo_get_stats		= cpsw_ndo_get_stats,
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Neil
