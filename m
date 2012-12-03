@@ -1,40 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next] sctp: Add support to per-association
- statistics via a new SCTP_GET_ASSOC_STATS call
-Date: Mon, 03 Dec 2012 13:33:12 -0500 (EST)
-Message-ID: <20121203.133312.69027699789824133.davem@davemloft.net>
-References: <1354373382-15230-1-git-send-email-michele@acksyn.org>
-	<50BCD956.2090706@gmail.com>
+Subject: Re: [PATCH] irda: ep7211-sir: Convert to platform_diver
+Date: Mon, 03 Dec 2012 13:33:18 -0500 (EST)
+Message-ID: <20121203.133318.64671503663114037.davem@davemloft.net>
+References: <1354360046-4818-1-git-send-email-shc_work@mail.ru>
+	<201212012050.22382.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: michele@acksyn.org, linux-sctp@vger.kernel.org,
-	nhorman@tuxdriver.com, tgraf@suug.ch, netdev@vger.kernel.org
-To: vyasevich@gmail.com
+Cc: shc_work@mail.ru, netdev@vger.kernel.org, samuel@sortiz.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39167 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39172 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750904Ab2LCSdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 13:33:16 -0500
-In-Reply-To: <50BCD956.2090706@gmail.com>
+	with ESMTP id S1751545Ab2LCSdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 13:33:20 -0500
+In-Reply-To: <201212012050.22382.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevich@gmail.com>
-Date: Mon, 03 Dec 2012 11:54:46 -0500
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Sat, 1 Dec 2012 20:50:22 +0000
 
-> On 12/01/2012 09:49 AM, Michele Baldessari wrote:
->> The current SCTP stack is lacking a mechanism to have per association
->> statistics. This is an implementation modeled after OpenSolaris'
->> SCTP_GET_ASSOC_STATS.
->>
->> Userspace part will follow on lksctp if/when there is a general ACK on
->> this.
- ...
->> Signed-off: Michele Baldessari <michele@acksyn.org>
+> On Saturday 01 December 2012, Alexander Shiyan wrote:
+>> This patch converts ep7211-sir driver to platform_driver.
+>> Since driver can be used not only for EP7211 CPU, function names
+>> was be renamed to generic clps711x...
+>> 
+>> Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
 > 
-> Looks good
-> 
-> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+> Acked-by: Arnd Bergmann <arnd@arndb.de>
 
 Applied.
