@@ -1,39 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fix sparse endianness warnings on
- sock_common
-Date: Sun, 02 Dec 2012 20:23:51 -0500 (EST)
-Message-ID: <20121202.202351.2009817552547300312.davem@davemloft.net>
-References: <1354469590.20109.585.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] tcp: don't abort splice() after small
+ transfers
+Date: Sun, 02 Dec 2012 20:24:00 -0500 (EST)
+Message-ID: <20121202.202400.1802827154247759864.davem@davemloft.net>
+References: <1354484967.20109.1167.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com,
-	ling.ma.program@gmail.com
+Cc: netdev@vger.kernel.org, w@1wt.eu
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33634 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33640 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754374Ab2LCBXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 20:23:52 -0500
-In-Reply-To: <1354469590.20109.585.camel@edumazet-glaptop>
+	with ESMTP id S1754374Ab2LCBYB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 20:24:01 -0500
+In-Reply-To: <1354484967.20109.1167.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 02 Dec 2012 09:33:10 -0800
+Date: Sun, 02 Dec 2012 13:49:27 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Willy Tarreau <w@1wt.eu>
 > 
-> # make C=2 CF=-D__CHECK_ENDIAN__ net/ipv4/inet_hashtables.o
-> ...
-> net/ipv4/inet_hashtables.c:242:7: warning: restricted __portpair degrades to integer
-> net/ipv4/inet_hashtables.c:242:7: warning: restricted __addrpair degrades to integer
-> ...
+> TCP coalescing added a regression in splice(socket->pipe) performance,
+> for some workloads because of the way tcp_read_sock() is implemented.
 > 
-> Move __portpair/__addrpair from include/net/inet_hashtables.h
-> to include/net/sock.h where we need them in struct sock_common
+> The reason for this is the break when (offset + 1 != skb->len).
 > 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> As we released the socket lock, this condition is possible if TCP stack
+> added a fragment to the skb, which can happen with TCP coalescing.
+> 
+> So let's go back to the beginning of the loop when this happens,
+> to give a chance to splice more frags per system call.
+> 
+> Doing so fixes the issue and makes GRO 10% faster than LRO
+> on CPU-bound splice() workloads instead of the opposite.
+> 
+> Signed-off-by: Willy Tarreau <w@1wt.eu>
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
