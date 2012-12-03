@@ -1,63 +1,39 @@
-From: Jan Luebbe <jlu@pengutronix.de>
-Subject: [PATCH 2/3] net: cpsw: verify correct number of slaves in DT
-Date: Mon,  3 Dec 2012 14:49:28 +0100
-Message-ID: <1354542569-6165-2-git-send-email-jlu@pengutronix.de>
-References: <1354542569-6165-1-git-send-email-jlu@pengutronix.de>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Vaibhav Hiremath <hvaibhav@ti.com>,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
-	Jan Luebbe <jlu@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1354542569-6165-1-git-send-email-jlu@pengutronix.de>
-Sender: linux-omap-owner@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net/macb: Use dmapool to align descriptors on 64bits
+Date: Mon, 3 Dec 2012 14:01:30 +0000
+Message-ID: <1354543290.7030.26.camel@deadeye.wl.decadent.org.uk>
+References: <1354536914-6315-1-git-send-email-nicolas.ferre@atmel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Joachim Eastwood <manabian@gmail.com>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354536914-6315-1-git-send-email-nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Check that the number of available slaves passed from DT matches the
-value of the "slaves" property in the cpsw node. Otherwise, priv->slaves
-would be the wrong size.
+On Mon, 2012-12-03 at 13:15 +0100, Nicolas Ferre wrote:
+> Depending on datapath, some revisions of GEM need
+> 64bits aligned descriptors. Use dmapool to allocate
+> these descriptors.
+> Note that different size between RX and TX rings
+> leads to the creation of two pools.
+> 
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+[...]
 
-Signed-off-by: Jan Luebbe <jlu@pengutronix.de>
----
- drivers/net/ethernet/ti/cpsw.c |   17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+dma_alloc_coherent() allocates whole pages, which I think is quite
+enough alignment.  You can't save memory by doing this, since each pool
+needs at least one page.  So what is this change meant to achieve?
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c0e676a..8de3e92 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -832,6 +832,16 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		const char *phy_id = NULL;
- 		const void *mac_addr = NULL;
- 
-+		if (!of_device_is_available(slave_node))
-+			continue;
-+
-+		if (i >= data->slaves) {
-+			dev_err(&pdev->dev, "Too many slaves in the DT (> %d).\n",
-+				data->slaves);
-+			ret = -EINVAL;
-+			goto error_ret;
-+		}
-+
- 		if (of_property_read_string(slave_node, "phy_id", &phy_id)) {
- 			dev_err(&pdev->dev, "Missing slave[%d] phy_id property.\n", i);
- 			ret = -EINVAL;
-@@ -861,6 +871,13 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 		i++;
- 	}
- 
-+	if (i < data->slaves) {
-+		dev_err(&pdev->dev, "Not enough slaves in the DT (< %d).\n",
-+			data->slaves);
-+		ret = -EINVAL;
-+		goto error_ret;
-+	}
-+
- 	/*
- 	 * Populate all the child nodes here...
- 	 */
+Ben.
+
 -- 
-1.7.10.4
-
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
