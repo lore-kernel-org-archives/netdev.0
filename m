@@ -1,27 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: remove two repeated macros
-Date: Mon, 03 Dec 2012 13:35:50 -0500 (EST)
-Message-ID: <20121203.133550.25327241049315360.davem@davemloft.net>
-References: <1354537184-1423-1-git-send-email-walimisdev@gmail.com>
+Subject: Re: [PATCH] tun: only queue packets on device
+Date: Mon, 03 Dec 2012 13:41:32 -0500 (EST)
+Message-ID: <20121203.134132.558381056546064453.davem@davemloft.net>
+References: <20121203131942.GA27953@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org
-To: walimisdev@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39229 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751668Ab2LCSfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 13:35:51 -0500
-In-Reply-To: <1354537184-1423-1-git-send-email-walimisdev@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, jasowang@redhat.com, nhorman@tuxdriver.com,
+	ramirose@gmail.com, linux-kernel@vger.kernel.org
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121203131942.GA27953@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Liming Wang <walimisdev@gmail.com>
-Date: Mon,  3 Dec 2012 20:19:44 +0800
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 3 Dec 2012 15:19:43 +0200
 
-> Two macros have been defined twice, remove them.
+> Historically tun supported two modes of operation:
+> - in default mode, a small number of packets would get queued
+>   at the device, the rest would be queued in qdisc
+> - in one queue mode, all packets would get queued at the device
 > 
-> Signed-off-by: Liming Wang <walimisdev@gmail.com>
+> This might have made sense up to a point where we made the
+> queue depth for both modes the same and set it to
+> a huge value (500) so unless the consumer
+> is stuck the chance of losing packets is small.
+> 
+> Thus in practice both modes behave the same, but the
+> default mode has some problems:
+> - if packets are never consumed, fragments are never orphaned
+>   which cases a DOS for sender using zero copy transmit
+> - overrun errors are hard to diagnose: fifo error is incremented
+>   only once so you can not distinguish between
+>   userspace that is stuck and a transient failure,
+>   tcpdump on the device does not show any traffic
+> 
+> Userspace solves this simply by enabling IFF_ONE_QUEUE
+> but there seems to be little point in not doing the
+> right thing for everyone, by default.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Applied, thanks.
+Now that TUN_NO_QUEUE has no real effect and is a NOP, please document
+it as such both in if_tun.h and the places in the driver that flip the
+bit based upon userspace requests.
+
+Thanks.
