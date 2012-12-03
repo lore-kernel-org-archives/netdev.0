@@ -1,131 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next rfc v7 3/3] virtio-net: change the number of queues
-	through ethtool
-Date: Mon, 3 Dec 2012 13:25:07 +0200
-Message-ID: <20121203112507.GE26167@redhat.com>
-References: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
-	<1354011360-39479-4-git-send-email-jasowang@redhat.com>
-	<20121202160906.GB27761@redhat.com>
-	<7408756.Sj6HEpCzzZ@jason-thinkpad-t430s>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr, shiyer@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <7408756.Sj6HEpCzzZ@jason-thinkpad-t430s>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH V3 0/5] Add LE hash collision bug fix for active and passive offloaded connections
+Date: Mon,  3 Dec 2012 16:52:56 +0530
+Message-ID: <1354533781-31575-1-git-send-email-vipul@chelsio.com>
+Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
+	abhishek-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 03, 2012 at 02:09:28PM +0800, Jason Wang wrote:
-> On Sunday, December 02, 2012 06:09:06 PM Michael S. Tsirkin wrote:
-> > On Tue, Nov 27, 2012 at 06:16:00PM +0800, Jason Wang wrote:
-> > > This patch implement the {set|get}_channels method of ethool to allow user
-> > > to change the number of queues dymaically when the device is running.
-> > > This would let the user to configure it on demand.
-> > > 
-> > > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > > ---
-> > > 
-> > >  drivers/net/virtio_net.c |   41 +++++++++++++++++++++++++++++++++++++++++
-> > >  1 files changed, 41 insertions(+), 0 deletions(-)
-> > > 
-> > > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > > index bcaa6e5..f08ec2a 100644
-> > > --- a/drivers/net/virtio_net.c
-> > > +++ b/drivers/net/virtio_net.c
-> > > @@ -1578,10 +1578,51 @@ static struct virtio_driver virtio_net_driver = {
-> > > 
-> > >  #endif
-> > >  };
-> > > 
-> > > +/* TODO: Eliminate OOO packets during switching */
-> > > +static int virtnet_set_channels(struct net_device *dev,
-> > > +				struct ethtool_channels *channels)
-> > > +{
-> > > +	struct virtnet_info *vi = netdev_priv(dev);
-> > > +	u16 queue_pairs = channels->combined_count;
+This patch series fixes the LE hash collision issue in cxgb4 and RDMA/cxgb4
+drivers in kernel.org.
 
-by the way shouldn't this be combined_count / 2?
+If the hash functionality is enabled in T4 then tuple information of active and
+passive offloaded connections are stored in DDR3 memory. LE (Lookup Engine)
+implements the interface to search this tuple entries using hash algorithm. To
+avoid LE hash collision, firmware provides new mechanisms to setup active and
+passive open connections.
 
-And below channels->max_combined = vi->max_queue_pairs * 2; ?
+In case of active open connection, firmware detects LE hash collision situation
+and notifies driver. Driver uses fw_ofld_connection work request to offload
+that connection. Its tuple information will be stored in TCAM memory array. 
 
-> > > +
-> > > +	/* We don't support separate rx/tx channels.
-> > > +	 * We don't allow setting 'other' channels.
-> > > +	 */
-> > > +	if (channels->rx_count || channels->tx_count || channels->other_count)
-> > > +		return -EINVAL;
-> > > +
-> > > +	/* Only two modes were support currently */
-> > > +	if (queue_pairs != vi->max_queue_pairs && queue_pairs != 1)
-> > > +		return -EINVAL;
-> > > +
-> > 
-> > Why the limitation?
-> 
-> Not sure the value bettwen 1 and max_queue_pairs is useful. But anyway, I can 
-> remove this limitation.
+In case of passive open connection, server filter region is created in TCAM.
+This region stores the filter which will redirect the incoming SYN packet to
+offload queues. After this driver tries to establish the connection using
+firmware work request.
 
-I guess a reasonable value would be number of active CPUs,
-which can change with CPU hotplug.
+This patch series also adds framework for managing filters and to use T4's
+filter capabilities.
 
-> > Also how does userspace discover what the legal values are?
-> 
-> Userspace only check whether the value is greater than max_queue_pairs.
+Following testing has been carried out successfully on this patch series.
+1. 1000 active open connections created and saw that tcam_full counter is
+getting incremented through debugfs file.
+2. Multiple passive open connections were created and ran the same test
+repetatively to verify server filter is getting created and deleted properly.
 
-Exactly. One can query max combined but the fact that configuring
-any less is impossible might be surprising.
+The patch-series is based on Roland's infiniband tree (for-next branch),
+and involves changes on cxgb4 and RDMA/cxgb4 drivers. Both linux-rdma and netdev
+are included in this post for review.
 
-> > 
-> > > +	vi->curr_queue_pairs = queue_pairs;
-> > > +	BUG_ON(virtnet_set_queues(vi));
-> > > +
-> > > +	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
-> > > +	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
-> > > +
-> > > +	return 0;
-> > > +}
-> > > +
-> > > +static void virtnet_get_channels(struct net_device *dev,
-> > > +				 struct ethtool_channels *channels)
-> > > +{
-> > > +	struct virtnet_info *vi = netdev_priv(dev);
-> > > +
-> > > +	channels->combined_count = vi->curr_queue_pairs;
-> > > +	channels->max_combined = vi->max_queue_pairs;
-> > > +	channels->max_other = 0;
-> > > +	channels->rx_count = 0;
-> > > +	channels->tx_count = 0;
-> > > +	channels->other_count = 0;
-> > > +}
-> > > +
-> > > 
-> > >  static const struct ethtool_ops virtnet_ethtool_ops = {
-> > >  
-> > >  	.get_drvinfo = virtnet_get_drvinfo,
-> > >  	.get_link = ethtool_op_get_link,
-> > >  	.get_ringparam = virtnet_get_ringparam,
-> > > 
-> > > +	.set_channels = virtnet_set_channels,
-> > > +	.get_channels = virtnet_get_channels,
-> > > 
-> > >  };
-> > >  
-> > >  static int __init init(void)
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe kvm" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We have some more bug fixes in RDMA/cxgb4 after this patch series. So, we would
+like to request this series to get mereged through Roland's infiniband for-next
+tree.
+
+V2: Changed commenting style from kernel-doc format('/**') to normal
+V3: Resending the whole patch series again with the missing patches in V2
+
+Thanks,
+Vipul Pandya
+
+Vipul Pandya (5):
+  cxgb4: Add T4 filter support
+  cxgb4: Add LE hash collision bug fix path in LLD driver
+  RDMA/cxgb4: Fix LE hash collision bug for active open connection
+  RDMA/cxgb4: Fix LE hash collision bug for passive open connection
+  RDMA/cxgb4: Fix bug for active and passive LE hash collision path
+
+ drivers/infiniband/hw/cxgb4/cm.c                |  789 +++++++++++++++++++---
+ drivers/infiniband/hw/cxgb4/device.c            |  210 ++++++-
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   33 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  146 +++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  473 +++++++++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   23 +-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c        |   34 +
+ drivers/net/ethernet/chelsio/cxgb4/l2t.h        |    3 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   23 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   66 ++
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   37 ++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  388 +++++++++++
+ 12 files changed, 2100 insertions(+), 125 deletions(-)
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
