@@ -1,163 +1,63 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 4/4 net-next] tg3: PTP - Enable the timestamping feature
- in hardware and fill skb tx/rx timestamps
-Date: Sun, 2 Dec 2012 19:42:51 -0800
-Message-ID: <1354506171-1646-4-git-send-email-mchan@broadcom.com>
-References: <1354506171-1646-1-git-send-email-mchan@broadcom.com>
- <1354506171-1646-2-git-send-email-mchan@broadcom.com>
- <1354506171-1646-3-git-send-email-mchan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nsujir@broadcom.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3569 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754648Ab2LCD1k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Dec 2012 22:27:40 -0500
-In-Reply-To: <1354506171-1646-3-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next] tuntap: attach queue 0 before registering netdevice
+Date: Mon,  3 Dec 2012 11:19:45 +0800
+Message-ID: <1354504785-13036-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, jslaby@suse.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matt Carlson <mcarlson@broadcom.com>
+We attach queue 0 after registering netdevice currently. This leads to call
+netif_set_real_num_{tx|rx}_queues() after registering the netdevice. Since we
+allow tun/tap has a maximum of 1024 queues, this may lead a huge number of
+uevents to be injected to userspace since we create 2048 kobjects and then
+remove 2046. Solve this problem by attaching queue 0 and set the real number of
+queues before registering netdevice.
 
-This patch implements the hardware timestamping as described in
-Documentation/networking/timestamping.txt
-
-Update version to 3.128.
-
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Reported-by: Jiri Slaby <jslaby@suse.cz>
+Tested-by: Jiri Slaby <jslaby@suse.cz>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |   57 +++++++++++++++++++++++++++++++---
- 1 files changed, 52 insertions(+), 5 deletions(-)
+ drivers/net/tun.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index f6e956c..b2ad1c4 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -93,10 +93,10 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index b44d7b7..cc3f878 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -492,9 +492,6 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
  
- #define DRV_MODULE_NAME		"tg3"
- #define TG3_MAJ_NUM			3
--#define TG3_MIN_NUM			127
-+#define TG3_MIN_NUM			128
- #define DRV_MODULE_VERSION	\
- 	__stringify(TG3_MAJ_NUM) "." __stringify(TG3_MIN_NUM)
--#define DRV_MODULE_RELDATE	"November 14, 2012"
-+#define DRV_MODULE_RELDATE	"December 02, 2012"
+ 	tun_set_real_num_queues(tun);
  
- #define RESET_KIND_SHUTDOWN	0
- #define RESET_KIND_INIT		1
-@@ -5658,6 +5658,14 @@ static const struct ptp_clock_info tg3_ptp_caps = {
- 	.enable		= tg3_ptp_enable,
- };
+-	if (tun->numqueues == 1)
+-		netif_carrier_on(tun->dev);
+-
+ 	/* device is allowed to go away first, so no need to hold extra
+ 	 * refcnt.
+ 	 */
+@@ -1611,6 +1608,10 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 			TUN_USER_FEATURES;
+ 		dev->features = dev->hw_features;
  
-+static void tg3_hwclock_to_timestamp(struct tg3 *tp, u64 hwclock,
-+				     struct skb_shared_hwtstamps *timestamp)
-+{
-+	memset(timestamp, 0, sizeof(struct skb_shared_hwtstamps));
-+	timestamp->hwtstamp  = ns_to_ktime((hwclock & TG3_TSTAMP_MASK) +
-+					   tp->ptp_adjust);
-+}
++		err = tun_attach(tun, file);
++		if (err < 0)
++			goto err_free_dev;
 +
- static void tg3_ptp_init(struct tg3 *tp)
- {
- 	if (!tg3_flag(tp, PTP_CAPABLE))
-@@ -5871,6 +5879,16 @@ static void tg3_tx(struct tg3_napi *tnapi)
- 			return;
- 		}
+ 		err = register_netdevice(tun->dev);
+ 		if (err < 0)
+ 			goto err_free_dev;
+@@ -1620,9 +1621,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 		    device_create_file(&tun->dev->dev, &dev_attr_group))
+ 			pr_err("Failed to create tun sysfs files\n");
  
-+		if (tnapi->tx_ring[sw_idx].len_flags & TXD_FLAG_HWTSTAMP) {
-+			struct skb_shared_hwtstamps timestamp;
-+			u64 hwclock = tr32(TG3_TX_TSTAMP_LSB);
-+			hwclock |= (u64)tr32(TG3_TX_TSTAMP_MSB) << 32;
-+
-+			tg3_hwclock_to_timestamp(tp, hwclock, &timestamp);
-+
-+			skb_tstamp_tx(skb, &timestamp);
-+		}
-+
- 		pci_unmap_single(tp->pdev,
- 				 dma_unmap_addr(ri, mapping),
- 				 skb_headlen(skb),
-@@ -6138,6 +6156,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		dma_addr_t dma_addr;
- 		u32 opaque_key, desc_idx, *post_ptr;
- 		u8 *data;
-+		u64 tstamp = 0;
- 
- 		desc_idx = desc->opaque & RXD_OPAQUE_INDEX_MASK;
- 		opaque_key = desc->opaque & RXD_OPAQUE_RING_MASK;
-@@ -6172,6 +6191,14 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		len = ((desc->idx_len & RXD_LEN_MASK) >> RXD_LEN_SHIFT) -
- 		      ETH_FCS_LEN;
- 
-+		if ((desc->type_flags & RXD_FLAG_PTPSTAT_MASK) ==
-+		     RXD_FLAG_PTPSTAT_PTPV1 ||
-+		    (desc->type_flags & RXD_FLAG_PTPSTAT_MASK) ==
-+		     RXD_FLAG_PTPSTAT_PTPV2) {
-+			tstamp = tr32(TG3_RX_TSTAMP_LSB);
-+			tstamp |= (u64)tr32(TG3_RX_TSTAMP_MSB) << 32;
-+		}
-+
- 		if (len > TG3_RX_COPY_THRESH(tp)) {
- 			int skb_size;
- 			unsigned int frag_size;
-@@ -6215,6 +6242,10 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		}
- 
- 		skb_put(skb, len);
-+		if (tstamp)
-+			tg3_hwclock_to_timestamp(tp, tstamp,
-+						 skb_hwtstamps(skb));
-+
- 		if ((tp->dev->features & NETIF_F_RXCSUM) &&
- 		    (desc->type_flags & RXD_FLAG_TCPUDP_CSUM) &&
- 		    (((desc->ip_tcp_csum & RXD_TCPCSUM_MASK)
-@@ -7271,6 +7302,12 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		vlan = vlan_tx_tag_get(skb);
+-		err = tun_attach(tun, file);
+-		if (err < 0)
+-			goto err_free_dev;
++		netif_carrier_on(tun->dev);
  	}
  
-+	if ((unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) &&
-+	    tg3_flag(tp, TX_TSTAMP_EN)) {
-+		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-+		base_flags |= TXD_FLAG_HWTSTAMP;
-+	}
-+
- 	len = skb_headlen(skb);
- 
- 	mapping = pci_map_single(tp->pdev, skb->data, len, PCI_DMA_TODEVICE);
-@@ -9139,9 +9176,15 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	 */
- 	tp->grc_mode |= GRC_MODE_NO_TX_PHDR_CSUM;
- 
--	tw32(GRC_MODE,
--	     tp->grc_mode |
--	     (GRC_MODE_IRQ_ON_MAC_ATTN | GRC_MODE_HOST_STACKUP));
-+	val = GRC_MODE_IRQ_ON_MAC_ATTN | GRC_MODE_HOST_STACKUP;
-+	if (tp->rxptpctl)
-+		tw32(TG3_RX_PTP_CTL,
-+		     tp->rxptpctl | TG3_RX_PTP_CTL_HWTS_INTERLOCK);
-+
-+	if (tg3_flag(tp, PTP_CAPABLE))
-+		val |= GRC_MODE_TIME_SYNC_ENABLE;
-+
-+	tw32(GRC_MODE, tp->grc_mode | val);
- 
- 	/* Setup the timer prescalar register.  Clock is always 66Mhz. */
- 	val = tr32(GRC_MISC_CFG);
-@@ -16565,6 +16608,10 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
- 
- 	pci_set_drvdata(pdev, dev);
- 
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
-+		tg3_flag_set(tp, PTP_CAPABLE);
-+
- 	if (tg3_flag(tp, 5717_PLUS)) {
- 		/* Resume a low-power mode */
- 		tg3_frob_aux_power(tp, false);
+ 	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
 -- 
 1.7.1
