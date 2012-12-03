@@ -1,38 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sky2: fix cleanup sequence in probe() function
-Date: Mon, 03 Dec 2012 13:53:04 -0500 (EST)
-Message-ID: <20121203.135304.402769242967325322.davem@davemloft.net>
-References: <20121201123928.GA3914@neptun>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 1/1] net: mvneta: Remove unneeded version.h header
+ inclusion
+Date: Mon, 3 Dec 2012 19:58:26 +0100
+Message-ID: <20121203195826.679f70d4@skate>
+References: <1354527928-27472-1-git-send-email-sachin.kamat@linaro.org>
+	<20121203.134620.972752091312747013.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, mlindner@marvell.com, netdev@vger.kernel.org
-To: LinoSanfilippo@gmx.de
+Cc: sachin.kamat@linaro.org, netdev@vger.kernel.org, patches@linaro.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39401 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750794Ab2LCSxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 13:53:06 -0500
-In-Reply-To: <20121201123928.GA3914@neptun>
+Received: from mail.free-electrons.com ([88.190.12.23]:59648 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751921Ab2LCS6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 13:58:41 -0500
+In-Reply-To: <20121203.134620.972752091312747013.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Sat, 1 Dec 2012 13:39:28 +0100
+Dear David Miller,
 
-> The cleanup sequence in sky2_probe() that is called in case of an error is
-> mixed up in different places:
+On Mon, 03 Dec 2012 13:46:20 -0500 (EST), David Miller wrote:
+> From: Sachin Kamat <sachin.kamat@linaro.org>
+> Date: Mon,  3 Dec 2012 15:15:28 +0530
 > 
-> - pci_disable_device() is not called in each case the device has been enabled
-> before
+> > linux/version.h inclusion is not necessary.
+> > 
+> > Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
 > 
-> - same for pci_disable_msi(): test_msi() may return with an error != EOPNOTSUPP
-> (due to failure of request_irq()). In that case msi is not disabled
+> Acked-by: David S. Miller <davem@davemloft.net>
 > 
-> - also failure of register_netdev() does not disable msi
-> 
-> This patch fixes the concerning parts.
-> 
-> Signed-off-by: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+> I hope the mvneta folks will pick this up and apply it where it
+> needs to be as the mvneta driver isn't in the net-next tree.
 
-This looks clearly correct to me, so I've applied it to net-next, thanks.
+Yes, I will pick it up, and send a pull request to the Marvell
+maintainers. I have other mvneta fixes that I'll send together with
+this one.
+
+Thanks,
+
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
