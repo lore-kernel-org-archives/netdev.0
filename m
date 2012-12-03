@@ -1,142 +1,76 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next] bridge: implement multicast fast leave
-Date: Mon,  3 Dec 2012 22:36:03 +0800
-Message-ID: <1354545363-11953-1-git-send-email-amwang@redhat.com>
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	bridge@lists.linux-foundation.org, "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [patch net-next] net: call notifiers for mtu change even if
+ iface is not up
+Date: Mon, 3 Dec 2012 10:22:50 -0500
+Message-ID: <20121203152250.GB21816@hmsreliant.think-freely.org>
+References: <1354533392-9308-1-git-send-email-jiri@resnulli.us>
+ <20121203141823.GA21816@hmsreliant.think-freely.org>
+ <20121203142229.GA3054@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, psimerda@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46648 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753786Ab2LCPXE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 10:23:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20121203142229.GA3054@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fast leave allows bridge to immediately stops the multicast
-traffic on the port receives IGMP Leave when IGMP snooping is enabled,
-no timeouts are observed.
+On Mon, Dec 03, 2012 at 03:22:29PM +0100, Jiri Pirko wrote:
+> Mon, Dec 03, 2012 at 03:18:23PM CET, nhorman@tuxdriver.com wrote:
+> >On Mon, Dec 03, 2012 at 12:16:32PM +0100, Jiri Pirko wrote:
+> >> Do the same thing as in set mac. Call notifiers every time.
+> >> 
+> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> >> ---
+> >>  net/core/dev.c | 2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >> 
+> >> diff --git a/net/core/dev.c b/net/core/dev.c
+> >> index 2f94df2..0685a72 100644
+> >> --- a/net/core/dev.c
+> >> +++ b/net/core/dev.c
+> >> @@ -4971,7 +4971,7 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+> >>  	else
+> >>  		dev->mtu = new_mtu;
+> >>  
+> >> -	if (!err && dev->flags & IFF_UP)
+> >> +	if (!err)
+> >>  		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
+> >>  	return err;
+> >>  }
+> >
+> >I'm not opposed to this change, but is there something that it expressly fixes?
+> 
+> This is about a consistency. To have the same behaviour as set_mac
+> for example.
+> 
+> >While it doesn't hurt to send around mtu change events, one would presume that
+> >listeners would pick up mtu changes when the NETDEV_UP event went' around.
+> >
+> >Neil
+> >
+I figured, I just wanted to be sure that there wasn't a bug fix that needed
+documenting in the changelog, or that listeners for this event didn't expect the
+interface to already be up.  It looks pretty clean, with the exception of the
+TIPC protocol.  It appears that it might require enable_bearer to be called
+prior to any netdevice CHANGEMTU events, so that the eth_bearers array gets
+filled out, and it looks like that has to get triggered either by user space, or
+the receipt of a message over the network.  Let me know what you think
 
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+Neil
 
----
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index d53e4f4..05e0572 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1226,6 +1226,40 @@ static void br_multicast_leave_group(struct net_bridge *br,
- 	if (!mp)
- 		goto out;
- 
-+	if (br->multicast_fast_leave) {
-+		struct net_bridge_port_group __rcu **pp;
-+
-+		if (!port) {
-+			mp->mglist = false;
-+
-+			if (mp->ports)
-+				goto out;
-+
-+			hlist_del_rcu(&mp->hlist[mdb->ver]);
-+			mdb->size--;
-+			del_timer(&mp->timer);
-+			call_rcu_bh(&mp->rcu, br_multicast_free_group);
-+			goto out;
-+		}
-+
-+		for (pp = &mp->ports;
-+		     (p = mlock_dereference(*pp, br)) != NULL;
-+		     pp = &p->next) {
-+			if (p->port != port)
-+				continue;
-+
-+			rcu_assign_pointer(*pp, p->next);
-+			hlist_del_init(&p->mglist);
-+			del_timer(&p->timer);
-+			call_rcu_bh(&p->rcu, br_multicast_free_pg);
-+
-+			if (!mp->ports && !mp->mglist &&
-+			    netif_running(br->dev))
-+				mod_timer(&mp->timer, jiffies);
-+		}
-+		goto out;
-+	}
-+
- 	now = jiffies;
- 	time = now + br->multicast_last_member_count *
- 		     br->multicast_last_member_interval;
-@@ -1567,6 +1601,7 @@ void br_multicast_init(struct net_bridge *br)
- 	br->hash_max = 512;
- 
- 	br->multicast_router = 1;
-+	br->multicast_fast_leave = 0;
- 	br->multicast_querier = 0;
- 	br->multicast_last_member_count = 2;
- 	br->multicast_startup_query_count = 2;
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 6484069..2f5f5b8 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -230,6 +230,7 @@ struct net_bridge
- 
- 	u8				multicast_disabled:1;
- 	u8				multicast_querier:1;
-+	u8				multicast_fast_leave:1;
- 
- 	u32				hash_elasticity;
- 	u32				hash_max;
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 5913a3a..f88389f 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -375,6 +375,32 @@ static ssize_t store_multicast_snooping(struct device *d,
- static DEVICE_ATTR(multicast_snooping, S_IRUGO | S_IWUSR,
- 		   show_multicast_snooping, store_multicast_snooping);
- 
-+static ssize_t show_multicast_fast_leave(struct device *d,
-+				       struct device_attribute *attr,
-+				       char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%d\n", br->multicast_fast_leave);
-+}
-+
-+static int set_fast_leave(struct net_bridge *br, unsigned long val)
-+{
-+	if (br->multicast_disabled)
-+		return -EINVAL;
-+
-+	br->multicast_fast_leave = !!val;
-+	return 0;
-+}
-+
-+static ssize_t store_multicast_fast_leave(struct device *d,
-+					struct device_attribute *attr,
-+					const char *buf, size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, set_fast_leave);
-+}
-+static DEVICE_ATTR(multicast_fast_leave, S_IRUGO | S_IWUSR,
-+		   show_multicast_fast_leave, store_multicast_fast_leave);
-+
- static ssize_t show_multicast_querier(struct device *d,
- 				      struct device_attribute *attr,
- 				      char *buf)
-@@ -715,6 +741,7 @@ static struct attribute *bridge_attrs[] = {
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	&dev_attr_multicast_router.attr,
- 	&dev_attr_multicast_snooping.attr,
-+	&dev_attr_multicast_fast_leave.attr,
- 	&dev_attr_multicast_querier.attr,
- 	&dev_attr_hash_elasticity.attr,
- 	&dev_attr_hash_max.attr,
+> >--
+> >To unsubscribe from this list: send the line "unsubscribe netdev" in
+> >the body of a message to majordomo@vger.kernel.org
+> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
