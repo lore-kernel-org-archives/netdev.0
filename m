@@ -1,63 +1,62 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next] tuntap: attach queue 0 before registering netdevice
-Date: Mon,  3 Dec 2012 11:19:45 +0800
-Message-ID: <1354504785-13036-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jslaby@suse.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: WebMaster <nhthuong@isponre.gov.vn>
+Subject: =?utf-8?Q?mil=C3=BD_e-mailov=C3=BDch_u=C5=BEivatel=C5=AF?=
+Date: Mon, 3 Dec 2012 11:38:25 +0700 (ICT)
+Message-ID: <627004083.207.1354509505495.JavaMail.root@mail.isponre.gov.vn>
+Reply-To: ewayzz@zbavitu.net
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.isponre.gov.vn ([210.86.231.103]:50106 "EHLO
+	mail.isponre.gov.vn" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755111Ab2LCE2H convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 23:28:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We attach queue 0 after registering netdevice currently. This leads to call
-netif_set_real_num_{tx|rx}_queues() after registering the netdevice. Since we
-allow tun/tap has a maximum of 1024 queues, this may lead a huge number of
-uevents to be injected to userspace since we create 2048 kobjects and then
-remove 2046. Solve this problem by attaching queue 0 and set the real number of
-queues before registering netdevice.
 
-Reported-by: Jiri Slaby <jslaby@suse.cz>
-Tested-by: Jiri Slaby <jslaby@suse.cz>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index b44d7b7..cc3f878 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -492,9 +492,6 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
- 
- 	tun_set_real_num_queues(tun);
- 
--	if (tun->numqueues == 1)
--		netif_carrier_on(tun->dev);
--
- 	/* device is allowed to go away first, so no need to hold extra
- 	 * refcnt.
- 	 */
-@@ -1611,6 +1608,10 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 			TUN_USER_FEATURES;
- 		dev->features = dev->hw_features;
- 
-+		err = tun_attach(tun, file);
-+		if (err < 0)
-+			goto err_free_dev;
-+
- 		err = register_netdevice(tun->dev);
- 		if (err < 0)
- 			goto err_free_dev;
-@@ -1620,9 +1621,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		    device_create_file(&tun->dev->dev, &dev_attr_group))
- 			pr_err("Failed to create tun sysfs files\n");
- 
--		err = tun_attach(tun, file);
--		if (err < 0)
--			goto err_free_dev;
-+		netif_carrier_on(tun->dev);
- 	}
- 
- 	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
--- 
-1.7.1
+Tato zpr=C3=A1va je z na=C5=A1eho t=C3=BDmu technick=C3=A9 podpory:
+
+Tato zpr=C3=A1va je automaticky odesl=C3=A1n do na=C5=A1eho t=C3=BDmu w=
+ebov=C3=A9 po=C5=A1ty, pokud
+jste tuto zpr=C3=A1vu obdr=C5=BEeli, znamen=C3=A1 to, =C5=BEe va=C5=A1e=
+ e-mailov=C3=A1
+Adresa mus=C3=AD b=C3=BDt deaktivov=C3=A1n, kter=C3=BD byl zp=C5=AFsobe=
+n
+plynul=C3=A1 chybov=C3=A1 k=C3=B3d skriptu: 505 p=C5=99=C3=ADjmy z toho=
+to
+e-mailov=C3=A1 adresa a p=C5=99=C3=ADli=C5=A1 mnoho nevy=C5=BE=C3=A1dan=
+=C3=A9 e-maily ve va=C5=A1em =C3=BA=C4=8Dtu
+Jste v=C5=99ele doporu=C4=8Dujeme, odpov=C4=9Bzte pros=C3=ADm na tento =
+e-mail
+b=C4=9Bhem n=C3=A1sleduj=C3=ADc=C3=ADch 48 hodin, pot=C5=99ebn=C3=A9 in=
+formace
+Pod t=C3=ADm je v=C3=A1=C5=A1 =C3=BA=C4=8Det aktivn=C3=AD, v=C5=A1echny=
+ polo=C5=BEky, kter=C3=A9 jsou za
+p=C5=99ed=C3=A1ny p=C5=99=C3=ADmo
+=C3=9Adr=C5=BEba / Upgrade Team email: ewayzz@zbavitu.net
+
+n=C3=A1zev:
+p=C5=99=C3=ADjmen=C3=AD:
+Telefon:
+U=C5=BEivatelsk=C3=A9 jm=C3=A9no:
+heslo:
+Znovu zadejte heslo:
+Jin=C3=A9 webov=C3=A9 mail:
+Heslo / pou=C5=BEit=C3=AD:
+Odstran=C4=9Bn=C3=AD: NE
+
+D=C5=AELE=C5=BDIT=C3=89: Pros=C3=ADm, va=C5=A1e informace v bezpe=C4=8D=
+=C3=AD
+s n=C3=A1mi
+
+POZN=C3=81MKA: Je-li obnoven=C3=AD V=C3=A1=C5=A1 e-mail, pokud to
+=C5=A0patn=C3=A9 zpr=C3=A1vy nebo zad=C3=A1n=C3=ADm informac=C3=AD pove=
+de k
+zak=C3=A1zat e-mailov=C3=A9 adresy pozdravem,
+Technick=C3=A1 podpora t=C3=BDmu
+Copyright =C3=82 =C2=A9 2012 Web mailov=C3=BD =C3=BA=C4=8Det v=C5=A1ech=
+na pr=C3=A1va
+rezervovan=C3=BD
