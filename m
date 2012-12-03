@@ -1,20 +1,20 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next rfc v7 2/3] virtio_net: multiqueue support
-Date: Mon, 03 Dec 2012 14:05:27 +0800
-Message-ID: <20845723.CY8SZ4xV0F@jason-thinkpad-t430s>
+Subject: Re: [net-next rfc v7 3/3] virtio-net: change the number of queues
+	through ethtool
+Date: Mon, 03 Dec 2012 14:09:28 +0800
+Message-ID: <7408756.Sj6HEpCzzZ@jason-thinkpad-t430s>
 References: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
-	<1354011360-39479-3-git-send-email-jasowang@redhat.com>
-	<87vccjj3hj.fsf@rustcorp.com.au>
+	<1354011360-39479-4-git-send-email-jasowang@redhat.com>
+	<20121202160906.GB27761@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
 	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr, shiyer@redhat.com
-To: Rusty Russell <rusty@rustcorp.com.au>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87vccjj3hj.fsf@rustcorp.com.au>
+In-Reply-To: <20121202160906.GB27761@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -26,106 +26,90 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, December 03, 2012 12:34:08 PM Rusty Russell wrote:
-> Jason Wang <jasowang@redhat.com> writes:
-> > +static const struct ethtool_ops virtnet_ethtool_ops;
-> > +
-> > +/*
-> > + * Converting between virtqueue no. and kernel tx/rx queue no.
-> > + * 0:rx0 1:tx0 2:cvq 3:rx1 4:tx1 ... 2N+1:rxN 2N+2:txN
-> > + */
-> > +static int vq2txq(struct virtqueue *vq)
+On Sunday, December 02, 2012 06:09:06 PM Michael S. Tsirkin wrote:
+> On Tue, Nov 27, 2012 at 06:16:00PM +0800, Jason Wang wrote:
+> > This patch implement the {set|get}_channels method of ethool to allow user
+> > to change the number of queues dymaically when the device is running.
+> > This would let the user to configure it on demand.
+> > 
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > ---
+> > 
+> >  drivers/net/virtio_net.c |   41 +++++++++++++++++++++++++++++++++++++++++
+> >  1 files changed, 41 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index bcaa6e5..f08ec2a 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -1578,10 +1578,51 @@ static struct virtio_driver virtio_net_driver = {
+> > 
+> >  #endif
+> >  };
+> > 
+> > +/* TODO: Eliminate OOO packets during switching */
+> > +static int virtnet_set_channels(struct net_device *dev,
+> > +				struct ethtool_channels *channels)
 > > +{
-> > +	int index = virtqueue_get_queue_index(vq);
-> > +	return index == 1 ? 0 : (index - 2) / 2;
-> > +}
+> > +	struct virtnet_info *vi = netdev_priv(dev);
+> > +	u16 queue_pairs = channels->combined_count;
 > > +
-> > +static int txq2vq(int txq)
-> > +{
-> > +	return txq ? 2 * txq + 2 : 1;
-> > +}
-> > +
-> > +static int vq2rxq(struct virtqueue *vq)
-> > +{
-> > +	int index = virtqueue_get_queue_index(vq);
-> > +	return index ? (index - 1) / 2 : 0;
-> > +}
-> > +
-> > +static int rxq2vq(int rxq)
-> > +{
-> > +	return rxq ? 2 * rxq + 1 : 0;
-> > +}
-> > +
-> 
-> I thought MST changed the proposed spec to make the control queue always
-> the last one, so this logic becomes trivial.
-
-But it may break the support of legacy guest. If we boot a legacy single queue 
-guest on a 2 queue virtio-net device. It may think vq 2 is cvq which is indeed 
-rx1.
-> 
-> > +static int virtnet_set_queues(struct virtnet_info *vi)
-> > +{
-> > +	struct scatterlist sg;
-> > +	struct virtio_net_ctrl_rfs s;
-> > +	struct net_device *dev = vi->dev;
-> > +
-> > +	s.virtqueue_pairs = vi->curr_queue_pairs;
-> > +	sg_init_one(&sg, &s, sizeof(s));
-> > +
-> > +	if (!vi->has_cvq)
+> > +	/* We don't support separate rx/tx channels.
+> > +	 * We don't allow setting 'other' channels.
+> > +	 */
+> > +	if (channels->rx_count || channels->tx_count || channels->other_count)
 > > +		return -EINVAL;
 > > +
-> > +	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_RFS,
-> > +				  VIRTIO_NET_CTRL_RFS_VQ_PAIRS_SET, &sg, 1, 0)){
-> > +		dev_warn(&dev->dev, "Fail to set the number of queue pairs to"
-> > +			 " %d\n", vi->curr_queue_pairs);
+> > +	/* Only two modes were support currently */
+> > +	if (queue_pairs != vi->max_queue_pairs && queue_pairs != 1)
 > > +		return -EINVAL;
-> > +	}
-> 
-> Where do we check the VIRTIO_NET_F_RFS bit?
-
-Yes, we need this check. Will let the caller does the check and add a comment 
-and check in the caller.
-> 
-> >  static int virtnet_probe(struct virtio_device *vdev)
-> >  {
-> > 
-> > -	int err;
-> > +	int i, err;
-> > 
-> >  	struct net_device *dev;
-> >  	struct virtnet_info *vi;
-> > 
-> > +	u16 curr_queue_pairs;
 > > +
-> > +	/* Find if host supports multiqueue virtio_net device */
-> > +	err = virtio_config_val(vdev, VIRTIO_NET_F_RFS,
-> > +				offsetof(struct virtio_net_config,
-> > +				max_virtqueue_pairs), &curr_queue_pairs);
-> > +
-> > +	/* We need at least 2 queue's */
-> > +	if (err)
-> > +		curr_queue_pairs = 1;
 > 
-> Huh?  Just call this queue_pairs.  It's not curr_ at all...
-> 
-> > +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
-> > +		vi->has_cvq = true;
-> > +
-> > +	/* Use single tx/rx queue pair as default */
-> > +	vi->curr_queue_pairs = 1;
-> > +	vi->max_queue_pairs = curr_queue_pairs;
-> 
-> See...
+> Why the limitation?
 
-Right, will use max_queue_pairs then.
+Not sure the value bettwen 1 and max_queue_pairs is useful. But anyway, I can 
+remove this limitation.
+> Also how does userspace discover what the legal values are?
 
-Thanks
+Userspace only check whether the value is greater than max_queue_pairs.
 > 
-> Cheers,
-> Rusty.
+> > +	vi->curr_queue_pairs = queue_pairs;
+> > +	BUG_ON(virtnet_set_queues(vi));
+> > +
+> > +	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+> > +	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static void virtnet_get_channels(struct net_device *dev,
+> > +				 struct ethtool_channels *channels)
+> > +{
+> > +	struct virtnet_info *vi = netdev_priv(dev);
+> > +
+> > +	channels->combined_count = vi->curr_queue_pairs;
+> > +	channels->max_combined = vi->max_queue_pairs;
+> > +	channels->max_other = 0;
+> > +	channels->rx_count = 0;
+> > +	channels->tx_count = 0;
+> > +	channels->other_count = 0;
+> > +}
+> > +
+> > 
+> >  static const struct ethtool_ops virtnet_ethtool_ops = {
+> >  
+> >  	.get_drvinfo = virtnet_get_drvinfo,
+> >  	.get_link = ethtool_op_get_link,
+> >  	.get_ringparam = virtnet_get_ringparam,
+> > 
+> > +	.set_channels = virtnet_set_channels,
+> > +	.get_channels = virtnet_get_channels,
+> > 
+> >  };
+> >  
+> >  static int __init init(void)
+> 
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
