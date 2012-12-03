@@ -1,38 +1,32 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next] openvswitch: Use eth_mac_addr() instead of
- duplicating it
-Date: Mon, 3 Dec 2012 23:16:38 +0000
-Message-ID: <20121203231638.GA16122@casper.infradead.org>
-References: <20121203221732.GA14494@casper.infradead.org>
- <CAEP_g=8+V=LN--ZkAgRHysUWwNJH1O=YDevbLH846nGZQkUpUA@mail.gmail.com>
- <20121203224721.GC14494@casper.infradead.org>
- <CAEP_g=_sAOsQAXQXELDUAc3vFPgXAYbQUG6THfcsuNvXg7+M8A@mail.gmail.com>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH] net: ICMPv6 packets transmitted on wrong interface if
+ nfmark is mangled
+Date: Tue, 4 Dec 2012 00:38:25 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1212040037240.2816@nerf07.vanv.qr>
+References: <20121130.122243.710720011890818822.davem@davemloft.net> <1354538763-2678-1-git-send-email-dries.dewinter@gmail.com> <20121203.141128.206409637987621093.davem@davemloft.net> <CA+e04fjWMDE9xEApysFRprZDBdM3Ya2RHrxtoau7i+fxzGT8CQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, dev@openvswitch.org
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, pablo@netfilter.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Dries De Winter <dries.dewinter@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:59974 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751340Ab2LCXQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 18:16:41 -0500
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=_sAOsQAXQXELDUAc3vFPgXAYbQUG6THfcsuNvXg7+M8A@mail.gmail.com>
+Received: from ares07.inai.de ([5.9.24.206]:49427 "EHLO ares07.inai.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751193Ab2LCXie (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2012 18:38:34 -0500
+In-Reply-To: <CA+e04fjWMDE9xEApysFRprZDBdM3Ya2RHrxtoau7i+fxzGT8CQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/03/12 at 02:55pm, Jesse Gross wrote:
-> If you send patches like this to two different trees then it will
-> result in merge conflicts later.  Please just wait a few days; as you
-> say, it's a trivial patch.
 
-I CC'ed dev@openvswitch.org on both patch submissions as well so if
-davem merges it you will know.
+On Monday 2012-12-03 22:31, Dries De Winter wrote:
+>
+>Not fixing this means that skb->mark is unavailable for use on ICMPv6
+>packets because it will inevitably put those packets on the wrong
+>interface. [...]
+>I use skb->mark for QoS, not for routing so I don't expect
+>the outgoing interface to be affected by my markers.
 
-It's no the lack of response to this patch but the discontinuation
-of discussion on the previous patchset without any reason that gave
-me the impression of being ignored. When I feel ignored, I go
-somehwere else.
-
-Besides, it would have taken less time to just apply the patch than
-to have this discussion.
+Why would it do that, if one has no routes joined to a fwmark NNN
+routing rule?
