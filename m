@@ -1,43 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: don't abort splice() after small
- transfers
-Date: Sun, 02 Dec 2012 20:24:00 -0500 (EST)
-Message-ID: <20121202.202400.1802827154247759864.davem@davemloft.net>
-References: <1354484967.20109.1167.camel@edumazet-glaptop>
+Subject: Re: [PATCH 1/6] bna: remove useless calls to memset().
+Date: Sun, 02 Dec 2012 20:33:09 -0500 (EST)
+Message-ID: <20121202.203309.1858145449914043352.davem@davemloft.net>
+References: <1354416022-20189-1-git-send-email-tipecaml@gmail.com>
+	<1354416022-20189-2-git-send-email-tipecaml@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, w@1wt.eu
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33640 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754374Ab2LCBYB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Dec 2012 20:24:01 -0500
-In-Reply-To: <1354484967.20109.1167.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	rmody@brocade.com, netdev@vger.kernel.org
+To: tipecaml@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354416022-20189-2-git-send-email-tipecaml@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 02 Dec 2012 13:49:27 -0800
+From: Cyril Roelandt <tipecaml@gmail.com>
+Date: Sun,  2 Dec 2012 03:40:17 +0100
 
-> From: Willy Tarreau <w@1wt.eu>
+> These calls are followed by calls to memcpy() on the same memory area, so they
+> can safely be removed.
 > 
-> TCP coalescing added a regression in splice(socket->pipe) performance,
-> for some workloads because of the way tcp_read_sock() is implemented.
-> 
-> The reason for this is the break when (offset + 1 != skb->len).
-> 
-> As we released the socket lock, this condition is possible if TCP stack
-> added a fragment to the skb, which can happen with TCP coalescing.
-> 
-> So let's go back to the beginning of the loop when this happens,
-> to give a chance to splice more frags per system call.
-> 
-> Doing so fixes the issue and makes GRO 10% faster than LRO
-> on CPU-bound splice() workloads instead of the opposite.
-> 
-> Signed-off-by: Willy Tarreau <w@1wt.eu>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Cyril Roelandt <tipecaml@gmail.com>
 
-Applied.
+Applied, thanks.
