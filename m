@@ -1,115 +1,67 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next rfc v7 3/3] virtio-net: change the number of queues
-	through ethtool
-Date: Mon, 03 Dec 2012 14:09:28 +0800
-Message-ID: <7408756.Sj6HEpCzzZ@jason-thinkpad-t430s>
-References: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
-	<1354011360-39479-4-git-send-email-jasowang@redhat.com>
-	<20121202160906.GB27761@redhat.com>
+Subject: Re: [net-next RFC] pktgen: don't wait for the device who doesn't free skb immediately after sent
+Date: Mon, 03 Dec 2012 14:45:46 +0800
+Message-ID: <2663254.1vRFru9xhh@jason-thinkpad-t430s>
+References: <1353916612-6357-1-git-send-email-jasowang@redhat.com> <50B46179.4040809@redhat.com> <20121127084919.1587c647@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr, shiyer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121202160906.GB27761@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Transfer-Encoding: 7Bit
+Cc: rusty@rustcorp.com.au, mst@redhat.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121127084919.1587c647@nehalam.linuxnetplumber.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sunday, December 02, 2012 06:09:06 PM Michael S. Tsirkin wrote:
-> On Tue, Nov 27, 2012 at 06:16:00PM +0800, Jason Wang wrote:
-> > This patch implement the {set|get}_channels method of ethool to allow user
-> > to change the number of queues dymaically when the device is running.
-> > This would let the user to configure it on demand.
-> > 
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > ---
-> > 
-> >  drivers/net/virtio_net.c |   41 +++++++++++++++++++++++++++++++++++++++++
-> >  1 files changed, 41 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index bcaa6e5..f08ec2a 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -1578,10 +1578,51 @@ static struct virtio_driver virtio_net_driver = {
-> > 
-> >  #endif
-> >  };
-> > 
-> > +/* TODO: Eliminate OOO packets during switching */
-> > +static int virtnet_set_channels(struct net_device *dev,
-> > +				struct ethtool_channels *channels)
-> > +{
-> > +	struct virtnet_info *vi = netdev_priv(dev);
-> > +	u16 queue_pairs = channels->combined_count;
-> > +
-> > +	/* We don't support separate rx/tx channels.
-> > +	 * We don't allow setting 'other' channels.
-> > +	 */
-> > +	if (channels->rx_count || channels->tx_count || channels->other_count)
-> > +		return -EINVAL;
-> > +
-> > +	/* Only two modes were support currently */
-> > +	if (queue_pairs != vi->max_queue_pairs && queue_pairs != 1)
-> > +		return -EINVAL;
-> > +
+On Tuesday, November 27, 2012 08:49:19 AM Stephen Hemminger wrote:
+> On Tue, 27 Nov 2012 14:45:13 +0800
 > 
-> Why the limitation?
+> Jason Wang <jasowang@redhat.com> wrote:
+> > On 11/27/2012 01:37 AM, Stephen Hemminger wrote:
+> > > On Mon, 26 Nov 2012 15:56:52 +0800
+> > > 
+> > > Jason Wang <jasowang@redhat.com> wrote:
+> > >> Some deivces do not free the old tx skbs immediately after it has been
+> > >> sent
+> > >> (usually in tx interrupt). One such example is virtio-net which
+> > >> optimizes for virt and only free the possible old tx skbs during the
+> > >> next packet sending. This would lead the pktgen to wait forever in the
+> > >> refcount of the skb if no other pakcet will be sent afterwards.
+> > >> 
+> > >> Solving this issue by introducing a new flag IFF_TX_SKB_FREE_DELAY
+> > >> which could notify the pktgen that the device does not free skb
+> > >> immediately after it has been sent and let it not to wait for the
+> > >> refcount to be one.
+> > >> 
+> > >> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > > 
+> > > Another alternative would be using skb_orphan() and skb->destructor.
+> > > There are other cases where skb's are not freed right away.
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> > Hi Stephen:
+> > 
+> > Do you mean registering a skb->destructor for pktgen then set and check
+> > bits in skb->tx_flag?
+> 
+> Yes. Register a destructor that does something like update a counter (number
+> of packets pending), then just spin while number of packets pending is over
+> threshold.
 
-Not sure the value bettwen 1 and max_queue_pairs is useful. But anyway, I can 
-remove this limitation.
-> Also how does userspace discover what the legal values are?
+Have some experiments on this, looks like it does not work weel when clone_skb 
+is used. For driver that call skb_orphan() in ndo_start_xmit, the destructor 
+is only called when the first packet were sent, but what we need to know is 
+when the last were sent. Any thoughts on this or we can just introduce another 
+flag (anyway we have something like IFF_TX_SKB_SHARING) ?
 
-Userspace only check whether the value is greater than max_queue_pairs.
-> 
-> > +	vi->curr_queue_pairs = queue_pairs;
-> > +	BUG_ON(virtnet_set_queues(vi));
-> > +
-> > +	netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
-> > +	netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +static void virtnet_get_channels(struct net_device *dev,
-> > +				 struct ethtool_channels *channels)
-> > +{
-> > +	struct virtnet_info *vi = netdev_priv(dev);
-> > +
-> > +	channels->combined_count = vi->curr_queue_pairs;
-> > +	channels->max_combined = vi->max_queue_pairs;
-> > +	channels->max_other = 0;
-> > +	channels->rx_count = 0;
-> > +	channels->tx_count = 0;
-> > +	channels->other_count = 0;
-> > +}
-> > +
-> > 
-> >  static const struct ethtool_ops virtnet_ethtool_ops = {
-> >  
-> >  	.get_drvinfo = virtnet_get_drvinfo,
-> >  	.get_link = ethtool_op_get_link,
-> >  	.get_ringparam = virtnet_get_ringparam,
-> > 
-> > +	.set_channels = virtnet_set_channels,
-> > +	.get_channels = virtnet_get_channels,
-> > 
-> >  };
-> >  
-> >  static int __init init(void)
-> 
+Thanks
 > --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
