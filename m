@@ -1,119 +1,82 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH net-next 1/2] igb: remove duplicate code for fallback interrupt initialization
-Date: Mon,  3 Dec 2012 14:15:00 +0100
-Message-ID: <1354540501-18407-2-git-send-email-sassmann@kpanic.de>
-References: <1354540501-18407-1-git-send-email-sassmann@kpanic.de>
-Cc: e1000-devel@lists.sourceforge.net, alexander.h.duyck@intel.com,
-	carolyn.wyborny@intel.com, jeffrey.t.kirsher@intel.com,
-	sassmann@kpanic.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61125 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754360Ab2LCNQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2012 08:16:27 -0500
-In-Reply-To: <1354540501-18407-1-git-send-email-sassmann@kpanic.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] tun: only queue packets on device
+Date: Mon, 3 Dec 2012 15:19:43 +0200
+Message-ID: <20121203131942.GA27953@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Rami Rosen <ramirose@gmail.com>, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Given a small change to igb_init_interrupt_scheme() the function fits
-igb_request_irq() for MSI/legacy interrupts initialization as well, instead of
-duplicating most of its code there.
+Historically tun supported two modes of operation:
+- in default mode, a small number of packets would get queued
+  at the device, the rest would be queued in qdisc
+- in one queue mode, all packets would get queued at the device
 
-Also adding a missing igb_configure() to igb_request_irq() for MSI fallback
-to work properly.
+This might have made sense up to a point where we made the
+queue depth for both modes the same and set it to
+a huge value (500) so unless the consumer
+is stuck the chance of losing packets is small.
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+Thus in practice both modes behave the same, but the
+default mode has some problems:
+- if packets are never consumed, fragments are never orphaned
+  which cases a DOS for sender using zero copy transmit
+- overrun errors are hard to diagnose: fifo error is incremented
+  only once so you can not distinguish between
+  userspace that is stuck and a transient failure,
+  tcpdump on the device does not show any traffic
+
+Userspace solves this simply by enabling IFF_ONE_QUEUE
+but there seems to be little point in not doing the
+right thing for everyone, by default.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 29 ++++++++++++++---------------
- 1 file changed, 14 insertions(+), 15 deletions(-)
+ drivers/net/tun.c | 18 ++----------------
+ 1 file changed, 2 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index b85b15a..b0dd5ef 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -122,6 +122,7 @@ static void __devexit igb_remove(struct pci_dev *pdev);
- static int igb_sw_init(struct igb_adapter *);
- static int igb_open(struct net_device *);
- static int igb_close(struct net_device *);
-+static void igb_configure(struct igb_adapter *);
- static void igb_configure_tx(struct igb_adapter *);
- static void igb_configure_rx(struct igb_adapter *);
- static void igb_clean_all_tx_rings(struct igb_adapter *);
-@@ -948,11 +949,14 @@ static void igb_clear_interrupt_scheme(struct igb_adapter *adapter)
-  * Attempt to configure interrupts using the best available
-  * capabilities of the hardware and kernel.
-  **/
--static void igb_set_interrupt_capability(struct igb_adapter *adapter)
-+static void igb_set_interrupt_capability(struct igb_adapter *adapter, bool msix)
- {
- 	int err;
- 	int numvecs, i;
- 
-+	if (!msix)
-+		goto msi_only;
-+
- 	/* Number of supported queues. */
- 	adapter->num_rx_queues = adapter->rss_queues;
- 	if (adapter->vfs_allocated_count)
-@@ -1199,12 +1203,12 @@ err_out:
-  *
-  * This function initializes the interrupts and allocates all of the queues.
-  **/
--static int igb_init_interrupt_scheme(struct igb_adapter *adapter)
-+static int igb_init_interrupt_scheme(struct igb_adapter *adapter, bool msix)
- {
- 	struct pci_dev *pdev = adapter->pdev;
- 	int err;
- 
--	igb_set_interrupt_capability(adapter);
-+	igb_set_interrupt_capability(adapter, msix);
- 
- 	err = igb_alloc_q_vectors(adapter);
- 	if (err) {
-@@ -1240,20 +1244,15 @@ static int igb_request_irq(struct igb_adapter *adapter)
- 		/* fall back to MSI */
- 		igb_free_all_tx_resources(adapter);
- 		igb_free_all_rx_resources(adapter);
-+
- 		igb_clear_interrupt_scheme(adapter);
--		if (!pci_enable_msi(pdev))
--			adapter->flags |= IGB_FLAG_HAS_MSI;
--		adapter->num_tx_queues = 1;
--		adapter->num_rx_queues = 1;
--		adapter->num_q_vectors = 1;
--		err = igb_alloc_q_vectors(adapter);
--		if (err) {
--			dev_err(&pdev->dev,
--			        "Unable to allocate memory for vectors\n");
-+		err = igb_init_interrupt_scheme(adapter, false);
-+		if (err)
- 			goto request_done;
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 607a3a5..ad5c5fc 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -693,21 +693,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * number of queues.
+ 	 */
+ 	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
+-			  >= dev->tx_queue_len / tun->numqueues){
+-		if (!(tun->flags & TUN_ONE_QUEUE)) {
+-			/* Normal queueing mode. */
+-			/* Packet scheduler handles dropping of further packets. */
+-			netif_stop_subqueue(dev, txq);
+-
+-			/* We won't see all dropped packets individually, so overrun
+-			 * error is more appropriate. */
+-			dev->stats.tx_fifo_errors++;
+-		} else {
+-			/* Single queue mode.
+-			 * Driver handles dropping of all packets itself. */
+-			goto drop;
 -		}
-+
- 		igb_setup_all_tx_resources(adapter);
- 		igb_setup_all_rx_resources(adapter);
-+		igb_configure(adapter);
- 	}
+-	}
++			  >= dev->tx_queue_len / tun->numqueues)
++		goto drop;
  
- 	igb_assign_vector(adapter->q_vector[0], 0);
-@@ -2444,7 +2443,7 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
- 				GFP_ATOMIC);
+ 	/* Orphan the skb - required as we might hang on to it
+ 	 * for indefinite time. */
+@@ -1322,7 +1309,6 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 			schedule();
+ 			continue;
+ 		}
+-		netif_wake_subqueue(tun->dev, tfile->queue_index);
  
- 	/* This call may decrease the number of queues */
--	if (igb_init_interrupt_scheme(adapter)) {
-+	if (igb_init_interrupt_scheme(adapter, true)) {
- 		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
- 		return -ENOMEM;
- 	}
-@@ -6818,7 +6817,7 @@ static int igb_resume(struct device *dev)
- 	pci_enable_wake(pdev, PCI_D3hot, 0);
- 	pci_enable_wake(pdev, PCI_D3cold, 0);
- 
--	if (igb_init_interrupt_scheme(adapter)) {
-+	if (igb_init_interrupt_scheme(adapter, true)) {
- 		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
- 		return -ENOMEM;
- 	}
+ 		ret = tun_put_user(tun, tfile, skb, iv, len);
+ 		kfree_skb(skb);
 -- 
-1.7.11.7
+MST
