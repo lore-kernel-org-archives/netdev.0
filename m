@@ -1,76 +1,82 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [patch net-next] net: call notifiers for mtu change even if
- iface is not up
-Date: Mon, 3 Dec 2012 10:22:50 -0500
-Message-ID: <20121203152250.GB21816@hmsreliant.think-freely.org>
-References: <1354533392-9308-1-git-send-email-jiri@resnulli.us>
- <20121203141823.GA21816@hmsreliant.think-freely.org>
- <20121203142229.GA3054@minipsycho.orion>
+From: Joseph Glanville <joseph.glanville@orionvm.com.au>
+Subject: Re: [PATCH] vxlan: Fix error that was resulting in VXLAN MTU size
+ being 10 bytes too large
+Date: Tue, 4 Dec 2012 02:26:18 +1100
+Message-ID: <CAOzFzEh0X3CcjBYWVDAtu7=jRSc1_P2OQSF_YWjnBSeugo3W6A@mail.gmail.com>
+References: <20121109233354.17208.36271.stgit@gitlad.jf.intel.com>
+	<20121113.143719.1473223615602040380.davem@davemloft.net>
+	<20121113133353.227ec987@nehalam.linuxnetplumber.net>
+	<CAOzFzEiuhqiNiiij9P+sh8_ypyXN4zABeRB6tzH2TQqVsNHjCA@mail.gmail.com>
+	<20121119080351.477525b3@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, psimerda@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, alexander.h.duyck@intel.com,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46648 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753786Ab2LCPXE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 10:23:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20121203142229.GA3054@minipsycho.orion>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:46236 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754613Ab2LCP0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 10:26:19 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y25so2219655iay.19
+        for <netdev@vger.kernel.org>; Mon, 03 Dec 2012 07:26:18 -0800 (PST)
+In-Reply-To: <20121119080351.477525b3@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 03, 2012 at 03:22:29PM +0100, Jiri Pirko wrote:
-> Mon, Dec 03, 2012 at 03:18:23PM CET, nhorman@tuxdriver.com wrote:
-> >On Mon, Dec 03, 2012 at 12:16:32PM +0100, Jiri Pirko wrote:
-> >> Do the same thing as in set mac. Call notifiers every time.
-> >> 
-> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >> ---
-> >>  net/core/dev.c | 2 +-
-> >>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >> 
-> >> diff --git a/net/core/dev.c b/net/core/dev.c
-> >> index 2f94df2..0685a72 100644
-> >> --- a/net/core/dev.c
-> >> +++ b/net/core/dev.c
-> >> @@ -4971,7 +4971,7 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
-> >>  	else
-> >>  		dev->mtu = new_mtu;
-> >>  
-> >> -	if (!err && dev->flags & IFF_UP)
-> >> +	if (!err)
-> >>  		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
-> >>  	return err;
-> >>  }
-> >
-> >I'm not opposed to this change, but is there something that it expressly fixes?
-> 
-> This is about a consistency. To have the same behaviour as set_mac
-> for example.
-> 
-> >While it doesn't hurt to send around mtu change events, one would presume that
-> >listeners would pick up mtu changes when the NETDEV_UP event went' around.
-> >
-> >Neil
-> >
-I figured, I just wanted to be sure that there wasn't a bug fix that needed
-documenting in the changelog, or that listeners for this event didn't expect the
-interface to already be up.  It looks pretty clean, with the exception of the
-TIPC protocol.  It appears that it might require enable_bearer to be called
-prior to any netdevice CHANGEMTU events, so that the eth_bearers array gets
-filled out, and it looks like that has to get triggered either by user space, or
-the receipt of a message over the network.  Let me know what you think
+On 20 November 2012 03:03, Stephen Hemminger <shemminger@vyatta.com> wrote:
+> On Mon, 19 Nov 2012 22:33:50 +1100
+> Joseph Glanville <joseph.glanville@orionvm.com.au> wrote:
+>
+>> On 14 November 2012 08:33, Stephen Hemminger <shemminger@vyatta.com> wrote:
+>> > On Tue, 13 Nov 2012 14:37:19 -0500 (EST)
+>> > David Miller <davem@davemloft.net> wrote:
+>> >
+>> >> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>> >> Date: Fri, 09 Nov 2012 15:35:24 -0800
+>> >>
+>> >> > This change fixes an issue I found where VXLAN frames were fragmented when
+>> >> > they were up to the VXLAN MTU size.  I root caused the issue to the fact that
+>> >> > the headroom was 4 + 20 + 8 + 8.  This math doesn't appear to be correct
+>> >> > because we are not inserting a VLAN header, but instead a 2nd Ethernet header.
+>> >> > As such the math for the overhead should be 20 + 8 + 8 + 14 to account for the
+>> >> > extra headers that are inserted for VXLAN.
+>> >> >
+>> >> > Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> >>
+>> >> Applied, thanks for the detailed commit message.
+>> >
+>> > Probably need smarter code there to look at header length requirement
+>> > of underlying device as well, maybe someone will be perverse and runn
+>> > vxlan over a tunnel or IPoIB.
+>>
+>> Forgive my ignorance but why would running VXLAN on IPoIB require
+>> special header handling? (and would it work or behave strangely?)
+>>
+>> I was planning on giving this a go when 3.7 is released but I might do
+>> that sooner if problems are anticipated.
+>>
+>> > --
+>> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> > the body of a message to majordomo@vger.kernel.org
+>> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>> Joseph.
+>>
+>
+> Some lower layers require bigger (or smaller headers). As it was, vxlan
+> was only allocating skb with a fixed amount of headroom. This would lead to
+> lower layers having to copy the skb.
+>
+> My suggestion has already been addressed by a later patch.
 
-Neil
+Hi,
 
-> >--
-> >To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+I have tested VXLAN on IPoIB and it works perfectly. :)
+
+Joseph.
+
+
+-- 
+CTO | Orion Virtualisation Solutions | www.orionvm.com.au
+Phone: 1300 56 99 52 | Mobile: 0428 754 846
