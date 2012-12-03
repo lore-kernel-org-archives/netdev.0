@@ -1,144 +1,77 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next 3/7] ipv6: improve ipv6_find_hdr() to skip
- empty routing headers
-Date: Mon, 3 Dec 2012 15:04:58 +0100
-Message-ID: <20121203140458.GA1596@1984>
-References: <1354214149-33651-1-git-send-email-jesse@nicira.com>
- <1354214149-33651-4-git-send-email-jesse@nicira.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/3] net: cpsw: implement ioctl for MII
+Date: Mon, 3 Dec 2012 14:16:51 +0000
+Message-ID: <1354544211.7030.32.camel@deadeye.wl.decadent.org.uk>
+References: <1354542569-6165-1-git-send-email-jlu@pengutronix.de>
+	 <1354542569-6165-3-git-send-email-jlu@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	dev@openvswitch.org, Ansis Atteka <aatteka@nicira.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52340 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752888Ab2LCOFs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2012 09:05:48 -0500
-Content-Disposition: inline
-In-Reply-To: <1354214149-33651-4-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Vaibhav Hiremath <hvaibhav@ti.com>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>
+To: Jan Luebbe <jlu@pengutronix.de>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1354542569-6165-3-git-send-email-jlu@pengutronix.de>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 29, 2012 at 10:35:45AM -0800, Jesse Gross wrote:
-> From: Ansis Atteka <aatteka@nicira.com>
+On Mon, 2012-12-03 at 14:49 +0100, Jan Luebbe wrote:
+> This allows using tools like mii-diag on CPSW.
 > 
-> This patch prepares ipv6_find_hdr() function so that it could be
-> able to skip routing headers, where segements_left is 0. This is
-> required to handle multiple routing header case correctly when
-> changing IPv6 addresses.
-> 
-> Signed-off-by: Ansis Atteka <aatteka@nicira.com>
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> Signed-off-by: Jan Luebbe <jlu@pengutronix.de>
 > ---
->  include/net/ipv6.h      |    5 +++--
->  net/ipv6/exthdrs_core.c |   36 ++++++++++++++++++++++++++++--------
->  2 files changed, 31 insertions(+), 10 deletions(-)
+>  drivers/net/ethernet/ti/cpsw.c |   15 +++++++++++++++
+>  1 file changed, 15 insertions(+)
 > 
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index b2f0cfb..acbd8e0 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -631,8 +631,9 @@ extern int			ipv6_skip_exthdr(const struct sk_buff *, int start,
->  extern bool			ipv6_ext_hdr(u8 nexthdr);
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 8de3e92..f476c03 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -629,6 +629,20 @@ static void cpsw_ndo_change_rx_flags(struct net_device *ndev, int flags)
+>  		dev_err(&ndev->dev, "multicast traffic cannot be filtered!\n");
+>  }
 >  
->  enum {
-> -	IP6_FH_F_FRAG	= (1 << 0),
-> -	IP6_FH_F_AUTH	= (1 << 1),
-> +	IP6_FH_F_FRAG		= (1 << 0),
-> +	IP6_FH_F_AUTH		= (1 << 1),
-> +	IP6_FH_F_SKIP_RH	= (1 << 2),
->  };
->  
->  /* find specified header and get offset to it */
-> diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
-> index 8ea253a..11b4e29 100644
-> --- a/net/ipv6/exthdrs_core.c
-> +++ b/net/ipv6/exthdrs_core.c
-> @@ -132,9 +132,11 @@ EXPORT_SYMBOL(ipv6_skip_exthdr);
->   * *offset is meaningless and fragment offset is stored in *fragoff if fragoff
->   * isn't NULL.
->   *
-> - * if flags is not NULL and it's a fragment, then the frag flag IP6_FH_F_FRAG
-> - * will be set. If it's an AH header, the IP6_FH_F_AUTH flag is set and
-> - * target < 0, then this function will stop at the AH header.
-> + * if flags is not NULL and it's a fragment, then the frag flag
-> + * IP6_FH_F_FRAG will be set. If it's an AH header, the
-> + * IP6_FH_F_AUTH flag is set and target < 0, then this function will
-> + * stop at the AH header. If IP6_FH_F_SKIP_RH flag was passed, then this
-> + * function will skip all those routing headers, where segements_left was 0.
->   */
->  int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
->  		  int target, unsigned short *fragoff, int *flags)
-> @@ -142,6 +144,7 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
->  	unsigned int start = skb_network_offset(skb) + sizeof(struct ipv6hdr);
->  	u8 nexthdr = ipv6_hdr(skb)->nexthdr;
->  	unsigned int len;
-> +	bool found;
->  
->  	if (fragoff)
->  		*fragoff = 0;
-> @@ -159,9 +162,10 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
->  	}
->  	len = skb->len - start;
->  
-> -	while (nexthdr != target) {
+> +static int cpsw_ndo_do_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+> +{
+> +	struct cpsw_priv *priv = netdev_priv(ndev);
+> +	struct phy_device *phy = priv->slaves[0].phy;
+> +
+> +	if (!netif_running(ndev))
+> +		return -EINVAL;
 
-If the offset is set as parameter via ipv6_find_hdr, we now are always
-entering the loop even if we found the target header we're looking
-for, before that didn't happen.
+This is consistent with other drivers, and I'm not going to object to
+one more instance, but I don't think this is the proper error code - we
+don't know that there's anything wrong with the arguments, it's just
+that the *device* is in the wrong state.  I don't know what the right
+error code is, though.  Really I would prefer that MDIO would work even
+when the device is down, unless you know that all MDIO-manageable
+devices are powered off.
 
-Something seems wrong here to me.
+Ben.
 
-> +	do {
->  		struct ipv6_opt_hdr _hdr, *hp;
->  		unsigned int hdrlen;
-> +		found = (nexthdr == target);
->  
->  		if ((!ipv6_ext_hdr(nexthdr)) || nexthdr == NEXTHDR_NONE) {
->  			if (target < 0)
-> @@ -172,6 +176,20 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
->  		hp = skb_header_pointer(skb, start, sizeof(_hdr), &_hdr);
->  		if (hp == NULL)
->  			return -EBADMSG;
+> +	if (!phy)
+> +		return -ENODEV;
 > +
-> +		if (nexthdr == NEXTHDR_ROUTING) {
-> +			struct ipv6_rt_hdr _rh, *rh;
+> +	return phy_mii_ioctl(phy, rq, cmd);
+> +}
 > +
-> +			rh = skb_header_pointer(skb, start, sizeof(_rh),
-> +						&_rh);
-> +			if (rh == NULL)
-> +				return -EBADMSG;
-> +
-> +			if (flags && (*flags & IP6_FH_F_SKIP_RH) &&
-> +			    rh->segments_left == 0)
-> +				found = false;
-> +		}
-> +
->  		if (nexthdr == NEXTHDR_FRAGMENT) {
->  			unsigned short _frag_off;
->  			__be16 *fp;
-> @@ -205,10 +223,12 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
->  		} else
->  			hdrlen = ipv6_optlen(hp);
->  
-> -		nexthdr = hp->nexthdr;
-> -		len -= hdrlen;
-> -		start += hdrlen;
-> -	}
-> +		if (!found) {
-> +			nexthdr = hp->nexthdr;
-> +			len -= hdrlen;
-> +			start += hdrlen;
-> +		}
-> +	} while (!found);
->  
->  	*offset = start;
->  	return nexthdr;
-> -- 
-> 1.7.9.5
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  static void cpsw_ndo_tx_timeout(struct net_device *ndev)
+>  {
+>  	struct cpsw_priv *priv = netdev_priv(ndev);
+> @@ -670,6 +684,7 @@ static const struct net_device_ops cpsw_netdev_ops = {
+>  	.ndo_start_xmit		= cpsw_ndo_start_xmit,
+>  	.ndo_change_rx_flags	= cpsw_ndo_change_rx_flags,
+>  	.ndo_validate_addr	= eth_validate_addr,
+> +	.ndo_do_ioctl		= cpsw_ndo_do_ioctl,
+>  	.ndo_change_mtu		= eth_change_mtu,
+>  	.ndo_tx_timeout		= cpsw_ndo_tx_timeout,
+>  	.ndo_get_stats		= cpsw_ndo_get_stats,
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
