@@ -1,55 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Fix default route failover when
- CONFIG_IPV6_ROUTER_PREF=n
-Date: Mon, 03 Dec 2012 13:59:23 -0500 (EST)
-Message-ID: <20121203.135923.1359930693250099951.davem@davemloft.net>
-References: <1354442421-689-1-git-send-email-pmarks@google.com>
+Subject: Re: [PATCH net-next] ipv6: Make 'addrconf_rs_timer' send Router
+ Solicitations (and re-arm itself) if Router Advertisements are accepted
+Date: Mon, 03 Dec 2012 14:00:19 -0500 (EST)
+Message-ID: <20121203.140019.1575288073278302679.davem@davemloft.net>
+References: <1354448693-32155-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: pmarks@google.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org, tgraf@suug.ch,
+	tore@fud.no, amikoren@yahoo.com
+To: shmulik.ladkani@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39443 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39463 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048Ab2LCS7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 13:59:25 -0500
-In-Reply-To: <1354442421-689-1-git-send-email-pmarks@google.com>
+	with ESMTP id S1750911Ab2LCTAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 14:00:21 -0500
+In-Reply-To: <1354448693-32155-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Marks <pmarks@google.com>
-Date: Sun,  2 Dec 2012 02:00:21 -0800
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Date: Sun,  2 Dec 2012 13:44:53 +0200
 
-> I believe this commit from 2008 was incorrect:
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=398bcbebb6f721ac308df1e3d658c0029bb74503
+> As of 026359b [ipv6: Send ICMPv6 RSes only when RAs are accepted],
+> Router Solicitations are sent whenever kernel accepts Router
+> Advertisements on the interface.
 > 
-> When CONFIG_IPV6_ROUTER_PREF is disabled, the kernel should follow
-> RFC4861 section 6.3.6: if no route is NUD_VALID, then traffic should be
-> sprayed across all routers (indirectly triggering NUD) until one of them
-> becomes NUD_VALID.
+> However, this logic isn't reflected in 'addrconf_rs_timer'.
 > 
-> However, the following experiment demonstrates that this does not work:
+> The timer fails to issue subsequent RS messages (and fails to re-arm
+> itself) if forwarding is enabled and the special hybrid mode is
+> enabled (accept_ra=2).
 > 
-> 1) Connect to an IPv6 network.
-> 2) Change the router's MAC (and link-local) address.
+> Fix the condition determining whether next RS should be sent, by using
+> 'ipv6_accept_ra()'.
 > 
-> The kernel will lock onto the first router and never try the new one, even
-> if the first becomes unreachable.  This patch fixes the problem by
-> allowing rt6_check_neigh() to return 0; if all routers return 0, then
-> rt6_select() will fall back to round-robin behavior.
-> 
-> This patch should have no effect when CONFIG_IPV6_ROUTER_PREF=y.
-> 
-> Note that rt6_check_neigh() is only used in a boolean context, so the
-> presence of both "m = 1" and "m = 2" was irrelevant and confusing.
-> 
-> Signed-off-by: Paul Marks <pmarks@google.com>
+> Reported-by: Ami Koren <amikoren@yahoo.com>
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 
-The values '1' and '2' used to influence rt6_score_route() in different
-ways.
-
-Please change rt6_check_neigh() to return a "bool" if you are going to
-do this.
-
-Thanks.
+Applied, thanks.
