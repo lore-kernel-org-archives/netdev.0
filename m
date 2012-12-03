@@ -1,118 +1,41 @@
-From: Krzysztof Mazur <krzysiek@podlesie.net>
-Subject: Re: [PATCH] atm: introduce vcc_pop_skb()
-Date: Mon, 3 Dec 2012 21:11:18 +0100
-Message-ID: <20121203201118.GB19460@shrek.podlesie.net>
-References: <20121127173906.GA11390@shrek.podlesie.net>
- <1354039349.2534.11.camel@shinybook.infradead.org>
- <20121127182843.GA11597@shrek.podlesie.net>
- <20121128201837.GA912@shrek.podlesie.net>
- <20121128162001.3f326720@thirdoffive.cmf.nrl.navy.mil>
- <20121128214533.GA25486@shrek.podlesie.net>
- <20121128165906.05ef5e2b@thirdoffive.cmf.nrl.navy.mil>
- <20121128221040.GA24035@shrek.podlesie.net>
- <20121128223300.GA12527@shrek.podlesie.net>
- <1354540961.24281.82.camel@shinybook.infradead.org>
+From: Christopher Li <sparse@chrisli.org>
+Subject: Re: [net-next:master 98/98] drivers/net/ethernet/myricom/myri10ge/myri10ge.c:1286:34:
+ sparse: cast to restricted __be16
+Date: Mon, 3 Dec 2012 12:13:44 -0800
+Message-ID: <CANeU7QkzUPksHvEL17sUbTezLGNHgMmUFvfyQcX39hEOuyufqQ@mail.gmail.com>
+References: <50b91efa.B0WbOtcWMs7eOSaC%fengguang.wu@intel.com>
+	<50B92A6D.8000600@myri.com>
+	<20121130220228.GA22050@localhost>
+	<50BCFBAA.5060001@myri.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1354540961.24281.82.camel@shinybook.infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Andrew Gallatin <gallatin@myri.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:65010 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751864Ab2LCUNp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 15:13:45 -0500
+Received: by mail-vb0-f46.google.com with SMTP id b13so2005422vby.19
+        for <netdev@vger.kernel.org>; Mon, 03 Dec 2012 12:13:44 -0800 (PST)
+In-Reply-To: <50BCFBAA.5060001@myri.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 03, 2012 at 01:22:41PM +0000, David Woodhouse wrote:
-> On Wed, 2012-11-28 at 23:33 +0100, Krzysztof Mazur wrote:
-> > 
-> > Many ATM drivers store vcc in ATM_SKB(skb)->vcc and use it for
-> > freeing skbs. Now they can just use atm_pop_skb() to free such
-> > buffers.
-> > 
-> > Signed-off-by: Krzysztof Mazur <krzysiek@podlesie.net>
-> 
-> Note that this one didn't make it into the tree that Dave just pulled.
-> 
-> Not that I didn't think it was a good idea, but it was just separate
-> from the other "real" fixes ??? and the tree had already grown into a big
-> enough pile from your original single patch!
+On Mon, Dec 3, 2012 at 11:21 AM, Andrew Gallatin <gallatin@myri.com> wrote:
+> drivers/net/ethernet/myricom/myri10ge/myri10ge.c:1434:35: warning:
+> context imbalance in 'myri10ge_intr' - different lock contexts for basic
+> block
+>
+> Which is apparently triggered by using __netif_tx_trylock().
+> Is there something I'm missing, or does sparse just not like
+> __netif_tx_trylock() because it divides spinlock acquisition and
+> release into 2 different functions?
+>
 
-That patch is a preparation of separate series. The current version
-(far from final version) is available at:
+Right. Sparse currently does not have cross function analyse.
+It will complain if the lock is not balanced with lock split into
+different functions.
 
-git://git.podlesie.net/km/linux.git atm-pop
-
-and
-
-http://git.podlesie.net/gitweb.cgi?p=km/linux.git;a=shortlog;h=refs/heads/atm-pop
-
-Patch 3 and especially patch 4 are far from being ready. They are also ugly
-because many ATM drivers use strange coding style and I tried to use that
-style because using different style for new code would be probably be even worse.
-
-Currently there are 4 patches:
-      atm: introduce vcc_pop()
-      atm: introduce vcc_pop_skb()
-      atm: convert drivers to use vcc_pop*()
-      atm: add missing vcc_pop*() calls in drivers
-
-The first two introduce two helpers vcc_pop() and vcc_pop_skb(). The third
-should be 1:1 conversion of vcc->pop() users to vcc_pop*() interface.
-The forth patch fixes some problems I've found. In all cases the bugs
-occurs in error handling code, in most cases dev_kfree_skb() is used
-instead of vcc_pop(), in some cases driver just returns some error
-code and skb is never freed, in two cases I removed the vcc->pop()
-call in code like:
-
-static int eni_send(struct atm_vcc *vcc,struct sk_buff *skb)
-{
-	[...]
-	if (!skb) {
-		printk(KERN_CRIT "!skb in eni_send ?\n");
-		if (vcc->pop) vcc->pop(vcc,skb);
-		return -EINVAL;
-	}
-
-I don't think that we should check for !skb and even if skb == NULL
-it's not a good idea to call vcc->pop() because it will crash.
-
-Current diffstat:
- drivers/atm/adummy.c     |  5 +---
- drivers/atm/ambassador.c | 34 ++++++++++++++--------------
- drivers/atm/atmtcp.c     | 15 ++++--------
- drivers/atm/eni.c        | 11 ++++-----
- drivers/atm/firestream.c | 19 ++--------------
- drivers/atm/fore200e.c   | 23 ++++---------------
- drivers/atm/he.c         | 33 ++++++---------------------
- drivers/atm/horizon.c    | 31 +++++++++----------------
- drivers/atm/idt77252.c   | 32 +++++++-------------------
- drivers/atm/iphase.c     | 59 +++++++++++++-----------------------------------
- drivers/atm/lanai.c      | 18 ++++-----------
- drivers/atm/nicstar.c    | 31 ++++++++-----------------
- drivers/atm/solos-pci.c  |  5 +---
- drivers/atm/zatm.c       | 13 ++++-------
- drivers/usb/atm/usbatm.c | 17 ++++----------
- include/linux/atmdev.h   | 16 +++++++++++++
- net/atm/common.c         | 15 ++++++++++++
- 17 files changed, 128 insertions(+), 249 deletions(-)
-
-> 
-> In <20121006154606.GA25588@shrek.podlesie.net> you posted another patch:
-> > I think there is another problem here. The pppoatm gets a reference
-> > to atmvcc, but I don't see anything that protects against removal
-> > of that vcc.
-> > 
-> > The vcc uses vcc->sk socket for reference counting, so sock_hold()
-> > and sock_put() should be used by pppoatm.
-> 
-> That one I think *isn't* needed, because we have properly fixed the
-> races with vcc_destroy_socket(). I just wanted to check you agree...?
-> 
-
-It was never really needed, I removed it from v3.
-
-Thanks,
-
-Krzysiek
+Chris
