@@ -1,70 +1,63 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 3/3] net: cpsw: implement ioctl for MII
-Date: Mon, 3 Dec 2012 22:34:27 +0530
-Message-ID: <50BCDB9B.80307@ti.com>
-References: <1354542569-6165-1-git-send-email-jlu@pengutronix.de> <1354542569-6165-3-git-send-email-jlu@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH V2 5/9] net: frag, per CPU resource, mem limit
+ and LRU list accounting
+Date: Mon, 03 Dec 2012 12:25:02 -0500 (EST)
+Message-ID: <20121203.122502.145665886665071256.davem@davemloft.net>
+References: <20121129161303.17754.47046.stgit@dragon>
+	<1354208776.14302.1898.camel@edumazet-glaptop>
+	<1354543361.20888.10.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	Vaibhav Hiremath <hvaibhav@ti.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>
-To: Jan Luebbe <jlu@pengutronix.de>
+Cc: eric.dumazet@gmail.com, fw@strlen.de, netdev@vger.kernel.org,
+	pablo@netfilter.org, tgraf@suug.ch, amwang@redhat.com,
+	kaber@trash.net, paulmck@linux.vnet.ibm.com,
+	herbert@gondor.hengli.com.au
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:38627 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755214Ab2LCRG4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 12:06:56 -0500
-In-Reply-To: <1354542569-6165-3-git-send-email-jlu@pengutronix.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38717 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755214Ab2LCRZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 12:25:07 -0500
+In-Reply-To: <1354543361.20888.10.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/3/2012 7:19 PM, Jan Luebbe wrote:
-> This allows using tools like mii-diag on CPSW.
->
-> Signed-off-by: Jan Luebbe <jlu@pengutronix.de>
-> ---
->   drivers/net/ethernet/ti/cpsw.c |   15 +++++++++++++++
->   1 file changed, 15 insertions(+)
->
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 8de3e92..f476c03 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -629,6 +629,20 @@ static void cpsw_ndo_change_rx_flags(struct net_device *ndev, int flags)
->   		dev_err(&ndev->dev, "multicast traffic cannot be filtered!\n");
->   }
->   
-> +static int cpsw_ndo_do_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
-> +{
-> +	struct cpsw_priv *priv = netdev_priv(ndev);
-> +	struct phy_device *phy = priv->slaves[0].phy;
-> +
-> +	if (!netif_running(ndev))
-> +		return -EINVAL;
-> +
-> +	if (!phy)
-> +		return -ENODEV;
-> +
-> +	return phy_mii_ioctl(phy, rq, cmd);
-> +}
-> +
->   static void cpsw_ndo_tx_timeout(struct net_device *ndev)
->   {
->   	struct cpsw_priv *priv = netdev_priv(ndev);
-> @@ -670,6 +684,7 @@ static const struct net_device_ops cpsw_netdev_ops = {
->   	.ndo_start_xmit		= cpsw_ndo_start_xmit,
->   	.ndo_change_rx_flags	= cpsw_ndo_change_rx_flags,
->   	.ndo_validate_addr	= eth_validate_addr,
-> +	.ndo_do_ioctl		= cpsw_ndo_do_ioctl,
->   	.ndo_change_mtu		= eth_change_mtu,
->   	.ndo_tx_timeout		= cpsw_ndo_tx_timeout,
->   	.ndo_get_stats		= cpsw_ndo_get_stats,
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Mon, 03 Dec 2012 15:02:41 +0100
 
-Already ndo_do_ioctl is already implemented. Can you rebase the patch 
-with latest git repo
-and resubmit the patch
+> On Thu, 2012-11-29 at 09:06 -0800, Eric Dumazet wrote:
+>> On Thu, 2012-11-29 at 17:13 +0100, Jesper Dangaard Brouer wrote:
+>> > The major performance bottleneck on NUMA systems, is the mem limit
+>> > counter which is based an atomic counter.  This patch removes the
+>> > cache-bouncing of the atomic counter, by moving this accounting to be
+>> > bound to each CPU.  The LRU list also need to be done per CPU,
+>> > in-order to keep the accounting straight.
+>> > 
+>> > If fragments belonging together is "sprayed" across CPUs, performance
+>> > will still suffer, but due to NIC rxhashing this is not very common.
+>> > Correct accounting in this situation is maintained by recording and
+>> > "assigning" a CPU to a frag queue when its allocated (caused by the
+>> > first packet associated packet).
+>> > 
+> [...]
+>> > +/* Need to maintain these resource limits per CPU, else we will kill
+>> > + * performance due to cache-line bouncing
+>> > + */
+>> > +struct frag_cpu_limit {
+>> > +	atomic_t                mem;
+>> > +	struct list_head        lru_list;
+>> > +	spinlock_t              lru_lock;
+>> > +} ____cacheline_aligned_in_smp;
+>> > +
+>> 
+>> This looks like a big patch introducing a specific infrastructure, while
+>> we already have lib/percpu_counter.c
+> 
+> For the record, I cannot use the lib/percpu_counter, because this
+> accounting is not kept strictly per CPU, if the fragments are "sprayed"
+> across CPUs (as described in the commit message above).
 
-Regards
-Mugunthan V N
+The percpu infrastructure allows precise counts and comparisons even
+in that case.  It uses the cheap test when possible, and defers to a
+more expensive test when necessary.
