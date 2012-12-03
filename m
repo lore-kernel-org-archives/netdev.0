@@ -1,63 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH V2 5/9] net: frag, per CPU resource, mem limit
- and LRU list accounting
-Date: Mon, 03 Dec 2012 12:25:02 -0500 (EST)
-Message-ID: <20121203.122502.145665886665071256.davem@davemloft.net>
-References: <20121129161303.17754.47046.stgit@dragon>
-	<1354208776.14302.1898.camel@edumazet-glaptop>
-	<1354543361.20888.10.camel@localhost>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] vhost-net: initialize zcopy packet counters
+Date: Mon, 3 Dec 2012 19:31:51 +0200
+Message-ID: <20121203173151.GA30949@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, fw@strlen.de, netdev@vger.kernel.org,
-	pablo@netfilter.org, tgraf@suug.ch, amwang@redhat.com,
-	kaber@trash.net, paulmck@linux.vnet.ibm.com,
-	herbert@gondor.hengli.com.au
-To: brouer@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38717 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755214Ab2LCRZH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 12:25:07 -0500
-In-Reply-To: <1354543361.20888.10.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: davem@davemloft.net
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 03 Dec 2012 15:02:41 +0100
+These packet counters are used to drive the zercopy
+selection heuristic so nothing too bad happens if they are off a bit -
+and they are also reset once in a while.
+But it's cleaner to clear them when backend is set so that
+we start in a known state.
 
-> On Thu, 2012-11-29 at 09:06 -0800, Eric Dumazet wrote:
->> On Thu, 2012-11-29 at 17:13 +0100, Jesper Dangaard Brouer wrote:
->> > The major performance bottleneck on NUMA systems, is the mem limit
->> > counter which is based an atomic counter.  This patch removes the
->> > cache-bouncing of the atomic counter, by moving this accounting to be
->> > bound to each CPU.  The LRU list also need to be done per CPU,
->> > in-order to keep the accounting straight.
->> > 
->> > If fragments belonging together is "sprayed" across CPUs, performance
->> > will still suffer, but due to NIC rxhashing this is not very common.
->> > Correct accounting in this situation is maintained by recording and
->> > "assigning" a CPU to a frag queue when its allocated (caused by the
->> > first packet associated packet).
->> > 
-> [...]
->> > +/* Need to maintain these resource limits per CPU, else we will kill
->> > + * performance due to cache-line bouncing
->> > + */
->> > +struct frag_cpu_limit {
->> > +	atomic_t                mem;
->> > +	struct list_head        lru_list;
->> > +	spinlock_t              lru_lock;
->> > +} ____cacheline_aligned_in_smp;
->> > +
->> 
->> This looks like a big patch introducing a specific infrastructure, while
->> we already have lib/percpu_counter.c
-> 
-> For the record, I cannot use the lib/percpu_counter, because this
-> accounting is not kept strictly per CPU, if the fragments are "sprayed"
-> across CPUs (as described in the commit message above).
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/vhost/net.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-The percpu infrastructure allows precise counts and comparisons even
-in that case.  It uses the cheap test when possible, and defers to a
-more expensive test when necessary.
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 67898fa..ff6c9199 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -823,6 +823,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 		r = vhost_init_used(vq);
+ 		if (r)
+ 			goto err_vq;
++
++		n->tx_packets = 0;
++		n->tx_zcopy_err = 0;
+ 	}
+ 
+ 	mutex_unlock(&vq->mutex);
+-- 
+MST
