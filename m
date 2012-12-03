@@ -1,111 +1,127 @@
-From: Paul Marks <pmarks@google.com>
-Subject: [PATCH v2] ipv6: Fix default route failover when CONFIG_IPV6_ROUTER_PREF=n
-Date: Mon,  3 Dec 2012 12:26:54 -0800
-Message-ID: <1354566414-5752-1-git-send-email-pmarks@google.com>
-References: <20121203.135923.1359930693250099951.davem@davemloft.net>
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	Paul Marks <pmarks@google.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f74.google.com ([209.85.216.74]:41261 "EHLO
-	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752314Ab2LCU2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 15:28:14 -0500
-Received: by mail-qa0-f74.google.com with SMTP id r4so15706qaq.1
-        for <netdev@vger.kernel.org>; Mon, 03 Dec 2012 12:28:13 -0800 (PST)
-In-Reply-To: <20121203.135923.1359930693250099951.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: [GIT PULL] Remove __dev* markings from the networking drivers
+Date: Mon, 3 Dec 2012 12:29:10 -0800
+Message-ID: <20121203202910.GB29451@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bill Pemberton <wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I believe this commit from 2008 was incorrect:
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commitdiff;h=398bcbebb6f721ac308df1e3d658c0029bb74503
+Hi John,
 
-When CONFIG_IPV6_ROUTER_PREF is disabled, the kernel should follow
-RFC4861 section 6.3.6: if no route is NUD_VALID, then traffic should be
-sprayed across all routers (indirectly triggering NUD) until one of them
-becomes NUD_VALID.
+Here's a pull request for all of Bill's __dev* removal patches for the
+wireless networking drivers, based on net-next.  If you want this
+rebased on a different tree, or sent as patches (it's only 18 of them),
+please let me know.
 
-However, the following experiment demonstrates that this does not work:
+thanks,
 
-1) Connect to an IPv6 network.
-2) Change the router's MAC (and link-local) address.
+greg k-h
 
-The kernel will lock onto the first router and never try the new one, even
-if the first becomes unreachable.  This patch fixes the problem by
-allowing rt6_check_neigh() to return 0; if all routers return 0, then
-rt6_select() will fall back to round-robin behavior.
+-------------
 
-This patch should have no effect when CONFIG_IPV6_ROUTER_PREF=y.
+The following changes since commit 60e476d02129acb1f863a9b4932358678ee6a355:
 
-Note that rt6_check_neigh() is only used in a boolean context, so I've
-changed its return type accordingly.
+  bna: remove useless calls to memset(). (2012-12-02 20:32:56 -0500)
 
-Signed-off-by: Paul Marks <pmarks@google.com>
----
-Changelog since v1:
-- Changed return type from 'int' to 'bool'.
+are available in the git repository at:
 
- net/ipv6/route.c |   24 ++++++++++--------------
- 1 files changed, 10 insertions(+), 14 deletions(-)
+  git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/net-next.git tags/dev_removal_wireless
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index b1e6cf0..35f2815 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -487,35 +487,32 @@ static inline int rt6_check_dev(struct rt6_info *rt, int oif)
- 	return 0;
- }
- 
--static inline int rt6_check_neigh(struct rt6_info *rt)
-+static inline bool rt6_check_neigh(struct rt6_info *rt)
- {
- 	struct neighbour *neigh;
--	int m;
-+	bool ret = false;
- 
- 	neigh = rt->n;
- 	if (rt->rt6i_flags & RTF_NONEXTHOP ||
- 	    !(rt->rt6i_flags & RTF_GATEWAY))
--		m = 1;
-+		ret = true;
- 	else if (neigh) {
- 		read_lock_bh(&neigh->lock);
- 		if (neigh->nud_state & NUD_VALID)
--			m = 2;
-+			ret = true;
- #ifdef CONFIG_IPV6_ROUTER_PREF
--		else if (neigh->nud_state & NUD_FAILED)
--			m = 0;
-+		else if (!(neigh->nud_state & NUD_FAILED))
-+			ret = true;
- #endif
--		else
--			m = 1;
- 		read_unlock_bh(&neigh->lock);
--	} else
--		m = 0;
--	return m;
-+	}
-+	return ret;
- }
- 
- static int rt6_score_route(struct rt6_info *rt, int oif,
- 			   int strict)
- {
--	int m, n;
-+	int m;
- 
- 	m = rt6_check_dev(rt, oif);
- 	if (!m && (strict & RT6_LOOKUP_F_IFACE))
-@@ -523,8 +520,7 @@ static int rt6_score_route(struct rt6_info *rt, int oif,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	m |= IPV6_DECODE_PREF(IPV6_EXTRACT_PREF(rt->rt6i_flags)) << 2;
- #endif
--	n = rt6_check_neigh(rt);
--	if (!n && (strict & RT6_LOOKUP_F_REACHABLE))
-+	if (!rt6_check_neigh(rt) && (strict & RT6_LOOKUP_F_REACHABLE))
- 		return -1;
- 	return m;
- }
--- 
-1.7.7.3
+for you to fetch changes up to 40ccc6ab03053a2ad1f52c8b3f4d3ee828b7c013:
+
+  rtlwifi: remove __dev* attributes (2012-12-03 11:47:38 -0800)
+
+----------------------------------------------------------------
+Wireless:  Remove __dev* markings from the wireless drivers
+
+This is a series of patches that remove the dev* attributes for all
+wireless drivers.
+
+Use of __devinit, __devexit_p, __devinitdata, __devinitconst, and
+__devexit are no longer needed since CONFIG_HOTPLUG is being removed as
+an option.
+
+Note, there are some devinit compiler section mismatch warnings due to
+this series, but they are fixed up when merged with my driver-next
+branch, which fixes the PCI device id warnings, and removes the modpost
+detection, as it's no longer needed.
+
+Signed-off-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+
+----------------------------------------------------------------
+Bill Pemberton (18):
+      rfkill: remove __dev* attributes
+      wireless: remove __dev* attributes
+      ath5k: remove __dev* attributes
+      atmel: remove __dev* attributes
+      b43: remove __dev* attributes
+      brcm80211: remove __dev* attributes
+      ipw2x00: remove __dev* attributes
+      iwlegacy: remove __dev* attributes
+      iwlwifi: remove __dev* attributes
+      libertas: remove __dev* attributes
+      mwl8k: remove __dev* attributes
+      orinoco: remove __dev* attributes
+      p54: remove __dev* attributes
+      rt2x00: remove __dev* attributes
+      rtl8187: remove __dev* attributes
+      rtl8187: remove __dev* attributes
+      wlcore/wl18xx/wl12xx: remove __dev* attributes
+      rtlwifi: remove __dev* attributes
+
+ drivers/net/wireless/adm8211.c                        |  6 +++---
+ drivers/net/wireless/airo.c                           |  6 +++---
+ drivers/net/wireless/ath/ath5k/base.c                 |  4 ++--
+ drivers/net/wireless/ath/ath5k/led.c                  |  2 +-
+ drivers/net/wireless/ath/ath5k/pci.c                  |  6 +++---
+ drivers/net/wireless/atmel_pci.c                      |  6 +++---
+ drivers/net/wireless/b43/pcmcia.c                     |  6 +++---
+ drivers/net/wireless/b43/sdio.c                       |  6 +++---
+ drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c |  4 ++--
+ drivers/net/wireless/ipw2x00/ipw2100.c                |  4 ++--
+ drivers/net/wireless/ipw2x00/ipw2200.c                |  8 ++++----
+ drivers/net/wireless/iwlegacy/3945-mac.c              |  4 ++--
+ drivers/net/wireless/iwlegacy/4965-mac.c              |  4 ++--
+ drivers/net/wireless/iwlwifi/pcie/drv.c               |  4 ++--
+ drivers/net/wireless/libertas/if_spi.c                |  6 +++---
+ drivers/net/wireless/mwl8k.c                          | 12 ++++++------
+ drivers/net/wireless/orinoco/orinoco_nortel.c         |  4 ++--
+ drivers/net/wireless/orinoco/orinoco_pci.c            |  4 ++--
+ drivers/net/wireless/orinoco/orinoco_plx.c            |  4 ++--
+ drivers/net/wireless/orinoco/orinoco_tmd.c            |  4 ++--
+ drivers/net/wireless/p54/p54pci.c                     |  6 +++---
+ drivers/net/wireless/p54/p54spi.c                     |  6 +++---
+ drivers/net/wireless/p54/p54usb.c                     |  6 +++---
+ drivers/net/wireless/rt2x00/rt2400pci.c               |  2 +-
+ drivers/net/wireless/rt2x00/rt2500pci.c               |  2 +-
+ drivers/net/wireless/rt2x00/rt2800pci.c               |  4 ++--
+ drivers/net/wireless/rt2x00/rt61pci.c                 |  2 +-
+ drivers/net/wireless/rtl818x/rtl8180/dev.c            |  6 +++---
+ drivers/net/wireless/rtl818x/rtl8187/dev.c            |  6 +++---
+ drivers/net/wireless/rtlwifi/pci.c                    |  2 +-
+ drivers/net/wireless/rtlwifi/pci.h                    |  2 +-
+ drivers/net/wireless/rtlwifi/rtl8192de/sw.c           |  2 +-
+ drivers/net/wireless/rtlwifi/rtl8192se/sw.c           |  2 +-
+ drivers/net/wireless/rtlwifi/usb.c                    |  2 +-
+ drivers/net/wireless/rtlwifi/usb.h                    |  2 +-
+ drivers/net/wireless/ti/wl1251/sdio.c                 |  4 ++--
+ drivers/net/wireless/ti/wl1251/spi.c                  |  6 +++---
+ drivers/net/wireless/ti/wl12xx/main.c                 |  6 +++---
+ drivers/net/wireless/ti/wl18xx/main.c                 |  6 +++---
+ drivers/net/wireless/ti/wlcore/main.c                 |  4 ++--
+ drivers/net/wireless/ti/wlcore/sdio.c                 |  8 ++++----
+ drivers/net/wireless/ti/wlcore/spi.c                  |  6 +++---
+ drivers/net/wireless/ti/wlcore/wlcore.h               |  4 ++--
+ net/rfkill/rfkill-gpio.c                              |  2 +-
+ net/rfkill/rfkill-regulator.c                         |  6 +++---
+ 45 files changed, 104 insertions(+), 104 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
