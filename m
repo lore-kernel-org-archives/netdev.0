@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] bnx2x: recognize fan failure
-Date: Mon, 03 Dec 2012 13:47:42 -0500 (EST)
-Message-ID: <20121203.134742.1564114308967610212.davem@davemloft.net>
-References: <1354528609-17486-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH net-next] tuntap: attach queue 0 before registering
+ netdevice
+Date: Mon, 03 Dec 2012 13:49:18 -0500 (EST)
+Message-ID: <20121203.134918.1505727312476469482.davem@davemloft.net>
+References: <1354504785-13036-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com,
-	yaniv.rosner@broadcom.com, eilong@broadcom.com
-To: yuvalmin@broadcom.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jslaby@suse.cz
+To: jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39332 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39365 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874Ab2LCSro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 13:47:44 -0500
-In-Reply-To: <1354528609-17486-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1750874Ab2LCStU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 13:49:20 -0500
+In-Reply-To: <1354504785-13036-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Mon, 3 Dec 2012 11:56:49 +0200
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon,  3 Dec 2012 11:19:45 +0800
 
-> From: Yaniv Rosner <yaniv.rosner@broadcom.com>
+> We attach queue 0 after registering netdevice currently. This leads to call
+> netif_set_real_num_{tx|rx}_queues() after registering the netdevice. Since we
+> allow tun/tap has a maximum of 1024 queues, this may lead a huge number of
+> uevents to be injected to userspace since we create 2048 kobjects and then
+> remove 2046. Solve this problem by attaching queue 0 and set the real number of
+> queues before registering netdevice.
 > 
-> If fan failure is detected, MCP prevents PCI I/O registers from being
-> mapped to the bar, causing a fatal error as driver is unaware.
-> 
-> This patch recognizes such an event occurred and gracefully terminates
-> the probe process.
-> 
-> Signed-off-by: Yaniv Rosner <yaniv.rosner@broadcom.com>
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> ---
-> Hi Dave,
-> 
-> This patch prevents a fatal error on newer bnx2x boards.
-> 
-> Please consider applying it to 'net'.
+> Reported-by: Jiri Slaby <jslaby@suse.cz>
+> Tested-by: Jiri Slaby <jslaby@suse.cz>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Too late, I've applied it to net-next.  I'm not asking Linus to hold back
-an already delayed released for such a rarely triggering issue such as this
-one.
+Applied, thanks Jason.
