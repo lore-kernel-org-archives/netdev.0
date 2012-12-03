@@ -1,104 +1,119 @@
 From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH net-next 2/2] igb: release already assigned MSI-X interrupts if setup fails
-Date: Mon,  3 Dec 2012 14:15:01 +0100
-Message-ID: <1354540501-18407-3-git-send-email-sassmann@kpanic.de>
+Subject: [PATCH net-next 1/2] igb: remove duplicate code for fallback interrupt initialization
+Date: Mon,  3 Dec 2012 14:15:00 +0100
+Message-ID: <1354540501-18407-2-git-send-email-sassmann@kpanic.de>
 References: <1354540501-18407-1-git-send-email-sassmann@kpanic.de>
 Cc: e1000-devel@lists.sourceforge.net, alexander.h.duyck@intel.com,
 	carolyn.wyborny@intel.com, jeffrey.t.kirsher@intel.com,
 	sassmann@kpanic.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32388 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61125 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750733Ab2LCNQW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2012 08:16:22 -0500
+	id S1754360Ab2LCNQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2012 08:16:27 -0500
 In-Reply-To: <1354540501-18407-1-git-send-email-sassmann@kpanic.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During MSI-X setup the system might run out of vectors. If this happens the
-already assigned vectors for this NIC should be freed before trying the
-disable MSI-X. Failing to do so results in the following oops.
+Given a small change to igb_init_interrupt_scheme() the function fits
+igb_request_irq() for MSI/legacy interrupts initialization as well, instead of
+duplicating most of its code there.
 
-kernel BUG at drivers/pci/msi.c:341!
-[...]
-Call Trace:
- [<ffffffff8128f39d>] pci_disable_msix+0x3d/0x60
- [<ffffffffa037d1ce>] igb_reset_interrupt_capability+0x27/0x5c [igb]
- [<ffffffffa037d229>] igb_clear_interrupt_scheme+0x26/0x2d [igb]
- [<ffffffffa0384268>] igb_request_irq+0x73/0x297 [igb]
- [<ffffffffa0384554>] __igb_open+0xc8/0x223 [igb]
- [<ffffffffa0384815>] igb_open+0x13/0x15 [igb]
- [<ffffffff8144592f>] __dev_open+0xbf/0x120
- [<ffffffff81443e51>] __dev_change_flags+0xa1/0x180
- [<ffffffff81445828>] dev_change_flags+0x28/0x70
- [<ffffffff814af537>] devinet_ioctl+0x5b7/0x620
- [<ffffffff814b01c8>] inet_ioctl+0x88/0xa0
- [<ffffffff8142e8a0>] sock_do_ioctl+0x30/0x70
- [<ffffffff8142ecf2>] sock_ioctl+0x72/0x270
- [<ffffffff8118062c>] do_vfs_ioctl+0x8c/0x340
- [<ffffffff81180981>] sys_ioctl+0xa1/0xb0
- [<ffffffff815161a9>] system_call_fastpath+0x16/0x1b
-Code: 48 89 df e8 1f 40 ed ff 4d 39 e6 49 8b 45 10 75 b6 48 83 c4 18 5b 41 5c 41 5d 41 5e 41 5f c9 c3 48 8b 7b 20 e8 3e 91 db ff eb ae <0f> 0b eb fe 0f 1f 84 00 00 00 00 00 55 48 89 e5 0f 1f 44 00 00
-RIP  [<ffffffff8128e144>] free_msi_irqs+0x124/0x130
- RSP <ffff880037503bd8>
+Also adding a missing igb_configure() to igb_request_irq() for MSI fallback
+to work properly.
 
 Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 22 ++++++++++++++++------
- 1 file changed, 16 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 29 ++++++++++++++---------------
+ 1 file changed, 14 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index b0dd5ef..0007b97 100644
+index b85b15a..b0dd5ef 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -832,17 +832,18 @@ static int igb_request_msix(struct igb_adapter *adapter)
+@@ -122,6 +122,7 @@ static void __devexit igb_remove(struct pci_dev *pdev);
+ static int igb_sw_init(struct igb_adapter *);
+ static int igb_open(struct net_device *);
+ static int igb_close(struct net_device *);
++static void igb_configure(struct igb_adapter *);
+ static void igb_configure_tx(struct igb_adapter *);
+ static void igb_configure_rx(struct igb_adapter *);
+ static void igb_clean_all_tx_rings(struct igb_adapter *);
+@@ -948,11 +949,14 @@ static void igb_clear_interrupt_scheme(struct igb_adapter *adapter)
+  * Attempt to configure interrupts using the best available
+  * capabilities of the hardware and kernel.
+  **/
+-static void igb_set_interrupt_capability(struct igb_adapter *adapter)
++static void igb_set_interrupt_capability(struct igb_adapter *adapter, bool msix)
  {
- 	struct net_device *netdev = adapter->netdev;
- 	struct e1000_hw *hw = &adapter->hw;
--	int i, err = 0, vector = 0;
-+	int i, err = 0, vector = 0, free_vector = 0;
+ 	int err;
+ 	int numvecs, i;
  
- 	err = request_irq(adapter->msix_entries[vector].vector,
- 	                  igb_msix_other, 0, netdev->name, adapter);
- 	if (err)
--		goto out;
--	vector++;
-+		goto err_out;
- 
- 	for (i = 0; i < adapter->num_q_vectors; i++) {
- 		struct igb_q_vector *q_vector = adapter->q_vector[i];
- 
-+		vector++;
++	if (!msix)
++		goto msi_only;
 +
- 		q_vector->itr_register = hw->hw_addr + E1000_EITR(vector);
+ 	/* Number of supported queues. */
+ 	adapter->num_rx_queues = adapter->rss_queues;
+ 	if (adapter->vfs_allocated_count)
+@@ -1199,12 +1203,12 @@ err_out:
+  *
+  * This function initializes the interrupts and allocates all of the queues.
+  **/
+-static int igb_init_interrupt_scheme(struct igb_adapter *adapter)
++static int igb_init_interrupt_scheme(struct igb_adapter *adapter, bool msix)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+ 	int err;
  
- 		if (q_vector->rx.ring && q_vector->tx.ring)
-@@ -861,13 +862,22 @@ static int igb_request_msix(struct igb_adapter *adapter)
- 		                  igb_msix_ring, 0, q_vector->name,
- 		                  q_vector);
- 		if (err)
--			goto out;
--		vector++;
-+			goto err_free;
+-	igb_set_interrupt_capability(adapter);
++	igb_set_interrupt_capability(adapter, msix);
+ 
+ 	err = igb_alloc_q_vectors(adapter);
+ 	if (err) {
+@@ -1240,20 +1244,15 @@ static int igb_request_irq(struct igb_adapter *adapter)
+ 		/* fall back to MSI */
+ 		igb_free_all_tx_resources(adapter);
+ 		igb_free_all_rx_resources(adapter);
++
+ 		igb_clear_interrupt_scheme(adapter);
+-		if (!pci_enable_msi(pdev))
+-			adapter->flags |= IGB_FLAG_HAS_MSI;
+-		adapter->num_tx_queues = 1;
+-		adapter->num_rx_queues = 1;
+-		adapter->num_q_vectors = 1;
+-		err = igb_alloc_q_vectors(adapter);
+-		if (err) {
+-			dev_err(&pdev->dev,
+-			        "Unable to allocate memory for vectors\n");
++		err = igb_init_interrupt_scheme(adapter, false);
++		if (err)
+ 			goto request_done;
+-		}
++
+ 		igb_setup_all_tx_resources(adapter);
+ 		igb_setup_all_rx_resources(adapter);
++		igb_configure(adapter);
  	}
  
- 	igb_configure_msix(adapter);
- 	return 0;
--out:
-+
-+err_free:
-+	/* free already assigned IRQs */
-+	free_irq(adapter->msix_entries[free_vector++].vector, adapter);
-+
-+	vector--;
-+	for (i = 0; i < vector; i++) {
-+		free_irq(adapter->msix_entries[free_vector++].vector,
-+			 adapter->q_vector[i]);
-+	}
-+err_out:
- 	return err;
- }
+ 	igb_assign_vector(adapter->q_vector[0], 0);
+@@ -2444,7 +2443,7 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
+ 				GFP_ATOMIC);
  
+ 	/* This call may decrease the number of queues */
+-	if (igb_init_interrupt_scheme(adapter)) {
++	if (igb_init_interrupt_scheme(adapter, true)) {
+ 		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
+ 		return -ENOMEM;
+ 	}
+@@ -6818,7 +6817,7 @@ static int igb_resume(struct device *dev)
+ 	pci_enable_wake(pdev, PCI_D3hot, 0);
+ 	pci_enable_wake(pdev, PCI_D3cold, 0);
+ 
+-	if (igb_init_interrupt_scheme(adapter)) {
++	if (igb_init_interrupt_scheme(adapter, true)) {
+ 		dev_err(&pdev->dev, "Unable to allocate memory for queues\n");
+ 		return -ENOMEM;
+ 	}
 -- 
 1.7.11.7
