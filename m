@@ -1,51 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost-net: initialize zcopy packet counters
-Date: Mon, 3 Dec 2012 19:31:51 +0200
-Message-ID: <20121203173151.GA30949@redhat.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 3/7] ipv6: improve ipv6_find_hdr() to
+ skip empty routing headers
+Date: Mon, 3 Dec 2012 09:28:55 -0800
+Message-ID: <CAEP_g=-D6f-O1F0B4+xLKfZnY_LjFiHF-UaXD4zVUYctGG3-Ug@mail.gmail.com>
+References: <1354214149-33651-1-git-send-email-jesse@nicira.com>
+	<1354214149-33651-4-git-send-email-jesse@nicira.com>
+	<20121203140458.GA1596@1984>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: davem@davemloft.net
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Ansis Atteka <aatteka-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+To: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20121203140458.GA1596@1984>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-These packet counters are used to drive the zercopy
-selection heuristic so nothing too bad happens if they are off a bit -
-and they are also reset once in a while.
-But it's cleaner to clear them when backend is set so that
-we start in a known state.
+On Mon, Dec 3, 2012 at 6:04 AM, Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org> wrote:
+> On Thu, Nov 29, 2012 at 10:35:45AM -0800, Jesse Gross wrote:
+>> @@ -159,9 +162,10 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+>>       }
+>>       len = skb->len - start;
+>>
+>> -     while (nexthdr != target) {
+>
+> If the offset is set as parameter via ipv6_find_hdr, we now are always
+> entering the loop even if we found the target header we're looking
+> for, before that didn't happen.
+>
+> Something seems wrong here to me.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/vhost/net.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 67898fa..ff6c9199 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -823,6 +823,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 		r = vhost_init_used(vq);
- 		if (r)
- 			goto err_vq;
-+
-+		n->tx_packets = 0;
-+		n->tx_zcopy_err = 0;
- 	}
- 
- 	mutex_unlock(&vq->mutex);
--- 
-MST
+If the target header is a routing header then you might still need to
+continue searching because the first one that you see could be empty.
