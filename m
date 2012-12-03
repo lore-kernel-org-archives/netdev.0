@@ -1,51 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next rfc v7 2/3] virtio_net: multiqueue support
-Date: Mon, 03 Dec 2012 18:30:49 +0800
-Message-ID: <50BC7F59.301@redhat.com>
-References: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
-	<1354011360-39479-3-git-send-email-jasowang@redhat.com>
-	<20121203101436.GB23009@redhat.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 5/5] smsc95xx: expand check_ macros
+Date: Mon, 3 Dec 2012 10:41:28 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70D4@saturn3.aculab.com>
+References: <1354290952-27109-1-git-send-email-steve.glendinning@shawell.net> <1354290952-27109-6-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr, shiyer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121203101436.GB23009@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+To: "Steve Glendinning" <steve.glendinning@shawell.net>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:43689 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751501Ab2LCKmv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 05:42:51 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 16307-06 for <netdev@vger.kernel.org>;
+ Mon,  3 Dec 2012 10:42:43 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1354290952-27109-6-git-send-email-steve.glendinning@shawell.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/03/2012 06:14 PM, Michael S. Tsirkin wrote:
-> On Tue, Nov 27, 2012 at 06:15:59PM +0800, Jason Wang wrote:
->> > -	if (!try_fill_recv(&vi->rq, GFP_KERNEL))
->> > -		schedule_delayed_work(&vi->rq.refill, 0);
->> > +	for (i = 0; i < vi->max_queue_pairs; i++)
->> > +		if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
->> > +			schedule_delayed_work(&vi->rq[i].refill, 0);
->> >  
->> >  	mutex_lock(&vi->config_lock);
->> >  	vi->config_enable = true;
->> >  	mutex_unlock(&vi->config_lock);
->> >  
->> > +	BUG_ON(virtnet_set_queues(vi));
->> > +
->> >  	return 0;
->> >  }
->> >  #endif
-> Also crashing on device nack of command is also not nice.
-> In this case it seems we can just switch to
-> single-queue mode which should always be safe.
+> -		check_warn_return(ret, "Error reading MII_ACCESS\n");
+> +		if (ret < 0) {
+> +			netdev_warn(dev->net, "Error reading MII_ACCESS\n");
+> +			return ret;
+> +		}
+> +
 
-Not sure it's safe. It depends on the reason why this call fails. If we
-left a state that the driver only use single queue but the device use
-multi queues, we may still lost the network.
+It might be worth defining something like:
+
+#define check_warn(dev, ret, errmsg) \
+	(ret >= 0 ? 0 : (netdev_warn(dev->net, errmsg), ret))
+
+so the above code can be:
+	if (check_warn(dev, ret, "Error reading MII_ACCESS\n"))
+		return ret;
+
+	David
