@@ -1,135 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv3] tun: only queue packets on device
-Date: Mon, 3 Dec 2012 22:07:14 +0200
-Message-ID: <20121203200714.GA2183@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3] tun: only queue packets on device
+Date: Mon, 03 Dec 2012 15:07:59 -0500 (EST)
+Message-ID: <20121203.150759.585217844505239949.davem@davemloft.net>
+References: <20121203200714.GA2183@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Rami Rosen <ramirose@gmail.com>, Dave Jones <davej@redhat.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jasowang@redhat.com, nhorman@tuxdriver.com, ramirose@gmail.com,
+	davej@redhat.com, mtk.manpages@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mst@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <20121203200714.GA2183@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Historically tun supported two modes of operation:
-- in default mode, a small number of packets would get queued
-  at the device, the rest would be queued in qdisc
-- in one queue mode, all packets would get queued at the device
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 3 Dec 2012 22:07:14 +0200
 
-This might have made sense up to a point where we made the
-queue depth for both modes the same and set it to
-a huge value (500) so unless the consumer
-is stuck the chance of losing packets is small.
+> Historically tun supported two modes of operation:
+> - in default mode, a small number of packets would get queued
+>   at the device, the rest would be queued in qdisc
+> - in one queue mode, all packets would get queued at the device
+> 
+> This might have made sense up to a point where we made the
+> queue depth for both modes the same and set it to
+> a huge value (500) so unless the consumer
+> is stuck the chance of losing packets is small.
+> 
+> Thus in practice both modes behave the same, but the
+> default mode has some problems:
+> - if packets are never consumed, fragments are never orphaned
+>   which cases a DOS for sender using zero copy transmit
+> - overrun errors are hard to diagnose: fifo error is incremented
+>   only once so you can not distinguish between
+>   userspace that is stuck and a transient failure,
+>   tcpdump on the device does not show any traffic
+> 
+> Userspace solves this simply by enabling IFF_ONE_QUEUE
+> but there seems to be little point in not doing the
+> right thing for everyone, by default.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Thus in practice both modes behave the same, but the
-default mode has some problems:
-- if packets are never consumed, fragments are never orphaned
-  which cases a DOS for sender using zero copy transmit
-- overrun errors are hard to diagnose: fifo error is incremented
-  only once so you can not distinguish between
-  userspace that is stuck and a transient failure,
-  tcpdump on the device does not show any traffic
-
-Userspace solves this simply by enabling IFF_ONE_QUEUE
-but there seems to be little point in not doing the
-right thing for everyone, by default.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
----
-Changes since v2:
-	Fix comment style
-
-Changes from v1:
-	Address comment by David Miller:
-	Now that TUN_NO_QUEUE has no real effect and is a NOP,
-	document it as such both in if_tun.h and the places
-	in the driver that flip the bit based upon userspace requests.
-
- drivers/net/tun.c           | 24 ++++++++----------------
- include/uapi/linux/if_tun.h |  2 ++
- 2 files changed, 10 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 607a3a5..038196b 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -693,21 +693,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	 * number of queues.
- 	 */
- 	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
--			  >= dev->tx_queue_len / tun->numqueues){
--		if (!(tun->flags & TUN_ONE_QUEUE)) {
--			/* Normal queueing mode. */
--			/* Packet scheduler handles dropping of further packets. */
--			netif_stop_subqueue(dev, txq);
--
--			/* We won't see all dropped packets individually, so overrun
--			 * error is more appropriate. */
--			dev->stats.tx_fifo_errors++;
--		} else {
--			/* Single queue mode.
--			 * Driver handles dropping of all packets itself. */
--			goto drop;
--		}
--	}
-+			  >= dev->tx_queue_len / tun->numqueues)
-+		goto drop;
- 
- 	/* Orphan the skb - required as we might hang on to it
- 	 * for indefinite time. */
-@@ -1322,7 +1309,6 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 			schedule();
- 			continue;
- 		}
--		netif_wake_subqueue(tun->dev, tfile->queue_index);
- 
- 		ret = tun_put_user(tun, tfile, skb, iv, len);
- 		kfree_skb(skb);
-@@ -1485,6 +1471,9 @@ static int tun_flags(struct tun_struct *tun)
- 	if (tun->flags & TUN_NO_PI)
- 		flags |= IFF_NO_PI;
- 
-+	/* This flag has no real effect.  We track the value for backwards
-+	 * compatibility.
-+	 */
- 	if (tun->flags & TUN_ONE_QUEUE)
- 		flags |= IFF_ONE_QUEUE;
- 
-@@ -1633,6 +1622,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 	else
- 		tun->flags &= ~TUN_NO_PI;
- 
-+	/* This flag has no real effect.  We track the value for backwards
-+	 * compatibility.
-+	 */
- 	if (ifr->ifr_flags & IFF_ONE_QUEUE)
- 		tun->flags |= TUN_ONE_QUEUE;
- 	else
-diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
-index 958497a..2835b85 100644
---- a/include/uapi/linux/if_tun.h
-+++ b/include/uapi/linux/if_tun.h
-@@ -31,6 +31,7 @@
- #define TUN_FASYNC	0x0010
- #define TUN_NOCHECKSUM	0x0020
- #define TUN_NO_PI	0x0040
-+/* This flag has no real effect */
- #define TUN_ONE_QUEUE	0x0080
- #define TUN_PERSIST 	0x0100	
- #define TUN_VNET_HDR 	0x0200
-@@ -60,6 +61,7 @@
- #define IFF_TUN		0x0001
- #define IFF_TAP		0x0002
- #define IFF_NO_PI	0x1000
-+/* This flag has no real effect */
- #define IFF_ONE_QUEUE	0x2000
- #define IFF_VNET_HDR	0x4000
- #define IFF_TUN_EXCL	0x8000
--- 
-MST
+Applied, thanks Michael.
