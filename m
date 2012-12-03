@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Subject: [PATCH net-next] openvswitch: Use eth_mac_addr() instead
- of duplicating it
-Date: Mon, 3 Dec 2012 22:17:32 +0000
-Message-ID: <20121203221732.GA14494@casper.infradead.org>
+Subject: [PATCH net-next] openvswitch: Avoid useless holes in
+	struct vport
+Date: Mon, 3 Dec 2012 22:24:32 +0000
+Message-ID: <20121203222432.GB14494@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,51 +22,38 @@ Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
-bonus: if we ever are to use IFF_LIVE_ADDR_CHANGE for
-anything further than to check availability in eth_mac_addr(),
-Open vSwitch will be ready for that.
+Having the 16bit port_no in between a set of pointers creates
+an unwanted and useless hole in the struct.
 
 Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
 ---
- net/openvswitch/vport-internal_dev.c | 14 ++------------
- 1 file changed, 2 insertions(+), 12 deletions(-)
+ net/openvswitch/vport.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 5d460c3..90816c7 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -63,17 +63,6 @@ static struct rtnl_link_stats64 *internal_dev_get_stats(struct net_device *netde
- 	return stats;
- }
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 3f7961e..aee7d43 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -68,10 +68,10 @@ struct vport_err_stats {
+ /**
+  * struct vport - one port within a datapath
+  * @rcu: RCU callback head for deferred destruction.
+- * @port_no: Index into @dp's @ports array.
+  * @dp: Datapath to which this port belongs.
+  * @upcall_portid: The Netlink port to use for packets received on this port that
+  * miss the flow table.
++ * @port_no: Index into @dp's @ports array.
+  * @hash_node: Element in @dev_table hash table in vport.c.
+  * @dp_hash_node: Element in @datapath->ports hash table in datapath.c.
+  * @ops: Class structure.
+@@ -81,9 +81,9 @@ struct vport_err_stats {
+  */
+ struct vport {
+ 	struct rcu_head rcu;
+-	u16 port_no;
+ 	struct datapath	*dp;
+ 	u32 upcall_portid;
++	u16 port_no;
  
--static int internal_dev_mac_addr(struct net_device *dev, void *p)
--{
--	struct sockaddr *addr = p;
--
--	if (!is_valid_ether_addr(addr->sa_data))
--		return -EADDRNOTAVAIL;
--	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
--	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
--	return 0;
--}
--
- /* Called with rcu_read_lock_bh. */
- static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev)
- {
-@@ -127,7 +116,7 @@ static const struct net_device_ops internal_dev_netdev_ops = {
- 	.ndo_open = internal_dev_open,
- 	.ndo_stop = internal_dev_stop,
- 	.ndo_start_xmit = internal_dev_xmit,
--	.ndo_set_mac_address = internal_dev_mac_addr,
-+	.ndo_set_mac_address = eth_mac_addr,
- 	.ndo_change_mtu = internal_dev_change_mtu,
- 	.ndo_get_stats64 = internal_dev_get_stats,
- };
-@@ -139,6 +128,7 @@ static void do_setup(struct net_device *netdev)
- 	netdev->netdev_ops = &internal_dev_netdev_ops;
- 
- 	netdev->priv_flags &= ~IFF_TX_SKB_SHARING;
-+	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
- 	netdev->destructor = internal_dev_destructor;
- 	SET_ETHTOOL_OPS(netdev, &internal_dev_ethtool_ops);
- 	netdev->tx_queue_len = 0;
+ 	struct hlist_node hash_node;
+ 	struct hlist_node dp_hash_node;
