@@ -1,79 +1,95 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next RFC] pktgen: don't wait for the device who doesn't
-	free skb immediately after sent
-Date: Mon, 3 Dec 2012 08:01:11 -0800
-Message-ID: <20121203080111.74acf7d7@nehalam.linuxnetplumber.net>
-References: <1353916612-6357-1-git-send-email-jasowang@redhat.com>
-	<50B46179.4040809@redhat.com>
-	<20121127084919.1587c647@nehalam.linuxnetplumber.net>
-	<2663254.1vRFru9xhh@jason-thinkpad-t430s>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <2663254.1vRFru9xhh@jason-thinkpad-t430s>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: John Greene <jogreene@redhat.com>
+Subject: [RFT PATCH] 8139cp: properly support change of MTU values [v2]
+Date: Mon,  3 Dec 2012 11:19:33 -0500
+Message-ID: <1354551573-23721-1-git-send-email-jogreene@redhat.com>
+Cc: John Greene <jogreene@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cpe-075-189-159-031.nc.res.rr.com ([75.189.159.31]:38906 "EHLO
+	jgpicker" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751758Ab2LCQVl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Dec 2012 11:21:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 03 Dec 2012 14:45:46 +0800
-Jason Wang <jasowang@redhat.com> wrote:
+The 8139cp driver has a change_mtu function that has not been
+enabled since the dawn of the git repository. However, the
+generic eth_change_mtu is not used in its place, so that
+invalid MTU values can be set on the interface.
 
-> On Tuesday, November 27, 2012 08:49:19 AM Stephen Hemminger wrote:
-> > On Tue, 27 Nov 2012 14:45:13 +0800
-> > 
-> > Jason Wang <jasowang@redhat.com> wrote:
-> > > On 11/27/2012 01:37 AM, Stephen Hemminger wrote:
-> > > > On Mon, 26 Nov 2012 15:56:52 +0800
-> > > > 
-> > > > Jason Wang <jasowang@redhat.com> wrote:
-> > > >> Some deivces do not free the old tx skbs immediately after it has been
-> > > >> sent
-> > > >> (usually in tx interrupt). One such example is virtio-net which
-> > > >> optimizes for virt and only free the possible old tx skbs during the
-> > > >> next packet sending. This would lead the pktgen to wait forever in the
-> > > >> refcount of the skb if no other pakcet will be sent afterwards.
-> > > >> 
-> > > >> Solving this issue by introducing a new flag IFF_TX_SKB_FREE_DELAY
-> > > >> which could notify the pktgen that the device does not free skb
-> > > >> immediately after it has been sent and let it not to wait for the
-> > > >> refcount to be one.
-> > > >> 
-> > > >> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > > > 
-> > > > Another alternative would be using skb_orphan() and skb->destructor.
-> > > > There are other cases where skb's are not freed right away.
-> > > > --
-> > > > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > > > the body of a message to majordomo@vger.kernel.org
-> > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > > 
-> > > Hi Stephen:
-> > > 
-> > > Do you mean registering a skb->destructor for pktgen then set and check
-> > > bits in skb->tx_flag?
-> > 
-> > Yes. Register a destructor that does something like update a counter (number
-> > of packets pending), then just spin while number of packets pending is over
-> > threshold.
-> 
-> Have some experiments on this, looks like it does not work weel when clone_skb 
-> is used. For driver that call skb_orphan() in ndo_start_xmit, the destructor 
-> is only called when the first packet were sent, but what we need to know is 
-> when the last were sent. Any thoughts on this or we can just introduce another 
-> flag (anyway we have something like IFF_TX_SKB_SHARING) ?
-> 
+Original patch salvages the broken code for the single case of
+setting the MTU while the interface is down, which is safe
+and also includes the range check.  Now enhanced to support up
+or down interface.
 
-The SKB_SHARING flag looks like the best solution then.
-Surprisingly, transmit buffer completion is a major bottleneck for 10G
-devices, and I suspect more changes will come.
+v2: fix case where rxbufsz isn't changed in the up state case
+
+Original patch from
+http://lkml.indiana.edu/hypermail/linux/kernel/1202.2/00770.html
+
+Testing: has been test on virtual 8139cp setup without issue,
+have no access real hardware 8139cp, need testing help.
+
+Signed-off-by: "John Greene" <jogreene@redhat.com>
+CC: "David S. Miller" <davem@davemloft.net>
+---
+ drivers/net/ethernet/realtek/8139cp.c | 23 ++++-------------------
+ 1 file changed, 4 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index 6cb96b4..0da3f5e 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -1226,12 +1226,9 @@ static void cp_tx_timeout(struct net_device *dev)
+ 	spin_unlock_irqrestore(&cp->lock, flags);
+ }
+ 
+-#ifdef BROKEN
+ static int cp_change_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	struct cp_private *cp = netdev_priv(dev);
+-	int rc;
+-	unsigned long flags;
+ 
+ 	/* check for invalid MTU, according to hardware limits */
+ 	if (new_mtu < CP_MIN_MTU || new_mtu > CP_MAX_MTU)
+@@ -1244,22 +1241,12 @@ static int cp_change_mtu(struct net_device *dev, int new_mtu)
+ 		return 0;
+ 	}
+ 
+-	spin_lock_irqsave(&cp->lock, flags);
+-
+-	cp_stop_hw(cp);			/* stop h/w and free rings */
+-	cp_clean_rings(cp);
+-
++	/* network IS up, close it, reset MTU, and come up again. */
++	cp_close(dev);
+ 	dev->mtu = new_mtu;
+-	cp_set_rxbufsize(cp);		/* set new rx buf size */
+-
+-	rc = cp_init_rings(cp);		/* realloc and restart h/w */
+-	cp_start_hw(cp);
+-
+-	spin_unlock_irqrestore(&cp->lock, flags);
+-
+-	return rc;
++	cp_set_rxbufsize(cp);
++	return cp_open(dev);
+ }
+-#endif /* BROKEN */
+ 
+ static const char mii_2_8139_map[8] = {
+ 	BasicModeCtrl,
+@@ -1835,9 +1822,7 @@ static const struct net_device_ops cp_netdev_ops = {
+ 	.ndo_start_xmit		= cp_start_xmit,
+ 	.ndo_tx_timeout		= cp_tx_timeout,
+ 	.ndo_set_features	= cp_set_features,
+-#ifdef BROKEN
+ 	.ndo_change_mtu		= cp_change_mtu,
+-#endif
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= cp_poll_controller,
+-- 
+1.7.11.7
