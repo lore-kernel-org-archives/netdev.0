@@ -1,55 +1,39 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next rfc v7 1/3] virtio-net: separate fields of
-	sending/receiving queue from virtnet_info
-Date: Mon, 3 Dec 2012 13:18:48 +0200
-Message-ID: <20121203111848.GD26167@redhat.com>
-References: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
-	<1354011360-39479-2-git-send-email-jasowang@redhat.com>
-	<87y5hfj3vl.fsf@rustcorp.com.au>
-	<3524590.ZWGua7A8ne@jason-thinkpad-t430s>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr, shiyer@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <3524590.ZWGua7A8ne@jason-thinkpad-t430s>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] net: call notifiers for mtu change even if iface is not up
+Date: Mon,  3 Dec 2012 12:16:32 +0100
+Message-ID: <1354533392-9308-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, psimerda@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:45873 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754588Ab2LCLQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 06:16:39 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so1100398eaa.19
+        for <netdev@vger.kernel.org>; Mon, 03 Dec 2012 03:16:37 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 03, 2012 at 01:15:01PM +0800, Jason Wang wrote:
-> > > +
-> 
-> > > + /* Work struct for refilling if we run low on memory. */
-> 
-> > > + struct delayed_work refill;
-> 
-> >
-> 
-> > I can't really see the justificaiton for a refill per queue. Just have
-> 
-> > one work iterate all the queues if it happens, unless it happens often
-> 
-> > (in which case, we need to look harder at this anyway).
-> 
->  
-> 
-> But during this kind of iteration, we may need enable/disable the napi
-> regardless of whether the receive queue has lots to be refilled. This may add
-> extra latency.
+Do the same thing as in set mac. Call notifiers every time.
 
-We are running from the timer, so latency is not a concern I think.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2f94df2..0685a72 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4971,7 +4971,7 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+ 	else
+ 		dev->mtu = new_mtu;
+ 
+-	if (!err && dev->flags & IFF_UP)
++	if (!err)
+ 		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
+ 	return err;
+ }
 -- 
-MST
+1.8.0
