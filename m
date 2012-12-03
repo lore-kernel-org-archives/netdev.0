@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH] net/macb: Use dmapool to align descriptors on 64bits
-Date: Mon, 3 Dec 2012 13:15:14 +0100
-Message-ID: <1354536914-6315-1-git-send-email-nicolas.ferre@atmel.com>
+Subject: [PATCH] net/macb: increase RX buffer size for GEM
+Date: Mon, 3 Dec 2012 13:15:43 +0100
+Message-ID: <1354536943-6356-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-arm-kernel@lists.infradead.org>,
@@ -14,186 +14,170 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Depending on datapath, some revisions of GEM need
-64bits aligned descriptors. Use dmapool to allocate
-these descriptors.
-Note that different size between RX and TX rings
-leads to the creation of two pools.
+Macb Ethernet controller requires a RX buffer of 128 bytes. It is
+highly sub-optimal for Gigabit-capable GEM that is able to use
+a bigger DMA buffer. Change this constant and associated macros
+with data stored in the private structure.
+I also kept the result of buffers per page calculation to lower the
+impact of this move to a variable rx buffer size on rx hot path.
+RX DMA buffer size has to be multiple of 64 bytes as indicated in
+DMA Configuration Register specification.
 
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 99 ++++++++++++++++++++++++-------------
- drivers/net/ethernet/cadence/macb.h |  3 ++
- 2 files changed, 69 insertions(+), 33 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 61 ++++++++++++++++++++++++++++---------
+ drivers/net/ethernet/cadence/macb.h |  2 ++
+ 2 files changed, 49 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index c2955da..4b541a3 100644
+index 4b541a3..b4f45f4 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -22,6 +22,7 @@
- #include <linux/interrupt.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
-+#include <linux/dmapool.h>
- #include <linux/dma-mapping.h>
- #include <linux/platform_data/macb.h>
- #include <linux/platform_device.h>
-@@ -889,6 +890,47 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
+@@ -34,11 +34,11 @@
+ 
+ #include "macb.h"
+ 
+-#define RX_BUFFER_SIZE		128
++#define MACB_RX_BUFFER_SIZE	128
++#define GEM_RX_BUFFER_SIZE	2048
++#define RX_BUFFER_MULTIPLE	64  /* bytes */
+ #define RX_RING_SIZE		512 /* must be power of 2 */
+ #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
+-#define RX_BUFFERS_PER_PAGE	(PAGE_SIZE / RX_BUFFER_SIZE)
+-#define RX_RING_PAGES		(RX_RING_SIZE / RX_BUFFERS_PER_PAGE)
+ 
+ #define TX_RING_SIZE		128 /* must be power of 2 */
+ #define TX_RING_BYTES		(sizeof(struct macb_dma_desc) * TX_RING_SIZE)
+@@ -98,12 +98,17 @@ static struct macb_rx_page *macb_rx_page(struct macb *bp, unsigned int index)
+ {
+ 	unsigned int entry = macb_rx_ring_wrap(index);
+ 
+-	return &bp->rx_page[entry / RX_BUFFERS_PER_PAGE];
++	return &bp->rx_page[entry / bp->rx_buffers_per_page];
  }
  
-+/*
-+ * Retrieve the maximum supported data bus width from decoding the
-+ * design configuration register.
-+ *
-+ * Result in bytes.
-+ */
-+static u32 macb_dma_bus_width(struct macb *bp)
-+{
-+	u32 dbwdef;
-+
-+	if (!macb_is_gem(bp))
-+		return 4;
-+
-+	dbwdef = GEM_BFEXT(DBWDEF, gem_readl(bp, DCFG1));
-+	switch (dbwdef) {
-+	case 4:
-+	case 2:
-+		return dbwdef * 4;
-+	case 1:
-+	default:
-+		return 4;
-+	}
+ static unsigned int macb_rx_page_offset(struct macb *bp, unsigned int index)
+ {
+-	return (index % RX_BUFFERS_PER_PAGE) * RX_BUFFER_SIZE;
++	return (index % bp->rx_buffers_per_page) * bp->rx_buffer_size;
 +}
 +
-+/*
-+ * Get the DMA bus width field of the network configuration register that we
-+ * should program.
-+ */
-+static u32 macb_dbw(struct macb *bp)
++static unsigned int rx_ring_pages(struct macb *bp)
 +{
-+	switch (macb_dma_bus_width(bp)) {
-+	case 16:
-+		return GEM_BF(DBW, GEM_DBW128);
-+	case 8:
-+		return GEM_BF(DBW, GEM_DBW64);
-+	case 4:
-+	default:
-+		return GEM_BF(DBW, GEM_DBW32);
++	return RX_RING_SIZE / bp->rx_buffers_per_page;
+ }
+ 
+ void macb_set_hwaddr(struct macb *bp)
+@@ -587,7 +592,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 	skb_put(skb, len);
+ 
+ 	for (frag = first_frag; ; frag++) {
+-		unsigned int frag_len = RX_BUFFER_SIZE;
++		unsigned int frag_len = bp->rx_buffer_size;
+ 
+ 		if (skb_offset + frag_len > len) {
+ 			BUG_ON(frag != last_frag);
+@@ -931,11 +936,36 @@ static u32 macb_dbw(struct macb *bp)
+ 	}
+ }
+ 
++static void macb_init_rx_buffer_size(struct macb *bp)
++{
++	if (!macb_is_gem(bp)) {
++		bp->rx_buffer_size = MACB_RX_BUFFER_SIZE;
++	} else {
++		bp->rx_buffer_size = GEM_RX_BUFFER_SIZE;
++
++		if (bp->rx_buffer_size > PAGE_SIZE) {
++			netdev_warn(bp->dev,
++				    "RX buffer cannot be bigger than PAGE_SIZE, shrinking\n");
++			bp->rx_buffer_size = PAGE_SIZE;
++		}
++		if (bp->rx_buffer_size % RX_BUFFER_MULTIPLE) {
++			netdev_warn(bp->dev,
++				    "RX buffer must be multiple of %d bytes, shrinking\n",
++				    RX_BUFFER_MULTIPLE);
++			bp->rx_buffer_size =
++				rounddown(bp->rx_buffer_size, RX_BUFFER_MULTIPLE);
++		}
++		bp->rx_buffer_size = max(RX_BUFFER_MULTIPLE, GEM_RX_BUFFER_SIZE);
 +	}
++
++	bp->rx_buffers_per_page = PAGE_SIZE / bp->rx_buffer_size;
 +}
 +
  static void macb_free_rings(struct macb *bp)
  {
  	int i;
-@@ -907,10 +949,12 @@ static void macb_free_rings(struct macb *bp)
  
- 	kfree(bp->tx_skb);
- 	kfree(bp->rx_page);
--	dma_free_coherent(&bp->pdev->dev, TX_RING_BYTES, bp->tx_ring,
--			  bp->tx_ring_dma);
--	dma_free_coherent(&bp->pdev->dev, RX_RING_BYTES, bp->rx_ring,
--			  bp->rx_ring_dma);
-+	dma_pool_free(bp->tx_pool, bp->tx_ring, bp->tx_ring_dma);
-+	dma_pool_free(bp->rx_pool, bp->rx_ring, bp->rx_ring_dma);
-+	dma_pool_destroy(bp->tx_pool);
-+	dma_pool_destroy(bp->rx_pool);
-+	bp->tx_pool = NULL;
-+	bp->rx_pool = NULL;
- }
+-	for (i = 0; i < RX_RING_PAGES; i++) {
++	for (i = 0; i < rx_ring_pages(bp); i++) {
+ 		struct macb_rx_page *rx_page = &bp->rx_page[i];
  
- static int macb_init_rings(struct macb *bp)
-@@ -920,9 +964,16 @@ static int macb_init_rings(struct macb *bp)
- 	unsigned int	page_idx;
- 	unsigned int	ring_idx;
- 	unsigned int	i;
-+	unsigned int	dma_bw = macb_dma_bus_width(bp);
+ 		if (!rx_page->page)
+@@ -989,7 +1019,10 @@ static int macb_init_rings(struct macb *bp)
+ 		   "Allocated TX ring of %d bytes at 0x%08lx (mapped %p)\n",
+ 		   TX_RING_BYTES, (unsigned long)bp->tx_ring_dma, bp->tx_ring);
+ 
+-	bp->rx_page = kcalloc(RX_RING_PAGES, sizeof(struct macb_rx_page),
++	/* RX buffers initialization */
++	macb_init_rx_buffer_size(bp);
 +
-+	bp->rx_pool = dma_pool_create(bp->pdev->name, &bp->pdev->dev,
-+				      RX_RING_BYTES, dma_bw, 0);
-+	bp->tx_pool = dma_pool_create(bp->pdev->name, &bp->pdev->dev,
-+				      TX_RING_BYTES, dma_bw, 0);
-+	if (!bp->rx_pool || !bp->tx_pool)
-+		goto err_alloc_rx_ring;
++	bp->rx_page = kcalloc(rx_ring_pages(bp), sizeof(struct macb_rx_page),
+ 			      GFP_KERNEL);
+ 	if (!bp->rx_page)
+ 		goto err_alloc_rx_page;
+@@ -999,7 +1032,7 @@ static int macb_init_rings(struct macb *bp)
+ 	if (!bp->tx_skb)
+ 		goto err_alloc_tx_skb;
  
--	bp->rx_ring = dma_alloc_coherent(&bp->pdev->dev, RX_RING_BYTES,
--					 &bp->rx_ring_dma, GFP_KERNEL);
-+	bp->rx_ring = dma_pool_alloc(bp->rx_pool, GFP_KERNEL, &bp->rx_ring_dma);
- 	if (!bp->rx_ring)
- 		goto err_alloc_rx_ring;
+-	for (page_idx = 0, ring_idx = 0; page_idx < RX_RING_PAGES; page_idx++) {
++	for (page_idx = 0, ring_idx = 0; page_idx < rx_ring_pages(bp); page_idx++) {
+ 		page = alloc_page(GFP_KERNEL);
+ 		if (!page)
+ 			goto err_alloc_page;
+@@ -1012,16 +1045,16 @@ static int macb_init_rings(struct macb *bp)
+ 		bp->rx_page[page_idx].page = page;
+ 		bp->rx_page[page_idx].phys = phys;
  
-@@ -930,8 +981,7 @@ static int macb_init_rings(struct macb *bp)
- 		   "Allocated RX ring of %d bytes at %08lx (mapped %p)\n",
- 		   RX_RING_BYTES, (unsigned long)bp->rx_ring_dma, bp->rx_ring);
+-		for (i = 0; i < RX_BUFFERS_PER_PAGE; i++, ring_idx++) {
++		for (i = 0; i < bp->rx_buffers_per_page; i++, ring_idx++) {
+ 			bp->rx_ring[ring_idx].addr = phys;
+ 			bp->rx_ring[ring_idx].ctrl = 0;
+-			phys += RX_BUFFER_SIZE;
++			phys += bp->rx_buffer_size;
+ 		}
+ 	}
+ 	bp->rx_ring[RX_RING_SIZE - 1].addr |= MACB_BIT(RX_WRAP);
  
--	bp->tx_ring = dma_alloc_coherent(&bp->pdev->dev, TX_RING_BYTES,
--					 &bp->tx_ring_dma, GFP_KERNEL);
-+	bp->tx_ring = dma_pool_alloc(bp->tx_pool, GFP_KERNEL, &bp->tx_ring_dma);
- 	if (!bp->tx_ring)
- 		goto err_alloc_tx_ring;
+-	netdev_dbg(bp->dev, "Allocated %u RX buffers (%lu pages)\n",
+-		   RX_RING_SIZE, RX_RING_PAGES);
++	netdev_dbg(bp->dev, "Allocated %u RX buffers of size %u (%u pages)\n",
++		   RX_RING_SIZE, bp->rx_buffer_size, rx_ring_pages(bp));
  
-@@ -995,12 +1045,16 @@ err_alloc_page:
- err_alloc_tx_skb:
- 	kfree(bp->rx_page);
- err_alloc_rx_page:
--	dma_free_coherent(&bp->pdev->dev, TX_RING_BYTES, bp->tx_ring,
--			  bp->tx_ring_dma);
-+	dma_pool_free(bp->tx_pool, bp->tx_ring, bp->tx_ring_dma);
- err_alloc_tx_ring:
--	dma_free_coherent(&bp->pdev->dev, RX_RING_BYTES, bp->rx_ring,
--			  bp->rx_ring_dma);
-+	dma_pool_free(bp->rx_pool, bp->rx_ring, bp->rx_ring_dma);
- err_alloc_rx_ring:
-+	if (bp->tx_pool)
-+		dma_pool_destroy(bp->tx_pool);
-+	if (bp->rx_pool)
-+		dma_pool_destroy(bp->rx_pool);
-+	bp->rx_pool = NULL;
-+	bp->tx_pool = NULL;
- 	return -ENOMEM;
- }
+ 	for (i = 0; i < TX_RING_SIZE; i++) {
+ 		bp->tx_ring[i].addr = 0;
+@@ -1134,7 +1167,7 @@ static void macb_configure_dma(struct macb *bp)
  
-@@ -1067,27 +1121,6 @@ static u32 macb_mdc_clk_div(struct macb *bp)
- }
- 
- /*
-- * Get the DMA bus width field of the network configuration register that we
-- * should program.  We find the width from decoding the design configuration
-- * register to find the maximum supported data bus width.
-- */
--static u32 macb_dbw(struct macb *bp)
--{
--	if (!macb_is_gem(bp))
--		return 0;
--
--	switch (GEM_BFEXT(DBWDEF, gem_readl(bp, DCFG1))) {
--	case 4:
--		return GEM_BF(DBW, GEM_DBW128);
--	case 2:
--		return GEM_BF(DBW, GEM_DBW64);
--	case 1:
--	default:
--		return GEM_BF(DBW, GEM_DBW32);
--	}
--}
--
--/*
-  * Configure the receive DMA engine
-  * - use the correct receive buffer size
-  * - set the possibility to use INCR16 bursts
+ 	if (macb_is_gem(bp)) {
+ 		dmacfg = gem_readl(bp, DMACFG) & ~GEM_BF(RXBS, -1L);
+-		dmacfg |= GEM_BF(RXBS, RX_BUFFER_SIZE / 64);
++		dmacfg |= GEM_BF(RXBS, bp->rx_buffer_size / RX_BUFFER_MULTIPLE);
+ 		dmacfg |= GEM_BF(FBLDO, 16);
+ 		dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
+ 		gem_writel(bp, DMACFG, dmacfg);
 diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index e82242b..b4c9515 100644
+index b4c9515..88780e2 100644
 --- a/drivers/net/ethernet/cadence/macb.h
 +++ b/drivers/net/ethernet/cadence/macb.h
-@@ -584,6 +584,9 @@ struct macb {
- 	dma_addr_t		tx_ring_dma;
- 	dma_addr_t		rx_buffers_dma;
+@@ -562,6 +562,8 @@ struct macb {
+ 	struct macb_dma_desc	*rx_ring;
+ 	struct macb_rx_page	*rx_page;
+ 	void			*rx_buffers;
++	size_t			rx_buffer_size;
++	unsigned int		rx_buffers_per_page;
  
-+	struct dma_pool		*rx_pool;
-+	struct dma_pool		*tx_pool;
-+
- 	struct mii_bus		*mii_bus;
- 	struct phy_device	*phy_dev;
- 	unsigned int 		link;
+ 	unsigned int		tx_head, tx_tail;
+ 	struct macb_dma_desc	*tx_ring;
 -- 
 1.8.0
