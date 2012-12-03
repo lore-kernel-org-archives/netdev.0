@@ -1,99 +1,56 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFT PATCH] 8139cp: properly support change of MTU values [v2]
-Date: Mon, 3 Dec 2012 21:46:08 +0100
-Message-ID: <20121203204608.GA9815@electric-eye.fr.zoreil.com>
-References: <1354551573-23721-1-git-send-email-jogreene@redhat.com> <20121203.135200.1242505353532930826.davem@davemloft.net>
+From: Dries De Winter <dries.dewinter@gmail.com>
+Subject: Re: [PATCH] net: ICMPv6 packets transmitted on wrong interface if
+ nfmark is mangled
+Date: Mon, 3 Dec 2012 22:31:51 +0100
+Message-ID: <CA+e04fjWMDE9xEApysFRprZDBdM3Ya2RHrxtoau7i+fxzGT8CQ@mail.gmail.com>
+References: <20121130.122243.710720011890818822.davem@davemloft.net>
+	<1354538763-2678-1-git-send-email-dries.dewinter@gmail.com>
+	<20121203.141128.206409637987621093.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	dwmw2@infradead.org
-To: jogreene@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:39934 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751511Ab2LCVLL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Dec 2012 16:11:11 -0500
-Content-Disposition: inline
-In-Reply-To: <20121203.135200.1242505353532930826.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: pablo@netfilter.org, kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20121203.141128.206409637987621093.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> :
-[...]
-> I've applied this to net-next, if it triggers any problems we have
-> some time to work it out before 3.8 is released.
+2012/12/3 David Miller <davem@davemloft.net>:
+> Thinking about this some more I can't see how this is correct.
+>
+> What if netfilter modified one of the keys that go into the route
+> lookup such as the source or destination address?
+That is a question I have as well. What if the destination address of
+a neighbour solicitation is rewritten to some random unicast address
+for example? You could say that in that case indeed the routing table
+should be followed. But you could also say that ICMPv6 is a
+fundamental part of IPv6 and sending out a neighbour solicitation for
+instance on a different interface than the one it is intended for is
+wrong. Or you could even say that it is a total non-issue because
+rewriting the destination address of ICMPv6 is already wrong in the
+first place.
 
-I have bounced the messages to David Woodhouse since he authored the
-last 8139cp changes in net-next and owns the hardware to notice
-regressions.
+Anyway, what if the source address is modified while there is no
+source based routing or skb->mark is modified while there is no policy
+based routing? In that case routing is not affected but still the
+ICMPv6 packet will go out on a different interface than the one you
+would expect. This is because the dst of such packet is special in the
+sense that it is not referred to by the routing table, so when
+rerouting the packet it is impossible to find back the original
+destination.
 
-My message of two days ago was wrong : it is not possible for the irq
-handler to process a Tx event after the rings have been freed. Things
-still look racy wrt netpoll though.
+Not fixing this means that skb->mark is unavailable for use on ICMPv6
+packets because it will inevitably put those packets on the wrong
+interface. I use skb->mark for QoS, not for routing so I don't expect
+the outgoing interface to be affected by my markers. Now that I know
+this issue, it is easy enough for me to work around, but I suspect
+that I'm not the only one in the world that uses skb->mark for other
+purposes than routing. Moreover, the road from seeing a neighbour
+solicitation or MLD report going out on the wrong interface to finding
+this limitation can be quite painful. Anyway, in the end it's up to
+you to decide of course.
 
-Any objection against the patch below ?
+Kind regards,
 
-(I did not gotoize the dev == NULL test: it is really unlikely and
-should go away).
-
-diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
-index 0da3f5e..57cd542 100644
---- a/drivers/net/ethernet/realtek/8139cp.c
-+++ b/drivers/net/ethernet/realtek/8139cp.c
-@@ -577,28 +577,30 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
- {
- 	struct net_device *dev = dev_instance;
- 	struct cp_private *cp;
-+	int handled = 0;
- 	u16 status;
- 
- 	if (unlikely(dev == NULL))
- 		return IRQ_NONE;
- 	cp = netdev_priv(dev);
- 
-+	spin_lock(&cp->lock);
-+
- 	status = cpr16(IntrStatus);
- 	if (!status || (status == 0xFFFF))
--		return IRQ_NONE;
-+		goto out_unlock;
-+
-+	handled = 1;
- 
- 	netif_dbg(cp, intr, dev, "intr, status %04x cmd %02x cpcmd %04x\n",
- 		  status, cpr8(Cmd), cpr16(CpCmd));
- 
- 	cpw16(IntrStatus, status & ~cp_rx_intr_mask);
- 
--	spin_lock(&cp->lock);
--
- 	/* close possible race's with dev_close */
- 	if (unlikely(!netif_running(dev))) {
- 		cpw16(IntrMask, 0);
--		spin_unlock(&cp->lock);
--		return IRQ_HANDLED;
-+		goto out_unlock;
- 	}
- 
- 	if (status & (RxOK | RxErr | RxEmpty | RxFIFOOvr))
-@@ -612,8 +614,6 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
- 	if (status & LinkChg)
- 		mii_check_media(&cp->mii_if, netif_msg_link(cp), false);
- 
--	spin_unlock(&cp->lock);
--
- 	if (status & PciErr) {
- 		u16 pci_status;
- 
-@@ -625,7 +625,10 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
- 		/* TODO: reset hardware */
- 	}
- 
--	return IRQ_HANDLED;
-+out_unlock:
-+	spin_unlock(&cp->lock);
-+
-+	return IRQ_RETVAL(handled);
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
+Dries.
