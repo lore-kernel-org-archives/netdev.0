@@ -1,76 +1,109 @@
-From: pablo@netfilter.org
-Subject: [PATCH 5/6] netfilter: ctnetlink: nla_policy updates
-Date: Tue,  4 Dec 2012 18:31:32 +0100
-Message-ID: <1354642293-4114-6-git-send-email-pablo@netfilter.org>
-References: <1354642293-4114-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54465 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754417Ab2LDRb7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2012 12:31:59 -0500
-In-Reply-To: <1354642293-4114-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Tue, 4 Dec 2012 19:36:26 +0200
+Message-ID: <20121204173625.GA13993@redhat.com>
+References: <20121129215724.30020.69464.stgit@sifl>
+ <2549856.XZ72FtkyJK@sifl>
+ <7659411.O2Or69Bf6n@jason-thinkpad-t430s>
+ <8577392.82G063LYx2@sifl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: Paul Moore <pmoore@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <8577392.82G063LYx2@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+On Tue, Dec 04, 2012 at 11:18:57AM -0500, Paul Moore wrote:
+> On Tuesday, December 04, 2012 09:24:43 PM Jason Wang wrote:
+> > On Monday, December 03, 2012 11:22:29 AM Paul Moore wrote:
+> > > It may be that I'm misunderstanding TUNSETQUEUE and/or TUNSETIFF.  Can you
+> > > elaborate as to why they should be different?
+> > 
+> > If I understand correctly, before multiqueue patchset, TUNSETIFF is used to:
+> > 
+> > 1) Create the tun/tap network device
+> > 2) For persistent device, re-attach the fd to the network device / socket.
+> > In this case, we call selinux_tun_dev_attch() to relabel the socket sid (in
+> > fact also the device's since the socket were persistent also) to the sid of
+> > process that calls TUNSETIFF.
+> > 
+> > So, after the changes of multiqueue, we need try to preserve those policy.
+> > The interesting part is the introducing of TUNSETQUEUE, it's used to attach
+> > more file descriptors/sockets to a tun/tap device after at least one file
+> > descriptor were attached to the tun/tap device through TUNSETIFF. So I
+> > think maybe we need differ those two ioctls. This patch looks fine for
+> > TUNSETQUEUE, but for TUNSETIFF, we need relabel the tunsec to the process
+> > that calling TUNSETIFF for persistent device?
+> 
+> Okay, based on your explanation of TUNSETQUEUE, the steps below are what I 
+> believe we need to do ... if you disagree speak up quickly please.
+> 
+> A. TUNSETIFF (new, non-persistent device)
+> 
+> [Allocate and initialize the tun_struct LSM state based on the calling 
+> process, use this state to label the TUN socket.]
+> 
+> 1. Call security_tun_dev_create() which authorizes the action.
+> 2. Call security_tun_dev_alloc_security() which allocates the tun_struct LSM 
+> blob and SELinux sets some internal blob state to record the label of the 
+> calling process.
+> 3. Call security_tun_dev_attach() which sets the label of the TUN socket to 
+> match the label stored in the tun_struct LSM blob during A2.  No authorization 
+> is done at this point since the socket is new/unlabeled.
 
-Add stricter checking for a few attributes.
-Note that these changes don't fix any bug in the current code base.
+> B. TUNSETIFF (existing, persistent device)
+> 
+> [Relabel the existing tun_struct LSM state based on the calling process, use
+> this state to label the TUN socket.]
+> 
+> 1. Attempt to relabel/reset the tun_struct LSM blob from the currently stored 
+> value, set during A2, to the label of the current calling process. *** THIS IS 
+> NOT CURRENTLY DONE IN THE RFC PATCH ***
+> 2. Call security_tun_dev_attach() which sets the label of the TUN socket to
+> match the label stored in the tun_struct LSM blob during B1. No authorization 
+> is done at this point since the socket is new/unlabeled.
+> 
+> C. TUNSETQUEUE
+> 
+> [Use the existing tun_struct LSM state to label the new TUN socket.]
+> 
+> 1. Call security_tun_dev_attach() which sets the label of the TUN socket to 
+> match the label stored in the tun_struct LSM blob set during either A2 or B1.  
+> No authorization is done at this point since the socket is new/unlabeled.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_netlink.c   |    8 ++++++--
- net/netfilter/nf_conntrack_proto_tcp.c |    2 ++
- 2 files changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index c24a00a..4e078cd 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -898,7 +898,8 @@ ctnetlink_parse_zone(const struct nlattr *attr, u16 *zone)
- }
- 
- static const struct nla_policy help_nla_policy[CTA_HELP_MAX+1] = {
--	[CTA_HELP_NAME]		= { .type = NLA_NUL_STRING },
-+	[CTA_HELP_NAME]		= { .type = NLA_NUL_STRING,
-+				    .len = NF_CT_HELPER_NAME_LEN - 1 },
- };
- 
- static inline int
-@@ -932,6 +933,8 @@ static const struct nla_policy ct_nla_policy[CTA_MAX+1] = {
- 	[CTA_ID]		= { .type = NLA_U32 },
- 	[CTA_NAT_DST]		= { .type = NLA_NESTED },
- 	[CTA_TUPLE_MASTER]	= { .type = NLA_NESTED },
-+	[CTA_NAT_SEQ_ADJ_ORIG]  = { .type = NLA_NESTED },
-+	[CTA_NAT_SEQ_ADJ_REPLY] = { .type = NLA_NESTED },
- 	[CTA_ZONE]		= { .type = NLA_U16 },
- 	[CTA_MARK_MASK]		= { .type = NLA_U32 },
- };
-@@ -2322,7 +2325,8 @@ static const struct nla_policy exp_nla_policy[CTA_EXPECT_MAX+1] = {
- 	[CTA_EXPECT_MASK]	= { .type = NLA_NESTED },
- 	[CTA_EXPECT_TIMEOUT]	= { .type = NLA_U32 },
- 	[CTA_EXPECT_ID]		= { .type = NLA_U32 },
--	[CTA_EXPECT_HELP_NAME]	= { .type = NLA_NUL_STRING },
-+	[CTA_EXPECT_HELP_NAME]	= { .type = NLA_NUL_STRING,
-+				    .len = NF_CT_HELPER_NAME_LEN - 1 },
- 	[CTA_EXPECT_ZONE]	= { .type = NLA_U16 },
- 	[CTA_EXPECT_FLAGS]	= { .type = NLA_U32 },
- 	[CTA_EXPECT_CLASS]	= { .type = NLA_U32 },
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 61f9285..83876e9 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -1353,6 +1353,8 @@ static const struct nla_policy tcp_timeout_nla_policy[CTA_TIMEOUT_TCP_MAX+1] = {
- 	[CTA_TIMEOUT_TCP_TIME_WAIT]	= { .type = NLA_U32 },
- 	[CTA_TIMEOUT_TCP_CLOSE]		= { .type = NLA_U32 },
- 	[CTA_TIMEOUT_TCP_SYN_SENT2]	= { .type = NLA_U32 },
-+	[CTA_TIMEOUT_TCP_RETRANS]	= { .type = NLA_U32 },
-+	[CTA_TIMEOUT_TCP_UNACK]		= { .type = NLA_U32 },
- };
- #endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
- 
--- 
-1.7.10.4
+Here's what bothers me. libvirt currently opens tun and passes
+fd to qemu.
+What would prevent qemu from attaching fd using TUNSETQUEUE
+to another device it does not own?
+
+
+> > btw. Current code does allow calling TUNSETQUEUE to a persistent tun/tap
+> > device with no file attached. It should be a bug and need to be fixed.
+> 
+> Since you wrote that code will you be submitting a patch to fix that problem?
+> 
+> > > One thing that I think we probably should change is the relabelto/from
+> > > permissions in the function above (selinux_tun_dev_attach()); in the case
+> > > where the socket does not yet have a label, e.g. 'sksec->sid == 0', we
+> > > should probably skip the relabel permissions since we want to assign the
+> > > TUN device label regardless in this case.
+> > 
+> > I'm not familiar with the selinux, have a quick glance of the code, looks
+> > like the label has been initialized to SECINITSID_KERNEL in
+> > selinux_socket_post_create().
+> 
+> Unless I've missed something in your changes, the multiqueue code never calls 
+> any socket code which ends up calling {security,selinux}_socket_post_create(); 
+> I believe you only call sk_alloc() which ends up calling 
+> {security,selinux}_sk_alloc() which sets SECINITSID_UNLABELED (I mistakenly 
+> wrote 0 instead in my earlier email which is techincally SECSID_NULL).  Either 
+> way, I still think the logic I originally described above is correct.
+> 
+> -- 
+> paul moore
+> security and virtualization @ redhat
