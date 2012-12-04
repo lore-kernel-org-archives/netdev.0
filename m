@@ -1,27 +1,23 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] qlcnic: refactor 82xx adapter driver
-Date: Tue, 04 Dec 2012 13:02:15 -0500 (EST)
-Message-ID: <20121204.130215.1158198101312931971.davem@davemloft.net>
-References: <1354628038-2234-1-git-send-email-sony.chacko@qlogic.com>
+Subject: Re: [PATCH 1/5 net-next v2] tg3: Fix inconsistent locking for
+ tg3_netif_start().
+Date: Tue, 04 Dec 2012 13:02:29 -0500 (EST)
+Message-ID: <20121204.130229.187893693811438451.davem@davemloft.net>
+References: <1354599420-3589-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: sony.chacko@qlogic.com
+Cc: netdev@vger.kernel.org, nsujir@broadcom.com,
+	richardcochran@gmail.com
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53569 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53579 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752731Ab2LDSCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 13:02:17 -0500
-In-Reply-To: <1354628038-2234-1-git-send-email-sony.chacko@qlogic.com>
+	with ESMTP id S1751731Ab2LDSCb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 13:02:31 -0500
+In-Reply-To: <1354599420-3589-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
-Date: Tue,  4 Dec 2012 08:33:51 -0500
 
-> From: Sony Chacko <sony.chacko@qlogic.com>
-> 
-> Please apply the refactoring patches to net-next.
-
-Series applied.
+All 5 patches applied, thanks.
