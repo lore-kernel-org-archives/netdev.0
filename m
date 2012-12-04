@@ -1,58 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next v2] bridge: export multicast database
- via netlink
-Date: Tue, 4 Dec 2012 08:53:20 -0800
-Message-ID: <20121204085320.3e08986a@nehalam.linuxnetplumber.net>
-References: <1354539824-7898-1-git-send-email-amwang@redhat.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH] vxlan: Fix error that was resulting in VXLAN MTU size
+ being 10 bytes too large
+Date: Tue, 04 Dec 2012 09:12:22 -0800
+Message-ID: <50BE2EF6.8060005@intel.com>
+References: <20121119080351.477525b3@nehalam.linuxnetplumber.net> <CAOzFzEh0X3CcjBYWVDAtu7=jRSc1_P2OQSF_YWjnBSeugo3W6A@mail.gmail.com> <20121204094809.9689.C42C3789@sakura.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Jesper Dangaard Brouer <brouer@redhat.com>, Thomas Graf <tgraf@suug.ch>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1354539824-7898-1-git-send-email-amwang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Joseph Glanville <joseph.glanville@orionvm.com.au>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:65352 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752593Ab2LDRMa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2012 12:12:30 -0500
+In-Reply-To: <20121204094809.9689.C42C3789@sakura.ad.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon,  3 Dec 2012 21:03:43 +0800
-Cong Wang <amwang@redhat.com> wrote:
-
-> V2: drop patch 1/2, export ifindex directly
->     Redesign netlink attributes
->     Improve netlink seq check
->     Handle IPv6 addr as well
+On 12/03/2012 04:48 PM, Naoto MATSUMOTO wrote:
 > 
-> TODO: remove debugging printk's
+> Hi all
 > 
-> This patch exports bridge multicast database via netlink
-> message type RTM_GETMDB. Similar to fdb, but currently bridge-specific.
-> We may need to support modify multicast database too (RTM_{ADD,DEL}MDB).
+> Sharing my testlab resut for you ;-)
 > 
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
->     
+> A First Look At VXLAN over Infiniband Network On Linux 3.7-rc7
+> http://slidesha.re/TsCKWc
+> 
+> plz enjyoi it.
+> 
+> --
+> Naoto
 
-Minor nit reported by checkpatch was the messages should be using the api
-which provides the most info in the log to identify.
+What was the MTU for the underlying IPoIB devices in your test?  Just
+wondering because the MTU on the VXLAN is showing as 65470 which would
+imply the IPoIB devices should have a 65520 MTU and I just wanted to
+confirm that.
 
-WARNING: Prefer netdev_info(netdev, ... then dev_info(dev, ... then pr_info(...  to printk(KERN_INFO ...
-#190: FILE: net/bridge/br_mdb.c:28:
-+		printk(KERN_INFO "no router on bridge\n")
+Thanks,
 
-There is a set of macro's already for use in bridging code:
-                br_info(br, "no router on bridge\n");
+Alex
