@@ -1,52 +1,69 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 3/7] ipv6: improve ipv6_find_hdr() to skip empty
- routing headers
-Date: Tue, 4 Dec 2012 10:15:11 -0800
-Message-ID: <CAEP_g=_89wPzKi-F9VQaKxM5eAUhSx3KEQhOSJQgTNtfiFQTEw@mail.gmail.com>
-References: <1354214149-33651-1-git-send-email-jesse@nicira.com>
- <1354214149-33651-4-git-send-email-jesse@nicira.com> <20121203140458.GA1596@1984>
- <CAEP_g=-D6f-O1F0B4+xLKfZnY_LjFiHF-UaXD4zVUYctGG3-Ug@mail.gmail.com> <20121203180611.GA20305@1984>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [RFC PATCH 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Tue, 04 Dec 2012 13:17:13 -0500
+Message-ID: <338664993.8Hd16PoY2S@sifl>
+References: <20121129215724.30020.69464.stgit@sifl> <8577392.82G063LYx2@sifl> <20121204173625.GA13993@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	dev@openvswitch.org, Ansis Atteka <aatteka@nicira.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:52278 "HELO
-	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751090Ab2LDSPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 13:15:32 -0500
-Received: by mail-ob0-f198.google.com with SMTP id un3so18964121obb.1
-        for <netdev@vger.kernel.org>; Tue, 04 Dec 2012 10:15:31 -0800 (PST)
-In-Reply-To: <20121203180611.GA20305@1984>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20121204173625.GA13993@redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 3, 2012 at 10:06 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Mon, Dec 03, 2012 at 09:28:55AM -0800, Jesse Gross wrote:
->> On Mon, Dec 3, 2012 at 6:04 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->> > On Thu, Nov 29, 2012 at 10:35:45AM -0800, Jesse Gross wrote:
->> >> @@ -159,9 +162,10 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
->> >>       }
->> >>       len = skb->len - start;
->> >>
->> >> -     while (nexthdr != target) {
->> >
->> > If the offset is set as parameter via ipv6_find_hdr, we now are always
->> > entering the loop even if we found the target header we're looking
->> > for, before that didn't happen.
->> >
->> > Something seems wrong here to me.
->>
->> If the target header is a routing header then you might still need to
->> continue searching because the first one that you see could be empty.
+On Tuesday, December 04, 2012 07:36:26 PM Michael S. Tsirkin wrote:
+> On Tue, Dec 04, 2012 at 11:18:57AM -0500, Paul Moore wrote:
+> > Okay, based on your explanation of TUNSETQUEUE, the steps below are what I
+> > believe we need to do ... if you disagree speak up quickly please.
+> > 
+> > A. TUNSETIFF (new, non-persistent device)
+> > 
+> > [Allocate and initialize the tun_struct LSM state based on the calling
+> > process, use this state to label the TUN socket.]
+> > 
+> > 1. Call security_tun_dev_create() which authorizes the action.
+> > 2. Call security_tun_dev_alloc_security() which allocates the tun_struct
+> > LSM blob and SELinux sets some internal blob state to record the label of
+> > the calling process.
+> > 3. Call security_tun_dev_attach() which sets the label of the TUN socket
+> > to match the label stored in the tun_struct LSM blob during A2.  No
+> > authorization is done at this point since the socket is new/unlabeled.
+> > 
+> > B. TUNSETIFF (existing, persistent device)
+> > 
+> > [Relabel the existing tun_struct LSM state based on the calling process,
+> > use this state to label the TUN socket.]
+> > 
+> > 1. Attempt to relabel/reset the tun_struct LSM blob from the currently
+> > stored value, set during A2, to the label of the current calling process.
+> > *** THIS IS NOT CURRENTLY DONE IN THE RFC PATCH ***
+> > 2. Call security_tun_dev_attach() which sets the label of the TUN socket
+> > to match the label stored in the tun_struct LSM blob during B1. No
+> > authorization is done at this point since the socket is new/unlabeled.
+> > 
+> > C. TUNSETQUEUE
+> > 
+> > [Use the existing tun_struct LSM state to label the new TUN socket.]
+> > 
+> > 1. Call security_tun_dev_attach() which sets the label of the TUN socket
+> > to match the label stored in the tun_struct LSM blob set during either A2
+> > or B1. No authorization is done at this point since the socket is
+> > new/unlabeled.
 >
-> OK, but if it's not a routing header what we're searching for (which
-> seems to be the case of netfilter/IPVS) we waste way more cycles on
-> copying the IPv6 header again and with way more things that are
-> completely useless.
+> Here's what bothers me. libvirt currently opens tun and passes
+> fd to qemu. What would prevent qemu from attaching fd using TUNSETQUEUE
+> to another device it does not own?
 
-We could add a check to short circuit this but it seems like a
-premature optimization to me.
+True, assuming all the above is correct and that I'm understanding it 
+correctly (Jason?), we should probably add a new SELinux access control for 
+TUNSETQUEUE.
 
-Ansis, can you comment?
+The current DAC code exists in tun_not_capable().
+
+-- 
+paul moore
+security and virtualization @ redhat
+
