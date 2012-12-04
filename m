@@ -1,110 +1,105 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Tue, 04 Dec 2012 21:24:43 +0800
-Message-ID: <7659411.O2Or69Bf6n@jason-thinkpad-t430s>
-References: <20121129215724.30020.69464.stgit@sifl> <50BC7BCE.7000502@redhat.com> <2549856.XZ72FtkyJK@sifl>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH V3-evictor] net: frag evictor,
+	avoid killing warm frag queues
+Date: Tue, 04 Dec 2012 14:30:46 +0100
+Message-ID: <20121204133007.20215.52566.stgit@dragon>
+References: <1354319937.20109.285.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, mst@redhat.com
-To: Paul Moore <pmoore@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Cong Wang <amwang@redhat.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46176 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:27269 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751903Ab2LDNYu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2012 08:24:50 -0500
-In-Reply-To: <2549856.XZ72FtkyJK@sifl>
+	id S1752529Ab2LDNbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2012 08:31:23 -0500
+In-Reply-To: <1354319937.20109.285.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, December 03, 2012 11:22:29 AM Paul Moore wrote:
-> On Monday, December 03, 2012 06:15:42 PM Jason Wang wrote:
-> > On 11/30/2012 06:06 AM, Paul Moore wrote:
-> > > This patch corrects some problems with LSM/SELinux that were introduced
-> > > with the multiqueue patchset.  The problem stems from the fact that the
-> > > multiqueue work changed the relationship between the tun device and its
-> > > associated socket; before the socket persisted for the life of the
-> > > device, however after the multiqueue changes the socket only persisted
-> > > for the life of the userspace connection (fd open).  For non-persistent
-> > > devices this is not an issue, but for persistent devices this can cause
-> > > the tun device to lose its SELinux label.
-> > > 
-> > > We correct this problem by adding an opaque LSM security blob to the
-> > > tun device struct which allows us to have the LSM security state, e.g.
-> > > SELinux labeling information, persist for the lifetime of the tun
-> > > device.
-> 
-> ...
-> 
-> > > -static int selinux_tun_dev_attach(struct sock *sk)
-> > > +static int selinux_tun_dev_attach(struct sock *sk, void *security)
-> > > 
-> > >  {
-> > > 
-> > > +	struct tun_security_struct *tunsec = security;
-> > > 
-> > >  	struct sk_security_struct *sksec = sk->sk_security;
-> > >  	u32 sid = current_sid();
-> > >  	int err;
-> > > 
-> > > +	/* we don't currently perform any NetLabel based labeling here ...
-> > > 
-> > >  	err = avc_has_perm(sid, sksec->sid, SECCLASS_TUN_SOCKET,
-> > >  	
-> > >  			   TUN_SOCKET__RELABELFROM, NULL);
-> > >  	
-> > >  	if (err)
-> > >  	
-> > >  		return err;
-> > > 
-> > > -	err = avc_has_perm(sid, sid, SECCLASS_TUN_SOCKET,
-> > > +	err = avc_has_perm(sid, tunsec->sid, SECCLASS_TUN_SOCKET,
-> > > 
-> > >  			   TUN_SOCKET__RELABELTO, NULL);
-> > >  	
-> > >  	if (err)
-> > >  	
-> > >  		return err;
-> > > 
-> > > -	sksec->sid = sid;
-> > > +	sksec->sid = tunsec->sid;
-> > > +	sksec->sclass = SECCLASS_TUN_SOCKET;
-> > 
-> > I'm not sure whether this is correct, looks like we need to differ between
-> > TUNSETQUEUE and TUNSETIFF. When userspace call TUNSETIFF for persistent
-> > device, looks like we need change the sid of tunsec like in the past.
-> 
-> It may be that I'm misunderstanding TUNSETQUEUE and/or TUNSETIFF.  Can you
-> elaborate as to why they should be different?
+The fragmentation evictor system have a very unfortunate eviction
+system for killing fragment, when the system is put under pressure.
 
-If I understand correctly, before multiqueue patchset, TUNSETIFF is used to:
+If packets are coming in too fast, the evictor code kills "warm"
+fragments too quickly.  Resulting in close to zero throughput, as
+fragments are killed before they have a chance to complete
 
-1) Create the tun/tap network device
-2) For persistent device, re-attach the fd to the network device / socket. In 
-this case, we call selinux_tun_dev_attch() to relabel the socket sid (in fact 
-also the device's since the socket were persistent also) to the sid of process 
-that calls TUNSETIFF.
+This is related to the bad interaction with the LRU (Least Recently
+Used) list.  Under load the LRU list sort-of changes meaning/behavior.
+When the LRU head is very new/warm, then the head is most likely the
+one with most fragments and the tail (latest used or added element)
+with least.
 
-So, after the changes of multiqueue, we need try to preserve those policy. The 
-interesting part is the introducing of TUNSETQUEUE, it's used to attach more 
-file descriptors/sockets to a tun/tap device after at least one file descriptor 
-were attached to the tun/tap device through TUNSETIFF. So I think maybe we 
-need differ those two ioctls. This patch looks fine for TUNSETQUEUE, but for 
-TUNSETIFF, we need relabel the tunsec to the process that calling TUNSETIFF 
-for persistent device?
+Solved by, introducing a creation "jiffie" timestamp (creation_ts).
+If the element is tried evicted in same jiffie, then perform tail drop
+on the LRU list instead.
 
-btw. Current code does allow calling TUNSETQUEUE to a persistent tun/tap 
-device with no file attached. It should be a bug and need to be fixed.
-> 
-> One thing that I think we probably should change is the relabelto/from
-> permissions in the function above (selinux_tun_dev_attach()); in the case
-> where the socket does not yet have a label, e.g. 'sksec->sid == 0', we
-> should probably skip the relabel permissions since we want to assign the
-> TUN device label regardless in this case.
+Signed-off-by: Jesper Dangaard Brouer <jbrouer@redhat.com>
 
-I'm not familiar with the selinux, have a quick glance of the code, looks like 
-the label has been initialized to SECINITSID_KERNEL in 
-selinux_socket_post_create().
+---
+V2:
+ - Drop the INET_FRAG_FIRST_IN idea for detecting dropped "head" packets
 
-Thanks
+V3:
+ - Move the tail drop, from inet_frag_alloc() to inet_frag_evictor()
+   This will be close to the same semantics, but at a higher cost.
+
+
+ include/net/inet_frag.h  |    1 +
+ net/ipv4/inet_fragment.c |   12 ++++++++++++
+ 2 files changed, 13 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 32786a0..7b897b2 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -24,6 +24,7 @@ struct inet_frag_queue {
+ 	ktime_t			stamp;
+ 	int			len;        /* total length of orig datagram */
+ 	int			meat;
++	u32			creation_ts;/* jiffies when queue was created*/
+ 	__u8			last_in;    /* first/last segment arrived? */
+ 
+ #define INET_FRAG_COMPLETE	4
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 4750d2b..d8bf59b 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -178,6 +178,16 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
+ 
+ 		q = list_first_entry(&nf->lru_list,
+ 				struct inet_frag_queue, lru_list);
++
++		/* When head of LRU is very new/warm, then the head is
++		 * most likely the one with most fragments and the
++		 * tail with least, thus drop tail
++		 */
++		if (!force && q->creation_ts == (u32) jiffies) {
++			q = list_entry(&nf->lru_list.prev,
++				struct inet_frag_queue, lru_list);
++		}
++
+ 		atomic_inc(&q->refcnt);
+ 		read_unlock(&f->lock);
+ 
+@@ -243,11 +253,13 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 		struct inet_frags *f, void *arg)
+ {
+ 	struct inet_frag_queue *q;
++	// Note: We could also perform the tail drop here
+ 
+ 	q = kzalloc(f->qsize, GFP_ATOMIC);
+ 	if (q == NULL)
+ 		return NULL;
+ 
++	q->creation_ts = (u32) jiffies;
+ 	q->net = nf;
+ 	f->constructor(q, arg);
+ 	atomic_add(f->qsize, &nf->mem);
