@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/macb: increase RX buffer size for GEM
-Date: Tue, 04 Dec 2012 13:22:27 -0500 (EST)
-Message-ID: <20121204.132227.1430662061932892582.davem@davemloft.net>
-References: <1354536943-6356-1-git-send-email-nicolas.ferre@atmel.com>
+Subject: Re: [PATCH net-next v2] bridge: export multicast database via
+ netlink
+Date: Tue, 04 Dec 2012 13:25:05 -0500 (EST)
+Message-ID: <20121204.132505.1229048595483168009.davem@davemloft.net>
+References: <1354539824-7898-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, manabian@gmail.com,
-	plagnioj@jcrosoft.com
-To: nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354536943-6356-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	herbert@gondor.hengli.com.au, shemminger@vyatta.com, tgraf@suug.ch,
+	brouer@redhat.com
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53790 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308Ab2LDSZH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 13:25:07 -0500
+In-Reply-To: <1354539824-7898-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Mon, 3 Dec 2012 13:15:43 +0100
+From: Cong Wang <amwang@redhat.com>
+Date: Mon,  3 Dec 2012 21:03:43 +0800
 
-> Macb Ethernet controller requires a RX buffer of 128 bytes. It is
-> highly sub-optimal for Gigabit-capable GEM that is able to use
-> a bigger DMA buffer. Change this constant and associated macros
-> with data stored in the private structure.
-> I also kept the result of buffers per page calculation to lower the
-> impact of this move to a variable rx buffer size on rx hot path.
-> RX DMA buffer size has to be multiple of 64 bytes as indicated in
-> DMA Configuration Register specification.
-> 
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> TODO: remove debugging printk's
 
-This looks like it will waste a couple hundred bytes for 1500 MTU
-frames, am I right?
+Can you please take care of this so we can consider this patch
+seriously for inclusion?
+
+Thanks.
