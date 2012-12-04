@@ -1,40 +1,58 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next v2] bridge: implement multicast fast leave
-Date: Tue, 4 Dec 2012 08:44:31 -0800
-Message-ID: <20121204084431.72f9084c@nehalam.linuxnetplumber.net>
-References: <1354615000-19660-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH net-next v2] bridge: export multicast database
+ via netlink
+Date: Tue, 4 Dec 2012 08:53:20 -0800
+Message-ID: <20121204085320.3e08986a@nehalam.linuxnetplumber.net>
+References: <1354539824-7898-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
 	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Jesper Dangaard Brouer <brouer@redhat.com>, Thomas Graf <tgraf@suug.ch>,
 	"David S. Miller" <davem@davemloft.net>
 To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44673 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752146Ab2LDQpp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2012 11:45:45 -0500
-In-Reply-To: <1354615000-19660-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1354539824-7898-1-git-send-email-amwang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue,  4 Dec 2012 17:56:40 +0800
+On Mon,  3 Dec 2012 21:03:43 +0800
 Cong Wang <amwang@redhat.com> wrote:
 
-> V2: make the toggle per-port
+> V2: drop patch 1/2, export ifindex directly
+>     Redesign netlink attributes
+>     Improve netlink seq check
+>     Handle IPv6 addr as well
 > 
-> Fast leave allows bridge to immediately stops the multicast
-> traffic on the port receives IGMP Leave when IGMP snooping is enabled,
-> no timeouts are observed.
+> TODO: remove debugging printk's
+> 
+> This patch exports bridge multicast database via netlink
+> message type RTM_GETMDB. Similar to fdb, but currently bridge-specific.
+> We may need to support modify multicast database too (RTM_{ADD,DEL}MDB).
 > 
 > Cc: Herbert Xu <herbert@gondor.apana.org.au>
 > Cc: Stephen Hemminger <shemminger@vyatta.com>
 > Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
 > Signed-off-by: Cong Wang <amwang@redhat.com>
+>     
 
-Ok. as is.
+Minor nit reported by checkpatch was the messages should be using the api
+which provides the most info in the log to identify.
 
-A good followup change would be to migrate
-these multicast flags into the existing flags bits (see hairpin etc),
-and make them manageable via netlink.
+WARNING: Prefer netdev_info(netdev, ... then dev_info(dev, ... then pr_info(...  to printk(KERN_INFO ...
+#190: FILE: net/bridge/br_mdb.c:28:
++		printk(KERN_INFO "no router on bridge\n")
+
+There is a set of macro's already for use in bridging code:
+                br_info(br, "no router on bridge\n");
