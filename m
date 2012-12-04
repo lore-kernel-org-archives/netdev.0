@@ -1,51 +1,73 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [GIT PULL] Remove __dev* markings from the networking drivers
-Date: Tue, 4 Dec 2012 12:30:52 -0800
-Message-ID: <20121204203052.GB32674@kroah.com>
-References: <20121203202743.GA29451@kroah.com>
- <20121203.153623.958379034481583512.davem@davemloft.net>
- <20121204.131726.103739824056368439.davem@davemloft.net>
+From: Ansis Atteka <aatteka@nicira.com>
+Subject: Re: [PATCH net-next 3/7] ipv6: improve ipv6_find_hdr() to skip empty
+ routing headers
+Date: Tue, 4 Dec 2012 12:47:31 -0800
+Message-ID: <CAA=3Oqky-GUbj-ZDqYAtxpg-fjDGAdo04OHbKXp7uQRKMcR_sQ@mail.gmail.com>
+References: <1354214149-33651-1-git-send-email-jesse@nicira.com>
+	<1354214149-33651-4-git-send-email-jesse@nicira.com>
+	<20121203140458.GA1596@1984>
+	<CAEP_g=-D6f-O1F0B4+xLKfZnY_LjFiHF-UaXD4zVUYctGG3-Ug@mail.gmail.com>
+	<20121203180611.GA20305@1984>
+	<CAEP_g=_89wPzKi-F9VQaKxM5eAUhSx3KEQhOSJQgTNtfiFQTEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, wfp5p@virginia.edu
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	dev@openvswitch.org
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:53465 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752005Ab2LDUa4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 15:30:56 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so3095806pbc.19
-        for <netdev@vger.kernel.org>; Tue, 04 Dec 2012 12:30:55 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20121204.131726.103739824056368439.davem@davemloft.net>
+Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:53122 "HELO
+	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752368Ab2LDUrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 15:47:37 -0500
+Received: by mail-oa0-f70.google.com with SMTP id k14so20663756oag.1
+        for <netdev@vger.kernel.org>; Tue, 04 Dec 2012 12:47:32 -0800 (PST)
+In-Reply-To: <CAEP_g=_89wPzKi-F9VQaKxM5eAUhSx3KEQhOSJQgTNtfiFQTEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 04, 2012 at 01:17:26PM -0500, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Mon, 03 Dec 2012 15:36:23 -0500 (EST)
-> 
-> > From: Greg KH <gregkh@linuxfoundation.org>
-> > Date: Mon, 3 Dec 2012 12:27:43 -0800
-> > 
-> >> Here's a pull request for all of Bill's __dev* removal patches for the
-> >> networking drivers, based on net-next.  I'll send out a separate one for
-> >> the wireless drivers in case those want to go through John's tree
-> >> 
-> >> If I should rework these in any way, please let me know.
-> > 
-> > Pulled, thanks Greg.
-> 
-> I had a reason to go look in detail at the changes in here.
-> 
-> It seemse the function declarations were not properly reformatted
-> after the __dev* tags were removed.  You can't just search and replace
-> this kind of stuff.  The result looks terrible.
-> 
-> Greg please check for things like this next time you send me changes
-> written by someone else.
+On Tue, Dec 4, 2012 at 10:15 AM, Jesse Gross <jesse@nicira.com> wrote:
+> On Mon, Dec 3, 2012 at 10:06 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+>> On Mon, Dec 03, 2012 at 09:28:55AM -0800, Jesse Gross wrote:
+>>> On Mon, Dec 3, 2012 at 6:04 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+>>> > On Thu, Nov 29, 2012 at 10:35:45AM -0800, Jesse Gross wrote:
+>>> >> @@ -159,9 +162,10 @@ int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset,
+>>> >>       }
+>>> >>       len = skb->len - start;
+>>> >>
+>>> >> -     while (nexthdr != target) {
+>>> >
+>>> > If the offset is set as parameter via ipv6_find_hdr, we now are always
+>>> > entering the loop even if we found the target header we're looking
+>>> > for, before that didn't happen.
+>>> >
+>>> > Something seems wrong here to me.
+>>>
+>>> If the target header is a routing header then you might still need to
+>>> continue searching because the first one that you see could be empty.
+>>
+>> OK, but if it's not a routing header what we're searching for (which
+>> seems to be the case of netfilter/IPVS) we waste way more cycles on
+>> copying the IPv6 header again and with way more things that are
+>> completely useless.
+>
+> We could add a check to short circuit this but it seems like a
+> premature optimization to me.
+>
+> Ansis, can you comment?
 
-Ick, sorry about that.  Want me to fix them all back up?  It's the least
-I could do.
+Pablo, I think that the only concern you have here is about
+optimizations, right?
 
-greg k-h
+We could either:
+1. add an "if" statement that terminates loop early; or
+2. switch back to "while () {}" loop and change condition from
+"nexthdr != target" to something like "nexthdr != target || (nexthdr
+== NEXTHDR_ROUTING && flags && (*flags & IP6_FH_F_SKIP_RH))".
+
+This function seemed like a good candidate to extend it for this. I
+think that iptables could make use of it too (to figure out whether L4
+checksums need to be updated in presence of routing headers and NAT).
+
+Thanks,
+Ansis
