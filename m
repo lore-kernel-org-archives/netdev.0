@@ -1,34 +1,40 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] netlink: add missing netlink message types to selinux perm table
-Date: Tue,  4 Dec 2012 11:53:28 +0800
-Message-ID: <1354593208-21939-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] net: neterion: use for_each_pci_dev to simplify the code
+Date: Tue, 4 Dec 2012 00:05:13 -0500
+Message-ID: <CAPgLHd-W5Lpa7EPFMit6Go+zt6ZrsV9dhEg9B2eQDxFCzau0Zg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: jdmason@kudzu.us, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8572 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751393Ab2LDDx5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Dec 2012 22:53:57 -0500
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:51483 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765Ab2LDFFN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 00:05:13 -0500
+Received: by mail-qa0-f53.google.com with SMTP id a19so431641qad.19
+        for <netdev@vger.kernel.org>; Mon, 03 Dec 2012 21:05:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RTM_NEWNETCONF and RTM_GETNETCONF are missing in this table.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+Use for_each_pci_dev to simplify the code.
 
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
-diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-index d309e7f..0e7a89b 100644
---- a/security/selinux/nlmsgtab.c
-+++ b/security/selinux/nlmsgtab.c
-@@ -67,6 +67,8 @@ static struct nlmsg_perm nlmsg_route_perms[] =
- 	{ RTM_GETADDRLABEL,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- 	{ RTM_GETDCB,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- 	{ RTM_SETDCB,		NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
-+	{ RTM_NEWNETCONF,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
-+	{ RTM_GETNETCONF,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- };
- 
- static struct nlmsg_perm nlmsg_tcpdiag_perms[] =
+ drivers/net/ethernet/neterion/s2io.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index c98decb..3b63504 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -1040,7 +1040,7 @@ static int s2io_verify_pci_mode(struct s2io_nic *nic)
+ static int s2io_on_nec_bridge(struct pci_dev *s2io_pdev)
+ {
+ 	struct pci_dev *tdev = NULL;
+-	while ((tdev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, tdev)) != NULL) {
++	for_each_pci_dev(tdev) {
+ 		if (tdev->vendor == NEC_VENID && tdev->device == NEC_DEVID) {
+ 			if (tdev->bus == s2io_pdev->bus->parent) {
+ 				pci_dev_put(tdev);
