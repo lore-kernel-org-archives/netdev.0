@@ -1,116 +1,21 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 3/3] virtio-net: change the number of queues
-	through ethtool
-Date: Tue, 4 Dec 2012 15:49:59 +0200
-Message-ID: <20121204134959.GG7499@redhat.com>
-References: <1354619278-35702-1-git-send-email-jasowang@redhat.com>
-	<1354619278-35702-4-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, shiyer@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1354619278-35702-4-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Sony Chacko <sony.chacko@qlogic.com>
+Subject: [PATCH 0/7] qlcnic: refactor 82xx adapter driver
+Date: Tue,  4 Dec 2012 08:33:51 -0500
+Message-ID: <1354628038-2234-1-git-send-email-sony.chacko@qlogic.com>
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Sony Chacko <sony.chacko@qlogic.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:21114 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1752460Ab2LDNwl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2012 08:52:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 04, 2012 at 07:07:58PM +0800, Jason Wang wrote:
-> This patch implement the ethtool_{set|get}_channels method of ethool to allow
-> user to change the number of queues dymaically when the device is running. This
-> would let the user to configure it on demand.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/virtio_net.c |   44 ++++++++++++++++++++++++++++++++++++++++++++
->  1 files changed, 44 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 912f5b2..b9f9887 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1589,10 +1589,54 @@ static struct virtio_driver virtio_net_driver = {
->  #endif
->  };
->  
-> +/* TODO: Eliminate OOO packets during switching */
-> +static int virtnet_set_channels(struct net_device *dev,
-> +				struct ethtool_channels *channels)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +	u16 queue_pairs = channels->combined_count;
-> +	u16 old_queue_pairs = vi->curr_queue_pairs;
-> +
-> +	/* We don't support separate rx/tx channels.
-> +	 * We don't allow setting 'other' channels.
-> +	 */
-> +	if (channels->rx_count || channels->tx_count || channels->other_count)
-> +		return -EINVAL;
-> +
-> +	if (queue_pairs > vi->max_queue_pairs)
-> +		return -EINVAL;
-> +
-> +	vi->curr_queue_pairs = queue_pairs;
-> +	if (virtnet_set_queues(vi) == 0) {
-> +		netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
-> +		netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+From: Sony Chacko <sony.chacko@qlogic.com>
 
-Just use queue_pairs - it's shorter.
+Please apply the refactoring patches to net-next.
 
-> +
-> +		virtnet_set_affinity(vi, true);
-> +	} else
-> +		vi->curr_queue_pairs = old_queue_pairs;
-
-Should be
-	ret = virtnet_set_queues(vi);
-	if (ret) {
-		vi->curr_queue_pairs = old_queue_pairs;
-		return ret;
-	}
-otherwise we loose error reporting.
-
-Also it's better if virtnet_set_queues
-gets queue_pairs as parameter and set curr_queue_pairs
-on success.
-
-> +
-> +	return 0;
-> +}
-> +
-> +static void virtnet_get_channels(struct net_device *dev,
-> +				 struct ethtool_channels *channels)
-> +{
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +
-> +	channels->combined_count = vi->curr_queue_pairs;
-> +	channels->max_combined = vi->max_queue_pairs;
-> +	channels->max_other = 0;
-> +	channels->rx_count = 0;
-> +	channels->tx_count = 0;
-> +	channels->other_count = 0;
-> +}
-> +
->  static const struct ethtool_ops virtnet_ethtool_ops = {
->  	.get_drvinfo = virtnet_get_drvinfo,
->  	.get_link = ethtool_op_get_link,
->  	.get_ringparam = virtnet_get_ringparam,
-> +	.set_channels = virtnet_set_channels,
-> +	.get_channels = virtnet_get_channels,
->  };
->  
->  static int __init init(void)
-> -- 
-> 1.7.1
+Thanks,
+Sony
