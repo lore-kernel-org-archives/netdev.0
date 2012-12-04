@@ -1,133 +1,90 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next 3/3] virtio-net: change the number of queues
-	through ethtool
-Date: Tue, 04 Dec 2012 22:46:47 +0800
-Message-ID: <8635859.yLm7QNO6or@jason-thinkpad-t430s>
-References: <1354619278-35702-1-git-send-email-jasowang@redhat.com>
-	<1354619278-35702-4-git-send-email-jasowang@redhat.com>
-	<20121204134959.GG7499@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH V3-evictor] net: frag evictor, avoid killing
+ warm frag queues
+Date: Tue, 04 Dec 2012 06:47:27 -0800
+Message-ID: <1354632447.1388.150.camel@edumazet-glaptop>
+References: <1354319937.20109.285.camel@edumazet-glaptop>
+	 <20121204133007.20215.52566.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr,
-	davem@davemloft.net, shiyer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121204134959.GG7499@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Cong Wang <amwang@redhat.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:64571 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764Ab2LDOra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 09:47:30 -0500
+Received: by mail-pb0-f46.google.com with SMTP id wy7so2882037pbc.19
+        for <netdev@vger.kernel.org>; Tue, 04 Dec 2012 06:47:30 -0800 (PST)
+In-Reply-To: <20121204133007.20215.52566.stgit@dragon>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, December 04, 2012 03:49:59 PM Michael S. Tsirkin wrote:
-> On Tue, Dec 04, 2012 at 07:07:58PM +0800, Jason Wang wrote:
-> > This patch implement the ethtool_{set|get}_channels method of ethool to
-> > allow user to change the number of queues dymaically when the device is
-> > running. This would let the user to configure it on demand.
-> > 
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > ---
-> > 
-> >  drivers/net/virtio_net.c |   44
-> >  ++++++++++++++++++++++++++++++++++++++++++++ 1 files changed, 44
-> >  insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index 912f5b2..b9f9887 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -1589,10 +1589,54 @@ static struct virtio_driver virtio_net_driver = {
-> > 
-> >  #endif
-> >  };
-> > 
-> > +/* TODO: Eliminate OOO packets during switching */
-> > +static int virtnet_set_channels(struct net_device *dev,
-> > +				struct ethtool_channels *channels)
-> > +{
-> > +	struct virtnet_info *vi = netdev_priv(dev);
-> > +	u16 queue_pairs = channels->combined_count;
-> > +	u16 old_queue_pairs = vi->curr_queue_pairs;
-> > +
-> > +	/* We don't support separate rx/tx channels.
-> > +	 * We don't allow setting 'other' channels.
-> > +	 */
-> > +	if (channels->rx_count || channels->tx_count || channels->other_count)
-> > +		return -EINVAL;
-> > +
-> > +	if (queue_pairs > vi->max_queue_pairs)
-> > +		return -EINVAL;
-> > +
-> > +	vi->curr_queue_pairs = queue_pairs;
-> > +	if (virtnet_set_queues(vi) == 0) {
-> > +		netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
-> > +		netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
+On Tue, 2012-12-04 at 14:30 +0100, Jesper Dangaard Brouer wrote:
+> The fragmentation evictor system have a very unfortunate eviction
+> system for killing fragment, when the system is put under pressure.
 > 
-> Just use queue_pairs - it's shorter.
+> If packets are coming in too fast, the evictor code kills "warm"
+> fragments too quickly.  Resulting in close to zero throughput, as
+> fragments are killed before they have a chance to complete
+> 
+> This is related to the bad interaction with the LRU (Least Recently
+> Used) list.  Under load the LRU list sort-of changes meaning/behavior.
+> When the LRU head is very new/warm, then the head is most likely the
+> one with most fragments and the tail (latest used or added element)
+> with least.
+> 
+> Solved by, introducing a creation "jiffie" timestamp (creation_ts).
+> If the element is tried evicted in same jiffie, then perform tail drop
+> on the LRU list instead.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <jbrouer@redhat.com>
 
-Ok.
-> 
-> > +
-> > +		virtnet_set_affinity(vi, true);
-> > +	} else
-> > +		vi->curr_queue_pairs = old_queue_pairs;
-> 
-> Should be
-> 	ret = virtnet_set_queues(vi);
-> 	if (ret) {
-> 		vi->curr_queue_pairs = old_queue_pairs;
-> 		return ret;
-> 	}
-> otherwise we loose error reporting.
-> 
+This would only 'work' if a reassembled packet can be done/completed
+under one jiffie.
 
-Right.
-> Also it's better if virtnet_set_queues
-> gets queue_pairs as parameter and set curr_queue_pairs
-> on success.
+For 64KB packets, this means 100Mb link wont be able to deliver a
+reassembled packet under IP frags load if HZ=1000
 
-True, looks simpler than current method, will do it in next version.
-> 
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > +static void virtnet_get_channels(struct net_device *dev,
-> > +				 struct ethtool_channels *channels)
-> > +{
-> > +	struct virtnet_info *vi = netdev_priv(dev);
-> > +
-> > +	channels->combined_count = vi->curr_queue_pairs;
-> > +	channels->max_combined = vi->max_queue_pairs;
-> > +	channels->max_other = 0;
-> > +	channels->rx_count = 0;
-> > +	channels->tx_count = 0;
-> > +	channels->other_count = 0;
-> > +}
-> > +
-> > 
-> >  static const struct ethtool_ops virtnet_ethtool_ops = {
-> >  
-> >  	.get_drvinfo = virtnet_get_drvinfo,
-> >  	.get_link = ethtool_op_get_link,
-> >  	.get_ringparam = virtnet_get_ringparam,
-> > 
-> > +	.set_channels = virtnet_set_channels,
-> > +	.get_channels = virtnet_get_channels,
-> > 
-> >  };
-> >  
-> >  static int __init init(void)
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+LRU goal is to be able to select the oldest inet_frag_queue, because in
+typical networks, packet losses are really happening and this is why
+some packets wont complete their reassembly. They naturally will be
+found on LRU head, and they probably are very fat (for example a single
+packet was lost for the inet_frag_queue)
+
+Choosing the most recent inet_frag_queue is exactly the opposite
+strategy. We pay the huge cost of maintaining a central LRU, and we
+exactly misuse it.
+
+As long as an inet_frag_queue receives new fragments and is moved to the
+LRU tail, its a candidate for being kept, not a candidate for being
+evicted.
+
+Only when an inet_frag_queue is the oldest one, it becomes a candidate
+for eviction.
+
+I think you are trying to solve a configuration/tuning problem by
+changing a valid strategy.
+
+Whats wrong with admitting high_thresh/low_thresh default values should
+be updated, now some people apparently want to use IP fragments in
+production ?
+
+Lets say we allow to use 1 % of memory for frags, instead of the current
+256 KB limit, which was chosen decades ago.
+
+Only in very severe DOS attacks, LRU head 'creation_ts' would possibly
+be <= 1ms. And under severe DOS attacks, I am afraid there is nothing we
+can do.
+
+(We could eventually avoid LRU hassle and chose instead a random drop
+strategy)
+
+high_thresh/low_thresh should be changed from 'int' to 'long' as well,
+so that a 64bit host could use more than 2GB for frag storage.
