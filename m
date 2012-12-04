@@ -1,21 +1,18 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next rfc v7 1/3] virtio-net: separate fields of
-	sending/receiving queue from virtnet_info
-Date: Tue, 04 Dec 2012 17:23:21 +0800
-Message-ID: <1586636.MnKZJZo7n1@jason-thinkpad-t430s>
+Subject: Re: [net-next rfc v7 2/3] virtio_net: multiqueue support
+Date: Tue, 04 Dec 2012 17:24:54 +0800
+Message-ID: <1836549.oV9l61gUO6@jason-thinkpad-t430s>
 References: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
-	<3524590.ZWGua7A8ne@jason-thinkpad-t430s>
-	<87zk1uh48g.fsf@rustcorp.com.au>
+	<50BC7896.4010504@redhat.com> <20121203111118.GC26167@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
 	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr, shiyer@redhat.com
-To: Rusty Russell <rusty@rustcorp.com.au>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87zk1uh48g.fsf@rustcorp.com.au>
+In-Reply-To: <20121203111118.GC26167@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -27,32 +24,71 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, December 04, 2012 02:13:11 PM Rusty Russell wrote:
-> Jason Wang <jasowang@redhat.com> writes:
-> > On Monday, December 03, 2012 12:25:42 PM Rusty Russell wrote:
-> >> > +
-> >> > +	/* Work struct for refilling if we run low on memory. */
-> >> > +	struct delayed_work refill;
-> >> 
-> >> I can't really see the justificaiton for a refill per queue.  Just have
-> >> one work iterate all the queues if it happens, unless it happens often
-> >> (in which case, we need to look harder at this anyway).
+On Monday, December 03, 2012 01:11:18 PM Michael S. Tsirkin wrote:
+> On Mon, Dec 03, 2012 at 06:01:58PM +0800, Jason Wang wrote:
+> > On 12/03/2012 05:47 PM, Michael S. Tsirkin wrote:
+> > > On Mon, Dec 03, 2012 at 02:05:27PM +0800, Jason Wang wrote:
+> > >> On Monday, December 03, 2012 12:34:08 PM Rusty Russell wrote:
+> > >>> Jason Wang <jasowang@redhat.com> writes:
+> > >>>> +static const struct ethtool_ops virtnet_ethtool_ops;
+> > >>>> +
+> > >>>> +/*
+> > >>>> + * Converting between virtqueue no. and kernel tx/rx queue no.
+> > >>>> + * 0:rx0 1:tx0 2:cvq 3:rx1 4:tx1 ... 2N+1:rxN 2N+2:txN
+> > >>>> + */
+> > >>>> +static int vq2txq(struct virtqueue *vq)
+> > >>>> +{
+> > >>>> +	int index = virtqueue_get_queue_index(vq);
+> > >>>> +	return index == 1 ? 0 : (index - 2) / 2;
+> > >>>> +}
+> > >>>> +
+> > >>>> +static int txq2vq(int txq)
+> > >>>> +{
+> > >>>> +	return txq ? 2 * txq + 2 : 1;
+> > >>>> +}
+> > >>>> +
+> > >>>> +static int vq2rxq(struct virtqueue *vq)
+> > >>>> +{
+> > >>>> +	int index = virtqueue_get_queue_index(vq);
+> > >>>> +	return index ? (index - 1) / 2 : 0;
+> > >>>> +}
+> > >>>> +
+> > >>>> +static int rxq2vq(int rxq)
+> > >>>> +{
+> > >>>> +	return rxq ? 2 * rxq + 1 : 0;
+> > >>>> +}
+> > >>>> +
+> > >>> 
+> > >>> I thought MST changed the proposed spec to make the control queue
+> > >>> always
+> > >>> the last one, so this logic becomes trivial.
+> > >> 
+> > >> But it may break the support of legacy guest. If we boot a legacy
+> > >> single queue guest on a 2 queue virtio-net device. It may think vq 2
+> > >> is cvq which is indeed rx1.
+> > > 
+> > > Legacy guyest support should be handled by host using feature
+> > > bits in the usual way: host should detect legacy guest
+> > > by checking the VIRTIO_NET_F_RFS feature.
+> > > 
+> > > If VIRTIO_NET_F_RFS is acked, cvq is vq max_virtqueue_pairs * 2.
+> > > If it's not acked, cvq is vq 2.
 > > 
-> > But during this kind of iteration, we may need enable/disable the napi
-> > regardless of whether the receive queue has lots to be refilled. This may
-> > add extra latency.
+> > We could, but we didn't gain much from this.
 > 
-> Sure, but does it actually happen?  We only use the work when we run out
-> of memory.  If this happens in normal behaviour we need to change
-> something else...
+> It just seems cleaner and easier to understand.
+> 
+> > Furthermore, we need also
+> > do the dynamic creation/destroying of virtqueues during feature
+> > negotiation which seems not supported in qemu now.
+> 
+> It's not *done* in qemu now, but it seems easy: just call
+> virtio_add_queue for vq2 and on from virtio_net_set_features.
+> As features can be modified multiple times, we
+> should add virtio_del_queue and call that beforehand
+> to get to the known state (two vqs).
 
-True, I will change to use a global one.
+And also need some work after migration like what we need in setting features. 
+I'm ok with this method, will change to follow spec v5.
 
 Thanks
-> 
-> Thanks,
-> Rusty.
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
