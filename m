@@ -1,66 +1,77 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: userspace utils for linux-can
-Date: Tue, 04 Dec 2012 18:19:21 +0100
-Message-ID: <50BE3099.2010304@pengutronix.de>
-References: <50B4D2B8.8020707@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigAFFB4D2D163C5610E1C6AB25"
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: ftpadmin@kernel.org
+From: pablo@netfilter.org
+Subject: [PATCH 0/6] netfilter updates for net-next
+Date: Tue,  4 Dec 2012 18:31:27 +0100
+Message-ID: <1354642293-4114-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56760 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751751Ab2LDRTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 12:19:33 -0500
-In-Reply-To: <50B4D2B8.8020707@pengutronix.de>
+Received: from mail.us.es ([193.147.175.20]:54407 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751347Ab2LDRbl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2012 12:31:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigAFFB4D2D163C5610E1C6AB25
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-On 11/27/2012 03:48 PM, Marc Kleine-Budde wrote:
-> Hello Kernel.org Admins,
->=20
-> I'd like to put the tarballs of the linux-can userspace testing
-> utilities on the kernel.org infrastructure, it this possible? I was
-> thinking about somewhere under:
->=20
-> http://kernel.org/pub/linux/utils/net
->=20
-> A possible directory name could be "can-utils"
+Hi David,
 
-ping
+If time allows, please pull the following 6 updates for your
+net-next tree:
 
-regards,
-MArc
+* Remove limitation in the maximum number of supported sets in ipset.
+  Now ipset automagically increments the number of slots in the array
+  of sets by 64 new spare slots, from Jozsef Kadlecsik.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+* Partially remove the generic queue infrastructure now that ip_queue
+  is gone. Its only client is nfnetlink_queue now, from Florian
+  Westphal.
 
+* Add missing attribute policy checkings in ctnetlink, from Florian
+  Westphal.
 
---------------enigAFFB4D2D163C5610E1C6AB25
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+* Automagically kill conntrack entries that use the wrong output
+  interface for the masquerading case in case of routing changes,
+  from Jozsef Kadlecsik.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with undefined - http://www.enigmail.net/
+* Two patches two improve ct object traceability. Now ct objects are
+  always placed in any of the existing lists. This allows us to dump
+  the content of unconfirmed and dying conntracks via ctnetlink as
+  a way to provide more instrumentation in case you suspect leaks,
+  from myself.
 
-iEYEARECAAYFAlC+MJkACgkQjTAFq1RaXHP1RACfaS1eKfS3BZIrnkcuOwdeMPCy
-OTgAn2pSAQDOHrF0sCp4Dxj8DMFhotD7
-=7ckM
------END PGP SIGNATURE-----
+You can pull these changes from:
 
---------------enigAFFB4D2D163C5610E1C6AB25--
+git://1984.lsi.us.es/nf-next master
+
+Thanks!
+
+Florian Westphal (2):
+  netfilter: kill support for per-af queue backends
+  netfilter: ctnetlink: nla_policy updates
+
+Jozsef Kadlecsik (2):
+  netfilter: ipset: Increase the number of maximal sets automatically
+  netfilter: nf_nat: Handle routing changes in MASQUERADE target
+
+Pablo Neira Ayuso (2):
+  netfilter: nf_conntrack: improve nf_conn object traceability
+  netfilter: ctnetlink: dump entries from the dying and unconfirmed lists
+
+ include/net/netfilter/nf_conntrack.h               |    2 +-
+ include/net/netfilter/nf_nat.h                     |   15 ++
+ include/net/netfilter/nf_queue.h                   |    8 +-
+ include/uapi/linux/netfilter/nfnetlink_conntrack.h |    2 +
+ net/ipv4/netfilter/iptable_nat.c                   |    4 +
+ net/ipv6/netfilter/ip6table_nat.c                  |    4 +
+ net/netfilter/core.c                               |    2 -
+ net/netfilter/ipset/ip_set_core.c                  |  243 +++++++++++++-------
+ net/netfilter/nf_conntrack_core.c                  |   25 +-
+ net/netfilter/nf_conntrack_netlink.c               |  118 +++++++++-
+ net/netfilter/nf_conntrack_proto_tcp.c             |    2 +
+ net/netfilter/nf_queue.c                           |  152 ++----------
+ net/netfilter/nfnetlink_queue_core.c               |   14 +-
+ 13 files changed, 332 insertions(+), 259 deletions(-)
+
+--
+1.7.10.4
