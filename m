@@ -1,34 +1,38 @@
-From: Paul Marks <pmarks@google.com>
-Subject: Question about locking in ndisc.c
-Date: Tue, 4 Dec 2012 12:52:08 -0800
-Message-ID: <CAHaKRvJtBhKUsUe_uBCd+gVhBz3PWmAqbXLSzc6=L4A9URoLYw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT PULL] Remove __dev* markings from the networking drivers
+Date: Tue, 04 Dec 2012 16:02:57 -0500 (EST)
+Message-ID: <20121204.160257.680931337109544105.davem@davemloft.net>
+References: <20121203.153623.958379034481583512.davem@davemloft.net>
+	<20121204.131726.103739824056368439.davem@davemloft.net>
+	<20121204203052.GB32674@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, wfp5p@virginia.edu
+To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:35102 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753527Ab2LDUw3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 15:52:29 -0500
-Received: by mail-qc0-f174.google.com with SMTP id o22so2341846qcr.19
-        for <netdev@vger.kernel.org>; Tue, 04 Dec 2012 12:52:29 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:55052 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751757Ab2LDVDC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 16:03:02 -0500
+In-Reply-To: <20121204203052.GB32674@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've been reading through net/ipv6/ndisc.c recently (trying to
-determine if it'd be feasible to implement RFC6724 Rule 5.5), and I'm
-confused by the lack of visible locking in the
-ndisc_router_discovery() function.
+From: Greg KH <gregkh@linuxfoundation.org>
+Date: Tue, 4 Dec 2012 12:30:52 -0800
 
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=blob;f=net/ipv6/ndisc.c;h=2edce30ef7338cdf1916eef98b353c7dbbc7bcda;hb=HEAD#l1048
+> On Tue, Dec 04, 2012 at 01:17:26PM -0500, David Miller wrote:
+>> It seemse the function declarations were not properly reformatted
+>> after the __dev* tags were removed.  You can't just search and replace
+>> this kind of stuff.  The result looks terrible.
+>> 
+>> Greg please check for things like this next time you send me changes
+>> written by someone else.
+> 
+> Ick, sorry about that.  Want me to fix them all back up?  It's the least
+> I could do.
 
-There are values written all over the place, for example:
-- in6_dev->if_flags
-- neigh->flags
-- rt->rt6i_flags
-- in6_dev->nd_parms->...
-- in6_dev->tstamp
+If you could do that, I'd really appreciate it.
 
-But I've looked through ndisc.c and icmp.c, and I can't find anything
-that would protect this data from concurrent access.  Is there
-something I'm missing?
+Thanks Greg.
