@@ -1,36 +1,50 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/5 net-next v2] tg3: Fix inconsistent locking for
- tg3_netif_start().
-Date: Tue, 4 Dec 2012 09:48:23 +0100
-Message-ID: <20121204084821.GA2223@netboy.at.omicron.at>
-References: <1354599420-3589-1-git-send-email-mchan@broadcom.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next rfc v7 1/3] virtio-net: separate fields of
+	sending/receiving queue from virtnet_info
+Date: Tue, 04 Dec 2012 17:22:46 +0800
+Message-ID: <33871315.gHWf0QtYzd@jason-thinkpad-t430s>
+References: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
+	<3524590.ZWGua7A8ne@jason-thinkpad-t430s>
+	<20121203111848.GD26167@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, nsujir@broadcom.com
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:33514 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751829Ab2LDIsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 03:48:36 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so2089046eek.19
-        for <netdev@vger.kernel.org>; Tue, 04 Dec 2012 00:48:32 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1354599420-3589-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr, shiyer@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121203111848.GD26167@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 03, 2012 at 09:36:56PM -0800, Michael Chan wrote:
-> From: Nithin Nayak Sujir <nsujir@broadcom.com>
+On Monday, December 03, 2012 01:18:48 PM Michael S. Tsirkin wrote:
+> On Mon, Dec 03, 2012 at 01:15:01PM +0800, Jason Wang wrote:
+> > > > +
+> > > > 
+> > > > + /* Work struct for refilling if we run low on memory. */
+> > > > 
+> > > > + struct delayed_work refill;
+> > > 
+> > > I can't really see the justificaiton for a refill per queue. Just have
+> > > 
+> > > one work iterate all the queues if it happens, unless it happens often
+> > > 
+> > > (in which case, we need to look harder at this anyway).
+> > 
+> > But during this kind of iteration, we may need enable/disable the napi
+> > regardless of whether the receive queue has lots to be refilled. This may
+> > add extra latency.
 > 
-> Every caller holds tp->lock when calling tg3_netif_start() except
-> tg3_io_resume().  Fix it so that it is all consistent.  The subsequent
-> PTP patches add tg3_ptp_resume() to tg3_netif_start() and the tp->lock
-> is required.
-> 
-> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> We are running from the timer, so latency is not a concern I think.
 
-This series looks good to me now.
-
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Maybe, anyway it's only called when avaiable memory is low, so it should not 
+be an issue.
