@@ -1,105 +1,116 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V3-evictor] net: frag evictor,
-	avoid killing warm frag queues
-Date: Tue, 04 Dec 2012 14:30:46 +0100
-Message-ID: <20121204133007.20215.52566.stgit@dragon>
-References: <1354319937.20109.285.camel@edumazet-glaptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 3/3] virtio-net: change the number of queues
+	through ethtool
+Date: Tue, 4 Dec 2012 15:49:59 +0200
+Message-ID: <20121204134959.GG7499@redhat.com>
+References: <1354619278-35702-1-git-send-email-jasowang@redhat.com>
+	<1354619278-35702-4-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Cong Wang <amwang@redhat.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27269 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752529Ab2LDNbX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Dec 2012 08:31:23 -0500
-In-Reply-To: <1354319937.20109.285.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr,
+	davem@davemloft.net, shiyer@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1354619278-35702-4-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-The fragmentation evictor system have a very unfortunate eviction
-system for killing fragment, when the system is put under pressure.
+On Tue, Dec 04, 2012 at 07:07:58PM +0800, Jason Wang wrote:
+> This patch implement the ethtool_{set|get}_channels method of ethool to allow
+> user to change the number of queues dymaically when the device is running. This
+> would let the user to configure it on demand.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/virtio_net.c |   44 ++++++++++++++++++++++++++++++++++++++++++++
+>  1 files changed, 44 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 912f5b2..b9f9887 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1589,10 +1589,54 @@ static struct virtio_driver virtio_net_driver = {
+>  #endif
+>  };
+>  
+> +/* TODO: Eliminate OOO packets during switching */
+> +static int virtnet_set_channels(struct net_device *dev,
+> +				struct ethtool_channels *channels)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +	u16 queue_pairs = channels->combined_count;
+> +	u16 old_queue_pairs = vi->curr_queue_pairs;
+> +
+> +	/* We don't support separate rx/tx channels.
+> +	 * We don't allow setting 'other' channels.
+> +	 */
+> +	if (channels->rx_count || channels->tx_count || channels->other_count)
+> +		return -EINVAL;
+> +
+> +	if (queue_pairs > vi->max_queue_pairs)
+> +		return -EINVAL;
+> +
+> +	vi->curr_queue_pairs = queue_pairs;
+> +	if (virtnet_set_queues(vi) == 0) {
+> +		netif_set_real_num_tx_queues(dev, vi->curr_queue_pairs);
+> +		netif_set_real_num_rx_queues(dev, vi->curr_queue_pairs);
 
-If packets are coming in too fast, the evictor code kills "warm"
-fragments too quickly.  Resulting in close to zero throughput, as
-fragments are killed before they have a chance to complete
+Just use queue_pairs - it's shorter.
 
-This is related to the bad interaction with the LRU (Least Recently
-Used) list.  Under load the LRU list sort-of changes meaning/behavior.
-When the LRU head is very new/warm, then the head is most likely the
-one with most fragments and the tail (latest used or added element)
-with least.
+> +
+> +		virtnet_set_affinity(vi, true);
+> +	} else
+> +		vi->curr_queue_pairs = old_queue_pairs;
 
-Solved by, introducing a creation "jiffie" timestamp (creation_ts).
-If the element is tried evicted in same jiffie, then perform tail drop
-on the LRU list instead.
+Should be
+	ret = virtnet_set_queues(vi);
+	if (ret) {
+		vi->curr_queue_pairs = old_queue_pairs;
+		return ret;
+	}
+otherwise we loose error reporting.
 
-Signed-off-by: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Also it's better if virtnet_set_queues
+gets queue_pairs as parameter and set curr_queue_pairs
+on success.
 
----
-V2:
- - Drop the INET_FRAG_FIRST_IN idea for detecting dropped "head" packets
-
-V3:
- - Move the tail drop, from inet_frag_alloc() to inet_frag_evictor()
-   This will be close to the same semantics, but at a higher cost.
-
-
- include/net/inet_frag.h  |    1 +
- net/ipv4/inet_fragment.c |   12 ++++++++++++
- 2 files changed, 13 insertions(+), 0 deletions(-)
-
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 32786a0..7b897b2 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -24,6 +24,7 @@ struct inet_frag_queue {
- 	ktime_t			stamp;
- 	int			len;        /* total length of orig datagram */
- 	int			meat;
-+	u32			creation_ts;/* jiffies when queue was created*/
- 	__u8			last_in;    /* first/last segment arrived? */
- 
- #define INET_FRAG_COMPLETE	4
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 4750d2b..d8bf59b 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -178,6 +178,16 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
- 
- 		q = list_first_entry(&nf->lru_list,
- 				struct inet_frag_queue, lru_list);
-+
-+		/* When head of LRU is very new/warm, then the head is
-+		 * most likely the one with most fragments and the
-+		 * tail with least, thus drop tail
-+		 */
-+		if (!force && q->creation_ts == (u32) jiffies) {
-+			q = list_entry(&nf->lru_list.prev,
-+				struct inet_frag_queue, lru_list);
-+		}
-+
- 		atomic_inc(&q->refcnt);
- 		read_unlock(&f->lock);
- 
-@@ -243,11 +253,13 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
- 		struct inet_frags *f, void *arg)
- {
- 	struct inet_frag_queue *q;
-+	// Note: We could also perform the tail drop here
- 
- 	q = kzalloc(f->qsize, GFP_ATOMIC);
- 	if (q == NULL)
- 		return NULL;
- 
-+	q->creation_ts = (u32) jiffies;
- 	q->net = nf;
- 	f->constructor(q, arg);
- 	atomic_add(f->qsize, &nf->mem);
+> +
+> +	return 0;
+> +}
+> +
+> +static void virtnet_get_channels(struct net_device *dev,
+> +				 struct ethtool_channels *channels)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +
+> +	channels->combined_count = vi->curr_queue_pairs;
+> +	channels->max_combined = vi->max_queue_pairs;
+> +	channels->max_other = 0;
+> +	channels->rx_count = 0;
+> +	channels->tx_count = 0;
+> +	channels->other_count = 0;
+> +}
+> +
+>  static const struct ethtool_ops virtnet_ethtool_ops = {
+>  	.get_drvinfo = virtnet_get_drvinfo,
+>  	.get_link = ethtool_op_get_link,
+>  	.get_ringparam = virtnet_get_ringparam,
+> +	.set_channels = virtnet_set_channels,
+> +	.get_channels = virtnet_get_channels,
+>  };
+>  
+>  static int __init init(void)
+> -- 
+> 1.7.1
