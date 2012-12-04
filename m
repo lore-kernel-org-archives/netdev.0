@@ -1,109 +1,268 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Tue, 4 Dec 2012 19:36:26 +0200
-Message-ID: <20121204173625.GA13993@redhat.com>
-References: <20121129215724.30020.69464.stgit@sifl>
- <2549856.XZ72FtkyJK@sifl>
- <7659411.O2Or69Bf6n@jason-thinkpad-t430s>
- <8577392.82G063LYx2@sifl>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH V3-evictor] net: frag evictor, avoid killing
+ warm frag queues
+Date: Tue, 04 Dec 2012 18:51:37 +0100
+Message-ID: <1354643497.20888.178.camel@localhost>
+References: <1354319937.20109.285.camel@edumazet-glaptop>
+	 <20121204133007.20215.52566.stgit@dragon>
+	 <1354632447.1388.150.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8577392.82G063LYx2@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Thomas Graf <tgraf@suug.ch>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Cong Wang <amwang@redhat.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52680 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751913Ab2LDRwb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2012 12:52:31 -0500
+In-Reply-To: <1354632447.1388.150.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 04, 2012 at 11:18:57AM -0500, Paul Moore wrote:
-> On Tuesday, December 04, 2012 09:24:43 PM Jason Wang wrote:
-> > On Monday, December 03, 2012 11:22:29 AM Paul Moore wrote:
-> > > It may be that I'm misunderstanding TUNSETQUEUE and/or TUNSETIFF.  Can you
-> > > elaborate as to why they should be different?
+On Tue, 2012-12-04 at 06:47 -0800, Eric Dumazet wrote:
+> On Tue, 2012-12-04 at 14:30 +0100, Jesper Dangaard Brouer wrote:
+> > The fragmentation evictor system have a very unfortunate eviction
+> > system for killing fragment, when the system is put under pressure.
 > > 
-> > If I understand correctly, before multiqueue patchset, TUNSETIFF is used to:
+> > If packets are coming in too fast, the evictor code kills "warm"
+> > fragments too quickly.  Resulting in close to zero throughput, as
+> > fragments are killed before they have a chance to complete
 > > 
-> > 1) Create the tun/tap network device
-> > 2) For persistent device, re-attach the fd to the network device / socket.
-> > In this case, we call selinux_tun_dev_attch() to relabel the socket sid (in
-> > fact also the device's since the socket were persistent also) to the sid of
-> > process that calls TUNSETIFF.
+> > This is related to the bad interaction with the LRU (Least Recently
+> > Used) list.  Under load the LRU list sort-of changes meaning/behavior.
+> > When the LRU head is very new/warm, then the head is most likely the
+> > one with most fragments and the tail (latest used or added element)
+> > with least.
 > > 
-> > So, after the changes of multiqueue, we need try to preserve those policy.
-> > The interesting part is the introducing of TUNSETQUEUE, it's used to attach
-> > more file descriptors/sockets to a tun/tap device after at least one file
-> > descriptor were attached to the tun/tap device through TUNSETIFF. So I
-> > think maybe we need differ those two ioctls. This patch looks fine for
-> > TUNSETQUEUE, but for TUNSETIFF, we need relabel the tunsec to the process
-> > that calling TUNSETIFF for persistent device?
-> 
-> Okay, based on your explanation of TUNSETQUEUE, the steps below are what I 
-> believe we need to do ... if you disagree speak up quickly please.
-> 
-> A. TUNSETIFF (new, non-persistent device)
-> 
-> [Allocate and initialize the tun_struct LSM state based on the calling 
-> process, use this state to label the TUN socket.]
-> 
-> 1. Call security_tun_dev_create() which authorizes the action.
-> 2. Call security_tun_dev_alloc_security() which allocates the tun_struct LSM 
-> blob and SELinux sets some internal blob state to record the label of the 
-> calling process.
-> 3. Call security_tun_dev_attach() which sets the label of the TUN socket to 
-> match the label stored in the tun_struct LSM blob during A2.  No authorization 
-> is done at this point since the socket is new/unlabeled.
-
-> B. TUNSETIFF (existing, persistent device)
-> 
-> [Relabel the existing tun_struct LSM state based on the calling process, use
-> this state to label the TUN socket.]
-> 
-> 1. Attempt to relabel/reset the tun_struct LSM blob from the currently stored 
-> value, set during A2, to the label of the current calling process. *** THIS IS 
-> NOT CURRENTLY DONE IN THE RFC PATCH ***
-> 2. Call security_tun_dev_attach() which sets the label of the TUN socket to
-> match the label stored in the tun_struct LSM blob during B1. No authorization 
-> is done at this point since the socket is new/unlabeled.
-> 
-> C. TUNSETQUEUE
-> 
-> [Use the existing tun_struct LSM state to label the new TUN socket.]
-> 
-> 1. Call security_tun_dev_attach() which sets the label of the TUN socket to 
-> match the label stored in the tun_struct LSM blob set during either A2 or B1.  
-> No authorization is done at this point since the socket is new/unlabeled.
-
-
-Here's what bothers me. libvirt currently opens tun and passes
-fd to qemu.
-What would prevent qemu from attaching fd using TUNSETQUEUE
-to another device it does not own?
-
-
-> > btw. Current code does allow calling TUNSETQUEUE to a persistent tun/tap
-> > device with no file attached. It should be a bug and need to be fixed.
-> 
-> Since you wrote that code will you be submitting a patch to fix that problem?
-> 
-> > > One thing that I think we probably should change is the relabelto/from
-> > > permissions in the function above (selinux_tun_dev_attach()); in the case
-> > > where the socket does not yet have a label, e.g. 'sksec->sid == 0', we
-> > > should probably skip the relabel permissions since we want to assign the
-> > > TUN device label regardless in this case.
+> > Solved by, introducing a creation "jiffie" timestamp (creation_ts).
+> > If the element is tried evicted in same jiffie, then perform tail drop
+> > on the LRU list instead.
 > > 
-> > I'm not familiar with the selinux, have a quick glance of the code, looks
-> > like the label has been initialized to SECINITSID_KERNEL in
-> > selinux_socket_post_create().
+> > Signed-off-by: Jesper Dangaard Brouer <jbrouer@redhat.com>
+
+First of all, this patch is not the perfect thing, its a starting point
+of a discussion to find a better solution.
+
+
+> This would only 'work' if a reassembled packet can be done/completed
+> under one jiffie.
+
+True, and I'm not happy with this resolution.  It's only purpose is to
+help me detect when the LRU list is reversing it functionality. 
+
+This is the *only* message I'm trying to convey:
+
+    **The LRU list is misbehaving** (in this situation)
+
+
+Perhaps the best option is to implement something else than a LRU... I
+just haven't found the correct replacement/idea yet.
+
+
+> For 64KB packets, this means 100Mb link wont be able to deliver a
+> reassembled packet under IP frags load if HZ=1000
+
+True, the 1 jiffie check should be increased, but that's not the point.
+(Also I make no promise of fairness, I hope we can address this fairness
+issues in a later patch, perhaps in combination with replacing the LRU).
+
+
+(Notice: I have run tests with higher high_thresh/low_thresh values, the
+results are the same)
+
+
+> LRU goal is to be able to select the oldest inet_frag_queue, because in
+> typical networks, packet losses are really happening and this is why
+> some packets wont complete their reassembly. They naturally will be
+> found on LRU head, and they probably are very fat (for example a single
+> packet was lost for the inet_frag_queue)
+
+Look at what is happening in inet_frag_evictor(), when we are under
+load.  We will quickly delete all the oldest inet_frag_queue, you are
+talking about.  After which the LRU list will be filled with what? Only
+new fragments.  
+
+Think about that is the order of this list, now?  Remember it only
+contains incomplete inet_frag_queue's.
+
+My theory, prove me wrong, is when the LRU head is very new/warm, then
+the head is most likely the one with most fragments and the tail (latest
+used or added element) with the least fragments.
+
+
+> Choosing the most recent inet_frag_queue is exactly the opposite
+> strategy. We pay the huge cost of maintaining a central LRU, and we
+> exactly misuse it.
+
+Then the LRU list is perhaps is the wrong choice?
+
+> As long as an inet_frag_queue receives new fragments and is moved to the
+> LRU tail, its a candidate for being kept, not a candidate for being
+> evicted.
+
+Remember I have shown/proven that all inet_frag_queue's in the list
+have been touched within 1 jiffie.  Which one do you choose for removal?
+
+(Also remember if an inet_frag_queue looses one frame, on the network
+layer, it will not complete, and after 1 jiffie it will be killed by the
+evictor.  So, this function still "works")
+
+
+> Only when an inet_frag_queue is the oldest one, it becomes a candidate
+> for eviction.
 > 
-> Unless I've missed something in your changes, the multiqueue code never calls 
-> any socket code which ends up calling {security,selinux}_socket_post_create(); 
-> I believe you only call sk_alloc() which ends up calling 
-> {security,selinux}_sk_alloc() which sets SECINITSID_UNLABELED (I mistakenly 
-> wrote 0 instead in my earlier email which is techincally SECSID_NULL).  Either 
-> way, I still think the logic I originally described above is correct.
+> I think you are trying to solve a configuration/tuning problem by
+> changing a valid strategy.
 > 
-> -- 
-> paul moore
-> security and virtualization @ redhat
+> Whats wrong with admitting high_thresh/low_thresh default values should
+> be updated, now some people apparently want to use IP fragments in
+> production ?
+
+I'm not against increasing the high_thresh/low_thresh default values.
+I have tested with your 4MB/3MB settings (and 40/39, and 400/399).  The
+results are (almost) the same, its not the problem!  I have shown you
+several test results already (added some extra tests below)
+And yes, the high_thresh/low_thresh default values should be increased,
+I just don't want to discuss how much.
+
+I want to discuss the correctness of the evictor and LRU.  You are
+trying to avoid calling the evictor code; you cannot, assuming a queing
+system, where packets are arriving at a higher rate than you can
+process.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+
+p.s. I'm working on getting a better interleaving of the fragments. I'm
+depending on running netperf generators on different CPUs.  I tried
+adding a SFQ qdisc, but no egress queueing occurred, so it didn't have
+any effect.
+
+RAW tests, with different high_thresh/low_thresh:
+-------------------------------------------------
+I'm extracting the "FRAG: inuse X memory YYYYYY" with the command:
+ [root@dragon ~]# for pid in `ps aux | grep [n]etserver | awk '{print $2}' | tr '\n' ' '`; do echo -e "\nNetserver PID:$pid"; egrep -e 'UDP|FRAG' /proc/$pid/net/sockstat ; done
+
+Default net-next kernel with out patches:
+
+[root@dragon ~]# uname -a
+Linux dragon 3.7.0-rc6-net-next+ #47 SMP Thu Nov 22 00:06:12 CET 2012 x86_64 x86_64 x86_64 GNU/Linux
+
+----------------------
+[root@dragon ~]# grep . /proc/sys/net/ipv4/ipfrag_*_thresh
+/proc/sys/net/ipv4/ipfrag_high_thresh:262144
+/proc/sys/net/ipv4/ipfrag_low_thresh:196608
+
+FRAG: inuse 4 memory 245152
+
+[jbrouer@firesoul ~]$ netperf -H 192.168.51.2 -T0,0 -t UDP_STREAM -l 20 & netperf -p 1337 -H 192.168.31.2 -T7,7 -t UDP_STREAM -l 20
+[1] 10580
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.31.2 (192.168.31.2) port 0 AF_INET : cpu bind
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.51.2 (192.168.51.2) port 0 AF_INET : cpu bind
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   20.00      353279      0    9256.89
+212992           20.00       10768            282.15
+
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   20.00      350801      0    9191.95
+212992           20.00        7283            190.83
+
+------------------------
+
+
+[root@dragon ~]# sysctl -w net/ipv4/ipfrag_high_thresh=$(((1024**2*4)))
+net.ipv4.ipfrag_high_thresh = 4194304
+[root@dragon ~]# sysctl -w net/ipv4/ipfrag_low_thresh=$(((1024**2*3)))
+net.ipv4.ipfrag_low_thresh = 3145728
+
+FRAG: inuse 41 memory 3867784
+
+[jbrouer@firesoul ~]$ netperf -H 192.168.51.2 -T0,0 -t UDP_STREAM -l 20 & netperf -p 1337 -H 192.168.31.2 -T7,7 -t UDP_STREAM -l 20
+[1] 10882
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.31.2 (192.168.31.2) port 0 AF_INET : cpu bind
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.51.2 (192.168.51.2) port 0 AF_INET : cpu bind
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   20.00      353379      0    9259.50
+212992           20.00       48986           1283.57
+
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   20.00      350488      0    9183.75
+212992           20.00       33336            873.50
+
+-------------------------
+
+[root@dragon ~]# sysctl -w net/ipv4/ipfrag_high_thresh=$(((1024**2*40)))
+net.ipv4.ipfrag_high_thresh = 41943040
+[root@dragon ~]# sysctl -w net/ipv4/ipfrag_low_thresh=$(((1024**2*39)))
+net.ipv4.ipfrag_low_thresh = 40894464
+
+FRAG: inuse 442 memory 41693008
+
+[jbrouer@firesoul ~]$ netperf -H 192.168.51.2 -T0,0 -t UDP_STREAM -l 20 & netperf -p 1337 -H 192.168.31.2 -T7,7 -t UDP_STREAM -l 20
+[1] 10899
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.31.2 (192.168.31.2) port 0 AF_INET : cpu bind
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.51.2 (192.168.51.2) port 0 AF_INET : cpu bind
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   20.00      353097      0    9252.10
+212992           20.00       38281           1003.07
+
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   20.00      351708      0    9215.72
+212992           20.00       23602            618.44
+
+
+---------------------------
+
+[root@dragon ~]# sysctl -w net/ipv4/ipfrag_high_thresh=$(((1024**2*400)))
+net.ipv4.ipfrag_high_thresh = 419430400
+[root@dragon ~]# sysctl -w net/ipv4/ipfrag_low_thresh=$(((1024**2*399)))
+net.ipv4.ipfrag_low_thresh = 418381824
+
+FRAG: inuse 4665 memory 418760600
+
+[jbrouer@firesoul ~]$ netperf -H 192.168.51.2 -T0,0 -t UDP_STREAM -l 20 & netperf -p 1337 -H 192.168.31.2 -T7,7 -t UDP_STREAM -l 20
+[2] 10918
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.31.2 (192.168.31.2) port 0 AF_INET : cpu bind
+UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.51.2 (192.168.51.2) port 0 AF_INET : cpu bind
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   20.00      352255      0    9230.05
+212992           20.00       28048            734.94
+
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   65507   20.00      349842      0    9166.83
+212992           20.00       20979            549.71
