@@ -1,65 +1,51 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH] ipv4/route/rtnl: get mcast attributes when dst is multicast
-Date: Tue,  4 Dec 2012 12:03:07 +0100
-Message-ID: <1354618987-15794-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH 3.0.y] route: release dst_entry.hh_cache when handling redirects
+Date: Tue, 4 Dec 2012 11:09:13 +0100
+Message-ID: <20121204110503.202EFC7E6F@unicorn.suse.cz>
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+To: stable@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:56600 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765Ab2LDLDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 06:03:15 -0500
+Received: from cantor2.suse.de ([195.135.220.15]:45961 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751287Ab2LDLFE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2012 06:05:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit f1ce3062c538 (ipv4: Remove 'rt_dst' from 'struct rtable') removes the
-call to ipmr_get_route(), which will get multicast parameters of the route.
+Stable-3.0 commit 42ab5316 (ipv4: fix redirect handling) was
+backport of mainline commit 9cc20b26 from 3.2-rc3 where hh
+member of struct dst_entry was already gone.
 
-I revert the part of the patch that remove this call. I think the goal was only
-to get rid of rt_dst field.
+However, in 3.0 we still have it and we have to clean it as
+well, otherwise it keeps pointing to the cleaned up (and
+unusable) hh_cache entry and packets cannot be sent out.
 
-The patch is only compiled-tested. My first idea was to remove ipmr_get_route()
-because rt_fill_info() was the only user, but it seems the previous patch cleans
-the code a bit too much ;-)
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- net/ipv4/route.c | 23 +++++++++++++++++++++--
- 1 file changed, 21 insertions(+), 2 deletions(-)
+ net/ipv4/route.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index df25142..69135ed 100644
+index 6b95f74..5ff2614 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -2232,8 +2232,27 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src,
- 	error = rt->dst.error;
+@@ -1374,6 +1374,7 @@ static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
+ 	struct rtable *rt = (struct rtable *) dst;
+ 	__be32 orig_gw = rt->rt_gateway;
+ 	struct neighbour *n, *old_n;
++	struct hh_cache *old_hh;
  
- 	if (rt_is_input_route(rt)) {
--		if (nla_put_u32(skb, RTA_IIF, rt->rt_iif))
--			goto nla_put_failure;
-+#ifdef CONFIG_IP_MROUTE
-+		if (ipv4_is_multicast(dst) && !ipv4_is_local_multicast(dst) &&
-+		    IPV4_DEVCONF_ALL(net, MC_FORWARDING)) {
-+			int err = ipmr_get_route(net, skb,
-+						 fl4->saddr, fl4->daddr,
-+						 r, nowait);
-+			if (err <= 0) {
-+				if (!nowait) {
-+					if (err == 0)
-+						return 0;
-+					goto nla_put_failure;
-+				} else {
-+					if (err == -EMSGSIZE)
-+						goto nla_put_failure;
-+					error = err;
-+				}
-+			}
-+		} else
-+#endif
-+			if (nla_put_u32(skb, RTA_IIF, rt->rt_iif))
-+				goto nla_put_failure;
- 	}
+ 	dst_confirm(&rt->dst);
  
- 	if (rtnl_put_cacheinfo(skb, &rt->dst, 0, expires, error) < 0)
+@@ -1381,6 +1382,9 @@ static int check_peer_redir(struct dst_entry *dst, struct inet_peer *peer)
+ 	n = __arp_bind_neighbour(&rt->dst, rt->rt_gateway);
+ 	if (IS_ERR(n))
+ 		return PTR_ERR(n);
++	old_hh = xchg(&rt->dst.hh, NULL);
++	if (old_hh)
++		hh_cache_put(old_hh);
+ 	old_n = xchg(&rt->dst._neighbour, n);
+ 	if (old_n)
+ 		neigh_release(old_n);
 -- 
-1.8.0.1
+1.7.10.4
