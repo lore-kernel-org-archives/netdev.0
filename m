@@ -1,9 +1,9 @@
 From: Jason Wang <jasowang@redhat.com>
 Subject: Re: [net-next rfc v7 2/3] virtio_net: multiqueue support
-Date: Tue, 04 Dec 2012 17:24:54 +0800
-Message-ID: <1836549.oV9l61gUO6@jason-thinkpad-t430s>
+Date: Tue, 04 Dec 2012 17:27:36 +0800
+Message-ID: <3580168.NyC9XAQvS1@jason-thinkpad-t430s>
 References: <1354011360-39479-1-git-send-email-jasowang@redhat.com>
-	<50BC7896.4010504@redhat.com> <20121203111118.GC26167@redhat.com>
+	<50BC7F59.301@redhat.com> <20121204073503.GB7499@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,7 @@ Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
 	bhutchings@solarflare.com, jwhan@filewood.snu.ac.kr, shiyer@redhat.com
 To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121203111118.GC26167@redhat.com>
+In-Reply-To: <20121204073503.GB7499@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -24,71 +24,40 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, December 03, 2012 01:11:18 PM Michael S. Tsirkin wrote:
-> On Mon, Dec 03, 2012 at 06:01:58PM +0800, Jason Wang wrote:
-> > On 12/03/2012 05:47 PM, Michael S. Tsirkin wrote:
-> > > On Mon, Dec 03, 2012 at 02:05:27PM +0800, Jason Wang wrote:
-> > >> On Monday, December 03, 2012 12:34:08 PM Rusty Russell wrote:
-> > >>> Jason Wang <jasowang@redhat.com> writes:
-> > >>>> +static const struct ethtool_ops virtnet_ethtool_ops;
-> > >>>> +
-> > >>>> +/*
-> > >>>> + * Converting between virtqueue no. and kernel tx/rx queue no.
-> > >>>> + * 0:rx0 1:tx0 2:cvq 3:rx1 4:tx1 ... 2N+1:rxN 2N+2:txN
-> > >>>> + */
-> > >>>> +static int vq2txq(struct virtqueue *vq)
-> > >>>> +{
-> > >>>> +	int index = virtqueue_get_queue_index(vq);
-> > >>>> +	return index == 1 ? 0 : (index - 2) / 2;
-> > >>>> +}
-> > >>>> +
-> > >>>> +static int txq2vq(int txq)
-> > >>>> +{
-> > >>>> +	return txq ? 2 * txq + 2 : 1;
-> > >>>> +}
-> > >>>> +
-> > >>>> +static int vq2rxq(struct virtqueue *vq)
-> > >>>> +{
-> > >>>> +	int index = virtqueue_get_queue_index(vq);
-> > >>>> +	return index ? (index - 1) / 2 : 0;
-> > >>>> +}
-> > >>>> +
-> > >>>> +static int rxq2vq(int rxq)
-> > >>>> +{
-> > >>>> +	return rxq ? 2 * rxq + 1 : 0;
-> > >>>> +}
-> > >>>> +
-> > >>> 
-> > >>> I thought MST changed the proposed spec to make the control queue
-> > >>> always
-> > >>> the last one, so this logic becomes trivial.
-> > >> 
-> > >> But it may break the support of legacy guest. If we boot a legacy
-> > >> single queue guest on a 2 queue virtio-net device. It may think vq 2
-> > >> is cvq which is indeed rx1.
+On Tuesday, December 04, 2012 09:35:03 AM Michael S. Tsirkin wrote:
+> On Mon, Dec 03, 2012 at 06:30:49PM +0800, Jason Wang wrote:
+> > On 12/03/2012 06:14 PM, Michael S. Tsirkin wrote:
+> > > On Tue, Nov 27, 2012 at 06:15:59PM +0800, Jason Wang wrote:
+> > >> > -	if (!try_fill_recv(&vi->rq, GFP_KERNEL))
+> > >> > -		schedule_delayed_work(&vi->rq.refill, 0);
+> > >> > +	for (i = 0; i < vi->max_queue_pairs; i++)
+> > >> > +		if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
+> > >> > +			schedule_delayed_work(&vi->rq[i].refill, 0);
+> > >> > 
+> > >> >  	mutex_lock(&vi->config_lock);
+> > >> >  	vi->config_enable = true;
+> > >> >  	mutex_unlock(&vi->config_lock);
+> > >> > 
+> > >> > +	BUG_ON(virtnet_set_queues(vi));
+> > >> > +
+> > >> > 
+> > >> >  	return 0;
+> > >> >  
+> > >> >  }
+> > >> >  #endif
 > > > 
-> > > Legacy guyest support should be handled by host using feature
-> > > bits in the usual way: host should detect legacy guest
-> > > by checking the VIRTIO_NET_F_RFS feature.
-> > > 
-> > > If VIRTIO_NET_F_RFS is acked, cvq is vq max_virtqueue_pairs * 2.
-> > > If it's not acked, cvq is vq 2.
+> > > Also crashing on device nack of command is also not nice.
+> > > In this case it seems we can just switch to
+> > > single-queue mode which should always be safe.
 > > 
-> > We could, but we didn't gain much from this.
+> > Not sure it's safe. It depends on the reason why this call fails. If we
+> > left a state that the driver only use single queue but the device use
+> > multi queues, we may still lost the network.
 > 
-> It just seems cleaner and easier to understand.
-> 
-> > Furthermore, we need also
-> > do the dynamic creation/destroying of virtqueues during feature
-> > negotiation which seems not supported in qemu now.
-> 
-> It's not *done* in qemu now, but it seems easy: just call
-> virtio_add_queue for vq2 and on from virtio_net_set_features.
-> As features can be modified multiple times, we
-> should add virtio_del_queue and call that beforehand
-> to get to the known state (two vqs).
+> Looks like we won't: napi will stay enabled on all queues
+> so we will process incoming packets.
 
-And also need some work after migration like what we need in setting features. 
-I'm ok with this method, will change to follow spec v5.
+True, consider there's no bug in qemu. Will leave a just leave a warning in 
+next version.
 
 Thanks
