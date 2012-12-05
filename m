@@ -1,50 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/macb: increase RX buffer size for GEM
-Date: Wed, 05 Dec 2012 12:58:47 -0500 (EST)
-Message-ID: <20121205.125847.649579012053540438.davem@davemloft.net>
-References: <1354536943-6356-1-git-send-email-nicolas.ferre@atmel.com>
-	<20121204.132227.1430662061932892582.davem@davemloft.net>
-	<50BF6366.8080600@atmel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv6: avoid taking locks at socket dismantle
+Date: Wed, 05 Dec 2012 11:18:10 -0800
+Message-ID: <1354735090.31222.21.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, manabian@gmail.com,
-	plagnioj@jcrosoft.com
-To: nicolas.ferre@atmel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50BF6366.8080600@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:55454 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752496Ab2LETSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 14:18:15 -0500
+Received: by mail-pa0-f46.google.com with SMTP id bh2so3816615pad.19
+        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 11:18:14 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Date: Wed, 5 Dec 2012 16:08:22 +0100
+From: Eric Dumazet <edumazet@google.com>
 
-> On 12/04/2012 07:22 PM, David Miller :
->> From: Nicolas Ferre <nicolas.ferre@atmel.com>
->> Date: Mon, 3 Dec 2012 13:15:43 +0100
->> 
->>> Macb Ethernet controller requires a RX buffer of 128 bytes. It is
->>> highly sub-optimal for Gigabit-capable GEM that is able to use
->>> a bigger DMA buffer. Change this constant and associated macros
->>> with data stored in the private structure.
->>> I also kept the result of buffers per page calculation to lower the
->>> impact of this move to a variable rx buffer size on rx hot path.
->>> RX DMA buffer size has to be multiple of 64 bytes as indicated in
->>> DMA Configuration Register specification.
->>>
->>> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
->> 
->> This looks like it will waste a couple hundred bytes for 1500 MTU
->> frames, am I right?
-> 
-> Yep! But buffers get recycled, and with the current memory management by
-> pages, it seems that I have to rework some part of it to optimize this
-> memory usage (8KB memory blocks split into 5 buffers each as David said...).
-> 
-> Do you think it is worth digging this way or may I rework the rx buffer
-> management in case of the GEM interface. If I implement a different path
-> for GEM interface, I will have the possibility to tailor rx DMA buffers
-> from 1500 Bytes up to 10KB jumbo frames...
+ipv6_sock_mc_close() is called for ipv6 sockets at close time, and most
+of them don't use multicast.
 
-I almost think you have to.
+Add a test to avoid contention on a shared spinlock.
+
+Same heuristic applies for ipv6_sock_ac_close(), to avoid contention
+on a shared rwlock.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv6/anycast.c |    3 +++
+ net/ipv6/mcast.c   |    3 +++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+index 2f4f584..757a810 100644
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -189,6 +189,9 @@ void ipv6_sock_ac_close(struct sock *sk)
+ 	struct net *net = sock_net(sk);
+ 	int	prev_index;
+ 
++	if (!np->ipv6_ac_list)
++		return;
++
+ 	write_lock_bh(&ipv6_sk_ac_lock);
+ 	pac = np->ipv6_ac_list;
+ 	np->ipv6_ac_list = NULL;
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index b19ed51..28dfa5f 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -284,6 +284,9 @@ void ipv6_sock_mc_close(struct sock *sk)
+ 	struct ipv6_mc_socklist *mc_lst;
+ 	struct net *net = sock_net(sk);
+ 
++	if (!rcu_access_pointer(np->ipv6_mc_list))
++		return;
++
+ 	spin_lock(&ipv6_sk_mc_lock);
+ 	while ((mc_lst = rcu_dereference_protected(np->ipv6_mc_list,
+ 				lockdep_is_held(&ipv6_sk_mc_lock))) != NULL) {
