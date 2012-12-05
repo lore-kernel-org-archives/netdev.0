@@ -1,42 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 3com: make 3c59x depend on HAS_IOPORT
-Date: Wed, 05 Dec 2012 15:22:15 -0500 (EST)
-Message-ID: <20121205.152215.2131473855816601966.davem@davemloft.net>
-References: <1354716280.29038.2.camel@hal>
-	<20121205.125804.979819753893520607.davem@davemloft.net>
-	<1354736666.14042.7.camel@localhost.localdomain>
+From: Paul Moore <pmoore@redhat.com>
+Subject: [RFC PATCH v2 0/3] Fix some multiqueue TUN problems
+Date: Wed, 05 Dec 2012 15:25:56 -0500
+Message-ID: <20121205202144.18626.61966.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jang@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36671 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752993Ab2LEUWS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 15:22:18 -0500
-In-Reply-To: <1354736666.14042.7.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jasowang@redhat.com, mst@redhat.com
+To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jan Glauber <jang@linux.vnet.ibm.com>
-Date: Wed, 05 Dec 2012 20:44:26 +0100
+Second draft of the LSM/SELinux fixes to the upcoming multiqueue TUN
+functionality.  This draft incorporates all the comments/decisions
+from the first draft, notably the new LSM and SELinux hook for the
+TUNSETQUEUE operation.  Other LSMs do not provide TUN controls so they
+are not affected.
 
-> On Wed, 2012-12-05 at 12:58 -0500, David Miller wrote:
->> From: Jan Glauber <jang@linux.vnet.ibm.com>
->> Date: Wed, 05 Dec 2012 15:04:40 +0100
->> 
->> > From: Jan Glauber <jang@linux.vnet.ibm.com>
->> > 
->> > The 3com driver for 3c59x requires ioport_map. Since not all
->> > architectures support IO port mapping make 3c59x dependent on HAS_IOPORT.
->> > 
->> > Signed-off-by: Jan Glauber <jang@linux.vnet.ibm.com>
->> 
->> Which platforms support PCI or EISA yet do not set HAS_IOPORT?
->> 
-> 
-> s390. We wont get support for port I/O in the PCI hardware/firmware
-> layer. (The patches for PCI on s390 are currently in linux-next).
+Once we decide this is the right approach I'll push the associated
+SELinux policy FLASK definitions upstream; for those who are interested
+the SELinux policy diff in included in the description of patch 1/2.
 
-Ok, I'll apply this to net-next, thanks.
+I don't expect this to be the final patch, just a starting point for
+further discussion so I didn't really do any testing, simply making
+sure that it compiled cleanly.
+
+---
+
+Paul Moore (3):
+      tun: correctly report an error in tun_flow_init()
+      selinux: add the "create_queue" permission to the "tun_socket" class
+      tun: fix LSM/SELinux labeling of tun/tap devices
+
+
+ drivers/net/tun.c                   |   29 +++++++++++++----
+ include/linux/security.h            |   59 +++++++++++++++++++++++++++--------
+ security/capability.c               |   24 ++++++++++++--
+ security/security.c                 |   28 ++++++++++++++---
+ security/selinux/hooks.c            |   50 +++++++++++++++++++++++-------
+ security/selinux/include/classmap.h |    2 +
+ security/selinux/include/objsec.h   |    4 ++
+ 7 files changed, 156 insertions(+), 40 deletions(-)
