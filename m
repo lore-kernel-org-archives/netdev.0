@@ -1,46 +1,69 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net/macb: increase RX buffer size for GEM
-Date: Wed, 5 Dec 2012 16:08:22 +0100
-Message-ID: <50BF6366.8080600@atmel.com>
-References: <1354536943-6356-1-git-send-email-nicolas.ferre@atmel.com> <20121204.132227.1430662061932892582.davem@davemloft.net>
+Subject: Re: [PATCH v2] net/macb: Use non-coherent memory for rx buffers
+Date: Wed, 5 Dec 2012 16:12:39 +0100
+Message-ID: <50BF6467.5060701@atmel.com>
+References: <CAGhQ9VwWmP_B17LnAEqDHcL8Yd-s0C-Bf35z3+=vnJmK_NoCSw@mail.gmail.com> <1354536876-6274-1-git-send-email-nicolas.ferre@atmel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70D5@saturn3.aculab.com> <50BCA746.1020705@atmel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70D6@saturn3.aculab.com> <50BE2FEC.2070500@atmel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70D9@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <manabian@gmail.com>,
-	<plagnioj@jcrosoft.com>
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Joachim Eastwood <manabian@gmail.com>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	Havard Skinnemoen <havard@skinnemoen.net>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121204.132227.1430662061932892582.davem@davemloft.net>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70D9@saturn3.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/04/2012 07:22 PM, David Miller :
-> From: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Date: Mon, 3 Dec 2012 13:15:43 +0100
-> 
->> Macb Ethernet controller requires a RX buffer of 128 bytes. It is
->> highly sub-optimal for Gigabit-capable GEM that is able to use
->> a bigger DMA buffer. Change this constant and associated macros
->> with data stored in the private structure.
->> I also kept the result of buffers per page calculation to lower the
->> impact of this move to a variable rx buffer size on rx hot path.
->> RX DMA buffer size has to be multiple of 64 bytes as indicated in
->> DMA Configuration Register specification.
+On 12/05/2012 10:35 AM, David Laight :
+>> If I understand well, you mean that the call to:
 >>
->> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+>> 		dma_sync_single_range_for_device(&bp->pdev->dev, phys,
+>> 				pg_offset, frag_len, DMA_FROM_DEVICE);
+>>
+>> in the rx path after having copied the data to skb is not needed?
+>> That is also the conclusion that I found after having thinking about
+>> this again... I will check this.
 > 
-> This looks like it will waste a couple hundred bytes for 1500 MTU
-> frames, am I right?
+> You need to make sure that the memory isn't in the data cache
+> when you give the rx buffer back to the MAC.
+> (and ensure the cpu doesn't read it until the rx is complete.)
+> I've NFI what that dma_sync call does - you need to invalidate
+> the cache lines.
 
-Yep! But buffers get recycled, and with the current memory management by
-pages, it seems that I have to rework some part of it to optimize this
-memory usage (8KB memory blocks split into 5 buffers each as David said...).
+The invalidate of cache lines is done by
+dma_sync_single_range_for_device(, DMA_FROM_DEVICE) so I need to keep it.
 
-Do you think it is worth digging this way or may I rework the rx buffer
-management in case of the GEM interface. If I implement a different path
-for GEM interface, I will have the possibility to tailor rx DMA buffers
-from 1500 Bytes up to 10KB jumbo frames...
+>> For the CRC, my driver is not using the CRC offloading feature for the
+>> moment. So no CRC is written by the device.
+> 
+> I was thinking it would matter if the MAC wrote the CRC into the
+> buffer (even though it was excluded from the length).
+> It doesn't - you only need to worry about data you've read.
+> 
+>>> I was wondering if the code needs to do per page allocations?
+>>> Perhaps that is necessary to avoid needing a large block of
+>>> contiguous physical memory (and virtual addresses)?
+>>
+>> The page management seems interesting for future management of RX
+>> buffers as skb fragments: that will allow to avoid copying received data.
+> 
+> Dunno - the complexities of such buffer loaning schemes often
+> exceed the gain of avoiding the data copy.
+> Using buffers allocated to the skb is a bit different - since
+> you completely forget about the memory once you pass the skb
+> upstream.
+> 
+> Some quick sums indicate you might want to allocate 8k memory
+> blocks and split into 5 buffers.
+
+Well, for the 10/100 MACB interface, I am stuck with 128 Bytes buffers!
+So this use of pages seems sensible.
+On the other hand, it is true that I may have to reconsider the GEM
+memory management (it one is able to cover 128-10KB rx DMA buffers)...
 
 Best regards,
 -- 
