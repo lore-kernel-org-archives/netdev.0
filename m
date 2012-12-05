@@ -1,89 +1,53 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Wed, 05 Dec 2012 22:01:31 +0800
-Message-ID: <2433879.zRVUYBGg1f@jason-thinkpad-t430s>
-References: <20121129215724.30020.69464.stgit@sifl> <50BEE76A.3080707@redhat.com> <20121205114455.GB26649@redhat.com>
+From: Jan Glauber <jang@linux.vnet.ibm.com>
+Subject: [PATCH] 3com: make 3c59x depend on HAS_IOPORT
+Date: Wed, 05 Dec 2012 15:04:40 +0100
+Message-ID: <1354716280.29038.2.camel@hal>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Paul Moore <pmoore@redhat.com>, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36381 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751676Ab2LEOBt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2012 09:01:49 -0500
-In-Reply-To: <20121205114455.GB26649@redhat.com>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:46807 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753768Ab2LEOEv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 09:04:51 -0500
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <jang@linux.vnet.ibm.com>;
+	Wed, 5 Dec 2012 14:04:38 -0000
+Received: from d06av12.portsmouth.uk.ibm.com (d06av12.portsmouth.uk.ibm.com [9.149.37.247])
+	by b06cxnps3074.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id qB5E4dix66388072
+	for <netdev@vger.kernel.org>; Wed, 5 Dec 2012 14:04:39 GMT
+Received: from d06av12.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av12.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id qB5E4k4g018382
+	for <netdev@vger.kernel.org>; Wed, 5 Dec 2012 07:04:46 -0700
+Received: from [9.152.212.136] (dyn-9-152-212-136.boeblingen.de.ibm.com [9.152.212.136])
+	by d06av12.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVin) with ESMTP id qB5E4esQ018098
+	(version=TLSv1/SSLv3 cipher=AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 5 Dec 2012 07:04:46 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, December 05, 2012 01:44:55 PM Michael S. Tsirkin wrote:
-> On Wed, Dec 05, 2012 at 02:19:22PM +0800, Jason Wang wrote:
-> > On 12/05/2012 02:17 AM, Paul Moore wrote:
-> > > On Tuesday, December 04, 2012 07:36:26 PM Michael S. Tsirkin wrote:
-> > >> On Tue, Dec 04, 2012 at 11:18:57AM -0500, Paul Moore wrote:
-> > >>> Okay, based on your explanation of TUNSETQUEUE, the steps below are
-> > >>> what I
-> > >>> believe we need to do ... if you disagree speak up quickly please.
-> > >>> 
-> > >>> A. TUNSETIFF (new, non-persistent device)
-> > >>> 
-> > >>> [Allocate and initialize the tun_struct LSM state based on the calling
-> > >>> process, use this state to label the TUN socket.]
-> > >>> 
-> > >>> 1. Call security_tun_dev_create() which authorizes the action.
-> > >>> 2. Call security_tun_dev_alloc_security() which allocates the
-> > >>> tun_struct
-> > >>> LSM blob and SELinux sets some internal blob state to record the label
-> > >>> of
-> > >>> the calling process.
-> > >>> 3. Call security_tun_dev_attach() which sets the label of the TUN
-> > >>> socket
-> > >>> to match the label stored in the tun_struct LSM blob during A2.  No
-> > >>> authorization is done at this point since the socket is new/unlabeled.
-> > >>> 
-> > >>> B. TUNSETIFF (existing, persistent device)
-> > >>> 
-> > >>> [Relabel the existing tun_struct LSM state based on the calling
-> > >>> process,
-> > >>> use this state to label the TUN socket.]
-> > >>> 
-> > >>> 1. Attempt to relabel/reset the tun_struct LSM blob from the currently
-> > >>> stored value, set during A2, to the label of the current calling
-> > >>> process.
-> > >>> *** THIS IS NOT CURRENTLY DONE IN THE RFC PATCH ***
-> > >>> 2. Call security_tun_dev_attach() which sets the label of the TUN
-> > >>> socket
-> > >>> to match the label stored in the tun_struct LSM blob during B1. No
-> > >>> authorization is done at this point since the socket is new/unlabeled.
-> > >>> 
-> > >>> C. TUNSETQUEUE
-> > >>> 
-> > >>> [Use the existing tun_struct LSM state to label the new TUN socket.]
-> > >>> 
-> > >>> 1. Call security_tun_dev_attach() which sets the label of the TUN
-> > >>> socket
-> > >>> to match the label stored in the tun_struct LSM blob set during either
-> > >>> A2
-> > >>> or B1. No authorization is done at this point since the socket is
-> > >>> new/unlabeled.
-> > >> 
-> > >> Here's what bothers me. libvirt currently opens tun and passes
-> > >> fd to qemu. What would prevent qemu from attaching fd using TUNSETQUEUE
-> > >> to another device it does not own?
-> > > 
-> > > True, assuming all the above is correct and that I'm understanding it
-> > > correctly (Jason?), we should probably add a new SELinux access control
-> > > for
-> > > TUNSETQUEUE.
-> > 
-> > Yes, we need make sure qemu can call TUNSETQUEUE for the device it does
-> > not own.
-> 
-> Meaning can *not* call?
+From: Jan Glauber <jang@linux.vnet.ibm.com>
 
-Sorry for not being clear, I mean qemu can call TUNSETQUEUE for the device it 
-owns and for the device it does not own, it can't call.
-> 
-> > > The current DAC code exists in tun_not_capable().
+The 3com driver for 3c59x requires ioport_map. Since not all
+architectures support IO port mapping make 3c59x dependent on HAS_IOPORT.
+
+Signed-off-by: Jan Glauber <jang@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/3com/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
+index bad4fa6..eb56174 100644
+--- a/drivers/net/ethernet/3com/Kconfig
++++ b/drivers/net/ethernet/3com/Kconfig
+@@ -80,7 +80,7 @@ config PCMCIA_3C589
+ 
+ config VORTEX
+ 	tristate "3c590/3c900 series (592/595/597) \"Vortex/Boomerang\" support"
+-	depends on (PCI || EISA)
++	depends on (PCI || EISA) && HAS_IOPORT
+ 	select NET_CORE
+ 	select MII
+ 	---help---
