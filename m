@@ -1,48 +1,60 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 0/7] Allow to monitor multicast cache event via rtnetlink
-Date: Wed, 5 Dec 2012 11:41:33 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70DA@saturn3.aculab.com>
-References: <1354619621-16016-1-git-send-email-nicolas.dichtel@6wind.com> <20121204.130914.1457976839967676240.davem@davemloft.net> <50BE56D3.2030704@6wind.com> <50BF29DA.7020903@6wind.com>
+From: Dries De Winter <dries.dewinter@gmail.com>
+Subject: Re: [PATCH] net: ICMPv6 packets transmitted on wrong interface if
+ nfmark is mangled
+Date: Wed, 5 Dec 2012 14:41:59 +0100
+Message-ID: <CA+e04fgiMDoaCx0fpdK5F6YfJ_CSOZ13q1fn9xs7De4JO02c6g@mail.gmail.com>
+References: <1354538763-2678-1-git-send-email-dries.dewinter@gmail.com>
+	<20121203.141128.206409637987621093.davem@davemloft.net>
+	<CA+e04fjWMDE9xEApysFRprZDBdM3Ya2RHrxtoau7i+fxzGT8CQ@mail.gmail.com>
+	<20121203.170636.1325623456787407245.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: <nicolas.dichtel@6wind.com>, "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: pablo@netfilter.org, kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58508 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751674Ab2LELtS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 06:49:18 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 22359-06 for <netdev@vger.kernel.org>;
- Wed,  5 Dec 2012 11:49:14 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <50BF29DA.7020903@6wind.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:35173 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803Ab2LENmB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 08:42:01 -0500
+In-Reply-To: <20121203.170636.1325623456787407245.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> >> The one thing I worry about are those 64-bit statistics.  I fear that they
-> >> not be 64-bit aligned in the final netlink message.  This matters on cpus
-> >> that trap on unaligned loads/stores, such as sparc and MIPS.
-> >>
-> >> Can you validate this?
-> >>
-> > I can have a try on a tile platform. I don't have access to sparc or mips.
+2012/12/3 David Miller <davem@davemloft.net>:
+> From: Dries De Winter <dries.dewinter@gmail.com>
+> Date: Mon, 3 Dec 2012 22:31:51 +0100
+>
+>> Not fixing this means that skb->mark is unavailable for use on ICMPv6
+>> packets because it will inevitably put those packets on the wrong
+>> interface.
+>
+> Maybe this suggests that a better fix is to simply explicitly check
+> for protocol ICMPV6 in ip6_route_me_harder().
 
-> Hmm, I've read arm instead of mips! So I've tried on mips. Data are aligned on
-> 32-bit, like for all netlink messages. nla_put_u64() will do the same, as it
-> calls nla_put().
-> 
-> And the kernel will only use memcpy() to treat this attribute. Reader will be in
-> userland.
+Hmmm, maybe my subject line isn't very well chosen ... I don't really
+mean all ICMPv6 traffic. ICMPv6 also includes Destination Unreachable,
+Echo request/reply ... and lots of other types that are just regular
+unicast packets that should follow the routing table like normal
+packets. My concern is mainly about neighbour discovery and MLD. And
+after having thought this over and over again, this discussion could
+be extended to all link-local traffic in general, not to ICMPv6 in
+general.
 
-Probably worth commenting that the 64bit items might only be 32bit aligned.
-Just to stop anyone trying to read/write them with pointer casts.
+Routing doesn't make much sense for link-local traffic and typically
+the sender specifies on what interface its data has to go out. In the
+example of MLD and neighbour discovery this is done using those
+special dst entries. But for userspace this can be done by specifying
+a non-zero sin6_scope_id or by SO_BINDTODEVICE which sets
+sk_bound_dev_if. When sending a message with a link-local destination,
+these parameters are taken into account by routing.
+ip6_route_me_harder() also takes sk_bound_dev_if into account, but it
+has no access to the user supplied sin6_scope_id, so depending on the
+method used, you may also hit this issue from user space.
 
-I think they are currently done with memcpy() - which should be ok.
-It might be possibly to optimise by using a structure containing
-a 64bit value marked __attribute__((aligned(4))).
+My "noreroute" patch will not fix this. Therefore it's indeed maybe
+better to add a simple check to ip6_route_me_harder(): not a check for
+ICMPv6, but a check for (ipv6_addr_type(&iph->daddr) &
+IPV6_ADDR_LINKLOCAL) instead. What do you think?
 
-	David
+Dries.
