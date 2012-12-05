@@ -1,78 +1,30 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 1/2 net-next] cnic: Reset iSCSI EQ during shutdown.
-Date: Wed, 5 Dec 2012 12:10:14 -0800
-Message-ID: <1354738215-6644-1-git-send-email-mchan@broadcom.com>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: [PATCH rfc] netfilter: two xtables matches
+Date: Wed, 5 Dec 2012 21:00:36 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1212052100190.30908@nerf07.vanv.qr>
+References: <1354735339-13402-1-git-send-email-willemb@google.com> <CA+FuTSeYvcdtNf7N=POD+RzsE01+WVsub6F_nqbn06RZyoWx8w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3813 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752131Ab2LETzD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2012 14:55:03 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	pablo@netfilter.org
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CA+FuTSeYvcdtNf7N=POD+RzsE01+WVsub6F_nqbn06RZyoWx8w@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Without the reset, reloading the cnic driver can cause the iSCSI
-Event Queue to be out of sync with the driver and cause intermittent
-crash.
+On Wednesday 2012-12-05 20:28, Willem de Bruijn wrote:
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Acked-by: Ariel Elior <ariele@broadcom.com>
----
- .../net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h    |    5 +++++
- drivers/net/ethernet/broadcom/cnic.c               |   19 +++++++++++++++++++
- 2 files changed, 24 insertions(+), 0 deletions(-)
+>Somehow, the first part of this email went missing. Not critical,
+>but for completeness:
+>
+>These two patches each add an xtables match.
+>
+>The xt_priority match is a straighforward addition in the style of
+>xt_mark, adding the option to filter on one more sk_buff field. I
+>have an immediate application for this. The amount of code (in
+>kernel + userspace) to add a single check proved quite large.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
-index 620fe93..60a83ad 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
-@@ -23,6 +23,11 @@
- 	(IRO[159].base + ((funcId) * IRO[159].m1))
- #define CSTORM_FUNC_EN_OFFSET(funcId) \
- 	(IRO[149].base + ((funcId) * IRO[149].m1))
-+#define CSTORM_HC_SYNC_LINE_INDEX_E1X_OFFSET(hcIndex, sbId) \
-+	(IRO[139].base + ((hcIndex) * IRO[139].m1) + ((sbId) * IRO[139].m2))
-+#define CSTORM_HC_SYNC_LINE_INDEX_E2_OFFSET(hcIndex, sbId) \
-+	(IRO[138].base + (((hcIndex)>>2) * IRO[138].m1) + (((hcIndex)&3) \
-+	* IRO[138].m2) + ((sbId) * IRO[138].m3))
- #define CSTORM_IGU_MODE_OFFSET (IRO[157].base)
- #define CSTORM_ISCSI_CQ_SIZE_OFFSET(pfId) \
- 	(IRO[316].base + ((pfId) * IRO[316].m1))
-diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index cc8434f..2c1f66d 100644
---- a/drivers/net/ethernet/broadcom/cnic.c
-+++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -5344,8 +5344,27 @@ static void cnic_stop_bnx2_hw(struct cnic_dev *dev)
- static void cnic_stop_bnx2x_hw(struct cnic_dev *dev)
- {
- 	struct cnic_local *cp = dev->cnic_priv;
-+	u32 hc_index = HC_INDEX_ISCSI_EQ_CONS;
-+	u32 sb_id = cp->status_blk_num;
-+	u32 idx_off, syn_off;
- 
- 	cnic_free_irq(dev);
-+
-+	if (BNX2X_CHIP_IS_E2_PLUS(cp->chip_id)) {
-+		idx_off = offsetof(struct hc_status_block_e2, index_values) +
-+			  (hc_index * sizeof(u16));
-+
-+		syn_off = CSTORM_HC_SYNC_LINE_INDEX_E2_OFFSET(hc_index, sb_id);
-+	} else {
-+		idx_off = offsetof(struct hc_status_block_e1x, index_values) +
-+			  (hc_index * sizeof(u16));
-+
-+		syn_off = CSTORM_HC_SYNC_LINE_INDEX_E1X_OFFSET(hc_index, sb_id);
-+	}
-+	CNIC_WR16(dev, BAR_CSTRORM_INTMEM + syn_off, 0);
-+	CNIC_WR16(dev, BAR_CSTRORM_INTMEM + CSTORM_STATUS_BLOCK_OFFSET(sb_id) +
-+		  idx_off, 0);
-+
- 	*cp->kcq1.hw_prod_idx_ptr = 0;
- 	CNIC_WR(dev, BAR_CSTRORM_INTMEM +
- 		CSTORM_ISCSI_EQ_CONS_OFFSET(cp->pfid, 0), 0);
--- 
-1.7.1
+Hm so yeah, can't we just place this in xt_mark.c?
