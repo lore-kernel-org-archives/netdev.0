@@ -1,36 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: WARNING: drivers/net/ethernet/dlink/sundance.o(.text+0x2e87):
- Section mismatch in reference from the function sundance_probe1() to the
- variable .devinit.rodata:sundance_pci_tbl
-Date: Wed, 05 Dec 2012 12:50:06 -0500 (EST)
-Message-ID: <20121205.125006.830180895260845549.davem@davemloft.net>
-References: <50be77ca.95imDYp6GlyHjRuw%fengguang.wu@intel.com>
-	<CAOJe8K3xBAuhVND-9dJgSxShhpHQ3zko=bE2CNrAKVa-gvDouA@mail.gmail.com>
+Subject: Re: [PATCH net-next 0/7] Allow to monitor multicast cache event
+ via rtnetlink
+Date: Wed, 05 Dec 2012 12:53:26 -0500 (EST)
+Message-ID: <20121205.125326.1946963285042434825.davem@davemloft.net>
+References: <20121204.130914.1457976839967676240.davem@davemloft.net>
+	<50BE56D3.2030704@6wind.com>
+	<50BF29DA.7020903@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fengguang.wu@intel.com, wfp5p@virginia.edu, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org
-To: kda@linux-powerpc.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35380 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35408 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752102Ab2LERuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 12:50:10 -0500
-In-Reply-To: <CAOJe8K3xBAuhVND-9dJgSxShhpHQ3zko=bE2CNrAKVa-gvDouA@mail.gmail.com>
+	with ESMTP id S1752065Ab2LERx1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 12:53:27 -0500
+In-Reply-To: <50BF29DA.7020903@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Date: Wed, 5 Dec 2012 11:12:32 +0300
+=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 05 Dec 2012 12:02:50 +0100
 
-> I"ll fix it.
+> Le 04/12/2012 21:02, Nicolas Dichtel a =E9crit :
+>> I can have a try on a tile platform. I don't have access to sparc or
+>> mips.
+> Hmm, I've read arm instead of mips! So I've tried on mips. Data are
+> aligned on 32-bit, like for all netlink messages. nla_put_u64() will
+> do the same, as it calls nla_put().
+>=20
+> And the kernel will only use memcpy() to treat this attribute. Reader
+> will be in userland.
 
-You can't.
+Then userland will trap if the 64-bit values are only 32-bit aligned.
 
-It's only going to get fixed by a change in Greg KH's device tree
-which updates the PCI table macros to not use __dev* section tags.
+That's the problem I'm talking about.
 
-Fengguant, _PLEASE_, as Greg requested, stop reporting these section
-mismatch errors, they aren't helpful and are wasting valuable
-developer time.
+I don't want to export any more unaligned 64-bit values in netlink
+messages, it's a complete mess.
