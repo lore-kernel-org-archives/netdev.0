@@ -1,57 +1,141 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [Suggestion] net/atm : for sprintf, need check the total write
- length whether larger than a page.
-Date: Wed, 05 Dec 2012 13:59:26 +0800
-Message-ID: <50BEE2BE.2030704@asianux.com>
-References: <201212050357.qB53vHvT022706@thirdoffive.cmf.nrl.navy.mil> <50BED40D.9080100@asianux.com> <50BEDE4E.8010408@asianux.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Wed, 05 Dec 2012 14:17:30 +0800
+Message-ID: <50BEE6FA.1080507@redhat.com>
+References: <20121129215724.30020.69464.stgit@sifl> <50BC7BCE.7000502@redhat.com> <2549856.XZ72FtkyJK@sifl> <7659411.O2Or69Bf6n@jason-thinkpad-t430s> <20121204152420.GJ7499@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Paul Moore <pmoore@redhat.com>, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:21287 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742Ab2LEF6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 00:58:33 -0500
-In-Reply-To: <50BEDE4E.8010408@asianux.com>
+Received: from mx1.redhat.com ([209.132.183.28]:13542 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751166Ab2LEGRh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2012 01:17:37 -0500
+In-Reply-To: <20121204152420.GJ7499@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D3=DA 2012=C4=EA12=D4=C205=C8=D5 13:40, Chen Gang =D0=B4=B5=C0:
-> =D3=DA 2012=C4=EA12=D4=C205=C8=D5 12:56, Chen Gang =D0=B4=B5=C0:
->>>>>>>> -		pos +=3D sprintf(pos, "\n");
->>>>>>>> +		count +=3D scnprintf(buf + count, PAGE_SIZE - count, "\n");
->>>> ..
->>>>>>  need we judge whether count >=3D PAGE_SIZE ?
->>>>
->>>> count will eventually make PAGE_SIZE - count reach 0 at which poin=
-t,
->>>> scnprintf() won't be able to write into the buffer.
->>   I also think so.
+On 12/04/2012 11:24 PM, Michael S. Tsirkin wrote:
+> On Tue, Dec 04, 2012 at 09:24:43PM +0800, Jason Wang wrote:
+>> On Monday, December 03, 2012 11:22:29 AM Paul Moore wrote:
+>>> On Monday, December 03, 2012 06:15:42 PM Jason Wang wrote:
+>>>> On 11/30/2012 06:06 AM, Paul Moore wrote:
+>>>>> This patch corrects some problems with LSM/SELinux that were introduced
+>>>>> with the multiqueue patchset.  The problem stems from the fact that the
+>>>>> multiqueue work changed the relationship between the tun device and its
+>>>>> associated socket; before the socket persisted for the life of the
+>>>>> device, however after the multiqueue changes the socket only persisted
+>>>>> for the life of the userspace connection (fd open).  For non-persistent
+>>>>> devices this is not an issue, but for persistent devices this can cause
+>>>>> the tun device to lose its SELinux label.
+>>>>>
+>>>>> We correct this problem by adding an opaque LSM security blob to the
+>>>>> tun device struct which allows us to have the LSM security state, e.g.
+>>>>> SELinux labeling information, persist for the lifetime of the tun
+>>>>> device.
+>>> ...
+>>>
+>>>>> -static int selinux_tun_dev_attach(struct sock *sk)
+>>>>> +static int selinux_tun_dev_attach(struct sock *sk, void *security)
+>>>>>
+>>>>>  {
+>>>>>
+>>>>> +	struct tun_security_struct *tunsec = security;
+>>>>>
+>>>>>  	struct sk_security_struct *sksec = sk->sk_security;
+>>>>>  	u32 sid = current_sid();
+>>>>>  	int err;
+>>>>>
+>>>>> +	/* we don't currently perform any NetLabel based labeling here ...
+>>>>>
+>>>>>  	err = avc_has_perm(sid, sksec->sid, SECCLASS_TUN_SOCKET,
+>>>>>  	
+>>>>>  			   TUN_SOCKET__RELABELFROM, NULL);
+>>>>>  	
+>>>>>  	if (err)
+>>>>>  	
+>>>>>  		return err;
+>>>>>
+>>>>> -	err = avc_has_perm(sid, sid, SECCLASS_TUN_SOCKET,
+>>>>> +	err = avc_has_perm(sid, tunsec->sid, SECCLASS_TUN_SOCKET,
+>>>>>
+>>>>>  			   TUN_SOCKET__RELABELTO, NULL);
+>>>>>  	
+>>>>>  	if (err)
+>>>>>  	
+>>>>>  		return err;
+>>>>>
+>>>>> -	sksec->sid = sid;
+>>>>> +	sksec->sid = tunsec->sid;
+>>>>> +	sksec->sclass = SECCLASS_TUN_SOCKET;
+>>>> I'm not sure whether this is correct, looks like we need to differ between
+>>>> TUNSETQUEUE and TUNSETIFF. When userspace call TUNSETIFF for persistent
+>>>> device, looks like we need change the sid of tunsec like in the past.
+>>> It may be that I'm misunderstanding TUNSETQUEUE and/or TUNSETIFF.  Can you
+>>> elaborate as to why they should be different?
+>> If I understand correctly, before multiqueue patchset, TUNSETIFF is used to:
 >>
->>   I think, maybe it will be better to break the loop when we already
->> know that "count >=3D PAGE_SIZE" (it can save waste looping, althoug=
-h it
->> seems unlikly happen, for example, using unlikly(...) ).
+>> 1) Create the tun/tap network device
+>> 2) For persistent device, re-attach the fd to the network device / socket. In 
+>> this case, we call selinux_tun_dev_attch() to relabel the socket sid (in fact 
+>> also the device's since the socket were persistent also) to the sid of process 
+>> that calls TUNSETIFF.
 >>
->> By the way:
->>   will it be better that always let "\n" at the end ?
->>   (if count =3D=3D PAGE_SIZE in a loop, we can not let "\n" at the e=
-nd).
->=20
->    oh, sorry ! count will never >=3D PAGE_SIZE.
->=20
->    I think let "PAGE_SIZE - 2" instead of "PAGE_SIZE" in the loop, so=
- we
-> can make the room for the end of "\n".
->=20
->=20
->=20
-   sorry, "PAGE_SIZE - 1" is enough, not need "PAGE_SIZE - 2".
+>> So, after the changes of multiqueue, we need try to preserve those policy. The 
+>> interesting part is the introducing of TUNSETQUEUE, it's used to attach more 
+>> file descriptors/sockets to a tun/tap device after at least one file descriptor 
+>> were attached to the tun/tap device through TUNSETIFF. So I think maybe we 
+>> need differ those two ioctls. This patch looks fine for TUNSETQUEUE, but for 
+>> TUNSETIFF, we need relabel the tunsec to the process that calling TUNSETIFF 
+>> for persistent device?
+> Basically, it looks like currently once you get a tun fd,
+> you can attach it to any device even if normally
+> selinux would prevent you from accessing it.
 
+Yes some checking during TUNSETQUEUE is missed.
+> If we reuse selinux_tun_dev_attach, we won't need to
+> change selinux policy, with a new capability we will need to change it
+> to allow libvirt to do TUNSETQUEUE.
+>
 
---=20
-Chen Gang
+Also needed for qemu too since it may call TUNSETQUEUE when guest wants
+to change the number of queues.
+>> btw. Current code does allow calling TUNSETQUEUE to a persistent tun/tap 
+>> device with no file attached. It should be a bug and need to be fixed.
+> Is this a problem? You can always
+> attach
+> set queue
+> detach
+>
+> and it would be hard to prevent this ...
 
-Asianux Corporation
+Currently, the following steps is allowed:
+
+1. fd1 = open("/dev/net/tun");
+2. tunsetiff(fd1, "tap0");
+3. tunsetpersistent("tap0");
+4. close(fd1);
+5. fd2 = open("/dev/net/tun");
+6. tunsetqueue(fd2, "tap0);
+
+Looks like step 6 should be forbidden since:
+
+- no fd/sockets were attached to the device, we need use TUNSETIFF
+instead to keep the API as we used do in single queue tun
+- we need update the security information in tun_struct just like what
+we discussed in this mail
+- it may also miss checks in TUNSETIFF
+
+>>> One thing that I think we probably should change is the relabelto/from
+>>> permissions in the function above (selinux_tun_dev_attach()); in the case
+>>> where the socket does not yet have a label, e.g. 'sksec->sid == 0', we
+>>> should probably skip the relabel permissions since we want to assign the
+>>> TUN device label regardless in this case.
+>> I'm not familiar with the selinux, have a quick glance of the code, looks like 
+>> the label has been initialized to SECINITSID_KERNEL in 
+>> selinux_socket_post_create().
+>>
+>> Thanks
