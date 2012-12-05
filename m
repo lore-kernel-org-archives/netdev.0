@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 7/8] bna: Firmware Image Naming Change
-Date: Wed, 5 Dec 2012 15:01:09 -0800
-Message-ID: <1354748470-26293-8-git-send-email-rmody@brocade.com>
+Subject: [net-next 3/8] bna: TX Intr Coalescing Fix
+Date: Wed, 5 Dec 2012 15:01:05 -0800
+Message-ID: <1354748470-26293-4-git-send-email-rmody@brocade.com>
 References: <1354748470-26293-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,40 +9,51 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:46622 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:46623 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751029Ab2LEXW7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 18:22:59 -0500
+	by vger.kernel.org with ESMTP id S1751930Ab2LEXXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 18:23:00 -0500
 In-Reply-To: <1354748470-26293-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change details:
-        Modified the firmware naming convention to contain the firmware image
-version (3.1.0.0). The new convention is <firmware-image>-<firmware-version>.bin
-The change will enforce loading only compatible firmware with this driver and
-also avoid over-writing the old firmware image in-order to load new version
-driver as the firmware names used to be the same.
+Change Details:
+        For Tx IB, IPM was enabled with inter_pkt_timeo of 0. This caused the
+Tx IB not to generate interrupt till inter_pkt_count of packets have been
+received. Correct definition for BFI_TX_INTERPKT_TIMEO & BFI_TX_INTERPKT_COUNT
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/cna.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    3 ++-
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c   |    2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
-index 32e8f17..14ca931 100644
---- a/drivers/net/ethernet/brocade/bna/cna.h
-+++ b/drivers/net/ethernet/brocade/bna/cna.h
-@@ -37,8 +37,8 @@
+diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+index b8c4e21..af3f7bb 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
++++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
+@@ -46,7 +46,8 @@
+ #define BFI_MAX_INTERPKT_COUNT		0xFF
+ #define BFI_MAX_INTERPKT_TIMEO		0xF	/* in 0.5us units */
+ #define BFI_TX_COALESCING_TIMEO		20	/* 20 * 5 = 100us */
+-#define BFI_TX_INTERPKT_COUNT		32
++#define BFI_TX_INTERPKT_COUNT		12	/* Pkt Cnt = 12 */
++#define BFI_TX_INTERPKT_TIMEO		15	/* 15 * 0.5 = 7.5us */
+ #define	BFI_RX_COALESCING_TIMEO		12	/* 12 * 5 = 60us */
+ #define	BFI_RX_INTERPKT_COUNT		6	/* Pkt Cnt = 6 */
+ #define	BFI_RX_INTERPKT_TIMEO		3	/* 3 * 0.5 = 1.5us */
+diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+index bb5467b..4df6d4b 100644
+--- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
++++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
+@@ -3569,7 +3569,7 @@ bna_tx_create(struct bna *bna, struct bnad *bnad,
+ 		if (intr_info->intr_type == BNA_INTR_T_INTX)
+ 			txq->ib.intr_vector = (1 <<  txq->ib.intr_vector);
+ 		txq->ib.coalescing_timeo = tx_cfg->coalescing_timeo;
+-		txq->ib.interpkt_timeo = 0; /* Not used */
++		txq->ib.interpkt_timeo = BFI_TX_INTERPKT_TIMEO;
+ 		txq->ib.interpkt_count = BFI_TX_INTERPKT_COUNT;
  
- extern char bfa_version[];
- 
--#define	CNA_FW_FILE_CT	"ctfw.bin"
--#define	CNA_FW_FILE_CT2	"ct2fw.bin"
-+#define CNA_FW_FILE_CT	"ctfw-3.1.0.0.bin"
-+#define CNA_FW_FILE_CT2	"ct2fw-3.1.0.0.bin"
- #define FC_SYMNAME_MAX	256	/*!< max name server symbolic name size */
- 
- #pragma pack(1)
+ 		/* TCB */
 -- 
 1.7.1
