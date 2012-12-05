@@ -1,50 +1,54 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next v2] ipw2200: return error code on error in ipw_wx_get_auth()
-Date: Wed, 5 Dec 2012 03:08:11 -0500
-Message-ID: <CAPgLHd_AN+Tr5EQFBZMH0FZCp6ESHVURZHvd9SuW=a2PYkPoXw@mail.gmail.com>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: WARNING: drivers/net/ethernet/dlink/sundance.o(.text+0x2e87):
+ Section mismatch in reference from the function sundance_probe1() to the
+ variable .devinit.rodata:sundance_pci_tbl
+Date: Wed, 5 Dec 2012 11:12:32 +0300
+Message-ID: <CAOJe8K3xBAuhVND-9dJgSxShhpHQ3zko=bE2CNrAKVa-gvDouA@mail.gmail.com>
+References: <50be77ca.95imDYp6GlyHjRuw%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: stas.yakovlev@gmail.com, linville@tuxdriver.com
+Cc: Bill Pemberton <wfp5p@virginia.edu>, netdev@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: kbuild test robot <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:44514 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751676Ab2LEIIM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 03:08:12 -0500
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:47357 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751347Ab2LEIMd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 03:12:33 -0500
+Received: by mail-oa0-f46.google.com with SMTP id h16so4848757oag.19
+        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 00:12:32 -0800 (PST)
+In-Reply-To: <50be77ca.95imDYp6GlyHjRuw%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+I"ll fix it.
 
-We have assinged error code to 'ret' when get auth from some
-option is not supported but never used it, but we'd better return
-the error code.
+Thanks.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/wireless/ipw2x00/ipw2200.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-index 482f505..b0879ad 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -6812,7 +6812,6 @@ static int ipw_wx_get_auth(struct net_device *dev,
- 	struct libipw_device *ieee = priv->ieee;
- 	struct lib80211_crypt_data *crypt;
- 	struct iw_param *param = &wrqu->param;
--	int ret = 0;
- 
- 	switch (param->flags & IW_AUTH_INDEX) {
- 	case IW_AUTH_WPA_VERSION:
-@@ -6822,8 +6821,7 @@ static int ipw_wx_get_auth(struct net_device *dev,
- 		/*
- 		 * wpa_supplicant will control these internally
- 		 */
--		ret = -EOPNOTSUPP;
--		break;
-+		return -EOPNOTSUPP;
- 
- 	case IW_AUTH_TKIP_COUNTERMEASURES:
- 		crypt = priv->ieee->crypt_info.crypt[priv->ieee->crypt_info.tx_keyidx];
+On 12/5/12, kbuild test robot <fengguang.wu@intel.com> wrote:
+> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+> master
+> head:   193c1e478cc496844fcbef402a10976c95a634ff
+> commit: 64bc40de134bb5c7826ff384016f654219ed3956 dlink: remove __dev*
+> attributes
+> date:   27 hours ago
+> config: make ARCH=x86_64 allmodconfig
+>
+> All warnings:
+>
+> WARNING: drivers/net/ethernet/dlink/sundance.o(.text+0x2e87): Section
+> mismatch in reference from the function sundance_probe1() to the variable
+> .devinit.rodata:sundance_pci_tbl
+> The function sundance_probe1() references
+> the variable __devinitconst sundance_pci_tbl.
+> This is often because sundance_probe1 lacks a __devinitconst
+> annotation or the annotation of sundance_pci_tbl is wrong.
+>
+> ---
+> 0-DAY kernel build testing backend         Open Source Technology Center
+> Fengguang Wu, Yuanhan Liu                              Intel Corporation
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
