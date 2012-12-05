@@ -1,55 +1,43 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [Patch net-next] xfrm: add missing xfrm message types to selinux
- perm table
-Date: Wed, 5 Dec 2012 08:39:41 +0100
-Message-ID: <20121205073941.GA18940@secunet.com>
-References: <1354599571-6181-1-git-send-email-amwang@redhat.com>
- <20121204.130257.1178992077066719400.davem@davemloft.net>
- <20121205054152.GO22290@secunet.com>
- <1354690585.28951.10.camel@cr0>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	herbert@gondor.hengli.com.au
-To: Cong Wang <amwang@redhat.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] xfrm: add missing xfrm message types to selinux perm table
+Date: Wed,  5 Dec 2012 15:42:48 +0800
+Message-ID: <1354693368-19494-1-git-send-email-amwang@redhat.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:50267 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40520 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751737Ab2LEHjr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2012 02:39:47 -0500
-Content-Disposition: inline
-In-Reply-To: <1354690585.28951.10.camel@cr0>
+	id S1751224Ab2LEHnX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2012 02:43:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 05, 2012 at 02:56:25PM +0800, Cong Wang wrote:
-> On Wed, 2012-12-05 at 06:41 +0100, Steffen Klassert wrote:
-> > On Tue, Dec 04, 2012 at 01:02:57PM -0500, David Miller wrote:
-> > > From: Cong Wang <amwang@redhat.com>
-> > > Date: Tue,  4 Dec 2012 13:39:31 +0800
-> > > 
-> > > > Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> > > > Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> > > > Cc: "David S. Miller" <davem@davemloft.net>
-> > > > Signed-off-by: Cong Wang <amwang@redhat.com>
-> > > 
-> > > Steffen will you take this into your IPSEC tree?
-> > > 
-> > 
-> > I would do so, but I have not seen this patch by now.
-> > Was it really send to me? I have not even seen it on the
-> > netdev list.
-> > 
-> > Anyway, I don't have it, please resend.
-> > 
-> 
-> Weird, you are already Cc'ed in the original patch, Cc: Steffen Klassert
-> <steffen.klassert@secunet.com>.
-> 
+SElinux perm table is not up-to-date.
 
-Even patchwork does not list this patch, I can only guess that
-something went wrong with your submission.
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Please resend it,
-
-Thanks.
+---
+diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
+index d309e7f..cc191bc 100644
+--- a/security/selinux/nlmsgtab.c
++++ b/security/selinux/nlmsgtab.c
+@@ -93,6 +93,13 @@ static struct nlmsg_perm nlmsg_xfrm_perms[] =
+ 	{ XFRM_MSG_FLUSHPOLICY,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+ 	{ XFRM_MSG_NEWAE,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+ 	{ XFRM_MSG_GETAE,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
++	{ XFRM_MSG_REPORT,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
++	{ XFRM_MSG_MIGRATE,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
++	{ XFRM_MSG_NEWSADINFO,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
++	{ XFRM_MSG_GETSADINFO,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
++	{ XFRM_MSG_NEWSPDINFO,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
++	{ XFRM_MSG_GETSPDINFO,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
++	{ XFRM_MSG_MAPPING,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
+ };
+ 
+ static struct nlmsg_perm nlmsg_audit_perms[] =
