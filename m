@@ -1,36 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] myri10ge: fix most sparse warnings
-Date: Wed, 05 Dec 2012 16:25:46 -0500 (EST)
-Message-ID: <20121205.162546.1187131916097405931.davem@davemloft.net>
-References: <1354652235-13174-1-git-send-email-gallatin@myri.com>
+Subject: Re: [Patch 1/1] net/phy: Add interrupt support for dp83640 phy.
+Date: Wed, 05 Dec 2012 16:25:54 -0500 (EST)
+Message-ID: <20121205.162554.2111164006993658505.davem@davemloft.net>
+References: <1354652498-16573-1-git-send-email-stephan.gatzka@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gallatin@myri.com
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com
+To: stephan.gatzka@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37218 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37221 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751728Ab2LEVZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 16:25:47 -0500
-In-Reply-To: <1354652235-13174-1-git-send-email-gallatin@myri.com>
+	with ESMTP id S1752131Ab2LEVZz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 16:25:55 -0500
+In-Reply-To: <1354652498-16573-1-git-send-email-stephan.gatzka@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Gallatin <gallatin@myri.com>
-Date: Tue,  4 Dec 2012 15:17:15 -0500
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Date: Tue,  4 Dec 2012 21:21:38 +0100
 
-> - convert remaining htonl/ntohl +__raw_read/__raw_writel to
->   swab32 + readl/writel
-> - add missing __iomem qualifier in myri10ge_open()
-> - fix  dubious: x & !y warning by switching from logical to bitwise not
+> Added functions for ack_interrupt and config_intr. Tested on an mpc5200b
+> powerpc board.
 > 
-> The swab32 conversion fixes a bug in myri10ge_led() where
-> big-endian machines would write the wrong pattern.
-> 
-> The only remaining warning (lock context imbalance) is due to
-> the use of __netif_tx_trylock(), and cannot easily be fixed.
-> 
-> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
+> Signed-off-by: Stephan Gatzka <stephan.gatzka@gmail.com>
 
 Applied.
