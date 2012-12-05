@@ -1,33 +1,37 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [Suggestion] net/atm :  for sprintf, need check the total write
- length whether larger than a page.
-Date: Wed, 05 Dec 2012 09:28:36 +0800
-Message-ID: <50BEA344.5020902@asianux.com>
-References: <50AC58BC.1020004@asianux.com> <50BC6958.6080803@asianux.com> <20121203104825.78123ecc@thirdoffive.cmf.nrl.navy.mil>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH net-next v2] bridge: export multicast database via
+ netlink
+Date: Wed, 05 Dec 2012 10:07:30 +0800
+Message-ID: <1354673250.28951.2.camel@cr0>
+References: <1354539824-7898-1-git-send-email-amwang@redhat.com>
+	 <20121204.132505.1229048595483168009.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David.Woodhouse@intel.com, David Miller <davem@davemloft.net>,
-	krzysiek@podlesie.net, Joe Perches <joe@perches.com>,
-	edumazet@google.com, netdev <netdev@vger.kernel.org>
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	herbert@gondor.hengli.com.au, shemminger@vyatta.com, tgraf@suug.ch,
+	brouer@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:10981 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337Ab2LEB1n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 20:27:43 -0500
-In-Reply-To: <20121203104825.78123ecc@thirdoffive.cmf.nrl.navy.mil>
+Received: from mx1.redhat.com ([209.132.183.28]:14616 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751978Ab2LECIK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Dec 2012 21:08:10 -0500
+In-Reply-To: <20121204.132505.1229048595483168009.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=D3=DA 2012=C4=EA12=D4=C203=C8=D5 23:48, chas williams - CONTRACTOR =D0=
-=B4=B5=C0:
-> yes this seems like it should be done.  maybe this week i will try to
-> put something together unless you already have a patch somewhere.
->=20
+On Tue, 2012-12-04 at 13:25 -0500, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Mon,  3 Dec 2012 21:03:43 +0800
+> 
+> > TODO: remove debugging printk's
+> 
+> Can you please take care of this so we can consider this patch
+> seriously for inclusion?
+> 
 
-  thank you very much.
+Sure. I planned to send V3 when I wrote this TODO. ;) And it seems
+Thomas and Stephen are ok with it now, I will remove these printk's.
 
-
-  and also sorry for replying late (yesterday, I have an annual leave
-for some personal things)
+Thanks.
