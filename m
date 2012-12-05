@@ -1,70 +1,35 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH V3-evictor] net: frag evictor, avoid killing
- warm frag queues
-Date: Wed, 05 Dec 2012 10:24:22 +0100
-Message-ID: <1354699462.20888.207.camel@localhost>
-References: <1354319937.20109.285.camel@edumazet-glaptop>
-	 <20121204133007.20215.52566.stgit@dragon>
+From: Christopher Schramm <netdev@shakaweb.org>
+Subject: Re: ip_rt_min_pmtu
+Date: Wed, 05 Dec 2012 10:33:43 +0100
+Message-ID: <50BF14F7.8060105@shakaweb.org>
+References: <50BE654D.2010602@shakaweb.org> <CAKoUArn0EYaeebFXtCgqDSYeJD2oFKUfns7Lbk7Rsg=N=pnpHA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Cong Wang <amwang@redhat.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Rami Rosen <roszenrami@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27827 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751766Ab2LEJ05 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2012 04:26:57 -0500
-In-Reply-To: <20121204133007.20215.52566.stgit@dragon>
+Received: from mail.shakaweb.org ([89.238.65.242]:40903 "EHLO shakaweb.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751771Ab2LEJdw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2012 04:33:52 -0500
+In-Reply-To: <CAKoUArn0EYaeebFXtCgqDSYeJD2oFKUfns7Lbk7Rsg=N=pnpHA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 05 Dec 2012 09:46:18 +0100, Rami Rosen wrote:
+> But RFC 791 also declares 576 as PMTU:
+> "All hosts must be prepared to accept datagrams of up to 576 octets".
 
-First of all, this patch contains a small bug (see below), which
-resulted in me not testing the correct patch...
+That's the common mistake I mentioned. The sentence goes on: "(whether 
+they arrive whole or in fragments)", so it says nothing about lower 
+layers, especially not about the MTU.
 
-Second, this patch does NOT behave as I expected and claimed.  Thus, my
-conclusions, in my previous respond might be wrong!
+The 576 octects IP datagram every implementation is required to be able 
+to handle could be transferred in 12 up to over 60 fragments if we had 
+the minimal PMTU of 68, depending on the header size. Of course that 
+leads to an overhead of nearly 90 percent, but it should be possible 
+following the RFC.
 
-The previous evictor patch of letting new fragments enter, worked
-amazingly well.  But I suspect, this might also be related to a
-bug/problem in the evictor loop (which were being hidden by that patch).
-
-My new *theory* is that the evictor loop, will be looping too much, if
-it finds a fragment which is INET_FRAG_COMPLETE ... in that case, we
-don't advance the LRU list, and thus will pickup the exact same
-inet_frag_queue again in the loop... to get out of the loop we need
-another CPU or packet to change the LRU list for us... I'll test that
-theory... (its could also be CPUs fighting over the same LRU head
-element that cause this) ... more to come...
-
-
-On Tue, 2012-12-04 at 14:30 +0100, Jesper Dangaard Brouer wrote:
-> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-> index 4750d2b..d8bf59b 100644
-> --- a/net/ipv4/inet_fragment.c
-> +++ b/net/ipv4/inet_fragment.c
-> @@ -178,6 +178,16 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
->  
->  		q = list_first_entry(&nf->lru_list,
->  				struct inet_frag_queue, lru_list);
-> +
-> +		/* When head of LRU is very new/warm, then the head is
-> +		 * most likely the one with most fragments and the
-> +		 * tail with least, thus drop tail
-> +		 */
-> +		if (!force && q->creation_ts == (u32) jiffies) {
-> +			q = list_entry(&nf->lru_list.prev,
-
-Remove the "&" in &nf->lru_list.prev
-
-> +				struct inet_frag_queue, lru_list);
-> +		}
-> +
->  		atomic_inc(&q->refcnt);
->  		read_unlock(&f->lock);
+With Linux, trying to send large data over a path with PMTU < 552 will 
+probably fail (unless you change the min_pmtu value).
