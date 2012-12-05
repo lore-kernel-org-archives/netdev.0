@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] bridge: implement multicast fast leave
-Date: Wed, 05 Dec 2012 16:25:33 -0500 (EST)
-Message-ID: <20121205.162533.472441435180068286.davem@davemloft.net>
-References: <20121204084431.72f9084c@nehalam.linuxnetplumber.net>
-	<1354691991-18499-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH net-next] myri10ge: fix most sparse warnings
+Date: Wed, 05 Dec 2012 16:25:46 -0500 (EST)
+Message-ID: <20121205.162546.1187131916097405931.davem@davemloft.net>
+References: <1354652235-13174-1-git-send-email-gallatin@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	herbert@gondor.hengli.com.au, shemminger@vyatta.com
-To: amwang@redhat.com
+Cc: netdev@vger.kernel.org
+To: gallatin@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37203 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37218 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751728Ab2LEVZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 16:25:35 -0500
-In-Reply-To: <1354691991-18499-1-git-send-email-amwang@redhat.com>
+	with ESMTP id S1751728Ab2LEVZr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 16:25:47 -0500
+In-Reply-To: <1354652235-13174-1-git-send-email-gallatin@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Wed,  5 Dec 2012 15:19:51 +0800
+From: Andrew Gallatin <gallatin@myri.com>
+Date: Tue,  4 Dec 2012 15:17:15 -0500
 
-> V3: make it a flag
-> V2: make the toggle per-port
+> - convert remaining htonl/ntohl +__raw_read/__raw_writel to
+>   swab32 + readl/writel
+> - add missing __iomem qualifier in myri10ge_open()
+> - fix  dubious: x & !y warning by switching from logical to bitwise not
 > 
-> Fast leave allows bridge to immediately stops the multicast
-> traffic on the port receives IGMP Leave when IGMP snooping is enabled,
-> no timeouts are observed.
+> The swab32 conversion fixes a bug in myri10ge_led() where
+> big-endian machines would write the wrong pattern.
 > 
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> The only remaining warning (lock context imbalance) is due to
+> the use of __netif_tx_trylock(), and cannot easily be fixed.
+> 
+> Signed-off-by: Andrew Gallatin <gallatin@myri.com>
 
 Applied.
