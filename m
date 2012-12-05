@@ -1,43 +1,50 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] xfrm: add missing xfrm message types to selinux perm table
-Date: Wed,  5 Dec 2012 15:42:48 +0800
-Message-ID: <1354693368-19494-1-git-send-email-amwang@redhat.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next v2] ipw2200: return error code on error in ipw_wx_get_auth()
+Date: Wed, 5 Dec 2012 03:08:11 -0500
+Message-ID: <CAPgLHd_AN+Tr5EQFBZMH0FZCp6ESHVURZHvd9SuW=a2PYkPoXw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: stas.yakovlev@gmail.com, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40520 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751224Ab2LEHnX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2012 02:43:23 -0500
+Received: from mail-qa0-f53.google.com ([209.85.216.53]:44514 "EHLO
+	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751676Ab2LEIIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 03:08:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SElinux perm table is not up-to-date.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+We have assinged error code to 'ret' when get auth from some
+option is not supported but never used it, but we'd better return
+the error code.
 
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
-diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-index d309e7f..cc191bc 100644
---- a/security/selinux/nlmsgtab.c
-+++ b/security/selinux/nlmsgtab.c
-@@ -93,6 +93,13 @@ static struct nlmsg_perm nlmsg_xfrm_perms[] =
- 	{ XFRM_MSG_FLUSHPOLICY,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
- 	{ XFRM_MSG_NEWAE,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
- 	{ XFRM_MSG_GETAE,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
-+	{ XFRM_MSG_REPORT,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
-+	{ XFRM_MSG_MIGRATE,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
-+	{ XFRM_MSG_NEWSADINFO,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
-+	{ XFRM_MSG_GETSADINFO,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
-+	{ XFRM_MSG_NEWSPDINFO,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
-+	{ XFRM_MSG_GETSPDINFO,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
-+	{ XFRM_MSG_MAPPING,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
- };
+ drivers/net/wireless/ipw2x00/ipw2200.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 482f505..b0879ad 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -6812,7 +6812,6 @@ static int ipw_wx_get_auth(struct net_device *dev,
+ 	struct libipw_device *ieee = priv->ieee;
+ 	struct lib80211_crypt_data *crypt;
+ 	struct iw_param *param = &wrqu->param;
+-	int ret = 0;
  
- static struct nlmsg_perm nlmsg_audit_perms[] =
+ 	switch (param->flags & IW_AUTH_INDEX) {
+ 	case IW_AUTH_WPA_VERSION:
+@@ -6822,8 +6821,7 @@ static int ipw_wx_get_auth(struct net_device *dev,
+ 		/*
+ 		 * wpa_supplicant will control these internally
+ 		 */
+-		ret = -EOPNOTSUPP;
+-		break;
++		return -EOPNOTSUPP;
+ 
+ 	case IW_AUTH_TKIP_COUNTERMEASURES:
+ 		crypt = priv->ieee->crypt_info.crypt[priv->ieee->crypt_info.tx_keyidx];
