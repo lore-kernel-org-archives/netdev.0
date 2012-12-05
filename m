@@ -1,50 +1,88 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: [Patch 1/1] net/phy: Add interrupt support for dp83640 phy.
-Date: Wed, 05 Dec 2012 20:52:05 +0100
-Message-ID: <50BFA5E5.6070307@gmail.com>
-References: <1354652498-16573-1-git-send-email-stephan.gatzka@gmail.com> <20121205100544.GA2293@netboy.at.omicron.at>
-Reply-To: stephan.gatzka@gmail.com
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 2/2 net-next] cnic: Fix rare race condition during iSCSI
+ disconnect.
+Date: Wed, 5 Dec 2012 12:10:15 -0800
+Message-ID: <1354738215-6644-2-git-send-email-mchan@broadcom.com>
+References: <1354738215-6644-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:46306 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752131Ab2LETwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 14:52:10 -0500
-Received: by mail-bk0-f46.google.com with SMTP id q16so2374631bkw.19
-        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 11:52:08 -0800 (PST)
-In-Reply-To: <20121205100544.GA2293@netboy.at.omicron.at>
+Received: from mms3.broadcom.com ([216.31.210.19]:4973 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752565Ab2LETzE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2012 14:55:04 -0500
+In-Reply-To: <1354738215-6644-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eddie Wai <eddie.wai@broadcom.com>
 
-> The patch looks okay to me, but I worry that this might fail on boards
-> which have not connected the phyer's PWERDOWN/INTN pin to anything.
-> Such designs really need the PHY_POLL working.
-> Taking a brief glance at the drivers for two such boards I know of
-> (m5234bcc and an IXP), it looks like their MAC drivers set mii_bus irq
-> to PHY_POLL, so it might work fine, but this patch still makes me
-> nervous that some other board might break.
->
-> Maybe this should be a kconfig option?
+If the initiator and target try to close the connection at about the same
+time, there is a race condition in the termination sequence for bnx2x.
+Fix the problem by waiting for the remote termination to complete before
+deleting the Connection ID.  This will prevent the firmware assert.
 
-I don't think so.
+Update version to 2.5.15.
 
-Systems using device tree just don't specify the interrupt tag in the 
-mdio section.
+Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/cnic.c    |   13 +++++++++++--
+ drivers/net/ethernet/broadcom/cnic_if.h |    4 ++--
+ 2 files changed, 13 insertions(+), 4 deletions(-)
 
-I have to admit that I don't know how how systems without employing 
-device tree get the phy interrupt configured, maybe someone can explain 
-that shortly?
-
-Nevertheless, other drivers for very common phys like the lxt971 also 
-just set the function pointers to config_intr and ack_interrupt and also 
-set the flag PHY_HAS_INTERRUPT. So I don't think that the my patch 
-breaks something.
-
-Regards,
-
-Stephan
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 2c1f66d..1c2a851 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -3853,12 +3853,17 @@ static int cnic_cm_abort(struct cnic_sock *csk)
+ 		return cnic_cm_abort_req(csk);
+ 
+ 	/* Getting here means that we haven't started connect, or
+-	 * connect was not successful.
++	 * connect was not successful, or it has been reset by the target.
+ 	 */
+ 
+ 	cp->close_conn(csk, opcode);
+-	if (csk->state != opcode)
++	if (csk->state != opcode) {
++		/* Wait for remote reset sequence to complete */
++		while (test_bit(SK_F_PG_OFFLD_COMPLETE, &csk->flags))
++			msleep(1);
++
+ 		return -EALREADY;
++	}
+ 
+ 	return 0;
+ }
+@@ -3872,6 +3877,10 @@ static int cnic_cm_close(struct cnic_sock *csk)
+ 		csk->state = L4_KCQE_OPCODE_VALUE_CLOSE_COMP;
+ 		return cnic_cm_close_req(csk);
+ 	} else {
++		/* Wait for remote reset sequence to complete */
++		while (test_bit(SK_F_PG_OFFLD_COMPLETE, &csk->flags))
++			msleep(1);
++
+ 		return -EALREADY;
+ 	}
+ 	return 0;
+diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
+index 865095a..502e11e 100644
+--- a/drivers/net/ethernet/broadcom/cnic_if.h
++++ b/drivers/net/ethernet/broadcom/cnic_if.h
+@@ -14,8 +14,8 @@
+ 
+ #include "bnx2x/bnx2x_mfw_req.h"
+ 
+-#define CNIC_MODULE_VERSION	"2.5.14"
+-#define CNIC_MODULE_RELDATE	"Sep 30, 2012"
++#define CNIC_MODULE_VERSION	"2.5.15"
++#define CNIC_MODULE_RELDATE	"Dec 04, 2012"
+ 
+ #define CNIC_ULP_RDMA		0
+ #define CNIC_ULP_ISCSI		1
+-- 
+1.7.1
