@@ -1,60 +1,40 @@
-From: Stanislav Yakovlev <stas.yakovlev@gmail.com>
-Subject: Re: [PATCH -next v2] ipw2200: return error code on error in ipw_wx_get_auth()
-Date: Wed, 5 Dec 2012 01:44:50 -0800
-Message-ID: <CA++WF2OmLMP3NHvN44yVzsnWEHjeZVGfgG9CfC2CkZGyNQFLLw@mail.gmail.com>
-References: <CAPgLHd_AN+Tr5EQFBZMH0FZCp6ESHVURZHvd9SuW=a2PYkPoXw@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [Patch 1/1] net/phy: Add interrupt support for dp83640 phy.
+Date: Wed, 5 Dec 2012 11:05:44 +0100
+Message-ID: <20121205100544.GA2293@netboy.at.omicron.at>
+References: <1354652498-16573-1-git-send-email-stephan.gatzka@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linville@tuxdriver.com, yongjun_wei@trendmicro.com.cn,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Stephan Gatzka <stephan.gatzka@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:46372 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751148Ab2LEJow (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 04:44:52 -0500
-In-Reply-To: <CAPgLHd_AN+Tr5EQFBZMH0FZCp6ESHVURZHvd9SuW=a2PYkPoXw@mail.gmail.com>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:45614 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752968Ab2LEKF5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 05:05:57 -0500
+Received: by mail-ee0-f46.google.com with SMTP id e53so2787672eek.19
+        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 02:05:56 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1354652498-16573-1-git-send-email-stephan.gatzka@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5 December 2012 00:08, Wei Yongjun <weiyj.lk@gmail.com> wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->
-> We have assinged error code to 'ret' when get auth from some
-> option is not supported but never used it, but we'd better return
-> the error code.
->
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Tue, Dec 04, 2012 at 09:21:38PM +0100, Stephan Gatzka wrote:
+> Added functions for ack_interrupt and config_intr. Tested on an mpc5200b
+> powerpc board.
+> 
+> Signed-off-by: Stephan Gatzka <stephan.gatzka@gmail.com>
 
-Looks fine, thanks.
+The patch looks okay to me, but I worry that this might fail on boards
+which have not connected the phyer's PWERDOWN/INTN pin to anything.
+Such designs really need the PHY_POLL working.
 
-Stanislav.
+Taking a brief glance at the drivers for two such boards I know of
+(m5234bcc and an IXP), it looks like their MAC drivers set mii_bus irq
+to PHY_POLL, so it might work fine, but this patch still makes me
+nervous that some other board might break.
 
-> ---
->  drivers/net/wireless/ipw2x00/ipw2200.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
->
-> diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-> index 482f505..b0879ad 100644
-> --- a/drivers/net/wireless/ipw2x00/ipw2200.c
-> +++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-> @@ -6812,7 +6812,6 @@ static int ipw_wx_get_auth(struct net_device *dev,
->         struct libipw_device *ieee = priv->ieee;
->         struct lib80211_crypt_data *crypt;
->         struct iw_param *param = &wrqu->param;
-> -       int ret = 0;
->
->         switch (param->flags & IW_AUTH_INDEX) {
->         case IW_AUTH_WPA_VERSION:
-> @@ -6822,8 +6821,7 @@ static int ipw_wx_get_auth(struct net_device *dev,
->                 /*
->                  * wpa_supplicant will control these internally
->                  */
-> -               ret = -EOPNOTSUPP;
-> -               break;
-> +               return -EOPNOTSUPP;
->
->         case IW_AUTH_TKIP_COUNTERMEASURES:
->                 crypt = priv->ieee->crypt_info.crypt[priv->ieee->crypt_info.tx_keyidx];
->
->
+Maybe this should be a kconfig option?
+
+Thanks,
+Richard
