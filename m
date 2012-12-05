@@ -1,53 +1,42 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 6/8] bna: Add Stats Clear Counter
-Date: Wed, 5 Dec 2012 15:01:08 -0800
-Message-ID: <1354748470-26293-7-git-send-email-rmody@brocade.com>
-References: <1354748470-26293-1-git-send-email-rmody@brocade.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ksoftirqd 100% after disabling IPv4 route cache on high pps.
+Date: Wed, 05 Dec 2012 15:48:51 -0800
+Message-ID: <1354751331.31222.295.camel@edumazet-glaptop>
+References: <CAJygYd187B1305puZwdiK6kfP=LPPvyX_rGJn9g2azaRs4p8ZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <adapter_linux_open_src_team@brocade.com>,
-	Rasesh Mody <rmody@brocade.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: =?UTF-8?Q?=E5=8F=B6=E9=9B=A8=E9=A3=9E?= <sunyucong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:43486 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750803Ab2LEX17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 18:27:59 -0500
-In-Reply-To: <1354748470-26293-1-git-send-email-rmody@brocade.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:38500 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751918Ab2LEXsy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 18:48:54 -0500
+Received: by mail-pa0-f46.google.com with SMTP id bh2so3974333pad.19
+        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 15:48:54 -0800 (PST)
+In-Reply-To: <CAJygYd187B1305puZwdiK6kfP=LPPvyX_rGJn9g2azaRs4p8ZA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added Stats clear counter to the bfi_enet_stats_mac structure and ethtool stats
- 
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/ethernet/brocade/bna/bfi_enet.h     |    1 +
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    1 +
- 2 files changed, 2 insertions(+), 0 deletions(-)
+On Wed, 2012-12-05 at 13:22 -0800, =E5=8F=B6=E9=9B=A8=E9=A3=9E wrote:
+> Hi Eric,
+>=20
+> After disabling the route cache, I found a forwarding performance
+> problem (inevitable ?). Basically the kernel couldn't keep up under
+> about 100k pps and ksoftirqd is dominating the CPU. This problem went
+> away right away if I do
+>=20
+> echo  1 > rt_cache_rebuild_count
+>=20
+> and comes back as soon as i do echo -1 > rt_cache_rebuild_count.
+>=20
+> I then tried to use RPS/RFS to share the load on to mulitple cpus
+> (since ksoftirqd is only using 1 core, clearly). but that has little
+> effect.
+>=20
+> Is there some tweaks/patches you recommend?
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfi_enet.h b/drivers/net/ethernet/brocade/bna/bfi_enet.h
-index eef6e1f..7d10e33 100644
---- a/drivers/net/ethernet/brocade/bna/bfi_enet.h
-+++ b/drivers/net/ethernet/brocade/bna/bfi_enet.h
-@@ -787,6 +787,7 @@ struct bfi_enet_stats_bpc {
- 
- /* MAC Rx Statistics */
- struct bfi_enet_stats_mac {
-+	u64 stats_clr_cnt;	/* times this stats cleared */
- 	u64 frame_64;		/* both rx and tx counter */
- 	u64 frame_65_127;		/* both rx and tx counter */
- 	u64 frame_128_255;		/* both rx and tx counter */
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-index 40e1e84..455b5a2 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-@@ -102,6 +102,7 @@ static const char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
- 	"rx_unmap_q_alloc_failed",
- 	"rxbuf_alloc_failed",
- 
-+	"mac_stats_clr_cnt",
- 	"mac_frame_64",
- 	"mac_frame_65_127",
- 	"mac_frame_128_255",
--- 
-1.7.1
+Yes, upgrade your kernel to 3.6 or 3.7, this problem has been solved fo=
+r
+good. No more IP route cache and good performance.
