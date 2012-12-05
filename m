@@ -1,226 +1,397 @@
-From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
-Subject: Re: [B.A.T.M.A.N.] net, batman: lockdep circular dependency warning
-Date: Wed, 5 Dec 2012 16:33:08 +0100
-Message-ID: <20121205153307.GA30466@pandem0nium>
-References: <50A15E1B.1010001@oracle.com>
- <2538946.bxqpERrOoj@bentobox>
+From: "matteo.fortini@sadel.it" <matteo.fortini@sadel.it>
+Subject: [RFC PATCH] Bug on AT91 macb driver rx with high network traffic
+Date: Wed, 05 Dec 2012 16:48:44 +0100
+Message-ID: <assp.0686b43733.50BF6CDC.6060609@sadel.it>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="6TrnltStXW4iwmi0"
-Cc: netdev@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: The list for a Better Approach To Mobile Ad-hoc
-	 Networking <b.a.t.m.a.n@lists.open-mesh.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: nicolas.ferre@atmel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nick.hrz.tu-chemnitz.de ([134.109.228.11]:48132 "EHLO
-	nick.hrz.tu-chemnitz.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751896Ab2LEPdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 10:33:16 -0500
-Content-Disposition: inline
-In-Reply-To: <2538946.bxqpERrOoj@bentobox>
+Received: from alcapone.vm.bytemark.co.uk ([89.16.173.107]:48000 "EHLO
+	alcapone.vm.bytemark.co.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751676Ab2LEPsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 10:48:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We are testing the robustness of the driver with UDP packets of 
+increasing length, up to the maximum allowed.
 
---6TrnltStXW4iwmi0
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+We have an UDP echo server listening on an port on the AT91 board, and 
+we send to it increasing length UDP packets, waiting for the echo reply 
+before sending the next one.
+When packets get larghish, in the >40000 bytes range, we see that the 
+server is not receiving packets anymore, so the client does not receive 
+the reply and the test stops. Pinging the interface once resumes the 
+test, meaning that the packet has been actually received, but the driver 
+is waiting for an interrupt that is not coming.
 
-Hey Sven,
+We traced this down to slow/missing IRQ response, and we fixed it as in 
+the following patch, which calls napi_reschedule() before leaving the 
+polling loop if the loop condition is still valid at the end of the 
+polling loop, as other net drivers appear to do.
 
-thanks for showing these approaches! Comments inline ...
+We don't know if this is the perfectly right way to do it, and we'd like 
+your opinion on this before submitting a proper patch.
 
-On Tue, Dec 04, 2012 at 03:51:55PM +0100, Sven Eckelmann wrote:
-> Hi,
->=20
-> thanks for your report. It seems nobody else wanted to give an answer... =
-so I=20
-> try to give a small overview.
->=20
-> On Monday 12 November 2012 15:37:47 Sasha Levin wrote:
-> > Hi all,
-> >=20
-> > While fuzzing with trinity inside a KVM tools (lkvm) guest running late=
-st
-> > -next kernel, I've stumbled on the following:
-> >=20
-> > [ 1002.969392] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> > [ 1002.971639] [ INFO: possible circular locking dependency detected ]
-> > [ 1002.975805] 3.7.0-rc5-next-20121112-sasha-00018-g2f4ce0e #127 Tainte=
-d: G=20
-> >       W [ 1002.983691]
-> > ------------------------------------------------------- [ 1002.983691]
-> > trinity-child18/8149 is trying to acquire lock:
-> > [ 1002.983691]  (s_active#313){++++.+}, at: [<ffffffff812f9941>]
-> > sysfs_addrm_finish+0x31/0x60 [ 1002.983691]
-> > [ 1002.983691] but task is already holding lock:
-> > [ 1002.983691]  (rtnl_mutex){+.+.+.}, at: [<ffffffff834fcc62>]
-> > rtnl_lock+0x12/0x20 [ 1002.983691]
-> > [ 1002.983691] which lock already depends on the new lock.
->=20
-> It is known that batman-adv has a problem with the attaching/detaching of=
-=20
-> interfaces over this sysfs. The cause of this problem is related to the f=
-act=20
-> that batman-adv not only creates its own net_devices, but also unregister=
-s=20
-> net_devices. This unregister will add a new element in the net_todo_list.=
- This=20
-> will cause a rtnl_lock when it calls netdev_wait_allrefs (there are some=
-=20
-> condition, but we just ignore them for now). So the whole exercise of usi=
-ng=20
-> rtnl_trylock was useless.
->=20
-> This extra rtnl_lock can cause a deadlock as you found out because it is=
-=20
-> activated through a sysfs file and therefore the s_active mutex is locked=
- (we=20
-> have the dependency s_active -> rtnl_mutex, but other users have rtnl_mut=
-ex ->=20
-> s_active).
->=20
-> So, what to do? There are different possibilities. We have to keep in min=
-d=20
-> that there is a patchset (not yet accepted by the batman-adv maintainers)=
-=20
-> which allows to use `ip link` or compatible tools to create/destroy batma=
-n-adv=20
-> devices and attach/detach other devices.
->=20
-> 1. Remove the sysfs interface to attach/detach net_devices (which
->    destroys/creates batman-adv devices)
->=20
->    This is not really backward compatible and therefore not really accept=
-able.
->    Marek Lindner and Simon Wunderlich are also against forcing users to
->    require special tools to add/configure batman-adv devices (even batctl=
-, ip
->    and so on).
->=20
+I added the udp_server.c and udp_client.c softwares which may be useful.
 
-Yeah, at least I think we should keep what we have for now and fix it before
-moving to the next interface. It has its merits I would like to keep, having
-text output is one of them. :)
+Thank you in advance,
+Matteo Fortini
 
-> 2. Ignore the possible deadlock
->=20
->    (sry, fill in your own comment...)
->=20
+===================================================================
 
-That probably won't help. :)
+ From 2d8895022a0668f6a3c1112f15ebe471db1a471e Mon Sep 17 00:00:00 2001
+From: Matteo Fortini <matteo.fortini@sadel.it>
+Date: Thu, 8 Nov 2012 16:12:10 +0100
+Subject: [PATCH] AT91 macb: Fix lost rx packets on high rx traffic
 
-> 3. Add workarounds in the core net code
->=20
->    Simon Wunderlich already tried it... I personally think it is not the =
-right
->    way because it more likely to introduce more bugs by hiding a batman-a=
-dv
->    bug. And these bugs are a lot harder to find... trust me
->=20
->    For example the usage of __rtnl_unlock will let this bug to appear in
->    other places which use rtnl_trylock. This is caused by the fact that t=
-he
->    todo item isn't processed by __rtnl_unlock (this is the whole idea by
->    calling it) and therefore the todo work stays in net_todo_list. Another
->    user of rtnl_trylock will now call rtnl_unlock and don't expect an ent=
-ry in
->    net_todo_list because he never unregistered a device. So he now has the
->    problem of batman-adv (what an unsocial l=C3=A4derlappen).
->=20
->    And moving everybody using rtnl_trylock to __rtnl_unlock has still the
->    problem that batman-adv don't immediatelly work on its todo and so
->    maybe causes other side effects because... the notifications weren't
->    sent and therefore the refcount of the unregistered device didn't went
->    to zero.
->=20
->    (I'll leave other side effects as homework for the reader)
->=20
+---
+  drivers/net/ethernet/cadence/macb.c |    8 ++++++++
+  1 file changed, 8 insertions(+)
 
-You are right, it can probably not solved as easily as I thought before. Al=
-so,
-it seems the bridge code is not concerned as I thought at first. Although
-I still don't like the rtnl_unlock() concept in general, but I can't provide
-an alternative here so I should't moan about that. :)
+diff --git a/drivers/net/ethernet/cadence/macb.c 
+b/drivers/net/ethernet/cadence/macb.c
+index 033064b..348a20f 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -522,8 +522,16 @@ static int macb_poll(struct napi_struct *napi, int 
+budget)
 
-> 4. Don't automatically remove batman-adv devices
->=20
->    The current approach is to automatically unregister batman-adv devices
->    when they don't have attached slave-devices (hardif called by batman-a=
-dv).
->    Removing this will slightly change the behaviour, but the interface can
->    still be removed using `ip link del dev bat0` or a similar tool.
->=20
+         work_done = macb_rx(bp, budget);
+         if (work_done < budget) {
++               u32 addr;
++
+                 napi_complete(napi);
 
-That would be possible, but we must at least make sure that the initializat=
-ion
-is done for all internal tables (tt, bla, ...), counters, seqnos, etc when =
-the
-first device is added. Otherwise old users might assume that the device is
-resetted correctly when removing all hard interfaces of one soft interface
-and add it again under the same soft interface name.
++               addr = bp->rx_ring[bp->rx_tail].addr;
++
++               if ((addr & MACB_BIT(RX_USED))) {
++                       netdev_warn(bp->dev, "poll: reschedule");
++                       napi_reschedule(napi);
++               }
+                 /*
+                  * We've done what we can to clean the buffers. Make 
+sure we
+                  * get notified when new packets arrive.
+-- 
+1.7.10.4
 
-> 5. Add a workaround solution and promote the use of the standard interface
->=20
->    So, the basic problem is the s_active mutex locked by the sysfs interf=
-ace.
->    An idea is to postpone the part which needs the rtnl_mutex to a later =
-time.
->    This has obviously the problem that we cannot return an error code to =
-the
->    caller when the device creation failed in the postponed part. This pro=
-blem
->    can reduced slightly be moving only the unregister part, but now I'll =
-leave
->    this out for simplicity of the description.
+====================================================
 
-We probably won't need the return code anyway - usually it should never fai=
-l,
-and if it does we don't handle it now too.=20
+TEST PROGRAMS:
 
->=20
->    A possible implementation would create a work_struct and add it to
->    batadv_event_workqueue. This work item has to contain all information =
-given
->    by the user (which hardif, name of the batman-adv device).
+/*
+  * UDP client
+  * Copyright 2012 SADEL SpA
+  * Castel Maggiore
+  * Bologna
+  * Italy
+  */
 
-Sounds good.
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
->=20
->    Simon Wunderlich already disliked this workaround, but Antonio Quartul=
-li
->    tried to encourage an RFC implementation. I've prefered a textual
->    description rather than a patch missing explanations of the other
->    alternatives.
+#define BUFFER_LEN      70000   ///< Lenght of buffer
+#define LISTEN_PORT     32000   ///< Listen port
+#define MIN_PACKET_LEN      8   ///< Min lenght of a packet
+#define MAX_PACKET_LEN  65499   ///< Min lenght of a packet
+#define TIMEOUT             0   ///< Default wait_time between each 
+packet send
 
-Well, actually that doesn't sound so bad - I currently don't have an overvi=
-ew
-of how "big" this change would be - this one was one concern, the return co=
-de was
-another but it appears that this isn't a problem. If we don't add too much =
-bloat
-this one would probably the best alternative. At least as long as rtnl_unlo=
-ck()
-behaves like this. :)
+static int port         = LISTEN_PORT;
+static int minPacketLen = MIN_PACKET_LEN;
+static int maxPacketLen = MAX_PACKET_LEN;
+static int packetLen    = 0;
+static int wait_time    = TIMEOUT;
+static char *server     = NULL;
 
-What do others think?
+static void usage(const char *program)
+{
+     fprintf(stderr,"usage: %s [options]\n",program);
+     fprintf(stderr,"          -c <ipaddr>   Server IP address\n");
+     fprintf(stderr,"          -p <port>     Specify port number 
+(default: %d)\n", LISTEN_PORT);
+     fprintf(stderr,"          -t <waittime> wait time between each send 
+actions in usec\n");
+     fprintf(stderr,"          -m <min_len>  Min packet length (default: 
+%d)\n",MIN_PACKET_LEN);
+     fprintf(stderr,"          -M <max_len>  Mam packet length (default: 
+%d)\n",MAX_PACKET_LEN);
+     fprintf(stderr,"          -l <lenght>   Lengh of packet [%d < 
+<length> < %d). If no specified, variable packet is sent\n");
+     fprintf(stderr,"          -h            Show this help and exit\n");
+}
 
-Cheers,
-	Simon
+static void check_parameter(int argc, char **argv)
+{
+     int opt;
+     while ((opt = getopt(argc, argv, "c:l:t:p:m:M:h")) != -1) {
+         switch (opt) {
+             case 'c':
+                 server = optarg;
+                 break;
+             case 'p':
+                 port = atoi(optarg);
+                 if( port <= 0 ) {
+                     fprintf(stderr, "Wrong parameter -p");
+                     usage(argv[0]);
+                     exit(EXIT_FAILURE);
+                 }
+                 break;
+             case 't':
+                 wait_time = atoi(optarg);
+                 break;
+             case 'm':
+                 minPacketLen = atoi(optarg);
+                 if( minPacketLen < MIN_PACKET_LEN ) {
+                     fprintf(stderr, "Min packet length too low. Set to: 
+%d\n", MIN_PACKET_LEN);
+                     minPacketLen = MIN_PACKET_LEN;
+                 }
+                 break;
+             case 'M':
+                 maxPacketLen = atoi(optarg);
+                 if( maxPacketLen > MAX_PACKET_LEN ) {
+                     fprintf(stderr, "Max packet length too high. Set 
+to: %d\n", MAX_PACKET_LEN);
+                     maxPacketLen = MAX_PACKET_LEN;
+                 }
+                 break;
+             case 'l':
+                 packetLen = atoi(optarg);
+                 break;
+             case 'h':
+                 usage(argv[0]);
+                 exit(0);
+             default: /* '?' */
+                 fprintf(stderr, "Unrecognized parameter '%c'\n", opt);
+                 usage(argv[0]);
+                 exit(EXIT_FAILURE);
+         }
+     }
 
---6TrnltStXW4iwmi0
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+     if( server == NULL ) {
+         fprintf(stderr, "Wrong or missing -c parameter\n");
+         usage(argv[0]);
+         exit(EXIT_FAILURE);
+     }
+     if( minPacketLen > maxPacketLen ) {
+         fprintf(stderr, "minPacketLen could not be greather than 
+maxPacketLen: %d, %d\n", minPacketLen, maxPacketLen);
+         usage(argv[0]);
+         exit(EXIT_FAILURE);
+     }
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+     fprintf(stderr, "UDP Client - server: %s, port: %d, wait_time: %d", 
+server, port, wait_time);
+     if( packetLen > 0 ) {
+         fprintf(stderr, " - fixed packet len: %d bytes\n", packetLen);
+     } else {
+         fprintf(stderr, " - variable packet len from %d to %d bytes\n", 
+minPacketLen, maxPacketLen);
+     }
+}
 
-iEYEARECAAYFAlC/aTMACgkQrzg/fFk7axbKlACgnjjNH1uJrOhqx24KbU0O9z9z
-GM4AoO+YXnlmkY173Vob2a3B5Q4lXcSy
-=Axjf
------END PGP SIGNATURE-----
+static int sendAndCheck(int sockfd, struct sockaddr_in *servaddr, const 
+char *msg_tx, size_t msg_len) {
+     int t, n, iRetVal = 0;
+     char msg_rx[BUFFER_LEN];
+     socklen_t len = sizeof(*servaddr);
 
---6TrnltStXW4iwmi0--
+     t = sendto(sockfd, msg_tx, msg_len, 0, (struct sockaddr *)servaddr, 
+len);
+     fprintf(stderr, "TX [%d] bytes, ", msg_len, t);
+
+     n = recvfrom(sockfd,msg_rx,BUFFER_LEN,0,(struct sockaddr 
+*)servaddr,&len);
+     fprintf(stderr, "RX [%d] bytes - ",n);
+
+     if( t != n ) {
+         fprintf(stderr, "size differs!!!\n");
+         iRetVal = 0;
+     }
+
+     if( memcmp(msg_tx, msg_rx, msg_len) != 0 ) {
+         fprintf(stderr, "data = ko\n");
+         iRetVal = -1;
+     } else {
+         fprintf(stderr, "data = ok\n");
+     }
+
+
+     return iRetVal;
+}
+
+static int fixed_send(int sockfd, struct sockaddr_in *servaddr)
+{
+     int i = 0, iRetVal = 0;
+     char msg_tx[BUFFER_LEN];
+
+     memset(msg_tx,sizeof(msg_tx),'a');
+
+     while(1) {
+         fprintf(stderr, "[%d] - ",i);
+         if( sendAndCheck(sockfd, servaddr, msg_tx, packetLen) != 0 ) {
+             break;
+         }
+
+         usleep(wait_time);
+         i++;
+     }
+     return iRetVal;
+}
+
+static int variable_send(int sockfd, struct sockaddr_in *servaddr)
+{
+     int i, iRetVal = 0;
+     char msg_tx[BUFFER_LEN];
+
+     memset(msg_tx,sizeof(msg_tx),'a');
+
+     for ( i = 0; i <= maxPacketLen - minPacketLen; i++) {
+         fprintf(stderr, "[%d] - ",i);
+         if( sendAndCheck(sockfd, servaddr, msg_tx, minPacketLen+i) != 0 ) {
+             break;
+         }
+
+         usleep(wait_time);
+     }
+     return iRetVal;
+}
+
+int main(int argc, char**argv)
+{
+     int sockfd;
+     struct sockaddr_in servaddr;
+
+     check_parameter(argc,argv);
+
+     bzero(&servaddr,sizeof(servaddr));
+     servaddr.sin_family = AF_INET;
+     servaddr.sin_addr.s_addr=inet_addr(server);
+     servaddr.sin_port=htons(port);
+
+     sockfd = socket(AF_INET,SOCK_DGRAM,0);
+
+     //Opzionale
+     if( connect(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr)) 
+!= 0 ) {
+         fprintf(stderr, "Failed to connect\n");
+         exit(1);
+     }
+
+     if ( packetLen > 0 ) {
+         fixed_send(sockfd,&servaddr);
+     } else {
+         variable_send(sockfd,&servaddr);
+     }
+
+
+     return 0;
+}
+
+=================================================================
+/*
+  * UDP server
+  * Copyright 2012 SADEL SpA
+  * Castel Maggiore
+  * Bologna
+  * Italy
+  */
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
+#define BUFFER_LEN      70000   ///< Lenght of buffer
+#define LISTEN_PORT     32000   ///< Listen port
+#define TIMEOUT             0   ///< Default wait_time between each 
+packet send
+
+static int port         = LISTEN_PORT;
+static int wait_time    = TIMEOUT;
+
+static void usage(const char *program)
+{
+     fprintf(stderr,"usage: %s [options]\n",program);
+     fprintf(stderr,"          -p <port>     Specify port number 
+(default: %d)\n", LISTEN_PORT);
+     fprintf(stderr,"          -t <waittime> wait time between each send 
+actions in usec\n");
+     fprintf(stderr,"          -h            Show this help and exit\n");
+}
+
+static void check_parameter(int argc, char **argv)
+{
+     int opt;
+     while ((opt = getopt(argc, argv, "t:p:h")) != -1) {
+         switch (opt) {
+             case 'p':
+                 port = atoi(optarg);
+                 if( port <= 0 ) {
+                     fprintf(stderr, "Wrong parameter -p");
+                     usage(argv[0]);
+                     exit(EXIT_FAILURE);
+                 }
+                 break;
+             case 't':
+                 wait_time = atoi(optarg);
+                 break;
+             case 'h':
+                 usage(argv[0]);
+                 exit(0);
+             default: /* '?' */
+                 fprintf(stderr, "Unrecognized parameter '%c'\n", opt);
+                 usage(argv[0]);
+                 exit(EXIT_FAILURE);
+         }
+     }
+
+     fprintf(stderr, "UDP Server - port: %d, wait_time: %d\n", port, 
+wait_time);
+}
+
+int main(int argc, char**argv)
+{
+     int sockfd,n;
+     struct sockaddr_in servaddr,cliaddr;
+     socklen_t len;
+     char mesg[BUFFER_LEN];
+     int i = 1;
+     int t;
+
+     check_parameter(argc, argv);
+
+     sockfd=socket(AF_INET,SOCK_DGRAM,0);
+
+     bzero(&servaddr,sizeof(servaddr));
+     servaddr.sin_family = AF_INET;
+     servaddr.sin_addr.s_addr=htonl(INADDR_ANY);
+     servaddr.sin_port=htons(port);
+     bind(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr));
+
+     for (;;)
+     {
+         len = sizeof(cliaddr);
+         n = recvfrom(sockfd,mesg,BUFFER_LEN,0,(struct sockaddr 
+*)&cliaddr,&len);
+         fprintf(stderr, "[%d] - RX [%d] bytes ",i, n);
+         usleep(wait_time);
+         t = sendto(sockfd,mesg,n,0,(struct sockaddr 
+*)&cliaddr,sizeof(cliaddr));
+         fprintf(stderr, "- TX [%d] bytes\n",t);
+         mesg[n] = 0;
+         i++;
+     }
+}
+
+
