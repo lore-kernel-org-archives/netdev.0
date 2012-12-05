@@ -1,45 +1,36 @@
-From: Devendra C <devendra-stark@outlook.com>
-Subject: RE: kernel BUG at /build/buildd/linux-2.6.32/mm/mempolicy.c
-Date: Wed, 5 Dec 2012 22:16:02 +0530
-Message-ID: <COL002-W107B8681F385DB3959EF1DD85460@phx.gbl>
-References: <50BF66A0.1050503@eml.ru>
+From: David Miller <davem@davemloft.net>
+Subject: Re: WARNING: drivers/net/ethernet/dlink/sundance.o(.text+0x2e87):
+ Section mismatch in reference from the function sundance_probe1() to the
+ variable .devinit.rodata:sundance_pci_tbl
+Date: Wed, 05 Dec 2012 12:50:06 -0500 (EST)
+Message-ID: <20121205.125006.830180895260845549.davem@davemloft.net>
+References: <50be77ca.95imDYp6GlyHjRuw%fengguang.wu@intel.com>
+	<CAOJe8K3xBAuhVND-9dJgSxShhpHQ3zko=bE2CNrAKVa-gvDouA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Bokhan Artem <art@eml.ru>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Borislav Petkov (" <bp@alien8.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50BF66A0.1050503@eml.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fengguang.wu@intel.com, wfp5p@virginia.edu, netdev@vger.kernel.org,
+	gregkh@linuxfoundation.org
+To: kda@linux-powerpc.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35380 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752102Ab2LERuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 12:50:10 -0500
+In-Reply-To: <CAOJe8K3xBAuhVND-9dJgSxShhpHQ3zko=bE2CNrAKVa-gvDouA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Date: Wed, 5 Dec 2012 22:22:08 +0700
-> From: art@eml.ru
-> To: linux-kernel@vger.kernel.org
-> Subject: kernel BUG at /build/buildd/linux-2.6.32/mm/mempolicy.c
-> 
-> Hello.
-> 
-> We have several servers with mongodb running. Each server has several mongodb 
-> instances. Mongodb dataset is larger then availiable memory (mongodb uses 
-> memory-mapped files for all disk I/O).
-> 2.6.32 and 2.6.38 kernels periodically crash and crash happens only with mongodb 
-> servers.
-> 
-> 2.6.38's trace is in attachment.
-> For 2.6.32 I only have "kernel BUG at 
-> /build/buildd/linux-2.6.32/mm/mempolicy.c:1489!"
-> 
-> Heed help! :)
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Date: Wed, 5 Dec 2012 11:12:32 +0300
 
-Adding netdev to cc,
+> I"ll fix it.
 
-seems like the networking bug?
+You can't.
 
-if so please attach some tcpdump traces, lspci -vv -n, 
+It's only going to get fixed by a change in Greg KH's device tree
+which updates the PCI table macros to not use __dev* section tags.
 
-please forgive me if its not related to networking. :(
-
-thanks, 		 	   		  
+Fengguant, _PLEASE_, as Greg requested, stop reporting these section
+mismatch errors, they aren't helpful and are wasting valuable
+developer time.
