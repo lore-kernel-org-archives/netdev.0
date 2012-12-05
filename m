@@ -1,65 +1,161 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next 0/7] Allow to monitor multicast cache event via
- rtnetlink
-Date: Wed, 05 Dec 2012 12:02:50 +0100
-Message-ID: <50BF29DA.7020903@6wind.com>
-References: <1354619621-16016-1-git-send-email-nicolas.dichtel@6wind.com> <20121204.130914.1457976839967676240.davem@davemloft.net> <50BE56D3.2030704@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Wed, 5 Dec 2012 13:43:39 +0200
+Message-ID: <20121205114339.GA26649@redhat.com>
+References: <20121129215724.30020.69464.stgit@sifl>
+ <50BC7BCE.7000502@redhat.com>
+ <2549856.XZ72FtkyJK@sifl>
+ <7659411.O2Or69Bf6n@jason-thinkpad-t430s>
+ <20121204152420.GJ7499@redhat.com>
+ <50BEE6FA.1080507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f46.google.com ([209.85.214.46]:33819 "EHLO
-	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752549Ab2LELCy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 06:02:54 -0500
-Received: by mail-bk0-f46.google.com with SMTP id q16so2067055bkw.19
-        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 03:02:53 -0800 (PST)
-In-Reply-To: <50BE56D3.2030704@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Moore <pmoore@redhat.com>, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <50BEE6FA.1080507@redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 04/12/2012 21:02, Nicolas Dichtel a =E9crit :
-> Le 04/12/2012 19:09, David Miller a =E9crit :
->> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->> Date: Tue,  4 Dec 2012 12:13:34 +0100
->>
->>> The goal of this serie is to be able to monitor multicast activitie=
-s via
->>> rtnetlink.
->>>
->>> The main changes are:
->>>   - when user dumps mfc entries it now get all entries, included th=
-e unresolved
->>>     cache.
->>>   - kernel sends rtnetlink when it adds/deletes mfc entries.
->>>
->>> As usual, the patch against iproute2 will be sent once the patches =
-are
->>> included and
->>> net-next merged. I can send it on demand.
->>
->> This looks good, applied, thanks Nicolas.
->>
->> The one thing I worry about are those 64-bit statistics.  I fear tha=
-t they
->> not be 64-bit aligned in the final netlink message.  This matters on=
- cpus
->> that trap on unaligned loads/stores, such as sparc and MIPS.
->>
->> Can you validate this?
->>
-> I can have a try on a tile platform. I don't have access to sparc or =
-mips.
-Hmm, I've read arm instead of mips! So I've tried on mips. Data are ali=
-gned on=20
-32-bit, like for all netlink messages. nla_put_u64() will do the same, =
-as it=20
-calls nla_put().
+On Wed, Dec 05, 2012 at 02:17:30PM +0800, Jason Wang wrote:
+> On 12/04/2012 11:24 PM, Michael S. Tsirkin wrote:
+> > On Tue, Dec 04, 2012 at 09:24:43PM +0800, Jason Wang wrote:
+> >> On Monday, December 03, 2012 11:22:29 AM Paul Moore wrote:
+> >>> On Monday, December 03, 2012 06:15:42 PM Jason Wang wrote:
+> >>>> On 11/30/2012 06:06 AM, Paul Moore wrote:
+> >>>>> This patch corrects some problems with LSM/SELinux that were introduced
+> >>>>> with the multiqueue patchset.  The problem stems from the fact that the
+> >>>>> multiqueue work changed the relationship between the tun device and its
+> >>>>> associated socket; before the socket persisted for the life of the
+> >>>>> device, however after the multiqueue changes the socket only persisted
+> >>>>> for the life of the userspace connection (fd open).  For non-persistent
+> >>>>> devices this is not an issue, but for persistent devices this can cause
+> >>>>> the tun device to lose its SELinux label.
+> >>>>>
+> >>>>> We correct this problem by adding an opaque LSM security blob to the
+> >>>>> tun device struct which allows us to have the LSM security state, e.g.
+> >>>>> SELinux labeling information, persist for the lifetime of the tun
+> >>>>> device.
+> >>> ...
+> >>>
+> >>>>> -static int selinux_tun_dev_attach(struct sock *sk)
+> >>>>> +static int selinux_tun_dev_attach(struct sock *sk, void *security)
+> >>>>>
+> >>>>>  {
+> >>>>>
+> >>>>> +	struct tun_security_struct *tunsec = security;
+> >>>>>
+> >>>>>  	struct sk_security_struct *sksec = sk->sk_security;
+> >>>>>  	u32 sid = current_sid();
+> >>>>>  	int err;
+> >>>>>
+> >>>>> +	/* we don't currently perform any NetLabel based labeling here ...
+> >>>>>
+> >>>>>  	err = avc_has_perm(sid, sksec->sid, SECCLASS_TUN_SOCKET,
+> >>>>>  	
+> >>>>>  			   TUN_SOCKET__RELABELFROM, NULL);
+> >>>>>  	
+> >>>>>  	if (err)
+> >>>>>  	
+> >>>>>  		return err;
+> >>>>>
+> >>>>> -	err = avc_has_perm(sid, sid, SECCLASS_TUN_SOCKET,
+> >>>>> +	err = avc_has_perm(sid, tunsec->sid, SECCLASS_TUN_SOCKET,
+> >>>>>
+> >>>>>  			   TUN_SOCKET__RELABELTO, NULL);
+> >>>>>  	
+> >>>>>  	if (err)
+> >>>>>  	
+> >>>>>  		return err;
+> >>>>>
+> >>>>> -	sksec->sid = sid;
+> >>>>> +	sksec->sid = tunsec->sid;
+> >>>>> +	sksec->sclass = SECCLASS_TUN_SOCKET;
+> >>>> I'm not sure whether this is correct, looks like we need to differ between
+> >>>> TUNSETQUEUE and TUNSETIFF. When userspace call TUNSETIFF for persistent
+> >>>> device, looks like we need change the sid of tunsec like in the past.
+> >>> It may be that I'm misunderstanding TUNSETQUEUE and/or TUNSETIFF.  Can you
+> >>> elaborate as to why they should be different?
+> >> If I understand correctly, before multiqueue patchset, TUNSETIFF is used to:
+> >>
+> >> 1) Create the tun/tap network device
+> >> 2) For persistent device, re-attach the fd to the network device / socket. In 
+> >> this case, we call selinux_tun_dev_attch() to relabel the socket sid (in fact 
+> >> also the device's since the socket were persistent also) to the sid of process 
+> >> that calls TUNSETIFF.
+> >>
+> >> So, after the changes of multiqueue, we need try to preserve those policy. The 
+> >> interesting part is the introducing of TUNSETQUEUE, it's used to attach more 
+> >> file descriptors/sockets to a tun/tap device after at least one file descriptor 
+> >> were attached to the tun/tap device through TUNSETIFF. So I think maybe we 
+> >> need differ those two ioctls. This patch looks fine for TUNSETQUEUE, but for 
+> >> TUNSETIFF, we need relabel the tunsec to the process that calling TUNSETIFF 
+> >> for persistent device?
+> > Basically, it looks like currently once you get a tun fd,
+> > you can attach it to any device even if normally
+> > selinux would prevent you from accessing it.
+> 
+> Yes some checking during TUNSETQUEUE is missed.
+> > If we reuse selinux_tun_dev_attach, we won't need to
+> > change selinux policy, with a new capability we will need to change it
+> > to allow libvirt to do TUNSETQUEUE.
+> >
+> 
+> Also needed for qemu too since it may call TUNSETQUEUE when guest wants
+> to change the number of queues.
 
-And the kernel will only use memcpy() to treat this attribute. Reader w=
-ill be in=20
-userland.
+Hmm that's nasty. If you allow qemu to do TUNSETQUEUE then how
+do you prevent it from attaching to some other tun?
+Maybe we can extend TUNSETQUEUE or add another ioctl to
+mark a queue active/inactive? Probably control transmit
+and receive being active separately as well.
+
+> >> btw. Current code does allow calling TUNSETQUEUE to a persistent tun/tap 
+> >> device with no file attached. It should be a bug and need to be fixed.
+> > Is this a problem? You can always
+> > attach
+> > set queue
+> > detach
+> >
+> > and it would be hard to prevent this ...
+> 
+> Currently, the following steps is allowed:
+> 
+> 1. fd1 = open("/dev/net/tun");
+> 2. tunsetiff(fd1, "tap0");
+> 3. tunsetpersistent("tap0");
+> 4. close(fd1);
+> 5. fd2 = open("/dev/net/tun");
+> 6. tunsetqueue(fd2, "tap0);
+
+Allowed for libvirt, right? Not for qemu.
+
+> Looks like step 6 should be forbidden since:
+> 
+> - no fd/sockets were attached to the device, we need use TUNSETIFF
+> instead to keep the API as we used do in single queue tun
+> - we need update the security information in tun_struct just like what
+> we discussed in this mail
+> - it may also miss checks in TUNSETIFF
+
+We need to fix the checks anyway. Basically if you allow
+a queue to be the only fd that is attached
+(and I don't see how you can prevent this since
+userspace does not expect close to fail),
+I don't see why one way to get to this state
+should be legal and another illegal.
+
+The rest is implementation detail.
+
+> >>> One thing that I think we probably should change is the relabelto/from
+> >>> permissions in the function above (selinux_tun_dev_attach()); in the case
+> >>> where the socket does not yet have a label, e.g. 'sksec->sid == 0', we
+> >>> should probably skip the relabel permissions since we want to assign the
+> >>> TUN device label regardless in this case.
+> >> I'm not familiar with the selinux, have a quick glance of the code, looks like 
+> >> the label has been initialized to SECINITSID_KERNEL in 
+> >> selinux_socket_post_create().
+> >>
+> >> Thanks
