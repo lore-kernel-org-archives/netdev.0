@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 1/8] bna: Code Cleanup and Enhancements
-Date: Wed, 5 Dec 2012 15:01:03 -0800
-Message-ID: <1354748470-26293-2-git-send-email-rmody@brocade.com>
+Subject: [net-next 7/8] bna: Firmware Image Naming Change
+Date: Wed, 5 Dec 2012 15:01:09 -0800
+Message-ID: <1354748470-26293-8-git-send-email-rmody@brocade.com>
 References: <1354748470-26293-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,132 +9,40 @@ Cc: <adapter_linux_open_src_team@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:46626 "EHLO
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:46622 "EHLO
 	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751667Ab2LEXXA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 18:23:00 -0500
+	by vger.kernel.org with ESMTP id S1751029Ab2LEXW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 18:22:59 -0500
 In-Reply-To: <1354748470-26293-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
- -      Remove unnecessary prefetch
- -      Simplify checking & comparison of CQ flags
- -      Dereference & store unmap_array, unmap_cons & current unmap_array
-        element only once
- -      Make structures tx_config & rx_config cache line aligned.
+        Modified the firmware naming convention to contain the firmware image
+version (3.1.0.0). The new convention is <firmware-image>-<firmware-version>.bin
+The change will enforce loading only compatible firmware with this driver and
+also avoid over-writing the old firmware image in-order to load new version
+driver as the firmware names used to be the same.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bnad.c |   45 ++++++++++++++++++++-----------
- drivers/net/ethernet/brocade/bna/bnad.h |    4 +-
- 2 files changed, 31 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/brocade/bna/cna.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index b441f33..b7fb391 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -210,7 +210,6 @@ bnad_txcmpl_process(struct bnad *bnad,
- 	unmap_array = unmap_q->unmap_array;
- 	unmap_cons = unmap_q->consumer_index;
+diff --git a/drivers/net/ethernet/brocade/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
+index 32e8f17..14ca931 100644
+--- a/drivers/net/ethernet/brocade/bna/cna.h
++++ b/drivers/net/ethernet/brocade/bna/cna.h
+@@ -37,8 +37,8 @@
  
--	prefetch(&unmap_array[unmap_cons + 1]);
- 	while (wis) {
- 		skb = unmap_array[unmap_cons].skb;
+ extern char bfa_version[];
  
-@@ -383,6 +382,20 @@ bnad_refill_rxq(struct bnad *bnad, struct bna_rcb *rcb)
- 	}
- }
+-#define	CNA_FW_FILE_CT	"ctfw.bin"
+-#define	CNA_FW_FILE_CT2	"ct2fw.bin"
++#define CNA_FW_FILE_CT	"ctfw-3.1.0.0.bin"
++#define CNA_FW_FILE_CT2	"ct2fw-3.1.0.0.bin"
+ #define FC_SYMNAME_MAX	256	/*!< max name server symbolic name size */
  
-+#define flags_cksum_prot_mask (BNA_CQ_EF_IPV4 | BNA_CQ_EF_L3_CKSUM_OK | \
-+					BNA_CQ_EF_IPV6 | \
-+					BNA_CQ_EF_TCP | BNA_CQ_EF_UDP | \
-+					BNA_CQ_EF_L4_CKSUM_OK)
-+
-+#define flags_tcp4 (BNA_CQ_EF_IPV4 | BNA_CQ_EF_L3_CKSUM_OK | \
-+				BNA_CQ_EF_TCP | BNA_CQ_EF_L4_CKSUM_OK)
-+#define flags_tcp6 (BNA_CQ_EF_IPV6 | \
-+				BNA_CQ_EF_TCP | BNA_CQ_EF_L4_CKSUM_OK)
-+#define flags_udp4 (BNA_CQ_EF_IPV4 | BNA_CQ_EF_L3_CKSUM_OK | \
-+				BNA_CQ_EF_UDP | BNA_CQ_EF_L4_CKSUM_OK)
-+#define flags_udp6 (BNA_CQ_EF_IPV6 | \
-+				BNA_CQ_EF_UDP | BNA_CQ_EF_L4_CKSUM_OK)
-+
- static u32
- bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
- {
-@@ -390,15 +403,12 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
- 	struct bna_rcb *rcb = NULL;
- 	unsigned int wi_range, packets = 0, wis = 0;
- 	struct bnad_unmap_q *unmap_q;
--	struct bnad_skb_unmap *unmap_array;
-+	struct bnad_skb_unmap *unmap_array, *curr_ua;
- 	struct sk_buff *skb;
--	u32 flags, unmap_cons;
-+	u32 flags, unmap_cons, masked_flags;
- 	struct bna_pkt_rate *pkt_rt = &ccb->pkt_rate;
- 	struct bnad_rx_ctrl *rx_ctrl = (struct bnad_rx_ctrl *)(ccb->ctrl);
- 
--	if (!test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags))
--		return 0;
--
- 	prefetch(bnad->netdev);
- 	BNA_CQ_QPGE_PTR_GET(ccb->producer_index, ccb->sw_qpt, cmpl,
- 			    wi_range);
-@@ -416,12 +426,13 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
- 		unmap_array = unmap_q->unmap_array;
- 		unmap_cons = unmap_q->consumer_index;
- 
--		skb = unmap_array[unmap_cons].skb;
--		BUG_ON(!(skb));
--		unmap_array[unmap_cons].skb = NULL;
-+		curr_ua = &unmap_array[unmap_cons];
-+
-+		skb = curr_ua->skb;
-+		BUG_ON(!(skb));\
-+		curr_ua->skb = NULL;
- 		dma_unmap_single(&bnad->pcidev->dev,
--				 dma_unmap_addr(&unmap_array[unmap_cons],
--						dma_addr),
-+				 dma_unmap_addr(curr_ua, dma_addr),
- 				 rcb->rxq->buffer_size,
- 				 DMA_FROM_DEVICE);
- 		BNA_QE_INDX_ADD(unmap_q->consumer_index, 1, unmap_q->q_depth);
-@@ -452,13 +463,15 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
- 		}
- 
- 		skb_put(skb, ntohs(cmpl->length));
-+
-+		masked_flags = flags & flags_cksum_prot_mask;
-+
- 		if (likely
- 		    ((bnad->netdev->features & NETIF_F_RXCSUM) &&
--		     (((flags & BNA_CQ_EF_IPV4) &&
--		      (flags & BNA_CQ_EF_L3_CKSUM_OK)) ||
--		      (flags & BNA_CQ_EF_IPV6)) &&
--		      (flags & (BNA_CQ_EF_TCP | BNA_CQ_EF_UDP)) &&
--		      (flags & BNA_CQ_EF_L4_CKSUM_OK)))
-+		     ((masked_flags == flags_tcp4) ||
-+		      (masked_flags == flags_udp4) ||
-+		      (masked_flags == flags_tcp6) ||
-+		      (masked_flags == flags_udp6))))
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 		else
- 			skb_checksum_none_assert(skb);
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
-index d783392..65fe74e 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.h
-+++ b/drivers/net/ethernet/brocade/bna/bnad.h
-@@ -284,8 +284,8 @@ struct bnad {
- 	u8			tx_coalescing_timeo;
- 	u8			rx_coalescing_timeo;
- 
--	struct bna_rx_config rx_config[BNAD_MAX_RX];
--	struct bna_tx_config tx_config[BNAD_MAX_TX];
-+	struct bna_rx_config rx_config[BNAD_MAX_RX]____cacheline_aligned;
-+	struct bna_tx_config tx_config[BNAD_MAX_TX]____cacheline_aligned;
- 
- 	void __iomem		*bar0;	/* BAR0 address */
- 
+ #pragma pack(1)
 -- 
 1.7.1
