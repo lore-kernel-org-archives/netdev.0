@@ -1,88 +1,78 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/2 net-next] cnic: Fix rare race condition during iSCSI
- disconnect.
-Date: Wed, 5 Dec 2012 12:10:15 -0800
-Message-ID: <1354738215-6644-2-git-send-email-mchan@broadcom.com>
-References: <1354738215-6644-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 1/2 net-next] cnic: Reset iSCSI EQ during shutdown.
+Date: Wed, 5 Dec 2012 12:10:14 -0800
+Message-ID: <1354738215-6644-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4973 "EHLO mms3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3813 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752565Ab2LETzE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2012 14:55:04 -0500
-In-Reply-To: <1354738215-6644-1-git-send-email-mchan@broadcom.com>
+	id S1752131Ab2LETzD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2012 14:55:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eddie Wai <eddie.wai@broadcom.com>
+Without the reset, reloading the cnic driver can cause the iSCSI
+Event Queue to be out of sync with the driver and cause intermittent
+crash.
 
-If the initiator and target try to close the connection at about the same
-time, there is a race condition in the termination sequence for bnx2x.
-Fix the problem by waiting for the remote termination to complete before
-deleting the Connection ID.  This will prevent the firmware assert.
-
-Update version to 2.5.15.
-
-Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
+Acked-by: Ariel Elior <ariele@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/cnic.c    |   13 +++++++++++--
- drivers/net/ethernet/broadcom/cnic_if.h |    4 ++--
- 2 files changed, 13 insertions(+), 4 deletions(-)
+ .../net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h    |    5 +++++
+ drivers/net/ethernet/broadcom/cnic.c               |   19 +++++++++++++++++++
+ 2 files changed, 24 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+index 620fe93..60a83ad 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_fw_defs.h
+@@ -23,6 +23,11 @@
+ 	(IRO[159].base + ((funcId) * IRO[159].m1))
+ #define CSTORM_FUNC_EN_OFFSET(funcId) \
+ 	(IRO[149].base + ((funcId) * IRO[149].m1))
++#define CSTORM_HC_SYNC_LINE_INDEX_E1X_OFFSET(hcIndex, sbId) \
++	(IRO[139].base + ((hcIndex) * IRO[139].m1) + ((sbId) * IRO[139].m2))
++#define CSTORM_HC_SYNC_LINE_INDEX_E2_OFFSET(hcIndex, sbId) \
++	(IRO[138].base + (((hcIndex)>>2) * IRO[138].m1) + (((hcIndex)&3) \
++	* IRO[138].m2) + ((sbId) * IRO[138].m3))
+ #define CSTORM_IGU_MODE_OFFSET (IRO[157].base)
+ #define CSTORM_ISCSI_CQ_SIZE_OFFSET(pfId) \
+ 	(IRO[316].base + ((pfId) * IRO[316].m1))
 diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 2c1f66d..1c2a851 100644
+index cc8434f..2c1f66d 100644
 --- a/drivers/net/ethernet/broadcom/cnic.c
 +++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -3853,12 +3853,17 @@ static int cnic_cm_abort(struct cnic_sock *csk)
- 		return cnic_cm_abort_req(csk);
+@@ -5344,8 +5344,27 @@ static void cnic_stop_bnx2_hw(struct cnic_dev *dev)
+ static void cnic_stop_bnx2x_hw(struct cnic_dev *dev)
+ {
+ 	struct cnic_local *cp = dev->cnic_priv;
++	u32 hc_index = HC_INDEX_ISCSI_EQ_CONS;
++	u32 sb_id = cp->status_blk_num;
++	u32 idx_off, syn_off;
  
- 	/* Getting here means that we haven't started connect, or
--	 * connect was not successful.
-+	 * connect was not successful, or it has been reset by the target.
- 	 */
- 
- 	cp->close_conn(csk, opcode);
--	if (csk->state != opcode)
-+	if (csk->state != opcode) {
-+		/* Wait for remote reset sequence to complete */
-+		while (test_bit(SK_F_PG_OFFLD_COMPLETE, &csk->flags))
-+			msleep(1);
+ 	cnic_free_irq(dev);
 +
- 		return -EALREADY;
++	if (BNX2X_CHIP_IS_E2_PLUS(cp->chip_id)) {
++		idx_off = offsetof(struct hc_status_block_e2, index_values) +
++			  (hc_index * sizeof(u16));
++
++		syn_off = CSTORM_HC_SYNC_LINE_INDEX_E2_OFFSET(hc_index, sb_id);
++	} else {
++		idx_off = offsetof(struct hc_status_block_e1x, index_values) +
++			  (hc_index * sizeof(u16));
++
++		syn_off = CSTORM_HC_SYNC_LINE_INDEX_E1X_OFFSET(hc_index, sb_id);
 +	}
- 
- 	return 0;
- }
-@@ -3872,6 +3877,10 @@ static int cnic_cm_close(struct cnic_sock *csk)
- 		csk->state = L4_KCQE_OPCODE_VALUE_CLOSE_COMP;
- 		return cnic_cm_close_req(csk);
- 	} else {
-+		/* Wait for remote reset sequence to complete */
-+		while (test_bit(SK_F_PG_OFFLD_COMPLETE, &csk->flags))
-+			msleep(1);
++	CNIC_WR16(dev, BAR_CSTRORM_INTMEM + syn_off, 0);
++	CNIC_WR16(dev, BAR_CSTRORM_INTMEM + CSTORM_STATUS_BLOCK_OFFSET(sb_id) +
++		  idx_off, 0);
 +
- 		return -EALREADY;
- 	}
- 	return 0;
-diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
-index 865095a..502e11e 100644
---- a/drivers/net/ethernet/broadcom/cnic_if.h
-+++ b/drivers/net/ethernet/broadcom/cnic_if.h
-@@ -14,8 +14,8 @@
- 
- #include "bnx2x/bnx2x_mfw_req.h"
- 
--#define CNIC_MODULE_VERSION	"2.5.14"
--#define CNIC_MODULE_RELDATE	"Sep 30, 2012"
-+#define CNIC_MODULE_VERSION	"2.5.15"
-+#define CNIC_MODULE_RELDATE	"Dec 04, 2012"
- 
- #define CNIC_ULP_RDMA		0
- #define CNIC_ULP_ISCSI		1
+ 	*cp->kcq1.hw_prod_idx_ptr = 0;
+ 	CNIC_WR(dev, BAR_CSTRORM_INTMEM +
+ 		CSTORM_ISCSI_EQ_CONS_OFFSET(cp->pfid, 0), 0);
 -- 
 1.7.1
