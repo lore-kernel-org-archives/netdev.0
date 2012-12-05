@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/7] Allow to monitor multicast cache event
- via rtnetlink
-Date: Wed, 05 Dec 2012 12:54:53 -0500 (EST)
-Message-ID: <20121205.125453.1457654258131828976.davem@davemloft.net>
-References: <50BE56D3.2030704@6wind.com>
-	<50BF29DA.7020903@6wind.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B70DA@saturn3.aculab.com>
+Subject: Re: [PATCH] net: ICMPv6 packets transmitted on wrong interface if
+ nfmark is mangled
+Date: Wed, 05 Dec 2012 12:57:00 -0500 (EST)
+Message-ID: <20121205.125700.2246243377198648534.davem@davemloft.net>
+References: <CA+e04fjWMDE9xEApysFRprZDBdM3Ya2RHrxtoau7i+fxzGT8CQ@mail.gmail.com>
+	<20121203.170636.1325623456787407245.davem@davemloft.net>
+	<CA+e04fgiMDoaCx0fpdK5F6YfJ_CSOZ13q1fn9xs7De4JO02c6g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: David.Laight@ACULAB.COM
+Cc: pablo@netfilter.org, kaber@trash.net, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: dries.dewinter@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35429 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35443 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599Ab2LERyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 12:54:54 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70DA@saturn3.aculab.com>
+	with ESMTP id S1751599Ab2LER5C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 12:57:02 -0500
+In-Reply-To: <CA+e04fgiMDoaCx0fpdK5F6YfJ_CSOZ13q1fn9xs7De4JO02c6g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "David Laight" <David.Laight@ACULAB.COM>
-Date: Wed, 5 Dec 2012 11:41:33 -0000
+From: Dries De Winter <dries.dewinter@gmail.com>
+Date: Wed, 5 Dec 2012 14:41:59 +0100
 
-> Probably worth commenting that the 64bit items might only be 32bit aligned.
-> Just to stop anyone trying to read/write them with pointer casts.
+> My "noreroute" patch will not fix this. Therefore it's indeed maybe
+> better to add a simple check to ip6_route_me_harder(): not a check for
+> ICMPv6, but a check for (ipv6_addr_type(&iph->daddr) &
+> IPV6_ADDR_LINKLOCAL) instead. What do you think?
 
-Rather, let's not create this situation at all.
+What if a packet is rewritten from a non-link-local destination address
+into a link-local one?  Or vice versa?
 
-It's totally inappropriate to have special code to handle every single
-time we want to put 64-bit values into netlink messages.
-
-We need a real solution to this issue.
+Your test will fail in those cases.
