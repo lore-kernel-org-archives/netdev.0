@@ -1,58 +1,86 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: [PATCH net-next 2/2] net: doc: add default value for neighbour parameters
-Date: Wed, 05 Dec 2012 12:50:35 +0800
-Message-ID: <50BED29B.4050805@gmail.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [Suggestion] net/atm : for sprintf, need check the total write
+ length whether larger than a page.
+Date: Wed, 05 Dec 2012 12:56:45 +0800
+Message-ID: <50BED40D.9080100@asianux.com>
+References: <201212050357.qB53vHvT022706@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	NetDev <netdev@vger.kernel.org>, Shan Wei <shanwei88@gmail.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:62636 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753717Ab2LEEun (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 23:50:43 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so3363300pbc.19
-        for <netdev@vger.kernel.org>; Tue, 04 Dec 2012 20:50:42 -0800 (PST)
+Received: from intranet.asianux.com ([58.214.24.6]:28150 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752813Ab2LEEzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Dec 2012 23:55:52 -0500
+In-Reply-To: <201212050357.qB53vHvT022706@thirdoffive.cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <davidshan@tencent.com>
+=D3=DA 2012=C4=EA12=D4=C205=C8=D5 11:57, Chas Williams (CONTRACTOR) =D0=
+=B4=B5=C0:
+> In message <50BEA2CB.9000800@asianux.com>,Chen Gang writes:
+>>> -	for (i =3D 0; i < (ESI_LEN - 1); i++)
+>>> -		pos +=3D sprintf(pos, "%02x:", adev->esi[i]);
+>>> -	pos +=3D sprintf(pos, "%02x\n", adev->esi[i]);
+>>> =20
+>>> -	return pos - buf;
+>>> +	return scnprintf(buf, PAGE_SIZE, "%pM\n", adev->esi);
+>>>  }
+>>> =20
+>>
+>>  "%p" seems print a pointer, not contents of pointer (is it correct =
+?)
+>>  will it change the original display format to outside ?
+>=20
+> %pM means format this pointer as a mac address.  it didnt exist when =
+the
+> atm stack was originally written but can be used now to save a bit of
+> messy code.
+>=20
 
-Signed-off-by: Shan Wei <davidshan@tencent.com>
----
- Documentation/networking/ip-sysctl.txt |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+  it is my fault. thank you
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index c6d5fee..0462a71 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -30,16 +30,24 @@ neigh/default/gc_thresh3 - INTEGER
- 	Maximum number of neighbor entries allowed.  Increase this
- 	when using large numbers of interfaces and when communicating
- 	with large numbers of directly-connected peers.
-+	Default: 1024
- 
- neigh/default/unres_qlen_bytes - INTEGER
- 	The maximum number of bytes which may be used by packets
- 	queued for each	unresolved address by other network layers.
- 	(added in linux 3.3)
-+	Seting negative value is meaningless and will retrun error.
-+	Default: 65536 Bytes(64KB)
- 
- neigh/default/unres_qlen - INTEGER
- 	The maximum number of packets which may be queued for each
- 	unresolved address by other network layers.
- 	(deprecated in linux 3.3) : use unres_qlen_bytes instead.
-+	Prior to linux 3.3, the default value is 3 which may cause
-+	secluded packet loss. The current default value is calculated
-+	according to default value of unres_qlen_bytes and true size of
-+	packet.
-+	Default: 31
- 
- mtu_expires - INTEGER
- 	Time, in seconds, that cached PMTU information is kept.
--- 
-1.7.1
+  :-)
+
+
+>>> -		pos +=3D sprintf(pos, "\n");
+>>> +		count +=3D scnprintf(buf + count, PAGE_SIZE - count, "\n");
+> ..
+>>  need we judge whether count >=3D PAGE_SIZE ?
+>=20
+> count will eventually make PAGE_SIZE - count reach 0 at which point,
+> scnprintf() won't be able to write into the buffer.
+
+  I also think so.
+
+  I think, maybe it will be better to break the loop when we already
+know that "count >=3D PAGE_SIZE" (it can save waste looping, although i=
+t
+seems unlikly happen, for example, using unlikly(...) ).
+
+By the way:
+  will it be better that always let "\n" at the end ?
+  (if count =3D=3D PAGE_SIZE in a loop, we can not let "\n" at the end)=
+=2E
+
+
+
+  I think what I said above are minor, if you think, for this patch, do
+not need consider them, it is ok (at least for me, it is true).
+
+  :-)
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+>=20
+
+
+--=20
+Chen Gang
+
+Asianux Corporation
