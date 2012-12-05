@@ -1,48 +1,116 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH rfc] netfilter: two xtables matches
-Date: Wed, 5 Dec 2012 14:28:25 -0500
-Message-ID: <CA+FuTSeYvcdtNf7N=POD+RzsE01+WVsub6F_nqbn06RZyoWx8w@mail.gmail.com>
-References: <1354735339-13402-1-git-send-email-willemb@google.com>
+From: John Greene <jogreene@redhat.com>
+Subject: Re: [RFT PATCH] 8139cp: properly support change of MTU values [v2]
+Date: Wed, 05 Dec 2012 14:41:47 -0500
+Message-ID: <50BFA37B.5020502@redhat.com>
+References: <1354551573-23721-1-git-send-email-jogreene@redhat.com> <20121203.135200.1242505353532930826.davem@davemloft.net> <20121203204608.GA9815@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	pablo@netfilter.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	dwmw2@infradead.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:53757 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752966Ab2LET24 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 14:28:56 -0500
-Received: by mail-ie0-f174.google.com with SMTP id c11so8833198ieb.19
-        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 11:28:55 -0800 (PST)
-In-Reply-To: <1354735339-13402-1-git-send-email-willemb@google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59494 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754040Ab2LETmE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2012 14:42:04 -0500
+In-Reply-To: <20121203204608.GA9815@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Somehow, the first part of this email went missing. Not critical,
-but for completeness:
+On 12/03/2012 03:46 PM, Francois Romieu wrote:
+> David Miller <davem@davemloft.net> :
+> [...]
+>> I've applied this to net-next, if it triggers any problems we have
+>> some time to work it out before 3.8 is released.
+>
+> I have bounced the messages to David Woodhouse since he authored the
+> last 8139cp changes in net-next and owns the hardware to notice
+> regressions.
+>
+> My message of two days ago was wrong : it is not possible for the irq
+> handler to process a Tx event after the rings have been freed. Things
+> still look racy wrt netpoll though.
+>
+> Any objection against the patch below ?
+>
+> (I did not gotoize the dev == NULL test: it is really unlikely and
+> should go away).
+>
+> diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+> index 0da3f5e..57cd542 100644
+> --- a/drivers/net/ethernet/realtek/8139cp.c
+> +++ b/drivers/net/ethernet/realtek/8139cp.c
+> @@ -577,28 +577,30 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+>   {
+>   	struct net_device *dev = dev_instance;
+>   	struct cp_private *cp;
+> +	int handled = 0;
+>   	u16 status;
+>
+>   	if (unlikely(dev == NULL))
+>   		return IRQ_NONE;
+>   	cp = netdev_priv(dev);
+>
+> +	spin_lock(&cp->lock);
+> +
+>   	status = cpr16(IntrStatus);
+>   	if (!status || (status == 0xFFFF))
+> -		return IRQ_NONE;
+> +		goto out_unlock;
+> +
+> +	handled = 1;
+>
+>   	netif_dbg(cp, intr, dev, "intr, status %04x cmd %02x cpcmd %04x\n",
+>   		  status, cpr8(Cmd), cpr16(CpCmd));
+>
+>   	cpw16(IntrStatus, status & ~cp_rx_intr_mask);
+>
+> -	spin_lock(&cp->lock);
+> -
+>   	/* close possible race's with dev_close */
+>   	if (unlikely(!netif_running(dev))) {
+>   		cpw16(IntrMask, 0);
+> -		spin_unlock(&cp->lock);
+> -		return IRQ_HANDLED;
+> +		goto out_unlock;
+>   	}
+>
+>   	if (status & (RxOK | RxErr | RxEmpty | RxFIFOOvr))
+> @@ -612,8 +614,6 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+>   	if (status & LinkChg)
+>   		mii_check_media(&cp->mii_if, netif_msg_link(cp), false);
+>
+> -	spin_unlock(&cp->lock);
+> -
+>   	if (status & PciErr) {
+>   		u16 pci_status;
+>
+> @@ -625,7 +625,10 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+>   		/* TODO: reset hardware */
+>   	}
+>
+> -	return IRQ_HANDLED;
+> +out_unlock:
+> +	spin_unlock(&cp->lock);
+> +
+> +	return IRQ_RETVAL(handled);
+>   }
+>
+>   #ifdef CONFIG_NET_POLL_CONTROLLER
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+I think this is a good change, interesting it isn't in already or 
+causing more issues on multi-processor boxes already. (perhaps it is?).
 
-These two patches each add an xtables match.
+So do you think these patches need to go together? I could make a case 
+either way.
 
-The xt_priority match is a straighforward addition in the style of
-xt_mark, adding the option to filter on one more sk_buff field. I
-have an immediate application for this. The amount of code (in
-kernel + userspace) to add a single check proved quite large.
+Is this upstream yet?
 
-On Wed, Dec 5, 2012 at 2:22 PM, Willem de Bruijn <willemb@google.com> wrote:
-> The second patch is more speculative and aims to be a more general
-> workaround, as well as a performance optimization: support
-> (preferably JIT compiled) BPF programs as iptables match rules.
->
-> Potentially, the skb->priority match can be implemented by applying
-> only the second patch and adding a new BPF_S_ANC ancillary field to
-> Linux Socket Filters.
->
-> I also wrote corresponding userspace patches to iptables. The process
-> for submitting both kernel and user patches is not 100% clear to me.
-> Sending the kernel bits to both netdev and netfilter-devel for
-> initial feedback. Please correct me if you want it another way.
->
-> The patches apply to net-next.
->
+-- 
+John Greene
+jogreene@redhat.com
