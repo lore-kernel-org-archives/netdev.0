@@ -1,54 +1,56 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: WARNING: drivers/net/ethernet/dlink/sundance.o(.text+0x2e87):
- Section mismatch in reference from the function sundance_probe1() to the
- variable .devinit.rodata:sundance_pci_tbl
-Date: Wed, 5 Dec 2012 11:12:32 +0300
-Message-ID: <CAOJe8K3xBAuhVND-9dJgSxShhpHQ3zko=bE2CNrAKVa-gvDouA@mail.gmail.com>
-References: <50be77ca.95imDYp6GlyHjRuw%fengguang.wu@intel.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [Patch net-next] xfrm: add missing xfrm message types to selinux
+ perm table
+Date: Wed, 5 Dec 2012 09:14:06 +0100
+Message-ID: <20121205081406.GB18940@secunet.com>
+References: <1354693368-19494-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Bill Pemberton <wfp5p@virginia.edu>, netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: kbuild test robot <fengguang.wu@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Paris <eparis@parisplace.org>,
+	linux-security-module@secunet.com
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:47357 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751347Ab2LEIMd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 03:12:33 -0500
-Received: by mail-oa0-f46.google.com with SMTP id h16so4848757oag.19
-        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 00:12:32 -0800 (PST)
-In-Reply-To: <50be77ca.95imDYp6GlyHjRuw%fengguang.wu@intel.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:50980 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751809Ab2LEIOJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2012 03:14:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1354693368-19494-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I"ll fix it.
+Ccing Eric Paris and linux-security-module.
 
-Thanks.
-
-On 12/5/12, kbuild test robot <fengguang.wu@intel.com> wrote:
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-> master
-> head:   193c1e478cc496844fcbef402a10976c95a634ff
-> commit: 64bc40de134bb5c7826ff384016f654219ed3956 dlink: remove __dev*
-> attributes
-> date:   27 hours ago
-> config: make ARCH=x86_64 allmodconfig
->
-> All warnings:
->
-> WARNING: drivers/net/ethernet/dlink/sundance.o(.text+0x2e87): Section
-> mismatch in reference from the function sundance_probe1() to the variable
-> .devinit.rodata:sundance_pci_tbl
-> The function sundance_probe1() references
-> the variable __devinitconst sundance_pci_tbl.
-> This is often because sundance_probe1 lacks a __devinitconst
-> annotation or the annotation of sundance_pci_tbl is wrong.
->
+On Wed, Dec 05, 2012 at 03:42:48PM +0800, Cong Wang wrote:
+> SElinux perm table is not up-to-date.
+> 
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
 > ---
-> 0-DAY kernel build testing backend         Open Source Technology Center
-> Fengguang Wu, Yuanhan Liu                              Intel Corporation
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+> diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
+> index d309e7f..cc191bc 100644
+> --- a/security/selinux/nlmsgtab.c
+> +++ b/security/selinux/nlmsgtab.c
+> @@ -93,6 +93,13 @@ static struct nlmsg_perm nlmsg_xfrm_perms[] =
+>  	{ XFRM_MSG_FLUSHPOLICY,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+>  	{ XFRM_MSG_NEWAE,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+>  	{ XFRM_MSG_GETAE,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
+> +	{ XFRM_MSG_REPORT,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
+> +	{ XFRM_MSG_MIGRATE,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+> +	{ XFRM_MSG_NEWSADINFO,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+> +	{ XFRM_MSG_GETSADINFO,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
+> +	{ XFRM_MSG_NEWSPDINFO,	NETLINK_XFRM_SOCKET__NLMSG_WRITE },
+> +	{ XFRM_MSG_GETSPDINFO,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
+> +	{ XFRM_MSG_MAPPING,	NETLINK_XFRM_SOCKET__NLMSG_READ  },
+>  };
+>  
+>  static struct nlmsg_perm nlmsg_audit_perms[] =
+
+I'm not the maintainer of the file which this patch changes,
+but I could take it into the ipsec-next tree if the selinux
+people are fine with that.
