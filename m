@@ -1,61 +1,60 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] net/macb: Use non-coherent memory for rx buffers
-Date: Wed, 5 Dec 2012 09:35:39 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70D9@saturn3.aculab.com>
-References: <CAGhQ9VwWmP_B17LnAEqDHcL8Yd-s0C-Bf35z3+=vnJmK_NoCSw@mail.gmail.com> <1354536876-6274-1-git-send-email-nicolas.ferre@atmel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70D5@saturn3.aculab.com> <50BCA746.1020705@atmel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70D6@saturn3.aculab.com> <50BE2FEC.2070500@atmel.com>
+From: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+Subject: Re: [PATCH -next v2] ipw2200: return error code on error in ipw_wx_get_auth()
+Date: Wed, 5 Dec 2012 01:44:50 -0800
+Message-ID: <CA++WF2OmLMP3NHvN44yVzsnWEHjeZVGfgG9CfC2CkZGyNQFLLw@mail.gmail.com>
+References: <CAPgLHd_AN+Tr5EQFBZMH0FZCp6ESHVURZHvd9SuW=a2PYkPoXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	"Joachim Eastwood" <manabian@gmail.com>,
-	"Jean-Christophe PLAGNIOL-VILLARD" <plagnioj@jcrosoft.com>,
-	"Havard Skinnemoen" <havard@skinnemoen.net>
-To: "Nicolas Ferre" <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <50BE2FEC.2070500@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linville@tuxdriver.com, yongjun_wei@trendmicro.com.cn,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:46372 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751148Ab2LEJow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 04:44:52 -0500
+In-Reply-To: <CAPgLHd_AN+Tr5EQFBZMH0FZCp6ESHVURZHvd9SuW=a2PYkPoXw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> If I understand well, you mean that the call to:
-> 
-> 		dma_sync_single_range_for_device(&bp->pdev->dev, phys,
-> 				pg_offset, frag_len, DMA_FROM_DEVICE);
-> 
-> in the rx path after having copied the data to skb is not needed?
-> That is also the conclusion that I found after having thinking about
-> this again... I will check this.
+On 5 December 2012 00:08, Wei Yongjun <weiyj.lk@gmail.com> wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+> We have assinged error code to 'ret' when get auth from some
+> option is not supported but never used it, but we'd better return
+> the error code.
+>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-You need to make sure that the memory isn't in the data cache
-when you give the rx buffer back to the MAC.
-(and ensure the cpu doesn't read it until the rx is complete.)
-I've NFI what that dma_sync call does - you need to invalidate
-the cache lines.
- 
-> For the CRC, my driver is not using the CRC offloading feature for the
-> moment. So no CRC is written by the device.
+Looks fine, thanks.
 
-I was thinking it would matter if the MAC wrote the CRC into the
-buffer (even though it was excluded from the length).
-It doesn't - you only need to worry about data you've read.
+Stanislav.
 
-> > I was wondering if the code needs to do per page allocations?
-> > Perhaps that is necessary to avoid needing a large block of
-> > contiguous physical memory (and virtual addresses)?
-> 
-> The page management seems interesting for future management of RX
-> buffers as skb fragments: that will allow to avoid copying received data.
-
-Dunno - the complexities of such buffer loaning schemes often
-exceed the gain of avoiding the data copy.
-Using buffers allocated to the skb is a bit different - since
-you completely forget about the memory once you pass the skb
-upstream.
-
-Some quick sums indicate you might want to allocate 8k memory
-blocks and split into 5 buffers.
-
-	David
+> ---
+>  drivers/net/wireless/ipw2x00/ipw2200.c | 4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+> index 482f505..b0879ad 100644
+> --- a/drivers/net/wireless/ipw2x00/ipw2200.c
+> +++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+> @@ -6812,7 +6812,6 @@ static int ipw_wx_get_auth(struct net_device *dev,
+>         struct libipw_device *ieee = priv->ieee;
+>         struct lib80211_crypt_data *crypt;
+>         struct iw_param *param = &wrqu->param;
+> -       int ret = 0;
+>
+>         switch (param->flags & IW_AUTH_INDEX) {
+>         case IW_AUTH_WPA_VERSION:
+> @@ -6822,8 +6821,7 @@ static int ipw_wx_get_auth(struct net_device *dev,
+>                 /*
+>                  * wpa_supplicant will control these internally
+>                  */
+> -               ret = -EOPNOTSUPP;
+> -               break;
+> +               return -EOPNOTSUPP;
+>
+>         case IW_AUTH_TKIP_COUNTERMEASURES:
+>                 crypt = priv->ieee->crypt_info.crypt[priv->ieee->crypt_info.tx_keyidx];
+>
+>
