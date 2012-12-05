@@ -1,48 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCHv5] virtio-spec: virtio network device RFS support
-Date: Wed, 5 Dec 2012 20:39:26 +0000
-Message-ID: <1354739966.2655.25.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20121203105843.GA26194@redhat.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: [PATCH 06/12] cxgb3: Use standard #defines for PCIe Capability ASPM
+	fields
+Date: Wed, 05 Dec 2012 13:57:50 -0700
+Message-ID: <20121205205750.13851.10893.stgit@bhelgaas.mtv.corp.google.com>
+References: <20121205205724.13851.50508.stgit@bhelgaas.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>, <rusty@rustcorp.com.au>,
-	<virtualization@lists.linux-foundation.org>,
-	<netdev@vger.kernel.org>, <kvm@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org, Divy Le Ray <divy@chelsio.com>
+To: linux-pci@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:42298 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751980Ab2LEUja (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 15:39:30 -0500
-In-Reply-To: <20121203105843.GA26194@redhat.com>
+Received: from mail-ye0-f202.google.com ([209.85.213.202]:63434 "EHLO
+	mail-ye0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964819Ab2LEU5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 15:57:52 -0500
+Received: by mail-ye0-f202.google.com with SMTP id l7so677654yen.1
+        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 12:57:51 -0800 (PST)
+In-Reply-To: <20121205205724.13851.50508.stgit@bhelgaas.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-12-03 at 12:58 +0200, Michael S. Tsirkin wrote:
-> Add RFS support to virtio network device.
-> Add a new feature flag VIRTIO_NET_F_RFS for this feature, a new
-> configuration field max_virtqueue_pairs to detect supported number of
-> virtqueues as well as a new command VIRTIO_NET_CTRL_RFS to program
-> packet steering for unidirectional protocols.
-[...]
-> +Programming of the receive flow classificator is implicit.
-> + Transmitting a packet of a specific flow on transmitqX will cause incoming
-> + packets for this flow to be steered to receiveqX.
-> + For uni-directional protocols, or where no packets have been transmitted
-> + yet, device will steer a packet to a random queue out of the specified
-> + receiveq0..receiveqn.
-[...]
+Use the standard #defines rather than bare numbers for PCIe Capability
+ASPM fields.
 
-It doesn't seem like this is usable to implement accelerated RFS in the
-guest, though perhaps that doesn't matter.  On the host side, presumably
-you'll want vhost_net to do the equivalent of sock_rps_record_flow() -
-only without a socket?  But in any case, that requires an rxhash, so I
-don't see how this is supposed to work.
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+CC: Divy Le Ray <divy@chelsio.com>
+CC: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/chelsio/cxgb3/t3_hw.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+index aef45d3..3dee686 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+@@ -3307,7 +3307,7 @@ static void config_pcie(struct adapter *adap)
+ 	    G_NUMFSTTRNSEQRX(t3_read_reg(adap, A_PCIE_MODE));
+ 	log2_width = fls(adap->params.pci.width) - 1;
+ 	acklat = ack_lat[log2_width][pldsize];
+-	if (val & 1)		/* check LOsEnable */
++	if (val & PCI_EXP_LNKCTL_ASPM_L0S)	/* check LOsEnable */
+ 		acklat += fst_trn_tx * 4;
+ 	rpllmt = rpl_tmr[log2_width][pldsize] + fst_trn_rx * 4;
+ 
