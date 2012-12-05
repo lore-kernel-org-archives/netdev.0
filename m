@@ -1,91 +1,49 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 5/8] bna: Add RX State
-Date: Wed, 5 Dec 2012 15:01:07 -0800
-Message-ID: <1354748470-26293-6-git-send-email-rmody@brocade.com>
-References: <1354748470-26293-1-git-send-email-rmody@brocade.com>
+Subject: [net-next 0/8] bna: Driver Version Updated to 3.1.2.1
+Date: Wed, 5 Dec 2012 15:01:02 -0800
+Message-ID: <1354748470-26293-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <adapter_linux_open_src_team@brocade.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:43179 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:43185 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751667Ab2LEXZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 18:25:00 -0500
-In-Reply-To: <1354748470-26293-1-git-send-email-rmody@brocade.com>
+	by vger.kernel.org with ESMTP id S1751667Ab2LEXZD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 18:25:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change Details:
- -      BNA state machine for Rx in start_wait state moves it to stop_wait on
-        receipt of RX_E_STOP. In Rx stop_wait state, on receipt of
-                RX_E_STARTED event does enet stop
-                RX_E_STOPPED event does rx_cleanup_cbfn
-        rx_cleanup_cbfn in this case is called without post_cbfn. post_cbfn
-        happens only after RX_E_STARTED event is received in start_wait. Without
-        doing post_cbfn, NAPI remains disabled and in cleanup we try to disable
-        again causing endless wait. ifconfig process and other workers can thus
-        get stuck.
- -      Introducing start_stop_wait state for Rx. This state handles the case of
-        if post_cbfn is not done simply do stop without the cleanup.
+Hi Dave,
 
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c |   27 +++++++++++++++++++++++++-
- 1 files changed, 26 insertions(+), 1 deletions(-)
+        The following patch-set includes Tx Rx changes, bug fixes, firmware
+        naming change, code cleanup and enhancements.
 
-diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-index 4df6d4b..ea6f4a0 100644
---- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-+++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-@@ -1355,6 +1355,8 @@ bfa_fsm_state_decl(bna_rx, stopped,
- 	struct bna_rx, enum bna_rx_event);
- bfa_fsm_state_decl(bna_rx, start_wait,
- 	struct bna_rx, enum bna_rx_event);
-+bfa_fsm_state_decl(bna_rx, start_stop_wait,
-+	struct bna_rx, enum bna_rx_event);
- bfa_fsm_state_decl(bna_rx, rxf_start_wait,
- 	struct bna_rx, enum bna_rx_event);
- bfa_fsm_state_decl(bna_rx, started,
-@@ -1432,7 +1434,7 @@ static void bna_rx_sm_start_wait(struct bna_rx *rx,
- {
- 	switch (event) {
- 	case RX_E_STOP:
--		bfa_fsm_set_state(rx, bna_rx_sm_stop_wait);
-+		bfa_fsm_set_state(rx, bna_rx_sm_start_stop_wait);
- 		break;
- 
- 	case RX_E_FAIL:
-@@ -1488,6 +1490,29 @@ bna_rx_sm_rxf_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
- 
- }
- 
-+static void
-+bna_rx_sm_start_stop_wait_entry(struct bna_rx *rx)
-+{
-+}
-+
-+static void
-+bna_rx_sm_start_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
-+{
-+	switch (event) {
-+	case RX_E_FAIL:
-+	case RX_E_STOPPED:
-+		bfa_fsm_set_state(rx, bna_rx_sm_stopped);
-+		break;
-+
-+	case RX_E_STARTED:
-+		bna_rx_enet_stop(rx);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
- void
- bna_rx_sm_started_entry(struct bna_rx *rx)
- {
--- 
-1.7.1
+        This also updates the BNA driver to v3.1.2.1.
+
+        The patches have been compiled and tested against 3.7.0-rc3.
+
+Thanks,
+Rasesh
+
+Rasesh Mody (8):
+  bna: Code Cleanup and Enhancements
+  bna: Tx and Rx Optimizations
+  bna: TX Intr Coalescing Fix
+  bna: Rx Page Based Allocation
+  bna: Add RX State
+  bna: Add Stats Clear Counter
+  bna: Firmware Image Naming Change
+  bna: Driver Version Updated to 3.1.2.1
+
+ drivers/net/ethernet/brocade/bna/bfi_enet.h     |    1 +
+ drivers/net/ethernet/brocade/bna/bna.h          |    7 +
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h  |    3 +-
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c    |  138 +++--
+ drivers/net/ethernet/brocade/bna/bna_types.h    |    9 +-
+ drivers/net/ethernet/brocade/bna/bnad.c         |  937 +++++++++++++----------
+ drivers/net/ethernet/brocade/bna/bnad.h         |   66 +-
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    1 +
+ drivers/net/ethernet/brocade/bna/cna.h          |    4 +-
+ 9 files changed, 666 insertions(+), 500 deletions(-)
