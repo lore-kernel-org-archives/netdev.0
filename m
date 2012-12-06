@@ -1,55 +1,36 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH 1/2] tun: correctly report an error in tun_flow_init()
-Date: Thu, 06 Dec 2012 11:35:13 +0800
-Message-ID: <7532518.OI6gKAFHLF@jason-thinkpad-t430s>
-References: <20121129215724.30020.69464.stgit@sifl> <20121129220629.30020.99947.stgit@sifl> <2057175.PIsargdSHu@sifl>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH rfc] netfilter: two xtables matches
+Date: Thu, 6 Dec 2012 06:22:46 +0100
+Message-ID: <20121206052246.GA2905@1984>
+References: <1354735339-13402-1-git-send-email-willemb@google.com>
+ <CA+FuTSeYvcdtNf7N=POD+RzsE01+WVsub6F_nqbn06RZyoWx8w@mail.gmail.com>
+ <alpine.LNX.2.01.1212052100190.30908@nerf07.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <2057175.PIsargdSHu@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Willem de Bruijn <willemb@google.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, kaber@trash.net
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.01.1212052100190.30908@nerf07.vanv.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, December 05, 2012 11:02:04 AM Paul Moore wrote:
-> On Thursday, November 29, 2012 05:06:29 PM Paul Moore wrote:
-> > On error, the error code from tun_flow_init() is lost inside
-> > tun_set_iff(), this patch fixes this by assigning the tun_flow_init()
-> > error code to the "err" variable which is returned by
-> > the tun_flow_init() function on error.
-> > 
-> > Signed-off-by: Paul Moore <pmoore@redhat.com>
+On Wed, Dec 05, 2012 at 09:00:36PM +0100, Jan Engelhardt wrote:
+> On Wednesday 2012-12-05 20:28, Willem de Bruijn wrote:
 > 
-> Jason, we've had some good discussion around patch 2/2 but nothing on this
-> fix; can I assume you are okay with this patch?  If so I think we should go
-> ahead and apply this ...
-
-Yes, it looks good. Maybe we can separate this patch from this RFC series and 
-tag it as "net-next" to let David apply it soon.
-
-Thanks
+> >Somehow, the first part of this email went missing. Not critical,
+> >but for completeness:
+> >
+> >These two patches each add an xtables match.
+> >
+> >The xt_priority match is a straighforward addition in the style of
+> >xt_mark, adding the option to filter on one more sk_buff field. I
+> >have an immediate application for this. The amount of code (in
+> >kernel + userspace) to add a single check proved quite large.
 > 
-> > ---
-> > 
-> >  drivers/net/tun.c |    3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> > index 607a3a5..877ffe2 100644
-> > --- a/drivers/net/tun.c
-> > +++ b/drivers/net/tun.c
-> > @@ -1605,7 +1605,8 @@ static int tun_set_iff(struct net *net, struct file
-> > *file, struct ifreq *ifr)
-> > 
-> >  		tun_net_init(dev);
-> > 
-> > -		if (tun_flow_init(tun))
-> > +		err = tun_flow_init(tun);
-> > +		if (err < 0)
-> > 
-> >  			goto err_free_dev;
-> >  		
-> >  		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
+> Hm so yeah, can't we just place this in xt_mark.c?
+
+I don't feel this belongs to xt_mark at all.
