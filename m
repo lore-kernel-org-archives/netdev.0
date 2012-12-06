@@ -1,87 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCHv5] virtio-spec: virtio network device RFS support
-Date: Thu, 6 Dec 2012 20:03:14 +0000
-Message-ID: <1354824194.2828.6.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20121203105843.GA26194@redhat.com>
-	<1354739966.2655.25.camel@bwh-desktop.uk.solarflarecom.com>
-	<20121206081320.GD10837@redhat.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH 1/2] sctp: proc: protect bind_addr->address_list accesses
+ with rcu_read_lock()
+Date: Thu, 06 Dec 2012 15:07:20 -0500
+Message-ID: <50C0FAF8.6060706@gmail.com>
+References: <cover.1354821623.git.tgraf@suug.ch> <28cdea17e7b2c0f9f9c2a18949b10abc8cb84db2.1354821623.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121206081320.GD10837@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	nhorman@tuxdriver.com, Thomas Graf <tgraf@redhat.com>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:42900 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751667Ab2LFUH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 15:07:26 -0500
+In-Reply-To: <28cdea17e7b2c0f9f9c2a18949b10abc8cb84db2.1354821623.git.tgraf@suug.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-12-06 at 10:13 +0200, Michael S. Tsirkin wrote:
-> On Wed, Dec 05, 2012 at 08:39:26PM +0000, Ben Hutchings wrote:
-> > On Mon, 2012-12-03 at 12:58 +0200, Michael S. Tsirkin wrote:
-> > > Add RFS support to virtio network device.
-> > > Add a new feature flag VIRTIO_NET_F_RFS for this feature, a new
-> > > configuration field max_virtqueue_pairs to detect supported number of
-> > > virtqueues as well as a new command VIRTIO_NET_CTRL_RFS to program
-> > > packet steering for unidirectional protocols.
-> > [...]
-> > > +Programming of the receive flow classificator is implicit.
-> > > + Transmitting a packet of a specific flow on transmitqX will cause incoming
-> > > + packets for this flow to be steered to receiveqX.
-> > > + For uni-directional protocols, or where no packets have been transmitted
-> > > + yet, device will steer a packet to a random queue out of the specified
-> > > + receiveq0..receiveqn.
-> > [...]
-> > 
-> > It doesn't seem like this is usable to implement accelerated RFS in the
-> > guest, though perhaps that doesn't matter.
-> 
-> What is the issue? Could you be more explicit please?
-> 
-> It seems to work pretty well: if we have
-> # of queues >= # of cpus, incoming TCP_STREAM into
-> guest scales very nicely without manual tweaks in guest.
-> 
-> The way it works is, when guest sends a packet driver
-> select the rx queue that we want to use for incoming
-> packets for this slow, and transmit on the matching tx queue.
-> This is exactly what text above suggests no?
+On 12/06/2012 02:25 PM, Thomas Graf wrote:
+> From: Thomas Graf <tgraf@redhat.com>
+>
+> address_list is protected via the socket lock or RCU. Since we don't want
+> to take the socket lock for each assoc we dump in procfs a RCU read-side
+> critical section must be entered.
+>
+> V2: Skip local addresses marked as dead
+>
+> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Yes, I get that.
+Acked-by: Vlad Yasevich <vyasevic@gmail.com>
 
-> >  On the host side, presumably
-> > you'll want vhost_net to do the equivalent of sock_rps_record_flow() -
-> > only without a socket?  But in any case, that requires an rxhash, so I
-> > don't see how this is supposed to work.
-> > 
-> > Ben.
-> 
-> Host should just do what guest tells it to.
-> On the host side we build up the steering table as we get packets
-> to transmit. See the code in drivers/net/tun.c in recent
-> kernels.
-> 
-> Again this actually works fine - what are the problems that you see?
-> Could you give an example please?
+-vlad
 
-I'm not saying it doesn't work in its own way, I just don't see how you
-would make it work with the existing RFS!
-
-Since this doesn't seem to be intended to have *any* connection with the
-existing core networking feature called RFS, perhaps you could find a
-different name for it.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> ---
+>   net/sctp/proc.c | 7 ++++++-
+>   1 file changed, 6 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> index 9966e7b..06b05ee 100644
+> --- a/net/sctp/proc.c
+> +++ b/net/sctp/proc.c
+> @@ -139,7 +139,11 @@ static void sctp_seq_dump_local_addrs(struct seq_file *seq, struct sctp_ep_commo
+>   	    primary = &peer->saddr;
+>   	}
+>
+> -	list_for_each_entry(laddr, &epb->bind_addr.address_list, list) {
+> +	rcu_read_lock();
+> +	list_for_each_entry_rcu(laddr, &epb->bind_addr.address_list, list) {
+> +		if (!laddr->valid)
+> +			continue;
+> +
+>   		addr = &laddr->a;
+>   		af = sctp_get_af_specific(addr->sa.sa_family);
+>   		if (primary && af->cmp_addr(addr, primary)) {
+> @@ -147,6 +151,7 @@ static void sctp_seq_dump_local_addrs(struct seq_file *seq, struct sctp_ep_commo
+>   		}
+>   		af->seq_dump_addr(seq, addr);
+>   	}
+> +	rcu_read_unlock();
+>   }
+>
+>   /* Dump remote addresses of an association. */
+>
