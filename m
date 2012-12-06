@@ -1,64 +1,61 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: at91sam9260 MACB problem with IP fragmentation
-Date: Thu, 6 Dec 2012 14:27:10 +0100
-Message-ID: <50C09D2E.8050608@atmel.com>
-References: <50C08233.9030905@erwinrol.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [net-next PATCH V3-evictor] net: frag evictor, avoid killing warm frag queues
+Date: Thu, 6 Dec 2012 13:29:13 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70E2@saturn3.aculab.com>
+References: <1354319937.20109.285.camel@edumazet-glaptop> <20121204133007.20215.52566.stgit@dragon> <1354699462.20888.207.camel@localhost> <1354796760.20888.217.camel@localhost> <20121206123248.GA24493@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	Havard Skinnemoen <havard@skinnemoen.net>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-	<matteo.fortini@sadel.it>, netdev <netdev@vger.kernel.org>
-To: Erwin Rol <mailinglists@erwinrol.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50C08233.9030905@erwinrol.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Thomas Graf" <tgraf@suug.ch>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	"Cong Wang" <amwang@redhat.com>,
+	"Herbert Xu" <herbert@gondor.hengli.com.au>
+To: "Florian Westphal" <fw@strlen.de>,
+	"Jesper Dangaard Brouer" <jbrouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:44034 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755022Ab2LFNae convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 08:30:34 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 30451-07 for <netdev@vger.kernel.org>;
+ Thu,  6 Dec 2012 13:30:28 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20121206123248.GA24493@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Erwin,
+> Jesper Dangaard Brouer <jbrouer@redhat.com> wrote:
+> > CPUs are fighting for the same LRU head (inet_frag_queue) element,
+> > which is bad for scalability.  We could fix this by unlinking the
+> > element once a CPU graps it, but it would require us to change a
+> > read_lock to a write_lock, thus we might not gain much performance.
+> >
+> > I already (implicit) fix this is a later patch, where I'm moving the
+> > LRU lists to be per CPU.  So, I don't know if it's worth fixing.
+> 
+> Do you think its worth trying to remove the lru list altogether and
+> just evict from the hash in a round-robin fashion instead?
 
-On 12/06/2012 12:32 PM, Erwin Rol :
-> Hello Nicolas, Havard, all,
-> 
-> I have a very obscure problem with a at91sam9260 board (almost 1 to 1
-> copy of the Atmel EK).
-> 
-> The MACB seems to stall when I use large (>2 * MTU) UDP datagrams. The
-> test case is that a udp echo client (PC) sends datagrams with increasing
-> length to the AT91 until the max length of the UDP datagram is reached.
-> When there is no IP fragmentation everything is fine, but when the
-> datagrams are starting to get fragmented the AT91 will not reply
-> anymore. But as soon as some network traffic happens it goes on again,
-> and non of the data is lost.
-> 
-> With wireshark the effect can be easily seen (192.168.1.4 is the PC echo
-> client, and 192.168.1.133 is the at91 echo server) After the first
-> request there comes no reply. After a 5 second timeout the second
-> request is send. And then both replies are returned.
-> 
-> When I enabled debugging output it all started to work. So I tried some
-> udelays in the driver instead of printk and with a 1ms delay in the irq
-> handler it started working. Of course that is an unacceptable fix, but
-> it looks like that is some weird race condition that causes the sending
-> to stall. The only difference with normal MTU sized datagrams I can
-> think of is that the fragmented packets can be passed very quickly to
-> the macb tx function, because the kernel has all 5 skb's ready.
-> 
-> I would be very interested to hear if someone else could reproduce this
-> problem. Or even better, has seen this problem and has a fix for it.
-> 
-> I tried several kernels including the test version from Nicolas that he
-> posted on LKML in October. They all show the same effect.
+Round-robin will be the same as LRU under overload - so have the
+same issues.
+Random might be better - especially if IP datagrams for which
+more than one in-sequence packet have been received are moved
+to a second structure.
+But you still need something to control the total memory use.
 
-[..]
+NFS/UDP is about the only thing that generates very large
+IP datagrams - and no one in their right mind runs that
+over non-local links.
 
-It seems that Matteo has the same behavior: check here:
-http://www.spinics.net/lists/netdev/msg218951.html
+For SMP you might hash to a small array of pointers (to fragments)
+each having its own lock. Only evict items with the same hash.
+Put the id in the array and you probably won't need to look at
+the actual fragment (saving a cache miss) unless it is the one
+you want.
 
-I am working on the macb driver right now, so I will try to reproduce
-and track this issue on my side.
-
-Best regards,
--- 
-Nicolas Ferre
+	David
