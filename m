@@ -1,44 +1,66 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: WARNING: drivers/net/ethernet/dlink/sundance.o(.text+0x2e87):
- Section mismatch in reference from the function sundance_probe1() to the
- variable .devinit.rodata:sundance_pci_tbl
-Date: Thu, 6 Dec 2012 10:16:46 +0800
-Message-ID: <20121206021646.GA8591@localhost>
-References: <50be77ca.95imDYp6GlyHjRuw%fengguang.wu@intel.com>
- <CAOJe8K3xBAuhVND-9dJgSxShhpHQ3zko=bE2CNrAKVa-gvDouA@mail.gmail.com>
- <20121205.125006.830180895260845549.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 6/8] bna: Add Stats Clear Counter
+Date: Thu, 6 Dec 2012 02:19:42 +0000
+Message-ID: <1354760382.17107.140.camel@deadeye.wl.decadent.org.uk>
+References: <1354748470-26293-1-git-send-email-rmody@brocade.com>
+	 <1354748470-26293-7-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kda@linux-powerpc.org, wfp5p@virginia.edu, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<adapter_linux_open_src_team@brocade.com>
+To: Rasesh Mody <rmody@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:9338 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753880Ab2LFCRq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Dec 2012 21:17:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20121205.125006.830180895260845549.davem@davemloft.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:49131 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752026Ab2LFCTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 21:19:48 -0500
+In-Reply-To: <1354748470-26293-7-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 05, 2012 at 12:50:06PM -0500, David Miller wrote:
-> From: Denis Kirjanov <kda@linux-powerpc.org>
-> Date: Wed, 5 Dec 2012 11:12:32 +0300
-> 
-> > I"ll fix it.
-> 
-> You can't.
-> 
-> It's only going to get fixed by a change in Greg KH's device tree
-> which updates the PCI table macros to not use __dev* section tags.
-> 
-> Fengguant, _PLEASE_, as Greg requested, stop reporting these section
-> mismatch errors, they aren't helpful and are wasting valuable
-> developer time.
+On Wed, 2012-12-05 at 15:01 -0800, Rasesh Mody wrote:
+> Added Stats clear counter to the bfi_enet_stats_mac structure and ethtool stats
+>  
+> Signed-off-by: Rasesh Mody <rmody@brocade.com>
 
-Dave, Greg: Sorry for the delay! I've just disabled these section
-mismatch warnings against *devinit*.
+Since this structure appears to be part of the firmware interface, you
+should combine this (and any other interface changes) with the change to
+the requested firmware version (7/8).
 
-Thanks,
-Fengguang
+Ben.
+
+> ---
+>  drivers/net/ethernet/brocade/bna/bfi_enet.h     |    1 +
+>  drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    1 +
+>  2 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/brocade/bna/bfi_enet.h b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+> index eef6e1f..7d10e33 100644
+> --- a/drivers/net/ethernet/brocade/bna/bfi_enet.h
+> +++ b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+> @@ -787,6 +787,7 @@ struct bfi_enet_stats_bpc {
+>  
+>  /* MAC Rx Statistics */
+>  struct bfi_enet_stats_mac {
+> +	u64 stats_clr_cnt;	/* times this stats cleared */
+>  	u64 frame_64;		/* both rx and tx counter */
+>  	u64 frame_65_127;		/* both rx and tx counter */
+>  	u64 frame_128_255;		/* both rx and tx counter */
+> diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> index 40e1e84..455b5a2 100644
+> --- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> +++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+> @@ -102,6 +102,7 @@ static const char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
+>  	"rx_unmap_q_alloc_failed",
+>  	"rxbuf_alloc_failed",
+>  
+> +	"mac_stats_clr_cnt",
+>  	"mac_frame_64",
+>  	"mac_frame_65_127",
+>  	"mac_frame_128_255",
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
