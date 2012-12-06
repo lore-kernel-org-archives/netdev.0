@@ -1,35 +1,75 @@
-From: Wang YanQing <udknight@gmail.com>
-Subject: Re: [PATCH net 1/1] r8169: workaround for missing extended GigaMAC
- registers
-Date: Thu, 6 Dec 2012 15:38:42 +0800
-Message-ID: <20121206073842.GA3847@udknight>
-References: <20121205223452.GA24164@electric-eye.fr.zoreil.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv5] virtio-spec: virtio network device RFS support
+Date: Thu, 6 Dec 2012 10:13:20 +0200
+Message-ID: <20121206081320.GD10837@redhat.com>
+References: <20121203105843.GA26194@redhat.com>
+	<1354739966.2655.25.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Lee Chun-Yi <jlee@suse.com>, Hayes Wang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:48108 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932071Ab2LFHig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 02:38:36 -0500
-Received: by mail-da0-f46.google.com with SMTP id p5so2662482dak.19
-        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 23:38:36 -0800 (PST)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20121205223452.GA24164@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1354739966.2655.25.camel@bwh-desktop.uk.solarflarecom.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 05, 2012 at 11:34:52PM +0100, Francois Romieu wrote:
-> GigaMAC registers have been reported left unitialized in several
-> situations:
-> - after cold boot from power-off state
-> - after S3 resume
+On Wed, Dec 05, 2012 at 08:39:26PM +0000, Ben Hutchings wrote:
+> On Mon, 2012-12-03 at 12:58 +0200, Michael S. Tsirkin wrote:
+> > Add RFS support to virtio network device.
+> > Add a new feature flag VIRTIO_NET_F_RFS for this feature, a new
+> > configuration field max_virtqueue_pairs to detect supported number of
+> > virtqueues as well as a new command VIRTIO_NET_CTRL_RFS to program
+> > packet steering for unidirectional protocols.
+> [...]
+> > +Programming of the receive flow classificator is implicit.
+> > + Transmitting a packet of a specific flow on transmitqX will cause incoming
+> > + packets for this flow to be steered to receiveqX.
+> > + For uni-directional protocols, or where no packets have been transmitted
+> > + yet, device will steer a packet to a random queue out of the specified
+> > + receiveq0..receiveqn.
+> [...]
 > 
-> Tweaking rtl_hw_phy_config takes care of both.
-Hi Francois.
-Are you sure we will lost GigaMAC registers's content
-after NIC into PCI_D3hot state?
+> It doesn't seem like this is usable to implement accelerated RFS in the
+> guest, though perhaps that doesn't matter.
 
-Thanks
+What is the issue? Could you be more explicit please?
+
+It seems to work pretty well: if we have
+# of queues >= # of cpus, incoming TCP_STREAM into
+guest scales very nicely without manual tweaks in guest.
+
+The way it works is, when guest sends a packet driver
+select the rx queue that we want to use for incoming
+packets for this slow, and transmit on the matching tx queue.
+This is exactly what text above suggests no?
+
+>  On the host side, presumably
+> you'll want vhost_net to do the equivalent of sock_rps_record_flow() -
+> only without a socket?  But in any case, that requires an rxhash, so I
+> don't see how this is supposed to work.
+> 
+> Ben.
+
+Host should just do what guest tells it to.
+On the host side we build up the steering table as we get packets
+to transmit. See the code in drivers/net/tun.c in recent
+kernels.
+
+Again this actually works fine - what are the problems that you see?
+Could you give an example please?
+
+> -- 
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
