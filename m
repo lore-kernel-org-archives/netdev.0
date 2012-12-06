@@ -1,96 +1,52 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net next] team: remove team parameter from port_enter callback.
-Date: Thu,  6 Dec 2012 15:09:42 +0200
-Message-ID: <1354799382-23808-1-git-send-email-ramirose@gmail.com>
-Cc: jiri@resnulli.us, netdev@vger.kernel.org,
-	Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [PATCH] tulip: Fix compiler warning when CONFIG_DEBUG_SECTION_MISMATCH=y
+Date: Thu,  6 Dec 2012 14:04:27 +0100
+Message-ID: <1354799067-25680-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: netdev@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:36337 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191Ab2LFNKm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 08:10:42 -0500
-Received: by mail-wi0-f174.google.com with SMTP id hm9so590291wib.1
-        for <netdev@vger.kernel.org>; Thu, 06 Dec 2012 05:10:41 -0800 (PST)
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:44041 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752917Ab2LFNOE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 08:14:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes an unused parameter (team) from port_enter callback in 
-team_mode_ops and fixes accordingly its invocations in 3 modes and in team.c.
+WARNING: drivers/net/ethernet/dec/tulip/tulip.o(.text+0x4057): Section
+mismatch in reference from the function tulip_init_one() to the variable
+.devinit.rodata:early_486_chipsets
+The function tulip_init_one() references
+the variable __devinitconst early_486_chipsets.
+This is often because tulip_init_one lacks a __devinitconst
+annotation or the annotation of early_486_chipsets is wrong.
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 ---
- drivers/net/team/team.c                  | 2 +-
- drivers/net/team/team_mode_broadcast.c   | 2 +-
- drivers/net/team/team_mode_loadbalance.c | 2 +-
- drivers/net/team/team_mode_roundrobin.c  | 2 +-
- include/linux/if_team.h                  | 2 +-
- 5 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/dec/tulip/tulip_core.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index ad86660..4203808 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -887,7 +887,7 @@ static int team_port_enter(struct team *team, struct team_port *port)
- 	dev_hold(team->dev);
- 	port->dev->priv_flags |= IFF_TEAM_PORT;
- 	if (team->ops.port_enter) {
--		err = team->ops.port_enter(team, port);
-+		err = team->ops.port_enter(port);
- 		if (err) {
- 			netdev_err(team->dev, "Device %s failed to enter team mode\n",
- 				   port->dev->name);
-diff --git a/drivers/net/team/team_mode_broadcast.c b/drivers/net/team/team_mode_broadcast.c
-index c5db428..c3840bc 100644
---- a/drivers/net/team/team_mode_broadcast.c
-+++ b/drivers/net/team/team_mode_broadcast.c
-@@ -46,7 +46,7 @@ static bool bc_transmit(struct team *team, struct sk_buff *skb)
- 	return sum_ret;
- }
+diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+index 157c8e6..6baec9c 100644
+--- a/drivers/net/ethernet/dec/tulip/tulip_core.c
++++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+@@ -1301,7 +1301,7 @@ DEFINE_PCI_DEVICE_TABLE(early_486_chipsets) = {
+ 	{ },
+ };
  
--static int bc_port_enter(struct team *team, struct team_port *port)
-+static int bc_port_enter(struct team_port *port)
+-static int tulip_init_one(struct pci_dev *pdev,
++static int __devinit tulip_init_one(struct pci_dev *pdev,
+ 			  const struct pci_device_id *ent)
  {
- 	return team_port_set_team_dev_addr(port);
+ 	struct tulip_private *tp;
+@@ -1970,7 +1970,7 @@ static void poll_tulip (struct net_device *dev)
  }
-diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
-index cdc31b5..1e84c77 100644
---- a/drivers/net/team/team_mode_loadbalance.c
-+++ b/drivers/net/team/team_mode_loadbalance.c
-@@ -614,7 +614,7 @@ static void lb_exit(struct team *team)
- 	kfree(lb_priv->ex);
- }
+ #endif
  
--static int lb_port_enter(struct team *team, struct team_port *port)
-+static int lb_port_enter(struct team_port *port)
- {
- 	struct lb_port_priv *lb_port_priv = get_lb_port_priv(port);
- 
-diff --git a/drivers/net/team/team_mode_roundrobin.c b/drivers/net/team/team_mode_roundrobin.c
-index 105135a..abe889e 100644
---- a/drivers/net/team/team_mode_roundrobin.c
-+++ b/drivers/net/team/team_mode_roundrobin.c
-@@ -64,7 +64,7 @@ drop:
- 	return false;
- }
- 
--static int rr_port_enter(struct team *team, struct team_port *port)
-+static int rr_port_enter(struct team_port *port)
- {
- 	return team_port_set_team_dev_addr(port);
- }
-diff --git a/include/linux/if_team.h b/include/linux/if_team.h
-index 0245def..3366453 100644
---- a/include/linux/if_team.h
-+++ b/include/linux/if_team.h
-@@ -105,7 +105,7 @@ struct team_mode_ops {
- 				       struct team_port *port,
- 				       struct sk_buff *skb);
- 	bool (*transmit)(struct team *team, struct sk_buff *skb);
--	int (*port_enter)(struct team *team, struct team_port *port);
-+	int (*port_enter)(struct team_port *port);
- 	void (*port_leave)(struct team *team, struct team_port *port);
- 	void (*port_change_dev_addr)(struct team *team, struct team_port *port);
- 	void (*port_enabled)(struct team *team, struct team_port *port);
+-static struct pci_driver tulip_driver = {
++static struct __devinitdata pci_driver tulip_driver = {
+ 	.name		= DRV_NAME,
+ 	.id_table	= tulip_pci_tbl,
+ 	.probe		= tulip_init_one,
 -- 
-1.7.11.7
+1.7.10.4
