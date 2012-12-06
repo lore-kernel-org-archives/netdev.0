@@ -1,66 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 6/8] bna: Add Stats Clear Counter
-Date: Thu, 6 Dec 2012 02:19:42 +0000
-Message-ID: <1354760382.17107.140.camel@deadeye.wl.decadent.org.uk>
-References: <1354748470-26293-1-git-send-email-rmody@brocade.com>
-	 <1354748470-26293-7-git-send-email-rmody@brocade.com>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: Re: [PATCH net-next] net: fix some compiler warning in net/core/neighbour.c
+Date: Thu, 06 Dec 2012 10:39:00 +0800
+Message-ID: <50C00544.7060307@gmail.com>
+References: <1354759444-4937-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<adapter_linux_open_src_team@brocade.com>
-To: Rasesh Mody <rmody@brocade.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Shan Wei <davidshan@tencent.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:49131 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752026Ab2LFCTs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 21:19:48 -0500
-In-Reply-To: <1354748470-26293-7-git-send-email-rmody@brocade.com>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:64300 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753811Ab2LFCjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 21:39:08 -0500
+Received: by mail-da0-f46.google.com with SMTP id p5so2558321dak.19
+        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 18:39:08 -0800 (PST)
+In-Reply-To: <1354759444-4937-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-12-05 at 15:01 -0800, Rasesh Mody wrote:
-> Added Stats clear counter to the bfi_enet_stats_mac structure and ethtool stats
->  
-> Signed-off-by: Rasesh Mody <rmody@brocade.com>
+Cong Wang said, at 2012/12/6 10:04:
+> From: Cong Wang <amwang@redhat.com>
+>=20
+> net/core/neighbour.c:65:12: warning: 'zero' defined but not used [-Wu=
+nused-variable]
+> net/core/neighbour.c:66:12: warning: 'unres_qlen_max' defined but not=
+ used [-Wunused-variable]
+>=20
+> These variables are only used when CONFIG_SYSCTL is defined,
+> so move them under #ifdef CONFIG_SYSCTL.
+>=20
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Cc: Shan Wei <davidshan@tencent.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Since this structure appears to be part of the firmware interface, you
-should combine this (and any other interface changes) with the change to
-the requested firmware version (7/8).
+Rapid response~~~ :-)
+Same patch in my tree=EF=BC=8Cand i see your patch when prepare to subm=
+it it.
 
-Ben.
+Acked-by: Shan Wei <davidshan@tencent.com>
 
-> ---
->  drivers/net/ethernet/brocade/bna/bfi_enet.h     |    1 +
->  drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    1 +
->  2 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/brocade/bna/bfi_enet.h b/drivers/net/ethernet/brocade/bna/bfi_enet.h
-> index eef6e1f..7d10e33 100644
-> --- a/drivers/net/ethernet/brocade/bna/bfi_enet.h
-> +++ b/drivers/net/ethernet/brocade/bna/bfi_enet.h
-> @@ -787,6 +787,7 @@ struct bfi_enet_stats_bpc {
->  
->  /* MAC Rx Statistics */
->  struct bfi_enet_stats_mac {
-> +	u64 stats_clr_cnt;	/* times this stats cleared */
->  	u64 frame_64;		/* both rx and tx counter */
->  	u64 frame_65_127;		/* both rx and tx counter */
->  	u64 frame_128_255;		/* both rx and tx counter */
-> diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-> index 40e1e84..455b5a2 100644
-> --- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-> +++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-> @@ -102,6 +102,7 @@ static const char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
->  	"rx_unmap_q_alloc_failed",
->  	"rxbuf_alloc_failed",
->  
-> +	"mac_stats_clr_cnt",
->  	"mac_frame_64",
->  	"mac_frame_65_127",
->  	"mac_frame_128_255",
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Best Regards
+Shan Wei
