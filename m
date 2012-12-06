@@ -1,85 +1,122 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Thu, 06 Dec 2012 10:36:11 -0500
-Message-ID: <10346047.LWlqqejLmO@sifl>
-References: <20121205202144.18626.61966.stgit@localhost> <20121205202619.18626.98778.stgit@localhost> <9040763.QsllgCP7TP@jason-thinkpad-t430s>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] inet_diag: fix oops for IPv4 AF_INET6 TCP SYN-RECV state
+Date: Thu,  6 Dec 2012 10:42:26 -0500
+Message-ID: <1354808546-644-1-git-send-email-ncardwell@google.com>
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49703 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752722Ab2LFPgP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2012 10:36:15 -0500
-In-Reply-To: <9040763.QsllgCP7TP@jason-thinkpad-t430s>
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:55520 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423892Ab2LFPma (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 10:42:30 -0500
+Received: by mail-vc0-f202.google.com with SMTP id m8so673526vcd.1
+        for <netdev@vger.kernel.org>; Thu, 06 Dec 2012 07:42:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, December 06, 2012 06:29:54 PM Jason Wang wrote:
-> On Wednesday, December 05, 2012 03:26:19 PM Paul Moore wrote:
-> > This patch corrects some problems with LSM/SELinux that were introduced
-> > with the multiqueue patchset.  The problem stems from the fact that the
-> > multiqueue work changed the relationship between the tun device and its
-> > associated socket; before the socket persisted for the life of the
-> > device, however after the multiqueue changes the socket only persisted
-> > for the life of the userspace connection (fd open).  For non-persistent
-> > devices this is not an issue, but for persistent devices this can cause
-> > the tun device to lose its SELinux label.
-> > 
-> > We correct this problem by adding an opaque LSM security blob to the
-> > tun device struct which allows us to have the LSM security state, e.g.
-> > SELinux labeling information, persist for the lifetime of the tun
-> > device.  In the process we tweak the LSM hooks to work with this new
-> > approach to TUN device/socket labeling and introduce a new LSM hook,
-> > security_tun_dev_create_queue(), to approve requests to create a new
-> > TUN queue via TUNSETQUEUE.
-> > 
-> > The SELinux code has been adjusted to match the new LSM hooks, the
-> > other LSMs do not make use of the LSM TUN controls.  This patch makes
-> > use of the recently added "tun_socket:create_queue" permission to
-> > restrict access to the TUNSETQUEUE operation.  On older SELinux
-> > policies which do not define the "tun_socket:create_queue" permission
-> > the access control decision for TUNSETQUEUE will be handled according
-> > to the SELinux policy's unknown permission setting.
-> > 
-> > Signed-off-by: Paul Moore <pmoore@redhat.com>
+Fix inet_diag to be aware of the fact that AF_INET6 TCP connections
+instantiated for IPv4 traffic and in the SYN-RECV state were actually
+created with inet_reqsk_alloc(), instead of inet6_reqsk_alloc(). This
+means that for such connections inet6_rsk(req) returns a pointer to a
+random spot in memory up to roughly 64KB beyond the end of the
+request_sock.
 
-...
+With this bug, for a server using AF_INET6 TCP sockets and serving
+IPv4 traffic, an inet_diag user like `ss state SYN-RECV` would lead to
+inet_diag_fill_req() causing an oops or the export to user space of 16
+bytes of kernel memory as a garbage IPv6 address, depending on where
+the garbage inet6_rsk(req) pointed.
 
-> > @@ -4425,20 +4452,19 @@ static void selinux_tun_dev_post_create(struct
-> > sock
-> > *sk) * cause confusion to the TUN user that had no idea network labeling *
-> > protocols were being used */
-> > 
-> > -	/* see the comments in selinux_tun_dev_create() about why we ...
-> > -
-> > -	sksec->sid = current_sid();
-> > +	sksec->sid = tunsec->sid;
-> 
-> Since both tun_set_iff() and tun_set_queue() would call this. I wonder when
-> it is called by tun_set_queue() we need some checking just like what we
-> done in v1, otherwise it's unconditionally in TUNSETQUEUE. Or we can add
-> them in selinux_tun_dev_create_queue()?
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/inet_diag.c |   53 ++++++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 39 insertions(+), 14 deletions(-)
 
-In all the cases that call tun_attach() we have a new socket which needs to be 
-labeled based on the tun->security label, yes?  That is what the 
-security_tun_dev_attach() code does, there is no need for access control at 
-this point as the operation has already been authorized by either 
-security_tun_dev_create() (new device), security_tun_dev_create_queue() (new 
-queue), or security_tun_dev_open() (opening persistent device).
-
-I think we are all set, or am I missing something?
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 0c34bfa..35c3de4 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -44,6 +44,10 @@ struct inet_diag_entry {
+ 	u16 dport;
+ 	u16 family;
+ 	u16 userlocks;
++#if IS_ENABLED(CONFIG_IPV6)
++	struct in6_addr saddr_storage;	/* for IPv4-mapped-IPv6 addresses */
++	struct in6_addr daddr_storage;	/* for IPv4-mapped-IPv6 addresses */
++#endif
+ };
  
-> >  	sksec->sclass = SECCLASS_TUN_SOCKET;
-> > 
-> > +
-> > +	return 0;
-> > 
-> >  }
-
+ static DEFINE_MUTEX(inet_diag_table_mutex);
+@@ -67,6 +71,36 @@ static inline void inet_diag_unlock_handler(
+ 	mutex_unlock(&inet_diag_table_mutex);
+ }
+ 
++
++/* Get the IPv4, IPv6, or IPv4-mapped-IPv6 local and remote addresses
++ * from a request_sock. For IPv4-mapped-IPv6 we must map IPv4 to IPv6.
++ */
++static inline void inet_diag_req_addrs(const struct sock *sk,
++				       const struct request_sock *req,
++				       struct inet_diag_entry *entry)
++{
++	struct inet_request_sock *ireq = inet_rsk(req);
++
++#if IS_ENABLED(CONFIG_IPV6)
++	if (sk->sk_family == AF_INET6) {
++		if (req->rsk_ops->family == AF_INET6) {
++			entry->saddr = inet6_rsk(req)->loc_addr.s6_addr32;
++			entry->daddr = inet6_rsk(req)->rmt_addr.s6_addr32;
++		} else if (req->rsk_ops->family == AF_INET) {
++			ipv6_addr_set_v4mapped(ireq->loc_addr,
++					       &entry->saddr_storage);
++			ipv6_addr_set_v4mapped(ireq->rmt_addr,
++					       &entry->daddr_storage);
++			entry->saddr = entry->saddr_storage.s6_addr32;
++			entry->daddr = entry->daddr_storage.s6_addr32;
++		}
++		return;
++	}
++#endif
++	entry->saddr = &ireq->loc_addr;
++	entry->daddr = &ireq->rmt_addr;
++}
++
+ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 			      struct sk_buff *skb, struct inet_diag_req_v2 *req,
+ 			      struct user_namespace *user_ns,		      	
+@@ -637,8 +671,10 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 	r->idiag_inode = 0;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	if (r->idiag_family == AF_INET6) {
+-		*(struct in6_addr *)r->id.idiag_src = inet6_rsk(req)->loc_addr;
+-		*(struct in6_addr *)r->id.idiag_dst = inet6_rsk(req)->rmt_addr;
++		struct inet_diag_entry entry;
++		inet_diag_req_addrs(sk, req, &entry);
++		memcpy(r->id.idiag_src, entry.saddr, sizeof(struct in6_addr));
++		memcpy(r->id.idiag_dst, entry.daddr, sizeof(struct in6_addr));
+ 	}
+ #endif
+ 
+@@ -691,18 +727,7 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
+ 				continue;
+ 
+ 			if (bc) {
+-				entry.saddr =
+-#if IS_ENABLED(CONFIG_IPV6)
+-					(entry.family == AF_INET6) ?
+-					inet6_rsk(req)->loc_addr.s6_addr32 :
+-#endif
+-					&ireq->loc_addr;
+-				entry.daddr =
+-#if IS_ENABLED(CONFIG_IPV6)
+-					(entry.family == AF_INET6) ?
+-					inet6_rsk(req)->rmt_addr.s6_addr32 :
+-#endif
+-					&ireq->rmt_addr;
++				inet_diag_req_addrs(sk, req, &entry);
+ 				entry.dport = ntohs(ireq->rmt_port);
+ 
+ 				if (!inet_diag_bc_run(bc, &entry))
 -- 
-paul moore
-security and virtualization @ redhat
+1.7.7.3
