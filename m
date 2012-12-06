@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 5/7] bna: Add RX State
-Date: Thu, 6 Dec 2012 15:17:46 -0800
-Message-ID: <1354835868-27016-6-git-send-email-rmody@brocade.com>
+Subject: [net-next 6/7] bna: Firmware update
+Date: Thu, 6 Dec 2012 15:17:47 -0800
+Message-ID: <1354835868-27016-7-git-send-email-rmody@brocade.com>
 References: <1354835868-27016-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,83 +10,69 @@ Cc: <bhutchings@solarflare.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:40265 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964884Ab2LFXS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 18:18:29 -0500
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:43192 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750979Ab2LFXSg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 18:18:36 -0500
 In-Reply-To: <1354835868-27016-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change Details:
- -      BNA state machine for Rx in start_wait state moves it to stop_wait on
-        receipt of RX_E_STOP. In Rx stop_wait state, on receipt of
-                RX_E_STARTED event does enet stop
-                RX_E_STOPPED event does rx_cleanup_cbfn
-        rx_cleanup_cbfn in this case is called without post_cbfn. post_cbfn
-        happens only after RX_E_STARTED event is received in start_wait. Without
-        doing post_cbfn, NAPI remains disabled and in cleanup we try to disable
-        again causing endless wait. ifconfig process and other workers can thus
-        get stuck.
- -      Introducing start_stop_wait state for Rx. This state handles the case of
-        if post_cbfn is not done simply do stop without the cleanup.
+ -      Added Stats clear counter to the bfi_enet_stats_mac structure and
+        ethtool stats
+ -      Modified the firmware naming convention to contain the firmware image
+        version (3.1.0.0). The new convention is
+        <firmware-image>-<firmware-version>.bin The change will enforce loading
+        only compatible firmware with this driver and also avoid over-writing
+        the old firmware image in-order to load new version driver as the
+        firmware names used to be the same.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c |   27 +++++++++++++++++++++++++-
- 1 files changed, 26 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/brocade/bna/bfi_enet.h     |    1 +
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    1 +
+ drivers/net/ethernet/brocade/bna/cna.h          |    4 ++--
+ 3 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-index 4df6d4b..ea6f4a0 100644
---- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-+++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-@@ -1355,6 +1355,8 @@ bfa_fsm_state_decl(bna_rx, stopped,
- 	struct bna_rx, enum bna_rx_event);
- bfa_fsm_state_decl(bna_rx, start_wait,
- 	struct bna_rx, enum bna_rx_event);
-+bfa_fsm_state_decl(bna_rx, start_stop_wait,
-+	struct bna_rx, enum bna_rx_event);
- bfa_fsm_state_decl(bna_rx, rxf_start_wait,
- 	struct bna_rx, enum bna_rx_event);
- bfa_fsm_state_decl(bna_rx, started,
-@@ -1432,7 +1434,7 @@ static void bna_rx_sm_start_wait(struct bna_rx *rx,
- {
- 	switch (event) {
- 	case RX_E_STOP:
--		bfa_fsm_set_state(rx, bna_rx_sm_stop_wait);
-+		bfa_fsm_set_state(rx, bna_rx_sm_start_stop_wait);
- 		break;
+diff --git a/drivers/net/ethernet/brocade/bna/bfi_enet.h b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+index eef6e1f..7d10e33 100644
+--- a/drivers/net/ethernet/brocade/bna/bfi_enet.h
++++ b/drivers/net/ethernet/brocade/bna/bfi_enet.h
+@@ -787,6 +787,7 @@ struct bfi_enet_stats_bpc {
  
- 	case RX_E_FAIL:
-@@ -1488,6 +1490,29 @@ bna_rx_sm_rxf_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
+ /* MAC Rx Statistics */
+ struct bfi_enet_stats_mac {
++	u64 stats_clr_cnt;	/* times this stats cleared */
+ 	u64 frame_64;		/* both rx and tx counter */
+ 	u64 frame_65_127;		/* both rx and tx counter */
+ 	u64 frame_128_255;		/* both rx and tx counter */
+diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+index 40e1e84..455b5a2 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
++++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
+@@ -102,6 +102,7 @@ static const char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
+ 	"rx_unmap_q_alloc_failed",
+ 	"rxbuf_alloc_failed",
  
- }
++	"mac_stats_clr_cnt",
+ 	"mac_frame_64",
+ 	"mac_frame_65_127",
+ 	"mac_frame_128_255",
+diff --git a/drivers/net/ethernet/brocade/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
+index 32e8f17..14ca931 100644
+--- a/drivers/net/ethernet/brocade/bna/cna.h
++++ b/drivers/net/ethernet/brocade/bna/cna.h
+@@ -37,8 +37,8 @@
  
-+static void
-+bna_rx_sm_start_stop_wait_entry(struct bna_rx *rx)
-+{
-+}
-+
-+static void
-+bna_rx_sm_start_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
-+{
-+	switch (event) {
-+	case RX_E_FAIL:
-+	case RX_E_STOPPED:
-+		bfa_fsm_set_state(rx, bna_rx_sm_stopped);
-+		break;
-+
-+	case RX_E_STARTED:
-+		bna_rx_enet_stop(rx);
-+		break;
-+
-+	default:
-+		bfa_sm_fault(event);
-+	}
-+}
-+
- void
- bna_rx_sm_started_entry(struct bna_rx *rx)
- {
+ extern char bfa_version[];
+ 
+-#define	CNA_FW_FILE_CT	"ctfw.bin"
+-#define	CNA_FW_FILE_CT2	"ct2fw.bin"
++#define CNA_FW_FILE_CT	"ctfw-3.1.0.0.bin"
++#define CNA_FW_FILE_CT2	"ct2fw-3.1.0.0.bin"
+ #define FC_SYMNAME_MAX	256	/*!< max name server symbolic name size */
+ 
+ #pragma pack(1)
 -- 
 1.7.1
