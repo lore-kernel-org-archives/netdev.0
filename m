@@ -1,50 +1,55 @@
-From: Shan Wei <shanwei88@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: doc: add default value for neighbour
- parameters
-Date: Thu, 06 Dec 2012 10:58:49 +0800
-Message-ID: <50C009E9.6050101@gmail.com>
-References: <50BED29B.4050805@gmail.com> <1354758235.17107.131.camel@deadeye.wl.decadent.org.uk>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH 1/2] tun: correctly report an error in tun_flow_init()
+Date: Thu, 06 Dec 2012 11:35:13 +0800
+Message-ID: <7532518.OI6gKAFHLF@jason-thinkpad-t430s>
+References: <20121129215724.30020.69464.stgit@sifl> <20121129220629.30020.99947.stgit@sifl> <2057175.PIsargdSHu@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	NetDev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:62370 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754608Ab2LFC65 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 21:58:57 -0500
-Received: by mail-pa0-f46.google.com with SMTP id bh2so4078564pad.19
-        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 18:58:57 -0800 (PST)
-In-Reply-To: <1354758235.17107.131.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: Paul Moore <pmoore@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <2057175.PIsargdSHu@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Hutchings said, at 2012/12/6 9:43:
->>  neigh/default/unres_qlen - INTEGER
->>  	The maximum number of packets which may be queued for each
->>  	unresolved address by other network layers.
->>  	(deprecated in linux 3.3) : use unres_qlen_bytes instead.
->> +	Prior to linux 3.3, the default value is 3 which may cause
->> +	secluded packet loss. The current default value is calculated
->           ^^^^^^^^
-> I think the proper word here is 'silent'?
- 
-The number of lost packets is recorded in unresolved_discards
-of /proc/net/stat/arp_cache. Although, arp_cache is not easy
-to understand(I still don't know why we need so many rows),
-We can confirm dropping event from unresolved_discards in last column.
-The dropping event is not marked by absence of sound.
+On Wednesday, December 05, 2012 11:02:04 AM Paul Moore wrote:
+> On Thursday, November 29, 2012 05:06:29 PM Paul Moore wrote:
+> > On error, the error code from tun_flow_init() is lost inside
+> > tun_set_iff(), this patch fixes this by assigning the tun_flow_init()
+> > error code to the "err" variable which is returned by
+> > the tun_flow_init() function on error.
+> > 
+> > Signed-off-by: Paul Moore <pmoore@redhat.com>
+> 
+> Jason, we've had some good discussion around patch 2/2 but nothing on this
+> fix; can I assume you are okay with this patch?  If so I think we should go
+> ahead and apply this ...
 
-But for general user who using TCP/UDP or ping to sending packets
-out, can't simply find the dropping reason that destination ip is unresolved.
-They just doubt about the TCP/UDP or ping. So I use 'secluded' which is hidden
-from general view.
+Yes, it looks good. Maybe we can separate this patch from this RFC series and 
+tag it as "net-next" to let David apply it soon.
 
-My English is not good enough, if missing something, please point to me.
-Thanks.
-
-Best Regards
-Shan Wei
+Thanks
+> 
+> > ---
+> > 
+> >  drivers/net/tun.c |    3 ++-
+> >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index 607a3a5..877ffe2 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -1605,7 +1605,8 @@ static int tun_set_iff(struct net *net, struct file
+> > *file, struct ifreq *ifr)
+> > 
+> >  		tun_net_init(dev);
+> > 
+> > -		if (tun_flow_init(tun))
+> > +		err = tun_flow_init(tun);
+> > +		if (err < 0)
+> > 
+> >  			goto err_free_dev;
+> >  		
+> >  		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
