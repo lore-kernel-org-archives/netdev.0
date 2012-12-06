@@ -1,40 +1,61 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] net : enable tx time stamping in the vde driver.
-Date: Thu, 06 Dec 2012 20:25:27 +0100
-Message-ID: <c4e79fec-779a-4ddf-8330-87e54486b4f8@email.android.com>
-References: <1354807505-21222-1-git-send-email-paul.chavent@onera.fr> <20121206185742.GA2175@netboy.at.omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: jdike@addtoit.com, user-mode-linux-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>,
-	Paul Chavent <Paul.Chavent@onera.fr>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 1/2] sctp: proc: protect bind_addr->address_list accesses with rcu_read_lock()
+Date: Thu,  6 Dec 2012 20:25:04 +0100
+Message-ID: <28cdea17e7b2c0f9f9c2a18949b10abc8cb84db2.1354821623.git.tgraf@suug.ch>
+References: <cover.1354821623.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com,
+	Thomas Graf <tgraf@redhat.com>
+To: linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.ns.miles-group.at ([95.130.255.143]:47834 "EHLO radon.swed.at"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755370Ab2LFTZK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2012 14:25:10 -0500
-In-Reply-To: <20121206185742.GA2175@netboy.at.omicron.at>
+Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:57178
+	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755412Ab2LFTZL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 14:25:11 -0500
+In-Reply-To: <cover.1354821623.git.tgraf@suug.ch>
+In-Reply-To: <cover.1354821623.git.tgraf@suug.ch>
+References: <cover.1354821623.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Thomas Graf <tgraf@redhat.com>
 
+address_list is protected via the socket lock or RCU. Since we don't want
+to take the socket lock for each assoc we dump in procfs a RCU read-side
+critical section must be entered.
 
-Richard Cochran <richardcochran@gmail.com> schrieb:
+V2: Skip local addresses marked as dead
 
->On Thu, Dec 06, 2012 at 04:25:05PM +0100, Paul Chavent wrote:
->> This new version moves the skb_tx_timestamp in the main uml
->> driver. This should avoid the need to call this function in each
->> transport (vde, slirp, tuntap, ...). It also add support for ethtool
->> get_ts_info.
->> 
->> Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
->
->Acked-by: Richard Cochran <richardcochran@gmail.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/sctp/proc.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-Queued for 3.8.
-
-Thanks,
-//richard
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 9966e7b..06b05ee 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -139,7 +139,11 @@ static void sctp_seq_dump_local_addrs(struct seq_file *seq, struct sctp_ep_commo
+ 	    primary = &peer->saddr;
+ 	}
+ 
+-	list_for_each_entry(laddr, &epb->bind_addr.address_list, list) {
++	rcu_read_lock();
++	list_for_each_entry_rcu(laddr, &epb->bind_addr.address_list, list) {
++		if (!laddr->valid)
++			continue;
++
+ 		addr = &laddr->a;
+ 		af = sctp_get_af_specific(addr->sa.sa_family);
+ 		if (primary && af->cmp_addr(addr, primary)) {
+@@ -147,6 +151,7 @@ static void sctp_seq_dump_local_addrs(struct seq_file *seq, struct sctp_ep_commo
+ 		}
+ 		af->seq_dump_addr(seq, addr);
+ 	}
++	rcu_read_unlock();
+ }
+ 
+ /* Dump remote addresses of an association. */
+-- 
+1.7.11.7
