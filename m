@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 3/7] bna: TX Intr Coalescing Fix
-Date: Thu, 6 Dec 2012 15:17:44 -0800
-Message-ID: <1354835868-27016-4-git-send-email-rmody@brocade.com>
+Subject: [net-next 5/7] bna: Add RX State
+Date: Thu, 6 Dec 2012 15:17:46 -0800
+Message-ID: <1354835868-27016-6-git-send-email-rmody@brocade.com>
 References: <1354835868-27016-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,51 +10,83 @@ Cc: <bhutchings@solarflare.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:43182 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S964884Ab2LFXSS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 18:18:18 -0500
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:40265 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964884Ab2LFXS3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 18:18:29 -0500
 In-Reply-To: <1354835868-27016-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change Details:
-        For Tx IB, IPM was enabled with inter_pkt_timeo of 0. This caused the
-Tx IB not to generate interrupt till inter_pkt_count of packets have been
-received. Correct definition for BFI_TX_INTERPKT_TIMEO & BFI_TX_INTERPKT_COUNT
+ -      BNA state machine for Rx in start_wait state moves it to stop_wait on
+        receipt of RX_E_STOP. In Rx stop_wait state, on receipt of
+                RX_E_STARTED event does enet stop
+                RX_E_STOPPED event does rx_cleanup_cbfn
+        rx_cleanup_cbfn in this case is called without post_cbfn. post_cbfn
+        happens only after RX_E_STARTED event is received in start_wait. Without
+        doing post_cbfn, NAPI remains disabled and in cleanup we try to disable
+        again causing endless wait. ifconfig process and other workers can thus
+        get stuck.
+ -      Introducing start_stop_wait state for Rx. This state handles the case of
+        if post_cbfn is not done simply do stop without the cleanup.
 
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/ethernet/brocade/bna/bna_hw_defs.h |    3 ++-
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c   |    2 +-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c |   27 +++++++++++++++++++++++++-
+ 1 files changed, 26 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-index b8c4e21..af3f7bb 100644
---- a/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-+++ b/drivers/net/ethernet/brocade/bna/bna_hw_defs.h
-@@ -46,7 +46,8 @@
- #define BFI_MAX_INTERPKT_COUNT		0xFF
- #define BFI_MAX_INTERPKT_TIMEO		0xF	/* in 0.5us units */
- #define BFI_TX_COALESCING_TIMEO		20	/* 20 * 5 = 100us */
--#define BFI_TX_INTERPKT_COUNT		32
-+#define BFI_TX_INTERPKT_COUNT		12	/* Pkt Cnt = 12 */
-+#define BFI_TX_INTERPKT_TIMEO		15	/* 15 * 0.5 = 7.5us */
- #define	BFI_RX_COALESCING_TIMEO		12	/* 12 * 5 = 60us */
- #define	BFI_RX_INTERPKT_COUNT		6	/* Pkt Cnt = 6 */
- #define	BFI_RX_INTERPKT_TIMEO		3	/* 3 * 0.5 = 1.5us */
 diff --git a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-index bb5467b..4df6d4b 100644
+index 4df6d4b..ea6f4a0 100644
 --- a/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
 +++ b/drivers/net/ethernet/brocade/bna/bna_tx_rx.c
-@@ -3569,7 +3569,7 @@ bna_tx_create(struct bna *bna, struct bnad *bnad,
- 		if (intr_info->intr_type == BNA_INTR_T_INTX)
- 			txq->ib.intr_vector = (1 <<  txq->ib.intr_vector);
- 		txq->ib.coalescing_timeo = tx_cfg->coalescing_timeo;
--		txq->ib.interpkt_timeo = 0; /* Not used */
-+		txq->ib.interpkt_timeo = BFI_TX_INTERPKT_TIMEO;
- 		txq->ib.interpkt_count = BFI_TX_INTERPKT_COUNT;
+@@ -1355,6 +1355,8 @@ bfa_fsm_state_decl(bna_rx, stopped,
+ 	struct bna_rx, enum bna_rx_event);
+ bfa_fsm_state_decl(bna_rx, start_wait,
+ 	struct bna_rx, enum bna_rx_event);
++bfa_fsm_state_decl(bna_rx, start_stop_wait,
++	struct bna_rx, enum bna_rx_event);
+ bfa_fsm_state_decl(bna_rx, rxf_start_wait,
+ 	struct bna_rx, enum bna_rx_event);
+ bfa_fsm_state_decl(bna_rx, started,
+@@ -1432,7 +1434,7 @@ static void bna_rx_sm_start_wait(struct bna_rx *rx,
+ {
+ 	switch (event) {
+ 	case RX_E_STOP:
+-		bfa_fsm_set_state(rx, bna_rx_sm_stop_wait);
++		bfa_fsm_set_state(rx, bna_rx_sm_start_stop_wait);
+ 		break;
  
- 		/* TCB */
+ 	case RX_E_FAIL:
+@@ -1488,6 +1490,29 @@ bna_rx_sm_rxf_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
+ 
+ }
+ 
++static void
++bna_rx_sm_start_stop_wait_entry(struct bna_rx *rx)
++{
++}
++
++static void
++bna_rx_sm_start_stop_wait(struct bna_rx *rx, enum bna_rx_event event)
++{
++	switch (event) {
++	case RX_E_FAIL:
++	case RX_E_STOPPED:
++		bfa_fsm_set_state(rx, bna_rx_sm_stopped);
++		break;
++
++	case RX_E_STARTED:
++		bna_rx_enet_stop(rx);
++		break;
++
++	default:
++		bfa_sm_fault(event);
++	}
++}
++
+ void
+ bna_rx_sm_started_entry(struct bna_rx *rx)
+ {
 -- 
 1.7.1
