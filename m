@@ -1,45 +1,31 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [net-next PATCH] tun: correctly report an error in tun_flow_init()
-Date: Thu, 06 Dec 2012 10:48:38 -0500
-Message-ID: <20121206154838.6073.17102.stgit@localhost>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: build failure of latest ethtool
+Date: Thu, 6 Dec 2012 18:06:14 +0200
+Message-ID: <50C0C276.5060809@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48250 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423972Ab2LFPsk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2012 10:48:40 -0500
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id qB6Fmd11011359
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 6 Dec 2012 10:48:39 -0500
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:57711 "HELO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932581Ab2LFQHe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 11:07:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On error, the error code from tun_flow_init() is lost inside
-tun_set_iff(), this patch fixes this by assigning the tun_flow_init()
-error code to the "err" variable which is returned by
-the tun_flow_init() function on error.
+Hi Ben,
 
-Signed-off-by: Paul Moore <pmoore@redhat.com>
----
- drivers/net/tun.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+FYI, building the latest ethtool git fails since sfpid.c is not present 
+in the Makefile. Once I built it manually and added to the linkage line, 
+ethtool  builds OK.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index a1b2389..14a0454 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1591,7 +1591,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 
- 		tun_net_init(dev);
- 
--		if (tun_flow_init(tun))
-+		err = tun_flow_init(tun);
-+		if (err < 0)
- 			goto err_free_dev;
- 
- 		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
+$ gcc -Wall -g -O2   -o ethtool ethtool.o amd8111e.o de2104x.o e100.o 
+e1000.o igb.o fec_8xx.o ibm_emac.o ixgb.o ixgbe.o natsemi.o pcnet32.o 
+realtek.o tg3.o marvell.o vioc.o smsc911x.o at76c50x-usb.o sfc.o 
+stmmac.o rxclass.o
+ethtool.o: In function `do_getmodule':
+/upstream/ethtool/ethtool.c:3616: undefined reference to `sff8079_show_all'
+collect2: ld returned 1 exit status
+make[1]: *** [ethtool] Error 1
