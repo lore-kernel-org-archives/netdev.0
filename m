@@ -1,175 +1,39 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2/2] sctp: Add RCU protection to assoc->transport_addr_list
-Date: Thu,  6 Dec 2012 20:25:05 +0100
-Message-ID: <93b74d9f3e36e0009e8ca77192f417bc9f3e8dea.1354821623.git.tgraf@suug.ch>
-References: <cover.1354821623.git.tgraf@suug.ch>
-Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com
-To: linux-sctp@vger.kernel.org
+Subject: Re: [PATCH] sctp: Add RCU protection to assoc->transport_addr_list
+Date: Thu, 6 Dec 2012 19:28:52 +0000
+Message-ID: <20121206192852.GG16122@casper.infradead.org>
+References: <16453bea94a6fc43d657139dff2ce0b5924e2a1f.1354817574.git.tgraf@suug.ch>
+ <50C0E585.1080701@gmail.com>
+ <20121206184433.GE16122@casper.infradead.org>
+ <50C0EAB5.3050303@gmail.com>
+ <20121206190835.GF16122@casper.infradead.org>
+ <50C0EE8E.3080505@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:57181
-	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755413Ab2LFTZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 14:25:12 -0500
-In-Reply-To: <cover.1354821623.git.tgraf@suug.ch>
-In-Reply-To: <cover.1354821623.git.tgraf@suug.ch>
-References: <cover.1354821623.git.tgraf@suug.ch>
+Received: from casper.infradead.org ([85.118.1.10]:43807 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946979Ab2LFT2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 14:28:53 -0500
+Content-Disposition: inline
+In-Reply-To: <50C0EE8E.3080505@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-peer.transport_addr_list is currently only protected by sk_sock
-which is inpractical to acquire for procfs dumping purposes.
+On 12/06/12 at 02:14pm, Vlad Yasevich wrote:
+> Right, but there may be chunks that have cached association with a ref
+> before sctp_association_free() is called.  Now, after free they may
+> be looking at the transport list for whatever reason...  Most places
+> check assoc->dead, but I don't want to get caught.  So, there is
+> a remote chance that someone may look at transports and would crash
+> without rcu.
 
-This patch adds RCU protection allowing for the procfs readers to
-enter RCU read-side critical sections.
+You are right, sctp_associate_free() can be called even though there
+may still be multiple refs on that assoc around. We are currently
+fine as I believe sk_lock serializes all the accesses but better
+be safe than sorry.
 
-Modification of the list continues to be serialized via sk_lock.
-
-V2: Use list_del_rcu() in sctp_association_free() to be safe
-    Skip transports marked dead when dumping for procfs
-
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
- include/net/sctp/structs.h |  2 ++
- net/sctp/associola.c       |  6 +++---
- net/sctp/proc.c            | 14 ++++++++++++--
- net/sctp/transport.c       | 18 +++++++++++++-----
- 4 files changed, 30 insertions(+), 10 deletions(-)
-
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 64158aa..5d6987b 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -948,6 +948,8 @@ struct sctp_transport {
- 
- 	/* 64-bit random number sent with heartbeat. */
- 	__u64 hb_nonce;
-+
-+	struct rcu_head rcu;
- };
- 
- struct sctp_transport *sctp_transport_new(struct net *, const union sctp_addr *,
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index b1ef3bc..81b1236 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -445,7 +445,7 @@ void sctp_association_free(struct sctp_association *asoc)
- 	/* Release the transport structures. */
- 	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
- 		transport = list_entry(pos, struct sctp_transport, transports);
--		list_del(pos);
-+		list_del_rcu(pos);
- 		sctp_transport_free(transport);
- 	}
- 
-@@ -565,7 +565,7 @@ void sctp_assoc_rm_peer(struct sctp_association *asoc,
- 		sctp_assoc_update_retran_path(asoc);
- 
- 	/* Remove this peer from the list. */
--	list_del(&peer->transports);
-+	list_del_rcu(&peer->transports);
- 
- 	/* Get the first transport of asoc. */
- 	pos = asoc->peer.transport_addr_list.next;
-@@ -765,7 +765,7 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
- 	peer->state = peer_state;
- 
- 	/* Attach the remote transport to our asoc.  */
--	list_add_tail(&peer->transports, &asoc->peer.transport_addr_list);
-+	list_add_tail_rcu(&peer->transports, &asoc->peer.transport_addr_list);
- 	asoc->peer.transport_count++;
- 
- 	/* If we do not yet have a primary path, set one.  */
-diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-index 06b05ee..8c19e97 100644
---- a/net/sctp/proc.c
-+++ b/net/sctp/proc.c
-@@ -162,15 +162,20 @@ static void sctp_seq_dump_remote_addrs(struct seq_file *seq, struct sctp_associa
- 	struct sctp_af *af;
- 
- 	primary = &assoc->peer.primary_addr;
--	list_for_each_entry(transport, &assoc->peer.transport_addr_list,
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(transport, &assoc->peer.transport_addr_list,
- 			transports) {
- 		addr = &transport->ipaddr;
-+		if (transport->dead)
-+			continue;
-+
- 		af = sctp_get_af_specific(addr->sa.sa_family);
- 		if (af->cmp_addr(addr, primary)) {
- 			seq_printf(seq, "*");
- 		}
- 		af->seq_dump_addr(seq, addr);
- 	}
-+	rcu_read_unlock();
- }
- 
- static void * sctp_eps_seq_start(struct seq_file *seq, loff_t *pos)
-@@ -441,12 +446,16 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 	head = &sctp_assoc_hashtable[hash];
- 	sctp_local_bh_disable();
- 	read_lock(&head->lock);
-+	rcu_read_lock();
- 	sctp_for_each_hentry(epb, node, &head->chain) {
- 		if (!net_eq(sock_net(epb->sk), seq_file_net(seq)))
- 			continue;
- 		assoc = sctp_assoc(epb);
--		list_for_each_entry(tsp, &assoc->peer.transport_addr_list,
-+		list_for_each_entry_rcu(tsp, &assoc->peer.transport_addr_list,
- 					transports) {
-+			if (tsp->dead)
-+				continue;
-+
- 			/*
- 			 * The remote address (ADDR)
- 			 */
-@@ -492,6 +501,7 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
- 		}
- 	}
- 
-+	rcu_read_unlock();
- 	read_unlock(&head->lock);
- 	sctp_local_bh_enable();
- 
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index 206cf52..1295aec 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -163,13 +163,11 @@ void sctp_transport_free(struct sctp_transport *transport)
- 	sctp_transport_put(transport);
- }
- 
--/* Destroy the transport data structure.
-- * Assumes there are no more users of this structure.
-- */
--static void sctp_transport_destroy(struct sctp_transport *transport)
-+static void sctp_transport_destroy_rcu(struct rcu_head *head)
- {
--	SCTP_ASSERT(transport->dead, "Transport is not dead", return);
-+	struct sctp_transport *transport;
- 
-+	transport = container_of(head, struct sctp_transport, rcu);
- 	if (transport->asoc)
- 		sctp_association_put(transport->asoc);
- 
-@@ -180,6 +178,16 @@ static void sctp_transport_destroy(struct sctp_transport *transport)
- 	SCTP_DBG_OBJCNT_DEC(transport);
- }
- 
-+/* Destroy the transport data structure.
-+ * Assumes there are no more users of this structure.
-+ */
-+static void sctp_transport_destroy(struct sctp_transport *transport)
-+{
-+	SCTP_ASSERT(transport->dead, "Transport is not dead", return);
-+
-+	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
-+}
-+
- /* Start T3_rtx timer if it is not already running and update the heartbeat
-  * timer.  This routine is called every time a DATA chunk is sent.
-  */
--- 
-1.7.11.7
+I've respun the patches in a v2 patch series.
