@@ -1,48 +1,85 @@
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Subject: [PATCH] net : enable tx time stamping in the vde driver.
-Date: Thu,  6 Dec 2012 16:25:05 +0100
-Message-ID: <1354807505-21222-1-git-send-email-paul.chavent@onera.fr>
-Cc: Paul Chavent <Paul.Chavent@onera.fr>
-To: jdike@addtoit.com, richard@nod.at,
-	user-mode-linux-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, richardcochran@gmail.com
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Thu, 06 Dec 2012 10:36:11 -0500
+Message-ID: <10346047.LWlqqejLmO@sifl>
+References: <20121205202144.18626.61966.stgit@localhost> <20121205202619.18626.98778.stgit@localhost> <9040763.QsllgCP7TP@jason-thinkpad-t430s>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, mst@redhat.com
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from briaree.onecert.fr ([134.212.190.4]:59684 "EHLO
-	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964876Ab2LFP3A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 10:29:00 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:49703 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752722Ab2LFPgP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Dec 2012 10:36:15 -0500
+In-Reply-To: <9040763.QsllgCP7TP@jason-thinkpad-t430s>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This new version moves the skb_tx_timestamp in the main uml
-driver. This should avoid the need to call this function in each
-transport (vde, slirp, tuntap, ...). It also add support for ethtool
-get_ts_info.
+On Thursday, December 06, 2012 06:29:54 PM Jason Wang wrote:
+> On Wednesday, December 05, 2012 03:26:19 PM Paul Moore wrote:
+> > This patch corrects some problems with LSM/SELinux that were introduced
+> > with the multiqueue patchset.  The problem stems from the fact that the
+> > multiqueue work changed the relationship between the tun device and its
+> > associated socket; before the socket persisted for the life of the
+> > device, however after the multiqueue changes the socket only persisted
+> > for the life of the userspace connection (fd open).  For non-persistent
+> > devices this is not an issue, but for persistent devices this can cause
+> > the tun device to lose its SELinux label.
+> > 
+> > We correct this problem by adding an opaque LSM security blob to the
+> > tun device struct which allows us to have the LSM security state, e.g.
+> > SELinux labeling information, persist for the lifetime of the tun
+> > device.  In the process we tweak the LSM hooks to work with this new
+> > approach to TUN device/socket labeling and introduce a new LSM hook,
+> > security_tun_dev_create_queue(), to approve requests to create a new
+> > TUN queue via TUNSETQUEUE.
+> > 
+> > The SELinux code has been adjusted to match the new LSM hooks, the
+> > other LSMs do not make use of the LSM TUN controls.  This patch makes
+> > use of the recently added "tun_socket:create_queue" permission to
+> > restrict access to the TUNSETQUEUE operation.  On older SELinux
+> > policies which do not define the "tun_socket:create_queue" permission
+> > the access control decision for TUNSETQUEUE will be handled according
+> > to the SELinux policy's unknown permission setting.
+> > 
+> > Signed-off-by: Paul Moore <pmoore@redhat.com>
 
-Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
----
- arch/um/drivers/net_kern.c | 2 ++
- 1 file changed, 2 insertions(+)
+...
 
-diff --git a/arch/um/drivers/net_kern.c b/arch/um/drivers/net_kern.c
-index b1314eb..5aa8696 100644
---- a/arch/um/drivers/net_kern.c
-+++ b/arch/um/drivers/net_kern.c
-@@ -218,6 +218,7 @@ static int uml_net_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	spin_lock_irqsave(&lp->lock, flags);
+> > @@ -4425,20 +4452,19 @@ static void selinux_tun_dev_post_create(struct
+> > sock
+> > *sk) * cause confusion to the TUN user that had no idea network labeling *
+> > protocols were being used */
+> > 
+> > -	/* see the comments in selinux_tun_dev_create() about why we ...
+> > -
+> > -	sksec->sid = current_sid();
+> > +	sksec->sid = tunsec->sid;
+> 
+> Since both tun_set_iff() and tun_set_queue() would call this. I wonder when
+> it is called by tun_set_queue() we need some checking just like what we
+> done in v1, otherwise it's unconditionally in TUNSETQUEUE. Or we can add
+> them in selinux_tun_dev_create_queue()?
+
+In all the cases that call tun_attach() we have a new socket which needs to be 
+labeled based on the tun->security label, yes?  That is what the 
+security_tun_dev_attach() code does, there is no need for access control at 
+this point as the operation has already been authorized by either 
+security_tun_dev_create() (new device), security_tun_dev_create_queue() (new 
+queue), or security_tun_dev_open() (opening persistent device).
+
+I think we are all set, or am I missing something?
  
- 	len = (*lp->write)(lp->fd, skb, lp);
-+	skb_tx_timestampns(skb);
- 
- 	if (len == skb->len) {
- 		dev->stats.tx_packets++;
-@@ -281,6 +282,7 @@ static void uml_net_get_drvinfo(struct net_device *dev,
- static const struct ethtool_ops uml_net_ethtool_ops = {
- 	.get_drvinfo	= uml_net_get_drvinfo,
- 	.get_link	= ethtool_op_get_link,
-+	.get_ts_info	= ethtool_op_get_ts_info,
- };
- 
- static void uml_net_user_timer_expire(unsigned long _conn)
+> >  	sksec->sclass = SECCLASS_TUN_SOCKET;
+> > 
+> > +
+> > +	return 0;
+> > 
+> >  }
+
 -- 
-1.7.12.1
+paul moore
+security and virtualization @ redhat
