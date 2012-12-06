@@ -1,67 +1,46 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [net-next PATCH V3-evictor] net: frag evictor, avoid killing
- warm frag queues
-Date: Thu, 06 Dec 2012 14:55:00 +0100
-Message-ID: <1354802100.20888.242.camel@localhost>
-References: <1354319937.20109.285.camel@edumazet-glaptop>
-	 <20121204133007.20215.52566.stgit@dragon>
-	 <1354699462.20888.207.camel@localhost>
-	 <1354796760.20888.217.camel@localhost>
-	 <20121206123248.GA24493@breakpoint.cc>
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: [Suggestion] net/atm : for sprintf, need check the total write
+ length whether larger than a page.
+Date: Thu, 6 Dec 2012 09:08:55 -0500
+Message-ID: <20121206090855.5f166746@thirdoffive.cmf.nrl.navy.mil>
+References: <201212050357.qB53vHvT022706@thirdoffive.cmf.nrl.navy.mil>
+	<50BED40D.9080100@asianux.com>
+	<50BEDE4E.8010408@asianux.com>
+	<50BEE2BE.2030704@asianux.com>
+	<20121205095503.6d1c083d@thirdoffive.cmf.nrl.navy.mil>
+	<50BFF19E.1040405@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Cong Wang <amwang@redhat.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16346 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754771Ab2LFNzs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2012 08:55:48 -0500
-In-Reply-To: <20121206123248.GA24493@breakpoint.cc>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:45850 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932088Ab2LFOJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 09:09:06 -0500
+In-Reply-To: <50BFF19E.1040405@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-12-06 at 13:32 +0100, Florian Westphal wrote:
-> Jesper Dangaard Brouer <jbrouer@redhat.com> wrote:
-> > CPUs are fighting for the same LRU head (inet_frag_queue) element,
-> > which is bad for scalability.  We could fix this by unlinking the
-> > element once a CPU graps it, but it would require us to change a
-> > read_lock to a write_lock, thus we might not gain much performance.
-> > 
-> > I already (implicit) fix this is a later patch, where I'm moving the
-> > LRU lists to be per CPU.  So, I don't know if it's worth fixing.
-> 
-> Do you think its worth trying to remove the lru list altogether and
-> just evict from the hash in a round-robin fashion instead?
+On Thu, 06 Dec 2012 09:15:10 +0800
+Chen Gang <gang.chen@asianux.com> wrote:
 
-Perhaps.  But do note my bashing of the LRU list were wrong.  I planned
-to explain that in a separate mail, but basically I were causing a DoS
-attack with incomplete fragments on my self, because I had disabled
-Ethernet flow-control.  Which led me to some false assumptions on the
-LRU list behavior (sorry).
+> =D3=DA 2012=C4=EA12=D4=C205=C8=D5 22:55, chas williams - CONTRACTOR =D0=
+=B4=B5=C0:
 
-The LRU might be the correct solution after all.  If I enable Ethernet
-flow-control again, then I have a hard time "activating" the evictor
-code (with thresh 4M/3M) .  I'll need a separate DoS program, which can
-send incomplete fragments (in back-to-back bursts) to provoke the
-evictor and LRU.
+> > did you mean '\0' instead of '\n'?  scnprintf() considers the trail=
+ing
+> > '\0' when formatting.
+>=20
+>   no, originally, the end is "\n\0".
+>=20
+>   I prefer we still compatible "\n" when the contents are very large.
+>   if count already =3D=3D (PAGE_SIZE - 1), we have no chance to appen=
+d "\n" to the end.
+>=20
+> -		pos +=3D sprintf(pos, "\n");
+> +		count +=3D scnprintf(buf + count, PAGE_SIZE - count, "\n");
 
-My cheap DoS reproducer-hack is to disable Ethernet flow-control on only
-one interface (out of 3), to cause packet drops and the incomplete
-fragments. The current preliminary results is that the two other
-interfaces still gets packets through, we don't get the zero throughput
-situation.
- Two interfaces and no DoS: 15342 Mbit/s
- Three interfaces and DoS:   7355 Mbit/s
-
-The reduction might look big, but you have to take into account, that
-"activating" the evictor code, is also causing scalability issues of its
-own (which could account for the performance drop it self).
-
---Jesper
+i would make the code a bit messy to do this for not much gain.  again,
+it isnt likely you would run into this in a normal situation.
