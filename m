@@ -1,1049 +1,183 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/5 net-next] bnx2: Add BNX2 prefix to descriptor
- structures and macros
-Date: Thu, 6 Dec 2012 12:33:09 -0800
-Message-ID: <1354825992-8547-2-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 5/5 net-next] cnic, bnx2x, bnx2: Simplify cnic probing.
+Date: Thu, 6 Dec 2012 12:33:12 -0800
+Message-ID: <1354825992-8547-5-git-send-email-mchan@broadcom.com>
 References: <1354825992-8547-1-git-send-email-mchan@broadcom.com>
+ <1354825992-8547-2-git-send-email-mchan@broadcom.com>
+ <1354825992-8547-3-git-send-email-mchan@broadcom.com>
+ <1354825992-8547-4-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2162 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4808 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1422825Ab2LFUR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2012 15:17:59 -0500
-In-Reply-To: <1354825992-8547-1-git-send-email-mchan@broadcom.com>
+	id S1422829Ab2LFUSA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Dec 2012 15:18:00 -0500
+In-Reply-To: <1354825992-8547-4-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-for namespace consistency.
+Instead of using symbol_get(), cnic can now directly call the cnic_probe
+functions in struct bnx2x and struct bnx2.  symbol_get() is not reliable
+as it fails when the module is still initializing.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2.c |  190 +++++++++++++++++----------------
- drivers/net/ethernet/broadcom/bnx2.h |   79 +++++++-------
- drivers/net/ethernet/broadcom/cnic.c |   70 ++++++------
- drivers/net/ethernet/broadcom/cnic.h |   14 ++-
- 4 files changed, 181 insertions(+), 172 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2.c             |    2 +-
+ drivers/net/ethernet/broadcom/bnx2.h             |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 +++-
+ drivers/net/ethernet/broadcom/cnic.c             |   21 +++++++++------------
+ drivers/net/ethernet/broadcom/cnic_if.h          |    7 ++-----
+ 6 files changed, 17 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index 41fa6af..98cb76b 100644
+index a9b2fea..c16526d 100644
 --- a/drivers/net/ethernet/broadcom/bnx2.c
 +++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -260,10 +260,10 @@ static inline u32 bnx2_tx_avail(struct bnx2 *bp, struct bnx2_tx_ring_info *txr)
- 	 * needs to be skipped.
- 	 */
- 	diff = txr->tx_prod - txr->tx_cons;
--	if (unlikely(diff >= TX_DESC_CNT)) {
-+	if (unlikely(diff >= BNX2_TX_DESC_CNT)) {
- 		diff &= 0xffff;
--		if (diff == TX_DESC_CNT)
--			diff = MAX_TX_DESC_CNT;
-+		if (diff == BNX2_TX_DESC_CNT)
-+			diff = BNX2_MAX_TX_DESC_CNT;
- 	}
- 	return bp->tx_ring_size - diff;
+@@ -434,7 +434,6 @@ struct cnic_eth_dev *bnx2_cnic_probe(struct net_device *dev)
+ 
+ 	return cp;
  }
-@@ -824,7 +824,7 @@ bnx2_free_mem(struct bnx2 *bp)
- 
- 	for (i = 0; i < bp->ctx_pages; i++) {
- 		if (bp->ctx_blk[i]) {
--			dma_free_coherent(&bp->pdev->dev, BCM_PAGE_SIZE,
-+			dma_free_coherent(&bp->pdev->dev, BNX2_PAGE_SIZE,
- 					  bp->ctx_blk[i],
- 					  bp->ctx_blk_mapping[i]);
- 			bp->ctx_blk[i] = NULL;
-@@ -888,12 +888,12 @@ bnx2_alloc_mem(struct bnx2 *bp)
- 	bp->stats_blk_mapping = bp->status_blk_mapping + status_blk_size;
- 
- 	if (CHIP_NUM(bp) == CHIP_NUM_5709) {
--		bp->ctx_pages = 0x2000 / BCM_PAGE_SIZE;
-+		bp->ctx_pages = 0x2000 / BNX2_PAGE_SIZE;
- 		if (bp->ctx_pages == 0)
- 			bp->ctx_pages = 1;
- 		for (i = 0; i < bp->ctx_pages; i++) {
- 			bp->ctx_blk[i] = dma_alloc_coherent(&bp->pdev->dev,
--						BCM_PAGE_SIZE,
-+						BNX2_PAGE_SIZE,
- 						&bp->ctx_blk_mapping[i],
- 						GFP_KERNEL);
- 			if (bp->ctx_blk[i] == NULL)
-@@ -2538,7 +2538,7 @@ bnx2_init_5709_context(struct bnx2 *bp)
- 	u32 val;
- 
- 	val = BNX2_CTX_COMMAND_ENABLED | BNX2_CTX_COMMAND_MEM_INIT | (1 << 12);
--	val |= (BCM_PAGE_BITS - 8) << 16;
-+	val |= (BNX2_PAGE_BITS - 8) << 16;
- 	BNX2_WR(bp, BNX2_CTX_COMMAND, val);
- 	for (i = 0; i < 10; i++) {
- 		val = BNX2_RD(bp, BNX2_CTX_COMMAND);
-@@ -2553,7 +2553,7 @@ bnx2_init_5709_context(struct bnx2 *bp)
- 		int j;
- 
- 		if (bp->ctx_blk[i])
--			memset(bp->ctx_blk[i], 0, BCM_PAGE_SIZE);
-+			memset(bp->ctx_blk[i], 0, BNX2_PAGE_SIZE);
- 		else
- 			return -ENOMEM;
- 
-@@ -2690,9 +2690,9 @@ static inline int
- bnx2_alloc_rx_page(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index, gfp_t gfp)
- {
- 	dma_addr_t mapping;
--	struct sw_pg *rx_pg = &rxr->rx_pg_ring[index];
--	struct rx_bd *rxbd =
--		&rxr->rx_pg_desc_ring[RX_RING(index)][RX_IDX(index)];
-+	struct bnx2_sw_pg *rx_pg = &rxr->rx_pg_ring[index];
-+	struct bnx2_rx_bd *rxbd =
-+		&rxr->rx_pg_desc_ring[BNX2_RX_RING(index)][BNX2_RX_IDX(index)];
- 	struct page *page = alloc_page(gfp);
- 
- 	if (!page)
-@@ -2714,7 +2714,7 @@ bnx2_alloc_rx_page(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index, gf
- static void
- bnx2_free_rx_page(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index)
- {
--	struct sw_pg *rx_pg = &rxr->rx_pg_ring[index];
-+	struct bnx2_sw_pg *rx_pg = &rxr->rx_pg_ring[index];
- 	struct page *page = rx_pg->page;
- 
- 	if (!page)
-@@ -2731,9 +2731,10 @@ static inline int
- bnx2_alloc_rx_data(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr, u16 index, gfp_t gfp)
- {
- 	u8 *data;
--	struct sw_bd *rx_buf = &rxr->rx_buf_ring[index];
-+	struct bnx2_sw_bd *rx_buf = &rxr->rx_buf_ring[index];
- 	dma_addr_t mapping;
--	struct rx_bd *rxbd = &rxr->rx_desc_ring[RX_RING(index)][RX_IDX(index)];
-+	struct bnx2_rx_bd *rxbd =
-+		&rxr->rx_desc_ring[BNX2_RX_RING(index)][BNX2_RX_IDX(index)];
- 
- 	data = kmalloc(bp->rx_buf_size, gfp);
- 	if (!data)
-@@ -2802,7 +2803,7 @@ bnx2_get_hw_tx_cons(struct bnx2_napi *bnapi)
- 	barrier();
- 	cons = *bnapi->hw_tx_cons_ptr;
- 	barrier();
--	if (unlikely((cons & MAX_TX_DESC_CNT) == MAX_TX_DESC_CNT))
-+	if (unlikely((cons & BNX2_MAX_TX_DESC_CNT) == BNX2_MAX_TX_DESC_CNT))
- 		cons++;
- 	return cons;
- }
-@@ -2823,11 +2824,11 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 	sw_cons = txr->tx_cons;
- 
- 	while (sw_cons != hw_cons) {
--		struct sw_tx_bd *tx_buf;
-+		struct bnx2_sw_tx_bd *tx_buf;
- 		struct sk_buff *skb;
- 		int i, last;
- 
--		sw_ring_cons = TX_RING_IDX(sw_cons);
-+		sw_ring_cons = BNX2_TX_RING_IDX(sw_cons);
- 
- 		tx_buf = &txr->tx_buf_ring[sw_ring_cons];
- 		skb = tx_buf->skb;
-@@ -2841,7 +2842,7 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 
- 			last_idx = sw_cons + tx_buf->nr_frags + 1;
- 			last_ring_idx = sw_ring_cons + tx_buf->nr_frags + 1;
--			if (unlikely(last_ring_idx >= MAX_TX_DESC_CNT)) {
-+			if (unlikely(last_ring_idx >= BNX2_MAX_TX_DESC_CNT)) {
- 				last_idx++;
- 			}
- 			if (((s16) ((s16) last_idx - (s16) hw_cons)) > 0) {
-@@ -2856,17 +2857,18 @@ bnx2_tx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 		last = tx_buf->nr_frags;
- 
- 		for (i = 0; i < last; i++) {
--			sw_cons = NEXT_TX_BD(sw_cons);
-+			struct bnx2_sw_tx_bd *tx_buf;
- 
-+			sw_cons = BNX2_NEXT_TX_BD(sw_cons);
-+
-+			tx_buf = &txr->tx_buf_ring[BNX2_TX_RING_IDX(sw_cons)];
- 			dma_unmap_page(&bp->pdev->dev,
--				dma_unmap_addr(
--					&txr->tx_buf_ring[TX_RING_IDX(sw_cons)],
--					mapping),
-+				dma_unmap_addr(tx_buf, mapping),
- 				skb_frag_size(&skb_shinfo(skb)->frags[i]),
- 				PCI_DMA_TODEVICE);
- 		}
- 
--		sw_cons = NEXT_TX_BD(sw_cons);
-+		sw_cons = BNX2_NEXT_TX_BD(sw_cons);
- 
- 		tx_bytes += skb->len;
- 		dev_kfree_skb(skb);
-@@ -2905,8 +2907,8 @@ static void
- bnx2_reuse_rx_skb_pages(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr,
- 			struct sk_buff *skb, int count)
- {
--	struct sw_pg *cons_rx_pg, *prod_rx_pg;
--	struct rx_bd *cons_bd, *prod_bd;
-+	struct bnx2_sw_pg *cons_rx_pg, *prod_rx_pg;
-+	struct bnx2_rx_bd *cons_bd, *prod_bd;
- 	int i;
- 	u16 hw_prod, prod;
- 	u16 cons = rxr->rx_pg_cons;
-@@ -2933,12 +2935,14 @@ bnx2_reuse_rx_skb_pages(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr,
- 	hw_prod = rxr->rx_pg_prod;
- 
- 	for (i = 0; i < count; i++) {
--		prod = RX_PG_RING_IDX(hw_prod);
-+		prod = BNX2_RX_PG_RING_IDX(hw_prod);
- 
- 		prod_rx_pg = &rxr->rx_pg_ring[prod];
- 		cons_rx_pg = &rxr->rx_pg_ring[cons];
--		cons_bd = &rxr->rx_pg_desc_ring[RX_RING(cons)][RX_IDX(cons)];
--		prod_bd = &rxr->rx_pg_desc_ring[RX_RING(prod)][RX_IDX(prod)];
-+		cons_bd = &rxr->rx_pg_desc_ring[BNX2_RX_RING(cons)]
-+						[BNX2_RX_IDX(cons)];
-+		prod_bd = &rxr->rx_pg_desc_ring[BNX2_RX_RING(prod)]
-+						[BNX2_RX_IDX(prod)];
- 
- 		if (prod != cons) {
- 			prod_rx_pg->page = cons_rx_pg->page;
-@@ -2950,8 +2954,8 @@ bnx2_reuse_rx_skb_pages(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr,
- 			prod_bd->rx_bd_haddr_lo = cons_bd->rx_bd_haddr_lo;
- 
- 		}
--		cons = RX_PG_RING_IDX(NEXT_RX_BD(cons));
--		hw_prod = NEXT_RX_BD(hw_prod);
-+		cons = BNX2_RX_PG_RING_IDX(BNX2_NEXT_RX_BD(cons));
-+		hw_prod = BNX2_NEXT_RX_BD(hw_prod);
- 	}
- 	rxr->rx_pg_prod = hw_prod;
- 	rxr->rx_pg_cons = cons;
-@@ -2961,8 +2965,8 @@ static inline void
- bnx2_reuse_rx_data(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr,
- 		   u8 *data, u16 cons, u16 prod)
- {
--	struct sw_bd *cons_rx_buf, *prod_rx_buf;
--	struct rx_bd *cons_bd, *prod_bd;
-+	struct bnx2_sw_bd *cons_rx_buf, *prod_rx_buf;
-+	struct bnx2_rx_bd *cons_bd, *prod_bd;
- 
- 	cons_rx_buf = &rxr->rx_buf_ring[cons];
- 	prod_rx_buf = &rxr->rx_buf_ring[prod];
-@@ -2981,8 +2985,8 @@ bnx2_reuse_rx_data(struct bnx2 *bp, struct bnx2_rx_ring_info *rxr,
- 	dma_unmap_addr_set(prod_rx_buf, mapping,
- 			dma_unmap_addr(cons_rx_buf, mapping));
- 
--	cons_bd = &rxr->rx_desc_ring[RX_RING(cons)][RX_IDX(cons)];
--	prod_bd = &rxr->rx_desc_ring[RX_RING(prod)][RX_IDX(prod)];
-+	cons_bd = &rxr->rx_desc_ring[BNX2_RX_RING(cons)][BNX2_RX_IDX(cons)];
-+	prod_bd = &rxr->rx_desc_ring[BNX2_RX_RING(prod)][BNX2_RX_IDX(prod)];
- 	prod_bd->rx_bd_haddr_hi = cons_bd->rx_bd_haddr_hi;
- 	prod_bd->rx_bd_haddr_lo = cons_bd->rx_bd_haddr_lo;
- }
-@@ -3022,7 +3026,7 @@ error:
- 		return skb;
- 	} else {
- 		unsigned int i, frag_len, frag_size, pages;
--		struct sw_pg *rx_pg;
-+		struct bnx2_sw_pg *rx_pg;
- 		u16 pg_cons = rxr->rx_pg_cons;
- 		u16 pg_prod = rxr->rx_pg_prod;
- 
-@@ -3065,7 +3069,7 @@ error:
- 			rx_pg->page = NULL;
- 
- 			err = bnx2_alloc_rx_page(bp, rxr,
--						 RX_PG_RING_IDX(pg_prod),
-+						 BNX2_RX_PG_RING_IDX(pg_prod),
- 						 GFP_ATOMIC);
- 			if (unlikely(err)) {
- 				rxr->rx_pg_cons = pg_cons;
-@@ -3083,8 +3087,8 @@ error:
- 			skb->truesize += PAGE_SIZE;
- 			skb->len += frag_len;
- 
--			pg_prod = NEXT_RX_BD(pg_prod);
--			pg_cons = RX_PG_RING_IDX(NEXT_RX_BD(pg_cons));
-+			pg_prod = BNX2_NEXT_RX_BD(pg_prod);
-+			pg_cons = BNX2_RX_PG_RING_IDX(BNX2_NEXT_RX_BD(pg_cons));
- 		}
- 		rxr->rx_pg_prod = pg_prod;
- 		rxr->rx_pg_cons = pg_cons;
-@@ -3101,7 +3105,7 @@ bnx2_get_hw_rx_cons(struct bnx2_napi *bnapi)
- 	barrier();
- 	cons = *bnapi->hw_rx_cons_ptr;
- 	barrier();
--	if (unlikely((cons & MAX_RX_DESC_CNT) == MAX_RX_DESC_CNT))
-+	if (unlikely((cons & BNX2_MAX_RX_DESC_CNT) == BNX2_MAX_RX_DESC_CNT))
- 		cons++;
- 	return cons;
- }
-@@ -3125,13 +3129,14 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 	while (sw_cons != hw_cons) {
- 		unsigned int len, hdr_len;
- 		u32 status;
--		struct sw_bd *rx_buf, *next_rx_buf;
-+		struct bnx2_sw_bd *rx_buf, *next_rx_buf;
- 		struct sk_buff *skb;
- 		dma_addr_t dma_addr;
- 		u8 *data;
-+		u16 next_ring_idx;
- 
--		sw_ring_cons = RX_RING_IDX(sw_cons);
--		sw_ring_prod = RX_RING_IDX(sw_prod);
-+		sw_ring_cons = BNX2_RX_RING_IDX(sw_cons);
-+		sw_ring_prod = BNX2_RX_RING_IDX(sw_prod);
- 
- 		rx_buf = &rxr->rx_buf_ring[sw_ring_cons];
- 		data = rx_buf->data;
-@@ -3146,8 +3151,8 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 			BNX2_RX_OFFSET + BNX2_RX_COPY_THRESH,
- 			PCI_DMA_FROMDEVICE);
- 
--		next_rx_buf =
--			&rxr->rx_buf_ring[RX_RING_IDX(NEXT_RX_BD(sw_cons))];
-+		next_ring_idx = BNX2_RX_RING_IDX(BNX2_NEXT_RX_BD(sw_cons));
-+		next_rx_buf = &rxr->rx_buf_ring[next_ring_idx];
- 		prefetch(get_l2_fhdr(next_rx_buf->data));
- 
- 		len = rx_hdr->l2_fhdr_pkt_len;
-@@ -3239,8 +3244,8 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 		rx_pkt++;
- 
- next_rx:
--		sw_cons = NEXT_RX_BD(sw_cons);
--		sw_prod = NEXT_RX_BD(sw_prod);
-+		sw_cons = BNX2_NEXT_RX_BD(sw_cons);
-+		sw_prod = BNX2_NEXT_RX_BD(sw_prod);
- 
- 		if ((rx_pkt == budget))
- 			break;
-@@ -4907,13 +4912,13 @@ bnx2_init_chip(struct bnx2 *bp)
- 	BNX2_WR(bp, BNX2_MQ_KNL_BYP_WIND_START, val);
- 	BNX2_WR(bp, BNX2_MQ_KNL_WIND_END, val);
- 
--	val = (BCM_PAGE_BITS - 8) << 24;
-+	val = (BNX2_PAGE_BITS - 8) << 24;
- 	BNX2_WR(bp, BNX2_RV2P_CONFIG, val);
- 
- 	/* Configure page size. */
- 	val = BNX2_RD(bp, BNX2_TBDR_CONFIG);
- 	val &= ~BNX2_TBDR_CONFIG_PAGE_SIZE;
--	val |= (BCM_PAGE_BITS - 8) << 24 | 0x40;
-+	val |= (BNX2_PAGE_BITS - 8) << 24 | 0x40;
- 	BNX2_WR(bp, BNX2_TBDR_CONFIG, val);
- 
- 	val = bp->mac_addr[0] +
-@@ -5113,7 +5118,7 @@ bnx2_init_tx_context(struct bnx2 *bp, u32 cid, struct bnx2_tx_ring_info *txr)
- static void
- bnx2_init_tx_ring(struct bnx2 *bp, int ring_num)
- {
--	struct tx_bd *txbd;
-+	struct bnx2_tx_bd *txbd;
- 	u32 cid = TX_CID;
- 	struct bnx2_napi *bnapi;
- 	struct bnx2_tx_ring_info *txr;
-@@ -5128,7 +5133,7 @@ bnx2_init_tx_ring(struct bnx2 *bp, int ring_num)
- 
- 	bp->tx_wake_thresh = bp->tx_ring_size / 2;
- 
--	txbd = &txr->tx_desc_ring[MAX_TX_DESC_CNT];
-+	txbd = &txr->tx_desc_ring[BNX2_MAX_TX_DESC_CNT];
- 
- 	txbd->tx_bd_haddr_hi = (u64) txr->tx_desc_mapping >> 32;
- 	txbd->tx_bd_haddr_lo = (u64) txr->tx_desc_mapping & 0xffffffff;
-@@ -5143,17 +5148,17 @@ bnx2_init_tx_ring(struct bnx2 *bp, int ring_num)
- }
+-EXPORT_SYMBOL(bnx2_cnic_probe);
  
  static void
--bnx2_init_rxbd_rings(struct rx_bd *rx_ring[], dma_addr_t dma[], u32 buf_size,
--		     int num_rings)
-+bnx2_init_rxbd_rings(struct bnx2_rx_bd *rx_ring[], dma_addr_t dma[],
-+		     u32 buf_size, int num_rings)
- {
- 	int i;
--	struct rx_bd *rxbd;
-+	struct bnx2_rx_bd *rxbd;
+ bnx2_cnic_stop(struct bnx2 *bp)
+@@ -8422,6 +8421,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 		bp->cnic_eth_dev.max_iscsi_conn =
+ 			(bnx2_shmem_rd(bp, BNX2_ISCSI_MAX_CONN) &
+ 			 BNX2_ISCSI_MAX_CONN_MASK) >> BNX2_ISCSI_MAX_CONN_SHIFT;
++	bp->cnic_probe = bnx2_cnic_probe;
+ #endif
+ 	pci_save_state(pdev);
  
- 	for (i = 0; i < num_rings; i++) {
- 		int j;
- 
- 		rxbd = &rx_ring[i][0];
--		for (j = 0; j < MAX_RX_DESC_CNT; j++, rxbd++) {
-+		for (j = 0; j < BNX2_MAX_RX_DESC_CNT; j++, rxbd++) {
- 			rxbd->rx_bd_len = buf_size;
- 			rxbd->rx_bd_flags = RX_BD_FLAGS_START | RX_BD_FLAGS_END;
- 		}
-@@ -5225,8 +5230,8 @@ bnx2_init_rx_ring(struct bnx2 *bp, int ring_num)
- 				    ring_num, i, bp->rx_pg_ring_size);
- 			break;
- 		}
--		prod = NEXT_RX_BD(prod);
--		ring_prod = RX_PG_RING_IDX(prod);
-+		prod = BNX2_NEXT_RX_BD(prod);
-+		ring_prod = BNX2_RX_PG_RING_IDX(prod);
- 	}
- 	rxr->rx_pg_prod = prod;
- 
-@@ -5237,8 +5242,8 @@ bnx2_init_rx_ring(struct bnx2 *bp, int ring_num)
- 				    ring_num, i, bp->rx_ring_size);
- 			break;
- 		}
--		prod = NEXT_RX_BD(prod);
--		ring_prod = RX_RING_IDX(prod);
-+		prod = BNX2_NEXT_RX_BD(prod);
-+		ring_prod = BNX2_RX_RING_IDX(prod);
- 	}
- 	rxr->rx_prod = prod;
- 
-@@ -5303,8 +5308,8 @@ static u32 bnx2_find_max_ring(u32 ring_size, u32 max_size)
- {
- 	u32 max, num_rings = 1;
- 
--	while (ring_size > MAX_RX_DESC_CNT) {
--		ring_size -= MAX_RX_DESC_CNT;
-+	while (ring_size > BNX2_MAX_RX_DESC_CNT) {
-+		ring_size -= BNX2_MAX_RX_DESC_CNT;
- 		num_rings++;
- 	}
- 	/* round to next power of 2 */
-@@ -5337,13 +5342,14 @@ bnx2_set_rx_ring_size(struct bnx2 *bp, u32 size)
- 		int pages = PAGE_ALIGN(bp->dev->mtu - 40) >> PAGE_SHIFT;
- 
- 		jumbo_size = size * pages;
--		if (jumbo_size > MAX_TOTAL_RX_PG_DESC_CNT)
--			jumbo_size = MAX_TOTAL_RX_PG_DESC_CNT;
-+		if (jumbo_size > BNX2_MAX_TOTAL_RX_PG_DESC_CNT)
-+			jumbo_size = BNX2_MAX_TOTAL_RX_PG_DESC_CNT;
- 
- 		bp->rx_pg_ring_size = jumbo_size;
- 		bp->rx_max_pg_ring = bnx2_find_max_ring(jumbo_size,
--							MAX_RX_PG_RINGS);
--		bp->rx_max_pg_ring_idx = (bp->rx_max_pg_ring * RX_DESC_CNT) - 1;
-+							BNX2_MAX_RX_PG_RINGS);
-+		bp->rx_max_pg_ring_idx =
-+			(bp->rx_max_pg_ring * BNX2_RX_DESC_CNT) - 1;
- 		rx_size = BNX2_RX_COPY_THRESH + BNX2_RX_OFFSET;
- 		bp->rx_copy_thresh = 0;
- 	}
-@@ -5354,8 +5360,8 @@ bnx2_set_rx_ring_size(struct bnx2 *bp, u32 size)
- 		NET_SKB_PAD + SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 	bp->rx_jumbo_thresh = rx_size - BNX2_RX_OFFSET;
- 	bp->rx_ring_size = size;
--	bp->rx_max_ring = bnx2_find_max_ring(size, MAX_RX_RINGS);
--	bp->rx_max_ring_idx = (bp->rx_max_ring * RX_DESC_CNT) - 1;
-+	bp->rx_max_ring = bnx2_find_max_ring(size, BNX2_MAX_RX_RINGS);
-+	bp->rx_max_ring_idx = (bp->rx_max_ring * BNX2_RX_DESC_CNT) - 1;
- }
- 
- static void
-@@ -5371,13 +5377,13 @@ bnx2_free_tx_skbs(struct bnx2 *bp)
- 		if (txr->tx_buf_ring == NULL)
- 			continue;
- 
--		for (j = 0; j < TX_DESC_CNT; ) {
--			struct sw_tx_bd *tx_buf = &txr->tx_buf_ring[j];
-+		for (j = 0; j < BNX2_TX_DESC_CNT; ) {
-+			struct bnx2_sw_tx_bd *tx_buf = &txr->tx_buf_ring[j];
- 			struct sk_buff *skb = tx_buf->skb;
- 			int k, last;
- 
- 			if (skb == NULL) {
--				j = NEXT_TX_BD(j);
-+				j = BNX2_NEXT_TX_BD(j);
- 				continue;
- 			}
- 
-@@ -5389,9 +5395,9 @@ bnx2_free_tx_skbs(struct bnx2 *bp)
- 			tx_buf->skb = NULL;
- 
- 			last = tx_buf->nr_frags;
--			j = NEXT_TX_BD(j);
--			for (k = 0; k < last; k++, j = NEXT_TX_BD(j)) {
--				tx_buf = &txr->tx_buf_ring[TX_RING_IDX(j)];
-+			j = BNX2_NEXT_TX_BD(j);
-+			for (k = 0; k < last; k++, j = BNX2_NEXT_TX_BD(j)) {
-+				tx_buf = &txr->tx_buf_ring[BNX2_TX_RING_IDX(j)];
- 				dma_unmap_page(&bp->pdev->dev,
- 					dma_unmap_addr(tx_buf, mapping),
- 					skb_frag_size(&skb_shinfo(skb)->frags[k]),
-@@ -5417,7 +5423,7 @@ bnx2_free_rx_skbs(struct bnx2 *bp)
- 			return;
- 
- 		for (j = 0; j < bp->rx_max_ring_idx; j++) {
--			struct sw_bd *rx_buf = &rxr->rx_buf_ring[j];
-+			struct bnx2_sw_bd *rx_buf = &rxr->rx_buf_ring[j];
- 			u8 *data = rx_buf->data;
- 
- 			if (data == NULL)
-@@ -5741,8 +5747,8 @@ bnx2_run_loopback(struct bnx2 *bp, int loopback_mode)
- 	unsigned char *packet;
- 	u16 rx_start_idx, rx_idx;
- 	dma_addr_t map;
--	struct tx_bd *txbd;
--	struct sw_bd *rx_buf;
-+	struct bnx2_tx_bd *txbd;
-+	struct bnx2_sw_bd *rx_buf;
- 	struct l2_fhdr *rx_hdr;
- 	int ret = -ENODEV;
- 	struct bnx2_napi *bnapi = &bp->bnx2_napi[0], *tx_napi;
-@@ -5794,7 +5800,7 @@ bnx2_run_loopback(struct bnx2 *bp, int loopback_mode)
- 
- 	num_pkts = 0;
- 
--	txbd = &txr->tx_desc_ring[TX_RING_IDX(txr->tx_prod)];
-+	txbd = &txr->tx_desc_ring[BNX2_TX_RING_IDX(txr->tx_prod)];
- 
- 	txbd->tx_bd_haddr_hi = (u64) map >> 32;
- 	txbd->tx_bd_haddr_lo = (u64) map & 0xffffffff;
-@@ -5802,7 +5808,7 @@ bnx2_run_loopback(struct bnx2 *bp, int loopback_mode)
- 	txbd->tx_bd_vlan_tag_flags = TX_BD_FLAGS_START | TX_BD_FLAGS_END;
- 
- 	num_pkts++;
--	txr->tx_prod = NEXT_TX_BD(txr->tx_prod);
-+	txr->tx_prod = BNX2_NEXT_TX_BD(txr->tx_prod);
- 	txr->tx_prod_bseq += pkt_size;
- 
- 	BNX2_WR16(bp, txr->tx_bidx_addr, txr->tx_prod);
-@@ -6533,8 +6539,8 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct bnx2 *bp = netdev_priv(dev);
- 	dma_addr_t mapping;
--	struct tx_bd *txbd;
--	struct sw_tx_bd *tx_buf;
-+	struct bnx2_tx_bd *txbd;
-+	struct bnx2_sw_tx_bd *tx_buf;
- 	u32 len, vlan_tag_flags, last_frag, mss;
- 	u16 prod, ring_prod;
- 	int i;
-@@ -6557,7 +6563,7 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 	len = skb_headlen(skb);
- 	prod = txr->tx_prod;
--	ring_prod = TX_RING_IDX(prod);
-+	ring_prod = BNX2_TX_RING_IDX(prod);
- 
- 	vlan_tag_flags = 0;
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-@@ -6627,8 +6633,8 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	for (i = 0; i < last_frag; i++) {
- 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
--		prod = NEXT_TX_BD(prod);
--		ring_prod = TX_RING_IDX(prod);
-+		prod = BNX2_NEXT_TX_BD(prod);
-+		ring_prod = BNX2_TX_RING_IDX(prod);
- 		txbd = &txr->tx_desc_ring[ring_prod];
- 
- 		len = skb_frag_size(frag);
-@@ -6652,7 +6658,7 @@ bnx2_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	netdev_tx_sent_queue(txq, skb->len);
- 
--	prod = NEXT_TX_BD(prod);
-+	prod = BNX2_NEXT_TX_BD(prod);
- 	txr->tx_prod_bseq += skb->len;
- 
- 	BNX2_WR16(bp, txr->tx_bidx_addr, prod);
-@@ -6682,7 +6688,7 @@ dma_error:
- 
- 	/* start back at beginning and unmap skb */
- 	prod = txr->tx_prod;
--	ring_prod = TX_RING_IDX(prod);
-+	ring_prod = BNX2_TX_RING_IDX(prod);
- 	tx_buf = &txr->tx_buf_ring[ring_prod];
- 	tx_buf->skb = NULL;
- 	dma_unmap_single(&bp->pdev->dev, dma_unmap_addr(tx_buf, mapping),
-@@ -6690,8 +6696,8 @@ dma_error:
- 
- 	/* unmap remaining mapped pages */
- 	for (i = 0; i < last_frag; i++) {
--		prod = NEXT_TX_BD(prod);
--		ring_prod = TX_RING_IDX(prod);
-+		prod = BNX2_NEXT_TX_BD(prod);
-+		ring_prod = BNX2_TX_RING_IDX(prod);
- 		tx_buf = &txr->tx_buf_ring[ring_prod];
- 		dma_unmap_page(&bp->pdev->dev, dma_unmap_addr(tx_buf, mapping),
- 			       skb_frag_size(&skb_shinfo(skb)->frags[i]),
-@@ -7254,13 +7260,13 @@ bnx2_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ering)
- {
- 	struct bnx2 *bp = netdev_priv(dev);
- 
--	ering->rx_max_pending = MAX_TOTAL_RX_DESC_CNT;
--	ering->rx_jumbo_max_pending = MAX_TOTAL_RX_PG_DESC_CNT;
-+	ering->rx_max_pending = BNX2_MAX_TOTAL_RX_DESC_CNT;
-+	ering->rx_jumbo_max_pending = BNX2_MAX_TOTAL_RX_PG_DESC_CNT;
- 
- 	ering->rx_pending = bp->rx_ring_size;
- 	ering->rx_jumbo_pending = bp->rx_pg_ring_size;
- 
--	ering->tx_max_pending = MAX_TX_DESC_CNT;
-+	ering->tx_max_pending = BNX2_MAX_TX_DESC_CNT;
- 	ering->tx_pending = bp->tx_ring_size;
- }
- 
-@@ -7326,8 +7332,8 @@ bnx2_set_ringparam(struct net_device *dev, struct ethtool_ringparam *ering)
- 	struct bnx2 *bp = netdev_priv(dev);
- 	int rc;
- 
--	if ((ering->rx_pending > MAX_TOTAL_RX_DESC_CNT) ||
--		(ering->tx_pending > MAX_TX_DESC_CNT) ||
-+	if ((ering->rx_pending > BNX2_MAX_TOTAL_RX_DESC_CNT) ||
-+		(ering->tx_pending > BNX2_MAX_TX_DESC_CNT) ||
- 		(ering->tx_pending <= MAX_SKB_FRAGS)) {
- 
- 		return -EINVAL;
-@@ -8299,7 +8305,7 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- 	bp->mac_addr[4] = (u8) (reg >> 8);
- 	bp->mac_addr[5] = (u8) reg;
- 
--	bp->tx_ring_size = MAX_TX_DESC_CNT;
-+	bp->tx_ring_size = BNX2_MAX_TX_DESC_CNT;
- 	bnx2_set_rx_ring_size(bp, 255);
- 
- 	bp->tx_quick_cons_trip_int = 2;
 diff --git a/drivers/net/ethernet/broadcom/bnx2.h b/drivers/net/ethernet/broadcom/bnx2.h
-index 5f13674..58caa22 100644
+index 38a640d..172efbe 100644
 --- a/drivers/net/ethernet/broadcom/bnx2.h
 +++ b/drivers/net/ethernet/broadcom/bnx2.h
-@@ -20,7 +20,7 @@
- /*
-  *  tx_bd definition
-  */
--struct tx_bd {
-+struct bnx2_tx_bd {
- 	u32 tx_bd_haddr_hi;
- 	u32 tx_bd_haddr_lo;
- 	u32 tx_bd_mss_nbytes;
-@@ -48,7 +48,7 @@ struct tx_bd {
- /*
-  *  rx_bd definition
-  */
--struct rx_bd {
-+struct bnx2_rx_bd {
- 	u32 rx_bd_haddr_hi;
- 	u32 rx_bd_haddr_lo;
- 	u32 rx_bd_len;
-@@ -6538,37 +6538,38 @@ struct l2_fhdr {
- 
- /* Use CPU native page size up to 16K for the ring sizes.  */
- #if (PAGE_SHIFT > 14)
--#define BCM_PAGE_BITS	14
-+#define BNX2_PAGE_BITS	14
- #else
--#define BCM_PAGE_BITS	PAGE_SHIFT
-+#define BNX2_PAGE_BITS	PAGE_SHIFT
+@@ -6984,6 +6984,7 @@ struct bnx2 {
+ #ifdef BCM_CNIC
+ 	struct mutex		cnic_lock;
+ 	struct cnic_eth_dev	cnic_eth_dev;
++	struct cnic_eth_dev	*(*cnic_probe)(struct net_device *);
  #endif
--#define BCM_PAGE_SIZE	(1 << BCM_PAGE_BITS)
-+#define BNX2_PAGE_SIZE	(1 << BNX2_PAGE_BITS)
  
--#define TX_DESC_CNT  (BCM_PAGE_SIZE / sizeof(struct tx_bd))
--#define MAX_TX_DESC_CNT (TX_DESC_CNT - 1)
-+#define BNX2_TX_DESC_CNT  (BNX2_PAGE_SIZE / sizeof(struct bnx2_tx_bd))
-+#define BNX2_MAX_TX_DESC_CNT (BNX2_TX_DESC_CNT - 1)
+ 	const struct firmware	*mips_firmware;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 02ea644..defa7d6 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1337,6 +1337,7 @@ struct bnx2x {
+ 	u8			cnic_support;
+ 	bool			cnic_enabled;
+ 	bool			cnic_loaded;
++	struct cnic_eth_dev	*(*cnic_probe)(struct net_device *);
  
--#define MAX_RX_RINGS	8
--#define MAX_RX_PG_RINGS	32
--#define RX_DESC_CNT  (BCM_PAGE_SIZE / sizeof(struct rx_bd))
--#define MAX_RX_DESC_CNT (RX_DESC_CNT - 1)
--#define MAX_TOTAL_RX_DESC_CNT (MAX_RX_DESC_CNT * MAX_RX_RINGS)
--#define MAX_TOTAL_RX_PG_DESC_CNT (MAX_RX_DESC_CNT * MAX_RX_PG_RINGS)
-+#define BNX2_MAX_RX_RINGS	8
-+#define BNX2_MAX_RX_PG_RINGS	32
-+#define BNX2_RX_DESC_CNT  (BNX2_PAGE_SIZE / sizeof(struct bnx2_rx_bd))
-+#define BNX2_MAX_RX_DESC_CNT (BNX2_RX_DESC_CNT - 1)
-+#define BNX2_MAX_TOTAL_RX_DESC_CNT (BNX2_MAX_RX_DESC_CNT * BNX2_MAX_RX_RINGS)
-+#define BNX2_MAX_TOTAL_RX_PG_DESC_CNT	\
-+	(BNX2_MAX_RX_DESC_CNT * BNX2_MAX_RX_PG_RINGS)
- 
--#define NEXT_TX_BD(x) (((x) & (MAX_TX_DESC_CNT - 1)) ==			\
--		(MAX_TX_DESC_CNT - 1)) ?				\
-+#define BNX2_NEXT_TX_BD(x) (((x) & (BNX2_MAX_TX_DESC_CNT - 1)) ==	\
-+		(BNX2_MAX_TX_DESC_CNT - 1)) ?				\
- 	(x) + 2 : (x) + 1
- 
--#define TX_RING_IDX(x) ((x) & MAX_TX_DESC_CNT)
-+#define BNX2_TX_RING_IDX(x) ((x) & BNX2_MAX_TX_DESC_CNT)
- 
--#define NEXT_RX_BD(x) (((x) & (MAX_RX_DESC_CNT - 1)) ==			\
--		(MAX_RX_DESC_CNT - 1)) ?				\
-+#define BNX2_NEXT_RX_BD(x) (((x) & (BNX2_MAX_RX_DESC_CNT - 1)) ==	\
-+		(BNX2_MAX_RX_DESC_CNT - 1)) ?				\
- 	(x) + 2 : (x) + 1
- 
--#define RX_RING_IDX(x) ((x) & bp->rx_max_ring_idx)
--#define RX_PG_RING_IDX(x) ((x) & bp->rx_max_pg_ring_idx)
-+#define BNX2_RX_RING_IDX(x) ((x) & bp->rx_max_ring_idx)
-+#define BNX2_RX_PG_RING_IDX(x) ((x) & bp->rx_max_pg_ring_idx)
- 
--#define RX_RING(x) (((x) & ~MAX_RX_DESC_CNT) >> (BCM_PAGE_BITS - 4))
--#define RX_IDX(x) ((x) & MAX_RX_DESC_CNT)
-+#define BNX2_RX_RING(x) (((x) & ~BNX2_MAX_RX_DESC_CNT) >> (BNX2_PAGE_BITS - 4))
-+#define BNX2_RX_IDX(x) ((x) & BNX2_MAX_RX_DESC_CNT)
- 
- /* Context size. */
- #define CTX_SHIFT                   7
-@@ -6609,7 +6610,7 @@ struct l2_fhdr {
-  * RX ring buffer contains pointer to kmalloc() data only,
-  * skb are built only after Hardware filled the frame.
-  */
--struct sw_bd {
-+struct bnx2_sw_bd {
- 	u8			*data;
- 	DEFINE_DMA_UNMAP_ADDR(mapping);
- };
-@@ -6623,23 +6624,23 @@ static inline struct l2_fhdr *get_l2_fhdr(u8 *data)
+ 	/* Flag that indicates that we can start looking for FCoE L2 queue
+ 	 * completions in the default status block.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 75aea83..f34ff59 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12018,6 +12018,8 @@ static int bnx2x_get_num_non_def_sbs(struct pci_dev *pdev,
+ 	return control & PCI_MSIX_FLAGS_QSIZE;
  }
  
++struct cnic_eth_dev *bnx2x_cnic_probe(struct net_device *);
++
+ static int bnx2x_init_one(struct pci_dev *pdev,
+ 				    const struct pci_device_id *ent)
+ {
+@@ -12097,6 +12099,7 @@ static int bnx2x_init_one(struct pci_dev *pdev,
+ 	bp->igu_sb_cnt = max_non_def_sbs;
+ 	bp->msg_enable = debug;
+ 	bp->cnic_support = cnic_cnt;
++	bp->cnic_probe = bnx2x_cnic_probe;
  
--struct sw_pg {
-+struct bnx2_sw_pg {
- 	struct page		*page;
- 	DEFINE_DMA_UNMAP_ADDR(mapping);
- };
+ 	pci_set_drvdata(pdev, dev);
  
--struct sw_tx_bd {
-+struct bnx2_sw_tx_bd {
- 	struct sk_buff		*skb;
- 	DEFINE_DMA_UNMAP_ADDR(mapping);
- 	unsigned short		is_gso;
- 	unsigned short		nr_frags;
- };
+@@ -13038,6 +13041,5 @@ struct cnic_eth_dev *bnx2x_cnic_probe(struct net_device *dev)
+ 	   cp->starting_cid);
+ 	return cp;
+ }
+-EXPORT_SYMBOL(bnx2x_cnic_probe);
  
--#define SW_RXBD_RING_SIZE (sizeof(struct sw_bd) * RX_DESC_CNT)
--#define SW_RXPG_RING_SIZE (sizeof(struct sw_pg) * RX_DESC_CNT)
--#define RXBD_RING_SIZE (sizeof(struct rx_bd) * RX_DESC_CNT)
--#define SW_TXBD_RING_SIZE (sizeof(struct sw_tx_bd) * TX_DESC_CNT)
--#define TXBD_RING_SIZE (sizeof(struct tx_bd) * TX_DESC_CNT)
-+#define SW_RXBD_RING_SIZE (sizeof(struct bnx2_sw_bd) * BNX2_RX_DESC_CNT)
-+#define SW_RXPG_RING_SIZE (sizeof(struct bnx2_sw_pg) * BNX2_RX_DESC_CNT)
-+#define RXBD_RING_SIZE (sizeof(struct bnx2_rx_bd) * BNX2_RX_DESC_CNT)
-+#define SW_TXBD_RING_SIZE (sizeof(struct bnx2_sw_tx_bd) * BNX2_TX_DESC_CNT)
-+#define TXBD_RING_SIZE (sizeof(struct bnx2_tx_bd) * BNX2_TX_DESC_CNT)
  
- /* Buffered flash (Atmel: AT45DB011B) specific information */
- #define SEEPROM_PAGE_BITS			2
-@@ -6720,8 +6721,8 @@ struct bnx2_tx_ring_info {
- 	u32			tx_bidx_addr;
- 	u32			tx_bseq_addr;
- 
--	struct tx_bd		*tx_desc_ring;
--	struct sw_tx_bd		*tx_buf_ring;
-+	struct bnx2_tx_bd	*tx_desc_ring;
-+	struct bnx2_sw_tx_bd	*tx_buf_ring;
- 
- 	u16			tx_cons;
- 	u16			hw_tx_cons;
-@@ -6741,13 +6742,13 @@ struct bnx2_rx_ring_info {
- 	u16			rx_pg_prod;
- 	u16			rx_pg_cons;
- 
--	struct sw_bd		*rx_buf_ring;
--	struct rx_bd		*rx_desc_ring[MAX_RX_RINGS];
--	struct sw_pg		*rx_pg_ring;
--	struct rx_bd		*rx_pg_desc_ring[MAX_RX_PG_RINGS];
-+	struct bnx2_sw_bd	*rx_buf_ring;
-+	struct bnx2_rx_bd	*rx_desc_ring[BNX2_MAX_RX_RINGS];
-+	struct bnx2_sw_pg	*rx_pg_ring;
-+	struct bnx2_rx_bd	*rx_pg_desc_ring[BNX2_MAX_RX_PG_RINGS];
- 
--	dma_addr_t		rx_desc_mapping[MAX_RX_RINGS];
--	dma_addr_t		rx_pg_desc_mapping[MAX_RX_PG_RINGS];
-+	dma_addr_t		rx_desc_mapping[BNX2_MAX_RX_RINGS];
-+	dma_addr_t		rx_pg_desc_mapping[BNX2_MAX_RX_PG_RINGS];
- };
- 
- struct bnx2_napi {
-@@ -7052,7 +7053,7 @@ struct bnx2_rv2p_fw_file {
- 
- #define RV2P_P1_FIXUP_PAGE_SIZE_IDX		0
- #define RV2P_BD_PAGE_SIZE_MSK			0xffff
--#define RV2P_BD_PAGE_SIZE			((BCM_PAGE_SIZE / 16) - 1)
-+#define RV2P_BD_PAGE_SIZE			((BNX2_PAGE_SIZE / 16) - 1)
- 
- #define RV2P_PROC1                              0
- #define RV2P_PROC2                              1
 diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index 091c60a..756a2a7 100644
+index b865093..df8c30d 100644
 --- a/drivers/net/ethernet/broadcom/cnic.c
 +++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -724,7 +724,7 @@ static void cnic_free_dma(struct cnic_dev *dev, struct cnic_dma *dma)
+@@ -40,6 +40,7 @@
+ #include <net/ip6_checksum.h>
+ #include <scsi/iscsi_if.h>
  
- 	for (i = 0; i < dma->num_pages; i++) {
- 		if (dma->pg_arr[i]) {
--			dma_free_coherent(&dev->pcidev->dev, BCM_PAGE_SIZE,
-+			dma_free_coherent(&dev->pcidev->dev, BNX2_PAGE_SIZE,
- 					  dma->pg_arr[i], dma->pg_map_arr[i]);
- 			dma->pg_arr[i] = NULL;
- 		}
-@@ -783,7 +783,7 @@ static int cnic_alloc_dma(struct cnic_dev *dev, struct cnic_dma *dma,
++#define BCM_CNIC	1
+ #include "cnic_if.h"
+ #include "bnx2.h"
+ #include "bnx2x/bnx2x.h"
+@@ -5449,14 +5450,12 @@ static struct cnic_dev *init_bnx2_cnic(struct net_device *dev)
+ 	struct pci_dev *pdev;
+ 	struct cnic_dev *cdev;
+ 	struct cnic_local *cp;
++	struct bnx2 *bp = netdev_priv(dev);
+ 	struct cnic_eth_dev *ethdev = NULL;
+-	struct cnic_eth_dev *(*probe)(struct net_device *) = NULL;
  
- 	for (i = 0; i < pages; i++) {
- 		dma->pg_arr[i] = dma_alloc_coherent(&dev->pcidev->dev,
--						    BCM_PAGE_SIZE,
-+						    BNX2_PAGE_SIZE,
- 						    &dma->pg_map_arr[i],
- 						    GFP_ATOMIC);
- 		if (dma->pg_arr[i] == NULL)
-@@ -792,8 +792,8 @@ static int cnic_alloc_dma(struct cnic_dev *dev, struct cnic_dma *dma,
- 	if (!use_pg_tbl)
- 		return 0;
+-	probe = symbol_get(bnx2_cnic_probe);
+-	if (probe) {
+-		ethdev = (*probe)(dev);
+-		symbol_put(bnx2_cnic_probe);
+-	}
++	if (bp->cnic_probe)
++		ethdev = (bp->cnic_probe)(dev);
++
+ 	if (!ethdev)
+ 		return NULL;
  
--	dma->pgtbl_size = ((pages * 8) + BCM_PAGE_SIZE - 1) &
--			  ~(BCM_PAGE_SIZE - 1);
-+	dma->pgtbl_size = ((pages * 8) + BNX2_PAGE_SIZE - 1) &
-+			  ~(BNX2_PAGE_SIZE - 1);
- 	dma->pgtbl = dma_alloc_coherent(&dev->pcidev->dev, dma->pgtbl_size,
- 					&dma->pgtbl_map, GFP_ATOMIC);
- 	if (dma->pgtbl == NULL)
-@@ -898,8 +898,8 @@ static int cnic_alloc_context(struct cnic_dev *dev)
- 	if (CHIP_NUM(cp) == CHIP_NUM_5709) {
- 		int i, k, arr_size;
+@@ -5511,14 +5510,12 @@ static struct cnic_dev *init_bnx2x_cnic(struct net_device *dev)
+ 	struct pci_dev *pdev;
+ 	struct cnic_dev *cdev;
+ 	struct cnic_local *cp;
++	struct bnx2x *bp = netdev_priv(dev);
+ 	struct cnic_eth_dev *ethdev = NULL;
+-	struct cnic_eth_dev *(*probe)(struct net_device *) = NULL;
  
--		cp->ctx_blk_size = BCM_PAGE_SIZE;
--		cp->cids_per_blk = BCM_PAGE_SIZE / 128;
-+		cp->ctx_blk_size = BNX2_PAGE_SIZE;
-+		cp->cids_per_blk = BNX2_PAGE_SIZE / 128;
- 		arr_size = BNX2_MAX_CID / cp->cids_per_blk *
- 			   sizeof(struct cnic_ctx);
- 		cp->ctx_arr = kzalloc(arr_size, GFP_KERNEL);
-@@ -931,7 +931,7 @@ static int cnic_alloc_context(struct cnic_dev *dev)
- 		for (i = 0; i < cp->ctx_blks; i++) {
- 			cp->ctx_arr[i].ctx =
- 				dma_alloc_coherent(&dev->pcidev->dev,
--						   BCM_PAGE_SIZE,
-+						   BNX2_PAGE_SIZE,
- 						   &cp->ctx_arr[i].mapping,
- 						   GFP_KERNEL);
- 			if (cp->ctx_arr[i].ctx == NULL)
-@@ -1011,7 +1011,7 @@ static int __cnic_alloc_uio_rings(struct cnic_uio_dev *udev, int pages)
- 	if (udev->l2_ring)
- 		return 0;
+-	probe = symbol_get(bnx2x_cnic_probe);
+-	if (probe) {
+-		ethdev = (*probe)(dev);
+-		symbol_put(bnx2x_cnic_probe);
+-	}
++	if (bp->cnic_probe)
++		ethdev = bp->cnic_probe(dev);
++
+ 	if (!ethdev)
+ 		return NULL;
  
--	udev->l2_ring_size = pages * BCM_PAGE_SIZE;
-+	udev->l2_ring_size = pages * BNX2_PAGE_SIZE;
- 	udev->l2_ring = dma_alloc_coherent(&udev->pdev->dev, udev->l2_ring_size,
- 					   &udev->l2_ring_map,
- 					   GFP_KERNEL | __GFP_COMP);
-@@ -2898,7 +2898,7 @@ static int cnic_l2_completion(struct cnic_local *cp)
- 	u16 hw_cons, sw_cons;
- 	struct cnic_uio_dev *udev = cp->udev;
- 	union eth_rx_cqe *cqe, *cqe_ring = (union eth_rx_cqe *)
--					(udev->l2_ring + (2 * BCM_PAGE_SIZE));
-+					(udev->l2_ring + (2 * BNX2_PAGE_SIZE));
- 	u32 cmd;
- 	int comp = 0;
+diff --git a/drivers/net/ethernet/broadcom/cnic_if.h b/drivers/net/ethernet/broadcom/cnic_if.h
+index 502e11e..2a35436 100644
+--- a/drivers/net/ethernet/broadcom/cnic_if.h
++++ b/drivers/net/ethernet/broadcom/cnic_if.h
+@@ -14,8 +14,8 @@
  
-@@ -4366,7 +4366,7 @@ static int cnic_setup_5709_context(struct cnic_dev *dev, int valid)
- 		u32 idx = cp->ctx_arr[i].cid / cp->cids_per_blk;
- 		u32 val;
+ #include "bnx2x/bnx2x_mfw_req.h"
  
--		memset(cp->ctx_arr[i].ctx, 0, BCM_PAGE_SIZE);
-+		memset(cp->ctx_arr[i].ctx, 0, BNX2_PAGE_SIZE);
+-#define CNIC_MODULE_VERSION	"2.5.15"
+-#define CNIC_MODULE_RELDATE	"Dec 04, 2012"
++#define CNIC_MODULE_VERSION	"2.5.16"
++#define CNIC_MODULE_RELDATE	"Dec 05, 2012"
  
- 		CNIC_WR(dev, BNX2_CTX_HOST_PAGE_TBL_DATA0,
- 			(cp->ctx_arr[i].mapping & 0xffffffff) | valid_bit);
-@@ -4508,7 +4508,7 @@ static void cnic_init_bnx2_tx_ring(struct cnic_dev *dev)
- 	u32 cid_addr, tx_cid, sb_id;
- 	u32 val, offset0, offset1, offset2, offset3;
- 	int i;
--	struct tx_bd *txbd;
-+	struct bnx2_tx_bd *txbd;
- 	dma_addr_t buf_map, ring_map = udev->l2_ring_map;
- 	struct status_block *s_blk = cp->status_blk.gen;
+ #define CNIC_ULP_RDMA		0
+ #define CNIC_ULP_ISCSI		1
+@@ -353,7 +353,4 @@ extern int cnic_register_driver(int ulp_type, struct cnic_ulp_ops *ulp_ops);
  
-@@ -4554,7 +4554,7 @@ static void cnic_init_bnx2_tx_ring(struct cnic_dev *dev)
- 	txbd = udev->l2_ring;
+ extern int cnic_unregister_driver(int ulp_type);
  
- 	buf_map = udev->l2_buf_map;
--	for (i = 0; i < MAX_TX_DESC_CNT; i++, txbd++) {
-+	for (i = 0; i < BNX2_MAX_TX_DESC_CNT; i++, txbd++) {
- 		txbd->tx_bd_haddr_hi = (u64) buf_map >> 32;
- 		txbd->tx_bd_haddr_lo = (u64) buf_map & 0xffffffff;
- 	}
-@@ -4574,7 +4574,7 @@ static void cnic_init_bnx2_rx_ring(struct cnic_dev *dev)
- 	struct cnic_uio_dev *udev = cp->udev;
- 	u32 cid_addr, sb_id, val, coal_reg, coal_val;
- 	int i;
--	struct rx_bd *rxbd;
-+	struct bnx2_rx_bd *rxbd;
- 	struct status_block *s_blk = cp->status_blk.gen;
- 	dma_addr_t ring_map = udev->l2_ring_map;
- 
-@@ -4610,8 +4610,8 @@ static void cnic_init_bnx2_rx_ring(struct cnic_dev *dev)
- 		val = BNX2_L2CTX_L2_STATUSB_NUM(sb_id);
- 	cnic_ctx_wr(dev, cid_addr, BNX2_L2CTX_HOST_BDIDX, val);
- 
--	rxbd = udev->l2_ring + BCM_PAGE_SIZE;
--	for (i = 0; i < MAX_RX_DESC_CNT; i++, rxbd++) {
-+	rxbd = udev->l2_ring + BNX2_PAGE_SIZE;
-+	for (i = 0; i < BNX2_MAX_RX_DESC_CNT; i++, rxbd++) {
- 		dma_addr_t buf_map;
- 		int n = (i % cp->l2_rx_ring_size) + 1;
- 
-@@ -4621,11 +4621,11 @@ static void cnic_init_bnx2_rx_ring(struct cnic_dev *dev)
- 		rxbd->rx_bd_haddr_hi = (u64) buf_map >> 32;
- 		rxbd->rx_bd_haddr_lo = (u64) buf_map & 0xffffffff;
- 	}
--	val = (u64) (ring_map + BCM_PAGE_SIZE) >> 32;
-+	val = (u64) (ring_map + BNX2_PAGE_SIZE) >> 32;
- 	cnic_ctx_wr(dev, cid_addr, BNX2_L2CTX_NX_BDHADDR_HI, val);
- 	rxbd->rx_bd_haddr_hi = val;
- 
--	val = (u64) (ring_map + BCM_PAGE_SIZE) & 0xffffffff;
-+	val = (u64) (ring_map + BNX2_PAGE_SIZE) & 0xffffffff;
- 	cnic_ctx_wr(dev, cid_addr, BNX2_L2CTX_NX_BDHADDR_LO, val);
- 	rxbd->rx_bd_haddr_lo = val;
- 
-@@ -4691,10 +4691,10 @@ static int cnic_start_bnx2_hw(struct cnic_dev *dev)
- 
- 	val = CNIC_RD(dev, BNX2_MQ_CONFIG);
- 	val &= ~BNX2_MQ_CONFIG_KNL_BYP_BLK_SIZE;
--	if (BCM_PAGE_BITS > 12)
-+	if (BNX2_PAGE_BITS > 12)
- 		val |= (12 - 8)  << 4;
- 	else
--		val |= (BCM_PAGE_BITS - 8)  << 4;
-+		val |= (BNX2_PAGE_BITS - 8)  << 4;
- 
- 	CNIC_WR(dev, BNX2_MQ_CONFIG, val);
- 
-@@ -4724,13 +4724,13 @@ static int cnic_start_bnx2_hw(struct cnic_dev *dev)
- 
- 	/* Initialize the kernel work queue context. */
- 	val = KRNLQ_TYPE_TYPE_KRNLQ | KRNLQ_SIZE_TYPE_SIZE |
--	      (BCM_PAGE_BITS - 8) | KRNLQ_FLAGS_QE_SELF_SEQ;
-+	      (BNX2_PAGE_BITS - 8) | KRNLQ_FLAGS_QE_SELF_SEQ;
- 	cnic_ctx_wr(dev, kwq_cid_addr, L5_KRNLQ_TYPE, val);
- 
--	val = (BCM_PAGE_SIZE / sizeof(struct kwqe) - 1) << 16;
-+	val = (BNX2_PAGE_SIZE / sizeof(struct kwqe) - 1) << 16;
- 	cnic_ctx_wr(dev, kwq_cid_addr, L5_KRNLQ_QE_SELF_SEQ_MAX, val);
- 
--	val = ((BCM_PAGE_SIZE / sizeof(struct kwqe)) << 16) | KWQ_PAGE_CNT;
-+	val = ((BNX2_PAGE_SIZE / sizeof(struct kwqe)) << 16) | KWQ_PAGE_CNT;
- 	cnic_ctx_wr(dev, kwq_cid_addr, L5_KRNLQ_PGTBL_NPAGES, val);
- 
- 	val = (u32) ((u64) cp->kwq_info.pgtbl_map >> 32);
-@@ -4750,13 +4750,13 @@ static int cnic_start_bnx2_hw(struct cnic_dev *dev)
- 
- 	/* Initialize the kernel complete queue context. */
- 	val = KRNLQ_TYPE_TYPE_KRNLQ | KRNLQ_SIZE_TYPE_SIZE |
--	      (BCM_PAGE_BITS - 8) | KRNLQ_FLAGS_QE_SELF_SEQ;
-+	      (BNX2_PAGE_BITS - 8) | KRNLQ_FLAGS_QE_SELF_SEQ;
- 	cnic_ctx_wr(dev, kcq_cid_addr, L5_KRNLQ_TYPE, val);
- 
--	val = (BCM_PAGE_SIZE / sizeof(struct kcqe) - 1) << 16;
-+	val = (BNX2_PAGE_SIZE / sizeof(struct kcqe) - 1) << 16;
- 	cnic_ctx_wr(dev, kcq_cid_addr, L5_KRNLQ_QE_SELF_SEQ_MAX, val);
- 
--	val = ((BCM_PAGE_SIZE / sizeof(struct kcqe)) << 16) | KCQ_PAGE_CNT;
-+	val = ((BNX2_PAGE_SIZE / sizeof(struct kcqe)) << 16) | KCQ_PAGE_CNT;
- 	cnic_ctx_wr(dev, kcq_cid_addr, L5_KRNLQ_PGTBL_NPAGES, val);
- 
- 	val = (u32) ((u64) cp->kcq1.dma.pgtbl_map >> 32);
-@@ -4895,10 +4895,10 @@ static void cnic_init_bnx2x_tx_ring(struct cnic_dev *dev,
- 	u32 cli = cp->ethdev->iscsi_l2_client_id;
- 	u32 val;
- 
--	memset(txbd, 0, BCM_PAGE_SIZE);
-+	memset(txbd, 0, BNX2_PAGE_SIZE);
- 
- 	buf_map = udev->l2_buf_map;
--	for (i = 0; i < MAX_TX_DESC_CNT; i += 3, txbd += 3) {
-+	for (i = 0; i < BNX2_MAX_TX_DESC_CNT; i += 3, txbd += 3) {
- 		struct eth_tx_start_bd *start_bd = &txbd->start_bd;
- 		struct eth_tx_parse_bd_e1x *pbd_e1x =
- 			&((txbd + 1)->parse_bd_e1x);
-@@ -4954,9 +4954,9 @@ static void cnic_init_bnx2x_rx_ring(struct cnic_dev *dev,
- 	struct cnic_local *cp = dev->cnic_priv;
- 	struct cnic_uio_dev *udev = cp->udev;
- 	struct eth_rx_bd *rxbd = (struct eth_rx_bd *) (udev->l2_ring +
--				BCM_PAGE_SIZE);
-+				BNX2_PAGE_SIZE);
- 	struct eth_rx_cqe_next_page *rxcqe = (struct eth_rx_cqe_next_page *)
--				(udev->l2_ring + (2 * BCM_PAGE_SIZE));
-+				(udev->l2_ring + (2 * BNX2_PAGE_SIZE));
- 	struct host_sp_status_block *sb = cp->bnx2x_def_status_blk;
- 	int i;
- 	u32 cli = cp->ethdev->iscsi_l2_client_id;
-@@ -4980,20 +4980,20 @@ static void cnic_init_bnx2x_rx_ring(struct cnic_dev *dev,
- 		rxbd->addr_lo = cpu_to_le32(buf_map & 0xffffffff);
- 	}
- 
--	val = (u64) (ring_map + BCM_PAGE_SIZE) >> 32;
-+	val = (u64) (ring_map + BNX2_PAGE_SIZE) >> 32;
- 	rxbd->addr_hi = cpu_to_le32(val);
- 	data->rx.bd_page_base.hi = cpu_to_le32(val);
- 
--	val = (u64) (ring_map + BCM_PAGE_SIZE) & 0xffffffff;
-+	val = (u64) (ring_map + BNX2_PAGE_SIZE) & 0xffffffff;
- 	rxbd->addr_lo = cpu_to_le32(val);
- 	data->rx.bd_page_base.lo = cpu_to_le32(val);
- 
- 	rxcqe += BNX2X_MAX_RCQ_DESC_CNT;
--	val = (u64) (ring_map + (2 * BCM_PAGE_SIZE)) >> 32;
-+	val = (u64) (ring_map + (2 * BNX2_PAGE_SIZE)) >> 32;
- 	rxcqe->addr_hi = cpu_to_le32(val);
- 	data->rx.cqe_page_base.hi = cpu_to_le32(val);
- 
--	val = (u64) (ring_map + (2 * BCM_PAGE_SIZE)) & 0xffffffff;
-+	val = (u64) (ring_map + (2 * BNX2_PAGE_SIZE)) & 0xffffffff;
- 	rxcqe->addr_lo = cpu_to_le32(val);
- 	data->rx.cqe_page_base.lo = cpu_to_le32(val);
- 
-@@ -5258,8 +5258,8 @@ static void cnic_shutdown_rings(struct cnic_dev *dev)
- 		msleep(10);
- 	}
- 	clear_bit(CNIC_LCL_FL_RINGS_INITED, &cp->cnic_local_flags);
--	rx_ring = udev->l2_ring + BCM_PAGE_SIZE;
--	memset(rx_ring, 0, BCM_PAGE_SIZE);
-+	rx_ring = udev->l2_ring + BNX2_PAGE_SIZE;
-+	memset(rx_ring, 0, BNX2_PAGE_SIZE);
- }
- 
- static int cnic_register_netdev(struct cnic_dev *dev)
-diff --git a/drivers/net/ethernet/broadcom/cnic.h b/drivers/net/ethernet/broadcom/cnic.h
-index 148604c..6fa7a98 100644
---- a/drivers/net/ethernet/broadcom/cnic.h
-+++ b/drivers/net/ethernet/broadcom/cnic.h
-@@ -80,18 +80,18 @@
- #define CNIC_LOCAL_PORT_MAX	61024
- #define CNIC_LOCAL_PORT_RANGE	(CNIC_LOCAL_PORT_MAX - CNIC_LOCAL_PORT_MIN)
- 
--#define KWQE_CNT (BCM_PAGE_SIZE / sizeof(struct kwqe))
--#define KCQE_CNT (BCM_PAGE_SIZE / sizeof(struct kcqe))
-+#define KWQE_CNT (BNX2_PAGE_SIZE / sizeof(struct kwqe))
-+#define KCQE_CNT (BNX2_PAGE_SIZE / sizeof(struct kcqe))
- #define MAX_KWQE_CNT (KWQE_CNT - 1)
- #define MAX_KCQE_CNT (KCQE_CNT - 1)
- 
- #define MAX_KWQ_IDX	((KWQ_PAGE_CNT * KWQE_CNT) - 1)
- #define MAX_KCQ_IDX	((KCQ_PAGE_CNT * KCQE_CNT) - 1)
- 
--#define KWQ_PG(x) (((x) & ~MAX_KWQE_CNT) >> (BCM_PAGE_BITS - 5))
-+#define KWQ_PG(x) (((x) & ~MAX_KWQE_CNT) >> (BNX2_PAGE_BITS - 5))
- #define KWQ_IDX(x) ((x) & MAX_KWQE_CNT)
- 
--#define KCQ_PG(x) (((x) & ~MAX_KCQE_CNT) >> (BCM_PAGE_BITS - 5))
-+#define KCQ_PG(x) (((x) & ~MAX_KCQE_CNT) >> (BNX2_PAGE_BITS - 5))
- #define KCQ_IDX(x) ((x) & MAX_KCQE_CNT)
- 
- #define BNX2X_NEXT_KCQE(x) (((x) & (MAX_KCQE_CNT - 1)) ==		\
-@@ -422,9 +422,11 @@ struct bnx2x_bd_chain_next {
- 
- #define IS_E1H_OFFSET       		BNX2X_CHIP_IS_E1H(cp->chip_id)
- 
--#define BNX2X_RX_DESC_CNT		(BCM_PAGE_SIZE / sizeof(struct eth_rx_bd))
-+#define BNX2X_RX_DESC_CNT		(BNX2_PAGE_SIZE / \
-+					 sizeof(struct eth_rx_bd))
- #define BNX2X_MAX_RX_DESC_CNT		(BNX2X_RX_DESC_CNT - 2)
--#define BNX2X_RCQ_DESC_CNT		(BCM_PAGE_SIZE / sizeof(union eth_rx_cqe))
-+#define BNX2X_RCQ_DESC_CNT		(BNX2_PAGE_SIZE / \
-+					 sizeof(union eth_rx_cqe))
- #define BNX2X_MAX_RCQ_DESC_CNT		(BNX2X_RCQ_DESC_CNT - 1)
- 
- #define BNX2X_NEXT_RCQE(x) (((x) & BNX2X_MAX_RCQ_DESC_CNT) ==		\
+-extern struct cnic_eth_dev *bnx2_cnic_probe(struct net_device *dev);
+-extern struct cnic_eth_dev *bnx2x_cnic_probe(struct net_device *dev);
+-
+ #endif
 -- 
 1.7.1
