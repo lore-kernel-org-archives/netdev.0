@@ -1,40 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost-blk: Add vhost-blk support v6
-Date: Thu, 6 Dec 2012 15:00:04 +0200
-Message-ID: <20121206130004.GA21312@redhat.com>
-References: <1354412033-32372-1-git-send-email-asias@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jens Axboe <axboe@kernel.dk>, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Christoph Hellwig <hch@infradead.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Asias He <asias@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1354412033-32372-1-git-send-email-asias@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [PATCH] sctp: Fix compiler warning when CONFIG_DEBUG_SECTION_MISMATCH=y
+Date: Thu,  6 Dec 2012 14:03:12 +0100
+Message-ID: <1354798992-25622-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: sri@us.ibm.com, nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: vyasevich@gmail.com, linux-sctp@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:33409 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755010Ab2LFNI4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 08:08:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 02, 2012 at 09:33:53AM +0800, Asias He wrote:
-> diff --git a/drivers/vhost/Kconfig.blk b/drivers/vhost/Kconfig.blk
-> new file mode 100644
-> index 0000000..ff8ab76
-> --- /dev/null
-> +++ b/drivers/vhost/Kconfig.blk
-> @@ -0,0 +1,10 @@
-> +config VHOST_BLK
-> +	tristate "Host kernel accelerator for virtio blk (EXPERIMENTAL)"
-> +	depends on BLOCK &&  EXPERIMENTAL && m
+WARNING: net/sctp/sctp.o(.text+0x72f1): Section mismatch in reference
+from the function sctp_net_init() to the function
+.init.text:sctp_proc_init()
+The function sctp_net_init() references
+the function __init sctp_proc_init().
+This is often because sctp_net_init lacks a __init
+annotation or the annotation of sctp_proc_init is wrong.
 
+And put __net_init after 'int' for sctp_proc_init - as it is done
+everywhere else in the sctp-stack.
 
-should depend on eventfd as well.
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+---
+ net/sctp/protocol.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 456bc3d..2c7785b 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -86,7 +86,7 @@ int sysctl_sctp_rmem[3];
+ int sysctl_sctp_wmem[3];
+ 
+ /* Set up the proc fs entry for the SCTP protocol. */
+-static __net_init int sctp_proc_init(struct net *net)
++static int __net_init sctp_proc_init(struct net *net)
+ {
+ #ifdef CONFIG_PROC_FS
+ 	net->sctp.proc_net_sctp = proc_net_mkdir(net, "sctp", net->proc_net);
+@@ -1165,7 +1165,7 @@ static void sctp_v4_del_protocol(void)
+ 	unregister_inetaddr_notifier(&sctp_inetaddr_notifier);
+ }
+ 
+-static int sctp_net_init(struct net *net)
++static int __net_init sctp_net_init(struct net *net)
+ {
+ 	int status;
+ 
+@@ -1290,7 +1290,7 @@ err_sysctl_register:
+ 	return status;
+ }
+ 
+-static void sctp_net_exit(struct net *net)
++static void __net_exit sctp_net_exit(struct net *net)
+ {
+ 	/* Free the local address list */
+ 	sctp_free_addr_wq(net);
+-- 
+1.7.10.4
