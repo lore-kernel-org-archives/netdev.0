@@ -1,60 +1,50 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Thu, 06 Dec 2012 11:56:45 -0500
-Message-ID: <6001427.qD54i2BbtH@sifl>
-References: <20121205202144.18626.61966.stgit@localhost> <7448004.siKCIqQqTi@sifl> <20121206161200.GA4340@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, jasowang@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] sctp: proc: protect bind_addr->address_list accesses with rcu_read_lock()
+Date: Thu,  6 Dec 2012 18:34:26 +0100
+Message-ID: <a803093c70e857e8e01e554288ee79f66f7acda4.1354814846.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63506 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1424328Ab2LFQ5K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2012 11:57:10 -0500
-In-Reply-To: <20121206161200.GA4340@redhat.com>
+Received: from merlin.infradead.org ([205.233.59.134]:47325 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423100Ab2LFReb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 12:34:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, December 06, 2012 06:12:00 PM Michael S. Tsirkin wrote:
-> On Thu, Dec 06, 2012 at 10:46:11AM -0500, Paul Moore wrote:
-> > On Thursday, December 06, 2012 12:33:25 PM Michael S. Tsirkin wrote:
-> > > OK so just to verify: this can be used to ensure that qemu
-> > > process that has the queue fd can only attach it to
-> > > a specific device, right?
-> > 
-> > Whenever a new queue is created via TUNSETQUEUE/tun_set_queue() the
-> > security_tun_dev_create_queue() LSM hook is called.  When SELinux is
-> > enabled this hook ends up calling selinux_tun_dev_create_queue() which
-> > checks that the calling process (process_t) is allowed to create a new
-> > queue on the specified device (tundev_t) .  If you are familiar with
-> > SELinux security policy, the allow rule would look like this:
-> >
-> >   allow process_t tundev_t:tun_socket create_queue;
-> > 
-> > In practice, if we assume libvirt is creating the TUN device and running
-> > with a SELinux label of virtd_t and that QEMU instances are running with
-> > a SELinux label of svirt_t then the allow rule would look like this:
-> >
-> >   allow svirt_t virtd_t:tun_socket create_queue;
-> > 
-> > There is also the matter of the MLS/MCS constraints providing additional
-> > separation but that is another level of detail which I don't believe is
-> > important for our discussion.
-> 
-> Hmm. How do the rules for SETIFF look ATM?
-> I am just checking default policy does not let qemu do with
-> SETQUEUE something with a device which it can not
-> attach to using SETIFF.
+address_list is protected via the socket lock or RCU. Since we don't want
+to take the socket lock for each assoc we dump in procfs a RCU read-side
+critical section must be entered.
 
-The SETQUEUE/tun_socket:create_queue permissions do not yet exist in any 
-released SELinux policy as we are just now adding them with this patchset.  
-With current policies loaded into a kernel with this patchset applied the 
-SETQUEUE/tun_socket:create_queue permission would be treated according to the 
-policy's unknown permission setting.
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/sctp/proc.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 9966e7b..ec9b0c8 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -139,7 +139,8 @@ static void sctp_seq_dump_local_addrs(struct seq_file *seq, struct sctp_ep_commo
+ 	    primary = &peer->saddr;
+ 	}
+ 
+-	list_for_each_entry(laddr, &epb->bind_addr.address_list, list) {
++	rcu_read_lock();
++	list_for_each_entry_rcu(laddr, &epb->bind_addr.address_list, list) {
+ 		addr = &laddr->a;
+ 		af = sctp_get_af_specific(addr->sa.sa_family);
+ 		if (primary && af->cmp_addr(addr, primary)) {
+@@ -147,6 +148,7 @@ static void sctp_seq_dump_local_addrs(struct seq_file *seq, struct sctp_ep_commo
+ 		}
+ 		af->seq_dump_addr(seq, addr);
+ 	}
++	rcu_read_unlock();
+ }
+ 
+ /* Dump remote addresses of an association. */
 -- 
-paul moore
-security and virtualization @ redhat
+1.7.11.7
