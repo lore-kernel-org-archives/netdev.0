@@ -1,44 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fix some compiler warning in
- net/core/neighbour.c
-Date: Wed, 05 Dec 2012 21:51:36 -0500 (EST)
-Message-ID: <20121205.215136.40885654322570923.davem@davemloft.net>
-References: <1354759444-4937-1-git-send-email-amwang@redhat.com>
-	<50C00544.7060307@gmail.com>
+Subject: Re: [GIT PULL] Remove __dev* markings from the networking drivers
+Date: Wed, 05 Dec 2012 21:52:46 -0500 (EST)
+Message-ID: <20121205.215246.789211879539058594.davem@davemloft.net>
+References: <20121204.160257.680931337109544105.davem@davemloft.net>
+	<20121206024833.GA8469@kroah.com>
+	<20121205.215121.1118396738034568895.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org, davidshan@tencent.com
-To: shanwei88@gmail.com
+Cc: netdev@vger.kernel.org, wfp5p@virginia.edu
+To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39318 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39328 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932226Ab2LFCvh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 21:51:37 -0500
-In-Reply-To: <50C00544.7060307@gmail.com>
+	with ESMTP id S932137Ab2LFCwv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 21:52:51 -0500
+In-Reply-To: <20121205.215121.1118396738034568895.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <shanwei88@gmail.com>
-Date: Thu, 06 Dec 2012 10:39:00 +0800
+From: David Miller <davem@davemloft.net>
+Date: Wed, 05 Dec 2012 21:51:21 -0500 (EST)
 
-> Cong Wang said, at 2012/12/6 10:04:
->> From: Cong Wang <amwang@redhat.com>
->> 
->> net/core/neighbour.c:65:12: warning: 'zero' defined but not used [-Wunused-variable]
->> net/core/neighbour.c:66:12: warning: 'unres_qlen_max' defined but not used [-Wunused-variable]
->> 
->> These variables are only used when CONFIG_SYSCTL is defined,
->> so move them under #ifdef CONFIG_SYSCTL.
->> 
->> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
->> Cc: Shan Wei <davidshan@tencent.com>
->> Cc: David S. Miller <davem@davemloft.net>
->> Signed-off-by: Cong Wang <amwang@redhat.com>
+> From: Greg KH <gregkh@linuxfoundation.org>
+> Date: Wed, 5 Dec 2012 18:48:33 -0800
 > 
-> Rapid response~~~ :-)
-> Same patch in my tree，and i see your patch when prepare to submit it.
+>> On Tue, Dec 04, 2012 at 04:02:57PM -0500, David Miller wrote:
+>>> From: Greg KH <gregkh@linuxfoundation.org>
+>>> Date: Tue, 4 Dec 2012 12:30:52 -0800
+>>> 
+>>> > On Tue, Dec 04, 2012 at 01:17:26PM -0500, David Miller wrote:
+>>> >> It seemse the function declarations were not properly reformatted
+>>> >> after the __dev* tags were removed.  You can't just search and replace
+>>> >> this kind of stuff.  The result looks terrible.
+>>> >> 
+>>> >> Greg please check for things like this next time you send me changes
+>>> >> written by someone else.
+>>> > 
+>>> > Ick, sorry about that.  Want me to fix them all back up?  It's the least
+>>> > I could do.
+>>> 
+>>> If you could do that, I'd really appreciate it.
+>> 
+>> I don't see these patches in your net-next branch yet, so should I just
+>> make this against this branch and do a new pull request?  Or am I not
+>> looking at net-next properly?
 > 
-> Acked-by: Shan Wei <davidshan@tencent.com>
+> The drivers/net changes definitely are in my net-next tree.  I only use
+> the 'master' branch.
 
-Applied.
+The merge commit is 682d7978aee072f411fc747d32954a8371dd7b1b
