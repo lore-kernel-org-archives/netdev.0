@@ -1,40 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Should we report bus width/speed via ethtool?
-Date: Thu, 6 Dec 2012 02:06:28 +0000
-Message-ID: <1354759588.17107.133.camel@deadeye.wl.decadent.org.uk>
-References: <50BFBE05.7020408@candelatech.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: WARNING: drivers/net/ethernet/dlink/sundance.o(.text+0x2e87):
+ Section mismatch in reference from the function sundance_probe1() to the
+ variable .devinit.rodata:sundance_pci_tbl
+Date: Thu, 6 Dec 2012 10:16:46 +0800
+Message-ID: <20121206021646.GA8591@localhost>
+References: <50be77ca.95imDYp6GlyHjRuw%fengguang.wu@intel.com>
+ <CAOJe8K3xBAuhVND-9dJgSxShhpHQ3zko=bE2CNrAKVa-gvDouA@mail.gmail.com>
+ <20121205.125006.830180895260845549.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	e1000-devel list <e1000-devel@lists.sourceforge.net>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kda@linux-powerpc.org, wfp5p@virginia.edu, netdev@vger.kernel.org,
+	gregkh@linuxfoundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:45912 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753826Ab2LFCGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 21:06:33 -0500
-In-Reply-To: <50BFBE05.7020408@candelatech.com>
+Received: from mga01.intel.com ([192.55.52.88]:9338 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753880Ab2LFCRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Dec 2012 21:17:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20121205.125006.830180895260845549.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-12-05 at 13:35 -0800, Ben Greear wrote:
-> It seems the only way to get the current pci-e bus speed & width
-> in ixgbe (and probably many other NICs) is by parsing output
-> of lspci -vvv.
+On Wed, Dec 05, 2012 at 12:50:06PM -0500, David Miller wrote:
+> From: Denis Kirjanov <kda@linux-powerpc.org>
+> Date: Wed, 5 Dec 2012 11:12:32 +0300
 > 
-> I'd personally find it easier if this info were available via
-> ethtool API.
+> > I"ll fix it.
 > 
-> Any opinions on adding this info?  I was thinking something like:
-[...]
+> You can't.
+> 
+> It's only going to get fixed by a change in Greg KH's device tree
+> which updates the PCI table macros to not use __dev* section tags.
+> 
+> Fengguant, _PLEASE_, as Greg requested, stop reporting these section
+> mismatch errors, they aren't helpful and are wasting valuable
+> developer time.
 
-This is nothing specific to network devices, so putting it in ethtool
-info is totally inappropriate.
+Dave, Greg: Sorry for the delay! I've just disabled these section
+mismatch warnings against *devinit*.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+Fengguang
