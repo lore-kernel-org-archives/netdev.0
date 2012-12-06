@@ -1,61 +1,48 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
-Date: Thu, 6 Dec 2012 07:28:13 -0800 (PST)
-Message-ID: <882468393.42962386.1354807693049.JavaMail.root@vmware.com>
-References: <50A55F57.7080804@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, David Miller <davem@davemloft.net>,
-	georgezhang@vmware.com
-To: Anthony Liguori <aliguori@us.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <50A55F57.7080804@us.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Paul Chavent <Paul.Chavent@onera.fr>
+Subject: [PATCH] net : enable tx time stamping in the vde driver.
+Date: Thu,  6 Dec 2012 16:25:05 +0100
+Message-ID: <1354807505-21222-1-git-send-email-paul.chavent@onera.fr>
+Cc: Paul Chavent <Paul.Chavent@onera.fr>
+To: jdike@addtoit.com, richard@nod.at,
+	user-mode-linux-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, richardcochran@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from briaree.onecert.fr ([134.212.190.4]:59684 "EHLO
+	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964876Ab2LFP3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 10:29:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Anthony,
+This new version moves the skb_tx_timestamp in the main uml
+driver. This should avoid the need to call this function in each
+transport (vde, slirp, tuntap, ...). It also add support for ethtool
+get_ts_info.
 
-> This was already done in a hypervisor neutral way using virtio:
-> 
-> http://lists.openwall.net/netdev/2008/12/14/8
-> 
-> The concept was Nacked and that led to the abomination of
-> virtio-serial.  If an address family for virtualization is on the
-> table, we should reconsider AF_VMCHANNEL.
+Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
+---
+ arch/um/drivers/net_kern.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-I finally had a look at your patch.  Please correct me if I'm wrong,
-but it seems that the peer of an AF_VMCHANNEL connection is a virtio
-channel inside the hypervisor, i.e., the other end is _not_ sockets,
-right?
-
-That's quite a bit different from vSockets, where both sides use the
-socket interface, even within the VMX process in our hypervisor.  We
-also intend for arbitrary host processes -- those outside the
-hypervisor -- to use it via the sockets interface.  We have shipping
-applications that do just that, where communication is between a guest
-process and a host service, with both sides using the standard socket
-API but with the vSockets address family.  We also encourage people to
-write such VM-to-host applications, and we've been shipping the
-vSockets header in our host-side products to allow people to do just
-that.
-
-So I think in that sense vSockets is somewhat more general, and we'd
-obviously prefer to go with our socket family and address structure
-if LKML is open to something like this.
-
-Thanks!
-- Andy
-
-PS I realize we still owe LKML a spec for the vSockets protocol.
+diff --git a/arch/um/drivers/net_kern.c b/arch/um/drivers/net_kern.c
+index b1314eb..5aa8696 100644
+--- a/arch/um/drivers/net_kern.c
++++ b/arch/um/drivers/net_kern.c
+@@ -218,6 +218,7 @@ static int uml_net_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	spin_lock_irqsave(&lp->lock, flags);
+ 
+ 	len = (*lp->write)(lp->fd, skb, lp);
++	skb_tx_timestampns(skb);
+ 
+ 	if (len == skb->len) {
+ 		dev->stats.tx_packets++;
+@@ -281,6 +282,7 @@ static void uml_net_get_drvinfo(struct net_device *dev,
+ static const struct ethtool_ops uml_net_ethtool_ops = {
+ 	.get_drvinfo	= uml_net_get_drvinfo,
+ 	.get_link	= ethtool_op_get_link,
++	.get_ts_info	= ethtool_op_get_ts_info,
+ };
+ 
+ static void uml_net_user_timer_expire(unsigned long _conn)
+-- 
+1.7.12.1
