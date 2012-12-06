@@ -1,52 +1,64 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [PATCH] tulip: Fix compiler warning when CONFIG_DEBUG_SECTION_MISMATCH=y
-Date: Thu,  6 Dec 2012 14:04:27 +0100
-Message-ID: <1354799067-25680-1-git-send-email-christoph.paasch@uclouvain.be>
-Cc: netdev@vger.kernel.org
-To: Grant Grundler <grundler@parisc-linux.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:44041 "EHLO
-	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752917Ab2LFNOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 08:14:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: at91sam9260 MACB problem with IP fragmentation
+Date: Thu, 6 Dec 2012 14:27:10 +0100
+Message-ID: <50C09D2E.8050608@atmel.com>
+References: <50C08233.9030905@erwinrol.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>,
+	Havard Skinnemoen <havard@skinnemoen.net>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	<matteo.fortini@sadel.it>, netdev <netdev@vger.kernel.org>
+To: Erwin Rol <mailinglists@erwinrol.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50C08233.9030905@erwinrol.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-WARNING: drivers/net/ethernet/dec/tulip/tulip.o(.text+0x4057): Section
-mismatch in reference from the function tulip_init_one() to the variable
-.devinit.rodata:early_486_chipsets
-The function tulip_init_one() references
-the variable __devinitconst early_486_chipsets.
-This is often because tulip_init_one lacks a __devinitconst
-annotation or the annotation of early_486_chipsets is wrong.
+Erwin,
 
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
----
- drivers/net/ethernet/dec/tulip/tulip_core.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On 12/06/2012 12:32 PM, Erwin Rol :
+> Hello Nicolas, Havard, all,
+> 
+> I have a very obscure problem with a at91sam9260 board (almost 1 to 1
+> copy of the Atmel EK).
+> 
+> The MACB seems to stall when I use large (>2 * MTU) UDP datagrams. The
+> test case is that a udp echo client (PC) sends datagrams with increasing
+> length to the AT91 until the max length of the UDP datagram is reached.
+> When there is no IP fragmentation everything is fine, but when the
+> datagrams are starting to get fragmented the AT91 will not reply
+> anymore. But as soon as some network traffic happens it goes on again,
+> and non of the data is lost.
+> 
+> With wireshark the effect can be easily seen (192.168.1.4 is the PC echo
+> client, and 192.168.1.133 is the at91 echo server) After the first
+> request there comes no reply. After a 5 second timeout the second
+> request is send. And then both replies are returned.
+> 
+> When I enabled debugging output it all started to work. So I tried some
+> udelays in the driver instead of printk and with a 1ms delay in the irq
+> handler it started working. Of course that is an unacceptable fix, but
+> it looks like that is some weird race condition that causes the sending
+> to stall. The only difference with normal MTU sized datagrams I can
+> think of is that the fragmented packets can be passed very quickly to
+> the macb tx function, because the kernel has all 5 skb's ready.
+> 
+> I would be very interested to hear if someone else could reproduce this
+> problem. Or even better, has seen this problem and has a fix for it.
+> 
+> I tried several kernels including the test version from Nicolas that he
+> posted on LKML in October. They all show the same effect.
 
-diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
-index 157c8e6..6baec9c 100644
---- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-+++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-@@ -1301,7 +1301,7 @@ DEFINE_PCI_DEVICE_TABLE(early_486_chipsets) = {
- 	{ },
- };
- 
--static int tulip_init_one(struct pci_dev *pdev,
-+static int __devinit tulip_init_one(struct pci_dev *pdev,
- 			  const struct pci_device_id *ent)
- {
- 	struct tulip_private *tp;
-@@ -1970,7 +1970,7 @@ static void poll_tulip (struct net_device *dev)
- }
- #endif
- 
--static struct pci_driver tulip_driver = {
-+static struct __devinitdata pci_driver tulip_driver = {
- 	.name		= DRV_NAME,
- 	.id_table	= tulip_pci_tbl,
- 	.probe		= tulip_init_one,
+[..]
+
+It seems that Matteo has the same behavior: check here:
+http://www.spinics.net/lists/netdev/msg218951.html
+
+I am working on the macb driver right now, so I will try to reproduce
+and track this issue on my side.
+
+Best regards,
 -- 
-1.7.10.4
+Nicolas Ferre
