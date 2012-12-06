@@ -1,182 +1,140 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH 2/2] sctp: Add RCU protection to assoc->transport_addr_list
-Date: Thu, 06 Dec 2012 15:07:51 -0500
-Message-ID: <50C0FB17.9000602@gmail.com>
-References: <cover.1354821623.git.tgraf@suug.ch> <93b74d9f3e36e0009e8ca77192f417bc9f3e8dea.1354821623.git.tgraf@suug.ch>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [GIT PULL] Remove __dev* markings from the networking drivers
+Date: Thu, 6 Dec 2012 15:11:35 -0500
+Message-ID: <20121206201135.GA2246@tuxdriver.com>
+References: <20121203202910.GB29451@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	nhorman@tuxdriver.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:50915 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751667Ab2LFUHy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 15:07:54 -0500
-In-Reply-To: <93b74d9f3e36e0009e8ca77192f417bc9f3e8dea.1354821623.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Bill Pemberton <wfp5p-4Ng6DfrEGID2fBVCVOL8/A@public.gmane.org>
+To: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20121203202910.GB29451-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/06/2012 02:25 PM, Thomas Graf wrote:
-> peer.transport_addr_list is currently only protected by sk_sock
-> which is inpractical to acquire for procfs dumping purposes.
->
-> This patch adds RCU protection allowing for the procfs readers to
-> enter RCU read-side critical sections.
->
-> Modification of the list continues to be serialized via sk_lock.
->
-> V2: Use list_del_rcu() in sctp_association_free() to be safe
->      Skip transports marked dead when dumping for procfs
->
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+I went ahead and applied these as patches, since they were based on
+something other than wireless-next.  I hope that's OK!
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+John
 
--vlad
+On Mon, Dec 03, 2012 at 12:29:10PM -0800, Greg KH wrote:
+> Hi John,
+> 
+> Here's a pull request for all of Bill's __dev* removal patches for the
+> wireless networking drivers, based on net-next.  If you want this
+> rebased on a different tree, or sent as patches (it's only 18 of them),
+> please let me know.
+> 
+> thanks,
+> 
+> greg k-h
+> 
+> -------------
+> 
+> The following changes since commit 60e476d02129acb1f863a9b4932358678ee6a355:
+> 
+>   bna: remove useless calls to memset(). (2012-12-02 20:32:56 -0500)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/net-next.git tags/dev_removal_wireless
+> 
+> for you to fetch changes up to 40ccc6ab03053a2ad1f52c8b3f4d3ee828b7c013:
+> 
+>   rtlwifi: remove __dev* attributes (2012-12-03 11:47:38 -0800)
+> 
+> ----------------------------------------------------------------
+> Wireless:  Remove __dev* markings from the wireless drivers
+> 
+> This is a series of patches that remove the dev* attributes for all
+> wireless drivers.
+> 
+> Use of __devinit, __devexit_p, __devinitdata, __devinitconst, and
+> __devexit are no longer needed since CONFIG_HOTPLUG is being removed as
+> an option.
+> 
+> Note, there are some devinit compiler section mismatch warnings due to
+> this series, but they are fixed up when merged with my driver-next
+> branch, which fixes the PCI device id warnings, and removes the modpost
+> detection, as it's no longer needed.
+> 
+> Signed-off-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+> 
+> ----------------------------------------------------------------
+> Bill Pemberton (18):
+>       rfkill: remove __dev* attributes
+>       wireless: remove __dev* attributes
+>       ath5k: remove __dev* attributes
+>       atmel: remove __dev* attributes
+>       b43: remove __dev* attributes
+>       brcm80211: remove __dev* attributes
+>       ipw2x00: remove __dev* attributes
+>       iwlegacy: remove __dev* attributes
+>       iwlwifi: remove __dev* attributes
+>       libertas: remove __dev* attributes
+>       mwl8k: remove __dev* attributes
+>       orinoco: remove __dev* attributes
+>       p54: remove __dev* attributes
+>       rt2x00: remove __dev* attributes
+>       rtl8187: remove __dev* attributes
+>       rtl8187: remove __dev* attributes
+>       wlcore/wl18xx/wl12xx: remove __dev* attributes
+>       rtlwifi: remove __dev* attributes
+> 
+>  drivers/net/wireless/adm8211.c                        |  6 +++---
+>  drivers/net/wireless/airo.c                           |  6 +++---
+>  drivers/net/wireless/ath/ath5k/base.c                 |  4 ++--
+>  drivers/net/wireless/ath/ath5k/led.c                  |  2 +-
+>  drivers/net/wireless/ath/ath5k/pci.c                  |  6 +++---
+>  drivers/net/wireless/atmel_pci.c                      |  6 +++---
+>  drivers/net/wireless/b43/pcmcia.c                     |  6 +++---
+>  drivers/net/wireless/b43/sdio.c                       |  6 +++---
+>  drivers/net/wireless/brcm80211/brcmsmac/mac80211_if.c |  4 ++--
+>  drivers/net/wireless/ipw2x00/ipw2100.c                |  4 ++--
+>  drivers/net/wireless/ipw2x00/ipw2200.c                |  8 ++++----
+>  drivers/net/wireless/iwlegacy/3945-mac.c              |  4 ++--
+>  drivers/net/wireless/iwlegacy/4965-mac.c              |  4 ++--
+>  drivers/net/wireless/iwlwifi/pcie/drv.c               |  4 ++--
+>  drivers/net/wireless/libertas/if_spi.c                |  6 +++---
+>  drivers/net/wireless/mwl8k.c                          | 12 ++++++------
+>  drivers/net/wireless/orinoco/orinoco_nortel.c         |  4 ++--
+>  drivers/net/wireless/orinoco/orinoco_pci.c            |  4 ++--
+>  drivers/net/wireless/orinoco/orinoco_plx.c            |  4 ++--
+>  drivers/net/wireless/orinoco/orinoco_tmd.c            |  4 ++--
+>  drivers/net/wireless/p54/p54pci.c                     |  6 +++---
+>  drivers/net/wireless/p54/p54spi.c                     |  6 +++---
+>  drivers/net/wireless/p54/p54usb.c                     |  6 +++---
+>  drivers/net/wireless/rt2x00/rt2400pci.c               |  2 +-
+>  drivers/net/wireless/rt2x00/rt2500pci.c               |  2 +-
+>  drivers/net/wireless/rt2x00/rt2800pci.c               |  4 ++--
+>  drivers/net/wireless/rt2x00/rt61pci.c                 |  2 +-
+>  drivers/net/wireless/rtl818x/rtl8180/dev.c            |  6 +++---
+>  drivers/net/wireless/rtl818x/rtl8187/dev.c            |  6 +++---
+>  drivers/net/wireless/rtlwifi/pci.c                    |  2 +-
+>  drivers/net/wireless/rtlwifi/pci.h                    |  2 +-
+>  drivers/net/wireless/rtlwifi/rtl8192de/sw.c           |  2 +-
+>  drivers/net/wireless/rtlwifi/rtl8192se/sw.c           |  2 +-
+>  drivers/net/wireless/rtlwifi/usb.c                    |  2 +-
+>  drivers/net/wireless/rtlwifi/usb.h                    |  2 +-
+>  drivers/net/wireless/ti/wl1251/sdio.c                 |  4 ++--
+>  drivers/net/wireless/ti/wl1251/spi.c                  |  6 +++---
+>  drivers/net/wireless/ti/wl12xx/main.c                 |  6 +++---
+>  drivers/net/wireless/ti/wl18xx/main.c                 |  6 +++---
+>  drivers/net/wireless/ti/wlcore/main.c                 |  4 ++--
+>  drivers/net/wireless/ti/wlcore/sdio.c                 |  8 ++++----
+>  drivers/net/wireless/ti/wlcore/spi.c                  |  6 +++---
+>  drivers/net/wireless/ti/wlcore/wlcore.h               |  4 ++--
+>  net/rfkill/rfkill-gpio.c                              |  2 +-
+>  net/rfkill/rfkill-regulator.c                         |  6 +++---
+>  45 files changed, 104 insertions(+), 104 deletions(-)
+> 
 
-> ---
->   include/net/sctp/structs.h |  2 ++
->   net/sctp/associola.c       |  6 +++---
->   net/sctp/proc.c            | 14 ++++++++++++--
->   net/sctp/transport.c       | 18 +++++++++++++-----
->   4 files changed, 30 insertions(+), 10 deletions(-)
->
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 64158aa..5d6987b 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -948,6 +948,8 @@ struct sctp_transport {
->
->   	/* 64-bit random number sent with heartbeat. */
->   	__u64 hb_nonce;
-> +
-> +	struct rcu_head rcu;
->   };
->
->   struct sctp_transport *sctp_transport_new(struct net *, const union sctp_addr *,
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index b1ef3bc..81b1236 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -445,7 +445,7 @@ void sctp_association_free(struct sctp_association *asoc)
->   	/* Release the transport structures. */
->   	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
->   		transport = list_entry(pos, struct sctp_transport, transports);
-> -		list_del(pos);
-> +		list_del_rcu(pos);
->   		sctp_transport_free(transport);
->   	}
->
-> @@ -565,7 +565,7 @@ void sctp_assoc_rm_peer(struct sctp_association *asoc,
->   		sctp_assoc_update_retran_path(asoc);
->
->   	/* Remove this peer from the list. */
-> -	list_del(&peer->transports);
-> +	list_del_rcu(&peer->transports);
->
->   	/* Get the first transport of asoc. */
->   	pos = asoc->peer.transport_addr_list.next;
-> @@ -765,7 +765,7 @@ struct sctp_transport *sctp_assoc_add_peer(struct sctp_association *asoc,
->   	peer->state = peer_state;
->
->   	/* Attach the remote transport to our asoc.  */
-> -	list_add_tail(&peer->transports, &asoc->peer.transport_addr_list);
-> +	list_add_tail_rcu(&peer->transports, &asoc->peer.transport_addr_list);
->   	asoc->peer.transport_count++;
->
->   	/* If we do not yet have a primary path, set one.  */
-> diff --git a/net/sctp/proc.c b/net/sctp/proc.c
-> index 06b05ee..8c19e97 100644
-> --- a/net/sctp/proc.c
-> +++ b/net/sctp/proc.c
-> @@ -162,15 +162,20 @@ static void sctp_seq_dump_remote_addrs(struct seq_file *seq, struct sctp_associa
->   	struct sctp_af *af;
->
->   	primary = &assoc->peer.primary_addr;
-> -	list_for_each_entry(transport, &assoc->peer.transport_addr_list,
-> +	rcu_read_lock();
-> +	list_for_each_entry_rcu(transport, &assoc->peer.transport_addr_list,
->   			transports) {
->   		addr = &transport->ipaddr;
-> +		if (transport->dead)
-> +			continue;
-> +
->   		af = sctp_get_af_specific(addr->sa.sa_family);
->   		if (af->cmp_addr(addr, primary)) {
->   			seq_printf(seq, "*");
->   		}
->   		af->seq_dump_addr(seq, addr);
->   	}
-> +	rcu_read_unlock();
->   }
->
->   static void * sctp_eps_seq_start(struct seq_file *seq, loff_t *pos)
-> @@ -441,12 +446,16 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
->   	head = &sctp_assoc_hashtable[hash];
->   	sctp_local_bh_disable();
->   	read_lock(&head->lock);
-> +	rcu_read_lock();
->   	sctp_for_each_hentry(epb, node, &head->chain) {
->   		if (!net_eq(sock_net(epb->sk), seq_file_net(seq)))
->   			continue;
->   		assoc = sctp_assoc(epb);
-> -		list_for_each_entry(tsp, &assoc->peer.transport_addr_list,
-> +		list_for_each_entry_rcu(tsp, &assoc->peer.transport_addr_list,
->   					transports) {
-> +			if (tsp->dead)
-> +				continue;
-> +
->   			/*
->   			 * The remote address (ADDR)
->   			 */
-> @@ -492,6 +501,7 @@ static int sctp_remaddr_seq_show(struct seq_file *seq, void *v)
->   		}
->   	}
->
-> +	rcu_read_unlock();
->   	read_unlock(&head->lock);
->   	sctp_local_bh_enable();
->
-> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-> index 206cf52..1295aec 100644
-> --- a/net/sctp/transport.c
-> +++ b/net/sctp/transport.c
-> @@ -163,13 +163,11 @@ void sctp_transport_free(struct sctp_transport *transport)
->   	sctp_transport_put(transport);
->   }
->
-> -/* Destroy the transport data structure.
-> - * Assumes there are no more users of this structure.
-> - */
-> -static void sctp_transport_destroy(struct sctp_transport *transport)
-> +static void sctp_transport_destroy_rcu(struct rcu_head *head)
->   {
-> -	SCTP_ASSERT(transport->dead, "Transport is not dead", return);
-> +	struct sctp_transport *transport;
->
-> +	transport = container_of(head, struct sctp_transport, rcu);
->   	if (transport->asoc)
->   		sctp_association_put(transport->asoc);
->
-> @@ -180,6 +178,16 @@ static void sctp_transport_destroy(struct sctp_transport *transport)
->   	SCTP_DBG_OBJCNT_DEC(transport);
->   }
->
-> +/* Destroy the transport data structure.
-> + * Assumes there are no more users of this structure.
-> + */
-> +static void sctp_transport_destroy(struct sctp_transport *transport)
-> +{
-> +	SCTP_ASSERT(transport->dead, "Transport is not dead", return);
-> +
-> +	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
-> +}
-> +
->   /* Start T3_rtx timer if it is not already running and update the heartbeat
->    * timer.  This routine is called every time a DATA chunk is sent.
->    */
->
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
