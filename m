@@ -1,90 +1,61 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [net-next PATCH V3-evictor] net: frag evictor, avoid killing
- warm frag queues
-Date: Thu, 06 Dec 2012 16:23:23 +0100
-Message-ID: <1354807403.20888.254.camel@localhost>
-References: <1354319937.20109.285.camel@edumazet-glaptop>
-	 <20121204133007.20215.52566.stgit@dragon>
-	 <1354699462.20888.207.camel@localhost>
-	 <1354796760.20888.217.camel@localhost>
-	 <20121206123248.GA24493@breakpoint.cc>
-	 <1354802100.20888.242.camel@localhost>
-	 <1354805276.31222.803.camel@edumazet-glaptop>
+From: Andy King <acking@vmware.com>
+Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Thu, 6 Dec 2012 07:28:13 -0800 (PST)
+Message-ID: <882468393.42962386.1354807693049.JavaMail.root@vmware.com>
+References: <50A55F57.7080804@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Cong Wang <amwang@redhat.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63543 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754194Ab2LFPX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Dec 2012 10:23:57 -0500
-In-Reply-To: <1354805276.31222.803.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, David Miller <davem@davemloft.net>,
+	georgezhang@vmware.com
+To: Anthony Liguori <aliguori@us.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <50A55F57.7080804@us.ibm.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2012-12-06 at 06:47 -0800, Eric Dumazet wrote:
-> On Thu, 2012-12-06 at 14:55 +0100, Jesper Dangaard Brouer wrote:
+Hi Anthony,
+
+> This was already done in a hypervisor neutral way using virtio:
 > 
-> > The LRU might be the correct solution after all.  If I enable Ethernet
-> > flow-control again, then I have a hard time "activating" the evictor
-> > code (with thresh 4M/3M) .  I'll need a separate DoS program, which can
-> > send incomplete fragments (in back-to-back bursts) to provoke the
-> > evictor and LRU.
-> > 
-> > My cheap DoS reproducer-hack is to disable Ethernet flow-control on only
-> > one interface (out of 3), to cause packet drops and the incomplete
-> > fragments. The current preliminary results is that the two other
-> > interfaces still gets packets through, we don't get the zero throughput
-> > situation.
-> >  Two interfaces and no DoS: 15342 Mbit/s
-> >  Three interfaces and DoS:   7355 Mbit/s
-> > 
-> > The reduction might look big, but you have to take into account, that
-> > "activating" the evictor code, is also causing scalability issues of its
-> > own (which could account for the performance drop it self).
+> http://lists.openwall.net/netdev/2008/12/14/8
 > 
-> I would try removing the LRU, but keeping the age information (jiffie of
-> last valid frag received on one inet_frag_queue)
+> The concept was Nacked and that led to the abomination of
+> virtio-serial.  If an address family for virtualization is on the
+> table, we should reconsider AF_VMCHANNEL.
 
-I don't think its worth optimizing further, atm.
+I finally had a look at your patch.  Please correct me if I'm wrong,
+but it seems that the peer of an AF_VMCHANNEL connection is a virtio
+channel inside the hypervisor, i.e., the other end is _not_ sockets,
+right?
 
-Because, the test above is without any of my SMP scalability fixes.
-With my SMP fixes the result is, full scalability:
+That's quite a bit different from vSockets, where both sides use the
+socket interface, even within the VMX process in our hypervisor.  We
+also intend for arbitrary host processes -- those outside the
+hypervisor -- to use it via the sockets interface.  We have shipping
+applications that do just that, where communication is between a guest
+process and a host service, with both sides using the standard socket
+API but with the vSockets address family.  We also encourage people to
+write such VM-to-host applications, and we've been shipping the
+vSockets header in our host-side products to allow people to do just
+that.
 
- Three interfaces:  (9601+6723+9432) = 25756 Mbit/s
+So I think in that sense vSockets is somewhat more general, and we'd
+obviously prefer to go with our socket family and address structure
+if LKML is open to something like this.
 
-And the 6723 Mbit/s number, is because the old 10G NIC cannot generate
-anymore...
+Thanks!
+- Andy
 
-And I basically cannot use the cheap DoS reproducer-hack, as the
-machine/code-path is now too fast...
-
-Running with 4 interfaces, and starting 6 netperf's (to cause more
-interleaving and higher mem usage):
-
- 4716+8042+8765+6204+2475+4568 = 34770 Mbit/s
-
-I could just manage to get to do IpReasmFails = 14.
-
-[jbrouer@dragon ~]$ nstat > /dev/null && sleep 1 && nstat
-#kernel
-IpInReceives                    2980048            0.0
-IpInDelivers                    66217              0.0
-IpReasmReqds                    2980040            0.0
-IpReasmOKs                      66218              0.0
-IpReasmFails                    14                 0.0
-UdpInDatagrams                  66218              0.0
-IpExtInOctets                   4397976885         0.0
-
-So, after the SMP fixes, its very hard to "activate" the evictor.  We
-would need to find a slower e.g. embedded box and tune the evictor on
-that, as a multi-CPU machine basically will scale "too-well" now ;-)
-
---Jesper
+PS I realize we still owe LKML a spec for the vSockets protocol.
