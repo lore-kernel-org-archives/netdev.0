@@ -1,50 +1,75 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH rfc] netfilter: two xtables matches
-Date: Thu, 6 Dec 2012 16:12:10 -0500
-Message-ID: <CA+FuTSf+fh21koZRJ_ZDsr8yiiwcw2-pJ4uTyS2pOHZGdBM1-w@mail.gmail.com>
-References: <1354735339-13402-1-git-send-email-willemb@google.com>
- <CA+FuTSeYvcdtNf7N=POD+RzsE01+WVsub6F_nqbn06RZyoWx8w@mail.gmail.com>
- <alpine.LNX.2.01.1212052100190.30908@nerf07.vanv.qr> <20121206052246.GA2905@1984>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 1/2] sctp: proc: protect bind_addr->address_list accesses
+ with rcu_read_lock()
+Date: Thu, 6 Dec 2012 16:12:57 -0500
+Message-ID: <20121206211257.GA24797@hmsreliant.think-freely.org>
+References: <cover.1354821623.git.tgraf@suug.ch>
+ <28cdea17e7b2c0f9f9c2a18949b10abc8cb84db2.1354821623.git.tgraf@suug.ch>
+ <50C0FAF8.6060706@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jan Engelhardt <jengelh@inai.de>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, Thomas Graf <tgraf@redhat.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f172.google.com ([209.85.223.172]:59578 "EHLO
-	mail-ie0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755522Ab2LFVMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 16:12:41 -0500
-Received: by mail-ie0-f172.google.com with SMTP id c13so11998547ieb.31
-        for <netdev@vger.kernel.org>; Thu, 06 Dec 2012 13:12:41 -0800 (PST)
-In-Reply-To: <20121206052246.GA2905@1984>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57691 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755001Ab2LFVNT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 16:13:19 -0500
+Content-Disposition: inline
+In-Reply-To: <50C0FAF8.6060706@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 6, 2012 at 12:22 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Wed, Dec 05, 2012 at 09:00:36PM +0100, Jan Engelhardt wrote:
->> On Wednesday 2012-12-05 20:28, Willem de Bruijn wrote:
->>
->> >Somehow, the first part of this email went missing. Not critical,
->> >but for completeness:
->> >
->> >These two patches each add an xtables match.
->> >
->> >The xt_priority match is a straighforward addition in the style of
->> >xt_mark, adding the option to filter on one more sk_buff field. I
->> >have an immediate application for this. The amount of code (in
->> >kernel + userspace) to add a single check proved quite large.
->>
->> Hm so yeah, can't we just place this in xt_mark.c?
->
-> I don't feel this belongs to xt_mark at all.
+On Thu, Dec 06, 2012 at 03:07:20PM -0500, Vlad Yasevich wrote:
+> On 12/06/2012 02:25 PM, Thomas Graf wrote:
+> >From: Thomas Graf <tgraf@redhat.com>
+> >
+> >address_list is protected via the socket lock or RCU. Since we don't want
+> >to take the socket lock for each assoc we dump in procfs a RCU read-side
+> >critical section must be entered.
+> >
+> >V2: Skip local addresses marked as dead
+> >
+> >Cc: Vlad Yasevich <vyasevich@gmail.com>
+> >Cc: Neil Horman <nhorman@tuxdriver.com>
+> >Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> 
+> Acked-by: Vlad Yasevich <vyasevic@gmail.com>
+> 
+> -vlad
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-Do you have other concerns, or can I resubmit as is for merging in a
-few days if no one raises additional issues?
-
-For this and netfilter changes in general: should these patches be
-against git://1984.lsi.us.es/nf-next instead of net-next? This patch
-likely applies cleanly there, but I haven't tried yet. Thanks.
+> >---
+> >  net/sctp/proc.c | 7 ++++++-
+> >  1 file changed, 6 insertions(+), 1 deletion(-)
+> >
+> >diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+> >index 9966e7b..06b05ee 100644
+> >--- a/net/sctp/proc.c
+> >+++ b/net/sctp/proc.c
+> >@@ -139,7 +139,11 @@ static void sctp_seq_dump_local_addrs(struct seq_file *seq, struct sctp_ep_commo
+> >  	    primary = &peer->saddr;
+> >  	}
+> >
+> >-	list_for_each_entry(laddr, &epb->bind_addr.address_list, list) {
+> >+	rcu_read_lock();
+> >+	list_for_each_entry_rcu(laddr, &epb->bind_addr.address_list, list) {
+> >+		if (!laddr->valid)
+> >+			continue;
+> >+
+> >  		addr = &laddr->a;
+> >  		af = sctp_get_af_specific(addr->sa.sa_family);
+> >  		if (primary && af->cmp_addr(addr, primary)) {
+> >@@ -147,6 +151,7 @@ static void sctp_seq_dump_local_addrs(struct seq_file *seq, struct sctp_ep_commo
+> >  		}
+> >  		af->seq_dump_addr(seq, addr);
+> >  	}
+> >+	rcu_read_unlock();
+> >  }
+> >
+> >  /* Dump remote addresses of an association. */
+> >
+> 
+> 
