@@ -1,36 +1,40 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net 1/1] r8169: workaround for missing extended GigaMAC registers
-Date: Thu, 6 Dec 2012 13:25:30 +0100
-Message-ID: <20121206122530.GA3318@electric-eye.fr.zoreil.com>
-References: <20121206073842.GA3847@udknight>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost-blk: Add vhost-blk support v6
+Date: Thu, 6 Dec 2012 15:00:04 +0200
+Message-ID: <20121206130004.GA21312@redhat.com>
+References: <1354412033-32372-1-git-send-email-asias@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Lee Chun-Yi <jlee@suse.com>, Hayes Wang <hayeswang@realtek.com>
-To: Wang YanQing <udknight@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:46220 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754997Ab2LFMuo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 07:50:44 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jens Axboe <axboe@kernel.dk>, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Christoph Hellwig <hch@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Asias He <asias@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20121206073842.GA3847@udknight>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1354412033-32372-1-git-send-email-asias@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Wang YanQing:
-[...]
-> Are you sure we will lose GigaMAC registers's content
-> after NIC into PCI_D3hot state ?
+On Sun, Dec 02, 2012 at 09:33:53AM +0800, Asias He wrote:
+> diff --git a/drivers/vhost/Kconfig.blk b/drivers/vhost/Kconfig.blk
+> new file mode 100644
+> index 0000000..ff8ab76
+> --- /dev/null
+> +++ b/drivers/vhost/Kconfig.blk
+> @@ -0,0 +1,10 @@
+> +config VHOST_BLK
+> +	tristate "Host kernel accelerator for virtio blk (EXPERIMENTAL)"
+> +	depends on BLOCK &&  EXPERIMENTAL && m
 
-I have not made such a claim.
 
-Only some bioses f*ck things up on resume, see:
-
-http://marc.info/?l=linux-netdev&m=132195832624117&w=2
-
-My test computer and its 8168evl (courtesy of Realtek) was not able to make
-a difference w/o the patch: it always works.
-
--- 
-Ueimor
+should depend on eventfd as well.
