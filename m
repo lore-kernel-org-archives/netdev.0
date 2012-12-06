@@ -1,42 +1,87 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] tcp: bug fix Fast Open client retransmission
-Date: Thu, 6 Dec 2012 14:50:58 -0500
-Message-ID: <CADVnQymE7ubywMytDCabQ=3gMWkp=gVrHZke0HpiufQNbF=1KQ@mail.gmail.com>
-References: <1354819532-15676-1-git-send-email-ycheng@google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv5] virtio-spec: virtio network device RFS support
+Date: Thu, 6 Dec 2012 20:03:14 +0000
+Message-ID: <1354824194.2828.6.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20121203105843.GA26194@redhat.com>
+	<1354739966.2655.25.camel@bwh-desktop.uk.solarflarecom.com>
+	<20121206081320.GD10837@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:34227 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752821Ab2LFTu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 14:50:59 -0500
-Received: by mail-qa0-f53.google.com with SMTP id a19so921554qad.19
-        for <netdev@vger.kernel.org>; Thu, 06 Dec 2012 11:50:59 -0800 (PST)
-In-Reply-To: <1354819532-15676-1-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121206081320.GD10837@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 6, 2012 at 1:45 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> If SYN-ACK partially acks SYN-data, the client retransmits the
-> remaining data by tcp_retransmit_skb(). This increments lost recovery
-> state variables like tp->retrans_out in Open state. If loss recovery
-> happens before the retransmission is acked, it triggers the WARN_ON
-> check in tcp_fastretrans_alert(). For example: the client sends
-> SYN-data, gets SYN-ACK acking only ISN, retransmits data, sends
-> another 4 data packets and get 3 dupacks.
->
-> Since the retransmission is not caused by network drop it should not
-> update the recovery state variables. Further the server may return a
-> smaller MSS than the cached MSS used for SYN-data, so the retranmission
-> needs a loop. Otherwise some data will not be retransmitted until timeout
-> or other loss recovery events.
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> ---
+On Thu, 2012-12-06 at 10:13 +0200, Michael S. Tsirkin wrote:
+> On Wed, Dec 05, 2012 at 08:39:26PM +0000, Ben Hutchings wrote:
+> > On Mon, 2012-12-03 at 12:58 +0200, Michael S. Tsirkin wrote:
+> > > Add RFS support to virtio network device.
+> > > Add a new feature flag VIRTIO_NET_F_RFS for this feature, a new
+> > > configuration field max_virtqueue_pairs to detect supported number of
+> > > virtqueues as well as a new command VIRTIO_NET_CTRL_RFS to program
+> > > packet steering for unidirectional protocols.
+> > [...]
+> > > +Programming of the receive flow classificator is implicit.
+> > > + Transmitting a packet of a specific flow on transmitqX will cause incoming
+> > > + packets for this flow to be steered to receiveqX.
+> > > + For uni-directional protocols, or where no packets have been transmitted
+> > > + yet, device will steer a packet to a random queue out of the specified
+> > > + receiveq0..receiveqn.
+> > [...]
+> > 
+> > It doesn't seem like this is usable to implement accelerated RFS in the
+> > guest, though perhaps that doesn't matter.
+> 
+> What is the issue? Could you be more explicit please?
+> 
+> It seems to work pretty well: if we have
+> # of queues >= # of cpus, incoming TCP_STREAM into
+> guest scales very nicely without manual tweaks in guest.
+> 
+> The way it works is, when guest sends a packet driver
+> select the rx queue that we want to use for incoming
+> packets for this slow, and transmit on the matching tx queue.
+> This is exactly what text above suggests no?
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+Yes, I get that.
+
+> >  On the host side, presumably
+> > you'll want vhost_net to do the equivalent of sock_rps_record_flow() -
+> > only without a socket?  But in any case, that requires an rxhash, so I
+> > don't see how this is supposed to work.
+> > 
+> > Ben.
+> 
+> Host should just do what guest tells it to.
+> On the host side we build up the steering table as we get packets
+> to transmit. See the code in drivers/net/tun.c in recent
+> kernels.
+> 
+> Again this actually works fine - what are the problems that you see?
+> Could you give an example please?
+
+I'm not saying it doesn't work in its own way, I just don't see how you
+would make it work with the existing RFS!
+
+Since this doesn't seem to be intended to have *any* connection with the
+existing core networking feature called RFS, perhaps you could find a
+different name for it.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
