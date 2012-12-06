@@ -1,20 +1,22 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Thu, 06 Dec 2012 18:29:54 +0800
-Message-ID: <9040763.QsllgCP7TP@jason-thinkpad-t430s>
-References: <20121205202144.18626.61966.stgit@localhost> <20121205202619.18626.98778.stgit@localhost>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap
+ devices
+Date: Thu, 6 Dec 2012 12:33:25 +0200
+Message-ID: <20121206103325.GG10837@redhat.com>
+References: <20121205202144.18626.61966.stgit@localhost>
+ <20121205202619.18626.98778.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, mst@redhat.com
+	selinux@tycho.nsa.gov, jasowang@redhat.com
 To: Paul Moore <pmoore@redhat.com>
 Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <20121205202619.18626.98778.stgit@localhost>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, December 05, 2012 03:26:19 PM Paul Moore wrote:
+On Wed, Dec 05, 2012 at 03:26:19PM -0500, Paul Moore wrote:
 > This patch corrects some problems with LSM/SELinux that were introduced
 > with the multiqueue patchset.  The problem stems from the fact that the
 > multiqueue work changed the relationship between the tun device and its
@@ -41,11 +43,15 @@ On Wednesday, December 05, 2012 03:26:19 PM Paul Moore wrote:
 > to the SELinux policy's unknown permission setting.
 > 
 > Signed-off-by: Paul Moore <pmoore@redhat.com>
+
+OK so just to verify: this can be used to ensure that qemu
+process that has the queue fd can only attach it to
+a specific device, right?
+
 > ---
 >  drivers/net/tun.c                 |   26 +++++++++++++---
->  include/linux/security.h          |   59
-> +++++++++++++++++++++++++++++-------- security/capability.c             |  
-> 24 +++++++++++++--
+>  include/linux/security.h          |   59 +++++++++++++++++++++++++++++--------
+>  security/capability.c             |   24 +++++++++++++--
 >  security/security.c               |   28 ++++++++++++++----
 >  security/selinux/hooks.c          |   50 ++++++++++++++++++++++++-------
 >  security/selinux/include/objsec.h |    4 +++
@@ -61,12 +67,12 @@ On Wednesday, December 05, 2012 03:26:19 PM Paul Moore wrote:
 >  	unsigned long ageing_time;
 > +	void *security;
 >  };
-> 
+>  
 >  static inline u32 tun_hashfn(u32 rxhash)
-> @@ -465,6 +466,10 @@ static int tun_attach(struct tun_struct *tun, struct
-> file *file) struct tun_file *tfile = file->private_data;
+> @@ -465,6 +466,10 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>  	struct tun_file *tfile = file->private_data;
 >  	int err;
-> 
+>  
 > +	err = security_tun_dev_attach(tfile->socket.sk, tun->security);
 > +	if (err < 0)
 > +		goto out;
@@ -76,37 +82,34 @@ On Wednesday, December 05, 2012 03:26:19 PM Paul Moore wrote:
 >  		goto out;
 > @@ -1348,6 +1353,7 @@ static void tun_free_netdev(struct net_device *dev)
 >  	struct tun_struct *tun = netdev_priv(dev);
-> 
+>  
 >  	tun_flow_uninit(tun);
 > +	security_tun_dev_free_security(tun->security);
 >  	free_netdev(dev);
 >  }
-> 
-> @@ -1534,7 +1540,7 @@ static int tun_set_iff(struct net *net, struct file
-> *file, struct ifreq *ifr)
-> 
+>  
+> @@ -1534,7 +1540,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  
 >  		if (tun_not_capable(tun))
 >  			return -EPERM;
 > -		err = security_tun_dev_attach(tfile->socket.sk);
 > +		err = security_tun_dev_open(tun->security);
 >  		if (err < 0)
 >  			return err;
-> 
-> @@ -1587,7 +1593,9 @@ static int tun_set_iff(struct net *net, struct file
-> *file, struct ifreq *ifr)
-> 
+>  
+> @@ -1587,7 +1593,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  
 >  		spin_lock_init(&tun->lock);
-> 
+>  
 > -		security_tun_dev_post_create(&tfile->sk);
 > +		err = security_tun_dev_alloc_security(&tun->security);
 > +		if (err < 0)
 > +			goto err_free_dev;
-> 
+>  
 >  		tun_net_init(dev);
-> 
-> @@ -1767,12 +1775,18 @@ static int tun_set_queue(struct file *file, struct
-> ifreq *ifr)
-> 
+>  
+> @@ -1767,12 +1775,18 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>  
 >  		tun = netdev_priv(dev);
 >  		if (dev->netdev_ops != &tap_netdev_ops &&
 > -			dev->netdev_ops != &tun_netdev_ops)
@@ -132,10 +135,9 @@ On Wednesday, December 05, 2012 03:26:19 PM Paul Moore wrote:
 > index 05e88bd..8ea923b 100644
 > --- a/include/linux/security.h
 > +++ b/include/linux/security.h
-> @@ -983,17 +983,29 @@ static inline void security_free_mnt_opts(struct
-> security_mnt_opts *opts) *	tells the LSM to decrement the number of 
-secmark
-> labeling rules loaded * @req_classify_flow:
+> @@ -983,17 +983,29 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
+>   *	tells the LSM to decrement the number of secmark labeling rules loaded
+>   * @req_classify_flow:
 >   *	Sets the flow's sid to the openreq sid.
 > + * @tun_dev_alloc_security:
 > + *	This hook allows a module to allocate a security structure for a TUN
@@ -172,8 +174,8 @@ secmark
 > @@ -1613,9 +1625,12 @@ struct security_operations {
 >  	void (*secmark_refcount_inc) (void);
 >  	void (*secmark_refcount_dec) (void);
->  	void (*req_classify_flow) (const struct request_sock *req, struct flowi
-> *fl); -	int (*tun_dev_create)(void);
+>  	void (*req_classify_flow) (const struct request_sock *req, struct flowi *fl);
+> -	int (*tun_dev_create)(void);
 > -	void (*tun_dev_post_create)(struct sock *sk);
 > -	int (*tun_dev_attach)(struct sock *sk);
 > +	int (*tun_dev_alloc_security) (void **security);
@@ -183,7 +185,7 @@ secmark
 > +	int (*tun_dev_attach) (struct sock *sk, void *security);
 > +	int (*tun_dev_open) (void *security);
 >  #endif	/* CONFIG_SECURITY_NETWORK */
-> 
+>  
 >  #ifdef CONFIG_SECURITY_NETWORK_XFRM
 > @@ -2553,9 +2568,12 @@ void security_inet_conn_established(struct sock *sk,
 >  int security_secmark_relabel_packet(u32 secid);
@@ -197,13 +199,13 @@ secmark
 > +int security_tun_dev_create_queue(void *security);
 > +int security_tun_dev_attach(struct sock *sk, void *security);
 > +int security_tun_dev_open(void *security);
-> 
+>  
 >  #else	/* CONFIG_SECURITY_NETWORK */
 >  static inline int security_unix_stream_connect(struct sock *sock,
-> @@ -2720,16 +2738,31 @@ static inline void
-> security_secmark_refcount_dec(void) {
+> @@ -2720,16 +2738,31 @@ static inline void security_secmark_refcount_dec(void)
+>  {
 >  }
-> 
+>  
 > +static inline int security_tun_dev_alloc_security(void **security)
 > +{
 > +	return 0;
@@ -217,7 +219,7 @@ secmark
 >  {
 >  	return 0;
 >  }
-> 
+>  
 > -static inline void security_tun_dev_post_create(struct sock *sk)
 > +static inline int security_tun_dev_create_queue(void *security)
 > +{
@@ -228,7 +230,7 @@ secmark
 >  {
 > +	return 0;
 >  }
-> 
+>  
 > -static inline int security_tun_dev_attach(struct sock *sk)
 > +static inline int security_tun_dev_open(void *security)
 >  {
@@ -238,10 +240,10 @@ secmark
 > index b14a30c..bf4cbf2 100644
 > --- a/security/capability.c
 > +++ b/security/capability.c
-> @@ -704,16 +704,31 @@ static void cap_req_classify_flow(const struct
-> request_sock *req, {
+> @@ -704,16 +704,31 @@ static void cap_req_classify_flow(const struct request_sock *req,
+>  {
 >  }
-> 
+>  
 > +static int cap_tun_dev_alloc_security(void **security)
 > +{
 > +	return 0;
@@ -255,7 +257,7 @@ secmark
 >  {
 >  	return 0;
 >  }
-> 
+>  
 > -static void cap_tun_dev_post_create(struct sock *sk)
 > +static int cap_tun_dev_create_queue(void *security)
 > +{
@@ -266,14 +268,14 @@ secmark
 >  {
 > +	return 0;
 >  }
-> 
+>  
 > -static int cap_tun_dev_attach(struct sock *sk)
 > +static int cap_tun_dev_open(void *security)
 >  {
 >  	return 0;
 >  }
-> @@ -1044,8 +1059,11 @@ void __init security_fixup_ops(struct
-> security_operations *ops) set_to_cap_if_null(ops, secmark_refcount_inc);
+> @@ -1044,8 +1059,11 @@ void __init security_fixup_ops(struct security_operations *ops)
+>  	set_to_cap_if_null(ops, secmark_refcount_inc);
 >  	set_to_cap_if_null(ops, secmark_refcount_dec);
 >  	set_to_cap_if_null(ops, req_classify_flow);
 > +	set_to_cap_if_null(ops, tun_dev_alloc_security);
@@ -292,7 +294,7 @@ secmark
 > @@ -1244,24 +1244,42 @@ void security_secmark_refcount_dec(void)
 >  }
 >  EXPORT_SYMBOL(security_secmark_refcount_dec);
-> 
+>  
 > +int security_tun_dev_alloc_security(void **security)
 > +{
 > +	return security_ops->tun_dev_alloc_security(security);
@@ -310,7 +312,7 @@ secmark
 >  	return security_ops->tun_dev_create();
 >  }
 >  EXPORT_SYMBOL(security_tun_dev_create);
-> 
+>  
 > -void security_tun_dev_post_create(struct sock *sk)
 > +int security_tun_dev_create_queue(void *security)
 >  {
@@ -319,7 +321,7 @@ secmark
 >  }
 > -EXPORT_SYMBOL(security_tun_dev_post_create);
 > +EXPORT_SYMBOL(security_tun_dev_create_queue);
-> 
+>  
 > -int security_tun_dev_attach(struct sock *sk)
 > +int security_tun_dev_attach(struct sock *sk, void *security)
 >  {
@@ -327,7 +329,7 @@ secmark
 > +	return security_ops->tun_dev_attach(sk, security);
 >  }
 >  EXPORT_SYMBOL(security_tun_dev_attach);
-> 
+>  
 > +int security_tun_dev_open(void *security)
 > +{
 > +	return security_ops->tun_dev_open(security);
@@ -335,16 +337,16 @@ secmark
 > +EXPORT_SYMBOL(security_tun_dev_open);
 > +
 >  #endif	/* CONFIG_SECURITY_NETWORK */
-> 
+>  
 >  #ifdef CONFIG_SECURITY_NETWORK_XFRM
 > diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
 > index 61a5336..f1efb08 100644
 > --- a/security/selinux/hooks.c
 > +++ b/security/selinux/hooks.c
-> @@ -4399,6 +4399,24 @@ static void selinux_req_classify_flow(const struct
-> request_sock *req, fl->flowi_secid = req->secid;
+> @@ -4399,6 +4399,24 @@ static void selinux_req_classify_flow(const struct request_sock *req,
+>  	fl->flowi_secid = req->secid;
 >  }
-> 
+>  
 > +static int selinux_tun_dev_alloc_security(void **security)
 > +{
 > +	struct tun_security_struct *tunsec;
@@ -369,7 +371,7 @@ secmark
 > @@ -4414,8 +4432,17 @@ static int selinux_tun_dev_create(void)
 >  			    NULL);
 >  }
-> 
+>  
 > -static void selinux_tun_dev_post_create(struct sock *sk)
 > +static int selinux_tun_dev_create_queue(void *security)
 >  {
@@ -383,27 +385,22 @@ secmark
 > +{
 > +	struct tun_security_struct *tunsec = security;
 >  	struct sk_security_struct *sksec = sk->sk_security;
-> 
+>  
 >  	/* we don't currently perform any NetLabel based labeling here and it
-> @@ -4425,20 +4452,19 @@ static void selinux_tun_dev_post_create(struct sock
-> *sk) * cause confusion to the TUN user that had no idea network labeling *
-> protocols were being used */
-> 
+> @@ -4425,20 +4452,19 @@ static void selinux_tun_dev_post_create(struct sock *sk)
+>  	 * cause confusion to the TUN user that had no idea network labeling
+>  	 * protocols were being used */
+>  
 > -	/* see the comments in selinux_tun_dev_create() about why we don't use
 > -	 * the sockcreate SID here */
 > -
 > -	sksec->sid = current_sid();
 > +	sksec->sid = tunsec->sid;
-
-Since both tun_set_iff() and tun_set_queue() would call this. I wonder when it 
-is called by tun_set_queue() we need some checking just like what we done in 
-v1, otherwise it's unconditionally in TUNSETQUEUE. Or we can add them in 
-selinux_tun_dev_create_queue()?
 >  	sksec->sclass = SECCLASS_TUN_SOCKET;
 > +
 > +	return 0;
 >  }
-> 
+>  
 > -static int selinux_tun_dev_attach(struct sock *sk)
 > +static int selinux_tun_dev_open(void *security)
 >  {
@@ -411,7 +408,7 @@ selinux_tun_dev_create_queue()?
 > +	struct tun_security_struct *tunsec = security;
 >  	u32 sid = current_sid();
 >  	int err;
-> 
+>  
 > -	err = avc_has_perm(sid, sksec->sid, SECCLASS_TUN_SOCKET,
 > +	err = avc_has_perm(sid, tunsec->sid, SECCLASS_TUN_SOCKET,
 >  			   TUN_SOCKET__RELABELFROM, NULL);
@@ -424,7 +421,7 @@ selinux_tun_dev_create_queue()?
 > -
 > -	sksec->sid = sid;
 > +	tunsec->sid = sid;
-> 
+>  
 >  	return 0;
 >  }
 > @@ -5642,9 +5667,12 @@ static struct security_operations selinux_ops = {
@@ -438,17 +435,17 @@ selinux_tun_dev_create_queue()?
 > +	.tun_dev_create_queue =		selinux_tun_dev_create_queue,
 >  	.tun_dev_attach =		selinux_tun_dev_attach,
 > +	.tun_dev_open =			selinux_tun_dev_open,
-> 
+>  
 >  #ifdef CONFIG_SECURITY_NETWORK_XFRM
 >  	.xfrm_policy_alloc_security =	selinux_xfrm_policy_alloc,
-> diff --git a/security/selinux/include/objsec.h
-> b/security/selinux/include/objsec.h index 26c7eee..aa47bca 100644
+> diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
+> index 26c7eee..aa47bca 100644
 > --- a/security/selinux/include/objsec.h
 > +++ b/security/selinux/include/objsec.h
 > @@ -110,6 +110,10 @@ struct sk_security_struct {
 >  	u16 sclass;			/* sock security class */
 >  };
-> 
+>  
 > +struct tun_security_struct {
 > +	u32 sid;			/* SID for the tun device sockets */
 > +};
@@ -456,8 +453,3 @@ selinux_tun_dev_create_queue()?
 >  struct key_security_struct {
 >  	u32 sid;	/* SID of key */
 >  };
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
