@@ -1,53 +1,31 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: Add RCU protection to assoc->transport_addr_list
-Date: Thu, 06 Dec 2012 14:14:22 -0500
-Message-ID: <50C0EE8E.3080505@gmail.com>
-References: <16453bea94a6fc43d657139dff2ce0b5924e2a1f.1354817574.git.tgraf@suug.ch> <50C0E585.1080701@gmail.com> <20121206184433.GE16122@casper.infradead.org> <50C0EAB5.3050303@gmail.com> <20121206190835.GF16122@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Thomas Graf <tgraf@suug.ch>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 0/2 v2] sctp: RCU protection when accessing assoc members for procfs
+Date: Thu,  6 Dec 2012 20:25:03 +0100
+Message-ID: <cover.1354821623.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, vyasevich@gmail.com, nhorman@tuxdriver.com
+To: linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:33731 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946604Ab2LFTO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 14:14:28 -0500
-In-Reply-To: <20121206190835.GF16122@casper.infradead.org>
+Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:57175
+	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755411Ab2LFTZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 14:25:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2012 02:08 PM, Thomas Graf wrote:
-> On 12/06/12 at 01:57pm, Vlad Yasevich wrote:
->> On 12/06/2012 01:44 PM, Thomas Graf wrote:
->>> On 12/06/12 at 01:35pm, Vlad Yasevich wrote:
->>>> We may want to mark transports as dead sooner.  Probably right about
->>>> the time we pull them off the list.
->>>
->>> We mark it dead in sctp_transport_free() which is called at the
->>> end of sctp_assoc_rm_peer(). Do you want to mark it dead at the
->>> beginning of sctp_assoc_rm_peer() as well? (We still need to
->>> mark in sctp_transport_free() anyway).
->>
->> Crud..  sctp_transport_free() is called directly in places...   Hmm...
->> the one in sctp_association_free() may need to be list_del_rcu()...
->
-> It's not really needed but it wouldn't be wrong from a
-> documentation perspective. The assoc is always unhashed
-> while holding head->lock before sctp_association_free()
-> and all current RCU readers of transport_addr_list access
-> the the assoc while holding a read-lock on head->lock.
->
-> Let me respin this patch and do a list_del_rcu() there
-> to document the RCU'iness of it.
->
+@Dave: This is a respin of the following patches:
+  [PATCH] sctp: proc: protect bind_addr->address_list accesses with rcu_read_lock()
+  [PATCH] sctp: Add RCU protection to assoc->transport_addr_list
 
-Right, but there may be chunks that have cached association with a ref
-before sctp_association_free() is called.  Now, after free they may
-be looking at the transport list for whatever reason...  Most places
-check assoc->dead, but I don't want to get caught.  So, there is
-a remote chance that someone may look at transports and would crash
-without rcu.
+Thomas Graf (2):
+  sctp: proc: protect bind_addr->address_list accesses with
+    rcu_read_lock()
+  sctp: Add RCU protection to assoc->transport_addr_list
 
--vlad
+ include/net/sctp/structs.h |  2 ++
+ net/sctp/associola.c       |  6 +++---
+ net/sctp/proc.c            | 21 ++++++++++++++++++---
+ net/sctp/transport.c       | 18 +++++++++++++-----
+ 4 files changed, 36 insertions(+), 11 deletions(-)
+
+-- 
+1.7.11.7
