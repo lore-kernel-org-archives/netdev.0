@@ -1,309 +1,600 @@
-From: "MR. ZUMA DECUBO" <zumadecubo653@gmail.com>
-Subject: KINDLY READ THE ATTACHED FUND INVESTMENT PROPOSAL LETTER AND REPLY.
-Date: Thu, 6 Dec 2012 05:32:27 -0800 (PST)
-Message-ID: <1354800747.39484.YahooMailRC@web5707.biz.mail.ne1.yahoo.com>
-Reply-To: "MR. ZUMA DECUBO" <mr.zumadecubo@mcom.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Thu, 06 Dec 2012 21:51:13 +0800
+Message-ID: <1505323.yRRvBmo94H@jason-thinkpad-t430s>
+References: <20121205202144.18626.61966.stgit@localhost> <20121205202619.18626.98778.stgit@localhost> <20121206103325.GG10837@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="-945142638-1650562273-1354800747=:39484"
-To: undisclosed recipients:;
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Paul Moore <pmoore@redhat.com>, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm23-vm5.bullet.mail.ne1.yahoo.com ([98.138.91.245]:25806 "EHLO
-	nm23-vm5.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752362Ab2LFNjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 08:39:19 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:25925 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932615Ab2LFNvT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Dec 2012 08:51:19 -0500
+In-Reply-To: <20121206103325.GG10837@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
----945142638-1650562273-1354800747=:39484
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+On Thursday, December 06, 2012 12:33:25 PM Michael S. Tsirkin wrote:
+> On Wed, Dec 05, 2012 at 03:26:19PM -0500, Paul Moore wrote:
+> > This patch corrects some problems with LSM/SELinux that were introduced
+> > with the multiqueue patchset.  The problem stems from the fact that the
+> > multiqueue work changed the relationship between the tun device and its
+> > associated socket; before the socket persisted for the life of the
+> > device, however after the multiqueue changes the socket only persisted
+> > for the life of the userspace connection (fd open).  For non-persistent
+> > devices this is not an issue, but for persistent devices this can cause
+> > the tun device to lose its SELinux label.
+> > 
+> > We correct this problem by adding an opaque LSM security blob to the
+> > tun device struct which allows us to have the LSM security state, e.g.
+> > SELinux labeling information, persist for the lifetime of the tun
+> > device.  In the process we tweak the LSM hooks to work with this new
+> > approach to TUN device/socket labeling and introduce a new LSM hook,
+> > security_tun_dev_create_queue(), to approve requests to create a new
+> > TUN queue via TUNSETQUEUE.
+> > 
+> > The SELinux code has been adjusted to match the new LSM hooks, the
+> > other LSMs do not make use of the LSM TUN controls.  This patch makes
+> > use of the recently added "tun_socket:create_queue" permission to
+> > restrict access to the TUNSETQUEUE operation.  On older SELinux
+> > policies which do not define the "tun_socket:create_queue" permission
+> > the access control decision for TUNSETQUEUE will be handled according
+> > to the SELinux policy's unknown permission setting.
+> > 
+> > Signed-off-by: Paul Moore <pmoore@redhat.com>
+> 
+> OK so just to verify: this can be used to ensure that qemu
+> process that has the queue fd can only attach it to
+> a specific device, right?
 
-=0A
----945142638-1650562273-1354800747=:39484
-Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document; name=FUND
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="FUND INVESTMENT PROPOSAL.docx"
+I think it can't. And I'm not sure whether we need selinux help to do this. 
+Looks like we can do this without selinux through:
 
-UEsDBBQABgAIAAAAIQDd/JU3ZgEAACAFAAATAAgCW0NvbnRlbnRfVHlwZXNd
-LnhtbCCiBAIooAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0VMtuwjAQvFfqP0S+Vomh
-h6qqCBz6OLZIpR9g7A1Y9Uv28vr7bgJEVQtBKuUSKVnvzOzsxIPR2ppsCTFp
-70rWL3osAye90m5Wso/JS37PsoTCKWG8g5JtILHR8PpqMNkESBl1u1SyOWJ4
-4DzJOViRCh/AUaXy0Qqk1zjjQchPMQN+2+vdcekdgsMcaww2HDxBJRYGs+c1
-fd4qiWASyx63B2uukokQjJYCSSlfOvWDJd8xFNTZnElzHdINyWD8IENdOU6w
-63sja6JWkI1FxFdhSQZf+ai48nJhaYaiG+aATl9VWkLbX6OF6CWkRJ5bU7QV
-K7Tb6z+qI+HGQPp/FVvcLnrSOY4+JE57OZsf6s0rUDlZESCihnZ1x0cHRLLs
-EsPvkLvGb1KAlHfgzbN/tgcNzEnKin6JiZgaOJvvV/Ja6JMiVjB9v5j738C7
-hLT5kz7+wYz9dVF3H0gdb+634RcAAAD//wMAUEsDBBQABgAIAAAAIQAekRq3
-8wAAAE4CAAALAAgCX3JlbHMvLnJlbHMgogQCKKAAAgAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAjJLbSgNBDIbvBd9hyH032woi0tneSKF3IusDhJnsAXcOzKTavr2jILpQ
-217m9OfLT9abg5vUO6c8Bq9hWdWg2JtgR99reG23iwdQWchbmoJnDUfOsGlu
-b9YvPJGUoTyMMaui4rOGQSQ+ImYzsKNchci+VLqQHEkJU4+RzBv1jKu6vsf0
-VwOamabaWQ1pZ+9AtcdYNl/WDl03Gn4KZu/Yy4kVyAdhb9kuYipsScZyjWop
-9SwabDDPJZ2RYqwKNuBpotX1RP9fi46FLAmhCYnP83x1nANaXg902aJ5x687
-HyFZLBZ9e/tDg7MvaD4BAAD//wMAUEsDBBQABgAIAAAAIQB5gIlnKwEAANwD
-AAAcAAgBd29yZC9fcmVscy9kb2N1bWVudC54bWwucmVscyCiBAEooAABAAAA
-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
-AAAA
+1. Don't assign a NULL pointer to tfile->tun during file detaching
+2. Compare the ifr_name and the name of tfil->tun, if not equal, return -EINVAL
+3. Set a special flag in tun_detach_all() to notify the fd is not usable, and 
+can't be used for future attaching.
 
----945142638-1650562273-1354800747=:39484--
+Afther this, only the device that the fd is first attched through (TUNSETIFF or 
+TUNSETQUEUE) is allowed to be attached again.
+
+> 
+> > ---
+> > 
+> >  drivers/net/tun.c                 |   26 +++++++++++++---
+> >  include/linux/security.h          |   59
+> >  +++++++++++++++++++++++++++++-------- security/capability.c            
+> >  |   24 +++++++++++++--
+> >  security/security.c               |   28 ++++++++++++++----
+> >  security/selinux/hooks.c          |   50 ++++++++++++++++++++++++-------
+> >  security/selinux/include/objsec.h |    4 +++
+> >  6 files changed, 153 insertions(+), 38 deletions(-)
+> > 
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index 14a0454..fb8148b 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -182,6 +182,7 @@ struct tun_struct {
+> > 
+> >  	struct hlist_head flows[TUN_NUM_FLOW_ENTRIES];
+> >  	struct timer_list flow_gc_timer;
+> >  	unsigned long ageing_time;
+> > 
+> > +	void *security;
+> > 
+> >  };
+> >  
+> >  static inline u32 tun_hashfn(u32 rxhash)
+> > 
+> > @@ -465,6 +466,10 @@ static int tun_attach(struct tun_struct *tun, struct
+> > file *file)> 
+> >  	struct tun_file *tfile = file->private_data;
+> >  	int err;
+> > 
+> > +	err = security_tun_dev_attach(tfile->socket.sk, tun->security);
+> > +	if (err < 0)
+> > +		goto out;
+> > +
+> > 
+> >  	err = -EINVAL;
+> >  	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
+> >  	
+> >  		goto out;
+> > 
+> > @@ -1348,6 +1353,7 @@ static void tun_free_netdev(struct net_device *dev)
+> > 
+> >  	struct tun_struct *tun = netdev_priv(dev);
+> >  	
+> >  	tun_flow_uninit(tun);
+> > 
+> > +	security_tun_dev_free_security(tun->security);
+> > 
+> >  	free_netdev(dev);
+> >  
+> >  }
+> > 
+> > @@ -1534,7 +1540,7 @@ static int tun_set_iff(struct net *net, struct file
+> > *file, struct ifreq *ifr)> 
+> >  		if (tun_not_capable(tun))
+> >  		
+> >  			return -EPERM;
+> > 
+> > -		err = security_tun_dev_attach(tfile->socket.sk);
+> > +		err = security_tun_dev_open(tun->security);
+> > 
+> >  		if (err < 0)
+> >  		
+> >  			return err;
+> > 
+> > @@ -1587,7 +1593,9 @@ static int tun_set_iff(struct net *net, struct file
+> > *file, struct ifreq *ifr)> 
+> >  		spin_lock_init(&tun->lock);
+> > 
+> > -		security_tun_dev_post_create(&tfile->sk);
+> > +		err = security_tun_dev_alloc_security(&tun->security);
+> > +		if (err < 0)
+> > +			goto err_free_dev;
+> > 
+> >  		tun_net_init(dev);
+> > 
+> > @@ -1767,12 +1775,18 @@ static int tun_set_queue(struct file *file, struct
+> > ifreq *ifr)> 
+> >  		tun = netdev_priv(dev);
+> >  		if (dev->netdev_ops != &tap_netdev_ops &&
+> > 
+> > -			dev->netdev_ops != &tun_netdev_ops)
+> > +			dev->netdev_ops != &tun_netdev_ops) {
+> > 
+> >  			ret = -EINVAL;
+> > 
+> > -		else if (tun_not_capable(tun))
+> > +			goto unlock;
+> > +		}
+> > +		if (tun_not_capable(tun)) {
+> > 
+> >  			ret = -EPERM;
+> > 
+> > -		else
+> > -			ret = tun_attach(tun, file);
+> > +			goto unlock;
+> > +		}
+> > +		ret = security_tun_dev_create_queue(tun->security);
+> > +		if (ret < 0)
+> > +			goto unlock;
+> > +		ret = tun_attach(tun, file);
+> > 
+> >  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE)
+> >  	
+> >  		__tun_detach(tfile, false);
+> >  	
+> >  	else
+> > 
+> > diff --git a/include/linux/security.h b/include/linux/security.h
+> > index 05e88bd..8ea923b 100644
+> > --- a/include/linux/security.h
+> > +++ b/include/linux/security.h
+> > @@ -983,17 +983,29 @@ static inline void security_free_mnt_opts(struct
+> > security_mnt_opts *opts)> 
+> >   *	tells the LSM to decrement the number of secmark labeling rules loaded
+> >   * @req_classify_flow:
+> >   *	Sets the flow's sid to the openreq sid.
+> > 
+> > + * @tun_dev_alloc_security:
+> > + *	This hook allows a module to allocate a security structure for a TUN
+> > + *	device.
+> > + *	@security pointer to a security structure pointer.
+> > + *	Returns a zero on success, negative values on failure.
+> > + * @tun_dev_free_security:
+> > + *	This hook allows a module to free the security structure for a TUN
+> > + *	device.
+> > + *	@security pointer to the TUN device's security structure
+> > 
+> >   * @tun_dev_create:
+> >   *	Check permissions prior to creating a new TUN device.
+> > 
+> > - * @tun_dev_post_create:
+> > - *	This hook allows a module to update or allocate a per-socket security
+> > - *	structure.
+> > - *	@sk contains the newly created sock structure.
+> > + * @tun_dev_create_queue:
+> > + *	Check permissions prior to creating a new TUN device queue.
+> > + *	@security pointer to the TUN device's security structure.
+> > 
+> >   * @tun_dev_attach:
+> > - *	Check permissions prior to attaching to a persistent TUN device.  This
+> > - *	hook can also be used by the module to update any security state
+> > + *	This hook can be used by the module to update any security state
+> > 
+> >   *	associated with the TUN device's sock structure.
+> >   *	@sk contains the existing sock structure.
+> > 
+> > + *	@security pointer to the TUN device's security structure.
+> > + * @tun_dev_open:
+> > + *	This hook can be used by the module to update any security state
+> > + *	associated with the TUN device's security structure.
+> > + *	@security pointer to the TUN devices's security structure.
+> > 
+> >   *
+> >   * Security hooks for XFRM operations.
+> >   *
+> > 
+> > @@ -1613,9 +1625,12 @@ struct security_operations {
+> > 
+> >  	void (*secmark_refcount_inc) (void);
+> >  	void (*secmark_refcount_dec) (void);
+> >  	void (*req_classify_flow) (const struct request_sock *req, struct flowi
+> >  	*fl);> 
+> > -	int (*tun_dev_create)(void);
+> > -	void (*tun_dev_post_create)(struct sock *sk);
+> > -	int (*tun_dev_attach)(struct sock *sk);
+> > +	int (*tun_dev_alloc_security) (void **security);
+> > +	void (*tun_dev_free_security) (void *security);
+> > +	int (*tun_dev_create) (void);
+> > +	int (*tun_dev_create_queue) (void *security);
+> > +	int (*tun_dev_attach) (struct sock *sk, void *security);
+> > +	int (*tun_dev_open) (void *security);
+> > 
+> >  #endif	/* CONFIG_SECURITY_NETWORK */
+> >  
+> >  #ifdef CONFIG_SECURITY_NETWORK_XFRM
+> > 
+> > @@ -2553,9 +2568,12 @@ void security_inet_conn_established(struct sock
+> > *sk,
+> > 
+> >  int security_secmark_relabel_packet(u32 secid);
+> >  void security_secmark_refcount_inc(void);
+> >  void security_secmark_refcount_dec(void);
+> > 
+> > +int security_tun_dev_alloc_security(void **security);
+> > +void security_tun_dev_free_security(void *security);
+> > 
+> >  int security_tun_dev_create(void);
+> > 
+> > -void security_tun_dev_post_create(struct sock *sk);
+> > -int security_tun_dev_attach(struct sock *sk);
+> > +int security_tun_dev_create_queue(void *security);
+> > +int security_tun_dev_attach(struct sock *sk, void *security);
+> > +int security_tun_dev_open(void *security);
+> > 
+> >  #else	/* CONFIG_SECURITY_NETWORK */
+> >  static inline int security_unix_stream_connect(struct sock *sock,
+> > 
+> > @@ -2720,16 +2738,31 @@ static inline void
+> > security_secmark_refcount_dec(void)> 
+> >  {
+> >  }
+> > 
+> > +static inline int security_tun_dev_alloc_security(void **security)
+> > +{
+> > +	return 0;
+> > +}
+> > +
+> > +static inline void security_tun_dev_free_security(void *security)
+> > +{
+> > +}
+> > +
+> > 
+> >  static inline int security_tun_dev_create(void)
+> >  {
+> >  
+> >  	return 0;
+> >  
+> >  }
+> > 
+> > -static inline void security_tun_dev_post_create(struct sock *sk)
+> > +static inline int security_tun_dev_create_queue(void *security)
+> > +{
+> > +	return 0;
+> > +}
+> > +
+> > +static inline int security_tun_dev_attach(struct sock *sk, void
+> > *security)
+> > 
+> >  {
+> > 
+> > +	return 0;
+> > 
+> >  }
+> > 
+> > -static inline int security_tun_dev_attach(struct sock *sk)
+> > +static inline int security_tun_dev_open(void *security)
+> > 
+> >  {
+> >  
+> >  	return 0;
+> >  
+> >  }
+> > 
+> > diff --git a/security/capability.c b/security/capability.c
+> > index b14a30c..bf4cbf2 100644
+> > --- a/security/capability.c
+> > +++ b/security/capability.c
+> > @@ -704,16 +704,31 @@ static void cap_req_classify_flow(const struct
+> > request_sock *req,> 
+> >  {
+> >  }
+> > 
+> > +static int cap_tun_dev_alloc_security(void **security)
+> > +{
+> > +	return 0;
+> > +}
+> > +
+> > +static void cap_tun_dev_free_security(void *security)
+> > +{
+> > +}
+> > +
+> > 
+> >  static int cap_tun_dev_create(void)
+> >  {
+> >  
+> >  	return 0;
+> >  
+> >  }
+> > 
+> > -static void cap_tun_dev_post_create(struct sock *sk)
+> > +static int cap_tun_dev_create_queue(void *security)
+> > +{
+> > +	return 0;
+> > +}
+> > +
+> > +static int cap_tun_dev_attach(struct sock *sk, void *security)
+> > 
+> >  {
+> > 
+> > +	return 0;
+> > 
+> >  }
+> > 
+> > -static int cap_tun_dev_attach(struct sock *sk)
+> > +static int cap_tun_dev_open(void *security)
+> > 
+> >  {
+> >  
+> >  	return 0;
+> >  
+> >  }
+> > 
+> > @@ -1044,8 +1059,11 @@ void __init security_fixup_ops(struct
+> > security_operations *ops)> 
+> >  	set_to_cap_if_null(ops, secmark_refcount_inc);
+> >  	set_to_cap_if_null(ops, secmark_refcount_dec);
+> >  	set_to_cap_if_null(ops, req_classify_flow);
+> > 
+> > +	set_to_cap_if_null(ops, tun_dev_alloc_security);
+> > +	set_to_cap_if_null(ops, tun_dev_free_security);
+> > 
+> >  	set_to_cap_if_null(ops, tun_dev_create);
+> > 
+> > -	set_to_cap_if_null(ops, tun_dev_post_create);
+> > +	set_to_cap_if_null(ops, tun_dev_create_queue);
+> > +	set_to_cap_if_null(ops, tun_dev_open);
+> > 
+> >  	set_to_cap_if_null(ops, tun_dev_attach);
+> >  
+> >  #endif	/* CONFIG_SECURITY_NETWORK */
+> >  #ifdef CONFIG_SECURITY_NETWORK_XFRM
+> > 
+> > diff --git a/security/security.c b/security/security.c
+> > index 8dcd4ae..4d82654 100644
+> > --- a/security/security.c
+> > +++ b/security/security.c
+> > @@ -1244,24 +1244,42 @@ void security_secmark_refcount_dec(void)
+> > 
+> >  }
+> >  EXPORT_SYMBOL(security_secmark_refcount_dec);
+> > 
+> > +int security_tun_dev_alloc_security(void **security)
+> > +{
+> > +	return security_ops->tun_dev_alloc_security(security);
+> > +}
+> > +EXPORT_SYMBOL(security_tun_dev_alloc_security);
+> > +
+> > +void security_tun_dev_free_security(void *security)
+> > +{
+> > +	security_ops->tun_dev_free_security(security);
+> > +}
+> > +EXPORT_SYMBOL(security_tun_dev_free_security);
+> > +
+> > 
+> >  int security_tun_dev_create(void)
+> >  {
+> >  
+> >  	return security_ops->tun_dev_create();
+> >  
+> >  }
+> >  EXPORT_SYMBOL(security_tun_dev_create);
+> > 
+> > -void security_tun_dev_post_create(struct sock *sk)
+> > +int security_tun_dev_create_queue(void *security)
+> > 
+> >  {
+> > 
+> > -	return security_ops->tun_dev_post_create(sk);
+> > +	return security_ops->tun_dev_create_queue(security);
+> > 
+> >  }
+> > 
+> > -EXPORT_SYMBOL(security_tun_dev_post_create);
+> > +EXPORT_SYMBOL(security_tun_dev_create_queue);
+> > 
+> > -int security_tun_dev_attach(struct sock *sk)
+> > +int security_tun_dev_attach(struct sock *sk, void *security)
+> > 
+> >  {
+> > 
+> > -	return security_ops->tun_dev_attach(sk);
+> > +	return security_ops->tun_dev_attach(sk, security);
+> > 
+> >  }
+> >  EXPORT_SYMBOL(security_tun_dev_attach);
+> > 
+> > +int security_tun_dev_open(void *security)
+> > +{
+> > +	return security_ops->tun_dev_open(security);
+> > +}
+> > +EXPORT_SYMBOL(security_tun_dev_open);
+> > +
+> > 
+> >  #endif	/* CONFIG_SECURITY_NETWORK */
+> >  
+> >  #ifdef CONFIG_SECURITY_NETWORK_XFRM
+> > 
+> > diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+> > index 61a5336..f1efb08 100644
+> > --- a/security/selinux/hooks.c
+> > +++ b/security/selinux/hooks.c
+> > @@ -4399,6 +4399,24 @@ static void selinux_req_classify_flow(const struct
+> > request_sock *req,> 
+> >  	fl->flowi_secid = req->secid;
+> >  
+> >  }
+> > 
+> > +static int selinux_tun_dev_alloc_security(void **security)
+> > +{
+> > +	struct tun_security_struct *tunsec;
+> > +
+> > +	tunsec = kzalloc(sizeof(*tunsec), GFP_KERNEL);
+> > +	if (!tunsec)
+> > +		return -ENOMEM;
+> > +	tunsec->sid = current_sid();
+> > +
+> > +	*security = tunsec;
+> > +	return 0;
+> > +}
+> > +
+> > +static void selinux_tun_dev_free_security(void *security)
+> > +{
+> > +	kfree(security);
+> > +}
+> > +
+> > 
+> >  static int selinux_tun_dev_create(void)
+> >  {
+> >  
+> >  	u32 sid = current_sid();
+> > 
+> > @@ -4414,8 +4432,17 @@ static int selinux_tun_dev_create(void)
+> > 
+> >  			    NULL);
+> >  
+> >  }
+> > 
+> > -static void selinux_tun_dev_post_create(struct sock *sk)
+> > +static int selinux_tun_dev_create_queue(void *security)
+> > 
+> >  {
+> > 
+> > +	struct tun_security_struct *tunsec = security;
+> > +
+> > +	return avc_has_perm(current_sid(), tunsec->sid, SECCLASS_TUN_SOCKET,
+> > +			    TUN_SOCKET__CREATE_QUEUE, NULL);
+> > +}
+> > +
+> > +static int selinux_tun_dev_attach(struct sock *sk, void *security)
+> > +{
+> > +	struct tun_security_struct *tunsec = security;
+> > 
+> >  	struct sk_security_struct *sksec = sk->sk_security;
+> >  	
+> >  	/* we don't currently perform any NetLabel based labeling here and it
+> > 
+> > @@ -4425,20 +4452,19 @@ static void selinux_tun_dev_post_create(struct
+> > sock *sk)> 
+> >  	 * cause confusion to the TUN user that had no idea network labeling
+> >  	 * protocols were being used */
+> > 
+> > -	/* see the comments in selinux_tun_dev_create() about why we don't use
+> > -	 * the sockcreate SID here */
+> > -
+> > -	sksec->sid = current_sid();
+> > +	sksec->sid = tunsec->sid;
+> > 
+> >  	sksec->sclass = SECCLASS_TUN_SOCKET;
+> > 
+> > +
+> > +	return 0;
+> > 
+> >  }
+> > 
+> > -static int selinux_tun_dev_attach(struct sock *sk)
+> > +static int selinux_tun_dev_open(void *security)
+> > 
+> >  {
+> > 
+> > -	struct sk_security_struct *sksec = sk->sk_security;
+> > +	struct tun_security_struct *tunsec = security;
+> > 
+> >  	u32 sid = current_sid();
+> >  	int err;
+> > 
+> > -	err = avc_has_perm(sid, sksec->sid, SECCLASS_TUN_SOCKET,
+> > +	err = avc_has_perm(sid, tunsec->sid, SECCLASS_TUN_SOCKET,
+> > 
+> >  			   TUN_SOCKET__RELABELFROM, NULL);
+> >  	
+> >  	if (err)
+> >  	
+> >  		return err;
+> > 
+> > @@ -4446,8 +4472,7 @@ static int selinux_tun_dev_attach(struct sock *sk)
+> > 
+> >  			   TUN_SOCKET__RELABELTO, NULL);
+> >  	
+> >  	if (err)
+> >  	
+> >  		return err;
+> > 
+> > -
+> > -	sksec->sid = sid;
+> > +	tunsec->sid = sid;
+> > 
+> >  	return 0;
+> >  
+> >  }
+> > 
+> > @@ -5642,9 +5667,12 @@ static struct security_operations selinux_ops = {
+> > 
+> >  	.secmark_refcount_inc =		selinux_secmark_refcount_inc,
+> >  	.secmark_refcount_dec =		selinux_secmark_refcount_dec,
+> >  	.req_classify_flow =		selinux_req_classify_flow,
+> > 
+> > +	.tun_dev_alloc_security =	selinux_tun_dev_alloc_security,
+> > +	.tun_dev_free_security =	selinux_tun_dev_free_security,
+> > 
+> >  	.tun_dev_create =		selinux_tun_dev_create,
+> > 
+> > -	.tun_dev_post_create = 		selinux_tun_dev_post_create,
+> > +	.tun_dev_create_queue =		selinux_tun_dev_create_queue,
+> > 
+> >  	.tun_dev_attach =		selinux_tun_dev_attach,
+> > 
+> > +	.tun_dev_open =			selinux_tun_dev_open,
+> > 
+> >  #ifdef CONFIG_SECURITY_NETWORK_XFRM
+> >  
+> >  	.xfrm_policy_alloc_security =	selinux_xfrm_policy_alloc,
+> > 
+> > diff --git a/security/selinux/include/objsec.h
+> > b/security/selinux/include/objsec.h index 26c7eee..aa47bca 100644
+> > --- a/security/selinux/include/objsec.h
+> > +++ b/security/selinux/include/objsec.h
+> > @@ -110,6 +110,10 @@ struct sk_security_struct {
+> > 
+> >  	u16 sclass;			/* sock security class */
+> >  
+> >  };
+> > 
+> > +struct tun_security_struct {
+> > +	u32 sid;			/* SID for the tun device sockets */
+> > +};
+> > +
+> > 
+> >  struct key_security_struct {
+> >  
+> >  	u32 sid;	/* SID of key */
+> >  
+> >  };
