@@ -1,42 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ksoftirqd 100% after disabling IPv4 route cache on high pps.
-Date: Wed, 05 Dec 2012 15:48:51 -0800
-Message-ID: <1354751331.31222.295.camel@edumazet-glaptop>
-References: <CAJygYd187B1305puZwdiK6kfP=LPPvyX_rGJn9g2azaRs4p8ZA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Should we report bus width/speed via ethtool?
+Date: Wed, 05 Dec 2012 19:01:21 -0500 (EST)
+Message-ID: <20121205.190121.1400827550469329286.davem@davemloft.net>
+References: <50BFBE05.7020408@candelatech.com>
+	<20121205.173650.1310171220758794440.davem@davemloft.net>
+	<50BFD417.7070306@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: =?UTF-8?Q?=E5=8F=B6=E9=9B=A8=E9=A3=9E?= <sunyucong@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:38500 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751918Ab2LEXsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 18:48:54 -0500
-Received: by mail-pa0-f46.google.com with SMTP id bh2so3974333pad.19
-        for <netdev@vger.kernel.org>; Wed, 05 Dec 2012 15:48:54 -0800 (PST)
-In-Reply-To: <CAJygYd187B1305puZwdiK6kfP=LPPvyX_rGJn9g2azaRs4p8ZA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38446 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930Ab2LFABY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Dec 2012 19:01:24 -0500
+In-Reply-To: <50BFD417.7070306@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-12-05 at 13:22 -0800, =E5=8F=B6=E9=9B=A8=E9=A3=9E wrote:
-> Hi Eric,
->=20
-> After disabling the route cache, I found a forwarding performance
-> problem (inevitable ?). Basically the kernel couldn't keep up under
-> about 100k pps and ksoftirqd is dominating the CPU. This problem went
-> away right away if I do
->=20
-> echo  1 > rt_cache_rebuild_count
->=20
-> and comes back as soon as i do echo -1 > rt_cache_rebuild_count.
->=20
-> I then tried to use RPS/RFS to share the load on to mulitple cpus
-> (since ksoftirqd is only using 1 core, clearly). but that has little
-> effect.
->=20
-> Is there some tweaks/patches you recommend?
+From: Ben Greear <greearb@candelatech.com>
+Date: Wed, 05 Dec 2012 15:09:11 -0800
 
-Yes, upgrade your kernel to 3.6 or 3.7, this problem has been solved fo=
-r
-good. No more IP route cache and good performance.
+> On 12/05/2012 02:36 PM, David Miller wrote:
+>> From: Ben Greear <greearb@candelatech.com>
+>> Date: Wed, 05 Dec 2012 13:35:01 -0800
+>>
+>>> It seems the only way to get the current pci-e bus speed & width
+>>> in ixgbe (and probably many other NICs) is by parsing output
+>>> of lspci -vvv.
+>>>
+>>> I'd personally find it easier if this info were available via
+>>> ethtool API.
+>>
+>> You could just as easily have ethtool determine the PCI device
+>> location (using existing facilities) and fetch the PCI-e info from the
+>> PCI sysfs files.
+> 
+> Any particular sysfs file?  I've been grubbing around in there
+> and I don't see anything that specifies bus width or speed..
+> 
+> Maybe it's some binary blob that needs decoding?
+
+lspci might be a good place to figure this out :-)  It's probably
+grovelling around in PCI config space to determine these things.
