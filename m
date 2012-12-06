@@ -1,92 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: gro: fix possible panic in skb_gro_receive()
-Date: Thu, 06 Dec 2012 15:54:59 -0800
-Message-ID: <1354838099.10983.10.camel@edumazet-glaptop>
+From: Patrick Trantham <patrick.trantham@fuel7.com>
+Subject: Re: [PATCH] fix initializer entry defined twice issue
+Date: Thu, 06 Dec 2012 17:59:21 -0600
+Message-ID: <50C13159.2070901@fuel7.com>
+References: <1354835928-617-1-git-send-email-dinggnu@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Otavio Salvador <otavio@ossystems.com.br>,
+	Javier Martinez Canillas <javier@dowhile0.org>,
+	Jiri Kosina <jkosina@suse.cz>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Cong Ding <dinggnu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:60477 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752408Ab2LFXzD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 18:55:03 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so4855284pbc.19
-        for <netdev@vger.kernel.org>; Thu, 06 Dec 2012 15:55:02 -0800 (PST)
+Received: from mail.fuel7.com ([74.222.0.51]:43593 "EHLO mail.fuel7.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932077Ab2LFX7a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Dec 2012 18:59:30 -0500
+In-Reply-To: <1354835928-617-1-git-send-email-dinggnu@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 12/06/2012 05:16 PM, Cong Ding wrote:
+> the ".config_intr" is defined twice in both line 208 and 212.
+>
+> Signed-off-by: Cong Ding <dinggnu@gmail.com>
+> ---
+>   drivers/net/phy/smsc.c |    1 -
+>   1 files changed, 0 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+> index 16dceed..5cee6bd 100644
+> --- a/drivers/net/phy/smsc.c
+> +++ b/drivers/net/phy/smsc.c
+> @@ -205,7 +205,6 @@ static struct phy_driver smsc_phy_driver[] = {
+>   	/* basic functions */
+>   	.config_aneg	= genphy_config_aneg,
+>   	.read_status	= lan87xx_read_status,
+> -	.config_intr	= smsc_phy_config_intr,
+>   
+>   	/* IRQ related */
+>   	.ack_interrupt	= smsc_phy_ack_interrupt,
 
-commit 2e71a6f8084e (net: gro: selective flush of packets) added
-a bug for skbs using frag_list. This part of the GRO stack is rarely
-used, as it needs skb not using a page fragment for their skb->head.
+Hi Cong,
 
-Most drivers do use a page fragment, but some of them use GFP_KERNEL
-allocations for the initial fill of their RX ring buffer.
+That looks like a mistake from my previous patch to that file.  Copy and 
+paste fail.
 
-napi_gro_flush() overwrite skb->prev that was used for these skb to
-point to the last skb in frag_list.
+The line should read:
+.config_init    = smsc_phy_config_init,
 
-Fix this using a separate field in struct napi_gro_cb to point to the
-last fragment.
+I can submit a patch once I get off work unless you beat me to it.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/netdevice.h |    3 +++
- net/core/dev.c            |    2 ++
- net/core/skbuff.c         |    6 +++---
- 3 files changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f8eda02..a848ffc 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1488,6 +1488,9 @@ struct napi_gro_cb {
- 
- 	/* Used in ipv6_gro_receive() */
- 	int	proto;
-+
-+	/* used in skb_gro_receive() slow path */
-+	struct sk_buff *last;
- };
- 
- #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c0946cb..e5942bf 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3451,6 +3451,8 @@ static int napi_gro_complete(struct sk_buff *skb)
- 	struct list_head *head = &ptype_base[ntohs(type) & PTYPE_HASH_MASK];
- 	int err = -ENOENT;
- 
-+	BUILD_BUG_ON(sizeof(struct napi_gro_cb) > sizeof(skb->cb));
-+
- 	if (NAPI_GRO_CB(skb)->count == 1) {
- 		skb_shinfo(skb)->gso_size = 0;
- 		goto out;
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 4007c14..3f0636c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3004,7 +3004,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
- 	skb_shinfo(nskb)->gso_size = pinfo->gso_size;
- 	pinfo->gso_size = 0;
- 	skb_header_release(p);
--	nskb->prev = p;
-+	NAPI_GRO_CB(nskb)->last = p;
- 
- 	nskb->data_len += p->len;
- 	nskb->truesize += p->truesize;
-@@ -3030,8 +3030,8 @@ merge:
- 
- 	__skb_pull(skb, offset);
- 
--	p->prev->next = skb;
--	p->prev = skb;
-+	NAPI_GRO_CB(p)->last->next = skb;
-+	NAPI_GRO_CB(p)->last = skb;
- 	skb_header_release(skb);
- 
- done:
+regards,
+Patrick
