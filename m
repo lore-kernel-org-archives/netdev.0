@@ -1,7 +1,8 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 0/7] bna: Driver Version Updated to 3.1.2.1
-Date: Thu, 6 Dec 2012 15:17:41 -0800
-Message-ID: <1354835868-27016-1-git-send-email-rmody@brocade.com>
+Subject: [net-next 1/7] bna: Code Cleanup and Enhancements
+Date: Thu, 6 Dec 2012 15:17:42 -0800
+Message-ID: <1354835868-27016-2-git-send-email-rmody@brocade.com>
+References: <1354835868-27016-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <bhutchings@solarflare.com>,
@@ -9,43 +10,132 @@ Cc: <bhutchings@solarflare.com>,
 	Rasesh Mody <rmody@brocade.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:40234 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932239Ab2LFXSA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 18:18:00 -0500
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:43174 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932317Ab2LFXSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 18:18:07 -0500
+In-Reply-To: <1354835868-27016-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Change details:
+ -      Remove unnecessary prefetch
+ -      Simplify checking & comparison of CQ flags
+ -      Dereference & store unmap_array, unmap_cons & current unmap_array
+        element only once
+ -      Make structures tx_config & rx_config cache line aligned.
 
-        Resubmitting the patch set. It addresses comments by Ben.
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/ethernet/brocade/bna/bnad.c |   45 ++++++++++++++++++++-----------
+ drivers/net/ethernet/brocade/bna/bnad.h |    4 +-
+ 2 files changed, 31 insertions(+), 18 deletions(-)
 
-        The following patch-set includes Tx Rx changes, bug fixes, firmware
-        naming change, code cleanup and enhancements.
-
-        This also updates the BNA driver to v3.1.2.1.
-
-        The patches have been compiled and tested against 3.7.0-rc3.
-
-Thanks,
-Rasesh
-
-Rasesh Mody (7):
-  bna: Code Cleanup and Enhancements
-  bna: Tx and Rx Optimizations
-  bna: TX Intr Coalescing Fix
-  bna: Rx Page Based Allocation
-  bna: Add RX State
-  bna: Firmware update
-  bna: Driver Version Updated to 3.1.2.1
-
- drivers/net/ethernet/brocade/bna/bfi_enet.h     |    1 +
- drivers/net/ethernet/brocade/bna/bna.h          |    7 +
- drivers/net/ethernet/brocade/bna/bna_hw_defs.h  |    3 +-
- drivers/net/ethernet/brocade/bna/bna_tx_rx.c    |  138 +++--
- drivers/net/ethernet/brocade/bna/bna_types.h    |    9 +-
- drivers/net/ethernet/brocade/bna/bnad.c         |  937 +++++++++++++----------
- drivers/net/ethernet/brocade/bna/bnad.h         |   66 +-
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    1 +
- drivers/net/ethernet/brocade/bna/cna.h          |    4 +-
- 9 files changed, 666 insertions(+), 500 deletions(-)
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index b441f33..b7fb391 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -210,7 +210,6 @@ bnad_txcmpl_process(struct bnad *bnad,
+ 	unmap_array = unmap_q->unmap_array;
+ 	unmap_cons = unmap_q->consumer_index;
+ 
+-	prefetch(&unmap_array[unmap_cons + 1]);
+ 	while (wis) {
+ 		skb = unmap_array[unmap_cons].skb;
+ 
+@@ -383,6 +382,20 @@ bnad_refill_rxq(struct bnad *bnad, struct bna_rcb *rcb)
+ 	}
+ }
+ 
++#define flags_cksum_prot_mask (BNA_CQ_EF_IPV4 | BNA_CQ_EF_L3_CKSUM_OK | \
++					BNA_CQ_EF_IPV6 | \
++					BNA_CQ_EF_TCP | BNA_CQ_EF_UDP | \
++					BNA_CQ_EF_L4_CKSUM_OK)
++
++#define flags_tcp4 (BNA_CQ_EF_IPV4 | BNA_CQ_EF_L3_CKSUM_OK | \
++				BNA_CQ_EF_TCP | BNA_CQ_EF_L4_CKSUM_OK)
++#define flags_tcp6 (BNA_CQ_EF_IPV6 | \
++				BNA_CQ_EF_TCP | BNA_CQ_EF_L4_CKSUM_OK)
++#define flags_udp4 (BNA_CQ_EF_IPV4 | BNA_CQ_EF_L3_CKSUM_OK | \
++				BNA_CQ_EF_UDP | BNA_CQ_EF_L4_CKSUM_OK)
++#define flags_udp6 (BNA_CQ_EF_IPV6 | \
++				BNA_CQ_EF_UDP | BNA_CQ_EF_L4_CKSUM_OK)
++
+ static u32
+ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ {
+@@ -390,15 +403,12 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 	struct bna_rcb *rcb = NULL;
+ 	unsigned int wi_range, packets = 0, wis = 0;
+ 	struct bnad_unmap_q *unmap_q;
+-	struct bnad_skb_unmap *unmap_array;
++	struct bnad_skb_unmap *unmap_array, *curr_ua;
+ 	struct sk_buff *skb;
+-	u32 flags, unmap_cons;
++	u32 flags, unmap_cons, masked_flags;
+ 	struct bna_pkt_rate *pkt_rt = &ccb->pkt_rate;
+ 	struct bnad_rx_ctrl *rx_ctrl = (struct bnad_rx_ctrl *)(ccb->ctrl);
+ 
+-	if (!test_bit(BNAD_RXQ_STARTED, &ccb->rcb[0]->flags))
+-		return 0;
+-
+ 	prefetch(bnad->netdev);
+ 	BNA_CQ_QPGE_PTR_GET(ccb->producer_index, ccb->sw_qpt, cmpl,
+ 			    wi_range);
+@@ -416,12 +426,13 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 		unmap_array = unmap_q->unmap_array;
+ 		unmap_cons = unmap_q->consumer_index;
+ 
+-		skb = unmap_array[unmap_cons].skb;
+-		BUG_ON(!(skb));
+-		unmap_array[unmap_cons].skb = NULL;
++		curr_ua = &unmap_array[unmap_cons];
++
++		skb = curr_ua->skb;
++		BUG_ON(!(skb));\
++		curr_ua->skb = NULL;
+ 		dma_unmap_single(&bnad->pcidev->dev,
+-				 dma_unmap_addr(&unmap_array[unmap_cons],
+-						dma_addr),
++				 dma_unmap_addr(curr_ua, dma_addr),
+ 				 rcb->rxq->buffer_size,
+ 				 DMA_FROM_DEVICE);
+ 		BNA_QE_INDX_ADD(unmap_q->consumer_index, 1, unmap_q->q_depth);
+@@ -452,13 +463,15 @@ bnad_cq_process(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 		}
+ 
+ 		skb_put(skb, ntohs(cmpl->length));
++
++		masked_flags = flags & flags_cksum_prot_mask;
++
+ 		if (likely
+ 		    ((bnad->netdev->features & NETIF_F_RXCSUM) &&
+-		     (((flags & BNA_CQ_EF_IPV4) &&
+-		      (flags & BNA_CQ_EF_L3_CKSUM_OK)) ||
+-		      (flags & BNA_CQ_EF_IPV6)) &&
+-		      (flags & (BNA_CQ_EF_TCP | BNA_CQ_EF_UDP)) &&
+-		      (flags & BNA_CQ_EF_L4_CKSUM_OK)))
++		     ((masked_flags == flags_tcp4) ||
++		      (masked_flags == flags_udp4) ||
++		      (masked_flags == flags_tcp6) ||
++		      (masked_flags == flags_udp6))))
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 		else
+ 			skb_checksum_none_assert(skb);
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.h b/drivers/net/ethernet/brocade/bna/bnad.h
+index d783392..65fe74e 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.h
++++ b/drivers/net/ethernet/brocade/bna/bnad.h
+@@ -284,8 +284,8 @@ struct bnad {
+ 	u8			tx_coalescing_timeo;
+ 	u8			rx_coalescing_timeo;
+ 
+-	struct bna_rx_config rx_config[BNAD_MAX_RX];
+-	struct bna_tx_config tx_config[BNAD_MAX_TX];
++	struct bna_rx_config rx_config[BNAD_MAX_RX]____cacheline_aligned;
++	struct bna_tx_config tx_config[BNAD_MAX_TX]____cacheline_aligned;
+ 
+ 	void __iomem		*bar0;	/* BAR0 address */
+ 
+-- 
+1.7.1
