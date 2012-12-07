@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2 v2] sctp: RCU protection when accessing assoc
- members for procfs
-Date: Fri, 07 Dec 2012 14:15:58 -0500 (EST)
-Message-ID: <20121207.141558.432893641652497152.davem@davemloft.net>
-References: <cover.1354821623.git.tgraf@suug.ch>
+Subject: Re: [PATCH net-next] rps: overflow prevention for saturated cpus
+Date: Fri, 07 Dec 2012 14:20:04 -0500 (EST)
+Message-ID: <20121207.142004.1330913822593924898.davem@davemloft.net>
+References: <1354826194-9289-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	vyasevich@gmail.com, nhorman@tuxdriver.com
-To: tgraf@suug.ch
+Cc: netdev@vger.kernel.org, edumazet@google.com, therbert@google.com
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57694 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57748 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752218Ab2LGTQA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 14:16:00 -0500
-In-Reply-To: <cover.1354821623.git.tgraf@suug.ch>
+	with ESMTP id S1751438Ab2LGTUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 14:20:06 -0500
+In-Reply-To: <1354826194-9289-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu,  6 Dec 2012 20:25:03 +0100
+From: Willem de Bruijn <willemb@google.com>
+Date: Thu,  6 Dec 2012 15:36:34 -0500
 
-> @Dave: This is a respin of the following patches:
->   [PATCH] sctp: proc: protect bind_addr->address_list accesses with rcu_read_lock()
->   [PATCH] sctp: Add RCU protection to assoc->transport_addr_list
-> 
-> Thomas Graf (2):
->   sctp: proc: protect bind_addr->address_list accesses with
->     rcu_read_lock()
->   sctp: Add RCU protection to assoc->transport_addr_list
+> This patch maintains flow affinity in normal conditions, but
+> trades it for throughput when a cpu becomes saturated. Then, packets
+> destined to that cpu (only) are redirected to the lightest loaded cpu
+> in the rxqueue's rps_map. This breaks flow affinity under high load
+> for some flows, in favor of processing packets up to the capacity
+> of the complete rps_map cpuset in all circumstances.
 
-Series applied, thanks.
+We specifically built-in very strict checks to make sure we never
+deliver packets out-of-order.  Those mechanisms must be used and
+enforced in any change of this nature.
