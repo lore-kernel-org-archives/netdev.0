@@ -1,103 +1,62 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
-Date: Thu, 06 Dec 2012 17:03:44 -0800
-Message-ID: <87hanyekr3.fsf@xmission.com>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	<3246.1351717319@obiwan.sandelman.ca>
-	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	<87mwyi9h1x.fsf@xmission.com> <12918.1353190488@obiwan.sandelman.ca>
-	<87obivu7n7.fsf@xmission.com>
-	<CAOxq_8OC6zUm93mCHD5daxDmuYmmbUdgy0DnjfQdBKky_2t4nQ@mail.gmail.com>
-	<87sj7iesdl.fsf@xmission.com>
-	<CAOxq_8NbmOtvyH6Q=AVeOUAj7DoFO8cnVUQA5sgyEG7jEJXpHA@mail.gmail.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [Suggestion] net/atm : for sprintf, need check the total write
+ length whether larger than a page.
+Date: Fri, 07 Dec 2012 09:07:40 +0800
+Message-ID: <50C1415C.2060104@asianux.com>
+References: <201212050357.qB53vHvT022706@thirdoffive.cmf.nrl.navy.mil> <50BED40D.9080100@asianux.com> <50BEDE4E.8010408@asianux.com> <50BEE2BE.2030704@asianux.com> <20121205095503.6d1c083d@thirdoffive.cmf.nrl.navy.mil> <50BFF19E.1040405@asianux.com> <20121206090855.5f166746@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Michael Richardson <mcr@sandelman.ca>,
-	tcpdump-workers@lists.tcpdump.org, netdev@vger.kernel.org,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>
-To: Ani Sinha <ani@aristanetworks.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:35207 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423599Ab2LGBDu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 20:03:50 -0500
-In-Reply-To: <CAOxq_8NbmOtvyH6Q=AVeOUAj7DoFO8cnVUQA5sgyEG7jEJXpHA@mail.gmail.com>
-	(Ani Sinha's message of "Thu, 6 Dec 2012 16:55:00 -0800")
+Received: from intranet.asianux.com ([58.214.24.6]:11182 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424095Ab2LGBGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 20:06:48 -0500
+In-Reply-To: <20121206090855.5f166746@thirdoffive.cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ani Sinha <ani@aristanetworks.com> writes:
-
-> On Thu, Dec 6, 2012 at 2:19 PM, Eric W. Biederman <ebiederm@xmission.com> wrote:
->> Ani Sinha <ani@aristanetworks.com> writes:
->>>>
->>>
->>> May be this?
+=D3=DA 2012=C4=EA12=D4=C206=C8=D5 22:08, chas williams - CONTRACTOR =D0=
+=B4=B5=C0:
+> On Thu, 06 Dec 2012 09:15:10 +0800
+> Chen Gang <gang.chen@asianux.com> wrote:
+>=20
+>> =D3=DA 2012=C4=EA12=D4=C205=C8=D5 22:55, chas williams - CONTRACTOR =
+=D0=B4=B5=C0:
+>=20
+>>> did you mean '\0' instead of '\n'?  scnprintf() considers the trail=
+ing
+>>> '\0' when formatting.
 >>
->> Two things.
+>>   no, originally, the end is "\n\0".
 >>
->> - TP_STATUS_VLAN_VALID lives in the tp_status field not the tp_vlan_tci field.
->> - To work on older kernels with binaries compiled with newer headers you
->>   first want to test for tp_vlan_tci == 0 and then look at the status field for
->>   TP_STATUS_VALID.
->
->
-> trying again :
+>>   I prefer we still compatible "\n" when the contents are very large=
+=2E
+>>   if count already =3D=3D (PAGE_SIZE - 1), we have no chance to appe=
+nd "\n" to the end.
+>>
+>> -		pos +=3D sprintf(pos, "\n");
+>> +		count +=3D scnprintf(buf + count, PAGE_SIZE - count, "\n");
+>=20
+> i would make the code a bit messy to do this for not much gain.  agai=
+n,
+> it isnt likely you would run into this in a normal situation.
 
-The patch is whitespace damaged.  And one of your test is using ||
-instead of &&
+  surely.
 
-Eric
+  thanks.
 
->  pcap-linux.c |   50 +++++++++++++++++++++++++++++++-------------------
->  1 files changed, 31 insertions(+), 19 deletions(-)
->
-> diff --git a/pcap-linux.c b/pcap-linux.c
-> index a42c3ac..8e355d3 100644
-> --- a/pcap-linux.c
-> +++ b/pcap-linux.c
-> @@ -133,6 +133,7 @@ static const char rcsid[] _U_ =
->  #include <sys/utsname.h>
->  #include <sys/mman.h>
->  #include <linux/if.h>
-> +#include <linux/if_packet.h>
->  #include <netinet/in.h>
->  #include <linux/if_ether.h>
->  #include <net/if_arp.h>
-> @@ -1543,7 +1544,13 @@ pcap_read_packet(pcap_t *handle, pcap_handler
-> callback, u_char *userdata)
->   continue;
->
->   aux = (struct tpacket_auxdata *)CMSG_DATA(cmsg);
-> - if (aux->tp_vlan_tci == 0)
-> +#if defined(TP_STATUS_VLAN_VALID)
-> +                        if ((aux->tp_vlan_tci == 0) ||
-> !(aux->tp_status & TP_STATUS_VLAN_VALID))
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
+>=20
 
-The test should be && not ||.
 
-> +#else
-> + if (aux->tp_vlan_tci == 0) /* this is ambigious but without the
-> +
-> TP_STATUS_VLAN_VALID flag, there is
-> +                                                      nothing that we can do */
-> +#endif
->   continue;
->
->   len = packet_len > iov.iov_len ? iov.iov_len : packet_len;
-> @@ -3936,7 +3926,12 @@ pcap_read_linux_mmap(pcap_t *handle, int
-> max_packets, pcap_handler callback,
->   }
->
->  #ifdef HAVE_TPACKET2
-> - if (handle->md.tp_version == TPACKET_V2 && h.h2->tp_vlan_tci &&
-> +                if ((handle->md.tp_version == TPACKET_V2) &&
-> +#if defined(TP_STATUS_VLAN_VALID)
-> +                    (h.h2->tp_vlan_tci || (h.h2->tp_status &
-> TP_STATUS_VLAN_VALID)) &&
-> +#else
-> +                    h.h2->tp_vlan_tci &&
-> +#endif
->      handle->md.vlan_offset != -1 &&
->      tp_snaplen >= (unsigned int) handle->md.vlan_offset) {
->   struct vlan_tag *tag;
+--=20
+Chen Gang
+
+Asianux Corporation
