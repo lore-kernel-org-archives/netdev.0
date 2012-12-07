@@ -1,161 +1,137 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 2/4] net: remove obsolete simple_strto<foo>
-Date: Fri, 7 Dec 2012 10:22:16 -0500
-Message-ID: <20121207152216.GC29819@shamino.rdu.redhat.com>
-References: <1354880998-23417-1-git-send-email-abhi.c.pawar@gmail.com>
+From: Paul Chavent <Paul.Chavent@onera.fr>
+Subject: Tx timestamp for packet mmap.
+Date: Fri, 07 Dec 2012 16:28:29 +0100
+Message-ID: <50C20B1D.5050808@onera.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Cong Wang <amwang@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	linux-wireless@vger.kernel.org
-To: Abhijit Pawar <abhi.c.pawar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1354880998-23417-1-git-send-email-abhi.c.pawar@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------030500060502020400090809"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from briaree.onecert.fr ([134.212.190.4]:54273 "EHLO
+	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756567Ab2LGPat (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 10:30:49 -0500
+Received: from neree.onecert.fr (thetis.onecert.fr [134.212.178.12])
+	by briaree.onecert.fr (8.14.3/8.14.3/ONERA-SRI) with ESMTP id qB7FUk4Q026423
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2012 16:30:46 +0100
+Received: from neree.onecert.fr (thetis.antiviral [127.0.0.1])
+	by neree.onecert.fr (8.14.3/8.14.3/ONERA-SRI) with ESMTP id qB7FUjAx007484
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2012 16:30:46 +0100
+Received: from [134.212.241.58] (wdcsd911h.cert.fr [134.212.241.58])
+	by neree.onecert.fr (8.14.3/8.14.3/ONERA-SRI) with ESMTP id qB7FUjsX007481
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2012 16:30:45 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 07, 2012 at 05:19:58PM +0530, Abhijit Pawar wrote:
-> This patch replace the obsolete simple_strto<foo> with kstrto<foo>
-> 
-> Signed-off-by: Abhijit Pawar <abhi.c.pawar@gmail.com>
-> ---
->  net/core/netpoll.c                 |    9 +++++++--
->  net/ipv4/netfilter/ipt_CLUSTERIP.c |    9 +++++++--
->  net/mac80211/debugfs_sta.c         |    4 +++-
->  net/netfilter/nf_conntrack_core.c  |    6 ++++--
->  4 files changed, 21 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-> index 77a0388..596b127 100644
-> --- a/net/core/netpoll.c
-> +++ b/net/core/netpoll.c
-> @@ -668,13 +668,16 @@ EXPORT_SYMBOL(netpoll_print_options);
->  
->  int netpoll_parse_options(struct netpoll *np, char *opt)
->  {
-> +	int rc;
->  	char *cur=opt, *delim;
->  
->  	if (*cur != '@') {
->  		if ((delim = strchr(cur, '@')) == NULL)
->  			goto parse_failed;
->  		*delim = 0;
-> -		np->local_port = simple_strtol(cur, NULL, 10);
-> +		rc = kstrtol(cur, 10, &np->local_port);
-> +		if (rc)
-> +			goto parse_failed;
-Perhaps consolidate this to:
-if (kstrtol(cur, 10, &np->local_port)
-	goto parse_failed
+This is a multi-part message in MIME format.
+--------------030500060502020400090809
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Then you don't have to declare the new stack variable
+Hi.
 
->  		cur = delim;
->  	}
->  	cur++;
-> @@ -705,7 +708,9 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
->  		*delim = 0;
->  		if (*cur == ' ' || *cur == '\t')
->  			np_info(np, "warning: whitespace is not allowed\n");
-> -		np->remote_port = simple_strtol(cur, NULL, 10);
-> +		rc = kstrtol(cur, 10, &np->remote_port);
-> +		if (rc)
-> +			goto parse_failed;
->  		cur = delim;
-Ditto
+I would like to be able to get tx timestamps of packets sent by the 
+packet mmap interface...
 
->  	}
->  	cur++;
-> diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-> index fe5daea..55e7b73 100644
-> --- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-> +++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-> @@ -661,6 +661,7 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
->  #define PROC_WRITELEN	10
->  	char buffer[PROC_WRITELEN+1];
->  	unsigned long nodenum;
-> +	int rc;
->  
->  	if (size > PROC_WRITELEN)
->  		return -EIO;
-> @@ -669,11 +670,15 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
->  	buffer[size] = 0;
->  
->  	if (*buffer == '+') {
-> -		nodenum = simple_strtoul(buffer+1, NULL, 10);
-> +		rc = kstrtoul(buffer+1, 10, &nodenum);
-> +		if (rc)
-> +			return -EINVAL;
->  		if (clusterip_add_node(c, nodenum))
->  			return -ENOMEM;
->  	} else if (*buffer == '-') {
-> -		nodenum = simple_strtoul(buffer+1, NULL,10);
-> +		rc = kstrtoul(buffer+1, 10, &nodenum);
-> +		if (rc)
-> +			return -EINVAL;
->  		if (clusterip_del_node(c, nodenum))
->  			return -ENOENT;
-Same deal with the rc variable, although in this case it might make sense to
-return rc if kstrtoul fails, instead of just filtering it all down to -EINVAL.
+Actually, I try to get them with the sample code below.
 
->  	} else
-> diff --git a/net/mac80211/debugfs_sta.c b/net/mac80211/debugfs_sta.c
-> index 89281d2..18754fd 100644
-> --- a/net/mac80211/debugfs_sta.c
-> +++ b/net/mac80211/debugfs_sta.c
-> @@ -219,7 +219,9 @@ static ssize_t sta_agg_status_write(struct file *file, const char __user *userbu
->  	} else
->  		return -EINVAL;
->  
-> -	tid = simple_strtoul(buf, NULL, 0);
-> +	ret = kstrtoul(buf, 0, &tid);
-> +	if (ret)
-> +		return -EINVAL;
->  
->  	if (tid >= IEEE80211_NUM_TIDS)
->  		return -EINVAL;
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> index af17516..18ce24b 100644
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -1409,7 +1409,7 @@ EXPORT_SYMBOL_GPL(nf_ct_alloc_hashtable);
->  
->  int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
->  {
-> -	int i, bucket;
-> +	int i, bucket, rc;
->  	unsigned int hashsize, old_size;
->  	struct hlist_nulls_head *hash, *old_hash;
->  	struct nf_conntrack_tuple_hash *h;
-> @@ -1422,7 +1422,9 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
->  	if (!nf_conntrack_htable_size)
->  		return param_set_uint(val, kp);
->  
-> -	hashsize = simple_strtoul(val, NULL, 0);
-> +	rc = kstrtouint(val, 0, &hashsize);
-> +	if (rc)
-> +		return -EINVAL;
->  	if (!hashsize)
->  		return -EINVAL;
->  
-As above, these call points might benefit from returning rc rather than just
-EINVAL.
+The problem is that it doesn't work without the joined patch.
 
-Neil
+I wonder if my current implementation is good. And if not, how should i 
+get the timestamps ?
 
-> -- 
-> 1.7.7.6
-> 
-> 
+Wouldn't be a good idea to put timestamps in the ring buffer frame 
+before give back the frame to the user ?
+
+Thanks for your help and advices.
+
+Paul.
+
+8<-------------------------------
+
+
+   struct timespec ts = {0,0};
+   struct sockaddr from_addr;
+   static uint8_t tmp_data[256];
+   struct iovec msg_iov = {tmp_data, sizeof(tmp_data)};
+   static uint8_t cmsg_buff[256];
+   struct msghdr msghdr = {&from_addr, sizeof(from_addr),
+                           &msg_iov, 1,
+                           cmsg_buff, sizeof(cmsg_buff),
+                           0};
+   ssize_t err = recvmsg(itf->sock_fd, &msghdr, MSG_ERRQUEUE);
+   if(err < 0)
+     {
+       perror("recvmsg failed");
+       return -1;
+     }
+
+   struct cmsghdr *cmsg;
+   for(cmsg = CMSG_FIRSTHDR(&msghdr); cmsg != NULL; cmsg = 
+CMSG_NXTHDR(&msghdr, cmsg))
+     {
+       if(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == 
+SCM_TIMESTAMPING)
+         {
+           ts = *(struct timespec *)CMSG_DATA(cmsg);
+#if !defined(NDEBUG)
+           if(itf->debug)
+             {
+               fprintf(stderr, "SCM_TIMESTAMPING available\n");
+             }
+#else
+           break;
+#endif
+         }
+       else if (cmsg->cmsg_level == SOL_PACKET && cmsg->cmsg_type == 
+PACKET_TX_TIMESTAMP)
+         {
+           ts = *(struct timespec *)CMSG_DATA(cmsg);
+#if !defined(NDEBUG)
+           if(itf->debug)
+             {
+               fprintf(stderr, "PACKET_TX_TIMESTAMP available\n");
+             }
+#else
+           break;
+#endif
+         }
+     }
+
+--------------030500060502020400090809
+Content-Type: text/x-patch;
+ name="0002-net-add-tx-timestamp-to-packet-mmap.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="0002-net-add-tx-timestamp-to-packet-mmap.patch"
+
+>From 762a8e89d1453e629bbe9c255c0ba4ec207cca25 Mon Sep 17 00:00:00 2001
+From: Paul Chavent <paul.chavent@onera.fr>
+Date: Fri, 7 Dec 2012 16:15:44 +0100
+Subject: [PATCH 2/2] net : add tx timestamp to packet mmap.
+
+Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
+---
+ net/packet/af_packet.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e639645..948748b 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1857,6 +1857,10 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 	void *data;
+ 	int err;
+ 
++	err = sock_tx_timestamp(&po->sk, &skb_shinfo(skb)->tx_flags);
++	if (err < 0)
++		return err;
++
+ 	ph.raw = frame;
+ 
+ 	skb->protocol = proto;
+-- 
+1.7.12.1
+
+
+--------------030500060502020400090809--
