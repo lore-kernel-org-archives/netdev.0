@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] chelsio: remove get_clock and use ktime_get
-Date: Fri, 07 Dec 2012 12:56:48 -0500 (EST)
-Message-ID: <20121207.125648.130067551181714428.davem@davemloft.net>
-References: <1354785614-11468-1-git-send-email-jang@linux.vnet.ibm.com>
+Subject: Re: [PULL net-next] vhost: changes for 3.8
+Date: Fri, 07 Dec 2012 12:58:31 -0500 (EST)
+Message-ID: <20121207.125831.50188152862417279.davem@davemloft.net>
+References: <20121206151800.GA3889@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jang@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57006 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753341Ab2LGR4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 12:56:49 -0500
-In-Reply-To: <1354785614-11468-1-git-send-email-jang@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dinggnu@gmail.com, yongjun_wei@trendmicro.com.cn
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121206151800.GA3889@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jan Glauber <jang@linux.vnet.ibm.com>
-Date: Thu,  6 Dec 2012 10:20:14 +0100
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 6 Dec 2012 17:18:00 +0200
 
-> The get_clock() of the chelsio driver clashes with the s390 one.
-> The chelsio helper reads a timespec via ktime just to convert it
-> back to ktime. I can see no different outcome from calling
-> ktime_get directly.
+> The following changes since commit b93196dc5af7729ff7cc50d3d322ab1a364aa14f:
 > 
-> Remove the get_clock and use ktime_get directly.
+>   net: fix some compiler warning in net/core/neighbour.c (2012-12-05 21:50:37 -0500)
 > 
-> Signed-off-by: Jan Glauber <jang@linux.vnet.ibm.com>
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
 
-Applied, thanks.
+Pulled, thanks Michael.
+
+In the future, please give me some descriptive text to add to the
+merge commit message.
+
+Thanks.
