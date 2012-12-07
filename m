@@ -1,40 +1,34 @@
-From: Cong Ding <dinggnu@gmail.com>
-Subject: [PATCH] net: core: fix unused variable sparse warning
-Date: Fri,  7 Dec 2012 00:06:44 +0000
-Message-ID: <1354838913-20084-1-git-send-email-dinggnu@gmail.com>
-Cc: Cong Ding <dinggnu@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Pavel Emelyanov <xemul@parallels.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [PATCH net-next 0/1] fix vlan transmit performance
+Date: Thu, 06 Dec 2012 19:10:58 -0500
+Message-ID: <50C13412.9040600@myri.com>
+References: <1354827296-12009-1-git-send-email-gallatin@myri.com> <1354837321.2828.86.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ye0-f174.google.com ([209.85.213.174]:57486 "EHLO
+	mail-ye0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1160996Ab2LGALB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 19:11:01 -0500
+Received: by mail-ye0-f174.google.com with SMTP id m6so1196261yen.19
+        for <netdev@vger.kernel.org>; Thu, 06 Dec 2012 16:11:00 -0800 (PST)
+In-Reply-To: <1354837321.2828.86.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-the variables zero and unres_qlen_max are only used when CONFIG_SYSCTL is
-defined, otherwise it causes the following sparse warning when we turn on
-CONFIG_SYSCTL.
+On 12/06/12 18:42, Ben Hutchings wrote:
 
-Signed-off-by: Cong Ding <dinggnu@gmail.com>
----
- net/core/neighbour.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+> 
+> My answer would be: leave reorder_hdr enabled per default.  In fact,
+> perhaps the VLAN driver's TX path should ignore it if the underlying
+> device has non-zero vlan_features.  (It's already ignored if the
+> underlying device has NETIF_F_VLAN_TX.)
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 36fc692..4a15278 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -62,8 +62,10 @@ static void __neigh_notify(struct neighbour *n, int type, int flags);
- static void neigh_update_notify(struct neighbour *neigh);
- static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
- 
-+#ifdef CONFIG_SYSCTL
- static int zero;
- static int unres_qlen_max = INT_MAX / SKB_TRUESIZE(ETH_FRAME_LEN);
-+#endif
- 
- static struct neigh_table *neigh_tables;
- #ifdef CONFIG_PROC_FS
--- 
-1.7.4.5
+Thanks for the feedback.  I knew I was missing something!
+I will try your approach, unless you beat me to it.
+I assume sfc is also impacted by this..?
+
+Drew
