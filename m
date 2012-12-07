@@ -1,34 +1,63 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] net: doc: add default value for neighbour
- parameters
-Date: Fri, 07 Dec 2012 14:31:29 -0500 (EST)
-Message-ID: <20121207.143129.964889573621196002.davem@davemloft.net>
-References: <50C009E9.6050101@gmail.com>
-	<1354825223.2828.17.camel@bwh-desktop.uk.solarflarecom.com>
-	<50C15427.9060803@gmail.com>
+Subject: Re: [PATCH net-next v5] bridge: export multicast database
+ via netlink
+Date: Fri, 07 Dec 2012 14:33:18 -0500 (EST)
+Message-ID: <20121207.143318.2265851271191305391.davem@davemloft.net>
+References: <1354874688-24564-1-git-send-email-amwang@redhat.com>
+	<20121207103629.GB2996@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: shanwei88@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57860 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752582Ab2LGTba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 14:31:30 -0500
-In-Reply-To: <50C15427.9060803@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: amwang@redhat.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, herbert@gondor.hengli.com.au,
+	brouer@redhat.com, shemminger@vyatta.com
+To: tgraf@suug.ch
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121207103629.GB2996@casper.infradead.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Shan Wei <shanwei88@gmail.com>
-Date: Fri, 07 Dec 2012 10:27:51 +0800
+From: Thomas Graf <tgraf@suug.ch>
+Date: Fri, 7 Dec 2012 10:36:29 +0000
 
-> [PATCH net-next] net: doc : use more suitable word 'unexpected' to replace 'secluded'
+> On 12/07/12 at 06:04pm, Cong Wang wrote:
+>> From: Cong Wang <amwang@redhat.com>
+>> 
+>> V5: fix two bugs pointed out by Thomas
+>>     remove seq check for now, mark it as TODO
+>> 
+>> V4: remove some useless #include
+>>     some coding style fix
+>> 
+>> V3: drop debugging printk's
+>>     update selinux perm table as well
+>> 
+>> V2: drop patch 1/2, export ifindex directly
+>>     Redesign netlink attributes
+>>     Improve netlink seq check
+>>     Handle IPv6 addr as well
+>> 
+>> This patch exports bridge multicast database via netlink
+>> message type RTM_GETMDB. Similar to fdb, but currently bridge-specific.
+>> We may need to support modify multicast database too (RTM_{ADD,DEL}MDB).
+>> 
+>> (Thanks to Thomas for patient reviews)
+>> 
+>> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+>> Cc: Stephen Hemminger <shemminger@vyatta.com>
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Cc: Thomas Graf <tgraf@suug.ch>
+>> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+>> Signed-off-by: Cong Wang <amwang@redhat.com>
 > 
->  'secluded' is used to describe places, not suitable here.
-> 
-> Suggested-by: Ben Hutchings <bhutchings@solarflare.com>
-> Signed-off-by: Shan Wei <davidshan@tencent.com>
+> Acked-by: Thomas Graf <tgraf@suug.ch>
 
-Applied.
+Applied, thanks.
