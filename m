@@ -1,89 +1,79 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [RFC] wireless: check against default_ethtool_ops
-Date: Fri, 7 Dec 2012 13:16:19 +0100
-Message-ID: <20121207121617.GA4356@redhat.com>
-References: <1354729192-22945-1-git-send-email-greearb@candelatech.com>
- <87a9ts4c1q.fsf@nemi.mork.no>
- <50BF8C18.9060504@candelatech.com>
- <20121206122528.GG2502@redhat.com>
- <50C0FCE0.2090507@candelatech.com>
- <20121207095012.GB11933@redhat.com>
- <87zk1q3xrv.fsf@nemi.mork.no>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap
+ devices
+Date: Fri, 7 Dec 2012 14:25:16 +0200
+Message-ID: <20121207122516.GA16577@redhat.com>
+References: <20121205202144.18626.61966.stgit@localhost>
+ <6001427.qD54i2BbtH@sifl>
+ <20121206205716.GA6576@redhat.com>
+ <1761265.vEQbM1ySnW@sifl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>,
-	linux-wireless@vger.kernel.org,
-	=?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-To: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46867 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933768Ab2LGMQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2012 07:16:27 -0500
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, jasowang@redhat.com
+To: Paul Moore <pmoore@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87zk1q3xrv.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1761265.vEQbM1ySnW@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since:
+On Thu, Dec 06, 2012 at 04:09:51PM -0500, Paul Moore wrote:
+> On Thursday, December 06, 2012 10:57:16 PM Michael S. Tsirkin wrote:
+> > On Thu, Dec 06, 2012 at 11:56:45AM -0500, Paul Moore wrote:
+> > > The SETQUEUE/tun_socket:create_queue permissions do not yet exist in any
+> > > released SELinux policy as we are just now adding them with this patchset.
+> > > With current policies loaded into a kernel with this patchset applied the
+> > > SETQUEUE/tun_socket:create_queue permission would be treated according to
+> > > the policy's unknown permission setting.
+> > 
+> > OK I think we need to rethink what we are doing here: what you sent
+> > addresses the problem as stated but I think we mis-stated it.  Let me
+> > try to restate the problem: it is not just selinux problem. Let's assume
+> > qemu wants to use tun, I (libvirt) don't want to run it as root.
+> > 
+> > 1. TUNSETIFF: I can open tun, attach an fd and pass it to qemu.
+> > Now, qemu does not invoke TUNSETIFF so it can run without
+> > kernel priveledges.
+> 
+> Correct me if I'm wrong, but I believe libvirt does this while running as 
+> root.  Assuming that is the case, why not simply setuid()/setgid() to the same 
+> credentials as the QEMU instance before creating the TUN device?  You can 
+> always (re)configure the device afterwards while running as 
+> root/CAP_NET_ADMIN.
 
-commit 2c60db037034d27f8c636403355d52872da92f81
-Author: Eric Dumazet <edumazet@google.com>
-Date:   Sun Sep 16 09:17:26 2012 +0000
+We want isolation between qemu instances.
+Giving qemu right to open tun and SETIFF would give it rights
+to access any tun device.
 
-    net: provide a default dev->ethtool_ops
+There could also be user tun users we want them isolated from qemu.
 
-wireless core does not correctly assign ethtool_ops. In order to fix
-the problem, and avoid assigning ethtool_ops on each individual cfg80211
-driver, we check against default_ethool_ops pointer instead of NULL in
-wireless core.
-
-Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
----
- include/linux/netdevice.h |    2 ++
- net/core/dev.c            |    3 ++-
- net/wireless/core.c       |    2 +-
- 3 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f8eda02..c98e1c3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -60,6 +60,8 @@ struct wireless_dev;
- #define SET_ETHTOOL_OPS(netdev,ops) \
- 	( (netdev)->ethtool_ops = (ops) )
- 
-+extern const struct ethtool_ops default_ethtool_ops;
-+
- /* hardware address assignment types */
- #define NET_ADDR_PERM		0	/* address is permanent (default) */
- #define NET_ADDR_RANDOM		1	/* address is generated randomly */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c0946cb..4cd2168 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6008,7 +6008,8 @@ struct netdev_queue *dev_ingress_queue_create(struct net_device *dev)
- 	return queue;
- }
- 
--static const struct ethtool_ops default_ethtool_ops;
-+const struct ethtool_ops default_ethtool_ops;
-+EXPORT_SYMBOL_GPL(default_ethtool_ops);
- 
- /**
-  *	alloc_netdev_mqs - allocate network device
-diff --git a/net/wireless/core.c b/net/wireless/core.c
-index 14d9904..90915d4 100644
---- a/net/wireless/core.c
-+++ b/net/wireless/core.c
-@@ -866,7 +866,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
- 		/* allow mac80211 to determine the timeout */
- 		wdev->ps_timeout = -1;
- 
--		if (!dev->ethtool_ops)
-+		if (dev->ethtool_ops == &default_ethtool_ops)
- 			dev->ethtool_ops = &cfg80211_ethtool_ops;
- 
- 		if ((wdev->iftype == NL80211_IFTYPE_STATION ||
--- 
-1.7.1
+> > 2. TUNSETQUEUE - I can open tun and attach a queue but this
+> > is not what is needed since this automatically switches
+> > to multiqueue mode - we want to change number of queues
+> > on the fly.
+> > So qemu needs to be allowed to run TUNSETQUEUE.
+> > Since this checks tun_not_capable(tun) we would need
+> > to give qemu these priveledges, and we want to avoid this
+> > (I can go into why if it's not obvious).
+> 
+> If libvirt creates the TUN device while its effective credentials match those 
+> of the QEMU instance then the QEMU instance should be able to perform a 
+> TUNSETQUEUE, yes?
+> 
+> > How can we slove this?
+> > I don't see a way without extending the interface.
+> > Here's a simple way to extend it: pass a flag to TUNSETQUEUE
+> > that enables/disables TX on this queue.
+> > If TX is disabled, ignore this queue for flow steering decisions.
+> > Allow TUNSETQUEUE for a non priveledged user if it
+> > it already bound to the currect tun and only changes this flag.
+> > 
+> > Now I open tun and SETQUEUE with TX disabled flag. Pass it to qemu.
+> > qemu calls SETQUEUE with TX enabled flag.
+> > 
+> > Jason? Want to try implementing and see what people think?
+> 
+> -- 
+> paul moore
+> security and virtualization @ redhat
