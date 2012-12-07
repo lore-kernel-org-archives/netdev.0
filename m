@@ -1,75 +1,67 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next 10/10] tipc: refactor accept() code for improved
- readability
-Date: Fri, 7 Dec 2012 14:56:29 -0500
-Message-ID: <20121207195629.GB27639@windriver.com>
-References: <1354890498-6448-1-git-send-email-paul.gortmaker@windriver.com>
- <1354890498-6448-11-git-send-email-paul.gortmaker@windriver.com>
- <20121207194226.GB30339@hmsreliant.think-freely.org>
+From: Linda Walsh <lkml@tlinx.org>
+Subject: Re: BUG: scheduling while atomic: ifup-bonding/3711/0x00000002 -- V3.6.7
+Date: Fri, 07 Dec 2012 12:06:28 -0800
+Message-ID: <50C24C44.8000809@tlinx.org>
+References: <50B5248A.5010908@tlinx.org> <CAM_iQpUW2Oz9p0K0gGKc6JoD7WAu0kJtRa4uBSe+WfXg0Nn3jA@mail.gmail.com> <50B67F6B.6050008@tlinx.org> <50B6B4B6.3070304@tlinx.org> <4913.1354154236@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:49794 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750971Ab2LGT4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 14:56:43 -0500
-Content-Disposition: inline
-In-Reply-To: <20121207194226.GB30339@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4913.1354154236@death.nxdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[Re: [PATCH net-next 10/10] tipc: refactor accept() code for improved readability] On 07/12/2012 (Fri 14:42) Neil Horman wrote:
+Sorry for the delay.... my distro (Suse) has made rebooting my system
+a chore (have to often boot from rescue to get it to come up because
+they put mount libs in /usr/lib expecting they will always boot
+from their ram disk -- preventing those of use who boot directly
+from disk from doing so easily...grrr.
 
-> On Fri, Dec 07, 2012 at 09:28:18AM -0500, Paul Gortmaker wrote:
-> > In TIPC's accept() routine, there is a large block of code relating
-> > to initialization of a new socket, all within an if condition checking
-> > if the allocation succeeded.
-> > 
-> > Here, we simply factor out that init code within the accept() function
-> > to its own separate function, which improves readability, and makes
-> > it easier to track which lock_sock() calls are operating on existing
-> > vs. new sockets.
-> > 
-> > Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> > ---
-> >  net/tipc/socket.c | 93 +++++++++++++++++++++++++++++--------------------------
-> >  1 file changed, 49 insertions(+), 44 deletions(-)
-> > 
-> > diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-> > index 38613cf..56661c8 100644
-> > --- a/net/tipc/socket.c
-> > +++ b/net/tipc/socket.c
-> > @@ -1507,6 +1507,53 @@ static int listen(struct socket *sock, int len)
-> >  	return res;
-> >  }
-> >  
-> > +static void tipc_init_socket(struct sock *sk, struct socket *new_sock,
-> > +			     struct sk_buff *buf)
-> > +{
-> Can you rename this to something more specific to its purpose?  tipc_init_socket
-> makes me wonder why you're not calling it internally from tipc_create.  This
-> seems more like a tipc_init_accept_sock, or some such.  Alternatively, since
-> you're ony using it from your accept call, you might consider not factoring it
-> out at all, and just reversing the logic in your accept function so that you do:
-> 
->  res = tipc_create(...)
->  if (res)
-> 	goto exit;
->  <rest of tipc_init_socket goes here>
-> 
-> That gives you the same level of readability, without the additional potential
-> call instruction, plus you put the unlikely case inside the if conditional.
+Jay Vosburgh wrote:
+> 	The miimon functionality is used to check link state and notice
+> when slaves lose carrier.
+---
+    If I am running 'rr' on 2 channels -- specifically for the purpose
+of link speed aggregation (getting 1 20Gb channel out of 2 10Gb channels)
+I'm not sure I see how miimon would provide benefit.  -- if 1 link dies,
+the other, being on the same card is likely to be dead too, so would
+it really serve a purpose?
 
-I'm inclined to do the latter and just flip the sense of the "if" since
-I already scratched my head trying to think of a good name (and
-apparently failed in the end).
 
-Thanks,
-Paul.
+>   Running without it will not detect failure of
+> the bonding slaves, which is likely not what you want.  The mode,
+> balance-rr in your case, is what selects the load balance to use, and is
+> separate from the miimon.
+>   
+----
+    Wouldn't the entire link die if a slave dies -- like RAID0, 1 disk
+dies, the entire link goes down? 
 
-> 
-> Neil
-> 
+    The other end (windows) doesn't dynamically config for a static-link
+aggregation, so I don't think it would provide benefit.
+
+> 	That said, the problem you're seeing appears to be caused by two
+> things: bonding holds a lock (in addition to RTNL) when calling
+> __ethtool_get_settings, and an ixgbe function in the call path to
+> retrieve the settings, ixgbe_acquire_swfw_sync_X540, can sleep.
+>
+> 	The test patch above handles one case in bond_enslave, but there
+> is another case in bond_miimon_commit when a slave changes link state
+> from down to up, which will occur shortly after the slave is added.
+>   
+----
+    Added your 2nd patch -- no more error messages...
+
+    however -- likely unrelated, the max speed read or write I am seeing
+is about 500MB/s, and that is rare -- usually it's barely <3x a 1Gb 
+network speed. (119/125 MB R/W).  I'm not at all sure it's really 
+combining the links
+properly.  Anyway to verify that?
+
+
+    On the windows side it shows the bond-link as a 20Gb connection, but
+I don't see anyplace for something similar on linux. 
