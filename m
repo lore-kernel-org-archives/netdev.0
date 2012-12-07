@@ -1,78 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 02/10] tipc: eliminate aggregate
- sk_receive_queue limit
-Date: Fri, 7 Dec 2012 11:07:33 -0500
-Message-ID: <20121207160733.GD29819@shamino.rdu.redhat.com>
-References: <1354890498-6448-1-git-send-email-paul.gortmaker@windriver.com>
- <1354890498-6448-3-git-send-email-paul.gortmaker@windriver.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next] bonding: Fix check for ethtool get_link operation
+ support
+Date: Fri, 7 Dec 2012 16:15:32 +0000
+Message-ID: <1354896932.2707.5.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Ying Xue <ying.xue@windriver.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39899 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030757Ab2LGQHr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 11:07:47 -0500
-Content-Disposition: inline
-In-Reply-To: <1354890498-6448-3-git-send-email-paul.gortmaker@windriver.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:8498 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932789Ab2LGQPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 11:15:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 07, 2012 at 09:28:10AM -0500, Paul Gortmaker wrote:
-> From: Ying Xue <ying.xue@windriver.com>
-> 
-> As a complement to the per-socket sk_recv_queue limit, TIPC keeps a
-> global atomic counter for the sum of sk_recv_queue sizes across all
-> tipc sockets. When incremented, the counter is compared to an upper
-> threshold value, and if this is reached, the message is rejected
-> with error code TIPC_OVERLOAD.
-> 
-> This check was originally meant to protect the node against
-> buffer exhaustion and general CPU overload. However, all experience
-> indicates that the feature not only is redundant on Linux, but even
-> harmful. Users run into the limit very often, causing disturbances
-> for their applications, while removing it seems to have no negative
-> effects at all. We have also seen that overall performance is
-> boosted significantly when this bottleneck is removed.
-> 
-> Furthermore, we don't see any other network protocols maintaining
-> such a mechanism, something strengthening our conviction that this
-> control can be eliminated.
-> 
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
->  net/tipc/socket.c | 7 +------
->  1 file changed, 1 insertion(+), 6 deletions(-)
-> 
-> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-> index 1a720c8..a059ed0 100644
-> --- a/net/tipc/socket.c
-> +++ b/net/tipc/socket.c
-> @@ -2,7 +2,7 @@
->   * net/tipc/socket.c: TIPC socket API
->   *
->   * Copyright (c) 2001-2007, Ericsson AB
-> - * Copyright (c) 2004-2008, 2010-2011, Wind River Systems
-> + * Copyright (c) 2004-2008, 2010-2012, Wind River Systems
->   * All rights reserved.
->   *
->   * Redistribution and use in source and binary forms, with or without
-> @@ -1241,11 +1241,6 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
->  	}
->  
->  	/* Reject message if there isn't room to queue it */
-> -	recv_q_len = (u32)atomic_read(&tipc_queue_size);
-> -	if (unlikely(recv_q_len >= OVERLOAD_LIMIT_BASE)) {
-> -		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE))
-> -			return TIPC_ERR_OVERLOAD;
-> -	}
-If you're going to remove the one place that you read this variable, don't you
-also want to remove the points where you increment/decrement the atomic as well,
-and for that matter eliminate the definition itself?
+Since commit 2c60db037034 ('net: provide a default dev->ethtool_ops')
+all devices have a non-null ethtool_ops.  Test only
+dev->ethtool_ops->get_link in both places where we care.
 
-Neil
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+Compile-tested only.
+
+Ben.
+
+ drivers/net/bonding/bond_main.c |   17 ++++++-----------
+ 1 files changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index c8bff3e..800a897 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -615,15 +615,9 @@ static int bond_check_dev_link(struct bonding *bond,
+ 		return netif_carrier_ok(slave_dev) ? BMSR_LSTATUS : 0;
+ 
+ 	/* Try to get link status using Ethtool first. */
+-	if (slave_dev->ethtool_ops) {
+-		if (slave_dev->ethtool_ops->get_link) {
+-			u32 link;
+-
+-			link = slave_dev->ethtool_ops->get_link(slave_dev);
+-
+-			return link ? BMSR_LSTATUS : 0;
+-		}
+-	}
++	if (slave_dev->ethtool_ops->get_link)
++		return slave_dev->ethtool_ops->get_link(slave_dev) ?
++			BMSR_LSTATUS : 0;
+ 
+ 	/* Ethtool can't be used, fallback to MII ioctls. */
+ 	ioctl = slave_ops->ndo_do_ioctl;
+@@ -1510,8 +1504,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	int link_reporting;
+ 	int res = 0;
+ 
+-	if (!bond->params.use_carrier && slave_dev->ethtool_ops == NULL &&
+-		slave_ops->ndo_do_ioctl == NULL) {
++	if (!bond->params.use_carrier &&
++	    slave_dev->ethtool_ops->get_link == NULL &&
++	    slave_ops->ndo_do_ioctl == NULL) {
+ 		pr_warning("%s: Warning: no link monitoring support for %s\n",
+ 			   bond_dev->name, slave_dev->name);
+ 	}
+-- 
+1.7.7.6
+
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
