@@ -1,63 +1,94 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH rfc] netfilter: two xtables matches
-Date: Fri, 7 Dec 2012 12:26:34 -0500
-Message-ID: <CA+FuTSduAv4JdzzOE4tVWQCL-00jruPDwcUxuYvPizQkkKrBbg@mail.gmail.com>
-References: <1354735339-13402-1-git-send-email-willemb@google.com>
- <CA+FuTSeYvcdtNf7N=POD+RzsE01+WVsub6F_nqbn06RZyoWx8w@mail.gmail.com>
- <alpine.LNX.2.01.1212052100190.30908@nerf07.vanv.qr> <20121206052246.GA2905@1984>
- <CA+FuTSf+fh21koZRJ_ZDsr8yiiwcw2-pJ4uTyS2pOHZGdBM1-w@mail.gmail.com> <20121207132014.GB3019@1984>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: [RFC PATCH] ipv6: do not create neighbor entries for local delivery
+Date: Fri, 07 Dec 2012 15:30:28 -0200
+Message-ID: <50C227B4.6040502@redhat.com>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jan Engelhardt <jengelh@inai.de>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: multipart/mixed;
+ boundary="------------090601070000080707070405"
+Cc: Thomas Graf <tgraf@redhat.com>, Flavio Leitner <fbl@redhat.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f180.google.com ([209.85.210.180]:45903 "EHLO
-	mail-ia0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755115Ab2LGR1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 12:27:05 -0500
-Received: by mail-ia0-f180.google.com with SMTP id t4so1237639iag.39
-        for <netdev@vger.kernel.org>; Fri, 07 Dec 2012 09:27:05 -0800 (PST)
-In-Reply-To: <20121207132014.GB3019@1984>
+Received: from mx1.redhat.com ([209.132.183.28]:30881 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755147Ab2LGRau (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2012 12:30:50 -0500
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id qB7HUj44012674
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2012 12:30:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 7, 2012 at 8:20 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Thu, Dec 06, 2012 at 04:12:10PM -0500, Willem de Bruijn wrote:
->> On Thu, Dec 6, 2012 at 12:22 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->> > On Wed, Dec 05, 2012 at 09:00:36PM +0100, Jan Engelhardt wrote:
->> >> On Wednesday 2012-12-05 20:28, Willem de Bruijn wrote:
->> >>
->> >> >Somehow, the first part of this email went missing. Not critical,
->> >> >but for completeness:
->> >> >
->> >> >These two patches each add an xtables match.
->> >> >
->> >> >The xt_priority match is a straighforward addition in the style of
->> >> >xt_mark, adding the option to filter on one more sk_buff field. I
->> >> >have an immediate application for this. The amount of code (in
->> >> >kernel + userspace) to add a single check proved quite large.
->> >>
->> >> Hm so yeah, can't we just place this in xt_mark.c?
->> >
->> > I don't feel this belongs to xt_mark at all.
->>
->> Do you have other concerns, or can I resubmit as is for merging in a
->> few days if no one raises additional issues?
->
-> In nftables we have the 'meta' extension that allows to match all
-> skbuff fields (among other things):
->
-> http://1984.lsi.us.es/git/nf-next/tree/net/netfilter/nft_meta.c?h=nf_tables8
->
-> I think it's the way to go so we stop adding small matches for each
-> skbuff field.
->
-> I don't mind the name if it's xt_skbuff or xt_meta.
+This is a multi-part message in MIME format.
+--------------090601070000080707070405
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Okay. I'll respin right now with one more field to select the skb field to
-match on, as a patch against tree nf-next, and will send that to
-netfilter-devel.
+RFC comment:
+
+Please note that I do not fully understand the impacts of this, thus why 
+RFC. I don't know if this is the best way to address the issue.
+
+I have a report that when using TPROXY and IPv6, neighbor cache gets 
+flooded with empty entries, while this does not happen with IPv4. These 
+empty entries looks like:
+
+# ip -6 neigh show nud all   (I masked some bits)
+...
+20xx::f0xx:x:3xdb dev lo lladdr 00:00:00:00:00:00 NOARP
+...
+
+Note that this address was not directly reachable by this host. It was 1 
+hop away, and still got a neighbor entry.
+
+These entries seems to be not used during input. I disabled their 
+creation and I could not notice any abnormal results.
+
+Bellow the dashes, my original patch description. Applies to net-next.
+
+Please advise.
+
+Thanks,
+Marcelo.
+
+----------------
+
+They will be created at output, if ever needed. This avoids creating
+empty neighbor entries when TPROXYing/Forwarding packets for addresses
+that are not even directly reachable.
+
+Note that IPv4 already handles it this way. No neighbor entries are
+created for local input.
+---
+  net/ipv6/route.c | 2 +-
+  1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 
+e229a3bc345dc4138a188282c4ab4f1717882832..e6058ab0bb94233da1eec3349e098175d5abf831 
+100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -928,7 +928,7 @@ restart:
+  	dst_hold(&rt->dst);
+  	read_unlock_bh(&table->tb6_lock);
+-	if (!rt->n && !(rt->rt6i_flags & RTF_NONEXTHOP))
++	if (!rt->n && !(rt->rt6i_flags & (RTF_NONEXTHOP|RTF_LOCAL)))
+  		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+  	else if (!(rt->dst.flags & DST_HOST))
+  		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+-- 
+1.7.11.7
+
+
+--------------090601070000080707070405
+Content-Type: text/plain; charset=UTF-8;
+ name="=?ISO-8859-1?Q?Se=E7=E3o_da_mensagem_anexada?="
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename*0*=ISO-8859-1''%53%65%E7%E3%6F%20%64%61%20%6D%65%6E%73%61%67%65;
+ filename*1*=%6D%20%61%6E%65%78%61%64%61
+
+
+--------------090601070000080707070405--
