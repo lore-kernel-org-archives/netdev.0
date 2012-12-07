@@ -1,63 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] bridge: export multicast database
- via netlink
-Date: Fri, 07 Dec 2012 14:33:18 -0500 (EST)
-Message-ID: <20121207.143318.2265851271191305391.davem@davemloft.net>
-References: <1354874688-24564-1-git-send-email-amwang@redhat.com>
-	<20121207103629.GB2996@casper.infradead.org>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: [PATCH v3 1/4] net: Add support for hardware-offloaded
+ encapsulation
+Date: Fri, 7 Dec 2012 11:41:46 -0800 (PST)
+Message-ID: <alpine.LFD.2.02.1212071139190.4985@morpheus.jf.intel.com>
+References: <50C21D21.5040101@intel.com> <1354900385.2707.42.camel@bwh-desktop.uk.solarflarecom.com> <alpine.LFD.2.02.1212071013200.30243@morpheus.jf.intel.com> <20121207.142845.1145515122357569641.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, herbert@gondor.hengli.com.au,
-	brouer@redhat.com, shemminger@vyatta.com
-To: tgraf@suug.ch
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121207103629.GB2996@casper.infradead.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: joseph.gasparakis@intel.com, bhutchings@solarflare.com,
+	alexander.h.duyck@intel.com, shemminger@vyatta.com,
+	chrisw@sous-sol.org, gospo@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dmitry@broadcom.com,
+	saeed.bishara@gmail.com, peter.p.waskiewicz.jr@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121207.142845.1145515122357569641.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Fri, 7 Dec 2012 10:36:29 +0000
 
-> On 12/07/12 at 06:04pm, Cong Wang wrote:
->> From: Cong Wang <amwang@redhat.com>
->> 
->> V5: fix two bugs pointed out by Thomas
->>     remove seq check for now, mark it as TODO
->> 
->> V4: remove some useless #include
->>     some coding style fix
->> 
->> V3: drop debugging printk's
->>     update selinux perm table as well
->> 
->> V2: drop patch 1/2, export ifindex directly
->>     Redesign netlink attributes
->>     Improve netlink seq check
->>     Handle IPv6 addr as well
->> 
->> This patch exports bridge multicast database via netlink
->> message type RTM_GETMDB. Similar to fdb, but currently bridge-specific.
->> We may need to support modify multicast database too (RTM_{ADD,DEL}MDB).
->> 
->> (Thanks to Thomas for patient reviews)
->> 
->> Cc: Herbert Xu <herbert@gondor.apana.org.au>
->> Cc: Stephen Hemminger <shemminger@vyatta.com>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: Thomas Graf <tgraf@suug.ch>
->> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
->> Signed-off-by: Cong Wang <amwang@redhat.com>
+
+On Fri, 7 Dec 2012, David Miller wrote:
+
+> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> Date: Fri, 7 Dec 2012 10:24:17 -0800 (PST)
 > 
-> Acked-by: Thomas Graf <tgraf@suug.ch>
-
-Applied, thanks.
+> > So the idea here is that the driver will use the headers for checksumming 
+> > if the skb->encapsulation bit is on. The bit should be set in the protocol 
+> > driver.
+> > 
+> > To answer the second comment, the flags that we use in this series of 
+> > patches is NETIF_F_IP_CSUM, NETIF_F_IPV6_CSUM and NETIF_F_SG. These are 
+> > the bits that we propose will be used for checksumming of encapsulation. 
+> > As per a previous comment in v2, the hw_enc_features field should be used 
+> > also in the future when NICs have more encap offloads, so one could
+> > indicate these features there from the driver.
+> > 
+> > Furthermore, I submitted a patch for Rx checksumming, where NETIF_F_RXCSUM 
+> > is used, again in conjunction with skb->encapsulation flag. As I mention 
+> > in my logs, the driver is expected to set the ip_summed to UNNECESSARY and 
+> > turn the skb->encapsulation on, to indicate that the inner headers are 
+> > already HW checksummed.
+> > 
+> 
+> This is the kind of language that belongs in the commit message and
+> code comments.
+> 
+Sure. I'll wait to gather some more feedback if there is any and I will 
+re-spin this off adding more code comments and clarify this in the logs.
