@@ -1,157 +1,357 @@
-From: Peter Turczak <pt@netconsequence.de>
-Subject: Re: [PATCHv2] smsc: RFC: Workaround for problems with lan8710 phy auto MDI-X
-Date: Fri, 7 Dec 2012 10:58:45 +0100
-Message-ID: <43ADE5B7-CA05-4913-9696-EDC87863EBB4@netconsequence.de>
-References: <8D7E9026-6276-452B-9E0C-AEB8CF38C9FD@netconsequence.de> <alpine.LNX.2.00.1211301622110.25639@pobox.suse.cz>
-Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	Otavio Salvador <otavio@ossystems.com.br>,
-	Javier Martinez Canillas <javier@dowhile0.org>,
-	Christian Hohnstaedt <chohnstaedt@innominate.com>,
-	Jiri Kosina <jkosina@suse.cz>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from netconsequence.de ([85.214.40.104]:55382 "EHLO
-	mx.netconsequence.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755679Ab2LGJ6r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 04:58:47 -0500
-In-Reply-To: <alpine.LNX.2.00.1211301622110.25639@pobox.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH net-next v5] bridge: export multicast database via
+	netlink
+Date: Fri,  7 Dec 2012 18:04:48 +0800
+Message-ID: <1354874688-24564-1-git-send-email-amwang@redhat.com>
+Cc: Cong Wang <amwang@redhat.com>, bridge@lists.linux-foundation.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Jesper Dangaard Brouer <brouer@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Nov 30, 2012, at 4:23 PM, Jiri Kosina <jkosina@suse.cz> wrote:
+From: Cong Wang <amwang@redhat.com>
 
-> I am not sure whether compile-time option for something like this is 
-> appropriate. Kernel module parameter, perhaps?
-> 
-> Of course it'd be far better if faulty hardware can be autodetected in 
-> runtime.
-Thanks for the input. Currently only the symbol error counter seems to give 
-a good indication that there might be a problem. So I suggest monitoring
-the symbol error counter. When a certain amount of symbol errors per
-poll interval is exceeded the auto MDI-X will be disabled.
+V5: fix two bugs pointed out by Thomas
+    remove seq check for now, mark it as TODO
 
-BTW: is it okay to hook into read_status or should I use work queues?
+V4: remove some useless #include
+    some coding style fix
 
-Signed-off-by: Peter Turczak <pt@netconsequence.de>
+V3: drop debugging printk's
+    update selinux perm table as well
+
+V2: drop patch 1/2, export ifindex directly
+    Redesign netlink attributes
+    Improve netlink seq check
+    Handle IPv6 addr as well
+
+This patch exports bridge multicast database via netlink
+message type RTM_GETMDB. Similar to fdb, but currently bridge-specific.
+We may need to support modify multicast database too (RTM_{ADD,DEL}MDB).
+
+(Thanks to Thomas for patient reviews)
+
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+    
 ---
-drivers/net/phy/smsc.c  |   57 ++++++++++++++++++++++++++++++++++++++++++++++-
-include/linux/smscphy.h |    7 +++++
-2 files changed, 64 insertions(+), 1 deletions(-)
+ include/uapi/linux/if_bridge.h |   55 ++++++++++++++
+ include/uapi/linux/rtnetlink.h |    3 +
+ net/bridge/Makefile            |    2 +-
+ net/bridge/br_mdb.c            |  163 ++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_multicast.c      |    1 +
+ net/bridge/br_private.h        |    1 +
+ security/selinux/nlmsgtab.c    |    1 +
+ 7 files changed, 225 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index 88e3991..0748266 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -24,6 +24,16 @@
-#include <linux/netdevice.h>
-#include <linux/smscphy.h>
-
-+/* Maximum number of symbol errors between two lan8720_read_status calls. */
-+#define LAN8720_MAX_SYM_ERR_CNT 100
+diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+index b388579..9a0f6ff 100644
+--- a/include/uapi/linux/if_bridge.h
++++ b/include/uapi/linux/if_bridge.h
+@@ -116,4 +116,59 @@ enum {
+ 	__IFLA_BRIDGE_MAX,
+ };
+ #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
 +
-+static struct phy_driver lan8710_driver;
++/* Bridge multicast database attributes
++ * [MDBA_MDB] = {
++ *     [MDBA_MDB_ENTRY] = {
++ *         [MDBA_MDB_ENTRY_INFO]
++ *     }
++ * }
++ * [MDBA_ROUTER] = {
++ *    [MDBA_ROUTER_PORT]
++ * }
++ */
++enum {
++	MDBA_UNSPEC,
++	MDBA_MDB,
++	MDBA_ROUTER,
++	__MDBA_MAX,
++};
++#define MDBA_MAX (__MDBA_MAX - 1)
 +
-+struct smsc_phy_private {
-+	/* Keeps track of the number of the broken received packets */
-+	int sym_err_count;
++enum {
++	MDBA_MDB_UNSPEC,
++	MDBA_MDB_ENTRY,
++	__MDBA_MDB_MAX,
++};
++#define MDBA_MDB_MAX (__MDBA_MDB_MAX - 1)
++
++enum {
++	MDBA_MDB_ENTRY_UNSPEC,
++	MDBA_MDB_ENTRY_INFO,
++	__MDBA_MDB_ENTRY_MAX,
++};
++#define MDBA_MDB_ENTRY_MAX (__MDBA_MDB_ENTRY_MAX - 1)
++
++enum {
++	MDBA_ROUTER_UNSPEC,
++	MDBA_ROUTER_PORT,
++	__MDBA_ROUTER_MAX,
++};
++#define MDBA_ROUTER_MAX (__MDBA_ROUTER_MAX - 1)
++
++struct br_port_msg {
++	__u32 ifindex;
 +};
 +
-static int smsc_phy_config_intr(struct phy_device *phydev)
-{
-	int rc = phy_write (phydev, MII_LAN83C185_IM,
-@@ -58,6 +68,7 @@ static int smsc_phy_config_init(struct phy_device *phydev)
-
-static int lan87xx_config_init(struct phy_device *phydev)
-{
-+	struct smsc_phy_private *privdata;
-	/*
-	 * Make sure the EDPWRDOWN bit is NOT set. Setting this bit on
-	 * LAN8710/LAN8720 PHY causes the PHY to misbehave, likely due
-@@ -79,6 +90,12 @@ static int lan87xx_config_init(struct phy_device *phydev)
-	if (rc < 0)
-		return rc;
-
-+	privdata = kzalloc(sizeof(*privdata), GFP_KERNEL);
-+	if (!privdata)
-+		return -ENOMEM;
++struct br_mdb_entry {
++	__u32 ifindex;
++	struct {
++		union {
++			__be32	ip4;
++			struct in6_addr ip6;
++		} u;
++		__be16		proto;
++	} addr;
++};
 +
-+	phydev->priv = privdata;
+ #endif /* _UAPI_LINUX_IF_BRIDGE_H */
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 33d29ce..354a1e7 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -125,6 +125,9 @@ enum {
+ 	RTM_GETNETCONF = 82,
+ #define RTM_GETNETCONF RTM_GETNETCONF
+ 
++	RTM_GETMDB = 86,
++#define RTM_GETMDB RTM_GETMDB
 +
-	return smsc_phy_ack_interrupt(phydev);
-}
-
-@@ -87,6 +104,44 @@ static int lan911x_config_init(struct phy_device *phydev)
-	return smsc_phy_ack_interrupt(phydev);
-}
-
-+int lan8720_read_status(struct phy_device *phydev)
+ 	__RTM_MAX,
+ #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
+ };
+diff --git a/net/bridge/Makefile b/net/bridge/Makefile
+index d0359ea..e859098 100644
+--- a/net/bridge/Makefile
++++ b/net/bridge/Makefile
+@@ -12,6 +12,6 @@ bridge-$(CONFIG_SYSFS) += br_sysfs_if.o br_sysfs_br.o
+ 
+ bridge-$(CONFIG_BRIDGE_NETFILTER) += br_netfilter.o
+ 
+-bridge-$(CONFIG_BRIDGE_IGMP_SNOOPING) += br_multicast.o
++bridge-$(CONFIG_BRIDGE_IGMP_SNOOPING) += br_multicast.o br_mdb.o
+ 
+ obj-$(CONFIG_BRIDGE_NF_EBTABLES) += netfilter/
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+new file mode 100644
+index 0000000..edc0d73
+--- /dev/null
++++ b/net/bridge/br_mdb.c
+@@ -0,0 +1,163 @@
++#include <linux/err.h>
++#include <linux/igmp.h>
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/rculist.h>
++#include <linux/skbuff.h>
++#include <net/ip.h>
++#include <net/netlink.h>
++#if IS_ENABLED(CONFIG_IPV6)
++#include <net/ipv6.h>
++#endif
++
++#include "br_private.h"
++
++static int br_rports_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
++			       struct net_device *dev)
 +{
-+	int err_count, err_since_last, rc;
-+	struct smsc_phy_private *priv = phydev->priv;
++	struct net_bridge *br = netdev_priv(dev);
++	struct net_bridge_port *p;
++	struct hlist_node *n;
++	struct nlattr *nest;
 +
-+	if (priv != NULL) {
++	if (!br->multicast_router || hlist_empty(&br->router_list))
++		return 0;
 +
-+		err_count = phy_read(phydev, MII_LAN8710_SYM_ERR_CNT);
-+		err_since_last = err_count - priv->sym_err_count;
++	nest = nla_nest_start(skb, MDBA_ROUTER);
++	if (nest == NULL)
++		return -EMSGSIZE;
 +
-+		if (err_since_last < 0)
-+				err_since_last += 65535;
-+
-+		priv->sym_err_count = err_count;
-+		if (err_since_last > LAN8720_MAX_SYM_ERR_CNT) {
-+			rc = phy_read(phydev, MII_LAN8710_SCSI);
-+
-+			if (rc < 0)
-+				return rc;
-+
-+			if (!(rc & MII_LAN8710_SCSI_AMDIXCTRL)) {
-+
-+				pr_warn("%s: Too may RX errors.",
-+					phydev->bus->name);
-+				pr_warn("Disabling MDI-X\n");
-+
-+				rc = phy_write(phydev, MII_LAN8710_SCSI,
-+					rc | MII_LAN8710_SCSI_AMDIXCTRL);
-+				}
-+
-+			if (rc < 0)
-+				return rc;
-+			}
++	hlist_for_each_entry_rcu(p, n, &br->router_list, rlist) {
++		if (p && nla_put_u32(skb, MDBA_ROUTER_PORT, p->dev->ifindex))
++			goto fail;
 +	}
 +
-+	return genphy_read_status(phydev);
++	nla_nest_end(skb, nest);
++	return 0;
++fail:
++	nla_nest_cancel(skb, nest);
++	return -EMSGSIZE;
 +}
 +
-static struct phy_driver smsc_phy_driver[] = {
-{
-	.phy_id		= 0x0007c0a0, /* OUI=0x00800f, Model#=0x0a */
-@@ -187,7 +242,7 @@ static struct phy_driver smsc_phy_driver[] = {
-
-	/* basic functions */
-	.config_aneg	= genphy_config_aneg,
--	.read_status	= genphy_read_status,
-+	.read_status	= lan8720_read_status,
-	.config_init	= lan87xx_config_init,
-
-	/* IRQ related */
-diff --git a/include/linux/smscphy.h b/include/linux/smscphy.h
-index ce718cb..a0d3893 100644
---- a/include/linux/smscphy.h
-+++ b/include/linux/smscphy.h
-@@ -22,4 +22,11 @@
-#define MII_LAN83C185_EDPWRDOWN (1 << 13) /* EDPWRDOWN */
-#define MII_LAN83C185_ENERGYON  (1 << 1)  /* ENERGYON */
-
-+#define MII_LAN8710_SCSI  27 /* Special Control/Status register */
++static int br_mdb_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
++			    struct net_device *dev)
++{
++	struct net_bridge *br = netdev_priv(dev);
++	struct net_bridge_mdb_htable *mdb;
++	struct nlattr *nest, *nest2;
++	int i, err = 0;
++	int idx = 0, s_idx = cb->args[1];
 +
-+#define MII_LAN8710_SCSI_AMDIXCTRL (1<<15) /* Flag to disable Auto-MDIX */
++	if (br->multicast_disabled)
++		return 0;
 +
-+#define MII_LAN8710_SYM_ERR_CNT	26 /* Amount of invalid code symbols received */
++	mdb = rcu_dereference(br->mdb);
++	if (!mdb)
++		return 0;
 +
++	nest = nla_nest_start(skb, MDBA_MDB);
++	if (nest == NULL)
++		return -EMSGSIZE;
 +
-#endif /* __LINUX_SMSCPHY_H__ */
--- 
-1.7.0.4
++	for (i = 0; i < mdb->max; i++) {
++		struct hlist_node *h;
++		struct net_bridge_mdb_entry *mp;
++		struct net_bridge_port_group *p, **pp;
++		struct net_bridge_port *port;
++
++		hlist_for_each_entry_rcu(mp, h, &mdb->mhash[i], hlist[mdb->ver]) {
++			if (idx < s_idx)
++				goto skip;
++
++			nest2 = nla_nest_start(skb, MDBA_MDB_ENTRY);
++			if (nest2 == NULL) {
++				err = -EMSGSIZE;
++				goto out;
++			}
++
++			for (pp = &mp->ports;
++			     (p = rcu_dereference(*pp)) != NULL;
++			      pp = &p->next) {
++				port = p->port;
++				if (port) {
++					struct br_mdb_entry e;
++					e.ifindex = port->dev->ifindex;
++					e.addr.u.ip4 = p->addr.u.ip4;
++#if IS_ENABLED(CONFIG_IPV6)
++					e.addr.u.ip6 = p->addr.u.ip6;
++#endif
++					e.addr.proto = p->addr.proto;
++					if (nla_put(skb, MDBA_MDB_ENTRY_INFO, sizeof(e), &e)) {
++						nla_nest_cancel(skb, nest2);
++						err = -EMSGSIZE;
++						goto out;
++					}
++				}
++			}
++			nla_nest_end(skb, nest2);
++		skip:
++			idx++;
++		}
++	}
++
++out:
++	cb->args[1] = idx;
++	nla_nest_end(skb, nest);
++	return err;
++}
++
++static int br_mdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	struct net_device *dev;
++	struct net *net = sock_net(skb->sk);
++	struct nlmsghdr *nlh = NULL;
++	int idx = 0, s_idx;
++
++	s_idx = cb->args[0];
++
++	rcu_read_lock();
++
++	/* TODO: in case of rehashing, we need to check
++	 * consistency for dumping.
++	 */
++	cb->seq = net->dev_base_seq;
++
++	for_each_netdev_rcu(net, dev) {
++		if (dev->priv_flags & IFF_EBRIDGE) {
++			struct br_port_msg *bpm;
++
++			if (idx < s_idx)
++				goto skip;
++
++			nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid,
++					cb->nlh->nlmsg_seq, RTM_GETMDB,
++					sizeof(*bpm), NLM_F_MULTI);
++			if (nlh == NULL)
++				break;
++
++			bpm = nlmsg_data(nlh);
++			bpm->ifindex = dev->ifindex;
++			if (br_mdb_fill_info(skb, cb, dev) < 0)
++				goto out;
++			if (br_rports_fill_info(skb, cb, dev) < 0)
++				goto out;
++
++			cb->args[1] = 0;
++			nlmsg_end(skb, nlh);
++		skip:
++			idx++;
++		}
++	}
++
++out:
++	if (nlh)
++		nlmsg_end(skb, nlh);
++	rcu_read_unlock();
++	cb->args[0] = idx;
++	return skb->len;
++}
++
++void br_mdb_init(void)
++{
++	rtnl_register(PF_BRIDGE, RTM_GETMDB, NULL, br_mdb_dump, NULL);
++}
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index a2a7a1a..68e375a 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1605,6 +1605,7 @@ void br_multicast_init(struct net_bridge *br)
+ 		    br_multicast_querier_expired, (unsigned long)br);
+ 	setup_timer(&br->multicast_query_timer, br_multicast_query_expired,
+ 		    (unsigned long)br);
++	br_mdb_init();
+ }
+ 
+ void br_multicast_open(struct net_bridge *br)
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index cd86222..ae0a6ec 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -433,6 +433,7 @@ extern int br_multicast_set_port_router(struct net_bridge_port *p,
+ extern int br_multicast_toggle(struct net_bridge *br, unsigned long val);
+ extern int br_multicast_set_querier(struct net_bridge *br, unsigned long val);
+ extern int br_multicast_set_hash_max(struct net_bridge *br, unsigned long val);
++extern void br_mdb_init(void);
+ 
+ static inline bool br_multicast_is_router(struct net_bridge *br)
+ {
+diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
+index d309e7f..163aaa7 100644
+--- a/security/selinux/nlmsgtab.c
++++ b/security/selinux/nlmsgtab.c
+@@ -67,6 +67,7 @@ static struct nlmsg_perm nlmsg_route_perms[] =
+ 	{ RTM_GETADDRLABEL,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ 	{ RTM_GETDCB,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ 	{ RTM_SETDCB,		NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
++	{ RTM_GETMDB,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ };
+ 
+ static struct nlmsg_perm nlmsg_tcpdiag_perms[] =
