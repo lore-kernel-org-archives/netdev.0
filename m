@@ -1,74 +1,78 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [patch v2] bridge: make buffer larger in br_setlink()
-Date: Fri, 07 Dec 2012 17:07:24 +0100
-Message-ID: <50C2143C.2010200@bfs.de>
-References: <20121207111045.GA9676@elgon.mountain>
-Reply-To: wharms@bfs.de
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 02/10] tipc: eliminate aggregate
+ sk_receive_queue limit
+Date: Fri, 7 Dec 2012 11:07:33 -0500
+Message-ID: <20121207160733.GD29819@shamino.rdu.redhat.com>
+References: <1354890498-6448-1-git-send-email-paul.gortmaker@windriver.com>
+ <1354890498-6448-3-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.sz.bfs.de ([194.94.69.103]:22382 "EHLO mx01.sz.bfs.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030757Ab2LGQH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2012 11:07:28 -0500
-In-Reply-To: <20121207111045.GA9676@elgon.mountain>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39899 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030757Ab2LGQHr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 11:07:47 -0500
+Content-Disposition: inline
+In-Reply-To: <1354890498-6448-3-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-Am 07.12.2012 12:10, schrieb Dan Carpenter:
-> We pass IFLA_BRPORT_MAX to nla_parse_nested() so we need
-> IFLA_BRPORT_MAX + 1 elements.  Also Smatch complains that we read past
-> the end of the array when in br_set_port_flag() when it's called with
-> IFLA_BRPORT_FAST_LEAVE.
+On Fri, Dec 07, 2012 at 09:28:10AM -0500, Paul Gortmaker wrote:
+> From: Ying Xue <ying.xue@windriver.com>
 > 
-
-
-
-I have no clue why nla_parse_nested() need IFLA_BRPORT_MAX elements.
-but the majory of loop look like
-for(i=0;i<max;++)
-most programmers will think this way.
-So it seems the place to fix is nla_parse_nested().
-doing not so is asking for trouble (in the long run).
-At least this function needs a big warning label that (max-1)
-is actually needed.
-
-
-just my two cents,
- wh
-
-
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> As a complement to the per-socket sk_recv_queue limit, TIPC keeps a
+> global atomic counter for the sum of sk_recv_queue sizes across all
+> tipc sockets. When incremented, the counter is compared to an upper
+> threshold value, and if this is reached, the message is rejected
+> with error code TIPC_OVERLOAD.
+> 
+> This check was originally meant to protect the node against
+> buffer exhaustion and general CPU overload. However, all experience
+> indicates that the feature not only is redundant on Linux, but even
+> harmful. Users run into the limit very often, causing disturbances
+> for their applications, while removing it seems to have no negative
+> effects at all. We have also seen that overall performance is
+> boosted significantly when this bottleneck is removed.
+> 
+> Furthermore, we don't see any other network protocols maintaining
+> such a mechanism, something strengthening our conviction that this
+> control can be eliminated.
+> 
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 > ---
-> v2: Style tweak.
+>  net/tipc/socket.c | 7 +------
+>  1 file changed, 1 insertion(+), 6 deletions(-)
 > 
-> Only needed in linux-next.
-> 
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index 850b7d1..cfc5cfe 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -239,7 +239,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
->  	struct ifinfomsg *ifm;
->  	struct nlattr *protinfo;
->  	struct net_bridge_port *p;
-> -	struct nlattr *tb[IFLA_BRPORT_MAX];
-> +	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
->  	int err;
+> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+> index 1a720c8..a059ed0 100644
+> --- a/net/tipc/socket.c
+> +++ b/net/tipc/socket.c
+> @@ -2,7 +2,7 @@
+>   * net/tipc/socket.c: TIPC socket API
+>   *
+>   * Copyright (c) 2001-2007, Ericsson AB
+> - * Copyright (c) 2004-2008, 2010-2011, Wind River Systems
+> + * Copyright (c) 2004-2008, 2010-2012, Wind River Systems
+>   * All rights reserved.
+>   *
+>   * Redistribution and use in source and binary forms, with or without
+> @@ -1241,11 +1241,6 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
+>  	}
 >  
->  	ifm = nlmsg_data(nlh);
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+>  	/* Reject message if there isn't room to queue it */
+> -	recv_q_len = (u32)atomic_read(&tipc_queue_size);
+> -	if (unlikely(recv_q_len >= OVERLOAD_LIMIT_BASE)) {
+> -		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE))
+> -			return TIPC_ERR_OVERLOAD;
+> -	}
+If you're going to remove the one place that you read this variable, don't you
+also want to remove the points where you increment/decrement the atomic as well,
+and for that matter eliminate the definition itself?
+
+Neil
