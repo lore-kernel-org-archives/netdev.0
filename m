@@ -1,95 +1,44 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next v3 3/3] virtio-net: support changing the number of
-	queue pairs through ethtool
-Date: Sat,  8 Dec 2012 01:04:57 +0800
-Message-ID: <1354899897-10423-4-git-send-email-jasowang@redhat.com>
-References: <1354899897-10423-1-git-send-email-jasowang@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH stable] ipv4: avoid passing NULL to inet_putpeer() in
+ icmpv4_xrlim_allow()
+Date: Fri, 07 Dec 2012 12:14:29 -0500 (EST)
+Message-ID: <20121207.121429.1891539902462905192.davem@davemloft.net>
+References: <1411074275.5265862.1354894974886.JavaMail.root@redhat.com>
+	<1443466888.5267673.1354895200559.JavaMail.root@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, kvm@vger.kernel.org, bhutchings@solarflare.com,
-	jwhan@filewood.snu.ac.kr, shiyer@redhat.com
-To: mst@redhat.com, rusty@rustcorp.com.au, davem@davemloft.net,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1354899897-10423-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ncardwell@google.com
+To: caiqian@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56540 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423124Ab2LGROe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 12:14:34 -0500
+In-Reply-To: <1443466888.5267673.1354895200559.JavaMail.root@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch implements the ethtool_{set|get}_channels method of virtio-net to
-allow user to change the number of queues when the device is running on demand.
+From: CAI Qian <caiqian@redhat.com>
+Date: Fri, 7 Dec 2012 10:46:40 -0500 (EST)
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c |   43 +++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 43 insertions(+), 0 deletions(-)
+> David, this patch looks applicable for the stable releases.
+> 
+> From Neal Cardwell <ncardwell@google.com>
+> 
+> inet_getpeer_v4() can return NULL under OOM conditions, and while
+> inet_peer_xrlim_allow() is OK with a NULL peer, inet_putpeer() will
+> crash.
+> 
+> This code path now uses the same idiom as the others from:
+> 1d861aa4b3fb08822055345f480850205ffe6170 ("inet: Minimize use of
+> cached route inetpeer.").
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> Upstream-ID: e1a676424c290b1c8d757e3860170ac7ecd89af4
+> Stable-trees: 3.6.x
+> Signed-off-by: CAI Qian <caiqian@redhat.com>
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index c083048..a644eeb 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1075,10 +1075,53 @@ static void virtnet_get_drvinfo(struct net_device *dev,
- 
- }
- 
-+/* TODO: Eliminate OOO packets during switching */
-+static int virtnet_set_channels(struct net_device *dev,
-+				struct ethtool_channels *channels)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	u16 queue_pairs = channels->combined_count;
-+	int err;
-+
-+	/* We don't support separate rx/tx channels.
-+	 * We don't allow setting 'other' channels.
-+	 */
-+	if (channels->rx_count || channels->tx_count || channels->other_count)
-+		return -EINVAL;
-+
-+	if (queue_pairs > vi->max_queue_pairs)
-+		return -EINVAL;
-+
-+	err = virtnet_set_queues(vi, queue_pairs);
-+	if (!err) {
-+		netif_set_real_num_tx_queues(dev, queue_pairs);
-+		netif_set_real_num_rx_queues(dev, queue_pairs);
-+
-+		virtnet_set_affinity(vi, true);
-+	}
-+
-+	return err;
-+}
-+
-+static void virtnet_get_channels(struct net_device *dev,
-+				 struct ethtool_channels *channels)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+
-+	channels->combined_count = vi->curr_queue_pairs;
-+	channels->max_combined = vi->max_queue_pairs;
-+	channels->max_other = 0;
-+	channels->rx_count = 0;
-+	channels->tx_count = 0;
-+	channels->other_count = 0;
-+}
-+
- static const struct ethtool_ops virtnet_ethtool_ops = {
- 	.get_drvinfo = virtnet_get_drvinfo,
- 	.get_link = ethtool_op_get_link,
- 	.get_ringparam = virtnet_get_ringparam,
-+	.set_channels = virtnet_set_channels,
-+	.get_channels = virtnet_get_channels,
- };
- 
- #define MIN_MTU 68
--- 
-1.7.1
+Please stop submitting networking -stable changes.
