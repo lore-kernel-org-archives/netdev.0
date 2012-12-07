@@ -1,45 +1,110 @@
 From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: [PATCH v3 net-next 0/4] tunneling: Add support for hardware-offloaded encapsulation
-Date: Thu,  6 Dec 2012 17:56:55 -0800
-Message-ID: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com>
+Subject: [RFC PATCH v3 4/4] ixgbe: Adding tx encapsulation capability
+Date: Thu,  6 Dec 2012 17:56:59 -0800
+Message-ID: <1354845419-22483-5-git-send-email-joseph.gasparakis@intel.com>
+References: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com>
 Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dmitry@broadcom.com, saeed.bishara@gmail.com
+	dmitry@broadcom.com, saeed.bishara@gmail.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org,
 	gospo@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The series contains updates to add in the NIC Rx and Tx checksumming support
-for encapsulated packets.
+This patch allows ixgbe to recognize encapsulated packets and do the tx
+checksum offload in hardware. This patch is only for demonstration
+purposes and should not be applied.
 
-The sk_buff needs to somehow have information of the inner packet, and adding
-three fields for the inner mac, network and transport headers was the prefered
-approach. 
+Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   46 ++++++++++++++++++++-----
+ 1 files changed, 37 insertions(+), 9 deletions(-)
 
-Not adding these fields would mean that the drivers would need to parse the
-sk_buff data in hot-path, having a negative impact in the performance.
-
-Adding in sk_buff a pointer to the skbuff of the inner packet made sense, but
-would be a complicated change as assumptions needed to be made with regards to
-helper functions such as skb_clone() skb_copy(). Also code for the existing
-encapsulation protocols (such as VXLAN and IP GRE) had to be reworked, so the
-decision was to have the simple approach of adding these three fields.
-
-v2 Makes sure that checksumming for IP GRE does not take place if the offload
-   flag is set in the skb's netdev features
-
-v3 Fixes issues picked up by the community in v2 and is intended to provide
-   ability to demo vxlan Tx offloading with Intel's ixgbe. As part of this, 
-   it provides an RFC patch for ixgbe to take advantage of the offloading
-   mechanism
-
-   Now it is possible to create a vxlan interface like this:
-    #ip link add vxlan0 type vxlan id 40 ttl 10 group 239.1.1.1 dev eth0
-
-   Then turn on/off the encapsulation offload mechanism by doing:
-    #ethtool -K eth0 tx-checksum-ip-generic on
-
-   In v3 ipgre work got paused (and therefore patches not included) and I will
-   come back to it when vxlan is accepted by the community.
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 484bbed..17ebfe0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5966,17 +5966,42 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 			if (!(first->tx_flags & IXGBE_TX_FLAGS_TXSW))
+ 				return;
+ 		}
++		vlan_macip_lens |= skb_network_offset(skb)
++				   << IXGBE_ADVTXD_MACLEN_SHIFT;
+ 	} else {
+ 		u8 l4_hdr = 0;
+-		switch (first->protocol) {
+-		case __constant_htons(ETH_P_IP):
+-			vlan_macip_lens |= skb_network_header_len(skb);
++		union {
++			struct iphdr *ipv4;
++			struct ipv6hdr *ipv6;
++			u8 *raw;
++		} network_hdr;
++		union {
++			struct tcphdr *tcphdr;
++			u8 *raw;
++		} transport_hdr;
++
++		if (skb->encapsulation) {
++			network_hdr.raw = skb_inner_network_header(skb);
++			transport_hdr.raw = skb_inner_transport_header(skb);
++			vlan_macip_lens |= skb_inner_network_offset(skb) <<
++					   IXGBE_ADVTXD_MACLEN_SHIFT;
++		} else {
++			network_hdr.raw = skb_network_header(skb);
++			transport_hdr.raw = skb_transport_header(skb);
++			vlan_macip_lens |= skb_network_offset(skb) <<
++					   IXGBE_ADVTXD_MACLEN_SHIFT;
++		}
++
++		/* use first 4 bits to determine IP version */
++		switch (network_hdr.ipv4->version) {
++		case 4:
++			vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
+ 			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
+-			l4_hdr = ip_hdr(skb)->protocol;
++			l4_hdr = network_hdr.ipv4->protocol;
+ 			break;
+-		case __constant_htons(ETH_P_IPV6):
+-			vlan_macip_lens |= skb_network_header_len(skb);
+-			l4_hdr = ipv6_hdr(skb)->nexthdr;
++		case 6:
++			vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
++			l4_hdr = network_hdr.ipv6->nexthdr;
+ 			break;
+ 		default:
+ 			if (unlikely(net_ratelimit())) {
+@@ -5990,7 +6015,7 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 		switch (l4_hdr) {
+ 		case IPPROTO_TCP:
+ 			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
+-			mss_l4len_idx = tcp_hdrlen(skb) <<
++			mss_l4len_idx = (transport_hdr.tcphdr->doff * 4) <<
+ 					IXGBE_ADVTXD_L4LEN_SHIFT;
+ 			break;
+ 		case IPPROTO_SCTP:
+@@ -6016,7 +6041,6 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 	}
+ 
+ 	/* vlan_macip_lens: MACLEN, VLAN tag */
+-	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
+ 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
+ 
+ 	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0,
+@@ -7377,6 +7401,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 
+ 	netdev->hw_features = netdev->features;
+ 
++	netdev->hw_enc_features = NETIF_F_IP_CSUM |
++				  NETIF_F_IPV6_CSUM |
++				  NETIF_F_SG;
++
+ 	switch (adapter->hw.mac.type) {
+ 	case ixgbe_mac_82599EB:
+ 	case ixgbe_mac_X540:
+-- 
+1.7.6.4
