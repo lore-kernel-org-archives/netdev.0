@@ -1,54 +1,40 @@
 From: Cong Ding <dinggnu@gmail.com>
-Subject: Re: [PATCH] fix initializer entry defined twice issue
-Date: Fri, 7 Dec 2012 00:05:12 +0000
-Message-ID: <20121207000511.GD2510@gmail.com>
-References: <1354835928-617-1-git-send-email-dinggnu@gmail.com>
- <50C13159.2070901@fuel7.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Otavio Salvador <otavio@ossystems.com.br>,
-	Javier Martinez Canillas <javier@dowhile0.org>,
-	Jiri Kosina <jkosina@suse.cz>, netdev@vger.kernel.org,
+Subject: [PATCH] net: core: fix unused variable sparse warning
+Date: Fri,  7 Dec 2012 00:06:44 +0000
+Message-ID: <1354838913-20084-1-git-send-email-dinggnu@gmail.com>
+Cc: Cong Ding <dinggnu@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Pavel Emelyanov <xemul@parallels.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Patrick Trantham <patrick.trantham@fuel7.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <50C13159.2070901@fuel7.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 06, 2012 at 05:59:21PM -0600, Patrick Trantham wrote:
-> On 12/06/2012 05:16 PM, Cong Ding wrote:
-> >the ".config_intr" is defined twice in both line 208 and 212.
-> >
-> >Signed-off-by: Cong Ding <dinggnu@gmail.com>
-> >---
-> >  drivers/net/phy/smsc.c |    1 -
-> >  1 files changed, 0 insertions(+), 1 deletions(-)
-> >
-> >diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-> >index 16dceed..5cee6bd 100644
-> >--- a/drivers/net/phy/smsc.c
-> >+++ b/drivers/net/phy/smsc.c
-> >@@ -205,7 +205,6 @@ static struct phy_driver smsc_phy_driver[] = {
-> >  	/* basic functions */
-> >  	.config_aneg	= genphy_config_aneg,
-> >  	.read_status	= lan87xx_read_status,
-> >-	.config_intr	= smsc_phy_config_intr,
-> >  	/* IRQ related */
-> >  	.ack_interrupt	= smsc_phy_ack_interrupt,
-> 
-> Hi Cong,
-> 
-> That looks like a mistake from my previous patch to that file.  Copy
-> and paste fail.
-> 
-> The line should read:
-> .config_init    = smsc_phy_config_init,
-> 
-> I can submit a patch once I get off work unless you beat me to it.
-Thanks for the note. It's better that you submit a patch together with your
-code.
+the variables zero and unres_qlen_max are only used when CONFIG_SYSCTL is
+defined, otherwise it causes the following sparse warning when we turn on
+CONFIG_SYSCTL.
 
-- cong
+Signed-off-by: Cong Ding <dinggnu@gmail.com>
+---
+ net/core/neighbour.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 36fc692..4a15278 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -62,8 +62,10 @@ static void __neigh_notify(struct neighbour *n, int type, int flags);
+ static void neigh_update_notify(struct neighbour *neigh);
+ static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
+ 
++#ifdef CONFIG_SYSCTL
+ static int zero;
+ static int unres_qlen_max = INT_MAX / SKB_TRUESIZE(ETH_FRAME_LEN);
++#endif
+ 
+ static struct neigh_table *neigh_tables;
+ #ifdef CONFIG_PROC_FS
+-- 
+1.7.4.5
