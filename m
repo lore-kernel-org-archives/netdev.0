@@ -1,104 +1,131 @@
-From: Eric Leblond <eric@regit.org>
-Subject: Re: [RFC PATCH] af_packet: don't to defrag shared skb
-Date: Fri, 07 Dec 2012 21:54:27 +0100
-Message-ID: <1354913667.4530.9.camel@tiger2>
-References: <1354906561-4695-1-git-send-email-eric@regit.org>
-	 <20121207.153134.25835204617509469.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	johannes@sipsolutions.net, linville@tuxdriver.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ks28632.kimsufi.com ([91.121.96.152]:43595 "EHLO
-	ks28632.kimsufi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424343Ab2LGUzL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 15:55:11 -0500
-In-Reply-To: <20121207.153134.25835204617509469.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: BUG: scheduling while atomic: ifup-bonding/3711/0x00000002 -- V3.6.7
+Date: Fri, 07 Dec 2012 13:00:54 -0800
+Message-ID: <1013.1354914054@death.nxdomain>
+References: <50B5248A.5010908@tlinx.org> <CAM_iQpUW2Oz9p0K0gGKc6JoD7WAu0kJtRa4uBSe+WfXg0Nn3jA@mail.gmail.com> <50B67F6B.6050008@tlinx.org> <50B6B4B6.3070304@tlinx.org> <4913.1354154236@death.nxdomain> <50C24C44.8000809@tlinx.org>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Linda Walsh <lkml@tlinx.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <50C24C44.8000809@tlinx.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Linda Walsh <lkml@tlinx.org> wrote:
 
-On Fri, 2012-12-07 at 15:31 -0500, David Miller wrote:
-> From: Eric Leblond <eric@regit.org>
-> Date: Fri,  7 Dec 2012 19:56:01 +0100
-> 
-> Wireless folks, please take a look.  The issue is that,
-> under the circumstances listed below, we get SKBs in
-> the AF_PACKET input path that are shared.
-> 
-> Given the logic present in ieee80211_deliver_skb() I think
-> the mac80211 code doesn't expect this either.
-> 
-> More commentary from me below:
-> 
-> > This patch is adding a check on skb before trying to defrag the
-> > packet for the hash computation in fanout mode. The goal of this
-> > patch is to avoid an kernel crash in pskb_expand_head.
-> > It appears that under some specific condition there is a shared
-> > skb reaching the defrag code and this lead to a crash due to the
-> > following code:
-> > 
-> > 	if (skb_shared(skb))
-> > 		BUG();
-> > 
-> > I've observed this crash under the following condition:
-> >  1. a program is listening to an wifi interface (let say wlan0)
-> >  2. it is using fanout capture in flow load balancing mode
-> >  3. defrag option is on on the fanout socket
-> >  4. the interface disconnect (radio down for example)
-> >  5. the interface reconnect (radio switched up)
-> >  6. once reconnected a single packet is seen with skb->users=2
-> >  7. the kernel crash in pskb_expand_head at skbuff.c:1035
-> > 
-> > [BBB55:744364] [<ffffffff812a2761>] ? __pskb_pull_tail+0x43x0x26f
-> > [BB8S5.744395] [<ffffffff812d29Tb>] ? ip_check_defrag+ox3a/0x14a
-> > [BBB55.744422] [<ffffffffB1344459>] ? packet_rcv_fanout+ox5e/oxf9
-> > [BBBS5.7444S0] [<ffffffffB12aaS9b>] ? __netif_receive_skb+ox444/ox4f9
-> > [BBB55.T4447B] [<ffffffffB12aa?e1>] ? netif_receive_skb+ox6d/0x?3
-> > [BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_deliver_skb+0xbd/0xfa [mac80211]
-> > [BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_rx_h_data+0x1e0/0x21a [mac80211]
-> > [BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_rx_handlers+0x3d5/0x480 [mac80211]
-> > [BBB55.T4447B] [<ffffffffB12aa?e1>] ? __wake_up
-> > [BBB55.T4447B] [<ffffffffB12aa?e1>] ? evdev_eventr+0xc0/0xcf [evdev]
-> > 
-> > Signed-off-by: Eric Leblond <eric@regit.org>
-> 
-> So if we look at ieee80211_deliver_skb(), it has code to deal with unaligned
-> packet headers, wherein it memoves() the data into a better aligned location.
-> 
-> But if these SKBs really are skb_shared(), this packet data
-> modification is illegal.
-> 
-> I suspect that the assumptions built into this unaligned data handling
-> code, and AF_PACKET, are correct.  Meaning that we should never see
-> skb_shared() packets here.  We just have a missing skb_copy()
-> somewhere in mac80211, Johannes can you please take a look?
+>Sorry for the delay.... my distro (Suse) has made rebooting my system
+>a chore (have to often boot from rescue to get it to come up because
+>they put mount libs in /usr/lib expecting they will always boot
+>from their ram disk -- preventing those of use who boot directly
+>from disk from doing so easily...grrr.
+>
+>Jay Vosburgh wrote:
+>> 	The miimon functionality is used to check link state and notice
+>> when slaves lose carrier.
+>---
+>   If I am running 'rr' on 2 channels -- specifically for the purpose
+>of link speed aggregation (getting 1 20Gb channel out of 2 10Gb channels)
+>I'm not sure I see how miimon would provide benefit.  -- if 1 link dies,
+>the other, being on the same card is likely to be dead too, so would
+>it really serve a purpose?
 
-Here's some more info that may help people knowing the code. During my
-test, I've removed the BUG() and replaced with a printk to have a living
-kernel. Only one single shared skb was seen for each up event.
+	Perhaps, but if the link partner experiences a failure, that may
+be a different situation.  Not all failures will necessarily cause both
+links to fail simultaneously.
 
-I've also add another oops in the same code:
-[BBB55:744364] [<ffffffff812a2761>] ? __pskb_pull_tail+0x43x0x26f
-[BB8S5.744395] [<ffffffff812d29Tb>] ? ip_check_defrag+ox3a/0x14a
-[BBB55.744422] [<ffffffffB1344459>] ? packet_rcv_fanout+ox5e/oxf9
-[BBBS5.7444S0] [<ffffffffB12aaS9b>] ? __netif_receive_skb+ox444/ox4f9
-[BBB55.T4447B] [<ffffffffB12aa?e1>] ? netif_receive_skb+ox6d/0x?3
-[BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_deliver_skb+0xbd/0xfa [mac80211]
-[BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_rx_h_data+0x1e0/0x21a [mac80211]
-[BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_rx_handlers+0x3d5/0x480 [mac80211]
-[BBB55.T4447B] [<ffffffffB12aa?e1>] ? _raw_spin_lock_irqsave+0x14/0x35
-[BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_prepare_and_rx_handle+0x5a3/0x5db [mac80211]
-...
-[BBB55.T4447B] [<ffffffffB12aa?e1>] ? ttwu_dowakeup+0x2d
+>>   Running without it will not detect failure of
+>> the bonding slaves, which is likely not what you want.  The mode,
+>> balance-rr in your case, is what selects the load balance to use, and is
+>> separate from the miimon.
+>>   
+>----
+>   Wouldn't the entire link die if a slave dies -- like RAID0, 1 disk
+>dies, the entire link goes down? 
 
-Picture of the oops available here:
-	http://home.regit.org/~regit/wireless-oops.jpg
+	No; failure of a single slave does not cause the entire bond to
+fail (unless that is the last available slave).  For round robin, a
+failed slave is taken out of the set used to transmit traffic, and any
+remaining slaves continue to round robin amongst themselves.
 
-BR,
--- 
-Eric Leblond <eric@regit.org>
-Blog: https://home.regit.org/
+>   The other end (windows) doesn't dynamically config for a static-link
+>aggregation, so I don't think it would provide benefit.
+
+	So it (windows) has no means to disable (and discontinue use of)
+one channel of the aggregation should it fail, even in a static link
+aggregation?
+
+>> 	That said, the problem you're seeing appears to be caused by two
+>> things: bonding holds a lock (in addition to RTNL) when calling
+>> __ethtool_get_settings, and an ixgbe function in the call path to
+>> retrieve the settings, ixgbe_acquire_swfw_sync_X540, can sleep.
+>>
+>> 	The test patch above handles one case in bond_enslave, but there
+>> is another case in bond_miimon_commit when a slave changes link state
+>> from down to up, which will occur shortly after the slave is added.
+>>   
+>----
+>   Added your 2nd patch -- no more error messages...
+>
+>   however -- likely unrelated, the max speed read or write I am seeing
+>is about 500MB/s, and that is rare -- usually it's barely <3x a 1Gb
+>network speed. (119/125 MB R/W).  I'm not at all sure it's really
+>combining the links
+>properly.  Anyway to verify that?
+
+	How are you testing the throughput?  If you configure the
+aggregation with just one link, how does the throughput compare to the
+aggregation with both links?
+
+	It most likely is combining links properly, but any link
+aggregation scheme has tradeoffs, and the best load balance algorithm to
+use depends upon the work load.  Two aggregated 10G links are not
+interchangable with a single 20G link.
+
+	For a round robin transmission scheme, issues arise because
+packets are delivered at the other end out of order.  This in turn
+triggers various TCP behaviors to deal with what is perceived to be
+transmission errors or lost packets (TCP fast retransmit being the most
+notable).  This usually results in a single TCP connection being unable
+to completely saturate a round-robin aggregated set of links.
+
+	There are a few parameters on linux that can be adjusted.  I
+don't know what the windows equivalents might be.
+
+	On linux, adjusting the net.ipv4.tcp_reordering sysctl value
+will increase the tolerance for out of order delivery.  
+
+	The sysctl is adjusted via something like
+
+sysctl -w net.ipv4.tcp_reordering=10
+
+	the default value is 3, and higher values increase the tolerance
+for out of order delivery.  If memory serves, the setting is applied to
+connections as they are created, so existing connections will not see
+changes.
+
+	Also, adjusting the packet coalescing setting for the receiving
+devices may also permit higher throughput. The packet coalescing setting
+is adjusted via ethtool; the current settings can be viewed via
+
+ethtool -c eth0
+
+	and then adjusted via something like
+
+ethtool -C eth0 rx-usecs 30
+
+	I've seen reports that raising the "rx-usecs" parameter at the
+receiver can increase the round-robin throughput.  My recollection is
+that the value used was 30, but the best settings will likely be
+dependent upon your particular hardware and configuration.
+
+>   On the windows side it shows the bond-link as a 20Gb connection, but
+>I don't see anyplace for something similar on linux. 
+
+	There isn't any such indicator; bonding does not advertise its
+link speed as the sum of its slaves link speeds.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
