@@ -1,45 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 1/4] net: Add support for hardware-offloaded
- encapsulation
-Date: Fri, 07 Dec 2012 14:28:45 -0500 (EST)
-Message-ID: <20121207.142845.1145515122357569641.davem@davemloft.net>
-References: <50C21D21.5040101@intel.com>
-	<1354900385.2707.42.camel@bwh-desktop.uk.solarflarecom.com>
-	<alpine.LFD.2.02.1212071013200.30243@morpheus.jf.intel.com>
+Subject: Re: [PATCH net-next 2/2] net: doc: add default value for neighbour
+ parameters
+Date: Fri, 07 Dec 2012 14:31:29 -0500 (EST)
+Message-ID: <20121207.143129.964889573621196002.davem@davemloft.net>
+References: <50C009E9.6050101@gmail.com>
+	<1354825223.2828.17.camel@bwh-desktop.uk.solarflarecom.com>
+	<50C15427.9060803@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, alexander.h.duyck@intel.com,
-	shemminger@vyatta.com, chrisw@sous-sol.org, gospo@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dmitry@broadcom.com, saeed.bishara@gmail.com,
-	peter.p.waskiewicz.jr@intel.com
-To: joseph.gasparakis@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.02.1212071013200.30243@morpheus.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: shanwei88@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57860 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752582Ab2LGTba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 14:31:30 -0500
+In-Reply-To: <50C15427.9060803@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Date: Fri, 7 Dec 2012 10:24:17 -0800 (PST)
+From: Shan Wei <shanwei88@gmail.com>
+Date: Fri, 07 Dec 2012 10:27:51 +0800
 
-> So the idea here is that the driver will use the headers for checksumming 
-> if the skb->encapsulation bit is on. The bit should be set in the protocol 
-> driver.
+> [PATCH net-next] net: doc : use more suitable word 'unexpected' to replace 'secluded'
 > 
-> To answer the second comment, the flags that we use in this series of 
-> patches is NETIF_F_IP_CSUM, NETIF_F_IPV6_CSUM and NETIF_F_SG. These are 
-> the bits that we propose will be used for checksumming of encapsulation. 
-> As per a previous comment in v2, the hw_enc_features field should be used 
-> also in the future when NICs have more encap offloads, so one could
-> indicate these features there from the driver.
+>  'secluded' is used to describe places, not suitable here.
 > 
-> Furthermore, I submitted a patch for Rx checksumming, where NETIF_F_RXCSUM 
-> is used, again in conjunction with skb->encapsulation flag. As I mention 
-> in my logs, the driver is expected to set the ip_summed to UNNECESSARY and 
-> turn the skb->encapsulation on, to indicate that the inner headers are 
-> already HW checksummed.
-> 
+> Suggested-by: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Shan Wei <davidshan@tencent.com>
 
-This is the kind of language that belongs in the commit message and
-code comments.
+Applied.
