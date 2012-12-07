@@ -1,12 +1,11 @@
 From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: [RFC PATCH v3 4/4] ixgbe: Adding tx encapsulation capability
-Date: Thu,  6 Dec 2012 17:56:59 -0800
-Message-ID: <1354845419-22483-5-git-send-email-joseph.gasparakis@intel.com>
+Subject: [PATCH v3 2/4] net: Handle encapsulated offloads before fragmentation or handing to lower dev
+Date: Thu,  6 Dec 2012 17:56:57 -0800
+Message-ID: <1354845419-22483-3-git-send-email-joseph.gasparakis@intel.com>
 References: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com>
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dmitry@broadcom.com, saeed.bishara@gmail.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	dmitry@broadcom.com, saeed.bishara@gmail.com
 To: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org,
 	gospo@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -14,97 +13,66 @@ In-Reply-To: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch allows ixgbe to recognize encapsulated packets and do the tx
-checksum offload in hardware. This patch is only for demonstration
-purposes and should not be applied.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+This change allows the VXLAN to enable Tx checksum offloading even on
+devices that do not support encapsulated checksum offloads. The
+advantage to this is that it allows for the lower device to change due
+to routing table changes without impacting features on the VXLAN itself.
+
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   46 ++++++++++++++++++++-----
- 1 files changed, 37 insertions(+), 9 deletions(-)
+ net/core/dev.c       |   15 +++++++++++++--
+ net/ipv4/ip_output.c |    4 ++++
+ 2 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 484bbed..17ebfe0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5966,17 +5966,42 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
- 			if (!(first->tx_flags & IXGBE_TX_FLAGS_TXSW))
- 				return;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2a5f5586..7a2646a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2324,6 +2324,13 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			skb->vlan_tci = 0;
  		}
-+		vlan_macip_lens |= skb_network_offset(skb)
-+				   << IXGBE_ADVTXD_MACLEN_SHIFT;
- 	} else {
- 		u8 l4_hdr = 0;
--		switch (first->protocol) {
--		case __constant_htons(ETH_P_IP):
--			vlan_macip_lens |= skb_network_header_len(skb);
-+		union {
-+			struct iphdr *ipv4;
-+			struct ipv6hdr *ipv6;
-+			u8 *raw;
-+		} network_hdr;
-+		union {
-+			struct tcphdr *tcphdr;
-+			u8 *raw;
-+		} transport_hdr;
+ 
++		/* If encapsulation offload request, verify we are testing
++		 * hardware encapsulation features instead of standard
++		 * features for the netdev
++		 */
++		if (skb->encapsulation)
++			features &= dev->hw_enc_features;
 +
-+		if (skb->encapsulation) {
-+			network_hdr.raw = skb_inner_network_header(skb);
-+			transport_hdr.raw = skb_inner_transport_header(skb);
-+			vlan_macip_lens |= skb_inner_network_offset(skb) <<
-+					   IXGBE_ADVTXD_MACLEN_SHIFT;
-+		} else {
-+			network_hdr.raw = skb_network_header(skb);
-+			transport_hdr.raw = skb_transport_header(skb);
-+			vlan_macip_lens |= skb_network_offset(skb) <<
-+					   IXGBE_ADVTXD_MACLEN_SHIFT;
-+		}
-+
-+		/* use first 4 bits to determine IP version */
-+		switch (network_hdr.ipv4->version) {
-+		case 4:
-+			vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
- 			type_tucmd |= IXGBE_ADVTXD_TUCMD_IPV4;
--			l4_hdr = ip_hdr(skb)->protocol;
-+			l4_hdr = network_hdr.ipv4->protocol;
- 			break;
--		case __constant_htons(ETH_P_IPV6):
--			vlan_macip_lens |= skb_network_header_len(skb);
--			l4_hdr = ipv6_hdr(skb)->nexthdr;
-+		case 6:
-+			vlan_macip_lens |= transport_hdr.raw - network_hdr.raw;
-+			l4_hdr = network_hdr.ipv6->nexthdr;
- 			break;
- 		default:
- 			if (unlikely(net_ratelimit())) {
-@@ -5990,7 +6015,7 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
- 		switch (l4_hdr) {
- 		case IPPROTO_TCP:
- 			type_tucmd |= IXGBE_ADVTXD_TUCMD_L4T_TCP;
--			mss_l4len_idx = tcp_hdrlen(skb) <<
-+			mss_l4len_idx = (transport_hdr.tcphdr->doff * 4) <<
- 					IXGBE_ADVTXD_L4LEN_SHIFT;
- 			break;
- 		case IPPROTO_SCTP:
-@@ -6016,7 +6041,6 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 		if (netif_needs_gso(skb, features)) {
+ 			if (unlikely(dev_gso_segment(skb, features)))
+ 				goto out_kfree_skb;
+@@ -2339,8 +2346,12 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			 * checksumming here.
+ 			 */
+ 			if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-				skb_set_transport_header(skb,
+-					skb_checksum_start_offset(skb));
++				if (skb->encapsulation)
++					skb_set_inner_transport_header(skb,
++						skb_checksum_start_offset(skb));
++				else
++					skb_set_transport_header(skb,
++						skb_checksum_start_offset(skb));
+ 				if (!(features & NETIF_F_ALL_CSUM) &&
+ 				     skb_checksum_help(skb))
+ 					goto out_kfree_skb;
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 6537a40..3e98ed2 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -595,6 +595,10 @@ slow_path_clean:
  	}
  
- 	/* vlan_macip_lens: MACLEN, VLAN tag */
--	vlan_macip_lens |= skb_network_offset(skb) << IXGBE_ADVTXD_MACLEN_SHIFT;
- 	vlan_macip_lens |= first->tx_flags & IXGBE_TX_FLAGS_VLAN_MASK;
- 
- 	ixgbe_tx_ctxtdesc(tx_ring, vlan_macip_lens, 0,
-@@ -7377,6 +7401,10 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 
- 	netdev->hw_features = netdev->features;
- 
-+	netdev->hw_enc_features = NETIF_F_IP_CSUM |
-+				  NETIF_F_IPV6_CSUM |
-+				  NETIF_F_SG;
+ slow_path:
++	/* for offloaded checksums cleanup checksum before fragmentation */
++	if ((skb->ip_summed == CHECKSUM_PARTIAL) && skb_checksum_help(skb))
++		goto fail;
 +
- 	switch (adapter->hw.mac.type) {
- 	case ixgbe_mac_82599EB:
- 	case ixgbe_mac_X540:
+ 	left = skb->len - hlen;		/* Space per frame */
+ 	ptr = hlen;		/* Where to start from */
+ 
 -- 
 1.7.6.4
