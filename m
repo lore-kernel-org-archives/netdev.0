@@ -1,54 +1,37 @@
-From: CAI Qian <caiqian@redhat.com>
-Subject: [PATCH stable] ipv4: avoid passing NULL to inet_putpeer() in
- icmpv4_xrlim_allow()
-Date: Fri, 7 Dec 2012 10:46:40 -0500 (EST)
-Message-ID: <1443466888.5267673.1354895200559.JavaMail.root@redhat.com>
-References: <1411074275.5265862.1354894974886.JavaMail.root@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] dynamic_queue_limit.h: Make the struct ___cacheline_aligned_on_smp
+Date: Fri, 7 Dec 2012 07:55:59 -0800
+Message-ID: <CAL4Wiip12_Frb64WGk419_YApOuckTa3Jtd-nVROodLFTqvacg@mail.gmail.com>
+References: <1354892334.29937.14.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3-phx2.redhat.com ([209.132.183.24]:51664 "EHLO
-	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756400Ab2LGPqm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 10:46:42 -0500
-In-Reply-To: <1411074275.5265862.1354894974886.JavaMail.root@redhat.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:36394 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932172Ab2LGP4C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 10:56:02 -0500
+Received: by mail-ie0-f174.google.com with SMTP id c11so1410521ieb.19
+        for <netdev@vger.kernel.org>; Fri, 07 Dec 2012 07:56:01 -0800 (PST)
+In-Reply-To: <1354892334.29937.14.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David, this patch looks applicable for the stable releases.
+2012/12/7 Joe Perches <joe@perches.com>:
+> Given that the struct will always have limit at the start of
+> a cacheline, why not make  struct ___cacheline_aligned_on_smp
+> and make limit the first member?
+>
+> It could make other structs that use struct dql a bit more
+> predictable or efficient to pack.
+>
+> (netdev_queue is size reduced from 256 to 192 on x86-32)
+>
 
->From Neal Cardwell <ncardwell@google.com>
+No, please.
 
-inet_getpeer_v4() can return NULL under OOM conditions, and while
-inet_peer_xrlim_allow() is OK with a NULL peer, inet_putpeer() will
-crash.
-
-This code path now uses the same idiom as the others from:
-1d861aa4b3fb08822055345f480850205ffe6170 ("inet: Minimize use of
-cached route inetpeer.").
-
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Upstream-ID: e1a676424c290b1c8d757e3860170ac7ecd89af4
-Stable-trees: 3.6.x
-Signed-off-by: CAI Qian <caiqian@redhat.com>
-
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index f2eccd5..17ff9fd 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -257,7 +257,8 @@ static inline bool icmpv4_xrlim_allow(struct net *net, struct rtable *rt,
- 		struct inet_peer *peer = inet_getpeer_v4(net->ipv4.peers, fl4->daddr, 1);
- 		rc = inet_peer_xrlim_allow(peer,
- 					   net->ipv4.sysctl_icmp_ratelimit);
--		inet_putpeer(peer);
-+		if (peer)
-+			inet_putpeer(peer);
- 	}
- out:
- 	return rc;
+Have you tested this on a range of hardware and check how it can hurt
+performance ?
