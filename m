@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 03/10] tipc: sk_recv_queue size check only for connectionless sockets
-Date: Fri, 7 Dec 2012 09:28:11 -0500
-Message-ID: <1354890498-6448-4-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 07/10] tipc: introduce non-blocking socket connect
+Date: Fri, 7 Dec 2012 09:28:15 -0500
+Message-ID: <1354890498-6448-8-git-send-email-paul.gortmaker@windriver.com>
 References: <1354890498-6448-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,74 +10,267 @@ Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:62562 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030741Ab2LGO2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 09:28:34 -0500
+Received: from mail.windriver.com ([147.11.1.11]:45651 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030752Ab2LGO2j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 09:28:39 -0500
 In-Reply-To: <1354890498-6448-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ying Xue <ying.xue@windriver.com>
 
-The sk_receive_queue limit control is currently performed for
-all arriving messages, disregarding socket and message type.
-But for connected sockets this check is redundant, since the protocol
-flow control already makes queue overflow impossible.
+TIPC has so far only supported blocking connect(), meaning that a call
+to connect() doesn't return until either the connection is fully
+established, or an error occurs. This has proved insufficient for many
+users, so we now introduce non-blocking connect(), analogous to how
+this is done in TCP and other protocols.
 
-We move the sk_receive_queue limit control so that it is only performed
-for connectionless sockets, i.e. SOCK_RDM and SOCK_DGRAM type sockets.
+With this feature, if a connection cannot be established instantly,
+connect() will return the error code "-EINPROGRESS".
+If the user later calls connect() again, he will either have the
+return code "-EALREADY" or "-EISCONN", depending on whether the
+connection has been established or not.
+
+The user must have explicitly set the socket to be non-blocking
+(SOCK_NONBLOCK or O_NONBLOCK, depending on method used), so unless
+for some reason they had set this already (the socket would anyway
+remain blocking in current TIPC) this change should be completely
+backwards compatible.
+
+It is also now possible to call select() or poll() to wait for the
+completion of a connection.
+
+An effect of the above is that the actual completion of a connection
+may now be performed asynchronously, independent of the calls from
+user space. Therefore, we now execute this code in BH context, in
+the function filter_rcv(), which is executed upon reception of
+messages in the socket.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+[PG: minor refactoring for improved connect/disconnect function names]
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/socket.c | 19 +++++++++----------
- 1 file changed, 9 insertions(+), 10 deletions(-)
+ net/tipc/socket.c | 158 ++++++++++++++++++++++++++++++++----------------------
+ 1 file changed, 93 insertions(+), 65 deletions(-)
 
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index a059ed0..4d6a448 100644
+index fc0aa4f..1ba3b6f 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -1188,9 +1188,6 @@ static int rx_queue_full(struct tipc_msg *msg, u32 queue_size, u32 base)
- 	else
- 		return 0;
- 
--	if (msg_connected(msg))
--		threshold *= 4;
+@@ -783,16 +783,19 @@ exit:
+ static int auto_connect(struct socket *sock, struct tipc_msg *msg)
+ {
+ 	struct tipc_sock *tsock = tipc_sk(sock->sk);
 -
- 	return queue_size >= threshold;
- }
+-	if (msg_errcode(msg)) {
+-		sock->state = SS_DISCONNECTING;
+-		return -ECONNREFUSED;
+-	}
++	struct tipc_port *p_ptr;
  
-@@ -1219,6 +1216,15 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- 	if (sock->state == SS_READY) {
- 		if (msg_connected(msg))
- 			return TIPC_ERR_NO_PORT;
-+		/* Reject SOCK_DGRAM and SOCK_RDM messages if there isn't room
-+		 * to queue it.
-+		 */
-+		recv_q_len = skb_queue_len(&sk->sk_receive_queue);
-+		if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2))) {
-+			if (rx_queue_full(msg, recv_q_len,
-+			    OVERLOAD_LIMIT_BASE / 2))
-+				return TIPC_ERR_OVERLOAD;
+ 	tsock->peer_name.ref = msg_origport(msg);
+ 	tsock->peer_name.node = msg_orignode(msg);
+-	tipc_connect(tsock->p->ref, &tsock->peer_name);
+-	tipc_set_portimportance(tsock->p->ref, msg_importance(msg));
++	p_ptr = tipc_port_deref(tsock->p->ref);
++	if (!p_ptr)
++		return -EINVAL;
++
++	__tipc_connect(tsock->p->ref, p_ptr, &tsock->peer_name);
++
++	if (msg_importance(msg) > TIPC_CRITICAL_IMPORTANCE)
++		return -EINVAL;
++	msg_set_importance(&p_ptr->phdr, (u32)msg_importance(msg));
+ 	sock->state = SS_CONNECTED;
+ 	return 0;
+ }
+@@ -1203,7 +1206,9 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
+ {
+ 	struct socket *sock = tsock->sk.sk_socket;
+ 	struct tipc_msg *msg = buf_msg(*buf);
++	struct sock *sk = &tsock->sk;
+ 	u32 retval = TIPC_ERR_NO_PORT;
++	int res;
+ 
+ 	if (msg_mcast(msg))
+ 		return retval;
+@@ -1221,8 +1226,36 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
+ 		break;
+ 	case SS_CONNECTING:
+ 		/* Accept only ACK or NACK message */
+-		if (msg_connected(msg) || (msg_errcode(msg)))
++		if (unlikely(msg_errcode(msg))) {
++			sock->state = SS_DISCONNECTING;
++			sk->sk_err = -ECONNREFUSED;
++			retval = TIPC_OK;
++			break;
 +		}
- 	} else {
- 		if (msg_mcast(msg))
- 			return TIPC_ERR_NO_PORT;
-@@ -1240,13 +1246,6 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- 		}
++
++		if (unlikely(!msg_connected(msg)))
++			break;
++
++		res = auto_connect(sock, msg);
++		if (res) {
++			sock->state = SS_DISCONNECTING;
++			sk->sk_err = res;
+ 			retval = TIPC_OK;
++			break;
++		}
++
++		/* If an incoming message is an 'ACK-', it should be
++		 * discarded here because it doesn't contain useful
++		 * data. In addition, we should try to wake up
++		 * connect() routine if sleeping.
++		 */
++		if (msg_data_sz(msg) == 0) {
++			kfree_skb(*buf);
++			*buf = NULL;
++			if (waitqueue_active(sk_sleep(sk)))
++				wake_up_interruptible(sk_sleep(sk));
++		}
++		retval = TIPC_OK;
+ 		break;
+ 	case SS_LISTENING:
+ 	case SS_UNCONNECTED:
+@@ -1369,8 +1402,6 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
+ 	struct sock *sk = sock->sk;
+ 	struct sockaddr_tipc *dst = (struct sockaddr_tipc *)dest;
+ 	struct msghdr m = {NULL,};
+-	struct sk_buff *buf;
+-	struct tipc_msg *msg;
+ 	unsigned int timeout;
+ 	int res;
+ 
+@@ -1382,26 +1413,6 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
+ 		goto exit;
  	}
  
--	/* Reject message if there isn't room to queue it */
--	recv_q_len = skb_queue_len(&sk->sk_receive_queue);
--	if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2))) {
--		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE / 2))
--			return TIPC_ERR_OVERLOAD;
+-	/* For now, TIPC does not support the non-blocking form of connect() */
+-	if (flags & O_NONBLOCK) {
+-		res = -EOPNOTSUPP;
+-		goto exit;
 -	}
 -
- 	/* Enqueue message (finally!) */
- 	TIPC_SKB_CB(buf)->handle = 0;
- 	atomic_inc(&tipc_queue_size);
+-	/* Issue Posix-compliant error code if socket is in the wrong state */
+-	if (sock->state == SS_LISTENING) {
+-		res = -EOPNOTSUPP;
+-		goto exit;
+-	}
+-	if (sock->state == SS_CONNECTING) {
+-		res = -EALREADY;
+-		goto exit;
+-	}
+-	if (sock->state != SS_UNCONNECTED) {
+-		res = -EISCONN;
+-		goto exit;
+-	}
+-
+ 	/*
+ 	 * Reject connection attempt using multicast address
+ 	 *
+@@ -1413,49 +1424,66 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
+ 		goto exit;
+ 	}
+ 
+-	/* Reject any messages already in receive queue (very unlikely) */
+-	reject_rx_queue(sk);
++	timeout = (flags & O_NONBLOCK) ? 0 : tipc_sk(sk)->conn_timeout;
++
++	switch (sock->state) {
++	case SS_UNCONNECTED:
++		/* Send a 'SYN-' to destination */
++		m.msg_name = dest;
++		m.msg_namelen = destlen;
++
++		/* If connect is in non-blocking case, set MSG_DONTWAIT to
++		 * indicate send_msg() is never blocked.
++		 */
++		if (!timeout)
++			m.msg_flags = MSG_DONTWAIT;
++
++		res = send_msg(NULL, sock, &m, 0);
++		if ((res < 0) && (res != -EWOULDBLOCK))
++			goto exit;
+ 
+-	/* Send a 'SYN-' to destination */
+-	m.msg_name = dest;
+-	m.msg_namelen = destlen;
+-	res = send_msg(NULL, sock, &m, 0);
+-	if (res < 0)
++		/* Just entered SS_CONNECTING state; the only
++		 * difference is that return value in non-blocking
++		 * case is EINPROGRESS, rather than EALREADY.
++		 */
++		res = -EINPROGRESS;
++		break;
++	case SS_CONNECTING:
++		res = -EALREADY;
++		break;
++	case SS_CONNECTED:
++		res = -EISCONN;
++		break;
++	default:
++		res = -EINVAL;
+ 		goto exit;
++	}
+ 
+-	/* Wait until an 'ACK' or 'RST' arrives, or a timeout occurs */
+-	timeout = tipc_sk(sk)->conn_timeout;
+-	release_sock(sk);
+-	res = wait_event_interruptible_timeout(*sk_sleep(sk),
+-			(!skb_queue_empty(&sk->sk_receive_queue) ||
+-			(sock->state != SS_CONNECTING)),
+-			timeout ? (long)msecs_to_jiffies(timeout)
+-				: MAX_SCHEDULE_TIMEOUT);
+-	lock_sock(sk);
++	if (sock->state == SS_CONNECTING) {
++		if (!timeout)
++			goto exit;
+ 
+-	if (res > 0) {
+-		buf = skb_peek(&sk->sk_receive_queue);
+-		if (buf != NULL) {
+-			msg = buf_msg(buf);
+-			res = auto_connect(sock, msg);
+-			if (!res) {
+-				if (!msg_data_sz(msg))
+-					advance_rx_queue(sk);
+-			}
+-		} else {
+-			if (sock->state == SS_CONNECTED)
+-				res = -EISCONN;
++		/* Wait until an 'ACK' or 'RST' arrives, or a timeout occurs */
++		release_sock(sk);
++		res = wait_event_interruptible_timeout(*sk_sleep(sk),
++				sock->state != SS_CONNECTING,
++				timeout ? (long)msecs_to_jiffies(timeout)
++					: MAX_SCHEDULE_TIMEOUT);
++		lock_sock(sk);
++		if (res <= 0) {
++			if (res == 0)
++				res = -ETIMEDOUT;
+ 			else
+-				res = -ECONNREFUSED;
++				; /* leave "res" unchanged */
++			goto exit;
+ 		}
+-	} else {
+-		if (res == 0)
+-			res = -ETIMEDOUT;
+-		else
+-			; /* leave "res" unchanged */
+-		sock->state = SS_DISCONNECTING;
+ 	}
+ 
++	if (unlikely(sock->state == SS_DISCONNECTING))
++		res = sock_error(sk);
++	else
++		res = 0;
++
+ exit:
+ 	release_sock(sk);
+ 	return res;
 -- 
 1.7.12.1
