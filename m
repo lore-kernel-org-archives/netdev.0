@@ -1,91 +1,44 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v4] bridge: export multicast database via netlink
-Date: Fri, 7 Dec 2012 08:48:33 +0000
-Message-ID: <20121207084833.GH16122@casper.infradead.org>
-References: <1354850623-31652-1-git-send-email-amwang@redhat.com>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [PATCH RFC 0/5] Containerize syslog
+Date: Fri, 7 Dec 2012 01:03:55 -0800
+Message-ID: <20121207010355.c809b3f7.akpm@linux-foundation.org>
+References: <50A9EAD8.9090501@gmail.com>
+	<874nklkjjm.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46096 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754661Ab2LGIsi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 03:48:38 -0500
-Content-Disposition: inline
-In-Reply-To: <1354850623-31652-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Rui Xiang <leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <874nklkjjm.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/07/12 at 11:23am, Cong Wang wrote:
-> +static int br_mdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
-> +{
-> +	struct net_device *dev;
-> +	struct net *net = sock_net(skb->sk);
-> +	struct nlmsghdr *nlh;
+On Mon, 19 Nov 2012 01:51:09 -0800 ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman) wrote:
 
-Set nlh = NULL
+> Are there any kernel print statements besides networking stack printks
+> that we want to move to show up in a new "kernel log" namespace?
 
-> +	int idx = 0, s_idx;
-> +
-> +	s_idx = cb->args[0];
-> +
-> +	rcu_read_lock();
-> +
-> +	for_each_netdev_rcu(net, dev) {
-> +		if (dev->priv_flags & IFF_EBRIDGE) {
-> +			struct br_port_msg *bpm;
-> +
-> +			if (idx < s_idx)
-> +				goto skip;
-> +
-> +			nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid,
-> +					cb->nlh->nlmsg_seq, RTM_GETMDB,
-> +					sizeof(*bpm), NLM_F_MULTI);
-> +			if (nlh == NULL)
-> +				break;
-> +
-> +			bpm = nlmsg_data(nlh);
-> +			bpm->ifindex = dev->ifindex;
-> +			if (br_mdb_fill_info(skb, cb, dev) < 0)
-> +				goto out;
-> +			if (br_rports_fill_info(skb, cb, dev) < 0)
-> +				goto out;
+That's a good question, and afaict it remains unanswered.
 
-You need to reset cb->args[1] to 0 here so that when you process the
-next mdb it will not skip any entries.
+As so often happens, this patchset's changelogs forgot to describe the
+reason for the existence of this patchset.  Via a bit of lwn reading
+and my awesome telepathic skills, I divine that something in networking
+is using syslog for kernel->userspace communications.
 
-> +
-> +			nlmsg_end(skb, nlh);
-> +		skip:
-> +			idx++;
-> +		}
-> +	}
-> +
-> +out:
+wtf?
 
-You need to call nlmsg_end(skb, nlh) here if nlh != NULL
-because you need to finalize the message in case you come
-from the "goto out" above. Otherwise your partial message
-is corrupt.
+Wouldn't it be better to just stop doing that, and to implement a
+respectable and reliable kernel->userspace messaging scheme?
 
-> +	cb->seq = cb->args[2];
-
-This can't possibly work if you have multiple bridges unless
-all of them have an identical mdb->seq.
-
-Maybe leave the consistent dumping problem out for now and just
-set cb->seq = net->dev_base_seq so that you at least cover all
-bridges.
-
-We don't need to guarantee that no rehash has happened throughout
-the dump, we only need to ensure that no rehash happnened if a
-bridge required more than one netlink message. You could store
-mdb->seq in cb->args[3] and compare it with the current mdb->seq
-after br_rports_fill_info() finished, if they differ you could
-just cb->seq++. I suggst you leave this out for now and work on this
-in a follow-up patch to not complicate this any further.
+And leave syslog alone - it's a crude low-level thing for random
+unexpected things which operators might want to know about.
