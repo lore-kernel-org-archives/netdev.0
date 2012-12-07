@@ -1,108 +1,44 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 4/5] igb: release already assigned MSI-X interrupts if setup fails
-Date: Thu,  6 Dec 2012 22:11:34 -0800
-Message-ID: <1354860695-27039-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 5/5] igb: Update igb version to 4.1.2
+Date: Thu,  6 Dec 2012 22:11:35 -0800
+Message-ID: <1354860695-27039-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1354860695-27039-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:4860 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751756Ab2LGGLx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2012 01:11:53 -0500
+	id S1752719Ab2LGGLy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2012 01:11:54 -0500
 In-Reply-To: <1354860695-27039-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Assmann <sassmann@kpanic.de>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-During MSI-X setup the system might run out of vectors. If this happens the
-already assigned vectors for this NIC should be freed before trying the
-disable MSI-X. Failing to do so results in the following oops.
-
-kernel BUG at drivers/pci/msi.c:341!
-[...]
-Call Trace:
- [<ffffffff8128f39d>] pci_disable_msix+0x3d/0x60
- [<ffffffffa037d1ce>] igb_reset_interrupt_capability+0x27/0x5c [igb]
- [<ffffffffa037d229>] igb_clear_interrupt_scheme+0x26/0x2d [igb]
- [<ffffffffa0384268>] igb_request_irq+0x73/0x297 [igb]
- [<ffffffffa0384554>] __igb_open+0xc8/0x223 [igb]
- [<ffffffffa0384815>] igb_open+0x13/0x15 [igb]
- [<ffffffff8144592f>] __dev_open+0xbf/0x120
- [<ffffffff81443e51>] __dev_change_flags+0xa1/0x180
- [<ffffffff81445828>] dev_change_flags+0x28/0x70
- [<ffffffff814af537>] devinet_ioctl+0x5b7/0x620
- [<ffffffff814b01c8>] inet_ioctl+0x88/0xa0
- [<ffffffff8142e8a0>] sock_do_ioctl+0x30/0x70
- [<ffffffff8142ecf2>] sock_ioctl+0x72/0x270
- [<ffffffff8118062c>] do_vfs_ioctl+0x8c/0x340
- [<ffffffff81180981>] sys_ioctl+0xa1/0xb0
- [<ffffffff815161a9>] system_call_fastpath+0x16/0x1b
-Code: 48 89 df e8 1f 40 ed ff 4d 39 e6 49 8b 45 10 75 b6 48 83 c4 18 5b 41 5c 41 5d 41 5e 41 5f c9 c3 48 8b 7b 20 e8 3e 91 db ff eb ae <0f> 0b eb fe 0f 1f 84 00 00 00 00 00 55 48 89 e5 0f 1f 44 00 00
-RIP  [<ffffffff8128e144>] free_msi_irqs+0x124/0x130
- RSP <ffff880037503bd8>
-
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 22 ++++++++++++++++------
- 1 file changed, 16 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 615b68c..60a2380 100644
+index 60a2380..06513d9 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -832,17 +832,18 @@ static int igb_request_msix(struct igb_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
- 	struct e1000_hw *hw = &adapter->hw;
--	int i, err = 0, vector = 0;
-+	int i, err = 0, vector = 0, free_vector = 0;
+@@ -60,8 +60,8 @@
+ #include "igb.h"
  
- 	err = request_irq(adapter->msix_entries[vector].vector,
- 	                  igb_msix_other, 0, netdev->name, adapter);
- 	if (err)
--		goto out;
--	vector++;
-+		goto err_out;
- 
- 	for (i = 0; i < adapter->num_q_vectors; i++) {
- 		struct igb_q_vector *q_vector = adapter->q_vector[i];
- 
-+		vector++;
-+
- 		q_vector->itr_register = hw->hw_addr + E1000_EITR(vector);
- 
- 		if (q_vector->rx.ring && q_vector->tx.ring)
-@@ -861,13 +862,22 @@ static int igb_request_msix(struct igb_adapter *adapter)
- 		                  igb_msix_ring, 0, q_vector->name,
- 		                  q_vector);
- 		if (err)
--			goto out;
--		vector++;
-+			goto err_free;
- 	}
- 
- 	igb_configure_msix(adapter);
- 	return 0;
--out:
-+
-+err_free:
-+	/* free already assigned IRQs */
-+	free_irq(adapter->msix_entries[free_vector++].vector, adapter);
-+
-+	vector--;
-+	for (i = 0; i < vector; i++) {
-+		free_irq(adapter->msix_entries[free_vector++].vector,
-+			 adapter->q_vector[i]);
-+	}
-+err_out:
- 	return err;
- }
- 
+ #define MAJ 4
+-#define MIN 0
+-#define BUILD 17
++#define MIN 1
++#define BUILD 2
+ #define DRV_VERSION __stringify(MAJ) "." __stringify(MIN) "." \
+ __stringify(BUILD) "-k"
+ char igb_driver_name[] = "igb";
 -- 
 1.7.11.7
