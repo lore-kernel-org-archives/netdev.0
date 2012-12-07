@@ -1,40 +1,40 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH net-next 0/1] fix vlan transmit performance
-Date: Fri, 07 Dec 2012 12:32:19 -0500
-Message-ID: <50C22823.5060105@myri.com>
-References: <1354827296-12009-1-git-send-email-gallatin@myri.com> <1354837321.2828.86.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: GPF in ip6_dst_lookup_tail
+Date: Fri, 07 Dec 2012 12:43:15 -0500 (EST)
+Message-ID: <20121207.124315.106563528177056022.davem@davemloft.net>
+References: <20121207141525.GA20613@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f52.google.com ([209.85.213.52]:61317 "EHLO
-	mail-yh0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423089Ab2LGRjf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 12:39:35 -0500
-Received: by mail-yh0-f52.google.com with SMTP id o22so134488yho.11
-        for <netdev@vger.kernel.org>; Fri, 07 Dec 2012 09:39:35 -0800 (PST)
-In-Reply-To: <1354837321.2828.86.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56862 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753993Ab2LGRnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 12:43:17 -0500
+In-Reply-To: <20121207141525.GA20613@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/06/12 18:42, Ben Hutchings wrote:
-> On Thu, 2012-12-06 at 15:54 -0500, Andrew Gallatin wrote:
-<..>
->> The following patch (just copy dev->features to dev->vlan_features in
->> vlan_dev_init()) seems to be the simplest way to fix it. Perhaps this
->> is wrong, and there is a better way?
-> [...]
-> 
-> It's wrong, because those features would then be recursively transferred
-> to further stacked VLAN devices.
-> 
+From: Dave Jones <davej@redhat.com>
+Date: Fri, 7 Dec 2012 09:15:25 -0500
 
-The more I play with it & try various combinations, the more
-I realize how tricky stacked vlans makes things,
-so I think its best for me to just leave this alone..
+> I just hit this gpf in overnight testing.
 
-Sorry for the noise.
+Hmmm, perhaps introduced by:
 
-Drew
+commit f950c0ecc78f745e490d615280e031de4dbb1306
+Author: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Date:   Thu Sep 20 18:29:56 2012 +0000
+
+    ipv6: fix return value check in fib6_add()
+
+and fixed by:
+
+commit 188c517a050ec5b123e72cab76ea213721e5bd9d
+Author: Lin Ming <mlin@ss.pku.edu.cn>
+Date:   Tue Sep 25 15:17:07 2012 +0000
+
+    ipv6: return errno pointers consistently for fib6_add_1()
+    
