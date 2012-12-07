@@ -1,62 +1,36 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [Suggestion] net/atm : for sprintf, need check the total write
- length whether larger than a page.
-Date: Fri, 07 Dec 2012 09:07:40 +0800
-Message-ID: <50C1415C.2060104@asianux.com>
-References: <201212050357.qB53vHvT022706@thirdoffive.cmf.nrl.navy.mil> <50BED40D.9080100@asianux.com> <50BEDE4E.8010408@asianux.com> <50BEE2BE.2030704@asianux.com> <20121205095503.6d1c083d@thirdoffive.cmf.nrl.navy.mil> <50BFF19E.1040405@asianux.com> <20121206090855.5f166746@thirdoffive.cmf.nrl.navy.mil>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:11182 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424095Ab2LGBGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Dec 2012 20:06:48 -0500
-In-Reply-To: <20121206090855.5f166746@thirdoffive.cmf.nrl.navy.mil>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick Trantham <patrick.trantham@fuel7.com>
+Subject: [PATCH] net: phy: smsc: Fix config_init typo
+Date: Thu,  6 Dec 2012 19:16:02 -0600
+Message-ID: <1354842963-28464-1-git-send-email-patrick.trantham@fuel7.com>
+Cc: Patrick Trantham <patrick.trantham@fuel7.com>,
+	Otavio Salvador <otavio@ossystems.com.br>,
+	Jiri Kosina <jkosina@suse.cz>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Cong Ding <dinggnu@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=D3=DA 2012=C4=EA12=D4=C206=C8=D5 22:08, chas williams - CONTRACTOR =D0=
-=B4=B5=C0:
-> On Thu, 06 Dec 2012 09:15:10 +0800
-> Chen Gang <gang.chen@asianux.com> wrote:
->=20
->> =D3=DA 2012=C4=EA12=D4=C205=C8=D5 22:55, chas williams - CONTRACTOR =
-=D0=B4=B5=C0:
->=20
->>> did you mean '\0' instead of '\n'?  scnprintf() considers the trail=
-ing
->>> '\0' when formatting.
->>
->>   no, originally, the end is "\n\0".
->>
->>   I prefer we still compatible "\n" when the contents are very large=
-=2E
->>   if count already =3D=3D (PAGE_SIZE - 1), we have no chance to appe=
-nd "\n" to the end.
->>
->> -		pos +=3D sprintf(pos, "\n");
->> +		count +=3D scnprintf(buf + count, PAGE_SIZE - count, "\n");
->=20
-> i would make the code a bit messy to do this for not much gain.  agai=
-n,
-> it isnt likely you would run into this in a normal situation.
+Correct a mistake made in the previous commit due to reckless
+copy-and-pasting.
 
-  surely.
+Signed-off-by: Patrick Trantham <patrick.trantham@fuel7.com>
+---
+ drivers/net/phy/smsc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  thanks.
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
->=20
-
-
---=20
-Chen Gang
-
-Asianux Corporation
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index 16dceed..eb3e08a 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -205,7 +205,7 @@ static struct phy_driver smsc_phy_driver[] = {
+ 	/* basic functions */
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= lan87xx_read_status,
+-	.config_intr	= smsc_phy_config_intr,
++	.config_init	= smsc_phy_config_init,
+ 
+ 	/* IRQ related */
+ 	.ack_interrupt	= smsc_phy_ack_interrupt,
+-- 
+1.7.9.5
