@@ -1,53 +1,64 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch v2] bridge: make buffer larger in br_setlink()
-Date: Fri, 7 Dec 2012 21:53:59 +0300
-Message-ID: <20121207185359.GP22569@mwanda>
-References: <20121207111045.GA9676@elgon.mountain>
- <50C2143C.2010200@bfs.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	kernel-janitors@vger.kernel.org, Thomas Graf <tgraf@suug.ch>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: walter harms <wharms@bfs.de>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <50C2143C.2010200@bfs.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Eric Leblond <eric@regit.org>
+Subject: [RFC PATCH] af_packet: don't to defrag shared skb
+Date: Fri,  7 Dec 2012 19:56:01 +0100
+Message-ID: <1354906561-4695-1-git-send-email-eric@regit.org>
+Cc: Eric Leblond <eric@regit.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ks28632.kimsufi.com ([91.121.96.152]:42619 "EHLO
+	ks28632.kimsufi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750758Ab2LGS4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 13:56:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 07, 2012 at 05:07:24PM +0100, walter harms wrote:
-> 
-> 
-> Am 07.12.2012 12:10, schrieb Dan Carpenter:
-> > We pass IFLA_BRPORT_MAX to nla_parse_nested() so we need
-> > IFLA_BRPORT_MAX + 1 elements.  Also Smatch complains that we read past
-> > the end of the array when in br_set_port_flag() when it's called with
-> > IFLA_BRPORT_FAST_LEAVE.
-> > 
-> 
-> 
-> 
-> I have no clue why nla_parse_nested() need IFLA_BRPORT_MAX elements.
-> but the majory of loop look like
-> for(i=0;i<max;++)
-> most programmers will think this way.
-> So it seems the place to fix is nla_parse_nested().
-> doing not so is asking for trouble (in the long run).
-> At least this function needs a big warning label that (max-1)
-> is actually needed.
-> 
+This patch is adding a check on skb before trying to defrag the
+packet for the hash computation in fanout mode. The goal of this
+patch is to avoid an kernel crash in pskb_expand_head.
+It appears that under some specific condition there is a shared
+skb reaching the defrag code and this lead to a crash due to the
+following code:
 
-Yeah, nla_parse_nested() is actually documented already.
+	if (skb_shared(skb))
+		BUG();
 
-regards,
-dan carpenter
+I've observed this crash under the following condition:
+ 1. a program is listening to an wifi interface (let say wlan0)
+ 2. it is using fanout capture in flow load balancing mode
+ 3. defrag option is on on the fanout socket
+ 4. the interface disconnect (radio down for example)
+ 5. the interface reconnect (radio switched up)
+ 6. once reconnected a single packet is seen with skb->users=2
+ 7. the kernel crash in pskb_expand_head at skbuff.c:1035
+
+[BBB55:744364] [<ffffffff812a2761>] ? __pskb_pull_tail+0x43x0x26f
+[BB8S5.744395] [<ffffffff812d29Tb>] ? ip_check_defrag+ox3a/0x14a
+[BBB55.744422] [<ffffffffB1344459>] ? packet_rcv_fanout+ox5e/oxf9
+[BBBS5.7444S0] [<ffffffffB12aaS9b>] ? __netif_receive_skb+ox444/ox4f9
+[BBB55.T4447B] [<ffffffffB12aa?e1>] ? netif_receive_skb+ox6d/0x?3
+[BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_deliver_skb+0xbd/0xfa [mac80211]
+[BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_rx_h_data+0x1e0/0x21a [mac80211]
+[BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_rx_handlers+0x3d5/0x480 [mac80211]
+[BBB55.T4447B] [<ffffffffB12aa?e1>] ? __wake_up
+[BBB55.T4447B] [<ffffffffB12aa?e1>] ? evdev_eventr+0xc0/0xcf [evdev]
+
+Signed-off-by: Eric Leblond <eric@regit.org>
+---
+ net/packet/af_packet.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e639645..4b453f8 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1110,7 +1110,7 @@ static int packet_rcv_fanout(struct sk_buff *skb, struct net_device *dev,
+ 	switch (f->type) {
+ 	case PACKET_FANOUT_HASH:
+ 	default:
+-		if (f->defrag) {
++		if (f->defrag && !skb_shared(skb)) {
+ 			skb = ip_check_defrag(skb, IP_DEFRAG_AF_PACKET);
+ 			if (!skb)
+ 				return 0;
+-- 
+1.7.10.4
