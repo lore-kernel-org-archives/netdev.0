@@ -1,86 +1,100 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] net: call notifiers for mtu change even if
- iface is not up
-Date: Fri, 7 Dec 2012 13:29:20 +0100
-Message-ID: <20121207122920.GB1631@minipsycho.zyxel.com>
-References: <1354533392-9308-1-git-send-email-jiri@resnulli.us>
- <20121203141823.GA21816@hmsreliant.think-freely.org>
- <20121203142229.GA3054@minipsycho.orion>
- <20121203152250.GB21816@hmsreliant.think-freely.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 2/2] netfilter: add xt_bpf xtables match
+Date: Fri, 7 Dec 2012 14:16:38 +0100
+Message-ID: <20121207131638.GA3019@1984>
+References: <1354735339-13402-1-git-send-email-willemb@google.com>
+ <1354735339-13402-3-git-send-email-willemb@google.com>
+ <20121205194854.GB28730@1984>
+ <CA+FuTSfoYmTNyJnUW4shzb7V1TXpSunbOOORdViXw4DoZ4aibA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, psimerda@redhat.com
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>, kaber <kaber@trash.net>
+To: Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:50222 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933740Ab2LGM3Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 07:29:24 -0500
-Received: by mail-ea0-f174.google.com with SMTP id e13so160871eaa.19
-        for <netdev@vger.kernel.org>; Fri, 07 Dec 2012 04:29:23 -0800 (PST)
+Received: from mail.us.es ([193.147.175.20]:50957 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030204Ab2LGNQr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2012 08:16:47 -0500
 Content-Disposition: inline
-In-Reply-To: <20121203152250.GB21816@hmsreliant.think-freely.org>
+In-Reply-To: <CA+FuTSfoYmTNyJnUW4shzb7V1TXpSunbOOORdViXw4DoZ4aibA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Dec 03, 2012 at 04:22:50PM CET, nhorman@tuxdriver.com wrote:
->On Mon, Dec 03, 2012 at 03:22:29PM +0100, Jiri Pirko wrote:
->> Mon, Dec 03, 2012 at 03:18:23PM CET, nhorman@tuxdriver.com wrote:
->> >On Mon, Dec 03, 2012 at 12:16:32PM +0100, Jiri Pirko wrote:
->> >> Do the same thing as in set mac. Call notifiers every time.
->> >> 
->> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> >> ---
->> >>  net/core/dev.c | 2 +-
->> >>  1 file changed, 1 insertion(+), 1 deletion(-)
->> >> 
->> >> diff --git a/net/core/dev.c b/net/core/dev.c
->> >> index 2f94df2..0685a72 100644
->> >> --- a/net/core/dev.c
->> >> +++ b/net/core/dev.c
->> >> @@ -4971,7 +4971,7 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
->> >>  	else
->> >>  		dev->mtu = new_mtu;
->> >>  
->> >> -	if (!err && dev->flags & IFF_UP)
->> >> +	if (!err)
->> >>  		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
->> >>  	return err;
->> >>  }
->> >
->> >I'm not opposed to this change, but is there something that it expressly fixes?
->> 
->> This is about a consistency. To have the same behaviour as set_mac
->> for example.
->> 
->> >While it doesn't hurt to send around mtu change events, one would presume that
->> >listeners would pick up mtu changes when the NETDEV_UP event went' around.
->> >
->> >Neil
->> >
->I figured, I just wanted to be sure that there wasn't a bug fix that needed
->documenting in the changelog, or that listeners for this event didn't expect the
->interface to already be up.  It looks pretty clean, with the exception of the
->TIPC protocol.  It appears that it might require enable_bearer to be called
->prior to any netdevice CHANGEMTU events, so that the eth_bearers array gets
->filled out, and it looks like that has to get triggered either by user space, or
->the receipt of a message over the network.  Let me know what you think
+On Wed, Dec 05, 2012 at 03:10:13PM -0500, Willem de Bruijn wrote:
+> On Wed, Dec 5, 2012 at 2:48 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > Hi Willem,
+> >
+> > On Wed, Dec 05, 2012 at 02:22:19PM -0500, Willem de Bruijn wrote:
+> >> A new match that executes sk_run_filter on every packet. BPF filters
+> >> can access skbuff fields that are out of scope for existing iptables
+> >> rules, allow more expressive logic, and on platforms with JIT support
+> >> can even be faster.
+> >>
+> >> I have a corresponding iptables patch that takes `tcpdump -ddd`
+> >> output, as used in the examples below. The two parts communicate
+> >> using a variable length structure. This is similar to ebt_among,
+> >> but new for iptables.
+> >>
+> >> Verified functionality by inserting an ip source filter on chain
+> >> INPUT and an ip dest filter on chain OUTPUT and noting that ping
+> >> failed while a rule was active:
+> >>
+> >> iptables -v -A INPUT -m bpf --bytecode '4,32 0 0 12,21 0 1 $SADDR,6 0 0 96,6 0 0 0,' -j DROP
+> >> iptables -v -A OUTPUT -m bpf --bytecode '4,32 0 0 16,21 0 1 $DADDR,6 0 0 96,6 0 0 0,' -j DROP
+> >
+> > I like this BPF idea for iptables.
+> >
+> > I made a similar extension time ago, but it was taking a file as
+> > parameter. That file contained in BPF code. I made a simple bison
+> > parser that takes BPF code and put it into the bpf array of
+> > instructions. It would be a bit more intuitive to define a filter and
+> > we can distribute it with iptables.
+> 
+> That's cleaner, indeed. I actually like how tcpdump operates as a
+> code generator if you pass -ddd. Unfortunately, it generates code only
+> for link layer types of its supported devices, such as DLT_EN10MB and
+> DLT_LINUX_SLL. The network layer interface of basic iptables
+> (forgetting device dependent mechanisms as used in xt_mac) is DLT_RAW,
+> but that is rarely supported.
 
-I'm looking at the code. What is the difference between CHANGEMTU and
-CHANGEADDR here? It looks to me that it should work for both in the same
-way.
+Indeed, you'll have to hack on tcpdump to select the offset. In
+iptables the base is the layer 3 header. With that change you could
+use tcpdump for generate code automagically from their syntax.
 
+> > Let me check on my internal trees, I can put that user-space code
+> > somewhere in case you're interested.
+> 
+> Absolutely. I'll be happy to revise to get it in. I'm also considering
+> sending a patch to tcpdump to make it generate code independent of the
+> installed hardware when specifying -y.
 
->
->Neil
->
->> >--
->> >To unsubscribe from this list: send the line "unsubscribe netdev" in
->> >the body of a message to majordomo@vger.kernel.org
->> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> 
+I found a version of the old parser code I made:
+
+http://1984.lsi.us.es/git/nfbpf/
+
+It interprets a filter expressed in a similar way to tcpdump -dd but
+it's using the BPF constants. It's quite preliminary and simple if you
+look at the code.
+
+Extending it to interpret some syntax similar to tcpdump -d would even
+make more readable the BPF filter.
+
+Time ago I also thought about taking the kernel code that checks that
+the filter is correct. Currently you get -EINVAL if you pass a
+handcrafted filter which is incorrect, so it's hard task to debug what
+you made wrong.
+
+It could be added to the iptables tree. Or if generic enough for BPF
+and the effort is worth, just provide some small library that iptables
+can link with and a small compiler/checker to help people develop BPF
+filters.
+
+Back to your xt_bpf thing, we can use the file containing the code
+instead:
+
+iptables -v -A INPUT -m bpf --bytecode-file filter1.bpf -j DROP
+iptables -v -A OUTPUT -m bpf --bytecode-file filter2.bpf -j DROP
+
+We can still allow the inlined filter via --bytecode if you want.
