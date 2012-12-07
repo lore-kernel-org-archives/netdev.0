@@ -1,86 +1,49 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: [PATCH v3 1/4] net: Add support for hardware-offloaded
- encapsulation
-Date: Fri, 7 Dec 2012 10:24:17 -0800 (PST)
-Message-ID: <alpine.LFD.2.02.1212071013200.30243@morpheus.jf.intel.com>
-References: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com>   <1354845419-22483-2-git-send-email-joseph.gasparakis@intel.com>  <1354874847.20838.49.camel@deadeye.wl.decadent.org.uk>  <50C21D21.5040101@intel.com>
- <1354900385.2707.42.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] inet_diag: fix oops for IPv4 AF_INET6 TCP SYN-RECV
+ state
+Date: Fri, 07 Dec 2012 13:20:19 -0500 (EST)
+Message-ID: <20121207.132019.1647690876686095833.davem@davemloft.net>
+References: <1354808546-644-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org,
-	gospo@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dmitry@broadcom.com,
-	saeed.bishara@gmail.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354900385.2707.42.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: ncardwell@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57215 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754093Ab2LGSUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 13:20:22 -0500
+In-Reply-To: <1354808546-644-1-git-send-email-ncardwell@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Neal Cardwell <ncardwell@google.com>
+Date: Thu,  6 Dec 2012 10:42:26 -0500
 
-
-On Fri, 7 Dec 2012, Ben Hutchings wrote:
-
-> On Fri, 2012-12-07 at 08:45 -0800, Alexander Duyck wrote:
-> > On 12/07/2012 02:07 AM, Ben Hutchings wrote:
-> > > On Thu, 2012-12-06 at 17:56 -0800, Joseph Gasparakis wrote:
-> > >> This patch adds support in the kernel for offloading in the NIC Tx and Rx
-> > >> checksumming for encapsulated packets (such as VXLAN and IP GRE).
-> > > [...]
-> > >> --- a/include/linux/netdevice.h
-> > >> +++ b/include/linux/netdevice.h
-> > >> @@ -1063,6 +1063,8 @@ struct net_device {
-> > >>  	netdev_features_t	wanted_features;
-> > >>  	/* mask of features inheritable by VLAN devices */
-> > >>  	netdev_features_t	vlan_features;
-> > >> +	/* mask of features inherited by encapsulating devices */
-> > >> +	netdev_features_t	hw_enc_features;
-> > > [...]
-> > > 
-> > > How will the networking core know *which* encapsulations this applies
-> > > to?  I notice that your implementation in ixgbe does not set
-> > > NETIF_F_HW_CSUM here, so presumably the hardware will parse headers to
-> > > find which ranges should be checksummed and it won't cover the next
-> > > encapsulation protocol that comes along.
-> > > 
-> > > Ben.
-> > > 
-> > 
-> > Actually the offload is generic to any encapsulation that does not
-> > compute a checksum on the inner headers.  So as long as you can treat
-> > the outer headers as one giant L2 header you can pretty much ignore what
-> > is in there as long as the inner network and transport header values are
-> > set.  There are a number of tunnels that fall into that category since
-> > most just use IP as the L2 and the L3 usually doesn't contain any checksum.
+> Fix inet_diag to be aware of the fact that AF_INET6 TCP connections
+> instantiated for IPv4 traffic and in the SYN-RECV state were actually
+> created with inet_reqsk_alloc(), instead of inet6_reqsk_alloc(). This
+> means that for such connections inet6_rsk(req) returns a pointer to a
+> random spot in memory up to roughly 64KB beyond the end of the
+> request_sock.
 > 
-> Yes, that should work, but it requires that the driver/hardware uses the
-> header offsets from the skb rather than parsing the packet.  This is not
-> currently required for devices with the NETIF_F_IP_CSUM and
-> NETIF_F_IPV6_CSUM features.
+> With this bug, for a server using AF_INET6 TCP sockets and serving
+> IPv4 traffic, an inet_diag user like `ss state SYN-RECV` would lead to
+> inet_diag_fill_req() causing an oops or the export to user space of 16
+> bytes of kernel memory as a garbage IPv6 address, depending on where
+> the garbage inet6_rsk(req) pointed.
 > 
-> Please do state explicitly which feature flags are valid in
-> hw_enc_features, any changes in semantics, and in particular in what
-> cases the driver/hardware is supposed to use header offsets from the skb
-> vs parsing the packet.
-> 
-> Ben.
-> 
-So the idea here is that the driver will use the headers for checksumming 
-if the skb->encapsulation bit is on. The bit should be set in the protocol 
-driver.
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-To answer the second comment, the flags that we use in this series of 
-patches is NETIF_F_IP_CSUM, NETIF_F_IPV6_CSUM and NETIF_F_SG. These are 
-the bits that we propose will be used for checksumming of encapsulation. 
-As per a previous comment in v2, the hw_enc_features field should be used 
-also in the future when NICs have more encap offloads, so one could
-indicate these features there from the driver.
+Thanks for this fix, but it opens up more questions.
 
-Furthermore, I submitted a patch for Rx checksumming, where NETIF_F_RXCSUM 
-is used, again in conjunction with skb->encapsulation flag. As I mention 
-in my logs, the driver is expected to set the ip_summed to UNNECESSARY and 
-turn the skb->encapsulation on, to indicate that the inner headers are 
-already HW checksummed.
+We don't seem to make any validations upon inet_diag_hostcond's
+prefix_len.  That parameter we pass into bitstring_match() can
+be just about anything.
+
+As another example, what if we do an ipv6 128-bit compare on what's
+actually an ipv4 address in the inet request sock?
+
+I think we need to, using cond->family, make some kind of validations
+upon cond->prefix_len.
