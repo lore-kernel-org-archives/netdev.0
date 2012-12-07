@@ -1,54 +1,59 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH] dynamic_queue_limit.h: Make the struct
- ___cacheline_aligned_on_smp
-Date: Fri, 07 Dec 2012 08:05:46 -0800
-Message-ID: <1354896346.29937.43.camel@joe-AO722>
-References: <1354892334.29937.14.camel@joe-AO722>
-	 <CAL4Wiip12_Frb64WGk419_YApOuckTa3Jtd-nVROodLFTqvacg@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH V2 wireless-next] iwlwifi: iwlagn_request_scan: Fix
+ check for priv->scan_request
+Date: Fri, 07 Dec 2012 17:05:52 +0100
+Message-ID: <1354896352.9552.9.camel@jlt4.sipsolutions.net>
+References: <1354830114.18211.4.camel@jlt4.sipsolutions.net>
+	 <1354886914-7822-1-git-send-email-tim.gardner@canonical.com>
+	 (sfid-20121207_142923_134753_FC85E705)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:47047 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1030835Ab2LGQFq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Dec 2012 11:05:46 -0500
-In-Reply-To: <CAL4Wiip12_Frb64WGk419_YApOuckTa3Jtd-nVROodLFTqvacg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Don Fry <donald.h.fry@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Tim Gardner <tim.gardner@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354886914-7822-1-git-send-email-tim.gardner@canonical.com> (sfid-20121207_142923_134753_FC85E705)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-12-07 at 07:55 -0800, Eric Dumazet wrote:
-> 2012/12/7 Joe Perches <joe@perches.com>:
-> > Given that the struct will always have limit at the start of
-> > a cacheline, why not make  struct ___cacheline_aligned_on_smp
-> > and make limit the first member?
-> >
-> > It could make other structs that use struct dql a bit more
-> > predictable or efficient to pack.
-> >
-> > (netdev_queue is size reduced from 256 to 192 on x86-32)
-> >
+On Fri, 2012-12-07 at 06:28 -0700, Tim Gardner wrote:
+> The WARN_ON_ONCE() check for scan_request will not correctly detect
+> a NULL pointer for scan_type == IWL_SCAN_NORMAL. Make it explicit
+> that the check only applies to normal scans.
 > 
-> No, please.
+> Convert WARN_ON_ONCE to WARN_ON since priv->scan_request really _can't_
+> be NULL for normal scans. If it is then we should emit frequent warnings.
 > 
-> Have you tested this on a range of hardware and check how it can hurt
-> performance ?
+> This smatch warning led to scrutiny of iwlagn_request_scan():
+> 
+> drivers/net/wireless/iwlwifi/dvm/scan.c:894 iwlagn_request_scan() error: we previously assumed 'priv->scan_request' could be null (see line 792)
+> 
+> Cc: Johannes Berg <johannes.berg@intel.com>
+> Cc: Wey-Yi Guy <wey-yi.w.guy@intel.com>
+> Cc: Intel Linux Wireless <ilw@linux.intel.com>
+> Cc: "John W. Linville" <linville@tuxdriver.com>
+> Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+> Cc: Don Fry <donald.h.fry@intel.com>
+> Cc: linux-wireless@vger.kernel.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+> ---
+> 
+> This patch does apply to 3.6.y, but it doesn't fix an existing
+> bug so I don't think it qualifies. This patch simply makes
+> the driver more robust for future development.
+> 
+> V2 - corrected indentation more like the rest of the source
+> in this file.
 
-No.  Hence the RFC subject title and
-unsigned patch.
+Thanks, I've picked it up now, adding one space in the condition
+still :)
+It's in my internal tree for now, so it'll be a few days until it
+trickles out to iwlwifi-next.
 
-I was wondering though about cacheline ping-pong 
-effects.
-
-I noted Tom's comment back in
-http://patchwork.ozlabs.org/patch/108856/
-"Also, the cache line containing the struct dql can ping-pong between
-CPUs doing initiation and completion.  (I know we're aiming for these to
-be the same, but we can't yet assume they will be.)"
-
-So it seemed somewhat sensible to make the
-entire struct in a single cacheline.
+johannes
