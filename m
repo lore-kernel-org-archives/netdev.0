@@ -1,79 +1,86 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap
- devices
-Date: Fri, 7 Dec 2012 14:25:16 +0200
-Message-ID: <20121207122516.GA16577@redhat.com>
-References: <20121205202144.18626.61966.stgit@localhost>
- <6001427.qD54i2BbtH@sifl>
- <20121206205716.GA6576@redhat.com>
- <1761265.vEQbM1ySnW@sifl>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] net: call notifiers for mtu change even if
+ iface is not up
+Date: Fri, 7 Dec 2012 13:29:20 +0100
+Message-ID: <20121207122920.GB1631@minipsycho.zyxel.com>
+References: <1354533392-9308-1-git-send-email-jiri@resnulli.us>
+ <20121203141823.GA21816@hmsreliant.think-freely.org>
+ <20121203142229.GA3054@minipsycho.orion>
+ <20121203152250.GB21816@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, jasowang@redhat.com
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, psimerda@redhat.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:50222 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933740Ab2LGM3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 07:29:24 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so160871eaa.19
+        for <netdev@vger.kernel.org>; Fri, 07 Dec 2012 04:29:23 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1761265.vEQbM1ySnW@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20121203152250.GB21816@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 06, 2012 at 04:09:51PM -0500, Paul Moore wrote:
-> On Thursday, December 06, 2012 10:57:16 PM Michael S. Tsirkin wrote:
-> > On Thu, Dec 06, 2012 at 11:56:45AM -0500, Paul Moore wrote:
-> > > The SETQUEUE/tun_socket:create_queue permissions do not yet exist in any
-> > > released SELinux policy as we are just now adding them with this patchset.
-> > > With current policies loaded into a kernel with this patchset applied the
-> > > SETQUEUE/tun_socket:create_queue permission would be treated according to
-> > > the policy's unknown permission setting.
-> > 
-> > OK I think we need to rethink what we are doing here: what you sent
-> > addresses the problem as stated but I think we mis-stated it.  Let me
-> > try to restate the problem: it is not just selinux problem. Let's assume
-> > qemu wants to use tun, I (libvirt) don't want to run it as root.
-> > 
-> > 1. TUNSETIFF: I can open tun, attach an fd and pass it to qemu.
-> > Now, qemu does not invoke TUNSETIFF so it can run without
-> > kernel priveledges.
-> 
-> Correct me if I'm wrong, but I believe libvirt does this while running as 
-> root.  Assuming that is the case, why not simply setuid()/setgid() to the same 
-> credentials as the QEMU instance before creating the TUN device?  You can 
-> always (re)configure the device afterwards while running as 
-> root/CAP_NET_ADMIN.
+Mon, Dec 03, 2012 at 04:22:50PM CET, nhorman@tuxdriver.com wrote:
+>On Mon, Dec 03, 2012 at 03:22:29PM +0100, Jiri Pirko wrote:
+>> Mon, Dec 03, 2012 at 03:18:23PM CET, nhorman@tuxdriver.com wrote:
+>> >On Mon, Dec 03, 2012 at 12:16:32PM +0100, Jiri Pirko wrote:
+>> >> Do the same thing as in set mac. Call notifiers every time.
+>> >> 
+>> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> >> ---
+>> >>  net/core/dev.c | 2 +-
+>> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> >> 
+>> >> diff --git a/net/core/dev.c b/net/core/dev.c
+>> >> index 2f94df2..0685a72 100644
+>> >> --- a/net/core/dev.c
+>> >> +++ b/net/core/dev.c
+>> >> @@ -4971,7 +4971,7 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
+>> >>  	else
+>> >>  		dev->mtu = new_mtu;
+>> >>  
+>> >> -	if (!err && dev->flags & IFF_UP)
+>> >> +	if (!err)
+>> >>  		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
+>> >>  	return err;
+>> >>  }
+>> >
+>> >I'm not opposed to this change, but is there something that it expressly fixes?
+>> 
+>> This is about a consistency. To have the same behaviour as set_mac
+>> for example.
+>> 
+>> >While it doesn't hurt to send around mtu change events, one would presume that
+>> >listeners would pick up mtu changes when the NETDEV_UP event went' around.
+>> >
+>> >Neil
+>> >
+>I figured, I just wanted to be sure that there wasn't a bug fix that needed
+>documenting in the changelog, or that listeners for this event didn't expect the
+>interface to already be up.  It looks pretty clean, with the exception of the
+>TIPC protocol.  It appears that it might require enable_bearer to be called
+>prior to any netdevice CHANGEMTU events, so that the eth_bearers array gets
+>filled out, and it looks like that has to get triggered either by user space, or
+>the receipt of a message over the network.  Let me know what you think
 
-We want isolation between qemu instances.
-Giving qemu right to open tun and SETIFF would give it rights
-to access any tun device.
+I'm looking at the code. What is the difference between CHANGEMTU and
+CHANGEADDR here? It looks to me that it should work for both in the same
+way.
 
-There could also be user tun users we want them isolated from qemu.
 
-> > 2. TUNSETQUEUE - I can open tun and attach a queue but this
-> > is not what is needed since this automatically switches
-> > to multiqueue mode - we want to change number of queues
-> > on the fly.
-> > So qemu needs to be allowed to run TUNSETQUEUE.
-> > Since this checks tun_not_capable(tun) we would need
-> > to give qemu these priveledges, and we want to avoid this
-> > (I can go into why if it's not obvious).
-> 
-> If libvirt creates the TUN device while its effective credentials match those 
-> of the QEMU instance then the QEMU instance should be able to perform a 
-> TUNSETQUEUE, yes?
-> 
-> > How can we slove this?
-> > I don't see a way without extending the interface.
-> > Here's a simple way to extend it: pass a flag to TUNSETQUEUE
-> > that enables/disables TX on this queue.
-> > If TX is disabled, ignore this queue for flow steering decisions.
-> > Allow TUNSETQUEUE for a non priveledged user if it
-> > it already bound to the currect tun and only changes this flag.
-> > 
-> > Now I open tun and SETQUEUE with TX disabled flag. Pass it to qemu.
-> > qemu calls SETQUEUE with TX enabled flag.
-> > 
-> > Jason? Want to try implementing and see what people think?
-> 
-> -- 
-> paul moore
-> security and virtualization @ redhat
+>
+>Neil
+>
+>> >--
+>> >To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> >the body of a message to majordomo@vger.kernel.org
+>> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 
