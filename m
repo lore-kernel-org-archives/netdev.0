@@ -1,94 +1,161 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [patch net-next] net: call notifiers for mtu change even if
- iface is not up
-Date: Fri, 7 Dec 2012 10:07:08 -0500
-Message-ID: <20121207150708.GA29819@shamino.rdu.redhat.com>
-References: <1354533392-9308-1-git-send-email-jiri@resnulli.us>
- <20121203141823.GA21816@hmsreliant.think-freely.org>
- <20121203142229.GA3054@minipsycho.orion>
- <20121203152250.GB21816@hmsreliant.think-freely.org>
- <20121207122920.GB1631@minipsycho.zyxel.com>
+Subject: Re: [PATCH 2/4] net: remove obsolete simple_strto<foo>
+Date: Fri, 7 Dec 2012 10:22:16 -0500
+Message-ID: <20121207152216.GC29819@shamino.rdu.redhat.com>
+References: <1354880998-23417-1-git-send-email-abhi.c.pawar@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, psimerda@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:38933 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756483Ab2LGPH3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 10:07:29 -0500
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Cong Wang <amwang@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-wireless@vger.kernel.org
+To: Abhijit Pawar <abhi.c.pawar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20121207122920.GB1631@minipsycho.zyxel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1354880998-23417-1-git-send-email-abhi.c.pawar@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 07, 2012 at 01:29:20PM +0100, Jiri Pirko wrote:
-> Mon, Dec 03, 2012 at 04:22:50PM CET, nhorman@tuxdriver.com wrote:
-> >On Mon, Dec 03, 2012 at 03:22:29PM +0100, Jiri Pirko wrote:
-> >> Mon, Dec 03, 2012 at 03:18:23PM CET, nhorman@tuxdriver.com wrote:
-> >> >On Mon, Dec 03, 2012 at 12:16:32PM +0100, Jiri Pirko wrote:
-> >> >> Do the same thing as in set mac. Call notifiers every time.
-> >> >> 
-> >> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >> >> ---
-> >> >>  net/core/dev.c | 2 +-
-> >> >>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >> >> 
-> >> >> diff --git a/net/core/dev.c b/net/core/dev.c
-> >> >> index 2f94df2..0685a72 100644
-> >> >> --- a/net/core/dev.c
-> >> >> +++ b/net/core/dev.c
-> >> >> @@ -4971,7 +4971,7 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
-> >> >>  	else
-> >> >>  		dev->mtu = new_mtu;
-> >> >>  
-> >> >> -	if (!err && dev->flags & IFF_UP)
-> >> >> +	if (!err)
-> >> >>  		call_netdevice_notifiers(NETDEV_CHANGEMTU, dev);
-> >> >>  	return err;
-> >> >>  }
-> >> >
-> >> >I'm not opposed to this change, but is there something that it expressly fixes?
-> >> 
-> >> This is about a consistency. To have the same behaviour as set_mac
-> >> for example.
-> >> 
-> >> >While it doesn't hurt to send around mtu change events, one would presume that
-> >> >listeners would pick up mtu changes when the NETDEV_UP event went' around.
-> >> >
-> >> >Neil
-> >> >
-> >I figured, I just wanted to be sure that there wasn't a bug fix that needed
-> >documenting in the changelog, or that listeners for this event didn't expect the
-> >interface to already be up.  It looks pretty clean, with the exception of the
-> >TIPC protocol.  It appears that it might require enable_bearer to be called
-> >prior to any netdevice CHANGEMTU events, so that the eth_bearers array gets
-> >filled out, and it looks like that has to get triggered either by user space, or
-> >the receipt of a message over the network.  Let me know what you think
+On Fri, Dec 07, 2012 at 05:19:58PM +0530, Abhijit Pawar wrote:
+> This patch replace the obsolete simple_strto<foo> with kstrto<foo>
 > 
-> I'm looking at the code. What is the difference between CHANGEMTU and
-> CHANGEADDR here? It looks to me that it should work for both in the same
-> way.
+> Signed-off-by: Abhijit Pawar <abhi.c.pawar@gmail.com>
+> ---
+>  net/core/netpoll.c                 |    9 +++++++--
+>  net/ipv4/netfilter/ipt_CLUSTERIP.c |    9 +++++++--
+>  net/mac80211/debugfs_sta.c         |    4 +++-
+>  net/netfilter/nf_conntrack_core.c  |    6 ++++--
+>  4 files changed, 21 insertions(+), 7 deletions(-)
 > 
-Hmm, they do work in the same way, which likely means that tipc is probably
-begging to oops there regardless of having your patch or not :)
+> diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> index 77a0388..596b127 100644
+> --- a/net/core/netpoll.c
+> +++ b/net/core/netpoll.c
+> @@ -668,13 +668,16 @@ EXPORT_SYMBOL(netpoll_print_options);
+>  
+>  int netpoll_parse_options(struct netpoll *np, char *opt)
+>  {
+> +	int rc;
+>  	char *cur=opt, *delim;
+>  
+>  	if (*cur != '@') {
+>  		if ((delim = strchr(cur, '@')) == NULL)
+>  			goto parse_failed;
+>  		*delim = 0;
+> -		np->local_port = simple_strtol(cur, NULL, 10);
+> +		rc = kstrtol(cur, 10, &np->local_port);
+> +		if (rc)
+> +			goto parse_failed;
+Perhaps consolidate this to:
+if (kstrtol(cur, 10, &np->local_port)
+	goto parse_failed
 
-I'll get around to fixing that shortly.  Since your patch then isn't going to
-break anything that isn't already broken
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Then you don't have to declare the new stack variable
 
+>  		cur = delim;
+>  	}
+>  	cur++;
+> @@ -705,7 +708,9 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+>  		*delim = 0;
+>  		if (*cur == ' ' || *cur == '\t')
+>  			np_info(np, "warning: whitespace is not allowed\n");
+> -		np->remote_port = simple_strtol(cur, NULL, 10);
+> +		rc = kstrtol(cur, 10, &np->remote_port);
+> +		if (rc)
+> +			goto parse_failed;
+>  		cur = delim;
+Ditto
+
+>  	}
+>  	cur++;
+> diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+> index fe5daea..55e7b73 100644
+> --- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
+> +++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+> @@ -661,6 +661,7 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
+>  #define PROC_WRITELEN	10
+>  	char buffer[PROC_WRITELEN+1];
+>  	unsigned long nodenum;
+> +	int rc;
+>  
+>  	if (size > PROC_WRITELEN)
+>  		return -EIO;
+> @@ -669,11 +670,15 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
+>  	buffer[size] = 0;
+>  
+>  	if (*buffer == '+') {
+> -		nodenum = simple_strtoul(buffer+1, NULL, 10);
+> +		rc = kstrtoul(buffer+1, 10, &nodenum);
+> +		if (rc)
+> +			return -EINVAL;
+>  		if (clusterip_add_node(c, nodenum))
+>  			return -ENOMEM;
+>  	} else if (*buffer == '-') {
+> -		nodenum = simple_strtoul(buffer+1, NULL,10);
+> +		rc = kstrtoul(buffer+1, 10, &nodenum);
+> +		if (rc)
+> +			return -EINVAL;
+>  		if (clusterip_del_node(c, nodenum))
+>  			return -ENOENT;
+Same deal with the rc variable, although in this case it might make sense to
+return rc if kstrtoul fails, instead of just filtering it all down to -EINVAL.
+
+>  	} else
+> diff --git a/net/mac80211/debugfs_sta.c b/net/mac80211/debugfs_sta.c
+> index 89281d2..18754fd 100644
+> --- a/net/mac80211/debugfs_sta.c
+> +++ b/net/mac80211/debugfs_sta.c
+> @@ -219,7 +219,9 @@ static ssize_t sta_agg_status_write(struct file *file, const char __user *userbu
+>  	} else
+>  		return -EINVAL;
+>  
+> -	tid = simple_strtoul(buf, NULL, 0);
+> +	ret = kstrtoul(buf, 0, &tid);
+> +	if (ret)
+> +		return -EINVAL;
+>  
+>  	if (tid >= IEEE80211_NUM_TIDS)
+>  		return -EINVAL;
+> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+> index af17516..18ce24b 100644
+> --- a/net/netfilter/nf_conntrack_core.c
+> +++ b/net/netfilter/nf_conntrack_core.c
+> @@ -1409,7 +1409,7 @@ EXPORT_SYMBOL_GPL(nf_ct_alloc_hashtable);
+>  
+>  int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+>  {
+> -	int i, bucket;
+> +	int i, bucket, rc;
+>  	unsigned int hashsize, old_size;
+>  	struct hlist_nulls_head *hash, *old_hash;
+>  	struct nf_conntrack_tuple_hash *h;
+> @@ -1422,7 +1422,9 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+>  	if (!nf_conntrack_htable_size)
+>  		return param_set_uint(val, kp);
+>  
+> -	hashsize = simple_strtoul(val, NULL, 0);
+> +	rc = kstrtouint(val, 0, &hashsize);
+> +	if (rc)
+> +		return -EINVAL;
+>  	if (!hashsize)
+>  		return -EINVAL;
+>  
+As above, these call points might benefit from returning rc rather than just
+EINVAL.
+
+Neil
+
+> -- 
+> 1.7.7.6
 > 
-> >
-> >Neil
-> >
-> >> >--
-> >> >To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >> >the body of a message to majordomo@vger.kernel.org
-> >> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >> 
 > 
