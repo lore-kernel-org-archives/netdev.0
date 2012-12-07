@@ -1,67 +1,49 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: [PATCH v3 3/4] vxlan: capture inner headers during encapsulation
-Date: Fri, 07 Dec 2012 15:16:37 -0800
-Message-ID: <50C278D5.200@gmail.com>
-References: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com> <1354845419-22483-4-git-send-email-joseph.gasparakis@intel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: "Templin, Fred L" <Fred.L.Templin@boeing.com>
+Subject: Experimental network protocol produces "dropping frag"
+Date: Fri, 7 Dec 2012 15:41:33 -0800
+Message-ID: <E1829B60731D1740BB7A0626B4FAF0A65E0ED86722@XCH-NW-01V.nw.nos.boeing.com>
+References: <1354897227.2707.10.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="------------enigAEEDBB0E151006AA596EFEC4"
-Cc: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org,
-	gospo@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dmitry@broadcom.com,
-	saeed.bishara@gmail.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354845419-22483-4-git-send-email-joseph.gasparakis@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from slb-mbsout-02.boeing.com ([130.76.64.129]:38735 "EHLO
+	slb-mbsout-02.boeing.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754348Ab2LGXqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 18:46:47 -0500
+Received: from slb-mbsout-02.boeing.com (localhost.localdomain [127.0.0.1])
+	by slb-mbsout-02.boeing.com (8.14.4/8.14.4/DOWNSTREAM_MBSOUT) with ESMTP id qB7Nfe8b015712
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2012 15:41:40 -0800
+Received: from XCH-NWHT-04.nw.nos.boeing.com (xch-nwht-04.nw.nos.boeing.com [130.247.64.250])
+	by slb-mbsout-02.boeing.com (8.14.4/8.14.4/UPSTREAM_MBSOUT) with ESMTP id qB7NfQ47015590
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Fri, 7 Dec 2012 15:41:40 -0800
+In-Reply-To: <1354897227.2707.10.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigAEEDBB0E151006AA596EFEC4
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 12/06/2012 05:56 PM, Joseph Gasparakis wrote:
-> Allow VXLAN to make use of Tx checksum offloading and Tx scatter-gather=
-=2E
-> The advantage to these two changes is that it also allows the VXLAN to
-> make use of GSO.
->
-> Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
->  drivers/net/vxlan.c |   10 +++++++++-
->  1 files changed, 9 insertions(+), 1 deletions(-)
-Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-
---------------enigAEEDBB0E151006AA596EFEC4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with undefined - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJQwnjVAAoJEOVv75VaS+3OVZcP/2VcS1cNkji1YYy/1GrveUTK
-+Xsdp4pdttKPi1to3oa2PMZom8BzMSbwaAarPasnLMY1cLMcKtIrKB53OGbTW+9+
-4yVSQ/1XWKHXk/ZBf8sseh3PL11ar6p43UQwipjBav9iau6JUuOtIy2ZXLxzS9lX
-h3xLUABFw6jNDLQ2YCAe/IeKBrFsO3hIDD9A9a1MCF43qve8c6TeXDTY9ojUDUTF
-gnzSrFFB7nEmcyqVE5sejoplWLbXKzPV0h4P5MeSTMZPm8+28rcPVOexDOkZcEoZ
-gXqhsbTmjhj2DEIS8RlFz+Q6PiZ5odtHJS5mP1VIbK8BMWzu9moAMIlbgbn2kPpP
-JrXguH7Msm5XrIQCv+F3pRyMA3oofxPeKNRZZAH/7JBlGsoaKxn5d6XkHeniGiUs
-6li2gkzk7Ae0C/Kk87C4kzAZHLywdozfskD+GEJ1OTFWz08m3S8oSeGjnTb3DY23
-O9ZftFkOYYHl2XW2Ltl0Ns9gPVQh63FM6+lHJFeQiAnFyURxWrGD34odWWp8wlM2
-Ci7Od2pcrDGr4n0ZS7v2i3GY4Iqjij4VS9YISR2CuqlytvRi5XTRaiVYCQIbc0TK
-iFK/b91/k8XWle+I1TKg5MpDiF1H04n7SqBuKc94KUB4lxwiOIgd4Z4DC5EhgQb1
-2e9xP0mWAIpedCs9JZ15
-=b2iL
------END PGP SIGNATURE-----
-
---------------enigAEEDBB0E151006AA596EFEC4--
+SGVsbG8sDQoNClVuZGVyIHRoZSAzLjIuMTcga2VybmVsLCBJIGFtIHdvcmtpbmcgd2l0aCBhbiBl
+eHBlcmltZW50YWwNCnR1bm5lbGluZyBwcm90b2NvbC4gSSBhbSB1c2luZyBpcC1wcm90by0yNTMg
+Zm9yIHRoZSBleHBlcmltZW50LA0KYW5kIGhhdmUgY29kZWQgdGhlIHR1bm5lbCBjb2RlIGluIGFz
+IGEgbW9kdWxlIHVuZGVyIG5ldC9pcHY0DQpieSBjbG9uaW5nIG5ldC9pcHY0L2lwX2dyZS5jLiBJ
+IGhhdmUgYmVlbiB0ZXN0aW5nIHRoZSBtb2R1bGUNCmJ5IHVzaW5nIG1vZHByb2JlIHRvIHJlbG9h
+ZCB0aGUgbW9kdWxlIHdpdGhvdXQgcmVib290aW5nIHRoZQ0KbWFjaGluZXMuDQoNCkkgd2FzIHN1
+Y2Nlc3NmdWxseSBhYmxlIHRvIHNlbmQgYW5kIHJlY2VpdmUgcGFja2V0cyB2aWEgdGhlDQp0dW5u
+ZWwgYW5kIHZlcmlmaWVkIHRoYXQgYm90aCBkaXJlY3Rpb25zIHdlcmUgd29ya2luZyB1c2luZw0K
+dGNwZHVtcCBhbmQgd2lyZXNoYXJrIHdoaWNoIHNob3dlZCBpcC1wcm90by0yNTMgcGFja2V0cyBn
+b2luZw0KaW4gYm90aCBkaXJlY3Rpb25zLiBTaW5jZSB0aGVuLCBob3dldmVyLCBJIHJlY29tcGls
+ZWQgYW5kDQpyZWluaXN0YWxsZWQgdGhlIGVudGlyZSBrZXJuZWwgYW5kIHJlYm9vdGVkIHRoZSBt
+YWNoaW5lcy4NCg0KTm93LCBJIGNhbiBzdGlsbCBzZW5kIG15IGlwLXByb3RvLTI1MyBwYWNrZXRz
+LCBidXQgb24gdGhlDQpyZWNlaXZpbmcgc2lkZSBJIHNlZSBkbWVzZyBvdXRwdXQgdGhhdCBzYXlz
+Og0KDQogICJkcm9wcGluZyBmcmFnIg0KDQpmb3IgZXZlcnkgcGFja2V0IHJlY2VpdmVkLiBUaGUg
+aW5wdXQgcGFja2V0cyBhcHBlYXIgdG8gYmUNCmFjY291bnRlZCBmb3Igd2hlbiBJIHR5cGUgImlm
+Y29uZmlnIGV0aDAiIChpLmUuLCB0aGUgaW5wdXQNCnBhY2tldCBjb3VudCBpcyBpbmNyZW1lbnRp
+bmcpIGJ1dCBwcmludGsncyBmcm9tIG15IHR1bm5lbA0KZHJpdmVyIGNvZGUgYXJlIG5vdCBzaG93
+aW5nIHVwIHdoZW4gSSB0eXBlIGRtZXNnIGFuZA0KImlmY29uZmlnIHR1bjAiIG9uIHRoZSB0dW5u
+ZWwgaW50ZXJmYWNlIGRvZXMgbm90IHNob3cgYW55DQppbnB1dCBwYWNrZXRzLiBJdCBpcyBhcyBp
+ZiB0aGUgcmVjZWl2ZXIgaGFzICJmb3Jnb3R0ZW4iDQpob3cgdG8gZGVhbCB3aXRoIGlwLXByb3Rv
+LTI1My4NCg0KQW55IGlkZWFzIG9uIGhvdyBJIG1heSBoYXZlIHNob3QgbXlzZWxmIGluIHRoZSBm
+b290LCBhbmQNCndheXMgdG8gcmVjb3Zlcj8NCg0KVGhhbmtzIC0gRnJlZA0KZnJlZC5sLnRlbXBs
+aW5AYm9laW5nLmNvbQ0K
