@@ -1,54 +1,61 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v5] bridge: export multicast database via netlink
-Date: Fri, 7 Dec 2012 10:36:29 +0000
-Message-ID: <20121207103629.GB2996@casper.infradead.org>
-References: <1354874688-24564-1-git-send-email-amwang@redhat.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 0/7] Allow to monitor multicast cache event via rtnetlink
+Date: Fri, 7 Dec 2012 10:38:37 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70E4@saturn3.aculab.com>
+References: <50BE56D3.2030704@6wind.com> <50BF29DA.7020903@6wind.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70DA@saturn3.aculab.com> <20121205.125453.1457654258131828976.davem@davemloft.net> <50C05AC2.1050504@6wind.com> <20121206174905.GC16122@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=Windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Thomas Graf" <tgraf@suug.ch>,
+	"Nicolas Dichtel" <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:46710 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932509Ab2LGKga (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 05:36:30 -0500
-Content-Disposition: inline
-In-Reply-To: <1354874688-24564-1-git-send-email-amwang@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:59982 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755962Ab2LGKnm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 05:43:42 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 29970-06 for <netdev@vger.kernel.org>;
+ Fri,  7 Dec 2012 10:43:37 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20121206174905.GC16122@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/07/12 at 06:04pm, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
-> 
-> V5: fix two bugs pointed out by Thomas
->     remove seq check for now, mark it as TODO
-> 
-> V4: remove some useless #include
->     some coding style fix
-> 
-> V3: drop debugging printk's
->     update selinux perm table as well
-> 
-> V2: drop patch 1/2, export ifindex directly
->     Redesign netlink attributes
->     Improve netlink seq check
->     Handle IPv6 addr as well
-> 
-> This patch exports bridge multicast database via netlink
-> message type RTM_GETMDB. Similar to fdb, but currently bridge-specific.
-> We may need to support modify multicast database too (RTM_{ADD,DEL}MDB).
-> 
-> (Thanks to Thomas for patient reviews)
-> 
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> On 12/06/12 at 09:43am, Nicolas Dichtel wrote:
+> > Le 05/12/2012 18:54, David Miller a =E9crit :
+> > >From: "David Laight" <David.Laight@ACULAB.COM>
+> > >Date: Wed, 5 Dec 2012 11:41:33 -0000
+> > >
+> > >>Probably worth commenting that the 64bit items might only be 32bi=
+t aligned.
+> > >>Just to stop anyone trying to read/write them with pointer casts.
+> > >
+> > >Rather, let's not create this situation at all.
+> > >
+> > >It's totally inappropriate to have special code to handle every si=
+ngle
+> > >time we want to put 64-bit values into netlink messages.
+> > >
+> > >We need a real solution to this issue.
+> > >
+> > The easiest way is to update *_ALIGNTO values (maybe we can keep
+> > NLMSG_ALIGNTO to 4). But I think that many userland apps have these
+> > values hardcoded and, the most important thing, this may increase
+> > size of many netlink messages. Hence we need probably to find
+> > something better.
+>=20
+> We can't do this, as you say, ALIGNTO is compiled into all the
+> binaries.
+>=20
+> A simple backwards compatible workaround would be to include an
+> unknown, empty padding attribute if needed. That would be 4 bytes
+> in size and could be used to include padding as needed.
 
-Acked-by: Thomas Graf <tgraf@suug.ch>
+What are you going to align the data with respect to?
+I doubt you can assume that the start of the netlink
+message itself is 8 byte aligned - so any attempt
+to 8 byte align an item is probably doomed to failure.
+
+	David
