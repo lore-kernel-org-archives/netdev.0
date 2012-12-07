@@ -1,46 +1,51 @@
-From: Asias He <asias@redhat.com>
-Subject: Re: [PATCH] vhost-blk: Add vhost-blk support v6
-Date: Fri, 07 Dec 2012 15:05:24 +0800
-Message-ID: <50C19534.2000705@redhat.com>
-References: <1354412033-32372-1-git-send-email-asias@redhat.com>
-	<20121206130004.GA21312@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH rfc] netfilter: two xtables matches
+Date: Fri, 7 Dec 2012 08:22:49 +0100
+Message-ID: <20121207072249.GA10911@1984>
+References: <1354735339-13402-1-git-send-email-willemb@google.com>
+ <CA+FuTSeYvcdtNf7N=POD+RzsE01+WVsub6F_nqbn06RZyoWx8w@mail.gmail.com>
+ <alpine.LNX.2.01.1212052100190.30908@nerf07.vanv.qr>
+ <20121206052246.GA2905@1984>
+ <CA+FuTSf+fh21koZRJ_ZDsr8yiiwcw2-pJ4uTyS2pOHZGdBM1-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jens Axboe <axboe@kernel.dk>, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Christoph Hellwig <hch@infradead.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121206130004.GA21312@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Engelhardt <jengelh@inai.de>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CA+FuTSf+fh21koZRJ_ZDsr8yiiwcw2-pJ4uTyS2pOHZGdBM1-w@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/06/2012 09:00 PM, Michael S. Tsirkin wrote:
-> On Sun, Dec 02, 2012 at 09:33:53AM +0800, Asias He wrote:
->> diff --git a/drivers/vhost/Kconfig.blk b/drivers/vhost/Kconfig.blk
->> new file mode 100644
->> index 0000000..ff8ab76
->> --- /dev/null
->> +++ b/drivers/vhost/Kconfig.blk
->> @@ -0,0 +1,10 @@
->> +config VHOST_BLK
->> +	tristate "Host kernel accelerator for virtio blk (EXPERIMENTAL)"
->> +	depends on BLOCK &&  EXPERIMENTAL && m
+On Thu, Dec 06, 2012 at 04:12:10PM -0500, Willem de Bruijn wrote:
+> On Thu, Dec 6, 2012 at 12:22 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > On Wed, Dec 05, 2012 at 09:00:36PM +0100, Jan Engelhardt wrote:
+> >> On Wednesday 2012-12-05 20:28, Willem de Bruijn wrote:
+> >>
+> >> >Somehow, the first part of this email went missing. Not critical,
+> >> >but for completeness:
+> >> >
+> >> >These two patches each add an xtables match.
+> >> >
+> >> >The xt_priority match is a straighforward addition in the style of
+> >> >xt_mark, adding the option to filter on one more sk_buff field. I
+> >> >have an immediate application for this. The amount of code (in
+> >> >kernel + userspace) to add a single check proved quite large.
+> >>
+> >> Hm so yeah, can't we just place this in xt_mark.c?
+> >
+> > I don't feel this belongs to xt_mark at all.
 > 
+> Do you have other concerns, or can I resubmit as is for merging in a
+> few days if no one raises additional issues?
 > 
-> should depend on eventfd as well.
+> For this and netfilter changes in general: should these patches be
+> against git://1984.lsi.us.es/nf-next instead of net-next? This patch
+> likely applies cleanly there, but I haven't tried yet. Thanks.
 
-Okay, added.
-
--- 
-Asias
+Please, against nf-next since this has to go throuh the netfilter
+tree.
