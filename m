@@ -1,67 +1,81 @@
-From: Linda Walsh <lkml@tlinx.org>
-Subject: Re: BUG: scheduling while atomic: ifup-bonding/3711/0x00000002 -- V3.6.7
-Date: Fri, 07 Dec 2012 12:06:28 -0800
-Message-ID: <50C24C44.8000809@tlinx.org>
-References: <50B5248A.5010908@tlinx.org> <CAM_iQpUW2Oz9p0K0gGKc6JoD7WAu0kJtRa4uBSe+WfXg0Nn3jA@mail.gmail.com> <50B67F6B.6050008@tlinx.org> <50B6B4B6.3070304@tlinx.org> <4913.1354154236@death.nxdomain>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: [PATCH v3 1/4] net: Add support for hardware-offloaded
+ encapsulation
+Date: Fri, 7 Dec 2012 12:18:03 -0800 (PST)
+Message-ID: <alpine.LFD.2.02.1212071217420.4985@morpheus.jf.intel.com>
+References: <alpine.LFD.2.02.1212071139190.4985@morpheus.jf.intel.com> <20121207.143725.1501926484331042018.davem@davemloft.net> <alpine.LFD.2.02.1212071149150.4985@morpheus.jf.intel.com> <20121207.145239.1408511750725975741.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: joseph.gasparakis@intel.com, bhutchings@solarflare.com,
+	alexander.h.duyck@intel.com, shemminger@vyatta.com,
+	chrisw@sous-sol.org, gospo@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dmitry@broadcom.com,
+	saeed.bishara@gmail.com, peter.p.waskiewicz.jr@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4913.1354154236@death.nxdomain>
+In-Reply-To: <20121207.145239.1408511750725975741.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry for the delay.... my distro (Suse) has made rebooting my system
-a chore (have to often boot from rescue to get it to come up because
-they put mount libs in /usr/lib expecting they will always boot
-from their ram disk -- preventing those of use who boot directly
-from disk from doing so easily...grrr.
-
-Jay Vosburgh wrote:
-> 	The miimon functionality is used to check link state and notice
-> when slaves lose carrier.
----
-    If I am running 'rr' on 2 channels -- specifically for the purpose
-of link speed aggregation (getting 1 20Gb channel out of 2 10Gb channels)
-I'm not sure I see how miimon would provide benefit.  -- if 1 link dies,
-the other, being on the same card is likely to be dead too, so would
-it really serve a purpose?
 
 
->   Running without it will not detect failure of
-> the bonding slaves, which is likely not what you want.  The mode,
-> balance-rr in your case, is what selects the load balance to use, and is
-> separate from the miimon.
->   
-----
-    Wouldn't the entire link die if a slave dies -- like RAID0, 1 disk
-dies, the entire link goes down? 
+On Fri, 7 Dec 2012, David Miller wrote:
 
-    The other end (windows) doesn't dynamically config for a static-link
-aggregation, so I don't think it would provide benefit.
-
-> 	That said, the problem you're seeing appears to be caused by two
-> things: bonding holds a lock (in addition to RTNL) when calling
-> __ethtool_get_settings, and an ixgbe function in the call path to
-> retrieve the settings, ixgbe_acquire_swfw_sync_X540, can sleep.
->
-> 	The test patch above handles one case in bond_enslave, but there
-> is another case in bond_miimon_commit when a slave changes link state
-> from down to up, which will occur shortly after the slave is added.
->   
-----
-    Added your 2nd patch -- no more error messages...
-
-    however -- likely unrelated, the max speed read or write I am seeing
-is about 500MB/s, and that is rare -- usually it's barely <3x a 1Gb 
-network speed. (119/125 MB R/W).  I'm not at all sure it's really 
-combining the links
-properly.  Anyway to verify that?
-
-
-    On the windows side it shows the bond-link as a 20Gb connection, but
-I don't see anyplace for something similar on linux. 
+> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> Date: Fri, 7 Dec 2012 11:52:43 -0800 (PST)
+> 
+> > 
+> > 
+> > On Fri, 7 Dec 2012, David Miller wrote:
+> > 
+> >> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> >> Date: Fri, 7 Dec 2012 11:41:46 -0800 (PST)
+> >> 
+> >> > 
+> >> > 
+> >> > On Fri, 7 Dec 2012, David Miller wrote:
+> >> > 
+> >> >> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+> >> >> Date: Fri, 7 Dec 2012 10:24:17 -0800 (PST)
+> >> >> 
+> >> >> > So the idea here is that the driver will use the headers for checksumming 
+> >> >> > if the skb->encapsulation bit is on. The bit should be set in the protocol 
+> >> >> > driver.
+> >> >> > 
+> >> >> > To answer the second comment, the flags that we use in this series of 
+> >> >> > patches is NETIF_F_IP_CSUM, NETIF_F_IPV6_CSUM and NETIF_F_SG. These are 
+> >> >> > the bits that we propose will be used for checksumming of encapsulation. 
+> >> >> > As per a previous comment in v2, the hw_enc_features field should be used 
+> >> >> > also in the future when NICs have more encap offloads, so one could
+> >> >> > indicate these features there from the driver.
+> >> >> > 
+> >> >> > Furthermore, I submitted a patch for Rx checksumming, where NETIF_F_RXCSUM 
+> >> >> > is used, again in conjunction with skb->encapsulation flag. As I mention 
+> >> >> > in my logs, the driver is expected to set the ip_summed to UNNECESSARY and 
+> >> >> > turn the skb->encapsulation on, to indicate that the inner headers are 
+> >> >> > already HW checksummed.
+> >> >> > 
+> >> >> 
+> >> >> This is the kind of language that belongs in the commit message and
+> >> >> code comments.
+> >> >> 
+> >> > Sure. I'll wait to gather some more feedback if there is any and I will 
+> >> > re-spin this off adding more code comments and clarify this in the logs.
+> >> 
+> >> Great.
+> >> 
+> >> Please note that this request applies to your receive side change too.
+> >> 
+> > I believe the logs are sufficient in the rx patch:
+> > 
+> > This patch adds capability in vxlan to identify received
+> > checksummed inner packets and signal them to the upper layers of
+> > the stack. The driver needs to set the skb->encapsulation bit
+> > and also set the skb->ip_summed to CHECKSUM_UNNECESSARY.
+> > 
+> > ...but I can add more comments to the code if this is what you are 
+> > referring to.
+> 
+> Yes, please do.
+> 
+I will! Thanks.
