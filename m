@@ -1,43 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] bnx2x: Prevent link flaps when booting
- from SAN.
-Date: Fri, 07 Dec 2012 12:54:18 -0500 (EST)
-Message-ID: <20121207.125418.1997064815507310315.davem@davemloft.net>
-References: <1354784643-22236-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH net 1/1] r8169: workaround for missing extended GigaMAC
+ registers
+Date: Fri, 07 Dec 2012 12:55:46 -0500 (EST)
+Message-ID: <20121207.125546.1876404664623896418.davem@davemloft.net>
+References: <20121205223452.GA24164@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com, barak@broadcom.com,
-	eilong@broadcom.com
-To: yuvalmin@broadcom.com
+Cc: netdev@vger.kernel.org, jlee@suse.com, udknight@gmail.com,
+	hayeswang@realtek.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56981 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56998 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423536Ab2LGRyV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 12:54:21 -0500
-In-Reply-To: <1354784643-22236-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1423536Ab2LGRzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 12:55:48 -0500
+In-Reply-To: <20121205223452.GA24164@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Thu, 6 Dec 2012 11:04:03 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 5 Dec 2012 23:34:52 +0100
 
-> From: Barak Witkowski <barak@broadcom.com>
+> GigaMAC registers have been reported left unitialized in several
+> situations:
+> - after cold boot from power-off state
+> - after S3 resume
 > 
-> It is possible that the driver is configured to operate with a certain
-> link configuration which differs from the link's configuration during
-> boot from SAN - this would cause the driver to flap the link.
+> Tweaking rtl_hw_phy_config takes care of both.
 > 
-> Said flap may be missed by specific switches, causing dcbx convergence 
-> to be too long and boot sequence to fail. Convergence is longer because
-> switch ignores new dcbx packets due to counters mismatch, as only host 
-> side reset the counters due to the link flap.
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Hayes Wang <hayeswang@realtek.com>
+> ---
+>  drivers/net/ethernet/realtek/r8169.c | 42 ++++++++++++++++++++----------------
+>  1 file changed, 24 insertions(+), 18 deletions(-)
 > 
-> This patch causes the driver to ignore user's initial configuration during
-> boot from SAN, and continues with the existing link configuration.
+>  YanQing and Chun-Yi, can you add your Signed-off-by to this patch ?
+>  It contains bits of everybody's work but it does not match any. :o)
 > 
-> Signed-off-by: Barak Witkowski <barak@broadcom.com>
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+>  I apparently play in the safe bios league since I did not notice any
+>  difference before or after the patch.
+> 
+>  Beware, this patch seems to apply to net-next but doing so moves
+>  rtl_rar_exgmac_set from rtl8168e_2_hw_phy_config to rtl8168f_hw_phy_config.
+> 
+>  Hayes, your comments are welcome if any.
 
-Applied, thanks.
+Francois could you please respin this against net-next to avoid the unintended
+consequence of applying the change to the wrong function?
+
+If this change turns out to be more critical than it appears, and impact more
+people than it appears, we can queue it up for -stable later.
+
+Thanks.
