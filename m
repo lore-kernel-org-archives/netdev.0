@@ -1,37 +1,46 @@
-From: Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: [RFC V3 1/2] I'dcfg80211: Move the definition of struct mac_address
- up
-Date: Fri, 7 Dec 2012 12:26:03 +0530
-Message-ID: <50C19303.5060608@qca.qualcomm.com>
-References: <1354853850-10537-1-git-send-email-vthiagar@qca.qualcomm.com> <1354858735.22463.31.camel@joe-AO722>
+From: Asias He <asias@redhat.com>
+Subject: Re: [PATCH] vhost-blk: Add vhost-blk support v6
+Date: Fri, 07 Dec 2012 15:05:24 +0800
+Message-ID: <50C19534.2000705@redhat.com>
+References: <1354412033-32372-1-git-send-email-asias@redhat.com>
+	<20121206130004.GA21312@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1354858735.22463.31.camel@joe-AO722>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Jens Axboe <axboe@kernel.dk>, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Christoph Hellwig <hch@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121206130004.GA21312@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+On 12/06/2012 09:00 PM, Michael S. Tsirkin wrote:
+> On Sun, Dec 02, 2012 at 09:33:53AM +0800, Asias He wrote:
+>> diff --git a/drivers/vhost/Kconfig.blk b/drivers/vhost/Kconfig.blk
+>> new file mode 100644
+>> index 0000000..ff8ab76
+>> --- /dev/null
+>> +++ b/drivers/vhost/Kconfig.blk
+>> @@ -0,0 +1,10 @@
+>> +config VHOST_BLK
+>> +	tristate "Host kernel accelerator for virtio blk (EXPERIMENTAL)"
+>> +	depends on BLOCK &&  EXPERIMENTAL && m
+> 
+> 
+> should depend on eventfd as well.
 
+Okay, added.
 
-On Friday 07 December 2012 11:08 AM, Joe Perches wrote:
-> On Fri, 2012-12-07 at 09:47 +0530, Vasanthakumar Thiagarajan wrote:
->> struct mac_address will be used by ACL related configuration ops.
->
-> I'd prefer that any new code _not_ use struct mac_address
-> but use u8 addr[ETH_ALEN] instead.
->
-> That's the most common style in the kernel.
-
-Ok, but struct mac_address looked handy when I want
-to deal with list of mac address instead using linked
-list. Thanks!
-
-Vasanth
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Asias
