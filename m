@@ -1,44 +1,37 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] bridge: make buffer larger in br_setlink()
-Date: Fri, 7 Dec 2012 09:18:54 +0300
-Message-ID: <20121207061854.GB18220@elgon.mountain>
+From: Vasanthakumar Thiagarajan <vthiagar-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: Re: [RFC V3 1/2] I'dcfg80211: Move the definition of struct mac_address
+ up
+Date: Fri, 7 Dec 2012 12:26:03 +0530
+Message-ID: <50C19303.5060608@qca.qualcomm.com>
+References: <1354853850-10537-1-git-send-email-vthiagar@qca.qualcomm.com> <1354858735.22463.31.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	kernel-janitors@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1354858735.22463.31.camel@joe-AO722>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-__IFLA_BRPORT_MAX is one larger than IFLA_BRPORT_MAX.  We pass
-IFLA_BRPORT_MAX to nla_parse_nested() so we need IFLA_BRPORT_MAX + 1
-elements.  Also Smatch complains that we read past the end of the array
-when in br_set_port_flag() when it's called with IFLA_BRPORT_FAST_LEAVE.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-Only needed in linux-next.
 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 850b7d1..cfc5cfe 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -239,7 +239,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
- 	struct ifinfomsg *ifm;
- 	struct nlattr *protinfo;
- 	struct net_bridge_port *p;
--	struct nlattr *tb[IFLA_BRPORT_MAX];
-+	struct nlattr *tb[__IFLA_BRPORT_MAX];
- 	int err;
- 
- 	ifm = nlmsg_data(nlh);
+On Friday 07 December 2012 11:08 AM, Joe Perches wrote:
+> On Fri, 2012-12-07 at 09:47 +0530, Vasanthakumar Thiagarajan wrote:
+>> struct mac_address will be used by ACL related configuration ops.
+>
+> I'd prefer that any new code _not_ use struct mac_address
+> but use u8 addr[ETH_ALEN] instead.
+>
+> That's the most common style in the kernel.
+
+Ok, but struct mac_address looked handy when I want
+to deal with list of mac address instead using linked
+list. Thanks!
+
+Vasanth
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
