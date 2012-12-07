@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: gro: fix possible panic in skb_gro_receive()
-Date: Fri, 07 Dec 2012 14:41:19 -0500 (EST)
-Message-ID: <20121207.144119.1859602274016402253.davem@davemloft.net>
-References: <1354838099.10983.10.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] bonding: Fix check for ethtool get_link
+ operation support
+Date: Fri, 07 Dec 2012 14:41:46 -0500 (EST)
+Message-ID: <20121207.144146.1113964976024948858.davem@davemloft.net>
+References: <1354896932.2707.5.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: fubar@us.ibm.com, andy@greyhouse.net, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57982 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57996 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932151Ab2LGTlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 14:41:20 -0500
-In-Reply-To: <1354838099.10983.10.camel@edumazet-glaptop>
+	with ESMTP id S1752952Ab2LGTls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 14:41:48 -0500
+In-Reply-To: <1354896932.2707.5.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 06 Dec 2012 15:54:59 -0800
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 7 Dec 2012 16:15:32 +0000
 
-> From: Eric Dumazet <edumazet@google.com>
+> Since commit 2c60db037034 ('net: provide a default dev->ethtool_ops')
+> all devices have a non-null ethtool_ops.  Test only
+> dev->ethtool_ops->get_link in both places where we care.
 > 
-> commit 2e71a6f8084e (net: gro: selective flush of packets) added
-> a bug for skbs using frag_list. This part of the GRO stack is rarely
-> used, as it needs skb not using a page fragment for their skb->head.
-> 
-> Most drivers do use a page fragment, but some of them use GFP_KERNEL
-> allocations for the initial fill of their RX ring buffer.
-> 
-> napi_gro_flush() overwrite skb->prev that was used for these skb to
-> point to the last skb in frag_list.
-> 
-> Fix this using a separate field in struct napi_gro_cb to point to the
-> last fragment.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Applied, thanks Eric.
+Applied.
