@@ -1,60 +1,38 @@
-From: Michael Richardson <mcr@sandelman.ca>
-Subject: Re: vlan tagged packets and libpcap breakage
-Date: Thu, 06 Dec 2012 20:59:13 -0500
-Message-ID: <8795.1354845553@obiwan.sandelman.ca>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	<3246.1351717319@obiwan.sandelman.ca>
-	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	<87mwyi9h1x.fsf@xmission.com>
-	<12918.1353190488@obiwan.sandelman.ca>
-	<87obivu7n7.fsf@xmission.com>
-	<CAOxq_8OC6zUm93mCHD5daxDmuYmmbUdgy0DnjfQdBKky_2t4nQ@mail.gmail.com>
-	<87sj7iesdl.fsf@xmission.com>
-	<CAOxq_8NbmOtvyH6Q=AVeOUAj7DoFO8cnVUQA5sgyEG7jEJXpHA@mail.gmail.com>
-	<87hanyekr3.fsf@xmission.com>
-	<alpine.OSX.2.00.1212061730200.58531@animac.local>
-	<87y5had4gi.fsf@xmission.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: core: fix unused variable sparse warning
+Date: Fri, 7 Dec 2012 02:26:39 +0000 (UTC)
+Message-ID: <k9rk4v$icm$1@ger.gmane.org>
+References: <1354838913-20084-1-git-send-email-dinggnu@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Francesco Ruggeri <fruggeri@aristanetworks.com>,
-	tcpdump-workers@lists.tcpdump.org
-To: ebiederm@xmission.com (Eric W. Biederman)
-Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
-In-Reply-To: <87y5had4gi.fsf@xmission.com>
-List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
-List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
-List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
-List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
-List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
-Sender: tcpdump-workers-bounces@lists.tcpdump.org
-Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 07 Dec 2012 at 00:06 GMT, Cong Ding <dinggnu@gmail.com> wrote:
+> the variables zero and unres_qlen_max are only used when CONFIG_SYSCTL is
+> defined, otherwise it causes the following sparse warning when we turn on
+> CONFIG_SYSCTL.
+>
 
->>>>> "Eric" == Eric W Biederman <ebiederm@xmission.com> writes:
-    Eric> It is a bit odd that you are indenting with spaces instead of tabs
-    Eric> in a file that is indented with tab.  Again libpcap isn't my code so I
-    Eric> don't care but someone else might.
+commit b93196dc5af7729ff7cc50d3d322ab1a364aa14f
+Author: Cong Wang <amwang@redhat.com>
+Date:   Thu Dec 6 10:04:04 2012 +0800
 
-tabs are hysterical raisens.
-
-Send two patches
-1) tab->spaces
-2) your patch.
-
-github preferred :-)
-but, I'll process this patch as is.
-
--- 
-]       He who is tired of Weird Al is tired of life!           |  firewalls  [
-]   Michael Richardson, Sandelman Software Works, Ottawa, ON    |net architect[
-] mcr@sandelman.ottawa.on.ca http://www.sandelman.ottawa.on.ca/ |device driver[
-   Kyoto Plus: watch the video <http://www.youtube.com/watch?v=kzx1ycLXQSE>
-	               then sign the petition. 
-_______________________________________________
-tcpdump-workers mailing list
-tcpdump-workers@lists.tcpdump.org
-https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
+    net: fix some compiler warning in net/core/neighbour.c
+        
+    net/core/neighbour.c:65:12: warning: 'zero' defined but
+not used [-Wunused-variable]
+    net/core/neighbour.c:66:12: warning: 'unres_qlen_max' defined but
+not used [-Wunused-variable]
+    
+    These variables are only used when CONFIG_SYSCTL is defined,
+    so move them under #ifdef CONFIG_SYSCTL.
+	        
+    Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+    Signed-off-by: Cong Wang <amwang@redhat.com>
+    Acked-by: Shan Wei <davidshan@tencent.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
