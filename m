@@ -1,41 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] dynamic_queue_limit.h: Make the struct
- ___cacheline_aligned_on_smp
-Date: Fri, 07 Dec 2012 08:19:04 -0800
-Message-ID: <1354897144.26405.4.camel@edumazet-glaptop>
-References: <1354892334.29937.14.camel@joe-AO722>
-	 <CAL4Wiip12_Frb64WGk419_YApOuckTa3Jtd-nVROodLFTqvacg@mail.gmail.com>
-	 <1354896346.29937.43.camel@joe-AO722>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next 2/2] caif_usb: Make the driver name check more
+ efficient
+Date: Fri, 7 Dec 2012 16:20:27 +0000
+Message-ID: <1354897227.2707.10.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Cc: <netdev@vger.kernel.org>
+To: Sjur Braendeland <sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:34485 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422667Ab2LGQTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 11:19:09 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so461103pbc.19
-        for <netdev@vger.kernel.org>; Fri, 07 Dec 2012 08:19:08 -0800 (PST)
-In-Reply-To: <1354896346.29937.43.camel@joe-AO722>
+Received: from webmail.solarflare.com ([12.187.104.25]:8635 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161012Ab2LGQUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 11:20:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-12-07 at 08:05 -0800, Joe Perches wrote:
+Use the device model to get just the name, rather than using the
+ethtool API to get all driver information.
 
-> So it seemed somewhat sensible to make the
-> entire struct in a single cacheline.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+Compile-tested only.  I'm assuming that the strncmp() is not really
+necessary, but perhaps there is some OOT variant of cdc_ncm that is also
+supposed to be supported?
 
-Any layout change in an object used in network fast path need a complete
-performance study.
+Ben.
 
-Even if you provide such a study, we'll need to reproduce your numbers
-here.
+ net/caif/caif_usb.c |   13 +++----------
+ 1 files changed, 3 insertions(+), 10 deletions(-)
 
-BQL/DQL is not on our radars, spending two cache lines on a critical
-object is fine.
+diff --git a/net/caif/caif_usb.c b/net/caif/caif_usb.c
+index 582f80c..3ebc8cb 100644
+--- a/net/caif/caif_usb.c
++++ b/net/caif/caif_usb.c
+@@ -128,17 +128,10 @@ static int cfusbl_device_notify(struct notifier_block *me, unsigned long what,
+ 	struct cflayer *layer, *link_support;
+ 	struct usbnet *usbnet;
+ 	struct usb_device *usbdev;
+-	struct ethtool_drvinfo drvinfo;
+ 
+-	/*
+-	 * Quirks: High-jack ethtool to find if we have a NCM device,
+-	 * and find it's VID/PID.
+-	 */
+-	if (dev->ethtool_ops == NULL || dev->ethtool_ops->get_drvinfo == NULL)
+-		return 0;
+-
+-	dev->ethtool_ops->get_drvinfo(dev, &drvinfo);
+-	if (strncmp(drvinfo.driver, "cdc_ncm", 7) != 0)
++	/* Check whether we have a NCM device, and find its VID/PID. */
++	if (!(dev->dev.parent && dev->dev.parent->driver &&
++	      strcmp(dev->dev.parent->driver->name, "cdc_ncm") == 0))
+ 		return 0;
+ 
+ 	usbnet = netdev_priv(dev);
+-- 
+1.7.7.6
 
-Thanks
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
