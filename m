@@ -1,54 +1,69 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH rfc] netfilter: two xtables matches
-Date: Fri, 7 Dec 2012 14:20:14 +0100
-Message-ID: <20121207132014.GB3019@1984>
-References: <1354735339-13402-1-git-send-email-willemb@google.com>
- <CA+FuTSeYvcdtNf7N=POD+RzsE01+WVsub6F_nqbn06RZyoWx8w@mail.gmail.com>
- <alpine.LNX.2.01.1212052100190.30908@nerf07.vanv.qr>
- <20121206052246.GA2905@1984>
- <CA+FuTSf+fh21koZRJ_ZDsr8yiiwcw2-pJ4uTyS2pOHZGdBM1-w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Engelhardt <jengelh@inai.de>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+FuTSf+fh21koZRJ_ZDsr8yiiwcw2-pJ4uTyS2pOHZGdBM1-w@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: [PATCH V2 wireless-next] iwlwifi: iwlagn_request_scan: Fix check for priv->scan_request
+Date: Fri,  7 Dec 2012 06:28:34 -0700
+Message-ID: <1354886914-7822-1-git-send-email-tim.gardner@canonical.com>
+References: <1354830114.18211.4.camel@jlt4.sipsolutions.net>
+Cc: Tim Gardner <tim.gardner@canonical.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Don Fry <donald.h.fry@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354830114.18211.4.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 06, 2012 at 04:12:10PM -0500, Willem de Bruijn wrote:
-> On Thu, Dec 6, 2012 at 12:22 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > On Wed, Dec 05, 2012 at 09:00:36PM +0100, Jan Engelhardt wrote:
-> >> On Wednesday 2012-12-05 20:28, Willem de Bruijn wrote:
-> >>
-> >> >Somehow, the first part of this email went missing. Not critical,
-> >> >but for completeness:
-> >> >
-> >> >These two patches each add an xtables match.
-> >> >
-> >> >The xt_priority match is a straighforward addition in the style of
-> >> >xt_mark, adding the option to filter on one more sk_buff field. I
-> >> >have an immediate application for this. The amount of code (in
-> >> >kernel + userspace) to add a single check proved quite large.
-> >>
-> >> Hm so yeah, can't we just place this in xt_mark.c?
-> >
-> > I don't feel this belongs to xt_mark at all.
-> 
-> Do you have other concerns, or can I resubmit as is for merging in a
-> few days if no one raises additional issues?
+The WARN_ON_ONCE() check for scan_request will not correctly detect
+a NULL pointer for scan_type == IWL_SCAN_NORMAL. Make it explicit
+that the check only applies to normal scans.
 
-In nftables we have the 'meta' extension that allows to match all
-skbuff fields (among other things):
+Convert WARN_ON_ONCE to WARN_ON since priv->scan_request really _can't_
+be NULL for normal scans. If it is then we should emit frequent warnings.
 
-http://1984.lsi.us.es/git/nf-next/tree/net/netfilter/nft_meta.c?h=nf_tables8
+This smatch warning led to scrutiny of iwlagn_request_scan():
 
-I think it's the way to go so we stop adding small matches for each
-skbuff field.
+drivers/net/wireless/iwlwifi/dvm/scan.c:894 iwlagn_request_scan() error: we previously assumed 'priv->scan_request' could be null (see line 792)
 
-I don't mind the name if it's xt_skbuff or xt_meta.
+Cc: Johannes Berg <johannes.berg@intel.com>
+Cc: Wey-Yi Guy <wey-yi.w.guy@intel.com>
+Cc: Intel Linux Wireless <ilw@linux.intel.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+Cc: Don Fry <donald.h.fry@intel.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+---
+
+This patch does apply to 3.6.y, but it doesn't fix an existing
+bug so I don't think it qualifies. This patch simply makes
+the driver more robust for future development.
+
+V2 - corrected indentation more like the rest of the source
+in this file.
+
+ drivers/net/wireless/iwlwifi/dvm/scan.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/iwlwifi/dvm/scan.c b/drivers/net/wireless/iwlwifi/dvm/scan.c
+index bb9f625..fe91c5a 100644
+--- a/drivers/net/wireless/iwlwifi/dvm/scan.c
++++ b/drivers/net/wireless/iwlwifi/dvm/scan.c
+@@ -673,8 +673,9 @@ static int iwlagn_request_scan(struct iwl_priv *priv, struct ieee80211_vif *vif)
+ 	const u8 *ssid = NULL;
+ 	u8 ssid_len = 0;
+ 
+-	if (WARN_ON_ONCE(priv->scan_request &&
+-			 priv->scan_request->n_channels > MAX_SCAN_CHANNEL))
++	if (WARN_ON(priv->scan_type == IWL_SCAN_NORMAL &&
++		    (!priv->scan_request ||
++		    priv->scan_request->n_channels > MAX_SCAN_CHANNEL)))
+ 		return -EINVAL;
+ 
+ 	lockdep_assert_held(&priv->mutex);
+-- 
+1.7.9.5
