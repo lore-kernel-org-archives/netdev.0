@@ -1,81 +1,76 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: [PATCH v3 1/4] net: Add support for hardware-offloaded
- encapsulation
-Date: Fri, 7 Dec 2012 12:18:03 -0800 (PST)
-Message-ID: <alpine.LFD.2.02.1212071217420.4985@morpheus.jf.intel.com>
-References: <alpine.LFD.2.02.1212071139190.4985@morpheus.jf.intel.com> <20121207.143725.1501926484331042018.davem@davemloft.net> <alpine.LFD.2.02.1212071149150.4985@morpheus.jf.intel.com> <20121207.145239.1408511750725975741.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] af_packet: don't to defrag shared skb
+Date: Fri, 07 Dec 2012 15:31:34 -0500 (EST)
+Message-ID: <20121207.153134.25835204617509469.davem@davemloft.net>
+References: <1354906561-4695-1-git-send-email-eric@regit.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: joseph.gasparakis@intel.com, bhutchings@solarflare.com,
-	alexander.h.duyck@intel.com, shemminger@vyatta.com,
-	chrisw@sous-sol.org, gospo@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dmitry@broadcom.com,
-	saeed.bishara@gmail.com, peter.p.waskiewicz.jr@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121207.145239.1408511750725975741.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	johannes@sipsolutions.net, linville@tuxdriver.com
+To: eric@regit.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58574 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424190Ab2LGUbh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 15:31:37 -0500
+In-Reply-To: <1354906561-4695-1-git-send-email-eric@regit.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Leblond <eric@regit.org>
+Date: Fri,  7 Dec 2012 19:56:01 +0100
 
+Wireless folks, please take a look.  The issue is that,
+under the circumstances listed below, we get SKBs in
+the AF_PACKET input path that are shared.
 
-On Fri, 7 Dec 2012, David Miller wrote:
+Given the logic present in ieee80211_deliver_skb() I think
+the mac80211 code doesn't expect this either.
 
-> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> Date: Fri, 7 Dec 2012 11:52:43 -0800 (PST)
+More commentary from me below:
+
+> This patch is adding a check on skb before trying to defrag the
+> packet for the hash computation in fanout mode. The goal of this
+> patch is to avoid an kernel crash in pskb_expand_head.
+> It appears that under some specific condition there is a shared
+> skb reaching the defrag code and this lead to a crash due to the
+> following code:
 > 
-> > 
-> > 
-> > On Fri, 7 Dec 2012, David Miller wrote:
-> > 
-> >> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> >> Date: Fri, 7 Dec 2012 11:41:46 -0800 (PST)
-> >> 
-> >> > 
-> >> > 
-> >> > On Fri, 7 Dec 2012, David Miller wrote:
-> >> > 
-> >> >> From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> >> >> Date: Fri, 7 Dec 2012 10:24:17 -0800 (PST)
-> >> >> 
-> >> >> > So the idea here is that the driver will use the headers for checksumming 
-> >> >> > if the skb->encapsulation bit is on. The bit should be set in the protocol 
-> >> >> > driver.
-> >> >> > 
-> >> >> > To answer the second comment, the flags that we use in this series of 
-> >> >> > patches is NETIF_F_IP_CSUM, NETIF_F_IPV6_CSUM and NETIF_F_SG. These are 
-> >> >> > the bits that we propose will be used for checksumming of encapsulation. 
-> >> >> > As per a previous comment in v2, the hw_enc_features field should be used 
-> >> >> > also in the future when NICs have more encap offloads, so one could
-> >> >> > indicate these features there from the driver.
-> >> >> > 
-> >> >> > Furthermore, I submitted a patch for Rx checksumming, where NETIF_F_RXCSUM 
-> >> >> > is used, again in conjunction with skb->encapsulation flag. As I mention 
-> >> >> > in my logs, the driver is expected to set the ip_summed to UNNECESSARY and 
-> >> >> > turn the skb->encapsulation on, to indicate that the inner headers are 
-> >> >> > already HW checksummed.
-> >> >> > 
-> >> >> 
-> >> >> This is the kind of language that belongs in the commit message and
-> >> >> code comments.
-> >> >> 
-> >> > Sure. I'll wait to gather some more feedback if there is any and I will 
-> >> > re-spin this off adding more code comments and clarify this in the logs.
-> >> 
-> >> Great.
-> >> 
-> >> Please note that this request applies to your receive side change too.
-> >> 
-> > I believe the logs are sufficient in the rx patch:
-> > 
-> > This patch adds capability in vxlan to identify received
-> > checksummed inner packets and signal them to the upper layers of
-> > the stack. The driver needs to set the skb->encapsulation bit
-> > and also set the skb->ip_summed to CHECKSUM_UNNECESSARY.
-> > 
-> > ...but I can add more comments to the code if this is what you are 
-> > referring to.
+> 	if (skb_shared(skb))
+> 		BUG();
 > 
-> Yes, please do.
+> I've observed this crash under the following condition:
+>  1. a program is listening to an wifi interface (let say wlan0)
+>  2. it is using fanout capture in flow load balancing mode
+>  3. defrag option is on on the fanout socket
+>  4. the interface disconnect (radio down for example)
+>  5. the interface reconnect (radio switched up)
+>  6. once reconnected a single packet is seen with skb->users=2
+>  7. the kernel crash in pskb_expand_head at skbuff.c:1035
 > 
-I will! Thanks.
+> [BBB55:744364] [<ffffffff812a2761>] ? __pskb_pull_tail+0x43x0x26f
+> [BB8S5.744395] [<ffffffff812d29Tb>] ? ip_check_defrag+ox3a/0x14a
+> [BBB55.744422] [<ffffffffB1344459>] ? packet_rcv_fanout+ox5e/oxf9
+> [BBBS5.7444S0] [<ffffffffB12aaS9b>] ? __netif_receive_skb+ox444/ox4f9
+> [BBB55.T4447B] [<ffffffffB12aa?e1>] ? netif_receive_skb+ox6d/0x?3
+> [BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_deliver_skb+0xbd/0xfa [mac80211]
+> [BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_rx_h_data+0x1e0/0x21a [mac80211]
+> [BBB55.T4447B] [<ffffffffB12aa?e1>] ? ieee80211_rx_handlers+0x3d5/0x480 [mac80211]
+> [BBB55.T4447B] [<ffffffffB12aa?e1>] ? __wake_up
+> [BBB55.T4447B] [<ffffffffB12aa?e1>] ? evdev_eventr+0xc0/0xcf [evdev]
+> 
+> Signed-off-by: Eric Leblond <eric@regit.org>
+
+So if we look at ieee80211_deliver_skb(), it has code to deal with unaligned
+packet headers, wherein it memoves() the data into a better aligned location.
+
+But if these SKBs really are skb_shared(), this packet data
+modification is illegal.
+
+I suspect that the assumptions built into this unaligned data handling
+code, and AF_PACKET, are correct.  Meaning that we should never see
+skb_shared() packets here.  We just have a missing skb_copy()
+somewhere in mac80211, Johannes can you please take a look?
+
+Thanks.
