@@ -1,52 +1,51 @@
 From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: [PATCH v3 1/4] net: Add support for hardware-offloaded encapsulation
-Date: Fri, 07 Dec 2012 15:15:15 -0800
-Message-ID: <50C27883.5010006@gmail.com>
-References: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com> <1354845419-22483-2-git-send-email-joseph.gasparakis@intel.com>
+Subject: Re: [PATCH v3 2/4] net: Handle encapsulated offloads before fragmentation
+ or handing to lower dev
+Date: Fri, 07 Dec 2012 15:15:54 -0800
+Message-ID: <50C278AA.6020902@gmail.com>
+References: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com> <1354845419-22483-3-git-send-email-joseph.gasparakis@intel.com>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha512;
  protocol="application/pgp-signature";
- boundary="------------enigF3C70E2C80243DFE9C2B2699"
+ boundary="------------enig6DF46FBF22522B3C5EA03758"
 Cc: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org,
-	gospo@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dmitry@broadcom.com,
-	saeed.bishara@gmail.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+	gospo@redhat.com, Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dmitry@broadcom.com, saeed.bishara@gmail.com
 To: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354845419-22483-2-git-send-email-joseph.gasparakis@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:27248 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754701Ab2LGXP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2012 18:15:56 -0500
+In-Reply-To: <1354845419-22483-3-git-send-email-joseph.gasparakis@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigF3C70E2C80243DFE9C2B2699
+--------------enig6DF46FBF22522B3C5EA03758
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
 On 12/06/2012 05:56 PM, Joseph Gasparakis wrote:
-> This patch adds support in the kernel for offloading in the NIC Tx and =
-Rx
-> checksumming for encapsulated packets (such as VXLAN and IP GRE).
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 >
-> Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> This change allows the VXLAN to enable Tx checksum offloading even on
+> devices that do not support encapsulated checksum offloads. The
+> advantage to this is that it allows for the lower device to change due
+> to routing table changes without impacting features on the VXLAN itself=
+=2E
+>
 > Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 > ---
->  include/linux/ip.h        |    5 ++
->  include/linux/ipv6.h      |    5 ++
->  include/linux/netdevice.h |    2 +
->  include/linux/skbuff.h    |   90 +++++++++++++++++++++++++++++++++++++=
-+++++++-
->  include/linux/tcp.h       |   10 +++++
->  include/linux/udp.h       |    5 ++
->  net/core/skbuff.c         |    9 ++++
->  7 files changed, 125 insertions(+), 1 deletions(-)
+>  net/core/dev.c       |   15 +++++++++++++--
+>  net/ipv4/ip_output.c |    4 ++++
+>  2 files changed, 17 insertions(+), 2 deletions(-)
 Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 
---------------enigF3C70E2C80243DFE9C2B2699
+--------------enig6DF46FBF22522B3C5EA03758
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -55,19 +54,19 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v1.4.12 (GNU/Linux)
 Comment: Using GnuPG with undefined - http://www.enigmail.net/
 
-iQIcBAEBCgAGBQJQwniDAAoJEOVv75VaS+3OuOQQAJyWSm2sPtM85zbKVitTi3LK
-SmfVWnuE936WftqO0tQqmUjU67sdnTvAD/AAsc2uetvEhNG9s8o4WSSSNClh+0JR
-Ir/N6R3Pit+bRmlfOCtnN7h7zIh7Vr8cbAX0GUUy6GnudUY5EnCPDWhLw3IcENfW
-UEV7N1yUg1fYtB1dWG0BvOF2FNuhiiROVVeAKod8DNiwe5I3N64VhAW3SrZjMM/p
-iJFLev+NgOQM+oXOJM6VQAi8ftz24pgdlsq/MlvwbfL8BxRtetbmHqNby0fm84lR
-kMHAriol5W67DQ0iUW/0vbuMaGKFe46PJPB9kdPY3clXFbaNV7neyaaF7oMMT9bh
-uh5xmo4/HhHc0Bvz4DaAsozI5dmUT9LFl0D3nbsBhQlp0CC5ZUWhx1Rkg9hjjW+5
-Ju+tuo9GSRNQj0+/hW2qG68r8EDaGxObRD110VY/K16L40dY5EGFIiflx6ToFV7v
-sa/BRxHzslNS89mM5/q2q9KNLr+Wrpl7bAF8SgpQ0ufJy4wlAe33cEFZe+N9dxl3
-Hh7XHCFkL9it5TX0inzJjB5H9f+A/ouvmFXyMh5pEShaLiD+x9/cWrhMRIivEuwu
-Siu9lF+HVFexr8qgEZ0OF8QQOtsZOluq6TKjM3yRXicESjJp7DWsRauYlJJGHC5W
-U0naHbf7n+ecx7ARYDku
-=6VCR
+iQIcBAEBCgAGBQJQwniqAAoJEOVv75VaS+3ODBUP/1tcHnL5NmfppIhChwX3s9eL
+8L7a01GiqKK80Ez/S9ZUzfnmXgS5w3HILO1RyfjXiU+QjT9IkDYd0tnwM6rqvTaq
+eVW9mEXgNTzNxHSTmbeqpHIqOHhIqNaeEdOW26GZgJGt0n0CMOBcLTFZhGFvD3ZD
+/8sEmxTRrIqnrShxux82RxoEyWDqX75CBfkB+Bx6nwwYZSnpQ3EmTtQ+c/92b0th
+b/PH7XUQ0/HQfD+JN+MF/O654ID9iafAjdP6UyGvKhQmZ1ya9JceDz/oatzQUKRz
+W+DlupjW1Y/K8VNa2tXnvS/KcqI8RJmslgWj5t/tWbZle8M9ujSU9spcVs5fPwqs
+ov2tcynq+Kv/sjPxiGyFAkQw+QxnicwbaOe4p+OyFG0MT3UhmtTUosLNleXWAaJo
+hlToNFh2BAZQAHJJ07t+6lk5eobG4/6G1pZ1NJr2APElD9FY5s723y2udUS4Jq/+
+ZY72FjNNpHn2C7rTd2Ls4tDLxBPnAi8y7y79eHDLscFBDUzBt+Iny8Q1l30HYXPY
+a19FHEVo3jpMmzUBb6ZNCquWWFs1G43TMmXbV1winoN33+9z5lk+TaWSO5rpXu+i
+khuOOTkvtnkNF5MZRgjYCFN1T8vPrP9eNAeoEn6Hogo35/42+Fub+Rqp/Jl2G2dB
+kcAGNKBpJN5ckGBxJur/
+=3ZH9
 -----END PGP SIGNATURE-----
 
---------------enigF3C70E2C80243DFE9C2B2699--
+--------------enig6DF46FBF22522B3C5EA03758--
