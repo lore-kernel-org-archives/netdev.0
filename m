@@ -1,142 +1,89 @@
-From: Abhijit Pawar <abhi.c.pawar@gmail.com>
-Subject: [PATCH 2/4] net: remove obsolete simple_strto<foo>
-Date: Fri,  7 Dec 2012 17:19:58 +0530
-Message-ID: <1354880998-23417-1-git-send-email-abhi.c.pawar@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-wireless@vger.kernel.org,
-	Abhijit Pawar <abhi.c.pawar@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Cong Wang <amwang@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Joe Perches <joe@perches.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [RFC] wireless: check against default_ethtool_ops
+Date: Fri, 7 Dec 2012 13:16:19 +0100
+Message-ID: <20121207121617.GA4356@redhat.com>
+References: <1354729192-22945-1-git-send-email-greearb@candelatech.com>
+ <87a9ts4c1q.fsf@nemi.mork.no>
+ <50BF8C18.9060504@candelatech.com>
+ <20121206122528.GG2502@redhat.com>
+ <50C0FCE0.2090507@candelatech.com>
+ <20121207095012.GB11933@redhat.com>
+ <87zk1q3xrv.fsf@nemi.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	linux-wireless@vger.kernel.org,
+	=?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+To: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:49628 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932675Ab2LGLua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 06:50:30 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:46867 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933768Ab2LGMQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Dec 2012 07:16:27 -0500
+Content-Disposition: inline
+In-Reply-To: <87zk1q3xrv.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch replace the obsolete simple_strto<foo> with kstrto<foo>
+Since:
 
-Signed-off-by: Abhijit Pawar <abhi.c.pawar@gmail.com>
+commit 2c60db037034d27f8c636403355d52872da92f81
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Sun Sep 16 09:17:26 2012 +0000
+
+    net: provide a default dev->ethtool_ops
+
+wireless core does not correctly assign ethtool_ops. In order to fix
+the problem, and avoid assigning ethtool_ops on each individual cfg80211
+driver, we check against default_ethool_ops pointer instead of NULL in
+wireless core.
+
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 ---
- net/core/netpoll.c                 |    9 +++++++--
- net/ipv4/netfilter/ipt_CLUSTERIP.c |    9 +++++++--
- net/mac80211/debugfs_sta.c         |    4 +++-
- net/netfilter/nf_conntrack_core.c  |    6 ++++--
- 4 files changed, 21 insertions(+), 7 deletions(-)
+ include/linux/netdevice.h |    2 ++
+ net/core/dev.c            |    3 ++-
+ net/wireless/core.c       |    2 +-
+ 3 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 77a0388..596b127 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -668,13 +668,16 @@ EXPORT_SYMBOL(netpoll_print_options);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f8eda02..c98e1c3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -60,6 +60,8 @@ struct wireless_dev;
+ #define SET_ETHTOOL_OPS(netdev,ops) \
+ 	( (netdev)->ethtool_ops = (ops) )
  
- int netpoll_parse_options(struct netpoll *np, char *opt)
- {
-+	int rc;
- 	char *cur=opt, *delim;
++extern const struct ethtool_ops default_ethtool_ops;
++
+ /* hardware address assignment types */
+ #define NET_ADDR_PERM		0	/* address is permanent (default) */
+ #define NET_ADDR_RANDOM		1	/* address is generated randomly */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c0946cb..4cd2168 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6008,7 +6008,8 @@ struct netdev_queue *dev_ingress_queue_create(struct net_device *dev)
+ 	return queue;
+ }
  
- 	if (*cur != '@') {
- 		if ((delim = strchr(cur, '@')) == NULL)
- 			goto parse_failed;
- 		*delim = 0;
--		np->local_port = simple_strtol(cur, NULL, 10);
-+		rc = kstrtol(cur, 10, &np->local_port);
-+		if (rc)
-+			goto parse_failed;
- 		cur = delim;
- 	}
- 	cur++;
-@@ -705,7 +708,9 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 		*delim = 0;
- 		if (*cur == ' ' || *cur == '\t')
- 			np_info(np, "warning: whitespace is not allowed\n");
--		np->remote_port = simple_strtol(cur, NULL, 10);
-+		rc = kstrtol(cur, 10, &np->remote_port);
-+		if (rc)
-+			goto parse_failed;
- 		cur = delim;
- 	}
- 	cur++;
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index fe5daea..55e7b73 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -661,6 +661,7 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
- #define PROC_WRITELEN	10
- 	char buffer[PROC_WRITELEN+1];
- 	unsigned long nodenum;
-+	int rc;
+-static const struct ethtool_ops default_ethtool_ops;
++const struct ethtool_ops default_ethtool_ops;
++EXPORT_SYMBOL_GPL(default_ethtool_ops);
  
- 	if (size > PROC_WRITELEN)
- 		return -EIO;
-@@ -669,11 +670,15 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
- 	buffer[size] = 0;
+ /**
+  *	alloc_netdev_mqs - allocate network device
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 14d9904..90915d4 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -866,7 +866,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
+ 		/* allow mac80211 to determine the timeout */
+ 		wdev->ps_timeout = -1;
  
- 	if (*buffer == '+') {
--		nodenum = simple_strtoul(buffer+1, NULL, 10);
-+		rc = kstrtoul(buffer+1, 10, &nodenum);
-+		if (rc)
-+			return -EINVAL;
- 		if (clusterip_add_node(c, nodenum))
- 			return -ENOMEM;
- 	} else if (*buffer == '-') {
--		nodenum = simple_strtoul(buffer+1, NULL,10);
-+		rc = kstrtoul(buffer+1, 10, &nodenum);
-+		if (rc)
-+			return -EINVAL;
- 		if (clusterip_del_node(c, nodenum))
- 			return -ENOENT;
- 	} else
-diff --git a/net/mac80211/debugfs_sta.c b/net/mac80211/debugfs_sta.c
-index 89281d2..18754fd 100644
---- a/net/mac80211/debugfs_sta.c
-+++ b/net/mac80211/debugfs_sta.c
-@@ -219,7 +219,9 @@ static ssize_t sta_agg_status_write(struct file *file, const char __user *userbu
- 	} else
- 		return -EINVAL;
+-		if (!dev->ethtool_ops)
++		if (dev->ethtool_ops == &default_ethtool_ops)
+ 			dev->ethtool_ops = &cfg80211_ethtool_ops;
  
--	tid = simple_strtoul(buf, NULL, 0);
-+	ret = kstrtoul(buf, 0, &tid);
-+	if (ret)
-+		return -EINVAL;
- 
- 	if (tid >= IEEE80211_NUM_TIDS)
- 		return -EINVAL;
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index af17516..18ce24b 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1409,7 +1409,7 @@ EXPORT_SYMBOL_GPL(nf_ct_alloc_hashtable);
- 
- int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- {
--	int i, bucket;
-+	int i, bucket, rc;
- 	unsigned int hashsize, old_size;
- 	struct hlist_nulls_head *hash, *old_hash;
- 	struct nf_conntrack_tuple_hash *h;
-@@ -1422,7 +1422,9 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- 	if (!nf_conntrack_htable_size)
- 		return param_set_uint(val, kp);
- 
--	hashsize = simple_strtoul(val, NULL, 0);
-+	rc = kstrtouint(val, 0, &hashsize);
-+	if (rc)
-+		return -EINVAL;
- 	if (!hashsize)
- 		return -EINVAL;
- 
+ 		if ((wdev->iftype == NL80211_IFTYPE_STATION ||
 -- 
-1.7.7.6
+1.7.1
