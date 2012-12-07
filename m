@@ -1,42 +1,120 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC PATCH] af_packet: don't to defrag shared skb
-Date: Fri, 07 Dec 2012 22:41:42 +0100
-Message-ID: <1354916502.9124.18.camel@jlt4.sipsolutions.net>
-References: <1354906561-4695-1-git-send-email-eric@regit.org>
-	 <20121207.153134.25835204617509469.davem@davemloft.net>
-	 <1354915824.9124.11.camel@jlt4.sipsolutions.net>
-	 (sfid-20121207_223020_561049_DB965D43)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next #2 1/1] r8169: workaround for missing extended GigaMAC registers
+Date: Fri, 7 Dec 2012 22:20:21 +0100
+Message-ID: <20121207212021.GA8412@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: eric@regit.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linville@tuxdriver.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Lee Chun-Yi <jlee@suse.com>,
+	Wang YanQing <udknight@gmail.com>,
+	Hayes Wang <hayeswang@realtek.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:58745 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932126Ab2LGVlV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 16:41:21 -0500
-In-Reply-To: <1354915824.9124.11.camel@jlt4.sipsolutions.net> (sfid-20121207_223020_561049_DB965D43)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50508 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752655Ab2LGVpn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 16:45:43 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-12-07 at 22:30 +0100, Johannes Berg wrote:
+GigaMAC registers have been reported left unitialized in several
+situations:
+- after cold boot from power-off state
+- after S3 resume
 
-> The only other theory I can come up with right now is that the skb_get()
-> happens in deliver_skb via __netif_receive_skb. Keeping in mind that
-> wpa_supplicant might have another packet socket open for authentication
-> packets, that seems like a possibility. I'll test it once I figure out
-> how to do this "defrag" option you speak of :)
+Tweaking rtl_hw_phy_config takes care of both.
 
-Hmm now I'm venturing into the unknown (for me) and realm of
-speculation...
+This patch removes an excess entry (",") at the end of the exgmac_reg
+array as well.
 
-wpa_supplicant opens a packet socket for ETH_P_EAPOL, which indirectly
-eventually calls dev_add_pack(). But if you do the same for another
-socket, you'll get the same again, and then deliver_skb() will deliver
-only a refcounted packet to the prot_hook->func().
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Wang YanQing <udknight@gmail.com>
+Cc: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 42 ++++++++++++++++++++----------------
+ 1 file changed, 24 insertions(+), 18 deletions(-)
 
-This seems like it could very well cause the problem?
+- Rebased against net-next with rtl8168e_2_hw_phy_config vs rtl8168f_hw_phy_config
+  fixup as per davem's request.
 
-johannes
+- Removed a stealth "," after the last record of exgmac_reg. Not sure where it poked
+  into...
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 891feee..1747256 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -3120,6 +3120,23 @@ static void rtl8168e_1_hw_phy_config(struct rtl8169_private *tp)
+ 	rtl_writephy(tp, 0x0d, 0x0000);
+ }
+ 
++static void rtl_rar_exgmac_set(struct rtl8169_private *tp, u8 *addr)
++{
++	const u16 w[] = {
++		addr[0] | (addr[1] << 8),
++		addr[2] | (addr[3] << 8),
++		addr[4] | (addr[5] << 8)
++	};
++	const struct exgmac_reg e[] = {
++		{ .addr = 0xe0, ERIAR_MASK_1111, .val = w[0] | (w[1] << 16) },
++		{ .addr = 0xe4, ERIAR_MASK_1111, .val = w[2] },
++		{ .addr = 0xf0, ERIAR_MASK_1111, .val = w[0] << 16 },
++		{ .addr = 0xf4, ERIAR_MASK_1111, .val = w[1] | (w[2] << 16) }
++	};
++
++	rtl_write_exgmac_batch(tp, e, ARRAY_SIZE(e));
++}
++
+ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
+ {
+ 	static const struct phy_reg phy_reg_init[] = {
+@@ -3204,6 +3221,9 @@ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
+ 	rtl_writephy(tp, 0x1f, 0x0000);
+ 
+ 	r8168_aldps_enable_1(tp);
++
++	/* Broken BIOS workaround: feed GigaMAC registers with MAC address. */
++	rtl_rar_exgmac_set(tp, tp->dev->dev_addr);
+ }
+ 
+ static void rtl8168f_hw_phy_config(struct rtl8169_private *tp)
+@@ -3740,33 +3760,19 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
+ static void rtl_rar_set(struct rtl8169_private *tp, u8 *addr)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
+-	u32 high;
+-	u32 low;
+-
+-	low  = addr[0] | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24);
+-	high = addr[4] | (addr[5] << 8);
+ 
+ 	rtl_lock_work(tp);
+ 
+ 	RTL_W8(Cfg9346, Cfg9346_Unlock);
+ 
+-	RTL_W32(MAC4, high);
++	RTL_W32(MAC4, addr[4] | addr[5] << 8);
+ 	RTL_R32(MAC4);
+ 
+-	RTL_W32(MAC0, low);
++	RTL_W32(MAC0, addr[0] | addr[1] << 8 | addr[2] << 16 | addr[3] << 24);
+ 	RTL_R32(MAC0);
+ 
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_34) {
+-		const struct exgmac_reg e[] = {
+-			{ .addr = 0xe0, ERIAR_MASK_1111, .val = low },
+-			{ .addr = 0xe4, ERIAR_MASK_1111, .val = high },
+-			{ .addr = 0xf0, ERIAR_MASK_1111, .val = low << 16 },
+-			{ .addr = 0xf4, ERIAR_MASK_1111, .val = high << 16 |
+-								low  >> 16 },
+-		};
+-
+-		rtl_write_exgmac_batch(tp, e, ARRAY_SIZE(e));
+-	}
++	if (tp->mac_version == RTL_GIGA_MAC_VER_34)
++		rtl_rar_exgmac_set(tp, addr);
+ 
+ 	RTL_W8(Cfg9346, Cfg9346_Lock);
+ 
+-- 
+1.7.11.7
