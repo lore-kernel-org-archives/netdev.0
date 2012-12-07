@@ -1,7 +1,9 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next v3 0/3] Multiqueue support in virtio-net
-Date: Sat,  8 Dec 2012 01:04:54 +0800
-Message-ID: <1354899897-10423-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next v3 1/3] virtio-net: separate fields of
+	sending/receiving queue from virtnet_info
+Date: Sat,  8 Dec 2012 01:04:55 +0800
+Message-ID: <1354899897-10423-2-git-send-email-jasowang@redhat.com>
+References: <1354899897-10423-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,6 +13,7 @@ To: mst@redhat.com, rusty@rustcorp.com.au, davem@davemloft.net,
 	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1354899897-10423-1-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -22,367 +25,718 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi all:
+To support multiqueue transmitq/receiveq, the first step is to separate queue
+related structure from virtnet_info. This patch introduce send_queue and
+receive_queue structure and use the pointer to them as the parameter in
+functions handling sending/receiving.
 
-This series is an update version (hope the final version) of multiqueue
-(VIRTIO_NET_F_MQ) support in virtio-net driver. All previous comments were
-addressed, the work were based on Krishna Kumar's work to let virtio-net use
-multiple rx/tx queues to do the packets reception and transmission. Performance
-test show the aggregate latency were increased greately but may get some
-regression in small packet transmission. Due to this, multiqueue were disabled
-by default. If user want to benefit form the multiqueue, ethtool -L could be
-used to enable the feature.
+Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/virtio_net.c |  282 ++++++++++++++++++++++++++--------------------
+ 1 files changed, 158 insertions(+), 124 deletions(-)
 
-Please review and comments.
-
-A protype implementation of qemu-kvm support could by found in
-git://github.com/jasowang/qemu-kvm-mq.git. To start a guest with two queues, you
-could specify the queues parameters to both tap and virtio-net like:
-
-./qemu-kvm -netdev tap,queues=2,... -device virtio-net-pci,queues=2,...
-
-then enable the multiqueue through ethtool by:
-
-ethtool -L eth0 combined 2
-
-Changes from V2:
-Align the implementation to V6 virtio-spec
-- Change the name of feature and name from _{RFS|rfs} to _{MQ|mq}
-
-Changes from V1:
-Addressing Michael's comments:
-- fix typos in commit log
-- don't move virtnet_open()
-- don't set to NULL in virtnet_free_queues()
-- style & comment fixes
-- conditionally set the irq affinity hint based on online cpus and queue pairs
-- move the virnet_del_vqs to patch 1
-- change the meaningless kzalloc() to kmalloc()
-- open code the err handling
-- store the name of virtqueue in send/receive queue
-- avoid type cast in virtnet_find_vqs()
-- fix the mem leak and freeing issue of names in virtnet_find_vqs()
-- check cvq during before setting the max_queue_pairs in virtnet_probe()
-- check the cvq and VIRTIO_NET_F_RFS in virtnet_set_queues()
-- set the curr_queue_pairs in virtnet_set_queue()
-- use the err report by virtnet_set_queue() as the return value of
-  ethtool_set_channels()
-
-Changes from RFC v7:
-Addressing Rusty's comments:
-- align the implementation (location of cvq) to v5.
-- fix the style issue.
-- use a global refill instead of per-vq one.
-- check the VIRTIO_NET_F_RFS before calling virtnet_set_queues()
-
-Addresing Michael's comments
-- rename the curr_queue_pairs in virtnet_probe() to max_queue_pairs
-- validate the number of queue pairs supported by the device against
-  VIRTIO_NET_CTRL_RFS_VQ_PAIRS_MIN and VIRTIO_NET_CTRL_RFS_VQ_PAIRS_MAX.
-- don't crash when failing to change the number of virtqueues
-- don't set the affinity hint when onle single queue is used or there's too much
-  virtqueues
-- add a TODO of handling cpu hotplug
-- allow user to set the nubmer of queue pairs between 1 and max_queue_pairs
-
-Changes from RFC v6:
-- Align the implementation with the RFC spec update v5
-- Addressing Rusty's comments:
-  * split the patches
-  * rename to max_queue_pairs and curr_queue_pairs
-  * remove the useless status
-  * fix the hibernation bug
-- Addressing Ben's comments:
-  * check other parameters in ethtool_set_queues
-
-Changes from RFC v5:
-- Align the implementation with the RFC spec update v4
-- Switch the mode between single mode and multiqueue mode without reset
-- Remove the 256 limitation of queues
-- Use helpers to do the mapping between virtqueues and tx/rx queues
-- Use commbined channels instead of separated rx/tx queus when do the queue
-  number configuartion
-- Other coding style comments from Michael
-
-Changes from RFC v4:
-- Add ability to negotiate the number of queues through control virtqueue
-- Ethtool -{L|l} support and default the tx/rx queue number to 1
-- Expose the API to set irq affinity instead of irq itself
-
-Changes from RFC v3:
-- Rebase to the net-next
-- Let queue 2 to be the control virtqueue to obey the spec
-- Prodives irq affinity
-- Choose txq based on processor id
-
-Reference:
-- V6 virtio-spec: http://marc.info/?l=linux-netdev&m=135488976031512&w=2
-- V2: https://lkml.org/lkml/2012/12/5/90
-- V1: https://lkml.org/lkml/2012/11/27/177
-- RFC V7: https://lkml.org/lkml/2012/11/27/177a
-- RFC V6: https://lkml.org/lkml/2012/10/30/127
-- RFC V5: http://lwn.net/Articles/505388/
-- RFC V4: https://lkml.org/lkml/2012/6/25/120
-- RFC V2: http://lwn.net/Articles/467283/
-
-Perf Numbers:
-- pktgen shows multqueue has much more ability to send/receive more packets
-  comapred to single queue.
-- netperf request-reponse test shows multiqueue improves a lot in aggregate
-  latency.
-- netperf stream test shows some regression especially for small packets since
-  TCP batch less when latency is improved.
-
-1 Pktgen test:
-
-1.0 Test Environment:
-
-One 2.0G AMD Opteron(tm) Processor 6168. Pktgen to stress the virtio-net in
-guest to test Guest TX. Pktgen to stress tap in host to test Guest RX.
-
-2.1 Guest TX: Unfortunately current pktgen does not support virtio-net well
-since virtio-net may not free the skb during tx completion. So I test through a
-patch (https://lkml.org/lkml/2012/11/26/31) that don't wait for this freeing
-with a guest of 4 vcpu:
-
-#q | kpps  | +improvement%
- 1 | 589K  | 0%
- 2 | 952K  | 62%
- 3 | 1290K | 120%
- 4 | 1578K | 168%
-
-2.2 Guest RX: After commit 5d097109257c03a71845729f8db6b5770c4bbedc (tun: only
-queue packets on device), pktgen start to report a unbelievable huge
-kpps. (>2099kpps even for one queue). The problem if tun report NETDEV_TX_OK
-even when it drops packet which confuse the pktgen. After change it to
-NET_XMIT_DROP, the value makes more sense but not very stable even doing some
-pining manually. Even this, multiqueue get a good speedup in the test. Will
-continue to investigate.
-
-2 Netperf test:
-
-2.0 Test Environment:
-
-Two Intel(R) Xeon(R) CPU E5620  @ 2.40GHz with two directed connected intel
-82599EB 10 Gigabit Ethernet controller. A script to launch multiple parallelized
-netperf sessions in demo mode, and a post-process script to compare the
-timestamp and calculate the aggregate performance.
-
-available: 2 nodes (0-1)
-node 0 cpus: 0 1 2 3
-node 0 size: 8175 MB
-node 0 free: 7359 MB
-node 1 cpus: 4 5 6 7
-node 1 size: 8192 MB
-node 1 free: 7731 MB
-node distances
-node   0   1
-  0:  10  20
-  1:  20  10
-
-Host/Guest kernel: net-next with mq patches
-
-2.1 2vcpu 2q vs 1q: ping guest vcpu and vhost thread in the same numa node
-
-TCP_RR test:
-size|session|+thu%|+normalize%
-    1|     1|    0%|   -2%
-    1|    20|  +23%|   +2%
-    1|    50|   +9%|   -1%
-    1|   100|   +2%|   -7%
-   64|     1|    0%|   +1%
-   64|    20|  +17%|   -1%
-   64|    50|   +6%|   -4%
-   64|   100|   +5%|   -5%
-  256|     1|    0%|  +24%
-  256|    20|  +52%|  +19%
-  256|    50|  +46%|  +32%
-  256|   100|  +44%|  +31%
-
-- TCP_RR shows improvement of transaction rate. The reason why 1/64 byte does no
-  show much gain is because the test could not fully utilized the two vhost
-  threads: Each vhost thread cosume only about 50% of cpu.
-
-TCP_CRR test:
-size|session|+thu%|+normalize%
-    1|     1|   -8%|  -13%
-    1|    20|  +34%|   +1%
-    1|    50|  +27%|    0%
-    1|   100|  +29%|   +1%
-   64|     1|   -9%|  -13%
-   64|    20|  +31%|    0%
-   64|    50|  +26%|   -1%
-   64|   100|  +30%|   +1%
-  256|     1|   -8%|  -11%
-  256|    20|  +33%|   +1%
-  256|    50|  +23%|   -3%
-  256|   100|  +29%|   +1%
-
-- TCP_CRR shows improvemnt of multiple sessions of TCP_CRR. Get regression of
-  single session of TCP_CRR test, looks like the TCP_CRR will miss the flow
-  director of both ixgbe and tun, which cause almost all physical queues has
-  been used in host.
-
-Guest TX:
-size|session|+thu%|+normalize%
-    1|     1|   -6%|    0%
-    1|     2|   +3%|    0%
-    1|     4|    0%|    0%
-   64|     1|    0%|    0%
-   64|     2|   -5%|   -8%
-   64|     4|   -5%|   -7%
-  256|     1|  +25%|   +7%
-  256|     2|  -10%|  -34%
-  256|     4|  -29%|  -31%
-  512|     1|   -1%|  -63%
-  512|     2|  -42%|  -43%
-  512|     4|  -51%|  -60%
- 1024|     1|   -5%|  -13%
- 1024|     2|   +2%|  -39%
- 1024|     4|    0%|  -27%
- 4096|     1|  +73%|  +51%
- 4096|     2|   +5%|   -9%
- 4096|     4|   +3%|  -18%
-16384|     1|  +48%|  +29%
-16384|     2|  +73%|  +16%
-16384|     4|  +21%|  -22%
-
-- Parallel sending of small packets gets regression, statistics shows when
-  multiqueue is enabled, TCP tends to send much more but smaller packets because
-  the latency is improved, so TCP tends to batch less. More packets also means
-  more exits/irqs which is bad for both throughput and cpu utilization.
-
-Guest RX:
-size|session|+thu%|+normalize%
-    1|     1|    0%|  +26%
-    1|     2|   -3%|  -51%
-    1|     4|   -2%|  -44%
-   64|     1|    0%|   -2%
-   64|     2|    0%|  -29%
-   64|     4|    0%|  -21%
-  256|     1|    0%|   -2%
-  256|     2|    0%|  -18%
-  256|     4|  +11%|  -13%
-  512|     1|   -1%|   -2%
-  512|     2|   -9%|  -21%
-  512|     4|   +7%|  -15%
- 1024|     1|    0%|   -2%
- 1024|     2|   +1%|  -11%
- 1024|     4|   +5%|  -16%
- 4096|     1|    0%|    0%
- 4096|     2|    0%|  -10%
- 4096|     4|  +10%|  -11%
-16384|     1|    0%|   +1%
-16384|     2|   +1%|  -15%
-16384|     4|  +18%|   -7%
-
-- RX performance is equal or better than single queue, but with a drop on per
-  cpu throughput. Statistics shows more packets were sent and received by guest
-  which result more exits/irqs.
-
-2.2 4vcpu 4q vs 1q, pin vcpu in node 0, vhost thread in node 1
-
-TCP_RR:
-size|session|+thu%|+normalize%
-    1|     1|   -1%|   +2%
-    1|    20| +160%|   +5%
-    1|    50| +169%|  +30%
-    1|   100| +161%|  +30%
-   64|     1|    0%|   +4%
-   64|    20| +157%|  +11%
-   64|    50| +112%|  +47%
-   64|   100| +110%|  +48%
-  256|     1|    0%|   +6%
-  256|    20| +104%|   -3%
-  256|    50| +131%|  +69%
-  256|   100| +174%|  +96%
-
-- Multiqueue shows much improvement in both transaction rate and cpu
-  utilization.
-
-TCP_CRR:
-size|session|+thu%|+normalize%
-    1|     1|  -30%|  -36%
-    1|    20| +108%|   -4%
-    1|    50| +132%|   +3%
-    1|   100| +130%|   +9%
-   64|     1|  -31%|  -36%
-   64|    20| +111%|   -2%
-   64|    50| +128%|   +2%
-   64|   100| +136%|  +10%
-  256|     1|  -30%|  -37%
-  256|    20| +112%|   -1%
-  256|    50| +136%|   +7%
-  256|   100| +138%|  +11%
-
-- Multiqueue shows much more improvement in aggregate transaction rate with
-  equal or better cpu utilization.
-- Like what we met in 2q test, single process of TCP_CRR get regression.
-
-Guest TX:
-size|session|+thu%|+normalize%
-    1|     1|   -4%|    0%
-    1|     2|  -15%|    0%
-    1|     4|  -14%|    0%
-   64|     1|   +1%|   -1%
-   64|     2|  -10%|  -16%
-   64|     4|  -19%|  -26%
-  256|     1|   -3%|   -1%
-  256|     2|  -34%|  -38%
-  256|     4|  -27%|  -45%
-  512|     1|   -7%|   -6%
-  512|     2|  -42%|  -55%
-  512|     4|   +1%|  -15%
- 1024|     1|  +12%|  -25%
- 1024|     2|    0%|  -23%
- 1024|     4|   +2%|  -21%
- 4096|     1|    0%|   -5%
- 4096|     2|    0%|  -16%
- 4096|     4|   -1%|  -31%
-16384|     1|   -4%|   -3%
-16384|     2|   +4%|  -17%
-16384|     4|   +7%|  -28%
-
-- Here we met the same issue as 2q: Statistics shows guest tends to send much
-more but smaller packet in 4q since the latency is improved.
-
-Guest RX:
-size|session|+thu%|+normalize%
-    1|     1|   +1%|    0%
-    1|     2|   -2%|  -30%
-    1|     4|   -2%|  -58%
-   64|     1|    0%|   -1%
-   64|     2|    0%|  -25%
-   64|     4|   -1%|  -45%
-  256|     1|    0%|    0%
-  256|     2|   -2%|  -25%
-  256|     4|  +61%|  -19%
-  512|     1|   -1%|    0%
-  512|     2|  +22%|  -11%
-  512|     4|  +58%|  -22%
- 1024|     1|   -3%|   -2%
- 1024|     2|  +35%|   -6%
- 1024|     4|  +53%|  -26%
- 4096|     1|   -1%|    0%
- 4096|     2|  +43%|   -3%
- 4096|     4|  +66%|  -19%
-16384|     1|    0%|    0%
-16384|     2|  +45%|   -2%
-16384|     4|  +79%|  -12%
-
-- We get some performance improvement. The reason is becuase there's no much
-  cpu in host node 0, so we must pin all vhost threads in node 1 to get stable
-  result.
-- Statistics shows much more packets were sent/received by guest which leads
-  higher cpu utilization.
-
-Jason Wang (3):
-  virtio-net: separate fields of sending/receiving queue from
-    virtnet_info
-  virtio_net: multiqueue support
-  virtio-net: support changing the number of queue pairs through
-    ethtool
-
- drivers/net/virtio_net.c        |  726 +++++++++++++++++++++++++++++----------
- include/uapi/linux/virtio_net.h |   27 ++
- 2 files changed, 567 insertions(+), 186 deletions(-)
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 90ac97d..02a7102 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -51,16 +51,40 @@ struct virtnet_stats {
+ 	u64 rx_packets;
+ };
+ 
+-struct virtnet_info {
+-	struct virtio_device *vdev;
+-	struct virtqueue *rvq, *svq, *cvq;
+-	struct net_device *dev;
++/* Internal representation of a send virtqueue */
++struct send_queue {
++	/* Virtqueue associated with this send _queue */
++	struct virtqueue *vq;
++
++	/* TX: fragments + linear part + virtio header */
++	struct scatterlist sg[MAX_SKB_FRAGS + 2];
++};
++
++/* Internal representation of a receive virtqueue */
++struct receive_queue {
++	/* Virtqueue associated with this receive_queue */
++	struct virtqueue *vq;
++
+ 	struct napi_struct napi;
+-	unsigned int status;
+ 
+ 	/* Number of input buffers, and max we've ever had. */
+ 	unsigned int num, max;
+ 
++	/* Chain pages by the private ptr. */
++	struct page *pages;
++
++	/* RX: fragments + linear part + virtio header */
++	struct scatterlist sg[MAX_SKB_FRAGS + 2];
++};
++
++struct virtnet_info {
++	struct virtio_device *vdev;
++	struct virtqueue *cvq;
++	struct net_device *dev;
++	struct send_queue sq;
++	struct receive_queue rq;
++	unsigned int status;
++
+ 	/* I like... big packets and I cannot lie! */
+ 	bool big_packets;
+ 
+@@ -81,13 +105,6 @@ struct virtnet_info {
+ 
+ 	/* Lock for config space updates */
+ 	struct mutex config_lock;
+-
+-	/* Chain pages by the private ptr. */
+-	struct page *pages;
+-
+-	/* fragments + linear part + virtio header */
+-	struct scatterlist rx_sg[MAX_SKB_FRAGS + 2];
+-	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
+ };
+ 
+ struct skb_vnet_hdr {
+@@ -117,22 +134,22 @@ static inline struct skb_vnet_hdr *skb_vnet_hdr(struct sk_buff *skb)
+  * private is used to chain pages for big packets, put the whole
+  * most recent used list in the beginning for reuse
+  */
+-static void give_pages(struct virtnet_info *vi, struct page *page)
++static void give_pages(struct receive_queue *rq, struct page *page)
+ {
+ 	struct page *end;
+ 
+-	/* Find end of list, sew whole thing into vi->pages. */
++	/* Find end of list, sew whole thing into vi->rq.pages. */
+ 	for (end = page; end->private; end = (struct page *)end->private);
+-	end->private = (unsigned long)vi->pages;
+-	vi->pages = page;
++	end->private = (unsigned long)rq->pages;
++	rq->pages = page;
+ }
+ 
+-static struct page *get_a_page(struct virtnet_info *vi, gfp_t gfp_mask)
++static struct page *get_a_page(struct receive_queue *rq, gfp_t gfp_mask)
+ {
+-	struct page *p = vi->pages;
++	struct page *p = rq->pages;
+ 
+ 	if (p) {
+-		vi->pages = (struct page *)p->private;
++		rq->pages = (struct page *)p->private;
+ 		/* clear private here, it is used to chain pages */
+ 		p->private = 0;
+ 	} else
+@@ -140,12 +157,12 @@ static struct page *get_a_page(struct virtnet_info *vi, gfp_t gfp_mask)
+ 	return p;
+ }
+ 
+-static void skb_xmit_done(struct virtqueue *svq)
++static void skb_xmit_done(struct virtqueue *vq)
+ {
+-	struct virtnet_info *vi = svq->vdev->priv;
++	struct virtnet_info *vi = vq->vdev->priv;
+ 
+ 	/* Suppress further interrupts. */
+-	virtqueue_disable_cb(svq);
++	virtqueue_disable_cb(vq);
+ 
+ 	/* We were probably waiting for more output buffers. */
+ 	netif_wake_queue(vi->dev);
+@@ -167,9 +184,10 @@ static void set_skb_frag(struct sk_buff *skb, struct page *page,
+ }
+ 
+ /* Called from bottom half context */
+-static struct sk_buff *page_to_skb(struct virtnet_info *vi,
++static struct sk_buff *page_to_skb(struct receive_queue *rq,
+ 				   struct page *page, unsigned int len)
+ {
++	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	struct sk_buff *skb;
+ 	struct skb_vnet_hdr *hdr;
+ 	unsigned int copy, hdr_len, offset;
+@@ -224,12 +242,12 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 	}
+ 
+ 	if (page)
+-		give_pages(vi, page);
++		give_pages(rq, page);
+ 
+ 	return skb;
+ }
+ 
+-static int receive_mergeable(struct virtnet_info *vi, struct sk_buff *skb)
++static int receive_mergeable(struct receive_queue *rq, struct sk_buff *skb)
+ {
+ 	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
+ 	struct page *page;
+@@ -243,7 +261,7 @@ static int receive_mergeable(struct virtnet_info *vi, struct sk_buff *skb)
+ 			skb->dev->stats.rx_length_errors++;
+ 			return -EINVAL;
+ 		}
+-		page = virtqueue_get_buf(vi->rvq, &len);
++		page = virtqueue_get_buf(rq->vq, &len);
+ 		if (!page) {
+ 			pr_debug("%s: rx error: %d buffers missing\n",
+ 				 skb->dev->name, hdr->mhdr.num_buffers);
+@@ -256,14 +274,15 @@ static int receive_mergeable(struct virtnet_info *vi, struct sk_buff *skb)
+ 
+ 		set_skb_frag(skb, page, 0, &len);
+ 
+-		--vi->num;
++		--rq->num;
+ 	}
+ 	return 0;
+ }
+ 
+-static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
++static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ {
+-	struct virtnet_info *vi = netdev_priv(dev);
++	struct virtnet_info *vi = rq->vq->vdev->priv;
++	struct net_device *dev = vi->dev;
+ 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+ 	struct sk_buff *skb;
+ 	struct page *page;
+@@ -273,7 +292,7 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
+ 		pr_debug("%s: short packet %i\n", dev->name, len);
+ 		dev->stats.rx_length_errors++;
+ 		if (vi->mergeable_rx_bufs || vi->big_packets)
+-			give_pages(vi, buf);
++			give_pages(rq, buf);
+ 		else
+ 			dev_kfree_skb(buf);
+ 		return;
+@@ -285,14 +304,14 @@ static void receive_buf(struct net_device *dev, void *buf, unsigned int len)
+ 		skb_trim(skb, len);
+ 	} else {
+ 		page = buf;
+-		skb = page_to_skb(vi, page, len);
++		skb = page_to_skb(rq, page, len);
+ 		if (unlikely(!skb)) {
+ 			dev->stats.rx_dropped++;
+-			give_pages(vi, page);
++			give_pages(rq, page);
+ 			return;
+ 		}
+ 		if (vi->mergeable_rx_bufs)
+-			if (receive_mergeable(vi, skb)) {
++			if (receive_mergeable(rq, skb)) {
+ 				dev_kfree_skb(skb);
+ 				return;
+ 			}
+@@ -359,8 +378,9 @@ frame_err:
+ 	dev_kfree_skb(skb);
+ }
+ 
+-static int add_recvbuf_small(struct virtnet_info *vi, gfp_t gfp)
++static int add_recvbuf_small(struct receive_queue *rq, gfp_t gfp)
+ {
++	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	struct sk_buff *skb;
+ 	struct skb_vnet_hdr *hdr;
+ 	int err;
+@@ -372,77 +392,77 @@ static int add_recvbuf_small(struct virtnet_info *vi, gfp_t gfp)
+ 	skb_put(skb, MAX_PACKET_LEN);
+ 
+ 	hdr = skb_vnet_hdr(skb);
+-	sg_set_buf(vi->rx_sg, &hdr->hdr, sizeof hdr->hdr);
++	sg_set_buf(rq->sg, &hdr->hdr, sizeof hdr->hdr);
+ 
+-	skb_to_sgvec(skb, vi->rx_sg + 1, 0, skb->len);
++	skb_to_sgvec(skb, rq->sg + 1, 0, skb->len);
+ 
+-	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, 2, skb, gfp);
++	err = virtqueue_add_buf(rq->vq, rq->sg, 0, 2, skb, gfp);
+ 	if (err < 0)
+ 		dev_kfree_skb(skb);
+ 
+ 	return err;
+ }
+ 
+-static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
++static int add_recvbuf_big(struct receive_queue *rq, gfp_t gfp)
+ {
+ 	struct page *first, *list = NULL;
+ 	char *p;
+ 	int i, err, offset;
+ 
+-	/* page in vi->rx_sg[MAX_SKB_FRAGS + 1] is list tail */
++	/* page in rq->sg[MAX_SKB_FRAGS + 1] is list tail */
+ 	for (i = MAX_SKB_FRAGS + 1; i > 1; --i) {
+-		first = get_a_page(vi, gfp);
++		first = get_a_page(rq, gfp);
+ 		if (!first) {
+ 			if (list)
+-				give_pages(vi, list);
++				give_pages(rq, list);
+ 			return -ENOMEM;
+ 		}
+-		sg_set_buf(&vi->rx_sg[i], page_address(first), PAGE_SIZE);
++		sg_set_buf(&rq->sg[i], page_address(first), PAGE_SIZE);
+ 
+ 		/* chain new page in list head to match sg */
+ 		first->private = (unsigned long)list;
+ 		list = first;
+ 	}
+ 
+-	first = get_a_page(vi, gfp);
++	first = get_a_page(rq, gfp);
+ 	if (!first) {
+-		give_pages(vi, list);
++		give_pages(rq, list);
+ 		return -ENOMEM;
+ 	}
+ 	p = page_address(first);
+ 
+-	/* vi->rx_sg[0], vi->rx_sg[1] share the same page */
+-	/* a separated vi->rx_sg[0] for virtio_net_hdr only due to QEMU bug */
+-	sg_set_buf(&vi->rx_sg[0], p, sizeof(struct virtio_net_hdr));
++	/* rq->sg[0], rq->sg[1] share the same page */
++	/* a separated rq->sg[0] for virtio_net_hdr only due to QEMU bug */
++	sg_set_buf(&rq->sg[0], p, sizeof(struct virtio_net_hdr));
+ 
+-	/* vi->rx_sg[1] for data packet, from offset */
++	/* rq->sg[1] for data packet, from offset */
+ 	offset = sizeof(struct padded_vnet_hdr);
+-	sg_set_buf(&vi->rx_sg[1], p + offset, PAGE_SIZE - offset);
++	sg_set_buf(&rq->sg[1], p + offset, PAGE_SIZE - offset);
+ 
+ 	/* chain first in list head */
+ 	first->private = (unsigned long)list;
+-	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, MAX_SKB_FRAGS + 2,
++	err = virtqueue_add_buf(rq->vq, rq->sg, 0, MAX_SKB_FRAGS + 2,
+ 				first, gfp);
+ 	if (err < 0)
+-		give_pages(vi, first);
++		give_pages(rq, first);
+ 
+ 	return err;
+ }
+ 
+-static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
++static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+ {
+ 	struct page *page;
+ 	int err;
+ 
+-	page = get_a_page(vi, gfp);
++	page = get_a_page(rq, gfp);
+ 	if (!page)
+ 		return -ENOMEM;
+ 
+-	sg_init_one(vi->rx_sg, page_address(page), PAGE_SIZE);
++	sg_init_one(rq->sg, page_address(page), PAGE_SIZE);
+ 
+-	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, 1, page, gfp);
++	err = virtqueue_add_buf(rq->vq, rq->sg, 0, 1, page, gfp);
+ 	if (err < 0)
+-		give_pages(vi, page);
++		give_pages(rq, page);
+ 
+ 	return err;
+ }
+@@ -454,65 +474,68 @@ static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
+  * before we're receiving packets, or from refill_work which is
+  * careful to disable receiving (using napi_disable).
+  */
+-static bool try_fill_recv(struct virtnet_info *vi, gfp_t gfp)
++static bool try_fill_recv(struct receive_queue *rq, gfp_t gfp)
+ {
++	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	int err;
+ 	bool oom;
+ 
+ 	do {
+ 		if (vi->mergeable_rx_bufs)
+-			err = add_recvbuf_mergeable(vi, gfp);
++			err = add_recvbuf_mergeable(rq, gfp);
+ 		else if (vi->big_packets)
+-			err = add_recvbuf_big(vi, gfp);
++			err = add_recvbuf_big(rq, gfp);
+ 		else
+-			err = add_recvbuf_small(vi, gfp);
++			err = add_recvbuf_small(rq, gfp);
+ 
+ 		oom = err == -ENOMEM;
+ 		if (err < 0)
+ 			break;
+-		++vi->num;
++		++rq->num;
+ 	} while (err > 0);
+-	if (unlikely(vi->num > vi->max))
+-		vi->max = vi->num;
+-	virtqueue_kick(vi->rvq);
++	if (unlikely(rq->num > rq->max))
++		rq->max = rq->num;
++	virtqueue_kick(rq->vq);
+ 	return !oom;
+ }
+ 
+ static void skb_recv_done(struct virtqueue *rvq)
+ {
+ 	struct virtnet_info *vi = rvq->vdev->priv;
++	struct receive_queue *rq = &vi->rq;
++
+ 	/* Schedule NAPI, Suppress further interrupts if successful. */
+-	if (napi_schedule_prep(&vi->napi)) {
++	if (napi_schedule_prep(&rq->napi)) {
+ 		virtqueue_disable_cb(rvq);
+-		__napi_schedule(&vi->napi);
++		__napi_schedule(&rq->napi);
+ 	}
+ }
+ 
+-static void virtnet_napi_enable(struct virtnet_info *vi)
++static void virtnet_napi_enable(struct receive_queue *rq)
+ {
+-	napi_enable(&vi->napi);
++	napi_enable(&rq->napi);
+ 
+ 	/* If all buffers were filled by other side before we napi_enabled, we
+ 	 * won't get another interrupt, so process any outstanding packets
+ 	 * now.  virtnet_poll wants re-enable the queue, so we disable here.
+ 	 * We synchronize against interrupts via NAPI_STATE_SCHED */
+-	if (napi_schedule_prep(&vi->napi)) {
+-		virtqueue_disable_cb(vi->rvq);
++	if (napi_schedule_prep(&rq->napi)) {
++		virtqueue_disable_cb(rq->vq);
+ 		local_bh_disable();
+-		__napi_schedule(&vi->napi);
++		__napi_schedule(&rq->napi);
+ 		local_bh_enable();
+ 	}
+ }
+ 
+ static void refill_work(struct work_struct *work)
+ {
+-	struct virtnet_info *vi;
++	struct virtnet_info *vi =
++		container_of(work, struct virtnet_info, refill.work);
+ 	bool still_empty;
+ 
+-	vi = container_of(work, struct virtnet_info, refill.work);
+-	napi_disable(&vi->napi);
+-	still_empty = !try_fill_recv(vi, GFP_KERNEL);
+-	virtnet_napi_enable(vi);
++	napi_disable(&vi->rq.napi);
++	still_empty = !try_fill_recv(&vi->rq, GFP_KERNEL);
++	virtnet_napi_enable(&vi->rq);
+ 
+ 	/* In theory, this can happen: if we don't get any buffers in
+ 	 * we will *never* try to fill again. */
+@@ -522,29 +545,31 @@ static void refill_work(struct work_struct *work)
+ 
+ static int virtnet_poll(struct napi_struct *napi, int budget)
+ {
+-	struct virtnet_info *vi = container_of(napi, struct virtnet_info, napi);
++	struct receive_queue *rq =
++		container_of(napi, struct receive_queue, napi);
++	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	void *buf;
+ 	unsigned int len, received = 0;
+ 
+ again:
+ 	while (received < budget &&
+-	       (buf = virtqueue_get_buf(vi->rvq, &len)) != NULL) {
+-		receive_buf(vi->dev, buf, len);
+-		--vi->num;
++	       (buf = virtqueue_get_buf(rq->vq, &len)) != NULL) {
++		receive_buf(rq, buf, len);
++		--rq->num;
+ 		received++;
+ 	}
+ 
+-	if (vi->num < vi->max / 2) {
+-		if (!try_fill_recv(vi, GFP_ATOMIC))
++	if (rq->num < rq->max / 2) {
++		if (!try_fill_recv(rq, GFP_ATOMIC))
+ 			schedule_delayed_work(&vi->refill, 0);
+ 	}
+ 
+ 	/* Out of packets? */
+ 	if (received < budget) {
+ 		napi_complete(napi);
+-		if (unlikely(!virtqueue_enable_cb(vi->rvq)) &&
++		if (unlikely(!virtqueue_enable_cb(rq->vq)) &&
+ 		    napi_schedule_prep(napi)) {
+-			virtqueue_disable_cb(vi->rvq);
++			virtqueue_disable_cb(rq->vq);
+ 			__napi_schedule(napi);
+ 			goto again;
+ 		}
+@@ -553,13 +578,14 @@ again:
+ 	return received;
+ }
+ 
+-static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
++static unsigned int free_old_xmit_skbs(struct send_queue *sq)
+ {
+ 	struct sk_buff *skb;
+ 	unsigned int len, tot_sgs = 0;
++	struct virtnet_info *vi = sq->vq->vdev->priv;
+ 	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+ 
+-	while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
++	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+ 		pr_debug("Sent skb %p\n", skb);
+ 
+ 		u64_stats_update_begin(&stats->tx_syncp);
+@@ -573,10 +599,11 @@ static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
+ 	return tot_sgs;
+ }
+ 
+-static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
++static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
+ {
+ 	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
+ 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
++	struct virtnet_info *vi = sq->vq->vdev->priv;
+ 
+ 	pr_debug("%s: xmit %p %pM\n", vi->dev->name, skb, dest);
+ 
+@@ -611,25 +638,26 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
+ 
+ 	/* Encode metadata header at front. */
+ 	if (vi->mergeable_rx_bufs)
+-		sg_set_buf(vi->tx_sg, &hdr->mhdr, sizeof hdr->mhdr);
++		sg_set_buf(sq->sg, &hdr->mhdr, sizeof hdr->mhdr);
+ 	else
+-		sg_set_buf(vi->tx_sg, &hdr->hdr, sizeof hdr->hdr);
++		sg_set_buf(sq->sg, &hdr->hdr, sizeof hdr->hdr);
+ 
+-	hdr->num_sg = skb_to_sgvec(skb, vi->tx_sg + 1, 0, skb->len) + 1;
+-	return virtqueue_add_buf(vi->svq, vi->tx_sg, hdr->num_sg,
++	hdr->num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
++	return virtqueue_add_buf(sq->vq, sq->sg, hdr->num_sg,
+ 				 0, skb, GFP_ATOMIC);
+ }
+ 
+ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
++	struct send_queue *sq = &vi->sq;
+ 	int capacity;
+ 
+ 	/* Free up any pending old buffers before queueing new ones. */
+-	free_old_xmit_skbs(vi);
++	free_old_xmit_skbs(sq);
+ 
+ 	/* Try to transmit */
+-	capacity = xmit_skb(vi, skb);
++	capacity = xmit_skb(sq, skb);
+ 
+ 	/* This can happen with OOM and indirect buffers. */
+ 	if (unlikely(capacity < 0)) {
+@@ -648,7 +676,7 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+ 	}
+-	virtqueue_kick(vi->svq);
++	virtqueue_kick(sq->vq);
+ 
+ 	/* Don't wait up for transmitted skbs to be freed. */
+ 	skb_orphan(skb);
+@@ -658,12 +686,12 @@ static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * before it gets out of hand.  Naturally, this wastes entries. */
+ 	if (capacity < 2+MAX_SKB_FRAGS) {
+ 		netif_stop_queue(dev);
+-		if (unlikely(!virtqueue_enable_cb_delayed(vi->svq))) {
++		if (unlikely(!virtqueue_enable_cb_delayed(sq->vq))) {
+ 			/* More just got used, free them then recheck. */
+-			capacity += free_old_xmit_skbs(vi);
++			capacity += free_old_xmit_skbs(sq);
+ 			if (capacity >= 2+MAX_SKB_FRAGS) {
+ 				netif_start_queue(dev);
+-				virtqueue_disable_cb(vi->svq);
++				virtqueue_disable_cb(sq->vq);
+ 			}
+ 		}
+ 	}
+@@ -731,7 +759,7 @@ static void virtnet_netpoll(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 
+-	napi_schedule(&vi->napi);
++	napi_schedule(&vi->rq.napi);
+ }
+ #endif
+ 
+@@ -740,10 +768,10 @@ static int virtnet_open(struct net_device *dev)
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 
+ 	/* Make sure we have some buffers: if oom use wq. */
+-	if (!try_fill_recv(vi, GFP_KERNEL))
++	if (!try_fill_recv(&vi->rq, GFP_KERNEL))
+ 		schedule_delayed_work(&vi->refill, 0);
+ 
+-	virtnet_napi_enable(vi);
++	virtnet_napi_enable(&vi->rq);
+ 	return 0;
+ }
+ 
+@@ -808,7 +836,7 @@ static int virtnet_close(struct net_device *dev)
+ 
+ 	/* Make sure refill_work doesn't re-enable napi! */
+ 	cancel_delayed_work_sync(&vi->refill);
+-	napi_disable(&vi->napi);
++	napi_disable(&vi->rq.napi);
+ 
+ 	return 0;
+ }
+@@ -920,11 +948,10 @@ static void virtnet_get_ringparam(struct net_device *dev,
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 
+-	ring->rx_max_pending = virtqueue_get_vring_size(vi->rvq);
+-	ring->tx_max_pending = virtqueue_get_vring_size(vi->svq);
++	ring->rx_max_pending = virtqueue_get_vring_size(vi->rq.vq);
++	ring->tx_max_pending = virtqueue_get_vring_size(vi->sq.vq);
+ 	ring->rx_pending = ring->rx_max_pending;
+ 	ring->tx_pending = ring->tx_max_pending;
+-
+ }
+ 
+ 
+@@ -1019,6 +1046,13 @@ static void virtnet_config_changed(struct virtio_device *vdev)
+ 	schedule_work(&vi->config_work);
+ }
+ 
++static void virtnet_del_vqs(struct virtnet_info *vi)
++{
++	struct virtio_device *vdev = vi->vdev;
++
++	vdev->config->del_vqs(vdev);
++}
++
+ static int init_vqs(struct virtnet_info *vi)
+ {
+ 	struct virtqueue *vqs[3];
+@@ -1034,8 +1068,8 @@ static int init_vqs(struct virtnet_info *vi)
+ 	if (err)
+ 		return err;
+ 
+-	vi->rvq = vqs[0];
+-	vi->svq = vqs[1];
++	vi->rq.vq = vqs[0];
++	vi->sq.vq = vqs[1];
+ 
+ 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_CTRL_VQ)) {
+ 		vi->cvq = vqs[2];
+@@ -1099,11 +1133,11 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 
+ 	/* Set up our device-specific information */
+ 	vi = netdev_priv(dev);
+-	netif_napi_add(dev, &vi->napi, virtnet_poll, napi_weight);
++	netif_napi_add(dev, &vi->rq.napi, virtnet_poll, napi_weight);
+ 	vi->dev = dev;
+ 	vi->vdev = vdev;
+ 	vdev->priv = vi;
+-	vi->pages = NULL;
++	vi->rq.pages = NULL;
+ 	vi->stats = alloc_percpu(struct virtnet_stats);
+ 	err = -ENOMEM;
+ 	if (vi->stats == NULL)
+@@ -1113,8 +1147,8 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	mutex_init(&vi->config_lock);
+ 	vi->config_enable = true;
+ 	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
+-	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
+-	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
++	sg_init_table(vi->rq.sg, ARRAY_SIZE(vi->rq.sg));
++	sg_init_table(vi->sq.sg, ARRAY_SIZE(vi->sq.sg));
+ 
+ 	/* If we can receive ANY GSO packets, we must allocate large ones. */
+ 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+@@ -1136,10 +1170,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	}
+ 
+ 	/* Last of all, set up some receive buffers. */
+-	try_fill_recv(vi, GFP_KERNEL);
++	try_fill_recv(&vi->rq, GFP_KERNEL);
+ 
+ 	/* If we didn't even get one input buffer, we're useless. */
+-	if (vi->num == 0) {
++	if (vi->rq.num == 0) {
+ 		err = -ENOMEM;
+ 		goto unregister;
+ 	}
+@@ -1160,7 +1194,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+ unregister:
+ 	unregister_netdev(dev);
+ free_vqs:
+-	vdev->config->del_vqs(vdev);
++	virtnet_del_vqs(vi);
+ free_stats:
+ 	free_percpu(vi->stats);
+ free:
+@@ -1172,22 +1206,22 @@ static void free_unused_bufs(struct virtnet_info *vi)
+ {
+ 	void *buf;
+ 	while (1) {
+-		buf = virtqueue_detach_unused_buf(vi->svq);
++		buf = virtqueue_detach_unused_buf(vi->sq.vq);
+ 		if (!buf)
+ 			break;
+ 		dev_kfree_skb(buf);
+ 	}
+ 	while (1) {
+-		buf = virtqueue_detach_unused_buf(vi->rvq);
++		buf = virtqueue_detach_unused_buf(vi->rq.vq);
+ 		if (!buf)
+ 			break;
+ 		if (vi->mergeable_rx_bufs || vi->big_packets)
+-			give_pages(vi, buf);
++			give_pages(&vi->rq, buf);
+ 		else
+ 			dev_kfree_skb(buf);
+-		--vi->num;
++		--vi->rq.num;
+ 	}
+-	BUG_ON(vi->num != 0);
++	BUG_ON(vi->rq.num != 0);
+ }
+ 
+ static void remove_vq_common(struct virtnet_info *vi)
+@@ -1197,10 +1231,10 @@ static void remove_vq_common(struct virtnet_info *vi)
+ 	/* Free unused buffers in both send and recv, if any. */
+ 	free_unused_bufs(vi);
+ 
+-	vi->vdev->config->del_vqs(vi->vdev);
++	virtnet_del_vqs(vi);
+ 
+-	while (vi->pages)
+-		__free_pages(get_a_page(vi, GFP_KERNEL), 0);
++	while (vi->rq.pages)
++		__free_pages(get_a_page(&vi->rq, GFP_KERNEL), 0);
+ }
+ 
+ static void virtnet_remove(struct virtio_device *vdev)
+@@ -1236,7 +1270,7 @@ static int virtnet_freeze(struct virtio_device *vdev)
+ 	cancel_delayed_work_sync(&vi->refill);
+ 
+ 	if (netif_running(vi->dev))
+-		napi_disable(&vi->napi);
++		napi_disable(&vi->rq.napi);
+ 
+ 	remove_vq_common(vi);
+ 
+@@ -1255,11 +1289,11 @@ static int virtnet_restore(struct virtio_device *vdev)
+ 		return err;
+ 
+ 	if (netif_running(vi->dev))
+-		virtnet_napi_enable(vi);
++		virtnet_napi_enable(&vi->rq);
+ 
+ 	netif_device_attach(vi->dev);
+ 
+-	if (!try_fill_recv(vi, GFP_KERNEL))
++	if (!try_fill_recv(&vi->rq, GFP_KERNEL))
+ 		schedule_delayed_work(&vi->refill, 0);
+ 
+ 	mutex_lock(&vi->config_lock);
+-- 
+1.7.1
