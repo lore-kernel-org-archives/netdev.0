@@ -1,35 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net: fix up function prototypes after __dev*
- removals
-Date: Fri, 07 Dec 2012 14:22:42 -0500 (EST)
-Message-ID: <20121207.142242.425178853444743677.davem@davemloft.net>
-References: <20121207003056.GA30167@kroah.com>
+Subject: Re: [PATCH v3 1/4] net: Add support for hardware-offloaded
+ encapsulation
+Date: Fri, 07 Dec 2012 14:28:45 -0500 (EST)
+Message-ID: <20121207.142845.1145515122357569641.davem@davemloft.net>
+References: <50C21D21.5040101@intel.com>
+	<1354900385.2707.42.camel@bwh-desktop.uk.solarflarecom.com>
+	<alpine.LFD.2.02.1212071013200.30243@morpheus.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wfp5p@virginia.edu
-To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57770 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751448Ab2LGTWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 14:22:44 -0500
-In-Reply-To: <20121207003056.GA30167@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bhutchings@solarflare.com, alexander.h.duyck@intel.com,
+	shemminger@vyatta.com, chrisw@sous-sol.org, gospo@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dmitry@broadcom.com, saeed.bishara@gmail.com,
+	peter.p.waskiewicz.jr@intel.com
+To: joseph.gasparakis@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.02.1212071013200.30243@morpheus.jf.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Greg KH <gregkh@linuxfoundation.org>
-Date: Thu, 6 Dec 2012 16:30:56 -0800
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Date: Fri, 7 Dec 2012 10:24:17 -0800 (PST)
 
-> From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> So the idea here is that the driver will use the headers for checksumming 
+> if the skb->encapsulation bit is on. The bit should be set in the protocol 
+> driver.
 > 
-> The __dev* removal patches for the network drivers ended up messing up
-> the function prototypes for a bunch of drivers.  This patch fixes all of
-> them back up to be properly aligned.
+> To answer the second comment, the flags that we use in this series of 
+> patches is NETIF_F_IP_CSUM, NETIF_F_IPV6_CSUM and NETIF_F_SG. These are 
+> the bits that we propose will be used for checksumming of encapsulation. 
+> As per a previous comment in v2, the hw_enc_features field should be used 
+> also in the future when NICs have more encap offloads, so one could
+> indicate these features there from the driver.
 > 
-> Bonus is that this almost removes 100 lines of code, always a nice
-> surprise.
+> Furthermore, I submitted a patch for Rx checksumming, where NETIF_F_RXCSUM 
+> is used, again in conjunction with skb->encapsulation flag. As I mention 
+> in my logs, the driver is expected to set the ip_summed to UNNECESSARY and 
+> turn the skb->encapsulation on, to indicate that the inner headers are 
+> already HW checksummed.
 > 
-> Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
-Applied, thanks Greg.
+This is the kind of language that belongs in the commit message and
+code comments.
