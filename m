@@ -1,120 +1,106 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next #2 1/1] r8169: workaround for missing extended GigaMAC registers
-Date: Fri, 7 Dec 2012 22:20:21 +0100
-Message-ID: <20121207212021.GA8412@electric-eye.fr.zoreil.com>
+From: Eric Leblond <eric@regit.org>
+Subject: Re: [RFC PATCH] af_packet: don't to defrag shared skb
+Date: Fri, 07 Dec 2012 22:46:08 +0100
+Message-ID: <1354916768.4530.18.camel@tiger2>
+References: <1354906561-4695-1-git-send-email-eric@regit.org>
+	 <20121207.153134.25835204617509469.davem@davemloft.net>
+	 <1354915824.9124.11.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Lee Chun-Yi <jlee@suse.com>,
-	Wang YanQing <udknight@gmail.com>,
-	Hayes Wang <hayeswang@realtek.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linville@tuxdriver.com
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50508 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752655Ab2LGVpn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 16:45:43 -0500
-Content-Disposition: inline
+Received: from ks28632.kimsufi.com ([91.121.96.152]:44205 "EHLO
+	ks28632.kimsufi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751623Ab2LGVqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 16:46:49 -0500
+In-Reply-To: <1354915824.9124.11.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GigaMAC registers have been reported left unitialized in several
-situations:
-- after cold boot from power-off state
-- after S3 resume
+Hi,
 
-Tweaking rtl_hw_phy_config takes care of both.
+On Fri, 2012-12-07 at 22:30 +0100, Johannes Berg wrote:
+> 
+> > Wireless folks, please take a look.  The issue is that,
+> > under the circumstances listed below, we get SKBs in
+> > the AF_PACKET input path that are shared.
+> 
+> Ok so I took a look, but I can't see where the wireless stack is going
+> wrong.
+> 
+> > Given the logic present in ieee80211_deliver_skb() I think
+> > the mac80211 code doesn't expect this either.
+> 
+> This is correct, but the driver should never give us a shared skb. From
+> the other mail it seems Eric is using iwlwifi, which is definitely not
+> creating shared SKBs. Nothing in mac80211 creates them either.
+> 
+> > > I've observed this crash under the following condition:
+> > >  1. a program is listening to an wifi interface (let say wlan0)
+> > >  2. it is using fanout capture in flow load balancing mode
+> > >  3. defrag option is on on the fanout socket
+> 
+> How do you set this up, and what does it do? I'd like to try to
+> reproduce this.
 
-This patch removes an excess entry (",") at the end of the exgmac_reg
-array as well.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Signed-off-by: Wang YanQing <udknight@gmail.com>
-Cc: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 42 ++++++++++++++++++++----------------
- 1 file changed, 24 insertions(+), 18 deletions(-)
 
-- Rebased against net-next with rtl8168e_2_hw_phy_config vs rtl8168f_hw_phy_config
-  fixup as per davem's request.
+> > >  4. the interface disconnect (radio down for example)
+> > >  5. the interface reconnect (radio switched up)
+> > >  6. once reconnected a single packet is seen with skb->users=2
+> 
+> That's interesting. A single one seems odd. I might have expected two,
+> but not one. Well, since you removed the crash ... I guess I'll have to
+> believe that there's just one and the second one doesn't show up because
+> we crashed before :-)
 
-- Removed a stealth "," after the last record of exgmac_reg. Not sure where it poked
-  into...
+It was the case with initial code but I've suppressed the BUG() call and
+replaced it with a return ;)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 891feee..1747256 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -3120,6 +3120,23 @@ static void rtl8168e_1_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x0d, 0x0000);
- }
- 
-+static void rtl_rar_exgmac_set(struct rtl8169_private *tp, u8 *addr)
-+{
-+	const u16 w[] = {
-+		addr[0] | (addr[1] << 8),
-+		addr[2] | (addr[3] << 8),
-+		addr[4] | (addr[5] << 8)
-+	};
-+	const struct exgmac_reg e[] = {
-+		{ .addr = 0xe0, ERIAR_MASK_1111, .val = w[0] | (w[1] << 16) },
-+		{ .addr = 0xe4, ERIAR_MASK_1111, .val = w[2] },
-+		{ .addr = 0xf0, ERIAR_MASK_1111, .val = w[0] << 16 },
-+		{ .addr = 0xf4, ERIAR_MASK_1111, .val = w[1] | (w[2] << 16) }
-+	};
-+
-+	rtl_write_exgmac_batch(tp, e, ARRAY_SIZE(e));
-+}
-+
- static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
- {
- 	static const struct phy_reg phy_reg_init[] = {
-@@ -3204,6 +3221,9 @@ static void rtl8168e_2_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy(tp, 0x1f, 0x0000);
- 
- 	r8168_aldps_enable_1(tp);
-+
-+	/* Broken BIOS workaround: feed GigaMAC registers with MAC address. */
-+	rtl_rar_exgmac_set(tp, tp->dev->dev_addr);
- }
- 
- static void rtl8168f_hw_phy_config(struct rtl8169_private *tp)
-@@ -3740,33 +3760,19 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
- static void rtl_rar_set(struct rtl8169_private *tp, u8 *addr)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
--	u32 high;
--	u32 low;
--
--	low  = addr[0] | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24);
--	high = addr[4] | (addr[5] << 8);
- 
- 	rtl_lock_work(tp);
- 
- 	RTL_W8(Cfg9346, Cfg9346_Unlock);
- 
--	RTL_W32(MAC4, high);
-+	RTL_W32(MAC4, addr[4] | addr[5] << 8);
- 	RTL_R32(MAC4);
- 
--	RTL_W32(MAC0, low);
-+	RTL_W32(MAC0, addr[0] | addr[1] << 8 | addr[2] << 16 | addr[3] << 24);
- 	RTL_R32(MAC0);
- 
--	if (tp->mac_version == RTL_GIGA_MAC_VER_34) {
--		const struct exgmac_reg e[] = {
--			{ .addr = 0xe0, ERIAR_MASK_1111, .val = low },
--			{ .addr = 0xe4, ERIAR_MASK_1111, .val = high },
--			{ .addr = 0xf0, ERIAR_MASK_1111, .val = low << 16 },
--			{ .addr = 0xf4, ERIAR_MASK_1111, .val = high << 16 |
--								low  >> 16 },
--		};
--
--		rtl_write_exgmac_batch(tp, e, ARRAY_SIZE(e));
--	}
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_34)
-+		rtl_rar_exgmac_set(tp, addr);
- 
- 	RTL_W8(Cfg9346, Cfg9346_Lock);
- 
+> > So if we look at ieee80211_deliver_skb(), it has code to deal with unaligned
+> > packet headers, wherein it memoves() the data into a better aligned location.
+> > 
+> > But if these SKBs really are skb_shared(), this packet data
+> > modification is illegal.
+> > 
+> > I suspect that the assumptions built into this unaligned data handling
+> > code, and AF_PACKET, are correct.  Meaning that we should never see
+> > skb_shared() packets here.  We just have a missing skb_copy()
+> > somewhere in mac80211, Johannes can you please take a look?
+> 
+> My first theory was related to multiple virtual interfaces, but Eric
+> didn't say he was running that, but we use skb_copy() for that in
+> ieee80211_prepare_and_rx_handle(). That's not necessarily the most
+> efficient (another reason for drivers to use paged RX here) but clearly
+> not causing the issue.
+> 
+> The only other theory I can come up with right now is that the skb_get()
+> happens in deliver_skb via __netif_receive_skb. Keeping in mind that
+> wpa_supplicant might have another packet socket open for authentication
+> packets, that seems like a possibility. I'll test it once I figure out
+> how to do this "defrag" option you speak of :)
+
+I've no simple code available to test it. I've add the problem when
+running suricata. Maybe you could use it. It is packaged in most
+distribution now.
+To enable packet fanout. Modify default /etc/suricata/suricata.yaml to
+have something like:
+af-packet:
+  - interface: wlan0
+    # Number of receive threads (>1 will enable experimental flow pinned
+    # runmode)
+    threads: 3
+
+Start it with: suricata --af-packet=wlan0
+Then get wlan0 interface down and up. After a few seconds, the crash
+will occur.
+It is a bit complicated for a simple test case. I can cook a little
+example code if you want.
+
+BR,
 -- 
-1.7.11.7
+Eric Leblond <eric@regit.org>
+Blog: https://home.regit.org/
