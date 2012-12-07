@@ -1,58 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH] dynamic_queue_limit.h: Make the struct
- ___cacheline_aligned_on_smp
-Date: Fri, 7 Dec 2012 16:42:10 +0000
-Message-ID: <1354898530.2707.21.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1354892334.29937.14.camel@joe-AO722>
-	 <CAL4Wiip12_Frb64WGk419_YApOuckTa3Jtd-nVROodLFTqvacg@mail.gmail.com>
-	 <1354896346.29937.43.camel@joe-AO722>
-	 <1354897144.26405.4.camel@edumazet-glaptop>
-	 <1354897761.29937.45.camel@joe-AO722>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH v3 1/4] net: Add support for hardware-offloaded encapsulation
+Date: Fri, 07 Dec 2012 08:45:21 -0800
+Message-ID: <50C21D21.5040101@intel.com>
+References: <1354845419-22483-1-git-send-email-joseph.gasparakis@intel.com>  <1354845419-22483-2-git-send-email-joseph.gasparakis@intel.com> <1354874847.20838.49.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:26999 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422760Ab2LGQmO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 11:42:14 -0500
-In-Reply-To: <1354897761.29937.45.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org,
+	gospo@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dmitry@broadcom.com,
+	saeed.bishara@gmail.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354874847.20838.49.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2012-12-07 at 08:29 -0800, Joe Perches wrote:
-> On Fri, 2012-12-07 at 08:19 -0800, Eric Dumazet wrote:
-> > On Fri, 2012-12-07 at 08:05 -0800, Joe Perches wrote:
-> > 
-> > > So it seemed somewhat sensible to make the
-> > > entire struct in a single cacheline.
-> > 
-> > Any layout change in an object used in network fast path need a complete
-> > performance study.
-> > 
-> > Even if you provide such a study, we'll need to reproduce your numbers
-> > here.
-> > 
-> > BQL/DQL is not on our radars, spending two cache lines on a critical
-> > object is fine.
+On 12/07/2012 02:07 AM, Ben Hutchings wrote:
+> On Thu, 2012-12-06 at 17:56 -0800, Joseph Gasparakis wrote:
+>> This patch adds support in the kernel for offloading in the NIC Tx and Rx
+>> checksumming for encapsulated packets (such as VXLAN and IP GRE).
+> [...]
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -1063,6 +1063,8 @@ struct net_device {
+>>  	netdev_features_t	wanted_features;
+>>  	/* mask of features inheritable by VLAN devices */
+>>  	netdev_features_t	vlan_features;
+>> +	/* mask of features inherited by encapsulating devices */
+>> +	netdev_features_t	hw_enc_features;
+> [...]
 > 
-> Well Maybe Tom can provide some information as to why
-> the limit variable was cacheline_aligned_in_smp and not
-> the struct.
+> How will the networking core know *which* encapsulations this applies
+> to?  I notice that your implementation in ixgbe does not set
+> NETIF_F_HW_CSUM here, so presumably the hardware will parse headers to
+> find which ranges should be checksummed and it won't cover the next
+> encapsulation protocol that comes along.
 > 
-> I didn't find any discussion about it.
+> Ben.
+> 
 
-Structure alignment has to be at least the maximum of each member's
-alignment, so the struct *is* effectively cacheline_aligned_in_smp.
+Actually the offload is generic to any encapsulation that does not
+compute a checksum on the inner headers.  So as long as you can treat
+the outer headers as one giant L2 header you can pretty much ignore what
+is in there as long as the inner network and transport header values are
+set.  There are a number of tunnels that fall into that category since
+most just use IP as the L2 and the L3 usually doesn't contain any checksum.
 
-Ben.
+Thanks,
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Alex
