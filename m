@@ -1,145 +1,156 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 9/9] tipc: refactor accept() code for improved readability
-Date: Fri, 7 Dec 2012 20:19:18 -0500
-Message-ID: <1354929558-16948-10-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 2/9] tipc: eliminate aggregate sk_receive_queue limit
+Date: Fri, 7 Dec 2012 20:19:11 -0500
+Message-ID: <1354929558-16948-3-git-send-email-paul.gortmaker@windriver.com>
 References: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:46487 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757482Ab2LHBTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 20:19:40 -0500
+Received: from mail.windriver.com ([147.11.1.11]:63626 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757481Ab2LHBT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 20:19:57 -0500
 In-Reply-To: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In TIPC's accept() routine, there is a large block of code relating
-to initialization of a new socket, all within an if condition checking
-if the allocation succeeded.
+From: Ying Xue <ying.xue@windriver.com>
 
-Here, we simply flip the check of the if, so that the main execution
-path stays at the same indentation level, which improves readability.
-If the allocation fails, we jump to an already existing exit label.
+As a complement to the per-socket sk_recv_queue limit, TIPC keeps a
+global atomic counter for the sum of sk_recv_queue sizes across all
+tipc sockets. When incremented, the counter is compared to an upper
+threshold value, and if this is reached, the message is rejected
+with error code TIPC_OVERLOAD.
 
+This check was originally meant to protect the node against
+buffer exhaustion and general CPU overload. However, all experience
+indicates that the feature not only is redundant on Linux, but even
+harmful. Users run into the limit very often, causing disturbances
+for their applications, while removing it seems to have no negative
+effects at all. We have also seen that overall performance is
+boosted significantly when this bottleneck is removed.
+
+Furthermore, we don't see any other network protocols maintaining
+such a mechanism, something strengthening our conviction that this
+control can be eliminated.
+
+As a result, the atomic variable tipc_queue_size is now unused
+and so it can be deleted.  There is a getsockopt call that used
+to allow reading it; we retain that but just return zero for
+maximum compatibility.
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+[PG: phase out tipc_queue_size as pointed out by Neil Horman]
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/socket.c | 89 ++++++++++++++++++++++++++++++-------------------------
- 1 file changed, 48 insertions(+), 41 deletions(-)
+ net/tipc/socket.c | 23 ++++-------------------
+ 1 file changed, 4 insertions(+), 19 deletions(-)
 
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index b5c9795..9b4e483 100644
+index 1a720c8..848be69 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -1509,8 +1509,13 @@ static int listen(struct socket *sock, int len)
-  */
- static int accept(struct socket *sock, struct socket *new_sock, int flags)
+@@ -2,7 +2,7 @@
+  * net/tipc/socket.c: TIPC socket API
+  *
+  * Copyright (c) 2001-2007, Ericsson AB
+- * Copyright (c) 2004-2008, 2010-2011, Wind River Systems
++ * Copyright (c) 2004-2008, 2010-2012, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -73,8 +73,6 @@ static struct proto tipc_proto;
+ 
+ static int sockets_enabled;
+ 
+-static atomic_t tipc_queue_size = ATOMIC_INIT(0);
+-
+ /*
+  * Revised TIPC socket locking policy:
+  *
+@@ -128,7 +126,6 @@ static atomic_t tipc_queue_size = ATOMIC_INIT(0);
+ static void advance_rx_queue(struct sock *sk)
  {
--	struct sock *sk = sock->sk;
-+	struct sock *new_sk, *sk = sock->sk;
+ 	kfree_skb(__skb_dequeue(&sk->sk_receive_queue));
+-	atomic_dec(&tipc_queue_size);
+ }
+ 
+ /**
+@@ -140,10 +137,8 @@ static void discard_rx_queue(struct sock *sk)
+ {
  	struct sk_buff *buf;
-+	struct tipc_sock *new_tsock;
-+	struct tipc_port *new_tport;
-+	struct tipc_msg *msg;
-+	u32 new_ref;
-+
- 	int res;
  
- 	lock_sock(sk);
-@@ -1536,49 +1541,51 @@ static int accept(struct socket *sock, struct socket *new_sock, int flags)
- 	buf = skb_peek(&sk->sk_receive_queue);
+-	while ((buf = __skb_dequeue(&sk->sk_receive_queue))) {
+-		atomic_dec(&tipc_queue_size);
++	while ((buf = __skb_dequeue(&sk->sk_receive_queue)))
+ 		kfree_skb(buf);
+-	}
+ }
  
- 	res = tipc_create(sock_net(sock->sk), new_sock, 0, 0);
--	if (!res) {
--		struct sock *new_sk = new_sock->sk;
--		struct tipc_sock *new_tsock = tipc_sk(new_sk);
--		struct tipc_port *new_tport = new_tsock->p;
--		u32 new_ref = new_tport->ref;
--		struct tipc_msg *msg = buf_msg(buf);
--
--		/* we lock on new_sk; but lockdep sees the lock on sk */
--		lock_sock_nested(new_sk, SINGLE_DEPTH_NESTING);
--
--		/*
--		 * Reject any stray messages received by new socket
--		 * before the socket lock was taken (very, very unlikely)
--		 */
--		reject_rx_queue(new_sk);
--
--		/* Connect new socket to it's peer */
--		new_tsock->peer_name.ref = msg_origport(msg);
--		new_tsock->peer_name.node = msg_orignode(msg);
--		tipc_connect(new_ref, &new_tsock->peer_name);
--		new_sock->state = SS_CONNECTED;
--
--		tipc_set_portimportance(new_ref, msg_importance(msg));
--		if (msg_named(msg)) {
--			new_tport->conn_type = msg_nametype(msg);
--			new_tport->conn_instance = msg_nameinst(msg);
--		}
-+	if (res)
-+		goto exit;
+ /**
+@@ -155,10 +150,8 @@ static void reject_rx_queue(struct sock *sk)
+ {
+ 	struct sk_buff *buf;
  
--		/*
--		 * Respond to 'SYN-' by discarding it & returning 'ACK'-.
--		 * Respond to 'SYN+' by queuing it on new socket.
--		 */
--		if (!msg_data_sz(msg)) {
--			struct msghdr m = {NULL,};
-+	new_sk = new_sock->sk;
-+	new_tsock = tipc_sk(new_sk);
-+	new_tport = new_tsock->p;
-+	new_ref = new_tport->ref;
-+	msg = buf_msg(buf);
+-	while ((buf = __skb_dequeue(&sk->sk_receive_queue))) {
++	while ((buf = __skb_dequeue(&sk->sk_receive_queue)))
+ 		tipc_reject_msg(buf, TIPC_ERR_NO_PORT);
+-		atomic_dec(&tipc_queue_size);
+-	}
+ }
  
--			advance_rx_queue(sk);
--			send_packet(NULL, new_sock, &m, 0);
--		} else {
--			__skb_dequeue(&sk->sk_receive_queue);
--			__skb_queue_head(&new_sk->sk_receive_queue, buf);
--		}
--		release_sock(new_sk);
-+	/* we lock on new_sk; but lockdep sees the lock on sk */
-+	lock_sock_nested(new_sk, SINGLE_DEPTH_NESTING);
-+
-+	/*
-+	 * Reject any stray messages received by new socket
-+	 * before the socket lock was taken (very, very unlikely)
-+	 */
-+	reject_rx_queue(new_sk);
-+
-+	/* Connect new socket to it's peer */
-+	new_tsock->peer_name.ref = msg_origport(msg);
-+	new_tsock->peer_name.node = msg_orignode(msg);
-+	tipc_connect(new_ref, &new_tsock->peer_name);
-+	new_sock->state = SS_CONNECTED;
-+
-+	tipc_set_portimportance(new_ref, msg_importance(msg));
-+	if (msg_named(msg)) {
-+		new_tport->conn_type = msg_nametype(msg);
-+		new_tport->conn_instance = msg_nameinst(msg);
+ /**
+@@ -280,7 +273,6 @@ static int release(struct socket *sock)
+ 		buf = __skb_dequeue(&sk->sk_receive_queue);
+ 		if (buf == NULL)
+ 			break;
+-		atomic_dec(&tipc_queue_size);
+ 		if (TIPC_SKB_CB(buf)->handle != 0)
+ 			kfree_skb(buf);
+ 		else {
+@@ -1241,11 +1233,6 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
  	}
-+
-+	/*
-+	 * Respond to 'SYN-' by discarding it & returning 'ACK'-.
-+	 * Respond to 'SYN+' by queuing it on new socket.
-+	 */
-+	if (!msg_data_sz(msg)) {
-+		struct msghdr m = {NULL,};
-+
-+		advance_rx_queue(sk);
-+		send_packet(NULL, new_sock, &m, 0);
-+	} else {
-+		__skb_dequeue(&sk->sk_receive_queue);
-+		__skb_queue_head(&new_sk->sk_receive_queue, buf);
-+	}
-+	release_sock(new_sk);
-+
- exit:
- 	release_sock(sk);
- 	return res;
+ 
+ 	/* Reject message if there isn't room to queue it */
+-	recv_q_len = (u32)atomic_read(&tipc_queue_size);
+-	if (unlikely(recv_q_len >= OVERLOAD_LIMIT_BASE)) {
+-		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE))
+-			return TIPC_ERR_OVERLOAD;
+-	}
+ 	recv_q_len = skb_queue_len(&sk->sk_receive_queue);
+ 	if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2))) {
+ 		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE / 2))
+@@ -1254,7 +1241,6 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
+ 
+ 	/* Enqueue message (finally!) */
+ 	TIPC_SKB_CB(buf)->handle = 0;
+-	atomic_inc(&tipc_queue_size);
+ 	__skb_queue_tail(&sk->sk_receive_queue, buf);
+ 
+ 	/* Initiate connection termination for an incoming 'FIN' */
+@@ -1578,7 +1564,6 @@ restart:
+ 		/* Disconnect and send a 'FIN+' or 'FIN-' message to peer */
+ 		buf = __skb_dequeue(&sk->sk_receive_queue);
+ 		if (buf) {
+-			atomic_dec(&tipc_queue_size);
+ 			if (TIPC_SKB_CB(buf)->handle != 0) {
+ 				kfree_skb(buf);
+ 				goto restart;
+@@ -1717,7 +1702,7 @@ static int getsockopt(struct socket *sock,
+ 		/* no need to set "res", since already 0 at this point */
+ 		break;
+ 	case TIPC_NODE_RECVQ_DEPTH:
+-		value = (u32)atomic_read(&tipc_queue_size);
++		value = 0; /* was tipc_queue_size, now obsolete */
+ 		break;
+ 	case TIPC_SOCK_RECVQ_DEPTH:
+ 		value = skb_queue_len(&sk->sk_receive_queue);
 -- 
 1.7.12.1
