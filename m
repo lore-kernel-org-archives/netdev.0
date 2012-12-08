@@ -1,156 +1,64 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 2/9] tipc: eliminate aggregate sk_receive_queue limit
-Date: Fri, 7 Dec 2012 20:19:11 -0500
-Message-ID: <1354929558-16948-3-git-send-email-paul.gortmaker@windriver.com>
-References: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net] inet_diag: fix oops for IPv4 AF_INET6 TCP SYN-RECV state
+Date: Fri, 7 Dec 2012 21:30:25 -0500
+Message-ID: <CADVnQykWjmpiPrSpGmOPc_WuamRNK_eO_ZC_6Q_TktRN2ALWew@mail.gmail.com>
+References: <1354808546-644-1-git-send-email-ncardwell@google.com>
+	<20121207.132019.1647690876686095833.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <edumazet@google.com>, Netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63626 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757481Ab2LHBT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 20:19:57 -0500
-In-Reply-To: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:53489 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757793Ab2LHCaZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 21:30:25 -0500
+Received: by mail-ie0-f179.google.com with SMTP id k14so2853236iea.38
+        for <netdev@vger.kernel.org>; Fri, 07 Dec 2012 18:30:25 -0800 (PST)
+In-Reply-To: <20121207.132019.1647690876686095833.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+On Fri, Dec 7, 2012 at 1:20 PM, David Miller <davem@davemloft.net> wrote:
+> From: Neal Cardwell <ncardwell@google.com>
+> Date: Thu,  6 Dec 2012 10:42:26 -0500
+>
+>> Fix inet_diag to be aware of the fact that AF_INET6 TCP connections
+>> instantiated for IPv4 traffic and in the SYN-RECV state were actually
+>> created with inet_reqsk_alloc(), instead of inet6_reqsk_alloc(). This
+>> means that for such connections inet6_rsk(req) returns a pointer to a
+>> random spot in memory up to roughly 64KB beyond the end of the
+>> request_sock.
+>>
+>> With this bug, for a server using AF_INET6 TCP sockets and serving
+>> IPv4 traffic, an inet_diag user like `ss state SYN-RECV` would lead to
+>> inet_diag_fill_req() causing an oops or the export to user space of 16
+>> bytes of kernel memory as a garbage IPv6 address, depending on where
+>> the garbage inet6_rsk(req) pointed.
+>>
+>> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+>
+> Thanks for this fix, but it opens up more questions.
+>
+> We don't seem to make any validations upon inet_diag_hostcond's
+> prefix_len.  That parameter we pass into bitstring_match() can
+> be just about anything.
+>
+> As another example, what if we do an ipv6 128-bit compare on what's
+> actually an ipv4 address in the inet request sock?
+>
+> I think we need to, using cond->family, make some kind of validations
+> upon cond->prefix_len.
 
-As a complement to the per-socket sk_recv_queue limit, TIPC keeps a
-global atomic counter for the sum of sk_recv_queue sizes across all
-tipc sockets. When incremented, the counter is compared to an upper
-threshold value, and if this is reached, the message is rejected
-with error code TIPC_OVERLOAD.
+OK, sounds good. I will add a patch to fix the adjacent prefix_len
+issues you mention.
 
-This check was originally meant to protect the node against
-buffer exhaustion and general CPU overload. However, all experience
-indicates that the feature not only is redundant on Linux, but even
-harmful. Users run into the limit very often, causing disturbances
-for their applications, while removing it seems to have no negative
-effects at all. We have also seen that overall performance is
-boosted significantly when this bottleneck is removed.
+It also seems like it considers IPv4 and IPv6 with the same prefix as
+matching, which seems bogus; eg IMHO 128.0.0.0 should not match 1::/1.
+ In general it seems to me that a mismatch between entry->family and
+cond->family should prevent a match, except for the IPv4-mapped-IPv6
+case it already handles.
 
-Furthermore, we don't see any other network protocols maintaining
-such a mechanism, something strengthening our conviction that this
-control can be eliminated.
+Would you like these patches against net or net-next?
 
-As a result, the atomic variable tipc_queue_size is now unused
-and so it can be deleted.  There is a getsockopt call that used
-to allow reading it; we retain that but just return zero for
-maximum compatibility.
-
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-[PG: phase out tipc_queue_size as pointed out by Neil Horman]
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- net/tipc/socket.c | 23 ++++-------------------
- 1 file changed, 4 insertions(+), 19 deletions(-)
-
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 1a720c8..848be69 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -2,7 +2,7 @@
-  * net/tipc/socket.c: TIPC socket API
-  *
-  * Copyright (c) 2001-2007, Ericsson AB
-- * Copyright (c) 2004-2008, 2010-2011, Wind River Systems
-+ * Copyright (c) 2004-2008, 2010-2012, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -73,8 +73,6 @@ static struct proto tipc_proto;
- 
- static int sockets_enabled;
- 
--static atomic_t tipc_queue_size = ATOMIC_INIT(0);
--
- /*
-  * Revised TIPC socket locking policy:
-  *
-@@ -128,7 +126,6 @@ static atomic_t tipc_queue_size = ATOMIC_INIT(0);
- static void advance_rx_queue(struct sock *sk)
- {
- 	kfree_skb(__skb_dequeue(&sk->sk_receive_queue));
--	atomic_dec(&tipc_queue_size);
- }
- 
- /**
-@@ -140,10 +137,8 @@ static void discard_rx_queue(struct sock *sk)
- {
- 	struct sk_buff *buf;
- 
--	while ((buf = __skb_dequeue(&sk->sk_receive_queue))) {
--		atomic_dec(&tipc_queue_size);
-+	while ((buf = __skb_dequeue(&sk->sk_receive_queue)))
- 		kfree_skb(buf);
--	}
- }
- 
- /**
-@@ -155,10 +150,8 @@ static void reject_rx_queue(struct sock *sk)
- {
- 	struct sk_buff *buf;
- 
--	while ((buf = __skb_dequeue(&sk->sk_receive_queue))) {
-+	while ((buf = __skb_dequeue(&sk->sk_receive_queue)))
- 		tipc_reject_msg(buf, TIPC_ERR_NO_PORT);
--		atomic_dec(&tipc_queue_size);
--	}
- }
- 
- /**
-@@ -280,7 +273,6 @@ static int release(struct socket *sock)
- 		buf = __skb_dequeue(&sk->sk_receive_queue);
- 		if (buf == NULL)
- 			break;
--		atomic_dec(&tipc_queue_size);
- 		if (TIPC_SKB_CB(buf)->handle != 0)
- 			kfree_skb(buf);
- 		else {
-@@ -1241,11 +1233,6 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- 	}
- 
- 	/* Reject message if there isn't room to queue it */
--	recv_q_len = (u32)atomic_read(&tipc_queue_size);
--	if (unlikely(recv_q_len >= OVERLOAD_LIMIT_BASE)) {
--		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE))
--			return TIPC_ERR_OVERLOAD;
--	}
- 	recv_q_len = skb_queue_len(&sk->sk_receive_queue);
- 	if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2))) {
- 		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE / 2))
-@@ -1254,7 +1241,6 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- 
- 	/* Enqueue message (finally!) */
- 	TIPC_SKB_CB(buf)->handle = 0;
--	atomic_inc(&tipc_queue_size);
- 	__skb_queue_tail(&sk->sk_receive_queue, buf);
- 
- 	/* Initiate connection termination for an incoming 'FIN' */
-@@ -1578,7 +1564,6 @@ restart:
- 		/* Disconnect and send a 'FIN+' or 'FIN-' message to peer */
- 		buf = __skb_dequeue(&sk->sk_receive_queue);
- 		if (buf) {
--			atomic_dec(&tipc_queue_size);
- 			if (TIPC_SKB_CB(buf)->handle != 0) {
- 				kfree_skb(buf);
- 				goto restart;
-@@ -1717,7 +1702,7 @@ static int getsockopt(struct socket *sock,
- 		/* no need to set "res", since already 0 at this point */
- 		break;
- 	case TIPC_NODE_RECVQ_DEPTH:
--		value = (u32)atomic_read(&tipc_queue_size);
-+		value = 0; /* was tipc_queue_size, now obsolete */
- 		break;
- 	case TIPC_SOCK_RECVQ_DEPTH:
- 		value = skb_queue_len(&sk->sk_receive_queue);
--- 
-1.7.12.1
+neal
