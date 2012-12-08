@@ -1,38 +1,35 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] rtnetlink: add missing message types to selinux perm table
-Date: Sat,  8 Dec 2012 12:59:48 +0800
-Message-ID: <1354942788-15208-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
+From: Oleg Arkhangelsky <sysoleg@yandex.ru>
+Subject: Linux IP forwarding performance benchmarks
+Date: Sat, 08 Dec 2012 16:01:33 +0400
+Message-ID: <1219381354968093@web3d.yandex.ru>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62415 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751539Ab2LHF0E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Dec 2012 00:26:04 -0500
+Received: from forward2.mail.yandex.net ([77.88.46.7]:37319 "EHLO
+	forward2.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933031Ab2LHMJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2012 07:09:29 -0500
+Received: from web3d.yandex.ru (web3d.yandex.ru [77.88.47.178])
+	by forward2.mail.yandex.net (Yandex) with ESMTP id EB6EC12A0502
+	for <netdev@vger.kernel.org>; Sat,  8 Dec 2012 16:01:33 +0400 (MSK)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+Hello,
 
-Rebased on the latest net-next tree.
+Does anyone have some Linux IP forwarding performance
+benchmarks on Nehalem Xeon platform versus Sandy
+Bridge Xeon E5? Intel DDIO looks pretty tasty and should
+give significant  performance boost (at least in theory)
+but currently we doesn't have this hardware at hand to
+test so asking here.
 
-RTM_NEWNETCONF and RTM_GETNETCONF are missing in this table.
+Thank you!
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+-- 
+wbr, Oleg.
 
----
-diff --git a/security/selinux/nlmsgtab.c b/security/selinux/nlmsgtab.c
-index 163aaa7..370a646 100644
---- a/security/selinux/nlmsgtab.c
-+++ b/security/selinux/nlmsgtab.c
-@@ -67,6 +67,8 @@ static struct nlmsg_perm nlmsg_route_perms[] =
- 	{ RTM_GETADDRLABEL,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- 	{ RTM_GETDCB,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- 	{ RTM_SETDCB,		NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
-+	{ RTM_NEWNETCONF,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
-+	{ RTM_GETNETCONF,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- 	{ RTM_GETMDB,		NETLINK_ROUTE_SOCKET__NLMSG_READ  },
- };
- 
+"Anarchy is about taking complete responsibility for yourself."
+        Alan Moore.
