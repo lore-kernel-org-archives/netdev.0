@@ -1,125 +1,55 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 1/9] tipc: remove obsolete flush of stale reassembly buffer
-Date: Fri, 7 Dec 2012 20:19:10 -0500
-Message-ID: <1354929558-16948-2-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 3/9] tipc: change sk_receive_queue upper limit
+Date: Fri, 7 Dec 2012 20:19:12 -0500
+Message-ID: <1354929558-16948-4-git-send-email-paul.gortmaker@windriver.com>
 References: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
-	Erik Hugne <erik.hugne@ericsson.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:46468 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:46474 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757419Ab2LHBTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 20:19:31 -0500
+	with ESMTP id S1757419Ab2LHBTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 20:19:33 -0500
 In-Reply-To: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
 
-Each link instance has a periodic job checking if there is a stale
-ongoing message reassembly associated to the link. If no new
-fragment has been received during the last 4*[link_tolerance] period,
-it is assumed the missing fragment will never arrive. As a consequence,
-the reassembly buffer is discarded, and a gap in the message sequence
-occurs.
+The sk_recv_queue upper limit for connectionless sockets has empirically
+turned out to be too low. When we double the current limit we get much
+fewer rejected messages and no noticable negative side-effects.
 
-This assumption is wrong. After we abandoned our ambition to develop
-packet routing for multi-cluster networks, only single-hop packet
-transfer remains as an option. For those, all packets are guaranteed
-to be delivered in sequence to the defragmentation layer. Any failure
-to achieve sequenced delivery will eventually lead to link reset, and
-the reassembly buffer will be flushed anyway.
-
-So we just remove this periodic check, which is now obsolete.
-
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-[PG: also delete get/inc_timer count, since they are now unused]
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/link.c | 44 --------------------------------------------
- 1 file changed, 44 deletions(-)
+ net/tipc/socket.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 87bf5aa..daa6080 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -97,7 +97,6 @@ static int  link_send_sections_long(struct tipc_port *sender,
- 				    struct iovec const *msg_sect,
- 				    u32 num_sect, unsigned int total_len,
- 				    u32 destnode);
--static void link_check_defragm_bufs(struct tipc_link *l_ptr);
- static void link_state_event(struct tipc_link *l_ptr, u32 event);
- static void link_reset_statistics(struct tipc_link *l_ptr);
- static void link_print(struct tipc_link *l_ptr, const char *str);
-@@ -271,7 +270,6 @@ static void link_timeout(struct tipc_link *l_ptr)
- 	}
- 
- 	/* do all other link processing performed on a periodic basis */
--	link_check_defragm_bufs(l_ptr);
- 
- 	link_state_event(l_ptr, TIMEOUT_EVT);
- 
-@@ -2497,16 +2495,6 @@ static void set_expected_frags(struct sk_buff *buf, u32 exp)
- 	msg_set_bcast_ack(buf_msg(buf), exp);
- }
- 
--static u32 get_timer_cnt(struct sk_buff *buf)
--{
--	return msg_reroute_cnt(buf_msg(buf));
--}
--
--static void incr_timer_cnt(struct sk_buff *buf)
--{
--	msg_incr_reroute_cnt(buf_msg(buf));
--}
--
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 848be69..f553fde 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1,7 +1,7 @@
  /*
-  * tipc_link_recv_fragment(): Called with node lock on. Returns
-  * the reassembled buffer if message is complete.
-@@ -2585,38 +2573,6 @@ int tipc_link_recv_fragment(struct sk_buff **pending, struct sk_buff **fb,
- 	return 0;
- }
+  * net/tipc/socket.c: TIPC socket API
+  *
+- * Copyright (c) 2001-2007, Ericsson AB
++ * Copyright (c) 2001-2007, 2012 Ericsson AB
+  * Copyright (c) 2004-2008, 2010-2012, Wind River Systems
+  * All rights reserved.
+  *
+@@ -43,7 +43,7 @@
+ #define SS_LISTENING	-1	/* socket is listening */
+ #define SS_READY	-2	/* socket is connectionless */
  
--/**
-- * link_check_defragm_bufs - flush stale incoming message fragments
-- * @l_ptr: pointer to link
-- */
--static void link_check_defragm_bufs(struct tipc_link *l_ptr)
--{
--	struct sk_buff *prev = NULL;
--	struct sk_buff *next = NULL;
--	struct sk_buff *buf = l_ptr->defragm_buf;
--
--	if (!buf)
--		return;
--	if (!link_working_working(l_ptr))
--		return;
--	while (buf) {
--		u32 cnt = get_timer_cnt(buf);
--
--		next = buf->next;
--		if (cnt < 4) {
--			incr_timer_cnt(buf);
--			prev = buf;
--		} else {
--			if (prev)
--				prev->next = buf->next;
--			else
--				l_ptr->defragm_buf = buf->next;
--			kfree_skb(buf);
--		}
--		buf = next;
--	}
--}
--
- static void link_set_supervision_props(struct tipc_link *l_ptr, u32 tolerance)
- {
- 	if ((tolerance < TIPC_MIN_LINK_TOL) || (tolerance > TIPC_MAX_LINK_TOL))
+-#define OVERLOAD_LIMIT_BASE	5000
++#define OVERLOAD_LIMIT_BASE	10000
+ #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
+ 
+ struct tipc_sock {
 -- 
 1.7.12.1
