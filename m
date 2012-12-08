@@ -1,209 +1,276 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 4/9] tipc: standardize across connect/disconnect function naming
-Date: Fri, 7 Dec 2012 20:19:13 -0500
-Message-ID: <1354929558-16948-5-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 6/9] tipc: introduce non-blocking socket connect
+Date: Fri, 7 Dec 2012 20:19:15 -0500
+Message-ID: <1354929558-16948-7-git-send-email-paul.gortmaker@windriver.com>
 References: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63587 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:63586 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757476Ab2LHBTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 20:19:37 -0500
+	with ESMTP id S1757474Ab2LHBTg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 20:19:36 -0500
 In-Reply-To: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we have tipc_disconnect and tipc_disconnect_port.  It is
-not clear from the names alone, what they do or how they differ.
-It turns out that tipc_disconnect just deals with the port locking
-and then calls tipc_disconnect_port which does all the work.
+From: Ying Xue <ying.xue@windriver.com>
 
-If we rename as follows: tipc_disconnect_port --> __tipc_disconnect
-then we will be following typical linux convention, where:
+TIPC has so far only supported blocking connect(), meaning that a call
+to connect() doesn't return until either the connection is fully
+established, or an error occurs. This has proved insufficient for many
+users, so we now introduce non-blocking connect(), analogous to how
+this is done in TCP and other protocols.
 
-   __tipc_disconnect: "raw" function that does all the work.
+With this feature, if a connection cannot be established instantly,
+connect() will return the error code "-EINPROGRESS".
+If the user later calls connect() again, he will either have the
+return code "-EALREADY" or "-EISCONN", depending on whether the
+connection has been established or not.
 
-   tipc_disconnect: wrapper that deals with locking and then calls
-		    the real core __tipc_disconnect function
+The user must have explicitly set the socket to be non-blocking
+(SOCK_NONBLOCK or O_NONBLOCK, depending on method used), so unless
+for some reason they had set this already (the socket would anyway
+remain blocking in current TIPC) this change should be completely
+backwards compatible.
 
-With this, the difference is immediately evident, and locking
-violations are more apt to be spotted by chance while working on,
-or even just while reading the code.
+It is also now possible to call select() or poll() to wait for the
+completion of a connection.
 
-On the connect side of things, we currently only have the single
-"tipc_connect2port" function.  It does both the locking at enter/exit,
-and the core of the work.  Pending changes will make it desireable to
-have the connect be a two part locking wrapper + worker function,
-just like the disconnect is already.
+An effect of the above is that the actual completion of a connection
+may now be performed asynchronously, independent of the calls from
+user space. Therefore, we now execute this code in BH context, in
+the function filter_rcv(), which is executed upon reception of
+messages in the socket.
 
-Here, we make the connect look just like the updated disconnect case,
-for the above reason, and for consistency.  In the process, we also
-get rid of the "2port" suffix that was on the original name, since
-it adds no descriptive value.
-
-On close examination, one might notice that the above connect
-changes implicitly move the call to tipc_link_get_max_pkt() to be
-within the scope of tipc_port_lock() protected region; when it was
-not previously.  We don't see any issues with this, and it is in
-keeping with __tipc_connect doing the work and tipc_connect just
-handling the locking.
-
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+[PG: minor refactoring for improved connect/disconnect function names]
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/port.c   | 32 +++++++++++++++++++++++---------
- net/tipc/port.h   |  6 ++++--
- net/tipc/socket.c |  6 +++---
- net/tipc/subscr.c |  2 +-
- 4 files changed, 31 insertions(+), 15 deletions(-)
+ net/tipc/socket.c | 158 ++++++++++++++++++++++++++++++++----------------------
+ 1 file changed, 93 insertions(+), 65 deletions(-)
 
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 07c42fb..18098ca 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -726,7 +726,7 @@ static void port_dispatcher_sigh(void *dummy)
- 				if (unlikely(!cb))
- 					goto reject;
- 				if (unlikely(!connected)) {
--					if (tipc_connect2port(dref, &orig))
-+					if (tipc_connect(dref, &orig))
- 						goto reject;
- 				} else if (peer_invalid)
- 					goto reject;
-@@ -1036,15 +1036,30 @@ int tipc_withdraw(u32 ref, unsigned int scope, struct tipc_name_seq const *seq)
- 	return res;
- }
- 
--int tipc_connect2port(u32 ref, struct tipc_portid const *peer)
-+int tipc_connect(u32 ref, struct tipc_portid const *peer)
- {
- 	struct tipc_port *p_ptr;
--	struct tipc_msg *msg;
--	int res = -EINVAL;
-+	int res;
- 
- 	p_ptr = tipc_port_lock(ref);
- 	if (!p_ptr)
- 		return -EINVAL;
-+	res = __tipc_connect(ref, p_ptr, peer);
-+	tipc_port_unlock(p_ptr);
-+	return res;
-+}
-+
-+/*
-+ * __tipc_connect - connect to a remote peer
-+ *
-+ * Port must be locked.
-+ */
-+int __tipc_connect(u32 ref, struct tipc_port *p_ptr,
-+			struct tipc_portid const *peer)
-+{
-+	struct tipc_msg *msg;
-+	int res = -EINVAL;
-+
- 	if (p_ptr->published || p_ptr->connected)
- 		goto exit;
- 	if (!peer->ref)
-@@ -1067,17 +1082,16 @@ int tipc_connect2port(u32 ref, struct tipc_portid const *peer)
- 			  (net_ev_handler)port_handle_node_down);
- 	res = 0;
- exit:
--	tipc_port_unlock(p_ptr);
- 	p_ptr->max_pkt = tipc_link_get_max_pkt(peer->node, ref);
- 	return res;
- }
- 
--/**
-- * tipc_disconnect_port - disconnect port from peer
-+/*
-+ * __tipc_disconnect - disconnect port from peer
-  *
-  * Port must be locked.
-  */
--int tipc_disconnect_port(struct tipc_port *tp_ptr)
-+int __tipc_disconnect(struct tipc_port *tp_ptr)
- {
- 	int res;
- 
-@@ -1104,7 +1118,7 @@ int tipc_disconnect(u32 ref)
- 	p_ptr = tipc_port_lock(ref);
- 	if (!p_ptr)
- 		return -EINVAL;
--	res = tipc_disconnect_port(p_ptr);
-+	res = __tipc_disconnect(p_ptr);
- 	tipc_port_unlock(p_ptr);
- 	return res;
- }
-diff --git a/net/tipc/port.h b/net/tipc/port.h
-index 4660e30..fb66e2e 100644
---- a/net/tipc/port.h
-+++ b/net/tipc/port.h
-@@ -190,7 +190,7 @@ int tipc_publish(u32 portref, unsigned int scope,
- int tipc_withdraw(u32 portref, unsigned int scope,
- 		struct tipc_name_seq const *name_seq);
- 
--int tipc_connect2port(u32 portref, struct tipc_portid const *port);
-+int tipc_connect(u32 portref, struct tipc_portid const *port);
- 
- int tipc_disconnect(u32 portref);
- 
-@@ -200,7 +200,9 @@ int tipc_shutdown(u32 ref);
- /*
-  * The following routines require that the port be locked on entry
-  */
--int tipc_disconnect_port(struct tipc_port *tp_ptr);
-+int __tipc_disconnect(struct tipc_port *tp_ptr);
-+int __tipc_connect(u32 ref, struct tipc_port *p_ptr,
-+		   struct tipc_portid const *peer);
- int tipc_port_peer_msg(struct tipc_port *p_ptr, struct tipc_msg *msg);
- 
- /*
 diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index f553fde..b630f38 100644
+index d16a6de..dbce274 100644
 --- a/net/tipc/socket.c
 +++ b/net/tipc/socket.c
-@@ -783,7 +783,7 @@ static int auto_connect(struct socket *sock, struct tipc_msg *msg)
+@@ -775,16 +775,19 @@ exit:
+ static int auto_connect(struct socket *sock, struct tipc_msg *msg)
+ {
+ 	struct tipc_sock *tsock = tipc_sk(sock->sk);
+-
+-	if (msg_errcode(msg)) {
+-		sock->state = SS_DISCONNECTING;
+-		return -ECONNREFUSED;
+-	}
++	struct tipc_port *p_ptr;
  
  	tsock->peer_name.ref = msg_origport(msg);
  	tsock->peer_name.node = msg_orignode(msg);
--	tipc_connect2port(tsock->p->ref, &tsock->peer_name);
-+	tipc_connect(tsock->p->ref, &tsock->peer_name);
- 	tipc_set_portimportance(tsock->p->ref, msg_importance(msg));
+-	tipc_connect(tsock->p->ref, &tsock->peer_name);
+-	tipc_set_portimportance(tsock->p->ref, msg_importance(msg));
++	p_ptr = tipc_port_deref(tsock->p->ref);
++	if (!p_ptr)
++		return -EINVAL;
++
++	__tipc_connect(tsock->p->ref, p_ptr, &tsock->peer_name);
++
++	if (msg_importance(msg) > TIPC_CRITICAL_IMPORTANCE)
++		return -EINVAL;
++	msg_set_importance(&p_ptr->phdr, (u32)msg_importance(msg));
  	sock->state = SS_CONNECTED;
  	return 0;
-@@ -1246,7 +1246,7 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- 	/* Initiate connection termination for an incoming 'FIN' */
- 	if (unlikely(msg_errcode(msg) && (sock->state == SS_CONNECTED))) {
- 		sock->state = SS_DISCONNECTING;
--		tipc_disconnect_port(tipc_sk_port(sk));
-+		__tipc_disconnect(tipc_sk_port(sk));
+ }
+@@ -1198,7 +1201,9 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
+ {
+ 	struct socket *sock = tsock->sk.sk_socket;
+ 	struct tipc_msg *msg = buf_msg(*buf);
++	struct sock *sk = &tsock->sk;
+ 	u32 retval = TIPC_ERR_NO_PORT;
++	int res;
+ 
+ 	if (msg_mcast(msg))
+ 		return retval;
+@@ -1216,8 +1221,36 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
+ 		break;
+ 	case SS_CONNECTING:
+ 		/* Accept only ACK or NACK message */
+-		if (msg_connected(msg) || (msg_errcode(msg)))
++		if (unlikely(msg_errcode(msg))) {
++			sock->state = SS_DISCONNECTING;
++			sk->sk_err = -ECONNREFUSED;
++			retval = TIPC_OK;
++			break;
++		}
++
++		if (unlikely(!msg_connected(msg)))
++			break;
++
++		res = auto_connect(sock, msg);
++		if (res) {
++			sock->state = SS_DISCONNECTING;
++			sk->sk_err = res;
+ 			retval = TIPC_OK;
++			break;
++		}
++
++		/* If an incoming message is an 'ACK-', it should be
++		 * discarded here because it doesn't contain useful
++		 * data. In addition, we should try to wake up
++		 * connect() routine if sleeping.
++		 */
++		if (msg_data_sz(msg) == 0) {
++			kfree_skb(*buf);
++			*buf = NULL;
++			if (waitqueue_active(sk_sleep(sk)))
++				wake_up_interruptible(sk_sleep(sk));
++		}
++		retval = TIPC_OK;
+ 		break;
+ 	case SS_LISTENING:
+ 	case SS_UNCONNECTED:
+@@ -1361,8 +1394,6 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
+ 	struct sock *sk = sock->sk;
+ 	struct sockaddr_tipc *dst = (struct sockaddr_tipc *)dest;
+ 	struct msghdr m = {NULL,};
+-	struct sk_buff *buf;
+-	struct tipc_msg *msg;
+ 	unsigned int timeout;
+ 	int res;
+ 
+@@ -1374,26 +1405,6 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
+ 		goto exit;
  	}
  
- 	sk->sk_data_ready(sk, 0);
-@@ -1506,7 +1506,7 @@ static int accept(struct socket *sock, struct socket *new_sock, int flags)
- 		/* Connect new socket to it's peer */
- 		new_tsock->peer_name.ref = msg_origport(msg);
- 		new_tsock->peer_name.node = msg_orignode(msg);
--		tipc_connect2port(new_ref, &new_tsock->peer_name);
-+		tipc_connect(new_ref, &new_tsock->peer_name);
- 		new_sock->state = SS_CONNECTED;
- 
- 		tipc_set_portimportance(new_ref, msg_importance(msg));
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 0f7d0d0..6b42d47 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -462,7 +462,7 @@ static void subscr_named_msg_event(void *usr_handle,
- 		kfree(subscriber);
- 		return;
+-	/* For now, TIPC does not support the non-blocking form of connect() */
+-	if (flags & O_NONBLOCK) {
+-		res = -EOPNOTSUPP;
+-		goto exit;
+-	}
+-
+-	/* Issue Posix-compliant error code if socket is in the wrong state */
+-	if (sock->state == SS_LISTENING) {
+-		res = -EOPNOTSUPP;
+-		goto exit;
+-	}
+-	if (sock->state == SS_CONNECTING) {
+-		res = -EALREADY;
+-		goto exit;
+-	}
+-	if (sock->state != SS_UNCONNECTED) {
+-		res = -EISCONN;
+-		goto exit;
+-	}
+-
+ 	/*
+ 	 * Reject connection attempt using multicast address
+ 	 *
+@@ -1405,49 +1416,66 @@ static int connect(struct socket *sock, struct sockaddr *dest, int destlen,
+ 		goto exit;
  	}
--	tipc_connect2port(subscriber->port_ref, orig);
-+	tipc_connect(subscriber->port_ref, orig);
  
- 	/* Lock server port (& save lock address for future use) */
- 	subscriber->lock = tipc_port_lock(subscriber->port_ref)->lock;
+-	/* Reject any messages already in receive queue (very unlikely) */
+-	reject_rx_queue(sk);
++	timeout = (flags & O_NONBLOCK) ? 0 : tipc_sk(sk)->conn_timeout;
++
++	switch (sock->state) {
++	case SS_UNCONNECTED:
++		/* Send a 'SYN-' to destination */
++		m.msg_name = dest;
++		m.msg_namelen = destlen;
++
++		/* If connect is in non-blocking case, set MSG_DONTWAIT to
++		 * indicate send_msg() is never blocked.
++		 */
++		if (!timeout)
++			m.msg_flags = MSG_DONTWAIT;
++
++		res = send_msg(NULL, sock, &m, 0);
++		if ((res < 0) && (res != -EWOULDBLOCK))
++			goto exit;
+ 
+-	/* Send a 'SYN-' to destination */
+-	m.msg_name = dest;
+-	m.msg_namelen = destlen;
+-	res = send_msg(NULL, sock, &m, 0);
+-	if (res < 0)
++		/* Just entered SS_CONNECTING state; the only
++		 * difference is that return value in non-blocking
++		 * case is EINPROGRESS, rather than EALREADY.
++		 */
++		res = -EINPROGRESS;
++		break;
++	case SS_CONNECTING:
++		res = -EALREADY;
++		break;
++	case SS_CONNECTED:
++		res = -EISCONN;
++		break;
++	default:
++		res = -EINVAL;
+ 		goto exit;
++	}
+ 
+-	/* Wait until an 'ACK' or 'RST' arrives, or a timeout occurs */
+-	timeout = tipc_sk(sk)->conn_timeout;
+-	release_sock(sk);
+-	res = wait_event_interruptible_timeout(*sk_sleep(sk),
+-			(!skb_queue_empty(&sk->sk_receive_queue) ||
+-			(sock->state != SS_CONNECTING)),
+-			timeout ? (long)msecs_to_jiffies(timeout)
+-				: MAX_SCHEDULE_TIMEOUT);
+-	lock_sock(sk);
++	if (sock->state == SS_CONNECTING) {
++		if (!timeout)
++			goto exit;
+ 
+-	if (res > 0) {
+-		buf = skb_peek(&sk->sk_receive_queue);
+-		if (buf != NULL) {
+-			msg = buf_msg(buf);
+-			res = auto_connect(sock, msg);
+-			if (!res) {
+-				if (!msg_data_sz(msg))
+-					advance_rx_queue(sk);
+-			}
+-		} else {
+-			if (sock->state == SS_CONNECTED)
+-				res = -EISCONN;
++		/* Wait until an 'ACK' or 'RST' arrives, or a timeout occurs */
++		release_sock(sk);
++		res = wait_event_interruptible_timeout(*sk_sleep(sk),
++				sock->state != SS_CONNECTING,
++				timeout ? (long)msecs_to_jiffies(timeout)
++					: MAX_SCHEDULE_TIMEOUT);
++		lock_sock(sk);
++		if (res <= 0) {
++			if (res == 0)
++				res = -ETIMEDOUT;
+ 			else
+-				res = -ECONNREFUSED;
++				; /* leave "res" unchanged */
++			goto exit;
+ 		}
+-	} else {
+-		if (res == 0)
+-			res = -ETIMEDOUT;
+-		else
+-			; /* leave "res" unchanged */
+-		sock->state = SS_DISCONNECTING;
+ 	}
+ 
++	if (unlikely(sock->state == SS_DISCONNECTING))
++		res = sock_error(sk);
++	else
++		res = 0;
++
+ exit:
+ 	release_sock(sk);
+ 	return res;
 -- 
 1.7.12.1
