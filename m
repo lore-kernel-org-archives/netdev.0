@@ -1,105 +1,167 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH v2 net-next 0/9] tipc: more updates for the v3.8 content
-Date: Fri, 7 Dec 2012 20:19:09 -0500
-Message-ID: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 5/9] tipc: consolidate connection-oriented message reception in one function
+Date: Fri, 7 Dec 2012 20:19:14 -0500
+Message-ID: <1354929558-16948-6-git-send-email-paul.gortmaker@windriver.com>
+References: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63544 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757419Ab2LHBTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 20:19:30 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:46480 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757419Ab2LHBTf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Dec 2012 20:19:35 -0500
+In-Reply-To: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes since v1:
-	-get rid of essentially unused variable spotted by
-	 Neil Horman (patch #2)
+=46rom: Ying Xue <ying.xue@windriver.com>
 
-	-drop patch #3; defer it for 3.9 content, so Neil,
-	 Jon and Ying can discuss its specifics at their
-	 leisure while net-next is closed.  (It had no
-	 direct dependencies to the rest of the series, and
-	 was just an optimization)
+Handling of connection-related message reception is currently scattered
+around at different places in the code. This makes it harder to verify
+that things are handled correctly in all possible scenarios.
+So we consolidate the existing processing of connection-oriented
+message reception in a single routine.  In the process, we convert the
+chain of if/else into a switch/case for improved readability.
 
-	-fix indentation of accept() code directly in place
-	 vs. forking it out to a separate function (was patch
-	 #10, now patch #9).
+A cast on the socket_state in the switch is needed to avoid compile
+warnings on 32 bit, like "net/tipc/socket.c:1252:2: warning: case value
+=E2=80=984294967295=E2=80=99 not in enumerated type".  This happens bec=
+ause existing
+tipc code pseudo extends the default linux socket state values with:
 
-Rebuilt and re-ran tests just to ensure nothing odd happened.
+	#define SS_LISTENING    -1      /* socket is listening */
+	#define SS_READY        -2      /* socket is connectionless */
 
-Original v1 text follows, updated pull information follows that.
+It may make sense to add these as _positive_ values to the existing
+socket state enum list someday, vs. these already existing defines.
 
-           ---------
-
-Here is another batch of TIPC changes.  The most interesting
-thing is probably the non-blocking socket connect - I'm told
-there were several users looking forward to seeing this.
-
-Also there were some resource limitation changes that had
-the right intent back in 2005, but were now apparently causing
-needless limitations to people's real use cases; those have
-been relaxed/removed.
-
-There is a lockdep splat fix, but no need for a stable backport,
-since it is virtually impossible to trigger in mainline; you
-have to essentially modify code to force the probabilities
-in your favour to see it.
-
-The rest can largely be categorized as general cleanup of things
-seen in the process of getting the above changes done.
-
-Tested between 64 and 32 bit nodes with the test suite.  I've
-also compile tested all the individual commits on the chain.
-
-I'd originally figured on this queue not being ready for 3.8, but
-the extended stabilization window of 3.7 has changed that.  On
-the other hand, this can still be 3.9 material, if that simply
-works better for folks - no problem for me to defer it to 2013.
-If anyone spots any problems then I'll definitely defer it,
-rather than rush a last minute respin.
-
-Thanks,
-Paul.
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+[PG: add cast to fix warning; remove returns from middle of switch]
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
+ net/tipc/socket.c | 75 +++++++++++++++++++++++++++++++++++++----------=
+--------
+ 1 file changed, 51 insertions(+), 24 deletions(-)
 
-The following changes since commit b93196dc5af7729ff7cc50d3d322ab1a364aa14f:
-
-  net: fix some compiler warning in net/core/neighbour.c (2012-12-05 21:50:37 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git tipc_net-next_v2
-
-for you to fetch changes up to 0fef8f205f6f4cdff1869e54e44f317a79902785:
-
-  tipc: refactor accept() code for improved readability (2012-12-07 17:23:24 -0500)
-
-----------------------------------------------------------------
-Erik Hugne (1):
-      tipc: remove obsolete flush of stale reassembly buffer
-
-Jon Maloy (1):
-      tipc: change sk_receive_queue upper limit
-
-Paul Gortmaker (2):
-      tipc: standardize across connect/disconnect function naming
-      tipc: refactor accept() code for improved readability
-
-Ying Xue (5):
-      tipc: eliminate aggregate sk_receive_queue limit
-      tipc: consolidate connection-oriented message reception in one function
-      tipc: introduce non-blocking socket connect
-      tipc: eliminate connection setup for implied connect in recv_msg()
-      tipc: add lock nesting notation to quiet lockdep warning
-
- net/tipc/link.c   |  44 -------
- net/tipc/port.c   |  32 +++--
- net/tipc/port.h   |   6 +-
- net/tipc/socket.c | 353 ++++++++++++++++++++++++++++++------------------------
- net/tipc/subscr.c |   2 +-
- 5 files changed, 225 insertions(+), 212 deletions(-)
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index b630f38..d16a6de 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1187,6 +1187,53 @@ static int rx_queue_full(struct tipc_msg *msg, u=
+32 queue_size, u32 base)
+ }
+=20
+ /**
++ * filter_connect - Handle all incoming messages for a connection-base=
+d socket
++ * @tsock: TIPC socket
++ * @msg: message
++ *
++ * Returns TIPC error status code and socket error status code
++ * once it encounters some errors
++ */
++static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **bu=
+f)
++{
++	struct socket *sock =3D tsock->sk.sk_socket;
++	struct tipc_msg *msg =3D buf_msg(*buf);
++	u32 retval =3D TIPC_ERR_NO_PORT;
++
++	if (msg_mcast(msg))
++		return retval;
++
++	switch ((int)sock->state) {
++	case SS_CONNECTED:
++		/* Accept only connection-based messages sent by peer */
++		if (msg_connected(msg) && tipc_port_peer_msg(tsock->p, msg)) {
++			if (unlikely(msg_errcode(msg))) {
++				sock->state =3D SS_DISCONNECTING;
++				__tipc_disconnect(tsock->p);
++			}
++			retval =3D TIPC_OK;
++		}
++		break;
++	case SS_CONNECTING:
++		/* Accept only ACK or NACK message */
++		if (msg_connected(msg) || (msg_errcode(msg)))
++			retval =3D TIPC_OK;
++		break;
++	case SS_LISTENING:
++	case SS_UNCONNECTED:
++		/* Accept only SYN message */
++		if (!msg_connected(msg) && !(msg_errcode(msg)))
++			retval =3D TIPC_OK;
++		break;
++	case SS_DISCONNECTING:
++		break;
++	default:
++		pr_err("Unknown socket state %u\n", sock->state);
++	}
++	return retval;
++}
++
++/**
+  * filter_rcv - validate incoming message
+  * @sk: socket
+  * @buf: message
+@@ -1203,6 +1250,7 @@ static u32 filter_rcv(struct sock *sk, struct sk_=
+buff *buf)
+ 	struct socket *sock =3D sk->sk_socket;
+ 	struct tipc_msg *msg =3D buf_msg(buf);
+ 	u32 recv_q_len;
++	u32 res =3D TIPC_OK;
+=20
+ 	/* Reject message if it is wrong sort of message for socket */
+ 	if (msg_type(msg) > TIPC_DIRECT_MSG)
+@@ -1212,24 +1260,9 @@ static u32 filter_rcv(struct sock *sk, struct sk=
+_buff *buf)
+ 		if (msg_connected(msg))
+ 			return TIPC_ERR_NO_PORT;
+ 	} else {
+-		if (msg_mcast(msg))
+-			return TIPC_ERR_NO_PORT;
+-		if (sock->state =3D=3D SS_CONNECTED) {
+-			if (!msg_connected(msg) ||
+-			    !tipc_port_peer_msg(tipc_sk_port(sk), msg))
+-				return TIPC_ERR_NO_PORT;
+-		} else if (sock->state =3D=3D SS_CONNECTING) {
+-			if (!msg_connected(msg) && (msg_errcode(msg) =3D=3D 0))
+-				return TIPC_ERR_NO_PORT;
+-		} else if (sock->state =3D=3D SS_LISTENING) {
+-			if (msg_connected(msg) || msg_errcode(msg))
+-				return TIPC_ERR_NO_PORT;
+-		} else if (sock->state =3D=3D SS_DISCONNECTING) {
+-			return TIPC_ERR_NO_PORT;
+-		} else /* (sock->state =3D=3D SS_UNCONNECTED) */ {
+-			if (msg_connected(msg) || msg_errcode(msg))
+-				return TIPC_ERR_NO_PORT;
+-		}
++		res =3D filter_connect(tipc_sk(sk), &buf);
++		if (res !=3D TIPC_OK || buf =3D=3D NULL)
++			return res;
+ 	}
+=20
+ 	/* Reject message if there isn't room to queue it */
+@@ -1243,12 +1276,6 @@ static u32 filter_rcv(struct sock *sk, struct sk=
+_buff *buf)
+ 	TIPC_SKB_CB(buf)->handle =3D 0;
+ 	__skb_queue_tail(&sk->sk_receive_queue, buf);
+=20
+-	/* Initiate connection termination for an incoming 'FIN' */
+-	if (unlikely(msg_errcode(msg) && (sock->state =3D=3D SS_CONNECTED))) =
+{
+-		sock->state =3D SS_DISCONNECTING;
+-		__tipc_disconnect(tipc_sk_port(sk));
+-	}
+-
+ 	sk->sk_data_ready(sk, 0);
+ 	return TIPC_OK;
+ }
+--=20
+1.7.12.1
