@@ -1,51 +1,45 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Linux IP forwarding performance benchmarks
-Date: Sat, 08 Dec 2012 10:44:18 -0800
-Message-ID: <50C38A82.5050506@candelatech.com>
-References: <1219381354968093@web3d.yandex.ru>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: ipgre rss is broken since gro
+Date: Sat, 8 Dec 2012 22:35:17 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F1BFB80B2@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Oleg Arkhangelsky <sysoleg@yandex.ru>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: "Eric Dumazet" <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:40243 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965492Ab2LHSoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2012 13:44:20 -0500
-In-Reply-To: <1219381354968093@web3d.yandex.ru>
+Received: from mms3.broadcom.com ([216.31.210.19]:2641 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752007Ab2LHWfa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2012 17:35:30 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/08/2012 04:01 AM, Oleg Arkhangelsky wrote:
-> Hello,
->
-> Does anyone have some Linux IP forwarding performance
-> benchmarks on Nehalem Xeon platform versus Sandy
-> Bridge Xeon E5? Intel DDIO looks pretty tasty and should
-> give significant  performance boost (at least in theory)
-> but currently we doesn't have this hardware at hand to
-> test so asking here.
+Hi  Eric,
 
-Well, I don't have forwarding numbers, but using a modified pktgen,
-we can send and receive about 800,000 packets per second on each of
-4 10G NICs in our E5 test system.
+I'm trying to use GRE with RSS, but it looks broken on net-next since:
 
-Our modified pktgen is probably slower than the upstream, as it has
-a bunch of rx logic in it as well...
+60769a5dcd8755715c7143b4571d5c44f01796f1 is the first bad commit
+commit 60769a5dcd8755715c7143b4571d5c44f01796f1
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Thu Sep 27 02:48:50 2012 +0000
 
-And, for our network emulator module (like a bridge, mostly), we can
-get 7-9.8Gbps bi-directional throughput, depending on some issues
-due to IRQ pinning and the spread among the rx-queues, it seems.
+    ipv4: gre: add GRO capability
 
-Thanks,
-Ben
+    Add GRO capability to IPv4 GRE tunnels, using the gro_cells
+    infrastructure.
 
->
-> Thank you!
->
+    Tested using IPv4 and IPv6 TCP traffic inside this tunnel, and
+    checking GRO is building large packets.
 
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+:040000 040000 8eb4f570181b6d72abe24f8c1123b7e49134e662 fa20194bb14d1745e9271c8a962d0f140801a226 M      include
+:040000 040000 6f605ade7fed9fbe5fd57d4a0c3a8dc687e64ed6 4c06b880a6a6068aa791decb900f7b449c6ec7b5 M      net
+
+Multiple TCP streams over the tunnel cause (almost) immediately GRE interface to drop any ingress packet.
+
+Please note that at current net-next head behavior is different - I hit null pointer dereference, I will try to bisect this behavior too.
