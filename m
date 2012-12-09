@@ -1,34 +1,121 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] caif_usb: Make the driver name check more
- efficient
-Date: Sun, 09 Dec 2012 00:34:54 -0500 (EST)
-Message-ID: <20121209.003454.640487870743353259.davem@davemloft.net>
-References: <1354897227.2707.10.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sjur.brandeland@stericsson.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net 2/3] inet_diag: validate byte code to prevent oops in inet_diag_bc_run()
+Date: Sun,  9 Dec 2012 00:43:22 -0500
+Message-ID: <1355031803-14547-2-git-send-email-ncardwell@google.com>
+References: <1355031803-14547-1-git-send-email-ncardwell@google.com>
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42164 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754174Ab2LIFe4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 00:34:56 -0500
-In-Reply-To: <1354897227.2707.10.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-bk0-f74.google.com ([209.85.214.74]:39495 "EHLO
+	mail-bk0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756462Ab2LIFn3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 00:43:29 -0500
+Received: by mail-bk0-f74.google.com with SMTP id je9so107127bkc.1
+        for <netdev@vger.kernel.org>; Sat, 08 Dec 2012 21:43:28 -0800 (PST)
+In-Reply-To: <1355031803-14547-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 7 Dec 2012 16:20:27 +0000
+Add logic to validate INET_DIAG_BC_S_COND and INET_DIAG_BC_D_COND
+operations.
 
-> Use the device model to get just the name, rather than using the
-> ethtool API to get all driver information.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> Compile-tested only.  I'm assuming that the strncmp() is not really
-> necessary, but perhaps there is some OOT variant of cdc_ncm that is also
-> supposed to be supported?
+Previously we did not validate the inet_diag_hostcond, address family,
+address length, and prefix length. So a malicious user could make the
+kernel read beyond the end of the bytecode array by claiming to have a
+whole inet_diag_hostcond when the bytecode was not long enough to
+contain a whole inet_diag_hostcond of the given address family. Or
+they could make the kernel read up to about 27 bytes beyond the end of
+a connection address by passing a prefix length that exceeded the
+length of addresses of the given family.
 
-Applied, I guess you found this while looking around for tests
-of ethtool_ops being NULL?
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/inet_diag.c |   48 +++++++++++++++++++++++++++++++++++++++++++++---
+ 1 files changed, 45 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 16cfa42..529747d 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -513,6 +513,44 @@ static int valid_cc(const void *bc, int len, int cc)
+ 	return 0;
+ }
+ 
++/* Validate an inet_diag_hostcond. */
++static bool valid_hostcond(const struct inet_diag_bc_op *op, int len,
++			   int *min_len)
++{
++	int addr_len;
++	struct inet_diag_hostcond *cond;
++
++	/* Check hostcond space. */
++	*min_len += sizeof(struct inet_diag_hostcond);
++	if (len < *min_len)
++		return false;
++	cond = (struct inet_diag_hostcond *)(op + 1);
++
++	/* Check address family and address length. */
++	switch (cond->family) {
++	case AF_UNSPEC:
++		addr_len = 0;
++		break;
++	case AF_INET:
++		addr_len = sizeof(struct in_addr);
++		break;
++	case AF_INET6:
++		addr_len = sizeof(struct in6_addr);
++		break;
++	default:
++		return false;
++	}
++	*min_len += addr_len;
++	if (len < *min_len)
++		return false;
++
++	/* Check prefix length (in bits) vs address length (in bytes). */
++	if (cond->prefix_len > 8 * addr_len)
++		return false;
++
++	return true;
++}
++
+ static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
+ {
+ 	const void *bc = bytecode;
+@@ -520,18 +558,22 @@ static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
+ 
+ 	while (len > 0) {
+ 		const struct inet_diag_bc_op *op = bc;
++		int min_len = sizeof(struct inet_diag_bc_op);
+ 
+ //printk("BC: %d %d %d {%d} / %d\n", op->code, op->yes, op->no, op[1].no, len);
+ 		switch (op->code) {
+-		case INET_DIAG_BC_AUTO:
+ 		case INET_DIAG_BC_S_COND:
+ 		case INET_DIAG_BC_D_COND:
++			if (!valid_hostcond(bc, len, &min_len))
++				return -EINVAL;
++			/* fall through */
++		case INET_DIAG_BC_AUTO:
+ 		case INET_DIAG_BC_S_GE:
+ 		case INET_DIAG_BC_S_LE:
+ 		case INET_DIAG_BC_D_GE:
+ 		case INET_DIAG_BC_D_LE:
+ 		case INET_DIAG_BC_JMP:
+-			if (op->no < 4 || op->no > len + 4 || op->no & 3)
++			if (op->no < min_len || op->no > len + 4 || op->no & 3)
+ 				return -EINVAL;
+ 			if (op->no < len &&
+ 			    !valid_cc(bytecode, bytecode_len, len - op->no))
+@@ -542,7 +584,7 @@ static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
+ 		default:
+ 			return -EINVAL;
+ 		}
+-		if (op->yes < 4 || op->yes > len + 4 || op->yes & 3)
++		if (op->yes < min_len || op->yes > len + 4 || op->yes & 3)
+ 			return -EINVAL;
+ 		bc  += op->yes;
+ 		len -= op->yes;
+-- 
+1.7.7.3
