@@ -1,92 +1,122 @@
 From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net 3/3] inet_diag: avoid unsafe and nonsensical prefix matches in inet_diag_bc_run()
-Date: Sun,  9 Dec 2012 00:43:23 -0500
-Message-ID: <1355031803-14547-3-git-send-email-ncardwell@google.com>
-References: <1355031803-14547-1-git-send-email-ncardwell@google.com>
+Subject: [PATCH net 1/3] inet_diag: fix oops for IPv4 AF_INET6 TCP SYN-RECV state
+Date: Sun,  9 Dec 2012 00:43:21 -0500
+Message-ID: <1355031803-14547-1-git-send-email-ncardwell@google.com>
 Cc: edumazet@google.com, netdev@vger.kernel.org,
 	Neal Cardwell <ncardwell@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f74.google.com ([209.85.214.74]:39495 "EHLO
-	mail-bk0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756506Ab2LIFnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 00:43:31 -0500
-Received: by mail-bk0-f74.google.com with SMTP id je9so107127bkc.1
-        for <netdev@vger.kernel.org>; Sat, 08 Dec 2012 21:43:31 -0800 (PST)
-In-Reply-To: <1355031803-14547-1-git-send-email-ncardwell@google.com>
+Received: from mail-wi0-f202.google.com ([209.85.212.202]:55524 "EHLO
+	mail-wi0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756455Ab2LIFn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 00:43:28 -0500
+Received: by mail-wi0-f202.google.com with SMTP id hn17so45518wib.1
+        for <netdev@vger.kernel.org>; Sat, 08 Dec 2012 21:43:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add logic to check the address family of the user-supplied conditional
-and the address family of the connection entry. We now do not do
-prefix matching of addresses from different address families (AF_INET
-vs AF_INET6), except for the previously existing support for having an
-IPv4 prefix match an IPv4-mapped IPv6 address (which this commit
-maintains as-is).
+Fix inet_diag to be aware of the fact that AF_INET6 TCP connections
+instantiated for IPv4 traffic and in the SYN-RECV state were actually
+created with inet_reqsk_alloc(), instead of inet6_reqsk_alloc(). This
+means that for such connections inet6_rsk(req) returns a pointer to a
+random spot in memory up to roughly 64KB beyond the end of the
+request_sock.
 
-This change is needed for two reasons:
-
-(1) The addresses are different lengths, so comparing a 128-bit IPv6
-prefix match condition to a 32-bit IPv4 connection address can cause
-us to unwittingly walk off the end of the IPv4 address and read
-garbage or oops.
-
-(2) The IPv4 and IPv6 address spaces are semantically distinct, so a
-simple bit-wise comparison of the prefixes is not meaningful, and
-would lead to bogus results (except for the IPv4-mapped IPv6 case,
-which this commit maintains).
+With this bug, for a server using AF_INET6 TCP sockets and serving
+IPv4 traffic, an inet_diag user like `ss state SYN-RECV` would lead to
+inet_diag_fill_req() causing an oops or the export to user space of 16
+bytes of kernel memory as a garbage IPv6 address, depending on where
+the garbage inet6_rsk(req) pointed.
 
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 ---
- net/ipv4/inet_diag.c |   28 +++++++++++++++++-----------
- 1 files changed, 17 insertions(+), 11 deletions(-)
+ net/ipv4/inet_diag.c |   53 ++++++++++++++++++++++++++++++++++++-------------
+ 1 files changed, 39 insertions(+), 14 deletions(-)
 
 diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 529747d..95f1a45 100644
+index 0c34bfa..16cfa42 100644
 --- a/net/ipv4/inet_diag.c
 +++ b/net/ipv4/inet_diag.c
-@@ -432,25 +432,31 @@ static int inet_diag_bc_run(const struct nlattr *_bc,
- 				break;
- 			}
+@@ -44,6 +44,10 @@ struct inet_diag_entry {
+ 	u16 dport;
+ 	u16 family;
+ 	u16 userlocks;
++#if IS_ENABLED(CONFIG_IPV6)
++	struct in6_addr saddr_storage;	/* for IPv4-mapped-IPv6 addresses */
++	struct in6_addr daddr_storage;	/* for IPv4-mapped-IPv6 addresses */
++#endif
+ };
  
--			if (cond->prefix_len == 0)
--				break;
--
- 			if (op->code == INET_DIAG_BC_S_COND)
- 				addr = entry->saddr;
- 			else
- 				addr = entry->daddr;
+ static DEFINE_MUTEX(inet_diag_table_mutex);
+@@ -596,6 +600,36 @@ static int inet_twsk_diag_dump(struct inet_timewait_sock *tw,
+ 				   cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh);
+ }
  
-+			if (cond->family != AF_UNSPEC &&
-+			    cond->family != entry->family) {
-+				if (entry->family == AF_INET6 &&
-+				    cond->family == AF_INET) {
-+					if (addr[0] == 0 && addr[1] == 0 &&
-+					    addr[2] == htonl(0xffff) &&
-+					    bitstring_match(addr + 3,
-+							    cond->addr,
-+							    cond->prefix_len))
-+						break;
-+				}
-+				yes = 0;
-+				break;
-+			}
++/* Get the IPv4, IPv6, or IPv4-mapped-IPv6 local and remote addresses
++ * from a request_sock. For IPv4-mapped-IPv6 we must map IPv4 to IPv6.
++ */
++static inline void inet_diag_req_addrs(const struct sock *sk,
++				       const struct request_sock *req,
++				       struct inet_diag_entry *entry)
++{
++	struct inet_request_sock *ireq = inet_rsk(req);
 +
-+			if (cond->prefix_len == 0)
-+				break;
- 			if (bitstring_match(addr, cond->addr,
- 					    cond->prefix_len))
- 				break;
--			if (entry->family == AF_INET6 &&
--			    cond->family == AF_INET) {
--				if (addr[0] == 0 && addr[1] == 0 &&
--				    addr[2] == htonl(0xffff) &&
--				    bitstring_match(addr + 3, cond->addr,
--						    cond->prefix_len))
--					break;
--			}
- 			yes = 0;
- 			break;
- 		}
++#if IS_ENABLED(CONFIG_IPV6)
++	if (sk->sk_family == AF_INET6) {
++		if (req->rsk_ops->family == AF_INET6) {
++			entry->saddr = inet6_rsk(req)->loc_addr.s6_addr32;
++			entry->daddr = inet6_rsk(req)->rmt_addr.s6_addr32;
++		} else if (req->rsk_ops->family == AF_INET) {
++			ipv6_addr_set_v4mapped(ireq->loc_addr,
++					       &entry->saddr_storage);
++			ipv6_addr_set_v4mapped(ireq->rmt_addr,
++					       &entry->daddr_storage);
++			entry->saddr = entry->saddr_storage.s6_addr32;
++			entry->daddr = entry->daddr_storage.s6_addr32;
++		}
++	} else
++#endif
++	{
++		entry->saddr = &ireq->loc_addr;
++		entry->daddr = &ireq->rmt_addr;
++	}
++}
++
+ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 			      struct request_sock *req,
+ 			      struct user_namespace *user_ns,
+@@ -637,8 +671,10 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
+ 	r->idiag_inode = 0;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	if (r->idiag_family == AF_INET6) {
+-		*(struct in6_addr *)r->id.idiag_src = inet6_rsk(req)->loc_addr;
+-		*(struct in6_addr *)r->id.idiag_dst = inet6_rsk(req)->rmt_addr;
++		struct inet_diag_entry entry;
++		inet_diag_req_addrs(sk, req, &entry);
++		memcpy(r->id.idiag_src, entry.saddr, sizeof(struct in6_addr));
++		memcpy(r->id.idiag_dst, entry.daddr, sizeof(struct in6_addr));
+ 	}
+ #endif
+ 
+@@ -691,18 +727,7 @@ static int inet_diag_dump_reqs(struct sk_buff *skb, struct sock *sk,
+ 				continue;
+ 
+ 			if (bc) {
+-				entry.saddr =
+-#if IS_ENABLED(CONFIG_IPV6)
+-					(entry.family == AF_INET6) ?
+-					inet6_rsk(req)->loc_addr.s6_addr32 :
+-#endif
+-					&ireq->loc_addr;
+-				entry.daddr =
+-#if IS_ENABLED(CONFIG_IPV6)
+-					(entry.family == AF_INET6) ?
+-					inet6_rsk(req)->rmt_addr.s6_addr32 :
+-#endif
+-					&ireq->rmt_addr;
++				inet_diag_req_addrs(sk, req, &entry);
+ 				entry.dport = ntohs(ireq->rmt_port);
+ 
+ 				if (!inet_diag_bc_run(bc, &entry))
 -- 
 1.7.7.3
