@@ -1,17 +1,17 @@
 From: Neal Cardwell <ncardwell@google.com>
 Subject: [PATCH net] inet_diag: validate port comparison byte code to prevent unsafe reads
-Date: Sun,  9 Dec 2012 16:09:54 -0500
-Message-ID: <1355087394-31167-1-git-send-email-ncardwell@google.com>
+Date: Sun,  9 Dec 2012 16:03:00 -0500
+Message-ID: <1355086980-30438-1-git-send-email-ncardwell@google.com>
 Cc: edumazet@google.com, netdev@vger.kernel.org,
 	Neal Cardwell <ncardwell@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f74.google.com ([209.85.216.74]:38971 "EHLO
-	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759014Ab2LIVJ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 16:09:57 -0500
-Received: by mail-qa0-f74.google.com with SMTP id r4so141693qaq.1
-        for <netdev@vger.kernel.org>; Sun, 09 Dec 2012 13:09:56 -0800 (PST)
+Received: from mail-la0-f74.google.com ([209.85.215.74]:55623 "EHLO
+	mail-la0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759023Ab2LIVKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 16:10:07 -0500
+Received: by mail-la0-f74.google.com with SMTP id v3so131303lag.1
+        for <netdev@vger.kernel.org>; Sun, 09 Dec 2012 13:10:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
