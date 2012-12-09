@@ -1,74 +1,120 @@
-From: Yury Stankevich <urykhy@gmail.com>
-Subject: tc ipt action
-Date: Sun, 09 Dec 2012 16:20:45 +0400
-Message-ID: <50C4821D.5090206@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 03/10] tipc: sk_recv_queue size check only for
+ connectionless sockets
+Date: Sun, 9 Dec 2012 11:50:20 -0500
+Message-ID: <20121209165020.GA4362@neilslaptop.think-freely.org>
+References: <1354890498-6448-1-git-send-email-paul.gortmaker@windriver.com>
+ <1354890498-6448-4-git-send-email-paul.gortmaker@windriver.com>
+ <20121207192030.GA30339@hmsreliant.think-freely.org>
+ <50C26DF3.90409@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: urykhy@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ying Xue <ying.xue@windriver.com>
+To: Jon Maloy <jon.maloy@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:38747 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753341Ab2LIMUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 07:20:51 -0500
-Received: by mail-la0-f46.google.com with SMTP id p5so1298818lag.19
-        for <netdev@vger.kernel.org>; Sun, 09 Dec 2012 04:20:50 -0800 (PST)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56313 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751840Ab2LIQul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 11:50:41 -0500
+Content-Disposition: inline
+In-Reply-To: <50C26DF3.90409@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, Dec 07, 2012 at 05:30:11PM -0500, Jon Maloy wrote:
+> On 12/07/2012 02:20 PM, Neil Horman wrote:
+> > On Fri, Dec 07, 2012 at 09:28:11AM -0500, Paul Gortmaker wrote:
+> >> From: Ying Xue <ying.xue@windriver.com>
+> >>
+> >> The sk_receive_queue limit control is currently performed for
+> >> all arriving messages, disregarding socket and message type.
+> >> But for connected sockets this check is redundant, since the protocol
+> >> flow control already makes queue overflow impossible.
+> >>
+> > Can you explain where that occurs?  
+> 
+> It happens in the functions port_dispatcher_sigh() and tipc_send(), 
+> among other places. Both are to be found in the file port.c, which 
+> was supposed to contain the 'generic' (i.e., API independent) part 
+> of the send/receive code.
+> Now that we have only one API left, the socket API, we are 
+> planning to merge the code in socket.c and port.c, and get rid of 
+> some code overhead.
+> 
+> The flow control in TIPC is message based, where the sender
+> requires to receive an explicit acknowledge message for each 
+> 512 message the receiver reads to user space.
+> If the sender has more than 1024 messages outstanding without having
+> received an acknowledge he will be suspended or receive EAGAIN until 
+> he does.
+> The plan going forward is to replace this mechanism with a more 
+> standard looking byte based flow control, while maintaining 
+> backwards compatibility.
+> 
+Ok, That makes more sense, thank you.  Although I still don't think this is
+safe (but the problem may not be solely introduced by this patch).  Using a
+global limit that assumes the sender will block when the congestion window is
+reached just doesn't seem sane to me.  It clearly works with the Linux
+implementation, as it conforms to your expectations, but an alternate
+implementation could create a DOS situation by simply ignoring the window limit,
+and continuing to send.  I see that we drop frames over the global limit in
+filter_rcv, but the check in rx_queue_full bumps up that limit based on the
+value of msg_importance(msg), but that threshold is ignored if the value of
+msg_importance is invalid.  All a sender needs to do is flood a receiver with
+frames containing an invalid set of message importance bits, and you will queue
+frames indefinately.  In fact that will also happen if you send message of
+CRITICAL importance as well, so you don't even need to supply an invalid value
+here.
 
-i not sure this is correct list, please advise if not.
+> 
+> > I see where the tipc dispatch function calls
+> > sk_add_backlog, which checks the per socket recieve queue (regardless of weather
+> > the receiving socket is connection oriented or connectionless), but if the
+> > receiver doesn't call receive very often, This just adds a check against your
+> > global limit, doing nothing for your per-socket limits. 
+> 
+> OVERLOAD_LIMIT_BASE is tested against a per-socket message counter, so it _is_
+> our per-socket limit. In fact, TIPC connectionless overflow control currently 
+> is a kind of a hybrid, based on a message counter when the socket is not locked, 
+> and based on sk_rcv_queue's byte limit when a message has to be added to the 
+> backlog.
+> We are planning to fix this inconsistency too.
+Good, thank you,  that was seeming quite wrong to me.
 
-i'm trying to use ipt action, and got a problem:
+> 
+>  In fact it seems to
+> > repeat the same check twice, as in the worst case of the incomming message being
+> > TIPC_LOW_IMPORTANCE, its just going to check that the global limit is exactly
+> > OVERLOAD_LIMIT_BASE/2 again.
+> 
+> Yes, you are right. The intention is that only the first test, 
+> if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2)){..}
+> will be run for the vast majority of messages, since we must assume
+> that there is no overload most of the time.
+> An inelegant optimization, perhaps, but not logically wrong.
+No, not logically wrong, but not an optimization either.  With this change,
+your only use of rx_queue_full passes OVERLOAD_LIMIT_BASE/2 as the base value to
+rx_queue_full, and then you do some multiplication based on that.  If you really
+want to optimize this, leave OVERLOAD_LIMIT_BASE where it is (rather than
+doubling it like this patch series does), mark rx_queue_full as inline, and just
+pass OVERLOAD_LIMIT_BASE as the argument, it will save you a division opration,
+the conditional branch and a call instruction.  If you add a multiplication
+factor table, you can eliminate the if/else clauses in rx_queue_full as well.
 
-#tc filter add dev eth0 parent ffff: protocol ip u32 match u32 0 0
-action ipt -j CONNMARK --restore-mark action mirred egress redirect dev ifb0
--> bad action type ipt
+Neil
 
-from strace:
-open("/usr/lib/tc//m_gact.so", O_RDONLY) = -1 ENOENT (No such file or
-directory)
-write(2, "bad action type ipt\n", 20bad action type ipt
-
-well. i'm trying to use xt:
-#tc filter add dev eth0 parent ffff: protocol ip u32 match u32 0 0
-action xt -j CONNMARK --restore-mark action mirred egress redirect dev ifb0
-xt: unrecognized option '--restore-mark'
-
-from strace:
-open("/lib/xtables/libxt_CONNMARK.so", O_RDONLY) = 4
-read(4,
-"\177ELF\1\1\1\0\0\0\0\0\0\0\0\0\3\0\3\0\1\0\0\0\200\6\0\0004\0\0\0"...,
-512) = 512
-fstat64(4, {st_mode=S_IFREG|0644, st_size=9756, ...}) = 0
-mmap2(NULL, 12548, PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_DENYWRITE, 4, 0)
-= 0xf76f3000
-mmap2(0xf76f5000, 8192, PROT_READ|PROT_WRITE,
-MAP_PRIVATE|MAP_FIXED|MAP_DENYWRITE, 4, 0x1) = 0xf76f5000
-close(4)                                = 0
-mprotect(0xf76f5000, 4096, PROT_READ)   = 0
-socket(PF_INET, SOCK_RAW, IPPROTO_RAW)  = 4
-fcntl64(4, F_SETFD, FD_CLOEXEC)         = 0
-lstat64("/proc/net/ip_tables_names", {st_mode=S_IFREG|0440, st_size=0,
-...}) = 0
-statfs64("/proc/net/ip_tables_names", 84, {f_type="PROC_SUPER_MAGIC",
-f_bsize=4096, f_blocks=0, f_bfree=0, f_bavail=0, f_files=0, f_ffree=0,
-f_fsid={0, 0}, f_namelen=255, f_frsize=4096}) = 0
-getsockopt(4, SOL_IP, 0x43 /* IP_??? */,
-"CONNMARK\0\367\f\300\0\0\0po\367l8p\367\364/p\367:}\302\1", [30]) = 0
-close(4)                                = 0
-write(2, "xt: unrecognized option '--resto"..., 41xt: unrecognized
-option '--restore-mark'
-
-so... i make something wrong or this is a bug ?
-
-ps: 3.6.8 kernel 64 bit kernel with 32 bit userspace, iproute 20121001
-from debian-experimental,
-module act_ipt is loaded.
-pps: please, cc me in reply.
-
-
--- 
-Linux registered user #402966 // pub 1024D/E99AF373 <pgp.mit.edu>
+> 
+> ///jon
+> 
+> > 
+> > Neil
+> > 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > 
+> 
+> 
