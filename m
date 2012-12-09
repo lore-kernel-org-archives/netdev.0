@@ -1,55 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] inet_diag: validate port comparison byte code to
- prevent unsafe reads
-Date: Sun, 09 Dec 2012 19:02:23 -0500 (EST)
-Message-ID: <20121209.190223.1179297442063515404.davem@davemloft.net>
-References: <1355086980-30438-1-git-send-email-ncardwell@google.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCHv6] virtio-spec: virtio network device multiqueue support
+Date: Mon, 10 Dec 2012 10:18:32 +1030
+Message-ID: <87ip8aeqi7.fsf@rustcorp.com.au>
+References: <20121207141856.GA17901@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: ncardwell@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49932 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753999Ab2LJACZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 19:02:25 -0500
-In-Reply-To: <1355086980-30438-1-git-send-email-ncardwell@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121207141856.GA17901@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Sun,  9 Dec 2012 16:03:00 -0500
+"Michael S. Tsirkin" <mst@redhat.com> writes:
+> Add multiqueue support to virtio network device.
+> Add a new feature flag VIRTIO_NET_F_MQ for this feature, a new
+> configuration field max_virtqueue_pairs to detect supported number of
+> virtqueues as well as a new command VIRTIO_NET_CTRL_MQ to program
+> packet steering for unidirectional protocols.
 
-> Add logic to verify that a port comparison byte code operation
-> actually has the second inet_diag_bc_op from which we read the port
-> for such operations.
-> 
-> Previously the code blindly referenced op[1] without first checking
-> whether a second inet_diag_bc_op struct could fit there. So a
-> malicious user could make the kernel read 4 bytes beyond the end of
-> the bytecode array by claiming to have a whole port comparison byte
-> code (2 inet_diag_bc_op structs) when in fact the bytecode was not
-> long enough to hold both.
-> 
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+One trivial change: alter "8000h" to "0x8000" for consistency in the
+text.
 
-Haste makes waste...
+Could I have a Signed-off-by so I can apply it please?
 
-> +/* Validate a port comparison operator. */
-> +static inline bool valid_port_comparison(const struct inet_diag_bc_op *op,
-> +					 int len, int *min_len)
-> +{
-> +	/* Port comparisons put the port in a follow-on inet_diag_bc_op. */
-> +	*min_len += sizeof(struct inet_diag_bc_op);
-> +	if (len < *min_len)
-> +		return false;
-> +}
-> +
-
-I added the missing "return true" at the end of this new function.
-
-Applied, but please be more careful and at least look at the compiler
-warnings when you submit your changes.
-
-Thanks.
+Thanks,
+Rusty.
