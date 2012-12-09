@@ -1,31 +1,30 @@
-From: "Nate Wiley" <c020882@salle.url.edu>
-Subject: (unknown)
-Date: Sat, 8 Dec 2012 14:19:13 +0100 (CET)
-Message-ID: <0e12784b72f2ec133af816e58bfe9312.squirrel@m.webmail.salle.url.edu>
-Reply-To: natewiley47@yahoo.co.jp
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next 0/5] tunneling: Add support for
+ hardware-offloaded encapsulation
+Date: Sun, 09 Dec 2012 00:21:41 -0500 (EST)
+Message-ID: <20121209.002141.995257188036827568.davem@davemloft.net>
+References: <1354925658-24115-1-git-send-email-joseph.gasparakis@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, chrisw@sous-sol.org, gospo@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dmitry@broadcom.com, saeed.bishara@gmail.com,
+	bhutchings@solarflare.com
+To: joseph.gasparakis@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.salle.url.edu ([84.88.232.246]:55249 "EHLO
-	relay1.salle.url.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030409Ab2LIEsg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2012 23:48:36 -0500
-Subject: 
+Received: from shards.monkeyblade.net ([149.20.54.216]:42083 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750892Ab2LIFVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 00:21:44 -0500
+In-Reply-To: <1354925658-24115-1-git-send-email-joseph.gasparakis@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Our Ref: G20/CT/GA12
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Date: Fri,  7 Dec 2012 16:14:13 -0800
 
-We are pleased to inform you that you have been selected by the G20 Gro=
-up
-to receive an award prize of $861,937.00 USD. Additional information on
-payment modalities will be released on your response. We anticipate rec=
-eiving
-a prompt response from you.
+> The series contains updates to add in the NIC Rx and Tx checksumming
+> support for encapsulated packets.
 
-Regards
-Nate Wiley.
-(Claim department)
-IT COULD BE YOU=AE is a registered trade mark of the G20 Group
+Ok, all applied (except the ixgbe patch, of course), thanks.
