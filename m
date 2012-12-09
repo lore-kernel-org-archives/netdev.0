@@ -1,31 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/9] tipc: more updates for the v3.8 content
-Date: Sat, 08 Dec 2012 20:26:29 -0500 (EST)
-Message-ID: <20121208.202629.1075376635933520786.davem@davemloft.net>
-References: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: ipgre rss is broken since gro
+Date: Sat, 8 Dec 2012 18:01:40 -0800
+Message-ID: <CANn89iKE2RxRBWRuXGwjydQKjPLhPbcoZaJS5rcBKbJWWnL4ZQ@mail.gmail.com>
+References: <504C9EFCA2D0054393414C9CB605C37F1BFB80B2@SJEXCHMB06.corp.ad.broadcom.com>
+	<504C9EFCA2D0054393414C9CB605C37F1BFB80D8@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com
-To: paul.gortmaker@windriver.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41067 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756435Ab2LIB0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2012 20:26:33 -0500
-In-Reply-To: <1354929558-16948-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:36596 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932228Ab2LICBl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Dec 2012 21:01:41 -0500
+Received: by mail-ie0-f176.google.com with SMTP id 13so5307262iea.35
+        for <netdev@vger.kernel.org>; Sat, 08 Dec 2012 18:01:41 -0800 (PST)
+In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F1BFB80D8@SJEXCHMB06.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Fri, 7 Dec 2012 20:19:09 -0500
+On Sat, Dec 8, 2012 at 3:31 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+> Here is the trace for a while:
+>
+> BUG: unable to handle kernel NULL pointer dereference at           (null)
+> IP: [<ffffffff8144f35e>] skb_gro_receive+0xbe/0x5a0
 
-> The following changes since commit b93196dc5af7729ff7cc50d3d322ab1a364aa14f:
-> 
->   net: fix some compiler warning in net/core/neighbour.c (2012-12-05 21:50:37 -0500)
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git tipc_net-next_v2
+Hi Dmitry
 
-Pulled, thanks Paul.
+NULL pointer deref probably fixed on net tree (or Linus tree) by
+
+http://git.kernel.org/?p=linux/kernel/git/davem/net.git;a=commit;h=c3c7c254b2e8cd99b0adf288c2a1bddacd7ba255
+
+For the GRO stuff and RSS, I wonder if skbs have a property that makes
+them dropped somewhere, you might try drop_monitor / drop_watch
