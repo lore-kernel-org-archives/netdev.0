@@ -1,71 +1,96 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: Re: ipgre rss is broken since gro
-Date: Sun, 9 Dec 2012 22:49:21 +0200
-Message-ID: <1355086161.3113.9.camel@lb-tlvb-dmitry.il.broadcom.com>
-References: <504C9EFCA2D0054393414C9CB605C37F1BFB80B2@SJEXCHMB06.corp.ad.broadcom.com>
- <504C9EFCA2D0054393414C9CB605C37F1BFB80D8@SJEXCHMB06.corp.ad.broadcom.com>
- <CANn89iKE2RxRBWRuXGwjydQKjPLhPbcoZaJS5rcBKbJWWnL4ZQ@mail.gmail.com>
- <1355018645.3113.0.camel@lb-tlvb-dmitry.il.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Eric Dumazet" <edumazet@google.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] inet_diag: validate port comparison byte code to prevent unsafe reads
+Date: Sun,  9 Dec 2012 16:09:54 -0500
+Message-ID: <1355087394-31167-1-git-send-email-ncardwell@google.com>
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4304 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934486Ab2LIUtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Dec 2012 15:49:23 -0500
-In-Reply-To: <1355018645.3113.0.camel@lb-tlvb-dmitry.il.broadcom.com>
+Received: from mail-qa0-f74.google.com ([209.85.216.74]:38971 "EHLO
+	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759014Ab2LIVJ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 16:09:57 -0500
+Received: by mail-qa0-f74.google.com with SMTP id r4so141693qaq.1
+        for <netdev@vger.kernel.org>; Sun, 09 Dec 2012 13:09:56 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-12-09 at 04:04 +0200, Dmitry Kravkov wrote:
-> On Sat, 2012-12-08 at 18:01 -0800, Eric Dumazet wrote:
-> > On Sat, Dec 8, 2012 at 3:31 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
-> > > Here is the trace for a while:
-> > >
-> > > BUG: unable to handle kernel NULL pointer dereference at           (null)
-> > > IP: [<ffffffff8144f35e>] skb_gro_receive+0xbe/0x5a0
-> > 
-> > Hi Dmitry
-> > 
-> > NULL pointer deref probably fixed on net tree (or Linus tree) by
-> > 
-> > http://git.kernel.org/?p=linux/kernel/git/davem/net.git;a=commit;h=c3c7c254b2e8cd99b0adf288c2a1bddacd7ba255
+Add logic to verify that a port comparison byte code operation
+actually has the second inet_diag_bc_op from which we read the port
+for such operations.
 
-This resolved the deref. Thanks.
+Previously the code blindly referenced op[1] without first checking
+whether a second inet_diag_bc_op struct could fit there. So a
+malicious user could make the kernel read 4 bytes beyond the end of
+the bytecode array by claiming to have a whole port comparison byte
+code (2 inet_diag_bc_op structs) when in fact the bytecode was not
+long enough to hold both.
 
-> > For the GRO stuff and RSS, I wonder if skbs have a property that makes
-> > them dropped somewhere, you might try drop_monitor / drop_watch
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+---
+[Patch was generated relative to the previous 3-patch inet_diag patch series
+ from last night.]
+ net/ipv4/inet_diag.c |   30 +++++++++++++++++++++++-------
+ 1 files changed, 23 insertions(+), 7 deletions(-)
 
-for this item: drop_watch does not show any drops (i've disable all
-other interfaces for clear env)
-I will explain a little bit more the setup:
-bnx2x device (under testing) is configured for RSS for IPGRE packets.
-Sending multiple (3) TCP_STREAM causes ip_gre interface to disappear
-packets (even ICMP).
-This is not happening with single TCP_STREAM, or before gro_cell
-introduction.
-
-i was searching for the drops by print-out in ip_gre.c but disappeared
-packets completes this code:
-
-static int ipgre_rcv(struct sk_buff *skb)
-(snip)
-	        printk("%s:%d\n", __FUNCTION__, __LINE__);
-
-                tstats = this_cpu_ptr(tunnel->dev->tstats);
-                u64_stats_update_begin(&tstats->syncp);
-                tstats->rx_packets++;
-                tstats->rx_bytes += skb->len;
-                u64_stats_update_end(&tstats->syncp);
-
-                gro_cells_receive(&tunnel->gro_cells, skb);
-                return 0;
-
-> > 
-> 
-> I will try both and update ... 
-> Thanks
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 95f1a45..67746f5 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -557,6 +557,16 @@ static bool valid_hostcond(const struct inet_diag_bc_op *op, int len,
+ 	return true;
+ }
+ 
++/* Validate a port comparison operator. */
++static inline bool valid_port_comparison(const struct inet_diag_bc_op *op,
++					 int len, int *min_len)
++{
++	/* Port comparisons put the port in a follow-on inet_diag_bc_op. */
++	*min_len += sizeof(struct inet_diag_bc_op);
++	if (len < *min_len)
++		return false;
++}
++
+ static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
+ {
+ 	const void *bc = bytecode;
+@@ -572,24 +582,30 @@ static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
+ 		case INET_DIAG_BC_D_COND:
+ 			if (!valid_hostcond(bc, len, &min_len))
+ 				return -EINVAL;
+-			/* fall through */
+-		case INET_DIAG_BC_AUTO:
++			break;
+ 		case INET_DIAG_BC_S_GE:
+ 		case INET_DIAG_BC_S_LE:
+ 		case INET_DIAG_BC_D_GE:
+ 		case INET_DIAG_BC_D_LE:
+-		case INET_DIAG_BC_JMP:
+-			if (op->no < min_len || op->no > len + 4 || op->no & 3)
+-				return -EINVAL;
+-			if (op->no < len &&
+-			    !valid_cc(bytecode, bytecode_len, len - op->no))
++			if (!valid_port_comparison(bc, len, &min_len))
+ 				return -EINVAL;
+ 			break;
++		case INET_DIAG_BC_AUTO:
++		case INET_DIAG_BC_JMP:
+ 		case INET_DIAG_BC_NOP:
+ 			break;
+ 		default:
+ 			return -EINVAL;
+ 		}
++
++		if (op->code != INET_DIAG_BC_NOP) {
++			if (op->no < min_len || op->no > len + 4 || op->no & 3)
++				return -EINVAL;
++			if (op->no < len &&
++			    !valid_cc(bytecode, bytecode_len, len - op->no))
++				return -EINVAL;
++		}
++
+ 		if (op->yes < min_len || op->yes > len + 4 || op->yes & 3)
+ 			return -EINVAL;
+ 		bc  += op->yes;
+-- 
+1.7.7.3
