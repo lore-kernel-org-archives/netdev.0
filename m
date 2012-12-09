@@ -1,120 +1,71 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 03/10] tipc: sk_recv_queue size check only for
- connectionless sockets
-Date: Sun, 9 Dec 2012 11:50:20 -0500
-Message-ID: <20121209165020.GA4362@neilslaptop.think-freely.org>
-References: <1354890498-6448-1-git-send-email-paul.gortmaker@windriver.com>
- <1354890498-6448-4-git-send-email-paul.gortmaker@windriver.com>
- <20121207192030.GA30339@hmsreliant.think-freely.org>
- <50C26DF3.90409@ericsson.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: Re: ipgre rss is broken since gro
+Date: Sun, 9 Dec 2012 22:49:21 +0200
+Message-ID: <1355086161.3113.9.camel@lb-tlvb-dmitry.il.broadcom.com>
+References: <504C9EFCA2D0054393414C9CB605C37F1BFB80B2@SJEXCHMB06.corp.ad.broadcom.com>
+ <504C9EFCA2D0054393414C9CB605C37F1BFB80D8@SJEXCHMB06.corp.ad.broadcom.com>
+ <CANn89iKE2RxRBWRuXGwjydQKjPLhPbcoZaJS5rcBKbJWWnL4ZQ@mail.gmail.com>
+ <1355018645.3113.0.camel@lb-tlvb-dmitry.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Ying Xue <ying.xue@windriver.com>
-To: Jon Maloy <jon.maloy@ericsson.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56313 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751840Ab2LIQul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 11:50:41 -0500
-Content-Disposition: inline
-In-Reply-To: <50C26DF3.90409@ericsson.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:4304 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934486Ab2LIUtX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Dec 2012 15:49:23 -0500
+In-Reply-To: <1355018645.3113.0.camel@lb-tlvb-dmitry.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 07, 2012 at 05:30:11PM -0500, Jon Maloy wrote:
-> On 12/07/2012 02:20 PM, Neil Horman wrote:
-> > On Fri, Dec 07, 2012 at 09:28:11AM -0500, Paul Gortmaker wrote:
-> >> From: Ying Xue <ying.xue@windriver.com>
-> >>
-> >> The sk_receive_queue limit control is currently performed for
-> >> all arriving messages, disregarding socket and message type.
-> >> But for connected sockets this check is redundant, since the protocol
-> >> flow control already makes queue overflow impossible.
-> >>
-> > Can you explain where that occurs?  
-> 
-> It happens in the functions port_dispatcher_sigh() and tipc_send(), 
-> among other places. Both are to be found in the file port.c, which 
-> was supposed to contain the 'generic' (i.e., API independent) part 
-> of the send/receive code.
-> Now that we have only one API left, the socket API, we are 
-> planning to merge the code in socket.c and port.c, and get rid of 
-> some code overhead.
-> 
-> The flow control in TIPC is message based, where the sender
-> requires to receive an explicit acknowledge message for each 
-> 512 message the receiver reads to user space.
-> If the sender has more than 1024 messages outstanding without having
-> received an acknowledge he will be suspended or receive EAGAIN until 
-> he does.
-> The plan going forward is to replace this mechanism with a more 
-> standard looking byte based flow control, while maintaining 
-> backwards compatibility.
-> 
-Ok, That makes more sense, thank you.  Although I still don't think this is
-safe (but the problem may not be solely introduced by this patch).  Using a
-global limit that assumes the sender will block when the congestion window is
-reached just doesn't seem sane to me.  It clearly works with the Linux
-implementation, as it conforms to your expectations, but an alternate
-implementation could create a DOS situation by simply ignoring the window limit,
-and continuing to send.  I see that we drop frames over the global limit in
-filter_rcv, but the check in rx_queue_full bumps up that limit based on the
-value of msg_importance(msg), but that threshold is ignored if the value of
-msg_importance is invalid.  All a sender needs to do is flood a receiver with
-frames containing an invalid set of message importance bits, and you will queue
-frames indefinately.  In fact that will also happen if you send message of
-CRITICAL importance as well, so you don't even need to supply an invalid value
-here.
-
-> 
-> > I see where the tipc dispatch function calls
-> > sk_add_backlog, which checks the per socket recieve queue (regardless of weather
-> > the receiving socket is connection oriented or connectionless), but if the
-> > receiver doesn't call receive very often, This just adds a check against your
-> > global limit, doing nothing for your per-socket limits. 
-> 
-> OVERLOAD_LIMIT_BASE is tested against a per-socket message counter, so it _is_
-> our per-socket limit. In fact, TIPC connectionless overflow control currently 
-> is a kind of a hybrid, based on a message counter when the socket is not locked, 
-> and based on sk_rcv_queue's byte limit when a message has to be added to the 
-> backlog.
-> We are planning to fix this inconsistency too.
-Good, thank you,  that was seeming quite wrong to me.
-
-> 
->  In fact it seems to
-> > repeat the same check twice, as in the worst case of the incomming message being
-> > TIPC_LOW_IMPORTANCE, its just going to check that the global limit is exactly
-> > OVERLOAD_LIMIT_BASE/2 again.
-> 
-> Yes, you are right. The intention is that only the first test, 
-> if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2)){..}
-> will be run for the vast majority of messages, since we must assume
-> that there is no overload most of the time.
-> An inelegant optimization, perhaps, but not logically wrong.
-No, not logically wrong, but not an optimization either.  With this change,
-your only use of rx_queue_full passes OVERLOAD_LIMIT_BASE/2 as the base value to
-rx_queue_full, and then you do some multiplication based on that.  If you really
-want to optimize this, leave OVERLOAD_LIMIT_BASE where it is (rather than
-doubling it like this patch series does), mark rx_queue_full as inline, and just
-pass OVERLOAD_LIMIT_BASE as the argument, it will save you a division opration,
-the conditional branch and a call instruction.  If you add a multiplication
-factor table, you can eliminate the if/else clauses in rx_queue_full as well.
-
-Neil
-
-> 
-> ///jon
-> 
+On Sun, 2012-12-09 at 04:04 +0200, Dmitry Kravkov wrote:
+> On Sat, 2012-12-08 at 18:01 -0800, Eric Dumazet wrote:
+> > On Sat, Dec 8, 2012 at 3:31 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+> > > Here is the trace for a while:
+> > >
+> > > BUG: unable to handle kernel NULL pointer dereference at           (null)
+> > > IP: [<ffffffff8144f35e>] skb_gro_receive+0xbe/0x5a0
 > > 
-> > Neil
+> > Hi Dmitry
 > > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > NULL pointer deref probably fixed on net tree (or Linus tree) by
+> > 
+> > http://git.kernel.org/?p=linux/kernel/git/davem/net.git;a=commit;h=c3c7c254b2e8cd99b0adf288c2a1bddacd7ba255
+
+This resolved the deref. Thanks.
+
+> > For the GRO stuff and RSS, I wonder if skbs have a property that makes
+> > them dropped somewhere, you might try drop_monitor / drop_watch
+
+for this item: drop_watch does not show any drops (i've disable all
+other interfaces for clear env)
+I will explain a little bit more the setup:
+bnx2x device (under testing) is configured for RSS for IPGRE packets.
+Sending multiple (3) TCP_STREAM causes ip_gre interface to disappear
+packets (even ICMP).
+This is not happening with single TCP_STREAM, or before gro_cell
+introduction.
+
+i was searching for the drops by print-out in ip_gre.c but disappeared
+packets completes this code:
+
+static int ipgre_rcv(struct sk_buff *skb)
+(snip)
+	        printk("%s:%d\n", __FUNCTION__, __LINE__);
+
+                tstats = this_cpu_ptr(tunnel->dev->tstats);
+                u64_stats_update_begin(&tstats->syncp);
+                tstats->rx_packets++;
+                tstats->rx_bytes += skb->len;
+                u64_stats_update_end(&tstats->syncp);
+
+                gro_cells_receive(&tunnel->gro_cells, skb);
+                return 0;
+
 > > 
 > 
-> 
+> I will try both and update ... 
+> Thanks
