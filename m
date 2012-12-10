@@ -1,37 +1,88 @@
-From: saeed bishara <saeed.bishara@gmail.com>
-Subject: Re: [PATCH v4 1/5] net: Add support for hardware-offloaded encapsulation
-Date: Mon, 10 Dec 2012 12:04:15 +0200
-Message-ID: <CAMAG_ee6xW4EnzPFt=_5+NL2+LuyUjxd52Xc242inYm2+Yhg7g@mail.gmail.com>
-References: <1354925658-24115-1-git-send-email-joseph.gasparakis@intel.com> <1354925658-24115-2-git-send-email-joseph.gasparakis@intel.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH] wireless: check against default_ethtool_ops
+Date: Mon, 10 Dec 2012 11:08:40 +0100
+Message-ID: <20121210100839.GA9851@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org,
-	gospo@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, dmitry@broadcom.com,
-	bhutchings@solarflare.com,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1354925658-24115-2-git-send-email-joseph.gasparakis@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	Ben Greear <greearb@candelatech.com>,
+	=?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	linux-wireless@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44786 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753255Ab2LJKIs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 05:08:48 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> +static inline struct iphdr *inner_ip_hdr(const struct sk_buff *skb)
-> +{
-> +       return (struct iphdr *)skb_inner_network_header(skb);
-> +}
+Since:
 
-Hi,
-I'm a little bit bothered because of those inner_ functions, what
-about the following approach:
-1. the skb will have a new state, that state can be outer (normal
-mode) and inner.
-2. when you change the state to inner, all the helper functions such
-as ip_hdr will return the innter header.
+commit 2c60db037034d27f8c636403355d52872da92f81
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Sun Sep 16 09:17:26 2012 +0000
 
-that's ofcourse the API side. the implementation may still use the
-fields you added to the skb.
+    net: provide a default dev->ethtool_ops
 
-what you think?
-saeed
+wireless core does not correctly assign ethtool_ops. In order to fix
+the problem, and avoid assigning ethtool_ops on each individual cfg80211
+drivers, we check against default_ethool_ops pointer instead of NULL in
+wireless core.
+
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+Cc: stable@vger.kernel.org # 3.7+
+---
+This is not critical fix, user visible effect of a problem,
+is lack of ethtool informations like statistic or link detection.
+
+ include/linux/netdevice.h |    2 ++
+ net/core/dev.c            |    3 ++-
+ net/wireless/core.c       |    2 +-
+ 3 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f8eda02..c98e1c3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -60,6 +60,8 @@ struct wireless_dev;
+ #define SET_ETHTOOL_OPS(netdev,ops) \
+ 	( (netdev)->ethtool_ops = (ops) )
+ 
++extern const struct ethtool_ops default_ethtool_ops;
++
+ /* hardware address assignment types */
+ #define NET_ADDR_PERM		0	/* address is permanent (default) */
+ #define NET_ADDR_RANDOM		1	/* address is generated randomly */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c0946cb..4cd2168 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6008,7 +6008,8 @@ struct netdev_queue *dev_ingress_queue_create(struct net_device *dev)
+ 	return queue;
+ }
+ 
+-static const struct ethtool_ops default_ethtool_ops;
++const struct ethtool_ops default_ethtool_ops;
++EXPORT_SYMBOL_GPL(default_ethtool_ops);
+ 
+ /**
+  *	alloc_netdev_mqs - allocate network device
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 14d9904..90915d4 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -866,7 +866,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
+ 		/* allow mac80211 to determine the timeout */
+ 		wdev->ps_timeout = -1;
+ 
+-		if (!dev->ethtool_ops)
++		if (dev->ethtool_ops == &default_ethtool_ops)
+ 			dev->ethtool_ops = &cfg80211_ethtool_ops;
+ 
+ 		if ((wdev->iftype == NL80211_IFTYPE_STATION ||
+-- 
+1.7.1
