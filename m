@@ -1,127 +1,48 @@
-From: Abhijit Pawar <abhi.c.pawar@gmail.com>
-Subject: [PATCH RESEND] net: remove obsolete simple_strto<foo>
-Date: Mon, 10 Dec 2012 14:42:28 +0530
-Message-ID: <1355130748-7828-1-git-send-email-abhi.c.pawar@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-wireless@vger.kernel.org,
-	Abhijit Pawar <abhi.c.pawar@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Cong Wang <amwang@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steve Glendinning <steve@shawell.net>
+Subject: Re: [PATCH 5/5] smsc95xx: expand check_ macros
+Date: Mon, 10 Dec 2012 09:16:22 +0000
+Message-ID: <CAKh2mn7Bzii+ZCpBQtcyVfksAbLcjhZ0p7+oabfCG7-DV-6Cng@mail.gmail.com>
+References: <1354290952-27109-1-git-send-email-steve.glendinning@shawell.net>
+	<1354290952-27109-6-git-send-email-steve.glendinning@shawell.net>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B70D4@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:53660 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751768Ab2LJJQX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 04:16:23 -0500
+Received: by mail-ee0-f46.google.com with SMTP id e53so1394822eek.19
+        for <netdev@vger.kernel.org>; Mon, 10 Dec 2012 01:16:22 -0800 (PST)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70D4@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch replace the obsolete simple_strto<foo> with kstrto<foo>
+On 3 December 2012 10:41, David Laight <David.Laight@aculab.com> wrote:
+>> -             check_warn_return(ret, "Error reading MII_ACCESS\n");
+>> +             if (ret < 0) {
+>> +                     netdev_warn(dev->net, "Error reading MII_ACCESS\n");
+>> +                     return ret;
+>> +             }
+>> +
+>
+> It might be worth defining something like:
+>
+> #define check_warn(dev, ret, errmsg) \
+>         (ret >= 0 ? 0 : (netdev_warn(dev->net, errmsg), ret))
+>
+> so the above code can be:
+>         if (check_warn(dev, ret, "Error reading MII_ACCESS\n"))
+>                 return ret;
+>
 
-Signed-off-by: Abhijit Pawar <abhi.c.pawar@gmail.com>
----
- net/core/netpoll.c                 |    5 ++++-
- net/ipv4/netfilter/ipt_CLUSTERIP.c |    9 +++++++--
- net/mac80211/debugfs_sta.c         |    3 +++
- net/netfilter/nf_conntrack_core.c  |    5 ++++-
- 4 files changed, 18 insertions(+), 4 deletions(-)
+Thanks David, I'd rather not define this kind of macro locally though.
+ I'm happy to use something like this but only if it's something
+that's centrally defined, blessed by davem, and if it's something that
+all drivers are intended to use.  Otherwise we end up with subtly
+different macros in different drivers, and subtly different behaviours
+in each.
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 77a0388..12c129f 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -674,7 +674,8 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 		if ((delim = strchr(cur, '@')) == NULL)
- 			goto parse_failed;
- 		*delim = 0;
--		np->local_port = simple_strtol(cur, NULL, 10);
-+		if (kstrtou16(cur, 10, &np->local_port))
-+			goto parse_failed;
- 		cur = delim;
- 	}
- 	cur++;
-@@ -706,6 +707,8 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
- 		if (*cur == ' ' || *cur == '\t')
- 			np_info(np, "warning: whitespace is not allowed\n");
- 		np->remote_port = simple_strtol(cur, NULL, 10);
-+		if (kstrtou16(cur, 10, &np->remote_port))
-+			goto parse_failed;
- 		cur = delim;
- 	}
- 	cur++;
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index fe5daea..75e33a7 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -661,6 +661,7 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
- #define PROC_WRITELEN	10
- 	char buffer[PROC_WRITELEN+1];
- 	unsigned long nodenum;
-+	int rc;
- 
- 	if (size > PROC_WRITELEN)
- 		return -EIO;
-@@ -669,11 +670,15 @@ static ssize_t clusterip_proc_write(struct file *file, const char __user *input,
- 	buffer[size] = 0;
- 
- 	if (*buffer == '+') {
--		nodenum = simple_strtoul(buffer+1, NULL, 10);
-+		rc = kstrtoul(buffer+1, 10, &nodenum);
-+		if (rc)
-+			return rc;
- 		if (clusterip_add_node(c, nodenum))
- 			return -ENOMEM;
- 	} else if (*buffer == '-') {
--		nodenum = simple_strtoul(buffer+1, NULL,10);
-+		rc = kstrtoul(buffer+1, 10, &nodenum);
-+		if (rc)
-+			return rc;
- 		if (clusterip_del_node(c, nodenum))
- 			return -ENOENT;
- 	} else
-diff --git a/net/mac80211/debugfs_sta.c b/net/mac80211/debugfs_sta.c
-index 49a1c70..0dedb4b 100644
---- a/net/mac80211/debugfs_sta.c
-+++ b/net/mac80211/debugfs_sta.c
-@@ -221,6 +221,9 @@ static ssize_t sta_agg_status_write(struct file *file, const char __user *userbu
- 		return -EINVAL;
- 
- 	tid = simple_strtoul(buf, NULL, 0);
-+	ret = kstrtoul(buf, 0, &tid);
-+	if (ret)
-+		return ret;
- 
- 	if (tid >= IEEE80211_NUM_TIDS)
- 		return -EINVAL;
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index af17516..37d9e62 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1409,7 +1409,7 @@ EXPORT_SYMBOL_GPL(nf_ct_alloc_hashtable);
- 
- int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- {
--	int i, bucket;
-+	int i, bucket, rc;
- 	unsigned int hashsize, old_size;
- 	struct hlist_nulls_head *hash, *old_hash;
- 	struct nf_conntrack_tuple_hash *h;
-@@ -1423,6 +1423,9 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- 		return param_set_uint(val, kp);
- 
- 	hashsize = simple_strtoul(val, NULL, 0);
-+	rc = kstrtouint(val, 0, &hashsize);
-+	if (rc)
-+		return rc;
- 	if (!hashsize)
- 		return -EINVAL;
- 
--- 
-1.7.7.6
-
+Steve
