@@ -1,39 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next v3 01/22] bnx2x: Support probing and removing
- of VF device
-Date: Mon, 10 Dec 2012 10:50:59 -0800
-Message-ID: <1355165459.26815.27.camel@joe-AO722>
-References: <1355154406-10855-1-git-send-email-ariele@broadcom.com>
-	 <1355154406-10855-2-git-send-email-ariele@broadcom.com>
-	 <20121210.133519.2048543022289027034.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipgre rss is broken since gro
+Date: Mon, 10 Dec 2012 14:02:44 -0500 (EST)
+Message-ID: <20121210.140244.19820255229467909.davem@davemloft.net>
+References: <CANn89iKtWuN=CRn-JBzmmo8jCCJQhZjAT8jA+9dgfmup99O03g@mail.gmail.com>
+	<504C9EFCA2D0054393414C9CB605C37F1BFC104B@SJEXCHMB06.corp.ad.broadcom.com>
+	<1355158471.27891.44.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
-To: David Miller <davem@davemloft.net>
+Cc: dmitry@broadcom.com, edumazet@google.com, netdev@vger.kernel.org,
+	therbert@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:59208 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750803Ab2LJSu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2012 13:50:58 -0500
-In-Reply-To: <20121210.133519.2048543022289027034.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58614 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751273Ab2LJTCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 14:02:47 -0500
+In-Reply-To: <1355158471.27891.44.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-12-10 at 13:35 -0500, David Miller wrote:
-> From: "Ariel Elior" <ariele@broadcom.com>
-> Date: Mon, 10 Dec 2012 17:46:25 +0200
-[]
-> > @@ -12023,85 +12057,115 @@ static int bnx2x_get_num_non_def_sbs(struct pci_dev *pdev,
-> >        * If MSI-X is not supported - return number of SBs needed to support
-> >        * one fast path queue: one FP queue + SB for CNIC
-> >        */
-> > -     if (!pos)
-> > +     if (!pos) {
-> > +             pr_info("no msix capability found");
-[]
-> Use dev_info(), netdev_info(), or similar, rather than plain
-> pr_info().
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 10 Dec 2012 08:54:31 -0800
 
-Also, please add terminating newlines to avoid
-dmesg message interleaving.
+> I believe performance problem might come from the
+> skb_set_queue_mapping(skb, 0); in __skb_tunnel_rx()
+> 
+> So all packets are queued into a single GRO queue, instead of being
+> split as intended in multiple queues.
+> 
+> I cant find why we must clear queue_mapping, so could you try :
+
+Tom says:
+
+commit 693019e90ca45d881109d32c0c6d29adf03f6447
+Author: Tom Herbert <therbert@google.com>
+Date:   Thu Sep 23 11:19:54 2010 +0000
+
+    net: reset skb queue mapping when rx'ing over tunnel
+    
+    Reset queue mapping when an skb is reentering the stack via a tunnel.
+    On second pass, the queue mapping from the original device is no
+    longer valid.
+    
+    Signed-off-by: Tom Herbert <therbert@google.com>
+    Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 81d1413..0238650 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -242,6 +242,7 @@ static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += skb->len;
+ 	skb->rxhash = 0;
++	skb_set_queue_mapping(skb, 0);
+ 	skb_dst_drop(skb);
+ 	nf_reset(skb);
+ }
