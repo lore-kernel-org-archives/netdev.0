@@ -1,72 +1,127 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] smsc75xx: only set mac address once on bind
-Date: Mon, 10 Dec 2012 17:00:07 -0600
-Message-ID: <1355180407.19156.32.camel@dcbw.foobar.com>
-References: <1355137279-2695-1-git-send-email-steve.glendinning@shawell.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: gro: dev_gro_receive() cleanup
+Date: Mon, 10 Dec 2012 15:28:16 -0800
+Message-ID: <1355182096.27891.93.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Bjorn Mork <bjorn@mork.no>
-To: Steve Glendinning <steve.glendinning@shawell.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4288 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751595Ab2LJW7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2012 17:59:03 -0500
-In-Reply-To: <1355137279-2695-1-git-send-email-steve.glendinning@shawell.net>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:47069 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006Ab2LJX2S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 18:28:18 -0500
+Received: by mail-da0-f46.google.com with SMTP id p5so1428756dak.19
+        for <netdev@vger.kernel.org>; Mon, 10 Dec 2012 15:28:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-12-10 at 11:01 +0000, Steve Glendinning wrote:
-> This patch changes when we decide what the device's MAC address
-> is from per ifconfig up to once when the device is connected.
-> 
-> Without this patch, a manually forced device MAC is overwritten
-> on ifconfig down/up.  Also devices that have no EEPROM are
-> assigned a new random address on ifconfig down/up instead of
-> persisting the same one.
+From: Eric Dumazet <edumazet@google.com>
 
-Does this mean that on devices without EEPROM, ifconfig XXX
-down/ifconfig XXX up will generate a *new* random address?  That seems a
-bit odd; why wouldn't the first random address generated for the device
-persist until either (a) changed by ifconfig or (b) device was
-disconnected?
+__napi_gro_receive() is inlined from two call sites for no good reason.
 
-Dan
+Lets move the prep stuff in a function of its own, called only if/when 
+needed. This saves 300 bytes on x86 :
 
-> Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
-> Reported-by: Robert Cunningham <rcunningham@nsmsurveillance.com>
-> Cc: Bjorn Mork <bjorn@mork.no>
-> Cc: Dan Williams <dcbw@redhat.com>
-> ---
->  drivers/net/usb/smsc75xx.c |   10 ++++++++--
->  1 file changed, 8 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/usb/smsc75xx.c b/drivers/net/usb/smsc75xx.c
-> index 1cbd936..251a335 100644
-> --- a/drivers/net/usb/smsc75xx.c
-> +++ b/drivers/net/usb/smsc75xx.c
-> @@ -1054,8 +1054,6 @@ static int smsc75xx_reset(struct usbnet *dev)
->  
->  	netif_dbg(dev, ifup, dev->net, "PHY reset complete\n");
->  
-> -	smsc75xx_init_mac_address(dev);
-> -
->  	ret = smsc75xx_set_mac_address(dev);
->  	if (ret < 0) {
->  		netdev_warn(dev->net, "Failed to set mac address\n");
-> @@ -1422,6 +1420,14 @@ static int smsc75xx_bind(struct usbnet *dev, struct usb_interface *intf)
->  	dev->net->hw_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
->  		NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_RXCSUM;
->  
-> +	ret = smsc75xx_wait_ready(dev, 0);
-> +	if (ret < 0) {
-> +		netdev_warn(dev->net, "device not ready in smsc75xx_bind\n");
-> +		return ret;
-> +	}
-> +
-> +	smsc75xx_init_mac_address(dev);
-> +
->  	/* Init all registers */
->  	ret = smsc75xx_reset(dev);
->  	if (ret < 0) {
+# size net/core/dev.o.after net/core/dev.o.before
+   text	   data	    bss	    dec	    hex	filename
+  51968	   1238	   1040	  54246	   d3e6	net/core/dev.o.before
+  51664	   1238	   1040	  53942	   d2b6	net/core/dev.o.after
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c |   52 +++++++++++++++++++++++------------------------
+ 1 file changed, 26 insertions(+), 26 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a4c4a1b..4783850 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3603,6 +3603,28 @@ void napi_gro_flush(struct napi_struct *napi, bool flush_old)
+ }
+ EXPORT_SYMBOL(napi_gro_flush);
+ 
++static void gro_list_prepare(struct napi_struct *napi, struct sk_buff *skb)
++{
++	struct sk_buff *p;
++	unsigned int maclen = skb->dev->hard_header_len;
++
++	for (p = napi->gro_list; p; p = p->next) {
++		unsigned long diffs;
++
++		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
++		diffs |= p->vlan_tci ^ skb->vlan_tci;
++		if (maclen == ETH_HLEN)
++			diffs |= compare_ether_header(skb_mac_header(p),
++						      skb_gro_mac_header(skb));
++		else if (!diffs)
++			diffs = memcmp(skb_mac_header(p),
++				       skb_gro_mac_header(skb),
++				       maclen);
++		NAPI_GRO_CB(p)->same_flow = !diffs;
++		NAPI_GRO_CB(p)->flush = 0;
++	}
++}
++
+ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	struct sk_buff **pp = NULL;
+@@ -3619,6 +3641,8 @@ static enum gro_result dev_gro_receive(struct napi_struct *napi, struct sk_buff
+ 	if (skb_is_gso(skb) || skb_has_frag_list(skb))
+ 		goto normal;
+ 
++	gro_list_prepare(napi, skb);
++
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(ptype, head, list) {
+ 		if (ptype->type != type || !ptype->callbacks.gro_receive)
+@@ -3695,30 +3719,6 @@ normal:
+ 	goto pull;
+ }
+ 
+-static inline gro_result_t
+-__napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+-{
+-	struct sk_buff *p;
+-	unsigned int maclen = skb->dev->hard_header_len;
+-
+-	for (p = napi->gro_list; p; p = p->next) {
+-		unsigned long diffs;
+-
+-		diffs = (unsigned long)p->dev ^ (unsigned long)skb->dev;
+-		diffs |= p->vlan_tci ^ skb->vlan_tci;
+-		if (maclen == ETH_HLEN)
+-			diffs |= compare_ether_header(skb_mac_header(p),
+-						      skb_gro_mac_header(skb));
+-		else if (!diffs)
+-			diffs = memcmp(skb_mac_header(p),
+-				       skb_gro_mac_header(skb),
+-				       maclen);
+-		NAPI_GRO_CB(p)->same_flow = !diffs;
+-		NAPI_GRO_CB(p)->flush = 0;
+-	}
+-
+-	return dev_gro_receive(napi, skb);
+-}
+ 
+ static gro_result_t napi_skb_finish(gro_result_t ret, struct sk_buff *skb)
+ {
+@@ -3768,7 +3768,7 @@ gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+ {
+ 	skb_gro_reset_offset(skb);
+ 
+-	return napi_skb_finish(__napi_gro_receive(napi, skb), skb);
++	return napi_skb_finish(dev_gro_receive(napi, skb), skb);
+ }
+ EXPORT_SYMBOL(napi_gro_receive);
+ 
+@@ -3866,7 +3866,7 @@ gro_result_t napi_gro_frags(struct napi_struct *napi)
+ 	if (!skb)
+ 		return GRO_DROP;
+ 
+-	return napi_frags_finish(napi, skb, __napi_gro_receive(napi, skb));
++	return napi_frags_finish(napi, skb, dev_gro_receive(napi, skb));
+ }
+ EXPORT_SYMBOL(napi_gro_frags);
+ 
