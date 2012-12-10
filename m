@@ -1,111 +1,44 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap
- devices
-Date: Mon, 10 Dec 2012 19:50:35 +0200
-Message-ID: <20121210175035.GA31856@redhat.com>
-References: <20121205202144.18626.61966.stgit@localhost>
- <5998443.squEvSxCG9@sifl>
- <20121210172656.GA30775@redhat.com>
- <3124654.2UMIXvF0vN@sifl>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: netconsole fun
+Date: Mon, 10 Dec 2012 13:00:05 -0500
+Message-ID: <1355162405.4658.6.camel@thor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, jasowang@redhat.com
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <3124654.2UMIXvF0vN@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout39.mail01.mtsvc.net ([216.70.64.83]:42238 "EHLO
+	n12.mail01.mtsvc.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751093Ab2LJSAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 13:00:16 -0500
+Received: from n18.c08.mtsvc.net ([205.186.176.18]:50205)
+	by n12.mail01.mtsvc.net with esmtps (TLSv1:AES256-SHA:256)
+	(Exim 4.63)
+	(envelope-from <peter@hurleysoftware.com>)
+	id 1Ti7eH-0004Ie-9X
+	for netdev@vger.kernel.org; Mon, 10 Dec 2012 13:00:15 -0500
+Received: from 68-189-242-29.dhcp.oxfr.ma.charter.com ([68.189.242.29]:51968 helo=[192.168.1.139])
+	by n18.c08.mtsvc.net with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
+	(Exim 4.72)
+	(envelope-from <peter@hurleysoftware.com>)
+	id 1Ti7eB-0003zf-5Z
+	for netdev@vger.kernel.org; Mon, 10 Dec 2012 10:00:12 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 10, 2012 at 12:33:49PM -0500, Paul Moore wrote:
-> On Monday, December 10, 2012 07:26:56 PM Michael S. Tsirkin wrote:
-> > On Mon, Dec 10, 2012 at 12:04:35PM -0500, Paul Moore wrote:
-> > > On Friday, December 07, 2012 02:25:16 PM Michael S. Tsirkin wrote:
-> > > > On Thu, Dec 06, 2012 at 04:09:51PM -0500, Paul Moore wrote:
-> > > > > On Thursday, December 06, 2012 10:57:16 PM Michael S. Tsirkin wrote:
-> > > > > > On Thu, Dec 06, 2012 at 11:56:45AM -0500, Paul Moore wrote:
-> > > > > > > The SETQUEUE/tun_socket:create_queue permissions do not yet exist
-> > > > > > > in any released SELinux policy as we are just now adding them with
-> > > > > > > this patchset. With current policies loaded into a kernel with
-> > > > > > > this patchset applied the SETQUEUE/tun_socket:create_queue
-> > > > > > > permission would be treated according to the policy's unknown
-> > > > > > > permission setting.
-> > > > > > 
-> > > > > > OK I think we need to rethink what we are doing here: what you sent
-> > > > > > addresses the problem as stated but I think we mis-stated it.  Let
-> > > > > > me try to restate the problem: it is not just selinux problem. Let's
-> > > > > > assume qemu wants to use tun, I (libvirt) don't want to run it as
-> > > > > > root.
-> > > > > > 
-> > > > > > 1. TUNSETIFF: I can open tun, attach an fd and pass it to qemu.
-> > > > > > Now, qemu does not invoke TUNSETIFF so it can run without
-> > > > > > kernel priveledges.
-> > > > > 
-> > > > > Correct me if I'm wrong, but I believe libvirt does this while running
-> > > > > as root.  Assuming that is the case, why not simply setuid()/setgid()
-> > > > > to the same credentials as the QEMU instance before creating the TUN
-> > > > > device? You can always (re)configure the device afterwards while
-> > > > > running as root/CAP_NET_ADMIN.
-> > > > 
-> > > > We want isolation between qemu instances.
-> > > 
-> > > Understood, I agree.
-> > > 
-> > > Achieving separation via SELinux is easily done, with libvirt/sVirt
-> > > already doing this for us automatically in most cases; the only thing we
-> > > will want to do is make sure the SELinux policy is aware of the new
-> > > permission.
-> > > 
-> > > Achieving separation via DAC should also be easily done, simply run each
-> > > QEMU instance with a separate UID and/or GID.
-> > > 
-> > > > Giving qemu right to open tun and SETIFF would give it rights
-> > > > to access any tun device.
-> > > 
-> > > I'm quickly looked at tun_chr_open() again and I don't see any special
-> > > rights/privileges required, the same for tun_chr_ioctl() and
-> > > __tun_chr_ioctl().  Looking at tun_set_queue() I see we call
-> > > tun_not_capable() which does a simple DAC check; it must have the same
-> > > UID/GID or have CAP_NET_ADMIN.
-> > > 
-> > > I'm having a hard time seeing the problem you are describing; help me
-> > > understand.
-> > 
-> > The issue is guest controls the number of queues in use.
-> > So qemu would be required to be allowed to call tun_set_queue.
-> > If we allow this we have a problem as one qemu will be
-> > able to access any tun.
-> 
-> QEMU can call tun_set_queue() as long as it satisfies tun_not_capable(), which 
-> from a practical point of view means that the TUN device was created with the 
-> same UID/GID as the QEMU instance.  If you want TUN device separation between 
-> QEMU instances using DAC you need to run each QEMU instance with a different 
-> UID/GID (which you should be doing anyway if you want DAC enforced general 
-> separation).
-> 
-> I believe I've stated this point several times now and I don't feel you've 
-> addressed it properly.
+Is there a recommended method of running netconsole on a machine that
+has a slaved device?
 
-Look at how it works at the moment:
-a priveledged libvirt server calls tun_set_iff
-and passes the fd to qemu which is not priveledged.
+I ask because it seems pretty difficult to get netconsole running even
+on a machine that has multiple physical interfaces, only one of which is
+slaved.
 
-The result is isolation between qemu instances without
-need to create uid per qemu instance.
+I scoured the documentation but didn't find anything relevant (does
+documentation/networking/netconsole.txt need a patch?). AFAICT, the last
+discussion ended here back in June '11
+http://lkml.indiana.edu/hypermail/linux/kernel/1106.1/03185.html 
 
-How do we create multiple queues? It makes sense to
-follow this model and pass in fds for individual queues.
-However they need to be disabled initially
-so libvirt can not do tun_set_queue for us.
-When qemu later calls tun_set_queue it will fail which means we
-can't utilize multiqueue.
+Any help or pointers provided would be much appreciated.
 
-My solution is an unpriveledged variant
-of tun_set_queue that only enables/disables
-a queue without attach/detach.
-
-
-> -- 
-> paul moore
-> security and virtualization @ redhat
+Regards,
+Peter Hurley
