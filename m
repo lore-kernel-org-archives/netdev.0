@@ -1,54 +1,51 @@
-From: Peter Hurley <peter@hurleysoftware.com>
-Subject: netconsole fun
-Date: Mon, 10 Dec 2012 09:17:13 -0500
-Message-ID: <1355149033.3142.14.camel@thor>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: raj@tardy.usa.hp.com (Rick Jones)
+Subject: [PATCH net-next] doc: Tighten-up and clarify description of tcp_fin_timeout
+Date: Mon, 10 Dec 2012 13:33:00 -0800 (PST)
+Message-ID: <20121210213300.9D6BB29003EA@tardy>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout60.mail01.mtsvc.net ([216.70.64.8]:54779 "EHLO
-	mailout60.mail01.mtsvc.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751781Ab2LJV3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 16:29:50 -0500
-Received: from mailout39.mail01.mtsvc.net ([216.70.64.83] helo=n12.mail01.mtsvc.net)
-	by mailout60.mail01.mtsvc.net with esmtps (TLSv1:AES256-SHA:256)
-	(Exim 4.72)
-	(envelope-from <peter@hurleysoftware.com>)
-	id 1Ti4BA-00007e-B3
-	for netdev@vger.kernel.org; Mon, 10 Dec 2012 09:17:56 -0500
-Received: from n18.c08.mtsvc.net ([205.186.176.18]:51193)
-	by n12.mail01.mtsvc.net with esmtps (TLSv1:AES256-SHA:256)
-	(Exim 4.63)
-	(envelope-from <peter@hurleysoftware.com>)
-	id 1Ti4AZ-00021G-32
-	for netdev@vger.kernel.org; Mon, 10 Dec 2012 09:17:21 -0500
-Received: from 68-189-242-29.dhcp.oxfr.ma.charter.com ([68.189.242.29]:50997 helo=[192.168.1.139])
-	by n18.c08.mtsvc.net with esmtpsa (TLS1.0:DHE_RSA_AES_256_CBC_SHA1:32)
-	(Exim 4.72)
-	(envelope-from <peter@hurleysoftware.com>)
-	id 1Ti4AU-0004qp-Su
-	for netdev@vger.kernel.org; Mon, 10 Dec 2012 06:17:18 -0800
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:14925 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751353Ab2LJVdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 16:33:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that netpoll has been disabled for slaved devices, is there a
-recommended method of running netconsole on a machine that has a slaved
-device?
+From: Rick Jones <rick.jones2@hp.com>
 
-I ask because it seems pretty difficult to get netconsole running even
-on a machine that has multiple physical interfaces, only one of which is
-slaved.
+The description for tcp_fin_timeout should be tigher and more clear.
 
-I scoured the documentation but didn't find anything relevant (does
-Documentation/networking/netconsole.txt need a patch?). AFAICT, the last
-discussion ended here back in June '11
-http://lkml.indiana.edu/hypermail/linux/kernel/1106.1/03185.html with
-"Looks like we need to teach the tun-tap driver to support netpoll that
-shouldn't be too hard. I'll send up a patch shortly
-Neil"
+In addition to being tighter, we should make the spelling of the
+state name consistent with what utilities report, remove the now
+dated reference to 2.2 and put the default in the consistent place.
 
-Any help or pointers provided would be much appreciated.
+Signed-off-by: Rick Jones <rick.jones2@hp.com>
 
-Regards,
-Peter Hurley
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 1b830ca..f486c86 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -224,15 +224,14 @@ tcp_fack - BOOLEAN
+ 	The value is not used, if tcp_sack is not enabled.
+ 
+ tcp_fin_timeout - INTEGER
+-	Time to hold socket in state FIN-WAIT-2, if it was closed
+-	by our side. Peer can be broken and never close its side,
+-	or even died unexpectedly. Default value is 60sec.
+-	Usual value used in 2.2 was 180 seconds, you may restore
+-	it, but remember that if your machine is even underloaded WEB server,
+-	you risk to overflow memory with kilotons of dead sockets,
+-	FIN-WAIT-2 sockets are less dangerous than FIN-WAIT-1,
+-	because they eat maximum 1.5K of memory, but they tend
+-	to live longer.	Cf. tcp_max_orphans.
++	The length of time an orphaned (no longer referenced by any
++	application) connection will remain in the FIN_WAIT_2 state
++	before it is aborted at the local end.  While a perfectly
++	valid "receive only" state for an un-orphaned connection, an
++	orphaned connection in FIN_WAIT_2 state could otherwise wait
++	forever for the remote to close its end of the connection.
++	Cf. tcp_max_orphans
++	Default: 60 seconds
+ 
+ tcp_frto - INTEGER
+ 	Enables Forward RTO-Recovery (F-RTO) defined in RFC4138.
