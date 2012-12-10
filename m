@@ -1,8 +1,8 @@
 From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH net-next v3 18/22] bnx2x: Support of PF driver of a VF
- close request
-Date: Mon, 10 Dec 2012 17:46:42 +0200
-Message-ID: <1355154406-10855-19-git-send-email-ariele@broadcom.com>
+Subject: [PATCH net-next v3 16/22] bnx2x: Support of PF driver of a VF
+ q_filters request
+Date: Mon, 10 Dec 2012 17:46:40 +0200
+Message-ID: <1355154406-10855-17-git-send-email-ariele@broadcom.com>
 References: <1355154406-10855-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,87 +12,183 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4513 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3328 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754520Ab2LJPof (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2012 10:44:35 -0500
+	id S1754434Ab2LJPod (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 10:44:33 -0500
 In-Reply-To: <1355154406-10855-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 'close' command is the opposite of an init request. Here the
-queues of the VF are closed (if any are opened) and released.
-This flow applies the 'q_teardown' flow on all the queues.
-The VF state is changed by this request.
-Interrupts are disabled for the VF when closed.
+The VF driver uses the 'q_filters' message on the VF <-> PF channel
+for configuring an open queue, for example when the rxmode changes.
 
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |   97 +++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |    4 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |   27 ++++++
- 3 files changed, 128 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |  294 ++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |   32 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |  277 +++++++++++++++++++
+ 3 files changed, 597 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index fa76c4e..c5d471e 100644
+index bde2f47..472e8ca 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -138,6 +138,11 @@ enum bnx2x_vfop_mcast_state {
- 	   BNX2X_VFOP_MCAST_CHK_DONE
+@@ -101,6 +101,8 @@ static void bnx2x_vf_igu_ack_sb(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ }
+ /* VFOP - VF slow-path operation support */
+ 
++#define BNX2X_VFOP_FILTER_ADD_CNT_MAX		0x10000
++
+ /* VFOP operations states */
+ enum bnx2x_vfop_qctor_state {
+ 	   BNX2X_VFOP_QCTOR_INIT,
+@@ -123,6 +125,17 @@ enum bnx2x_vfop_qsetup_state {
+ 	   BNX2X_VFOP_QSETUP_DONE
  };
  
-+enum bnx2x_vfop_close_state {
-+	   BNX2X_VFOP_CLOSE_QUEUES,
-+	   BNX2X_VFOP_CLOSE_HW
++enum bnx2x_vfop_mcast_state {
++	   BNX2X_VFOP_MCAST_DEL,
++	   BNX2X_VFOP_MCAST_ADD,
++	   BNX2X_VFOP_MCAST_CHK_DONE
 +};
 +
- enum bnx2x_vfop_rxmode_state {
- 	   BNX2X_VFOP_RXMODE_CONFIG,
- 	   BNX2X_VFOP_RXMODE_DONE
-@@ -2303,6 +2308,28 @@ static void bnx2x_vf_qtbl_set_q(struct bnx2x *bp, u8 abs_vfid, u8 qid,
- 	REG_WR(bp, reg, val);
++enum bnx2x_vfop_rxmode_state {
++	   BNX2X_VFOP_RXMODE_CONFIG,
++	   BNX2X_VFOP_RXMODE_DONE
++};
++
+ #define bnx2x_vfop_reset_wq(vf)	atomic_set(&vf->op_in_progress, 0)
+ 
+ void bnx2x_vfop_qctor_dump_tx(struct bnx2x *bp, struct bnx2x_virtf *vf,
+@@ -572,6 +585,57 @@ bnx2x_vfop_vlan_mac_prep_ramrod(struct bnx2x_vlan_mac_ramrod_params *ramrod,
+ 	ureq->cmd = flags->add ? BNX2X_VLAN_MAC_ADD : BNX2X_VLAN_MAC_DEL;
  }
  
-+static void bnx2x_vf_clr_qtbl(struct bnx2x *bp, struct bnx2x_virtf *vf)
++static inline void
++bnx2x_vfop_mac_prep_ramrod(struct bnx2x_vlan_mac_ramrod_params *ramrod,
++			   struct bnx2x_vfop_vlan_mac_flags *flags)
 +{
-+	int i;
-+
-+	for_each_vfq(vf, i)
-+		bnx2x_vf_qtbl_set_q(bp, vf->abs_vfid,
-+				    vfq_qzone_id(vf, vfq_get(vf, i)), false);
++	bnx2x_vfop_vlan_mac_prep_ramrod(ramrod, flags);
++	set_bit(BNX2X_ETH_MAC, &ramrod->user_req.vlan_mac_flags);
 +}
 +
-+static void bnx2x_vf_igu_disable(struct bnx2x *bp, struct bnx2x_virtf *vf)
++int bnx2x_vfop_mac_list_cmd(struct bnx2x *bp,
++			    struct bnx2x_virtf *vf,
++			    struct bnx2x_vfop_cmd *cmd,
++			    struct bnx2x_vfop_filters *macs,
++			    int qid, bool drv_only)
 +{
-+	u32 val;
++	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
 +
-+	/* clear the VF configuration - pretend */
-+	bnx2x_pretend_func(bp, HW_VF_HANDLE(bp, vf->abs_vfid));
-+	val = REG_RD(bp, IGU_REG_VF_CONFIGURATION);
-+	val &= ~(IGU_VF_CONF_MSI_MSIX_EN | IGU_VF_CONF_SINGLE_ISR_EN |
-+		 IGU_VF_CONF_FUNC_EN | IGU_VF_CONF_PARENT_MASK);
-+	REG_WR(bp, IGU_REG_VF_CONFIGURATION, val);
-+	bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
++	if (vfop) {
++		struct bnx2x_vfop_args_filters filters = {
++			.multi_filter = macs,
++			.credit = NULL,		/* consume credit */
++		};
++		struct bnx2x_vfop_vlan_mac_flags flags = {
++			.drv_only = drv_only,
++			.dont_consume = (filters.credit != NULL),
++			.single_cmd = false,
++			.add = false, /* don't care since only the items in the
++				       * filters list affect the sp operation,
++				       * not the list itself
++				       */
++		};
++		struct bnx2x_vlan_mac_ramrod_params *ramrod =
++			&vf->op_params.vlan_mac;
++
++		/* set ramrod params */
++		bnx2x_vfop_mac_prep_ramrod(ramrod, &flags);
++
++		/* set object */
++		ramrod->vlan_mac_obj = &bnx2x_vfq(vf, qid, mac_obj);
++
++		/* set extra args */
++		filters.multi_filter->add_cnt = BNX2X_VFOP_FILTER_ADD_CNT_MAX;
++		vfop->args.filters = filters;
++
++		bnx2x_vfop_opset(BNX2X_VFOP_MAC_CONFIG_LIST,
++				 bnx2x_vfop_vlan_mac, cmd->done);
++		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_vlan_mac,
++					     cmd->block);
++	}
++	return -ENOMEM;
 +}
 +
- u8 bnx2x_vf_max_queue_cnt(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ int bnx2x_vfop_vlan_set_cmd(struct bnx2x *bp,
+ 			    struct bnx2x_virtf *vf,
+ 			    struct bnx2x_vfop_cmd *cmd,
+@@ -611,6 +675,48 @@ int bnx2x_vfop_vlan_set_cmd(struct bnx2x *bp,
+ 	return -ENOMEM;
+ }
+ 
++int bnx2x_vfop_vlan_list_cmd(struct bnx2x *bp,
++			     struct bnx2x_virtf *vf,
++			     struct bnx2x_vfop_cmd *cmd,
++			     struct bnx2x_vfop_filters *vlans,
++			     int qid, bool drv_only)
++{
++	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
++
++	if (vfop) {
++		struct bnx2x_vfop_args_filters filters = {
++			.multi_filter = vlans,
++			.credit = &bnx2x_vfq(vf, qid, vlan_count),
++		};
++		struct bnx2x_vfop_vlan_mac_flags flags = {
++			.drv_only = drv_only,
++			.dont_consume = (filters.credit != NULL),
++			.single_cmd = false,
++			.add = false, /* don't care */
++		};
++		struct bnx2x_vlan_mac_ramrod_params *ramrod =
++			&vf->op_params.vlan_mac;
++
++		/* set ramrod params */
++		bnx2x_vfop_vlan_mac_prep_ramrod(ramrod, &flags);
++
++		/* set object */
++		ramrod->vlan_mac_obj = &bnx2x_vfq(vf, qid, vlan_obj);
++
++		/* set extra args */
++		filters.multi_filter->add_cnt = vf_vlan_rules_cnt(vf) -
++			atomic_read(filters.credit);
++
++		vfop->args.filters = filters;
++
++		bnx2x_vfop_opset(BNX2X_VFOP_VLAN_CONFIG_LIST,
++				 bnx2x_vfop_vlan_mac, cmd->done);
++		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_vlan_mac,
++					     cmd->block);
++	}
++	return -ENOMEM;
++}
++
+ /* VFOP queue setup (queue constructor + set vlan 0) */
+ static void bnx2x_vfop_qsetup(struct bnx2x *bp, struct bnx2x_virtf *vf)
  {
- 	return min_t(u8, min_t(u8, vf_sb_count(vf), BNX2X_CIDS_PER_VF),
-@@ -2474,6 +2501,76 @@ int bnx2x_vf_init(struct bnx2x *bp, struct bnx2x_virtf *vf, dma_addr_t *sb_map)
- 	return 0;
+@@ -676,16 +782,180 @@ int bnx2x_vfop_qsetup_cmd(struct bnx2x *bp,
+ 	return -ENOMEM;
  }
  
-+/* VFOP close (teardown the queues, delete mcasts and close HW) */
-+static void bnx2x_vfop_close(struct bnx2x *bp, struct bnx2x_virtf *vf)
-+{
+-static u8 bnx2x_iov_get_max_queue_count(struct bnx2x *bp)
++/* VFOP multi-casts */
++static void bnx2x_vfop_mcast(struct bnx2x *bp, struct bnx2x_virtf *vf)
+ {
 +	struct bnx2x_vfop *vfop = bnx2x_vfop_cur(bp, vf);
-+	struct bnx2x_vfop_args_qx *qx = &vfop->args.qx;
-+	enum bnx2x_vfop_close_state state = vfop->state;
-+	struct bnx2x_vfop_cmd cmd = {
-+		.done = bnx2x_vfop_close,
-+		.block = false,
-+	};
++	struct bnx2x_mcast_ramrod_params *mcast = &vfop->op_p->mcast;
++	struct bnx2x_raw_obj *raw = &mcast->mcast_obj->raw;
++	struct bnx2x_vfop_args_mcast *args = &vfop->args.mc_list;
++	enum bnx2x_vfop_mcast_state state = vfop->state;
+ 	int i;
+-	u8 queue_count = 0;
+ 
+-	if (IS_SRIOV(bp))
+-		for_each_vf(bp, i)
+-			queue_count += bnx2x_vf(bp, i, alloc_resc.num_sbs);
++	bnx2x_vfop_reset_wq(vf);
 +
 +	if (vfop->rc < 0)
 +		goto op_err;
@@ -100,118 +196,531 @@ index fa76c4e..c5d471e 100644
 +	DP(BNX2X_MSG_IOV, "vf[%d] STATE: %d\n", vf->abs_vfid, state);
 +
 +	switch (state) {
-+	case BNX2X_VFOP_CLOSE_QUEUES:
++	case BNX2X_VFOP_MCAST_DEL:
++		/* clear existing mcasts */
++		vfop->state = BNX2X_VFOP_MCAST_ADD;
++		vfop->rc = bnx2x_config_mcast(bp, mcast, BNX2X_MCAST_CMD_DEL);
++		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_CONT);
 +
-+		if (++(qx->qid) < vf_rxq_count(vf)) {
-+			vfop->rc = bnx2x_vfop_qdown_cmd(bp, vf, &cmd, qx->qid);
-+			if (vfop->rc)
-+				goto op_err;
-+			return;
++	case BNX2X_VFOP_MCAST_ADD:
++		if (raw->check_pending(raw))
++			goto op_pending;
++
++		if (args->mc_num) {
++			/* update mcast list on the ramrod params */
++			INIT_LIST_HEAD(&mcast->mcast_list);
++			for (i = 0; i < args->mc_num; i++)
++				list_add_tail(&(args->mc[i].link),
++					      &mcast->mcast_list);
++			/* add new mcasts */
++			vfop->state = BNX2X_VFOP_MCAST_CHK_DONE;
++			vfop->rc = bnx2x_config_mcast(bp, mcast,
++						      BNX2X_MCAST_CMD_ADD);
 +		}
++		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_DONE);
 +
-+		/* remove multicasts */
-+		vfop->state = BNX2X_VFOP_CLOSE_HW;
-+		vfop->rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, NULL, 0, false);
-+		if (vfop->rc)
-+			goto op_err;
-+		return;
-+
-+	case BNX2X_VFOP_CLOSE_HW:
-+
-+		/* disable the interrupts */
-+		DP(BNX2X_MSG_IOV, "disabling igu\n");
-+		bnx2x_vf_igu_disable(bp, vf);
-+
-+		/* disable the VF */
-+		DP(BNX2X_MSG_IOV, "clearing qtbl\n");
-+		bnx2x_vf_clr_qtbl(bp, vf);
-+
-+		goto op_done;
++	case BNX2X_VFOP_MCAST_CHK_DONE:
++		vfop->rc = raw->check_pending(raw) ? 1 : 0;
++		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_DONE);
 +	default:
 +		bnx2x_vfop_default(state);
 +	}
 +op_err:
-+	BNX2X_ERR("VF[%d] CLOSE error: rc %d\n", vf->abs_vfid, vfop->rc);
++	BNX2X_ERR("MCAST CONFIG error: rc %d\n", vfop->rc);
 +op_done:
-+	vf->state = VF_ACQUIRED;
-+	DP(BNX2X_MSG_IOV, "set state to acquired\n");
++	kfree(args->mc);
 +	bnx2x_vfop_end(bp, vf, vfop);
++op_pending:
++	return;
 +}
 +
-+int bnx2x_vfop_close_cmd(struct bnx2x *bp,
++int bnx2x_vfop_mcast_cmd(struct bnx2x *bp,
 +			 struct bnx2x_virtf *vf,
-+			 struct bnx2x_vfop_cmd *cmd)
++			 struct bnx2x_vfop_cmd *cmd,
++			 bnx2x_mac_addr_t *mcasts,
++			 int mcast_num, bool drv_only)
 +{
-+	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
-+	if (vfop) {
-+		vfop->args.qx.qid = -1; /* loop */
-+		bnx2x_vfop_opset(BNX2X_VFOP_CLOSE_QUEUES,
-+				 bnx2x_vfop_close, cmd->done);
-+		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_close,
-+					     cmd->block);
++	struct bnx2x_vfop *vfop = NULL;
++	size_t mc_sz = mcast_num * sizeof(struct bnx2x_mcast_list_elem);
++	struct bnx2x_mcast_list_elem *mc = mc_sz ? kzalloc(mc_sz, GFP_KERNEL) :
++		NULL;
++
++	if (!mc_sz || mc) {
++		vfop = bnx2x_vfop_add(bp, vf);
++		if (vfop) {
++			int i;
++			struct bnx2x_mcast_ramrod_params *ramrod =
++				&vf->op_params.mcast;
++
++			/* set ramrod params */
++			memset(ramrod, 0, sizeof(*ramrod));
++			ramrod->mcast_obj = &vf->mcast_obj;
++			if (drv_only)
++				set_bit(RAMROD_DRV_CLR_ONLY,
++					&ramrod->ramrod_flags);
++
++			/* copy mcasts pointers */
++			vfop->args.mc_list.mc_num = mcast_num;
++			vfop->args.mc_list.mc = mc;
++			for (i = 0; i < mcast_num; i++)
++				mc[i].mac = mcasts[i];
++
++			bnx2x_vfop_opset(BNX2X_VFOP_MCAST_DEL,
++					 bnx2x_vfop_mcast, cmd->done);
++			return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_mcast,
++						     cmd->block);
++		} else {
++			kfree(mc);
++		}
 +	}
 +	return -ENOMEM;
 +}
 +
- void bnx2x_lock_vf_pf_channel(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 			      enum channel_tlvs tlv)
- {
++/* VFOP rx-mode */
++static void bnx2x_vfop_rxmode(struct bnx2x *bp, struct bnx2x_virtf *vf)
++{
++	struct bnx2x_vfop *vfop = bnx2x_vfop_cur(bp, vf);
++	struct bnx2x_rx_mode_ramrod_params *ramrod = &vfop->op_p->rx_mode;
++	enum bnx2x_vfop_rxmode_state state = vfop->state;
++
++	bnx2x_vfop_reset_wq(vf);
++
++	if (vfop->rc < 0)
++		goto op_err;
++
++	DP(BNX2X_MSG_IOV, "vf[%d] STATE: %d\n", vf->abs_vfid, state);
++
++	switch (state) {
++	case BNX2X_VFOP_RXMODE_CONFIG:
++		/* next state */
++		vfop->state = BNX2X_VFOP_RXMODE_DONE;
++
++		vfop->rc = bnx2x_config_rx_mode(bp, ramrod);
++		bnx2x_vfop_finalize(vf, vfop->rc, VFOP_DONE);
++op_err:
++	BNX2X_ERR("RXMODE error: rc %d\n", vfop->rc);
++op_done:
++	case BNX2X_VFOP_RXMODE_DONE:
++		bnx2x_vfop_end(bp, vf, vfop);
++		return;
++	default:
++		bnx2x_vfop_default(state);
++	}
++op_pending:
++	return;
++}
++
++int bnx2x_vfop_rxmode_cmd(struct bnx2x *bp,
++			  struct bnx2x_virtf *vf,
++			  struct bnx2x_vfop_cmd *cmd,
++			  int qid, unsigned long accept_flags)
++{
++
++	struct bnx2x_vf_queue *vfq = vfq_get(vf, qid);
++	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
++
++	if (vfop) {
++		struct bnx2x_rx_mode_ramrod_params *ramrod =
++			&vf->op_params.rx_mode;
++
++		memset(ramrod, 0, sizeof(*ramrod));
++
++		/* Prepare ramrod parameters */
++		ramrod->cid = vfq->cid;
++		ramrod->cl_id = vfq_cl_id(vf, vfq);
++		ramrod->rx_mode_obj = &bp->rx_mode_obj;
++		ramrod->func_id = FW_VF_HANDLE(vf->abs_vfid);
++
++		ramrod->rx_accept_flags = accept_flags;
++		ramrod->tx_accept_flags = accept_flags;
++		ramrod->pstate = &vf->filter_state;
++		ramrod->state = BNX2X_FILTER_RX_MODE_PENDING;
++
++		set_bit(BNX2X_FILTER_RX_MODE_PENDING, &vf->filter_state);
++		set_bit(RAMROD_RX, &ramrod->ramrod_flags);
++		set_bit(RAMROD_TX, &ramrod->ramrod_flags);
++
++		ramrod->rdata =
++			bnx2x_vf_sp(bp, vf, rx_mode_rdata.e2);
++		ramrod->rdata_mapping =
++			bnx2x_vf_sp_map(bp, vf, rx_mode_rdata.e2);
++
++		bnx2x_vfop_opset(BNX2X_VFOP_RXMODE_CONFIG,
++				 bnx2x_vfop_rxmode, cmd->done);
++		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_rxmode,
++					     cmd->block);
++	}
++	return -ENOMEM;
+ 
+-	return queue_count;
+ }
+ 
+ /* VF enable primitives
+@@ -1054,6 +1324,18 @@ static int bnx2x_sriov_info(struct bnx2x *bp, struct bnx2x_sriov *iov)
+ 	return 0;
+ }
+ 
++static u8 bnx2x_iov_get_max_queue_count(struct bnx2x *bp)
++{
++	int i;
++	u8 queue_count = 0;
++
++	if (IS_SRIOV(bp))
++		for_each_vf(bp, i)
++			queue_count += bnx2x_vf(bp, i, alloc_resc.num_sbs);
++
++	return queue_count;
++}
++
+ /* must be called after PF bars are mapped */
+ int bnx2x_iov_init_one(struct bnx2x *bp, int int_mode_param,
+ 				 int num_vfs_param)
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index 09b3394..2e2c571 100644
+index 3b758d4..776aa75 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -658,6 +658,10 @@ int bnx2x_vfop_rxmode_cmd(struct bnx2x *bp,
+@@ -442,6 +442,10 @@ void bnx2x_iov_sp_task(struct bnx2x *bp);
+ /* global vf mailbox routines */
+ void bnx2x_vf_mbx(struct bnx2x *bp, struct vf_pf_event_data *vfpf_event);
+ void bnx2x_vf_enable_mbx(struct bnx2x *bp, u8 abs_vfid);
++
++/* CORE VF API */
++typedef u8 bnx2x_mac_addr_t[ETH_ALEN];
++
+ /* acquire */
+ int bnx2x_vf_acquire(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 			  struct vf_pf_resc_request *resc);
+@@ -616,11 +620,39 @@ void bnx2x_vfop_qctor_prep(struct bnx2x *bp,
+ 			   struct bnx2x_vf_queue *q,
+ 			   struct bnx2x_vfop_qctor_params *p,
+ 			   unsigned long q_type);
++int bnx2x_vfop_mac_list_cmd(struct bnx2x *bp,
++			    struct bnx2x_virtf *vf,
++			    struct bnx2x_vfop_cmd *cmd,
++			    struct bnx2x_vfop_filters *macs,
++			    int qid, bool drv_only);
++
++int bnx2x_vfop_vlan_set_cmd(struct bnx2x *bp,
++			    struct bnx2x_virtf *vf,
++			    struct bnx2x_vfop_cmd *cmd,
++			    int qid, u16 vid, bool add);
++
++int bnx2x_vfop_vlan_list_cmd(struct bnx2x *bp,
++			     struct bnx2x_virtf *vf,
++			     struct bnx2x_vfop_cmd *cmd,
++			     struct bnx2x_vfop_filters *vlans,
++			     int qid, bool drv_only);
++
+ int bnx2x_vfop_qsetup_cmd(struct bnx2x *bp,
+ 			  struct bnx2x_virtf *vf,
  			  struct bnx2x_vfop_cmd *cmd,
- 			  int qid, unsigned long accept_flags);
+ 			  int qid);
  
-+int bnx2x_vfop_close_cmd(struct bnx2x *bp,
++int bnx2x_vfop_mcast_cmd(struct bnx2x *bp,
 +			 struct bnx2x_virtf *vf,
-+			 struct bnx2x_vfop_cmd *cmd);
++			 struct bnx2x_vfop_cmd *cmd,
++			 bnx2x_mac_addr_t *mcasts,
++			 int mcast_num, bool drv_only);
++
++int bnx2x_vfop_rxmode_cmd(struct bnx2x *bp,
++			  struct bnx2x_virtf *vf,
++			  struct bnx2x_vfop_cmd *cmd,
++			  int qid, unsigned long accept_flags);
 +
  int bnx2x_vf_idx_by_abs_fid(struct bnx2x *bp, u16 abs_vfid);
  u8 bnx2x_vf_max_queue_cnt(struct bnx2x *bp, struct bnx2x_virtf *vf);
  /* VF FLR helpers */
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-index ad92a4d..fef4564 100644
+index eb10378..06598ec 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
-@@ -809,6 +809,30 @@ static void bnx2x_vf_mbx_teardown_q(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 		bnx2x_vf_mbx_resp(bp, vf);
+@@ -518,6 +518,280 @@ response:
+ 	bnx2x_vf_mbx_resp(bp, vf);
  }
  
-+/* Done handler for 'close' operation: send response and reopen the
-+ * channel.
-+ */
-+static void bnx2x_vf_mbx_close_done(struct bnx2x *bp, struct bnx2x_virtf *vf)
++enum bnx2x_vfop_filters_state {
++	   BNX2X_VFOP_MBX_Q_FILTERS_MACS,
++	   BNX2X_VFOP_MBX_Q_FILTERS_VLANS,
++	   BNX2X_VFOP_MBX_Q_FILTERS_RXMODE,
++	   BNX2X_VFOP_MBX_Q_FILTERS_MCAST,
++	   BNX2X_VFOP_MBX_Q_FILTERS_DONE
++};
++
++static int bnx2x_vf_mbx_macvlan_list(struct bnx2x *bp,
++				     struct bnx2x_virtf *vf,
++				     struct vfpf_set_q_filters_tlv *tlv,
++				     struct bnx2x_vfop_filters **pfl,
++				     u32 type_flag)
 +{
-+	bnx2x_vf_mbx_resp(bp, vf);
-+	bnx2x_vf_enable_mbx(bp, vf->abs_vfid);
++	int i, j;
++	struct bnx2x_vfop_filters *fl = NULL;
++	size_t fsz;
++
++	fsz = tlv->n_mac_vlan_filters * sizeof(struct bnx2x_vfop_filter) +
++		sizeof(struct bnx2x_vfop_filters);
++
++	fl = kzalloc(fsz, GFP_KERNEL);
++	if (!fl)
++		return -ENOMEM;
++
++	INIT_LIST_HEAD(&fl->head);
++
++	for (i = 0, j = 0; i < tlv->n_mac_vlan_filters; i++) {
++		struct vfpf_q_mac_vlan_filter *msg_filter = &tlv->filters[i];
++
++		if ((msg_filter->flags & type_flag) != type_flag)
++			continue;
++		if (type_flag == VFPF_Q_FILTER_DEST_MAC_VALID) {
++			fl->filters[j].mac = msg_filter->mac;
++			fl->filters[j].type = BNX2X_VFOP_FILTER_MAC;
++		} else {
++			fl->filters[j].vid = msg_filter->vlan_tag;
++			fl->filters[j].type = BNX2X_VFOP_FILTER_VLAN;
++		}
++		fl->filters[j].add =
++			(msg_filter->flags & VFPF_Q_FILTER_SET_MAC) ?
++			true : false;
++		list_add_tail(&fl->filters[j++].link, &fl->head);
++	}
++	if (list_empty(&fl->head))
++		kfree(fl);
++	else
++		*pfl = fl;
++
++	return 0;
 +}
 +
-+static void bnx2x_vf_mbx_close_vf(struct bnx2x *bp, struct bnx2x_virtf *vf,
-+				  struct bnx2x_vf_mbx *mbx)
++static void bnx2x_vf_mbx_dp_q_filter(struct bnx2x *bp, int msglvl, int idx,
++				       struct vfpf_q_mac_vlan_filter *filter)
 +{
++	DP(msglvl, "MAC-VLAN[%d] -- flags=0x%x", idx, filter->flags);
++	if (filter->flags & VFPF_Q_FILTER_VLAN_TAG_VALID)
++		DP_CONT(msglvl, ", vlan=%d", filter->vlan_tag);
++	if (filter->flags & VFPF_Q_FILTER_DEST_MAC_VALID)
++		DP_CONT(msglvl, ", MAC=%pM", filter->mac);
++	DP_CONT(msglvl, "\n");
++}
++
++static void bnx2x_vf_mbx_dp_q_filters(struct bnx2x *bp, int msglvl,
++				       struct vfpf_set_q_filters_tlv *filters)
++{
++	int i;
++
++	if (filters->flags & VFPF_SET_Q_FILTERS_MAC_VLAN_CHANGED)
++		for (i = 0; i < filters->n_mac_vlan_filters; i++)
++			bnx2x_vf_mbx_dp_q_filter(bp, msglvl, i,
++						 &filters->filters[i]);
++
++	if (filters->flags & VFPF_SET_Q_FILTERS_RX_MASK_CHANGED)
++		DP(msglvl, "RX-MASK=0x%x\n", filters->rx_mask);
++
++	if (filters->flags & VFPF_SET_Q_FILTERS_MULTICAST_CHANGED)
++		for (i = 0; i < filters->n_multicast; i++)
++			DP(msglvl, "MULTICAST=%pM\n", filters->multicast[i]);
++}
++
++#define VFPF_MAC_FILTER		VFPF_Q_FILTER_DEST_MAC_VALID
++#define VFPF_VLAN_FILTER	VFPF_Q_FILTER_VLAN_TAG_VALID
++
++static void bnx2x_vfop_mbx_qfilters(struct bnx2x *bp, struct bnx2x_virtf *vf)
++{
++	int rc;
++
++	struct vfpf_set_q_filters_tlv *msg =
++		&BP_VF_MBX(bp, vf->index)->msg->req.set_q_filters;
++
++	struct bnx2x_vfop *vfop = bnx2x_vfop_cur(bp, vf);
++	enum bnx2x_vfop_filters_state state = vfop->state;
++
 +	struct bnx2x_vfop_cmd cmd = {
-+		.done = bnx2x_vf_mbx_close_done,
++		.done = bnx2x_vfop_mbx_qfilters,
 +		.block = false,
 +	};
 +
-+	DP(BNX2X_MSG_IOV, "VF[%d] VF_CLOSE\n", vf->abs_vfid);
++	DP(BNX2X_MSG_IOV, "STATE: %d\n", state);
 +
-+	vf->op_rc = bnx2x_vfop_close_cmd(bp, vf, &cmd);
++	if (vfop->rc < 0)
++		goto op_err;
++
++	switch (state) {
++	case BNX2X_VFOP_MBX_Q_FILTERS_MACS:
++		/* next state */
++		vfop->state = BNX2X_VFOP_MBX_Q_FILTERS_VLANS;
++
++		/* check for any vlan/mac changes */
++		if (msg->flags & VFPF_SET_Q_FILTERS_MAC_VLAN_CHANGED) {
++
++			/* build mac list */
++			struct bnx2x_vfop_filters *fl = NULL;
++			vfop->rc = bnx2x_vf_mbx_macvlan_list(bp, vf, msg, &fl,
++							     VFPF_MAC_FILTER);
++			if (vfop->rc)
++				goto op_err;
++
++			if (fl) {
++				/* set mac list */
++				rc = bnx2x_vfop_mac_list_cmd(bp, vf, &cmd, fl,
++							     msg->vf_qid,
++							     false);
++				if (rc) {
++					vfop->rc = rc;
++					goto op_err;
++				}
++				return;
++			}
++		}
++		/* fall through */
++
++	case BNX2X_VFOP_MBX_Q_FILTERS_VLANS:
++		/* next state */
++		vfop->state = BNX2X_VFOP_MBX_Q_FILTERS_RXMODE;
++
++		/* check for any vlan/mac changes */
++		if (msg->flags & VFPF_SET_Q_FILTERS_MAC_VLAN_CHANGED) {
++
++			/* build vlan list */
++			struct bnx2x_vfop_filters *fl = NULL;
++			vfop->rc = bnx2x_vf_mbx_macvlan_list(bp, vf, msg, &fl,
++							     VFPF_VLAN_FILTER);
++			if (vfop->rc)
++				goto op_err;
++
++			if (fl) {
++				/* set vlan list */
++				rc = bnx2x_vfop_vlan_list_cmd(bp, vf, &cmd, fl,
++							      msg->vf_qid,
++							      false);
++				if (rc) {
++					vfop->rc = rc;
++					goto op_err;
++				}
++				return;
++			}
++		}
++		/* fall through */
++
++	case BNX2X_VFOP_MBX_Q_FILTERS_RXMODE:
++		/* next state */
++		vfop->state = BNX2X_VFOP_MBX_Q_FILTERS_MCAST;
++
++		if (msg->flags & VFPF_SET_Q_FILTERS_RX_MASK_CHANGED) {
++			unsigned long accept = 0;
++
++			/* covert VF-PF if mask to bnx2x accept flags */
++			if (msg->rx_mask & VFPF_RX_MASK_ACCEPT_MATCHED_UNICAST)
++				__set_bit(BNX2X_ACCEPT_UNICAST, &accept);
++
++			if (msg->rx_mask &
++					VFPF_RX_MASK_ACCEPT_MATCHED_MULTICAST)
++				__set_bit(BNX2X_ACCEPT_MULTICAST, &accept);
++
++			if (msg->rx_mask & VFPF_RX_MASK_ACCEPT_ALL_UNICAST)
++				__set_bit(BNX2X_ACCEPT_ALL_UNICAST, &accept);
++
++			if (msg->rx_mask & VFPF_RX_MASK_ACCEPT_ALL_MULTICAST)
++				__set_bit(BNX2X_ACCEPT_ALL_MULTICAST, &accept);
++
++			if (msg->rx_mask & VFPF_RX_MASK_ACCEPT_BROADCAST)
++				__set_bit(BNX2X_ACCEPT_BROADCAST, &accept);
++
++			/* A packet arriving the vf's mac should be accepted
++			 * with any vlan
++			 */
++			__set_bit(BNX2X_ACCEPT_ANY_VLAN, &accept);
++
++			/* set rx-mode */
++			rc = bnx2x_vfop_rxmode_cmd(bp, vf, &cmd,
++						   msg->vf_qid, accept);
++			if (rc) {
++				vfop->rc = rc;
++				goto op_err;
++			}
++			return;
++		}
++		/* fall through */
++
++	case BNX2X_VFOP_MBX_Q_FILTERS_MCAST:
++		/* next state */
++		vfop->state = BNX2X_VFOP_MBX_Q_FILTERS_DONE;
++
++		if (msg->flags & VFPF_SET_Q_FILTERS_MULTICAST_CHANGED) {
++			/* set mcasts */
++			rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, msg->multicast,
++						  msg->n_multicast, false);
++			if (rc) {
++				vfop->rc = rc;
++				goto op_err;
++			}
++			return;
++		}
++		/* fall through */
++op_done:
++	case BNX2X_VFOP_MBX_Q_FILTERS_DONE:
++		bnx2x_vfop_end(bp, vf, vfop);
++		return;
++op_err:
++	BNX2X_ERR("QFILTERS[%d:%d] error: rc %d\n",
++		  vf->abs_vfid, msg->vf_qid, vfop->rc);
++	goto op_done;
++
++	default:
++		bnx2x_vfop_default(state);
++	}
++}
++
++static int bnx2x_vfop_mbx_qfilters_cmd(struct bnx2x *bp,
++					struct bnx2x_virtf *vf,
++					struct bnx2x_vfop_cmd *cmd)
++{
++	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
++	if (vfop) {
++		bnx2x_vfop_opset(BNX2X_VFOP_MBX_Q_FILTERS_MACS,
++				 bnx2x_vfop_mbx_qfilters, cmd->done);
++		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_mbx_qfilters,
++					     cmd->block);
++	}
++	return -ENOMEM;
++}
++
++static void bnx2x_vf_mbx_set_q_filters(struct bnx2x *bp,
++				       struct bnx2x_virtf *vf,
++				       struct bnx2x_vf_mbx *mbx)
++{
++	struct vfpf_set_q_filters_tlv *filters = &mbx->msg->req.set_q_filters;
++	struct bnx2x_vfop_cmd cmd = {
++		.done = bnx2x_vf_mbx_resp,
++		.block = false,
++	};
++
++	/* verify vf_qid */
++	if (filters->vf_qid > vf_rxq_count(vf))
++		goto response;
++
++	DP(BNX2X_MSG_IOV, "VF[%d] Q_FILTERS: queue[%d]\n",
++	   vf->abs_vfid,
++	   filters->vf_qid);
++
++	/* print q_filter message */
++	bnx2x_vf_mbx_dp_q_filters(bp, BNX2X_MSG_IOV, filters);
++
++	vf->op_rc = bnx2x_vfop_mbx_qfilters_cmd(bp, vf, &cmd);
 +	if (vf->op_rc)
-+		bnx2x_vf_mbx_close_done(bp, vf);
++		goto response;
++	return;
++
++response:
++	bnx2x_vf_mbx_resp(bp, vf);
 +}
 +
  /* dispatch request */
  static void bnx2x_vf_mbx_request(struct bnx2x *bp, struct bnx2x_virtf *vf,
  				  struct bnx2x_vf_mbx *mbx)
-@@ -840,6 +864,9 @@ static void bnx2x_vf_mbx_request(struct bnx2x *bp, struct bnx2x_virtf *vf,
- 		case CHANNEL_TLV_TEARDOWN_Q:
- 			bnx2x_vf_mbx_teardown_q(bp, vf, mbx);
+@@ -543,6 +817,9 @@ static void bnx2x_vf_mbx_request(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 		case CHANNEL_TLV_SETUP_Q:
+ 			bnx2x_vf_mbx_setup_q(bp, vf, mbx);
  			break;
-+		case CHANNEL_TLV_CLOSE:
-+			bnx2x_vf_mbx_close_vf(bp, vf, mbx);
++		case CHANNEL_TLV_SET_Q_FILTERS:
++			bnx2x_vf_mbx_set_q_filters(bp, vf, mbx);
 +			break;
  		}
  
