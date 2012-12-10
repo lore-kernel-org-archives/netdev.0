@@ -1,142 +1,156 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 03/10] tipc: sk_recv_queue size check only for
+Subject: Re: [PATCH net-next v3] tipc: sk_recv_queue size check only for
  connectionless sockets
-Date: Mon, 10 Dec 2012 09:22:54 -0500
-Message-ID: <20121210142254.GA23628@hmsreliant.think-freely.org>
-References: <1354890498-6448-1-git-send-email-paul.gortmaker@windriver.com>
- <1354890498-6448-4-git-send-email-paul.gortmaker@windriver.com>
- <20121207192030.GA30339@hmsreliant.think-freely.org>
- <50C26DF3.90409@ericsson.com>
- <20121209165020.GA4362@neilslaptop.think-freely.org>
- <50C580E6.7030905@windriver.com>
+Date: Mon, 10 Dec 2012 09:51:12 -0500
+Message-ID: <20121210145112.GB23628@hmsreliant.think-freely.org>
+References: <1355131380-8542-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jon Maloy <jon.maloy@ericsson.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Paul.Gortmaker@windriver.com, jon.maloy@ericsson.com,
+	erik.hugne@ericsson.com, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
 To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36501 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36944 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751437Ab2LJOXN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 09:23:13 -0500
+	with ESMTP id S1754023Ab2LJOv2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 09:51:28 -0500
 Content-Disposition: inline
-In-Reply-To: <50C580E6.7030905@windriver.com>
+In-Reply-To: <1355131380-8542-1-git-send-email-ying.xue@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 10, 2012 at 02:27:50PM +0800, Ying Xue wrote:
-> Neil Horman wrote:
-> >On Fri, Dec 07, 2012 at 05:30:11PM -0500, Jon Maloy wrote:
-> >>On 12/07/2012 02:20 PM, Neil Horman wrote:
-> >>>On Fri, Dec 07, 2012 at 09:28:11AM -0500, Paul Gortmaker wrote:
-> >>>>From: Ying Xue <ying.xue@windriver.com>
-> >>>>
-> >>>>The sk_receive_queue limit control is currently performed for
-> >>>>all arriving messages, disregarding socket and message type.
-> >>>>But for connected sockets this check is redundant, since the protocol
-> >>>>flow control already makes queue overflow impossible.
-> >>>>
-> >>>Can you explain where that occurs?
-> >>It happens in the functions port_dispatcher_sigh() and
-> >>tipc_send(), among other places. Both are to be found in the
-> >>file port.c, which was supposed to contain the 'generic' (i.e.,
-> >>API independent) part of the send/receive code.
-> >>Now that we have only one API left, the socket API, we are
-> >>planning to merge the code in socket.c and port.c, and get rid
-> >>of some code overhead.
-> >>
-> >>The flow control in TIPC is message based, where the sender
-> >>requires to receive an explicit acknowledge message for each 512
-> >>message the receiver reads to user space.
-> >>If the sender has more than 1024 messages outstanding without having
-> >>received an acknowledge he will be suspended or receive EAGAIN
-> >>until he does.
-> >>The plan going forward is to replace this mechanism with a more
-> >>standard looking byte based flow control, while maintaining
-> >>backwards compatibility.
-> >>
-> >Ok, That makes more sense, thank you.  Although I still don't think this is
-> >safe (but the problem may not be solely introduced by this patch).  Using a
-> >global limit that assumes the sender will block when the congestion window is
-> >reached just doesn't seem sane to me.  It clearly works with the Linux
-> >implementation, as it conforms to your expectations, but an alternate
-> >implementation could create a DOS situation by simply ignoring the window limit,
-> >and continuing to send.  I see that we drop frames over the global limit in
-> >filter_rcv, but the check in rx_queue_full bumps up that limit based on the
-> >value of msg_importance(msg), but that threshold is ignored if the value of
-> >msg_importance is invalid.  All a sender needs to do is flood a receiver with
-> >frames containing an invalid set of message importance bits, and you will queue
-> >frames indefinately.  In fact that will also happen if you send message of
-> >CRITICAL importance as well, so you don't even need to supply an invalid value
-> >here.
-> >
+On Mon, Dec 10, 2012 at 05:23:00PM +0800, Ying Xue wrote:
+> The sk_receive_queue limit control is currently performed for all
+> arriving messages, disregarding socket and message type. But for
+> connectionless sockets this check is redundant, since the protocol
+> flow already makes queue overflow impossible.
 > 
-> You are absolutely right. I will correct these drawbacks in next version.
+> We move the sk_receive_queue limit control so that it's only performed
+> for connectionless sockets, i.e. SOCK_RDM and SOCK_DGRAM type sockets.
 > 
-> >>>I see where the tipc dispatch function calls
-> >>>sk_add_backlog, which checks the per socket recieve queue (regardless of weather
-> >>>the receiving socket is connection oriented or connectionless), but if the
-> >>>receiver doesn't call receive very often, This just adds a check against your
-> >>>global limit, doing nothing for your per-socket limits.
-> >>OVERLOAD_LIMIT_BASE is tested against a per-socket message counter, so it _is_
-> >>our per-socket limit. In fact, TIPC connectionless overflow
-> >>control currently is a kind of a hybrid, based on a message
-> >>counter when the socket is not locked, and based on
-> >>sk_rcv_queue's byte limit when a message has to be added to the
-> >>backlog.
-> >>We are planning to fix this inconsistency too.
-> >Good, thank you,  that was seeming quite wrong to me.
-> >
-> >> In fact it seems to
-> >>>repeat the same check twice, as in the worst case of the incomming message being
-> >>>TIPC_LOW_IMPORTANCE, its just going to check that the global limit is exactly
-> >>>OVERLOAD_LIMIT_BASE/2 again.
-> >>Yes, you are right. The intention is that only the first test,
-> >>if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2)){..}
-> >>will be run for the vast majority of messages, since we must assume
-> >>that there is no overload most of the time.
-> >>An inelegant optimization, perhaps, but not logically wrong.
-> >No, not logically wrong, but not an optimization either.  With this change,
-> >your only use of rx_queue_full passes OVERLOAD_LIMIT_BASE/2 as the base value to
-> >rx_queue_full, and then you do some multiplication based on that.  If you really
-> >want to optimize this, leave OVERLOAD_LIMIT_BASE where it is (rather than
-> >doubling it like this patch series does), mark rx_queue_full as inline, and just
-> >pass OVERLOAD_LIMIT_BASE as the argument, it will save you a division opration,
-> >the conditional branch and a call instruction.  If you add a multiplication
-> >factor table, you can eliminate the if/else clauses in rx_queue_full as well.
-> >
+> However, as Neil Horman specified, we cannot simply force the socket
+> receive queue limit against connectionless sockets as it may create a
+> DoS vulnerability. For example, if a sender floods a receiver with
+> messages containing an invalid set of message importance bits or
+> CRITICAL importance, we will queue messages indefinitely.
 > 
-> Good suggestion with a factor table. Maybe it's unnecessary to
-> explicitly mark rx_queue_full as inline. Currently it sounds like we
-> let complier decide whether a function is defined as inline or not.
+> To avoid DoS attack, socket receive queue will be marked as overflow
+> if we receive messages with invalid message importances, meanwhile,
+> we also set one new threshold for CRITICAL importance messages.
 > 
-Thats correct, the compiler usually decides if something should be inlined
-(unless you use the __always_inline) attribute.  In this case, given a single
-call site, it most like will just inline anyway.  But if you're interested in
-optimizing here, it might be worth taking the extra steps to make sure.  In
-fact, since this is your only call site, it may be worthwhile to just remove the
-function entirely, and manually inline the check.
-Neil
-
-> Regards,
-> Ying
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Cc: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> ---
+> v3 changes:
+>  - set new threshold for CRITICAL message
+>  - defined an importance factor table to avoid multiplication and
+>    division operations in rx_queue_full().
+>  - changed return value of rx_queue_full() from integer to boolean.
 > 
-> >Neil
-> >
-> >>///jon
-> >>
-> >>>Neil
-> >>>
-> >>>--
-> >>>To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >>>the body of a message to majordomo@vger.kernel.org
-> >>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >>>
-> >--
-> >To unsubscribe from this list: send the line "unsubscribe netdev" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
+>  net/tipc/socket.c |   44 +++++++++++++++++++-------------------------
+>  1 files changed, 19 insertions(+), 25 deletions(-)
+> 
+> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+> index 9b4e483..a18a757 100644
+> --- a/net/tipc/socket.c
+> +++ b/net/tipc/socket.c
+> @@ -43,7 +43,7 @@
+>  #define SS_LISTENING	-1	/* socket is listening */
+>  #define SS_READY	-2	/* socket is connectionless */
+>  
+> -#define OVERLOAD_LIMIT_BASE	10000
+> +#define OVERLOAD_LIMIT_BASE	5000
+>  #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
+>  
+>  struct tipc_sock {
+> @@ -73,6 +73,13 @@ static struct proto tipc_proto;
+>  
+>  static int sockets_enabled;
+>  
+> +static const u32 msg_importance_factor[] = {
+> +	OVERLOAD_LIMIT_BASE,		/* TIPC_LOW_IMPORTANCE limit */
+> +	OVERLOAD_LIMIT_BASE * 2,	/* TIPC_MEDIUM_IMPORTANCE limit */
+> +	OVERLOAD_LIMIT_BASE * 100,	/* TIPC_HIGH_IMPORTANCE limit */
+> +	OVERLOAD_LIMIT_BASE * 200	/* TIPC_CRITICAL_IMPORTANCE limit */
+> +	};
+> +
+>  /*
+>   * Revised TIPC socket locking policy:
+>   *
+> @@ -1158,28 +1165,17 @@ static void tipc_data_ready(struct sock *sk, int len)
+>   * rx_queue_full - determine if receive queue can accept another message
+>   * @msg: message to be added to queue
+>   * @queue_size: current size of queue
+> - * @base: nominal maximum size of queue
+>   *
+> - * Returns 1 if queue is unable to accept message, 0 otherwise
+> + * Returns true if queue is unable to accept message, false otherwise
+>   */
+> -static int rx_queue_full(struct tipc_msg *msg, u32 queue_size, u32 base)
+> +static bool rx_queue_full(struct tipc_msg *msg, u32 queue_size)
+>  {
+> -	u32 threshold;
+>  	u32 imp = msg_importance(msg);
+>  
+> -	if (imp == TIPC_LOW_IMPORTANCE)
+> -		threshold = base;
+> -	else if (imp == TIPC_MEDIUM_IMPORTANCE)
+> -		threshold = base * 2;
+> -	else if (imp == TIPC_HIGH_IMPORTANCE)
+> -		threshold = base * 100;
+> -	else
+> -		return 0;
+> +	if (unlikely(imp > TIPC_CRITICAL_IMPORTANCE))
+> +		return true;
+>  
+> -	if (msg_connected(msg))
+> -		threshold *= 4;
+> -
+> -	return queue_size >= threshold;
+> +	return queue_size >= msg_importance_factor[imp];
+>  }
+>  
+>  /**
+> @@ -1275,7 +1271,6 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
+>  {
+>  	struct socket *sock = sk->sk_socket;
+>  	struct tipc_msg *msg = buf_msg(buf);
+> -	u32 recv_q_len;
+>  	u32 res = TIPC_OK;
+>  
+>  	/* Reject message if it is wrong sort of message for socket */
+> @@ -1285,19 +1280,18 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
+>  	if (sock->state == SS_READY) {
+>  		if (msg_connected(msg))
+>  			return TIPC_ERR_NO_PORT;
+> +		/* Reject SOCK_DGRAM and SOCK_RDM message if there isn't room
+> +		 * to queue it
+> +		 */
+> +		if (unlikely(rx_queue_full(msg,
+> +			     skb_queue_len(&sk->sk_receive_queue))))
+> +			return TIPC_ERR_OVERLOAD;
+>  	} else {
+>  		res = filter_connect(tipc_sk(sk), &buf);
+>  		if (res != TIPC_OK || buf == NULL)
+>  			return res;
+>  	}
+>  
+> -	/* Reject message if there isn't room to queue it */
+> -	recv_q_len = skb_queue_len(&sk->sk_receive_queue);
+> -	if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2))) {
+> -		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE / 2))
+> -			return TIPC_ERR_OVERLOAD;
+> -	}
+> -
+>  	/* Enqueue message (finally!) */
+>  	TIPC_SKB_CB(buf)->handle = 0;
+>  	__skb_queue_tail(&sk->sk_receive_queue, buf);
+> -- 
+> 1.7.1
 > 
 > 
+That looks more reasonable, thanks.
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
