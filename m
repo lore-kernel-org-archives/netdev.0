@@ -1,114 +1,142 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: fix a race in gro_cell_poll()
-Date: Mon, 10 Dec 2012 14:32:03 -0800
-Message-ID: <1355178723.27891.85.camel@edumazet-glaptop>
-References: <504C9EFCA2D0054393414C9CB605C37F1BFB80B2@SJEXCHMB06.corp.ad.broadcom.com>
-	 <504C9EFCA2D0054393414C9CB605C37F1BFB80D8@SJEXCHMB06.corp.ad.broadcom.com>
-	 <CANn89iKE2RxRBWRuXGwjydQKjPLhPbcoZaJS5rcBKbJWWnL4ZQ@mail.gmail.com>
-	 <1355018645.3113.0.camel@lb-tlvb-dmitry.il.broadcom.com>
-	 <1355086161.3113.9.camel@lb-tlvb-dmitry.il.broadcom.com>
-	 <CANn89iKtWuN=CRn-JBzmmo8jCCJQhZjAT8jA+9dgfmup99O03g@mail.gmail.com>
-	 <504C9EFCA2D0054393414C9CB605C37F1BFC104B@SJEXCHMB06.corp.ad.broadcom.com>
-	 <1355158471.27891.44.camel@edumazet-glaptop>
-	 <504C9EFCA2D0054393414C9CB605C37F1BFC32A1@SJEXCHMB06.corp.ad.broadcom.com>
-	 <1355176551.27891.57.camel@edumazet-glaptop>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Mon, 10 Dec 2012 17:43:49 -0500
+Message-ID: <1963349.P9uq3yvlyR@sifl>
+References: <20121205202144.18626.61966.stgit@localhost> <3124654.2UMIXvF0vN@sifl> <20121210175035.GA31856@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dmitry Kravkov <dmitry@broadcom.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:58768 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751595Ab2LJWcG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 17:32:06 -0500
-Received: by mail-da0-f46.google.com with SMTP id p5so1411455dak.19
-        for <netdev@vger.kernel.org>; Mon, 10 Dec 2012 14:32:05 -0800 (PST)
-In-Reply-To: <1355176551.27891.57.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, jasowang@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20121210175035.GA31856@redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Monday, December 10, 2012 07:50:35 PM Michael S. Tsirkin wrote:
+> On Mon, Dec 10, 2012 at 12:33:49PM -0500, Paul Moore wrote:
+> > On Monday, December 10, 2012 07:26:56 PM Michael S. Tsirkin wrote:
+> > > On Mon, Dec 10, 2012 at 12:04:35PM -0500, Paul Moore wrote:
+> > > > On Friday, December 07, 2012 02:25:16 PM Michael S. Tsirkin wrote:
+> > > > > On Thu, Dec 06, 2012 at 04:09:51PM -0500, Paul Moore wrote:
+> > > > > > On Thursday, December 06, 2012 10:57:16 PM Michael S. Tsirkin 
+wrote:
+> > > > > > > On Thu, Dec 06, 2012 at 11:56:45AM -0500, Paul Moore wrote:
+> > > > > > > > The SETQUEUE/tun_socket:create_queue permissions do not yet
+> > > > > > > > exist
+> > > > > > > > in any released SELinux policy as we are just now adding them
+> > > > > > > > with
+> > > > > > > > this patchset. With current policies loaded into a kernel with
+> > > > > > > > this patchset applied the SETQUEUE/tun_socket:create_queue
+> > > > > > > > permission would be treated according to the policy's unknown
+> > > > > > > > permission setting.
+> > > > > > > 
+> > > > > > > OK I think we need to rethink what we are doing here: what you
+> > > > > > > sent
+> > > > > > > addresses the problem as stated but I think we mis-stated it. 
+> > > > > > > Let
+> > > > > > > me try to restate the problem: it is not just selinux problem.
+> > > > > > > Let's
+> > > > > > > assume qemu wants to use tun, I (libvirt) don't want to run it
+> > > > > > > as
+> > > > > > > root.
+> > > > > > > 
+> > > > > > > 1. TUNSETIFF: I can open tun, attach an fd and pass it to qemu.
+> > > > > > > Now, qemu does not invoke TUNSETIFF so it can run without
+> > > > > > > kernel priveledges.
+> > > > > > 
+> > > > > > Correct me if I'm wrong, but I believe libvirt does this while
+> > > > > > running
+> > > > > > as root.  Assuming that is the case, why not simply
+> > > > > > setuid()/setgid()
+> > > > > > to the same credentials as the QEMU instance before creating the
+> > > > > > TUN
+> > > > > > device? You can always (re)configure the device afterwards while
+> > > > > > running as root/CAP_NET_ADMIN.
+> > > > > 
+> > > > > We want isolation between qemu instances.
+> > > > 
+> > > > Understood, I agree.
+> > > > 
+> > > > Achieving separation via SELinux is easily done, with libvirt/sVirt
+> > > > already doing this for us automatically in most cases; the only thing
+> > > > we
+> > > > will want to do is make sure the SELinux policy is aware of the new
+> > > > permission.
+> > > > 
+> > > > Achieving separation via DAC should also be easily done, simply run
+> > > > each
+> > > > QEMU instance with a separate UID and/or GID.
+> > > > 
+> > > > > Giving qemu right to open tun and SETIFF would give it rights
+> > > > > to access any tun device.
+> > > > 
+> > > > I'm quickly looked at tun_chr_open() again and I don't see any special
+> > > > rights/privileges required, the same for tun_chr_ioctl() and
+> > > > __tun_chr_ioctl().  Looking at tun_set_queue() I see we call
+> > > > tun_not_capable() which does a simple DAC check; it must have the same
+> > > > UID/GID or have CAP_NET_ADMIN.
+> > > > 
+> > > > I'm having a hard time seeing the problem you are describing; help me
+> > > > understand.
+> > > 
+> > > The issue is guest controls the number of queues in use.
+> > > So qemu would be required to be allowed to call tun_set_queue.
+> > > If we allow this we have a problem as one qemu will be
+> > > able to access any tun.
+> > 
+> > QEMU can call tun_set_queue() as long as it satisfies tun_not_capable(),
+> > which from a practical point of view means that the TUN device was
+> > created with the same UID/GID as the QEMU instance.  If you want TUN
+> > device separation between QEMU instances using DAC you need to run each
+> > QEMU instance with a different UID/GID (which you should be doing anyway
+> > if you want DAC enforced general separation).
+> > 
+> > I believe I've stated this point several times now and I don't feel you've
+> > addressed it properly.
+> 
+> Look at how it works at the moment:
+> a priveledged libvirt server calls tun_set_iff
+> and passes the fd to qemu which is not priveledged.
+> 
+> The result is isolation between qemu instances without
+> need to create uid per qemu instance.
 
-Dmitry Kravkov reported packet drops for GRE packets since GRO support
-was added.
-
-There is a race in gro_cell_poll() because we call napi_complete()
-without any synchronization with a concurrent gro_cells_receive()
-
-Once bug was triggered, we queued packets but did not schedule NAPI
-poll.
-
-We can fix this issue using the spinlock protected the napi_skbs queue,
-as we have to hold it to perform skb dequeue anyway.
-
-As we open-code skb_dequeue(), we no longer need to mask IRQS, as both
-producer and consumer run under BH context.
-
-Bug added in commit c9e6bc644e (net: add gro_cells infrastructure)
-
-Reported-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-
-David: I could reproduce the bug Dmitry reported, and have
-  verified this patch fixes the issue.
-
- include/net/gro_cells.h |   14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
-index 4fd8a4b..e5062c9 100644
---- a/include/net/gro_cells.h
-+++ b/include/net/gro_cells.h
-@@ -17,7 +17,6 @@ struct gro_cells {
+Okay, good.  That is my understanding.
  
- static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
- {
--	unsigned long flags;
- 	struct gro_cell *cell = gcells->cells;
- 	struct net_device *dev = skb->dev;
- 
-@@ -35,32 +34,37 @@ static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *s
- 		return;
- 	}
- 
--	spin_lock_irqsave(&cell->napi_skbs.lock, flags);
-+	/* We run in BH context */
-+	spin_lock(&cell->napi_skbs.lock);
- 
- 	__skb_queue_tail(&cell->napi_skbs, skb);
- 	if (skb_queue_len(&cell->napi_skbs) == 1)
- 		napi_schedule(&cell->napi);
- 
--	spin_unlock_irqrestore(&cell->napi_skbs.lock, flags);
-+	spin_unlock(&cell->napi_skbs.lock);
- }
- 
-+/* called unser BH context */
- static inline int gro_cell_poll(struct napi_struct *napi, int budget)
- {
- 	struct gro_cell *cell = container_of(napi, struct gro_cell, napi);
- 	struct sk_buff *skb;
- 	int work_done = 0;
- 
-+	spin_lock(&cell->napi_skbs.lock);
- 	while (work_done < budget) {
--		skb = skb_dequeue(&cell->napi_skbs);
-+		skb = __skb_dequeue(&cell->napi_skbs);
- 		if (!skb)
- 			break;
--
-+		spin_unlock(&cell->napi_skbs.lock);
- 		napi_gro_receive(napi, skb);
- 		work_done++;
-+		spin_lock(&cell->napi_skbs.lock);
- 	}
- 
- 	if (work_done < budget)
- 		napi_complete(napi);
-+	spin_unlock(&cell->napi_skbs.lock);
- 	return work_done;
- }
- 
+> How do we create multiple queues? It makes sense to
+> follow this model and pass in fds for individual queues.
+
+Okay.
+
+> However they need to be disabled initially
+> so libvirt can not do tun_set_queue for us.
+
+Unrelated question: why do the queues need to be disabled initially?  Is this 
+to prevent traffic from being queued up?  Some other reason?  I'm just curious 
+as to the reason ...
+
+> When qemu later calls tun_set_queue it will fail which means we
+> can't utilize multiqueue.
+
+I still don't understand why in the multiqueue case libvirt doesn't just 
+change it's effective UID/GID when creating the TUN device, or just use the 
+TUNSETOWNER/TUNSETGROUP commands. This would solve the problem you describe 
+above and - at least to me - seems like a better solution conceptually.
+
+Help me understand why you believe that will not work.
+
+Do you not want to give ownership of the TUN device to QEMU?  That would be 
+the only reason I can think of, but all of your comments that I can recall 
+have been about isolation between QEMU instances and not access control 
+between a QEMU instance and its assigned TUN device.
+
+> My solution is an unpriveledged variant
+> of tun_set_queue that only enables/disables
+> a queue without attach/detach.
+
+-- 
+paul moore
+security and virtualization @ redhat
+
