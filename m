@@ -1,92 +1,72 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] ipv4: ip_check_defrag must not modify skb before unsharing
-Date: Mon, 10 Dec 2012 10:41:06 +0100
-Message-ID: <1355132466.9857.6.camel@jlt4.sipsolutions.net>
-References: <1354906561-4695-1-git-send-email-eric@regit.org>
-	 <20121207.153134.25835204617509469.davem@davemloft.net>
-	 <1354915824.9124.11.camel@jlt4.sipsolutions.net>
-	 (sfid-20121207_223020_561049_DB965D43) <1354916502.9124.18.camel@jlt4.sipsolutions.net>
-	 (sfid-20121207_224129_500056_6617D80D) <1354918363.9124.29.camel@jlt4.sipsolutions.net>
-	 (sfid-20121207_231231_221604_E7B34625) <1354919017.9124.33.camel@jlt4.sipsolutions.net>
-	 (sfid-20121207_232321_820322_B0AAB1D2) <1355131788.9857.1.camel@jlt4.sipsolutions.net>
-	 (sfid-20121210_102940_332564_5C53F8B8)
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: Re: [PATCH V3 1/5] cxgb4: Add T4 filter support
+Date: Mon, 10 Dec 2012 15:16:23 +0530
+Message-ID: <50C5AF6F.6080502@chelsio.com>
+References: <1354533781-31575-1-git-send-email-vipul@chelsio.com> <1354533781-31575-2-git-send-email-vipul@chelsio.com> <20121203.140207.164096621247746195.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: eric@regit.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linville@tuxdriver.com,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"roland@purestorage.com" <roland@purestorage.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	Dimitrios Michailidis <dm@chelsio.com>,
+	Kumar A S <kumaras@chelsio.com>,
+	Steve Wise <swise@opengridcomputing.com>,
+	Abhishek Agrawal <abhishek@chelsio.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:39964 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540Ab2LJJkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 04:40:45 -0500
-In-Reply-To: <1355131788.9857.1.camel@jlt4.sipsolutions.net> (sfid-20121210_102940_332564_5C53F8B8)
+Received: from stargate.chelsio.com ([67.207.112.58]:4205 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754093Ab2LJJqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 04:46:36 -0500
+In-Reply-To: <20121203.140207.164096621247746195.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes.berg@intel.com>
 
-ip_check_defrag() might be called from af_packet within the
-RX path where shared SKBs are used, so it must not modify
-the input SKB before it has unshared it for defragmentation.
-Use skb_copy_bits() to get the IP header and only pull in
-everything later.
 
-The same is true for the other caller in macvlan as it is
-called from dev->rx_handler which can also get a shared SKB.
+On 04-12-2012 00:32, David Miller wrote:
+> From: Vipul Pandya <vipul@chelsio.com>
+> Date: Mon,  3 Dec 2012 16:52:57 +0530
+> 
+>> +	/*
+>> +	 * If the new or old filter have loopback rewriteing rules then we'll
+>> +	 * need to free any existing Layer Two Table (L2T) entries of the old
+>> +	 * filter rule.  The firmware will handle freeing up any Source MAC
+>> +	 * Table (SMT) entries used for rewriting Source MAC Addresses in
+>> +	 * loopback rules.
+>> +	 */
+>> +	if (f->l2t)
+>> +		cxgb4_l2t_release(f->l2t);
+>> +
+>> +	/* The zeroing of the filter rule below clears the filter valid,
+>> +	 * pending, locked flags, l2t pointer, etc. so it's all we need for
+>> +	 * this operation.
+>> +	 */
+> 
+> My greatest amusement is achieved when someone gets a code formatting
+> rule both correct and wrong in the same patch, as you have done here.
+> 
+> Format comments in the networking:
+> 
+> 	/* Like
+> 	 * this.
+> 	 */
+> 
+> 	 /*
+> 	  * Never,
+> 	  * like this.
+> 	  */
+> 
+> Thanks.
+> 
 
-Reported-by: Eric Leblond <eric@regit.org>
-Cc: stable@vger.kernel.org
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
----
-For some versions of the kernel, this code goes into af_packet.c
+I have submitted the series again making above changes. Thanks for
+pointing out the same. I wonder how checkpatch.pl did not complain or
+gave a warning for the incorrect commenting style. I corrected only
+those comments for which checkpatch.pl gave me a warning. So, I think
+there are some checks missing in checkpatch.pl script.
 
- net/ipv4/ip_fragment.c | 19 +++++++++----------
- 1 file changed, 9 insertions(+), 10 deletions(-)
-
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 448e685..8d5cc75 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -707,28 +707,27 @@ EXPORT_SYMBOL(ip_defrag);
- 
- struct sk_buff *ip_check_defrag(struct sk_buff *skb, u32 user)
- {
--	const struct iphdr *iph;
-+	struct iphdr iph;
- 	u32 len;
- 
- 	if (skb->protocol != htons(ETH_P_IP))
- 		return skb;
- 
--	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-+	if (!skb_copy_bits(skb, 0, &iph, sizeof(iph)))
- 		return skb;
- 
--	iph = ip_hdr(skb);
--	if (iph->ihl < 5 || iph->version != 4)
-+	if (iph.ihl < 5 || iph.version != 4)
- 		return skb;
--	if (!pskb_may_pull(skb, iph->ihl*4))
--		return skb;
--	iph = ip_hdr(skb);
--	len = ntohs(iph->tot_len);
--	if (skb->len < len || len < (iph->ihl * 4))
-+
-+	len = ntohs(iph.tot_len);
-+	if (skb->len < len || len < (iph.ihl * 4))
- 		return skb;
- 
--	if (ip_is_fragment(ip_hdr(skb))) {
-+	if (ip_is_fragment(&iph)) {
- 		skb = skb_share_check(skb, GFP_ATOMIC);
- 		if (skb) {
-+			if (!pskb_may_pull(skb, iph.ihl*4))
-+				return skb;
- 			if (pskb_trim_rcsum(skb, len))
- 				return skb;
- 			memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
--- 
-1.8.0
+Thanks,
+Vipul
