@@ -1,50 +1,37 @@
-From: Jan Synacek <jsynacek@redhat.com>
-Subject: Re: [PATCH 2/2] ping6: Fix -F switch.
-Date: Mon, 10 Dec 2012 10:58:39 +0100
-Message-ID: <50C5B24F.5030900@redhat.com>
-References: <1354868724-15549-1-git-send-email-jsynacek@redhat.com> <1354868724-15549-3-git-send-email-jsynacek@redhat.com>
+From: saeed bishara <saeed.bishara@gmail.com>
+Subject: Re: [PATCH v4 1/5] net: Add support for hardware-offloaded encapsulation
+Date: Mon, 10 Dec 2012 12:04:15 +0200
+Message-ID: <CAMAG_ee6xW4EnzPFt=_5+NL2+LuyUjxd52Xc242inYm2+Yhg7g@mail.gmail.com>
+References: <1354925658-24115-1-git-send-email-joseph.gasparakis@intel.com> <1354925658-24115-2-git-send-email-joseph.gasparakis@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21117 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751249Ab2LJJ6n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2012 04:58:43 -0500
-In-Reply-To: <1354868724-15549-3-git-send-email-jsynacek@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, shemminger@vyatta.com, chrisw@sous-sol.org,
+	gospo@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dmitry@broadcom.com,
+	bhutchings@solarflare.com,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1354925658-24115-2-git-send-email-joseph.gasparakis@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/07/2012 09:25 AM, Jan Synacek wrote:
-> Even when the flowlabel is set correctly, ping6 exits with a warning. For some
-> reason, the errno is set when it should not be.
-> 
-> Signed-off-by: Jan Synacek <jsynacek@redhat.com>
-> ---
->  ping6.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/ping6.c b/ping6.c
-> index 358a035..85d3782 100644
-> --- a/ping6.c
-> +++ b/ping6.c
-> @@ -725,7 +725,8 @@ int main(int argc, char *argv[])
->  		switch(ch) {
->  		case 'F':
->  			flowlabel = hextoui(optarg);
-> -			if (errno || (flowlabel & ~IPV6_FLOWINFO_FLOWLABEL)) {
-> +			if ((flowlabel < 0 && errno) ||
-> +			    (flowlabel & ~IPV6_FLOWINFO_FLOWLABEL)) {
->  				fprintf(stderr, "ping: Invalid flowinfo %s\n", optarg);
->  				exit(2);
->  			}
-> 
+> +static inline struct iphdr *inner_ip_hdr(const struct sk_buff *skb)
+> +{
+> +       return (struct iphdr *)skb_inner_network_header(skb);
+> +}
 
-This was well meant, but it doesn't work, because flowlabel is declared as
-__u32, therefore it can never be negative. I'm going to post a fixed version soon.
+Hi,
+I'm a little bit bothered because of those inner_ functions, what
+about the following approach:
+1. the skb will have a new state, that state can be outer (normal
+mode) and inner.
+2. when you change the state to inner, all the helper functions such
+as ip_hdr will return the innter header.
 
--- 
-Jan Synacek
-Software Engineer, BaseOS team Brno, Red Hat
+that's ofcourse the API side. the implementation may still use the
+fields you added to the skb.
+
+what you think?
+saeed
