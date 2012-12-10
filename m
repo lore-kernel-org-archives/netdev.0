@@ -1,65 +1,42 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] ipv4: ip_check_defrag must not modify skb before
- unsharing
-Date: Mon, 10 Dec 2012 19:45:52 +0100
-Message-ID: <1355165152.8083.4.camel@jlt4.sipsolutions.net>
-References: <1354919017.9124.33.camel@jlt4.sipsolutions.net>
-	 <1355131788.9857.1.camel@jlt4.sipsolutions.net>
-	 <1355132466.9857.6.camel@jlt4.sipsolutions.net>
-	 <20121210.134146.1583909966821253233.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] bridge: fix seq check in br_mdb_dump()
+Date: Mon, 10 Dec 2012 13:46:02 -0500 (EST)
+Message-ID: <20121210.134602.1572570160819991716.davem@davemloft.net>
+References: <1355141735-19576-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric@regit.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linville@tuxdriver.com,
-	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au,
+	shemminger@vyatta.com, tgraf@suug.ch, brouer@redhat.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:41646 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750952Ab2LJSpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 13:45:32 -0500
-In-Reply-To: <20121210.134146.1583909966821253233.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58444 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342Ab2LJSqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 13:46:05 -0500
+In-Reply-To: <1355141735-19576-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-12-10 at 13:41 -0500, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Mon, 10 Dec 2012 10:41:06 +0100
+From: Cong Wang <amwang@redhat.com>
+Date: Mon, 10 Dec 2012 20:15:35 +0800
+
+> From: Cong Wang <amwang@redhat.com>
 > 
-> > From: Johannes Berg <johannes.berg@intel.com>
-> > 
-> > ip_check_defrag() might be called from af_packet within the
-> > RX path where shared SKBs are used, so it must not modify
-> > the input SKB before it has unshared it for defragmentation.
-> > Use skb_copy_bits() to get the IP header and only pull in
-> > everything later.
-> > 
-> > The same is true for the other caller in macvlan as it is
-> > called from dev->rx_handler which can also get a shared SKB.
-> > 
-> > Reported-by: Eric Leblond <eric@regit.org>
-> > Cc: stable@vger.kernel.org
-> > Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> > ---
-> > For some versions of the kernel, this code goes into af_packet.c
+> In case of rehashing, introduce a global variable 'br_mdb_rehash_seq'
+> which gets increased every time when rehashing, and assign
+> net->dev_base_seq + br_mdb_rehash_seq to cb->seq.
 > 
-> So the bug is that ip_check_defrag() has a precondition which is met
-> properly by all callers except AF_PACKET.
+> In theory cb->seq could be wrapped to zero, but this is not
+> easy to fix, as net->dev_base_seq is not visible inside
+> br_mdb_rehash(). In practice, this is rare.
 > 
-> If this is the case, remind me why are we changing ip_check_defrag()
-> rather than the violator of the precondition?
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-I don't think this is the case.
-
-If you're referring to my note about af_packet: the kernels where this
-goes into af_packet.c are the kernels that don't even have
-ip_check_defrag() because macvlan didn't exist/didn't have ip defrag
-support and af_packet had this code there -- see commit bc416d9768a.
-
-If you're not referring to my note about af_packet: both callers (there
-are only two) of ip_check_defrag() have this bug as far as I can tell
-because they're both in the part of the RX path where shared SKBs might
-happen.
-
-johannes
+No synchronization at all is applied to this variable, I can't
+see how this is OK.
