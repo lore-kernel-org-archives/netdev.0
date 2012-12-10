@@ -1,156 +1,33 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next v3] tipc: sk_recv_queue size check only for
- connectionless sockets
-Date: Mon, 10 Dec 2012 09:51:12 -0500
-Message-ID: <20121210145112.GB23628@hmsreliant.think-freely.org>
-References: <1355131380-8542-1-git-send-email-ying.xue@windriver.com>
+Subject: Re: [PATCH RESEND] net: remove obsolete simple_strto<foo>
+Date: Mon, 10 Dec 2012 10:03:41 -0500
+Message-ID: <20121210150341.GD23628@hmsreliant.think-freely.org>
+References: <1355130748-7828-1-git-send-email-abhi.c.pawar@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Paul.Gortmaker@windriver.com, jon.maloy@ericsson.com,
-	erik.hugne@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: Ying Xue <ying.xue@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36944 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754023Ab2LJOv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 09:51:28 -0500
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Cong Wang <amwang@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-wireless@vger.kernel.org
+To: Abhijit Pawar <abhi.c.pawar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1355131380-8542-1-git-send-email-ying.xue@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1355130748-7828-1-git-send-email-abhi.c.pawar@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 10, 2012 at 05:23:00PM +0800, Ying Xue wrote:
-> The sk_receive_queue limit control is currently performed for all
-> arriving messages, disregarding socket and message type. But for
-> connectionless sockets this check is redundant, since the protocol
-> flow already makes queue overflow impossible.
+On Mon, Dec 10, 2012 at 02:42:28PM +0530, Abhijit Pawar wrote:
+> This patch replace the obsolete simple_strto<foo> with kstrto<foo>
 > 
-> We move the sk_receive_queue limit control so that it's only performed
-> for connectionless sockets, i.e. SOCK_RDM and SOCK_DGRAM type sockets.
-> 
-> However, as Neil Horman specified, we cannot simply force the socket
-> receive queue limit against connectionless sockets as it may create a
-> DoS vulnerability. For example, if a sender floods a receiver with
-> messages containing an invalid set of message importance bits or
-> CRITICAL importance, we will queue messages indefinitely.
-> 
-> To avoid DoS attack, socket receive queue will be marked as overflow
-> if we receive messages with invalid message importances, meanwhile,
-> we also set one new threshold for CRITICAL importance messages.
-> 
-> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
-> v3 changes:
->  - set new threshold for CRITICAL message
->  - defined an importance factor table to avoid multiplication and
->    division operations in rx_queue_full().
->  - changed return value of rx_queue_full() from integer to boolean.
-> 
->  net/tipc/socket.c |   44 +++++++++++++++++++-------------------------
->  1 files changed, 19 insertions(+), 25 deletions(-)
-> 
-> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-> index 9b4e483..a18a757 100644
-> --- a/net/tipc/socket.c
-> +++ b/net/tipc/socket.c
-> @@ -43,7 +43,7 @@
->  #define SS_LISTENING	-1	/* socket is listening */
->  #define SS_READY	-2	/* socket is connectionless */
->  
-> -#define OVERLOAD_LIMIT_BASE	10000
-> +#define OVERLOAD_LIMIT_BASE	5000
->  #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
->  
->  struct tipc_sock {
-> @@ -73,6 +73,13 @@ static struct proto tipc_proto;
->  
->  static int sockets_enabled;
->  
-> +static const u32 msg_importance_factor[] = {
-> +	OVERLOAD_LIMIT_BASE,		/* TIPC_LOW_IMPORTANCE limit */
-> +	OVERLOAD_LIMIT_BASE * 2,	/* TIPC_MEDIUM_IMPORTANCE limit */
-> +	OVERLOAD_LIMIT_BASE * 100,	/* TIPC_HIGH_IMPORTANCE limit */
-> +	OVERLOAD_LIMIT_BASE * 200	/* TIPC_CRITICAL_IMPORTANCE limit */
-> +	};
-> +
->  /*
->   * Revised TIPC socket locking policy:
->   *
-> @@ -1158,28 +1165,17 @@ static void tipc_data_ready(struct sock *sk, int len)
->   * rx_queue_full - determine if receive queue can accept another message
->   * @msg: message to be added to queue
->   * @queue_size: current size of queue
-> - * @base: nominal maximum size of queue
->   *
-> - * Returns 1 if queue is unable to accept message, 0 otherwise
-> + * Returns true if queue is unable to accept message, false otherwise
->   */
-> -static int rx_queue_full(struct tipc_msg *msg, u32 queue_size, u32 base)
-> +static bool rx_queue_full(struct tipc_msg *msg, u32 queue_size)
->  {
-> -	u32 threshold;
->  	u32 imp = msg_importance(msg);
->  
-> -	if (imp == TIPC_LOW_IMPORTANCE)
-> -		threshold = base;
-> -	else if (imp == TIPC_MEDIUM_IMPORTANCE)
-> -		threshold = base * 2;
-> -	else if (imp == TIPC_HIGH_IMPORTANCE)
-> -		threshold = base * 100;
-> -	else
-> -		return 0;
-> +	if (unlikely(imp > TIPC_CRITICAL_IMPORTANCE))
-> +		return true;
->  
-> -	if (msg_connected(msg))
-> -		threshold *= 4;
-> -
-> -	return queue_size >= threshold;
-> +	return queue_size >= msg_importance_factor[imp];
->  }
->  
->  /**
-> @@ -1275,7 +1271,6 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
->  {
->  	struct socket *sock = sk->sk_socket;
->  	struct tipc_msg *msg = buf_msg(buf);
-> -	u32 recv_q_len;
->  	u32 res = TIPC_OK;
->  
->  	/* Reject message if it is wrong sort of message for socket */
-> @@ -1285,19 +1280,18 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
->  	if (sock->state == SS_READY) {
->  		if (msg_connected(msg))
->  			return TIPC_ERR_NO_PORT;
-> +		/* Reject SOCK_DGRAM and SOCK_RDM message if there isn't room
-> +		 * to queue it
-> +		 */
-> +		if (unlikely(rx_queue_full(msg,
-> +			     skb_queue_len(&sk->sk_receive_queue))))
-> +			return TIPC_ERR_OVERLOAD;
->  	} else {
->  		res = filter_connect(tipc_sk(sk), &buf);
->  		if (res != TIPC_OK || buf == NULL)
->  			return res;
->  	}
->  
-> -	/* Reject message if there isn't room to queue it */
-> -	recv_q_len = skb_queue_len(&sk->sk_receive_queue);
-> -	if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2))) {
-> -		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE / 2))
-> -			return TIPC_ERR_OVERLOAD;
-> -	}
-> -
->  	/* Enqueue message (finally!) */
->  	TIPC_SKB_CB(buf)->handle = 0;
->  	__skb_queue_tail(&sk->sk_receive_queue, buf);
-> -- 
-> 1.7.1
-> 
-> 
-That looks more reasonable, thanks.
+> Signed-off-by: Abhijit Pawar <abhi.c.pawar@gmail.com>
 Acked-by: Neil Horman <nhorman@tuxdriver.com>
