@@ -1,71 +1,48 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: ixgbe:  pci_get_device() call without counterpart call of
- pci_dev_put()
-Date: Mon, 10 Dec 2012 18:24:03 +0000
-Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A072D5F4365@ORSMSX106.amr.corp.intel.com>
-References: <01b301cdd5f2$3a9b2360$afd16a20$@toganetworks.com>
- <50C58C98.2030509@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 01/22] bnx2x: Support probing and removing
+ of VF device
+Date: Mon, 10 Dec 2012 13:35:19 -0500 (EST)
+Message-ID: <20121210.133519.2048543022289027034.davem@davemloft.net>
+References: <1355154406-10855-1-git-send-email-ariele@broadcom.com>
+	<1355154406-10855-2-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Elena Gurevich <elena.gurevich@toganetworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: ariele@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:6225 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750952Ab2LJSYM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2012 13:24:12 -0500
-In-Reply-To: <50C58C98.2030509@gmail.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:58327 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750803Ab2LJSfW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 13:35:22 -0500
+In-Reply-To: <1355154406-10855-2-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZWZmIEtpcnNoZXIgW21haWx0
-bzp0YXJiYWxAZ21haWwuY29tXQ0KPiBTZW50OiBTdW5kYXksIERlY2VtYmVyIDA5LCAyMDEyIDEx
-OjE4IFBNDQo+IFRvOiBFbGVuYSBHdXJldmljaA0KPiBDYzogbmV0ZGV2OyBlMTAwMC1kZXZlbEBs
-aXN0cy5zb3VyY2Vmb3JnZS5uZXQ7IFJvc2UsIEdyZWdvcnkgVjsgU2tpZG1vcmUsDQo+IERvbmFs
-ZCBDDQo+IFN1YmplY3Q6IFJlOiBpeGdiZTogcGNpX2dldF9kZXZpY2UoKSBjYWxsIHdpdGhvdXQg
-Y291bnRlcnBhcnQgY2FsbCBvZg0KPiBwY2lfZGV2X3B1dCgpDQo+IA0KPiBPbiAxMi8wOS8yMDEy
-IDAxOjQ3IEFNLCBFbGVuYSBHdXJldmljaCB3cm90ZToNCj4gPiBIaSBhbGwsDQo+ID4gSSBhbSBw
-aW9uZWVyIGluIGxpbnV4IGRldmljZSBkcml2ZXJzIGhlcmUgYW5kIHVzaW5nIEludGVsIDgyNTk5
-IE5JQyBhcw0KPiA+IHJlZmVyZW5jZSBtb2RlbCwgRHVyaW5nIGludmVzdGlnYXRpb24gdG8gZHJp
-dmVycyBzb3VyY2VzIEkgZm91bmQgdGhlDQo+ID4gc3VzcGljaW91cyBjb2RlOg0KPiA+DQo+ID4g
-SXMgY29kZSBzZXF1ZW5jZSAoMSkgICBhbmQgKDIpIHRoZSBwb3NzaWJsZSBkZXZpY2UgcmVmZXJl
-bmNlIGNvdW50DQo+IGxlYWthZ2UNCj4gPiA/Pz8NCj4gPg0KPiA+DQo+ID4gVGhhbmtzIGEgbG90
-IGluIGFkdmFuY2UNCj4gPiBMZW5hDQo+ID4NCj4gPiAtLS0tLS0tLXNuaXBwZWQgZnJvbSBpeGdi
-ZV9tYWluLmMgIGZpbGUgZnVuY3Rpb24NCj4gPiBpeGdiZV9pb19lcnJvcl9kZXRlY3RlZCgpDQo+
-ID4gLS0tLS0tLS0tLS0NCj4gPg0KPiA+IC4gLiAuDQo+ID4gCQkvKiBGaW5kIHRoZSBwY2kgZGV2
-aWNlIG9mIHRoZSBvZmZlbmRpbmcgVkYgKi8NCj4gPiAJCXZmZGV2ID0gcGNpX2dldF9kZXZpY2Uo
-UENJX1ZFTkRPUl9JRF9JTlRFTCwgZGV2aWNlX2lkLCBOVUxMKTsNCj4gPiAJCXdoaWxlICh2ZmRl
-dikgew0KPiA+IAkJCWlmICh2ZmRldi0+ZGV2Zm4gPT0gKHJlcV9pZCAmIDB4RkYpKQ0KPiA+IAkJ
-CQlicmVhazsNCj4gPiA8LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tICAgICAgKDEpIGxl
-YXZlcyB0aGUgbG9vcCB3aXRoIHN1Y2Nlc3NmdWwNCj4gZ2V0DQo+ID4gY2FsbCAgISEhISEhISEh
-ISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhIQ0KPiA+DQo+ID4gCQkJdmZkZXYgPSBwY2lf
-Z2V0X2RldmljZShQQ0lfVkVORE9SX0lEX0lOVEVMLA0KPiA+IAkJCQkJICAgICAgIGRldmljZV9p
-ZCwgdmZkZXYpOw0KPiA+IAkJfQ0KPiA+IAkJLyoNCj4gPiAJCSAqIFRoZXJlJ3MgYSBzbGltIGNo
-YW5jZSB0aGUgVkYgY291bGQgaGF2ZSBiZWVuIGhvdCBwbHVnZ2VkLA0KPiA+IAkJICogc28gaWYg
-aXQgaXMgbm8gbG9uZ2VyIHByZXNlbnQgd2UgZG9uJ3QgbmVlZCB0byBpc3N1ZSB0aGUNCj4gPiAJ
-CSAqIFZGTFIuICBKdXN0IGNsZWFuIHVwIHRoZSBBRVIgaW4gdGhhdCBjYXNlLg0KPiA+IAkJICov
-DQo+ID4gCQlpZiAodmZkZXYpIHsNCj4gPiAJCQllX2Rldl9lcnIoIklzc3VpbmcgVkZMUiB0byBW
-RiAlZFxuIiwgdmYpOw0KPiA+IAkJCXBjaV93cml0ZV9jb25maWdfZHdvcmQodmZkZXYsIDB4QTgs
-IDB4MDAwMDgwMDApOw0KPiA+IAkJfQ0KPiA+DQo+ID4gCQlwY2lfY2xlYW51cF9hZXJfdW5jb3Jy
-ZWN0X2Vycm9yX3N0YXR1cyhwZGV2KTsNCj4gPiAJfQ0KPiA+DQo+ID4gCS8qDQo+ID4gCSAqIEV2
-ZW4gdGhvdWdoIHRoZSBlcnJvciBtYXkgaGF2ZSBvY2N1cnJlZCBvbiB0aGUgb3RoZXIgcG9ydA0K
-PiA+IAkgKiB3ZSBzdGlsbCBuZWVkIHRvIGluY3JlbWVudCB0aGUgdmYgZXJyb3IgcmVmZXJlbmNl
-IGNvdW50IGZvcg0KPiA+IAkgKiBib3RoIHBvcnRzIGJlY2F1c2UgdGhlIEkvTyByZXN1bWUgZnVu
-Y3Rpb24gd2lsbCBiZSBjYWxsZWQNCj4gPiAJICogZm9yIGJvdGggb2YgdGhlbS4NCj4gPiAJICov
-DQo+ID4gCWFkYXB0ZXItPnZmZXJyX3JlZmNvdW50Kys7DQo+ID4NCj4gPiAJcmV0dXJuIFBDSV9F
-UlNfUkVTVUxUX1JFQ09WRVJFRDsNCj4gPiA8LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0gICgyKSBsZWF2ZXMgdGhlIGZ1bmN0aW9uDQo+ID4gd2l0aG91dCBwdXQg
-Y2FsbCAhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhDQo+ID4gLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLSAgc25pcHBlZA0KPiA+IC0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+ID4NCj4gQWRkZWQgR3JlZyBSb3NlIChpeGdiZXZmIG1h
-aW50YWluZXIpICYgRG9uIFNraWRtb3JlIChpeGdiZSBtYWludGFpbmVyKQ0KPiANCj4gU2luY2Ug
-dGhlIGNvZGUgeW91IGhhdmUgcXVlc3Rpb25zIGFib3V0IGlzIGRlYWxpbmcgd2l0aCB0aGUgdmYs
-IEdyZWcgd2lsbA0KPiBtb3N0IGxpa2VseSBiZSBhYmxlIHRvIHNoZWQgc29tZSBsaWdodCB0byB5
-b3VyIHF1ZXN0aW9ucy4NCg0KVGhhdCdzIGEgYnVnLiAgSSdsbCBnZW5lcmF0ZSBhIHBhdGNoIHRv
-IGFkZCB0aGUgbmVjZXNzYXJ5IHBjaV9kZXZfcHV0KCkuDQoNCi0gR3JlZw0KDQo=
+From: "Ariel Elior" <ariele@broadcom.com>
+Date: Mon, 10 Dec 2012 17:46:25 +0200
+
+>  static void bnx2x_get_pcie_width_speed(struct bnx2x *bp, int *width, int *speed)
+>  {
+> -	u32 val = REG_RD(bp, PCICFG_OFFSET + PCICFG_LINK_CONTROL);
+> +	u32 val = 0;
+> +	pci_read_config_dword(bp->pdev, PCICFG_LINK_CONTROL, &val);
+
+Please put an empty line between function local variable declarations
+and actual code.
+
+> @@ -12023,85 +12057,115 @@ static int bnx2x_get_num_non_def_sbs(struct pci_dev *pdev,
+>  	 * If MSI-X is not supported - return number of SBs needed to support
+>  	 * one fast path queue: one FP queue + SB for CNIC
+>  	 */
+> -	if (!pos)
+> +	if (!pos) {
+> +		pr_info("no msix capability found");
+>  		return 1 + cnic_cnt;
+> +	}
+> +
+> +	pr_info("msix capability found");
+>  
+
+Use dev_info(), netdev_info(), or similar, rather than plain
+pr_info().
