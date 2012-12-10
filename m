@@ -1,37 +1,54 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] virtio_net: fix a typo in virtnet_alloc_queues()
-Date: Mon, 10 Dec 2012 20:24:08 +0800
-Message-ID: <1355142248-19987-1-git-send-email-amwang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+Subject: Re: [net-next:master 195/198] net/bridge/br_mdb.c:79:35: sparse:
+ incompatible types in comparison expression (different address spaces)
+Date: Mon, 10 Dec 2012 20:36:44 +0800
+Message-ID: <1355143004.11752.19.camel@cr0>
+References: <50c3fd5e.qB65a7/5e+IZT2ix%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: kbuild test robot <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41673 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60016 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751046Ab2LJMYS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2012 07:24:18 -0500
+	id S1750963Ab2LJMgu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 07:36:50 -0500
+In-Reply-To: <50c3fd5e.qB65a7/5e+IZT2ix%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Obviously it should check !vi->rq.
+On Sun, 2012-12-09 at 10:54 +0800, kbuild test robot wrote:
+> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+> head:   9ecb9aabaf634677c77af467f4e3028b09d7bcda
+> commit: ee07c6e7a6f8a25c18f0a6b18152fbd7499245f6 [195/198] bridge: export multicast database via netlink
+> 
+> 
+> sparse warnings:
+> 
+> + net/bridge/br_mdb.c:79:35: sparse: incompatible types in comparison expression (different address spaces)
 
-Reported-by: Fengguang Wu <fengguang.wu@intel.com> 
-Cc: Jason Wang <jasowang@redhat.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+Hi, Fengguang,
 
----
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index a644eeb..68d64f0 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1347,7 +1347,7 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 	if (!vi->sq)
- 		goto err_sq;
- 	vi->rq = kzalloc(sizeof(*vi->rq) * vi->max_queue_pairs, GFP_KERNEL);
--	if (!vi->sq)
-+	if (!vi->rq)
- 		goto err_rq;
+I am not sure if I understand this warning correctly. Does the following
+patch fix it?
+
+Thanks!
+
+---------------->
+
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 2528328..0bc0e13 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -77,7 +77,7 @@ static int br_mdb_fill_info(struct sk_buff *skb,
+struct netlink_callback *cb,
+                        }
  
- 	INIT_DELAYED_WORK(&vi->refill, refill_work);
+                        for (pp = &mp->ports;
+-                            (p = rcu_dereference(*pp)) != NULL;
++                            (p = rcu_dereference_protected(*pp, 1)) !=
+NULL;
+                              pp = &p->next) {
+                                port = p->port;
+                                if (port) {
