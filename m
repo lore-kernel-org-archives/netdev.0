@@ -1,38 +1,41 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCHv7] virtio-spec: virtio network device multiqueue support
-Date: Tue, 11 Dec 2012 10:20:09 +1030
-Message-ID: <87sj7dcvri.fsf@rustcorp.com.au>
-References: <20121210104025.GA26640@redhat.com>
+Subject: Re: linux-next: build failure after merge of the virtio tree
+Date: Tue, 11 Dec 2012 09:11:46 +1030
+Message-ID: <874njtedhx.fsf@rustcorp.com.au>
+References: <20121210133725.cb4a76545691b099c73c40ea@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121210104025.GA26640@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jason Wang <jasowang@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:36733 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750826Ab2LJX6r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 18:58:47 -0500
+In-Reply-To: <20121210133725.cb4a76545691b099c73c40ea@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
+Stephen Rothwell <sfr@canb.auug.org.au> writes:
 
-> Add multiqueue support to virtio network device.
-> Add a new feature flag VIRTIO_NET_F_MQ for this feature, a new
-> configuration field max_virtqueue_pairs to detect supported number of
-> virtqueues as well as a new command VIRTIO_NET_CTRL_MQ to program
-> packet steering for unidirectional protocols.
+> Hi Rusty,
 >
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> After merging the virtio tree, today's linux-next build (x86_64
+> allmodconfig) failed like this:
+>
+> drivers/net/virtio_net.c: In function 'vq2txq':
+> drivers/net/virtio_net.c:150:2: error: implicit declaration of function 'virtqueue_get_queue_index' [-Werror=implicit-function-declaration]
+>
+> Caused by commit 986a4f4d452d ("virtio_net: multiqueue support") from the
+> net-next tree interacting with commit 105e892960e1 ("virtio: move
+> queue_index and num_free fields into core struct virtqueue") from the
+> virtio tree.
+>
+> I applied the patch below and can carry it as necessary.
 
-Thanks, applied.
+Thanks for this, your fix is correct.
 
 Cheers,
 Rusty.
