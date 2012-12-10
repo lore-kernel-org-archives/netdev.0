@@ -1,158 +1,71 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next v3] tipc: sk_recv_queue size check only for
- connectionless sockets
-Date: Mon, 10 Dec 2012 13:22:21 -0500
-Message-ID: <20121210182221.GE23628@hmsreliant.think-freely.org>
-References: <1355131380-8542-1-git-send-email-ying.xue@windriver.com>
- <50C5B5B5.9060004@ericsson.com>
- <50C60496.5040800@ericsson.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: ixgbe:  pci_get_device() call without counterpart call of
+ pci_dev_put()
+Date: Mon, 10 Dec 2012 18:24:03 +0000
+Message-ID: <C5551D9AAB213A418B7FD5E4A6F30A072D5F4365@ORSMSX106.amr.corp.intel.com>
+References: <01b301cdd5f2$3a9b2360$afd16a20$@toganetworks.com>
+ <50C58C98.2030509@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ying Xue <ying.xue@windriver.com>, Paul.Gortmaker@windriver.com,
-	erik.hugne@ericsson.com, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: Jon Maloy <jon.maloy@ericsson.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Elena Gurevich <elena.gurevich@toganetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39744 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751487Ab2LJSWc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 13:22:32 -0500
-Content-Disposition: inline
-In-Reply-To: <50C60496.5040800@ericsson.com>
+Received: from mga14.intel.com ([143.182.124.37]:6225 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750952Ab2LJSYM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 13:24:12 -0500
+In-Reply-To: <50C58C98.2030509@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 10, 2012 at 10:49:42AM -0500, Jon Maloy wrote:
-> On 12/10/2012 05:13 AM, Jon Maloy wrote:
-> > On 12/10/2012 04:23 AM, Ying Xue wrote:
-> >> The sk_receive_queue limit control is currently performed for all
-> >> arriving messages, disregarding socket and message type. But for
-> >> connectionless sockets this check is redundant, since the protocol
-> >> flow already makes queue overflow impossible.
-> >>
-> >> We move the sk_receive_queue limit control so that it's only performed
-> >> for connectionless sockets, i.e. SOCK_RDM and SOCK_DGRAM type sockets.
-> >>
-> >> However, as Neil Horman specified, we cannot simply force the socket
-> >> receive queue limit against connectionless sockets as it may create a
-> >> DoS vulnerability. For example, if a sender floods a receiver with
-> >> messages containing an invalid set of message importance bits or
-> >> CRITICAL importance, we will queue messages indefinitely.
-> >>
-> >> To avoid DoS attack, socket receive queue will be marked as overflow
-> >> if we receive messages with invalid message importances, meanwhile,
-> >> we also set one new threshold for CRITICAL importance messages.
-> >>
-> >> Signed-off-by: Ying Xue <ying.xue@windriver.com>
-> >> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-> >> Cc: Neil Horman <nhorman@tuxdriver.com>
-> >> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> >> ---
-> >> v3 changes:
-> >>  - set new threshold for CRITICAL message
-> >>  - defined an importance factor table to avoid multiplication and
-> >>    division operations in rx_queue_full().
-> >>  - changed return value of rx_queue_full() from integer to boolean.
-> >>
-> >>  net/tipc/socket.c |   44 +++++++++++++++++++-------------------------
-> >>  1 files changed, 19 insertions(+), 25 deletions(-)
-> >>
-> >> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-> >> index 9b4e483..a18a757 100644
-> >> --- a/net/tipc/socket.c
-> >> +++ b/net/tipc/socket.c
-> >> @@ -43,7 +43,7 @@
-> >>  #define SS_LISTENING	-1	/* socket is listening */
-> >>  #define SS_READY	-2	/* socket is connectionless */
-> >>  
-> >> -#define OVERLOAD_LIMIT_BASE	10000
-> >> +#define OVERLOAD_LIMIT_BASE	5000
-> >>  #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
-> >>  
-> >>  struct tipc_sock {
-> >> @@ -73,6 +73,13 @@ static struct proto tipc_proto;
-> >>  
-> >>  static int sockets_enabled;
-> >>  
-> >> +static const u32 msg_importance_factor[] = {
-> >> +	OVERLOAD_LIMIT_BASE,		/* TIPC_LOW_IMPORTANCE limit */
-> >> +	OVERLOAD_LIMIT_BASE * 2,	/* TIPC_MEDIUM_IMPORTANCE limit */
-> >> +	OVERLOAD_LIMIT_BASE * 100,	/* TIPC_HIGH_IMPORTANCE limit */
-> >> +	OVERLOAD_LIMIT_BASE * 200	/* TIPC_CRITICAL_IMPORTANCE limit */
-> >> +	};
-> >> +
-> >>  /*
-> >>   * Revised TIPC socket locking policy:
-> >>   *
-> >> @@ -1158,28 +1165,17 @@ static void tipc_data_ready(struct sock *sk, int len)
-> >>   * rx_queue_full - determine if receive queue can accept another message
-> >>   * @msg: message to be added to queue
-> >>   * @queue_size: current size of queue
-> >> - * @base: nominal maximum size of queue
-> >>   *
-> >> - * Returns 1 if queue is unable to accept message, 0 otherwise
-> >> + * Returns true if queue is unable to accept message, false otherwise
-> >>   */
-> >> -static int rx_queue_full(struct tipc_msg *msg, u32 queue_size, u32 base)
-> >> +static bool rx_queue_full(struct tipc_msg *msg, u32 queue_size)
-> >>  {
-> >> -	u32 threshold;
-> >>  	u32 imp = msg_importance(msg);
-> >>  
-> >> -	if (imp == TIPC_LOW_IMPORTANCE)
-> >> -		threshold = base;
-> >> -	else if (imp == TIPC_MEDIUM_IMPORTANCE)
-> >> -		threshold = base * 2;
-> >> -	else if (imp == TIPC_HIGH_IMPORTANCE)
-> >> -		threshold = base * 100;
-> >> -	else
-> >> -		return 0;
-> >> +	if (unlikely(imp > TIPC_CRITICAL_IMPORTANCE))
-> >> +		return true;
-> > 
-> > This test is not necessary. Such messages have already been filtered out
-> > in tipc_recv_msg() at link level.
-> > The test msg_isdata(), which determines if a message should be sent up to
-> > the port/socket level, is  also an implicit test that 
-> > importance < TIPC_CRITICAL_IMPORTANCE.
-> 
-> (importance <= TIPC_CRITICAL_IMPORTANCE), of course.
-> This is an effect of the co-location of the user and importance fields in the
-> TIPC header. I.e., the importance is in reality coded into the value of
-> the user field.
-> 
-> To clarify (and improve) my previous suggestion, what I had in mind
-> was something like this:
-> 
-> 
->                 recv_q_len = skb_queue_len(&sk->sk_receive_queue);
-> -               if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2))) {
-> -                       if (rx_queue_full(msg, recv_q_len,
-> -                           OVERLOAD_LIMIT_BASE / 2))
-> -                               return TIPC_ERR_OVERLOAD;
-> -               }
-> +               imp = msg_importance(msg);
-> +               if (unlikely(recv_q_len > (OVERLOAD_LIMIT_BASE << (imp << 1))))
-> +                       return TIPC_ERR_OVERLOAD;                 
->         } else {
->                 if (msg_mcast(msg))
->                         return TIPC_ERR_NO_PORT;
-> 
-> No need for any separate function at all, and guaranteed inline.
-> This will probably translate to one single shift-instruction extra,
-> and no memor access, since the compiler merge (imp << 1) with the 
-> shift operation used to read imp from the header.
-> 
-> 
-> The limits for message rejection become the following,
-> given an OVERLOAD_LIMIT_BASE of 10000:
-> 
-> TIP_LOW_IMPORTANCE:       10000    (previously 10000)
-> TIPC_MEDIUM_IMPORTANCE    40000    (previously 20000)
-> TIPC_MEDIUM_IMPORTANCE    1600000  (previously 1000000)
-> TIPC_CRITICAL_IMPORTANCE  25600000 (previously no limit)
-> 
-> ///jon
-> 
-Sure, this will work nicely as well.
-Neil
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKZWZmIEtpcnNoZXIgW21haWx0
+bzp0YXJiYWxAZ21haWwuY29tXQ0KPiBTZW50OiBTdW5kYXksIERlY2VtYmVyIDA5LCAyMDEyIDEx
+OjE4IFBNDQo+IFRvOiBFbGVuYSBHdXJldmljaA0KPiBDYzogbmV0ZGV2OyBlMTAwMC1kZXZlbEBs
+aXN0cy5zb3VyY2Vmb3JnZS5uZXQ7IFJvc2UsIEdyZWdvcnkgVjsgU2tpZG1vcmUsDQo+IERvbmFs
+ZCBDDQo+IFN1YmplY3Q6IFJlOiBpeGdiZTogcGNpX2dldF9kZXZpY2UoKSBjYWxsIHdpdGhvdXQg
+Y291bnRlcnBhcnQgY2FsbCBvZg0KPiBwY2lfZGV2X3B1dCgpDQo+IA0KPiBPbiAxMi8wOS8yMDEy
+IDAxOjQ3IEFNLCBFbGVuYSBHdXJldmljaCB3cm90ZToNCj4gPiBIaSBhbGwsDQo+ID4gSSBhbSBw
+aW9uZWVyIGluIGxpbnV4IGRldmljZSBkcml2ZXJzIGhlcmUgYW5kIHVzaW5nIEludGVsIDgyNTk5
+IE5JQyBhcw0KPiA+IHJlZmVyZW5jZSBtb2RlbCwgRHVyaW5nIGludmVzdGlnYXRpb24gdG8gZHJp
+dmVycyBzb3VyY2VzIEkgZm91bmQgdGhlDQo+ID4gc3VzcGljaW91cyBjb2RlOg0KPiA+DQo+ID4g
+SXMgY29kZSBzZXF1ZW5jZSAoMSkgICBhbmQgKDIpIHRoZSBwb3NzaWJsZSBkZXZpY2UgcmVmZXJl
+bmNlIGNvdW50DQo+IGxlYWthZ2UNCj4gPiA/Pz8NCj4gPg0KPiA+DQo+ID4gVGhhbmtzIGEgbG90
+IGluIGFkdmFuY2UNCj4gPiBMZW5hDQo+ID4NCj4gPiAtLS0tLS0tLXNuaXBwZWQgZnJvbSBpeGdi
+ZV9tYWluLmMgIGZpbGUgZnVuY3Rpb24NCj4gPiBpeGdiZV9pb19lcnJvcl9kZXRlY3RlZCgpDQo+
+ID4gLS0tLS0tLS0tLS0NCj4gPg0KPiA+IC4gLiAuDQo+ID4gCQkvKiBGaW5kIHRoZSBwY2kgZGV2
+aWNlIG9mIHRoZSBvZmZlbmRpbmcgVkYgKi8NCj4gPiAJCXZmZGV2ID0gcGNpX2dldF9kZXZpY2Uo
+UENJX1ZFTkRPUl9JRF9JTlRFTCwgZGV2aWNlX2lkLCBOVUxMKTsNCj4gPiAJCXdoaWxlICh2ZmRl
+dikgew0KPiA+IAkJCWlmICh2ZmRldi0+ZGV2Zm4gPT0gKHJlcV9pZCAmIDB4RkYpKQ0KPiA+IAkJ
+CQlicmVhazsNCj4gPiA8LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tICAgICAgKDEpIGxl
+YXZlcyB0aGUgbG9vcCB3aXRoIHN1Y2Nlc3NmdWwNCj4gZ2V0DQo+ID4gY2FsbCAgISEhISEhISEh
+ISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhIQ0KPiA+DQo+ID4gCQkJdmZkZXYgPSBwY2lf
+Z2V0X2RldmljZShQQ0lfVkVORE9SX0lEX0lOVEVMLA0KPiA+IAkJCQkJICAgICAgIGRldmljZV9p
+ZCwgdmZkZXYpOw0KPiA+IAkJfQ0KPiA+IAkJLyoNCj4gPiAJCSAqIFRoZXJlJ3MgYSBzbGltIGNo
+YW5jZSB0aGUgVkYgY291bGQgaGF2ZSBiZWVuIGhvdCBwbHVnZ2VkLA0KPiA+IAkJICogc28gaWYg
+aXQgaXMgbm8gbG9uZ2VyIHByZXNlbnQgd2UgZG9uJ3QgbmVlZCB0byBpc3N1ZSB0aGUNCj4gPiAJ
+CSAqIFZGTFIuICBKdXN0IGNsZWFuIHVwIHRoZSBBRVIgaW4gdGhhdCBjYXNlLg0KPiA+IAkJICov
+DQo+ID4gCQlpZiAodmZkZXYpIHsNCj4gPiAJCQllX2Rldl9lcnIoIklzc3VpbmcgVkZMUiB0byBW
+RiAlZFxuIiwgdmYpOw0KPiA+IAkJCXBjaV93cml0ZV9jb25maWdfZHdvcmQodmZkZXYsIDB4QTgs
+IDB4MDAwMDgwMDApOw0KPiA+IAkJfQ0KPiA+DQo+ID4gCQlwY2lfY2xlYW51cF9hZXJfdW5jb3Jy
+ZWN0X2Vycm9yX3N0YXR1cyhwZGV2KTsNCj4gPiAJfQ0KPiA+DQo+ID4gCS8qDQo+ID4gCSAqIEV2
+ZW4gdGhvdWdoIHRoZSBlcnJvciBtYXkgaGF2ZSBvY2N1cnJlZCBvbiB0aGUgb3RoZXIgcG9ydA0K
+PiA+IAkgKiB3ZSBzdGlsbCBuZWVkIHRvIGluY3JlbWVudCB0aGUgdmYgZXJyb3IgcmVmZXJlbmNl
+IGNvdW50IGZvcg0KPiA+IAkgKiBib3RoIHBvcnRzIGJlY2F1c2UgdGhlIEkvTyByZXN1bWUgZnVu
+Y3Rpb24gd2lsbCBiZSBjYWxsZWQNCj4gPiAJICogZm9yIGJvdGggb2YgdGhlbS4NCj4gPiAJICov
+DQo+ID4gCWFkYXB0ZXItPnZmZXJyX3JlZmNvdW50Kys7DQo+ID4NCj4gPiAJcmV0dXJuIFBDSV9F
+UlNfUkVTVUxUX1JFQ09WRVJFRDsNCj4gPiA8LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0gICgyKSBsZWF2ZXMgdGhlIGZ1bmN0aW9uDQo+ID4gd2l0aG91dCBwdXQg
+Y2FsbCAhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhDQo+ID4gLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLSAgc25pcHBlZA0KPiA+IC0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+ID4NCj4gQWRkZWQgR3JlZyBSb3NlIChpeGdiZXZmIG1h
+aW50YWluZXIpICYgRG9uIFNraWRtb3JlIChpeGdiZSBtYWludGFpbmVyKQ0KPiANCj4gU2luY2Ug
+dGhlIGNvZGUgeW91IGhhdmUgcXVlc3Rpb25zIGFib3V0IGlzIGRlYWxpbmcgd2l0aCB0aGUgdmYs
+IEdyZWcgd2lsbA0KPiBtb3N0IGxpa2VseSBiZSBhYmxlIHRvIHNoZWQgc29tZSBsaWdodCB0byB5
+b3VyIHF1ZXN0aW9ucy4NCg0KVGhhdCdzIGEgYnVnLiAgSSdsbCBnZW5lcmF0ZSBhIHBhdGNoIHRv
+IGFkZCB0aGUgbmVjZXNzYXJ5IHBjaV9kZXZfcHV0KCkuDQoNCi0gR3JlZw0KDQo=
