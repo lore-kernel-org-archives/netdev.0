@@ -1,7 +1,7 @@
 From: Will Deacon <will.deacon@arm.com>
-Subject: [PATCH v2 05/10] net: dm9000: use io{read,write}*_rep accessors
-Date: Mon, 10 Dec 2012 19:12:37 +0000
-Message-ID: <1355166762-15133-6-git-send-email-will.deacon@arm.com>
+Subject: [PATCH v2 06/10] net: 8390: use io{read,write}*_rep accessors
+Date: Mon, 10 Dec 2012 19:12:38 +0000
+Message-ID: <1355166762-15133-7-git-send-email-will.deacon@arm.com>
 References: <1355166762-15133-1-git-send-email-will.deacon@arm.com>
 Cc: linux-arch@vger.kernel.org, benh@kernel.crashing.org,
 	arnd@arndb.de, james.hogan@imgtec.com,
@@ -20,10 +20,8 @@ The {read,write}s{b,w,l} operations are not defined by all
 architectures and are being removed from the asm-generic/io.h
 interface.
 
-This patch replaces the usage of these string functions in the default
-DM9000 accessors with io{read,write}{8,16,32}_rep calls instead. This
-is required as the dm9000 driver is in use by the blackfin
-architecture which uses the asm-generic io accessors.
+This patch replaces the usage of these string functions in the 8390
+accessors with io{read,write}{8,16,32}_rep calls instead.
 
 Cc: Arnd Bergmann <arnd@arndb.de>
 Cc: Ben Herrenschmidt <benh@kernel.crashing.org>
@@ -32,54 +30,55 @@ Cc: netdev@vger.kernel.org
 Signed-off-by: Matthew Leach <matthew@mattleach.net>
 Signed-off-by: Will Deacon <will.deacon@arm.com>
 ---
- drivers/net/ethernet/davicom/dm9000.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/8390/ax88796.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index 36499d5..61648a6 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -193,35 +193,35 @@ iow(board_info_t * db, int reg, int value)
+diff --git a/drivers/net/ethernet/8390/ax88796.c b/drivers/net/ethernet/8390/ax88796.c
+index 203ff9d..0338352 100644
+--- a/drivers/net/ethernet/8390/ax88796.c
++++ b/drivers/net/ethernet/8390/ax88796.c
+@@ -191,11 +191,11 @@ static void ax_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr,
+ 	ei_outb(E8390_RREAD+E8390_START, nic_base + NE_CMD);
  
- static void dm9000_outblk_8bit(void __iomem *reg, void *data, int count)
- {
--	writesb(reg, data, count);
-+	iowrite8_rep(reg, data, count);
- }
+ 	if (ei_local->word16)
+-		readsw(nic_base + NE_DATAPORT, hdr,
+-		       sizeof(struct e8390_pkt_hdr) >> 1);
++		ioread16_rep(nic_base + NE_DATAPORT, hdr,
++			     sizeof(struct e8390_pkt_hdr) >> 1);
+ 	else
+-		readsb(nic_base + NE_DATAPORT, hdr,
+-		       sizeof(struct e8390_pkt_hdr));
++		ioread8_rep(nic_base + NE_DATAPORT, hdr,
++			    sizeof(struct e8390_pkt_hdr));
  
- static void dm9000_outblk_16bit(void __iomem *reg, void *data, int count)
- {
--	writesw(reg, data, (count+1) >> 1);
-+	iowrite16_rep(reg, data, (count+1) >> 1);
- }
+ 	ei_outb(ENISR_RDC, nic_base + EN0_ISR);	/* Ack intr. */
+ 	ei_local->dmaing &= ~0x01;
+@@ -237,12 +237,12 @@ static void ax_block_input(struct net_device *dev, int count,
+ 	ei_outb(E8390_RREAD+E8390_START, nic_base + NE_CMD);
  
- static void dm9000_outblk_32bit(void __iomem *reg, void *data, int count)
- {
--	writesl(reg, data, (count+3) >> 2);
-+	iowrite32_rep(reg, data, (count+3) >> 2);
- }
+ 	if (ei_local->word16) {
+-		readsw(nic_base + NE_DATAPORT, buf, count >> 1);
++		ioread16_rep(nic_base + NE_DATAPORT, buf, count >> 1);
+ 		if (count & 0x01)
+ 			buf[count-1] = ei_inb(nic_base + NE_DATAPORT);
  
- /* input block from chip to memory */
+ 	} else {
+-		readsb(nic_base + NE_DATAPORT, buf, count);
++		ioread8_rep(nic_base + NE_DATAPORT, buf, count);
+ 	}
  
- static void dm9000_inblk_8bit(void __iomem *reg, void *data, int count)
- {
--	readsb(reg, data, count);
-+	ioread8_rep(reg, data, count);
- }
+ 	ei_local->dmaing &= ~1;
+@@ -286,9 +286,9 @@ static void ax_block_output(struct net_device *dev, int count,
  
+ 	ei_outb(E8390_RWRITE+E8390_START, nic_base + NE_CMD);
+ 	if (ei_local->word16)
+-		writesw(nic_base + NE_DATAPORT, buf, count >> 1);
++		iowrite16_rep(nic_base + NE_DATAPORT, buf, count >> 1);
+ 	else
+-		writesb(nic_base + NE_DATAPORT, buf, count);
++		iowrite8_rep(nic_base + NE_DATAPORT, buf, count);
  
- static void dm9000_inblk_16bit(void __iomem *reg, void *data, int count)
- {
--	readsw(reg, data, (count+1) >> 1);
-+	ioread16_rep(reg, data, (count+1) >> 1);
- }
+ 	dma_start = jiffies;
  
- static void dm9000_inblk_32bit(void __iomem *reg, void *data, int count)
- {
--	readsl(reg, data, (count+3) >> 2);
-+	ioread32_rep(reg, data, (count+3) >> 2);
- }
- 
- /* dump block from chip to null */
 -- 
 1.8.0
