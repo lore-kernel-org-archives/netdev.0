@@ -1,104 +1,59 @@
-From: Eric Leblond <eric@regit.org>
-Subject: Re: [PATCH] ipv4: ip_check_defrag must not modify skb before
- unsharing
-Date: Mon, 10 Dec 2012 12:02:58 +0100
-Message-ID: <1355137378.5391.2.camel@tiger2>
-References: <1354906561-4695-1-git-send-email-eric@regit.org>
-	 <20121207.153134.25835204617509469.davem@davemloft.net>
-	 <1354915824.9124.11.camel@jlt4.sipsolutions.net>
-	 (sfid-20121207_223020_561049_DB965D43) <1354916502.9124.18.camel@jlt4.sipsolutions.net>
-	 (sfid-20121207_224129_500056_6617D80D) <1354918363.9124.29.camel@jlt4.sipsolutions.net>
-	 (sfid-20121207_231231_221604_E7B34625) <1354919017.9124.33.camel@jlt4.sipsolutions.net>
-	 (sfid-20121207_232321_820322_B0AAB1D2) <1355131788.9857.1.camel@jlt4.sipsolutions.net>
-	 (sfid-20121210_102940_332564_5C53F8B8) <1355132466.9857.6.camel@jlt4.sipsolutions.net>
+From: kbuild test robot <fengguang.wu@intel.com>
+Subject: [net-next:master 204/207] drivers/net/virtio_net.c:1312
+ virtnet_alloc_queues() error: potential null dereference 'vi->rq'.
+  (kzalloc returns null)
+Date: Mon, 10 Dec 2012 19:14:51 +0800
+Message-ID: <50c5c42b.cwK8ksV8A98071UI%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linville@tuxdriver.com,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ks28632.kimsufi.com ([91.121.96.152]:44494 "EHLO
-	ks28632.kimsufi.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754441Ab2LJLDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 06:03:42 -0500
-In-Reply-To: <1355132466.9857.6.camel@jlt4.sipsolutions.net>
+Received: from mga09.intel.com ([134.134.136.24]:55786 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751284Ab2LJLQf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 06:16:35 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+head:   65d2897c0f1b240420d657f41e561239fa10ba94
+commit: 986a4f4d452dec004697f667439d27c3fda9c928 [204/207] virtio_net: multiqueue support
 
-On Mon, 2012-12-10 at 10:41 +0100, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> ip_check_defrag() might be called from af_packet within the
-> RX path where shared SKBs are used, so it must not modify
-> the input SKB before it has unshared it for defragmentation.
-> Use skb_copy_bits() to get the IP header and only pull in
-> everything later.
-> 
-> The same is true for the other caller in macvlan as it is
-> called from dev->rx_handler which can also get a shared SKB.
 
-I've applied the patch and built a new kernel. I did not manage to get
-it crashed when using the two techniques (suspend to ram and down/up
-interface) that were working well to crash kernel without the patch.
+smatch warnings:
 
-BR,
++ drivers/net/virtio_net.c:1312 virtnet_alloc_queues() error: potential null dereference 'vi->rq'.  (kzalloc returns null)
 
-> Reported-by: Eric Leblond <eric@regit.org>
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> ---
-> For some versions of the kernel, this code goes into af_packet.c
-> 
->  net/ipv4/ip_fragment.c | 19 +++++++++----------
->  1 file changed, 9 insertions(+), 10 deletions(-)
-> 
-> diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-> index 448e685..8d5cc75 100644
-> --- a/net/ipv4/ip_fragment.c
-> +++ b/net/ipv4/ip_fragment.c
-> @@ -707,28 +707,27 @@ EXPORT_SYMBOL(ip_defrag);
->  
->  struct sk_buff *ip_check_defrag(struct sk_buff *skb, u32 user)
->  {
-> -	const struct iphdr *iph;
-> +	struct iphdr iph;
->  	u32 len;
->  
->  	if (skb->protocol != htons(ETH_P_IP))
->  		return skb;
->  
-> -	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-> +	if (!skb_copy_bits(skb, 0, &iph, sizeof(iph)))
->  		return skb;
->  
-> -	iph = ip_hdr(skb);
-> -	if (iph->ihl < 5 || iph->version != 4)
-> +	if (iph.ihl < 5 || iph.version != 4)
->  		return skb;
-> -	if (!pskb_may_pull(skb, iph->ihl*4))
-> -		return skb;
-> -	iph = ip_hdr(skb);
-> -	len = ntohs(iph->tot_len);
-> -	if (skb->len < len || len < (iph->ihl * 4))
-> +
-> +	len = ntohs(iph.tot_len);
-> +	if (skb->len < len || len < (iph.ihl * 4))
->  		return skb;
->  
-> -	if (ip_is_fragment(ip_hdr(skb))) {
-> +	if (ip_is_fragment(&iph)) {
->  		skb = skb_share_check(skb, GFP_ATOMIC);
->  		if (skb) {
-> +			if (!pskb_may_pull(skb, iph.ihl*4))
-> +				return skb;
->  			if (pskb_trim_rcsum(skb, len))
->  				return skb;
->  			memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+vim +1312 drivers/net/virtio_net.c
 
--- 
-Eric Leblond <eric@regit.org>
-Blog: https://home.regit.org/
+986a4f4d Jason Wang 2012-12-07  1296  	return ret;
+986a4f4d Jason Wang 2012-12-07  1297  }
+986a4f4d Jason Wang 2012-12-07  1298  
+986a4f4d Jason Wang 2012-12-07  1299  static int virtnet_alloc_queues(struct virtnet_info *vi)
+986a4f4d Jason Wang 2012-12-07  1300  {
+986a4f4d Jason Wang 2012-12-07  1301  	int i;
+986a4f4d Jason Wang 2012-12-07  1302  
+986a4f4d Jason Wang 2012-12-07  1303  	vi->sq = kzalloc(sizeof(*vi->sq) * vi->max_queue_pairs, GFP_KERNEL);
+986a4f4d Jason Wang 2012-12-07  1304  	if (!vi->sq)
+986a4f4d Jason Wang 2012-12-07  1305  		goto err_sq;
+986a4f4d Jason Wang 2012-12-07  1306  	vi->rq = kzalloc(sizeof(*vi->rq) * vi->max_queue_pairs, GFP_KERNEL);
+986a4f4d Jason Wang 2012-12-07  1307  	if (!vi->sq)
+986a4f4d Jason Wang 2012-12-07  1308  		goto err_rq;
+986a4f4d Jason Wang 2012-12-07  1309  
+986a4f4d Jason Wang 2012-12-07  1310  	INIT_DELAYED_WORK(&vi->refill, refill_work);
+986a4f4d Jason Wang 2012-12-07  1311  	for (i = 0; i < vi->max_queue_pairs; i++) {
+986a4f4d Jason Wang 2012-12-07 @1312  		vi->rq[i].pages = NULL;
+986a4f4d Jason Wang 2012-12-07  1313  		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
+986a4f4d Jason Wang 2012-12-07  1314  			       napi_weight);
+986a4f4d Jason Wang 2012-12-07  1315  
+986a4f4d Jason Wang 2012-12-07  1316  		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
+986a4f4d Jason Wang 2012-12-07  1317  		sg_init_table(vi->sq[i].sg, ARRAY_SIZE(vi->sq[i].sg));
+986a4f4d Jason Wang 2012-12-07  1318  	}
+986a4f4d Jason Wang 2012-12-07  1319  
+986a4f4d Jason Wang 2012-12-07  1320  	return 0;
+
+---
+0-DAY kernel build testing backend         Open Source Technology Center
+Fengguang Wu, Yuanhan Liu                              Intel Corporation
