@@ -1,84 +1,64 @@
 From: Will Deacon <will.deacon@arm.com>
-Subject: [PATCH v2 06/10] net: 8390: use io{read,write}*_rep accessors
-Date: Mon, 10 Dec 2012 19:12:38 +0000
-Message-ID: <1355166762-15133-7-git-send-email-will.deacon@arm.com>
+Subject: [PATCH v2 03/10] net: smc91x: use io{read,write}*_rep accessors instead of string functions
+Date: Mon, 10 Dec 2012 19:12:35 +0000
+Message-ID: <1355166762-15133-4-git-send-email-will.deacon@arm.com>
 References: <1355166762-15133-1-git-send-email-will.deacon@arm.com>
 Cc: linux-arch@vger.kernel.org, benh@kernel.crashing.org,
 	arnd@arndb.de, james.hogan@imgtec.com,
-	Matthew Leach <matthew@mattleach.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Will Deacon <will.deacon@arm.com>
+	Will Deacon <will.deacon@arm.com>,
+	Nicolas Pitre <nico@fluxnic.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1355166762-15133-1-git-send-email-will.deacon@arm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Matthew Leach <matthew@mattleach.net>
+The {read,write}s{b,w,l} operations are not defined by all architectures
+and are being removed from the asm-generic/io.h interface.
 
-The {read,write}s{b,w,l} operations are not defined by all
-architectures and are being removed from the asm-generic/io.h
-interface.
-
-This patch replaces the usage of these string functions in the 8390
-accessors with io{read,write}{8,16,32}_rep calls instead.
+This patch replaces the usage of these string functions in the default
+SMC accessors with io{read,write}{8,16,32}_rep calls instead, which are
+defined for all architectures.
 
 Cc: Arnd Bergmann <arnd@arndb.de>
 Cc: Ben Herrenschmidt <benh@kernel.crashing.org>
-Cc: David Miller <davem@davemloft.net>
+Cc: Nicolas Pitre <nico@fluxnic.net>
 Cc: netdev@vger.kernel.org
-Signed-off-by: Matthew Leach <matthew@mattleach.net>
 Signed-off-by: Will Deacon <will.deacon@arm.com>
 ---
- drivers/net/ethernet/8390/ax88796.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/smsc/smc91x.h | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/8390/ax88796.c b/drivers/net/ethernet/8390/ax88796.c
-index 203ff9d..0338352 100644
---- a/drivers/net/ethernet/8390/ax88796.c
-+++ b/drivers/net/ethernet/8390/ax88796.c
-@@ -191,11 +191,11 @@ static void ax_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr,
- 	ei_outb(E8390_RREAD+E8390_START, nic_base + NE_CMD);
+diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
+index 5f53fbb..370e13d 100644
+--- a/drivers/net/ethernet/smsc/smc91x.h
++++ b/drivers/net/ethernet/smsc/smc91x.h
+@@ -286,16 +286,16 @@ static inline void mcf_outsw(void *a, unsigned char *p, int l)
  
- 	if (ei_local->word16)
--		readsw(nic_base + NE_DATAPORT, hdr,
--		       sizeof(struct e8390_pkt_hdr) >> 1);
-+		ioread16_rep(nic_base + NE_DATAPORT, hdr,
-+			     sizeof(struct e8390_pkt_hdr) >> 1);
- 	else
--		readsb(nic_base + NE_DATAPORT, hdr,
--		       sizeof(struct e8390_pkt_hdr));
-+		ioread8_rep(nic_base + NE_DATAPORT, hdr,
-+			    sizeof(struct e8390_pkt_hdr));
+ #define SMC_IO_SHIFT		(lp->io_shift)
  
- 	ei_outb(ENISR_RDC, nic_base + EN0_ISR);	/* Ack intr. */
- 	ei_local->dmaing &= ~0x01;
-@@ -237,12 +237,12 @@ static void ax_block_input(struct net_device *dev, int count,
- 	ei_outb(E8390_RREAD+E8390_START, nic_base + NE_CMD);
+-#define SMC_inb(a, r)		readb((a) + (r))
+-#define SMC_inw(a, r)		readw((a) + (r))
+-#define SMC_inl(a, r)		readl((a) + (r))
+-#define SMC_outb(v, a, r)	writeb(v, (a) + (r))
+-#define SMC_outw(v, a, r)	writew(v, (a) + (r))
+-#define SMC_outl(v, a, r)	writel(v, (a) + (r))
+-#define SMC_insw(a, r, p, l)	readsw((a) + (r), p, l)
+-#define SMC_outsw(a, r, p, l)	writesw((a) + (r), p, l)
+-#define SMC_insl(a, r, p, l)	readsl((a) + (r), p, l)
+-#define SMC_outsl(a, r, p, l)	writesl((a) + (r), p, l)
++#define SMC_inb(a, r)		ioread8((a) + (r))
++#define SMC_inw(a, r)		ioread16((a) + (r))
++#define SMC_inl(a, r)		ioread32((a) + (r))
++#define SMC_outb(v, a, r)	iowrite8(v, (a) + (r))
++#define SMC_outw(v, a, r)	iowrite16(v, (a) + (r))
++#define SMC_outl(v, a, r)	iowrite32(v, (a) + (r))
++#define SMC_insw(a, r, p, l)	ioread16_rep((a) + (r), p, l)
++#define SMC_outsw(a, r, p, l)	iowrite16_rep((a) + (r), p, l)
++#define SMC_insl(a, r, p, l)	ioread32_rep((a) + (r), p, l)
++#define SMC_outsl(a, r, p, l)	iowrite32_rep((a) + (r), p, l)
  
- 	if (ei_local->word16) {
--		readsw(nic_base + NE_DATAPORT, buf, count >> 1);
-+		ioread16_rep(nic_base + NE_DATAPORT, buf, count >> 1);
- 		if (count & 0x01)
- 			buf[count-1] = ei_inb(nic_base + NE_DATAPORT);
- 
- 	} else {
--		readsb(nic_base + NE_DATAPORT, buf, count);
-+		ioread8_rep(nic_base + NE_DATAPORT, buf, count);
- 	}
- 
- 	ei_local->dmaing &= ~1;
-@@ -286,9 +286,9 @@ static void ax_block_output(struct net_device *dev, int count,
- 
- 	ei_outb(E8390_RWRITE+E8390_START, nic_base + NE_CMD);
- 	if (ei_local->word16)
--		writesw(nic_base + NE_DATAPORT, buf, count >> 1);
-+		iowrite16_rep(nic_base + NE_DATAPORT, buf, count >> 1);
- 	else
--		writesb(nic_base + NE_DATAPORT, buf, count);
-+		iowrite8_rep(nic_base + NE_DATAPORT, buf, count);
- 
- 	dma_start = jiffies;
- 
+ #define RPC_LSA_DEFAULT		RPC_LED_100_10
+ #define RPC_LSB_DEFAULT		RPC_LED_TX_RX
 -- 
 1.8.0
