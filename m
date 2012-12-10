@@ -1,78 +1,97 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 6/7] bna: Firmware update
-Date: Mon, 10 Dec 2012 13:42:04 -0800
-Message-ID: <1355175725-19202-7-git-send-email-rmody@brocade.com>
-References: <1355175725-19202-1-git-send-email-rmody@brocade.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: ipgre rss is broken since gro
+Date: Mon, 10 Dec 2012 13:55:51 -0800
+Message-ID: <1355176551.27891.57.camel@edumazet-glaptop>
+References: <504C9EFCA2D0054393414C9CB605C37F1BFB80B2@SJEXCHMB06.corp.ad.broadcom.com>
+	 <504C9EFCA2D0054393414C9CB605C37F1BFB80D8@SJEXCHMB06.corp.ad.broadcom.com>
+	 <CANn89iKE2RxRBWRuXGwjydQKjPLhPbcoZaJS5rcBKbJWWnL4ZQ@mail.gmail.com>
+	 <1355018645.3113.0.camel@lb-tlvb-dmitry.il.broadcom.com>
+	 <1355086161.3113.9.camel@lb-tlvb-dmitry.il.broadcom.com>
+	 <CANn89iKtWuN=CRn-JBzmmo8jCCJQhZjAT8jA+9dgfmup99O03g@mail.gmail.com>
+	 <504C9EFCA2D0054393414C9CB605C37F1BFC104B@SJEXCHMB06.corp.ad.broadcom.com>
+	 <1355158471.27891.44.camel@edumazet-glaptop>
+	 <504C9EFCA2D0054393414C9CB605C37F1BFC32A1@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <bhutchings@solarflare.com>, <David.Laight@ACULAB.COM>,
-	<adapter_linux_open_src_team@brocade.com>,
-	Rasesh Mody <rmody@brocade.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:39902 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752096Ab2LJVoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 16:44:15 -0500
-In-Reply-To: <1355175725-19202-1-git-send-email-rmody@brocade.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:45737 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751555Ab2LJVzx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 16:55:53 -0500
+Received: by mail-pa0-f46.google.com with SMTP id bh2so2345121pad.19
+        for <netdev@vger.kernel.org>; Mon, 10 Dec 2012 13:55:53 -0800 (PST)
+In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F1BFC32A1@SJEXCHMB06.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change Details:
- -      Added Stats clear counter to the bfi_enet_stats_mac structure and
-        ethtool stats
- -      Modified the firmware naming convention to contain the firmware image
-        version (3.1.0.0). The new convention is
-        <firmware-image>-<firmware-version>.bin The change will enforce loading
-        only compatible firmware with this driver and also avoid over-writing
-        the old firmware image in-order to load new version driver as the
-        firmware names used to be the same.
+On Mon, 2012-12-10 at 19:20 +0000, Dmitry Kravkov wrote:
 
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/ethernet/brocade/bna/bfi_enet.h     |    1 +
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    1 +
- drivers/net/ethernet/brocade/bna/cna.h          |    4 ++--
- 3 files changed, 4 insertions(+), 2 deletions(-)
+> Yep, this resolved the issue - Interface is functional after 3 and 100 TCP connections. Thanks
+>    
+> 
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfi_enet.h b/drivers/net/ethernet/brocade/bna/bfi_enet.h
-index eef6e1f..7d10e33 100644
---- a/drivers/net/ethernet/brocade/bna/bfi_enet.h
-+++ b/drivers/net/ethernet/brocade/bna/bfi_enet.h
-@@ -787,6 +787,7 @@ struct bfi_enet_stats_bpc {
+I guess its only lowering probability of the race.
+
+Could you try instead the following patch ?
+
+I'll address the queue_mapping separately for net-next
+
+Thanks
+
+diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
+index 4fd8a4b..e5062c9 100644
+--- a/include/net/gro_cells.h
++++ b/include/net/gro_cells.h
+@@ -17,7 +17,6 @@ struct gro_cells {
  
- /* MAC Rx Statistics */
- struct bfi_enet_stats_mac {
-+	u64 stats_clr_cnt;	/* times this stats cleared */
- 	u64 frame_64;		/* both rx and tx counter */
- 	u64 frame_65_127;		/* both rx and tx counter */
- 	u64 frame_128_255;		/* both rx and tx counter */
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-index 40e1e84..455b5a2 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-@@ -102,6 +102,7 @@ static const char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
- 	"rx_unmap_q_alloc_failed",
- 	"rxbuf_alloc_failed",
+ static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *skb)
+ {
+-	unsigned long flags;
+ 	struct gro_cell *cell = gcells->cells;
+ 	struct net_device *dev = skb->dev;
  
-+	"mac_stats_clr_cnt",
- 	"mac_frame_64",
- 	"mac_frame_65_127",
- 	"mac_frame_128_255",
-diff --git a/drivers/net/ethernet/brocade/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
-index 32e8f17..14ca931 100644
---- a/drivers/net/ethernet/brocade/bna/cna.h
-+++ b/drivers/net/ethernet/brocade/bna/cna.h
-@@ -37,8 +37,8 @@
+@@ -35,32 +34,37 @@ static inline void gro_cells_receive(struct gro_cells *gcells, struct sk_buff *s
+ 		return;
+ 	}
  
- extern char bfa_version[];
+-	spin_lock_irqsave(&cell->napi_skbs.lock, flags);
++	/* We run in BH context */
++	spin_lock(&cell->napi_skbs.lock);
  
--#define	CNA_FW_FILE_CT	"ctfw.bin"
--#define	CNA_FW_FILE_CT2	"ct2fw.bin"
-+#define CNA_FW_FILE_CT	"ctfw-3.1.0.0.bin"
-+#define CNA_FW_FILE_CT2	"ct2fw-3.1.0.0.bin"
- #define FC_SYMNAME_MAX	256	/*!< max name server symbolic name size */
+ 	__skb_queue_tail(&cell->napi_skbs, skb);
+ 	if (skb_queue_len(&cell->napi_skbs) == 1)
+ 		napi_schedule(&cell->napi);
  
- #pragma pack(1)
--- 
-1.7.1
+-	spin_unlock_irqrestore(&cell->napi_skbs.lock, flags);
++	spin_unlock(&cell->napi_skbs.lock);
+ }
+ 
++/* called unser BH context */
+ static inline int gro_cell_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct gro_cell *cell = container_of(napi, struct gro_cell, napi);
+ 	struct sk_buff *skb;
+ 	int work_done = 0;
+ 
++	spin_lock(&cell->napi_skbs.lock);
+ 	while (work_done < budget) {
+-		skb = skb_dequeue(&cell->napi_skbs);
++		skb = __skb_dequeue(&cell->napi_skbs);
+ 		if (!skb)
+ 			break;
+-
++		spin_unlock(&cell->napi_skbs.lock);
+ 		napi_gro_receive(napi, skb);
+ 		work_done++;
++		spin_lock(&cell->napi_skbs.lock);
+ 	}
+ 
+ 	if (work_done < budget)
+ 		napi_complete(napi);
++	spin_unlock(&cell->napi_skbs.lock);
+ 	return work_done;
+ }
+ 
