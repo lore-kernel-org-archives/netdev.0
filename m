@@ -1,130 +1,51 @@
-From: Julius Werner <jwerner@chromium.org>
-Subject: Re: [PATCH] tcp: Avoid infinite loop on recvmsg bug
-Date: Mon, 10 Dec 2012 11:33:27 -0800
-Message-ID: <CAODwPW_P_UNGV8rRC7hFC+PBrWeu64ODu5mTby=9GCqMnyDtdQ@mail.gmail.com>
-References: <CAODwPW9kiG-jo=n0zedv5KT-8-gJcEUrdC3F2mAEjt78tne18g@mail.gmail.com>
-	<1352316791-16491-1-git-send-email-jwerner@chromium.org>
-	<1352317219.5552.6.camel@edumazet-glaptop>
-	<CAODwPW8mBJspF3k5SCBR-BShNvBLQpD-vyhLRh5Cq-4h=VZDgg@mail.gmail.com>
-	<1352331192.2748.10.camel@edumazet-glaptop>
-	<1352331754.2748.14.camel@edumazet-glaptop>
-	<CAODwPW90mZuCDgYPZEJtYNOGGt752VpP=S_EYACUCGua_x=WjA@mail.gmail.com>
-	<1352431796.19779.536.camel@edumazet-glaptop>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH v4 1/5] net: Add support for hardware-offloaded
+ encapsulation
+Date: Mon, 10 Dec 2012 19:58:34 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F1BFC3555@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1354925658-24115-1-git-send-email-joseph.gasparakis@intel.com>
+ <1354925658-24115-2-git-send-email-joseph.gasparakis@intel.com>
+ <CAMAG_ee6xW4EnzPFt=_5+NL2+LuyUjxd52Xc242inYm2+Yhg7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	James Morris <jmorris@namei.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Sameer Nanda <snanda@chromium.org>,
-	Mandeep Singh Baines <msb@chromium.org>
-To: Dave Jones <davej@redhat.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"chrisw@sous-sol.org" <chrisw@sous-sol.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"Peter P Waskiewicz Jr" <peter.p.waskiewicz.jr@intel.com>,
+	"Alexander Duyck" <alexander.h.duyck@intel.com>
+To: "saeed bishara" <saeed.bishara@gmail.com>,
+	"Joseph Gasparakis" <joseph.gasparakis@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1352431796.19779.536.camel@edumazet-glaptop>
+In-Reply-To: <CAMAG_ee6xW4EnzPFt=_5+NL2+LuyUjxd52Xc242inYm2+Yhg7g@mail.gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-
-Have you thought about picking up one of the patches to tcp_recvmsg I
-proposed in this thread? We consider the underlying bug in Chromium OS
-that led mere here to be fixed now, but I bet this will not be the
-last time someone hits this code path and has to deal with the bad
-error handling.
-
-I understand that not everyone here agrees on what the best solution
-is, but I think both of them are far better than the inconsistent and
-potentially hard-disk-filling way that the current kernel does it.
-
-On Wed, 2012-11-07 at 11:33 -0800, Julius Werner wrote:
-> tcp_recvmsg contains a sanity check that WARNs when there is a gap
-> between the socket's copied_seq and the first buffer in the
-> sk_receive_queue. In theory, the TCP stack makes sure that This Should
-> Never Happen (TM)... however, practice shows that there are still a few
-> bug reports from it out there (and one in my inbox).
->
-> Unfortunately, when it does happen for whatever reason, the situation
-> is not handled very well: the kernel logs a warning and breaks out of
-> the loop that walks the receive queue. It proceeds to find nothing else
-> to do on the socket and hits sk_wait_data, which cannot block because
-> the receive queue is not empty. As no data was read, the outer while
-> loop repeats (logging the same warning again) ad infinitum until the
-> system's syslog exhausts all available hard drive capacity.
->
-> This patch addresses that issue by closing the socket outright and
-> throwing EBADFD to userspace (which seems most appropriate to me at this
-> point). As the underlying bug condition is "impossible" and therefore by
-> definition unrecoverable, this is the only sensible action other than a
-> full panic.
->
-> Signed-off-by: Julius Werner <jwerner@chromium.org>
-> ---
->  net/ipv4/tcp.c |    7 ++++++-
->  1 files changed, 6 insertions(+), 1 deletions(-)
->
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 197c000..d612308 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -1628,7 +1628,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
->                                "recvmsg bug: copied %X seq %X rcvnxt %X fl %X\n",
->                                *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
->                                flags))
-> -                             break;
-> +                             goto selfdestruct;
->
->                       offset = *seq - TCP_SKB_CB(skb)->seq;
->                       if (tcp_hdr(skb)->syn)
-> @@ -1936,6 +1936,11 @@ recv_urg:
->  recv_sndq:
->       err = tcp_peek_sndq(sk, msg, len);
->       goto out;
-> +
-> +selfdestruct:
-> +     err = -EBADFD;
-> +     tcp_done(sk);
-> +     goto out;
->  }
->  EXPORT_SYMBOL(tcp_recvmsg);
->
-
-On Tue, Nov 06, 2012 at 04:15:35PM -0800, Julius Werner wrote:
-> tcp_recvmsg contains a sanity check that WARNs when there is a gap
-> between the socket's copied_seq and the first buffer in the
-> sk_receive_queue. In theory, the TCP stack makes sure that This Should
-> Never Happen (TM)... however, practice shows that there are still a few
-> bug reports from it out there (and one in my inbox).
->
-> Unfortunately, when it does happen for whatever reason, the situation
-> is not handled very well: the kernel logs a warning and breaks out of
-> the loop that walks the receive queue. It proceeds to find nothing else
-> to do on the socket and hits sk_wait_data, which cannot block because
-> the receive queue is not empty. As no data was read, the outer while
-> loop repeats (logging the same warning again) ad infinitum until the
-> system's syslog exhausts all available hard drive capacity.
->
-> This patch improves that behavior by going straight to a proper kernel
-> crash. The cause of the error can be identified right away and the
-> system's hard drive is not unnecessarily strained.
->
-> Signed-off-by: Julius Werner <jwerner@chromium.org>
-> ---
->  net/ipv4/tcp.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 197c000..fcb0927 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -1628,7 +1628,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
->                               "recvmsg bug: copied %X seq %X rcvnxt %X fl %X\n",
->                               *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
->                               flags))
-> -                            break;
-> +                            BUG();
->
->                      offset = *seq - TCP_SKB_CB(skb)->seq;
->                      if (tcp_hdr(skb)->syn)
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBzYWVlZCBiaXNoYXJhIFttYWls
+dG86c2FlZWQuYmlzaGFyYUBnbWFpbC5jb21dDQo+IFNlbnQ6IE1vbmRheSwgRGVjZW1iZXIgMTAs
+IDIwMTIgMTI6MDQgUE0NCj4gVG86IEpvc2VwaCBHYXNwYXJha2lzDQo+IENjOiBkYXZlbUBkYXZl
+bWxvZnQubmV0OyBzaGVtbWluZ2VyQHZ5YXR0YS5jb207IGNocmlzd0Bzb3VzLXNvbC5vcmc7DQo+
+IGdvc3BvQHJlZGhhdC5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGxpbnV4LWtlcm5lbEB2
+Z2VyLmtlcm5lbC5vcmc7DQo+IERtaXRyeSBLcmF2a292OyBiaHV0Y2hpbmdzQHNvbGFyZmxhcmUu
+Y29tOyBQZXRlciBQIFdhc2tpZXdpY3ogSnI7IEFsZXhhbmRlcg0KPiBEdXljaw0KPiBTdWJqZWN0
+OiBSZTogW1BBVENIIHY0IDEvNV0gbmV0OiBBZGQgc3VwcG9ydCBmb3IgaGFyZHdhcmUtb2ZmbG9h
+ZGVkDQo+IGVuY2Fwc3VsYXRpb24NCj4gDQo+ID4gK3N0YXRpYyBpbmxpbmUgc3RydWN0IGlwaGRy
+ICppbm5lcl9pcF9oZHIoY29uc3Qgc3RydWN0IHNrX2J1ZmYgKnNrYikNCj4gPiArew0KPiA+ICsg
+ICAgICAgcmV0dXJuIChzdHJ1Y3QgaXBoZHIgKilza2JfaW5uZXJfbmV0d29ya19oZWFkZXIoc2ti
+KTsNCj4gPiArfQ0KPiANCj4gSGksDQo+IEknbSBhIGxpdHRsZSBiaXQgYm90aGVyZWQgYmVjYXVz
+ZSBvZiB0aG9zZSBpbm5lcl8gZnVuY3Rpb25zLCB3aGF0DQo+IGFib3V0IHRoZSBmb2xsb3dpbmcg
+YXBwcm9hY2g6DQo+IDEuIHRoZSBza2Igd2lsbCBoYXZlIGEgbmV3IHN0YXRlLCB0aGF0IHN0YXRl
+IGNhbiBiZSBvdXRlciAobm9ybWFsDQo+IG1vZGUpIGFuZCBpbm5lci4NCj4gMi4gd2hlbiB5b3Ug
+Y2hhbmdlIHRoZSBzdGF0ZSB0byBpbm5lciwgYWxsIHRoZSBoZWxwZXIgZnVuY3Rpb25zIHN1Y2gN
+Cj4gYXMgaXBfaGRyIHdpbGwgcmV0dXJuIHRoZSBpbm50ZXIgaGVhZGVyLg0KPiANCj4gdGhhdCdz
+IG9mY291cnNlIHRoZSBBUEkgc2lkZS4gdGhlIGltcGxlbWVudGF0aW9uIG1heSBzdGlsbCB1c2Ug
+dGhlDQo+IGZpZWxkcyB5b3UgYWRkZWQgdG8gdGhlIHNrYi4NCj4gDQo+IHdoYXQgeW91IHRoaW5r
+Pw0KPiBzYWVlZA0KDQpTb21lIGRyaXZlcnMgd2lsbCBwcm9iYWJseSBuZWVkIGJvdGggaW5uZXJf
+IGFuZCBvdGhlcl8gaW4gc2FtZSBmbG93LCBzd2l0Y2hpbmcgYmV0d2VlbiB0d28gc3RhdGVzIHdp
+bGwgY29uc3VtZSBjcHUgY3ljbGVzLiANCg==
