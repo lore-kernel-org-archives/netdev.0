@@ -1,58 +1,39 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: ipgre rss is broken since gro
-Date: Sun, 9 Dec 2012 15:27:07 -0800
-Message-ID: <CANn89iKtWuN=CRn-JBzmmo8jCCJQhZjAT8jA+9dgfmup99O03g@mail.gmail.com>
-References: <504C9EFCA2D0054393414C9CB605C37F1BFB80B2@SJEXCHMB06.corp.ad.broadcom.com>
-	<504C9EFCA2D0054393414C9CB605C37F1BFB80D8@SJEXCHMB06.corp.ad.broadcom.com>
-	<CANn89iKE2RxRBWRuXGwjydQKjPLhPbcoZaJS5rcBKbJWWnL4ZQ@mail.gmail.com>
-	<1355018645.3113.0.camel@lb-tlvb-dmitry.il.broadcom.com>
-	<1355086161.3113.9.camel@lb-tlvb-dmitry.il.broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/3] inet_diag: fix oops for IPv4 AF_INET6 TCP
+ SYN-RECV state
+Date: Sun, 09 Dec 2012 19:01:29 -0500 (EST)
+Message-ID: <20121209.190129.2104270281417362831.davem@davemloft.net>
+References: <1355031803-14547-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, netdev@vger.kernel.org
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:51559 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752472Ab2LIX1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 18:27:08 -0500
-Received: by mail-ie0-f176.google.com with SMTP id 13so6817154iea.35
-        for <netdev@vger.kernel.org>; Sun, 09 Dec 2012 15:27:07 -0800 (PST)
-In-Reply-To: <1355086161.3113.9.camel@lb-tlvb-dmitry.il.broadcom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49917 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752473Ab2LJABd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Dec 2012 19:01:33 -0500
+In-Reply-To: <1355031803-14547-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 9, 2012 at 12:49 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+From: Neal Cardwell <ncardwell@google.com>
+Date: Sun,  9 Dec 2012 00:43:21 -0500
 
-> for this item: drop_watch does not show any drops (i've disable all
-> other interfaces for clear env)
-> I will explain a little bit more the setup:
-> bnx2x device (under testing) is configured for RSS for IPGRE packets.
-> Sending multiple (3) TCP_STREAM causes ip_gre interface to disappear
-> packets (even ICMP).
-> This is not happening with single TCP_STREAM, or before gro_cell
-> introduction.
->
-> i was searching for the drops by print-out in ip_gre.c but disappeared
-> packets completes this code:
->
-> static int ipgre_rcv(struct sk_buff *skb)
-> (snip)
->                 printk("%s:%d\n", __FUNCTION__, __LINE__);
->
->                 tstats = this_cpu_ptr(tunnel->dev->tstats);
->                 u64_stats_update_begin(&tstats->syncp);
->                 tstats->rx_packets++;
->                 tstats->rx_bytes += skb->len;
->                 u64_stats_update_end(&tstats->syncp);
->
->                 gro_cells_receive(&tunnel->gro_cells, skb);
->                 return 0;
+> Fix inet_diag to be aware of the fact that AF_INET6 TCP connections
+> instantiated for IPv4 traffic and in the SYN-RECV state were actually
+> created with inet_reqsk_alloc(), instead of inet6_reqsk_alloc(). This
+> means that for such connections inet6_rsk(req) returns a pointer to a
+> random spot in memory up to roughly 64KB beyond the end of the
+> request_sock.
+> 
+> With this bug, for a server using AF_INET6 TCP sockets and serving
+> IPv4 traffic, an inet_diag user like `ss state SYN-RECV` would lead to
+> inet_diag_fill_req() causing an oops or the export to user space of 16
+> bytes of kernel memory as a garbage IPv6 address, depending on where
+> the garbage inet6_rsk(req) pointed.
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
 
-I dont know, I tried a bnx2x setup, and 100 tcp flows, no special problem.
-
-If you receive a lot of packets on a single RX queue, they might be
-dropped because cpu cant cope with the load
-(This has nothing to do with GRE or GRO )
-
-cat /proc/net/softnet_stat
+Applied.
