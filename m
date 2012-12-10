@@ -1,69 +1,253 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 1/1] net: ethernet: davinci_cpdma: Add boundary for rx
- and tx descriptors
-Date: Mon, 10 Dec 2012 16:59:04 +0530
-Message-ID: <50C5C780.9060606@ti.com>
-References: <1355125052-28448-1-git-send-email-mugunthanvnm@ti.com> <CABkLObqOEMKMD3df5pEDJWsGPA=oAj34Yz867D7p2hGdTr0WCA@mail.gmail.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: ipgre rss is broken since gro
+Date: Mon, 10 Dec 2012 11:32:50 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F1BFC104B@SJEXCHMB06.corp.ad.broadcom.com>
+References: <504C9EFCA2D0054393414C9CB605C37F1BFB80B2@SJEXCHMB06.corp.ad.broadcom.com>
+ <504C9EFCA2D0054393414C9CB605C37F1BFB80D8@SJEXCHMB06.corp.ad.broadcom.com>
+ <CANn89iKE2RxRBWRuXGwjydQKjPLhPbcoZaJS5rcBKbJWWnL4ZQ@mail.gmail.com>
+ <1355018645.3113.0.camel@lb-tlvb-dmitry.il.broadcom.com>
+ <1355086161.3113.9.camel@lb-tlvb-dmitry.il.broadcom.com>
+ <CANn89iKtWuN=CRn-JBzmmo8jCCJQhZjAT8jA+9dgfmup99O03g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <s.hauer@pengutronix.de>
-To: Christian Riesch <christian.riesch@omicron.at>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <CABkLObqOEMKMD3df5pEDJWsGPA=oAj34Yz867D7p2hGdTr0WCA@mail.gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary=_003_504C9EFCA2D0054393414C9CB605C37F1BFC104BSJEXCHMB06corpa_
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4871 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751229Ab2LJLdP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 06:33:15 -0500
+In-Reply-To: <CANn89iKtWuN=CRn-JBzmmo8jCCJQhZjAT8jA+9dgfmup99O03g@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/10/2012 1:54 PM, Christian Riesch wrote:
-> Hi again,
->
-> On Mon, Dec 10, 2012 at 8:37 AM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
->> When there is heavy transmission traffic in the CPDMA, then Rx descriptors
->> memory is also utilized as tx desc memory this leads to reduced rx desc memory
->> which leads to poor performance.
->>
-> "poor performance" is an understatement, see Sascha's description of
-> his patch. At initialization of the driver, half of the descriptors in
-> the pool are allocated for rx. When a packet arrives, one of the rx
-> descriptors is released and a new one is allocated. If tx allocates
-> this descriptor in the meantime, it is lost for rx forever! If tx
-> consumes all rx descriptors this way, the rx channel is dead!
->
-> Regards, Christian
->
->> This patch adds boundary for tx and rx descriptors in bd ram dividing the
->> descriptor memory to ensure that during heavy transmission tx doesn't use
->> rx descriptors.
->>
->> This patch is already applied to davinci_emac driver, since CPSW and
->> davici_dmac uses the same CPDMA, moving the boundry seperation from
->> Davinci EMAC driver to CPDMA driver which was done in the following
->> commit
->>
->> commit 86d8c07ff2448eb4e860e50f34ef6ee78e45c40c
->> Author: Sascha Hauer <s.hauer@pengutronix.de>
->> Date:   Tue Jan 3 05:27:47 2012 +0000
->>
->>      net/davinci: do not use all descriptors for tx packets
->>
->>      The driver uses a shared pool for both rx and tx descriptors.
->>      During open it queues fixed number of 128 descriptors for receive
->>      packets. For each received packet it tries to queue another
->>      descriptor. If this fails the descriptor is lost for rx.
->>      The driver has no limitation on tx descriptors to use, so it
->>      can happen during a nmap / ping -f attack that the driver
->>      allocates all descriptors for tx and looses all rx descriptors.
->>      The driver stops working then.
->>      To fix this limit the number of tx descriptors used to half of
->>      the descriptors available, the rx path uses the other half.
->>
->>      Tested on a custom board using nmap / ping -f to the board from
->>      two different hosts.
->>
->> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-Will change the commit description and resubmit the patch.
 
-Regards
-Mugunthan V N
+--_003_504C9EFCA2D0054393414C9CB605C37F1BFC104BSJEXCHMB06corpa_
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+
+> -----Original Message-----
+> From: Eric Dumazet [mailto:edumazet@google.com]
+> Sent: Monday, December 10, 2012 1:27 AM
+> To: Dmitry Kravkov
+> Cc: netdev@vger.kernel.org
+> Subject: Re: ipgre rss is broken since gro
+>=20
+> On Sun, Dec 9, 2012 at 12:49 PM, Dmitry Kravkov <dmitry@broadcom.com>
+> wrote:
+>=20
+> > for this item: drop_watch does not show any drops (i've disable all
+> > other interfaces for clear env)
+> > I will explain a little bit more the setup:
+> > bnx2x device (under testing) is configured for RSS for IPGRE packets.
+> > Sending multiple (3) TCP_STREAM causes ip_gre interface to disappear
+> > packets (even ICMP).
+> > This is not happening with single TCP_STREAM, or before gro_cell
+> > introduction.
+> >
+> I dont know, I tried a bnx2x setup, and 100 tcp flows, no special problem=
+.
+
+Current bnx2x do not apply RSS for GRE, non GRE RSS is working w/o problem.
+
+>=20
+> If you receive a lot of packets on a single RX queue, they might be
+> dropped because cpu cant cope with the load
+> (This has nothing to do with GRE or GRO )
+>=20
+CPU is not loaded at all=20
+
+> cat /proc/net/softnet_stat
+Please find attached.
+
+For gre interface RX and DROP statistics are advancing simultaneously (by o=
+ne each ICMP request):
+
+[root@ ~]# ifconfig gre
+gre       Link encap:UNSPEC  HWaddr C0-A8-0A-40-73-72-83-D2-00-00-00-00-00-=
+00-00-00
+          inet addr:8.0.0.1  P-t-P:8.0.0.1  Mask:255.255.255.0
+          inet6 addr: fe80::5efe:c0a8:a40/64 Scope:Link
+          UP POINTOPOINT RUNNING NOARP  MTU:1476  Metric:1
+          RX packets:1646824 errors:0 dropped:51610 overruns:0 frame:0
+          TX packets:140519 errors:1 dropped:0 overruns:0 carrier:1
+          collisions:0 txqueuelen:0
+          RX bytes:2357650904 (2.1 GiB)  TX bytes:7309072 (6.9 MiB)
+
+[root@ ~]# ifconfig gre
+gre       Link encap:UNSPEC  HWaddr C0-A8-0A-40-73-72-83-82-00-00-00-00-00-=
+00-00-00
+          inet addr:8.0.0.1  P-t-P:8.0.0.1  Mask:255.255.255.0
+          inet6 addr: fe80::5efe:c0a8:a40/64 Scope:Link
+          UP POINTOPOINT RUNNING NOARP  MTU:1476  Metric:1
+          RX packets:1646826 errors:0 dropped:51612 overruns:0 frame:0
+          TX packets:140519 errors:1 dropped:0 overruns:0 carrier:1
+          collisions:0 txqueuelen:0
+          RX bytes:2357651072 (2.1 GiB)  TX bytes:7309072 (6.9 MiB)=20
+
+[root@ ~]# tcpdump -i gre
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on gre, link-type LINUX_SLL (Linux cooked), capture size 65535 by=
+tes
+^C
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel
+2 packets dropped by interface
+
+--_003_504C9EFCA2D0054393414C9CB605C37F1BFC104BSJEXCHMB06corpa_
+Content-Type: application/octet-stream;
+ name=stat1
+Content-Description: stat1
+Content-Disposition: attachment;
+ filename=stat1;
+ size=3600;
+ creation-date="Mon, 10 Dec 2012 11:26:24 GMT";
+ modification-date="Mon, 10 Dec 2012 11:24:26 GMT"
+Content-Transfer-Encoding: base64
+
+MDAxYjk2YTMgMDAwMDAwMDAgMDAwMDFjYjUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAzNmYgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAKMDAwMDAxODEgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAxZTYgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAxMmUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAw
+N2IgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDQgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMGEgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDIgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAw
+MDAyOWUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwNDMgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAKMDAwMDAwMTUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMGMgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAKMDAwMDAwMTAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDgg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAK
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDcgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAKMDAwMDgxOTIgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDU2ODIgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAKMDAwMDY2YmQgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDJh
+YjUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDFkMTEgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAKMDAwMTY1Y2YgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDUgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAyMDMgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAw
+MDAwOWIgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMGM5MTQgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAKMDAwMDAwM2MgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMGIgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAKMDAwMDA3ODggMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDFkYWIg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDk3MmYgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAK
+MDAwMDAwMTUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMGMgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAK
+
+--_003_504C9EFCA2D0054393414C9CB605C37F1BFC104BSJEXCHMB06corpa_
+Content-Type: application/octet-stream;
+ name=stat2
+Content-Description: stat2
+Content-Disposition: attachment;
+ filename=stat2;
+ size=3600;
+ creation-date="Mon, 10 Dec 2012 11:26:25 GMT";
+ modification-date="Mon, 10 Dec 2012 11:24:26 GMT"
+Content-Transfer-Encoding: base64
+
+MDAxYjk2YTMgMDAwMDAwMDAgMDAwMDFjYjUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAzNmYgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAKMDAwMDAxODEgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAxZTYgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAxMmUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAw
+N2IgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDQgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMGEgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDIgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAw
+MDAyOWUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwNDMgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAKMDAwMDAwMTUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMGMgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAKMDAwMDAwMTAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDgg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAK
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDcgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAKMDAwMDgxOTIgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDU2ODIgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAKMDAwMDY2YmQgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDJh
+YjUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDFkMTEgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAKMDAwMTY1Y2YgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAKMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMDUgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAyMDMgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAw
+MDAwOWIgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMGM5MTkgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAKMDAwMDAwM2MgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMGIgMDAwMDAwMDAg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAKMDAwMDA3ODkgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDFkYWIg
+MDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDk3MmYgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAK
+MDAwMDAwMTUgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAw
+MDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAKMDAwMDAwMGMgMDAwMDAwMDAgMDAwMDAw
+MDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAg
+MDAwMDAwMDAK
+
+--_003_504C9EFCA2D0054393414C9CB605C37F1BFC104BSJEXCHMB06corpa_--
