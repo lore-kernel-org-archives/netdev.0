@@ -1,51 +1,51 @@
-From: raj@tardy.usa.hp.com (Rick Jones)
-Subject: [PATCH net-next] doc: Tighten-up and clarify description of tcp_fin_timeout
-Date: Mon, 10 Dec 2012 13:33:00 -0800 (PST)
-Message-ID: <20121210213300.9D6BB29003EA@tardy>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [net-next 0/7] bna: Driver Version Updated to 3.1.2.1
+Date: Mon, 10 Dec 2012 13:41:58 -0800
+Message-ID: <1355175725-19202-1-git-send-email-rmody@brocade.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <bhutchings@solarflare.com>, <David.Laight@ACULAB.COM>,
+	<adapter_linux_open_src_team@brocade.com>,
+	Rasesh Mody <rmody@brocade.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:14925 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751353Ab2LJVdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 16:33:06 -0500
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:39845 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751844Ab2LJVnk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 16:43:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
+Hi Dave,
 
-The description for tcp_fin_timeout should be tigher and more clear.
+        Resubmitting the patch set, it addresses the review feedbacks.
 
-In addition to being tighter, we should make the spelling of the
-state name consistent with what utilities report, remove the now
-dated reference to 2.2 and put the default in the consistent place.
+        The following patch-set includes Tx Rx changes, bug fixes, firmware
+        update, code cleanup and enhancements.
 
-Signed-off-by: Rick Jones <rick.jones2@hp.com>
+        This also updates the BNA driver to v3.1.2.1.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 1b830ca..f486c86 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -224,15 +224,14 @@ tcp_fack - BOOLEAN
- 	The value is not used, if tcp_sack is not enabled.
- 
- tcp_fin_timeout - INTEGER
--	Time to hold socket in state FIN-WAIT-2, if it was closed
--	by our side. Peer can be broken and never close its side,
--	or even died unexpectedly. Default value is 60sec.
--	Usual value used in 2.2 was 180 seconds, you may restore
--	it, but remember that if your machine is even underloaded WEB server,
--	you risk to overflow memory with kilotons of dead sockets,
--	FIN-WAIT-2 sockets are less dangerous than FIN-WAIT-1,
--	because they eat maximum 1.5K of memory, but they tend
--	to live longer.	Cf. tcp_max_orphans.
-+	The length of time an orphaned (no longer referenced by any
-+	application) connection will remain in the FIN_WAIT_2 state
-+	before it is aborted at the local end.  While a perfectly
-+	valid "receive only" state for an un-orphaned connection, an
-+	orphaned connection in FIN_WAIT_2 state could otherwise wait
-+	forever for the remote to close its end of the connection.
-+	Cf. tcp_max_orphans
-+	Default: 60 seconds
- 
- tcp_frto - INTEGER
- 	Enables Forward RTO-Recovery (F-RTO) defined in RFC4138.
+        The patches have been compiled and tested against 3.7.0-rc3.
+
+Thanks,
+Rasesh
+
+Rasesh Mody (7):
+  bna: Code Cleanup and Enhancements
+  bna: Tx and Rx Optimizations
+  bna: TX Intr Coalescing Fix
+  bna: Rx Page Based Allocation
+  bna: Add RX State
+  bna: Firmware update
+  bna: Driver Version Updated to 3.1.2.1
+
+ drivers/net/ethernet/brocade/bna/bfi_enet.h     |    1 +
+ drivers/net/ethernet/brocade/bna/bna.h          |    2 +
+ drivers/net/ethernet/brocade/bna/bna_hw_defs.h  |    3 +-
+ drivers/net/ethernet/brocade/bna/bna_tx_rx.c    |  138 +++--
+ drivers/net/ethernet/brocade/bna/bna_types.h    |    9 +-
+ drivers/net/ethernet/brocade/bna/bnad.c         |  937 +++++++++++++----------
+ drivers/net/ethernet/brocade/bna/bnad.h         |   66 +-
+ drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    1 +
+ drivers/net/ethernet/brocade/bna/cna.h          |    4 +-
+ 9 files changed, 661 insertions(+), 500 deletions(-)
