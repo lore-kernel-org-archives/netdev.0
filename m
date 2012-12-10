@@ -1,49 +1,124 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: ip_check_defrag must not modify skb before
- unsharing
-Date: Mon, 10 Dec 2012 13:41:46 -0500 (EST)
-Message-ID: <20121210.134146.1583909966821253233.davem@davemloft.net>
-References: <1354919017.9124.33.camel@jlt4.sipsolutions.net>
-	<1355131788.9857.1.camel@jlt4.sipsolutions.net>
-	<1355132466.9857.6.camel@jlt4.sipsolutions.net>
+From: Eric Paris <eparis@parisplace.org>
+Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Mon, 10 Dec 2012 13:42:12 -0500
+Message-ID: <CACLa4pu6UCpzKfscVoEPzLySHitta1yTqPa7cA0d=xUj5ws6HA@mail.gmail.com>
+References: <20121205202144.18626.61966.stgit@localhost>
+	<5998443.squEvSxCG9@sifl>
+	<20121210172656.GA30775@redhat.com>
+	<3124654.2UMIXvF0vN@sifl>
+	<20121210175035.GA31856@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric@regit.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linville@tuxdriver.com,
-	eric.dumazet@gmail.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58404 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab2LJSlt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 13:41:49 -0500
-In-Reply-To: <1355132466.9857.6.camel@jlt4.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Paul Moore <pmoore@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	LSM List <linux-security-module@vger.kernel.org>,
+	SE-Linux <selinux@tycho.nsa.gov>, jasowang@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20121210175035.GA31856@redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Mon, 10 Dec 2012 10:41:06 +0100
+Let me abstract a little here Paul.  Lets say user A starts an
+unclassified process and a top secret process.  SELinux policy darn
+well better be able to enforce that they can not attach to the same
+tun.
 
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> ip_check_defrag() might be called from af_packet within the
-> RX path where shared SKBs are used, so it must not modify
-> the input SKB before it has unshared it for defragmentation.
-> Use skb_copy_bits() to get the IP header and only pull in
-> everything later.
-> 
-> The same is true for the other caller in macvlan as it is
-> called from dev->rx_handler which can also get a shared SKB.
-> 
-> Reported-by: Eric Leblond <eric@regit.org>
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Johannes Berg <johannes.berg@intel.com>
-> ---
-> For some versions of the kernel, this code goes into af_packet.c
+Am I missing something here?
 
-So the bug is that ip_check_defrag() has a precondition which is met
-properly by all callers except AF_PACKET.
-
-If this is the case, remind me why are we changing ip_check_defrag()
-rather than the violator of the precondition?
+On Mon, Dec 10, 2012 at 12:50 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Mon, Dec 10, 2012 at 12:33:49PM -0500, Paul Moore wrote:
+>> On Monday, December 10, 2012 07:26:56 PM Michael S. Tsirkin wrote:
+>> > On Mon, Dec 10, 2012 at 12:04:35PM -0500, Paul Moore wrote:
+>> > > On Friday, December 07, 2012 02:25:16 PM Michael S. Tsirkin wrote:
+>> > > > On Thu, Dec 06, 2012 at 04:09:51PM -0500, Paul Moore wrote:
+>> > > > > On Thursday, December 06, 2012 10:57:16 PM Michael S. Tsirkin wrote:
+>> > > > > > On Thu, Dec 06, 2012 at 11:56:45AM -0500, Paul Moore wrote:
+>> > > > > > > The SETQUEUE/tun_socket:create_queue permissions do not yet exist
+>> > > > > > > in any released SELinux policy as we are just now adding them with
+>> > > > > > > this patchset. With current policies loaded into a kernel with
+>> > > > > > > this patchset applied the SETQUEUE/tun_socket:create_queue
+>> > > > > > > permission would be treated according to the policy's unknown
+>> > > > > > > permission setting.
+>> > > > > >
+>> > > > > > OK I think we need to rethink what we are doing here: what you sent
+>> > > > > > addresses the problem as stated but I think we mis-stated it.  Let
+>> > > > > > me try to restate the problem: it is not just selinux problem. Let's
+>> > > > > > assume qemu wants to use tun, I (libvirt) don't want to run it as
+>> > > > > > root.
+>> > > > > >
+>> > > > > > 1. TUNSETIFF: I can open tun, attach an fd and pass it to qemu.
+>> > > > > > Now, qemu does not invoke TUNSETIFF so it can run without
+>> > > > > > kernel priveledges.
+>> > > > >
+>> > > > > Correct me if I'm wrong, but I believe libvirt does this while running
+>> > > > > as root.  Assuming that is the case, why not simply setuid()/setgid()
+>> > > > > to the same credentials as the QEMU instance before creating the TUN
+>> > > > > device? You can always (re)configure the device afterwards while
+>> > > > > running as root/CAP_NET_ADMIN.
+>> > > >
+>> > > > We want isolation between qemu instances.
+>> > >
+>> > > Understood, I agree.
+>> > >
+>> > > Achieving separation via SELinux is easily done, with libvirt/sVirt
+>> > > already doing this for us automatically in most cases; the only thing we
+>> > > will want to do is make sure the SELinux policy is aware of the new
+>> > > permission.
+>> > >
+>> > > Achieving separation via DAC should also be easily done, simply run each
+>> > > QEMU instance with a separate UID and/or GID.
+>> > >
+>> > > > Giving qemu right to open tun and SETIFF would give it rights
+>> > > > to access any tun device.
+>> > >
+>> > > I'm quickly looked at tun_chr_open() again and I don't see any special
+>> > > rights/privileges required, the same for tun_chr_ioctl() and
+>> > > __tun_chr_ioctl().  Looking at tun_set_queue() I see we call
+>> > > tun_not_capable() which does a simple DAC check; it must have the same
+>> > > UID/GID or have CAP_NET_ADMIN.
+>> > >
+>> > > I'm having a hard time seeing the problem you are describing; help me
+>> > > understand.
+>> >
+>> > The issue is guest controls the number of queues in use.
+>> > So qemu would be required to be allowed to call tun_set_queue.
+>> > If we allow this we have a problem as one qemu will be
+>> > able to access any tun.
+>>
+>> QEMU can call tun_set_queue() as long as it satisfies tun_not_capable(), which
+>> from a practical point of view means that the TUN device was created with the
+>> same UID/GID as the QEMU instance.  If you want TUN device separation between
+>> QEMU instances using DAC you need to run each QEMU instance with a different
+>> UID/GID (which you should be doing anyway if you want DAC enforced general
+>> separation).
+>>
+>> I believe I've stated this point several times now and I don't feel you've
+>> addressed it properly.
+>
+> Look at how it works at the moment:
+> a priveledged libvirt server calls tun_set_iff
+> and passes the fd to qemu which is not priveledged.
+>
+> The result is isolation between qemu instances without
+> need to create uid per qemu instance.
+>
+> How do we create multiple queues? It makes sense to
+> follow this model and pass in fds for individual queues.
+> However they need to be disabled initially
+> so libvirt can not do tun_set_queue for us.
+> When qemu later calls tun_set_queue it will fail which means we
+> can't utilize multiqueue.
+>
+> My solution is an unpriveledged variant
+> of tun_set_queue that only enables/disables
+> a queue without attach/detach.
+>
+>
+>> --
+>> paul moore
+>> security and virtualization @ redhat
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
