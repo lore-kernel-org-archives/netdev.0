@@ -1,8 +1,8 @@
 From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH net-next v3 03/22] bnx2x: Add to VF <-> PF channel the
- release request
-Date: Mon, 10 Dec 2012 17:46:27 +0200
-Message-ID: <1355154406-10855-4-git-send-email-ariele@broadcom.com>
+Subject: [PATCH net-next v3 10/22] bnx2x: Prepare device and initialize
+ VF database
+Date: Mon, 10 Dec 2012 17:46:34 +0200
+Message-ID: <1355154406-10855-11-git-send-email-ariele@broadcom.com>
 References: <1355154406-10855-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,151 +12,811 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3328 "EHLO mms3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1073 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752929Ab2LJPoI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2012 10:44:08 -0500
+	id S1754033Ab2LJPoU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 10:44:20 -0500
 In-Reply-To: <1355154406-10855-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-VF driver uses this request when removed. The PF driver
-reclaims all resources allocated for that VF at this
-time.
+At nic load of the PF, if VFs may be present, prepare the device
+for the VFs. Initialize the VF database in preparation of VF arrival.
 
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   45 ++++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h |   16 +++++++-
- 3 files changed, 61 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |   10 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   |    2 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h   |    3 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   57 +---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h   |   18 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |  398 +++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |   56 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  |   37 ++
+ 8 files changed, 533 insertions(+), 48 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index a201ab2..6cafa4e 100644
+index 254f9ee..14ca777 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -2220,6 +2220,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
- int bnx2x_get_vf_id(struct bnx2x *bp, u32 *vf_id);
- int bnx2x_send_msg2pf(struct bnx2x *bp, u8 *done, dma_addr_t msg_mapping);
- int bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count);
-+int bnx2x_vfpf_release(struct bnx2x *bp);
- /* Congestion management fairness mode */
- #define CMNG_FNS_NONE		0
- #define CMNG_FNS_MINMAX		1
+@@ -1633,6 +1633,10 @@ struct bnx2x {
+ 	int					dcb_version;
+ 
+ 	/* CAM credit pools */
++
++	/* used only in sriov */
++	struct bnx2x_credit_pool_obj		vlans_pool;
++
+ 	struct bnx2x_credit_pool_obj		macs_pool;
+ 
+ 	/* RX_MODE object */
+@@ -1847,12 +1851,14 @@ int bnx2x_del_all_macs(struct bnx2x *bp,
+ 
+ /* Init Function API  */
+ void bnx2x_func_init(struct bnx2x *bp, struct bnx2x_func_init_params *p);
++u32 bnx2x_get_pretend_reg(struct bnx2x *bp);
+ int bnx2x_get_gpio(struct bnx2x *bp, int gpio_num, u8 port);
+ int bnx2x_set_gpio(struct bnx2x *bp, int gpio_num, u32 mode, u8 port);
+ int bnx2x_set_mult_gpio(struct bnx2x *bp, u8 pins, u32 mode);
+ int bnx2x_set_gpio_int(struct bnx2x *bp, int gpio_num, u32 mode, u8 port);
+ void bnx2x_read_mf_cfg(struct bnx2x *bp);
+ 
++int bnx2x_pretend_func(struct bnx2x *bp, u16 pretend_func_val);
+ 
+ /* dmae */
+ void bnx2x_read_dmae(struct bnx2x *bp, u32 src_addr, u32 len32);
+@@ -1864,6 +1870,7 @@ u32 bnx2x_dmae_opcode_clr_src_reset(u32 opcode);
+ u32 bnx2x_dmae_opcode(struct bnx2x *bp, u8 src_type, u8 dst_type,
+ 		      bool with_comp, u8 comp_type);
+ 
++u8 bnx2x_is_pcie_pending(struct pci_dev *dev);
+ 
+ void bnx2x_calc_fc_adv(struct bnx2x *bp);
+ int bnx2x_sp_post(struct bnx2x *bp, int command, int cid,
+@@ -1888,6 +1895,9 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ 	return val;
+ }
+ 
++void bnx2x_igu_clear_sb_gen(struct bnx2x *bp, u8 func, u8 idu_sb_id,
++			    bool is_pf);
++
+ #define BNX2X_ILT_ZALLOC(x, y, size) \
+ 	do { \
+ 		x = dma_alloc_coherent(&bp->pdev->dev, size, y, GFP_KERNEL); \
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index e1bf928..e8a05f4 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -29,6 +29,7 @@
+ #include "bnx2x_sp.h"
+ 
+ 
++#include "bnx2x_sriov.h"
+ 
+ /**
+  * bnx2x_move_fp - move content of the fastpath structure.
+@@ -2513,6 +2514,7 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	if (IS_PF(bp)) {
+ 		bnx2x_init_bp_objs(bp);
+ 
++		bnx2x_iov_nic_init(bp);
+ 
+ 		/* Set AFEX default VLAN tag to an invalid value */
+ 		bp->afex_def_vlan_tag = -1;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 6b0add2..9ee67fa 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -1106,6 +1106,9 @@ static inline void bnx2x_init_bp_objs(struct bnx2x *bp)
+ 	bnx2x_init_mac_credit_pool(bp, &bp->macs_pool, BP_FUNC(bp),
+ 				   bnx2x_get_path_func_num(bp));
+ 
++	bnx2x_init_vlan_credit_pool(bp, &bp->vlans_pool, BP_ABS_FUNC(bp)>>1,
++				    bnx2x_get_path_func_num(bp));
++
+ 	/* RSS configuration object */
+ 	bnx2x_init_rss_config_obj(bp, &bp->rss_conf_obj, bp->fp->cl_id,
+ 				  bp->fp->cid, BP_FUNC(bp), BP_FUNC(bp),
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 061c25b..2a8c4c2 100644
+index 569acdc..3133692 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12364,6 +12364,9 @@ static void bnx2x_remove_one(struct pci_dev *pdev)
- 
- 	/* Make sure RESET task is not scheduled before continuing */
- 	cancel_delayed_work_sync(&bp->sp_rtnl_task);
-+	/* send message via vfpf channel to release the resources of this vf */
-+	if (IS_VF(bp))
-+		bnx2x_vfpf_release(bp);
- 
- 	if (bp->regview)
- 		iounmap(bp->regview);
-@@ -13345,3 +13348,45 @@ int bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count)
- 
- 	return 0;
+@@ -1169,7 +1169,7 @@ static int bnx2x_send_final_clnup(struct bnx2x *bp, u8 clnup_func,
+ 	return ret;
  }
+ 
+-static u8 bnx2x_is_pcie_pending(struct pci_dev *dev)
++u8 bnx2x_is_pcie_pending(struct pci_dev *dev)
+ {
+ 	u16 status;
+ 
+@@ -6269,49 +6269,6 @@ static void bnx2x_setup_fan_failure_detection(struct bnx2x *bp)
+ 	REG_WR(bp, MISC_REG_SPIO_EVENT_EN, val);
+ }
+ 
+-static void bnx2x_pretend_func(struct bnx2x *bp, u8 pretend_func_num)
+-{
+-	u32 offset = 0;
+-
+-	if (CHIP_IS_E1(bp))
+-		return;
+-	if (CHIP_IS_E1H(bp) && (pretend_func_num >= E1H_FUNC_MAX))
+-		return;
+-
+-	switch (BP_ABS_FUNC(bp)) {
+-	case 0:
+-		offset = PXP2_REG_PGL_PRETEND_FUNC_F0;
+-		break;
+-	case 1:
+-		offset = PXP2_REG_PGL_PRETEND_FUNC_F1;
+-		break;
+-	case 2:
+-		offset = PXP2_REG_PGL_PRETEND_FUNC_F2;
+-		break;
+-	case 3:
+-		offset = PXP2_REG_PGL_PRETEND_FUNC_F3;
+-		break;
+-	case 4:
+-		offset = PXP2_REG_PGL_PRETEND_FUNC_F4;
+-		break;
+-	case 5:
+-		offset = PXP2_REG_PGL_PRETEND_FUNC_F5;
+-		break;
+-	case 6:
+-		offset = PXP2_REG_PGL_PRETEND_FUNC_F6;
+-		break;
+-	case 7:
+-		offset = PXP2_REG_PGL_PRETEND_FUNC_F7;
+-		break;
+-	default:
+-		return;
+-	}
+-
+-	REG_WR(bp, offset, pretend_func_num);
+-	REG_RD(bp, offset);
+-	DP(NETIF_MSG_HW, "Pretending to func %d\n", pretend_func_num);
+-}
+-
+ void bnx2x_pf_disable(struct bnx2x *bp)
+ {
+ 	u32 val = REG_RD(bp, IGU_REG_PF_CONFIGURATION);
+@@ -6568,6 +6525,8 @@ static int bnx2x_init_hw_common(struct bnx2x *bp)
+ 
+ 	bnx2x_init_block(bp, BLOCK_DMAE, PHASE_COMMON);
+ 
++	bnx2x_iov_init_dmae(bp);
 +
-+int bnx2x_vfpf_release(struct bnx2x *bp)
+ 	/* clean the DMAE memory */
+ 	bp->dmae_ready = 1;
+ 	bnx2x_init_fill(bp, TSEM_REG_PRAM, 0, 8, 1);
+@@ -7053,15 +7012,14 @@ static void bnx2x_ilt_wr(struct bnx2x *bp, u32 index, dma_addr_t addr)
+ 	REG_WR_DMAE(bp, reg, wb_write, 2);
+ }
+ 
+-static void bnx2x_igu_clear_sb_gen(struct bnx2x *bp, u8 func,
+-				   u8 idu_sb_id, bool is_Pf)
++void bnx2x_igu_clear_sb_gen(struct bnx2x *bp, u8 func, u8 idu_sb_id, bool is_pf)
+ {
+ 	u32 data, ctl, cnt = 100;
+ 	u32 igu_addr_data = IGU_REG_COMMAND_REG_32LSB_DATA;
+ 	u32 igu_addr_ctl = IGU_REG_COMMAND_REG_CTRL;
+ 	u32 igu_addr_ack = IGU_REG_CSTORM_TYPE_0_SB_CLEANUP + (idu_sb_id/32)*4;
+ 	u32 sb_bit =  1 << (idu_sb_id%32);
+-	u32 func_encode = func | (is_Pf ? 1 : 0) << IGU_FID_ENCODE_IS_PF_SHIFT;
++	u32 func_encode = func | (is_pf ? 1 : 0) << IGU_FID_ENCODE_IS_PF_SHIFT;
+ 	u32 addr_encode = IGU_CMD_E2_PROD_UPD_BASE + idu_sb_id;
+ 
+ 	/* Not supported in BC mode */
+@@ -7357,6 +7315,9 @@ static int bnx2x_init_hw_func(struct bnx2x *bp)
+ 
+ 	bnx2x_init_block(bp, BLOCK_TM, init_phase);
+ 	bnx2x_init_block(bp, BLOCK_DORQ, init_phase);
++
++	bnx2x_iov_init_dq(bp);
++
+ 	bnx2x_init_block(bp, BLOCK_BRB1, init_phase);
+ 	bnx2x_init_block(bp, BLOCK_PRS, init_phase);
+ 	bnx2x_init_block(bp, BLOCK_TSDM, init_phase);
+@@ -9459,7 +9420,7 @@ period_task_exit:
+  * Init service functions
+  */
+ 
+-static u32 bnx2x_get_pretend_reg(struct bnx2x *bp)
++u32 bnx2x_get_pretend_reg(struct bnx2x *bp)
+ {
+ 	u32 base = PXP2_REG_PGL_PRETEND_FUNC_F0;
+ 	u32 stride = PXP2_REG_PGL_PRETEND_FUNC_F1 - base;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index 00e4398..cefe448 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -825,6 +825,7 @@
+ /* [RW 28] The value sent to CM header in the case of CFC load error. */
+ #define DORQ_REG_ERR_CMHEAD					 0x170058
+ #define DORQ_REG_IF_EN						 0x170004
++#define DORQ_REG_MAX_RVFID_SIZE				 0x1701ec
+ #define DORQ_REG_MODE_ACT					 0x170008
+ /* [RW 5] The normal mode CID extraction offset. */
+ #define DORQ_REG_NORM_CID_OFST					 0x17002c
+@@ -847,6 +848,22 @@
+    writes the same initial credit to the rspa_crd_cnt and rspb_crd_cnt. The
+    read reads this written value. */
+ #define DORQ_REG_RSP_INIT_CRD					 0x170048
++#define DORQ_REG_RSPB_CRD_CNT					 0x1700b0
++#define DORQ_REG_VF_NORM_CID_BASE				 0x1701a0
++#define DORQ_REG_VF_NORM_CID_OFST				 0x1701f4
++#define DORQ_REG_VF_NORM_CID_WND_SIZE				 0x1701a4
++#define DORQ_REG_VF_NORM_MAX_CID_COUNT				 0x1701e4
++#define DORQ_REG_VF_NORM_VF_BASE				 0x1701a8
++/* [RW 10] VF type validation mask value */
++#define DORQ_REG_VF_TYPE_MASK_0					 0x170218
++/* [RW 17] VF type validation Min MCID value */
++#define DORQ_REG_VF_TYPE_MAX_MCID_0				 0x1702d8
++/* [RW 17] VF type validation Max MCID value */
++#define DORQ_REG_VF_TYPE_MIN_MCID_0				 0x170298
++/* [RW 10] VF type validation comp value */
++#define DORQ_REG_VF_TYPE_VALUE_0				 0x170258
++#define DORQ_REG_VF_USAGE_CT_LIMIT				 0x170340
++
+ /* [RW 4] Initial activity counter value on the load request; when the
+    shortcut is done. */
+ #define DORQ_REG_SHRT_ACT_CNT					 0x170070
+@@ -2571,6 +2588,7 @@
+    current task in process). */
+ #define PBF_REG_DISABLE_NEW_TASK_PROC_P4			 0x14006c
+ #define PBF_REG_DISABLE_PF					 0x1402e8
++#define PBF_REG_DISABLE_VF					 0x1402ec
+ /* [RW 18] For port 0: For each client that is subject to WFQ (the
+  * corresponding bit is 1); indicates to which of the credit registers this
+  * client is mapped. For clients which are not credit blocked; their mapping
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 42d4c4d..bafb7fb 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -19,7 +19,36 @@
+  */
+ #include "bnx2x.h"
+ #include "bnx2x_init.h"
++#include "bnx2x_cmn.h"
+ #include "bnx2x_sriov.h"
++
++/* General service functions */
++static void storm_memset_vf_to_pf(struct bnx2x *bp, u16 abs_fid,
++					 u16 pf_id)
 +{
-+	struct vfpf_release_tlv *req = &bp->vf2pf_mbox->req.release;
-+	struct pfvf_general_resp_tlv *resp = &bp->vf2pf_mbox->resp.general_resp;
-+	u32 rc = 0, vf_id;
++	REG_WR8(bp, BAR_XSTRORM_INTMEM + XSTORM_VF_TO_PF_OFFSET(abs_fid),
++		pf_id);
++	REG_WR8(bp, BAR_CSTRORM_INTMEM + CSTORM_VF_TO_PF_OFFSET(abs_fid),
++		pf_id);
++	REG_WR8(bp, BAR_TSTRORM_INTMEM + TSTORM_VF_TO_PF_OFFSET(abs_fid),
++		pf_id);
++	REG_WR8(bp, BAR_USTRORM_INTMEM + USTORM_VF_TO_PF_OFFSET(abs_fid),
++		pf_id);
++}
 +
-+	/* clear mailbox and prep first tlv */
-+	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_RELEASE, sizeof(*req));
++static void storm_memset_func_en(struct bnx2x *bp, u16 abs_fid,
++					u8 enable)
++{
++	REG_WR8(bp, BAR_XSTRORM_INTMEM + XSTORM_FUNC_EN_OFFSET(abs_fid),
++		enable);
++	REG_WR8(bp, BAR_CSTRORM_INTMEM + CSTORM_FUNC_EN_OFFSET(abs_fid),
++		enable);
++	REG_WR8(bp, BAR_TSTRORM_INTMEM + TSTORM_FUNC_EN_OFFSET(abs_fid),
++		enable);
++	REG_WR8(bp, BAR_USTRORM_INTMEM + USTORM_FUNC_EN_OFFSET(abs_fid),
++		enable);
++}
 +
-+	if (bnx2x_get_vf_id(bp, &vf_id))
-+		return -EAGAIN;
+ int bnx2x_vf_idx_by_abs_fid(struct bnx2x *bp, u16 abs_vfid)
+ {
+ 	int idx;
+@@ -271,6 +300,375 @@ failed:
+ 	__bnx2x_iov_free_vfdb(bp);
+ 	return err;
+ }
++/* VF enable primitives
++ *
++ * when pretend is required the caller is responsible
++ * for calling pretend prior to calling these routines
++ */
 +
-+	req->vf_id = vf_id;
++/* called only on E1H or E2.
++ * When pretending to be PF, the pretend value is the function number 0...7
++ * When pretending to be VF, the pretend val is the PF-num:VF-valid:ABS-VFID
++ * combination
++ */
++int bnx2x_pretend_func(struct bnx2x *bp, u16 pretend_func_val)
++{
++	u32 pretend_reg;
 +
-+	/* add list termination tlv */
-+	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
-+		      sizeof(struct channel_list_end_tlv));
++	if (CHIP_IS_E1H(bp) && pretend_func_val > E1H_FUNC_MAX)
++		return -1;
 +
-+	/* output tlvs list */
-+	bnx2x_dp_tlv_list(bp, req);
++	/* get my own pretend register */
++	pretend_reg = bnx2x_get_pretend_reg(bp);
++	REG_WR(bp, pretend_reg, pretend_func_val);
++	REG_RD(bp, pretend_reg);
++	return 0;
++}
 +
-+	/* send release request */
-+	rc = bnx2x_send_msg2pf(bp, &resp->hdr.status, bp->vf2pf_mbox_mapping);
++/* internal vf enable - until vf is enabled internally all transactions
++ * are blocked. this routine should always be called last with pretend.
++ */
++static void bnx2x_vf_enable_internal(struct bnx2x *bp, u8 enable)
++{
++	REG_WR(bp, PGLUE_B_REG_INTERNAL_VFID_ENABLE, enable ? 1 : 0);
++}
 +
-+	/* PF timeout */
-+	if (rc)
++/* clears vf error in all semi blocks */
++static void bnx2x_vf_semi_clear_err(struct bnx2x *bp, u8 abs_vfid)
++{
++	REG_WR(bp, TSEM_REG_VFPF_ERR_NUM, abs_vfid);
++	REG_WR(bp, USEM_REG_VFPF_ERR_NUM, abs_vfid);
++	REG_WR(bp, CSEM_REG_VFPF_ERR_NUM, abs_vfid);
++	REG_WR(bp, XSEM_REG_VFPF_ERR_NUM, abs_vfid);
++}
++
++static void bnx2x_vf_pglue_clear_err(struct bnx2x *bp, u8 abs_vfid)
++{
++	u32 was_err_group = (2 * BP_PATH(bp) + abs_vfid) >> 5;
++	u32 was_err_reg = 0;
++
++	switch (was_err_group) {
++	case 0:
++	    was_err_reg = PGLUE_B_REG_WAS_ERROR_VF_31_0_CLR;
++	    break;
++	case 1:
++	    was_err_reg = PGLUE_B_REG_WAS_ERROR_VF_63_32_CLR;
++	    break;
++	case 2:
++	    was_err_reg = PGLUE_B_REG_WAS_ERROR_VF_95_64_CLR;
++	    break;
++	case 3:
++	    was_err_reg = PGLUE_B_REG_WAS_ERROR_VF_127_96_CLR;
++	    break;
++	}
++	REG_WR(bp, was_err_reg, 1 << (abs_vfid & 0x1f));
++}
++
++void bnx2x_vf_enable_access(struct bnx2x *bp, u8 abs_vfid)
++{
++	/* set the VF-PF association in the FW */
++	storm_memset_vf_to_pf(bp, FW_VF_HANDLE(abs_vfid), BP_FUNC(bp));
++	storm_memset_func_en(bp, FW_VF_HANDLE(abs_vfid), 1);
++
++	/* clear vf errors*/
++	bnx2x_vf_semi_clear_err(bp, abs_vfid);
++	bnx2x_vf_pglue_clear_err(bp, abs_vfid);
++
++	/* internal vf-enable - pretend */
++	bnx2x_pretend_func(bp, HW_VF_HANDLE(bp, abs_vfid));
++	DP(BNX2X_MSG_IOV, "enabling internal access for vf %x\n", abs_vfid);
++	bnx2x_vf_enable_internal(bp, true);
++	bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
++}
++
++static u8 bnx2x_vf_is_pcie_pending(struct bnx2x *bp, u8 abs_vfid)
++{
++	struct pci_dev *dev;
++	struct bnx2x_virtf *vf = bnx2x_vf_by_abs_fid(bp, abs_vfid);
++	if (!vf)
++		goto unknown_dev;
++
++	dev = pci_get_bus_and_slot(vf->bus, vf->devfn);
++	if (dev)
++		return bnx2x_is_pcie_pending(dev);
++
++unknown_dev:
++	BNX2X_ERR("Unknown device\n");
++	return false;
++}
++
++int bnx2x_vf_flr_clnup_epilog(struct bnx2x *bp, u8 abs_vfid)
++{
++	/* Wait 100ms */
++	msleep(100);
++
++	/* Verify no pending pci transactions */
++	if (bnx2x_vf_is_pcie_pending(bp, abs_vfid))
++		BNX2X_ERR("PCIE Transactions still pending\n");
++
++	return 0;
++}
++
++/* must be called after the number of PF queues and the number of VFs are
++ * both known
++ */
++static void
++bnx2x_iov_static_resc(struct bnx2x *bp, struct vf_pf_resc_request *resc)
++{
++	u16 vlan_count = 0;
++
++	/* will be set only during VF-ACQUIRE */
++	resc->num_rxqs = 0;
++	resc->num_txqs = 0;
++
++	/* no credit calculcis for macs (just yet) */
++	resc->num_mac_filters = 1;
++
++	/* divvy up vlan rules */
++	vlan_count = bp->vlans_pool.check(&bp->vlans_pool);
++	vlan_count = 1 << ilog2(vlan_count);
++	resc->num_vlan_filters = vlan_count / BNX2X_NR_VIRTFN(bp);
++
++	/* no real limitation */
++	resc->num_mc_filters = 0;
++
++	/* num_sbs already set */
++}
++
++/* IOV global initialization routines  */
++void bnx2x_iov_init_dq(struct bnx2x *bp)
++{
++	if (!IS_SRIOV(bp))
++		return;
++
++	/* Set the DQ such that the CID reflect the abs_vfid */
++	REG_WR(bp, DORQ_REG_VF_NORM_VF_BASE, 0);
++	REG_WR(bp, DORQ_REG_MAX_RVFID_SIZE, ilog2(BNX2X_MAX_NUM_OF_VFS));
++
++	/* Set VFs starting CID. If its > 0 the preceding CIDs are belong to
++	 * the PF L2 queues
++	 */
++	REG_WR(bp, DORQ_REG_VF_NORM_CID_BASE, BNX2X_FIRST_VF_CID);
++
++	/* The VF window size is the log2 of the max number of CIDs per VF */
++	REG_WR(bp, DORQ_REG_VF_NORM_CID_WND_SIZE, BNX2X_VF_CID_WND);
++
++	/* The VF doorbell size  0 - *B, 4 - 128B. We set it here to match
++	 * the Pf doorbell size although the 2 are independent.
++	 */
++	REG_WR(bp, DORQ_REG_VF_NORM_CID_OFST,
++	       BNX2X_DB_SHIFT - BNX2X_DB_MIN_SHIFT);
++
++	/* No security checks for now -
++	 * configure single rule (out of 16) mask = 0x1, value = 0x0,
++	 * CID range 0 - 0x1ffff
++	 */
++	REG_WR(bp, DORQ_REG_VF_TYPE_MASK_0, 1);
++	REG_WR(bp, DORQ_REG_VF_TYPE_VALUE_0, 0);
++	REG_WR(bp, DORQ_REG_VF_TYPE_MIN_MCID_0, 0);
++	REG_WR(bp, DORQ_REG_VF_TYPE_MAX_MCID_0, 0x1ffff);
++
++	/* set the number of VF alllowed doorbells to the full DQ range */
++	REG_WR(bp, DORQ_REG_VF_NORM_MAX_CID_COUNT, 0x20000);
++
++	/* set the VF doorbell threshold */
++	REG_WR(bp, DORQ_REG_VF_USAGE_CT_LIMIT, 4);
++}
++
++void bnx2x_iov_init_dmae(struct bnx2x *bp)
++{
++	DP(BNX2X_MSG_IOV, "SRIOV is %s\n", IS_SRIOV(bp) ? "ON" : "OFF");
++	if (!IS_SRIOV(bp))
++		return;
++
++	REG_WR(bp, DMAE_REG_BACKWARD_COMP_EN, 0);
++}
++
++static int bnx2x_vf_bus(struct bnx2x *bp, int vfid)
++{
++	struct pci_dev *dev = bp->pdev;
++	struct bnx2x_sriov *iov = &bp->vfdb->sriov;
++
++	return dev->bus->number + ((dev->devfn + iov->offset +
++				    iov->stride * vfid) >> 8);
++}
++
++static int bnx2x_vf_devfn(struct bnx2x *bp, int vfid)
++{
++	struct pci_dev *dev = bp->pdev;
++	struct bnx2x_sriov *iov = &bp->vfdb->sriov;
++
++	return (dev->devfn + iov->offset + iov->stride * vfid) & 0xff;
++}
++
++static void bnx2x_vf_set_bars(struct bnx2x *bp, struct bnx2x_virtf *vf)
++{
++	int i, n;
++	struct pci_dev *dev = bp->pdev;
++	struct bnx2x_sriov *iov = &bp->vfdb->sriov;
++
++	for (i = 0, n = 0; i < PCI_SRIOV_NUM_BARS; i += 2, n++) {
++		u64 start = pci_resource_start(dev, PCI_IOV_RESOURCES + i);
++		u32 size = pci_resource_len(dev, PCI_IOV_RESOURCES + i);
++		do_div(size, iov->total);
++		vf->bars[n].bar = start + size * vf->abs_vfid;
++		vf->bars[n].size = size;
++	}
++}
++
++void bnx2x_iov_free_mem(struct bnx2x *bp)
++{
++	int i;
++
++	if (!IS_SRIOV(bp))
++		return;
++
++	/* free vfs hw contexts */
++	for (i = 0; i < BNX2X_VF_CIDS/ILT_PAGE_CIDS; i++) {
++		struct hw_dma *cxt = &bp->vfdb->context[i];
++		BNX2X_PCI_FREE(cxt->addr, cxt->mapping, cxt->size);
++	}
++
++	BNX2X_PCI_FREE(BP_VFDB(bp)->sp_dma.addr,
++		       BP_VFDB(bp)->sp_dma.mapping,
++		       BP_VFDB(bp)->sp_dma.size);
++
++	BNX2X_PCI_FREE(BP_VF_MBX_DMA(bp)->addr,
++		       BP_VF_MBX_DMA(bp)->mapping,
++		       BP_VF_MBX_DMA(bp)->size);
++}
++
++int bnx2x_iov_alloc_mem(struct bnx2x *bp)
++{
++	size_t tot_size;
++	int i, rc = 0;
++
++	if (!IS_SRIOV(bp))
 +		return rc;
 +
-+	/* PF released us */
-+	if (resp->hdr.status == PFVF_STATUS_SUCCESS) {
-+		DP(BNX2X_MSG_SP, "vf released\n");
++	/* allocate vfs hw contexts */
++	tot_size = (BP_VFDB(bp)->sriov.first_vf_in_pf + BNX2X_NR_VIRTFN(bp)) *
++		BNX2X_CIDS_PER_VF * sizeof(union cdu_context);
 +
-+	/* PF reports error */
-+	} else {
-+		BNX2X_ERR("PF failed our release request - are we out of sync? response status: %d\n",
-+			  resp->hdr.status);
-+		return -EAGAIN;
++	for (i = 0; i < BNX2X_VF_CIDS/ILT_PAGE_CIDS; i++) {
++		struct hw_dma *cxt = BP_VF_CXT_PAGE(bp, i);
++		cxt->size = min_t(size_t, tot_size, CDU_ILT_PAGE_SZ);
++
++		if (cxt->size) {
++			BNX2X_PCI_ALLOC(cxt->addr, &cxt->mapping, cxt->size);
++		} else {
++			cxt->addr = NULL;
++			cxt->mapping = 0;
++		}
++		tot_size -= cxt->size;
++	}
++
++	/* allocate vfs ramrods dma memory - client_init and set_mac */
++	tot_size = BNX2X_NR_VIRTFN(bp) * sizeof(struct bnx2x_vf_sp);
++	BNX2X_PCI_ALLOC(BP_VFDB(bp)->sp_dma.addr, &BP_VFDB(bp)->sp_dma.mapping,
++			tot_size);
++	BP_VFDB(bp)->sp_dma.size = tot_size;
++
++	/* allocate mailboxes */
++	tot_size = BNX2X_NR_VIRTFN(bp) * MBX_MSG_ALIGNED_SIZE;
++	BNX2X_PCI_ALLOC(BP_VF_MBX_DMA(bp)->addr, &BP_VF_MBX_DMA(bp)->mapping,
++			tot_size);
++	BP_VF_MBX_DMA(bp)->size = tot_size;
++
++	return 0;
++
++alloc_mem_err:
++	return -ENOMEM;
++}
++
++/* called by bnx2x_nic_load */
++int bnx2x_iov_nic_init(struct bnx2x *bp)
++{
++	int vfid, qcount, i;
++
++	if (!IS_SRIOV(bp)) {
++		DP(BNX2X_MSG_IOV, "vfdb was not allocated\n");
++		return 0;
++	}
++
++	DP(BNX2X_MSG_IOV, "num of vfs: %d\n", (bp)->vfdb->sriov.nr_virtfn);
++
++	/* initialize vf database */
++	for_each_vf(bp, vfid) {
++		struct bnx2x_virtf *vf = BP_VF(bp, vfid);
++
++		int base_vf_cid = (BP_VFDB(bp)->sriov.first_vf_in_pf + vfid) *
++			BNX2X_CIDS_PER_VF;
++
++		union cdu_context *base_cxt = (union cdu_context *)
++			BP_VF_CXT_PAGE(bp, base_vf_cid/ILT_PAGE_CIDS)->addr +
++			(base_vf_cid & (ILT_PAGE_CIDS-1));
++
++		DP(BNX2X_MSG_IOV,
++		   "VF[%d] Max IGU SBs: %d, base vf cid 0x%x, base cid 0x%x, base cxt %p\n",
++		   vf->abs_vfid, vf_sb_count(vf), base_vf_cid,
++		   BNX2X_FIRST_VF_CID + base_vf_cid, base_cxt);
++
++		/* init statically provisioned resources */
++		bnx2x_iov_static_resc(bp, &vf->alloc_resc);
++
++		/* queues are initialized during VF-ACQUIRE */
++
++		/* reserve the vf vlan credit */
++		bp->vlans_pool.get(&bp->vlans_pool, vf_vlan_rules_cnt(vf));
++
++		vf->filter_state = 0;
++		vf->sp_cl_id = bnx2x_fp(bp, 0, cl_id);
++
++		/*  init mcast object - This object will be re-initialized
++		 *  during VF-ACQUIRE with the proper cl_id and cid.
++		 *  It needs to be initialized here so that it can be safely
++		 *  handled by a subsequent FLR flow.
++		 */
++		bnx2x_init_mcast_obj(bp, &vf->mcast_obj, 0xFF,
++				     0xFF, 0xFF, 0xFF,
++				     bnx2x_vf_sp(bp, vf, mcast_rdata),
++				     bnx2x_vf_sp_map(bp, vf, mcast_rdata),
++				     BNX2X_FILTER_MCAST_PENDING,
++				     &vf->filter_state,
++				     BNX2X_OBJ_TYPE_RX_TX);
++
++		/* set the mailbox message addresses */
++		BP_VF_MBX(bp, vfid)->msg = (struct bnx2x_vf_mbx_msg *)
++			(((u8 *)BP_VF_MBX_DMA(bp)->addr) + vfid *
++			MBX_MSG_ALIGNED_SIZE);
++
++		BP_VF_MBX(bp, vfid)->msg_mapping = BP_VF_MBX_DMA(bp)->mapping +
++			vfid * MBX_MSG_ALIGNED_SIZE;
++
++		/* Enable vf mailbox */
++		bnx2x_vf_enable_mbx(bp, vf->abs_vfid);
++	}
++
++	/* Final VF init */
++	qcount = 0;
++	for_each_vf(bp, i) {
++		struct bnx2x_virtf *vf = BP_VF(bp, i);
++
++		/* fill in the BDF and bars */
++		vf->bus = bnx2x_vf_bus(bp, i);
++		vf->devfn = bnx2x_vf_devfn(bp, i);
++		bnx2x_vf_set_bars(bp, vf);
++
++		DP(BNX2X_MSG_IOV,
++		   "VF info[%d]: bus 0x%x, devfn 0x%x, bar0 [0x%x, %d], bar1 [0x%x, %d], bar2 [0x%x, %d]\n",
++		   vf->abs_vfid, vf->bus, vf->devfn,
++		   (unsigned)vf->bars[0].bar, vf->bars[0].size,
++		   (unsigned)vf->bars[1].bar, vf->bars[1].size,
++		   (unsigned)vf->bars[2].bar, vf->bars[2].size);
++
++		/* set local queue arrays */
++		vf->vfqs = &bp->vfdb->vfqs[qcount];
++		qcount += bnx2x_vf(bp, i, alloc_resc.num_sbs);
 +	}
 +
 +	return 0;
 +}
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-index f201a53..763d1c2 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-@@ -68,6 +68,10 @@ struct pfvf_tlv {
- 	u8 padding[3];
+ 
+ /* called by bnx2x_init_hw_func, returns the next ilt line */
+ int bnx2x_iov_init_ilt(struct bnx2x *bp, u16 line)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index b9b0583..c49b6e0 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -179,6 +179,25 @@ struct bnx2x_virtf {
+ #define for_each_vf(bp, var) \
+ 		for ((var) = 0; (var) < BNX2X_NR_VIRTFN(bp); (var)++)
+ 
++#define HW_VF_HANDLE(bp, abs_vfid) \
++	(u16)(BP_ABS_FUNC((bp)) | (1<<3) |  ((u16)(abs_vfid) << 4))
++
++#define FW_PF_MAX_HANDLE	8
++
++#define FW_VF_HANDLE(abs_vfid)	\
++	(abs_vfid + FW_PF_MAX_HANDLE)
++
++/* VF mail box (aka vf-pf channel) */
++
++/* a container for the bi-directional vf<-->pf messages.
++ *  The actual response will be placed according to the offset parameter
++ *  provided in the request
++ */
++
++#define MBX_MSG_ALIGN	8
++#define MBX_MSG_ALIGNED_SIZE	(roundup(sizeof(struct bnx2x_vf_mbx_msg), \
++				MBX_MSG_ALIGN))
++
+ struct bnx2x_vf_mbx_msg {
+ 	union vfpf_tlvs req;
+ 	union pfvf_tlvs resp;
+@@ -200,6 +219,29 @@ struct bnx2x_vf_mbx {
+ 					 */
  };
  
-+/* response tlv used for most tlvs */
-+struct pfvf_general_resp_tlv {
-+	struct pfvf_tlv hdr;
-+};
- /* used to terminate and pad a tlv list */
- struct channel_list_end_tlv {
- 	struct channel_tlv tl;
-@@ -125,6 +129,13 @@ struct pfvf_acquire_resp_tlv {
- 	} resc;
- };
- 
-+/* release the VF's acquired resources */
-+struct vfpf_release_tlv {
-+	struct vfpf_first_tlv	first_tlv;
-+	u16			vf_id;
-+	u8 padding[2];
++struct bnx2x_vf_sp {
++	union {
++		struct eth_classify_rules_ramrod_data	e2;
++	} mac_rdata;
++
++	union {
++		struct eth_classify_rules_ramrod_data	e2;
++	} vlan_rdata;
++
++	union {
++		struct eth_filter_rules_ramrod_data	e2;
++	} rx_mode_rdata;
++
++	union {
++		struct eth_multicast_rules_ramrod_data  e2;
++	} mcast_rdata;
++
++	union {
++		struct client_init_ramrod_data  init_data;
++		struct client_update_ramrod_data update_data;
++	} q_data;
 +};
 +
- struct tlv_buffer_size {
- 	u8 tlv_buffer[TLV_BUFFER_SIZE];
- };
-@@ -132,11 +143,13 @@ struct tlv_buffer_size {
- union vfpf_tlvs {
- 	struct vfpf_first_tlv		first_tlv;
- 	struct vfpf_acquire_tlv		acquire;
-+	struct vfpf_release_tlv         release;
- 	struct channel_list_end_tlv     list_end;
- 	struct tlv_buffer_size		tlv_buf_size;
+ struct hw_dma {
+ 	void *addr;
+ 	dma_addr_t mapping;
+@@ -240,11 +282,25 @@ struct bnx2x_vfdb {
+ 	u32 flrd_vfs[FLRD_VFS_DWORDS];
  };
  
- union pfvf_tlvs {
-+	struct pfvf_general_resp_tlv    general_resp;
- 	struct pfvf_acquire_resp_tlv	acquire_resp;
- 	struct channel_list_end_tlv	list_end;
- 	struct tlv_buffer_size		tlv_buf_size;
-@@ -145,8 +158,9 @@ union pfvf_tlvs {
- #define MAX_TLVS_IN_LIST 50
- 
- enum channel_tlvs {
--	   CHANNEL_TLV_NONE, /* ends tlv sequence */
-+	   CHANNEL_TLV_NONE,
- 	   CHANNEL_TLV_ACQUIRE,
-+	   CHANNEL_TLV_RELEASE,
- 	   CHANNEL_TLV_LIST_END,
- 	   CHANNEL_TLV_MAX
- };
++static inline u8 vf_igu_sb(struct bnx2x_virtf *vf, u16 sb_idx)
++{
++	return vf->igu_base_id + sb_idx;
++}
++
+ /* global iov routines */
+ int bnx2x_iov_init_ilt(struct bnx2x *bp, u16 line);
+ int bnx2x_iov_init_one(struct bnx2x *bp, int int_mode_param, int num_vfs_param);
+ void bnx2x_iov_remove_one(struct bnx2x *bp);
++void bnx2x_iov_free_mem(struct bnx2x *bp);
++int bnx2x_iov_alloc_mem(struct bnx2x *bp);
++int bnx2x_iov_nic_init(struct bnx2x *bp);
++void bnx2x_iov_init_dq(struct bnx2x *bp);
++void bnx2x_iov_init_dmae(struct bnx2x *bp);
++void bnx2x_vf_enable_mbx(struct bnx2x *bp, u8 abs_vfid);
+ int bnx2x_vf_idx_by_abs_fid(struct bnx2x *bp, u16 abs_vfid);
++/* VF FLR helpers */
++int bnx2x_vf_flr_clnup_epilog(struct bnx2x *bp, u8 abs_vfid);
++void bnx2x_vf_enable_access(struct bnx2x *bp, u8 abs_vfid);
+ void bnx2x_add_tlv(struct bnx2x *bp, void *tlvs_list, u16 offset, u16 type,
+ 		   u16 length);
+ void bnx2x_vfpf_prep(struct bnx2x *bp, struct vfpf_first_tlv *first_tlv,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index cc9b83f..52daa3bdf 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -77,3 +77,40 @@ void bnx2x_dp_tlv_list(struct bnx2x *bp, void *tlvs_list)
+ 	DP(BNX2X_MSG_IOV, "TLV number %d: type %d, length %d\n", i,
+ 	   tlv->type, tlv->length);
+ }
++
++/* General service functions */
++static void storm_memset_vf_mbx_ack(struct bnx2x *bp, u16 abs_fid)
++{
++	u32 addr = BAR_CSTRORM_INTMEM +
++			CSTORM_VF_PF_CHANNEL_STATE_OFFSET(abs_fid);
++
++	REG_WR8(bp, addr, VF_PF_CHANNEL_STATE_READY);
++}
++
++static void storm_memset_vf_mbx_valid(struct bnx2x *bp, u16 abs_fid)
++{
++	u32 addr = BAR_CSTRORM_INTMEM +
++			CSTORM_VF_PF_CHANNEL_VALID_OFFSET(abs_fid);
++
++	REG_WR8(bp, addr, 1);
++}
++
++static inline void bnx2x_set_vf_mbxs_valid(struct bnx2x *bp)
++{
++	int i;
++	for_each_vf(bp, i)
++		storm_memset_vf_mbx_valid(bp, bnx2x_vf(bp, i, abs_vfid));
++}
++
++/* enable vf_pf mailbox (aka vf-pf-chanell) */
++void bnx2x_vf_enable_mbx(struct bnx2x *bp, u8 abs_vfid)
++{
++	bnx2x_vf_flr_clnup_epilog(bp, abs_vfid);
++
++	/* enable the mailbox in the FW */
++	storm_memset_vf_mbx_ack(bp, abs_vfid);
++	storm_memset_vf_mbx_valid(bp, abs_vfid);
++
++	/* enable the VF access to the mailbox */
++	bnx2x_vf_enable_access(bp, abs_vfid);
++}
 -- 
 1.7.9.GIT
