@@ -1,58 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] ipv4: ip_check_defrag must not modify skb before
- unsharing
-Date: Mon, 10 Dec 2012 13:50:14 -0500 (EST)
-Message-ID: <20121210.135014.574510727443547729.davem@davemloft.net>
-References: <1355132466.9857.6.camel@jlt4.sipsolutions.net>
-	<20121210.134146.1583909966821253233.davem@davemloft.net>
-	<1355165152.8083.4.camel@jlt4.sipsolutions.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v3 01/22] bnx2x: Support probing and removing
+ of VF device
+Date: Mon, 10 Dec 2012 10:50:59 -0800
+Message-ID: <1355165459.26815.27.camel@joe-AO722>
+References: <1355154406-10855-1-git-send-email-ariele@broadcom.com>
+	 <1355154406-10855-2-git-send-email-ariele@broadcom.com>
+	 <20121210.133519.2048543022289027034.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: eric-EVVnsjFE0OfYtjvyW6yDsg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1355165152.8083.4.camel-8Nb76shvtaUJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: ariele@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:59208 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750803Ab2LJSu6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 13:50:58 -0500
+In-Reply-To: <20121210.133519.2048543022289027034.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Date: Mon, 10 Dec 2012 19:45:52 +0100
+On Mon, 2012-12-10 at 13:35 -0500, David Miller wrote:
+> From: "Ariel Elior" <ariele@broadcom.com>
+> Date: Mon, 10 Dec 2012 17:46:25 +0200
+[]
+> > @@ -12023,85 +12057,115 @@ static int bnx2x_get_num_non_def_sbs(struct pci_dev *pdev,
+> >        * If MSI-X is not supported - return number of SBs needed to support
+> >        * one fast path queue: one FP queue + SB for CNIC
+> >        */
+> > -     if (!pos)
+> > +     if (!pos) {
+> > +             pr_info("no msix capability found");
+[]
+> Use dev_info(), netdev_info(), or similar, rather than plain
+> pr_info().
 
-> On Mon, 2012-12-10 at 13:41 -0500, David Miller wrote:
->> So the bug is that ip_check_defrag() has a precondition which is met
->> properly by all callers except AF_PACKET.
->> 
->> If this is the case, remind me why are we changing ip_check_defrag()
->> rather than the violator of the precondition?
-> 
-> I don't think this is the case.
-> 
-> If you're referring to my note about af_packet: the kernels where this
-> goes into af_packet.c are the kernels that don't even have
-> ip_check_defrag() because macvlan didn't exist/didn't have ip defrag
-> support and af_packet had this code there -- see commit bc416d9768a.
-> 
-> If you're not referring to my note about af_packet: both callers (there
-> are only two) of ip_check_defrag() have this bug as far as I can tell
-> because they're both in the part of the RX path where shared SKBs might
-> happen.
-
-You're right, I misinterpreted what's happening here.
-
-My misunderstanding was that this was a situation where normal IPV4
-input processing makes sure the SKB is unshared, and we had special
-code paths that didn't make sure that was the case.
-
-Rather, here, we have a special entrypoint for macvlan and AF_PACKET
-which is supposed to take care of such issues since it is known to
-execute in a different kind of environment.
-
-I'm pretty sure I'll apply this, after I check a few more things,
-thanks Johannes!
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Also, please add terminating newlines to avoid
+dmesg message interleaving.
