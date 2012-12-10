@@ -1,142 +1,85 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [RFC PATCH v2 3/3] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Mon, 10 Dec 2012 17:43:49 -0500
-Message-ID: <1963349.P9uq3yvlyR@sifl>
-References: <20121205202144.18626.61966.stgit@localhost> <3124654.2UMIXvF0vN@sifl> <20121210175035.GA31856@redhat.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH] net: fix a race in gro_cell_poll()
+Date: Mon, 10 Dec 2012 22:46:44 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F1BFC4186@SJEXCHMB06.corp.ad.broadcom.com>
+References: <504C9EFCA2D0054393414C9CB605C37F1BFB80B2@SJEXCHMB06.corp.ad.broadcom.com>
+ <504C9EFCA2D0054393414C9CB605C37F1BFB80D8@SJEXCHMB06.corp.ad.broadcom.com>
+ <CANn89iKE2RxRBWRuXGwjydQKjPLhPbcoZaJS5rcBKbJWWnL4ZQ@mail.gmail.com>
+ <1355018645.3113.0.camel@lb-tlvb-dmitry.il.broadcom.com>
+ <1355086161.3113.9.camel@lb-tlvb-dmitry.il.broadcom.com>
+ <CANn89iKtWuN=CRn-JBzmmo8jCCJQhZjAT8jA+9dgfmup99O03g@mail.gmail.com>
+ <504C9EFCA2D0054393414C9CB605C37F1BFC104B@SJEXCHMB06.corp.ad.broadcom.com>
+ <1355158471.27891.44.camel@edumazet-glaptop>
+ <504C9EFCA2D0054393414C9CB605C37F1BFC32A1@SJEXCHMB06.corp.ad.broadcom.com>
+ <1355176551.27891.57.camel@edumazet-glaptop>
+ <1355178723.27891.85.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, jasowang@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20121210175035.GA31856@redhat.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2586 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750826Ab2LJWrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Dec 2012 17:47:18 -0500
+In-Reply-To: <1355178723.27891.85.camel@edumazet-glaptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, December 10, 2012 07:50:35 PM Michael S. Tsirkin wrote:
-> On Mon, Dec 10, 2012 at 12:33:49PM -0500, Paul Moore wrote:
-> > On Monday, December 10, 2012 07:26:56 PM Michael S. Tsirkin wrote:
-> > > On Mon, Dec 10, 2012 at 12:04:35PM -0500, Paul Moore wrote:
-> > > > On Friday, December 07, 2012 02:25:16 PM Michael S. Tsirkin wrote:
-> > > > > On Thu, Dec 06, 2012 at 04:09:51PM -0500, Paul Moore wrote:
-> > > > > > On Thursday, December 06, 2012 10:57:16 PM Michael S. Tsirkin 
-wrote:
-> > > > > > > On Thu, Dec 06, 2012 at 11:56:45AM -0500, Paul Moore wrote:
-> > > > > > > > The SETQUEUE/tun_socket:create_queue permissions do not yet
-> > > > > > > > exist
-> > > > > > > > in any released SELinux policy as we are just now adding them
-> > > > > > > > with
-> > > > > > > > this patchset. With current policies loaded into a kernel with
-> > > > > > > > this patchset applied the SETQUEUE/tun_socket:create_queue
-> > > > > > > > permission would be treated according to the policy's unknown
-> > > > > > > > permission setting.
-> > > > > > > 
-> > > > > > > OK I think we need to rethink what we are doing here: what you
-> > > > > > > sent
-> > > > > > > addresses the problem as stated but I think we mis-stated it. 
-> > > > > > > Let
-> > > > > > > me try to restate the problem: it is not just selinux problem.
-> > > > > > > Let's
-> > > > > > > assume qemu wants to use tun, I (libvirt) don't want to run it
-> > > > > > > as
-> > > > > > > root.
-> > > > > > > 
-> > > > > > > 1. TUNSETIFF: I can open tun, attach an fd and pass it to qemu.
-> > > > > > > Now, qemu does not invoke TUNSETIFF so it can run without
-> > > > > > > kernel priveledges.
-> > > > > > 
-> > > > > > Correct me if I'm wrong, but I believe libvirt does this while
-> > > > > > running
-> > > > > > as root.  Assuming that is the case, why not simply
-> > > > > > setuid()/setgid()
-> > > > > > to the same credentials as the QEMU instance before creating the
-> > > > > > TUN
-> > > > > > device? You can always (re)configure the device afterwards while
-> > > > > > running as root/CAP_NET_ADMIN.
-> > > > > 
-> > > > > We want isolation between qemu instances.
-> > > > 
-> > > > Understood, I agree.
-> > > > 
-> > > > Achieving separation via SELinux is easily done, with libvirt/sVirt
-> > > > already doing this for us automatically in most cases; the only thing
-> > > > we
-> > > > will want to do is make sure the SELinux policy is aware of the new
-> > > > permission.
-> > > > 
-> > > > Achieving separation via DAC should also be easily done, simply run
-> > > > each
-> > > > QEMU instance with a separate UID and/or GID.
-> > > > 
-> > > > > Giving qemu right to open tun and SETIFF would give it rights
-> > > > > to access any tun device.
-> > > > 
-> > > > I'm quickly looked at tun_chr_open() again and I don't see any special
-> > > > rights/privileges required, the same for tun_chr_ioctl() and
-> > > > __tun_chr_ioctl().  Looking at tun_set_queue() I see we call
-> > > > tun_not_capable() which does a simple DAC check; it must have the same
-> > > > UID/GID or have CAP_NET_ADMIN.
-> > > > 
-> > > > I'm having a hard time seeing the problem you are describing; help me
-> > > > understand.
-> > > 
-> > > The issue is guest controls the number of queues in use.
-> > > So qemu would be required to be allowed to call tun_set_queue.
-> > > If we allow this we have a problem as one qemu will be
-> > > able to access any tun.
-> > 
-> > QEMU can call tun_set_queue() as long as it satisfies tun_not_capable(),
-> > which from a practical point of view means that the TUN device was
-> > created with the same UID/GID as the QEMU instance.  If you want TUN
-> > device separation between QEMU instances using DAC you need to run each
-> > QEMU instance with a different UID/GID (which you should be doing anyway
-> > if you want DAC enforced general separation).
-> > 
-> > I believe I've stated this point several times now and I don't feel you've
-> > addressed it properly.
-> 
-> Look at how it works at the moment:
-> a priveledged libvirt server calls tun_set_iff
-> and passes the fd to qemu which is not priveledged.
-> 
-> The result is isolation between qemu instances without
-> need to create uid per qemu instance.
-
-Okay, good.  That is my understanding.
- 
-> How do we create multiple queues? It makes sense to
-> follow this model and pass in fds for individual queues.
-
-Okay.
-
-> However they need to be disabled initially
-> so libvirt can not do tun_set_queue for us.
-
-Unrelated question: why do the queues need to be disabled initially?  Is this 
-to prevent traffic from being queued up?  Some other reason?  I'm just curious 
-as to the reason ...
-
-> When qemu later calls tun_set_queue it will fail which means we
-> can't utilize multiqueue.
-
-I still don't understand why in the multiqueue case libvirt doesn't just 
-change it's effective UID/GID when creating the TUN device, or just use the 
-TUNSETOWNER/TUNSETGROUP commands. This would solve the problem you describe 
-above and - at least to me - seems like a better solution conceptually.
-
-Help me understand why you believe that will not work.
-
-Do you not want to give ownership of the TUN device to QEMU?  That would be 
-the only reason I can think of, but all of your comments that I can recall 
-have been about isolation between QEMU instances and not access control 
-between a QEMU instance and its assigned TUN device.
-
-> My solution is an unpriveledged variant
-> of tun_set_queue that only enables/disables
-> a queue without attach/detach.
-
--- 
-paul moore
-security and virtualization @ redhat
-
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEVyaWMgRHVtYXpldCBbbWFp
+bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIERlY2VtYmVyIDEx
+LCAyMDEyIDEyOjMyIEFNDQo+IFRvOiBEbWl0cnkgS3JhdmtvdjsgRGF2aWQgTWlsbGVyDQo+IENj
+OiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQQVRDSF0gbmV0OiBmaXggYSBy
+YWNlIGluIGdyb19jZWxsX3BvbGwoKQ0KPiANCj4gRnJvbTogRXJpYyBEdW1hemV0IDxlZHVtYXpl
+dEBnb29nbGUuY29tPg0KPiANCj4gRG1pdHJ5IEtyYXZrb3YgcmVwb3J0ZWQgcGFja2V0IGRyb3Bz
+IGZvciBHUkUgcGFja2V0cyBzaW5jZSBHUk8gc3VwcG9ydA0KPiB3YXMgYWRkZWQuDQo+IA0KPiBU
+aGVyZSBpcyBhIHJhY2UgaW4gZ3JvX2NlbGxfcG9sbCgpIGJlY2F1c2Ugd2UgY2FsbCBuYXBpX2Nv
+bXBsZXRlKCkNCj4gd2l0aG91dCBhbnkgc3luY2hyb25pemF0aW9uIHdpdGggYSBjb25jdXJyZW50
+IGdyb19jZWxsc19yZWNlaXZlKCkNCj4gDQo+IE9uY2UgYnVnIHdhcyB0cmlnZ2VyZWQsIHdlIHF1
+ZXVlZCBwYWNrZXRzIGJ1dCBkaWQgbm90IHNjaGVkdWxlIE5BUEkNCj4gcG9sbC4NCj4gDQo+IFdl
+IGNhbiBmaXggdGhpcyBpc3N1ZSB1c2luZyB0aGUgc3BpbmxvY2sgcHJvdGVjdGVkIHRoZSBuYXBp
+X3NrYnMgcXVldWUsDQo+IGFzIHdlIGhhdmUgdG8gaG9sZCBpdCB0byBwZXJmb3JtIHNrYiBkZXF1
+ZXVlIGFueXdheS4NCj4gDQo+IEFzIHdlIG9wZW4tY29kZSBza2JfZGVxdWV1ZSgpLCB3ZSBubyBs
+b25nZXIgbmVlZCB0byBtYXNrIElSUVMsIGFzIGJvdGgNCj4gcHJvZHVjZXIgYW5kIGNvbnN1bWVy
+IHJ1biB1bmRlciBCSCBjb250ZXh0Lg0KPiANCj4gQnVnIGFkZGVkIGluIGNvbW1pdCBjOWU2YmM2
+NDRlIChuZXQ6IGFkZCBncm9fY2VsbHMgaW5mcmFzdHJ1Y3R1cmUpDQo+IA0KPiBSZXBvcnRlZC1i
+eTogRG1pdHJ5IEtyYXZrb3YgPGRtaXRyeUBicm9hZGNvbS5jb20+DQo+IFNpZ25lZC1vZmYtYnk6
+IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29vZ2xlLmNvbT4NCj4gLS0tDQo+IA0KPiBEYXZpZDog
+SSBjb3VsZCByZXByb2R1Y2UgdGhlIGJ1ZyBEbWl0cnkgcmVwb3J0ZWQsIGFuZCBoYXZlDQo+ICAg
+dmVyaWZpZWQgdGhpcyBwYXRjaCBmaXhlcyB0aGUgaXNzdWUuDQo+IA0KPiAgaW5jbHVkZS9uZXQv
+Z3JvX2NlbGxzLmggfCAgIDE0ICsrKysrKysrKy0tLS0tDQo+ICAxIGZpbGUgY2hhbmdlZCwgOSBp
+bnNlcnRpb25zKCspLCA1IGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUv
+bmV0L2dyb19jZWxscy5oIGIvaW5jbHVkZS9uZXQvZ3JvX2NlbGxzLmgNCj4gaW5kZXggNGZkOGE0
+Yi4uZTUwNjJjOSAxMDA2NDQNCj4gLS0tIGEvaW5jbHVkZS9uZXQvZ3JvX2NlbGxzLmgNCj4gKysr
+IGIvaW5jbHVkZS9uZXQvZ3JvX2NlbGxzLmgNCj4gQEAgLTE3LDcgKzE3LDYgQEAgc3RydWN0IGdy
+b19jZWxscyB7DQo+IA0KPiAgc3RhdGljIGlubGluZSB2b2lkIGdyb19jZWxsc19yZWNlaXZlKHN0
+cnVjdCBncm9fY2VsbHMgKmdjZWxscywgc3RydWN0IHNrX2J1ZmYgKnNrYikNCj4gIHsNCj4gLQl1
+bnNpZ25lZCBsb25nIGZsYWdzOw0KPiAgCXN0cnVjdCBncm9fY2VsbCAqY2VsbCA9IGdjZWxscy0+
+Y2VsbHM7DQo+ICAJc3RydWN0IG5ldF9kZXZpY2UgKmRldiA9IHNrYi0+ZGV2Ow0KPiANCj4gQEAg
+LTM1LDMyICszNCwzNyBAQCBzdGF0aWMgaW5saW5lIHZvaWQgZ3JvX2NlbGxzX3JlY2VpdmUoc3Ry
+dWN0IGdyb19jZWxscw0KPiAqZ2NlbGxzLCBzdHJ1Y3Qgc2tfYnVmZiAqcw0KPiAgCQlyZXR1cm47
+DQo+ICAJfQ0KPiANCj4gLQlzcGluX2xvY2tfaXJxc2F2ZSgmY2VsbC0+bmFwaV9za2JzLmxvY2ss
+IGZsYWdzKTsNCj4gKwkvKiBXZSBydW4gaW4gQkggY29udGV4dCAqLw0KPiArCXNwaW5fbG9jaygm
+Y2VsbC0+bmFwaV9za2JzLmxvY2spOw0KPiANCj4gIAlfX3NrYl9xdWV1ZV90YWlsKCZjZWxsLT5u
+YXBpX3NrYnMsIHNrYik7DQo+ICAJaWYgKHNrYl9xdWV1ZV9sZW4oJmNlbGwtPm5hcGlfc2ticykg
+PT0gMSkNCj4gIAkJbmFwaV9zY2hlZHVsZSgmY2VsbC0+bmFwaSk7DQo+IA0KPiAtCXNwaW5fdW5s
+b2NrX2lycXJlc3RvcmUoJmNlbGwtPm5hcGlfc2ticy5sb2NrLCBmbGFncyk7DQo+ICsJc3Bpbl91
+bmxvY2soJmNlbGwtPm5hcGlfc2ticy5sb2NrKTsNCj4gIH0NCj4gDQo+ICsvKiBjYWxsZWQgdW5z
+ZXIgQkggY29udGV4dCAqLw0KPiAgc3RhdGljIGlubGluZSBpbnQgZ3JvX2NlbGxfcG9sbChzdHJ1
+Y3QgbmFwaV9zdHJ1Y3QgKm5hcGksIGludCBidWRnZXQpDQo+ICB7DQo+ICAJc3RydWN0IGdyb19j
+ZWxsICpjZWxsID0gY29udGFpbmVyX29mKG5hcGksIHN0cnVjdCBncm9fY2VsbCwgbmFwaSk7DQo+
+ICAJc3RydWN0IHNrX2J1ZmYgKnNrYjsNCj4gIAlpbnQgd29ya19kb25lID0gMDsNCj4gDQo+ICsJ
+c3Bpbl9sb2NrKCZjZWxsLT5uYXBpX3NrYnMubG9jayk7DQo+ICAJd2hpbGUgKHdvcmtfZG9uZSA8
+IGJ1ZGdldCkgew0KPiAtCQlza2IgPSBza2JfZGVxdWV1ZSgmY2VsbC0+bmFwaV9za2JzKTsNCj4g
+KwkJc2tiID0gX19za2JfZGVxdWV1ZSgmY2VsbC0+bmFwaV9za2JzKTsNCj4gIAkJaWYgKCFza2Ip
+DQo+ICAJCQlicmVhazsNCj4gLQ0KPiArCQlzcGluX3VubG9jaygmY2VsbC0+bmFwaV9za2JzLmxv
+Y2spOw0KPiAgCQluYXBpX2dyb19yZWNlaXZlKG5hcGksIHNrYik7DQo+ICAJCXdvcmtfZG9uZSsr
+Ow0KPiArCQlzcGluX2xvY2soJmNlbGwtPm5hcGlfc2ticy5sb2NrKTsNCj4gIAl9DQo+IA0KPiAg
+CWlmICh3b3JrX2RvbmUgPCBidWRnZXQpDQo+ICAJCW5hcGlfY29tcGxldGUobmFwaSk7DQo+ICsJ
+c3Bpbl91bmxvY2soJmNlbGwtPm5hcGlfc2ticy5sb2NrKTsNCj4gIAlyZXR1cm4gd29ya19kb25l
+Ow0KPiAgfQ0KPiANCj4gDQpNeSBzY2VuYXJpbyBpcyB3b3JraW5nLCBub3cNClRoYW5rcyBFcmlj
+Lg0KDQpUZXN0ZWQtYnk6IERtaXRyeSBLcmF2a292IDxkbWl0cnlAYnJvYWRjb20uY29tPg0KDQo=
