@@ -1,97 +1,470 @@
-From: Duan Jiong <djduanjiong@gmail.com>
-Subject: Re: [PATCH] ipv6: fix the bug when propagating Redirect Message
-Date: Tue, 11 Dec 2012 20:58:20 +0800
-Message-ID: <50C72DEC.1000008@gmail.com>
-References: <5086B721.1090905@gmail.com> <20121024045410.GF27385@secunet.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv8] virtio-spec: virtio network device multiqueue support
+Date: Tue, 11 Dec 2012 15:10:02 +0200
+Message-ID: <20121211131002.GA17775@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:55813 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752173Ab2LKM60 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 07:58:26 -0500
-Received: by mail-pa0-f46.google.com with SMTP id bh2so2867468pad.19
-        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 04:58:25 -0800 (PST)
-In-Reply-To: <20121024045410.GF27385@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2012/10/24 12:54, Steffen Klassert =E5=86=99=E9=81=93:
-> On Tue, Oct 23, 2012 at 11:26:25PM +0800, Duan Jiong wrote:
->>
->> Before using icmpv6_notify() to propagate redirect, change skb->data
->> to poing the IP packet that triggered the sending of the Redirect.
->>
->> Signed-off-by: Duan Jiong <djduanjiong@gmail.com>
->> ---
->>  net/ipv6/ndisc.c |   39 +++++++++++++++++++++++++++++++++++++++
->>  1 files changed, 39 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
->> index ff36194..0f73303 100644
->> --- a/net/ipv6/ndisc.c
->> +++ b/net/ipv6/ndisc.c
->> @@ -1334,6 +1334,11 @@ out:
->> =20
->>  static void ndisc_redirect_rcv(struct sk_buff *skb)
->>  {
->> +	int opt_len;
->> +	int opt_offset;
->> +	int ndisc_head_len;
->> +	struct nd_opt_hdr *nd_opt;
->> +=09
->>  #ifdef CONFIG_IPV6_NDISC_NODETYPE
->>  	switch (skb->ndisc_nodetype) {
->>  	case NDISC_NODETYPE_HOST:
->> @@ -1350,6 +1355,40 @@ static void ndisc_redirect_rcv(struct sk_buff=
- *skb)
->>  		return;
->>  	}
->> =20
->> +	ndisc_head_len =3D sizeof(struct icmp6hdr) + 2*sizeof(struct in6_a=
-ddr);
->> +	if (!pskb_may_pull(skb, ndisc_head_len)) {
->> +		return;
->> +	}
->> +
->> +	nd_opt =3D (struct nd_opt_hdr *)(skb->data + ndisc_head_len);
->> +
->> +	opt_len =3D skb->tail - skb->transport_header - ndisc_head_len;
->> +	if (opt_len < 0) {
->> +		return;
->> +	}
->> +	while (opt_len) {
->> +		int l;
->> +=09
->> +		if (opt_len < sizeof(struct nd_opt_hdr)) {
->> +			return;
->> +		}
->> +		l =3D nd_opt->nd_opt_len << 3;
->> +		if (opt_len < l || l =3D=3D 0) {
->> +			return;
->> +		}
->> +		if (nd_opt->nd_opt_type =3D=3D ND_OPT_REDIRECT_HDR) {
->> +			__skb_pull(skb, ndisc_head_len + opt_offset + 8);
->> +			break;
->> +		}
->> +		opt_len -=3D l;
->> +		nd_opt =3D ((void *)nd_opt) + 1;
->> +		opt_offset +=3D 1;
->> +	}
->=20
-> Instead of the above loop, you could use ndisc_parse_options().
-> This does the same what you are doing here and it would make it
-> a bit clearer what's going on.
->=20
-I apologize for not replying to you earlier,and i will continue=20
-to update my patches.=20
+Add multiqueue support to virtio network device.
+Add a new feature flag VIRTIO_NET_F_MQ for this feature, a new
+configuration field max_virtqueue_pairs to detect supported number of
+virtqueues as well as a new command VIRTIO_NET_CTRL_MQ to program
+packet steering for unidirectional protocols.
 
-Just like you said, i try to use ndisc_parse_options() to instead
-of the loop, but i find the skb->data can't be changed in function
-ndisc_parse_options() due to lack of  arguments. So i think it is
-better to continue to use the loop. How do you think this?
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Thanks!
+---
+
+Changes in v8:
+- Fix value for CTRL_MQ command
+
+Changes in v7:
+- 8000h -> 0x8000 at Rusty's request
+
+Changes in v6:
+- rename RFS -> multiqueue to avoid confusion with RFS in linux
+  mention automatic receive steering as Rusty suggested
+
+Changes in v5:
+- Address Rusty's comments.
+  Changes are only in the text, not the ideas.
+- Some minor formatting changes.
+
+Changes in v4:
+- address Jason's comments
+- have configuration specify the number of VQ pairs and not pairs - 1
+
+Changes in v3:
+- rename multiqueue -> rfs this is what we support
+- Be more explicit about what driver should do.
+- Simplify layout making VQs functionality depend on feature.
+- Remove unused commands, only leave in programming # of queues
+
+Changes in v2:
+Address Jason's comments on v2:
+- Changed STEERING_HOST to STEERING_RX_FOLLOWS_TX:
+   this is both clearer and easier to support.
+   It does not look like we need a separate steering command
+   since host can just watch tx packets as they go.
+- Moved RX and TX steering sections near each other.
+- Add motivation for other changes in v2
+
+Changes in v1 (from Jason's rfc):
+- reserved vq 3: this makes all rx vqs even and tx vqs odd, which
+   looks nicer to me.
+- documented packet steering, added a generalized steering programming
+   command. Current modes are single queue and host driven multiqueue,
+   but I envision support for guest driven multiqueue in the future.
+- make default vqs unused when in mq mode - this wastes some memory
+   but makes it more efficient to switch between modes as
+   we can avoid this causing packet reordering.
+
+diff --git a/virtio-spec.lyx b/virtio-spec.lyx
+index 83f2771..8d16610 100644
+--- a/virtio-spec.lyx
++++ b/virtio-spec.lyx
+@@ -59,6 +59,7 @@
+ \author -608949062 "Rusty Russell,,," 
+ \author -385801441 "Cornelia Huck" cornelia.huck@de.ibm.com
+ \author 1531152142 "Paolo Bonzini,,," 
++\author 1986246365 "Michael S. Tsirkin" 
+ \end_header
+ 
+ \begin_body
+@@ -4170,9 +4171,46 @@ ID 1
+ \end_layout
+ 
+ \begin_layout Description
+-Virtqueues 0:receiveq.
+- 1:transmitq.
+- 2:controlq
++Virtqueues 0:receiveq
++\change_inserted 1986246365 1352742829
++0
++\change_unchanged
++.
++ 1:transmitq
++\change_inserted 1986246365 1352742832
++0
++\change_deleted 1986246365 1352742947
++.
++ 
++\change_inserted 1986246365 1352742952
++.
++ ....
++ 2N
++\begin_inset Foot
++status open
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1354531595
++N=0 if VIRTIO_NET_F_MQ is not negotiated, otherwise N is derived from 
++\emph on
++max_virtqueue_pairs
++\emph default
++ control
++\emph on
++ 
++\emph default
++field.
++ 
++\end_layout
++
++\end_inset
++
++: receivqN.
++ 2N+1: transmitqN.
++ 2N+
++\change_unchanged
++2:controlq
+ \begin_inset Foot
+ status open
+ 
+@@ -4343,6 +4381,16 @@ VIRTIO_NET_F_CTRL_VLAN
+ 
+ \begin_layout Description
+ VIRTIO_NET_F_GUEST_ANNOUNCE(21) Guest can send gratuitous packets.
++\change_inserted 1986246365 1352742767
++
++\end_layout
++
++\begin_layout Description
++
++\change_inserted 1986246365 1352742808
++VIRTIO_NET_F_MQ(22) Device supports multiqueue with automatic receive steering.
++\change_unchanged
++
+ \end_layout
+ 
+ \end_deeper
+@@ -4355,11 +4403,45 @@ configuration
+ \begin_inset space ~
+ \end_inset
+ 
+-layout Two configuration fields are currently defined.
++layout 
++\change_deleted 1986246365 1352743300
++Two
++\change_inserted 1986246365 1354531413
++Three
++\change_unchanged
++ configuration fields are currently defined.
+  The mac address field always exists (though is only valid if VIRTIO_NET_F_MAC
+  is set), and the status field only exists if VIRTIO_NET_F_STATUS is set.
+  Two read-only bits are currently defined for the status field: VIRTIO_NET_S_LIN
+ K_UP and VIRTIO_NET_S_ANNOUNCE.
++
++\change_inserted 1986246365 1354531470
++ The following read-only field, 
++\emph on
++max_virtqueue_pairs
++\emph default
++ only exists if VIRTIO_NET_F_MQ is set.
++ This field specifies the maximum number of each of transmit and receive
++ virtqueues (receiveq0..receiveq
++\emph on
++N
++\emph default
++ and transmitq0..transmitq
++\emph on
++N
++\emph default
++ respectively; 
++\emph on
++N
++\emph default
++=
++\emph on
++max_virtqueue_pairs - 1
++\emph default
++) that can be configured once VIRTIO_NET_F_MQ is negotiated.
++ Legal values for this field are 1 to 0x8000.
++
++\change_unchanged
+  
+ \begin_inset listings
+ inline false
+@@ -4392,6 +4474,17 @@ struct virtio_net_config {
+ \begin_layout Plain Layout
+ 
+     u16 status;
++\change_inserted 1986246365 1354531427
++
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1354531437
++
++    u16 max_virtqueue_pairs;
++\change_unchanged
++
+ \end_layout
+ 
+ \begin_layout Plain Layout
+@@ -4410,7 +4503,24 @@ Device Initialization
+ 
+ \begin_layout Enumerate
+ The initialization routine should identify the receive and transmission
+- virtqueues.
++ virtqueues
++\change_inserted 1986246365 1352744077
++, up to N+1 of each kind
++\change_unchanged
++.
++
++\change_inserted 1986246365 1352743942
++ If VIRTIO_NET_F_MQ feature bit is negotiated, 
++\emph on
++N=max_virtqueue_pairs-1
++\emph default
++, otherwise identify 
++\emph on
++N=0
++\emph default
++.
++\change_unchanged
++
+ \end_layout
+ 
+ \begin_layout Enumerate
+@@ -4452,10 +4562,33 @@ status
+ 
+  config field.
+  Otherwise, the link should be assumed active.
++\change_inserted 1986246365 1354529306
++
+ \end_layout
+ 
+ \begin_layout Enumerate
+-The receive virtqueue should be filled with receive buffers.
++
++\change_inserted 1986246365 1354531717
++Only receiveq0, transmitq0 and controlq are used by default.
++ To use more queues driver must negotiate the VIRTIO_NET_F_MQ feature;
++ initialize up to 
++\emph on
++max_virtqueue_pairs
++\emph default
++ of each of transmit and receive queues; execute_VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SE
++T command specifying the number of the transmit and receive queues that
++ is going to be used and wait until the device consumes the controlq buffer
++ and acks this command.
++\change_unchanged
++
++\end_layout
++
++\begin_layout Enumerate
++The receive virtqueue
++\change_inserted 1986246365 1352743953
++s
++\change_unchanged
++ should be filled with receive buffers.
+  This is described in detail below in 
+ \begin_inset Quotes eld
+ \end_inset
+@@ -4550,8 +4683,15 @@ Device Operation
+ \end_layout
+ 
+ \begin_layout Standard
+-Packets are transmitted by placing them in the transmitq, and buffers for
+- incoming packets are placed in the receiveq.
++Packets are transmitted by placing them in the transmitq
++\change_inserted 1986246365 1353593685
++0..transmitqN
++\change_unchanged
++, and buffers for incoming packets are placed in the receiveq
++\change_inserted 1986246365 1353593692
++0..receiveqN
++\change_unchanged
++.
+  In each case, the packet itself is preceeded by a header:
+ \end_layout
+ 
+@@ -4861,6 +5001,17 @@ If VIRTIO_NET_F_MRG_RXBUF is negotiated, each buffer must be at least the
+ struct virtio_net_hdr
+ \family default
+ .
++\change_inserted 1986246365 1353594518
++
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1353594638
++If VIRTIO_NET_F_MQ is negotiated, each of receiveq0...receiveqN that will
++ be used should be populated with receive buffers.
++\change_unchanged
++
+ \end_layout
+ 
+ \begin_layout Subsection*
+@@ -5293,8 +5444,151 @@ Sending VIRTIO_NET_CTRL_ANNOUNCE_ACK command through control vq.
+  
+ \end_layout
+ 
+-\begin_layout Enumerate
++\begin_layout Subsection*
++
++\change_inserted 1986246365 1353593879
++Automatic receive steering in multiqueue mode
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1354528882
++If the driver negotiates the VIRTIO_NET_F_MQ feature bit (depends on VIRTIO_NET
++_F_CTRL_VQ), it can transmit outgoing packets on one of the multiple transmitq0..t
++ransmitqN and ask the device to queue incoming packets into one the multiple
++ receiveq0..receiveqN depending on the packet flow.
++\change_unchanged
++
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1353594292
++\begin_inset listings
++inline false
++status open
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594178
++
++struct virtio_net_ctrl_mq {
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594212
++
++	u16 virtqueue_pairs;
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594172
++
++};
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594172
++
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594263
++
++#define VIRTIO_NET_CTRL_MQ    4
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594273
++
++ #define VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET        0 
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594273
++
++ #define VIRTIO_NET_CTRL_MQ_VQ_PAIRS_MIN        1 
++\end_layout
++
++\begin_layout Plain Layout
++
++\change_inserted 1986246365 1353594273
++
++ #define VIRTIO_NET_CTRL_MQ_VQ_PAIRS_MAX        0x8000
++\end_layout
++
++\end_inset
++
++
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1354531492
++Multiqueue is disabled by default.
++ Driver enables multiqueue by executing the VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET command,
++ specifying the number of the transmit and receive queues that will be used;
++ thus transmitq0..transmitqn and receiveq0..receiveqn where 
++\emph on
++n=virtqueue_pairs-1
++\emph default
++ will be used.
++ All these virtqueues must have been pre-configured in advance.
++ The range of legal values for the
++\emph on
++ virtqueue_pairs
++\emph off
++ field is between 1 and 
++\emph on
++max_virtqueue_pairs
++\emph off
++.
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1353595328
++When multiqueue is enabled, device uses automatic receive
++steering based on packet flow.
++Programming of the receive steering classificator is implicit.
++ Transmitting a packet of a specific flow on transmitqX will cause incoming
++ packets for this flow to be steered to receiveqX.
++ For uni-directional protocols, or where no packets have been transmitted
++ yet, device will steer a packet to a random queue out of the specified
++ receiveq0..receiveqn.
++\change_unchanged
++
++\end_layout
++
++\begin_layout Standard
++
++\change_inserted 1986246365 1354528710
++Multiqueue is disabled by setting 
++\emph on
++virtqueue_pairs = 1
++\emph default
++ (this is the default).
++ After the command is consumed by the device, the device will not steer
++ new packets on virtqueues receveq1..receiveqN (i.e.
++ other than receiveq0) nor read from transmitq1..transmitqN (i.e.
++ other than transmitq0); accordingly, driver should not transmit new packets
++ on virtqueues other than transmitq0.
++\change_unchanged
++
++\end_layout
++
++\begin_layout Standard
++
++\change_deleted 1986246365 1353593873
+ .
++
++\change_unchanged
+  
+ \end_layout
