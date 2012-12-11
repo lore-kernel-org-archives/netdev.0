@@ -1,35 +1,285 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH][RFC] smsc95xx: enable dynamic autosuspend (RFC)
-Date: Tue, 11 Dec 2012 16:19:34 +0100
-Message-ID: <3108632.YdjKGB5H1R@linux-lqwf.site>
-References: <1353607526-19307-6-git-send-email-steve.glendinning@shawell.net> <1881907.JmjSTg2PBW@linux-lqwf.site> <CACVXFVMNshNMJ+hYHTCfE2+UOuMgGLb0dKq8qEM-LfUseuy2qA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Steve Glendinning <steve@shawell.net>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Ming Lei <ming.lei@canonical.com>
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Subject: [PATCHv2][RFC] smsc95xx: enable dynamic autosuspend
+Date: Tue, 11 Dec 2012 15:26:01 +0000
+Message-ID: <1355239561-2740-1-git-send-email-steve.glendinning@shawell.net>
+Cc: linux-usb@vger.kernel.org, ming.lei@canonical.com, oneukum@suse.de,
+	gregkh@linuxfoundation.org,
+	Steve Glendinning <steve.glendinning@shawell.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:60622 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753833Ab2LKPTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 10:19:11 -0500
-In-Reply-To: <CACVXFVMNshNMJ+hYHTCfE2+UOuMgGLb0dKq8qEM-LfUseuy2qA@mail.gmail.com>
+Received: from cust23-dsl91-135-1.idnet.net ([91.135.1.23]:58495 "EHLO
+	drevil.shawell.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752771Ab2LKP0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 10:26:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 11 December 2012 20:53:19 Ming Lei wrote:
-> In fact, I have test data which can show a much power save
-> on OMAP3 based beagle board plus asix usbnet device with
-> the periodic work. IMO, the power save after introducing periodic
-> timer depends on the arch or platform, there should be much power
-> save if the CPU power consumption is very less. So how about letting
-> module parameter switch on/off the periodic work?
+This patch enables USB dynamic autosuspend for LAN9500A.  This
+saves very little power in itself, but it allows power saving
+in upstream hubs/hosts.
 
-You could ask on linux-power and netdev. But there would be an
-obvious question: Why kernel space?
+The earlier devices in this family (LAN9500/9512/9514) do not
+support this feature.
 
-	Regards
-		Oliver
+Signed-off-by: Steve Glendinning <steve.glendinning@shawell.net>
+---
+ drivers/net/usb/smsc95xx.c |  159 +++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 158 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 9b73670..bdd51fd 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -55,6 +55,13 @@
+ #define FEATURE_PHY_NLP_CROSSOVER	(0x02)
+ #define FEATURE_AUTOSUSPEND		(0x04)
+ 
++#define SUSPEND_SUSPEND0		(0x01)
++#define SUSPEND_SUSPEND1		(0x02)
++#define SUSPEND_SUSPEND2		(0x04)
++#define SUSPEND_SUSPEND3		(0x08)
++#define SUSPEND_ALLMODES		(SUSPEND_SUSPEND0 | SUSPEND_SUSPEND1 | \
++					 SUSPEND_SUSPEND2 | SUSPEND_SUSPEND3)
++
+ struct smsc95xx_priv {
+ 	u32 mac_cr;
+ 	u32 hash_hi;
+@@ -62,6 +69,7 @@ struct smsc95xx_priv {
+ 	u32 wolopts;
+ 	spinlock_t mac_cr_lock;
+ 	u8 features;
++	u8 suspend_flags;
+ };
+ 
+ static bool turbo_mode = true;
+@@ -1341,6 +1349,8 @@ static int smsc95xx_enter_suspend0(struct usbnet *dev)
+ 	if (ret < 0)
+ 		netdev_warn(dev->net, "Error reading PM_CTRL\n");
+ 
++	pdata->suspend_flags |= SUSPEND_SUSPEND0;
++
+ 	return ret;
+ }
+ 
+@@ -1393,11 +1403,14 @@ static int smsc95xx_enter_suspend1(struct usbnet *dev)
+ 	if (ret < 0)
+ 		netdev_warn(dev->net, "Error writing PM_CTRL\n");
+ 
++	pdata->suspend_flags |= SUSPEND_SUSPEND1;
++
+ 	return ret;
+ }
+ 
+ static int smsc95xx_enter_suspend2(struct usbnet *dev)
+ {
++	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+ 	u32 val;
+ 	int ret;
+ 
+@@ -1414,9 +1427,105 @@ static int smsc95xx_enter_suspend2(struct usbnet *dev)
+ 	if (ret < 0)
+ 		netdev_warn(dev->net, "Error writing PM_CTRL\n");
+ 
++	pdata->suspend_flags |= SUSPEND_SUSPEND2;
++
+ 	return ret;
+ }
+ 
++static int smsc95xx_enter_suspend3(struct usbnet *dev)
++{
++	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++	u32 val;
++	int ret;
++
++	ret = smsc95xx_read_reg_nopm(dev, RX_FIFO_INF, &val);
++	if (ret < 0) {
++		netdev_warn(dev->net, "Error reading RX_FIFO_INF");
++		return ret;
++	}
++
++	if (val & 0xFFFF) {
++		netdev_info(dev->net, "rx fifo not empty in autosuspend");
++		return -EBUSY;
++	}
++
++	ret = smsc95xx_read_reg_nopm(dev, PM_CTRL, &val);
++	if (ret < 0) {
++		netdev_warn(dev->net, "Error reading PM_CTRL");
++		return ret;
++	}
++
++	val &= ~(PM_CTL_SUS_MODE_ | PM_CTL_WUPS_ | PM_CTL_PHY_RST_);
++	val |= PM_CTL_SUS_MODE_3 | PM_CTL_RES_CLR_WKP_STS;
++
++	ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
++	if (ret < 0) {
++		netdev_warn(dev->net, "Error writing PM_CTRL");
++		return ret;
++	}
++
++	/* clear wol status */
++	val &= ~PM_CTL_WUPS_;
++	val |= PM_CTL_WUPS_WOL_;
++
++	ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
++	if (ret < 0) {
++		netdev_warn(dev->net, "Error writing PM_CTRL");
++		return ret;
++	}
++
++	pdata->suspend_flags |= SUSPEND_SUSPEND3;
++
++	return 0;
++}
++
++static int smsc95xx_autosuspend(struct usbnet *dev, u32 link_up)
++{
++	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++	int ret;
++
++	if (!netif_running(dev->net)) {
++		/* interface is ifconfig down so fully power down hw */
++		netdev_dbg(dev->net, "autosuspend entering SUSPEND2");
++		return smsc95xx_enter_suspend2(dev);
++	}
++
++	if (!link_up) {
++		/* link is down so enter EDPD mode, but only if device can
++		 * reliably resume from it.  This check should be redundant
++		 * as current FEATURE_AUTOSUSPEND parts also support
++		 * FEATURE_PHY_NLP_CROSSOVER but it's included for clarity */
++		if (!(pdata->features & FEATURE_PHY_NLP_CROSSOVER)) {
++			netdev_warn(dev->net, "EDPD not supported");
++			return -EBUSY;
++		}
++
++		netdev_dbg(dev->net, "autosuspend entering SUSPEND1");
++
++		/* enable PHY wakeup events for if cable is attached */
++		ret = smsc95xx_enable_phy_wakeup_interrupts(dev,
++			PHY_INT_MASK_ANEG_COMP_);
++		if (ret < 0) {
++			netdev_warn(dev->net, "error enabling PHY wakeup ints");
++			return ret;
++		}
++
++		netdev_info(dev->net, "entering SUSPEND1 mode");
++		return smsc95xx_enter_suspend1(dev);
++	}
++
++	/* enable PHY wakeup events so we remote wakeup if cable is pulled */
++	ret = smsc95xx_enable_phy_wakeup_interrupts(dev,
++		PHY_INT_MASK_LINK_DOWN_);
++	if (ret < 0) {
++		netdev_warn(dev->net, "error enabling PHY wakeup ints");
++		return ret;
++	}
++
++	netdev_dbg(dev->net, "autosuspend entering SUSPEND3");
++	return smsc95xx_enter_suspend3(dev);
++}
++
+ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ {
+ 	struct usbnet *dev = usb_get_intfdata(intf);
+@@ -1424,15 +1533,35 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 	u32 val, link_up;
+ 	int ret;
+ 
++	/* TODO: don't indicate this feature to usb framework if
++	 * our current hardware doesn't have the capability
++	 */
++	if ((message.event == PM_EVENT_AUTO_SUSPEND) &&
++	    (!(pdata->features & FEATURE_AUTOSUSPEND))) {
++		netdev_warn(dev->net, "autosuspend not supported");
++		return -EBUSY;
++	}
++
+ 	ret = usbnet_suspend(intf, message);
+ 	if (ret < 0) {
+ 		netdev_warn(dev->net, "usbnet_suspend error\n");
+ 		return ret;
+ 	}
+ 
++	if (pdata->suspend_flags) {
++		netdev_warn(dev->net, "error during last resume");
++		pdata->suspend_flags = 0;
++	}
++
+ 	/* determine if link is up using only _nopm functions */
+ 	link_up = smsc95xx_link_ok_nopm(dev);
+ 
++	if (message.event == PM_EVENT_AUTO_SUSPEND) {
++		ret = smsc95xx_autosuspend(dev, link_up);
++		goto done;
++	}
++
++	/* if we get this far we're not autosuspending */
+ 	/* if no wol options set, or if link is down and we're not waking on
+ 	 * PHY activity, enter lowest power SUSPEND2 mode
+ 	 */
+@@ -1694,12 +1823,18 @@ static int smsc95xx_resume(struct usb_interface *intf)
+ {
+ 	struct usbnet *dev = usb_get_intfdata(intf);
+ 	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++	u8 suspend_flags = pdata->suspend_flags;
+ 	int ret;
+ 	u32 val;
+ 
+ 	BUG_ON(!dev);
+ 
+-	if (pdata->wolopts) {
++	netdev_dbg(dev->net, "resume suspend_flags=0x%02x", suspend_flags);
++
++	/* do this first to ensure it's cleared even in error case */
++	pdata->suspend_flags = 0;
++
++	if (suspend_flags & SUSPEND_ALLMODES) {
+ 		/* clear wake-up sources */
+ 		ret = smsc95xx_read_reg_nopm(dev, WUCSR, &val);
+ 		if (ret < 0) {
+@@ -1891,6 +2026,26 @@ static struct sk_buff *smsc95xx_tx_fixup(struct usbnet *dev,
+ 	return skb;
+ }
+ 
++static int smsc95xx_manage_power(struct usbnet *dev, int on)
++{
++	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++
++	dev->intf->needs_remote_wakeup = on;
++
++	if (pdata->features & FEATURE_AUTOSUSPEND)
++		return 0;
++
++	/* this chip revision doesn't support autosuspend */
++	netdev_info(dev->net, "hardware doesn't support USB autosuspend\n");
++
++	if (on)
++		usb_autopm_get_interface_no_resume(dev->intf);
++	else
++		usb_autopm_put_interface_no_suspend(dev->intf);
++
++	return 0;
++}
++
+ static const struct driver_info smsc95xx_info = {
+ 	.description	= "smsc95xx USB 2.0 Ethernet",
+ 	.bind		= smsc95xx_bind,
+@@ -1900,6 +2055,7 @@ static const struct driver_info smsc95xx_info = {
+ 	.rx_fixup	= smsc95xx_rx_fixup,
+ 	.tx_fixup	= smsc95xx_tx_fixup,
+ 	.status		= smsc95xx_status,
++	.manage_power	= smsc95xx_manage_power,
+ 	.flags		= FLAG_ETHER | FLAG_SEND_ZLP | FLAG_LINK_INTR,
+ };
+ 
+@@ -2007,6 +2163,7 @@ static struct usb_driver smsc95xx_driver = {
+ 	.reset_resume	= smsc95xx_resume,
+ 	.disconnect	= usbnet_disconnect,
+ 	.disable_hub_initiated_lpm = 1,
++	.supports_autosuspend = 1,
+ };
+ 
+ module_usb_driver(smsc95xx_driver);
+-- 
+1.7.10.4
