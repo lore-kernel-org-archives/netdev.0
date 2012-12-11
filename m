@@ -1,50 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 04/10] net: smc911x: use io{read,write}*_rep
- accessors
-Date: Tue, 11 Dec 2012 12:51:56 -0500 (EST)
-Message-ID: <20121211.125156.1507794854679959729.davem@davemloft.net>
-References: <1355166762-15133-5-git-send-email-will.deacon@arm.com>
-	<20121210.154705.1773845547652835423.davem@davemloft.net>
-	<20121211144949.GD16759@mudshark.cambridge.arm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [ANNOUNCE] iproute2 3.7.0
+Date: Tue, 11 Dec 2012 10:07:55 -0800
+Message-ID: <20121211100755.3ffb030c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org,
-	benh@kernel.crashing.org, arnd@arndb.de, james.hogan@imgtec.com,
-	matthew@mattleach.net, netdev@vger.kernel.org
-To: will.deacon@arm.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20121211144949.GD16759@mudshark.cambridge.arm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Will Deacon <will.deacon@arm.com>
-Date: Tue, 11 Dec 2012 14:49:49 +0000
+Just in time for the holidays, an update to iproute2 for v3.7 kernel.
+In addition to lots of build and documentation fixes, this
+version includes support for tcp_metrics and vxlan
+documentation and minor bugfixes,
 
-> On Mon, Dec 10, 2012 at 08:47:05PM +0000, David Miller wrote:
->> This misses the two uses in smsc911x_tx_writefifo and
->> smsc911x_rx_readfifo.
-> 
-> Well spotted, updated patch below.
+If you have been sitting on changes to iproute2 that are in
+net-next for 3.8 merge window, please submit them now.
 
-Although I'd like to take credit, the compiler told me :-)
+Iproute2 package is available at:
+  http://kernel.org/pub/linux/utils/net/iproute2/iproute2-3.7.0.tar.gz
 
-> From b46e33465e755e945136d19938c9a8331cbafce7 Mon Sep 17 00:00:00 2001
-> From: Matthew Leach <matthew@mattleach.net>
-> Date: Tue, 6 Nov 2012 14:51:11 +0000
-> Subject: [PATCH v3] net: smc911x: use io{read,write}*_rep accessors
-> 
-> The {read,write}s{b,w,l} operations are not defined by all
-> architectures and are being removed from the asm-generic/io.h
-> interface.
-> 
-> This patch replaces the usage of these string functions in the smc911x
-> accessors with io{read,write}{8,16,32}_rep calls instead.
-> 
-> Cc: Arnd Bergmann <arnd@arndb.de>
-> Cc: Ben Herrenschmidt <benh@kernel.crashing.org>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Matthew Leach <matthew@mattleach.net>
-> Signed-off-by: Will Deacon <will.deacon@arm.com>
+You can download the source from:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
 
-Applied, thanks.
+Stay Warm!
+
+---
+
+Andreas Henriksson (2):
+      iproute2: avoid errors from double-installing manpages
+      iproute2: drop libresolv
+
+Julian Anastasov (1):
+      iproute2: add support for tcp_metrics
+
+Matt Burgess (1):
+      iproute2-3.6.0 assumes presence of iptables
+
+Mike Frysinger (1):
+      allow pkg-config to be customized
+
+Nicolas Dichtel (4):
+      iproute2: inform user when a neighbor is removed
+      ip/ip6tunnel: fix help for TCLASS
+      ip/ip6tunnel: reset encap limit flag on change
+      ip/ip6tunnel: fix update of tclass and flowlabel
+
+Or Gerlitz (1):
+      iplink: Added support for the kernel IPoIB RTNL ops
+
+Pavel Emelyanov (4):
+      ss: Rename some tcp- names into inet-
+      ss: Split inet_show_netlink into parts
+      ss: Support sock-diag
+      ss: Get udp sockets info via sock-diag
+
+Petr P=C3=ADsa=C5=99 (1):
+      iproute2: List interfaces without net address by default
+
+Petr Sabata (1):
+      iproute2: ss - change default filter to include all socket types
+
+Rostislav Lisovy (1):
+      tc: add canid ematch to ematch_map
+
+Stephen Hemminger (12):
+      vxlan support
+      bridge: manage VXLAN based forwarding tables
+      l2tp: remove references to old bridge utils
+      Update headers to 3.7-pre-rc
+      vxlan: add support for port range
+      vxlan: only send group address if defined
+      Update kernel headers to 3.7-rc1
+      iplink: add vxlan to man page
+      bridge: remove trailing whitespace
+      bridge: use rta_getattr_xxx wrappers
+      man: fix incorrect use of "it's"
+      v3.7.0
+
+Vincent Bernat (1):
+      ip: fix "ip -6 route add ... nexthop"
+
+Wookey (1):
+      configure: respect $CC environment var override
