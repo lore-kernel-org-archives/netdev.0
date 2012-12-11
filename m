@@ -1,61 +1,94 @@
-From: Steve Glendinning <steve@shawell.net>
-Subject: Re: [PATCH][RFC] smsc95xx: enable dynamic autosuspend (RFC)
-Date: Tue, 11 Dec 2012 13:12:21 +0000
-Message-ID: <CAKh2mn7FTMLkkCDw14RVV4ExK4mfLq=zmpgtFbwLjV0P4w3TqA@mail.gmail.com>
-References: <1353607526-19307-6-git-send-email-steve.glendinning@shawell.net>
-	<CAKh2mn5LgZBJDJWNzN8A3NK72Vk_fiUjJfmdn5njSrm400q36w@mail.gmail.com>
-	<CACVXFVOBgwoSyUDzxD+ghjkpFu5PL7MuaS5UJOZYvVnV0dwhGg@mail.gmail.com>
-	<1881907.JmjSTg2PBW@linux-lqwf.site>
-	<CACVXFVMNshNMJ+hYHTCfE2+UOuMgGLb0dKq8qEM-LfUseuy2qA@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] ipv6: fix the bug when propagating Redirect Message
+Date: Tue, 11 Dec 2012 14:45:14 +0100
+Message-ID: <20121211134514.GE18940@secunet.com>
+References: <5086B721.1090905@gmail.com>
+ <20121024045410.GF27385@secunet.com>
+ <50C72DEC.1000008@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Oliver Neukum <oliver@neukum.org>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Duan Jiong <djduanjiong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:57860 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753100Ab2LKNMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 08:12:22 -0500
-Received: by mail-ea0-f174.google.com with SMTP id e13so1491427eaa.19
-        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 05:12:21 -0800 (PST)
-In-Reply-To: <CACVXFVMNshNMJ+hYHTCfE2+UOuMgGLb0dKq8qEM-LfUseuy2qA@mail.gmail.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:34698 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752867Ab2LKNpV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2012 08:45:21 -0500
+Content-Disposition: inline
+In-Reply-To: <50C72DEC.1000008@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11 December 2012 12:53, Ming Lei <ming.lei@canonical.com> wrote:
-> On Tue, Dec 11, 2012 at 6:27 PM, Oliver Neukum <oliver@neukum.org> wrote:
->> So they can autosuspend if the interface is up and no cable is plugged
->> in?
->
-> From the open datasheet, that is the suspend 1 mode, which is supported
-> by all LAN95xx devices. Steve, correct me if I am wrong.
+On Tue, Dec 11, 2012 at 08:58:20PM +0800, Duan Jiong wrote:
+> 
+> Just like you said, i try to use ndisc_parse_options() to instead
+> of the loop, but i find the skb->data can't be changed in function
+> ndisc_parse_options() due to lack of  arguments. So i think it is
+> better to continue to use the loop. How do you think this?
+> 
 
-All parts support SUSPEND1, but some parts can't 100% reliably wake on
-ENERGYON - some link partners will wake them but others won't.  The
-driver already detects parts that work reliably with all link partners
-and sets the FEATURE_PHY_NLP_CROSSOVER feature flag.
+You can change the data pointer after ndisc_parse_options().
+Something like the (untested) patch below should do it.
 
-I didn't block these devices from configuring WOL, because they do
-work in *some* cases and the user is explicitly requesting to wake the
-system so we try to do that (and sometimes succeed).
+ include/net/ndisc.h |    7 +++++++
+ net/ipv6/ndisc.c    |   20 ++++++++++++++++++++
+ 2 files changed, 27 insertions(+)
 
->>> I suggest to introduce link-off triggered runtime suspend for these
->>> usbnet devices(non-LAN9500A device, devices which don't support
->>> USB auto-suspend), and I have posted one patch set before[1].
->>> If no one objects that, I'd like to post them again with some fix and
->>> update for checking link after link_reset().
->>
->> If you can get rid of a periodic work this would be great.
->
-> For the LAN95xx devices, the periodic work isn't needed because
-> they may generate remote wakeup when link change is detected.
-
-As above, some parts will do this but some will not.  I think we
-should only consider sleeping the part if we're sure it'll wake up
-when a cable is connected!
-
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index 980d263..c17bccd 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -78,6 +78,13 @@ struct ra_msg {
+ 	__be32			retrans_timer;
+ };
+ 
++struct rd_msg {
++        struct icmp6hdr	icmph;
++        struct in6_addr	target;
++        struct in6_addr	dest;
++	__u8		opt[0];
++};
++
+ struct nd_opt_hdr {
+ 	__u8		nd_opt_type;
+ 	__u8		nd_opt_len;
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 2edce30..9afd23f 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1333,6 +1333,12 @@ out:
+ 
+ static void ndisc_redirect_rcv(struct sk_buff *skb)
+ {
++	u8 *hdr;
++	struct ndisc_options ndopts;
++	struct rd_msg *msg = (struct rd_msg *) skb_transport_header(skb);
++	u32 ndoptlen = skb->tail - (skb->transport_header +
++				    offsetof(struct rd_msg, opt));
++
+ #ifdef CONFIG_IPV6_NDISC_NODETYPE
+ 	switch (skb->ndisc_nodetype) {
+ 	case NDISC_NODETYPE_HOST:
+@@ -1349,6 +1355,20 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
+ 		return;
+ 	}
+ 
++	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts)) {
++		ND_PRINTK(2, warn, "Redirect: invalid ND options\n");
++		return;
++	}
++
++	if (!ndopts.nd_opts_rh)
++		return;
++
++	hdr = (u8 *) ndopts.nd_opts_rh;
++	hdr += 8;
++
++	if (!pskb_pull(skb, hdr - skb_transport_header(skb)))
++		return;
++
+ 	icmpv6_notify(skb, NDISC_REDIRECT, 0, 0);
+ }
+ 
 -- 
-Steve Glendinning
+1.7.9.5
