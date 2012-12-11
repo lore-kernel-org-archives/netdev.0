@@ -1,45 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: use netdev_alloc_frag()
-Date: Tue, 11 Dec 2012 12:51:03 -0500 (EST)
-Message-ID: <20121211.125103.1869709000760345113.davem@davemloft.net>
-References: <1355177766.27891.68.camel@edumazet-glaptop>
-	<504C9EFCA2D0054393414C9CB605C37F1BFC4273@SJEXCHMB06.corp.ad.broadcom.com>
+Subject: Re: [PATCH 2/2] net: remove obsolete simple_strto<foo>
+Date: Tue, 11 Dec 2012 12:51:23 -0500 (EST)
+Message-ID: <20121211.125123.1239332621724872493.davem@davemloft.net>
+References: <1355203852-12749-1-git-send-email-abhi.c.pawar@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, eilong@broadcom.com
-To: dmitry@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41042 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753735Ab2LKRvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 12:51:05 -0500
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F1BFC4273@SJEXCHMB06.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pablo@netfilter.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, linville@tuxdriver.com,
+	johannes@sipsolutions.net, amwang@redhat.com, edumazet@google.com,
+	nhorman@tuxdriver.com, joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-wireless@vger.kernel.org
+To: abhi.c.pawar@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1355203852-12749-1-git-send-email-abhi.c.pawar@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Mon, 10 Dec 2012 22:57:44 +0000
+From: Abhijit Pawar <abhi.c.pawar@gmail.com>
+Date: Tue, 11 Dec 2012 11:00:52 +0530
 
->> -----Original Message-----
->> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
->> Sent: Tuesday, December 11, 2012 12:16 AM
->> To: David Miller
->> Cc: netdev; Eilon Greenstein; Dmitry Kravkov
->> Subject: [PATCH net-next] bnx2x: use netdev_alloc_frag()
->> 
->> From: Eric Dumazet <edumazet@google.com>
->> 
->> Using netdev_alloc_frag() instead of kmalloc() permits better GRO or
->> TCP coalescing behavior, as skb_gro_receive() doesn't have to fallback
->> to frag_list overhead.
->> 
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->> Cc: Dmitry Kravkov <dmitry@broadcom.com>
->> Cc: Eilon Greenstein <eilong@broadcom.com>
+> This patch removes the redundant occurences of simple_strto<foo>
 > 
-> Thanks a lot, Eric!
-> 
-> Acked-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Abhijit Pawar <abhi.c.pawar@gmail.com>
 
 Applied.
