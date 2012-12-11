@@ -1,78 +1,47 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [net-next 6/7] bna: Firmware update
-Date: Tue, 11 Dec 2012 14:24:55 -0800
-Message-ID: <1355264696-8927-7-git-send-email-rmody@brocade.com>
-References: <1355264696-8927-1-git-send-email-rmody@brocade.com>
+From: Ani Sinha <ani@aristanetworks.com>
+Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
+Date: Tue, 11 Dec 2012 14:36:33 -0800 (PST)
+Message-ID: <alpine.OSX.2.00.1212111432430.78903@animac.local>
+References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com> <3246.1351717319@obiwan.sandelman.ca> <CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com> <87mwyi9h1x.fsf@xmission.com>
+Reply-To: ani@aristanetworks.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <bhutchings@solarflare.com>, <David.Laight@ACULAB.COM>,
-	<adapter_linux_open_src_team@brocade.com>,
-	Rasesh Mody <rmody@brocade.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
+	tcpdump-workers@lists.tcpdump.org,
+	Francesco Ruggeri <fruggeri@aristanetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:39543 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755051Ab2LKWZi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 17:25:38 -0500
-In-Reply-To: <1355264696-8927-1-git-send-email-rmody@brocade.com>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:62090 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754203Ab2LKWgp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 17:36:45 -0500
+Received: by mail-da0-f46.google.com with SMTP id p5so1878711dak.19
+        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 14:36:45 -0800 (PST)
+In-Reply-To: <87mwyi9h1x.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change Details:
- -      Added Stats clear counter to the bfi_enet_stats_mac structure and
-        ethtool stats
- -      Modified the firmware naming convention to contain the firmware image
-        version (3.1.0.0). The new convention is
-        <firmware-image>-<firmware-version>.bin The change will enforce loading
-        only compatible firmware with this driver and also avoid over-writing
-        the old firmware image in-order to load new version driver as the
-        firmware names used to be the same.
+>
+> It is possible to test for the presence of support of the new vlan bpf
+> extensions by attempting to load a filter that uses them.  As only valid
+> filters can be loaded, old kernels that do not support filtering of vlan
+> tags will fail to load the a test filter with uses them.
 
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/ethernet/brocade/bna/bfi_enet.h     |    1 +
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c |    1 +
- drivers/net/ethernet/brocade/bna/cna.h          |    4 ++--
- 3 files changed, 4 insertions(+), 2 deletions(-)
+Unfortunately I do not see this. The sk_chk_filter() does not have a
+default in the case statement and the check will not detect an unknown
+instruction. It will fail when the filter is run and as far as I can see,
+the packet will be dropped. Something like this might help?
 
-diff --git a/drivers/net/ethernet/brocade/bna/bfi_enet.h b/drivers/net/ethernet/brocade/bna/bfi_enet.h
-index eef6e1f..7d10e33 100644
---- a/drivers/net/ethernet/brocade/bna/bfi_enet.h
-+++ b/drivers/net/ethernet/brocade/bna/bfi_enet.h
-@@ -787,6 +787,7 @@ struct bfi_enet_stats_bpc {
- 
- /* MAC Rx Statistics */
- struct bfi_enet_stats_mac {
-+	u64 stats_clr_cnt;	/* times this stats cleared */
- 	u64 frame_64;		/* both rx and tx counter */
- 	u64 frame_65_127;		/* both rx and tx counter */
- 	u64 frame_128_255;		/* both rx and tx counter */
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-index 40e1e84..455b5a2 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-@@ -102,6 +102,7 @@ static const char *bnad_net_stats_strings[BNAD_ETHTOOL_STATS_NUM] = {
- 	"rx_unmap_q_alloc_failed",
- 	"rxbuf_alloc_failed",
- 
-+	"mac_stats_clr_cnt",
- 	"mac_frame_64",
- 	"mac_frame_65_127",
- 	"mac_frame_128_255",
-diff --git a/drivers/net/ethernet/brocade/bna/cna.h b/drivers/net/ethernet/brocade/bna/cna.h
-index 32e8f17..14ca931 100644
---- a/drivers/net/ethernet/brocade/bna/cna.h
-+++ b/drivers/net/ethernet/brocade/bna/cna.h
-@@ -37,8 +37,8 @@
- 
- extern char bfa_version[];
- 
--#define	CNA_FW_FILE_CT	"ctfw.bin"
--#define	CNA_FW_FILE_CT2	"ct2fw.bin"
-+#define CNA_FW_FILE_CT	"ctfw-3.1.0.0.bin"
-+#define CNA_FW_FILE_CT2	"ct2fw-3.1.0.0.bin"
- #define FC_SYMNAME_MAX	256	/*!< max name server symbolic name size */
- 
- #pragma pack(1)
--- 
-1.7.1
+diff --git a/net/core/filter.c b/net/core/filter.c
+index c23543c..96338aa 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -548,6 +548,8 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ 			return -EINVAL;
+ 		/* Some instructions need special checks */
+ 		switch (code) {
++		/* for unknown instruction, return EINVAL */
++		default : return -EINVAL;
+ 		case BPF_S_ALU_DIV_K:
+ 			/* check for division by zero */
+ 			if (ftest->k == 0)
