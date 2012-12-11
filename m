@@ -1,65 +1,45 @@
-From: Glauber Costa <glommer@parallels.com>
-Subject: Re: [PATCH RFC 0/5] Containerize syslog
-Date: Tue, 11 Dec 2012 12:25:20 +0400
-Message-ID: <50C6EDF0.5060108@parallels.com>
-References: <50A9EAD8.9090501@gmail.com> <874nklkjjm.fsf@xmission.com> <20121207010355.c809b3f7.akpm@linux-foundation.org> <20121207142331.GC4004@sergelap> <50C1FD9D.5020703@parallels.com> <87r4n1buuw.fsf@xmission.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH][RFC] smsc95xx: enable dynamic autosuspend (RFC)
+Date: Tue, 11 Dec 2012 11:27:50 +0100
+Message-ID: <1881907.JmjSTg2PBW@linux-lqwf.site>
+References: <1353607526-19307-6-git-send-email-steve.glendinning@shawell.net> <CAKh2mn5LgZBJDJWNzN8A3NK72Vk_fiUjJfmdn5njSrm400q36w@mail.gmail.com> <CACVXFVOBgwoSyUDzxD+ghjkpFu5PL7MuaS5UJOZYvVnV0dwhGg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Serge Hallyn <serge.hallyn@canonical.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rui Xiang <leo.ruixiang@gmail.com>, <netdev@vger.kernel.org>,
-	<containers@lists.linux-foundation.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Steve Glendinning <steve@shawell.net>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.parallels.com ([64.131.90.16]:49534 "EHLO mx2.parallels.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751539Ab2LKIZX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2012 03:25:23 -0500
-In-Reply-To: <87r4n1buuw.fsf@xmission.com>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:42928 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752883Ab2LKK10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 05:27:26 -0500
+In-Reply-To: <CACVXFVOBgwoSyUDzxD+ghjkpFu5PL7MuaS5UJOZYvVnV0dwhGg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/07/2012 10:05 PM, Eric W. Biederman wrote:
-> Glauber Costa <glommer@parallels.com> writes:
+On Tuesday 11 December 2012 10:24:57 Ming Lei wrote:
+> On Mon, Dec 10, 2012 at 10:18 PM, Steve Glendinning <steve@shawell.net> wrote:
+
+> > Thanks, so something like this should do the job?
 > 
->> I keep asking myself if it isn't the case of forwarding to a container
->> all messages printed in process context. That will obviously exclude all
->> messages resulting from kthreads - that will always be in the initial
->> namespace anyway, interrupts, etc. There is no harm, for instance, in
->> delivering the same message twice: one to the container, and the other
->> to the host system.
-> 
-> Except that there is harm in double printing.  One of the better
-> justifications for doing something with the kernel log is that it is
-> possible to overflow the kernel log with operations performed
-> exclusively in a container.
-> 
-I don't agree with you here.
+> This will do, but not simple as clearing .manage_power function
+> pointer in bind(), and still disable runtime suspend for link off case
+> since these devices which don't support suspend 3 can generate
+> remote wakeup for link change event.
 
-If we are double printing, we are using up more memory, but we also have
-an extra buffer anyway. The messages are print on behalf of the user,
-but still, by the kernel.
+So they can autosuspend if the interface is up and no cable is plugged
+in?
 
-So one of the following will necessarily hold:
+> I suggest to introduce link-off triggered runtime suspend for these
+> usbnet devices(non-LAN9500A device, devices which don't support
+> USB auto-suspend), and I have posted one patch set before[1].
+> If no one objects that, I'd like to post them again with some fix and
+> update for checking link after link_reset().
 
-1) There is no way that the process can overflow the main log, and as a
-consequence, the container log, that has less messages than it.
+If you can get rid of a periodic work this would be great.
 
-2) The process will overflow the main log. But since we are not printing
-anything extra to the main log compared to the scenario in which the
-process lives in the main namespace, this would already be a problem
-independent of namespaces. And needs to be fixed.
-
-IOW, double printing should not print anything *extra* to the main log.
-It just prints to the container log, and leaves a copy to the box admin
-to see. I think it is very reasonable to imagine that the main admin
-would like to see anything the kernel has to tell him about the box.
-
-> I do think the idea of process context printks going to the current
-> container one worth playing with.
-> 
-
-It still leaves the problem of prinkts outside process context that
-should go to a namespace open. But it is easy to extend this idea to do
-both.
+	Regards
+		Oliver
