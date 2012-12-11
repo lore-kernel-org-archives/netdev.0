@@ -1,15 +1,15 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 2/2] net/mlx4_en: Add support for destination MAC in steering rules
-Date: Tue, 11 Dec 2012 14:03:55 +0200
-Message-ID: <1355227436-18383-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 1/2] net: ethtool: Add destination MAC address to flow steering API
+Date: Tue, 11 Dec 2012 14:03:54 +0200
+Message-ID: <1355227436-18383-2-git-send-email-amirv@mellanox.com>
 References: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:49435 "HELO
-	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752584Ab2LKMIn (ORCPT
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:40175 "HELO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752610Ab2LKMIn (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 07:08:43 -0500
 In-Reply-To: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,70 +17,47 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Yan Burman <yanb@mellanox.com>
 
-Implement destination MAC rule extension for L3/L4 rules in
-flow steering. Usefull for vSwitch/macvlan configurations.
+Add ability to specify destination MAC address for L3/L4 flow spec
+in order to be able to specify action for different VM's under vSwitch
+configuration. This change is transparent to older userspace.
 
 Signed-off-by: Yan Burman <yanb@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 21 +++++++++++++++------
- 1 file changed, 15 insertions(+), 6 deletions(-)
+ include/uapi/linux/ethtool.h | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 4aaa7c3..87a87a7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -619,7 +619,13 @@ static int mlx4_en_validate_flow(struct net_device *dev,
- 	if (cmd->fs.location >= MAX_NUM_OF_FS_RULES)
- 		return -EINVAL;
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index d3eaaaf..be8c41e 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -500,13 +500,15 @@ union ethtool_flow_union {
+ 	struct ethtool_ah_espip4_spec		esp_ip4_spec;
+ 	struct ethtool_usrip4_spec		usr_ip4_spec;
+ 	struct ethhdr				ether_spec;
+-	__u8					hdata[60];
++	__u8					hdata[52];
+ };
  
--	switch (cmd->fs.flow_type & ~FLOW_EXT) {
-+	if (cmd->fs.flow_type & FLOW_MAC_EXT) {
-+		/* dest mac mask must be ff:ff:ff:ff:ff:ff */
-+		if (memcmp(cmd->fs.m_ext.h_dest, &full_mac, ETH_ALEN))
-+			return -EINVAL;
-+	}
-+
-+	switch (cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
- 	case TCP_V4_FLOW:
- 	case UDP_V4_FLOW:
- 		if (cmd->fs.m_u.tcp_ip4_spec.tos)
-@@ -747,7 +753,6 @@ static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
- 					     struct list_head *rule_list_h)
- {
- 	int err;
--	u64 mac;
- 	__be64 be_mac;
- 	struct ethhdr *eth_spec;
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-@@ -762,12 +767,16 @@ static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
- 	if (!spec_l2)
- 		return -ENOMEM;
+ struct ethtool_flow_ext {
+-	__be16	vlan_etype;
+-	__be16	vlan_tci;
+-	__be32	data[2];
++	__u8		padding[2];
++	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
++	__be16		vlan_etype;
++	__be16		vlan_tci;
++	__be32		data[2];
+ };
  
--	mac = priv->mac & MLX4_MAC_MASK;
--	be_mac = cpu_to_be64(mac << 16);
-+	if (cmd->fs.flow_type & FLOW_MAC_EXT) {
-+		memcpy(&be_mac, cmd->fs.h_ext.h_dest, ETH_ALEN);
-+	} else {
-+		u64 mac = priv->mac & MLX4_MAC_MASK;
-+		be_mac = cpu_to_be64(mac << 16);
-+	}
+ /**
+@@ -1027,6 +1029,7 @@ enum ethtool_sfeatures_retval_bits {
+ #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
+ /* Flag to enable additional fields in struct ethtool_rx_flow_spec */
+ #define	FLOW_EXT	0x80000000
++#define	FLOW_MAC_EXT	0x40000000
  
- 	spec_l2->id = MLX4_NET_TRANS_RULE_ID_ETH;
- 	memcpy(spec_l2->eth.dst_mac_msk, &mac_msk, ETH_ALEN);
--	if ((cmd->fs.flow_type & ~FLOW_EXT) != ETHER_FLOW)
-+	if ((cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) != ETHER_FLOW)
- 		memcpy(spec_l2->eth.dst_mac, &be_mac, ETH_ALEN);
- 
- 	if ((cmd->fs.flow_type & FLOW_EXT) && cmd->fs.m_ext.vlan_tci) {
-@@ -777,7 +786,7 @@ static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
- 
- 	list_add_tail(&spec_l2->list, rule_list_h);
- 
--	switch (cmd->fs.flow_type & ~FLOW_EXT) {
-+	switch (cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
- 	case ETHER_FLOW:
- 		eth_spec = &cmd->fs.h_u.ether_spec;
- 		memcpy(&spec_l2->eth.dst_mac, eth_spec->h_dest, ETH_ALEN);
+ /* L3-L4 network traffic flow hash options */
+ #define	RXH_L2DA	(1 << 1)
 -- 
 1.7.11.3
