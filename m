@@ -1,37 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 1/1] net: ethernet: davinci_cpdma: Add boundary for
- rx and tx descriptors
-Date: Tue, 11 Dec 2012 11:07:19 -0800
-Message-ID: <1355252839.27891.131.camel@edumazet-glaptop>
-References: <20121211.133058.2238010228178961245.davem@davemloft.net>
-	 <20121211.133426.484976995112519196.davem@davemloft.net>
-	 <1355252096.27891.130.camel@edumazet-glaptop>
-	 <20121211.135759.1010213285970148974.davem@davemloft.net>
+From: Andrew Collins <bsderandrew@gmail.com>
+Subject: Re: [PATCH 6/6] netfilter: nf_nat: Handle routing changes in
+ MASQUERADE target
+Date: Tue, 11 Dec 2012 12:43:38 -0700
+Message-ID: <CAKTPYJQn_vVg+f1Nvbe=hU7Xzw7mX6Xw7ZR4Tz2Bpd49792-rg@mail.gmail.com>
+References: <1354642293-4114-1-git-send-email-pablo@netfilter.org>
+	<1354642293-4114-7-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
-	s.hauer@pengutronix.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kadlec@blackhole.kfki.hu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:39408 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753868Ab2LKTHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 14:07:23 -0500
-In-Reply-To: <20121211.135759.1010213285970148974.davem@davemloft.net>
+Received: from mail-vb0-f46.google.com ([209.85.212.46]:39037 "EHLO
+	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754515Ab2LKTnj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 14:43:39 -0500
+In-Reply-To: <1354642293-4114-7-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-12-11 at 13:57 -0500, David Miller wrote:
-> From: Eric Dumazet <erdnetdev@gmail.com>
-> Date: Tue, 11 Dec 2012 10:54:56 -0800
-> 
-> > Suggested fix : add a TCQ_F_MQSLAVE flag to allow dequeue_skb() to test
-> > the netif_xmit_frozen_or_stopped() status _before_ dequeing packet from
-> > qdisc.
-> 
-> This sounds fine to me.
-> --
+On Tue, Dec 4, 2012 at 10:31 AM, <pablo@netfilter.org> wrote:
+>
+> From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+>
+> When the route changes (backup default route, VPNs) which affect a
+> masqueraded target, the packets were sent out with the outdated source
+> address. The patch addresses the issue by comparing the outgoing interface
+> directly with the masqueraded interface in the nat table.
+>
+> Events are inefficient in this case, because it'd require adding route
+> events to the network core and then scanning the whole conntrack table
+> and re-checking the route for all entry.
+>
+> Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-By the way we also could set this 'flag' for non multi queue devices.
+Jozsef, a small question about this change.  Should this same check
+not exist here:
+
+        case IP_CT_NEW:
+                /* Seen it before?  This can happen for loopback, retrans,
+                 * or local packets.
+                 */
+                if (!nf_nat_initialized(ct, maniptype)) {
+                        unsigned int ret;
+
+                        ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
+                        if (ret != NF_ACCEPT)
+                                return ret;
+-               } else
++               } else {
+                        pr_debug("Already setup manip %s for ct %p\n",
+                                 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
+                                 ct);
++                       if (nf_nat_oif_changed(hooknum, ctinfo, nat, out)) {
++                               nf_ct_kill_acct(ct, ctinfo, skb);
++                               return NF_DROP;
++                       }
++               }
+                break;
+
+as well?  It's *significantly* less common than the case you fixed,
+and perhaps just letting the state time out is acceptable, but I've
+seen TCP connections get stuck with the wrong source address if we
+haven't hit ESTABLISHED at the point when the routing change occurs
+(most reproducible on high latency links).
