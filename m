@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2012-12-11
-Date: Tue, 11 Dec 2012 18:27:44 -0500 (EST)
-Message-ID: <20121211.182744.814842224730479809.davem@davemloft.net>
-References: <20121211215546.GA3566@tuxdriver.com>
+Subject: Re: [net-next 0/7] bna: Driver Version Updated to 3.1.2.1
+Date: Tue, 11 Dec 2012 18:28:06 -0500 (EST)
+Message-ID: <20121211.182806.656343275742162093.davem@davemloft.net>
+References: <1355264696-8927-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
+	David.Laight@ACULAB.COM, adapter_linux_open_src_team@brocade.com
+To: rmody@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44038 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44044 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754283Ab2LKX1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 18:27:51 -0500
-In-Reply-To: <20121211215546.GA3566@tuxdriver.com>
+	with ESMTP id S1755144Ab2LKX2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 18:28:08 -0500
+In-Reply-To: <1355264696-8927-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 11 Dec 2012 16:55:46 -0500
+From: Rasesh Mody <rmody@brocade.com>
+Date: Tue, 11 Dec 2012 14:24:49 -0800
 
-> The following changes since commit 75be437230b06fca87908a787f70de0ce7fbab8c:
+> Hello Dave,
 > 
->   net: gro: avoid double copy in skb_gro_receive() (2012-12-11 13:44:09 -0500)
+>         Resubmitting the patch set with review feedback addressed.
 > 
-> are available in the git repository at:
+>         The following patch-set includes Tx Rx changes, bug fixes, firmware
+>         update, code cleanup and enhancements.
 > 
->   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next.git for-davem
+>         This also updates the BNA driver to v3.1.2.1.
+> 
+>         The patches have been compiled and tested against 3.7.0-rc3.
 
-Pulled, thanks John.
+Series applied, thanks.
