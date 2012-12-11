@@ -1,111 +1,41 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCHv6] virtio-spec: virtio network device multiqueue support
-Date: Mon, 10 Dec 2012 13:54:36 +0800
-Message-ID: <25100637.sFX29GsU00@jason-thinkpad-t430s>
-References: <20121207141856.GA17901@redhat.com>
+From: Abhijit Pawar <abhi.c.pawar@gmail.com>
+Subject: Re: [PATCH RESEND] net: remove obsolete simple_strto<foo>
+Date: Tue, 11 Dec 2012 09:03:41 +0530
+Message-ID: <50C6A995.1020908@gmail.com>
+References: <1355130748-7828-1-git-send-email-abhi.c.pawar@gmail.com> <20121210.141002.450030380391247897.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121207141856.GA17901@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: abhi.c.pawar@gmail.com, pablo@netfilter.org, kaber@trash.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	linville@tuxdriver.com, johannes@sipsolutions.net,
+	amwang@redhat.com, edumazet@google.com, nhorman@tuxdriver.com,
+	joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121210.141002.450030380391247897.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, December 07, 2012 04:18:56 PM Michael S. Tsirkin wrote:
-> Add multiqueue support to virtio network device.
-> Add a new feature flag VIRTIO_NET_F_MQ for this feature, a new
-> configuration field max_virtqueue_pairs to detect supported number of
-> virtqueues as well as a new command VIRTIO_NET_CTRL_MQ to program
-> packet steering for unidirectional protocols.
+On 12/11/2012 12:40 AM, David Miller wrote:
+> From: Abhijit Pawar <abhi.c.pawar@gmail.com>
+> Date: Mon, 10 Dec 2012 14:42:28 +0530
 > 
-> ---
+>> This patch replace the obsolete simple_strto<foo> with kstrto<foo>
+>>
+>> Signed-off-by: Abhijit Pawar <abhi.c.pawar@gmail.com>
 > 
-> Changes in v6:
-> - rename RFS -> multiqueue to avoid confusion with RFS in linux
->   mention automatic receive steering as Rusty suggested
+> Applied.
 > 
-> Changes in v5:
-> - Address Rusty's comments.
->   Changes are only in the text, not the ideas.
-> - Some minor formatting changes.
-> 
-> Changes in v4:
-> - address Jason's comments
-> - have configuration specify the number of VQ pairs and not pairs - 1
-> 
-> Changes in v3:
-> - rename multiqueue -> rfs this is what we support
-> - Be more explicit about what driver should do.
-> - Simplify layout making VQs functionality depend on feature.
-> - Remove unused commands, only leave in programming # of queues
-> 
-> Changes in v2:
-> Address Jason's comments on v2:
-> - Changed STEERING_HOST to STEERING_RX_FOLLOWS_TX:
->    this is both clearer and easier to support.
->    It does not look like we need a separate steering command
->    since host can just watch tx packets as they go.
-> - Moved RX and TX steering sections near each other.
-> - Add motivation for other changes in v2
-> 
-> Changes in v1 (from Jason's rfc):
-> - reserved vq 3: this makes all rx vqs even and tx vqs odd, which
->    looks nicer to me.
-> - documented packet steering, added a generalized steering programming
->    command. Current modes are single queue and host driven multiqueue,
->    but I envision support for guest driven multiqueue in the future.
-> - make default vqs unused when in mq mode - this wastes some memory
->    but makes it more efficient to switch between modes as
->    we can avoid this causing packet reordering.
-> 
-> Rusty, could you please take a look and comment soon?
-> If this looks OK to everyone, we can proceed with finalizing the
-> implementation. Would be nice to try and put it in 3.8.
-> 
-> diff --git a/virtio-spec.lyx b/virtio-spec.lyx
-> index 83f2771..c5b32c4 100644
-> --- a/virtio-spec.lyx
-> +++ b/virtio-spec.lyx
-> @@ -59,6 +59,7 @@
->  \author -608949062 "Rusty Russell,,,"
->  \author -385801441 "Cornelia Huck" cornelia.huck@de.ibm.com
->  \author 1531152142 "Paolo Bonzini,,,"
-> +\author 1986246365 "Michael S. Tsirkin"
->  \end_header
-[...]
-> +
-> +\begin_layout Plain Layout
-> +
-> +\change_inserted 1986246365 1353594263
-> +
-> +#define VIRTIO_NET_CTRL_MQ    1
+Hi David,
+It seems that there are occurences of simple_strto* still present in the
+couple of files which are not yet removed correctly by this patch. I
+will send a modified patch shortly. Please revert this commit and use
+the newly sent patch to merge with the tree.
 
-Should be 4 here.
-> +\end_layout
-> +
-> +\begin_layout Plain Layout
-> +
-> +\change_inserted 1986246365 1353594273
-> +
-> + #define VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET        0
-> +\end_layout
-> +
-> +\begin_layout Plain Layout
-> +
-> +\change_inserted 1986246365 1353594273
-> +
-> + #define VIRTIO_NET_CTRL_MQ_VQ_PAIRS_MIN        1
-> +\end_layout
-> +
-[...]
+-- 
+-
+Abhijit
