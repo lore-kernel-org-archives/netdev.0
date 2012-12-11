@@ -1,89 +1,101 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH v4 1/5] net: Add support for hardware-offloaded encapsulation
-Date: Tue, 11 Dec 2012 08:46:42 -0800
-Message-ID: <50C76372.7070403@intel.com>
-References: <1354925658-24115-1-git-send-email-joseph.gasparakis@intel.com> <1354925658-24115-2-git-send-email-joseph.gasparakis@intel.com> <CAMAG_ee6xW4EnzPFt=_5+NL2+LuyUjxd52Xc242inYm2+Yhg7g@mail.gmail.com> <504C9EFCA2D0054393414C9CB605C37F1BFC3555@SJEXCHMB06.corp.ad.broadcom.com> <CAMAG_efu-skGsJiTDR5gQ09kJ1Y7OtJ3P-ii1QEX6ZpyUm-d4Q@mail.gmail.com>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: netconsole fun
+Date: Tue, 11 Dec 2012 12:17:52 -0500
+Message-ID: <1355246272.2694.27.camel@thor>
+References: <1355149033.3142.14.camel@thor> <ka6e4e$6k5$1@ger.gmane.org>
+	 <1355235592.2694.5.camel@thor>
+	 <20121211143004.GA7481@neilslaptop.think-freely.org>
+	 <1355239011.2694.24.camel@thor>
+	 <20121211164526.GB7481@neilslaptop.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Kravkov <dmitry@broadcom.com>,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"chrisw@sous-sol.org" <chrisw@sous-sol.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: saeed bishara <saeed.bishara@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMAG_efu-skGsJiTDR5gQ09kJ1Y7OtJ3P-ii1QEX6ZpyUm-d4Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout39.mail01.mtsvc.net ([216.70.64.83]:51249 "EHLO
+	n12.mail01.mtsvc.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753728Ab2LKRSD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 12:18:03 -0500
+In-Reply-To: <20121211164526.GB7481@neilslaptop.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/11/2012 12:11 AM, saeed bishara wrote:
-> On Mon, Dec 10, 2012 at 9:58 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
->>> -----Original Message-----
->>> From: saeed bishara [mailto:saeed.bishara@gmail.com]
->>> Sent: Monday, December 10, 2012 12:04 PM
->>> To: Joseph Gasparakis
->>> Cc: davem@davemloft.net; shemminger@vyatta.com; chrisw@sous-sol.org;
->>> gospo@redhat.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
->>> Dmitry Kravkov; bhutchings@solarflare.com; Peter P Waskiewicz Jr; Alexander
->>> Duyck
->>> Subject: Re: [PATCH v4 1/5] net: Add support for hardware-offloaded
->>> encapsulation
->>>
->>>> +static inline struct iphdr *inner_ip_hdr(const struct sk_buff *skb)
->>>> +{
->>>> +       return (struct iphdr *)skb_inner_network_header(skb);
->>>> +}
->>>
->>> Hi,
->>> I'm a little bit bothered because of those inner_ functions, what
->>> about the following approach:
->>> 1. the skb will have a new state, that state can be outer (normal
->>> mode) and inner.
->>> 2. when you change the state to inner, all the helper functions such
->>> as ip_hdr will return the innter header.
->>>
->>> that's ofcourse the API side. the implementation may still use the
->>> fields you added to the skb.
->>>
->>> what you think?
->>> saeed
->>
->> Some drivers will probably need both inner_ and other_ in same flow, switching between two states will consume cpu cycles.
-> from performance perspective, I'm not sure the switching is worse, it
-> may be better as it reduces code size. please have a look at patch
-> 2/5, with switching you can avoid doing the following change -> less
-> code, less if-else.
-> -                               skb_set_transport_header(skb,
-> -                                       skb_checksum_start_offset(skb));
-> +                               if (skb->encapsulation)
-> +                                       skb_set_inner_transport_header(skb,
-> +                                               skb_checksum_start_offset(skb));
-> +                               else
-> +                                       skb_set_transport_header(skb,
-> +                                               skb_checksum_start_offset(skb));
->                                 if (!(features & NETIF_F_ALL_CSUM) &&
+On Tue, 2012-12-11 at 11:45 -0500, Neil Horman wrote:
+> On Tue, Dec 11, 2012 at 10:16:51AM -0500, Peter Hurley wrote:
+> > On Tue, 2012-12-11 at 09:30 -0500, Neil Horman wrote:
+> > > On Tue, Dec 11, 2012 at 09:19:52AM -0500, Peter Hurley wrote:
+> > > > On Tue, 2012-12-11 at 04:51 +0000, Cong Wang wrote:
+> > > > > On Mon, 10 Dec 2012 at 14:17 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
+> > > > > > Now that netpoll has been disabled for slaved devices, is there a
+> > > > > > recommended method of running netconsole on a machine that has a slaved
+> > > > > > device?
+> > > > > >
+> > > > > 
+> > > > > Yes, running it on the master device instead.
+> > > > 
+> > > > Thanks for the suggestion, but:
+> > > > 
+> > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.10.99/br0,30000@192.168.10.100/xx:xx:xx:xx:xx:xx
+> > > > ...
+> > > > [ 5.289869] netpoll: netconsole: local port 6665
+> > > > [ 5.289885] netpoll: netconsole: local IP 192.168.10.99
+> > > > [ 5.289892] netpoll: netconsole: interface 'br0'
+> > > > [ 5.289898] netpoll: netconsole: remote port 30000
+> > > > [ 5.289907] netpoll: netconsole: remote IP 192.168.10.100
+> > > > [ 5.289914] netpoll: netconsole: remote ethernet address xx:xx:xx:xx:xx:xx
+> > > > [ 5.289922] netpoll: netconsole: br0 doesn't exist, aborting
+> > > > [ 5.289929] netconsole: cleaning up
+> > > > ...
+> > > > [ 9.392291] Bridge firewalling registered
+> > > > [ 9.396805] device eth1 entered promiscuous mode
+> > > > [ 9.418350] eth1:  setting full-duplex.
+> > > > [ 9.421268] br0: port 1(eth1) entered forwarding state
+> > > > [ 9.423354] br0: port 1(eth1) entered forwarding state
+> > > > 
+> > > > 
+> > > > Is there a way to control or associate network device names prior to
+> > > > udev renaming?
+> > > > 
+> > > That looks like a systemd problem (or more specifically a boot dependency
+> > > problem).  You need to modify your netconsole unit/service file to start after
+> > > all your networking is up.  NetworkManager provides a dummy service file for
+> > > this purpose, called networkmanager-wait-online.service
+> > 
+> > Ok. So with a single physical network interface that will be bridged,
+> > netconsole cannot used for kernel boot messages.
+> > 
+> > With a machine with multiple nics, is there a way to control device
+> > naming so that the interface name to be used by netconsole specified on
+> > the boot command line will actually corresponding to the intended
+> > device. For example,
+> > 
+> > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.1.123/eth0,30000@192.168.1.139/xx:xx:xx:xx:xx:xx
+> > ....
+> > [ 4.092184] 3c59x: Donald Becker and others.
+> > [ 4.092204] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000186cf80.
+> > [ 4.094035] tg3.c:v3.125 (September 26, 2012)
+> > ....
+> > [ 4.125038] tg3 0000:08:00.0 eth1: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
+> > [ 4.125055] tg3 0000:08:00.0 eth1: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> > [ 4.125062] tg3 0000:08:00.0 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> > [ 4.125068] tg3 0000:08:00.0 eth1: dma_rwctrl[76180000] dma_mask[64-bit]
+> > 
+> > This is attaching netconsole to the wrong device because bus
+> > enumeration, and therefore load order, is not consistent from boot to
+> > boot.
+> > 
+> No, theres no way to do that.  As you note device ennumeration isn't consistent
+> accross boots, thats why udev creates rules to rename devices based on immutable
+> (or semi-immutable) data, like mac addresses, or pci bus locations).  Once that
+> happens, you'll have consistent names for your interfaces, and that work will be
+> guaranteed to be done after networkmanager has finished opening all the
+> interfaces that it needs (hence my suggestion to make netconsole service
+> dependent on networkmanager service startup completing).
 > 
-> I think also that from (stack) maintenance perspective, less code is better.
+> Neil
 
-I don't think your argument is making much sense.  With the approach we
-took the switching only needs to take place in the offloaded path.  If
-we were to put the switching in place generically we would end up with
-the code scattered all throughout the stack.  In addition we will need
-both the inner and outer headers to be captured in the case of an
-encapsulated offload because the stack will need access to the outer
-headers for routing.
+Thanks for all your help here, Neil. Very much appreciated.
 
-My advice is if you have an idea then please just code it up, test it,
-and submit a patch so that we can see what you are talking about.  My
-concern is that you are suggesting we come up with a generic network and
-transport offset that I don't believe has been completely thought through.
-
-Thanks,
-
-Alex
+Happy Holidays,
+Peter Hurley
