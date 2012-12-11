@@ -1,68 +1,31 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next 1/2] net: ethtool: Add destination MAC address
- to flow steering API
-Date: Tue, 11 Dec 2012 09:37:50 -0800
-Message-ID: <50C76F6E.2010600@intel.com>
-References: <1355227436-18383-1-git-send-email-amirv@mellanox.com> <1355227436-18383-2-git-send-email-amirv@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] iproute2: ss - change default filter to include all
+ socket types
+Date: Tue, 11 Dec 2012 12:45:13 -0500 (EST)
+Message-ID: <20121211.124513.1852652348476771399.davem@davemloft.net>
+References: <1355244172-32071-1-git-send-email-contyk@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yan Burman <yanb@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: contyk@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:64300 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753261Ab2LKRhw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2012 12:37:52 -0500
-In-Reply-To: <1355227436-18383-2-git-send-email-amirv@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41001 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753508Ab2LKRpO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 12:45:14 -0500
+In-Reply-To: <1355244172-32071-1-git-send-email-contyk@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/11/2012 04:03 AM, Amir Vadai wrote:
-> From: Yan Burman <yanb@mellanox.com>
-> 
-> Add ability to specify destination MAC address for L3/L4 flow spec
-> in order to be able to specify action for different VM's under vSwitch
-> configuration. This change is transparent to older userspace.
-> 
-> Signed-off-by: Yan Burman <yanb@mellanox.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> ---
->  include/uapi/linux/ethtool.h | 11 +++++++----
->  1 file changed, 7 insertions(+), 4 deletions(-)
-> 
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index d3eaaaf..be8c41e 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -500,13 +500,15 @@ union ethtool_flow_union {
->  	struct ethtool_ah_espip4_spec		esp_ip4_spec;
->  	struct ethtool_usrip4_spec		usr_ip4_spec;
->  	struct ethhdr				ether_spec;
-> -	__u8					hdata[60];
-> +	__u8					hdata[52];
->  };
->  
->  struct ethtool_flow_ext {
-> -	__be16	vlan_etype;
-> -	__be16	vlan_tci;
-> -	__be32	data[2];
-> +	__u8		padding[2];
-> +	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
-> +	__be16		vlan_etype;
-> +	__be16		vlan_tci;
-> +	__be32		data[2];
->  };
->  
+=46rom: Petr =A6abata <contyk@redhat.com>
+Date: Tue, 11 Dec 2012 17:42:52 +0100
 
-Is there any special reason why you need to change the size of this
-structure?  It seems like you could probably just replace the data
-section with a union containing either 8 bytes of user specified data or
-your MAC address data.  Then we wouldn't need all of the changes to the
-rest of the flow specifier.
+> Currently the default filter lists TCP sockets only which is
+> rather confusing especially when the '-a/--all' flag is used.
+> This patch changes the default to include all sockets, imitating
+> netstat(8) behavior.
+>=20
+> Signed-off-by: Petr =A6abata <contyk@redhat.com>
 
-Thanks,
-
-Alex
+Acked-by: David S. Miller <davem@davemloft.net>
