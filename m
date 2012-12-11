@@ -1,66 +1,39 @@
-From: Andrew Collins <bsderandrew@gmail.com>
-Subject: Re: [PATCH 6/6] netfilter: nf_nat: Handle routing changes in
- MASQUERADE target
-Date: Tue, 11 Dec 2012 12:43:38 -0700
-Message-ID: <CAKTPYJQn_vVg+f1Nvbe=hU7Xzw7mX6Xw7ZR4Tz2Bpd49792-rg@mail.gmail.com>
-References: <1354642293-4114-1-git-send-email-pablo@netfilter.org>
-	<1354642293-4114-7-git-send-email-pablo@netfilter.org>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next 1/2] net: ethtool: Add destination MAC address to
+ flow steering API
+Date: Tue, 11 Dec 2012 21:55:22 +0200
+Message-ID: <CAJZOPZJfqdrxKp8ZPTXs_-07XSdPoKu+bNQNZzkeTRgP-R2XnQ@mail.gmail.com>
+References: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
+	<1355227436-18383-2-git-send-email-amirv@mellanox.com>
+	<50C76F6E.2010600@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kadlec@blackhole.kfki.hu
+Cc: Amir Vadai <amirv@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:39037 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754515Ab2LKTnj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 14:43:39 -0500
-In-Reply-To: <1354642293-4114-7-git-send-email-pablo@netfilter.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:63978 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753226Ab2LKUCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 15:02:43 -0500
+Received: by mail-ie0-f171.google.com with SMTP id 17so16785617iea.16
+        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 12:02:43 -0800 (PST)
+In-Reply-To: <50C76F6E.2010600@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 4, 2012 at 10:31 AM, <pablo@netfilter.org> wrote:
+On Tue, Dec 11, 2012 at 7:37 PM, Alexander Duyck
+<alexander.h.duyck@intel.com> wrote:
 >
-> From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
->
-> When the route changes (backup default route, VPNs) which affect a
-> masqueraded target, the packets were sent out with the outdated source
-> address. The patch addresses the issue by comparing the outgoing interface
-> directly with the masqueraded interface in the nat table.
->
-> Events are inefficient in this case, because it'd require adding route
-> events to the network core and then scanning the whole conntrack table
-> and re-checking the route for all entry.
->
-> Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Is there any special reason why you need to change the size of this
+> structure?  It seems like you could probably just replace the data
+> section with a union containing either 8 bytes of user specified data or
+> your MAC address data.  Then we wouldn't need all of the changes to the
+> rest of the flow specifier.
 
-Jozsef, a small question about this change.  Should this same check
-not exist here:
 
-        case IP_CT_NEW:
-                /* Seen it before?  This can happen for loopback, retrans,
-                 * or local packets.
-                 */
-                if (!nf_nat_initialized(ct, maniptype)) {
-                        unsigned int ret;
-
-                        ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
-                        if (ret != NF_ACCEPT)
-                                return ret;
--               } else
-+               } else {
-                        pr_debug("Already setup manip %s for ct %p\n",
-                                 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
-                                 ct);
-+                       if (nf_nat_oif_changed(hooknum, ctinfo, nat, out)) {
-+                               nf_ct_kill_acct(ct, ctinfo, skb);
-+                               return NF_DROP;
-+                       }
-+               }
-                break;
-
-as well?  It's *significantly* less common than the case you fixed,
-and perhaps just letting the state time out is acceptable, but I've
-seen TCP connections get stuck with the wrong source address if we
-haven't hit ESTABLISHED at the point when the routing change occurs
-(most reproducible on high latency links).
+basically, we followed Ben's suggestions made here
+http://marc.info/?t=134977576500003
