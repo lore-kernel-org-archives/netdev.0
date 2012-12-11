@@ -1,63 +1,37 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
-Date: Tue, 11 Dec 2012 15:12:31 -0800
-Message-ID: <20121211151231.0272015b@nehalam.linuxnetplumber.net>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	<3246.1351717319@obiwan.sandelman.ca>
-	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	<87mwyi9h1x.fsf@xmission.com>
-	<alpine.OSX.2.00.1212111432430.78903@animac.local>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: linux-next: some merging notes
+Date: Wed, 12 Dec 2012 10:19:19 +1100
+Message-ID: <1355267959.19932.40.camel@pasglop>
+References: <20121212091552.02c72c8926f9f9147b080d68@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
-	tcpdump-workers@lists.tcpdump.org,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>
-To: ani@aristanetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52534 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754006Ab2LKXSB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2012 18:18:01 -0500
-In-Reply-To: <alpine.OSX.2.00.1212111432430.78903@animac.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus <torvalds@linux-foundation.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Paul Mackerras <paulus@samba.org>,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	Greg KH <greg@kroah.com>, Steven Rostedt <srostedt@redhat.com>,
+	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+	linux-arm-kernel@lists.infradead.org,
+	Tomi Valkeinen <tomi.valkeinen@ti.com>,
+	"N, Mugunthan V" <mugunthanvnm@ti.com>,
+	Nathan Fontenot <nfont@linux.vnet.ibm.com>,
+	Bill Pemberton <wfp5p@virginia.edu>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20121212091552.02c72c8926f9f9147b080d68@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Dec 2012 14:36:33 -0800 (PST)
-Ani Sinha <ani@aristanetworks.com> wrote:
+On Wed, 2012-12-12 at 09:15 +1100, Stephen Rothwell wrote:
+> The powerpc tree
+> (git://git.kernel.org/pub/scm/linux/kernel/git/benh/powerpc.git#next)
+> contains a commit that breaks the building of
+> lib/pSeries-reconfig-notifier-error-inject.c.  I applied a patch to
+> linux-next to disable CONFIG_PSERIES_RECONFIG_NOTIFIER_ERROR_INJECT.
 
-> >
-> > It is possible to test for the presence of support of the new vlan bpf
-> > extensions by attempting to load a filter that uses them.  As only valid
-> > filters can be loaded, old kernels that do not support filtering of vlan
-> > tags will fail to load the a test filter with uses them.
-> 
-> Unfortunately I do not see this. The sk_chk_filter() does not have a
-> default in the case statement and the check will not detect an unknown
-> instruction. It will fail when the filter is run and as far as I can see,
-> the packet will be dropped. Something like this might help?
-> 
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index c23543c..96338aa 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -548,6 +548,8 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
->  			return -EINVAL;
->  		/* Some instructions need special checks */
->  		switch (code) {
-> +		/* for unknown instruction, return EINVAL */
-> +		default : return -EINVAL;
->  		case BPF_S_ALU_DIV_K:
->  			/* check for division by zero */
->  			if (ftest->k == 0)
+I will put a fix in before I send the pull request.
 
-Did you test this? I think it will blow up for some existing instructions
-like BPF_S_ALU_XOR_X or any of the other non-special instructions.
-
-Also it is not formatted correctly for the kernel programming style.
-
-ERROR: space prohibited before that ':' (ctx:WxW)
-#86: FILE: net/core/filter.c:552:
-+		default : return -EINVAL;
- 		        ^
+Cheers,
+Ben.
