@@ -1,234 +1,234 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH ETHTOOL] Added dst-mac parameter for L3/L4 flow spec rules. This is usefull in vSwitch configurations.
-Date: Tue, 11 Dec 2012 14:03:56 +0200
-Message-ID: <1355227436-18383-4-git-send-email-amirv@mellanox.com>
-References: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next rfc 2/2] tuntap: allow unpriveledge user to
+ enable and disable queues
+Date: Tue, 11 Dec 2012 14:30:12 +0200
+Message-ID: <20121211123012.GB15435@redhat.com>
+References: <1355223827-57290-1-git-send-email-jasowang@redhat.com>
+ <1355223827-57290-3-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: pmoore@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mprivozn@redhat.com
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:57153 "HELO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752726Ab2LKMIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 07:08:43 -0500
-In-Reply-To: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1702 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752499Ab2LKM1C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2012 07:27:02 -0500
+Content-Disposition: inline
+In-Reply-To: <1355223827-57290-3-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yan Burman <yanb@mellanox.com>
+On Tue, Dec 11, 2012 at 07:03:47PM +0800, Jason Wang wrote:
+> Currently, when a file is attached to tuntap through TUNSETQUEUE, the uid/gid
+> and CAP_NET_ADMIN were checked, and we use this ioctl to create and destroy
+> queues. Sometimes, userspace such as qemu need to the ability to enable and
+> disable a specific queue without priveledge since guest operating system may
+> change the number of queues it want use.
+> 
+> To support this kind of ability, this patch introduce a flag enabled which is
+> used to track whether the queue is enabled by userspace. And also restrict that
+> only one deivce could be used for a queue to attach. With this patch, the DAC
+> checking when adding queues through IFF_ATTACH_QUEUE is still done and after
+> this, IFF_DETACH_QUEUE/IFF_ATTACH_QUEUE  could be used to disable/enable this
+> queue.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/tun.c |   81 +++++++++++++++++++++++++++++++++++++++++++++++-----
+>  1 files changed, 73 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index d593f56..43831a7 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -138,6 +138,7 @@ struct tun_file {
+>  	/* only used for fasnyc */
+>  	unsigned int flags;
+>  	u16 queue_index;
+> +	bool enabled;
+>  };
+>  
+>  struct tun_flow_entry {
+> @@ -345,9 +346,11 @@ unlock:
+>  static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
+>  {
+>  	struct tun_struct *tun = netdev_priv(dev);
+> +	struct tun_file *tfile;
+>  	struct tun_flow_entry *e;
+>  	u32 txq = 0;
+>  	u32 numqueues = 0;
+> +	int i;
+>  
+>  	rcu_read_lock();
+>  	numqueues = tun->numqueues;
+> @@ -366,6 +369,19 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
+>  			txq -= numqueues;
+>  	}
+>  
+> +	tfile = rcu_dereference(tun->tfiles[txq]);
+> +	if (unlikely(!tfile->enabled))
 
-Signed-off-by: Yan Burman <yanb@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- ethtool-copy.h | 11 +++++++----
- ethtool.8.in   |  6 ++++++
- ethtool.c      |  5 +++++
- rxclass.c      | 62 ++++++++++++++++++++++++++++++++++++++++------------------
- 4 files changed, 61 insertions(+), 23 deletions(-)
+This unlikely tag is suspicious. It should be perfectly
+legal to use less queues than created.
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index 4801eef..d352f20 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
-@@ -500,13 +500,15 @@ union ethtool_flow_union {
- 	struct ethtool_ah_espip4_spec		esp_ip4_spec;
- 	struct ethtool_usrip4_spec		usr_ip4_spec;
- 	struct ethhdr				ether_spec;
--	__u8					hdata[60];
-+	__u8					hdata[52];
- };
- 
- struct ethtool_flow_ext {
--	__be16	vlan_etype;
--	__be16	vlan_tci;
--	__be32	data[2];
-+	__u8		padding[2];
-+	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
-+	__be16		vlan_etype;
-+	__be16		vlan_tci;
-+	__be32		data[2];
- };
- 
- /**
-@@ -1027,6 +1029,7 @@ enum ethtool_sfeatures_retval_bits {
- #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
- /* Flag to enable additional fields in struct ethtool_rx_flow_spec */
- #define	FLOW_EXT	0x80000000
-+#define	FLOW_MAC_EXT	0x40000000
- 
- /* L3-L4 network traffic flow hash options */
- #define	RXH_L2DA	(1 << 1)
-diff --git a/ethtool.8.in b/ethtool.8.in
-index e701919..a52e484 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -268,6 +268,7 @@ ethtool \- query or control network driver and hardware settings
- .BM vlan\-etype
- .BM vlan
- .BM user\-def
-+.RB [ dst-mac \ \*(MA\ [ m \ \*(MA]]
- .BN action
- .BN loc
- .RB |
-@@ -739,6 +740,11 @@ Includes the VLAN tag and an optional mask.
- .BI user\-def \ N \\fR\ [\\fPm \ N \\fR]\\fP
- Includes 64-bits of user-specific data and an optional mask.
- .TP
-+.BR dst-mac \ \*(MA\ [ m \ \*(MA]
-+Includes the destination MAC address, specified as 6 bytes in hexadecimal
-+separated by colons, along with an optional mask.
-+Valid for all IPv4 based flow-types.
-+.TP
- .BI action \ N
- Specifies the Rx queue to send packets to, or some other action.
- .TS
-diff --git a/ethtool.c b/ethtool.c
-index 345c21c..55bc082 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -3231,6 +3231,10 @@ static int flow_spec_to_ntuple(struct ethtool_rx_flow_spec *fsp,
- 	if (fsp->location != RX_CLS_LOC_ANY)
- 		return -1;
- 
-+	/* destination MAC address in L3/L4 rules is not supported by ntuple */
-+	if (fsp->flow_type & FLOW_MAC_EXT)
-+		return -1;
-+
- 	/* verify ring cookie can transfer to action */
- 	if (fsp->ring_cookie > INT_MAX && fsp->ring_cookie < (u64)(-2))
- 		return -1;
-@@ -3814,6 +3818,7 @@ static const struct option {
- 	  "			[ vlan-etype %x [m %x] ]\n"
- 	  "			[ vlan %x [m %x] ]\n"
- 	  "			[ user-def %x [m %x] ]\n"
-+	  "			[ dst-mac %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]\n"
- 	  "			[ action %d ]\n"
- 	  "			[ loc %d]] |\n"
- 	  "		delete %d\n" },
-diff --git a/rxclass.c b/rxclass.c
-index e1633a8..1564b62 100644
---- a/rxclass.c
-+++ b/rxclass.c
-@@ -41,26 +41,38 @@ static void rxclass_print_ipv4_rule(__be32 sip, __be32 sipm, __be32 dip,
- 
- static void rxclass_print_nfc_spec_ext(struct ethtool_rx_flow_spec *fsp)
- {
--	u64 data, datam;
--	__u16 etype, etypem, tci, tcim;
-+	if (fsp->flow_type & FLOW_EXT) {
-+		u64 data, datam;
-+		__u16 etype, etypem, tci, tcim;
-+		etype = ntohs(fsp->h_ext.vlan_etype);
-+		etypem = ntohs(~fsp->m_ext.vlan_etype);
-+		tci = ntohs(fsp->h_ext.vlan_tci);
-+		tcim = ntohs(~fsp->m_ext.vlan_tci);
-+		data = (u64)ntohl(fsp->h_ext.data[0]) << 32;
-+		data = (u64)ntohl(fsp->h_ext.data[1]);
-+		datam = (u64)ntohl(~fsp->m_ext.data[0]) << 32;
-+		datam |= (u64)ntohl(~fsp->m_ext.data[1]);
- 
--	if (!(fsp->flow_type & FLOW_EXT))
--		return;
-+		fprintf(stdout,
-+			"\tVLAN EtherType: 0x%x mask: 0x%x\n"
-+			"\tVLAN: 0x%x mask: 0x%x\n"
-+			"\tUser-defined: 0x%llx mask: 0x%llx\n",
-+			etype, etypem, tci, tcim, data, datam);
-+	}
- 
--	etype = ntohs(fsp->h_ext.vlan_etype);
--	etypem = ntohs(~fsp->m_ext.vlan_etype);
--	tci = ntohs(fsp->h_ext.vlan_tci);
--	tcim = ntohs(~fsp->m_ext.vlan_tci);
--	data = (u64)ntohl(fsp->h_ext.data[0]) << 32;
--	data = (u64)ntohl(fsp->h_ext.data[1]);
--	datam = (u64)ntohl(~fsp->m_ext.data[0]) << 32;
--	datam |= (u64)ntohl(~fsp->m_ext.data[1]);
-+	if (fsp->flow_type & FLOW_MAC_EXT) {
-+		unsigned char *dmac, *dmacm;
- 
--	fprintf(stdout,
--		"\tVLAN EtherType: 0x%x mask: 0x%x\n"
--		"\tVLAN: 0x%x mask: 0x%x\n"
--		"\tUser-defined: 0x%llx mask: 0x%llx\n",
--		etype, etypem, tci, tcim, data, datam);
-+		dmac = fsp->h_ext.h_dest;
-+		dmacm = fsp->m_ext.h_dest;
-+
-+		fprintf(stdout,
-+			"\tDest MAC addr: %02X:%02X:%02X:%02X:%02X:%02X"
-+			" mask: %02X:%02X:%02X:%02X:%02X:%02X\n",
-+			dmac[0], dmac[1], dmac[2], dmac[3], dmac[4],
-+			dmac[5], dmacm[0], dmacm[1], dmacm[2], dmacm[3],
-+			dmacm[4], dmacm[5]);
-+	}
- }
- 
- static void rxclass_print_nfc_rule(struct ethtool_rx_flow_spec *fsp)
-@@ -70,7 +82,7 @@ static void rxclass_print_nfc_rule(struct ethtool_rx_flow_spec *fsp)
- 
- 	fprintf(stdout,	"Filter: %d\n", fsp->location);
- 
--	flow_type = fsp->flow_type & ~FLOW_EXT;
-+	flow_type = fsp->flow_type & ~(FLOW_EXT | FLOW_MAC_EXT);
- 
- 	invert_flow_mask(fsp);
- 
-@@ -172,7 +184,7 @@ static void rxclass_print_nfc_rule(struct ethtool_rx_flow_spec *fsp)
- static void rxclass_print_rule(struct ethtool_rx_flow_spec *fsp)
- {
- 	/* print the rule in this location */
--	switch (fsp->flow_type & ~FLOW_EXT) {
-+	switch (fsp->flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
- 	case TCP_V4_FLOW:
- 	case UDP_V4_FLOW:
- 	case SCTP_V4_FLOW:
-@@ -533,6 +545,7 @@ typedef enum {
- #define NTUPLE_FLAG_VLAN	0x100
- #define NTUPLE_FLAG_UDEF	0x200
- #define NTUPLE_FLAG_VETH	0x400
-+#define NFC_FLAG_MAC_ADDR	0x800
- 
- struct rule_opts {
- 	const char	*name;
-@@ -571,6 +584,9 @@ static const struct rule_opts rule_nfc_tcp_ip4[] = {
- 	{ "user-def", OPT_BE64, NTUPLE_FLAG_UDEF,
- 	  offsetof(struct ethtool_rx_flow_spec, h_ext.data),
- 	  offsetof(struct ethtool_rx_flow_spec, m_ext.data) },
-+	{ "dst-mac", OPT_MAC, NFC_FLAG_MAC_ADDR,
-+	  offsetof(struct ethtool_rx_flow_spec, h_ext.h_dest),
-+	  offsetof(struct ethtool_rx_flow_spec, m_ext.h_dest) },
- };
- 
- static const struct rule_opts rule_nfc_esp_ip4[] = {
-@@ -599,6 +615,9 @@ static const struct rule_opts rule_nfc_esp_ip4[] = {
- 	{ "user-def", OPT_BE64, NTUPLE_FLAG_UDEF,
- 	  offsetof(struct ethtool_rx_flow_spec, h_ext.data),
- 	  offsetof(struct ethtool_rx_flow_spec, m_ext.data) },
-+	{ "dst-mac", OPT_MAC, NFC_FLAG_MAC_ADDR,
-+	  offsetof(struct ethtool_rx_flow_spec, h_ext.h_dest),
-+	  offsetof(struct ethtool_rx_flow_spec, m_ext.h_dest) },
- };
- 
- static const struct rule_opts rule_nfc_usr_ip4[] = {
-@@ -639,6 +658,9 @@ static const struct rule_opts rule_nfc_usr_ip4[] = {
- 	{ "user-def", OPT_BE64, NTUPLE_FLAG_UDEF,
- 	  offsetof(struct ethtool_rx_flow_spec, h_ext.data),
- 	  offsetof(struct ethtool_rx_flow_spec, m_ext.data) },
-+	{ "dst-mac", OPT_MAC, NFC_FLAG_MAC_ADDR,
-+	  offsetof(struct ethtool_rx_flow_spec, h_ext.h_dest),
-+	  offsetof(struct ethtool_rx_flow_spec, m_ext.h_dest) },
- };
- 
- static const struct rule_opts rule_nfc_ether[] = {
-@@ -1063,6 +1085,8 @@ int rxclass_parse_ruleopts(struct cmd_context *ctx,
- 		fsp->h_u.usr_ip4_spec.ip_ver = ETH_RX_NFC_IP4;
- 	if (flags & (NTUPLE_FLAG_VLAN | NTUPLE_FLAG_UDEF | NTUPLE_FLAG_VETH))
- 		fsp->flow_type |= FLOW_EXT;
-+	if (flags & NFC_FLAG_MAC_ADDR)
-+		fsp->flow_type |= FLOW_MAC_EXT;
- 
- 	return 0;
- 
--- 
-1.7.11.3
+> +		/* tun_detach() should make sure there's at least one queue
+> +		 * could be used to do the tranmission.
+> +		 */
+> +		for (i = 0; i < numqueues; i++) {
+> +			tfile = rcu_dereference(tun->tfiles[i]);
+> +			if (tfile->enabled) {
+> +				txq = i;
+> +				break;
+> +			}
+> +		}
+> +
+
+Worst case this will do a linear scan over all queueus on each packet.
+Instead, I think we need a list of all queues and only install
+the active ones in the array.
+
+>  	rcu_read_unlock();
+>  	return txq;
+>  }
+> @@ -386,6 +402,36 @@ static void tun_set_real_num_queues(struct tun_struct *tun)
+>  	netif_set_real_num_rx_queues(tun->dev, tun->numqueues);
+>  }
+>  
+> +static int tun_enable(struct tun_file *tfile)
+> +{
+> +	if (tfile->enabled == true)
+
+simply if (tfile->enabled)
+
+> +		return -EINVAL;
+
+Actually it's better to have operations be
+idempotent. If it's enabled, enabling should
+be a NOP not an error.
+
+> +
+> +	tfile->enabled = true;
+> +	return 0;
+> +}
+> +
+> +static int tun_disable(struct tun_file *tfile)
+> +{
+> +	struct tun_struct *tun = rcu_dereference_protected(tfile->tun,
+> +							   lockdep_rtnl_is_held());
+> +	u16 index = tfile->queue_index;
+> +
+> +	if (!tun)
+> +		return -EINVAL;
+> +
+> +	if (tun->numqueues == 1)
+> +		return -EINVAL;
+
+So if there's a single queue we can't disable it,
+but if there are > 1 we can disable them all.
+This seems arbitrary.
+
+> +
+> +	BUG_ON(index >= tun->numqueues);
+> +	tfile->enabled = false;
+> +
+> +	synchronize_net();
+> +	tun_flow_delete_by_queue(tun, index);
+> +
+> +	return 0;
+> +}
+> +
+>  static void __tun_detach(struct tun_file *tfile, bool clean)
+>  {
+>  	struct tun_file *ntfile;
+> @@ -446,6 +492,7 @@ static void tun_detach_all(struct net_device *dev)
+>  		BUG_ON(!tfile);
+>  		wake_up_all(&tfile->wq.wait);
+>  		rcu_assign_pointer(tfile->tun, NULL);
+> +		tfile->enabled = false;
+>  		--tun->numqueues;
+>  	}
+>  	BUG_ON(tun->numqueues != 0);
+> @@ -490,6 +537,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>  	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
+>  	sock_hold(&tfile->sk);
+>  	tun->numqueues++;
+> +	tfile->enabled = true;
+>  
+>  	tun_set_real_num_queues(tun);
+>  
+> @@ -672,6 +720,10 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+>  	if (txq >= tun->numqueues)
+>  		goto drop;
+>  
+> +	/* Drop packet if the queue was not enabled */
+> +	if (!tfile->enabled)
+> +		goto drop;
+> +
+>  	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
+>  
+>  	BUG_ON(!tfile);
+> @@ -1010,6 +1062,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>  	bool zerocopy = false;
+>  	int err;
+>  
+> +	if (!tfile->enabled)
+> +		return -EINVAL;
+> +
+>  	if (!(tun->flags & TUN_NO_PI)) {
+>  		if ((len -= sizeof(pi)) > total_len)
+>  			return -EINVAL;
+> @@ -1199,6 +1254,9 @@ static ssize_t tun_put_user(struct tun_struct *tun,
+>  	struct tun_pi pi = { 0, skb->protocol };
+>  	ssize_t total = 0;
+>  
+> +	if (!tfile->enabled)
+> +		return -EINVAL;
+> +
+>  	if (!(tun->flags & TUN_NO_PI)) {
+>  		if ((len -= sizeof(pi)) < 0)
+>  			return -EINVAL;
+> @@ -1769,15 +1827,21 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>  		if (dev->netdev_ops != &tap_netdev_ops &&
+>  			dev->netdev_ops != &tun_netdev_ops)
+>  			ret = -EINVAL;
+> -		else if (tun_not_capable(tun))
+> -			ret = -EPERM;
+> -		/* TUNSETIFF is needed to do permission checking */
+> -		else if (tun->numqueues == 0)
+> -			ret = -EPERM;
+> -		else
+> -			ret = tun_attach(tun, file);
+> +		else {
+> +			if (!rcu_dereference(tfile->tun)) {
+
+Should be rcu_dereference_protected.
+
+> +				if (tun_not_capable(tun) ||
+> +				    tun->numqueues == 0)
+> +					ret = -EPERM;
+> +				else
+> +					ret = tun_attach(tun, file);
+> +			}
+> +			else {
+> +				/* FIXME: permission check? */
+> +				ret = tun_enable(tfile);
+> +			}
+> +		}
+>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE)
+> -		__tun_detach(tfile, false);
+> +		tun_disable(tfile);
+>  	else
+>  		ret = -EINVAL;
+>  
+> @@ -2085,6 +2149,7 @@ static int tun_chr_open(struct inode *inode, struct file * file)
+>  	tfile->socket.file = file;
+>  	tfile->socket.ops = &tun_socket_ops;
+>  
+> +	tfile->enabled = false;
+>  	sock_init_data(&tfile->socket, &tfile->sk);
+>  	sk_change_net(&tfile->sk, tfile->net);
+>  
+> -- 
+> 1.7.1
