@@ -1,63 +1,82 @@
-From: CAI Qian <caiqian@redhat.com>
-Subject: request to queue patches for stable
-Date: Mon, 10 Dec 2012 21:03:15 -0500 (EST)
-Message-ID: <1907800187.6214689.1355191395335.JavaMail.root@redhat.com>
-References: <20121206.222321.485936471142281291.davem@davemloft.net>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH][RFC] smsc95xx: enable dynamic autosuspend (RFC)
+Date: Tue, 11 Dec 2012 10:24:57 +0800
+Message-ID: <CACVXFVOBgwoSyUDzxD+ghjkpFu5PL7MuaS5UJOZYvVnV0dwhGg@mail.gmail.com>
+References: <1353607526-19307-6-git-send-email-steve.glendinning@shawell.net>
+	<1355140301-10518-1-git-send-email-steve.glendinning@shawell.net>
+	<1404210.ufpq7a3oeI@linux-lqwf.site>
+	<CAKh2mn5LgZBJDJWNzN8A3NK72Vk_fiUjJfmdn5njSrm400q36w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:38838 "EHLO
-	mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751849Ab2LKCDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Dec 2012 21:03:15 -0500
-Received: from zmail14.collab.prod.int.phx2.redhat.com (zmail14.collab.prod.int.phx2.redhat.com [10.5.83.16])
-	by mx4-phx2.redhat.com (8.13.8/8.13.8) with ESMTP id qBB23FZD013880
-	for <netdev@vger.kernel.org>; Mon, 10 Dec 2012 21:03:15 -0500
-In-Reply-To: <20121206.222321.485936471142281291.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+To: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKh2mn5LgZBJDJWNzN8A3NK72Vk_fiUjJfmdn5njSrm400q36w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Dec 10, 2012 at 10:18 PM, Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org> wrote:
+> On 10 December 2012 12:09, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> wrote:
+>> So this is a problem with remote wakeup on older hardware?
+>
+> Exactly, the older hardware revisions can't reliably do it.
+>
+>>> Unfortunately we don't know if the connected device supports
+>>> this feature until we query its ID register at runtime.
+>>>
+>>> Suggestions on how best to indicate this capability at runtime
+>>> instead of compile-time would be appreciated, so we don't have
+>>> to repeatedly fail if accidentally enabled.  Or maybe this is
+>>> actually the best way?
+>>
+>> If this is a problem with remote wakeup, you should up the
+>> pm counter (usb_autopm_get_noresume()) in .manage_power
+>> That was the reason I implemented this is a callback and not as
+>> a helper in usbnet.
+>
+> Thanks, so something like this should do the job?
 
+This will do, but not simple as clearing .manage_power function
+pointer in bind(), and still disable runtime suspend for link off case
+since these devices which don't support suspend 3 can generate
+remote wakeup for link change event.
 
------ Original Message -----
-> From: "David Miller" <davem@davemloft.net>
-> To: caiqian@redhat.com
-> Cc: greg@kroah.com, stable@vger.kernel.org, mbizon@freebox.fr, ja@ssi.bg
-> Sent: Friday, December 7, 2012 11:23:21 AM
-> Subject: Re: [PATCH] ipv4: do not cache looped multicasts
-> 
-> From: CAI Qian <caiqian@redhat.com>
-> Date: Thu, 6 Dec 2012 21:56:35 -0500 (EST)
-> 
-> > OK, I have a few network patches in the queue that looks applicable
-> > to
-> > the stable as well. I think I'll send them out here too to seek
-> > their
-> > ACKs. David, please let me know if I should stop doing this.
-> 
-> Please stop doing this.
-> 
-> If you want networking patches to reach stable, first
-> consult:
-> 
-> http://patchwork.ozlabs.org/bundle/davem/stable/
-> 
-> to see if the patch you want isn't queued up already.
-> 
-> If it is not, ask me to queue it up on netdev@vger.kernel.org
-> 
-> But note that I like to let networking patches "cook" upstream
-> in Linus's tree for a certain amount of time before I submit
-> them to -stable.  There can be up to even a week or two.
-Dave, the following patches looks applicable for the stable
-releases. Please queue them up if you agree.
+I suggest to introduce link-off triggered runtime suspend for these
+usbnet devices(non-LAN9500A device, devices which don't support
+USB auto-suspend), and I have posted one patch set before[1].
+If no one objects that, I'd like to post them again with some fix and
+update for checking link after link_reset().
 
-0e376bd0b791ac6ac6bdb051492df0769c840848 (for 3.0.x, 3.4.x and 3.6.x)
-e196c0e579902f42cf72414461fb034e5a1ffbf7 (for 3.0.x, 3.4.x and 3.6.x)
-6e51fe7572590d8d86e93b547fab6693d305fd0d (for 3.0.x, 3.4.x and 3.6.x)
-e1a676424c290b1c8d757e3860170ac7ecd89af4 (for 3.6.x)
-636174219b52b5a8bc51bc23bbcba97cd30a65e3 (for 3.6.x)
+[1], http://marc.info/?w=2&r=1&s=usbnet%3A+support+runtime+PM+triggered+by+&q=t
 
-CAI Qian
+>
+> static int smsc95xx_manage_power(struct usbnet *dev, int on)
+> {
+> struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+>
+> dev->intf->needs_remote_wakeup = on;
+>
+> if (pdata->features & FEATURE_AUTOSUSPEND)
+> return 0;
+>
+> /* this chip revision doesn't support autosuspend */
+> netdev_info(dev->net, "hardware doesn't support USB autosuspend\n");
+>
+> if (on)
+> usb_autopm_get_interface_no_resume(dev->intf);
+> else
+> usb_autopm_put_interface_no_suspend(dev->intf);
+>
+> return 0;
+> }
+
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
