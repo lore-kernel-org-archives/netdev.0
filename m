@@ -1,87 +1,91 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [ANNOUNCE] iproute2 3.7.0
-Date: Tue, 11 Dec 2012 10:07:55 -0800
-Message-ID: <20121211100755.3ffb030c@nehalam.linuxnetplumber.net>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH RFC 0/5] Containerize syslog
+Date: Tue, 11 Dec 2012 10:22:36 -0800
+Message-ID: <87txrs30ur.fsf@xmission.com>
+References: <50A9EAD8.9090501@gmail.com> <874nklkjjm.fsf@xmission.com>
+	<20121207010355.c809b3f7.akpm@linux-foundation.org>
+	<20121207142331.GC4004@sergelap> <50C1FD9D.5020703@parallels.com>
+	<87r4n1buuw.fsf@xmission.com> <50C6EDF0.5060108@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Rui Xiang <leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <50C6EDF0.5060108-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> (Glauber Costa's message of
+	"Tue, 11 Dec 2012 12:25:20 +0400")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Just in time for the holidays, an update to iproute2 for v3.7 kernel.
-In addition to lots of build and documentation fixes, this
-version includes support for tcp_metrics and vxlan
-documentation and minor bugfixes,
+Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> writes:
 
-If you have been sitting on changes to iproute2 that are in
-net-next for 3.8 merge window, please submit them now.
+> On 12/07/2012 10:05 PM, Eric W. Biederman wrote:
+>> Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> writes:
+>> 
+>>> I keep asking myself if it isn't the case of forwarding to a container
+>>> all messages printed in process context. That will obviously exclude all
+>>> messages resulting from kthreads - that will always be in the initial
+>>> namespace anyway, interrupts, etc. There is no harm, for instance, in
+>>> delivering the same message twice: one to the container, and the other
+>>> to the host system.
+>> 
+>> Except that there is harm in double printing.  One of the better
+>> justifications for doing something with the kernel log is that it is
+>> possible to overflow the kernel log with operations performed
+>> exclusively in a container.
+>> 
+> I don't agree with you here.
+>
+> If we are double printing, we are using up more memory, but we also have
+> an extra buffer anyway. The messages are print on behalf of the user,
+> but still, by the kernel.
+>
+> So one of the following will necessarily hold:
+>
+> 1) There is no way that the process can overflow the main log, and as a
+> consequence, the container log, that has less messages than it.
+>
+> 2) The process will overflow the main log. But since we are not printing
+> anything extra to the main log compared to the scenario in which the
+> process lives in the main namespace, this would already be a problem
+> independent of namespaces. And needs to be fixed.
 
-Iproute2 package is available at:
-  http://kernel.org/pub/linux/utils/net/iproute2/iproute2-3.7.0.tar.gz
+Well mounts, brining network interfaces up and down, running packets
+through our own choice of firewall rules, possibly enabling debug
+messages on network interfaces has the potential to create messages we
+aren't seeing today.
 
-You can download the source from:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+> IOW, double printing should not print anything *extra* to the main log.
+> It just prints to the container log, and leaves a copy to the box admin
+> to see. I think it is very reasonable to imagine that the main admin
+> would like to see anything the kernel has to tell him about the box.
 
-Stay Warm!
+The only reason that I have seen for doing anything with printks is
+because we are generating messages that would not be generated in a
+non-container environment.  At which point double printing is scary
+because it allows a container user to flood the kernel log ring buffer
+and suppress interesting messages.
 
----
+>> I do think the idea of process context printks going to the current
+>> container one worth playing with.
+>> 
+>
+> It still leaves the problem of prinkts outside process context that
+> should go to a namespace open. But it is easy to extend this idea to do
+> both.
 
-Andreas Henriksson (2):
-      iproute2: avoid errors from double-installing manpages
-      iproute2: drop libresolv
+Hmm.  For printks from process context I think I can see a point where
+double printing makes sense, because that is a rather indiscriminate grab
+of printk messages.
 
-Julian Anastasov (1):
-      iproute2: add support for tcp_metrics
-
-Matt Burgess (1):
-      iproute2-3.6.0 assumes presence of iptables
-
-Mike Frysinger (1):
-      allow pkg-config to be customized
-
-Nicolas Dichtel (4):
-      iproute2: inform user when a neighbor is removed
-      ip/ip6tunnel: fix help for TCLASS
-      ip/ip6tunnel: reset encap limit flag on change
-      ip/ip6tunnel: fix update of tclass and flowlabel
-
-Or Gerlitz (1):
-      iplink: Added support for the kernel IPoIB RTNL ops
-
-Pavel Emelyanov (4):
-      ss: Rename some tcp- names into inet-
-      ss: Split inet_show_netlink into parts
-      ss: Support sock-diag
-      ss: Get udp sockets info via sock-diag
-
-Petr P=C3=ADsa=C5=99 (1):
-      iproute2: List interfaces without net address by default
-
-Petr Sabata (1):
-      iproute2: ss - change default filter to include all socket types
-
-Rostislav Lisovy (1):
-      tc: add canid ematch to ematch_map
-
-Stephen Hemminger (12):
-      vxlan support
-      bridge: manage VXLAN based forwarding tables
-      l2tp: remove references to old bridge utils
-      Update headers to 3.7-pre-rc
-      vxlan: add support for port range
-      vxlan: only send group address if defined
-      Update kernel headers to 3.7-rc1
-      iplink: add vxlan to man page
-      bridge: remove trailing whitespace
-      bridge: use rta_getattr_xxx wrappers
-      man: fix incorrect use of "it's"
-      v3.7.0
-
-Vincent Bernat (1):
-      ip: fix "ip -6 route add ... nexthop"
-
-Wookey (1):
-      configure: respect $CC environment var override
+Eric
