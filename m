@@ -1,14 +1,14 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
-Date: Tue, 11 Dec 2012 15:04:20 -0800
-Message-ID: <1355267060.27891.139.camel@edumazet-glaptop>
+Date: Tue, 11 Dec 2012 15:12:31 -0800
+Message-ID: <20121211151231.0272015b@nehalam.linuxnetplumber.net>
 References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	 <3246.1351717319@obiwan.sandelman.ca>
-	 <CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	 <87mwyi9h1x.fsf@xmission.com>
-	 <alpine.OSX.2.00.1212111432430.78903@animac.local>
+	<3246.1351717319@obiwan.sandelman.ca>
+	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
+	<87mwyi9h1x.fsf@xmission.com>
+	<alpine.OSX.2.00.1212111432430.78903@animac.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
@@ -16,17 +16,17 @@ Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
 	Francesco Ruggeri <fruggeri@aristanetworks.com>
 To: ani@aristanetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:48473 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753496Ab2LKXEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 18:04:22 -0500
-Received: by mail-pa0-f46.google.com with SMTP id bh2so27783pad.19
-        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 15:04:22 -0800 (PST)
+Received: from mail.vyatta.com ([76.74.103.46]:52534 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754006Ab2LKXSB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Dec 2012 18:18:01 -0500
 In-Reply-To: <alpine.OSX.2.00.1212111432430.78903@animac.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-12-11 at 14:36 -0800, Ani Sinha wrote:
+On Tue, 11 Dec 2012 14:36:33 -0800 (PST)
+Ani Sinha <ani@aristanetworks.com> wrote:
+
 > >
 > > It is possible to test for the presence of support of the new vlan bpf
 > > extensions by attempting to load a filter that uses them.  As only valid
@@ -52,13 +52,12 @@ On Tue, 2012-12-11 at 14:36 -0800, Ani Sinha wrote:
 >  			/* check for division by zero */
 >  			if (ftest->k == 0)
 
-This patch is wrong.
+Did you test this? I think it will blow up for some existing instructions
+like BPF_S_ALU_XOR_X or any of the other non-special instructions.
 
-Check lines 546, 547, 548 where we do the check for unknown instructions
+Also it is not formatted correctly for the kernel programming style.
 
-code = codes[code];
-if (!code)
-	return -EINVAL;
-
-If you want to test ANCILLARY possible values, its already too late, as
-old kernels wont use any patch anyway.
+ERROR: space prohibited before that ':' (ctx:WxW)
+#86: FILE: net/core/filter.c:552:
++		default : return -EINVAL;
+ 		        ^
