@@ -1,81 +1,173 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [Query] TCP TFO Query
-Date: Tue, 11 Dec 2012 14:04:29 -0800
-Message-ID: <CAK6E8=edgWX1Ye3a6UrqfAaOUG0r=9N8ss39nqRbw8F3UA83Cw@mail.gmail.com>
-References: <CAD6NSj5Qv3n+0a2rdTaiCtUtT5DXZEE4-K3qxaVX+XMK6Q=SFg@mail.gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: some merging notes
+Date: Wed, 12 Dec 2012 09:15:52 +1100
+Message-ID: <20121212091552.02c72c8926f9f9147b080d68@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Ketan Kulkarni <ketkulka@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:57632 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753488Ab2LKWEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 17:04:51 -0500
-Received: by mail-ie0-f176.google.com with SMTP id 13so14564717iea.35
-        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 14:04:51 -0800 (PST)
-In-Reply-To: <CAD6NSj5Qv3n+0a2rdTaiCtUtT5DXZEE4-K3qxaVX+XMK6Q=SFg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============5584850176030807581=="
+Cc: "N, Mugunthan V" <mugunthanvnm@ti.com>, Bill Pemberton <wfp5p@virginia.edu>,
+ Arnd Bergmann <arnd@arndb.de>, Greg KH <greg@kroah.com>,
+ Tomi Valkeinen <tomi.valkeinen@ti.com>, Rusty Russell <rusty@rustcorp.com.au>,
+ LKML <linux-kernel@vger.kernel.org>, Steven Rostedt <srostedt@redhat.com>,
+ linux-next@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+ netdev@vger.kernel.org, Olof Johansson <olof@lixom.net>,
+ Nathan Fontenot <nfont@linux.vnet.ibm.com>, linuxppc-dev@lists.ozlabs.org,
+ David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: Linus <torvalds@linux-foundation.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Hi Ketan,
+--===============5584850176030807581==
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__12_Dec_2012_09_15_52_+1100_Ssu8zmAdj1_utdXl"
 
-On Tue, Dec 11, 2012 at 9:29 AM, Ketan Kulkarni <ketkulka@gmail.com> wrote:
-> Hi,
-> I am testing tcp tfo behavior with httping client and polipo server on 3.7rc-8
->
-> One observation from my TFO testing  -If for a connection server sends
-> a cookie to client, client always does TFO for subsequent connections.
-> This is ok.
->
-> If for some reason, server stops supporting TFO (either because server
-> got restarted without TFO support (in my case) or because path changed
-> and the nw node is dropping packet with unknown syn option or
-> stripping the option), client does not clear up its cookie cache. It
-> always sends data in syn and server never acks the syn-data and client
-> retransmits.
->
-> As per kernel code -if syn-data is not acked it is retransmitted
-> immediately - with the assumption first syn was dropped (but the
-> assumption server stopped supporting TFO might not have been
-> considered)
->
-> Will it be better to flush the cookie for this server and re-attempt
-> the cookie "negotiation" on subsequent connection than to retransmit
-> the data every time?
->
-> Your thoughts?
+--Signature=_Wed__12_Dec_2012_09_15_52_+1100_Ssu8zmAdj1_utdXl
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-In our initial design the client actually removes the cookie of the
-particular server
-(!= flush the entire cache though). Later on we changed to the current
-behavior because
-it does not have a performance penalty. It falls back to regular handshake:
+Hi Linus,
 
-SYN/cookie/data -> SYN-ACK acking ISN -> ACK(data).
+Just some notes about the current state of some of the merges in
+linux-next.
 
-It may happen frequently when a large server farms are upgrading to support TFO.
+The powerpc tree
+(git://git.kernel.org/pub/scm/linux/kernel/git/benh/powerpc.git#next)
+contains a commit that breaks the building of
+lib/pSeries-reconfig-notifier-error-inject.c.  I applied a patch to
+linux-next to disable CONFIG_PSERIES_RECONFIG_NOTIFIER_ERROR_INJECT.
 
-However there are always more options:
-1) Server can selectively instrument to delete old cookies by sending a SYN-ACK
-   acking initial sequence with a null TFO option (== caching a null cookie ==
-   removing the older one).
-2) another client-side flag in sysctl_tcp_fastopen to remove cookie if SYN-ACK
-   only acks the syn sequence.
-3) combination of 1 and 2.
+The virtio tree
+(git://git.kernel.org/pub/scm/linux/kernel/git/rusty/linux.git#virtio-next)
+has a conflict with the net-next tree
+(git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git#master)
+that requires the following extra fix up patch:
 
-More ideas are welcome :)
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 33d6f6f..8afe32d 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -147,7 +147,7 @@ struct padded_vnet_hdr {
+  */
+ static int vq2txq(struct virtqueue *vq)
+ {
+-	return (virtqueue_get_queue_index(vq) - 1) / 2;
++	return (vq->index - 1) / 2;
+ }
+=20
+ static int txq2vq(int txq)
+@@ -157,7 +157,7 @@ static int txq2vq(int txq)
+=20
+ static int vq2rxq(struct virtqueue *vq)
+ {
+-	return virtqueue_get_queue_index(vq) / 2;
++	return vq->index / 2;
+ }
+=20
+ static int rxq2vq(int rxq)
 
-NOTE: I've checked in a patch so that syn-data not acked is not treated as a
-network-drop.
-http://patchwork.ozlabs.org/patch/171978/
+The tty tree
+(git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/tty.git#tty-next)
+contains a new driver (SystemBase Multi-2/PCI) that fails to build for
+(at least) the powerpc architecture.  I have applied a patch that
+disables the driver (I made CONFIG_SB105X in
+drivers/staging/sb105x/Kconfig depend on BROKEN).
 
-Yuchung
+The arm-soc tree
+(git://git.kernel.org/pub/scm/linux/kernel/git/arm/arm-soc.git#for-next)
+(which you will get in pieces) has a merge conflict against the omap_dss2
+tree (git://gitorious.org/linux-omap-dss2/linux.git#for-next) that
+requires the followin fix up patch:
 
->
-> Thanks,
-> Ketan
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/arch/arm/mach-omap2/common.c b/arch/arm/mach-omap2/common.c
+index 5c2fd48..2dabb9e 100644
+--- a/arch/arm/mach-omap2/common.c
++++ b/arch/arm/mach-omap2/common.c
+@@ -16,8 +16,6 @@
+ #include <linux/init.h>
+ #include <linux/platform_data/dsp-omap.h>
+=20
+-#include <plat/vram.h>
+-
+ #include "common.h"
+ #include "omap-secure.h"
+=20
+@@ -32,7 +30,6 @@ int __weak omap_secure_ram_reserve_memblock(void)
+=20
+ void __init omap_reserve(void)
+ {
+-	omap_vram_reserve_sdram_memblock();
+ 	omap_dsp_reserve_sdram_memblock();
+ 	omap_secure_ram_reserve_memblock();
+ 	omap_barrier_reserve_memblock();
+
+Part of the arm-soc tree also requires the following fixup patch due to a
+conflict with the powerpc tree (patch from N, Mugunthan V
+<mugunthanvnm@ti.com>):
+
+diff --git a/arch/arm/mach-omap2/timer.c b/arch/arm/mach-omap2/timer.c
+index 099e406..5fd5e23 100644
+--- a/arch/arm/mach-omap2/timer.c
++++ b/arch/arm/mach-omap2/timer.c
+@@ -192,7 +192,7 @@ static struct device_node * __init omap_get_timer_dt
+(struct of_device_id *match, continue;
+ 		}
+=20
+-		prom_add_property(np, &device_disabled);
++		of_add_property(np, &device_disabled);
+ 		return np;
+ 	}
+=20
+There are also lots of conflicts due to the __dev* annotation removals -
+a lot of which are in the driver-core tree
+(git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/driver-core.git#drive=
+r-core-next).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__12_Dec_2012_09_15_52_+1100_Ssu8zmAdj1_utdXl
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQx7CYAAoJEECxmPOUX5FE//oQAJx10W6rsgKts32Ot1pEK2tR
+AFyz0qsaqF2LraWSQCaj/ogBab3FPwA0snlghtfM52emu7brusLqw1WoULHwAlt2
+Q/R6ZmVAxirzS6ZsX6KbVC1K3T3bzV3oKRnzM4lbwvsRufDuDbsdCZlAOcMyTXKn
+MHCEL0LvmenR6ieZcjTYv9E06B4SFaFaHyvqVU9wsAwe1QE6XpBGMNNuGBLr8l9L
+HT9dJuWqKdzwxnZg8mZ7R6csN6F35/GchTDmgkEen8j6ouDM+3NLcAERH6ks0kaw
+duGLCLPcb9kkYMkSfnmej/NiL6ccbMdjq32zvqUTJwwGGJpoRtZ1HkUM0Y35N75L
+mHlLLe3A/qXhd48ymdH/AT9pTlJb3q/nBMh5eWbVAyg76Ki+rdvC/9tNPlbSjpOI
+6XbA6onHs2eJ+F6aOS/fqWFpHCLINA0VxAmLr3aaaCU29XUwmfLmMghtLKKXoJcj
+9/8OtP9KQ92Ju/LHoeQ6Wzd9gY5+EKUpmgCeLVwO8iLV4Y37E/Wl1uHFjKyjQvZt
+xlHYfsQIEsB7U3PTuE6hdqzSuHDwBCt9UG9ZKrjSatt6QDjdTkKVHKu9TwTGe8FT
+mz5pRD2zOL85r9elvRBa0m2ImqsZeCAZTsQ5lh7yPDShk7xG82tv35prN9HarR28
+mX1/SDhfqlO+CFQZ4TMt
+=+DER
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__12_Dec_2012_09_15_52_+1100_Ssu8zmAdj1_utdXl--
+
+--===============5584850176030807581==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@lists.ozlabs.org
+https://lists.ozlabs.org/listinfo/linuxppc-dev
+--===============5584850176030807581==--
