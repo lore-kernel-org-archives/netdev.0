@@ -1,66 +1,64 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next rfc 0/2] Allow unpriveledge user to disable
- tuntap queue
-Date: Tue, 11 Dec 2012 14:46:16 +0200
-Message-ID: <20121211124616.GC15435@redhat.com>
-References: <1355223827-57290-1-git-send-email-jasowang@redhat.com>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH][RFC] smsc95xx: enable dynamic autosuspend (RFC)
+Date: Tue, 11 Dec 2012 20:53:19 +0800
+Message-ID: <CACVXFVMNshNMJ+hYHTCfE2+UOuMgGLb0dKq8qEM-LfUseuy2qA@mail.gmail.com>
+References: <1353607526-19307-6-git-send-email-steve.glendinning@shawell.net>
+	<CAKh2mn5LgZBJDJWNzN8A3NK72Vk_fiUjJfmdn5njSrm400q36w@mail.gmail.com>
+	<CACVXFVOBgwoSyUDzxD+ghjkpFu5PL7MuaS5UJOZYvVnV0dwhGg@mail.gmail.com>
+	<1881907.JmjSTg2PBW@linux-lqwf.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pmoore@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mprivozn@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1355223827-57290-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>,
+	Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1881907.JmjSTg2PBW-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 11, 2012 at 07:03:45PM +0800, Jason Wang wrote:
-> This series is an rfc that tries to solve the issue that the queues of tuntap
-> could not be disabled/enabled by unpriveledged user. This is needed for
-> unpriveledge userspace such as qemu since guest may change the number of queues
-> at any time, qemu needs to configure the tuntap to disable/enable a specific
-> queue.
-> 
-> Instead of introducting new flag/ioctls, this series tries to re-use the current
-> TUNSETQUEUE and IFF_ATTACH_QUEUE/IFF_DETACH_QUEUE. After this change,
-> IFF_DETACH_QUEUE is used to disable a specific queue instead of detaching all
-> its state from tuntap. IFF_ATTACH_QUEUE is used to do: 1) creating new queue to
-> a tuntap device, in this situation, previous DAC check is still done. 2)
-> re-enable the queue previously disabled by IFF_DETACH_QUEUE, in this situation,
-> we can bypass some checking when we do during queue creating (the check need to
-> be done here needs discussion.
-> 
-> Management software (such as libvirt) then can do:
-> - TUNSETIFF to creating device and queue 0
-> - TUNSETQUEUE to create the rest of queues
-> - Passing them to unpriveledge userspace (such as qemu)
+On Tue, Dec 11, 2012 at 6:27 PM, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> wrote:
+> On Tuesday 11 December 2012 10:24:57 Ming Lei wrote:
+>> On Mon, Dec 10, 2012 at 10:18 PM, Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org> wrote:
+>
+>> > Thanks, so something like this should do the job?
+>>
+>> This will do, but not simple as clearing .manage_power function
+>> pointer in bind(), and still disable runtime suspend for link off case
+>> since these devices which don't support suspend 3 can generate
+>> remote wakeup for link change event.
+>
+> So they can autosuspend if the interface is up and no cable is plugged
+> in?
 
-Sorry I find this somewhat confusing.
-Why doesn't management call TUNSETIFF to create all queues -
-seems cleaner, no? Also has the advantage that it works
-without selinux changes.
+>From the open datasheet, that is the suspend 1 mode, which is supported
+by all LAN95xx devices. Steve, correct me if I am wrong.
 
-So why don't we simply fix TUNSETQUEUE such that
-1. It only works if already attached to device by TUNSETIFF
-2. It does not attach/detach, instead simply enables/disables the queue
+>
+>> I suggest to introduce link-off triggered runtime suspend for these
+>> usbnet devices(non-LAN9500A device, devices which don't support
+>> USB auto-suspend), and I have posted one patch set before[1].
+>> If no one objects that, I'd like to post them again with some fix and
+>> update for checking link after link_reset().
+>
+> If you can get rid of a periodic work this would be great.
 
-This way no new flags, just tweak the semantics of the
-existing ones. Need to do this before 3.8 is out though
-otherwise we'll end up maintaining the old semantics forever.
+For the LAN95xx devices, the periodic work isn't needed because
+they may generate remote wakeup when link change is detected.
 
-> Then the unpriveledge userspace can enable and disable a specific queue through
-> IFF_ATTACH_QUEUE and IFF_DETACH_QUEUE.
-> 
-> This is done by introducing a enabled flags were used to notify whether the
-> queue is enabled, and tuntap only send/receive packets when it was enabled.
-> 
-> Please comment, thanks!
-> 
-> Jason Wang (2):
->   tuntap: forbid calling TUNSETQUEUE for a persistent device with no
->     queues
->   tuntap: allow unpriveledge user to enable and disable queues
-> 
->  drivers/net/tun.c |   78 +++++++++++++++++++++++++++++++++++++++++++++++++---
->  1 files changed, 73 insertions(+), 5 deletions(-)
+In fact, I have test data which can show a much power save
+on OMAP3 based beagle board plus asix usbnet device with
+the periodic work. IMO, the power save after introducing periodic
+timer depends on the arch or platform, there should be much power
+save if the CPU power consumption is very less. So how about letting
+module parameter switch on/off the periodic work?
+
+
+Thanks,
+--
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
