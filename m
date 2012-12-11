@@ -1,48 +1,111 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next 1/2] net: ethtool: Add destination MAC address
- to flow steering API
-Date: Tue, 11 Dec 2012 12:57:53 -0800
-Message-ID: <50C79E51.1000904@intel.com>
-References: <1355227436-18383-1-git-send-email-amirv@mellanox.com> <1355227436-18383-2-git-send-email-amirv@mellanox.com> <50C76F6E.2010600@intel.com> <CAJZOPZJfqdrxKp8ZPTXs_-07XSdPoKu+bNQNZzkeTRgP-R2XnQ@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: netconsole fun
+Date: Tue, 11 Dec 2012 16:19:09 -0500
+Message-ID: <20121211211909.GA26212@hmsreliant.think-freely.org>
+References: <1355149033.3142.14.camel@thor>
+ <ka6e4e$6k5$1@ger.gmane.org>
+ <1355235592.2694.5.camel@thor>
+ <20121211143004.GA7481@neilslaptop.think-freely.org>
+ <1355239011.2694.24.camel@thor>
+ <20121211164526.GB7481@neilslaptop.think-freely.org>
+ <1355246272.2694.27.camel@thor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Peter Hurley <peter@hurleysoftware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:47455 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754019Ab2LKU5y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2012 15:57:54 -0500
-In-Reply-To: <CAJZOPZJfqdrxKp8ZPTXs_-07XSdPoKu+bNQNZzkeTRgP-R2XnQ@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55403 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415Ab2LKVTV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 16:19:21 -0500
+Content-Disposition: inline
+In-Reply-To: <1355246272.2694.27.camel@thor>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/11/2012 11:55 AM, Or Gerlitz wrote:
-> On Tue, Dec 11, 2012 at 7:37 PM, Alexander Duyck
-> <alexander.h.duyck@intel.com> wrote:
->>
->> Is there any special reason why you need to change the size of this
->> structure?  It seems like you could probably just replace the data
->> section with a union containing either 8 bytes of user specified data or
->> your MAC address data.  Then we wouldn't need all of the changes to the
->> rest of the flow specifier.
+On Tue, Dec 11, 2012 at 12:17:52PM -0500, Peter Hurley wrote:
+> On Tue, 2012-12-11 at 11:45 -0500, Neil Horman wrote:
+> > On Tue, Dec 11, 2012 at 10:16:51AM -0500, Peter Hurley wrote:
+> > > On Tue, 2012-12-11 at 09:30 -0500, Neil Horman wrote:
+> > > > On Tue, Dec 11, 2012 at 09:19:52AM -0500, Peter Hurley wrote:
+> > > > > On Tue, 2012-12-11 at 04:51 +0000, Cong Wang wrote:
+> > > > > > On Mon, 10 Dec 2012 at 14:17 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
+> > > > > > > Now that netpoll has been disabled for slaved devices, is there a
+> > > > > > > recommended method of running netconsole on a machine that has a slaved
+> > > > > > > device?
+> > > > > > >
+> > > > > > 
+> > > > > > Yes, running it on the master device instead.
+> > > > > 
+> > > > > Thanks for the suggestion, but:
+> > > > > 
+> > > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.10.99/br0,30000@192.168.10.100/xx:xx:xx:xx:xx:xx
+> > > > > ...
+> > > > > [ 5.289869] netpoll: netconsole: local port 6665
+> > > > > [ 5.289885] netpoll: netconsole: local IP 192.168.10.99
+> > > > > [ 5.289892] netpoll: netconsole: interface 'br0'
+> > > > > [ 5.289898] netpoll: netconsole: remote port 30000
+> > > > > [ 5.289907] netpoll: netconsole: remote IP 192.168.10.100
+> > > > > [ 5.289914] netpoll: netconsole: remote ethernet address xx:xx:xx:xx:xx:xx
+> > > > > [ 5.289922] netpoll: netconsole: br0 doesn't exist, aborting
+> > > > > [ 5.289929] netconsole: cleaning up
+> > > > > ...
+> > > > > [ 9.392291] Bridge firewalling registered
+> > > > > [ 9.396805] device eth1 entered promiscuous mode
+> > > > > [ 9.418350] eth1:  setting full-duplex.
+> > > > > [ 9.421268] br0: port 1(eth1) entered forwarding state
+> > > > > [ 9.423354] br0: port 1(eth1) entered forwarding state
+> > > > > 
+> > > > > 
+> > > > > Is there a way to control or associate network device names prior to
+> > > > > udev renaming?
+> > > > > 
+> > > > That looks like a systemd problem (or more specifically a boot dependency
+> > > > problem).  You need to modify your netconsole unit/service file to start after
+> > > > all your networking is up.  NetworkManager provides a dummy service file for
+> > > > this purpose, called networkmanager-wait-online.service
+> > > 
+> > > Ok. So with a single physical network interface that will be bridged,
+> > > netconsole cannot used for kernel boot messages.
+> > > 
+> > > With a machine with multiple nics, is there a way to control device
+> > > naming so that the interface name to be used by netconsole specified on
+> > > the boot command line will actually corresponding to the intended
+> > > device. For example,
+> > > 
+> > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.1.123/eth0,30000@192.168.1.139/xx:xx:xx:xx:xx:xx
+> > > ....
+> > > [ 4.092184] 3c59x: Donald Becker and others.
+> > > [ 4.092204] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000186cf80.
+> > > [ 4.094035] tg3.c:v3.125 (September 26, 2012)
+> > > ....
+> > > [ 4.125038] tg3 0000:08:00.0 eth1: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
+> > > [ 4.125055] tg3 0000:08:00.0 eth1: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> > > [ 4.125062] tg3 0000:08:00.0 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> > > [ 4.125068] tg3 0000:08:00.0 eth1: dma_rwctrl[76180000] dma_mask[64-bit]
+> > > 
+> > > This is attaching netconsole to the wrong device because bus
+> > > enumeration, and therefore load order, is not consistent from boot to
+> > > boot.
+> > > 
+> > No, theres no way to do that.  As you note device ennumeration isn't consistent
+> > accross boots, thats why udev creates rules to rename devices based on immutable
+> > (or semi-immutable) data, like mac addresses, or pci bus locations).  Once that
+> > happens, you'll have consistent names for your interfaces, and that work will be
+> > guaranteed to be done after networkmanager has finished opening all the
+> > interfaces that it needs (hence my suggestion to make netconsole service
+> > dependent on networkmanager service startup completing).
+> > 
+> > Neil
+> 
+> Thanks for all your help here, Neil. Very much appreciated.
+> 
+> Happy Holidays,
+> Peter Hurley
+> 
+No problem, anytime!
+Happy Holidays
+Neil
+
 > 
 > 
-> basically, we followed Ben's suggestions made here
-> http://marc.info/?t=134977576500003
-> 
-
-After looking over Ben's suggestion it makes sense.
-
-Since I am pretty much responsible for the ixgbe implementation of this
-I will do a few quick tests once the patches are applied to make certain
-that there were no issues introduced on our end.
-
-Thanks,
-
-Alex
