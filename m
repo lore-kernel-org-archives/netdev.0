@@ -1,63 +1,43 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 1/2] net: ethtool: Add destination MAC address to flow steering API
-Date: Tue, 11 Dec 2012 14:03:54 +0200
-Message-ID: <1355227436-18383-2-git-send-email-amirv@mellanox.com>
-References: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 0/3] Add destination MAC address to ethtool flow steering
+Date: Tue, 11 Dec 2012 14:03:53 +0200
+Message-ID: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:40175 "HELO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752610Ab2LKMIn (ORCPT
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:46001 "HELO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752499Ab2LKMIn (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 07:08:43 -0500
-In-Reply-To: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yan Burman <yanb@mellanox.com>
 
-Add ability to specify destination MAC address for L3/L4 flow spec
-in order to be able to specify action for different VM's under vSwitch
-configuration. This change is transparent to older userspace.
+In vSwitch configuration it is often beneficial to create flow steering
+rules for L3/L4 traffic based on VM port. This requires destination MAC
+address of that port to be present. Note that today the mlx4_en driver 
+adds the mac address of itself to the flow spec, where under the new
+ethtool flag suggested here it doesn't.
 
-Signed-off-by: Yan Burman <yanb@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- include/uapi/linux/ethtool.h | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+It may also be useful in macvlan devices.
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index d3eaaaf..be8c41e 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -500,13 +500,15 @@ union ethtool_flow_union {
- 	struct ethtool_ah_espip4_spec		esp_ip4_spec;
- 	struct ethtool_usrip4_spec		usr_ip4_spec;
- 	struct ethhdr				ether_spec;
--	__u8					hdata[60];
-+	__u8					hdata[52];
- };
- 
- struct ethtool_flow_ext {
--	__be16	vlan_etype;
--	__be16	vlan_tci;
--	__be32	data[2];
-+	__u8		padding[2];
-+	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
-+	__be16		vlan_etype;
-+	__be16		vlan_tci;
-+	__be32		data[2];
- };
- 
- /**
-@@ -1027,6 +1029,7 @@ enum ethtool_sfeatures_retval_bits {
- #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
- /* Flag to enable additional fields in struct ethtool_rx_flow_spec */
- #define	FLOW_EXT	0x80000000
-+#define	FLOW_MAC_EXT	0x40000000
- 
- /* L3-L4 network traffic flow hash options */
- #define	RXH_L2DA	(1 << 1)
+These patches add kernel support for the new field (does not break old
+userspace compatibility, so new ethtool will work on old kernels and
+old ethtool will work with new kernels).
+
+Also present here is the ethtool userspace patch.
+
+See more details here http ://marc.info/?t=134977576500003
+
+Yan Burman (2):
+  net: ethtool: Add destination MAC address to flow steering API
+  net/mlx4_en: Add support for destination MAC in steering rules
+
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 21 +++++++++++++++------
+ include/uapi/linux/ethtool.h                    | 11 +++++++----
+ 2 files changed, 22 insertions(+), 10 deletions(-)
+
 -- 
 1.7.11.3
