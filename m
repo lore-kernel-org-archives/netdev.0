@@ -1,35 +1,42 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: netconsole fun
-Date: Tue, 11 Dec 2012 04:51:26 +0000 (UTC)
-Message-ID: <ka6e4e$6k5$1@ger.gmane.org>
-References: <1355149033.3142.14.camel@thor>
+From: Abhijit Pawar <abhi.c.pawar@gmail.com>
+Subject: Re: [PATCH RESEND RESEND] net: remove obsolete simple_strto<foo>
+Date: Tue, 11 Dec 2012 10:59:53 +0530
+Message-ID: <50C6C4D1.6070607@gmail.com>
+References: <1355196860-10708-1-git-send-email-abhi.c.pawar@gmail.com> <20121210.234923.94776338088489257.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:35965 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751625Ab2LKEvo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Dec 2012 23:51:44 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1TiHou-0004b1-NA
-	for netdev@vger.kernel.org; Tue, 11 Dec 2012 05:51:52 +0100
-Received: from 112.122.183.103 ([112.122.183.103])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 05:51:52 +0100
-Received: from xiyou.wangcong by 112.122.183.103 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 05:51:52 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: abhi.c.pawar@gmail.com, pablo@netfilter.org, kaber@trash.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	linville@tuxdriver.com, johannes@sipsolutions.net,
+	amwang@redhat.com, edumazet@google.com, nhorman@tuxdriver.com,
+	joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121210.234923.94776338088489257.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Dec 2012 at 14:17 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
-> Now that netpoll has been disabled for slaved devices, is there a
-> recommended method of running netconsole on a machine that has a slaved
-> device?
->
+On 12/11/2012 10:19 AM, David Miller wrote:
+> From: Abhijit Pawar <abhi.c.pawar@gmail.com>
+> Date: Tue, 11 Dec 2012 09:04:20 +0530
+> 
+>> This patch replace the obsolete simple_strto<foo> with kstrto<foo>
+>>
+>> Signed-off-by: Abhijit Pawar <abhi.c.pawar@gmail.com>
+> 
+> You can't submit replacement patches for ones which I have already
+> applied.
+> 
+> Patches I apply are permanently applied, and therefore you must submit
+> changes relative the ones I've applied already.
+> 
+I am sorry to create this confusion. I have created and sent the new
+patch which you can apply over the old one to fix the issues.
 
-Yes, running it on the master device instead.
+-- 
+-
+Abhijit
