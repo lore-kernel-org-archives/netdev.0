@@ -1,199 +1,63 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next rfc 2/2] tuntap: allow unpriveledge user to enable and disable queues
-Date: Tue, 11 Dec 2012 19:03:47 +0800
-Message-ID: <1355223827-57290-3-git-send-email-jasowang@redhat.com>
-References: <1355223827-57290-1-git-send-email-jasowang@redhat.com>
-Cc: mprivozn@redhat.com, Jason Wang <jasowang@redhat.com>
-To: mst@redhat.com, pmoore@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1355223827-57290-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Cedric VONCKEN" <cedric.voncken@acksys.fr>
+Subject: Gianfar driver issue
+Date: Tue, 11 Dec 2012 10:59:03 +0100
+Message-ID: <773DB8A82AB6A046AE0195C68612A31901412124@sbs2003.acksys.local>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out05.msg.oleane.net ([62.161.7.3]:48954 "EHLO
+	smtp-out05.msg.oleane.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752904Ab2LKMGQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 07:06:16 -0500
+Received: from smtp29.msg.oleane.net (smtp29.mail.priv [172.17.20.151])
+	by smtp-out05.msg.oleane.net with ESMTP id qBBAJUQo018097
+	for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 11:19:30 +0100
+Received: from acksys.fr ([195.6.104.67]) (authenticated)
+	by smtp29.msg.oleane.net (MTA) with ESMTP id qBB9x4oZ014707
+	for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 10:59:04 +0100
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, when a file is attached to tuntap through TUNSETQUEUE, the uid/gid
-and CAP_NET_ADMIN were checked, and we use this ioctl to create and destroy
-queues. Sometimes, userspace such as qemu need to the ability to enable and
-disable a specific queue without priveledge since guest operating system may
-change the number of queues it want use.
+	Hi all, 
 
-To support this kind of ability, this patch introduce a flag enabled which is
-used to track whether the queue is enabled by userspace. And also restrict that
-only one deivce could be used for a queue to attach. With this patch, the DAC
-checking when adding queues through IFF_ATTACH_QUEUE is still done and after
-this, IFF_DETACH_QUEUE/IFF_ATTACH_QUEUE  could be used to disable/enable this
-queue.
+	I think he have an issue in Gianfar driver.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c |   81 +++++++++++++++++++++++++++++++++++++++++++++++-----
- 1 files changed, 73 insertions(+), 8 deletions(-)
+	When the Netdev tx queue timeout occurred, the function
+gfar_timeout(..) is called. This function calls indirectly the
+gfar_init_mac(..) function.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index d593f56..43831a7 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -138,6 +138,7 @@ struct tun_file {
- 	/* only used for fasnyc */
- 	unsigned int flags;
- 	u16 queue_index;
-+	bool enabled;
- };
+	In this function, the rctrl register is set to a default value.
+
+	If the Promiscuous is enable on the net dev ( flag IFF_PROMISC
+is set), the gfar_init_function does not reactivate it. 
+
+	The Promiscuous mode is used for example when the netdev is
+bridged. 
+	
+	I apply this patch to fix it.
+
+	--- a/drivers/net/ethernet/freescale/gianfar.c.	2012-06-01
+09:16:13.000000000 +0200
+	+++ b/drivers/net/ethernet/freescale/gianfar.c	2012-12-11
+10:38:23.000000000 +0100
+	@@ -356,6 +356,11 @@
+ 	/* Configure the coalescing support */
+ 	gfar_configure_coalescing(priv, 0xFF, 0xFF);
  
- struct tun_flow_entry {
-@@ -345,9 +346,11 @@ unlock:
- static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct tun_struct *tun = netdev_priv(dev);
-+	struct tun_file *tfile;
- 	struct tun_flow_entry *e;
- 	u32 txq = 0;
- 	u32 numqueues = 0;
-+	int i;
- 
- 	rcu_read_lock();
- 	numqueues = tun->numqueues;
-@@ -366,6 +369,19 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
- 			txq -= numqueues;
- 	}
- 
-+	tfile = rcu_dereference(tun->tfiles[txq]);
-+	if (unlikely(!tfile->enabled))
-+		/* tun_detach() should make sure there's at least one queue
-+		 * could be used to do the tranmission.
-+		 */
-+		for (i = 0; i < numqueues; i++) {
-+			tfile = rcu_dereference(tun->tfiles[i]);
-+			if (tfile->enabled) {
-+				txq = i;
-+				break;
-+			}
-+		}
++	if (ndev->flags & IFF_PROMISC) {
++		/* Set RCTRL to PROM */
++		rctrl |= RCTRL_PROM;
++	}
 +
- 	rcu_read_unlock();
- 	return txq;
- }
-@@ -386,6 +402,36 @@ static void tun_set_real_num_queues(struct tun_struct *tun)
- 	netif_set_real_num_rx_queues(tun->dev, tun->numqueues);
- }
- 
-+static int tun_enable(struct tun_file *tfile)
-+{
-+	if (tfile->enabled == true)
-+		return -EINVAL;
-+
-+	tfile->enabled = true;
-+	return 0;
-+}
-+
-+static int tun_disable(struct tun_file *tfile)
-+{
-+	struct tun_struct *tun = rcu_dereference_protected(tfile->tun,
-+							   lockdep_rtnl_is_held());
-+	u16 index = tfile->queue_index;
-+
-+	if (!tun)
-+		return -EINVAL;
-+
-+	if (tun->numqueues == 1)
-+		return -EINVAL;
-+
-+	BUG_ON(index >= tun->numqueues);
-+	tfile->enabled = false;
-+
-+	synchronize_net();
-+	tun_flow_delete_by_queue(tun, index);
-+
-+	return 0;
-+}
-+
- static void __tun_detach(struct tun_file *tfile, bool clean)
- {
- 	struct tun_file *ntfile;
-@@ -446,6 +492,7 @@ static void tun_detach_all(struct net_device *dev)
- 		BUG_ON(!tfile);
- 		wake_up_all(&tfile->wq.wait);
- 		rcu_assign_pointer(tfile->tun, NULL);
-+		tfile->enabled = false;
- 		--tun->numqueues;
- 	}
- 	BUG_ON(tun->numqueues != 0);
-@@ -490,6 +537,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
- 	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
- 	sock_hold(&tfile->sk);
- 	tun->numqueues++;
-+	tfile->enabled = true;
- 
- 	tun_set_real_num_queues(tun);
- 
-@@ -672,6 +720,10 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (txq >= tun->numqueues)
- 		goto drop;
- 
-+	/* Drop packet if the queue was not enabled */
-+	if (!tfile->enabled)
-+		goto drop;
-+
- 	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
- 
- 	BUG_ON(!tfile);
-@@ -1010,6 +1062,9 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	bool zerocopy = false;
- 	int err;
- 
-+	if (!tfile->enabled)
-+		return -EINVAL;
-+
- 	if (!(tun->flags & TUN_NO_PI)) {
- 		if ((len -= sizeof(pi)) > total_len)
- 			return -EINVAL;
-@@ -1199,6 +1254,9 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 	struct tun_pi pi = { 0, skb->protocol };
- 	ssize_t total = 0;
- 
-+	if (!tfile->enabled)
-+		return -EINVAL;
-+
- 	if (!(tun->flags & TUN_NO_PI)) {
- 		if ((len -= sizeof(pi)) < 0)
- 			return -EINVAL;
-@@ -1769,15 +1827,21 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
- 		if (dev->netdev_ops != &tap_netdev_ops &&
- 			dev->netdev_ops != &tun_netdev_ops)
- 			ret = -EINVAL;
--		else if (tun_not_capable(tun))
--			ret = -EPERM;
--		/* TUNSETIFF is needed to do permission checking */
--		else if (tun->numqueues == 0)
--			ret = -EPERM;
--		else
--			ret = tun_attach(tun, file);
-+		else {
-+			if (!rcu_dereference(tfile->tun)) {
-+				if (tun_not_capable(tun) ||
-+				    tun->numqueues == 0)
-+					ret = -EPERM;
-+				else
-+					ret = tun_attach(tun, file);
-+			}
-+			else {
-+				/* FIXME: permission check? */
-+				ret = tun_enable(tfile);
-+			}
-+		}
- 	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE)
--		__tun_detach(tfile, false);
-+		tun_disable(tfile);
- 	else
- 		ret = -EINVAL;
- 
-@@ -2085,6 +2149,7 @@ static int tun_chr_open(struct inode *inode, struct file * file)
- 	tfile->socket.file = file;
- 	tfile->socket.ops = &tun_socket_ops;
- 
-+	tfile->enabled = false;
- 	sock_init_data(&tfile->socket, &tfile->sk);
- 	sk_change_net(&tfile->sk, tfile->net);
- 
--- 
-1.7.1
+ 	if (priv->rx_filer_enable) {
+ 		rctrl |= RCTRL_FILREN;
+ 		/* Program the RIR0 reg with the required distribution
+*/
+
+
+
+Cedric Voncken 
