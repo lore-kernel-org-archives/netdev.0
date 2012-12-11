@@ -1,44 +1,109 @@
-From: =?UTF-8?q?Petr=20=C5=A0abata?= <contyk@redhat.com>
-Subject: [PATCH] iproute2: ss - change default filter to include all socket types
-Date: Tue, 11 Dec 2012 17:42:52 +0100
-Message-ID: <1355244172-32071-1-git-send-email-contyk@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: netconsole fun
+Date: Tue, 11 Dec 2012 11:45:26 -0500
+Message-ID: <20121211164526.GB7481@neilslaptop.think-freely.org>
+References: <1355149033.3142.14.camel@thor>
+ <ka6e4e$6k5$1@ger.gmane.org>
+ <1355235592.2694.5.camel@thor>
+ <20121211143004.GA7481@neilslaptop.think-freely.org>
+ <1355239011.2694.24.camel@thor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?q?Petr=20=C5=A0abata?= <contyk@redhat.com>
-To: shemminger@vyatta.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Peter Hurley <peter@hurleysoftware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11962 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752962Ab2LKQnM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Dec 2012 11:43:12 -0500
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:52177 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753594Ab2LKQpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 11:45:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1355239011.2694.24.camel@thor>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the default filter lists TCP sockets only which is
-rather confusing especially when the '-a/--all' flag is used.
-This patch changes the default to include all sockets, imitating
-netstat(8) behavior.
+On Tue, Dec 11, 2012 at 10:16:51AM -0500, Peter Hurley wrote:
+> On Tue, 2012-12-11 at 09:30 -0500, Neil Horman wrote:
+> > On Tue, Dec 11, 2012 at 09:19:52AM -0500, Peter Hurley wrote:
+> > > On Tue, 2012-12-11 at 04:51 +0000, Cong Wang wrote:
+> > > > On Mon, 10 Dec 2012 at 14:17 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
+> > > > > Now that netpoll has been disabled for slaved devices, is there a
+> > > > > recommended method of running netconsole on a machine that has a slaved
+> > > > > device?
+> > > > >
+> > > > 
+> > > > Yes, running it on the master device instead.
+> > > 
+> > > Thanks for the suggestion, but:
+> > > 
+> > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.10.99/br0,30000@192.168.10.100/xx:xx:xx:xx:xx:xx
+> > > ...
+> > > [ 5.289869] netpoll: netconsole: local port 6665
+> > > [ 5.289885] netpoll: netconsole: local IP 192.168.10.99
+> > > [ 5.289892] netpoll: netconsole: interface 'br0'
+> > > [ 5.289898] netpoll: netconsole: remote port 30000
+> > > [ 5.289907] netpoll: netconsole: remote IP 192.168.10.100
+> > > [ 5.289914] netpoll: netconsole: remote ethernet address xx:xx:xx:xx:xx:xx
+> > > [ 5.289922] netpoll: netconsole: br0 doesn't exist, aborting
+> > > [ 5.289929] netconsole: cleaning up
+> > > ...
+> > > [ 9.392291] Bridge firewalling registered
+> > > [ 9.396805] device eth1 entered promiscuous mode
+> > > [ 9.418350] eth1:  setting full-duplex.
+> > > [ 9.421268] br0: port 1(eth1) entered forwarding state
+> > > [ 9.423354] br0: port 1(eth1) entered forwarding state
+> > > 
+> > > 
+> > > Is there a way to control or associate network device names prior to
+> > > udev renaming?
+> > > 
+> > That looks like a systemd problem (or more specifically a boot dependency
+> > problem).  You need to modify your netconsole unit/service file to start after
+> > all your networking is up.  NetworkManager provides a dummy service file for
+> > this purpose, called networkmanager-wait-online.service
+> 
+> Ok. So with a single physical network interface that will be bridged,
+> netconsole cannot used for kernel boot messages.
+> 
+> With a machine with multiple nics, is there a way to control device
+> naming so that the interface name to be used by netconsole specified on
+> the boot command line will actually corresponding to the intended
+> device. For example,
+> 
+> [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.1.123/eth0,30000@192.168.1.139/xx:xx:xx:xx:xx:xx
+> ....
+> [ 4.092184] 3c59x: Donald Becker and others.
+> [ 4.092204] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000186cf80.
+> [ 4.094035] tg3.c:v3.125 (September 26, 2012)
+> ....
+> [ 4.125038] tg3 0000:08:00.0 eth1: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
+> [ 4.125055] tg3 0000:08:00.0 eth1: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> [ 4.125062] tg3 0000:08:00.0 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> [ 4.125068] tg3 0000:08:00.0 eth1: dma_rwctrl[76180000] dma_mask[64-bit]
+> 
+> This is attaching netconsole to the wrong device because bus
+> enumeration, and therefore load order, is not consistent from boot to
+> boot.
+> 
+No, theres no way to do that.  As you note device ennumeration isn't consistent
+accross boots, thats why udev creates rules to rename devices based on immutable
+(or semi-immutable) data, like mac addresses, or pci bus locations).  Once that
+happens, you'll have consistent names for your interfaces, and that work will be
+guaranteed to be done after networkmanager has finished opening all the
+interfaces that it needs (hence my suggestion to make netconsole service
+dependent on networkmanager service startup completing).
 
-Signed-off-by: Petr =C5=A0abata <contyk@redhat.com>
----
- misc/ss.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Neil
 
-diff --git a/misc/ss.c b/misc/ss.c
-index b45f5ba..b8cd60d 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -105,7 +105,7 @@ struct filter
- };
-=20
- struct filter default_filter =3D {
--	.dbs	=3D  (1<<TCP_DB),
-+	.dbs	=3D  ~0,
- 	.states =3D SS_ALL & ~((1<<SS_LISTEN)|(1<<SS_CLOSE)|(1<<SS_TIME_WAIT)=
-|(1<<SS_SYN_RECV)),
- 	.families=3D (1<<AF_INET)|(1<<AF_INET6),
- };
---=20
-1.7.11.7
+> [ 3.840306] tg3.c:v3.127 (November 14, 2012)
+> [ 3.873390] tg3 0000:08:00.0 eth0: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
+> [ 3.873406] tg3 0000:08:00.0 eth0: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> [ 3.873413] tg3 0000:08:00.0 eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> [ 3.873424] tg3 0000:08:00.0 eth0: dma_rwctrl[76180000] dma_mask[64-bit]
+> ...
+> [ 3.884239] 3c59x: Donald Becker and others.
+> [ 3.884263] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000187cf80.
+> 
+> Regards,
+> Peter Hurley
+> 
+> 
