@@ -1,37 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: gro: dev_gro_receive() cleanup
-Date: Tue, 11 Dec 2012 12:51:11 -0500 (EST)
-Message-ID: <20121211.125111.1548335816285987352.davem@davemloft.net>
-References: <1355182096.27891.93.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] bnx2x: use netdev_alloc_frag()
+Date: Tue, 11 Dec 2012 12:51:03 -0500 (EST)
+Message-ID: <20121211.125103.1869709000760345113.davem@davemloft.net>
+References: <1355177766.27891.68.camel@edumazet-glaptop>
+	<504C9EFCA2D0054393414C9CB605C37F1BFC4273@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, eilong@broadcom.com
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41046 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41042 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753735Ab2LKRvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 12:51:12 -0500
-In-Reply-To: <1355182096.27891.93.camel@edumazet-glaptop>
+	with ESMTP id S1753735Ab2LKRvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 12:51:05 -0500
+In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F1BFC4273@SJEXCHMB06.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 10 Dec 2012 15:28:16 -0800
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Mon, 10 Dec 2012 22:57:44 +0000
 
-> From: Eric Dumazet <edumazet@google.com>
+>> -----Original Message-----
+>> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+>> Sent: Tuesday, December 11, 2012 12:16 AM
+>> To: David Miller
+>> Cc: netdev; Eilon Greenstein; Dmitry Kravkov
+>> Subject: [PATCH net-next] bnx2x: use netdev_alloc_frag()
+>> 
+>> From: Eric Dumazet <edumazet@google.com>
+>> 
+>> Using netdev_alloc_frag() instead of kmalloc() permits better GRO or
+>> TCP coalescing behavior, as skb_gro_receive() doesn't have to fallback
+>> to frag_list overhead.
+>> 
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Cc: Dmitry Kravkov <dmitry@broadcom.com>
+>> Cc: Eilon Greenstein <eilong@broadcom.com>
 > 
-> __napi_gro_receive() is inlined from two call sites for no good reason.
+> Thanks a lot, Eric!
 > 
-> Lets move the prep stuff in a function of its own, called only if/when 
-> needed. This saves 300 bytes on x86 :
-> 
-> # size net/core/dev.o.after net/core/dev.o.before
->    text	   data	    bss	    dec	    hex	filename
->   51968	   1238	   1040	  54246	   d3e6	net/core/dev.o.before
->   51664	   1238	   1040	  53942	   d2b6	net/core/dev.o.after
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Dmitry Kravkov <dmitry@broadcom.com>
 
 Applied.
