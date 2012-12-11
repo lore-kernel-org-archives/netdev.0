@@ -1,64 +1,97 @@
-From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH][RFC] smsc95xx: enable dynamic autosuspend (RFC)
-Date: Tue, 11 Dec 2012 20:53:19 +0800
-Message-ID: <CACVXFVMNshNMJ+hYHTCfE2+UOuMgGLb0dKq8qEM-LfUseuy2qA@mail.gmail.com>
-References: <1353607526-19307-6-git-send-email-steve.glendinning@shawell.net>
-	<CAKh2mn5LgZBJDJWNzN8A3NK72Vk_fiUjJfmdn5njSrm400q36w@mail.gmail.com>
-	<CACVXFVOBgwoSyUDzxD+ghjkpFu5PL7MuaS5UJOZYvVnV0dwhGg@mail.gmail.com>
-	<1881907.JmjSTg2PBW@linux-lqwf.site>
+From: Duan Jiong <djduanjiong@gmail.com>
+Subject: Re: [PATCH] ipv6: fix the bug when propagating Redirect Message
+Date: Tue, 11 Dec 2012 20:58:20 +0800
+Message-ID: <50C72DEC.1000008@gmail.com>
+References: <5086B721.1090905@gmail.com> <20121024045410.GF27385@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>,
-	Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1881907.JmjSTg2PBW-ugxBuEnWX9yG/4A2pS7c2Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:55813 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752173Ab2LKM60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 07:58:26 -0500
+Received: by mail-pa0-f46.google.com with SMTP id bh2so2867468pad.19
+        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 04:58:25 -0800 (PST)
+In-Reply-To: <20121024045410.GF27385@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 11, 2012 at 6:27 PM, Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> wrote:
-> On Tuesday 11 December 2012 10:24:57 Ming Lei wrote:
->> On Mon, Dec 10, 2012 at 10:18 PM, Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org> wrote:
->
->> > Thanks, so something like this should do the job?
+=E4=BA=8E 2012/10/24 12:54, Steffen Klassert =E5=86=99=E9=81=93:
+> On Tue, Oct 23, 2012 at 11:26:25PM +0800, Duan Jiong wrote:
 >>
->> This will do, but not simple as clearing .manage_power function
->> pointer in bind(), and still disable runtime suspend for link off case
->> since these devices which don't support suspend 3 can generate
->> remote wakeup for link change event.
->
-> So they can autosuspend if the interface is up and no cable is plugged
-> in?
+>> Before using icmpv6_notify() to propagate redirect, change skb->data
+>> to poing the IP packet that triggered the sending of the Redirect.
+>>
+>> Signed-off-by: Duan Jiong <djduanjiong@gmail.com>
+>> ---
+>>  net/ipv6/ndisc.c |   39 +++++++++++++++++++++++++++++++++++++++
+>>  1 files changed, 39 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+>> index ff36194..0f73303 100644
+>> --- a/net/ipv6/ndisc.c
+>> +++ b/net/ipv6/ndisc.c
+>> @@ -1334,6 +1334,11 @@ out:
+>> =20
+>>  static void ndisc_redirect_rcv(struct sk_buff *skb)
+>>  {
+>> +	int opt_len;
+>> +	int opt_offset;
+>> +	int ndisc_head_len;
+>> +	struct nd_opt_hdr *nd_opt;
+>> +=09
+>>  #ifdef CONFIG_IPV6_NDISC_NODETYPE
+>>  	switch (skb->ndisc_nodetype) {
+>>  	case NDISC_NODETYPE_HOST:
+>> @@ -1350,6 +1355,40 @@ static void ndisc_redirect_rcv(struct sk_buff=
+ *skb)
+>>  		return;
+>>  	}
+>> =20
+>> +	ndisc_head_len =3D sizeof(struct icmp6hdr) + 2*sizeof(struct in6_a=
+ddr);
+>> +	if (!pskb_may_pull(skb, ndisc_head_len)) {
+>> +		return;
+>> +	}
+>> +
+>> +	nd_opt =3D (struct nd_opt_hdr *)(skb->data + ndisc_head_len);
+>> +
+>> +	opt_len =3D skb->tail - skb->transport_header - ndisc_head_len;
+>> +	if (opt_len < 0) {
+>> +		return;
+>> +	}
+>> +	while (opt_len) {
+>> +		int l;
+>> +=09
+>> +		if (opt_len < sizeof(struct nd_opt_hdr)) {
+>> +			return;
+>> +		}
+>> +		l =3D nd_opt->nd_opt_len << 3;
+>> +		if (opt_len < l || l =3D=3D 0) {
+>> +			return;
+>> +		}
+>> +		if (nd_opt->nd_opt_type =3D=3D ND_OPT_REDIRECT_HDR) {
+>> +			__skb_pull(skb, ndisc_head_len + opt_offset + 8);
+>> +			break;
+>> +		}
+>> +		opt_len -=3D l;
+>> +		nd_opt =3D ((void *)nd_opt) + 1;
+>> +		opt_offset +=3D 1;
+>> +	}
+>=20
+> Instead of the above loop, you could use ndisc_parse_options().
+> This does the same what you are doing here and it would make it
+> a bit clearer what's going on.
+>=20
+I apologize for not replying to you earlier,and i will continue=20
+to update my patches.=20
 
->From the open datasheet, that is the suspend 1 mode, which is supported
-by all LAN95xx devices. Steve, correct me if I am wrong.
+Just like you said, i try to use ndisc_parse_options() to instead
+of the loop, but i find the skb->data can't be changed in function
+ndisc_parse_options() due to lack of  arguments. So i think it is
+better to continue to use the loop. How do you think this?
 
->
->> I suggest to introduce link-off triggered runtime suspend for these
->> usbnet devices(non-LAN9500A device, devices which don't support
->> USB auto-suspend), and I have posted one patch set before[1].
->> If no one objects that, I'd like to post them again with some fix and
->> update for checking link after link_reset().
->
-> If you can get rid of a periodic work this would be great.
-
-For the LAN95xx devices, the periodic work isn't needed because
-they may generate remote wakeup when link change is detected.
-
-In fact, I have test data which can show a much power save
-on OMAP3 based beagle board plus asix usbnet device with
-the periodic work. IMO, the power save after introducing periodic
-timer depends on the arch or platform, there should be much power
-save if the CPU power consumption is very less. So how about letting
-module parameter switch on/off the periodic work?
-
-
-Thanks,
---
-Ming Lei
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks!
