@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: gro: avoid double copy in
- skb_gro_receive()
-Date: Tue, 11 Dec 2012 13:45:19 -0500 (EST)
-Message-ID: <20121211.134519.1844951486135447108.davem@davemloft.net>
-References: <1355251109.27891.114.camel@edumazet-glaptop>
+Subject: Re: netdevice wanrouter: Convert directly reference of netdev->priv
+Date: Tue, 11 Dec 2012 13:46:09 -0500 (EST)
+Message-ID: <20121211.134609.2162096096504478639.davem@davemloft.net>
+References: <20121203090405.GA12089@elgon.mountain>
+	<20121211.134310.1757064654502486858.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: wangchen@cn.fujitsu.com, netdev@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41597 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41614 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754497Ab2LKSpU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 13:45:20 -0500
-In-Reply-To: <1355251109.27891.114.camel@edumazet-glaptop>
+	with ESMTP id S1753769Ab2LKSqL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 13:46:11 -0500
+In-Reply-To: <20121211.134310.1757064654502486858.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 11 Dec 2012 10:38:29 -0800
+From: David Miller <davem@davemloft.net>
+Date: Tue, 11 Dec 2012 13:43:10 -0500 (EST)
 
-> From: Eric Dumazet <edumazet@google.com>
+> What's missing at the top level is something like:
 > 
-> __copy_skb_header(nskb, p) already copied p->cb[], no need to copy
-> it again.
+> 	dev = wandev->dev;
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> And perhaps removing the 'dev' argument to the ->new_if()
+> method since it obviously is always NULL and never actually
+> used.
 
-Applied, thanks Eric.
+And for the record, wangchen's email bounces so it's very
+unlikely we'll see any response from him.
