@@ -1,48 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1] net: ethernet: davinci_cpdma: Add boundary for
- rx and tx descriptors
-Date: Tue, 11 Dec 2012 13:34:26 -0500 (EST)
-Message-ID: <20121211.133426.484976995112519196.davem@davemloft.net>
-References: <1355197433-7492-1-git-send-email-mugunthanvnm@ti.com>
-	<20121211.133058.2238010228178961245.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: gro: avoid double copy in skb_gro_receive()
+Date: Tue, 11 Dec 2012 10:38:29 -0800
+Message-ID: <1355251109.27891.114.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-omap@vger.kernel.org, s.hauer@pengutronix.de
-To: mugunthanvnm@ti.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20121211.133058.2238010228178961245.davem@davemloft.net>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:65245 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752857Ab2LKSic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 13:38:32 -0500
+Received: by mail-pa0-f46.google.com with SMTP id bh2so3081439pad.19
+        for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 10:38:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 11 Dec 2012 13:30:58 -0500 (EST)
+From: Eric Dumazet <edumazet@google.com>
 
-> 
-> You cannot do this.
-> 
-> After your changes the driver no longer does any TX flow control.
-> 
-> It never stops the TX queue and never wakes it up later.
-> 
-> It just drops packets on the floor when it runs out of descriptors.
-> 
-> This breaks everything, and in particular packet schedulers and
-> TCP.
-> 
-> I'm not applying this.
+__copy_skb_header(nskb, p) already copied p->cb[], no need to copy
+it again.
 
-And yes I mean that the "fail_tx" path of the transmit method
-is bogus too.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/skbuff.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-You can't signal "out of descriptors" and stop the queue after the
-fact.  NETDEV_TX_BUSY is for handling exceptional and extraordinary
-conditions, not for the normal queue full handling.
-
-You have to stop the queue before you run out of descriptors.  When
-the queue is not stopped, you are telling the core networking that you
-absoultely will be able to successfully queue a packet and enough
-descriptors are available.
-
-This means the other CPDMA driver needs to be reworked too.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ccbabf5..ac9e44a 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3028,7 +3028,6 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	memcpy(skb_mac_header(nskb), skb_mac_header(p),
+ 	       p->data - skb_mac_header(p));
+ 
+-	*NAPI_GRO_CB(nskb) = *NAPI_GRO_CB(p);
+ 	skb_shinfo(nskb)->frag_list = p;
+ 	skb_shinfo(nskb)->gso_size = pinfo->gso_size;
+ 	pinfo->gso_size = 0;
