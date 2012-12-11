@@ -1,94 +1,35 @@
-From: Peter Hurley <peter@hurleysoftware.com>
-Subject: Re: netconsole fun
-Date: Tue, 11 Dec 2012 10:16:51 -0500
-Message-ID: <1355239011.2694.24.camel@thor>
-References: <1355149033.3142.14.camel@thor> <ka6e4e$6k5$1@ger.gmane.org>
-	 <1355235592.2694.5.camel@thor>
-	 <20121211143004.GA7481@neilslaptop.think-freely.org>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH][RFC] smsc95xx: enable dynamic autosuspend (RFC)
+Date: Tue, 11 Dec 2012 16:19:34 +0100
+Message-ID: <3108632.YdjKGB5H1R@linux-lqwf.site>
+References: <1353607526-19307-6-git-send-email-steve.glendinning@shawell.net> <1881907.JmjSTg2PBW@linux-lqwf.site> <CACVXFVMNshNMJ+hYHTCfE2+UOuMgGLb0dKq8qEM-LfUseuy2qA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Steve Glendinning <steve@shawell.net>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout39.mail01.mtsvc.net ([216.70.64.83]:38065 "EHLO
-	n12.mail01.mtsvc.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753833Ab2LKPRD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 10:17:03 -0500
-In-Reply-To: <20121211143004.GA7481@neilslaptop.think-freely.org>
+Received: from smtp-out003.kontent.com ([81.88.40.217]:60622 "EHLO
+	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753833Ab2LKPTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 10:19:11 -0500
+In-Reply-To: <CACVXFVMNshNMJ+hYHTCfE2+UOuMgGLb0dKq8qEM-LfUseuy2qA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-12-11 at 09:30 -0500, Neil Horman wrote:
-> On Tue, Dec 11, 2012 at 09:19:52AM -0500, Peter Hurley wrote:
-> > On Tue, 2012-12-11 at 04:51 +0000, Cong Wang wrote:
-> > > On Mon, 10 Dec 2012 at 14:17 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
-> > > > Now that netpoll has been disabled for slaved devices, is there a
-> > > > recommended method of running netconsole on a machine that has a slaved
-> > > > device?
-> > > >
-> > > 
-> > > Yes, running it on the master device instead.
-> > 
-> > Thanks for the suggestion, but:
-> > 
-> > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.10.99/br0,30000@192.168.10.100/xx:xx:xx:xx:xx:xx
-> > ...
-> > [ 5.289869] netpoll: netconsole: local port 6665
-> > [ 5.289885] netpoll: netconsole: local IP 192.168.10.99
-> > [ 5.289892] netpoll: netconsole: interface 'br0'
-> > [ 5.289898] netpoll: netconsole: remote port 30000
-> > [ 5.289907] netpoll: netconsole: remote IP 192.168.10.100
-> > [ 5.289914] netpoll: netconsole: remote ethernet address xx:xx:xx:xx:xx:xx
-> > [ 5.289922] netpoll: netconsole: br0 doesn't exist, aborting
-> > [ 5.289929] netconsole: cleaning up
-> > ...
-> > [ 9.392291] Bridge firewalling registered
-> > [ 9.396805] device eth1 entered promiscuous mode
-> > [ 9.418350] eth1:  setting full-duplex.
-> > [ 9.421268] br0: port 1(eth1) entered forwarding state
-> > [ 9.423354] br0: port 1(eth1) entered forwarding state
-> > 
-> > 
-> > Is there a way to control or associate network device names prior to
-> > udev renaming?
-> > 
-> That looks like a systemd problem (or more specifically a boot dependency
-> problem).  You need to modify your netconsole unit/service file to start after
-> all your networking is up.  NetworkManager provides a dummy service file for
-> this purpose, called networkmanager-wait-online.service
+On Tuesday 11 December 2012 20:53:19 Ming Lei wrote:
+> In fact, I have test data which can show a much power save
+> on OMAP3 based beagle board plus asix usbnet device with
+> the periodic work. IMO, the power save after introducing periodic
+> timer depends on the arch or platform, there should be much power
+> save if the CPU power consumption is very less. So how about letting
+> module parameter switch on/off the periodic work?
 
-Ok. So with a single physical network interface that will be bridged,
-netconsole cannot used for kernel boot messages.
+You could ask on linux-power and netdev. But there would be an
+obvious question: Why kernel space?
 
-With a machine with multiple nics, is there a way to control device
-naming so that the interface name to be used by netconsole specified on
-the boot command line will actually corresponding to the intended
-device. For example,
-
-[ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.1.123/eth0,30000@192.168.1.139/xx:xx:xx:xx:xx:xx
-....
-[ 4.092184] 3c59x: Donald Becker and others.
-[ 4.092204] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000186cf80.
-[ 4.094035] tg3.c:v3.125 (September 26, 2012)
-....
-[ 4.125038] tg3 0000:08:00.0 eth1: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
-[ 4.125055] tg3 0000:08:00.0 eth1: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
-[ 4.125062] tg3 0000:08:00.0 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
-[ 4.125068] tg3 0000:08:00.0 eth1: dma_rwctrl[76180000] dma_mask[64-bit]
-
-This is attaching netconsole to the wrong device because bus
-enumeration, and therefore load order, is not consistent from boot to
-boot.
-
-[ 3.840306] tg3.c:v3.127 (November 14, 2012)
-[ 3.873390] tg3 0000:08:00.0 eth0: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
-[ 3.873406] tg3 0000:08:00.0 eth0: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
-[ 3.873413] tg3 0000:08:00.0 eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
-[ 3.873424] tg3 0000:08:00.0 eth0: dma_rwctrl[76180000] dma_mask[64-bit]
-...
-[ 3.884239] 3c59x: Donald Becker and others.
-[ 3.884263] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000187cf80.
-
-Regards,
-Peter Hurley
+	Regards
+		Oliver
