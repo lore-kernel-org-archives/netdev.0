@@ -1,63 +1,86 @@
-From: "Cedric VONCKEN" <cedric.voncken@acksys.fr>
-Subject: Gianfar driver issue
-Date: Tue, 11 Dec 2012 10:59:03 +0100
-Message-ID: <773DB8A82AB6A046AE0195C68612A31901412124@sbs2003.acksys.local>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: <netdev@vger.kernel.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 2/2] net/mlx4_en: Add support for destination MAC in steering rules
+Date: Tue, 11 Dec 2012 14:03:55 +0200
+Message-ID: <1355227436-18383-3-git-send-email-amirv@mellanox.com>
+References: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out05.msg.oleane.net ([62.161.7.3]:48954 "EHLO
-	smtp-out05.msg.oleane.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752904Ab2LKMGQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 07:06:16 -0500
-Received: from smtp29.msg.oleane.net (smtp29.mail.priv [172.17.20.151])
-	by smtp-out05.msg.oleane.net with ESMTP id qBBAJUQo018097
-	for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 11:19:30 +0100
-Received: from acksys.fr ([195.6.104.67]) (authenticated)
-	by smtp29.msg.oleane.net (MTA) with ESMTP id qBB9x4oZ014707
-	for <netdev@vger.kernel.org>; Tue, 11 Dec 2012 10:59:04 +0100
-Content-class: urn:content-classes:message
+Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:49435 "HELO
+	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752584Ab2LKMIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Dec 2012 07:08:43 -0500
+In-Reply-To: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Hi all, 
+From: Yan Burman <yanb@mellanox.com>
 
-	I think he have an issue in Gianfar driver.
+Implement destination MAC rule extension for L3/L4 rules in
+flow steering. Usefull for vSwitch/macvlan configurations.
 
-	When the Netdev tx queue timeout occurred, the function
-gfar_timeout(..) is called. This function calls indirectly the
-gfar_init_mac(..) function.
+Signed-off-by: Yan Burman <yanb@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
-	In this function, the rctrl register is set to a default value.
-
-	If the Promiscuous is enable on the net dev ( flag IFF_PROMISC
-is set), the gfar_init_function does not reactivate it. 
-
-	The Promiscuous mode is used for example when the netdev is
-bridged. 
-	
-	I apply this patch to fix it.
-
-	--- a/drivers/net/ethernet/freescale/gianfar.c.	2012-06-01
-09:16:13.000000000 +0200
-	+++ b/drivers/net/ethernet/freescale/gianfar.c	2012-12-11
-10:38:23.000000000 +0100
-	@@ -356,6 +356,11 @@
- 	/* Configure the coalescing support */
- 	gfar_configure_coalescing(priv, 0xFF, 0xFF);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 4aaa7c3..87a87a7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -619,7 +619,13 @@ static int mlx4_en_validate_flow(struct net_device *dev,
+ 	if (cmd->fs.location >= MAX_NUM_OF_FS_RULES)
+ 		return -EINVAL;
  
-+	if (ndev->flags & IFF_PROMISC) {
-+		/* Set RCTRL to PROM */
-+		rctrl |= RCTRL_PROM;
+-	switch (cmd->fs.flow_type & ~FLOW_EXT) {
++	if (cmd->fs.flow_type & FLOW_MAC_EXT) {
++		/* dest mac mask must be ff:ff:ff:ff:ff:ff */
++		if (memcmp(cmd->fs.m_ext.h_dest, &full_mac, ETH_ALEN))
++			return -EINVAL;
 +	}
 +
- 	if (priv->rx_filer_enable) {
- 		rctrl |= RCTRL_FILREN;
- 		/* Program the RIR0 reg with the required distribution
-*/
-
-
-
-Cedric Voncken 
++	switch (cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
+ 	case TCP_V4_FLOW:
+ 	case UDP_V4_FLOW:
+ 		if (cmd->fs.m_u.tcp_ip4_spec.tos)
+@@ -747,7 +753,6 @@ static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
+ 					     struct list_head *rule_list_h)
+ {
+ 	int err;
+-	u64 mac;
+ 	__be64 be_mac;
+ 	struct ethhdr *eth_spec;
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+@@ -762,12 +767,16 @@ static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
+ 	if (!spec_l2)
+ 		return -ENOMEM;
+ 
+-	mac = priv->mac & MLX4_MAC_MASK;
+-	be_mac = cpu_to_be64(mac << 16);
++	if (cmd->fs.flow_type & FLOW_MAC_EXT) {
++		memcpy(&be_mac, cmd->fs.h_ext.h_dest, ETH_ALEN);
++	} else {
++		u64 mac = priv->mac & MLX4_MAC_MASK;
++		be_mac = cpu_to_be64(mac << 16);
++	}
+ 
+ 	spec_l2->id = MLX4_NET_TRANS_RULE_ID_ETH;
+ 	memcpy(spec_l2->eth.dst_mac_msk, &mac_msk, ETH_ALEN);
+-	if ((cmd->fs.flow_type & ~FLOW_EXT) != ETHER_FLOW)
++	if ((cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) != ETHER_FLOW)
+ 		memcpy(spec_l2->eth.dst_mac, &be_mac, ETH_ALEN);
+ 
+ 	if ((cmd->fs.flow_type & FLOW_EXT) && cmd->fs.m_ext.vlan_tci) {
+@@ -777,7 +786,7 @@ static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
+ 
+ 	list_add_tail(&spec_l2->list, rule_list_h);
+ 
+-	switch (cmd->fs.flow_type & ~FLOW_EXT) {
++	switch (cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
+ 	case ETHER_FLOW:
+ 		eth_spec = &cmd->fs.h_u.ether_spec;
+ 		memcpy(&spec_l2->eth.dst_mac, eth_spec->h_dest, ETH_ALEN);
+-- 
+1.7.11.3
