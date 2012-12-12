@@ -1,130 +1,272 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next 4/5] netns: advertise netns activity with netlink
-Date: Wed, 12 Dec 2012 18:24:40 +0100
-Message-ID: <1355333081-4018-5-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next 2/5] netns: allow to dump netns with netlink
+Date: Wed, 12 Dec 2012 18:24:38 +0100
+Message-ID: <1355333081-4018-3-git-send-email-nicolas.dichtel@6wind.com>
 References: <1355333081-4018-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, ebiederm@xmission.com, aatteka@nicira.com,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39154 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39148 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754677Ab2LLR0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 12:26:34 -0500
+	with ESMTP id S1754565Ab2LLR0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 12:26:33 -0500
 In-Reply-To: <1355333081-4018-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Goal of this patch is to send netlink messages when netns are crated/deleted.
-This is useful for daemon that wants to manage all netns with only one running
-instance.
-Note that until that netns_nl_event_mcgrp group is not registered, we cannot
-send event.
+This patch adds the basic support of netlink for netns. The user can dump all
+existing netns and get associated nsindex.
+He also can get nsindex associated to a pid or fd.
+
+To initialize genetlink family for netns, there is a problem of chicken and
+eggs. genetlink init is done after init_net is created, hence when init_net is
+created, we cannot call genl_register_family_with_ops(). It's why I put the
+init part in genetlink module.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/uapi/linux/netns.h |  4 ++++
- net/core/net_namespace.c   | 38 +++++++++++++++++++++++++++++++++++++-
- 2 files changed, 41 insertions(+), 1 deletion(-)
+ include/net/net_namespace.h |   1 +
+ include/uapi/linux/netns.h  |  27 ++++++++
+ net/core/net_namespace.c    | 157 ++++++++++++++++++++++++++++++++++++++++++++
+ net/netlink/genetlink.c     |   4 ++
+ 4 files changed, 189 insertions(+)
+ create mode 100644 include/uapi/linux/netns.h
 
-diff --git a/include/uapi/linux/netns.h b/include/uapi/linux/netns.h
-index e1c1da3..e14d90b 100644
---- a/include/uapi/linux/netns.h
-+++ b/include/uapi/linux/netns.h
-@@ -6,10 +6,14 @@
- #define NETNS_GENL_NAME			"netns"
- #define NETNS_GENL_VERSION		0x1
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 5db7a1b..c373f2e 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -306,6 +306,7 @@ extern int register_pernet_subsys(struct pernet_operations *);
+ extern void unregister_pernet_subsys(struct pernet_operations *);
+ extern int register_pernet_device(struct pernet_operations *);
+ extern void unregister_pernet_device(struct pernet_operations *);
++extern int netns_genl_register(void);
  
-+#define NETNS_GENL_MCAST_EVENT_NAME	"events"
+ struct ctl_table;
+ struct ctl_table_header;
+diff --git a/include/uapi/linux/netns.h b/include/uapi/linux/netns.h
+new file mode 100644
+index 0000000..e1c1da3
+--- /dev/null
++++ b/include/uapi/linux/netns.h
+@@ -0,0 +1,27 @@
++#ifndef _UAPI_LINUX_NETNS_H_
++#define _UAPI_LINUX_NETNS_H_
 +
- /* Commands */
- enum {
- 	NETNS_CMD_NOOP,
- 	NETNS_CMD_GET,
-+	NETNS_CMD_NEW,
-+	NETNS_CMD_DEL,
- 	__NETNS_CMD_MAX,
- };
- #define NETNS_CMD_MAX		(__NETNS_CMD_MAX - 1)
++/* Generic netlink messages */
++
++#define NETNS_GENL_NAME			"netns"
++#define NETNS_GENL_VERSION		0x1
++
++/* Commands */
++enum {
++	NETNS_CMD_NOOP,
++	NETNS_CMD_GET,
++	__NETNS_CMD_MAX,
++};
++#define NETNS_CMD_MAX		(__NETNS_CMD_MAX - 1)
++
++/* Attributes */
++enum {
++	NETNSA_NONE,
++	NETNSA_NSINDEX,
++	NETNSA_PID,
++	NETNSA_FD,
++	__NETNSA_MAX,
++};
++#define NETNSA_MAX		(__NETNSA_MAX - 1)
++
++#endif /* _UAPI_LINUX_NETNS_H_ */
 diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 18fc62f..da92ecb 100644
+index f5267e4..2ae22b0 100644
 --- a/net/core/net_namespace.c
 +++ b/net/core/net_namespace.c
-@@ -40,6 +40,8 @@ EXPORT_SYMBOL(init_net);
+@@ -14,6 +14,8 @@
+ #include <linux/file.h>
+ #include <linux/export.h>
+ #include <linux/user_namespace.h>
++#include <linux/netns.h>
++#include <net/genetlink.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
  
- static unsigned int max_gen_ptrs = INITIAL_NET_GEN_PTRS;
- 
-+static int netns_nl_event(struct net *net, int cmd);
-+
- static struct net_generic *net_alloc_generic(void)
- {
- 	struct net_generic *ng;
-@@ -179,6 +181,7 @@ again:
- 		if (error < 0)
- 			goto out_undo;
- 	}
-+	netns_nl_event(net, NETNS_CMD_NEW);
- out:
- 	return error;
- 
-@@ -311,6 +314,7 @@ static void cleanup_net(struct work_struct *work)
- 	synchronize_rcu();
- 
- 	list_for_each_entry(net, &net_exit_list, exit_list) {
-+		netns_nl_event(net, NETNS_CMD_DEL);
- 		/* Free the index */
- 		ida_remove(&net_namespace_ids, net->nsindex);
- 	}
-@@ -413,6 +417,10 @@ struct net *get_net_ns_by_nsindex(int nsindex)
+@@ -397,6 +399,161 @@ struct net *get_net_ns_by_pid(pid_t pid)
  }
- EXPORT_SYMBOL_GPL(get_net_ns_by_nsindex);
+ EXPORT_SYMBOL_GPL(get_net_ns_by_pid);
  
-+static struct genl_multicast_group netns_nl_event_mcgrp = {
-+	.name = NETNS_GENL_MCAST_EVENT_NAME,
++static struct genl_family netns_nl_family = {
++	.id		= GENL_ID_GENERATE,
++	.name		= NETNS_GENL_NAME,
++	.version	= NETNS_GENL_VERSION,
++	.hdrsize	= 0,
++	.maxattr	= NETNSA_MAX,
++	.netnsok	= true,
 +};
 +
- static struct genl_family netns_nl_family = {
- 	.id		= GENL_ID_GENERATE,
- 	.name		= NETNS_GENL_NAME,
-@@ -562,10 +570,38 @@ static struct genl_ops netns_nl_ops[] = {
- 	},
- };
- 
-+static int netns_nl_event(struct net *net, int cmd)
++static struct nla_policy netns_nl_policy[NETNSA_MAX + 1] = {
++	[NETNSA_NONE]		= { .type = NLA_UNSPEC, },
++	[NETNSA_NSINDEX]	= { .type = NLA_U32, },
++	[NETNSA_PID]		= { .type = NLA_U32 },
++	[NETNSA_FD]		= { .type = NLA_U32 },
++};
++
++static int netns_nl_get_size(void)
 +{
++	return nla_total_size(sizeof(u32)) /* NETNSA_NSINDEX */
++	       ;
++}
++
++static int netns_nl_cmd_noop(struct sk_buff *skb, struct genl_info *info)
++{
++	struct sk_buff *msg;
++	void *hdr;
++	int ret = -ENOBUFS;
++
++	msg = genlmsg_new(netns_nl_get_size(), GFP_KERNEL);
++	if (!msg) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
++			  &netns_nl_family, 0, NETNS_CMD_NOOP);
++	if (!hdr) {
++		ret = -EMSGSIZE;
++		goto err_out;
++	}
++
++	genlmsg_end(msg, hdr);
++
++	return genlmsg_unicast(genl_info_net(info), msg, info->snd_portid);
++
++err_out:
++	nlmsg_free(msg);
++
++out:
++	return ret;
++}
++
++static int netns_nl_fill(struct sk_buff *skb, u32 portid, u32 seq, int flags,
++			 int cmd, struct net *net)
++{
++	void *hdr;
++
++	hdr = genlmsg_put(skb, portid, seq, &netns_nl_family, flags, cmd);
++	if (!hdr)
++		return -EMSGSIZE;
++
++	if (nla_put_u32(skb, NETNSA_NSINDEX, net->nsindex))
++		goto nla_put_failure;
++
++	return genlmsg_end(skb, hdr);
++
++nla_put_failure:
++	genlmsg_cancel(skb, hdr);
++	return -EMSGSIZE;
++}
++
++static int netns_nl_cmd_get(struct sk_buff *skb, struct genl_info *info)
++{
++	struct net *net = genl_info_net(info);
 +	struct sk_buff *msg;
 +	int err = -ENOBUFS;
 +
-+	/* Check that gennl infra is ready */
-+	if (!netns_nl_event_mcgrp.id)
-+		return -ENOENT;
++	if (info->attrs[NETNSA_PID])
++		net = get_net_ns_by_pid(nla_get_u32(info->attrs[NETNSA_PID]));
++	else if (info->attrs[NETNSA_FD])
++		net = get_net_ns_by_fd(nla_get_u32(info->attrs[NETNSA_FD]));
++	else
++		get_net(net);
 +
-+	msg = genlmsg_new(netns_nl_get_size(), GFP_ATOMIC);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	err = netns_nl_fill(msg, 0, 0, 0, cmd, net);
-+	if (err < 0) {
-+		nlmsg_free(msg);
-+		return err;
++	msg = genlmsg_new(netns_nl_get_size(), GFP_KERNEL);
++	if (!msg) {
++		err = -ENOMEM;
++		goto out;
 +	}
 +
-+	return genlmsg_multicast(msg, 0, netns_nl_event_mcgrp.id, GFP_ATOMIC);
++	err = netns_nl_fill(msg, info->snd_portid, info->snd_seq,
++			    NLM_F_ACK, NETNS_CMD_GET, net);
++	if (err < 0)
++		goto err_out;
++
++	err = genlmsg_unicast(genl_info_net(info), msg, info->snd_portid);
++	goto out;
++
++err_out:
++	nlmsg_free(msg);
++
++out:
++	put_net(net);
++	return err;
 +}
 +
- int netns_genl_register(void)
- {
--	return genl_register_family_with_ops(&netns_nl_family, netns_nl_ops,
-+	int err;
++static int netns_nl_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int i = 0, s_i = cb->args[0];
++	struct net *net;
 +
-+	err =  genl_register_family_with_ops(&netns_nl_family, netns_nl_ops,
- 					     ARRAY_SIZE(netns_nl_ops));
-+	if (err < 0)
-+		return err;
++	rtnl_lock();
++	for_each_net(net) {
++		if (i < s_i) {
++			i++;
++			continue;
++		}
 +
-+	return genl_register_mc_group(&netns_nl_family, &netns_nl_event_mcgrp);
- }
- 
++		if (netns_nl_fill(skb, NETLINK_CB(cb->skb).portid,
++				  cb->nlh->nlmsg_seq, NLM_F_MULTI,
++				  NETNS_CMD_GET, net) <= 0)
++			goto out;
++
++		i++;
++	}
++
++out:
++	cb->args[0] = i;
++	rtnl_unlock();
++
++	return skb->len;
++}
++
++static struct genl_ops netns_nl_ops[] = {
++	{
++		.cmd = NETNS_CMD_NOOP,
++		.policy = netns_nl_policy,
++		.doit = netns_nl_cmd_noop,
++		.flags = GENL_ADMIN_PERM,
++	},
++	{
++		.cmd = NETNS_CMD_GET,
++		.policy = netns_nl_policy,
++		.doit = netns_nl_cmd_get,
++		.dumpit = netns_nl_cmd_dump,
++		.flags = GENL_ADMIN_PERM,
++	},
++};
++
++int netns_genl_register(void)
++{
++	return genl_register_family_with_ops(&netns_nl_family, netns_nl_ops,
++					     ARRAY_SIZE(netns_nl_ops));
++}
++
  static int __init net_ns_init(void)
+ {
+ 	struct net_generic *ng;
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f2aabb6..6d25ddb 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -963,6 +963,10 @@ static int __init genl_init(void)
+ 	if (err < 0)
+ 		goto problem;
+ 
++	err = netns_genl_register();
++	if (err < 0)
++		goto problem;
++
+ 	return 0;
+ 
+ problem:
 -- 
 1.8.0.1
