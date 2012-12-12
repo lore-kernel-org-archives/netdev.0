@@ -1,56 +1,82 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [RFC PATCH net-next 4/4 V4] try to fix performance regression
-Date: Wed, 12 Dec 2012 14:57:56 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70ED@saturn3.aculab.com>
-References: <117a10f9575d95d6a9ea4602ea7376e2b6d5ccd1.1355320533.git.wpan@redhat.com> <5e333588f6cb48cc3464b2263dcaa734b952e4c1.1355320534.git.wpan@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <brutus@google.com>, <netdev@vger.kernel.org>
-To: "Weiping Pan" <wpan@redhat.com>, <davem@davemloft.net>
+From: Paul Chavent <Paul.Chavent@onera.fr>
+Subject: [RFC] net : add tx timestamp to packet mmap.
+Date: Wed, 12 Dec 2012 16:29:25 +0100
+Message-ID: <1355326165-12277-1-git-send-email-paul.chavent@onera.fr>
+Cc: Paul Chavent <Paul.Chavent@onera.fr>
+To: davem@davemloft.net, edumazet@google.com,
+	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
+	ebiederm@xmission.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:46975 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752041Ab2LLO7Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 09:59:24 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11690-05 for <netdev@vger.kernel.org>;
- Wed, 12 Dec 2012 14:59:20 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <5e333588f6cb48cc3464b2263dcaa734b952e4c1.1355320534.git.wpan@redhat.com>
+Received: from briaree.onecert.fr ([134.212.190.4]:50096 "EHLO
+	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754125Ab2LLPdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 10:33:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->         MS       BASE    AF_UNIX    FRIENDS            TCP_STREAM_MS
->          1      10.70       5.40       4.02   37%   74%
->          2      28.01       9.67       7.97   28%   82%
->          4      55.53      19.78      16.48   29%   83%
->          8     115.40      38.22      33.51   29%   87%
->         16     227.31      81.06      67.70   29%   83%
->         32     446.20     166.59     129.31   28%   77%
->         64     849.04     336.77     259.43   30%   77%
->        128    1440.50     661.88     530.43   36%   80%
->        256    2404.70    1279.67    1029.15   42%   80%
->        512    4331.53    2501.30    1942.21   44%   77%
->       1024    6819.78    4622.37    4128.10   60%   89%
->       2048   10544.60    6348.81    6349.59   60%  100%
->       4096   12830.41    8324.43    7984.43   62%   95%
->       8192   13462.65    8355.49   11079.37   82%  132%
->      16384    9960.87   10840.13   13037.81  130%  120%
->      32768    8749.31   11372.15   15087.08  172%  132%
->      65536    7580.27   12150.23   14971.42  197%  123%
->     131072    6727.74   11451.34   13604.78  202%  118%
->     262144    7673.14   11613.10   11436.97  149%   98%
->     524288    7366.17   11675.95   11559.43  156%   99%
->    1048576    6608.57   11883.01   10103.20  152%   85%
-> MS means Message Size in bytes, that is -m -M for netperf
+This patch allow to generate tx timestamps of packets sent by the packet mmap interface.
 
-If I read that table correctly, it seems to imply that
-something goes badly wrong for 'normal' TCP loopback
-connections when the read/write size exceeds 8k.
-Putting effort into fixing that would appear to be
-more worthwhile than the 'friends' code.
+Actually, you can't get tx timestamps with the sample code below.
 
-	David
+I wonder if my current implementation is good. And if not, how should i get the timestamps ?
+
+Wouldn't be a good idea to put timestamps in the ring buffer frame before give it back to the user ?
+
+Thanks for your comments.
+
+/* BEGIN OF SAMPLE CODE */
+struct timespec ts = {0,0};
+struct sockaddr from_addr;
+static uint8_t tmp_data[256];
+struct iovec msg_iov = {tmp_data, sizeof(tmp_data)};
+static uint8_t cmsg_buff[256];
+struct msghdr msghdr = {&from_addr, sizeof(from_addr),
+                        &msg_iov, 1,
+                        cmsg_buff, sizeof(cmsg_buff),
+                        0};
+
+ssize_t err = recvmsg(itf->sock_fd, &msghdr, MSG_ERRQUEUE);
+if(err < 0)
+  {
+    perror("recvmsg failed");
+    return -1;
+  }
+
+struct cmsghdr *cmsg;
+for(cmsg = CMSG_FIRSTHDR(&msghdr); cmsg != NULL; cmsg = CMSG_NXTHDR(&msghdr, cmsg))
+{
+  if(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_TIMESTAMPING)
+    {
+      ts = *(struct timespec *)CMSG_DATA(cmsg);
+      fprintf(stderr, "SCM_TIMESTAMPING available\n");
+    }
+  else if (cmsg->cmsg_level == SOL_PACKET && cmsg->cmsg_type == PACKET_TX_TIMESTAMP)
+      {
+        ts = *(struct timespec *)CMSG_DATA(cmsg);
+        fprintf(stderr, "PACKET_TX_TIMESTAMP available\n");
+      }
+} 
+/* END OF SAMPLE CODE */
+
+Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
+---
+ net/packet/af_packet.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e639645..948748b 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1857,6 +1857,10 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+ 	void *data;
+ 	int err;
+ 
++	err = sock_tx_timestamp(&po->sk, &skb_shinfo(skb)->tx_flags);
++	if (err < 0)
++		return err;
++
+ 	ph.raw = frame;
+ 
+ 	skb->protocol = proto;
+-- 
+1.7.12.1
