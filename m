@@ -1,80 +1,121 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [RFC PATCH net-next 4/4 V4] try to fix performance regression
-Date: Wed, 12 Dec 2012 08:25:23 -0800
-Message-ID: <1355329523.9139.578.camel@edumazet-glaptop>
-References: <20121210.160230.1883556145617090938.davem@davemloft.net>
-	 <5e333588f6cb48cc3464b2263dcaa734b952e4c1.1355320534.git.wpan@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] net: filter: return -EINVAL if BPF_S_ANC* operation is
+ not supported
+Date: Wed, 12 Dec 2012 17:25:44 +0100
+Message-ID: <50C8B008.2000804@redhat.com>
+References: <1355304701-22228-1-git-send-email-dborkman@redhat.com> <1355314964.9139.173.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, brutus@google.com, netdev@vger.kernel.org
-To: Weiping Pan <wpan@redhat.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ani Sinha <ani@aristanetworks.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:54144 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753528Ab2LLQZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 11:25:28 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so718978pbc.19
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2012 08:25:28 -0800 (PST)
-In-Reply-To: <5e333588f6cb48cc3464b2263dcaa734b952e4c1.1355320534.git.wpan@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:65348 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754143Ab2LLQZu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 11:25:50 -0500
+In-Reply-To: <1355314964.9139.173.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-12-12 at 22:29 +0800, Weiping Pan wrote:
+On 12/12/2012 01:22 PM, Eric Dumazet wrote:
+> On Wed, 2012-12-12 at 10:31 +0100, Daniel Borkmann wrote:
+>> Currently, we return -EINVAL for malicious or wrong BPF filters.
+>> However, this is not done for BPF_S_ANC* operations, which makes it
+>> more difficult to detect if it's actually supported or not by the
+>> BPF machine. Therefore, we should also return -EINVAL if K is within
+>> the SKF_AD_OFF universe and the ancillary operation did not match.
+>>
+>> Cc: Ani Sinha <ani@aristanetworks.com>
+>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> ---
+>>   net/core/filter.c | 8 +++++++-
+>>   1 file changed, 7 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/core/filter.c b/net/core/filter.c
+>> index c23543c..de9bed4 100644
+>> --- a/net/core/filter.c
+>> +++ b/net/core/filter.c
+>> @@ -531,7 +531,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+>>   		[BPF_JMP|BPF_JSET|BPF_K] = BPF_S_JMP_JSET_K,
+>>   		[BPF_JMP|BPF_JSET|BPF_X] = BPF_S_JMP_JSET_X,
+>>   	};
+>> -	int pc;
+>> +	int pc, anc_found;
+>>
+>>   	if (flen == 0 || flen > BPF_MAXINSNS)
+>>   		return -EINVAL;
+>> @@ -592,8 +592,10 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+>>   		case BPF_S_LD_W_ABS:
+>>   		case BPF_S_LD_H_ABS:
+>>   		case BPF_S_LD_B_ABS:
+>> +			anc_found = 0;
+>>   #define ANCILLARY(CODE) case SKF_AD_OFF + SKF_AD_##CODE:	\
+>>   				code = BPF_S_ANC_##CODE;	\
+>> +				anc_found = 1;			\
+>>   				break
+>>   			switch (ftest->k) {
+>>   			ANCILLARY(PROTOCOL);
+>> @@ -610,6 +612,10 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+>>   			ANCILLARY(VLAN_TAG);
+>>   			ANCILLARY(VLAN_TAG_PRESENT);
+>>   			}
+>> +
+>> +			/* ancillary operation unkown or unsupported */
+>> +			if (anc_found == 0 && ftest->k >= SKF_AD_OFF)
+>> +				return -EINVAL;
+>>   		}
+>>   		ftest->code = code;
+>>   	}
+>
+> Several points :
+>
+> 1) This might break a userland filter that was previously working, by
+> returning 0 when load_pointer() returns NULL.
+>
+> Specifying an offset bigger than skb->len is not _invalid_, it only
+> makes a filter returns 0, because load_pointer() returns NULL.
 
-> 
->         MS       BASE    AF_UNIX    FRIENDS            TCP_STREAM_MS
->          1      10.70       5.40       4.02   37%   74%
->          2      28.01       9.67       7.97   28%   82%
->          4      55.53      19.78      16.48   29%   83%
->          8     115.40      38.22      33.51   29%   87%
->         16     227.31      81.06      67.70   29%   83%
->         32     446.20     166.59     129.31   28%   77%
->         64     849.04     336.77     259.43   30%   77%
->        128    1440.50     661.88     530.43   36%   80%
->        256    2404.70    1279.67    1029.15   42%   80%
->        512    4331.53    2501.30    1942.21   44%   77%
->       1024    6819.78    4622.37    4128.10   60%   89%
->       2048   10544.60    6348.81    6349.59   60%  100%
->       4096   12830.41    8324.43    7984.43   62%   95%
->       8192   13462.65    8355.49   11079.37   82%  132%
->      16384    9960.87   10840.13   13037.81  130%  120%
->      32768    8749.31   11372.15   15087.08  172%  132%
->      65536    7580.27   12150.23   14971.42  197%  123%
->     131072    6727.74   11451.34   13604.78  202%  118%
->     262144    7673.14   11613.10   11436.97  149%   98%
->     524288    7366.17   11675.95   11559.43  156%   99%
->    1048576    6608.57   11883.01   10103.20  152%   85%
-> MS means Message Size in bytes, that is -m -M for netperf
+I think it will not break for code, that calls load_pointer() in such a
+circumstance which passed the sk_chk_filter() test. However, it will
+"break" for code that calls ...
 
-I cant reproduce your strange numbers here, they make no sense to me.
+   { BPF_LD | BPF_(W|H|B) | BPF_ABS, 0, 0, <K> },
 
-for s in 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768
-65536 131072 262144 524288 1048576
-do
- ./netperf -- -m $s -M $s | tail -n1
-done
+... where <K> is in [0xfffff000, 0xffffffff] _and_ <K> is not an ancillary.
 
-Results :
+But ...
 
-87380  16384      1    10.00      34.68   
- 87380  16384      2    10.00      68.07   
- 87380  16384      4    10.00     126.27   
- 87380  16384      8    10.00     284.50   
- 87380  16384     16    10.00     574.38   
- 87380  16384     32    10.00    1091.74   
- 87380  16384     64    10.00    2130.23   
- 87380  16384    128    10.00    4001.83   
- 87380  16384    256    10.00    7666.01   
- 87380  16384    512    10.00    13425.81   
- 87380  16384   1024    10.00    21146.43   
- 87380  16384   2048    10.00    28551.42   
- 87380  16384   4096    10.00    37878.95   
- 87380  16384   8192    10.00    42507.23   
- 87380  16384  16384    10.00    46782.53   
- 87380  16384  32768    10.00    42410.97   
- 87380  16384  65536    10.00    43053.09   
- 87380  16384 131072    10.00    44504.20   
- 87380  16384 262144    10.00    50211.74   
- 87380  16384 524288    10.00    54004.23   
- 87380  16384 1048576    10.00    53852.26   
+Assuming some old code will have such an instruction where <K> is between
+[0xfffff000, 0xffffffff] and it doesn't know ancillary operations, then
+this will give a non-expected/unwanted behavior as well (since we do not
+return the BPF machine with 0 as it probably was the case before anc.ops,
+but load sth. into the accumulator instead and continue with the next
+instruction, for instance), right? Thus, following this argumentation, user
+space code would already have been broken by introducing ancillary
+operations into the BPF machine per se.
+
+This is probably just an assumption, but code that does such a direct load,
+e.g. "load word at packet offset 0xffffffff into accumulator" ("ld [0xffffffff]")
+is quite broken, isn't it? Isn't the whole assumption of ancillary operations
+that no-one intentionally calls things like "ld [0xffffffff]" and expect this
+word to be loaded from the packet offset?
+
+> 2) This wont help applications running on old kernels where your patch
+> wont be applied, as already mentioned yesterday.
+
+Agreed, but leaving old kernels aside, it would be nice if newer kernels
+could validate that, so at least from kernel <xyz> onwards it could be
+checked _for sure_ if anc.op <abc> is present and can be used.
+
+> 3) Misses a "Reported-by" tag
+>
+> 4) anc_found is a boolean
+
+3 + 4 agreed, sorry for that. I could do a v2 of the patch with 3 + 4 fixed
+and resubmit it, if there's interest ...
+
+> To be truly portable, userland should not rely on kernel doing a full
+> validation of ancillaries.
