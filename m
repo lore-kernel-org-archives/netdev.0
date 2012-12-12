@@ -1,110 +1,130 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next 3/5] dev/netns: allow to get netns from nsindex in rtnl msg
-Date: Wed, 12 Dec 2012 18:24:39 +0100
-Message-ID: <1355333081-4018-4-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next 4/5] netns: advertise netns activity with netlink
+Date: Wed, 12 Dec 2012 18:24:40 +0100
+Message-ID: <1355333081-4018-5-git-send-email-nicolas.dichtel@6wind.com>
 References: <1355333081-4018-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, ebiederm@xmission.com, aatteka@nicira.com,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39150 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39154 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754701Ab2LLR0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 12:26:33 -0500
+	with ESMTP id S1754677Ab2LLR0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 12:26:34 -0500
 In-Reply-To: <1355333081-4018-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows to move a netdevice to another netns by giving the nsindex.
+Goal of this patch is to send netlink messages when netns are crated/deleted.
+This is useful for daemon that wants to manage all netns with only one running
+instance.
+Note that until that netns_nl_event_mcgrp group is not registered, we cannot
+send event.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/net/net_namespace.h  |  1 +
- include/uapi/linux/if_link.h |  1 +
- net/core/net_namespace.c     | 14 ++++++++++++++
- net/core/rtnetlink.c         |  7 ++++++-
- 4 files changed, 22 insertions(+), 1 deletion(-)
+ include/uapi/linux/netns.h |  4 ++++
+ net/core/net_namespace.c   | 38 +++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 41 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index c373f2e..68e7a36 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -151,6 +151,7 @@ extern struct list_head net_namespace_list;
+diff --git a/include/uapi/linux/netns.h b/include/uapi/linux/netns.h
+index e1c1da3..e14d90b 100644
+--- a/include/uapi/linux/netns.h
++++ b/include/uapi/linux/netns.h
+@@ -6,10 +6,14 @@
+ #define NETNS_GENL_NAME			"netns"
+ #define NETNS_GENL_VERSION		0x1
  
- extern struct net *get_net_ns_by_pid(pid_t pid);
- extern struct net *get_net_ns_by_fd(int pid);
-+extern struct net *get_net_ns_by_nsindex(int nsindex);
- 
- #ifdef CONFIG_NET_NS
- extern void __put_net(struct net *net);
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 60f3b6b..6720a47 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -142,6 +142,7 @@ enum {
- #define IFLA_PROMISCUITY IFLA_PROMISCUITY
- 	IFLA_NUM_TX_QUEUES,
- 	IFLA_NUM_RX_QUEUES,
-+	IFLA_NET_NS_INDEX,
- 	__IFLA_MAX
++#define NETNS_GENL_MCAST_EVENT_NAME	"events"
++
+ /* Commands */
+ enum {
+ 	NETNS_CMD_NOOP,
+ 	NETNS_CMD_GET,
++	NETNS_CMD_NEW,
++	NETNS_CMD_DEL,
+ 	__NETNS_CMD_MAX,
  };
- 
+ #define NETNS_CMD_MAX		(__NETNS_CMD_MAX - 1)
 diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 2ae22b0..18fc62f 100644
+index 18fc62f..da92ecb 100644
 --- a/net/core/net_namespace.c
 +++ b/net/core/net_namespace.c
-@@ -399,6 +399,20 @@ struct net *get_net_ns_by_pid(pid_t pid)
- }
- EXPORT_SYMBOL_GPL(get_net_ns_by_pid);
+@@ -40,6 +40,8 @@ EXPORT_SYMBOL(init_net);
  
-+struct net *get_net_ns_by_nsindex(int nsindex)
-+{
-+	struct net *net;
+ static unsigned int max_gen_ptrs = INITIAL_NET_GEN_PTRS;
+ 
++static int netns_nl_event(struct net *net, int cmd);
 +
-+	ASSERT_RTNL();
-+	for_each_net(net)
-+		if (net->nsindex == nsindex) {
-+			get_net(net);
-+			break;
-+		}
-+	return net;
-+}
-+EXPORT_SYMBOL_GPL(get_net_ns_by_nsindex);
+ static struct net_generic *net_alloc_generic(void)
+ {
+ 	struct net_generic *ng;
+@@ -179,6 +181,7 @@ again:
+ 		if (error < 0)
+ 			goto out_undo;
+ 	}
++	netns_nl_event(net, NETNS_CMD_NEW);
+ out:
+ 	return error;
+ 
+@@ -311,6 +314,7 @@ static void cleanup_net(struct work_struct *work)
+ 	synchronize_rcu();
+ 
+ 	list_for_each_entry(net, &net_exit_list, exit_list) {
++		netns_nl_event(net, NETNS_CMD_DEL);
+ 		/* Free the index */
+ 		ida_remove(&net_namespace_ids, net->nsindex);
+ 	}
+@@ -413,6 +417,10 @@ struct net *get_net_ns_by_nsindex(int nsindex)
+ }
+ EXPORT_SYMBOL_GPL(get_net_ns_by_nsindex);
+ 
++static struct genl_multicast_group netns_nl_event_mcgrp = {
++	.name = NETNS_GENL_MCAST_EVENT_NAME,
++};
 +
  static struct genl_family netns_nl_family = {
  	.id		= GENL_ID_GENERATE,
  	.name		= NETNS_GENL_NAME,
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1868625..e22954a 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1115,6 +1115,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
- 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
- 	[IFLA_NET_NS_FD]	= { .type = NLA_U32 },
-+	[IFLA_NET_NS_INDEX]	= { .type = NLA_U32 },
- 	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
- 	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
- 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
-@@ -1171,6 +1172,8 @@ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
- 		net = get_net_ns_by_pid(nla_get_u32(tb[IFLA_NET_NS_PID]));
- 	else if (tb[IFLA_NET_NS_FD])
- 		net = get_net_ns_by_fd(nla_get_u32(tb[IFLA_NET_NS_FD]));
-+	else if (tb[IFLA_NET_NS_INDEX])
-+		net = get_net_ns_by_nsindex(nla_get_u32(tb[IFLA_NET_NS_INDEX]));
- 	else
- 		net = get_net(src_net);
- 	return net;
-@@ -1310,7 +1313,9 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 	int send_addr_notify = 0;
- 	int err;
+@@ -562,10 +570,38 @@ static struct genl_ops netns_nl_ops[] = {
+ 	},
+ };
  
--	if (tb[IFLA_NET_NS_PID] || tb[IFLA_NET_NS_FD]) {
-+	if (tb[IFLA_NET_NS_PID] ||
-+	    tb[IFLA_NET_NS_FD] ||
-+	    tb[IFLA_NET_NS_INDEX]) {
- 		struct net *net = rtnl_link_get_net(dev_net(dev), tb);
- 		if (IS_ERR(net)) {
- 			err = PTR_ERR(net);
++static int netns_nl_event(struct net *net, int cmd)
++{
++	struct sk_buff *msg;
++	int err = -ENOBUFS;
++
++	/* Check that gennl infra is ready */
++	if (!netns_nl_event_mcgrp.id)
++		return -ENOENT;
++
++	msg = genlmsg_new(netns_nl_get_size(), GFP_ATOMIC);
++	if (!msg)
++		return -ENOMEM;
++
++	err = netns_nl_fill(msg, 0, 0, 0, cmd, net);
++	if (err < 0) {
++		nlmsg_free(msg);
++		return err;
++	}
++
++	return genlmsg_multicast(msg, 0, netns_nl_event_mcgrp.id, GFP_ATOMIC);
++}
++
+ int netns_genl_register(void)
+ {
+-	return genl_register_family_with_ops(&netns_nl_family, netns_nl_ops,
++	int err;
++
++	err =  genl_register_family_with_ops(&netns_nl_family, netns_nl_ops,
+ 					     ARRAY_SIZE(netns_nl_ops));
++	if (err < 0)
++		return err;
++
++	return genl_register_mc_group(&netns_nl_family, &netns_nl_event_mcgrp);
+ }
+ 
+ static int __init net_ns_init(void)
 -- 
 1.8.0.1
