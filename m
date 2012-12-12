@@ -1,130 +1,68 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next 4/5] netns: advertise netns activity with netlink
-Date: Wed, 12 Dec 2012 18:17:09 +0100
-Message-ID: <1355332630-4256-5-git-send-email-nicolas.dichtel@6wind.com>
-References: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, ebiederm@xmission.com, aatteka@nicira.com,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next 0/5] Ease netns management for userland
+Date: Wed, 12 Dec 2012 18:17:05 +0100
+Message-ID: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com, aatteka@nicira.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39201 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39183 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754884Ab2LLRxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 12:53:51 -0500
-In-Reply-To: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1753996Ab2LLRxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 12:53:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Goal of this patch is to send netlink messages when netns are crated/deleted.
-This is useful for daemon that wants to manage all netns with only one running
-instance.
-Note that until that netns_nl_event_mcgrp group is not registered, we cannot
-send event.
+The goal of this serie is to ease netns management by daemons. Some systems use
+netns only to virtualize network stack and don't want to multiply userland
+daemons.  These system may have a lot of netns, up to 2000. We don't want to
+launch an instance of each daemons (quagga, strongswan, conntrackd, ...) for
+each netns because it will consume a lot of ressources. Having one daemon that
+manage all netns is more efficient (mainly if there are few objects to manage:
+one or two routes per netns for example).
+Hence, one goal of this serie is to allow, for a daemon, to monitor netns
+activities, thus it can open or close netlink sockets, allocating structures
+needed to manage these netns when they are created or deleted.
+To help to identify a netns, an index has been added to each netns.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/uapi/linux/netns.h |  4 ++++
- net/core/net_namespace.c   | 38 +++++++++++++++++++++++++++++++++++++-
- 2 files changed, 41 insertions(+), 1 deletion(-)
+A new setsockopt() option is also added, to help daemons to open socket in the
+right netns. For now, a daemon that want to open a socket in a specified netns,
+need to call setns(CLONE_NEWNET) with a fd (not so easy to found), open the
+socket and then call again setns() to go back in the initial netns. Having this
+kind of setsockopt() will simplify operations. Obviously, this setsockopt()
+should be done enough early (is test on sk_state enough?). The first target is
+netlink socket but it can be useful for other kind of socket, it's why a add a
+generic socket option.
 
-diff --git a/include/uapi/linux/netns.h b/include/uapi/linux/netns.h
-index e1c1da3..e14d90b 100644
---- a/include/uapi/linux/netns.h
-+++ b/include/uapi/linux/netns.h
-@@ -6,10 +6,14 @@
- #define NETNS_GENL_NAME			"netns"
- #define NETNS_GENL_VERSION		0x1
- 
-+#define NETNS_GENL_MCAST_EVENT_NAME	"events"
-+
- /* Commands */
- enum {
- 	NETNS_CMD_NOOP,
- 	NETNS_CMD_GET,
-+	NETNS_CMD_NEW,
-+	NETNS_CMD_DEL,
- 	__NETNS_CMD_MAX,
- };
- #define NETNS_CMD_MAX		(__NETNS_CMD_MAX - 1)
-diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 18fc62f..da92ecb 100644
---- a/net/core/net_namespace.c
-+++ b/net/core/net_namespace.c
-@@ -40,6 +40,8 @@ EXPORT_SYMBOL(init_net);
- 
- static unsigned int max_gen_ptrs = INITIAL_NET_GEN_PTRS;
- 
-+static int netns_nl_event(struct net *net, int cmd);
-+
- static struct net_generic *net_alloc_generic(void)
- {
- 	struct net_generic *ng;
-@@ -179,6 +181,7 @@ again:
- 		if (error < 0)
- 			goto out_undo;
- 	}
-+	netns_nl_event(net, NETNS_CMD_NEW);
- out:
- 	return error;
- 
-@@ -311,6 +314,7 @@ static void cleanup_net(struct work_struct *work)
- 	synchronize_rcu();
- 
- 	list_for_each_entry(net, &net_exit_list, exit_list) {
-+		netns_nl_event(net, NETNS_CMD_DEL);
- 		/* Free the index */
- 		ida_remove(&net_namespace_ids, net->nsindex);
- 	}
-@@ -413,6 +417,10 @@ struct net *get_net_ns_by_nsindex(int nsindex)
- }
- EXPORT_SYMBOL_GPL(get_net_ns_by_nsindex);
- 
-+static struct genl_multicast_group netns_nl_event_mcgrp = {
-+	.name = NETNS_GENL_MCAST_EVENT_NAME,
-+};
-+
- static struct genl_family netns_nl_family = {
- 	.id		= GENL_ID_GENERATE,
- 	.name		= NETNS_GENL_NAME,
-@@ -562,10 +570,38 @@ static struct genl_ops netns_nl_ops[] = {
- 	},
- };
- 
-+static int netns_nl_event(struct net *net, int cmd)
-+{
-+	struct sk_buff *msg;
-+	int err = -ENOBUFS;
-+
-+	/* Check that gennl infra is ready */
-+	if (!netns_nl_event_mcgrp.id)
-+		return -ENOENT;
-+
-+	msg = genlmsg_new(netns_nl_get_size(), GFP_ATOMIC);
-+	if (!msg)
-+		return -ENOMEM;
-+
-+	err = netns_nl_fill(msg, 0, 0, 0, cmd, net);
-+	if (err < 0) {
-+		nlmsg_free(msg);
-+		return err;
-+	}
-+
-+	return genlmsg_multicast(msg, 0, netns_nl_event_mcgrp.id, GFP_ATOMIC);
-+}
-+
- int netns_genl_register(void)
- {
--	return genl_register_family_with_ops(&netns_nl_family, netns_nl_ops,
-+	int err;
-+
-+	err =  genl_register_family_with_ops(&netns_nl_family, netns_nl_ops,
- 					     ARRAY_SIZE(netns_nl_ops));
-+	if (err < 0)
-+		return err;
-+
-+	return genl_register_mc_group(&netns_nl_family, &netns_nl_event_mcgrp);
- }
- 
- static int __init net_ns_init(void)
--- 
-1.8.0.1
+As usual, the patch against iproute2 will be sent once the patches are included
+and net-next merged. I can send it on demand.
+
+ arch/alpha/include/asm/socket.h        |   2 +
+ arch/avr32/include/uapi/asm/socket.h   |   2 +
+ arch/frv/include/uapi/asm/socket.h     |   2 +
+ arch/h8300/include/asm/socket.h        |   2 +
+ arch/ia64/include/uapi/asm/socket.h    |   2 +
+ arch/m32r/include/asm/socket.h         |   2 +
+ arch/m68k/include/uapi/asm/socket.h    |   2 +
+ arch/mips/include/uapi/asm/socket.h    |   2 +
+ arch/mn10300/include/uapi/asm/socket.h |   2 +
+ arch/parisc/include/uapi/asm/socket.h  |   2 +
+ arch/powerpc/include/uapi/asm/socket.h |   2 +
+ arch/s390/include/uapi/asm/socket.h    |   2 +
+ arch/sparc/include/uapi/asm/socket.h   |   2 +
+ arch/xtensa/include/uapi/asm/socket.h  |   2 +
+ include/net/net_namespace.h            |   3 +
+ include/uapi/asm-generic/socket.h      |   2 +
+ include/uapi/linux/if_link.h           |   1 +
+ include/uapi/linux/netns.h             |  31 +++++
+ net/core/net_namespace.c               | 223 +++++++++++++++++++++++++++++++++
+ net/core/rtnetlink.c                   |   7 +-
+ net/core/sock.c                        |  28 +++++
+ net/netlink/genetlink.c                |   4 +
+ 22 files changed, 326 insertions(+), 1 deletion(-)
+
+I do not pretend to be a netns expert, it's why I add RFC in the title ;-)
+
+Comments are welcome.
+
+Regards,
+Nicolas
