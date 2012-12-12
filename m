@@ -1,68 +1,200 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next 0/5] Ease netns management by userland
-Date: Wed, 12 Dec 2012 18:24:36 +0100
-Message-ID: <1355333081-4018-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: davem@davemloft.net, ebiederm@xmission.com, aatteka@nicira.com
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [patch net-next 0/4] net: allow to change carrier from
+ userspace
+Date: Wed, 12 Dec 2012 09:27:00 -0800
+Message-ID: <20121212092700.7ef2607a@nehalam.linuxnetplumber.net>
+References: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
+	<20121212081500.24085752@nehalam.linuxnetplumber.net>
+	<20121212170520.GA3060@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com,
+	greearb@candelatech.com, fbl@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39147 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754735Ab2LLR0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 12:26:34 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:44639 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754601Ab2LLR2S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 12:28:18 -0500
+In-Reply-To: <20121212170520.GA3060@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The goal of this serie is to ease netns management by daemons. Some systems use
-netns only to virtualize network stack and don't want to multiply userland
-daemons.  These system may have a lot of netns, up to 2000. We don't want to
-launch an instance of each daemons (quagga, strongswan, conntrackd, ...) for
-each netns because it will consume a lot of ressources. Having one daemon that
-manage all netns is more efficient (mainly if there are few objects to manage:
-one or two routes per netns for example).
-Hence, one goal of this serie is to allow, for a daemon, to monitor netns
-activities, thus it can open or close netlink sockets, allocating structures
-needed to manage these netns when they are created or deleted.
-To help to identify a netns, an index has been added to each netns.
+On Wed, 12 Dec 2012 18:05:20 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-A new setsockopt() option is also added, to help daemons to open socket in the
-right netns. For now, a daemon that want to open a socket in a specified netns,
-need to call setns(CLONE_NEWNET) with a fd (not so easy to found), open the
-socket and then call again setns() to go back in the initial netns. Having this
-kind of setsockopt() will simplify operations. Obviously, this setsockopt()
-should be done enough early (is test on sk_state enough?). The first target is
-netlink socket but it can be useful for other kind of socket, it's why a add a
-generic socket option.
+> Wed, Dec 12, 2012 at 05:15:00PM CET, shemminger@vyatta.com wrote:
+> >On Wed, 12 Dec 2012 11:58:03 +0100
+> >Jiri Pirko <jiri@resnulli.us> wrote:
+> >
+> >> This is basically a repost of my previous patchset:
+> >> "[patch net-next-2.6 0/2] net: allow to change carrier via sysfs" from Aug 30
+> >> 
+> >> The way net-sysfs stores values changed and this patchset reflects it.
+> >> Also, I exposed carrier via rtnetlink iface.
+> >> 
+> >> So far, only dummy driver uses carrier change ndo. In very near future
+> >> team driver will use that as well.
+> >> 
+> >> Jiri Pirko (4):
+> >>   net: add change_carrier netdev op
+> >>   net: allow to change carrier via sysfs
+> >>   rtnl: expose carrier value with possibility to set it
+> >>   dummy: implement carrier change
+> >> 
+> >>  drivers/net/dummy.c          | 10 ++++++++++
+> >>  include/linux/netdevice.h    |  7 +++++++
+> >>  include/uapi/linux/if_link.h |  1 +
+> >>  net/core/dev.c               | 19 +++++++++++++++++++
+> >>  net/core/net-sysfs.c         | 15 ++++++++++++++-
+> >>  net/core/rtnetlink.c         | 10 ++++++++++
+> >>  6 files changed, 61 insertions(+), 1 deletion(-)
+> >> 
+> >
+> >I needed to do the same thing for a project we are working on and discovered
+> >that there already is a working documented interface for doing that via
+> >operstate mode. Therefore I can't recommend that the additional complexity
+> >of a new API for this is required.
+> 
+> I might be missing something, but I'm unable to find how operstate set
+> can affect value returned by netif_carrier_ok()
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-As usual, the patch against iproute2 will be sent once the patches are included
-and net-next merged. I can send it on demand.
+Here is an example using dummy device using libmnl. It is also possible
+with ip commands.
 
- arch/alpha/include/asm/socket.h        |   2 +
- arch/avr32/include/uapi/asm/socket.h   |   2 +
- arch/frv/include/uapi/asm/socket.h     |   2 +
- arch/h8300/include/asm/socket.h        |   2 +
- arch/ia64/include/uapi/asm/socket.h    |   2 +
- arch/m32r/include/asm/socket.h         |   2 +
- arch/m68k/include/uapi/asm/socket.h    |   2 +
- arch/mips/include/uapi/asm/socket.h    |   2 +
- arch/mn10300/include/uapi/asm/socket.h |   2 +
- arch/parisc/include/uapi/asm/socket.h  |   2 +
- arch/powerpc/include/uapi/asm/socket.h |   2 +
- arch/s390/include/uapi/asm/socket.h    |   2 +
- arch/sparc/include/uapi/asm/socket.h   |   2 +
- arch/xtensa/include/uapi/asm/socket.h  |   2 +
- include/net/net_namespace.h            |   3 +
- include/uapi/asm-generic/socket.h      |   2 +
- include/uapi/linux/if_link.h           |   1 +
- include/uapi/linux/netns.h             |  31 +++++
- net/core/net_namespace.c               | 223 +++++++++++++++++++++++++++++++++
- net/core/rtnetlink.c                   |   7 +-
- net/core/sock.c                        |  28 +++++
- net/netlink/genetlink.c                |   4 +
- 22 files changed, 326 insertions(+), 1 deletion(-)
+# modprobe dummy
+# ip li show dev dummy0
+12: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DEFAULT 
+    link/ether ce:90:46:83:6e:f8 brd ff:ff:ff:ff:ff:ff
+# ./dummy dummy0 init
+# ip li show dev dummy0
+12: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN mode DORMANT 
+    link/ether ce:90:46:83:6e:f8 brd ff:ff:ff:ff:ff:ff
+# ip li set dummy0 up
+# ip li show dev dummy0
+12: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN mode DORMANT 
+    link/ether ce:90:46:83:6e:f8 brd ff:ff:ff:ff:ff:ff
+# ./dummy dummy0 down
+# ip li show dev dummy0
+12: dummy0: <NO-CARRIER,BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state DORMANT mode DORMANT 
+    link/ether ce:90:46:83:6e:f8 brd ff:ff:ff:ff:ff:ff
+# ./dummy dummy0 up
+# ip li show dev dummy0
+12: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DORMANT 
+    link/ether ce:90:46:83:6e:f8 brd ff:ff:ff:ff:ff:ff
 
-I do not pretend to be a netns expert, it's why I add RFC in the title ;-)
 
-Comments are welcome.
+/* Sample program to control link mode and link state */
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <time.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/fcntl.h>
+#include <sys/ioctl.h>
+#include <libmnl/libmnl.h>
 
-Regards,
-Nicolas
+#include <linux/if.h>
+#include <linux/if_tun.h>
+#include <linux/rtnetlink.h>
+
+static void panic(const char *str)
+{
+	perror(str);
+	exit(1);
+}
+
+static void usage(const char *cmd)
+{
+	fprintf(stderr, "Usage: %s dummyX [up|down|init]\n", cmd);
+	exit(1);
+}
+
+/* Send request and parse response */
+static void mnl_talk(struct mnl_socket *nl, struct nlmsghdr *nlh)
+{
+	unsigned portid = mnl_socket_get_portid(nl);
+	uint32_t seq = time(NULL);
+	char buf[MNL_SOCKET_BUFFER_SIZE];
+
+	nlh->nlmsg_flags |= NLM_F_ACK;
+	nlh->nlmsg_seq = seq;
+
+	if (mnl_socket_sendto(nl, nlh, nlh->nlmsg_len) < 0)
+		panic("mnl_socket_sendto failed");
+
+	int ret = mnl_socket_recvfrom(nl, buf, sizeof(buf));
+	if (ret < 0)
+		panic("mnl_socket_recvfrom");
+
+	if ( mnl_cb_run(buf, ret, seq, portid, NULL, NULL) < 0)
+		panic("mnl_cb_run");
+}
+
+static void linkstate(struct mnl_socket *nl,
+		      const char *ifname, unsigned int state)
+{
+	char buf[MNL_SOCKET_BUFFER_SIZE];
+	struct nlmsghdr *nlh = mnl_nlmsg_put_header(buf);
+	nlh->nlmsg_type = RTM_NEWLINK;
+	nlh->nlmsg_flags = NLM_F_REQUEST;
+
+	struct ifinfomsg *ifi;
+	ifi = mnl_nlmsg_put_extra_header(nlh, sizeof(struct ifinfomsg));
+	ifi->ifi_family = AF_UNSPEC;
+
+	mnl_attr_put_strz(nlh, IFLA_IFNAME, ifname);
+	mnl_attr_put_u8(nlh, IFLA_OPERSTATE, state);
+
+	mnl_talk(nl, nlh);
+}
+
+/* Set device link mode */
+static void init(struct mnl_socket *nl, const char *ifname)
+{
+	char buf[MNL_SOCKET_BUFFER_SIZE];
+	struct nlmsghdr *nlh = mnl_nlmsg_put_header(buf);
+	nlh->nlmsg_type = RTM_NEWLINK;
+	nlh->nlmsg_flags = NLM_F_REQUEST;
+
+	struct ifinfomsg *ifi;
+	ifi = mnl_nlmsg_put_extra_header(nlh, sizeof(struct ifinfomsg));
+	ifi->ifi_family = AF_UNSPEC;
+	
+	mnl_attr_put_strz(nlh, IFLA_IFNAME, ifname);
+	mnl_attr_put_u8(nlh, IFLA_LINKMODE, IF_LINK_MODE_DORMANT);
+	mnl_talk(nl, nlh);
+}
+
+int main(int argc, char **argv)
+{
+	if (argc != 3)
+		usage(argv[0]);
+
+	struct mnl_socket *nl = mnl_socket_open(NETLINK_ROUTE);
+	if (!nl)
+		panic("mnl_socket_open");
+
+	if (mnl_socket_bind(nl, 0, MNL_SOCKET_AUTOPID) < 0)
+		panic("mnl_socket_bind");
+	
+
+	if (strcmp(argv[2], "init") == 0)
+		init(nl, argv[1]);
+	else if (strcmp(argv[2], "up") == 0)
+		linkstate(nl, argv[1], IF_OPER_UP);
+	else if (strcmp(argv[2], "down") == 0)
+		linkstate(nl, argv[1], IF_OPER_DORMANT);
+	else
+		usage(argv[0]);
+
+	return 0;
+}
