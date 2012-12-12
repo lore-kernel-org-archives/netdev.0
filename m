@@ -1,110 +1,43 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH 02/11] bridge: Validate that vlan is permitted on ingress
-Date: Wed, 12 Dec 2012 15:01:08 -0500
-Message-ID: <1355342477-4971-3-git-send-email-vyasevic@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 00/11] Add basic VLAN support to bridges
+Date: Wed, 12 Dec 2012 12:05:41 -0800
+Message-ID: <20121212120541.72ba1ba9@nehalam.linuxnetplumber.net>
 References: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
-Cc: shemminger@vyatta.com, davem@davemloft.net, mst@redhat.com,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
 	john.r.fastabend@intel.com
-To: netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53697 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:40703 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755140Ab2LLUB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2012 15:01:27 -0500
+	id S1754212Ab2LLUG6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 15:06:58 -0500
 In-Reply-To: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a frame arrives on a port, if we have VLANs configured,
-validate that a given VLAN is allowed to ingress on a given
-port.
+On Wed, 12 Dec 2012 15:01:06 -0500
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- net/bridge/br_input.c   |   23 +++++++++++++++++++++++
- net/bridge/br_private.h |   15 +++++++++++++--
- 2 files changed, 36 insertions(+), 2 deletions(-)
+> This series of patches provides an ability to add VLANs to the bridge
+> ports.  This is similar to what can be found in most switches.  The bridge
+> port may have any number of VLANs added to it including vlan 0 priority tagged 
+> traffic.  When vlans are added to the port, only traffic tagged with particular
+> vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
+> entries and become part of the lookup.  This way we correctly identify the FDB
+> entry.
+> 
+> A single vlan may also be designated as untagged.  Any untagged traffic
+> recieved by the port will be assigned to this vlan.  Any traffic exiting
+> the port with a VID matching the untagged vlan will exit untagged (the
+> bridge will strip the vlan header).  This is similar to "Native Vlan" support
+> available in most switches.
+> 
+> The default behavior ofthe bridge is unchanged if no vlans have been
+> configured.
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 4b34207..54c0894 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -17,6 +17,7 @@
- #include <linux/etherdevice.h>
- #include <linux/netfilter_bridge.h>
- #include <linux/export.h>
-+#include <linux/rculist.h>
- #include "br_private.h"
- 
- /* Hook for brouter */
-@@ -41,6 +42,25 @@ static int br_pass_frame_up(struct sk_buff *skb)
- 		       netif_receive_skb);
- }
- 
-+static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb)
-+{
-+	struct net_port_vlan *pve;
-+	u16 vid;
-+
-+	/* If there are no vlan in the permitted list, all packets are
-+	 * permitted.
-+	 */
-+	if (list_empty(&p->vlan_list))
-+		return true;
-+
-+	vid = br_get_vlan(skb);
-+	pve = nbp_vlan_find(p, vid);
-+	if (pve)
-+		return true;
-+
-+	return false;
-+}
-+
- /* note: already called with rcu_read_lock */
- int br_handle_frame_finish(struct sk_buff *skb)
- {
-@@ -54,6 +74,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	if (!p || p->state == BR_STATE_DISABLED)
- 		goto drop;
- 
-+	if (!br_allowed_ingress(p, skb))
-+		goto drop;
-+
- 	/* insert into forwarding database after filtering to avoid spoofing */
- 	br = p->br;
- 	br_fdb_update(br, p, eth_hdr(skb)->h_source);
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 1d9e6ce..5f05c16 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -66,8 +66,6 @@ struct br_ip
- };
- 
- #define BR_INVALID_VID	(1<<15)
--#define BR_UNTAGGED_VID (1<<14)
--
- #define BR_VID_HASH_SIZE (1<<6)
- #define br_vlan_hash(vid) ((vid) % (BR_VID_HASH_SIZE - 1))
- 
-@@ -197,6 +195,19 @@ static inline struct net_bridge_port *br_port_get_rtnl(struct net_device *dev)
- 		rtnl_dereference(dev->rx_handler_data) : NULL;
- }
- 
-+static inline u16 br_get_vlan(const struct sk_buff *skb)
-+{
-+	u16 tag;
-+
-+	if (vlan_tx_tag_present(skb))
-+		return vlan_tx_tag_get(skb) & VLAN_VID_MASK;
-+
-+	if (vlan_get_tag(skb, &tag))
-+		return 0;
-+
-+	return tag & VLAN_VID_MASK;
-+}
-+
- struct br_cpu_netstats {
- 	u64			rx_packets;
- 	u64			rx_bytes;
--- 
-1.7.7.6
+My concern is that all older configurations must continue to work.
+Is it still unchanged if a vlan device is added to the bridge, or vlan is
+configured on an ethernet that has been added to the bridge?
