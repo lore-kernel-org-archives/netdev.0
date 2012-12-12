@@ -1,55 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net-next 0/4] net: allow to change carrier from
- userspace
-Date: Wed, 12 Dec 2012 10:36:32 -0800
-Message-ID: <20121212103632.2020efce@nehalam.linuxnetplumber.net>
-References: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
-	<20121212081500.24085752@nehalam.linuxnetplumber.net>
-	<20121212170520.GA3060@minipsycho.orion>
-	<20121212092700.7ef2607a@nehalam.linuxnetplumber.net>
-	<20121212181017.GB3060@minipsycho.orion>
-	<20121212101208.361ccda0@nehalam.linuxnetplumber.net>
-	<20121212182556.GC3060@minipsycho.orion>
+From: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 4/7] openvswitch: add ipv6 'set'
+	action
+Date: Wed, 12 Dec 2012 10:38:44 -0800
+Message-ID: <CA+mtBx-84PQoHmauNpN4vYLWXcJdESMMep849DQcUAjkmC7PXQ@mail.gmail.com>
+References: <1354214149-33651-1-git-send-email-jesse@nicira.com>
+	<1354214149-33651-5-git-send-email-jesse@nicira.com>
+	<CA+mtBx-Zf9FNf11H9RM12etHnJ1bPpM_Eyc4mR7E6xsb7sUP2Q@mail.gmail.com>
+	<CAEP_g=-1aWGsjR55AaD6sLLt4QzbYgUs-3hfNNONrrf8MDwSyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com,
-	greearb@candelatech.com, fbl@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46091 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754353Ab2LLShx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2012 13:37:53 -0500
-In-Reply-To: <20121212182556.GC3060@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Mike Waychison <mikew-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAEP_g=-1aWGsjR55AaD6sLLt4QzbYgUs-3hfNNONrrf8MDwSyA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Dec 2012 19:25:56 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
+> At an implementation level, the goal is definitely to share as much
+> code as possible.  Some of that was obviously done to support this
+> patch and I'm sure there are more areas where it could be taken
+> further.
+>
+> At a more conceptual level we've explored this path a number of times
+> and it's never been attractive since it has a tendency to drag more
+> OVS code into other parts of the kernel and generally make things
+> worse for everybody.  Of course, it's hard to say without knowing what
+> you're thinking.  Do you have a specific proposal?
 
-> Wed, Dec 12, 2012 at 07:12:08PM CET, shemminger@vyatta.com wrote:
-> >On Wed, 12 Dec 2012 19:10:17 +0100
-> >Jiri Pirko <jiri@resnulli.us> wrote:
-> >
-> >> ># ip li show dev dummy0
-> >> >12: dummy0: <NO-CARRIER,BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state DORMANT mode DORMANT   
-> >> 
-> >> if you mean this "NO-CARRIER"
-> >> it has no direct relation with netif_carrier_ok().
-> >
-> >It is the same value (IFF_RUNNING) that is visible from user space.
-> 
-> static inline bool netif_carrier_ok(const struct net_device *dev)
-> {
-> 	        return !test_bit(__LINK_STATE_NOCARRIER, &dev->state);
-> }
-> 
-> So netif_carrier[ok/on/off] are working with on __LINK_STATE_NOCARRIER
-> bit. Not with IFF_RUNNING flag.
-
-What is the code path that you are worried about netif_carrier_ok being set or clear?
-The interaction here is complex, and right now LINK_STATE_NOCARRIER is purely
-controlled by the driver, your patch changes that, but before acking I want
-to make sure why it is required.
+Where is the line drawn?  Is the intent that over the next five years
+that functionality will be added ad hoc increments to make OVS have
+the same functionality as IP tables, tc, routing?  Are we going to
+have things like NAT, stateful firewalls, DDOS mechanisms implemented
+in OVS (we already have people proposing such things!).
