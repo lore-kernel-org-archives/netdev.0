@@ -1,137 +1,52 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 00/11] Add basic VLAN support to bridges
-Date: Wed, 12 Dec 2012 18:36:38 -0500
-Message-ID: <50C91506.70903@redhat.com>
-References: <1355342477-4971-1-git-send-email-vyasevic@redhat.com> <CAJZOPZL3grqtd-Tnhr-QxkdFWrhkgcp5+fOUZSaPJd3Ker_7GQ@mail.gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Any good documentation on RTNL
+Date: Wed, 12 Dec 2012 23:37:33 +0000
+Message-ID: <1355355453.3149.91.camel@bwh-desktop.uk.solarflarecom.com>
+References: <50C9101A.6000906@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
-	mst@redhat.com, john.r.fastabend@intel.com
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3812 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754724Ab2LLXgs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2012 18:36:48 -0500
-In-Reply-To: <CAJZOPZL3grqtd-Tnhr-QxkdFWrhkgcp5+fOUZSaPJd3Ker_7GQ@mail.gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:33644 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754860Ab2LLXhg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 18:37:36 -0500
+In-Reply-To: <50C9101A.6000906@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/12/2012 05:54 PM, Or Gerlitz wrote:
-> On Wed, Dec 12, 2012 at 10:01 PM, Vlad Yasevich <vyasevic@redhat.com> wrote:
->> This series of patches provides an ability to add VLANs to the bridge
->> ports.  This is similar to what can be found in most switches.
+On Wed, 2012-12-12 at 15:15 -0800, Ben Greear wrote:
+> I'm wondering if anyone could point me to some documentation on
+> the finer points of what the rtnl_lock() does?  I can't find anything
+> overly useful in google or the kernel docs.
+> 
+> For instance, can the packet rx-logic run (on other threads?) while rtnl is held?
 >
-> Vlad, I wasn't sure if these patches support both modes of switches
-> w.r.t vlans namely "access" and " trunk" or in virtualization terms
-> VST and VGT or in natural language, both the mode where the entity
-> (e.g VM) eventually using the bridge port uses untagged traffic and
-> the bridge does vlan tagging/marking and vlan untagging/stripping,
-> plus a mode where packets are tagged under a set of allowed vlans or a
-> third hybrid mode where there's a default vlan to be used when packets
-> arrive untagged and set of allowed vlans to be used as a filter for
-> tagged packets.
+> How about tx-logic?
 
-The patches are generic enough that they can support all three.  Its
-just a matter of configuration.
+rtnl_lock() is just mutex_lock() on a particular global mutex.  Since
+the RX and TX paths obviously don't take such a mutex, it has no effect
+on them.
 
-If the entity using the switch is expecting untagged traffic for a
-particular vlan, you can designate that vlan as untagged or native, and
-the bridge will strip the headers.  If you want more then one untagged
-vlan, then you have configure vlan interfaces under the bridge and 
-bridge them together.
+All rtnetlink operations and most net device ioctls are serialised by
+this mutex (it's the BKL of networking!).
 
-The patch will also insert a VLAN tag on port if that is how the port
-is configured.
+> In particular, I'm interested to know if it is valid to have
+> this state:
+> 
+> thread 1 holds RTNL, and blocks on thread 2 due to trying to flush a work-queue.
+> 
+> thread 2 is processing an item on that work-queue, and the work item is sending packets
+>    (and blocking for up to 200ms timeout trying to flush a wifi driver's queues).
 
-There 2 things I don't do:  Q-in-Q (but there is nothing stopping it, 
-just didn't write the code), and vlan translation (that would be a 
-headache).  I also don't set priorities yet, but that can be added later 
-if it is something people want.
+So long as the workqueue is private (if you're flushing it, I suppose it
+must be) then I don't see any problem with that.
 
->
-> Also, does this patch set assumes that a certain port is actually an
-> uplink towards the the physical nework/external switch?
+Ben.
 
-No, there is no uplink designation yet.  It might be useful for some
-other work I am thinking of, but it wasn't really needed here.
-
--vlad
-
->
-> Or.
->
->>   The bridge
->> port may have any number of VLANs added to it including vlan 0 priority tagged
->> traffic.  When vlans are added to the port, only traffic tagged with particular
->> vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
->> entries and become part of the lookup.  This way we correctly identify the FDB
->> entry.
->>
->> A single vlan may also be designated as untagged.  Any untagged traffic
->> recieved by the port will be assigned to this vlan.  Any traffic exiting
->> the port with a VID matching the untagged vlan will exit untagged (the
->> bridge will strip the vlan header).  This is similar to "Native Vlan" support
->> available in most switches.
->>
->> The default behavior ofthe bridge is unchanged if no vlans have been
->> configured.
->>
->> Changes since rfc v2:
->>   - Per-port vlan bitmap is gone and is replaced with a vlan list.
->>   - Added bridge vlan list, which is referenced by each port.  Entries in
->>     the birdge vlan list have port bitmap that shows which port are parts
->>     of which vlan.
->>   - Netlink API changes.
->>   - Dropped sysfs support for now.  If people think this is really usefull,
->>     can add it back.
->>   - Support for native/untagged vlans.
->>
->> Changes since rfc v1:
->>   - Comments addressed regarding formatting and RCU usage
->>   - iocts have been removed and changed over the netlink interface.
->>   - Added support of user added ndb entries.
->>   - changed sysfs interface to export a bitmap.  Also added a write interface.
->>     I am not sure how much I like it, but it made my testing easier/faster.  I
->>     might change the write interface to take text instead of binary.
->>
->> Vlad Yasevich (11):
->>    bridge: Add vlan filtering infrastructure
->>    bridge: Validate that vlan is permitted on ingress
->>    bridge: Verify that a vlan is allowed to egress on give port
->>    bridge: Cache vlan in the cb for faster egress lookup.
->>    bridge: Add vlan to unicast fdb entries
->>    bridge: Add vlan id to multicast groups
->>    bridge: Add netlink interface to configure vlans on bridge ports
->>    bridge: Add vlan support to static neighbors
->>    bridge: Add the ability to configure untagged vlans
->>    bridge: Implement untagged vlan handling
->>    bridge: Dump vlan information from a bridge port
->>
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
->>   drivers/net/macvlan.c                         |    2 +-
->>   drivers/net/vxlan.c                           |    3 +-
->>   include/linux/netdevice.h                     |    4 +-
->>   include/uapi/linux/if_bridge.h                |   24 ++-
->>   include/uapi/linux/neighbour.h                |    1 +
->>   include/uapi/linux/rtnetlink.h                |    1 +
->>   net/bridge/br_device.c                        |   34 +++-
->>   net/bridge/br_fdb.c                           |  199 +++++++++++++---
->>   net/bridge/br_forward.c                       |  139 +++++++++++
->>   net/bridge/br_if.c                            |  312 +++++++++++++++++++++++++
->>   net/bridge/br_input.c                         |   65 +++++-
->>   net/bridge/br_multicast.c                     |   71 ++++--
->>   net/bridge/br_netlink.c                       |  154 +++++++++++--
->>   net/bridge/br_private.h                       |   66 +++++-
->>   net/core/rtnetlink.c                          |   40 +++-
->>   16 files changed, 1010 insertions(+), 110 deletions(-)
->>
->> --
->> 1.7.7.6
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
