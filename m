@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] bridge: add support of adding and
- deleting mdb entries
-Date: Wed, 12 Dec 2012 13:03:29 -0500 (EST)
-Message-ID: <20121212.130329.1972887047089057344.davem@davemloft.net>
-References: <1355300590-2390-1-git-send-email-amwang@redhat.com>
-	<1355300590-2390-2-git-send-email-amwang@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCHv3 iproute2] add DOVE extensions for iproute2
+Date: Wed, 12 Dec 2012 10:03:24 -0800
+Message-ID: <20121212100324.76b8d511@nehalam.linuxnetplumber.net>
+References: <201212121756.qBCHtOfn021538@lab1.dls>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	herbert@gondor.hengli.com.au, shemminger@vyatta.com, tgraf@suug.ch
-To: amwang@redhat.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David L Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52737 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754353Ab2LLSDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 13:03:32 -0500
-In-Reply-To: <1355300590-2390-2-git-send-email-amwang@redhat.com>
+Received: from mail.vyatta.com ([76.74.103.46]:35261 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754734Ab2LLSEk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 13:04:40 -0500
+In-Reply-To: <201212121756.qBCHtOfn021538@lab1.dls>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Wed, 12 Dec 2012 16:23:08 +0800
+On Wed, 12 Dec 2012 12:55:24 -0500
+David L Stevens <dlstevens@us.ibm.com> wrote:
 
-> From: Cong Wang <amwang@redhat.com>
+> 	This patch adds a new flag to iproute2 for vxlan devices to enable
+> DOVE features. It also adds support for L2 and L3 switch lookup miss
+> netlink messages to "ip monitor".
 > 
-> This patch implents adding/deleting mdb entries via netlink.
-> Currently all entries are temp, we probably need a flag to distinguish
-> permanent entries too.
+> Changes since v2: fix merge conflict
+> Changes since v1:
+> 	- split "dove" flag into separate feature flags:
+> 		- "proxy" for ARP reduction
+> 		- "rsc" for route short circuiting
+> 		- "l2miss" for L2 switch miss notifications
+> 		- "l3miss" for L3 switch miss notifications
 > 
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Stephen Hemminger <shemminger@vyatta.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-Applied.
+Applied, after mollifying the git whitespace complaints.
