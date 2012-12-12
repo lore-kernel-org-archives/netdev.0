@@ -1,74 +1,34 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next 0/5] Ease netns management for userland
-Date: Wed, 12 Dec 2012 19:39:57 +0100
-Message-ID: <CAJ-7AZbsf9+jTXWpcnp8Eco-97uM6tV3UZad2UeLCU_+Yb+7kg@mail.gmail.com>
-References: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 2/2] iproute2: add support to monitor mdb entries too
+Date: Wed, 12 Dec 2012 10:41:38 -0800
+Message-ID: <20121212104138.2a927498@nehalam.linuxnetplumber.net>
+References: <1355300590-2390-1-git-send-email-amwang@redhat.com>
+	<1355300590-2390-4-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, ebiederm@xmission.com, aatteka@nicira.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Thomas Graf <tgraf@suug.ch>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:52574 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753949Ab2LLSj7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 13:39:59 -0500
-Received: by mail-la0-f46.google.com with SMTP id p5so963173lag.19
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2012 10:39:57 -0800 (PST)
-In-Reply-To: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail.vyatta.com ([76.74.103.46]:55414 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753949Ab2LLSnF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 13:43:05 -0500
+In-Reply-To: <1355300590-2390-4-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/12/12 Nicolas Dichtel <nicolas.dichtel@6wind.com>:
-> The goal of this serie is to ease netns management by daemons. Some systems use
-> netns only to virtualize network stack and don't want to multiply userland
-> daemons.  These system may have a lot of netns, up to 2000. We don't want to
-> launch an instance of each daemons (quagga, strongswan, conntrackd, ...) for
-> each netns because it will consume a lot of ressources. Having one daemon that
-> manage all netns is more efficient (mainly if there are few objects to manage:
-> one or two routes per netns for example).
-> Hence, one goal of this serie is to allow, for a daemon, to monitor netns
-> activities, thus it can open or close netlink sockets, allocating structures
-> needed to manage these netns when they are created or deleted.
-> To help to identify a netns, an index has been added to each netns.
->
-> A new setsockopt() option is also added, to help daemons to open socket in the
-> right netns. For now, a daemon that want to open a socket in a specified netns,
-> need to call setns(CLONE_NEWNET) with a fd (not so easy to found), open the
-> socket and then call again setns() to go back in the initial netns. Having this
-> kind of setsockopt() will simplify operations. Obviously, this setsockopt()
-> should be done enough early (is test on sk_state enough?). The first target is
-> netlink socket but it can be useful for other kind of socket, it's why a add a
-> generic socket option.
->
-> As usual, the patch against iproute2 will be sent once the patches are included
-> and net-next merged. I can send it on demand.
->
->  arch/alpha/include/asm/socket.h        |   2 +
->  arch/avr32/include/uapi/asm/socket.h   |   2 +
->  arch/frv/include/uapi/asm/socket.h     |   2 +
->  arch/h8300/include/asm/socket.h        |   2 +
->  arch/ia64/include/uapi/asm/socket.h    |   2 +
->  arch/m32r/include/asm/socket.h         |   2 +
->  arch/m68k/include/uapi/asm/socket.h    |   2 +
->  arch/mips/include/uapi/asm/socket.h    |   2 +
->  arch/mn10300/include/uapi/asm/socket.h |   2 +
->  arch/parisc/include/uapi/asm/socket.h  |   2 +
->  arch/powerpc/include/uapi/asm/socket.h |   2 +
->  arch/s390/include/uapi/asm/socket.h    |   2 +
->  arch/sparc/include/uapi/asm/socket.h   |   2 +
->  arch/xtensa/include/uapi/asm/socket.h  |   2 +
->  include/net/net_namespace.h            |   3 +
->  include/uapi/asm-generic/socket.h      |   2 +
->  include/uapi/linux/if_link.h           |   1 +
->  include/uapi/linux/netns.h             |  31 +++++
->  net/core/net_namespace.c               | 223 +++++++++++++++++++++++++++++++++
->  net/core/rtnetlink.c                   |   7 +-
->  net/core/sock.c                        |  28 +++++
->  net/netlink/genetlink.c                |   4 +
->  22 files changed, 326 insertions(+), 1 deletion(-)
->
-> I do not pretend to be a netns expert, it's why I add RFC in the title ;-)
->
-> Comments are welcome.
+On Wed, 12 Dec 2012 16:23:10 +0800
+Cong Wang <amwang@redhat.com> wrote:
 
-Sorry for the double send, it's a wrong manip!
+> From: Cong Wang <amwang@redhat.com>
+> 
+> This patch implements `bridge monitor mdb`.
+> 
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+
+Accepted for 3.8 since Dave accepted the kernel parts. Thanks
