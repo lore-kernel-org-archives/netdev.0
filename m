@@ -1,37 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] solos-pci: fix double-free of TX skb in DMA mode
-Date: Wed, 12 Dec 2012 00:24:07 -0500 (EST)
-Message-ID: <20121212.002407.585702152842615880.davem@davemloft.net>
-References: <1355273834.23544.37.camel@shinybook.infradead.org>
-	<20121212.002345.2154152659215725592.davem@davemloft.net>
+Subject: Re: [PATCH net-next] pkt_sched: avoid requeues if possible
+Date: Wed, 12 Dec 2012 00:24:17 -0500 (EST)
+Message-ID: <20121212.002417.627468432851800439.davem@davemloft.net>
+References: <1355277273.27891.166.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nathan@traverse.com.au
-To: dwmw2@infradead.org
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
+	john.r.fastabend@intel.com
+To: erdnetdev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46496 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46498 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714Ab2LLFYI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 00:24:08 -0500
-In-Reply-To: <20121212.002345.2154152659215725592.davem@davemloft.net>
+	with ESMTP id S1750855Ab2LLFYS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 00:24:18 -0500
+In-Reply-To: <1355277273.27891.166.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 12 Dec 2012 00:23:45 -0500 (EST)
+From: Eric Dumazet <erdnetdev@gmail.com>
+Date: Tue, 11 Dec 2012 17:54:33 -0800
 
-> From: David Woodhouse <dwmw2@infradead.org>
-> Date: Wed, 12 Dec 2012 00:57:14 +0000
+> From: Eric Dumazet <edumazet@google.com>
 > 
->> We weren't clearing card->tx_skb[port] when processing the TX done interrupt.
->> If there wasn't another skb ready to transmit immediately, this led to a
->> double-free because we'd free it *again* next time we did have a packet to
->> send.
->> 
->> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
->> Cc: stable@kernel.org
+> With BQL being deployed, we can more likely have following behavior :
 > 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> We dequeue a packet from qdisc in dequeue_skb(), then we realize target
+> tx queue is in XOFF state in sch_direct_xmit(), and we have to hold the
+> skb into gso_skb for later.
+> 
+> This shows in stats (tc -s qdisc dev eth0) as requeues.
+> 
+> Problem of these requeues is that high priority packets can not be
+> dequeued as long as this (possibly low prio and big TSO packet) is not
+> removed from gso_skb.
+> 
+> At 1Gbps speed, a full size TSO packet is 500 us of extra latency.
+> 
+> In some cases, we know that all packets dequeued from a qdisc are
+> for a particular and known txq :
+> 
+> - If device is non multi queue
+> - For all MQ/MQPRIO slave qdiscs
+> 
+> This patch introduces a new qdisc flag, TCQ_F_ONETXQUEUE to mark
+> this capability, so that dequeue_skb() is allowed to dequeue a packet
+> only if the associated txq is not stopped.
+> 
+> This indeed reduce latencies for high prio packets (or improve fairness
+> with sfq/fq_codel), and almost remove qdisc 'requeues'.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Sorry, fingers slipped, I meant "Applied" :-)
+Applied.
