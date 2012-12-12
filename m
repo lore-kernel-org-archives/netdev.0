@@ -1,52 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Any good documentation on RTNL
-Date: Wed, 12 Dec 2012 23:37:33 +0000
-Message-ID: <1355355453.3149.91.camel@bwh-desktop.uk.solarflarecom.com>
-References: <50C9101A.6000906@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:33644 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754860Ab2LLXhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 18:37:36 -0500
-In-Reply-To: <50C9101A.6000906@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Collins <bsderandrew@gmail.com>
+Subject: [PATCH] netfilter: nf_nat: Also handle non-ESTABLISHED routing changes in MASQUERADE
+Date: Wed, 12 Dec 2012 16:49:27 -0700
+Message-ID: <1355356167-10397-1-git-send-email-bsderandrew@gmail.com>
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	kadlec@blackhole.kfki.hu
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-12-12 at 15:15 -0800, Ben Greear wrote:
-> I'm wondering if anyone could point me to some documentation on
-> the finer points of what the rtnl_lock() does?  I can't find anything
-> overly useful in google or the kernel docs.
-> 
-> For instance, can the packet rx-logic run (on other threads?) while rtnl is held?
->
-> How about tx-logic?
+The MASQUERADE target now handles routing changes which affect
+the output interface of a connection, but only for ESTABLISHED
+connections.  It is also possible for NEW connections which
+already have a conntrack entry to be affected by routing changes.
 
-rtnl_lock() is just mutex_lock() on a particular global mutex.  Since
-the RX and TX paths obviously don't take such a mutex, it has no effect
-on them.
+This adds a check to drop entries in the NEW+conntrack state
+when the oif has changed.
 
-All rtnetlink operations and most net device ioctls are serialised by
-this mutex (it's the BKL of networking!).
+Signed-off-by: Andrew Collins <bsderandrew@gmail.com>
+---
+ net/ipv4/netfilter/iptable_nat.c |   15 ++++++++++-----
+ 1 files changed, 10 insertions(+), 5 deletions(-)
 
-> In particular, I'm interested to know if it is valid to have
-> this state:
-> 
-> thread 1 holds RTNL, and blocks on thread 2 due to trying to flush a work-queue.
-> 
-> thread 2 is processing an item on that work-queue, and the work item is sending packets
->    (and blocking for up to 200ms timeout trying to flush a wifi driver's queues).
-
-So long as the workqueue is private (if you're flushing it, I suppose it
-must be) then I don't see any problem with that.
-
-Ben.
-
+diff --git a/net/ipv4/netfilter/iptable_nat.c b/net/ipv4/netfilter/iptable_nat.c
+index da2c8a3..eeaff7e 100644
+--- a/net/ipv4/netfilter/iptable_nat.c
++++ b/net/ipv4/netfilter/iptable_nat.c
+@@ -124,23 +124,28 @@ nf_nat_ipv4_fn(unsigned int hooknum,
+ 			ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
+ 			if (ret != NF_ACCEPT)
+ 				return ret;
+-		} else
++		} else {
+ 			pr_debug("Already setup manip %s for ct %p\n",
+ 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
+ 				 ct);
++			if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++				goto oif_changed;
++		}
+ 		break;
+ 
+ 	default:
+ 		/* ESTABLISHED */
+ 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
+ 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
+-		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out)) {
+-			nf_ct_kill_acct(ct, ctinfo, skb);
+-			return NF_DROP;
+-		}
++		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++			goto oif_changed;
+ 	}
+ 
+ 	return nf_nat_packet(ct, ctinfo, hooknum, skb);
++
++oif_changed:
++	nf_ct_kill_acct(ct, ctinfo, skb);
++	return NF_DROP;
+ }
+ 
+ static unsigned int
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.1
+
