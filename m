@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/5] net: sfc: fix return value check in
- efx_ptp_probe_channel().
-Date: Wed, 12 Dec 2012 00:15:50 -0500 (EST)
-Message-ID: <20121212.001550.741463250196231082.davem@davemloft.net>
-References: <1355271894-5284-1-git-send-email-tipecaml@gmail.com>
-	<1355271894-5284-5-git-send-email-tipecaml@gmail.com>
+Subject: Re: [PATCH] solos-pci: fix double-free of TX skb in DMA mode
+Date: Wed, 12 Dec 2012 00:23:45 -0500 (EST)
+Message-ID: <20121212.002345.2154152659215725592.davem@davemloft.net>
+References: <1355273834.23544.37.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	linux-net-drivers@solarflare.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: tipecaml@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1355271894-5284-5-git-send-email-tipecaml@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nathan@traverse.com.au
+To: dwmw2@infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46489 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714Ab2LLFXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 00:23:46 -0500
+In-Reply-To: <1355273834.23544.37.camel@shinybook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cyril Roelandt <tipecaml@gmail.com>
-Date: Wed, 12 Dec 2012 01:24:53 +0100
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Wed, 12 Dec 2012 00:57:14 +0000
 
-> The ptp_clock_register() returns ERR_PTR() and never returns NULL. Replace the
-> NULL check by a call to IS_ERR().
+> We weren't clearing card->tx_skb[port] when processing the TX done interrupt.
+> If there wasn't another skb ready to transmit immediately, this led to a
+> double-free because we'd free it *again* next time we did have a packet to
+> send.
 > 
-> Signed-off-by: Cyril Roelandt <tipecaml@gmail.com>
+> Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+> Cc: stable@kernel.org
 
-I'll let Ben queue this up.
-
-Probably he'll want to avoid potentially leaving an ERR_PTR
-in ptp->phc_clock even if, with this fix, that would be
-harmless.
+Acked-by: David S. Miller <davem@davemloft.net>
