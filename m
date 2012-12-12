@@ -1,46 +1,43 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 2/2] net/mlx4_en: Add support for destination
- MAC in steering rules
-Date: Wed, 12 Dec 2012 12:07:43 +0200
-Message-ID: <50C8576F.6090907@mellanox.com>
-References: <1355227436-18383-1-git-send-email-amirv@mellanox.com> <1355227436-18383-3-git-send-email-amirv@mellanox.com> <50C75382.3040504@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Or Gerlitz" <ogerlitz@mellanox.com>,
-	Yan Burman <yanb@mellanox.com>
-To: Brian Haley <brian.haley@hp.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 0/4] net: allow to change carrier from userspace
+Date: Wed, 12 Dec 2012 11:58:03 +0100
+Message-ID: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
+	greearb@candelatech.com, fbl@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:39504 "HELO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753733Ab2LLKJW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 05:09:22 -0500
-In-Reply-To: <50C75382.3040504@hp.com>
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:56921 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751632Ab2LLK6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 05:58:14 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so178084eaa.19
+        for <netdev@vger.kernel.org>; Wed, 12 Dec 2012 02:58:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/12/2012 17:38, Brian Haley wrote:
-> On 12/11/2012 07:03 AM, Amir Vadai wrote:
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
->> @@ -619,7 +619,13 @@ static int mlx4_en_validate_flow(struct net_device *dev,
->>   	if (cmd->fs.location >= MAX_NUM_OF_FS_RULES)
->>   		return -EINVAL;
->>
->> -	switch (cmd->fs.flow_type & ~FLOW_EXT) {
->> +	if (cmd->fs.flow_type & FLOW_MAC_EXT) {
->> +		/* dest mac mask must be ff:ff:ff:ff:ff:ff */
->> +		if (memcmp(cmd->fs.m_ext.h_dest, &full_mac, ETH_ALEN))
->> +			return -EINVAL;
->> +	}
->
-> etherdevice.h has is_broadcast_ether_addr() and is_zero_ether_addr() if you want
-> to get rid of full_mac and zero_mac in this function.
->
-> -Brian
->
+This is basically a repost of my previous patchset:
+"[patch net-next-2.6 0/2] net: allow to change carrier via sysfs" from Aug 30
 
-Right, will send a V1 with this fix.
+The way net-sysfs stores values changed and this patchset reflects it.
+Also, I exposed carrier via rtnetlink iface.
 
-Amir.
+So far, only dummy driver uses carrier change ndo. In very near future
+team driver will use that as well.
+
+Jiri Pirko (4):
+  net: add change_carrier netdev op
+  net: allow to change carrier via sysfs
+  rtnl: expose carrier value with possibility to set it
+  dummy: implement carrier change
+
+ drivers/net/dummy.c          | 10 ++++++++++
+ include/linux/netdevice.h    |  7 +++++++
+ include/uapi/linux/if_link.h |  1 +
+ net/core/dev.c               | 19 +++++++++++++++++++
+ net/core/net-sysfs.c         | 15 ++++++++++++++-
+ net/core/rtnetlink.c         | 10 ++++++++++
+ 6 files changed, 61 insertions(+), 1 deletion(-)
+
+-- 
+1.8.0
