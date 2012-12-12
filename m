@@ -1,111 +1,71 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/4] net: allow to change carrier from userspace
-Date: Wed, 12 Dec 2012 20:06:13 +0100
-Message-ID: <20121212190613.GE3060@minipsycho.orion>
-References: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
- <20121212081500.24085752@nehalam.linuxnetplumber.net>
- <20121212170520.GA3060@minipsycho.orion>
- <20121212092700.7ef2607a@nehalam.linuxnetplumber.net>
- <20121212181017.GB3060@minipsycho.orion>
- <20121212101208.361ccda0@nehalam.linuxnetplumber.net>
- <20121212182556.GC3060@minipsycho.orion>
- <20121212103632.2020efce@nehalam.linuxnetplumber.net>
- <20121212184925.GD3060@minipsycho.orion>
- <20121212105448.490aca5c@nehalam.linuxnetplumber.net>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 4/7] openvswitch: add ipv6 'set'
+	action
+Date: Wed, 12 Dec 2012 11:17:59 -0800
+Message-ID: <CAEP_g=-oe1EkyfhW9phpBTgvHj6Sqi7HQGvEmeCdyHHyWRop4g@mail.gmail.com>
+References: <1354214149-33651-1-git-send-email-jesse@nicira.com>
+	<1354214149-33651-5-git-send-email-jesse@nicira.com>
+	<CA+mtBx-Zf9FNf11H9RM12etHnJ1bPpM_Eyc4mR7E6xsb7sUP2Q@mail.gmail.com>
+	<CAEP_g=-1aWGsjR55AaD6sLLt4QzbYgUs-3hfNNONrrf8MDwSyA@mail.gmail.com>
+	<CA+mtBx-84PQoHmauNpN4vYLWXcJdESMMep849DQcUAjkmC7PXQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com,
-	greearb@candelatech.com, fbl@redhat.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:65452 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754149Ab2LLTGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 14:06:25 -0500
-Received: by mail-ea0-f174.google.com with SMTP id e13so359237eaa.19
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2012 11:06:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20121212105448.490aca5c@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Mike Waychison <mikew-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+To: Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CA+mtBx-84PQoHmauNpN4vYLWXcJdESMMep849DQcUAjkmC7PXQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Dec 12, 2012 at 07:54:48PM CET, shemminger@vyatta.com wrote:
->On Wed, 12 Dec 2012 19:49:26 +0100
->Jiri Pirko <jiri@resnulli.us> wrote:
+On Wed, Dec 12, 2012 at 10:38 AM, Tom Herbert <therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
+>> At an implementation level, the goal is definitely to share as much
+>> code as possible.  Some of that was obviously done to support this
+>> patch and I'm sure there are more areas where it could be taken
+>> further.
+>>
+>> At a more conceptual level we've explored this path a number of times
+>> and it's never been attractive since it has a tendency to drag more
+>> OVS code into other parts of the kernel and generally make things
+>> worse for everybody.  Of course, it's hard to say without knowing what
+>> you're thinking.  Do you have a specific proposal?
 >
->> Wed, Dec 12, 2012 at 07:36:32PM CET, shemminger@vyatta.com wrote:
->> >On Wed, 12 Dec 2012 19:25:56 +0100
->> >Jiri Pirko <jiri@resnulli.us> wrote:
->> >
->> >> Wed, Dec 12, 2012 at 07:12:08PM CET, shemminger@vyatta.com wrote:
->> >> >On Wed, 12 Dec 2012 19:10:17 +0100
->> >> >Jiri Pirko <jiri@resnulli.us> wrote:
->> >> >
->> >> >> ># ip li show dev dummy0
->> >> >> >12: dummy0: <NO-CARRIER,BROADCAST,NOARP,UP,LOWER_UP> mtu 1500=
- qdisc noqueue state DORMANT mode DORMANT  =20
->> >> >>=20
->> >> >> if you mean this "NO-CARRIER"
->> >> >> it has no direct relation with netif_carrier_ok().
->> >> >
->> >> >It is the same value (IFF_RUNNING) that is visible from user spa=
-ce.
->> >>=20
->> >> static inline bool netif_carrier_ok(const struct net_device *dev)
->> >> {
->> >> 	        return !test_bit(__LINK_STATE_NOCARRIER, &dev->state);
->> >> }
->> >>=20
->> >> So netif_carrier[ok/on/off] are working with on __LINK_STATE_NOCA=
-RRIER
->> >> bit. Not with IFF_RUNNING flag.
->> >
->> >What is the code path that you are worried about netif_carrier_ok b=
-eing set or clear?
->> >The interaction here is complex, and right now LINK_STATE_NOCARRIER=
- is purely
->> >controlled by the driver, your patch changes that, but before ackin=
-g I want
->> >to make sure why it is required.
->>=20
->> This patchset would provide a possibility to set or clear the carrie=
-r
->> from userspace. For dummy device it would serve for direct emulation
->> of link fail.
->>=20
->> Also for team deriver, that would serve for teamd (userspace part) t=
-o
->> set the carrier actually on or off (in case of LACP runner for examp=
-le
->> this is required).
->>=20
->
->You want to able to control the dummy device, so that you can test car=
-rier
->management in the team device. Another alternative is to use carrier c=
-ontrol
->on a virtual device. Vmware can do it, there were patches to do this w=
-ith KVM/QEMU
->not sure if they ever got incorporated.
->
->Since this is a specific feature of the dummy device which is speciali=
-zed for
->testing, maybe it should just be done by adding device specific ioctl =
-rather
->than letting it creep in as a general facility.
+> Where is the line drawn?  Is the intent that over the next five years
+> that functionality will be added ad hoc increments to make OVS have
+> the same functionality as IP tables, tc, routing?  Are we going to
+> have things like NAT, stateful firewalls, DDOS mechanisms implemented
+> in OVS (we already have people proposing such things!).
 
-Ugh, specific ioctl stinks...
-But this is not only for dummy. As I said, we need this for team driver=
-=2E
-Maybe I did not explain that correctly. Given the fact that the whole
-Team logic is in userspace, teamd (userspace daemon) needs to set the
-carrier state as if it was done in kernel. Yes, we would be able to do
-this by specific Team option in team driver, but I thought this would b=
-e
-nicer to do that more generally.
+Definitely no to all of the above. (As an aside, years ago there was
+NAT functionality in a precursor to OVS.  Everybody hated it and was
+very happy when it was removed, so I wouldn't worry about that type of
+thing popping up in OVS any time soon.)
 
-Also, in previous discussion Micha=C5=82 Miros=C5=82aw wrote he would l=
-ike this
-feature also for GRE tunnel devices.
+The design of OVS works pretty well for the types of stateless
+operations that are currently implemented because those map nicely to
+flows that userspace can use to program in a fairly clean and powerful
+manner.  This is much less true for things like stateful rules, QoS,
+DPI, etc. because you either want to look at more information than
+would usually be considered a flow or have state that changes very
+quickly.  In these cases, the data plane needs to take action on its
+own and the interaction with userspace is more akin to configuration
+than programming.
+
+As these types of features come up, I think you will start to see more
+integration with netfilter and other tools (in fact, there are several
+examples of this already - OVS QoS uses tc, the ability to interact
+with skb->mark was added recently, and Pravin has been doing a lot of
+work to refactor and integrate with the upstream tunneling code).
+There are some definite tradeoffs to doing it this way, mostly in the
+area of state management, so I don't think that it's feasible to
+switch wholesale over to this model.  However, if we're careful then I
+think it's possible to get the best of both worlds.
