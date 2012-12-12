@@ -1,77 +1,83 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: Network namespace bugs in L2TP
-Date: Wed, 12 Dec 2012 11:44:36 -0800
-Message-ID: <87k3snnjh7.fsf@xmission.com>
-References: <20121212155105.GB2790@raven>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org
-To: Tom Parkin <tparkin@katalix.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH 00/11] Add basic VLAN support to bridges
+Date: Wed, 12 Dec 2012 15:01:06 -0500
+Message-ID: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
+Cc: shemminger@vyatta.com, davem@davemloft.net, mst@redhat.com,
+	john.r.fastabend@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:42341 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754312Ab2LLToo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 14:44:44 -0500
-In-Reply-To: <20121212155105.GB2790@raven> (Tom Parkin's message of "Wed, 12
-	Dec 2012 15:51:05 +0000")
+Received: from mx1.redhat.com ([209.132.183.28]:55566 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755130Ab2LLUB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 15:01:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Parkin <tparkin@katalix.com> writes:
+This series of patches provides an ability to add VLANs to the bridge
+ports.  This is similar to what can be found in most switches.  The bridge
+port may have any number of VLANs added to it including vlan 0 priority tagged 
+traffic.  When vlans are added to the port, only traffic tagged with particular
+vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
+entries and become part of the lookup.  This way we correctly identify the FDB
+entry.
 
-> Hi Eric,
->
-> I'm following up on this thread from later October in which you
-> pointed out some network namespace bugs in L2TP:
->
-> http://www.spinics.net/lists/netdev/msg214776.html
->
-> I use L2TP, and I'd like to help fix these bugs.  But I'm not very
-> conversant with network namespaces, and so I'm struggling to fully
-> appreciate the issues you pointed out previously.  Could you give me a
-> hand getting to grips with this?
->
-> So far I've tested L2TP within network namespaces, using both iproute2
-> to create sessions between two namespaces on the same host, and an
-> L2TP daemon running in a namespace to create sessions between two
-> hosts.  In both cases I've done a bit of trivial ping and iperf
-> testing using Ethernet pseudowires.
->
-> To make this work I've had to add a couple of trivial patches (see
-> below).
->
-> There are two things I'm uncertain about:
->
->  1. Why do we need to change the namespace of the socket created in
->     l2tp_tunnel_sock_create?  So far as I can tell, sock_create
->     defaults to the namespace of the calling process.  Is the issue
->     here that this code may run from a work queue or similar?
+A single vlan may also be designated as untagged.  Any untagged traffic
+recieved by the port will be assigned to this vlan.  Any traffic exiting
+the port with a VID matching the untagged vlan will exit untagged (the
+bridge will strip the vlan header).  This is similar to "Native Vlan" support
+available in most switches.
 
-Something similar.  At the very least l2tp_tunnel_create which calls
-l2tp_tunnel_sock_create gets called from netlink.  The network namespace
-of a socket is not necessarily the same as the network namespace of the
-process that uses that socket.
+The default behavior ofthe bridge is unchanged if no vlans have been
+configured.
 
-So since current is not necessarily the right network namespace we need
-push the desired network namespace of the socket down into
-l2tp_tunnel_sock_create and use that when creating the socket.
+Changes since rfc v2:
+ - Per-port vlan bitmap is gone and is replaced with a vlan list.
+ - Added bridge vlan list, which is referenced by each port.  Entries in
+   the birdge vlan list have port bitmap that shows which port are parts
+   of which vlan.
+ - Netlink API changes.
+ - Dropped sysfs support for now.  If people think this is really usefull,
+   can add it back.
+ - Support for native/untagged vlans.
 
->  2. You mentioned the need to keep track of sockets allocated within a
->     namespace in order to be able to clean them up when the namespace
->     is deleted.  Should we be keeping a list of sockets we create and
->     then destroying them in the namespace pernet_ops exit function?
+Changes since rfc v1:
+ - Comments addressed regarding formatting and RCU usage
+ - iocts have been removed and changed over the netlink interface.
+ - Added support of user added ndb entries.
+ - changed sysfs interface to export a bitmap.  Also added a write interface.
+   I am not sure how much I like it, but it made my testing easier/faster.  I
+   might change the write interface to take text instead of binary.
 
-I think the issue that I was referring to and certainly the issue I am
-thinking about is the issue where normal sockets hold a reference to a
-network namespace and keep the network namespace alive.  Today l2tp uses
-sock_create when creating a socket, and as such I think it pins it
-current network namespace.  So I believe we can effectively have a
-reference counting loop with l2tp sockets pinning the network namespace
-and the network namespace keeping the l2tp device alive which keeps the
-l2tp socket alive.
+Vlad Yasevich (11):
+  bridge: Add vlan filtering infrastructure
+  bridge: Validate that vlan is permitted on ingress
+  bridge: Verify that a vlan is allowed to egress on give port
+  bridge: Cache vlan in the cb for faster egress lookup.
+  bridge: Add vlan to unicast fdb entries
+  bridge: Add vlan id to multicast groups
+  bridge: Add netlink interface to configure vlans on bridge ports
+  bridge: Add vlan support to static neighbors
+  bridge: Add the ability to configure untagged vlans
+  bridge: Implement untagged vlan handling
+  bridge: Dump vlan information from a bridge port
 
-I don't remeber the specifics of l2tp as it creates some sockets, and
-has other sockets passed in, and as such has rules that are not at all
-normal.
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
+ drivers/net/macvlan.c                         |    2 +-
+ drivers/net/vxlan.c                           |    3 +-
+ include/linux/netdevice.h                     |    4 +-
+ include/uapi/linux/if_bridge.h                |   24 ++-
+ include/uapi/linux/neighbour.h                |    1 +
+ include/uapi/linux/rtnetlink.h                |    1 +
+ net/bridge/br_device.c                        |   34 +++-
+ net/bridge/br_fdb.c                           |  199 +++++++++++++---
+ net/bridge/br_forward.c                       |  139 +++++++++++
+ net/bridge/br_if.c                            |  312 +++++++++++++++++++++++++
+ net/bridge/br_input.c                         |   65 +++++-
+ net/bridge/br_multicast.c                     |   71 ++++--
+ net/bridge/br_netlink.c                       |  154 +++++++++++--
+ net/bridge/br_private.h                       |   66 +++++-
+ net/core/rtnetlink.c                          |   40 +++-
+ 16 files changed, 1010 insertions(+), 110 deletions(-)
 
-Eric
+-- 
+1.7.7.6
