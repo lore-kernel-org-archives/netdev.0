@@ -1,59 +1,78 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 14/17] net/bridge/br_mdb.c:330
- br_mdb_add_group() error: potential null dereference 'mp'.
-  (br_multicast_new_group returns null)
-Date: Thu, 13 Dec 2012 03:21:49 +0800
-Message-ID: <50c8d94d.VSxb5ulWJHo9Ahhi%fengguang.wu@intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC PATCH net-next 0/5] Ease netns management for userland
+Date: Wed, 12 Dec 2012 11:25:24 -0800
+Message-ID: <87fw3boyxn.fsf@xmission.com>
+References: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, davem@davemloft.net, aatteka@nicira.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:19760 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754049Ab2LLTY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2012 14:24:28 -0500
+Received: from out01.mta.xmission.com ([166.70.13.231]:53586 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754076Ab2LLTZg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 14:25:36 -0500
+In-Reply-To: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
+	(Nicolas Dichtel's message of "Wed, 12 Dec 2012 18:17:05 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-head:   520dfe3a3645257bf83660f672c47f8558f3d4c4
-commit: cfd567543590f71ca0af397437e2554f9756d750 [14/17] bridge: add support of adding and deleting mdb entries
+Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
 
+> The goal of this serie is to ease netns management by daemons. Some systems use
+> netns only to virtualize network stack and don't want to multiply userland
+> daemons.  These system may have a lot of netns, up to 2000. We don't want to
+> launch an instance of each daemons (quagga, strongswan, conntrackd, ...) for
+> each netns because it will consume a lot of ressources. Having one daemon that
+> manage all netns is more efficient (mainly if there are few objects to manage:
+> one or two routes per netns for example).
+> Hence, one goal of this serie is to allow, for a daemon, to monitor netns
+> activities, thus it can open or close netlink sockets, allocating structures
+> needed to manage these netns when they are created or deleted.
+> To help to identify a netns, an index has been added to each netns.
+>
+> A new setsockopt() option is also added, to help daemons to open socket in the
+> right netns. For now, a daemon that want to open a socket in a specified netns,
+> need to call setns(CLONE_NEWNET) with a fd (not so easy to found), open the
+> socket and then call again setns() to go back in the initial netns. Having this
+> kind of setsockopt() will simplify operations. Obviously, this setsockopt()
+> should be done enough early (is test on sk_state enough?). The first target is
+> netlink socket but it can be useful for other kind of socket, it's why a add a
+> generic socket option.
+>
+> As usual, the patch against iproute2 will be sent once the patches are included
+> and net-next merged. I can send it on demand.
 
-smatch warnings:
+Short answer you don't need to do any of this.
 
-+ net/bridge/br_mdb.c:330 br_mdb_add_group() error: potential null dereference 'mp'.  (br_multicast_new_group returns null)
+setns with the namespace files in /proc/<pid>/ns/net gives you more than
+enough mechanism to solve this problem.  And iprout2 already supports
+all of this.
 
-vim +330 +/mp net/bridge/br_mdb.c
+And your approach creates very serious maintenances problems to the
+point I don't even want to read your patches.  What namespace do your
+namespace id's live in?
 
-cfd56754 Cong Wang 2012-12-11  314  {
-cfd56754 Cong Wang 2012-12-11  315  	struct net_bridge_mdb_entry *mp;
-cfd56754 Cong Wang 2012-12-11  316  	struct net_bridge_port_group *p;
-cfd56754 Cong Wang 2012-12-11  317  	struct net_bridge_port_group __rcu **pp;
-cfd56754 Cong Wang 2012-12-11  318  	struct net_bridge_mdb_htable *mdb;
-cfd56754 Cong Wang 2012-12-11  319  	int err;
-cfd56754 Cong Wang 2012-12-11  320  
-cfd56754 Cong Wang 2012-12-11  321  	mdb = mlock_dereference(br->mdb, br);
-cfd56754 Cong Wang 2012-12-11  322  	mp = br_mdb_ip_get(mdb, group);
-cfd56754 Cong Wang 2012-12-11  323  	if (!mp) {
-cfd56754 Cong Wang 2012-12-11  324  		mp = br_multicast_new_group(br, port, group);
-cfd56754 Cong Wang 2012-12-11  325  		err = PTR_ERR(mp);
-cfd56754 Cong Wang 2012-12-11  326  		if (IS_ERR(mp))
-cfd56754 Cong Wang 2012-12-11  327  			return err;
-cfd56754 Cong Wang 2012-12-11  328  	}
-cfd56754 Cong Wang 2012-12-11  329  
-cfd56754 Cong Wang 2012-12-11 @330  	for (pp = &mp->ports;
-cfd56754 Cong Wang 2012-12-11  331  	     (p = mlock_dereference(*pp, br)) != NULL;
-cfd56754 Cong Wang 2012-12-11  332  	     pp = &p->next) {
-cfd56754 Cong Wang 2012-12-11  333  		if (p->port == port)
-cfd56754 Cong Wang 2012-12-11  334  			return -EEXIST;
-cfd56754 Cong Wang 2012-12-11  335  		if ((unsigned long)p->port < (unsigned long)port)
-cfd56754 Cong Wang 2012-12-11  336  			break;
-cfd56754 Cong Wang 2012-12-11  337  	}
-cfd56754 Cong Wang 2012-12-11  338  
+A socketopt to change the namespace of a socket is nasty because sockets
+changing which network namespace they are in, leads to races which
+aren't worth thinking about writing the code to handle.
 
----
-0-DAY kernel build testing backend         Open Source Technology Center
-Fengguang Wu, Yuanhan Liu                              Intel Corporation
+Longer answer.
+
+You can bind mount the namespace id's /proc/<pid>/ns/net files to
+give you any name you want.  This puts naming policy in userspace
+control, and nests just fine.
+
+You can open a socket in any network namespace you want just
+by calling setns before socket.  Wrapping this idiom in a library call
+or if there is sufficient need in a socketat system call seems
+reasonable.
+
+There is a classic question of if two network namespace files refer to
+the same network namespace and I have code in linux-next and my pull
+request to Linus to give those files a unique inode number.
+
+So please use the facilities already merged into the kernel.
+
+Thank you,
+Eric
