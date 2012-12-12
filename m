@@ -1,141 +1,112 @@
-From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: vlan tagged packets and libpcap breakage
-Date: Wed, 12 Dec 2012 14:16:28 -0800
-Message-ID: <CAOxq_8ML1P7JQCD1-xhYSWP_XHcS_M26GfFxpJ-jyQ+ebOV9SA@mail.gmail.com>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	<3246.1351717319@obiwan.sandelman.ca>
-	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	<21992.1351723328@obiwan.sandelman.ca>
-	<alpine.OSX.2.00.1212121205040.78903@animac.local>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH 00/11] Add basic VLAN support to bridges
+Date: Thu, 13 Dec 2012 00:54:43 +0200
+Message-ID: <CAJZOPZL3grqtd-Tnhr-QxkdFWrhkgcp5+fOUZSaPJd3Ker_7GQ@mail.gmail.com>
+References: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Francesco Ruggeri <fruggeri@aristanetworks.com>,
-	tcpdump-workers@lists.tcpdump.org
-To: Michael Richardson <mcr@sandelman.ca>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
-In-Reply-To: <alpine.OSX.2.00.1212121205040.78903@animac.local>
-List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
-List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
-List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
-List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
-List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
-Sender: tcpdump-workers-bounces@lists.tcpdump.org
-Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	mst@redhat.com, john.r.fastabend@intel.com
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f170.google.com ([209.85.210.170]:43875 "EHLO
+	mail-ia0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754913Ab2LLWyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 17:54:44 -0500
+Received: by mail-ia0-f170.google.com with SMTP id i1so1388762iaa.15
+        for <netdev@vger.kernel.org>; Wed, 12 Dec 2012 14:54:44 -0800 (PST)
+In-Reply-To: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-+ Eric B.
+On Wed, Dec 12, 2012 at 10:01 PM, Vlad Yasevich <vyasevic@redhat.com> wrote:
+> This series of patches provides an ability to add VLANs to the bridge
+> ports.  This is similar to what can be found in most switches.
 
+Vlad, I wasn't sure if these patches support both modes of switches
+w.r.t vlans namely "access" and " trunk" or in virtualization terms
+VST and VGT or in natural language, both the mode where the entity
+(e.g VM) eventually using the bridge port uses untagged traffic and
+the bridge does vlan tagging/marking and vlan untagging/stripping,
+plus a mode where packets are tagged under a set of allowed vlans or a
+third hybrid mode where there's a default vlan to be used when packets
+arrive untagged and set of allowed vlans to be used as a filter for
+tagged packets.
 
-On Wed, Dec 12, 2012 at 1:53 PM, Ani Sinha <ani@aristanetworks.com> wrote:
+Also, does this patch set assumes that a certain port is actually an
+uplink towards the the physical nework/external switch?
+
+Or.
+
+>  The bridge
+> port may have any number of VLANs added to it including vlan 0 priority tagged
+> traffic.  When vlans are added to the port, only traffic tagged with particular
+> vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
+> entries and become part of the lookup.  This way we correctly identify the FDB
+> entry.
 >
->>
->> unsigned int netdev_8021q_inskb = 1;
->>
->> ...
->>       {
->>               .ctl_name       = NET_CORE_8021q_INSKB,
->>               .procname       = "netdev_8021q_inskb",
->>               .data           = &netdev_8021q_inskb,
->>               .maxlen         = sizeof(int),
->>               .mode           = 0444,
->>               .proc_handler   = proc_dointvec
->>       },
->>
->> would seem to do it to me.
->> Then pcap can fopen("/proc/sys/net/core/netdev_8021q_inskb") and if it
->> finds it, and it is >0, then do the cmsg thing.
->>
+> A single vlan may also be designated as untagged.  Any untagged traffic
+> recieved by the port will be assigned to this vlan.  Any traffic exiting
+> the port with a VID matching the untagged vlan will exit untagged (the
+> bridge will strip the vlan header).  This is similar to "Native Vlan" support
+> available in most switches.
 >
-> Does this work? This is just an experimental patch and by no means final.
-> I just want to have an idea what everyone thought about it. Once we debate
-> and discusss, I can cook up a final patch that would be worth commiting.
+> The default behavior ofthe bridge is unchanged if no vlans have been
+> configured.
 >
-> Also instead of having this /proc interface, we can perhaps check for a
-> specific
-> kernel version that :
+> Changes since rfc v2:
+>  - Per-port vlan bitmap is gone and is replaced with a vlan list.
+>  - Added bridge vlan list, which is referenced by each port.  Entries in
+>    the birdge vlan list have port bitmap that shows which port are parts
+>    of which vlan.
+>  - Netlink API changes.
+>  - Dropped sysfs support for now.  If people think this is really usefull,
+>    can add it back.
+>  - Support for native/untagged vlans.
 >
-> (a) has the vlan tag info in the skb metadata (as opposed to in the packet
-> itself)
-> (b) has the following patch that adds the capability to generate a filter
-> based on the tag value :
+> Changes since rfc v1:
+>  - Comments addressed regarding formatting and RCU usage
+>  - iocts have been removed and changed over the netlink interface.
+>  - Added support of user added ndb entries.
+>  - changed sysfs interface to export a bitmap.  Also added a write interface.
+>    I am not sure how much I like it, but it made my testing easier/faster.  I
+>    might change the write interface to take text instead of binary.
 >
-> commit f3335031b9452baebfe49b8b5e55d3fe0c4677d1
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Sat Oct 27 02:26:17 2012 +0000
+> Vlad Yasevich (11):
+>   bridge: Add vlan filtering infrastructure
+>   bridge: Validate that vlan is permitted on ingress
+>   bridge: Verify that a vlan is allowed to egress on give port
+>   bridge: Cache vlan in the cb for faster egress lookup.
+>   bridge: Add vlan to unicast fdb entries
+>   bridge: Add vlan id to multicast groups
+>   bridge: Add netlink interface to configure vlans on bridge ports
+>   bridge: Add vlan support to static neighbors
+>   bridge: Add the ability to configure untagged vlans
+>   bridge: Implement untagged vlan handling
+>   bridge: Dump vlan information from a bridge port
 >
->     net: filter: add vlan tag access
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
+>  drivers/net/macvlan.c                         |    2 +-
+>  drivers/net/vxlan.c                           |    3 +-
+>  include/linux/netdevice.h                     |    4 +-
+>  include/uapi/linux/if_bridge.h                |   24 ++-
+>  include/uapi/linux/neighbour.h                |    1 +
+>  include/uapi/linux/rtnetlink.h                |    1 +
+>  net/bridge/br_device.c                        |   34 +++-
+>  net/bridge/br_fdb.c                           |  199 +++++++++++++---
+>  net/bridge/br_forward.c                       |  139 +++++++++++
+>  net/bridge/br_if.c                            |  312 +++++++++++++++++++++++++
+>  net/bridge/br_input.c                         |   65 +++++-
+>  net/bridge/br_multicast.c                     |   71 ++++--
+>  net/bridge/br_netlink.c                       |  154 +++++++++++--
+>  net/bridge/br_private.h                       |   66 +++++-
+>  net/core/rtnetlink.c                          |   40 +++-
+>  16 files changed, 1010 insertions(+), 110 deletions(-)
 >
-> WE need both of the above two things for the userland to generate a filter
-> code that compares vlan tag values in the skb metadata. For kernels that
-> has the vlan tag in
-> the skb metadata but does not have the above commit (b), there is nothing
-> that can be done. For older kernels that had the vlan tag info in the
-> packet itself, the filter code can be generated differently to look at
-> specific offsets within the packet (something that libpcap does
-> currently).
+> --
+> 1.7.7.6
 >
-> We have already ruled out the idea of generating a filter and trying to
-> load and see if that fails (see previous emails on this thread).
->
-> Hope this makes sense.
->
->
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index c45eabc..91e2ba3 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -36,6 +36,7 @@ static inline unsigned int sk_filter_len(const struct sk_filter *fp)
->         return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
->  }
->
-> +extern bool sysctl_8021q_inskb;
->  extern int sk_filter(struct sock *sk, struct sk_buff *skb);
->  extern unsigned int sk_run_filter(const struct sk_buff *skb,
->                                   const struct sock_filter *filter);
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index c23543c..4f5a657 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -41,6 +41,8 @@
->  #include <linux/seccomp.h>
->  #include <linux/if_vlan.h>
->
-> +bool sysctl_8021q_inskb = 1;
-> +
->  /* No hurry in this branch
->   *
->   * Exported for the bpf jit load helper.
-> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-> index d1b0804..f9a3700 100644
-> --- a/net/core/sysctl_net_core.c
-> +++ b/net/core/sysctl_net_core.c
-> @@ -15,6 +15,7 @@
->  #include <linux/init.h>
->  #include <linux/slab.h>
->  #include <linux/kmemleak.h>
-> +#include <linux/filter.h>
->
->  #include <net/ip.h>
->  #include <net/sock.h>
-> @@ -189,6 +190,13 @@ static struct ctl_table net_core_table[] = {
->                 .mode           = 0644,
->                 .proc_handler   = proc_dointvec
->         },
-> +       {
-> +               .procname       = "8021q_inskb",
-> +               .data           = &sysctl_8021q_inskb,
-> +               .maxlen         = sizeof(bool),
-> +               .mode           = 0444,
-> +               .proc_handler   = proc_dointvec
-> +       },
->         { }
->  };
->
-_______________________________________________
-tcpdump-workers mailing list
-tcpdump-workers@lists.tcpdump.org
-https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
