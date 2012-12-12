@@ -1,177 +1,122 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH 1/2] iproute2: implement add/del mdb entry
-Date: Wed, 12 Dec 2012 16:23:09 +0800
-Message-ID: <1355300590-2390-3-git-send-email-amwang@redhat.com>
+Subject: [PATCH 2/2] iproute2: add support to monitor mdb entries too
+Date: Wed, 12 Dec 2012 16:23:10 +0800
+Message-ID: <1355300590-2390-4-git-send-email-amwang@redhat.com>
 References: <1355300590-2390-1-git-send-email-amwang@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>, Stephen Hemminger <shemminger@vyatta.com>,
-	bridge@lists.linux-foundation.org, Cong Wang <amwang@redhat.com>
+Cc: bridge@lists.linux-foundation.org, Cong Wang <amwang@redhat.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Thomas Graf <tgraf@suug.ch>
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:8005 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751328Ab2LLIXg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 03:23:36 -0500
 In-Reply-To: <1355300590-2390-1-git-send-email-amwang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-This patch implements:
-
-	bridge mdb { add | del } dev DEV port PORT grp GROUP
+This patch implements `bridge monitor mdb`.
 
 Cc: Stephen Hemminger <shemminger@vyatta.com>
 Cc: Thomas Graf <tgraf@suug.ch>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 
 ---
- bridge/mdb.c              |   76 +++++++++++++++++++++++++++++++++++++++++++++
- include/linux/if_bridge.h |    8 +++++
- include/linux/rtnetlink.h |    4 ++
- 3 files changed, 88 insertions(+), 0 deletions(-)
+ bridge/br_common.h        |    2 ++
+ bridge/mdb.c              |    4 ++--
+ bridge/monitor.c          |   14 ++++++++++++++
+ include/linux/rtnetlink.h |    2 ++
+ 4 files changed, 20 insertions(+), 2 deletions(-)
 
+diff --git a/bridge/br_common.h b/bridge/br_common.h
+index 892fb76..10f6ce9 100644
+--- a/bridge/br_common.h
++++ b/bridge/br_common.h
+@@ -3,6 +3,8 @@ extern int print_linkinfo(const struct sockaddr_nl *who,
+ 			  void *arg);
+ extern int print_fdb(const struct sockaddr_nl *who,
+ 		     struct nlmsghdr *n, void *arg);
++extern int print_mdb(const struct sockaddr_nl *who,
++		     struct nlmsghdr *n, void *arg);
+ 
+ extern int do_fdb(int argc, char **argv);
+ extern int do_mdb(int argc, char **argv);
 diff --git a/bridge/mdb.c b/bridge/mdb.c
-index 390d7f6..4d8a896 100644
+index 4d8a896..121ce9c 100644
 --- a/bridge/mdb.c
 +++ b/bridge/mdb.c
-@@ -28,6 +28,7 @@ int filter_index;
+@@ -82,8 +82,8 @@ int print_mdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 	int len = n->nlmsg_len;
+ 	struct rtattr * tb[MDBA_MAX+1];
  
- static void usage(void)
- {
-+	fprintf(stderr, "Usage: bridge mdb { add | del } dev DEV port PORT grp GROUP\n");
- 	fprintf(stderr, "       bridge mdb {show} [ dev DEV ]\n");
- 	exit(-1);
- }
-@@ -153,11 +154,86 @@ static int mdb_show(int argc, char **argv)
- 	return 0;
- }
+-	if (n->nlmsg_type != RTM_GETMDB) {
+-		fprintf(stderr, "Not RTM_GETMDB: %08x %08x %08x\n",
++	if (n->nlmsg_type != RTM_GETMDB && n->nlmsg_type != RTM_NEWMDB && n->nlmsg_type != RTM_DELMDB) {
++		fprintf(stderr, "Not RTM_GETMDB, RTM_NEWMDB or RTM_DELMDB: %08x %08x %08x\n",
+ 			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
  
-+static int mdb_modify(int cmd, int flags, int argc, char **argv)
-+{
-+	struct {
-+		struct nlmsghdr 	n;
-+		struct br_port_msg	bpm;
-+		char   			buf[1024];
-+	} req;
-+	struct br_mdb_entry entry;
-+	char *d = NULL, *p = NULL, *grp = NULL;
+ 		return 0;
+diff --git a/bridge/monitor.c b/bridge/monitor.c
+index 2f60655..44e14d8 100644
+--- a/bridge/monitor.c
++++ b/bridge/monitor.c
+@@ -68,6 +68,12 @@ int accept_msg(const struct sockaddr_nl *who,
+ 			fprintf(fp, "[NEIGH]");
+ 		return print_fdb(who, n, arg);
+ 
++	case RTM_NEWMDB:
++	case RTM_DELMDB:
++		if (prefix_banner)
++			fprintf(fp, "[MDB]");
++		return print_mdb(who, n, arg);
 +
-+	memset(&req, 0, sizeof(req));
-+	memset(&entry, 0, sizeof(entry));
-+
-+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct br_port_msg));
-+	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
-+	req.n.nlmsg_type = cmd;
-+	req.bpm.family = PF_BRIDGE;
-+
-+	while (argc > 0) {
-+		if (strcmp(*argv, "dev") == 0) {
-+			NEXT_ARG();
-+			d = *argv;
-+		} else if (strcmp(*argv, "grp") == 0) {
-+			NEXT_ARG();
-+			grp = *argv;
-+		} else {
-+			if (strcmp(*argv, "port") == 0) {
-+				NEXT_ARG();
-+				p = *argv;
-+			}
-+			if (matches(*argv, "help") == 0)
-+				usage();
-+		}
-+		argc--; argv++;
+ 	case 15:
+ 		return show_mark(fp, n);
+ 
+@@ -84,6 +90,7 @@ int do_monitor(int argc, char **argv)
+ 	unsigned groups = ~RTMGRP_TC;
+ 	int llink=0;
+ 	int lneigh=0;
++	int lmdb=0;
+ 
+ 	rtnl_close(&rth);
+ 
+@@ -97,6 +104,9 @@ int do_monitor(int argc, char **argv)
+ 		} else if (matches(*argv, "fdb") == 0) {
+ 			lneigh = 1;
+ 			groups = 0;
++		} else if (matches(*argv, "mdb") == 0) {
++			lmdb = 1;
++			groups = 0;
+ 		} else if (strcmp(*argv, "all") == 0) {
+ 			groups = ~RTMGRP_TC;
+ 			prefix_banner=1;
+@@ -116,6 +126,10 @@ int do_monitor(int argc, char **argv)
+ 		groups |= nl_mgrp(RTNLGRP_NEIGH);
+ 	}
+ 
++	if (lmdb) {
++		groups |= nl_mgrp(RTNLGRP_MDB);
 +	}
 +
-+	if (d == NULL || grp == NULL || p == NULL) {
-+		fprintf(stderr, "Device, group address and port name are required arguments.\n");
-+		exit(-1);
-+	}
-+
-+	req.bpm.ifindex = ll_name_to_index(d);
-+	if (req.bpm.ifindex == 0) {
-+		fprintf(stderr, "Cannot find device \"%s\"\n", d);
-+		return -1;
-+	}
-+
-+	entry.ifindex = ll_name_to_index(p);
-+	if (entry.ifindex == 0) {
-+		fprintf(stderr, "Cannot find device \"%s\"\n", p);
-+		return -1;
-+	}
-+
-+	if (!inet_pton(AF_INET, grp, &entry.addr.u.ip4)) {
-+		if (!inet_pton(AF_INET6, grp, &entry.addr.u.ip6)) {
-+			fprintf(stderr, "Invalid address \"%s\"\n", grp);
-+			return -1;
-+		} else
-+			entry.addr.proto = htons(ETH_P_IPV6);
-+	} else
-+		entry.addr.proto = htons(ETH_P_IP);
-+
-+	addattr_l(&req.n, sizeof(req), MDBA_SET_ENTRY, &entry, sizeof(entry));
-+
-+	if (rtnl_talk(&rth, &req.n, 0, 0, NULL) < 0)
-+		exit(2);
-+
-+	return 0;
-+}
-+
- int do_mdb(int argc, char **argv)
- {
- 	ll_init_map(&rth);
- 
- 	if (argc > 0) {
-+		if (matches(*argv, "add") == 0)
-+			return mdb_modify(RTM_NEWMDB, NLM_F_CREATE|NLM_F_EXCL, argc-1, argv+1);
-+		if (matches(*argv, "delete") == 0)
-+			return mdb_modify(RTM_DELMDB, 0, argc-1, argv+1);
-+
- 		if (matches(*argv, "show") == 0 ||
- 		    matches(*argv, "lst") == 0 ||
- 		    matches(*argv, "list") == 0)
-diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-index 151a8bb..b3b6a67 100644
---- a/include/linux/if_bridge.h
-+++ b/include/linux/if_bridge.h
-@@ -157,6 +157,7 @@ enum {
- #define MDBA_ROUTER_MAX (__MDBA_ROUTER_MAX - 1)
- 
- struct br_port_msg {
-+	__u8  family;
- 	__u32 ifindex;
- };
- 
-@@ -171,4 +172,11 @@ struct br_mdb_entry {
- 	} addr;
- };
- 
-+enum {
-+	MDBA_SET_ENTRY_UNSPEC,
-+	MDBA_SET_ENTRY,
-+	__MDBA_SET_ENTRY_MAX,
-+};
-+#define MDBA_SET_ENTRY_MAX (__MDBA_SET_ENTRY_MAX - 1)
-+
- #endif /* _LINUX_IF_BRIDGE_H */
+ 	if (file) {
+ 		FILE *fp;
+ 		fp = fopen(file, "r");
 diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index c82a159..3ea85dc 100644
+index 3ea85dc..87452b4 100644
 --- a/include/linux/rtnetlink.h
 +++ b/include/linux/rtnetlink.h
-@@ -125,6 +125,10 @@ enum {
- 	RTM_GETNETCONF = 82,
- #define RTM_GETNETCONF RTM_GETNETCONF
- 
-+	RTM_NEWMDB = 84,
-+#define RTM_NEWMDB RTM_NEWMDB
-+	RTM_DELMDB = 85,
-+#define RTM_DELMDB RTM_DELMDB
- 	RTM_GETMDB = 86,
- #define RTM_GETMDB RTM_GETMDB
- 
+@@ -609,6 +609,8 @@ enum rtnetlink_groups {
+ #define RTNLGRP_IPV4_NETCONF	RTNLGRP_IPV4_NETCONF
+ 	RTNLGRP_IPV6_NETCONF,
+ #define RTNLGRP_IPV6_NETCONF	RTNLGRP_IPV6_NETCONF
++	RTNLGRP_MDB,
++#define RTNLGRP_MDB		RTNLGRP_MDB
+ 	__RTNLGRP_MAX
+ };
+ #define RTNLGRP_MAX	(__RTNLGRP_MAX - 1)
 -- 
 1.7.7.6
