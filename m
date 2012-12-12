@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] bridge: notify mdb changes via
-	netlink
-Date: Wed, 12 Dec 2012 13:03:21 -0500 (EST)
-Message-ID: <20121212.130321.106719164539281219.davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] bridge: add support of adding and
+ deleting mdb entries
+Date: Wed, 12 Dec 2012 13:03:29 -0500 (EST)
+Message-ID: <20121212.130329.1972887047089057344.davem@davemloft.net>
 References: <1355300590-2390-1-git-send-email-amwang@redhat.com>
+	<1355300590-2390-2-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, herbert@gondor.hengli.com.au
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	herbert@gondor.hengli.com.au, shemminger@vyatta.com, tgraf@suug.ch
 To: amwang@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1355300590-2390-1-git-send-email-amwang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52737 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754353Ab2LLSDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 13:03:32 -0500
+In-Reply-To: <1355300590-2390-2-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
-Date: Wed, 12 Dec 2012 16:23:07 +0800
+Date: Wed, 12 Dec 2012 16:23:08 +0800
 
 > From: Cong Wang <amwang@redhat.com>
 > 
-> As Stephen mentioned, we need to monitor the mdb
-> changes in user-space, so add notifications via netlink too.
+> This patch implents adding/deleting mdb entries via netlink.
+> Currently all entries are temp, we probably need a flag to distinguish
+> permanent entries too.
 > 
 > Cc: Herbert Xu <herbert@gondor.apana.org.au>
 > Cc: Stephen Hemminger <shemminger@vyatta.com>
