@@ -1,50 +1,91 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH V1 net-next 0/4] Add destination MAC address to ethtool flow steering
-Date: Wed, 12 Dec 2012 14:13:16 +0200
-Message-ID: <1355314400-14909-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Yan Burman <yanb@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: filter: return -EINVAL if BPF_S_ANC* operation is
+ not supported
+Date: Wed, 12 Dec 2012 04:22:44 -0800
+Message-ID: <1355314964.9139.173.camel@edumazet-glaptop>
+References: <1355304701-22228-1-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ani Sinha <ani@aristanetworks.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:35787 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751494Ab2LLMNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 07:13:37 -0500
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:43750 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751517Ab2LLMWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 07:22:47 -0500
+Received: by mail-pb0-f46.google.com with SMTP id wy7so524576pbc.19
+        for <netdev@vger.kernel.org>; Wed, 12 Dec 2012 04:22:47 -0800 (PST)
+In-Reply-To: <1355304701-22228-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yan Burman <yanb@mellanox.com>
+On Wed, 2012-12-12 at 10:31 +0100, Daniel Borkmann wrote:
+> Currently, we return -EINVAL for malicious or wrong BPF filters.
+> However, this is not done for BPF_S_ANC* operations, which makes it
+> more difficult to detect if it's actually supported or not by the
+> BPF machine. Therefore, we should also return -EINVAL if K is within
+> the SKF_AD_OFF universe and the ancillary operation did not match.
+> 
+> Cc: Ani Sinha <ani@aristanetworks.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  net/core/filter.c | 8 +++++++-
+>  1 file changed, 7 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index c23543c..de9bed4 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -531,7 +531,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+>  		[BPF_JMP|BPF_JSET|BPF_K] = BPF_S_JMP_JSET_K,
+>  		[BPF_JMP|BPF_JSET|BPF_X] = BPF_S_JMP_JSET_X,
+>  	};
+> -	int pc;
+> +	int pc, anc_found;
+>  
+>  	if (flen == 0 || flen > BPF_MAXINSNS)
+>  		return -EINVAL;
+> @@ -592,8 +592,10 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+>  		case BPF_S_LD_W_ABS:
+>  		case BPF_S_LD_H_ABS:
+>  		case BPF_S_LD_B_ABS:
+> +			anc_found = 0;
+>  #define ANCILLARY(CODE) case SKF_AD_OFF + SKF_AD_##CODE:	\
+>  				code = BPF_S_ANC_##CODE;	\
+> +				anc_found = 1;			\
+>  				break
+>  			switch (ftest->k) {
+>  			ANCILLARY(PROTOCOL);
+> @@ -610,6 +612,10 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+>  			ANCILLARY(VLAN_TAG);
+>  			ANCILLARY(VLAN_TAG_PRESENT);
+>  			}
+> +
+> +			/* ancillary operation unkown or unsupported */
+> +			if (anc_found == 0 && ftest->k >= SKF_AD_OFF)
+> +				return -EINVAL;
+>  		}
+>  		ftest->code = code;
+>  	}
 
-In vSwitch configuration it is often beneficial to create flow steering
-rules for L3/L4 traffic based on VM port. This requires destination MAC
-address of that port to be present. Note that today the mlx4_en driver 
-adds the mac address of itself to the flow spec, where under the new
-ethtool flag suggested here it doesn't.
+Several points :
 
-It may also be useful in macvlan devices.
+1) This might break a userland filter that was previously working, by
+returning 0 when load_pointer() returns NULL.
 
-These patches add kernel support for the new field (does not break old
-userspace compatibility, so new ethtool will work on old kernels and
-old ethtool will work with new kernels).
+Specifying an offset bigger than skb->len is not _invalid_, it only
+makes a filter returns 0, because load_pointer() returns NULL.
 
-Also present here is the ethtool userspace patch.
+2) This wont help applications running on old kernels where your patch
+wont be applied, as already mentioned yesterday.
 
-See more details here http ://marc.info/?t=134977576500003
+3) Misses a "Reported-by" tag
 
-Changes from V0:
-- Get rid of full_mac, zero_mac in favour of
-    is_zero_ether_addr and is_broadcast_ether_addr
+4) anc_found is a boolean
 
-Yan Burman (3):
-  net: ethtool: Add destination MAC address to flow steering API
-  net/mlx4_en: Use generic etherdevice.h functions.
-  net/mlx4_en: Add support for destination MAC in steering rules
 
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 27 ++++++++++++++++---------
- include/uapi/linux/ethtool.h                    | 11 ++++++----
- 2 files changed, 24 insertions(+), 14 deletions(-)
-
--- 
-1.7.11.3
+To be truly portable, userland should not rely on kernel doing a full
+validation of ancillaries. 
