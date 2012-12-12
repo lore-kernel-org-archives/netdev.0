@@ -1,57 +1,79 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] ip: use rtnelink to manage mroute
-Date: Wed, 12 Dec 2012 10:26:17 -0800
-Message-ID: <20121212102617.0a3249e4@nehalam.linuxnetplumber.net>
-References: <1355304728-4944-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH V1 net-next 1/3] net: ethtool: Add destination MAC
+ address to flow steering API
+Date: Wed, 12 Dec 2012 18:28:01 +0000
+Message-ID: <1355336881.3149.27.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1355314400-14909-1-git-send-email-amirv@mellanox.com>
+	 <1355314400-14909-2-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Yan Burman <yanb@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50954 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754143Ab2LLS1h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 13:27:37 -0500
-In-Reply-To: <1355304728-4944-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:6768 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753920Ab2LLS2G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 13:28:06 -0500
+In-Reply-To: <1355314400-14909-2-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Dec 2012 10:32:08 +0100
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-
-> mroute was using /proc/net/ip_mr_[vif|cache] to display mroute entrie=
-s. Hence,
-> only RT_TABLE_DEFAULT was displayed and only IPv4.
-> With rtnetlink, it is possible to display all tables for IPv4 and IPv=
-6. The output
-> format is kept. Also, like before the patch, statistics are displayed=
- when user specify
-> the '-s' argument.
->=20
-> The patch also adds the support of 'ip monitor mroute', which is now =
-possible.
->=20
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Wed, 2012-12-12 at 14:13 +0200, Amir Vadai wrote:
+> From: Yan Burman <yanb@mellanox.com>
+> 
+> Add ability to specify destination MAC address for L3/L4 flow spec
+> in order to be able to specify action for different VM's under vSwitch
+> configuration. This change is transparent to older userspace.
+> 
+> Signed-off-by: Yan Burman <yanb@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 > ---
+>  include/uapi/linux/ethtool.h | 11 +++++++----
+>  1 file changed, 7 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index d3eaaaf..be8c41e 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -500,13 +500,15 @@ union ethtool_flow_union {
+>  	struct ethtool_ah_espip4_spec		esp_ip4_spec;
+>  	struct ethtool_usrip4_spec		usr_ip4_spec;
+>  	struct ethhdr				ether_spec;
+> -	__u8					hdata[60];
+> +	__u8					hdata[52];
+>  };
+>  
+>  struct ethtool_flow_ext {
+> -	__be16	vlan_etype;
+> -	__be16	vlan_tci;
+> -	__be32	data[2];
+> +	__u8		padding[2];
+> +	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
+> +	__be16		vlan_etype;
+> +	__be16		vlan_tci;
+> +	__be32		data[2];
+>  };
+>  
+>  /**
+> @@ -1027,6 +1029,7 @@ enum ethtool_sfeatures_retval_bits {
+>  #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
+>  /* Flag to enable additional fields in struct ethtool_rx_flow_spec */
+>  #define	FLOW_EXT	0x80000000
+> +#define	FLOW_MAC_EXT	0x40000000
 
-The functionality is fine, and if you clean it up I will accept it.
+Please can you send another patch that adds kernel-doc to struct
+ethtool_flow_ext explaining which fields are dependent on which flags.
 
-Patch does not apply cleanly against current iproute2 git.
+Ben.
 
-Also, it causes several compiler warnings.
-ipmonitor.c: In function =E2=80=98accept_msg=E2=80=99:
-ipmonitor.c:50:20: warning: format =E2=80=98%d=E2=80=99 expects argumen=
-t of type =E2=80=98int=E2=80=99, but argument 3 has type =E2=80=98long =
-unsigned int=E2=80=99 [-Wformat]
+>  /* L3-L4 network traffic flow hash options */
+>  #define	RXH_L2DA	(1 << 1)
 
-ipmroute.c: In function =E2=80=98print_mroute=E2=80=99:
-ipmroute.c:165:4: warning: format =E2=80=98%lu=E2=80=99 expects argumen=
-t of type =E2=80=98long unsigned int=E2=80=99, but argument 4 has type =
-=E2=80=98__u64=E2=80=99 [-Wformat]
-ipmroute.c:165:4: warning: format =E2=80=98%lu=E2=80=99 expects argumen=
-t of type =E2=80=98long unsigned int=E2=80=99, but argument 5 has type =
-=E2=80=98__u64=E2=80=99 [-Wformat]
-ipmroute.c:168:5: warning: format =E2=80=98%lu=E2=80=99 expects argumen=
-t of type =E2=80=98long unsigned int=E2=80=99, but argument 3 has type =
-=E2=80=98__u64=E2=80=99 [-Wformat]
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
