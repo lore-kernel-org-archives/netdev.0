@@ -1,43 +1,80 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 00/11] Add basic VLAN support to bridges
-Date: Wed, 12 Dec 2012 12:05:41 -0800
-Message-ID: <20121212120541.72ba1ba9@nehalam.linuxnetplumber.net>
-References: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
+From: ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org (Eric W. Biederman)
+Subject: Re: [PATCH RFC 0/5] Containerize syslog
+Date: Wed, 12 Dec 2012 12:08:50 -0800
+Message-ID: <87obhzkp7x.fsf@xmission.com>
+References: <50A9EAD8.9090501@gmail.com> <874nklkjjm.fsf@xmission.com>
+	<20121207010355.c809b3f7.akpm@linux-foundation.org>
+	<20121207142331.GC4004@sergelap> <50C1FD9D.5020703@parallels.com>
+	<87r4n1buuw.fsf@xmission.com> <50C6EDF0.5060108@parallels.com>
+	<87txrs30ur.fsf@xmission.com> <50C846C7.5050904@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
-	john.r.fastabend@intel.com
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40703 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754212Ab2LLUG6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2012 15:06:58 -0500
-In-Reply-To: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rui Xiang <leo.ruixiang-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Glauber Costa <glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <50C846C7.5050904-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org> (Glauber Costa's message of
+	"Wed, 12 Dec 2012 12:56:39 +0400")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Dec 2012 15:01:06 -0500
-Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-> This series of patches provides an ability to add VLANs to the bridge
-> ports.  This is similar to what can be found in most switches.  The bridge
-> port may have any number of VLANs added to it including vlan 0 priority tagged 
-> traffic.  When vlans are added to the port, only traffic tagged with particular
-> vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
-> entries and become part of the lookup.  This way we correctly identify the FDB
-> entry.
-> 
-> A single vlan may also be designated as untagged.  Any untagged traffic
-> recieved by the port will be assigned to this vlan.  Any traffic exiting
-> the port with a VID matching the untagged vlan will exit untagged (the
-> bridge will strip the vlan header).  This is similar to "Native Vlan" support
-> available in most switches.
-> 
-> The default behavior ofthe bridge is unchanged if no vlans have been
-> configured.
+This conversation is really debating the wrong question.
 
-My concern is that all older configurations must continue to work.
-Is it still unchanged if a vlan device is added to the bridge, or vlan is
-configured on an ethernet that has been added to the bridge?
+The fundamental question is can we modify the kernel such that
+containers don't care about anything that goes into the kernel log.
+
+The fundamental question leads to the question what functionality
+that is logged to the kernel log must we see in containers.
+
+Serge has a collected a lot of cases and it seems reasonable to assume
+that we will find those cases that must show up in a container or
+require huge userspace reworking.
+
+These messages that must show up in a container (or break userspace) are
+messages that already exist today.  These messages quite likely are
+specific to the container itself and I don't think we will need to
+double log them.
+
+
+But the first step of the process is to find the kernel messages that if
+we don't log to user space via the kernel log will break user space.
+
+Once we have found those messages and the cases in which there are no
+work-arounds we can refine the design with nice to haves.
+
+But this conversation really needs to be about which messages must we
+deliver to userspace via the kernel log.
+
+
+There are a lot of nice to haves messages out there.  Mount failures,
+selinux failures etc.  Some of those have a pretty compelling case to be
+double logged.
+
+I think for the compelling cases we won't want to doulbe log them, and
+those compelling cases need to drive the design.
+
+
+
+The most compelling case I know of are firewall log messages that are
+logge by explicit user request when selected packets hit the local
+firewall.  Those messages I definitely don't want to double log and
+those messages are most definitely not interesting to the operator of
+the machine.  Those messages are only interesting to the admin who
+configured his firewall to log them.
+
+We should look to see if there are alternatives to user configured
+firewall log messages that a system administratrator can use.  If not we
+have our first compelling case for this functionality.
+
+Eric
