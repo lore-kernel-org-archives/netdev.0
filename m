@@ -1,78 +1,98 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH net-next 0/5] Ease netns management for userland
-Date: Wed, 12 Dec 2012 11:25:24 -0800
-Message-ID: <87fw3boyxn.fsf@xmission.com>
-References: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [patch net-next 0/4] net: allow to change carrier from
+ userspace
+Date: Wed, 12 Dec 2012 11:34:33 -0800
+Message-ID: <20121212113433.21c05614@nehalam.linuxnetplumber.net>
+References: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
+	<20121212081500.24085752@nehalam.linuxnetplumber.net>
+	<20121212170520.GA3060@minipsycho.orion>
+	<20121212092700.7ef2607a@nehalam.linuxnetplumber.net>
+	<20121212181017.GB3060@minipsycho.orion>
+	<20121212101208.361ccda0@nehalam.linuxnetplumber.net>
+	<20121212182556.GC3060@minipsycho.orion>
+	<20121212103632.2020efce@nehalam.linuxnetplumber.net>
+	<20121212184925.GD3060@minipsycho.orion>
+	<20121212105448.490aca5c@nehalam.linuxnetplumber.net>
+	<20121212190613.GE3060@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, davem@davemloft.net, aatteka@nicira.com
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com,
+	greearb@candelatech.com, fbl@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:53586 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754076Ab2LLTZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 14:25:36 -0500
-In-Reply-To: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
-	(Nicolas Dichtel's message of "Wed, 12 Dec 2012 18:17:05 +0100")
+Received: from mail.vyatta.com ([76.74.103.46]:40148 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754503Ab2LLTfu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 14:35:50 -0500
+In-Reply-To: <20121212190613.GE3060@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+On Wed, 12 Dec 2012 20:06:13 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-> The goal of this serie is to ease netns management by daemons. Some systems use
-> netns only to virtualize network stack and don't want to multiply userland
-> daemons.  These system may have a lot of netns, up to 2000. We don't want to
-> launch an instance of each daemons (quagga, strongswan, conntrackd, ...) for
-> each netns because it will consume a lot of ressources. Having one daemon that
-> manage all netns is more efficient (mainly if there are few objects to manage:
-> one or two routes per netns for example).
-> Hence, one goal of this serie is to allow, for a daemon, to monitor netns
-> activities, thus it can open or close netlink sockets, allocating structures
-> needed to manage these netns when they are created or deleted.
-> To help to identify a netns, an index has been added to each netns.
->
-> A new setsockopt() option is also added, to help daemons to open socket in the
-> right netns. For now, a daemon that want to open a socket in a specified netns,
-> need to call setns(CLONE_NEWNET) with a fd (not so easy to found), open the
-> socket and then call again setns() to go back in the initial netns. Having this
-> kind of setsockopt() will simplify operations. Obviously, this setsockopt()
-> should be done enough early (is test on sk_state enough?). The first target is
-> netlink socket but it can be useful for other kind of socket, it's why a add a
-> generic socket option.
->
-> As usual, the patch against iproute2 will be sent once the patches are included
-> and net-next merged. I can send it on demand.
+> Wed, Dec 12, 2012 at 07:54:48PM CET, shemminger@vyatta.com wrote:
+> >On Wed, 12 Dec 2012 19:49:26 +0100
+> >Jiri Pirko <jiri@resnulli.us> wrote:
+> >
+> >> Wed, Dec 12, 2012 at 07:36:32PM CET, shemminger@vyatta.com wrote:
+> >> >On Wed, 12 Dec 2012 19:25:56 +0100
+> >> >Jiri Pirko <jiri@resnulli.us> wrote:
+> >> >
+> >> >> Wed, Dec 12, 2012 at 07:12:08PM CET, shemminger@vyatta.com wrote:
+> >> >> >On Wed, 12 Dec 2012 19:10:17 +0100
+> >> >> >Jiri Pirko <jiri@resnulli.us> wrote:
+> >> >> >
+> >> >> >> ># ip li show dev dummy0
+> >> >> >> >12: dummy0: <NO-CARRIER,BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state DORMANT mode DORMANT   
+> >> >> >> 
+> >> >> >> if you mean this "NO-CARRIER"
+> >> >> >> it has no direct relation with netif_carrier_ok().
+> >> >> >
+> >> >> >It is the same value (IFF_RUNNING) that is visible from user space.
+> >> >> 
+> >> >> static inline bool netif_carrier_ok(const struct net_device *dev)
+> >> >> {
+> >> >> 	        return !test_bit(__LINK_STATE_NOCARRIER, &dev->state);
+> >> >> }
+> >> >> 
+> >> >> So netif_carrier[ok/on/off] are working with on __LINK_STATE_NOCARRIER
+> >> >> bit. Not with IFF_RUNNING flag.
+> >> >
+> >> >What is the code path that you are worried about netif_carrier_ok being set or clear?
+> >> >The interaction here is complex, and right now LINK_STATE_NOCARRIER is purely
+> >> >controlled by the driver, your patch changes that, but before acking I want
+> >> >to make sure why it is required.
+> >> 
+> >> This patchset would provide a possibility to set or clear the carrier
+> >> from userspace. For dummy device it would serve for direct emulation
+> >> of link fail.
+> >> 
+> >> Also for team deriver, that would serve for teamd (userspace part) to
+> >> set the carrier actually on or off (in case of LACP runner for example
+> >> this is required).
+> >> 
+> >
+> >You want to able to control the dummy device, so that you can test carrier
+> >management in the team device. Another alternative is to use carrier control
+> >on a virtual device. Vmware can do it, there were patches to do this with KVM/QEMU
+> >not sure if they ever got incorporated.
+> >
+> >Since this is a specific feature of the dummy device which is specialized for
+> >testing, maybe it should just be done by adding device specific ioctl rather
+> >than letting it creep in as a general facility.
+> 
+> Ugh, specific ioctl stinks...
+> But this is not only for dummy. As I said, we need this for team driver.
+> Maybe I did not explain that correctly. Given the fact that the whole
+> Team logic is in userspace, teamd (userspace daemon) needs to set the
+> carrier state as if it was done in kernel. Yes, we would be able to do
+> this by specific Team option in team driver, but I thought this would be
+> nicer to do that more generally.
 
-Short answer you don't need to do any of this.
+That is what the operstate mechanism was for. Why did we build that mechanism
+if it doesn't work from userspace.
 
-setns with the namespace files in /proc/<pid>/ns/net gives you more than
-enough mechanism to solve this problem.  And iprout2 already supports
-all of this.
-
-And your approach creates very serious maintenances problems to the
-point I don't even want to read your patches.  What namespace do your
-namespace id's live in?
-
-A socketopt to change the namespace of a socket is nasty because sockets
-changing which network namespace they are in, leads to races which
-aren't worth thinking about writing the code to handle.
-
-Longer answer.
-
-You can bind mount the namespace id's /proc/<pid>/ns/net files to
-give you any name you want.  This puts naming policy in userspace
-control, and nests just fine.
-
-You can open a socket in any network namespace you want just
-by calling setns before socket.  Wrapping this idiom in a library call
-or if there is sufficient need in a socketat system call seems
-reasonable.
-
-There is a classic question of if two network namespace files refer to
-the same network namespace and I have code in linux-next and my pull
-request to Linus to give those files a unique inode number.
-
-So please use the facilities already merged into the kernel.
-
-Thank you,
-Eric
+Maybe the fix is to make setting linkstate also set carrier bits.
