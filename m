@@ -1,7 +1,7 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH V1 net-next 2/3] net/mlx4_en: Use generic etherdevice.h functions.
-Date: Wed, 12 Dec 2012 14:13:18 +0200
-Message-ID: <1355314400-14909-3-git-send-email-amirv@mellanox.com>
+Subject: [PATCH V1 net-next 1/3] net: ethtool: Add destination MAC address to flow steering API
+Date: Wed, 12 Dec 2012 14:13:17 +0200
+Message-ID: <1355314400-14909-2-git-send-email-amirv@mellanox.com>
 References: <1355314400-14909-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Amir Vadai <amirv@mellanox.com>,
@@ -9,9 +9,9 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Yan Burman <yanb@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:35750 "HELO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751561Ab2LLMNh (ORCPT
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:46070 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751908Ab2LLMNh (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 07:13:37 -0500
 In-Reply-To: <1355314400-14909-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,41 +19,47 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Yan Burman <yanb@mellanox.com>
 
-Get rid of full_mac, zero_mac in favour of
-is_zero_ether_addr and is_broadcast_ether_addr.
+Add ability to specify destination MAC address for L3/L4 flow spec
+in order to be able to specify action for different VM's under vSwitch
+configuration. This change is transparent to older userspace.
 
 Signed-off-by: Yan Burman <yanb@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ include/uapi/linux/ethtool.h | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 4aaa7c3..cc7bb25 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -613,8 +613,6 @@ static int mlx4_en_validate_flow(struct net_device *dev,
- 	struct ethtool_usrip4_spec *l3_mask;
- 	struct ethtool_tcpip4_spec *l4_mask;
- 	struct ethhdr *eth_mask;
--	u64 full_mac = ~0ull;
--	u64 zero_mac = 0;
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index d3eaaaf..be8c41e 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -500,13 +500,15 @@ union ethtool_flow_union {
+ 	struct ethtool_ah_espip4_spec		esp_ip4_spec;
+ 	struct ethtool_usrip4_spec		usr_ip4_spec;
+ 	struct ethhdr				ether_spec;
+-	__u8					hdata[60];
++	__u8					hdata[52];
+ };
  
- 	if (cmd->fs.location >= MAX_NUM_OF_FS_RULES)
- 		return -EINVAL;
-@@ -644,11 +642,11 @@ static int mlx4_en_validate_flow(struct net_device *dev,
- 	case ETHER_FLOW:
- 		eth_mask = &cmd->fs.m_u.ether_spec;
- 		/* source mac mask must not be set */
--		if (memcmp(eth_mask->h_source, &zero_mac, ETH_ALEN))
-+		if (!is_zero_ether_addr(eth_mask->h_source))
- 			return -EINVAL;
+ struct ethtool_flow_ext {
+-	__be16	vlan_etype;
+-	__be16	vlan_tci;
+-	__be32	data[2];
++	__u8		padding[2];
++	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
++	__be16		vlan_etype;
++	__be16		vlan_tci;
++	__be32		data[2];
+ };
  
- 		/* dest mac mask must be ff:ff:ff:ff:ff:ff */
--		if (memcmp(eth_mask->h_dest, &full_mac, ETH_ALEN))
-+		if (!is_broadcast_ether_addr(eth_mask->h_dest))
- 			return -EINVAL;
+ /**
+@@ -1027,6 +1029,7 @@ enum ethtool_sfeatures_retval_bits {
+ #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
+ /* Flag to enable additional fields in struct ethtool_rx_flow_spec */
+ #define	FLOW_EXT	0x80000000
++#define	FLOW_MAC_EXT	0x40000000
  
- 		if (!all_zeros_or_all_ones(eth_mask->h_proto))
+ /* L3-L4 network traffic flow hash options */
+ #define	RXH_L2DA	(1 << 1)
 -- 
 1.7.11.3
