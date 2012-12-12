@@ -1,55 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pkt_sched: avoid requeues if possible
-Date: Wed, 12 Dec 2012 00:24:17 -0500 (EST)
-Message-ID: <20121212.002417.627468432851800439.davem@davemloft.net>
-References: <1355277273.27891.166.camel@edumazet-glaptop>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH net-next v5] bridge: export multicast database
+ via netlink
+Date: Wed, 12 Dec 2012 15:59:21 +0800
+Message-ID: <1355299161.2468.2.camel@cr0>
+References: <1354874688-24564-1-git-send-email-amwang@redhat.com>
+	<20121211164856.37ce94fe@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-	john.r.fastabend@intel.com
-To: erdnetdev@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46498 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750855Ab2LLFYS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 00:24:18 -0500
-In-Reply-To: <1355277273.27891.166.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Jesper Dangaard Brouer <brouer@redhat.com>, Thomas Graf <tgraf@suug.ch>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20121211164856.37ce94fe@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <erdnetdev@gmail.com>
-Date: Tue, 11 Dec 2012 17:54:33 -0800
+On Tue, 2012-12-11 at 16:48 -0800, Stephen Hemminger wrote:    
+> 
+> Applied, but required some manual fixing. It required adding if_bridge.h
+> to include/linux in iproute2 exported headers. Also patch still had some fuzz
+> against current version.
+> 
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> With BQL being deployed, we can more likely have following behavior :
-> 
-> We dequeue a packet from qdisc in dequeue_skb(), then we realize target
-> tx queue is in XOFF state in sch_direct_xmit(), and we have to hold the
-> skb into gso_skb for later.
-> 
-> This shows in stats (tc -s qdisc dev eth0) as requeues.
-> 
-> Problem of these requeues is that high priority packets can not be
-> dequeued as long as this (possibly low prio and big TSO packet) is not
-> removed from gso_skb.
-> 
-> At 1Gbps speed, a full size TSO packet is 500 us of extra latency.
-> 
-> In some cases, we know that all packets dequeued from a qdisc are
-> for a particular and known txq :
-> 
-> - If device is non multi queue
-> - For all MQ/MQPRIO slave qdiscs
-> 
-> This patch introduces a new qdisc flag, TCQ_F_ONETXQUEUE to mark
-> this capability, so that dequeue_skb() is allowed to dequeue a packet
-> only if the associated txq is not stopped.
-> 
-> This indeed reduce latencies for high prio packets (or improve fairness
-> with sfq/fq_codel), and almost remove qdisc 'requeues'.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Thanks, Stephen!
 
-Applied.
+I thought those headers are sync'ed with kernel headers automatically,
+so we have to keep them up to date manually.
