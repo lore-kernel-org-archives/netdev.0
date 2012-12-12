@@ -1,83 +1,124 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH 00/11] Add basic VLAN support to bridges
-Date: Wed, 12 Dec 2012 15:01:06 -0500
-Message-ID: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH 04/11] bridge: Cache vlan in the cb for faster egress lookup.
+Date: Wed, 12 Dec 2012 15:01:10 -0500
+Message-ID: <1355342477-4971-5-git-send-email-vyasevic@redhat.com>
+References: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
 Cc: shemminger@vyatta.com, davem@davemloft.net, mst@redhat.com,
 	john.r.fastabend@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55566 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:22309 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755130Ab2LLUB1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2012 15:01:27 -0500
+	id S1755130Ab2LLUBa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 15:01:30 -0500
+In-Reply-To: <1355342477-4971-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of patches provides an ability to add VLANs to the bridge
-ports.  This is similar to what can be found in most switches.  The bridge
-port may have any number of VLANs added to it including vlan 0 priority tagged 
-traffic.  When vlans are added to the port, only traffic tagged with particular
-vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
-entries and become part of the lookup.  This way we correctly identify the FDB
-entry.
+On input, cache the pointer to the bridge vlan info, so that
+on egress, we have can simply look at the port bitmap instead
+of traversing a vlan list.
 
-A single vlan may also be designated as untagged.  Any untagged traffic
-recieved by the port will be assigned to this vlan.  Any traffic exiting
-the port with a VID matching the untagged vlan will exit untagged (the
-bridge will strip the vlan header).  This is similar to "Native Vlan" support
-available in most switches.
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_device.c  |    8 ++++++++
+ net/bridge/br_forward.c |   14 ++++++++++++++
+ net/bridge/br_input.c   |    6 +++++-
+ net/bridge/br_private.h |    1 +
+ 4 files changed, 28 insertions(+), 1 deletions(-)
 
-The default behavior ofthe bridge is unchanged if no vlans have been
-configured.
-
-Changes since rfc v2:
- - Per-port vlan bitmap is gone and is replaced with a vlan list.
- - Added bridge vlan list, which is referenced by each port.  Entries in
-   the birdge vlan list have port bitmap that shows which port are parts
-   of which vlan.
- - Netlink API changes.
- - Dropped sysfs support for now.  If people think this is really usefull,
-   can add it back.
- - Support for native/untagged vlans.
-
-Changes since rfc v1:
- - Comments addressed regarding formatting and RCU usage
- - iocts have been removed and changed over the netlink interface.
- - Added support of user added ndb entries.
- - changed sysfs interface to export a bitmap.  Also added a write interface.
-   I am not sure how much I like it, but it made my testing easier/faster.  I
-   might change the write interface to take text instead of binary.
-
-Vlad Yasevich (11):
-  bridge: Add vlan filtering infrastructure
-  bridge: Validate that vlan is permitted on ingress
-  bridge: Verify that a vlan is allowed to egress on give port
-  bridge: Cache vlan in the cb for faster egress lookup.
-  bridge: Add vlan to unicast fdb entries
-  bridge: Add vlan id to multicast groups
-  bridge: Add netlink interface to configure vlans on bridge ports
-  bridge: Add vlan support to static neighbors
-  bridge: Add the ability to configure untagged vlans
-  bridge: Implement untagged vlan handling
-  bridge: Dump vlan information from a bridge port
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
- drivers/net/macvlan.c                         |    2 +-
- drivers/net/vxlan.c                           |    3 +-
- include/linux/netdevice.h                     |    4 +-
- include/uapi/linux/if_bridge.h                |   24 ++-
- include/uapi/linux/neighbour.h                |    1 +
- include/uapi/linux/rtnetlink.h                |    1 +
- net/bridge/br_device.c                        |   34 +++-
- net/bridge/br_fdb.c                           |  199 +++++++++++++---
- net/bridge/br_forward.c                       |  139 +++++++++++
- net/bridge/br_if.c                            |  312 +++++++++++++++++++++++++
- net/bridge/br_input.c                         |   65 +++++-
- net/bridge/br_multicast.c                     |   71 ++++--
- net/bridge/br_netlink.c                       |  154 +++++++++++--
- net/bridge/br_private.h                       |   66 +++++-
- net/core/rtnetlink.c                          |   40 +++-
- 16 files changed, 1010 insertions(+), 110 deletions(-)
-
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 9546742..57c5bac 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -30,6 +30,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct net_bridge_fdb_entry *dst;
+ 	struct net_bridge_mdb_entry *mdst;
+ 	struct br_cpu_netstats *brstats = this_cpu_ptr(br->stats);
++	struct net_bridge_vlan *vlan;
+ 
+ 	rcu_read_lock();
+ #ifdef CONFIG_BRIDGE_NETFILTER
+@@ -47,6 +48,13 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	BR_INPUT_SKB_CB(skb)->brdev = dev;
+ 
++	/* Any vlan transmitted by the bridge itself is permitted.
++	 * Try to cache the vlan in the CB to speed up forwarding.
++	 */
++	vlan = br_vlan_find(br, br_get_vlan(skb));
++	if (vlan)
++		BR_INPUT_SKB_CB(skb)->vlan = vlan;
++
+ 	skb_reset_mac_header(skb);
+ 	skb_pull(skb, ETH_HLEN);
+ 
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 0c7ffc2..4ae5f55 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -30,11 +30,25 @@ static inline bool br_allowed_egress(const struct net_bridge_port *p,
+ 				     const struct sk_buff *skb)
+ {
+ 	struct net_port_vlan *pve;
++	struct net_bridge_vlan *vlan = NULL;
+ 	u16 vid;
+ 
+ 	if (list_empty(&p->vlan_list))
+ 		return true;
+ 
++	vlan = BR_INPUT_SKB_CB(skb)->vlan;
++	if (vlan) {
++		/* If we have cached VLAN information, use port_bitmap
++		 * of the vlan to make the decision
++		 */
++		if (test_bit(p->port_no, vlan->port_bitmap))
++			return true;
++		return false;
++	}
++
++	/* We don't have cached vlan information, so we need to do
++	 * it the hard way.
++	 */
+ 	vid = br_get_vlan(skb);
+ 	pve = nbp_vlan_find(p, vid);
+ 	if (pve)
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 54c0894..e475f49 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -47,6 +47,8 @@ static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb)
+ 	struct net_port_vlan *pve;
+ 	u16 vid;
+ 
++	BR_INPUT_SKB_CB(skb)->vlan = NULL;
++
+ 	/* If there are no vlan in the permitted list, all packets are
+ 	 * permitted.
+ 	 */
+@@ -55,8 +57,10 @@ static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb)
+ 
+ 	vid = br_get_vlan(skb);
+ 	pve = nbp_vlan_find(p, vid);
+-	if (pve)
++	if (pve) {
++		BR_INPUT_SKB_CB(skb)->vlan = pve->vlan;
+ 		return true;
++	}
+ 
+ 	return false;
+ }
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index a385d9a..1475fab 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -300,6 +300,7 @@ struct net_bridge
+ 
+ struct br_input_skb_cb {
+ 	struct net_device *brdev;
++	struct net_bridge_vlan *vlan;
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	int igmp;
+ 	int mrouters_only;
 -- 
 1.7.7.6
