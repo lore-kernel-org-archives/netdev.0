@@ -1,82 +1,146 @@
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Subject: [RFC] net : add tx timestamp to packet mmap.
-Date: Wed, 12 Dec 2012 16:29:25 +0100
-Message-ID: <1355326165-12277-1-git-send-email-paul.chavent@onera.fr>
-Cc: Paul Chavent <Paul.Chavent@onera.fr>
-To: davem@davemloft.net, edumazet@google.com,
-	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
-	ebiederm@xmission.com, netdev@vger.kernel.org
+From: Tom Parkin <tparkin@katalix.com>
+Subject: Network namespace bugs in L2TP
+Date: Wed, 12 Dec 2012 15:51:05 +0000
+Message-ID: <20121212155105.GB2790@raven>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="LKTjZJSUETSlgu2t"
+Cc: netdev@vger.kernel.org
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from briaree.onecert.fr ([134.212.190.4]:50096 "EHLO
-	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754125Ab2LLPdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 10:33:31 -0500
+Received: from katalix.com ([82.103.140.233]:48604 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752854Ab2LLQAp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 11:00:45 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allow to generate tx timestamps of packets sent by the packet mmap interface.
 
-Actually, you can't get tx timestamps with the sample code below.
+--LKTjZJSUETSlgu2t
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I wonder if my current implementation is good. And if not, how should i get the timestamps ?
+Hi Eric,
 
-Wouldn't be a good idea to put timestamps in the ring buffer frame before give it back to the user ?
+I'm following up on this thread from later October in which you
+pointed out some network namespace bugs in L2TP:
 
-Thanks for your comments.
+http://www.spinics.net/lists/netdev/msg214776.html
 
-/* BEGIN OF SAMPLE CODE */
-struct timespec ts = {0,0};
-struct sockaddr from_addr;
-static uint8_t tmp_data[256];
-struct iovec msg_iov = {tmp_data, sizeof(tmp_data)};
-static uint8_t cmsg_buff[256];
-struct msghdr msghdr = {&from_addr, sizeof(from_addr),
-                        &msg_iov, 1,
-                        cmsg_buff, sizeof(cmsg_buff),
-                        0};
+I use L2TP, and I'd like to help fix these bugs.  But I'm not very
+conversant with network namespaces, and so I'm struggling to fully
+appreciate the issues you pointed out previously.  Could you give me a
+hand getting to grips with this?
 
-ssize_t err = recvmsg(itf->sock_fd, &msghdr, MSG_ERRQUEUE);
-if(err < 0)
-  {
-    perror("recvmsg failed");
-    return -1;
-  }
+So far I've tested L2TP within network namespaces, using both iproute2
+to create sessions between two namespaces on the same host, and an
+L2TP daemon running in a namespace to create sessions between two
+hosts.  In both cases I've done a bit of trivial ping and iperf
+testing using Ethernet pseudowires.
 
-struct cmsghdr *cmsg;
-for(cmsg = CMSG_FIRSTHDR(&msghdr); cmsg != NULL; cmsg = CMSG_NXTHDR(&msghdr, cmsg))
-{
-  if(cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_TIMESTAMPING)
-    {
-      ts = *(struct timespec *)CMSG_DATA(cmsg);
-      fprintf(stderr, "SCM_TIMESTAMPING available\n");
-    }
-  else if (cmsg->cmsg_level == SOL_PACKET && cmsg->cmsg_type == PACKET_TX_TIMESTAMP)
-      {
-        ts = *(struct timespec *)CMSG_DATA(cmsg);
-        fprintf(stderr, "PACKET_TX_TIMESTAMP available\n");
-      }
-} 
-/* END OF SAMPLE CODE */
+To make this work I've had to add a couple of trivial patches (see
+below).
 
-Signed-off-by: Paul Chavent <paul.chavent@onera.fr>
+There are two things I'm uncertain about:
+
+ 1. Why do we need to change the namespace of the socket created in
+    l2tp_tunnel_sock_create?  So far as I can tell, sock_create
+    defaults to the namespace of the calling process.  Is the issue
+    here that this code may run from a work queue or similar?
+
+ 2. You mentioned the need to keep track of sockets allocated within a
+    namespace in order to be able to clean them up when the namespace
+    is deleted.  Should we be keeping a list of sockets we create and
+    then destroying them in the namespace pernet_ops exit function?
+
+Thanks,
+Tom
+
+=46rom b9c095fdf32c895b79a5954020c4745fe5518141 Mon Sep 17 00:00:00 2001
+=46rom: Tom Parkin <tparkin@katalix.com>
+Date: Tue, 11 Dec 2012 13:03:48 +0000
+Subject: [PATCH 1/2] l2tp: set netnsok flag for netlink messages
+
+The L2TP netlink code can run in namespaces.  Set the netnsok flag in
+genl_family to true to reflect that fact.
 ---
- net/packet/af_packet.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ net/l2tp/l2tp_netlink.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index e639645..948748b 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1857,6 +1857,10 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
- 	void *data;
- 	int err;
- 
-+	err = sock_tx_timestamp(&po->sk, &skb_shinfo(skb)->tx_flags);
-+	if (err < 0)
-+		return err;
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index bbba3a1..c1bab22 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -37,6 +37,7 @@ static struct genl_family l2tp_nl_family =3D {
+ 	.version	=3D L2TP_GENL_VERSION,
+ 	.hdrsize	=3D 0,
+ 	.maxattr	=3D L2TP_ATTR_MAX,
++	.netnsok	=3D true,
+ };
+=20
+ /* Accessed under genl lock */
+--=20
+1.7.9.5
+
+=46rom 13e9b0ddc48a16b384ffbf5ff64e6413cfa612f5 Mon Sep 17 00:00:00 2001
+=46rom: Tom Parkin <tparkin@katalix.com>
+Date: Wed, 12 Dec 2012 12:50:54 +0000
+Subject: [PATCH 2/2] l2tp: prevent tunnel creation on netns mismatch
+
+l2tp_tunnel_create is passed a pointer to the network namespace for the
+tunnel, along with an optional file descriptor for the tunnel which may
+be passed in from userspace via. netlink.
+
+In the case where the file descriptor is defined, ensure that the namespace
+associated with that socket matches the namespace explicitly passed to
+l2tp_tunnel_create.
+---
+ net/l2tp/l2tp_core.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 1a9f372..f8d200b 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1528,6 +1528,13 @@ int l2tp_tunnel_create(struct net *net, int fd, int =
+version, u32 tunnel_id, u32
+ 			       tunnel_id, fd, err);
+ 			goto err;
+ 		}
 +
- 	ph.raw = frame;
- 
- 	skb->protocol = proto;
--- 
-1.7.12.1
++		/* Reject namespace mismatches */
++		if (!net_eq(sock_net(sock->sk), net)) {
++			pr_err("tunl %hu: netns mismatch\n", tunnel_id);
++			err =3D -EBADF; /* TODO -- what value? */
++			goto err;
++		}
+ 	}
+=20
+ 	sk =3D sock->sk;
+--=20
+1.7.9.5
+--=20
+Tom Parkin
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
+--LKTjZJSUETSlgu2t
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJQyKfpAAoJEJSMBmUKuovQOG0H/1KXZN5y+J687Iguz1bLeVlc
+hbyDbhsFREMV1UF3JM41MZsh3BfU/oYXgnOnSamGddC96t80y5PKyD0g/Ftnnuuh
+dZoD63Xhy+9jadU2JeBTdJ9dI8Mpmw6qr+yi8Zr89A8x5F2WWo33SBV6gEjqnNR5
+MQQIbHQYpKal5WyqfaYNeJRvEU1qd93AKinsUPkii+JqQvgN6u+CPIYF5sliCF1G
+ggT2PSeXxhGvdrOF7+j482zfdBxSYWIC8J+uKpaw5mCJCEG8uHnr+AjrYZgjs9bp
+NhM/p+zFjWz91F1FPbWBTC5PkDqMHhhgaCqKW8HWtvDZkzCl6xcFBb02imd3s4Y=
+=dT7c
+-----END PGP SIGNATURE-----
+
+--LKTjZJSUETSlgu2t--
