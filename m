@@ -1,98 +1,77 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net-next 0/4] net: allow to change carrier from
- userspace
-Date: Wed, 12 Dec 2012 11:34:33 -0800
-Message-ID: <20121212113433.21c05614@nehalam.linuxnetplumber.net>
-References: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
-	<20121212081500.24085752@nehalam.linuxnetplumber.net>
-	<20121212170520.GA3060@minipsycho.orion>
-	<20121212092700.7ef2607a@nehalam.linuxnetplumber.net>
-	<20121212181017.GB3060@minipsycho.orion>
-	<20121212101208.361ccda0@nehalam.linuxnetplumber.net>
-	<20121212182556.GC3060@minipsycho.orion>
-	<20121212103632.2020efce@nehalam.linuxnetplumber.net>
-	<20121212184925.GD3060@minipsycho.orion>
-	<20121212105448.490aca5c@nehalam.linuxnetplumber.net>
-	<20121212190613.GE3060@minipsycho.orion>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network namespace bugs in L2TP
+Date: Wed, 12 Dec 2012 11:44:36 -0800
+Message-ID: <87k3snnjh7.fsf@xmission.com>
+References: <20121212155105.GB2790@raven>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com,
-	greearb@candelatech.com, fbl@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: Tom Parkin <tparkin@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40148 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754503Ab2LLTfu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2012 14:35:50 -0500
-In-Reply-To: <20121212190613.GE3060@minipsycho.orion>
+Received: from out01.mta.xmission.com ([166.70.13.231]:42341 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754312Ab2LLToo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 14:44:44 -0500
+In-Reply-To: <20121212155105.GB2790@raven> (Tom Parkin's message of "Wed, 12
+	Dec 2012 15:51:05 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Dec 2012 20:06:13 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
+Tom Parkin <tparkin@katalix.com> writes:
 
-> Wed, Dec 12, 2012 at 07:54:48PM CET, shemminger@vyatta.com wrote:
-> >On Wed, 12 Dec 2012 19:49:26 +0100
-> >Jiri Pirko <jiri@resnulli.us> wrote:
-> >
-> >> Wed, Dec 12, 2012 at 07:36:32PM CET, shemminger@vyatta.com wrote:
-> >> >On Wed, 12 Dec 2012 19:25:56 +0100
-> >> >Jiri Pirko <jiri@resnulli.us> wrote:
-> >> >
-> >> >> Wed, Dec 12, 2012 at 07:12:08PM CET, shemminger@vyatta.com wrote:
-> >> >> >On Wed, 12 Dec 2012 19:10:17 +0100
-> >> >> >Jiri Pirko <jiri@resnulli.us> wrote:
-> >> >> >
-> >> >> >> ># ip li show dev dummy0
-> >> >> >> >12: dummy0: <NO-CARRIER,BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state DORMANT mode DORMANT   
-> >> >> >> 
-> >> >> >> if you mean this "NO-CARRIER"
-> >> >> >> it has no direct relation with netif_carrier_ok().
-> >> >> >
-> >> >> >It is the same value (IFF_RUNNING) that is visible from user space.
-> >> >> 
-> >> >> static inline bool netif_carrier_ok(const struct net_device *dev)
-> >> >> {
-> >> >> 	        return !test_bit(__LINK_STATE_NOCARRIER, &dev->state);
-> >> >> }
-> >> >> 
-> >> >> So netif_carrier[ok/on/off] are working with on __LINK_STATE_NOCARRIER
-> >> >> bit. Not with IFF_RUNNING flag.
-> >> >
-> >> >What is the code path that you are worried about netif_carrier_ok being set or clear?
-> >> >The interaction here is complex, and right now LINK_STATE_NOCARRIER is purely
-> >> >controlled by the driver, your patch changes that, but before acking I want
-> >> >to make sure why it is required.
-> >> 
-> >> This patchset would provide a possibility to set or clear the carrier
-> >> from userspace. For dummy device it would serve for direct emulation
-> >> of link fail.
-> >> 
-> >> Also for team deriver, that would serve for teamd (userspace part) to
-> >> set the carrier actually on or off (in case of LACP runner for example
-> >> this is required).
-> >> 
-> >
-> >You want to able to control the dummy device, so that you can test carrier
-> >management in the team device. Another alternative is to use carrier control
-> >on a virtual device. Vmware can do it, there were patches to do this with KVM/QEMU
-> >not sure if they ever got incorporated.
-> >
-> >Since this is a specific feature of the dummy device which is specialized for
-> >testing, maybe it should just be done by adding device specific ioctl rather
-> >than letting it creep in as a general facility.
-> 
-> Ugh, specific ioctl stinks...
-> But this is not only for dummy. As I said, we need this for team driver.
-> Maybe I did not explain that correctly. Given the fact that the whole
-> Team logic is in userspace, teamd (userspace daemon) needs to set the
-> carrier state as if it was done in kernel. Yes, we would be able to do
-> this by specific Team option in team driver, but I thought this would be
-> nicer to do that more generally.
+> Hi Eric,
+>
+> I'm following up on this thread from later October in which you
+> pointed out some network namespace bugs in L2TP:
+>
+> http://www.spinics.net/lists/netdev/msg214776.html
+>
+> I use L2TP, and I'd like to help fix these bugs.  But I'm not very
+> conversant with network namespaces, and so I'm struggling to fully
+> appreciate the issues you pointed out previously.  Could you give me a
+> hand getting to grips with this?
+>
+> So far I've tested L2TP within network namespaces, using both iproute2
+> to create sessions between two namespaces on the same host, and an
+> L2TP daemon running in a namespace to create sessions between two
+> hosts.  In both cases I've done a bit of trivial ping and iperf
+> testing using Ethernet pseudowires.
+>
+> To make this work I've had to add a couple of trivial patches (see
+> below).
+>
+> There are two things I'm uncertain about:
+>
+>  1. Why do we need to change the namespace of the socket created in
+>     l2tp_tunnel_sock_create?  So far as I can tell, sock_create
+>     defaults to the namespace of the calling process.  Is the issue
+>     here that this code may run from a work queue or similar?
 
-That is what the operstate mechanism was for. Why did we build that mechanism
-if it doesn't work from userspace.
+Something similar.  At the very least l2tp_tunnel_create which calls
+l2tp_tunnel_sock_create gets called from netlink.  The network namespace
+of a socket is not necessarily the same as the network namespace of the
+process that uses that socket.
 
-Maybe the fix is to make setting linkstate also set carrier bits.
+So since current is not necessarily the right network namespace we need
+push the desired network namespace of the socket down into
+l2tp_tunnel_sock_create and use that when creating the socket.
+
+>  2. You mentioned the need to keep track of sockets allocated within a
+>     namespace in order to be able to clean them up when the namespace
+>     is deleted.  Should we be keeping a list of sockets we create and
+>     then destroying them in the namespace pernet_ops exit function?
+
+I think the issue that I was referring to and certainly the issue I am
+thinking about is the issue where normal sockets hold a reference to a
+network namespace and keep the network namespace alive.  Today l2tp uses
+sock_create when creating a socket, and as such I think it pins it
+current network namespace.  So I believe we can effectively have a
+reference counting loop with l2tp sockets pinning the network namespace
+and the network namespace keeping the l2tp device alive which keeps the
+l2tp socket alive.
+
+I don't remeber the specifics of l2tp as it creates some sockets, and
+has other sockets passed in, and as such has rules that are not at all
+normal.
+
+Eric
