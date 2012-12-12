@@ -1,415 +1,170 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2 3/3] ip: add support of 'ip link type
- [ipip|sit]'
-Date: Wed, 12 Dec 2012 09:11:18 -0800
-Message-ID: <20121212091118.390b8a2b@nehalam.linuxnetplumber.net>
-References: <1355305907-7102-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1355305907-7102-3-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCHv2 iproute2] add DOVE extensions for iproute2
+Date: Wed, 12 Dec 2012 09:14:12 -0800
+Message-ID: <20121212091412.12f3b028@nehalam.linuxnetplumber.net>
+References: <201212121612.qBCGAimS017147@lab1.dls>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David L Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49144 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:39960 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754076Ab2LLRMf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Dec 2012 12:12:35 -0500
-In-Reply-To: <1355305907-7102-3-git-send-email-nicolas.dichtel@6wind.com>
+	id S1754169Ab2LLRP2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Dec 2012 12:15:28 -0500
+In-Reply-To: <201212121612.qBCGAimS017147@lab1.dls>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Dec 2012 10:51:47 +0100
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+On Wed, 12 Dec 2012 11:10:44 -0500
+David L Stevens <dlstevens@us.ibm.com> wrote:
 
-> This patch allows to manage ip tunnels via the interface ip link.
-> The syntax for parameters is the same that 'ip tunnel'.
 > 
-> It also allows to display tunnels parameters with 'ip -details link' or
-> 'ip -details monitor link'.
+> 	This patch adds a new flag to iproute2 for vxlan devices to enable
+> DOVE features. It also adds support for L2 and L3 switch lookup miss
+> netlink messages to "ip monitor".
 > 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  ip/Makefile     |   3 +-
->  ip/iplink.c     |   2 +-
->  ip/link_iptnl.c | 340 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 343 insertions(+), 2 deletions(-)
->  create mode 100644 ip/link_iptnl.c
+> Changes since v1:
+> 	- split "dove" flag into separate feature flags:
+> 		- "proxy" for ARP reduction
+> 		- "rsc" for route short circuiting
+> 		- "l2miss" for L2 switch miss notifications
+> 		- "l3miss" for L3 switch miss notifications
 > 
-> diff --git a/ip/Makefile b/ip/Makefile
-> index abf54bf..2b606d4 100644
-> --- a/ip/Makefile
-> +++ b/ip/Makefile
-> @@ -4,7 +4,8 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
->      ipxfrm.o xfrm_state.o xfrm_policy.o xfrm_monitor.o \
->      iplink_vlan.o link_veth.o link_gre.o iplink_can.o \
->      iplink_macvlan.o iplink_macvtap.o ipl2tp.o link_vti.o \
-> -    iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tnl.o
-> +    iplink_vxlan.o tcp_metrics.o iplink_ipoib.o ipnetconf.o link_ip6tnl.o \
-> +    link_iptnl.o
->  
->  RTMONOBJ=rtmon.o
->  
-> diff --git a/ip/iplink.c b/ip/iplink.c
-> index 8aac9fc..d73c705 100644
-> --- a/ip/iplink.c
-> +++ b/ip/iplink.c
-> @@ -84,7 +84,7 @@ void iplink_usage(void)
->  	if (iplink_have_newlink()) {
->  		fprintf(stderr, "\n");
->  		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | can |\n");
-> -		fprintf(stderr, "          bridge | ipoib | ip6tnl }\n");
-> +		fprintf(stderr, "          bridge | ipoib | ip6tnl | ipip | sit }\n");
+> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+> 
+> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+> index 012d95a..a163702 100644
+> - --- a/include/linux/if_link.h
+> +++ b/include/linux/if_link.h
+> @@ -283,6 +283,10 @@ enum {
+>  	IFLA_VXLAN_AGEING,
+>  	IFLA_VXLAN_LIMIT,
+>  	IFLA_VXLAN_PORT_RANGE,
+> +	IFLA_VXLAN_PROXY,
+> +	IFLA_VXLAN_RSC,
+> +	IFLA_VXLAN_L2MISS,
+> +	IFLA_VXLAN_L3MISS,
+>  	__IFLA_VXLAN_MAX
+>  };
+>  #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
+> diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
+> index ba5c4ab..f2e6bef 100644
+> - --- a/ip/iplink_vxlan.c
+> +++ b/ip/iplink_vxlan.c
+> @@ -26,6 +26,8 @@ static void explain(void)
+>  	fprintf(stderr, "Usage: ... vxlan id VNI [ group ADDR ] [ local ADDR ]\n");
+>  	fprintf(stderr, "                 [ ttl TTL ] [ tos TOS ] [ dev PHYS_DEV ]\n");
+>  	fprintf(stderr, "                 [ port MIN MAX ] [ [no]learning ]\n");
+> +	fprintf(stderr, "                 [ [no]proxy ] [ [no]rsc ]\n");
+> +	fprintf(stderr, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
+>  	fprintf(stderr, "\n");
+>  	fprintf(stderr, "Where: VNI := 0-16777215\n");
+>  	fprintf(stderr, "       ADDR := { IP_ADDRESS | any }\n");
+> @@ -44,6 +46,10 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+>  	__u8 tos = 0;
+>  	__u8 ttl = 0;
+>  	__u8 learning = 1;
+> +	__u8 proxy = 0;
+> +	__u8 rsc = 0;
+> +	__u8 l2miss = 0;
+> +	__u8 l3miss = 0;
+>  	__u8 noage = 0;
+>  	__u32 age = 0;
+>  	__u32 maxaddr = 0;
+> @@ -123,6 +129,22 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+>  			learning = 0;
+>  		} else if (!matches(*argv, "learning")) {
+>  			learning = 1;
+> +		} else if (!matches(*argv, "noproxy")) {
+> +			proxy = 0;
+> +		} else if (!matches(*argv, "proxy")) {
+> +			proxy = 1;
+> +		} else if (!matches(*argv, "norsc")) {
+> +			rsc = 0;
+> +		} else if (!matches(*argv, "rsc")) {
+> +			rsc = 1;
+> +		} else if (!matches(*argv, "nol2miss")) {
+> +			l2miss = 0;
+> +		} else if (!matches(*argv, "l2miss")) {
+> +			l2miss = 1;
+> +		} else if (!matches(*argv, "nol3miss")) {
+> +			l3miss = 0;
+> +		} else if (!matches(*argv, "l3miss")) {
+> +			l3miss = 1;
+>  		} else if (matches(*argv, "help") == 0) {
+>  			explain();
+>  			return -1;
+> @@ -148,6 +170,10 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
+>  	addattr8(n, 1024, IFLA_VXLAN_TTL, ttl);
+>  	addattr8(n, 1024, IFLA_VXLAN_TOS, tos);
+>  	addattr8(n, 1024, IFLA_VXLAN_LEARNING, learning);
+> +	addattr8(n, 1024, IFLA_VXLAN_PROXY, proxy);
+> +	addattr8(n, 1024, IFLA_VXLAN_RSC, rsc);
+> +	addattr8(n, 1024, IFLA_VXLAN_L2MISS, l2miss);
+> +	addattr8(n, 1024, IFLA_VXLAN_L3MISS, l3miss);
+>  	if (noage)
+>  		addattr32(n, 1024, IFLA_VXLAN_AGEING, 0);
+>  	else if (age)
+> @@ -213,6 +239,18 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
+>  	if (tb[IFLA_VXLAN_LEARNING] &&
+>  	    !rta_getattr_u8(tb[IFLA_VXLAN_LEARNING]))
+>  		fputs("nolearning ", f);
+> + 
+> +	if (tb[IFLA_VXLAN_PROXY] && rta_getattr_u8(tb[IFLA_VXLAN_PROXY]))
+> +		fputs("proxy ", f);
+> + 
+> +	if (tb[IFLA_VXLAN_RSC] && rta_getattr_u8(tb[IFLA_VXLAN_RSC]))
+> +		fputs("rsc ", f);
+> +
+> +	if (tb[IFLA_VXLAN_L2MISS] && rta_getattr_u8(tb[IFLA_VXLAN_L2MISS]))
+> +		fputs("l2miss ", f);
+> +
+> +	if (tb[IFLA_VXLAN_L3MISS] && rta_getattr_u8(tb[IFLA_VXLAN_L3MISS]))
+> +		fputs("l3miss ", f);
+>  	
+>  	if (tb[IFLA_VXLAN_TOS] &&
+>  	    (tos = rta_getattr_u8(tb[IFLA_VXLAN_TOS]))) {
+> diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+> index 4b1d469..7a7cc88 100644
+> - --- a/ip/ipmonitor.c
+> +++ b/ip/ipmonitor.c
+> @@ -67,7 +67,8 @@ int accept_msg(const struct sockaddr_nl *who,
+>  		print_addrlabel(who, n, arg);
+>  		return 0;
 >  	}
->  	exit(-1);
->  }
-> diff --git a/ip/link_iptnl.c b/ip/link_iptnl.c
-> new file mode 100644
-> index 0000000..238722d
-> --- /dev/null
-> +++ b/ip/link_iptnl.c
-> @@ -0,0 +1,340 @@
-> +/*
-> + * link_iptnl.c	ipip and sit driver module
-> + *
-> + *		This program is free software; you can redistribute it and/or
-> + *		modify it under the terms of the GNU General Public License
-> + *		as published by the Free Software Foundation; either version
-> + *		2 of the License, or (at your option) any later version.
-> + *
-> + * Authors:	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> + *
-> + */
-> +
-> +#include <string.h>
-> +#include <net/if.h>
-> +#include <sys/types.h>
-> +#include <sys/socket.h>
-> +#include <arpa/inet.h>
-> +
-> +#include <linux/ip.h>
-> +#include <linux/if_tunnel.h>
-> +#include "rt_names.h"
-> +#include "utils.h"
-> +#include "ip_common.h"
-> +#include "tunnel.h"
-> +
-> +static void usage(int sit) __attribute__((noreturn));
-> +static void usage(int sit)
-> +{
-> +	fprintf(stderr, "Usage: ip link { add | set | change | replace | del } NAME\n");
-> +	fprintf(stderr, "          type { ipip | sit } [ remote ADDR ] [ local ADDR ]\n");
-> +	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
-> +	fprintf(stderr, "          [ 6rd-prefix ADDR ] [ 6rd-relay_prefix ADDR ] [ 6rd-reset ]\n");
-> +	if (sit)
-> +		fprintf(stderr, "          [ isatap ]\n");
-> +	fprintf(stderr, "\n");
-> +	fprintf(stderr, "Where: NAME := STRING\n");
-> +	fprintf(stderr, "       ADDR := { IP_ADDRESS | any }\n");
-> +	fprintf(stderr, "       TOS  := { NUMBER | inherit }\n");
-> +	fprintf(stderr, "       TTL  := { 1..255 | inherit }\n");
-> +	exit(-1);
-> +}
-> +
-> +static int iptunnel_parse_opt(struct link_util *lu, int argc, char **argv,
-> +			      struct nlmsghdr *n)
-> +{
-> +	struct {
-> +		struct nlmsghdr n;
-> +		struct ifinfomsg i;
-> +		char buf[2048];
-> +	} req;
-> +	struct ifinfomsg *ifi = (struct ifinfomsg *)(n + 1);
-> +	struct rtattr *tb[IFLA_MAX + 1];
-> +	struct rtattr *linkinfo[IFLA_INFO_MAX+1];
-> +	struct rtattr *iptuninfo[IFLA_IPTUN_MAX + 1];
-> +	int len;
-> +	__u32 link = 0;
-> +	__u32 laddr = 0;
-> +	__u32 raddr = 0;
-> +	__u8 ttl = 0;
-> +	__u8 tos = 0;
-> +	__u8 pmtudisc = 1;
-> +	__u16 iflags = 0;
-> +	struct in6_addr ip6rdprefix;
-> +	__u16 ip6rdprefixlen = 0;
-> +	__u32 ip6rdrelayprefix = 0;
-> +	__u16 ip6rdrelayprefixlen = 0;
-> +
-> +	memset(&ip6rdprefix, 0, sizeof(ip6rdprefix));
-> +
-> +	if (!(n->nlmsg_flags & NLM_F_CREATE)) {
-> +		memset(&req, 0, sizeof(req));
-> +
-> +		req.n.nlmsg_len = NLMSG_LENGTH(sizeof(*ifi));
-> +		req.n.nlmsg_flags = NLM_F_REQUEST;
-> +		req.n.nlmsg_type = RTM_GETLINK;
-> +		req.i.ifi_family = preferred_family;
-> +		req.i.ifi_index = ifi->ifi_index;
-> +
-> +		if (rtnl_talk(&rth, &req.n, 0, 0, &req.n) < 0) {
-> +get_failed:
-> +			fprintf(stderr,
-> +				"Failed to get existing tunnel info.\n");
-> +			return -1;
-> +		}
-> +
-> +		len = req.n.nlmsg_len;
-> +		len -= NLMSG_LENGTH(sizeof(*ifi));
-> +		if (len < 0)
-> +			goto get_failed;
-> +
-> +		parse_rtattr(tb, IFLA_MAX, IFLA_RTA(&req.i), len);
-> +
-> +		if (!tb[IFLA_LINKINFO])
-> +			goto get_failed;
-> +
-> +		parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
-> +
-> +		if (!linkinfo[IFLA_INFO_DATA])
-> +			goto get_failed;
-> +
-> +		parse_rtattr_nested(iptuninfo, IFLA_IPTUN_MAX,
-> +				    linkinfo[IFLA_INFO_DATA]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_LOCAL])
-> +			laddr = rta_getattr_u32(iptuninfo[IFLA_IPTUN_LOCAL]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_REMOTE])
-> +			raddr = rta_getattr_u32(iptuninfo[IFLA_IPTUN_REMOTE]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_TTL])
-> +			ttl = rta_getattr_u8(iptuninfo[IFLA_IPTUN_TTL]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_TOS])
-> +			tos = rta_getattr_u8(iptuninfo[IFLA_IPTUN_TOS]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_PMTUDISC])
-> +			pmtudisc =
-> +				rta_getattr_u8(iptuninfo[IFLA_IPTUN_PMTUDISC]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_FLAGS])
-> +			iflags = rta_getattr_u16(iptuninfo[IFLA_IPTUN_FLAGS]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_LINK])
-> +			link = rta_getattr_u32(iptuninfo[IFLA_IPTUN_LINK]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_6RD_PREFIX])
-> +			memcpy(&ip6rdprefix,
-> +			       RTA_DATA(iptuninfo[IFLA_IPTUN_6RD_PREFIX]),
-> +			       sizeof(laddr));
-> +
-> +		if (iptuninfo[IFLA_IPTUN_6RD_PREFIXLEN])
-> +			ip6rdprefixlen =
-> +				rta_getattr_u16(iptuninfo[IFLA_IPTUN_6RD_PREFIXLEN]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_6RD_RELAY_PREFIX])
-> +			ip6rdrelayprefix =
-> +				rta_getattr_u32(iptuninfo[IFLA_IPTUN_6RD_RELAY_PREFIX]);
-> +
-> +		if (iptuninfo[IFLA_IPTUN_6RD_RELAY_PREFIXLEN])
-> +			ip6rdrelayprefixlen =
-> +				rta_getattr_u16(iptuninfo[IFLA_IPTUN_6RD_RELAY_PREFIXLEN]);
-> +	}
-> +
-> +	while (argc > 0) {
-> +		if (strcmp(*argv, "remote") == 0) {
-> +			NEXT_ARG();
-> +			if (strcmp(*argv, "any"))
-> +				raddr = get_addr32(*argv);
-> +			else
-> +				raddr = 0;
-> +		} else if (strcmp(*argv, "local") == 0) {
-> +			NEXT_ARG();
-> +			if (strcmp(*argv, "any"))
-> +				laddr = get_addr32(*argv);
-> +			else
-> +				laddr = 0;
-> +		} else if (matches(*argv, "dev") == 0) {
-> +			NEXT_ARG();
-> +			link = if_nametoindex(*argv);
-> +			if (link == 0)
-> +				invarg("\"dev\" is invalid", *argv);
-> +		} else if (strcmp(*argv, "ttl") == 0 ||
-> +			   strcmp(*argv, "hoplimit") == 0) {
-> +			NEXT_ARG();
-> +			if (strcmp(*argv, "inherit") != 0) {
-> +				if (get_u8(&ttl, *argv, 0))
-> +					invarg("invalid TTL\n", *argv);
-> +			} else
-> +				ttl = 0;
-> +		} else if (strcmp(*argv, "tos") == 0 ||
-> +			   strcmp(*argv, "tclass") == 0 ||
-> +			   matches(*argv, "dsfield") == 0) {
-> +			__u32 uval;
-> +			NEXT_ARG();
-> +			if (strcmp(*argv, "inherit") != 0) {
-> +				if (rtnl_dsfield_a2n(&uval, *argv))
-> +					invarg("bad TOS value", *argv);
-> +				tos = uval;
-> +			} else
-> +				tos = 1;
-> +		} else if (strcmp(*argv, "nopmtudisc") == 0) {
-> +			pmtudisc = 0;
-> +		} else if (strcmp(*argv, "pmtudisc") == 0) {
-> +			pmtudisc = 1;
-> +		} else if (strcmp(lu->id, "sit") == 0 &&
-> +			   strcmp(*argv, "isatap") == 0) {
-> +			iflags |= SIT_ISATAP;
-> +		} else if (strcmp(*argv, "6rd-prefix") == 0) {
-> +			inet_prefix prefix;
-> +			NEXT_ARG();
-> +			if (get_prefix(&prefix, *argv, AF_INET6))
-> +				invarg("invalid 6rd_prefix\n", *argv);
-> +			memcpy(&ip6rdprefix, prefix.data, 16);
-> +			ip6rdprefixlen = prefix.bitlen;
-> +		} else if (strcmp(*argv, "6rd-relay_prefix") == 0) {
-> +			inet_prefix prefix;
-> +			NEXT_ARG();
-> +			if (get_prefix(&prefix, *argv, AF_INET))
-> +				invarg("invalid 6rd-relay_prefix\n", *argv);
-> +			memcpy(&ip6rdrelayprefix, prefix.data, 4);
-> +			ip6rdrelayprefixlen = prefix.bitlen;
-> +		} else if (strcmp(*argv, "6rd-reset") == 0) {
-> +			inet_prefix prefix;
-> +			get_prefix(&prefix, "2002::", AF_INET6);
-> +			memcpy(&ip6rdprefix, prefix.data, 16);
-> +			ip6rdprefixlen = 16;
-> +			ip6rdrelayprefix = 0;
-> +			ip6rdrelayprefixlen = 0;
-> +		} else
-> +			usage(strcmp(lu->id, "sit") == 0);
-> +		argc--, argv++;
-> +	}
-> +
-> +	if (ttl && pmtudisc == 0) {
-> +		fprintf(stderr, "ttl != 0 and noptmudisc are incompatible\n");
-> +		exit(-1);
-> +	}
-> +
-> +	addattr32(n, 1024, IFLA_IPTUN_LINK, link);
-> +	addattr32(n, 1024, IFLA_IPTUN_LOCAL, laddr);
-> +	addattr32(n, 1024, IFLA_IPTUN_REMOTE, raddr);
-> +	addattr8(n, 1024, IFLA_IPTUN_TTL, ttl);
-> +	addattr8(n, 1024, IFLA_IPTUN_TOS, tos);
-> +	addattr8(n, 1024, IFLA_IPTUN_PMTUDISC, pmtudisc);
-> +	if (strcmp(lu->id, "sit") == 0) {
-> +		addattr16(n, 1024, IFLA_IPTUN_FLAGS, iflags);
-> +		if (ip6rdprefixlen) {
-> +			addattr_l(n, 1024, IFLA_IPTUN_6RD_PREFIX,
-> +				  &ip6rdprefix, sizeof(ip6rdprefix));
-> +			addattr16(n, 1024, IFLA_IPTUN_6RD_PREFIXLEN,
-> +				  ip6rdprefixlen);
-> +			addattr32(n, 1024, IFLA_IPTUN_6RD_RELAY_PREFIX,
-> +				  ip6rdrelayprefix);
-> +			addattr16(n, 1024, IFLA_IPTUN_6RD_RELAY_PREFIXLEN,
-> +				  ip6rdrelayprefixlen);
-> +		}
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static void iptunnel_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
-> +{
-> +	char s1[1024];
-> +	char s2[64];
-> +	const char *local = "any";
-> +	const char *remote = "any";
-> +
-> +	if (!tb)
-> +		return;
-> +
-> +	if (tb[IFLA_IPTUN_REMOTE]) {
-> +		unsigned addr = rta_getattr_u32(tb[IFLA_IPTUN_REMOTE]);
-> +
-> +		if (addr)
-> +			remote = format_host(AF_INET, 4, &addr, s1, sizeof(s1));
-> +	}
-> +
-> +	fprintf(f, "remote %s ", remote);
-> +
-> +	if (tb[IFLA_IPTUN_LOCAL]) {
-> +		unsigned addr = rta_getattr_u32(tb[IFLA_IPTUN_LOCAL]);
-> +
-> +		if (addr)
-> +			local = format_host(AF_INET, 4, &addr, s1, sizeof(s1));
-> +	}
-> +
-> +	fprintf(f, "local %s ", local);
-> +
-> +	if (tb[IFLA_IPTUN_LINK] && rta_getattr_u32(tb[IFLA_IPTUN_LINK])) {
-> +		unsigned link = rta_getattr_u32(tb[IFLA_IPTUN_LINK]);
-> +		const char *n = if_indextoname(link, s2);
-> +
-> +		if (n)
-> +			fprintf(f, "dev %s ", n);
-> +		else
-> +			fprintf(f, "dev %u ", link);
-> +	}
-> +
-> +	if (tb[IFLA_IPTUN_TTL] && rta_getattr_u8(tb[IFLA_IPTUN_TTL]))
-> +		fprintf(f, "ttl %d ", rta_getattr_u8(tb[IFLA_IPTUN_TTL]));
-> +	else
-> +		fprintf(f, "ttl inherit ");
-> +
-> +	if (tb[IFLA_IPTUN_TOS] && rta_getattr_u8(tb[IFLA_IPTUN_TOS])) {
-> +		int tos = rta_getattr_u8(tb[IFLA_IPTUN_TOS]);
-> +
-> +		fputs("tos ", f);
-> +		if (tos == 1)
-> +			fputs("inherit ", f);
-> +		else
-> +			fprintf(f, "0x%x ", tos);
-> +	}
-> +
-> +	if (tb[IFLA_IPTUN_PMTUDISC] && rta_getattr_u8(tb[IFLA_IPTUN_PMTUDISC]))
-> +		fprintf(f, "pmtudisc ");
-> +	else
-> +		fprintf(f, "nopmtudisc ");
-> +
-> +	if (tb[IFLA_IPTUN_FLAGS]) {
-> +	       __u16 iflags = rta_getattr_u16(tb[IFLA_IPTUN_FLAGS]);
-> +
-> +	      if (iflags & SIT_ISATAP)
-> +		      fprintf(f, "isatap ");
-> +	}
-> +
-> +	if (tb[IFLA_IPTUN_6RD_PREFIXLEN] &&
-> +	    *(__u16 *)RTA_DATA(tb[IFLA_IPTUN_6RD_PREFIXLEN])) {
-> +		__u16 prefixlen = rta_getattr_u16(tb[IFLA_IPTUN_6RD_PREFIXLEN]);
-> +		__u16 relayprefixlen =
-> +			rta_getattr_u16(tb[IFLA_IPTUN_6RD_RELAY_PREFIXLEN]);
-> +		__u32 relayprefix =
-> +			rta_getattr_u32(tb[IFLA_IPTUN_6RD_RELAY_PREFIX]);
-> +
-> +		printf("6rd-prefix %s/%u ",
-> +		       inet_ntop(AF_INET6, RTA_DATA(tb[IFLA_IPTUN_6RD_PREFIX]),
-> +			         s1, sizeof(s1)),
-> +		       prefixlen);
-> +		if (relayprefix) {
-> +			printf("6rd-relay_prefix %s/%u ",
-> +			       format_host(AF_INET, 4, &relayprefix, s1,
-> +				           sizeof(s1)),
-> +			       relayprefixlen);
-> +		}
-> +	}
-> +}
-> +
-> +struct link_util ipip_link_util = {
-> +	.id = "ipip",
-> +	.maxattr = IFLA_IPTUN_MAX,
-> +	.parse_opt = iptunnel_parse_opt,
-> +	.print_opt = iptunnel_print_opt,
-> +};
-> +
-> +struct link_util sit_link_util = {
-> +	.id = "sit",
-> +	.maxattr = IFLA_IPTUN_MAX,
-> +	.parse_opt = iptunnel_parse_opt,
-> +	.print_opt = iptunnel_print_opt,
-> +};
+> - -	if (n->nlmsg_type == RTM_NEWNEIGH || n->nlmsg_type == RTM_DELNEIGH) {
+> +	if (n->nlmsg_type == RTM_NEWNEIGH || n->nlmsg_type == RTM_DELNEIGH ||
+> +	    n->nlmsg_type == RTM_GETNEIGH) {
+>  		if (prefix_banner)
+>  			fprintf(fp, "[NEIGH]");
+>  		print_neigh(who, n, arg);
+> diff --git a/ip/ipneigh.c b/ip/ipneigh.c
+> index 56e56b2..1b7600b 100644
+> - --- a/ip/ipneigh.c
+> +++ b/ip/ipneigh.c
+> @@ -189,7 +189,8 @@ int print_neigh(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>  	struct rtattr * tb[NDA_MAX+1];
+>  	char abuf[256];
+>  
+> - -	if (n->nlmsg_type != RTM_NEWNEIGH && n->nlmsg_type != RTM_DELNEIGH) {
+> +	if (n->nlmsg_type != RTM_NEWNEIGH && n->nlmsg_type != RTM_DELNEIGH &&
+> +	    n->nlmsg_type != RTM_GETNEIGH) {
+>  		fprintf(stderr, "Not RTM_NEWNEIGH: %08x %08x %08x\n",
+>  			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
+>  
+> @@ -251,6 +252,8 @@ int print_neigh(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+>  
+>  	if (n->nlmsg_type == RTM_DELNEIGH)
+>  		fprintf(fp, "delete ");
+> +	else if (n->nlmsg_type == RTM_GETNEIGH)
+> +		fprintf(fp, "miss ");
+>  	if (tb[NDA_DST]) {
+>  		fprintf(fp, "%s ",
+>  			format_host(r->ndm_family,
+> 
 
-All applied with minor corrections to header files.
-
-Could you please add man pages for this new functionality?
+This patch doesn't apply cleanly against the current version in iproute2 git.
+Not your fault, conflicts arose from earlier patches applied. Could you fix
+the conflicts and resubmit please.
