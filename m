@@ -1,132 +1,141 @@
 From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: [PATCH] net: filter: return -EINVAL if BPF_S_ANC* operation is
- not supported
-Date: Wed, 12 Dec 2012 14:06:13 -0800
-Message-ID: <CAOxq_8NOxt3hZYd6PMh1b+qxVrEORtWhY6jUK_DXBHgq7ggQFg@mail.gmail.com>
-References: <1355304701-22228-1-git-send-email-dborkman@redhat.com>
-	<1355314964.9139.173.camel@edumazet-glaptop>
-	<50C8B008.2000804@redhat.com>
+Subject: Re: vlan tagged packets and libpcap breakage
+Date: Wed, 12 Dec 2012 14:16:28 -0800
+Message-ID: <CAOxq_8ML1P7JQCD1-xhYSWP_XHcS_M26GfFxpJ-jyQ+ebOV9SA@mail.gmail.com>
+References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
+	<3246.1351717319@obiwan.sandelman.ca>
+	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
+	<21992.1351723328@obiwan.sandelman.ca>
+	<alpine.OSX.2.00.1212121205040.78903@animac.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:37161 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755407Ab2LLWGN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 17:06:13 -0500
-Received: by mail-ie0-f178.google.com with SMTP id c12so2822486ieb.9
-        for <netdev@vger.kernel.org>; Wed, 12 Dec 2012 14:06:13 -0800 (PST)
-In-Reply-To: <50C8B008.2000804@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Francesco Ruggeri <fruggeri@aristanetworks.com>,
+	tcpdump-workers@lists.tcpdump.org
+To: Michael Richardson <mcr@sandelman.ca>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
+In-Reply-To: <alpine.OSX.2.00.1212121205040.78903@animac.local>
+List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
+List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
+List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
+List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
+List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
+Sender: tcpdump-workers-bounces@lists.tcpdump.org
+Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 12, 2012 at 8:25 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 12/12/2012 01:22 PM, Eric Dumazet wrote:
->>
->> On Wed, 2012-12-12 at 10:31 +0100, Daniel Borkmann wrote:
->>>
->>> Currently, we return -EINVAL for malicious or wrong BPF filters.
->>> However, this is not done for BPF_S_ANC* operations, which makes it
->>> more difficult to detect if it's actually supported or not by the
->>> BPF machine. Therefore, we should also return -EINVAL if K is within
->>> the SKF_AD_OFF universe and the ancillary operation did not match.
->>>
->>> Cc: Ani Sinha <ani@aristanetworks.com>
->>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->>> ---
->>>   net/core/filter.c | 8 +++++++-
->>>   1 file changed, 7 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/net/core/filter.c b/net/core/filter.c
->>> index c23543c..de9bed4 100644
->>> --- a/net/core/filter.c
->>> +++ b/net/core/filter.c
->>> @@ -531,7 +531,7 @@ int sk_chk_filter(struct sock_filter *filter,
->>> unsigned int flen)
->>>                 [BPF_JMP|BPF_JSET|BPF_K] = BPF_S_JMP_JSET_K,
->>>                 [BPF_JMP|BPF_JSET|BPF_X] = BPF_S_JMP_JSET_X,
->>>         };
->>> -       int pc;
->>> +       int pc, anc_found;
->>>
->>>         if (flen == 0 || flen > BPF_MAXINSNS)
->>>                 return -EINVAL;
->>> @@ -592,8 +592,10 @@ int sk_chk_filter(struct sock_filter *filter,
->>> unsigned int flen)
->>>                 case BPF_S_LD_W_ABS:
->>>                 case BPF_S_LD_H_ABS:
->>>                 case BPF_S_LD_B_ABS:
->>> +                       anc_found = 0;
->>>   #define ANCILLARY(CODE) case SKF_AD_OFF + SKF_AD_##CODE:      \
->>>                                 code = BPF_S_ANC_##CODE;        \
->>> +                               anc_found = 1;                  \
->>>                                 break
->>>                         switch (ftest->k) {
->>>                         ANCILLARY(PROTOCOL);
->>> @@ -610,6 +612,10 @@ int sk_chk_filter(struct sock_filter *filter,
->>> unsigned int flen)
->>>                         ANCILLARY(VLAN_TAG);
->>>                         ANCILLARY(VLAN_TAG_PRESENT);
->>>                         }
->>> +
->>> +                       /* ancillary operation unkown or unsupported */
->>> +                       if (anc_found == 0 && ftest->k >= SKF_AD_OFF)
->>> +                               return -EINVAL;
->>>                 }
->>>                 ftest->code = code;
->>>         }
->>
->>
->> Several points :
->>
->> 1) This might break a userland filter that was previously working, by
->> returning 0 when load_pointer() returns NULL.
->>
->> Specifying an offset bigger than skb->len is not _invalid_, it only
->> makes a filter returns 0, because load_pointer() returns NULL.
->
->
-> I think it will not break for code, that calls load_pointer() in such a
-> circumstance which passed the sk_chk_filter() test. However, it will
-> "break" for code that calls ...
->
->   { BPF_LD | BPF_(W|H|B) | BPF_ABS, 0, 0, <K> },
->
-> ... where <K> is in [0xfffff000, 0xffffffff] _and_ <K> is not an ancillary.
->
-> But ...
->
-> Assuming some old code will have such an instruction where <K> is between
-> [0xfffff000, 0xffffffff] and it doesn't know ancillary operations, then
-> this will give a non-expected/unwanted behavior as well (since we do not
-> return the BPF machine with 0 as it probably was the case before anc.ops,
-> but load sth. into the accumulator instead and continue with the next
-> instruction, for instance), right? Thus, following this argumentation, user
-> space code would already have been broken by introducing ancillary
-> operations into the BPF machine per se.
->
-> This is probably just an assumption, but code that does such a direct load,
-> e.g. "load word at packet offset 0xffffffff into accumulator" ("ld
-> [0xffffffff]")
-> is quite broken, isn't it? Isn't the whole assumption of ancillary
-> operations
-> that no-one intentionally calls things like "ld [0xffffffff]" and expect
-> this
-> word to be loaded from the packet offset?
->
->
->> 2) This wont help applications running on old kernels where your patch
->> wont be applied, as already mentioned yesterday.
->
->
-> Agreed, but leaving old kernels aside, it would be nice if newer kernels
-> could validate that, so at least from kernel <xyz> onwards it could be
-> checked _for sure_ if anc.op <abc> is present and can be used.
->
++ Eric B.
 
-I second that. It would be nice to have a clean way to know whether a
-particular ancilliary operation is supported by the kernel. After all,
-the latest kernel of today will be ancient one soon enough ;)
+
+On Wed, Dec 12, 2012 at 1:53 PM, Ani Sinha <ani@aristanetworks.com> wrote:
+>
+>>
+>> unsigned int netdev_8021q_inskb = 1;
+>>
+>> ...
+>>       {
+>>               .ctl_name       = NET_CORE_8021q_INSKB,
+>>               .procname       = "netdev_8021q_inskb",
+>>               .data           = &netdev_8021q_inskb,
+>>               .maxlen         = sizeof(int),
+>>               .mode           = 0444,
+>>               .proc_handler   = proc_dointvec
+>>       },
+>>
+>> would seem to do it to me.
+>> Then pcap can fopen("/proc/sys/net/core/netdev_8021q_inskb") and if it
+>> finds it, and it is >0, then do the cmsg thing.
+>>
+>
+> Does this work? This is just an experimental patch and by no means final.
+> I just want to have an idea what everyone thought about it. Once we debate
+> and discusss, I can cook up a final patch that would be worth commiting.
+>
+> Also instead of having this /proc interface, we can perhaps check for a
+> specific
+> kernel version that :
+>
+> (a) has the vlan tag info in the skb metadata (as opposed to in the packet
+> itself)
+> (b) has the following patch that adds the capability to generate a filter
+> based on the tag value :
+>
+> commit f3335031b9452baebfe49b8b5e55d3fe0c4677d1
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Sat Oct 27 02:26:17 2012 +0000
+>
+>     net: filter: add vlan tag access
+>
+> WE need both of the above two things for the userland to generate a filter
+> code that compares vlan tag values in the skb metadata. For kernels that
+> has the vlan tag in
+> the skb metadata but does not have the above commit (b), there is nothing
+> that can be done. For older kernels that had the vlan tag info in the
+> packet itself, the filter code can be generated differently to look at
+> specific offsets within the packet (something that libpcap does
+> currently).
+>
+> We have already ruled out the idea of generating a filter and trying to
+> load and see if that fails (see previous emails on this thread).
+>
+> Hope this makes sense.
+>
+>
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index c45eabc..91e2ba3 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -36,6 +36,7 @@ static inline unsigned int sk_filter_len(const struct sk_filter *fp)
+>         return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
+>  }
+>
+> +extern bool sysctl_8021q_inskb;
+>  extern int sk_filter(struct sock *sk, struct sk_buff *skb);
+>  extern unsigned int sk_run_filter(const struct sk_buff *skb,
+>                                   const struct sock_filter *filter);
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index c23543c..4f5a657 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -41,6 +41,8 @@
+>  #include <linux/seccomp.h>
+>  #include <linux/if_vlan.h>
+>
+> +bool sysctl_8021q_inskb = 1;
+> +
+>  /* No hurry in this branch
+>   *
+>   * Exported for the bpf jit load helper.
+> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+> index d1b0804..f9a3700 100644
+> --- a/net/core/sysctl_net_core.c
+> +++ b/net/core/sysctl_net_core.c
+> @@ -15,6 +15,7 @@
+>  #include <linux/init.h>
+>  #include <linux/slab.h>
+>  #include <linux/kmemleak.h>
+> +#include <linux/filter.h>
+>
+>  #include <net/ip.h>
+>  #include <net/sock.h>
+> @@ -189,6 +190,13 @@ static struct ctl_table net_core_table[] = {
+>                 .mode           = 0644,
+>                 .proc_handler   = proc_dointvec
+>         },
+> +       {
+> +               .procname       = "8021q_inskb",
+> +               .data           = &sysctl_8021q_inskb,
+> +               .maxlen         = sizeof(bool),
+> +               .mode           = 0444,
+> +               .proc_handler   = proc_dointvec
+> +       },
+>         { }
+>  };
+>
+_______________________________________________
+tcpdump-workers mailing list
+tcpdump-workers@lists.tcpdump.org
+https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
