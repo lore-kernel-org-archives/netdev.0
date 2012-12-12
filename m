@@ -1,110 +1,272 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next 3/5] dev/netns: allow to get netns from nsindex in rtnl msg
-Date: Wed, 12 Dec 2012 18:17:08 +0100
-Message-ID: <1355332630-4256-4-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next 2/5] netns: allow to dump netns with netlink
+Date: Wed, 12 Dec 2012 18:17:07 +0100
+Message-ID: <1355332630-4256-3-git-send-email-nicolas.dichtel@6wind.com>
 References: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, ebiederm@xmission.com, aatteka@nicira.com,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39198 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39193 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754563Ab2LLRxv (ORCPT
+	with ESMTP id S1754536Ab2LLRxv (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 12:53:51 -0500
 In-Reply-To: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows to move a netdevice to another netns by giving the nsindex.
+This patch adds the basic support of netlink for netns. The user can dump all
+existing netns and get associated nsindex.
+He also can get nsindex associated to a pid or fd.
+
+To initialize genetlink family for netns, there is a problem of chicken and
+eggs. genetlink init is done after init_net is created, hence when init_net is
+created, we cannot call genl_register_family_with_ops(). It's why I put the
+init part in genetlink module.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/net/net_namespace.h  |  1 +
- include/uapi/linux/if_link.h |  1 +
- net/core/net_namespace.c     | 14 ++++++++++++++
- net/core/rtnetlink.c         |  7 ++++++-
- 4 files changed, 22 insertions(+), 1 deletion(-)
+ include/net/net_namespace.h |   1 +
+ include/uapi/linux/netns.h  |  27 ++++++++
+ net/core/net_namespace.c    | 157 ++++++++++++++++++++++++++++++++++++++++++++
+ net/netlink/genetlink.c     |   4 ++
+ 4 files changed, 189 insertions(+)
+ create mode 100644 include/uapi/linux/netns.h
 
 diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index c373f2e..68e7a36 100644
+index 5db7a1b..c373f2e 100644
 --- a/include/net/net_namespace.h
 +++ b/include/net/net_namespace.h
-@@ -151,6 +151,7 @@ extern struct list_head net_namespace_list;
+@@ -306,6 +306,7 @@ extern int register_pernet_subsys(struct pernet_operations *);
+ extern void unregister_pernet_subsys(struct pernet_operations *);
+ extern int register_pernet_device(struct pernet_operations *);
+ extern void unregister_pernet_device(struct pernet_operations *);
++extern int netns_genl_register(void);
  
- extern struct net *get_net_ns_by_pid(pid_t pid);
- extern struct net *get_net_ns_by_fd(int pid);
-+extern struct net *get_net_ns_by_nsindex(int nsindex);
- 
- #ifdef CONFIG_NET_NS
- extern void __put_net(struct net *net);
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 60f3b6b..6720a47 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -142,6 +142,7 @@ enum {
- #define IFLA_PROMISCUITY IFLA_PROMISCUITY
- 	IFLA_NUM_TX_QUEUES,
- 	IFLA_NUM_RX_QUEUES,
-+	IFLA_NET_NS_INDEX,
- 	__IFLA_MAX
- };
- 
+ struct ctl_table;
+ struct ctl_table_header;
+diff --git a/include/uapi/linux/netns.h b/include/uapi/linux/netns.h
+new file mode 100644
+index 0000000..e1c1da3
+--- /dev/null
++++ b/include/uapi/linux/netns.h
+@@ -0,0 +1,27 @@
++#ifndef _UAPI_LINUX_NETNS_H_
++#define _UAPI_LINUX_NETNS_H_
++
++/* Generic netlink messages */
++
++#define NETNS_GENL_NAME			"netns"
++#define NETNS_GENL_VERSION		0x1
++
++/* Commands */
++enum {
++	NETNS_CMD_NOOP,
++	NETNS_CMD_GET,
++	__NETNS_CMD_MAX,
++};
++#define NETNS_CMD_MAX		(__NETNS_CMD_MAX - 1)
++
++/* Attributes */
++enum {
++	NETNSA_NONE,
++	NETNSA_NSINDEX,
++	NETNSA_PID,
++	NETNSA_FD,
++	__NETNSA_MAX,
++};
++#define NETNSA_MAX		(__NETNSA_MAX - 1)
++
++#endif /* _UAPI_LINUX_NETNS_H_ */
 diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 2ae22b0..18fc62f 100644
+index f5267e4..2ae22b0 100644
 --- a/net/core/net_namespace.c
 +++ b/net/core/net_namespace.c
-@@ -399,6 +399,20 @@ struct net *get_net_ns_by_pid(pid_t pid)
+@@ -14,6 +14,8 @@
+ #include <linux/file.h>
+ #include <linux/export.h>
+ #include <linux/user_namespace.h>
++#include <linux/netns.h>
++#include <net/genetlink.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ 
+@@ -397,6 +399,161 @@ struct net *get_net_ns_by_pid(pid_t pid)
  }
  EXPORT_SYMBOL_GPL(get_net_ns_by_pid);
  
-+struct net *get_net_ns_by_nsindex(int nsindex)
++static struct genl_family netns_nl_family = {
++	.id		= GENL_ID_GENERATE,
++	.name		= NETNS_GENL_NAME,
++	.version	= NETNS_GENL_VERSION,
++	.hdrsize	= 0,
++	.maxattr	= NETNSA_MAX,
++	.netnsok	= true,
++};
++
++static struct nla_policy netns_nl_policy[NETNSA_MAX + 1] = {
++	[NETNSA_NONE]		= { .type = NLA_UNSPEC, },
++	[NETNSA_NSINDEX]	= { .type = NLA_U32, },
++	[NETNSA_PID]		= { .type = NLA_U32 },
++	[NETNSA_FD]		= { .type = NLA_U32 },
++};
++
++static int netns_nl_get_size(void)
 +{
++	return nla_total_size(sizeof(u32)) /* NETNSA_NSINDEX */
++	       ;
++}
++
++static int netns_nl_cmd_noop(struct sk_buff *skb, struct genl_info *info)
++{
++	struct sk_buff *msg;
++	void *hdr;
++	int ret = -ENOBUFS;
++
++	msg = genlmsg_new(netns_nl_get_size(), GFP_KERNEL);
++	if (!msg) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	hdr = genlmsg_put(msg, info->snd_portid, info->snd_seq,
++			  &netns_nl_family, 0, NETNS_CMD_NOOP);
++	if (!hdr) {
++		ret = -EMSGSIZE;
++		goto err_out;
++	}
++
++	genlmsg_end(msg, hdr);
++
++	return genlmsg_unicast(genl_info_net(info), msg, info->snd_portid);
++
++err_out:
++	nlmsg_free(msg);
++
++out:
++	return ret;
++}
++
++static int netns_nl_fill(struct sk_buff *skb, u32 portid, u32 seq, int flags,
++			 int cmd, struct net *net)
++{
++	void *hdr;
++
++	hdr = genlmsg_put(skb, portid, seq, &netns_nl_family, flags, cmd);
++	if (!hdr)
++		return -EMSGSIZE;
++
++	if (nla_put_u32(skb, NETNSA_NSINDEX, net->nsindex))
++		goto nla_put_failure;
++
++	return genlmsg_end(skb, hdr);
++
++nla_put_failure:
++	genlmsg_cancel(skb, hdr);
++	return -EMSGSIZE;
++}
++
++static int netns_nl_cmd_get(struct sk_buff *skb, struct genl_info *info)
++{
++	struct net *net = genl_info_net(info);
++	struct sk_buff *msg;
++	int err = -ENOBUFS;
++
++	if (info->attrs[NETNSA_PID])
++		net = get_net_ns_by_pid(nla_get_u32(info->attrs[NETNSA_PID]));
++	else if (info->attrs[NETNSA_FD])
++		net = get_net_ns_by_fd(nla_get_u32(info->attrs[NETNSA_FD]));
++	else
++		get_net(net);
++
++	msg = genlmsg_new(netns_nl_get_size(), GFP_KERNEL);
++	if (!msg) {
++		err = -ENOMEM;
++		goto out;
++	}
++
++	err = netns_nl_fill(msg, info->snd_portid, info->snd_seq,
++			    NLM_F_ACK, NETNS_CMD_GET, net);
++	if (err < 0)
++		goto err_out;
++
++	err = genlmsg_unicast(genl_info_net(info), msg, info->snd_portid);
++	goto out;
++
++err_out:
++	nlmsg_free(msg);
++
++out:
++	put_net(net);
++	return err;
++}
++
++static int netns_nl_cmd_dump(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int i = 0, s_i = cb->args[0];
 +	struct net *net;
 +
-+	ASSERT_RTNL();
-+	for_each_net(net)
-+		if (net->nsindex == nsindex) {
-+			get_net(net);
-+			break;
++	rtnl_lock();
++	for_each_net(net) {
++		if (i < s_i) {
++			i++;
++			continue;
 +		}
-+	return net;
-+}
-+EXPORT_SYMBOL_GPL(get_net_ns_by_nsindex);
 +
- static struct genl_family netns_nl_family = {
- 	.id		= GENL_ID_GENERATE,
- 	.name		= NETNS_GENL_NAME,
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1868625..e22954a 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1115,6 +1115,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
- 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
- 	[IFLA_NET_NS_FD]	= { .type = NLA_U32 },
-+	[IFLA_NET_NS_INDEX]	= { .type = NLA_U32 },
- 	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
- 	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
- 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
-@@ -1171,6 +1172,8 @@ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
- 		net = get_net_ns_by_pid(nla_get_u32(tb[IFLA_NET_NS_PID]));
- 	else if (tb[IFLA_NET_NS_FD])
- 		net = get_net_ns_by_fd(nla_get_u32(tb[IFLA_NET_NS_FD]));
-+	else if (tb[IFLA_NET_NS_INDEX])
-+		net = get_net_ns_by_nsindex(nla_get_u32(tb[IFLA_NET_NS_INDEX]));
- 	else
- 		net = get_net(src_net);
- 	return net;
-@@ -1310,7 +1313,9 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 	int send_addr_notify = 0;
- 	int err;
++		if (netns_nl_fill(skb, NETLINK_CB(cb->skb).portid,
++				  cb->nlh->nlmsg_seq, NLM_F_MULTI,
++				  NETNS_CMD_GET, net) <= 0)
++			goto out;
++
++		i++;
++	}
++
++out:
++	cb->args[0] = i;
++	rtnl_unlock();
++
++	return skb->len;
++}
++
++static struct genl_ops netns_nl_ops[] = {
++	{
++		.cmd = NETNS_CMD_NOOP,
++		.policy = netns_nl_policy,
++		.doit = netns_nl_cmd_noop,
++		.flags = GENL_ADMIN_PERM,
++	},
++	{
++		.cmd = NETNS_CMD_GET,
++		.policy = netns_nl_policy,
++		.doit = netns_nl_cmd_get,
++		.dumpit = netns_nl_cmd_dump,
++		.flags = GENL_ADMIN_PERM,
++	},
++};
++
++int netns_genl_register(void)
++{
++	return genl_register_family_with_ops(&netns_nl_family, netns_nl_ops,
++					     ARRAY_SIZE(netns_nl_ops));
++}
++
+ static int __init net_ns_init(void)
+ {
+ 	struct net_generic *ng;
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index f2aabb6..6d25ddb 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -963,6 +963,10 @@ static int __init genl_init(void)
+ 	if (err < 0)
+ 		goto problem;
  
--	if (tb[IFLA_NET_NS_PID] || tb[IFLA_NET_NS_FD]) {
-+	if (tb[IFLA_NET_NS_PID] ||
-+	    tb[IFLA_NET_NS_FD] ||
-+	    tb[IFLA_NET_NS_INDEX]) {
- 		struct net *net = rtnl_link_get_net(dev_net(dev), tb);
- 		if (IS_ERR(net)) {
- 			err = PTR_ERR(net);
++	err = netns_genl_register();
++	if (err < 0)
++		goto problem;
++
+ 	return 0;
+ 
+ problem:
 -- 
 1.8.0.1
