@@ -1,89 +1,110 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RFC PATCH net-next 1/5] netns: allocate an unique id to identify a netns
-Date: Wed, 12 Dec 2012 18:24:37 +0100
-Message-ID: <1355333081-4018-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next 3/5] dev/netns: allow to get netns from nsindex in rtnl msg
+Date: Wed, 12 Dec 2012 18:24:39 +0100
+Message-ID: <1355333081-4018-4-git-send-email-nicolas.dichtel@6wind.com>
 References: <1355333081-4018-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: davem@davemloft.net, ebiederm@xmission.com, aatteka@nicira.com,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39146 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:39150 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754736Ab2LLR0d (ORCPT
+	with ESMTP id S1754701Ab2LLR0d (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 12:26:33 -0500
 In-Reply-To: <1355333081-4018-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch simply adds a field nsindex, which will contain a unique index.
-The goal is to prepare the monitoring of netns activities with rtnelink and to
-ease netns management by userland apps.
+This patch allows to move a netdevice to another netns by giving the nsindex.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- include/net/net_namespace.h |  1 +
- net/core/net_namespace.c    | 16 ++++++++++++++++
- 2 files changed, 17 insertions(+)
+ include/net/net_namespace.h  |  1 +
+ include/uapi/linux/if_link.h |  1 +
+ net/core/net_namespace.c     | 14 ++++++++++++++
+ net/core/rtnetlink.c         |  7 ++++++-
+ 4 files changed, 22 insertions(+), 1 deletion(-)
 
 diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index c5a43f5..5db7a1b 100644
+index c373f2e..68e7a36 100644
 --- a/include/net/net_namespace.h
 +++ b/include/net/net_namespace.h
-@@ -55,6 +55,7 @@ struct net {
- 	struct list_head	exit_list;	/* Use only net_mutex */
+@@ -151,6 +151,7 @@ extern struct list_head net_namespace_list;
  
- 	struct user_namespace   *user_ns;	/* Owning user namespace */
-+	int			nsindex;	/* index to identify this ns */
+ extern struct net *get_net_ns_by_pid(pid_t pid);
+ extern struct net *get_net_ns_by_fd(int pid);
++extern struct net *get_net_ns_by_nsindex(int nsindex);
  
- 	struct proc_dir_entry 	*proc_net;
- 	struct proc_dir_entry 	*proc_net_stat;
+ #ifdef CONFIG_NET_NS
+ extern void __put_net(struct net *net);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 60f3b6b..6720a47 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -142,6 +142,7 @@ enum {
+ #define IFLA_PROMISCUITY IFLA_PROMISCUITY
+ 	IFLA_NUM_TX_QUEUES,
+ 	IFLA_NUM_RX_QUEUES,
++	IFLA_NET_NS_INDEX,
+ 	__IFLA_MAX
+ };
+ 
 diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
-index 6456439..f5267e4 100644
+index 2ae22b0..18fc62f 100644
 --- a/net/core/net_namespace.c
 +++ b/net/core/net_namespace.c
-@@ -27,6 +27,7 @@ static DEFINE_MUTEX(net_mutex);
+@@ -399,6 +399,20 @@ struct net *get_net_ns_by_pid(pid_t pid)
+ }
+ EXPORT_SYMBOL_GPL(get_net_ns_by_pid);
  
- LIST_HEAD(net_namespace_list);
- EXPORT_SYMBOL_GPL(net_namespace_list);
-+static DEFINE_IDA(net_namespace_ids);
- 
- struct net init_net = {
- 	.dev_base_head = LIST_HEAD_INIT(init_net.dev_base_head),
-@@ -157,6 +158,15 @@ static __net_init int setup_net(struct net *net, struct user_namespace *user_ns)
- 	atomic_set(&net->passive, 1);
- 	net->dev_base_seq = 1;
- 	net->user_ns = user_ns;
-+again:
-+	error = ida_get_new_above(&net_namespace_ids, 1, &net->nsindex);
-+	if (error < 0) {
-+		if (error == -EAGAIN) {
-+			ida_pre_get(&net_namespace_ids, GFP_KERNEL);
-+			goto again;
-+		}
-+		return error;
-+	}
- 
- #ifdef NETNS_REFCNT_DEBUG
- 	atomic_set(&net->use_count, 0);
-@@ -171,6 +181,7 @@ out:
- 	return error;
- 
- out_undo:
-+	ida_remove(&net_namespace_ids, net->nsindex);
- 	/* Walk through the list backwards calling the exit functions
- 	 * for the pernet modules whose init functions did not fail.
- 	 */
-@@ -297,6 +308,11 @@ static void cleanup_net(struct work_struct *work)
- 	 */
- 	synchronize_rcu();
- 
-+	list_for_each_entry(net, &net_exit_list, exit_list) {
-+		/* Free the index */
-+		ida_remove(&net_namespace_ids, net->nsindex);
-+	}
++struct net *get_net_ns_by_nsindex(int nsindex)
++{
++	struct net *net;
 +
- 	/* Run all of the network namespace exit methods */
- 	list_for_each_entry_reverse(ops, &pernet_list, list)
- 		ops_exit_list(ops, &net_exit_list);
++	ASSERT_RTNL();
++	for_each_net(net)
++		if (net->nsindex == nsindex) {
++			get_net(net);
++			break;
++		}
++	return net;
++}
++EXPORT_SYMBOL_GPL(get_net_ns_by_nsindex);
++
+ static struct genl_family netns_nl_family = {
+ 	.id		= GENL_ID_GENERATE,
+ 	.name		= NETNS_GENL_NAME,
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 1868625..e22954a 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1115,6 +1115,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
+ 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
+ 	[IFLA_NET_NS_FD]	= { .type = NLA_U32 },
++	[IFLA_NET_NS_INDEX]	= { .type = NLA_U32 },
+ 	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
+ 	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
+ 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
+@@ -1171,6 +1172,8 @@ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
+ 		net = get_net_ns_by_pid(nla_get_u32(tb[IFLA_NET_NS_PID]));
+ 	else if (tb[IFLA_NET_NS_FD])
+ 		net = get_net_ns_by_fd(nla_get_u32(tb[IFLA_NET_NS_FD]));
++	else if (tb[IFLA_NET_NS_INDEX])
++		net = get_net_ns_by_nsindex(nla_get_u32(tb[IFLA_NET_NS_INDEX]));
+ 	else
+ 		net = get_net(src_net);
+ 	return net;
+@@ -1310,7 +1313,9 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 	int send_addr_notify = 0;
+ 	int err;
+ 
+-	if (tb[IFLA_NET_NS_PID] || tb[IFLA_NET_NS_FD]) {
++	if (tb[IFLA_NET_NS_PID] ||
++	    tb[IFLA_NET_NS_FD] ||
++	    tb[IFLA_NET_NS_INDEX]) {
+ 		struct net *net = rtnl_link_get_net(dev_net(dev), tb);
+ 		if (IS_ERR(net)) {
+ 			err = PTR_ERR(net);
 -- 
 1.8.0.1
