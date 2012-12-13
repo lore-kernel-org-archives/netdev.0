@@ -1,64 +1,127 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Wed, 12 Dec 2012 22:22:39 -0500 (EST)
-Message-ID: <20121212.222239.1677083852440112819.davem@davemloft.net>
-References: <CA+55aFwzUgxQAze=mYbEx8b61V542tzm06Df=mR1BtYVbJy0mg@mail.gmail.com>
-	<20121212.212734.917363230032045212.davem@davemloft.net>
-	<CA+55aFxvHrNYB_J851XTkZ4EiwZ68Fb64DEU1JJmxPV-zB+9Vw@mail.gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [Query] TCP TFO Query
+Date: Wed, 12 Dec 2012 19:49:56 -0800
+Message-ID: <CAK6E8=fNsEoBnA0UTo8ve0s39_jmyFF6XtmVD0+NgcwhPStm7w@mail.gmail.com>
+References: <CAD6NSj5Qv3n+0a2rdTaiCtUtT5DXZEE4-K3qxaVX+XMK6Q=SFg@mail.gmail.com>
+ <CAK6E8=edgWX1Ye3a6UrqfAaOUG0r=9N8ss39nqRbw8F3UA83Cw@mail.gmail.com> <CAD6NSj4dMG3OC0mb4Qiq2eXTNwFBonkcnw=gRF5YAef-5yjeVQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nhorman@tuxdriver.com,
-	vyasevich@gmail.com
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFxvHrNYB_J851XTkZ4EiwZ68Fb64DEU1JJmxPV-zB+9Vw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Ketan Kulkarni <ketkulka@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:37588 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754245Ab2LMDuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Dec 2012 22:50:17 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y25so1557816iay.19
+        for <netdev@vger.kernel.org>; Wed, 12 Dec 2012 19:50:16 -0800 (PST)
+In-Reply-To: <CAD6NSj4dMG3OC0mb4Qiq2eXTNwFBonkcnw=gRF5YAef-5yjeVQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 12 Dec 2012 18:37:08 -0800
+On Wed, Dec 12, 2012 at 10:17 AM, Ketan Kulkarni <ketkulka@gmail.com> wrote:
+> Thanks Yuchung for your reply.
+>
+> My only concern is -If syn+data is sent by client and syn-ack only acks the
+> ISN, then isnt this a sufficient indication that server now is not
+> supporting the TFO? So for further connections to this server, instead of
+> sending syn+data, only ask for cookie. (fall back to the state where it was
+> all started) (Note that this condition is different from syn+data is dropped
+> in the nw.)
+>
+> I agree with you in saying it doesn't lead to any performance penalty,
+> however sending syn+data to a server seems a little odd when we know we have
+> sufficient information to believe that it may not be accepted at first,
+> retransmitted later. And otherwise we also have a way to fall back and
+> re-attempt the TFO.
+Your proposal sounds  reasonable. We can change that. In addition,
+maybe we can change the server to send SYN-ACK acking ISN only with a
+cookie option, if  the server prefers the client to still do SYN-data-cookie
+next time for some reason. I will try prepare a rfc patch soon.
 
-> On Wed, Dec 12, 2012 at 6:27 PM, David Miller <davem@davemloft.net> wrote:
+>
+> Thoughts?
+>
+> Thanks,
+> Ketan
+>
+> On Dec 12, 2012 3:34 AM, "Yuchung Cheng" <ycheng@google.com> wrote:
 >>
->> There are two SCTP HMAC cookie algorithms, MD5 and SHA1.
+>> Hi Ketan,
 >>
->> What used to happen is that you had to choose one at build
->> time, and then you were stuck with that decision and it was
->> all that you could use.
+>> On Tue, Dec 11, 2012 at 9:29 AM, Ketan Kulkarni <ketkulka@gmail.com>
+>> wrote:
+>> > Hi,
+>> > I am testing tcp tfo behavior with httping client and polipo server on
+>> > 3.7rc-8
+>> >
+>> > One observation from my TFO testing  -If for a connection server sends
+>> > a cookie to client, client always does TFO for subsequent connections.
+>> > This is ok.
+>> >
+>> > If for some reason, server stops supporting TFO (either because server
+>> > got restarted without TFO support (in my case) or because path changed
+>> > and the nw node is dropping packet with unknown syn option or
+>> > stripping the option), client does not clear up its cookie cache. It
+>> > always sends data in syn and server never acks the syn-data and client
+>> > retransmits.
+>> >
+>> > As per kernel code -if syn-data is not acked it is retransmitted
+>> > immediately - with the assumption first syn was dropped (but the
+>> > assumption server stopped supporting TFO might not have been
+>> > considered)
+>> >
+>> > Will it be better to flush the cookie for this server and re-attempt
+>> > the cookie "negotiation" on subsequent connection than to retransmit
+>> > the data every time?
+>> >
+>> > Your thoughts?
 >>
->> Now, it's selectable at run time.
+>> In our initial design the client actually removes the cookie of the
+>> particular server
+>> (!= flush the entire cache though). Later on we changed to the current
+>> behavior because
+>> it does not have a performance penalty. It falls back to regular
+>> handshake:
 >>
->> If there's anything you find particularly anti-social about
->> this, I'm sure we can adjust it.
-> 
-> So I'd suggest doing the same thing that the new thermal throttling
-> Kconfig does: start off by asking for the default algorithm, then ask
-> about the others.
-> 
-> The "choice" part selects the one that is default (so it never gets
-> asked about and is obviously compiled in), and the rest default to no
-> like we should.
-> 
-> See drivers/thermal/Kconfig for an example of this. I think we do it
-> in other places too, but that one happens to be new so I picked it as
-> an example.
-> 
-> The rule should be that we *never* default anything to 'yes', unless
-> it's old functionality that we always compiled in before too, and now
-> it got made conditional. So if you see a "default y" on new options,
-> you should basically consider it broken.
-> 
-> We're already bloating too much, we should not encourage people to
-> make things more bloated than necessary.
-> 
-> Btw, that Kconfig option has basically no useful help text either.
-> What's the point of repeating the question as a "help" message?
-> 
-> If people can't explain why anybody should enable it, it sure as hell
-> shouldn't default to 'y'. Maybe it shouldn't exist at all?
-
-Neil and Vlad, please take care of this.
-
-Thanks.
+>> SYN/cookie/data -> SYN-ACK acking ISN -> ACK(data).
+>>
+>> It may happen frequently when a large server farms are upgrading to
+>> support TFO.
+>>
+>> However there are always more options:
+>> 1) Server can selectively instrument to delete old cookies by sending a
+>> SYN-ACK
+>>    acking initial sequence with a null TFO option (== caching a null
+>> cookie ==
+>>    removing the older one).
+> In the case I mentioned, this might not help because server got restarted
+> with TFO disabled so having this option can help cases when server
+> understands/supports tfo and know when to delete the client side cookie. Or
+> may be I am missing something!!!
+>
+>> 2) another client-side flag in sysctl_tcp_fastopen to remove cookie if
+>> SYN-ACK
+>>    only acks the syn sequence.
+> My view is to prefer keeping knobs as minimum as possible as otherwise imo
+> we might put extra efforts on the user to know and understand why and what
+> this flag is  when he is simply interested in TFO.
+>
+>> 3) combination of 1 and 2.
+>>
+>> More ideas are welcome :)
+>>
+>> NOTE: I've checked in a patch so that syn-data not acked is not treated as
+>> a
+>> network-drop.
+>> http://patchwork.ozlabs.org/patch/171978/
+>>
+>> Yuchung
+>>
+>> >
+>> > Thanks,
+>> > Ketan
+>> > --
+>> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> > the body of a message to majordomo@vger.kernel.org
+>> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
