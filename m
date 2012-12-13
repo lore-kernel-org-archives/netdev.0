@@ -1,107 +1,87 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC PATCH net-next 4/4 V4] try to fix performance regression
-Date: Thu, 13 Dec 2012 10:25:47 -0800
-Message-ID: <50CA1DAB.5050000@hp.com>
-References: <117a10f9575d95d6a9ea4602ea7376e2b6d5ccd1.1355320533.git.wpan@redhat.com> <5e333588f6cb48cc3464b2263dcaa734b952e4c1.1355320534.git.wpan@redhat.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70ED@saturn3.aculab.com> <50C9E0A0.2040409@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [patch net-next 0/4] net: allow to change carrier from userspace
+Date: Thu, 13 Dec 2012 12:33:32 -0600
+Message-ID: <1355423612.21918.34.camel@dcbw.foobar.com>
+References: <20121212170520.GA3060@minipsycho.orion>
+	 <20121212092700.7ef2607a@nehalam.linuxnetplumber.net>
+	 <20121212181017.GB3060@minipsycho.orion>
+	 <20121212101208.361ccda0@nehalam.linuxnetplumber.net>
+	 <20121212182556.GC3060@minipsycho.orion>
+	 <20121212103632.2020efce@nehalam.linuxnetplumber.net>
+	 <20121212184925.GD3060@minipsycho.orion>
+	 <20121212105448.490aca5c@nehalam.linuxnetplumber.net>
+	 <20121212190613.GE3060@minipsycho.orion>
+	 <20121212113433.21c05614@nehalam.linuxnetplumber.net>
+	 <20121213161750.GA1914@minipsycho.orion> <50CA0D3D.5000503@gmail.com>
+	 <20121213155423.07c47307@obelix.rh>
+	 <20121213100933.6d68a8e5@nehalam.linuxnetplumber.net>
+	 <20121213161733.7bffe897@obelix.rh>
+	 <20121213102051.72ad69aa@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	brutus@google.com, netdev@vger.kernel.org
-To: Weiping Pan <wpan@redhat.com>
+Cc: Flavio Leitner <fbl@redhat.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com,
+	greearb@candelatech.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:39184 "EHLO
-	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755115Ab2LMSZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 13:25:52 -0500
-In-Reply-To: <50C9E0A0.2040409@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37493 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755661Ab2LMSc2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2012 13:32:28 -0500
+In-Reply-To: <20121213102051.72ad69aa@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/13/2012 06:05 AM, Weiping Pan wrote:
-> But if I just run normal tcp loopback for each message size, then the
-> performance is stable.
-> [root@intel-s3e3432-01 ~]# cat base.sh
-> for s in 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768
-> 65536 131072 262144 524288 1048576
-> do
-> netperf -i -2,10 -I 95,20 -- -m $s -M $s | tail -n1
-> done
+On Thu, 2012-12-13 at 10:20 -0800, Stephen Hemminger wrote:
+> On Thu, 13 Dec 2012 16:17:33 -0200
+> Flavio Leitner <fbl@redhat.com> wrote:
+> 
+> > On Thu, 13 Dec 2012 10:09:33 -0800
+> > Stephen Hemminger <shemminger@vyatta.com> wrote:
+> > 
+> > > On Thu, 13 Dec 2012 15:54:23 -0200
+> > > Flavio Leitner <fbl@redhat.com> wrote:
+> > > 
+> > > > I am saying this because people are used to and there are scripts out
+> > > > there using something like:
+> > > > # ethtool <iface> | grep 'Link'
+> > > > to react an interface failure.
+> > > 
+> > > Then the script is broken. It is asking about hardware state.
+> > 
+> > I was talking about the team master interface, so it makes sense
+> > to check its 'hardware' state. Just think on 'bond0' interface
+> > with no slaves. It should report Link detected: no.
+> > 
+> > See bond_release(), what happens if bond->slave_cnt == 0, for instance.
+> > 
+> 
+> I was thinking more that ethtool operation for reporting link on
+> the team device should use the proper check rather than just using netif_carrier_ok(),
+> the team ethtool operation for get_link should be check IFF_RUNNING flag
+> in dev->flags which is controlled by operstate transistions.
 
-The -i option goes max,min iterations:
+That's not entirely sufficient, because not everything uses ethtool to
+deterine whether the link/carrier is active.  eg, anything listenting to
+netlink for IFF_RUNNING won't know anything about this.  I may have
+missed previous conversation, but IFF_RUNNING is AFAIK the sole
+mechanism to indicate to userspace that the link is operational and
+ready for general traffic.  Can the team drivers simply not set
+IFF_RUNNING until the interface is actually ready for general traffic?
 
-http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#index-g_t_002di_002c-Global-28
+I'd just caution people to be careful when it comes to carrier/link
+states, as a lot of stuff relies on it, and people keep trying to
+slightly change the meaning of it.  We need it to be consistent across
+net interfaces and driver implementations, not have specific meanings to
+certain drivers that don't apply to others.
 
-and src/netsh.c will apply some silent clipping to that:
+If teamd needs to manage the carrier state of the teamX interface,
+perhaps instead of munging the actual carrier state itself, it can flip
+some team-private value that is one component of determining whether
+IFF_RUNNING gets set or not?
 
-
-     case 'i':
-       /* set the iterations min and max for confidence intervals */
-       break_args(optarg,arg1,arg2);
-       if (arg1[0]) {
-	iteration_max = convert(arg1);
-       }
-       if (arg2[0] ) {
-	iteration_min = convert(arg2);
-       }
-       /* if the iteration_max is < iteration_min make iteration_max
-	 equal iteration_min */
-       if (iteration_max < iteration_min) iteration_max = iteration_min;
-       /* limit minimum to 3 iterations */
-       if (iteration_max < 3) iteration_max = 3;
-       if (iteration_min < 3) iteration_min = 3;
-       /* limit maximum to 30 iterations */
-       if (iteration_max > 30) iteration_max = 30;
-       if (iteration_min > 30) iteration_min = 30;
-       if (confidence_level == 0) confidence_level = 99;
-       if (interval == 0.0) interval = 0.05; /* five percent */
-       break;
-
-So, what will happen with your netperf command line above is it will set 
-iteration max to 10 iterations and it will always run 10 iterations 
-since min will equal max.  If you want it to possibly terminate sooner 
-upon hitting the confidence intervals you would want to go with -i 10,3. 
-  That will have netperf always run at least three and no more than 10 
-iterations.
-
-If I'm not mistaken, the use of the "| tail -n 1" there will cause the 
-"classic" confidence intervals not met warning to be tossed (unless I 
-suppose it is actually going to stderr?).
-
-If you use the "omni" tests directly rather than via "migration" you 
-will no longer get warnings about not hitting the confidence interval, 
-but you can have netperf emit the confidence level it actually achieved 
-as well as the number of iterations it took to get there.  You would use 
-the omni output selection to do that.
-
-http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Omni-Output-Selection
-
-
-These may have been mentioned before...
-
-Judging from that command line you have the potential variability of the 
-socket buffer auto-tuning.  Does AF_UNIX do the same sort of auto 
-tuning?  It may be desirable to add some test-specific -s and -S options 
-to have a fixed socket buffer size.
-
-Since the MTU for loopback is ~16K, the send sizes below that will 
-probably have differing interactions with the Nagle algorithm. 
-Particularly as I suspect the timing will differ between friends and no 
-friends.
-
-I would guess the most "consistent" comparison with AF_UNIX would be 
-when Nagle is disabled for the TCP_STREAM tests.  That would be a 
-test-specific -D option.
-
-Perhaps a more "stable" way to compare friends, no-friends and unix 
-would be to use the _RR tests.  That will be a more direct, less-prone 
-to other heuristics measure of path-length differences - both in the 
-reported transactions per second and in any CPU utilization/service 
-demand if you enable that via -c.  I'm not sure it would be necessary to 
-take the request/response size out beyond a couple KB.  Take it out to 
-the MB level and you will probably return to the question of auto-tuning 
-of the socket buffer sizes.
-
-happy benchmarking,
-
-rick jones
+Dan
