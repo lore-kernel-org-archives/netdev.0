@@ -1,79 +1,45 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2 3/6] ip: update mand pages and usage() for 'ip mroute'
-Date: Thu, 13 Dec 2012 14:42:51 +0100
-Message-ID: <1355406174-10586-3-git-send-email-nicolas.dichtel@6wind.com>
-References: <1355406174-10586-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] ndisc: Fix padding error in link-layer address option.
+Date: Thu, 13 Dec 2012 23:29:36 +0900
+Message-ID: <201212131429.qBDETaa6029537@94.43.138.210.xn.2iij.net>
+Cc: yoshfuji@linux-ipv6.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:40567 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753489Ab2LMNpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 08:45:18 -0500
-In-Reply-To: <1355406174-10586-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58742 "EHLO
+	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756668Ab2LMO3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 09:29:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sync with the current code.
+If a natural number n exists where 2 + data_len <= 8n < 2 + data_len + pad,
+post padding is not initialized correctly.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+(Un)fortunately, the only type that requires pad is Infiniband,
+whose pad is 2 and data_len is 20, and this logical error has not
+become obvious, but it is better to fix.
+
+Note that ndisc_opt_addr_space() handles the situation described
+above correctly.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- ip/ipmroute.c        |  2 ++
- man/man8/ip-mroute.8 | 14 +++++++++++---
- 2 files changed, 13 insertions(+), 3 deletions(-)
+ net/ipv6/ndisc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/ip/ipmroute.c b/ip/ipmroute.c
-index defcfc5..345576d 100644
---- a/ip/ipmroute.c
-+++ b/ip/ipmroute.c
-@@ -36,6 +36,8 @@ static void usage(void) __attribute__((noreturn));
- static void usage(void)
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 92909d2..2ed42c8 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -151,8 +151,8 @@ static inline int ndisc_opt_addr_space(struct net_device *dev)
+ static u8 *ndisc_fill_addr_option(u8 *opt, int type, void *data, int data_len,
+ 				  unsigned short addr_type)
  {
- 	fprintf(stderr, "Usage: ip mroute show [ [ to ] PREFIX ] [ from PREFIX ] [ iif DEVICE ]\n");
-+	fprintf(stderr, "                      [ table TABLE_ID ]\n");
-+	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
- #if 0
- 	fprintf(stderr, "Usage: ip mroute [ add | del ] DESTINATION from SOURCE [ iif DEVICE ] [ oif DEVICE ]\n");
- #endif
-diff --git a/man/man8/ip-mroute.8 b/man/man8/ip-mroute.8
-index 98aab88..870df5e 100644
---- a/man/man8/ip-mroute.8
-+++ b/man/man8/ip-mroute.8
-@@ -1,4 +1,4 @@
--.TH IP\-MROUTE 8 "20 Dec 2011" "iproute2" "Linux"
-+.TH IP\-MROUTE 8 "13 Dec 2012" "iproute2" "Linux"
- .SH "NAME"
- ip-mroute \- multicast routing cache management
- .SH "SYNOPSIS"
-@@ -6,12 +6,15 @@ ip-mroute \- multicast routing cache management
- .ad l
- .in +8
- .ti -8
--.BR "ip mroute show" " ["
-+.BR "ip " " [ ip-OPTIONS ] " "mroute show" " [ [ "
-+.BR " to " " ] "
- .IR PREFIX " ] [ "
- .B  from
- .IR PREFIX " ] [ "
- .B  iif
--.IR DEVICE " ]"
-+.IR DEVICE " ] [ "
-+.B table
-+.IR TABLE_ID " ] "
+-	int space = NDISC_OPT_SPACE(data_len);
+ 	int pad   = ndisc_addr_option_pad(addr_type);
++	int space = NDISC_OPT_SPACE(data_len + pad);
  
- .SH DESCRIPTION
- .B mroute
-@@ -42,6 +45,11 @@ the interface on which multicast packets are received.
- .BI from " PREFIX"
- the prefix selecting the IP source addresses of the multicast route.
- 
-+.TP
-+.BI table " TABLE_ID"
-+the table id selecting the multicast table. It can be
-+.BR local ", " main ", " default ", " all " or a number."
-+
- .SH SEE ALSO
- .br
- .BR ip (8)
+ 	opt[0] = type;
+ 	opt[1] = space>>3;
 -- 
-1.8.0.1
+1.7.9.5
