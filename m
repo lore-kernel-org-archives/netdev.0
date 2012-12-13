@@ -1,71 +1,45 @@
-From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
-Date: Thu, 13 Dec 2012 09:34:04 -0800
-Message-ID: <CAOxq_8PuMF2n80g30aXbPFQyo6UfsypZOHREjB36dnnp87nv=A@mail.gmail.com>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	<3246.1351717319@obiwan.sandelman.ca>
-	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	<21992.1351723328@obiwan.sandelman.ca>
-	<alpine.OSX.2.00.1212121205040.78903@animac.local>
-	<50C9936B.2000201@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RFC PATCH net-next 0/5] Ease netns management for userland
+Date: Thu, 13 Dec 2012 18:41:46 +0100
+Message-ID: <50CA135A.7060802@6wind.com>
+References: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com> <87fw3boyxn.fsf@xmission.com> <50C8EEF0.2010201@6wind.com> <87zk1jht7d.fsf@xmission.com> <87sj7beyc1.fsf@xmission.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
-	tcpdump-workers@lists.tcpdump.org,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, aatteka@nicira.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:53462 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755502Ab2LMReF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 12:34:05 -0500
-Received: by mail-ie0-f170.google.com with SMTP id k10so4921700iea.1
-        for <netdev@vger.kernel.org>; Thu, 13 Dec 2012 09:34:04 -0800 (PST)
-In-Reply-To: <50C9936B.2000201@redhat.com>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:51052 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755731Ab2LMRlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 12:41:50 -0500
+Received: by mail-bk0-f46.google.com with SMTP id q16so1247551bkw.19
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2012 09:41:49 -0800 (PST)
+In-Reply-To: <87sj7beyc1.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 13, 2012 at 12:35 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 12/12/2012 10:53 PM, Ani Sinha wrote:
->>>
->>> unsigned int netdev_8021q_inskb = 1;
->>>
->>> ...
->>>         {
->>>                 .ctl_name       = NET_CORE_8021q_INSKB,
->>>                 .procname       = "netdev_8021q_inskb",
->>>                 .data           = &netdev_8021q_inskb,
->>>                 .maxlen         = sizeof(int),
->>>                 .mode           = 0444,
->>>                 .proc_handler   = proc_dointvec
->>>         },
->>>
->>> would seem to do it to me.
->>> Then pcap can fopen("/proc/sys/net/core/netdev_8021q_inskb") and if it
->>> finds it, and it is >0, then do the cmsg thing.
->>>
->>
+Le 12/12/2012 22:48, Eric W. Biederman a =C3=A9crit :
+> ebiederm@xmission.com (Eric W. Biederman) writes:
 >
-> I think it doesn't. Because then you are obviously considering adding one
-> procfs file into /proc/sys/net/core/ *for each* feature that is added into
-> the ancillary ops which cannot be the right way ...
+>> It is very wrong to presume that without context you know the reason=
+ for
+>> the exsitence of any network namespace and that you should or even t=
+hat
+>> you can manage it.  Think of running your multi-network namespace
+>> managing application in a container.
+>
+> A good example of a network namespace you don't want to mess with are
+> the network namespaces created by vsftp and chrome for security purpo=
+ses
+> to remove any possibility of creating new connections to the network.
+>
+Ok, I get the point.
 
-We had already brought up this topic previously in the same thread. A
-suggestion was made to add that proc entry and no one from netdev
-responded to it saying that it did not make any sense. Therefore
-before I went ahead and made the fixes in libpcap, I wanted to run
-this by your guys again to make sure we are still on the same page.
-
-I do agree that instead of a /proc entry, we should check for a kenrel
-version >= X where X is the upstream version that first started
-supporting all the features needed by libpcap for vlan filtering. This
-is not a compile time check but a run time one. Does anyone see any
-issues with this? Is there any long term implications of this, like if
-you backport patches to an older long term supported kernel? Are there
-other better ways to do this, like may be returning feature bits from
-an ioctl call? This is something we need to deal with on a continuous
-basis as we keep supporting newer AUX fields and libpcap and other
-user land code needs to make use of it. At the same time, they need to
-handle backward compatibility issues with older kernels.
-
-Thanks
+A last question: from an administration point of view, is it intended t=
+o
+not be able to monitor which netns are currently used? Like it can be d=
+one
+for sockets, files, ...
