@@ -1,126 +1,55 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
-Date: Thu, 13 Dec 2012 09:35:55 +0100
-Message-ID: <50C9936B.2000201@redhat.com>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com> <3246.1351717319@obiwan.sandelman.ca> <CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com> <21992.1351723328@obiwan.sandelman.ca> <alpine.OSX.2.00.1212121205040.78903@animac.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
-	tcpdump-workers@lists.tcpdump.org,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>
-To: ani@aristanetworks.com
+From: roy.qing.li@gmail.com
+Subject: [PATCH] xfrm: do not check x->km.state
+Date: Thu, 13 Dec 2012 17:06:00 +0800
+Message-ID: <1355389560-7705-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53051 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752870Ab2LMIgH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2012 03:36:07 -0500
-In-Reply-To: <alpine.OSX.2.00.1212121205040.78903@animac.local>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:54088 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010Ab2LMJGF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 04:06:05 -0500
+Received: by mail-pb0-f46.google.com with SMTP id wy7so1357919pbc.19
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2012 01:06:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/12/2012 10:53 PM, Ani Sinha wrote:
->> unsigned int netdev_8021q_inskb = 1;
->>
->> ...
->> 	{
->> 		.ctl_name	= NET_CORE_8021q_INSKB,
->> 		.procname	= "netdev_8021q_inskb",
->> 		.data		= &netdev_8021q_inskb,
->> 		.maxlen		= sizeof(int),
->> 		.mode		= 0444,
->> 		.proc_handler	= proc_dointvec
->> 	},
->>
->> would seem to do it to me.
->> Then pcap can fopen("/proc/sys/net/core/netdev_8021q_inskb") and if it
->> finds it, and it is >0, then do the cmsg thing.
->>
->
-> Does this work? This is just an experimental patch and by no means final.
-> I just want to have an idea what everyone thought about it. Once we debate
-> and discusss, I can cook up a final patch that would be worth commiting.
->
-> Also instead of having this /proc interface, we can perhaps check for a
-> specific
-> kernel version that :
->
-> (a) has the vlan tag info in the skb metadata (as opposed to in the packet
-> itself)
-> (b) has the following patch that adds the capability to generate a filter
-> based on the tag value :
->
-> commit f3335031b9452baebfe49b8b5e55d3fe0c4677d1
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Sat Oct 27 02:26:17 2012 +0000
->
->      net: filter: add vlan tag access
->
-> WE need both of the above two things for the userland to generate a filter
-> code that compares vlan tag values in the skb metadata. For kernels that
-> has the vlan tag in
-> the skb metadata but does not have the above commit (b), there is nothing
-> that can be done. For older kernels that had the vlan tag info in the
-> packet itself, the filter code can be generated differently to look at
-> specific offsets within the packet (something that libpcap does
-> currently).
->
-> We have already ruled out the idea of generating a filter and trying to
-> load and see if that fails (see previous emails on this thread).
->
-> Hope this makes sense.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-I think it doesn't. Because then you are obviously considering adding one
-procfs file into /proc/sys/net/core/ *for each* feature that is added into
-the ancillary ops which cannot be the right way ...
+do not check x->km.state, it will be checked by succedent
+xfrm_state_check_expire()
 
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index c45eabc..91e2ba3 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -36,6 +36,7 @@ static inline unsigned int sk_filter_len(const struct sk_filter *fp)
->   	return fp->len * sizeof(struct sock_filter) + sizeof(*fp);
->   }
->
-> +extern bool sysctl_8021q_inskb;
->   extern int sk_filter(struct sock *sk, struct sk_buff *skb);
->   extern unsigned int sk_run_filter(const struct sk_buff *skb,
->   				  const struct sock_filter *filter);
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index c23543c..4f5a657 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -41,6 +41,8 @@
->   #include <linux/seccomp.h>
->   #include <linux/if_vlan.h>
->
-> +bool sysctl_8021q_inskb = 1;
-> +
->   /* No hurry in this branch
->    *
->    * Exported for the bpf jit load helper.
-> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-> index d1b0804..f9a3700 100644
-> --- a/net/core/sysctl_net_core.c
-> +++ b/net/core/sysctl_net_core.c
-> @@ -15,6 +15,7 @@
->   #include <linux/init.h>
->   #include <linux/slab.h>
->   #include <linux/kmemleak.h>
-> +#include <linux/filter.h>
->
->   #include <net/ip.h>
->   #include <net/sock.h>
-> @@ -189,6 +190,13 @@ static struct ctl_table net_core_table[] = {
->   		.mode		= 0644,
->   		.proc_handler	= proc_dointvec
->   	},
-> +	{
-> +		.procname	= "8021q_inskb",
-> +		.data		= &sysctl_8021q_inskb,
-> +		.maxlen		= sizeof(bool),
-> +		.mode		= 0444,
-> +		.proc_handler	= proc_dointvec
-> +	},
->   	{ }
->   };
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/ipv6/xfrm6_input.c |    1 -
+ net/xfrm/xfrm_input.c  |    4 ----
+ 2 files changed, 0 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
+index f8c3cf8..de4babd 100644
+--- a/net/ipv6/xfrm6_input.c
++++ b/net/ipv6/xfrm6_input.c
+@@ -108,7 +108,6 @@ int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
+ 		spin_lock(&x->lock);
+ 
+ 		if ((!i || (x->props.flags & XFRM_STATE_WILDRECV)) &&
+-		    likely(x->km.state == XFRM_STATE_VALID) &&
+ 		    !xfrm_state_check_expire(x)) {
+ 			spin_unlock(&x->lock);
+ 			if (x->type->input(x, skb) > 0) {
+diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
+index ab2bb42..a8fbb09 100644
+--- a/net/xfrm/xfrm_input.c
++++ b/net/xfrm/xfrm_input.c
+@@ -163,10 +163,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
+ 		skb->sp->xvec[skb->sp->len++] = x;
+ 
+ 		spin_lock(&x->lock);
+-		if (unlikely(x->km.state != XFRM_STATE_VALID)) {
+-			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEINVALID);
+-			goto drop_unlock;
+-		}
+ 
+ 		if ((x->encap ? x->encap->encap_type : 0) != encap_type) {
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEMISMATCH);
+-- 
+1.7.5.4
