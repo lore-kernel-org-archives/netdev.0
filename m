@@ -1,45 +1,52 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net-next 0/4] net: allow to change carrier from
- userspace
-Date: Thu, 13 Dec 2012 10:09:33 -0800
-Message-ID: <20121213100933.6d68a8e5@nehalam.linuxnetplumber.net>
-References: <20121212170520.GA3060@minipsycho.orion>
-	<20121212092700.7ef2607a@nehalam.linuxnetplumber.net>
-	<20121212181017.GB3060@minipsycho.orion>
-	<20121212101208.361ccda0@nehalam.linuxnetplumber.net>
-	<20121212182556.GC3060@minipsycho.orion>
-	<20121212103632.2020efce@nehalam.linuxnetplumber.net>
-	<20121212184925.GD3060@minipsycho.orion>
-	<20121212105448.490aca5c@nehalam.linuxnetplumber.net>
-	<20121212190613.GE3060@minipsycho.orion>
-	<20121212113433.21c05614@nehalam.linuxnetplumber.net>
-	<20121213161750.GA1914@minipsycho.orion>
-	<50CA0D3D.5000503@gmail.com>
-	<20121213155423.07c47307@obelix.rh>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC] net : add tx timestamp to packet mmap.
+Date: Thu, 13 Dec 2012 19:17:33 +0100
+Message-ID: <20121213181733.GA2312@netboy.at.omicron.at>
+References: <1355326165-12277-1-git-send-email-paul.chavent@onera.fr>
+ <20121213132916.GB10703@netboy.at.omicron.at>
+ <50C9FEC4.5050804@onera.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com,
-	greearb@candelatech.com
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, edumazet@google.com,
+	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
+	ebiederm@xmission.com, netdev@vger.kernel.org
+To: Paul Chavent <Paul.Chavent@onera.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46179 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755115Ab2LMSKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2012 13:10:52 -0500
-In-Reply-To: <20121213155423.07c47307@obelix.rh>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:61572 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755715Ab2LMSRo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 13:17:44 -0500
+Received: by mail-bk0-f46.google.com with SMTP id q16so1270120bkw.19
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2012 10:17:42 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <50C9FEC4.5050804@onera.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 13 Dec 2012 15:54:23 -0200
-Flavio Leitner <fbl@redhat.com> wrote:
+On Thu, Dec 13, 2012 at 05:13:56PM +0100, Paul Chavent wrote:
+> >
+> >In order for time stamps to appear, somebody has to call
+> >skb_tx_timestamp() ...
+> Yes. "Somebody" means "the hardware driver" after completing xmit.
+> That's true ?
 
-> I am saying this because people are used to and there are scripts out
-> there using something like:
-> # ethtool <iface> | grep 'Link'
-> to react an interface failure.
+Yes, the MAC driver must call this helper function, but not many
+drivers do this yet. You didn't say which MAC driver you are using and
+whether it supports Tx SO_TIMESTAMPING or not.
 
-Then the script is broken. It is asking about hardware state.
+> Yes, it only sets some flags. I thought that those flags was
+> required by the skb_tx_timestamp() in order to make the appropriate
+> timestamping (hardware, software, etc).
+> 
+> So in order to have tx timestamp that work, both calls are needed ?
+
+Yes.
+ 
+> Why sock_tx_timestamp is called in packet_fill_skb and
+> packet_sendmsg_spkt and not in tpacket_fill_skb ?
+> Why i can retrieve timestamps when i add this call ?
+
+Sorry, I don't know much about packet mmap. Last time I tried it, some
+years ago, it wasn't really working.
+
+Richard
