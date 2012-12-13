@@ -1,32 +1,63 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: GPF in skb_flow_dissect
-Date: Thu, 13 Dec 2012 10:05:45 -0500
-Message-ID: <20121213150545.GA26819@redhat.com>
-References: <20121213041644.GB1611@redhat.com>
- <1355376177.12271.244.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <erdnetdev@gmail.com>
+From: Yan Burman <yanb@mellanox.com>
+Subject: [PATCH net-next] net: ethool: Document struct ethtool_flow_ext
+Date: Thu, 13 Dec 2012 17:20:59 +0200
+Message-ID: <1355412059-25663-1-git-send-email-yanb@mellanox.com>
+Cc: Yan Burman <yanb@mellanox.com>
+To: "Or Gerlitz" <ogerlitz@mellanox.com>,
+	"Amir Vadai" <amirv@mellanox.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15378 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755716Ab2LMPFu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2012 10:05:50 -0500
-Content-Disposition: inline
-In-Reply-To: <1355376177.12271.244.camel@edumazet-glaptop>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:40668 "HELO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755360Ab2LMP4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 10:56:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 12, 2012 at 09:22:57PM -0800, Eric Dumazet wrote:
+Add documentation for struct ethtool_flow_ext especially in regard
+to what flags are needed for which fields.
 
- > Yes, commit 7694a3acc55a7 added this bug
- > 
- > Its illegal to use skb after call to netif_rx_ni(skb);
- > 
- > I would try following patch.
+Signed-off-by: Yan Burman <yanb@mellanox.com>
+---
+ include/uapi/linux/ethtool.h | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
-Looks like it does the right thing.  Thanks Eric.
-
-	Dave
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index be8c41e..0c9b448 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -503,9 +503,20 @@ union ethtool_flow_union {
+ 	__u8					hdata[52];
+ };
+ 
++/**
++ * struct ethtool_flow_ext - additional RX flow fields
++ * @h_dest: destination MAC address
++ * @vlan_etype: VLAN EtherType
++ * @vlan_tci: VLAN tag control information
++ * @data: user defined data
++ *
++ * Note, @vlan_etype, @vlan_tci, and @data are only valid if %FLOW_EXT
++ * is set in &struct ethtool_rx_flow_spec @flow_type.
++ * @h_dest is valid if %FLOW_MAC_EXT is set.
++ */
+ struct ethtool_flow_ext {
+ 	__u8		padding[2];
+-	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
++	unsigned char	h_dest[ETH_ALEN];
+ 	__be16		vlan_etype;
+ 	__be16		vlan_tci;
+ 	__be32		data[2];
+@@ -519,7 +530,8 @@ struct ethtool_flow_ext {
+  * @m_u: Masks for flow field bits to be matched
+  * @m_ext: Masks for additional field bits to be matched
+  *	Note, all additional fields must be ignored unless @flow_type
+- *	includes the %FLOW_EXT flag.
++ *	includes the %FLOW_EXT or %FLOW_MAC_EXT flag
++ *	(see &struct ethtool_flow_ext description).
+  * @ring_cookie: RX ring/queue index to deliver to, or %RX_CLS_FLOW_DISC
+  *	if packets should be discarded
+  * @location: Location of rule in the table.  Locations must be
+-- 
+1.7.11.3
