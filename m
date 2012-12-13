@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: GPF in skb_flow_dissect
-Date: Thu, 13 Dec 2012 13:01:27 -0500 (EST)
-Message-ID: <20121213.130127.1341933416292443904.davem@davemloft.net>
-References: <20121213041644.GB1611@redhat.com>
-	<1355376177.12271.244.camel@edumazet-glaptop>
+Subject: Re: [PATCH] ndisc: Fix padding error in link-layer address option.
+Date: Thu, 13 Dec 2012 13:01:45 -0500 (EST)
+Message-ID: <20121213.130145.1818787055621467467.davem@davemloft.net>
+References: <201212131429.qBDETaa6029537@94.43.138.210.xn.2iij.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, jasowang@redhat.com, netdev@vger.kernel.org
-To: erdnetdev@gmail.com
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39869 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39877 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755684Ab2LMSBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 13:01:31 -0500
-In-Reply-To: <1355376177.12271.244.camel@edumazet-glaptop>
+	with ESMTP id S1755684Ab2LMSBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 13:01:49 -0500
+In-Reply-To: <201212131429.qBDETaa6029537@94.43.138.210.xn.2iij.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <erdnetdev@gmail.com>
-Date: Wed, 12 Dec 2012 21:22:57 -0800
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Thu, 13 Dec 2012 23:29:36 +0900
 
-> [PATCH] tuntap: dont use skb after netif_rx_ni(skb)
+> If a natural number n exists where 2 + data_len <= 8n < 2 + data_len + pad,
+> post padding is not initialized correctly.
 > 
-> commit 96442e4242 (tuntap: choose the txq based on rxq) added
-> a use after free.
+> (Un)fortunately, the only type that requires pad is Infiniband,
+> whose pad is 2 and data_len is 20, and this logical error has not
+> become obvious, but it is better to fix.
 > 
-> Cache rxhash in a temp variable before calling netif_rx_ni()
+> Note that ndisc_opt_addr_space() handles the situation described
+> above correctly.
 > 
-> Reported-by: Dave Jones <davej@redhat.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
 Applied.
