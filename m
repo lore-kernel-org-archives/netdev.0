@@ -1,43 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv6: Change skb->data before using icmpv6_notify()
- to propagate redirect
-Date: Thu, 13 Dec 2012 12:59:11 -0500 (EST)
-Message-ID: <20121213.125911.566802923957164958.davem@davemloft.net>
-References: <50C9BA41.1010507@gmail.com>
+Subject: Re: remove noisy message from llcp_sock_sendmsg
+Date: Thu, 13 Dec 2012 13:01:14 -0500 (EST)
+Message-ID: <20121213.130114.1371460838800683919.davem@davemloft.net>
+References: <20121213041134.GA1611@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: djduanjiong@gmail.com
+Cc: netdev@vger.kernel.org
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39828 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39862 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755904Ab2LMR7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 12:59:16 -0500
-In-Reply-To: <50C9BA41.1010507@gmail.com>
+	with ESMTP id S1755865Ab2LMSBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 13:01:18 -0500
+In-Reply-To: <20121213041134.GA1611@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <djduanjiong@gmail.com>
-Date: Thu, 13 Dec 2012 19:21:37 +0800
+From: Dave Jones <davej@redhat.com>
+Date: Wed, 12 Dec 2012 23:11:34 -0500
 
-> +	if (!ndisc_parse_options(msg->opt, ndoptlen, &ndopts)) {
-> +		ND_PRINTK(2, warn,
-> +			  "Redirect: invalid ND options\n");
+> This is easily triggerable when fuzz-testing as an unprivileged user.
+> We could rate-limit it, but given we don't print similar messages
+> for other protocols, I just removed it.
+> 
+> Signed-off-by: Dave Jones <davej@redhat.com>
 
-Do not add more uses of such baroque kernel logging mechanisms.
+Applied.
 
-> +	if (!ndopts.nd_opts_rh) {
-> +		return;
-> +	}
+Please provide appropriate "xxx: " prefixes in your subject lines
+for patch submissions.  "nfc: " would have been appropriate for
+this one.
 
-Single statement basic blocks should never be surrounded by
-curly braces, they just waste lines.
-
-> +	hdr = (u8 *)ndopts.nd_opts_rh;
-
-(u8 *)[SPACE]ndopts...
-
-> +	if(!pskb_pull(skb, hdr - skb_transport_header(skb))) {
-
-if[SPACE](...
+Thanks.
