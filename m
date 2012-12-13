@@ -1,41 +1,116 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv6: Change skb->data before using icmpv6_notify()
- to propagate redirect
-Date: Thu, 13 Dec 2012 14:50:28 -0500 (EST)
-Message-ID: <20121213.145028.509906659453424680.davem@davemloft.net>
-References: <50C9BA41.1010507@gmail.com>
-	<20121213.125911.566802923957164958.davem@davemloft.net>
-	<1355427432.13796.43.camel@joe-AO722>
+From: John Greene <jogreene@redhat.com>
+Subject: Re: [RFT PATCH] 8139cp: properly support change of MTU values [v2]
+Date: Thu, 13 Dec 2012 14:56:41 -0500
+Message-ID: <50CA32F9.4090807@redhat.com>
+References: <1354551573-23721-1-git-send-email-jogreene@redhat.com> <20121203.135200.1242505353532930826.davem@davemloft.net> <20121203204608.GA9815@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: djduanjiong@gmail.com, steffen.klassert@secunet.com,
-	netdev@vger.kernel.org
-To: joe@perches.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	dwmw2@infradead.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40636 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754791Ab2LMTuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 14:50:32 -0500
-In-Reply-To: <1355427432.13796.43.camel@joe-AO722>
+Received: from mx1.redhat.com ([209.132.183.28]:3372 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755779Ab2LMT4x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2012 14:56:53 -0500
+In-Reply-To: <20121203204608.GA9815@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 13 Dec 2012 11:37:12 -0800
-
-> On Thu, 2012-12-13 at 12:59 -0500, David Miller wrote:
->> > +     hdr = (u8 *)ndopts.nd_opts_rh;
->> 
->> (u8 *)[SPACE]ndopts...
-> 
-> Really?
-> 
-> checkpatch bleats a --strict message:
-> 
-> CHECK: No space is necessary after a cast
-> #5: FILE: t.c:5:
+On 12/03/2012 03:46 PM, Francois Romieu wrote:
+> David Miller <davem@davemloft.net> :
+> [...]
+>> I've applied this to net-next, if it triggers any problems we have
+>> some time to work it out before 3.8 is released.
+>
+> I have bounced the messages to David Woodhouse since he authored the
+> last 8139cp changes in net-next and owns the hardware to notice
+> regressions.
+>
+> My message of two days ago was wrong : it is not possible for the irq
+> handler to process a Tx event after the rings have been freed. Things
+> still look racy wrt netpoll though.
+>
+> Any objection against the patch below ?
+>
+> (I did not gotoize the dev == NULL test: it is really unlikely and
+> should go away).
+>
+> diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+> index 0da3f5e..57cd542 100644
+> --- a/drivers/net/ethernet/realtek/8139cp.c
+> +++ b/drivers/net/ethernet/realtek/8139cp.c
+> @@ -577,28 +577,30 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+>   {
+>   	struct net_device *dev = dev_instance;
+>   	struct cp_private *cp;
+> +	int handled = 0;
+>   	u16 status;
+>
+>   	if (unlikely(dev == NULL))
+>   		return IRQ_NONE;
+>   	cp = netdev_priv(dev);
+>
+> +	spin_lock(&cp->lock);
 > +
-> +	bar = *(int *) foo;
+>   	status = cpr16(IntrStatus);
+>   	if (!status || (status == 0xFFFF))
+> -		return IRQ_NONE;
+> +		goto out_unlock;
+> +
+> +	handled = 1;
+>
+>   	netif_dbg(cp, intr, dev, "intr, status %04x cmd %02x cpcmd %04x\n",
+>   		  status, cpr8(Cmd), cpr16(CpCmd));
+>
+>   	cpw16(IntrStatus, status & ~cp_rx_intr_mask);
+>
+> -	spin_lock(&cp->lock);
+> -
+>   	/* close possible race's with dev_close */
+>   	if (unlikely(!netif_running(dev))) {
+>   		cpw16(IntrMask, 0);
+> -		spin_unlock(&cp->lock);
+> -		return IRQ_HANDLED;
+> +		goto out_unlock;
+>   	}
+>
+>   	if (status & (RxOK | RxErr | RxEmpty | RxFIFOOvr))
+> @@ -612,8 +614,6 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+>   	if (status & LinkChg)
+>   		mii_check_media(&cp->mii_if, netif_msg_link(cp), false);
+>
+> -	spin_unlock(&cp->lock);
+> -
+>   	if (status & PciErr) {
+>   		u16 pci_status;
+>
+> @@ -625,7 +625,10 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+>   		/* TODO: reset hardware */
+>   	}
+>
+> -	return IRQ_HANDLED;
+> +out_unlock:
+> +	spin_unlock(&cp->lock);
+> +
+> +	return IRQ_RETVAL(handled);
+>   }
+>
+>   #ifdef CONFIG_NET_POLL_CONTROLLER
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+Francois,
 
-Ho hum, I'm actually ambivalent about this so...
+Have incorporated this and test it on virtual hardware with on top of
+  cb64edb6b89491edfdbae52ba7db9a8b8391d339 (my original work now 
+upstream).  I plan to submit your work herein upstream as well, with 
+attribution to you, if that's ok?
+
+
+-- 
+John Greene
+jogreene@redhat.com
