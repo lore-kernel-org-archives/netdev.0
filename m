@@ -1,63 +1,66 @@
-From: Yan Burman <yanb@mellanox.com>
-Subject: [PATCH net-next] net: ethool: Document struct ethtool_flow_ext
-Date: Thu, 13 Dec 2012 17:20:59 +0200
-Message-ID: <1355412059-25663-1-git-send-email-yanb@mellanox.com>
-Cc: Yan Burman <yanb@mellanox.com>
-To: "Or Gerlitz" <ogerlitz@mellanox.com>,
-	"Amir Vadai" <amirv@mellanox.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Ben Hutchings" <bhutchings@solarflare.com>
+From: Paul Chavent <Paul.Chavent@onera.fr>
+Subject: Re: [RFC] net : add tx timestamp to packet mmap.
+Date: Thu, 13 Dec 2012 17:13:56 +0100
+Message-ID: <50C9FEC4.5050804@onera.fr>
+References: <1355326165-12277-1-git-send-email-paul.chavent@onera.fr> <20121213132916.GB10703@netboy.at.omicron.at>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, edumazet@google.com,
+	daniel.borkmann@tik.ee.ethz.ch, xemul@parallels.com,
+	ebiederm@xmission.com, netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:40668 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755360Ab2LMP4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 10:56:50 -0500
+Received: from briaree.onecert.fr ([134.212.190.4]:43167 "EHLO
+	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755733Ab2LMQQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 11:16:35 -0500
+In-Reply-To: <20121213132916.GB10703@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add documentation for struct ethtool_flow_ext especially in regard
-to what flags are needed for which fields.
+Hello.
 
-Signed-off-by: Yan Burman <yanb@mellanox.com>
----
- include/uapi/linux/ethtool.h | 16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+On 12/13/2012 02:29 PM, Richard Cochran wrote:
+> On Wed, Dec 12, 2012 at 04:29:25PM +0100, Paul Chavent wrote:
+>> This patch allow to generate tx timestamps of packets sent by the packet mmap interface.
+>>
+>> Actually, you can't get tx timestamps with the sample code below.
+>>
+>> I wonder if my current implementation is good. And if not, how should i get the timestamps ?
+>
+> In order for time stamps to appear, somebody has to call
+> skb_tx_timestamp() ...
+Yes. "Somebody" means "the hardware driver" after completing xmit. 
+That's true ?
 
-diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-index be8c41e..0c9b448 100644
---- a/include/uapi/linux/ethtool.h
-+++ b/include/uapi/linux/ethtool.h
-@@ -503,9 +503,20 @@ union ethtool_flow_union {
- 	__u8					hdata[52];
- };
- 
-+/**
-+ * struct ethtool_flow_ext - additional RX flow fields
-+ * @h_dest: destination MAC address
-+ * @vlan_etype: VLAN EtherType
-+ * @vlan_tci: VLAN tag control information
-+ * @data: user defined data
-+ *
-+ * Note, @vlan_etype, @vlan_tci, and @data are only valid if %FLOW_EXT
-+ * is set in &struct ethtool_rx_flow_spec @flow_type.
-+ * @h_dest is valid if %FLOW_MAC_EXT is set.
-+ */
- struct ethtool_flow_ext {
- 	__u8		padding[2];
--	unsigned char	h_dest[ETH_ALEN];	/* destination eth addr	*/
-+	unsigned char	h_dest[ETH_ALEN];
- 	__be16		vlan_etype;
- 	__be16		vlan_tci;
- 	__be32		data[2];
-@@ -519,7 +530,8 @@ struct ethtool_flow_ext {
-  * @m_u: Masks for flow field bits to be matched
-  * @m_ext: Masks for additional field bits to be matched
-  *	Note, all additional fields must be ignored unless @flow_type
-- *	includes the %FLOW_EXT flag.
-+ *	includes the %FLOW_EXT or %FLOW_MAC_EXT flag
-+ *	(see &struct ethtool_flow_ext description).
-  * @ring_cookie: RX ring/queue index to deliver to, or %RX_CLS_FLOW_DISC
-  *	if packets should be discarded
-  * @location: Location of rule in the table.  Locations must be
--- 
-1.7.11.3
+>
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index e639645..948748b 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -1857,6 +1857,10 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
+>>   	void *data;
+>>   	int err;
+>>
+>> +	err = sock_tx_timestamp(&po->sk, &skb_shinfo(skb)->tx_flags);
+ >
+ > and this call is only setting some flags.
+
+Yes, it only sets some flags. I thought that those flags was required by 
+the skb_tx_timestamp() in order to make the appropriate timestamping 
+(hardware, software, etc).
+
+So in order to have tx timestamp that work, both calls are needed ?
+
+Why sock_tx_timestamp is called in packet_fill_skb and 
+packet_sendmsg_spkt and not in tpacket_fill_skb ?
+Why i can retrieve timestamps when i add this call ?
+
+>
+> HTH,
+> Richard
+>
+Thank for your help.
+
+Paul.
