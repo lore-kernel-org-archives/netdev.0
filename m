@@ -1,39 +1,40 @@
-From: Paul Chavent <Paul.Chavent@onera.fr>
-Subject: Re: [RFC] net : add tx timestamp to packet mmap.
-Date: Thu, 13 Dec 2012 08:13:04 +0100
-Message-ID: <50C98000.8040108@onera.fr>
-References: <1355326165-12277-1-git-send-email-paul.chavent@onera.fr> <20121212.142327.2290797438095968580.davem@davemloft.net>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH v2] netfilter: nf_nat: Also handle non-ESTABLISHED routing
+ changes in MASQUERADE
+Date: Thu, 13 Dec 2012 09:19:27 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.1212130918410.2048@blackhole.kfki.hu>
+References: <1355358229-25167-1-git-send-email-bsderandrew@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, daniel.borkmann@tik.ee.ethz.ch,
-	xemul@parallels.com, ebiederm@xmission.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Collins <bsderandrew@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from briaree.onecert.fr ([134.212.190.4]:59346 "EHLO
-	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751366Ab2LMHPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 02:15:38 -0500
-In-Reply-To: <20121212.142327.2290797438095968580.davem@davemloft.net>
+Received: from smtp1.kfki.hu ([148.6.0.26]:33841 "EHLO smtp1.kfki.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752802Ab2LMITb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2012 03:19:31 -0500
+In-Reply-To: <1355358229-25167-1-git-send-email-bsderandrew@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 12 Dec 2012, Andrew Collins wrote:
 
-After a sendmsg, we have to call recvmsg on the ERRQUEUE to get 
-timestamp. I find that unfortunate indeed...
+> The MASQUERADE target now handles routing changes which affect
+> the output interface of a connection, but only for ESTABLISHED
+> connections.  It is also possible for NEW connections which
+> already have a conntrack entry to be affected by routing changes.
+> 
+> This adds a check to drop entries in the NEW+conntrack state
+> when the oif has changed.
+> 
+> Signed-off-by: Andrew Collins <bsderandrew@gmail.com>
 
-So this patch fix the tx timestamping (that take place in sendmsg), in 
-order to be able to get timestamp (via recvmsg).
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-This seems suboptimal to me, that why i also ask if it wouldn't be 
-possible to put the timestamp in the ring buffer frame before give it 
-back to user.
-
-Thanks for your reading.
-
-
-On 12/12/2012 08:23 PM, David Miller wrote:
->
-> You're changing the code that handles sendmsg() and then wondering why
-> a recvmsg() call doesn't provide a timestamp.
->
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
