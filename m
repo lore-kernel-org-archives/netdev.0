@@ -1,181 +1,97 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [PATCH] Fix: kmemleak in tcp_v4/6_syn_recv_sock and dccp_v4/6_request_recv_sock
-Date: Thu, 13 Dec 2012 22:49:23 +0100
-Message-ID: <1355435363-12766-1-git-send-email-christoph.paasch@uclouvain.be>
-Cc: Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	dccp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
+Date: Thu, 13 Dec 2012 22:49:38 +0100
+Message-ID: <CAD6jFUTht82HOjGjDU7hFCEWyE3TOx_W4_j=SZK-DrcGfrio-A@mail.gmail.com>
+References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
+	<3246.1351717319@obiwan.sandelman.ca>
+	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
+	<21992.1351723328@obiwan.sandelman.ca>
+	<alpine.OSX.2.00.1212121205040.78903@animac.local>
+	<50C9936B.2000201@redhat.com>
+	<CAOxq_8PuMF2n80g30aXbPFQyo6UfsypZOHREjB36dnnp87nv=A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
+	tcpdump-workers@lists.tcpdump.org,
+	Francesco Ruggeri <fruggeri@aristanetworks.com>
+To: Ani Sinha <ani@aristanetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:60237 "EHLO
-	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753482Ab2LMVtc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 16:49:32 -0500
+Received: from www62.your-server.de ([213.133.104.62]:52131 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755699Ab2LMVtr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 16:49:47 -0500
+Received: from [78.46.5.203] (helo=sslproxy01.your-server.de)
+	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.74)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TjGf3-0004PF-K3
+	for netdev@vger.kernel.org; Thu, 13 Dec 2012 22:49:45 +0100
+Received: from [209.85.215.174] (helo=mail-ea0-f174.google.com)
+	by sslproxy01.your-server.de with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
+	(Exim 4.72)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TjGf8-00031R-C3
+	for netdev@vger.kernel.org; Thu, 13 Dec 2012 22:49:50 +0100
+Received: by mail-ea0-f174.google.com with SMTP id e13so971469eaa.19
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2012 13:49:38 -0800 (PST)
+In-Reply-To: <CAOxq_8PuMF2n80g30aXbPFQyo6UfsypZOHREjB36dnnp87nv=A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If in either of the above functions inet_csk_route_child_sock() or
-__inet_inherit_port() fails, the newsk will not be freed:
+On Thu, Dec 13, 2012 at 6:34 PM, Ani Sinha <ani@aristanetworks.com> wrote:
+> On Thu, Dec 13, 2012 at 12:35 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> On 12/12/2012 10:53 PM, Ani Sinha wrote:
+>>>>
+>>>> unsigned int netdev_8021q_inskb = 1;
+>>>>
+>>>> ...
+>>>>         {
+>>>>                 .ctl_name       = NET_CORE_8021q_INSKB,
+>>>>                 .procname       = "netdev_8021q_inskb",
+>>>>                 .data           = &netdev_8021q_inskb,
+>>>>                 .maxlen         = sizeof(int),
+>>>>                 .mode           = 0444,
+>>>>                 .proc_handler   = proc_dointvec
+>>>>         },
+>>>>
+>>>> would seem to do it to me.
+>>>> Then pcap can fopen("/proc/sys/net/core/netdev_8021q_inskb") and if it
+>>>> finds it, and it is >0, then do the cmsg thing.
+>>>>
+>>
+>> I think it doesn't. Because then you are obviously considering adding one
+>> procfs file into /proc/sys/net/core/ *for each* feature that is added into
+>> the ancillary ops which cannot be the right way ...
+>
+> We had already brought up this topic previously in the same thread. A
+> suggestion was made to add that proc entry and no one from netdev
+> responded to it saying that it did not make any sense. Therefore
+> before I went ahead and made the fixes in libpcap, I wanted to run
+> this by your guys again to make sure we are still on the same page.
 
-unreferenced object 0xffff88022e8a92c0 (size 1592):
-  comm "softirq", pid 0, jiffies 4294946244 (age 726.160s)
-  hex dump (first 32 bytes):
-    0a 01 01 01 0a 01 01 02 00 00 00 00 a7 cc 16 00  ................
-    02 00 03 01 00 00 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffff8153d190>] kmemleak_alloc+0x21/0x3e
-    [<ffffffff810ab3e7>] kmem_cache_alloc+0xb5/0xc5
-    [<ffffffff8149b65b>] sk_prot_alloc.isra.53+0x2b/0xcd
-    [<ffffffff8149b784>] sk_clone_lock+0x16/0x21e
-    [<ffffffff814d711a>] inet_csk_clone_lock+0x10/0x7b
-    [<ffffffff814ebbc3>] tcp_create_openreq_child+0x21/0x481
-    [<ffffffff814e8fa5>] tcp_v4_syn_recv_sock+0x3a/0x23b
-    [<ffffffff814ec5ba>] tcp_check_req+0x29f/0x416
-    [<ffffffff814e8e10>] tcp_v4_do_rcv+0x161/0x2bc
-    [<ffffffff814eb917>] tcp_v4_rcv+0x6c9/0x701
-    [<ffffffff814cea9f>] ip_local_deliver_finish+0x70/0xc4
-    [<ffffffff814cec20>] ip_local_deliver+0x4e/0x7f
-    [<ffffffff814ce9f8>] ip_rcv_finish+0x1fc/0x233
-    [<ffffffff814cee68>] ip_rcv+0x217/0x267
-    [<ffffffff814a7bbe>] __netif_receive_skb+0x49e/0x553
-    [<ffffffff814a7cc3>] netif_receive_skb+0x50/0x82
+Well, not everyone on netdev might be following this thread (resp.
+following fully). The best way to get responses for a patch is to go
+through the normal patch submission process on netdev, and if you like
+to request for comments, then mark it as RFC in the subject. This way,
+people will know and likely comment on it if it makes sense or not.
 
-This happens, because sk_clone_lock initializes sk_refcnt to 2, and thus
-a single sock_put() is not enough to free the memory. Additionally, things
-like xfrm, memcg, cookie_values,... may have been initialized.
-We have to free them properly.
+> I do agree that instead of a /proc entry, we should check for a kenrel
+> version >= X where X is the upstream version that first started
+> supporting all the features needed by libpcap for vlan filtering. This
+> is not a compile time check but a run time one. Does anyone see any
+> issues with this? Is there any long term implications of this, like if
+> you backport patches to an older long term supported kernel? Are there
+> other better ways to do this, like may be returning feature bits from
+> an ioctl call? This is something we need to deal with on a continuous
+> basis as we keep supporting newer AUX fields and libpcap and other
+> user land code needs to make use of it. At the same time, they need to
+> handle backward compatibility issues with older kernels.
 
-This is fixed by forcing a call to tcp_done(), ending up in
-inet_csk_destroy_sock, doing the final sock_put(). tcp_done() is necessary,
-because it ends up doing all the cleanup on xfrm, memcg, cookie_values,
-xfrm,...
-
-Before calling tcp_done, we have to set the socket to SOCK_DEAD, to
-force it entering inet_csk_destroy_sock. To avoid the warning in
-inet_csk_destroy_sock, inet_num has to be set to 0.
-As inet_csk_destroy_sock does a dec on orphan_count, we first have to
-increase it.
-
-Calling tcp_done() allows us to remove the calls to
-tcp_clear_xmit_timer() and tcp_cleanup_congestion_control().
-
-A similar approach is taken for dccp by calling dccp_done().
-
-This probably should be backported to kernels >= 3.0 as it is in the
-kernel since 0e734419923bd (ipv4: Use inet_csk_route_child_sock() in
-DCCP and TCP.).
-
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
----
- include/net/inet_connection_sock.h |    1 +
- net/dccp/ipv4.c                    |    4 ++--
- net/dccp/ipv6.c                    |    3 ++-
- net/ipv4/inet_connection_sock.c    |   16 ++++++++++++++++
- net/ipv4/tcp_ipv4.c                |    6 ++----
- net/ipv6/tcp_ipv6.c                |    3 ++-
- 6 files changed, 25 insertions(+), 8 deletions(-)
-
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index ba1d361..1832927 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -318,6 +318,7 @@ extern void inet_csk_reqsk_queue_prune(struct sock *parent,
- 				       const unsigned long max_rto);
- 
- extern void inet_csk_destroy_sock(struct sock *sk);
-+extern void inet_csk_prepare_forced_close(struct sock *sk);
- 
- /*
-  * LISTEN is a special case for poll..
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 176ecdb..4f9f5eb 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -439,8 +439,8 @@ exit:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
- 	return NULL;
- put_and_exit:
--	bh_unlock_sock(newsk);
--	sock_put(newsk);
-+	inet_csk_prepare_forced_close(newsk);
-+	dccp_done(newsk);
- 	goto exit;
- }
- 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 56840b2..6e05981 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -585,7 +585,8 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
- 	newinet->inet_rcv_saddr = LOOPBACK4_IPV6;
- 
- 	if (__inet_inherit_port(sk, newsk) < 0) {
--		sock_put(newsk);
-+		inet_csk_prepare_forced_close(newsk);
-+		dccp_done(newsk);
- 		goto out;
- 	}
- 	__inet6_hash(newsk, NULL);
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 2026542..d0670f0 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -710,6 +710,22 @@ void inet_csk_destroy_sock(struct sock *sk)
- }
- EXPORT_SYMBOL(inet_csk_destroy_sock);
- 
-+/* This function allows to force a closure of a socket after the call to
-+ * tcp/dccp_create_openreq_child().
-+ */
-+void inet_csk_prepare_forced_close(struct sock *sk)
-+{
-+	/* sk_clone_lock locked the socket and set refcnt to 2 */
-+	bh_unlock_sock(sk);
-+	sock_put(sk);
-+
-+	/* The below has to be done to allow calling inet_csk_destroy_sock */
-+	sock_set_flag(sk, SOCK_DEAD);
-+	percpu_counter_inc(sk->sk_prot->orphan_count);
-+	inet_sk(sk)->inet_num = 0;
-+}
-+EXPORT_SYMBOL(inet_csk_prepare_forced_close);
-+
- int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
- {
- 	struct inet_sock *inet = inet_sk(sk);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 1ed2307..54139fa 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1767,10 +1767,8 @@ exit:
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
- 	return NULL;
- put_and_exit:
--	tcp_clear_xmit_timers(newsk);
--	tcp_cleanup_congestion_control(newsk);
--	bh_unlock_sock(newsk);
--	sock_put(newsk);
-+	inet_csk_prepare_forced_close(newsk);
-+	tcp_done(newsk);
- 	goto exit;
- }
- EXPORT_SYMBOL(tcp_v4_syn_recv_sock);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 6565cf5..93825dd 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1288,7 +1288,8 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- #endif
- 
- 	if (__inet_inherit_port(sk, newsk) < 0) {
--		sock_put(newsk);
-+		inet_csk_prepare_forced_close(newsk);
-+		tcp_done(newsk);
- 		goto out;
- 	}
- 	__inet6_hash(newsk, NULL);
--- 
-1.7.10.4
+As Eric mentioned earlier, for now there seems not to be a reliable
+way to get to know which ops are present and which not. It's not
+really nice, but if you want to make use of those new (ANC*) features,
+probably checking kernel version might be the only way if I'm not
+missing something. Now net-next is closed, but if it reopens, I'll
+submit a version 2 of my patch where you've been CC'd to. If it gets
+in, then at least it's for sure that since kernel <xyz> this kind of
+feature test is present.
