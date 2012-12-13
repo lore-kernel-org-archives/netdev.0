@@ -1,93 +1,143 @@
-From: Weiping Pan <wpan@redhat.com>
-Subject: Re: [RFC PATCH net-next 4/4 V4] try to fix performance regression
-Date: Thu, 13 Dec 2012 22:09:12 +0800
-Message-ID: <50C9E188.8080503@redhat.com>
-References: <20121210.160230.1883556145617090938.davem@davemloft.net>	 <5e333588f6cb48cc3464b2263dcaa734b952e4c1.1355320534.git.wpan@redhat.com> <1355329523.9139.578.camel@edumazet-glaptop>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: netconsole fun
+Date: Thu, 13 Dec 2012 09:49:31 -0500
+Message-ID: <1355410171.2605.17.camel@thor>
+References: <1355149033.3142.14.camel@thor> <ka6e4e$6k5$1@ger.gmane.org>
+	 <1355235592.2694.5.camel@thor>
+	 <20121211143004.GA7481@neilslaptop.think-freely.org>
+	 <1355239011.2694.24.camel@thor>
+	 <20121211164526.GB7481@neilslaptop.think-freely.org>
+	 <1355345957.2687.18.camel@thor>
+	 <20121213123611.GA12269@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, brutus@google.com, netdev@vger.kernel.org
-To: Eric Dumazet <erdnetdev@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50237 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932645Ab2LMOJK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2012 09:09:10 -0500
-In-Reply-To: <1355329523.9139.578.camel@edumazet-glaptop>
+Received: from mailout39.mail01.mtsvc.net ([216.70.64.83]:38972 "EHLO
+	n12.mail01.mtsvc.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750860Ab2LMOtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 09:49:42 -0500
+In-Reply-To: <20121213123611.GA12269@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/13/2012 12:25 AM, Eric Dumazet wrote:
-> On Wed, 2012-12-12 at 22:29 +0800, Weiping Pan wrote:
->
->>          MS       BASE    AF_UNIX    FRIENDS            TCP_STREAM_MS
->>           1      10.70       5.40       4.02   37%   74%
->>           2      28.01       9.67       7.97   28%   82%
->>           4      55.53      19.78      16.48   29%   83%
->>           8     115.40      38.22      33.51   29%   87%
->>          16     227.31      81.06      67.70   29%   83%
->>          32     446.20     166.59     129.31   28%   77%
->>          64     849.04     336.77     259.43   30%   77%
->>         128    1440.50     661.88     530.43   36%   80%
->>         256    2404.70    1279.67    1029.15   42%   80%
->>         512    4331.53    2501.30    1942.21   44%   77%
->>        1024    6819.78    4622.37    4128.10   60%   89%
->>        2048   10544.60    6348.81    6349.59   60%  100%
->>        4096   12830.41    8324.43    7984.43   62%   95%
->>        8192   13462.65    8355.49   11079.37   82%  132%
->>       16384    9960.87   10840.13   13037.81  130%  120%
->>       32768    8749.31   11372.15   15087.08  172%  132%
->>       65536    7580.27   12150.23   14971.42  197%  123%
->>      131072    6727.74   11451.34   13604.78  202%  118%
->>      262144    7673.14   11613.10   11436.97  149%   98%
->>      524288    7366.17   11675.95   11559.43  156%   99%
->>     1048576    6608.57   11883.01   10103.20  152%   85%
->> MS means Message Size in bytes, that is -m -M for netperf
-> I cant reproduce your strange numbers here, they make no sense to me.
->
-> for s in 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768
-> 65536 131072 262144 524288 1048576
-> do
->   ./netperf -- -m $s -M $s | tail -n1
-> done
->
-> Results :
->
-> 87380  16384      1    10.00      34.68
->   87380  16384      2    10.00      68.07
->   87380  16384      4    10.00     126.27
->   87380  16384      8    10.00     284.50
->   87380  16384     16    10.00     574.38
->   87380  16384     32    10.00    1091.74
->   87380  16384     64    10.00    2130.23
->   87380  16384    128    10.00    4001.83
->   87380  16384    256    10.00    7666.01
->   87380  16384    512    10.00    13425.81
->   87380  16384   1024    10.00    21146.43
->   87380  16384   2048    10.00    28551.42
->   87380  16384   4096    10.00    37878.95
->   87380  16384   8192    10.00    42507.23
->   87380  16384  16384    10.00    46782.53
->   87380  16384  32768    10.00    42410.97
->   87380  16384  65536    10.00    43053.09
->   87380  16384 131072    10.00    44504.20
->   87380  16384 262144    10.00    50211.74
->   87380  16384 524288    10.00    54004.23
->   87380  16384 1048576    10.00    53852.26
->
->
->
-Hi, Eric,
+On Thu, 2012-12-13 at 07:36 -0500, Neil Horman wrote:
+> On Wed, Dec 12, 2012 at 03:59:17PM -0500, Peter Hurley wrote:
+> > On Tue, 2012-12-11 at 11:45 -0500, Neil Horman wrote:
+> > > On Tue, Dec 11, 2012 at 10:16:51AM -0500, Peter Hurley wrote:
+> > > > On Tue, 2012-12-11 at 09:30 -0500, Neil Horman wrote:
+> > > > > On Tue, Dec 11, 2012 at 09:19:52AM -0500, Peter Hurley wrote:
+> > > > > > On Tue, 2012-12-11 at 04:51 +0000, Cong Wang wrote:
+> > > > > > > On Mon, 10 Dec 2012 at 14:17 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
+> > > > > > > > Now that netpoll has been disabled for slaved devices, is there a
+> > > > > > > > recommended method of running netconsole on a machine that has a slaved
+> > > > > > > > device?
+> > > > > > > >
+> > > > > > > 
+> > > > > > > Yes, running it on the master device instead.
+> > > > > > 
+> > > > > > Thanks for the suggestion, but:
+> > > > > > 
+> > > > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.10.99/br0,30000@192.168.10.100/xx:xx:xx:xx:xx:xx
+> > > > > > ...
+> > > > > > [ 5.289869] netpoll: netconsole: local port 6665
+> > > > > > [ 5.289885] netpoll: netconsole: local IP 192.168.10.99
+> > > > > > [ 5.289892] netpoll: netconsole: interface 'br0'
+> > > > > > [ 5.289898] netpoll: netconsole: remote port 30000
+> > > > > > [ 5.289907] netpoll: netconsole: remote IP 192.168.10.100
+> > > > > > [ 5.289914] netpoll: netconsole: remote ethernet address xx:xx:xx:xx:xx:xx
+> > > > > > [ 5.289922] netpoll: netconsole: br0 doesn't exist, aborting
+> > > > > > [ 5.289929] netconsole: cleaning up
+> > > > > > ...
+> > > > > > [ 9.392291] Bridge firewalling registered
+> > > > > > [ 9.396805] device eth1 entered promiscuous mode
+> > > > > > [ 9.418350] eth1:  setting full-duplex.
+> > > > > > [ 9.421268] br0: port 1(eth1) entered forwarding state
+> > > > > > [ 9.423354] br0: port 1(eth1) entered forwarding state
+> > > > > > 
+> > > > > > 
+> > > > > > Is there a way to control or associate network device names prior to
+> > > > > > udev renaming?
+> > > > > > 
+> > > > > That looks like a systemd problem (or more specifically a boot dependency
+> > > > > problem).  You need to modify your netconsole unit/service file to start after
+> > > > > all your networking is up.  NetworkManager provides a dummy service file for
+> > > > > this purpose, called networkmanager-wait-online.service
+> > > > 
+> > > > Ok. So with a single physical network interface that will be bridged,
+> > > > netconsole cannot used for kernel boot messages.
+> > > > 
+> > > > With a machine with multiple nics, is there a way to control device
+> > > > naming so that the interface name to be used by netconsole specified on
+> > > > the boot command line will actually corresponding to the intended
+> > > > device. For example,
+> > > > 
+> > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.1.123/eth0,30000@192.168.1.139/xx:xx:xx:xx:xx:xx
+> > > > ....
+> > > > [ 4.092184] 3c59x: Donald Becker and others.
+> > > > [ 4.092204] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000186cf80.
+> > > > [ 4.094035] tg3.c:v3.125 (September 26, 2012)
+> > > > ....
+> > > > [ 4.125038] tg3 0000:08:00.0 eth1: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
+> > > > [ 4.125055] tg3 0000:08:00.0 eth1: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> > > > [ 4.125062] tg3 0000:08:00.0 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> > > > [ 4.125068] tg3 0000:08:00.0 eth1: dma_rwctrl[76180000] dma_mask[64-bit]
+> > > > 
+> > > > This is attaching netconsole to the wrong device because bus
+> > > > enumeration, and therefore load order, is not consistent from boot to
+> > > > boot.
+> > > > 
+> > > No, theres no way to do that.  As you note device ennumeration isn't consistent
+> > > accross boots, thats why udev creates rules to rename devices based on immutable
+> > > (or semi-immutable) data, like mac addresses, or pci bus locations).  Once that
+> > > happens, you'll have consistent names for your interfaces, and that work will be
+> > > guaranteed to be done after networkmanager has finished opening all the
+> > > interfaces that it needs (hence my suggestion to make netconsole service
+> > > dependent on networkmanager service startup completing).
+> > 
+> > Just wondering if you think something like the patch below is
+> > suitable/acceptable for insulating netconsole from inconsistent device
+> > name scenarios without changing the existing semantics. The basic idea
+> > is to allow an ethernet MAC address in the <dev> field of the
+> > netconsole= options, and if a MAC address was specified rather than a
+> > device name, to do the dev lookup from the MAC address instead.
+> > 
+> > This doesn't extend to, but also doesn't interfere with, the dynamic
+> > config of netconsole via configfs.
+> > 
+> > Would you mind reviewing it?
+> > 
+> > Regards,
+> > Peter
+> > 
+> This looks like a pretty good idea to me.  That said, something occured to me
+> when you wrote your summary above.  Have you looked at the netconsole service
+> scripts that most distros provide in their packaging?  I'm almost positive Red
+> Hat/Fedora (and also like Suse and Ubuntu), already implement this functionality
+> from user space.  Basically, instead of people just modprobing netconsole, they
+> create a service script that parses a config file that has contains all the
+> options needed to load the netconsole module, and it has the intellegence to see
+> if you specified a mac address rather than a device.  If you did that it finds
+> the corresponding device mac address and uses that as the device.  I'm sorry, I
+> don't know why I didn't think of that before.  Check that out though, that will
+> likey give you exactly what you need
 
-In my test program, I run normal tcp loopback then friends for each 
-message size,
-then it generates such strange numbers.
+Even with a udev rule to load netconsole that runs immediately after
+device renaming (so before scripting), most of the dynamic module
+loading has already happened so netconsole misses it. At least with the
+patch, netconsole will load and attach to the proper interface much
+earlier in the boot so that module-load-time messages will be caught.
 
-But if I just run normal tcp loopback for each message size, then the 
-performance is stable.
+There is an unforeseen consequence of the patch: it breaks device
+renaming because the device will already be in use by netconsole. Which
+is the whole problem with userspace device renaming to begin with...
 
-Maybe I should make the environment clean before each test, like 
-dropping cache.
+I guess that leaves only the option of building in netconsole and the
+driver that supplies the interface.
 
-thanks
-Weiping Pan
+Oh well.
+
+Regards,
+Peter
