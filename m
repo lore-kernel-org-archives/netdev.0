@@ -1,33 +1,104 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [RFT PATCH] 8139cp: properly support change of MTU values [v2]
-Date: Thu, 13 Dec 2012 23:36:53 +0100
-Message-ID: <20121213223653.GA2189@electric-eye.fr.zoreil.com>
-References: <1354551573-23721-1-git-send-email-jogreene@redhat.com> <20121203.135200.1242505353532930826.davem@davemloft.net> <20121203204608.GA9815@electric-eye.fr.zoreil.com> <50CA32F9.4090807@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] Fix: kmemleak in tcp_v4/6_syn_recv_sock and
+ dccp_v4/6_request_recv_sock
+Date: Thu, 13 Dec 2012 15:38:10 -0800
+Message-ID: <1355441890.10504.4.camel@edumazet-glaptop>
+References: <1355435363-12766-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	dwmw2@infradead.org
-To: John Greene <jogreene@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	dccp@vger.kernel.org
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:36343 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755794Ab2LMXCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 18:02:47 -0500
-Content-Disposition: inline
-In-Reply-To: <50CA32F9.4090807@redhat.com>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:38407 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754660Ab2LMXiO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 18:38:14 -0500
+In-Reply-To: <1355435363-12766-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Greene <jogreene@redhat.com> :
-[...]
-> Have incorporated this and test it on virtual hardware with on top of
-> cb64edb6b89491edfdbae52ba7db9a8b8391d339 (my original work now
-> upstream).  I plan to submit your work herein upstream as well, with
-> attribution to you, if that's ok?
+On Thu, 2012-12-13 at 22:49 +0100, Christoph Paasch wrote:
+> If in either of the above functions inet_csk_route_child_sock() or
+> __inet_inherit_port() fails, the newsk will not be freed:
+> 
+> unreferenced object 0xffff88022e8a92c0 (size 1592):
+>   comm "softirq", pid 0, jiffies 4294946244 (age 726.160s)
+>   hex dump (first 32 bytes):
+>     0a 01 01 01 0a 01 01 02 00 00 00 00 a7 cc 16 00  ................
+>     02 00 03 01 00 00 00 00 00 00 00 00 00 00 00 00  ................
+>   backtrace:
+>     [<ffffffff8153d190>] kmemleak_alloc+0x21/0x3e
+>     [<ffffffff810ab3e7>] kmem_cache_alloc+0xb5/0xc5
+>     [<ffffffff8149b65b>] sk_prot_alloc.isra.53+0x2b/0xcd
+>     [<ffffffff8149b784>] sk_clone_lock+0x16/0x21e
+>     [<ffffffff814d711a>] inet_csk_clone_lock+0x10/0x7b
+>     [<ffffffff814ebbc3>] tcp_create_openreq_child+0x21/0x481
+>     [<ffffffff814e8fa5>] tcp_v4_syn_recv_sock+0x3a/0x23b
+>     [<ffffffff814ec5ba>] tcp_check_req+0x29f/0x416
+>     [<ffffffff814e8e10>] tcp_v4_do_rcv+0x161/0x2bc
+>     [<ffffffff814eb917>] tcp_v4_rcv+0x6c9/0x701
+>     [<ffffffff814cea9f>] ip_local_deliver_finish+0x70/0xc4
+>     [<ffffffff814cec20>] ip_local_deliver+0x4e/0x7f
+>     [<ffffffff814ce9f8>] ip_rcv_finish+0x1fc/0x233
+>     [<ffffffff814cee68>] ip_rcv+0x217/0x267
+>     [<ffffffff814a7bbe>] __netif_receive_skb+0x49e/0x553
+>     [<ffffffff814a7cc3>] netif_receive_skb+0x50/0x82
+> 
+> This happens, because sk_clone_lock initializes sk_refcnt to 2, and thus
+> a single sock_put() is not enough to free the memory. Additionally, things
+> like xfrm, memcg, cookie_values,... may have been initialized.
+> We have to free them properly.
+> 
+> This is fixed by forcing a call to tcp_done(), ending up in
+> inet_csk_destroy_sock, doing the final sock_put(). tcp_done() is necessary,
+> because it ends up doing all the cleanup on xfrm, memcg, cookie_values,
+> xfrm,...
+> 
+> Before calling tcp_done, we have to set the socket to SOCK_DEAD, to
+> force it entering inet_csk_destroy_sock. To avoid the warning in
+> inet_csk_destroy_sock, inet_num has to be set to 0.
+> As inet_csk_destroy_sock does a dec on orphan_count, we first have to
+> increase it.
+> 
+> Calling tcp_done() allows us to remove the calls to
+> tcp_clear_xmit_timer() and tcp_cleanup_congestion_control().
+> 
+> A similar approach is taken for dccp by calling dccp_done().
+> 
+> This probably should be backported to kernels >= 3.0 as it is in the
+> kernel since 0e734419923bd (ipv4: Use inet_csk_route_child_sock() in
+> DCCP and TCP.).
 
-Sure, go ahead.
+Are you sure the above commit is the bug origin ?
 
-I have a nasty 8110s (old netgear) bug to keep me busy.
+It looks like bug was bring by transparent proxy in 2.6.37
 
--- 
-Ueimor
+commit 093d282321daeb19c107e5f1f16d7f68484f3ade
+Author: Balazs Scheidler <bazsi@balabit.hu>
+Date:   Thu Oct 21 13:06:43 2010 +0200
+
+    tproxy: fix hash locking issue when using port redirection in __inet_inherit_port()
+    
+    When __inet_inherit_port() is called on a tproxy connection the wrong locks are
+    held for the inet_bind_bucket it is added to. __inet_inherit_port() made an
+    implicit assumption that the listener's port number (and thus its bind bucket).
+    Unfortunately, if you're using the TPROXY target to redirect skbs to a
+    transparent proxy that assumption is not true anymore and things break.
+    
+    This patch adds code to __inet_inherit_port() so that it can handle this case
+    by looking up or creating a new bind bucket for the child socket and updates
+    callers of __inet_inherit_port() to gracefully handle __inet_inherit_port()
+    failing.
+    
+    Reported by and original patch from Stephen Buck <stephen.buck@exinda.com>.
+    See http://marc.info/?t=128169268200001&r=1&w=2 for the original discussion.
+    
+    Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
