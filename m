@@ -1,35 +1,39 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [net-next:master 14/17] net/bridge/br_mdb.c:330
- br_mdb_add_group() error: potential null dereference 'mp'.
- (br_multicast_new_group returns null)
-Date: Thu, 13 Dec 2012 15:15:05 +0800
-Message-ID: <1355382905.14802.34.camel@cr0>
-References: <50c8d94d.VSxb5ulWJHo9Ahhi%fengguang.wu@intel.com>
+From: Paul Chavent <Paul.Chavent@onera.fr>
+Subject: Re: [RFC] net : add tx timestamp to packet mmap.
+Date: Thu, 13 Dec 2012 08:13:04 +0100
+Message-ID: <50C98000.8040108@onera.fr>
+References: <1355326165-12277-1-git-send-email-paul.chavent@onera.fr> <20121212.142327.2290797438095968580.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kbuild test robot <fengguang.wu@intel.com>
+Cc: edumazet@google.com, daniel.borkmann@tik.ee.ethz.ch,
+	xemul@parallels.com, ebiederm@xmission.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43142 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750786Ab2LMHPR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2012 02:15:17 -0500
-In-Reply-To: <50c8d94d.VSxb5ulWJHo9Ahhi%fengguang.wu@intel.com>
+Received: from briaree.onecert.fr ([134.212.190.4]:59346 "EHLO
+	briaree.onecert.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751366Ab2LMHPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 02:15:38 -0500
+In-Reply-To: <20121212.142327.2290797438095968580.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-12-13 at 03:21 +0800, kbuild test robot wrote:
-> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
-> head:   520dfe3a3645257bf83660f672c47f8558f3d4c4
-> commit: cfd567543590f71ca0af397437e2554f9756d750 [14/17] bridge: add support of adding and deleting mdb entries
-> 
-> 
-> smatch warnings:
-> 
-> + net/bridge/br_mdb.c:330 br_mdb_add_group() error: potential null dereference 'mp'.  (br_multicast_new_group returns null)
 
-br_multicast_new_group() seems impossible to return NULL, it either
-returns a valid pointer (non-NULL) or some errno pointer.
+After a sendmsg, we have to call recvmsg on the ERRQUEUE to get 
+timestamp. I find that unfortunate indeed...
 
-OTOH, br_multicast_add_group() doesn't check for NULL either.
+So this patch fix the tx timestamping (that take place in sendmsg), in 
+order to be able to get timestamp (via recvmsg).
+
+This seems suboptimal to me, that why i also ask if it wouldn't be 
+possible to put the timestamp in the ring buffer frame before give it 
+back to user.
+
+Thanks for your reading.
+
+
+On 12/12/2012 08:23 PM, David Miller wrote:
+>
+> You're changing the code that handles sendmsg() and then wondering why
+> a recvmsg() call doesn't provide a timestamp.
+>
