@@ -1,186 +1,118 @@
-From: Peter Hurley <peter@hurleysoftware.com>
-Subject: Re: netconsole fun
-Date: Thu, 13 Dec 2012 14:27:01 -0500
-Message-ID: <1355426821.2612.16.camel@thor>
-References: <1355149033.3142.14.camel@thor> <ka6e4e$6k5$1@ger.gmane.org>
-	 <1355235592.2694.5.camel@thor>
-	 <20121211143004.GA7481@neilslaptop.think-freely.org>
-	 <1355239011.2694.24.camel@thor>
-	 <20121211164526.GB7481@neilslaptop.think-freely.org>
-	 <1355345957.2687.18.camel@thor>
-	 <20121213123611.GA12269@hmsreliant.think-freely.org>
-	 <1355410171.2605.17.camel@thor>
-	 <20121213180815.GA14796@hmsreliant.think-freely.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Network namespace bugs in L2TP
+Date: Thu, 13 Dec 2012 11:31:12 -0800
+Message-ID: <87r4mt4um7.fsf@xmission.com>
+References: <20121212155105.GB2790@raven> <87k3snnjh7.fsf@xmission.com>
+	<20121213165601.GA2423@raven>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org
+To: Tom Parkin <tparkin@katalix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout39.mail01.mtsvc.net ([216.70.64.83]:50149 "EHLO
-	n12.mail01.mtsvc.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750755Ab2LMT1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 14:27:16 -0500
-In-Reply-To: <20121213180815.GA14796@hmsreliant.think-freely.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:58523 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750755Ab2LMTbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 14:31:21 -0500
+In-Reply-To: <20121213165601.GA2423@raven> (Tom Parkin's message of "Thu, 13
+	Dec 2012 16:56:01 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-12-13 at 13:08 -0500, Neil Horman wrote:
-> On Thu, Dec 13, 2012 at 09:49:31AM -0500, Peter Hurley wrote:
-> > On Thu, 2012-12-13 at 07:36 -0500, Neil Horman wrote:
-> > > On Wed, Dec 12, 2012 at 03:59:17PM -0500, Peter Hurley wrote:
-> > > > On Tue, 2012-12-11 at 11:45 -0500, Neil Horman wrote:
-> > > > > On Tue, Dec 11, 2012 at 10:16:51AM -0500, Peter Hurley wrote:
-> > > > > > On Tue, 2012-12-11 at 09:30 -0500, Neil Horman wrote:
-> > > > > > > On Tue, Dec 11, 2012 at 09:19:52AM -0500, Peter Hurley wrote:
-> > > > > > > > On Tue, 2012-12-11 at 04:51 +0000, Cong Wang wrote:
-> > > > > > > > > On Mon, 10 Dec 2012 at 14:17 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
-> > > > > > > > > > Now that netpoll has been disabled for slaved devices, is there a
-> > > > > > > > > > recommended method of running netconsole on a machine that has a slaved
-> > > > > > > > > > device?
-> > > > > > > > > >
-> > > > > > > > > 
-> > > > > > > > > Yes, running it on the master device instead.
-> > > > > > > > 
-> > > > > > > > Thanks for the suggestion, but:
-> > > > > > > > 
-> > > > > > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.10.99/br0,30000@192.168.10.100/xx:xx:xx:xx:xx:xx
-> > > > > > > > ...
-> > > > > > > > [ 5.289869] netpoll: netconsole: local port 6665
-> > > > > > > > [ 5.289885] netpoll: netconsole: local IP 192.168.10.99
-> > > > > > > > [ 5.289892] netpoll: netconsole: interface 'br0'
-> > > > > > > > [ 5.289898] netpoll: netconsole: remote port 30000
-> > > > > > > > [ 5.289907] netpoll: netconsole: remote IP 192.168.10.100
-> > > > > > > > [ 5.289914] netpoll: netconsole: remote ethernet address xx:xx:xx:xx:xx:xx
-> > > > > > > > [ 5.289922] netpoll: netconsole: br0 doesn't exist, aborting
-> > > > > > > > [ 5.289929] netconsole: cleaning up
-> > > > > > > > ...
-> > > > > > > > [ 9.392291] Bridge firewalling registered
-> > > > > > > > [ 9.396805] device eth1 entered promiscuous mode
-> > > > > > > > [ 9.418350] eth1:  setting full-duplex.
-> > > > > > > > [ 9.421268] br0: port 1(eth1) entered forwarding state
-> > > > > > > > [ 9.423354] br0: port 1(eth1) entered forwarding state
-> > > > > > > > 
-> > > > > > > > 
-> > > > > > > > Is there a way to control or associate network device names prior to
-> > > > > > > > udev renaming?
-> > > > > > > > 
-> > > > > > > That looks like a systemd problem (or more specifically a boot dependency
-> > > > > > > problem).  You need to modify your netconsole unit/service file to start after
-> > > > > > > all your networking is up.  NetworkManager provides a dummy service file for
-> > > > > > > this purpose, called networkmanager-wait-online.service
-> > > > > > 
-> > > > > > Ok. So with a single physical network interface that will be bridged,
-> > > > > > netconsole cannot used for kernel boot messages.
-> > > > > > 
-> > > > > > With a machine with multiple nics, is there a way to control device
-> > > > > > naming so that the interface name to be used by netconsole specified on
-> > > > > > the boot command line will actually corresponding to the intended
-> > > > > > device. For example,
-> > > > > > 
-> > > > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.1.123/eth0,30000@192.168.1.139/xx:xx:xx:xx:xx:xx
-> > > > > > ....
-> > > > > > [ 4.092184] 3c59x: Donald Becker and others.
-> > > > > > [ 4.092204] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000186cf80.
-> > > > > > [ 4.094035] tg3.c:v3.125 (September 26, 2012)
-> > > > > > ....
-> > > > > > [ 4.125038] tg3 0000:08:00.0 eth1: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
-> > > > > > [ 4.125055] tg3 0000:08:00.0 eth1: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
-> > > > > > [ 4.125062] tg3 0000:08:00.0 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
-> > > > > > [ 4.125068] tg3 0000:08:00.0 eth1: dma_rwctrl[76180000] dma_mask[64-bit]
-> > > > > > 
-> > > > > > This is attaching netconsole to the wrong device because bus
-> > > > > > enumeration, and therefore load order, is not consistent from boot to
-> > > > > > boot.
-> > > > > > 
-> > > > > No, theres no way to do that.  As you note device ennumeration isn't consistent
-> > > > > accross boots, thats why udev creates rules to rename devices based on immutable
-> > > > > (or semi-immutable) data, like mac addresses, or pci bus locations).  Once that
-> > > > > happens, you'll have consistent names for your interfaces, and that work will be
-> > > > > guaranteed to be done after networkmanager has finished opening all the
-> > > > > interfaces that it needs (hence my suggestion to make netconsole service
-> > > > > dependent on networkmanager service startup completing).
-> > > > 
-> > > > Just wondering if you think something like the patch below is
-> > > > suitable/acceptable for insulating netconsole from inconsistent device
-> > > > name scenarios without changing the existing semantics. The basic idea
-> > > > is to allow an ethernet MAC address in the <dev> field of the
-> > > > netconsole= options, and if a MAC address was specified rather than a
-> > > > device name, to do the dev lookup from the MAC address instead.
-> > > > 
-> > > > This doesn't extend to, but also doesn't interfere with, the dynamic
-> > > > config of netconsole via configfs.
-> > > > 
-> > > > Would you mind reviewing it?
-> > > > 
-> > > > Regards,
-> > > > Peter
-> > > > 
-> > > This looks like a pretty good idea to me.  That said, something occured to me
-> > > when you wrote your summary above.  Have you looked at the netconsole service
-> > > scripts that most distros provide in their packaging?  I'm almost positive Red
-> > > Hat/Fedora (and also like Suse and Ubuntu), already implement this functionality
-> > > from user space.  Basically, instead of people just modprobing netconsole, they
-> > > create a service script that parses a config file that has contains all the
-> > > options needed to load the netconsole module, and it has the intellegence to see
-> > > if you specified a mac address rather than a device.  If you did that it finds
-> > > the corresponding device mac address and uses that as the device.  I'm sorry, I
-> > > don't know why I didn't think of that before.  Check that out though, that will
-> > > likey give you exactly what you need
-> > 
-> > Even with a udev rule to load netconsole that runs immediately after
-> > device renaming (so before scripting), most of the dynamic module
-> > loading has already happened so netconsole misses it. At least with the
-> > patch, netconsole will load and attach to the proper interface much
-> > earlier in the boot so that module-load-time messages will be caught.
-> > 
-> I'm not sure what you mean by this.
+Tom Parkin <tparkin@katalix.com> writes:
 
-This is the beginning of my netconsole log if I use userspace scripts to
-start it.
+> On Wed, Dec 12, 2012 at 11:44:36AM -0800, Eric W. Biederman wrote:
+>> Tom Parkin <tparkin@katalix.com> writes:
+>> >  1. Why do we need to change the namespace of the socket created in
+>> >     l2tp_tunnel_sock_create?  So far as I can tell, sock_create
+>> >     defaults to the namespace of the calling process.  Is the issue
+>> >     here that this code may run from a work queue or similar?
+>> 
+>> Something similar.  At the very least l2tp_tunnel_create which calls
+>> l2tp_tunnel_sock_create gets called from netlink.  The network namespace
+>> of a socket is not necessarily the same as the network namespace of the
+>> process that uses that socket.
+>> 
+>> So since current is not necessarily the right network namespace we need
+>> push the desired network namespace of the socket down into
+>> l2tp_tunnel_sock_create and use that when creating the socket.
+>
+> Ah, I see.  I hadn't appreciated that a process might swap between
+> namespaces.
+>
+> I think that raises a question in the case of the L2TP tunnel sockets,
+> though.  Currently l2tp_tunnel_sock_create uses the namespace of the
+> current process for the socket.  The alternative is to pass in the
+> desired namespace from l2tp_tunnel_create -- and this makes sense, I
+> think.
+>
+> However, when l2tp_tunnel_create is called from the netlink code, the
+> namespace passed is that of the netlink socket.  At the risk of sounding
+> silly, what's the benefit of using the netlink socket namespace over the
+> process namespace in this case?
 
-[   19.125314] ip_tables: (C) 2000-2006 Netfilter Core Team
-[   20.060925] nf_conntrack version 0.5.0 (16384 buckets, 65536 max)
-[   21.829331] ip6_tables: (C) 2000-2006 Netfilter Core Team
-[   25.728370] at-spi-registry[1862]: segfault at 18 ip 00007f6dd1dd45f1 sp 00007fff49bcd760 error 4 in libgconf-2.so.4.1.5[7f6dd1dbd000+2d000]
-[   26.778848] EXT4-fs (dm-3): re-mounted. Opts: errors=remount-ro,commit=0
-[   30.643469] Bluetooth: RFCOMM TTY layer initialized
-[   30.643509] Bluetooth: RFCOMM socket layer initialized
-[   30.643512] Bluetooth: RFCOMM ver 1.11
-[   30.784550] Bluetooth: BNEP (Ethernet Emulation) ver 1.3
-[   30.784567] Bluetooth: BNEP filters: protocol multicast
-[   30.784584] Bluetooth: BNEP socket layer initialized
-[   34.010813] init: plymouth-stop pre-start process (2205) terminated with status 1
+Using the netlink socket namespace ensure that if the netlink socket is
+passed between processes the semantics of sending messages down the
+netlink socket don't change.
 
-This is the beginning of my netconsole log if I am able to specify
-netconsole= options on the boot command line. Netconsole starts logging
-much earlier because it is much loaded earlier.
+There is another thread on netdev discussing another variant of this
+right now.  For some cases it is just a waste of resources to have one
+copy of a daemon per network namespace.  In which case a controlling
+daemon will open one netlink socket per network namespace and send
+commands down the appropriate socket for the network namespace the
+daemon wishes to control.
 
-[    8.764336] EXT4-fs (dm-4): mounted filesystem with ordered data mode. Opts: (null)
-[    9.409379] firewire_core 0000:07:06.0: created device fw1: GUID 0800460301c2d69e, S400
-[    9.567395] init: ureadahead main process (500) terminated with status 5
-[   10.400338] Adding 10996456k swap on /dev/mapper/isw_cbdbfhdjad_Raid0p5.  Priority:-1 extents:1 across:10996456k 
-[   10.496974] udevd[541]: starting version 173
-[   10.725906] EXT4-fs (dm-4): re-mounted. Opts: errors=remount-ro
-[   11.288352] lp: driver loaded but no devices found
-[   12.240058] parport_pc 00:05: reported by Plug and Play ACPI
-[   12.240145] parport0: PC-style at 0x378 (0x778), irq 7, using FIFO [PCSPP,TRISTATE,COMPAT,ECP]
-[   12.336161] lp0: using parport0 (interrupt-driven).
-[   12.342867] microcode: CPU0 sig=0x10676, pf=0x40, revision=0x60f
-[   12.436657] shpchp: Standard Hot Plug PCI Controller Driver version: 0.4
-[   12.442245] ppdev: user-space parallel port driver
-[   12.451592] net firewire0: IPv4 over IEEE 1394 on card 0000:07:06.0
+>> >  2. You mentioned the need to keep track of sockets allocated within a
+>> >     namespace in order to be able to clean them up when the namespace
+>> >     is deleted.  Should we be keeping a list of sockets we create and
+>> >     then destroying them in the namespace pernet_ops exit function?
+>> 
+>> I think the issue that I was referring to and certainly the issue I am
+>> thinking about is the issue where normal sockets hold a reference to a
+>> network namespace and keep the network namespace alive.  Today l2tp uses
+>> sock_create when creating a socket, and as such I think it pins it
+>> current network namespace.  So I believe we can effectively have a
+>> reference counting loop with l2tp sockets pinning the network namespace
+>> and the network namespace keeping the l2tp device alive which keeps the
+>> l2tp socket alive.
+>
+> OK, so presumably the way this would usually work is that a process
+> creates sockets, and when the process exits those sockets go away.
+> When all the processes in the namespace have exited, the namespace
+> can close because there are no sockets holding it open.  Is that
+> right?
+>
+> If that's correct, then I suppose the issue with the L2TP tunnel socket
+> for an unmanaged tunnel is that it isn't owned by a process, per-se.
+> So there's no obvious way to get rid of it, apart from sending a
+> netlink message to tell the kernel to tear it down.
+>
+> But that doesn't seem too unreasonable.  A user would have to take
+> explicit action to create an L2TP tunnel socket, and it might seem
+> reasonable for that socket to keep the namespace alive until the user
+> explicitly tears it down again.
 
-Does that make more sense now?
+Sending a netlink message to tear down the socket is not unreasonable.
 
-Thanks again,
-Peter
+Having a reference counting loop such that it is possible to close all
+other sockets and all other references to a network namespace and not
+have the network namespace go away because the L2TP tunnel socket holds
+a reference to the unreachable and unuusable network namespace is
+unreasonable.
 
-> > There is an unforeseen consequence of the patch: it breaks device
-> > renaming because the device will already be in use by netconsole. Which
-> > is the whole problem with userspace device renaming to begin with...
-> > 
-> That is bad, but see above, the netconsole service can work around this for you,
-> allowing you to never have to specify a particular device at all.
+We handle this with arp and icmp control sockets by not creating a
+reference count.  And having a pernet cleanup routing clean up those
+sockets.  Assuming I am right about the reference counting loop being
+possible this is something to look at.
 
-Just to be clear here,
+>> I don't remeber the specifics of l2tp as it creates some sockets, and
+>> has other sockets passed in, and as such has rules that are not at all
+>> normal.
+>
+> Ack.  Sockets are created in the kernel code for "unmanaged" tunnels,
+> which don't run the control protocol over the top -- they're just for
+> data encapsulation/de-encapsulation.  "Managed" tunnels have a
+> userspace process looking after all the L2TP configuration and
+> control/keepalive protocol, and in this case the daemon handles the
+> creation of the tunnel socket.
+
+Eric
