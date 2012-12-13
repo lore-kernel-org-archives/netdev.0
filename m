@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ndisc: Fix padding error in link-layer address option.
-Date: Thu, 13 Dec 2012 13:01:45 -0500 (EST)
-Message-ID: <20121213.130145.1818787055621467467.davem@davemloft.net>
-References: <201212131429.qBDETaa6029537@94.43.138.210.xn.2iij.net>
+Subject: Re: [PATCH] bridge: fix icmpv6 endian bug and other sparse warnings
+Date: Thu, 13 Dec 2012 13:02:06 -0500 (EST)
+Message-ID: <20121213.130206.625082915523751967.davem@davemloft.net>
+References: <50c926ab.AI4jRk2MW3J/QuQj%fengguang.wu@intel.com>
+	<20121213085128.1db11ee4@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: fengguang.wu@intel.com, amwang@redhat.com, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39877 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39905 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755684Ab2LMSBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 13:01:49 -0500
-In-Reply-To: <201212131429.qBDETaa6029537@94.43.138.210.xn.2iij.net>
+	with ESMTP id S1755904Ab2LMSCI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 13:02:08 -0500
+In-Reply-To: <20121213085128.1db11ee4@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Thu, 13 Dec 2012 23:29:36 +0900
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 13 Dec 2012 08:51:28 -0800
 
-> If a natural number n exists where 2 + data_len <= 8n < 2 + data_len + pad,
-> post padding is not initialized correctly.
+> Fix the warnings reported by sparse on recent bridge multicast
+> changes. Mostly just rcu annotation issues but in this case
+> sparse found a real bug! The ICMPv6 mld2 query mrc
+> values is in network byte order.
 > 
-> (Un)fortunately, the only type that requires pad is Infiniband,
-> whose pad is 2 and data_len is 20, and this logical error has not
-> become obvious, but it is better to fix.
-> 
-> Note that ndisc_opt_addr_space() handles the situation described
-> above correctly.
-> 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 Applied.
