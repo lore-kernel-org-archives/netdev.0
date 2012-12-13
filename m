@@ -1,62 +1,50 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: do not check x->km.state
-Date: Thu, 13 Dec 2012 11:19:48 +0100
-Message-ID: <20121213101948.GG18940@secunet.com>
-References: <1355389560-7705-1-git-send-email-roy.qing.li@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: netconsole fun
+Date: Thu, 13 Dec 2012 10:33:55 +0000 (UTC)
+Message-ID: <kacauj$en0$1@ger.gmane.org>
+References: <1355149033.3142.14.camel@thor> <ka6e4e$6k5$1@ger.gmane.org>
+ <1355235592.2694.5.camel@thor>
+ <20121211143004.GA7481@neilslaptop.think-freely.org>
+ <1355239011.2694.24.camel@thor>
+ <20121211164526.GB7481@neilslaptop.think-freely.org>
+ <1355345957.2687.18.camel@thor>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:34284 "EHLO a.mx.secunet.com"
+Received: from plane.gmane.org ([80.91.229.3]:53275 "EHLO plane.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752811Ab2LMKTv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Dec 2012 05:19:51 -0500
-Content-Disposition: inline
-In-Reply-To: <1355389560-7705-1-git-send-email-roy.qing.li@gmail.com>
+	id S1752800Ab2LMKeS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Dec 2012 05:34:18 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Tj67Q-0004z8-VE
+	for netdev@vger.kernel.org; Thu, 13 Dec 2012 11:34:21 +0100
+Received: from 112.122.183.103 ([112.122.183.103])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2012 11:34:20 +0100
+Received: from xiyou.wangcong by 112.122.183.103 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2012 11:34:20 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 13, 2012 at 05:06:00PM +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> do not check x->km.state, it will be checked by succedent
-> xfrm_state_check_expire()
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/ipv6/xfrm6_input.c |    1 -
->  net/xfrm/xfrm_input.c  |    4 ----
->  2 files changed, 0 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
-> index f8c3cf8..de4babd 100644
-> --- a/net/ipv6/xfrm6_input.c
-> +++ b/net/ipv6/xfrm6_input.c
-> @@ -108,7 +108,6 @@ int xfrm6_input_addr(struct sk_buff *skb, xfrm_address_t *daddr,
->  		spin_lock(&x->lock);
->  
->  		if ((!i || (x->props.flags & XFRM_STATE_WILDRECV)) &&
-> -		    likely(x->km.state == XFRM_STATE_VALID) &&
->  		    !xfrm_state_check_expire(x)) {
->  			spin_unlock(&x->lock);
->  			if (x->type->input(x, skb) > 0) {
-> diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-> index ab2bb42..a8fbb09 100644
-> --- a/net/xfrm/xfrm_input.c
-> +++ b/net/xfrm/xfrm_input.c
-> @@ -163,10 +163,6 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
->  		skb->sp->xvec[skb->sp->len++] = x;
->  
->  		spin_lock(&x->lock);
-> -		if (unlikely(x->km.state != XFRM_STATE_VALID)) {
-> -			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEINVALID);
-> -			goto drop_unlock;
-> -		}
+On Wed, 12 Dec 2012 at 20:59 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
+>
+> Just wondering if you think something like the patch below is
+> suitable/acceptable for insulating netconsole from inconsistent device
+> name scenarios without changing the existing semantics. The basic idea
+> is to allow an ethernet MAC address in the <dev> field of the
+> netconsole= options, and if a MAC address was specified rather than a
+> device name, to do the dev lookup from the MAC address instead.
+>
+> This doesn't extend to, but also doesn't interfere with, the dynamic
+> config of netconsole via configfs.
+>
+> Would you mind reviewing it?
+>
 
-
-This would remove the only place where the LINUX_MIB_XFRMINSTATEINVALID
-statistics counter is incremented. I think it would be better to ensure
-a valid state before we call xfrm_state_check_expire(). This would make
-the statistics more accurate and we can remove the x->km.state check
-from xfrm_state_check_expire().
+This is a good idea. Just that you need to complete the configfs
+interface too.
