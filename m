@@ -1,200 +1,104 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: netconsole fun
-Date: Thu, 13 Dec 2012 16:17:54 -0500
-Message-ID: <20121213211754.GC14796@hmsreliant.think-freely.org>
-References: <ka6e4e$6k5$1@ger.gmane.org>
- <1355235592.2694.5.camel@thor>
- <20121211143004.GA7481@neilslaptop.think-freely.org>
- <1355239011.2694.24.camel@thor>
- <20121211164526.GB7481@neilslaptop.think-freely.org>
- <1355345957.2687.18.camel@thor>
- <20121213123611.GA12269@hmsreliant.think-freely.org>
- <1355410171.2605.17.camel@thor>
- <20121213180815.GA14796@hmsreliant.think-freely.org>
- <1355426821.2612.16.camel@thor>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/4] net: allow to change carrier from userspace
+Date: Thu, 13 Dec 2012 22:32:56 +0100
+Message-ID: <20121213213256.GB1914@minipsycho.orion>
+References: <20121212190613.GE3060@minipsycho.orion>
+ <20121212113433.21c05614@nehalam.linuxnetplumber.net>
+ <20121213161750.GA1914@minipsycho.orion>
+ <50CA0D3D.5000503@gmail.com>
+ <20121213155423.07c47307@obelix.rh>
+ <20121213100933.6d68a8e5@nehalam.linuxnetplumber.net>
+ <20121213161733.7bffe897@obelix.rh>
+ <20121213102051.72ad69aa@nehalam.linuxnetplumber.net>
+ <1355423612.21918.34.camel@dcbw.foobar.com>
+ <50CA27CF.7010301@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Peter Hurley <peter@hurleysoftware.com>
+Cc: Dan Williams <dcbw@redhat.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Flavio Leitner <fbl@redhat.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com,
+	greearb@candelatech.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57514 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220Ab2LMVSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 16:18:11 -0500
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:65291 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752978Ab2LMVdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 16:33:05 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so965107eaa.19
+        for <netdev@vger.kernel.org>; Thu, 13 Dec 2012 13:33:01 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1355426821.2612.16.camel@thor>
+In-Reply-To: <50CA27CF.7010301@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 13, 2012 at 02:27:01PM -0500, Peter Hurley wrote:
-> On Thu, 2012-12-13 at 13:08 -0500, Neil Horman wrote:
-> > On Thu, Dec 13, 2012 at 09:49:31AM -0500, Peter Hurley wrote:
-> > > On Thu, 2012-12-13 at 07:36 -0500, Neil Horman wrote:
-> > > > On Wed, Dec 12, 2012 at 03:59:17PM -0500, Peter Hurley wrote:
-> > > > > On Tue, 2012-12-11 at 11:45 -0500, Neil Horman wrote:
-> > > > > > On Tue, Dec 11, 2012 at 10:16:51AM -0500, Peter Hurley wrote:
-> > > > > > > On Tue, 2012-12-11 at 09:30 -0500, Neil Horman wrote:
-> > > > > > > > On Tue, Dec 11, 2012 at 09:19:52AM -0500, Peter Hurley wrote:
-> > > > > > > > > On Tue, 2012-12-11 at 04:51 +0000, Cong Wang wrote:
-> > > > > > > > > > On Mon, 10 Dec 2012 at 14:17 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
-> > > > > > > > > > > Now that netpoll has been disabled for slaved devices, is there a
-> > > > > > > > > > > recommended method of running netconsole on a machine that has a slaved
-> > > > > > > > > > > device?
-> > > > > > > > > > >
-> > > > > > > > > > 
-> > > > > > > > > > Yes, running it on the master device instead.
-> > > > > > > > > 
-> > > > > > > > > Thanks for the suggestion, but:
-> > > > > > > > > 
-> > > > > > > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.10.99/br0,30000@192.168.10.100/xx:xx:xx:xx:xx:xx
-> > > > > > > > > ...
-> > > > > > > > > [ 5.289869] netpoll: netconsole: local port 6665
-> > > > > > > > > [ 5.289885] netpoll: netconsole: local IP 192.168.10.99
-> > > > > > > > > [ 5.289892] netpoll: netconsole: interface 'br0'
-> > > > > > > > > [ 5.289898] netpoll: netconsole: remote port 30000
-> > > > > > > > > [ 5.289907] netpoll: netconsole: remote IP 192.168.10.100
-> > > > > > > > > [ 5.289914] netpoll: netconsole: remote ethernet address xx:xx:xx:xx:xx:xx
-> > > > > > > > > [ 5.289922] netpoll: netconsole: br0 doesn't exist, aborting
-> > > > > > > > > [ 5.289929] netconsole: cleaning up
-> > > > > > > > > ...
-> > > > > > > > > [ 9.392291] Bridge firewalling registered
-> > > > > > > > > [ 9.396805] device eth1 entered promiscuous mode
-> > > > > > > > > [ 9.418350] eth1:  setting full-duplex.
-> > > > > > > > > [ 9.421268] br0: port 1(eth1) entered forwarding state
-> > > > > > > > > [ 9.423354] br0: port 1(eth1) entered forwarding state
-> > > > > > > > > 
-> > > > > > > > > 
-> > > > > > > > > Is there a way to control or associate network device names prior to
-> > > > > > > > > udev renaming?
-> > > > > > > > > 
-> > > > > > > > That looks like a systemd problem (or more specifically a boot dependency
-> > > > > > > > problem).  You need to modify your netconsole unit/service file to start after
-> > > > > > > > all your networking is up.  NetworkManager provides a dummy service file for
-> > > > > > > > this purpose, called networkmanager-wait-online.service
-> > > > > > > 
-> > > > > > > Ok. So with a single physical network interface that will be bridged,
-> > > > > > > netconsole cannot used for kernel boot messages.
-> > > > > > > 
-> > > > > > > With a machine with multiple nics, is there a way to control device
-> > > > > > > naming so that the interface name to be used by netconsole specified on
-> > > > > > > the boot command line will actually corresponding to the intended
-> > > > > > > device. For example,
-> > > > > > > 
-> > > > > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.1.123/eth0,30000@192.168.1.139/xx:xx:xx:xx:xx:xx
-> > > > > > > ....
-> > > > > > > [ 4.092184] 3c59x: Donald Becker and others.
-> > > > > > > [ 4.092204] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000186cf80.
-> > > > > > > [ 4.094035] tg3.c:v3.125 (September 26, 2012)
-> > > > > > > ....
-> > > > > > > [ 4.125038] tg3 0000:08:00.0 eth1: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
-> > > > > > > [ 4.125055] tg3 0000:08:00.0 eth1: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
-> > > > > > > [ 4.125062] tg3 0000:08:00.0 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
-> > > > > > > [ 4.125068] tg3 0000:08:00.0 eth1: dma_rwctrl[76180000] dma_mask[64-bit]
-> > > > > > > 
-> > > > > > > This is attaching netconsole to the wrong device because bus
-> > > > > > > enumeration, and therefore load order, is not consistent from boot to
-> > > > > > > boot.
-> > > > > > > 
-> > > > > > No, theres no way to do that.  As you note device ennumeration isn't consistent
-> > > > > > accross boots, thats why udev creates rules to rename devices based on immutable
-> > > > > > (or semi-immutable) data, like mac addresses, or pci bus locations).  Once that
-> > > > > > happens, you'll have consistent names for your interfaces, and that work will be
-> > > > > > guaranteed to be done after networkmanager has finished opening all the
-> > > > > > interfaces that it needs (hence my suggestion to make netconsole service
-> > > > > > dependent on networkmanager service startup completing).
-> > > > > 
-> > > > > Just wondering if you think something like the patch below is
-> > > > > suitable/acceptable for insulating netconsole from inconsistent device
-> > > > > name scenarios without changing the existing semantics. The basic idea
-> > > > > is to allow an ethernet MAC address in the <dev> field of the
-> > > > > netconsole= options, and if a MAC address was specified rather than a
-> > > > > device name, to do the dev lookup from the MAC address instead.
-> > > > > 
-> > > > > This doesn't extend to, but also doesn't interfere with, the dynamic
-> > > > > config of netconsole via configfs.
-> > > > > 
-> > > > > Would you mind reviewing it?
-> > > > > 
-> > > > > Regards,
-> > > > > Peter
-> > > > > 
-> > > > This looks like a pretty good idea to me.  That said, something occured to me
-> > > > when you wrote your summary above.  Have you looked at the netconsole service
-> > > > scripts that most distros provide in their packaging?  I'm almost positive Red
-> > > > Hat/Fedora (and also like Suse and Ubuntu), already implement this functionality
-> > > > from user space.  Basically, instead of people just modprobing netconsole, they
-> > > > create a service script that parses a config file that has contains all the
-> > > > options needed to load the netconsole module, and it has the intellegence to see
-> > > > if you specified a mac address rather than a device.  If you did that it finds
-> > > > the corresponding device mac address and uses that as the device.  I'm sorry, I
-> > > > don't know why I didn't think of that before.  Check that out though, that will
-> > > > likey give you exactly what you need
-> > > 
-> > > Even with a udev rule to load netconsole that runs immediately after
-> > > device renaming (so before scripting), most of the dynamic module
-> > > loading has already happened so netconsole misses it. At least with the
-> > > patch, netconsole will load and attach to the proper interface much
-> > > earlier in the boot so that module-load-time messages will be caught.
-> > > 
-> > I'm not sure what you mean by this.
-> 
-> This is the beginning of my netconsole log if I use userspace scripts to
-> start it.
-> 
-> [   19.125314] ip_tables: (C) 2000-2006 Netfilter Core Team
-> [   20.060925] nf_conntrack version 0.5.0 (16384 buckets, 65536 max)
-> [   21.829331] ip6_tables: (C) 2000-2006 Netfilter Core Team
-> [   25.728370] at-spi-registry[1862]: segfault at 18 ip 00007f6dd1dd45f1 sp 00007fff49bcd760 error 4 in libgconf-2.so.4.1.5[7f6dd1dbd000+2d000]
-> [   26.778848] EXT4-fs (dm-3): re-mounted. Opts: errors=remount-ro,commit=0
-> [   30.643469] Bluetooth: RFCOMM TTY layer initialized
-> [   30.643509] Bluetooth: RFCOMM socket layer initialized
-> [   30.643512] Bluetooth: RFCOMM ver 1.11
-> [   30.784550] Bluetooth: BNEP (Ethernet Emulation) ver 1.3
-> [   30.784567] Bluetooth: BNEP filters: protocol multicast
-> [   30.784584] Bluetooth: BNEP socket layer initialized
-> [   34.010813] init: plymouth-stop pre-start process (2205) terminated with status 1
-> 
-> This is the beginning of my netconsole log if I am able to specify
-> netconsole= options on the boot command line. Netconsole starts logging
-> much earlier because it is much loaded earlier.
-> 
-> [    8.764336] EXT4-fs (dm-4): mounted filesystem with ordered data mode. Opts: (null)
-> [    9.409379] firewire_core 0000:07:06.0: created device fw1: GUID 0800460301c2d69e, S400
-> [    9.567395] init: ureadahead main process (500) terminated with status 5
-> [   10.400338] Adding 10996456k swap on /dev/mapper/isw_cbdbfhdjad_Raid0p5.  Priority:-1 extents:1 across:10996456k 
-> [   10.496974] udevd[541]: starting version 173
-> [   10.725906] EXT4-fs (dm-4): re-mounted. Opts: errors=remount-ro
-> [   11.288352] lp: driver loaded but no devices found
-> [   12.240058] parport_pc 00:05: reported by Plug and Play ACPI
-> [   12.240145] parport0: PC-style at 0x378 (0x778), irq 7, using FIFO [PCSPP,TRISTATE,COMPAT,ECP]
-> [   12.336161] lp0: using parport0 (interrupt-driven).
-> [   12.342867] microcode: CPU0 sig=0x10676, pf=0x40, revision=0x60f
-> [   12.436657] shpchp: Standard Hot Plug PCI Controller Driver version: 0.4
-> [   12.442245] ppdev: user-space parallel port driver
-> [   12.451592] net firewire0: IPv4 over IEEE 1394 on card 0000:07:06.0
-> 
-> Does that make more sense now?
-> 
-No, actually, what exactly are you trying to show me here?  I don't see any
-indication of netconsole doing anything in either of these log snippets.  I'm
-also not sure why you're specifying netconsole options on the kernel command
-line at all.
-Can you elaborate?
-Neil
- 
+Thu, Dec 13, 2012 at 08:09:03PM CET, john.r.fastabend@intel.com wrote:
+>On 12/13/2012 10:33 AM, Dan Williams wrote:
+>>On Thu, 2012-12-13 at 10:20 -0800, Stephen Hemminger wrote:
+>>>On Thu, 13 Dec 2012 16:17:33 -0200
+>>>Flavio Leitner <fbl@redhat.com> wrote:
+>>>
+>>>>On Thu, 13 Dec 2012 10:09:33 -0800
+>>>>Stephen Hemminger <shemminger@vyatta.com> wrote:
+>>>>
+>>>>>On Thu, 13 Dec 2012 15:54:23 -0200
+>>>>>Flavio Leitner <fbl@redhat.com> wrote:
+>>>>>
+>>>>>>I am saying this because people are used to and there are scripts out
+>>>>>>there using something like:
+>>>>>># ethtool <iface> | grep 'Link'
+>>>>>>to react an interface failure.
+>>>>>
+>>>>>Then the script is broken. It is asking about hardware state.
+>>>>
+>>>>I was talking about the team master interface, so it makes sense
+>>>>to check its 'hardware' state. Just think on 'bond0' interface
+>>>>with no slaves. It should report Link detected: no.
+>>>>
+>>>>See bond_release(), what happens if bond->slave_cnt == 0, for instance.
+>>>>
+>>>
+>>>I was thinking more that ethtool operation for reporting link on
+>>>the team device should use the proper check rather than just using netif_carrier_ok(),
+>>>the team ethtool operation for get_link should be check IFF_RUNNING flag
+>>>in dev->flags which is controlled by operstate transistions.
+>>
+>>That's not entirely sufficient, because not everything uses ethtool to
+>>deterine whether the link/carrier is active.  eg, anything listenting to
+>>netlink for IFF_RUNNING won't know anything about this.  I may have
+>>missed previous conversation, but IFF_RUNNING is AFAIK the sole
+>>mechanism to indicate to userspace that the link is operational and
+>>ready for general traffic.  Can the team drivers simply not set
+>>IFF_RUNNING until the interface is actually ready for general traffic?
+>>
+>>I'd just caution people to be careful when it comes to carrier/link
+>>states, as a lot of stuff relies on it, and people keep trying to
+>>slightly change the meaning of it.  We need it to be consistent across
+>>net interfaces and driver implementations, not have specific meanings to
+>>certain drivers that don't apply to others.
+>>
+>>If teamd needs to manage the carrier state of the teamX interface,
+>>perhaps instead of munging the actual carrier state itself, it can flip
+>>some team-private value that is one component of determining whether
+>>IFF_RUNNING gets set or not?
+>>
+>>Dan
+>
+>Assuming the operstate documentation is correct IFF_RUNNING should only
+>be set if the operstate is up or unknown. Quoting the text again,
+>
+> 32	ifinfomsg::if_flags & IFF_RUNNING:
+> 33	 Interface is in RFC2863 operational state UP or UNKNOWN. This is for
+> 34	 backward compatibility, routing daemons, dhcp clients can use this
+> 35	 flag to determine whether they should use the interface.
+>
+>So my guess is having a team ethtool get_link handler AND managing the
+>operstate from teamd would satisfy the requirement. But maybe I missed
+>something.
 
-> Thanks again,
-> Peter
-> 
-> > > There is an unforeseen consequence of the patch: it breaks device
-> > > renaming because the device will already be in use by netconsole. Which
-> > > is the whole problem with userspace device renaming to begin with...
-> > > 
-> > That is bad, but see above, the netconsole service can work around this for you,
-> > allowing you to never have to specify a particular device at all.
-> 
-> Just to be clear here,
-> 
-> 
-> 
-> 
+Yes, I've been thinking about the same thing. I'll check that.
+
+>
+>.John
