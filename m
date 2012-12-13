@@ -1,187 +1,186 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [RFC][PATCH] bgmac: driver for GBit MAC core on BCMA bus
-Date: Thu, 13 Dec 2012 20:24:08 +0100
-Message-ID: <CACna6rwJZpjdyWjkdoLrcyo3+Pq8CCk4x1N5GS+n8P5prBVm2A@mail.gmail.com>
-References: <1355420611-25764-1-git-send-email-zajec5@gmail.com>
-	<1355424373.13796.25.camel@joe-AO722>
+From: Peter Hurley <peter@hurleysoftware.com>
+Subject: Re: netconsole fun
+Date: Thu, 13 Dec 2012 14:27:01 -0500
+Message-ID: <1355426821.2612.16.camel@thor>
+References: <1355149033.3142.14.camel@thor> <ka6e4e$6k5$1@ger.gmane.org>
+	 <1355235592.2694.5.camel@thor>
+	 <20121211143004.GA7481@neilslaptop.think-freely.org>
+	 <1355239011.2694.24.camel@thor>
+	 <20121211164526.GB7481@neilslaptop.think-freely.org>
+	 <1355345957.2687.18.camel@thor>
+	 <20121213123611.GA12269@hmsreliant.think-freely.org>
+	 <1355410171.2605.17.camel@thor>
+	 <20121213180815.GA14796@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f180.google.com ([209.85.212.180]:46338 "EHLO
-	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755901Ab2LMTYK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 14:24:10 -0500
-Received: by mail-wi0-f180.google.com with SMTP id hj13so1966719wib.1
-        for <netdev@vger.kernel.org>; Thu, 13 Dec 2012 11:24:08 -0800 (PST)
-In-Reply-To: <1355424373.13796.25.camel@joe-AO722>
+Received: from mailout39.mail01.mtsvc.net ([216.70.64.83]:50149 "EHLO
+	n12.mail01.mtsvc.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750755Ab2LMT1Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Dec 2012 14:27:16 -0500
+In-Reply-To: <20121213180815.GA14796@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/12/13 Joe Perches <joe@perches.com>:
-> On Thu, 2012-12-13 at 18:43 +0100, Rafa=C5=82 Mi=C5=82ecki wrote:
->> BCMA is a Broadcom specific bus with devices AKA cores. All recent B=
-CMA
->> based SoCs have gigabit ethernet provided by the GBit MAC core. This
->> patch adds driver for such a cores registering itself as a netdev. I=
-t
->> has been tested on a BCM4706 and BCM4718 chipsets.
-> []
->> It's just a RFC, so be aware of two ugly parts in this version:
->
-> Just some trivial notes.  Feel free to ignore.
+On Thu, 2012-12-13 at 13:08 -0500, Neil Horman wrote:
+> On Thu, Dec 13, 2012 at 09:49:31AM -0500, Peter Hurley wrote:
+> > On Thu, 2012-12-13 at 07:36 -0500, Neil Horman wrote:
+> > > On Wed, Dec 12, 2012 at 03:59:17PM -0500, Peter Hurley wrote:
+> > > > On Tue, 2012-12-11 at 11:45 -0500, Neil Horman wrote:
+> > > > > On Tue, Dec 11, 2012 at 10:16:51AM -0500, Peter Hurley wrote:
+> > > > > > On Tue, 2012-12-11 at 09:30 -0500, Neil Horman wrote:
+> > > > > > > On Tue, Dec 11, 2012 at 09:19:52AM -0500, Peter Hurley wrote:
+> > > > > > > > On Tue, 2012-12-11 at 04:51 +0000, Cong Wang wrote:
+> > > > > > > > > On Mon, 10 Dec 2012 at 14:17 GMT, Peter Hurley <peter@hurleysoftware.com> wrote:
+> > > > > > > > > > Now that netpoll has been disabled for slaved devices, is there a
+> > > > > > > > > > recommended method of running netconsole on a machine that has a slaved
+> > > > > > > > > > device?
+> > > > > > > > > >
+> > > > > > > > > 
+> > > > > > > > > Yes, running it on the master device instead.
+> > > > > > > > 
+> > > > > > > > Thanks for the suggestion, but:
+> > > > > > > > 
+> > > > > > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.10.99/br0,30000@192.168.10.100/xx:xx:xx:xx:xx:xx
+> > > > > > > > ...
+> > > > > > > > [ 5.289869] netpoll: netconsole: local port 6665
+> > > > > > > > [ 5.289885] netpoll: netconsole: local IP 192.168.10.99
+> > > > > > > > [ 5.289892] netpoll: netconsole: interface 'br0'
+> > > > > > > > [ 5.289898] netpoll: netconsole: remote port 30000
+> > > > > > > > [ 5.289907] netpoll: netconsole: remote IP 192.168.10.100
+> > > > > > > > [ 5.289914] netpoll: netconsole: remote ethernet address xx:xx:xx:xx:xx:xx
+> > > > > > > > [ 5.289922] netpoll: netconsole: br0 doesn't exist, aborting
+> > > > > > > > [ 5.289929] netconsole: cleaning up
+> > > > > > > > ...
+> > > > > > > > [ 9.392291] Bridge firewalling registered
+> > > > > > > > [ 9.396805] device eth1 entered promiscuous mode
+> > > > > > > > [ 9.418350] eth1:  setting full-duplex.
+> > > > > > > > [ 9.421268] br0: port 1(eth1) entered forwarding state
+> > > > > > > > [ 9.423354] br0: port 1(eth1) entered forwarding state
+> > > > > > > > 
+> > > > > > > > 
+> > > > > > > > Is there a way to control or associate network device names prior to
+> > > > > > > > udev renaming?
+> > > > > > > > 
+> > > > > > > That looks like a systemd problem (or more specifically a boot dependency
+> > > > > > > problem).  You need to modify your netconsole unit/service file to start after
+> > > > > > > all your networking is up.  NetworkManager provides a dummy service file for
+> > > > > > > this purpose, called networkmanager-wait-online.service
+> > > > > > 
+> > > > > > Ok. So with a single physical network interface that will be bridged,
+> > > > > > netconsole cannot used for kernel boot messages.
+> > > > > > 
+> > > > > > With a machine with multiple nics, is there a way to control device
+> > > > > > naming so that the interface name to be used by netconsole specified on
+> > > > > > the boot command line will actually corresponding to the intended
+> > > > > > device. For example,
+> > > > > > 
+> > > > > > [ 0.000000] Kernel command line: BOOT_IMAGE=/boot/vmlinuz-3.7.0-rc8-xeon ...... netconsole=@192.168.1.123/eth0,30000@192.168.1.139/xx:xx:xx:xx:xx:xx
+> > > > > > ....
+> > > > > > [ 4.092184] 3c59x: Donald Becker and others.
+> > > > > > [ 4.092204] 0000:07:05.0: 3Com PCI 3c905C Tornado at ffffc9000186cf80.
+> > > > > > [ 4.094035] tg3.c:v3.125 (September 26, 2012)
+> > > > > > ....
+> > > > > > [ 4.125038] tg3 0000:08:00.0 eth1: Tigon3 [partno(BCM95754) rev b002] (PCI Express) MAC address xx:xx:xx:xx:xx:xx
+> > > > > > [ 4.125055] tg3 0000:08:00.0 eth1: attached PHY is 5787 (10/100/1000Base-T Ethernet) (WireSpeed[1], EEE[0])
+> > > > > > [ 4.125062] tg3 0000:08:00.0 eth1: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> > > > > > [ 4.125068] tg3 0000:08:00.0 eth1: dma_rwctrl[76180000] dma_mask[64-bit]
+> > > > > > 
+> > > > > > This is attaching netconsole to the wrong device because bus
+> > > > > > enumeration, and therefore load order, is not consistent from boot to
+> > > > > > boot.
+> > > > > > 
+> > > > > No, theres no way to do that.  As you note device ennumeration isn't consistent
+> > > > > accross boots, thats why udev creates rules to rename devices based on immutable
+> > > > > (or semi-immutable) data, like mac addresses, or pci bus locations).  Once that
+> > > > > happens, you'll have consistent names for your interfaces, and that work will be
+> > > > > guaranteed to be done after networkmanager has finished opening all the
+> > > > > interfaces that it needs (hence my suggestion to make netconsole service
+> > > > > dependent on networkmanager service startup completing).
+> > > > 
+> > > > Just wondering if you think something like the patch below is
+> > > > suitable/acceptable for insulating netconsole from inconsistent device
+> > > > name scenarios without changing the existing semantics. The basic idea
+> > > > is to allow an ethernet MAC address in the <dev> field of the
+> > > > netconsole= options, and if a MAC address was specified rather than a
+> > > > device name, to do the dev lookup from the MAC address instead.
+> > > > 
+> > > > This doesn't extend to, but also doesn't interfere with, the dynamic
+> > > > config of netconsole via configfs.
+> > > > 
+> > > > Would you mind reviewing it?
+> > > > 
+> > > > Regards,
+> > > > Peter
+> > > > 
+> > > This looks like a pretty good idea to me.  That said, something occured to me
+> > > when you wrote your summary above.  Have you looked at the netconsole service
+> > > scripts that most distros provide in their packaging?  I'm almost positive Red
+> > > Hat/Fedora (and also like Suse and Ubuntu), already implement this functionality
+> > > from user space.  Basically, instead of people just modprobing netconsole, they
+> > > create a service script that parses a config file that has contains all the
+> > > options needed to load the netconsole module, and it has the intellegence to see
+> > > if you specified a mac address rather than a device.  If you did that it finds
+> > > the corresponding device mac address and uses that as the device.  I'm sorry, I
+> > > don't know why I didn't think of that before.  Check that out though, that will
+> > > likey give you exactly what you need
+> > 
+> > Even with a udev rule to load netconsole that runs immediately after
+> > device renaming (so before scripting), most of the dynamic module
+> > loading has already happened so netconsole misses it. At least with the
+> > patch, netconsole will load and attach to the proper interface much
+> > earlier in the boot so that module-load-time messages will be caught.
+> > 
+> I'm not sure what you mean by this.
 
-Thanks :) I can always try to discuss some points, but I appreciate
-every review!
+This is the beginning of my netconsole log if I use userspace scripts to
+start it.
 
+[   19.125314] ip_tables: (C) 2000-2006 Netfilter Core Team
+[   20.060925] nf_conntrack version 0.5.0 (16384 buckets, 65536 max)
+[   21.829331] ip6_tables: (C) 2000-2006 Netfilter Core Team
+[   25.728370] at-spi-registry[1862]: segfault at 18 ip 00007f6dd1dd45f1 sp 00007fff49bcd760 error 4 in libgconf-2.so.4.1.5[7f6dd1dbd000+2d000]
+[   26.778848] EXT4-fs (dm-3): re-mounted. Opts: errors=remount-ro,commit=0
+[   30.643469] Bluetooth: RFCOMM TTY layer initialized
+[   30.643509] Bluetooth: RFCOMM socket layer initialized
+[   30.643512] Bluetooth: RFCOMM ver 1.11
+[   30.784550] Bluetooth: BNEP (Ethernet Emulation) ver 1.3
+[   30.784567] Bluetooth: BNEP filters: protocol multicast
+[   30.784584] Bluetooth: BNEP socket layer initialized
+[   34.010813] init: plymouth-stop pre-start process (2205) terminated with status 1
 
->> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/eth=
-ernet/broadcom/bgmac.c
->
-> []
->
->> +#define pr_fmt(fmt)          KBUILD_MODNAME ": " fmt
->> +
->> +#define bgmac_err(bgmac, fmt, ...) \
->> +     pr_err("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
->> +#define bgmac_warn(bgmac, fmt, ...) \
->> +     pr_warn("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
->> +#define bgmac_info(bgmac, fmt, ...) \
->> +     pr_info("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
->> +#define bgmac_debug(bgmac, fmt, ...) \
->> +     pr_debug("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
->
-> Most subsystems use prefix_dbg now instead of prefix_debug.
+This is the beginning of my netconsole log if I am able to specify
+netconsole= options on the boot command line. Netconsole starts logging
+much earlier because it is much loaded earlier.
 
-Thanks, I didn't know about that. Seeing "pr_debug" suggested I also
-should use *_debug.
+[    8.764336] EXT4-fs (dm-4): mounted filesystem with ordered data mode. Opts: (null)
+[    9.409379] firewire_core 0000:07:06.0: created device fw1: GUID 0800460301c2d69e, S400
+[    9.567395] init: ureadahead main process (500) terminated with status 5
+[   10.400338] Adding 10996456k swap on /dev/mapper/isw_cbdbfhdjad_Raid0p5.  Priority:-1 extents:1 across:10996456k 
+[   10.496974] udevd[541]: starting version 173
+[   10.725906] EXT4-fs (dm-4): re-mounted. Opts: errors=remount-ro
+[   11.288352] lp: driver loaded but no devices found
+[   12.240058] parport_pc 00:05: reported by Plug and Play ACPI
+[   12.240145] parport0: PC-style at 0x378 (0x778), irq 7, using FIFO [PCSPP,TRISTATE,COMPAT,ECP]
+[   12.336161] lp0: using parport0 (interrupt-driven).
+[   12.342867] microcode: CPU0 sig=0x10676, pf=0x40, revision=0x60f
+[   12.436657] shpchp: Standard Hot Plug PCI Controller Driver version: 0.4
+[   12.442245] ppdev: user-space parallel port driver
+[   12.451592] net firewire0: IPv4 over IEEE 1394 on card 0000:07:06.0
 
+Does that make more sense now?
 
-> Why not change these from pr_<level> to dev_<level>?
+Thanks again,
+Peter
 
-One more thing I didn't know/think about (dev_*).
+> > There is an unforeseen consequence of the patch: it breaks device
+> > renaming because the device will already be in use by netconsole. Which
+> > is the whole problem with userspace device renaming to begin with...
+> > 
+> That is bad, but see above, the netconsole service can work around this for you,
+> allowing you to never have to specify a particular device at all.
 
-
-> Maybe these should be in the bgmac.h file.
-
-OK.
-
-
->> +static bool bgmac_wait_value(struct bcma_device *core, u16 reg, u32=
- mask,
->> +                          u32 value, int timeout)
->> +{
-> []
->> +     pr_err("Timeout waiting for reg 0x%X\n", reg);
->
-> Maybe add new bmca_dev_(err|warn|info|dbg) macros too?
-
-It's the only place where we are working on a specific coreunit, but I
-didn't bother to print that. Was too lazy to add special code for this
-single case, ups ;)
-
-
->> +/* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipphyinit */
->> +static void bgmac_phy_init(struct bgmac *bgmac)
->> +{
->> +     struct bcma_chipinfo *ci =3D &bgmac->core->bus->chipinfo;
->> +     struct bcma_drv_cc *cc =3D &bgmac->core->bus->drv_cc;
->> +     u8 i;
->> +
->> +     if (ci->id =3D=3D BCMA_CHIP_ID_BCM5356) {
->> +             for (i =3D 0; i < 5; i++) {
->> +                     bgmac_phy_write(bgmac, i, 0x1f, 0x008b);
->> +                     bgmac_phy_write(bgmac, i, 0x15, 0x0100);
->> +                     bgmac_phy_write(bgmac, i, 0x1f, 0x000f);
->> +                     bgmac_phy_write(bgmac, i, 0x12, 0x2aaa);
->> +                     bgmac_phy_write(bgmac, i, 0x1f, 0x000b);
->> +             }
->> +     }
->> +     if ((ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->pkg !=3D 10) ||
->> +         (ci->id =3D=3D BCMA_CHIP_ID_BCM4749 && ci->pkg !=3D 10) ||
->> +         (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci->pkg !=3D 9)) {
->> +             bcma_chipco_chipctl_maskset(cc, 2, ~0xc0000000, 0);
->> +             bcma_chipco_chipctl_maskset(cc, 4, ~0x80000000, 0);
->> +             for (i =3D 0; i < 5; i++) {
->> +                     bgmac_phy_write(bgmac, i, 0x1f, 0x000f);
->> +                     bgmac_phy_write(bgmac, i, 0x16, 0x5284);
->> +                     bgmac_phy_write(bgmac, i, 0x1f, 0x000b);
->> +                     bgmac_phy_write(bgmac, i, 0x17, 0x0010);
->> +                     bgmac_phy_write(bgmac, i, 0x1f, 0x000f);
->> +                     bgmac_phy_write(bgmac, i, 0x16, 0x5296);
->> +                     bgmac_phy_write(bgmac, i, 0x17, 0x1073);
->> +                     bgmac_phy_write(bgmac, i, 0x17, 0x9073);
->> +                     bgmac_phy_write(bgmac, i, 0x16, 0x52b6);
->> +                     bgmac_phy_write(bgmac, i, 0x17, 0x9273);
->> +                     bgmac_phy_write(bgmac, i, 0x1f, 0x000b);
->
-> That's a lot of magic numbers.
-
-I agree, unfortunately there's nothing I can do :( I don't know names
-for that registers not to mention the values (bits). We don't have
-datasheets for that devices and I don't think we will ever have.
-
-
->> +static void bgmac_chip_stats_update(struct bgmac *bgmac)
->> +{
->> +     int i;
->> +
->> +     if (bgmac->core->id.id !=3D BCMA_CORE_4706_MAC_GBIT) {
->
-> Save an indent level by returning a call to
-> a new bgmac_4706_chip_stats_update instead?
->
->         if (bgmac->core->id.id =3D=3D BCMA_CORE_4706_MAC_GBIT)
->                 return bgmac_407_chip_stats_update(bgmac);
->
->> +             for (i =3D 0; i < BGMAC_NUM_MIB_TX_REGS; i++)
->> +                     bgmac->mib_tx_regs[i] =3D
->> +                             bgmac_read(bgmac,
->> +                                        BGMAC_TX_GOOD_OCTETS + (i *=
- 4));
->> +             for (i =3D 0; i < BGMAC_NUM_MIB_RX_REGS; i++)
->> +                     bgmac->mib_rx_regs[i] =3D
->> +                             bgmac_read(bgmac,
->> +                                        BGMAC_RX_GOOD_OCTETS + (i *=
- 4));
->> +     }
->
-> unindent
->
->> +
->> +     /* TODO: what else? how to handle BCM4706? */
->
-> and delete?
-
-I got an info from Hauke that we can still do/read sth on BCM4706.
-It's just not documented yet, that's why I left "TODO". I can note the
-specs are lacking to make it clearer.
-
-
->> +}
->> +
->> +static void bgmac_clear_mib(struct bgmac *bgmac)
->> +{
->> +     int i;
->> +
->> +     if (bgmac->core->id.id =3D=3D BCMA_CORE_4706_MAC_GBIT)
->> +             return;
->
-> Something like what this function does.
-
-
->> +     /* Stats */
->> +     bool stats_grabbed;
->> +     u32 mib_tx_regs[BGMAC_NUM_MIB_TX_REGS];
->> +     u32 mib_rx_regs[BGMAC_NUM_MIB_RX_REGS];
->> +};
->
-> Maybe some minor reordering of the u8/bools to reduce padding.
-
-Really? Compiler won't do that for me? I hope that compiler optimizes
-structs (until using __packed) :(
-
---=20
-Rafa=C5=82
+Just to be clear here,
