@@ -1,59 +1,62 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] sctp: jsctp_sf_eat_sack: fix kernel NULL ptr dereference
-Date: Fri, 14 Dec 2012 10:12:50 -0500
-Message-ID: <50CB41F2.7040403@gmail.com>
-References: <cover.1355494956.git.dborkman@redhat.com> <2813cf01509e495fee13ff1fab309f1186c0e57a.1355494956.git.dborkman@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] netlink: align attributes on 64-bits
+Date: Fri, 14 Dec 2012 15:49:20 +0000
+Message-ID: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20121211184013.GD27746@casper.infradead.org>
+	 <1355491002-3931-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: <tgraf@suug.ch>, <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<David.Laight@ACULAB.COM>
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f174.google.com ([209.85.210.174]:64687 "EHLO
-	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755524Ab2LNPMy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 10:12:54 -0500
-Received: by mail-ia0-f174.google.com with SMTP id y25so3208938iay.19
-        for <netdev@vger.kernel.org>; Fri, 14 Dec 2012 07:12:54 -0800 (PST)
-In-Reply-To: <2813cf01509e495fee13ff1fab309f1186c0e57a.1355494956.git.dborkman@redhat.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:44590 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756439Ab2LNPt0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 10:49:26 -0500
+In-Reply-To: <1355491002-3931-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/14/2012 09:27 AM, Daniel Borkmann wrote:
-> During debugging a sctp problem, I hit a kernel NULL pointer
-> dereference in the jprobes callback jsctp_sf_eat_sack(). This
-> small patch fixes the panic.
->
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->   net/sctp/probe.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
-> index bc6cd75..0a4e9d6 100644
-> --- a/net/sctp/probe.c
-> +++ b/net/sctp/probe.c
-> @@ -134,7 +134,7 @@ sctp_disposition_t jsctp_sf_eat_sack(const struct sctp_endpoint *ep,
->
->   	sp = asoc->peer.primary_path;
->
-> -	if ((full || sp->cwnd != lcwnd) &&
-> +	if (sp && (full || sp->cwnd != lcwnd) &&
->   	    (!port || asoc->peer.port == port ||
->   	     ep->base.bind_addr.port == port)) {
->   		lcwnd = sp->cwnd;
->
+On Fri, 2012-12-14 at 14:16 +0100, Nicolas Dichtel wrote:
+> On 64 bits arch, we must ensure that attributes are always aligned on 64-bits
+> boundary. We do that by adding attributes of type 0, size 4 (alignment on
+> 32-bits is already done) when needed. Attribute type 0 should be available and
+> unused in all netlink families.
+[...]
+> --- a/lib/nlattr.c
+> +++ b/lib/nlattr.c
+> @@ -450,9 +450,18 @@ EXPORT_SYMBOL(__nla_put_nohdr);
+>   */
+>  int nla_put(struct sk_buff *skb, int attrtype, int attrlen, const void *data)
+>  {
+> -	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen)))
+> +	int align = IS_ALIGNED((unsigned long)skb_tail_pointer(skb), sizeof(void *)) ? 0 : 4;
 
+The assumption here is that nothing needs to be aligned to a greater
+width than that of a pointer.  However, for most 32-bit architectures
+(i386 being an exception) the C ABI requires 64-bit alignment for 64-bit
+types.  There may be cases where a mostly 32-bit processor really
+requires 64-bit alignment, e.g. to load or save a pair of registers.
 
-Sorry, but this patch isn't making much sense.  @sp points to the 
-primary path of the association and that can not be null if we receiving
-SACKs on this association.
+Ben.
 
-sctp_sf_eat_sack_6_2(), which we are probing, is only called while the 
-association is valid and all the transports still exist.  It is also 
-called under lock, so the transports can not go away while processing of 
-the SACK.  So unless there is some kind of jprobe issue, the pointer
-you are looking at should always be valid.
+> +	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen) + align))
+>  		return -EMSGSIZE;
+>  
+> +	if (align) {
+> +		/* Goal is to add an attribute with size 4. We know that
+> +		 * NLA_HDRLEN is 4, hence payload is 0.
+> +		 */
+> +		__nla_reserve(skb, 0, 0);
+> +	}
+> +
+>  	__nla_put(skb, attrtype, attrlen, data);
+>  	return 0;
+>  }
 
--vlad
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
