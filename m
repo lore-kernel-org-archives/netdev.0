@@ -1,55 +1,39 @@
-From: Amos Kong <akong@redhat.com>
-Subject: [Netperf PATCH] output remote_send_size in TCP_MAERTS result
-Date: Fri, 14 Dec 2012 18:49:08 +0800
-Message-ID: <1355482148-31407-1-git-send-email-akong@redhat.com>
-Cc: netdev@vger.kernel.org, Amos Kong <akong@redhat.com>
+From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+Subject: [PATCH] Fix comment for packets without data
+Date: Fri, 14 Dec 2012 11:53:33 +0100
+Message-ID: <1355482413-18629-1-git-send-email-florent.fourcot@enst-bretagne.fr>
+References: <50CA23AA.1040501@hp.com>
+Cc: pablo@netfilter.org, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 To: rick.jones2@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9548 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755359Ab2LNKqk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Dec 2012 05:46:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <50CA23AA.1040501@hp.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When I executed TCP_MAERTS by following command line:
-  netperf-2.6.0 -H 192.168.58.23 -l 10 -C -t TCP_MAERTS -- -m 512,1024
-The outputed send size is '512'.
+Remove ambiguity of double negation
 
-When I executed TCP_MAERTS by following command line:
-  netperf-2.6.0 -H 192.168.58.23 -l 10 -t TCP_MAERTS -- -m 512,1024
-The outputed send size is '1024'.
-
-In TCP_MAERTS test, we should output the remote send size '1024',
-this patch fixed this issue.
-
-Reported-by: Wenli Quan <wquan@redhat.com>
-Signed-off-by: Amos Kong <akong@redhat.com>
+Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
 ---
- src/nettest_omni.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/src/nettest_omni.c b/src/nettest_omni.c
-index 826167a..b0b1500 100644
---- a/src/nettest_omni.c
-+++ b/src/nettest_omni.c
-@@ -5951,7 +5951,7 @@ Size (bytes)\n\
- 		cpu_fmt_1,		/* the format string */
- 		rsr_size,		/* remote recvbuf size */
- 		lss_size,		/* local sendbuf size */
--		send_size,		/* how large were the recvs */
-+		remote_send_size,	/* how large were the recvs */
- 		elapsed_time,		/* how long was the test */
- 		thruput, 		/* what was the xfer rate */
- 		local_cpu_utilization,	/* local cpu */
-@@ -5983,7 +5983,7 @@ Size (bytes)\n\
- 		tput_fmt_1,		/* the format string */
- 		lsr_size, 		/* local recvbuf size */
- 		rss_size, 		/* remot sendbuf size */
--		remote_send_size,		/* how large were the recvs */
-+		remote_send_size,	/* how large were the recvs */
- 		elapsed_time, 		/* how long did it take */
- 		thruput,                  /* how fast did it go */
- 		((print_headers) ||
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 00ee17c..137e245 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -81,8 +81,8 @@ static int ipv6_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
+ 	}
+ 	protoff = ipv6_skip_exthdr(skb, extoff, &nexthdr, &frag_off);
+ 	/*
+-	 * (protoff == skb->len) mean that the packet doesn't have no data
+-	 * except of IPv6 & ext headers. but it's tracked anyway. - YK
++	 * (protoff == skb->len) means the packet has not data, just
++	 * IPv6 and possibly extensions headers, but it is tracked anyway
+ 	 */
+ 	if (protoff < 0 || (frag_off & htons(~0x7)) != 0) {
+ 		pr_debug("ip6_conntrack_core: can't find proto in pkt\n");
 -- 
-1.7.1
+1.7.10.4
+
