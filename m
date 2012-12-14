@@ -1,44 +1,42 @@
-From: Ang Way Chuang <wcang@sfc.wide.ad.jp>
-Subject: [PATCH] bridge: remove temporary variable for MLDv2 maximum response
- code computation
-Date: Fri, 14 Dec 2012 17:08:39 +0800
-Message-ID: <50CAEC97.2090609@sfc.wide.ad.jp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
+From: Koen Kooi <koen@dominion.thruhere.net>
+Subject: Re: cpts: Fix build error caused by include of plat/clock.h
+Date: Fri, 14 Dec 2012 10:55:56 +0100
+Message-ID: <45364223-10C6-430A-9085-9DE1C79030AF@dominion.thruhere.net>
+References: <20121213213641.GF4989@atomide.com> <20121214071300.GA2253@netboy.at.omicron.at>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Tony Lindgren <tony@atomide.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shonan.sfc.wide.ad.jp ([203.178.142.130]:44011 "EHLO
-	mail.sfc.wide.ad.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751652Ab2LNJIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 04:08:44 -0500
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:52346 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754314Ab2LNJz7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 04:55:59 -0500
+Received: by mail-ea0-f174.google.com with SMTP id e13so1185557eaa.19
+        for <netdev@vger.kernel.org>; Fri, 14 Dec 2012 01:55:58 -0800 (PST)
+In-Reply-To: <20121214071300.GA2253@netboy.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As suggested by Stephen Hemminger, this remove the temporary variable introduced in commit
-eca2a43bb0d2c6ebd528be6acb30a88435abe307
 
-Signed-off-by: Ang Way Chuang <wcang@sfc.wide.ad.jp>
----
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 1093c89..2561af9 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1165,7 +1165,6 @@ static int br_ip6_multicast_query(struct net_bridge *br,
- 		if (max_delay)
- 			group = &mld->mld_mca;
- 	} else if (skb->len >= sizeof(*mld2q)) {
--		u16 mrc;
- 		if (!pskb_may_pull(skb, sizeof(*mld2q))) {
- 			err = -EINVAL;
- 			goto out;
-@@ -1173,8 +1172,7 @@ static int br_ip6_multicast_query(struct net_bridge *br,
- 		mld2q = (struct mld2_query *)icmp6_hdr(skb);
- 		if (!mld2q->mld2q_nsrcs)
- 			group = &mld2q->mld2q_mca;
--		mrc = ntohs(mld2q->mld2q_mrc);
--		max_delay = mrc ? MLDV2_MRC(mrc) : 1;
-+		max_delay = mld2q->mld2q_mrc ? MLDV2_MRC(ntohs(mld2q->mld2q_mrc)) : 1;
- 	}
- 
- 	if (!group)
+Op 14 dec. 2012, om 08:13 heeft Richard Cochran <richardcochran@gmail.com> het volgende geschreven:
+
+> On Thu, Dec 13, 2012 at 01:36:41PM -0800, Tony Lindgren wrote:
+>> Commit 87c0e764 (cpts: introduce time stamping code and a PTP hardware clock)
+>> mistakenly included plat/clock.h that should not be included by drivers
+>> even if it exists.
+> 
+> Hasn't this already been fixed?
+> 
+>  https://patchwork.kernel.org/patch/1810481/
+>  http://www.spinics.net/lists/linux-omap/msg83132.html
+
+That patch didn't get applied, so it's still broken in Linus' tree :(
+
+regards,
+
+Koen
