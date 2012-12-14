@@ -1,44 +1,41 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] Fix comment for packets without data
-Date: Fri, 14 Dec 2012 13:28:54 -0800
-Message-ID: <50CB9A16.1090006@hp.com>
-References: <50CA23AA.1040501@hp.com> <1355482413-18629-1-git-send-email-florent.fourcot@enst-bretagne.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1355482413-18629-1-git-send-email-florent.fourcot@enst-bretagne.fr>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2012-12-14
+Date: Fri, 14 Dec 2012 22:33:43 +0100
+Message-ID: <1355520824-23175-1-git-send-email-mkl@pengutronix.de>
+Cc: linux-can@vger.kernel.org, sfr@canb.auug.org.au,
+	davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/14/2012 02:53 AM, Florent Fourcot wrote:
-> Remove ambiguity of double negation
->
-> Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-> ---
->   net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-> index 00ee17c..137e245 100644
-> --- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-> +++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-> @@ -81,8 +81,8 @@ static int ipv6_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
->   	}
->   	protoff = ipv6_skip_exthdr(skb, extoff, &nexthdr, &frag_off);
->   	/*
-> -	 * (protoff == skb->len) mean that the packet doesn't have no data
-> -	 * except of IPv6 & ext headers. but it's tracked anyway. - YK
-> +	 * (protoff == skb->len) means the packet has not data, just
-> +	 * IPv6 and possibly extensions headers, but it is tracked anyway
->   	 */
->   	if (protoff < 0 || (frag_off & htons(~0x7)) != 0) {
->   		pr_debug("ip6_conntrack_core: can't find proto in pkt\n");
->
+Hello David,
 
-Acked-by: Rick Jones <rick.jones2@hp.com>
+here's a patch for net for the v3.8 release cycle. Randy Dunlap found a
+compilation problem of the sja1000_of_platform driver on X86_32. A patch by me
+fixes the problem.
 
-rick
+regards, Marc
+
+---
+
+The following changes since commit 17bc14b767cf0692420c43dbe5310ae98a5a7836:
+
+  Revert "sched: Update_cfs_shares at period edge" (2012-12-14 07:20:43 -0800)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can.git fixes-for-3.8
+
+for you to fetch changes up to 27d5155f676598e461d9038eadf77bfebce48f30:
+
+  can: sja1000: fix compilation on x86 (2012-12-14 22:07:10 +0100)
+
+----------------------------------------------------------------
+Marc Kleine-Budde (1):
+      can: sja1000: fix compilation on x86
+
+ drivers/net/can/sja1000/sja1000_of_platform.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
