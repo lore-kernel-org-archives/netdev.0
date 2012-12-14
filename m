@@ -1,65 +1,80 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH net-next 0/5] Ease netns management for userland
-Date: Fri, 14 Dec 2012 08:50:33 -0800
-Message-ID: <87zk1g8tnq.fsf@xmission.com>
-References: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com>
-	<87fw3boyxn.fsf@xmission.com> <50C8EEF0.2010201@6wind.com>
-	<87zk1jht7d.fsf@xmission.com> <87sj7beyc1.fsf@xmission.com>
-	<50CA135A.7060802@6wind.com> <87mwxh6a8y.fsf@xmission.com>
-	<50CB5047.8060804@6wind.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH 00/11] Add basic VLAN support to bridges
+Date: Fri, 14 Dec 2012 11:50:51 -0500
+Message-ID: <50CB58EB.9050302@redhat.com>
+References: <CAJZOPZL3grqtd-Tnhr-QxkdFWrhkgcp5+fOUZSaPJd3Ker_7GQ@mail.gmail.com> <50C91506.70903@redhat.com> <20121213094719.3a7a9408@nehalam.linuxnetplumber.net> <20121213.140023.2131448980265576282.davem@davemloft.net> <20121213110404.6d662baa@nehalam.linuxnetplumber.net> <50CA37DA.1090905@mojatatu.com> <20121213140218.2c705bb5@nehalam.linuxnetplumber.net> <50CA588F.9040800@mojatatu.com> <20121213143712.6932cb22@nehalam.linuxnetplumber.net> <50CA5D39.5060003@mojatatu.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, aatteka@nicira.com
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, or.gerlitz@gmail.com,
+	netdev@vger.kernel.org, mst@redhat.com, john.r.fastabend@intel.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:43025 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756224Ab2LNQuq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 11:50:46 -0500
-In-Reply-To: <50CB5047.8060804@6wind.com> (Nicolas Dichtel's message of "Fri,
-	14 Dec 2012 17:13:59 +0100")
+Received: from mx1.redhat.com ([209.132.183.28]:35789 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756224Ab2LNQu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2012 11:50:57 -0500
+In-Reply-To: <50CA5D39.5060003@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+On 12/13/2012 05:56 PM, Jamal Hadi Salim wrote:
+> On 12-12-13 05:37 PM, Stephen Hemminger wrote:
+>
+>>
+>> You can, run any action before it hits the bridge.
+>
+> I think you and I have had this discussion before ;->
+> It works just fine on ingress.
+>
+>
+> #Add ingress qdisc on br0
+> tc qdisc add dev br0 ingress
+> #Add a filter to accept all and count
+> tc filter add dev br0 parent ffff: protocol ip prio 6 u32 match ip dst
+> 0/0 flowid 1:16 action ok
+> #show the stats
+> root@jhs12:~# tc -s filter show parent ffff: dev br0
+> filter protocol ip pref 6 u32
+> filter protocol ip pref 6 u32 fh 800: ht divisor 1
+> filter protocol ip pref 6 u32 fh 800::800 order 2048 key ht 800 bkt 0
+> flowid 1:16
+>    match 00000000/00000000 at 16
+>      action order 1: gact action pass
+>       random type none pass val 0
+>       index 2 ref 1 bind 1 installed 269 sec used 74 sec
+>       Action statistics:
+>      Sent 1210 bytes 15 pkt (dropped 0, overlimits 0 requeues 0)
+>      backlog 0b 0p requeues 0
+> ------
+>
+> Look at those packets ...
 
-> Le 13/12/2012 20:08, Eric W. Biederman a =C3=A9crit :
+Interesting.  But, but how complex would be be to configure a vlan 
+filter for say 10 different vlans, each one of them only permitted
+to be forwarded to their respective VM.  Oh, and Vlan tags should
+be stripped when they are being forwarded.
 
->> No.  The difficulty monitoring which network namespaces are being us=
-ed
->> is an unintended side effect.
-> Why is netlink a bad idea? Having a way to know all existing netns is=
- a start
-> point to monitor netns, isn't it?
+config:
+       +- eth0
+       |
+   br0-+- vnet0 (vlan10) - VM1
+       |
+       +- vnet1 (vlan20) - VM2
+       |
+       +- vnet3 (vlan30) - VM3
+... etc...
 
-In the same way that having a neighbour table that contains all existin=
-g
-ip address to mac addresses mappings is a starting point to monitor all
-existing hosts.
-
-All does not scale.
-
-All removes a lot of perfectly valid use cases like checkpoint-restart,
-and nesting containers.
-
-All as different from what is already implemented requires implementing
-yet another namespace to put the names of all into it.  We have enough
-namespaces now thank you very much.
-
-An unfiltered global list is about as interesting to use as putting
-all files in /.  Sure you know which directory you put your file in but
-which file is it?
-
-What has already been implemented should be roughly as good for
-monitoring as what is available with lsof.
-
-And of course there is the fact that a global list of anything that is
-the same from every perspective violates the principle of relativity,
-and is in contradiction with the phsical reality in which we exist.
-
-So there is no way that having a global all inclusive list of network
-namespaces makes the least lick of sense and I really don't want to
-think about it.
-
-Eric
+-vlad
+>
+> cheers,
+> jamal
+>
+> cheers,
+> jamal
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
