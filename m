@@ -1,94 +1,74 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH] sctp: Change defaults on cookie hmac selection
-Date: Fri, 14 Dec 2012 15:01:55 -0500
-Message-ID: <50CB85B3.80004@gmail.com>
-References: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: request to queue patches for stable
+Date: Fri, 14 Dec 2012 15:38:25 -0500 (EST)
+Message-ID: <20121214.153825.1087482329989146130.davem@davemloft.net>
+References: <20121206.222321.485936471142281291.davem@davemloft.net>
+	<1907800187.6214689.1355191395335.JavaMail.root@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-sctp@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: netdev@vger.kernel.org
+To: caiqian@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:60614 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932188Ab2LNUB7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 15:01:59 -0500
-In-Reply-To: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50485 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932241Ab2LNUi3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 15:38:29 -0500
+In-Reply-To: <1907800187.6214689.1355191395335.JavaMail.root@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/14/2012 01:51 PM, Neil Horman wrote:
-> Recently I posted commit 3c68198e75 which made selection of the cookie hmac
-> algorithm selectable.  This is all well and good, but Linus noted that it
-> changes the default config:
-> http://marc.info/?l=linux-netdev&m=135536629004808&w=2
->
-> I've modified the sctp Kconfig file to reflect the recommended way of making
-> this choice, using the thermal driver example specified, and brought the
-> defaults back into line with the way they were prior to my origional patch
->
-> Tested by myself (allbeit fairly quickly).  All configuration combinations seems
-> to work soundly.
->
+From: CAI Qian <caiqian@redhat.com>
+Date: Mon, 10 Dec 2012 21:03:15 -0500 (EST)
 
-Just tried it and like how it looks.
+> 
+> 
+> ----- Original Message -----
+>> From: "David Miller" <davem@davemloft.net>
+>> To: caiqian@redhat.com
+>> Cc: greg@kroah.com, stable@vger.kernel.org, mbizon@freebox.fr, ja@ssi.bg
+>> Sent: Friday, December 7, 2012 11:23:21 AM
+>> Subject: Re: [PATCH] ipv4: do not cache looped multicasts
+>> 
+>> From: CAI Qian <caiqian@redhat.com>
+>> Date: Thu, 6 Dec 2012 21:56:35 -0500 (EST)
+>> 
+>> > OK, I have a few network patches in the queue that looks applicable
+>> > to
+>> > the stable as well. I think I'll send them out here too to seek
+>> > their
+>> > ACKs. David, please let me know if I should stop doing this.
+>> 
+>> Please stop doing this.
+>> 
+>> If you want networking patches to reach stable, first
+>> consult:
+>> 
+>> http://patchwork.ozlabs.org/bundle/davem/stable/
+>> 
+>> to see if the patch you want isn't queued up already.
+>> 
+>> If it is not, ask me to queue it up on netdev@vger.kernel.org
+>> 
+>> But note that I like to let networking patches "cook" upstream
+>> in Linus's tree for a certain amount of time before I submit
+>> them to -stable.  There can be up to even a week or two.
+> Dave, the following patches looks applicable for the stable
+> releases. Please queue them up if you agree.
+> 
+> 0e376bd0b791ac6ac6bdb051492df0769c840848 (for 3.0.x, 3.4.x and 3.6.x)
+> e196c0e579902f42cf72414461fb034e5a1ffbf7 (for 3.0.x, 3.4.x and 3.6.x)
+> 6e51fe7572590d8d86e93b547fab6693d305fd0d (for 3.0.x, 3.4.x and 3.6.x)
+> e1a676424c290b1c8d757e3860170ac7ecd89af4 (for 3.6.x)
+> 636174219b52b5a8bc51bc23bbcba97cd30a65e3 (for 3.6.x)
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+What is the point of my publishing the pending networking -stable
+queue if you're not even going to check it?  Those last two patches
+were already queued up.
 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: David Miller <davem@davemloft.net>
-> CC: Linus Torvalds <torvalds@linux-foundation.org>
-> CC: Vlad Yasevich <vyasevich@gmail.com>
-> CC: linux-sctp@vger.kernel.org
-> ---
->   net/sctp/Kconfig | 22 ++++++++++++++++++++--
->   1 file changed, 20 insertions(+), 2 deletions(-)
->
-> diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
-> index a9edd2e..7cd47be 100644
-> --- a/net/sctp/Kconfig
-> +++ b/net/sctp/Kconfig
-> @@ -66,12 +66,31 @@ config SCTP_DBG_OBJCNT
->   	  'cat /proc/net/sctp/sctp_dbg_objcnt'
->
->   	  If unsure, say N
-> +choice
-> +	prompt "Default SCTP cookie HMAC encoding"
-> +	default SCTP_COOKIE_HMAC_MD5
-> +	help
-> +	  This option sets the default sctp cookie hmac algorithm
-> +	  when in doubt select 'md5'
-> +
-> +config SCTP_DEFAULT_COOKIE_HMAC_MD5
-> +	bool "Enable optional MD5 hmac cookie generation"
-> +	help
-> +	  Enable optional MD5 hmac based SCTP cookie generation
-> +	select SCTP_COOKIE_HMAC_MD5
-> +
-> +config SCTP_DEFAULT_COOKIE_HMAC_SHA1
-> +	bool "Enable optional SHA1 hmac cookie generation"
-> +	help
-> +	  Enable optional SHA1 hmac based SCTP cookie generation
-> +	select SCTP_COOKIE_HMAC_SHA1
-> +
-> +endchoice
->
->   config SCTP_COOKIE_HMAC_MD5
->   	bool "Enable optional MD5 hmac cookie generation"
->   	help
->   	  Enable optional MD5 hmac based SCTP cookie generation
-> -	default y
->   	select CRYPTO_HMAC if SCTP_COOKIE_HMAC_MD5
->   	select CRYPTO_MD5 if SCTP_COOKIE_HMAC_MD5
->
-> @@ -79,7 +98,6 @@ config SCTP_COOKIE_HMAC_SHA1
->   	bool "Enable optional SHA1 hmac cookie generation"
->   	help
->   	  Enable optional SHA1 hmac based SCTP cookie generation
-> -	default y
->   	select CRYPTO_HMAC if SCTP_COOKIE_HMAC_SHA1
->   	select CRYPTO_SHA1 if SCTP_COOKIE_HMAC_SHA1
->
->
+Furthermore, it is erroneous to suggest the -ENOMEM SCTP fix without
+the memory leak fix that happens in the commit right before it.
+
+I've queued things up appropriately, but I really don't appreciate
+how you've handled this at all.  It makes a lot more work for me than
+necessary.
