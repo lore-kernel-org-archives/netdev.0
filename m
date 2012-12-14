@@ -1,38 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: remove temporary variable for MLDv2 maximum
- response code computation
-Date: Fri, 14 Dec 2012 13:15:53 -0500 (EST)
-Message-ID: <20121214.131553.679536999744407664.davem@davemloft.net>
-References: <50CAEC97.2090609@sfc.wide.ad.jp>
+Subject: Re: [PATCH 03/12] mISDN: fix race in timer canceling on module
+ unloading
+Date: Fri, 14 Dec 2012 13:16:09 -0500 (EST)
+Message-ID: <20121214.131609.2271247275899669616.davem@davemloft.net>
+References: <20121214110229.11019.63713.stgit@zurg>
+	<20121214110236.11019.98301.stgit@zurg>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: wcang@sfc.wide.ad.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48872 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756648Ab2LNSP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 13:15:56 -0500
-In-Reply-To: <50CAEC97.2090609@sfc.wide.ad.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	isdn@linux-pingi.de
+To: khlebnikov@openvz.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121214110236.11019.98301.stgit@zurg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ang Way Chuang <wcang@sfc.wide.ad.jp>
-Date: Fri, 14 Dec 2012 17:08:39 +0800
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Date: Fri, 14 Dec 2012 15:02:36 +0400
 
-> As suggested by Stephen Hemminger, this remove the temporary
-> variable introduced in commit
-> eca2a43bb0d2c6ebd528be6acb30a88435abe307
+> Using timer_pending() without additional syncronization is racy,
+> del_timer_sync() must be used here for waiting in-flight handler.
+> Bug caught with help from "debug-objects" during random insmod/rmmod.
 > 
-> Signed-off-by: Ang Way Chuang <wcang@sfc.wide.ad.jp>
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
 
 Applied.
-
-In the future, please provide the commit message header line when
-referencing commits by ID, this allows to avoid ambiguity when a
-commit exists in multiple trees.
-
-I added it this time for you.
-
-Thanks.
