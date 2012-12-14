@@ -1,54 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tuntap: fix ambigious multiqueue API
-Date: Fri, 14 Dec 2012 13:16:02 -0500 (EST)
-Message-ID: <20121214.131602.930994526954658624.davem@davemloft.net>
-References: <1355478810-10144-1-git-send-email-jasowang@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 10/12] mac802154: fix destructon
+ ordering for ieee802154 devices
+Date: Fri, 14 Dec 2012 13:16:15 -0500 (EST)
+Message-ID: <20121214.131615.1528694276738811674.davem@davemloft.net>
+References: <20121214110229.11019.63713.stgit@zurg>
+	<20121214110303.11019.41133.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, pmoore@redhat.com,
-	mprivozn@redhat.com, wkevils@gmail.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1355478810-10144-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: khlebnikov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20121214110303.11019.41133.stgit@zurg>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Fri, 14 Dec 2012 17:53:30 +0800
+From: Konstantin Khlebnikov <khlebnikov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Date: Fri, 14 Dec 2012 15:03:03 +0400
 
-> The current multiqueue API is ambigious which may confuse both user and LSM to
-> do things correctly:
+> mutex_destroy() must be called before wpan_phy_free(), because it puts the last
+> reference and frees memory. Catched as overwritten poison in kmalloc-2048.
 > 
-> - Both TUNSETIFF and TUNSETQUEUE could be used to create the queues of a tuntap
->   device.
-> - TUNSETQUEUE were used to disable and enable a specific queue of the
->   device. But since the state of tuntap were completely removed from the queue,
->   it could be used to attach to another device (there's no such kind of
->   requirement currently, and it needs new kind of LSM policy.
-> - TUNSETQUEUE could be used to attach to a persistent device without any
->   queues. This kind of attching bypass the necessary checking during TUNSETIFF
->   and may lead unexpected result.
-> 
-> So this patch tries to make a cleaner and simpler API by:
-> 
-> - Only allow TUNSETIFF to create queues.
-> - TUNSETQUEUE could be only used to disable and enabled the queues of a device,
->   and the state of the tuntap device were not detachd from the queues when it
->   was disabled, so TUNSETQUEUE could be only used after TUNSETIFF and with the
->    same device.
-> 
-> This is done by introducing a list which keeps track of all queues which were
-> disabled. The queue would be moved between this list and tfiles[] array when it
-> was enabled/disabled. A pointer of the tun_struct were also introdued to track
-> the device it belongs to when it was disabled.
-> 
-> After the change, the isolation between management and application could be done
-> through: TUNSETIFF were only called by management software and TUNSETQUEUE were
-> only called by application.For LSM/SELinux, the things left is to do proper
-> check during tun_set_queue() if needed.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 
 Applied.
+
+------------------------------------------------------------------------------
+LogMeIn Rescue: Anywhere, Anytime Remote support for IT. Free Trial
+Remotely access PCs and mobile devices and provide instant support
+Improve your efficiency, and focus on delivering more value-add services
+Discover what IT Professionals Know. Rescue delivers
+http://p.sf.net/sfu/logmein_12329d2d
