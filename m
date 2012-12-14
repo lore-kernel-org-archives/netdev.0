@@ -1,40 +1,52 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH] Fix: kmemleak in tcp_v4/6_syn_recv_sock and dccp_v4/6_request_recv_sock
-Date: Fri, 14 Dec 2012 14:34:19 +0100
-Message-ID: <2134996.KkfensU2kV@cpaasch-mac>
-References: <1355435363-12766-1-git-send-email-christoph.paasch@uclouvain.be> <15583655.5x5gqCFMiY@cpaasch-mac> <1355491565.10504.7.camel@edumazet-glaptop>
-Reply-To: Christoph Paasch <christoph.paasch@uclouvain.be>
+From: Steve Glendinning <steve@shawell.net>
+Subject: Re: [PATCHv2][RFC] smsc95xx: enable dynamic autosuspend
+Date: Fri, 14 Dec 2012 13:35:04 +0000
+Message-ID: <CAKh2mn7C3r_bvKAv4p3AHco=9JpmewOAJ8JwhtFPw50yDy5cUA@mail.gmail.com>
+References: <1355239561-2740-1-git-send-email-steve.glendinning@shawell.net>
+	<CACVXFVNf1EWfnQmDBDoF991cqJOb8g_Ws+tuyBJdE34rbO6GSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: David Miller <davem@davemloft.net>,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	dccp@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
+	Oliver Neukum <oneukum@suse.de>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Ming Lei <ming.lei@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:51902 "EHLO
-	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753649Ab2LNNeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 08:34:25 -0500
-In-Reply-To: <1355491565.10504.7.camel@edumazet-glaptop>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:46173 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753887Ab2LNNfG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 08:35:06 -0500
+Received: by mail-ee0-f46.google.com with SMTP id e53so1936360eek.19
+        for <netdev@vger.kernel.org>; Fri, 14 Dec 2012 05:35:04 -0800 (PST)
+In-Reply-To: <CACVXFVNf1EWfnQmDBDoF991cqJOb8g_Ws+tuyBJdE34rbO6GSw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 14 December 2012 05:26:05 Eric Dumazet wrote:
-> Please correct the changelog to include the right commit, so that we can
-> backport it to needed kernels later. This backport could be done by you
-> or someone else, don't worry. First step is to get the first patch in
-> current Linus tree, but with exact information in changelog.
+On 11 December 2012 16:13, Ming Lei <ming.lei@canonical.com> wrote:
+> On Tue, Dec 11, 2012 at 11:26 PM, Steve Glendinning
+> <steve.glendinning@shawell.net> wrote:
+>> +
+>> +       if (on)
+>> +               usb_autopm_get_interface_no_resume(dev->intf);
+>> +       else
+>> +               usb_autopm_put_interface_no_suspend(dev->intf);
+>
+> The above line should be
+>
+>           usb_autopm_put_interface(dev->intf);
 
-Ok, will resubmit soon. Thanks for your help.
+Thanks Ming, I've updated this.
+
+> IMO, it is better to keep smsc95xx_info.manage_power as NULL
+> for devices without FEATURE_AUTOSUSPEND, so that fewer code
+> and follow the current .mange_power usage(see its comment).
+>
+> Currently, if the function pointer of manage_power is set, it means that
+> the device supports USB autosuspend, but your trick will make the
+> assumption not true for some smsc devices.
+
+Oliver?
 
 
--- 
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
-UCLouvain
 --
+Steve Glendinning
