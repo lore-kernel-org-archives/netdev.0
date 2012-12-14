@@ -1,56 +1,81 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] netlink: align attributes on 64-bits
-Date: Fri, 14 Dec 2012 17:04:01 +0100
-Message-ID: <50CB4DF1.5020903@6wind.com>
-References: <20121211184013.GD27746@casper.infradead.org>  <1355491002-3931-1-git-send-email-nicolas.dichtel@6wind.com> <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [patch net-next 0/4] net: allow to change carrier from
+ userspace
+Date: Fri, 14 Dec 2012 08:12:01 -0800
+Message-ID: <20121214081201.1205b613@nehalam.linuxnetplumber.net>
+References: <20121212184925.GD3060@minipsycho.orion>
+	<20121212105448.490aca5c@nehalam.linuxnetplumber.net>
+	<20121212190613.GE3060@minipsycho.orion>
+	<20121212113433.21c05614@nehalam.linuxnetplumber.net>
+	<20121213161750.GA1914@minipsycho.orion>
+	<50CA0D3D.5000503@gmail.com>
+	<20121213155423.07c47307@obelix.rh>
+	<20121213100933.6d68a8e5@nehalam.linuxnetplumber.net>
+	<20121213161733.7bffe897@obelix.rh>
+	<20121213102051.72ad69aa@nehalam.linuxnetplumber.net>
+	<20121214144134.GA1652@minipsycho.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tgraf@suug.ch, netdev@vger.kernel.org, davem@davemloft.net,
-	David.Laight@ACULAB.COM
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Flavio Leitner <fbl@redhat.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com,
+	greearb@candelatech.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:49535 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756252Ab2LNQEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 11:04:04 -0500
-Received: by mail-ea0-f174.google.com with SMTP id e13so1362406eaa.19
-        for <netdev@vger.kernel.org>; Fri, 14 Dec 2012 08:04:03 -0800 (PST)
-In-Reply-To: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail.vyatta.com ([76.74.103.46]:41773 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756445Ab2LNQNR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2012 11:13:17 -0500
+In-Reply-To: <20121214144134.GA1652@minipsycho.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 14/12/2012 16:49, Ben Hutchings a =C3=A9crit :
-> On Fri, 2012-12-14 at 14:16 +0100, Nicolas Dichtel wrote:
->> On 64 bits arch, we must ensure that attributes are always aligned o=
-n 64-bits
->> boundary. We do that by adding attributes of type 0, size 4 (alignme=
-nt on
->> 32-bits is already done) when needed. Attribute type 0 should be ava=
-ilable and
->> unused in all netlink families.
-> [...]
->> --- a/lib/nlattr.c
->> +++ b/lib/nlattr.c
->> @@ -450,9 +450,18 @@ EXPORT_SYMBOL(__nla_put_nohdr);
->>    */
->>   int nla_put(struct sk_buff *skb, int attrtype, int attrlen, const =
-void *data)
->>   {
->> -	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen)))
->> +	int align =3D IS_ALIGNED((unsigned long)skb_tail_pointer(skb), siz=
-eof(void *)) ? 0 : 4;
->
-> The assumption here is that nothing needs to be aligned to a greater
-> width than that of a pointer.  However, for most 32-bit architectures
-> (i386 being an exception) the C ABI requires 64-bit alignment for 64-=
-bit
-> types.  There may be cases where a mostly 32-bit processor really
-> requires 64-bit alignment, e.g. to load or save a pair of registers.
-Ok, I will wait other comments to send a v2 (which will align these att=
-ributes=20
-for all arch).
+On Fri, 14 Dec 2012 15:41:34 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-Nicolas
+> Thu, Dec 13, 2012 at 07:20:51PM CET, shemminger@vyatta.com wrote:
+> >On Thu, 13 Dec 2012 16:17:33 -0200
+> >Flavio Leitner <fbl@redhat.com> wrote:
+> >
+> >> On Thu, 13 Dec 2012 10:09:33 -0800
+> >> Stephen Hemminger <shemminger@vyatta.com> wrote:
+> >> 
+> >> > On Thu, 13 Dec 2012 15:54:23 -0200
+> >> > Flavio Leitner <fbl@redhat.com> wrote:
+> >> > 
+> >> > > I am saying this because people are used to and there are scripts out
+> >> > > there using something like:
+> >> > > # ethtool <iface> | grep 'Link'
+> >> > > to react an interface failure.
+> >> > 
+> >> > Then the script is broken. It is asking about hardware state.
+> >> 
+> >> I was talking about the team master interface, so it makes sense
+> >> to check its 'hardware' state. Just think on 'bond0' interface
+> >> with no slaves. It should report Link detected: no.
+> >> 
+> >> See bond_release(), what happens if bond->slave_cnt == 0, for instance.
+> >> 
+> >
+> >I was thinking more that ethtool operation for reporting link on
+> >the team device should use the proper check rather than just using netif_carrier_ok(),
+> >the team ethtool operation for get_link should be check IFF_RUNNING flag
+> >in dev->flags which is controlled by operstate transistions.
+> 
+> I admit I'm bit confused now.
+> 
+> For example in bridge code:
+> in br_add_if() - netif_carrier_ok() is checked and by the value it is
+> decided if br_stp_enable_port() is called or not. Wouldn't it make more
+> sense to check IFF_RUNNING (or netif_oper_up()) here?
+> 
+> The reason I'm asing is that if team device is in bridge, carrier is
+> always ON and I'm fiddling with IF_OPER_UP and IF_OPER_DORMANT from
+> userspace, in current code, bridge wouldn't know the difference...
+> 
+> There are more exmaples of similar usage of netif_carrier_ok() in
+> bridge (called on ports), bonding (called on slaves), team code (called on ports).
+
+Yes the bridge should be fixed to work with user controlled devices.
