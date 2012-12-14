@@ -1,33 +1,38 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: cpts: Fix build error caused by include of plat/clock.h
-Date: Fri, 14 Dec 2012 08:13:00 +0100
-Message-ID: <20121214071300.GA2253@netboy.at.omicron.at>
-References: <20121213213641.GF4989@atomide.com>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH] add a `make dist` helper
+Date: Thu, 13 Dec 2012 23:16:10 -0800
+Message-ID: <drbl5w8utpw8p960mxvy37j1.1355469370120@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Tony Lindgren <tony@atomide.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:48030 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751250Ab2LNHNM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 02:13:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20121213213641.GF4989@atomide.com>
+Received: from mail.vyatta.com ([76.74.103.46]:59395 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754108Ab2LNHQN (ORCPT <rfc822;	netdev@vger.kernel.org>);
+	Fri, 14 Dec 2012 02:16:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 13, 2012 at 01:36:41PM -0800, Tony Lindgren wrote:
-> Commit 87c0e764 (cpts: introduce time stamping code and a PTP hardware clock)
-> mistakenly included plat/clock.h that should not be included by drivers
-> even if it exists.
-
-Hasn't this already been fixed?
-
-  https://patchwork.kernel.org/patch/1810481/
-  http://www.spinics.net/lists/linux-omap/msg83132.html
-
-Thanks,
-Richard
+CkkgYXBwcmVjaWF0ZSB0aGUgZWZmb3J0IGJ1dCB0aGVyZSBhcmUgYSBudW1iZXIgb2YgbW9yZSBz
+dGVwcyB0byBkb2luZyBhIHJlbGVhc2UgYW5kIEkgbmVlZCB0byBzY3JpcHQgdGhlbSBhbGwgdG9n
+ZXRoZXIuIAoKTWlrZSBGcnlzaW5nZXIgPHZhcGllckBnZW50b28ub3JnPiB3cm90ZToKCj5UaGlz
+IG1ha2VzIHN1cmUgdGhlIHRhcmJhbGwgaXMgYWx3YXlzIGNyZWF0ZWQgaW4gdGhlIHNhbWUgd2F5
+Lgo+QXZvaWRzIGFjY2lkZW50YWwgdHlwb3MgaW4gcGF0aCBuYW1lcyBmb3IgZXhhbXBsZS4KPgo+
+U2lnbmVkLW9mZi1ieTogTWlrZSBGcnlzaW5nZXIgPHZhcGllckBnZW50b28ub3JnPgo+LS0tCj4g
+LmdpdGlnbm9yZSB8ICAxICsKPiBNYWtlZmlsZSAgIHwgMTAgKysrKysrKysrKwo+IDIgZmlsZXMg
+Y2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKQo+Cj5kaWZmIC0tZ2l0IGEvLmdpdGlnbm9yZSBiLy5n
+aXRpZ25vcmUKPmluZGV4IDNiYTI2MzIuLmU0NDkwZjQgMTAwNjQ0Cj4tLS0gYS8uZ2l0aWdub3Jl
+Cj4rKysgYi8uZ2l0aWdub3JlCj5AQCAtMSwzICsxLDQgQEAKPitpcHJvdXRlMi0qLnRhcioKPiBz
+dGF0aWMtc3ltcy5oCj4gY29uZmlnLioKPiBDb25maWcKPmRpZmYgLS1naXQgYS9NYWtlZmlsZSBi
+L01ha2VmaWxlCj5pbmRleCA0NmE1YWQ5Li4xOThhYmVhIDEwMDY0NAo+LS0tIGEvTWFrZWZpbGUK
+PisrKyBiL01ha2VmaWxlCj5AQCAtNzUsNiArNzUsMTYgQEAgY2xvYmJlcjoKPiAKPiBkaXN0Y2xl
+YW46IGNsb2JiZXIKPiAKPitHSVRfQVJDSElWRSA9IGdpdCBhcmNoaXZlIC0tcHJlZml4PWlwcm91
+dGUyLSQoVkVSKS8gdiQoVkVSKSB8ICQoMSkgPiBpcHJvdXRlMi0kKFZFUikudGFyLiQoMikKPitk
+aXN0Lmd6OiAgOyAkKGNhbGwgR0lUX0FSQ0hJVkUsZ3ppcCxneikKPitkaXN0LmJ6MjogOyAkKGNh
+bGwgR0lUX0FSQ0hJVkUsYnppcDIsYnoyKQo+K2Rpc3QueHo6ICA7ICQoY2FsbCBHSVRfQVJDSElW
+RSx4eix4eikKPitkaXN0Ogo+K2lmZXEgKCQoVkVSKSwpCj4rCUBlY2hvICJVc2FnZTogbWFrZSBk
+aXN0IFZFUj0zLjcuMCI7IGZhbHNlCj4rZW5kaWYKPisJJChNQUtFKSBkaXN0Lmd6IGRpc3QuYnoy
+IGRpc3QueHoKPisKPiBjc2NvcGU6Cj4gCWNzY29wZSAtYiAtcSAtUiAtSWluY2x1ZGUgLXNpcCAt
+c2xpYiAtc21pc2MgLXNuZXRlbSAtc3RjCj4gCj4tLSAKPjEuOC4wCj4K
