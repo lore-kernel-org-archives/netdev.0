@@ -1,60 +1,79 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH 00/11] Add basic VLAN support to bridges
-Date: Fri, 14 Dec 2012 16:59:57 -0500
-Message-ID: <50CBA15D.6010805@mojatatu.com>
-References: <CAJZOPZL3grqtd-Tnhr-QxkdFWrhkgcp5+fOUZSaPJd3Ker_7GQ@mail.gmail.com> <50C91506.70903@redhat.com> <20121213094719.3a7a9408@nehalam.linuxnetplumber.net> <20121213.140023.2131448980265576282.davem@davemloft.net> <20121213110404.6d662baa@nehalam.linuxnetplumber.net> <50CA37DA.1090905@mojatatu.com> <20121213140218.2c705bb5@nehalam.linuxnetplumber.net> <50CA588F.9040800@mojatatu.com> <20121213143712.6932cb22@nehalam.linuxnetplumber.net> <50CA5D39.5060003@mojatatu.com> <50CB58EB.9050302@redhat.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: sja1000: fix compilation on x86
+Date: Fri, 14 Dec 2012 23:17:03 +0100
+Message-ID: <50CBA55F.6030300@pengutronix.de>
+References: <1355520824-23175-1-git-send-email-mkl@pengutronix.de> <1355520824-23175-2-git-send-email-mkl@pengutronix.de> <20121214.163758.465958297963655994.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, or.gerlitz@gmail.com,
-	netdev@vger.kernel.org, mst@redhat.com, john.r.fastabend@intel.com
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:56896 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932464Ab2LNWAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 17:00:05 -0500
-Received: by mail-ie0-f174.google.com with SMTP id c11so6690251ieb.19
-        for <netdev@vger.kernel.org>; Fri, 14 Dec 2012 14:00:05 -0800 (PST)
-In-Reply-To: <50CB58EB.9050302@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigB2CAD71E3628C5C5B7E3250B"
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	sfr@canb.auug.org.au, andreas@gaisler.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20121214.163758.465958297963655994.davem@davemloft.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12-12-14 11:50 AM, Vlad Yasevich wrote:
->
-> Interesting.  But, but how complex would be be to configure a vlan
-> filter for say 10 different vlans,
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigB2CAD71E3628C5C5B7E3250B
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Shouldnt be hard. At the simple level you need one rule per VLAN.
-I am assuming only one vm per vlan and that you can key on something
-in the header.
+On 12/14/2012 10:37 PM, David Miller wrote:
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Fri, 14 Dec 2012 22:33:44 +0100
+>=20
+>> @@ -121,7 +121,7 @@ static int sja1000_ofp_probe(struct platform_devic=
+e *ofdev)
+>>  	}
+>> =20
+>>  	irq =3D irq_of_parse_and_map(np, 0);
+>> -	if (irq =3D=3D NO_IRQ) {
+>> +	if (irq <=3D 0) {
+>>  		dev_err(&ofdev->dev, "no irq found\n");
+>>  		err =3D -ENODEV;
+>>  		goto exit_unmap_mem;
+>=20
+> I don't see anything existing which says this is the proper
+> transformation.
+>=20
+> There is no consistency at all for the tests of the return
+> value of irq_of_parse_and_map().
 
-> each one of them only permitted
-> to be forwarded to their respective VM.
+Right. And the current status of NO_IRQ doesn't help much.
 
-Again assuming something in the header is going to say "this packet
-is allowed to go to this VM", a MAC address, an IP src/destination
-etc, correct?
+> And if anything testing against zero is the correct thing to
+> do, universally.
 
-  Oh, and Vlan tags should
-> be stripped when they are being forwarded.
+I've looked at the implementation of irq_of_parse_and_map() (both the
+generic and sparc one), they both return 0 on failure. Because there are
+some arch that define NO_IRQ being not 0, sparc (0xffffffff) and arm
+(-1), I though testing against <=3D 0 would be a good idea.
 
-Assuming they are not already stripped at vnetx,
-you could write a very simple action (probably one page of code) to 
-strip vlans and do everything at br0;
-Your filter finds them at br0, your action strips them and pipes to 
-another action that redirects to the correct device. i.e in unix speak:
-filter at br0 for VMx | strip vlan tag | redirect to vnetx
+> I'm not applying this or pulling from your tree, sorry.
 
-At the very minimal you need to identify those packets and that depends 
-where you want to deploy the policy.
-If you deploy at the br device, you will see the raw packet i.e the vlan
-header wont be stripped.
-i.e youd have to enter some u32 rule with protocol "protocol 802.1q"
-If you deploy at each vnetx device assuming it is a vlan device, you 
-wont see the vlan headers and you'll have to key on something else on 
-the header "protocol ip"
+Marc
 
-cheers,
-jamal
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigB2CAD71E3628C5C5B7E3250B
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with undefined - http://www.enigmail.net/
+
+iEYEARECAAYFAlDLpWIACgkQjTAFq1RaXHOzqACfTZb962NINMQY1AUmkyxrOfrw
+mAgAn0r3mNh8pntJMKU+3r8b7JCyu5X3
+=m5+K
+-----END PGP SIGNATURE-----
+
+--------------enigB2CAD71E3628C5C5B7E3250B--
