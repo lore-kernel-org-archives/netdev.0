@@ -1,70 +1,60 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH v2] can: sja1000: fix compilation on x86
-Date: Fri, 14 Dec 2012 23:25:12 +0100
-Message-ID: <1355523912-1977-1-git-send-email-mkl@pengutronix.de>
-Cc: linux-can@vger.kernel.org, rdunlap@infradead.org,
-	davem@davemloft.net, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Andreas Larsson <andreas@gaisler.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] i2400m: add Intel 6150 device IDs
+Date: Fri, 14 Dec 2012 17:10:50 -0600
+Message-ID: <1355526650.32099.19.camel@dcbw.foobar.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: inaky.perez-gonzalez@intel.com
 To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33946 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1945993Ab2LNXJi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2012 18:09:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since commit:
-04df251 can: sja1000: Make sja1000_of_platform selectable and compilable on SPARC
-the driver can be activated on non powerpc platform like x86 or sparc. Without
-this patch the driver fails to compile on platform that don't define NO_IRQ,
-like x86.
+Add device IDs for WiMAX function of Intel 6150 cards.
 
-Reported-by: Randy Dunlap <rdunlap@infradead.org>
-Cc: Andreas Larsson <andreas@gaisler.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+Cc: stable@vger.kernel.org
 ---
-
-Hello David,
-
-here's v2 of the patch.
-
-Changes since v1:
-* check if irq equals 0 (don't test for <= 0)
-
-regards,
-Marc
-
----
-
-The following changes since commit 17bc14b767cf0692420c43dbe5310ae98a5a7836:
-
-  Revert "sched: Update_cfs_shares at period edge" (2012-12-14 07:20:43 -0800)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can.git fixes-for-3.8
-
-for you to fetch changes up to b9b325a81c77adc5d735b70a6fce6fb6d1317476:
-
-  can: sja1000: fix compilation on x86 (2012-12-14 23:17:24 +0100)
-
-----------------------------------------------------------------
-Marc Kleine-Budde (1):
-      can: sja1000: fix compilation on x86
-
- drivers/net/can/sja1000/sja1000_of_platform.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
-index 0f59170..6433b81 100644
---- a/drivers/net/can/sja1000/sja1000_of_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_of_platform.c
-@@ -121,7 +121,7 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
- 	}
+diff --git a/drivers/net/wimax/i2400m/i2400m-usb.h b/drivers/net/wimax/i2400m/i2400m-usb.h
+index 6650fde..9f1e947 100644
+--- a/drivers/net/wimax/i2400m/i2400m-usb.h
++++ b/drivers/net/wimax/i2400m/i2400m-usb.h
+@@ -152,6 +152,9 @@ enum {
+ 	/* Device IDs */
+ 	USB_DEVICE_ID_I6050 = 0x0186,
+ 	USB_DEVICE_ID_I6050_2 = 0x0188,
++	USB_DEVICE_ID_I6150 = 0x07d6,
++	USB_DEVICE_ID_I6150_2 = 0x07d7,
++	USB_DEVICE_ID_I6150_3 = 0x07d9,
+ 	USB_DEVICE_ID_I6250 = 0x0187,
+ };
  
- 	irq = irq_of_parse_and_map(np, 0);
--	if (irq == NO_IRQ) {
-+	if (irq == 0) {
- 		dev_err(&ofdev->dev, "no irq found\n");
- 		err = -ENODEV;
- 		goto exit_unmap_mem;
--- 
-1.7.10.4
-
+diff --git a/drivers/net/wimax/i2400m/usb.c b/drivers/net/wimax/i2400m/usb.c
+index 713d033..080f363 100644
+--- a/drivers/net/wimax/i2400m/usb.c
++++ b/drivers/net/wimax/i2400m/usb.c
+@@ -510,6 +510,9 @@ int i2400mu_probe(struct usb_interface *iface,
+ 	switch (id->idProduct) {
+ 	case USB_DEVICE_ID_I6050:
+ 	case USB_DEVICE_ID_I6050_2:
++	case USB_DEVICE_ID_I6150:
++	case USB_DEVICE_ID_I6150_2:
++	case USB_DEVICE_ID_I6150_3:
+ 	case USB_DEVICE_ID_I6250:
+ 		i2400mu->i6050 = 1;
+ 		break;
+@@ -759,6 +762,9 @@ static
+ struct usb_device_id i2400mu_id_table[] = {
+ 	{ USB_DEVICE(0x8086, USB_DEVICE_ID_I6050) },
+ 	{ USB_DEVICE(0x8086, USB_DEVICE_ID_I6050_2) },
++	{ USB_DEVICE(0x8087, USB_DEVICE_ID_I6150) },
++	{ USB_DEVICE(0x8087, USB_DEVICE_ID_I6150_2) },
++	{ USB_DEVICE(0x8087, USB_DEVICE_ID_I6150_3) },
+ 	{ USB_DEVICE(0x8086, USB_DEVICE_ID_I6250) },
+ 	{ USB_DEVICE(0x8086, 0x0181) },
+ 	{ USB_DEVICE(0x8086, 0x1403) },
