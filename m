@@ -1,42 +1,49 @@
 From: Konstantin Khlebnikov <khlebnikov@openvz.org>
-Subject: [PATCH 08/12] bonding: do not cancel works in bond_uninit()
-Date: Fri, 14 Dec 2012 15:02:55 +0400
-Message-ID: <20121214110255.11019.14759.stgit@zurg>
+Subject: [PATCH 10/12] mac802154: fix destructon ordering for ieee802154
+ devices
+Date: Fri, 14 Dec 2012 15:03:03 +0400
+Message-ID: <20121214110303.11019.41133.stgit@zurg>
 References: <20121214110229.11019.63713.stgit@zurg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>
+Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	netdev@vger.kernel.org,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20121214110229.11019.63713.stgit@zurg>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bonding initializes these works in bond_open() and cancels in bond_close(),
-thus in bond_uninit() they are already canceled but may be unitialized yet.
+mutex_destroy() must be called before wpan_phy_free(), because it puts the last
+reference and frees memory. Catched as overwritten poison in kmalloc-2048.
 
 Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: linux-zigbee-devel@lists.sourceforge.net
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/bonding/bond_main.c |    2 --
- 1 file changed, 2 deletions(-)
+ net/mac802154/ieee802154_dev.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index ef2cb24..b7d45f3 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4431,8 +4431,6 @@ static void bond_uninit(struct net_device *bond_dev)
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+index e748aed..b7c7f81 100644
+--- a/net/mac802154/ieee802154_dev.c
++++ b/net/mac802154/ieee802154_dev.c
+@@ -224,9 +224,9 @@ void ieee802154_free_device(struct ieee802154_dev *hw)
  
- 	list_del(&bond->bond_list);
+ 	BUG_ON(!list_empty(&priv->slaves));
  
--	bond_work_cancel_all(bond);
+-	wpan_phy_free(priv->phy);
 -
- 	bond_debug_unregister(bond);
+ 	mutex_destroy(&priv->slaves_mtx);
++
++	wpan_phy_free(priv->phy);
+ }
+ EXPORT_SYMBOL(ieee802154_free_device);
  
- 	__hw_addr_flush(&bond->mc_list);
