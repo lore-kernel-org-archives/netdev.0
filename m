@@ -1,46 +1,40 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: sja1000: fix compilation on x86
-Date: Fri, 14 Dec 2012 22:33:44 +0100
-Message-ID: <1355520824-23175-2-git-send-email-mkl@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] can: sja1000: fix compilation on x86
+Date: Fri, 14 Dec 2012 16:37:58 -0500 (EST)
+Message-ID: <20121214.163758.465958297963655994.davem@davemloft.net>
 References: <1355520824-23175-1-git-send-email-mkl@pengutronix.de>
-Cc: linux-can@vger.kernel.org, sfr@canb.auug.org.au,
-	davem@davemloft.net, Marc Kleine-Budde <mkl@pengutronix.de>,
-	Andreas Larsson <andreas@gaisler.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37799 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932326Ab2LNVeH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 16:34:07 -0500
-In-Reply-To: <1355520824-23175-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	<1355520824-23175-2-git-send-email-mkl@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	sfr@canb.auug.org.au, andreas@gaisler.com
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1355520824-23175-2-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit:
-04df251 can: sja1000: Make sja1000_of_platform selectable and compilable on SPARC
-the driver can be activated on non powerpc platform like x86 or sparc. Without
-this patch the driver fails to compile on platform that don't define NO_IRQ,
-like x86.
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Fri, 14 Dec 2012 22:33:44 +0100
 
-Reported-by: Randy Dunlap <rdunlap@infradead.org>
-Cc: Andreas Larsson <andreas@gaisler.com>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/sja1000/sja1000_of_platform.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> @@ -121,7 +121,7 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
+>  	}
+>  
+>  	irq = irq_of_parse_and_map(np, 0);
+> -	if (irq == NO_IRQ) {
+> +	if (irq <= 0) {
+>  		dev_err(&ofdev->dev, "no irq found\n");
+>  		err = -ENODEV;
+>  		goto exit_unmap_mem;
 
-diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
-index 0f59170..38d37c8 100644
---- a/drivers/net/can/sja1000/sja1000_of_platform.c
-+++ b/drivers/net/can/sja1000/sja1000_of_platform.c
-@@ -121,7 +121,7 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
- 	}
- 
- 	irq = irq_of_parse_and_map(np, 0);
--	if (irq == NO_IRQ) {
-+	if (irq <= 0) {
- 		dev_err(&ofdev->dev, "no irq found\n");
- 		err = -ENODEV;
- 		goto exit_unmap_mem;
--- 
-1.7.10.4
+I don't see anything existing which says this is the proper
+transformation.
+
+There is no consistency at all for the tests of the return
+value of irq_of_parse_and_map().
+
+And if anything testing against zero is the correct thing to
+do, universally.
+
+I'm not applying this or pulling from your tree, sorry.
