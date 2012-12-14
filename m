@@ -1,121 +1,36 @@
-From: Weiping Pan <wpan@redhat.com>
-Subject: Re: [RFC PATCH net-next 4/4 V4] try to fix performance regression
-Date: Fri, 14 Dec 2012 13:53:14 +0800
-Message-ID: <50CABECA.6090605@redhat.com>
-References: <117a10f9575d95d6a9ea4602ea7376e2b6d5ccd1.1355320533.git.wpan@redhat.com> <5e333588f6cb48cc3464b2263dcaa734b952e4c1.1355320534.git.wpan@redhat.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70ED@saturn3.aculab.com> <50C9E0A0.2040409@redhat.com> <50CA1DAB.5050000@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>, davem@davemloft.net,
-	brutus@google.com, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15604 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751157Ab2LNFxW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Dec 2012 00:53:22 -0500
-In-Reply-To: <50CA1DAB.5050000@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH] iproute2: update usage info of bridge monitor
+Date: Fri, 14 Dec 2012 13:59:32 +0800
+Message-ID: <1355464772-17712-1-git-send-email-amwang@redhat.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	bridge@lists.linux-foundation.org, Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 12/14/2012 02:25 AM, Rick Jones wrote:
-> On 12/13/2012 06:05 AM, Weiping Pan wrote:
->> But if I just run normal tcp loopback for each message size, then the
->> performance is stable.
->> [root@intel-s3e3432-01 ~]# cat base.sh
->> for s in 1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768
->> 65536 131072 262144 524288 1048576
->> do
->> netperf -i -2,10 -I 95,20 -- -m $s -M $s | tail -n1
->> done
->
-> The -i option goes max,min iterations:
->
-> http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#index-g_t_002di_002c-Global-28 
->
->
-> and src/netsh.c will apply some silent clipping to that:
->
->
->     case 'i':
->       /* set the iterations min and max for confidence intervals */
->       break_args(optarg,arg1,arg2);
->       if (arg1[0]) {
->     iteration_max = convert(arg1);
->       }
->       if (arg2[0] ) {
->     iteration_min = convert(arg2);
->       }
->       /* if the iteration_max is < iteration_min make iteration_max
->      equal iteration_min */
->       if (iteration_max < iteration_min) iteration_max = iteration_min;
->       /* limit minimum to 3 iterations */
->       if (iteration_max < 3) iteration_max = 3;
->       if (iteration_min < 3) iteration_min = 3;
->       /* limit maximum to 30 iterations */
->       if (iteration_max > 30) iteration_max = 30;
->       if (iteration_min > 30) iteration_min = 30;
->       if (confidence_level == 0) confidence_level = 99;
->       if (interval == 0.0) interval = 0.05; /* five percent */
->       break;
->
-> So, what will happen with your netperf command line above is it will 
-> set iteration max to 10 iterations and it will always run 10 
-> iterations since min will equal max.  If you want it to possibly 
-> terminate sooner upon hitting the confidence intervals you would want 
-> to go with -i 10,3.  That will have netperf always run at least three 
-> and no more than 10 iterations.
-Yes, I misread the manual, it should be "-i 10,3".
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
->
-> If I'm not mistaken, the use of the "| tail -n 1" there will cause the 
-> "classic" confidence intervals not met warning to be tossed (unless I 
-> suppose it is actually going to stderr?).
-Yes, I saw that warning.
->
-> If you use the "omni" tests directly rather than via "migration" you 
-> will no longer get warnings about not hitting the confidence interval, 
-> but you can have netperf emit the confidence level it actually 
-> achieved as well as the number of iterations it took to get there.  
-> You would use the omni output selection to do that.
->
-> http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Omni-Output-Selection 
->
->
->
-> These may have been mentioned before...
->
-> Judging from that command line you have the potential variability of 
-> the socket buffer auto-tuning.  Does AF_UNIX do the same sort of auto 
-> tuning?  It may be desirable to add some test-specific -s and -S 
-> options to have a fixed socket buffer size.
-
-I set -s 51882 -m 16384 -M 87380 for all the three kinds of sockets by 
-default.
->
-> Since the MTU for loopback is ~16K, the send sizes below that will 
-> probably have differing interactions with the Nagle algorithm. 
-> Particularly as I suspect the timing will differ between friends and 
-> no friends.
->
-> I would guess the most "consistent" comparison with AF_UNIX would be 
-> when Nagle is disabled for the TCP_STREAM tests.  That would be a 
-> test-specific -D option.
->
-> Perhaps a more "stable" way to compare friends, no-friends and unix 
-> would be to use the _RR tests.  That will be a more direct, less-prone 
-> to other heuristics measure of path-length differences - both in the 
-> reported transactions per second and in any CPU utilization/service 
-> demand if you enable that via -c.  I'm not sure it would be necessary 
-> to take the request/response size out beyond a couple KB.  Take it out 
-> to the MB level and you will probably return to the question of 
-> auto-tuning of the socket buffer sizes.
-Good suggestion !
->
-> happy benchmarking,
->
-> rick jones
-
-Rick, thanks !
-
-Weiping Pan
+---
+diff --git a/bridge/monitor.c b/bridge/monitor.c
+index 44e14d8..29bb931 100644
+--- a/bridge/monitor.c
++++ b/bridge/monitor.c
+@@ -31,7 +31,7 @@ int prefix_banner;
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: bridge monitor\n");
++	fprintf(stderr, "Usage: bridge monitor [file | link | fdb | mdb | all]\n");
+ 	exit(-1);
+ }
+ 
