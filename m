@@ -1,41 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 10/12] mac802154: fix destructon
- ordering for ieee802154 devices
-Date: Fri, 14 Dec 2012 13:16:15 -0500 (EST)
-Message-ID: <20121214.131615.1528694276738811674.davem@davemloft.net>
-References: <20121214110229.11019.63713.stgit@zurg>
-	<20121214110303.11019.41133.stgit@zurg>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] ipv6: Change skb->data before using icmpv6_notify()
+ to propagate redirect
+Date: Fri, 14 Dec 2012 13:16:38 -0500 (EST)
+Message-ID: <20121214.131638.1339938938384537260.davem@davemloft.net>
+References: <50CB22CF.9010505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: khlebnikov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20121214110303.11019.41133.stgit@zurg>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: djduanjiong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48899 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756936Ab2LNSQj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 13:16:39 -0500
+In-Reply-To: <50CB22CF.9010505@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Konstantin Khlebnikov <khlebnikov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Date: Fri, 14 Dec 2012 15:03:03 +0400
+From: Duan Jiong <djduanjiong@gmail.com>
+Date: Fri, 14 Dec 2012 20:59:59 +0800
 
-> mutex_destroy() must be called before wpan_phy_free(), because it puts the last
-> reference and frees memory. Catched as overwritten poison in kmalloc-2048.
 > 
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+> In function ndisc_redirect_rcv(), the skb->data points to the transport
+> header, but function icmpv6_notify() need the skb->data points to the
+> inner IP packet. So before using icmpv6_notify() to propagate redirect,
+> change skb->data to point the inner IP packet that triggered the sending
+> of the Redirect, and introduce struct rd_msg to make it easy.
+> 
+> Signed-off-by: Duan Jiong <djduanjiong@gmail.com>
 
-Applied.
-
-------------------------------------------------------------------------------
-LogMeIn Rescue: Anywhere, Anytime Remote support for IT. Free Trial
-Remotely access PCs and mobile devices and provide instant support
-Improve your efficiency, and focus on delivering more value-add services
-Discover what IT Professionals Know. Rescue delivers
-http://p.sf.net/sfu/logmein_12329d2d
+Applied and queued up for -stable.
