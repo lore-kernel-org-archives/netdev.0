@@ -1,79 +1,70 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] can: sja1000: fix compilation on x86
-Date: Fri, 14 Dec 2012 23:17:03 +0100
-Message-ID: <50CBA55F.6030300@pengutronix.de>
-References: <1355520824-23175-1-git-send-email-mkl@pengutronix.de> <1355520824-23175-2-git-send-email-mkl@pengutronix.de> <20121214.163758.465958297963655994.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigB2CAD71E3628C5C5B7E3250B"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	sfr@canb.auug.org.au, andreas@gaisler.com
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH v2] can: sja1000: fix compilation on x86
+Date: Fri, 14 Dec 2012 23:25:12 +0100
+Message-ID: <1355523912-1977-1-git-send-email-mkl@pengutronix.de>
+Cc: linux-can@vger.kernel.org, rdunlap@infradead.org,
+	davem@davemloft.net, Marc Kleine-Budde <mkl@pengutronix.de>,
+	Andreas Larsson <andreas@gaisler.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20121214.163758.465958297963655994.davem@davemloft.net>
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigB2CAD71E3628C5C5B7E3250B
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Since commit:
+04df251 can: sja1000: Make sja1000_of_platform selectable and compilable on SPARC
+the driver can be activated on non powerpc platform like x86 or sparc. Without
+this patch the driver fails to compile on platform that don't define NO_IRQ,
+like x86.
 
-On 12/14/2012 10:37 PM, David Miller wrote:
-> From: Marc Kleine-Budde <mkl@pengutronix.de>
-> Date: Fri, 14 Dec 2012 22:33:44 +0100
->=20
->> @@ -121,7 +121,7 @@ static int sja1000_ofp_probe(struct platform_devic=
-e *ofdev)
->>  	}
->> =20
->>  	irq =3D irq_of_parse_and_map(np, 0);
->> -	if (irq =3D=3D NO_IRQ) {
->> +	if (irq <=3D 0) {
->>  		dev_err(&ofdev->dev, "no irq found\n");
->>  		err =3D -ENODEV;
->>  		goto exit_unmap_mem;
->=20
-> I don't see anything existing which says this is the proper
-> transformation.
->=20
-> There is no consistency at all for the tests of the return
-> value of irq_of_parse_and_map().
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Cc: Andreas Larsson <andreas@gaisler.com>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+---
 
-Right. And the current status of NO_IRQ doesn't help much.
+Hello David,
 
-> And if anything testing against zero is the correct thing to
-> do, universally.
+here's v2 of the patch.
 
-I've looked at the implementation of irq_of_parse_and_map() (both the
-generic and sparc one), they both return 0 on failure. Because there are
-some arch that define NO_IRQ being not 0, sparc (0xffffffff) and arm
-(-1), I though testing against <=3D 0 would be a good idea.
+Changes since v1:
+* check if irq equals 0 (don't test for <= 0)
 
-> I'm not applying this or pulling from your tree, sorry.
-
+regards,
 Marc
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+---
 
+The following changes since commit 17bc14b767cf0692420c43dbe5310ae98a5a7836:
 
---------------enigB2CAD71E3628C5C5B7E3250B
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+  Revert "sched: Update_cfs_shares at period edge" (2012-12-14 07:20:43 -0800)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with undefined - http://www.enigmail.net/
+are available in the git repository at:
 
-iEYEARECAAYFAlDLpWIACgkQjTAFq1RaXHOzqACfTZb962NINMQY1AUmkyxrOfrw
-mAgAn0r3mNh8pntJMKU+3r8b7JCyu5X3
-=m5+K
------END PGP SIGNATURE-----
+  git://gitorious.org/linux-can/linux-can.git fixes-for-3.8
 
---------------enigB2CAD71E3628C5C5B7E3250B--
+for you to fetch changes up to b9b325a81c77adc5d735b70a6fce6fb6d1317476:
+
+  can: sja1000: fix compilation on x86 (2012-12-14 23:17:24 +0100)
+
+----------------------------------------------------------------
+Marc Kleine-Budde (1):
+      can: sja1000: fix compilation on x86
+
+ drivers/net/can/sja1000/sja1000_of_platform.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/can/sja1000/sja1000_of_platform.c b/drivers/net/can/sja1000/sja1000_of_platform.c
+index 0f59170..6433b81 100644
+--- a/drivers/net/can/sja1000/sja1000_of_platform.c
++++ b/drivers/net/can/sja1000/sja1000_of_platform.c
+@@ -121,7 +121,7 @@ static int sja1000_ofp_probe(struct platform_device *ofdev)
+ 	}
+ 
+ 	irq = irq_of_parse_and_map(np, 0);
+-	if (irq == NO_IRQ) {
++	if (irq == 0) {
+ 		dev_err(&ofdev->dev, "no irq found\n");
+ 		err = -ENODEV;
+ 		goto exit_unmap_mem;
+-- 
+1.7.10.4
+
