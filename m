@@ -1,51 +1,41 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCHv2][RFC] smsc95xx: enable dynamic autosuspend
-Date: Fri, 14 Dec 2012 15:22:31 +0100
-Message-ID: <4228102.c0z2lbILKD@linux-lqwf.site>
-References: <1355239561-2740-1-git-send-email-steve.glendinning@shawell.net> <CACVXFVNf1EWfnQmDBDoF991cqJOb8g_Ws+tuyBJdE34rbO6GSw@mail.gmail.com> <CAKh2mn7C3r_bvKAv4p3AHco=9JpmewOAJ8JwhtFPw50yDy5cUA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
-	Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-To: Steve Glendinning <steve-nksJyM/082jR7s880joybQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKh2mn7C3r_bvKAv4p3AHco=9JpmewOAJ8JwhtFPw50yDy5cUA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] sctp: jsctp_sf_eat_sack: fix kernel NULL ptr dereference
+Date: Fri, 14 Dec 2012 15:27:22 +0100
+Message-ID: <2813cf01509e495fee13ff1fab309f1186c0e57a.1355494956.git.dborkman@redhat.com>
+References: <cover.1355494956.git.dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:24840 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756237Ab2LNO11 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2012 09:27:27 -0500
+In-Reply-To: <cover.1355494956.git.dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 14 December 2012 13:35:04 Steve Glendinning wrote:
+During debugging a sctp problem, I hit a kernel NULL pointer
+dereference in the jprobes callback jsctp_sf_eat_sack(). This
+small patch fixes the panic.
 
-> Thanks Ming, I've updated this.
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/probe.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Very good. Good catch Ming.
-
-> > IMO, it is better to keep smsc95xx_info.manage_power as NULL
-> > for devices without FEATURE_AUTOSUSPEND, so that fewer code
-> > and follow the current .mange_power usage(see its comment).
-> >
-> > Currently, if the function pointer of manage_power is set, it means that
-> > the device supports USB autosuspend, but your trick will make the
-
-manage_power() can return errors. So the assumption was always
-strictly speaking invalid.
-
-> > assumption not true for some smsc devices.
-> 
-> Oliver?
-
-On second thought, I think that if a driver can do manage_power(), even
-only for a subset of devices, it should implement it. Doctoring the table of methods
-is very, very ugly, especially as this not protected by a lock.
-
-But this is not nice. We need a better way.
-
-	Regards
-		Oliver
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+index bc6cd75..0a4e9d6 100644
+--- a/net/sctp/probe.c
++++ b/net/sctp/probe.c
+@@ -134,7 +134,7 @@ sctp_disposition_t jsctp_sf_eat_sack(const struct sctp_endpoint *ep,
+ 
+ 	sp = asoc->peer.primary_path;
+ 
+-	if ((full || sp->cwnd != lcwnd) &&
++	if (sp && (full || sp->cwnd != lcwnd) &&
+ 	    (!port || asoc->peer.port == port ||
+ 	     ep->base.bind_addr.port == port)) {
+ 		lcwnd = sp->cwnd;
+-- 
+1.7.11.7
