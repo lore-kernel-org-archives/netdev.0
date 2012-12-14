@@ -1,57 +1,45 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH] tuntap: fix ambigious multiqueue API
-Date: Fri, 14 Dec 2012 16:21:33 -0500
-Message-ID: <1537306.clOAp6XvaO@sifl>
-References: <1355478810-10144-1-git-send-email-jasowang@redhat.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [Netperf PATCH] output remote_send_size in TCP_MAERTS result
+Date: Fri, 14 Dec 2012 13:27:56 -0800
+Message-ID: <50CB99DC.8030304@hp.com>
+References: <1355482148-31407-1-git-send-email-akong@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: mst@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mprivozn@redhat.com,
-	wkevils@gmail.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1355478810-10144-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Amos Kong <akong@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:2151 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932418Ab2LNV15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 16:27:57 -0500
+In-Reply-To: <1355482148-31407-1-git-send-email-akong@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday, December 14, 2012 05:53:30 PM Jason Wang wrote:
-> The current multiqueue API is ambigious which may confuse both user and LSM
-> to do things correctly:
-> 
-> - Both TUNSETIFF and TUNSETQUEUE could be used to create the queues of a
-> tuntap device.
-> - TUNSETQUEUE were used to disable and enable a specific queue of the
->   device. But since the state of tuntap were completely removed from the
-> queue, it could be used to attach to another device (there's no such kind
-> of requirement currently, and it needs new kind of LSM policy.
-> - TUNSETQUEUE could be used to attach to a persistent device without any
->   queues. This kind of attching bypass the necessary checking during
-> TUNSETIFF and may lead unexpected result.
-> 
-> So this patch tries to make a cleaner and simpler API by:
-> 
-> - Only allow TUNSETIFF to create queues.
-> - TUNSETQUEUE could be only used to disable and enabled the queues of a
-> device, and the state of the tuntap device were not detachd from the queues
-> when it was disabled, so TUNSETQUEUE could be only used after TUNSETIFF and
-> with the same device.
-> 
-> This is done by introducing a list which keeps track of all queues which
-> were disabled. The queue would be moved between this list and tfiles[]
-> array when it was enabled/disabled. A pointer of the tun_struct were also
-> introdued to track the device it belongs to when it was disabled.
-> 
-> After the change, the isolation between management and application could be
-> done through: TUNSETIFF were only called by management software and
-> TUNSETQUEUE were only called by application.For LSM/SELinux, the things
-> left is to do proper check during tun_set_queue() if needed.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On 12/14/2012 02:49 AM, Amos Kong wrote:
+> When I executed TCP_MAERTS by following command line:
+>    netperf-2.6.0 -H 192.168.58.23 -l 10 -C -t TCP_MAERTS -- -m 512,1024
+> The outputed send size is '512'.
+>
+> When I executed TCP_MAERTS by following command line:
+>    netperf-2.6.0 -H 192.168.58.23 -l 10 -t TCP_MAERTS -- -m 512,1024
+> The outputed send size is '1024'.
+>
+> In TCP_MAERTS test, we should output the remote send size '1024',
+> this patch fixed this issue.
 
-Let me digest these changes and I'll respin the LSM/SELinux multiqueue fixes 
-and send them back out for re-discussion/review.
+Hi Amos -
 
--- 
-paul moore
-security and virtualization @ redhat
+While I suspect at least a few folks on the netdev list are interested 
+in "things netperf," netperf is not maintained via the netdev list. 
+There are two lists hosted on netperf.org which pertain to "things 
+netperf."  The first is netperf-talk which is geared towards users.  The 
+second netperf-dev which is geared towards those developing netperf.
+
+No need to re-post there this time (though feel free to for the 
+archives), I've gone ahead and applied the fix to the netperf top-of-trunk.
+
+happy benchmarking,
+
+rick jones
