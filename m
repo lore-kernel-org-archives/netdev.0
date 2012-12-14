@@ -1,38 +1,53 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [PATCH] add a `make dist` helper
-Date: Thu, 13 Dec 2012 23:16:10 -0800
-Message-ID: <drbl5w8utpw8p960mxvy37j1.1355469370120@email.android.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH] Fix: kmemleak in tcp_v4/6_syn_recv_sock and dccp_v4/6_request_recv_sock
+Date: Fri, 14 Dec 2012 08:59:38 +0100
+Message-ID: <15583655.5x5gqCFMiY@cpaasch-mac>
+References: <1355435363-12766-1-git-send-email-christoph.paasch@uclouvain.be> <1355441890.10504.4.camel@edumazet-glaptop>
+Reply-To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: Mike Frysinger <vapier@gentoo.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: David Miller <davem@davemloft.net>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	dccp@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59395 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754108Ab2LNHQN (ORCPT <rfc822;	netdev@vger.kernel.org>);
-	Fri, 14 Dec 2012 02:16:13 -0500
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:40845 "EHLO
+	smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751810Ab2LNH7q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 02:59:46 -0500
+In-Reply-To: <1355441890.10504.4.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CkkgYXBwcmVjaWF0ZSB0aGUgZWZmb3J0IGJ1dCB0aGVyZSBhcmUgYSBudW1iZXIgb2YgbW9yZSBz
-dGVwcyB0byBkb2luZyBhIHJlbGVhc2UgYW5kIEkgbmVlZCB0byBzY3JpcHQgdGhlbSBhbGwgdG9n
-ZXRoZXIuIAoKTWlrZSBGcnlzaW5nZXIgPHZhcGllckBnZW50b28ub3JnPiB3cm90ZToKCj5UaGlz
-IG1ha2VzIHN1cmUgdGhlIHRhcmJhbGwgaXMgYWx3YXlzIGNyZWF0ZWQgaW4gdGhlIHNhbWUgd2F5
-Lgo+QXZvaWRzIGFjY2lkZW50YWwgdHlwb3MgaW4gcGF0aCBuYW1lcyBmb3IgZXhhbXBsZS4KPgo+
-U2lnbmVkLW9mZi1ieTogTWlrZSBGcnlzaW5nZXIgPHZhcGllckBnZW50b28ub3JnPgo+LS0tCj4g
-LmdpdGlnbm9yZSB8ICAxICsKPiBNYWtlZmlsZSAgIHwgMTAgKysrKysrKysrKwo+IDIgZmlsZXMg
-Y2hhbmdlZCwgMTEgaW5zZXJ0aW9ucygrKQo+Cj5kaWZmIC0tZ2l0IGEvLmdpdGlnbm9yZSBiLy5n
-aXRpZ25vcmUKPmluZGV4IDNiYTI2MzIuLmU0NDkwZjQgMTAwNjQ0Cj4tLS0gYS8uZ2l0aWdub3Jl
-Cj4rKysgYi8uZ2l0aWdub3JlCj5AQCAtMSwzICsxLDQgQEAKPitpcHJvdXRlMi0qLnRhcioKPiBz
-dGF0aWMtc3ltcy5oCj4gY29uZmlnLioKPiBDb25maWcKPmRpZmYgLS1naXQgYS9NYWtlZmlsZSBi
-L01ha2VmaWxlCj5pbmRleCA0NmE1YWQ5Li4xOThhYmVhIDEwMDY0NAo+LS0tIGEvTWFrZWZpbGUK
-PisrKyBiL01ha2VmaWxlCj5AQCAtNzUsNiArNzUsMTYgQEAgY2xvYmJlcjoKPiAKPiBkaXN0Y2xl
-YW46IGNsb2JiZXIKPiAKPitHSVRfQVJDSElWRSA9IGdpdCBhcmNoaXZlIC0tcHJlZml4PWlwcm91
-dGUyLSQoVkVSKS8gdiQoVkVSKSB8ICQoMSkgPiBpcHJvdXRlMi0kKFZFUikudGFyLiQoMikKPitk
-aXN0Lmd6OiAgOyAkKGNhbGwgR0lUX0FSQ0hJVkUsZ3ppcCxneikKPitkaXN0LmJ6MjogOyAkKGNh
-bGwgR0lUX0FSQ0hJVkUsYnppcDIsYnoyKQo+K2Rpc3QueHo6ICA7ICQoY2FsbCBHSVRfQVJDSElW
-RSx4eix4eikKPitkaXN0Ogo+K2lmZXEgKCQoVkVSKSwpCj4rCUBlY2hvICJVc2FnZTogbWFrZSBk
-aXN0IFZFUj0zLjcuMCI7IGZhbHNlCj4rZW5kaWYKPisJJChNQUtFKSBkaXN0Lmd6IGRpc3QuYnoy
-IGRpc3QueHoKPisKPiBjc2NvcGU6Cj4gCWNzY29wZSAtYiAtcSAtUiAtSWluY2x1ZGUgLXNpcCAt
-c2xpYiAtc21pc2MgLXNuZXRlbSAtc3RjCj4gCj4tLSAKPjEuOC4wCj4K
+Hi Eric,
+
+On Thursday 13 December 2012 15:38:10 Eric Dumazet wrote:
+> Are you sure the above commit is the bug origin ?
+> 
+> It looks like bug was bring by transparent proxy in 2.6.37
+> 
+> commit 093d282321daeb19c107e5f1f16d7f68484f3ade
+> Author: Balazs Scheidler <bazsi@balabit.hu>
+> Date:   Thu Oct 21 13:06:43 2010 +0200
+
+yes, you are right.
+
+My patch would not easily apply on kernels < 3.0, as it depends on the 
+"put_and_exit"-goto.
+Should I send a separate patch? And to whom? (I don't find any guidelines 
+about how to submit patches to older stable kernels)
+
+
+Thanks,
+Christoph
+
+-- 
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
+UCLouvain
+--
