@@ -1,37 +1,54 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch] iproute2: clean up genl/genl.c::usage()
-Date: Fri, 14 Dec 2012 14:10:38 +0800
-Message-ID: <1355465438-20586-1-git-send-email-amwang@redhat.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH] add a `make dist` helper
+Date: Fri, 14 Dec 2012 01:34:02 -0500
+Message-ID: <1355466842-20123-1-git-send-email-vapier@gentoo.org>
+To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57767 "EHLO mx1.redhat.com"
+Received: from smtp.gentoo.org ([140.211.166.183]:34913 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751150Ab2LNGKp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Dec 2012 01:10:45 -0500
+	id S1751514Ab2LNGdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2012 01:33:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gcc attribute can be used in definition, no need to
-redeclare it.
+This makes sure the tarball is always created in the same way.
+Avoids accidental typos in path names for example.
 
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
-diff --git a/genl/genl.c b/genl/genl.c
-index 49b6596..a1e55e0 100644
---- a/genl/genl.c
-+++ b/genl/genl.c
-@@ -97,9 +97,7 @@ noexist:
- 	return f;
- }
+ .gitignore |  1 +
+ Makefile   | 10 ++++++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index 3ba2632..e4490f4 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,3 +1,4 @@
++iproute2-*.tar*
+ static-syms.h
+ config.*
+ Config
+diff --git a/Makefile b/Makefile
+index 46a5ad9..198abea 100644
+--- a/Makefile
++++ b/Makefile
+@@ -75,6 +75,16 @@ clobber:
  
--static void usage(void) __attribute__((noreturn));
--
--static void usage(void)
-+static void __attribute__((noreturn)) usage(void)
- {
- 	fprintf(stderr, "Usage: genl [ OPTIONS ] OBJECT | help }\n"
- 	                "where  OBJECT := { ctrl etc }\n"
+ distclean: clobber
+ 
++GIT_ARCHIVE = git archive --prefix=iproute2-$(VER)/ v$(VER) | $(1) > iproute2-$(VER).tar.$(2)
++dist.gz:  ; $(call GIT_ARCHIVE,gzip,gz)
++dist.bz2: ; $(call GIT_ARCHIVE,bzip2,bz2)
++dist.xz:  ; $(call GIT_ARCHIVE,xz,xz)
++dist:
++ifeq ($(VER),)
++	@echo "Usage: make dist VER=3.7.0"; false
++endif
++	$(MAKE) dist.gz dist.bz2 dist.xz
++
+ cscope:
+ 	cscope -b -q -R -Iinclude -sip -slib -smisc -snetem -stc
+ 
+-- 
+1.8.0
