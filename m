@@ -1,80 +1,52 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 00/11] Add basic VLAN support to bridges
-Date: Fri, 14 Dec 2012 11:50:51 -0500
-Message-ID: <50CB58EB.9050302@redhat.com>
-References: <CAJZOPZL3grqtd-Tnhr-QxkdFWrhkgcp5+fOUZSaPJd3Ker_7GQ@mail.gmail.com> <50C91506.70903@redhat.com> <20121213094719.3a7a9408@nehalam.linuxnetplumber.net> <20121213.140023.2131448980265576282.davem@davemloft.net> <20121213110404.6d662baa@nehalam.linuxnetplumber.net> <50CA37DA.1090905@mojatatu.com> <20121213140218.2c705bb5@nehalam.linuxnetplumber.net> <50CA588F.9040800@mojatatu.com> <20121213143712.6932cb22@nehalam.linuxnetplumber.net> <50CA5D39.5060003@mojatatu.com>
-Reply-To: vyasevic@redhat.com
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] sctp: jsctp_sf_eat_sack: fix kernel NULL ptr dereference
+Date: Fri, 14 Dec 2012 17:57:53 +0100
+Message-ID: <50CB5A91.90404@redhat.com>
+References: <cover.1355494956.git.dborkman@redhat.com> <2813cf01509e495fee13ff1fab309f1186c0e57a.1355494956.git.dborkman@redhat.com> <50CB41F2.7040403@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, or.gerlitz@gmail.com,
-	netdev@vger.kernel.org, mst@redhat.com, john.r.fastabend@intel.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35789 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59200 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756224Ab2LNQu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Dec 2012 11:50:57 -0500
-In-Reply-To: <50CA5D39.5060003@mojatatu.com>
+	id S1756224Ab2LNQ55 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Dec 2012 11:57:57 -0500
+In-Reply-To: <50CB41F2.7040403@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/13/2012 05:56 PM, Jamal Hadi Salim wrote:
-> On 12-12-13 05:37 PM, Stephen Hemminger wrote:
->
+On 12/14/2012 04:12 PM, Vlad Yasevich wrote:
+> On 12/14/2012 09:27 AM, Daniel Borkmann wrote:
+>> During debugging a sctp problem, I hit a kernel NULL pointer
+>> dereference in the jprobes callback jsctp_sf_eat_sack(). This
+>> small patch fixes the panic.
 >>
->> You can, run any action before it hits the bridge.
+>> Cc: Vlad Yasevich <vyasevich@gmail.com>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> ---
+>>   net/sctp/probe.c | 2 +-
+>>   1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+>> index bc6cd75..0a4e9d6 100644
+>> --- a/net/sctp/probe.c
+>> +++ b/net/sctp/probe.c
+>> @@ -134,7 +134,7 @@ sctp_disposition_t jsctp_sf_eat_sack(const struct sctp_endpoint *ep,
+>>
+>>       sp = asoc->peer.primary_path;
+>>
+>> -    if ((full || sp->cwnd != lcwnd) &&
+>> +    if (sp && (full || sp->cwnd != lcwnd) &&
+>>           (!port || asoc->peer.port == port ||
+>>            ep->base.bind_addr.port == port)) {
+>>           lcwnd = sp->cwnd;
 >
-> I think you and I have had this discussion before ;->
-> It works just fine on ingress.
+> Sorry, but this patch isn't making much sense.  @sp points to the primary path of the association and that can not be null if we receiving
+> SACKs on this association.
 >
->
-> #Add ingress qdisc on br0
-> tc qdisc add dev br0 ingress
-> #Add a filter to accept all and count
-> tc filter add dev br0 parent ffff: protocol ip prio 6 u32 match ip dst
-> 0/0 flowid 1:16 action ok
-> #show the stats
-> root@jhs12:~# tc -s filter show parent ffff: dev br0
-> filter protocol ip pref 6 u32
-> filter protocol ip pref 6 u32 fh 800: ht divisor 1
-> filter protocol ip pref 6 u32 fh 800::800 order 2048 key ht 800 bkt 0
-> flowid 1:16
->    match 00000000/00000000 at 16
->      action order 1: gact action pass
->       random type none pass val 0
->       index 2 ref 1 bind 1 installed 269 sec used 74 sec
->       Action statistics:
->      Sent 1210 bytes 15 pkt (dropped 0, overlimits 0 requeues 0)
->      backlog 0b 0p requeues 0
-> ------
->
-> Look at those packets ...
+> sctp_sf_eat_sack_6_2(), which we are probing, is only called while the association is valid and all the transports still exist.  It is also called under lock, so the transports can not go away while processing of the SACK.  So unless there is some kind of jprobe issue, the pointer
+> you are looking at should always be valid.
 
-Interesting.  But, but how complex would be be to configure a vlan 
-filter for say 10 different vlans, each one of them only permitted
-to be forwarded to their respective VM.  Oh, and Vlan tags should
-be stripped when they are being forwarded.
-
-config:
-       +- eth0
-       |
-   br0-+- vnet0 (vlan10) - VM1
-       |
-       +- vnet1 (vlan20) - VM2
-       |
-       +- vnet3 (vlan30) - VM3
-... etc...
-
--vlad
->
-> cheers,
-> jamal
->
-> cheers,
-> jamal
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Okay, I'll dig a bit deeper into that over the weekend.
