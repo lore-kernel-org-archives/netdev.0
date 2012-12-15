@@ -1,44 +1,89 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: [RFC PATCH] xfrm: avoid to send/receive the exceeding hard
- lifetime data
-Date: Sat, 15 Dec 2012 09:36:27 +0800
-Message-ID: <CAJFZqHyRTW5eShGzLVzkHTDAeopwC5L6wS=Cfh_DTa82DE2s1g@mail.gmail.com>
-References: <1355387152-9963-1-git-send-email-roy.qing.li@gmail.com>
-	<20121213101422.GF18940@secunet.com>
-	<CAJFZqHyUSHS3-TjkGQ3WiD486MCCTbiRd4vXUAcbJ=ZqqsnQoA@mail.gmail.com>
-	<20121214113945.GH18940@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch] iproute2: distinguish permanent and temporary mdb entries
+Date: Sat, 15 Dec 2012 16:09:52 +0800
+Message-ID: <1355558992-32285-3-git-send-email-amwang@redhat.com>
+References: <1355558992-32285-1-git-send-email-amwang@redhat.com>
+Cc: bridge@lists.linux-foundation.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:43969 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932151Ab2LOBg1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 20:36:27 -0500
-Received: by mail-vc0-f174.google.com with SMTP id d16so4985845vcd.19
-        for <netdev@vger.kernel.org>; Fri, 14 Dec 2012 17:36:27 -0800 (PST)
-In-Reply-To: <20121214113945.GH18940@secunet.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38787 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751057Ab2LOIiv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Dec 2012 03:38:51 -0500
+In-Reply-To: <1355558992-32285-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/12/14 Steffen Klassert <steffen.klassert@secunet.com>:
-> On Fri, Dec 14, 2012 at 02:58:03PM +0800, RongQing Li wrote:
->>
->> Yes, RFC does not say how to handle this packet.
->>
->> But when I do a IPsec compliance test with IxANVL, the test case 5.3/5.11,
->> which reports a error because it expects this packet should be dropped, but not.
->>
->>
->> I do not know if it is bug, or if it is valuable to fix it?
->>
->
-> As long as the RFC does not state anything else, we ar ok in the
-> synchronous code path. But we need a fix for the asynchronous
-> code path.
->
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Thanks.
-
--Roy
+---
+diff --git a/bridge/mdb.c b/bridge/mdb.c
+index 121ce9c..6217c5f 100644
+--- a/bridge/mdb.c
++++ b/bridge/mdb.c
+@@ -28,7 +28,7 @@ int filter_index;
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: bridge mdb { add | del } dev DEV port PORT grp GROUP\n");
++	fprintf(stderr, "Usage: bridge mdb { add | del } dev DEV port PORT grp GROUP [permanent | temp]\n");
+ 	fprintf(stderr, "       bridge mdb {show} [ dev DEV ]\n");
+ 	exit(-1);
+ }
+@@ -53,13 +53,15 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
+ 	SPRINT_BUF(abuf);
+ 
+ 	if (e->addr.proto == htons(ETH_P_IP))
+-		fprintf(f, "bridge %s port %s group %s\n", ll_index_to_name(ifindex),
++		fprintf(f, "bridge %s port %s group %s %s\n", ll_index_to_name(ifindex),
+ 			ll_index_to_name(e->ifindex),
+-			inet_ntop(AF_INET, &e->addr.u.ip4, abuf, sizeof(abuf)));
++			inet_ntop(AF_INET, &e->addr.u.ip4, abuf, sizeof(abuf)),
++			(e->state & MDB_PERMANENT) ? "permanent" : "temp");
+ 	else
+-		fprintf(f, "bridge %s port %s group %s\n", ll_index_to_name(ifindex),
++		fprintf(f, "bridge %s port %s group %s %s\n", ll_index_to_name(ifindex),
+ 			ll_index_to_name(e->ifindex),
+-			inet_ntop(AF_INET6, &e->addr.u.ip6, abuf, sizeof(abuf)));
++			inet_ntop(AF_INET6, &e->addr.u.ip6, abuf, sizeof(abuf)),
++			(e->state & MDB_PERMANENT) ? "permanent" : "temp");
+ }
+ 
+ static void br_print_mdb_entry(FILE *f, int ifindex, struct rtattr *attr)
+@@ -179,11 +181,15 @@ static int mdb_modify(int cmd, int flags, int argc, char **argv)
+ 		} else if (strcmp(*argv, "grp") == 0) {
+ 			NEXT_ARG();
+ 			grp = *argv;
++		} else if (strcmp(*argv, "port") == 0) {
++			NEXT_ARG();
++			p = *argv;
++		} else if (strcmp(*argv, "permanent") == 0) {
++			if (cmd == RTM_NEWMDB)
++				entry.state |= MDB_PERMANENT;
++		} else if (strcmp(*argv, "temp") == 0) {
++			;/* nothing */
+ 		} else {
+-			if (strcmp(*argv, "port") == 0) {
+-				NEXT_ARG();
+-				p = *argv;
+-			}
+ 			if (matches(*argv, "help") == 0)
+ 				usage();
+ 		}
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index b3b6a67..aac8b8c 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -163,6 +163,9 @@ struct br_port_msg {
+ 
+ struct br_mdb_entry {
+ 	__u32 ifindex;
++#define MDB_TEMPORARY 0
++#define MDB_PERMANENT 1
++	__u8 state;
+ 	struct {
+ 		union {
+ 			__be32	ip4;
