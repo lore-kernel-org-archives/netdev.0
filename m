@@ -1,43 +1,115 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: Change defaults on cookie hmac selection
-Date: Fri, 14 Dec 2012 20:14:26 -0500 (EST)
-Message-ID: <20121214.201426.1300133389027142871.davem@davemloft.net>
-References: <20121215003844.GA10508@neilslaptop.think-freely.org>
-	<CA+55aFw-D2J-S8gH0PxO52nDeK31KHxum2gfT8RrzRoNF93yrg@mail.gmail.com>
-	<20121215011229.GD10508@neilslaptop.think-freely.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, netdev@vger.kernel.org,
-	vyasevich@gmail.com, linux-sctp@vger.kernel.org
-To: nhorman@tuxdriver.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH v2] sctp: Change defaults on cookie hmac selection
+Date: Fri, 14 Dec 2012 20:22:01 -0500
+Message-ID: <1355534521-32719-1-git-send-email-nhorman@tuxdriver.com>
+References: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53540 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932151Ab2LOBO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 20:14:27 -0500
-In-Reply-To: <20121215011229.GD10508@neilslaptop.think-freely.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:46222 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932151Ab2LOBXF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Dec 2012 20:23:05 -0500
+In-Reply-To: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 14 Dec 2012 20:12:29 -0500
+Recently I posted commit 3c68198e75 which made selection of the cookie hmac
+algorithm selectable.  This is all well and good, but Linus noted that it
+changes the default config:
+http://marc.info/?l=linux-netdev&m=135536629004808&w=2
 
-> On Fri, Dec 14, 2012 at 04:44:56PM -0800, Linus Torvalds wrote:
->> On Fri, Dec 14, 2012 at 4:38 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
->> >
->> > No need, I think.  Since its a user configurable choice now, the user can just
->> > set the selector to "None" in proc, and none will be used.
->> 
->> Well, by the same logic, there's no point to defaulting to MD5 either,
->> since the user could just put MD5 in the there.
->> 
->> The point is, if you're asking for a default, you should include the
->> actual choices, and not limit it to some random subset of choices. No?
->> 
->>              Linus
->> 
-> Ok, Thats a fair point, I can add a option to choose the "None" option as the
-> deafult.  Dave, do you want a delta patch, or a new version?
+I've modified the sctp Kconfig file to reflect the recommended way of making
+this choice, using the thermal driver example specified, and brought the
+defaults back into line with the way they were prior to my origional patch
 
-New version please.
+Also, on Linus' suggestion, re-adding ability to select default 'none' hmac
+algorithm, so we don't needlessly bloat the kernel by forcing a non-none
+default.  This also led me to note that we won't honor the default none
+condition properly because of how sctp_net_init is encoded.  Fix that up as
+well.
+
+Tested by myself (allbeit fairly quickly).  All configuration combinations seems
+to work soundly.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: David Miller <davem@davemloft.net>
+CC: Linus Torvalds <torvalds@linux-foundation.org>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: linux-sctp@vger.kernel.org
+---
+ net/sctp/Kconfig    | 27 +++++++++++++++++++++++++--
+ net/sctp/protocol.c |  4 ++--
+ 2 files changed, 27 insertions(+), 4 deletions(-)
+
+diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+index a9edd2e..c262106 100644
+--- a/net/sctp/Kconfig
++++ b/net/sctp/Kconfig
+@@ -66,12 +66,36 @@ config SCTP_DBG_OBJCNT
+ 	  'cat /proc/net/sctp/sctp_dbg_objcnt'
+ 
+ 	  If unsure, say N
++choice
++	prompt "Default SCTP cookie HMAC encoding"
++	default SCTP_COOKIE_HMAC_MD5
++	help
++	  This option sets the default sctp cookie hmac algorithm
++	  when in doubt select 'md5'
++
++config SCTP_DEFAULT_COOKIE_HMAC_MD5
++	bool "Enable optional MD5 hmac cookie generation"
++	help
++	  Enable optional MD5 hmac based SCTP cookie generation
++	select SCTP_COOKIE_HMAC_MD5
++
++config SCTP_DEFAULT_COOKIE_HMAC_SHA1
++	bool "Enable optional SHA1 hmac cookie generation"
++	help
++	  Enable optional SHA1 hmac based SCTP cookie generation
++	select SCTP_COOKIE_HMAC_SHA1
++
++config SCTP_DEFAULT_COOKIE_HMAC_NONE
++	bool "Use no hmac alg in SCTP cookie generation"
++	help
++	  Use no hmac algorithm in SCTP cookie generation
++
++endchoice
+ 
+ config SCTP_COOKIE_HMAC_MD5
+ 	bool "Enable optional MD5 hmac cookie generation"
+ 	help
+ 	  Enable optional MD5 hmac based SCTP cookie generation
+-	default y
+ 	select CRYPTO_HMAC if SCTP_COOKIE_HMAC_MD5
+ 	select CRYPTO_MD5 if SCTP_COOKIE_HMAC_MD5
+ 
+@@ -79,7 +103,6 @@ config SCTP_COOKIE_HMAC_SHA1
+ 	bool "Enable optional SHA1 hmac cookie generation"
+ 	help
+ 	  Enable optional SHA1 hmac based SCTP cookie generation
+-	default y
+ 	select CRYPTO_HMAC if SCTP_COOKIE_HMAC_SHA1
+ 	select CRYPTO_SHA1 if SCTP_COOKIE_HMAC_SHA1
+ 
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 2c7785b..f898b1c 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -1191,9 +1191,9 @@ static int __net_init sctp_net_init(struct net *net)
+ 	net->sctp.cookie_preserve_enable 	= 1;
+ 
+ 	/* Default sctp sockets to use md5 as their hmac alg */
+-#if defined (CONFIG_CRYPTO_MD5)
++#if defined (CONFIG_SCTP_DEFAULT_COOKIE_HMAC_MD5)
+ 	net->sctp.sctp_hmac_alg			= "md5";
+-#elif defined (CONFIG_CRYPTO_SHA1)
++#elif defined (CONFIG_SCTP_DEFAULT_COOKIE_HMAC_SHA1)
+ 	net->sctp.sctp_hmac_alg			= "sha1";
+ #else
+ 	net->sctp.sctp_hmac_alg			= NULL;
+-- 
+1.7.11.7
