@@ -1,60 +1,57 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH 2/2] ssb: SSB_DRIVER_GPIO should depend on GPIOLIB instead of selecting it
-Date: Sun, 16 Dec 2012 16:35:36 +0100
-Message-ID: <1355672136-24808-2-git-send-email-geert@linux-m68k.org>
-References: <1355672136-24808-1-git-send-email-geert@linux-m68k.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: tc ipt action
+Date: Sun, 16 Dec 2012 11:48:42 -0500
+Message-ID: <50CDFB6A.3090806@mojatatu.com>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Hauke Mehrtens <hauke@hauke-m.de>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Michael Buesch <m@bues.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1355672136-24808-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jan Engelhardt <jengelh@inai.de>,
+	Yury Stankevich <urykhy@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: Hasan Chowdhury <shemonc@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:40869 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751568Ab2LPQsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2012 11:48:50 -0500
+Received: by mail-ie0-f174.google.com with SMTP id c11so8201327ieb.19
+        for <netdev@vger.kernel.org>; Sun, 16 Dec 2012 08:48:49 -0800 (PST)
+In-Reply-To: <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit ec43b08b5733494ad88aa618ecdf534320dd8207 ("ssb: add GPIO driver"=
-)
-added SSB_DRIVER_GPIO, which unconditionally selects GPIOLIB, causing
-a Kconfig warning:
+On 12-12-16 10:17 AM, Hasan Chowdhury wrote:
+>
+>
+> [Hasan**] I thought  "xt"  is a supported action kind  for
+> iproute2-3.6.0. Besides  with a default compilation  it compiled m_xt.c
+> (not m_ipt.c ) linked with shared object  m_xt.so
+>
 
-warning: (ARCH_REQUIRE_GPIOLIB && SSB_DRIVER_GPIO && BCMA_DRIVER_GPIO &=
-& MFD_TC6393XB && FB_VIA) selects GPIOLIB which has unmet direct depend=
-encies (ARCH_WANT_OPTIONAL_GPIOLIB || ARCH_REQUIRE_GPIOLIB)
+It is - but my hope is not to change the interface to existing scripts.
+One approach is rename "xt" to "ipt" and make the old vs new ways 
+mutually exclusive based on Config options. But that will add more to
+baggage of all sorts of workarounds for 13 versions of iptables changing 
+interfaces. My goal was to have a staged way to kill the old way but 
+maintain the same command interface. I was hoping not to change
+the kernel but based on your patch, that may be the best place to place
+warnings about deprecating APIs (so maybe i will add support for "xt" 
+and warn about "ipt"). Would you be able to test that kernel patch?
 
-and build failure for m68k/allmodconfig:
+>   the workaround exits in the patch  for file m_action (see the changes
+> there ) as netlink reply from kernel for  this tc  u32 action xt command
+>   comes as .kind = "ipt" instead of xt (assumed  act_ipt.c   in kernle
+> is not aware of new xt extensions .)
 
-In file included from drivers/ssb/ssb_private.h:5,
-                 from drivers/ssb/main.c:12:
-include/linux/ssb/ssb.h:440: error: field =E2=80=98gpio=E2=80=99 has in=
-complete type
-make[4]: *** [drivers/ssb/main.o] Error 1
-make[3]: *** [drivers/ssb/] Error 2
+The most important part of your patch that i missed is you took
+care of some of the new API changes Pablo mentioned. I am suspicious of
+one of them: why call xtables_options_xfrm(). Pablo/Jan, could you 
+please look at Hasan's patch in m_xt.c?
 
-Turn the select into a dependency to fix this.
+Also, your patch doesnt compile for me. Can you please provide a version 
+against the latest iproute2 git tree?
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- drivers/ssb/Kconfig |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/ssb/Kconfig b/drivers/ssb/Kconfig
-index ff3c8a2..5d6f2ec 100644
---- a/drivers/ssb/Kconfig
-+++ b/drivers/ssb/Kconfig
-@@ -162,8 +162,7 @@ config SSB_DRIVER_GIGE
-=20
- config SSB_DRIVER_GPIO
- 	bool "SSB GPIO driver"
--	depends on SSB
--	select GPIOLIB
-+	depends on SSB && GPIOLIB
- 	help
- 	  Driver to provide access to the GPIO pins on the bus.
-=20
---=20
-1.7.0.4
+cheers,
+jamal
