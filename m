@@ -1,55 +1,61 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: tc ipt action
-Date: Sun, 16 Dec 2012 05:43:10 -0500
-Message-ID: <50CDA5BE.2080800@mojatatu.com>
-References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <20121216002755.GA11773@1984> <alpine.LNX.2.01.1212160144110.26218@nerf07.vanv.qr>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/4] net: allow to change carrier from userspace
+Date: Sun, 16 Dec 2012 11:54:51 +0100
+Message-ID: <20121216105451.GA1546@minipsycho.orion>
+References: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Yury Stankevich <urykhy@gmail.com>, shemonc@gmail.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@inai.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
+	greearb@candelatech.com, fbl@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f174.google.com ([209.85.210.174]:52282 "EHLO
-	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112Ab2LPKnN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2012 05:43:13 -0500
-Received: by mail-ia0-f174.google.com with SMTP id y25so4588489iay.19
-        for <netdev@vger.kernel.org>; Sun, 16 Dec 2012 02:43:13 -0800 (PST)
-In-Reply-To: <alpine.LNX.2.01.1212160144110.26218@nerf07.vanv.qr>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:46638 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752458Ab2LPKy4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2012 05:54:56 -0500
+Received: by mail-ee0-f46.google.com with SMTP id e53so2702609eek.19
+        for <netdev@vger.kernel.org>; Sun, 16 Dec 2012 02:54:55 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12-12-15 07:59 PM, Jan Engelhardt wrote:
+
+I see that the patchset is in state "Rejected" in patchwork.
+Stephen convinced me for a moment that the problem can be handled by operstate.
+As it turned out (in last 3-4 emails in thread) operstate use would not
+be an option.
+
+So how should I proceed? Should I repost the patchset? Anyone has any other
+comments?
+
+thanks.
+
+Wed, Dec 12, 2012 at 11:58:03AM CET, jiri@resnulli.us wrote:
+>This is basically a repost of my previous patchset:
+>"[patch net-next-2.6 0/2] net: allow to change carrier via sysfs" from Aug 30
 >
-
-> For the C level, there is XTABLES_VERSION_CODE.
+>The way net-sysfs stores values changed and this patchset reflects it.
+>Also, I exposed carrier via rtnetlink iface.
 >
-> #if XTABLES_VERSION_CODE >= 6
-> 	if (m != NULL && m->x6_parse != NULL)
-> 		m->x6_parse(...)
-> #else
-> 	else if (m != NULL && m->parse != NULL)
-> 		m->parse(...)
-> 	...
+>So far, only dummy driver uses carrier change ndo. In very near future
+>team driver will use that as well.
 >
-
-I think you are suggesting this to be done in tc. That would make it 
-easier to fix.
-IMO, it is easier to keep backward compat if you left the old
-APIs around for a period of time and maybe log a warning that they
-will be deprecated over a period of time (sort of like kernel approach 
-to changing APIs).
-
-BTW: another interface that seems to have changed that we
-need is m->final_check().
-
-cheers,
-jamal
-
-> We can also export this through pkgconfig, similar to how
-> downstream users are to discover the plugin dir
-> (`pkg-config xtables --variable libdir`).
+>Jiri Pirko (4):
+>  net: add change_carrier netdev op
+>  net: allow to change carrier via sysfs
+>  rtnl: expose carrier value with possibility to set it
+>  dummy: implement carrier change
+>
+> drivers/net/dummy.c          | 10 ++++++++++
+> include/linux/netdevice.h    |  7 +++++++
+> include/uapi/linux/if_link.h |  1 +
+> net/core/dev.c               | 19 +++++++++++++++++++
+> net/core/net-sysfs.c         | 15 ++++++++++++++-
+> net/core/rtnetlink.c         | 10 ++++++++++
+> 6 files changed, 61 insertions(+), 1 deletion(-)
+>
+>-- 
+>1.8.0
 >
