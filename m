@@ -1,37 +1,46 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH] netlink: validate addr_len on bind
-Date: Sun, 16 Dec 2012 02:42:19 +0100
-Message-ID: <20121216014219.GB1528@order.stressinduktion.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: tc ipt action
+Date: Sun, 16 Dec 2012 05:22:13 -0500
+Message-ID: <50CDA0D5.5080209@mojatatu.com>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33695 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751919Ab2LPBmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2012 20:42:20 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yury Stankevich <urykhy@gmail.com>, shemonc@gmail.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Otherwise an out of bounds read could happen.
+On 12-12-15 06:06 PM, Jan Engelhardt wrote:
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/netlink/af_netlink.c | 3 +++
- 1 file changed, 3 insertions(+)
+> If I try that command (substituting ipt->xt and eth0->dummy0,
+> ifb0->dummy1), all I get is the dreaded "Invalid argument".
+> So the kernel rejected the command, which could indicate that
+> userspace construction might have been ok.
+>
+> # tc filter add dev dummy0 parent ffff: protocol ip u32 match u32 0 0 \
+> action xt -j CONNMARK action mirred egress redirect dev dummy1
+>
+> tablename: mangle hook: NF_IP_PRE_ROUTING
+>          target:  CONNMARK and 0x0 index 0
+> RTNETLINK answers: Invalid argument
+> We have an error talking to the kernel
+>
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index fdb7494..5321bab 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -669,6 +669,9 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
- 	struct sockaddr_nl *nladdr = (struct sockaddr_nl *)addr;
- 	int err;
- 
-+	if (addr_len < sizeof(struct sockaddr_nl))
-+		return -EINVAL;
-+
- 	if (nladdr->nl_family != AF_NETLINK)
- 		return -EINVAL;
- 
+No problem sending it to the kernel here on ubuntu 12.04.
+I also upgraded to current linus git tree, same result.
+The problem is the parameters are not accepted in user space as
+you can see for connmark and what gets sent (eg CONNMARK and 0x0)
+doesnt seem sensible.
+
+> What was the last combination that worked?
+
+First time this got reported to me (or i got CCed on the problem) - I am 
+told it broke after iptables 1.4.11.
+
+cheers,
+jamal
