@@ -1,52 +1,49 @@
 From: Jan Engelhardt <jengelh@inai.de>
-Subject: [PATCH] build: unbreak linkage of m_xt.so
-Date: Sun, 16 Dec 2012 01:32:48 +0100
-Message-ID: <1355617968-26138-1-git-send-email-jengelh@inai.de>
-References: <alpine.LNX.2.01.1212160119060.7193@nerf07.vanv.qr>
-Cc: vapier@gentoo.org, netdev@vger.kernel.org, jhs@mojatatu.com,
-	urykhy@gmail.com, shemonc@gmail.com, pablo@netfilter.org,
+Subject: Re: tc ipt action
+Date: Sun, 16 Dec 2012 01:59:33 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1212160144110.26218@nerf07.vanv.qr>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <20121216002755.GA11773@1984>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Yury Stankevich <urykhy@gmail.com>, shemonc@gmail.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	netfilter-devel@vger.kernel.org
-To: stephen.hemminger@vyatta.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1212160119060.7193@nerf07.vanv.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ares07.inai.de ([5.9.24.206]:35601 "EHLO ares07.inai.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751781Ab2LPA7h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 Dec 2012 19:59:37 -0500
+In-Reply-To: <20121216002755.GA11773@1984>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit v3.7.0~10 caused the variable new PKG_CONFIG variable never
-to be present at the time of calling make, leading to tc/m_xt.so
-not linked with -lxtables (result from pkg-config xtables --libs),
-that in turn leading to
 
-tc: symbol lookup error: /usr/lib64/tc//m_xt.so: undefined symbol:
-xtables_init_all
+On Sunday 2012-12-16 01:27, Pablo Neira Ayuso wrote:
+>On Sat, Dec 15, 2012 at 04:19:29PM -0500, Jamal Hadi Salim wrote:
+>> Example, the following should work for
+>> tc filter add dev eth0 parent ffff: protocol ip u32 match u32 0 0
+>> action ipt -j CONNMARK \
+>> action mirred egress redirect dev ifb0
+>> 
+>commit 7299fa4b615d7f7ee12cde444266f6b31f667f9f
+>    libxt_CONNMARK: use guided option parser
+>
+>BTW, I think it would be good if we find the way to check for
+>libxtables current version (see iptables/configure.ac), so you can
+>know that we broke binary compatibility again.
 
-Fixing that.
+For the C level, there is XTABLES_VERSION_CODE.
 
-Signed-off-by: Jan Engelhardt <jengelh@inai.de>
----
- configure |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+#if XTABLES_VERSION_CODE >= 6
+	if (m != NULL && m->x6_parse != NULL)
+		m->x6_parse(...)
+#else
+	else if (m != NULL && m->parse != NULL)
+		m->parse(...)
+	...
 
-diff --git a/configure b/configure
-index 9912114..573ee55 100755
---- a/configure
-+++ b/configure
-@@ -4,7 +4,6 @@
- INCLUDE=${1:-"$PWD/include"}
- : ${PKG_CONFIG:=pkg-config}
- : ${CC=gcc}
--echo "PKG_CONFIG:=${PKG_CONFIG}" >>Config
- 
- # Make a temp directory in build tree.
- TMPDIR=$(mktemp -d config.XXXXXX)
-@@ -224,6 +223,7 @@ rm -f $TMPDIR/ipsettest.c $TMPDIR/ipsettest
- }
- 
- echo "# Generated config based on" $INCLUDE >Config
-+echo "PKG_CONFIG:=${PKG_CONFIG}" >>Config
- 
- echo "TC schedulers"
- 
--- 
-1.7.10.4
-
+We can also export this through pkgconfig, similar to how
+downstream users are to discover the plugin dir
+(`pkg-config xtables --variable libdir`).
