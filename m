@@ -1,40 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Fix Makefile offload objects
-Date: Sun, 16 Dec 2012 09:17:47 -0800 (PST)
-Message-ID: <20121216.091747.271269648244929827.davem@davemloft.net>
-References: <50CDFB36.1020604@simon.arlott.org.uk>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: tc ipt action
+Date: Sun, 16 Dec 2012 18:21:08 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1212161815310.27614@nerf07.vanv.qr>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <20121216002755.GA11773@1984> <alpine.LNX.2.01.1212160144110.26218@nerf07.vanv.qr> <50CDA5BE.2080800@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	vyasevic@redhat.com
-To: simon@fire.lp0.eu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50CDFB36.1020604@simon.arlott.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Yury Stankevich <urykhy@gmail.com>, shemonc@gmail.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ares07.inai.de ([5.9.24.206]:36969 "EHLO ares07.inai.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751513Ab2LPRVL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Dec 2012 12:21:11 -0500
+In-Reply-To: <50CDA5BE.2080800@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Arlott <simon@fire.lp0.eu>
-Date: Sun, 16 Dec 2012 16:47:50 +0000
 
-> The following commit breaks IPv6 TCP transmission for me:
-> 	Commit 75fe83c32248d99e6d5fe64155e519b78bb90481
-> 	Author: Vlad Yasevich <vyasevic@redhat.com>
-> 	Date:   Fri Nov 16 09:41:21 2012 +0000
-> 	ipv6: Preserve ipv6 functionality needed by NET
-> 
-> This patch fixes the typo "ipv6_offload" which should be
-> "ipv6-offload".
-> 
-> I don't know why not including the offload modules should
-> break TCP. Disabling all offload options on the NIC didn't
-> help. Outgoing pulseaudio traffic kept stalling.
-> 
-> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+On Sunday 2012-12-16 11:43, Jamal Hadi Salim wrote:
 
-Applied, since the fix is so obvious.
+> On 12-12-15 07:59 PM, Jan Engelhardt wrote:
+>>
+>
+>> For the C level, there is XTABLES_VERSION_CODE.
+>>
+>> #if XTABLES_VERSION_CODE >= 6
+>> 	if (m != NULL && m->x6_parse != NULL)
+>> 		m->x6_parse(...)
+>> #else
+>> 	else if (m != NULL && m->parse != NULL)
+>> 		m->parse(...)
+>> 	...
+>>
+>
+> I think you are suggesting this to be done in tc. That would make it easier to
+> fix.
+> IMO, it is easier to keep backward compat if you left the old
+> APIs around for a period of time
 
-I'll let Vlad explain why it has such an unexpected
-effect.
+As you can see, the old ->parse() that goes back to libxtables.so.0
+still remains. It's just that... only 5 out of 99 plugins still come
+with an old parse function.
 
-Thanks.
+	[m_xt] -> [libxtables] <- (plugins: libxt_*.so)
+
+> and maybe log a warning that they
+> will be deprecated over a period of time (sort of like kernel approach to
+> changing APIs).
+
+old parse has not entered any deprecation stage yet, since there are still
+plugins out there (both the 5 and external ones) that make use of it.
+Right now, both parse and x6_parse are valid.
+
+> BTW: another interface that seems to have changed that we
+> need is m->final_check().
+
+Yes, all those with an x6_ prefix are new.
+Mh, I already dream of plans reducing m_xt to something that
+does not require libxtables.so anymore.
