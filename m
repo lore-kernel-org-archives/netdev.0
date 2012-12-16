@@ -1,61 +1,147 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/4] net: allow to change carrier from userspace
-Date: Sun, 16 Dec 2012 11:54:51 +0100
-Message-ID: <20121216105451.GA1546@minipsycho.orion>
-References: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
+From: Tomasz Chmielewski <mangoo@wpkg.org>
+Subject: BUG: unable to handle kernel NULL pointer dereference + panic on
+ 3.2.11 (with various networking pointers, on Dell r720xd)
+Date: Sun, 16 Dec 2012 14:56:16 +0200
+Message-ID: <50CDC4F0.6010206@wpkg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
-	greearb@candelatech.com, fbl@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:46638 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752458Ab2LPKy4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2012 05:54:56 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so2702609eek.19
-        for <netdev@vger.kernel.org>; Sun, 16 Dec 2012 02:54:55 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Hi,
+
+a server running 3.2.11 just crashed with rather lengthy (~3 MB) dump:
+
+http://www.virtall.com/files/temp/3.2.11-panic.txt
 
 
-I see that the patchset is in state "Rejected" in patchwork.
-Stephen convinced me for a moment that the problem can be handled by operstate.
-As it turned out (in last 3-4 emails in thread) operstate use would not
-be an option.
+Any pointers, info if it was fixed or not, appreciated.
+The server is Dell r720xd, 128 GB RAM, plenty of disks and around 1 Gbit/s constant traffic.
 
-So how should I proceed? Should I repost the patchset? Anyone has any other
-comments?
 
-thanks.
+# lspci
+00:00.0 Host bridge: Intel Corporation Sandy Bridge DMI2 (rev 07)
+00:01.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 1a (rev 07)
+00:01.1 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 1b (rev 07)
+00:02.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 2a (rev 07)
+00:02.2 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 2c (rev 07)
+00:03.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 3a in PCI Express Mode (rev 07)
+00:05.0 System peripheral: Intel Corporation Sandy Bridge Address Map, VTd_Misc, System Management (rev 07)
+00:05.2 System peripheral: Intel Corporation Sandy Bridge Control Status and Global Errors (rev 07)
+00:11.0 PCI bridge: Intel Corporation Patsburg PCI Express Virtual Root Port (rev 05)
+00:16.0 Communication controller: Intel Corporation X79 series chipset HECI Controller #2 (rev 05)
+00:16.1 Communication controller: Intel Corporation X79 series chipset IDE-r Controller (rev 05)
+00:1a.0 USB controller: Intel Corporation X79 series chipset USB2 Enhanced Host Controller #2 (rev 05)
+00:1c.0 PCI bridge: Intel Corporation X79 series chipset PCI Express Root Port 1 (rev b5)
+00:1c.7 PCI bridge: Intel Corporation X79 series chipset PCI Express Root Port 8 (rev b5)
+00:1d.0 USB controller: Intel Corporation X79 series chipset USB2 Enhanced Host Controller #1 (rev 05)
+00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev a5)
+00:1f.0 ISA bridge: Intel Corporation X79 series chipset LPC Controller (rev 05)
+01:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5720 Gigabit Ethernet PCIe
+01:00.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5720 Gigabit Ethernet PCIe
+02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5720 Gigabit Ethernet PCIe
+02:00.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5720 Gigabit Ethernet PCIe
+03:00.0 RAID bus controller: LSI Logic / Symbios Logic MegaRAID SAS 2208 [Thunderbolt] (rev 01)
+08:00.0 PCI bridge: Renesas Technology Corp. SH7757 PCIe Switch [PS]
+09:00.0 PCI bridge: Renesas Technology Corp. SH7757 PCIe Switch [PS]
+09:01.0 PCI bridge: Renesas Technology Corp. SH7757 PCIe Switch [PS]
+0a:00.0 PCI bridge: Renesas Technology Corp. SH7757 PCIe-PCI Bridge [PPB]
+0b:00.0 VGA compatible controller: Matrox Graphics, Inc. G200eR2
+3f:08.0 System peripheral: Intel Corporation Sandy Bridge QPI Link 0 (rev 07)
+3f:09.0 System peripheral: Intel Corporation Sandy Bridge QPI Link 1 (rev 07)
+3f:0a.0 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 0 (rev 07)
+3f:0a.1 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 1 (rev 07)
+3f:0a.2 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 2 (rev 07)
+3f:0a.3 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 3 (rev 07)
+3f:0b.0 System peripheral: Intel Corporation Sandy Bridge Interrupt Control Registers (rev 07)
+3f:0b.3 System peripheral: Intel Corporation Sandy Bridge Semaphore and Scratchpad Configuration Registers (rev 07)
+3f:0c.0 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+3f:0c.1 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+3f:0c.2 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+3f:0c.3 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+3f:0c.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller System Address Decoder 0 (rev 07)
+3f:0c.7 System peripheral: Intel Corporation Sandy Bridge System Address Decoder (rev 07)
+3f:0d.0 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+3f:0d.1 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+3f:0d.2 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+3f:0d.3 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+3f:0d.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller System Address Decoder 1 (rev 07)
+3f:0e.0 System peripheral: Intel Corporation Sandy Bridge Processor Home Agent (rev 07)
+3f:0e.1 Performance counters: Intel Corporation Sandy Bridge Processor Home Agent Performance Monitoring (rev 07)
+3f:0f.0 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Registers (rev 07)
+3f:0f.1 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller RAS Registers (rev 07)
+3f:0f.2 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 0 (rev 07)
+3f:0f.3 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 1 (rev 07)
+3f:0f.4 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 2 (rev 07)
+3f:0f.5 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 3 (rev 07)
+3f:0f.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 4 (rev 07)
+3f:10.0 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 0 (rev 07)
+3f:10.1 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 1 (rev 07)
+3f:10.2 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 0 (rev 07)
+3f:10.3 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 1 (rev 07)
+3f:10.4 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 2 (rev 07)
+3f:10.5 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 3 (rev 07)
+3f:10.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 2 (rev 07)
+3f:10.7 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 3 (rev 07)
+3f:11.0 System peripheral: Intel Corporation Sandy Bridge DDRIO (rev 07)
+3f:13.0 System peripheral: Intel Corporation Sandy Bridge R2PCIe (rev 07)
+3f:13.1 Performance counters: Intel Corporation Sandy Bridge Ring to PCI Express Performance Monitor (rev 07)
+3f:13.4 Performance counters: Intel Corporation Sandy Bridge QuickPath Interconnect Agent Ring Registers (rev 07)
+3f:13.5 Performance counters: Intel Corporation Sandy Bridge Ring to QuickPath Interconnect Link 0 Performance Monitor (rev 07)
+3f:13.6 System peripheral: Intel Corporation Sandy Bridge Ring to QuickPath Interconnect Link 1 Performance Monitor (rev 07)
+40:01.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 1a (rev 07)
+40:02.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 2a (rev 07)
+40:03.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 3a in PCI Express Mode (rev 07)
+40:03.2 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 3c (rev 07)
+40:05.0 System peripheral: Intel Corporation Sandy Bridge Address Map, VTd_Misc, System Management (rev 07)
+40:05.2 System peripheral: Intel Corporation Sandy Bridge Control Status and Global Errors (rev 07)
+7f:08.0 System peripheral: Intel Corporation Sandy Bridge QPI Link 0 (rev 07)
+7f:09.0 System peripheral: Intel Corporation Sandy Bridge QPI Link 1 (rev 07)
+7f:0a.0 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 0 (rev 07)
+7f:0a.1 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 1 (rev 07)
+7f:0a.2 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 2 (rev 07)
+7f:0a.3 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 3 (rev 07)
+7f:0b.0 System peripheral: Intel Corporation Sandy Bridge Interrupt Control Registers (rev 07)
+7f:0b.3 System peripheral: Intel Corporation Sandy Bridge Semaphore and Scratchpad Configuration Registers (rev 07)
+7f:0c.0 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+7f:0c.1 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+7f:0c.2 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+7f:0c.3 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+7f:0c.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller System Address Decoder 0 (rev 07)
+7f:0c.7 System peripheral: Intel Corporation Sandy Bridge System Address Decoder (rev 07)
+7f:0d.0 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+7f:0d.1 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+7f:0d.2 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+7f:0d.3 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
+7f:0d.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller System Address Decoder 1 (rev 07)
+7f:0e.0 System peripheral: Intel Corporation Sandy Bridge Processor Home Agent (rev 07)
+7f:0e.1 Performance counters: Intel Corporation Sandy Bridge Processor Home Agent Performance Monitoring (rev 07)
+7f:0f.0 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Registers (rev 07)
+7f:0f.1 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller RAS Registers (rev 07)
+7f:0f.2 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 0 (rev 07)
+7f:0f.3 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 1 (rev 07)
+7f:0f.4 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 2 (rev 07)
+7f:0f.5 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 3 (rev 07)
+7f:0f.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 4 (rev 07)
+7f:10.0 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 0 (rev 07)
+7f:10.1 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 1 (rev 07)
+7f:10.2 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 0 (rev 07)
+7f:10.3 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 1 (rev 07)
+7f:10.4 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 2 (rev 07)
+7f:10.5 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 3 (rev 07)
+7f:10.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 2 (rev 07)
+7f:10.7 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 3 (rev 07)
+7f:11.0 System peripheral: Intel Corporation Sandy Bridge DDRIO (rev 07)
+7f:13.0 System peripheral: Intel Corporation Sandy Bridge R2PCIe (rev 07)
+7f:13.1 Performance counters: Intel Corporation Sandy Bridge Ring to PCI Express Performance Monitor (rev 07)
+7f:13.4 Performance counters: Intel Corporation Sandy Bridge QuickPath Interconnect Agent Ring Registers (rev 07)
+7f:13.5 Performance counters: Intel Corporation Sandy Bridge Ring to QuickPath Interconnect Link 0 Performance Monitor (rev 07)
+7f:13.6 System peripheral: Intel Corporation Sandy Bridge Ring to QuickPath Interconnect Link 1 Performance Monitor (rev 07)
 
-Wed, Dec 12, 2012 at 11:58:03AM CET, jiri@resnulli.us wrote:
->This is basically a repost of my previous patchset:
->"[patch net-next-2.6 0/2] net: allow to change carrier via sysfs" from Aug 30
->
->The way net-sysfs stores values changed and this patchset reflects it.
->Also, I exposed carrier via rtnetlink iface.
->
->So far, only dummy driver uses carrier change ndo. In very near future
->team driver will use that as well.
->
->Jiri Pirko (4):
->  net: add change_carrier netdev op
->  net: allow to change carrier via sysfs
->  rtnl: expose carrier value with possibility to set it
->  dummy: implement carrier change
->
-> drivers/net/dummy.c          | 10 ++++++++++
-> include/linux/netdevice.h    |  7 +++++++
-> include/uapi/linux/if_link.h |  1 +
-> net/core/dev.c               | 19 +++++++++++++++++++
-> net/core/net-sysfs.c         | 15 ++++++++++++++-
-> net/core/rtnetlink.c         | 10 ++++++++++
-> 6 files changed, 61 insertions(+), 1 deletion(-)
->
->-- 
->1.8.0
->
+
+
+-- 
+Tomasz Chmielewski
