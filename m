@@ -1,38 +1,40 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] build: unbreak linkage of m_xt.so
-Date: Sun, 16 Dec 2012 12:03:55 -0500
-Message-ID: <50CDFEFB.2070208@mojatatu.com>
-References: <alpine.LNX.2.01.1212160119060.7193@nerf07.vanv.qr> <1355617968-26138-1-git-send-email-jengelh@inai.de> <50CDA2DA.3060805@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: Fix Makefile offload objects
+Date: Sun, 16 Dec 2012 09:17:47 -0800 (PST)
+Message-ID: <20121216.091747.271269648244929827.davem@davemloft.net>
+References: <50CDFB36.1020604@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen.hemminger@vyatta.com, vapier@gentoo.org,
-	netdev@vger.kernel.org, urykhy@gmail.com, shemonc@gmail.com,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <50CDA2DA.3060805@mojatatu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	vyasevic@redhat.com
+To: simon@fire.lp0.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50CDFB36.1020604@simon.arlott.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12-12-16 05:30 AM, Jamal Hadi Salim wrote:
+From: Simon Arlott <simon@fire.lp0.eu>
+Date: Sun, 16 Dec 2012 16:47:50 +0000
 
-> I can confirm it builds fine for me now if i take out the hack I had and
-> use this patch.
+> The following commit breaks IPv6 TCP transmission for me:
+> 	Commit 75fe83c32248d99e6d5fe64155e519b78bb90481
+> 	Author: Vlad Yasevich <vyasevic@redhat.com>
+> 	Date:   Fri Nov 16 09:41:21 2012 +0000
+> 	ipv6: Preserve ipv6 functionality needed by NET
+> 
+> This patch fixes the typo "ipv6_offload" which should be
+> "ipv6-offload".
+> 
+> I don't know why not including the offload modules should
+> break TCP. Disabling all offload options on the NIC didn't
+> help. Outgoing pulseaudio traffic kept stalling.
+> 
+> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 
+Applied, since the fix is so obvious.
 
-Sorry, I take what i said back and went back to explicitly adding -l 
-xtables. The problem is still the intepretation of tc/Makefile. Here's 
-the compile output.
-----
-gcc -Wall -Wstrict-prototypes -O2 -I../include -DRESOLVE_HOSTNAMES 
--DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\" -D_GNU_SOURCE 
--DCONFIG_GACT -DCONFIG_GACT_PROB -DIPT_LIB_DIR=\"/lib/xtables\" 
--DYY_NO_INPUT -Wl,-export-dynamic -shared -fpic -o m_xt.so m_xt.c 
-$(pkg-config xtables --cflags --libs)
-----
+I'll let Vlad explain why it has such an unexpected
+effect.
 
-Note the missing expansion.
-
-cheers,
-jamal
+Thanks.
