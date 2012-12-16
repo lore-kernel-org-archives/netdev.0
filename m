@@ -1,76 +1,59 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [PATCH] build: unbreak linkage of m_xt.so
-Date: Sun, 16 Dec 2012 17:02:22 -0500
-Message-ID: <201212161702.24623.vapier@gentoo.org>
-References: <alpine.LNX.2.01.1212160119060.7193@nerf07.vanv.qr> <1355617968-26138-1-git-send-email-jengelh@inai.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3527860.5BcSLlq8Zt";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org,
-	jhs@mojatatu.com, urykhy@gmail.com, shemonc@gmail.com,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1355617968-26138-1-git-send-email-jengelh@inai.de>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH 1/3] configure: move toolchain init to a function
+Date: Sun, 16 Dec 2012 17:09:15 -0500
+Message-ID: <1355695757-9957-1-git-send-email-vapier@gentoo.org>
+Cc: jengelh@inai.de
+To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.gentoo.org ([140.211.166.183]:58772 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751365Ab2LPWJS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Dec 2012 17:09:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart3527860.5BcSLlq8Zt
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+The layout of this file uses functions to update Config.  Move the
+toolchain logic to the same style to fix setting the vars in Config.
 
-On Saturday 15 December 2012 19:32:48 Jan Engelhardt wrote:
-> --- a/configure
-> +++ b/configure
-> @@ -4,7 +4,6 @@
->  INCLUDE=3D${1:-"$PWD/include"}
->=20
->  : ${PKG_CONFIG:=3Dpkg-config}
->  : ${CC=3Dgcc}
->=20
-> -echo "PKG_CONFIG:=3D${PKG_CONFIG}" >>Config
->=20
->  # Make a temp directory in build tree.
->  TMPDIR=3D$(mktemp -d config.XXXXXX)
-> @@ -224,6 +223,7 @@ rm -f $TMPDIR/ipsettest.c $TMPDIR/ipsettest
->  }
->=20
->  echo "# Generated config based on" $INCLUDE >Config
-> +echo "PKG_CONFIG:=3D${PKG_CONFIG}" >>Config
->=20
->  echo "TC schedulers"
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ configure | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-the use of un-indented shell functions makes the code read in a way it does=
-n't=20
-actually execute.  i'd suggest moving this logic into a function to match=20
-existing style rather than simply moving the Config write.  i'll post a pat=
-ch.
-=2Dmike
-
---nextPart3527860.5BcSLlq8Zt
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJQzkTwAAoJEEFjO5/oN/WBaUgQANArb8UIKUDwXSRAGiCLoaPF
-4v7sB/yW+PxL5t7Wal0XqSM3qWs3Cz7iGm8zJVMnqtJy70GpeBnIHiIzDkWDEEgp
-jpi2nxdKftqQO00rBEoLZdKY4QAtZu2eUvpjuJgHaIqQ2mz2TYUjpas5NUhidljW
-F3r7aqzRDwuOJYnoZv9eq8uWblEPs9N8sR1Jtf9szk2VpbAvtKL8ZnzTzULAVFxZ
-hgt1sXLXlu2EYL/c7oM7kswkf8pkVbNtvocEBnvw9X/oRSQdDq9JEkOzfuap7Dd9
-i/dreyAqwnZnsww8WgAjRfSgpfV8p4B3jFPS7tiID2bxF11Y7RvnVfXS7P5MKO1e
-l50ZnYk8xLlxyy0gVGjuWI7UGPP5HFBIZNmCeqr7S+wE2aLm5o2giaA+Nut8lySg
-HYdAzZO9gTKwkYisV2vx7X5qY9aoJXSK33iGMa7dP1llEIZuylNT9vEBtPqwyt25
-0poT4L49/99MXzY/HZGmNvKxkNeXwD8Y6h9icL8dngwBtbf0yMQS+Mm8uNJSl0On
-EcCzGjk3ktCczgyNFe1aUyoGF//VYAhQrFRnGwsBK+1uGfqwn+rdfQc8nK4oEKpJ
-F9Xtyg3qSYstu1+MqfnU6hfaqLcny2/yk0zsRIJWX6Tag8zypEhM/xfEg+ZAv9sP
-GXyQtwyo6V/XIRa19oLT
-=PWp4
------END PGP SIGNATURE-----
-
---nextPart3527860.5BcSLlq8Zt--
+diff --git a/configure b/configure
+index 9912114..ea1038d 100755
+--- a/configure
++++ b/configure
+@@ -2,14 +2,19 @@
+ # This is not an autconf generated configure
+ #
+ INCLUDE=${1:-"$PWD/include"}
+-: ${PKG_CONFIG:=pkg-config}
+-: ${CC=gcc}
+-echo "PKG_CONFIG:=${PKG_CONFIG}" >>Config
+ 
+ # Make a temp directory in build tree.
+ TMPDIR=$(mktemp -d config.XXXXXX)
+ trap 'status=$?; rm -rf $TMPDIR; exit $status' EXIT HUP INT QUIT TERM
+ 
++check_toolchain()
++{
++: ${PKG_CONFIG:=pkg-config}
++: ${CC=gcc}
++echo "CC:=${CC}" >>Config
++echo "PKG_CONFIG:=${PKG_CONFIG}" >>Config
++}
++
+ check_atm()
+ {
+ cat >$TMPDIR/atmtest.c <<EOF
+@@ -224,6 +229,7 @@ rm -f $TMPDIR/ipsettest.c $TMPDIR/ipsettest
+ }
+ 
+ echo "# Generated config based on" $INCLUDE >Config
++check_toolchain
+ 
+ echo "TC schedulers"
+ 
+-- 
+1.8.0
