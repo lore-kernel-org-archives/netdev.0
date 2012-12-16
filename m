@@ -1,35 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: jsctp_sf_eat_sack: fix jprobes function
- signature mismatch
-Date: Sat, 15 Dec 2012 17:17:04 -0800 (PST)
-Message-ID: <20121215.171704.680026100055391698.davem@davemloft.net>
-References: <cover.1355602097.git.dborkman@redhat.com>
-	<a910a63d58d95aed8caeea8a43a21cab863b3bfb.1355602097.git.dborkman@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH] netlink: validate addr_len on bind
+Date: Sun, 16 Dec 2012 02:42:19 +0100
+Message-ID: <20121216014219.GB1528@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, netdev@vger.kernel.org
-To: dborkman@redhat.com
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34311 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751926Ab2LPBRE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2012 20:17:04 -0500
-In-Reply-To: <a910a63d58d95aed8caeea8a43a21cab863b3bfb.1355602097.git.dborkman@redhat.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:33695 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751919Ab2LPBmU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2012 20:42:20 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sat, 15 Dec 2012 21:12:43 +0100
+Otherwise an out of bounds read could happen.
 
-> Commit 24cb81a6a (sctp: Push struct net down into all of the
-> state machine functions) introduced the net structure into all
-> state machine functions, but jsctp_sf_eat_sack was not updated,
-> hence when SCTP association probing is enabled in the kernel,
-> any simple SCTP client/server program from userspace will panic
-> the kernel.
-> 
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/netlink/af_netlink.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Applied.
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index fdb7494..5321bab 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -669,6 +669,9 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 	struct sockaddr_nl *nladdr = (struct sockaddr_nl *)addr;
+ 	int err;
+ 
++	if (addr_len < sizeof(struct sockaddr_nl))
++		return -EINVAL;
++
+ 	if (nladdr->nl_family != AF_NETLINK)
+ 		return -EINVAL;
+ 
