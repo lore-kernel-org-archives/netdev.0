@@ -1,36 +1,34 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 2/3] lib: include the Config file too
-Date: Sun, 16 Dec 2012 17:09:16 -0500
-Message-ID: <1355695757-9957-2-git-send-email-vapier@gentoo.org>
-References: <1355695757-9957-1-git-send-email-vapier@gentoo.org>
-Cc: jengelh@inai.de
-To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:58781 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752154Ab2LPWJS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Dec 2012 17:09:18 -0500
-In-Reply-To: <1355695757-9957-1-git-send-email-vapier@gentoo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2] netfilter: nf_nat: Also handle non-ESTABLISHED
+ routing changes in MASQUERADE
+Date: Sun, 16 Dec 2012 23:33:33 +0100
+Message-ID: <20121216223333.GB1304@1984>
+References: <1355358229-25167-1-git-send-email-bsderandrew@gmail.com>
+ <alpine.DEB.2.00.1212130918410.2048@blackhole.kfki.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Collins <bsderandrew@gmail.com>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1212130918410.2048@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The lib makefile doesn't include Config which means it misses
-setting up toolchain vars that it includes.
+On Thu, Dec 13, 2012 at 09:19:27AM +0100, Jozsef Kadlecsik wrote:
+> On Wed, 12 Dec 2012, Andrew Collins wrote:
+> 
+> > The MASQUERADE target now handles routing changes which affect
+> > the output interface of a connection, but only for ESTABLISHED
+> > connections.  It is also possible for NEW connections which
+> > already have a conntrack entry to be affected by routing changes.
+> > 
+> > This adds a check to drop entries in the NEW+conntrack state
+> > when the oif has changed.
+> > 
+> > Signed-off-by: Andrew Collins <bsderandrew@gmail.com>
+> 
+> Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- lib/Makefile | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/lib/Makefile b/lib/Makefile
-index bfbe672..a42b885 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -1,3 +1,5 @@
-+include ../Config
-+
- CFLAGS += -fPIC
- 
- UTILOBJ=utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o inet_proto.o
--- 
-1.8.0
+Applied, thanks guys.
