@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] can: sja1000: fix compilation on x86
-Date: Sat, 15 Dec 2012 17:16:00 -0800 (PST)
-Message-ID: <20121215.171600.1207782952199175480.davem@davemloft.net>
-References: <1355523912-1977-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH] i2400m: add Intel 6150 device IDs
+Date: Sat, 15 Dec 2012 17:16:10 -0800 (PST)
+Message-ID: <20121215.171610.1759473531241906755.davem@davemloft.net>
+References: <1355526650.32099.19.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	rdunlap@infradead.org, andreas@gaisler.com
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1355523912-1977-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, inaky.perez-gonzalez@intel.com
+To: dcbw@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34276 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751900Ab2LPBQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Dec 2012 20:16:10 -0500
+In-Reply-To: <1355526650.32099.19.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri, 14 Dec 2012 23:25:12 +0100
+From: Dan Williams <dcbw@redhat.com>
+Date: Fri, 14 Dec 2012 17:10:50 -0600
 
-> Since commit:
-> 04df251 can: sja1000: Make sja1000_of_platform selectable and compilable on SPARC
-> the driver can be activated on non powerpc platform like x86 or sparc. Without
-> this patch the driver fails to compile on platform that don't define NO_IRQ,
-> like x86.
+> Add device IDs for WiMAX function of Intel 6150 cards.
 > 
-> Reported-by: Randy Dunlap <rdunlap@infradead.org>
-> Cc: Andreas Larsson <andreas@gaisler.com>
-> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
 
 Applied.
