@@ -1,46 +1,44 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: tc ipt action
-Date: Sun, 16 Dec 2012 05:22:13 -0500
-Message-ID: <50CDA0D5.5080209@mojatatu.com>
-References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr>
+Date: Sun, 16 Dec 2012 05:26:02 -0500
+Message-ID: <50CDA1BA.4080702@mojatatu.com>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <20121216002755.GA11773@1984>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Yury Stankevich <urykhy@gmail.com>, shemonc@gmail.com,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@inai.de>
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr>
+In-Reply-To: <20121216002755.GA11773@1984>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12-12-15 06:06 PM, Jan Engelhardt wrote:
+Hi Pablo,
 
-> If I try that command (substituting ipt->xt and eth0->dummy0,
-> ifb0->dummy1), all I get is the dreaded "Invalid argument".
-> So the kernel rejected the command, which could indicate that
-> userspace construction might have been ok.
->
-> # tc filter add dev dummy0 parent ffff: protocol ip u32 match u32 0 0 \
-> action xt -j CONNMARK action mirred egress redirect dev dummy1
->
-> tablename: mangle hook: NF_IP_PRE_ROUTING
->          target:  CONNMARK and 0x0 index 0
-> RTNETLINK answers: Invalid argument
-> We have an error talking to the kernel
+On 12-12-15 07:27 PM, Pablo Neira Ayuso wrote:
+
+> The binary interface was broken in 1.4.11 with the guided option
+> parser:
+
+Ah. Thanks that would explain it.
+
+
+> You need a patch to use the new interface to stay in sync with current
+> iptables libraries. I'll make it for tc and send it to you.
 >
 
-No problem sending it to the kernel here on ubuntu 12.04.
-I also upgraded to current linus git tree, same result.
-The problem is the parameters are not accepted in user space as
-you can see for connmark and what gets sent (eg CONNMARK and 0x0)
-doesnt seem sensible.
+Much thanks. I just scanned it and things have changed; old way used to 
+take multiparams. New one a single struct, so would have taken much 
+longer for me to resolve.
 
-> What was the last combination that worked?
+> BTW, I think it would be good if we find the way to check for
+> libxtables current version (see iptables/configure.ac), so you can
+> know that we broke binary compatibility again.
+>
 
-First time this got reported to me (or i got CCed on the problem) - I am 
-told it broke after iptables 1.4.11.
+will do.
 
 cheers,
 jamal
