@@ -1,147 +1,64 @@
-From: Tomasz Chmielewski <mangoo@wpkg.org>
-Subject: BUG: unable to handle kernel NULL pointer dereference + panic on
- 3.2.11 (with various networking pointers, on Dell r720xd)
-Date: Sun, 16 Dec 2012 14:56:16 +0200
-Message-ID: <50CDC4F0.6010206@wpkg.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH 1/2] bcma: BCMA_DRIVER_GPIO should depend on GPIOLIB instead of selecting it
+Date: Sun, 16 Dec 2012 16:35:35 +0100
+Message-ID: <1355672136-24808-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+To: Hauke Mehrtens <hauke@hauke-m.de>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Michael Buesch <m@bues.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Commit cf0936b06d8e98a157630e99f647e2ff6d29d7ad ("bcma: add GPIO driver=
+")
+added BCMA_DRIVER_GPIO, which unconditionally selects GPIOLIB, causing
+a Kconfig warning:
 
-a server running 3.2.11 just crashed with rather lengthy (~3 MB) dump:
+warning: (ARCH_REQUIRE_GPIOLIB && SSB_DRIVER_GPIO && BCMA_DRIVER_GPIO &=
+& MFD_TC6393XB && FB_VIA) selects GPIOLIB which has unmet direct depend=
+encies (ARCH_WANT_OPTIONAL_GPIOLIB || ARCH_REQUIRE_GPIOLIB)
 
-http://www.virtall.com/files/temp/3.2.11-panic.txt
+and build failure for m68k/allmodconfig:
 
+In file included from include/linux/bcma/bcma.h:8,
+                 from drivers/bcma/bcma_private.h:9,
+                 from drivers/bcma/main.c:9:
+include/linux/bcma/bcma_driver_chipcommon.h:582: error: field =E2=80=98=
+gpio=E2=80=99 has incomplete type
+In file included from include/linux/bcma/bcma.h:12,
+                 from drivers/bcma/bcma_private.h:9,
+                 from drivers/bcma/main.c:9:
+include/linux/ssb/ssb.h:440: error: field =E2=80=98gpio=E2=80=99 has in=
+complete type
+make[4]: *** [drivers/bcma/main.o] Error 1
+make[3]: *** [drivers/bcma/] Error 2
 
-Any pointers, info if it was fixed or not, appreciated.
-The server is Dell r720xd, 128 GB RAM, plenty of disks and around 1 Gbit/s constant traffic.
+Turn the select into a dependency to fix this.
 
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ drivers/bcma/Kconfig |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-# lspci
-00:00.0 Host bridge: Intel Corporation Sandy Bridge DMI2 (rev 07)
-00:01.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 1a (rev 07)
-00:01.1 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 1b (rev 07)
-00:02.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 2a (rev 07)
-00:02.2 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 2c (rev 07)
-00:03.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 3a in PCI Express Mode (rev 07)
-00:05.0 System peripheral: Intel Corporation Sandy Bridge Address Map, VTd_Misc, System Management (rev 07)
-00:05.2 System peripheral: Intel Corporation Sandy Bridge Control Status and Global Errors (rev 07)
-00:11.0 PCI bridge: Intel Corporation Patsburg PCI Express Virtual Root Port (rev 05)
-00:16.0 Communication controller: Intel Corporation X79 series chipset HECI Controller #2 (rev 05)
-00:16.1 Communication controller: Intel Corporation X79 series chipset IDE-r Controller (rev 05)
-00:1a.0 USB controller: Intel Corporation X79 series chipset USB2 Enhanced Host Controller #2 (rev 05)
-00:1c.0 PCI bridge: Intel Corporation X79 series chipset PCI Express Root Port 1 (rev b5)
-00:1c.7 PCI bridge: Intel Corporation X79 series chipset PCI Express Root Port 8 (rev b5)
-00:1d.0 USB controller: Intel Corporation X79 series chipset USB2 Enhanced Host Controller #1 (rev 05)
-00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev a5)
-00:1f.0 ISA bridge: Intel Corporation X79 series chipset LPC Controller (rev 05)
-01:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5720 Gigabit Ethernet PCIe
-01:00.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5720 Gigabit Ethernet PCIe
-02:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5720 Gigabit Ethernet PCIe
-02:00.1 Ethernet controller: Broadcom Corporation NetXtreme BCM5720 Gigabit Ethernet PCIe
-03:00.0 RAID bus controller: LSI Logic / Symbios Logic MegaRAID SAS 2208 [Thunderbolt] (rev 01)
-08:00.0 PCI bridge: Renesas Technology Corp. SH7757 PCIe Switch [PS]
-09:00.0 PCI bridge: Renesas Technology Corp. SH7757 PCIe Switch [PS]
-09:01.0 PCI bridge: Renesas Technology Corp. SH7757 PCIe Switch [PS]
-0a:00.0 PCI bridge: Renesas Technology Corp. SH7757 PCIe-PCI Bridge [PPB]
-0b:00.0 VGA compatible controller: Matrox Graphics, Inc. G200eR2
-3f:08.0 System peripheral: Intel Corporation Sandy Bridge QPI Link 0 (rev 07)
-3f:09.0 System peripheral: Intel Corporation Sandy Bridge QPI Link 1 (rev 07)
-3f:0a.0 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 0 (rev 07)
-3f:0a.1 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 1 (rev 07)
-3f:0a.2 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 2 (rev 07)
-3f:0a.3 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 3 (rev 07)
-3f:0b.0 System peripheral: Intel Corporation Sandy Bridge Interrupt Control Registers (rev 07)
-3f:0b.3 System peripheral: Intel Corporation Sandy Bridge Semaphore and Scratchpad Configuration Registers (rev 07)
-3f:0c.0 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-3f:0c.1 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-3f:0c.2 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-3f:0c.3 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-3f:0c.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller System Address Decoder 0 (rev 07)
-3f:0c.7 System peripheral: Intel Corporation Sandy Bridge System Address Decoder (rev 07)
-3f:0d.0 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-3f:0d.1 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-3f:0d.2 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-3f:0d.3 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-3f:0d.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller System Address Decoder 1 (rev 07)
-3f:0e.0 System peripheral: Intel Corporation Sandy Bridge Processor Home Agent (rev 07)
-3f:0e.1 Performance counters: Intel Corporation Sandy Bridge Processor Home Agent Performance Monitoring (rev 07)
-3f:0f.0 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Registers (rev 07)
-3f:0f.1 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller RAS Registers (rev 07)
-3f:0f.2 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 0 (rev 07)
-3f:0f.3 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 1 (rev 07)
-3f:0f.4 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 2 (rev 07)
-3f:0f.5 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 3 (rev 07)
-3f:0f.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 4 (rev 07)
-3f:10.0 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 0 (rev 07)
-3f:10.1 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 1 (rev 07)
-3f:10.2 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 0 (rev 07)
-3f:10.3 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 1 (rev 07)
-3f:10.4 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 2 (rev 07)
-3f:10.5 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 3 (rev 07)
-3f:10.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 2 (rev 07)
-3f:10.7 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 3 (rev 07)
-3f:11.0 System peripheral: Intel Corporation Sandy Bridge DDRIO (rev 07)
-3f:13.0 System peripheral: Intel Corporation Sandy Bridge R2PCIe (rev 07)
-3f:13.1 Performance counters: Intel Corporation Sandy Bridge Ring to PCI Express Performance Monitor (rev 07)
-3f:13.4 Performance counters: Intel Corporation Sandy Bridge QuickPath Interconnect Agent Ring Registers (rev 07)
-3f:13.5 Performance counters: Intel Corporation Sandy Bridge Ring to QuickPath Interconnect Link 0 Performance Monitor (rev 07)
-3f:13.6 System peripheral: Intel Corporation Sandy Bridge Ring to QuickPath Interconnect Link 1 Performance Monitor (rev 07)
-40:01.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 1a (rev 07)
-40:02.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 2a (rev 07)
-40:03.0 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 3a in PCI Express Mode (rev 07)
-40:03.2 PCI bridge: Intel Corporation Sandy Bridge IIO PCI Express Root Port 3c (rev 07)
-40:05.0 System peripheral: Intel Corporation Sandy Bridge Address Map, VTd_Misc, System Management (rev 07)
-40:05.2 System peripheral: Intel Corporation Sandy Bridge Control Status and Global Errors (rev 07)
-7f:08.0 System peripheral: Intel Corporation Sandy Bridge QPI Link 0 (rev 07)
-7f:09.0 System peripheral: Intel Corporation Sandy Bridge QPI Link 1 (rev 07)
-7f:0a.0 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 0 (rev 07)
-7f:0a.1 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 1 (rev 07)
-7f:0a.2 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 2 (rev 07)
-7f:0a.3 System peripheral: Intel Corporation Sandy Bridge Power Control Unit 3 (rev 07)
-7f:0b.0 System peripheral: Intel Corporation Sandy Bridge Interrupt Control Registers (rev 07)
-7f:0b.3 System peripheral: Intel Corporation Sandy Bridge Semaphore and Scratchpad Configuration Registers (rev 07)
-7f:0c.0 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-7f:0c.1 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-7f:0c.2 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-7f:0c.3 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-7f:0c.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller System Address Decoder 0 (rev 07)
-7f:0c.7 System peripheral: Intel Corporation Sandy Bridge System Address Decoder (rev 07)
-7f:0d.0 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-7f:0d.1 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-7f:0d.2 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-7f:0d.3 System peripheral: Intel Corporation Sandy Bridge Unicast Register 0 (rev 07)
-7f:0d.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller System Address Decoder 1 (rev 07)
-7f:0e.0 System peripheral: Intel Corporation Sandy Bridge Processor Home Agent (rev 07)
-7f:0e.1 Performance counters: Intel Corporation Sandy Bridge Processor Home Agent Performance Monitoring (rev 07)
-7f:0f.0 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Registers (rev 07)
-7f:0f.1 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller RAS Registers (rev 07)
-7f:0f.2 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 0 (rev 07)
-7f:0f.3 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 1 (rev 07)
-7f:0f.4 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 2 (rev 07)
-7f:0f.5 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 3 (rev 07)
-7f:0f.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Target Address Decoder 4 (rev 07)
-7f:10.0 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 0 (rev 07)
-7f:10.1 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 1 (rev 07)
-7f:10.2 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 0 (rev 07)
-7f:10.3 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 1 (rev 07)
-7f:10.4 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 2 (rev 07)
-7f:10.5 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller Channel 0-3 Thermal Control 3 (rev 07)
-7f:10.6 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 2 (rev 07)
-7f:10.7 System peripheral: Intel Corporation Sandy Bridge Integrated Memory Controller ERROR Registers 3 (rev 07)
-7f:11.0 System peripheral: Intel Corporation Sandy Bridge DDRIO (rev 07)
-7f:13.0 System peripheral: Intel Corporation Sandy Bridge R2PCIe (rev 07)
-7f:13.1 Performance counters: Intel Corporation Sandy Bridge Ring to PCI Express Performance Monitor (rev 07)
-7f:13.4 Performance counters: Intel Corporation Sandy Bridge QuickPath Interconnect Agent Ring Registers (rev 07)
-7f:13.5 Performance counters: Intel Corporation Sandy Bridge Ring to QuickPath Interconnect Link 0 Performance Monitor (rev 07)
-7f:13.6 System peripheral: Intel Corporation Sandy Bridge Ring to QuickPath Interconnect Link 1 Performance Monitor (rev 07)
-
-
-
--- 
-Tomasz Chmielewski
+diff --git a/drivers/bcma/Kconfig b/drivers/bcma/Kconfig
+index d7b56a8..8b4221c 100644
+--- a/drivers/bcma/Kconfig
++++ b/drivers/bcma/Kconfig
+@@ -67,8 +67,7 @@ config BCMA_DRIVER_GMAC_CMN
+=20
+ config BCMA_DRIVER_GPIO
+ 	bool "BCMA GPIO driver"
+-	depends on BCMA
+-	select GPIOLIB
++	depends on BCMA && GPIOLIB
+ 	help
+ 	  Driver to provide access to the GPIO pins of the bcma bus.
+=20
+--=20
+1.7.0.4
