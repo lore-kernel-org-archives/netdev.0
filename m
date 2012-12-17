@@ -1,52 +1,57 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: 3.6.10 tcp crash - net/ipv4/tcp.c:1667 & tcp.c:1655
-Date: Mon, 17 Dec 2012 14:52:13 -0500
-Message-ID: <20121217195212.GI22452@kvack.org>
-References: <20121217174145.GH22452@kvack.org> <1355772853.9380.10.camel@edumazet-glaptop>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 4/4] FEC: Add time stamping code and a PTP hardware clock
+Date: Mon, 17 Dec 2012 21:02:32 +0100
+Message-ID: <20121217200232.GS26326@pengutronix.de>
+References: <1351657531-25989-1-git-send-email-Frank.Li@freescale.com>
+ <20121217091345.GA753@pengutronix.de>
+ <CAHrpEqTVuSR_-Tpdzb98=VJbg7grSFvSQ9xA6mPsHpGb7RvNCg@mail.gmail.com>
+ <20121217151445.GA17907@S2101-09.ap.freescale.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <erdnetdev@gmail.com>
+Cc: Frank Li <lznuaa@gmail.com>, Frank Li <Frank.Li@freescale.com>,
+	lznua@gmail.com, richardcochran@gmail.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Shawn Guo <shawn.guo@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:58525 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752628Ab2LQTwO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2012 14:52:14 -0500
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:46868 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752276Ab2LQUCk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 15:02:40 -0500
 Content-Disposition: inline
-In-Reply-To: <1355772853.9380.10.camel@edumazet-glaptop>
+In-Reply-To: <20121217151445.GA17907@S2101-09.ap.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 17, 2012 at 11:34:13AM -0800, Eric Dumazet wrote:
-> On Mon, 2012-12-17 at 12:41 -0500, Benjamin LaHaise wrote:
-> > Hi folks,
+On Mon, Dec 17, 2012 at 11:14:46PM +0800, Shawn Guo wrote:
+> Hi Sascha,
+> 
+> On Mon, Dec 17, 2012 at 10:48:31PM +0800, Frank Li wrote:
+> > > I don't know how to continue from here. Since the whole patch doesn't
+> > > seem to reviewed very much I tend to say we should revert it for now and
+> > > let Frank redo it for the next merge window.
+> > >
+> > > Other opinions?
 > > 
-> > I just hit the following crash with Fedora's 3.6.10-2.fc17 kernel.  I don't 
-> > have time to debug this myself at the moment, but can certainly test patches 
-> > or provide more info as needed.  I wasn't doing anything unusual at the time, 
-> > just reading email/web browsing.  I believe the network driver in use was 
-> > ipheth for tethering to an iPhone 4S over USB (the other driver being used 
-> > intermittently on this laptop is iwlwifi).  Any ideas?
-> 
-> I see nothing really wrong on ipheth side.
-> 
-> I would be nice to know which driver is really in use when you have a
-> panic, as its probably a driver issue.
+> > Can we just disable CONFIG_FEC_PTP defaut instead of revert whole patch?
+> > 
+> To be clear, the following is what Frank meant.  Since Frank is out of
+> office for some time, I will send this immediate fix to David, if you
+> are fine with it.
 
-I double checked the logs, and the wifi was disabled at the time (~30 
-minutes beforehand), so it had to be ipheth.  The warnings were the last 
-thing that made it to disk before the machine hung hard, so there may have 
-been a more serious crash after the warning that did not get logged.
+This leaves an option in the tree which can be used to break FEC on
+i.MX3/5.
 
-One thing I have observed with tethering is that the MTU handling is munged 
-by the network in interesting ways.  Although the device claims to be 
-ethernet with a 1500 byte MTU, a 'ping -s' works only up to 996 (with no 
-effect trying the various -M options).  A number of website are broken by 
-this, as the network doesn't seem to send ICMP frag needed errors to my 
-tethered host (but I haven't traced this behaviour from both ends yet).  
-Things do work for 1500 byte packets to the gateway IP, but that seems 
-to be local to the phone.
+	depends on !SOC_IMX31 && !SOC_IMX35 && !SOC_IMX5
 
-		-ben
+might be an option, but given that this patch seems to have bypassed any
+review I feel more like reverting it.
+
+Sascha
+
+
 -- 
-"Thought is the essence of where you are now."
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
