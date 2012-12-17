@@ -1,47 +1,31 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 3/3] configure: pull AR from the env too
-Date: Mon, 17 Dec 2012 09:14:08 -0800
-Message-ID: <20121217091408.324478ea@nehalam.linuxnetplumber.net>
-References: <1355695757-9957-1-git-send-email-vapier@gentoo.org>
-	<1355695757-9957-3-git-send-email-vapier@gentoo.org>
+From: "Vitaly E. Lavrov" <lve@guap.ru>
+Subject: Re: [PATCH] bugfix: network namespace & device dummy
+Date: Mon, 17 Dec 2012 21:25:29 +0400
+Message-ID: <50CF5589.5000203@guap.ru>
+References: <50CF1797.803@guap.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=KOI8-R; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org,
-	jengelh@inai.de
-To: Mike Frysinger <vapier@gentoo.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49903 "EHLO mail.vyatta.com"
+Received: from mx1.guap.ru ([91.151.188.3]:27752 "EHLO mail.guap.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752535Ab2LQRPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2012 12:15:25 -0500
-In-Reply-To: <1355695757-9957-3-git-send-email-vapier@gentoo.org>
+	id S1751917Ab2LQRZb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2012 12:25:31 -0500
+Received: from [10.150.100.7] ([95.161.253.150])
+	(user=lve@guap.ru mech=CRAM-MD5 bits=0)
+	by mail.guap.ru (8.14.4/8.14.4) with ESMTP id qBHHPTp7016551
+	for <netdev@vger.kernel.org>; Mon, 17 Dec 2012 21:25:29 +0400
+In-Reply-To: <50CF1797.803@guap.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 16 Dec 2012 17:09:17 -0500
-Mike Frysinger <vapier@gentoo.org> wrote:
+On 17.12.2012 17:01, V. Lavrov wrote:
+> If container has a network device dummyX (with lxc.network.type = 
+> phys), then it disappears from the system after you close the container.
+> The patch returns the device dummyX to the initial network namespace 
+> after container is closed.
+Do not use this patch. Network devices such as "ifb" and "dummy" can 
+re-create command "ip li add ..."
 
-> This matches the existing CC behavior.
-> 
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
->  configure | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/configure b/configure
-> index ea1038d..7c2db9b 100755
-> --- a/configure
-> +++ b/configure
-> @@ -10,7 +10,9 @@ trap 'status=$?; rm -rf $TMPDIR; exit $status' EXIT HUP INT QUIT TERM
->  check_toolchain()
->  {
->  : ${PKG_CONFIG:=pkg-config}
-> +: ${AR=ar}
->  : ${CC=gcc}
-> +echo "AR:=${AR}" >>Config
->  echo "CC:=${CC}" >>Config
->  echo "PKG_CONFIG:=${PKG_CONFIG}" >>Config
->  }
-
-All applied
+This feature should be documented in the LXC
