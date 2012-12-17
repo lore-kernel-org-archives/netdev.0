@@ -1,50 +1,47 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] netlink: align attributes on 64-bits
-Date: Mon, 17 Dec 2012 17:06:59 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70F1@saturn3.aculab.com>
-References: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com> <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 3/3] configure: pull AR from the env too
+Date: Mon, 17 Dec 2012 09:14:08 -0800
+Message-ID: <20121217091408.324478ea@nehalam.linuxnetplumber.net>
+References: <1355695757-9957-1-git-send-email-vapier@gentoo.org>
+	<1355695757-9957-3-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <tgraf@suug.ch>, <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: "Nicolas Dichtel" <nicolas.dichtel@6wind.com>,
-	<bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org,
+	jengelh@inai.de
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:46214 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752535Ab2LQRMm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 12:12:42 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06917-07 for <netdev@vger.kernel.org>;
- Mon, 17 Dec 2012 17:12:37 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail.vyatta.com ([76.74.103.46]:49903 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752535Ab2LQRPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2012 12:15:25 -0500
+In-Reply-To: <1355695757-9957-3-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->  int nla_put(struct sk_buff *skb, int attrtype, int attrlen, const void *data)
+On Sun, 16 Dec 2012 17:09:17 -0500
+Mike Frysinger <vapier@gentoo.org> wrote:
+
+> This matches the existing CC behavior.
+> 
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+> ---
+>  configure | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/configure b/configure
+> index ea1038d..7c2db9b 100755
+> --- a/configure
+> +++ b/configure
+> @@ -10,7 +10,9 @@ trap 'status=$?; rm -rf $TMPDIR; exit $status' EXIT HUP INT QUIT TERM
+>  check_toolchain()
 >  {
-> -	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen)))
-> +	int align = IS_ALIGNED((unsigned long)skb_tail_pointer(skb), 8) ? 0 : 4;
+>  : ${PKG_CONFIG:=pkg-config}
+> +: ${AR=ar}
+>  : ${CC=gcc}
+> +echo "AR:=${AR}" >>Config
+>  echo "CC:=${CC}" >>Config
+>  echo "PKG_CONFIG:=${PKG_CONFIG}" >>Config
+>  }
 
-I've just realised where you are adding this!
-You only want to add pad if the attribute is a single 64bit item,
-not whenever the destination is misaligned.
-
-Eg what happens if you add a 4-byte item after an 8 byte one.
-
-Are there are attributes that consist of a pair of 4 byte values?
-
-...
-> +	if (align) {
-> +		/* Goal is to add an attribute with size 4. We know that
-> +		 * NLA_HDRLEN is 4, hence payload is 0.
-> +		 */
-> +		__nla_reserve(skb, 0, 0);
-
-One of those zeros should be 'align - 4', then the comment
-can be more descriptive.
-
-	David
+All applied
