@@ -1,306 +1,145 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [PATCH 13/15] net,rds: use new hashtable implementation
-Date: Mon, 17 Dec 2012 10:01:33 -0500
-Message-ID: <1355756497-15834-13-git-send-email-sasha.levin@oracle.com>
-References: <1355756497-15834-1-git-send-email-sasha.levin@oracle.com>
-Cc: Sasha Levin <sasha.levin@oracle.com>
-To: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1355756497-15834-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Arvid Brodin <arvid.brodin@xdin.com>
+Subject: Re: Do I need to skb_put() Ethernet frames to a minimum of 60 bytes?
+Date: Mon, 17 Dec 2012 16:15:19 +0100
+Message-ID: <50CF3707.9060502@xdin.com>
+References: <502A9EC4.4040208@xdin.com> <1344976557.2690.43.camel@bwh-desktop.uk.solarflarecom.com> <5033C6B0.4060508@xdin.com> <50CF216F.2010107@atmel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spam1.webland.se ([91.207.112.90]:51298 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752559Ab2LQPPY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2012 10:15:24 -0500
+In-Reply-To: <50CF216F.2010107@atmel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Switch rds to use the new hashtable implementation. This reduces the amount of
-generic unrelated code in rds.
+On 2012-12-17 14:43, Nicolas Ferre wrote:
+> On 08/21/2012 07:34 PM, Arvid Brodin :
+>> On 2012-08-14 22:35, Ben Hutchings wrote:
+>>> On Tue, 2012-08-14 at 18:53 +0000, Arvid Brodin wrote:
+>>>> Hi,
+>>>>
+>>>> If I create an sk_buff with a payload of less than 28 bytes (ethhe=
+ader + data),
+>>>> and send it using the cadence/macb (Ethernet) driver, I get
+>>>>
+>>>> eth0: TX underrun, resetting buffers
+>>>>
+>>>> Now I know the minimum Ethernet frame size is 64 bytes (including =
+the 4-byte
+>>>> FCS), but whose responsibility is it to pad the frame to this size=
+ if necessary?
+>>>> Mine or the driver's - i.e. should I just skb_put() to the minimum=
+ size or
+>>>> should I report the underrun as a driver bug?
+>>>
+>>> If the hardware doesn't pad frames automatically then it's the driv=
+er's
+>>> reponsibility to do so.
+>>>
+>>
+>> Nicolas, can you take a look at this? At the moment I'm using the fo=
+llowing change
+>> in macb.c to avoid TX underruns on short packages:
+>>
+>> --- a/drivers/net/ethernet/cadence/macb.c	2012-05-04 19:14:41.927719=
+667 +0200
+>> +++ b/drivers/net/ethernet/cadence/macb.c	2012-08-21 19:22:40.063739=
+049 +0200
+>> @@ -618,6 +618,7 @@ static void macb_poll_controller(struct
+>>  }
+>>  #endif
+>>
+>> +#define MIN_ETHFRAME_LEN	60
+>>  static int macb_start_xmit(struct sk_buff *skb, struct net_device *=
+dev)
+>>  {
+>>  	struct macb *bp =3D netdev_priv(dev);
+>> @@ -635,6 +636,12 @@ static int macb_start_xmit(struct sk_buf
+>>  	printk("\n");
+>>  #endif
+>>
+>> +	if (skb->len < MIN_ETHFRAME_LEN) {
+>> +		/* Pad skb to minium Ethernet frame size */
+>> +		if (skb_tailroom(skb) >=3D MIN_ETHFRAME_LEN - skb->len)
+>> +			memset(skb_put(skb, MIN_ETHFRAME_LEN - skb->len), 0,
+>> +						MIN_ETHFRAME_LEN - skb->len);
+>> +	}
+>>  	len =3D skb->len;
+>>  	spin_lock_irqsave(&bp->lock, flags);
+>>
+>>
+>> ... but as you can see this is limited to linear skbs which has been=
+ allocated with
+>> enough tailroom. Perhaps there are better ways to fix the problem? (=
+Maybe the hardware
+>> is actually doing the padding already and the problem has to do with=
+ the way the DMA
+>> transfer is set up?)
+>=20
+> I come back to this issue. It seems to me that the macb Cadence IP is
+> padding automatically a too little packet. It is the usual behavior
+> unless you specify otherwise in the CTRL register embedded in the tx
+> descriptor. I also verified this with wireshark on both ICMP and UDP
+> packets.
+>=20
+> The error that you are experiencing is on at91sam9260 or at91sam9263
+> SoCs, am I right?
 
-This patch depends on d9b482c ("hashtable: introduce a small and naive
-hashtable") which was merged in v3.6.
+No, this was on an AVR32 AP7000 board.
 
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/rds/bind.c       |  20 +++++------
- net/rds/connection.c | 100 ++++++++++++++++++++++-----------------------------
- 2 files changed, 53 insertions(+), 67 deletions(-)
+I believe this is what I did to solve the issue (patch for linux-2.6.37=
+):
 
-diff --git a/net/rds/bind.c b/net/rds/bind.c
-index 637bde5..a99e524 100644
---- a/net/rds/bind.c
-+++ b/net/rds/bind.c
-@@ -36,16 +36,16 @@
- #include <linux/if_arp.h>
- #include <linux/jhash.h>
- #include <linux/ratelimit.h>
-+#include <linux/hashtable.h>
- #include "rds.h"
- 
--#define BIND_HASH_SIZE 1024
--static struct hlist_head bind_hash_table[BIND_HASH_SIZE];
-+#define BIND_HASH_BITS 10
-+static DEFINE_HASHTABLE(bind_hash_table, BIND_HASH_BITS);
- static DEFINE_SPINLOCK(rds_bind_lock);
- 
--static struct hlist_head *hash_to_bucket(__be32 addr, __be16 port)
-+static u32 rds_hash(__be32 addr, __be16 port)
- {
--	return bind_hash_table + (jhash_2words((u32)addr, (u32)port, 0) &
--				  (BIND_HASH_SIZE - 1));
-+	return jhash_2words((u32)addr, (u32)port, 0);
- }
- 
- static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
-@@ -53,12 +53,12 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
- {
- 	struct rds_sock *rs;
- 	struct hlist_node *node;
--	struct hlist_head *head = hash_to_bucket(addr, port);
-+	u32 key = rds_hash(addr, port);
- 	u64 cmp;
- 	u64 needle = ((u64)be32_to_cpu(addr) << 32) | be16_to_cpu(port);
- 
- 	rcu_read_lock();
--	hlist_for_each_entry_rcu(rs, node, head, rs_bound_node) {
-+	hash_for_each_possible_rcu(bind_hash_table, rs, node, rs_bound_node, key) {
- 		cmp = ((u64)be32_to_cpu(rs->rs_bound_addr) << 32) |
- 		      be16_to_cpu(rs->rs_bound_port);
- 
-@@ -74,13 +74,13 @@ static struct rds_sock *rds_bind_lookup(__be32 addr, __be16 port,
- 		 * make sure our addr and port are set before
- 		 * we are added to the list, other people
- 		 * in rcu will find us as soon as the
--		 * hlist_add_head_rcu is done
-+		 * hash_add_rcu is done
- 		 */
- 		insert->rs_bound_addr = addr;
- 		insert->rs_bound_port = port;
- 		rds_sock_addref(insert);
- 
--		hlist_add_head_rcu(&insert->rs_bound_node, head);
-+		hash_add_rcu(bind_hash_table, &insert->rs_bound_node, key);
- 	}
- 	return NULL;
- }
-@@ -152,7 +152,7 @@ void rds_remove_bound(struct rds_sock *rs)
- 		  rs, &rs->rs_bound_addr,
- 		  ntohs(rs->rs_bound_port));
- 
--		hlist_del_init_rcu(&rs->rs_bound_node);
-+		hash_del_rcu(&rs->rs_bound_node);
- 		rds_sock_put(rs);
- 		rs->rs_bound_addr = 0;
- 	}
-diff --git a/net/rds/connection.c b/net/rds/connection.c
-index 9e07c75..a9afcb8 100644
---- a/net/rds/connection.c
-+++ b/net/rds/connection.c
-@@ -34,28 +34,24 @@
- #include <linux/list.h>
- #include <linux/slab.h>
- #include <linux/export.h>
-+#include <linux/hashtable.h>
- #include <net/inet_hashtables.h>
- 
- #include "rds.h"
- #include "loop.h"
- 
- #define RDS_CONNECTION_HASH_BITS 12
--#define RDS_CONNECTION_HASH_ENTRIES (1 << RDS_CONNECTION_HASH_BITS)
--#define RDS_CONNECTION_HASH_MASK (RDS_CONNECTION_HASH_ENTRIES - 1)
- 
- /* converting this to RCU is a chore for another day.. */
- static DEFINE_SPINLOCK(rds_conn_lock);
- static unsigned long rds_conn_count;
--static struct hlist_head rds_conn_hash[RDS_CONNECTION_HASH_ENTRIES];
-+static DEFINE_HASHTABLE(rds_conn_hash, RDS_CONNECTION_HASH_BITS);
- static struct kmem_cache *rds_conn_slab;
- 
--static struct hlist_head *rds_conn_bucket(__be32 laddr, __be32 faddr)
-+static unsigned long rds_conn_hashfn(__be32 laddr, __be32 faddr)
- {
- 	/* Pass NULL, don't need struct net for hash */
--	unsigned long hash = inet_ehashfn(NULL,
--					  be32_to_cpu(laddr), 0,
--					  be32_to_cpu(faddr), 0);
--	return &rds_conn_hash[hash & RDS_CONNECTION_HASH_MASK];
-+	return inet_ehashfn(NULL,  be32_to_cpu(laddr), 0,  be32_to_cpu(faddr), 0);
- }
- 
- #define rds_conn_info_set(var, test, suffix) do {		\
-@@ -64,14 +60,14 @@ static struct hlist_head *rds_conn_bucket(__be32 laddr, __be32 faddr)
- } while (0)
- 
- /* rcu read lock must be held or the connection spinlock */
--static struct rds_connection *rds_conn_lookup(struct hlist_head *head,
--					      __be32 laddr, __be32 faddr,
-+static struct rds_connection *rds_conn_lookup(__be32 laddr, __be32 faddr,
- 					      struct rds_transport *trans)
- {
- 	struct rds_connection *conn, *ret = NULL;
- 	struct hlist_node *pos;
-+	unsigned long key = rds_conn_hashfn(laddr, faddr);
- 
--	hlist_for_each_entry_rcu(conn, pos, head, c_hash_node) {
-+	hash_for_each_possible_rcu(rds_conn_hash, conn, pos, c_hash_node, key) {
- 		if (conn->c_faddr == faddr && conn->c_laddr == laddr &&
- 				conn->c_trans == trans) {
- 			ret = conn;
-@@ -117,13 +113,12 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
- 				       int is_outgoing)
- {
- 	struct rds_connection *conn, *parent = NULL;
--	struct hlist_head *head = rds_conn_bucket(laddr, faddr);
- 	struct rds_transport *loop_trans;
- 	unsigned long flags;
- 	int ret;
- 
- 	rcu_read_lock();
--	conn = rds_conn_lookup(head, laddr, faddr, trans);
-+	conn = rds_conn_lookup(laddr, faddr, trans);
- 	if (conn && conn->c_loopback && conn->c_trans != &rds_loop_transport &&
- 	    !is_outgoing) {
- 		/* This is a looped back IB connection, and we're
-@@ -224,13 +219,15 @@ static struct rds_connection *__rds_conn_create(__be32 laddr, __be32 faddr,
- 		/* Creating normal conn */
- 		struct rds_connection *found;
- 
--		found = rds_conn_lookup(head, laddr, faddr, trans);
-+		found = rds_conn_lookup(laddr, faddr, trans);
- 		if (found) {
- 			trans->conn_free(conn->c_transport_data);
- 			kmem_cache_free(rds_conn_slab, conn);
- 			conn = found;
- 		} else {
--			hlist_add_head_rcu(&conn->c_hash_node, head);
-+			unsigned long key = rds_conn_hashfn(laddr, faddr);
-+
-+			hash_add_rcu(rds_conn_hash, &conn->c_hash_node, key);
- 			rds_cong_add_conn(conn);
- 			rds_conn_count++;
+diff -Nurp linux-2.6.37-001-bsa400/drivers/net//macb.c
+linux-2.6.37-macb-hsr/drivers/net//macb.c
+--- linux-2.6.37-orig/drivers/net//macb.c	2012-09-16 22:41:02.746754672=
+ +0200
++++ linux-2.6.37-macb/drivers/net//macb.c	2012-09-17 00:34:35.161389720=
+ +0200
+@@ -376,8 +379,9 @@ static void macb_tx(struct macb *bp)
+
+ 			rmb();
+
+-			dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
+-							 DMA_TO_DEVICE);
++			dma_unmap_single(&bp->pdev->dev, rp->mapping,
++					 max(skb->len, (unsigned int) ETH_ZLEN),
++					 DMA_TO_DEVICE);
+ 			rp->skb =3D NULL;
+ 			dev_kfree_skb_irq(skb);
  		}
-@@ -303,7 +300,7 @@ void rds_conn_shutdown(struct rds_connection *conn)
- 	 * conn - the reconnect is always triggered by the active peer. */
- 	cancel_delayed_work_sync(&conn->c_conn_w);
- 	rcu_read_lock();
--	if (!hlist_unhashed(&conn->c_hash_node)) {
-+	if (hash_hashed(&conn->c_hash_node)) {
- 		rcu_read_unlock();
- 		rds_queue_reconnect(conn);
- 	} else {
-@@ -329,7 +326,7 @@ void rds_conn_destroy(struct rds_connection *conn)
- 
- 	/* Ensure conn will not be scheduled for reconnect */
- 	spin_lock_irq(&rds_conn_lock);
--	hlist_del_init_rcu(&conn->c_hash_node);
-+	hash_del(&conn->c_hash_node);
- 	spin_unlock_irq(&rds_conn_lock);
- 	synchronize_rcu();
- 
-@@ -375,7 +372,6 @@ static void rds_conn_message_info(struct socket *sock, unsigned int len,
- 				  struct rds_info_lengths *lens,
- 				  int want_send)
- {
--	struct hlist_head *head;
- 	struct hlist_node *pos;
- 	struct list_head *list;
- 	struct rds_connection *conn;
-@@ -388,27 +384,24 @@ static void rds_conn_message_info(struct socket *sock, unsigned int len,
- 
- 	rcu_read_lock();
- 
--	for (i = 0, head = rds_conn_hash; i < ARRAY_SIZE(rds_conn_hash);
--	     i++, head++) {
--		hlist_for_each_entry_rcu(conn, pos, head, c_hash_node) {
--			if (want_send)
--				list = &conn->c_send_queue;
--			else
--				list = &conn->c_retrans;
--
--			spin_lock_irqsave(&conn->c_lock, flags);
--
--			/* XXX too lazy to maintain counts.. */
--			list_for_each_entry(rm, list, m_conn_item) {
--				total++;
--				if (total <= len)
--					rds_inc_info_copy(&rm->m_inc, iter,
--							  conn->c_laddr,
--							  conn->c_faddr, 0);
--			}
--
--			spin_unlock_irqrestore(&conn->c_lock, flags);
-+	hash_for_each_rcu(rds_conn_hash, i, pos, conn, c_hash_node) {
-+		if (want_send)
-+			list = &conn->c_send_queue;
-+		else
-+			list = &conn->c_retrans;
+@@ -413,7 +417,8 @@ static void macb_tx(struct macb *bp)
+
+ 		dev_dbg(&bp->pdev->dev, "skb %u (data %p) TX complete\n",
+ 			tail, skb->data);
+-		dma_unmap_single(&bp->pdev->dev, rp->mapping, skb->len,
++		dma_unmap_single(&bp->pdev->dev, rp->mapping,
++				 max(skb->len, (unsigned int) ETH_ZLEN),
+ 				 DMA_TO_DEVICE);
+ 		bp->stats.tx_packets++;
+ 		bp->stats.tx_bytes +=3D skb->len;
+@@ -675,7 +680,10 @@ static int macb_start_xmit(struct sk_buf
+ 	printk("\n");
+ #endif
+
+-	len =3D skb->len;
++	if (skb_padto(skb, ETH_ZLEN) !=3D 0)
++		return NETDEV_TX_OK; /* There is no NETDEV_TX_FAIL... */
 +
-+		spin_lock_irqsave(&conn->c_lock, flags);
-+
-+		/* XXX too lazy to maintain counts.. */
-+		list_for_each_entry(rm, list, m_conn_item) {
-+			total++;
-+			if (total <= len)
-+				rds_inc_info_copy(&rm->m_inc, iter,
-+						  conn->c_laddr,
-+						  conn->c_faddr, 0);
- 		}
-+
-+		spin_unlock_irqrestore(&conn->c_lock, flags);
- 	}
- 	rcu_read_unlock();
- 
-@@ -438,7 +431,6 @@ void rds_for_each_conn_info(struct socket *sock, unsigned int len,
- 			  size_t item_len)
- {
- 	uint64_t buffer[(item_len + 7) / 8];
--	struct hlist_head *head;
- 	struct hlist_node *pos;
- 	struct rds_connection *conn;
- 	size_t i;
-@@ -448,23 +440,19 @@ void rds_for_each_conn_info(struct socket *sock, unsigned int len,
- 	lens->nr = 0;
- 	lens->each = item_len;
- 
--	for (i = 0, head = rds_conn_hash; i < ARRAY_SIZE(rds_conn_hash);
--	     i++, head++) {
--		hlist_for_each_entry_rcu(conn, pos, head, c_hash_node) {
--
--			/* XXX no c_lock usage.. */
--			if (!visitor(conn, buffer))
--				continue;
--
--			/* We copy as much as we can fit in the buffer,
--			 * but we count all items so that the caller
--			 * can resize the buffer. */
--			if (len >= item_len) {
--				rds_info_copy(iter, buffer, item_len);
--				len -= item_len;
--			}
--			lens->nr++;
-+	hash_for_each_rcu(rds_conn_hash, i, pos, conn, c_hash_node) {
-+		/* XXX no c_lock usage.. */
-+		if (!visitor(conn, buffer))
-+			continue;
-+
-+		/* We copy as much as we can fit in the buffer,
-+		 * but we count all items so that the caller
-+		 * can resize the buffer. */
-+		if (len >= item_len) {
-+			rds_info_copy(iter, buffer, item_len);
-+			len -= item_len;
- 		}
-+		lens->nr++;
- 	}
- 	rcu_read_unlock();
- }
-@@ -525,8 +513,6 @@ void rds_conn_exit(void)
- {
- 	rds_loop_exit();
- 
--	WARN_ON(!hlist_empty(rds_conn_hash));
--
- 	kmem_cache_destroy(rds_conn_slab);
- 
- 	rds_info_deregister_func(RDS_INFO_CONNECTIONS, rds_conn_info);
--- 
-1.8.0
++	len =3D max(skb->len, (unsigned int) ETH_ZLEN);
+ 	spin_lock_irqsave(&bp->lock, flags);
+
+ 	/* This is a hard error, log it. */
+
+
+--=20
+Arvid Brodin | Consultant (Linux)
+XDIN AB | Knarrarn=C3=A4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
