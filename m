@@ -1,7 +1,8 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH 0/3 v2] net/macb: RX path enhancement
-Date: Mon, 17 Dec 2012 14:01:56 +0100
-Message-ID: <cover.1355748676.git.nicolas.ferre@atmel.com>
+Subject: [PATCH 1/3 v2] net/macb: increase RX buffer size for GEM
+Date: Mon, 17 Dec 2012 14:01:57 +0100
+Message-ID: <65c77ad8bc139b38f04b6b5e51dc6b849b35094e.1355748676.git.nicolas.ferre@atmel.com>
+References: <cover.1355748676.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-arm-kernel@lists.infradead.org>,
@@ -11,32 +12,153 @@ Cc: <linux-arm-kernel@lists.infradead.org>,
 	Nicolas Ferre <nicolas.ferre@atmel.com>
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1355748676.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Macb Ethernet controller requires a RX buffer of 128 bytes. It is
+highly sub-optimal for Gigabit-capable GEM that is able to use
+a bigger DMA buffer. Change this constant and associated macros
+with data stored in the private structure.
+RX DMA buffer size has to be multiple of 64 bytes as indicated in
+DMA Configuration Register specification.
 
-Here is the patch series for modifying the RX path in macb driver.
-This change applies on GEM variant of the Cadence IP and introduces
-function pointers to match the path to the proper adapter. The move
-to RX buffers adapted to MTU and that can be DMAed directly in SKB
-is done in two steps but can be merged in a single patch.
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 45 ++++++++++++++++++++++++++++++-------
+ drivers/net/ethernet/cadence/macb.h |  1 +
+ 2 files changed, 38 insertions(+), 8 deletions(-)
 
-v2: - gave up the idea of using non-coherent memory for
-      rx buffers
-    - addition of the struct macb layout optimization
-
-
-Havard Skinnemoen (1):
-  net/macb: Try to optimize struct macb layout
-
-Nicolas Ferre (2):
-  net/macb: increase RX buffer size for GEM
-  net/macb: change RX path for GEM
-
- drivers/net/ethernet/cadence/macb.c | 323 +++++++++++++++++++++++++++++++-----
- drivers/net/ethernet/cadence/macb.h |  35 ++--
- 2 files changed, 306 insertions(+), 52 deletions(-)
-
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index a9b0830..50f8669 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -32,7 +32,9 @@
+ 
+ #include "macb.h"
+ 
+-#define RX_BUFFER_SIZE		128
++#define MACB_RX_BUFFER_SIZE	128
++#define GEM_RX_BUFFER_SIZE	2048
++#define RX_BUFFER_MULTIPLE	64  /* bytes */
+ #define RX_RING_SIZE		512 /* must be power of 2 */
+ #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
+ 
+@@ -92,7 +94,7 @@ static struct macb_dma_desc *macb_rx_desc(struct macb *bp, unsigned int index)
+ 
+ static void *macb_rx_buffer(struct macb *bp, unsigned int index)
+ {
+-	return bp->rx_buffers + RX_BUFFER_SIZE * macb_rx_ring_wrap(index);
++	return bp->rx_buffers + bp->rx_buffer_size * macb_rx_ring_wrap(index);
+ }
+ 
+ void macb_set_hwaddr(struct macb *bp)
+@@ -572,7 +574,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 	skb_put(skb, len);
+ 
+ 	for (frag = first_frag; ; frag++) {
+-		unsigned int frag_len = RX_BUFFER_SIZE;
++		unsigned int frag_len = bp->rx_buffer_size;
+ 
+ 		if (offset + frag_len > len) {
+ 			BUG_ON(frag != last_frag);
+@@ -580,7 +582,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 		}
+ 		skb_copy_to_linear_data_offset(skb, offset,
+ 				macb_rx_buffer(bp, frag), frag_len);
+-		offset += RX_BUFFER_SIZE;
++		offset += bp->rx_buffer_size;
+ 		desc = macb_rx_desc(bp, frag);
+ 		desc->addr &= ~MACB_BIT(RX_USED);
+ 
+@@ -860,6 +862,30 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	return NETDEV_TX_OK;
+ }
+ 
++static void macb_init_rx_buffer_size(struct macb *bp)
++{
++	if (!macb_is_gem(bp)) {
++		bp->rx_buffer_size = MACB_RX_BUFFER_SIZE;
++	} else {
++		bp->rx_buffer_size = GEM_RX_BUFFER_SIZE;
++
++		if (bp->rx_buffer_size > PAGE_SIZE) {
++			netdev_warn(bp->dev,
++				    "RX buffer cannot be bigger than PAGE_SIZE, shrinking\n");
++			bp->rx_buffer_size = PAGE_SIZE;
++		}
++		if (bp->rx_buffer_size % RX_BUFFER_MULTIPLE) {
++			netdev_warn(bp->dev,
++				    "RX buffer must be multiple of %d bytes, shrinking\n",
++				    RX_BUFFER_MULTIPLE);
++			bp->rx_buffer_size =
++				rounddown(bp->rx_buffer_size, RX_BUFFER_MULTIPLE);
++		}
++		bp->rx_buffer_size = max(RX_BUFFER_MULTIPLE, GEM_RX_BUFFER_SIZE);
++	}
++}
++
++
+ static void macb_free_consistent(struct macb *bp)
+ {
+ 	if (bp->tx_skb) {
+@@ -878,7 +904,7 @@ static void macb_free_consistent(struct macb *bp)
+ 	}
+ 	if (bp->rx_buffers) {
+ 		dma_free_coherent(&bp->pdev->dev,
+-				  RX_RING_SIZE * RX_BUFFER_SIZE,
++				  RX_RING_SIZE * bp->rx_buffer_size,
+ 				  bp->rx_buffers, bp->rx_buffers_dma);
+ 		bp->rx_buffers = NULL;
+ 	}
+@@ -911,7 +937,7 @@ static int macb_alloc_consistent(struct macb *bp)
+ 		   "Allocated TX ring of %d bytes at %08lx (mapped %p)\n",
+ 		   size, (unsigned long)bp->tx_ring_dma, bp->tx_ring);
+ 
+-	size = RX_RING_SIZE * RX_BUFFER_SIZE;
++	size = RX_RING_SIZE * bp->rx_buffer_size;
+ 	bp->rx_buffers = dma_alloc_coherent(&bp->pdev->dev, size,
+ 					    &bp->rx_buffers_dma, GFP_KERNEL);
+ 	if (!bp->rx_buffers)
+@@ -936,7 +962,7 @@ static void macb_init_rings(struct macb *bp)
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+ 		bp->rx_ring[i].addr = addr;
+ 		bp->rx_ring[i].ctrl = 0;
+-		addr += RX_BUFFER_SIZE;
++		addr += bp->rx_buffer_size;
+ 	}
+ 	bp->rx_ring[RX_RING_SIZE - 1].addr |= MACB_BIT(RX_WRAP);
+ 
+@@ -1046,7 +1072,7 @@ static void macb_configure_dma(struct macb *bp)
+ 
+ 	if (macb_is_gem(bp)) {
+ 		dmacfg = gem_readl(bp, DMACFG) & ~GEM_BF(RXBS, -1L);
+-		dmacfg |= GEM_BF(RXBS, RX_BUFFER_SIZE / 64);
++		dmacfg |= GEM_BF(RXBS, bp->rx_buffer_size / RX_BUFFER_MULTIPLE);
+ 		dmacfg |= GEM_BF(FBLDO, 16);
+ 		dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
+ 		gem_writel(bp, DMACFG, dmacfg);
+@@ -1221,6 +1247,9 @@ static int macb_open(struct net_device *dev)
+ 	if (!bp->phy_dev)
+ 		return -EAGAIN;
+ 
++	/* RX buffers initialization */
++	macb_init_rx_buffer_size(bp);
++
+ 	err = macb_alloc_consistent(bp);
+ 	if (err) {
+ 		netdev_err(dev, "Unable to allocate DMA memory (error %d)\n",
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 570908b..2681455 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -544,6 +544,7 @@ struct macb {
+ 	unsigned int		rx_tail;
+ 	struct macb_dma_desc	*rx_ring;
+ 	void			*rx_buffers;
++	size_t			rx_buffer_size;
+ 
+ 	unsigned int		tx_head, tx_tail;
+ 	struct macb_dma_desc	*tx_ring;
 -- 
 1.8.0
