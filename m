@@ -1,130 +1,91 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH 4/4] FEC: Add time stamping code and a PTP hardware clock
-Date: Mon, 17 Dec 2012 22:48:31 +0800
-Message-ID: <CAHrpEqTVuSR_-Tpdzb98=VJbg7grSFvSQ9xA6mPsHpGb7RvNCg@mail.gmail.com>
-References: <1351657531-25989-1-git-send-email-Frank.Li@freescale.com>
-	<20121217091345.GA753@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Frank Li <Frank.Li@freescale.com>, lznua@gmail.com,
-	richardcochran@gmail.com, shawn.guo@linaro.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:47787 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751822Ab2LQOsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 09:48:33 -0500
-Received: by mail-wi0-f174.google.com with SMTP id hm9so2057549wib.1
-        for <netdev@vger.kernel.org>; Mon, 17 Dec 2012 06:48:31 -0800 (PST)
-In-Reply-To: <20121217091345.GA753@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [PATCH 06/15] net,9p: use new hashtable implementation
+Date: Mon, 17 Dec 2012 10:01:26 -0500
+Message-ID: <1355756497-15834-6-git-send-email-sasha.levin@oracle.com>
+References: <1355756497-15834-1-git-send-email-sasha.levin@oracle.com>
+Cc: Sasha Levin <sasha.levin@oracle.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Sasha Levin <levinsasha928@gmail.com>,
+	Eric Van Hensbergen <ericvh@gmail.com>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1355756497-15834-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2012/12/17 Sascha Hauer <s.hauer@pengutronix.de>:
-> On Wed, Oct 31, 2012 at 12:25:31PM +0800, Frank Li wrote:
->> This patch adds a driver for the FEC(MX6) that offers time
->> stamping and a PTP haderware clock. Because FEC\ENET(MX6)
->> hardware frequency adjustment is complex, we have implemented
->> this in software by changing the multiplication factor of the
->> timecounter.
->>
->> Signed-off-by: Frank Li <Frank.Li@freescale.com>
->> ---
->>  drivers/net/ethernet/freescale/Kconfig   |    9 +
->>  drivers/net/ethernet/freescale/Makefile  |    1 +
->>  drivers/net/ethernet/freescale/fec.c     |   88 +++++++-
->>  drivers/net/ethernet/freescale/fec.h     |   38 +++
->>  drivers/net/ethernet/freescale/fec_ptp.c |  386 ++++++++++++++++++++++++++++++
->>  5 files changed, 521 insertions(+), 1 deletions(-)
->>  create mode 100644 drivers/net/ethernet/freescale/fec_ptp.c
->>
->> diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
->> index feff516..ff3be53 100644
->> --- a/drivers/net/ethernet/freescale/Kconfig
->> +++ b/drivers/net/ethernet/freescale/Kconfig
->> @@ -92,4 +92,13 @@ config GIANFAR
->>         This driver supports the Gigabit TSEC on the MPC83xx, MPC85xx,
->>         and MPC86xx family of chips, and the FEC on the 8540.
->>
->> +config FEC_PTP
->> +     bool "PTP Hardware Clock (PHC)"
->> +     depends on FEC
->> +     select PPS
->> +     select PTP_1588_CLOCK
->> +     --help---
->> +       Say Y here if you want to use PTP Hardware Clock (PHC) in the
->> +       driver.  Only the basic clock operations have been implemented.
->> +
->>  endif # NET_VENDOR_FREESCALE
->> diff --git a/drivers/net/ethernet/freescale/Makefile b/drivers/net/ethernet/freescale/Makefile
->> index 3d1839a..d4d19b3 100644
->> --- a/drivers/net/ethernet/freescale/Makefile
->> +++ b/drivers/net/ethernet/freescale/Makefile
->> @@ -3,6 +3,7 @@
->>  #
->>
->>  obj-$(CONFIG_FEC) += fec.o
->> +obj-$(CONFIG_FEC_PTP) += fec_ptp.o
->>  obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
->>  ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
->>       obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
->> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
->> index d0e1b33..2665162 100644
->> --- a/drivers/net/ethernet/freescale/fec.c
->> +++ b/drivers/net/ethernet/freescale/fec.c
->> @@ -280,6 +280,17 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->>                       | BD_ENET_TX_LAST | BD_ENET_TX_TC);
->>       bdp->cbd_sc = status;
->>
->> +#ifdef CONFIG_FEC_PTP
->
-> This ifdef desert in the fec driver currently breaks all SoCs except
-> i.MX6 in the imx_v6_v7_defconfig.
->
-> Most of these could be fixed with something like if (fec_use_ptp(fep)),
->
->
->>  #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
->>      defined(CONFIG_M520x) || defined(CONFIG_M532x) || \
->>      defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
->> @@ -88,6 +94,13 @@ struct bufdesc {
->>       unsigned short cbd_datlen;      /* Data length */
->>       unsigned short cbd_sc;  /* Control and status info */
->>       unsigned long cbd_bufaddr;      /* Buffer address */
->> +#ifdef CONFIG_FEC_PTP
->> +     unsigned long cbd_esc;
->> +     unsigned long cbd_prot;
->> +     unsigned long cbd_bdu;
->> +     unsigned long ts;
->> +     unsigned short res0[4];
->> +#endif
->>  };
->
-> This one changes the layout of the hardware buffer description which is
-> not so easy to fix.
+Switch 9p error table to use the new hashtable implementation. This reduces
+the amount of generic unrelated code in 9p.
 
-Yes, it is not easy to fix if dynamic check mx6 or other devices.
+This patch depends on d9b482c ("hashtable: introduce a small and naive
+hashtable") which was merged in v3.6.
 
->
-> I don't know how to continue from here. Since the whole patch doesn't
-> seem to reviewed very much I tend to say we should revert it for now and
-> let Frank redo it for the next merge window.
->
-> Other opinions?
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ net/9p/error.c | 21 +++++++++------------
+ 1 file changed, 9 insertions(+), 12 deletions(-)
 
-Can we just disable CONFIG_FEC_PTP defaut instead of revert whole patch?
-
->
-> Sascha
->
-> --
-> Pengutronix e.K.                           |                             |
-> Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-> Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-> Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/9p/error.c b/net/9p/error.c
+index 2ab2de7..a394b37 100644
+--- a/net/9p/error.c
++++ b/net/9p/error.c
+@@ -34,6 +34,7 @@
+ #include <linux/jhash.h>
+ #include <linux/errno.h>
+ #include <net/9p/9p.h>
++#include <linux/hashtable.h>
+ 
+ /**
+  * struct errormap - map string errors from Plan 9 to Linux numeric ids
+@@ -50,8 +51,8 @@ struct errormap {
+ 	struct hlist_node list;
+ };
+ 
+-#define ERRHASHSZ		32
+-static struct hlist_head hash_errmap[ERRHASHSZ];
++#define ERR_HASH_BITS 5
++static DEFINE_HASHTABLE(hash_errmap, ERR_HASH_BITS);
+ 
+ /* FixMe - reduce to a reasonable size */
+ static struct errormap errmap[] = {
+@@ -193,18 +194,14 @@ static struct errormap errmap[] = {
+ int p9_error_init(void)
+ {
+ 	struct errormap *c;
+-	int bucket;
+-
+-	/* initialize hash table */
+-	for (bucket = 0; bucket < ERRHASHSZ; bucket++)
+-		INIT_HLIST_HEAD(&hash_errmap[bucket]);
++	u32 hash;
+ 
+ 	/* load initial error map into hash table */
+ 	for (c = errmap; c->name != NULL; c++) {
+ 		c->namelen = strlen(c->name);
+-		bucket = jhash(c->name, c->namelen, 0) % ERRHASHSZ;
++		hash = jhash(c->name, c->namelen, 0);
+ 		INIT_HLIST_NODE(&c->list);
+-		hlist_add_head(&c->list, &hash_errmap[bucket]);
++		hash_add(hash_errmap, &c->list, hash);
+ 	}
+ 
+ 	return 1;
+@@ -223,13 +220,13 @@ int p9_errstr2errno(char *errstr, int len)
+ 	int errno;
+ 	struct hlist_node *p;
+ 	struct errormap *c;
+-	int bucket;
++	u32 hash;
+ 
+ 	errno = 0;
+ 	p = NULL;
+ 	c = NULL;
+-	bucket = jhash(errstr, len, 0) % ERRHASHSZ;
+-	hlist_for_each_entry(c, p, &hash_errmap[bucket], list) {
++	hash = jhash(errstr, len, 0);
++	hash_for_each_possible(hash_errmap, c, p, list, hash) {
+ 		if (c->namelen == len && !memcmp(c->name, errstr, len)) {
+ 			errno = c->val;
+ 			break;
+-- 
+1.8.0
