@@ -1,56 +1,57 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v3] netfilter: nf_conntrack_sip: Handle Cisco 7941/7945
- IP phones
-Date: Mon, 17 Dec 2012 10:55:08 +0100
-Message-ID: <20121217095508.GB17148@1984>
-References: <f0955e6c2110044fa058d0f3ecf945ca@localhost>
- <1290412334.2756.141.camel@edumazet-laptop>
- <1355703441.18919.6.camel@shinybook.infradead.org>
- <20121217004457.GA12234@1984>
- <CAJiQ=7BBquMQmQWp3=aD_s3-rSYr4Y+gke0GJKCkJV-mq5buug@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [tcpdump-workers] vlan tagged packets and libpcap breakage
+Date: Mon, 17 Dec 2012 09:50:17 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70EF@saturn3.aculab.com>
+References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com><3246.1351717319@obiwan.sandelman.ca><CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com><21992.1351723328@obiwan.sandelman.ca><alpine.OSX.2.00.1212121205040.78903@animac.local><50C9936B.2000201@redhat.com><CAOxq_8PuMF2n80g30aXbPFQyo6UfsypZOHREjB36dnnp87nv=A@mail.gmail.com> <CAD6jFUTht82HOjGjDU7hFCEWyE3TOx_W4_j=SZK-DrcGfrio-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Kevin Cernekee <cernekee@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJiQ=7BBquMQmQWp3=aD_s3-rSYr4Y+gke0GJKCkJV-mq5buug@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Michael Richardson" <mcr@sandelman.ca>, <netdev@vger.kernel.org>,
+	<tcpdump-workers@lists.tcpdump.org>,
+	"Francesco Ruggeri" <fruggeri@aristanetworks.com>
+To: "Daniel Borkmann" <danborkmann@iogearbox.net>,
+	"Ani Sinha" <ani@aristanetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:38314 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750797Ab2LQJ54 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 04:57:56 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 15211-10 for <netdev@vger.kernel.org>;
+ Mon, 17 Dec 2012 09:57:53 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <CAD6jFUTht82HOjGjDU7hFCEWyE3TOx_W4_j=SZK-DrcGfrio-A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 16, 2012 at 11:26:31PM -0800, Kevin Cernekee wrote:
-> On Sun, Dec 16, 2012 at 4:44 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> >> What happened to this? OpenWRT is still carrying it, and it broke in
-> >> 3.7. Here's a completely untested update...
-> >
-> > I requested Kevin to resend a new version based on the current kernel
-> > tree while spinning on old pending patches since I have no access to
-> > that hardware, but no luck.
-> >
-> > So I'll review this and, since OpenWRT is carrying, I guess we can get
-> > this into net-next merge window.
+> > I do agree that instead of a /proc entry, we should check for a kenrel
+> > version >= X where X is the upstream version that first started
+> > supporting all the features needed by libpcap for vlan filtering. This
+> > is not a compile time check but a run time one. Does anyone see any
+> > issues with this? Is there any long term implications of this, like if
+> > you backport patches to an older long term supported kernel? Are there
+> > other better ways to do this, like may be returning feature bits from
+> > an ioctl call? This is something we need to deal with on a continuous
+> > basis as we keep supporting newer AUX fields and libpcap and other
+> > user land code needs to make use of it. At the same time, they need to
+> > handle backward compatibility issues with older kernels.
 > 
-> Sorry, been putting it off since the OpenWRT version has worked flawlessly...
-> 
-> I just reassembled my test rig and I'll get you a working patch this week.
-> 
-> Is it OK to use
-> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git as the
-> baseline?
+> As Eric mentioned earlier, for now there seems not to be a reliable
+> way to get to know which ops are present and which not. It's not
+> really nice, but if you want to make use of those new (ANC*) features,
+> probably checking kernel version might be the only way if I'm not
+> missing something. Now net-next is closed, but if it reopens, I'll
+> submit a version 2 of my patch where you've been CC'd to. If it gets
+> in, then at least it's for sure that since kernel <xyz> this kind of
+> feature test is present.
 
-That's fine in this case because no recent changes went into that
-code, but better if you use the netfilter next tree:
+How are you going to tell whether a feature is present in a non-Linux
+kernel ?
 
-git://1984.lsi.us.es/nf-next
+Testing kernel versions is somewhat suboptimal as support
+could be patched into a much older kernel (maybe not for
+this but ...)
 
-Thanks Kevin.
+	David
