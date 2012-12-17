@@ -1,85 +1,71 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: Do I need to skb_put() Ethernet frames to a minimum of 60 bytes?
-Date: Mon, 17 Dec 2012 14:43:11 +0100
-Message-ID: <50CF216F.2010107@atmel.com>
-References: <502A9EC4.4040208@xdin.com> <1344976557.2690.43.camel@bwh-desktop.uk.solarflarecom.com> <5033C6B0.4060508@xdin.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/3 v2] net/macb: Try to optimize struct macb layout
+Date: Mon, 17 Dec 2012 13:52:25 +0000
+Message-ID: <1355752345.2676.2.camel@bwh-desktop.uk.solarflarecom.com>
+References: <cover.1355748676.git.nicolas.ferre@atmel.com>
+	 <cd54582850d50ec7ae391aae423b8982875a123a.1355748676.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: Arvid Brodin <Arvid.Brodin@xdin.com>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Joachim Eastwood <manabian@gmail.com>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	Havard Skinnemoen <havard@skinnemoen.net>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:8961 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752605Ab2LQNnO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 08:43:14 -0500
-In-Reply-To: <5033C6B0.4060508@xdin.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:50240 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752961Ab2LQNwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 08:52:32 -0500
+In-Reply-To: <cd54582850d50ec7ae391aae423b8982875a123a.1355748676.git.nicolas.ferre@atmel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/21/2012 07:34 PM, Arvid Brodin :
-> On 2012-08-14 22:35, Ben Hutchings wrote:
->> On Tue, 2012-08-14 at 18:53 +0000, Arvid Brodin wrote:
->>> Hi,
->>>
->>> If I create an sk_buff with a payload of less than 28 bytes (ethheader + data),
->>> and send it using the cadence/macb (Ethernet) driver, I get
->>>
->>> eth0: TX underrun, resetting buffers
->>>
->>> Now I know the minimum Ethernet frame size is 64 bytes (including the 4-byte
->>> FCS), but whose responsibility is it to pad the frame to this size if necessary?
->>> Mine or the driver's - i.e. should I just skb_put() to the minimum size or
->>> should I report the underrun as a driver bug?
->>
->> If the hardware doesn't pad frames automatically then it's the driver's
->> reponsibility to do so.
->>
+On Mon, 2012-12-17 at 14:01 +0100, Nicolas Ferre wrote:
+> From: Havard Skinnemoen <havard@skinnemoen.net>
 > 
-> Nicolas, can you take a look at this? At the moment I'm using the following change
-> in macb.c to avoid TX underruns on short packages:
-> 
-> --- a/drivers/net/ethernet/cadence/macb.c	2012-05-04 19:14:41.927719667 +0200
-> +++ b/drivers/net/ethernet/cadence/macb.c	2012-08-21 19:22:40.063739049 +0200
-> @@ -618,6 +618,7 @@ static void macb_poll_controller(struct
->  }
->  #endif
-> 
-> +#define MIN_ETHFRAME_LEN	60
->  static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  {
->  	struct macb *bp = netdev_priv(dev);
-> @@ -635,6 +636,12 @@ static int macb_start_xmit(struct sk_buf
->  	printk("\n");
->  #endif
-> 
-> +	if (skb->len < MIN_ETHFRAME_LEN) {
-> +		/* Pad skb to minium Ethernet frame size */
-> +		if (skb_tailroom(skb) >= MIN_ETHFRAME_LEN - skb->len)
-> +			memset(skb_put(skb, MIN_ETHFRAME_LEN - skb->len), 0,
-> +						MIN_ETHFRAME_LEN - skb->len);
-> +	}
->  	len = skb->len;
->  	spin_lock_irqsave(&bp->lock, flags);
-> 
-> 
-> ... but as you can see this is limited to linear skbs which has been allocated with
-> enough tailroom. Perhaps there are better ways to fix the problem? (Maybe the hardware
-> is actually doing the padding already and the problem has to do with the way the DMA
-> transfer is set up?)
+> Move TX-related fields to the top of the struct so that they end up on
+> the same cache line. Move the NAPI struct below that since it is used
+> from the interrupt handler. RX-related fields go below those.
 
-I come back to this issue. It seems to me that the macb Cadence IP is
-padding automatically a too little packet. It is the usual behavior
-unless you specify otherwise in the CTRL register embedded in the tx
-descriptor. I also verified this with wireshark on both ICMP and UDP
-packets.
+> Move the spinlock before regs since they are usually used together.
+>
+> Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
+> [nicolas.ferre@atmel.com: adapt to newer kernel]
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.h | 25 +++++++++++++------------
+>  1 file changed, 13 insertions(+), 12 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+> index cef146f..aeeb729 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -548,38 +548,39 @@ struct macb_or_gem_ops {
+>  };
+>  
+>  struct macb {
+> +	spinlock_t		lock;
+>  	void __iomem		*regs;
+>  
+> +	unsigned int		tx_head;
+> +	unsigned int		tx_tail;
+> +	struct macb_dma_desc	*tx_ring;
+> +	struct macb_tx_skb	*tx_skb;
+> +	dma_addr_t		tx_ring_dma;
+> +	struct work_struct	tx_error_task;
+> +
+> +	struct napi_struct	napi;
+[...]
 
-The error that you are experiencing is on at91sam9260 or at91sam9263
-SoCs, am I right?
+If this driver may be used on SMP systems them 'napi' should be declared
+with the suffix ___cacheline_aligned_in_smp.
 
-Best regards,
+Ben.
+
 -- 
-Nicolas Ferre
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
