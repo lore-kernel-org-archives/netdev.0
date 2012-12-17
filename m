@@ -1,57 +1,49 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: XFRM: Could we change ESP padding?
-Date: Mon, 17 Dec 2012 11:28:05 +0800
-Message-ID: <CAJFZqHzDDtUacnQzd-gcS8JBvPdgspozWkUFOogS4nDmvZz7rg@mail.gmail.com>
+From: Eric Dumazet <erdnetdev@gmail.com>
+Subject: Re: openconnect triggers soft lockup in __skb_get_rxhash
+Date: Sun, 16 Dec 2012 20:46:29 -0800
+Message-ID: <1355719589.10504.13.camel@edumazet-glaptop>
+References: <20121217005616.GA23029@shutemov.name>
+	 <20121216.172214.687979484434537200.davem@davemloft.net>
+	 <20121217014631.GA23101@shutemov.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, maxk@qti.qualcomm.com,
+	netdev@vger.kernel.org, dwmw2@infradead.org
+To: "Kirill A. Shutemov" <kirill@shutemov.name>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:34507 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750966Ab2LQD2H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2012 22:28:07 -0500
-Received: by mail-vc0-f174.google.com with SMTP id d16so6567461vcd.19
-        for <netdev@vger.kernel.org>; Sun, 16 Dec 2012 19:28:05 -0800 (PST)
+Received: from mail-da0-f46.google.com ([209.85.210.46]:60388 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751266Ab2LQEqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2012 23:46:33 -0500
+Received: by mail-da0-f46.google.com with SMTP id p5so2583962dak.19
+        for <netdev@vger.kernel.org>; Sun, 16 Dec 2012 20:46:32 -0800 (PST)
+In-Reply-To: <20121217014631.GA23101@shutemov.name>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+On Mon, 2012-12-17 at 03:46 +0200, Kirill A. Shutemov wrote:
+> On Sun, Dec 16, 2012 at 05:22:14PM -0800, David Miller wrote:
+> > 
+> > Already fixed in Linus's tree by:
+> > 
+> > From 499744209b2cbca66c42119226e5470da3bb7040 Mon Sep 17 00:00:00 2001
+> 
+> No, it's not. I use up-to-date (2a74dbb) Linus tree with the patch in and
+> still see the issue.
+> 
 
-setkey has the below parameter, but this parameter seems not be
-implemented in kernel and userspace,
-	
-     -f pad_option  defines the content of the ESP padding.
-pad_option is one of following:
-        zero-pad    All the paddings are zero.
-        random-pad  A series of randomized values are used.
-        seq-pad     A series of sequential increasing numbers
- started from 1 are used.
+Coud you try the following one liner ?
 
-
-and kernel seems not inspect the ESP padding content too, the result
-is the packets are not dropped even if they are with a wrong pad
-content(not a monotonically increasing sequence).
-
-
-Could anyone tell me why, bad description in RFC, performance, lack time,
-or other reason? Thanks very much!
-
-
-RFC4303:
-If Padding bytes are needed but the encryption algorithm does not
-specify the padding contents, then the following default processing
-MUST be used.  The Padding bytes are initialized with a series of
-(unsigned, 1-byte) integer values.  The first padding byte appended
-to the plaintext is numbered 1, with subsequent padding bytes making
-up a monotonically increasing sequence: 1, 2, 3, ....  When this
-padding scheme is employed, the receiver SHOULD inspect the Padding
-field.  (This scheme was selected because of its relative simplicity,
-ease of implementation in hardware, and because it offers limited
-protection against certain forms of "cut and paste" attacks in the
-absence of other integrity measures, if the receiver checks the
-padding values upon decryption.)
-
-
-Thanks
-
--RongQing
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 255a9f5..173acf5 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1199,6 +1199,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
+ 	}
+ 
++	skb_reset_network_header(skb);
+ 	rxhash = skb_get_rxhash(skb);
+ 	netif_rx_ni(skb);
+ 
