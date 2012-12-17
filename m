@@ -1,91 +1,82 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [RESEND PATCH iproute2 2/2] ip: update man pages and usage() for 'ip monitor'
-Date: Mon, 17 Dec 2012 17:41:27 +0100
-Message-ID: <1355762487-4082-2-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [RESEND PATCH iproute2 1/2] ip: add man pages for netconf
+Date: Mon, 17 Dec 2012 17:41:26 +0100
+Message-ID: <1355762487-4082-1-git-send-email-nicolas.dichtel@6wind.com>
 References: <20121217081026.5acd58a4@nehalam.linuxnetplumber.net>
- <1355762487-4082-1-git-send-email-nicolas.dichtel@6wind.com>
 Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:44723 "EHLO
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:44722 "EHLO
 	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752902Ab2LQQn5 (ORCPT
+	with ESMTP id S1752628Ab2LQQn5 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 11:43:57 -0500
-In-Reply-To: <1355762487-4082-1-git-send-email-nicolas.dichtel@6wind.com>
+In-Reply-To: <20121217081026.5acd58a4@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sync with the current code.
+This patch add the documentation about 'ip netconf' command.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- ip/ipmonitor.c        |  5 ++++-
- man/man8/ip-monitor.8 | 15 +++++++++------
- 2 files changed, 13 insertions(+), 7 deletions(-)
+ man/man8/Makefile     |  2 +-
+ man/man8/ip-netconf.8 | 36 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 37 insertions(+), 1 deletion(-)
+ create mode 100644 man/man8/ip-netconf.8
 
-diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
-index 09a339c..a9ff1e8 100644
---- a/ip/ipmonitor.c
-+++ b/ip/ipmonitor.c
-@@ -29,7 +29,10 @@ int prefix_banner;
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index 4bad9d6..d208f3b 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -9,7 +9,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 ss.8 \
+ 	ip-addrlabel.8 ip-l2tp.8 \
+ 	ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8 \
+ 	ip-netns.8 ip-ntable.8 ip-rule.8 ip-tunnel.8 ip-xfrm.8 \
+-	ip-tcp_metrics.8
++	ip-tcp_metrics.8 ip-netconf.8
  
- static void usage(void)
- {
--	fprintf(stderr, "Usage: ip monitor [ all | LISTofOBJECTS ]\n");
-+	fprintf(stderr, "Usage: ip monitor [ all | LISTofOBJECTS ] [ FILE ]\n");
-+	fprintf(stderr, "LISTofOBJECTS := link | address | route | mroute | prefix |\n");
-+	fprintf(stderr, "                 neigh | netconf\n");
-+	fprintf(stderr, "FILE := file FILENAME\n");
- 	exit(-1);
- }
+ all: $(TARGETS)
  
-diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
-index 351a744..b07cb0e 100644
---- a/man/man8/ip-monitor.8
-+++ b/man/man8/ip-monitor.8
-@@ -1,4 +1,4 @@
--.TH IP\-MONITOR 8 "20 Dec 2011" "iproute2" "Linux"
-+.TH IP\-MONITOR 8 "13 Dec 2012" "iproute2" "Linux"
- .SH "NAME"
- ip-monitor, rtmon \- state monitoring
- .SH "SYNOPSIS"
-@@ -6,8 +6,8 @@ ip-monitor, rtmon \- state monitoring
- .ad l
- .in +8
- .ti -8
--.BR "ip monitor" " [ " all " |"
--.IR LISTofOBJECTS " ]"
-+.BR "ip " " [ ip-OPTIONS ] " "monitor" " [ " all " |"
-+.IR LISTofOBJECTS " ] [ file " FILENAME " ]
- .sp
- 
- .SH DESCRIPTION
-@@ -20,12 +20,13 @@ Namely, the
- command is the first in the command line and then the object list follows:
- 
- .BR "ip monitor" " [ " all " |"
--.IR LISTofOBJECTS " ]"
-+.IR LISTofOBJECTS " ] [ file " FILENAME " ]
- 
- .I OBJECT-LIST
- is the list of object types that we want to monitor.
- It may contain
--.BR link ", " address " and " route "."
-+.BR link ", " address ", " route ", " mroute ", " prefix ", "
-+.BR neigh " and " netconf "."
- If no
- .B file
- argument is given,
-@@ -34,7 +35,9 @@ opens RTNETLINK, listens on it and dumps state changes in the format
- described in previous sections.
- 
- .P
--If a file name is given, it does not listen on RTNETLINK,
-+If a
-+.I FILENAME
-+is given, it does not listen on RTNETLINK,
- but opens the file containing RTNETLINK messages saved in binary format
- and dumps them.  Such a history file can be generated with the
- .B rtmon
+diff --git a/man/man8/ip-netconf.8 b/man/man8/ip-netconf.8
+new file mode 100644
+index 0000000..8041ea2
+--- /dev/null
++++ b/man/man8/ip-netconf.8
+@@ -0,0 +1,36 @@
++.TH IP\-NETCONF 8 "13 Dec 2012" "iproute2" "Linux"
++.SH "NAME"
++ip-netconf \- network configuration monitoring
++.SH "SYNOPSIS"
++.sp
++.ad l
++.in +8
++.ti -8
++.BR "ip " " [ ip-OPTIONS ] " "netconf show" " [ "
++.B dev
++.IR STRING " ]"
++
++.SH DESCRIPTION
++The
++.B ip netconf
++utility can monitor IPv4 and IPv6 parameters (see
++.BR "/proc/sys/net/ipv[4|6]/conf/[all|DEV]/" ")"
++like forwarding, rp_filter
++or mc_forwarding status.
++
++If no interface is specified, the entry
++.B all
++is displayed.
++
++.SS ip netconf show - display network parameters
++
++.TP
++.BI dev " STRING"
++the name of the device to display network parameters.
++
++.SH SEE ALSO
++.br
++.BR ip (8)
++
++.SH AUTHOR
++Original Manpage by Nicolas Dichtel <nicolas.dichtel@6wind.com>
 -- 
 1.8.0.1
