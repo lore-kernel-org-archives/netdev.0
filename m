@@ -1,49 +1,42 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: openconnect triggers soft lockup in __skb_get_rxhash
-Date: Sun, 16 Dec 2012 20:46:29 -0800
-Message-ID: <1355719589.10504.13.camel@edumazet-glaptop>
-References: <20121217005616.GA23029@shutemov.name>
-	 <20121216.172214.687979484434537200.davem@davemloft.net>
-	 <20121217014631.GA23101@shutemov.name>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 2/2] bridge: add flags to distinguish permanent mdb
+ entires
+Date: Mon, 17 Dec 2012 13:46:09 +0800
+Message-ID: <1355723169.23943.3.camel@cr0>
+References: <1355558992-32285-1-git-send-email-amwang@redhat.com>
+	 <1355558992-32285-2-git-send-email-amwang@redhat.com>
+	 <20121215.171656.1197452765852503859.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, maxk@qti.qualcomm.com,
-	netdev@vger.kernel.org, dwmw2@infradead.org
-To: "Kirill A. Shutemov" <kirill@shutemov.name>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	herbert@gondor.hengli.com.au, shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:60388 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751266Ab2LQEqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Dec 2012 23:46:33 -0500
-Received: by mail-da0-f46.google.com with SMTP id p5so2583962dak.19
-        for <netdev@vger.kernel.org>; Sun, 16 Dec 2012 20:46:32 -0800 (PST)
-In-Reply-To: <20121217014631.GA23101@shutemov.name>
+Received: from mx1.redhat.com ([209.132.183.28]:27745 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750727Ab2LQFrW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2012 00:47:22 -0500
+In-Reply-To: <20121215.171656.1197452765852503859.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-12-17 at 03:46 +0200, Kirill A. Shutemov wrote:
-> On Sun, Dec 16, 2012 at 05:22:14PM -0800, David Miller wrote:
-> > 
-> > Already fixed in Linus's tree by:
-> > 
-> > From 499744209b2cbca66c42119226e5470da3bb7040 Mon Sep 17 00:00:00 2001
+On Sat, 2012-12-15 at 17:16 -0800, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Sat, 15 Dec 2012 16:09:51 +0800
 > 
-> No, it's not. I use up-to-date (2a74dbb) Linus tree with the patch in and
-> still see the issue.
+> > This patch adds a flag to each mdb entry, so that we can distinguish
+> > permanent entries with temporary entries.
+> > 
+> > Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> > Cc: Stephen Hemminger <shemminger@vyatta.com>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> Applied, but you _really_ need to lock down the interface and
+> stop making changes to the user visible side of this _now_.
 > 
 
-Coud you try the following one liner ?
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 255a9f5..173acf5 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1199,6 +1199,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
- 	}
- 
-+	skb_reset_network_header(skb);
- 	rxhash = skb_get_rxhash(skb);
- 	netif_rx_ni(skb);
- 
+OK. I think it is okay to break ABI at this time, since the merge window
+is not closed yet, who will develop applications based on an unstable
+kernel though. :-/
