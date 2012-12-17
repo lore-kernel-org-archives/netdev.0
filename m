@@ -1,56 +1,46 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] netlink: align attributes on 64-bits
-Date: Mon, 17 Dec 2012 09:59:01 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70F0@saturn3.aculab.com>
-References: <20121211184013.GD27746@casper.infradead.org> <1355491002-3931-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: "Nicolas Dichtel" <nicolas.dichtel@6wind.com>, <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:38518 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751013Ab2LQKJ1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 05:09:27 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 17711-10 for <netdev@vger.kernel.org>;
- Mon, 17 Dec 2012 10:09:24 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1355491002-3931-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Guy Harris <guy@alum.mit.edu>
+Subject: Re: vlan tagged packets and libpcap breakage
+Date: Mon, 17 Dec 2012 02:35:33 -0800
+Message-ID: <DE6D5B28-FA1E-4F04-9BDF-F6D35878776E@alum.mit.edu>
+References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com><3246.1351717319@obiwan.sandelman.ca><CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com><21992.1351723328@obiwan.sandelman.ca><alpine.OSX.2.00.1212121205040.78903@animac.local><50C9936B.2000201@redhat.com><CAOxq_8PuMF2n80g30aXbPFQyo6UfsypZOHREjB36dnnp87nv=A@mail.gmail.com>
+	<CAD6jFUTht82HOjGjDU7hFCEWyE3TOx_W4_j=SZK-DrcGfrio-A@mail.gmail.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B70EF@saturn3.aculab.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Richardson <mcr@sandelman.ca>, netdev@vger.kernel.org,
+	Francesco Ruggeri <fruggeri@aristanetworks.com>,
+	Daniel Borkmann <danborkmann@iogearbox.net>,
+	tcpdump-workers@lists.tcpdump.org
+To: "David Laight" <David.Laight@ACULAB.COM>
+Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70EF@saturn3.aculab.com>
+List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
+List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
+List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
+List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
+List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
+Sender: tcpdump-workers-bounces@lists.tcpdump.org
+Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
+List-Id: netdev.vger.kernel.org
 
-> -	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen)))
-> +	int align = IS_ALIGNED((unsigned long)skb_tail_pointer(skb), sizeof(void *)) ? 0 : 4;
-> +
-> +	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen) + align))
->  		return -EMSGSIZE;
-> 
-> +	if (align) {
-> +		/* Goal is to add an attribute with size 4. We know that
-> +		 * NLA_HDRLEN is 4, hence payload is 0.
-> +		 */
-> +		__nla_reserve(skb, 0, 0);
-> +	}
-> +
 
-Shouldn't the size of the dummy parameter be based on the value
-of 'align' - and that be based on the amount of padding needed?
+On Dec 17, 2012, at 1:50 AM, "David Laight" <David.Laight@ACULAB.COM> wrote:
 
-That aligns the write pointer, what guarantees the alignment of
-the start of the buffer - so that the reader will find aligned data?
+> How are you going to tell whether a feature is present in a non-Linux
+> kernel ?
 
-What guarantees that the reader will read the data into an
-8-byte aligned buffer.
+The Linux memory-mapped capture mechanism is not present in a non-Linux kernel, so all the libpcap work involved here would, if necessary on other platforms, have to be done differently on those platforms.  Those platforms would have to have their own mechanisms to indicate whether any changes to filter code, processing of VLAN tags supplied out of band, etc. would need to be done.
 
-There is also the lurking issue of items that require more
-than 8-byte alignment.
-(x86/amd64 requires 16-byte alignment for 16-byte SSE2 regs and
-32-byte alignment for the AVX regs.)
+The same would apply to other additional features of the Linux memory-mapped capture mechanism that require changes in libpcap.  (Ideally, those changes would only require changes in order to use them, and would not break existing userland code, including but not limited to libpcap - your reply was to Daniel Borkmann, who is, I believe, the originator of netsniff-ng:
 
-Will anyone ever want to put such items into a netlink message?
+	http://netsniff-ng.org
 
-	David
+which has its own code using PF_PACKET sockets.)
+
+_______________________________________________
+tcpdump-workers mailing list
+tcpdump-workers@lists.tcpdump.org
+https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
