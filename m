@@ -1,59 +1,52 @@
-From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: [tcpdump-workers] vlan tagged packets and libpcap breakage
-Date: Mon, 17 Dec 2012 11:49:15 -0800
-Message-ID: <CAOxq_8PXR=xV+DrY5tPueRBygaKkRhpMwzZKJc6-nXWjSLOCsg@mail.gmail.com>
-References: <CAOxq_8Nd8VP3MaNBfUt9v82nmGDpxZz5_5QMdsruET1tjwuQPw@mail.gmail.com>
-	<3246.1351717319@obiwan.sandelman.ca>
-	<CAOxq_8PsXb-oUy85Eji7GSAbUZD_Bds8skmGNP4BWSewQWx8PA@mail.gmail.com>
-	<21992.1351723328@obiwan.sandelman.ca>
-	<alpine.OSX.2.00.1212121205040.78903@animac.local>
-	<50C9936B.2000201@redhat.com>
-	<CAOxq_8PuMF2n80g30aXbPFQyo6UfsypZOHREjB36dnnp87nv=A@mail.gmail.com>
-	<CAD6jFUTht82HOjGjDU7hFCEWyE3TOx_W4_j=SZK-DrcGfrio-A@mail.gmail.com>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B70EF@saturn3.aculab.com>
-	<DE6D5B28-FA1E-4F04-9BDF-F6D35878776E@alum.mit.edu>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: 3.6.10 tcp crash - net/ipv4/tcp.c:1667 & tcp.c:1655
+Date: Mon, 17 Dec 2012 14:52:13 -0500
+Message-ID: <20121217195212.GI22452@kvack.org>
+References: <20121217174145.GH22452@kvack.org> <1355772853.9380.10.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: David Laight <David.Laight@aculab.com>,
-	Daniel Borkmann <danborkmann@iogearbox.net>,
-	netdev@vger.kernel.org, Michael Richardson <mcr@sandelman.ca>,
-	tcpdump-workers@lists.tcpdump.org,
-	Francesco Ruggeri <fruggeri@aristanetworks.com>
-To: Guy Harris <guy@alum.mit.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <erdnetdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f174.google.com ([209.85.220.174]:48966 "EHLO
-	mail-vc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752559Ab2LQTtQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 14:49:16 -0500
-Received: by mail-vc0-f174.google.com with SMTP id d16so7752708vcd.19
-        for <netdev@vger.kernel.org>; Mon, 17 Dec 2012 11:49:15 -0800 (PST)
-In-Reply-To: <DE6D5B28-FA1E-4F04-9BDF-F6D35878776E@alum.mit.edu>
+Received: from kanga.kvack.org ([205.233.56.17]:58525 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752628Ab2LQTwO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2012 14:52:14 -0500
+Content-Disposition: inline
+In-Reply-To: <1355772853.9380.10.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 17, 2012 at 2:35 AM, Guy Harris <guy@alum.mit.edu> wrote:
->
-> On Dec 17, 2012, at 1:50 AM, "David Laight" <David.Laight@ACULAB.COM> wrote:
->
->> How are you going to tell whether a feature is present in a non-Linux
->> kernel ?
->
-> The Linux memory-mapped capture mechanism is not present in a non-Linux kernel, so all the libpcap work involved here would, if necessary on other platforms, have to be done >differently on those platforms.  Those platforms would have to have their own mechanisms to indicate whether any changes to filter code, processing of VLAN tags supplied out of >band, etc. would need to be done.
+On Mon, Dec 17, 2012 at 11:34:13AM -0800, Eric Dumazet wrote:
+> On Mon, 2012-12-17 at 12:41 -0500, Benjamin LaHaise wrote:
+> > Hi folks,
+> > 
+> > I just hit the following crash with Fedora's 3.6.10-2.fc17 kernel.  I don't 
+> > have time to debug this myself at the moment, but can certainly test patches 
+> > or provide more info as needed.  I wasn't doing anything unusual at the time, 
+> > just reading email/web browsing.  I believe the network driver in use was 
+> > ipheth for tethering to an iPhone 4S over USB (the other driver being used 
+> > intermittently on this laptop is iwlwifi).  Any ideas?
+> 
+> I see nothing really wrong on ipheth side.
+> 
+> I would be nice to know which driver is really in use when you have a
+> panic, as its probably a driver issue.
 
-Actually lib-pcap has these pcap-<platform>.c files that are kind of
-like platform specific drivers that plug into platform independent
-code like gencode.c or bpf_filter.c. These platform specific drivers
-are responsible for getting packets from the kernel and running
-filters (kernel or userland) on it. So all linux specific code to get
-a packet and packet metadata from the kernel can neatly reside in
-pcap-linux.c.
+I double checked the logs, and the wifi was disabled at the time (~30 
+minutes beforehand), so it had to be ipheth.  The warnings were the last 
+thing that made it to disk before the machine hung hard, so there may have 
+been a more serious crash after the warning that did not get logged.
 
-Unfortunately though, in this specific problem involving filtering
-with vlan tags, both code generation (gentags.c) and code running the
-filter (bpf_filter.c) will have to be aware of linux specific
-semantics. Due to the issues that Bill had explained earlier in the
-thread, we can not rely on post processing before installing the
-kernel filter. Therefore, we need to generate a filter that can be
-directly installed in the kernel. For the same reason, bpf_filter()
-code also needs to change - be aware of linux specific semantics.
+One thing I have observed with tethering is that the MTU handling is munged 
+by the network in interesting ways.  Although the device claims to be 
+ethernet with a 1500 byte MTU, a 'ping -s' works only up to 996 (with no 
+effect trying the various -M options).  A number of website are broken by 
+this, as the network doesn't seem to send ICMP frag needed errors to my 
+tethered host (but I haven't traced this behaviour from both ends yet).  
+Things do work for 1500 byte packets to the gateway IP, but that seems 
+to be local to the phone.
+
+		-ben
+-- 
+"Thought is the essence of where you are now."
