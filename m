@@ -1,71 +1,88 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/3 v2] net/macb: Try to optimize struct macb layout
-Date: Mon, 17 Dec 2012 13:52:25 +0000
-Message-ID: <1355752345.2676.2.camel@bwh-desktop.uk.solarflarecom.com>
-References: <cover.1355748676.git.nicolas.ferre@atmel.com>
-	 <cd54582850d50ec7ae391aae423b8982875a123a.1355748676.git.nicolas.ferre@atmel.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: netconsole fun
+Date: Mon, 17 Dec 2012 09:20:30 -0500
+Message-ID: <20121217142030.GB25322@hmsreliant.think-freely.org>
+References: <20121211164526.GB7481@neilslaptop.think-freely.org>
+ <1355345957.2687.18.camel@thor>
+ <20121213123611.GA12269@hmsreliant.think-freely.org>
+ <1355410171.2605.17.camel@thor>
+ <20121213180815.GA14796@hmsreliant.think-freely.org>
+ <1355426821.2612.16.camel@thor>
+ <20121213211754.GC14796@hmsreliant.think-freely.org>
+ <1355437480.2612.33.camel@thor>
+ <20121214142018.GA24846@shamino.rdu.redhat.com>
+ <1355580838.2467.39.camel@thor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	Joachim Eastwood <manabian@gmail.com>,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	Havard Skinnemoen <havard@skinnemoen.net>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Peter Hurley <peter@hurleysoftware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50240 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752961Ab2LQNwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 08:52:32 -0500
-In-Reply-To: <cd54582850d50ec7ae391aae423b8982875a123a.1355748676.git.nicolas.ferre@atmel.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36370 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752557Ab2LQOUh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 09:20:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1355580838.2467.39.camel@thor>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-12-17 at 14:01 +0100, Nicolas Ferre wrote:
-> From: Havard Skinnemoen <havard@skinnemoen.net>
+On Sat, Dec 15, 2012 at 09:13:58AM -0500, Peter Hurley wrote:
+> On Fri, 2012-12-14 at 09:20 -0500, Neil Horman wrote:
+> > Ah!  I'm sorry, I didn't realize this was really about getting netconsole up
+> > early in the boot, rather than just getting it up robustly using the startup
+> > script.
 > 
-> Move TX-related fields to the top of the struct so that they end up on
-> the same cache line. Move the NAPI struct below that since it is used
-> from the interrupt handler. RX-related fields go below those.
-
-> Move the spinlock before regs since they are usually used together.
->
-> Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-> [nicolas.ferre@atmel.com: adapt to newer kernel]
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-> ---
->  drivers/net/ethernet/cadence/macb.h | 25 +++++++++++++------------
->  1 file changed, 13 insertions(+), 12 deletions(-)
+> Well, it's both but I should have been clearer here. Sorry about that.
 > 
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index cef146f..aeeb729 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -548,38 +548,39 @@ struct macb_or_gem_ops {
->  };
->  
->  struct macb {
-> +	spinlock_t		lock;
->  	void __iomem		*regs;
->  
-> +	unsigned int		tx_head;
-> +	unsigned int		tx_tail;
-> +	struct macb_dma_desc	*tx_ring;
-> +	struct macb_tx_skb	*tx_skb;
-> +	dma_addr_t		tx_ring_dma;
-> +	struct work_struct	tx_error_task;
-> +
-> +	struct napi_struct	napi;
-[...]
+> > If thats the case, then I would recommend that you modify the initramfs
+> > to do something simmilar to the startup script (since thats where the netconsole
+> > module will get loaded anyway).  You can write a script there that will let you
+> > specify the destination ip address and figure out the output dev based on the
+> > routing tables.  If you're using dracut to build your initramfs, then this
+> > should be pretty straightforward.
+> 
+> When I get some more free time I'll experiment with this approach.
+> 
+> Just to clarify something from earlier in the discussion:
+> 
+> On Thu, 2012-12-13 at 13:08 -0500, Neil Horman wrote:
+> > On Thu, Dec 13, 2012 at 09:49:31AM -0500, Peter Hurley wrote:
+> ....
+> > > There is an unforeseen consequence of the patch: it breaks device
+> > > renaming because the device will already be in use by netconsole. Which
+> > > is the whole problem with userspace device renaming to begin with...
+> > > 
+> > That is bad, but see above, the netconsole service can work around this for you,
+> > allowing you to never have to specify a particular device at all.
+> 
+> The breakage is a normal consequence of being able to load netconsole
+> before the udev rules that do device renaming. The same thing would
+> happen modifying initramfs.
+> 
+> Basically, once netconsole attaches to a device, that device cannot be
+> renamed. Unfortunately, the default udev behavior messes things up
+> further because it will try to do this:
+>   eth0->eth1
+>   eth1->eth0
+> which means neither device will be renamed.
+> 
+> Maybe the net core should just implement persistent device names ;)
+> 
+Theres no good way for the kernel to do that, as persistent naming in this case
+is a matter of user policy, not kernel hardware management (i.e. do you want a
+network name to follow a mac address, a pci slot, or the network its connected
+to)?  You can use smbios to get some modicum of persistent device naming
+currently, but I don't recall if that requires udev rules to implement as well
 
-If this driver may be used on SMP systems them 'napi' should be declared
-with the suffix ___cacheline_aligned_in_smp.
+You're best bet is to simply make your initramfs more robust.  I understand what
+you're saying regarding renaming after you've taken a reference on a device not
+being possible, but you can run udev within the initramfs, and do your renaming
+prior to your netconsole load.
 
-Ben.
+Thanks
+Neil
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> Thanks again for all your time,
+> Peter Hurley
+> 
+> 
