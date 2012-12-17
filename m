@@ -1,53 +1,70 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: RFC  [PATCH] iproute2:  temporary solution to fix xt breakage
-Date: Mon, 17 Dec 2012 08:12:03 -0800
-Message-ID: <20121217081203.3dc324c8@nehalam.linuxnetplumber.net>
-References: <50C4821D.5090206@gmail.com>
-	<50C9B4BB.9060609@mojatatu.com>
-	<50CCE961.5050204@mojatatu.com>
-	<alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr>
-	<CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com>
-	<50CDFB6A.3090806@mojatatu.com>
-	<50CE1A04.1000405@mojatatu.com>
-	<alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr>
-	<50CE3203.9080007@mojatatu.com>
-	<50CF1071.1050405@mojatatu.com>
+Subject: Re: [PATCH] add a `make dist` helper
+Date: Mon, 17 Dec 2012 08:13:21 -0800
+Message-ID: <20121217081321.3392ab02@nehalam.linuxnetplumber.net>
+References: <drbl5w8utpw8p960mxvy37j1.1355469370120@email.android.com>
+	<20121214090935.7d1706fd@nehalam.linuxnetplumber.net>
+	<201212161657.15449.vapier@gentoo.org>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=PGP-SHA256;
+ boundary="Sig_/DMZFFuK4ks87Jrxbk9AyIBn"; protocol="application/pgp-signature"
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52188 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752179Ab2LQQOi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Dec 2012 11:14:38 -0500
+In-Reply-To: <201212161657.15449.vapier@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--Sig_/DMZFFuK4ks87Jrxbk9AyIBn
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Hasan Chowdhury <shemonc@gmail.com>,
-	Jan Engelhardt <jengelh@inai.de>,
-	Yury Stankevich <urykhy@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <50CF1071.1050405@mojatatu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, 17 Dec 2012 07:30:41 -0500
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+On Sun, 16 Dec 2012 16:57:14 -0500
+Mike Frysinger <vapier@gentoo.org> wrote:
 
-> On 12-12-16 03:41 PM, Jamal Hadi Salim wrote:
-> >
-> > There is an "intermediate solution" from Hasan which doesnt require
-> > the kernel change. It changes the kernel endpoint to "ipt". I am
-> > conflicted because it is a quick hack while otoh forcing people to
-> > upgrade kernel is a usability issue.
-> >
-> 
-> 
-> Attached. Author is Hasan - I didnt sign it because i am looking for
-> feedback and i find it distasteful but it solves the problem.
-> This is needed until we have a proper fix in the kernel propagated.
-> Once that kernel change is ubiquitous this change is noise and a
-> maintanance pain. I am making it hard to even turn it on
-> (i.e someone knowledgeable will have to compile with CONFIG_XT_HACK)
-> 
-> cheers,
-> jamal
-> 
-> 
+> On Friday 14 December 2012 12:09:35 Stephen Hemminger wrote:
+> > On Thu, 13 Dec 2012 23:16:10 -0800 Stephen Hemminger wrote:
+> > > I appreciate the effort but there are a number of more steps to doing=
+ a
+> > > release and I need to script them all together.
+>=20
+> np
+>=20
+> > The tarball's have been rebased, and I built a iproute2-release script =
+for
+> > next time.
+>=20
+> commit it to the tree ? :)
+> -mike
 
-Maybe xtables should have stable API/ABI and use shim routines there?
+It has to many things that are unique to kernel.org and the package.
+Plus at this time it only works for me
+
+--Sig_/DMZFFuK4ks87Jrxbk9AyIBn
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQz0ShAAoJEICnf2CVzeR+M1UP/25kCDAgOhvb6+fcBd/95JI4
+7JNOFNINE+33crBx4z+YlcsITex0c1OVt253iUvnRNs/P1uzDkluRBKyzWcrkbjD
+Re6bgMx8Iif+bm/R5/KVsVQBuFfShFNmrzaCRAUXZEsvpdzPPUScnFZ0FaeEsZoG
+RZtmSB+XXuyztw4CifybVlfLOmKekmkbrIX4Nzif8f5gWb1wYxY1+JBl2kxUoj4Z
+voXxqAin+SOjlSDsRXm285lMXUcaGKHyjKENte30vmchqKUB5/rUp7nG3SYt3kKP
+nHRN2SQcsOaah+CSdBZUmFYjY3x6lwdKJgy5uwCgtyN1Qj/TY6x8Ai0FkCUMGluM
+qp10khmpBZ+yKi3VXg5/j1N5dCq2Yphi4ts5hSoVuqrMMeGAkkhSmDVHnYXPx2H2
+ru3YjH2JTbeCm3dE+MCClDFlFuhMoHZA+2s0BgJISlAO2wO63EhiyBiv4ScNe5dj
+wGV7UbXIhQjJPW1+TzNl479ne15sdBnz/h9SpVO8fzlS5JlJiIuQQWZM8fY/YEDh
+SYSf+Z6IF4yA3xy8ewLKoBNGiqnWD3jditnxNlmIa1McqXcyTw3fQLMXaRjdwbbg
+etcz+jPOQtbaIMzYSg0NNiwKn02Vsc77ammHKNx6P8zT/cyoC3p+2Qvrk7GqQSWZ
+ygpzAYACsE5VFcwr9i0S
+=Zv8M
+-----END PGP SIGNATURE-----
+
+--Sig_/DMZFFuK4ks87Jrxbk9AyIBn--
