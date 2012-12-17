@@ -1,92 +1,48 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH 3/3 v2] net/macb: Try to optimize struct macb layout
-Date: Mon, 17 Dec 2012 14:01:59 +0100
-Message-ID: <cd54582850d50ec7ae391aae423b8982875a123a.1355748676.git.nicolas.ferre@atmel.com>
-References: <cover.1355748676.git.nicolas.ferre@atmel.com>
+From: Jan Engelhardt <jengelh@inai.de>
+Subject: Re: tc ipt action
+Date: Mon, 17 Dec 2012 14:28:57 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1212171401180.25980@nerf07.vanv.qr>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <20121216002755.GA11773@1984> <alpine.LNX.2.01.1212160144110.26218@nerf07.vanv.qr> <50CDA5BE.2080800@mojatatu.com> <alpine.LNX.2.01.1212161815310.27614@nerf07.vanv.qr>
+ <50CE0921.7060306@mojatatu.com> <alpine.LNX.2.01.1212161850530.27614@nerf07.vanv.qr> <50CE307E.40304@mojatatu.com> <alpine.LNX.2.01.1212162220270.20281@nerf07.vanv.qr> <50CF16FE.5040300@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	Joachim Eastwood <manabian@gmail.com>,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	Havard Skinnemoen <havard@skinnemoen.net>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1355748676.git.nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Yury Stankevich <urykhy@gmail.com>, shemonc@gmail.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <50CF16FE.5040300@mojatatu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Havard Skinnemoen <havard@skinnemoen.net>
 
-Move TX-related fields to the top of the struct so that they end up on
-the same cache line. Move the NAPI struct below that since it is used
-from the interrupt handler. RX-related fields go below those.
+On Monday 2012-12-17 13:58, Jamal Hadi Salim wrote:
+> On 12-12-16 04:21 PM, Jan Engelhardt wrote:
+>
+>> If you have a preexisting clone of any linux tree, you can utilize
+>> `git remote add ...` to only grab the deltas.
+>
+>It downloaded eventually. So looking at this quickly, basic
+>question: is xtables2 different API wise from what we do today in
+>act_ipt?
 
-Move the spinlock before regs since they are usually used together.
+AFAICS, (one instance of) act_ipt today directly invokes (exactly one
+instance of) a target. With act_xt2 as drafted, it instead invokes a
+chain, which would
 
-Signed-off-by: Havard Skinnemoen <havard@skinnemoen.net>
-[nicolas.ferre@atmel.com: adapt to newer kernel]
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
- drivers/net/ethernet/cadence/macb.h | 25 +++++++++++++------------
- 1 file changed, 13 insertions(+), 12 deletions(-)
+1. leave the construction of the target data and calling it
+   to the subsystems they conceptually belong to - the packet filter
+2. lets you do matches, jumps and all that.
 
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index cef146f..aeeb729 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -548,38 +548,39 @@ struct macb_or_gem_ops {
- };
- 
- struct macb {
-+	spinlock_t		lock;
- 	void __iomem		*regs;
- 
-+	unsigned int		tx_head;
-+	unsigned int		tx_tail;
-+	struct macb_dma_desc	*tx_ring;
-+	struct macb_tx_skb	*tx_skb;
-+	dma_addr_t		tx_ring_dma;
-+	struct work_struct	tx_error_task;
-+
-+	struct napi_struct	napi;
-+
- 	unsigned int		rx_tail;
- 	unsigned int		rx_prepared_head;
- 	struct macb_dma_desc	*rx_ring;
- 	struct sk_buff		**rx_skbuff;
- 	void			*rx_buffers;
- 	size_t			rx_buffer_size;
-+	dma_addr_t		rx_ring_dma;
-+	dma_addr_t		rx_buffers_dma;
- 
--	unsigned int		tx_head, tx_tail;
--	struct macb_dma_desc	*tx_ring;
--	struct macb_tx_skb	*tx_skb;
-+	struct macb_or_gem_ops	macbgem_ops;
- 
--	spinlock_t		lock;
- 	struct platform_device	*pdev;
- 	struct clk		*pclk;
- 	struct clk		*hclk;
- 	struct net_device	*dev;
--	struct napi_struct	napi;
--	struct work_struct	tx_error_task;
- 	struct net_device_stats	stats;
- 	union {
- 		struct macb_stats	macb;
- 		struct gem_stats	gem;
- 	}			hw_stats;
- 
--	dma_addr_t		rx_ring_dma;
--	dma_addr_t		tx_ring_dma;
--	dma_addr_t		rx_buffers_dma;
--
--	struct macb_or_gem_ops	macbgem_ops;
--
- 	struct mii_bus		*mii_bus;
- 	struct phy_device	*phy_dev;
- 	unsigned int 		link;
--- 
-1.8.0
+>Second: Are chain names unique system wide?
+
+Good thing you ask. Chain names are unique within a netns, and this
+act_xtables.c draft looks at the packet to get to know its netns, so
+that seems fine.
+
+However, your question also leads to looking at whether TC Actions
+themselves are sufficiently netns-ified, and it seems this is _not_
+the case. Am I right in the observation that variables like
+"tcf_ipt_ht" are in fact global rather tha per-netns?
+
