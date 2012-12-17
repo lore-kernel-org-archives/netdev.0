@@ -1,103 +1,42 @@
-From: "V. Lavrov" <lve@guap.ru>
-Subject: [PATCH] bugfix: network namespace & device dummy
-Date: Mon, 17 Dec 2012 17:01:11 +0400
-Message-ID: <50CF1797.803@guap.ru>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH 0/3 v2] net/macb: RX path enhancement
+Date: Mon, 17 Dec 2012 14:01:56 +0100
+Message-ID: <cover.1355748676.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.guap.ru ([91.151.188.3]:32491 "EHLO mx1.guap.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752535Ab2LQNBN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2012 08:01:13 -0500
-Received: from [10.52.210.96] (cdr.local [10.52.210.96])
-	(user=lve mech=CRAM-MD5 bits=0)
-	by mail.guap.ru (8.14.4/8.14.4) with ESMTP id qBHD1Bnx020321
-	for <netdev@vger.kernel.org>; Mon, 17 Dec 2012 17:01:11 +0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Joachim Eastwood <manabian@gmail.com>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If container has a network device dummyX (with lxc.network.type = phys), then it disappears from the system after you close the container.
-The patch returns the device dummyX to the initial network namespace after container is closed.
+Hi,
 
-Signed-off-by: Vitaly Lavrov <lve@guap.ru>
----
-diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-index bab0158..efa990c 100644
---- a/drivers/net/dummy.c
-+++ b/drivers/net/dummy.c
-@@ -160,6 +160,41 @@ static struct rtnl_link_ops dummy_link_ops __read_mostly = {
-  module_param(numdummies, int, 0);
-  MODULE_PARM_DESC(numdummies, "Number of dummy pseudo devices");
+Here is the patch series for modifying the RX path in macb driver.
+This change applies on GEM variant of the Cadence IP and introduces
+function pointers to match the path to the proper adapter. The move
+to RX buffers adapted to MTU and that can be DMAed directly in SKB
+is done in two steps but can be merged in a single patch.
 
-+
-+static void __net_exit dummy_net_exit(struct net *net) {
-+       struct net_device *dev, *aux;
-+       int err;
-+
-+       if(net == &init_net) return;
-+
-+       rtnl_lock();
-+       for_each_netdev_safe(net, dev, aux) {
-+               if(dev->rtnl_link_ops == &dummy_link_ops) {
-+                       err = dev_change_net_namespace(dev, &init_net, dev->name);
-+                       if(err) {
-+                               char fb_name[IFNAMSIZ];
-+                               printk (KERN_INFO "%s: dev_change_net_namespace(init_net,%s) err: %d\n",
-+                                       __func__,dev->name,err);
-+                               snprintf(fb_name, IFNAMSIZ, "dev%d", dev->ifindex);
-+                               err = dev_change_net_namespace(dev, &init_net, dev->name);
-+                               if(err)
-+                                       printk (KERN_INFO "%s: dev_change_net_namespace(%s,init_net,%s) err: %d\n",
-+                                               __func__,dev->name,fb_name,err);
-+                               else
-+                                       printk (KERN_INFO "%s: %s rename to %s\n",
-+                                               __func__,dev->name,fb_name);
-+
-+                       }
-+               }
-+       }
-+       rtnl_unlock();
-+}
-+
-+static struct pernet_operations __net_initdata dummy_net_ops = {
-+       .exit = dummy_net_exit,
-+};
-+
-+
-  static int __init dummy_init_one(void)
-  {
-         struct net_device *dev_dummy;
-@@ -184,6 +219,10 @@ static int __init dummy_init_module(void)
-  {
-         int i, err = 0;
+v2: - gave up the idea of using non-coherent memory for
+      rx buffers
+    - addition of the struct macb layout optimization
 
-+       err = register_pernet_device(&dummy_net_ops);
-+       if(err)
-+               return err;
-+
-         rtnl_lock();
-         err = __rtnl_link_register(&dummy_link_ops);
 
-@@ -191,8 +230,10 @@ static int __init dummy_init_module(void)
-                 err = dummy_init_one();
-                 cond_resched();
-         }
--       if (err < 0)
-+       if (err < 0) {
-                 __rtnl_link_unregister(&dummy_link_ops);
-+               unregister_pernet_device(&dummy_net_ops);
-+       }
-         rtnl_unlock();
+Havard Skinnemoen (1):
+  net/macb: Try to optimize struct macb layout
 
-         return err;
-@@ -201,6 +242,7 @@ static int __init dummy_init_module(void)
-  static void __exit dummy_cleanup_module(void)
-  {
-         rtnl_link_unregister(&dummy_link_ops);
-+       unregister_pernet_device(&dummy_net_ops);
-  }
+Nicolas Ferre (2):
+  net/macb: increase RX buffer size for GEM
+  net/macb: change RX path for GEM
 
-  module_init(dummy_init_module);
---
+ drivers/net/ethernet/cadence/macb.c | 323 +++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/cadence/macb.h |  35 ++--
+ 2 files changed, 306 insertions(+), 52 deletions(-)
+
+-- 
+1.8.0
