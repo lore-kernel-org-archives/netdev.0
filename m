@@ -1,130 +1,255 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Whence a description of how to enable TCP FASTOPEN in a net-next
- kernel?
-Date: Mon, 17 Dec 2012 14:56:00 -0800
-Message-ID: <50CFA300.3040501@hp.com>
-References: <50CF8E2A.5020201@hp.com> <1355781411.9380.12.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Ulf samuelsson <netdev@emagii.com>
+Subject: Re: Launch Time Support
+Date: Mon, 17 Dec 2012 23:57:40 +0100
+Message-ID: <ADDA004D-E774-486C-8102-8991EE275D09@emagii.com>
+References: <50C9298C.1080600@emagii.com> <06DFBC1E25D8024DB214DC7F41A3CD3448973B79@ORSMSX101.amr.corp.intel.com> <EC58F455-4B86-48F7-95B7-A15C6FC98024@emagii.com> <06DFBC1E25D8024DB214DC7F41A3CD344897485E@ORSMSX101.amr.corp.intel.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain;
+	charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: "Vick, Matthew" <matthew.vick@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:24290 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752491Ab2LQW4B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 17:56:01 -0500
-In-Reply-To: <1355781411.9380.12.camel@edumazet-glaptop>
+Received: from smtprelay-b22.telenor.se ([195.54.99.213]:51557 "EHLO
+	smtprelay-b22.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752634Ab2LQW5m convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 17:57:42 -0500
+Received: from ipb4.telenor.se (ipb4.telenor.se [195.54.127.167])
+	by smtprelay-b22.telenor.se (Postfix) with ESMTP id 7EF2FC1D2
+	for <netdev@vger.kernel.org>; Mon, 17 Dec 2012 23:57:40 +0100 (CET)
+In-Reply-To: <06DFBC1E25D8024DB214DC7F41A3CD344897485E@ORSMSX101.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/17/2012 01:56 PM, Eric Dumazet wrote:
-> On Mon, 2012-12-17 at 13:27 -0800, Rick Jones wrote:
->> [an explanation of what he'd done that hadn't worked]
->
-> I guess you need to enable fastopen both for client and server :
->
-> echo 3 >/proc/sys//net/ipv4/tcp_fastopen
 
 
-Looks like I'm good now:
+17 dec 2012 kl. 22:44 skrev "Vick, Matthew" <matthew.vick@intel.com>:
 
-raj@tardy-ubuntu-1204:~$ cat /proc/sys/net/ipv4/tcp_fastopen
-3
-raj@tardy-ubuntu-1204:~$ sudo tcpdump -c 30 -i lo 'not port 12865'
-[sudo] password for raj:
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on lo, link-type EN10MB (Ethernet), capture size 65535 bytes
-14:28:43.536166 IP localhost.29105 > localhost.srvr: Flags [S], seq 
-378007190, win 43690, options [mss 65495,sackOK,TS val 4294942097 ecr 
-0,nop,wscale 7,Unknown Option 254f989], length 0
-14:28:43.536191 IP localhost.srvr > localhost.29105: Flags [S.], seq 
-2030806688, ack 378007191, win 43690, options [mss 65495,sackOK,TS val 
-4294942097 ecr 4294942097,nop,wscale 7,Unknown Option 
-254f989e73dc061f14d850e], length 0
-14:28:43.537421 IP localhost.29105 > localhost.srvr: Flags [P.], seq 
-1:2, ack 1, win 342, options [nop,nop,TS val 4294942098 ecr 4294942097], 
-length 1
-14:28:43.537445 IP localhost.srvr > localhost.29105: Flags [.], ack 2, 
-win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.537525 IP localhost.srvr > localhost.29105: Flags [P.], seq 
-1:2, ack 2, win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], 
-length 1
-14:28:43.537542 IP localhost.srvr > localhost.29105: Flags [F.], seq 2, 
-ack 2, win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.537727 IP localhost.29105 > localhost.srvr: Flags [F.], seq 2, 
-ack 3, win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.537741 IP localhost.srvr > localhost.29105: Flags [.], ack 3, 
-win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.537895 IP localhost.29106 > localhost.srvr: Flags [S], seq 
-1735077945:1735077946, win 43690, options [mss 65495,sackOK,TS val 
-4294942098 ecr 0,nop,wscale 7,Unknown Option 254f989e73dc061f14d850e], 
-length 1
-14:28:43.537909 IP localhost.srvr > localhost.29106: Flags [S.], seq 
-1983728126, ack 1735077947, win 43690, options [mss 65495,sackOK,TS val 
-4294942098 ecr 4294942098,nop,wscale 7], length 0
-14:28:43.537924 IP localhost.29106 > localhost.srvr: Flags [.], ack 1, 
-win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.538014 IP localhost.srvr > localhost.29106: Flags [P.], seq 
-1:2, ack 1, win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], 
-length 1
-14:28:43.538028 IP localhost.srvr > localhost.29106: Flags [F.], seq 2, 
-ack 1, win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.538196 IP localhost.29106 > localhost.srvr: Flags [.], ack 2, 
-win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.538288 IP localhost.29106 > localhost.srvr: Flags [F.], seq 1, 
-ack 3, win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.538300 IP localhost.srvr > localhost.29106: Flags [.], ack 2, 
-win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.538417 IP localhost.29107 > localhost.srvr: Flags [S], seq 
-3902541042:3902541043, win 43690, options [mss 65495,sackOK,TS val 
-4294942098 ecr 0,nop,wscale 7,Unknown Option 254f989e73dc061f14d850e], 
-length 1
-14:28:43.538431 IP localhost.srvr > localhost.29107: Flags [S.], seq 
-941945820, ack 3902541044, win 43690, options [mss 65495,sackOK,TS val 
-4294942098 ecr 4294942098,nop,wscale 7], length 0
-14:28:43.538445 IP localhost.29107 > localhost.srvr: Flags [.], ack 1, 
-win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.538518 IP localhost.srvr > localhost.29107: Flags [P.], seq 
-1:2, ack 1, win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], 
-length 1
-14:28:43.538531 IP localhost.srvr > localhost.29107: Flags [F.], seq 2, 
-ack 1, win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.538654 IP localhost.29107 > localhost.srvr: Flags [.], ack 2, 
-win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.538730 IP localhost.29107 > localhost.srvr: Flags [F.], seq 1, 
-ack 3, win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
-14:28:43.538742 IP localhost.srvr > localhost.29107: Flags [.], ack 2, 
-win 342, options [nop,nop,TS val 4294942098 ecr 4294942098], length 0
+>> -----Original Message-----
+>> From: Ulf samuelsson [mailto:netdev@emagii.com]
+>> Sent: Friday, December 14, 2012 11:35 PM
+>> To: Vick, Matthew
+>> Cc: netdev@vger.kernel.org
+>> Subject: Re: Launch Time Support
+>> 
+>> 
+>> 15 dec 2012 kl. 01:45 skrev "Vick, Matthew" <matthew.vick@intel.com>:
+>> 
+>>>> -----Original Message-----
+>>>> From: netdev-owner@vger.kernel.org [mailto:netdev-
+>>>> owner@vger.kernel.org] On Behalf Of Ulf Samuelsson
+>>>> Sent: Wednesday, December 12, 2012 5:04 PM
+>>>> To: netdev@vger.kernel.org
+>>>> Subject: RFC: Launch Time Support
+>>>> 
+>>>> Hi, I am looking for some feedback on how to implement launchtime in
+>>>> the kernel.
+>>>> 
+>>>> I.E: You define WHEN you want to send a packet, and the driver will
+>>>> store the packet in a buffer and will send it out on the net when
+>> the
+>>>> internal timestamp counter in the network controller reaches the
+>>>> specified "launch time".
+>>>> 
+>>>> Some Ethernet controllers like the new Intel i210 support "launch
+>>>> time",
+>>>> 
+>>>> Support for launch time is desirable for any isochronous connection,
+>>>> but I am currently interested in the NTP protocol to improve the
+>>>> timing.
+>>>> 
+>>>> Proposed Changes to the Kernel
+>>>> ===========================================================
+>>>> The launchtime support will be dependent on CONFIG_NET_LAUNCHTIME If
+>>>> this is not set, then the kernel functionality is not changed.
+>>>> 
+>>>> My current idea is to add a new bit to the "flags" field of
+>>>> "socket.c:sendto"
+>>>> #define MSG_LAUNCHTIME 0x?????
+>>>> 
+>>>> struct msghdr gets an additional launchtime field.
+>>>> 
+>>>> sendto will check if the flags parameter contains MSG_LAUNCHTIME.
+>>>> If it does, then the first 64 bit longword of the packet (buff)
+>>>> contains the launchtime.
+>>>> The launchtime from the buffer is copied to the msghdr.launchtime
+>>>> field, and the first 64 bits of the packet is then shaved off,
+>> before
+>>>> the address is written to the msghdr.
+>>>> 
+>>>> Each network controller supporting launchtime needs to have an
+>>>> alternative call to "send packet with launchtime" . This call adds
+>>>> the launchtime parameter.
+>>>> If launchtime is supported the exported "ops" includes the new call.
+>>>> 
+>>>> The UDP/IP packet send will check the MSG_LAUNCHTIME and if set, it
+>>>> will check if the "send packet with launchtime" call is available
+>> for
+>>>> the driver and if so call it, otherwise it will call the normal send
+>>>> packet and thus ignore the launchtime.
+>>>> 
+>>>> Before launchtime is used, the application should send an ioctl to
+>>>> the driver, making sure that launchtime is configured, and only if
+>>>> the driver ACKs , the application will use launchtime.
+>>>> 
+>>>> (Possibly the "ops" field for "send packet with launchtime" should
+>> be
+>>>> NULL until that ioctl is complete. Comments?)
+>>>> 
+>>>> To me, this seems to be transparent for all other network stacks so
+>>>> protocols and drivers not supporting launchtime should still work.
+>>>> 
+>>>> As far as I know, drivers do not support launch time today.
+>>>> The Intel igb driver does not in the latest version on the intel web
+>>>> site, There are some defines headers in the latest version  defining
+>>>> the registers but so far, the code is not using it.
+>>>> 
+>>>> There is the linux_igb_avb project on sourceforge which  allows use
+>>>> of launch time for user space applications, but not as part of the
+>> kernel.
+>>>> 
+>>>> Maybe there is more work done somewhere else, but i am not aware of
+>>>> this, so any links to such work is appreciated.
+>>>> 
+>>>> There are some FPGA based PCIe boards that support launchtime
+>> (Endace
+>>>> DAG) using proprietary APIs.
+>>>> Talked to some vendors providing TCP/IP offload engines for FPGA and
+>>>> they do not support launchtime and liuke Endace use proprietary APIs
+>>>> so they are only useable by custom programs. Normal networking
+>>>> interfaces are not supported.
+>>>> 
+>>>> Comment on above is appreciated.
+>>>> 
+>>>> BACKGROUND
+>>>> For those that do not know how the NTP protocol works:
+>>>> ===================================================
+>>>> The client sends an UDP packet to the NTP server using port 123 The
+>>>> NTP client reads the current systime and puts that in the outgoing
+>> packet.
+>>>> There is a delay between the time the systime is read, and the time
+>>>> the packet actually leaves the Ethernet controller adding jitter to
+>>>> the NTP algorithm.
+>>>> 
+>>>> When the server receives the packet, it can be timestamped in H/W
+>> and
+>>>> a CMSG is then created by the network stack containing that
+>> timestamp
+>>>> for use by the server NTP daemon.
+>>>> 
+>>>> The server generates a reply, which needs to include the client
+>>>> transmit time, the servers receive time, and the servers transmit
+>> time.
+>>>> Again, the transmit time needs to be written into the NTP packet,
+>> and
+>>>> then it needs to be processed through the network stack before it is
+>>>> leaving the ethernet controller causing more jitter.
+>>>> 
+>>>> If launch time is supported, then the client NTP daemon would simply
+>>>> read the systime, add a constant delay to create the transmit
+>>>> timestamp.
+>>>> The delay needs to be sufficiently large to ensure that all
+>>>> processing is done,
+>>>> 
+>>>> The server will do something similar adding a constant to the server
+>>>> receive timestamp to create the server transmit timestamp.
+>>>> If both the client and the server uses H/W timestamping and launch
+>>>> time, then the the jitter ideally is reduced to zero.
+>>>> 
+>>>> TRANSMIT TIMESTAMPING
+>>>> ========================
+>>>> Support for TX timestamps in H/W is not really useful, since you
+>> need
+>>>> to provide the TX timestamp in the packet you measure on, so when
+>> you
+>>>> know the timestamp it is too late. Server to server  NTP connections
+>>>> support sending that timestamp in a new packet, but there is no such
+>>>> support in client server communication.
+>>>> 
+>>>> The i210 supports putting the timestamp inside the packet as it
+>>>> leaves the Ethernet controller, but that means that you screw up the
+>>>> UDP checksum, so the packet will be rejected by the receiving NTP
+>> daemon.
+>>>> In addition, the i210 timestamp measures seconds and nanoseconds
+>>>> which is incompatible with the NTP timestamp which uses seconds and
+>> a
+>>>> 32 bit fraction of a second so that does not work either.
+>>>> 
+>>>> Best Regards
+>>>> Ulf Samuelsson
+>>>> eMagii.
+>>> 
+>>> Ulf,
+>>> 
+>>> I have been looking into adding launch time support as part of
+>> enabling some of the I210 functionality you have described (such as in
+>> linux_igb_avb on SourceForge) upstream--less focused on NTP and more
+>> focused on AVB, but launch time will be necessary for both. If you
+>> would like, please feel free to contact me and I would love to work
+>> with you on this.
+>>> 
+>>> Reading your proposal, I'm a little confused by which systime you're
+>> referring to. Do you mean on the host or on the NIC? In the case of
+>> hardware timestamping today, in igb we set the SYSTIM registers to the
+>> current system time, but that doesn't mean that the host clock and the
+>> NIC clock stay synced. You would either need a mechanism such as PPS
+>> (which igb does not implement today) to sync the host clock to the NIC
+>> clock or have the NTP daemon account for the discrepancy. Off the top
+>> of my head, I want to say modern PTP daemons (such as ptp4l) account
+>> for the discrepancy in the daemon.
+>>> 
+>>> Cheers,
+>>> Matthew
+>> 
+>> We live in luxury, having access to a Cesium Clock ;-) and we define
+>> the time, beeing a top-level (Stratum 1) server.
+>> 
+>> There are some I/Os on the i210 that can be used to interface to the
+>> PPS.
+>> 
+>> As for reading systime, it is done indirectly as you get the systime as
+>> part of the NTP incoming packet. (It is timestamped at reception) and
+>> add the constant to that value.
+>> 
+>> Best Regards
+>> Ulf Samuelsson
+> 
+> So your proposal is to use a PPS interface (from some Stratum 1 server) to drive the clock on an I210 so you can use the I210's launch time mechanism to send packets at a certain time--is this correct? Or are you talking more about a software launch time solution?
 
-in which case I suppose that means that netperf top-of-trunk does indeed 
-have client and server side support for TCP_FASTOPEN.  Enabled via the 
-test-specific -F option though in the loopback test (in a 1 VCPU VM) I 
-don't see much of a difference (don't suppose I should really):
+There are 4 I/O pins, and you can capture the timestamp when they change value.
+This can be used to calibrate the timestamp vs the 1 PPS clock.
+It is far from ideal, but it might just work.
 
-raj@tardy-ubuntu-1204:~/netperf2_trunk/src$ ./netperf -t TCP_CRR -l 30 
--i 30,3 -- -F -P ,12345
-MIGRATED TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0 
-AF_INET to localhost () port 12345 AF_INET : +/-2.500% @ 99% conf.  : demo
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
+If you can clock the part from a 5 MHz clock from the Cesium clock, that would be even better.
 
-16384  87380  1        1       30.00    15909.07
-16384  87380
-raj@tardy-ubuntu-1204:~/netperf2_trunk/src$ ./netperf -t TCP_CRR -l 30 
--i 30,3 --  -P ,12345
-MIGRATED TCP Connect/Request/Response TEST from 0.0.0.0 (0.0.0.0) port 0 
-AF_INET to localhost () port 12345 AF_INET : +/-2.500% @ 99% conf.  : demo
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate
-bytes  Bytes  bytes    bytes   secs.    per sec
 
-16384  87380  1        1       30.00    15574.37
-16384  87380
 
-happy benchmarking,
 
-rick jones
+> 
+> Forgive my ignorance, but what constant are you referring to in the receive path? Based on your first e-mail, you mention the constant should be added to the transmit path.
+
+It is an arbitrary time constant you select in the range of 10s of milliseconds.
+The only requirement is that the time from receiving the incoming packet,
+to the time when the reply leaves the machine is always shorter than the time constant.
+We have seen that this has been implemented on a 10 GbE FPGA card using 50 ms.
+There is no requirement for short latency in NTP, only predictable latency.
+
+> 
+> Also, how will you account for hardware discrepancies? For example, how far in the future you can schedule a packet will differ from hardware to hardware.
+
+We don't have the problem, since it is for internal use, and we will use the same H/W
+In all nodes.  Possibly you want to be able to query the driver for your use.
+
+
+Best Regards
+Ulf Samuelsson
+ulf@emagii.com
+
+
+> 
+> Cheers,
+> Matthew
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
