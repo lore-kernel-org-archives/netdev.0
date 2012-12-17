@@ -1,81 +1,91 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH lksctp-tools] sctp_send: fix msg_control data corruption
-Date: Mon, 17 Dec 2012 17:32:04 +0100
-Message-ID: <1355761924-18948-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, lksctp-developers@lists.sourceforge.net,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RESEND PATCH iproute2 2/2] ip: update man pages and usage() for 'ip monitor'
+Date: Mon, 17 Dec 2012 17:41:27 +0100
+Message-ID: <1355762487-4082-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <20121217081026.5acd58a4@nehalam.linuxnetplumber.net>
+ <1355762487-4082-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62770 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753961Ab2LQQci (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Dec 2012 11:32:38 -0500
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:44723 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752902Ab2LQQn5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 11:43:57 -0500
+In-Reply-To: <1355762487-4082-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The byte array outcmsg is allocated on the stack within the if-block
-that test for a valif sctp_sndrcvinfo structure. There, it is assigned
-to outmsg.msg_control, which is later on after leaving the if-block
-passed to sendmsg. With this minimal example, the following is
-happening:
+Sync with the current code.
 
-int main(void)
-{
-	int fd;
-	struct sctp_sndrcvinfo sndinfo;
-
-	fd = socket(AF_INET, SOCK_SEQPACKET, IPPROTO_SCTP);
-	assert(fd > 0);
-
-	sctp_send(fd, "bla", strlen("bla") + 1, &sndinfo, 0);
-
-	return 0;
-}
-
-strace ./a.out before this patch:
-
-  sendmsg(3, {msg_name(0)=NULL, msg_iov(1)=[{"bla\0", 4}],
-          msg_controllen=48, {cmsg_len=3364590592, cmsg_level=0x4003e8
-          /* SOL_??? */, cmsg_type=, ...}, msg_flags=0}, 0)
-
-  --> cmsg_len corrupted
-
-strace ./a.out after this patch:
-
-  sendmsg(3, {msg_name(0)=NULL, msg_iov(1)=[{"bla\0", 4}],
-          msg_controllen=48, {cmsg_len=48, cmsg_level=0x84 /* SOL_??? */,
-                              cmsg_type=, ...}, msg_flags=0}, 0)
-
-This is basically the case since 2005, introduced in the commit 91239acf
-("Add sctp_send() API support and testcases"). However, probably this
-changed due to a different compiler behaviour / optimization (?), since
-it was not visible / affected by older Linux versions.
-
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- src/lib/sendmsg.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ ip/ipmonitor.c        |  5 ++++-
+ man/man8/ip-monitor.8 | 15 +++++++++------
+ 2 files changed, 13 insertions(+), 7 deletions(-)
 
-diff --git a/src/lib/sendmsg.c b/src/lib/sendmsg.c
-index 1de592d..9046174 100644
---- a/src/lib/sendmsg.c
-+++ b/src/lib/sendmsg.c
-@@ -76,6 +76,7 @@ sctp_send(int s, const void *msg, size_t len,
+diff --git a/ip/ipmonitor.c b/ip/ipmonitor.c
+index 09a339c..a9ff1e8 100644
+--- a/ip/ipmonitor.c
++++ b/ip/ipmonitor.c
+@@ -29,7 +29,10 @@ int prefix_banner;
+ 
+ static void usage(void)
  {
- 	struct msghdr outmsg;
- 	struct iovec iov;
-+	char outcmsg[CMSG_SPACE(sizeof(struct sctp_sndrcvinfo))];
+-	fprintf(stderr, "Usage: ip monitor [ all | LISTofOBJECTS ]\n");
++	fprintf(stderr, "Usage: ip monitor [ all | LISTofOBJECTS ] [ FILE ]\n");
++	fprintf(stderr, "LISTofOBJECTS := link | address | route | mroute | prefix |\n");
++	fprintf(stderr, "                 neigh | netconf\n");
++	fprintf(stderr, "FILE := file FILENAME\n");
+ 	exit(-1);
+ }
  
- 	outmsg.msg_name = NULL;
- 	outmsg.msg_namelen = 0;
-@@ -86,7 +87,6 @@ sctp_send(int s, const void *msg, size_t len,
- 	outmsg.msg_controllen = 0;
+diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
+index 351a744..b07cb0e 100644
+--- a/man/man8/ip-monitor.8
++++ b/man/man8/ip-monitor.8
+@@ -1,4 +1,4 @@
+-.TH IP\-MONITOR 8 "20 Dec 2011" "iproute2" "Linux"
++.TH IP\-MONITOR 8 "13 Dec 2012" "iproute2" "Linux"
+ .SH "NAME"
+ ip-monitor, rtmon \- state monitoring
+ .SH "SYNOPSIS"
+@@ -6,8 +6,8 @@ ip-monitor, rtmon \- state monitoring
+ .ad l
+ .in +8
+ .ti -8
+-.BR "ip monitor" " [ " all " |"
+-.IR LISTofOBJECTS " ]"
++.BR "ip " " [ ip-OPTIONS ] " "monitor" " [ " all " |"
++.IR LISTofOBJECTS " ] [ file " FILENAME " ]
+ .sp
  
- 	if (sinfo) {	
--		char outcmsg[CMSG_SPACE(sizeof(struct sctp_sndrcvinfo))];
- 		struct cmsghdr *cmsg;
+ .SH DESCRIPTION
+@@ -20,12 +20,13 @@ Namely, the
+ command is the first in the command line and then the object list follows:
  
- 		outmsg.msg_control = outcmsg;
+ .BR "ip monitor" " [ " all " |"
+-.IR LISTofOBJECTS " ]"
++.IR LISTofOBJECTS " ] [ file " FILENAME " ]
+ 
+ .I OBJECT-LIST
+ is the list of object types that we want to monitor.
+ It may contain
+-.BR link ", " address " and " route "."
++.BR link ", " address ", " route ", " mroute ", " prefix ", "
++.BR neigh " and " netconf "."
+ If no
+ .B file
+ argument is given,
+@@ -34,7 +35,9 @@ opens RTNETLINK, listens on it and dumps state changes in the format
+ described in previous sections.
+ 
+ .P
+-If a file name is given, it does not listen on RTNETLINK,
++If a
++.I FILENAME
++is given, it does not listen on RTNETLINK,
+ but opens the file containing RTNETLINK messages saved in binary format
+ and dumps them.  Such a history file can be generated with the
+ .B rtmon
 -- 
-1.7.11.7
+1.8.0.1
