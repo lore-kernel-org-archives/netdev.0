@@ -1,110 +1,60 @@
 From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PATCH v2] netlink: align attributes on 64-bits
-Date: Tue, 18 Dec 2012 17:08:53 +0000
-Message-ID: <20121218170853.GH27746@casper.infradead.org>
+Date: Tue, 18 Dec 2012 17:11:03 +0000
+Message-ID: <20121218171103.GI27746@casper.infradead.org>
 References: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com>
  <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com>
  <20121218125735.GG27746@casper.infradead.org>
  <50D09897.8030508@6wind.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B70F5@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	davem@davemloft.net, David.Laight@ACULAB.COM
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: nicolas.dichtel@6wind.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:60179 "EHLO
+Received: from casper.infradead.org ([85.118.1.10]:60192 "EHLO
 	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754203Ab2LRRI6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 12:08:58 -0500
+	with ESMTP id S1754203Ab2LRRLF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 12:11:05 -0500
 Content-Disposition: inline
-In-Reply-To: <50D09897.8030508@6wind.com>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70F5@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/18/12 at 05:23pm, Nicolas Dichtel wrote:
-> Le 18/12/2012 13:57, Thomas Graf a =E9crit :
-> >-static inline int nla_padlen(int payload)
-> >-{
-> >-	return nla_total_size(payload) - nla_attr_size(payload);
-> >+	if (!IS_ALIGNED(len, NLA_ATTR_ALIGN))
-> >+		len =3D ALIGN(len + NLA_HDRLEN, NLA_ATTR_ALIGN);
-> Two comments:
-> 1/ should it be ALIGN(len, NLA_ATTR_ALIGN)? If we want to add a __u64=
-:
->    =3D> nla_attr_size(sizeof(__u64)) =3D 12
->    =3D> NLA_ALIGN(nla_attr_size(sizeof(__u64))) =3D> 12 (=3D len)
->    =3D> ALIGN(len + NLA_HDRLEN, NLA_ATTR_ALIGN) =3D 0 but it should b=
-e 4
+On 12/18/12 at 04:50pm, David Laight wrote:
+> > 2/ Suppose that the attribute is:
+> > 
+> >    struct foo {
+> >    	__u64 bar1;
+> >    	__u32 bar2;
+> >    }
+> >    => sizeof(struct foo) = 12 (= payload)
+> 
+> That is only true if the host architecture aligns 64bit items
+> on 32 it boundaries (as i386 does).
+> Otherwise there are 4 bytes of padding at the end and the
+> size is 16.
+> 
+> Actually it is worse than that.
+> Consider the structure:
+> 	struct bar {
+> 		__u32 foo1;
+> 		__u64 foo2;
+> 	}
+> On i386 it will have size 12 and foo2 will be at offset 4.
+> On sparc32 (and most 64bit) it will have size 16 with foo2
+> at offset 8 (and 4 bytes of pad after foo1).
 
-We can't add 1-3 bytes of padding, therefore we need to add
-NLA_HDRLEN to len before aligning it to enforce a minimal
-padding. We can't hit it right now because 4 byte alignment
-of the previous attribute is a given but if we ever change
-the alignment it could become an issue and the above should
-be bullet proof.
+This is a known problem and I can't think of anything
+that can be done about it except for memcpy()ing the
+data before accessing it.
 
-Your example would come out like this:
-  nla_attr_size(8) =3D 12
-  ALIGN(12 + 4, 8) =3D 16
+If you have ideas, I'm more that willing to listen :)
 
-> 2/ Suppose that the attribute is:
->=20
->   struct foo {
->   	__u64 bar1;
->   	__u32 bar2;
->   }
->   =3D> sizeof(struct foo) =3D 12 (=3D payload)
->   =3D> nla_attr_size(payload) =3D 16
->   =3D> NLA_ALIGN(nla_attr_size(payload)) =3D 16 (=3D len)
->   =3D> IS_ALIGNED(len, NLA_ATTR_ALIGN) =3D true
->   =3D> extra room is not reserved
->   But it's not guaranteed that bar1 is aligned on 8 bytes, only on 4 =
-bytes.
+> Do these messages move between systems?
+> If they do then any 64bit items need an explicit alignment
+> eg tag with __attribute__((aligned(8))) (or aligned(4)).
 
-That's correct, that's why I have added the additional
-NLA_ATTR_ALIGN of room in nlmsg_new(). It will account
-for the one time padding that is needed before we add
-the very first attribute.
-
-If all attributes after that have a size aligned to 8
-bytes no padding is needed. Padding will only be needed
-again if a struct is missized in which case we reserve
-room with the above. Correct?
-
-> >+	offset =3D (size_t) skb_tail_pointer(skb);
-> >+	if (!IS_ALIGNED(offset + NLA_HDRLEN, NLA_ATTR_ALIGN)) {
-> With the previous struct foo, this test may be true even if we don't
-> have reserved extra room. This test depends on previous attribute.
-> I think the exact size of the netlink message depends on the order
-> of attributes, not only on the attribute itself.
-> What about taking the assumption that the start will never be
-> aligned and always allocating extra room: ALIGN(NLA_ALIGNTO,
-> NLA_ATTR_ALIGN) (=3D 4)?
-
-See my explanation above. I think this works. The order does not
-matter, the sum of all padding required will always be the same.
-
-> >+static bool nla_insufficient_space(struct sk_buff *skb, int attrlen=
-)
-> >+{
-> >+	size_t needed =3D nla_pre_padlen(skb) + nla_total_size(attrlen);
-> If nla_total_size() was right, nla_pre_padlen(skb) should already be
-> included. Am I wrong?
-
-No, nla_pre_padlen() contains the number of bytes needed to align
-skb_tail_pointer() to an alignment of 8. If that is > 0 but the
-attribute to follow is already aligned.
-
-The tricky part here is that accounting for padding in
-nla_total_size() only works for the sum of all attributes.
-It does not account for the specific padding required for the
-previous attribute.
-
-Therefore the above check. The above could be changed to
-nla_attr_size() theoretically as we don't need space for the
-final padding eventually but we checked for space before so I
-kept it that way.
-
-I realize it's slightly confusign and needs better documentation
-and please double check my thinking :-)
+They don't. Netlink has and will be host bound. It also
+uses host byte order for that reason.
