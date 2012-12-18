@@ -1,92 +1,238 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH V2 00/12] Add basic VLAN support to bridges
-Date: Tue, 18 Dec 2012 14:00:51 -0500
-Message-ID: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH V2 07/12] bridge: Add netlink interface to configure vlans on bridge ports
+Date: Tue, 18 Dec 2012 14:00:58 -0500
+Message-ID: <1355857263-31197-8-git-send-email-vyasevic@redhat.com>
+References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
 Cc: shemminger@vyatta.com, davem@davemloft.net, or.gerlitz@gmail.com,
 	jhs@mojatatu.com, mst@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31666 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56737 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755503Ab2LRTB2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2012 14:01:28 -0500
+	id S1755559Ab2LRTBe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2012 14:01:34 -0500
+In-Reply-To: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of patches provides an ability to add VLANs to the bridge
-ports.  This is similar to what can be found in most switches.  The bridge
-port may have any number of VLANs added to it including vlan 0 priority tagged
-traffic.  When vlans are added to the port, only traffic tagged with particular
-vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
-entries and become part of the lookup.  This way we correctly identify the FDB
-entry.
+Add a netlink interface to add and remove vlan configuration on bridge port.
+The interface uses the RTM_SETLINK message and encodes the vlan
+configuration inside the IFLA_AF_SPEC.  It is possble to include multiple
+vlans to either add or remove in a single message.
 
-A single vlan may also be designated as untagged.  Any untagged traffic
-recieved by the port will be assigned to this vlan.  Any traffic exiting
-the port with a VID matching the untagged vlan will exit untagged (the
-bridge will strip the vlan header).  This is similar to "Native Vlan" support
-available in most switches.
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ include/uapi/linux/if_bridge.h |   17 ++++++
+ net/bridge/br_if.c             |    1 +
+ net/bridge/br_netlink.c        |  107 +++++++++++++++++++++++++++++++++------
+ 3 files changed, 108 insertions(+), 17 deletions(-)
 
-The default behavior ofthe bridge is unchanged if no vlans have been
-configured.
-
-Changes since v1:
- - Fixed some forwarding bugs.
- - Add vlan to local fdb entries.  New local entries are created per vlan
-   to facilite correct forwarding to bridge interface.
- - Allow configuration of vlans directly on the bridge master device
-   in addition to ports.
-
-Changes since rfc v2:
- - Per-port vlan bitmap is gone and is replaced with a vlan list.
- - Added bridge vlan list, which is referenced by each port.  Entries in
-   the birdge vlan list have port bitmap that shows which port are parts
-   of which vlan.
- - Netlink API changes.
- - Dropped sysfs support for now.  If people think this is really usefull,
-   can add it back.
- - Support for native/untagged vlans.
-
-Changes since rfc v1:
- - Comments addressed regarding formatting and RCU usage
- - iocts have been removed and changed over the netlink interface.
- - Added support of user added ndb entries.
- - changed sysfs interface to export a bitmap.  Also added a write interface.
-   I am not sure how much I like it, but it made my testing easier/faster.  I
-   might change the write interface to take text instead of binary.
-
-
-Vlad Yasevich (12):
-  bridge: Add vlan filtering infrastructure
-  bridge: Validate that vlan is permitted on ingress
-  bridge: Verify that a vlan is allowed to egress on give port
-  bridge: Cache vlan in the cb for faster egress lookup.
-  bridge: Add vlan to unicast fdb entries
-  bridge: Add vlan id to multicast groups
-  bridge: Add netlink interface to configure vlans on bridge ports
-  bridge: Add vlan support to static neighbors
-  bridge: Add the ability to configure untagged vlans
-  bridge: Implement untagged vlan handling
-  bridge: Dump vlan information from a bridge port
-  bridge: Add vlan support for local fdb entries
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
- drivers/net/macvlan.c                         |    2 +-
- drivers/net/vxlan.c                           |    3 +-
- include/linux/netdevice.h                     |    4 +-
- include/uapi/linux/if_bridge.h                |   23 ++-
- include/uapi/linux/neighbour.h                |    1 +
- include/uapi/linux/rtnetlink.h                |    1 +
- net/bridge/br_device.c                        |   34 ++-
- net/bridge/br_fdb.c                           |  253 ++++++++++++---
- net/bridge/br_forward.c                       |  160 ++++++++++
- net/bridge/br_if.c                            |  404 ++++++++++++++++++++++++-
- net/bridge/br_input.c                         |   65 ++++-
- net/bridge/br_multicast.c                     |   71 +++--
- net/bridge/br_netlink.c                       |  178 ++++++++++--
- net/bridge/br_private.h                       |   71 ++++-
- net/core/rtnetlink.c                          |   40 ++-
- 16 files changed, 1190 insertions(+), 125 deletions(-)
-
+diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+index 52aa738..d0b4f5c 100644
+--- a/include/uapi/linux/if_bridge.h
++++ b/include/uapi/linux/if_bridge.h
+@@ -108,15 +108,32 @@ struct __fdb_entry {
+  * [IFLA_AF_SPEC] = {
+  *     [IFLA_BRIDGE_FLAGS]
+  *     [IFLA_BRIDGE_MODE]
++ *     [IFLA_BRIDGE_VLAN_INFO]
+  * }
+  */
+ enum {
+ 	IFLA_BRIDGE_FLAGS,
+ 	IFLA_BRIDGE_MODE,
++	IFLA_BRIDGE_VLAN_INFO,
+ 	__IFLA_BRIDGE_MAX,
+ };
+ #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
+ 
++/* Bridge VLAN info
++ * [IFLA_BRIDGE_VLAN_INFO]
++ */
++enum {
++	BR_VLAN_ADD,
++	BR_VLAN_DEL,
++};
++
++struct bridge_vlan_info {
++	u16 op_code;
++	u16 flags;
++	u16 vid;
++	u16 unused;
++};
++
+ /* Bridge multicast database attributes
+  * [MDBA_MDB] = {
+  *     [MDBA_MDB_ENTRY] = {
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 14c7c6a..57bbb35 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -23,6 +23,7 @@
+ #include <linux/if_ether.h>
+ #include <linux/slab.h>
+ #include <net/sock.h>
++#include <linux/if_vlan.h>
+ 
+ #include "br_private.h"
+ 
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index dead9df..9cf2879 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -16,6 +16,7 @@
+ #include <net/rtnetlink.h>
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
++#include <uapi/linux/if_bridge.h>
+ 
+ #include "br_private.h"
+ #include "br_private_stp.h"
+@@ -123,6 +124,9 @@ void br_ifinfo_notify(int event, struct net_bridge_port *port)
+ 	struct sk_buff *skb;
+ 	int err = -ENOBUFS;
+ 
++	if (!port)
++		return;
++
+ 	br_debug(port->br, "port %u(%s) event %d\n",
+ 		 (unsigned int)port->port_no, port->dev->name, event);
+ 
+@@ -162,6 +166,60 @@ out:
+ 	return err;
+ }
+ 
++const struct nla_policy ifla_br_policy[IFLA_MAX+1] = {
++	[IFLA_BRIDGE_FLAGS]	= { .type = NLA_U16 },
++	[IFLA_BRIDGE_MODE]	= { .type = NLA_U16 },
++	[IFLA_BRIDGE_VLAN_INFO]	= { .type = NLA_BINARY,
++				    .len = sizeof(struct bridge_vlan_info), },
++};
++
++static int br_afspec(struct net_bridge *br, struct net_bridge_port *p,
++		     struct nlattr *af_spec)
++{
++	struct nlattr *tb[IFLA_BRIDGE_MAX+1];
++	int err = 0;
++
++	if (nla_type(af_spec) != AF_BRIDGE)
++		return -EINVAL;
++
++	err = nla_parse_nested(tb, IFLA_BRIDGE_MAX, af_spec, ifla_br_policy);
++	if (err)
++		return err;
++
++	if (tb[IFLA_BRIDGE_VLAN_INFO]) {
++		struct bridge_vlan_info *vinfo;
++
++		vinfo = nla_data(tb[IFLA_BRIDGE_VLAN_INFO]);
++
++		if (vinfo->vid > VLAN_N_VID)
++			return -EINVAL;
++
++		switch (vinfo->op_code) {
++		case BR_VLAN_ADD:
++			if (p)
++				err = nbp_vlan_add(p, vinfo->vid, vinfo->flags);
++			else {
++				u16 flags = vinfo->flags | BRIDGE_FLAGS_SELF;
++				if (!br_vlan_add(br, vinfo->vid, flags))
++					err = -ENOMEM;
++			}
++			break;
++
++		case BR_VLAN_DEL:
++			if (p)
++				err = nbp_vlan_delete(p, vinfo->vid,
++						      vinfo->flags);
++			else {
++				u16 flags = vinfo->flags | BRIDGE_FLAGS_SELF;
++				err = br_vlan_delete(br, vinfo->vid, flags);
++			}
++			break;
++		}
++	}
++
++	return err;
++}
++
+ static const struct nla_policy ifla_brport_policy[IFLA_BRPORT_MAX + 1] = {
+ 	[IFLA_BRPORT_STATE]	= { .type = NLA_U8 },
+ 	[IFLA_BRPORT_COST]	= { .type = NLA_U32 },
+@@ -238,6 +296,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
+ {
+ 	struct ifinfomsg *ifm;
+ 	struct nlattr *protinfo;
++	struct nlattr *afspec;
+ 	struct net_bridge_port *p;
+ 	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
+ 	int err;
+@@ -245,35 +304,49 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
+ 	ifm = nlmsg_data(nlh);
+ 
+ 	protinfo = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_PROTINFO);
+-	if (!protinfo)
++	afspec = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_AF_SPEC);
++	if (!protinfo && !afspec)
+ 		return 0;
+ 
+ 	p = br_port_get_rtnl(dev);
+-	if (!p)
++	/* We want to accept dev as bridge itself if the AF_SPEC
++	 * is set to see if someone is setting vlan info on the brigde.
++	 */
++	if (!p && ((dev->priv_flags & IFF_EBRIDGE) && !afspec))
+ 		return -EINVAL;
+ 
+-	if (protinfo->nla_type & NLA_F_NESTED) {
+-		err = nla_parse_nested(tb, IFLA_BRPORT_MAX,
+-				       protinfo, ifla_brport_policy);
++	if (p && protinfo) {
++		if (protinfo->nla_type & NLA_F_NESTED) {
++			err = nla_parse_nested(tb, IFLA_BRPORT_MAX,
++					       protinfo, ifla_brport_policy);
++			if (err)
++				return err;
++
++			spin_lock_bh(&p->br->lock);
++			err = br_setport(p, tb);
++			spin_unlock_bh(&p->br->lock);
++		} else {
++			/* Binary compatability with old RSTP */
++			if (nla_len(protinfo) < sizeof(u8))
++				return -EINVAL;
++
++			spin_lock_bh(&p->br->lock);
++			err = br_set_port_state(p, nla_get_u8(protinfo));
++			spin_unlock_bh(&p->br->lock);
++		}
+ 		if (err)
+-			return err;
+-
+-		spin_lock_bh(&p->br->lock);
+-		err = br_setport(p, tb);
+-		spin_unlock_bh(&p->br->lock);
+-	} else {
+-		/* Binary compatability with old RSTP */
+-		if (nla_len(protinfo) < sizeof(u8))
+-			return -EINVAL;
++			goto out;
++	}
+ 
+-		spin_lock_bh(&p->br->lock);
+-		err = br_set_port_state(p, nla_get_u8(protinfo));
+-		spin_unlock_bh(&p->br->lock);
++	if (afspec) {
++		err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
++				afspec);
+ 	}
+ 
+ 	if (err == 0)
+ 		br_ifinfo_notify(RTM_NEWLINK, p);
+ 
++out:
+ 	return err;
+ }
+ 
 -- 
 1.7.7.6
