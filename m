@@ -1,42 +1,46 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH] bridge: Correctly encode addresses when dumping mdb entries
-Date: Tue, 18 Dec 2012 16:54:08 -0500
-Message-ID: <1355867648-17316-1-git-send-email-vyasevic@redhat.com>
-Cc: davem@davemloft.net, shemminger@vyatta.com
-To: netdev@vger.kernel.org
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] net: mvneta: remove unneeded version.h include
+Date: Tue, 18 Dec 2012 22:54:49 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1212182225400.14788@swampdragon.chaosbits.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: etdev@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Rami Rosen <rosenr@marvell.com>,
+	"David S. Miller" <davem@davemloft.net>, trivial@kernel.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11582 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754569Ab2LRVyR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2012 16:54:17 -0500
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:49436 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754569Ab2LRVyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 16:54:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When dumping mdb table, set the addresses the kernel returns
-based on the address protocol type.
+The file uses nothing from the version.h header, so there is no reason
+to include it.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 ---
- net/bridge/br_mdb.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index 9cf5d2b..ac22bb2 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -84,9 +84,11 @@ static int br_mdb_fill_info(struct sk_buff *skb, struct netlink_callback *cb,
- 					struct br_mdb_entry e;
- 					e.ifindex = port->dev->ifindex;
- 					e.state = p->state;
--					e.addr.u.ip4 = p->addr.u.ip4;
-+					if (p->addr.proto == htons(ETH_P_IP))
-+						e.addr.u.ip4 = p->addr.u.ip4;
- #if IS_ENABLED(CONFIG_IPV6)
--					e.addr.u.ip6 = p->addr.u.ip6;
-+					if (p->addr.proto == htons(ETH_P_IPV6))
-+						e.addr.u.ip6 = p->addr.u.ip6;
- #endif
- 					e.addr.proto = p->addr.proto;
- 					if (nla_put(skb, MDBA_MDB_ENTRY_INFO, sizeof(e), &e)) {
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 3f8086b..a1e0e9f 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -12,7 +12,6 @@
+  */
+ 
+ #include <linux/kernel.h>
+-#include <linux/version.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/platform_device.h>
 -- 
-1.7.7.6
+1.7.1
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>       http://www.chaosbits.net/
+Don't top-post http://www.catb.org/jargon/html/T/top-post.html
+Plain text mails only, please.
