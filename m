@@ -1,32 +1,75 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: RFC [PATCH] iproute2: temporary solution to fix xt breakage
-Date: Tue, 18 Dec 2012 07:28:39 -0500
-Message-ID: <50D06177.2090905@mojatatu.com>
-References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com> <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com> <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr> <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com> <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com>
+From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next] be2net: fix INTx ISR for interrupt behaviour
+ on BE2
+Date: Tue, 18 Dec 2012 12:57:39 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C0E0C422D@CMEXMB1.ad.emulex.com>
+References: <d856540b-bacc-45e3-a7cc-49e7febafb95@CMEXHTCAS1.ad.emulex.com>
+	 <1354134001.2768.11.camel@bwh-desktop.uk.solarflarecom.com>
+ <1354134328.2768.16.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Jan Engelhardt <jengelh@inai.de>,
-	Yury Stankevich <urykhy@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: Hasan Chowdhury <shemonc@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:53590 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754006Ab2LRM5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 07:57:40 -0500
+In-Reply-To: <1354134328.2768.16.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12-12-17 11:10 AM, Hasan Chowdhury wrote:
-> Juts noticed , the attached patch does not have the modification for
-> m_xt.c , without it   ,I guess this patch  is not going  to work.
-
-
-Thats in the first patch i sent out which I hope Stephen will apply
-right away.
-This one depends on that. So you must apply that patch, then this.
-
-cheers,
-jamal
-
-
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
+OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQoNCj5PbiBXZWQsIDIwMTItMTEtMjggYXQgMjA6
+MjAgKzAwMDAsIEJlbiBIdXRjaGluZ3Mgd3JvdGU6DQo+PiBPbiBXZWQsIDIwMTItMTEtMjggYXQg
+MTE6MjAgKzA1MzAsIFNhdGh5YSBQZXJsYSB3cm90ZToNCj4+ID4gT24gQkUyIGNoaXAsIGFuIGlu
+dGVycnVwdCBtYXkgYmUgcmFpc2VkIGV2ZW4gd2hlbiBFUSBpcyBpbiB1bi1hcm1lZCBzdGF0ZS4N
+Cj4+ID4gQXMgYSByZXN1bHQgYmVfaW50eCgpOjpldmVudHNfZ2V0KCkgYW5kIGJlX3BvbGw6ZXZl
+bnRzX2dldCgpIGNhbiByYWNlIGFuZA0KPj4gPiBub3RpZnkgYW4gRVEgd3JvbmdseS4NCj4+ID4N
+Cj4+ID4gRml4IHRoaXMgYnkgY291bnRpbmcgZXZlbnRzIG9ubHkgaW4gYmVfcG9sbCgpLiBDb21t
+aXQgMGI1NDVhNjI5IGZpeGVzDQo+PiA+IHRoZSBzYW1lIGlzc3VlIGluIHRoZSBNU0kteCBwYXRo
+Lg0KPj4gPg0KPj4gPiBCdXQsIG9uIExhbmNlciwgSU5UeCBjYW4gYmUgZGUtYXNzZXJ0ZWQgb25s
+eSBieSBub3RpZnlpbmcgbnVtIGV2dHMuIFRoaXMNCj4+ID4gaXMgbm90IGFuIGlzc3VlIGFzIHRo
+ZSBhYm92ZSBCRTIgYmVoYXZpb3IgZG9lc24ndCBleGlzdC9oYXMgbmV2ZXIgYmVlbg0KPj4gPiBz
+ZWVuIG9uIExhbmNlci4NCj4+IFsuLi5dDQo+PiA+IEBAIC0yMDE0LDE1ICsxOTk2LDIzIEBAIHN0
+YXRpYyBpbnQgYmVfcnhfY3FzX2NyZWF0ZShzdHJ1Y3QgYmVfYWRhcHRlcg0KPiphZGFwdGVyKQ0K
+Pj4gPg0KPj4gPiAgc3RhdGljIGlycXJldHVybl90IGJlX2ludHgoaW50IGlycSwgdm9pZCAqZGV2
+KQ0KPj4gPiAgew0KPj4gPiAtCXN0cnVjdCBiZV9hZGFwdGVyICphZGFwdGVyID0gZGV2Ow0KPj4g
+PiAtCWludCBudW1fZXZ0czsNCj4+ID4gKwlzdHJ1Y3QgYmVfZXFfb2JqICplcW8gPSBkZXY7DQo+
+PiA+ICsJc3RydWN0IGJlX2FkYXB0ZXIgKmFkYXB0ZXIgPSBlcW8tPmFkYXB0ZXI7DQo+PiA+ICsJ
+aW50IG51bV9ldnRzID0gMDsNCj4+ID4NCj4+ID4gLQkvKiBXaXRoIElOVHggb25seSBvbmUgRVEg
+aXMgdXNlZCAqLw0KPj4gPiAtCW51bV9ldnRzID0gZXZlbnRfaGFuZGxlKCZhZGFwdGVyLT5lcV9v
+YmpbMF0pOw0KPj4gPiAtCWlmIChudW1fZXZ0cykNCj4+ID4gLQkJcmV0dXJuIElSUV9IQU5ETEVE
+Ow0KPj4gPiAtCWVsc2UNCj4+ID4gLQkJcmV0dXJuIElSUV9OT05FOw0KPj4gPiArCS8qIE9uIExh
+bmNlciwgY2xlYXItaW50ciBiaXQgb2YgdGhlIEVRIERCIGRvZXMgbm90IHdvcmsuDQo+PiA+ICsJ
+ICogSU5UeCBpcyBkZS1hc3NlcnRlZCBvbmx5IG9uIG5vdGlmeWluZyBudW0gZXZ0cy4NCj4+ID4g
+KwkgKi8NCj4+ID4gKwlpZiAobGFuY2VyX2NoaXAoYWRhcHRlcikpDQo+PiA+ICsJCW51bV9ldnRz
+ID0gZXZlbnRzX2dldChlcW8pOw0KPj4gPiArDQo+PiA+ICsJLyogVGhlIEVRLW5vdGlmeSBtYXkg
+bm90IGRlLWFzc2VydCBJTlR4IHJpZ2h0YXdheSwgY2F1c2luZw0KPj4gPiArCSAqIHRoZSBJU1Ig
+dG8gYmUgaW52b2tlZCBhZ2Fpbi4gU28sIHJldHVybiBIQU5ETEVEIGV2ZW4gd2hlbg0KPj4gPiAr
+CSAqIG51bV9ldnRzIGlzIHplcm8uDQo+PiA+ICsJICovDQo+PiA+ICsJYmVfZXFfbm90aWZ5KGFk
+YXB0ZXIsIGVxby0+cS5pZCwgZmFsc2UsIHRydWUsIG51bV9ldnRzKTsNCj4+ID4gKwluYXBpX3Nj
+aGVkdWxlKCZlcW8tPm5hcGkpOw0KPj4gPiArCXJldHVybiBJUlFfSEFORExFRDsNCj4+ID4gIH0N
+Cj4+IFsuLi5dDQo+Pg0KPj4gWW91IHNob3VsZG4ndCB1bmNvbmRpdGlvbmFsbHkgcmV0dXJuIElS
+UV9IQU5ETEVELiAgVGhpcyBwcmV2ZW50cw0KPj4gaW50ZXJydXB0IHN0b3JtIGRldGVjdGlvbiBm
+cm9tIHdvcmtpbmcsIG5vdCBqdXN0IGZvciB5b3VyIGRldmljZSBidXQgZm9yDQo+PiBhbnl0aGlu
+ZyBlbHNlIHNoYXJpbmcgaXRzIElSUS4NCj4+DQo+PiBJIHVuZGVyc3RhbmQgdGhlcmUgaXMgYSBy
+ZWFsIHByb2JsZW0gdG8gYmUgZml4ZWQgKFBDSWUgd3JpdGUgY29tcGxldGlvbnMNCj4+IG92ZXJ0
+YWtpbmcgSU5UeCBkZWFzc2VydGlvbiwgYW5kIG1heWJlIGEgc3BlY2lmaWMgaGFyZHdhcmUgYnVn
+KS4NCj5bLi4uXQ0KPg0KPkkgd2FzIHRoaW5raW5nIG9mIHJlYWQgY29tcGxldGlvbnM7IHRoZXJl
+IGFyZSBubyB3cml0ZSBjb21wbGV0aW9ucyB0bw0KPndhaXQgZm9yIHNvIHlvdSdyZSBwcmV0dHkg
+bXVjaCBndWFyYW50ZWVkIHRvIGdldCBjYWxsZWQgYSBzZWNvbmQgdGltZS4NCj5NYXliZSB5b3Ug
+c2hvdWxkIGFkZCBhbiBNTUlPIHJlYWQgYWZ0ZXIgY2FsbGluZyBiZV9lcV9ub3RpZnkoKS4NCg0K
+QmVuLCBJJ20gdmVyeSBzb3JyeSBmb3Igbm90IHJlcGx5aW5nIHRvIHRoaXMgdGhyZWFkIGVhcmxp
+ZXIuIEkgbmVlZGVkIHRpbWUgdG8gcGxheSB3aXRoDQp5b3VyIHN1Z2dlc3RlZCBzb2x1dGlvbiBh
+bmQgYmV0dGVyIHVuZGVyc3RhbmQgdGhlIEhXIGJlaGF2aW9yIGluIHRoaXMgY2FzZS4NCg0KQWRk
+aW5nIGFuIGV4dHJhIFBDSSBtZW1vcnkgcmVhZCBhZnRlciB0aGUgRVEtbm90aWZ5IGhlbHBzIGlu
+IHN5bmNpbmcgdGhlIFBDSSBkZS1hc3NlcnQNCm1lc3NhZ2UgKm9ubHkqIGlmIGl0IHdhcyBhbHJl
+YWR5IGlzc3VlZC4NCkJ1dCwgdGhlcmUgYXJlIGNhc2VzIHdoZW4gdGhlIEhXIGJsb2NrIHRha2Vz
+IHNvbWUgdGltZSAobG9uZ2VyKSB0byBpbml0aWF0ZSB0aGUgSU5UeCBkZS1hc3NlcnQuDQpUaGUg
+UENJIG1lbW9yeSByZWFkIHdvdWxkIGNvbXBsZXRlIGJ1dCB0aGUgZGUtYXNzZXJ0IHdvdWxkbid0
+IGhhdmUgaGFwcGVuZWQgeWV0Lg0KVGhlIFBDSSByZWFkIHN5bmMgd2lsbCB3b3JrIG9ubHkgaWYg
+dGhlIGRlLWFzc2VydCB3YXMgaXNzdWVkICpiZWZvcmUqIHRoZSBQQ0ktcmVhZCByZXF1ZXN0IHdh
+cyBzZWVuIGJ5IHRoZSBIVy4NCg0KdGhhbmtzLA0KLVNhdGh5YQ0K
