@@ -1,56 +1,90 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: inaccurate packet scheduling
-Date: Tue, 18 Dec 2012 10:43:50 -0800
-Message-ID: <20121218104350.6aec09fd@nehalam.linuxnetplumber.net>
-References: <20121218150407.GB1533@minipsycho.orion>
-	<e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
-	<20121218175409.GA1690@minipsycho.orion>
-	<CANn89iJdROkJ+dZgfDB9wPpQ3wXdUHK7SX=C2iUbHxwh9=5orw@mail.gmail.com>
-	<20121218184036.GB1690@minipsycho.orion>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: [PATCH] build: unbreak linkage of m_xt.so
+Date: Tue, 18 Dec 2012 13:47:58 -0500
+Message-ID: <201212181348.00379.vapier@gentoo.org>
+References: <alpine.LNX.2.01.1212160119060.7193@nerf07.vanv.qr> <1355617968-26138-1-git-send-email-jengelh@inai.de> <20121218092130.1d3f4239@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed;
+  boundary="nextPart6460055.t50IdOxJmL";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	jhs@mojatatu.com, davem@davemloft.net, tgraf@suug.ch,
-	netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49124 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755448Ab2LRSpv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2012 13:45:51 -0500
-In-Reply-To: <20121218184036.GB1690@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jan Engelhardt <jengelh@inai.de>, stephen.hemminger@vyatta.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com, urykhy@gmail.com,
+	shemonc@gmail.com, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20121218092130.1d3f4239@nehalam.linuxnetplumber.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Dec 2012 19:40:36 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
+--nextPart6460055.t50IdOxJmL
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-> Tue, Dec 18, 2012 at 07:06:53PM CET, edumazet@google.com wrote:
-> >> No such messages in log
-> >>
-> >>>Also turn off TSO since it screws up any form of rate control.
-> >>
-> >> Turning off TSO did not help. However, turning off scatter-gather
-> >> helped, on both HP DL360G8 (igb) and IBM JS22 (ehea).
-> >>
-> >
-> >Think to also disable GSO
-> 
-> On rhel6 kernel (2.6.32-based) I have to disable GSO as well.
-> 
-> The question is: Is this a bug or is it mandatory to get this offload
-> disabled in order to TBF to be working correctly?
-> 
-> Thanks a bunch.
-> 
-> Jiri
-> 
-> >
-> >Alternatively, you can use "mtu 65536" to allow TBF to send packets
-> >bigger than 2048 bytes
+On Tuesday 18 December 2012 12:21:30 Stephen Hemminger wrote:
+> On Sun, 16 Dec 2012 01:32:48 +0100 Jan Engelhardt wrote:
+> > Commit v3.7.0~10 caused the variable new PKG_CONFIG variable never
+> > to be present at the time of calling make, leading to tc/m_xt.so
+> > not linked with -lxtables (result from pkg-config xtables --libs),
+> > that in turn leading to
+> >=20
+> > tc: symbol lookup error: /usr/lib64/tc//m_xt.so: undefined symbol:
+> > xtables_init_all
+> >=20
+> > Fixing that.
+> >=20
+> > --- a/configure
+> > +++ b/configure
+> > @@ -4,7 +4,6 @@
+> >  INCLUDE=3D${1:-"$PWD/include"}
+> >  : ${PKG_CONFIG:=3Dpkg-config}
+> >  : ${CC=3Dgcc}
+> > -echo "PKG_CONFIG:=3D${PKG_CONFIG}" >>Config
+> >=20
+> >  # Make a temp directory in build tree.
+> >  TMPDIR=3D$(mktemp -d config.XXXXXX)
+> > @@ -224,6 +223,7 @@ rm -f $TMPDIR/ipsettest.c $TMPDIR/ipsettest
+> >  }
+> > =20
+> >  echo "# Generated config based on" $INCLUDE >Config
+> > +echo "PKG_CONFIG:=3D${PKG_CONFIG}" >>Config
+> >  echo "TC schedulers"
+>=20
+> Ok, manually did the diff (conflicted with other previous changes).
 
-It is really a bug. The packet schedulers mostly assume that a single
-skb results in a single packet, and that the skb->len equals the size
-of the packet on the wire.
+this patch is no longer necessary one you merged my:
+	configure: move toolchain init to a function
+
+it's actually undesirable to apply this after that since it makes the confi=
+gure=20
+script less clear again ...
+
+sorry if my commit message wasn't obvious.
+=2Dmike
+
+--nextPart6460055.t50IdOxJmL
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
+
+iQIcBAABAgAGBQJQ0LpgAAoJEEFjO5/oN/WB1IAQAL1PR8tSYOCBHvmLTWWVby2T
+gNnBpsbRUjgu0oc6LwDOf1DuTZp4PqjD6/0dVa1MwGSchQWcsgII3op0t8ApBYZU
+Jv1vvL8Uu383PMOv8YUa8uNQSlj6J1WxU/1xmP10dD2I46Huf15pRPtjbH1wcx3m
+Z1/TYika3qIaaV0/Xq/btOJBe3oYmkO3OIwgqrSxGKN/beFKEpO/RUKozLke8O3w
+euPGoUEvE4eQPf/KW38F+ebD+fIZbsRiWKzqUDEBptIRHti9qxcFML8mCT/9hWjN
+vafKdWT/EBlMhOWOaB7OOPZG1jBYxp+q3Ur3fynhRDzYziRgoekD9kwr4byd/t86
+ZIKm+16sthFAQQBwTZ7Gfjj0y275+3kxEMjvYran3pHowakcO10NTRjezJBIGjVE
+N8hFfU25NC/TraOrT+4NkfHLo0SOs1dQlUItrrURmnfBhZFtfBMrSfGKMzE6CVq8
+Y6WDvAJepceMDaC4ZY4UR0pWHYbIM573pG9s/TdnwiX5Bjx9DlCVYaNOrUyE+2IN
+ErjVwRkN/wuHOKcATRLwqOGPjWnki7F+DevyD8K7JL5YHDiPhi8xfIa3JdTuUw1X
+YTrocW6wWaC+BXNgv4sb++yvy+MvxeWrlzOVL2sxOTcVNGQlKCsdF/JPdiXxvuCN
+jHE4Jx5HLuIi9YmoT+K0
+=u2bt
+-----END PGP SIGNATURE-----
+
+--nextPart6460055.t50IdOxJmL--
