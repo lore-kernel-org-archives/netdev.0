@@ -1,8 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH V2 09/12] bridge: Add the ability to configure untagged
  vlans
-Date: Wed, 19 Dec 2012 01:01:07 +0200
-Message-ID: <20121218230107.GA1135@redhat.com>
+Date: Wed, 19 Dec 2012 01:04:07 +0200
+Message-ID: <20121218230407.GB1135@redhat.com>
 References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
  <1355857263-31197-10-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
@@ -11,10 +11,10 @@ Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
 	or.gerlitz@gmail.com, jhs@mojatatu.com
 To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7186 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:14814 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751465Ab2LRW6A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2012 17:58:00 -0500
+	id S1751367Ab2LRXBA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2012 18:01:00 -0500
 Content-Disposition: inline
 In-Reply-To: <1355857263-31197-10-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
@@ -72,11 +72,6 @@ On Tue, Dec 18, 2012 at 02:01:00PM -0500, Vlad Yasevich wrote:
 > +	}
 > +	br_vlan_hold(vlan);
 > +	rcu_assign_pointer(br->untagged, vlan);
-
-Is there a reason for rcu here but not else where? If all users are under
-rtnl you can just assign in a simple way.
-If not then rcu_dereference_protected would be more appropriate.
-
 > +}
 > +
 > +/* Must be protected by RTNL */
@@ -148,6 +143,11 @@ If not then rcu_dereference_protected would be more appropriate.
 > +	if (br->untagged == vlan) {
 > +		br_vlan_put(vlan);
 > +		rcu_assign_pointer(br->untagged, NULL);
+
+Is something doing an rcu sync after this point?
+If yes maybe add a comment saying where it is, if not - some rcu read
+side could still be using it through this pointer.
+
 > +	}
 > +
 >  	/* Drop the self-ref to trigger descrution. */
