@@ -1,60 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2] netlink: align attributes on 64-bits
-Date: Tue, 18 Dec 2012 17:11:03 +0000
-Message-ID: <20121218171103.GI27746@casper.infradead.org>
-References: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com>
- <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com>
- <20121218125735.GG27746@casper.infradead.org>
- <50D09897.8030508@6wind.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B70F5@saturn3.aculab.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: network namespace and DNS lookups
+Date: Tue, 18 Dec 2012 11:22:59 -0600
+Message-ID: <1355851379.30992.12.camel@dcbw.foobar.com>
+References: <CAFaHj6GVgDf2QXUWyaKYnvOqLJRjG+kA32eEk5psPkmc-RPY1Q@mail.gmail.com>
+	 <CAFaHj6HT0c59us_7F9Uh7BYh_YXGRt30=yLOrV=hcrG29YO-qA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.dichtel@6wind.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ravi Aysola <ravi.mlists@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:60192 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754203Ab2LRRLF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 12:11:05 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70F5@saturn3.aculab.com>
+Received: from mx1.redhat.com ([209.132.183.28]:12560 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754609Ab2LRRVW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2012 12:21:22 -0500
+In-Reply-To: <CAFaHj6HT0c59us_7F9Uh7BYh_YXGRt30=yLOrV=hcrG29YO-qA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/18/12 at 04:50pm, David Laight wrote:
-> > 2/ Suppose that the attribute is:
-> > 
-> >    struct foo {
-> >    	__u64 bar1;
-> >    	__u32 bar2;
-> >    }
-> >    => sizeof(struct foo) = 12 (= payload)
+On Tue, 2012-12-18 at 10:49 -0500, Ravi Aysola wrote:
+> I think I sent my earlier email a bit prematurely.  I do have
+> /etc/netns/<namespace-name>/resolv.conf
+> files under each of my namespaces. Now the question is, how does a
+> user space process
+> (say bind)  look at a namespace specific resolv.conf instead of
+> default one?  Have any of
+> these standard applications been modified to work with namespace
+> specific config files?
+
+Wouldn't that be the glibc resolver's domain?  DNS lookups aren't done
+by the kernel, but by glibc in userspace.  And glibc is also what reads
+resolv.conf, so most things DNS-namespace related would need to happen
+there.
+
+Dan
+
+> thanks again
+> ravi/
 > 
-> That is only true if the host architecture aligns 64bit items
-> on 32 it boundaries (as i386 does).
-> Otherwise there are 4 bytes of padding at the end and the
-> size is 16.
-> 
-> Actually it is worse than that.
-> Consider the structure:
-> 	struct bar {
-> 		__u32 foo1;
-> 		__u64 foo2;
-> 	}
-> On i386 it will have size 12 and foo2 will be at offset 4.
-> On sparc32 (and most 64bit) it will have size 16 with foo2
-> at offset 8 (and 4 bytes of pad after foo1).
-
-This is a known problem and I can't think of anything
-that can be done about it except for memcpy()ing the
-data before accessing it.
-
-If you have ideas, I'm more that willing to listen :)
-
-> Do these messages move between systems?
-> If they do then any 64bit items need an explicit alignment
-> eg tag with __attribute__((aligned(8))) (or aligned(4)).
-
-They don't. Netlink has and will be host bound. It also
-uses host byte order for that reason.
+> On Tue, Dec 18, 2012 at 10:09 AM, Ravi Aysola <ravi.mlists@gmail.com> wrote:
+> > Has there been any work in any of the recent kernels to limit the DNS lookup
+> > to a particular network namespace?  Do we have any facility to specify the
+> > DNS resolvers on network namespace basis (such as /etc/ns/resolv.conf)?
+> >
+> > thank you
+> > ravi/
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
