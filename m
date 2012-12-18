@@ -1,92 +1,83 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] xen/netfront: improve truesize tracking
-Date: Tue, 18 Dec 2012 15:26:38 +0000
-Message-ID: <1355844398.14620.254.camel@zakaz.uk.xensource.com>
-References: <1355838711-5473-1-git-send-email-ian.campbell@citrix.com>
-	 <1355843525.9380.18.camel@edumazet-glaptop>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: inaccurate packet scheduling
+Date: Tue, 18 Dec 2012 16:04:07 +0100
+Message-ID: <20121218150407.GB1533@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Sander Eikelenboom <linux@eikelenboom.it>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	annie li <annie.li@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: Eric Dumazet <erdnetdev@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jhs@mojatatu.com, davem@davemloft.net, edumazet@google.com,
+	tgraf@suug.ch, shemminger@vyatta.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:26093 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755167Ab2LRP0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 10:26:41 -0500
-In-Reply-To: <1355843525.9380.18.camel@edumazet-glaptop>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:62969 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755152Ab2LRP2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 10:28:48 -0500
+Received: by mail-wi0-f172.google.com with SMTP id o1so2790735wic.5
+        for <netdev@vger.kernel.org>; Tue, 18 Dec 2012 07:28:47 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-12-18 at 15:12 +0000, Eric Dumazet wrote:
-> On Tue, 2012-12-18 at 13:51 +0000, Ian Campbell wrote:
-> > Using RX_COPY_THRESHOLD is incorrect if the SKB is actually smaller
-> > than that. We have already accounted for this in
-> > NETFRONT_SKB_CB(skb)->pull_to so use that instead.
-> > 
-> > Fixes WARN_ON from skb_try_coalesce.
-> > 
-> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
-> > Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> > Cc: annie li <annie.li@oracle.com>
-> > Cc: xen-devel@lists.xensource.com
-> > Cc: netdev@vger.kernel.org
-> > Cc: stable@kernel.org # 3.7.x only
-> > ---
-> >  drivers/net/xen-netfront.c |   15 +++++----------
-> >  1 files changed, 5 insertions(+), 10 deletions(-)
-> > 
-> > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> > index caa0110..b06ef81 100644
-> > --- a/drivers/net/xen-netfront.c
-> > +++ b/drivers/net/xen-netfront.c
-> > @@ -971,17 +971,12 @@ err:
-> >  		 * overheads. Here, we add the size of the data pulled
-> >  		 * in xennet_fill_frags().
-> >  		 *
-> > -		 * We also adjust for any unused space in the main
-> > -		 * data area by subtracting (RX_COPY_THRESHOLD -
-> > -		 * len). This is especially important with drivers
-> > -		 * which split incoming packets into header and data,
-> > -		 * using only 66 bytes of the main data area (see the
-> > -		 * e1000 driver for example.)  On such systems,
-> > -		 * without this last adjustement, our achievable
-> > -		 * receive throughout using the standard receive
-> > -		 * buffer size was cut by 25%(!!!).
-> > +		 * We also adjust for the __pskb_pull_tail done in
-> > +		 * handle_incoming_queue which pulls data from the
-> > +		 * frags into the head area, which is already
-> > +		 * accounted in RX_COPY_THRESHOLD.
-> >  		 */
-> > -		skb->truesize += skb->data_len - RX_COPY_THRESHOLD;
-> > +		skb->truesize += skb->data_len - NETFRONT_SKB_CB(skb)->pull_to;
-> >  		skb->len += skb->data_len;
-> >  
-> >  		if (rx->flags & XEN_NETRXF_csum_blank)
-> 
-> 
-> But skb truesize is not what you think.
+Hi all.
 
-Indeed, it seems I was completely backwards about what it means!
+Run one of the following 2 scripts on machine A:
 
-> You must account the exact memory used by this skb, not only the used
-> part of it.
-> 
-> At the very minimum, it should be
-> 
-> skb->truesize += skb->data_len;
-> 
-> But it really should be the allocated size of the fragment.
-> 
-> If its a page, then its a page, even if you use one single byte in it.
+#!/bin/bash
+tc qdisc del dev eth0 root
+sleep 1
+tc -batch << EOF
+qdisc add dev eth0 root handle 1: prio bands 2 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+qdisc add dev eth0 parent 1:1 handle 10: pfifo limit 50
+qdisc add dev eth0 parent 1:2 handle 20 tbf latency 100ms rate 4mbit burst 2m
+filter add dev eth0 parent 1: protocol ip u32 match ip dst $machineB_ip flowid 1:2
+EOF
 
-So actually we want += PAGE_SIZE * skb_shinfo(skb)->nr_frags ?
+#!/bin/bash
+tc qdisc del dev eth0 root
+sleep 1
+tc -batch << EOF
+qdisc add dev eth0 root handle 1: prio bands 2 priomap 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+qdisc add dev eth0 parent 1:1 handle 10: pfifo limit 20
+qdisc add dev eth0 parent 1:2 handle 20: pfifo limit 20
+filter add dev eth0 parent 1: protocol ip pref 10 \
+u32 match ip dst $machineB_ip \
+flowid 1:2 \
+police rate 4Mbit burst 2m conform-exceed drop
+EOF
 
-Sander, can you try that change?
+And run:
+[machineB ~]# iperf -s
+[machineA ~]# iperf -c machineB_ip -t 60
 
-Ian.
+Expected results are: ~3.8-4.2 Mbits/s
+But actual results are: ~130-170 Kbits/s with tbf, ~70-300 Kbits/s with policy rate
+
+[machineA ~]# tc -s qdisc list dev eth0
+qdisc prio 1: root refcnt 9 bands 2 priomap  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ Sent 1512384 bytes 1032 pkt (dropped 729, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0 
+qdisc pfifo 10: parent 1:1 limit 50p
+ Sent 4560 bytes 32 pkt (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0 
+qdisc tbf 20: parent 1:2 rate 4000Kbit burst 2Mb lat 100.0ms 
+ Sent 1507824 bytes 1000 pkt (dropped 729, overlimits 0 requeues 0) 
+ backlog 0b 0p requeues 0 
+
+
+Tested with kernel pulled from linus's git today. This happens with older
+kernels as well (I tried 2.6.32-based rhel6 kernels).
+
+This happens to me on following machines:
+HP DL360G8 (x86_64) http://people.redhat.com/jpirko/aThoo2Ei/dl380g8/
+HP DL360G3 (i686) 
+IBM JS22 (ppc64) http://people.redhat.com/jpirko/aThoo2Ei/ibmjs22/
+
+On following machines, I do not observe this issue:
+qemu kvm (x86_64)
+IBM Zseries (s390x) http://people.redhat.com/jpirko/aThoo2Ei/ibmz/
+
+Please ask in case you need me to provide any other details.
+
+Thanks.
+
+Jiri
