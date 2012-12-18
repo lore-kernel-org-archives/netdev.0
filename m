@@ -1,114 +1,57 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH 2/2] be2net: fix wrong frag_idx reported by RX CQ
-Date: Tue, 18 Dec 2012 11:08:51 +0530
-Message-ID: <42b4ddf1-1024-4762-b86c-66c033afc219@CMEXHTCAS2.ad.emulex.com>
-References: <1355809131-8924-1-git-send-email-sathya.perla@emulex.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [patch net-next 0/4] net: allow to change carrier from
+ userspace
+Date: Mon, 17 Dec 2012 22:49:57 -0800
+Message-ID: <20121217224957.70775f99@nehalam.linuxnetplumber.net>
+References: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
+	<20121216105451.GA1546@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sathya Perla <sathya.perla@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com,
+	greearb@candelatech.com, fbl@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:29992 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753741Ab2LRFgU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 00:36:20 -0500
-In-Reply-To: <1355809131-8924-1-git-send-email-sathya.perla@emulex.com>
+Received: from mail.vyatta.com ([76.74.103.46]:35962 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751233Ab2LRGvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2012 01:51:16 -0500
+In-Reply-To: <20121216105451.GA1546@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The RX CQ can report completions with invalid frag_idx when the RXQ that
-was *previously* using it, was not cleaned up properly. This hits
-a BUG_ON() in be2net.
+On Sun, 16 Dec 2012 11:54:51 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-When completion coalescing is enabled on a CQ, an explicit CQ-notify
-(with rearm) is needed for each compl, to flush partially coalesced CQ
-entries that are pending DMA.
+> 
+> I see that the patchset is in state "Rejected" in patchwork.
+> Stephen convinced me for a moment that the problem can be handled by operstate.
+> As it turned out (in last 3-4 emails in thread) operstate use would not
+> be an option.
+> 
+> So how should I proceed? Should I repost the patchset? Anyone has any other
+> comments?
+> 
+> thanks.
 
-In be_close(), this fix now notifies CQ for each compl, waits explicitly
-for the flush compl to arrive and complains if it doesn't arrive.
+Don't take my comments so far as negative. Devices to need to be more controllable
+from userspace. But I have concerns about introducing a new way to change state causing
+more races.  For example, changing carrier state should cause netlink events to fire and
+these should post to routing daemons etc. Also, what happens if some confused developer
+mixes operstate and direct carrier control.
 
-Also renaming be_crit_error() to be_hw_error() as it's the more
-appropriate name and to convey that we don't wait for the flush compl
-only when a HW error has occurred.
+The root cause of all this confusion is that their are three ways of expressing
+the same state, and they are controlled through different paths:
+  a. Old BSD style flag bit IFF_RUNNING
+  b. LINK_STATE bit in kernel (netif_carrier_ok)
+  c. RFC2863 operational state
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    2 +-
- drivers/net/ethernet/emulex/benet/be_main.c |   38 ++++++++++++++++++++++----
- 2 files changed, 33 insertions(+), 7 deletions(-)
+The operstate stuff is the most complete, but is the weakest in implementation:
+  a. kernel drivers check netif_carrier_ok when they should be using netif_dormant
+     (bridge is one example). But what will break if this changes?
+  b. lower device state is not tracked correctly by tunnels and a few other layered devices
+  c. dormant from kernel space was never used by much.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index abf26c7..3bc1912 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -616,7 +616,7 @@ static inline bool be_error(struct be_adapter *adapter)
- 	return adapter->eeh_error || adapter->hw_error || adapter->fw_timeout;
- }
- 
--static inline bool be_crit_error(struct be_adapter *adapter)
-+static inline bool be_hw_error(struct be_adapter *adapter)
- {
- 	return adapter->eeh_error || adapter->hw_error;
- }
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index bf50e73..9dca22b 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1689,15 +1689,41 @@ static void be_rx_cq_clean(struct be_rx_obj *rxo)
- 	struct be_queue_info *rxq = &rxo->q;
- 	struct be_queue_info *rx_cq = &rxo->cq;
- 	struct be_rx_compl_info *rxcp;
-+	struct be_adapter *adapter = rxo->adapter;
-+	int flush_wait = 0;
- 	u16 tail;
- 
--	/* First cleanup pending rx completions */
--	while ((rxcp = be_rx_compl_get(rxo)) != NULL) {
--		be_rx_compl_discard(rxo, rxcp);
--		be_cq_notify(rxo->adapter, rx_cq->id, false, 1);
-+	/* Consume pending rx completions.
-+	 * Wait for the flush completion (identified by zero num_rcvd)
-+	 * to arrive. Notify CQ even when there are no more CQ entries
-+	 * for HW to flush partially coalesced CQ entries.
-+	 * In Lancer, there is no need to wait for flush compl.
-+	 */
-+	for (;;) {
-+		rxcp = be_rx_compl_get(rxo);
-+		if (rxcp == NULL) {
-+			if (lancer_chip(adapter))
-+				break;
-+
-+			if (flush_wait++ > 10 || be_hw_error(adapter)) {
-+				dev_warn(&adapter->pdev->dev,
-+					 "did not receive flush compl\n");
-+				break;
-+			}
-+			be_cq_notify(adapter, rx_cq->id, true, 0);
-+			mdelay(1);
-+		} else {
-+			be_rx_compl_discard(rxo, rxcp);
-+			be_cq_notify(adapter, rx_cq->id, true, 1);
-+			if (rxcp->num_rcvd == 0)
-+				break;
-+		}
- 	}
- 
--	/* Then free posted rx buffer that were not used */
-+	/* After cleanup, leave the CQ in unarmed state */
-+	be_cq_notify(adapter, rx_cq->id, false, 0);
-+
-+	/* Then free posted rx buffers that were not used */
- 	tail = (rxq->head + rxq->len - atomic_read(&rxq->used)) % rxq->len;
- 	for (; atomic_read(&rxq->used) > 0; index_inc(&tail, rxq->len)) {
- 		page_info = get_rx_page_info(rxo, tail);
-@@ -2157,7 +2183,7 @@ void be_detect_error(struct be_adapter *adapter)
- 	u32 sliport_status = 0, sliport_err1 = 0, sliport_err2 = 0;
- 	u32 i;
- 
--	if (be_crit_error(adapter))
-+	if (be_hw_error(adapter))
- 		return;
- 
- 	if (lancer_chip(adapter)) {
--- 
-1.7.1
+The good news is that the old BSD style IFF_RUNNING bit is the most commonly
+used bit by applications and it works correctly in either carrier or operstate mode.
