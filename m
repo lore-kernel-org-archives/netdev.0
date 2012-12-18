@@ -1,76 +1,82 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] netlink: align attributes on 64-bits
-Date: Tue, 18 Dec 2012 09:19:04 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70F2@saturn3.aculab.com>
-References: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com> <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70F1@saturn3.aculab.com> <50CF57DC.5050804@6wind.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/4] net: allow to change carrier from userspace
+Date: Tue, 18 Dec 2012 10:31:41 +0100
+Message-ID: <20121218093141.GA1533@minipsycho.orion>
+References: <1355309887-1081-1-git-send-email-jiri@resnulli.us>
+ <20121216105451.GA1546@minipsycho.orion>
+ <20121217224957.70775f99@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <bhutchings@solarflare.com>, <tgraf@suug.ch>,
-	<netdev@vger.kernel.org>, <davem@davemloft.net>
-To: <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com,
+	greearb@candelatech.com, fbl@redhat.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33857 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754160Ab2LRJVk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 04:21:40 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 28855-08 for <netdev@vger.kernel.org>;
- Tue, 18 Dec 2012 09:21:35 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <50CF57DC.5050804@6wind.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:43686 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754635Ab2LRJbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 04:31:46 -0500
+Received: by mail-wi0-f172.google.com with SMTP id o1so2525449wic.17
+        for <netdev@vger.kernel.org>; Tue, 18 Dec 2012 01:31:45 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20121217224957.70775f99@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Le 17/12/2012 18:06, David Laight a =E9crit :
-> >>   int nla_put(struct sk_buff *skb, int attrtype, int attrlen, cons=
-t void *data)
-> >>   {
-> >> -	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen)))
-> >> +	int align =3D IS_ALIGNED((unsigned long)skb_tail_pointer(skb), 8=
-) ? 0 : 4;
-> >
-> > I've just realised where you are adding this!
-> > You only want to add pad if the attribute is a single 64bit item,
-> > not whenever the destination is misaligned.
-> As said in the commit log, I want to align all attributes. An attribu=
-te can be
-> like this:
->=20
-> struct foo {
-> 	__u32 bar1;
-> 	__u32 bar2;
-> 	__u64 bar3;
-> }
->=20
-> nla_put() don't know what is contained in the attribute.
+Tue, Dec 18, 2012 at 07:49:57AM CET, shemminger@vyatta.com wrote:
+>On Sun, 16 Dec 2012 11:54:51 +0100
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>> 
+>> I see that the patchset is in state "Rejected" in patchwork.
+>> Stephen convinced me for a moment that the problem can be handled by operstate.
+>> As it turned out (in last 3-4 emails in thread) operstate use would not
+>> be an option.
+>> 
+>> So how should I proceed? Should I repost the patchset? Anyone has any other
+>> comments?
+>> 
+>> thanks.
+>
+>Don't take my comments so far as negative. Devices to need to be more controllable
+>from userspace. But I have concerns about introducing a new way to change state causing
+>more races.  For example, changing carrier state should cause netlink events to fire and
+>these should post to routing daemons etc. Also, what happens if some confused developer
+>mixes operstate and direct carrier control.
 
-Put there is no need to 8-byte align something whose size isn't a
-multiple of 8 bytes.
+I do not think that the race you are describing is of any concern. The
+same can happen now for any device. My patchset only adds a possibility
+for "soft devices" to change the carrier as well.
 
-> > ...
-> >> +	if (align) {
-> >> +		/* Goal is to add an attribute with size 4. We know that
-> >> +		 * NLA_HDRLEN is 4, hence payload is 0.
-> >> +		 */
-> >> +		__nla_reserve(skb, 0, 0);
-> >
-> > One of those zeros should be 'align - 4', then the comment
-> > can be more descriptive.
+Developer will not be likely confused. As the possibility of carrier
+change from userspace will be limited to small set of devices, for other
+devices the attempt will lead to -EOPNOTSUPP (in contrast with operstate
+which is available for all devices).
 
-> I thought if you were to research why we use 0, you would know that t=
-he first 0
-> is the type and the second is the payload size...
+I can add a comments/notes to code and operstates.txt stating the
+purpose of this iface.
 
-I can tell that one is the type and the other the size, you've
-implied that the 'type+size' actually total 4 bytes.
-I don't need to find out which is which!
-Now you've told me I'd have written:
-	_nla_reserve(skb, 0, align - NLA_HDRLEN);
+>
+>The root cause of all this confusion is that their are three ways of expressing
+>the same state, and they are controlled through different paths:
+>  a. Old BSD style flag bit IFF_RUNNING
+>  b. LINK_STATE bit in kernel (netif_carrier_ok)
+>  c. RFC2863 operational state
 
-The compiler could well have tracked the value - so know it is 4.
-OTOH you might want to generate the size of 'align' without
-using a conditional.
+I do not think so. Yes, for a) and c), these are strictly connected,
+expressing the same thing. But b) is not the same. It's on lower level
+than a) and c). What b) can be compared to is IFF_LOWER_UP.
 
-	David
+>
+>The operstate stuff is the most complete, but is the weakest in implementation:
+>  a. kernel drivers check netif_carrier_ok when they should be using netif_dormant
+>     (bridge is one example). But what will break if this changes?
+I agree, that should be changed.
+
+>  b. lower device state is not tracked correctly by tunnels and a few other layered devices
+>  c. dormant from kernel space was never used by much.
+>
+>The good news is that the old BSD style IFF_RUNNING bit is the most commonly
+>used bit by applications and it works correctly in either carrier or operstate mode.
+
+That is indeed a good thing.
