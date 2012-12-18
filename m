@@ -1,459 +1,357 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [RFC PATCH v3 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Tue, 18 Dec 2012 17:53:52 -0500
-Message-ID: <20121218225351.16104.48513.stgit@localhost>
-References: <20121218225001.16104.34454.stgit@localhost>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V2 09/12] bridge: Add the ability to configure untagged
+ vlans
+Date: Wed, 19 Dec 2012 01:01:07 +0200
+Message-ID: <20121218230107.GA1135@redhat.com>
+References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
+ <1355857263-31197-10-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, mst@redhat.com
-To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	or.gerlitz@gmail.com, jhs@mojatatu.com
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8745 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:7186 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751233Ab2LRWxy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2012 17:53:54 -0500
-In-Reply-To: <20121218225001.16104.34454.stgit@localhost>
+	id S1751465Ab2LRW6A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2012 17:58:00 -0500
+Content-Disposition: inline
+In-Reply-To: <1355857263-31197-10-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch corrects some problems with LSM/SELinux that were introduced
-with the multiqueue patchset.  The problem stems from the fact that the
-multiqueue work changed the relationship between the tun device and its
-associated socket; before the socket persisted for the life of the
-device, however after the multiqueue changes the socket only persisted
-for the life of the userspace connection (fd open).  For non-persistent
-devices this is not an issue, but for persistent devices this can cause
-the tun device to lose its SELinux label.
+On Tue, Dec 18, 2012 at 02:01:00PM -0500, Vlad Yasevich wrote:
+> A user may designate a certain vlan as untagged.  This means that
+> any ingress frame is assigned to this vlan and any forwarding decisions
+> are made with this vlan in mind.  On egress, any frames tagged/labeled
+> with untagged vlan have the vlan tag removed and are send as regular
+> ethernet frames.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  include/uapi/linux/if_bridge.h |    3 +
+>  net/bridge/br_if.c             |  146 +++++++++++++++++++++++++++++++++++++---
+>  net/bridge/br_netlink.c        |    6 +-
+>  net/bridge/br_private.h        |    2 +
+>  4 files changed, 144 insertions(+), 13 deletions(-)
+> 
+> diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+> index d0b4f5c..988d858 100644
+> --- a/include/uapi/linux/if_bridge.h
+> +++ b/include/uapi/linux/if_bridge.h
+> @@ -127,6 +127,9 @@ enum {
+>  	BR_VLAN_DEL,
+>  };
+>  
+> +#define BRIDGE_VLAN_INFO_MASTER		1
+> +#define BRIDGE_VLAN_INFO_UNTAGGED	2
+> +
+>  struct bridge_vlan_info {
+>  	u16 op_code;
+>  	u16 flags;
+> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+> index 57bbb35..14563fb 100644
+> --- a/net/bridge/br_if.c
+> +++ b/net/bridge/br_if.c
+> @@ -108,6 +108,34 @@ static void br_vlan_put(struct net_bridge_vlan *vlan)
+>  		br_vlan_destroy(vlan);
+>  }
+>  
+> +/* Must be protected by RTNL */
+> +static void br_vlan_add_untagged(struct net_bridge *br,
+> +				 struct net_bridge_vlan *vlan)
+> +{
+> +	ASSERT_RTNL();
+> +	if (br->untagged == vlan)
+> +		return;
+> +	else if (br->untagged) {
+> +		/* Untagged vlan is already set on the master,
+> +		 * so drop the ref since we'll be replacing it.
+> +		 */
+> +		br_vlan_put(br->untagged);
+> +	}
+> +	br_vlan_hold(vlan);
+> +	rcu_assign_pointer(br->untagged, vlan);
 
-We correct this problem by adding an opaque LSM security blob to the
-tun device struct which allows us to have the LSM security state, e.g.
-SELinux labeling information, persist for the lifetime of the tun
-device.  In the process we tweak the LSM hooks to work with this new
-approach to TUN device/socket labeling and introduce a new LSM hook,
-security_tun_dev_attach_queue(), to approve requests to attach to a
-TUN queue via TUNSETQUEUE.
+Is there a reason for rcu here but not else where? If all users are under
+rtnl you can just assign in a simple way.
+If not then rcu_dereference_protected would be more appropriate.
 
-The SELinux code has been adjusted to match the new LSM hooks, the
-other LSMs do not make use of the LSM TUN controls.  This patch makes
-use of the recently added "tun_socket:attach_queue" permission to
-restrict access to the TUNSETQUEUE operation.  On older SELinux
-policies which do not define the "tun_socket:attach_queue" permission
-the access control decision for TUNSETQUEUE will be handled according
-to the SELinux policy's unknown permission setting.
-
-Signed-off-by: Paul Moore <pmoore@redhat.com>
----
- drivers/net/tun.c                 |   27 +++++++++++++----
- include/linux/security.h          |   59 +++++++++++++++++++++++++++++--------
- security/capability.c             |   24 +++++++++++++--
- security/security.c               |   28 ++++++++++++++----
- security/selinux/hooks.c          |   50 ++++++++++++++++++++++++-------
- security/selinux/include/objsec.h |    4 +++
- 6 files changed, 154 insertions(+), 38 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 504f7f1..4b7754c 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -186,6 +186,7 @@ struct tun_struct {
- 	unsigned long ageing_time;
- 	unsigned int numdisabled;
- 	struct list_head disabled;
-+	void *security;
- };
- 
- static inline u32 tun_hashfn(u32 rxhash)
-@@ -496,6 +497,10 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
- 	struct tun_file *tfile = file->private_data;
- 	int err;
- 
-+	err = security_tun_dev_attach(tfile->socket.sk, tun->security);
-+	if (err < 0)
-+		goto out;
-+
- 	err = -EINVAL;
- 	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
- 		goto out;
-@@ -1389,6 +1394,7 @@ static void tun_free_netdev(struct net_device *dev)
- 
- 	BUG_ON(!(list_empty(&tun->disabled)));
- 	tun_flow_uninit(tun);
-+	security_tun_dev_free_security(tun->security);
- 	free_netdev(dev);
- }
- 
-@@ -1575,7 +1581,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 
- 		if (tun_not_capable(tun))
- 			return -EPERM;
--		err = security_tun_dev_attach(tfile->socket.sk);
-+		err = security_tun_dev_open(tun->security);
- 		if (err < 0)
- 			return err;
- 
-@@ -1632,7 +1638,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 
- 		spin_lock_init(&tun->lock);
- 
--		security_tun_dev_post_create(&tfile->sk);
-+		err = security_tun_dev_alloc_security(&tun->security);
-+		if (err < 0)
-+			goto err_free_dev;
- 
- 		tun_net_init(dev);
- 
-@@ -1805,12 +1813,18 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
- 
- 	if (ifr->ifr_flags & IFF_ATTACH_QUEUE) {
- 		tun = tfile->detached;
--		if (!tun)
-+		if (!tun) {
- 			ret = -EINVAL;
--		else if (tun_not_capable(tun))
-+			goto unlock;
-+		}
-+		if (tun_not_capable(tun)) {
- 			ret = -EPERM;
--		else
--			ret = tun_attach(tun, file);
-+			goto unlock;
-+		}
-+		ret = security_tun_dev_attach_queue(tun->security);
-+		if (ret < 0)
-+			goto unlock;
-+		ret = tun_attach(tun, file);
- 	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
- 		tun = rcu_dereference_protected(tfile->tun,
- 						lockdep_rtnl_is_held());
-@@ -1821,6 +1835,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
- 	} else
- 		ret = -EINVAL;
- 
-+unlock:
- 	rtnl_unlock();
- 	return ret;
- }
-diff --git a/include/linux/security.h b/include/linux/security.h
-index 05e88bd..e09a87b 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -983,17 +983,29 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
-  *	tells the LSM to decrement the number of secmark labeling rules loaded
-  * @req_classify_flow:
-  *	Sets the flow's sid to the openreq sid.
-+ * @tun_dev_alloc_security:
-+ *	This hook allows a module to allocate a security structure for a TUN
-+ *	device.
-+ *	@security pointer to a security structure pointer.
-+ *	Returns a zero on success, negative values on failure.
-+ * @tun_dev_free_security:
-+ *	This hook allows a module to free the security structure for a TUN
-+ *	device.
-+ *	@security pointer to the TUN device's security structure
-  * @tun_dev_create:
-  *	Check permissions prior to creating a new TUN device.
-- * @tun_dev_post_create:
-- *	This hook allows a module to update or allocate a per-socket security
-- *	structure.
-- *	@sk contains the newly created sock structure.
-+ * @tun_dev_attach_queue:
-+ *	Check permissions prior to attaching to a TUN device queue.
-+ *	@security pointer to the TUN device's security structure.
-  * @tun_dev_attach:
-- *	Check permissions prior to attaching to a persistent TUN device.  This
-- *	hook can also be used by the module to update any security state
-+ *	This hook can be used by the module to update any security state
-  *	associated with the TUN device's sock structure.
-  *	@sk contains the existing sock structure.
-+ *	@security pointer to the TUN device's security structure.
-+ * @tun_dev_open:
-+ *	This hook can be used by the module to update any security state
-+ *	associated with the TUN device's security structure.
-+ *	@security pointer to the TUN devices's security structure.
-  *
-  * Security hooks for XFRM operations.
-  *
-@@ -1613,9 +1625,12 @@ struct security_operations {
- 	void (*secmark_refcount_inc) (void);
- 	void (*secmark_refcount_dec) (void);
- 	void (*req_classify_flow) (const struct request_sock *req, struct flowi *fl);
--	int (*tun_dev_create)(void);
--	void (*tun_dev_post_create)(struct sock *sk);
--	int (*tun_dev_attach)(struct sock *sk);
-+	int (*tun_dev_alloc_security) (void **security);
-+	void (*tun_dev_free_security) (void *security);
-+	int (*tun_dev_create) (void);
-+	int (*tun_dev_attach_queue) (void *security);
-+	int (*tun_dev_attach) (struct sock *sk, void *security);
-+	int (*tun_dev_open) (void *security);
- #endif	/* CONFIG_SECURITY_NETWORK */
- 
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-@@ -2553,9 +2568,12 @@ void security_inet_conn_established(struct sock *sk,
- int security_secmark_relabel_packet(u32 secid);
- void security_secmark_refcount_inc(void);
- void security_secmark_refcount_dec(void);
-+int security_tun_dev_alloc_security(void **security);
-+void security_tun_dev_free_security(void *security);
- int security_tun_dev_create(void);
--void security_tun_dev_post_create(struct sock *sk);
--int security_tun_dev_attach(struct sock *sk);
-+int security_tun_dev_attach_queue(void *security);
-+int security_tun_dev_attach(struct sock *sk, void *security);
-+int security_tun_dev_open(void *security);
- 
- #else	/* CONFIG_SECURITY_NETWORK */
- static inline int security_unix_stream_connect(struct sock *sock,
-@@ -2720,16 +2738,31 @@ static inline void security_secmark_refcount_dec(void)
- {
- }
- 
-+static inline int security_tun_dev_alloc_security(void **security)
-+{
-+	return 0;
-+}
-+
-+static inline void security_tun_dev_free_security(void *security)
-+{
-+}
-+
- static inline int security_tun_dev_create(void)
- {
- 	return 0;
- }
- 
--static inline void security_tun_dev_post_create(struct sock *sk)
-+static inline int security_tun_dev_attach_queue(void *security)
-+{
-+	return 0;
-+}
-+
-+static inline int security_tun_dev_attach(struct sock *sk, void *security)
- {
-+	return 0;
- }
- 
--static inline int security_tun_dev_attach(struct sock *sk)
-+static inline int security_tun_dev_open(void *security)
- {
- 	return 0;
- }
-diff --git a/security/capability.c b/security/capability.c
-index b14a30c..76c1dc9 100644
---- a/security/capability.c
-+++ b/security/capability.c
-@@ -704,16 +704,31 @@ static void cap_req_classify_flow(const struct request_sock *req,
- {
- }
- 
-+static int cap_tun_dev_alloc_security(void **security)
-+{
-+	return 0;
-+}
-+
-+static void cap_tun_dev_free_security(void *security)
-+{
-+}
-+
- static int cap_tun_dev_create(void)
- {
- 	return 0;
- }
- 
--static void cap_tun_dev_post_create(struct sock *sk)
-+static int cap_tun_dev_attach_queue(void *security)
-+{
-+	return 0;
-+}
-+
-+static int cap_tun_dev_attach(struct sock *sk, void *security)
- {
-+	return 0;
- }
- 
--static int cap_tun_dev_attach(struct sock *sk)
-+static int cap_tun_dev_open(void *security)
- {
- 	return 0;
- }
-@@ -1044,8 +1059,11 @@ void __init security_fixup_ops(struct security_operations *ops)
- 	set_to_cap_if_null(ops, secmark_refcount_inc);
- 	set_to_cap_if_null(ops, secmark_refcount_dec);
- 	set_to_cap_if_null(ops, req_classify_flow);
-+	set_to_cap_if_null(ops, tun_dev_alloc_security);
-+	set_to_cap_if_null(ops, tun_dev_free_security);
- 	set_to_cap_if_null(ops, tun_dev_create);
--	set_to_cap_if_null(ops, tun_dev_post_create);
-+	set_to_cap_if_null(ops, tun_dev_open);
-+	set_to_cap_if_null(ops, tun_dev_attach_queue);
- 	set_to_cap_if_null(ops, tun_dev_attach);
- #endif	/* CONFIG_SECURITY_NETWORK */
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-diff --git a/security/security.c b/security/security.c
-index 8dcd4ae..a271ed4 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -1244,24 +1244,42 @@ void security_secmark_refcount_dec(void)
- }
- EXPORT_SYMBOL(security_secmark_refcount_dec);
- 
-+int security_tun_dev_alloc_security(void **security)
-+{
-+	return security_ops->tun_dev_alloc_security(security);
-+}
-+EXPORT_SYMBOL(security_tun_dev_alloc_security);
-+
-+void security_tun_dev_free_security(void *security)
-+{
-+	security_ops->tun_dev_free_security(security);
-+}
-+EXPORT_SYMBOL(security_tun_dev_free_security);
-+
- int security_tun_dev_create(void)
- {
- 	return security_ops->tun_dev_create();
- }
- EXPORT_SYMBOL(security_tun_dev_create);
- 
--void security_tun_dev_post_create(struct sock *sk)
-+int security_tun_dev_attach_queue(void *security)
- {
--	return security_ops->tun_dev_post_create(sk);
-+	return security_ops->tun_dev_attach_queue(security);
- }
--EXPORT_SYMBOL(security_tun_dev_post_create);
-+EXPORT_SYMBOL(security_tun_dev_attach_queue);
- 
--int security_tun_dev_attach(struct sock *sk)
-+int security_tun_dev_attach(struct sock *sk, void *security)
- {
--	return security_ops->tun_dev_attach(sk);
-+	return security_ops->tun_dev_attach(sk, security);
- }
- EXPORT_SYMBOL(security_tun_dev_attach);
- 
-+int security_tun_dev_open(void *security)
-+{
-+	return security_ops->tun_dev_open(security);
-+}
-+EXPORT_SYMBOL(security_tun_dev_open);
-+
- #endif	/* CONFIG_SECURITY_NETWORK */
- 
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 61a5336..ef26e96 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4399,6 +4399,24 @@ static void selinux_req_classify_flow(const struct request_sock *req,
- 	fl->flowi_secid = req->secid;
- }
- 
-+static int selinux_tun_dev_alloc_security(void **security)
-+{
-+	struct tun_security_struct *tunsec;
-+
-+	tunsec = kzalloc(sizeof(*tunsec), GFP_KERNEL);
-+	if (!tunsec)
-+		return -ENOMEM;
-+	tunsec->sid = current_sid();
-+
-+	*security = tunsec;
-+	return 0;
-+}
-+
-+static void selinux_tun_dev_free_security(void *security)
-+{
-+	kfree(security);
-+}
-+
- static int selinux_tun_dev_create(void)
- {
- 	u32 sid = current_sid();
-@@ -4414,8 +4432,17 @@ static int selinux_tun_dev_create(void)
- 			    NULL);
- }
- 
--static void selinux_tun_dev_post_create(struct sock *sk)
-+static int selinux_tun_dev_attach_queue(void *security)
- {
-+	struct tun_security_struct *tunsec = security;
-+
-+	return avc_has_perm(current_sid(), tunsec->sid, SECCLASS_TUN_SOCKET,
-+			    TUN_SOCKET__ATTACH_QUEUE, NULL);
-+}
-+
-+static int selinux_tun_dev_attach(struct sock *sk, void *security)
-+{
-+	struct tun_security_struct *tunsec = security;
- 	struct sk_security_struct *sksec = sk->sk_security;
- 
- 	/* we don't currently perform any NetLabel based labeling here and it
-@@ -4425,20 +4452,19 @@ static void selinux_tun_dev_post_create(struct sock *sk)
- 	 * cause confusion to the TUN user that had no idea network labeling
- 	 * protocols were being used */
- 
--	/* see the comments in selinux_tun_dev_create() about why we don't use
--	 * the sockcreate SID here */
--
--	sksec->sid = current_sid();
-+	sksec->sid = tunsec->sid;
- 	sksec->sclass = SECCLASS_TUN_SOCKET;
-+
-+	return 0;
- }
- 
--static int selinux_tun_dev_attach(struct sock *sk)
-+static int selinux_tun_dev_open(void *security)
- {
--	struct sk_security_struct *sksec = sk->sk_security;
-+	struct tun_security_struct *tunsec = security;
- 	u32 sid = current_sid();
- 	int err;
- 
--	err = avc_has_perm(sid, sksec->sid, SECCLASS_TUN_SOCKET,
-+	err = avc_has_perm(sid, tunsec->sid, SECCLASS_TUN_SOCKET,
- 			   TUN_SOCKET__RELABELFROM, NULL);
- 	if (err)
- 		return err;
-@@ -4446,8 +4472,7 @@ static int selinux_tun_dev_attach(struct sock *sk)
- 			   TUN_SOCKET__RELABELTO, NULL);
- 	if (err)
- 		return err;
--
--	sksec->sid = sid;
-+	tunsec->sid = sid;
- 
- 	return 0;
- }
-@@ -5642,9 +5667,12 @@ static struct security_operations selinux_ops = {
- 	.secmark_refcount_inc =		selinux_secmark_refcount_inc,
- 	.secmark_refcount_dec =		selinux_secmark_refcount_dec,
- 	.req_classify_flow =		selinux_req_classify_flow,
-+	.tun_dev_alloc_security =	selinux_tun_dev_alloc_security,
-+	.tun_dev_free_security =	selinux_tun_dev_free_security,
- 	.tun_dev_create =		selinux_tun_dev_create,
--	.tun_dev_post_create = 		selinux_tun_dev_post_create,
-+	.tun_dev_attach_queue =		selinux_tun_dev_attach_queue,
- 	.tun_dev_attach =		selinux_tun_dev_attach,
-+	.tun_dev_open =			selinux_tun_dev_open,
- 
- #ifdef CONFIG_SECURITY_NETWORK_XFRM
- 	.xfrm_policy_alloc_security =	selinux_xfrm_policy_alloc,
-diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
-index 26c7eee..aa47bca 100644
---- a/security/selinux/include/objsec.h
-+++ b/security/selinux/include/objsec.h
-@@ -110,6 +110,10 @@ struct sk_security_struct {
- 	u16 sclass;			/* sock security class */
- };
- 
-+struct tun_security_struct {
-+	u32 sid;			/* SID for the tun device sockets */
-+};
-+
- struct key_security_struct {
- 	u32 sid;	/* SID of key */
- };
+> +}
+> +
+> +/* Must be protected by RTNL */
+> +static void br_vlan_del_untagged(struct net_bridge *br,
+> +				 struct net_bridge_vlan *vlan)
+> +{
+> +	ASSERT_RTNL();
+> +	if (br->untagged == vlan) {
+> +		br_vlan_put(vlan);
+> +		rcu_assign_pointer(br->untagged, NULL);
+> +	}
+> +}
+> +
+>  struct net_bridge_vlan *br_vlan_find(struct net_bridge *br, u16 vid)
+>  {
+>  	struct net_bridge_vlan *vlan;
+> @@ -132,7 +160,7 @@ struct net_bridge_vlan *br_vlan_add(struct net_bridge *br, u16 vid,
+>  
+>  	vlan = br_vlan_find(br, vid);
+>  	if (vlan)
+> -		return vlan;
+> +		goto untagged;
+>  
+>  	vlan = kzalloc(sizeof(struct net_bridge_vlan), GFP_KERNEL);
+>  	if (!vlan)
+> @@ -141,7 +169,7 @@ struct net_bridge_vlan *br_vlan_add(struct net_bridge *br, u16 vid,
+>  	vlan->vid = vid;
+>  	atomic_set(&vlan->refcnt, 1);
+>  
+> -	if (flags & BRIDGE_FLAGS_SELF) {
+> +	if (flags & BRIDGE_VLAN_INFO_MASTER) {
+>  		/* Set bit 0 that is associated with the bridge master
+>  		 * device.  Port numbers start with 1.
+>  		 */
+> @@ -149,15 +177,24 @@ struct net_bridge_vlan *br_vlan_add(struct net_bridge *br, u16 vid,
+>  	}
+>  
+>  	hlist_add_head_rcu(&vlan->hlist, &br->vlan_hlist[br_vlan_hash(vid)]);
+> +
+> +untagged:
+> +	if (flags & BRIDGE_VLAN_INFO_UNTAGGED)
+> +		br_vlan_add_untagged(br, vlan);
+> +
+>  	return vlan;
+>  }
+>  
+>  /* Must be protected by RTNL */
+> -static void br_vlan_del(struct net_bridge_vlan *vlan, u16 flags)
+> +static void br_vlan_del(struct net_bridge *br, struct net_bridge_vlan *vlan,
+> +			u16 flags)
+>  {
+>  	ASSERT_RTNL();
+>  
+> -	if (flags & BRIDGE_FLAGS_SELF) {
+> +	if (flags & BRIDGE_VLAN_INFO_UNTAGGED)
+> +		br_vlan_del_untagged(br, vlan);
+> +
+> +	if (flags & BRIDGE_VLAN_INFO_MASTER) {
+>  		/* Clear bit 0 that is associated with the bridge master
+>  		 * device.
+>  		 */
+> @@ -172,6 +209,14 @@ static void br_vlan_del(struct net_bridge_vlan *vlan, u16 flags)
+>  
+>  	vlan->vid = BR_INVALID_VID;
+>  
+> +	/* If, for whatever reason, bridge still has a ref on this vlan
+> +	 * through the @untagged pointer, drop that ref and clear untagged.
+> +	 */
+> +	if (br->untagged == vlan) {
+> +		br_vlan_put(vlan);
+> +		rcu_assign_pointer(br->untagged, NULL);
+> +	}
+> +
+>  	/* Drop the self-ref to trigger descrution. */
+>  	br_vlan_put(vlan);
+>  }
+> @@ -187,7 +232,7 @@ int br_vlan_delete(struct net_bridge *br, u16 vid, u16 flags)
+>  	if (!vlan)
+>  		return -ENOENT;
+>  
+> -	br_vlan_del(vlan, flags);
+> +	br_vlan_del(br, vlan, flags);
+>  	return 0;
+>  }
+>  
+> @@ -204,7 +249,9 @@ static void br_vlan_flush(struct net_bridge *br)
+>  	for (i = 0; i < BR_VID_HASH_SIZE; i++) {
+>  		hlist_for_each_entry_safe(vlan, node, tmp,
+>  					  &br->vlan_hlist[i], hlist) {
+> -			br_vlan_del(vlan, BRIDGE_FLAGS_SELF);
+> +			br_vlan_del(br, vlan,
+> +				    (BRIDGE_VLAN_INFO_MASTER |
+> +				     BRIDGE_VLAN_INFO_UNTAGGED));
+>  		}
+>  	}
+>  }
+> @@ -224,10 +271,70 @@ struct net_port_vlan *nbp_vlan_find(const struct net_bridge_port *p, u16 vid)
+>  	return NULL;
+>  }
+>  
+> +static int nbp_vlan_add_untagged(struct net_bridge_port *p,
+> +			  struct net_bridge_vlan *vlan,
+> +			  u16 flags)
+> +{
+> +	struct net_device *dev = p->dev;
+> +
+> +	if (p->untagged) {
+> +		/* Port already has untagged vlan set.  Drop the ref
+> +		 * to the old one since we'll be replace it.
+> +		 */
+> +		br_vlan_put(p->untagged);
+> +	} else {
+> +		int err;
+> +
+> +		/* Add vid 0 to filter if filter is available. */
+> +		if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+> +		    dev->netdev_ops->ndo_vlan_rx_add_vid &&
+> +		    dev->netdev_ops->ndo_vlan_rx_kill_vid) {
+> +			err = dev->netdev_ops->ndo_vlan_rx_add_vid(dev, 0);
+> +			if (err)
+> +				return err;
+> +		}
+> +	}
+> +
+> +	/* This VLAN is handled as untagged/native. Save an
+> +	 * additional ref.
+> +	 */
+> +	br_vlan_hold(vlan);
+> +	rcu_assign_pointer(p->untagged, vlan);
+> +
+> +	return 0;
+> +}
+> +
+> +static void nbp_vlan_delete_untagged(struct net_bridge_port *p,
+> +				     struct net_bridge_vlan *vlan)
+> +{
+> +	if (p->untagged != vlan)
+> +		return;
+> +
+> +	/* Remove VLAN from the device filter if it is supported. */
+> +	if ((p->dev->features & NETIF_F_HW_VLAN_FILTER) &&
+> +	    p->dev->netdev_ops->ndo_vlan_rx_kill_vid) {
+> +		int err;
+> +
+> +		err = p->dev->netdev_ops->ndo_vlan_rx_kill_vid(p->dev, 0);
+> +		if (err) {
+> +			pr_warn("failed to kill vid %d for device %s\n",
+> +				vlan->vid, p->dev->name);
+> +		}
+> +	}
+> +
+> +	/* If this VLAN is currently functioning as untagged, clear it.
+> +	 * It's safe to drop the refcount, since the vlan is still held
+> +	 * by the port.
+> +	 */
+> +	br_vlan_put(vlan);
+> +	rcu_assign_pointer(p->untagged, NULL);
+> +
+> +}
+> +
+>  /* Must be protected by RTNL */
+>  int nbp_vlan_add(struct net_bridge_port *p, u16 vid, u16 flags)
+>  {
+> -	struct net_port_vlan *pve;
+> +	struct net_port_vlan *pve = NULL;
+>  	struct net_bridge_vlan *vlan;
+>  	struct net_device *dev = p->dev;
+>  	int err;
+> @@ -275,11 +382,21 @@ int nbp_vlan_add(struct net_bridge_port *p, u16 vid, u16 flags)
+>  	set_bit(p->port_no, vlan->port_bitmap);
+>  
+>  	list_add_tail_rcu(&pve->list, &p->vlan_list);
+> +
+> +	if (flags & BRIDGE_VLAN_INFO_UNTAGGED) {
+> +		err = nbp_vlan_add_untagged(p, vlan, flags);
+> +		if (err)
+> +			goto del_vlan;
+> +	}
+> +
+>  	return 0;
+>  
+>  clean_up:
+>  	kfree(pve);
+> -	br_vlan_del(vlan, flags);
+> +	br_vlan_del(p->br, vlan, flags);
+> +	return err;
+> +del_vlan:
+> +	nbp_vlan_delete(p, vid, flags);
+>  	return err;
+>  }
+>  
+> @@ -296,6 +413,9 @@ int nbp_vlan_delete(struct net_bridge_port *p, u16 vid, u16 flags)
+>  	if (!pve)
+>  		return -ENOENT;
+>  
+> +	if (flags & BRIDGE_VLAN_INFO_UNTAGGED)
+> +		nbp_vlan_delete_untagged(p, pve->vlan);
+> +
+>  	/* Remove VLAN from the device filter if it is supported. */
+>  	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+>  	    dev->netdev_ops->ndo_vlan_rx_kill_vid) {
+> @@ -306,6 +426,7 @@ int nbp_vlan_delete(struct net_bridge_port *p, u16 vid, u16 flags)
+>  			pr_warn("failed to kill vid %d for device %s\n",
+>  				vid, dev->name);
+>  	}
+> +
+>  	pve->vid = BR_INVALID_VID;
+>  
+>  	vlan = pve->vlan;
+> @@ -316,7 +437,7 @@ int nbp_vlan_delete(struct net_bridge_port *p, u16 vid, u16 flags)
+>  	list_del_rcu(&pve->list);
+>  	kfree_rcu(pve, rcu);
+>  
+> -	br_vlan_del(vlan, flags);
+> +	br_vlan_del(p->br, vlan, flags);
+>  
+>  	return 0;
+>  }
+> @@ -328,8 +449,11 @@ static void nbp_vlan_flush(struct net_bridge_port *p)
+>  
+>  	ASSERT_RTNL();
+>  
+> -	list_for_each_entry_safe(pve, tmp, &p->vlan_list, list)
+> -		nbp_vlan_delete(p, pve->vid, BRIDGE_FLAGS_SELF);
+> +	list_for_each_entry_safe(pve, tmp, &p->vlan_list, list)  {
+> +		nbp_vlan_delete(p, pve->vid,
+> +				(BRIDGE_VLAN_INFO_MASTER |
+> +				 BRIDGE_VLAN_INFO_UNTAGGED));
+> +	}
+>  }
+>  
+>  static void release_nbp(struct kobject *kobj)
+> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+> index 9cf2879..1b302ce 100644
+> --- a/net/bridge/br_netlink.c
+> +++ b/net/bridge/br_netlink.c
+> @@ -199,7 +199,8 @@ static int br_afspec(struct net_bridge *br, struct net_bridge_port *p,
+>  			if (p)
+>  				err = nbp_vlan_add(p, vinfo->vid, vinfo->flags);
+>  			else {
+> -				u16 flags = vinfo->flags | BRIDGE_FLAGS_SELF;
+> +				u16 flags = vinfo->flags |
+> +					    BRIDGE_VLAN_INFO_MASTER;
+>  				if (!br_vlan_add(br, vinfo->vid, flags))
+>  					err = -ENOMEM;
+>  			}
+> @@ -210,7 +211,8 @@ static int br_afspec(struct net_bridge *br, struct net_bridge_port *p,
+>  				err = nbp_vlan_delete(p, vinfo->vid,
+>  						      vinfo->flags);
+>  			else {
+> -				u16 flags = vinfo->flags | BRIDGE_FLAGS_SELF;
+> +				u16 flags = vinfo->flags |
+> +					    BRIDGE_VLAN_INFO_MASTER;
+>  				err = br_vlan_delete(br, vinfo->vid, flags);
+>  			}
+>  			break;
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index cc75212..9328463 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -179,6 +179,7 @@ struct net_bridge_port
+>  	struct netpoll			*np;
+>  #endif
+>  	struct list_head		vlan_list;
+> +	struct net_bridge_vlan __rcu	*untagged;
+>  };
+>  
+>  #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+> @@ -298,6 +299,7 @@ struct net_bridge
+>  	struct timer_list		gc_timer;
+>  	struct kobject			*ifobj;
+>  	struct hlist_head		vlan_hlist[BR_VID_HASH_SIZE];
+> +	struct net_bridge_vlan __rcu	*untagged;
+>  };
+>  
+>  struct br_input_skb_cb {
+> -- 
+> 1.7.7.6
