@@ -1,56 +1,91 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH 1/2] net: asix: init ASIX AX88772B MAC from EEPROM
-Date: Tue, 18 Dec 2012 14:56 +0100
-Message-ID: <3452375.BatShodvFL@linux-lqwf.site>
-References: <1355832626-3034-1-git-send-email-dev@lynxeye.de> <1672154.FXjtO9OFRj@linux-lqwf.site> <1355837912.1490.73.camel@tellur>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH] ksz884x: fix receive polling race condition
+Date: Tue, 18 Dec 2012 14:57:00 +0100
+Message-ID: <20121218135700.GT23447@wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Lucas Stach <dev@lynxeye.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Healy <cphealy@gmail.com>
+To: Tristram Ha <Tristram.Ha@micrel.com>,
+	Xiaotian Feng <dannyfeng@tencent.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:45410 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754173Ab2LRNzb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2012 08:55:31 -0500
-In-Reply-To: <1355837912.1490.73.camel@tellur>
+Received: from fw.wantstofly.org ([80.101.37.227]:62801 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754843Ab2LRN5G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 08:57:06 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 18 December 2012 14:38:32 Lucas Stach wrote:
-> Am Dienstag, den 18.12.2012, 14:33 +0100 schrieb Oliver Neukum:
-> > On Tuesday 18 December 2012 14:24:32 Lucas Stach wrote:
-> > > Am Dienstag, den 18.12.2012, 14:11 +0100 schrieb Oliver Neukum:
-> > > > On Tuesday 18 December 2012 13:10:25 Lucas Stach wrote:
-> > > > > diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-> > > > > index 9bbeabf..8e9516f 100644
-> > > > > --- a/include/linux/usb/usbnet.h
-> > > > > +++ b/include/linux/usb/usbnet.h
-> > > > > @@ -106,6 +106,7 @@ struct driver_info {
-> > > > >   */
-> > > > >  #define FLAG_MULTI_PACKET      0x2000
-> > > > >  #define FLAG_RX_ASSEMBLE       0x4000  /* rx packets may span >1 frames */
-> > > > > +#define FLAG_EEPROM_MAC                0x8000  /* initialize device MAC from eeprom */
-> > > > 
-> > > > Hi,
-> > > > 
-> > > > this looks sensible, but
-> > > > why are you adding a flag unused in usbnet to usbnet.h?
-> > > 
-> > > Right, this might not be the right place to add this. Could you point me
-> > > to a more appropriate place? The data member of usbnet might be a good
-> > 
-> > driver_priv is intended for such stuff
-> > 
-> I'm not talking about the usbnet struct, but the driver_info struct. I
-> need a way to pass this flag from the static driver info to the bind
-> function. I don't even have a usbnet device at this point, where I could
-> hang on driver_priv data.
+The ksz884x driver does receive processing in a custom tasklet, and
+seems to be assuming that since it takes its private interface spinlock
+with spin_lock_irq(), it won't be running concurrently with its own
+interrupt handler, as it cannot be preempted by it, but since its
+interrupt handler doesn't do any locking whatsoever, the receive
+processing tasklet and interrupt handler can end up running concurrently
+on different CPUs.
 
-True, sorry I misread the patch. You could split up ax88772_bind()
-implicitly encoding the flag. That would be reasonably clean. If you
-really don't want to do that, please add another private field. But
-we cannot pollute the flags.
+As a result of this, the ksz884x receive path ends up locking up fairly
+easily, when the receive processing tasklet's reenabling of receive
+interrupts (due to it being done with polling the receive ring) races
+with the interrupt handler's disabling of receive interrupts (due to a
+new receive interrupt coming in) resulting in the receive interrupt
+being masked but the receive processing tasklet not being scheduled.
 
-	Regards
-		Oliver
+Fix this by making the ksz884x interrupt handler take its private
+interface spinlock.  This requires upgrading the spin_lock() in the
+transmit cleanup tasklet to a spin_lock_irq(), as otherwise the IRQ
+handler can preempt transmit cleanup and deadlock the system, but
+with those two changes, no more receive lockups have been observed.
+
+Reported-by: Chris Healy <cphealy@gmail.com>
+Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
+
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index 69e0197..f131962 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -4761,7 +4761,7 @@ static void transmit_cleanup(struct dev_info *hw_priv, int normal)
+ 	struct ksz_dma_buf *dma_buf;
+ 	struct net_device *dev = NULL;
+ 
+-	spin_lock(&hw_priv->hwlock);
++	spin_lock_irq(&hw_priv->hwlock);
+ 	last = info->last;
+ 
+ 	while (info->avail < info->alloc) {
+@@ -4795,7 +4795,7 @@ static void transmit_cleanup(struct dev_info *hw_priv, int normal)
+ 		info->avail++;
+ 	}
+ 	info->last = last;
+-	spin_unlock(&hw_priv->hwlock);
++	spin_unlock_irq(&hw_priv->hwlock);
+ 
+ 	/* Notify the network subsystem that the packet has been sent. */
+ 	if (dev)
+@@ -5259,11 +5259,15 @@ static irqreturn_t netdev_intr(int irq, void *dev_id)
+ 	struct dev_info *hw_priv = priv->adapter;
+ 	struct ksz_hw *hw = &hw_priv->hw;
+ 
++	spin_lock(&hw_priv->hwlock);
++
+ 	hw_read_intr(hw, &int_enable);
+ 
+ 	/* Not our interrupt! */
+-	if (!int_enable)
++	if (!int_enable) {
++		spin_unlock(&hw_priv->hwlock);
+ 		return IRQ_NONE;
++	}
+ 
+ 	do {
+ 		hw_ack_intr(hw, int_enable);
+@@ -5310,6 +5314,8 @@ static irqreturn_t netdev_intr(int irq, void *dev_id)
+ 
+ 	hw_ena_intr(hw);
+ 
++	spin_unlock(&hw_priv->hwlock);
++
+ 	return IRQ_HANDLED;
+ }
+ 
+----
