@@ -1,202 +1,109 @@
-From: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
-Subject: =?UTF-8?q?=5BPATCH=202/2=5D=20net=3A=20asix=3A=20handle=20packets=20crossing=20URB=20boundaries?=
-Date: Tue, 18 Dec 2012 13:10:26 +0100
-Message-ID: <1355832626-3034-2-git-send-email-dev@lynxeye.de>
-References: <1355832626-3034-1-git-send-email-dev@lynxeye.de>
+From: Lucas Stach <dev@lynxeye.de>
+Subject: =?UTF-8?q?=5BPATCH=201/2=5D=20net=3A=20asix=3A=20init=20ASIX=20AX88772B=20MAC=20from=20EEPROM?=
+Date: Tue, 18 Dec 2012 13:10:25 +0100
+Message-ID: <1355832626-3034-1-git-send-email-dev@lynxeye.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1355832626-3034-1-git-send-email-dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Oliver Neukum <oneukum@suse.de>, linux-usb@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.km20343-01.keymachine.de ([84.19.182.79]:54126 "EHLO
+	km20343-01.keymachine.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754611Ab2LRMUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 07:20:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ASIX AX88772B started to pack data even more tightly. Packets and the A=
-SIX packet
-header may now cross URB boundaries. To handle this we have to introduc=
+The device comes up with a MAC address of all zeros. We need to read th=
 e
-some state between individual calls to asix_rx_fixup().
+initial device MAC from EEPROM so it can be set properly later.
 
-Signed-off-by: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
+Signed-off-by: Lucas Stach <dev@lynxeye.de>
 ---
-I've running this patch for some weeks already now and it gets rid of a=
-ll
-the commonly seen rx failures with AX88772B.
+A similar fix was added into U-Boot:
+http://patchwork.ozlabs.org/patch/179409/
 ---
- drivers/net/usb/asix.h         | 10 ++++++
- drivers/net/usb/asix_common.c  | 81 +++++++++++++++++++++++++++++-----=
---------
- drivers/net/usb/asix_devices.c |  8 +++++
- 3 Dateien ge=C3=A4ndert, 75 Zeilen hinzugef=C3=BCgt(+), 24 Zeilen entf=
-ernt(-)
+ drivers/net/usb/asix_devices.c | 29 ++++++++++++++++++++++++++---
+ include/linux/usb/usbnet.h     |  1 +
+ 2 Dateien ge=C3=A4ndert, 27 Zeilen hinzugef=C3=BCgt(+), 3 Zeilen entfe=
+rnt(-)
 
-diff --git a/drivers/net/usb/asix.h b/drivers/net/usb/asix.h
-index e889631..3b4f7a8 100644
---- a/drivers/net/usb/asix.h
-+++ b/drivers/net/usb/asix.h
-@@ -167,6 +167,16 @@ struct asix_data {
- 	u8 res;
- };
-=20
-+struct asix_rx_fixup_info {
-+	struct sk_buff *ax_skb;
-+	u32 header;
-+	u16 size;
-+	bool split_head;
-+};
-+struct asix_private {
-+	struct asix_rx_fixup_info rx_fixup_info;
-+};
-+
- int asix_read_cmd(struct usbnet *dev, u8 cmd, u16 value, u16 index,
- 		  u16 size, void *data);
-=20
-diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_commo=
-n.c
-index 50d1673..17f9801 100644
---- a/drivers/net/usb/asix_common.c
-+++ b/drivers/net/usb/asix_common.c
-@@ -53,44 +53,77 @@ void asix_write_cmd_async(struct usbnet *dev, u8 cm=
-d, u16 value, u16 index,
-=20
- int asix_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- {
-+	struct asix_private *dp =3D dev->driver_priv;
-+	struct asix_rx_fixup_info *rx =3D &dp->rx_fixup_info;
- 	int offset =3D 0;
-=20
--	while (offset + sizeof(u32) < skb->len) {
--		struct sk_buff *ax_skb;
--		u16 size;
--		u32 header =3D get_unaligned_le32(skb->data + offset);
--
--		offset +=3D sizeof(u32);
--
--		/* get the packet length */
--		size =3D (u16) (header & 0x7ff);
--		if (size !=3D ((~header >> 16) & 0x07ff)) {
--			netdev_err(dev->net, "asix_rx_fixup() Bad Header Length\n");
--			return 0;
-+	while (offset + sizeof(u16) <=3D skb->len) {
-+		u16 remaining =3D 0;
-+		unsigned char *data;
-+
-+		if (!rx->size) {
-+			if ((skb->len - offset =3D=3D sizeof(u16)) ||
-+			    rx->split_head) {
-+				if(!rx->split_head) {
-+					rx->header =3D get_unaligned_le16(
-+							skb->data + offset);
-+					rx->split_head =3D true;
-+					offset +=3D sizeof(u16);
-+					break;
-+				} else {
-+					rx->header |=3D (get_unaligned_le16(
-+							skb->data + offset)
-+							<< 16);
-+					rx->split_head =3D false;
-+					offset +=3D sizeof(u16);
-+				}
-+			} else {
-+				rx->header =3D get_unaligned_le32(skb->data +
-+								offset);
-+				offset +=3D sizeof(u32);
-+			}
-+
-+			/* get the packet length */
-+			rx->size =3D (u16) (rx->header & 0x7ff);
-+			if (rx->size !=3D ((~rx->header >> 16) & 0x7ff)) {
-+				netdev_err(dev->net, "asix_rx_fixup() Bad Header Length 0x%x, offs=
-et %d\n",
-+					   rx->header, offset);
-+				rx->size =3D 0;
-+				return 0;
-+			}
-+			rx->ax_skb =3D netdev_alloc_skb_ip_align(dev->net,
-+							       rx->size);
-+			if (!rx->ax_skb)
-+				return 0;
- 		}
-=20
--		if ((size > dev->net->mtu + ETH_HLEN + VLAN_HLEN) ||
--		    (size + offset > skb->len)) {
-+		if (rx->size > dev->net->mtu + ETH_HLEN + VLAN_HLEN) {
- 			netdev_err(dev->net, "asix_rx_fixup() Bad RX Length %d\n",
--				   size);
-+				   rx->size);
-+			kfree_skb(rx->ax_skb);
- 			return 0;
- 		}
--		ax_skb =3D netdev_alloc_skb_ip_align(dev->net, size);
--		if (!ax_skb)
--			return 0;
-=20
--		skb_put(ax_skb, size);
--		memcpy(ax_skb->data, skb->data + offset, size);
--		usbnet_skb_return(dev, ax_skb);
-+		if (rx->size > skb->len - offset) {
-+			remaining =3D rx->size - (skb->len - offset);
-+			rx->size =3D skb->len - offset;
-+		}
-+
-+		data =3D skb_put(rx->ax_skb, rx->size);
-+		memcpy(data, skb->data + offset, rx->size);
-+		if (!remaining)
-+			usbnet_skb_return(dev, rx->ax_skb);
-=20
--		offset +=3D (size + 1) & 0xfffe;
-+		offset +=3D (rx->size + 1) & 0xfffe;
-+		rx->size =3D remaining;
- 	}
-=20
- 	if (skb->len !=3D offset) {
--		netdev_err(dev->net, "asix_rx_fixup() Bad SKB Length %d\n",
--			   skb->len);
-+		netdev_err(dev->net, "asix_rx_fixup() Bad SKB Length %d, %d\n",
-+			   skb->len, offset);
- 		return 0;
- 	}
-+
- 	return 1;
- }
-=20
 diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devi=
 ces.c
-index 06f7f7cb..2e1f3ec 100644
+index 7a6e758..06f7f7cb 100644
 --- a/drivers/net/usb/asix_devices.c
 +++ b/drivers/net/usb/asix_devices.c
-@@ -495,6 +495,10 @@ static int ax88772_bind(struct usbnet *dev, struct=
- usb_interface *intf)
- 		dev->rx_urb_size =3D 2048;
- 	}
+@@ -422,14 +422,25 @@ static const struct net_device_ops ax88772_netdev=
+_ops =3D {
 =20
-+	dev->driver_priv =3D kzalloc(sizeof(struct asix_private), GFP_KERNEL)=
-;
-+	if (!dev->driver_priv)
-+		return -ENOMEM;
+ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf=
+)
+ {
+-	int ret, embd_phy;
++	int ret, embd_phy, i;
+ 	u8 buf[ETH_ALEN];
+ 	u32 phyid;
+=20
+ 	usbnet_get_endpoints(dev,intf);
+=20
+ 	/* Get the MAC address */
+-	ret =3D asix_read_cmd(dev, AX_CMD_READ_NODE_ID, 0, 0, ETH_ALEN, buf);
++	if (dev->driver_info->flags & FLAG_EEPROM_MAC) {
++		for (i =3D 0; i < (ETH_ALEN >> 1); i++) {
++			ret =3D asix_read_cmd(dev, AX_CMD_READ_EEPROM, 0x04 + i,
++					0, 2, buf + i * 2);
++			if (ret < 0)
++				break;
++		}
++	} else {
++		ret =3D asix_read_cmd(dev, AX_CMD_READ_NODE_ID,
++				0, 0, ETH_ALEN, buf);
++	}
 +
- 	return 0;
- }
+ 	if (ret < 0) {
+ 		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
+ 		return ret;
+@@ -872,6 +883,18 @@ static const struct driver_info ax88772_info =3D {
+ 	.tx_fixup =3D asix_tx_fixup,
+ };
 =20
-@@ -829,6 +833,10 @@ static int ax88178_bind(struct usbnet *dev, struct=
- usb_interface *intf)
- 		dev->rx_urb_size =3D 2048;
- 	}
-=20
-+	dev->driver_priv =3D kzalloc(sizeof(struct asix_private), GFP_KERNEL)=
-;
-+	if (!dev->driver_priv)
-+			return -ENOMEM;
++static const struct driver_info ax88772b_info =3D {
++	.description =3D "ASIX AX88772B USB 2.0 Ethernet",
++	.bind =3D ax88772_bind,
++	.status =3D asix_status,
++	.link_reset =3D ax88772_link_reset,
++	.reset =3D ax88772_reset,
++	.flags =3D FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR |
++	         FLAG_MULTI_PACKET | FLAG_EEPROM_MAC,
++	.rx_fixup =3D asix_rx_fixup,
++	.tx_fixup =3D asix_tx_fixup,
++};
 +
- 	return 0;
- }
+ static const struct driver_info ax88178_info =3D {
+ 	.description =3D "ASIX AX88178 USB 2.0 Ethernet",
+ 	.bind =3D ax88178_bind,
+@@ -953,7 +976,7 @@ static const struct usb_device_id	products [] =3D {
+ }, {
+ 	// ASIX AX88772B 10/100
+ 	USB_DEVICE (0x0b95, 0x772b),
+-	.driver_info =3D (unsigned long) &ax88772_info,
++	.driver_info =3D (unsigned long) &ax88772b_info,
+ }, {
+ 	// ASIX AX88772 10/100
+ 	USB_DEVICE (0x0b95, 0x7720),
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 9bbeabf..8e9516f 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -106,6 +106,7 @@ struct driver_info {
+  */
+ #define FLAG_MULTI_PACKET	0x2000
+ #define FLAG_RX_ASSEMBLE	0x4000	/* rx packets may span >1 frames */
++#define FLAG_EEPROM_MAC		0x8000	/* initialize device MAC from eeprom *=
+/
 =20
+ 	/* init device ... can sleep, or cause probe() failure */
+ 	int	(*bind)(struct usbnet *, struct usb_interface *);
 --=20
 1.7.11.7
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
