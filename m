@@ -1,91 +1,65 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH] ksz884x: fix receive polling race condition
-Date: Tue, 18 Dec 2012 14:57:00 +0100
-Message-ID: <20121218135700.GT23447@wantstofly.org>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH] xen/netfront: improve truesize tracking
+Date: Tue, 18 Dec 2012 13:51:51 +0000
+Message-ID: <1355838711-5473-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Healy <cphealy@gmail.com>
-To: Tristram Ha <Tristram.Ha@micrel.com>,
-	Xiaotian Feng <dannyfeng@tencent.com>, netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"annie li" <annie.li@oracle.com>, <xen-devel@lists.xensource.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:62801 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754843Ab2LRN5G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 08:57:06 -0500
-Content-Disposition: inline
+Received: from smtp02.citrix.com ([66.165.176.63]:19271 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754769Ab2LRN5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 08:57:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ksz884x driver does receive processing in a custom tasklet, and
-seems to be assuming that since it takes its private interface spinlock
-with spin_lock_irq(), it won't be running concurrently with its own
-interrupt handler, as it cannot be preempted by it, but since its
-interrupt handler doesn't do any locking whatsoever, the receive
-processing tasklet and interrupt handler can end up running concurrently
-on different CPUs.
+Using RX_COPY_THRESHOLD is incorrect if the SKB is actually smaller
+than that. We have already accounted for this in
+NETFRONT_SKB_CB(skb)->pull_to so use that instead.
 
-As a result of this, the ksz884x receive path ends up locking up fairly
-easily, when the receive processing tasklet's reenabling of receive
-interrupts (due to it being done with polling the receive ring) races
-with the interrupt handler's disabling of receive interrupts (due to a
-new receive interrupt coming in) resulting in the receive interrupt
-being masked but the receive processing tasklet not being scheduled.
+Fixes WARN_ON from skb_try_coalesce.
 
-Fix this by making the ksz884x interrupt handler take its private
-interface spinlock.  This requires upgrading the spin_lock() in the
-transmit cleanup tasklet to a spin_lock_irq(), as otherwise the IRQ
-handler can preempt transmit cleanup and deadlock the system, but
-with those two changes, no more receive lockups have been observed.
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Sander Eikelenboom <linux@eikelenboom.it>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: annie li <annie.li@oracle.com>
+Cc: xen-devel@lists.xensource.com
+Cc: netdev@vger.kernel.org
+Cc: stable@kernel.org # 3.7.x only
+---
+ drivers/net/xen-netfront.c |   15 +++++----------
+ 1 files changed, 5 insertions(+), 10 deletions(-)
 
-Reported-by: Chris Healy <cphealy@gmail.com>
-Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
-
-diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
-index 69e0197..f131962 100644
---- a/drivers/net/ethernet/micrel/ksz884x.c
-+++ b/drivers/net/ethernet/micrel/ksz884x.c
-@@ -4761,7 +4761,7 @@ static void transmit_cleanup(struct dev_info *hw_priv, int normal)
- 	struct ksz_dma_buf *dma_buf;
- 	struct net_device *dev = NULL;
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index caa0110..b06ef81 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -971,17 +971,12 @@ err:
+ 		 * overheads. Here, we add the size of the data pulled
+ 		 * in xennet_fill_frags().
+ 		 *
+-		 * We also adjust for any unused space in the main
+-		 * data area by subtracting (RX_COPY_THRESHOLD -
+-		 * len). This is especially important with drivers
+-		 * which split incoming packets into header and data,
+-		 * using only 66 bytes of the main data area (see the
+-		 * e1000 driver for example.)  On such systems,
+-		 * without this last adjustement, our achievable
+-		 * receive throughout using the standard receive
+-		 * buffer size was cut by 25%(!!!).
++		 * We also adjust for the __pskb_pull_tail done in
++		 * handle_incoming_queue which pulls data from the
++		 * frags into the head area, which is already
++		 * accounted in RX_COPY_THRESHOLD.
+ 		 */
+-		skb->truesize += skb->data_len - RX_COPY_THRESHOLD;
++		skb->truesize += skb->data_len - NETFRONT_SKB_CB(skb)->pull_to;
+ 		skb->len += skb->data_len;
  
--	spin_lock(&hw_priv->hwlock);
-+	spin_lock_irq(&hw_priv->hwlock);
- 	last = info->last;
- 
- 	while (info->avail < info->alloc) {
-@@ -4795,7 +4795,7 @@ static void transmit_cleanup(struct dev_info *hw_priv, int normal)
- 		info->avail++;
- 	}
- 	info->last = last;
--	spin_unlock(&hw_priv->hwlock);
-+	spin_unlock_irq(&hw_priv->hwlock);
- 
- 	/* Notify the network subsystem that the packet has been sent. */
- 	if (dev)
-@@ -5259,11 +5259,15 @@ static irqreturn_t netdev_intr(int irq, void *dev_id)
- 	struct dev_info *hw_priv = priv->adapter;
- 	struct ksz_hw *hw = &hw_priv->hw;
- 
-+	spin_lock(&hw_priv->hwlock);
-+
- 	hw_read_intr(hw, &int_enable);
- 
- 	/* Not our interrupt! */
--	if (!int_enable)
-+	if (!int_enable) {
-+		spin_unlock(&hw_priv->hwlock);
- 		return IRQ_NONE;
-+	}
- 
- 	do {
- 		hw_ack_intr(hw, int_enable);
-@@ -5310,6 +5314,8 @@ static irqreturn_t netdev_intr(int irq, void *dev_id)
- 
- 	hw_ena_intr(hw);
- 
-+	spin_unlock(&hw_priv->hwlock);
-+
- 	return IRQ_HANDLED;
- }
- 
-----
+ 		if (rx->flags & XEN_NETRXF_csum_blank)
+-- 
+1.7.2.5
