@@ -1,27 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tuntap: fix sparse warning
-Date: Mon, 17 Dec 2012 20:49:19 -0800 (PST)
-Message-ID: <20121217.204919.1174594015682114662.davem@davemloft.net>
-References: <1355799627-55529-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH] netlink: change presentation of portid in procfs to
+ unsigned
+Date: Mon, 17 Dec 2012 20:51:56 -0800 (PST)
+Message-ID: <20121217.205156.982918483606678655.davem@davemloft.net>
+References: <20121216010919.GA1528@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	fengguang.wu@intel.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1355799627-55529-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55052 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753221Ab2LREv5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Dec 2012 23:51:57 -0500
+In-Reply-To: <20121216010919.GA1528@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Tue, 18 Dec 2012 11:00:27 +0800
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sun, 16 Dec 2012 02:09:19 +0100
 
-> Make tun_enable_queue() static to fix the sparse warning:
-> 
-> drivers/net/tun.c:399:19: sparse: symbol 'tun_enable_queue' was not declared. Should it be static?
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Applied, thanks.
+Applied.
