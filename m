@@ -1,115 +1,92 @@
-From: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
-Subject: =?UTF-8?q?=5BPATCH=20v2=201/2=5D=20net=3A=20asix=3A=20init=20ASIX=20AX88772B=20MAC=20from=20EEPROM?=
-Date: Tue, 18 Dec 2012 16:21:22 +0100
-Message-ID: <1355844083-14285-1-git-send-email-dev@lynxeye.de>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH] xen/netfront: improve truesize tracking
+Date: Tue, 18 Dec 2012 15:26:38 +0000
+Message-ID: <1355844398.14620.254.camel@zakaz.uk.xensource.com>
+References: <1355838711-5473-1-git-send-email-ian.campbell@citrix.com>
+	 <1355843525.9380.18.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	annie li <annie.li@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
+To: Eric Dumazet <erdnetdev@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:26093 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755167Ab2LRP0l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 10:26:41 -0500
+In-Reply-To: <1355843525.9380.18.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The device comes up with a MAC address of all zeros. We need to read th=
-e
-initial device MAC from EEPROM so it can be set properly later.
+On Tue, 2012-12-18 at 15:12 +0000, Eric Dumazet wrote:
+> On Tue, 2012-12-18 at 13:51 +0000, Ian Campbell wrote:
+> > Using RX_COPY_THRESHOLD is incorrect if the SKB is actually smaller
+> > than that. We have already accounted for this in
+> > NETFRONT_SKB_CB(skb)->pull_to so use that instead.
+> > 
+> > Fixes WARN_ON from skb_try_coalesce.
+> > 
+> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
+> > Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> > Cc: annie li <annie.li@oracle.com>
+> > Cc: xen-devel@lists.xensource.com
+> > Cc: netdev@vger.kernel.org
+> > Cc: stable@kernel.org # 3.7.x only
+> > ---
+> >  drivers/net/xen-netfront.c |   15 +++++----------
+> >  1 files changed, 5 insertions(+), 10 deletions(-)
+> > 
+> > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> > index caa0110..b06ef81 100644
+> > --- a/drivers/net/xen-netfront.c
+> > +++ b/drivers/net/xen-netfront.c
+> > @@ -971,17 +971,12 @@ err:
+> >  		 * overheads. Here, we add the size of the data pulled
+> >  		 * in xennet_fill_frags().
+> >  		 *
+> > -		 * We also adjust for any unused space in the main
+> > -		 * data area by subtracting (RX_COPY_THRESHOLD -
+> > -		 * len). This is especially important with drivers
+> > -		 * which split incoming packets into header and data,
+> > -		 * using only 66 bytes of the main data area (see the
+> > -		 * e1000 driver for example.)  On such systems,
+> > -		 * without this last adjustement, our achievable
+> > -		 * receive throughout using the standard receive
+> > -		 * buffer size was cut by 25%(!!!).
+> > +		 * We also adjust for the __pskb_pull_tail done in
+> > +		 * handle_incoming_queue which pulls data from the
+> > +		 * frags into the head area, which is already
+> > +		 * accounted in RX_COPY_THRESHOLD.
+> >  		 */
+> > -		skb->truesize += skb->data_len - RX_COPY_THRESHOLD;
+> > +		skb->truesize += skb->data_len - NETFRONT_SKB_CB(skb)->pull_to;
+> >  		skb->len += skb->data_len;
+> >  
+> >  		if (rx->flags & XEN_NETRXF_csum_blank)
+> 
+> 
+> But skb truesize is not what you think.
 
-Signed-off-by: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
----
-A similar fix was added into U-Boot:
-http://patchwork.ozlabs.org/patch/179409/
+Indeed, it seems I was completely backwards about what it means!
 
-v2: pass flag in the data field instead of clobbering the global flags
-    space
----
- drivers/net/usb/asix.h         |  3 +++
- drivers/net/usb/asix_devices.c | 30 +++++++++++++++++++++++++++---
- 2 Dateien ge=C3=A4ndert, 30 Zeilen hinzugef=C3=BCgt(+), 3 Zeilen entfe=
-rnt(-)
+> You must account the exact memory used by this skb, not only the used
+> part of it.
+> 
+> At the very minimum, it should be
+> 
+> skb->truesize += skb->data_len;
+> 
+> But it really should be the allocated size of the fragment.
+> 
+> If its a page, then its a page, even if you use one single byte in it.
 
-diff --git a/drivers/net/usb/asix.h b/drivers/net/usb/asix.h
-index e889631..7afe8ac 100644
---- a/drivers/net/usb/asix.h
-+++ b/drivers/net/usb/asix.h
-@@ -167,6 +167,9 @@ struct asix_data {
- 	u8 res;
- };
-=20
-+/* ASIX specific flags */
-+#define FLAG_EEPROM_MAC		(1UL << 0)  /* init device MAC from eeprom */
-+
- int asix_read_cmd(struct usbnet *dev, u8 cmd, u16 value, u16 index,
- 		  u16 size, void *data);
-=20
-diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devi=
-ces.c
-index 7a6e758..0ecc3bc 100644
---- a/drivers/net/usb/asix_devices.c
-+++ b/drivers/net/usb/asix_devices.c
-@@ -422,14 +422,25 @@ static const struct net_device_ops ax88772_netdev=
-_ops =3D {
-=20
- static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf=
-)
- {
--	int ret, embd_phy;
-+	int ret, embd_phy, i;
- 	u8 buf[ETH_ALEN];
- 	u32 phyid;
-=20
- 	usbnet_get_endpoints(dev,intf);
-=20
- 	/* Get the MAC address */
--	ret =3D asix_read_cmd(dev, AX_CMD_READ_NODE_ID, 0, 0, ETH_ALEN, buf);
-+	if (dev->driver_info->data & FLAG_EEPROM_MAC) {
-+		for (i =3D 0; i < (ETH_ALEN >> 1); i++) {
-+			ret =3D asix_read_cmd(dev, AX_CMD_READ_EEPROM, 0x04 + i,
-+					0, 2, buf + i * 2);
-+			if (ret < 0)
-+				break;
-+		}
-+	} else {
-+		ret =3D asix_read_cmd(dev, AX_CMD_READ_NODE_ID,
-+				0, 0, ETH_ALEN, buf);
-+	}
-+
- 	if (ret < 0) {
- 		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
- 		return ret;
-@@ -872,6 +883,19 @@ static const struct driver_info ax88772_info =3D {
- 	.tx_fixup =3D asix_tx_fixup,
- };
-=20
-+static const struct driver_info ax88772b_info =3D {
-+	.description =3D "ASIX AX88772B USB 2.0 Ethernet",
-+	.bind =3D ax88772_bind,
-+	.status =3D asix_status,
-+	.link_reset =3D ax88772_link_reset,
-+	.reset =3D ax88772_reset,
-+	.flags =3D FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR |
-+	         FLAG_MULTI_PACKET,
-+	.rx_fixup =3D asix_rx_fixup,
-+	.tx_fixup =3D asix_tx_fixup,
-+	.data =3D FLAG_EEPROM_MAC,
-+};
-+
- static const struct driver_info ax88178_info =3D {
- 	.description =3D "ASIX AX88178 USB 2.0 Ethernet",
- 	.bind =3D ax88178_bind,
-@@ -953,7 +977,7 @@ static const struct usb_device_id	products [] =3D {
- }, {
- 	// ASIX AX88772B 10/100
- 	USB_DEVICE (0x0b95, 0x772b),
--	.driver_info =3D (unsigned long) &ax88772_info,
-+	.driver_info =3D (unsigned long) &ax88772b_info,
- }, {
- 	// ASIX AX88772 10/100
- 	USB_DEVICE (0x0b95, 0x7720),
---=20
-1.7.11.7
+So actually we want += PAGE_SIZE * skb_shinfo(skb)->nr_frags ?
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sander, can you try that change?
+
+Ian.
