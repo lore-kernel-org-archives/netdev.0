@@ -1,47 +1,35 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH V2 01/12] bridge: Add vlan filtering infrastructure
-Date: Tue, 18 Dec 2012 16:26:30 -0500
-Message-ID: <50D0DF86.9070801@redhat.com>
-References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>  <1355857263-31197-2-git-send-email-vyasevic@redhat.com> <1355865231.9380.119.camel@edumazet-glaptop>
-Reply-To: vyasevic@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
-	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com
-To: Eric Dumazet <erdnetdev@gmail.com>
+Subject: [PATCH] bridge:  Do not unregister PF_BRIDGE rtnl operations
+Date: Tue, 18 Dec 2012 16:43:44 -0500
+Message-ID: <1355867024-12165-1-git-send-email-vyasevic@redhat.com>
+Cc: davem@davemloft.net, shemminger@vyatta.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33830 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:32080 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753319Ab2LRV0g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2012 16:26:36 -0500
-In-Reply-To: <1355865231.9380.119.camel@edumazet-glaptop>
+	id S1752337Ab2LRVnr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2012 16:43:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/18/2012 04:13 PM, Eric Dumazet wrote:
-> On Tue, 2012-12-18 at 14:00 -0500, Vlad Yasevich wrote:
->
->> +static void br_vlan_destroy(struct net_bridge_vlan *vlan)
->> +{
->> +	if (!bitmap_empty(vlan->port_bitmap, PORT_BITMAP_LEN)) {
->> +		pr_err("Attempt to delete a VLAN %d from the bridge with "
->> +		       "non-empty port bitmap (%p)\n", vlan->vid, vlan);
->> +		BUG();
->> +	}
->> +
->> +	hlist_del_rcu(&vlan->hlist);
->> +	synchronize_net();
->> +	kfree_rcu(vlan, rcu);
->> +}
->
-> Not clear why you both use synchronize_net() and kfree_rcu()
->
+Now that bridge rtnl ops are in core, do not undergister
+all PF_BRIDGE ops when bridge module is unloaded.  It makes
+it so that after reload, none of the messages work.
 
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_netlink.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-I think this was a left-over from old code.  I think this was
-originally here to mimic del_nbp behavior, but I don't think
-it's really needed as kfree_rcu should wait until all current
-rcu section have completed.
-
--vlad
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index dead9df..97ba018 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -305,5 +305,4 @@ int __init br_netlink_init(void)
+ void __exit br_netlink_fini(void)
+ {
+ 	rtnl_link_unregister(&br_link_ops);
+-	rtnl_unregister_all(PF_BRIDGE);
+ }
+-- 
+1.7.7.6
