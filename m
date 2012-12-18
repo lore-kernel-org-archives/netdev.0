@@ -1,90 +1,124 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [PATCH] build: unbreak linkage of m_xt.so
-Date: Tue, 18 Dec 2012 13:47:58 -0500
-Message-ID: <201212181348.00379.vapier@gentoo.org>
-References: <alpine.LNX.2.01.1212160119060.7193@nerf07.vanv.qr> <1355617968-26138-1-git-send-email-jengelh@inai.de> <20121218092130.1d3f4239@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart6460055.t50IdOxJmL";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@inai.de>, stephen.hemminger@vyatta.com,
-	netdev@vger.kernel.org, jhs@mojatatu.com, urykhy@gmail.com,
-	shemonc@gmail.com, pablo@netfilter.org,
-	netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20121218092130.1d3f4239@nehalam.linuxnetplumber.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH V2 04/12] bridge: Cache vlan in the cb for faster egress lookup.
+Date: Tue, 18 Dec 2012 14:00:55 -0500
+Message-ID: <1355857263-31197-5-git-send-email-vyasevic@redhat.com>
+References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
+Cc: shemminger@vyatta.com, davem@davemloft.net, or.gerlitz@gmail.com,
+	jhs@mojatatu.com, mst@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:20611 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755552Ab2LRTBa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2012 14:01:30 -0500
+In-Reply-To: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart6460055.t50IdOxJmL
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+On input, cache the pointer to the bridge vlan info, so that
+on egress, we have can simply look at the port bitmap instead
+of traversing a vlan list.
 
-On Tuesday 18 December 2012 12:21:30 Stephen Hemminger wrote:
-> On Sun, 16 Dec 2012 01:32:48 +0100 Jan Engelhardt wrote:
-> > Commit v3.7.0~10 caused the variable new PKG_CONFIG variable never
-> > to be present at the time of calling make, leading to tc/m_xt.so
-> > not linked with -lxtables (result from pkg-config xtables --libs),
-> > that in turn leading to
-> >=20
-> > tc: symbol lookup error: /usr/lib64/tc//m_xt.so: undefined symbol:
-> > xtables_init_all
-> >=20
-> > Fixing that.
-> >=20
-> > --- a/configure
-> > +++ b/configure
-> > @@ -4,7 +4,6 @@
-> >  INCLUDE=3D${1:-"$PWD/include"}
-> >  : ${PKG_CONFIG:=3Dpkg-config}
-> >  : ${CC=3Dgcc}
-> > -echo "PKG_CONFIG:=3D${PKG_CONFIG}" >>Config
-> >=20
-> >  # Make a temp directory in build tree.
-> >  TMPDIR=3D$(mktemp -d config.XXXXXX)
-> > @@ -224,6 +223,7 @@ rm -f $TMPDIR/ipsettest.c $TMPDIR/ipsettest
-> >  }
-> > =20
-> >  echo "# Generated config based on" $INCLUDE >Config
-> > +echo "PKG_CONFIG:=3D${PKG_CONFIG}" >>Config
-> >  echo "TC schedulers"
->=20
-> Ok, manually did the diff (conflicted with other previous changes).
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_device.c  |    8 ++++++++
+ net/bridge/br_forward.c |   14 ++++++++++++++
+ net/bridge/br_input.c   |    6 +++++-
+ net/bridge/br_private.h |    1 +
+ 4 files changed, 28 insertions(+), 1 deletions(-)
 
-this patch is no longer necessary one you merged my:
-	configure: move toolchain init to a function
-
-it's actually undesirable to apply this after that since it makes the confi=
-gure=20
-script less clear again ...
-
-sorry if my commit message wasn't obvious.
-=2Dmike
-
---nextPart6460055.t50IdOxJmL
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJQ0LpgAAoJEEFjO5/oN/WB1IAQAL1PR8tSYOCBHvmLTWWVby2T
-gNnBpsbRUjgu0oc6LwDOf1DuTZp4PqjD6/0dVa1MwGSchQWcsgII3op0t8ApBYZU
-Jv1vvL8Uu383PMOv8YUa8uNQSlj6J1WxU/1xmP10dD2I46Huf15pRPtjbH1wcx3m
-Z1/TYika3qIaaV0/Xq/btOJBe3oYmkO3OIwgqrSxGKN/beFKEpO/RUKozLke8O3w
-euPGoUEvE4eQPf/KW38F+ebD+fIZbsRiWKzqUDEBptIRHti9qxcFML8mCT/9hWjN
-vafKdWT/EBlMhOWOaB7OOPZG1jBYxp+q3Ur3fynhRDzYziRgoekD9kwr4byd/t86
-ZIKm+16sthFAQQBwTZ7Gfjj0y275+3kxEMjvYran3pHowakcO10NTRjezJBIGjVE
-N8hFfU25NC/TraOrT+4NkfHLo0SOs1dQlUItrrURmnfBhZFtfBMrSfGKMzE6CVq8
-Y6WDvAJepceMDaC4ZY4UR0pWHYbIM573pG9s/TdnwiX5Bjx9DlCVYaNOrUyE+2IN
-ErjVwRkN/wuHOKcATRLwqOGPjWnki7F+DevyD8K7JL5YHDiPhi8xfIa3JdTuUw1X
-YTrocW6wWaC+BXNgv4sb++yvy+MvxeWrlzOVL2sxOTcVNGQlKCsdF/JPdiXxvuCN
-jHE4Jx5HLuIi9YmoT+K0
-=u2bt
------END PGP SIGNATURE-----
-
---nextPart6460055.t50IdOxJmL--
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 9546742..57c5bac 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -30,6 +30,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct net_bridge_fdb_entry *dst;
+ 	struct net_bridge_mdb_entry *mdst;
+ 	struct br_cpu_netstats *brstats = this_cpu_ptr(br->stats);
++	struct net_bridge_vlan *vlan;
+ 
+ 	rcu_read_lock();
+ #ifdef CONFIG_BRIDGE_NETFILTER
+@@ -47,6 +48,13 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	BR_INPUT_SKB_CB(skb)->brdev = dev;
+ 
++	/* Any vlan transmitted by the bridge itself is permitted.
++	 * Try to cache the vlan in the CB to speed up forwarding.
++	 */
++	vlan = br_vlan_find(br, br_get_vlan(skb));
++	if (vlan)
++		BR_INPUT_SKB_CB(skb)->vlan = vlan;
++
+ 	skb_reset_mac_header(skb);
+ 	skb_pull(skb, ETH_HLEN);
+ 
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 0c7ffc2..4ae5f55 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -30,11 +30,25 @@ static inline bool br_allowed_egress(const struct net_bridge_port *p,
+ 				     const struct sk_buff *skb)
+ {
+ 	struct net_port_vlan *pve;
++	struct net_bridge_vlan *vlan = NULL;
+ 	u16 vid;
+ 
+ 	if (list_empty(&p->vlan_list))
+ 		return true;
+ 
++	vlan = BR_INPUT_SKB_CB(skb)->vlan;
++	if (vlan) {
++		/* If we have cached VLAN information, use port_bitmap
++		 * of the vlan to make the decision
++		 */
++		if (test_bit(p->port_no, vlan->port_bitmap))
++			return true;
++		return false;
++	}
++
++	/* We don't have cached vlan information, so we need to do
++	 * it the hard way.
++	 */
+ 	vid = br_get_vlan(skb);
+ 	pve = nbp_vlan_find(p, vid);
+ 	if (pve)
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 54c0894..e475f49 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -47,6 +47,8 @@ static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb)
+ 	struct net_port_vlan *pve;
+ 	u16 vid;
+ 
++	BR_INPUT_SKB_CB(skb)->vlan = NULL;
++
+ 	/* If there are no vlan in the permitted list, all packets are
+ 	 * permitted.
+ 	 */
+@@ -55,8 +57,10 @@ static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb)
+ 
+ 	vid = br_get_vlan(skb);
+ 	pve = nbp_vlan_find(p, vid);
+-	if (pve)
++	if (pve) {
++		BR_INPUT_SKB_CB(skb)->vlan = pve->vlan;
+ 		return true;
++	}
+ 
+ 	return false;
+ }
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 5090134..6793088 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -300,6 +300,7 @@ struct net_bridge
+ 
+ struct br_input_skb_cb {
+ 	struct net_device *brdev;
++	struct net_bridge_vlan *vlan;
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
+ 	int igmp;
+ 	int mrouters_only;
+-- 
+1.7.7.6
