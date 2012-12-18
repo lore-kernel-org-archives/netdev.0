@@ -1,49 +1,37 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: [PATCH] net: fec: forbid FEC_PTP on SoCs that do not support
-Date: Tue, 18 Dec 2012 21:06:44 +0800
-Message-ID: <1355836004-22067-1-git-send-email-shawn.guo@linaro.org>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH 1/2] net: asix: init ASIX AX88772B MAC from EEPROM
+Date: Tue, 18 Dec 2012 14:11:51 +0100
+Message-ID: <5491619.g500gaSnsh@linux-lqwf.site>
+References: <1355832626-3034-1-git-send-email-dev@lynxeye.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sascha Hauer <s.hauer@pengutronix.de>,
-	Richard Cochran <richardcochran@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Lucas Stach <dev@lynxeye.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:19889
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752924Ab2LRNGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 08:06:37 -0500
+Received: from cantor2.suse.de ([195.135.220.15]:43430 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752924Ab2LRNLW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Dec 2012 08:11:22 -0500
+In-Reply-To: <1355832626-3034-1-git-send-email-dev@lynxeye.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Beside imx6q, the kernel built from imx_v6_v7_defconfig is also
-supposed to be running on other IMX SoCs that do not have the PTP
-block.  Before fec driver gets fixed to run-time detect target hardware
-rather than conditional compiling with #ifdef CONFIG_FEC_PTP, let's
-give it a quick fix in Kconfig to forbid FEC_PTP on those IMX SoCs that
-do not support PTP.
+On Tuesday 18 December 2012 13:10:25 Lucas Stach wrote:
+> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+> index 9bbeabf..8e9516f 100644
+> --- a/include/linux/usb/usbnet.h
+> +++ b/include/linux/usb/usbnet.h
+> @@ -106,6 +106,7 @@ struct driver_info {
+>   */
+>  #define FLAG_MULTI_PACKET      0x2000
+>  #define FLAG_RX_ASSEMBLE       0x4000  /* rx packets may span >1 frames */
+> +#define FLAG_EEPROM_MAC                0x8000  /* initialize device MAC from eeprom */
 
-Reported-by: Sascha Hauer <s.hauer@pengutronix.de>
-Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
----
- drivers/net/ethernet/freescale/Kconfig |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Hi,
 
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index 5ba6e1c..ec490d7 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -94,9 +94,8 @@ config GIANFAR
- 
- config FEC_PTP
- 	bool "PTP Hardware Clock (PHC)"
--	depends on FEC && ARCH_MXC
-+	depends on FEC && ARCH_MXC && !SOC_IMX25 && !SOC_IMX27 && !SOC_IMX35 && !SOC_IMX5
- 	select PTP_1588_CLOCK
--	default y if SOC_IMX6Q
- 	--help---
- 	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
- 	  driver.  Only the basic clock operations have been implemented.
--- 
-1.7.9.5
+this looks sensible, but
+why are you adding a flag unused in usbnet to usbnet.h?
+
+	Regards
+		Oliver
