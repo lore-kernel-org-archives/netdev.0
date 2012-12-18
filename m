@@ -1,75 +1,210 @@
-From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net-next] be2net: fix INTx ISR for interrupt behaviour
- on BE2
-Date: Tue, 18 Dec 2012 12:57:39 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C0E0C422D@CMEXMB1.ad.emulex.com>
-References: <d856540b-bacc-45e3-a7cc-49e7febafb95@CMEXHTCAS1.ad.emulex.com>
-	 <1354134001.2768.11.camel@bwh-desktop.uk.solarflarecom.com>
- <1354134328.2768.16.camel@bwh-desktop.uk.solarflarecom.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH v2] netlink: align attributes on 64-bits
+Date: Tue, 18 Dec 2012 12:57:35 +0000
+Message-ID: <20121218125735.GG27746@casper.infradead.org>
+References: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com>
+ <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	davem@davemloft.net, David.Laight@ACULAB.COM
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:53590 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754006Ab2LRM5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 07:57:40 -0500
-In-Reply-To: <1354134328.2768.16.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from casper.infradead.org ([85.118.1.10]:59406 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754006Ab2LRM5n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 07:57:43 -0500
+Content-Disposition: inline
+In-Reply-To: <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
-OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQoNCj5PbiBXZWQsIDIwMTItMTEtMjggYXQgMjA6
-MjAgKzAwMDAsIEJlbiBIdXRjaGluZ3Mgd3JvdGU6DQo+PiBPbiBXZWQsIDIwMTItMTEtMjggYXQg
-MTE6MjAgKzA1MzAsIFNhdGh5YSBQZXJsYSB3cm90ZToNCj4+ID4gT24gQkUyIGNoaXAsIGFuIGlu
-dGVycnVwdCBtYXkgYmUgcmFpc2VkIGV2ZW4gd2hlbiBFUSBpcyBpbiB1bi1hcm1lZCBzdGF0ZS4N
-Cj4+ID4gQXMgYSByZXN1bHQgYmVfaW50eCgpOjpldmVudHNfZ2V0KCkgYW5kIGJlX3BvbGw6ZXZl
-bnRzX2dldCgpIGNhbiByYWNlIGFuZA0KPj4gPiBub3RpZnkgYW4gRVEgd3JvbmdseS4NCj4+ID4N
-Cj4+ID4gRml4IHRoaXMgYnkgY291bnRpbmcgZXZlbnRzIG9ubHkgaW4gYmVfcG9sbCgpLiBDb21t
-aXQgMGI1NDVhNjI5IGZpeGVzDQo+PiA+IHRoZSBzYW1lIGlzc3VlIGluIHRoZSBNU0kteCBwYXRo
-Lg0KPj4gPg0KPj4gPiBCdXQsIG9uIExhbmNlciwgSU5UeCBjYW4gYmUgZGUtYXNzZXJ0ZWQgb25s
-eSBieSBub3RpZnlpbmcgbnVtIGV2dHMuIFRoaXMNCj4+ID4gaXMgbm90IGFuIGlzc3VlIGFzIHRo
-ZSBhYm92ZSBCRTIgYmVoYXZpb3IgZG9lc24ndCBleGlzdC9oYXMgbmV2ZXIgYmVlbg0KPj4gPiBz
-ZWVuIG9uIExhbmNlci4NCj4+IFsuLi5dDQo+PiA+IEBAIC0yMDE0LDE1ICsxOTk2LDIzIEBAIHN0
-YXRpYyBpbnQgYmVfcnhfY3FzX2NyZWF0ZShzdHJ1Y3QgYmVfYWRhcHRlcg0KPiphZGFwdGVyKQ0K
-Pj4gPg0KPj4gPiAgc3RhdGljIGlycXJldHVybl90IGJlX2ludHgoaW50IGlycSwgdm9pZCAqZGV2
-KQ0KPj4gPiAgew0KPj4gPiAtCXN0cnVjdCBiZV9hZGFwdGVyICphZGFwdGVyID0gZGV2Ow0KPj4g
-PiAtCWludCBudW1fZXZ0czsNCj4+ID4gKwlzdHJ1Y3QgYmVfZXFfb2JqICplcW8gPSBkZXY7DQo+
-PiA+ICsJc3RydWN0IGJlX2FkYXB0ZXIgKmFkYXB0ZXIgPSBlcW8tPmFkYXB0ZXI7DQo+PiA+ICsJ
-aW50IG51bV9ldnRzID0gMDsNCj4+ID4NCj4+ID4gLQkvKiBXaXRoIElOVHggb25seSBvbmUgRVEg
-aXMgdXNlZCAqLw0KPj4gPiAtCW51bV9ldnRzID0gZXZlbnRfaGFuZGxlKCZhZGFwdGVyLT5lcV9v
-YmpbMF0pOw0KPj4gPiAtCWlmIChudW1fZXZ0cykNCj4+ID4gLQkJcmV0dXJuIElSUV9IQU5ETEVE
-Ow0KPj4gPiAtCWVsc2UNCj4+ID4gLQkJcmV0dXJuIElSUV9OT05FOw0KPj4gPiArCS8qIE9uIExh
-bmNlciwgY2xlYXItaW50ciBiaXQgb2YgdGhlIEVRIERCIGRvZXMgbm90IHdvcmsuDQo+PiA+ICsJ
-ICogSU5UeCBpcyBkZS1hc3NlcnRlZCBvbmx5IG9uIG5vdGlmeWluZyBudW0gZXZ0cy4NCj4+ID4g
-KwkgKi8NCj4+ID4gKwlpZiAobGFuY2VyX2NoaXAoYWRhcHRlcikpDQo+PiA+ICsJCW51bV9ldnRz
-ID0gZXZlbnRzX2dldChlcW8pOw0KPj4gPiArDQo+PiA+ICsJLyogVGhlIEVRLW5vdGlmeSBtYXkg
-bm90IGRlLWFzc2VydCBJTlR4IHJpZ2h0YXdheSwgY2F1c2luZw0KPj4gPiArCSAqIHRoZSBJU1Ig
-dG8gYmUgaW52b2tlZCBhZ2Fpbi4gU28sIHJldHVybiBIQU5ETEVEIGV2ZW4gd2hlbg0KPj4gPiAr
-CSAqIG51bV9ldnRzIGlzIHplcm8uDQo+PiA+ICsJICovDQo+PiA+ICsJYmVfZXFfbm90aWZ5KGFk
-YXB0ZXIsIGVxby0+cS5pZCwgZmFsc2UsIHRydWUsIG51bV9ldnRzKTsNCj4+ID4gKwluYXBpX3Nj
-aGVkdWxlKCZlcW8tPm5hcGkpOw0KPj4gPiArCXJldHVybiBJUlFfSEFORExFRDsNCj4+ID4gIH0N
-Cj4+IFsuLi5dDQo+Pg0KPj4gWW91IHNob3VsZG4ndCB1bmNvbmRpdGlvbmFsbHkgcmV0dXJuIElS
-UV9IQU5ETEVELiAgVGhpcyBwcmV2ZW50cw0KPj4gaW50ZXJydXB0IHN0b3JtIGRldGVjdGlvbiBm
-cm9tIHdvcmtpbmcsIG5vdCBqdXN0IGZvciB5b3VyIGRldmljZSBidXQgZm9yDQo+PiBhbnl0aGlu
-ZyBlbHNlIHNoYXJpbmcgaXRzIElSUS4NCj4+DQo+PiBJIHVuZGVyc3RhbmQgdGhlcmUgaXMgYSBy
-ZWFsIHByb2JsZW0gdG8gYmUgZml4ZWQgKFBDSWUgd3JpdGUgY29tcGxldGlvbnMNCj4+IG92ZXJ0
-YWtpbmcgSU5UeCBkZWFzc2VydGlvbiwgYW5kIG1heWJlIGEgc3BlY2lmaWMgaGFyZHdhcmUgYnVn
-KS4NCj5bLi4uXQ0KPg0KPkkgd2FzIHRoaW5raW5nIG9mIHJlYWQgY29tcGxldGlvbnM7IHRoZXJl
-IGFyZSBubyB3cml0ZSBjb21wbGV0aW9ucyB0bw0KPndhaXQgZm9yIHNvIHlvdSdyZSBwcmV0dHkg
-bXVjaCBndWFyYW50ZWVkIHRvIGdldCBjYWxsZWQgYSBzZWNvbmQgdGltZS4NCj5NYXliZSB5b3Ug
-c2hvdWxkIGFkZCBhbiBNTUlPIHJlYWQgYWZ0ZXIgY2FsbGluZyBiZV9lcV9ub3RpZnkoKS4NCg0K
-QmVuLCBJJ20gdmVyeSBzb3JyeSBmb3Igbm90IHJlcGx5aW5nIHRvIHRoaXMgdGhyZWFkIGVhcmxp
-ZXIuIEkgbmVlZGVkIHRpbWUgdG8gcGxheSB3aXRoDQp5b3VyIHN1Z2dlc3RlZCBzb2x1dGlvbiBh
-bmQgYmV0dGVyIHVuZGVyc3RhbmQgdGhlIEhXIGJlaGF2aW9yIGluIHRoaXMgY2FzZS4NCg0KQWRk
-aW5nIGFuIGV4dHJhIFBDSSBtZW1vcnkgcmVhZCBhZnRlciB0aGUgRVEtbm90aWZ5IGhlbHBzIGlu
-IHN5bmNpbmcgdGhlIFBDSSBkZS1hc3NlcnQNCm1lc3NhZ2UgKm9ubHkqIGlmIGl0IHdhcyBhbHJl
-YWR5IGlzc3VlZC4NCkJ1dCwgdGhlcmUgYXJlIGNhc2VzIHdoZW4gdGhlIEhXIGJsb2NrIHRha2Vz
-IHNvbWUgdGltZSAobG9uZ2VyKSB0byBpbml0aWF0ZSB0aGUgSU5UeCBkZS1hc3NlcnQuDQpUaGUg
-UENJIG1lbW9yeSByZWFkIHdvdWxkIGNvbXBsZXRlIGJ1dCB0aGUgZGUtYXNzZXJ0IHdvdWxkbid0
-IGhhdmUgaGFwcGVuZWQgeWV0Lg0KVGhlIFBDSSByZWFkIHN5bmMgd2lsbCB3b3JrIG9ubHkgaWYg
-dGhlIGRlLWFzc2VydCB3YXMgaXNzdWVkICpiZWZvcmUqIHRoZSBQQ0ktcmVhZCByZXF1ZXN0IHdh
-cyBzZWVuIGJ5IHRoZSBIVy4NCg0KdGhhbmtzLA0KLVNhdGh5YQ0K
+On 12/17/12 at 05:49pm, Nicolas Dichtel wrote:
+> @@ -492,6 +492,15 @@ static inline struct nlmsghdr *nlmsg_put_answer(struct sk_buff *skb,
+>   */
+>  static inline struct sk_buff *nlmsg_new(size_t payload, gfp_t flags)
+>  {
+> +	/* Because attributes may be aligned on 64-bits boundary with fake
+> +	 * attribute (type 0, size 4 (attributes are 32-bits align by default)),
+> +	 * an exact payload size cannot be calculated. Hence, we need to reserve
+> +	 * more space for these attributes.
+> +	 * 128 is arbitrary: it allows to align up to 32 attributes.
+> +	 */
+> +	if (payload < NLMSG_DEFAULT_SIZE)
+> +		payload = min(payload + 128, (size_t)NLMSG_DEFAULT_SIZE);
+
+This is doomed to fail eventually. A netlink message may carry
+hundreds of attributes eventually. See my suggestion below.
+
+> diff --git a/lib/nlattr.c b/lib/nlattr.c
+> index 18eca78..7440a80 100644
+> --- a/lib/nlattr.c
+> +++ b/lib/nlattr.c
+> @@ -450,9 +450,18 @@ EXPORT_SYMBOL(__nla_put_nohdr);
+>   */
+>  int nla_put(struct sk_buff *skb, int attrtype, int attrlen, const void *data)
+>  {
+> -	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen)))
+> +	int align = IS_ALIGNED((unsigned long)skb_tail_pointer(skb), 8) ? 0 : 4;
+
+This does not look right. In order for the attribute data to be
+aligned properly you would need to check skb_tail_pointer(skb) +
+NLA_HDRLEN for proper alignment or you end up aligning the
+attribute header.
+
+How about we change nla_total_size() to return the size with
+needed padding taken into account. That should fix the message
+size caluclation problem and we only need to reserve room for
+the initial padding to align the very first attribute.
+
+Below is an untested patch that does this. What do you think?
+
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 9690b0f..7ce8e76 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -114,7 +114,6 @@
+  * Attribute Length Calculations:
+  *   nla_attr_size(payload)		length of attribute w/o padding
+  *   nla_total_size(payload)		length of attribute w/ padding
+- *   nla_padlen(payload)		length of padding
+  *
+  * Attribute Payload Access:
+  *   nla_data(nla)			head of attribute payload
+@@ -492,6 +491,14 @@ static inline struct nlmsghdr *nlmsg_put_answer(struct sk_buff *skb,
+  */
+ static inline struct sk_buff *nlmsg_new(size_t payload, gfp_t flags)
+ {
++	/* If an exact size if specified, reserve some additional space to
++	 * align the first attribute, all subsequent attributes should have
++	 * padding accounted for.
++	 */
++	if (payload != NLMSG_DEFAULT_SIZE)
++		payload = min_t(size_t, payload + NLA_ATTR_ALIGN,
++				NLMSG_DEFAULT_SIZE);
++
+ 	return alloc_skb(nlmsg_total_size(payload), flags);
+ }
+ 
+@@ -653,16 +660,12 @@ static inline int nla_attr_size(int payload)
+  */
+ static inline int nla_total_size(int payload)
+ {
+-	return NLA_ALIGN(nla_attr_size(payload));
+-}
++	size_t len = NLA_ALIGN(nla_attr_size(payload));
+ 
+-/**
+- * nla_padlen - length of padding at the tail of attribute
+- * @payload: length of payload
+- */
+-static inline int nla_padlen(int payload)
+-{
+-	return nla_total_size(payload) - nla_attr_size(payload);
++	if (!IS_ALIGNED(len, NLA_ATTR_ALIGN))
++		len = ALIGN(len + NLA_HDRLEN, NLA_ATTR_ALIGN);
++
++	return len;
+ }
+ 
+ /**
+diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
+index 78d5b8a..1856729 100644
+--- a/include/uapi/linux/netlink.h
++++ b/include/uapi/linux/netlink.h
+@@ -149,5 +149,10 @@ struct nlattr {
+ #define NLA_ALIGN(len)		(((len) + NLA_ALIGNTO - 1) & ~(NLA_ALIGNTO - 1))
+ #define NLA_HDRLEN		((int) NLA_ALIGN(sizeof(struct nlattr)))
+ 
++/* Padding attribute type, added automatically to align attributes,
++ * must be ignored by readers. */
++#define NLA_PADDING		0
++#define NLA_ATTR_ALIGN		8
++
+ 
+ #endif /* _UAPI__LINUX_NETLINK_H */
+diff --git a/lib/nlattr.c b/lib/nlattr.c
+index 18eca78..b09473c 100644
+--- a/lib/nlattr.c
++++ b/lib/nlattr.c
+@@ -322,18 +322,36 @@ int nla_strcmp(const struct nlattr *nla, const char *str)
+  * Adds a netlink attribute header to a socket buffer and reserves
+  * room for the payload but does not copy it.
+  *
++ * May add a padding attribute of type NLA_PADDING before the
++ * real attribute to ensure proper alignment.
++ *
+  * The caller is responsible to ensure that the skb provides enough
+  * tailroom for the attribute header and payload.
+  */
+ struct nlattr *__nla_reserve(struct sk_buff *skb, int attrtype, int attrlen)
+ {
+ 	struct nlattr *nla;
++	size_t offset;
++
++	offset = (size_t) skb_tail_pointer(skb);
++	if (!IS_ALIGNED(offset + NLA_HDRLEN, NLA_ATTR_ALIGN)) {
++		struct nlattr *pad;
++		size_t padlen;
++
++		padlen = nla_total_size(offset) - offset - NLA_HDRLEN;
++		pad = (struct nlattr *) skb_put(skb, nla_attr_size(padlen));
++		pad->nla_type = 0;
++		pad->nla_len = nla_attr_size(padlen);
++
++		memset((unsigned char *) pad + NLA_HDRLEN, 0, padlen);
++	}
+ 
+-	nla = (struct nlattr *) skb_put(skb, nla_total_size(attrlen));
++	nla = (struct nlattr *) skb_put(skb, NLA_ALIGN(nla_attr_size(attrlen)));
+ 	nla->nla_type = attrtype;
+ 	nla->nla_len = nla_attr_size(attrlen);
+ 
+-	memset((unsigned char *) nla + nla->nla_len, 0, nla_padlen(attrlen));
++	memset((unsigned char *) nla + nla->nla_len, 0,
++	       NLA_ALIGN(nla->nla_len) - nla->nla_len);
+ 
+ 	return nla;
+ }
+@@ -360,6 +378,23 @@ void *__nla_reserve_nohdr(struct sk_buff *skb, int attrlen)
+ }
+ EXPORT_SYMBOL(__nla_reserve_nohdr);
+ 
++static size_t nla_pre_padlen(struct sk_buff *skb)
++{
++	size_t offset = (size_t) skb_tail_pointer(skb);
++
++	if (!IS_ALIGNED(offset + NLA_HDRLEN, NLA_ATTR_ALIGN))
++		return nla_total_size(offset) - offset - NLA_HDRLEN;
++
++	return 0;
++}
++
++static bool nla_insufficient_space(struct sk_buff *skb, int attrlen)
++{
++	size_t needed = nla_pre_padlen(skb) + nla_total_size(attrlen);
++
++	return (skb_tailroom(skb) < needed);
++}
++
+ /**
+  * nla_reserve - reserve room for attribute on the skb
+  * @skb: socket buffer to reserve room on
+@@ -374,7 +409,7 @@ EXPORT_SYMBOL(__nla_reserve_nohdr);
+  */
+ struct nlattr *nla_reserve(struct sk_buff *skb, int attrtype, int attrlen)
+ {
+-	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen)))
++	if (unlikely(nla_insufficient_space(skb, attrlen)))
+ 		return NULL;
+ 
+ 	return __nla_reserve(skb, attrtype, attrlen);
+@@ -450,7 +485,7 @@ EXPORT_SYMBOL(__nla_put_nohdr);
+  */
+ int nla_put(struct sk_buff *skb, int attrtype, int attrlen, const void *data)
+ {
+-	if (unlikely(skb_tailroom(skb) < nla_total_size(attrlen)))
++	if (unlikely(nla_insufficient_space(skb, attrlen)))
+ 		return -EMSGSIZE;
+ 
+ 	__nla_put(skb, attrtype, attrlen, data);
