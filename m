@@ -1,51 +1,59 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: network namespace and DNS lookups
-Date: Tue, 18 Dec 2012 11:22:59 -0600
-Message-ID: <1355851379.30992.12.camel@dcbw.foobar.com>
-References: <CAFaHj6GVgDf2QXUWyaKYnvOqLJRjG+kA32eEk5psPkmc-RPY1Q@mail.gmail.com>
-	 <CAFaHj6HT0c59us_7F9Uh7BYh_YXGRt30=yLOrV=hcrG29YO-qA@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] build: unbreak linkage of m_xt.so
+Date: Tue, 18 Dec 2012 09:21:30 -0800
+Message-ID: <20121218092130.1d3f4239@nehalam.linuxnetplumber.net>
+References: <alpine.LNX.2.01.1212160119060.7193@nerf07.vanv.qr>
+	<1355617968-26138-1-git-send-email-jengelh@inai.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ravi Aysola <ravi.mlists@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12560 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754609Ab2LRRVW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Dec 2012 12:21:22 -0500
-In-Reply-To: <CAFaHj6HT0c59us_7F9Uh7BYh_YXGRt30=yLOrV=hcrG29YO-qA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen.hemminger@vyatta.com, vapier@gentoo.org,
+	netdev@vger.kernel.org, jhs@mojatatu.com, urykhy@gmail.com,
+	shemonc@gmail.com, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1355617968-26138-1-git-send-email-jengelh@inai.de>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-12-18 at 10:49 -0500, Ravi Aysola wrote:
-> I think I sent my earlier email a bit prematurely.  I do have
-> /etc/netns/<namespace-name>/resolv.conf
-> files under each of my namespaces. Now the question is, how does a
-> user space process
-> (say bind)  look at a namespace specific resolv.conf instead of
-> default one?  Have any of
-> these standard applications been modified to work with namespace
-> specific config files?
+On Sun, 16 Dec 2012 01:32:48 +0100
+Jan Engelhardt <jengelh@inai.de> wrote:
 
-Wouldn't that be the glibc resolver's domain?  DNS lookups aren't done
-by the kernel, but by glibc in userspace.  And glibc is also what reads
-resolv.conf, so most things DNS-namespace related would need to happen
-there.
-
-Dan
-
-> thanks again
-> ravi/
+> Commit v3.7.0~10 caused the variable new PKG_CONFIG variable never
+> to be present at the time of calling make, leading to tc/m_xt.so
+> not linked with -lxtables (result from pkg-config xtables --libs),
+> that in turn leading to
 > 
-> On Tue, Dec 18, 2012 at 10:09 AM, Ravi Aysola <ravi.mlists@gmail.com> wrote:
-> > Has there been any work in any of the recent kernels to limit the DNS lookup
-> > to a particular network namespace?  Do we have any facility to specify the
-> > DNS resolvers on network namespace basis (such as /etc/ns/resolv.conf)?
-> >
-> > thank you
-> > ravi/
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> tc: symbol lookup error: /usr/lib64/tc//m_xt.so: undefined symbol:
+> xtables_init_all
+> 
+> Fixing that.
+> 
+> Signed-off-by: Jan Engelhardt <jengelh@inai.de>
+> ---
+>  configure |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/configure b/configure
+> index 9912114..573ee55 100755
+> --- a/configure
+> +++ b/configure
+> @@ -4,7 +4,6 @@
+>  INCLUDE=${1:-"$PWD/include"}
+>  : ${PKG_CONFIG:=pkg-config}
+>  : ${CC=gcc}
+> -echo "PKG_CONFIG:=${PKG_CONFIG}" >>Config
+>  
+>  # Make a temp directory in build tree.
+>  TMPDIR=$(mktemp -d config.XXXXXX)
+> @@ -224,6 +223,7 @@ rm -f $TMPDIR/ipsettest.c $TMPDIR/ipsettest
+>  }
+>  
+>  echo "# Generated config based on" $INCLUDE >Config
+> +echo "PKG_CONFIG:=${PKG_CONFIG}" >>Config
+>  
+>  echo "TC schedulers"
+>  
+
+Ok, manually did the diff (conflicted with other previous changes).
