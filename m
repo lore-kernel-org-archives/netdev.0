@@ -1,40 +1,62 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
-Date: Wed, 19 Dec 2012 18:05:23 -0500
-Message-ID: <50D24833.8040803@mojatatu.com>
-References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com> <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com> <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr> <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com> <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com> <50D06177.2090905@mojatatu.com> <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com> <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com> <alpine.LNX.2.01.1212191648490.13317@nerf07.vanv.qr>
+From: Eric Dumazet <erdnetdev@gmail.com>
+Subject: Re: TCP delayed ACK heuristic
+Date: Wed, 19 Dec 2012 15:08:24 -0800
+Message-ID: <1355958504.21834.1088.camel@edumazet-glaptop>
+References: <270756364.27707018.1355842632348.JavaMail.root@redhat.com>
+	 <2088500005.27728019.1355843484620.JavaMail.root@redhat.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B70F4@saturn3.aculab.com>
+	 <1355900436.6665.16.camel@cr0>  <50D209E9.2000504@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Hasan Chowdhury <shemonc@gmail.com>,
+Cc: Cong Wang <amwang@redhat.com>,
+	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org,
+	Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
 	Stephen Hemminger <shemminger@vyatta.com>,
-	Yury Stankevich <urykhy@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@inai.de>
+	Thomas Graf <tgraf@redhat.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:48006 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911Ab2LSXFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 18:05:25 -0500
-Received: by mail-ie0-f179.google.com with SMTP id k14so3776201iea.10
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 15:05:25 -0800 (PST)
-In-Reply-To: <alpine.LNX.2.01.1212191648490.13317@nerf07.vanv.qr>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:51962 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926Ab2LSXI1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 18:08:27 -0500
+Received: by mail-pb0-f47.google.com with SMTP id un1so1529707pbc.20
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 15:08:27 -0800 (PST)
+In-Reply-To: <50D209E9.2000504@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12-12-19 10:52 AM, Jan Engelhardt wrote:
->
->
-> Humm... that's a huge patch for what seems to be equal to act_ipt.c
-> Let's do a cross-diff:
->
+On Wed, 2012-12-19 at 10:39 -0800, Rick Jones wrote:
+> On 12/18/2012 11:00 PM, Cong Wang wrote:
+> > On Tue, 2012-12-18 at 16:39 +0000, David Laight wrote:
+> >> There are problems with only implementing the acks
+> >> specified by RFC1122.
+> >
+> > Yeah, the problem is if we can violate this RFC for getting better
+> > performance. Or it is just a no-no?
+> >
+> > Although RFC 2525 mentions this as "Stretch ACK Violation", I am still
+> > not sure if that means we can violate RFC1122 legally.
+> 
+> The term used in RFC1122 is "SHOULD" not "MUST."  Same for RFC2525 when 
+> it talks about "Stretch ACK Violation."   A TCP stack may have behaviour 
+> which differs from a SHOULD so long as there is a reasonable reason for it.
 
-I was thinking of our little discussion when doing that.
-The one reason i separated the two is so when the time is right you
-can patch on top of only act_xt.c and eventually act_ipt.c will die..
-Does changes on top of act_xt.c sound palatable to you?
-Otherwise, you are right - it is overkill
+Generally speaking, there are no reasonable reasons, unless you control
+both sender and receiver, and the path between.
 
-cheers,
-jamal
+ACK can be incredibly useful to recover from losses in a short time.
+
+The vast majority of TCP sessions are small lived, and we send one ACK
+per received segment anyway at beginning [1] or retransmits to let the
+sender smoothly increase its cwnd, so an auto-tuning facility wont help
+them that much.
+
+For long and fast sessions, we have the LRO/GRO heuristic.
+
+This leaves a fraction of flows where the ACK rate should not really
+matter.
+
+
+[1] This refers to the quickack mode
