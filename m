@@ -1,40 +1,80 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: TCP delayed ACK heuristic
-Date: Wed, 19 Dec 2012 10:39:37 -0800
-Message-ID: <50D209E9.2000504@hp.com>
-References: <270756364.27707018.1355842632348.JavaMail.root@redhat.com> <2088500005.27728019.1355843484620.JavaMail.root@redhat.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70F4@saturn3.aculab.com> <1355900436.6665.16.camel@cr0>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org,
-	Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Thomas Graf <tgraf@redhat.com>
-To: Cong Wang <amwang@redhat.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v2] bridge:  Do not unregister all PF_BRIDGE rtnl operations
+Date: Wed, 19 Dec 2012 14:13:48 -0500
+Message-ID: <1355944428-32051-1-git-send-email-vyasevic@redhat.com>
+Cc: davem@davemloft.net, shemminger@vyatta.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:4613 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751980Ab2LSSjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 13:39:40 -0500
-In-Reply-To: <1355900436.6665.16.camel@cr0>
+Received: from mx1.redhat.com ([209.132.183.28]:11936 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751278Ab2LSTNu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2012 14:13:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/18/2012 11:00 PM, Cong Wang wrote:
-> On Tue, 2012-12-18 at 16:39 +0000, David Laight wrote:
->> There are problems with only implementing the acks
->> specified by RFC1122.
->
-> Yeah, the problem is if we can violate this RFC for getting better
-> performance. Or it is just a no-no?
->
-> Although RFC 2525 mentions this as "Stretch ACK Violation", I am still
-> not sure if that means we can violate RFC1122 legally.
+Bridge fdb and link rtnl operations are registered in
+core/rtnetlink.  Bridge mdb operations are registred
+in bridge/mdb.  When removing bridge module, do not
+unregister ALL PF_BRIDGE ops since that would remove
+the ops from rtnetlink as well.  Do remove mdb ops when
+bridge is destroyed.
 
-The term used in RFC1122 is "SHOULD" not "MUST."  Same for RFC2525 when 
-it talks about "Stretch ACK Violation."   A TCP stack may have behaviour 
-which differs from a SHOULD so long as there is a reasonable reason for it.
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_mdb.c       |    7 +++++++
+ net/bridge/br_multicast.c |    1 +
+ net/bridge/br_netlink.c   |    1 -
+ net/bridge/br_private.h   |    1 +
+ 4 files changed, 9 insertions(+), 1 deletions(-)
 
-rick jones
+diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+index 9cf5d2b..3e05cc3 100644
+--- a/net/bridge/br_mdb.c
++++ b/net/bridge/br_mdb.c
+@@ -482,3 +482,10 @@ void br_mdb_init(void)
+ 	rtnl_register(PF_BRIDGE, RTM_NEWMDB, br_mdb_add, NULL, NULL);
+ 	rtnl_register(PF_BRIDGE, RTM_DELMDB, br_mdb_del, NULL, NULL);
+ }
++
++void br_mdb_uninit(void)
++{
++	rtnl_unregister(PF_BRIDGE, RTM_GETMDB);
++	rtnl_unregister(PF_BRIDGE, RTM_NEWMDB);
++	rtnl_unregister(PF_BRIDGE, RTM_DELMDB);
++}
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index dce9def..5391ca4 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1633,6 +1633,7 @@ void br_multicast_stop(struct net_bridge *br)
+ 	del_timer_sync(&br->multicast_querier_timer);
+ 	del_timer_sync(&br->multicast_query_timer);
+ 
++	br_mdb_uninit();
+ 	spin_lock_bh(&br->multicast_lock);
+ 	mdb = mlock_dereference(br->mdb, br);
+ 	if (!mdb)
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index dead9df..97ba018 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -305,5 +305,4 @@ int __init br_netlink_init(void)
+ void __exit br_netlink_fini(void)
+ {
+ 	rtnl_link_unregister(&br_link_ops);
+-	rtnl_unregister_all(PF_BRIDGE);
+ }
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 49b85af4..8d83be5 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -447,6 +447,7 @@ extern struct net_bridge_port_group *br_multicast_new_port_group(
+ 				struct net_bridge_port_group *next,
+ 				unsigned char state);
+ extern void br_mdb_init(void);
++extern void br_mdb_uninit(void);
+ extern void br_mdb_notify(struct net_device *dev, struct net_bridge_port *port,
+ 			  struct br_ip *group, int type);
+ 
+-- 
+1.7.7.6
