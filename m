@@ -1,106 +1,51 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH] fix IP_ECN_set_ce
-Date: Wed, 19 Dec 2012 10:11:59 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1212191001530.1620@ja.ssi.bg>
-References: <1355898095-7444-1-git-send-email-roy.qing.li@gmail.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH V2 00/12] Add basic VLAN support to bridges
+Date: Wed, 19 Dec 2012 10:10:06 +0200
+Message-ID: <20121219101006.7086faef@pixies.home.jungo.com>
+References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811672-1274773181-1355904720=:1620"
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:40571 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751884Ab2LSIKr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2012 03:10:47 -0500
-In-Reply-To: <1355898095-7444-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:39493 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752247Ab2LSISB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 03:18:01 -0500
+Received: by mail-ea0-f176.google.com with SMTP id d13so669784eaa.35
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 00:18:00 -0800 (PST)
+In-Reply-To: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Thanks Vlad,
 
----1463811672-1274773181-1355904720=:1620
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+On Tue, 18 Dec 2012 14:00:51 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
+> A single vlan may also be designated as untagged.  Any untagged traffic
+> recieved by the port will be assigned to this vlan.
 
+Why the "untagged vlan" is per-bridge global?
+Usually, 802.1q switches define the PVID (port's VID) which controls
+the value of VID, in case ingress frame is either untagged or
+priority-tagged (per port configuration).
+This gives greater flexibility.
 
-	Hello,
+> Any traffic exiting
+> the port with a VID matching the untagged vlan will exit untagged (the
+> bridge will strip the vlan header).  This is similar to "Native Vlan" support
+> available in most switches.
 
-On Wed, 19 Dec 2012, roy.qing.li@gmail.com wrote:
+802.1q switches usually allow conifguring per-vlan, per-port
+tagged/untagged egress policy: each vid has its port membership map and
+an accompanying port egress-policy map.
+This gives great flexibility defining all sorts of configurations.
 
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> 1. ECN uses the two least significant (right-most) bits of the DiffServ
-> field in the IPv4, so it should be in iph->tos, not in (iph->tos+1)
-> 
-> 2. When setting CE, we should check if ECN Capable Transport supports,
-> both 10 and 01 mean ECN Capable Transport, so only check 10 is not enough
->     00: Non ECN-Capable Transport — Non-ECT
->     10: ECN Capable Transport — ECT(0)
->     01: ECN Capable Transport — ECT(1)
->     11: Congestion Encountered — CE
-> 
-> 3. Remove the misunderstand comment
-> 
-> 4. fix the checksum computation
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  include/net/inet_ecn.h |   22 ++++------------------
->  1 file changed, 4 insertions(+), 18 deletions(-)
-> 
-> diff --git a/include/net/inet_ecn.h b/include/net/inet_ecn.h
-> index aab7375..545a683 100644
-> --- a/include/net/inet_ecn.h
-> +++ b/include/net/inet_ecn.h
-> @@ -73,27 +73,13 @@ static inline void INET_ECN_dontxmit(struct sock *sk)
->  
->  static inline int IP_ECN_set_ce(struct iphdr *iph)
->  {
-> -	u32 check = (__force u32)iph->check;
-> -	u32 ecn = (iph->tos + 1) & INET_ECN_MASK;
-> -
-> -	/*
-> -	 * After the last operation we have (in binary):
-> -	 * INET_ECN_NOT_ECT => 01
-> -	 * INET_ECN_ECT_1   => 10
-> -	 * INET_ECN_ECT_0   => 11
-> -	 * INET_ECN_CE      => 00
-> -	 */
+Personally, I'd prefer a fully flexible vlan bridge allowing all sorts
+of configurations (as available in 802.1q switches).
 
-	I think, the above comment explains how an
-increment (iph->tos + 1) serves the purpose to check
-for ECT_1 and ECT_0, there is no such thing as
-addressing the next byte from header. It is just an
-optimized logic that avoids complex INET_ECN_is_XXX
-checks.
+What's the reason limiting such configurations?
 
-> -	if (!(ecn & 2))
-> +	u32 ecn = iph->tos & INET_ECN_MASK;
-> +
-> +	if (INET_ECN_is_ce(ecn) || INET_ECN_is_not_ect(ecn))
->  		return !ecn;
-
-	May be return INET_ECN_is_ce(ecn) ?
-
->  
-> -	/*
-> -	 * The following gives us:
-> -	 * INET_ECN_ECT_1 => check += htons(0xFFFD)
-> -	 * INET_ECN_ECT_0 => check += htons(0xFFFE)
-> -	 */
-> -	check += (__force u16)htons(0xFFFB) + (__force u16)htons(ecn);
-> +	csum_replace2(&iph->check, iph->tos, iph->tos|INET_ECN_CE);
->  
-> -	iph->check = (__force __sum16)(check + (check>=0xFFFF));
->  	iph->tos |= INET_ECN_CE;
->  	return 1;
->  }
-> -- 
-> 1.7.10.4
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
----1463811672-1274773181-1355904720=:1620--
+Regards,
+Shmulik
