@@ -1,48 +1,45 @@
 From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [RFC PATCH] fix IP_ECN_set_ce
-Date: Wed, 19 Dec 2012 08:14:35 -0800
-Message-ID: <1355933675.21834.7.camel@edumazet-glaptop>
-References: <1355898095-7444-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH] xen/netfront: improve truesize tracking
+Date: Wed, 19 Dec 2012 08:17:49 -0800
+Message-ID: <1355933869.21834.13.camel@edumazet-glaptop>
+References: <1355838711-5473-1-git-send-email-ian.campbell@citrix.com>
+	 <1355843525.9380.18.camel@edumazet-glaptop>
+	 <1355844398.14620.254.camel@zakaz.uk.xensource.com>
+	 <55633610.20121219123427@eikelenboom.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	annie li <annie.li@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
+To: Sander Eikelenboom <linux@eikelenboom.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:53165 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387Ab2LSQOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 11:14:38 -0500
-Received: by mail-pb0-f47.google.com with SMTP id un1so1316348pbc.34
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 08:14:37 -0800 (PST)
-In-Reply-To: <1355898095-7444-1-git-send-email-roy.qing.li@gmail.com>
+Received: from mail-da0-f41.google.com ([209.85.210.41]:41921 "EHLO
+	mail-da0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755021Ab2LSQRw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 11:17:52 -0500
+Received: by mail-da0-f41.google.com with SMTP id e20so1009882dak.28
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 08:17:51 -0800 (PST)
+In-Reply-To: <55633610.20121219123427@eikelenboom.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-12-19 at 14:21 +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
->=20
-> 1. ECN uses the two least significant (right-most) bits of the DiffSe=
-rv
-> field in the IPv4, so it should be in iph->tos, not in (iph->tos+1)
->=20
-> 2. When setting CE, we should check if ECN Capable Transport supports=
-,
-> both 10 and 01 mean ECN Capable Transport, so only check 10 is not en=
-ough
->     00: Non ECN-Capable Transport =E2=80=94 Non-ECT
->     10: ECN Capable Transport =E2=80=94 ECT(0)
->     01: ECN Capable Transport =E2=80=94 ECT(1)
->     11: Congestion Encountered =E2=80=94 CE
->=20
-> 3. Remove the misunderstand comment
->=20
-> 4. fix the checksum computation
->=20
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+On Wed, 2012-12-19 at 12:34 +0100, Sander Eikelenboom wrote:
 
-This is total crap.
+> Hi Ian,
+> 
+> It ran overnight and i haven't seen the warn_once trigger.
+> (but i also didn't with the previous patch)
+> 
 
-Its perfectly clear to me and compiler generates fast code.
+As I said, the miminum value to not trigger the warning was what Ian
+patch was doing, but it was still a not accurate estimation.
 
-If you don't understand this code, please don't touch it.
+Doing the real accounting might trigger slow transferts, or dropped
+packets because of socket limits (SNDBUF / RCVBUF) being hit sooner.
+
+So the real question was : If accounting for full pages, is your
+applications run as smooth as before, with no huge performance
+regression ?
