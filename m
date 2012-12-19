@@ -1,547 +1,249 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net-next V3 11/13] bridge: Implement untagged vlan handling
-Date: Wed, 19 Dec 2012 12:30:46 -0500
-Message-ID: <1355938248-8407-12-git-send-email-vyasevic@redhat.com>
-References: <1355938248-8407-1-git-send-email-vyasevic@redhat.com>
-Cc: shemminger@vyatta.com, davem@davemloft.net, or.gerlitz@gmail.com,
-	jhs@mojatatu.com, mst@redhat.com, erdnetdev@gmail.com,
-	jiri@resnulli.us
-To: netdev@vger.kernel.org
+From: Paolo valente <paolo.valente@unimore.it>
+Subject: [PATCH BUGFIX] pkt_sched: fix little service anomalies and possible crashes of qfq+
+Date: Wed, 19 Dec 2012 18:31:06 +0100
+Message-ID: <1355938266-18459-1-git-send-email-paolo.valente@unimore.it>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rizzo@iet.unipi.it, fchecconi@gmail.com,
+	Paolo Valente <paolo.valente@unimore.it>
+To: davem@davemloft.net, jhs@mojatatu.com, shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25574 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755820Ab2LSRbR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2012 12:31:17 -0500
-In-Reply-To: <1355938248-8407-1-git-send-email-vyasevic@redhat.com>
+Received: from smtp25.sms.unimo.it ([155.185.44.25]:37644 "EHLO
+	smtp25.sms.unimo.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755756Ab2LSRbz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 12:31:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When an untagged frame arrives on a port that has untagged vlan set,
-the frame is assigned to the untagged VLAN.  It will then procede
-through the forwarding/egress process with the VLAN id set to the
-untagged VLAN.
+This patch contains five fixes that remove some little service
+anomalies, plus an improvement that slightly reduces the execution
+time of qfq+.
 
-At egress, a frame with a VLAN id matching untagged vid will have its
-vlan header stripped off.
+As for possible crashes, in a stress test in which a few hundreds of
+classes randomly switched from backlogged to non-backlogged, and the
+parameters of a few tens of randomly chosen classes were changed
+repeatedly and in parallel, the problems solved by these fixes
+happened to combine and cause corruption of the data structures
+supporting the group bucket lists.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+The portions of the code interested by each fix are small and do not
+overlap with each other, so I decided to provide just one patch
+(I hope that this was the right choice).
+
+1. Fix the update of eligible-group sets
+
+Between two invocations of make_eligible, the system virtual time may
+happen to grow enough that, in its binary representation, a bit with
+higher order than 31 flips. This happens especially with
+TSO/GSO. Before this fix, the mask used in make_eligible was computed
+as (1UL<<index_of_last_flipped_bit)-1, whose value is well defined on
+a 64-bit architecture, because index_of_flipped_bit <= 63, but is in
+general undefined on a 32-bit architecture if index_of_flipped_bit > 31.
+The fix just replaces 1UL with 1ULL.
+
+2. Properly cap timestamps in charge_actual_service
+
+After decreasing the number of classes, and hence the maximum budget
+budgetmax for an aggregate in service, it may happen that the service
+it receives before a new aggregate is chosen for service becomes
+larger than budgetmax. This may cause the aggregate to be assigned an
+incorrect, too high virtual finish time. The cap introduced by this
+fix solves this problem.
+
+3. Do not allow virtual time to jump if an aggregate is in service
+
+By definition of (the algorithm of) qfq+, the system virtual time must
+be pushed up only if there is no eligible aggregate. But to decide
+whether this condition holds correctly, qfq+ must also check whether
+no aggregate is in service (and hence eligible).
+
+4. Prevent the budget of an aggregate from becoming negative in
+qfq_dequeue
+
+If lmax is lowered, through qfq_change_class, for a class owning
+pending packets with larger size than the new value of lmax, then even
+the budget of a just selected-aggregate may happen to be lower than
+the length of the next packet to serve. This fix prevents the budget
+from becoming negative after the packet is dequeued.
+
+5. Start serving a just-activated aggregate immediately if the
+scheduler is empty
+
+This avoids qfq+ to be occasionally non-work-conserving.
+
+6. Remove useless invocation of qfq_update_eligible from qfq_deactivate_agg
+
+There is no need to invoke qfq_update_eligible in qfq_deactivate_agg
+to keep qfq+ work-conserving.
+
+Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
 ---
- net/bridge/br_device.c    |   25 +++++++-
- net/bridge/br_forward.c   |  134 ++++++++++++++++++++++++++++++++++++++++++++-
- net/bridge/br_input.c     |   46 ++++++++++++---
- net/bridge/br_multicast.c |   37 +++++++-----
- net/bridge/br_private.h   |   20 ++++--
- 5 files changed, 224 insertions(+), 38 deletions(-)
+ net/sched/sch_qfq.c |   72 +++++++++++++++++++++++++++++++++++----------------
+ 1 file changed, 49 insertions(+), 23 deletions(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 1f9d0f9..37441b10 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -31,7 +31,8 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct net_bridge_mdb_entry *mdst;
- 	struct br_cpu_netstats *brstats = this_cpu_ptr(br->stats);
- 	struct net_bridge_vlan *vlan;
--	u16 vid;
-+	struct br_input_skb_cb *brcb;
-+	u16 vid = 0;
+diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+index 6ed3765..01f36a5 100644
+--- a/net/sched/sch_qfq.c
++++ b/net/sched/sch_qfq.c
+@@ -299,6 +299,11 @@ static void qfq_update_agg(struct qfq_sched *q, struct qfq_aggregate *agg,
+ 	    new_num_classes == q->max_agg_classes - 1) /* agg no more full */
+ 		hlist_add_head(&agg->nonfull_next, &q->nonfull_aggs);
  
- 	rcu_read_lock();
- #ifdef CONFIG_BRIDGE_NETFILTER
-@@ -47,15 +48,31 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	brstats->tx_bytes += skb->len;
- 	u64_stats_update_end(&brstats->syncp);
- 
--	BR_INPUT_SKB_CB(skb)->brdev = dev;
-+	brcb = BR_INPUT_SKB_CB(skb);
-+	memset(brcb, 0, sizeof(struct br_input_skb_cb));
-+	brcb->brdev = dev;
-+
-+	if (br_get_vlan(skb, &vid)) {
-+		u16 untagged_vid;
-+
-+		/* Untagged frame.  See if there is an untagged VLAN
-+		 * configured.
-+		 */
-+		if ((vlan = rcu_dereference(br->untagged)) != NULL &&
-+		    (untagged_vid = vlan->vid) != BR_INVALID_VID) {
-+			__vlan_hwaccel_put_tag(skb, untagged_vid);
-+			brcb->untagged = 1;
-+			goto skip_lookup;
-+		}
-+	}
- 
- 	/* Any vlan transmitted by the bridge itself is permitted.
- 	 * Try to cache the vlan in the CB to speed up forwarding.
- 	 */
--	vid = br_get_vlan(skb);
- 	vlan = br_vlan_find(br, vid);
-+skip_lookup:
- 	if (vlan)
--		BR_INPUT_SKB_CB(skb)->vlan = vlan;
-+		brcb->vlan = vlan;
- 
- 	skb_reset_mac_header(skb);
- 	skb_pull(skb, ETH_HLEN);
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 4ae5f55..bcd16e8 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -31,7 +31,7 @@ static inline bool br_allowed_egress(const struct net_bridge_port *p,
- {
- 	struct net_port_vlan *pve;
- 	struct net_bridge_vlan *vlan = NULL;
--	u16 vid;
-+	u16 vid = 0;
- 
- 	if (list_empty(&p->vlan_list))
- 		return true;
-@@ -49,14 +49,134 @@ static inline bool br_allowed_egress(const struct net_bridge_port *p,
- 	/* We don't have cached vlan information, so we need to do
- 	 * it the hard way.
- 	 */
--	vid = br_get_vlan(skb);
-+	br_get_vlan(skb, &vid);
- 	pve = nbp_vlan_find(p, vid);
--	if (pve)
-+	if (pve) {
-+		BR_INPUT_SKB_CB(skb)->vlan = pve->vlan;
- 		return true;
-+	}
- 
- 	return false;
- }
- 
-+/* Almost an exact copy of vlan_untag.  Needed here since it's not exported
-+ * and not available if vlan support isn't built in.
-+ */
-+static struct sk_buff *br_vlan_untag(struct sk_buff *skb)
-+{
-+	struct vlan_hdr *vhdr;
-+
-+	if (skb->protocol != htons(ETH_P_8021Q)) {
-+		skb->vlan_tci = 0;
-+		return skb;
-+	}
-+
-+	skb = skb_share_check(skb, GFP_ATOMIC);
-+	if (unlikely(!skb))
-+		goto err_free;
-+
-+	if (unlikely(!pskb_may_pull(skb, VLAN_HLEN)))
-+		goto err_free;
-+
-+	vhdr = (struct vlan_hdr *)skb->data;
-+	skb_pull_rcsum(skb, VLAN_HLEN);
-+	vlan_set_encap_proto(skb, vhdr);
-+
-+	if (skb_cow(skb, skb_headroom(skb)) < 0)
-+		goto err_free;
-+
-+	memmove(skb->data - ETH_HLEN, skb->data - VLAN_ETH_HLEN, 2 * ETH_ALEN);
-+	skb->mac_header += VLAN_HLEN;
-+	skb->vlan_tci = 0;
-+
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
-+	skb_reset_mac_len(skb);
-+
-+	return skb;
-+
-+err_free:
-+	kfree_skb(skb);
-+	return NULL;
-+}
-+
-+struct sk_buff *br_handle_vlan(const struct net_bridge *br,
-+			      const struct net_bridge_port *p,
-+			      struct sk_buff *skb)
-+{
-+	struct net_bridge_vlan *untag_vlan;
-+	struct net_bridge_vlan *skb_vlan = BR_INPUT_SKB_CB(skb)->vlan;
-+
-+	if (p) {
-+		/* If there are no vlans defined on this port, there
-+		 * is nothing to do
-+		 */
-+		if (list_empty(&p->vlan_list))
-+			goto out;
-+
-+		untag_vlan = rcu_dereference(p->untagged);
-+	} else if (br)
-+		untag_vlan = rcu_dereference(br->untagged);
-+	else {
-+		kfree_skb(skb);
-+		goto out;
-+	}
-+
-+	if (BR_INPUT_SKB_CB(skb)->untagged) {
-+		/* Frame arrived on an untagged vlan. If it is leaving
-+		 * on untagged interface, remove the tag we added.
-+		 */
-+		if (skb_vlan && untag_vlan == skb_vlan) {
-+			skb->vlan_tci = 0;
-+			goto out;
-+		}
-+
-+		/* Frame leaving on a tagged vlan.  If output device is the
-+		 * bridge, we need to add the VLAN header.  If we sending to
-+		 * port, we let dev_hard_start_xmit() add the header.
-+		 */
-+		if (br && !p) {
-+			/* vlan_put_tag expects skb->data to point to mac
-+			 * header.
-+			 */
-+			skb_push(skb, ETH_HLEN);
-+			skb = __vlan_put_tag(skb, skb->vlan_tci);
-+			if (!skb)
-+				goto out;
-+			/* put skb->data back to where it was */
-+			skb_pull(skb, ETH_HLEN);
-+			skb->vlan_tci = 0;
-+		}
-+	} else {
-+		/* Here we consider the frame tagged */
-+		if (!skb_vlan && br) {
-+			/* Bridge output device is special in that it doesn't
-+			 * do any egress filtering.  This means that we need
-+			 * to check against untagged vlan a little differently.
-+			 */
-+			u16 vid = 0;
-+
-+			br_get_vlan(skb, &vid);
-+			if (untag_vlan && vid == untag_vlan->vid) {
-+				/* VLAN is untagged on the bridge, strip */
-+				skb = br_vlan_untag(skb);
-+			}
-+		} else {
-+			/* Port egress check will find us the right vlan in
-+			 * case we couldn't find one on ingress.
-+			 * Now, if the egress vlan is "untagged/native",
-+			 * strip the tag.  Otherwise, don't do anything.
-+			 */
-+			if (untag_vlan && untag_vlan->vid != BR_INVALID_VID &&
-+			    skb_vlan == untag_vlan)
-+				skb = br_vlan_untag(skb);
-+		}
-+	}
-+
-+out:
-+	return skb;
-+}
-+
- /* Don't forward packets to originating port or forwarding diasabled */
- static inline int should_deliver(const struct net_bridge_port *p,
- 				 const struct sk_buff *skb)
-@@ -97,6 +217,10 @@ static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
- {
- 	skb->dev = to->dev;
- 
-+	skb = br_handle_vlan(NULL, to, skb);
-+	if (!skb)
-+		return;
-+
- 	if (unlikely(netpoll_tx_running(to->br->dev))) {
- 		if (packet_length(skb) > skb->dev->mtu && !skb_is_gso(skb))
- 			kfree_skb(skb);
-@@ -120,6 +244,10 @@ static void __br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
- 		return;
++	/*
++	 * The next assignment may let
++	 * agg->initial_budget > agg->budgetmax
++	 * hold, but this does not cause any harm
++	 */
+ 	agg->budgetmax = new_num_classes * agg->lmax;
+ 	new_agg_weight = agg->class_weight * new_num_classes;
+ 	agg->inv_w = ONE_FP/new_agg_weight;
+@@ -325,9 +330,10 @@ static void qfq_add_to_agg(struct qfq_sched *q,
+ 	qfq_update_agg(q, agg, agg->num_classes+1);
+ 	if (cl->qdisc->q.qlen > 0) { /* adding an active class */
+ 		list_add_tail(&cl->alist, &agg->active);
+-		if (list_first_entry(&agg->active, struct qfq_class, alist) ==
+-		    cl && q->in_serv_agg != agg) /* agg was inactive */
+-			qfq_activate_agg(q, agg, enqueue); /* schedule agg */
++		if (list_first_entry(&agg->active, struct qfq_class, alist) !=
++		    cl || q->in_serv_agg == agg)
++			return;
++		qfq_activate_agg(q, agg, enqueue);
  	}
- 
-+	skb = br_handle_vlan(NULL, to, skb);
-+	if (!skb)
-+		return;
-+
- 	indev = skb->dev;
- 	skb->dev = to->dev;
- 	skb_forward_csum(skb);
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index e51eb24..1ff7f2c 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -35,6 +35,10 @@ static int br_pass_frame_up(struct sk_buff *skb)
- 	brstats->rx_bytes += skb->len;
- 	u64_stats_update_end(&brstats->syncp);
- 
-+	skb = br_handle_vlan(br, NULL, skb);
-+	if (!skb)
-+		return NET_RX_DROP;
-+
- 	indev = skb->dev;
- 	skb->dev = brdev;
- 
-@@ -43,11 +47,11 @@ static int br_pass_frame_up(struct sk_buff *skb)
  }
  
- static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb,
--			       u16 vid)
-+			       u16 *vid)
+@@ -819,7 +825,7 @@ static void qfq_make_eligible(struct qfq_sched *q)
+ 	unsigned long old_vslot = q->oldV >> q->min_slot_shift;
+ 
+ 	if (vslot != old_vslot) {
+-		unsigned long mask = (1UL << fls(vslot ^ old_vslot)) - 1;
++		unsigned long mask = (1ULL << fls(vslot ^ old_vslot)) - 1;
+ 		qfq_move_groups(q, mask, IR, ER);
+ 		qfq_move_groups(q, mask, IB, EB);
+ 	}
+@@ -993,9 +999,19 @@ static inline void charge_actual_service(struct qfq_aggregate *agg)
+ 	/* compute the service received by the aggregate */
+ 	u32 service_received = agg->initial_budget - agg->budget;
+ 
++	/* may happen after decreasing the number of classes in agg */
++	if (service_received > agg->budgetmax)
++		service_received = agg->budgetmax;
++
+ 	agg->F = agg->S + (u64)service_received * agg->inv_w;
+ }
+ 
++static inline void qfq_update_agg_ts(struct qfq_sched *,
++				     struct qfq_aggregate *,
++				     enum update_reason);
++
++static void qfq_schedule_agg(struct qfq_sched *, struct qfq_aggregate *);
++
+ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
  {
- 	struct net_port_vlan *pve;
+ 	struct qfq_sched *q = qdisc_priv(sch);
+@@ -1023,7 +1039,7 @@ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
+ 		in_serv_agg->initial_budget = in_serv_agg->budget =
+ 			in_serv_agg->budgetmax;
+ 
+-		if (!list_empty(&in_serv_agg->active))
++		if (!list_empty(&in_serv_agg->active)) {
+ 			/*
+ 			 * Still active: reschedule for
+ 			 * service. Possible optimization: if no other
+@@ -1034,8 +1050,9 @@ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
+ 			 * handle it, we would need to maintain an
+ 			 * extra num_active_aggs field.
+ 			*/
+-			qfq_activate_agg(q, in_serv_agg, requeue);
+-		else if (sch->q.qlen == 0) { /* no aggregate to serve */
++			qfq_update_agg_ts(q, in_serv_agg, requeue);
++			qfq_schedule_agg(q, in_serv_agg);
++		} else if (sch->q.qlen == 0) { /* no aggregate to serve */
+ 			q->in_serv_agg = NULL;
+ 			return NULL;
+ 		}
+@@ -1054,7 +1071,16 @@ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
+ 	qdisc_bstats_update(sch, skb);
+ 
+ 	agg_dequeue(in_serv_agg, cl, len);
+-	in_serv_agg->budget -= len;
++	/*
++	 * If lmax is lowered, through qfq_change_class, for a class
++	 * owning pending packets with larger size than the new value of lmax,
++	 * then the following condition may hold.
++	 */
++	if (unlikely(in_serv_agg->budget < len))
++		in_serv_agg->budget = 0;
++	else
++		in_serv_agg->budget -= len;
++
+ 	q->V += (u64)len * IWSUM;
+ 	pr_debug("qfq dequeue: len %u F %lld now %lld\n",
+ 		 len, (unsigned long long) in_serv_agg->F,
+@@ -1154,7 +1180,7 @@ static void qfq_update_start(struct qfq_sched *q, struct qfq_aggregate *agg)
+  */
+ static inline void
+ qfq_update_agg_ts(struct qfq_sched *q,
+-		    struct qfq_aggregate *agg, enum update_reason reason)
++		  struct qfq_aggregate *agg, enum update_reason reason)
+ {
+ 	if (reason != requeue)
+ 		qfq_update_start(q, agg);
+@@ -1219,17 +1245,11 @@ static int qfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	cl->deficit = agg->lmax;
+ 	list_add_tail(&cl->alist, &agg->active);
+ 
+-	if (list_first_entry(&agg->active, struct qfq_class, alist) != cl)
+-		return err; /* aggregate was not empty, nothing else to do */
++	if (list_first_entry(&agg->active, struct qfq_class, alist) != cl ||
++	    q->in_serv_agg == agg)
++		return err; /* non-empty or in service, nothing else to do */
+ 
+-	/* recharge budget */
+-	agg->initial_budget = agg->budget = agg->budgetmax;
 -
--	BR_INPUT_SKB_CB(skb)->vlan = NULL;
-+	struct net_bridge_vlan *vlan;
-+	struct br_input_skb_cb *brcb = BR_INPUT_SKB_CB(skb);
+-	qfq_update_agg_ts(q, agg, enqueue);
+-	if (q->in_serv_agg == NULL)
+-		q->in_serv_agg = agg;
+-	else if (agg != q->in_serv_agg)
+-		qfq_schedule_agg(q, agg);
++	qfq_activate_agg(q, agg, enqueue);
  
- 	/* If there are no vlan in the permitted list, all packets are
- 	 * permitted.
-@@ -55,7 +59,27 @@ static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb,
- 	if (list_empty(&p->vlan_list))
- 		return true;
+ 	return err;
+ }
+@@ -1263,7 +1283,8 @@ static void qfq_schedule_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
+ 		/* group was surely ineligible, remove */
+ 		__clear_bit(grp->index, &q->bitmaps[IR]);
+ 		__clear_bit(grp->index, &q->bitmaps[IB]);
+-	} else if (!q->bitmaps[ER] && qfq_gt(roundedS, q->V))
++	} else if (!q->bitmaps[ER] && qfq_gt(roundedS, q->V) &&
++		   q->in_serv_agg == NULL)
+ 		q->V = roundedS;
  
--	pve = nbp_vlan_find(p, vid);
-+	if (br_get_vlan(skb, vid)) {
-+		u16 untagged_vid;
-+		/* Frame did not have a tag. See if untagged vlan is set
-+		 * on this port.
-+		 */
-+		if ((vlan = rcu_dereference(p->untagged)) == NULL ||
-+		    (untagged_vid = vlan->vid) == BR_INVALID_VID)
-+			return false;
-+
-+		/* Untagged vlan is set on this port.  Any untagged ingress
-+		 * frame is considered to belong to the untagged vlan, so
-+		 * mark it as such.
-+		 */
-+		__vlan_hwaccel_put_tag(skb, untagged_vid);
-+		brcb->vlan = vlan;
-+		brcb->untagged = 1;
-+		return true;
-+	}
-+
-+	/* Frame has a valid vlan tag.  Find the VLAN it belongs to. */
-+	pve = nbp_vlan_find(p, *vid);
- 	if (pve) {
- 		BR_INPUT_SKB_CB(skb)->vlan = pve->vlan;
- 		return true;
-@@ -73,13 +97,15 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	struct net_bridge_fdb_entry *dst;
- 	struct net_bridge_mdb_entry *mdst;
- 	struct sk_buff *skb2;
--	u16 vid;
-+	struct br_input_skb_cb *brcb = BR_INPUT_SKB_CB(skb);
-+	u16 vid = 0;
- 
- 	if (!p || p->state == BR_STATE_DISABLED)
- 		goto drop;
- 
--	vid = br_get_vlan(skb);
--	if (!br_allowed_ingress(p, skb, vid))
-+	memset(brcb, 0, sizeof(struct br_input_skb_cb));
-+
-+	if (!br_allowed_ingress(p, skb, &vid))
- 		goto drop;
- 
- 	/* insert into forwarding database after filtering to avoid spoofing */
-@@ -93,7 +119,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	if (p->state == BR_STATE_LEARNING)
- 		goto drop;
- 
--	BR_INPUT_SKB_CB(skb)->brdev = br->dev;
-+	brcb->brdev = br->dev;
- 
- 	/* The packet skb2 goes to the local host (NULL to skip). */
- 	skb2 = NULL;
-@@ -148,8 +174,10 @@ drop:
- static int br_handle_local_finish(struct sk_buff *skb)
+ 	grp->S = roundedS;
+@@ -1286,8 +1307,15 @@ skip_update:
+ static void qfq_activate_agg(struct qfq_sched *q, struct qfq_aggregate *agg,
+ 			     enum update_reason reason)
  {
- 	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
-+	u16 vid = 0;
- 
--	br_fdb_update(p->br, p, eth_hdr(skb)->h_source, br_get_vlan(skb));
-+	br_get_vlan(skb, &vid);
-+	br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid);
- 	return 0;	 /* process further */
++	agg->initial_budget = agg->budget = agg->budgetmax; /* recharge budg */
++
+ 	qfq_update_agg_ts(q, agg, reason);
+-	qfq_schedule_agg(q, agg);
++	if (q->in_serv_agg == NULL) { /* no aggr. in service or scheduled */
++		q->in_serv_agg = agg; /* start serving this aggregate */
++		 /* update V: to be in service, agg must be eligible */
++		q->oldV = q->V = agg->S;
++	} else if (agg != q->in_serv_agg)
++		qfq_schedule_agg(q, agg);
  }
  
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 072aa2d..a7fc2c7 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -905,6 +905,7 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
- 	int type;
- 	int err = 0;
- 	__be32 group;
-+	u16 vid = 0;
- 
- 	if (!pskb_may_pull(skb, sizeof(*ih)))
- 		return -EINVAL;
-@@ -940,8 +941,8 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
- 			continue;
+ static void qfq_slot_remove(struct qfq_sched *q, struct qfq_group *grp,
+@@ -1359,8 +1387,6 @@ static void qfq_deactivate_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
+ 			__set_bit(grp->index, &q->bitmaps[s]);
  		}
- 
--		err = br_ip4_multicast_add_group(br, port, group,
--						 br_get_vlan(skb));
-+		br_get_vlan(skb, &vid);
-+		err = br_ip4_multicast_add_group(br, port, group, vid);
- 		if (err)
- 			break;
  	}
-@@ -960,6 +961,7 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
- 	int len;
- 	int num;
- 	int err = 0;
-+	u16 vid = 0;
- 
- 	if (!pskb_may_pull(skb, sizeof(*icmp6h)))
- 		return -EINVAL;
-@@ -1001,8 +1003,9 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
- 			continue;
- 		}
- 
-+		br_get_vlan(skb, &vid);
- 		err = br_ip6_multicast_add_group(br, port, &grec->grec_mca,
--						 br_get_vlan(skb));
-+						 vid);
- 		if (!err)
- 			break;
- 	}
-@@ -1086,6 +1089,7 @@ static int br_ip4_multicast_query(struct net_bridge *br,
- 	unsigned long now = jiffies;
- 	__be32 group;
- 	int err = 0;
-+	u16 vid = 0;
- 
- 	spin_lock(&br->multicast_lock);
- 	if (!netif_running(br->dev) ||
-@@ -1120,8 +1124,8 @@ static int br_ip4_multicast_query(struct net_bridge *br,
- 	if (!group)
- 		goto out;
- 
--	mp = br_mdb_ip4_get(mlock_dereference(br->mdb, br), group,
--			    br_get_vlan(skb));
-+	br_get_vlan(skb, &vid);
-+	mp = br_mdb_ip4_get(mlock_dereference(br->mdb, br), group, vid);
- 	if (!mp)
- 		goto out;
- 
-@@ -1162,6 +1166,7 @@ static int br_ip6_multicast_query(struct net_bridge *br,
- 	unsigned long now = jiffies;
- 	const struct in6_addr *group = NULL;
- 	int err = 0;
-+	u16 vid = 0;
- 
- 	spin_lock(&br->multicast_lock);
- 	if (!netif_running(br->dev) ||
-@@ -1193,8 +1198,8 @@ static int br_ip6_multicast_query(struct net_bridge *br,
- 	if (!group)
- 		goto out;
- 
--	mp = br_mdb_ip6_get(mlock_dereference(br->mdb, br), group,
--			    br_get_vlan(skb));
-+	br_get_vlan(skb, &vid);
-+	mp = br_mdb_ip6_get(mlock_dereference(br->mdb, br), group, vid);
- 	if (!mp)
- 		goto out;
- 
-@@ -1343,6 +1348,7 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
- 	unsigned int len;
- 	unsigned int offset;
- 	int err;
-+	u16 vid = 0;
- 
- 	/* We treat OOM as packet loss for now. */
- 	if (!pskb_may_pull(skb, sizeof(*iph)))
-@@ -1410,8 +1416,8 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
- 	case IGMP_HOST_MEMBERSHIP_REPORT:
- 	case IGMPV2_HOST_MEMBERSHIP_REPORT:
- 		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
--		err = br_ip4_multicast_add_group(br, port, ih->group,
--						 br_get_vlan(skb2));
-+		vid = br_get_vlan(skb2, &vid);
-+		err = br_ip4_multicast_add_group(br, port, ih->group, vid);
- 		break;
- 	case IGMPV3_HOST_MEMBERSHIP_REPORT:
- 		err = br_ip4_multicast_igmp3_report(br, port, skb2);
-@@ -1420,8 +1426,8 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
- 		err = br_ip4_multicast_query(br, port, skb2);
- 		break;
- 	case IGMP_HOST_LEAVE_MESSAGE:
--		br_ip4_multicast_leave_group(br, port, ih->group,
--					     br_get_vlan(skb2));
-+		vid = br_get_vlan(skb2, &vid);
-+		br_ip4_multicast_leave_group(br, port, ih->group, vid);
- 		break;
- 	}
- 
-@@ -1446,6 +1452,7 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
- 	unsigned int len;
- 	int offset;
- 	int err;
-+	u16 vid = 0;
- 
- 	if (!pskb_may_pull(skb, sizeof(*ip6h)))
- 		return -EINVAL;
-@@ -1541,8 +1548,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
- 		}
- 		mld = (struct mld_msg *)skb_transport_header(skb2);
- 		BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
--		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca,
--						 br_get_vlan(skb2));
-+		br_get_vlan(skb2, &vid);
-+		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca, vid);
- 		break;
- 	    }
- 	case ICMPV6_MLD2_REPORT:
-@@ -1559,8 +1566,8 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
- 			goto out;
- 		}
- 		mld = (struct mld_msg *)skb_transport_header(skb2);
--		br_ip6_multicast_leave_group(br, port, &mld->mld_mca,
--					     br_get_vlan(skb2));
-+		br_get_vlan(skb2, &vid);
-+		br_ip6_multicast_leave_group(br, port, &mld->mld_mca, vid);
- 	    }
- 	}
- 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 9328463..6f662a4 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -198,18 +198,20 @@ static inline struct net_bridge_port *br_port_get_rtnl(struct net_device *dev)
- 		rtnl_dereference(dev->rx_handler_data) : NULL;
+-
+-	qfq_update_eligible(q);
  }
  
--static inline u16 br_get_vlan(const struct sk_buff *skb)
-+static inline int br_get_vlan(const struct sk_buff *skb, u16 *tag)
- {
--	u16 tag;
-+	int rc = 0;
- 
--	if (vlan_tx_tag_present(skb))
--		return vlan_tx_tag_get(skb) & VLAN_VID_MASK;
-+	if (vlan_tx_tag_present(skb)) {
-+		*tag = vlan_tx_tag_get(skb) & VLAN_VID_MASK;
-+		return rc;
-+	}
- 
- 	/* Untagged and VLAN 0 traffic is handled the same way */
--	if (vlan_get_tag(skb, &tag))
--		return 0;
-+	rc = vlan_get_tag(skb, tag);
-+	*tag = *tag & VLAN_VID_MASK;
- 
--	return tag & VLAN_VID_MASK;
-+	return rc;
- }
- 
- struct br_cpu_netstats {
-@@ -305,6 +307,7 @@ struct net_bridge
- struct br_input_skb_cb {
- 	struct net_device *brdev;
- 	struct net_bridge_vlan *vlan;
-+	int untagged;
- #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
- 	int igmp;
- 	int mrouters_only;
-@@ -431,6 +434,9 @@ extern int br_forward_finish(struct sk_buff *skb);
- extern void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb);
- extern void br_flood_forward(struct net_bridge *br, struct sk_buff *skb,
- 			     struct sk_buff *skb2);
-+extern struct sk_buff *br_handle_vlan(const struct net_bridge *br,
-+				      const struct net_bridge_port *p,
-+				      struct sk_buff *skb);
- 
- /* br_if.c */
- extern void br_port_carrier_check(struct net_bridge_port *p);
+ static void qfq_qlen_notify(struct Qdisc *sch, unsigned long arg)
 -- 
-1.7.7.6
+1.7.9.5
