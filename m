@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL net-next 01/17] ndisc: Fix size calculation for
- headers.
-Date: Tue, 18 Dec 2012 16:24:30 -0800 (PST)
-Message-ID: <20121218.162430.512853714678597525.davem@davemloft.net>
-References: <50CF84A5.7030706@linux-ipv6.org>
-	<50D04AD4.8010908@linux-ipv6.org>
-	<20121218.162338.1594192050394527214.davem@davemloft.net>
+Subject: Re: [PATCH 0/2] smsc95xx enhancements
+Date: Tue, 18 Dec 2012 16:25:23 -0800 (PST)
+Message-ID: <20121218.162523.546895870503615826.davem@davemloft.net>
+References: <1355827574-15164-1-git-send-email-steve.glendinning@shawell.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: netdev@vger.kernel.org, ming.lei@canonical.com, oneukum@suse.de,
+	gregkh@linuxfoundation.org
+To: steve.glendinning@shawell.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37677 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37684 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754972Ab2LSAYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 19:24:31 -0500
-In-Reply-To: <20121218.162338.1594192050394527214.davem@davemloft.net>
+	with ESMTP id S1755039Ab2LSAZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 19:25:24 -0500
+In-Reply-To: <1355827574-15164-1-git-send-email-steve.glendinning@shawell.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 18 Dec 2012 16:23:38 -0800 (PST)
+From: Steve Glendinning <steve.glendinning@shawell.net>
+Date: Tue, 18 Dec 2012 10:46:12 +0000
 
-> I'm really disappointed that the very first patch in this series is
-> buggy, and you didn't even bother to repost the absolutely required
-> "00/17" email for this series which is where you're supposed to give a
-> top-level overview of your changes as well as any GIT pull request.
+> Two driver enhancements for net-next.  There's ongoing discussion around
+> the best way to improve autosuspend moving forwards but in the meantime
+> the second patch in this set enables autosuspend for supported parts in
+> most situations.
 
-Also, right now the net-next tree is not open, so these changes
-aren't even appropriate to be submitting right now.
+Please do not submit net-next changes until the net-next tree is
+actually open and available for submissions.
