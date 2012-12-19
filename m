@@ -1,85 +1,93 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [GIT PULL net-next 01/17] ndisc: Fix size calculation for headers.
-Date: Wed, 19 Dec 2012 12:08:22 +0900
-Message-ID: <50D12FA6.6040901@linux-ipv6.org>
-References: <50CF84A5.7030706@linux-ipv6.org> <50D04AD4.8010908@linux-ipv6.org> <20121218.162338.1594192050394527214.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH v3 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Wed, 19 Dec 2012 13:46:25 +0800
+Message-ID: <50D154B1.4010909@redhat.com>
+References: <20121218225001.16104.34454.stgit@localhost> <20121218225351.16104.48513.stgit@localhost> <20121218230808.GC1135@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:57654 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754071Ab2LSDIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 22:08:23 -0500
-In-Reply-To: <20121218.162338.1594192050394527214.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Paul Moore <pmoore@redhat.com>, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20121218230808.GC1135@redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Date: Tue, 18 Dec 2012 19:52:04 +0900
-> 
->> We used to allocate MAX_HEADER bytes more than needed but
->> reserved hlen only (not MAX_HEADER + hlen) and the MAX_HEADER
->> was left behind.
+On 12/19/2012 07:08 AM, Michael S. Tsirkin wrote:
+> On Tue, Dec 18, 2012 at 05:53:52PM -0500, Paul Moore wrote:
+>> This patch corrects some problems with LSM/SELinux that were introduced
+>> with the multiqueue patchset.  The problem stems from the fact that the
+>> multiqueue work changed the relationship between the tun device and its
+>> associated socket; before the socket persisted for the life of the
+>> device, however after the multiqueue changes the socket only persisted
+>> for the life of the userspace connection (fd open).  For non-persistent
+>> devices this is not an issue, but for persistent devices this can cause
+>> the tun device to lose its SELinux label.
 >>
->> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> 
-> This change is wrong.
-> 
-> The MAX_HEADER is being used in order to accomodate any
-> possible encapsulation that may occur.
+>> We correct this problem by adding an opaque LSM security blob to the
+>> tun device struct which allows us to have the LSM security state, e.g.
+>> SELinux labeling information, persist for the lifetime of the tun
+>> device.  In the process we tweak the LSM hooks to work with this new
+>> approach to TUN device/socket labeling and introduce a new LSM hook,
+>> security_tun_dev_attach_queue(), to approve requests to attach to a
+>> TUN queue via TUNSETQUEUE.
+>>
+>> The SELinux code has been adjusted to match the new LSM hooks, the
+>> other LSMs do not make use of the LSM TUN controls.  This patch makes
+>> use of the recently added "tun_socket:attach_queue" permission to
+>> restrict access to the TUNSETQUEUE operation.  On older SELinux
+>> policies which do not define the "tun_socket:attach_queue" permission
+>> the access control decision for TUNSETQUEUE will be handled according
+>> to the SELinux policy's unknown permission setting.
+>>
+>> Signed-off-by: Paul Moore <pmoore@redhat.com>
+>
+> Looks good to me. A comment not directly related to this patch, below.
 
-As I tried to explain in the commit message, ndisc_build_skb() does tI would say his:
+Good to me too, will do some test on this.
+>
+>> ---
+>>  drivers/net/tun.c                 |   27 +++++++++++++----
+>>  include/linux/security.h          |   59 +++++++++++++++++++++++++++++--------
+>>  security/capability.c             |   24 +++++++++++++--
+>>  security/security.c               |   28 ++++++++++++++----
+>>  security/selinux/hooks.c          |   50 ++++++++++++++++++++++++-------
+>>  security/selinux/include/objsec.h |    4 +++
+>>  6 files changed, 154 insertions(+), 38 deletions(-)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index 504f7f1..4b7754c 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -186,6 +186,7 @@ struct tun_struct {
+>>  	unsigned long ageing_time;
+>>  	unsigned int numdisabled;
+>>  	struct list_head disabled;
+>> +	void *security;
+>>  };
+>>  
+[...]
+>>  
+>> @@ -1805,12 +1813,18 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>>  
+>>  	if (ifr->ifr_flags & IFF_ATTACH_QUEUE) {
+>>  		tun = tfile->detached;
+>> -		if (!tun)
+>> +		if (!tun) {
+>>  			ret = -EINVAL;
+>> -		else if (tun_not_capable(tun))
+>> +			goto unlock;
+>> +		}
+>> +		if (tun_not_capable(tun)) {
+> By the way I don't think we need to limit set_queue
+> by tun_not_capable. It simply makes a queue active/inactive
+> which seems harmless. Jason?
 
-|        int hlen = LL_RESERVED_SPACE(dev);
-:
-|        skb = sock_alloc_send_skb(sk,
-|                                  (MAX_HEADER + sizeof(struct ipv6hdr) +
-|                                   len + hlen + tlen),
-|                                  1, &err);
-|        if (!skb) {
-|                ND_PRINTK(0, err, "ND: %s failed to allocate an skb, err=%d\n",
-|                          __func__, err);
-|                return NULL;
-|        }
-|
-|        skb_reserve(skb, hlen);
-
-This means, MAX_HEADER has been placed at the TAIL of
-the buffer, instead of the HEAD of the buffer, like this.
-
-head        data                   tail                        end
-+--------------------------------------------------------------+
-+           |                      |          |                |
-+--------------------------------------------------------------+
-|<- hlen  ->|<---ipv6 packet------>|<--tlen-->|<--MAX_HEADER-->|
-|  = LL_
-     RESERVED_
-     SPACE(dev)
-
-MAX_HEADER will not be used at all and I would say it is waste of
-memory.
-
-Or do you expect something like this?
-
-+--------------------------------------------------------------+
-+                |           |                      |          |
-+--------------------------------------------------------------+
-|<--MAX_HEADER-->|<---hlen-->|<---ipv6 packet------>|<--tlen-->|
-head                       data                   tail       end
-
-or like this:
-
-+--------------------------------------------------+
-+                |                      |          |
-+--------------------------------------------------+
-|<--MAX_HEADER-->|<---ipv6 packet------>|<--tlen-->|
-head           data                   tail       end
-
-If so, we should (re)visit almost all users of
-sock_alloc_send_skb() and friends, anyway, I think.
-
---yoshfuji
+Maybe we should keep this, when a tun has a owner it would not expected
+any other user except the one has CAP_NET_ADMIN to active or de-active a
+queue.
+>
+>>  			ret = -EPERM;
+>> -		else
+[...]
