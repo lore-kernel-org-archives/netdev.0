@@ -1,57 +1,102 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 2/2] drivers/net: Use of_match_ptr() macro in smsc911x.c
-Date: Wed, 19 Dec 2012 16:47:10 +0530
-Message-ID: <1355915830-29481-2-git-send-email-sachin.kamat@linaro.org>
-References: <1355915830-29481-1-git-send-email-sachin.kamat@linaro.org>
-Cc: steve.glendinning@shawell.net, davem@davemloft.net,
-	sachin.kamat@linaro.org, patches@linaro.org, nico@fluxnic.net
-To: netdev@vger.kernel.org
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Subject: Re: [PATCH] xen/netfront: improve truesize tracking
+Date: Wed, 19 Dec 2012 12:34:27 +0100
+Message-ID: <55633610.20121219123427@eikelenboom.it>
+References: <1355838711-5473-1-git-send-email-ian.campbell@citrix.com> <1355843525.9380.18.camel@edumazet-glaptop> <1355844398.14620.254.camel@zakaz.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <erdnetdev@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	annie li <annie.li@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:57011 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296Ab2LSLa6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 06:30:58 -0500
-Received: by mail-pa0-f43.google.com with SMTP id fb10so1244733pad.2
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 03:30:58 -0800 (PST)
-In-Reply-To: <1355915830-29481-1-git-send-email-sachin.kamat@linaro.org>
+Received: from static.121.164.40.188.clients.your-server.de ([188.40.164.121]:59854
+	"EHLO smtp.eikelenboom.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751536Ab2LSLeg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 06:34:36 -0500
+In-Reply-To: <1355844398.14620.254.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add CONFIG_OF guard and use of_match_ptr macro.
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
----
-Compile tested on linux-next.
----
- drivers/net/ethernet/smsc/smsc911x.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+Tuesday, December 18, 2012, 4:26:38 PM, you wrote:
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 4616bf2..e112877 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -2575,11 +2575,13 @@ static const struct dev_pm_ops smsc911x_pm_ops = {
- #define SMSC911X_PM_OPS NULL
- #endif
- 
-+#ifdef CONFIG_OF
- static const struct of_device_id smsc911x_dt_ids[] = {
- 	{ .compatible = "smsc,lan9115", },
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, smsc911x_dt_ids);
-+#endif
- 
- static struct platform_driver smsc911x_driver = {
- 	.probe = smsc911x_drv_probe,
-@@ -2588,7 +2590,7 @@ static struct platform_driver smsc911x_driver = {
- 		.name	= SMSC_CHIPNAME,
- 		.owner	= THIS_MODULE,
- 		.pm	= SMSC911X_PM_OPS,
--		.of_match_table = smsc911x_dt_ids,
-+		.of_match_table = of_match_ptr(smsc911x_dt_ids),
- 	},
- };
- 
--- 
-1.7.4.1
+> On Tue, 2012-12-18 at 15:12 +0000, Eric Dumazet wrote:
+>> On Tue, 2012-12-18 at 13:51 +0000, Ian Campbell wrote:
+>> > Using RX_COPY_THRESHOLD is incorrect if the SKB is actually smaller
+>> > than that. We have already accounted for this in
+>> > NETFRONT_SKB_CB(skb)->pull_to so use that instead.
+>> > 
+>> > Fixes WARN_ON from skb_try_coalesce.
+>> > 
+>> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+>> > Cc: Sander Eikelenboom <linux@eikelenboom.it>
+>> > Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+>> > Cc: annie li <annie.li@oracle.com>
+>> > Cc: xen-devel@lists.xensource.com
+>> > Cc: netdev@vger.kernel.org
+>> > Cc: stable@kernel.org # 3.7.x only
+>> > ---
+>> >  drivers/net/xen-netfront.c |   15 +++++----------
+>> >  1 files changed, 5 insertions(+), 10 deletions(-)
+>> > 
+>> > diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>> > index caa0110..b06ef81 100644
+>> > --- a/drivers/net/xen-netfront.c
+>> > +++ b/drivers/net/xen-netfront.c
+>> > @@ -971,17 +971,12 @@ err:
+>> >              * overheads. Here, we add the size of the data pulled
+>> >              * in xennet_fill_frags().
+>> >              *
+>> > -            * We also adjust for any unused space in the main
+>> > -            * data area by subtracting (RX_COPY_THRESHOLD -
+>> > -            * len). This is especially important with drivers
+>> > -            * which split incoming packets into header and data,
+>> > -            * using only 66 bytes of the main data area (see the
+>> > -            * e1000 driver for example.)  On such systems,
+>> > -            * without this last adjustement, our achievable
+>> > -            * receive throughout using the standard receive
+>> > -            * buffer size was cut by 25%(!!!).
+>> > +            * We also adjust for the __pskb_pull_tail done in
+>> > +            * handle_incoming_queue which pulls data from the
+>> > +            * frags into the head area, which is already
+>> > +            * accounted in RX_COPY_THRESHOLD.
+>> >              */
+>> > -           skb->truesize += skb->data_len - RX_COPY_THRESHOLD;
+>> > +           skb->truesize += skb->data_len - NETFRONT_SKB_CB(skb)->pull_to;
+>> >             skb->len += skb->data_len;
+>> >  
+>> >             if (rx->flags & XEN_NETRXF_csum_blank)
+>> 
+>> 
+>> But skb truesize is not what you think.
+
+> Indeed, it seems I was completely backwards about what it means!
+
+>> You must account the exact memory used by this skb, not only the used
+>> part of it.
+>> 
+>> At the very minimum, it should be
+>> 
+>> skb->truesize += skb->data_len;
+>> 
+>> But it really should be the allocated size of the fragment.
+>> 
+>> If its a page, then its a page, even if you use one single byte in it.
+
+> So actually we want += PAGE_SIZE * skb_shinfo(skb)->nr_frags ?
+
+> Sander, can you try that change?
+
+Hi Ian,
+
+It ran overnight and i haven't seen the warn_once trigger.
+(but i also didn't with the previous patch)
+
+--
+Sander
+
+> Ian.
