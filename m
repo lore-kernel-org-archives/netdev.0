@@ -1,88 +1,57 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [GIT PULL net-next 04/17] ndisc: Introduce ndisc_fill_redirect_hdr_option().
-Date: Thu, 20 Dec 2012 01:25:51 +0900
-Message-ID: <50D1EA8F.7070504@linux-ipv6.org>
-References: <50CF84A5.7030706@linux-ipv6.org> <50D04B4B.7060002@linux-ipv6.org> <87txrib6wa.fsf@nemi.mork.no>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [RFC PATCH v3 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Wed, 19 Dec 2012 11:58:10 -0500
+Message-ID: <2374585.ppB8RWyPuB@sifl>
+References: <20121218225001.16104.34454.stgit@localhost> <20121218230808.GC1135@redhat.com> <50D154B1.4010909@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58455 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755681Ab2LSQZx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 11:25:53 -0500
-In-Reply-To: <87txrib6wa.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <50D154B1.4010909@redhat.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bj=C3=B8rn Mork wrote:
-> YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> writes:
->=20
->> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
->> ---
->>  net/ipv6/ndisc.c |   21 +++++++++++++++------
->>  1 file changed, 15 insertions(+), 6 deletions(-)
->>
->> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
->> index a181113..0a4f3a9 100644
->> --- a/net/ipv6/ndisc.c
->> +++ b/net/ipv6/ndisc.c
->> @@ -1332,6 +1332,19 @@ static void ndisc_redirect_rcv(struct sk_buff=
- *skb)
->>  	icmpv6_notify(skb, NDISC_REDIRECT, 0, 0);
->>  }
->> =20
->> +static u8 *ndisc_fill_redirect_hdr_option(u8 *opt, struct sk_buff *=
-orig_skb,
->> +					  int rd_len)
->> +{
->> +	memset(opt, 0, 8);
->> +	*(opt++) =3D ND_OPT_REDIRECT_HDR;
->> +	*(opt++) =3D (rd_len >> 3);
->> +	opt +=3D 6;
->> +
->> +	memcpy(opt, ipv6_hdr(orig_skb), rd_len - 8);
->> +
->> +	return opt;
->> +}
->> +
->=20
-> I realize that it doesn't currently matter, but the above modificatio=
-n
-> of "opt" looks like a bug-waiting-to-happen to me.
->=20
->>  void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr=
- *target)
->>  {
->>  	struct net_device *dev =3D skb->dev;
->> @@ -1461,12 +1474,8 @@ void ndisc_send_redirect(struct sk_buff *skb,=
- const struct in6_addr *target)
->>  	 *	build redirect option and copy skb over to the new packet.
->>  	 */
->> =20
->> -	memset(opt, 0, 8);
->> -	*(opt++) =3D ND_OPT_REDIRECT_HDR;
->> -	*(opt++) =3D (rd_len >> 3);
->> -	opt +=3D 6;
->> -
->> -	memcpy(opt, ipv6_hdr(skb), rd_len - 8);
->> +	if (rd_len)
->> +		opt =3D ndisc_fill_redirect_hdr_option(opt, skb, rd_len);
->=20
->=20
-> I understand that opt isn't currently used after this, but if it ever=
- is
-> then it is going to come as big a surprise that this implies opt +=3D=
- 8;
->=20
-> This was previously quite clear when the code was inline, but it beco=
-mes
-> problematic when it is factored out.
+On Wednesday, December 19, 2012 01:46:25 PM Jason Wang wrote:
+> On 12/19/2012 07:08 AM, Michael S. Tsirkin wrote:
+> > On Tue, Dec 18, 2012 at 05:53:52PM -0500, Paul Moore wrote:
+> >> This patch corrects some problems with LSM/SELinux that were introduced
+> >> with the multiqueue patchset.  The problem stems from the fact that the
+> >> multiqueue work changed the relationship between the tun device and its
+> >> associated socket; before the socket persisted for the life of the
+> >> device, however after the multiqueue changes the socket only persisted
+> >> for the life of the userspace connection (fd open).  For non-persistent
+> >> devices this is not an issue, but for persistent devices this can cause
+> >> the tun device to lose its SELinux label.
+> >> 
+> >> We correct this problem by adding an opaque LSM security blob to the
+> >> tun device struct which allows us to have the LSM security state, e.g.
+> >> SELinux labeling information, persist for the lifetime of the tun
+> >> device.  In the process we tweak the LSM hooks to work with this new
+> >> approach to TUN device/socket labeling and introduce a new LSM hook,
+> >> security_tun_dev_attach_queue(), to approve requests to attach to a
+> >> TUN queue via TUNSETQUEUE.
+> >> 
+> >> The SELinux code has been adjusted to match the new LSM hooks, the
+> >> other LSMs do not make use of the LSM TUN controls.  This patch makes
+> >> use of the recently added "tun_socket:attach_queue" permission to
+> >> restrict access to the TUNSETQUEUE operation.  On older SELinux
+> >> policies which do not define the "tun_socket:attach_queue" permission
+> >> the access control decision for TUNSETQUEUE will be handled according
+> >> to the SELinux policy's unknown permission setting.
+> >> 
+> >> Signed-off-by: Paul Moore <pmoore@redhat.com>
+> > 
+> > Looks good to me. A comment not directly related to this patch, below.
+> 
+> Good to me too, will do some test on this.
 
-I understand your concern.  opt will be disappeared by following
-changeset (12 of 17).
+Great.  I'll do some more testing and make sure the LSM and SELinux crowd are 
+okay with the changes.
 
---yoshfuji
+-- 
+paul moore
+security and virtualization @ redhat
+
