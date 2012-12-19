@@ -1,54 +1,41 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
-Date: Wed, 19 Dec 2012 18:00:03 -0500
-Message-ID: <50D246F3.2060603@mojatatu.com>
-References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com> <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com> <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr> <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com> <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com> <50D06177.2090905@mojatatu.com> <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com> <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com> <CAASe=fQZGwjM_2PStRE0tje33Doi6TuwJJ3p7x-SRcwq3mQvRg@mail.gmail.com>
+From: Andrew Collins <bsderandrew@gmail.com>
+Subject: Re: [PATCH net-next V4 00/13] Add basic VLAN support to bridges
+Date: Wed, 19 Dec 2012 15:54:27 -0700
+Message-ID: <CAKTPYJTAB-oOW5UE9EbNxwA+XbhmJu1FLrvq_mU8B1Qi6trxeA@mail.gmail.com>
+References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Jan Engelhardt <jengelh@inai.de>,
-	Yury Stankevich <urykhy@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: Hasan Chowdhury <shemonc@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com,
+	erdnetdev@gmail.com, jiri@resnulli.us
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f178.google.com ([209.85.210.178]:64904 "EHLO
-	mail-ia0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751751Ab2LSXAW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 18:00:22 -0500
-Received: by mail-ia0-f178.google.com with SMTP id k25so2323665iah.9
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 15:00:21 -0800 (PST)
-In-Reply-To: <CAASe=fQZGwjM_2PStRE0tje33Doi6TuwJJ3p7x-SRcwq3mQvRg@mail.gmail.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:60573 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751956Ab2LSXBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 18:01:39 -0500
+Received: by mail-pa0-f47.google.com with SMTP id fa10so1631694pad.34
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 15:01:37 -0800 (PST)
+In-Reply-To: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Dec 19, 2012 at 10:48 AM, Vlad Yasevich <vyasevic@redhat.com> wrote:
+> This series of patches provides an ability to add VLANs to the bridge
+> ports.  This is similar to what can be found in most switches.  The bridge
+> port may have any number of VLANs added to it including vlan 0 priority tagged
+> traffic.  When vlans are added to the port, only traffic tagged with particular
+> vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
+> entries and become part of the lookup.  This way we correctly identify the FDB
+> entry.
 
-On 12-12-19 10:51 AM, Hasan Chowdhury wrote:
-> Hi Jamal,
-> I will test it once I get some opportunity , but think I like to know
-> even before any  testing
->
-> 1. What will be the new procedure to compile iproute2 after the patch
-> apply (any new library or any configuration that needs to be adjusted )
-
-git pull Stephens latest tree.
-Apply patch 1 and compile.
-When you are done compiling an m_xt.so will sit in the tc directory;
-unfortunate that we are putting out this shared libs. Backup your distro
-version and copy this over to that location. On ubuntu 12.04:
-sudo cp tc/m_xt.so /usr/lib/tc/m_xt.so
-will do it.
-
-> 2.  tc filter add dev eth0 protocol ip parent 1: prio 3 u32 match ip src
-> 192.168.0.0/16 <http://192.168.0.0/16>  flowid 1:1  action xt  -j MARK
-> --set-mark 3
->
->
-> is this still a valid command ?
->
-
-Indeed it is.
-
-cheers,
-jamal
+This is likely well beyond the scope of this change, but I figured I'd
+throw out the question anyway.  This changeset looks to bring the
+Linux bridging code closer to the 802.1Q-2005 definition of a bridge,
+which is nice to see, I'm curious if this changeset also opens up the
+possibility of supporting MSTP in the future?  The big thing I see
+missing is per-VLAN port state, although I'm not very familiar with
+the current STP/bridge interactions.  Has anyone put any thought into
+what other necessary bridge pieces might be missing for MSTP support?
+(specifically regarding bridge/vlan interaction, obviously something
+to handle the MSTP protocol itself would need to exist as well)
