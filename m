@@ -1,99 +1,98 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/4] net: add change_carrier netdev op
-Date: Wed, 19 Dec 2012 10:35:53 +0100
-Message-ID: <1355909756-2389-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 3/4] rtnl: expose carrier value with possibility to set it
+Date: Wed, 19 Dec 2012 10:35:55 +0100
+Message-ID: <1355909756-2389-4-git-send-email-jiri@resnulli.us>
 References: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com,
 	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
 	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:64981 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753891Ab2LSJgG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:36:06 -0500
-Received: by mail-ea0-f172.google.com with SMTP id a1so683376eaa.17
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 01:36:04 -0800 (PST)
+Received: from mail-ee0-f51.google.com ([74.125.83.51]:33631 "EHLO
+	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753891Ab2LSJgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:36:11 -0500
+Received: by mail-ee0-f51.google.com with SMTP id d4so858800eek.24
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 01:36:10 -0800 (PST)
 In-Reply-To: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows a driver to register change_carrier callback which will be
-called whenever user will like to change carrier state. This is useful
-for devices like dummy, gre, team and so on.
-
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/netdevice.h | 12 ++++++++++++
- net/core/dev.c            | 19 +++++++++++++++++++
- 2 files changed, 31 insertions(+)
+ Documentation/networking/operstates.txt |  4 ++++
+ include/uapi/linux/if_link.h            |  1 +
+ net/core/rtnetlink.c                    | 10 ++++++++++
+ 3 files changed, 15 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 02e0f6b..22ca4a8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -891,6 +891,14 @@ struct netdev_fcoe_hbainfo {
-  * int (*ndo_bridge_setlink)(struct net_device *dev, struct nlmsghdr *nlh)
-  * int (*ndo_bridge_getlink)(struct sk_buff *skb, u32 pid, u32 seq,
-  *			     struct net_device *dev)
-+ *
-+ * int (*ndo_change_carrier)(struct net_device *dev, bool new_carrier);
-+ *	Called to change device carrier. Soft-devices (like dummy, team, etc)
-+ *	which do not represent real hardware may define this to allow their
-+ *	userspace components to manage their virtual carrier state. Devices
-+ *	that determine carrier state from physical hardware properties (eg
-+ *	network cables) or protocol-dependent mechanisms (eg
-+ *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
-  */
- struct net_device_ops {
- 	int			(*ndo_init)(struct net_device *dev);
-@@ -1008,6 +1016,8 @@ struct net_device_ops {
- 	int			(*ndo_bridge_getlink)(struct sk_buff *skb,
- 						      u32 pid, u32 seq,
- 						      struct net_device *dev);
-+	int			(*ndo_change_carrier)(struct net_device *dev,
-+						      bool new_carrier);
+diff --git a/Documentation/networking/operstates.txt b/Documentation/networking/operstates.txt
+index 1a77a3c..9769457 100644
+--- a/Documentation/networking/operstates.txt
++++ b/Documentation/networking/operstates.txt
+@@ -88,6 +88,10 @@ set this flag. On netif_carrier_off(), the scheduler stops sending
+ packets. The name 'carrier' and the inversion are historical, think of
+ it as lower layer.
+ 
++Note that for certain kind of soft-devices, which are not managing any
++real hardware, there is possible to set this bit from userpsace.
++One should use TVL IFLA_CARRIER to do so.
++
+ netif_carrier_ok() can be used to query that bit.
+ 
+ __LINK_STATE_DORMANT, maps to IFF_DORMANT:
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 60f3b6b..c4edfe1 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -142,6 +142,7 @@ enum {
+ #define IFLA_PROMISCUITY IFLA_PROMISCUITY
+ 	IFLA_NUM_TX_QUEUES,
+ 	IFLA_NUM_RX_QUEUES,
++	IFLA_CARRIER,
+ 	__IFLA_MAX
  };
  
- /*
-@@ -2194,6 +2204,8 @@ extern int		dev_set_mtu(struct net_device *, int);
- extern void		dev_set_group(struct net_device *, int);
- extern int		dev_set_mac_address(struct net_device *,
- 					    struct sockaddr *);
-+extern int		dev_change_carrier(struct net_device *,
-+					   bool new_carrier);
- extern int		dev_hard_start_xmit(struct sk_buff *skb,
- 					    struct net_device *dev,
- 					    struct netdev_queue *txq);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d0cbc93..268a714 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5027,6 +5027,25 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
- }
- EXPORT_SYMBOL(dev_set_mac_address);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 1868625..2ef7a56 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -780,6 +780,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(4) /* IFLA_MTU */
+ 	       + nla_total_size(4) /* IFLA_LINK */
+ 	       + nla_total_size(4) /* IFLA_MASTER */
++	       + nla_total_size(1) /* IFLA_CARRIER */
+ 	       + nla_total_size(4) /* IFLA_PROMISCUITY */
+ 	       + nla_total_size(4) /* IFLA_NUM_TX_QUEUES */
+ 	       + nla_total_size(4) /* IFLA_NUM_RX_QUEUES */
+@@ -909,6 +910,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
+ 	    (dev->master &&
+ 	     nla_put_u32(skb, IFLA_MASTER, dev->master->ifindex)) ||
++	    nla_put_u8(skb, IFLA_CARRIER, netif_carrier_ok(dev)) ||
+ 	    (dev->qdisc &&
+ 	     nla_put_string(skb, IFLA_QDISC, dev->qdisc->ops->id)) ||
+ 	    (dev->ifalias &&
+@@ -1108,6 +1110,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_MTU]		= { .type = NLA_U32 },
+ 	[IFLA_LINK]		= { .type = NLA_U32 },
+ 	[IFLA_MASTER]		= { .type = NLA_U32 },
++	[IFLA_CARRIER]		= { .type = NLA_U8 },
+ 	[IFLA_TXQLEN]		= { .type = NLA_U32 },
+ 	[IFLA_WEIGHT]		= { .type = NLA_U32 },
+ 	[IFLA_OPERSTATE]	= { .type = NLA_U8 },
+@@ -1438,6 +1441,13 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 		modified = 1;
+ 	}
  
-+/**
-+ *	dev_change_carrier - Change device carrier
-+ *	@dev: device
-+ *	@new_carries: new value
-+ *
-+ *	Change device carrier
-+ */
-+int dev_change_carrier(struct net_device *dev, bool new_carrier)
-+{
-+	const struct net_device_ops *ops = dev->netdev_ops;
++	if (tb[IFLA_CARRIER]) {
++		err = dev_change_carrier(dev, nla_get_u8(tb[IFLA_CARRIER]));
++		if (err)
++			goto errout;
++		modified = 1;
++	}
 +
-+	if (!ops->ndo_change_carrier)
-+		return -EOPNOTSUPP;
-+	if (!netif_device_present(dev))
-+		return -ENODEV;
-+	return ops->ndo_change_carrier(dev, new_carrier);
-+}
-+EXPORT_SYMBOL(dev_change_carrier);
-+
- /*
-  *	Perform the SIOCxIFxxx calls, inside rcu_read_lock()
-  */
+ 	if (tb[IFLA_TXQLEN])
+ 		dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
+ 
 -- 
 1.8.0
