@@ -1,93 +1,139 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH v3 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Wed, 19 Dec 2012 13:46:25 +0800
-Message-ID: <50D154B1.4010909@redhat.com>
-References: <20121218225001.16104.34454.stgit@localhost> <20121218225351.16104.48513.stgit@localhost> <20121218230808.GC1135@redhat.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Subject: Re: [E1000-devel] 82571EB: Detected Hardware Unit Hang
+Date: Wed, 19 Dec 2012 13:52:00 +0800
+Message-ID: <50D15600.6060001@huawei.com>
+References: <509B5038.8090304@oracle.com> <50A30656.6090508@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA8913348B105@ORSMSX102.amr.corp.intel.com> <50A43828.6000702@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA8913349A0B4@ORSMSX102.amr.corp.intel.com> <50A9C5CC.1030300@oracle.com> <061C8A8601E8EE4CA8D8FD6990CEA8913349EB41@ORSMSX102.amr.corp.intel.com> <50AB8471.7080607@oracle.com> <9B4A1B1917080E46B64F07F2989DADD62F2D62D6@ORSMSX102.amr.corp.intel.com> <50B41077.3080009@oracle.com>	<b46b84cf-3688-4fd7-b741-4e96f2663517@default> <9B4A1B1917080E46B64F07F2989DADD62F2D8070@ORSMSX102.amr.corp.intel.com> <1354039840.2701.14.camel@bwh-desktop.uk.solarflarecom.com> <50B5CBD2.5020804@oracle.com> <9B4A1B1917080E46B64F07F2989DADD62F2D8AAC@ORSMSX102.amr.corp.intel.com> <CABawtvPrz=z_CLCvPeXkky7COyhjPyfBu3QCT
+ biiPpvr+5bicg@mail.gmail.com> <9B4A1B1917080E46B64F07F2989DADD638C60A9B@ORSMSX102.amr.corp.intel.com> <50D12EA2.3030907@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <pmoore@redhat.com>, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20121218230808.GC1135@redhat.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Fujinaka, Todd" <todd.fujinaka@intel.com>,
+	Ethan Zhao <ethan.kernel@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Mary Mcgrath <mary.mcgrath@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-pci <linux-pci@vger.kernel.org>,
+	Jon Mason <jdmason@kudzu.us>,
+	Bjorn Helgaas <bhelgaas@google.com>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:25718 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779Ab2LSFzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 00:55:18 -0500
+In-Reply-To: <50D12EA2.3030907@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/19/2012 07:08 AM, Michael S. Tsirkin wrote:
-> On Tue, Dec 18, 2012 at 05:53:52PM -0500, Paul Moore wrote:
->> This patch corrects some problems with LSM/SELinux that were introduced
->> with the multiqueue patchset.  The problem stems from the fact that the
->> multiqueue work changed the relationship between the tun device and its
->> associated socket; before the socket persisted for the life of the
->> device, however after the multiqueue changes the socket only persisted
->> for the life of the userspace connection (fd open).  For non-persistent
->> devices this is not an issue, but for persistent devices this can cause
->> the tun device to lose its SELinux label.
->>
->> We correct this problem by adding an opaque LSM security blob to the
->> tun device struct which allows us to have the LSM security state, e.g.
->> SELinux labeling information, persist for the lifetime of the tun
->> device.  In the process we tweak the LSM hooks to work with this new
->> approach to TUN device/socket labeling and introduce a new LSM hook,
->> security_tun_dev_attach_queue(), to approve requests to attach to a
->> TUN queue via TUNSETQUEUE.
->>
->> The SELinux code has been adjusted to match the new LSM hooks, the
->> other LSMs do not make use of the LSM TUN controls.  This patch makes
->> use of the recently added "tun_socket:attach_queue" permission to
->> restrict access to the TUNSETQUEUE operation.  On older SELinux
->> policies which do not define the "tun_socket:attach_queue" permission
->> the access control decision for TUNSETQUEUE will be handled according
->> to the SELinux policy's unknown permission setting.
->>
->> Signed-off-by: Paul Moore <pmoore@redhat.com>
->
-> Looks good to me. A comment not directly related to this patch, below.
+On 2012/12/19 11:04, Joe Jin wrote:
+> Hi all,
+> 
+> I backported mps commits and ask customer pass "pci=pcie_bus_peer2pee" to kernel
+> to limited MPS to 128 and issue disappeared, sound like this is a BIOS bug.
+> 
 
-Good to me too, will do some test on this.
->
->> ---
->>  drivers/net/tun.c                 |   27 +++++++++++++----
->>  include/linux/security.h          |   59 +++++++++++++++++++++++++++++--------
->>  security/capability.c             |   24 +++++++++++++--
->>  security/security.c               |   28 ++++++++++++++----
->>  security/selinux/hooks.c          |   50 ++++++++++++++++++++++++-------
->>  security/selinux/include/objsec.h |    4 +++
->>  6 files changed, 154 insertions(+), 38 deletions(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index 504f7f1..4b7754c 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -186,6 +186,7 @@ struct tun_struct {
->>  	unsigned long ageing_time;
->>  	unsigned int numdisabled;
->>  	struct list_head disabled;
->> +	void *security;
->>  };
->>  
-[...]
->>  
->> @@ -1805,12 +1813,18 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
->>  
->>  	if (ifr->ifr_flags & IFF_ATTACH_QUEUE) {
->>  		tun = tfile->detached;
->> -		if (!tun)
->> +		if (!tun) {
->>  			ret = -EINVAL;
->> -		else if (tun_not_capable(tun))
->> +			goto unlock;
->> +		}
->> +		if (tun_not_capable(tun)) {
-> By the way I don't think we need to limit set_queue
-> by tun_not_capable. It simply makes a queue active/inactive
-> which seems harmless. Jason?
+Hi Joe,
+   I found similar problem when I do pci hotplug, discussion is here:http://marc.info/?l=linux-pci&m=134810569924220&w=2.
+We try to improve Linux kernel to debug this problem easily based Bjorn's suggestion. Jon sent out the first version patch http://marc.info/?l=linux-pci&m=135002016005274&w=2.
+I think we can do further here, http://marc.info/?l=linux-pci&m=135115581307869&w=2. I hope this information can help you.
 
-Maybe we should keep this, when a tun has a owner it would not expected
-any other user except the one has CAP_NET_ADMIN to active or de-active a
-queue.
->
->>  			ret = -EPERM;
->> -		else
-[...]
+Thanks!
+Yijing.
+
+> Thanks all of your help.
+> 
+> Best Regards,
+> Joe
+> 
+> On 11/29/12 23:52, Fujinaka, Todd wrote:
+>> Someone else pointed this out to me locally. If you have a non-client BIOS, you should be able to set the MaxPayloadSize using setpci. You have to make sure that you're being consistent throughout all the associated links.
+>>
+>> Todd Fujinaka
+>> Technical Marketing Engineer
+>> LAN Access Division (LAD)
+>> Intel Corporation
+>> todd.fujinaka@intel.com
+>> (503) 712-4565
+>>
+>>
+>> -----Original Message-----
+>> From: Ethan Zhao [mailto:ethan.kernel@gmail.com] 
+>> Sent: Wednesday, November 28, 2012 7:10 PM
+>> To: Fujinaka, Todd
+>> Cc: Joe Jin; Ben Hutchings; Mary Mcgrath; netdev@vger.kernel.org; e1000-devel@lists.sf.net; linux-kernel@vger.kernel.org; linux-pci
+>> Subject: Re: [E1000-devel] 82571EB: Detected Hardware Unit Hang
+>>
+>> Joe,
+>>     Possibly your customer is running a kernel without source code on a platform whose vendor wouldn't like to fix BIOS issue( Is that a HP/Dell server ?).
+>>     Anyway, to see if is a payload issue or,  you could change the payload size with setpci tool to those devices and set the link retrain bit to trigger the link retraining to debug the issue and identity the root cause.  I thinks it is much easier than modify the BIOS or  eeprom of NIC.
+>>
+>>     e.g.
+>>    set device control register to 0f 00   (128 bytes payload size)
+>>    #   setpci -v -s 00:02.0 98.w=000f
+>>    set device link control register to 60h (retrain the link)
+>>    #  setpci -v -s 00:02.0 a0.b=60
+>>
+>>   Hope it works,  Just my 2 cents.
+>>
+>> Ethan.zhao@oracle.com
+>>
+>> On Wed, Nov 28, 2012 at 11:53 PM, Fujinaka, Todd <todd.fujinaka@intel.com> wrote:
+>>> The only EEPROM I know about or can speak to is the one attached to the 82571 and it doesn't set the MaxPayloadSize. That's done by the BIOS.
+>>>
+>>> Todd Fujinaka
+>>> Technical Marketing Engineer
+>>> LAN Access Division (LAD)
+>>> Intel Corporation
+>>> todd.fujinaka@intel.com
+>>> (503) 712-4565
+>>>
+>>>
+>>> -----Original Message-----
+>>> From: Joe Jin [mailto:joe.jin@oracle.com]
+>>> Sent: Wednesday, November 28, 2012 12:31 AM
+>>> To: Ben Hutchings
+>>> Cc: Fujinaka, Todd; Mary Mcgrath; netdev@vger.kernel.org; 
+>>> e1000-devel@lists.sf.net; linux-kernel@vger.kernel.org; linux-pci
+>>> Subject: Re: [E1000-devel] 82571EB: Detected Hardware Unit Hang
+>>>
+>>> On 11/28/12 02:10, Ben Hutchings wrote:
+>>>> On Tue, 2012-11-27 at 17:32 +0000, Fujinaka, Todd wrote:
+>>>>> Forgive me if I'm being too repetitious as I think some of this has 
+>>>>> been mentioned in the past.
+>>>>>
+>>>>> We (and by we I mean the Ethernet part and driver) can only change 
+>>>>> the advertised availability of a larger MaxPayloadSize. The size is 
+>>>>> negotiated by both sides of the link when the link is established.
+>>>>> The driver should not change the size of the link as it would be 
+>>>>> poking at registers outside of its scope and is controlled by the 
+>>>>> upstream bridge (not us).
+>>>> [...]
+>>>>
+>>>> MaxPayloadSize (MPS) is not negotiated between devices but is 
+>>>> programmed by the system firmware (at least for devices present at 
+>>>> boot - the kernel may be responsible in case of hotplug).  You can 
+>>>> use the kernel parameter 'pci=pcie_bus_perf' (or one of several 
+>>>> others) to set a policy that overrides this, but no policy will allow 
+>>>> setting MPS above the device's MaxPayloadSizeSupported (MPSS).
+>>>>
+>>>
+>>> Ben,
+>>>
+>>> Unfortunately I'm using 3.0.x kernel and this is not included in the kernel.
+>>> So I'm trying to use ethtool modify it from eeprom to see if help or no.
+>>>
+>>>
+>>> Todd, I'll review all MaxPayload for all devices, but need to say if it mismatch, customer could not modify it from BIOS for there was not entry at there, to test it, we have to find how to verify if this is the root cause, so still need to find the offset in eeprom.
+>>>
+>>> Thanks in advance,
+>>> Joe
+>>>
+> 
+> 
+
+
+-- 
+Thanks!
+Yijing
