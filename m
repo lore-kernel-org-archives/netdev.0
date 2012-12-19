@@ -1,242 +1,171 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net-next V4 08/13] bridge: Add netlink interface to configure vlans on bridge ports
-Date: Wed, 19 Dec 2012 12:48:19 -0500
-Message-ID: <1355939304-21804-9-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH net-next V4 01/13] vlan: wrap hw-acceleration calls in separate functions.
+Date: Wed, 19 Dec 2012 12:48:12 -0500
+Message-ID: <1355939304-21804-2-git-send-email-vyasevic@redhat.com>
 References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
 Cc: shemminger@vyatta.com, davem@davemloft.net, or.gerlitz@gmail.com,
 	jhs@mojatatu.com, mst@redhat.com, erdnetdev@gmail.com,
 	jiri@resnulli.us
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7580 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13627 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751980Ab2LSSRa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2012 13:17:30 -0500
+	id S1750859Ab2LSSRl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2012 13:17:41 -0500
 In-Reply-To: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a netlink interface to add and remove vlan configuration on bridge port.
-The interface uses the RTM_SETLINK message and encodes the vlan
-configuration inside the IFLA_AF_SPEC.  It is possble to include multiple
-vlans to either add or remove in a single message.
+Wrap VLAN hardware acceleration calls into separate functions.  This way
+other code can re-use it.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/uapi/linux/if_bridge.h |   17 ++++++
- net/bridge/br_if.c             |    1 +
- net/bridge/br_netlink.c        |  107 +++++++++++++++++++++++++++++++++-------
- 3 files changed, 107 insertions(+), 18 deletions(-)
+ include/linux/if_vlan.h |   57 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/8021q/vlan.c        |    4 +--
+ net/8021q/vlan_core.c   |   24 ++++++-------------
+ 3 files changed, 66 insertions(+), 19 deletions(-)
 
-diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-index 52aa738..d0b4f5c 100644
---- a/include/uapi/linux/if_bridge.h
-+++ b/include/uapi/linux/if_bridge.h
-@@ -108,15 +108,32 @@ struct __fdb_entry {
-  * [IFLA_AF_SPEC] = {
-  *     [IFLA_BRIDGE_FLAGS]
-  *     [IFLA_BRIDGE_MODE]
-+ *     [IFLA_BRIDGE_VLAN_INFO]
-  * }
-  */
- enum {
- 	IFLA_BRIDGE_FLAGS,
- 	IFLA_BRIDGE_MODE,
-+	IFLA_BRIDGE_VLAN_INFO,
- 	__IFLA_BRIDGE_MAX,
- };
- #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index d06cc5c..e1deb91 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -158,6 +158,63 @@ static inline bool vlan_uses_dev(const struct net_device *dev)
+ #endif
  
-+/* Bridge VLAN info
-+ * [IFLA_BRIDGE_VLAN_INFO]
+ /**
++ * vlan_hw_buggy - Check to see if VLAN hw acceleration is supported.
++ * @dev: netdevice of the lowerdev/hw nic
++ *
++ * Checks to see if HW and driver report VLAN acceleration correctly.
 + */
-+enum {
-+	BR_VLAN_ADD,
-+	BR_VLAN_DEL,
-+};
-+
-+struct bridge_vlan_info {
-+	u16 op_code;
-+	u16 flags;
-+	u16 vid;
-+	u16 unused;
-+};
-+
- /* Bridge multicast database attributes
-  * [MDBA_MDB] = {
-  *     [MDBA_MDB_ENTRY] = {
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index c30fe29..33bc740 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -23,6 +23,7 @@
- #include <linux/if_ether.h>
- #include <linux/slab.h>
- #include <net/sock.h>
-+#include <linux/if_vlan.h>
- 
- #include "br_private.h"
- 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index dead9df..84c6f04 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -16,6 +16,7 @@
- #include <net/rtnetlink.h>
- #include <net/net_namespace.h>
- #include <net/sock.h>
-+#include <uapi/linux/if_bridge.h>
- 
- #include "br_private.h"
- #include "br_private_stp.h"
-@@ -119,10 +120,14 @@ nla_put_failure:
-  */
- void br_ifinfo_notify(int event, struct net_bridge_port *port)
- {
--	struct net *net = dev_net(port->dev);
-+	struct net *net;
- 	struct sk_buff *skb;
- 	int err = -ENOBUFS;
- 
-+	if (!port)
-+		return;
-+
-+	net = dev_net(port->dev);
- 	br_debug(port->br, "port %u(%s) event %d\n",
- 		 (unsigned int)port->port_no, port->dev->name, event);
- 
-@@ -162,6 +167,57 @@ out:
- 	return err;
- }
- 
-+const struct nla_policy ifla_br_policy[IFLA_MAX+1] = {
-+	[IFLA_BRIDGE_FLAGS]	= { .type = NLA_U16 },
-+	[IFLA_BRIDGE_MODE]	= { .type = NLA_U16 },
-+	[IFLA_BRIDGE_VLAN_INFO]	= { .type = NLA_BINARY,
-+				    .len = sizeof(struct bridge_vlan_info), },
-+};
-+
-+static int br_afspec(struct net_bridge *br, struct net_bridge_port *p,
-+		     struct nlattr *af_spec)
++static inline bool vlan_hw_buggy(const struct net_device *dev)
 +{
-+	struct nlattr *tb[IFLA_BRIDGE_MAX+1];
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
++	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid))
++		return true;
++
++	return false;
++}
++
++/**
++ * vlan_vid_add_hw - Add the VLAN vid to the HW filter
++ * @dev: netdevice of the lowerdev/hw nic
++ * @vid: vlan id.
++ *
++ * Inserts the vid into the HW vlan filter table if hw supports it.
++ */
++static inline int vlan_vid_add_hw(struct net_device *dev,
++				  unsigned short vid)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
 +	int err = 0;
 +
-+	err = nla_parse_nested(tb, IFLA_BRIDGE_MAX, af_spec, ifla_br_policy);
-+	if (err)
-+		return err;
-+
-+	if (tb[IFLA_BRIDGE_VLAN_INFO]) {
-+		struct bridge_vlan_info *vinfo;
-+
-+		vinfo = nla_data(tb[IFLA_BRIDGE_VLAN_INFO]);
-+
-+		if (vinfo->vid > VLAN_N_VID)
-+			return -EINVAL;
-+
-+		switch (vinfo->op_code) {
-+		case BR_VLAN_ADD:
-+			if (p)
-+				err = nbp_vlan_add(p, vinfo->vid, vinfo->flags);
-+			else {
-+				u16 flags = vinfo->flags | BRIDGE_FLAGS_SELF;
-+				if (!br_vlan_add(br, vinfo->vid, flags))
-+					err = -ENOMEM;
-+			}
-+			break;
-+
-+		case BR_VLAN_DEL:
-+			if (p)
-+				err = nbp_vlan_delete(p, vinfo->vid,
-+						      vinfo->flags);
-+			else {
-+				u16 flags = vinfo->flags | BRIDGE_FLAGS_SELF;
-+				err = br_vlan_delete(br, vinfo->vid, flags);
-+			}
-+			break;
-+		}
-+	}
++	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
++	    ops->ndo_vlan_rx_add_vid)
++		err = ops->ndo_vlan_rx_add_vid(dev, vid);
 +
 +	return err;
 +}
 +
- static const struct nla_policy ifla_brport_policy[IFLA_BRPORT_MAX + 1] = {
- 	[IFLA_BRPORT_STATE]	= { .type = NLA_U8 },
- 	[IFLA_BRPORT_COST]	= { .type = NLA_U32 },
-@@ -238,6 +294,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
++/**
++ * vlan_vid_del_hw - Delete the VLAN vid from the HW filter
++ * @dev: netdevice of the lowerdev/hw nic
++ * @vid: vlan id.
++ *
++ * Delete the vid from the HW vlan filter table if hw supports it.
++ */
++static inline int vlan_vid_del_hw(struct net_device *dev,
++				  unsigned short vid)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++	int err = 0;
++
++	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
++	    ops->ndo_vlan_rx_kill_vid)
++		err = ops->ndo_vlan_rx_add_vid(dev, vid);
++
++	return err;
++}
++
++/**
+  * vlan_insert_tag - regular VLAN tag inserting
+  * @skb: skbuff to tag
+  * @vlan_tci: VLAN TCI to insert
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index a292e80..d1ac63f 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -115,15 +115,13 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+ int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id)
  {
- 	struct ifinfomsg *ifm;
- 	struct nlattr *protinfo;
-+	struct nlattr *afspec;
- 	struct net_bridge_port *p;
- 	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
- 	int err;
-@@ -245,35 +302,49 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh)
- 	ifm = nlmsg_data(nlh);
+ 	const char *name = real_dev->name;
+-	const struct net_device_ops *ops = real_dev->netdev_ops;
  
- 	protinfo = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_PROTINFO);
--	if (!protinfo)
-+	afspec = nlmsg_find_attr(nlh, sizeof(*ifm), IFLA_AF_SPEC);
-+	if (!protinfo && !afspec)
- 		return 0;
- 
- 	p = br_port_get_rtnl(dev);
--	if (!p)
-+	/* We want to accept dev as bridge itself if the AF_SPEC
-+	 * is set to see if someone is setting vlan info on the brigde.
-+	 */
-+	if (!p && ((dev->priv_flags & IFF_EBRIDGE) && !afspec))
- 		return -EINVAL;
- 
--	if (protinfo->nla_type & NLA_F_NESTED) {
--		err = nla_parse_nested(tb, IFLA_BRPORT_MAX,
--				       protinfo, ifla_brport_policy);
-+	if (p && protinfo) {
-+		if (protinfo->nla_type & NLA_F_NESTED) {
-+			err = nla_parse_nested(tb, IFLA_BRPORT_MAX,
-+					       protinfo, ifla_brport_policy);
-+			if (err)
-+				return err;
-+
-+			spin_lock_bh(&p->br->lock);
-+			err = br_setport(p, tb);
-+			spin_unlock_bh(&p->br->lock);
-+		} else {
-+			/* Binary compatability with old RSTP */
-+			if (nla_len(protinfo) < sizeof(u8))
-+				return -EINVAL;
-+
-+			spin_lock_bh(&p->br->lock);
-+			err = br_set_port_state(p, nla_get_u8(protinfo));
-+			spin_unlock_bh(&p->br->lock);
-+		}
- 		if (err)
--			return err;
--
--		spin_lock_bh(&p->br->lock);
--		err = br_setport(p, tb);
--		spin_unlock_bh(&p->br->lock);
--	} else {
--		/* Binary compatability with old RSTP */
--		if (nla_len(protinfo) < sizeof(u8))
--			return -EINVAL;
-+			goto out;
-+	}
- 
--		spin_lock_bh(&p->br->lock);
--		err = br_set_port_state(p, nla_get_u8(protinfo));
--		spin_unlock_bh(&p->br->lock);
-+	if (afspec) {
-+		err = br_afspec((struct net_bridge *)netdev_priv(dev), p,
-+				afspec);
+ 	if (real_dev->features & NETIF_F_VLAN_CHALLENGED) {
+ 		pr_info("VLANs not supported on %s\n", name);
+ 		return -EOPNOTSUPP;
  	}
  
- 	if (err == 0)
- 		br_ifinfo_notify(RTM_NEWLINK, p);
+-	if ((real_dev->features & NETIF_F_HW_VLAN_FILTER) &&
+-	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid)) {
++	if (vlan_hw_buggy(real_dev)) {
+ 		pr_info("Device %s has buggy VLAN hw accel\n", name);
+ 		return -EOPNOTSUPP;
+ 	}
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 65e06ab..4ca82aa 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -212,7 +212,6 @@ static int __vlan_vid_add(struct vlan_info *vlan_info, unsigned short vid,
+ 			  struct vlan_vid_info **pvid_info)
+ {
+ 	struct net_device *dev = vlan_info->real_dev;
+-	const struct net_device_ops *ops = dev->netdev_ops;
+ 	struct vlan_vid_info *vid_info;
+ 	int err;
  
-+out:
- 	return err;
- }
+@@ -220,13 +219,10 @@ static int __vlan_vid_add(struct vlan_info *vlan_info, unsigned short vid,
+ 	if (!vid_info)
+ 		return -ENOMEM;
  
+-	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+-	    ops->ndo_vlan_rx_add_vid) {
+-		err =  ops->ndo_vlan_rx_add_vid(dev, vid);
+-		if (err) {
+-			kfree(vid_info);
+-			return err;
+-		}
++	err = vlan_vid_add_hw(dev, vid);
++	if (err) {
++		kfree(vid_info);
++		return err;
+ 	}
+ 	list_add(&vid_info->list, &vlan_info->vid_list);
+ 	vlan_info->nr_vids++;
+@@ -274,17 +270,13 @@ static void __vlan_vid_del(struct vlan_info *vlan_info,
+ 			   struct vlan_vid_info *vid_info)
+ {
+ 	struct net_device *dev = vlan_info->real_dev;
+-	const struct net_device_ops *ops = dev->netdev_ops;
+ 	unsigned short vid = vid_info->vid;
+ 	int err;
+ 
+-	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+-	     ops->ndo_vlan_rx_kill_vid) {
+-		err = ops->ndo_vlan_rx_kill_vid(dev, vid);
+-		if (err) {
+-			pr_warn("failed to kill vid %d for device %s\n",
+-				vid, dev->name);
+-		}
++	err = vlan_vid_del_hw(dev, vid);
++	if (err) {
++		pr_warn("failed to kill vid %d for device %s\n",
++			vid, dev->name);
+ 	}
+ 	list_del(&vid_info->list);
+ 	kfree(vid_info);
 -- 
 1.7.7.6
