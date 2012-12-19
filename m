@@ -1,71 +1,58 @@
-From: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
-Subject: PMTU discovery is broken on kernel 3.7.1 for UDP sockets
-Date: Wed, 19 Dec 2012 17:10:24 +0400
-Message-ID: <50D1BCC0.2000208@oktetlabs.ru>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: PMTU discovery is broken on kernel 3.7.1 for UDP sockets
+Date: Wed, 19 Dec 2012 13:35:19 +0000
+Message-ID: <1355924119.2676.6.camel@bwh-desktop.uk.solarflarecom.com>
+References: <50D1BCC0.2000208@oktetlabs.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+Cc: <netdev@vger.kernel.org>,
 	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
+To: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([195.131.132.186]:42092 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753060Ab2LSNUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 08:20:30 -0500
+Received: from webmail.solarflare.com ([12.187.104.25]:7304 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753221Ab2LSNfX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 08:35:23 -0500
+In-Reply-To: <50D1BCC0.2000208@oktetlabs.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On kernel 3.7.1 I get strange behaviour of IP_MTU_DISCOVER socket 
-option. The behaviour in case of IP_PMTUDISC_DO and IP_PMTUDISC_WANT 
-values of IP_MTU_DISCOVER socket option on SOCK_DGRAM socket are the 
-same and packet is always sent with "Don't Fragment" bit in case of 
-IP_PMTUDISC_WANT. Also, the value of IP_MTU socket option is not updated.
+On Wed, 2012-12-19 at 17:10 +0400, Yurij M. Plotnikov wrote:
+> On kernel 3.7.1 I get strange behaviour of IP_MTU_DISCOVER socket 
+> option. The behaviour in case of IP_PMTUDISC_DO and IP_PMTUDISC_WANT 
+> values of IP_MTU_DISCOVER socket option on SOCK_DGRAM socket are the 
+> same and packet is always sent with "Don't Fragment" bit in case of 
+> IP_PMTUDISC_WANT. Also, the value of IP_MTU socket option is not updated.
 
-This can be reproduced with 3 hosts configuration. Let it be the hosts: 
-host_A, host_B and host _C. host_A via interface eth1 connected with 
-host_B via intefaces eth1. Let host_C via interface eth1 connected with 
-host_B via interface eth2. Also Lets address 10.0.1.1/24 is assigned to 
-eth1 on host_A; 10.0.1.2/24 is assigned to eth1 on host_B; 10.0.2.1/24 
-is assigned to eth2 on host_B; 10.0.2.2/24 is assigned to eth1 on 
-host_C. Also there are two routes: "10.0.2.2 via 10.0.1.2 dev eth1" on 
-host_A and "10.0.1.1 via 10.0.2.1 dev eth1" on host_C. Also forwarding 
-is on on host_B. So we have the following picture:
+You could try reverting:
 
-host_A-eth1(10.0.1.1)<-->(10.0.1.2)eth1-host_B-eth2(10.0.2.1)<-->(10.0.2.2)eth1-host_C
+commit ee9a8f7ab2edf801b8b514c310455c94acc232f6
+Author: Steffen Klassert <steffen.klassert@secunet.com>
+Date:   Mon Oct 8 00:56:54 2012 +0000
 
-MTU is equal to 1500 on all involved interfaces. Then we make the 
-followign steps:
+    ipv4: Don't report stale pmtu values to userspace
+    
+    We report cached pmtu values even if they are already expired.
+    Change this to not report these values after they are expired
+    and fix a race in the expire time calculation, as suggested by
+    Eric Dumazet.
 
-on host_A:
-1. socket(SOCK_DGRAM) -> 6
-2. bind(6, 10.0.1.1:25630) -> 0
-on host_C:
-3. socket(SOCK_DGRAM) -> 5
-4. bind(5, 10.0.2.2:25631) -> 0
-on host_A:
-5. connect(6, 10.0.2.2:25631) -> 0
-on host_C:
-6. connect(5, 10.0.1.1:25630) -> 0
-on host_A
-7. getsockopt(6,IP_MTU) -> 0 // Returns that MTU is 1500
-8. getsockopt(6,IP_MTU_DISCOVER) -> 0 // Returns that default value is 
-IP_PMTUDISC_WANT
+Still, PMTU information is not supposed to expire for 10 minutes...
 
-On eth2 on host_B and on eth1 on host_C change MTU from 1500 to 750. 
-Wait for a while.
+[...]
+> On eth2 on host_B and on eth1 on host_C change MTU from 1500 to 750. 
+> Wait for a while.
+> 
+> 9. send(6, lenght=1400) -> 1400 // the packet is sent with "Don't 
+> Fragment" bit, tcpdump on eth1 on host_B shows it
+> 10. sleep(5);
+> 11. send(6, length=1400) -> -1 with EMSGSIZE
+> 12. sleep(5);
+> 13. getsockopt(6,IP_MTU) -> 0 // Returns that MTU is 1500 once again. So 
+> value is not updated.
+[...]
 
-9. send(6, lenght=1400) -> 1400 // the packet is sent with "Don't 
-Fragment" bit, tcpdump on eth1 on host_B shows it
-10. sleep(5);
-11. send(6, length=1400) -> -1 with EMSGSIZE
-12. sleep(5);
-13. getsockopt(6,IP_MTU) -> 0 // Returns that MTU is 1500 once again. So 
-value is not updated.
-14. send(6, lenght=1400) -> 1400 // the packet one again is sent with 
-"Don't Fragment" bit, tcpdump on eth1 on host_B shows it
+What if you read this option immediately before the sleep(5)?
 
-So "Don't Fragment" bit is always set for the packets in case when value 
-of IP_MTU_DISCOVER is IP_PMTUDISC_WANT. If at step 8 we change 
-IP_MTU_DISCOVER value from IP_PMTUDISC_WANT to IP_PMTUDISC_DO we have 
-the same picture. The value of IP_MTU socket options is still 1500 at 
-step 13 in this case.
+Ben.
