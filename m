@@ -1,65 +1,52 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2] netlink: align attributes on 64-bits
-Date: Wed, 19 Dec 2012 17:09:12 +0000
-Message-ID: <20121219170912.GB6975@casper.infradead.org>
-References: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com>
- <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com>
- <20121218125735.GG27746@casper.infradead.org>
- <50D1A37C.8090705@6wind.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH V2 00/12] Add basic VLAN support to bridges
+Date: Wed, 19 Dec 2012 12:11:45 -0500
+Message-ID: <50D1F551.6010301@redhat.com>
+References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com> <20121218223244.GC1690@minipsycho.orion> <50D0F23D.4020508@redhat.com> <20121219082727.GB1637@minipsycho.orion> <20121219170431.GA6975@casper.infradead.org>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	davem@davemloft.net, David.Laight@ACULAB.COM
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
+	shemminger@vyatta.com, davem@davemloft.net, or.gerlitz@gmail.com,
+	jhs@mojatatu.com, mst@redhat.com
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:35584 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622Ab2LSRJR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 12:09:17 -0500
-Content-Disposition: inline
-In-Reply-To: <50D1A37C.8090705@6wind.com>
+Received: from mx1.redhat.com ([209.132.183.28]:62009 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754824Ab2LSRL7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2012 12:11:59 -0500
+In-Reply-To: <20121219170431.GA6975@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/19/12 at 12:22pm, Nicolas Dichtel wrote:
-> Here padlen will return 4, which is wrong: padlen + NLA_HDRLEN = 8,
-> alignment is the same than before. Here is a proposal fix:
-> 
-> diff --git a/lib/nlattr.c b/lib/nlattr.c
-> index e4f0329..1556313 100644
-> --- a/lib/nlattr.c
-> +++ b/lib/nlattr.c
-> @@ -338,7 +338,10 @@ struct nlattr *__nla_reserve(struct sk_buff
-> *skb, int attrtype, int attrlen)
->  		struct nlattr *pad;
->  		size_t padlen;
-> 
-> -		padlen = nla_total_size(offset) - offset -  NLA_HDRLEN;
-> +		/* We need to remove NLA_HDRLEN two times: one time for the
-> +		 * attribute hdr and one time for the pad attribute hdr.
-> +		 */
-> +		padlen = nla_total_size(offset) - offset -  2 * NLA_HDRLEN;
->  		pad = (struct nlattr *) skb_put(skb, nla_attr_size(padlen));
->  		pad->nla_type = 0;
->  		pad->nla_len = nla_attr_size(padlen);
-> 
-> With this patch, it seems goods. attribute are always aligned on 8 bytes. Also
-> I did not notice any problem with size calculation (I try some ip
-> link, ip xfrm, ip [m]route).
-> 
-> Do you want to make more tests? Or will your repost the full patch?
-> I can do it if you don't have time.
+On 12/19/2012 12:04 PM, Thomas Graf wrote:
+> On 12/19/12 at 09:27am, Jiri Pirko wrote:
+>> Tue, Dec 18, 2012 at 11:46:21PM CET, vyasevic@redhat.com wrote:
+>>> On 12/18/2012 05:32 PM, Jiri Pirko wrote:
+>>>>
+>>>>
+>>>> I see that this patchset replicates a lot of code which is already
+>>>> present in net/8021q/ or include/linux/if_vlan.h. I think it would
+>>>> be nice to move this code into some "common" place, wouldn't it?
+>>>>
+>>>
+>>> The only replication that I am aware of is in br_vlan_untag().  I
+>>> thought about pulling that piece out, but I think there is a reason
+>>> why it's not available when 801q support isn't turned on.  I noted that
+>>> openvswitch implemented its own vlan header manipulation functions as well.
+>>
+>> openvswitch should use the "common" code as well.
+>
+> I was just about to mention this. This overlaps with openvswitch
+> in functionality which I have absoluetely no objections against
+> but code reuse should come to focus in order to avoid having to
+> fix bugs twice.
+>
 
-Thanks.
+Could we consolidate the code after this is accepted and all the parties
+can agree on the consolidation?  I'd really like to keep this series
+as minimally invasive as possible.
 
-I would like to do some testing as well. I do expect some fallout from
-this. There is likely some interface abuse that will now be exposed
-due to this.
-
-We'll have to wait for the next merge window to open anyway. I'd
-consider this a new feature and not a bugfix based on the possible
-regression impact it could have.
-
-I'll post a new version of the patch integrating your fix above so
-others (especially subsystem maintainers depending on netlink) can run
-the patch as well.
+Thanks
+-vlad
