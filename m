@@ -1,92 +1,180 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next v2] xfrm: removes a superfluous check and add a statistic
-Date: Wed, 19 Dec 2012 13:26:18 +0800
-Message-ID: <1355894779-11785-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:49811 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779Ab2LSFzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 00:55:48 -0500
-Received: by mail-pb0-f47.google.com with SMTP id un1so951797pbc.6
-        for <netdev@vger.kernel.org>; Tue, 18 Dec 2012 21:55:47 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Jin <joe.jin@oracle.com>
+Subject: Re: 82571EB: Detected Hardware Unit Hang
+Date: Wed, 19 Dec 2012 14:13:00 +0800
+Message-ID: <50D15AEC.5050306@oracle.com>
+References: <509B5038.8090304@oracle.com> <50A30656.6090508@oracle.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA8913348B105@ORSMSX102.amr.corp.intel.com>
+	<50A43828.6000702@oracle.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA8913349A0B4@ORSMSX102.amr.corp.intel.com>
+	<50A9C5CC.1030300@oracle.com>
+	<061C8A8601E8EE4CA8D8FD6990CEA8913349EB41@ORSMSX102.amr.corp.intel.com>
+	<50AB8471.7080607@oracle.com>
+	<9B4A1B1917080E46B64F07F2989DADD62F2D62D6@ORSMSX102.amr.corp.intel.com>
+	<50B41077.3080009@oracle.com>	<b46b84cf-3688-4fd7-b741-4e96f2663517@default>
+	<9B4A1B1917080E46B64F07F2989DADD62F2D8070@ORSMSX102.amr.corp.intel.com>
+	<1354039840.2701.14.camel@bwh-desktop.uk.solarflarecom.com>
+	<50B5CBD2.5020804@oracle.com>
+	<9B4A1B1917080E46B64F07F2989DADD62F2D8AAC@ORSMSX102.amr.corp.intel.com>
+	<CABawtvPrz=z_CLCvPeXkky7COyhjPyfBu3QCTbiiPpvr+5bicg@mail.gmail.com>
+	<9B4A1B1917080E46B64F07F2989DADD638C60A9B@ORSMSX102.amr.corp.intel.com>
+	<50D12EA2.3030907@oracle.com> <50D15600.6060001@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jon Mason <jdmason@kudzu.us>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>,
+	Mary Mcgrath <mary.mcgrath@oracle.com>,
+	linux-pci <linux-pci@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Ethan Zhao <ethan.kernel@gmail.com>
+To: Yijing Wang <wangyijing@huawei.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <50D15600.6060001@huawei.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
+Hi Yijing,
 
-Remove the check if x->km.state equal to XFRM_STATE_VALID in
-xfrm_state_check_expire(), which will be done before call
-xfrm_state_check_expire().
+Thanks for your reference, the patch looks good for me, but I have no chance
+to test it on customer's env.
 
-add a LINUX_MIB_XFRMOUTSTATEINVALID statistic to record the
-outbound error due to invalid xfrm state.
+Best Regards,
+Joe
 
-v2: move newly adding statistic LINUX_MIB_XFRMOUTSTATEINVALID
-to the end of the enumeration
+On 12/19/12 13:52, Yijing Wang wrote:
+> On 2012/12/19 11:04, Joe Jin wrote:
+>> Hi all,
+>>
+>> I backported mps commits and ask customer pass "pci=pcie_bus_peer2pee" to kernel
+>> to limited MPS to 128 and issue disappeared, sound like this is a BIOS bug.
+>>
+> 
+> Hi Joe,
+>    I found similar problem when I do pci hotplug, discussion is here:http://marc.info/?l=linux-pci&m=134810569924220&w=2.
+> We try to improve Linux kernel to debug this problem easily based Bjorn's suggestion. Jon sent out the first version patch http://marc.info/?l=linux-pci&m=135002016005274&w=2.
+> I think we can do further here, http://marc.info/?l=linux-pci&m=135115581307869&w=2. I hope this information can help you.
+> 
+> Thanks!
+> Yijing.
+> 
+>> Thanks all of your help.
+>>
+>> Best Regards,
+>> Joe
+>>
+>> On 11/29/12 23:52, Fujinaka, Todd wrote:
+>>> Someone else pointed this out to me locally. If you have a non-client BIOS, you should be able to set the MaxPayloadSize using setpci. You have to make sure that you're being consistent throughout all the associated links.
+>>>
+>>> Todd Fujinaka
+>>> Technical Marketing Engineer
+>>> LAN Access Division (LAD)
+>>> Intel Corporation
+>>> todd.fujinaka@intel.com
+>>> (503) 712-4565
+>>>
+>>>
+>>> -----Original Message-----
+>>> From: Ethan Zhao [mailto:ethan.kernel@gmail.com] 
+>>> Sent: Wednesday, November 28, 2012 7:10 PM
+>>> To: Fujinaka, Todd
+>>> Cc: Joe Jin; Ben Hutchings; Mary Mcgrath; netdev@vger.kernel.org; e1000-devel@lists.sf.net; linux-kernel@vger.kernel.org; linux-pci
+>>> Subject: Re: [E1000-devel] 82571EB: Detected Hardware Unit Hang
+>>>
+>>> Joe,
+>>>     Possibly your customer is running a kernel without source code on a platform whose vendor wouldn't like to fix BIOS issue( Is that a HP/Dell server ?).
+>>>     Anyway, to see if is a payload issue or,  you could change the payload size with setpci tool to those devices and set the link retrain bit to trigger the link retraining to debug the issue and identity the root cause.  I thinks it is much easier than modify the BIOS or  eeprom of NIC.
+>>>
+>>>     e.g.
+>>>    set device control register to 0f 00   (128 bytes payload size)
+>>>    #   setpci -v -s 00:02.0 98.w=000f
+>>>    set device link control register to 60h (retrain the link)
+>>>    #  setpci -v -s 00:02.0 a0.b=60
+>>>
+>>>   Hope it works,  Just my 2 cents.
+>>>
+>>> Ethan.zhao@oracle.com
+>>>
+>>> On Wed, Nov 28, 2012 at 11:53 PM, Fujinaka, Todd <todd.fujinaka@intel.com> wrote:
+>>>> The only EEPROM I know about or can speak to is the one attached to the 82571 and it doesn't set the MaxPayloadSize. That's done by the BIOS.
+>>>>
+>>>> Todd Fujinaka
+>>>> Technical Marketing Engineer
+>>>> LAN Access Division (LAD)
+>>>> Intel Corporation
+>>>> todd.fujinaka@intel.com
+>>>> (503) 712-4565
+>>>>
+>>>>
+>>>> -----Original Message-----
+>>>> From: Joe Jin [mailto:joe.jin@oracle.com]
+>>>> Sent: Wednesday, November 28, 2012 12:31 AM
+>>>> To: Ben Hutchings
+>>>> Cc: Fujinaka, Todd; Mary Mcgrath; netdev@vger.kernel.org; 
+>>>> e1000-devel@lists.sf.net; linux-kernel@vger.kernel.org; linux-pci
+>>>> Subject: Re: [E1000-devel] 82571EB: Detected Hardware Unit Hang
+>>>>
+>>>> On 11/28/12 02:10, Ben Hutchings wrote:
+>>>>> On Tue, 2012-11-27 at 17:32 +0000, Fujinaka, Todd wrote:
+>>>>>> Forgive me if I'm being too repetitious as I think some of this has 
+>>>>>> been mentioned in the past.
+>>>>>>
+>>>>>> We (and by we I mean the Ethernet part and driver) can only change 
+>>>>>> the advertised availability of a larger MaxPayloadSize. The size is 
+>>>>>> negotiated by both sides of the link when the link is established.
+>>>>>> The driver should not change the size of the link as it would be 
+>>>>>> poking at registers outside of its scope and is controlled by the 
+>>>>>> upstream bridge (not us).
+>>>>> [...]
+>>>>>
+>>>>> MaxPayloadSize (MPS) is not negotiated between devices but is 
+>>>>> programmed by the system firmware (at least for devices present at 
+>>>>> boot - the kernel may be responsible in case of hotplug).  You can 
+>>>>> use the kernel parameter 'pci=pcie_bus_perf' (or one of several 
+>>>>> others) to set a policy that overrides this, but no policy will allow 
+>>>>> setting MPS above the device's MaxPayloadSizeSupported (MPSS).
+>>>>>
+>>>>
+>>>> Ben,
+>>>>
+>>>> Unfortunately I'm using 3.0.x kernel and this is not included in the kernel.
+>>>> So I'm trying to use ethtool modify it from eeprom to see if help or no.
+>>>>
+>>>>
+>>>> Todd, I'll review all MaxPayload for all devices, but need to say if it mismatch, customer could not modify it from BIOS for there was not entry at there, to test it, we have to find how to verify if this is the root cause, so still need to find the offset in eeprom.
+>>>>
+>>>> Thanks in advance,
+>>>> Joe
+>>>>
+>>
+>>
+> 
+> 
 
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- include/uapi/linux/snmp.h |    1 +
- net/xfrm/xfrm_output.c    |    6 ++++++
- net/xfrm/xfrm_proc.c      |    1 +
- net/xfrm/xfrm_state.c     |    3 ---
- 4 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-index fdfba23..b49eab8 100644
---- a/include/uapi/linux/snmp.h
-+++ b/include/uapi/linux/snmp.h
-@@ -278,6 +278,7 @@ enum
- 	LINUX_MIB_XFRMOUTPOLDEAD,		/* XfrmOutPolDead */
- 	LINUX_MIB_XFRMOUTPOLERROR,		/* XfrmOutPolError */
- 	LINUX_MIB_XFRMFWDHDRERROR,		/* XfrmFwdHdrError*/
-+	LINUX_MIB_XFRMOUTSTATEINVALID,		/* XfrmOutStateInvalid */
- 	__LINUX_MIB_XFRMMAX
- };
- 
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 95a338c..3670526 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -61,6 +61,12 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
- 		}
- 
- 		spin_lock_bh(&x->lock);
-+
-+		if (unlikely(x->km.state != XFRM_STATE_VALID)) {
-+			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATEINVALID);
-+			goto error_nolock;
-+		}
-+
- 		err = xfrm_state_check_expire(x);
- 		if (err) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATEEXPIRED);
-diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
-index d0a1af8..e4cd441 100644
---- a/net/xfrm/xfrm_proc.c
-+++ b/net/xfrm/xfrm_proc.c
-@@ -39,6 +39,7 @@ static const struct snmp_mib xfrm_mib_list[] = {
- 	SNMP_MIB_ITEM("XfrmOutStateModeError", LINUX_MIB_XFRMOUTSTATEMODEERROR),
- 	SNMP_MIB_ITEM("XfrmOutStateSeqError", LINUX_MIB_XFRMOUTSTATESEQERROR),
- 	SNMP_MIB_ITEM("XfrmOutStateExpired", LINUX_MIB_XFRMOUTSTATEEXPIRED),
-+	SNMP_MIB_ITEM("XfrmOutStateInvalid", LINUX_MIB_XFRMOUTSTATEINVALID),
- 	SNMP_MIB_ITEM("XfrmOutPolBlock", LINUX_MIB_XFRMOUTPOLBLOCK),
- 	SNMP_MIB_ITEM("XfrmOutPolDead", LINUX_MIB_XFRMOUTPOLDEAD),
- 	SNMP_MIB_ITEM("XfrmOutPolError", LINUX_MIB_XFRMOUTPOLERROR),
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 3459692..05db236 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1370,9 +1370,6 @@ int xfrm_state_check_expire(struct xfrm_state *x)
- 	if (!x->curlft.use_time)
- 		x->curlft.use_time = get_seconds();
- 
--	if (x->km.state != XFRM_STATE_VALID)
--		return -EINVAL;
--
- 	if (x->curlft.bytes >= x->lft.hard_byte_limit ||
- 	    x->curlft.packets >= x->lft.hard_packet_limit) {
- 		x->km.state = XFRM_STATE_EXPIRED;
 -- 
-1.7.10.4
+Oracle <http://www.oracle.com>
+Joe Jin | Software Development Senior Manager | +8610.6106.5624
+ORACLE | Linux and Virtualization
+No. 24 Zhongguancun Software Park, Haidian District | 100193 Beijing 
+
+------------------------------------------------------------------------------
+LogMeIn Rescue: Anywhere, Anytime Remote support for IT. Free Trial
+Remotely access PCs and mobile devices and provide instant support
+Improve your efficiency, and focus on delivering more value-add services
+Discover what IT Professionals Know. Rescue delivers
+http://p.sf.net/sfu/logmein_12329d2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
