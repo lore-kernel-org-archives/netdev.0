@@ -1,127 +1,136 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/4] net: add change_carrier netdev op
-Date: Wed, 19 Dec 2012 09:20:50 +0100
-Message-ID: <20121219082050.GA1637@minipsycho.orion>
-References: <1355868858-1713-1-git-send-email-jiri@resnulli.us>
- <1355868858-1713-2-git-send-email-jiri@resnulli.us>
- <1355871771.30992.44.camel@dcbw.foobar.com>
+Subject: Re: [PATCH V2 00/12] Add basic VLAN support to bridges
+Date: Wed, 19 Dec 2012 09:27:27 +0100
+Message-ID: <20121219082727.GB1637@minipsycho.orion>
+References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
+ <20121218223244.GC1690@minipsycho.orion>
+ <50D0F23D.4020508@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
-	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
-To: Dan Williams <dcbw@redhat.com>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:52953 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751997Ab2LSIUz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 03:20:55 -0500
-Received: by mail-ea0-f177.google.com with SMTP id c10so648157eaa.8
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 00:20:53 -0800 (PST)
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:54506 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752247Ab2LSI1c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 03:27:32 -0500
+Received: by mail-ee0-f42.google.com with SMTP id c41so814560eek.1
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 00:27:30 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1355871771.30992.44.camel@dcbw.foobar.com>
+In-Reply-To: <50D0F23D.4020508@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Dec 19, 2012 at 12:02:51AM CET, dcbw@redhat.com wrote:
->On Tue, 2012-12-18 at 23:14 +0100, Jiri Pirko wrote:
->> This allows a driver to register change_carrier callback which will be
->> called whenever user will like to change carrier state. This is useful
->> for devices like dummy, gre, team and so on.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  include/linux/netdevice.h |  9 +++++++++
->>  net/core/dev.c            | 19 +++++++++++++++++++
->>  2 files changed, 28 insertions(+)
->> 
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 02e0f6b..8047330 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -891,6 +891,11 @@ struct netdev_fcoe_hbainfo {
->>   * int (*ndo_bridge_setlink)(struct net_device *dev, struct nlmsghdr *nlh)
->>   * int (*ndo_bridge_getlink)(struct sk_buff *skb, u32 pid, u32 seq,
->>   *			     struct net_device *dev)
->> + *
->> + * int (*ndo_change_carrier)(struct net_device *dev, bool new_carrier);
->> + *	Called to update device carrier. Soft-devices which do not manage
->> + *	real hardware like dummy, team, etc. can define this to provide
->> + *	possibility to set their carrier state.
+Tue, Dec 18, 2012 at 11:46:21PM CET, vyasevic@redhat.com wrote:
+>On 12/18/2012 05:32 PM, Jiri Pirko wrote:
+>>
+>>
+>>I see that this patchset replicates a lot of code which is already
+>>present in net/8021q/ or include/linux/if_vlan.h. I think it would
+>>be nice to move this code into some "common" place, wouldn't it?
+>>
 >
->How about something like:
->
->---
->Called to change device carrier.  Virtual devices (like dummy, team,
->etc) which do not represent real hardware may define this to allow their
->userspace components to manage their virtual carrier state.  Devices
->that determine carrier state from physical hardware properties (eg
->network cables) or protocol-dependent mechanisms (eg
->USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
->---
->
->I'm just worried that without some clearer wording, somebody will end up
->implementing the function for an actual hardware driver down the road
->and expect things to work when they change the carrier to "on" but the
->protocol isn't set up or cable isn't plugged in.  I'm also worried that
->it might be used to simply work around bugs in the drivers that should
->be fixed in the drivers instead.
+>The only replication that I am aware of is in br_vlan_untag().  I
+>thought about pulling that piece out, but I think there is a reason
+>why it's not available when 801q support isn't turned on.  I noted that
+>openvswitch implemented its own vlan header manipulation functions as well.
 
-Okay - I'll repost this single patch with your text as comment.
-Thanks.
+openvswitch should use the "common" code as well.
 
 >
->Dan
+>What else are you seeing that's duplicate?
+
+For example I spotted check of ndo_vlan_rx_[add/kill]_vid and
+NETIF_F_HW_VLAN_FILTER and ndo_vlan_rx_[add/kill]_vid call
+
+
 >
->>  struct net_device_ops {
->>  	int			(*ndo_init)(struct net_device *dev);
->> @@ -1008,6 +1013,8 @@ struct net_device_ops {
->>  	int			(*ndo_bridge_getlink)(struct sk_buff *skb,
->>  						      u32 pid, u32 seq,
->>  						      struct net_device *dev);
->> +	int			(*ndo_change_carrier)(struct net_device *dev,
->> +						      bool new_carrier);
->>  };
->>  
->>  /*
->> @@ -2194,6 +2201,8 @@ extern int		dev_set_mtu(struct net_device *, int);
->>  extern void		dev_set_group(struct net_device *, int);
->>  extern int		dev_set_mac_address(struct net_device *,
->>  					    struct sockaddr *);
->> +extern int		dev_change_carrier(struct net_device *,
->> +					   bool new_carrier);
->>  extern int		dev_hard_start_xmit(struct sk_buff *skb,
->>  					    struct net_device *dev,
->>  					    struct netdev_queue *txq);
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index d0cbc93..268a714 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -5027,6 +5027,25 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
->>  }
->>  EXPORT_SYMBOL(dev_set_mac_address);
->>  
->> +/**
->> + *	dev_change_carrier - Change device carrier
->> + *	@dev: device
->> + *	@new_carries: new value
->> + *
->> + *	Change device carrier
->> + */
->> +int dev_change_carrier(struct net_device *dev, bool new_carrier)
->> +{
->> +	const struct net_device_ops *ops = dev->netdev_ops;
->> +
->> +	if (!ops->ndo_change_carrier)
->> +		return -EOPNOTSUPP;
->> +	if (!netif_device_present(dev))
->> +		return -ENODEV;
->> +	return ops->ndo_change_carrier(dev, new_carrier);
->> +}
->> +EXPORT_SYMBOL(dev_change_carrier);
->> +
->>  /*
->>   *	Perform the SIOCxIFxxx calls, inside rcu_read_lock()
->>   */
+>-vlad
 >
+>>Jiri
+>>
+>>Tue, Dec 18, 2012 at 08:00:51PM CET, vyasevic@redhat.com wrote:
+>>>This series of patches provides an ability to add VLANs to the bridge
+>>>ports.  This is similar to what can be found in most switches.  The bridge
+>>>port may have any number of VLANs added to it including vlan 0 priority tagged
+>>>traffic.  When vlans are added to the port, only traffic tagged with particular
+>>>vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
+>>>entries and become part of the lookup.  This way we correctly identify the FDB
+>>>entry.
+>>>
+>>>A single vlan may also be designated as untagged.  Any untagged traffic
+>>>recieved by the port will be assigned to this vlan.  Any traffic exiting
+>>>the port with a VID matching the untagged vlan will exit untagged (the
+>>>bridge will strip the vlan header).  This is similar to "Native Vlan" support
+>>>available in most switches.
+>>>
+>>>The default behavior ofthe bridge is unchanged if no vlans have been
+>>>configured.
+>>>
+>>>Changes since v1:
+>>>- Fixed some forwarding bugs.
+>>>- Add vlan to local fdb entries.  New local entries are created per vlan
+>>>   to facilite correct forwarding to bridge interface.
+>>>- Allow configuration of vlans directly on the bridge master device
+>>>   in addition to ports.
+>>>
+>>>Changes since rfc v2:
+>>>- Per-port vlan bitmap is gone and is replaced with a vlan list.
+>>>- Added bridge vlan list, which is referenced by each port.  Entries in
+>>>   the birdge vlan list have port bitmap that shows which port are parts
+>>>   of which vlan.
+>>>- Netlink API changes.
+>>>- Dropped sysfs support for now.  If people think this is really usefull,
+>>>   can add it back.
+>>>- Support for native/untagged vlans.
+>>>
+>>>Changes since rfc v1:
+>>>- Comments addressed regarding formatting and RCU usage
+>>>- iocts have been removed and changed over the netlink interface.
+>>>- Added support of user added ndb entries.
+>>>- changed sysfs interface to export a bitmap.  Also added a write interface.
+>>>   I am not sure how much I like it, but it made my testing easier/faster.  I
+>>>   might change the write interface to take text instead of binary.
+>>>
+>>>
+>>>Vlad Yasevich (12):
+>>>  bridge: Add vlan filtering infrastructure
+>>>  bridge: Validate that vlan is permitted on ingress
+>>>  bridge: Verify that a vlan is allowed to egress on give port
+>>>  bridge: Cache vlan in the cb for faster egress lookup.
+>>>  bridge: Add vlan to unicast fdb entries
+>>>  bridge: Add vlan id to multicast groups
+>>>  bridge: Add netlink interface to configure vlans on bridge ports
+>>>  bridge: Add vlan support to static neighbors
+>>>  bridge: Add the ability to configure untagged vlans
+>>>  bridge: Implement untagged vlan handling
+>>>  bridge: Dump vlan information from a bridge port
+>>>  bridge: Add vlan support for local fdb entries
+>>>
+>>>drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
+>>>drivers/net/macvlan.c                         |    2 +-
+>>>drivers/net/vxlan.c                           |    3 +-
+>>>include/linux/netdevice.h                     |    4 +-
+>>>include/uapi/linux/if_bridge.h                |   23 ++-
+>>>include/uapi/linux/neighbour.h                |    1 +
+>>>include/uapi/linux/rtnetlink.h                |    1 +
+>>>net/bridge/br_device.c                        |   34 ++-
+>>>net/bridge/br_fdb.c                           |  253 ++++++++++++---
+>>>net/bridge/br_forward.c                       |  160 ++++++++++
+>>>net/bridge/br_if.c                            |  404 ++++++++++++++++++++++++-
+>>>net/bridge/br_input.c                         |   65 ++++-
+>>>net/bridge/br_multicast.c                     |   71 +++--
+>>>net/bridge/br_netlink.c                       |  178 ++++++++++--
+>>>net/bridge/br_private.h                       |   71 ++++-
+>>>net/core/rtnetlink.c                          |   40 ++-
+>>>16 files changed, 1190 insertions(+), 125 deletions(-)
+>>>
+>>>--
+>>>1.7.7.6
+>>>
+>>>--
+>>>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>>>the body of a message to majordomo@vger.kernel.org
+>>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
