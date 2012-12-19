@@ -1,41 +1,40 @@
-From: Andrew Collins <bsderandrew@gmail.com>
-Subject: Re: [PATCH net-next V4 00/13] Add basic VLAN support to bridges
-Date: Wed, 19 Dec 2012 15:54:27 -0700
-Message-ID: <CAKTPYJTAB-oOW5UE9EbNxwA+XbhmJu1FLrvq_mU8B1Qi6trxeA@mail.gmail.com>
-References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
+Date: Wed, 19 Dec 2012 18:05:23 -0500
+Message-ID: <50D24833.8040803@mojatatu.com>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com> <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com> <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr> <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com> <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com> <50D06177.2090905@mojatatu.com> <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com> <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com> <alpine.LNX.2.01.1212191648490.13317@nerf07.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
-	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com,
-	erdnetdev@gmail.com, jiri@resnulli.us
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hasan Chowdhury <shemonc@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Yury Stankevich <urykhy@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:60573 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956Ab2LSXBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 18:01:39 -0500
-Received: by mail-pa0-f47.google.com with SMTP id fa10so1631694pad.34
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 15:01:37 -0800 (PST)
-In-Reply-To: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:48006 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751911Ab2LSXFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 18:05:25 -0500
+Received: by mail-ie0-f179.google.com with SMTP id k14so3776201iea.10
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 15:05:25 -0800 (PST)
+In-Reply-To: <alpine.LNX.2.01.1212191648490.13317@nerf07.vanv.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 19, 2012 at 10:48 AM, Vlad Yasevich <vyasevic@redhat.com> wrote:
-> This series of patches provides an ability to add VLANs to the bridge
-> ports.  This is similar to what can be found in most switches.  The bridge
-> port may have any number of VLANs added to it including vlan 0 priority tagged
-> traffic.  When vlans are added to the port, only traffic tagged with particular
-> vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
-> entries and become part of the lookup.  This way we correctly identify the FDB
-> entry.
+On 12-12-19 10:52 AM, Jan Engelhardt wrote:
+>
+>
+> Humm... that's a huge patch for what seems to be equal to act_ipt.c
+> Let's do a cross-diff:
+>
 
-This is likely well beyond the scope of this change, but I figured I'd
-throw out the question anyway.  This changeset looks to bring the
-Linux bridging code closer to the 802.1Q-2005 definition of a bridge,
-which is nice to see, I'm curious if this changeset also opens up the
-possibility of supporting MSTP in the future?  The big thing I see
-missing is per-VLAN port state, although I'm not very familiar with
-the current STP/bridge interactions.  Has anyone put any thought into
-what other necessary bridge pieces might be missing for MSTP support?
-(specifically regarding bridge/vlan interaction, obviously something
-to handle the MSTP protocol itself would need to exist as well)
+I was thinking of our little discussion when doing that.
+The one reason i separated the two is so when the time is right you
+can patch on top of only act_xt.c and eventually act_ipt.c will die..
+Does changes on top of act_xt.c sound palatable to you?
+Otherwise, you are right - it is overkill
+
+cheers,
+jamal
