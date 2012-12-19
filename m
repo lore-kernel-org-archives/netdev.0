@@ -1,84 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] fix IP_ECN_set_ce
-Date: Wed, 19 Dec 2012 01:31:18 -0800 (PST)
-Message-ID: <20121219.013118.1350511712183464079.davem@davemloft.net>
-References: <CAJFZqHyhMS22pKuW50D0uZLA5-WDUYBEZurPGCW6gSyRY-6JHg@mail.gmail.com>
-	<alpine.LFD.2.00.1212191051590.1906@ja.ssi.bg>
-	<CAJFZqHzFvspqFyZuZsTSyOOKdCq7SS=xMY5hH3kycaqO+=bXGw@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/4] net: add change_carrier netdev op
+Date: Wed, 19 Dec 2012 10:32:44 +0100
+Message-ID: <20121219093244.GD1637@minipsycho.orion>
+References: <1355868858-1713-2-git-send-email-jiri@resnulli.us>
+ <1355871771.30992.44.camel@dcbw.foobar.com>
+ <20121219082050.GA1637@minipsycho.orion>
+ <20121219.012825.1076148821070092794.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dcbw@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
+	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43201 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987Ab2LSJbT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:31:19 -0500
-In-Reply-To: <CAJFZqHzFvspqFyZuZsTSyOOKdCq7SS=xMY5hH3kycaqO+=bXGw@mail.gmail.com>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:42670 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751278Ab2LSJct (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:32:49 -0500
+Received: by mail-ee0-f43.google.com with SMTP id e49so891552eek.2
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 01:32:48 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20121219.012825.1076148821070092794.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: RongQing Li <roy.qing.li@gmail.com>
-Date: Wed, 19 Dec 2012 17:11:59 +0800
+Wed, Dec 19, 2012 at 10:28:25AM CET, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Wed, 19 Dec 2012 09:20:50 +0100
+>
+>> Okay - I'll repost this single patch with your text as comment.
+>
+>Please always repost an entire series, rather than just part of
+>it.
 
-> 2012/12/19 Julian Anastasov <ja@ssi.bg>:
->>
->>         Hello,
->>
->> On Wed, 19 Dec 2012, RongQing Li wrote:
->>
->>> >>  static inline int IP_ECN_set_ce(struct iphdr *iph)
->>> >>  {
->>> >> -     u32 check = (__force u32)iph->check;
->>> >> -     u32 ecn = (iph->tos + 1) & INET_ECN_MASK;
->>> >> -
->>> >> -     /*
->>> >> -      * After the last operation we have (in binary):
->>> >> -      * INET_ECN_NOT_ECT => 01
->>> >> -      * INET_ECN_ECT_1   => 10
->>> >> -      * INET_ECN_ECT_0   => 11
->>> >> -      * INET_ECN_CE      => 00
->>> >> -      */
->>> >
->>> >         I think, the above comment explains how an
->>> > increment (iph->tos + 1) serves the purpose to check
->>> > for ECT_1 and ECT_0, there is no such thing as
->>> > addressing the next byte from header. It is just an
->>> > optimized logic that avoids complex INET_ECN_is_XXX
->>> > checks.
->>> Thanks for your reply.
->>> Do you mean this comment are valuable?
->>
->>         It looks better to me with the comment and the
->> original checks. But I can't comment the correctness of
->> the other changes in your patch.
-> 
-> I do not know how they are useful, and how the original check
-> works, since the value in comments are wrong, the correct is:
-> 
-> enum {
->         INET_ECN_NOT_ECT = 0,
->         INET_ECN_ECT_1 = 1,
->         INET_ECN_ECT_0 = 2,
->         INET_ECN_CE = 3,
->         INET_ECN_MASK = 3,
-> };
-> 
-> 
->    00: Non ECN-Capable Transport ― Non-ECT
->     10: ECN Capable Transport ― ECT(0)
->     01: ECN Capable Transport ― ECT(1)
->     11: Congestion Encountered ― CE
-
-You really don't understand the comment, it is saying what
-the incremented value corresponds to, ECN wise.
-
-If iph->tos + 1 is 01, we had INET_ECN_NOT_ECT in iph->tos to
-begine with, and so on an so forth.
-
-Because you are having so much trouble with this most fundamental
-aspect of this code, I have zero confidence in your being able to
-make reasonable changes here.
-
-I am not applying this patch.
+Sorry, I thought that in this case where the change is in one patch and
+only cosmethic it wouldn't be a problem. Reposting the whole patchset.
