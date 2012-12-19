@@ -1,64 +1,114 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH v2] netlink: align attributes on 64-bits
-Date: Wed, 19 Dec 2012 17:20:12 +0000
-Message-ID: <20121219172012.GC6975@casper.infradead.org>
-References: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com>
- <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com>
- <20121218125735.GG27746@casper.infradead.org>
- <50D09897.8030508@6wind.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B70F5@saturn3.aculab.com>
- <20121218171103.GI27746@casper.infradead.org>
- <AE90C24D6B3A694183C094C60CF0A2F6026B70F6@saturn3.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nicolas.dichtel@6wind.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:35626 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755776Ab2LSRUQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 12:20:16 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70F6@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: [PATCH 4/4] net/smsc911x: Provide common clock functionality
+Date: Wed, 19 Dec 2012 17:19:47 +0000
+Message-ID: <1355937587-31730-4-git-send-email-lee.jones@linaro.org>
+References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
+Cc: arnd@arndb.de, linus.walleij@stericsson.com,
+	Lee Jones <lee.jones@linaro.org>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/19/12 at 09:17am, David Laight wrote:
-> You can't use memcpy() to copy a pointer to a misaligned
-> structure into an aligned buffer. The compiler assumes
-> the pointer is aligned and will use instructions that
-> depend on the alignment.
+Some platforms provide clocks which require enabling before the
+SMSC911x chip will power on. This patch uses the new common clk
+framework to do just that. If no clock is provided, it will just
+be ignored and the driver will continue to assume that no clock
+is required for the chip to run successfully.
 
-I am not sure I understand this correctly. Are you saying
-that the following does not work on i386?
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Lee Jones <lee.jones@linaro.org>
+---
+ drivers/net/ethernet/smsc/smsc911x.c |   31 ++++++++++++++++++++++++++++++-
+ 1 file changed, 30 insertions(+), 1 deletion(-)
 
-struct foo {
-  uint32_t a;
-  uint64_t b;
-};
-
-struct foo buf;
-
-memcpy(&buf, nla_data(attr), nla_len(attr));
-printf([...], buf.b);
-
-
-> I think:
-> 1) Alignment is only needed on systems that have 'strict alignment'
->    requirements (maybe disable for testing?)
-
-Right, what about mixed 32bit/64bit environments?
-
-> 2) Alignment is only needed for parameters whose size is a
->    multiple of the alignment (a structure containing a
->    field that needs 8 byte alignment will always be a multiple
->    of 8 bytes long).
-
-Good point. I'll fix this in the next iteration of the patch.
-
-> 3) You need to add NA_HDR_LEN to the write pointer before
->    determining the size of the pad.
-
-Right, I'm doing this in the patch I proposed. Or are you referring
-to something else?
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 4616bf2..f6196cd 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -33,6 +33,7 @@
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
+ #include <linux/crc32.h>
++#include <linux/clk.h>
+ #include <linux/delay.h>
+ #include <linux/errno.h>
+ #include <linux/etherdevice.h>
+@@ -144,6 +145,9 @@ struct smsc911x_data {
+ 
+ 	/* regulators */
+ 	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
++
++	/* clock */
++	struct clk *clk;
+ };
+ 
+ /* Easy access to information */
+@@ -369,7 +373,7 @@ out:
+ }
+ 
+ /*
+- * enable resources, currently just regulators.
++ * enable regulator and clock resources.
+  */
+ static int smsc911x_enable_resources(struct platform_device *pdev)
+ {
+@@ -382,6 +386,13 @@ static int smsc911x_enable_resources(struct platform_device *pdev)
+ 	if (ret)
+ 		netdev_err(ndev, "failed to enable regulators %d\n",
+ 				ret);
++
++	if (pdata->clk) {
++		ret = clk_prepare_enable(pdata->clk);
++		if (ret < 0)
++			netdev_err(ndev, "failed to enable clock %d\n", ret);
++	}
++
+ 	return ret;
+ }
+ 
+@@ -396,6 +407,10 @@ static int smsc911x_disable_resources(struct platform_device *pdev)
+ 
+ 	ret = regulator_bulk_disable(ARRAY_SIZE(pdata->supplies),
+ 			pdata->supplies);
++
++	if (pdata->clk)
++		clk_disable_unprepare(pdata->clk);
++
+ 	return ret;
+ }
+ 
+@@ -421,6 +436,14 @@ static int smsc911x_request_resources(struct platform_device *pdev)
+ 	if (ret)
+ 		netdev_err(ndev, "couldn't get regulators %d\n",
+ 				ret);
++
++	/* Request clock */
++	pdata->clk = clk_get(&pdev->dev, NULL);
++	if (IS_ERR(pdata->clk)) {
++		netdev_warn(ndev, "couldn't get clock %d\n", PTR_ERR(pdata->clk));
++		pdata->clk = NULL;
++	}
++
+ 	return ret;
+ }
+ 
+@@ -436,6 +459,12 @@ static void smsc911x_free_resources(struct platform_device *pdev)
+ 	/* Free regulators */
+ 	regulator_bulk_free(ARRAY_SIZE(pdata->supplies),
+ 			pdata->supplies);
++
++	/* Free clock */
++	if (pdata->clk) {
++		clk_put(pdata->clk);
++		pdata->clk = NULL;
++	}
+ }
+ 
+ /* waits for MAC not busy, with timeout.  Only called by smsc911x_mac_read
+-- 
+1.7.9.5
