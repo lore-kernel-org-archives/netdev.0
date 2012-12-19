@@ -1,36 +1,38 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: RE: TCP delayed ACK heuristic
-Date: Wed, 19 Dec 2012 15:00:36 +0800
-Message-ID: <1355900436.6665.16.camel@cr0>
-References: <270756364.27707018.1355842632348.JavaMail.root@redhat.com>
-	 <2088500005.27728019.1355843484620.JavaMail.root@redhat.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B70F4@saturn3.aculab.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] bridge: Correctly encode addresses when dumping mdb
+ entries
+Date: Wed, 19 Dec 2012 07:11:26 +0000 (UTC)
+Message-ID: <karpau$s7f$1@ger.gmane.org>
+References: <1355867648-17316-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Rick Jones <rick.jones2@hp.com>, Thomas Graf <tgraf@redhat.com>
-To: David Laight <David.Laight@ACULAB.COM>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7529 "EHLO mx1.redhat.com"
+Received: from plane.gmane.org ([80.91.229.3]:58173 "EHLO plane.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751747Ab2LSHBB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2012 02:01:01 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B70F4@saturn3.aculab.com>
+	id S1751110Ab2LSHLm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2012 02:11:42 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1TlDom-0005Hg-Eo
+	for netdev@vger.kernel.org; Wed, 19 Dec 2012 08:11:52 +0100
+Received: from 112.122.183.103 ([112.122.183.103])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 08:11:52 +0100
+Received: from xiyou.wangcong by 112.122.183.103 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 08:11:52 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-12-18 at 16:39 +0000, David Laight wrote:
-> There are problems with only implementing the acks
-> specified by RFC1122. 
+On Tue, 18 Dec 2012 at 21:54 GMT, Vlad Yasevich <vyasevic@redhat.com> wrote:
+> When dumping mdb table, set the addresses the kernel returns
+> based on the address protocol type.
+>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-Yeah, the problem is if we can violate this RFC for getting better
-performance. Or it is just a no-no?
+Looks good.
 
-Although RFC 2525 mentions this as "Stretch ACK Violation", I am still
-not sure if that means we can violate RFC1122 legally.
-
-Thanks.
+Acked-by: Cong Wang <amwang@redhat.com>
