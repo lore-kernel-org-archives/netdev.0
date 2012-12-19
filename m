@@ -1,394 +1,308 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net-next V4 09/13] bridge: Add vlan support to static neighbors
-Date: Wed, 19 Dec 2012 12:48:20 -0500
-Message-ID: <1355939304-21804-10-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH net-next V4 12/13] bridge: Dump vlan information from a bridge port
+Date: Wed, 19 Dec 2012 12:48:23 -0500
+Message-ID: <1355939304-21804-13-git-send-email-vyasevic@redhat.com>
 References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
 Cc: shemminger@vyatta.com, davem@davemloft.net, or.gerlitz@gmail.com,
 	jhs@mojatatu.com, mst@redhat.com, erdnetdev@gmail.com,
 	jiri@resnulli.us
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49350 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53381 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755751Ab2LSRsn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2012 12:48:43 -0500
+	id S1755800Ab2LSRss (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2012 12:48:48 -0500
 In-Reply-To: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a user adds bridge neighbors, allow him to specify VLAN id.
-If the VLAN id is not specified, the neighbor will be added
-for VLANs currently in the ports filter list.  If the list is
-empty, we use vlan 0 and only add 1 entry.
+Using the RTM_GETLINK dump the vlan filter list of a given
+bridge port.  The information depends on setting the filter
+flag similar to how nic VF info is dumped.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
- drivers/net/macvlan.c                         |    2 +-
- drivers/net/vxlan.c                           |    3 +-
- include/linux/netdevice.h                     |    1 +
- include/uapi/linux/neighbour.h                |    1 +
- net/bridge/br_fdb.c                           |  139 ++++++++++++++++++++++---
- net/bridge/br_private.h                       |    2 +-
- net/core/rtnetlink.c                          |   24 +++--
- 8 files changed, 146 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 +-
+ include/linux/netdevice.h                     |    3 +-
+ include/uapi/linux/if_bridge.h                |    1 +
+ include/uapi/linux/rtnetlink.h                |    1 +
+ net/bridge/br_if.c                            |    2 +
+ net/bridge/br_netlink.c                       |   69 ++++++++++++++++++++++--
+ net/bridge/br_private.h                       |    3 +-
+ net/core/rtnetlink.c                          |   16 ++++--
+ 8 files changed, 85 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 20a5af6..ec97efe 100644
+index ec97efe..2f2a8e0 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6985,7 +6985,7 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	return err;
+@@ -7062,7 +7062,8 @@ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
  }
  
--static int ixgbe_ndo_fdb_del(struct ndmsg *ndm,
-+static int ixgbe_ndo_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- 			     struct net_device *dev,
- 			     const unsigned char *addr)
+ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+-				    struct net_device *dev)
++				    struct net_device *dev,
++				    u32 filter_mask)
  {
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 68a43fe..480189c 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -565,7 +565,7 @@ static int macvlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	return err;
- }
- 
--static int macvlan_fdb_del(struct ndmsg *ndm,
-+static int macvlan_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
- 			   struct net_device *dev,
- 			   const unsigned char *addr)
- {
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 3b3fdf6..09340c9 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -392,7 +392,8 @@ static int vxlan_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- }
- 
- /* Delete entry (via netlink) */
--static int vxlan_fdb_delete(struct ndmsg *ndm, struct net_device *dev,
-+static int vxlan_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
-+			    struct net_device *dev,
- 			    const unsigned char *addr)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+ 	u16 mode;
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c6a14d4..3ee7a80 100644
+index 3ee7a80..d93c47c 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -996,6 +996,7 @@ struct net_device_ops {
- 					       const unsigned char *addr,
- 					       u16 flags);
- 	int			(*ndo_fdb_del)(struct ndmsg *ndm,
-+					       struct nlattr *tb[],
- 					       struct net_device *dev,
- 					       const unsigned char *addr);
- 	int			(*ndo_fdb_dump)(struct sk_buff *skb,
-diff --git a/include/uapi/linux/neighbour.h b/include/uapi/linux/neighbour.h
-index 275e5d6..adb068c 100644
---- a/include/uapi/linux/neighbour.h
-+++ b/include/uapi/linux/neighbour.h
-@@ -20,6 +20,7 @@ enum {
- 	NDA_LLADDR,
- 	NDA_CACHEINFO,
- 	NDA_PROBES,
-+	NDA_VLAN,
- 	__NDA_MAX
+@@ -1008,7 +1008,8 @@ struct net_device_ops {
+ 						      struct nlmsghdr *nlh);
+ 	int			(*ndo_bridge_getlink)(struct sk_buff *skb,
+ 						      u32 pid, u32 seq,
+-						      struct net_device *dev);
++						      struct net_device *dev,
++						      u32 filter_mask);
  };
  
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index a244efc..f1199e4 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -506,6 +506,10 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
- 	ci.ndm_refcnt	 = 0;
- 	if (nla_put(skb, NDA_CACHEINFO, sizeof(ci), &ci))
- 		goto nla_put_failure;
+ /*
+diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+index 988d858..6b63e3b 100644
+--- a/include/uapi/linux/if_bridge.h
++++ b/include/uapi/linux/if_bridge.h
+@@ -115,6 +115,7 @@ enum {
+ 	IFLA_BRIDGE_FLAGS,
+ 	IFLA_BRIDGE_MODE,
+ 	IFLA_BRIDGE_VLAN_INFO,
++	IFLA_BRIDGE_VLAN,
+ 	__IFLA_BRIDGE_MAX,
+ };
+ #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 354a1e7..f20654a 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -624,6 +624,7 @@ struct tcamsg {
+ 
+ /* New extended info filters for IFLA_EXT_MASK */
+ #define RTEXT_FILTER_VF		(1 << 0)
++#define RTEXT_FILTER_BRVLAN	(1 << 1)
+ 
+ /* End of information exported to user level */
+ 
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index c9f2c06..4dee1a0 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -373,6 +373,7 @@ int nbp_vlan_add(struct net_bridge_port *p, u16 vid, u16 flags)
+ 	set_bit(p->port_no, vlan->port_bitmap);
+ 
+ 	list_add_tail_rcu(&pve->list, &p->vlan_list);
++	p->num_vlans++;
+ 
+ 	if (flags & BRIDGE_VLAN_INFO_UNTAGGED) {
+ 		err = nbp_vlan_add_untagged(p, vlan, flags);
+@@ -420,6 +421,7 @@ int nbp_vlan_delete(struct net_bridge_port *p, u16 vid, u16 flags)
+ 	br_vlan_put(vlan);
+ 
+ 	list_del_rcu(&pve->list);
++	p->num_vlans--;
+ 	kfree_rcu(pve, rcu);
+ 
+ 	br_vlan_del(p->br, vlan, flags);
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index fc6ba39..138a9a1 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -65,8 +65,10 @@ static int br_port_fill_attrs(struct sk_buff *skb,
+  * Create one netlink message for one interface
+  * Contains port and master info as well as carrier and bridge state.
+  */
+-static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *port,
+-			  u32 pid, u32 seq, int event, unsigned int flags)
++static int br_fill_ifinfo(struct sk_buff *skb,
++			  const struct net_bridge_port *port,
++			  u32 pid, u32 seq, int event, unsigned int flags,
++			  u32 filter_mask)
+ {
+ 	const struct net_bridge *br = port->br;
+ 	const struct net_device *dev = port->dev;
+@@ -108,6 +110,27 @@ static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *por
+ 		nla_nest_end(skb, nest);
+ 	}
+ 
++	/* Check if  the VID information is requested */
++	if (filter_mask & RTEXT_FILTER_BRVLAN) {
++		struct nlattr *af;
++		struct net_port_vlan *pve;
 +
-+	if (nla_put(skb, NDA_VLAN, sizeof(u16), &fdb->vlan_id))
-+		goto nla_put_failure;
++		if (list_empty(&port->vlan_list))
++			goto done;
 +
++		af = nla_nest_start(skb, IFLA_AF_SPEC | NLA_F_NESTED);
++		if (!af)
++			goto nla_put_failure;
++
++		list_for_each_entry_rcu(pve, &port->vlan_list, list) {
++			if (nla_put_u16(skb, IFLA_BRIDGE_VLAN, pve->vid))
++				goto nla_put_failure;
++		}
++
++		nla_nest_end(skb, af);
++	}
++
++done:
  	return nlmsg_end(skb, nlh);
  
  nla_put_failure:
-@@ -517,6 +521,7 @@ static inline size_t fdb_nlmsg_size(void)
- {
- 	return NLMSG_ALIGN(sizeof(struct ndmsg))
- 		+ nla_total_size(ETH_ALEN) /* NDA_LLADDR */
-+		+ nla_total_size(sizeof(u16)) /* NDA_VLAN */
- 		+ nla_total_size(sizeof(struct nda_cacheinfo));
- }
+@@ -135,7 +158,7 @@ void br_ifinfo_notify(int event, struct net_bridge_port *port)
+ 	if (skb == NULL)
+ 		goto errout;
  
-@@ -618,19 +623,55 @@ static int fdb_add_entry(struct net_bridge_port *source, const __u8 *addr,
- 	return 0;
- }
- 
-+static int __br_fdb_add(struct ndmsg *ndm, struct net_bridge_port *p,
-+	       const unsigned char *addr, u16 nlh_flags, u16 vid)
-+{
-+	int err = 0;
-+
-+	if (ndm->ndm_flags & NTF_USE) {
-+		rcu_read_lock();
-+		br_fdb_update(p->br, p, addr, vid);
-+		rcu_read_unlock();
-+	} else {
-+		spin_lock_bh(&p->br->hash_lock);
-+		err = fdb_add_entry(p, addr, ndm->ndm_state,
-+				    nlh_flags, vid);
-+		spin_unlock_bh(&p->br->hash_lock);
-+	}
-+
-+	return err;
-+}
-+
- /* Add new permanent fdb entry with RTM_NEWNEIGH */
- int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 	       struct net_device *dev,
- 	       const unsigned char *addr, u16 nlh_flags)
+-	err = br_fill_ifinfo(skb, port, 0, 0, event, 0);
++	err = br_fill_ifinfo(skb, port, 0, 0, event, 0, 0);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in br_nlmsg_size() */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -153,7 +176,7 @@ errout:
+  * Dump information about all ports, in response to GETLINK
+  */
+ int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+-	       struct net_device *dev)
++	       struct net_device *dev, u32 filter_mask)
  {
- 	struct net_bridge_port *p;
-+	struct net_port_vlan *pve;
  	int err = 0;
-+	unsigned short vid = BR_INVALID_VID;
+ 	struct net_bridge_port *port = br_port_get_rcu(dev);
+@@ -162,7 +185,8 @@ int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 	if (!port)
+ 		goto out;
  
- 	if (!(ndm->ndm_state & (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) {
- 		pr_info("bridge: RTM_NEWNEIGH with invalid state %#x\n", ndm->ndm_state);
- 		return -EINVAL;
- 	}
- 
-+	if (tb[NDA_VLAN]) {
-+		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short)) {
-+			pr_info("bridge: RTM_NEWNEIGH with invalid vlan\n");
-+			return -EINVAL;
-+		}
-+
-+		vid = nla_get_u16(tb[NDA_VLAN]);
-+
-+		if (vid > VLAN_N_VID) {
-+			pr_info("bridge: RTM_NEWNEIGH with invalid vlan id %d\n",
-+				vid);
-+			return -EINVAL;
-+		}
-+	}
-+
- 	p = br_port_get_rtnl(dev);
- 	if (p == NULL) {
- 		pr_info("bridge: RTM_NEWNEIGH %s not a bridge port\n",
-@@ -638,27 +679,45 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 		return -EINVAL;
- 	}
- 
--	if (ndm->ndm_flags & NTF_USE) {
--		rcu_read_lock();
--		br_fdb_update(p->br, p, addr, 0);
--		rcu_read_unlock();
-+	if (vid != BR_INVALID_VID) {
-+		pve = nbp_vlan_find(p, vid);
-+		if (!pve) {
-+			pr_info("bridge: RTM_NEWNEIGH with unconfigured "
-+				"vlan %d on port %s\n", vid, dev->name);
-+			return -EINVAL;
-+		}
-+
-+		/* VID was specified, so use it. */
-+		err = __br_fdb_add(ndm, p, addr, nlh_flags, vid);
- 	} else {
--		spin_lock_bh(&p->br->hash_lock);
--		err = fdb_add_entry(p, addr, ndm->ndm_state, nlh_flags,
--				0);
--		spin_unlock_bh(&p->br->hash_lock);
-+		if (list_empty(&p->vlan_list)) {
-+			err = __br_fdb_add(ndm, p, addr, nlh_flags, 0);
-+			goto out;
-+		}
-+
-+		/* We have vlans configured on this port and user didn't
-+		 * specify a VLAN.  To be nice, add/update entry for every
-+		 * vlan on this port.
-+		 */
-+		list_for_each_entry_rcu(pve, &p->vlan_list, list) {
-+			err = __br_fdb_add(ndm, p, addr, nlh_flags, pve->vid);
-+			if (err)
-+				goto out;
-+		}
- 	}
- 
-+out:
+-	err = br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI);
++	err = br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI,
++			     filter_mask);
+ out:
  	return err;
  }
- 
--static int fdb_delete_by_addr(struct net_bridge_port *p, const u8 *addr)
-+static int fdb_delete_by_addr(struct net_bridge_port *p, const u8 *addr,
-+			      u16 vlan)
- {
- 	struct net_bridge *br = p->br;
--	struct hlist_head *head = &br->hash[br_mac_hash(addr, 0)];
-+	struct hlist_head *head = &br->hash[br_mac_hash(addr, vlan)];
- 	struct net_bridge_fdb_entry *fdb;
- 
--	fdb = fdb_find(head, addr, 0);
-+	fdb = fdb_find(head, addr, vlan);
- 	if (!fdb)
- 		return -ENOENT;
- 
-@@ -666,13 +725,42 @@ static int fdb_delete_by_addr(struct net_bridge_port *p, const u8 *addr)
+@@ -362,6 +386,23 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
  	return 0;
  }
  
-+static int __br_fdb_delete(struct net_bridge_port *p,
-+			    const unsigned char *addr, u16 vid)
++static size_t br_get_link_af_size(const struct net_device *dev)
 +{
++	struct net_bridge_port *p;
++
++	p = br_port_get_rcu(dev);
++	if (!p)
++		return 0;
++
++	/* Each VLAN is returned as a short in IFLA_BRIDGE_VLAN attr */
++	return p->num_vlans * nla_total_size(2);
++}
++
++struct rtnl_af_ops br_af_ops = {
++	.family			= AF_BRIDGE,
++	.get_link_af_size	= br_get_link_af_size,
++};
++
+ struct rtnl_link_ops br_link_ops __read_mostly = {
+ 	.kind		= "bridge",
+ 	.priv_size	= sizeof(struct net_bridge),
+@@ -372,11 +413,27 @@ struct rtnl_link_ops br_link_ops __read_mostly = {
+ 
+ int __init br_netlink_init(void)
+ {
+-	return rtnl_link_register(&br_link_ops);
 +	int err;
 +
-+	spin_lock_bh(&p->br->hash_lock);
-+	err = fdb_delete_by_addr(p, addr, vid);
-+	spin_unlock_bh(&p->br->hash_lock);
++	err = rtnl_af_register(&br_af_ops);
++	if (err < 0)
++		goto err2;
 +
++	err = rtnl_link_register(&br_link_ops);
++	if (err < 0)
++		goto err1;
++
++	return 0;
++
++err2:
++	rtnl_af_unregister(&br_af_ops);
++err1:
 +	return err;
-+}
-+
- /* Remove neighbor entry with RTM_DELNEIGH */
--int br_fdb_delete(struct ndmsg *ndm, struct net_device *dev,
-+int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
-+		  struct net_device *dev,
- 		  const unsigned char *addr)
+ }
+ 
+ void __exit br_netlink_fini(void)
  {
- 	struct net_bridge_port *p;
-+	struct net_port_vlan *pve;
- 	int err;
-+	unsigned short vid = BR_INVALID_VID;
- 
-+	if (tb[NDA_VLAN]) {
-+		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short)) {
-+			pr_info("bridge: RTM_NEWNEIGH with invalid vlan\n");
-+			return -EINVAL;
-+		}
-+
-+		vid = nla_get_u16(tb[NDA_VLAN]);
-+
-+		if (vid > VLAN_N_VID) {
-+			pr_info("bridge: RTM_NEWNEIGH with invalid vlan id %d\n",
-+				vid);
-+			return -EINVAL;
-+		}
-+	}
- 	p = br_port_get_rtnl(dev);
- 	if (p == NULL) {
- 		pr_info("bridge: RTM_DELNEIGH %s not a bridge port\n",
-@@ -680,9 +768,30 @@ int br_fdb_delete(struct ndmsg *ndm, struct net_device *dev,
- 		return -EINVAL;
- 	}
- 
--	spin_lock_bh(&p->br->hash_lock);
--	err = fdb_delete_by_addr(p, addr);
--	spin_unlock_bh(&p->br->hash_lock);
-+	if (vid != BR_INVALID_VID) {
-+		pve = nbp_vlan_find(p, vid);
-+		if (!pve) {
-+			pr_info("bridge: RTM_DELNEIGH with unconfigured "
-+				"vlan %d on port %s\n", vid, dev->name);
-+			return -EINVAL;
-+		}
- 
-+		err = __br_fdb_delete(p, addr, vid);
-+	} else {
-+		if (list_empty(&p->vlan_list)) {
-+			err = __br_fdb_delete(p, addr, 0);
-+			goto out;
-+		}
-+
-+		/* We have vlans configured on this port and user didn't
-+		 * specify a VLAN.  To be nice, add/update entry for every
-+		 * vlan on this port.
-+		 */
-+		err = -ENOENT;
-+		list_for_each_entry_rcu(pve, &p->vlan_list, list) {
-+			err &= __br_fdb_delete(p, addr, pve->vid);
-+		}
-+	}
-+out:
- 	return err;
++	rtnl_af_unregister(&br_af_ops);
+ 	rtnl_link_unregister(&br_link_ops);
+ 	rtnl_unregister_all(PF_BRIDGE);
  }
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 2569afb..cc75212 100644
+index 6f662a4..00e07c8 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -407,7 +407,7 @@ extern void br_fdb_update(struct net_bridge *br,
- 			  const unsigned char *addr,
- 			  u16 vid);
+@@ -178,6 +178,7 @@ struct net_bridge_port
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	struct netpoll			*np;
+ #endif
++	u16				num_vlans;
+ 	struct list_head		vlan_list;
+ 	struct net_bridge_vlan __rcu	*untagged;
+ };
+@@ -618,7 +619,7 @@ extern void br_netlink_fini(void);
+ extern void br_ifinfo_notify(int event, struct net_bridge_port *port);
+ extern int br_setlink(struct net_device *dev, struct nlmsghdr *nlmsg);
+ extern int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+-		      struct net_device *dev);
++		      struct net_device *dev, u32 filter_mask);
  
--extern int br_fdb_delete(struct ndmsg *ndm,
-+extern int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
- 			 struct net_device *dev,
- 			 const unsigned char *addr);
- extern int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[],
+ #ifdef CONFIG_SYSFS
+ /* br_sysfs_if.c */
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1868625..8352302 100644
+index 8352302..208965f 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -2125,7 +2125,7 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
- 	struct ndmsg *ndm;
--	struct nlattr *llattr;
-+	struct nlattr *tb[NDA_MAX+1];
- 	struct net_device *dev;
- 	int err = -EINVAL;
- 	__u8 *addr;
-@@ -2133,8 +2133,9 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	if (!capable(CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	if (nlmsg_len(nlh) < sizeof(*ndm))
--		return -EINVAL;
-+	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL);
-+	if (err < 0)
-+		return err;
- 
- 	ndm = nlmsg_data(nlh);
- 	if (ndm->ndm_ifindex == 0) {
-@@ -2148,13 +2149,17 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		return -ENODEV;
- 	}
- 
--	llattr = nlmsg_find_attr(nlh, sizeof(*ndm), NDA_LLADDR);
--	if (llattr == NULL || nla_len(llattr) != ETH_ALEN) {
--		pr_info("PF_BRIGDE: RTM_DELNEIGH with invalid address\n");
-+	if (!tb[NDA_LLADDR] || nla_len(tb[NDA_LLADDR]) != ETH_ALEN) {
-+		pr_info("PF_BRIDGE: RTM_DELNEIGH with invalid address\n");
-+		return -EINVAL;
-+	}
+@@ -2326,6 +2326,13 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
+ 	int idx = 0;
+ 	u32 portid = NETLINK_CB(cb->skb).portid;
+ 	u32 seq = cb->nlh->nlmsg_seq;
++	struct nlattr *extfilt;
++	u32 filter_mask = 0;
 +
-+	addr = nla_data(tb[NDA_LLADDR]);
-+	if (!is_valid_ether_addr(addr)) {
-+		pr_info("PF_BRIDGE: RTM_DELNEIGH with invalid ether address\n");
- 		return -EINVAL;
++	extfilt = nlmsg_find_attr(cb->nlh, sizeof(struct rtgenmsg),
++				  IFLA_EXT_MASK);
++	if (extfilt)
++		filter_mask = nla_get_u32(extfilt);
+ 
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+@@ -2335,14 +2342,15 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
+ 		if (master && master->netdev_ops->ndo_bridge_getlink) {
+ 			if (idx >= cb->args[0] &&
+ 			    master->netdev_ops->ndo_bridge_getlink(
+-				    skb, portid, seq, dev) < 0)
++				    skb, portid, seq, dev, filter_mask) < 0)
+ 				break;
+ 			idx++;
+ 		}
+ 
+ 		if (ops->ndo_bridge_getlink) {
+ 			if (idx >= cb->args[0] &&
+-			    ops->ndo_bridge_getlink(skb, portid, seq, dev) < 0)
++			    ops->ndo_bridge_getlink(skb, portid, seq, dev,
++						    filter_mask) < 0)
+ 				break;
+ 			idx++;
+ 		}
+@@ -2383,14 +2391,14 @@ static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
+ 
+ 	if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
+ 	    master && master->netdev_ops->ndo_bridge_getlink) {
+-		err = master->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
++		err = master->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
+ 		if (err < 0)
+ 			goto errout;
  	}
  
--	addr = nla_data(llattr);
- 	err = -EOPNOTSUPP;
- 
- 	/* Support fdb on master device the net/bridge default case */
-@@ -2163,7 +2168,8 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		struct net_device *master = dev->master;
- 
- 		if (master->netdev_ops->ndo_fdb_del)
--			err = master->netdev_ops->ndo_fdb_del(ndm, dev, addr);
-+			err = master->netdev_ops->ndo_fdb_del(ndm, tb,
-+							      dev, addr);
- 
- 		if (err)
- 			goto out;
-@@ -2173,7 +2179,7 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 
- 	/* Embedded bridge, macvlan, and any other device support */
- 	if ((ndm->ndm_flags & NTF_SELF) && dev->netdev_ops->ndo_fdb_del) {
--		err = dev->netdev_ops->ndo_fdb_del(ndm, dev, addr);
-+		err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr);
- 
- 		if (!err) {
- 			rtnl_fdb_notify(dev, addr, RTM_DELNEIGH);
+ 	if ((flags & BRIDGE_FLAGS_SELF) &&
+ 	    dev->netdev_ops->ndo_bridge_getlink) {
+-		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
++		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
+ 		if (err < 0)
+ 			goto errout;
+ 	}
 -- 
 1.7.7.6
