@@ -1,98 +1,61 @@
-From: RongQing Li <roy.qing.li@gmail.com>
-Subject: Re: [RFC PATCH] fix IP_ECN_set_ce
-Date: Wed, 19 Dec 2012 17:11:59 +0800
-Message-ID: <CAJFZqHzFvspqFyZuZsTSyOOKdCq7SS=xMY5hH3kycaqO+=bXGw@mail.gmail.com>
-References: <1355898095-7444-1-git-send-email-roy.qing.li@gmail.com>
-	<alpine.LFD.2.00.1212191001530.1620@ja.ssi.bg>
-	<CAJFZqHyhMS22pKuW50D0uZLA5-WDUYBEZurPGCW6gSyRY-6JHg@mail.gmail.com>
-	<alpine.LFD.2.00.1212191051590.1906@ja.ssi.bg>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2] netlink: align attributes on 64-bits
+Date: Wed, 19 Dec 2012 09:17:41 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70F6@saturn3.aculab.com>
+References: <1355500160.2626.9.camel@bwh-desktop.uk.solarflarecom.com> <1355762980-4285-1-git-send-email-nicolas.dichtel@6wind.com> <20121218125735.GG27746@casper.infradead.org> <50D09897.8030508@6wind.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70F5@saturn3.aculab.com> <20121218171103.GI27746@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <nicolas.dichtel@6wind.com>, <bhutchings@solarflare.com>,
+	<netdev@vger.kernel.org>, <davem@davemloft.net>
+To: "Thomas Graf" <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f176.google.com ([209.85.220.176]:39394 "EHLO
-	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750809Ab2LSJRN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:17:13 -0500
-Received: by mail-vc0-f176.google.com with SMTP id fo13so1999286vcb.21
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 01:17:13 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.00.1212191051590.1906@ja.ssi.bg>
+Received: from mx0.aculab.com ([213.249.233.131]:32850 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750810Ab2LSJZX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:25:23 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 21049-02 for <netdev@vger.kernel.org>;
+ Wed, 19 Dec 2012 09:25:19 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20121218171103.GI27746@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/12/19 Julian Anastasov <ja@ssi.bg>:
->
->         Hello,
->
-> On Wed, 19 Dec 2012, RongQing Li wrote:
->
->> >>  static inline int IP_ECN_set_ce(struct iphdr *iph)
->> >>  {
->> >> -     u32 check =3D (__force u32)iph->check;
->> >> -     u32 ecn =3D (iph->tos + 1) & INET_ECN_MASK;
->> >> -
->> >> -     /*
->> >> -      * After the last operation we have (in binary):
->> >> -      * INET_ECN_NOT_ECT =3D> 01
->> >> -      * INET_ECN_ECT_1   =3D> 10
->> >> -      * INET_ECN_ECT_0   =3D> 11
->> >> -      * INET_ECN_CE      =3D> 00
->> >> -      */
->> >
->> >         I think, the above comment explains how an
->> > increment (iph->tos + 1) serves the purpose to check
->> > for ECT_1 and ECT_0, there is no such thing as
->> > addressing the next byte from header. It is just an
->> > optimized logic that avoids complex INET_ECN_is_XXX
->> > checks.
->> Thanks for your reply.
->> Do you mean this comment are valuable?
->
->         It looks better to me with the comment and the
-> original checks. But I can't comment the correctness of
-> the other changes in your patch.
+> > Consider the structure:
+> > 	struct bar {
+> > 		__u32 foo1;
+> > 		__u64 foo2;
+> > 	}
+> > On i386 it will have size 12 and foo2 will be at offset 4.
+> > On sparc32 (and most 64bit) it will have size 16 with foo2
+> > at offset 8 (and 4 bytes of pad after foo1).
+> 
+> This is a known problem and I can't think of anything
+> that can be done about it except for memcpy()ing the
+> data before accessing it.
 
-I do not know how they are useful, and how the original check
-works, since the value in comments are wrong, the correct is:
+You can't use memcpy() to copy a pointer to a misaligned
+structure into an aligned buffer. The compiler assumes
+the pointer is aligned and will use instructions that
+depend on the alignment.
 
-enum {
-        INET_ECN_NOT_ECT =3D 0,
-        INET_ECN_ECT_1 =3D 1,
-        INET_ECN_ECT_0 =3D 2,
-        INET_ECN_CE =3D 3,
-        INET_ECN_MASK =3D 3,
-};
+> If you have ideas, I'm more that willing to listen :)
+> ... Netlink has and will be host bound. It also
+> uses host byte order for that reason.
 
+I think:
+1) Alignment is only needed on systems that have 'strict alignment'
+   requirements (maybe disable for testing?)
+2) Alignment is only needed for parameters whose size is a
+   multiple of the alignment (a structure containing a
+   field that needs 8 byte alignment will always be a multiple
+   of 8 bytes long).
+3) You need to add NA_HDR_LEN to the write pointer before
+   determining the size of the pad.
 
-   00: Non ECN-Capable Transport =97 Non-ECT
-    10: ECN Capable Transport =97 ECT(0)
-    01: ECN Capable Transport =97 ECT(1)
-    11: Congestion Encountered =97 CE
+So a structure of three uint32_t will never need aligning.
 
--Roy
-
-
->
->> >> -     if (!(ecn & 2))
->> >> +     u32 ecn =3D iph->tos & INET_ECN_MASK;
->> >> +
->> >> +     if (INET_ECN_is_ce(ecn) || INET_ECN_is_not_ect(ecn))
->> >>               return !ecn;
->> >
->> >         May be return INET_ECN_is_ce(ecn) ?
->> >
->>
->> I like to set the return value to void, since noone cares about the
->> return value.
->
->         It is used by INET_ECN_set_ce and its users in
-> net/sched/
->
->> -Roy
->
-> Regards
->
-> --
-> Julian Anastasov <ja@ssi.bg>
+	David
