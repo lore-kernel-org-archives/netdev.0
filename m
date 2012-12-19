@@ -1,58 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: PMTU discovery is broken on kernel 3.7.1 for UDP sockets
-Date: Wed, 19 Dec 2012 13:35:19 +0000
-Message-ID: <1355924119.2676.6.camel@bwh-desktop.uk.solarflarecom.com>
-References: <50D1BCC0.2000208@oktetlabs.ru>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH V2 00/12] Add basic VLAN support to bridges
+Date: Wed, 19 Dec 2012 09:13:10 -0500
+Message-ID: <50D1CB76.50202@redhat.com>
+References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com> <20121219101006.7086faef@pixies.home.jungo.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
-To: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:7304 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753221Ab2LSNfX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 08:35:23 -0500
-In-Reply-To: <50D1BCC0.2000208@oktetlabs.ru>
+Received: from mx1.redhat.com ([209.132.183.28]:39693 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752327Ab2LSONR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2012 09:13:17 -0500
+In-Reply-To: <20121219101006.7086faef@pixies.home.jungo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-12-19 at 17:10 +0400, Yurij M. Plotnikov wrote:
-> On kernel 3.7.1 I get strange behaviour of IP_MTU_DISCOVER socket 
-> option. The behaviour in case of IP_PMTUDISC_DO and IP_PMTUDISC_WANT 
-> values of IP_MTU_DISCOVER socket option on SOCK_DGRAM socket are the 
-> same and packet is always sent with "Don't Fragment" bit in case of 
-> IP_PMTUDISC_WANT. Also, the value of IP_MTU socket option is not updated.
+On 12/19/2012 03:10 AM, Shmulik Ladkani wrote:
+> Thanks Vlad,
+>
+> On Tue, 18 Dec 2012 14:00:51 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
+>> A single vlan may also be designated as untagged.  Any untagged traffic
+>> recieved by the port will be assigned to this vlan.
+>
+> Why the "untagged vlan" is per-bridge global?
+> Usually, 802.1q switches define the PVID (port's VID) which controls
+> the value of VID, in case ingress frame is either untagged or
+> priority-tagged (per port configuration).
+> This gives greater flexibility.
 
-You could try reverting:
+It's not.  There is a per port untagged pointer where you can designate 
+which VLAN is untagged/native on a port.  The bride interface itself
+can also function as a port, so it gets its own untagged pointer so
+it can behave similar to port.
 
-commit ee9a8f7ab2edf801b8b514c310455c94acc232f6
-Author: Steffen Klassert <steffen.klassert@secunet.com>
-Date:   Mon Oct 8 00:56:54 2012 +0000
+>
+>> Any traffic exiting
+>> the port with a VID matching the untagged vlan will exit untagged (the
+>> bridge will strip the vlan header).  This is similar to "Native Vlan" support
+>> available in most switches.
+>
+> 802.1q switches usually allow conifguring per-vlan, per-port
+> tagged/untagged egress policy: each vid has its port membership map and
+> an accompanying port egress-policy map.
+> This gives great flexibility defining all sorts of configurations.
 
-    ipv4: Don't report stale pmtu values to userspace
-    
-    We report cached pmtu values even if they are already expired.
-    Change this to not report these values after they are expired
-    and fix a race in the expire time calculation, as suggested by
-    Eric Dumazet.
+Right, and that's what's provided here.
+  * Each VLAN has port membership map (net_bridge_vlan.portgroup).
+  * Each port has a list of vlans configured as well 
+(net_port_vlan.vlan_list).
+  * Each port also has a single vlan that can be untagged 
+(net_bridge_port.untagged).
+  * The bridge also has a single untagged vlan (net_bridge.untagged)
 
-Still, PMTU information is not supposed to expire for 10 minutes...
+The limitation (in switches as well) is that only a single VLAN
+may be untagged on any 1 port.  If you have more then 1, you don't know
+which VLAN the untagged traffic belongs to.
 
-[...]
-> On eth2 on host_B and on eth1 on host_C change MTU from 1500 to 750. 
-> Wait for a while.
-> 
-> 9. send(6, lenght=1400) -> 1400 // the packet is sent with "Don't 
-> Fragment" bit, tcpdump on eth1 on host_B shows it
-> 10. sleep(5);
-> 11. send(6, length=1400) -> -1 with EMSGSIZE
-> 12. sleep(5);
-> 13. getsockopt(6,IP_MTU) -> 0 // Returns that MTU is 1500 once again. So 
-> value is not updated.
-[...]
+>
+> Personally, I'd prefer a fully flexible vlan bridge allowing all sorts
+> of configurations (as available in 802.1q switches).
+>
+> What's the reason limiting such configurations?
 
-What if you read this option immediately before the sleep(5)?
+So, what do you see that's missing?
 
-Ben.
+-vlad
+
+>
+> Regards,
+> Shmulik
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
