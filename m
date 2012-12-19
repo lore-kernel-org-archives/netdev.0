@@ -1,62 +1,99 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/4] net: allow to change carrier via sysfs
-Date: Wed, 19 Dec 2012 10:35:54 +0100
-Message-ID: <1355909756-2389-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 1/4] net: add change_carrier netdev op
+Date: Wed, 19 Dec 2012 10:35:53 +0100
+Message-ID: <1355909756-2389-2-git-send-email-jiri@resnulli.us>
 References: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com,
 	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
 	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:56618 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753999Ab2LSJgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:36:08 -0500
-Received: by mail-ee0-f48.google.com with SMTP id b57so894961eek.21
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 01:36:07 -0800 (PST)
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:64981 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753891Ab2LSJgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:36:06 -0500
+Received: by mail-ea0-f172.google.com with SMTP id a1so683376eaa.17
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 01:36:04 -0800 (PST)
 In-Reply-To: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make carrier writable
+This allows a driver to register change_carrier callback which will be
+called whenever user will like to change carrier state. This is useful
+for devices like dummy, gre, team and so on.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/core/net-sysfs.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+ include/linux/netdevice.h | 12 ++++++++++++
+ net/core/dev.c            | 19 +++++++++++++++++++
+ 2 files changed, 31 insertions(+)
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 334efd5..7eda40a 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -126,6 +126,19 @@ static ssize_t show_broadcast(struct device *dev,
- 	return -EINVAL;
- }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 02e0f6b..22ca4a8 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -891,6 +891,14 @@ struct netdev_fcoe_hbainfo {
+  * int (*ndo_bridge_setlink)(struct net_device *dev, struct nlmsghdr *nlh)
+  * int (*ndo_bridge_getlink)(struct sk_buff *skb, u32 pid, u32 seq,
+  *			     struct net_device *dev)
++ *
++ * int (*ndo_change_carrier)(struct net_device *dev, bool new_carrier);
++ *	Called to change device carrier. Soft-devices (like dummy, team, etc)
++ *	which do not represent real hardware may define this to allow their
++ *	userspace components to manage their virtual carrier state. Devices
++ *	that determine carrier state from physical hardware properties (eg
++ *	network cables) or protocol-dependent mechanisms (eg
++ *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
+  */
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+@@ -1008,6 +1016,8 @@ struct net_device_ops {
+ 	int			(*ndo_bridge_getlink)(struct sk_buff *skb,
+ 						      u32 pid, u32 seq,
+ 						      struct net_device *dev);
++	int			(*ndo_change_carrier)(struct net_device *dev,
++						      bool new_carrier);
+ };
  
-+static int change_carrier(struct net_device *net, unsigned long new_carrier)
+ /*
+@@ -2194,6 +2204,8 @@ extern int		dev_set_mtu(struct net_device *, int);
+ extern void		dev_set_group(struct net_device *, int);
+ extern int		dev_set_mac_address(struct net_device *,
+ 					    struct sockaddr *);
++extern int		dev_change_carrier(struct net_device *,
++					   bool new_carrier);
+ extern int		dev_hard_start_xmit(struct sk_buff *skb,
+ 					    struct net_device *dev,
+ 					    struct netdev_queue *txq);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d0cbc93..268a714 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5027,6 +5027,25 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+ }
+ EXPORT_SYMBOL(dev_set_mac_address);
+ 
++/**
++ *	dev_change_carrier - Change device carrier
++ *	@dev: device
++ *	@new_carries: new value
++ *
++ *	Change device carrier
++ */
++int dev_change_carrier(struct net_device *dev, bool new_carrier)
 +{
-+	if (!netif_running(net))
-+		return -EINVAL;
-+	return dev_change_carrier(net, (bool) new_carrier);
-+}
++	const struct net_device_ops *ops = dev->netdev_ops;
 +
-+static ssize_t store_carrier(struct device *dev, struct device_attribute *attr,
-+			 const char *buf, size_t len)
-+{
-+	return netdev_store(dev, attr, buf, len, change_carrier);
++	if (!ops->ndo_change_carrier)
++		return -EOPNOTSUPP;
++	if (!netif_device_present(dev))
++		return -ENODEV;
++	return ops->ndo_change_carrier(dev, new_carrier);
 +}
++EXPORT_SYMBOL(dev_change_carrier);
 +
- static ssize_t show_carrier(struct device *dev,
- 			    struct device_attribute *attr, char *buf)
- {
-@@ -331,7 +344,7 @@ static struct device_attribute net_class_attributes[] = {
- 	__ATTR(link_mode, S_IRUGO, show_link_mode, NULL),
- 	__ATTR(address, S_IRUGO, show_address, NULL),
- 	__ATTR(broadcast, S_IRUGO, show_broadcast, NULL),
--	__ATTR(carrier, S_IRUGO, show_carrier, NULL),
-+	__ATTR(carrier, S_IRUGO | S_IWUSR, show_carrier, store_carrier),
- 	__ATTR(speed, S_IRUGO, show_speed, NULL),
- 	__ATTR(duplex, S_IRUGO, show_duplex, NULL),
- 	__ATTR(dormant, S_IRUGO, show_dormant, NULL),
+ /*
+  *	Perform the SIOCxIFxxx calls, inside rcu_read_lock()
+  */
 -- 
 1.8.0
