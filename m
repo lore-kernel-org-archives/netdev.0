@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] smsc95xx enhancements
-Date: Tue, 18 Dec 2012 16:25:23 -0800 (PST)
-Message-ID: <20121218.162523.546895870503615826.davem@davemloft.net>
-References: <1355827574-15164-1-git-send-email-steve.glendinning@shawell.net>
+Subject: Re: [PATCH] net: fec: forbid FEC_PTP on SoCs that do not support
+Date: Tue, 18 Dec 2012 16:26:56 -0800 (PST)
+Message-ID: <20121218.162656.1759253364857674480.davem@davemloft.net>
+References: <1355836004-22067-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ming.lei@canonical.com, oneukum@suse.de,
-	gregkh@linuxfoundation.org
-To: steve.glendinning@shawell.net
+Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
+	richardcochran@gmail.com
+To: shawn.guo@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37684 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37698 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755039Ab2LSAZY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 19:25:24 -0500
-In-Reply-To: <1355827574-15164-1-git-send-email-steve.glendinning@shawell.net>
+	with ESMTP id S1755068Ab2LSA05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Dec 2012 19:26:57 -0500
+In-Reply-To: <1355836004-22067-1-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steve Glendinning <steve.glendinning@shawell.net>
-Date: Tue, 18 Dec 2012 10:46:12 +0000
+From: Shawn Guo <shawn.guo@linaro.org>
+Date: Tue, 18 Dec 2012 21:06:44 +0800
 
-> Two driver enhancements for net-next.  There's ongoing discussion around
-> the best way to improve autosuspend moving forwards but in the meantime
-> the second patch in this set enables autosuspend for supported parts in
-> most situations.
+> Beside imx6q, the kernel built from imx_v6_v7_defconfig is also
+> supposed to be running on other IMX SoCs that do not have the PTP
+> block.  Before fec driver gets fixed to run-time detect target hardware
+> rather than conditional compiling with #ifdef CONFIG_FEC_PTP, let's
+> give it a quick fix in Kconfig to forbid FEC_PTP on those IMX SoCs that
+> do not support PTP.
+> 
+> Reported-by: Sascha Hauer <s.hauer@pengutronix.de>
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
 
-Please do not submit net-next changes until the net-next tree is
-actually open and available for submissions.
+This uglyness is exactly why this needs to be detected at run
+time.
+
+Anyways, applied.
