@@ -1,41 +1,38 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 0/2] iputils: minor ninfod and ping6 fixes
-Date: Thu, 20 Dec 2012 06:05:35 +0900
-Message-ID: <50D22C1F.8010509@linux-ipv6.org>
-References: <1354868724-15549-1-git-send-email-jsynacek@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 8139cp: Prevent dev_close/cp_interrupt race on MTU
+ change
+Date: Wed, 19 Dec 2012 14:31:33 -0800 (PST)
+Message-ID: <20121219.143133.1014918366601985306.davem@davemloft.net>
+References: <1355946468-3290-1-git-send-email-jogreene@redhat.com>
+	<20121219.124014.891279563982531558.davem@davemloft.net>
+	<1355950547.18919.93.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jan Synacek <jsynacek@redhat.com>
+Cc: jogreene@redhat.com, netdev@vger.kernel.org
+To: dwmw2@infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58745 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750798Ab2LSVFh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 16:05:37 -0500
-In-Reply-To: <1354868724-15549-1-git-send-email-jsynacek@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50267 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751062Ab2LSWbg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 17:31:36 -0500
+In-Reply-To: <1355950547.18919.93.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jan Synacek wrote:
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Wed, 19 Dec 2012 20:55:47 +0000
 
-> When calling ping6 with the flowlabel (e.g. `ping6 -F 123 ::1'), it exited with
-> an error. For some reason, the errno was set when it should not have been. Maybe
-> it shouldn't be checked at all, maybe just checking flowlabel for values below
-> zero would be enough. I wanted to be on the safer side so I left the errno check
-> in there.
+> On Wed, 2012-12-19 at 12:40 -0800, David Miller wrote:
+>> You sent this as a "request for testing" last week, but I saw
+>> no testing on real hardware whatsoever.
 > 
-> Also, I fixed the rest of the unused variables in ninfod.
+> Thanks for the reminder :)
 > 
-> Jan Synacek (2):
->   ninfod: Fix more unused variables.
->   ping6: Fix -F switch.
+> Seems to work fine here. I haven't confirmed whether I actually see the
+> race or not but changing MTU on a live device works fine, even when it's
+> being ping-flooded.
 > 
->  ninfod/ni_ifaddrs.c | 8 +-------
->  ping6.c             | 3 ++-
->  2 files changed, 3 insertions(+), 8 deletions(-)
-> 
+> Tested-by: David Woodhouse <David.Woodhouse@intel.com>
 
-Fixes committed. Thank you!
-
---yoshfuji
+That's more like it, applied, thanks everyone. :-)
