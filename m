@@ -1,56 +1,111 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [GIT PULL net-next 04/17] ndisc: Introduce ndisc_fill_redirect_hdr_option().
-Date: Thu, 20 Dec 2012 02:27:35 +0900
-Message-ID: <50D1F907.30407@linux-ipv6.org>
-References: <50CF84A5.7030706@linux-ipv6.org> <50D04B4B.7060002@linux-ipv6.org> <87txrib6wa.fsf@nemi.mork.no> <50D1EA8F.7070504@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH net-next V3 03/13] bridge: Validate that vlan is permitted on ingress
+Date: Wed, 19 Dec 2012 12:30:38 -0500
+Message-ID: <1355938248-8407-4-git-send-email-vyasevic@redhat.com>
+References: <1355938248-8407-1-git-send-email-vyasevic@redhat.com>
+Cc: shemminger@vyatta.com, davem@davemloft.net, or.gerlitz@gmail.com,
+	jhs@mojatatu.com, mst@redhat.com, erdnetdev@gmail.com,
+	jiri@resnulli.us
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58521 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750922Ab2LSR1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 12:27:36 -0500
-In-Reply-To: <50D1EA8F.7070504@linux-ipv6.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25529 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755741Ab2LSRbE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2012 12:31:04 -0500
+In-Reply-To: <1355938248-8407-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2012=E5=B9=B412=E6=9C=8820=E6=97=A5 01:25), YOSHIFUJI Hideaki wrote:
-> Bj=C3=B8rn Mork wrote:
->> YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> writes:
+When a frame arrives on a port, if we have VLANs configured,
+validate that a given VLAN is allowed to ingress on a given
+port.
 
->>> +static u8 *ndisc_fill_redirect_hdr_option(u8 *opt, struct sk_buff =
-*orig_skb,
->>> +					  int rd_len)
->>> +{
->>> +	memset(opt, 0, 8);
->>> +	*(opt++) =3D ND_OPT_REDIRECT_HDR;
->>> +	*(opt++) =3D (rd_len >> 3);
->>> +	opt +=3D 6;
->>> +
->>> +	memcpy(opt, ipv6_hdr(orig_skb), rd_len - 8);
->>> +
->>> +	return opt;
->>> +}
-:
->> I understand that opt isn't currently used after this, but if it eve=
-r is
->> then it is going to come as big a surprise that this implies opt +=3D=
- 8;
->>
->> This was previously quite clear when the code was inline, but it bec=
-omes
->> problematic when it is factored out.
->=20
-> I understand your concern.  opt will be disappeared by following
-> changeset (12 of 17).
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_input.c   |   23 +++++++++++++++++++++++
+ net/bridge/br_private.h |   15 +++++++++++++--
+ 2 files changed, 36 insertions(+), 2 deletions(-)
 
-Argh, I now notice return value was not quite right; it should
-return opt + rd_len - 8.
-
-=46ixed in my local tree.  Thanks.
-
---yoshfuji
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 4b34207..54c0894 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -17,6 +17,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/netfilter_bridge.h>
+ #include <linux/export.h>
++#include <linux/rculist.h>
+ #include "br_private.h"
+ 
+ /* Hook for brouter */
+@@ -41,6 +42,25 @@ static int br_pass_frame_up(struct sk_buff *skb)
+ 		       netif_receive_skb);
+ }
+ 
++static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb)
++{
++	struct net_port_vlan *pve;
++	u16 vid;
++
++	/* If there are no vlan in the permitted list, all packets are
++	 * permitted.
++	 */
++	if (list_empty(&p->vlan_list))
++		return true;
++
++	vid = br_get_vlan(skb);
++	pve = nbp_vlan_find(p, vid);
++	if (pve)
++		return true;
++
++	return false;
++}
++
+ /* note: already called with rcu_read_lock */
+ int br_handle_frame_finish(struct sk_buff *skb)
+ {
+@@ -54,6 +74,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	if (!p || p->state == BR_STATE_DISABLED)
+ 		goto drop;
+ 
++	if (!br_allowed_ingress(p, skb))
++		goto drop;
++
+ 	/* insert into forwarding database after filtering to avoid spoofing */
+ 	br = p->br;
+ 	br_fdb_update(br, p, eth_hdr(skb)->h_source);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 76d9fbc..1ba76b4 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -66,8 +66,6 @@ struct br_ip
+ };
+ 
+ #define BR_INVALID_VID	(1<<15)
+-#define BR_UNTAGGED_VID (1<<14)
+-
+ #define BR_VID_HASH_SIZE (1<<6)
+ #define br_vlan_hash(vid) ((vid) % (BR_VID_HASH_SIZE - 1))
+ 
+@@ -197,6 +195,19 @@ static inline struct net_bridge_port *br_port_get_rtnl(struct net_device *dev)
+ 		rtnl_dereference(dev->rx_handler_data) : NULL;
+ }
+ 
++static inline u16 br_get_vlan(const struct sk_buff *skb)
++{
++	u16 tag;
++
++	if (vlan_tx_tag_present(skb))
++		return vlan_tx_tag_get(skb) & VLAN_VID_MASK;
++
++	if (vlan_get_tag(skb, &tag))
++		return 0;
++
++	return tag & VLAN_VID_MASK;
++}
++
+ struct br_cpu_netstats {
+ 	u64			rx_packets;
+ 	u64			rx_bytes;
+-- 
+1.7.7.6
