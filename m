@@ -1,34 +1,33 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] net: qmi_wwan: add ZTE MF880
-Date: Wed, 19 Dec 2012 12:50:40 -0800 (PST)
-Message-ID: <20121219.125040.2179352972341068666.davem@davemloft.net>
-References: <1355926551-30316-1-git-send-email-bjorn@mork.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] bridge: Do not unregister all PF_BRIDGE rtnl
+ operations
+Date: Wed, 19 Dec 2012 12:50:48 -0800 (PST)
+Message-ID: <20121219.125048.1590630816104658477.davem@davemloft.net>
+References: <1355944428-32051-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1355926551-30316-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49430 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751592Ab2LSUut (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 15:50:49 -0500
+In-Reply-To: <1355944428-32051-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Wed, 19 Dec 2012 15:15:51 +0100
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Wed, 19 Dec 2012 14:13:48 -0500
 
-> The driver description files gives these names to the vendor specific
-> functions on this modem:
->=20
->  diag: VID_19D2&PID_0284&MI_00
->  nmea: VID_19D2&PID_0284&MI_01
->  at:   VID_19D2&PID_0284&MI_02
->  mdm:  VID_19D2&PID_0284&MI_03
->  net:  VID_19D2&PID_0284&MI_04
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> Bridge fdb and link rtnl operations are registered in
+> core/rtnetlink.  Bridge mdb operations are registred
+> in bridge/mdb.  When removing bridge module, do not
+> unregister ALL PF_BRIDGE ops since that would remove
+> the ops from rtnetlink as well.  Do remove mdb ops when
+> bridge is destroyed.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
