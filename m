@@ -1,249 +1,418 @@
-From: Paolo valente <paolo.valente@unimore.it>
-Subject: [PATCH BUGFIX] pkt_sched: fix little service anomalies and possible crashes of qfq+
-Date: Wed, 19 Dec 2012 18:31:06 +0100
-Message-ID: <1355938266-18459-1-git-send-email-paolo.valente@unimore.it>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rizzo@iet.unipi.it, fchecconi@gmail.com,
-	Paolo Valente <paolo.valente@unimore.it>
-To: davem@davemloft.net, jhs@mojatatu.com, shemminger@vyatta.com
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH net-next V4 02/13] bridge: Add vlan filtering infrastructure
+Date: Wed, 19 Dec 2012 12:48:13 -0500
+Message-ID: <1355939304-21804-3-git-send-email-vyasevic@redhat.com>
+References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
+Cc: shemminger@vyatta.com, davem@davemloft.net, or.gerlitz@gmail.com,
+	jhs@mojatatu.com, mst@redhat.com, erdnetdev@gmail.com,
+	jiri@resnulli.us
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp25.sms.unimo.it ([155.185.44.25]:37644 "EHLO
-	smtp25.sms.unimo.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755756Ab2LSRbz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 12:31:55 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:54377 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752785Ab2LSRse (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2012 12:48:34 -0500
+In-Reply-To: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch contains five fixes that remove some little service
-anomalies, plus an improvement that slightly reduces the execution
-time of qfq+.
+This is an infrastructure patch.  It adds 2 structures types:
+  net_bridge_vlan - list element of all vlans that have been configured
+                    on the bridge.
+  net_port_vlan - list element of all vlans configured on a specific port.
+                  references net_bridge_vlan.
 
-As for possible crashes, in a stress test in which a few hundreds of
-classes randomly switched from backlogged to non-backlogged, and the
-parameters of a few tens of randomly chosen classes were changed
-repeatedly and in parallel, the problems solved by these fixes
-happened to combine and cause corruption of the data structures
-supporting the group bucket lists.
+In this implementation, bridge has a hash list of all vlans that have
+been added to the bridge.  Each vlan element holds a vid and port_bitmap
+where each port sets its bit if a given vlan is added to the port.
 
-The portions of the code interested by each fix are small and do not
-overlap with each other, so I decided to provide just one patch
-(I hope that this was the right choice).
+Each port has its own list of vlans.  Each element here refrences a vlan
+from the bridge list.
 
-1. Fix the update of eligible-group sets
+Write access to both lists is protected by RTNL, and read access is
+protected by RCU.
 
-Between two invocations of make_eligible, the system virtual time may
-happen to grow enough that, in its binary representation, a bit with
-higher order than 31 flips. This happens especially with
-TSO/GSO. Before this fix, the mask used in make_eligible was computed
-as (1UL<<index_of_last_flipped_bit)-1, whose value is well defined on
-a 64-bit architecture, because index_of_flipped_bit <= 63, but is in
-general undefined on a 32-bit architecture if index_of_flipped_bit > 31.
-The fix just replaces 1UL with 1ULL.
-
-2. Properly cap timestamps in charge_actual_service
-
-After decreasing the number of classes, and hence the maximum budget
-budgetmax for an aggregate in service, it may happen that the service
-it receives before a new aggregate is chosen for service becomes
-larger than budgetmax. This may cause the aggregate to be assigned an
-incorrect, too high virtual finish time. The cap introduced by this
-fix solves this problem.
-
-3. Do not allow virtual time to jump if an aggregate is in service
-
-By definition of (the algorithm of) qfq+, the system virtual time must
-be pushed up only if there is no eligible aggregate. But to decide
-whether this condition holds correctly, qfq+ must also check whether
-no aggregate is in service (and hence eligible).
-
-4. Prevent the budget of an aggregate from becoming negative in
-qfq_dequeue
-
-If lmax is lowered, through qfq_change_class, for a class owning
-pending packets with larger size than the new value of lmax, then even
-the budget of a just selected-aggregate may happen to be lower than
-the length of the next packet to serve. This fix prevents the budget
-from becoming negative after the packet is dequeued.
-
-5. Start serving a just-activated aggregate immediately if the
-scheduler is empty
-
-This avoids qfq+ to be occasionally non-work-conserving.
-
-6. Remove useless invocation of qfq_update_eligible from qfq_deactivate_agg
-
-There is no need to invoke qfq_update_eligible in qfq_deactivate_agg
-to keep qfq+ work-conserving.
-
-Signed-off-by: Paolo Valente <paolo.valente@unimore.it>
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/sched/sch_qfq.c |   72 +++++++++++++++++++++++++++++++++++----------------
- 1 file changed, 49 insertions(+), 23 deletions(-)
+ net/bridge/br_device.c  |    3 +
+ net/bridge/br_if.c      |  243 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_private.h |   33 +++++++
+ 3 files changed, 279 insertions(+), 0 deletions(-)
 
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index 6ed3765..01f36a5 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -299,6 +299,11 @@ static void qfq_update_agg(struct qfq_sched *q, struct qfq_aggregate *agg,
- 	    new_num_classes == q->max_agg_classes - 1) /* agg no more full */
- 		hlist_add_head(&agg->nonfull_next, &q->nonfull_aggs);
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 7c78e26..9546742 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -332,6 +332,7 @@ static struct device_type br_type = {
+ void br_dev_setup(struct net_device *dev)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
++	int i;
  
-+	/*
-+	 * The next assignment may let
-+	 * agg->initial_budget > agg->budgetmax
-+	 * hold, but this does not cause any harm
+ 	eth_hw_addr_random(dev);
+ 	ether_setup(dev);
+@@ -354,6 +355,8 @@ void br_dev_setup(struct net_device *dev)
+ 	spin_lock_init(&br->lock);
+ 	INIT_LIST_HEAD(&br->port_list);
+ 	spin_lock_init(&br->hash_lock);
++	for (i = 0; i < BR_VID_HASH_SIZE; i++)
++		INIT_HLIST_HEAD(&br->vlan_hlist[i]);
+ 
+ 	br->bridge_id.prio[0] = 0x80;
+ 	br->bridge_id.prio[1] = 0x00;
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 1c8fdc3..c30fe29 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -83,6 +83,246 @@ void br_port_carrier_check(struct net_bridge_port *p)
+ 	spin_unlock_bh(&br->lock);
+ }
+ 
++static void br_vlan_destroy(struct net_bridge_vlan *vlan)
++{
++	if (!bitmap_empty(vlan->port_bitmap, PORT_BITMAP_LEN)) {
++		pr_err("Attempt to delete a VLAN %d from the bridge with "
++		       "non-empty port bitmap (%p)\n", vlan->vid, vlan);
++		BUG();
++	}
++
++	hlist_del_rcu(&vlan->hlist);
++	kfree_rcu(vlan, rcu);
++}
++
++static void br_vlan_hold(struct net_bridge_vlan *vlan)
++{
++	atomic_inc(&vlan->refcnt);
++}
++
++static void br_vlan_put(struct net_bridge_vlan *vlan)
++{
++	if (atomic_dec_and_test(&vlan->refcnt))
++		br_vlan_destroy(vlan);
++}
++
++struct net_bridge_vlan *br_vlan_find(struct net_bridge *br, u16 vid)
++{
++	struct net_bridge_vlan *vlan;
++	struct hlist_node *node;
++
++	hlist_for_each_entry_rcu(vlan, node,
++				 &br->vlan_hlist[br_vlan_hash(vid)], hlist) {
++		if (vlan->vid == vid)
++			return vlan;
++	}
++
++	return NULL;
++}
++
++/* Must be protected by RTNL */
++struct net_bridge_vlan *br_vlan_add(struct net_bridge *br, u16 vid,
++				    u16 flags)
++{
++	struct net_bridge_vlan *vlan;
++
++	ASSERT_RTNL();
++
++	vlan = br_vlan_find(br, vid);
++	if (vlan)
++		return vlan;
++
++	vlan = kzalloc(sizeof(struct net_bridge_vlan), GFP_KERNEL);
++	if (!vlan)
++		return NULL;
++
++	vlan->vid = vid;
++	atomic_set(&vlan->refcnt, 1);
++
++	if (flags & BRIDGE_FLAGS_SELF) {
++		/* Set bit 0 that is associated with the bridge master
++		 * device.  Port numbers start with 1.
++		 */
++		set_bit(0, vlan->port_bitmap);
++	}
++
++	hlist_add_head_rcu(&vlan->hlist, &br->vlan_hlist[br_vlan_hash(vid)]);
++	return vlan;
++}
++
++/* Must be protected by RTNL */
++static void br_vlan_del(struct net_bridge_vlan *vlan, u16 flags)
++{
++	ASSERT_RTNL();
++
++	if (flags & BRIDGE_FLAGS_SELF) {
++		/* Clear bit 0 that is associated with the bridge master
++		 * device.
++		 */
++		clear_bit(0, vlan->port_bitmap);
++	}
++
++	/* Try to remove the vlan, but only once all the ports have
++	 * been removed from the port bitmap
 +	 */
- 	agg->budgetmax = new_num_classes * agg->lmax;
- 	new_agg_weight = agg->class_weight * new_num_classes;
- 	agg->inv_w = ONE_FP/new_agg_weight;
-@@ -325,9 +330,10 @@ static void qfq_add_to_agg(struct qfq_sched *q,
- 	qfq_update_agg(q, agg, agg->num_classes+1);
- 	if (cl->qdisc->q.qlen > 0) { /* adding an active class */
- 		list_add_tail(&cl->alist, &agg->active);
--		if (list_first_entry(&agg->active, struct qfq_class, alist) ==
--		    cl && q->in_serv_agg != agg) /* agg was inactive */
--			qfq_activate_agg(q, agg, enqueue); /* schedule agg */
-+		if (list_first_entry(&agg->active, struct qfq_class, alist) !=
-+		    cl || q->in_serv_agg == agg)
-+			return;
-+		qfq_activate_agg(q, agg, enqueue);
- 	}
- }
- 
-@@ -819,7 +825,7 @@ static void qfq_make_eligible(struct qfq_sched *q)
- 	unsigned long old_vslot = q->oldV >> q->min_slot_shift;
- 
- 	if (vslot != old_vslot) {
--		unsigned long mask = (1UL << fls(vslot ^ old_vslot)) - 1;
-+		unsigned long mask = (1ULL << fls(vslot ^ old_vslot)) - 1;
- 		qfq_move_groups(q, mask, IR, ER);
- 		qfq_move_groups(q, mask, IB, EB);
- 	}
-@@ -993,9 +999,19 @@ static inline void charge_actual_service(struct qfq_aggregate *agg)
- 	/* compute the service received by the aggregate */
- 	u32 service_received = agg->initial_budget - agg->budget;
- 
-+	/* may happen after decreasing the number of classes in agg */
-+	if (service_received > agg->budgetmax)
-+		service_received = agg->budgetmax;
++	if (!bitmap_empty(vlan->port_bitmap, PORT_BITMAP_LEN))
++		return;
 +
- 	agg->F = agg->S + (u64)service_received * agg->inv_w;
- }
- 
-+static inline void qfq_update_agg_ts(struct qfq_sched *,
-+				     struct qfq_aggregate *,
-+				     enum update_reason);
++	vlan->vid = BR_INVALID_VID;
 +
-+static void qfq_schedule_agg(struct qfq_sched *, struct qfq_aggregate *);
++	/* Drop the self-ref to trigger descrution. */
++	br_vlan_put(vlan);
++}
 +
- static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
- {
- 	struct qfq_sched *q = qdisc_priv(sch);
-@@ -1023,7 +1039,7 @@ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
- 		in_serv_agg->initial_budget = in_serv_agg->budget =
- 			in_serv_agg->budgetmax;
- 
--		if (!list_empty(&in_serv_agg->active))
-+		if (!list_empty(&in_serv_agg->active)) {
- 			/*
- 			 * Still active: reschedule for
- 			 * service. Possible optimization: if no other
-@@ -1034,8 +1050,9 @@ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
- 			 * handle it, we would need to maintain an
- 			 * extra num_active_aggs field.
- 			*/
--			qfq_activate_agg(q, in_serv_agg, requeue);
--		else if (sch->q.qlen == 0) { /* no aggregate to serve */
-+			qfq_update_agg_ts(q, in_serv_agg, requeue);
-+			qfq_schedule_agg(q, in_serv_agg);
-+		} else if (sch->q.qlen == 0) { /* no aggregate to serve */
- 			q->in_serv_agg = NULL;
- 			return NULL;
- 		}
-@@ -1054,7 +1071,16 @@ static struct sk_buff *qfq_dequeue(struct Qdisc *sch)
- 	qdisc_bstats_update(sch, skb);
- 
- 	agg_dequeue(in_serv_agg, cl, len);
--	in_serv_agg->budget -= len;
-+	/*
-+	 * If lmax is lowered, through qfq_change_class, for a class
-+	 * owning pending packets with larger size than the new value of lmax,
-+	 * then the following condition may hold.
++/* Must be protected by RTNL */
++int br_vlan_delete(struct net_bridge *br, u16 vid, u16 flags)
++{
++	struct net_bridge_vlan *vlan;
++
++	ASSERT_RTNL();
++
++	vlan = br_vlan_find(br, vid);
++	if (!vlan)
++		return -ENOENT;
++
++	br_vlan_del(vlan, flags);
++	return 0;
++}
++
++static void br_vlan_flush(struct net_bridge *br)
++{
++	struct net_bridge_vlan *vlan;
++	struct hlist_node *node;
++	struct hlist_node *tmp;
++	int i;
++
++	/* Make sure that there are no vlans left in the bridge after
++	 * all the ports have been removed.
 +	 */
-+	if (unlikely(in_serv_agg->budget < len))
-+		in_serv_agg->budget = 0;
-+	else
-+		in_serv_agg->budget -= len;
++	for (i = 0; i < BR_VID_HASH_SIZE; i++) {
++		hlist_for_each_entry_safe(vlan, node, tmp,
++					  &br->vlan_hlist[i], hlist) {
++			br_vlan_del(vlan, BRIDGE_FLAGS_SELF);
++		}
++	}
++}
 +
- 	q->V += (u64)len * IWSUM;
- 	pr_debug("qfq dequeue: len %u F %lld now %lld\n",
- 		 len, (unsigned long long) in_serv_agg->F,
-@@ -1154,7 +1180,7 @@ static void qfq_update_start(struct qfq_sched *q, struct qfq_aggregate *agg)
-  */
- static inline void
- qfq_update_agg_ts(struct qfq_sched *q,
--		    struct qfq_aggregate *agg, enum update_reason reason)
-+		  struct qfq_aggregate *agg, enum update_reason reason)
- {
- 	if (reason != requeue)
- 		qfq_update_start(q, agg);
-@@ -1219,17 +1245,11 @@ static int qfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	cl->deficit = agg->lmax;
- 	list_add_tail(&cl->alist, &agg->active);
- 
--	if (list_first_entry(&agg->active, struct qfq_class, alist) != cl)
--		return err; /* aggregate was not empty, nothing else to do */
-+	if (list_first_entry(&agg->active, struct qfq_class, alist) != cl ||
-+	    q->in_serv_agg == agg)
-+		return err; /* non-empty or in service, nothing else to do */
- 
--	/* recharge budget */
--	agg->initial_budget = agg->budget = agg->budgetmax;
--
--	qfq_update_agg_ts(q, agg, enqueue);
--	if (q->in_serv_agg == NULL)
--		q->in_serv_agg = agg;
--	else if (agg != q->in_serv_agg)
--		qfq_schedule_agg(q, agg);
-+	qfq_activate_agg(q, agg, enqueue);
- 
- 	return err;
- }
-@@ -1263,7 +1283,8 @@ static void qfq_schedule_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
- 		/* group was surely ineligible, remove */
- 		__clear_bit(grp->index, &q->bitmaps[IR]);
- 		__clear_bit(grp->index, &q->bitmaps[IB]);
--	} else if (!q->bitmaps[ER] && qfq_gt(roundedS, q->V))
-+	} else if (!q->bitmaps[ER] && qfq_gt(roundedS, q->V) &&
-+		   q->in_serv_agg == NULL)
- 		q->V = roundedS;
- 
- 	grp->S = roundedS;
-@@ -1286,8 +1307,15 @@ skip_update:
- static void qfq_activate_agg(struct qfq_sched *q, struct qfq_aggregate *agg,
- 			     enum update_reason reason)
- {
-+	agg->initial_budget = agg->budget = agg->budgetmax; /* recharge budg */
++struct net_port_vlan *nbp_vlan_find(const struct net_bridge_port *p, u16 vid)
++{
++	struct net_port_vlan *pve;
 +
- 	qfq_update_agg_ts(q, agg, reason);
--	qfq_schedule_agg(q, agg);
-+	if (q->in_serv_agg == NULL) { /* no aggr. in service or scheduled */
-+		q->in_serv_agg = agg; /* start serving this aggregate */
-+		 /* update V: to be in service, agg must be eligible */
-+		q->oldV = q->V = agg->S;
-+	} else if (agg != q->in_serv_agg)
-+		qfq_schedule_agg(q, agg);
- }
++	/* Must be done either in rcu critical section or with RTNL held */
++	WARN_ON_ONCE(!rcu_read_lock_held() && !rtnl_is_locked());
++
++	list_for_each_entry_rcu(pve, &p->vlan_list, list) {
++		if (pve->vid == vid)
++			return pve;
++	}
++
++	return NULL;
++}
++
++/* Must be protected by RTNL */
++int nbp_vlan_add(struct net_bridge_port *p, u16 vid, u16 flags)
++{
++	struct net_port_vlan *pve;
++	struct net_bridge_vlan *vlan;
++	struct net_device *dev = p->dev;
++	int err;
++
++	ASSERT_RTNL();
++
++	/* Find a vlan in the bridge vlan list.  If it isn't there,
++	 * create it
++	 */
++	vlan = br_vlan_add(p->br, vid, flags);
++	if (!vlan)
++		return -ENOMEM;
++
++	/* Check to see if this port is already part of the vlan.  If
++	 * it is, there is nothing more to do.
++	 */
++	if (test_bit(p->port_no, vlan->port_bitmap))
++		return -EEXIST;
++
++	/* Create port vlan, link it to bridge vlan list, and add port the
++	 * portgroup.
++	 */
++	pve = kmalloc(sizeof(*pve), GFP_KERNEL);
++	if (!pve) {
++		err = -ENOMEM;
++		goto clean_up;
++	}
++
++	/* Add VLAN to the device filter if it is supported.
++	 * Stricly speaking, this is not necessary now, since devices
++	 * are made promiscuous by the bridge, but if that ever changes
++	 * this code will allow tagged traffic to enter the bridge.
++	 */
++	if (!vlan_hw_buggy(dev)) {
++		err = vlan_vid_add_hw(dev, vid);
++		if (err)
++			goto clean_up;
++	}
++
++	pve->vid = vid;
++	pve->vlan = vlan;
++	br_vlan_hold(vlan);
++	set_bit(p->port_no, vlan->port_bitmap);
++
++	list_add_tail_rcu(&pve->list, &p->vlan_list);
++	return 0;
++
++clean_up:
++	kfree(pve);
++	br_vlan_del(vlan, flags);
++	return err;
++}
++
++/* Must be protected by RTNL */
++int nbp_vlan_delete(struct net_bridge_port *p, u16 vid, u16 flags)
++{
++	struct net_device *dev = p->dev;
++	struct net_port_vlan *pve;
++	struct net_bridge_vlan *vlan;
++
++	ASSERT_RTNL();
++
++	pve = nbp_vlan_find(p, vid);
++	if (!pve)
++		return -ENOENT;
++
++	/* Remove VLAN from the device filter if it is supported. */
++	if (vlan_vid_del_hw(dev, vid))
++		pr_warn("failed to kill vid %d for device %s\n",
++			vid, dev->name);
++
++	pve->vid = BR_INVALID_VID;
++
++	vlan = pve->vlan;
++	pve->vlan = NULL;
++	clear_bit(p->port_no, vlan->port_bitmap);
++	br_vlan_put(vlan);
++
++	list_del_rcu(&pve->list);
++	kfree_rcu(pve, rcu);
++
++	br_vlan_del(vlan, flags);
++
++	return 0;
++}
++
++static void nbp_vlan_flush(struct net_bridge_port *p)
++{
++	struct net_port_vlan *pve;
++	struct net_port_vlan *tmp;
++
++	ASSERT_RTNL();
++
++	list_for_each_entry_safe(pve, tmp, &p->vlan_list, list)
++		nbp_vlan_delete(p, pve->vid, BRIDGE_FLAGS_SELF);
++}
++
+ static void release_nbp(struct kobject *kobj)
+ {
+ 	struct net_bridge_port *p
+@@ -139,6 +379,7 @@ static void del_nbp(struct net_bridge_port *p)
  
- static void qfq_slot_remove(struct qfq_sched *q, struct qfq_group *grp,
-@@ -1359,8 +1387,6 @@ static void qfq_deactivate_agg(struct qfq_sched *q, struct qfq_aggregate *agg)
- 			__set_bit(grp->index, &q->bitmaps[s]);
- 		}
+ 	br_ifinfo_notify(RTM_DELLINK, p);
+ 
++	nbp_vlan_flush(p);
+ 	br_fdb_delete_by_port(br, p, 1);
+ 
+ 	list_del_rcu(&p->list);
+@@ -170,6 +411,7 @@ void br_dev_delete(struct net_device *dev, struct list_head *head)
+ 		del_nbp(p);
  	}
--
--	qfq_update_eligible(q);
- }
  
- static void qfq_qlen_notify(struct Qdisc *sch, unsigned long arg)
++	br_vlan_flush(br);
+ 	del_timer_sync(&br->gc_timer);
+ 
+ 	br_sysfs_delbr(br->dev);
+@@ -222,6 +464,7 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
+ 	p->flags = 0;
+ 	br_init_port(p);
+ 	p->state = BR_STATE_DISABLED;
++	INIT_LIST_HEAD(&p->vlan_list);
+ 	br_stp_port_timer_init(p);
+ 	br_multicast_add_port(p);
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index ae0a6ec..76d9fbc 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -18,6 +18,7 @@
+ #include <linux/netpoll.h>
+ #include <linux/u64_stats_sync.h>
+ #include <net/route.h>
++#include <linux/if_vlan.h>
+ 
+ #define BR_HASH_BITS 8
+ #define BR_HASH_SIZE (1 << BR_HASH_BITS)
+@@ -26,6 +27,7 @@
+ 
+ #define BR_PORT_BITS	10
+ #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
++#define PORT_BITMAP_LEN	BITS_TO_LONGS(BR_MAX_PORTS)
+ 
+ #define BR_VERSION	"2.3"
+ 
+@@ -63,6 +65,27 @@ struct br_ip
+ 	__be16		proto;
+ };
+ 
++#define BR_INVALID_VID	(1<<15)
++#define BR_UNTAGGED_VID (1<<14)
++
++#define BR_VID_HASH_SIZE (1<<6)
++#define br_vlan_hash(vid) ((vid) % (BR_VID_HASH_SIZE - 1))
++
++struct net_bridge_vlan {
++	struct hlist_node		hlist;
++	atomic_t			refcnt;
++	struct rcu_head			rcu;
++	u16				vid;
++	unsigned long			port_bitmap[PORT_BITMAP_LEN];
++};
++
++struct net_port_vlan {
++	struct list_head		list;
++	struct net_bridge_vlan		*vlan;
++	struct rcu_head			rcu;
++	u16				vid;
++};
++
+ struct net_bridge_fdb_entry
+ {
+ 	struct hlist_node		hlist;
+@@ -155,6 +178,7 @@ struct net_bridge_port
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	struct netpoll			*np;
+ #endif
++	struct list_head		vlan_list;
+ };
+ 
+ #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+@@ -259,6 +283,7 @@ struct net_bridge
+ 	struct timer_list		topology_change_timer;
+ 	struct timer_list		gc_timer;
+ 	struct kobject			*ifobj;
++	struct hlist_head		vlan_hlist[BR_VID_HASH_SIZE];
+ };
+ 
+ struct br_input_skb_cb {
+@@ -400,6 +425,14 @@ extern int br_del_if(struct net_bridge *br,
+ extern int br_min_mtu(const struct net_bridge *br);
+ extern netdev_features_t br_features_recompute(struct net_bridge *br,
+ 	netdev_features_t features);
++extern struct net_bridge_vlan *br_vlan_add(struct net_bridge *br, u16 vid,
++					   u16 flags);
++extern int br_vlan_delete(struct net_bridge *br, u16 vid, u16 flags);
++extern struct net_bridge_vlan *br_vlan_find(struct net_bridge *br, u16 vid);
++extern int nbp_vlan_add(struct net_bridge_port *p, u16 vid, u16 flags);
++extern int nbp_vlan_delete(struct net_bridge_port *p, u16 vid, u16 flags);
++extern struct net_port_vlan *nbp_vlan_find(const struct net_bridge_port *p,
++					   u16 vid);
+ 
+ /* br_input.c */
+ extern int br_handle_frame_finish(struct sk_buff *skb);
 -- 
-1.7.9.5
+1.7.7.6
