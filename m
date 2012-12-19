@@ -1,74 +1,78 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next 0/5] Ease netns management for userland
-Date: Wed, 19 Dec 2012 10:47:03 +0100
-Message-ID: <50D18D17.4060502@6wind.com>
-References: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com> <87fw3boyxn.fsf@xmission.com> <50C8EEF0.2010201@6wind.com> <87zk1jht7d.fsf@xmission.com> <87sj7beyc1.fsf@xmission.com> <50CA135A.7060802@6wind.com> <87mwxh6a8y.fsf@xmission.com> <50CB5047.8060804@6wind.com> <87zk1g8tnq.fsf@xmission.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: TCP delayed ACK heuristic
+Date: Wed, 19 Dec 2012 09:52:54 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B70F7@saturn3.aculab.com>
+References: <270756364.27707018.1355842632348.JavaMail.root@redhat.com> <2088500005.27728019.1355843484620.JavaMail.root@redhat.com> <AE90C24D6B3A694183C094C60CF0A2F6026B70F4@saturn3.aculab.com> <50D0ADD4.7030903@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, aatteka@nicira.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: "Cong Wang" <amwang@redhat.com>, <netdev@vger.kernel.org>,
+	"Ben Greear" <greearb@candelatech.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Stephen Hemminger" <shemminger@vyatta.com>,
+	"Thomas Graf" <tgraf@redhat.com>
+To: "Rick Jones" <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:59413 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753702Ab2LSJxK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:53:10 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so870335eek.5
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 01:53:09 -0800 (PST)
-In-Reply-To: <87zk1g8tnq.fsf@xmission.com>
+Received: from mx0.aculab.com ([213.249.233.131]:33411 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750976Ab2LSJyb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Dec 2012 04:54:31 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 27642-06 for <netdev@vger.kernel.org>;
+ Wed, 19 Dec 2012 09:54:26 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <50D0ADD4.7030903@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 14/12/2012 17:50, Eric W. Biederman a =C3=A9crit :
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
->
->> Le 13/12/2012 20:08, Eric W. Biederman a =C3=A9crit :
->
->>> No.  The difficulty monitoring which network namespaces are being u=
-sed
->>> is an unintended side effect.
->> Why is netlink a bad idea? Having a way to know all existing netns i=
-s a start
->> point to monitor netns, isn't it?
->
-> In the same way that having a neighbour table that contains all exist=
-ing
-> ip address to mac addresses mappings is a starting point to monitor a=
-ll
-> existing hosts.
->
-> All does not scale.
->
-> All removes a lot of perfectly valid use cases like checkpoint-restar=
-t,
-> and nesting containers.
->
-> All as different from what is already implemented requires implementi=
-ng
-> yet another namespace to put the names of all into it.  We have enoug=
-h
-> namespaces now thank you very much.
->
-> An unfiltered global list is about as interesting to use as putting
-> all files in /.  Sure you know which directory you put your file in b=
-ut
-> which file is it?
->
-> What has already been implemented should be roughly as good for
-> monitoring as what is available with lsof.
->
-> And of course there is the fact that a global list of anything that i=
-s
-> the same from every perspective violates the principle of relativity,
-> and is in contradiction with the phsical reality in which we exist.
->
-> So there is no way that having a global all inclusive list of network
-> namespaces makes the least lick of sense and I really don't want to
-> think about it.
-
-Thank you for your explanations and your patience, this is very useful.
-
-
-Nicolas
+PiA+IEkndmUgc2VlbiBwcm9ibGVtcyB3aGVuIHRoZSBzZW5kaW5nIHNpZGUgaXMgZG9pbmcgKEkg
+dGhpbmspDQo+ID4gJ3Nsb3cgc3RhcnQnIHdpdGggTmFnbGUgZGlzYWJsZWQuDQo+ID4gVGhlIHNl
+bmRlciB3b3VsZCBvbmx5IHNlbmQgNCBzZWdtZW50cyBiZWZvcmUgd2FpdGluZyBmb3IgYW4NCj4g
+PiBBQ0sgLSBldmVuIHdoZW4gaXQgaGFkIG1vcmUgdGhhbiBhIGZ1bGwgc2l6ZWQgc2VnbWVudCB3
+YWl0aW5nLg0KPiA+IFNlbmRlciB3YXMgTGludXggMi42LnNvbWV0aGluZyAocHJvYmFibHkgbG93
+IDIwcykuDQo+ID4gSSBjaGFuZ2VkIHRoZSBhcHBsaWNhdGlvbiBmbG93IHRvIHNlbmQgZGF0YSBp
+biB0aGUgcmV2ZXJzZQ0KPiA+IGRpcmVjdGlvbiB0byBhdm9pZCB0aGUgcHJvYmxlbS4NCj4gPiBU
+aGF0IHdhcyBvbiBhIH4wIGRlbGF5IGxvY2FsIGNvbm5lY3Rpb24gLSB3aGljaCBtZWFucyB0aGF0
+DQo+ID4gdGhlcmUgaXMgYWxtb3N0IG5ldmVyIG91dHN0YW5kaW5nIGRhdGEsIGFuZCB0aGUgJ3Ns
+b3cgc3RhcnQnDQo+ID4gaGFwcGVuZWQgYWxtb3N0IGFsbCB0aGUgdGltZS4NCj4gPiBOYWdsZSBp
+cyBjb21wbGV0ZWx5IHRoZSB3cm9uZyBhbGdvcml0aG0gZm9yIHRoZSBkYXRhIGZsb3cuDQo+IA0K
+PiBJZiBOYWdsZSB3YXMgYWxyZWFkeSBkaXNhYmxlZCwgd2h5IHRoZSBsYXN0IHNlbnRlbmNlPyAg
+QW5kIGZyb20geW91cg0KPiBkZXNjcmlwdGlvbiwgZXZlbiBpZiBOYWdsZSB3ZXJlIGVuYWJsZWQs
+IEkgd291bGQgdGhpbmsgdGhhdCBpdCB3YXMNCj4gcmVtb3RlIEFDSytjd25kIGJlaGF2aW91ciBn
+ZXR0aW5nIGluIHlvdXIgd2F5LCBub3QgTmFnbGUsIGdpdmVuIHRoYXQNCj4gTmFnbGUgaXMgdG8g
+YmUgZGVjaWRlZCBvbiBhIHVzZXItc2VuZCBieSB1c2VyLXNlbmQgYmFzaXMgYW5kIHJlbGVhc2UN
+Cj4gcXVldWVkIGRhdGEgKHRvIHRoZSBtZXJjaWVzIG9mIG90aGVyIGhldXJpc3RpY3MpIHdoZW4g
+aXQgZ2V0cyB0byBiZSBhbg0KPiBNU1Mtd29ydGguDQoNCldpdGggTmFnbGUgZW5hYmxlZCB0aGUg
+Zmlyc3Qgc2VnbWVudCBpcyBzZW50LCB0aGUgZm9sbG93aW5nIG9uZXMNCmdldCBidWZmZXJlZCB1
+bnRpbCBmdWxsIHNlZ21lbnRzIGNhbiBiZSBzZW50LiBBbHRob3VnaCAocHJvYmFibHkpDQpvbmx5
+IDQgc2VnbWVudHMgd2lsbCBiZSBzZW50ICgxIHNtYWxsIGFuZCAzIGZ1bGwpIHRoZSAzcmQgb2Yg
+dGhlc2UNCmRvZXMgZ2VuZXJhdGUgYW4gYWNrLg0KDQo+IC4uLiBidXQgaXQgc291bmRzIGxpa2Ug
+eW91IGhhdmUgYW4gYWN0dWFsDQo+IGFwcGxpY2F0aW9uIGxvb2tpbmcgdG8gZG8gdGhhdD8/DQoN
+CldlIGFyZSByZWxheWluZyBkYXRhIHBhY2tldHMgcmVjZWl2ZWQgb3ZlciBtdWx0aXBsZSBTUzcg
+c2lnbmFsbGluZw0KbGlua3MgKDY0ayBoZGxjKSBvdmVyIGEgVENQIGNvbm5lY3Rpb24uIFRoZSBj
+b25uZWN0aW9uIHdpbGwgYmUgbG9jYWwsDQppbiBzb21lIGNhc2VzIHRoZSBob3N0IGV0aGVybmV0
+IE1BQywgc3dpdGNoLCBhbmQgdGFyZ2V0IGNwdSBhcmUgYWxsDQpvbiB0aGUgc2FtZSBQQ0koZSkg
+Y2FyZCAoTUlJIGNyb3Nzb3ZlciBsaW5rcykuDQpXaGlsZSBhIGRlbGF5IG9mIGEgbWlsbGlzZWNv
+bmQgb3IgdHdvIHdvdWxkbid0IG1hdHRlciAoMW1zIGlzIDggYnl0ZQ0KdGltZXMpIHRoZSBOYWds
+ZSBkZWxheSBpcyBmYXIgdG9vIGxvbmcgLSBhbmQgc2luY2UgdGhlIGRhdGEgaXNuJ3QNCmNvbW1h
+bmQvcmVzcG9uc2UgdGhlIE5hZ2xlIHdvdWxkIGRlbGF5IGhhcHBlbiBhIGxvdC4NCg0KT25lIG9m
+IHRoZSBjb25mb3JtYW5jZSB0ZXN0cyBtYW5hZ2VkIHRvIG1ha2UgdGhlIHN5c3RlbSAnYnVzeScu
+DQpTaW5jZSBhbGwgaXQgZG9lcyBpcyBtYWtlIG9uZSA2NGsgY2hhbm5lbCBidXN5IGl0IHNob3Vs
+ZG4ndCBoYXZlDQpiZWVuIGFibGUgdG8gZ2VuZXJhdGUgYSBiYWNrbG9nIG9mIHJlY2VpdmUgZGF0
+YSAtIGJ1dCBpdCBtYW5hZ2VkIHRvDQpnZXQgb3ZlciAxMDAgZGF0YSBwYWNrZXRzIHVuYWNrZWQg
+KGFwcCBsZXZlbCBhY2spLg0KDQo+IEFsbG93aW5nIGEgYnl0ZS1saW1pdC1jd25kJ3Mgd29ydGgg
+b2Ygc2luZ2xlLWJ5dGUtcGF5bG9hZCBUQ1Agc2VnbWVudHMNCj4gY291bGQgZWFzaWx5IGJlIHNl
+ZW4gYXMgYmVpbmcgcmF0aGVyIGFudGktc29jaWFsIDopDQoNCklmIHRoZSBhY3R1YWwgUlRUIGlz
+IGFsbW9zdCB6ZXJvIChhcyBpbiBvdXIgY2FzZSkgYW5kIHRoZSBuZXR3b3JrDQpyZWFsbHkgc2hv
+dWxkbid0IGJlIGRyb3BwaW5nIHBhY2tldHMgdGhlIGl0IGRvZXNuJ3QgbWF0dGVyLg0KDQpJIHN1
+c3BlY3QgdGhhdCBpZiB0aGUgdHggcmF0ZSBpcyBmYXN0ZXIgdGhhbiB0aGUgUlRUIHRoZW4gdGhl
+DQonc2xvdyBzdGFydCcgdHVybnMgb2ZmIGFuZCB5b3UgY2FuIGdldCBhIGxvdCBvZiBzbWFsbCBz
+ZWdtZW50cw0KaW4gZmxpZ2h0LiBCdXQgd2hlbiB0aGUgUlRUIGlzIHplcm8gJ3Nsb3cgc3RhcnQn
+IGFsbW9zdCBhbHdheXMNCmFwcGxpZXMgYW5kIHlvdSBvbmx5IHNlbmQgNC4NCg0KPiBBbmQgZm9y
+Y2luZy9tYWludGFpbmluZyB0aGUgb3JpZ2luYWwgc2VnbWVudCBib3VuZGFyaWVzIGluDQo+IHJl
+dHJhbnNtaXNzaW9ucyBmb3Igc21hbGwgcGFja2V0cyBpc24ndCBzdWNoIGEgaG90IGlkZWEgZWl0
+aGVyLg0KDQpUcnVlLCBub3Qgc3BsaXR0aW5nIHRoZW0gbWlnaHQgYmUgdXNlZnVsLCBidXQgdG8g
+bmVlZCB0byBhdm9pZA0KbWVyZ2VzLg0KDQoJRGF2aWQNCg==
