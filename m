@@ -1,85 +1,51 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [GIT PULL net-next 04/17] ndisc: Introduce ndisc_fill_redirect_hdr_option().
-Date: Wed, 19 Dec 2012 12:47:33 +0100
-Message-ID: <87txrib6wa.fsf@nemi.mork.no>
-References: <50CF84A5.7030706@linux-ipv6.org>
-	<50D04B4B.7060002@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Subject: [PATCH 1/2] drivers/net: Use of_match_ptr() macro in smc91x.c
+Date: Wed, 19 Dec 2012 16:47:09 +0530
+Message-ID: <1355915830-29481-1-git-send-email-sachin.kamat@linaro.org>
+Cc: steve.glendinning@shawell.net, davem@davemloft.net,
+	sachin.kamat@linaro.org, patches@linaro.org, nico@fluxnic.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:56106 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751369Ab2LSLru convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 06:47:50 -0500
-In-Reply-To: <50D04B4B.7060002@linux-ipv6.org> (YOSHIFUJI Hideaki's message of
-	"Tue, 18 Dec 2012 19:54:03 +0900")
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:50163 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751155Ab2LSLxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 06:53:50 -0500
+Received: by mail-pb0-f50.google.com with SMTP id wz7so1166929pbc.23
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 03:53:50 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> writes:
+This eliminates having an #ifdef returning NULL for the case
+when OF is disabled.
 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> ---
->  net/ipv6/ndisc.c |   21 +++++++++++++++------
->  1 file changed, 15 insertions(+), 6 deletions(-)
->
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index a181113..0a4f3a9 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -1332,6 +1332,19 @@ static void ndisc_redirect_rcv(struct sk_buff =
-*skb)
->  	icmpv6_notify(skb, NDISC_REDIRECT, 0, 0);
->  }
-> =20
-> +static u8 *ndisc_fill_redirect_hdr_option(u8 *opt, struct sk_buff *o=
-rig_skb,
-> +					  int rd_len)
-> +{
-> +	memset(opt, 0, 8);
-> +	*(opt++) =3D ND_OPT_REDIRECT_HDR;
-> +	*(opt++) =3D (rd_len >> 3);
-> +	opt +=3D 6;
-> +
-> +	memcpy(opt, ipv6_hdr(orig_skb), rd_len - 8);
-> +
-> +	return opt;
-> +}
-> +
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+---
+Compile tested on linux-next.
+---
+ drivers/net/ethernet/smsc/smc91x.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-I realize that it doesn't currently matter, but the above modification
-of "opt" looks like a bug-waiting-to-happen to me.
-
->  void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr =
-*target)
->  {
->  	struct net_device *dev =3D skb->dev;
-> @@ -1461,12 +1474,8 @@ void ndisc_send_redirect(struct sk_buff *skb, =
-const struct in6_addr *target)
->  	 *	build redirect option and copy skb over to the new packet.
->  	 */
-> =20
-> -	memset(opt, 0, 8);
-> -	*(opt++) =3D ND_OPT_REDIRECT_HDR;
-> -	*(opt++) =3D (rd_len >> 3);
-> -	opt +=3D 6;
-> -
-> -	memcpy(opt, ipv6_hdr(skb), rd_len - 8);
-> +	if (rd_len)
-> +		opt =3D ndisc_fill_redirect_hdr_option(opt, skb, rd_len);
-
-
-I understand that opt isn't currently used after this, but if it ever i=
-s
-then it is going to come as big a surprise that this implies opt +=3D 8=
-;
-
-This was previously quite clear when the code was inline, but it become=
-s
-problematic when it is factored out.
-
-
-Bj=C3=B8rn
+diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
+index 022b45b..a670d23 100644
+--- a/drivers/net/ethernet/smsc/smc91x.c
++++ b/drivers/net/ethernet/smsc/smc91x.c
+@@ -2386,8 +2386,6 @@ static const struct of_device_id smc91x_match[] = {
+ 	{},
+ };
+ MODULE_DEVICE_TABLE(of, smc91x_match);
+-#else
+-#define smc91x_match NULL
+ #endif
+ 
+ static struct dev_pm_ops smc_drv_pm_ops = {
+@@ -2402,7 +2400,7 @@ static struct platform_driver smc_driver = {
+ 		.name	= CARDNAME,
+ 		.owner	= THIS_MODULE,
+ 		.pm	= &smc_drv_pm_ops,
+-		.of_match_table = smc91x_match,
++		.of_match_table = of_match_ptr(smc91x_match),
+ 	},
+ };
+ 
+-- 
+1.7.4.1
