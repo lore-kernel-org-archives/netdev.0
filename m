@@ -1,55 +1,74 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/4] dummy: implement carrier change
-Date: Wed, 19 Dec 2012 10:35:56 +0100
-Message-ID: <1355909756-2389-5-git-send-email-jiri@resnulli.us>
-References: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
-	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
-To: netdev@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RFC PATCH net-next 0/5] Ease netns management for userland
+Date: Wed, 19 Dec 2012 10:47:03 +0100
+Message-ID: <50D18D17.4060502@6wind.com>
+References: <1355332630-4256-1-git-send-email-nicolas.dichtel@6wind.com> <87fw3boyxn.fsf@xmission.com> <50C8EEF0.2010201@6wind.com> <87zk1jht7d.fsf@xmission.com> <87sj7beyc1.fsf@xmission.com> <50CA135A.7060802@6wind.com> <87mwxh6a8y.fsf@xmission.com> <50CB5047.8060804@6wind.com> <87zk1g8tnq.fsf@xmission.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, aatteka@nicira.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:39209 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754205Ab2LSJgO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:36:14 -0500
-Received: by mail-ea0-f180.google.com with SMTP id f13so684407eai.39
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 01:36:12 -0800 (PST)
-In-Reply-To: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:59413 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753702Ab2LSJxK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 04:53:10 -0500
+Received: by mail-ee0-f46.google.com with SMTP id e53so870335eek.5
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 01:53:09 -0800 (PST)
+In-Reply-To: <87zk1g8tnq.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/dummy.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+Le 14/12/2012 17:50, Eric W. Biederman a =C3=A9crit :
+> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+>
+>> Le 13/12/2012 20:08, Eric W. Biederman a =C3=A9crit :
+>
+>>> No.  The difficulty monitoring which network namespaces are being u=
+sed
+>>> is an unintended side effect.
+>> Why is netlink a bad idea? Having a way to know all existing netns i=
+s a start
+>> point to monitor netns, isn't it?
+>
+> In the same way that having a neighbour table that contains all exist=
+ing
+> ip address to mac addresses mappings is a starting point to monitor a=
+ll
+> existing hosts.
+>
+> All does not scale.
+>
+> All removes a lot of perfectly valid use cases like checkpoint-restar=
+t,
+> and nesting containers.
+>
+> All as different from what is already implemented requires implementi=
+ng
+> yet another namespace to put the names of all into it.  We have enoug=
+h
+> namespaces now thank you very much.
+>
+> An unfiltered global list is about as interesting to use as putting
+> all files in /.  Sure you know which directory you put your file in b=
+ut
+> which file is it?
+>
+> What has already been implemented should be roughly as good for
+> monitoring as what is available with lsof.
+>
+> And of course there is the fact that a global list of anything that i=
+s
+> the same from every perspective violates the principle of relativity,
+> and is in contradiction with the phsical reality in which we exist.
+>
+> So there is no way that having a global all inclusive list of network
+> namespaces makes the least lick of sense and I really don't want to
+> think about it.
 
-diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-index c260af5..42aa54a 100644
---- a/drivers/net/dummy.c
-+++ b/drivers/net/dummy.c
-@@ -100,6 +100,15 @@ static void dummy_dev_uninit(struct net_device *dev)
- 	free_percpu(dev->dstats);
- }
- 
-+static int dummy_change_carrier(struct net_device *dev, bool new_carrier)
-+{
-+	if (new_carrier)
-+		netif_carrier_on(dev);
-+	else
-+		netif_carrier_off(dev);
-+	return 0;
-+}
-+
- static const struct net_device_ops dummy_netdev_ops = {
- 	.ndo_init		= dummy_dev_init,
- 	.ndo_uninit		= dummy_dev_uninit,
-@@ -108,6 +117,7 @@ static const struct net_device_ops dummy_netdev_ops = {
- 	.ndo_set_rx_mode	= set_multicast_list,
- 	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_get_stats64	= dummy_get_stats64,
-+	.ndo_change_carrier	= dummy_change_carrier,
- };
- 
- static void dummy_setup(struct net_device *dev)
--- 
-1.8.0
+Thank you for your explanations and your patience, this is very useful.
+
+
+Nicolas
