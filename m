@@ -1,52 +1,73 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH V2 00/12] Add basic VLAN support to bridges
-Date: Wed, 19 Dec 2012 12:11:45 -0500
-Message-ID: <50D1F551.6010301@redhat.com>
-References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com> <20121218223244.GC1690@minipsycho.orion> <50D0F23D.4020508@redhat.com> <20121219082727.GB1637@minipsycho.orion> <20121219170431.GA6975@casper.infradead.org>
-Reply-To: vyasevic@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	shemminger@vyatta.com, davem@davemloft.net, or.gerlitz@gmail.com,
-	jhs@mojatatu.com, mst@redhat.com
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62009 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754824Ab2LSRL7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2012 12:11:59 -0500
-In-Reply-To: <20121219170431.GA6975@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH] IPoIB: Call skb_dst_drop() once skb is enqueued for sending
+Date: Wed, 19 Dec 2012 09:17:19 -0800
+Message-ID: <1355937439-6521-1-git-send-email-roland@kernel.org>
+Cc: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/19/2012 12:04 PM, Thomas Graf wrote:
-> On 12/19/12 at 09:27am, Jiri Pirko wrote:
->> Tue, Dec 18, 2012 at 11:46:21PM CET, vyasevic@redhat.com wrote:
->>> On 12/18/2012 05:32 PM, Jiri Pirko wrote:
->>>>
->>>>
->>>> I see that this patchset replicates a lot of code which is already
->>>> present in net/8021q/ or include/linux/if_vlan.h. I think it would
->>>> be nice to move this code into some "common" place, wouldn't it?
->>>>
->>>
->>> The only replication that I am aware of is in br_vlan_untag().  I
->>> thought about pulling that piece out, but I think there is a reason
->>> why it's not available when 801q support isn't turned on.  I noted that
->>> openvswitch implemented its own vlan header manipulation functions as well.
->>
->> openvswitch should use the "common" code as well.
->
-> I was just about to mention this. This overlaps with openvswitch
-> in functionality which I have absoluetely no objections against
-> but code reuse should come to focus in order to avoid having to
-> fix bugs twice.
->
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
 
-Could we consolidate the code after this is accepted and all the parties
-can agree on the consolidation?  I'd really like to keep this series
-as minimally invasive as possible.
+Currently, IPoIB delays collecting send completions for TX packets in
+order to batch work more efficiently.  It does skb_orphan() right after
+queuing the packets so that destructors run early, to avoid problems
+like holding socket send buffers for too long (since we might not
+collect a send completion until a long time after the packet is
+actually sent).
 
-Thanks
--vlad
+However, IPoIB clears IFF_XMIT_DST_RELEASE because it actually looks
+at skb_dst() to update the PMTU when it gets a too-long packet.  This
+means that the packets sitting in the TX ring with uncollected send
+completions are holding a reference on the dst.  We've seen this lead
+to pathological behavior with respect to route and neighbour GC.  The
+easy fix for this is to call skb_dst_drop() when we call skb_orphan().
+
+Also, give packets sent via connected mode (CM) the same skb_orphan()
+/ skb_dst_drop() treatment that packets sent via datagram mode get.
+
+Signed-off-by: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+---
+Planning to merge this for 3.8 unless someone objects.
+
+ drivers/infiniband/ulp/ipoib/ipoib_cm.c | 3 +++
+ drivers/infiniband/ulp/ipoib/ipoib_ib.c | 3 ++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_cm.c b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
+index 72ae63f..03103d2 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_cm.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_cm.c
+@@ -752,6 +752,9 @@ void ipoib_cm_send(struct net_device *dev, struct sk_buff *skb, struct ipoib_cm_
+ 		dev->trans_start = jiffies;
+ 		++tx->tx_head;
+ 
++		skb_orphan(skb);
++		skb_dst_drop(skb);
++
+ 		if (++priv->tx_outstanding == ipoib_sendq_size) {
+ 			ipoib_dbg(priv, "TX ring 0x%x full, stopping kernel net queue\n",
+ 				  tx->qp->qp_num);
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_ib.c b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+index f10221f..a1bca70 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_ib.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_ib.c
+@@ -615,8 +615,9 @@ void ipoib_send(struct net_device *dev, struct sk_buff *skb,
+ 
+ 		address->last_send = priv->tx_head;
+ 		++priv->tx_head;
+-		skb_orphan(skb);
+ 
++		skb_orphan(skb);
++		skb_dst_drop(skb);
+ 	}
+ 
+ 	if (unlikely(priv->tx_outstanding > MAX_SEND_CQE))
+-- 
+1.8.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
