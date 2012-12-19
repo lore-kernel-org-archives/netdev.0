@@ -1,136 +1,118 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH V2 00/12] Add basic VLAN support to bridges
-Date: Wed, 19 Dec 2012 09:27:27 +0100
-Message-ID: <20121219082727.GB1637@minipsycho.orion>
-References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
- <20121218223244.GC1690@minipsycho.orion>
- <50D0F23D.4020508@redhat.com>
+From: RongQing Li <roy.qing.li@gmail.com>
+Subject: Re: [RFC PATCH] fix IP_ECN_set_ce
+Date: Wed, 19 Dec 2012 16:41:24 +0800
+Message-ID: <CAJFZqHyhMS22pKuW50D0uZLA5-WDUYBEZurPGCW6gSyRY-6JHg@mail.gmail.com>
+References: <1355898095-7444-1-git-send-email-roy.qing.li@gmail.com>
+	<alpine.LFD.2.00.1212191001530.1620@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
-	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:54506 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752247Ab2LSI1c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 03:27:32 -0500
-Received: by mail-ee0-f42.google.com with SMTP id c41so814560eek.1
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 00:27:30 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <50D0F23D.4020508@redhat.com>
+Received: from mail-vc0-f170.google.com ([209.85.220.170]:43931 "EHLO
+	mail-vc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273Ab2LSIl1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 03:41:27 -0500
+Received: by mail-vc0-f170.google.com with SMTP id fl11so2017408vcb.1
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 00:41:26 -0800 (PST)
+In-Reply-To: <alpine.LFD.2.00.1212191001530.1620@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Dec 18, 2012 at 11:46:21PM CET, vyasevic@redhat.com wrote:
->On 12/18/2012 05:32 PM, Jiri Pirko wrote:
+2012/12/19 Julian Anastasov <ja@ssi.bg>:
+>
+>         Hello,
+>
+> On Wed, 19 Dec 2012, roy.qing.li@gmail.com wrote:
+>
+>> From: Li RongQing <roy.qing.li@gmail.com>
 >>
+>> 1. ECN uses the two least significant (right-most) bits of the DiffS=
+erv
+>> field in the IPv4, so it should be in iph->tos, not in (iph->tos+1)
 >>
->>I see that this patchset replicates a lot of code which is already
->>present in net/8021q/ or include/linux/if_vlan.h. I think it would
->>be nice to move this code into some "common" place, wouldn't it?
+>> 2. When setting CE, we should check if ECN Capable Transport support=
+s,
+>> both 10 and 01 mean ECN Capable Transport, so only check 10 is not e=
+nough
+>>     00: Non ECN-Capable Transport =97 Non-ECT
+>>     10: ECN Capable Transport =97 ECT(0)
+>>     01: ECN Capable Transport =97 ECT(1)
+>>     11: Congestion Encountered =97 CE
 >>
->
->The only replication that I am aware of is in br_vlan_untag().  I
->thought about pulling that piece out, but I think there is a reason
->why it's not available when 801q support isn't turned on.  I noted that
->openvswitch implemented its own vlan header manipulation functions as well.
-
-openvswitch should use the "common" code as well.
-
->
->What else are you seeing that's duplicate?
-
-For example I spotted check of ndo_vlan_rx_[add/kill]_vid and
-NETIF_F_HW_VLAN_FILTER and ndo_vlan_rx_[add/kill]_vid call
-
-
->
->-vlad
->
->>Jiri
+>> 3. Remove the misunderstand comment
 >>
->>Tue, Dec 18, 2012 at 08:00:51PM CET, vyasevic@redhat.com wrote:
->>>This series of patches provides an ability to add VLANs to the bridge
->>>ports.  This is similar to what can be found in most switches.  The bridge
->>>port may have any number of VLANs added to it including vlan 0 priority tagged
->>>traffic.  When vlans are added to the port, only traffic tagged with particular
->>>vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
->>>entries and become part of the lookup.  This way we correctly identify the FDB
->>>entry.
->>>
->>>A single vlan may also be designated as untagged.  Any untagged traffic
->>>recieved by the port will be assigned to this vlan.  Any traffic exiting
->>>the port with a VID matching the untagged vlan will exit untagged (the
->>>bridge will strip the vlan header).  This is similar to "Native Vlan" support
->>>available in most switches.
->>>
->>>The default behavior ofthe bridge is unchanged if no vlans have been
->>>configured.
->>>
->>>Changes since v1:
->>>- Fixed some forwarding bugs.
->>>- Add vlan to local fdb entries.  New local entries are created per vlan
->>>   to facilite correct forwarding to bridge interface.
->>>- Allow configuration of vlans directly on the bridge master device
->>>   in addition to ports.
->>>
->>>Changes since rfc v2:
->>>- Per-port vlan bitmap is gone and is replaced with a vlan list.
->>>- Added bridge vlan list, which is referenced by each port.  Entries in
->>>   the birdge vlan list have port bitmap that shows which port are parts
->>>   of which vlan.
->>>- Netlink API changes.
->>>- Dropped sysfs support for now.  If people think this is really usefull,
->>>   can add it back.
->>>- Support for native/untagged vlans.
->>>
->>>Changes since rfc v1:
->>>- Comments addressed regarding formatting and RCU usage
->>>- iocts have been removed and changed over the netlink interface.
->>>- Added support of user added ndb entries.
->>>- changed sysfs interface to export a bitmap.  Also added a write interface.
->>>   I am not sure how much I like it, but it made my testing easier/faster.  I
->>>   might change the write interface to take text instead of binary.
->>>
->>>
->>>Vlad Yasevich (12):
->>>  bridge: Add vlan filtering infrastructure
->>>  bridge: Validate that vlan is permitted on ingress
->>>  bridge: Verify that a vlan is allowed to egress on give port
->>>  bridge: Cache vlan in the cb for faster egress lookup.
->>>  bridge: Add vlan to unicast fdb entries
->>>  bridge: Add vlan id to multicast groups
->>>  bridge: Add netlink interface to configure vlans on bridge ports
->>>  bridge: Add vlan support to static neighbors
->>>  bridge: Add the ability to configure untagged vlans
->>>  bridge: Implement untagged vlan handling
->>>  bridge: Dump vlan information from a bridge port
->>>  bridge: Add vlan support for local fdb entries
->>>
->>>drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
->>>drivers/net/macvlan.c                         |    2 +-
->>>drivers/net/vxlan.c                           |    3 +-
->>>include/linux/netdevice.h                     |    4 +-
->>>include/uapi/linux/if_bridge.h                |   23 ++-
->>>include/uapi/linux/neighbour.h                |    1 +
->>>include/uapi/linux/rtnetlink.h                |    1 +
->>>net/bridge/br_device.c                        |   34 ++-
->>>net/bridge/br_fdb.c                           |  253 ++++++++++++---
->>>net/bridge/br_forward.c                       |  160 ++++++++++
->>>net/bridge/br_if.c                            |  404 ++++++++++++++++++++++++-
->>>net/bridge/br_input.c                         |   65 ++++-
->>>net/bridge/br_multicast.c                     |   71 +++--
->>>net/bridge/br_netlink.c                       |  178 ++++++++++--
->>>net/bridge/br_private.h                       |   71 ++++-
->>>net/core/rtnetlink.c                          |   40 ++-
->>>16 files changed, 1190 insertions(+), 125 deletions(-)
->>>
->>>--
->>>1.7.7.6
->>>
->>>--
->>>To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>the body of a message to majordomo@vger.kernel.org
->>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> 4. fix the checksum computation
+>>
+>> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+>> ---
+>>  include/net/inet_ecn.h |   22 ++++------------------
+>>  1 file changed, 4 insertions(+), 18 deletions(-)
+>>
+>> diff --git a/include/net/inet_ecn.h b/include/net/inet_ecn.h
+>> index aab7375..545a683 100644
+>> --- a/include/net/inet_ecn.h
+>> +++ b/include/net/inet_ecn.h
+>> @@ -73,27 +73,13 @@ static inline void INET_ECN_dontxmit(struct sock=
+ *sk)
+>>
+>>  static inline int IP_ECN_set_ce(struct iphdr *iph)
+>>  {
+>> -     u32 check =3D (__force u32)iph->check;
+>> -     u32 ecn =3D (iph->tos + 1) & INET_ECN_MASK;
+>> -
+>> -     /*
+>> -      * After the last operation we have (in binary):
+>> -      * INET_ECN_NOT_ECT =3D> 01
+>> -      * INET_ECN_ECT_1   =3D> 10
+>> -      * INET_ECN_ECT_0   =3D> 11
+>> -      * INET_ECN_CE      =3D> 00
+>> -      */
 >
+>         I think, the above comment explains how an
+> increment (iph->tos + 1) serves the purpose to check
+> for ECT_1 and ECT_0, there is no such thing as
+> addressing the next byte from header. It is just an
+> optimized logic that avoids complex INET_ECN_is_XXX
+> checks.
+Thanks for your reply.
+Do you mean this comment are valuable?
+
+
+>
+>> -     if (!(ecn & 2))
+>> +     u32 ecn =3D iph->tos & INET_ECN_MASK;
+>> +
+>> +     if (INET_ECN_is_ce(ecn) || INET_ECN_is_not_ect(ecn))
+>>               return !ecn;
+>
+>         May be return INET_ECN_is_ce(ecn) ?
+>
+
+I like to set the return value to void, since noone cares about the
+return value.
+
+-Roy
+
+>>
+>> -     /*
+>> -      * The following gives us:
+>> -      * INET_ECN_ECT_1 =3D> check +=3D htons(0xFFFD)
+>> -      * INET_ECN_ECT_0 =3D> check +=3D htons(0xFFFE)
+>> -      */
+>> -     check +=3D (__force u16)htons(0xFFFB) + (__force u16)htons(ecn=
+);
+>> +     csum_replace2(&iph->check, iph->tos, iph->tos|INET_ECN_CE);
+>>
+>> -     iph->check =3D (__force __sum16)(check + (check>=3D0xFFFF));
+>>       iph->tos |=3D INET_ECN_CE;
+>>       return 1;
+>>  }
+>> --
+>> 1.7.10.4
+>
+> Regards
+>
+> --
+> Julian Anastasov <ja@ssi.bg>
