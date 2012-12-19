@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 8139cp: Prevent dev_close/cp_interrupt race on MTU
- change
-Date: Wed, 19 Dec 2012 12:40:14 -0800 (PST)
-Message-ID: <20121219.124014.891279563982531558.davem@davemloft.net>
-References: <1355946468-3290-1-git-send-email-jogreene@redhat.com>
+Subject: Re: [PATCH 1/2] qlcnic: fix unused variable warnings
+Date: Wed, 19 Dec 2012 12:43:07 -0800 (PST)
+Message-ID: <20121219.124307.789475398027109497.davem@davemloft.net>
+References: <1355853591-29917-1-git-send-email-sony.chacko@qlogic.com>
+	<1355853591-29917-2-git-send-email-sony.chacko@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David.Woodhouse@intel.com
-To: jogreene@redhat.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	shahed.shaikh@qlogic.com
+To: sony.chacko@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49279 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49324 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752597Ab2LSUkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 15:40:15 -0500
-In-Reply-To: <1355946468-3290-1-git-send-email-jogreene@redhat.com>
+	with ESMTP id S1755351Ab2LSUnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 15:43:08 -0500
+In-Reply-To: <1355853591-29917-2-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Greene <jogreene@redhat.com>
-Date: Wed, 19 Dec 2012 14:47:48 -0500
+From: Sony Chacko <sony.chacko@qlogic.com>
+Date: Tue, 18 Dec 2012 12:59:50 -0500
 
-> commit:  cb64edb6b89491edfdbae52ba7db9a8b8391d339 upstream
+> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 > 
-> Above commit may introduce a race between cp_interrupt and dev_close
-> / change MTU / dev_open up state. Changes cp_interrupt to tolerate
-> this.  Change spin_locking in cp_interrupt to avoid possible
-> but unobserved race.
+> qlcnic_hw.c:370: warning: variable cmd_desc set but not used
+> qlcnic_hw.c:368: warning: variable consumer set but not used
+> qlcnic_main.c:448: warning: variable ref_count set but not used
+> qlcnic_main.c:534: warning: variable mem_base set but not used
+> qlcnic_ctx.c:137: warning: variable tmp_tmpl set but not used
+> qlcnic_ctx.c:133: warning: variable version set but not used
+> qlcnic_minidump.c:200: warning: variable opcode set but not used
 > 
-> Reported-by: "Francois Romieu" <romieu@fr.zoreil.com>
-> 
-> Tested on virtual hardware, Tx MTU size up to 4096, max tx payload
->     was ping -s 4068 for MTU of 4096. No real hardware, need test
->     assist.
-> 
-> Signed-off-by: "John Greene" <jogreene@redhat.com>
+> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 
-You sent this as a "request for testing" last week, but I saw
-no testing on real hardware whatsoever.
+Applied.
