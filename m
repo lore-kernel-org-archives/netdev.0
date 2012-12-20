@@ -1,110 +1,71 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH net-next] be2net: fix INTx ISR for interrupt behaviour
- on BE2
-Date: Thu, 20 Dec 2012 21:20:46 +0000
-Message-ID: <1356038446.2889.31.camel@bwh-desktop.uk.solarflarecom.com>
-References: <d856540b-bacc-45e3-a7cc-49e7febafb95@CMEXHTCAS1.ad.emulex.com>
-	 <1354134001.2768.11.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1354134328.2768.16.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CF9D1877D81D214CB0CA0669EFAE020C0E0C422D@CMEXMB1.ad.emulex.com>
+From: Eric Paris <eparis@parisplace.org>
+Subject: Re: [RFC PATCH v3 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
+Date: Thu, 20 Dec 2012 16:58:45 -0500
+Message-ID: <CACLa4pvLjfPoFjkC2kyYoeKndTfNvaNRSwWSWqJVdYC2jPGKyw@mail.gmail.com>
+References: <20121218225001.16104.34454.stgit@localhost>
+	<20121218230808.GC1135@redhat.com>
+	<50D154B1.4010909@redhat.com>
+	<2374585.ppB8RWyPuB@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50041 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751114Ab2LTVUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 16:20:49 -0500
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C0E0C422D@CMEXMB1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	LSM List <linux-security-module@vger.kernel.org>,
+	SE-Linux <selinux@tycho.nsa.gov>
+To: Paul Moore <pmoore@redhat.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <2374585.ppB8RWyPuB@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-12-18 at 12:57 +0000, Perla, Sathya wrote:
-> >-----Original Message-----
-> >From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> 
-> >On Wed, 2012-11-28 at 20:20 +0000, Ben Hutchings wrote:
-> >> On Wed, 2012-11-28 at 11:20 +0530, Sathya Perla wrote:
-> >> > On BE2 chip, an interrupt may be raised even when EQ is in un-armed state.
-> >> > As a result be_intx()::events_get() and be_poll:events_get() can race and
-> >> > notify an EQ wrongly.
-> >> >
-> >> > Fix this by counting events only in be_poll(). Commit 0b545a629 fixes
-> >> > the same issue in the MSI-x path.
-> >> >
-> >> > But, on Lancer, INTx can be de-asserted only by notifying num evts. This
-> >> > is not an issue as the above BE2 behavior doesn't exist/has never been
-> >> > seen on Lancer.
-> >> [...]
-> >> > @@ -2014,15 +1996,23 @@ static int be_rx_cqs_create(struct be_adapter
-> >*adapter)
-> >> >
-> >> >  static irqreturn_t be_intx(int irq, void *dev)
-> >> >  {
-> >> > -	struct be_adapter *adapter = dev;
-> >> > -	int num_evts;
-> >> > +	struct be_eq_obj *eqo = dev;
-> >> > +	struct be_adapter *adapter = eqo->adapter;
-> >> > +	int num_evts = 0;
-> >> >
-> >> > -	/* With INTx only one EQ is used */
-> >> > -	num_evts = event_handle(&adapter->eq_obj[0]);
-> >> > -	if (num_evts)
-> >> > -		return IRQ_HANDLED;
-> >> > -	else
-> >> > -		return IRQ_NONE;
-> >> > +	/* On Lancer, clear-intr bit of the EQ DB does not work.
-> >> > +	 * INTx is de-asserted only on notifying num evts.
-> >> > +	 */
-> >> > +	if (lancer_chip(adapter))
-> >> > +		num_evts = events_get(eqo);
-> >> > +
-> >> > +	/* The EQ-notify may not de-assert INTx rightaway, causing
-> >> > +	 * the ISR to be invoked again. So, return HANDLED even when
-> >> > +	 * num_evts is zero.
-> >> > +	 */
-> >> > +	be_eq_notify(adapter, eqo->q.id, false, true, num_evts);
-> >> > +	napi_schedule(&eqo->napi);
-> >> > +	return IRQ_HANDLED;
-> >> >  }
-> >> [...]
-> >>
-> >> You shouldn't unconditionally return IRQ_HANDLED.  This prevents
-> >> interrupt storm detection from working, not just for your device but for
-> >> anything else sharing its IRQ.
-> >>
-> >> I understand there is a real problem to be fixed (PCIe write completions
-> >> overtaking INTx deassertion, and maybe a specific hardware bug).
-> >[...]
-> >
-> >I was thinking of read completions; there are no write completions to
-> >wait for so you're pretty much guaranteed to get called a second time.
-> >Maybe you should add an MMIO read after calling be_eq_notify().
-> 
-> Ben, I'm very sorry for not replying to this thread earlier. I needed time to play with
-> your suggested solution and better understand the HW behavior in this case.
-> 
-> Adding an extra PCI memory read after the EQ-notify helps in syncing the PCI de-assert
-> message *only* if it was already issued.
-> But, there are cases when the HW block takes some time (longer) to initiate the INTx de-assert.
-> The PCI memory read would complete but the de-assert wouldn't have happened yet.
-> The PCI read sync will work only if the de-assert was issued *before* the PCI-read request was seen by the HW.
+You may add my Ack to the series.
 
-Yes, I've seen the exact same problem with our controllers.  At the PCIe
-transaction level, legacy interrupt messages and read completions are
-queued and flow-controlled separately.  If the chip's PCIe core doesn't
-provide a way to restrict reordering of the two TLPs, this seems to be
-inevitable.
+-Eric
 
-What we do in sfc is to count the number of times in a row we've seen no
-reason for the interrupt (irq_zero_count), and return IRQ_HANDLED only
-if this is the first time.  This might work for you too.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+On Wed, Dec 19, 2012 at 11:58 AM, Paul Moore <pmoore@redhat.com> wrote:
+> On Wednesday, December 19, 2012 01:46:25 PM Jason Wang wrote:
+>> On 12/19/2012 07:08 AM, Michael S. Tsirkin wrote:
+>> > On Tue, Dec 18, 2012 at 05:53:52PM -0500, Paul Moore wrote:
+>> >> This patch corrects some problems with LSM/SELinux that were introduced
+>> >> with the multiqueue patchset.  The problem stems from the fact that the
+>> >> multiqueue work changed the relationship between the tun device and its
+>> >> associated socket; before the socket persisted for the life of the
+>> >> device, however after the multiqueue changes the socket only persisted
+>> >> for the life of the userspace connection (fd open).  For non-persistent
+>> >> devices this is not an issue, but for persistent devices this can cause
+>> >> the tun device to lose its SELinux label.
+>> >>
+>> >> We correct this problem by adding an opaque LSM security blob to the
+>> >> tun device struct which allows us to have the LSM security state, e.g.
+>> >> SELinux labeling information, persist for the lifetime of the tun
+>> >> device.  In the process we tweak the LSM hooks to work with this new
+>> >> approach to TUN device/socket labeling and introduce a new LSM hook,
+>> >> security_tun_dev_attach_queue(), to approve requests to attach to a
+>> >> TUN queue via TUNSETQUEUE.
+>> >>
+>> >> The SELinux code has been adjusted to match the new LSM hooks, the
+>> >> other LSMs do not make use of the LSM TUN controls.  This patch makes
+>> >> use of the recently added "tun_socket:attach_queue" permission to
+>> >> restrict access to the TUNSETQUEUE operation.  On older SELinux
+>> >> policies which do not define the "tun_socket:attach_queue" permission
+>> >> the access control decision for TUNSETQUEUE will be handled according
+>> >> to the SELinux policy's unknown permission setting.
+>> >>
+>> >> Signed-off-by: Paul Moore <pmoore@redhat.com>
+>> >
+>> > Looks good to me. A comment not directly related to this patch, below.
+>>
+>> Good to me too, will do some test on this.
+>
+> Great.  I'll do some more testing and make sure the LSM and SELinux crowd are
+> okay with the changes.
+>
+> --
+> paul moore
+> security and virtualization @ redhat
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
