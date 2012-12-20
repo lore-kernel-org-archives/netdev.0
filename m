@@ -1,29 +1,36 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 3/3] iproute2: make `bridge mdb` output consistent with
- input
-Date: Thu, 20 Dec 2012 10:58:01 -0800
-Message-ID: <20121220105801.24cf3e50@nehalam.linuxnetplumber.net>
-References: <1356013915-20835-1-git-send-email-amwang@redhat.com>
-	<1356013915-20835-3-git-send-email-amwang@redhat.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH 4/4] net/smsc911x: Provide common clock functionality
+Date: Thu, 20 Dec 2012 20:12:08 +0100
+Message-ID: <CACRpkda79O_b3Z8g7Sy7vMtW9neZU4x-Z=iEQgjqu4X5tFKyhw@mail.gmail.com>
+References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
+	<1355937587-31730-4-git-send-email-lee.jones@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38722 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750908Ab2LTS7S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2012 13:59:18 -0500
-In-Reply-To: <1356013915-20835-3-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	arnd@arndb.de, linus.walleij@stericsson.com,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	netdev@vger.kernel.org,
+	Robert Marklund <robert.marklund@stericsson.com>
+To: Lee Jones <lee.jones@linaro.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1355937587-31730-4-git-send-email-lee.jones@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Dec 2012 22:31:55 +0800
-Cong Wang <amwang@redhat.com> wrote:
+On Wed, Dec 19, 2012 at 6:19 PM, Lee Jones <lee.jones@linaro.org> wrote:
 
-> bridge -> dev
-> group -> grp
-> 
+> Some platforms provide clocks which require enabling before the
+> SMSC911x chip will power on. This patch uses the new common clk
+> framework to do just that. If no clock is provided, it will just
+> be ignored and the driver will continue to assume that no clock
+> is required for the chip to run successfully.
+>
+> Cc: Steve Glendinning <steve.glendinning@shawell.net>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Lee Jones <lee.jones@linaro.org>
 
-All three patches accepted for next version of iproute2.
+Seems to me like it'll do the trick.
+Acked-by: Linus Walleij <linus.walleij@linaro.org>
+
+Yours,
+Linus Walleij
