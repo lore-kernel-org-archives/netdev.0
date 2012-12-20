@@ -1,96 +1,140 @@
-From: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
-Subject: Re: PMTU discovery is broken on kernel 3.7.1 for UDP sockets
-Date: Thu, 20 Dec 2012 15:22:13 +0400
-Message-ID: <50D2F4E5.4050904@oktetlabs.ru>
-References: <50D1BCC0.2000208@oktetlabs.ru> <1355924119.2676.6.camel@bwh-desktop.uk.solarflarecom.com> <50D1CECE.7090706@oktetlabs.ru> <1355945864.2676.21.camel@bwh-desktop.uk.solarflarecom.com> <20121220073445.GM18940@secunet.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] net: ipv4: route: fixed a coding style issues net: ipv4:
+ tcp: fixed a coding style issues
+Date: Thu, 20 Dec 2012 13:07:34 +0100
+Message-ID: <50D2FF86.3000603@6wind.com>
+References: <1355990910-3688-1-git-send-email-hasko.stevo@gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stefan Hasko <hasko.stevo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shelob.oktetlabs.ru ([195.131.132.186]:59813 "EHLO
-	shelob.oktetlabs.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752287Ab2LTLWY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 06:22:24 -0500
-In-Reply-To: <20121220073445.GM18940@secunet.com>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:41213 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553Ab2LTMMv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 07:12:51 -0500
+Received: by mail-we0-f169.google.com with SMTP id t49so1563955wey.28
+        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 04:12:49 -0800 (PST)
+In-Reply-To: <1355990910-3688-1-git-send-email-hasko.stevo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/20/12 11:34, Steffen Klassert wrote:
-> On Wed, Dec 19, 2012 at 07:37:44PM +0000, Ben Hutchings wrote:
->    
->> On Wed, 2012-12-19 at 18:27 +0400, Yurij M. Plotnikov wrote:
->>      
->>> On 12/19/12 17:35, Ben Hutchings wrote:
->>>        
->>>> On Wed, 2012-12-19 at 17:10 +0400, Yurij M. Plotnikov wrote:
->>>>
->>>>          
->>>>> On kernel 3.7.1 I get strange behaviour of IP_MTU_DISCOVER socket
->>>>> option. The behaviour in case of IP_PMTUDISC_DO and IP_PMTUDISC_WANT
->>>>> values of IP_MTU_DISCOVER socket option on SOCK_DGRAM socket are the
->>>>> same and packet is always sent with "Don't Fragment" bit in case of
->>>>> IP_PMTUDISC_WANT. Also, the value of IP_MTU socket option is not updated.
->>>>>
->>>>>            
->>>> You could try reverting:
->>>>
->>>> commit ee9a8f7ab2edf801b8b514c310455c94acc232f6
->>>> Author: Steffen Klassert<steffen.klassert@secunet.com>
->>>> Date:   Mon Oct 8 00:56:54 2012 +0000
->>>>
->>>>       ipv4: Don't report stale pmtu values to userspace
->>>>
->>>>       We report cached pmtu values even if they are already expired.
->>>>       Change this to not report these values after they are expired
->>>>       and fix a race in the expire time calculation, as suggested by
->>>>       Eric Dumazet.
->>>>
->>>> Still, PMTU information is not supposed to expire for 10 minutes...
->>>>
->>>>
->>>>          
->>> With reverted commit there is no such problem on 3.7.1: IP_MTU is
->>> updated and DF is set only for the first packet in case of
->>> IP_PMTUDISC_WANT.
->>>        
->> [...]
->>
->> So it looks like something is going wrong with the expiry calculation
->> here.
->>
->> This change shouldn't affect the PMTU actually used by the kernel, but
->> could affect Onload since that relies on netlink route updates to keep
->> in synch.  You didn't say you were using Onload, but if you are then we
->> should not bother netdev with this until we can demonstrate a problem
->> that involves only the kernel stack.
->>
->>      
-> I'm really surprised that this change can have such an effect,
-> it changes nothing at the kernels pmtu handling. When looking
-> at the code, I found that we may report a mtu value from a stale
-> dst_entry when we query the mtu value with the IP_MTU socket
-> option. But a subsequent send() should update the socket cached
-> dst_entry, so at most one packet should be affected.
+Le 20/12/2012 09:08, Stefan Hasko a =C3=A9crit :
+> Fix a coding style issues.
 >
-> Does the patch below change anything?
+> Signed-off-by: Stefan Hasko <hasko.stevo@gmail.com>
+> ---
+>   net/ipv4/route.c |  125 ++++++++++++++++++-------------
+>   net/ipv4/tcp.c   |  218 +++++++++++++++++++++++++++++++------------=
+-----------
+>   2 files changed, 200 insertions(+), 143 deletions(-)
 >
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 844a9ef..fff7ce6 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -20,7 +20,7 @@
+>    *		Alan Cox	:	Added BSD route gw semantics
+>    *		Alan Cox	:	Super /proc >4K
+>    *		Alan Cox	:	MTU in route table
+> - *		Alan Cox	: 	MSS actually. Also added the window
+> + *		Alan Cox	:	MSS actually. Also added the window
+>    *					clamper.
+>    *		Sam Lantinga	:	Fixed route matching in rt_del()
+>    *		Alan Cox	:	Routing cache support.
+> @@ -31,30 +31,35 @@
+>    *	Miquel van Smoorenburg	:	BSD API fixes.
+>    *	Miquel van Smoorenburg	:	Metrics.
+>    *		Alan Cox	:	Use __u32 properly
+> - *		Alan Cox	:	Aligned routing errors more closely with BSD
+> + *		Alan Cox	:	Aligned routing errors more
+> + *					closely with BSD
+>    *					our system is still very different.
+>    *		Alan Cox	:	Faster /proc handling
+> - *	Alexey Kuznetsov	:	Massive rework to support tree based routing,
+> + *	Alexey Kuznetsov	:	Massive rework to support
+> + *					tree based routing,
+>    *					routing caches and better behaviour.
+>    *
+>    *		Olaf Erb	:	irtt wasn't being copied right.
+>    *		Bjorn Ekwall	:	Kerneld route support.
+>    *		Alan Cox	:	Multicast fixed (I hope)
+> - * 		Pavel Krauz	:	Limited broadcast fixed
+> + *		Pavel Krauz	:	Limited broadcast fixed
+>    *		Mike McLagan	:	Routing by source
+>    *	Alexey Kuznetsov	:	End of old history. Split to fib.c and
+>    *					route.c and rewritten from scratch.
+>    *		Andi Kleen	:	Load-limit warning messages.
+> - *	Vitaly E. Lavrov	:	Transparent proxy revived after year coma.
+> + *	Vitaly E. Lavrov	:	Transparent proxy revived
+> + *					after year coma.
+>    *	Vitaly E. Lavrov	:	Race condition in ip_route_input_slow.
+> - *	Tobias Ringstrom	:	Uninitialized res.type in ip_route_output_slow=
+=2E
+> + *	Tobias Ringstrom	:	Uninitialized res.type in
+> + *					ip_route_output_slow.
+>    *	Vladimir V. Ivanov	:	IP rule info (flowid) is really useful.
+>    *		Marc Boucher	:	routing by fwmark
+>    *	Robert Olsson		:	Added rt_cache statistics
+>    *	Arnaldo C. Melo		:	Convert proc stuff to seq_file
+> - *	Eric Dumazet		:	hashed spinlocks and rt_check_expire() fixes.
+> - * 	Ilia Sotnikov		:	Ignore TOS on PMTUD and Redirect
+> - * 	Ilia Sotnikov		:	Removed TOS from hash calculations
+> + *	Eric Dumazet		:	hashed spinlocks and
+> + *					rt_check_expire() fixes.
+> + *	Ilia Sotnikov		:	Ignore TOS on PMTUD and Redirect
+> + *	Ilia Sotnikov		:	Removed TOS from hash calculations
+>    *
+>    *		This program is free software; you can redistribute it and/or
+>    *		modify it under the terms of the GNU General Public License
+> @@ -65,7 +70,7 @@
+>   #define pr_fmt(fmt) "IPv4: " fmt
 >
-> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-> index 3c9d208..1049ce0 100644
-> --- a/net/ipv4/ip_sockglue.c
-> +++ b/net/ipv4/ip_sockglue.c
-> @@ -1198,7 +1198,7 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
->   	{
->   		struct dst_entry *dst;
->   		val = 0;
-> -		dst = sk_dst_get(sk);
-> +		dst = sk_dst_check(sk, 0);
->   		if (dst) {
->   			val = dst_mtu(dst);
->   			dst_release(dst);
->    
-With this patch kernel 3.7.1 works perfect. All described problems are 
-fixed.
+>   #include <linux/module.h>
+> -#include <asm/uaccess.h>
+> +#include <linux/uaccess.h>
+>   #include <linux/bitops.h>
+>   #include <linux/types.h>
+>   #include <linux/kernel.h>
+> @@ -139,7 +144,8 @@ static unsigned int	 ipv4_default_advmss(const st=
+ruct dst_entry *dst);
+>   static unsigned int	 ipv4_mtu(const struct dst_entry *dst);
+>   static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst=
+);
+>   static void		 ipv4_link_failure(struct sk_buff *skb);
+> -static void		 ip_rt_update_pmtu(struct dst_entry *dst, struct sock *=
+sk,
+> +static void		 ip_rt_update_pmtu(struct dst_entry *dst,
+> +					   struct sock *sk,
+>   					   struct sk_buff *skb, u32 mtu);
+>   static void		 ip_do_redirect(struct dst_entry *dst, struct sock *sk=
+,
+>   					struct sk_buff *skb);
+> @@ -291,12 +297,17 @@ static int rt_cpu_seq_show(struct seq_file *seq=
+, void *v)
+>   	struct rt_cache_stat *st =3D v;
+>
+>   	if (v =3D=3D SEQ_START_TOKEN) {
+> -		seq_printf(seq, "entries  in_hit in_slow_tot in_slow_mc in_no_rout=
+e in_brd in_martian_dst in_martian_src  out_hit out_slow_tot out_slow_m=
+c  gc_total gc_ignored gc_goal_miss gc_dst_overflow in_hlist_search out=
+_hlist_search\n");
+> +		seq_printf(seq, "entries  in_hit in_slow_tot in_slow_mc "
+> +				"in_no_route in_brd in_martian_dst "
+> +				"in_martian_src  out_hit out_slow_tot "
+> +				"out_slow_mc  gc_total gc_ignored "
+> +				"gc_goal_miss gc_dst_overflow in_hlist_search "
+> +				"out_hlist_search\n");
+checkpatch will warn you about this one, something like:
+"WARNING: quoted string split across lines".
+Not breaking such line ease to grep the pattern.
+
+Nicolas
