@@ -1,42 +1,35 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] solos-pci: double lock in geos_gpio_store()
-Date: Thu, 20 Dec 2012 10:48:45 +0300
-Message-ID: <20121220074845.GA14716@elgon.mountain>
-References: <50d25b88.0QAOhrb1a/eK/hR1%fengguang.wu@intel.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next V4 07/13] bridge: Add vlan id to multicast groups
+Date: Thu, 20 Dec 2012 08:05:46 +0000 (UTC)
+Message-ID: <kaugsq$u30$2@ger.gmane.org>
+References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
+ <1355939304-21804-8-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	kbuild@01.org
-To: Chas Williams <chas@cmf.nrl.navy.mil>,
-	Nathan Williams <nathan@traverse.com.au>,
-	David Woodhouse <David.Woodhouse@intel.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:43394 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750976Ab2LTHut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 02:50:49 -0500
-Content-Disposition: inline
-In-Reply-To: <50d25b88.0QAOhrb1a/eK/hR1%fengguang.wu@intel.com>
+Received: from plane.gmane.org ([80.91.229.3]:41605 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751049Ab2LTIF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2012 03:05:59 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Tlb8t-0001QT-Ou
+	for netdev@vger.kernel.org; Thu, 20 Dec 2012 09:06:11 +0100
+Received: from 112.122.183.103 ([112.122.183.103])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 09:06:11 +0100
+Received: from xiyou.wangcong by 112.122.183.103 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 09:06:11 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a typo here so we do a double lock instead of an unlock.
+On Wed, 19 Dec 2012 at 17:48 GMT, Vlad Yasevich <vyasevic@redhat.com> wrote:
+> Add vlan_id to multicasts groups so that we know which vlan
+> each group belongs to and can correctly forward to appropriate vlan.
+>
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-Only needed in linux-next.  Introduced in f9baad02e7411d9 [14/17]
-solos-pci: add GPIO support for newer versions on Geos board
-
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 473d808..7b95736 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -531,7 +531,7 @@ static ssize_t geos_gpio_store(struct device *dev, struct device_attribute *attr
- 	} else {
- 		count = -EINVAL;
- 	}
--	spin_lock_irq(&card->param_queue_lock);
-+	spin_unlock_irq(&card->param_queue_lock);
- 	return count;
- }
- 
+I think you need to export VID to user-space as well?
