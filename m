@@ -1,71 +1,31 @@
-From: Eric Paris <eparis@parisplace.org>
-Subject: Re: [RFC PATCH v3 2/2] tun: fix LSM/SELinux labeling of tun/tap devices
-Date: Thu, 20 Dec 2012 16:58:45 -0500
-Message-ID: <CACLa4pvLjfPoFjkC2kyYoeKndTfNvaNRSwWSWqJVdYC2jPGKyw@mail.gmail.com>
-References: <20121218225001.16104.34454.stgit@localhost>
-	<20121218230808.GC1135@redhat.com>
-	<50D154B1.4010909@redhat.com>
-	<2374585.ppB8RWyPuB@sifl>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: bonding driver - how to recognize the active slave
+Date: Fri, 21 Dec 2012 00:21:00 +0200
+Message-ID: <CAJZOPZLOj2QCWN75hAsQnmB=YiSGRhdhzf4ODhAD-QoU+Y0ZGg@mail.gmail.com>
+References: <BA0B6857ABCA474FB07F0DA6F50A3077918B2450@MTRDAG01.mtl.com>
+	<1356038370.21834.3315.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jason Wang <jasowang@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	LSM List <linux-security-module@vger.kernel.org>,
-	SE-Linux <selinux@tycho.nsa.gov>
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <2374585.ppB8RWyPuB@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Erez Shitrit <erezsh@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <erdnetdev@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:64052 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751094Ab2LTW1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 17:27:35 -0500
+Received: by mail-qc0-f169.google.com with SMTP id t2so2209719qcq.0
+        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 14:27:34 -0800 (PST)
+In-Reply-To: <1356038370.21834.3315.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-You may add my Ack to the series.
+On Thu, Dec 20, 2012 at 11:19 PM, Eric Dumazet <erdnetdev@gmail.com> wrote:
+> cat /sys/class/net/bond0/bonding/active_slave
 
--Eric
+sure, I think Erez would like to know that from within a network
+device kernel code, e.g maybe register to netdev kernel events and on
+the event of bonding fail-over identify the active slave for
+active-backup mode, etc.
 
-On Wed, Dec 19, 2012 at 11:58 AM, Paul Moore <pmoore@redhat.com> wrote:
-> On Wednesday, December 19, 2012 01:46:25 PM Jason Wang wrote:
->> On 12/19/2012 07:08 AM, Michael S. Tsirkin wrote:
->> > On Tue, Dec 18, 2012 at 05:53:52PM -0500, Paul Moore wrote:
->> >> This patch corrects some problems with LSM/SELinux that were introduced
->> >> with the multiqueue patchset.  The problem stems from the fact that the
->> >> multiqueue work changed the relationship between the tun device and its
->> >> associated socket; before the socket persisted for the life of the
->> >> device, however after the multiqueue changes the socket only persisted
->> >> for the life of the userspace connection (fd open).  For non-persistent
->> >> devices this is not an issue, but for persistent devices this can cause
->> >> the tun device to lose its SELinux label.
->> >>
->> >> We correct this problem by adding an opaque LSM security blob to the
->> >> tun device struct which allows us to have the LSM security state, e.g.
->> >> SELinux labeling information, persist for the lifetime of the tun
->> >> device.  In the process we tweak the LSM hooks to work with this new
->> >> approach to TUN device/socket labeling and introduce a new LSM hook,
->> >> security_tun_dev_attach_queue(), to approve requests to attach to a
->> >> TUN queue via TUNSETQUEUE.
->> >>
->> >> The SELinux code has been adjusted to match the new LSM hooks, the
->> >> other LSMs do not make use of the LSM TUN controls.  This patch makes
->> >> use of the recently added "tun_socket:attach_queue" permission to
->> >> restrict access to the TUNSETQUEUE operation.  On older SELinux
->> >> policies which do not define the "tun_socket:attach_queue" permission
->> >> the access control decision for TUNSETQUEUE will be handled according
->> >> to the SELinux policy's unknown permission setting.
->> >>
->> >> Signed-off-by: Paul Moore <pmoore@redhat.com>
->> >
->> > Looks good to me. A comment not directly related to this patch, below.
->>
->> Good to me too, will do some test on this.
->
-> Great.  I'll do some more testing and make sure the LSM and SELinux crowd are
-> okay with the changes.
->
-> --
-> paul moore
-> security and virtualization @ redhat
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Or.
