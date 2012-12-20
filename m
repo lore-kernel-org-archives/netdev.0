@@ -1,140 +1,102 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] net: ipv4: route: fixed a coding style issues net: ipv4:
- tcp: fixed a coding style issues
-Date: Thu, 20 Dec 2012 13:07:34 +0100
-Message-ID: <50D2FF86.3000603@6wind.com>
-References: <1355990910-3688-1-git-send-email-hasko.stevo@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
+Date: Thu, 20 Dec 2012 07:35:09 -0500
+Message-ID: <50D305FD.7000901@mojatatu.com>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com> <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com> <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr> <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com> <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com> <50D06177.2090905@mojatatu.com> <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com> <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com> <50D2D229.6040802@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stefan Hasko <hasko.stevo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:41213 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751553Ab2LTMMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 07:12:51 -0500
-Received: by mail-we0-f169.google.com with SMTP id t49so1563955wey.28
-        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 04:12:49 -0800 (PST)
-In-Reply-To: <1355990910-3688-1-git-send-email-hasko.stevo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hasan Chowdhury <shemonc@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jan Engelhardt <jengelh@inai.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: Yury Stankevich <urykhy@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <50D2D229.6040802@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 20/12/2012 09:08, Stefan Hasko a =C3=A9crit :
-> Fix a coding style issues.
->
-> Signed-off-by: Stefan Hasko <hasko.stevo@gmail.com>
-> ---
->   net/ipv4/route.c |  125 ++++++++++++++++++-------------
->   net/ipv4/tcp.c   |  218 +++++++++++++++++++++++++++++++------------=
------------
->   2 files changed, 200 insertions(+), 143 deletions(-)
->
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 844a9ef..fff7ce6 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -20,7 +20,7 @@
->    *		Alan Cox	:	Added BSD route gw semantics
->    *		Alan Cox	:	Super /proc >4K
->    *		Alan Cox	:	MTU in route table
-> - *		Alan Cox	: 	MSS actually. Also added the window
-> + *		Alan Cox	:	MSS actually. Also added the window
->    *					clamper.
->    *		Sam Lantinga	:	Fixed route matching in rt_del()
->    *		Alan Cox	:	Routing cache support.
-> @@ -31,30 +31,35 @@
->    *	Miquel van Smoorenburg	:	BSD API fixes.
->    *	Miquel van Smoorenburg	:	Metrics.
->    *		Alan Cox	:	Use __u32 properly
-> - *		Alan Cox	:	Aligned routing errors more closely with BSD
-> + *		Alan Cox	:	Aligned routing errors more
-> + *					closely with BSD
->    *					our system is still very different.
->    *		Alan Cox	:	Faster /proc handling
-> - *	Alexey Kuznetsov	:	Massive rework to support tree based routing,
-> + *	Alexey Kuznetsov	:	Massive rework to support
-> + *					tree based routing,
->    *					routing caches and better behaviour.
->    *
->    *		Olaf Erb	:	irtt wasn't being copied right.
->    *		Bjorn Ekwall	:	Kerneld route support.
->    *		Alan Cox	:	Multicast fixed (I hope)
-> - * 		Pavel Krauz	:	Limited broadcast fixed
-> + *		Pavel Krauz	:	Limited broadcast fixed
->    *		Mike McLagan	:	Routing by source
->    *	Alexey Kuznetsov	:	End of old history. Split to fib.c and
->    *					route.c and rewritten from scratch.
->    *		Andi Kleen	:	Load-limit warning messages.
-> - *	Vitaly E. Lavrov	:	Transparent proxy revived after year coma.
-> + *	Vitaly E. Lavrov	:	Transparent proxy revived
-> + *					after year coma.
->    *	Vitaly E. Lavrov	:	Race condition in ip_route_input_slow.
-> - *	Tobias Ringstrom	:	Uninitialized res.type in ip_route_output_slow=
-=2E
-> + *	Tobias Ringstrom	:	Uninitialized res.type in
-> + *					ip_route_output_slow.
->    *	Vladimir V. Ivanov	:	IP rule info (flowid) is really useful.
->    *		Marc Boucher	:	routing by fwmark
->    *	Robert Olsson		:	Added rt_cache statistics
->    *	Arnaldo C. Melo		:	Convert proc stuff to seq_file
-> - *	Eric Dumazet		:	hashed spinlocks and rt_check_expire() fixes.
-> - * 	Ilia Sotnikov		:	Ignore TOS on PMTUD and Redirect
-> - * 	Ilia Sotnikov		:	Removed TOS from hash calculations
-> + *	Eric Dumazet		:	hashed spinlocks and
-> + *					rt_check_expire() fixes.
-> + *	Ilia Sotnikov		:	Ignore TOS on PMTUD and Redirect
-> + *	Ilia Sotnikov		:	Removed TOS from hash calculations
->    *
->    *		This program is free software; you can redistribute it and/or
->    *		modify it under the terms of the GNU General Public License
-> @@ -65,7 +70,7 @@
->   #define pr_fmt(fmt) "IPv4: " fmt
->
->   #include <linux/module.h>
-> -#include <asm/uaccess.h>
-> +#include <linux/uaccess.h>
->   #include <linux/bitops.h>
->   #include <linux/types.h>
->   #include <linux/kernel.h>
-> @@ -139,7 +144,8 @@ static unsigned int	 ipv4_default_advmss(const st=
-ruct dst_entry *dst);
->   static unsigned int	 ipv4_mtu(const struct dst_entry *dst);
->   static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst=
-);
->   static void		 ipv4_link_failure(struct sk_buff *skb);
-> -static void		 ip_rt_update_pmtu(struct dst_entry *dst, struct sock *=
-sk,
-> +static void		 ip_rt_update_pmtu(struct dst_entry *dst,
-> +					   struct sock *sk,
->   					   struct sk_buff *skb, u32 mtu);
->   static void		 ip_do_redirect(struct dst_entry *dst, struct sock *sk=
-,
->   					struct sk_buff *skb);
-> @@ -291,12 +297,17 @@ static int rt_cpu_seq_show(struct seq_file *seq=
-, void *v)
->   	struct rt_cache_stat *st =3D v;
->
->   	if (v =3D=3D SEQ_START_TOKEN) {
-> -		seq_printf(seq, "entries  in_hit in_slow_tot in_slow_mc in_no_rout=
-e in_brd in_martian_dst in_martian_src  out_hit out_slow_tot out_slow_m=
-c  gc_total gc_ignored gc_goal_miss gc_dst_overflow in_hlist_search out=
-_hlist_search\n");
-> +		seq_printf(seq, "entries  in_hit in_slow_tot in_slow_mc "
-> +				"in_no_route in_brd in_martian_dst "
-> +				"in_martian_src  out_hit out_slow_tot "
-> +				"out_slow_mc  gc_total gc_ignored "
-> +				"gc_goal_miss gc_dst_overflow in_hlist_search "
-> +				"out_hlist_search\n");
-checkpatch will warn you about this one, something like:
-"WARNING: quoted string split across lines".
-Not breaking such line ease to grep the pattern.
 
-Nicolas
+Could be your setup. I didnt do a lot of testing but
+from my notes (running different kernel at the moment):
+
+#try to point to everything (no iptables setup)
+tc filter add dev eth0 parent ffff: protocol ip u32 match u32 0 0 flowi=
+d=20
+23:23 action xt -j CONNMARK --restore-mark
+#let it run for a 1 sec then display with
+tc -s filter show dev eth0 parent ffff:
+
+----
+filter protocol ip pref 49152 u32
+filter protocol ip pref 49152 u32 fh 800: ht divisor 1
+filter protocol ip pref 49152 u32 fh 800::800 order 2048 key ht 800 bkt=
+=20
+0 flowid 23:23
+   match 00000000/00000000 at 0
+	action order 1: tablename: mangle  hook: NF_IP_PRE_ROUTING
+	target  CONNMARK restore
+	index 1 ref 1 bind 1 installed 3 sec used 1 sec
+	Action statistics:
+	Sent 280 bytes 4 pkt (dropped 0, overlimits 0 requeues 0)
+	backlog 0b 0p requeues 0
+----
+
+cheers,
+jamal
+
+On 12-12-20 03:54 AM, Yury Stankevich wrote:
+> 19.12.2012 15:56, Jamal Hadi Salim =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+>> Hasan/Yury, if you test this please use the latest iproute2 with onl=
+y
+>> the first patch I posted (originally from Hasan). Hasan please use t=
+hat
+>> patch not your version - if theres anything wrong we can find out so=
+oner
+>> before the patch becomes final.
+>
+> Hello,
+> 3.7.1 kernel with 3.7.0 iproute,
+> patch-xt, xt-p1 + linkage fix was applyed
+> command successfully performed, but actually doesn't work.
+>
+> command:
+> tc filter add dev $dev parent ffff: protocol ip u32 match u32 0 0 \
+>              action xt -j CONNMARK --restore-mark \
+>              action mirred egress redirect dev ifb0
+> then i use filter:
+>
+> tc filter add dev ifb0 protocol ip parent 1: prio 2 handle 0xa fw flo=
+wid
+> 1:102
+>
+> iptables line:
+> iptable -t mangle -A POSTROUTING -p tcp --dport 80 -m connmark --mark=
+ 0
+> -m connbytes --connbytes 204800: --connbytes-dir both --connbytes-mod=
+e
+> bytes -j CONNMARK --set-mark 0xa
+>
+> once i run a test to download 300K file,
+> from iptables counters i can see that rule in POSTROUTING is triggere=
+d,
+> but from `tc -s qdisc show dev ifb0` i see that no packets was sent t=
+o
+> 1:102 flow.
+>
+> btw,
+> tc -p -s filter show dev ifb0 parent 1:
+> do not show stats `(rule hit 416 success 0)` for this (filter protoco=
+l
+> ip pref 2 fw handle 0xa classid 1:102) rule.
+>
+>
+>
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
