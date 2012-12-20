@@ -1,111 +1,67 @@
-From: Yan Burman <yanb@mellanox.com>
-Subject: Lockdep warning in vxlan
-Date: Thu, 20 Dec 2012 16:00:32 +0200
-Message-ID: <50D31A00.7060905@mellanox.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next V4 03/13] bridge: Validate that vlan is
+ permitted on ingress
+Date: Thu, 20 Dec 2012 16:07:13 +0200
+Message-ID: <20121220160713.30cdfc05@pixies.home.jungo.com>
+References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
+	<1355939304-21804-4-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: <shemminger@vyatta.com>, <netdev@vger.kernel.org>,
-	Yan Burman <yanb@mellanox.com>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com,
+	erdnetdev@gmail.com, jiri@resnulli.us
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:56541 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751709Ab2LTOGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 09:06:45 -0500
+Received: from mail-we0-f171.google.com ([74.125.82.171]:33336 "EHLO
+	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751709Ab2LTOHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 09:07:21 -0500
+Received: by mail-we0-f171.google.com with SMTP id u3so1637580wey.30
+        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 06:07:19 -0800 (PST)
+In-Reply-To: <1355939304-21804-4-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+Hi Vlad,
 
-When working with vxlan from current net-next, I got a lockdep warning 
-(below).
-It seems to happen when I have host B pinging host A and while the pings 
-continue,
-I do "ip link del" on the vxlan interface on host A. The lockdep warning 
-is on host A.
-Tell me if you need some more info.
+On Wed, 19 Dec 2012 12:48:14 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
+> +static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb)
+> +{
+> +	struct net_port_vlan *pve;
+> +	u16 vid;
+> +
+> +	/* If there are no vlan in the permitted list, all packets are
+> +	 * permitted.
+> +	 */
+> +	if (list_empty(&p->vlan_list))
+> +		return true;
 
-=============================================
-[ INFO: possible recursive locking detected ]
-3.7.0+ #24 Not tainted
----------------------------------------------
-swapper/1/0 is trying to acquire lock:
-  (&n->lock){++--..}, at: [<ffffffff8139f56e>] __neigh_event_send+0x2e/0x2f0
+I assumed the default policy would be Drop in such case, otherwise
+leaking between vlan domains is possible.
+Or maybe, ingress policy when port isn't a member of ingress VID should
+be configurable (drop/allow).
 
-but task is already holding lock:
-  (&n->lock){++--..}, at: [<ffffffff813f63f4>] arp_solicit+0x1d4/0x280
+> +	vid = br_get_vlan(skb);
+> +	pve = nbp_vlan_find(p, vid);
 
-other info that might help us debug this:
-  Possible unsafe locking scenario:
+Why search by iterating through NBP's vlan_list?
+You know the VID (hence may fetch the net_bridge_vlan from the hash), so
+why don't you directly consult the net_bridge_vlan's port_bitmap?
 
-        CPU0
-        ----
-   lock(&n->lock);
-   lock(&n->lock);
+> @@ -54,6 +74,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>  	if (!p || p->state == BR_STATE_DISABLED)
+>  		goto drop;
+>  
+> +	if (!br_allowed_ingress(p, skb))
+> +		goto drop;
+> +
 
-  *** DEADLOCK ***
+This condition should be also encorporated upon "ingress" at the "bridge
+master port" (that is, early at br_dev_xmit).
+Think of the "bridge master port" as yet another port:
+upon "ingress" (meaning, tx packets from the ip stack), we should
+also enforce any ingress permission rules.
 
-  May be due to missing lock nesting notation
-
-4 locks held by swapper/1/0:
-  #0:  (((&n->timer))){+.-...}, at: [<ffffffff8104b350>] 
-call_timer_fn+0x0/0x1c0
-  #1:  (&n->lock){++--..}, at: [<ffffffff813f63f4>] arp_solicit+0x1d4/0x280
-  #2:  (rcu_read_lock_bh){.+....}, at: [<ffffffff81395400>] 
-dev_queue_xmit+0x0/0x5d0
-  #3:  (rcu_read_lock_bh){.+....}, at: [<ffffffff813cb41e>] 
-ip_finish_output+0x13e/0x640
-
-stack backtrace:
-Pid: 0, comm: swapper/1 Not tainted 3.7.0+ #24
-Call Trace:
-  <IRQ>  [<ffffffff8108c7ac>] validate_chain+0xdcc/0x11f0
-  [<ffffffff8108d570>] ? __lock_acquire+0x440/0xc30
-  [<ffffffff81120565>] ? kmem_cache_free+0xe5/0x1c0
-  [<ffffffff8108d570>] __lock_acquire+0x440/0xc30
-  [<ffffffff813c3570>] ? inet_getpeer+0x40/0x600
-  [<ffffffff8108d570>] ? __lock_acquire+0x440/0xc30
-  [<ffffffff8139f56e>] ? __neigh_event_send+0x2e/0x2f0
-  [<ffffffff8108ddf5>] lock_acquire+0x95/0x140
-  [<ffffffff8139f56e>] ? __neigh_event_send+0x2e/0x2f0
-  [<ffffffff8108d570>] ? __lock_acquire+0x440/0xc30
-  [<ffffffff81448d4b>] _raw_write_lock_bh+0x3b/0x50
-  [<ffffffff8139f56e>] ? __neigh_event_send+0x2e/0x2f0
-  [<ffffffff8139f56e>] __neigh_event_send+0x2e/0x2f0
-  [<ffffffff8139f99b>] neigh_resolve_output+0x16b/0x270
-  [<ffffffff813cb62d>] ip_finish_output+0x34d/0x640
-  [<ffffffff813cb41e>] ? ip_finish_output+0x13e/0x640
-  [<ffffffffa046f146>] ? vxlan_xmit+0x556/0xbec [vxlan]
-  [<ffffffff813cb9a0>] ip_output+0x80/0xf0
-  [<ffffffff813ca368>] ip_local_out+0x28/0x80
-  [<ffffffffa046f25a>] vxlan_xmit+0x66a/0xbec [vxlan]
-  [<ffffffffa046f146>] ? vxlan_xmit+0x556/0xbec [vxlan]
-  [<ffffffff81394a50>] ? skb_gso_segment+0x2b0/0x2b0
-  [<ffffffff81449355>] ? _raw_spin_unlock_irqrestore+0x65/0x80
-  [<ffffffff81394c57>] ? dev_queue_xmit_nit+0x207/0x270
-  [<ffffffff813950c8>] dev_hard_start_xmit+0x298/0x5d0
-  [<ffffffff813956f3>] dev_queue_xmit+0x2f3/0x5d0
-  [<ffffffff81395400>] ? dev_hard_start_xmit+0x5d0/0x5d0
-  [<ffffffff813f5788>] arp_xmit+0x58/0x60
-  [<ffffffff813f59db>] arp_send+0x3b/0x40
-  [<ffffffff813f6424>] arp_solicit+0x204/0x280
-  [<ffffffff813a1a70>] ? neigh_add+0x310/0x310
-  [<ffffffff8139f515>] neigh_probe+0x45/0x70
-  [<ffffffff813a1c10>] neigh_timer_handler+0x1a0/0x2a0
-  [<ffffffff8104b3cf>] call_timer_fn+0x7f/0x1c0
-  [<ffffffff8104b350>] ? detach_if_pending+0x120/0x120
-  [<ffffffff8104b748>] run_timer_softirq+0x238/0x2b0
-  [<ffffffff813a1a70>] ? neigh_add+0x310/0x310
-  [<ffffffff81043e51>] __do_softirq+0x101/0x280
-  [<ffffffff814518cc>] call_softirq+0x1c/0x30
-  [<ffffffff81003b65>] do_softirq+0x85/0xc0
-  [<ffffffff81043a7e>] irq_exit+0x9e/0xc0
-  [<ffffffff810264f8>] smp_apic_timer_interrupt+0x68/0xa0
-  [<ffffffff8145122f>] apic_timer_interrupt+0x6f/0x80
-  <EOI>  [<ffffffff8100a054>] ? mwait_idle+0xa4/0x1c0
-  [<ffffffff8100a04b>] ? mwait_idle+0x9b/0x1c0
-  [<ffffffff8100a6a9>] cpu_idle+0x89/0xe0
-  [<ffffffff81441127>] start_secondary+0x1b2/0x1b6
-
-Hope this helps
-Yan
+Regards,
+Shmulik
