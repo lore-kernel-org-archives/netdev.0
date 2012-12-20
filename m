@@ -1,58 +1,41 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next V4 02/13] bridge: Add vlan filtering infrastructure
-Date: Thu, 20 Dec 2012 10:31:14 -0500
-Message-ID: <50D32F42.2070904@redhat.com>
-References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com> <1355939304-21804-3-git-send-email-vyasevic@redhat.com> <20121220153913.11a10fd0@pixies.home.jungo.com>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: ipv4: route: fix coding style issues net: ipv4:
+ tcp: fix coding style issues
+Date: Thu, 20 Dec 2012 07:31:07 -0800
+Message-ID: <1356017467.21834.2838.camel@edumazet-glaptop>
+References: <1356013685-31649-1-git-send-email-hasko.stevo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
-	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com,
-	erdnetdev@gmail.com, jiri@resnulli.us
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stefan Hasko <hasko.stevo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43228 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750949Ab2LTPbX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2012 10:31:23 -0500
-In-Reply-To: <20121220153913.11a10fd0@pixies.home.jungo.com>
+Received: from mail-da0-f48.google.com ([209.85.210.48]:32820 "EHLO
+	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751586Ab2LTPij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 10:38:39 -0500
+In-Reply-To: <1356013685-31649-1-git-send-email-hasko.stevo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/20/2012 08:39 AM, Shmulik Ladkani wrote:
-> Hi Vlad,
->
-> On Wed, 19 Dec 2012 12:48:13 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
->> +static void nbp_vlan_flush(struct net_bridge_port *p)
->> +{
->> +	struct net_port_vlan *pve;
->> +	struct net_port_vlan *tmp;
->> +
->> +	ASSERT_RTNL();
->> +
->> +	list_for_each_entry_safe(pve, tmp, &p->vlan_list, list)
->> +		nbp_vlan_delete(p, pve->vid, BRIDGE_FLAGS_SELF);
->
-> Why would you want to clear "bridge master port" association from this
-> vlan, in the event of NBP destruction?
-> The "bridge port" may still be a member of this vlan, doesn't it?
-> Seems flags argument should be 0.
+On Thu, 2012-12-20 at 15:28 +0100, Stefan Hasko wrote:
+> Fix a coding style issues.
+> 
+> Signed-off-by: Stefan Hasko <hasko.stevo@gmail.com>
+> ---
+>  net/ipv4/route.c |  119 ++++++++++++++++-------------
+>  net/ipv4/tcp.c   |  218 +++++++++++++++++++++++++++++++-----------------------
+>  2 files changed, 194 insertions(+), 143 deletions(-)
 
-This ends up getting fixed later, but you are right.  This should be 0.
 
->
->> +#define BR_VID_HASH_SIZE (1<<6)
->> +#define br_vlan_hash(vid) ((vid) % (BR_VID_HASH_SIZE - 1))
->
-> Did you mean:                       & (BR_VID_HASH_SIZE - 1)
+I Nack this patch and any such patches in net/core, net/ipv4 trees for a
+while.
 
-yes.
+We had too many recent changes and probably need a bunch of real fixes.
 
-thanks
--vlad
-
->
-> Regards,
-> Shmulik
->
+Thanks
