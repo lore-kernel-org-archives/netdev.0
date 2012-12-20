@@ -1,195 +1,111 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: skb->cb size checks (was Re: [PATCH 00/17] ATM fixes for
- pppoatm/br2684)
-Date: Thu, 20 Dec 2012 14:03:40 +0000
-Message-ID: <1356012220.3198.21.camel@shinybook.infradead.org>
-References: <20121201.114440.331740099591161757.davem@davemloft.net>
-	 <1354383226.21562.351.camel@shinybook.infradead.org>
-	 <1354408847.21562.365.camel@shinybook.infradead.org>
-	 <20121201.204906.1703696018528746748.davem@davemloft.net>
+From: Yan Burman <yanb@mellanox.com>
+Subject: Lockdep warning in vxlan
+Date: Thu, 20 Dec 2012 16:00:32 +0200
+Message-ID: <50D31A00.7060905@mellanox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-vYuWBUOQmQyy7JFo3k7L"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: <shemminger@vyatta.com>, <netdev@vger.kernel.org>,
+	Yan Burman <yanb@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:54786 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994Ab2LTODu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 09:03:50 -0500
-In-Reply-To: <20121201.204906.1703696018528746748.davem@davemloft.net>
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:56541 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751709Ab2LTOGp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 09:06:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi.
 
---=-vYuWBUOQmQyy7JFo3k7L
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+When working with vxlan from current net-next, I got a lockdep warning 
+(below).
+It seems to happen when I have host B pinging host A and while the pings 
+continue,
+I do "ip link del" on the vxlan interface on host A. The lockdep warning 
+is on host A.
+Tell me if you need some more info.
 
-On Sat, 2012-12-01 at 20:49 -0500, David Miller wrote:
-> From: David Woodhouse <dwmw2@infradead.org>
-> Date: Sun, 02 Dec 2012 00:40:47 +0000
->=20
-> > On Sat, 2012-12-01 at 17:33 +0000, David Woodhouse wrote:
-> >>=20
-> >> Very glad I added the BUILD_BUG_ON on the cb struct size now. Perhaps
-> >> there should be a generic helper for that? Something like
-> >>  skb_cb_cast(struct foo_cb, skb) could do it automatically...?
-> >=20
-> > Something like this, perhaps? Using skb_cast_cb() would then make it
-> > fairly much impossible to accidentally overflow the size of the skb cb.
->=20
-> I actually prefer what we do now, which is do the BUILD_BUG_ON()
-> once in the subsystem specific code, usually the initializer.
->=20
-> It's part of creating a new SKB cb, adding that assertion somewhere.
+=============================================
+[ INFO: possible recursive locking detected ]
+3.7.0+ #24 Not tainted
+---------------------------------------------
+swapper/1/0 is trying to acquire lock:
+  (&n->lock){++--..}, at: [<ffffffff8139f56e>] __neigh_event_send+0x2e/0x2f0
 
-I looked harder at this, and should follow up before it actually does
-fall out of the cracks in my brain and get completely forgotten.
+but task is already holding lock:
+  (&n->lock){++--..}, at: [<ffffffff813f63f4>] arp_solicit+0x1d4/0x280
 
-Basically, you lie :)
+other info that might help us debug this:
+  Possible unsafe locking scenario:
 
-What we *actually* do now, in about two-thirds of cases=C2=B9 even in net/
-code (I didn't even look at drivers, which I expect to be worse), is use
-skb->cb without any form of automatic size check at all. No manual
-BUILD_BUG_ON() or anything.
+        CPU0
+        ----
+   lock(&n->lock);
+   lock(&n->lock);
 
-Admittedly, in almost all cases that *isn't* a real problem, because the
-structure *isn't* too big for skb->cb and it's all fine. But as a matter
-of principle we probably *should* be doing those checks. Just in *case*
-someone comes along and adds something stupid to the structure.
+  *** DEADLOCK ***
 
-So... should we:
- - Ignore the "problem" and leave things as they are.
+  May be due to missing lock nesting notation
 
- - Go through and fix the 2/3 of offending net/ code and then the
-   drivers too, *without* making the generic 'deference and automatic
-   check' macro that I think would simplify that and help to keep us
-   honest in future.
-or
- - Let me add something like the skb_cast_cb() macro I wanted, then use
-   it in all the offending code I can find.
+4 locks held by swapper/1/0:
+  #0:  (((&n->timer))){+.-...}, at: [<ffffffff8104b350>] 
+call_timer_fn+0x0/0x1c0
+  #1:  (&n->lock){++--..}, at: [<ffffffff813f63f4>] arp_solicit+0x1d4/0x280
+  #2:  (rcu_read_lock_bh){.+....}, at: [<ffffffff81395400>] 
+dev_queue_xmit+0x0/0x5d0
+  #3:  (rcu_read_lock_bh){.+....}, at: [<ffffffff813cb41e>] 
+ip_finish_output+0x13e/0x640
 
---=20
-dwmw2
+stack backtrace:
+Pid: 0, comm: swapper/1 Not tainted 3.7.0+ #24
+Call Trace:
+  <IRQ>  [<ffffffff8108c7ac>] validate_chain+0xdcc/0x11f0
+  [<ffffffff8108d570>] ? __lock_acquire+0x440/0xc30
+  [<ffffffff81120565>] ? kmem_cache_free+0xe5/0x1c0
+  [<ffffffff8108d570>] __lock_acquire+0x440/0xc30
+  [<ffffffff813c3570>] ? inet_getpeer+0x40/0x600
+  [<ffffffff8108d570>] ? __lock_acquire+0x440/0xc30
+  [<ffffffff8139f56e>] ? __neigh_event_send+0x2e/0x2f0
+  [<ffffffff8108ddf5>] lock_acquire+0x95/0x140
+  [<ffffffff8139f56e>] ? __neigh_event_send+0x2e/0x2f0
+  [<ffffffff8108d570>] ? __lock_acquire+0x440/0xc30
+  [<ffffffff81448d4b>] _raw_write_lock_bh+0x3b/0x50
+  [<ffffffff8139f56e>] ? __neigh_event_send+0x2e/0x2f0
+  [<ffffffff8139f56e>] __neigh_event_send+0x2e/0x2f0
+  [<ffffffff8139f99b>] neigh_resolve_output+0x16b/0x270
+  [<ffffffff813cb62d>] ip_finish_output+0x34d/0x640
+  [<ffffffff813cb41e>] ? ip_finish_output+0x13e/0x640
+  [<ffffffffa046f146>] ? vxlan_xmit+0x556/0xbec [vxlan]
+  [<ffffffff813cb9a0>] ip_output+0x80/0xf0
+  [<ffffffff813ca368>] ip_local_out+0x28/0x80
+  [<ffffffffa046f25a>] vxlan_xmit+0x66a/0xbec [vxlan]
+  [<ffffffffa046f146>] ? vxlan_xmit+0x556/0xbec [vxlan]
+  [<ffffffff81394a50>] ? skb_gso_segment+0x2b0/0x2b0
+  [<ffffffff81449355>] ? _raw_spin_unlock_irqrestore+0x65/0x80
+  [<ffffffff81394c57>] ? dev_queue_xmit_nit+0x207/0x270
+  [<ffffffff813950c8>] dev_hard_start_xmit+0x298/0x5d0
+  [<ffffffff813956f3>] dev_queue_xmit+0x2f3/0x5d0
+  [<ffffffff81395400>] ? dev_hard_start_xmit+0x5d0/0x5d0
+  [<ffffffff813f5788>] arp_xmit+0x58/0x60
+  [<ffffffff813f59db>] arp_send+0x3b/0x40
+  [<ffffffff813f6424>] arp_solicit+0x204/0x280
+  [<ffffffff813a1a70>] ? neigh_add+0x310/0x310
+  [<ffffffff8139f515>] neigh_probe+0x45/0x70
+  [<ffffffff813a1c10>] neigh_timer_handler+0x1a0/0x2a0
+  [<ffffffff8104b3cf>] call_timer_fn+0x7f/0x1c0
+  [<ffffffff8104b350>] ? detach_if_pending+0x120/0x120
+  [<ffffffff8104b748>] run_timer_softirq+0x238/0x2b0
+  [<ffffffff813a1a70>] ? neigh_add+0x310/0x310
+  [<ffffffff81043e51>] __do_softirq+0x101/0x280
+  [<ffffffff814518cc>] call_softirq+0x1c/0x30
+  [<ffffffff81003b65>] do_softirq+0x85/0xc0
+  [<ffffffff81043a7e>] irq_exit+0x9e/0xc0
+  [<ffffffff810264f8>] smp_apic_timer_interrupt+0x68/0xa0
+  [<ffffffff8145122f>] apic_timer_interrupt+0x6f/0x80
+  <EOI>  [<ffffffff8100a054>] ? mwait_idle+0xa4/0x1c0
+  [<ffffffff8100a04b>] ? mwait_idle+0x9b/0x1c0
+  [<ffffffff8100a6a9>] cpu_idle+0x89/0xe0
+  [<ffffffff81441127>] start_secondary+0x1b2/0x1b6
 
-=C2=B9 http://www.spinics.net/lists/netdev/msg218642.html
-
-
---=-vYuWBUOQmQyy7JFo3k7L
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
-AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
-4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
-wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
-xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
-MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
-w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
-d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
-Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
-c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
-IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
-dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
-BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
-aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
-bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
-oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
-MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
-dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
-MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
-hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
-DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
-ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
-NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
-mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
-AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
-MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
-A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
-Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
-7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
-KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
-wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
-V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
-vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
-BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
-YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
-ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
-IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
-U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
-ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
-BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
-aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
-bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
-dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
-CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
-QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
-ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
-AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
-t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
-gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
-H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
-kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
-MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
-dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
-eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTIxMjIwMTQwMzQwWjAjBgkqhkiG9w0BCQQx
-FgQUAeaMZh1l+TwaLMh6UleYA5+PhKkwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
-SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
-ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
-TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
-aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQA27rcRPzW6xX9Vl82d6tD4I072
-4ltqg8rSBNusQc2s0V2EirMreHrbd+0gjr319TdxEf4iPrm0n9E/ceN9Yxk8va94Ax2mJ5N7L4jt
-e+7zAWOXHtvLvs2TywFkciOQmsKxQ5ta83J+arWFG98mFbHa9dWMF9KtfILwLivd8sM2twYt2Q6F
-D2pnqHBNktEfwJ7g48Z+Xp7QbyGKnGizCNdw1PU9/R320tukF7Uv4cxRpSw5Z9EpXeMqgt/uXVm7
-Sw8OI8OIlgd3Nylyy/fwsAlY/9tLzqNSF80mYCuckRJK2G+Vo/2AImoYiKCht31pCn+1KMuNKYi9
-g4J6xvFGIJTbAAAAAAAA
-
-
---=-vYuWBUOQmQyy7JFo3k7L--
+Hope this helps
+Yan
