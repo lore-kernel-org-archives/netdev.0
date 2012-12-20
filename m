@@ -1,50 +1,89 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next V4 03/13] bridge: Validate that vlan is
- permitted on ingress
-Date: Thu, 20 Dec 2012 07:27:11 +0000 (UTC)
-Message-ID: <kaueke$69b$1@ger.gmane.org>
-References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
- <1355939304-21804-4-git-send-email-vyasevic@redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: PMTU discovery is broken on kernel 3.7.1 for UDP sockets
+Date: Thu, 20 Dec 2012 08:34:46 +0100
+Message-ID: <20121220073445.GM18940@secunet.com>
+References: <50D1BCC0.2000208@oktetlabs.ru>
+ <1355924119.2676.6.camel@bwh-desktop.uk.solarflarecom.com>
+ <50D1CECE.7090706@oktetlabs.ru>
+ <1355945864.2676.21.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
+	netdev@vger.kernel.org,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:59307 "EHLO plane.gmane.org"
+Received: from a.mx.secunet.com ([195.81.216.161]:40914 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750843Ab2LTH1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2012 02:27:25 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1TlaXX-0005wq-TT
-	for netdev@vger.kernel.org; Thu, 20 Dec 2012 08:27:35 +0100
-Received: from 112.122.183.103 ([112.122.183.103])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 08:27:35 +0100
-Received: from xiyou.wangcong by 112.122.183.103 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 08:27:35 +0100
+	id S1750843Ab2LTHes (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2012 02:34:48 -0500
+Content-Disposition: inline
+In-Reply-To: <1355945864.2676.21.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Dec 2012 at 17:48 GMT, Vlad Yasevich <vyasevic@redhat.com> wrote:
-> +static inline u16 br_get_vlan(const struct sk_buff *skb)
-> +{
-> +	u16 tag;
-> +
-> +	if (vlan_tx_tag_present(skb))
-> +		return vlan_tx_tag_get(skb) & VLAN_VID_MASK;
-> +
-> +	if (vlan_get_tag(skb, &tag))
-> +		return 0;
-> +
-> +	return tag & VLAN_VID_MASK;
-> +}
-> +
+On Wed, Dec 19, 2012 at 07:37:44PM +0000, Ben Hutchings wrote:
+> On Wed, 2012-12-19 at 18:27 +0400, Yurij M. Plotnikov wrote:
+> > On 12/19/12 17:35, Ben Hutchings wrote:
+> > > On Wed, 2012-12-19 at 17:10 +0400, Yurij M. Plotnikov wrote:
+> > >    
+> > >> On kernel 3.7.1 I get strange behaviour of IP_MTU_DISCOVER socket
+> > >> option. The behaviour in case of IP_PMTUDISC_DO and IP_PMTUDISC_WANT
+> > >> values of IP_MTU_DISCOVER socket option on SOCK_DGRAM socket are the
+> > >> same and packet is always sent with "Don't Fragment" bit in case of
+> > >> IP_PMTUDISC_WANT. Also, the value of IP_MTU socket option is not updated.
+> > >>      
+> > > You could try reverting:
+> > >
+> > > commit ee9a8f7ab2edf801b8b514c310455c94acc232f6
+> > > Author: Steffen Klassert<steffen.klassert@secunet.com>
+> > > Date:   Mon Oct 8 00:56:54 2012 +0000
+> > >
+> > >      ipv4: Don't report stale pmtu values to userspace
+> > >
+> > >      We report cached pmtu values even if they are already expired.
+> > >      Change this to not report these values after they are expired
+> > >      and fix a race in the expire time calculation, as suggested by
+> > >      Eric Dumazet.
+> > >
+> > > Still, PMTU information is not supposed to expire for 10 minutes...
+> > >
+> > >    
+> > With reverted commit there is no such problem on 3.7.1: IP_MTU is 
+> > updated and DF is set only for the first packet in case of 
+> > IP_PMTUDISC_WANT.
+> [...]
+> 
+> So it looks like something is going wrong with the expiry calculation
+> here.
+> 
+> This change shouldn't affect the PMTU actually used by the kernel, but
+> could affect Onload since that relies on netlink route updates to keep
+> in synch.  You didn't say you were using Onload, but if you are then we
+> should not bother netdev with this until we can demonstrate a problem
+> that involves only the kernel stack.
+> 
 
-Nitpick:
-The name br_get_vlan() can easily confuse people with br_vlan_find().
+I'm really surprised that this change can have such an effect,
+it changes nothing at the kernels pmtu handling. When looking
+at the code, I found that we may report a mtu value from a stale
+dst_entry when we query the mtu value with the IP_MTU socket
+option. But a subsequent send() should update the socket cached
+dst_entry, so at most one packet should be affected.
 
-Also, this function looks like not bridge-specific, how about moving
-it to if_vlan.h?
+Does the patch below change anything?
+
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 3c9d208..1049ce0 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -1198,7 +1198,7 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	{
+ 		struct dst_entry *dst;
+ 		val = 0;
+-		dst = sk_dst_get(sk);
++		dst = sk_dst_check(sk, 0);
+ 		if (dst) {
+ 			val = dst_mtu(dst);
+ 			dst_release(dst);
