@@ -1,47 +1,82 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [PATCH] xen/netfront: improve truesize tracking
-Date: Thu, 20 Dec 2012 07:39:28 -0800
-Message-ID: <1356017968.21834.2859.camel@edumazet-glaptop>
-References: <1355838711-5473-1-git-send-email-ian.campbell@citrix.com>
-	 <1355843525.9380.18.camel@edumazet-glaptop>
-	 <1355844398.14620.254.camel@zakaz.uk.xensource.com>
-	 <55633610.20121219123427@eikelenboom.it>
-	 <1355933869.21834.13.camel@edumazet-glaptop>
-	 <1797374383.20121220135139@eikelenboom.it>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next V4 03/13] bridge: Validate that vlan is permitted
+ on ingress
+Date: Thu, 20 Dec 2012 10:41:28 -0500
+Message-ID: <50D331A8.3080206@redhat.com>
+References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com> <1355939304-21804-4-git-send-email-vyasevic@redhat.com> <20121220160713.30cdfc05@pixies.home.jungo.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	annie li <annie.li@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: Sander Eikelenboom <linux@eikelenboom.it>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com,
+	erdnetdev@gmail.com, jiri@resnulli.us
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:34039 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168Ab2LTPja (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 10:39:30 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so2058840pbc.5
-        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 07:39:30 -0800 (PST)
-In-Reply-To: <1797374383.20121220135139@eikelenboom.it>
+Received: from mx1.redhat.com ([209.132.183.28]:11849 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750972Ab2LTPld (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2012 10:41:33 -0500
+In-Reply-To: <20121220160713.30cdfc05@pixies.home.jungo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2012-12-20 at 13:51 +0100, Sander Eikelenboom wrote:
+On 12/20/2012 09:07 AM, Shmulik Ladkani wrote:
+> Hi Vlad,
+>
+> On Wed, 19 Dec 2012 12:48:14 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
+>> +static bool br_allowed_ingress(struct net_bridge_port *p, struct sk_buff *skb)
+>> +{
+>> +	struct net_port_vlan *pve;
+>> +	u16 vid;
+>> +
+>> +	/* If there are no vlan in the permitted list, all packets are
+>> +	 * permitted.
+>> +	 */
+>> +	if (list_empty(&p->vlan_list))
+>> +		return true;
+>
+> I assumed the default policy would be Drop in such case, otherwise
+> leaking between vlan domains is possible.
+> Or maybe, ingress policy when port isn't a member of ingress VID should
+> be configurable (drop/allow).
 
-> Eric:
->      From the warn_on_once, delta should be smaller than len, but probably they should be as close together as possible.
->      When you say "accurate estimation", what would be a acceptable difference between DELTA and LEN ?
+We have have to default to allow since we want to retain original bridge 
+functionality if there is no configuration.
 
-I would use the most exact value, which is :
+>
+>> +	vid = br_get_vlan(skb);
+>> +	pve = nbp_vlan_find(p, vid);
+>
+> Why search by iterating through NBP's vlan_list?
+> You know the VID (hence may fetch the net_bridge_vlan from the hash), so
+> why don't you directly consult the net_bridge_vlan's port_bitmap?
 
-   skb->truesize += nr_frags * PAGE_SIZE;
+It's an alternative...  I am betting that this port isn't in too many 
+vlans and that searching the list might be faster.
 
-Then, if we can spot later a regression in some stacks, adapt the
-limiting parameters. I did a lot of work in GRO and TCP stack to reduce
-the memory, and further changes are possible.
+>
+>> @@ -54,6 +74,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
+>>   	if (!p || p->state == BR_STATE_DISABLED)
+>>   		goto drop;
+>>
+>> +	if (!br_allowed_ingress(p, skb))
+>> +		goto drop;
+>> +
+>
+> This condition should be also encorporated upon "ingress" at the "bridge
+> master port" (that is, early at br_dev_xmit).
+> Think of the "bridge master port" as yet another port:
+> upon "ingress" (meaning, tx packets from the ip stack), we should
+> also enforce any ingress permission rules.
+>
 
-We really want to account memory, because we want to control how memory
-is used on our machines and don't let some users use more than the
-amount that was allowed to them.
+I've tried that before and now can't think of a reason why I rejected 
+it.  I'll try to remember...
+
+Thanks
+-vlad
+
+> Regards,
+> Shmulik
+>
