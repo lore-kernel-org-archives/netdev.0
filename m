@@ -1,53 +1,50 @@
-From: Yan Burman <yanb@mellanox.com>
-Subject: [PATCH net] net/vxlan: Use the underlying device index when joining/leaving multicast groups
-Date: Thu, 20 Dec 2012 15:36:08 +0200
-Message-ID: <1356010568-21644-1-git-send-email-yanb@mellanox.com>
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	Yan Burman <yanb@mellanox.com>
-To: shemminger@vyatta.com
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next V4 02/13] bridge: Add vlan filtering
+ infrastructure
+Date: Thu, 20 Dec 2012 15:39:13 +0200
+Message-ID: <20121220153913.11a10fd0@pixies.home.jungo.com>
+References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
+	<1355939304-21804-3-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com,
+	erdnetdev@gmail.com, jiri@resnulli.us
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:35017 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751744Ab2LTNgg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 08:36:36 -0500
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:55809 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751744Ab2LTNjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 08:39:20 -0500
+Received: by mail-wi0-f178.google.com with SMTP id hn3so1983605wib.17
+        for <netdev@vger.kernel.org>; Thu, 20 Dec 2012 05:39:18 -0800 (PST)
+In-Reply-To: <1355939304-21804-3-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The socket calls from vxlan to join/leave multicast group aren't
-using the index of the underlying device, as a result the stack uses
-the first interface that is up. This results in vxlan being non functional
-over a device which isn't the 1st to be up.
-Fix this by providing the iflink field to the vxlan instance
-to the multicast calls.
+Hi Vlad,
 
-Signed-off-by: Yan Burman <yanb@mellanox.com>
----
- drivers/net/vxlan.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+On Wed, 19 Dec 2012 12:48:13 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
+> +static void nbp_vlan_flush(struct net_bridge_port *p)
+> +{
+> +	struct net_port_vlan *pve;
+> +	struct net_port_vlan *tmp;
+> +
+> +	ASSERT_RTNL();
+> +
+> +	list_for_each_entry_safe(pve, tmp, &p->vlan_list, list)
+> +		nbp_vlan_delete(p, pve->vid, BRIDGE_FLAGS_SELF);
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 3b3fdf6..40f2cc1 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -505,7 +505,8 @@ static int vxlan_join_group(struct net_device *dev)
- 	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
- 	struct sock *sk = vn->sock->sk;
- 	struct ip_mreqn mreq = {
--		.imr_multiaddr.s_addr = vxlan->gaddr,
-+		.imr_multiaddr.s_addr	= vxlan->gaddr,
-+		.imr_ifindex		= vxlan->link,
- 	};
- 	int err;
- 
-@@ -532,7 +533,8 @@ static int vxlan_leave_group(struct net_device *dev)
- 	int err = 0;
- 	struct sock *sk = vn->sock->sk;
- 	struct ip_mreqn mreq = {
--		.imr_multiaddr.s_addr = vxlan->gaddr,
-+		.imr_multiaddr.s_addr	= vxlan->gaddr,
-+		.imr_ifindex		= vxlan->link,
- 	};
- 
- 	/* Only leave group when last vxlan is done. */
--- 
-1.7.11.3
+Why would you want to clear "bridge master port" association from this
+vlan, in the event of NBP destruction?
+The "bridge port" may still be a member of this vlan, doesn't it?
+Seems flags argument should be 0.
+
+> +#define BR_VID_HASH_SIZE (1<<6)
+> +#define br_vlan_hash(vid) ((vid) % (BR_VID_HASH_SIZE - 1))
+
+Did you mean:                       & (BR_VID_HASH_SIZE - 1)
+
+Regards,
+Shmulik
