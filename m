@@ -1,62 +1,63 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: TCP delayed ACK heuristic
-Date: Wed, 19 Dec 2012 15:08:24 -0800
-Message-ID: <1355958504.21834.1088.camel@edumazet-glaptop>
-References: <270756364.27707018.1355842632348.JavaMail.root@redhat.com>
-	 <2088500005.27728019.1355843484620.JavaMail.root@redhat.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B70F4@saturn3.aculab.com>
-	 <1355900436.6665.16.camel@cr0>  <50D209E9.2000504@hp.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] build: unbreak linkage of m_xt.so
+Date: Wed, 19 Dec 2012 16:03:17 -0800
+Message-ID: <20121219160317.6004b55e@nehalam.linuxnetplumber.net>
+References: <alpine.LNX.2.01.1212160119060.7193@nerf07.vanv.qr>
+	<1355617968-26138-1-git-send-email-jengelh@inai.de>
+	<20121218092130.1d3f4239@nehalam.linuxnetplumber.net>
+	<201212181348.00379.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>,
-	David Laight <David.Laight@ACULAB.COM>, netdev@vger.kernel.org,
-	Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Thomas Graf <tgraf@redhat.com>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:51962 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751926Ab2LSXI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Dec 2012 18:08:27 -0500
-Received: by mail-pb0-f47.google.com with SMTP id un1so1529707pbc.20
-        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 15:08:27 -0800 (PST)
-In-Reply-To: <50D209E9.2000504@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=PGP-SHA256;
+ boundary="Sig_/flAk.iQCe_8Z7DscS1pqkEQ"; protocol="application/pgp-signature"
+Cc: Jan Engelhardt <jengelh@inai.de>, stephen.hemminger@vyatta.com,
+	netdev@vger.kernel.org, jhs@mojatatu.com, urykhy@gmail.com,
+	shemonc@gmail.com, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <201212181348.00379.vapier@gentoo.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-12-19 at 10:39 -0800, Rick Jones wrote:
-> On 12/18/2012 11:00 PM, Cong Wang wrote:
-> > On Tue, 2012-12-18 at 16:39 +0000, David Laight wrote:
-> >> There are problems with only implementing the acks
-> >> specified by RFC1122.
-> >
-> > Yeah, the problem is if we can violate this RFC for getting better
-> > performance. Or it is just a no-no?
-> >
-> > Although RFC 2525 mentions this as "Stretch ACK Violation", I am still
-> > not sure if that means we can violate RFC1122 legally.
-> 
-> The term used in RFC1122 is "SHOULD" not "MUST."  Same for RFC2525 when 
-> it talks about "Stretch ACK Violation."   A TCP stack may have behaviour 
-> which differs from a SHOULD so long as there is a reasonable reason for it.
+--Sig_/flAk.iQCe_8Z7DscS1pqkEQ
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Generally speaking, there are no reasonable reasons, unless you control
-both sender and receiver, and the path between.
+On Tue, 18 Dec 2012 13:47:58 -0500
+Mike Frysinger <vapier@gentoo.org> wrote:
 
-ACK can be incredibly useful to recover from losses in a short time.
+> this patch is no longer necessary one you merged my:
+> 	configure: move toolchain init to a function
+>=20
+> it's actually undesirable to apply this after that since it makes the con=
+figure=20
+> script less clear again ...
+>=20
+> sorry if my commit message wasn't obvious.
+> -mike
 
-The vast majority of TCP sessions are small lived, and we send one ACK
-per received segment anyway at beginning [1] or retransmits to let the
-sender smoothly increase its cwnd, so an auto-tuning facility wont help
-them that much.
+ok, went back to old way.
 
-For long and fast sessions, we have the LRO/GRO heuristic.
+--Sig_/flAk.iQCe_8Z7DscS1pqkEQ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-This leaves a fraction of flows where the ACK rate should not really
-matter.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
+iQIcBAEBCAAGBQJQ0lXFAAoJEICnf2CVzeR+Gm0QAKOeChAt2VVMVhBWKeMMpfju
+4v6UX++ZhcG1+rEyiaxsOLY3gzARf7ry+yF5rJdYzqLsug9+kUiGWrwYRVvNRdzi
+8ViTISO2gg7Vefxf14lFejSL1y7ufBWZ+qDVYFe8DXV5L3sA+/j5YM/r3ZbV62QF
+801rfKMp8G27+5fmzvN/ZU2onOFtmeoc2NK4LrKdTeZfzH5cLf3nmU6XvXTX9vRI
+oV6trashd++Emg0GAqtfgd2A8P61shZhztSHRKvEFFGUoqjC09DT/o+PE0//JAyU
+9C94Hx1GvUnmsiaNf4KhdHfKZkzdTzAf01wjZ4PxscFELyBfrEBwirJ0eGwPQi/+
+u51jBoNjCWFWkEm7h0VUl9stKZYB+ybzGXtfctrdXI7D1/++gjSNlEE03x4vWjG/
+XP4w/atoza7+ifi27I2CkuFakwPrnjmoAbwcqCmowSkYaRx+EhxvMOqkbNqtC6nn
+enmc+Ra7EckxNFLw7EZP0tkkpiBsRz/gDEo+8IF3PKJXO0S1H3wx47VA3KtqZRyj
+9A10dkAxxu89lirxYALYbhlQhKYPn86Bp1qCSXYe1aVH3Ramrr+As3vxeIZKsBI8
+F3VvF5+rM/s//MaPQkS5uTndmIn6lsi+/edPWk/7I3FZmbVHnPI9+qUcbqbr7KPX
+Ux1eAQHfdVyKnIrXW86V
+=i96B
+-----END PGP SIGNATURE-----
 
-[1] This refers to the quickack mode
+--Sig_/flAk.iQCe_8Z7DscS1pqkEQ--
