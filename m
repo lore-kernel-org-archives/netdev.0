@@ -1,71 +1,74 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next V4 00/13] Add basic VLAN support to bridges
-Date: Thu, 20 Dec 2012 09:07:12 -0800
-Message-ID: <20121220090712.736dff45@nehalam.linuxnetplumber.net>
-References: <1355939304-21804-1-git-send-email-vyasevic@redhat.com>
-	<CAKTPYJTAB-oOW5UE9EbNxwA+XbhmJu1FLrvq_mU8B1Qi6trxeA@mail.gmail.com>
-	<201212201208.14204.vitas@nppfactor.kiev.ua>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: at91sam9260 MACB problem with IP fragmentation
+Date: Thu, 20 Dec 2012 18:51:15 +0100
+Message-ID: <50D35013.9020106@atmel.com>
+References: <50C08233.9030905@erwinrol.com> <50C09D2E.8050608@atmel.com> <50D2D7BD.3030801@erwinrol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Collins <bsderandrew@gmail.com>,
-	Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, or.gerlitz@gmail.com, jhs@mojatatu.com,
-	mst@redhat.com, erdnetdev@gmail.com, jiri@resnulli.us
-To: Vitalii Demianets <vitas@nppfactor.kiev.ua>
+Cc: <linux-kernel@vger.kernel.org>,
+	Havard Skinnemoen <havard@skinnemoen.net>,
+	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+	<matteo.fortini@sadel.it>, netdev <netdev@vger.kernel.org>
+To: Erwin Rol <mailinglists@erwinrol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42766 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751324Ab2LTRI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2012 12:08:29 -0500
-In-Reply-To: <201212201208.14204.vitas@nppfactor.kiev.ua>
+Received: from eusmtp01.atmel.com ([212.144.249.242]:18928 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947Ab2LTRvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 12:51:17 -0500
+In-Reply-To: <50D2D7BD.3030801@erwinrol.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Dec 2012 12:08:13 +0200
-Vitalii Demianets <vitas@nppfactor.kiev.ua> wrote:
-
-> On Thursday 20 December 2012 00:54:27 Andrew Collins wrote:
-> > On Wed, Dec 19, 2012 at 10:48 AM, Vlad Yasevich <vyasevic@redhat.com> wrote:
-> > > This series of patches provides an ability to add VLANs to the bridge
-> > > ports.  This is similar to what can be found in most switches.  The
-> > > bridge port may have any number of VLANs added to it including vlan 0
-> > > priority tagged traffic.  When vlans are added to the port, only traffic
-> > > tagged with particular vlan will forwarded over this port.  Additionally,
-> > > vlan ids are added to FDB entries and become part of the lookup.  This
-> > > way we correctly identify the FDB entry.
-> >
-> > This is likely well beyond the scope of this change, but I figured I'd
-> > throw out the question anyway.  This changeset looks to bring the
-> > Linux bridging code closer to the 802.1Q-2005 definition of a bridge,
-> > which is nice to see, I'm curious if this changeset also opens up the
-> > possibility of supporting MSTP in the future?  The big thing I see
-> > missing is per-VLAN port state, although I'm not very familiar with
-> > the current STP/bridge interactions.  Has anyone put any thought into
-> > what other necessary bridge pieces might be missing for MSTP support?
+On 12/20/2012 10:17 AM, Erwin Rol :
+> Hallo Nicolas,
 > 
-> I think, to be compatible with 802.1Q-2005 we need the following pieces:
-> 1) Multiple FIDs (it is 802.1Q term for FDB) support. It means that kernel 
-> should support several independent FDBs on a single bridge. The 802.1Q-2005 
-> standard requires the number of supported FDBs to be no less than the number 
-> of different MSTIs the implementation supports;
-> 2) VLAN-to-FDB mapping should be introduced;
-> 3) Support of Multiple Spanning Tree Instances (MSTIs);
-> 4) FDB-to-MSTI mapping should be introduced;
-> 5) And finally, per-MST port states should be implemented.
+> On 6-12-2012 14:27, Nicolas Ferre wrote:
+>> Erwin,
+>>
+>> On 12/06/2012 12:32 PM, Erwin Rol :
+>>> Hello Nicolas, Havard, all,
+>>>
+>>> I have a very obscure problem with a at91sam9260 board (almost 1 to 1
+>>> copy of the Atmel EK).
+>>>
+>>> The MACB seems to stall when I use large (>2 * MTU) UDP datagrams. The
+>>> test case is that a udp echo client (PC) sends datagrams with increasing
+>>> length to the AT91 until the max length of the UDP datagram is reached.
+>>> When there is no IP fragmentation everything is fine, but when the
+>>> datagrams are starting to get fragmented the AT91 will not reply
+>>> anymore. But as soon as some network traffic happens it goes on again,
+>>> and non of the data is lost.
 > 
-> > obviously something to handle the MSTP protocol itself would need to exist 
-> as well
+> <snip>
 > 
-> Please look here: http://sourceforge.net/projects/mstpd/
+>>> I tried several kernels including the test version from Nicolas that he
+>>> posted on LKML in October. They all show the same effect.
+>>
+>> [..]
+>>
+>> It seems that Matteo has the same behavior: check here:
+>> http://www.spinics.net/lists/netdev/msg218951.html
+> 
+> I tried Matteo's patch and it seems to work. But I don't know if the
+> patch is really the right solution. I checked again with wireshark and
+> it really seems the sending that stalls not the receiving. But as soon
+> as a ethernet frame is received the sending "un-stalls". So maybe the
+> patch just causes an MACB IRQ at certain moments that causes the sending
+> to continue?
 
-A couple of points:
-* How does this compare with features/functionality of commercial
-  hardware bridges?
-* Is this as simple as possible? It looks like there is creeping-featurism
-  here. I am all for a simple extension to allow bridge vlan filtering, but
-  not the added complexity of "let's teach bridges all about all possible
-  things any user might want to do with vlan.s"
+Any digging is interesting for me.
 
 
- 
+>> I am working on the macb driver right now, so I will try to reproduce
+>> and track this issue on my side.
+> 
+> Any luck reproducing it ?
+
+Yes, I see unexpected things happening but as I am connected to a whole
+company network so maybe some broadcast packets are unlocking the
+interface...
+Anyway, I am continuing to investigate.
+
+Best regards,--
+Nicolas Ferre
