@@ -1,102 +1,54 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
-Date: Thu, 20 Dec 2012 07:35:09 -0500
-Message-ID: <50D305FD.7000901@mojatatu.com>
-References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com> <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com> <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr> <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com> <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com> <50D06177.2090905@mojatatu.com> <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com> <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com> <50D2D229.6040802@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: PMTU discovery is broken on kernel 3.7.1 for UDP sockets
+Date: Thu, 20 Dec 2012 13:35:35 +0100
+Message-ID: <20121220123535.GN18940@secunet.com>
+References: <50D1BCC0.2000208@oktetlabs.ru>
+ <1355924119.2676.6.camel@bwh-desktop.uk.solarflarecom.com>
+ <50D1CECE.7090706@oktetlabs.ru>
+ <1355945864.2676.21.camel@bwh-desktop.uk.solarflarecom.com>
+ <20121220073445.GM18940@secunet.com>
+ <50D2F4E5.4050904@oktetlabs.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hasan Chowdhury <shemonc@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jan Engelhardt <jengelh@inai.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: Yury Stankevich <urykhy@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <50D2D229.6040802@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
+To: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:46395 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751359Ab2LTMfi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2012 07:35:38 -0500
+Content-Disposition: inline
+In-Reply-To: <50D2F4E5.4050904@oktetlabs.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Dec 20, 2012 at 03:22:13PM +0400, Yurij M. Plotnikov wrote:
+> On 12/20/12 11:34, Steffen Klassert wrote:
+> >
+> >diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+> >index 3c9d208..1049ce0 100644
+> >--- a/net/ipv4/ip_sockglue.c
+> >+++ b/net/ipv4/ip_sockglue.c
+> >@@ -1198,7 +1198,7 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+> >  	{
+> >  		struct dst_entry *dst;
+> >  		val = 0;
+> >-		dst = sk_dst_get(sk);
+> >+		dst = sk_dst_check(sk, 0);
+> >  		if (dst) {
+> >  			val = dst_mtu(dst);
+> >  			dst_release(dst);
+> With this patch kernel 3.7.1 works perfect. All described problems
+> are fixed.
 
-Could be your setup. I didnt do a lot of testing but
-from my notes (running different kernel at the moment):
+Thanks for testing!
 
-#try to point to everything (no iptables setup)
-tc filter add dev eth0 parent ffff: protocol ip u32 match u32 0 0 flowi=
-d=20
-23:23 action xt -j CONNMARK --restore-mark
-#let it run for a 1 sec then display with
-tc -s filter show dev eth0 parent ffff:
+I'm not sure if we can't use this as a fix. I think with this patch it
+could happen that we return -ENOTCONN instead of a pmtu value on a
+connected socket. Perhaps it is better to update the cached dst_entry in
+ipv4_sk_update_pmtu() when we receive the -EMSGSIZE. I'll do some
+investigation.
 
-----
-filter protocol ip pref 49152 u32
-filter protocol ip pref 49152 u32 fh 800: ht divisor 1
-filter protocol ip pref 49152 u32 fh 800::800 order 2048 key ht 800 bkt=
-=20
-0 flowid 23:23
-   match 00000000/00000000 at 0
-	action order 1: tablename: mangle  hook: NF_IP_PRE_ROUTING
-	target  CONNMARK restore
-	index 1 ref 1 bind 1 installed 3 sec used 1 sec
-	Action statistics:
-	Sent 280 bytes 4 pkt (dropped 0, overlimits 0 requeues 0)
-	backlog 0b 0p requeues 0
-----
-
-cheers,
-jamal
-
-On 12-12-20 03:54 AM, Yury Stankevich wrote:
-> 19.12.2012 15:56, Jamal Hadi Salim =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
->> Hasan/Yury, if you test this please use the latest iproute2 with onl=
-y
->> the first patch I posted (originally from Hasan). Hasan please use t=
-hat
->> patch not your version - if theres anything wrong we can find out so=
-oner
->> before the patch becomes final.
->
-> Hello,
-> 3.7.1 kernel with 3.7.0 iproute,
-> patch-xt, xt-p1 + linkage fix was applyed
-> command successfully performed, but actually doesn't work.
->
-> command:
-> tc filter add dev $dev parent ffff: protocol ip u32 match u32 0 0 \
->              action xt -j CONNMARK --restore-mark \
->              action mirred egress redirect dev ifb0
-> then i use filter:
->
-> tc filter add dev ifb0 protocol ip parent 1: prio 2 handle 0xa fw flo=
-wid
-> 1:102
->
-> iptables line:
-> iptable -t mangle -A POSTROUTING -p tcp --dport 80 -m connmark --mark=
- 0
-> -m connbytes --connbytes 204800: --connbytes-dir both --connbytes-mod=
-e
-> bytes -j CONNMARK --set-mark 0xa
->
-> once i run a test to download 300K file,
-> from iptables counters i can see that rule in POSTROUTING is triggere=
-d,
-> but from `tc -s qdisc show dev ifb0` i see that no packets was sent t=
-o
-> 1:102 flow.
->
-> btw,
-> tc -p -s filter show dev ifb0 parent 1:
-> do not show stats `(rule hit 416 success 0)` for this (filter protoco=
-l
-> ip pref 2 fw handle 0xa classid 1:102) rule.
->
->
->
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Anyway, it is still odd that reverting my other patch 'fixes'
+this issue too.
