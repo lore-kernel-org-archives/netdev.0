@@ -1,61 +1,76 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: TCP delayed ACK heuristic
-Date: Thu, 20 Dec 2012 11:23:49 +0800
-Message-ID: <1355973829.25310.5.camel@cr0>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B70F4@saturn3.aculab.com>
-	 <1355900436.6665.16.camel@cr0> <50D209E9.2000504@hp.com>
-	 <20121219.125939.1674292599518627751.davem@davemloft.net>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH V2 00/12] Add basic VLAN support to bridges
+Date: Thu, 20 Dec 2012 09:00:40 +0200
+Message-ID: <20121220090040.6d29d25f@pixies.home.jungo.com>
+References: <1355857263-31197-1-git-send-email-vyasevic@redhat.com>
+	<20121219101006.7086faef@pixies.home.jungo.com>
+	<50D1CB76.50202@redhat.com>
+	<20121219213716.778d6449.shmulik.ladkani@gmail.com>
+	<50D21D98.7020907@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: rick.jones2@hp.com, David.Laight@ACULAB.COM,
-	netdev@vger.kernel.org, greearb@candelatech.com,
-	eric.dumazet@gmail.com, shemminger@vyatta.com, tgraf@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com, davem@davemloft.net,
+	or.gerlitz@gmail.com, jhs@mojatatu.com, mst@redhat.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16715 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751397Ab2LTDYL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Dec 2012 22:24:11 -0500
-In-Reply-To: <20121219.125939.1674292599518627751.davem@davemloft.net>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:48398 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750934Ab2LTHIh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 02:08:37 -0500
+Received: by mail-wg0-f46.google.com with SMTP id dr13so1317923wgb.25
+        for <netdev@vger.kernel.org>; Wed, 19 Dec 2012 23:08:36 -0800 (PST)
+In-Reply-To: <50D21D98.7020907@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2012-12-19 at 12:59 -0800, David Miller wrote:
-> 
-> Yes, but RFC2525 makes it very clear why we should not even
-> consider doing crap like this.
-> 
-> ACKs are the only information we have to detect loss.
-> 
-> And, for the same reasons that TCP VEGAS is fundamentally broken, we
-> cannot measure the pipe or some other receiver-side-visible piece of
-> information to determine when it's "safe" to stretch ACK.
-> 
-> And even if it's "safe", we should not do it so that losses are
-> accurately detected and we don't spuriously retransmit.
-> 
-> The only way to know when the bandwidth increases is to "test" it, by
-> sending more and more packets until drops happen.  That's why all
-> successful congestion control algorithms must operate on explicited
-> tested pieces of information.
-> 
-> Similarly, it's not really possible to universally know if it's safe
-> to stretch ACK or not.
+Hi Vlad,
 
-Sounds reasonable. Thanks for your explanation.
-
+On Wed, 19 Dec 2012 15:03:36 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
+> > The port's PVID uniquely determines VID to associate with the frame
+> > during _ingress_ on that port - in the case frame arrived untagged.
+> >
+> > This is unrelated to whether a frame having a specific VID would _egress_
+> > tagged or untagged on that port.
 > 
-> Can we please drop this idea?  It has zero value and all downside as
-> far as I'm concerned.
+> Ahh...  I see what you mean.  You would like to separate
+> ingress policy and egress policy with regard to how tags are applied...
+
+Exactly.
+Those are two different things; sometimes their configuration collide,
+sometimes not.
+
+> > The bridge constructs needed for supporting such setups are:
+> > - per port: PVID
+> > - per VLAN: port membership map
+> > - per VLAN: port egress policy map
 > 
+> Ok, so from above, membership map is the exiting port_bitmap.
 
-Yeah, I am just trying to see if there is any way to get a reasonable
-heuristic.
+Ok.
 
-So, can we at least have a sysctl to control the timeout of the delayed
-ACK? I mean the minimum 40ms. TCP_QUICKACK can help too, but it requires
-the receiver to modify the application and has to be set every time when
-calling recv().
+> Egress policy map could be new untagged_bitmap.  We wouldn't need a tagged 
+> policy map since a port can't be "in egress policy, but not in 
+> membership map".
 
-Thanks!
+Yes, that is correct.
+
+However I wouldn't call it "untagged_bitmap".
+The name might suggest that "egress untagged" is an anomaly, where
+"normal" behavior is egress tagged.
+But as said, both are valid, its just a matter of configuration.
+
+You basically need one more bit for each member port, stating
+egress tagged/untagged.
+
+> Sounds about right?  If so, I could probably work something up.
+
+Yes, looking forward to review the code.
+
+P.S.
+Sorry for late spotting this; I don't follow net-dev regularly.
+I hope to take a look at the code soon, see if I have any meaningful
+comments.
+
+Regards,
+Shmulik
