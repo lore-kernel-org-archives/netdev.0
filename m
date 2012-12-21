@@ -1,54 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] IP_MAX_MTU value
-Date: Fri, 21 Dec 2012 11:59:10 -0800 (PST)
-Message-ID: <20121221.115910.1536088448298730991.davem@davemloft.net>
-References: <1356072468.21834.4805.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rick.jones2@hp.com, kuznet@ms2.inr.ac.ru
-To: erdnetdev@gmail.com
+From: Stefan Hasko <hasko.stevo@gmail.com>
+Subject: [PATCH] net: sched: integer overflow fix
+Date: Fri, 21 Dec 2012 21:39:24 +0100
+Message-ID: <1356122364-1418-1-git-send-email-hasko.stevo@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Stefan Hasko <hasko.stevo@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43978 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751293Ab2LUT7L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 14:59:11 -0500
-In-Reply-To: <1356072468.21834.4805.camel@edumazet-glaptop>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:61670 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752035Ab2LUUsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 15:48:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <erdnetdev@gmail.com>
-Date: Thu, 20 Dec 2012 22:47:48 -0800
+Fixed integer overflow in function htb_dequeue
 
-> We have the following definition in net/ipv4/route.c
-> 
-> #define IP_MAX_MTU   0xFFF0
-> 
-> This means that "netperf -t UDP_STREAM", using UDP messages of 65507
-> bytes, are fragmented on loopback interface (while its MTU is now 65536
-> and should allow those UDP messages being sent without fragments)
-> 
-> I guess Rick chose 65507 bytes in netperf because it was related to the
-> max IPv4 datagram length :
-> 
-> 65507 + 28 = 65535
-> 
-> Changing IP_MAX_MTU from 0xFFF0 to 0x10000 seems safe [1], but I might
-> miss something really obvious ?
-> 
-> It might be because in old days we reserved 16 bytes for the ethernet
-> header, and we wanted to avoid kmalloc() round-up to kmalloc-131072
-> slab ?
-> 
-> If so, we certainly can limit skb->head to 32 or 64 KB and complete with
-> page fragments the remaining space.
+Signed-off-by: Stefan Hasko <hasko.stevo@gmail.com>
+---
+ net/sched/sch_htb.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I don't think it has to do with kmalloc() at all.
-
-Maybe something strange to do with the fact that each frag has to
-be an 8-byte multiple, or something like that?
-
-Alexey choose this value back in 1998, maybe he remembers the
-reason for the strange value.
-
-Alexey?
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index d2922c0..1bd3faa 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -919,7 +919,7 @@ ok:
+ 	q->now = ktime_to_ns(ktime_get());
+ 	start_at = jiffies;
+ 
+-	next_event = q->now + 5 * NSEC_PER_SEC;
++	next_event = q->now + (u32)5 * NSEC_PER_SEC;
+ 
+ 	for (level = 0; level < TC_HTB_MAXDEPTH; level++) {
+ 		/* common case optimization - skip event handler quickly */
+-- 
+1.7.10.4
