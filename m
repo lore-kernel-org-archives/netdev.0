@@ -1,109 +1,148 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH] CONFIG_HOTPLUG removal from networking core
-Date: Fri, 21 Dec 2012 15:44:29 -0800
-Message-ID: <20121221234429.GB13447@kroah.com>
+Subject: [PATCH] Drivers: network: more __dev* removal
+Date: Fri, 21 Dec 2012 15:42:15 -0800
+Message-ID: <20121221234215.GA13447@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Bill Pemberton <wfp5p@virginia.edu>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:60386 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751555Ab2LUXlX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 18:41:23 -0500
-Received: by mail-pa0-f47.google.com with SMTP id fa10so3105689pad.34
-        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 15:41:23 -0800 (PST)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:62650 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751409Ab2LUXpU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 18:45:20 -0500
+Received: by mail-pa0-f44.google.com with SMTP id hz11so3125251pad.17
+        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 15:45:20 -0800 (PST)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CONFIG_HOTPLUG is always enabled now, so remove the unused code that was
-trying to be compiled out when this option was disabled, in the
-networking core.
+Remove some __dev* markings that snuck in the 3.8-rc1 merge window in
+the drivers/net/* directory.
 
 Cc: Bill Pemberton <wfp5p@virginia.edu>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 334efd5..28c5f5a 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1334,7 +1334,6 @@ struct kobj_ns_type_operations net_ns_type_operations = {
- };
- EXPORT_SYMBOL_GPL(net_ns_type_operations);
- 
--#ifdef CONFIG_HOTPLUG
- static int netdev_uevent(struct device *d, struct kobj_uevent_env *env)
- {
- 	struct net_device *dev = to_net_dev(d);
-@@ -1353,7 +1352,6 @@ static int netdev_uevent(struct device *d, struct kobj_uevent_env *env)
- exit:
- 	return retval;
- }
--#endif
- 
- /*
-  *	netdev_release -- destroy and free a dead device.
-@@ -1382,9 +1380,7 @@ static struct class net_class = {
- #ifdef CONFIG_SYSFS
- 	.dev_attrs = net_class_attributes,
- #endif /* CONFIG_SYSFS */
--#ifdef CONFIG_HOTPLUG
- 	.dev_uevent = netdev_uevent,
--#endif
- 	.ns_type = &net_ns_type_operations,
- 	.namespace = net_namespace,
- };
-diff --git a/net/wireless/reg.c b/net/wireless/reg.c
-index 6e53089..82c4fc7 100644
---- a/net/wireless/reg.c
-+++ b/net/wireless/reg.c
-@@ -2365,7 +2365,6 @@ int set_regdom(const struct ieee80211_regdomain *rd)
- 	return r;
- }
- 
--#ifdef CONFIG_HOTPLUG
- int reg_device_uevent(struct device *dev, struct kobj_uevent_env *env)
- {
- 	if (last_request && !last_request->processed) {
-@@ -2377,12 +2376,6 @@ int reg_device_uevent(struct device *dev, struct kobj_uevent_env *env)
- 
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 6d6002b..74f1c15 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -141,7 +141,7 @@ static int orion_mdio_reset(struct mii_bus *bus)
  	return 0;
  }
--#else
--int reg_device_uevent(struct device *dev, struct kobj_uevent_env *env)
--{
--	return -ENODEV;
--}
--#endif /* CONFIG_HOTPLUG */
  
- void wiphy_regulatory_register(struct wiphy *wiphy)
+-static int __devinit orion_mdio_probe(struct platform_device *pdev)
++static int orion_mdio_probe(struct platform_device *pdev)
  {
-diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
-index 9bf6d5e..1f6f01e 100644
---- a/net/wireless/sysfs.c
-+++ b/net/wireless/sysfs.c
-@@ -77,13 +77,11 @@ static void wiphy_dev_release(struct device *dev)
- 	cfg80211_dev_free(rdev);
- }
- 
--#ifdef CONFIG_HOTPLUG
- static int wiphy_uevent(struct device *dev, struct kobj_uevent_env *env)
- {
- 	/* TODO, we probably need stuff here */
+ 	struct device_node *np = pdev->dev.of_node;
+ 	struct mii_bus *bus;
+@@ -197,7 +197,7 @@ static int __devinit orion_mdio_probe(struct platform_device *pdev)
  	return 0;
  }
--#endif
  
- static int wiphy_suspend(struct device *dev, pm_message_t state)
+-static int __devexit orion_mdio_remove(struct platform_device *pdev)
++static int orion_mdio_remove(struct platform_device *pdev)
  {
-@@ -134,9 +132,7 @@ struct class ieee80211_class = {
- 	.owner = THIS_MODULE,
- 	.dev_release = wiphy_dev_release,
- 	.dev_attrs = ieee80211_dev_attrs,
--#ifdef CONFIG_HOTPLUG
- 	.dev_uevent = wiphy_uevent,
--#endif
- 	.suspend = wiphy_suspend,
- 	.resume = wiphy_resume,
- 	.ns_type = &net_ns_type_operations,
+ 	struct mii_bus *bus = platform_get_drvdata(pdev);
+ 	mdiobus_unregister(bus);
+@@ -214,7 +214,7 @@ MODULE_DEVICE_TABLE(of, orion_mdio_match);
+ 
+ static struct platform_driver orion_mdio_driver = {
+ 	.probe = orion_mdio_probe,
+-	.remove = __devexit_p(orion_mdio_remove),
++	.remove = orion_mdio_remove,
+ 	.driver = {
+ 		.name = "orion-mdio",
+ 		.of_match_table = orion_mdio_match,
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 3f8086b..b6025c3 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -635,7 +635,7 @@ static void mvneta_rxq_bm_disable(struct mvneta_port *pp,
+ 
+ 
+ /* Sets the RGMII Enable bit (RGMIIEn) in port MAC control register */
+-static void __devinit mvneta_gmac_rgmii_set(struct mvneta_port *pp, int enable)
++static void mvneta_gmac_rgmii_set(struct mvneta_port *pp, int enable)
+ {
+ 	u32  val;
+ 
+@@ -650,7 +650,7 @@ static void __devinit mvneta_gmac_rgmii_set(struct mvneta_port *pp, int enable)
+ }
+ 
+ /* Config SGMII port */
+-static void __devinit mvneta_port_sgmii_config(struct mvneta_port *pp)
++static void mvneta_port_sgmii_config(struct mvneta_port *pp)
+ {
+ 	u32 val;
+ 
+@@ -2564,7 +2564,7 @@ const struct ethtool_ops mvneta_eth_tool_ops = {
+ };
+ 
+ /* Initialize hw */
+-static int __devinit mvneta_init(struct mvneta_port *pp, int phy_addr)
++static int mvneta_init(struct mvneta_port *pp, int phy_addr)
+ {
+ 	int queue;
+ 
+@@ -2613,9 +2613,8 @@ static void mvneta_deinit(struct mvneta_port *pp)
+ }
+ 
+ /* platform glue : initialize decoding windows */
+-static void __devinit
+-mvneta_conf_mbus_windows(struct mvneta_port *pp,
+-			 const struct mbus_dram_target_info *dram)
++static void mvneta_conf_mbus_windows(struct mvneta_port *pp,
++				     const struct mbus_dram_target_info *dram)
+ {
+ 	u32 win_enable;
+ 	u32 win_protect;
+@@ -2648,7 +2647,7 @@ mvneta_conf_mbus_windows(struct mvneta_port *pp,
+ }
+ 
+ /* Power up the port */
+-static void __devinit mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
++static void mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
+ {
+ 	u32 val;
+ 
+@@ -2671,7 +2670,7 @@ static void __devinit mvneta_port_power_up(struct mvneta_port *pp, int phy_mode)
+ }
+ 
+ /* Device initialization routine */
+-static int __devinit mvneta_probe(struct platform_device *pdev)
++static int mvneta_probe(struct platform_device *pdev)
+ {
+ 	const struct mbus_dram_target_info *dram_target_info;
+ 	struct device_node *dn = pdev->dev.of_node;
+@@ -2803,7 +2802,7 @@ err_free_netdev:
+ }
+ 
+ /* Device removal routine */
+-static int __devexit mvneta_remove(struct platform_device *pdev)
++static int mvneta_remove(struct platform_device *pdev)
+ {
+ 	struct net_device  *dev = platform_get_drvdata(pdev);
+ 	struct mvneta_port *pp = netdev_priv(dev);
+@@ -2828,7 +2827,7 @@ MODULE_DEVICE_TABLE(of, mvneta_match);
+ 
+ static struct platform_driver mvneta_driver = {
+ 	.probe = mvneta_probe,
+-	.remove = __devexit_p(mvneta_remove),
++	.remove = mvneta_remove,
+ 	.driver = {
+ 		.name = MVNETA_DRIVER_NAME,
+ 		.of_match_table = mvneta_match,
+diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c b/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
+index 18b0bc5..bb7cc90 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
+@@ -341,7 +341,7 @@ static struct rtl_hal_cfg rtl8723ae_hal_cfg = {
+ 	.maps[RTL_RC_HT_RATEMCS15] = DESC92_RATEMCS15,
+ };
+ 
+-static struct pci_device_id rtl8723ae_pci_ids[] __devinitdata = {
++static struct pci_device_id rtl8723ae_pci_ids[] = {
+ 	{RTL_PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0x8723, rtl8723ae_hal_cfg)},
+ 	{},
+ };
