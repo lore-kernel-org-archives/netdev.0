@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: arp: fix a lockdep splat in arp_solicit()
-Date: Fri, 21 Dec 2012 13:16:04 -0800 (PST)
-Message-ID: <20121221.131604.630440467916062914.davem@davemloft.net>
-References: <1356111130.21834.7565.camel@edumazet-glaptop>
+Subject: Re: [patch] solos-pci: double lock in geos_gpio_store()
+Date: Fri, 21 Dec 2012 13:16:46 -0800 (PST)
+Message-ID: <20121221.131646.463198363776718641.davem@davemloft.net>
+References: <20121220074845.GA14716@elgon.mountain>
+	<1355995348.18919.104.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yanb@mellanox.com, shemminger@vyatta.com
-To: erdnetdev@gmail.com
+Cc: dan.carpenter@oracle.com, chas@cmf.nrl.navy.mil,
+	nathan@traverse.com.au, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, kbuild@01.org
+To: david.woodhouse@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44590 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44599 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751555Ab2LUVQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 16:16:06 -0500
-In-Reply-To: <1356111130.21834.7565.camel@edumazet-glaptop>
+	with ESMTP id S1751069Ab2LUVQr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 16:16:47 -0500
+In-Reply-To: <1355995348.18919.104.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <erdnetdev@gmail.com>
-Date: Fri, 21 Dec 2012 09:32:10 -0800
+From: "Woodhouse, David" <david.woodhouse@intel.com>
+Date: Thu, 20 Dec 2012 09:22:26 +0000
 
-> From: Eric Dumazet <edumazet@google.com>
+> On Thu, 2012-12-20 at 10:48 +0300, Dan Carpenter wrote:
+>> There is a typo here so we do a double lock instead of an unlock.
+>> 
+>> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>> ---
+>> Only needed in linux-next.  Introduced in f9baad02e7411d9 [14/17]
+>> solos-pci: add GPIO support for newer versions on Geos board
 > 
-> Yan Burman reported following lockdep warning :
- ...
-> Bug is from arp_solicit(), releasing the neigh lock after arp_send()
-> In case of vxlan, we eventually need to write lock a neigh lock later.
+> Ah, crap. That was my fault; it was part of my "improvement" to Nathan's
+> patch. Sorry.
 > 
-> Its a false positive, but we can get rid of it without lockdep
-> annotations.
-> 
-> We can instead use neigh_ha_snapshot() helper.
-> 
-> Reported-by: Yan Burman <yanb@mellanox.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> Acked-by: David Woodhouse <David.Woodhouse@intel.com>
 
 Applied.
