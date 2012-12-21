@@ -1,65 +1,42 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: TUN problems (regression?)
-Date: Fri, 21 Dec 2012 11:27:57 -0500
-Message-ID: <2090364.S7KStA6R4d@sifl>
-References: <4151394.nMo40zlg68@sifl> <1356046697.21834.3606.camel@edumazet-glaptop>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: IPv6 over Firewire
+Date: Fri, 21 Dec 2012 18:03:21 +0100
+Message-ID: <50D49659.1000101@gmail.com>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3491 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751091Ab2LUQ23 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Dec 2012 11:28:29 -0500
-In-Reply-To: <1356046697.21834.3606.camel@edumazet-glaptop>
+Received: from mail-bk0-f46.google.com ([209.85.214.46]:44718 "EHLO
+	mail-bk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751121Ab2LURDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 12:03:25 -0500
+Received: by mail-bk0-f46.google.com with SMTP id q16so2532179bkw.5
+        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 09:03:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, December 20, 2012 03:38:17 PM Eric Dumazet wrote:
-> On Thu, 2012-12-20 at 18:16 -0500, Paul Moore wrote:
-> > [CC'ing netdev in case this is a known problem I just missed ...]
-> > 
-> > Hi Jason,
-> > 
-> > I started doing some more testing with the multiqueue TUN changes and I
-> > ran
-> > into a problem when running tunctl: running it once w/o arguments works as
-> > expected, but running it a second time results in failure and a
-> > kmem_cache_sanity_check() failure.  The problem appears to be very
-> > repeatable on my test VM and happens independent of the LSM/SELinux fixup
-> > patches.
-> > 
-> > Have you seen this before?
-> 
-> Obviously code in tun_flow_init() is wrong...
-> 
-> static int tun_flow_init(struct tun_struct *tun)
-> {
->         int i;
-> 
->         tun->flow_cache = kmem_cache_create("tun_flow_cache",
->                                             sizeof(struct tun_flow_entry),
-> 0, 0, NULL);
->         if (!tun->flow_cache)
->                 return -ENOMEM;
-> ...
-> }
-> 
-> 
-> I have no idea why we would need a kmem_cache per tun_struct,
-> and why we even need a kmem_cache.
-> 
-> 
-> I would try following patch :
-> 
->  drivers/net/tun.c |   24 +++---------------------
->  1 file changed, 3 insertions(+), 21 deletions(-)
+Hi!
 
-Thanks, that solved my problem.  Also, in case you were still curious, I was 
-using SLUB.
+I'm currently implementing IPv6 over firewire.
 
--- 
-paul moore
-security and virtualization @ redhat
+To make the address mapping to the firewire link layer RFC3146 mandates 
+to use neighbor discovery with a certain format of the source/target 
+link-layer address option.
+
+While it is not too complicated to build that up, I'm wondering how I 
+can reserve enough memory in the corresponding skb.
+
+One possibility is to introduce some option padding in 
+ndisc_addr_option_pad() but I think that's somehow weird.
+
+The second option I see is to set needed_tailroom in struct netdevice 
+for firewire net devices. That's the way I would go for.
+
+Because I'm not really familiar with the whole network infrastructure in 
+Linux, a confirmation for the way to go would be nice.
+
+Regards,
+
+Stephan
