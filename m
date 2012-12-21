@@ -1,61 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: TUN problems (regression?)
-Date: Thu, 20 Dec 2012 15:50:01 -0800
-Message-ID: <20121220155001.538bbdb0@nehalam.linuxnetplumber.net>
-References: <4151394.nMo40zlg68@sifl>
-	<1356046697.21834.3606.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <pmoore@redhat.com>, Jason Wang <jasowang@redhat.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Subject: [PATCH] ipv4/ip_gre: make ipgre_tunnel_xmit() not parse network header as IP unconditionally
+Date: Fri, 21 Dec 2012 10:12:52 +0900
+Message-ID: <9ee0cd8f94e1ee866b40ee7b6755e8d8705325c9.1356052319.git.yamahata@valinux.co.jp>
+Cc: yamahata@valinux.co.jp
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37042 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750776Ab2LTXvR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Dec 2012 18:51:17 -0500
-In-Reply-To: <1356046697.21834.3606.camel@edumazet-glaptop>
+Received: from mail.valinux.co.jp ([210.128.90.3]:49593 "EHLO
+	mail.valinux.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752267Ab2LUBMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 20:12:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Dec 2012 15:38:17 -0800
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+ipgre_tunnel_xmit() parses network header as IP unconditionally.
+But transmitting packets are not always IP packet. For example such packet
+can be sent by packet socket with sockaddr_ll.sll_protocol set.
+So make the function check if skb->protocol is IP.
 
-> On Thu, 2012-12-20 at 18:16 -0500, Paul Moore wrote:
-> > [CC'ing netdev in case this is a known problem I just missed ...]
-> > 
-> > Hi Jason,
-> > 
-> > I started doing some more testing with the multiqueue TUN changes and I ran 
-> > into a problem when running tunctl: running it once w/o arguments works as 
-> > expected, but running it a second time results in failure and a 
-> > kmem_cache_sanity_check() failure.  The problem appears to be very repeatable 
-> > on my test VM and happens independent of the LSM/SELinux fixup patches.
-> > 
-> > Have you seen this before?
-> > 
-> 
-> Obviously code in tun_flow_init() is wrong...
-> 
-> static int tun_flow_init(struct tun_struct *tun)
-> {
->         int i;
-> 
->         tun->flow_cache = kmem_cache_create("tun_flow_cache",
->                                             sizeof(struct tun_flow_entry), 0, 0,
->                                             NULL);
->         if (!tun->flow_cache)
->                 return -ENOMEM;
-> ...
-> }
-> 
-> 
-> I have no idea why we would need a kmem_cache per tun_struct,
-> and why we even need a kmem_cache.
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ net/ipv4/ip_gre.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Normally flow malloc/free should be good enough.
-It might make sense to use private kmem_cache if doing hlist_nulls.
-
-
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index a85ae2f..8fcf0ed 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -760,7 +760,10 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 
+ 	if (dev->header_ops && dev->type == ARPHRD_IPGRE) {
+ 		gre_hlen = 0;
+-		tiph = (const struct iphdr *)skb->data;
++		if (skb->protocol == htons(ETH_P_IP))
++			tiph = (const struct iphdr *)skb->data;
++		else
++			tiph = &tunnel->parms.iph;
+ 	} else {
+ 		gre_hlen = tunnel->hlen;
+ 		tiph = &tunnel->parms.iph;
+-- 
+1.7.10.4
