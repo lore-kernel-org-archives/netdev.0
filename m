@@ -1,47 +1,68 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: sock_ioctl sleeping while atomic warning during boot.
-Date: Thu, 20 Dec 2012 22:31:03 -0500
-Message-ID: <50D3D7F7.2030200@hp.com>
-References: <20121221022409.GA1927@redhat.com> <1356060308.21834.4455.camel@edumazet-glaptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: TUN problems (regression?)
+Date: Fri, 21 Dec 2012 11:32:43 +0800
+Message-ID: <50D3D85B.1070605@redhat.com>
+References: <4151394.nMo40zlg68@sifl> <1356046697.21834.3606.camel@edumazet-glaptop> <20121220155001.538bbdb0@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Paul Moore <pmoore@redhat.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:27611 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751516Ab2LUDbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 22:31:09 -0500
-In-Reply-To: <1356060308.21834.4455.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:63591 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750875Ab2LUDcs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Dec 2012 22:32:48 -0500
+In-Reply-To: <20121220155001.538bbdb0@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/20/2012 10:25 PM, Eric Dumazet wrote:
-> OK, thanks for the report.
-> 
-> We need a seqcount, not a seqlock, as RTNL already protects multiple
-> writers.
-> 
-> Please try following fix :
-> 
-> 
-> [PATCH] net: devnet_rename_seq should be a seqcount
-> 
-> Using a seqlock for devnet_rename_seq is not a good idea,
-> as device_rename() can sleep.
-> 
-> As we hold RTNL, we dont need a protection for writers,
-> and only need a seqcount so that readers can catch a change done
-> by a writer.
-> 
-> Bug added in commit c91f6df2db4972d3 (sockopt: Change getsockopt() of
-> SO_BINDTODEVICE to return an interface name)
-> 
-> Reported-by: Dave Jones <davej@redhat.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Brian Haley <brian.haley@hp.com>
+On 12/21/2012 07:50 AM, Stephen Hemminger wrote:
+> On Thu, 20 Dec 2012 15:38:17 -0800
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+>> On Thu, 2012-12-20 at 18:16 -0500, Paul Moore wrote:
+>>> [CC'ing netdev in case this is a known problem I just missed ...]
+>>>
+>>> Hi Jason,
+>>>
+>>> I started doing some more testing with the multiqueue TUN changes and I ran 
+>>> into a problem when running tunctl: running it once w/o arguments works as 
+>>> expected, but running it a second time results in failure and a 
+>>> kmem_cache_sanity_check() failure.  The problem appears to be very repeatable 
+>>> on my test VM and happens independent of the LSM/SELinux fixup patches.
+>>>
+>>> Have you seen this before?
+>>>
+>> Obviously code in tun_flow_init() is wrong...
+>>
+>> static int tun_flow_init(struct tun_struct *tun)
+>> {
+>>         int i;
+>>
+>>         tun->flow_cache = kmem_cache_create("tun_flow_cache",
+>>                                             sizeof(struct tun_flow_entry), 0, 0,
+>>                                             NULL);
+>>         if (!tun->flow_cache)
+>>                 return -ENOMEM;
+>> ...
+>> }
+>>
+>>
+>> I have no idea why we would need a kmem_cache per tun_struct,
+>> and why we even need a kmem_cache.
+> Normally flow malloc/free should be good enough.
+> It might make sense to use private kmem_cache if doing hlist_nulls.
+>
+>
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Sorry about that, thanks for the quick fix Eric.
+Should be at least a global cache, I thought I can get some speed-up by
+using kmem_cache.
 
--Brian
+Acked-by: Jason Wang <jasowang@redhat.com>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
