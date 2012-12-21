@@ -1,65 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: sched: integer overflow fix
-Date: Fri, 21 Dec 2012 16:11:35 -0800
-Message-ID: <1356135095.21834.8106.camel@edumazet-glaptop>
-References: <1356122364-1418-1-git-send-email-hasko.stevo@gmail.com>
-	 <1356130308.21834.8014.camel@edumazet-glaptop>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [RFC] IP_MAX_MTU value
+Date: Sat, 22 Dec 2012 03:45:29 +0400
+Message-ID: <20121221234529.GA4938@ms2.inr.ac.ru>
+References: <1356072468.21834.4805.camel@edumazet-glaptop> <20121221.115910.1536088448298730991.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Vimalkumar <j.vimal@gmail.com>
-To: Stefan Hasko <hasko.stevo@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: erdnetdev@gmail.com, netdev@vger.kernel.org, rick.jones2@hp.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:54209 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750766Ab2LVALi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 19:11:38 -0500
-In-Reply-To: <1356130308.21834.8014.camel@edumazet-glaptop>
+Received: from minus.inr.ac.ru ([194.67.69.97]:36366 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1750766Ab2LVAOA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2012 19:14:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20121221.115910.1536088448298730991.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-12-21 at 14:51 -0800, Eric Dumazet wrote:
-> On Fri, 2012-12-21 at 21:39 +0100, Stefan Hasko wrote:
-> > Fixed integer overflow in function htb_dequeue
+On Fri, Dec 21, 2012 at 11:59:10AM -0800, David Miller wrote:
+> From: Eric Dumazet <erdnetdev@gmail.com>
+> > Changing IP_MAX_MTU from 0xFFF0 to 0x10000 seems safe [1], but I might
+> > miss something really obvious ?
+
+Maximal IP MTU is 65535 (due to iph->len).
+
+
+> > It might be because in old days we reserved 16 bytes for the ethernet
+> > header, and we wanted to avoid kmalloc() round-up to kmalloc-131072
+> > slab ?
 > > 
-> > Signed-off-by: Stefan Hasko <hasko.stevo@gmail.com>
-> > ---
-> >  net/sched/sch_htb.c |    2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-> > index d2922c0..1bd3faa 100644
-> > --- a/net/sched/sch_htb.c
-> > +++ b/net/sched/sch_htb.c
-> > @@ -919,7 +919,7 @@ ok:
-> >  	q->now = ktime_to_ns(ktime_get());
-> >  	start_at = jiffies;
-> >  
-> > -	next_event = q->now + 5 * NSEC_PER_SEC;
-> > +	next_event = q->now + (u32)5 * NSEC_PER_SEC;
-> >  
-> >  	for (level = 0; level < TC_HTB_MAXDEPTH; level++) {
-> >  		/* common case optimization - skip event handler quickly */
+> > If so, we certainly can limit skb->head to 32 or 64 KB and complete with
+> > page fragments the remaining space.
 > 
-> But this patch is wrong !
+> I don't think it has to do with kmalloc() at all.
 > 
+> Maybe something strange to do with the fact that each frag has to
+> be an 8-byte multiple, or something like that?
+> 
+> Alexey choose this value back in 1998, maybe he remembers the
+> reason for the strange value.
 
-Please resend your patch using something like
+Vaguely. I do not think it was something clever.
 
-It will work much better.
+Apparently, this was done while implementing IPv6 jumbo frames.
+dev->mtu was allowed to be arbitrarily high and for use with IPv4 it had
+to be clamped at some reasonable value. This value should be 65535, of course.
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index d2922c0..51561ea 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -919,7 +919,7 @@ ok:
- 	q->now = ktime_to_ns(ktime_get());
- 	start_at = jiffies;
- 
--	next_event = q->now + 5 * NSEC_PER_SEC;
-+	next_event = q->now + 5LLU * NSEC_PER_SEC;
- 
- 	for (level = 0; level < TC_HTB_MAXDEPTH; level++) {
- 		/* common case optimization - skip event handler quickly */
+Here was a problem: apparently, when experimenting with jumbo frames I used
+virtual device (loopback?) setting some crazy values for mtu there. And it looked
+dubious that nicely aligned device mtu sort of 256K converted to perverted odd
+value 65535 for IP. This value would be translated to odd value for mss and so on.
+Nothing fatal, but forcing tcp segmentation to an odd value looked too weird.
+
+So, I just decided to apply some bound which looked sane, safe and aligned. :-)
+Note that values of mtu > 65280 (or something like that, which was used by some funny hippi device)
+were purely of theoritical value, they were used only to experiment with jumbo frames or for stress
+testing, so actual value did not have any meaning.
