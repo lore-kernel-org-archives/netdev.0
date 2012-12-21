@@ -1,130 +1,99 @@
-From: Lee Jones <lee.jones@linaro.org>
-Subject: [PATCH 4/4 v2] net/smsc911x: Provide common clock functionality
-Date: Fri, 21 Dec 2012 11:41:05 +0000
-Message-ID: <20121221114105.GP2691@gmail.com>
-References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
- <1355937587-31730-4-git-send-email-lee.jones@linaro.org>
- <CACRpkda79O_b3Z8g7Sy7vMtW9neZU4x-Z=iEQgjqu4X5tFKyhw@mail.gmail.com>
- <20121220192441.GC14363@n2100.arm.linux.org.uk>
- <20121220203514.GN2691@gmail.com>
- <20121220205113.GD14363@n2100.arm.linux.org.uk>
- <20121221091306.GO2691@gmail.com>
- <20121221092421.GG14363@n2100.arm.linux.org.uk>
+From: Hemmo Nieminen <hemmo.nieminen@iki.fi>
+Subject: [RFC] Route lost when src address is removed.
+Date: Fri, 21 Dec 2012 14:09:53 +0200
+Message-ID: <20121221120953.GC15934@fcku.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Walleij <linus.walleij@linaro.org>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	Robert Marklund <robert.marklund@stericsson.com>,
-	linus.walleij@stericsson.com, arnd@arndb.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: multipart/mixed; boundary="mYCpIKhGyMATD0i+"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f45.google.com ([209.85.214.45]:41585 "EHLO
-	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750868Ab2LULlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 06:41:11 -0500
-Received: by mail-bk0-f45.google.com with SMTP id jk13so2290170bkc.18
-        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 03:41:09 -0800 (PST)
+Received: from mail-la0-f49.google.com ([209.85.215.49]:42163 "EHLO
+	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751112Ab2LUMJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 07:09:38 -0500
+Received: by mail-la0-f49.google.com with SMTP id r15so4808052lag.8
+        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 04:09:37 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20121221092421.GG14363@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some platforms provide clocks which require enabling before the
-SMSC911x chip will power on. This patch uses the new common clk
-framework to do just that. If no clock is provided, it will just
-be ignored and the driver will continue to assume that no clock
-is required for the chip to run successfully.
 
-Cc: Steve Glendinning <steve.glendinning@shawell.net>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Lee Jones <lee.jones@linaro.org>
----
- drivers/net/ethernet/smsc/smsc911x.c |   29 ++++++++++++++++++++++++++++-
- 1 file changed, 28 insertions(+), 1 deletion(-)
+--mYCpIKhGyMATD0i+
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index e112877..afa4d62 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -33,6 +33,7 @@
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
- #include <linux/crc32.h>
-+#include <linux/clk.h>
- #include <linux/delay.h>
- #include <linux/errno.h>
- #include <linux/etherdevice.h>
-@@ -144,6 +145,9 @@ struct smsc911x_data {
- 
- 	/* regulators */
- 	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
-+
-+	/* clock */
-+	struct clk *clk;
- };
- 
- /* Easy access to information */
-@@ -369,7 +373,7 @@ out:
- }
- 
- /*
-- * enable resources, currently just regulators.
-+ * enable regulator and clock resources.
-  */
- static int smsc911x_enable_resources(struct platform_device *pdev)
- {
-@@ -382,6 +386,13 @@ static int smsc911x_enable_resources(struct platform_device *pdev)
- 	if (ret)
- 		netdev_err(ndev, "failed to enable regulators %d\n",
- 				ret);
-+
-+	if (IS_ERR(pdata->clk)) {
-+		ret = clk_prepare_enable(pdata->clk);
-+		if (ret < 0)
-+			netdev_err(ndev, "failed to enable clock %d\n", ret);
-+	}
-+
- 	return ret;
- }
- 
-@@ -396,6 +407,10 @@ static int smsc911x_disable_resources(struct platform_device *pdev)
- 
- 	ret = regulator_bulk_disable(ARRAY_SIZE(pdata->supplies),
- 			pdata->supplies);
-+
-+	if (IS_ERR(pdata->clk))
-+		clk_disable_unprepare(pdata->clk);
-+
- 	return ret;
- }
- 
-@@ -421,6 +436,12 @@ static int smsc911x_request_resources(struct platform_device *pdev)
- 	if (ret)
- 		netdev_err(ndev, "couldn't get regulators %d\n",
- 				ret);
-+
-+	/* Request clock */
-+	pdata->clk = clk_get(&pdev->dev, NULL);
-+	if (IS_ERR(pdata->clk))
-+		netdev_warn(ndev, "couldn't get clock %li\n", PTR_ERR(pdata->clk));
-+
- 	return ret;
- }
- 
-@@ -436,6 +457,12 @@ static void smsc911x_free_resources(struct platform_device *pdev)
- 	/* Free regulators */
- 	regulator_bulk_free(ARRAY_SIZE(pdata->supplies),
- 			pdata->supplies);
-+
-+	/* Free clock */
-+	if (IS_ERR(pdata->clk)) {
-+		clk_put(pdata->clk);
-+		pdata->clk = NULL;
-+	}
- }
- 
- /* waits for MAC not busy, with timeout.  Only called by smsc911x_mac_read
+Hi,
+
+A route is lost to a subnet, even if it still has addresses
+in that subnet.
+
+In normal situations, it seems, a route's source address is the
+same as the subnet's primary address and if it gets removed, the
+route's source address is updated to be the new primary address.
+
+If, however, the route's source address has been changed to some
+other IP address than the primary address, the route is lost
+when the source address is removed. This leaves us with IP
+addresses in a subnet but no route to that subnet.
+
+I encountered this and was not able to figure out whether this
+behaviour is intentional or not? I would sort of expect the
+route the be updated to have e.g. the primary address as the new
+source address but perhaps not in all cases... What do you
+think?
+
+Attached below an example run that should also include all the
+information needed to reproduce this.
+
 -- 
-1.7.9.5
+Hemmo
+
+--mYCpIKhGyMATD0i+
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: attachment; filename="route.log"
+
+[root@fcku ~]# ip a s eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 00:23:54:20:73:3e brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.105/24 brd 192.168.1.255 scope global eth0
+    inet6 fe80::223:54ff:fe20:733e/64 scope link 
+       valid_lft forever preferred_lft forever
+[root@fcku ~]# ip a a 1.1.1.1/24 dev eth0
+[root@fcku ~]# ip a a 1.1.1.2/24 dev eth0
+[root@fcku ~]# ip a a 1.1.1.3/24 dev eth0
+[root@fcku ~]# ip a s eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 00:23:54:20:73:3e brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.105/24 brd 192.168.1.255 scope global eth0
+    inet 1.1.1.1/24 scope global eth0
+    inet 1.1.1.2/24 scope global secondary eth0
+    inet 1.1.1.3/24 scope global secondary eth0
+    inet6 fe80::223:54ff:fe20:733e/64 scope link 
+       valid_lft forever preferred_lft forever
+[root@fcku ~]# ip r s
+default via 192.168.1.1 dev eth0  metric 202 
+1.1.1.0/24 dev eth0  proto kernel  scope link  src 1.1.1.1 
+192.168.1.0/24 dev eth0  proto kernel  scope link  src 192.168.1.105  metric 202 
+[root@fcku ~]# ip r replace 1.1.1.0/24 dev eth0  proto kernel  scope link  src 1.1.1.2
+[root@fcku ~]# ip r s
+default via 192.168.1.1 dev eth0  metric 202 
+1.1.1.0/24 dev eth0  proto kernel  scope link  src 1.1.1.2 
+192.168.1.0/24 dev eth0  proto kernel  scope link  src 192.168.1.105  metric 202 
+[root@fcku ~]# ip a d 1.1.1.2/24 dev eth0
+[root@fcku ~]# ip a s eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 00:23:54:20:73:3e brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.105/24 brd 192.168.1.255 scope global eth0
+    inet 1.1.1.1/24 scope global eth0
+    inet 1.1.1.3/24 scope global secondary eth0
+    inet6 fe80::223:54ff:fe20:733e/64 scope link 
+       valid_lft forever preferred_lft forever
+[root@fcku ~]# ip r s
+default via 192.168.1.1 dev eth0  metric 202 
+192.168.1.0/24 dev eth0  proto kernel  scope link  src 192.168.1.105  metric 202 
+[root@fcku ~]# uname -a
+Linux fcku 3.6.10-1-ARCH #1 SMP PREEMPT Tue Dec 11 09:40:17 CET 2012 x86_64 GNU/Linux
+[root@fcku ~]# ip -V
+ip utility, iproute2-ss121001
+[root@fcku ~]# 
+
+--mYCpIKhGyMATD0i+--
