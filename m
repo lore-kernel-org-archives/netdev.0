@@ -1,66 +1,44 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: perm_addr get
-Date: Fri, 21 Dec 2012 14:25:00 +0100
-Message-ID: <20121221132500.GC2040@minipsycho.orion>
-References: <20121221130127.GB2040@minipsycho.orion>
- <1356095395.7055.34.camel@deadeye.wl.decadent.org.uk>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
+Date: Fri, 21 Dec 2012 08:50:32 -0500
+Message-ID: <50D46928.9070809@mojatatu.com>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com> <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com> <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr> <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com> <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com> <50D06177.2090905@mojatatu.com> <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com> <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com> <50D2D229.6040802@gmail.com> <50D305FD.7000901@mojatatu.com> <50D327CD.3050904@gmail.com> <50D45E25.7050703@mojatatu.com> <50D46060.2070308@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:49340 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752010Ab2LUNZE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 08:25:04 -0500
-Received: by mail-ee0-f48.google.com with SMTP id b57so2347312eek.7
-        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 05:25:02 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1356095395.7055.34.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hasan Chowdhury <shemonc@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jan Engelhardt <jengelh@inai.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: Yury Stankevich <urykhy@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <50D46060.2070308@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Dec 21, 2012 at 02:09:55PM CET, bhutchings@solarflare.com wrote:
->On Fri, 2012-12-21 at 14:01 +0100, Jiri Pirko wrote:
->> Hi all.
->> 
->> From what I understand dev->perm_addr is set only in case the hw has
->> permanent hw address somewhere written (for example EPROM).
->> 
->> So when I query device which does not have perm_addr set I get:
->> 
->> testt1:~$ ethtool -P team0
->> Permanent address: 00:00:00:00:00:00
->> 
->> Is this the correct behaviour? Wouldn't it be more correct if
->> ethtool_get_perm_addr() fails with -ENOENT for something like that?
+On 12-12-21 08:13 AM, Yury Stankevich wrote:
+
+> sure,
+> i use it ingress,
+> so, i need to use tc xt action
+> to get mark on the packet, before filter on ifb will run.
+
+Ok. So does ifb see it?
+
+> prerouting rule, in turn, used to test if mark was actually restored.
+
+No experience with connmark, but - in order to restore something has
+to store it, correct?
+
+> in practice:
+> 1. prerouting rule - is not fired. so, no packets with mark was seen.
+> 2. filter on ifb - do not pass traffic to flow configured.
+> looks like `CONNMARK --restore` is not really called.
 >
->I don't think we should change the implementation now, as someone might
->depend on it.  It's trivial to distinguish this not-a-permanent-address
->case.  However the ethtool command output could be improved.
 
-Well, not change it even if it is not correct? And by "trivial to distinguish"
-you mean 00:00:00:00:00:00 ~ device has no permanent address?
-But in some cases (like vxge, mac80211) it's possible to see 00:00:00:00:00:00
-by ethtool -P even though the device has permanent address (set later on, after
-register_netdev call).
+My suspicion is that it is not set to begin with...
 
-I think that ethtool_get_perm_addr should return:
--ENOENT if dev has no perm addr
--EAGAIN if dev perm addr hasn't been obtained yet
-0 (and addr) in other cases
-	
-And how exactly should be the ethtool output improved?
+cheers,
+jamal
 
-Thanks
-
-Jiri
-
->
->Ben.
->
->-- 
->Ben Hutchings, Staff Engineer, Solarflare
->Not speaking for my employer; that's the marketing department's job.
->They asked us to note that Solarflare product names are trademarked.
->
