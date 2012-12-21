@@ -1,43 +1,130 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: bonding driver - how to recognize the active slave
-Date: Fri, 21 Dec 2012 12:34:33 +0100
-Message-ID: <20121221113433.GA2040@minipsycho.orion>
-References: <BA0B6857ABCA474FB07F0DA6F50A3077918B2450@MTRDAG01.mtl.com>
- <1356038370.21834.3315.camel@edumazet-glaptop>
- <CAJZOPZLOj2QCWN75hAsQnmB=YiSGRhdhzf4ODhAD-QoU+Y0ZGg@mail.gmail.com>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: [PATCH 4/4 v2] net/smsc911x: Provide common clock functionality
+Date: Fri, 21 Dec 2012 11:41:05 +0000
+Message-ID: <20121221114105.GP2691@gmail.com>
+References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
+ <1355937587-31730-4-git-send-email-lee.jones@linaro.org>
+ <CACRpkda79O_b3Z8g7Sy7vMtW9neZU4x-Z=iEQgjqu4X5tFKyhw@mail.gmail.com>
+ <20121220192441.GC14363@n2100.arm.linux.org.uk>
+ <20121220203514.GN2691@gmail.com>
+ <20121220205113.GD14363@n2100.arm.linux.org.uk>
+ <20121221091306.GO2691@gmail.com>
+ <20121221092421.GG14363@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <erdnetdev@gmail.com>,
-	Erez Shitrit <erezsh@mellanox.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Cc: Linus Walleij <linus.walleij@linaro.org>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	Robert Marklund <robert.marklund@stericsson.com>,
+	linus.walleij@stericsson.com, arnd@arndb.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f47.google.com ([74.125.83.47]:51369 "EHLO
-	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729Ab2LULeh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 06:34:37 -0500
-Received: by mail-ee0-f47.google.com with SMTP id e51so2284977eek.6
-        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 03:34:36 -0800 (PST)
+Received: from mail-bk0-f45.google.com ([209.85.214.45]:41585 "EHLO
+	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750868Ab2LULlL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 06:41:11 -0500
+Received: by mail-bk0-f45.google.com with SMTP id jk13so2290170bkc.18
+        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 03:41:09 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <CAJZOPZLOj2QCWN75hAsQnmB=YiSGRhdhzf4ODhAD-QoU+Y0ZGg@mail.gmail.com>
+In-Reply-To: <20121221092421.GG14363@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Dec 20, 2012 at 11:21:00PM CET, or.gerlitz@gmail.com wrote:
->On Thu, Dec 20, 2012 at 11:19 PM, Eric Dumazet <erdnetdev@gmail.com> wrote:
->> cat /sys/class/net/bond0/bonding/active_slave
->
->sure, I think Erez would like to know that from within a network
->device kernel code, e.g maybe register to netdev kernel events and on
->the event of bonding fail-over identify the active slave for
->active-backup mode, etc.
+Some platforms provide clocks which require enabling before the
+SMSC911x chip will power on. This patch uses the new common clk
+framework to do just that. If no clock is provided, it will just
+be ignored and the driver will continue to assume that no clock
+is required for the chip to run successfully.
 
-I wonder why device should care of such thing? Would it behave
-differently?
+Cc: Steve Glendinning <steve.glendinning@shawell.net>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Lee Jones <lee.jones@linaro.org>
+---
+ drivers/net/ethernet/smsc/smsc911x.c |   29 ++++++++++++++++++++++++++++-
+ 1 file changed, 28 insertions(+), 1 deletion(-)
 
->
->Or.
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index e112877..afa4d62 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -33,6 +33,7 @@
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
+ #include <linux/crc32.h>
++#include <linux/clk.h>
+ #include <linux/delay.h>
+ #include <linux/errno.h>
+ #include <linux/etherdevice.h>
+@@ -144,6 +145,9 @@ struct smsc911x_data {
+ 
+ 	/* regulators */
+ 	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
++
++	/* clock */
++	struct clk *clk;
+ };
+ 
+ /* Easy access to information */
+@@ -369,7 +373,7 @@ out:
+ }
+ 
+ /*
+- * enable resources, currently just regulators.
++ * enable regulator and clock resources.
+  */
+ static int smsc911x_enable_resources(struct platform_device *pdev)
+ {
+@@ -382,6 +386,13 @@ static int smsc911x_enable_resources(struct platform_device *pdev)
+ 	if (ret)
+ 		netdev_err(ndev, "failed to enable regulators %d\n",
+ 				ret);
++
++	if (IS_ERR(pdata->clk)) {
++		ret = clk_prepare_enable(pdata->clk);
++		if (ret < 0)
++			netdev_err(ndev, "failed to enable clock %d\n", ret);
++	}
++
+ 	return ret;
+ }
+ 
+@@ -396,6 +407,10 @@ static int smsc911x_disable_resources(struct platform_device *pdev)
+ 
+ 	ret = regulator_bulk_disable(ARRAY_SIZE(pdata->supplies),
+ 			pdata->supplies);
++
++	if (IS_ERR(pdata->clk))
++		clk_disable_unprepare(pdata->clk);
++
+ 	return ret;
+ }
+ 
+@@ -421,6 +436,12 @@ static int smsc911x_request_resources(struct platform_device *pdev)
+ 	if (ret)
+ 		netdev_err(ndev, "couldn't get regulators %d\n",
+ 				ret);
++
++	/* Request clock */
++	pdata->clk = clk_get(&pdev->dev, NULL);
++	if (IS_ERR(pdata->clk))
++		netdev_warn(ndev, "couldn't get clock %li\n", PTR_ERR(pdata->clk));
++
+ 	return ret;
+ }
+ 
+@@ -436,6 +457,12 @@ static void smsc911x_free_resources(struct platform_device *pdev)
+ 	/* Free regulators */
+ 	regulator_bulk_free(ARRAY_SIZE(pdata->supplies),
+ 			pdata->supplies);
++
++	/* Free clock */
++	if (IS_ERR(pdata->clk)) {
++		clk_put(pdata->clk);
++		pdata->clk = NULL;
++	}
+ }
+ 
+ /* waits for MAC not busy, with timeout.  Only called by smsc911x_mac_read
+-- 
+1.7.9.5
