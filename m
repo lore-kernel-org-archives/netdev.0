@@ -1,50 +1,43 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: TCP sequence number inference attack on Linux
-Date: Fri, 21 Dec 2012 11:30:34 -0800
-Message-ID: <1356118234.21834.7800.camel@edumazet-glaptop>
-References: <CALvgte86miv450KnOcFRR-oEm_f=qRXarDfQkyU7T3OLqq816A@mail.gmail.com>
-	 <1356114663.21834.7697.camel@edumazet-glaptop>
-	 <1356115931.21834.7745.camel@edumazet-glaptop>
-	 <CALvgte-=v=bRnQ2HPDxyqxBOjD6DXp_BUySW6Hm7h+81M+RYMA@mail.gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: IPv6 over Firewire
+Date: Sat, 22 Dec 2012 04:49:03 +0900
+Message-ID: <50D4BD2F.7060006@linux-ipv6.org>
+References: <50D49659.1000101@gmail.com> <50D4A219.7080807@linux-ipv6.org> <50D4ACFA.6040901@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Zhiyun Qian <zhiyunq@umich.edu>
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: stephan.gatzka@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f45.google.com ([209.85.210.45]:39666 "EHLO
-	mail-da0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729Ab2LUTag (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 14:30:36 -0500
-Received: by mail-da0-f45.google.com with SMTP id w4so2223162dam.4
-        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 11:30:36 -0800 (PST)
-In-Reply-To: <CALvgte-=v=bRnQ2HPDxyqxBOjD6DXp_BUySW6Hm7h+81M+RYMA@mail.gmail.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:33335 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752090Ab2LUTtF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 14:49:05 -0500
+In-Reply-To: <50D4ACFA.6040901@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-12-21 at 14:13 -0500, Zhiyun Qian wrote:
-> That seems like a good idea. I am not sure how it is implemented
-> though. Is it a new feature of Linux? Would you mind sending some
-> pointers for this?
+Stephan Gatzka wrote:
+> 
+>> If you are talking about how to build NS/NA/RS/Redirect messages, you
+>> can just use ndisc_opt_addr_space() and ndisc_fill_addr_option() here.
+> 
+> Thanks, these functions are certainly helpful. But ndisc_opt_addr_space() calculates the required space from dev->addr_len and ndisc_addr_option_pad(dev->type). The latter is 0 for IEEE1394 (firewire). So the required option space just comes from dev->addr_len, which is 8 for firewire, resulting in an option address space of 16 (2 octets).
+> 
+> But rfc3146 requires an option address space of 3 octets. So my main question is if in such a situation the best is to reserve additional skb tail room using needed_tailroom in struct netdevice. This directly affects the memory allocated in ndisc_build_skb().
 
-I dont have details, I only remember having to fix a memory allocation
-error that was hitting Chrome users.
+Something like this:
 
+ static inline int ndisc_opt_addr_space(struct net_device *dev)
+ {
+-       return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
++       switch (dev->type) {
++       case ARPHRD_IEEE1394:
++               return sizeof(struct ndisc_opt_ieee1394_llinfo);
++       default:
++               return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
++       }
+ }
 
-http://comments.gmane.org/gmane.linux.network/249535
-
-
-Julien said at that time :
-
-<quote>
-It happens when users start Chrome. Chrome will create one new network
-NS (for the sandbox).
-
-This has been used for a few years now, but we had our first report in
-January of this year and we've been getting a few reports very
-recently at a rate that is starting to worry me (crbug.com/110756).
-
-Thanks a lot for helping with this!
-
-Julien
-</quote>
+--yoshfuji
