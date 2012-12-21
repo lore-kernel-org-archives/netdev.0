@@ -1,53 +1,65 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
-Date: Fri, 21 Dec 2012 07:45:20 -0800
-Message-ID: <1356104720.21834.7497.camel@edumazet-glaptop>
-References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com>
-	 <50CCE961.5050204@mojatatu.com>
-	 <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr>
-	 <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com>
-	 <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com>
-	 <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr>
-	 <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com>
-	 <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com>
-	 <50D06177.2090905@mojatatu.com>
-	 <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com>
-	 <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com>
-	 <50D2D229.6040802@gmail.com> <50D305FD.7000901@mojatatu.com>
-	 <50D327CD.3050904@gmail.com> <50D45E25.7050703@mojatatu.com>
-	 <50D46060.2070308@gmail.com> <50D46928.9070809@mojatatu.com>
-	 <alpine.LNX.2.01.1212211533360.957@nerf07.vanv.qr>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: TUN problems (regression?)
+Date: Fri, 21 Dec 2012 11:27:57 -0500
+Message-ID: <2090364.S7KStA6R4d@sifl>
+References: <4151394.nMo40zlg68@sifl> <1356046697.21834.3606.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Yury Stankevich <urykhy@gmail.com>,
-	Hasan Chowdhury <shemonc@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	pablo@netfilter.org, netfilter-devel@vger.kernel.org
-To: Jan Engelhardt <jengelh@inai.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:63450 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752159Ab2LUPpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 10:45:24 -0500
-In-Reply-To: <alpine.LNX.2.01.1212211533360.957@nerf07.vanv.qr>
+Received: from mx1.redhat.com ([209.132.183.28]:3491 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751091Ab2LUQ23 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2012 11:28:29 -0500
+In-Reply-To: <1356046697.21834.3606.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-12-21 at 15:35 +0100, Jan Engelhardt wrote:
-
+On Thursday, December 20, 2012 03:38:17 PM Eric Dumazet wrote:
+> On Thu, 2012-12-20 at 18:16 -0500, Paul Moore wrote:
+> > [CC'ing netdev in case this is a known problem I just missed ...]
+> > 
+> > Hi Jason,
+> > 
+> > I started doing some more testing with the multiqueue TUN changes and I
+> > ran
+> > into a problem when running tunctl: running it once w/o arguments works as
+> > expected, but running it a second time results in failure and a
+> > kmem_cache_sanity_check() failure.  The problem appears to be very
+> > repeatable on my test VM and happens independent of the LSM/SELinux fixup
+> > patches.
+> > 
+> > Have you seen this before?
 > 
-> The bigger problem here, if I see __netif_receive_skb right, is that
-> when ingress rules run, skb->nfct is still unset, thereby the
-> CONNMARK action is a no-op.
+> Obviously code in tun_flow_init() is wrong...
+> 
+> static int tun_flow_init(struct tun_struct *tun)
+> {
+>         int i;
+> 
+>         tun->flow_cache = kmem_cache_create("tun_flow_cache",
+>                                             sizeof(struct tun_flow_entry),
+> 0, 0, NULL);
+>         if (!tun->flow_cache)
+>                 return -ENOMEM;
+> ...
+> }
+> 
+> 
+> I have no idea why we would need a kmem_cache per tun_struct,
+> and why we even need a kmem_cache.
+> 
+> 
+> I would try following patch :
+> 
+>  drivers/net/tun.c |   24 +++---------------------
+>  1 file changed, 3 insertions(+), 21 deletions(-)
 
-Right, ingress is performed before IP/netfilter stack.
+Thanks, that solved my problem.  Also, in case you were still curious, I was 
+using SLUB.
 
-This reminds me this might be the reason we have
-skb_reset_transport_header(skb);
-in __netif_receive_skb(), while its not very logical.
-
-(Yes, sorry for being off topic, but I am referring to 
-http://www.spinics.net/lists/netdev/msg214662.html )
+-- 
+paul moore
+security and virtualization @ redhat
