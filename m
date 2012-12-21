@@ -1,30 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv4: route: fix coding style issues net: ipv4:
- tcp: fix coding style issues
-Date: Thu, 20 Dec 2012 19:58:45 -0800 (PST)
-Message-ID: <20121220.195845.1150234133414058381.davem@davemloft.net>
-References: <1356013685-31649-1-git-send-email-hasko.stevo@gmail.com>
+Subject: Re: [PATCH] net: ipv4: route: fixed a coding style issues net:
+ ipv4: tcp: fixed a coding style issues
+Date: Thu, 20 Dec 2012 19:59:15 -0800 (PST)
+Message-ID: <20121220.195915.570657227615047555.davem@davemloft.net>
+References: <1355990910-3688-1-git-send-email-hasko.stevo@gmail.com>
+	<50D2FF86.3000603@6wind.com>
+	<1356017039.21834.2819.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+Cc: nicolas.dichtel@6wind.com, hasko.stevo@gmail.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
 	kaber@trash.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: hasko.stevo@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1356013685-31649-1-git-send-email-hasko.stevo@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: erdnetdev@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34731 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750917Ab2LUD7Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Dec 2012 22:59:16 -0500
+In-Reply-To: <1356017039.21834.2819.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Hasko <hasko.stevo@gmail.com>
-Date: Thu, 20 Dec 2012 15:28:05 +0100
+From: Eric Dumazet <erdnetdev@gmail.com>
+Date: Thu, 20 Dec 2012 07:23:59 -0800
 
-> Fix a coding style issues.
-> 
-> Signed-off-by: Stefan Hasko <hasko.stevo@gmail.com>
+> Such "coding style" patches are a real pain when trying to fix bugs,
+> especially dealing with stable/old kernels.
 
-Again, I am absolutely not applying a whole-sale coding
-style patch to this file.
-
-Do not submit this patch again, regardless of what other
-feedback you might have gotten.
+Totally agreed, and I refuse to apply such patches.
