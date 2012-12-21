@@ -1,42 +1,45 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: IPv6 over Firewire
-Date: Sat, 22 Dec 2012 02:53:29 +0900
-Message-ID: <50D4A219.7080807@linux-ipv6.org>
-References: <50D49659.1000101@gmail.com>
+From: Mike Marciniszyn <mike.marciniszyn-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 0/2] Re-submit RDS patches
+Date: Fri, 21 Dec 2012 13:01:43 -0500
+Message-ID: <20121221175857.23716.46975.stgit@phlsvslse11.ph.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: stephan.gatzka@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:33214 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751130Ab2LURxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 12:53:31 -0500
-In-Reply-To: <50D49659.1000101@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: venkat.x.venkatsubra-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-(2012=E5=B9=B412=E6=9C=8822=E6=97=A5 02:03), Stephan Gatzka wrote:
+These fixes were originally submitted in
+https://oss.oracle.com/pipermail/rds-devel/2012-April/thread.html.
 
-> To make the address mapping to the firewire link layer RFC3146 mandat=
-es to use neighbor discovery with a certain format of the source/target=
- link-layer address option.
->=20
-> While it is not too complicated to build that up, I'm wondering how I=
- can reserve enough memory in the corresponding skb.
->=20
-> One possibility is to introduce some option padding in ndisc_addr_opt=
-ion_pad() but I think that's somehow weird.
->=20
-> The second option I see is to set needed_tailroom in struct netdevice=
- for firewire net devices. That's the way I would go for.
->=20
-> Because I'm not really familiar with the whole network infrastructure=
- in Linux, a confirmation for the way to go would be nice.
+The first patch fixes a DOA issue with RDS on qib and should
+be a stable patch as well.
 
-If you are talking about how to build NS/NA/RS/Redirect messages, you
-can just use ndisc_opt_addr_space() and ndisc_fill_addr_option() here.
+The second suppresses a warning message that is misleading when 
+a version has been correctly determined.
 
---yoshfuji
+These two patches were originally acked by the upstream maintainer
+and never merged.
+
+---
+
+Mike Marciniszyn (2):
+      IB/rds: Correct ib_api use with gs_dma_address/sg_dma_len
+      IB/rds: suppress incompatible protocol when version is known
+
+
+ net/rds/ib_cm.c   |   11 +++++------
+ net/rds/ib_recv.c |    9 ++++++---
+ 2 files changed, 11 insertions(+), 9 deletions(-)
+
+-- 
+Thanks!
+Mike Marciniszyn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
