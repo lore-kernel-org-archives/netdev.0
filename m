@@ -1,55 +1,109 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: IPv6 over Firewire
-Date: Sat, 22 Dec 2012 00:12:30 +0100
-Message-ID: <20121222001230.3fe92bef@stein>
-References: <50D49659.1000101@gmail.com>
-	<50D4A219.7080807@linux-ipv6.org>
-	<50D4ACFA.6040901@gmail.com>
-	<50D4BD2F.7060006@linux-ipv6.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH] CONFIG_HOTPLUG removal from networking core
+Date: Fri, 21 Dec 2012 15:44:29 -0800
+Message-ID: <20121221234429.GB13447@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	stephan.gatzka@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Bill Pemberton <wfp5p@virginia.edu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:36415 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751593Ab2LUXMu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 18:12:50 -0500
-In-Reply-To: <50D4BD2F.7060006@linux-ipv6.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:60386 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751555Ab2LUXlX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 18:41:23 -0500
+Received: by mail-pa0-f47.google.com with SMTP id fa10so3105689pad.34
+        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 15:41:23 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Dec 22 YOSHIFUJI Hideaki wrote:
-> Stephan Gatzka wrote:
-> > 
-> >> If you are talking about how to build NS/NA/RS/Redirect messages, you
-> >> can just use ndisc_opt_addr_space() and ndisc_fill_addr_option() here.
-> > 
-> > Thanks, these functions are certainly helpful. But ndisc_opt_addr_space() calculates the required space from dev->addr_len and ndisc_addr_option_pad(dev->type). The latter is 0 for IEEE1394 (firewire). So the required option space just comes from dev->addr_len, which is 8 for firewire, resulting in an option address space of 16 (2 octets).
-> > 
-> > But rfc3146 requires an option address space of 3 octets. So my main question is if in such a situation the best is to reserve additional skb tail room using needed_tailroom in struct netdevice. This directly affects the memory allocated in ndisc_build_skb().
-> 
-> Something like this:
-> 
->  static inline int ndisc_opt_addr_space(struct net_device *dev)
->  {
-> -       return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
-> +       switch (dev->type) {
-> +       case ARPHRD_IEEE1394:
-> +               return sizeof(struct ndisc_opt_ieee1394_llinfo);
-> +       default:
-> +               return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
-> +       }
->  }
+CONFIG_HOTPLUG is always enabled now, so remove the unused code that was
+trying to be compiled out when this option was disabled, in the
+networking core.
 
-Can't we increase dev->addr_len for RFC 3146 interfaces?
-Can't we add another dev->type besides ARPHRD_IEEE1394 (RFC 2734)?
+Cc: Bill Pemberton <wfp5p@virginia.edu>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
-Is a single dev instance transporting both IPv4 and IPv6 or will there be
-separate instances for those?
--- 
-Stefan Richter
--=====-===-- ==-- =-==-
-http://arcgraph.de/sr/
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 334efd5..28c5f5a 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1334,7 +1334,6 @@ struct kobj_ns_type_operations net_ns_type_operations = {
+ };
+ EXPORT_SYMBOL_GPL(net_ns_type_operations);
+ 
+-#ifdef CONFIG_HOTPLUG
+ static int netdev_uevent(struct device *d, struct kobj_uevent_env *env)
+ {
+ 	struct net_device *dev = to_net_dev(d);
+@@ -1353,7 +1352,6 @@ static int netdev_uevent(struct device *d, struct kobj_uevent_env *env)
+ exit:
+ 	return retval;
+ }
+-#endif
+ 
+ /*
+  *	netdev_release -- destroy and free a dead device.
+@@ -1382,9 +1380,7 @@ static struct class net_class = {
+ #ifdef CONFIG_SYSFS
+ 	.dev_attrs = net_class_attributes,
+ #endif /* CONFIG_SYSFS */
+-#ifdef CONFIG_HOTPLUG
+ 	.dev_uevent = netdev_uevent,
+-#endif
+ 	.ns_type = &net_ns_type_operations,
+ 	.namespace = net_namespace,
+ };
+diff --git a/net/wireless/reg.c b/net/wireless/reg.c
+index 6e53089..82c4fc7 100644
+--- a/net/wireless/reg.c
++++ b/net/wireless/reg.c
+@@ -2365,7 +2365,6 @@ int set_regdom(const struct ieee80211_regdomain *rd)
+ 	return r;
+ }
+ 
+-#ifdef CONFIG_HOTPLUG
+ int reg_device_uevent(struct device *dev, struct kobj_uevent_env *env)
+ {
+ 	if (last_request && !last_request->processed) {
+@@ -2377,12 +2376,6 @@ int reg_device_uevent(struct device *dev, struct kobj_uevent_env *env)
+ 
+ 	return 0;
+ }
+-#else
+-int reg_device_uevent(struct device *dev, struct kobj_uevent_env *env)
+-{
+-	return -ENODEV;
+-}
+-#endif /* CONFIG_HOTPLUG */
+ 
+ void wiphy_regulatory_register(struct wiphy *wiphy)
+ {
+diff --git a/net/wireless/sysfs.c b/net/wireless/sysfs.c
+index 9bf6d5e..1f6f01e 100644
+--- a/net/wireless/sysfs.c
++++ b/net/wireless/sysfs.c
+@@ -77,13 +77,11 @@ static void wiphy_dev_release(struct device *dev)
+ 	cfg80211_dev_free(rdev);
+ }
+ 
+-#ifdef CONFIG_HOTPLUG
+ static int wiphy_uevent(struct device *dev, struct kobj_uevent_env *env)
+ {
+ 	/* TODO, we probably need stuff here */
+ 	return 0;
+ }
+-#endif
+ 
+ static int wiphy_suspend(struct device *dev, pm_message_t state)
+ {
+@@ -134,9 +132,7 @@ struct class ieee80211_class = {
+ 	.owner = THIS_MODULE,
+ 	.dev_release = wiphy_dev_release,
+ 	.dev_attrs = ieee80211_dev_attrs,
+-#ifdef CONFIG_HOTPLUG
+ 	.dev_uevent = wiphy_uevent,
+-#endif
+ 	.suspend = wiphy_suspend,
+ 	.resume = wiphy_resume,
+ 	.ns_type = &net_ns_type_operations,
