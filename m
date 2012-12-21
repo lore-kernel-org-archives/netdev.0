@@ -1,29 +1,64 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH 4/4] net/smsc911x: Provide common clock functionality
-Date: Fri, 21 Dec 2012 09:24:21 +0000
-Message-ID: <20121221092421.GG14363@n2100.arm.linux.org.uk>
-References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org> <1355937587-31730-4-git-send-email-lee.jones@linaro.org> <CACRpkda79O_b3Z8g7Sy7vMtW9neZU4x-Z=iEQgjqu4X5tFKyhw@mail.gmail.com> <20121220192441.GC14363@n2100.arm.linux.org.uk> <20121220203514.GN2691@gmail.com> <20121220205113.GD14363@n2100.arm.linux.org.uk> <20121221091306.GO2691@gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: PMTU discovery is broken on kernel 3.7.1 for UDP sockets
+Date: Fri, 21 Dec 2012 11:22:53 +0100
+Message-ID: <20121221102253.GO18940@secunet.com>
+References: <50D1BCC0.2000208@oktetlabs.ru>
+ <1355924119.2676.6.camel@bwh-desktop.uk.solarflarecom.com>
+ <50D1CECE.7090706@oktetlabs.ru>
+ <1355945864.2676.21.camel@bwh-desktop.uk.solarflarecom.com>
+ <20121220073445.GM18940@secunet.com>
+ <50D2F4E5.4050904@oktetlabs.ru>
+ <20121220123535.GN18940@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linus Walleij <linus.walleij@linaro.org>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	Robert Marklund <robert.marklund@stericsson.com>,
-	linus.walleij@stericsson.com, arnd@arndb.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Lee Jones <lee.jones@linaro.org>
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
+To: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:35356 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546Ab2LUJZk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 04:25:40 -0500
+Received: from a.mx.secunet.com ([195.81.216.161]:32983 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751131Ab2LUKW5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Dec 2012 05:22:57 -0500
 Content-Disposition: inline
-In-Reply-To: <20121221091306.GO2691@gmail.com>
+In-Reply-To: <20121220123535.GN18940@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 21, 2012 at 09:13:06AM +0000, Lee Jones wrote:
-> Are you saying remove "pdata->clk = NULL;" and test for IS_ERR
-> every time?
+On Thu, Dec 20, 2012 at 01:35:35PM +0100, Steffen Klassert wrote:
+> On Thu, Dec 20, 2012 at 03:22:13PM +0400, Yurij M. Plotnikov wrote:
+> > On 12/20/12 11:34, Steffen Klassert wrote:
+> > >
+> > >diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+> > >index 3c9d208..1049ce0 100644
+> > >--- a/net/ipv4/ip_sockglue.c
+> > >+++ b/net/ipv4/ip_sockglue.c
+> > >@@ -1198,7 +1198,7 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+> > >  	{
+> > >  		struct dst_entry *dst;
+> > >  		val = 0;
+> > >-		dst = sk_dst_get(sk);
+> > >+		dst = sk_dst_check(sk, 0);
+> > >  		if (dst) {
+> > >  			val = dst_mtu(dst);
+> > >  			dst_release(dst);
+> > With this patch kernel 3.7.1 works perfect. All described problems
+> > are fixed.
+> 
+> Thanks for testing!
+> 
+> I'm not sure if we can't use this as a fix. I think with this patch it
+> could happen that we return -ENOTCONN instead of a pmtu value on a
+> connected socket. Perhaps it is better to update the cached dst_entry in
+> ipv4_sk_update_pmtu() when we receive the -EMSGSIZE. I'll do some
+> investigation.
+> 
 
-Exactly.
+It turned out that updating the cached dst_entry in ipv4_sk_update_pmtu()
+is not trivial. We need to implement proper socket locking and we need
+socket release calback functions for all protocols that use
+ipv4_sk_update_pmtu(), similar to tcp.
+
+Today is my last office day for this year, so we probably have to defer
+a solution to the next year.
+
+Thanks.
