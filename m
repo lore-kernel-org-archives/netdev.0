@@ -1,75 +1,29 @@
-From: Lee Jones <lee.jones@linaro.org>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Subject: Re: [PATCH 4/4] net/smsc911x: Provide common clock functionality
-Date: Fri, 21 Dec 2012 09:13:06 +0000
-Message-ID: <20121221091306.GO2691@gmail.com>
-References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
- <1355937587-31730-4-git-send-email-lee.jones@linaro.org>
- <CACRpkda79O_b3Z8g7Sy7vMtW9neZU4x-Z=iEQgjqu4X5tFKyhw@mail.gmail.com>
- <20121220192441.GC14363@n2100.arm.linux.org.uk>
- <20121220203514.GN2691@gmail.com>
- <20121220205113.GD14363@n2100.arm.linux.org.uk>
+Date: Fri, 21 Dec 2012 09:24:21 +0000
+Message-ID: <20121221092421.GG14363@n2100.arm.linux.org.uk>
+References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org> <1355937587-31730-4-git-send-email-lee.jones@linaro.org> <CACRpkda79O_b3Z8g7Sy7vMtW9neZU4x-Z=iEQgjqu4X5tFKyhw@mail.gmail.com> <20121220192441.GC14363@n2100.arm.linux.org.uk> <20121220203514.GN2691@gmail.com> <20121220205113.GD14363@n2100.arm.linux.org.uk> <20121221091306.GO2691@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
- Robert Marklund <robert.marklund@stericsson.com>, linus.walleij@stericsson.com,
- arnd@arndb.de, netdev@vger.kernel.org,
- Linus Walleij <linus.walleij@linaro.org>, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Walleij <linus.walleij@linaro.org>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	Robert Marklund <robert.marklund@stericsson.com>,
+	linus.walleij@stericsson.com, arnd@arndb.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Lee Jones <lee.jones@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:35356 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751546Ab2LUJZk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 04:25:40 -0500
 Content-Disposition: inline
-In-Reply-To: <20121220205113.GD14363@n2100.arm.linux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20121221091306.GO2691@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVGh1LCAyMCBEZWMgMjAxMiwgUnVzc2VsbCBLaW5nIC0gQVJNIExpbnV4IHdyb3RlOgoKPiBP
-biBUaHUsIERlYyAyMCwgMjAxMiBhdCAwODozNToxNFBNICswMDAwLCBMZWUgSm9uZXMgd3JvdGU6
-Cj4gPiBPbiBUaHUsIDIwIERlYyAyMDEyLCBSdXNzZWxsIEtpbmcgLSBBUk0gTGludXggd3JvdGU6
-Cj4gPiAKPiA+ID4gT24gVGh1LCBEZWMgMjAsIDIwMTIgYXQgMDg6MTI6MDhQTSArMDEwMCwgTGlu
-dXMgV2FsbGVpaiB3cm90ZToKPiA+ID4gPiBPbiBXZWQsIERlYyAxOSwgMjAxMiBhdCA2OjE5IFBN
-LCBMZWUgSm9uZXMgPGxlZS5qb25lc0BsaW5hcm8ub3JnPiB3cm90ZToKPiA+ID4gPiAKPiA+ID4g
-PiA+IFNvbWUgcGxhdGZvcm1zIHByb3ZpZGUgY2xvY2tzIHdoaWNoIHJlcXVpcmUgZW5hYmxpbmcg
-YmVmb3JlIHRoZQo+ID4gPiA+ID4gU01TQzkxMXggY2hpcCB3aWxsIHBvd2VyIG9uLiBUaGlzIHBh
-dGNoIHVzZXMgdGhlIG5ldyBjb21tb24gY2xrCj4gPiA+ID4gPiBmcmFtZXdvcmsgdG8gZG8ganVz
-dCB0aGF0LiBJZiBubyBjbG9jayBpcyBwcm92aWRlZCwgaXQgd2lsbCBqdXN0Cj4gPiA+ID4gPiBi
-ZSBpZ25vcmVkIGFuZCB0aGUgZHJpdmVyIHdpbGwgY29udGludWUgdG8gYXNzdW1lIHRoYXQgbm8g
-Y2xvY2sKPiA+ID4gPiA+IGlzIHJlcXVpcmVkIGZvciB0aGUgY2hpcCB0byBydW4gc3VjY2Vzc2Z1
-bGx5Lgo+ID4gPiA+ID4KPiA+ID4gPiA+IENjOiBTdGV2ZSBHbGVuZGlubmluZyA8c3RldmUuZ2xl
-bmRpbm5pbmdAc2hhd2VsbC5uZXQ+Cj4gPiA+ID4gPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9y
-Zwo+ID4gPiA+ID4gU2lnbmVkLW9mZi1ieTogTGVlIEpvbmVzIDxsZWUuam9uZXNAbGluYXJvLm9y
-Zz4KPiA+ID4gPiAKPiA+ID4gPiBTZWVtcyB0byBtZSBsaWtlIGl0J2xsIGRvIHRoZSB0cmljay4K
-PiA+ID4gPiBBY2tlZC1ieTogTGludXMgV2FsbGVpaiA8bGludXMud2FsbGVpakBsaW5hcm8ub3Jn
-Pgo+ID4gPiAKPiA+ID4gVGhpcyBsb29rcyBmYWlybHkgZGFuZ2Vyb3VzLiAgV2hhdCBhYm91dCB0
-aG9zZSBwbGF0Zm9ybXMgd2hpY2ggdXNlIHRoaXMKPiA+ID4gZHJpdmVyLCBidXQgZG9uJ3QgcHJv
-dmlkZSBhIGNsb2NrIGZvciBpdD8KPiA+ID4gCj4gPiA+IEl0IGxvb2tzIGxpa2UgdGhpcyB3aWxs
-IHJlc3VsdCBpbiB0aG9zZSBwbGF0Zm9ybXMgbG9zaW5nIHRoZWlyIGV0aGVybmV0Cj4gPiA+IHN1
-cHBvcnQuICBUaGVyZSdzIGF0IGxlYXN0IGEgYnVuY2ggb2YgdGhlIEFSTSBldmFsdWF0aW9uIGJv
-YXJkcyB3aGljaAo+ID4gPiBtYWtlIHVzZSBvZiB0aGlzIGRyaXZlci4uLgo+ID4gCj4gPiBSaWdo
-dCwgYnV0IG5vdGhpbmcgc2hvdWxkIHJlZ3Jlc3MuIElmIG5vIGNsb2NrIGlzIHByb3ZpZGVkIHRo
-ZSBkcml2ZXIKPiA+IG1vdmVzIG9uIGR1cmluZyB0aGUgcmVxdWVzdCBhbmQgd2lsbCByZWZ1c2Ug
-dG8gcHJlcGFyZSwgZW5hYmxlIGFuZAo+ID4gZGlzYWJsZSB0aGVyZSBhZnRlci4gCj4gPiAKPiA+
-IFVubGVzcyBJJ3ZlIG1hZGUgYSBtaXN0YWtlIHNvbWV3aGVyZT8gSWYgc28sIEknZCBiZSBoYXBw
-eSB0byBmaXh1cC4KPiAKPiBObywgYnV0Li4uIGRvbid0IHVzZSBOVUxMIGZvciB0aGF0LiAgVXNl
-IElTX0VSUihwZGF0YS0+Y2xrKSBpbnN0ZWFkLgoKSSdtIGEgYml0IGNvbmZ1c2VkLiBJIGRvIHVz
-ZSBJU19FUlIsIHRoZW4gaWYgdGhlcmUgd2FzIGEgcHJvYmxlbQpwZGF0YS0+Y2xrIGlzIHNldCB0
-byBOVUxMLCB0aGVuIHdlIHRlc3QgZm9yIE5VTEwgdGhlcmVhZnRlcjoKCj4gLyogUmVxdWVzdCBj
-bG9jayAqLwo+IHBkYXRhLT5jbGsgPSBjbGtfZ2V0KCZwZGV2LT5kZXYsIE5VTEwpOwo+IGlmIChJ
-U19FUlIocGRhdGEtPmNsaykpIHsKPiAgICAgICAgIG5ldGRldl93YXJuKG5kZXYsICJjb3VsZG4n
-dCBnZXQgY2xvY2sgJWRcbiIsIFBUUl9FUlIocGRhdGEtPmNsaykpOwo+ICAgICAgICAgcGRhdGEt
-PmNsayA9IE5VTEw7Cj4gfQoKQXJlIHlvdSBzYXlpbmcgcmVtb3ZlICJwZGF0YS0+Y2xrID0gTlVM
-TDsiIGFuZCB0ZXN0IGZvciBJU19FUlIKZXZlcnkgdGltZT8KCi0tIApMZWUgSm9uZXMKTGluYXJv
-IFNULUVyaWNzc29uIExhbmRpbmcgVGVhbSBMZWFkCkxpbmFyby5vcmcg4pSCIE9wZW4gc291cmNl
-IHNvZnR3YXJlIGZvciBBUk0gU29DcwpGb2xsb3cgTGluYXJvOiBGYWNlYm9vayB8IFR3aXR0ZXIg
-fCBCbG9nCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwps
-aW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJh
-ZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51
-eC1hcm0ta2VybmVsCg==
+On Fri, Dec 21, 2012 at 09:13:06AM +0000, Lee Jones wrote:
+> Are you saying remove "pdata->clk = NULL;" and test for IS_ERR
+> every time?
+
+Exactly.
