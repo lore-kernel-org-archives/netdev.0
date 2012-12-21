@@ -1,25 +1,25 @@
 From: Thabopeter <thabopeter2011@gmail.com>
 Subject: INVESTMENT ASSISTANCE
-Date: Fri, 21 Dec 2012 00:24:33 -0800 (PST)
-Message-ID: <1356078273.49350.YahooMailRC@web5720.biz.mail.ne1.yahoo.com>
+Date: Fri, 21 Dec 2012 00:25:06 -0800 (PST)
+Message-ID: <1356078306.11004.YahooMailRC@web5712.biz.mail.ne1.yahoo.com>
 Reply-To: Thabopeter <thabopeters@hotmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="1181194666-1076079246-1356078273=:49350"
+Content-Type: multipart/mixed; boundary="941025335-17805849-1356078306=:11004"
 To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm21-vm10.bullet.mail.gq1.yahoo.com ([98.136.217.57]:31771 "EHLO
-	nm21-vm10.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751091Ab2LUIaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 03:30:04 -0500
+Received: from nm30-vm9.bullet.mail.gq1.yahoo.com ([98.136.216.200]:45162 "EHLO
+	nm30-vm9.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751696Ab2LUIa0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 03:30:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---1181194666-1076079246-1356078273=:49350
+--941025335-17805849-1356078306=:11004
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: quoted-printable
 
  =0AGood Day Kindly Open The Attachment File                        
---1181194666-1076079246-1356078273=:49350
+--941025335-17805849-1356078306=:11004
 Content-Type: application/msword; name=INVESTMENT
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="INVESTMENT ASSISTANCE.doc"
@@ -1106,4 +1106,4 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
 
---1181194666-1076079246-1356078273=:49350--
+--941025335-17805849-1356078306=:11004--
