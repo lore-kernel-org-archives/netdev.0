@@ -1,80 +1,54 @@
-From: Zhiyun Qian <zhiyunq@umich.edu>
-Subject: Re: TCP sequence number inference attack on Linux
-Date: Fri, 21 Dec 2012 14:49:03 -0500
-Message-ID: <CALvgte9WJRR95B5WCTavF0w3Kvf+MksZtyY4OQ=ioAe71BasCw@mail.gmail.com>
-References: <CALvgte86miv450KnOcFRR-oEm_f=qRXarDfQkyU7T3OLqq816A@mail.gmail.com>
-	<1356114663.21834.7697.camel@edumazet-glaptop>
-	<CALvgte9x4LWV8rsquKzNoVcXM14xZjvyuTgpHr-ynZXfGtzzpw@mail.gmail.com>
-	<1356118052.21834.7793.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] IP_MAX_MTU value
+Date: Fri, 21 Dec 2012 11:59:10 -0800 (PST)
+Message-ID: <20121221.115910.1536088448298730991.davem@davemloft.net>
+References: <1356072468.21834.4805.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <erdnetdev@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rick.jones2@hp.com, kuznet@ms2.inr.ac.ru
+To: erdnetdev@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:55658 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752068Ab2LUTtF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 14:49:05 -0500
-Received: by mail-wi0-f175.google.com with SMTP id hm11so5382063wib.14
-        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 11:49:03 -0800 (PST)
-In-Reply-To: <1356118052.21834.7793.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43978 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751293Ab2LUT7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 14:59:11 -0500
+In-Reply-To: <1356072468.21834.4805.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 21, 2012 at 2:27 PM, Eric Dumazet <erdnetdev@gmail.com> wrote:
-> On Fri, 2012-12-21 at 14:10 -0500, Zhiyun Qian wrote:
->> That's good to know. However, implementing RFC 5961 alone is not
->> sufficient. Like I said, since DelayedAckLost counter is incremented
->> purely upon looking at the sequence number, regardless of the ACK
->> number. An attacker thus can still infer the sequence number based on
->> DelayedAckLost counter without knowing the right ACK number.
->>
->
->
->
->> The next question is how can the attacker eventually know the right
->> ACK number in order to inject real data. It turns out that this is not
->> hard either. First, based on the current Linux TCP stack, it accepts
->> incoming packets without ACK flag.
->
-> I dont really think so.
->
-> We must discard frame is th->ack is not set. (Step 5, line 6142)
->
+From: Eric Dumazet <erdnetdev@gmail.com>
+Date: Thu, 20 Dec 2012 22:47:48 -0800
 
-If I am not mistaken, line 6142 in kernel v3.7.1 corresponds to
-tcp_rcv_state_process(). According to the comments, "This function
-implements the receiving procedure of RFC 793 for all states except
-ESTABLISHED and TIME_WAIT." Are you referring to a different kernel
-version?
+> We have the following definition in net/ipv4/route.c
+> 
+> #define IP_MAX_MTU   0xFFF0
+> 
+> This means that "netperf -t UDP_STREAM", using UDP messages of 65507
+> bytes, are fragmented on loopback interface (while its MTU is now 65536
+> and should allow those UDP messages being sent without fragments)
+> 
+> I guess Rick chose 65507 bytes in netperf because it was related to the
+> max IPv4 datagram length :
+> 
+> 65507 + 28 = 65535
+> 
+> Changing IP_MAX_MTU from 0xFFF0 to 0x10000 seems safe [1], but I might
+> miss something really obvious ?
+> 
+> It might be because in old days we reserved 16 bytes for the ethernet
+> header, and we wanted to avoid kmalloc() round-up to kmalloc-131072
+> slab ?
+> 
+> If so, we certainly can limit skb->head to 32 or 64 KB and complete with
+> page fragments the remaining space.
 
->
->
->> Further, if ACK flag is not set,
->> ACK number will not be checked at all. See code in
->> net/ipv4/tcp_input.c, function tcp_rcv_established()
->>
->> 5547        if (th->ack && tcp_ack(sk, skb, FLAG_SLOWPATH) < 0)
->> 5548                goto discard;
->>
->> Second, even if ACK number is always checked before accepting the
->> payload, it is still possible to infer the ACK number much like how
->> sequence number can be inferred. The details is described in Section
->> 3.4 of my paper, paragraph starting with "Client-side sequence number
->> inference".
->>
->> I'm looking at the latest kernel v3.7.1 right now. I believe the
->> problem do still exist in today's Linux.
->>
->
-> It seems you know pretty well this code, I wonder why you dont send
-> patches to fix the bugs...
->
-> Its not like it has to be buggy forever.
->
+I don't think it has to do with kmalloc() at all.
 
-I have never submitted any patch before...I would do it if no one else
-wants to :)
+Maybe something strange to do with the fact that each frag has to
+be an 8-byte multiple, or something like that?
 
->
->
+Alexey choose this value back in 1998, maybe he remembers the
+reason for the strange value.
+
+Alexey?
