@@ -1,46 +1,52 @@
 From: Stephan Gatzka <stephan.gatzka@gmail.com>
 Subject: Re: IPv6 over Firewire
-Date: Sat, 22 Dec 2012 07:03:34 +0100
-Message-ID: <50D54D36.4070908@gmail.com>
-References: <50D49659.1000101@gmail.com> <50D4A219.7080807@linux-ipv6.org>
-	<50D4ACFA.6040901@gmail.com> <50D4BD2F.7060006@linux-ipv6.org>
-	<20121222001230.3fe92bef@stein>
+Date: Sat, 22 Dec 2012 07:10:33 +0100
+Message-ID: <50D54ED9.6090908@gmail.com>
+References: <50D49659.1000101@gmail.com> <50D4A219.7080807@linux-ipv6.org> <50D4ACFA.6040901@gmail.com> <50D4BD2F.7060006@linux-ipv6.org>
 Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20121222001230.3fe92bef@stein>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f44.google.com ([209.85.214.44]:43964 "EHLO
+	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750729Ab2LVGKh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Dec 2012 01:10:37 -0500
+Received: by mail-bk0-f44.google.com with SMTP id w11so2713862bku.17
+        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 22:10:36 -0800 (PST)
+In-Reply-To: <50D4BD2F.7060006@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+> Something like this:
 >
-> Can't we increase dev->addr_len for RFC 3146 interfaces?
-> Can't we add another dev->type besides ARPHRD_IEEE1394 (RFC 2734)?
+>   static inline int ndisc_opt_addr_space(struct net_device *dev)
+>   {
+> -       return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
+> +       switch (dev->type) {
+> +       case ARPHRD_IEEE1394:
+> +               return sizeof(struct ndisc_opt_ieee1394_llinfo);
+> +       default:
+> +               return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
+> +       }
+>   }
 >
-> Is a single dev instance transporting both IPv4 and IPv6 or will there be
-> separate instances for those?
+> --yoshfuji
 >
 
-Right now there is a single dev instance for both IPv4 and IPv6. Two 
-instances means there will be two separate device, doesn't it?
+O.k., this has the advantage that only ndisc packets get some more 
+memory, but the question is if we are under such a hard memory pressure 
+that we don't allow that.
+
+Your solution has the disadvantage that now I have to publish struct 
+ndisc_opt_ieee1394_llinfo to the ndisc stuff. Nobody in ndisc.c really 
+wants to deal with that structure, only the size is of interest. So 
+keeping this struct private is less invasive to the rest of linux. Just 
+my two cents.
+
+Regards,
 
 Stephan
-
-------------------------------------------------------------------------------
-LogMeIn Rescue: Anywhere, Anytime Remote support for IT. Free Trial
-Remotely access PCs and mobile devices and provide instant support
-Improve your efficiency, and focus on delivering more value-add services
-Discover what IT Professionals Know. Rescue delivers
-http://p.sf.net/sfu/logmein_12329d2d
