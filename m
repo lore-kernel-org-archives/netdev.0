@@ -1,52 +1,39 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: IPv6 over Firewire
-Date: Sat, 22 Dec 2012 07:10:33 +0100
-Message-ID: <50D54ED9.6090908@gmail.com>
-References: <50D49659.1000101@gmail.com> <50D4A219.7080807@linux-ipv6.org> <50D4ACFA.6040901@gmail.com> <50D4BD2F.7060006@linux-ipv6.org>
-Reply-To: stephan.gatzka@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 03/25] sja1000: don't use [delayed_]work_pending()
+Date: Sat, 22 Dec 2012 00:01:11 -0800 (PST)
+Message-ID: <20121222.000111.1132195626602429566.davem@davemloft.net>
+References: <1356141435-17340-1-git-send-email-tj@kernel.org>
+	<1356141435-17340-4-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: linux-kernel@vger.kernel.org, wg@grandegger.com,
+	netdev@vger.kernel.org
+To: tj@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f44.google.com ([209.85.214.44]:43964 "EHLO
-	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729Ab2LVGKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Dec 2012 01:10:37 -0500
-Received: by mail-bk0-f44.google.com with SMTP id w11so2713862bku.17
-        for <netdev@vger.kernel.org>; Fri, 21 Dec 2012 22:10:36 -0800 (PST)
-In-Reply-To: <50D4BD2F.7060006@linux-ipv6.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49145 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750799Ab2LVIBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Dec 2012 03:01:14 -0500
+In-Reply-To: <1356141435-17340-4-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Tejun Heo <tj@kernel.org>
+Date: Fri, 21 Dec 2012 17:56:53 -0800
 
-> Something like this:
->
->   static inline int ndisc_opt_addr_space(struct net_device *dev)
->   {
-> -       return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
-> +       switch (dev->type) {
-> +       case ARPHRD_IEEE1394:
-> +               return sizeof(struct ndisc_opt_ieee1394_llinfo);
-> +       default:
-> +               return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
-> +       }
->   }
->
-> --yoshfuji
->
+> There's no need to test whether a (delayed) work item in pending
+> before queueing, flushing or cancelling it.  Most uses are unnecessary
+> and quite a few of them are buggy.
+> 
+> Remove unnecessary pending tests from sja1000.  Only compile tested.
+> 
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+> Cc: Wolfgang Grandegger <wg@grandegger.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> ---
+> Please let me know how this patch should be routed.  I can take it
+> through the workqueue tree if necessary.
 
-O.k., this has the advantage that only ndisc packets get some more 
-memory, but the question is if we are under such a hard memory pressure 
-that we don't allow that.
-
-Your solution has the disadvantage that now I have to publish struct 
-ndisc_opt_ieee1394_llinfo to the ndisc stuff. Nobody in ndisc.c really 
-wants to deal with that structure, only the size is of interest. So 
-keeping this struct private is less invasive to the rest of linux. Just 
-my two cents.
-
-Regards,
-
-Stephan
+I would suggest just taking it via the workqueue tree, thanks Tejun.
