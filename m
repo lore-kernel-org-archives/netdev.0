@@ -1,58 +1,42 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: IPv6 over Firewire
-Date: Sat, 22 Dec 2012 10:15:21 +0100
-Message-ID: <20121222101521.08c783ac@stein>
-References: <50D49659.1000101@gmail.com>
-	<50D4A219.7080807@linux-ipv6.org>
-	<50D4ACFA.6040901@gmail.com>
-	<50D4BD2F.7060006@linux-ipv6.org>
-	<50D54ED9.6090908@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
+Date: Sat, 22 Dec 2012 08:19:34 -0500
+Message-ID: <50D5B366.30005@mojatatu.com>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com> <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com> <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr> <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com> <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com> <50D06177.2090905@mojatatu.com> <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com> <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com> <50D2D229.6040802@gmail.com> <50D305FD.7000901@mojatatu.com> <50D327CD.3050904@gmail.com> <50D45E25.7050703@mojatatu.com> <50D46060.2070308@gmail.com> <50D4692
+ 8.9070809@mojatatu.com> <50D46EC1.2040608@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
-To: stephan.gatzka@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:42896 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816Ab2LVJPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Dec 2012 04:15:44 -0500
-In-Reply-To: <50D54ED9.6090908@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Hasan Chowdhury <shemonc@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jan Engelhardt <jengelh@inai.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: Yury Stankevich <urykhy@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <50D46EC1.2040608@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Dec 22 Stephan Gatzka wrote:
-> 
-> > Something like this:
-> >
-> >   static inline int ndisc_opt_addr_space(struct net_device *dev)
-> >   {
-> > -       return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
-> > +       switch (dev->type) {
-> > +       case ARPHRD_IEEE1394:
-> > +               return sizeof(struct ndisc_opt_ieee1394_llinfo);
-> > +       default:
-> > +               return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
-> > +       }
-> >   }
-> >
-> > --yoshfuji
-> >
-> 
-> O.k., this has the advantage that only ndisc packets get some more 
-> memory, but the question is if we are under such a hard memory pressure 
-> that we don't allow that.
-> 
-> Your solution has the disadvantage that now I have to publish struct 
-> ndisc_opt_ieee1394_llinfo to the ndisc stuff. Nobody in ndisc.c really 
-> wants to deal with that structure, only the size is of interest. So 
-> keeping this struct private is less invasive to the rest of linux. Just 
-> my two cents.
+On 12-12-21 09:14 AM, Yury Stankevich wrote:
+>
+> well.
+> let me describe whole picture i want to achieve
+>
 
-You could add another case to include/net/ndisc.h::ndisc_addr_option_pad()
-with a hardcoded size, couldn't you?
--- 
-Stefan Richter
--=====-===-- ==-- =-==-
-http://arcgraph.de/sr/
+I think i got what you are trying to do Yury. Clever.
+ From the description Jan provided in his response, I dont
+think this used to work at all. Are you saying it worked before?
+
+Having said that, what you are doing sounds so useful
+that we need to make it work ;-> But it appears like
+we need a brand new action for it, something like
+GetMarkFromConntrack. Jan, I am assuming (on ingress only)
+we need to call "something" to give us the nfct then
+grab the skb->mark from nfct. On egress,
+I am assuming the skb->mark is already set if connmark
+is to be used... Am i correct?
+If yes, then this action will only be useful at ingress.
+
+cheers,
+jamal
