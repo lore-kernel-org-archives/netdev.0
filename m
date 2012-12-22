@@ -1,48 +1,26 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 03/25] sja1000: don't use [delayed_]work_pending()
-Date: Fri, 21 Dec 2012 17:56:53 -0800
-Message-ID: <1356141435-17340-4-git-send-email-tj@kernel.org>
-References: <1356141435-17340-1-git-send-email-tj@kernel.org>
-Cc: Tejun Heo <tj@kernel.org>, Wolfgang Grandegger <wg@grandegger.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1356141435-17340-1-git-send-email-tj@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: TCP sequence number inference attack on Linux
+Date: Sat, 22 Dec 2012 03:13:56 +0100
+Message-ID: <20121222021356.GG25100@order.stressinduktion.org>
+References: <CALvgte86miv450KnOcFRR-oEm_f=qRXarDfQkyU7T3OLqq816A@mail.gmail.com> <1356114663.21834.7697.camel@edumazet-glaptop> <1356115931.21834.7745.camel@edumazet-glaptop> <CALvgte-=v=bRnQ2HPDxyqxBOjD6DXp_BUySW6Hm7h+81M+RYMA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Zhiyun Qian <zhiyunq@umich.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:44301 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751034Ab2LVCN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Dec 2012 21:13:58 -0500
+Content-Disposition: inline
+In-Reply-To: <CALvgte-=v=bRnQ2HPDxyqxBOjD6DXp_BUySW6Hm7h+81M+RYMA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There's no need to test whether a (delayed) work item in pending
-before queueing, flushing or cancelling it.  Most uses are unnecessary
-and quite a few of them are buggy.
+On Fri, Dec 21, 2012 at 02:13:12PM -0500, Zhiyun Qian wrote:
+> That seems like a good idea. I am not sure how it is implemented
+> though. Is it a new feature of Linux? Would you mind sending some
+> pointers for this?
 
-Remove unnecessary pending tests from sja1000.  Only compile tested.
-
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Wolfgang Grandegger <wg@grandegger.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
----
-Please let me know how this patch should be routed.  I can take it
-through the workqueue tree if necessary.
-
-Thanks.
-
- drivers/net/can/sja1000/peak_pci.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/drivers/net/can/sja1000/peak_pci.c b/drivers/net/can/sja1000/peak_pci.c
-index d84888f..600ac72 100644
---- a/drivers/net/can/sja1000/peak_pci.c
-+++ b/drivers/net/can/sja1000/peak_pci.c
-@@ -339,8 +339,7 @@ static void peak_pciec_set_leds(struct peak_pciec_card *card, u8 led_mask, u8 s)
-  */
- static void peak_pciec_start_led_work(struct peak_pciec_card *card)
- {
--	if (!delayed_work_pending(&card->led_work))
--		schedule_delayed_work(&card->led_work, HZ);
-+	schedule_delayed_work(&card->led_work, HZ);
- }
- 
- /*
--- 
-1.8.0.2
+You can check if network namespaces are in use by looking at about:sandbox in
+chrome. It should be enabled by default (don't know about chromium, though).
