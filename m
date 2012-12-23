@@ -1,91 +1,41 @@
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Subject: Re: [Patch] arp: fix a regression in arp_solicit()
-Date: Sun, 23 Dec 2012 15:58:52 +0100
-Message-ID: <CA+icZUXo+OQ4XZ8V588FHKrDanqwq8jR1pAHwVPjJcu+14TKeQ@mail.gmail.com>
-References: <1356273778-19113-1-git-send-email-xiyou.wangcong@gmail.com>
-	<CA+icZUWKNAGe+jMbsonrigVZ5Sk7dDdciZn1r7oMcsAWe7i3fQ@mail.gmail.com>
-Reply-To: sedat.dilek@gmail.com
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: IPv6 over Firewire
+Date: Mon, 24 Dec 2012 02:09:15 +0900
+Message-ID: <50D73ABB.4020800@linux-ipv6.org>
+References: <50D49659.1000101@gmail.com> <50D4A219.7080807@linux-ipv6.org> <50D4ACFA.6040901@gmail.com> <50D4BD2F.7060006@linux-ipv6.org> <50D54ED9.6090908@gmail.com> <50D6BF6F.2030207@linux-ipv6.org> <50D6E73F.70301@gmail.com> <50D6F488.7060308@linux-ipv6.org> <50D7062D.8040901@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: stephan.gatzka@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f45.google.com ([209.85.216.45]:43170 "EHLO
-	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750947Ab2LWO6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 09:58:53 -0500
-Received: by mail-qa0-f45.google.com with SMTP id j15so7181179qaq.11
-        for <netdev@vger.kernel.org>; Sun, 23 Dec 2012 06:58:53 -0800 (PST)
-In-Reply-To: <CA+icZUWKNAGe+jMbsonrigVZ5Sk7dDdciZn1r7oMcsAWe7i3fQ@mail.gmail.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:36076 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751154Ab2LWRJS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 12:09:18 -0500
+In-Reply-To: <50D7062D.8040901@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 23, 2012 at 3:49 PM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
-> On Sun, Dec 23, 2012 at 3:42 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> From: Cong Wang <xiyou.wangcong@gmail.com>
->>
->> Sedat reported the following commit caused a regression:
->>
->> commit 9650388b5c56578fdccc79c57a8c82fb92b8e7f1
->> Author: Eric Dumazet <edumazet@google.com>
->> Date:   Fri Dec 21 07:32:10 2012 +0000
->>
->>     ipv4: arp: fix a lockdep splat in arp_solicit
->>
->> This is due to the 6th parameter of arp_send() needs to be NULL
->> for broatcase case, the above commit changed it to all-zero non-NULL
->> hw addr.
->>
->
-> s/broatcase/broadcast ?
->
+Stephan Gatzka wrote:
 
-While at it you might enhance the label with "ipv4"?
+> So may aim is to rewrite the LL address option both while transmitting and receiving IPv6 data on firewire. While transmitting, I append the required information, while receiving I cut away the the firewire specific stuff. So the upper layers will not see the firewire related information. Yes, that mangling also involves recalculation of the ICMPv6 checksum.
 
-ipv4: arp: fix a regression in arp_solicit()
+No, it is not enough.  For example, Signature Option of SEND
+(RFC3971) takes link-layer address options into account.
+If anything is happened to be altered, verification will
+fail.
 
-> - Sedat -
+> Again, if I shall not mangle the ndisc packets in the driver I have to build RFC 3146 conformant packets in ndisc_build_skb(). But I see no (general) way to get the firewire specific information into the linux ndisc stuff. Of course I can add some if/else into ndisc_fill_addr_option() and ndisc_recv_na(). But then I have to pull a lot of firewire related stuff into the ndisc code.
 >
->> Reported-by: Sedat Dilek <sedat.dilek@gmail.com>
->> Tested-by: Sedat Dilek <sedat.dilek@gmail.com>
->> Cc: Sedat Dilek <sedat.dilek@gmail.com>
->> Cc: Eric Dumazet <edumazet@google.com>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: Julian Anastasov <ja@ssi.bg>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->>
->> ---
->> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
->> index 1169ed4..9547a273 100644
->> --- a/net/ipv4/arp.c
->> +++ b/net/ipv4/arp.c
->> @@ -321,7 +321,7 @@ static void arp_error_report(struct neighbour *neigh, struct sk_buff *skb)
->>  static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
->>  {
->>         __be32 saddr = 0;
->> -       u8 dst_ha[MAX_ADDR_LEN];
->> +       u8 dst_ha[MAX_ADDR_LEN], *dst_hw = NULL;
->>         struct net_device *dev = neigh->dev;
->>         __be32 target = *(__be32 *)neigh->primary_key;
->>         int probes = atomic_read(&neigh->probes);
->> @@ -364,8 +364,8 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
->>                 if (!(neigh->nud_state & NUD_VALID))
->>                         pr_debug("trying to ucast probe in NUD_INVALID\n");
->>                 neigh_ha_snapshot(dst_ha, neigh, dev);
->> +               dst_hw = dst_ha;
->>         } else {
->> -               memset(dst_ha, 0, dev->addr_len);
->>                 probes -= neigh->parms->app_probes;
->>                 if (probes < 0) {
->>  #ifdef CONFIG_ARPD
->> @@ -376,7 +376,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
->>         }
->>
->>         arp_send(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
->> -                dst_ha, dev->dev_addr, NULL);
->> +                dst_hw, dev->dev_addr, NULL);
->>  }
->>
->>  static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+> I think this makes no sense, especially because I need that firewire specific information in the firewire net driver to send correct firewire packets. Besides that, the IPv4 portion of the firewire net drivers does exactly the same with ARP packets what I want to do with IPv6 LL address options.
+
+Please, please do not alter bits in your driver, to maintain
+extensibility of protocols.
+
+I am definitely okay to have firewire supporting stuff in
+net/ipv6/ndisc.c.  Since we already have notification
+mechanism, I don't think it will be large.
+
+--yoshfuji
