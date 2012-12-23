@@ -1,41 +1,60 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: IPv6 over Firewire
-Date: Mon, 24 Dec 2012 02:09:15 +0900
-Message-ID: <50D73ABB.4020800@linux-ipv6.org>
-References: <50D49659.1000101@gmail.com> <50D4A219.7080807@linux-ipv6.org> <50D4ACFA.6040901@gmail.com> <50D4BD2F.7060006@linux-ipv6.org> <50D54ED9.6090908@gmail.com> <50D6BF6F.2030207@linux-ipv6.org> <50D6E73F.70301@gmail.com> <50D6F488.7060308@linux-ipv6.org> <50D7062D.8040901@gmail.com>
+From: "Arend van Spriel" <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH] brcmsmac: initialize morepending in brcms_b_recv()
+Date: Sun, 23 Dec 2012 18:31:13 +0100
+Message-ID: <50D73FE1.6080907@broadcom.com>
+References: <1356210434-28435-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: stephan.gatzka@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:36076 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751154Ab2LWRJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 12:09:18 -0500
-In-Reply-To: <50D7062D.8040901@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Piotr Haber" <phaber-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Geert Uytterhoeven" <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1356210434-28435-1-git-send-email-geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Stephan Gatzka wrote:
+On 12/22/2012 10:07 PM, Geert Uytterhoeven wrote:
+> drivers/net/wireless/brcm80211/brcmsmac/main.c: In function =E2=80=98=
+brcms_b_recv=E2=80=99:
+> drivers/net/wireless/brcm80211/brcmsmac/main.c:7636: warning: =E2=80=98=
+morepending=E2=80=99 may be used uninitialized in this function
+>=20
 
-> So may aim is to rewrite the LL address option both while transmitting and receiving IPv6 data on firewire. While transmitting, I append the required information, while receiving I cut away the the firewire specific stuff. So the upper layers will not see the firewire related information. Yes, that mangling also involves recalculation of the ICMPv6 checksum.
+Reading the code this warning seems to be invalid except when RXBND is
+defined as zero, which would make the whole function totally bogus.
+Would be good to have a WARN_ON(!RXBND) in brcms_b_attach().
 
-No, it is not enough.  For example, Signature Option of SEND
-(RFC3971) takes link-layer address options into account.
-If anything is happened to be altered, verification will
-fail.
+I don't like pleasing a compiler with unnecessary initializers but I am
+also for builds with zero warnings. So...
 
-> Again, if I shall not mangle the ndisc packets in the driver I have to build RFC 3146 conformant packets in ndisc_build_skb(). But I see no (general) way to get the firewire specific information into the linux ndisc stuff. Of course I can add some if/else into ndisc_fill_addr_option() and ndisc_recv_na(). But then I have to pull a lot of firewire related stuff into the ndisc code.
->
-> I think this makes no sense, especially because I need that firewire specific information in the firewire net driver to send correct firewire packets. Besides that, the IPv4 portion of the firewire net drivers does exactly the same with ARP packets what I want to do with IPv6 LL address options.
+Acked-by: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+> ---
+>  drivers/net/wireless/brcm80211/brcmsmac/main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers=
+/net/wireless/brcm80211/brcmsmac/main.c
+> index 17594de..5f0f444 100644
+> --- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
+> +++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+> @@ -7633,7 +7633,7 @@ brcms_b_recv(struct brcms_hardware *wlc_hw, uin=
+t fifo, bool bound)
+> =20
+>  	uint n =3D 0;
+>  	uint bound_limit =3D bound ? RXBND : -1;
+> -	bool morepending;
+> +	bool morepending =3D false;
+> =20
+>  	skb_queue_head_init(&recv_frames);
+> =20
 
-Please, please do not alter bits in your driver, to maintain
-extensibility of protocols.
 
-I am definitely okay to have firewire supporting stuff in
-net/ipv6/ndisc.c.  Since we already have notification
-mechanism, I don't think it will be large.
-
---yoshfuji
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
