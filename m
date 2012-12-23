@@ -1,33 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net-next V3 0/4] net: allow to change carrier from
- userspace
-Date: Sun, 23 Dec 2012 11:51:28 -0800
-Message-ID: <20121223115128.4c5ed742@nehalam.linuxnetplumber.net>
-References: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
-	<20121223101206.GA1715@minipsycho.orion>
+From: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: recvmmsg() timeout behavior strangeness
+Date: Sun, 23 Dec 2012 21:50:11 +0100
+Message-ID: <CAHO5Pa2goUtiBU8ye2beTBExL4it2-aDCPBhDOGyO3NX_PV_pQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com,
-	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50057 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752281Ab2LWTwq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Dec 2012 14:52:46 -0500
-In-Reply-To: <20121223101206.GA1715@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Caitlin Bestler <caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Chris Van Hoof <vanhoof-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Clark Williams <williams-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Grover <andy.grover-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Elie De Brauwer <eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Steven Whitehouse <steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org>,
+	=?ISO-8859-1?Q?R=E9mi_Denis=2DCourmont?=
+	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+To: Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 23 Dec 2012 11:12:06 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
+Hello Arnaldo,
 
-> Dave, I see that the patchwork status of this is "Deferred".
-> Should I repost the patchset?
-> 
-> thanks
+As part of his attempt to better document the recvmmsg() syscall that
+you added in commit a2e2725541fad72416326798c2d7fa4dafb7d337, Elie de
+Brauwer alerted to me to some strangeness in the timeout behavior of
+the syscall. I suspect there's a bug that needs fixing, as detailed
+below.
 
-The merge window for 3.8 is complete, only bug fixes are accepted.
-And Net-next is not open yet. And this is a new feature.
+AFAICT, the timeout argument was added to this syscall as a result of
+the discussion here:
+http://thread.gmane.org/gmane.linux.network/128582 .
+
+If I understand correctly, the *intended* purpose of the timeout
+argument is to set a limit on how long to wait for additional
+datagrams after the arrival of an initial datagram. However, the
+syscall behaves in quite a different way. Instead, it potentially
+blocks forever, regardless of the timeout. The way the timeout seems
+to work is as follows:
+
+1. The timeout, T, is armed on receipt of first diagram, starting at time X.
+2. After each further datagram is received, a check is made if we have
+reached time X+T. If we have reached that time, then the syscall
+returns.
+
+Since the timeout is only checked after the arrival of each datagram,
+we can have scenarios like the following:
+
+0. Assume a timeout of 10 seconds, and that vlen is 5.
+1. First datagram arrives at time X.
+2. Second datagram arrives at time X+2 secs
+3. No more datagrams arrive.
+
+In this case, the call blocks forever. Is that intended behavior?
+(Basically, if vlen-1 datagrams arrive before X+T, but then no more
+datagrams arrive, the call will remain blocked forever.) If it's
+intended behavior, could you elaborate the use case, since it would be
+good to add that to the man page.
+
+Thanks,
+
+Michael
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
