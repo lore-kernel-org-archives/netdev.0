@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next V3 0/4] net: allow to change carrier from
- userspace
-Date: Sun, 23 Dec 2012 14:11:53 -0800 (PST)
-Message-ID: <20121223.141153.17323977309601230.davem@davemloft.net>
-References: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
-	<20121223101206.GA1715@minipsycho.orion>
+Subject: Re: [Patch] arp: fix a regression in arp_solicit()
+Date: Sun, 23 Dec 2012 14:17:06 -0800 (PST)
+Message-ID: <20121223.141706.1783471119472317669.davem@davemloft.net>
+References: <1356273778-19113-1-git-send-email-xiyou.wangcong@gmail.com>
+	<CA+icZUWKNAGe+jMbsonrigVZ5Sk7dDdciZn1r7oMcsAWe7i3fQ@mail.gmail.com>
+	<CA+icZUXo+OQ4XZ8V588FHKrDanqwq8jR1pAHwVPjJcu+14TKeQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
-	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
-To: jiri@resnulli.us
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	edumazet@google.com, ja@ssi.bg
+To: sedat.dilek@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36679 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36716 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752229Ab2LWWL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 17:11:57 -0500
-In-Reply-To: <20121223101206.GA1715@minipsycho.orion>
+	with ESMTP id S1752064Ab2LWWRH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 17:17:07 -0500
+In-Reply-To: <CA+icZUXo+OQ4XZ8V588FHKrDanqwq8jR1pAHwVPjJcu+14TKeQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Sun, 23 Dec 2012 11:12:06 +0100
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Date: Sun, 23 Dec 2012 15:58:52 +0100
 
-> Dave, I see that the patchwork status of this is "Deferred".
-> Should I repost the patchset?
+> While at it you might enhance the label with "ipv4"?
 
-It's deferred because I haven't openned up the net-next tree
-yet, so you're wasting your time if you just keep reposting
-the serious while the tree is closed.
+That's excessive.
 
-Please instead wait patiently for when I announce here that
-the net-next tree is open again.
+ARP is ipv4 and ipv4 only, in other protocols it has completely
+different names.
