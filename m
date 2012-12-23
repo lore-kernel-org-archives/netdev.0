@@ -1,40 +1,33 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: IPv6 over Firewire
-Date: Mon, 24 Dec 2012 04:38:40 +0900
-Message-ID: <50D75DC0.4030902@linux-ipv6.org>
-References: <50D49659.1000101@gmail.com> <50D4A219.7080807@linux-ipv6.org> <50D4ACFA.6040901@gmail.com> <50D4BD2F.7060006@linux-ipv6.org> <50D54ED9.6090908@gmail.com> <50D6BF6F.2030207@linux-ipv6.org> <50D6E73F.70301@gmail.com> <50D6F488.7060308@linux-ipv6.org> <50D7062D.8040901@gmail.com> <50D73ABB.4020800@linux-ipv6.org> <50D74C81.1000400@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [patch net-next V3 0/4] net: allow to change carrier from
+ userspace
+Date: Sun, 23 Dec 2012 11:51:28 -0800
+Message-ID: <20121223115128.4c5ed742@nehalam.linuxnetplumber.net>
+References: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
+	<20121223101206.GA1715@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	stefanr@s5r6.in-berlin.de,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: stephan.gatzka@gmail.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com,
+	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:36230 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751922Ab2LWTim (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 14:38:42 -0500
-In-Reply-To: <50D74C81.1000400@gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:50057 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752281Ab2LWTwq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Dec 2012 14:52:46 -0500
+In-Reply-To: <20121223101206.GA1715@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephan Gatzka wrote:
+On Sun, 23 Dec 2012 11:12:06 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-> I believe the the changes in the transmit portions for ndisc are rather simple. All firewire specific information is stored in the private data of struct net_device. For the receive section I think I have to change something in ndisc_recv_ns(), I'll figure that out. Maybe I need some (small) support from you, but I think we can do that off list.
+> Dave, I see that the patchwork status of this is "Deferred".
+> Should I repost the patchset?
 > 
-> I'll try it out but after Christmas. :)
-> 
-> But I have to emphasize that I really need (read) access to the firewire specific portions of the link layer option in the firewire net driver. That _is_ necessary to build the relation between the firewire hardware address (GUID) and the corresponding firewire node.
+> thanks
 
-If you change the "hardware address length", you can get
-notification when you have new neighbor.
-Even if you did not change that, you could introduce new
-netevent notification.
-
-> Because you mentioned IPSEC: Are the ndisc packets also encrypted? If so, I just can't imagine how I can do the mapping of firewire hardware addresses and firewire nodes.
-
-I don't think we will see encrypted ND messages, but
-IP layer should handle encrypted NDISC messages.
-
---yoshfuji
+The merge window for 3.8 is complete, only bug fixes are accepted.
+And Net-next is not open yet. And this is a new feature.
