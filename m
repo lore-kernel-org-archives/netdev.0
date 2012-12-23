@@ -1,67 +1,48 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next V3 0/4] net: allow to change carrier from
- userspace
-Date: Sun, 23 Dec 2012 11:12:06 +0100
-Message-ID: <20121223101206.GA1715@minipsycho.orion>
-References: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: Re: IPv6 over Firewire
+Date: Sun, 23 Dec 2012 12:13:03 +0100
+Message-ID: <50D6E73F.70301@gmail.com>
+References: <50D49659.1000101@gmail.com> <50D4A219.7080807@linux-ipv6.org> <50D4ACFA.6040901@gmail.com> <50D4BD2F.7060006@linux-ipv6.org> <50D54ED9.6090908@gmail.com> <50D6BF6F.2030207@linux-ipv6.org>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
-	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:50115 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757Ab2LWKML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 05:12:11 -0500
-Received: by mail-ee0-f48.google.com with SMTP id b57so3191685eek.35
-        for <netdev@vger.kernel.org>; Sun, 23 Dec 2012 02:12:10 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1355909756-2389-1-git-send-email-jiri@resnulli.us>
+Received: from mail-bk0-f52.google.com ([209.85.214.52]:60228 "EHLO
+	mail-bk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751082Ab2LWLNK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 06:13:10 -0500
+Received: by mail-bk0-f52.google.com with SMTP id w5so3021044bku.11
+        for <netdev@vger.kernel.org>; Sun, 23 Dec 2012 03:13:09 -0800 (PST)
+In-Reply-To: <50D6BF6F.2030207@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dave, I see that the patchwork status of this is "Deferred".
-Should I repost the patchset?
 
-thanks
+> net/ipv6/ndisc.c SHOULD build full NDP messages for IPv6
+> over IEEE1394 as we do it for Infiniband.
+>
+> Please, please do not try to mangle them in the driver.
+>
+As far as I understand the code for Infiniband (and the corresponding 
+RFC4391) I just see the introduction of two pad bytes. Moreover, I see 
+that ndisc_build_skb calls ndisc_fill_addr_option which copies 
+dev->dev_addr. Maybe the so called Queue Pair Number (QPN) is already 
+included in dev->dev_addr. If not, I guess the Infiniband driver will 
+also mangle the QPN into the link layer option. If not, this seems only 
+possible because the format for IPv6 link layer option (IB) and IPv4/ARP 
+(IB) has the same format.
 
-Jiri
+This is not true IPv4/ARP and IPv6 link layer option for firewire. 
+Moreover, firewire link layer address mapping (IPv4 and IPv6) requires 
+some very firewire specific information like speed, max_rec and 
+especially the so called unicast fifo address.
 
+ From my point of view the generic ndisc code shall not cope with these 
+nasty details of the specific link layers. I also haven't found a driver 
+specific hook that might fill these information in. That's why I think I 
+_have_ to mangle the NDP stuff in the driver.
 
-Wed, Dec 19, 2012 at 10:35:52AM CET, jiri@resnulli.us wrote:
->This is basically a V3 of a repost of my previous patchset:
->"[patch net-next-2.6 0/2] net: allow to change carrier via sysfs" from Aug 30
->
->The way net-sysfs stores values changed and this patchset reflects it.
->Also, I exposed carrier via rtnetlink iface.
->
->So far, only dummy driver uses carrier change ndo. In very near future
->team driver will use that as well.
->
->V2->V3:
-> - updated ndo_change_carrier comment by Dan Williams
->
->V1->v2:
-> - added bigger comment to ndo and also note to operstate.txt documentation
->   stating the clear purpose of this iface
->
->Jiri Pirko (4):
->  net: add change_carrier netdev op
->  net: allow to change carrier via sysfs
->  rtnl: expose carrier value with possibility to set it
->  dummy: implement carrier change
->
-> Documentation/networking/operstates.txt |  4 ++++
-> drivers/net/dummy.c                     | 10 ++++++++++
-> include/linux/netdevice.h               | 12 ++++++++++++
-> include/uapi/linux/if_link.h            |  1 +
-> net/core/dev.c                          | 19 +++++++++++++++++++
-> net/core/net-sysfs.c                    | 15 ++++++++++++++-
-> net/core/rtnetlink.c                    | 10 ++++++++++
-> 7 files changed, 70 insertions(+), 1 deletion(-)
->
->-- 
->1.8.0
->
+Stephan
