@@ -1,72 +1,85 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: [PATCH] ipconfig: Fix displaying of the address of the BOOTP/DHCP server.
-Date: Sun, 23 Dec 2012 14:13:38 +0100
-Message-ID: <1356268418-7376-1-git-send-email-phdm@macqel.be>
-Cc: Philippe De Muyter <phdm@macqel.be>
-To: netdev@vger.kernel.org
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: Re: IPv6 over Firewire
+Date: Sun, 23 Dec 2012 14:25:01 +0100
+Message-ID: <50D7062D.8040901@gmail.com>
+References: <50D49659.1000101@gmail.com> <50D4A219.7080807@linux-ipv6.org> <50D4ACFA.6040901@gmail.com> <50D4BD2F.7060006@linux-ipv6.org> <50D54ED9.6090908@gmail.com> <50D6BF6F.2030207@linux-ipv6.org> <50D6E73F.70301@gmail.com> <50D6F488.7060308@linux-ipv6.org>
+Reply-To: stephan.gatzka@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.macqel.be ([194.78.208.39]:16714 "EHLO smtp2.macqel.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750947Ab2LWNXd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Dec 2012 08:23:33 -0500
+Received: from mail-bk0-f48.google.com ([209.85.214.48]:40200 "EHLO
+	mail-bk0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750947Ab2LWNZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 08:25:06 -0500
+Received: by mail-bk0-f48.google.com with SMTP id jc3so2986575bkc.7
+        for <netdev@vger.kernel.org>; Sun, 23 Dec 2012 05:25:04 -0800 (PST)
+In-Reply-To: <50D6F488.7060308@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Up to now, the debug or info messages from the ipconfig subsytem
-displayed the IP address of the bootserver instead of the address
-of the address server.  Fix that.
+>
+> Please, please try best not to mangle packets
+> and keep/make IPsec, SEND right.
+>
 
-Signed-off-by: Philippe De Muyter <phdm@macqel.be>
----
- net/ipv4/ipconfig.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+O.k., a small excerpt from RFC 3146:
+The Source/Target Link-layer Address option has the following form when 
+the link layer is IEEE1394.
+                          1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |     Type      |  Length = 3   |                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                            ---+
+    |                    node_unique_ID (EUI-64 identifier)         |
+    +---                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                               |    max_rec    |      spd      |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                          unicast_FIFO                         |
+    +---                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                               |            reserved           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                            reserved                           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index 798358b..57e8151 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -136,6 +136,8 @@ __be32 ic_myaddr = NONE;		/* My IP address */
- static __be32 ic_netmask = NONE;	/* Netmask for local subnet */
- __be32 ic_gateway = NONE;	/* Gateway IP address */
- 
-+__be32 ic_addrservaddr = NONE;	/* IP Address of the IP addresses'server */
-+
- __be32 ic_servaddr = NONE;	/* Boot server IP address */
- 
- __be32 root_server_addr = NONE;	/* Address of NFS server */
-@@ -558,6 +560,7 @@ ic_rarp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	if (ic_myaddr == NONE)
- 		ic_myaddr = tip;
- 	ic_servaddr = sip;
-+	ic_addrservaddr = sip;
- 	ic_got_reply = IC_RARP;
- 
- drop_unlock:
-@@ -1068,7 +1071,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 				ic_servaddr = server_id;
- #ifdef IPCONFIG_DEBUG
- 				printk("DHCP: Offered address %pI4 by server %pI4\n",
--				       &ic_myaddr, &ic_servaddr);
-+				       &ic_myaddr, &b->iph.saddr);
- #endif
- 				/* The DHCP indicated server address takes
- 				 * precedence over the bootp header one if
-@@ -1113,6 +1116,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 	ic_dev = dev;
- 	ic_myaddr = b->your_ip;
- 	ic_servaddr = b->server_ip;
-+	ic_addrservaddr = b->iph.saddr;
- 	if (ic_gateway == NONE && b->relay_ip)
- 		ic_gateway = b->relay_ip;
- 	if (ic_nameservers[0] == NONE)
-@@ -1268,7 +1272,7 @@ static int __init ic_dynamic(void)
- 	printk("IP-Config: Got %s answer from %pI4, ",
- 		((ic_got_reply & IC_RARP) ? "RARP"
- 		 : (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
--	       &ic_servaddr);
-+	       &ic_addrservaddr);
- 	pr_cont("my address is %pI4\n", &ic_myaddr);
- 
- 	return 0;
--- 
-1.7.1
+This is what I _have_ to send to comply with RFC 3146. In the skb I get 
+in the firewire net driver I have: Type, Length and node_unique_ID (the 
+hardware address), all tail padded to a 8 byte boundary:
+
+                          1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |     Type      |  Length = 3   |                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                            ---+
+    |                    node_unique_ID (EUI-64 identifier)         |
+    +---                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                               |    0x00     |      0x00       |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                          0x00000000                           |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+So may aim is to rewrite the LL address option both while transmitting 
+and receiving IPv6 data on firewire. While transmitting, I append the 
+required information, while receiving I cut away the the firewire 
+specific stuff. So the upper layers will not see the firewire related 
+information. Yes, that mangling also involves recalculation of the 
+ICMPv6 checksum.
+
+Again, if I shall not mangle the ndisc packets in the driver I have to 
+build RFC 3146 conformant packets in ndisc_build_skb(). But I see no 
+(general) way to get the firewire specific information into the linux 
+ndisc stuff. Of course I can add some if/else into 
+ndisc_fill_addr_option() and ndisc_recv_na(). But then I have to pull a 
+lot of firewire related stuff into the ndisc code.
+
+I think this makes no sense, especially because I need that firewire 
+specific information in the firewire net driver to send correct firewire 
+packets. Besides that, the IPv4 portion of the firewire net drivers does 
+exactly the same with ARP packets what I want to do with IPv6 LL address 
+options.
+
+Regards,
+
+Stephan
