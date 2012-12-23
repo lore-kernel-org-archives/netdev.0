@@ -1,49 +1,69 @@
-From: Sergei Shtylyov <sshtylyov@mvista.com>
-Subject: Re: [PATCH 2/2] cpts: fix a run time warn_on.
-Date: Sun, 23 Dec 2012 18:07:22 +0400
-Message-ID: <50D7101A.6020506@mvista.com>
-References: <cover.1356204860.git.richardcochran@gmail.com> <ad26ca328f0eba6a722d0288ac1c37ad55789447.1356204860.git.richardcochran@gmail.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [3.8-rc1] Networking problems after pulling-in net.git#master
+Date: Sun, 23 Dec 2012 16:10:44 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1212231601330.1555@ja.ssi.bg>
+References: <CA+icZUXJeWNceo_y-TSUVzXmjbrauWmCdkgW3EJtr_vpbcrk-A@mail.gmail.com> <20121223114213.GB8386@liondog.tnic> <CA+icZUXeddp5UZ10ZWTsWLnmegHGJ+VHnr4=oAm34hXgHD2FDg@mail.gmail.com> <CA+icZUU2OdNq5WKd7abNNe2eevxZBbMRS0eBGyU_rzjVBAgcOg@mail.gmail.com>
+ <CA+icZUVxdp-Lcf4FLfY-80qvVsTQn-ajfh8vn2T=FC6-QbLv7w@mail.gmail.com> <CAM_iQpVdqYceHejqyQOn5wqj-xQFjn6E4u5ws4MuoOd=SiVtww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mugunthan V N <mugunthanvnm@ti.com>,
-	linux-omap@vger.kernel.org, David Miller <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org,
-	Cyril Chemparathy <cyril@ti.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: sedat.dilek@gmail.com, Borislav Petkov <bp@alien8.de>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:42185 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751181Ab2LWOHW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 09:07:22 -0500
-Received: by mail-la0-f54.google.com with SMTP id j13so7523848lah.27
-        for <netdev@vger.kernel.org>; Sun, 23 Dec 2012 06:07:20 -0800 (PST)
-In-Reply-To: <ad26ca328f0eba6a722d0288ac1c37ad55789447.1356204860.git.richardcochran@gmail.com>
+Received: from ja.ssi.bg ([178.16.129.10]:53097 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750947Ab2LWOJ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Dec 2012 09:09:57 -0500
+In-Reply-To: <CAM_iQpVdqYceHejqyQOn5wqj-xQFjn6E4u5ws4MuoOd=SiVtww@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
 
-On 22-12-2012 23:41, Richard Cochran wrote:
+	Hello,
 
-> This patch fixes a warning in clk_enable by calling clk_prepare first.
+On Sun, 23 Dec 2012, Cong Wang wrote:
 
-> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
-> ---
->   drivers/net/ethernet/ti/cpts.c |    1 +
->   1 files changed, 1 insertions(+), 0 deletions(-)
+> On Sun, Dec 23, 2012 at 9:19 PM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+> >
+> > The culprit commit here seems to be...
+> >
+> > commit 9650388b5c56578fdccc79c57a8c82fb92b8e7f1
+> > Author: Eric Dumazet <edumazet@google.com>
+> > Date:   Fri Dec 21 07:32:10 2012 +0000
+> >
+> >     ipv4: arp: fix a lockdep splat in arp_solicit()
+> 
+> Can you try the following one-line fix?
+> 
+> Thanks.
+> 
+> ------------>
+> 
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index 1169ed4..75e0d7c 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -365,7 +365,7 @@ static void arp_solicit(struct neighbour *neigh,
+> struct sk_buff *skb)
+>                         pr_debug("trying to ucast probe in NUD_INVALID\n");
+>                 neigh_ha_snapshot(dst_ha, neigh, dev);
+>         } else {
+> -               memset(dst_ha, 0, dev->addr_len);
+> +               memcpy(dst_ha, dev->broadcast, MAX_ADDR_LEN);
 
-> diff --git a/drivers/net/ethernet/ti/cpts.c b/drivers/net/ethernet/ti/cpts.c
-> index 5ab8fb4..3e32a31 100644
-> --- a/drivers/net/ethernet/ti/cpts.c
-> +++ b/drivers/net/ethernet/ti/cpts.c
-> @@ -247,6 +247,7 @@ static void cpts_clk_init(struct cpts *cpts)
->   		cpts->refclk = NULL;
->   		return;
->   	}
-> +	clk_prepare(cpts->refclk);
->   	clk_enable(cpts->refclk);
+	Use dev->addr_len instead of MAX_ADDR_LEN or
+better provide NULL ptr to arp_send as before the
+"ipv4: arp: fix a lockdep splat in arp_solicit" change,
+for example by keeping dst_ha as pointer and using another
+name for the temp array that is now dst_ha[MAX_ADDR_LEN].
 
-    Maybe just call clk_prepare_enable() instead?
+>                 probes -= neigh->parms->app_probes;
+>                 if (probes < 0) {
+>  #ifdef CONFIG_ARPD
 
-WBR, Sergei
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
