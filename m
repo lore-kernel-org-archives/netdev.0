@@ -1,56 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Porting problem: ndo_set_multicast_list removed
-Date: Mon, 24 Dec 2012 11:16:27 -0800
-Message-ID: <1356376587.20133.9693.camel@edumazet-glaptop>
-References: <20121224163005.GA3970@zuhnb712>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: Re: [PATCH] net,
+	batman: don't crash on zero length strings in routing_algo
+Date: Tue, 25 Dec 2012 03:36:36 +0800
+Message-ID: <201212250336.36874.lindner_marek@yahoo.de>
+References: <1353355695-23252-1-git-send-email-sasha.levin@oracle.com>
+ <201212242238.23255.lindner_marek@yahoo.de>
+ <CANiGF9_engsHHNUDnJi6+iczCdu7sBV+UuJ+Xv33pGuJxPeuAg@mail.gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kernelnewbies@kernelnewbies.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Woody Wu <narkewoody@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:33830 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129Ab2LXTQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2012 14:16:31 -0500
-In-Reply-To: <20121224163005.GA3970@zuhnb712>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pau Koning <paukoning-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org,
+ Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <CANiGF9_engsHHNUDnJi6+iczCdu7sBV+UuJ+Xv33pGuJxPeuAg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2012-12-25 at 00:30 +0800, Woody Wu wrote:
-> Hi, list
+On Monday, December 24, 2012 23:42:15 Pau Koning wrote:
+> On Mon, Dec 24, 2012 at 3:38 PM, Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org> 
+wrote:
+> > On Monday, December 24, 2012 22:18:52 Pau Koning wrote:
+> >> On Mon, Nov 19, 2012 at 9:08 PM, Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> 
+wrote:
+> >> > The code that works with routing_algo assumes that the string passed
+> >> > is non
+> >> 
+> >> > empty, this assumption is wrong:
+> >> Why isn't this patch part of Linux 3.7? It seems to be a bugfix and it
+> >> was sent early enough?
+> > 
+> > The patch received a reply mere 2 hours after it was sent. Again, please
+> > read all mails before making noise.
 > 
-> I am porting an ethernet driver from 2.6.x to 3.7.1.  I found in the new
-> kernel, the ndo_set_multicast_list method in the net_device_ops had been
-> removed. What's the story behind?  Can I simply ignore this method
-> defined in an old driver?
-> 
-> Please also help to check the below code, is the list of the operations
-> defined for my driver enough or not?
-> 
-> const struct net_device_ops ax_netdev_ops = {
-> 	.ndo_open		= mydriver_open,
-> 	.ndo_stop		= mydriver_close,
-> 	.ndo_start_xmit		= mydriver_start_xmit,
-> 	.ndo_get_stats		= mydriver_get_stats,
-> 	/*.ndo_set_multicast_list = mydriver_set_multicast_list,*/
-> 	.ndo_set_mac_address 	= mydriver_set_mac_address,
-> };
-> 
-> Thanks in advance.
-> 
+> Ok, leaving this problem unsolved is the correct way to handle it?
+> Nobody is allowed to say anything?
 
-Take a look at :
+No, of course you are allowed "to say" something. I was simply pointing you to 
+the explanation why the patch wasn't merged yet.
 
-commit afc4b13df143122f99a0eb10bfefb216c2806de0
-Author: Jiri Pirko <jpirko@redhat.com>
-Date:   Tue Aug 16 06:29:01 2011 +0000
-
-    net: remove use of ndo_set_multicast_list in drivers
-    
-    replace it by ndo_set_rx_mode
-    
-    Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Cheers,
+Marek
