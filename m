@@ -1,110 +1,192 @@
 From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH 23/29] net/ipv4: rename net_random() to prandom_u32()
-Date: Mon, 24 Dec 2012 11:14:10 +0900
-Message-ID: <1356315256-6572-24-git-send-email-akinobu.mita@gmail.com>
+Subject: [PATCH 22/29] net/sched: rename random32() and net_random() to prandom_u32()
+Date: Mon, 24 Dec 2012 11:14:09 +0900
+Message-ID: <1356315256-6572-23-git-send-email-akinobu.mita@gmail.com>
 References: <1356315256-6572-1-git-send-email-akinobu.mita@gmail.com>
 Cc: Akinobu Mita <akinobu.mita@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+	netem@lists.linux-foundation.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:46587 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752990Ab2LXCPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 21:15:20 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1356315256-6572-1-git-send-email-akinobu.mita@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Use more preferable function name which implies using a pseudo-random
 number generator.
 
 Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
+Cc: netem@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org
 Cc: netdev@vger.kernel.org
 ---
- net/ipv4/devinet.c              | 2 +-
- net/ipv4/igmp.c                 | 6 +++---
- net/ipv4/inet_connection_sock.c | 2 +-
- net/ipv4/udp.c                  | 2 +-
- 4 files changed, 6 insertions(+), 6 deletions(-)
+ net/sched/act_gact.c     |  2 +-
+ net/sched/sch_choke.c    |  2 +-
+ net/sched/sch_fq_codel.c |  2 +-
+ net/sched/sch_netem.c    | 19 ++++++++++---------
+ net/sched/sch_sfb.c      |  4 ++--
+ net/sched/sch_sfq.c      |  6 +++---
+ 6 files changed, 18 insertions(+), 17 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index cc06a47..e849a5e 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -453,7 +453,7 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
+index 05d60859..d3ceed8 100644
+--- a/net/sched/act_gact.c
++++ b/net/sched/act_gact.c
+@@ -37,7 +37,7 @@ static struct tcf_hashinfo gact_hash_info = {
+ #ifdef CONFIG_GACT_PROB
+ static int gact_net_rand(struct tcf_gact *gact)
+ {
+-	if (!gact->tcfg_pval || net_random() % gact->tcfg_pval)
++	if (!gact->tcfg_pval || prandom_u32() % gact->tcfg_pval)
+ 		return gact->tcf_action;
+ 	return gact->tcfg_paction;
+ }
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index cc37dd5..ef53ab8 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -80,7 +80,7 @@ struct choke_sched_data {
+ /* deliver a random number between 0 and N - 1 */
+ static u32 random_N(unsigned int N)
+ {
+-	return reciprocal_divide(random32(), N);
++	return reciprocal_divide(prandom_u32(), N);
+ }
+ 
+ /* number of elements in queue including holes */
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 4e606fc..93d7f41 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -390,7 +390,7 @@ static int fq_codel_init(struct Qdisc *sch, struct nlattr *opt)
+ 	sch->limit = 10*1024;
+ 	q->flows_cnt = 1024;
+ 	q->quantum = psched_mtu(qdisc_dev(sch));
+-	q->perturbation = net_random();
++	q->perturbation = prandom_u32();
+ 	INIT_LIST_HEAD(&q->new_flows);
+ 	INIT_LIST_HEAD(&q->old_flows);
+ 	codel_params_init(&q->cparams);
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 298c0dd..e3126e2 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -142,7 +142,7 @@ static inline struct netem_skb_cb *netem_skb_cb(struct sk_buff *skb)
+ static void init_crandom(struct crndstate *state, unsigned long rho)
+ {
+ 	state->rho = rho;
+-	state->last = net_random();
++	state->last = prandom_u32();
+ }
+ 
+ /* get_crandom - correlated random number generator
+@@ -155,9 +155,9 @@ static u32 get_crandom(struct crndstate *state)
+ 	unsigned long answer;
+ 
+ 	if (state->rho == 0)	/* no correlation */
+-		return net_random();
++		return prandom_u32();
+ 
+-	value = net_random();
++	value = prandom_u32();
+ 	rho = (u64)state->rho + 1;
+ 	answer = (value * ((1ull<<32) - rho) + state->last * rho) >> 32;
+ 	state->last = answer;
+@@ -171,7 +171,7 @@ static u32 get_crandom(struct crndstate *state)
+ static bool loss_4state(struct netem_sched_data *q)
+ {
+ 	struct clgstate *clg = &q->clg;
+-	u32 rnd = net_random();
++	u32 rnd = prandom_u32();
+ 
+ 	/*
+ 	 * Makes a comparison between rnd and the transition
+@@ -238,14 +238,14 @@ static bool loss_gilb_ell(struct netem_sched_data *q)
+ 
+ 	switch (clg->state) {
+ 	case 1:
+-		if (net_random() < clg->a1)
++		if (prandom_u32() < clg->a1)
+ 			clg->state = 2;
+-		if (net_random() < clg->a4)
++		if (prandom_u32() < clg->a4)
+ 			return true;
+ 	case 2:
+-		if (net_random() < clg->a2)
++		if (prandom_u32() < clg->a2)
+ 			clg->state = 1;
+-		if (clg->a3 > net_random())
++		if (clg->a3 > prandom_u32())
+ 			return true;
  	}
  
- 	if (!(ifa->ifa_flags & IFA_F_SECONDARY)) {
--		net_srandom(ifa->ifa_local);
-+		prandom_seed((__force u32)ifa->ifa_local);
- 		ifap = last_primary;
+@@ -415,7 +415,8 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		     skb_checksum_help(skb)))
+ 			return qdisc_drop(skb, sch);
+ 
+-		skb->data[net_random() % skb_headlen(skb)] ^= 1<<(net_random() % 8);
++		skb->data[prandom_u32() % skb_headlen(skb)] ^=
++			1 << (prandom_u32() % 8);
  	}
  
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 736ab70..8506a7c 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -186,7 +186,7 @@ static void igmp_stop_timer(struct ip_mc_list *im)
- /* It must be called with locked im->lock */
- static void igmp_start_timer(struct ip_mc_list *im, int max_delay)
+ 	if (unlikely(skb_queue_len(&sch->q) >= sch->limit))
+diff --git a/net/sched/sch_sfb.c b/net/sched/sch_sfb.c
+index 30ea467..9b0f709 100644
+--- a/net/sched/sch_sfb.c
++++ b/net/sched/sch_sfb.c
+@@ -220,7 +220,7 @@ static u32 sfb_compute_qlen(u32 *prob_r, u32 *avgpm_r, const struct sfb_sched_da
+ 
+ static void sfb_init_perturbation(u32 slot, struct sfb_sched_data *q)
  {
--	int tv = net_random() % max_delay;
-+	int tv = prandom_u32() % max_delay;
+-	q->bins[slot].perturbation = net_random();
++	q->bins[slot].perturbation = prandom_u32();
+ }
  
- 	im->tm_running = 1;
- 	if (!mod_timer(&im->timer, jiffies+tv+2))
-@@ -195,7 +195,7 @@ static void igmp_start_timer(struct ip_mc_list *im, int max_delay)
+ static void sfb_swap_slot(struct sfb_sched_data *q)
+@@ -381,7 +381,7 @@ static int sfb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 		goto enqueue;
+ 	}
  
- static void igmp_gq_start_timer(struct in_device *in_dev)
- {
--	int tv = net_random() % in_dev->mr_maxdelay;
-+	int tv = prandom_u32() % in_dev->mr_maxdelay;
+-	r = net_random() & SFB_MAX_PROB;
++	r = prandom_u32() & SFB_MAX_PROB;
  
- 	in_dev->mr_gq_running = 1;
- 	if (!mod_timer(&in_dev->mr_gq_timer, jiffies+tv+2))
-@@ -204,7 +204,7 @@ static void igmp_gq_start_timer(struct in_device *in_dev)
+ 	if (unlikely(r < p_min)) {
+ 		if (unlikely(p_min > SFB_MAX_PROB / 2)) {
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index d3a1bc2..921130e 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -627,7 +627,7 @@ static void sfq_perturbation(unsigned long arg)
+ 	spinlock_t *root_lock = qdisc_lock(qdisc_root_sleeping(sch));
  
- static void igmp_ifc_start_timer(struct in_device *in_dev, int delay)
- {
--	int tv = net_random() % delay;
-+	int tv = prandom_u32() % delay;
+ 	spin_lock(root_lock);
+-	q->perturbation = net_random();
++	q->perturbation = prandom_u32();
+ 	if (!q->filter_list && q->tail)
+ 		sfq_rehash(sch);
+ 	spin_unlock(root_lock);
+@@ -696,7 +696,7 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
+ 	del_timer(&q->perturb_timer);
+ 	if (q->perturb_period) {
+ 		mod_timer(&q->perturb_timer, jiffies + q->perturb_period);
+-		q->perturbation = net_random();
++		q->perturbation = prandom_u32();
+ 	}
+ 	sch_tree_unlock(sch);
+ 	kfree(p);
+@@ -757,7 +757,7 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	q->quantum = psched_mtu(qdisc_dev(sch));
+ 	q->scaled_quantum = SFQ_ALLOT_SIZE(q->quantum);
+ 	q->perturb_period = 0;
+-	q->perturbation = net_random();
++	q->perturbation = prandom_u32();
  
- 	if (!mod_timer(&in_dev->mr_ifc_timer, jiffies+tv+2))
- 		in_dev_hold(in_dev);
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index d0670f0..f43fc82 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -114,7 +114,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- again:
- 		inet_get_local_port_range(&low, &high);
- 		remaining = (high - low) + 1;
--		smallest_rover = rover = net_random() % remaining + low;
-+		smallest_rover = rover = prandom_u32() % remaining + low;
- 
- 		smallest_size = -1;
- 		do {
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 79c8dbe..ca6cfbb 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -215,7 +215,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 		inet_get_local_port_range(&low, &high);
- 		remaining = (high - low) + 1;
- 
--		rand = net_random();
-+		rand = prandom_u32();
- 		first = (((u64)rand * remaining) >> 32) + low;
- 		/*
- 		 * force rand to be an odd multiple of UDP_HTABLE_SIZE
+ 	if (opt) {
+ 		int err = sfq_change(sch, opt);
 -- 
 1.7.11.7
