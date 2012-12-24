@@ -1,48 +1,66 @@
-From: Pau Koning <paukoning@gmail.com>
-Subject: Re: [B.A.T.M.A.N.] [PATCH 1/7] batman-adv: Move soft-interface
- initialization to ndo_init
-Date: Tue, 25 Dec 2012 00:18:37 +0100
-Message-ID: <CANiGF9_4QP0ts2kV9Bruk_8L7h1870LMcrRhtsYu35q=COF0hQ@mail.gmail.com>
-References: <1353715332-4284-1-git-send-email-sven@narfation.org>
-	<201212242237.07208.lindner_marek@yahoo.de>
-	<CANiGF98L_Ca20Eb+qVuX1126rWoeqQzOASshB7c2LQ-Fi7DiXA@mail.gmail.com>
-	<201212250337.48595.lindner_marek@yahoo.de>
+From: Woody Wu <narkewoody@gmail.com>
+Subject: Re: Porting problem: ndo_set_multicast_list removed
+Date: Tue, 25 Dec 2012 07:47:14 +0800
+Message-ID: <20121224234713.GA6756@zuhnb712>
+References: <20121224163005.GA3970@zuhnb712>
+ <1356376587.20133.9693.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Sven Eckelmann <sven@narfation.org>
-To: Marek Lindner <lindner_marek@yahoo.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernelnewbies@kernelnewbies.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:44640 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753377Ab2LXXSi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2012 18:18:38 -0500
-Received: by mail-ob0-f175.google.com with SMTP id vb8so6883032obc.6
-        for <netdev@vger.kernel.org>; Mon, 24 Dec 2012 15:18:37 -0800 (PST)
-In-Reply-To: <201212250337.48595.lindner_marek@yahoo.de>
+Received: from mail-da0-f48.google.com ([209.85.210.48]:63337 "EHLO
+	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753377Ab2LXXsi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2012 18:48:38 -0500
+Content-Disposition: inline
+In-Reply-To: <1356376587.20133.9693.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> What decision? I only see something about Patch 6 and Patch 7: Antonio
->> Quartulli doesn't want rtnetlink support in batman-adv. I don't see
->> any other statement about the rest of the patchset.
->
-> Quoting Antonio:
->
->>>>
-> Anyway, I discussed about this together with the others and it seems
-> that a proper solution now is to wait before merging this patchset and fix the
-> current sysfs/rtnl_lock problem first. What do you think?
->
-> Adding a new API without fixing the current one doesn't sound like a good
-> move.
-> <<<
->
-> What isn't clear ?
+On Mon, Dec 24, 2012 at 11:16:27AM -0800, Eric Dumazet wrote:
+> On Tue, 2012-12-25 at 00:30 +0800, Woody Wu wrote:
+> > Hi, list
+> > 
+> > I am porting an ethernet driver from 2.6.x to 3.7.1.  I found in the new
+> > kernel, the ndo_set_multicast_list method in the net_device_ops had been
+> > removed. What's the story behind?  Can I simply ignore this method
+> > defined in an old driver?
+> > 
+> > Please also help to check the below code, is the list of the operations
+> > defined for my driver enough or not?
+> > 
+> > const struct net_device_ops ax_netdev_ops = {
+> > 	.ndo_open		= mydriver_open,
+> > 	.ndo_stop		= mydriver_close,
+> > 	.ndo_start_xmit		= mydriver_start_xmit,
+> > 	.ndo_get_stats		= mydriver_get_stats,
+> > 	/*.ndo_set_multicast_list = mydriver_set_multicast_list,*/
+> > 	.ndo_set_mac_address 	= mydriver_set_mac_address,
+> > };
+> > 
+> > Thanks in advance.
+> > 
+> 
+> Take a look at :
+> 
+> commit afc4b13df143122f99a0eb10bfefb216c2806de0
+> Author: Jiri Pirko <jpirko@redhat.com>
+> Date:   Tue Aug 16 06:29:01 2011 +0000
+> 
+>     net: remove use of ndo_set_multicast_list in drivers
+>     
+>     replace it by ndo_set_rx_mode
+>     
+>     Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> 
 
-AFAIK patch 6 and 7 are the "new" rtnetlink API. The rest can be
-categorized as fixes for bugs and for the wrong way to implementation
-things. But I've discussed it with the others and now we found out:
-batman-adv doesn't care about the rest of the kernel and bugs are not
-relevant compared to egocentric statements.
+Thanks for the info!
+
+-- 
+woody
+I can't go back to yesterday - because I was a different person then.
