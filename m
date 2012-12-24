@@ -1,84 +1,64 @@
 From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH 25/29] net/netfilter: rename random32() and net_random() to prandom_u32()
-Date: Mon, 24 Dec 2012 11:14:12 +0900
-Message-ID: <1356315256-6572-26-git-send-email-akinobu.mita@gmail.com>
+Subject: [PATCH 29/29] remove unused net_random(), net_srandom(), random32(), and srandom32()
+Date: Mon, 24 Dec 2012 11:14:16 +0900
+Message-ID: <1356315256-6572-30-git-send-email-akinobu.mita@gmail.com>
 References: <1356315256-6572-1-git-send-email-akinobu.mita@gmail.com>
 Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org
+	"Theodore Ts'o" <tytso@mit.edu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:50088 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753078Ab2LXCPe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 21:15:34 -0500
 In-Reply-To: <1356315256-6572-1-git-send-email-akinobu.mita@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use more preferable function name which implies using a pseudo-random
-number generator.
+After finishing a naming transition, remove unused backward
+compatibility wrapper macros
 
 Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org
-Cc: netfilter@vger.kernel.org
-Cc: coreteam@netfilter.org
+Cc: "Theodore Ts'o" <tytso@mit.edu>
 Cc: "David S. Miller" <davem@davemloft.net>
 Cc: netdev@vger.kernel.org
 ---
- net/netfilter/ipvs/ip_vs_conn.c   | 2 +-
- net/netfilter/nf_conntrack_core.c | 4 ++--
- net/netfilter/xt_statistic.c      | 2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ include/linux/net.h    | 3 ---
+ include/linux/random.h | 7 -------
+ 2 files changed, 10 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 30e764a..870dff6 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -1200,7 +1200,7 @@ void ip_vs_random_dropentry(struct net *net)
- 	 * Randomly scan 1/32 of the whole table every second
- 	 */
- 	for (idx = 0; idx < (ip_vs_conn_tab_size>>5); idx++) {
--		unsigned int hash = net_random() & ip_vs_conn_tab_mask;
-+		unsigned int hash = prandom_u32() & ip_vs_conn_tab_mask;
- 		struct hlist_node *n;
+diff --git a/include/linux/net.h b/include/linux/net.h
+index aa16731..937e2bf 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -240,9 +240,6 @@ do {								\
+ #define net_dbg_ratelimited(fmt, ...)				\
+ 	net_ratelimited_function(pr_debug, fmt, ##__VA_ARGS__)
  
- 		/*
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 08cdc71..a8f5c7a 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -263,7 +263,7 @@ static void death_by_event(unsigned long ul_conntrack)
- 	if (nf_conntrack_event(IPCT_DESTROY, ct) < 0) {
- 		/* bad luck, let's retry again */
- 		ecache->timeout.expires = jiffies +
--			(random32() % net->ct.sysctl_events_retry_timeout);
-+			(prandom_u32() % net->ct.sysctl_events_retry_timeout);
- 		add_timer(&ecache->timeout);
- 		return;
- 	}
-@@ -282,7 +282,7 @@ void nf_ct_dying_timeout(struct nf_conn *ct)
- 	/* set a new timer to retry event delivery */
- 	setup_timer(&ecache->timeout, death_by_event, (unsigned long)ct);
- 	ecache->timeout.expires = jiffies +
--		(random32() % net->ct.sysctl_events_retry_timeout);
-+		(prandom_u32() % net->ct.sysctl_events_retry_timeout);
- 	add_timer(&ecache->timeout);
- }
- EXPORT_SYMBOL_GPL(nf_ct_dying_timeout);
-diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
-index 4fe4fb4..11de55e 100644
---- a/net/netfilter/xt_statistic.c
-+++ b/net/netfilter/xt_statistic.c
-@@ -37,7 +37,7 @@ statistic_mt(const struct sk_buff *skb, struct xt_action_param *par)
+-#define net_random()		random32()
+-#define net_srandom(seed)	srandom32((__force u32)seed)
+-
+ extern int   	     kernel_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				    struct kvec *vec, size_t num, size_t len);
+ extern int   	     kernel_recvmsg(struct socket *sock, struct msghdr *msg,
+diff --git a/include/linux/random.h b/include/linux/random.h
+index d984608..2ae2840 100644
+--- a/include/linux/random.h
++++ b/include/linux/random.h
+@@ -29,13 +29,6 @@ u32 prandom_u32(void);
+ void prandom_bytes(void *buf, int nbytes);
+ void prandom_seed(u32 seed);
  
- 	switch (info->mode) {
- 	case XT_STATISTIC_MODE_RANDOM:
--		if ((net_random() & 0x7FFFFFFF) < info->u.random.probability)
-+		if ((prandom_u32() & 0x7FFFFFFF) < info->u.random.probability)
- 			ret = !ret;
- 		break;
- 	case XT_STATISTIC_MODE_NTH:
+-/*
+- * These macros are preserved for backward compatibility and should be
+- * removed as soon as a transition is finished.
+- */
+-#define random32() prandom_u32()
+-#define srandom32(seed) prandom_seed(seed)
+-
+ u32 prandom_u32_state(struct rnd_state *);
+ void prandom_bytes_state(struct rnd_state *state, void *buf, int nbytes);
+ 
 -- 
 1.7.11.7
