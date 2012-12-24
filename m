@@ -1,81 +1,56 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
-Date: Mon, 24 Dec 2012 19:19:43 +0100
-Message-ID: <20121224181943.GA16068@1984>
-References: <50D46060.2070308@gmail.com>
- <50D46928.9070809@mojatatu.com>
- <50D46EC1.2040608@gmail.com>
- <50D5B366.30005@mojatatu.com>
- <50D5BC96.9010602@gmail.com>
- <50D5BF00.7050304@mojatatu.com>
- <50D83DDB.102@mojatatu.com>
- <50D8413C.8050508@openwrt.org>
- <20121224131233.GA29307@1984>
- <50D86136.6070006@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Porting problem: ndo_set_multicast_list removed
+Date: Mon, 24 Dec 2012 11:16:27 -0800
+Message-ID: <1356376587.20133.9693.camel@edumazet-glaptop>
+References: <20121224163005.GA3970@zuhnb712>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Felix Fietkau <nbd@openwrt.org>,
-	Yury Stankevich <urykhy@gmail.com>,
-	Hasan Chowdhury <shemonc@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Jan Engelhardt <jengelh@inai.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <50D86136.6070006@mojatatu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kernelnewbies@kernelnewbies.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Woody Wu <narkewoody@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33830 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753129Ab2LXTQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2012 14:16:31 -0500
+In-Reply-To: <20121224163005.GA3970@zuhnb712>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jamal,
-
-On Mon, Dec 24, 2012 at 09:05:42AM -0500, Jamal Hadi Salim wrote:
-> On 12-12-24 08:12 AM, Pablo Neira Ayuso wrote:
-> >
-> >conntrack needs to see defragmented packets, you have to call
-> >nf_defrag_ipv4 / _ipv6 respectively before that.
-> >
+On Tue, 2012-12-25 at 00:30 +0800, Woody Wu wrote:
+> Hi, list
 > 
-> This should not be too hard to do - although my thinking says this
-> should be a separate action.
+> I am porting an ethernet driver from 2.6.x to 3.7.1.  I found in the new
+> kernel, the ndo_set_multicast_list method in the net_device_ops had been
+> removed. What's the story behind?  Can I simply ignore this method
+> defined in an old driver?
 > 
-> >This also changes the semantics of the raw table in iptables since it
-> >will now see packet with conntrack already attached. So this would
-> >also break -j CT --notrack.
+> Please also help to check the below code, is the list of the operations
+> defined for my driver enough or not?
 > 
-> Is there a flag we can check which says a flow is not to be tracked?
-> Doesnt nf_conntrack_in() fail if --no track is set?
-
-The notrack dummy conntrack (consider it a flag) is attached in
-prerouting raw table. By attaching conntracks at ingress, the notrack
-flag will be ignored. Note that this also breaks conntrack templates
-via -j CT, that allows us to set custom conntrack timeouts, zones and
-helpers at prerouting raw.
-
-Basically, ct templates are attached via -j CT, this template is
-munched by nf_conntrack_in, which adds the corresponding ct features
-based on the template information.
-
-> >This needs more thinking. I can appreciate the value of calling
-> >conntrack from different points of the packet traversal, but there are
-> >a couple of thing we have to resolve before allowing that.
+> const struct net_device_ops ax_netdev_ops = {
+> 	.ndo_open		= mydriver_open,
+> 	.ndo_stop		= mydriver_close,
+> 	.ndo_start_xmit		= mydriver_start_xmit,
+> 	.ndo_get_stats		= mydriver_get_stats,
+> 	/*.ndo_set_multicast_list = mydriver_set_multicast_list,*/
+> 	.ndo_set_mac_address 	= mydriver_set_mac_address,
+> };
 > 
-> There is user need for this Pablo - as you can see from what Felix
-> deployed it seems to be used a lot more wider audience dependency.
-> What do we need to do to get this to work properly?
+> Thanks in advance.
+> 
 
-The conntrack code needs to be generalized to allow creating conntrack
-with features all at once (so we can remove the template
-infrastructure). Even after that, we'll still have that -j CT rules
-will be ignored if you're using, let's name it, act_ct from ingress to
-attach the conntrack to it.
+Take a look at :
 
-With the current approach you're using, people will see conntracks in
-the iptables raw table, that breaks the current semantics.
+commit afc4b13df143122f99a0eb10bfefb216c2806de0
+Author: Jiri Pirko <jpirko@redhat.com>
+Date:   Tue Aug 16 06:29:01 2011 +0000
 
-We'll have the netfilter workshop by Q1/Q2 2013 (still TBA), I think
-this is material for discussion in it.
-
-cheers,
-Pablo
+    net: remove use of ndo_set_multicast_list in drivers
+    
+    replace it by ndo_set_rx_mode
+    
+    Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
