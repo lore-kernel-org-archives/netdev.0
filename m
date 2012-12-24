@@ -1,39 +1,39 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: IPv6 over Firewire
-Date: Mon, 24 Dec 2012 00:52:47 +0100
-Message-ID: <20121224005247.54ab8510@stein>
-References: <50D49659.1000101@gmail.com>
-	<50D4A219.7080807@linux-ipv6.org>
-	<50D4ACFA.6040901@gmail.com>
-	<50D4BD2F.7060006@linux-ipv6.org>
-	<50D54ED9.6090908@gmail.com>
-	<50D6BF6F.2030207@linux-ipv6.org>
-	<50D6E73F.70301@gmail.com>
-	<50D6F488.7060308@linux-ipv6.org>
-	<50D7062D.8040901@gmail.com>
-	<50D73ABB.4020800@linux-ipv6.org>
-	<50D74C81.1000400@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch] arp: fix a regression in arp_solicit()
+Date: Mon, 24 Dec 2012 09:21:40 +0800
+Message-ID: <CAM_iQpW8WZqZmxycXzgtaOcLrVHPU9kRgJvK0777SyQ8SN155A@mail.gmail.com>
+References: <1356273778-19113-1-git-send-email-xiyou.wangcong@gmail.com>
+	<CA+icZUWKNAGe+jMbsonrigVZ5Sk7dDdciZn1r7oMcsAWe7i3fQ@mail.gmail.com>
+	<CA+icZUXo+OQ4XZ8V588FHKrDanqwq8jR1pAHwVPjJcu+14TKeQ@mail.gmail.com>
+	<20121223.141706.1783471119472317669.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
-To: stephan.gatzka@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: sedat.dilek@gmail.com,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	edumazet@google.com, Julian Anastasov <ja@ssi.bg>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:40079 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751285Ab2LWXxG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 18:53:06 -0500
-In-Reply-To: <50D74C81.1000400@gmail.com>
+Received: from mail-da0-f54.google.com ([209.85.210.54]:54397 "EHLO
+	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752157Ab2LXBVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 20:21:40 -0500
+Received: by mail-da0-f54.google.com with SMTP id n2so2913430dad.13
+        for <netdev@vger.kernel.org>; Sun, 23 Dec 2012 17:21:40 -0800 (PST)
+In-Reply-To: <20121223.141706.1783471119472317669.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Dec 23 Stephan Gatzka wrote:
-> @Stefan: Are you o.k. if I go that way?
+On Mon, Dec 24, 2012 at 6:17 AM, David Miller <davem@davemloft.net> wrote:
+> From: Sedat Dilek <sedat.dilek@gmail.com>
+> Date: Sun, 23 Dec 2012 15:58:52 +0100
+>
+>> While at it you might enhance the label with "ipv4"?
+>
+> That's excessive.
+>
+> ARP is ipv4 and ipv4 only, in other protocols it has completely
+> different names.
 
-Sure, go ahead.  If it comes to networking issues, I am certainly not
-someone to seek advise at, let alone permission. :-)
--- 
-Stefan Richter
--=====-===-- ==-- ==---
-http://arcgraph.de/sr/
+Agreed. I will resend the patch with the typo fixed.
+
+Thanks.
