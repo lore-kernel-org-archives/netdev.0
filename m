@@ -1,27 +1,34 @@
-From: Pau Koning <paukoning@gmail.com>
-Subject: Re: [PATCH 1/7] batman-adv: Move soft-interface initialization to ndo_init
-Date: Mon, 24 Dec 2012 15:22:44 +0100
-Message-ID: <CANiGF9_=svx+W4Rhx8BL1NBv0H1aULeh71sX9YkMeR66OmmimA@mail.gmail.com>
-References: <1353715332-4284-1-git-send-email-sven@narfation.org>
+From: Pau Koning <paukoning-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] net,
+	batman: don't crash on zero length strings in routing_algo
+Date: Mon, 24 Dec 2012 15:18:52 +0100
+Message-ID: <CANiGF9-_roU2oD5uTRvjvaS5=bv-VoRBdULZN3PtgFzs5z1=CQ@mail.gmail.com>
+References: <1353355695-23252-1-git-send-email-sasha.levin@oracle.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
-To: Sven Eckelmann <sven@narfation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:50198 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752572Ab2LXO1x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2012 09:27:53 -0500
-Received: by mail-ob0-f172.google.com with SMTP id za17so6740948obc.31
-        for <netdev@vger.kernel.org>; Mon, 24 Dec 2012 06:27:53 -0800 (PST)
-In-Reply-To: <1353715332-4284-1-git-send-email-sven@narfation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org, Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+ lindner_marek-LWAfsSFWpa4@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1353355695-23252-1-git-send-email-sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 24, 2012 at 1:02 AM, Sven Eckelmann <sven@narfation.org> wrote:
-> The initialization of an net_device object should be done in the
-> init/constructor function and not from the outside after the register_netdevice
-> was done to avoid race conditions.
+On Mon, Nov 19, 2012 at 9:08 PM, Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
+> The code that works with routing_algo assumes that the string passed is non
+> empty, this assumption is wrong:
 
-This patchset seems to be similar. Shouldn't it have been part of
-3.8-rc1 or got rejected? Neither of it happened in the last month
+Why isn't this patch part of Linux 3.7? It seems to be a bugfix and it
+was sent early enough?
