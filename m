@@ -1,39 +1,75 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch] arp: fix a regression in arp_solicit()
-Date: Mon, 24 Dec 2012 09:21:40 +0800
-Message-ID: <CAM_iQpW8WZqZmxycXzgtaOcLrVHPU9kRgJvK0777SyQ8SN155A@mail.gmail.com>
-References: <1356273778-19113-1-git-send-email-xiyou.wangcong@gmail.com>
-	<CA+icZUWKNAGe+jMbsonrigVZ5Sk7dDdciZn1r7oMcsAWe7i3fQ@mail.gmail.com>
-	<CA+icZUXo+OQ4XZ8V588FHKrDanqwq8jR1pAHwVPjJcu+14TKeQ@mail.gmail.com>
-	<20121223.141706.1783471119472317669.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: sedat.dilek@gmail.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	edumazet@google.com, Julian Anastasov <ja@ssi.bg>
-To: David Miller <davem@davemloft.net>
+Subject: [Patch v2] arp: fix a regression in arp_solicit()
+Date: Mon, 24 Dec 2012 09:23:16 +0800
+Message-ID: <1356312196-23185-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Sedat Dilek <sedat.dilek@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f54.google.com ([209.85.210.54]:54397 "EHLO
-	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752157Ab2LXBVk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 20:21:40 -0500
-Received: by mail-da0-f54.google.com with SMTP id n2so2913430dad.13
-        for <netdev@vger.kernel.org>; Sun, 23 Dec 2012 17:21:40 -0800 (PST)
-In-Reply-To: <20121223.141706.1783471119472317669.davem@davemloft.net>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:46518 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752302Ab2LXBXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Dec 2012 20:23:35 -0500
+Received: by mail-pb0-f50.google.com with SMTP id wz7so3710357pbc.23
+        for <netdev@vger.kernel.org>; Sun, 23 Dec 2012 17:23:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 24, 2012 at 6:17 AM, David Miller <davem@davemloft.net> wrote:
-> From: Sedat Dilek <sedat.dilek@gmail.com>
-> Date: Sun, 23 Dec 2012 15:58:52 +0100
->
->> While at it you might enhance the label with "ipv4"?
->
-> That's excessive.
->
-> ARP is ipv4 and ipv4 only, in other protocols it has completely
-> different names.
+From: Cong Wang <xiyou.wangcong@gmail.com>
 
-Agreed. I will resend the patch with the typo fixed.
+Sedat reported the following commit caused a regression:
 
-Thanks.
+commit 9650388b5c56578fdccc79c57a8c82fb92b8e7f1
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Fri Dec 21 07:32:10 2012 +0000
+
+    ipv4: arp: fix a lockdep splat in arp_solicit
+
+This is due to the 6th parameter of arp_send() needs to be NULL
+for the broadcast case, the above commit changed it to an all-zero
+array by mistake.
+
+Reported-by: Sedat Dilek <sedat.dilek@gmail.com>
+Tested-by: Sedat Dilek <sedat.dilek@gmail.com>
+Cc: Sedat Dilek <sedat.dilek@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+
+---
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 1169ed4..9547a273 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -321,7 +321,7 @@ static void arp_error_report(struct neighbour *neigh, struct sk_buff *skb)
+ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	__be32 saddr = 0;
+-	u8 dst_ha[MAX_ADDR_LEN];
++	u8 dst_ha[MAX_ADDR_LEN], *dst_hw = NULL;
+ 	struct net_device *dev = neigh->dev;
+ 	__be32 target = *(__be32 *)neigh->primary_key;
+ 	int probes = atomic_read(&neigh->probes);
+@@ -364,8 +364,8 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 		if (!(neigh->nud_state & NUD_VALID))
+ 			pr_debug("trying to ucast probe in NUD_INVALID\n");
+ 		neigh_ha_snapshot(dst_ha, neigh, dev);
++		dst_hw = dst_ha;
+ 	} else {
+-		memset(dst_ha, 0, dev->addr_len);
+ 		probes -= neigh->parms->app_probes;
+ 		if (probes < 0) {
+ #ifdef CONFIG_ARPD
+@@ -376,7 +376,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	}
+ 
+ 	arp_send(ARPOP_REQUEST, ETH_P_ARP, target, dev, saddr,
+-		 dst_ha, dev->dev_addr, NULL);
++		 dst_hw, dev->dev_addr, NULL);
+ }
+ 
+ static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
