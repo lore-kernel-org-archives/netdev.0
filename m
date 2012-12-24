@@ -1,39 +1,52 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: value of dev->addr_assign_type
-Date: Mon, 24 Dec 2012 10:47:30 +0100
-Message-ID: <20121224094730.GB1559@minipsycho.orion>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
+Date: Mon, 24 Dec 2012 06:34:51 -0500
+Message-ID: <50D83DDB.102@mojatatu.com>
+References: <50C4821D.5090206@gmail.com> <50C9B4BB.9060609@mojatatu.com> <50CCE961.5050204@mojatatu.com> <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr> <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com> <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com> <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr> <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com> <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com> <50D06177.2090905@mojatatu.com> <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com> <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com> <50D2D229.6040802@gmail.com> <50D305FD.7000901@mojatatu.com> <50D327CD.3050904@gmail.com> <50D45E25.7050703@mojatatu.com> <50D46060.2070308@gmail.com> <50D4692
+ 8.9070809@mojatatu.com> <50D46EC1.2040608@gmail.com> <50D5B366.30005@mojatatu.com> <50D5BC96.9010602@gmail.com> <50D5BF00.7050304@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sassmann@redhat.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Hasan Chowdhury <shemonc@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jan Engelhardt <jengelh@inai.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	pablo@netfilter.org, netfilter-devel@vger.kernel.org
+To: Yury Stankevich <urykhy@gmail.com>, Felix Fietkau <nbd@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:40828 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752889Ab2LXJrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2012 04:47:36 -0500
-Received: by mail-ee0-f49.google.com with SMTP id c4so3381184eek.36
-        for <netdev@vger.kernel.org>; Mon, 24 Dec 2012 01:47:35 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-ia0-f174.google.com ([209.85.210.174]:47539 "EHLO
+	mail-ia0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752022Ab2LXLe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2012 06:34:56 -0500
+Received: by mail-ia0-f174.google.com with SMTP id y25so5857983iay.33
+        for <netdev@vger.kernel.org>; Mon, 24 Dec 2012 03:34:55 -0800 (PST)
+In-Reply-To: <50D5BF00.7050304@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stefan/all.
 
-Looking at possible values of dev->addr_assign_type I found out:
+Some good news Yury.
+I am told Felix Fietkau <nbd@openwrt.org> (on CC) actually
+already solved this issue and it is a feature in openwrt. I
+cant find the code.
 
-/* hardware address assignment types */
-#define NET_ADDR_PERM          0       /* address is permanent (default) */
-#define NET_ADDR_RANDOM                1       /* address is generated randomly */
-#define NET_ADDR_STOLEN                2       /* address is stolen from other device */
+Felix - Yury is trying to retrieve skb->mark fields from
+netfilter connmark. My understanding is you have written
+such an action. Can you please point us to it - and any
+reason you havent submitted this for inclusion in kernel
+proper?
 
-By this it looks like dev->addr_assign_type value is always one of these 3.
+cheers,
+jamal
 
-But by the way the value is treated in dev_hw_addr_random() for example:
-dev->addr_assign_type |= NET_ADDR_RANDOM;
-It looks like NET_ADDR_* ought to be flags...
-
-That confuses me.
-
-Jiri
-
-ps.: introduced in c1f79426e2df5ef96fe3e76de6c7606d15bf390b
+On 12-12-22 09:09 AM, Jamal Hadi Salim wrote:
+> On 12-12-22 08:58 AM, Yury Stankevich wrote:
+>
+>> i'm trying if this can work, alas. it can't.
+>
+> Now i want it to work ;-> So dont give up yet.
+>
+>
+> cheers,
+> jamal
+>
