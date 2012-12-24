@@ -1,52 +1,81 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [Patch v2] arp: fix a regression in arp_solicit()
-Date: Mon, 24 Dec 2012 08:41:14 -0800
-Message-ID: <1356367274.20133.9176.camel@edumazet-glaptop>
-References: <1356312196-23185-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] pkt_sched: act_xt support new Xtables interface
+Date: Mon, 24 Dec 2012 19:19:43 +0100
+Message-ID: <20121224181943.GA16068@1984>
+References: <50D46060.2070308@gmail.com>
+ <50D46928.9070809@mojatatu.com>
+ <50D46EC1.2040608@gmail.com>
+ <50D5B366.30005@mojatatu.com>
+ <50D5BC96.9010602@gmail.com>
+ <50D5BF00.7050304@mojatatu.com>
+ <50D83DDB.102@mojatatu.com>
+ <50D8413C.8050508@openwrt.org>
+ <20121224131233.GA29307@1984>
+ <50D86136.6070006@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sedat Dilek <sedat.dilek@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julian Anastasov <ja@ssi.bg>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f53.google.com ([209.85.210.53]:37429 "EHLO
-	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753137Ab2LXQlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Dec 2012 11:41:18 -0500
-Received: by mail-da0-f53.google.com with SMTP id x6so3217620dac.40
-        for <netdev@vger.kernel.org>; Mon, 24 Dec 2012 08:41:17 -0800 (PST)
-In-Reply-To: <1356312196-23185-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Felix Fietkau <nbd@openwrt.org>,
+	Yury Stankevich <urykhy@gmail.com>,
+	Hasan Chowdhury <shemonc@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jan Engelhardt <jengelh@inai.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <50D86136.6070006@mojatatu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2012-12-24 at 09:23 +0800, Cong Wang wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> 
-> Sedat reported the following commit caused a regression:
-> 
-> commit 9650388b5c56578fdccc79c57a8c82fb92b8e7f1
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Fri Dec 21 07:32:10 2012 +0000
-> 
->     ipv4: arp: fix a lockdep splat in arp_solicit
-> 
-> This is due to the 6th parameter of arp_send() needs to be NULL
-> for the broadcast case, the above commit changed it to an all-zero
-> array by mistake.
-> 
-> Reported-by: Sedat Dilek <sedat.dilek@gmail.com>
-> Tested-by: Sedat Dilek <sedat.dilek@gmail.com>
-> Cc: Sedat Dilek <sedat.dilek@gmail.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> 
-> ---
+Hi Jamal,
 
-Oops, thanks for fixing this.
+On Mon, Dec 24, 2012 at 09:05:42AM -0500, Jamal Hadi Salim wrote:
+> On 12-12-24 08:12 AM, Pablo Neira Ayuso wrote:
+> >
+> >conntrack needs to see defragmented packets, you have to call
+> >nf_defrag_ipv4 / _ipv6 respectively before that.
+> >
+> 
+> This should not be too hard to do - although my thinking says this
+> should be a separate action.
+> 
+> >This also changes the semantics of the raw table in iptables since it
+> >will now see packet with conntrack already attached. So this would
+> >also break -j CT --notrack.
+> 
+> Is there a flag we can check which says a flow is not to be tracked?
+> Doesnt nf_conntrack_in() fail if --no track is set?
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+The notrack dummy conntrack (consider it a flag) is attached in
+prerouting raw table. By attaching conntracks at ingress, the notrack
+flag will be ignored. Note that this also breaks conntrack templates
+via -j CT, that allows us to set custom conntrack timeouts, zones and
+helpers at prerouting raw.
+
+Basically, ct templates are attached via -j CT, this template is
+munched by nf_conntrack_in, which adds the corresponding ct features
+based on the template information.
+
+> >This needs more thinking. I can appreciate the value of calling
+> >conntrack from different points of the packet traversal, but there are
+> >a couple of thing we have to resolve before allowing that.
+> 
+> There is user need for this Pablo - as you can see from what Felix
+> deployed it seems to be used a lot more wider audience dependency.
+> What do we need to do to get this to work properly?
+
+The conntrack code needs to be generalized to allow creating conntrack
+with features all at once (so we can remove the template
+infrastructure). Even after that, we'll still have that -j CT rules
+will be ignored if you're using, let's name it, act_ct from ingress to
+attach the conntrack to it.
+
+With the current approach you're using, people will see conntracks in
+the iptables raw table, that breaks the current semantics.
+
+We'll have the netfilter workshop by Q1/Q2 2013 (still TBA), I think
+this is material for discussion in it.
+
+cheers,
+Pablo
