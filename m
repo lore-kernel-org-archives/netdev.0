@@ -1,63 +1,79 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Re: [PATCH 28/29] net/: rename net_random() to prandom_u32()
-Date: Tue, 25 Dec 2012 20:47:26 +0900
-Message-ID: <CAC5umyhhTJWfsFtZ_5Qm_HJHy2+sx7iMgcV=T=MMKLdi50-HQw@mail.gmail.com>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: Re: [PATCH 20/29] batman-adv: rename random32() to
+	prandom_u32()
+Date: Tue, 25 Dec 2012 12:30:36 +0100
+Message-ID: <20121225113036.GD2604@ritirata.org>
 References: <1356315256-6572-1-git-send-email-akinobu.mita@gmail.com>
-	<1356315256-6572-29-git-send-email-akinobu.mita@gmail.com>
-	<20121225002149.GA5235@neilslaptop.think-freely.org>
+ <1356315256-6572-21-git-send-email-akinobu.mita@gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	Jesse Gross <jesse@nicira.com>,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, dev@openvswitch.org,
-	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121225002149.GA5235@neilslaptop.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature"; boundary="Fig2xvG2VGoz8o/s"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
+ akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1356315256-6572-21-git-send-email-akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-2012/12/25 Neil Horman <nhorman@tuxdriver.com>:
-> On Mon, Dec 24, 2012 at 11:14:15AM +0900, Akinobu Mita wrote:
->> Use more preferable function name which implies using a pseudo-random
->> number generator.
->>
->> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
->> Cc: Jesse Gross <jesse@nicira.com>
->> Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
->> Cc: Vlad Yasevich <vyasevich@gmail.com>
->> Cc: Sridhar Samudrala <sri@us.ibm.com>
->> Cc: Neil Horman <nhorman@tuxdriver.com>
->> Cc: Steffen Klassert <steffen.klassert@secunet.com>
->> Cc: Herbert Xu <herbert@gondor.apana.org.au>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: linux-sctp@vger.kernel.org
->> Cc: dev@openvswitch.org
->> Cc: netdev@vger.kernel.org
->> ---
->>  include/net/red.h         | 2 +-
->>  net/802/garp.c            | 2 +-
->>  net/openvswitch/actions.c | 2 +-
->>  net/rds/bind.c            | 2 +-
->>  net/sctp/socket.c         | 2 +-
->>  net/xfrm/xfrm_state.c     | 2 +-
->>  6 files changed, 6 insertions(+), 6 deletions(-)
->>
-> I'm largely indifferent to this patch, but I kind of feel like its just churn.
-> Whats the real advantage in making this change?  I grant that it clearly
-> indicates the type of random number generator we're using at a given call site,
-> But for those using net_random, you probably don't care too much about
-> the source of your random bits.  If you did really want true random vs.
-> pseudo-random data, you need to explicitly use the right call.  You're previous
-> patch series did good cleanup on differentiating the different random calls, but
-> this just seems like its removing what is otherwise useful indirection.
 
-I overlooked the importance of  net_random() indirection.
-Thanks for the feedback. I'll leave all net_random() callers as-is in
-the next version.
+--Fig2xvG2VGoz8o/s
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, Dec 24, 2012 at 11:14:07AM +0900, Akinobu Mita wrote:
+> Use more preferable function name which implies using a pseudo-random
+> number generator.
+>=20
+> Signed-off-by: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+> Cc: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
+> Cc: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+> Cc: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+
+Acked-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+
+--=20
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--Fig2xvG2VGoz8o/s
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQIcBAEBAgAGBQJQ2Y5cAAoJEADl0hg6qKeOB2EP/3aLU6Z7GKbCDNYiraQ2bjgs
+vLxUt44ZuI86+97VNx3k/yVuRbKI+PqpljIGAcGZJAcl3TD3f0VOkvCQt3rcGy1D
++fS0Mu9h77IpQmWXndg76H0Otto92k1ndnmUGhKHT50X2zIxRHyiBjFAH0Nu5TgM
+kFoYWHkLeVbEPMe4sBNsjlY44pGwWXGRvCsrqIOdO0A0T64BwGhJCc4M2IiWW59Z
+QqkYEQNur5UZ1KEXFS5hYtTkFkxyxQGXKzDYX51QuEaS2fUZxMy4eFfdGmnLa/U9
+/eA8bXAbodj3H+g0ZtV+ozs6le1SQ2rg1ihkCQZqnwCaBe6w01NeMOWQjjp+FIpH
+QGWCVfDYeWPktR3mqLdED8w1vp+hVKVGbwRr1bbnJChX12UZrl748uU1xYHh8h+z
+WWeS9M2mY4x7tNU//j8aIWvrCZeyDKkP4lJtt6LphwDYc3H+7lYRKm0tBu3YBKKR
+I7apadEx7xvC6zI94kZDTGxEnnFs11mHLnc9TpgRSzfEHLwmlrHMduhhMNkWpXpn
+5KRDGVmglnWqcR6+U973OHY1qveWucdW9ot7RQi2OGP131oRZa9CGDR8ccwjGDyh
++0KGcFkQiPfevtSd89TbmiOL4MjfqNV93XTaaWCyq7iGChmN+kF6xGTO3hA5nf4j
+CzGM8O/iteZJAIOgcbBb
+=R0LJ
+-----END PGP SIGNATURE-----
+
+--Fig2xvG2VGoz8o/s--
