@@ -1,50 +1,35 @@
-From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-Subject: Re: [PATCH] net,
-	batman: don't crash on zero length strings in routing_algo
-Date: Tue, 25 Dec 2012 16:30:42 +0800
-Message-ID: <201212251630.42980.lindner_marek@yahoo.de>
-References: <1353355695-23252-1-git-send-email-sasha.levin@oracle.com>
- <CANiGF9_engsHHNUDnJi6+iczCdu7sBV+UuJ+Xv33pGuJxPeuAg@mail.gmail.com>
- <201212250336.36874.lindner_marek@yahoo.de>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: kernel panic when running /etc/init.d/iptables restart
+Date: Tue, 25 Dec 2012 16:50:11 +0800
+Message-ID: <50D968C3.7000306@cn.fujitsu.com>
+References: <CAFFEFTXxsPRf1Rmxyih0wL4O6q8G0OFmz0iRLX0tOYedYfajHw@mail.gmail.com> <50D93B43.8060303@cn.fujitsu.com> <CAFFEFTULzSysz+JCBC==VtKD8u1KO6EZnSdQ5XWM7um-zs9_pg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Pau Koning <paukoning-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org,
- Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <201212250336.36874.lindner_marek-LWAfsSFWpa4@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: canqun zhang <canqunzhang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFFEFTULzSysz+JCBC==VtKD8u1KO6EZnSdQ5XWM7um-zs9_pg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, December 25, 2012 03:36:36 Marek Lindner wrote:
-> > >> > empty, this assumption is wrong:
-> > >> Why isn't this patch part of Linux 3.7? It seems to be a bugfix and it
-> > >> was sent early enough?
-> > > 
-> > > The patch received a reply mere 2 hours after it was sent. Again,
-> > > please read all mails before making noise.
-> > 
-> > Ok, leaving this problem unsolved is the correct way to handle it?
-> > Nobody is allowed to say anything?
-> 
-> No, of course you are allowed "to say" something. I was simply pointing you
-> to the explanation why the patch wasn't merged yet.
+On 2012/12/25 15:25, canqun zhang wrote:
+> Hi Gao feng
+> The stack information is as follows. The kenel will panic because the
+> nf_ct_destroy is NULL.
 
-Let me add here: Feel free to do the required cleanup work and re-submit the 
-patch. Nobody stops you from doing that as well.  :-)
+Thanks!
+It seems that nf_conntrack_l[3,4]proto_unregister doesn't make sure
+nf_conns of the proto being destroyed.
 
-Cheers,
-Marek
+If I'm right, there is another problem even your fix this panic problem.
+the l3,14proto will be unregistered before all of it's nf_conns being destroyed.
+So even nf_ct_destroy is not NULL,in destroy_conntrack we are not able to
+find the right l4proto,the l4proto->destroy will be incorrect.resources will
+not be released correctly.
+
+So I think the root problem is we do register/unregister, set/unset both on the
+first net (init_net), Maybe it's better to do register set on the first net, and
+do unregister unset on the last net.
