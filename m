@@ -1,66 +1,62 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] iptables 1.4.17 release
-Date: Tue, 25 Dec 2012 14:09:07 +0100
-Message-ID: <20121225130907.GA27528@1984>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] ndisc: Ensure to reserve header space for encapsulation.
+Date: Tue, 25 Dec 2012 23:39:32 +0900
+Message-ID: <50D9BAA4.7000207@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38821 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751669Ab2LYOje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2012 09:39:34 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+We allocate sk_buff of MAX_HEADER + LL_RESERVED_SPACE(dev) + packet
+length + dev->needed_tailroom, but reserved LL_RESERVED_SPACE(dev)
+only.  This means that space for encapsulation was placed at the end
+of buffer.  This does not make sense.
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Reserve the space correctly, like this:
 
-Hi!
+head                       data                   tail       end
++--------------------------------------------------------------+
++                |           |                      |          |
++--------------------------------------------------------------+
+|<--MAX_HEADER-->|<-hlen---->|<---ipv6 packet------>|<--tlen-->|
+                   =LL_
+                    RESERVED_
+                    SPACE(dev)
 
-The Netfilter project proudly presents:
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/ndisc.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-        iptables 1.4.17
-
-More relevantly, this release includes the IPv6 NAT extensions from
-Patrick McHardy, the ignore day transition from Florian Westphal and
-a couple of fixes.
-
-See ChangeLog that comes attached to this email for more details.
-
-You can download it from:
-
-http://www.netfilter.org/projects/iptables/downloads.html
-ftp://ftp.netfilter.org/pub/iptables/
-
-Have fun!
-
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="changes-iptables-1.4.17.txt"
-
-Florian Westphal (1):
-      libxt_time: add support to ignore day transition
-
-Jozsef Kadlecsik (1):
-      Manpage update: matches are evaluated in the order they are specified.
-
-Pablo Neira Ayuso (2):
-      Merge branch 'next' branch that contains new features scheduled for     Linux kernel 3.7
-      bump version to 1.4.17
-
-Patrick McHardy (7):
-      Convert the NAT targets to use the kernel supplied nf_nat.h header
-      extensions: add IPv6 MASQUERADE extension
-      extensions: add IPv6 SNAT extension
-      extensions: add IPv6 DNAT target
-      extensions: add IPv6 REDIRECT extension
-      extensions: add IPv6 NETMAP extension
-      extensions: add NPT extension
-
-Tom Eastep (1):
-      extensions: libxt_statistic: Fix save output
-
-
---YZ5djTAD1cGYuMQK--
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 6574175..5f78ac2 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -404,7 +404,7 @@ static struct sk_buff *ndisc_build_skb(struct net_device *dev,
+ 		return NULL;
+ 	}
+ 
+-	skb_reserve(skb, hlen);
++	skb_reserve(skb, MAX_HEADER + hlen);
+ 	ip6_nd_hdr(sk, skb, dev, saddr, daddr, IPPROTO_ICMPV6, len);
+ 
+ 	skb->transport_header = skb->tail;
+@@ -1449,7 +1449,7 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 		goto release;
+ 	}
+ 
+-	skb_reserve(buff, hlen);
++	skb_reserve(buff, MAX_HEADER + hlen);
+ 	ip6_nd_hdr(sk, buff, dev, &saddr_buf, &ipv6_hdr(skb)->saddr,
+ 		   IPPROTO_ICMPV6, len);
+ 
+-- 
+1.7.9.5
