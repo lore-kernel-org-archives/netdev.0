@@ -1,28 +1,74 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] netprio_cgroup: define sk_cgrp_prioidx only if
- NETPRIO_CGROUP is enabled
-Date: Wed, 26 Dec 2012 14:16:42 -0800 (PST)
-Message-ID: <20121226.141642.2212856687052645929.davem@davemloft.net>
-References: <50DA9DB8.6080506@huawei.com>
-	<20121226180339.GB10793@neilslaptop.think-freely.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] bgmac: driver for GBit MAC core on BCMA bus
+Date: Wed, 26 Dec 2012 14:24:40 -0800
+Message-ID: <1356560680.26650.15.camel@joe-AO722>
+References: <1356363222-16672-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20121226180339.GB10793-0o1r3XBGOEbbgkc5XkKeNuvMHUBZFtU3YPYVAmT7z5s@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:33206 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750759Ab2LZWYl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Dec 2012 17:24:41 -0500
+In-Reply-To: <1356363222-16672-1-git-send-email-zajec5@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 26 Dec 2012 13:03:39 -0500
+On Mon, 2012-12-24 at 16:33 +0100, Rafa=C5=82 Mi=C5=82ecki wrote:
+> BCMA is a Broadcom specific bus with devices AKA cores. All recent BC=
+MA
+> based SoCs have gigabit ethernet provided by the GBit MAC core. This
+> patch adds driver for such a cores registering itself as a netdev. It
+> has been tested on a BCM4706 and BCM4718 chipsets.
 
-> On Wed, Dec 26, 2012 at 02:48:24PM +0800, Li Zefan wrote:
->> sock->sk_cgrp_prioidx won't be used at all if CONFIG_NETPRIO_CGROUP=n.
->> 
->> Signed-off-by: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> Acked-by: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Just a trivial note:
 
-Applied, thanks.
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethe=
+rnet/broadcom/bgmac.h
+[]
+> @@ -0,0 +1,443 @@
+> +#ifndef _BGMAC_H
+> +#define _BGMAC_H
+> +
+> +#define pr_fmt(fmt)		KBUILD_MODNAME ": " fmt
+> +
+> +#define bgmac_err(bgmac, fmt, ...) \
+> +	pr_err("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
+> +#define bgmac_warn(bgmac, fmt, ...) \
+> +	pr_warn("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
+> +#define bgmac_info(bgmac, fmt, ...) \
+> +	pr_info("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
+> +#define bgmac_dbg(bgmac, fmt, ...) \
+> +	pr_debug("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
+
+Maybe all the bgmac_<level> macros should be:
+
+	dev_<level>(&bgmac->core->dev, "u%d: " fmt,
+	            (bgmac)->core->core_unit, ##__VA_ARGS)
+
+or maybe a new function like below if you use
+a lot of these to decrease object size a little.
+
+int bgmac_printk(const char *level, const struct bgmac *bgmac,
+                 const char *fmt, ...)
+{
+
+	struct va_format vaf;
+	va_list args;
+	int r;
+
+	va_start(args, fmt);
+
+	vaf.fmt =3D fmt;
+	vaf.va =3D &args;
+
+	r =3D dev_printk(&bgmac->core->dev, "u%d: %pV",
+	               bgmac->core->core_unit, &vaf);
+
+	va_end(args);
+
+	return r;
+}
