@@ -1,59 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: should drop incoming frames without ACK flag set
-Date: Wed, 26 Dec 2012 14:11:54 -0800 (PST)
-Message-ID: <20121226.141154.115080358245263295.davem@davemloft.net>
-References: <1356541801.20133.20615.camel@edumazet-glaptop>
+Subject: Re: [PATCH] batman-adv: fix random jitter calculation
+Date: Wed, 26 Dec 2012 14:13:50 -0800 (PST)
+Message-ID: <20121226.141350.999199516661256197.davem@davemloft.net>
+References: <1356525130-2688-1-git-send-email-akinobu.mita@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zhiyunq@umich.edu, nanditad@google.com,
-	ncardwell@google.com, john.dykstra1@gmail.com
-To: eric.dumazet@gmail.com
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	lindner_marek@yahoo.de, siwu@hrz.tu-chemnitz.de,
+	ordex@autistici.org, b.a.t.m.a.n@lists.open-mesh.org
+To: akinobu.mita@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35419 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35433 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751085Ab2LZWL5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2012 17:11:57 -0500
-In-Reply-To: <1356541801.20133.20615.camel@edumazet-glaptop>
+	with ESMTP id S1751142Ab2LZWOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2012 17:14:14 -0500
+In-Reply-To: <1356525130-2688-1-git-send-email-akinobu.mita@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 26 Dec 2012 09:10:01 -0800
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Date: Wed, 26 Dec 2012 21:32:10 +0900
 
-> @@ -5540,6 +5540,9 @@ no_ack:
->  	}
->  
->  slow_path:
-> +	if (!th->ack)
-> +			goto discard;
+> batadv_iv_ogm_emit_send_time() attempts to calculates a random integer
+> in the range of 'orig_interval +- BATADV_JITTER' by the below lines.
+> 
+>         msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
+>         msecs += (random32() % 2 * BATADV_JITTER);
+> 
+> But it actually gets 'orig_interval' or 'orig_interval - BATADV_JITTER'
+> because '%' and '*' have same precedence and associativity is
+> left-to-right.
+> 
+> This adds the parentheses at the appropriate position so that it matches
+> original intension.
+> 
+> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+> Acked-by: Antonio Quartulli <ordex@autistici.org>
 
-One too many tabs there on that last line :-)
-
-> +
->  	if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
->  		goto csum_error;
->  
-> @@ -5551,7 +5554,7 @@ slow_path:
-
-
-Also, I would say that this checksum test should come first, because
-that takes priority since you could be testing the ACK bit of a
-corrupted packet.
-
-Better to get the statistic bump on the bad checksum then a silent
-drop on the ACK being cleared.
-
-> @@ -5984,11 +5987,15 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
->  		if (tcp_check_req(sk, skb, req, NULL, true) == NULL)
->  			goto discard;
->  	}
-> +
-> +	if (!th->ack)
-> +		goto discard;
-> +
-
-And that is effectively what is going to happen in this case since
-the caller has already done the checksum checks.
-
-Thanks.
+Applied, thanks.
