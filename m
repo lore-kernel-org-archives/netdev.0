@@ -1,79 +1,62 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 28/29] net/: rename net_random() to prandom_u32()
-Date: Tue, 25 Dec 2012 19:42:07 -0500
-Message-ID: <20121226004207.GA21931@hmsreliant.think-freely.org>
-References: <1356315256-6572-1-git-send-email-akinobu.mita@gmail.com>
- <1356315256-6572-29-git-send-email-akinobu.mita@gmail.com>
- <20121225002149.GA5235@neilslaptop.think-freely.org>
- <CAC5umyhhTJWfsFtZ_5Qm_HJHy2+sx7iMgcV=T=MMKLdi50-HQw@mail.gmail.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Subject: Re: [PATCH 4/4 v2] net/smsc911x: Provide common clock functionality
+Date: Wed, 26 Dec 2012 01:51:05 +0100
+Message-ID: <CACRpkdZGC=f0X1wLt1QLMB=x+ba6VRDAbRcW6wR_2gvNLuGw1g@mail.gmail.com>
+References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
+	<1355937587-31730-4-git-send-email-lee.jones@linaro.org>
+	<CACRpkda79O_b3Z8g7Sy7vMtW9neZU4x-Z=iEQgjqu4X5tFKyhw@mail.gmail.com>
+	<20121220192441.GC14363@n2100.arm.linux.org.uk>
+	<20121220203514.GN2691@gmail.com>
+	<20121220205113.GD14363@n2100.arm.linux.org.uk>
+	<20121221091306.GO2691@gmail.com>
+	<20121221092421.GG14363@n2100.arm.linux.org.uk>
+	<20121221114105.GP2691@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	Jesse Gross <jesse@nicira.com>,
-	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, dev@openvswitch.org,
-	netdev@vger.kernel.org
-To: Akinobu Mita <akinobu.mita@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	Steve Glendinning <steve.glendinning@shawell.net>,
+	Robert Marklund <robert.marklund@stericsson.com>,
+	linus.walleij@stericsson.com, arnd@arndb.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Lee Jones <lee.jones@linaro.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAC5umyhhTJWfsFtZ_5Qm_HJHy2+sx7iMgcV=T=MMKLdi50-HQw@mail.gmail.com>
+In-Reply-To: <20121221114105.GP2691@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 25, 2012 at 08:47:26PM +0900, Akinobu Mita wrote:
-> 2012/12/25 Neil Horman <nhorman@tuxdriver.com>:
-> > On Mon, Dec 24, 2012 at 11:14:15AM +0900, Akinobu Mita wrote:
-> >> Use more preferable function name which implies using a pseudo-random
-> >> number generator.
-> >>
-> >> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-> >> Cc: Jesse Gross <jesse@nicira.com>
-> >> Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
-> >> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> >> Cc: Sridhar Samudrala <sri@us.ibm.com>
-> >> Cc: Neil Horman <nhorman@tuxdriver.com>
-> >> Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> >> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> >> Cc: "David S. Miller" <davem@davemloft.net>
-> >> Cc: linux-sctp@vger.kernel.org
-> >> Cc: dev@openvswitch.org
-> >> Cc: netdev@vger.kernel.org
-> >> ---
-> >>  include/net/red.h         | 2 +-
-> >>  net/802/garp.c            | 2 +-
-> >>  net/openvswitch/actions.c | 2 +-
-> >>  net/rds/bind.c            | 2 +-
-> >>  net/sctp/socket.c         | 2 +-
-> >>  net/xfrm/xfrm_state.c     | 2 +-
-> >>  6 files changed, 6 insertions(+), 6 deletions(-)
-> >>
-> > I'm largely indifferent to this patch, but I kind of feel like its just churn.
-> > Whats the real advantage in making this change?  I grant that it clearly
-> > indicates the type of random number generator we're using at a given call site,
-> > But for those using net_random, you probably don't care too much about
-> > the source of your random bits.  If you did really want true random vs.
-> > pseudo-random data, you need to explicitly use the right call.  You're previous
-> > patch series did good cleanup on differentiating the different random calls, but
-> > this just seems like its removing what is otherwise useful indirection.
-> 
-> I overlooked the importance of  net_random() indirection.
-> Thanks for the feedback. I'll leave all net_random() callers as-is in
-> the next version.
-Well, I guess I should qualify my opinion.  I find it useful personally (the
-generation of nonces in many cases can be left to most any pseudo random
-generator that the system deems is a 'good enough' balance between a fast
-generator that doesn't block on low entropy and a reasonably secure one that
-doesn't allow for easy prediction.  As those needs and factors change, its nice
-to have a set point to change them at.  If you (or anyone else has a differing
-opinion, I'm happy to listen to it.
+On Fri, Dec 21, 2012 at 12:41 PM, Lee Jones <lee.jones@linaro.org> wrote:
 
+> +       if (IS_ERR(pdata->clk)) {
+> +               ret = clk_prepare_enable(pdata->clk);
+> +               if (ret < 0)
+> +                       netdev_err(ndev, "failed to enable clock %d\n", ret);
+> +       }
 
-Regards
-Neil
+I think you got all of these backwards now, shouldn't it be if
+(!IS_ERR(pdata->clk)) { } ...?
 
-> 
+It's late here but enlighten me if I don't get it.
+
+> +       if (IS_ERR(pdata->clk))
+> +               clk_disable_unprepare(pdata->clk);
+
+Dito.
+
+> +       /* Request clock */
+> +       pdata->clk = clk_get(&pdev->dev, NULL);
+> +       if (IS_ERR(pdata->clk))
+> +               netdev_warn(ndev, "couldn't get clock %li\n", PTR_ERR(pdata->clk));
+
+This one seems correct though.
+
+> +       /* Free clock */
+> +       if (IS_ERR(pdata->clk)) {
+> +               clk_put(pdata->clk);
+> +               pdata->clk = NULL;
+> +       }
+
+Should be !IS_ERR()
+
+Yours,
+Linus Walleij
