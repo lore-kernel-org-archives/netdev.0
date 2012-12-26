@@ -1,67 +1,79 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 19/29] batman-adv: fix random jitter
-	calculation
-Date: Tue, 25 Dec 2012 13:37:53 -0800 (PST)
-Message-ID: <20121225.133753.1383155065923849678.davem@davemloft.net>
-References: <1356315256-6572-20-git-send-email-akinobu.mita@gmail.com>
- <20121225112657.GC2604@ritirata.org>
- <CAC5umyh1d9XxH2We4e2rjV-OYhbP2ObGC_iwrDeff2hphJ7TzQ@mail.gmail.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 28/29] net/: rename net_random() to prandom_u32()
+Date: Tue, 25 Dec 2012 19:42:07 -0500
+Message-ID: <20121226004207.GA21931@hmsreliant.think-freely.org>
+References: <1356315256-6572-1-git-send-email-akinobu.mita@gmail.com>
+ <1356315256-6572-29-git-send-email-akinobu.mita@gmail.com>
+ <20121225002149.GA5235@neilslaptop.think-freely.org>
+ <CAC5umyhhTJWfsFtZ_5Qm_HJHy2+sx7iMgcV=T=MMKLdi50-HQw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org,
- akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, lindner_marek-LWAfsSFWpa4@public.gmane.org
-To: akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <CAC5umyh1d9XxH2We4e2rjV-OYhbP2ObGC_iwrDeff2hphJ7TzQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	Jesse Gross <jesse@nicira.com>,
+	Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, dev@openvswitch.org,
+	netdev@vger.kernel.org
+To: Akinobu Mita <akinobu.mita@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAC5umyhhTJWfsFtZ_5Qm_HJHy2+sx7iMgcV=T=MMKLdi50-HQw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed, 26 Dec 2012 06:35:37 +0900
-
-> 2012/12/25 Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>:
->> On Mon, Dec 24, 2012 at 11:14:06AM +0900, Akinobu Mita wrote:
->>> batadv_iv_ogm_emit_send_time() attempts to calculates a random integer
->>> in the range of 'orig_interval +- BATADV_JITTER' by the below lines.
->>>
->>>         msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
->>>         msecs += (random32() % 2 * BATADV_JITTER);
->>>
->>> But it actually gets 'orig_interval' or 'orig_interval - BATADV_JITTER'
->>> because '%' and '*' have same precedence and associativity is
->>> left-to-right.
->>>
->>> This adds the parentheses at the appropriate position so that it matches
->>> original intension.
->>>
->>> Signed-off-by: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>> Cc: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
->>> Cc: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
->>> Cc: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
->>> Cc: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
->>> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->>> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->>> ---
->>
->> Acked-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
->>
->> But I would suggest to apply this change to net, since it is a fix.
+On Tue, Dec 25, 2012 at 08:47:26PM +0900, Akinobu Mita wrote:
+> 2012/12/25 Neil Horman <nhorman@tuxdriver.com>:
+> > On Mon, Dec 24, 2012 at 11:14:15AM +0900, Akinobu Mita wrote:
+> >> Use more preferable function name which implies using a pseudo-random
+> >> number generator.
+> >>
+> >> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+> >> Cc: Jesse Gross <jesse@nicira.com>
+> >> Cc: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+> >> Cc: Vlad Yasevich <vyasevich@gmail.com>
+> >> Cc: Sridhar Samudrala <sri@us.ibm.com>
+> >> Cc: Neil Horman <nhorman@tuxdriver.com>
+> >> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> >> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> >> Cc: "David S. Miller" <davem@davemloft.net>
+> >> Cc: linux-sctp@vger.kernel.org
+> >> Cc: dev@openvswitch.org
+> >> Cc: netdev@vger.kernel.org
+> >> ---
+> >>  include/net/red.h         | 2 +-
+> >>  net/802/garp.c            | 2 +-
+> >>  net/openvswitch/actions.c | 2 +-
+> >>  net/rds/bind.c            | 2 +-
+> >>  net/sctp/socket.c         | 2 +-
+> >>  net/xfrm/xfrm_state.c     | 2 +-
+> >>  6 files changed, 6 insertions(+), 6 deletions(-)
+> >>
+> > I'm largely indifferent to this patch, but I kind of feel like its just churn.
+> > Whats the real advantage in making this change?  I grant that it clearly
+> > indicates the type of random number generator we're using at a given call site,
+> > But for those using net_random, you probably don't care too much about
+> > the source of your random bits.  If you did really want true random vs.
+> > pseudo-random data, you need to explicitly use the right call.  You're previous
+> > patch series did good cleanup on differentiating the different random calls, but
+> > this just seems like its removing what is otherwise useful indirection.
 > 
-> I agree.
-> David, please consider to apply this patch for 3.8-rc*.
-> 
+> I overlooked the importance of  net_random() indirection.
+> Thanks for the feedback. I'll leave all net_random() callers as-is in
+> the next version.
+Well, I guess I should qualify my opinion.  I find it useful personally (the
+generation of nonces in many cases can be left to most any pseudo random
+generator that the system deems is a 'good enough' balance between a fast
+generator that doesn't block on low entropy and a reasonably secure one that
+doesn't allow for easy prediction.  As those needs and factors change, its nice
+to have a set point to change them at.  If you (or anyone else has a differing
+opinion, I'm happy to listen to it.
 
-All patches I should consider seriously should be properly
-reposted for review and inclusion.
+
+Regards
+Neil
+
+> 
