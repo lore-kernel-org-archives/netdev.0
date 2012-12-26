@@ -1,38 +1,38 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH v2 0/2] cpts fixes for v3.8-rc2
-Date: Wed, 26 Dec 2012 09:42:28 +0530
-Message-ID: <50DA792C.1070603@ti.com>
-References: <cover.1356331925.git.richardcochran@gmail.com>
+From: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] netprio_cgroup: define sk_cgrp_prioidx only if NETPRIO_CGROUP
+ is enabled
+Date: Wed, 26 Dec 2012 14:48:24 +0800
+Message-ID: <50DA9DB8.6080506@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="GB2312"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Cyril Chemparathy <cyril@ti.com>,
-	Sergei Shtylyov <sshtylyov@mvista.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <cover.1356331925.git.richardcochran@gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
+Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Cgroups <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/24/2012 12:49 PM, Richard Cochran wrote:
-> Changed in v2:
-> Use clk_prepare_enable instead of clk_prepare + clk_enable.
->
-> The new cpts driver has two small issues, but it otherwise seems to be
-> working in -rc1.
->
-> Thanks,
-> Richard
->
-> Richard Cochran (2):
->    cpts: fix build error by removing useless code.
->    cpts: fix a run time warn_on.
->
->   drivers/net/ethernet/ti/cpts.c |    3 +--
->   drivers/net/ethernet/ti/cpts.h |    1 -
->   2 files changed, 1 insertions(+), 3 deletions(-)
->
-Looks good to me.
-Acked-by : Mugunthan V N <mugunthanvnm@ti.com>
+sock->sk_cgrp_prioidx won't be used at all if CONFIG_NETPRIO_CGROUP=n.
+
+Signed-off-by: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+---
+ include/net/sock.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 93a6745..182ca99 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -367,7 +367,7 @@ struct sock {
+ 	unsigned short		sk_ack_backlog;
+ 	unsigned short		sk_max_ack_backlog;
+ 	__u32			sk_priority;
+-#ifdef CONFIG_CGROUPS
++#if IS_ENABLED(CONFIG_NETPRIO_CGROUP)
+ 	__u32			sk_cgrp_prioidx;
+ #endif
+ 	struct pid		*sk_peer_pid;
+-- 
+1.8.0.2
