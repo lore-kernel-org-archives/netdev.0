@@ -1,41 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] batman-adv: fix random jitter calculation
-Date: Wed, 26 Dec 2012 14:13:50 -0800 (PST)
-Message-ID: <20121226.141350.999199516661256197.davem@davemloft.net>
-References: <1356525130-2688-1-git-send-email-akinobu.mita@gmail.com>
+Subject: Re: [PATCH v2 0/2] cpts fixes for v3.8-rc2
+Date: Wed, 26 Dec 2012 14:15:40 -0800 (PST)
+Message-ID: <20121226.141540.163930025578455864.davem@davemloft.net>
+References: <cover.1356331925.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	lindner_marek@yahoo.de, siwu@hrz.tu-chemnitz.de,
-	ordex@autistici.org, b.a.t.m.a.n@lists.open-mesh.org
-To: akinobu.mita@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35433 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142Ab2LZWOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2012 17:14:14 -0500
-In-Reply-To: <1356525130-2688-1-git-send-email-akinobu.mita@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org, cyril@ti.com, mugunthanvnm@ti.com,
+	sshtylyov@mvista.com
+To: richardcochran@gmail.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <cover.1356331925.git.richardcochran@gmail.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Wed, 26 Dec 2012 21:32:10 +0900
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Mon, 24 Dec 2012 08:19:08 +0100
 
-> batadv_iv_ogm_emit_send_time() attempts to calculates a random integer
-> in the range of 'orig_interval +- BATADV_JITTER' by the below lines.
+> Changed in v2:
+> Use clk_prepare_enable instead of clk_prepare + clk_enable.
 > 
->         msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
->         msecs += (random32() % 2 * BATADV_JITTER);
-> 
-> But it actually gets 'orig_interval' or 'orig_interval - BATADV_JITTER'
-> because '%' and '*' have same precedence and associativity is
-> left-to-right.
-> 
-> This adds the parentheses at the appropriate position so that it matches
-> original intension.
-> 
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-> Acked-by: Antonio Quartulli <ordex@autistici.org>
+> The new cpts driver has two small issues, but it otherwise seems to be
+> working in -rc1.
 
-Applied, thanks.
+Both applied, thanks.
