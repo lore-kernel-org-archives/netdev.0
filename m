@@ -1,74 +1,160 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] bgmac: driver for GBit MAC core on BCMA bus
-Date: Wed, 26 Dec 2012 14:24:40 -0800
-Message-ID: <1356560680.26650.15.camel@joe-AO722>
-References: <1356363222-16672-1-git-send-email-zajec5@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: should drop incoming frames without ACK flag set
+Date: Wed, 26 Dec 2012 14:44:34 -0800
+Message-ID: <1356561874.20133.21098.camel@edumazet-glaptop>
+References: <1356541801.20133.20615.camel@edumazet-glaptop>
+	 <20121226.141154.115080358245263295.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, zhiyunq@umich.edu, nanditad@google.com,
+	ncardwell@google.com, john.dykstra1@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:33206 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750759Ab2LZWYl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Dec 2012 17:24:41 -0500
-In-Reply-To: <1356363222-16672-1-git-send-email-zajec5@gmail.com>
+Received: from mail-da0-f44.google.com ([209.85.210.44]:51564 "EHLO
+	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751045Ab2LZWoh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2012 17:44:37 -0500
+Received: by mail-da0-f44.google.com with SMTP id z20so4054510dae.17
+        for <netdev@vger.kernel.org>; Wed, 26 Dec 2012 14:44:36 -0800 (PST)
+In-Reply-To: <20121226.141154.115080358245263295.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2012-12-24 at 16:33 +0100, Rafa=C5=82 Mi=C5=82ecki wrote:
-> BCMA is a Broadcom specific bus with devices AKA cores. All recent BC=
-MA
-> based SoCs have gigabit ethernet provided by the GBit MAC core. This
-> patch adds driver for such a cores registering itself as a netdev. It
-> has been tested on a BCM4706 and BCM4718 chipsets.
+From: Eric Dumazet <edumazet@google.com>
 
-Just a trivial note:
+On Wed, 2012-12-26 at 14:11 -0800, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 26 Dec 2012 09:10:01 -0800
+> 
+> > @@ -5540,6 +5540,9 @@ no_ack:
+> >  	}
+> >  
+> >  slow_path:
+> > +	if (!th->ack)
+> > +			goto discard;
+> 
+> One too many tabs there on that last line :-)
 
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.h b/drivers/net/ethe=
-rnet/broadcom/bgmac.h
-[]
-> @@ -0,0 +1,443 @@
-> +#ifndef _BGMAC_H
-> +#define _BGMAC_H
-> +
-> +#define pr_fmt(fmt)		KBUILD_MODNAME ": " fmt
-> +
-> +#define bgmac_err(bgmac, fmt, ...) \
-> +	pr_err("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
-> +#define bgmac_warn(bgmac, fmt, ...) \
-> +	pr_warn("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
-> +#define bgmac_info(bgmac, fmt, ...) \
-> +	pr_info("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
-> +#define bgmac_dbg(bgmac, fmt, ...) \
-> +	pr_debug("u%d: " fmt, (bgmac)->core->core_unit, ##__VA_ARGS__)
+Hmm, yes :(
 
-Maybe all the bgmac_<level> macros should be:
+> 
+> > +
+> >  	if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
+> >  		goto csum_error;
+> >  
+> > @@ -5551,7 +5554,7 @@ slow_path:
+> 
+> 
+> Also, I would say that this checksum test should come first, because
+> that takes priority since you could be testing the ACK bit of a
+> corrupted packet.
+> 
+> Better to get the statistic bump on the bad checksum then a silent
+> drop on the ACK being cleared.
 
-	dev_<level>(&bgmac->core->dev, "u%d: " fmt,
-	            (bgmac)->core->core_unit, ##__VA_ARGS)
+Indeed, good catch.
 
-or maybe a new function like below if you use
-a lot of these to decrease object size a little.
+> 
+> > @@ -5984,11 +5987,15 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+> >  		if (tcp_check_req(sk, skb, req, NULL, true) == NULL)
+> >  			goto discard;
+> >  	}
+> > +
+> > +	if (!th->ack)
+> > +		goto discard;
+> > +
+> 
+> And that is effectively what is going to happen in this case since
+> the caller has already done the checksum checks.
+> 
 
-int bgmac_printk(const char *level, const struct bgmac *bgmac,
-                 const char *fmt, ...)
-{
+That makes perfect sense.
 
-	struct va_format vaf;
-	va_list args;
-	int r;
+Thanks !
 
-	va_start(args, fmt);
+[PATCH v2] tcp: should drop incoming frames without ACK flag set
 
-	vaf.fmt =3D fmt;
-	vaf.va =3D &args;
+In commit 96e0bf4b5193d (tcp: Discard segments that ack data not yet
+sent) John Dykstra enforced a check against ack sequences.
 
-	r =3D dev_printk(&bgmac->core->dev, "u%d: %pV",
-	               bgmac->core->core_unit, &vaf);
+In commit 354e4aa391ed5 (tcp: RFC 5961 5.2 Blind Data Injection Attack
+Mitigation) I added more safety tests.
 
-	va_end(args);
+But we missed fact that these tests are not performed if ACK bit is
+not set.
 
-	return r;
-}
+RFC 793 3.9 mandates TCP should drop a frame without ACK flag set.
+
+" fifth check the ACK field,
+      if the ACK bit is off drop the segment and return"
+
+Not doing so permits an attacker to only guess an acceptable sequence
+number, evading stronger checks.
+
+Many thanks to Zhiyun Qian for bringing this issue to our attention.
+
+See :
+http://web.eecs.umich.edu/~zhiyunq/pub/ccs12_TCP_sequence_number_inference.pdf
+
+Reported-by: Zhiyun Qian <zhiyunq@umich.edu>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Nandita Dukkipati <nanditad@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: John Dykstra <john.dykstra1@gmail.com>
+---
+V2: moves the th->ack check after checksum one
+ 
+ net/ipv4/tcp_input.c |   14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index a136925..a28e4db 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5543,6 +5543,9 @@ slow_path:
+ 	if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
+ 		goto csum_error;
+ 
++	if (!th->ack)
++		goto discard;
++
+ 	/*
+ 	 *	Standard slow path.
+ 	 */
+@@ -5551,7 +5554,7 @@ slow_path:
+ 		return 0;
+ 
+ step5:
+-	if (th->ack && tcp_ack(sk, skb, FLAG_SLOWPATH) < 0)
++	if (tcp_ack(sk, skb, FLAG_SLOWPATH) < 0)
+ 		goto discard;
+ 
+ 	/* ts_recent update must be made after we are sure that the packet
+@@ -5984,11 +5987,15 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 		if (tcp_check_req(sk, skb, req, NULL, true) == NULL)
+ 			goto discard;
+ 	}
++
++	if (!th->ack)
++		goto discard;
++
+ 	if (!tcp_validate_incoming(sk, skb, th, 0))
+ 		return 0;
+ 
+ 	/* step 5: check the ACK field */
+-	if (th->ack) {
++	if (true) {
+ 		int acceptable = tcp_ack(sk, skb, FLAG_SLOWPATH) > 0;
+ 
+ 		switch (sk->sk_state) {
+@@ -6138,8 +6145,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
+ 			}
+ 			break;
+ 		}
+-	} else
+-		goto discard;
++	}
+ 
+ 	/* ts_recent update must be made after we are sure that the packet
+ 	 * is in window.
