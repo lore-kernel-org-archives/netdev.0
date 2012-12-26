@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] IB/rds: suppress incompatible protocol when
- version is known
-Date: Wed, 26 Dec 2012 15:18:10 -0800 (PST)
-Message-ID: <20121226.151810.1691248733680271193.davem@davemloft.net>
-References: <20121221175857.23716.46975.stgit@phlsvslse11.ph.intel.com>
-	<20121221180154.23716.44540.stgit@phlsvslse11.ph.intel.com>
+Subject: Re: [PATCH 1/2] ipv4/ip_gre: set transport header correctly to gre
+ header
+Date: Wed, 26 Dec 2012 15:20:25 -0800 (PST)
+Message-ID: <20121226.152025.1719078076502235330.davem@davemloft.net>
+References: <a6eb43766a3959d111cde14b237d435de0b19e15.1356403805.git.yamahata@valinux.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: venkat.x.venkatsubra@oracle.com, linux-rdma@vger.kernel.org,
-	roland@kernel.org, rds-devel@oss.oracle.com, netdev@vger.kernel.org
-To: mike.marciniszyn@intel.com
+Cc: netdev@vger.kernel.org
+To: yamahata@valinux.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36127 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36142 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574Ab2LZXSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2012 18:18:11 -0500
-In-Reply-To: <20121221180154.23716.44540.stgit@phlsvslse11.ph.intel.com>
+	with ESMTP id S1751212Ab2LZXU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2012 18:20:26 -0500
+In-Reply-To: <a6eb43766a3959d111cde14b237d435de0b19e15.1356403805.git.yamahata@valinux.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Marciniszyn <mike.marciniszyn@intel.com>
-Date: Fri, 21 Dec 2012 13:01:54 -0500
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 25 Dec 2012 11:51:03 +0900
 
-> Add an else to only print the incompatible protocol message
-> when version hasn't been established.
+> ipgre_tunnel_xmit() incorrectly sets transport header to inner payload
+> instead of GRE header. It seems copy-and-pasted from ipip.c.
+> So set transport header to gre header.
+> (In ipip case the transport header is the inner ip header, so that's
+> correct.)
 > 
-> Signed-off-by: Mike Marciniszyn <mike.marciniszyn@intel.com>
+> Found by inspection. In practice the incorrect transport header
+> doesn't matter because the skb usually is sent to another net_device
+> or socket, so the transport header isn't referenced.
+> 
+> Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 
 Applied.
