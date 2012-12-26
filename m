@@ -1,62 +1,32 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH 4/4 v2] net/smsc911x: Provide common clock functionality
-Date: Wed, 26 Dec 2012 01:51:05 +0100
-Message-ID: <CACRpkdZGC=f0X1wLt1QLMB=x+ba6VRDAbRcW6wR_2gvNLuGw1g@mail.gmail.com>
-References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
-	<1355937587-31730-4-git-send-email-lee.jones@linaro.org>
-	<CACRpkda79O_b3Z8g7Sy7vMtW9neZU4x-Z=iEQgjqu4X5tFKyhw@mail.gmail.com>
-	<20121220192441.GC14363@n2100.arm.linux.org.uk>
-	<20121220203514.GN2691@gmail.com>
-	<20121220205113.GD14363@n2100.arm.linux.org.uk>
-	<20121221091306.GO2691@gmail.com>
-	<20121221092421.GG14363@n2100.arm.linux.org.uk>
-	<20121221114105.GP2691@gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] ipv6 mcast: Fix incorrect use of pskb_may_pull().
+Date: Wed, 26 Dec 2012 12:11:27 +0900
+Message-ID: <50DA6ADF.5020003@linux-ipv6.org>
+References: <50D9BB19.2080801@linux-ipv6.org> <1356456420.20133.15020.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	Robert Marklund <robert.marklund@stericsson.com>,
-	linus.walleij@stericsson.com, arnd@arndb.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Lee Jones <lee.jones@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20121221114105.GP2691@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Eric Dumazet <erdnetdev@gmail.com>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39582 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752807Ab2LZDLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Dec 2012 22:11:31 -0500
+In-Reply-To: <1356456420.20133.15020.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 21, 2012 at 12:41 PM, Lee Jones <lee.jones@linaro.org> wrote:
+Eric Dumazet wrote:
+> On Tue, 2012-12-25 at 23:41 +0900, YOSHIFUJI Hideaki wrote:
+> 
+>> +	if (!pskb_may_pull(skb, skb->len))
+>> +		return -EINVAL;
+>> +
+> 
+> skb_linearize(skb) might be more explicit then.
 
-> +       if (IS_ERR(pdata->clk)) {
-> +               ret = clk_prepare_enable(pdata->clk);
-> +               if (ret < 0)
-> +                       netdev_err(ndev, "failed to enable clock %d\n", ret);
-> +       }
+Oh, I've found errors, so I'll respin.
 
-I think you got all of these backwards now, shouldn't it be if
-(!IS_ERR(pdata->clk)) { } ...?
-
-It's late here but enlighten me if I don't get it.
-
-> +       if (IS_ERR(pdata->clk))
-> +               clk_disable_unprepare(pdata->clk);
-
-Dito.
-
-> +       /* Request clock */
-> +       pdata->clk = clk_get(&pdev->dev, NULL);
-> +       if (IS_ERR(pdata->clk))
-> +               netdev_warn(ndev, "couldn't get clock %li\n", PTR_ERR(pdata->clk));
-
-This one seems correct though.
-
-> +       /* Free clock */
-> +       if (IS_ERR(pdata->clk)) {
-> +               clk_put(pdata->clk);
-> +               pdata->clk = NULL;
-> +       }
-
-Should be !IS_ERR()
-
-Yours,
-Linus Walleij
+--yoshfuji
