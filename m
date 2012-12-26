@@ -1,53 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: should drop incoming frames without ACK flag set
-Date: Wed, 26 Dec 2012 15:09:17 -0800 (PST)
-Message-ID: <20121226.150917.847023967466840760.davem@davemloft.net>
-References: <1356541801.20133.20615.camel@edumazet-glaptop>
-	<20121226.141154.115080358245263295.davem@davemloft.net>
-	<1356561874.20133.21098.camel@edumazet-glaptop>
+Subject: Re: [PATCH net] net/vxlan: Use the underlying device index when
+ joining/leaving multicast groups
+Date: Wed, 26 Dec 2012 15:10:12 -0800 (PST)
+Message-ID: <20121226.151012.641411607183357552.davem@davemloft.net>
+References: <1356010568-21644-1-git-send-email-yanb@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zhiyunq@umich.edu, nanditad@google.com,
-	ncardwell@google.com, john.dykstra1@gmail.com
-To: eric.dumazet@gmail.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com
+To: yanb@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35994 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36011 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193Ab2LZXJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2012 18:09:18 -0500
-In-Reply-To: <1356561874.20133.21098.camel@edumazet-glaptop>
+	with ESMTP id S1751371Ab2LZXKM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Dec 2012 18:10:12 -0500
+In-Reply-To: <1356010568-21644-1-git-send-email-yanb@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 26 Dec 2012 14:44:34 -0800
+From: Yan Burman <yanb@mellanox.com>
+Date: Thu, 20 Dec 2012 15:36:08 +0200
 
-> [PATCH v2] tcp: should drop incoming frames without ACK flag set
+> The socket calls from vxlan to join/leave multicast group aren't
+> using the index of the underlying device, as a result the stack uses
+> the first interface that is up. This results in vxlan being non functional
+> over a device which isn't the 1st to be up.
+> Fix this by providing the iflink field to the vxlan instance
+> to the multicast calls.
 > 
-> In commit 96e0bf4b5193d (tcp: Discard segments that ack data not yet
-> sent) John Dykstra enforced a check against ack sequences.
-> 
-> In commit 354e4aa391ed5 (tcp: RFC 5961 5.2 Blind Data Injection Attack
-> Mitigation) I added more safety tests.
-> 
-> But we missed fact that these tests are not performed if ACK bit is
-> not set.
-> 
-> RFC 793 3.9 mandates TCP should drop a frame without ACK flag set.
-> 
-> " fifth check the ACK field,
->       if the ACK bit is off drop the segment and return"
-> 
-> Not doing so permits an attacker to only guess an acceptable sequence
-> number, evading stronger checks.
-> 
-> Many thanks to Zhiyun Qian for bringing this issue to our attention.
-> 
-> See :
-> http://web.eecs.umich.edu/~zhiyunq/pub/ccs12_TCP_sequence_number_inference.pdf
-> 
-> Reported-by: Zhiyun Qian <zhiyunq@umich.edu>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Yan Burman <yanb@mellanox.com>
 
-Applied, thanks Eric.
+Applied, thanks.
