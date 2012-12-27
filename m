@@ -1,48 +1,157 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] forcedeth: Fix WARNINGS that result when DMA mapping
- is not checked
-Date: Thu, 27 Dec 2012 13:32:09 -0800 (PST)
-Message-ID: <20121227.133209.1785109551425933956.davem@davemloft.net>
-References: <1356638715.30414.1349.camel@edumazet-glaptop>
-	<50DCB1D9.50906@lwfinger.net>
-	<1356642209.30414.1411.camel@edumazet-glaptop>
+From: Eric Dumazet <erdnetdev@gmail.com>
+Subject: Re: Is keepalive behaving as expected in 3.7.0+/net-next?
+Date: Thu, 27 Dec 2012 13:54:25 -0800
+Message-ID: <1356645265.30414.1542.camel@edumazet-glaptop>
+References: <50D4DD28.30903@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Larry.Finger@lwfinger.net, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, Jamie Gloudon <jamie.gloudon@gmail.com>
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44846 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161Ab2L0VcL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2012 16:32:11 -0500
-In-Reply-To: <1356642209.30414.1411.camel@edumazet-glaptop>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:41800 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751492Ab2L0Vy2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2012 16:54:28 -0500
+Received: by mail-pb0-f44.google.com with SMTP id uo1so5548727pbc.31
+        for <netdev@vger.kernel.org>; Thu, 27 Dec 2012 13:54:28 -0800 (PST)
+In-Reply-To: <50D4DD28.30903@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 27 Dec 2012 13:03:29 -0800
+On Fri, 2012-12-21 at 14:05 -0800, Rick Jones wrote:
+> I was looking to do a bit more documentation clean-up and thought I 
+> would work on the descriptions of the "keepalive" sysctls, but first I 
+> wanted to see if they behaved as the existing descriptions suggested:
+> 
+> > tcp_keepalive_time - INTEGER
+> >         How often TCP sends out keepalive messages when keepalive is enabled.
+> >         Default: 2hours.
+> >
+> > tcp_keepalive_probes - INTEGER
+> >         How many keepalive probes TCP sends out, until it decides that the
+> >         connection is broken. Default value: 9.
+> >
+> > tcp_keepalive_intvl - INTEGER
+> >         How frequently the probes are send out. Multiplied by
+> >         tcp_keepalive_probes it is time to kill not responding connection,
+> >         after probes started. Default value: 75sec i.e. connection
+> >         will be aborted after ~11 minutes of retries.
+> 
+> I interpreted all that that as:  When a connection is idle, TCP will 
+> send a keepalive probe every tcp_keepalive_time seconds.  If a response 
+> to a keepalive probe is not received, TCP will resend (retransmit) it 
+> every tcp_keepalive_intvl seconds.
+> 
+> However, what I see is that on a connection where the remote is indeed 
+> still there, only the first keepalive probe is sent after 
+> tcp_keepalive_time, and thereafter it is sent every tcp_keepalive_intvl 
+> seconds.
+> 
+> Now, some of this may relate to my being impatient - rather than wait 
+> two hours for the first probe, I set tcp_keepalive_time to 3 seconds, 
+> and tcp_keepalive_intvl to 7 seconds.  I then kicked-off a ./configure 
+> --intervals-enable netperf TCP_RR test with a burst of one and a wait 
+> time of 90 seconds and got the following (trimmed) trace:
+> 
+> 13:43:46.879133 IP netnextraj.43054 > netnextraj2.srvr: Flags [S], seq 
+> 807869796, win 14600, options [mss 1460,sackOK,TS val 133470 ecr 
+> 0,nop,wscale 7], length 0
+> 13:43:46.880091 IP netnextraj2.srvr > netnextraj.43054: Flags [S.], seq 
+> 1522345902, ack 807869797, win 14480, options [mss 1460,sackOK,TS val 
+> 136186 ecr 133470,nop,wscale 4], length 0
+> 13:43:46.880114 IP netnextraj.43054 > netnextraj2.srvr: Flags [.], ack 
+> 1, win 115, options [nop,nop,TS val 133470 ecr 136186], length 0
+> 13:43:46.880306 IP netnextraj.43054 > netnextraj2.srvr: Flags [P.], seq 
+> 1:11, ack 1, win 115, options [nop,nop,TS val 133470 ecr 136186], length 10
+> 13:43:46.880948 IP netnextraj2.srvr > netnextraj.43054: Flags [.], ack 
+> 11, win 905, options [nop,nop,TS val 136187 ecr 133470], length 0
+> 13:43:46.880964 IP netnextraj2.srvr > netnextraj.43054: Flags [P.], seq 
+> 1:11, ack 11, win 905, options [nop,nop,TS val 136187 ecr 133470], length 10
+> 13:43:46.881161 IP netnextraj.43054 > netnextraj2.srvr: Flags [.], ack 
+> 11, win 115, options [nop,nop,TS val 133470 ecr 136187], length 0
+> 
+> The first probe above comes after 3 seconds - tcp_keepalive_time - at 
+> 13:43:49
+> 
+> 13:43:49.886752 IP netnextraj.43054 > netnextraj2.srvr: Flags [.], ack 
+> 11, win 115, options [nop,nop,TS val 134222 ecr 136187], length 0
+> 
+> And it does seem to elicit a response:
+> 
+> 13:43:49.887530 IP netnextraj2.srvr > netnextraj.43054: Flags [.], ack 
+> 11, win 905, options [nop,nop,TS val 136938 ecr 133470], length 0
+> 
 
-> On Thu, 2012-12-27 at 14:38 -0600, Larry Finger wrote:
->> On 12/27/2012 02:05 PM, Eric Dumazet wrote:
->> > On Thu, 2012-12-27 at 13:42 -0600, Larry Finger wrote:
-> 
->> >> +		if (pci_dma_mapping_error(np->pci_dev,
->> >> +					  np->put_tx_ctx->dma))
->> >> +			return NETDEV_TX_BUSY;
->> >
->> > Really this is not going to work very well : caller will call this in a
->> > loop.
->> 
->> Any suggestions on what value should be returned, or does the caller need to be 
->> modified?
-> 
-> NETDEV_TX_BUSY is really obsolete
-> 
-> Documentation/networking/driver.txt
-> 
-> In case of mapping error, I would drop the packet.
 
-Agreed.
+> Now it starts sending probes every 7 seconds (tcp_keepalive_intvl):
+> 
+> 13:43:56.903576 IP netnextraj.43054 > netnextraj2.srvr: Flags [.], ack 
+> 11, win 115, options [nop,nop,TS val 135976 ecr 136938], length 0
+> 13:43:56.904480 IP netnextraj2.srvr > netnextraj.43054: Flags [.], ack 
+> 11, win 905, options [nop,nop,TS val 138693 ecr 133470], length 0
+> 13:44:03.910744 IP netnextraj.43054 > netnextraj2.srvr: Flags [.], ack 
+> 11, win 115, options [nop,nop,TS val 137728 ecr 138693], length 0
+> 13:44:03.911623 IP netnextraj2.srvr > netnextraj.43054: Flags [.], ack 
+> 11, win 905, options [nop,nop,TS val 140444 ecr 133470], length 0
+> 
+> I;ve deleted the next 9 or so probes...  It continues, and doesn't 
+> terminate the connection, so I assume it was happy with the responses to 
+> the probes.
+> 
+> 13:45:13.990746 IP netnextraj.43054 > netnextraj2.srvr: Flags [.], ack 
+> 11, win 115, options [nop,nop,TS val 155248 ecr 156213], length 0
+> 13:45:13.991578 IP netnextraj2.srvr > netnextraj.43054: Flags [.], ack 
+> 11, win 905, options [nop,nop,TS val 157965 ecr 133470], length 0
+> 
+> Now the next netperf transaction happens:
+> 
+> 13:45:16.879222 IP netnextraj.43054 > netnextraj2.srvr: Flags [P.], seq 
+> 11:21, ack 11, win 115, options [nop,nop,TS val 155970 ecr 157965], 
+> length 10
+> 13:45:16.880033 IP netnextraj2.srvr > netnextraj.43054: Flags [P.], seq 
+> 11:21, ack 21, win 905, options [nop,nop,TS val 158687 ecr 155970], 
+> length 10
+> 13:45:16.880220 IP netnextraj.43054 > netnextraj2.srvr: Flags [.], ack 
+> 21, win 115, options [nop,nop,TS val 155970 ecr 158687], length 0
+> 
+> But the next keepalive probe is tcp_keepalive_intvl seconds after the 
+> last one, rather than that many, or tcp_keepalive_time seconds after the 
+> connection was last "active."
+> 
+> 13:45:20.998739 IP netnextraj.43054 > netnextraj2.srvr: Flags [.], ack 
+> 21, win 115, options [nop,nop,TS val 157000 ecr 158687], length 0
+> 13:45:20.999754 IP netnextraj2.srvr > netnextraj.43054: Flags [.], ack 
+> 21, win 905, options [nop,nop,TS val 159717 ecr 155970], length 0
+> 13:45:28.006747 IP netnextraj.43054 > netnextraj2.srvr: Flags [.], ack 
+> 21, win 115, options [nop,nop,TS val 158752 ecr 159717], length 0
+> 13:45:28.007624 IP netnextraj2.srvr > netnextraj.43054: Flags [.], ack 
+> 21, win 905, options [nop,nop,TS val 161469 ecr 155970], length 0
+> 
+> Is this the expected behaviour?  If I reverse the values - make 
+> tcp_keepalive_time 7 and tcp_keepalive_intvl 3, it seems that all the 
+> probes are after 7 seconds.
+> 
+> rick jones
+
+Not sure if it makes sense to have 
+tcp_keepalive_intvl > tcp_keepalive_time
+
+time should be an order of magnitude bigger than intvl.
+
+keepalive timer is not reset each time we receive a valid frame, it
+would be very expensive.
+
+Its a long period timer.
+
+First interval is tcp_keepalive_time, and subsequent interval are
+tcp_keepalive_intvl
+
+Each time timer is fired (once every 7200 seconds), we re-arm it with
+the observed elapsed time (keepalive_time_elapsed)
+
+Fixing this would require to add a timestamp in inet socket, to remember
+time of next/last probe, and firing the timer using
+min(keepalive_time_when(tp), keepalive_intvl_when(tp))
+
+Probably not worth it.
