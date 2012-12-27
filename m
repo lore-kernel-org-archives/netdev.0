@@ -1,305 +1,456 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 2/2] vhost: handle polling failure
-Date: Thu, 27 Dec 2012 14:39:20 +0800
-Message-ID: <1356590360-32770-2-git-send-email-jasowang@redhat.com>
-References: <1356590360-32770-1-git-send-email-jasowang@redhat.com>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [PATCH 1/1 net-next] NET: FEC: dynamtic check DMA desc buff type
+Date: Thu, 27 Dec 2012 17:10:47 +0800
+Message-ID: <1356599447-5698-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1356590360-32770-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>, <shawn.guo@linaro.org>,
+	<netdev@vger.kernel.org>, Frank Li <Frank.Li@freescale.com>
+To: <lznuaa@gmail.com>, <davem@davemloft.net>, <s.hauer@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from db3ehsobe006.messaging.microsoft.com ([213.199.154.144]:25736
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751243Ab2L0Jur (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2012 04:50:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, polling error were ignored in vhost. This may lead some issues (e.g
-kenrel crash when passing a tap fd to vhost before calling TUNSETIFF). Fix this
-by:
+MX6 and mx28 support enhanced DMA descript buff to support 1588
+ptp. But MX25, MX3x, MX5x can't support enhanced DMA descript buff.
+Check fec type and choose correct DAM descript buff type.
 
-- extend the idea of vhost_net_poll_state to all vhost_polls
-- change the state only when polling is succeed
-- make vhost_poll_start() report errors to the caller, which could be used
-  caller or userspace.
-
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/vhost/net.c   |   75 +++++++++++++++++--------------------------------
- drivers/vhost/vhost.c |   16 +++++++++-
- drivers/vhost/vhost.h |   11 ++++++-
- 3 files changed, 50 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/freescale/Kconfig |    2 +-
+ drivers/net/ethernet/freescale/fec.c   |  155 ++++++++++++++++++++++++--------
+ drivers/net/ethernet/freescale/fec.h   |    8 ++-
+ 3 files changed, 126 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 629d6b5..56e7f5a 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -64,20 +64,10 @@ enum {
- 	VHOST_NET_VQ_MAX = 2,
- };
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index ec490d7..d1edb2e 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -94,7 +94,7 @@ config GIANFAR
  
--enum vhost_net_poll_state {
--	VHOST_NET_POLL_DISABLED = 0,
--	VHOST_NET_POLL_STARTED = 1,
--	VHOST_NET_POLL_STOPPED = 2,
--};
--
- struct vhost_net {
- 	struct vhost_dev dev;
- 	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
- 	struct vhost_poll poll[VHOST_NET_VQ_MAX];
--	/* Tells us whether we are polling a socket for TX.
--	 * We only do this when socket buffer fills up.
--	 * Protected by tx vq lock. */
--	enum vhost_net_poll_state tx_poll_state;
- 	/* Number of TX recently submitted.
- 	 * Protected by tx vq lock. */
- 	unsigned tx_packets;
-@@ -155,24 +145,6 @@ static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
+ config FEC_PTP
+ 	bool "PTP Hardware Clock (PHC)"
+-	depends on FEC && ARCH_MXC && !SOC_IMX25 && !SOC_IMX27 && !SOC_IMX35 && !SOC_IMX5
++	depends on FEC && ARCH_MXC
+ 	select PTP_1588_CLOCK
+ 	--help---
+ 	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 0704bca..21f385d 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -76,6 +76,8 @@
+ #define FEC_QUIRK_USE_GASKET		(1 << 2)
+ /* Controller has GBIT support */
+ #define FEC_QUIRK_HAS_GBIT		(1 << 3)
++/* Controller has extend desc buffer */
++#define FEC_QUICK_HAS_BUFDESC_EX	(1 << 4)
+ 
+ static struct platform_device_id fec_devtype[] = {
+ 	{
+@@ -93,7 +95,8 @@ static struct platform_device_id fec_devtype[] = {
+ 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME,
+ 	}, {
+ 		.name = "imx6q-fec",
+-		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT,
++		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
++				FEC_QUICK_HAS_BUFDESC_EX,
+ 	}, {
+ 		/* sentinel */
  	}
- }
+@@ -117,7 +120,9 @@ static const struct of_device_id fec_dt_ids[] = {
+ MODULE_DEVICE_TABLE(of, fec_dt_ids);
  
--/* Caller must have TX VQ lock */
--static void tx_poll_stop(struct vhost_net *net)
--{
--	if (likely(net->tx_poll_state != VHOST_NET_POLL_STARTED))
--		return;
--	vhost_poll_stop(net->poll + VHOST_NET_VQ_TX);
--	net->tx_poll_state = VHOST_NET_POLL_STOPPED;
--}
--
--/* Caller must have TX VQ lock */
--static void tx_poll_start(struct vhost_net *net, struct socket *sock)
--{
--	if (unlikely(net->tx_poll_state != VHOST_NET_POLL_STOPPED))
--		return;
--	vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
--	net->tx_poll_state = VHOST_NET_POLL_STARTED;
--}
--
- /* In case of DMA done not in order in lower device driver for some reason.
-  * upend_idx is used to track end of used idx, done_idx is used to track head
-  * of used idx. Once lower device DMA done contiguously, we will signal KVM
-@@ -252,7 +224,7 @@ static void handle_tx(struct vhost_net *net)
- 	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
- 	if (wmem >= sock->sk->sk_sndbuf) {
- 		mutex_lock(&vq->mutex);
--		tx_poll_start(net, sock);
-+		vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
- 		mutex_unlock(&vq->mutex);
- 		return;
- 	}
-@@ -261,7 +233,7 @@ static void handle_tx(struct vhost_net *net)
- 	vhost_disable_notify(&net->dev, vq);
+ static unsigned char macaddr[ETH_ALEN];
++static int fec_ptp_enable = 1;
+ module_param_array(macaddr, byte, NULL, 0);
++module_param(fec_ptp_enable, int, 1);
+ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
  
- 	if (wmem < sock->sk->sk_sndbuf / 2)
--		tx_poll_stop(net);
-+		vhost_poll_stop(net->poll + VHOST_NET_VQ_TX);
- 	hdr_size = vq->vhost_hlen;
- 	zcopy = vq->ubufs;
+ #if defined(CONFIG_M5272)
+@@ -144,6 +149,12 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ #error "FEC: descriptor ring size constants too large"
+ #endif
  
-@@ -283,7 +255,8 @@ static void handle_tx(struct vhost_net *net)
- 
- 			wmem = atomic_read(&sock->sk->sk_wmem_alloc);
- 			if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
--				tx_poll_start(net, sock);
-+				vhost_poll_start(net->poll + VHOST_NET_VQ_TX,
-+						 sock->file);
- 				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
- 				break;
- 			}
-@@ -294,7 +267,8 @@ static void handle_tx(struct vhost_net *net)
- 				    (vq->upend_idx - vq->done_idx) :
- 				    (vq->upend_idx + UIO_MAXIOV - vq->done_idx);
- 			if (unlikely(num_pends > VHOST_MAX_PEND)) {
--				tx_poll_start(net, sock);
-+				vhost_poll_start(net->poll + VHOST_NET_VQ_TX,
-+						 sock->file);
- 				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
- 				break;
- 			}
-@@ -360,7 +334,8 @@ static void handle_tx(struct vhost_net *net)
- 			}
- 			vhost_discard_vq_desc(vq, 1);
- 			if (err == -EAGAIN || err == -ENOBUFS)
--				tx_poll_start(net, sock);
-+				vhost_poll_start(net->poll + VHOST_NET_VQ_TX,
-+						 sock->file);
- 			break;
- 		}
- 		if (err != len)
-@@ -623,7 +598,6 @@ static int vhost_net_open(struct inode *inode, struct file *f)
- 
- 	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
- 	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
--	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
- 
- 	f->private_data = n;
- 
-@@ -635,27 +609,26 @@ static void vhost_net_disable_vq(struct vhost_net *n,
- {
- 	if (!vq->private_data)
- 		return;
--	if (vq == n->vqs + VHOST_NET_VQ_TX) {
--		tx_poll_stop(n);
--		n->tx_poll_state = VHOST_NET_POLL_DISABLED;
--	} else
-+	if (vq == n->vqs + VHOST_NET_VQ_TX)
-+		vhost_poll_stop(n->poll + VHOST_NET_VQ_TX);
-+	else
- 		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
- }
- 
--static void vhost_net_enable_vq(struct vhost_net *n,
--				struct vhost_virtqueue *vq)
-+static int vhost_net_enable_vq(struct vhost_net *n,
-+			       struct vhost_virtqueue *vq)
- {
-+	int err, index = vq - n->vqs;
- 	struct socket *sock;
- 
- 	sock = rcu_dereference_protected(vq->private_data,
- 					 lockdep_is_held(&vq->mutex));
- 	if (!sock)
--		return;
--	if (vq == n->vqs + VHOST_NET_VQ_TX) {
--		n->tx_poll_state = VHOST_NET_POLL_STOPPED;
--		tx_poll_start(n, sock);
--	} else
--		vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-+		return 0;
++#ifdef CONFIG_FEC_PTP
++#if (((RX_RING_SIZE + TX_RING_SIZE) * 32) > PAGE_SIZE)
++#error "FEC: descriptor ring size constants too large"
++#endif
++#endif
 +
-+	n->poll[index].state = VHOST_POLL_STOPPED;
-+	err = vhost_poll_start(n->poll + index, sock->file);
-+	return err;
- }
+ /* Interrupt events/masks. */
+ #define FEC_ENET_HBERR	((uint)0x80000000)	/* Heartbeat error */
+ #define FEC_ENET_BABR	((uint)0x40000000)	/* Babbling receiver */
+@@ -192,6 +203,36 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
  
- static struct socket *vhost_net_stop_vq(struct vhost_net *n,
-@@ -831,12 +804,16 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 		vq->ubufs = ubufs;
- 		vhost_net_disable_vq(n, vq);
- 		rcu_assign_pointer(vq->private_data, sock);
--		vhost_net_enable_vq(n, vq);
-+		r = vhost_net_enable_vq(n, vq);
-+		if (r) {
-+			sock = NULL;
-+			goto err_enable;
+ static int mii_cnt;
+ 
++#ifdef CONFIG_FEC_PTP
++static struct bufdesc * get_nextdesc(struct bufdesc * bdp, int is_ex)
++{
++	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
++	if (is_ex)
++		return (struct bufdesc*)(ex++);
++	else
++		return bdp++;
++}
++
++static struct bufdesc * get_prevdesc(struct bufdesc * bdp, int is_ex)
++{
++	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
++	if (is_ex)
++		return (struct bufdesc*)(ex--);
++	else
++		return bdp--;
++}
++#else
++static inline struct bufdesc * get_nextdesc(struct bufdesc * bdp, int is_ex)
++{
++	return bdp++;
++}
++static inline struct bufdesc * get_prevdesc(struct bufdesc * bdp, int is_ex)
++{
++	return bdp--;
++}
++
++#endif
++
+ static void *swap_buffer(void *bufaddr, int len)
+ {
+ 	int i;
+@@ -248,7 +289,15 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	 */
+ 	if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
+ 		unsigned int index;
++#ifdef CONFIG_FEC_PTP
++		if (fep->bufdesc_ex)
++			index = (struct bufdesc_ex*)bdp -
++				(struct bufdesc_ex*)fep->tx_bd_base;
++		else
++			index = bdp - fep->tx_bd_base;
++#else
+ 		index = bdp - fep->tx_bd_base;
++#endif
+ 		memcpy(fep->tx_bounce[index], skb->data, skb->len);
+ 		bufaddr = fep->tx_bounce[index];
+ 	}
+@@ -281,14 +330,18 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	bdp->cbd_sc = status;
+ 
+ #ifdef CONFIG_FEC_PTP
+-	bdp->cbd_bdu = 0;
+-	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
++	if (fep->bufdesc_ex)
++	{
++		struct bufdesc_ex * ebdp = (struct bufdesc_ex *)bdp;
++		ebdp->cbd_bdu = 0;
++		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
+ 			fep->hwts_tx_en)) {
+-			bdp->cbd_esc = (BD_ENET_TX_TS | BD_ENET_TX_INT);
++			ebdp->cbd_esc = (BD_ENET_TX_TS | BD_ENET_TX_INT);
+ 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+-	} else {
++		} else {
+ 
+-		bdp->cbd_esc = BD_ENET_TX_INT;
++			ebdp->cbd_esc = BD_ENET_TX_INT;
 +		}
+ 	}
+ #endif
+ 	/* Trigger transmission start */
+@@ -298,7 +351,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	if (status & BD_ENET_TX_WRAP)
+ 		bdp = fep->tx_bd_base;
+ 	else
+-		bdp++;
++		bdp = get_nextdesc(bdp, fep->bufdesc_ex);
  
- 		r = vhost_init_used(vq);
- 		if (r) {
- 			sock = NULL;
--			goto err_used;
-+			goto err_enable;
+ 	if (bdp == fep->dirty_tx) {
+ 		fep->tx_full = 1;
+@@ -359,8 +412,12 @@ fec_restart(struct net_device *ndev, int duplex)
+ 
+ 	/* Set receive and transmit descriptor base. */
+ 	writel(fep->bd_dma, fep->hwp + FEC_R_DES_START);
+-	writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc) * RX_RING_SIZE,
+-			fep->hwp + FEC_X_DES_START);
++	if (fep->bufdesc_ex)
++		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc_ex)
++			* RX_RING_SIZE, fep->hwp + FEC_X_DES_START);
++	else
++		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc)
++			* RX_RING_SIZE,	fep->hwp + FEC_X_DES_START);
+ 
+ 	fep->dirty_tx = fep->cur_tx = fep->tx_bd_base;
+ 	fep->cur_rx = fep->rx_bd_base;
+@@ -449,7 +506,8 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	}
+ 
+ #ifdef CONFIG_FEC_PTP
+-	ecntl |= (1 << 4);
++	if (fep->bufdesc_ex)
++		ecntl |= (1 << 4);
+ #endif
+ 
+ 	/* And last, enable the transmit and receive processing */
+@@ -457,7 +515,8 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
+ 
+ #ifdef CONFIG_FEC_PTP
+-	fec_ptp_start_cyclecounter(ndev);
++	if (fep->bufdesc_ex)
++		fec_ptp_start_cyclecounter(ndev);
+ #endif
+ 	/* Enable interrupts we wish to service */
+ 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+@@ -545,14 +604,16 @@ fec_enet_tx(struct net_device *ndev)
  		}
  
- 		n->tx_packets = 0;
-@@ -861,7 +838,7 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 	mutex_unlock(&n->dev.mutex);
+ #ifdef CONFIG_FEC_PTP
+-		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)) {
++		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS) &&
++			fep->bufdesc_ex) {
+ 			struct skb_shared_hwtstamps shhwtstamps;
+ 			unsigned long flags;
++			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
+ 
+ 			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
+ 			spin_lock_irqsave(&fep->tmreg_lock, flags);
+ 			shhwtstamps.hwtstamp = ns_to_ktime(
+-				timecounter_cyc2time(&fep->tc, bdp->ts));
++				timecounter_cyc2time(&fep->tc, ebdp->ts));
+ 			spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+ 			skb_tstamp_tx(skb, &shhwtstamps);
+ 		}
+@@ -575,7 +636,7 @@ fec_enet_tx(struct net_device *ndev)
+ 		if (status & BD_ENET_TX_WRAP)
+ 			bdp = fep->tx_bd_base;
+ 		else
+-			bdp++;
++			bdp = get_nextdesc(bdp, fep->bufdesc_ex);
+ 
+ 		/* Since we have freed up a buffer, the ring is no longer full
+ 		 */
+@@ -685,16 +746,18 @@ fec_enet_rx(struct net_device *ndev)
+ 			skb->protocol = eth_type_trans(skb, ndev);
+ #ifdef CONFIG_FEC_PTP
+ 			/* Get receive timestamp from the skb */
+-			if (fep->hwts_rx_en) {
++			if (fep->hwts_rx_en && fep->bufdesc_ex) {
+ 				struct skb_shared_hwtstamps *shhwtstamps =
+ 							    skb_hwtstamps(skb);
+ 				unsigned long flags;
++				struct bufdesc_ex *ebdp =
++					(struct bufdesc_ex *)bdp;
+ 
+ 				memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+ 
+ 				spin_lock_irqsave(&fep->tmreg_lock, flags);
+ 				shhwtstamps->hwtstamp = ns_to_ktime(
+-				    timecounter_cyc2time(&fep->tc, bdp->ts));
++				    timecounter_cyc2time(&fep->tc, ebdp->ts));
+ 				spin_unlock_irqrestore(&fep->tmreg_lock, flags);
+ 			}
+ #endif
+@@ -713,16 +776,20 @@ rx_processing_done:
+ 		bdp->cbd_sc = status;
+ 
+ #ifdef CONFIG_FEC_PTP
+-		bdp->cbd_esc = BD_ENET_RX_INT;
+-		bdp->cbd_prot = 0;
+-		bdp->cbd_bdu = 0;
++		if (fep->bufdesc_ex) {
++			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
++
++			ebdp->cbd_esc = BD_ENET_RX_INT;
++			ebdp->cbd_prot = 0;
++			ebdp->cbd_bdu = 0;
++		}
+ #endif
+ 
+ 		/* Update BD pointer to next entry */
+ 		if (status & BD_ENET_RX_WRAP)
+ 			bdp = fep->rx_bd_base;
+ 		else
+-			bdp++;
++			bdp = get_nextdesc(bdp, fep->bufdesc_ex);
+ 		/* Doing this here will keep the FEC running while we process
+ 		 * incoming frames.  On a heavily loaded network, we should be
+ 		 * able to keep up at the expense of system resources.
+@@ -1158,7 +1225,7 @@ static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+ 		return -ENODEV;
+ 
+ #ifdef CONFIG_FEC_PTP
+-	if (cmd == SIOCSHWTSTAMP)
++	if (cmd == SIOCSHWTSTAMP && fep->bufdesc_ex)
+ 		return fec_ptp_ioctl(ndev, rq, cmd);
+ #endif
+ 	return phy_mii_ioctl(phydev, rq, cmd);
+@@ -1180,7 +1247,7 @@ static void fec_enet_free_buffers(struct net_device *ndev)
+ 					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
+ 		if (skb)
+ 			dev_kfree_skb(skb);
+-		bdp++;
++		bdp = get_nextdesc(bdp, fep->bufdesc_ex);
+ 	}
+ 
+ 	bdp = fep->tx_bd_base;
+@@ -1208,13 +1275,16 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+ 				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
+ 		bdp->cbd_sc = BD_ENET_RX_EMPTY;
+ #ifdef CONFIG_FEC_PTP
+-		bdp->cbd_esc = BD_ENET_RX_INT;
++		if (fep->bufdesc_ex) {
++			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
++			ebdp->cbd_esc = BD_ENET_RX_INT;
++		}
+ #endif
+-		bdp++;
++		bdp = get_nextdesc(bdp, fep->bufdesc_ex);
+ 	}
+ 
+ 	/* Set the last buffer to wrap. */
+-	bdp--;
++	bdp = get_prevdesc(bdp, fep->bufdesc_ex);
+ 	bdp->cbd_sc |= BD_SC_WRAP;
+ 
+ 	bdp = fep->tx_bd_base;
+@@ -1225,13 +1295,16 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+ 		bdp->cbd_bufaddr = 0;
+ 
+ #ifdef CONFIG_FEC_PTP
+-		bdp->cbd_esc = BD_ENET_RX_INT;
++		if (fep->bufdesc_ex) {
++			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
++			ebdp->cbd_esc = BD_ENET_RX_INT;
++		}
+ #endif
+-		bdp++;
++		bdp = get_nextdesc(bdp, fep->bufdesc_ex);
+ 	}
+ 
+ 	/* Set the last buffer to wrap. */
+-	bdp--;
++	bdp = get_prevdesc(bdp, fep->bufdesc_ex);
+ 	bdp->cbd_sc |= BD_SC_WRAP;
+ 
  	return 0;
+@@ -1444,7 +1517,11 @@ static int fec_enet_init(struct net_device *ndev)
  
--err_used:
-+err_enable:
- 	if (oldubufs)
- 		vhost_ubuf_put_and_wait(oldubufs);
- 	if (oldsock)
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 34389f7..1cb2604 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -77,26 +77,36 @@ void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
- 	init_poll_funcptr(&poll->table, vhost_poll_func);
- 	poll->mask = mask;
- 	poll->dev = dev;
-+	poll->state = VHOST_POLL_DISABLED;
+ 	/* Set receive and transmit descriptor base. */
+ 	fep->rx_bd_base = cbd_base;
+-	fep->tx_bd_base = cbd_base + RX_RING_SIZE;
++	if (fep->bufdesc_ex)
++		fep->tx_bd_base = (struct bufdesc*)
++			(((struct bufdesc_ex*)cbd_base + RX_RING_SIZE));
++	else
++		fep->tx_bd_base = cbd_base + RX_RING_SIZE;
  
- 	vhost_work_init(&poll->work, fn);
- }
+ 	/* The FEC Ethernet specific entries in the device structure */
+ 	ndev->watchdog_timeo = TX_TIMEOUT;
+@@ -1457,11 +1534,11 @@ static int fec_enet_init(struct net_device *ndev)
  
- /* Start polling a file. We add ourselves to file's wait queue. The caller must
-  * keep a reference to a file until after vhost_poll_stop is called. */
--void vhost_poll_start(struct vhost_poll *poll, struct file *file)
-+int vhost_poll_start(struct vhost_poll *poll, struct file *file)
- {
- 	unsigned long mask;
-+	if (unlikely(poll->state != VHOST_POLL_STOPPED))
-+		return 0;
+ 		/* Initialize the BD for every fragment in the page. */
+ 		bdp->cbd_sc = 0;
+-		bdp++;
++		bdp = get_nextdesc(bdp, fep->bufdesc_ex);
+ 	}
  
- 	mask = file->f_op->poll(file, &poll->table);
-+	if (mask & POLLERR)
-+		return -EINVAL;
- 	if (mask)
- 		vhost_poll_wakeup(&poll->wait, 0, 0, (void *)mask);
-+	poll->state = VHOST_POLL_STARTED;
-+	return 0;
- }
+ 	/* Set the last buffer to wrap */
+-	bdp--;
++	bdp = get_prevdesc(bdp, fep->bufdesc_ex);
+ 	bdp->cbd_sc |= BD_SC_WRAP;
  
- /* Stop polling a file. After this function returns, it becomes safe to drop the
-  * file reference. You must also flush afterwards. */
- void vhost_poll_stop(struct vhost_poll *poll)
- {
-+	if (likely(poll->state != VHOST_POLL_STARTED))
-+		return;
- 	remove_wait_queue(poll->wqh, &poll->wait);
-+	poll->state = VHOST_POLL_STOPPED;
- }
+ 	/* ...and the same for transmit */
+@@ -1471,11 +1548,11 @@ static int fec_enet_init(struct net_device *ndev)
+ 		/* Initialize the BD for every fragment in the page. */
+ 		bdp->cbd_sc = 0;
+ 		bdp->cbd_bufaddr = 0;
+-		bdp++;
++		bdp = get_nextdesc(bdp, fep->bufdesc_ex);
+ 	}
  
- static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
-@@ -791,8 +801,10 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
- 	if (filep)
- 		fput(filep);
+ 	/* Set the last buffer to wrap */
+-	bdp--;
++	bdp = get_prevdesc(bdp, fep->bufdesc_ex);
+ 	bdp->cbd_sc |= BD_SC_WRAP;
  
--	if (pollstart && vq->handle_kick)
-+	if (pollstart && vq->handle_kick) {
-+		vq->poll.state = VHOST_POLL_STOPPED;
- 		vhost_poll_start(&vq->poll, vq->kick);
-+	}
+ 	fec_restart(ndev, 0);
+@@ -1574,6 +1651,8 @@ fec_probe(struct platform_device *pdev)
+ 	fep->pdev = pdev;
+ 	fep->dev_id = dev_id++;
  
- 	mutex_unlock(&vq->mutex);
++	fep->bufdesc_ex = 0;
++
+ 	if (!fep->hwp) {
+ 		ret = -ENOMEM;
+ 		goto failed_ioremap;
+@@ -1630,16 +1709,19 @@ fec_probe(struct platform_device *pdev)
  
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 2639c58..98861d9 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -26,6 +26,12 @@ struct vhost_work {
- 	unsigned		  done_seq;
- };
+ #ifdef CONFIG_FEC_PTP
+ 	fep->clk_ptp = devm_clk_get(&pdev->dev, "ptp");
++	fep->bufdesc_ex = fec_ptp_enable ?
++		pdev->id_entry->driver_data & FEC_QUICK_HAS_BUFDESC_EX : 0;
+ 	if (IS_ERR(fep->clk_ptp)) {
+ 		ret = PTR_ERR(fep->clk_ptp);
+-		goto failed_clk;
++		fep->bufdesc_ex = 0;
+ 	}
+ #endif
  
-+enum vhost_poll_state {
-+	VHOST_POLL_DISABLED = 0,
-+	VHOST_POLL_STARTED = 1,
-+	VHOST_POLL_STOPPED = 2,
+ 	clk_prepare_enable(fep->clk_ahb);
+ 	clk_prepare_enable(fep->clk_ipg);
+ #ifdef CONFIG_FEC_PTP
+-	clk_prepare_enable(fep->clk_ptp);
++	if (!IS_ERR(fep->clk_ptp))
++		clk_prepare_enable(fep->clk_ptp);
+ #endif
+ 	reg_phy = devm_regulator_get(&pdev->dev, "phy");
+ 	if (!IS_ERR(reg_phy)) {
+@@ -1669,7 +1751,8 @@ fec_probe(struct platform_device *pdev)
+ 		goto failed_register;
+ 
+ #ifdef CONFIG_FEC_PTP
+-	fec_ptp_init(ndev, pdev);
++	if (fep->bufdesc_ex)
++		fec_ptp_init(ndev, pdev);
+ #endif
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index c5a3bc1..53f19d3 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -94,14 +94,17 @@ struct bufdesc {
+ 	unsigned short cbd_datlen;	/* Data length */
+ 	unsigned short cbd_sc;	/* Control and status info */
+ 	unsigned long cbd_bufaddr;	/* Buffer address */
+-#ifdef CONFIG_FEC_PTP
 +};
 +
- /* Poll a file (eventfd or socket) */
- /* Note: there's nothing vhost specific about this structure. */
- struct vhost_poll {
-@@ -35,6 +41,9 @@ struct vhost_poll {
- 	struct vhost_work	  work;
- 	unsigned long		  mask;
- 	struct vhost_dev	 *dev;
-+	/* Tells us whether we are polling a file.
-+	 * Protected by tx vq lock. */
-+	enum vhost_poll_state	  state;
++struct bufdesc_ex {
++	struct bufdesc desc;
+ 	unsigned long cbd_esc;
+ 	unsigned long cbd_prot;
+ 	unsigned long cbd_bdu;
+ 	unsigned long ts;
+ 	unsigned short res0[4];
+-#endif
  };
++
+ #else
+ struct bufdesc {
+ 	unsigned short	cbd_sc;			/* Control and status info */
+@@ -243,6 +246,7 @@ struct fec_enet_private {
+ 	int	full_duplex;
+ 	struct	completion mdio_done;
+ 	int	irq[FEC_IRQ_NUM];
++	int	bufdesc_ex;
  
- void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn);
-@@ -42,7 +51,7 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work);
- 
- void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
- 		     unsigned long mask, struct vhost_dev *dev);
--void vhost_poll_start(struct vhost_poll *poll, struct file *file);
-+int vhost_poll_start(struct vhost_poll *poll, struct file *file);
- void vhost_poll_stop(struct vhost_poll *poll);
- void vhost_poll_flush(struct vhost_poll *poll);
- void vhost_poll_queue(struct vhost_poll *poll);
+ #ifdef CONFIG_FEC_PTP
+ 	struct ptp_clock *ptp_clock;
 -- 
 1.7.1
