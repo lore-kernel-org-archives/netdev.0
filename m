@@ -1,33 +1,155 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: netlink NLM_F_DUMP for unsupported address family / PF_UNSPEC
-Date: Thu, 27 Dec 2012 17:19:17 +0200
-Message-ID: <20121227171917.07419887@vostro>
+From: George Kargiotakis <kargig@void.gr>
+Subject: Re: Linux kernel handling of IPv6 temporary addresses
+Date: Thu, 27 Dec 2012 17:57:35 +0200
+Message-ID: <20121227175735.26c70cbb@lola.kot>
+References: <20121114231411.4328fc47@lola.kot>
+	<20121114.162956.610530798200803185.davem@davemloft.net>
+	<20121115010324.2707950c@lola.kot>
+	<20121114.180824.1930899985436392426.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:59668 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752932Ab2L0PTd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2012 10:19:33 -0500
-Received: by mail-ee0-f43.google.com with SMTP id e49so4865870eek.2
-        for <netdev@vger.kernel.org>; Thu, 27 Dec 2012 07:19:32 -0800 (PST)
+Received: from baz.wimax.gr ([85.17.213.4]:46714 "EHLO foo.wimax.gr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753019Ab2L0QD7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Dec 2012 11:03:59 -0500
+Received: from lola.kot (athedsl-344247.home.otenet.gr [85.72.200.85])
+	by foo.wimax.gr (Postfix) with ESMTPSA id B6FBF8FA0B3
+	for <netdev@vger.kernel.org>; Thu, 27 Dec 2012 16:57:37 +0100 (CET)
+In-Reply-To: <20121114.180824.1930899985436392426.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It seems that currently PF_UNSPEC is overloaded when dumping rtnetlink
-things. It is used for two purposes: as wildcard entry to dump
-all protocol families, and as fallback for unsupported families.
+Hello all,
 
-On my system with IPv[46] only and no IPX, running "ip -f ipx
-route" would print the IPv4 and IPv6 routes instead of "unsupported" or
-"not implemented" error which is rather confusing and unexpected.
+I had previously informed this list about the issue of the linux kernel 
+losing IPv6 privacy extensions by a local LAN attacker.
+Recently I've found that there's actually another, more serious in my
+opinion, issue that follows the previous one. If the user tries to
+disconnect/reconnect the network device/connection for whatever reason
+(e.g. thinking he might gain back privacy extensions), then the device
+gets IPs from SLAAC that have the "tentative" flag and never loses
+that. That means that IPv6 functionality for that device is from then
+on completely lost.  I haven't been able to bring back the kernel to a
+working IPv6 state without a reboot.
 
-Just removing the fallback from rtnl_get_dumpit() does not sound right
-since some commands seem to rely on this behaviour e.g. RTM_GETQDISC.
+This is definitely a DoS situation and it needs fixing.
 
-Perhaps rtnl_dump_all should check that request family truly was
-PF_UNSPEC or error out if not?
+Here are the steps to reproduce:
 
-- Timo
+== Step 1. Boot Ubuntu 12.10 (kernel 3.5.0-17-generic) ==
+ubuntu@ubuntu:~$ ip a ls dev eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 52:54:00:8b:99:5d brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.96/24 brd 192.168.1.255 scope global eth0
+    inet6 2001:db8:f00:f00:ad1f:9166:93d4:fd6d/64 scope global temporary dynamic 
+       valid_lft 86379sec preferred_lft 3579sec
+    inet6 2001:db8:f00:f00:5054:ff:fe8b:995d/64 scope global dynamic 
+       valid_lft 86379sec preferred_lft 3579sec
+    inet6 fdbb:aaaa:bbbb:cccc:ad1f:9166:93d4:fd6d/64 scope global temporary dynamic 
+       valid_lft 86379sec preferred_lft 3579sec
+    inet6 fdbb:aaaa:bbbb:cccc:5054:ff:fe8b:995d/64 scope global dynamic 
+       valid_lft 86379sec preferred_lft 3579sec
+    inet6 fe80::5054:ff:fe8b:995d/64 scope link 
+       valid_lft forever preferred_lft forever
+
+ubuntu@ubuntu:~$ sysctl -a | grep use_tempaddr
+net.ipv6.conf.all.use_tempaddr = 2
+net.ipv6.conf.default.use_tempaddr = 2
+net.ipv6.conf.eth0.use_tempaddr = 2
+net.ipv6.conf.lo.use_tempaddr = 2
+
+ubuntu@ubuntu:~$ nmcli con status
+NAME                      UUID                                   DEVICES    DEFAULT  VPN   MASTER-PATH
+Wired connection 1        923e6729-74a7-4389-9dbd-43ed7db3d1b8   eth0       yes      no    --
+ubuntu@ubuntu:~$ nmcli dev status
+DEVICE     TYPE              STATE
+eth0       802-3-ethernet    connected
+
+//ping6 2a00:1450:4002:800::100e  while in another terminal: tcpdump -ni eth0 ip6
+
+ubuntu@ubuntu:~$ ping6 2a00:1450:4002:800::100e -c1
+PING 2a00:1450:4002:800::100e(2a00:1450:4002:800::100e) 56 data bytes
+64 bytes from 2a00:1450:4002:800::100e: icmp_seq=1 ttl=53 time=70.9 ms
+
+--- 2a00:1450:4002:800::100e ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 70.994/70.994/70.994/0.000 ms
+
+# tcpdump -ni eth0 host 2a00:1450:4002:800::100e
+17:57:37.784658 IP6 2001:db8:f00:f00:ad1f:9166:93d4:fd6d > 2a00:1450:4002:800::100e: ICMP6, echo request, seq 1, length 64
+17:57:37.855257 IP6 2a00:1450:4002:800::100e > 2001:db8:f00:f00:ad1f:9166:93d4:fd6d: ICMP6, echo reply, seq 1, length 64
+
+== Step 2. flood RAs on the LAN ==
+
+$ dmesg | tail
+[ 1093.642053] IPv6: ipv6_create_tempaddr: retry temporary address regeneration
+[ 1093.642062] IPv6: ipv6_create_tempaddr: retry temporary address regeneration
+[ 1093.642065] IPv6: ipv6_create_tempaddr: retry temporary address regeneration
+[ 1093.642067] IPv6: ipv6_create_tempaddr: regeneration time exceeded - disabled temporary address support
+
+ubuntu@ubuntu:~$ sysctl -a | grep use_tempaddr
+net.ipv6.conf.all.use_tempaddr = 2
+net.ipv6.conf.default.use_tempaddr = 2
+net.ipv6.conf.eth0.use_tempaddr = -1
+net.ipv6.conf.lo.use_tempaddr = 2
+
+//ping6 2a00:1450:4002:800::100e  while in another terminal: tcpdump -ni eth0 ip6
+
+ubuntu@ubuntu:~$ ping6 2a00:1450:4002:800::100e -c1
+PING 2a00:1450:4002:800::100e(2a00:1450:4002:800::100e) 56 data bytes
+64 bytes from 2a00:1450:4002:800::100e: icmp_seq=1 ttl=53 time=77.5 ms
+
+--- 2a00:1450:4002:800::100e ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 77.568/77.568/77.568/0.000 ms
+
+# tcpdump -ni eth0 host 2a00:1450:4002:800::100e
+17:59:38.204173 IP6 2001:db8:f00:f00:5054:ff:fe8b:995d > 2a00:1450:4002:800::100e: ICMP6, echo request, seq 1, length 64
+17:59:38.281437 IP6 2a00:1450:4002:800::100e > 2001:db8:f00:f00:5054:ff:fe8b:995d: ICMP6, echo reply, seq 1, length 64
+
+//notice the change of IPv6 address to the one not using privacy extensions even after the flooding has finished long ago.
+
+== Step 3. Disconnect/Reconnect connection  ==
+// restoring net.ipv6.conf.eth0.use_tempaddr to value '2' makes no difference at all for the rest of the process
+
+# nmcli dev disconnect iface eth0
+# nmcli con up uuid 923e6729-74a7-4389-9dbd-43ed7db3d1b8
+
+ubuntu@ubuntu:~$ ip a ls dev eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+    link/ether 52:54:00:8b:99:5d brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.96/24 brd 192.168.1.255 scope global eth0
+    inet6 2001:db8:f00:f00:5054:ff:fe8b:995d/64 scope global tentative dynamic 
+       valid_lft 86400sec preferred_lft 3600sec
+    inet6 fdbb:aaaa:bbbb:cccc:5054:ff:fe8b:995d/64 scope global tentative dynamic 
+       valid_lft 86400sec preferred_lft 3600sec
+    inet6 fe80::5054:ff:fe8b:995d/64 scope link tentative 
+       valid_lft forever preferred_lft forever
+
+//Notice the "tentative" flag of the IPs on the device
+
+//ping6 2a00:1450:4002:800::100e  while in another terminal: tcpdump -ni eth0 ip6
+
+ubuntu@ubuntu:~$ ping6 2a00:1450:4002:800::100e -c1
+PING 2a00:1450:4002:800::100e(2a00:1450:4002:800::100e) 56 data bytes
+^C
+--- 2a00:1450:4002:800::100e ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+# tcpdump -ni eth0 host 2a00:1450:4002:800::100e
+18:01:45.264194 IP6 ::1 > 2a00:1450:4002:800::100e: ICMP6, echo request, seq 1, length 64
+
+Summary:
+Before flooding it uses IP:  2001:db8:f00:f00:ad1f:9166:93d4:fd6d
+After  flooding it uses IP:  2001:db8:f00:f00:5054:ff:fe8b:995d --> it has lost privacy extensions
+After  disconnect/reconnect it tries to use IP:  ::1 --> it has lost IPv6 connectivity
+
+Best regards,
+-- 
+George Kargiotakis
+https://void.gr
+GPG KeyID: 0xE4F4FFE6
+GPG Fingerprint: 9EB8 31BE C618 07CE 1B51 818D 4A0A 1BC8 E4F4 FFE6
