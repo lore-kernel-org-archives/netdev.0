@@ -1,21 +1,15 @@
-From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Subject: Re: [RFC PATCH] virtio-net: reset virtqueue affinity when doing cpu
-	hotplug
-Date: Thu, 27 Dec 2012 11:43:30 +0800
-Message-ID: <50DBC3E2.4090804@cn.fujitsu.com>
-References: <1356505614-16683-1-git-send-email-gaowanlong@cn.fujitsu.com>
-	<50DACC26.7050409@redhat.com> <50DACF22.5090707@cn.fujitsu.com>
-	<50DBC07B.7060303@redhat.com>
-Reply-To: gaowanlong@cn.fujitsu.com
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH 1/2] vhost_net: correct error hanlding in
+	vhost_net_set_backend()
+Date: Thu, 27 Dec 2012 14:39:19 +0800
+Message-ID: <1356590360-32770-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, imammedo@redhat.com
-To: Jason Wang <jasowang@redhat.com>
+To: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <50DBC07B.7060303@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -27,115 +21,45 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 12/27/2012 11:28 AM, Jason Wang wrote:
-> On 12/26/2012 06:19 PM, Wanlong Gao wrote:
->> On 12/26/2012 06:06 PM, Jason Wang wrote:
->>> On 12/26/2012 03:06 PM, Wanlong Gao wrote:
->>>> Add a cpu notifier to virtio-net, so that we can reset the
->>>> virtqueue affinity if the cpu hotplug happens. It improve
->>>> the performance through enabling or disabling the virtqueue
->>>> affinity after doing cpu hotplug.
->>> Hi Wanlong:
->>>
->>> Thanks for looking at this.
->>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
->>>> Cc: "Michael S. Tsirkin" <mst@redhat.com>
->>>> Cc: Jason Wang <jasowang@redhat.com>
->>>> Cc: virtualization@lists.linux-foundation.org
->>>> Cc: netdev@vger.kernel.org
->>>> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
->>>> ---
->>>>  drivers/net/virtio_net.c | 39 ++++++++++++++++++++++++++++++++++++++-
->>>>  1 file changed, 38 insertions(+), 1 deletion(-)
->>>>
->>>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>>> index a6fcf15..9710cf4 100644
->>>> --- a/drivers/net/virtio_net.c
->>>> +++ b/drivers/net/virtio_net.c
->>>> @@ -26,6 +26,7 @@
->>>>  #include <linux/scatterlist.h>
->>>>  #include <linux/if_vlan.h>
->>>>  #include <linux/slab.h>
->>>> +#include <linux/cpu.h>
->>>>  
->>>>  static int napi_weight = 128;
->>>>  module_param(napi_weight, int, 0444);
->>>> @@ -34,6 +35,8 @@ static bool csum = true, gso = true;
->>>>  module_param(csum, bool, 0444);
->>>>  module_param(gso, bool, 0444);
->>>>  
->>>> +static bool cpu_hotplug = false;
->>>> +
->>>>  /* FIXME: MTU in config. */
->>>>  #define MAX_PACKET_LEN (ETH_HLEN + VLAN_HLEN + ETH_DATA_LEN)
->>>>  #define GOOD_COPY_LEN	128
->>>> @@ -1041,6 +1044,26 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
->>>>  		vi->affinity_hint_set = false;
->>>>  }
->>>>  
->>>> +static int virtnet_cpu_callback(struct notifier_block *nfb,
->>>> +			       unsigned long action, void *hcpu)
->>>> +{
->>>> +	switch(action) {
->>>> +	case CPU_ONLINE:
->>>> +	case CPU_ONLINE_FROZEN:
->>>> +	case CPU_DEAD:
->>>> +	case CPU_DEAD_FROZEN:
->>>> +		cpu_hotplug = true;
->>>> +		break;
->>>> +	default:
->>>> +		break;
->>>> +	}
->>>> +	return NOTIFY_OK;
->>>> +}
->>>> +
->>>> +static struct notifier_block virtnet_cpu_notifier = {
->>>> +	.notifier_call = virtnet_cpu_callback,
->>>> +};
->>>> +
->>>>  static void virtnet_get_ringparam(struct net_device *dev,
->>>>  				struct ethtool_ringparam *ring)
->>>>  {
->>>> @@ -1131,7 +1154,14 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->>>>   */
->>>>  static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
->>>>  {
->>>> -	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
->>>> +	int txq;
->>>> +
->>>> +	if (unlikely(cpu_hotplug == true)) {
->>>> +		virtnet_set_affinity(netdev_priv(dev), true);
->>>> +		cpu_hotplug = false;
->>>> +	}
->>>> +
->>> Why don't you just do this in callback?
->> Callback can just give us a "hcpu", can't get the virtnet_info from callback. Am I missing something?
-> 
-> Well, I think you can just embed the notifier block into virtnet_info,
-> then use something like container_of in the callback to make the
-> notifier per device. This also solve the concern of Eric.
+Fix the leaking of oldubufs and fd refcnt when fail to initialized used ring.
 
-Yeah, thank you very much for your suggestion. I'll try it.
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/vhost/net.c |   14 +++++++++++---
+ 1 files changed, 11 insertions(+), 3 deletions(-)
 
->>> btw. Does qemu/kvm support cpu-hotplug now?
->> From http://www.linux-kvm.org/page/CPUHotPlug, I saw that qemu-kvm can support hotplug
->> but failed to merge to qemu.git, right?
-> 
-> Not sure, I just try latest qemu, it even does not have a cpu_set command.
-
-Adding Igor to CC,
-
-As I know, hotplug support is cleaned from qemu, and Igor want to rework it but not been completed?
-I'm not sure about that, Igor, could you send out your tech-preview-patches?
-
-Thanks,
-Wanlong Gao
-
-> 
-> Thanks
->>
->> Thanks,
->> Wanlong Gao
->>
-> 
-> 
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index ebd08b2..629d6b5 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -834,8 +834,10 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 		vhost_net_enable_vq(n, vq);
+ 
+ 		r = vhost_init_used(vq);
+-		if (r)
+-			goto err_vq;
++		if (r) {
++			sock = NULL;
++			goto err_used;
++		}
+ 
+ 		n->tx_packets = 0;
+ 		n->tx_zcopy_err = 0;
+@@ -859,8 +861,14 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 	mutex_unlock(&n->dev.mutex);
+ 	return 0;
+ 
++err_used:
++	if (oldubufs)
++		vhost_ubuf_put_and_wait(oldubufs);
++	if (oldsock)
++		fput(oldsock->file);
+ err_ubufs:
+-	fput(sock->file);
++	if (sock)
++		fput(sock->file);
+ err_vq:
+ 	mutex_unlock(&vq->mutex);
+ err:
+-- 
+1.7.1
