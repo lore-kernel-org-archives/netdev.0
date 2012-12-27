@@ -1,313 +1,128 @@
-From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Subject: Re: [PATCH 2/2] vhost: handle polling failure
-Date: Thu, 27 Dec 2012 18:01:51 +0800
-Message-ID: <50DC1C8F.3020008@cn.fujitsu.com>
-References: <1356590360-32770-1-git-send-email-jasowang@redhat.com>
-	<1356590360-32770-2-git-send-email-jasowang@redhat.com>
-Reply-To: gaowanlong@cn.fujitsu.com
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 1/1 net-next] NET: FEC: dynamtic check DMA desc buff type
+Date: Thu, 27 Dec 2012 11:35:00 +0100
+Message-ID: <20121227103500.GU26326@pengutronix.de>
+References: <1356599447-5698-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1356590360-32770-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lznuaa@gmail.com, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, shawn.guo@linaro.org,
+	netdev@vger.kernel.org
+To: Frank Li <Frank.Li@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:46981 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673Ab2L0KfL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2012 05:35:11 -0500
+Content-Disposition: inline
+In-Reply-To: <1356599447-5698-1-git-send-email-Frank.Li@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/27/2012 02:39 PM, Jason Wang wrote:
-> Currently, polling error were ignored in vhost. This may lead some issues (e.g
-> kenrel crash when passing a tap fd to vhost before calling TUNSETIFF). Fix this
-> by:
-
-Can this kernel crash be reproduced by hand?
-
-Thanks,
-Wanlong Gao
-
+On Thu, Dec 27, 2012 at 05:10:47PM +0800, Frank Li wrote:
+> MX6 and mx28 support enhanced DMA descript buff to support 1588
+> ptp. But MX25, MX3x, MX5x can't support enhanced DMA descript buff.
+> Check fec type and choose correct DAM descript buff type.
 > 
-> - extend the idea of vhost_net_poll_state to all vhost_polls
-> - change the state only when polling is succeed
-> - make vhost_poll_start() report errors to the caller, which could be used
->   caller or userspace.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+
+Please provide a series that gets rid of CONFIG_FEC_PTP. This patch here
+might be a first step to it, but until it's complete and we can have a
+look at the end result: No.
+
 > ---
->  drivers/vhost/net.c   |   75 +++++++++++++++++--------------------------------
->  drivers/vhost/vhost.c |   16 +++++++++-
->  drivers/vhost/vhost.h |   11 ++++++-
->  3 files changed, 50 insertions(+), 52 deletions(-)
+>  drivers/net/ethernet/freescale/Kconfig |    2 +-
+>  drivers/net/ethernet/freescale/fec.c   |  155 ++++++++++++++++++++++++--------
+>  drivers/net/ethernet/freescale/fec.h   |    8 ++-
+>  3 files changed, 126 insertions(+), 39 deletions(-)
 > 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 629d6b5..56e7f5a 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -64,20 +64,10 @@ enum {
->  	VHOST_NET_VQ_MAX = 2,
->  };
+> diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+> index ec490d7..d1edb2e 100644
+> --- a/drivers/net/ethernet/freescale/Kconfig
+> +++ b/drivers/net/ethernet/freescale/Kconfig
+> @@ -94,7 +94,7 @@ config GIANFAR
 >  
-> -enum vhost_net_poll_state {
-> -	VHOST_NET_POLL_DISABLED = 0,
-> -	VHOST_NET_POLL_STARTED = 1,
-> -	VHOST_NET_POLL_STOPPED = 2,
-> -};
-> -
->  struct vhost_net {
->  	struct vhost_dev dev;
->  	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
->  	struct vhost_poll poll[VHOST_NET_VQ_MAX];
-> -	/* Tells us whether we are polling a socket for TX.
-> -	 * We only do this when socket buffer fills up.
-> -	 * Protected by tx vq lock. */
-> -	enum vhost_net_poll_state tx_poll_state;
->  	/* Number of TX recently submitted.
->  	 * Protected by tx vq lock. */
->  	unsigned tx_packets;
-> @@ -155,24 +145,6 @@ static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
+>  config FEC_PTP
+>  	bool "PTP Hardware Clock (PHC)"
+> -	depends on FEC && ARCH_MXC && !SOC_IMX25 && !SOC_IMX27 && !SOC_IMX35 && !SOC_IMX5
+> +	depends on FEC && ARCH_MXC
+>  	select PTP_1588_CLOCK
+>  	--help---
+>  	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+> index 0704bca..21f385d 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -76,6 +76,8 @@
+>  #define FEC_QUIRK_USE_GASKET		(1 << 2)
+>  /* Controller has GBIT support */
+>  #define FEC_QUIRK_HAS_GBIT		(1 << 3)
+> +/* Controller has extend desc buffer */
+> +#define FEC_QUICK_HAS_BUFDESC_EX	(1 << 4)
+
+It's 'quirk', not 'quick'
+
+>  
+>  static struct platform_device_id fec_devtype[] = {
+>  	{
+> @@ -93,7 +95,8 @@ static struct platform_device_id fec_devtype[] = {
+>  		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME,
+>  	}, {
+>  		.name = "imx6q-fec",
+> -		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT,
+> +		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
+> +				FEC_QUICK_HAS_BUFDESC_EX,
+>  	}, {
+>  		/* sentinel */
 >  	}
->  }
+> @@ -117,7 +120,9 @@ static const struct of_device_id fec_dt_ids[] = {
+>  MODULE_DEVICE_TABLE(of, fec_dt_ids);
 >  
-> -/* Caller must have TX VQ lock */
-> -static void tx_poll_stop(struct vhost_net *net)
-> -{
-> -	if (likely(net->tx_poll_state != VHOST_NET_POLL_STARTED))
-> -		return;
-> -	vhost_poll_stop(net->poll + VHOST_NET_VQ_TX);
-> -	net->tx_poll_state = VHOST_NET_POLL_STOPPED;
-> -}
-> -
-> -/* Caller must have TX VQ lock */
-> -static void tx_poll_start(struct vhost_net *net, struct socket *sock)
-> -{
-> -	if (unlikely(net->tx_poll_state != VHOST_NET_POLL_STOPPED))
-> -		return;
-> -	vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
-> -	net->tx_poll_state = VHOST_NET_POLL_STARTED;
-> -}
-> -
->  /* In case of DMA done not in order in lower device driver for some reason.
->   * upend_idx is used to track end of used idx, done_idx is used to track head
->   * of used idx. Once lower device DMA done contiguously, we will signal KVM
-> @@ -252,7 +224,7 @@ static void handle_tx(struct vhost_net *net)
->  	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
->  	if (wmem >= sock->sk->sk_sndbuf) {
->  		mutex_lock(&vq->mutex);
-> -		tx_poll_start(net, sock);
-> +		vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
->  		mutex_unlock(&vq->mutex);
->  		return;
->  	}
-> @@ -261,7 +233,7 @@ static void handle_tx(struct vhost_net *net)
->  	vhost_disable_notify(&net->dev, vq);
+>  static unsigned char macaddr[ETH_ALEN];
+> +static int fec_ptp_enable = 1;
+>  module_param_array(macaddr, byte, NULL, 0);
+> +module_param(fec_ptp_enable, int, 1);
+>  MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+
+The 'fec_ptp_enable' shouldn't be weaved into the mac address. Use a
+separate block of code for this.
+Also, this shouldn't be here at all. If you want to make this
+configurable via kernel commandline, then this should be a separate
+patch so that it can be discussed separately. Also you should provide a
+description *why* you think this is necessary.
+
 >  
->  	if (wmem < sock->sk->sk_sndbuf / 2)
-> -		tx_poll_stop(net);
-> +		vhost_poll_stop(net->poll + VHOST_NET_VQ_TX);
->  	hdr_size = vq->vhost_hlen;
->  	zcopy = vq->ubufs;
+>  #if defined(CONFIG_M5272)
+> @@ -144,6 +149,12 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+>  #error "FEC: descriptor ring size constants too large"
+>  #endif
 >  
-> @@ -283,7 +255,8 @@ static void handle_tx(struct vhost_net *net)
->  
->  			wmem = atomic_read(&sock->sk->sk_wmem_alloc);
->  			if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
-> -				tx_poll_start(net, sock);
-> +				vhost_poll_start(net->poll + VHOST_NET_VQ_TX,
-> +						 sock->file);
->  				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
->  				break;
->  			}
-> @@ -294,7 +267,8 @@ static void handle_tx(struct vhost_net *net)
->  				    (vq->upend_idx - vq->done_idx) :
->  				    (vq->upend_idx + UIO_MAXIOV - vq->done_idx);
->  			if (unlikely(num_pends > VHOST_MAX_PEND)) {
-> -				tx_poll_start(net, sock);
-> +				vhost_poll_start(net->poll + VHOST_NET_VQ_TX,
-> +						 sock->file);
->  				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
->  				break;
->  			}
-> @@ -360,7 +334,8 @@ static void handle_tx(struct vhost_net *net)
->  			}
->  			vhost_discard_vq_desc(vq, 1);
->  			if (err == -EAGAIN || err == -ENOBUFS)
-> -				tx_poll_start(net, sock);
-> +				vhost_poll_start(net->poll + VHOST_NET_VQ_TX,
-> +						 sock->file);
->  			break;
->  		}
->  		if (err != len)
-> @@ -623,7 +598,6 @@ static int vhost_net_open(struct inode *inode, struct file *f)
->  
->  	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
->  	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
-> -	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
->  
->  	f->private_data = n;
->  
-> @@ -635,27 +609,26 @@ static void vhost_net_disable_vq(struct vhost_net *n,
->  {
->  	if (!vq->private_data)
->  		return;
-> -	if (vq == n->vqs + VHOST_NET_VQ_TX) {
-> -		tx_poll_stop(n);
-> -		n->tx_poll_state = VHOST_NET_POLL_DISABLED;
-> -	} else
-> +	if (vq == n->vqs + VHOST_NET_VQ_TX)
-> +		vhost_poll_stop(n->poll + VHOST_NET_VQ_TX);
-> +	else
->  		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
->  }
->  
-> -static void vhost_net_enable_vq(struct vhost_net *n,
-> -				struct vhost_virtqueue *vq)
-> +static int vhost_net_enable_vq(struct vhost_net *n,
-> +			       struct vhost_virtqueue *vq)
->  {
-> +	int err, index = vq - n->vqs;
->  	struct socket *sock;
->  
->  	sock = rcu_dereference_protected(vq->private_data,
->  					 lockdep_is_held(&vq->mutex));
->  	if (!sock)
-> -		return;
-> -	if (vq == n->vqs + VHOST_NET_VQ_TX) {
-> -		n->tx_poll_state = VHOST_NET_POLL_STOPPED;
-> -		tx_poll_start(n, sock);
-> -	} else
-> -		vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-> +		return 0;
+> +#ifdef CONFIG_FEC_PTP
+> +#if (((RX_RING_SIZE + TX_RING_SIZE) * 32) > PAGE_SIZE)
+> +#error "FEC: descriptor ring size constants too large"
+> +#endif
+> +#endif
 > +
-> +	n->poll[index].state = VHOST_POLL_STOPPED;
-> +	err = vhost_poll_start(n->poll + index, sock->file);
-> +	return err;
->  }
+>  /* Interrupt events/masks. */
+>  #define FEC_ENET_HBERR	((uint)0x80000000)	/* Heartbeat error */
+>  #define FEC_ENET_BABR	((uint)0x40000000)	/* Babbling receiver */
+> @@ -192,6 +203,36 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
 >  
->  static struct socket *vhost_net_stop_vq(struct vhost_net *n,
-> @@ -831,12 +804,16 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->  		vq->ubufs = ubufs;
->  		vhost_net_disable_vq(n, vq);
->  		rcu_assign_pointer(vq->private_data, sock);
-> -		vhost_net_enable_vq(n, vq);
-> +		r = vhost_net_enable_vq(n, vq);
-> +		if (r) {
-> +			sock = NULL;
-> +			goto err_enable;
-> +		}
+>  static int mii_cnt;
 >  
->  		r = vhost_init_used(vq);
->  		if (r) {
->  			sock = NULL;
-> -			goto err_used;
-> +			goto err_enable;
->  		}
->  
->  		n->tx_packets = 0;
-> @@ -861,7 +838,7 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->  	mutex_unlock(&n->dev.mutex);
->  	return 0;
->  
-> -err_used:
-> +err_enable:
->  	if (oldubufs)
->  		vhost_ubuf_put_and_wait(oldubufs);
->  	if (oldsock)
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 34389f7..1cb2604 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -77,26 +77,36 @@ void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->  	init_poll_funcptr(&poll->table, vhost_poll_func);
->  	poll->mask = mask;
->  	poll->dev = dev;
-> +	poll->state = VHOST_POLL_DISABLED;
->  
->  	vhost_work_init(&poll->work, fn);
->  }
->  
->  /* Start polling a file. We add ourselves to file's wait queue. The caller must
->   * keep a reference to a file until after vhost_poll_stop is called. */
-> -void vhost_poll_start(struct vhost_poll *poll, struct file *file)
-> +int vhost_poll_start(struct vhost_poll *poll, struct file *file)
->  {
->  	unsigned long mask;
-> +	if (unlikely(poll->state != VHOST_POLL_STOPPED))
-> +		return 0;
->  
->  	mask = file->f_op->poll(file, &poll->table);
-> +	if (mask & POLLERR)
-> +		return -EINVAL;
->  	if (mask)
->  		vhost_poll_wakeup(&poll->wait, 0, 0, (void *)mask);
-> +	poll->state = VHOST_POLL_STARTED;
-> +	return 0;
->  }
->  
->  /* Stop polling a file. After this function returns, it becomes safe to drop the
->   * file reference. You must also flush afterwards. */
->  void vhost_poll_stop(struct vhost_poll *poll)
->  {
-> +	if (likely(poll->state != VHOST_POLL_STARTED))
-> +		return;
->  	remove_wait_queue(poll->wqh, &poll->wait);
-> +	poll->state = VHOST_POLL_STOPPED;
->  }
->  
->  static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
-> @@ -791,8 +801,10 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
->  	if (filep)
->  		fput(filep);
->  
-> -	if (pollstart && vq->handle_kick)
-> +	if (pollstart && vq->handle_kick) {
-> +		vq->poll.state = VHOST_POLL_STOPPED;
->  		vhost_poll_start(&vq->poll, vq->kick);
-> +	}
->  
->  	mutex_unlock(&vq->mutex);
->  
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index 2639c58..98861d9 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -26,6 +26,12 @@ struct vhost_work {
->  	unsigned		  done_seq;
->  };
->  
-> +enum vhost_poll_state {
-> +	VHOST_POLL_DISABLED = 0,
-> +	VHOST_POLL_STARTED = 1,
-> +	VHOST_POLL_STOPPED = 2,
-> +};
-> +
->  /* Poll a file (eventfd or socket) */
->  /* Note: there's nothing vhost specific about this structure. */
->  struct vhost_poll {
-> @@ -35,6 +41,9 @@ struct vhost_poll {
->  	struct vhost_work	  work;
->  	unsigned long		  mask;
->  	struct vhost_dev	 *dev;
-> +	/* Tells us whether we are polling a file.
-> +	 * Protected by tx vq lock. */
-> +	enum vhost_poll_state	  state;
->  };
->  
->  void vhost_work_init(struct vhost_work *work, vhost_work_fn_t fn);
-> @@ -42,7 +51,7 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work);
->  
->  void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->  		     unsigned long mask, struct vhost_dev *dev);
-> -void vhost_poll_start(struct vhost_poll *poll, struct file *file);
-> +int vhost_poll_start(struct vhost_poll *poll, struct file *file);
->  void vhost_poll_stop(struct vhost_poll *poll);
->  void vhost_poll_flush(struct vhost_poll *poll);
->  void vhost_poll_queue(struct vhost_poll *poll);
-> 
+> +#ifdef CONFIG_FEC_PTP
+> +static struct bufdesc * get_nextdesc(struct bufdesc * bdp, int is_ex)
+
+driver specific functions should always have a driver specific prefix.
+
+
+This patch has coding style issues. Please run through checkpatch.
+
+Sascha
+
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
