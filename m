@@ -1,88 +1,109 @@
-From: "Qin, Xiaohong" <Xiaohong.Qin@emc.com>
-Subject: RE: vxlan in Linux kernel 3.7
-Date: Thu, 27 Dec 2012 13:56:51 -0500
-Message-ID: <A3CA455BB4F1DA4E92CB43AAF0E4BB1D0667E12C@MX01A.corp.emc.com>
-References: <A3CA455BB4F1DA4E92CB43AAF0E4BB1D0667E12B@MX01A.corp.emc.com>
- <20121227104916.4fb2af04@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hop-nat-141.emc.com ([168.159.213.141]:34318 "EHLO
-	mexforward.lss.emc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751963Ab2L0S5Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2012 13:57:24 -0500
-In-Reply-To: <20121227104916.4fb2af04@nehalam.linuxnetplumber.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] forcedeth: Fix WARNINGS that result when DMA mapping is not checked
+Date: Thu, 27 Dec 2012 13:42:07 -0600
+Message-ID: <1356637327-4884-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+With 3.8-rc1, the first call of pci_map_single() that is not checked
+with a corresponding pci_dma_mapping_error() call results in a warning
+with a splat as follows:
 
-Thanks very much for the tip. Here is the output on my box,
+WARNING: at lib/dma-debug.c:933 check_unmap+0x480/0x950()
+Hardware name: HP Pavilion dv2700 Notebook PC
+forcedeth 0000:00:0a.0: DMA-API: device driver failed to check
+ map error[device address=0x00000000b176e002] [size=90 bytes] [mapped as single]
 
-/sbin/modinfo vxlan
-filename:       /lib/modules/3.7.0-030700-generic/kernel/drivers/net/vxlan.ko
-alias:          rtnl-link-vxlan
-author:         Stephen Hemminger <shemminger@vyatta.com>
-version:        0.1
-license:        GPL
-srcversion:     D5253D8FFAF3FEF6A3A3026
-depends:
-intree:         Y
-vermagic:       3.7.0-030700-generic SMP mod_unload modversions
-parm:           udp_port:Destination UDP port (uint)
-parm:           log_ecn_error:Log packets received with corrupted ECN (bool)
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c |   23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
 
-# ip -V
-ip utility, iproute2-ss111117
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 653487d..de39cf2 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -1821,6 +1821,11 @@ static int nv_alloc_rx(struct net_device *dev)
+ 							     skb->data,
+ 							     skb_tailroom(skb),
+ 							     PCI_DMA_FROMDEVICE);
++			if (pci_dma_mapping_error(np->pci_dev,
++						  np->put_rx_ctx->dma)) {
++				dev_kfree_skb_any(skb);
++				goto packet_dropped;
++			}
+ 			np->put_rx_ctx->dma_len = skb_tailroom(skb);
+ 			np->put_rx.orig->buf = cpu_to_le32(np->put_rx_ctx->dma);
+ 			wmb();
+@@ -1830,6 +1835,7 @@ static int nv_alloc_rx(struct net_device *dev)
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+ 		} else {
++packet_dropped:
+ 			u64_stats_update_begin(&np->swstats_rx_syncp);
+ 			np->stat_rx_dropped++;
+ 			u64_stats_update_end(&np->swstats_rx_syncp);
+@@ -1856,6 +1862,11 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+ 							     skb->data,
+ 							     skb_tailroom(skb),
+ 							     PCI_DMA_FROMDEVICE);
++			if (pci_dma_mapping_error(np->pci_dev,
++						  np->put_rx_ctx->dma)) {
++				dev_kfree_skb_any(skb);
++				goto packet_dropped;
++			}
+ 			np->put_rx_ctx->dma_len = skb_tailroom(skb);
+ 			np->put_rx.ex->bufhigh = cpu_to_le32(dma_high(np->put_rx_ctx->dma));
+ 			np->put_rx.ex->buflow = cpu_to_le32(dma_low(np->put_rx_ctx->dma));
+@@ -1866,6 +1877,7 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+ 		} else {
++packet_dropped:
+ 			u64_stats_update_begin(&np->swstats_rx_syncp);
+ 			np->stat_rx_dropped++;
+ 			u64_stats_update_end(&np->swstats_rx_syncp);
+@@ -2217,6 +2229,9 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+ 		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
+ 						PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(np->pci_dev,
++					  np->put_tx_ctx->dma))
++			return NETDEV_TX_BUSY;
+ 		np->put_tx_ctx->dma_len = bcnt;
+ 		np->put_tx_ctx->dma_single = 1;
+ 		put_tx->buf = cpu_to_le32(np->put_tx_ctx->dma);
+@@ -2337,6 +2352,9 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+ 		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
+ 						PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(np->pci_dev,
++					  np->put_tx_ctx->dma))
++			return NETDEV_TX_BUSY;
+ 		np->put_tx_ctx->dma_len = bcnt;
+ 		np->put_tx_ctx->dma_single = 1;
+ 		put_tx->bufhigh = cpu_to_le32(dma_high(np->put_tx_ctx->dma));
+@@ -5003,6 +5021,11 @@ static int nv_loopback_test(struct net_device *dev)
+ 	test_dma_addr = pci_map_single(np->pci_dev, tx_skb->data,
+ 				       skb_tailroom(tx_skb),
+ 				       PCI_DMA_FROMDEVICE);
++	if (pci_dma_mapping_error(np->pci_dev,
++				  test_dma_addr)) {
++		dev_kfree_skb_any(tx_skb);
++		goto out;
++	}
+ 	pkt_data = skb_put(tx_skb, pkt_len);
+ 	for (i = 0; i < pkt_len; i++)
+ 		pkt_data[i] = (u8)(i & 0xff);
+-- 
+1.7.10.4
 
-So I think I'm all set to give it a try?
-
-Thanks.
-
-Dennis Qin
-
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Stephen Hemminger
-Sent: Thursday, December 27, 2012 10:49 AM
-To: Qin, Xiaohong
-Cc: netdev@vger.kernel.org
-Subject: Re: vxlan in Linux kernel 3.7
-
-On Thu, 27 Dec 2012 13:42:51 -0500
-"Qin, Xiaohong" <Xiaohong.Qin@emc.com> wrote:
-
-> Hi All,
-> 
-> I have installed kernel 3.7 on my Linux box, see the following uname 
-> -a output,
-> 
-> uname -a
-> Linux c210-m2-sib-3 3.7.0-030700-generic #201212102335 SMP Tue Dec 11 
-> 04:36:24 UTC 2012 x86_64 x86_64 x86_64 GNU/Linux
-> 
-> Does that mean I've got VXLAN module loaded or I still need to go through some extra steps to enable or configure it? Do you have any VXLAN setup or configuration document by chance?
-> 
-> Thanks.
-> 
-> Dennis Qin
-> 
-> P.S. If this is not the right place to ask this kind of questions, please let me know which mailing list I should use.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in 
-> the body of a message to majordomo@vger.kernel.org More majordomo info 
-> at  http://vger.kernel.org/majordomo-info.html
-
-VXLAN driver is part of the kernel config. 
-If using a vendor supplied kernel, most likely it is available as a module.
-Try:
-   /sbin/modinfo vxlan
-If you see 'ERROR: Module vxlan not found' then vxlan was not configured.
-You will also need to have current iproute2 utilities.
-   $ ip -V
-ip utility, iproute2-ss121211
 --
-To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
