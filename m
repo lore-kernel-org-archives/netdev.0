@@ -1,54 +1,97 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] net: qmi_wwan: add Telekom Speedstick LTE II
-Date: Fri, 28 Dec 2012 17:30:55 +0100
-Message-ID: <1356712255-9488-1-git-send-email-bjorn@mork.no>
-References: <50D6CF0A.9020300@t-online.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Linux kernel handling of IPv6 temporary addresses
+Date: Fri, 28 Dec 2012 09:19:25 -0800
+Message-ID: <1356715165.21409.296.camel@edumazet-glaptop>
+References: <20121114231411.4328fc47@lola.kot>
+	 <20121114.162956.610530798200803185.davem@davemloft.net>
+	 <20121115010324.2707950c@lola.kot>
+	 <20121114.180824.1930899985436392426.davem@davemloft.net>
+	 <20121227175735.26c70cbb@lola.kot>
+	 <1356627241.30414.1079.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	=?UTF-8?q?Thomas=20Sch=C3=A4fer?= <tschaefer@t-online.de>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: George Kargiotakis <kargig@void.gr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:54607 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753685Ab2L1QbM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Dec 2012 11:31:12 -0500
-In-Reply-To: <50D6CF0A.9020300@t-online.de>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:62755 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753693Ab2L1RT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 12:19:29 -0500
+Received: by mail-pa0-f49.google.com with SMTP id bi1so6118872pad.22
+        for <netdev@vger.kernel.org>; Fri, 28 Dec 2012 09:19:28 -0800 (PST)
+In-Reply-To: <1356627241.30414.1079.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-also known as Alcatel One Touch L100V LTE
+On Thu, 2012-12-27 at 08:54 -0800, Eric Dumazet wrote:
 
-The driver description files gives these names to the vendor specific
-functions on this modem:
+> We should only rate limit, and not disable forever.
+> 
 
- Application1: VID_1BBB&PID_011E&MI_00
- Application2: VID_1BBB&PID_011E&MI_01
- Modem:        VID_1BBB&PID_011E&MI_03
- Ethernet:     VID_1BBB&PID_011E&MI_04
+Something like :
 
-Reported-by: Thomas Sch=C3=A4fer <tschaefer@t-online.de>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/qmi_wwan.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 91d7cb9..6a1ca50 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -458,6 +458,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI=
- mode */
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QM=
-I mode */
- 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
-+	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Al=
-catel One Touch L100V LTE) */
-=20
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
---=20
-1.7.10.4
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index dd52d51..32d51e2 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1282,7 +1282,7 @@ max_desync_factor - INTEGER
+ 	Default: 600
+ 
+ regen_max_retry - INTEGER
+-	Number of attempts before give up attempting to generate
++	Number of attempts per second before give up attempting to generate
+ 	valid temporary addresses.
+ 	Default: 5
+ 
+diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+index 9356322..8f206cf 100644
+--- a/include/net/if_inet6.h
++++ b/include/net/if_inet6.h
+@@ -70,6 +70,7 @@ struct inet6_ifaddr {
+ 	struct list_head	tmp_list;
+ 	struct inet6_ifaddr	*ifpub;
+ 	int			regen_count;
++	u32			regen_stamp;
+ #endif
+ 	struct rcu_head		rcu;
+ };
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 408cac4a..c41925c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -980,6 +980,7 @@ static int ipv6_create_tempaddr(struct inet6_ifaddr *ifp, struct inet6_ifaddr *i
+ 	int max_addresses;
+ 	u32 addr_flags;
+ 	unsigned long now = jiffies;
++	u32 stamp;
+ 
+ 	write_lock(&idev->lock);
+ 	if (ift) {
+@@ -994,18 +995,22 @@ retry:
+ 	in6_dev_hold(idev);
+ 	if (idev->cnf.use_tempaddr <= 0) {
+ 		write_unlock(&idev->lock);
+-		pr_info("%s: use_tempaddr is disabled\n", __func__);
++		pr_info_ratelimited("%s: use_tempaddr is disabled\n", __func__);
+ 		in6_dev_put(idev);
+ 		ret = -1;
+ 		goto out;
+ 	}
+ 	spin_lock_bh(&ifp->lock);
++	stamp = jiffies / HZ;
++	if (stamp != ifp->regen_stamp) {
++		ifp->regen_stamp = stamp;
++		ifp->regen_count = 0;
++	}
+ 	if (ifp->regen_count++ >= idev->cnf.regen_max_retry) {
+-		idev->cnf.use_tempaddr = -1;	/*XXX*/
+ 		spin_unlock_bh(&ifp->lock);
+ 		write_unlock(&idev->lock);
+-		pr_warn("%s: regeneration time exceeded - disabled temporary address support\n",
+-			__func__);
++		pr_warn_ratelimited("%s: regeneration time exceeded - disabled temporary address support\n",
++				    __func__);
+ 		in6_dev_put(idev);
+ 		ret = -1;
+ 		goto out;
