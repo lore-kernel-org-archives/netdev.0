@@ -1,57 +1,46 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [patch net-next V3,repost 0/4] net: allow to change carrier from
- userspace
-Date: Fri, 28 Dec 2012 11:18:05 -0200
-Message-ID: <20121228131805.GB30336@obelix.rh>
-References: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
-	greearb@candelatech.com, john.r.fastabend@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: [Patch RFC] ndisc: Fix skb allocation size for link layer options.
+Date: Fri, 28 Dec 2012 14:46:50 +0100
+Message-ID: <1356702410-32293-1-git-send-email-stephan.gatzka@gmail.com>
+Cc: yoshfuji@linux-ipv6.org, Stephan Gatzka <stephan.gatzka@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1239 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753445Ab2L1NSR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Dec 2012 08:18:17 -0500
-Content-Disposition: inline
-In-Reply-To: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
+Received: from mail-bk0-f47.google.com ([209.85.214.47]:63739 "EHLO
+	mail-bk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753562Ab2L1Nr0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 08:47:26 -0500
+Received: by mail-bk0-f47.google.com with SMTP id j4so4679895bkw.34
+        for <netdev@vger.kernel.org>; Fri, 28 Dec 2012 05:47:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 28, 2012 at 10:49:36AM +0100, Jiri Pirko wrote:
-> This is basically a V3 of a repost of my previous patchset:
-> "[patch net-next-2.6 0/2] net: allow to change carrier via sysfs" from Aug 30
-> 
-> The way net-sysfs stores values changed and this patchset reflects it.
-> Also, I exposed carrier via rtnetlink iface.
-> 
-> So far, only dummy driver uses carrier change ndo. In very near future
-> team driver will use that as well.
-> 
-> V2->V3:
->  - updated ndo_change_carrier comment by Dan Williams
-> 
-> V1->v2:
->  - added bigger comment to ndo and also note to operstate.txt documentation
->    stating the clear purpose of this iface
-> 
-> Jiri Pirko (4):
->   net: add change_carrier netdev op
->   net: allow to change carrier via sysfs
->   rtnl: expose carrier value with possibility to set it
->   dummy: implement carrier change
-> 
->  Documentation/networking/operstates.txt |  4 ++++
->  drivers/net/dummy.c                     | 10 ++++++++++
->  include/linux/netdevice.h               | 12 ++++++++++++
->  include/uapi/linux/if_link.h            |  1 +
->  net/core/dev.c                          | 19 +++++++++++++++++++
->  net/core/net-sysfs.c                    | 15 ++++++++++++++-
->  net/core/rtnetlink.c                    | 10 ++++++++++
->  7 files changed, 70 insertions(+), 1 deletion(-)
+Signed-off-by: Stephan Gatzka <stephan.gatzka@gmail.com>
+---
+ net/ipv6/ndisc.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-I am using this patch series already with team.
-
-Acked-by: Flavio Leitner <fbl@redhat.com>
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 6574175..b12b94c 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -392,7 +392,7 @@ static struct sk_buff *ndisc_build_skb(struct net_device *dev,
+ 
+ 	len = sizeof(struct icmp6hdr) + (target ? sizeof(*target) : 0);
+ 	if (llinfo)
+-		len += ndisc_opt_addr_space(dev);
++		len += sizeof(struct nd_opt_hdr) + ndisc_opt_addr_space(dev);
+ 
+ 	skb = sock_alloc_send_skb(sk,
+ 				  (MAX_HEADER + sizeof(struct ipv6hdr) +
+@@ -1424,7 +1424,8 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 			memcpy(ha_buf, neigh->ha, dev->addr_len);
+ 			read_unlock_bh(&neigh->lock);
+ 			ha = ha_buf;
+-			len += ndisc_opt_addr_space(dev);
++			len += sizeof(struct nd_opt_hdr) +
++				ndisc_opt_addr_space(dev);
+ 		} else
+ 			read_unlock_bh(&neigh->lock);
+ 
+-- 
+1.7.9.5
