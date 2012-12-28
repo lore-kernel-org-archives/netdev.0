@@ -1,105 +1,110 @@
 From: pablo@netfilter.org
-Subject: [PATCH 00/12] netfilter fixes for 3.8-rc1
-Date: Fri, 28 Dec 2012 12:52:39 +0100
-Message-ID: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/12] netfilter: nf_nat: Also handle non-ESTABLISHED routing changes in MASQUERADE
+Date: Fri, 28 Dec 2012 12:52:41 +0100
+Message-ID: <1356695571-3305-3-git-send-email-pablo@netfilter.org>
+References: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:50977 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753212Ab2L1LxE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Dec 2012 06:53:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Andrew Collins <bsderandrew@gmail.com>
 
-Hi David,
+Since (a0ecb85 netfilter: nf_nat: Handle routing changes in MASQUERADE
+target), the MASQUERADE target handles routing changes which affect
+the output interface of a connection, but only for ESTABLISHED
+connections.  It is also possible for NEW connections which
+already have a conntrack entry to be affected by routing changes.
 
-The following batch contains Netfilter fixes for 3.8-rc1. They are
-a mixture of old bugs that have passed unnoticed (I'll pass these to
-stable) and more fresh ones from the previous merge window, they are:
+This adds a check to drop entries in the NEW+conntrack state
+when the oif has changed.
 
-* Fix for MAC address in 6in4 tunnels via NFLOG that results in ulogd
-  showing up wrong address, from Bob Hockney.
+Signed-off-by: Andrew Collins <bsderandrew@gmail.com>
+Acked-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/ipv4/netfilter/iptable_nat.c  |   15 ++++++++++-----
+ net/ipv6/netfilter/ip6table_nat.c |   15 ++++++++++-----
+ 2 files changed, 20 insertions(+), 10 deletions(-)
 
-* Fix a comment in nf_conntrack_ipv6, from Florent Fourcot.
-
-* Fix a leak an error path in ctnetlink while creating an expectation,
-  from Jesper Juhl.
-
-* Fix missing ICMP time exceeded in the IPv6 defragmentation code, from
-  Haibo Xi.
-
-* Fix inconsistent handling of routing changes in MASQUERADE for the
-  new connections case, from Andrew Collins.
-
-* Fix a missing skb_reset_transport in ip[6]t_REJECT that leads to
-  crashes in the ixgbe driver (since it seems to access the transport
-  header with TSO enabled), from Mukund Jampala.
-
-* Recover obsoleted NOTRACK target by including it into the CT and spot
-  a warning via printk about being obsoleted. Many people don't check the
-  scheduled to be removal file under Documentation, so we follow some
-  less agressive approach to kill this in a year or so. Spotted by Florian
-  Westphal, patch from myself.
-
-* Fix race condition in xt_hashlimit that allows to create two or more
-  entries, from myself.
-
-* Fix crash if the CT is used due to the recently added facilities to
-  consult the dying and unconfirmed conntrack lists, from myself.
-
-That's basically it, you can pull these changes from:
-
-git://1984.lsi.us.es/nf master
-
-Have a nice entrance for the new year. Thanks.
-
-Andrew Collins (1):
-  netfilter: nf_nat: Also handle non-ESTABLISHED routing changes in MASQUERADE
-
-Bob Hockney (1):
-  netfilter: nfnetlink_log: fix mac address for 6in4 tunnels
-
-Florent Fourcot (1):
-  netfilter: nf_conntrack_ipv6: fix comment for packets without data
-
-Haibo Xi (1):
-  netfilter: nf_ct_reasm: fix conntrack reassembly expire code
-
-Jesper Juhl (1):
-  netfilter: ctnetlink: fix leak in error path of ctnetlink_create_expect
-
-Mukund Jampala (1):
-  netfilter: ip[6]t_REJECT: fix wrong transport header pointer in TCP reset
-
-Pablo Neira Ayuso (4):
-  netfilter: xt_CT: fix crash while destroy ct templates
-  netfilter: nfnetlink_log: fix possible compilation issue due to missing include
-  netfilter: xt_CT: recover NOTRACK target support
-  netfilter: xt_hashlimit: fix race that results in duplicated entries
-
-Vitaly E. Lavrov (2):
-  netfilter: xt_recent: fix namespace destroy path
-  netfilter: xt_hashlimit: fix namespace destroy path
-
- include/net/netns/conntrack.h                  |    1 +
- include/net/netns/x_tables.h                   |    1 +
- net/ipv4/netfilter/ipt_REJECT.c                |    1 +
- net/ipv4/netfilter/iptable_nat.c               |   15 ++++--
- net/ipv6/netfilter/ip6t_REJECT.c               |    1 +
- net/ipv6/netfilter/ip6table_nat.c              |   15 ++++--
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    4 +-
- net/ipv6/netfilter/nf_conntrack_reasm.c        |    5 +-
- net/netfilter/Kconfig                          |    4 ++
- net/netfilter/nf_conntrack_core.c              |    2 +
- net/netfilter/nf_conntrack_netlink.c           |    2 +-
- net/netfilter/nfnetlink_log.c                  |   16 +++++--
- net/netfilter/xt_CT.c                          |   58 +++++++++++++++++++++++-
- net/netfilter/xt_hashlimit.c                   |   54 ++++++++++++++++++----
- net/netfilter/xt_recent.c                      |   20 ++++++--
- 15 files changed, 169 insertions(+), 30 deletions(-)
-
+diff --git a/net/ipv4/netfilter/iptable_nat.c b/net/ipv4/netfilter/iptable_nat.c
+index da2c8a3..eeaff7e 100644
+--- a/net/ipv4/netfilter/iptable_nat.c
++++ b/net/ipv4/netfilter/iptable_nat.c
+@@ -124,23 +124,28 @@ nf_nat_ipv4_fn(unsigned int hooknum,
+ 			ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
+ 			if (ret != NF_ACCEPT)
+ 				return ret;
+-		} else
++		} else {
+ 			pr_debug("Already setup manip %s for ct %p\n",
+ 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
+ 				 ct);
++			if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++				goto oif_changed;
++		}
+ 		break;
+ 
+ 	default:
+ 		/* ESTABLISHED */
+ 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
+ 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
+-		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out)) {
+-			nf_ct_kill_acct(ct, ctinfo, skb);
+-			return NF_DROP;
+-		}
++		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++			goto oif_changed;
+ 	}
+ 
+ 	return nf_nat_packet(ct, ctinfo, hooknum, skb);
++
++oif_changed:
++	nf_ct_kill_acct(ct, ctinfo, skb);
++	return NF_DROP;
+ }
+ 
+ static unsigned int
+diff --git a/net/ipv6/netfilter/ip6table_nat.c b/net/ipv6/netfilter/ip6table_nat.c
+index 6c8ae24..e0e788d 100644
+--- a/net/ipv6/netfilter/ip6table_nat.c
++++ b/net/ipv6/netfilter/ip6table_nat.c
+@@ -127,23 +127,28 @@ nf_nat_ipv6_fn(unsigned int hooknum,
+ 			ret = nf_nat_rule_find(skb, hooknum, in, out, ct);
+ 			if (ret != NF_ACCEPT)
+ 				return ret;
+-		} else
++		} else {
+ 			pr_debug("Already setup manip %s for ct %p\n",
+ 				 maniptype == NF_NAT_MANIP_SRC ? "SRC" : "DST",
+ 				 ct);
++			if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++				goto oif_changed;
++		}
+ 		break;
+ 
+ 	default:
+ 		/* ESTABLISHED */
+ 		NF_CT_ASSERT(ctinfo == IP_CT_ESTABLISHED ||
+ 			     ctinfo == IP_CT_ESTABLISHED_REPLY);
+-		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out)) {
+-			nf_ct_kill_acct(ct, ctinfo, skb);
+-			return NF_DROP;
+-		}
++		if (nf_nat_oif_changed(hooknum, ctinfo, nat, out))
++			goto oif_changed;
+ 	}
+ 
+ 	return nf_nat_packet(ct, ctinfo, hooknum, skb);
++
++oif_changed:
++	nf_ct_kill_acct(ct, ctinfo, skb);
++	return NF_DROP;
+ }
+ 
+ static unsigned int
 -- 
 1.7.10.4
+
