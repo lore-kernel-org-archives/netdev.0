@@ -1,151 +1,123 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 06/19] netfilter: timeout: move initial codes out of pernet_operations
-Date: Fri, 28 Dec 2012 10:36:32 +0800
-Message-ID: <1356662206-2260-6-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, canqunzhang@gmail.com, kaber@trash.net,
-	pablo@netfilter.org, ebiederm@xmission.com,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:26245 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753046Ab2L1Cir (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Dec 2012 21:38:47 -0500
-In-Reply-To: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH V2] forcedeth: Fix WARNINGS that result when DMA mapping is not checked
+Date: Thu, 27 Dec 2012 21:25:41 -0600
+Message-ID: <1356665141-4498-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Move the global initial codes to the module_init/exit context.
+With 3.8-rc1, the first call of pci_map_single() that is not checked
+with a corresponding pci_dma_mapping_error() call results in a warning
+with a splat as follows:
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+WARNING: at lib/dma-debug.c:933 check_unmap+0x480/0x950()
+Hardware name: HP Pavilion dv2700 Notebook PC
+forcedeth 0000:00:0a.0: DMA-API: device driver failed to check
+ map error[device address=0x00000000b176e002] [size=90 bytes] [mapped as single]
+
+Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
- include/net/netfilter/nf_conntrack_timeout.h |  8 ++++----
- net/netfilter/nf_conntrack_core.c            | 15 ++++++++-------
- net/netfilter/nf_conntrack_timeout.c         | 23 +++++++----------------
- 3 files changed, 19 insertions(+), 27 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_timeout.h b/include/net/netfilter/nf_conntrack_timeout.h
-index e41e472..d23aceb 100644
---- a/include/net/netfilter/nf_conntrack_timeout.h
-+++ b/include/net/netfilter/nf_conntrack_timeout.h
-@@ -76,15 +76,15 @@ nf_ct_timeout_lookup(struct net *net, struct nf_conn *ct,
- }
- 
- #ifdef CONFIG_NF_CONNTRACK_TIMEOUT
--extern int nf_conntrack_timeout_init(struct net *net);
--extern void nf_conntrack_timeout_fini(struct net *net);
-+extern int nf_conntrack_timeout_init(void);
-+extern void nf_conntrack_timeout_fini(void);
- #else
--static inline int nf_conntrack_timeout_init(struct net *net)
-+static inline int nf_conntrack_timeout_init(void)
- {
-         return 0;
- }
- 
--static inline void nf_conntrack_timeout_fini(struct net *net)
-+static inline void nf_conntrack_timeout_fini(void)
- {
-         return;
- }
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index b34bc9a..a9a23c4 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1359,7 +1359,6 @@ void nf_conntrack_cleanup_net(struct net *net)
- 	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
- 	nf_conntrack_proto_fini(net);
- 	nf_conntrack_helper_fini(net);
--	nf_conntrack_timeout_fini(net);
- 	nf_conntrack_ecache_pernet_fini(net);
- 	nf_conntrack_tstamp_pernet_fini(net);
- 	nf_conntrack_acct_pernet_fini(net);
-@@ -1378,6 +1377,7 @@ void nf_conntrack_cleanup_end(void)
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	nf_ct_extend_unregister(&nf_ct_zone_extend);
- #endif
-+	nf_conntrack_timeout_fini();
- 	nf_conntrack_ecache_fini();
- 	nf_conntrack_tstamp_fini();
- 	nf_conntrack_acct_fini();
-@@ -1517,6 +1517,10 @@ int nf_conntrack_init_start(void)
- 	if (ret < 0)
- 		goto err_ecache;
- 
-+	ret = nf_conntrack_timeout_init();
-+	if (ret < 0)
-+		goto err_timeout;
-+
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	ret = nf_ct_extend_register(&nf_ct_zone_extend);
- 	if (ret < 0)
-@@ -1534,8 +1538,10 @@ int nf_conntrack_init_start(void)
- 
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- err_extend:
--	nf_conntrack_ecache_fini();
-+	nf_conntrack_timeout_fini();
- #endif
-+err_timeout:
-+	nf_conntrack_ecache_fini();
- err_ecache:
- 	nf_conntrack_tstamp_fini();
- err_tstamp:
-@@ -1599,9 +1605,6 @@ int nf_conntrack_init_net(struct net *net)
- 	ret = nf_conntrack_ecache_pernet_init(net);
- 	if (ret < 0)
- 		goto err_ecache;
--	ret = nf_conntrack_timeout_init(net);
--	if (ret < 0)
--		goto err_timeout;
- 	ret = nf_conntrack_helper_init(net);
- 	if (ret < 0)
- 		goto err_helper;
-@@ -1612,8 +1615,6 @@ int nf_conntrack_init_net(struct net *net)
- out_proto:
- 	nf_conntrack_helper_fini(net);
- err_helper:
--	nf_conntrack_timeout_fini(net);
--err_timeout:
- 	nf_conntrack_ecache_pernet_fini(net);
- err_ecache:
- 	nf_conntrack_tstamp_pernet_fini(net);
-diff --git a/net/netfilter/nf_conntrack_timeout.c b/net/netfilter/nf_conntrack_timeout.c
-index a878ce5..93da609 100644
---- a/net/netfilter/nf_conntrack_timeout.c
-+++ b/net/netfilter/nf_conntrack_timeout.c
-@@ -37,24 +37,15 @@ static struct nf_ct_ext_type timeout_extend __read_mostly = {
- 	.id	= NF_CT_EXT_TIMEOUT,
- };
- 
--int nf_conntrack_timeout_init(struct net *net)
-+int nf_conntrack_timeout_init(void)
- {
--	int ret = 0;
--
--	if (net_eq(net, &init_net)) {
--		ret = nf_ct_extend_register(&timeout_extend);
--		if (ret < 0) {
--			printk(KERN_ERR "nf_ct_timeout: Unable to register "
--					"timeout extension.\n");
--			return ret;
--		}
--	}
--
--	return 0;
-+	int ret = nf_ct_extend_register(&timeout_extend);
-+	if (ret < 0)
-+		pr_err("nf_ct_timeout: Unable to register timeout extension.\n");
-+	return ret;
- }
- 
--void nf_conntrack_timeout_fini(struct net *net)
-+void nf_conntrack_timeout_fini(void)
- {
--	if (net_eq(net, &init_net))
--		nf_ct_extend_unregister(&timeout_extend);
-+	nf_ct_extend_unregister(&timeout_extend);
- }
+V1 => V2: Replaced dev_kfree_skb_any() calls with kfree_skb() in RX
+	  Changed TX mapping errors to drop packet, update drop count
+	  and return NETDEV_TX_OK
+---
+
+ drivers/net/ethernet/nvidia/forcedeth.c |   35 +++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 653487d..87fa591 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -1821,6 +1821,11 @@ static int nv_alloc_rx(struct net_device *dev)
+ 							     skb->data,
+ 							     skb_tailroom(skb),
+ 							     PCI_DMA_FROMDEVICE);
++			if (pci_dma_mapping_error(np->pci_dev,
++						  np->put_rx_ctx->dma)) {
++				kfree_skb(skb);
++				goto packet_dropped;
++			}
+ 			np->put_rx_ctx->dma_len = skb_tailroom(skb);
+ 			np->put_rx.orig->buf = cpu_to_le32(np->put_rx_ctx->dma);
+ 			wmb();
+@@ -1830,6 +1835,7 @@ static int nv_alloc_rx(struct net_device *dev)
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+ 		} else {
++packet_dropped:
+ 			u64_stats_update_begin(&np->swstats_rx_syncp);
+ 			np->stat_rx_dropped++;
+ 			u64_stats_update_end(&np->swstats_rx_syncp);
+@@ -1856,6 +1862,11 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+ 							     skb->data,
+ 							     skb_tailroom(skb),
+ 							     PCI_DMA_FROMDEVICE);
++			if (pci_dma_mapping_error(np->pci_dev,
++						  np->put_rx_ctx->dma)) {
++				kfree_skb(skb);
++				goto packet_dropped;
++			}
+ 			np->put_rx_ctx->dma_len = skb_tailroom(skb);
+ 			np->put_rx.ex->bufhigh = cpu_to_le32(dma_high(np->put_rx_ctx->dma));
+ 			np->put_rx.ex->buflow = cpu_to_le32(dma_low(np->put_rx_ctx->dma));
+@@ -1866,6 +1877,7 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+ 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
+ 				np->put_rx_ctx = np->first_rx_ctx;
+ 		} else {
++packet_dropped:
+ 			u64_stats_update_begin(&np->swstats_rx_syncp);
+ 			np->stat_rx_dropped++;
+ 			u64_stats_update_end(&np->swstats_rx_syncp);
+@@ -2217,6 +2229,15 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+ 		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
+ 						PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(np->pci_dev,
++					  np->put_tx_ctx->dma)) {
++			/* on DMA mapping error - drop the packet */
++			kfree_skb(skb);
++			u64_stats_update_begin(&np->swstats_tx_syncp);
++			np->stat_tx_dropped++;
++			u64_stats_update_end(&np->swstats_tx_syncp);
++			return NETDEV_TX_OK;
++		}
+ 		np->put_tx_ctx->dma_len = bcnt;
+ 		np->put_tx_ctx->dma_single = 1;
+ 		put_tx->buf = cpu_to_le32(np->put_tx_ctx->dma);
+@@ -2337,6 +2358,15 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+ 		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
+ 						PCI_DMA_TODEVICE);
++		if (pci_dma_mapping_error(np->pci_dev,
++					  np->put_tx_ctx->dma)) {
++			/* on DMA mapping error - drop the packet */
++			kfree_skb(skb);
++			u64_stats_update_begin(&np->swstats_tx_syncp);
++			np->stat_tx_dropped++;
++			u64_stats_update_end(&np->swstats_tx_syncp);
++			return NETDEV_TX_OK;
++		}
+ 		np->put_tx_ctx->dma_len = bcnt;
+ 		np->put_tx_ctx->dma_single = 1;
+ 		put_tx->bufhigh = cpu_to_le32(dma_high(np->put_tx_ctx->dma));
+@@ -5003,6 +5033,11 @@ static int nv_loopback_test(struct net_device *dev)
+ 	test_dma_addr = pci_map_single(np->pci_dev, tx_skb->data,
+ 				       skb_tailroom(tx_skb),
+ 				       PCI_DMA_FROMDEVICE);
++	if (pci_dma_mapping_error(np->pci_dev,
++				  test_dma_addr)) {
++		dev_kfree_skb_any(tx_skb);
++		goto out;
++	}
+ 	pkt_data = skb_put(tx_skb, pkt_len);
+ 	for (i = 0; i < pkt_len; i++)
+ 		pkt_data[i] = (u8)(i & 0xff);
 -- 
-1.7.11.7
+1.7.10.4
