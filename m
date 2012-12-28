@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 10/12] netfilter: xt_recent: fix namespace destroy path
-Date: Fri, 28 Dec 2012 12:52:49 +0100
-Message-ID: <1356695571-3305-11-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/12] netfilter: xt_hashlimit: fix race that results in duplicated entries
+Date: Fri, 28 Dec 2012 12:52:48 +0100
+Message-ID: <1356695571-3305-10-git-send-email-pablo@netfilter.org>
 References: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,63 +10,79 @@ In-Reply-To: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Vitaly E. Lavrov" <lve@guap.ru>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-recent_net_exit() is called before recent_mt_destroy() in the
-destroy path of network namespaces. Make sure there are no entries
-in the parent proc entry xt_recent before removing it.
+Two packets may race to create the same entry in the hashtable,
+double check if this packet lost race. This double checking only
+happens in the path of the packet that creates the hashtable for
+first time.
 
-Signed-off-by: Vitaly E. Lavrov <lve@guap.ru>
+Note that, with this patch, no packet drops occur if the race happens.
+
+Reported-by: Feng Gao <gfree.wind@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_recent.c |   20 ++++++++++++++++----
- 1 file changed, 16 insertions(+), 4 deletions(-)
+ net/netfilter/xt_hashlimit.c |   25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-index 4635c9b..dab053e 100644
---- a/net/netfilter/xt_recent.c
-+++ b/net/netfilter/xt_recent.c
-@@ -431,7 +431,8 @@ static void recent_mt_destroy(const struct xt_mtdtor_param *par)
- 		list_del(&t->list);
- 		spin_unlock_bh(&recent_lock);
- #ifdef CONFIG_PROC_FS
--		remove_proc_entry(t->name, recent_net->xt_recent);
-+		if (recent_net->xt_recent != NULL)
-+			remove_proc_entry(t->name, recent_net->xt_recent);
- #endif
- 		recent_table_flush(t);
- 		kfree(t);
-@@ -615,6 +616,20 @@ static int __net_init recent_proc_net_init(struct net *net)
- 
- static void __net_exit recent_proc_net_exit(struct net *net)
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 26a668a..cc430f9 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -157,11 +157,22 @@ dsthash_find(const struct xt_hashlimit_htable *ht,
+ /* allocate dsthash_ent, initialize dst, put in htable and lock it */
+ static struct dsthash_ent *
+ dsthash_alloc_init(struct xt_hashlimit_htable *ht,
+-		   const struct dsthash_dst *dst)
++		   const struct dsthash_dst *dst, bool *race)
  {
-+	struct recent_net *recent_net = recent_pernet(net);
-+	struct recent_table *t;
+ 	struct dsthash_ent *ent;
+ 
+ 	spin_lock(&ht->lock);
 +
-+	/* recent_net_exit() is called before recent_mt_destroy(). Make sure
-+	 * that the parent xt_recent proc entry is is empty before trying to
-+	 * remove it.
++	/* Two or more packets may race to create the same entry in the
++	 * hashtable, double check if this packet lost race.
 +	 */
-+	spin_lock_bh(&recent_lock);
-+	list_for_each_entry(t, &recent_net->tables, list)
-+	        remove_proc_entry(t->name, recent_net->xt_recent);
++	ent = dsthash_find(ht, dst);
++	if (ent != NULL) {
++		spin_unlock(&ht->lock);
++		*race = true;
++		return ent;
++	}
 +
-+	recent_net->xt_recent = NULL;
-+	spin_unlock_bh(&recent_lock);
-+
- 	proc_net_remove(net, "xt_recent");
- }
- #else
-@@ -638,9 +653,6 @@ static int __net_init recent_net_init(struct net *net)
+ 	/* initialize hash with random val at the time we allocate
+ 	 * the first hashtable entry */
+ 	if (unlikely(!ht->rnd_initialized)) {
+@@ -585,6 +596,7 @@ hashlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	unsigned long now = jiffies;
+ 	struct dsthash_ent *dh;
+ 	struct dsthash_dst dst;
++	bool race = false;
+ 	u32 cost;
  
- static void __net_exit recent_net_exit(struct net *net)
- {
--	struct recent_net *recent_net = recent_pernet(net);
--
--	BUG_ON(!list_empty(&recent_net->tables));
- 	recent_proc_net_exit(net);
- }
- 
+ 	if (hashlimit_init_dst(hinfo, &dst, skb, par->thoff) < 0)
+@@ -593,13 +605,18 @@ hashlimit_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	rcu_read_lock_bh();
+ 	dh = dsthash_find(hinfo, &dst);
+ 	if (dh == NULL) {
+-		dh = dsthash_alloc_init(hinfo, &dst);
++		dh = dsthash_alloc_init(hinfo, &dst, &race);
+ 		if (dh == NULL) {
+ 			rcu_read_unlock_bh();
+ 			goto hotdrop;
++		} else if (race) {
++			/* Already got an entry, update expiration timeout */
++			dh->expires = now + msecs_to_jiffies(hinfo->cfg.expire);
++			rateinfo_recalc(dh, now, hinfo->cfg.mode);
++		} else {
++			dh->expires = jiffies + msecs_to_jiffies(hinfo->cfg.expire);
++			rateinfo_init(dh, hinfo);
+ 		}
+-		dh->expires = jiffies + msecs_to_jiffies(hinfo->cfg.expire);
+-		rateinfo_init(dh, hinfo);
+ 	} else {
+ 		/* update expiration timeout */
+ 		dh->expires = now + msecs_to_jiffies(hinfo->cfg.expire);
 -- 
 1.7.10.4
 
