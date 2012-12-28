@@ -1,39 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 0/3] Make rfc3686 template work with asynchronous
- block ciphers
-Date: Sat, 29 Dec 2012 09:42:49 +1100
-Message-ID: <20121228224248.GA29448@gondor.apana.org.au>
-References: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next V3,repost 0/4] net: allow to change carrier
+ from userspace
+Date: Fri, 28 Dec 2012 15:21:21 -0800 (PST)
+Message-ID: <20121228.152121.1771069747366138602.davem@davemloft.net>
+References: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
+	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:52725 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753834Ab2L1WnW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 17:43:22 -0500
-Content-Disposition: inline
-In-Reply-To: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55894 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754171Ab2L1XVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 18:21:24 -0500
+In-Reply-To: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 28, 2012 at 12:04:48PM +0200, Jussi Kivilinna wrote:
-> I'm not sure how this patchset should be dealt with (should 1st patch go
-> through different tree than 2nd and 3rd?), so therefore it's RFC.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 28 Dec 2012 10:49:36 +0100
+
+> This is basically a V3 of a repost of my previous patchset:
+> "[patch net-next-2.6 0/2] net: allow to change carrier via sysfs" from Aug 30
 > 
-> Second patch makes rfc3686 template work with asynchronous block ciphers and
-> third patch changes aesni-intel to use this template. First patch fixed problem
-> in xfrm_algo found with help of 2nd and 3rd patches and without 1st patch
-> 2nd patch breaks aes-ctr with IPSEC.
+> The way net-sysfs stores values changed and this patchset reflects it.
+> Also, I exposed carrier via rtnetlink iface.
+> 
+> So far, only dummy driver uses carrier change ndo. In very near future
+> team driver will use that as well.
 
-I think the easiest way is to have these patches go through Dave's
-tree.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Series applied, thanks.
