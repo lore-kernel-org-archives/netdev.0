@@ -1,55 +1,104 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/4] dummy: implement carrier change
-Date: Fri, 28 Dec 2012 10:49:40 +0100
-Message-ID: <1356688180-3549-5-git-send-email-jiri@resnulli.us>
-References: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
-	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
+From: Mark Zealey <netdev@markandruth.co.uk>
+Subject: UDP multi-core performance on a single socket and SO_REUSEPORT
+Date: Fri, 28 Dec 2012 10:01:21 +0000
+Message-ID: <50DD6DF1.7080304@markandruth.co.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:62903 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752841Ab2L1JuN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 04:50:13 -0500
-Received: by mail-ee0-f42.google.com with SMTP id c41so4998605eek.15
-        for <netdev@vger.kernel.org>; Fri, 28 Dec 2012 01:50:12 -0800 (PST)
-In-Reply-To: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
+Received: from mailex.mailcore.me ([94.136.40.61]:54946 "EHLO
+	mailex.mailcore.me" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753100Ab2L1KBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 05:01:24 -0500
+Received: from [78.179.121.82] (helo=[192.168.1.5])
+	by mail11.atlas.pipex.net with esmtpa (Exim 4.71)
+	(envelope-from <netdev@markandruth.co.uk>)
+	id 1ToWkl-0006cN-0o
+	for netdev@vger.kernel.org; Fri, 28 Dec 2012 10:01:23 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/dummy.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+I appreciate that this question has come up a number of times over the 
+years, most recently as far as I can see in this thread: 
+http://markmail.org/message/hcc7zn5ln5wktypv . I'm going to explain my 
+problem and present some performance numbers to back this up.
 
-diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-index c260af5..42aa54a 100644
---- a/drivers/net/dummy.c
-+++ b/drivers/net/dummy.c
-@@ -100,6 +100,15 @@ static void dummy_dev_uninit(struct net_device *dev)
- 	free_percpu(dev->dstats);
- }
- 
-+static int dummy_change_carrier(struct net_device *dev, bool new_carrier)
-+{
-+	if (new_carrier)
-+		netif_carrier_on(dev);
-+	else
-+		netif_carrier_off(dev);
-+	return 0;
-+}
-+
- static const struct net_device_ops dummy_netdev_ops = {
- 	.ndo_init		= dummy_dev_init,
- 	.ndo_uninit		= dummy_dev_uninit,
-@@ -108,6 +117,7 @@ static const struct net_device_ops dummy_netdev_ops = {
- 	.ndo_set_rx_mode	= set_multicast_list,
- 	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_get_stats64	= dummy_get_stats64,
-+	.ndo_change_carrier	= dummy_change_carrier,
- };
- 
- static void dummy_setup(struct net_device *dev)
--- 
-1.8.0
+The problem: I'm doing some research on scaling a dns server (powerdns) 
+to work well on multi-core boxes (in this case testing with 2*E5-2650 
+processors ie linux sees 32 cores).
+
+My powerdns configuration uses a shared socket with one thread for each 
+core in the box listening on that socket using poll()/recvmsg(). I've 
+modified powerdns so in my tests it is doing the absolute minimum of 
+work to answer packets (all queries are for the same record, it keeps 
+the response in memory and just changes a few fields before calling 
+sendmsg()). I'm binding to a single 10.xxx address and using this for 
+all local and remote tests.
+
+The numbers below are generated using 16 parallel queryperf's on 
+localhost (it doesn't really matter if it is from remote hosts or the 
+localhost; the numbers don't change much).
+
+Using stock centos 6.3 kernel I see powerdns performing at around 
+120kqps (uses at most about 12 cpus)
+Using 3.7.1 kernel (from elrepo) I see this increase to 200-240kqps 
+maxing out all cpu's in the box (soft interrupt cpu time is about 8* 
+higher than on centos 6.3 kernel at 40% and system cpu time is at 50% - 
+powerdns only uses 10% of the cpu time)
+Using stock centos 6.3 kernel with the google SO_REUSEPORT patch from 
+2010 (modified slightly so it applies) I see 500-600kqps from remote; or 
+1mqps when doing localhost queries. powerdns doesn't go past using 8 
+cpus - it appears that the limit it is hitting then is to do with some 
+lock in sendmsg().
+
+I've not been able to get the 2010 SO_REUSEPORT patch working on the 
+3.7.1 kernel I suspect it would make for even better performance as 
+sendmsg() should have been significantly improved.
+
+Now, I don't believe that SO_REUSEPORT is needed in the kernel in this 
+case, however the numbers above clearly show that the current UDP 
+implementation for recvmsg() on a single socket across multiple cores on 
+kernel 3.7.1 is still locking badly. A perf report on 3.7.1 (using 16 
+local queryperf's) shows:
+
+     68.34%  pdns_server  [kernel.kallsyms]    [k] _raw_spin_lock_bh
+             |
+             --- 0x7fa472023a2d
+                 system_call_fastpath
+                 sys_recvmsg
+                 __sys_recvmsg
+                 sock_recvmsg
+                 inet_recvmsg
+                 udp_recvmsg
+                 skb_free_datagram_locked
+                |
+                |--100.00%-- lock_sock_fast
+                |          _raw_spin_lock_bh
+                 --0.00%-- [...]
+
+      3.10%  pdns_server  [kernel.kallsyms]    [k] _raw_spin_lock_irqsave
+             |
+             --- 0x7fa472023a2d
+                 system_call_fastpath
+                 sys_recvmsg
+                 __sys_recvmsg
+                 sock_recvmsg
+                 inet_recvmsg
+                 udp_recvmsg
+                |
+                |--99.69%-- __skb_recv_datagram
+                |          |
+                |          |--77.68%-- _raw_spin_lock_irqsave
+                |          |
+                |          |--14.56%-- prepare_to_wait_exclusive
+                |          |          _raw_spin_lock_irqsave
+                |          |
+                |           --7.76%-- finish_wait
+                |                     _raw_spin_lock_irqsave
+                 --0.31%-- [...]
+                ...
+
+Any advice or patches welcome... :-)
+
+Mark
