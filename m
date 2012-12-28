@@ -1,39 +1,27 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 2/2] vhost: handle polling failure
-Date: Fri, 28 Dec 2012 12:29:25 +0800
-Message-ID: <50DD2025.1050004@redhat.com>
-References: <1356590360-32770-1-git-send-email-jasowang@redhat.com>
-	<1356590360-32770-2-git-send-email-jasowang@redhat.com>
-	<50DC1C8F.3020008@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bnx2x: use ARRAY_SIZE where possible
+Date: Thu, 27 Dec 2012 20:30:34 -0800 (PST)
+Message-ID: <20121227.203034.727553019698947252.davem@davemloft.net>
+References: <1356030701-16284-1-git-send-email-sasha.levin@oracle.com>
+	<1356030701-16284-16-git-send-email-sasha.levin@oracle.com>
+	<1356252567.15507.1.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: gaowanlong@cn.fujitsu.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <50DC1C8F.3020008@cn.fujitsu.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: sasha.levin@oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: eilong@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1356252567.15507.1.camel@lb-tlvb-eilong.il.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/27/2012 06:01 PM, Wanlong Gao wrote:
-> On 12/27/2012 02:39 PM, Jason Wang wrote:
->> > Currently, polling error were ignored in vhost. This may lead some issues (e.g
->> > kenrel crash when passing a tap fd to vhost before calling TUNSETIFF). Fix this
->> > by:
-> Can this kernel crash be reproduced by hand?
->
-> Thanks,
-> Wanlong Gao
->
->> > 
-Yes, it could be simply reproduced by: open a tap fd but does not cal
-TUNSETIFF, then pass it to qemu and enable vhost.
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Sun, 23 Dec 2012 10:49:27 +0200
+
+> On Thu, 2012-12-20 at 14:11 -0500, Sasha Levin wrote:
+>> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+> 
+> Acked-by Eilon Greenstein <eilong@broadcom.com>
+
+Applied.
