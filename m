@@ -1,54 +1,99 @@
-From: canqun zhang <canqunzhang@gmail.com>
-Subject: Re: [PATCH 01/19] netfilter: move nf_conntrack initialize out of
- pernet operations
-Date: Fri, 28 Dec 2012 16:48:07 +0800
-Message-ID: <CAFFEFTXU1Yptqx0x6CjtqXMU+7HYu4F7Hk7u29oPCeghZ9Wc_Q@mail.gmail.com>
-References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<CAFFEFTXT_fkF2pPSxDEEgic80NVWLqBWtFuvs6W9uDUW2aCnqw@mail.gmail.com>
-	<50DD4737.2070306@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, pablo@netfilter.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <50DD4737.2070306@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/4] net: add change_carrier netdev op
+Date: Fri, 28 Dec 2012 10:49:37 +0100
+Message-ID: <1356688180-3549-2-git-send-email-jiri@resnulli.us>
+References: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
+	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:42732 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752054Ab2L1Jtz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 04:49:55 -0500
+Received: by mail-ea0-f178.google.com with SMTP id k11so4303925eaa.37
+        for <netdev@vger.kernel.org>; Fri, 28 Dec 2012 01:49:54 -0800 (PST)
+In-Reply-To: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ok, I can help you take a test, please send a big patch container this
-patchset  to my email.
+This allows a driver to register change_carrier callback which will be
+called whenever user will like to change carrier state. This is useful
+for devices like dummy, gre, team and so on.
 
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ include/linux/netdevice.h | 12 ++++++++++++
+ net/core/dev.c            | 19 +++++++++++++++++++
+ 2 files changed, 31 insertions(+)
 
-2012/12/28 Gao feng <gaofeng@cn.fujitsu.com>:
-> On 12/28/12 11:52, canqun zhang wrote:
->> Hi all
->> As discussed above,if the host machine create several linux
->> containers, there will be several  net namespaces.Resources with "nf
->> conntrack" are registered or unregistered on the first net
->> namespace(init_net),But init_net is not unregistered lastly,so
->> cleanuping other net namespaces  will triger painic.
->> If net namespaces are created  with the order of 1,2,...n,they should
->> be cleaned with the order of n,...2,1,so in this case init_net will be
->> unregistered lastly.
->> I fixed it up (see below). I have taken a lot of test!
->>
->
-> I thinks this BUG is a netfilter BUG,not a netns BUG.
-> Other subsystems implemented netns support don't use init_net to
-> do some special works((un)register/(un)set).
->
-> In fact,we can't use init_net to do this job well.such as function
-> nf_conntrack_clean,we shoud set ip_ct_attach to NULL before any
-> netns doing cleanup jobs, and set nf_ct_destroy to NULL after all of
-> netns finish these cleanup jobs.
->
-> So I think finally we still need this patchset,And this is a regular
-> way to fix this problem.
->
-> Can you help me to test if the panic bug is fixed by this patchset?
-> and then give me your tested-by?
->
-> thank you very much!
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c599e47..0e1b92a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -891,6 +891,14 @@ struct netdev_fcoe_hbainfo {
+  * int (*ndo_bridge_setlink)(struct net_device *dev, struct nlmsghdr *nlh)
+  * int (*ndo_bridge_getlink)(struct sk_buff *skb, u32 pid, u32 seq,
+  *			     struct net_device *dev)
++ *
++ * int (*ndo_change_carrier)(struct net_device *dev, bool new_carrier);
++ *	Called to change device carrier. Soft-devices (like dummy, team, etc)
++ *	which do not represent real hardware may define this to allow their
++ *	userspace components to manage their virtual carrier state. Devices
++ *	that determine carrier state from physical hardware properties (eg
++ *	network cables) or protocol-dependent mechanisms (eg
++ *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
+  */
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+@@ -1008,6 +1016,8 @@ struct net_device_ops {
+ 	int			(*ndo_bridge_getlink)(struct sk_buff *skb,
+ 						      u32 pid, u32 seq,
+ 						      struct net_device *dev);
++	int			(*ndo_change_carrier)(struct net_device *dev,
++						      bool new_carrier);
+ };
+ 
+ /*
+@@ -2194,6 +2204,8 @@ extern int		dev_set_mtu(struct net_device *, int);
+ extern void		dev_set_group(struct net_device *, int);
+ extern int		dev_set_mac_address(struct net_device *,
+ 					    struct sockaddr *);
++extern int		dev_change_carrier(struct net_device *,
++					   bool new_carrier);
+ extern int		dev_hard_start_xmit(struct sk_buff *skb,
+ 					    struct net_device *dev,
+ 					    struct netdev_queue *txq);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 515473e..21c5b97 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5027,6 +5027,25 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
+ }
+ EXPORT_SYMBOL(dev_set_mac_address);
+ 
++/**
++ *	dev_change_carrier - Change device carrier
++ *	@dev: device
++ *	@new_carries: new value
++ *
++ *	Change device carrier
++ */
++int dev_change_carrier(struct net_device *dev, bool new_carrier)
++{
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	if (!ops->ndo_change_carrier)
++		return -EOPNOTSUPP;
++	if (!netif_device_present(dev))
++		return -ENODEV;
++	return ops->ndo_change_carrier(dev, new_carrier);
++}
++EXPORT_SYMBOL(dev_change_carrier);
++
+ /*
+  *	Perform the SIOCxIFxxx calls, inside rcu_read_lock()
+  */
+-- 
+1.8.0
