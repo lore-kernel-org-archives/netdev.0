@@ -1,118 +1,56 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: TUN problems (regression?)
-Date: Thu, 27 Dec 2012 22:25:13 -0800
-Message-ID: <20121227222513.394d8234@nehalam.linuxnetplumber.net>
-References: <4151394.nMo40zlg68@sifl>
-	<1356046697.21834.3606.camel@edumazet-glaptop>
-	<20121220155001.538bbdb0@nehalam.linuxnetplumber.net>
-	<50D3D85B.1070605@redhat.com>
-	<1356061179.21834.4515.camel@edumazet-glaptop>
-	<50D3E510.6020008@redhat.com>
-	<20121227164106.078604a8@nehalam.linuxnetplumber.net>
-	<50DD319A.5000708@redhat.com>
+Subject: [PATCH net-next] bridge: respect RFC2863 operational state
+Date: Thu, 27 Dec 2012 22:28:54 -0800
+Message-ID: <20121227222854.6ec132dd@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <erdnetdev@gmail.com>, Paul Moore <pmoore@redhat.com>,
-	netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52636 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:40101 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750826Ab2L1G0f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Dec 2012 01:26:35 -0500
-In-Reply-To: <50DD319A.5000708@redhat.com>
+	id S1750826Ab2L1GaP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Dec 2012 01:30:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 28 Dec 2012 13:43:54 +0800
-Jason Wang <jasowang@redhat.com> wrote:
+The bridge link detection should follow the operational state
+of the lower device, rather than the carrier bit. This allows devices
+like tunnels that are controlled by userspace control plane to work
+with bridge STP link management.
 
-> On 12/28/2012 08:41 AM, Stephen Hemminger wrote:
-> > On Fri, 21 Dec 2012 12:26:56 +0800
-> > Jason Wang <jasowang@redhat.com> wrote:
-> >
-> >> On 12/21/2012 11:39 AM, Eric Dumazet wrote:
-> >>> On Fri, 2012-12-21 at 11:32 +0800, Jason Wang wrote:
-> >>>> On 12/21/2012 07:50 AM, Stephen Hemminger wrote:
-> >>>>> On Thu, 20 Dec 2012 15:38:17 -0800
-> >>>>> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >>>>>
-> >>>>>> On Thu, 2012-12-20 at 18:16 -0500, Paul Moore wrote:
-> >>>>>>> [CC'ing netdev in case this is a known problem I just missed ...]
-> >>>>>>>
-> >>>>>>> Hi Jason,
-> >>>>>>>
-> >>>>>>> I started doing some more testing with the multiqueue TUN changes and I ran 
-> >>>>>>> into a problem when running tunctl: running it once w/o arguments works as 
-> >>>>>>> expected, but running it a second time results in failure and a 
-> >>>>>>> kmem_cache_sanity_check() failure.  The problem appears to be very repeatable 
-> >>>>>>> on my test VM and happens independent of the LSM/SELinux fixup patches.
-> >>>>>>>
-> >>>>>>> Have you seen this before?
-> >>>>>>>
-> >>>>>> Obviously code in tun_flow_init() is wrong...
-> >>>>>>
-> >>>>>> static int tun_flow_init(struct tun_struct *tun)
-> >>>>>> {
-> >>>>>>         int i;
-> >>>>>>
-> >>>>>>         tun->flow_cache = kmem_cache_create("tun_flow_cache",
-> >>>>>>                                             sizeof(struct tun_flow_entry), 0, 0,
-> >>>>>>                                             NULL);
-> >>>>>>         if (!tun->flow_cache)
-> >>>>>>                 return -ENOMEM;
-> >>>>>> ...
-> >>>>>> }
-> >>>>>>
-> >>>>>>
-> >>>>>> I have no idea why we would need a kmem_cache per tun_struct,
-> >>>>>> and why we even need a kmem_cache.
-> >>>>> Normally flow malloc/free should be good enough.
-> >>>>> It might make sense to use private kmem_cache if doing hlist_nulls.
-> >>>>>
-> >>>>>
-> >>>>> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-> >>>> Should be at least a global cache, I thought I can get some speed-up by
-> >>>> using kmem_cache.
-> >>>>
-> >>>> Acked-by: Jason Wang <jasowang@redhat.com>
-> >>> Was it with SLUB or SLAB ?
-> >>>
-> >>> Using generic kmalloc-64 is better than a dedicated kmem_cache of 48
-> >>> bytes per object, as we guarantee each object is on a single cache line.
-> >>>
-> >>>
-> >> Right, thanks for the explanation.
-> >>
-> > I wonder if TUN would be better if it used a array to translate
-> > receive hash to receive queue. This is how real hardware works with the
-> > indirection table, and it would allow RFS acceleration. The current flow
-> > cache stuff is prone to DoS attack and scaling problems with lots of
-> > short lived flows.
-> 
-> The problem of indirection table is hash collision which may even happen
-> when few flows existed.
 
-Hash collision is fine, as long as the the statistical average of
-hash across queue's is approximately equal it will be faster. A simple
-array indirection is much faster than walking a hash table.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> For the RFS, we can open a API/ioctl for userspace to add or remove a
-> flow cache.
 
-RFS acceleration relies on programming the table. It is easier if
-TUN looks more like hardware.
-
-> For the DoS/scaling issue, I have an idea of:
-> - limit the total number of flow entries in tun/tap
-> - only update the flow entry every N (say 20 like ixgbe) packets or the
-> the tcp packet has sync flag
-> - I'm not sure skb_get_rxhash() is lightweight enough, or change to more
-> lightweight one?
-
-Ideally the hash should be programmable L2 vs L3, but that is splitting
-hairs at this point.
-
-Flow tables are scaling problem, especially on highly loaded servers where
-they are most needed.
+--- a/net/bridge/br_if.c	2012-10-25 09:11:15.627272524 -0700
++++ b/net/bridge/br_if.c	2012-12-14 08:58:14.329847361 -0800
+@@ -66,14 +66,14 @@ void br_port_carrier_check(struct net_br
+ 	struct net_device *dev = p->dev;
+ 	struct net_bridge *br = p->br;
+ 
+-	if (netif_running(dev) && netif_carrier_ok(dev))
++	if (netif_running(dev) && netif_oper_up(dev))
+ 		p->path_cost = port_cost(dev);
+ 
+ 	if (!netif_running(br->dev))
+ 		return;
+ 
+ 	spin_lock_bh(&br->lock);
+-	if (netif_running(dev) && netif_carrier_ok(dev)) {
++	if (netif_running(dev) && netif_oper_up(dev))
+ 		if (p->state == BR_STATE_DISABLED)
+ 			br_stp_enable_port(p);
+ 	} else {
+--- a/net/bridge/br_notify.c	2012-10-25 09:11:15.631272484 -0700
++++ b/net/bridge/br_notify.c	2012-12-14 08:57:36.954222724 -0800
+@@ -82,7 +82,7 @@ static int br_device_event(struct notifi
+ 		break;
+ 
+ 	case NETDEV_UP:
+-		if (netif_carrier_ok(dev) && (br->dev->flags & IFF_UP)) {
++		if (netif_running(br->dev) && netif_oper_up(dev)) {
+ 			spin_lock_bh(&br->lock);
+ 			br_stp_enable_port(p);
+ 			spin_unlock_bh(&br->lock);
