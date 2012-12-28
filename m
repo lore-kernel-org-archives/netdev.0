@@ -1,137 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: use per task frag allocator in
- skb_append_datato_frags
-Date: Fri, 28 Dec 2012 08:06:37 -0800
-Message-ID: <1356710797.21409.150.camel@edumazet-glaptop>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH] net: qmi_wwan: add Telekom Speedstick LTE II
+Date: Fri, 28 Dec 2012 17:30:55 +0100
+Message-ID: <1356712255-9488-1-git-send-email-bjorn@mork.no>
+References: <50D6CF0A.9020300@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org,
+	=?UTF-8?q?Thomas=20Sch=C3=A4fer?= <tschaefer@t-online.de>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:45995 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753686Ab2L1QGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 11:06:41 -0500
-Received: by mail-pb0-f53.google.com with SMTP id jt11so5974167pbb.12
-        for <netdev@vger.kernel.org>; Fri, 28 Dec 2012 08:06:40 -0800 (PST)
+Received: from canardo.mork.no ([148.122.252.1]:54607 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753685Ab2L1QbM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Dec 2012 11:31:12 -0500
+In-Reply-To: <50D6CF0A.9020300@t-online.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+also known as Alcatel One Touch L100V LTE
 
-Use the new per task frag allocator in skb_append_datato_frags(),
-to reduce number of frags and page allocator overhead.
+The driver description files gives these names to the vendor specific
+functions on this modem:
 
-Tested:
- ifconfig lo mtu 16436
- perf record netperf -t UDP_STREAM ; perf report 
+ Application1: VID_1BBB&PID_011E&MI_00
+ Application2: VID_1BBB&PID_011E&MI_01
+ Modem:        VID_1BBB&PID_011E&MI_03
+ Ethernet:     VID_1BBB&PID_011E&MI_04
 
-before :
- Throughput: 32928 Mbit/s
-    51.79%  netperf  [kernel.kallsyms]  [k] copy_user_generic_string
-     5.98%  netperf  [kernel.kallsyms]  [k] __alloc_pages_nodemask
-     5.58%  netperf  [kernel.kallsyms]  [k] get_page_from_freelist
-     5.01%  netperf  [kernel.kallsyms]  [k] __rmqueue
-     3.74%  netperf  [kernel.kallsyms]  [k] skb_append_datato_frags
-     1.87%  netperf  [kernel.kallsyms]  [k] prep_new_page
-     1.42%  netperf  [kernel.kallsyms]  [k] next_zones_zonelist
-     1.28%  netperf  [kernel.kallsyms]  [k] __inc_zone_state
-     1.26%  netperf  [kernel.kallsyms]  [k] alloc_pages_current
-     0.78%  netperf  [kernel.kallsyms]  [k] sock_alloc_send_pskb
-     0.74%  netperf  [kernel.kallsyms]  [k] udp_sendmsg
-     0.72%  netperf  [kernel.kallsyms]  [k] zone_watermark_ok
-     0.68%  netperf  [kernel.kallsyms]  [k] __cpuset_node_allowed_softwall
-     0.67%  netperf  [kernel.kallsyms]  [k] fib_table_lookup
-     0.60%  netperf  [kernel.kallsyms]  [k] memcpy_fromiovecend
-     0.55%  netperf  [kernel.kallsyms]  [k] __udp4_lib_lookup
-
- after:
-  Throughput: 47185 Mbit/s
-	61.74%	netperf  [kernel.kallsyms]	[k] copy_user_generic_string
-	 2.07%	netperf  [kernel.kallsyms]	[k] prep_new_page
-	 1.98%	netperf  [kernel.kallsyms]	[k] skb_append_datato_frags
-	 1.02%	netperf  [kernel.kallsyms]	[k] sock_alloc_send_pskb
-	 0.97%	netperf  [kernel.kallsyms]	[k] enqueue_task_fair
-	 0.97%	netperf  [kernel.kallsyms]	[k] udp_sendmsg
-	 0.91%	netperf  [kernel.kallsyms]	[k] __ip_route_output_key
-	 0.88%	netperf  [kernel.kallsyms]	[k] __netif_receive_skb
-	 0.87%	netperf  [kernel.kallsyms]	[k] fib_table_lookup
-	 0.85%	netperf  [kernel.kallsyms]	[k] resched_task
-	 0.78%	netperf  [kernel.kallsyms]	[k] __udp4_lib_lookup
-	 0.77%	netperf  [kernel.kallsyms]	[k] _raw_spin_lock_irqsave
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Thomas Sch=C3=A4fer <tschaefer@t-online.de>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 ---
- net/core/skbuff.c |   43 ++++++++++++++++---------------------------
- 1 file changed, 16 insertions(+), 27 deletions(-)
+ drivers/net/usb/qmi_wwan.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 3ab989b..ec8737e 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2686,48 +2686,37 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
- 					int len, int odd, struct sk_buff *skb),
- 			void *from, int length)
- {
--	int frg_cnt = 0;
--	skb_frag_t *frag = NULL;
--	struct page *page = NULL;
--	int copy, left;
-+	int frg_cnt = skb_shinfo(skb)->nr_frags;
-+	int copy;
- 	int offset = 0;
- 	int ret;
-+	struct page_frag *pfrag = &current->task_frag;
- 
- 	do {
- 		/* Return error if we don't have space for new frag */
--		frg_cnt = skb_shinfo(skb)->nr_frags;
- 		if (frg_cnt >= MAX_SKB_FRAGS)
--			return -EFAULT;
--
--		/* allocate a new page for next frag */
--		page = alloc_pages(sk->sk_allocation, 0);
-+			return -EMSGSIZE;
- 
--		/* If alloc_page fails just return failure and caller will
--		 * free previous allocated pages by doing kfree_skb()
--		 */
--		if (page == NULL)
-+		if (!sk_page_frag_refill(sk, pfrag))
- 			return -ENOMEM;
- 
--		/* initialize the next frag */
--		skb_fill_page_desc(skb, frg_cnt, page, 0, 0);
--		skb->truesize += PAGE_SIZE;
--		atomic_add(PAGE_SIZE, &sk->sk_wmem_alloc);
--
--		/* get the new initialized frag */
--		frg_cnt = skb_shinfo(skb)->nr_frags;
--		frag = &skb_shinfo(skb)->frags[frg_cnt - 1];
--
- 		/* copy the user data to page */
--		left = PAGE_SIZE - frag->page_offset;
--		copy = (length > left)? left : length;
-+		copy = min_t(int, length, pfrag->size - pfrag->offset);
- 
--		ret = getfrag(from, skb_frag_address(frag) + skb_frag_size(frag),
--			    offset, copy, 0, skb);
-+		ret = getfrag(from, page_address(pfrag->page) + pfrag->offset,
-+			      offset, copy, 0, skb);
- 		if (ret < 0)
- 			return -EFAULT;
- 
- 		/* copy was successful so update the size parameters */
--		skb_frag_size_add(frag, copy);
-+		skb_fill_page_desc(skb, frg_cnt, pfrag->page, pfrag->offset,
-+				   copy);
-+		frg_cnt++;
-+		pfrag->offset += copy;
-+		get_page(pfrag->page);
-+
-+		skb->truesize += copy;
-+		atomic_add(copy, &sk->sk_wmem_alloc);
- 		skb->len += copy;
- 		skb->data_len += copy;
- 		offset += copy;
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 91d7cb9..6a1ca50 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -458,6 +458,7 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x1199, 0x68a2, 8)},	/* Sierra Wireless MC7710 in QMI=
+ mode */
+ 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QM=
+I mode */
+ 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
++	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Al=
+catel One Touch L100V LTE) */
+=20
+ 	/* 4. Gobi 1000 devices */
+ 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
+--=20
+1.7.10.4
