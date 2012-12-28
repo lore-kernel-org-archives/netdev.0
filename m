@@ -1,63 +1,35 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC/RFT] forcedeth: Fix 'device driver failed to check map
- error' warnings
-Date: Fri, 28 Dec 2012 12:57:40 +0100
-Message-ID: <1356695860.17740.51.camel@deadeye.wl.decadent.org.uk>
-References: <50db61fe.u8zB6nsB1I7ajQXN%Larry.Finger@lwfinger.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 01/19] netfilter: move nf_conntrack initialize out of
+ pernet operations
+Date: Fri, 28 Dec 2012 12:58:01 +0100
+Message-ID: <20121228115801.GA20120@1984>
+References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <CAFFEFTXT_fkF2pPSxDEEgic80NVWLqBWtFuvs6W9uDUW2aCnqw@mail.gmail.com>
+ <87ip7mlr2r.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50db61fe.u8zB6nsB1I7ajQXN%Larry.Finger@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: canqun zhang <canqunzhang@gmail.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	netfilter-devel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87ip7mlr2r.fsf@xmission.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2012-12-26 at 14:45 -0600, Larry Finger wrote:
-> With 3.8-rc1, there are WARNINGS that the driver is not checking for
-> DMA mapping errors. The warnings start with
-> 
-> ------------[ cut here ]------------
-> WARNING: at lib/dma-debug.c:933 check_unmap+0x480/0x950()
-> Hardware name: HP Pavilion dv2700 Notebook PC
-> forcedeth 0000:00:0a.0: DMA-API: device driver failed to check
->  map error[device address=0x00000000b176e002] [size=90 bytes] [mapped as single]
-> 
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> ---
-> 
-> Please check that the error returns are correctly done.
+On Thu, Dec 27, 2012 at 08:48:44PM -0800, Eric W. Biederman wrote:
 [...]
-> @@ -2217,6 +2229,9 @@ static netdev_tx_t nv_start_xmit(struct
->  		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
->  		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
->  						PCI_DMA_TODEVICE);
-> +		if (pci_dma_mapping_error(np->pci_dev,
-> +					  np->put_tx_ctx->dma))
-> +			return NETDEV_TX_BUSY;
->  		np->put_tx_ctx->dma_len = bcnt;
->  		np->put_tx_ctx->dma_single = 1;
->  		put_tx->buf = cpu_to_le32(np->put_tx_ctx->dma);
-> @@ -2337,6 +2352,9 @@ static netdev_tx_t nv_start_xmit_optimiz
->  		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
->  		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
->  						PCI_DMA_TODEVICE);
-> +		if (pci_dma_mapping_error(np->pci_dev,
-> +					  np->put_tx_ctx->dma))
-> +			return NETDEV_TX_BUSY;
->  		np->put_tx_ctx->dma_len = bcnt;
->  		np->put_tx_ctx->dma_single = 1;
->  		put_tx->bufhigh = cpu_to_le32(dma_high(np->put_tx_ctx->dma));
+> Does anyone know why Alexy decided to do this only for init_net?
+
+Not myself.
+
 [...]
+> My inclination is that Gao Feng is on the rigt path by just removing
+> the strange init_net special case and performing the work once
+> per module load, and once per module unload.
 
-In these cases the skb should be freed and the return value should be
-NETDEV_TX_OK.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+That makes sense to me, I'll check Gao's patchset asap to come back to
+him with some feedback. Thanks.
