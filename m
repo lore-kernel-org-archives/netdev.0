@@ -1,290 +1,187 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 01/19] netfilter: move nf_conntrack initialize out of pernet operations
-Date: Fri, 28 Dec 2012 10:36:27 +0800
-Message-ID: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 09/19] netfilter: l3proto: prepare reworking l3proto support for netns
+Date: Fri, 28 Dec 2012 10:36:35 +0800
+Message-ID: <1356662206-2260-9-git-send-email-gaofeng@cn.fujitsu.com>
+References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netdev@vger.kernel.org, canqunzhang@gmail.com, kaber@trash.net,
 	pablo@netfilter.org, ebiederm@xmission.com,
 	Gao feng <gaofeng@cn.fujitsu.com>
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:12405 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:36421 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752287Ab2L1Cip (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Dec 2012 21:38:45 -0500
+	id S1753118Ab2L1Cis (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Dec 2012 21:38:48 -0500
+In-Reply-To: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-canqun zhang reported a panic BUG,kernel may panic when
-unloading nf_conntrack module.
+Prepare to move the code that register/unregister l3proto
+to the module_init/exit context.
 
-It's because we reset nf_ct_destroy to NULL when we deal
-with init_net,it's too early.Some packets belongs to other
-netns still refers to the conntrack.when these packets need
-to be freed, kfree_skb will call nf_ct_destroy which is
-NULL.
+This patch deletes the codes that register/unregister l3proto,
+this code will be added in next two patch.
 
-fix this bug by moving the nf_conntrack initialize and cleanup
-codes out of the pernet operations,this job should be done
-in module_init/exit.We can't use init_net to identify if
-it's the right time.
-
-Reported-by: canqun zhang <canqunzhang@gmail.com>
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- include/net/netfilter/nf_conntrack_core.h | 10 +++-
- net/netfilter/nf_conntrack_core.c         | 99 ++++++++++++-------------------
- net/netfilter/nf_conntrack_standalone.c   | 29 ++++++---
- 3 files changed, 67 insertions(+), 71 deletions(-)
+ include/net/netfilter/nf_conntrack_l3proto.h   | 20 ++++++++++++-----
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |  6 ++---
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |  6 ++---
+ net/netfilter/nf_conntrack_proto.c             | 31 ++++++++++----------------
+ 4 files changed, 33 insertions(+), 30 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index d8f5b9f..ec51a3c 100644
---- a/include/net/netfilter/nf_conntrack_core.h
-+++ b/include/net/netfilter/nf_conntrack_core.h
-@@ -25,8 +25,14 @@ extern unsigned int nf_conntrack_in(struct net *net,
- 				    unsigned int hooknum,
- 				    struct sk_buff *skb);
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+index 6f7c13f..f3834d5 100644
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -76,11 +76,21 @@ struct nf_conntrack_l3proto {
  
--extern int nf_conntrack_init(struct net *net);
--extern void nf_conntrack_cleanup(struct net *net);
-+extern int nf_conntrack_init_net(struct net *net);
-+extern void nf_conntrack_cleanup_net(struct net *net);
+ extern struct nf_conntrack_l3proto __rcu *nf_ct_l3protos[AF_MAX];
+ 
+-/* Protocol registration. */
+-extern int nf_conntrack_l3proto_register(struct net *net,
+-					 struct nf_conntrack_l3proto *proto);
+-extern void nf_conntrack_l3proto_unregister(struct net *net,
+-					    struct nf_conntrack_l3proto *proto);
++/* Protocol pernet registration. */
++extern int
++nf_conntrack_l3proto_pernet_register(struct net *net,
++				     struct nf_conntrack_l3proto *proto);
++extern void
++nf_conntrack_l3proto_pernet_unregister(struct net *net,
++				       struct nf_conntrack_l3proto *proto);
 +
-+extern int nf_conntrack_init_start(void);
-+extern void nf_conntrack_cleanup_start(void);
++/* Protocol global registration. */
++extern int
++nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto);
 +
-+extern void nf_conntrack_init_end(void);
-+extern void nf_conntrack_cleanup_end(void);
++extern void
++nf_conntrack_l3proto_unregister(struct nf_conntrack_l3proto *proto);
++
+ extern struct nf_conntrack_l3proto *nf_ct_l3proto_find_get(u_int16_t l3proto);
+ extern void nf_ct_l3proto_put(struct nf_conntrack_l3proto *p);
  
- extern int nf_conntrack_proto_init(struct net *net);
- extern void nf_conntrack_proto_fini(struct net *net);
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 08cdc71..ffb2463 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1331,18 +1331,23 @@ static int untrack_refs(void)
- 	return cnt;
- }
- 
--static void nf_conntrack_cleanup_init_net(void)
-+void nf_conntrack_cleanup_start(void)
- {
--	while (untrack_refs() > 0)
--		schedule();
--
--#ifdef CONFIG_NF_CONNTRACK_ZONES
--	nf_ct_extend_unregister(&nf_ct_zone_extend);
--#endif
-+	RCU_INIT_POINTER(ip_ct_attach, NULL);
- }
- 
--static void nf_conntrack_cleanup_net(struct net *net)
-+/*
-+ * Mishearing the voices in his head, our hero wonders how he's
-+ * supposed to kill the mall.
-+ */
-+void nf_conntrack_cleanup_net(struct net *net)
- {
-+	/*
-+	 * This makes sure all current packets have passed through
-+	 * netfilter framework.  Roll on, two-stage module
-+	 * delete...
-+	 */
-+	synchronize_net();
-  i_see_dead_people:
- 	nf_ct_iterate_cleanup(net, kill_all, NULL);
- 	nf_ct_release_dying_list(net);
-@@ -1352,6 +1357,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index fcdd0c2..afd3a96 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -438,8 +438,8 @@ static int ipv4_net_init(struct net *net)
+ 		pr_err("nf_conntrack_l4proto_icmp4 :protocol register failed\n");
+ 		goto out_icmp;
  	}
+-	ret = nf_conntrack_l3proto_register(net,
+-					    &nf_conntrack_l3proto_ipv4);
++	ret = nf_conntrack_l3proto_pernet_register(net,
++					&nf_conntrack_l3proto_ipv4);
+ 	if (ret < 0) {
+ 		pr_err("nf_conntrack_l3proto_ipv4 :protocol register failed\n");
+ 		goto out_ipv4;
+@@ -460,7 +460,7 @@ out_tcp:
  
- 	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
-+	nf_conntrack_proto_fini(net);
- 	nf_conntrack_helper_fini(net);
- 	nf_conntrack_timeout_fini(net);
- 	nf_conntrack_ecache_fini(net);
-@@ -1363,24 +1369,15 @@ static void nf_conntrack_cleanup_net(struct net *net)
- 	free_percpu(net->ct.stat);
+ static void ipv4_net_exit(struct net *net)
+ {
+-	nf_conntrack_l3proto_unregister(net,
++	nf_conntrack_l3proto_pernet_unregister(net,
+ 					&nf_conntrack_l3proto_ipv4);
+ 	nf_conntrack_l4proto_unregister(net,
+ 					&nf_conntrack_l4proto_icmp);
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 00ee17c..469a15f 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -439,8 +439,8 @@ static int ipv6_net_init(struct net *net)
+ 		printk(KERN_ERR "nf_conntrack_l4proto_icmp6: protocol register failed\n");
+ 		goto cleanup_udp6;
+ 	}
+-	ret = nf_conntrack_l3proto_register(net,
+-					    &nf_conntrack_l3proto_ipv6);
++	ret = nf_conntrack_l3proto_pernet_register(net,
++						&nf_conntrack_l3proto_ipv6);
+ 	if (ret < 0) {
+ 		printk(KERN_ERR "nf_conntrack_l3proto_ipv6: protocol register failed\n");
+ 		goto cleanup_icmpv6;
+@@ -461,7 +461,7 @@ static int ipv6_net_init(struct net *net)
+ 
+ static void ipv6_net_exit(struct net *net)
+ {
+-	nf_conntrack_l3proto_unregister(net,
++	nf_conntrack_l3proto_pernet_unregister(net,
+ 					&nf_conntrack_l3proto_ipv6);
+ 	nf_conntrack_l4proto_unregister(net,
+ 					&nf_conntrack_l4proto_icmpv6);
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 3d01b90..5a625a6 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -212,8 +212,8 @@ static void nf_ct_l3proto_unregister_sysctl(struct net *net,
+ #endif
  }
  
--/* Mishearing the voices in his head, our hero wonders how he's
--   supposed to kill the mall. */
--void nf_conntrack_cleanup(struct net *net)
-+void nf_conntrack_cleanup_end(void)
+-static int
+-nf_conntrack_l3proto_register_net(struct nf_conntrack_l3proto *proto)
++int
++nf_conntrack_l3proto_register(struct nf_conntrack_l3proto *proto)
  {
--	if (net_eq(net, &init_net))
--		RCU_INIT_POINTER(ip_ct_attach, NULL);
--
--	/* This makes sure all current packets have passed through
--	   netfilter framework.  Roll on, two-stage module
--	   delete... */
--	synchronize_net();
--	nf_conntrack_proto_fini(net);
--	nf_conntrack_cleanup_net(net);
-+	RCU_INIT_POINTER(nf_ct_destroy, NULL);
-+	while (untrack_refs() > 0)
-+		schedule();
- 
--	if (net_eq(net, &init_net)) {
--		RCU_INIT_POINTER(nf_ct_destroy, NULL);
--		nf_conntrack_cleanup_init_net();
--	}
-+#ifdef CONFIG_NF_CONNTRACK_ZONES
-+	nf_ct_extend_unregister(&nf_ct_zone_extend);
-+#endif
- }
- 
- void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls)
-@@ -1473,7 +1470,7 @@ void nf_ct_untracked_status_or(unsigned long bits)
- }
- EXPORT_SYMBOL_GPL(nf_ct_untracked_status_or);
- 
--static int nf_conntrack_init_init_net(void)
-+int nf_conntrack_init_start(void)
- {
- 	int max_factor = 8;
- 	int ret, cpu;
-@@ -1527,7 +1524,7 @@ err_extend:
- #define UNCONFIRMED_NULLS_VAL	((1<<30)+0)
- #define DYING_NULLS_VAL		((1<<30)+1)
- 
--static int nf_conntrack_init_net(struct net *net)
-+int nf_conntrack_init_net(struct net *net)
- {
- 	int ret;
- 
-@@ -1580,7 +1577,12 @@ static int nf_conntrack_init_net(struct net *net)
- 	ret = nf_conntrack_helper_init(net);
- 	if (ret < 0)
- 		goto err_helper;
-+	ret = nf_conntrack_proto_init(net);
-+	if (ret < 0)
-+		goto out_proto;
- 	return 0;
-+out_proto:
-+	nf_conntrack_helper_fini(net);
- err_helper:
- 	nf_conntrack_timeout_fini(net);
- err_timeout:
-@@ -1603,42 +1605,17 @@ err_stat:
+ 	int ret = 0;
+ 	struct nf_conntrack_l3proto *old;
+@@ -242,9 +242,10 @@ out_unlock:
  	return ret;
- }
  
-+void nf_conntrack_init_end(void)
-+{
-+	/* For use by REJECT target */
-+	RCU_INIT_POINTER(ip_ct_attach, nf_conntrack_attach);
-+	RCU_INIT_POINTER(nf_ct_destroy, destroy_conntrack);
-+
-+	/* Howto get NAT offsets */
-+	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
-+}
-+
- s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
- 			enum ip_conntrack_dir dir,
- 			u32 seq);
- EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
--
--int nf_conntrack_init(struct net *net)
--{
--	int ret;
--
--	if (net_eq(net, &init_net)) {
--		ret = nf_conntrack_init_init_net();
+ }
++EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_register);
+ 
+-int nf_conntrack_l3proto_register(struct net *net,
+-				  struct nf_conntrack_l3proto *proto)
++int nf_conntrack_l3proto_pernet_register(struct net *net,
++					 struct nf_conntrack_l3proto *proto)
+ {
+ 	int ret = 0;
+ 
+@@ -258,18 +259,12 @@ int nf_conntrack_l3proto_register(struct net *net,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (net == &init_net) {
+-		ret = nf_conntrack_l3proto_register_net(proto);
 -		if (ret < 0)
--			goto out_init_net;
+-			nf_ct_l3proto_unregister_sysctl(net, proto);
 -	}
--	ret = nf_conntrack_proto_init(net);
--	if (ret < 0)
--		goto out_proto;
--	ret = nf_conntrack_init_net(net);
--	if (ret < 0)
--		goto out_net;
 -
--	if (net_eq(net, &init_net)) {
--		/* For use by REJECT target */
--		RCU_INIT_POINTER(ip_ct_attach, nf_conntrack_attach);
--		RCU_INIT_POINTER(nf_ct_destroy, destroy_conntrack);
--
--		/* Howto get NAT offsets */
--		RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
--	}
--	return 0;
--
--out_net:
--	nf_conntrack_proto_fini(net);
--out_proto:
--	if (net_eq(net, &init_net))
--		nf_conntrack_cleanup_init_net();
--out_init_net:
--	return ret;
--}
-diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-index 363285d..00bf93c 100644
---- a/net/netfilter/nf_conntrack_standalone.c
-+++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -530,11 +530,11 @@ static void nf_conntrack_standalone_fini_sysctl(struct net *net)
- }
- #endif /* CONFIG_SYSCTL */
- 
--static int nf_conntrack_net_init(struct net *net)
-+static int nf_conntrack_pernet_init(struct net *net)
- {
- 	int ret;
- 
--	ret = nf_conntrack_init(net);
-+	ret = nf_conntrack_init_net(net);
- 	if (ret < 0)
- 		goto out_init;
- 	ret = nf_conntrack_standalone_init_proc(net);
-@@ -550,31 +550,44 @@ static int nf_conntrack_net_init(struct net *net)
- out_sysctl:
- 	nf_conntrack_standalone_fini_proc(net);
- out_proc:
--	nf_conntrack_cleanup(net);
-+	nf_conntrack_cleanup_net(net);
- out_init:
  	return ret;
  }
+-EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_register);
++EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_pernet_register);
  
--static void nf_conntrack_net_exit(struct net *net)
-+static void nf_conntrack_pernet_exit(struct net *net)
+-static void
+-nf_conntrack_l3proto_unregister_net(struct nf_conntrack_l3proto *proto)
++void
++nf_conntrack_l3proto_unregister(struct nf_conntrack_l3proto *proto)
  {
- 	nf_conntrack_standalone_fini_sysctl(net);
- 	nf_conntrack_standalone_fini_proc(net);
--	nf_conntrack_cleanup(net);
-+	nf_conntrack_cleanup_net(net);
+ 	BUG_ON(proto->l3proto >= AF_MAX);
+ 
+@@ -283,19 +278,17 @@ nf_conntrack_l3proto_unregister_net(struct nf_conntrack_l3proto *proto)
+ 
+ 	synchronize_rcu();
  }
++EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_unregister);
  
- static struct pernet_operations nf_conntrack_net_ops = {
--	.init = nf_conntrack_net_init,
--	.exit = nf_conntrack_net_exit,
-+	.init = nf_conntrack_pernet_init,
-+	.exit = nf_conntrack_pernet_exit,
- };
- 
- static int __init nf_conntrack_standalone_init(void)
+-void nf_conntrack_l3proto_unregister(struct net *net,
+-				     struct nf_conntrack_l3proto *proto)
++void nf_conntrack_l3proto_pernet_unregister(struct net *net,
++					struct nf_conntrack_l3proto *proto)
  {
--	return register_pernet_subsys(&nf_conntrack_net_ops);
-+	int ret = nf_conntrack_init_start();
-+	if (ret < 0)
-+		goto out_start;
-+	ret = register_pernet_subsys(&nf_conntrack_net_ops);
-+	if (ret < 0)
-+		goto out_pernet;
-+	nf_conntrack_init_end();
-+	return 0;
-+out_pernet:
-+	nf_conntrack_cleanup_end();
-+out_start:
-+	return ret;
- }
+-	if (net == &init_net)
+-		nf_conntrack_l3proto_unregister_net(proto);
+-
+ 	nf_ct_l3proto_unregister_sysctl(net, proto);
  
- static void __exit nf_conntrack_standalone_fini(void)
- {
-+	nf_conntrack_cleanup_start();
- 	unregister_pernet_subsys(&nf_conntrack_net_ops);
-+	nf_conntrack_cleanup_end();
+ 	/* Remove all contrack entries for this protocol */
+ 	nf_ct_iterate_cleanup(net, kill_l3proto, proto);
  }
+-EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_unregister);
++EXPORT_SYMBOL_GPL(nf_conntrack_l3proto_pernet_unregister);
  
- module_init(nf_conntrack_standalone_init);
+ static struct nf_proto_net *nf_ct_l4proto_net(struct net *net,
+ 					      struct nf_conntrack_l4proto *l4proto)
 -- 
 1.7.11.7
