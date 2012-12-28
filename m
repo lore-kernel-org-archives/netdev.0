@@ -1,47 +1,63 @@
-From: pablo@netfilter.org
-Subject: [PATCH 07/12] netfilter: nfnetlink_log: fix possible compilation issue due to missing include
-Date: Fri, 28 Dec 2012 12:52:46 +0100
-Message-ID: <1356695571-3305-8-git-send-email-pablo@netfilter.org>
-References: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51021 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753527Ab2L1LxS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Dec 2012 06:53:18 -0500
-In-Reply-To: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC/RFT] forcedeth: Fix 'device driver failed to check map
+ error' warnings
+Date: Fri, 28 Dec 2012 12:57:40 +0100
+Message-ID: <1356695860.17740.51.camel@deadeye.wl.decadent.org.uk>
+References: <50db61fe.u8zB6nsB1I7ajQXN%Larry.Finger@lwfinger.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50db61fe.u8zB6nsB1I7ajQXN%Larry.Finger@lwfinger.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+On Wed, 2012-12-26 at 14:45 -0600, Larry Finger wrote:
+> With 3.8-rc1, there are WARNINGS that the driver is not checking for
+> DMA mapping errors. The warnings start with
+> 
+> ------------[ cut here ]------------
+> WARNING: at lib/dma-debug.c:933 check_unmap+0x480/0x950()
+> Hardware name: HP Pavilion dv2700 Notebook PC
+> forcedeth 0000:00:0a.0: DMA-API: device driver failed to check
+>  map error[device address=0x00000000b176e002] [size=90 bytes] [mapped as single]
+> 
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+> 
+> Please check that the error returns are correctly done.
+[...]
+> @@ -2217,6 +2229,9 @@ static netdev_tx_t nv_start_xmit(struct
+>  		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+>  		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
+>  						PCI_DMA_TODEVICE);
+> +		if (pci_dma_mapping_error(np->pci_dev,
+> +					  np->put_tx_ctx->dma))
+> +			return NETDEV_TX_BUSY;
+>  		np->put_tx_ctx->dma_len = bcnt;
+>  		np->put_tx_ctx->dma_single = 1;
+>  		put_tx->buf = cpu_to_le32(np->put_tx_ctx->dma);
+> @@ -2337,6 +2352,9 @@ static netdev_tx_t nv_start_xmit_optimiz
+>  		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+>  		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
+>  						PCI_DMA_TODEVICE);
+> +		if (pci_dma_mapping_error(np->pci_dev,
+> +					  np->put_tx_ctx->dma))
+> +			return NETDEV_TX_BUSY;
+>  		np->put_tx_ctx->dma_len = bcnt;
+>  		np->put_tx_ctx->dma_single = 1;
+>  		put_tx->bufhigh = cpu_to_le32(dma_high(np->put_tx_ctx->dma));
+[...]
 
-In (0c36b48 netfilter: nfnetlink_log: fix mac address for 6in4 tunnels)
-the include file that defines ARPD_SIT was missing. This passed unnoticed
-during my tests (I did not hit this problem here).
+In these cases the skb should be freed and the return value should be
+NETDEV_TX_OK.
 
-net/netfilter/nfnetlink_log.c: In function '__build_packet_message':
-net/netfilter/nfnetlink_log.c:494:25: error: 'ARPHRD_SIT' undeclared (first use in this function)
-net/netfilter/nfnetlink_log.c:494:25: note: each undeclared identifier is reported only once for
-+each function it appears in
+Ben.
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nfnetlink_log.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 4e210e0..92fd8ec 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -13,6 +13,7 @@
-  */
- #include <linux/module.h>
- #include <linux/skbuff.h>
-+#include <linux/if_arp.h>
- #include <linux/init.h>
- #include <linux/ip.h>
- #include <linux/ipv6.h>
 -- 
-1.7.10.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
