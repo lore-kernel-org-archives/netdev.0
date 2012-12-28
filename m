@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 01/12] netfilter: ip[6]t_REJECT: fix wrong transport header pointer in TCP reset
-Date: Fri, 28 Dec 2012 12:52:40 +0100
-Message-ID: <1356695571-3305-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/12] netfilter: xt_CT: fix crash while destroy ct templates
+Date: Fri, 28 Dec 2012 12:52:45 +0100
+Message-ID: <1356695571-3305-7-git-send-email-pablo@netfilter.org>
 References: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,96 +10,82 @@ In-Reply-To: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Mukund Jampala <jbmukund@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-The problem occurs when iptables constructs the tcp reset packet.
-It doesn't initialize the pointer to the tcp header within the skb.
-When the skb is passed to the ixgbe driver for transmit, the ixgbe
-driver attempts to access the tcp header and crashes.
-Currently, other drivers (such as our 1G e1000e or igb drivers) don't
-access the tcp header on transmit unless the TSO option is turned on.
+In (d871bef netfilter: ctnetlink: dump entries from the dying and
+unconfirmed lists), we assume that all conntrack objects are
+inserted in any of the existing lists. However, template conntrack
+objects were not. This results in hitting BUG_ON in the
+destroy_conntrack path while removing a rule that uses the CT target.
 
-<1>BUG: unable to handle kernel NULL pointer dereference at 0000000d
-<1>IP: [<d081621c>] ixgbe_xmit_frame_ring+0x8cc/0x2260 [ixgbe]
-<4>*pdpt = 0000000085e5d001 *pde = 0000000000000000
-<0>Oops: 0000 [#1] SMP
-[...]
-<4>Pid: 0, comm: swapper Tainted: P            2.6.35.12 #1 Greencity/Thurley
-<4>EIP: 0060:[<d081621c>] EFLAGS: 00010246 CPU: 16
-<4>EIP is at ixgbe_xmit_frame_ring+0x8cc/0x2260 [ixgbe]
-<4>EAX: c7628820 EBX: 00000007 ECX: 00000000 EDX: 00000000
-<4>ESI: 00000008 EDI: c6882180 EBP: dfc6b000 ESP: ced95c48
-<4> DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-<0>Process swapper (pid: 0, ti=ced94000 task=ced73bd0 task.ti=ced94000)
-<0>Stack:
-<4> cbec7418 c779e0d8 c77cc888 c77cc8a8 0903010a 00000000 c77c0008 00000002
-<4><0> cd4997c0 00000010 dfc6b000 00000000 d0d176c9 c77cc8d8 c6882180 cbec7318
-<4><0> 00000004 00000004 cbec7230 cbec7110 00000000 cbec70c0 c779e000 00000002
-<0>Call Trace:
-<4> [<d0d176c9>] ? 0xd0d176c9
-<4> [<d0d18a4d>] ? 0xd0d18a4d
-<4> [<411e243e>] ? dev_hard_start_xmit+0x218/0x2d7
-<4> [<411f03d7>] ? sch_direct_xmit+0x4b/0x114
-<4> [<411f056a>] ? __qdisc_run+0xca/0xe0
-<4> [<411e28b0>] ? dev_queue_xmit+0x2d1/0x3d0
-<4> [<411e8120>] ? neigh_resolve_output+0x1c5/0x20f
-<4> [<411e94a1>] ? neigh_update+0x29c/0x330
-<4> [<4121cf29>] ? arp_process+0x49c/0x4cd
-<4> [<411f80c9>] ? nf_hook_slow+0x3f/0xac
-<4> [<4121ca8d>] ? arp_process+0x0/0x4cd
-<4> [<4121ca8d>] ? arp_process+0x0/0x4cd
-<4> [<4121c6d5>] ? T.901+0x38/0x3b
-<4> [<4121c918>] ? arp_rcv+0xa3/0xb4
-<4> [<4121ca8d>] ? arp_process+0x0/0x4cd
-<4> [<411e1173>] ? __netif_receive_skb+0x32b/0x346
-<4> [<411e19e1>] ? netif_receive_skb+0x5a/0x5f
-<4> [<411e1ea9>] ? napi_skb_finish+0x1b/0x30
-<4> [<d0816eb4>] ? ixgbe_xmit_frame_ring+0x1564/0x2260 [ixgbe]
-<4> [<41013468>] ? lapic_next_event+0x13/0x16
-<4> [<410429b2>] ? clockevents_program_event+0xd2/0xe4
-<4> [<411e1b03>] ? net_rx_action+0x55/0x127
-<4> [<4102da1a>] ? __do_softirq+0x77/0xeb
-<4> [<4102dab1>] ? do_softirq+0x23/0x27
-<4> [<41003a67>] ? do_IRQ+0x7d/0x8e
-<4> [<41002a69>] ? common_interrupt+0x29/0x30
-<4> [<41007bcf>] ? mwait_idle+0x48/0x4d
-<4> [<4100193b>] ? cpu_idle+0x37/0x4c
-<0>Code: df 09 d7 0f 94 c2 0f b6 d2 e9 e7 fb ff ff 31 db 31 c0 e9 38
-ff ff ff 80 78 06 06 0f 85 3e fb ff ff 8b 7c 24 38 8b 8f b8 00 00 00
-<0f> b6 51 0d f6 c2 01 0f 85 27 fb ff ff 80 e2 02 75 0d 8b 6c 24
-<0>EIP: [<d081621c>] ixgbe_xmit_frame_ring+0x8cc/0x2260 [ixgbe] SS:ESP
+This patch fixes the situation by adding the template lists, which
+is where template conntrack objects reside now.
 
-Signed-off-by: Mukund Jampala <jbmukund@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/ipt_REJECT.c  |    1 +
- net/ipv6/netfilter/ip6t_REJECT.c |    1 +
- 2 files changed, 2 insertions(+)
+ include/net/netns/conntrack.h     |    1 +
+ net/netfilter/nf_conntrack_core.c |    2 ++
+ net/netfilter/xt_CT.c             |    8 ++++++++
+ 3 files changed, 11 insertions(+)
 
-diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
-index 51f13f8..04b18c1 100644
---- a/net/ipv4/netfilter/ipt_REJECT.c
-+++ b/net/ipv4/netfilter/ipt_REJECT.c
-@@ -81,6 +81,7 @@ static void send_reset(struct sk_buff *oldskb, int hook)
- 	niph->saddr	= oiph->daddr;
- 	niph->daddr	= oiph->saddr;
+diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
+index a1d83cc..923cb20 100644
+--- a/include/net/netns/conntrack.h
++++ b/include/net/netns/conntrack.h
+@@ -71,6 +71,7 @@ struct netns_ct {
+ 	struct hlist_head	*expect_hash;
+ 	struct hlist_nulls_head	unconfirmed;
+ 	struct hlist_nulls_head	dying;
++	struct hlist_nulls_head tmpl;
+ 	struct ip_conntrack_stat __percpu *stat;
+ 	struct nf_ct_event_notifier __rcu *nf_conntrack_event_cb;
+ 	struct nf_exp_event_notifier __rcu *nf_expect_event_cb;
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 08cdc71..016d95e 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1526,6 +1526,7 @@ err_extend:
+  */
+ #define UNCONFIRMED_NULLS_VAL	((1<<30)+0)
+ #define DYING_NULLS_VAL		((1<<30)+1)
++#define TEMPLATE_NULLS_VAL	((1<<30)+2)
  
-+	skb_reset_transport_header(nskb);
- 	tcph = (struct tcphdr *)skb_put(nskb, sizeof(struct tcphdr));
- 	memset(tcph, 0, sizeof(*tcph));
- 	tcph->source	= oth->dest;
-diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
-index fd4fb34..029623d 100644
---- a/net/ipv6/netfilter/ip6t_REJECT.c
-+++ b/net/ipv6/netfilter/ip6t_REJECT.c
-@@ -132,6 +132,7 @@ static void send_reset(struct net *net, struct sk_buff *oldskb)
- 	ip6h->saddr = oip6h->daddr;
- 	ip6h->daddr = oip6h->saddr;
+ static int nf_conntrack_init_net(struct net *net)
+ {
+@@ -1534,6 +1535,7 @@ static int nf_conntrack_init_net(struct net *net)
+ 	atomic_set(&net->ct.count, 0);
+ 	INIT_HLIST_NULLS_HEAD(&net->ct.unconfirmed, UNCONFIRMED_NULLS_VAL);
+ 	INIT_HLIST_NULLS_HEAD(&net->ct.dying, DYING_NULLS_VAL);
++	INIT_HLIST_NULLS_HEAD(&net->ct.tmpl, TEMPLATE_NULLS_VAL);
+ 	net->ct.stat = alloc_percpu(struct ip_conntrack_stat);
+ 	if (!net->ct.stat) {
+ 		ret = -ENOMEM;
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index ae7f5da..1668f41 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -149,6 +149,10 @@ static int xt_ct_tg_check_v0(const struct xt_tgchk_param *par)
  
-+	skb_reset_transport_header(nskb);
- 	tcph = (struct tcphdr *)skb_put(nskb, sizeof(struct tcphdr));
- 	/* Truncate to length (no data) */
- 	tcph->doff = sizeof(struct tcphdr)/4;
+ 	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
+ 	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
++
++	/* Overload tuple linked list to put us in template list. */
++	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
++				 &par->net->ct.tmpl);
+ out:
+ 	info->ct = ct;
+ 	return 0;
+@@ -289,6 +293,10 @@ static int xt_ct_tg_check_v1(const struct xt_tgchk_param *par)
+ 
+ 	__set_bit(IPS_TEMPLATE_BIT, &ct->status);
+ 	__set_bit(IPS_CONFIRMED_BIT, &ct->status);
++
++	/* Overload tuple linked list to put us in template list. */
++	hlist_nulls_add_head_rcu(&ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode,
++				 &par->net->ct.tmpl);
+ out:
+ 	info->ct = ct;
+ 	return 0;
 -- 
 1.7.10.4
 
