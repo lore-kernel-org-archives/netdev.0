@@ -1,85 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Panic: dma_map_area overflow 66 bytes on 3.7+
-Date: Fri, 28 Dec 2012 11:53:10 -0800
-Message-ID: <1356724390.21409.641.camel@edumazet-glaptop>
-References: <201212282005.10812.tweek@tweek.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Michal Schmidt <mschmidt@redhat.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Martin Nybo Andersen <tweek@tweek.dk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201212282005.10812.tweek@tweek.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: filter: return -EINVAL if BPF_S_ANC* operation is not supported
+Date: Fri, 28 Dec 2012 21:50:17 +0100
+Message-ID: <1356727817-10649-1-git-send-email-dborkman@redhat.com>
+Cc: ani@aristanetworks.com, netdev@vger.kernel.org,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:10327 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752689Ab2L1Uvh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Dec 2012 15:51:37 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2012-12-28 at 20:05 +0100, Martin Nybo Andersen wrote:
-> Hi list,
-> 
-> Since the release of 3.7 my main computer has been panicking a couple of
-> times on both 3.7.0 and 3.7.1 because of a 'dma_map_area overflow xx bytes'.
-> 
-> Example screen shot:
-> http://www.tweek.dk/panic.jpg
-> 
-> I can reproduce it somewhat easily by visiting http://www.openstreetmap.org/
-> and zoom erratically with the scroll-button on the mouse.
-> 
-> The panic seems to occur on line 229 of arch/x86/kernel/amd_gart_64.c, and
-> reverting commit aee77e4accbeb2c86b1d294cd84fec4a12dde3bd (r8169: use
-> unlimited DMA burst for TX) seems to fix the problem for me (at least I've
-> not been able to make it panic as before (yet)).
-> 
-> 
-> lspci -v:
-> 00:00.0 Host bridge: Advanced Micro Devices [AMD] nee ATI RS480 Host Bridge (rev 01)
-> 00:02.0 PCI bridge: Advanced Micro Devices [AMD] nee ATI RS480 PCI-X Root Port
-> 00:05.0 PCI bridge: Advanced Micro Devices [AMD] nee ATI RS480 PCI Bridge
-> 00:12.0 SATA controller: Advanced Micro Devices [AMD] nee ATI SB600 Non-Raid-5 SATA
-> 00:13.0 USB controller: Advanced Micro Devices [AMD] nee ATI SB600 USB (OHCI0)
-> 00:13.1 USB controller: Advanced Micro Devices [AMD] nee ATI SB600 USB (OHCI1)
-> 00:13.2 USB controller: Advanced Micro Devices [AMD] nee ATI SB600 USB (OHCI2)
-> 00:13.3 USB controller: Advanced Micro Devices [AMD] nee ATI SB600 USB (OHCI3)
-> 00:13.4 USB controller: Advanced Micro Devices [AMD] nee ATI SB600 USB (OHCI4)
-> 00:13.5 USB controller: Advanced Micro Devices [AMD] nee ATI SB600 USB Controller (EHCI)
-> 00:14.0 SMBus: Advanced Micro Devices [AMD] nee ATI SBx00 SMBus Controller (rev 13)
-> 00:14.1 IDE interface: Advanced Micro Devices [AMD] nee ATI SB600 IDE
-> 00:14.2 Audio device: Advanced Micro Devices [AMD] nee ATI SBx00 Azalia (Intel HDA)
-> 00:14.3 ISA bridge: Advanced Micro Devices [AMD] nee ATI SB600 PCI to LPC Bridge
-> 00:14.4 PCI bridge: Advanced Micro Devices [AMD] nee ATI SBx00 PCI to PCI Bridge
-> 00:18.0 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] HyperTransport Technology Configuration
-> 00:18.1 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] Address Map
-> 00:18.2 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] DRAM Controller
-> 00:18.3 Host bridge: Advanced Micro Devices [AMD] K8 [Athlon64/Opteron] Miscellaneous Control
-> 01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 01)
-> 02:00.0 VGA compatible controller: NVIDIA Corporation G84 [GeForce 8600 GT] (rev a1)
-> 03:07.0 Multimedia controller: Twinhan Technology Co. Ltd Mantis DTV PCI Bridge Controller [Ver 1.0] (rev 01)
-> 
-> 
-> Please tell, if more info is needed.
+Currently, we return -EINVAL for malformed or wrong BPF filters.
+However, this is not done for BPF_S_ANC* operations, which makes it
+more difficult to detect if it's actually supported or not by the
+BPF machine. Therefore, we should also return -EINVAL if K is within
+the SKF_AD_OFF universe and the ancillary operation did not match.
 
-Seems you have CONFIG_IOMMU_DEBUG, is it really what you want ?
+Why exactly is it needed? If tools such as libpcap/tcpdump want to
+make use of new ancillary operations (like filtering VLAN in kernel
+space), there is currently no sane way to test if this feature /
+BPF_S_ANC* op is present or not, since no error is returned. This
+patch will make life easier for that and allow for a proper usage
+for user space applications.
 
-It seems a bit strange we panic in this case
-( panic_on_overflow = 1;)
+There was concern, if this patch will break userland. Short answer: Yes
+and no. Long answer: It will "break" only for code that calls ...
 
-You could try to add iommu=nopanic to your boot command : packet should
-be dropped, instead of panic.
+  { BPF_LD | BPF_(W|H|B) | BPF_ABS, 0, 0, <K> },
 
-config IOMMU_DEBUG
-        bool "Enable IOMMU debugging"
-        depends on GART_IOMMU && DEBUG_KERNEL
-        depends on X86_64
-        ---help---
-          Force the IOMMU to on even when you have less than 4GB of
-          memory and add debugging code. On overflow always panic. And
-          allow to enable IOMMU leak tracing. Can be disabled at boot
-          time with iommu=noforce. This will also enable scatter gather
-          list merging.  Currently not recommended for production
-          code. When you use it make sure you have a big enough
-          IOMMU/AGP aperture.  Most of the options enabled by this can
-          be set more finegrained using the iommu= command line
-          options. See Documentation/x86/x86_64/boot-options.txt for more
-          details.
+... where <K> is in [0xfffff000, 0xffffffff] _and_ <K> is *not* an
+ancillary. And here comes the BUT: assuming some *old* code will have
+such an instruction where <K> is between [0xfffff000, 0xffffffff] and
+it doesn't know ancillary operations, then this will give a
+non-expected / unwanted behavior as well (since we do not return the
+BPF machine with 0 after a failed load_pointer(), which was the case
+before introducing ancillary operations, but load sth. into the
+accumulator instead, and continue with the next instruction, for
+instance). Thus, user space code would already have been broken by
+introducing ancillary operations into the BPF machine per se. Code
+that does such a direct load, e.g. "load word at packet offset
+0xffffffff into accumulator" ("ld [0xffffffff]") is quite broken,
+isn't it? The whole assumption of ancillary operations is that no-one
+intentionally calls things like "ld [0xffffffff]" and expect this
+word to be loaded from such a packet offset. Hence, we can also safely
+make use of this feature testing patch and facilitate application
+development. Therefore, at least from this patch onwards, we have
+*for sure* a check whether current or in future implemented BPF_S_ANC*
+ops are supported in the kernel. Patch was tested on x86_64.
+
+(Thanks to Eric for the previous review.)
+
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Reported-by: Ani Sinha <ani@aristanetworks.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/core/filter.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index c23543c..2ead2a9 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -532,6 +532,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ 		[BPF_JMP|BPF_JSET|BPF_X] = BPF_S_JMP_JSET_X,
+ 	};
+ 	int pc;
++	bool anc_found;
+ 
+ 	if (flen == 0 || flen > BPF_MAXINSNS)
+ 		return -EINVAL;
+@@ -592,8 +593,10 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ 		case BPF_S_LD_W_ABS:
+ 		case BPF_S_LD_H_ABS:
+ 		case BPF_S_LD_B_ABS:
++			anc_found = false;
+ #define ANCILLARY(CODE) case SKF_AD_OFF + SKF_AD_##CODE:	\
+ 				code = BPF_S_ANC_##CODE;	\
++				anc_found = true;		\
+ 				break
+ 			switch (ftest->k) {
+ 			ANCILLARY(PROTOCOL);
+@@ -610,6 +613,10 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
+ 			ANCILLARY(VLAN_TAG);
+ 			ANCILLARY(VLAN_TAG_PRESENT);
+ 			}
++
++			/* ancillary operation unknown or unsupported */
++			if (anc_found == false && ftest->k >= SKF_AD_OFF)
++				return -EINVAL;
+ 		}
+ 		ftest->code = code;
+ 	}
+-- 
+1.7.11.7
