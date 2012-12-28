@@ -1,68 +1,54 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] bridge: respect RFC2863 operational state
-Date: Fri, 28 Dec 2012 09:40:08 +0100
-Message-ID: <20121228084008.GA1579@minipsycho.orion>
-References: <20121227222854.6ec132dd@nehalam.linuxnetplumber.net>
+From: canqun zhang <canqunzhang@gmail.com>
+Subject: Re: [PATCH 01/19] netfilter: move nf_conntrack initialize out of
+ pernet operations
+Date: Fri, 28 Dec 2012 16:48:07 +0800
+Message-ID: <CAFFEFTXU1Yptqx0x6CjtqXMU+7HYu4F7Hk7u29oPCeghZ9Wc_Q@mail.gmail.com>
+References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<CAFFEFTXT_fkF2pPSxDEEgic80NVWLqBWtFuvs6W9uDUW2aCnqw@mail.gmail.com>
+	<50DD4737.2070306@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:34927 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892Ab2L1IkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 03:40:13 -0500
-Received: by mail-ee0-f41.google.com with SMTP id d41so4964611eek.14
-        for <netdev@vger.kernel.org>; Fri, 28 Dec 2012 00:40:11 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20121227222854.6ec132dd@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netfilter-devel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>, pablo@netfilter.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <50DD4737.2070306@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Dec 28, 2012 at 07:28:54AM CET, shemminger@vyatta.com wrote:
->The bridge link detection should follow the operational state
->of the lower device, rather than the carrier bit. This allows devices
->like tunnels that are controlled by userspace control plane to work
->with bridge STP link management.
->
->
->Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->
->
->--- a/net/bridge/br_if.c	2012-10-25 09:11:15.627272524 -0700
->+++ b/net/bridge/br_if.c	2012-12-14 08:58:14.329847361 -0800
->@@ -66,14 +66,14 @@ void br_port_carrier_check(struct net_br
-> 	struct net_device *dev = p->dev;
-> 	struct net_bridge *br = p->br;
-> 
->-	if (netif_running(dev) && netif_carrier_ok(dev))
->+	if (netif_running(dev) && netif_oper_up(dev))
-> 		p->path_cost = port_cost(dev);
-> 
-> 	if (!netif_running(br->dev))
-> 		return;
-> 
-> 	spin_lock_bh(&br->lock);
->-	if (netif_running(dev) && netif_carrier_ok(dev)) {
->+	if (netif_running(dev) && netif_oper_up(dev))
-> 		if (p->state == BR_STATE_DISABLED)
-> 			br_stp_enable_port(p);
-> 	} else {
->--- a/net/bridge/br_notify.c	2012-10-25 09:11:15.631272484 -0700
->+++ b/net/bridge/br_notify.c	2012-12-14 08:57:36.954222724 -0800
->@@ -82,7 +82,7 @@ static int br_device_event(struct notifi
-> 		break;
-> 
-> 	case NETDEV_UP:
->-		if (netif_carrier_ok(dev) && (br->dev->flags & IFF_UP)) {
->+		if (netif_running(br->dev) && netif_oper_up(dev)) {
-> 			spin_lock_bh(&br->lock);
-> 			br_stp_enable_port(p);
-> 			spin_unlock_bh(&br->lock);
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ok, I can help you take a test, please send a big patch container this
+patchset  to my email.
 
 
-Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+2012/12/28 Gao feng <gaofeng@cn.fujitsu.com>:
+> On 12/28/12 11:52, canqun zhang wrote:
+>> Hi all
+>> As discussed above,if the host machine create several linux
+>> containers, there will be several  net namespaces.Resources with "nf
+>> conntrack" are registered or unregistered on the first net
+>> namespace(init_net),But init_net is not unregistered lastly,so
+>> cleanuping other net namespaces  will triger painic.
+>> If net namespaces are created  with the order of 1,2,...n,they should
+>> be cleaned with the order of n,...2,1,so in this case init_net will be
+>> unregistered lastly.
+>> I fixed it up (see below). I have taken a lot of test!
+>>
+>
+> I thinks this BUG is a netfilter BUG,not a netns BUG.
+> Other subsystems implemented netns support don't use init_net to
+> do some special works((un)register/(un)set).
+>
+> In fact,we can't use init_net to do this job well.such as function
+> nf_conntrack_clean,we shoud set ip_ct_attach to NULL before any
+> netns doing cleanup jobs, and set nf_ct_destroy to NULL after all of
+> netns finish these cleanup jobs.
+>
+> So I think finally we still need this patchset,And this is a regular
+> way to fix this problem.
+>
+> Can you help me to test if the panic bug is fixed by this patchset?
+> and then give me your tested-by?
+>
+> thank you very much!
