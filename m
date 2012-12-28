@@ -1,70 +1,51 @@
 From: Tushar Behera <tushar.behera@linaro.org>
-Subject: Re: [PATCH 08/14] xen: netback: Remove redundant check on unsigned
- variable
-Date: Fri, 28 Dec 2012 10:45:39 +0530
-Message-ID: <50DD2AFB.6030701@linaro.org>
-References: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>  <1353048646-10935-9-git-send-email-tushar.behera@linaro.org> <1353057394.3499.159.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH 10/14] atm: Removed redundant check on unsigned variable
+Date: Fri, 28 Dec 2012 10:46:36 +0530
+Message-ID: <50DD2B34.9070905@linaro.org>
+References: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org> <1353048646-10935-11-git-send-email-tushar.behera@linaro.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"patches@linaro.org" <patches@linaro.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Cc: patches@linaro.org, Chas Williams <chas@cmf.nrl.navy.mil>,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:61054 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750739Ab2L1FPq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 00:15:46 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so5690551pbc.5
-        for <netdev@vger.kernel.org>; Thu, 27 Dec 2012 21:15:45 -0800 (PST)
-In-Reply-To: <1353057394.3499.159.camel@zakaz.uk.xensource.com>
+Received: from mail-da0-f45.google.com ([209.85.210.45]:57087 "EHLO
+	mail-da0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743Ab2L1FRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 00:17:00 -0500
+Received: by mail-da0-f45.google.com with SMTP id w4so4611069dam.18
+        for <netdev@vger.kernel.org>; Thu, 27 Dec 2012 21:16:59 -0800 (PST)
+In-Reply-To: <1353048646-10935-11-git-send-email-tushar.behera@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11/16/2012 02:46 PM, Ian Campbell wrote:
-> On Fri, 2012-11-16 at 06:50 +0000, Tushar Behera wrote:
->> No need to check whether unsigned variable is less than 0.
->>
->> CC: Ian Campbell <ian.campbell@citrix.com>
->> CC: xen-devel@lists.xensource.com
->> CC: netdev@vger.kernel.org
->> Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
-> 
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> 
-> Thanks.
-> 
+Ping.
 
-This patch was not picked up for 3.8-rc1. Any idea, who should pick this up?
-
->> ---
->>  drivers/net/xen-netback/netback.c |    4 ++--
->>  1 files changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
->> index aab8677..515e10c 100644
->> --- a/drivers/net/xen-netback/netback.c
->> +++ b/drivers/net/xen-netback/netback.c
->> @@ -190,14 +190,14 @@ static int get_page_ext(struct page *pg,
->>  
->>  	group = ext.e.group - 1;
->>  
->> -	if (group < 0 || group >= xen_netbk_group_nr)
->> +	if (group >= xen_netbk_group_nr)
->>  		return 0;
->>  
->>  	netbk = &xen_netbk[group];
->>  
->>  	idx = ext.e.idx;
->>  
->> -	if ((idx < 0) || (idx >= MAX_PENDING_REQS))
->> +	if (idx >= MAX_PENDING_REQS)
->>  		return 0;
->>  
->>  	if (netbk->mmap_pages[idx] != pg)
+On 11/16/2012 12:20 PM, Tushar Behera wrote:
+> No need to check whether unsigned variable is less than 0.
 > 
+> CC: Chas Williams <chas@cmf.nrl.navy.mil>
+> CC: linux-atm-general@lists.sourceforge.net
+> CC: netdev@vger.kernel.org
+> Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
+> ---
+>  drivers/atm/fore200e.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+> index 361f5ae..fdd3fe7 100644
+> --- a/drivers/atm/fore200e.c
+> +++ b/drivers/atm/fore200e.c
+> @@ -972,7 +972,7 @@ int bsq_audit(int where, struct host_bsq* bsq, int scheme, int magn)
+>  		   where, scheme, magn, buffer->index, buffer->scheme);
+>  	}
+>  
+> -	if ((buffer->index < 0) || (buffer->index >= fore200e_rx_buf_nbr[ scheme ][ magn ])) {
+> +	if (buffer->index >= fore200e_rx_buf_nbr[ scheme ][ magn ]) {
+>  	    printk(FORE200E "bsq_audit(%d): queue %d.%d, out of range buffer index = %ld !\n",
+>  		   where, scheme, magn, buffer->index);
+>  	}
 > 
 
 
