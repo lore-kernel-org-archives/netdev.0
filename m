@@ -1,44 +1,72 @@
 From: pablo@netfilter.org
-Subject: [PATCH 03/12] netfilter: nf_conntrack_ipv6: fix comment for packets without data
-Date: Fri, 28 Dec 2012 12:52:42 +0100
-Message-ID: <1356695571-3305-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/12] netfilter: xt_recent: fix namespace destroy path
+Date: Fri, 28 Dec 2012 12:52:49 +0100
+Message-ID: <1356695571-3305-11-git-send-email-pablo@netfilter.org>
 References: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51005 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753267Ab2L1LxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Dec 2012 06:53:16 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
+From: "Vitaly E. Lavrov" <lve@guap.ru>
 
-Remove ambiguity of double negation.
+recent_net_exit() is called before recent_mt_destroy() in the
+destroy path of network namespaces. Make sure there are no entries
+in the parent proc entry xt_recent before removing it.
 
-Signed-off-by: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Acked-by: Rick Jones <rick.jones2@hp.com>
+Signed-off-by: Vitaly E. Lavrov <lve@guap.ru>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/netfilter/xt_recent.c |   20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 00ee17c..137e245 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -81,8 +81,8 @@ static int ipv6_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
- 	}
- 	protoff = ipv6_skip_exthdr(skb, extoff, &nexthdr, &frag_off);
- 	/*
--	 * (protoff == skb->len) mean that the packet doesn't have no data
--	 * except of IPv6 & ext headers. but it's tracked anyway. - YK
-+	 * (protoff == skb->len) means the packet has not data, just
-+	 * IPv6 and possibly extensions headers, but it is tracked anyway
- 	 */
- 	if (protoff < 0 || (frag_off & htons(~0x7)) != 0) {
- 		pr_debug("ip6_conntrack_core: can't find proto in pkt\n");
+diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
+index 4635c9b..dab053e 100644
+--- a/net/netfilter/xt_recent.c
++++ b/net/netfilter/xt_recent.c
+@@ -431,7 +431,8 @@ static void recent_mt_destroy(const struct xt_mtdtor_param *par)
+ 		list_del(&t->list);
+ 		spin_unlock_bh(&recent_lock);
+ #ifdef CONFIG_PROC_FS
+-		remove_proc_entry(t->name, recent_net->xt_recent);
++		if (recent_net->xt_recent != NULL)
++			remove_proc_entry(t->name, recent_net->xt_recent);
+ #endif
+ 		recent_table_flush(t);
+ 		kfree(t);
+@@ -615,6 +616,20 @@ static int __net_init recent_proc_net_init(struct net *net)
+ 
+ static void __net_exit recent_proc_net_exit(struct net *net)
+ {
++	struct recent_net *recent_net = recent_pernet(net);
++	struct recent_table *t;
++
++	/* recent_net_exit() is called before recent_mt_destroy(). Make sure
++	 * that the parent xt_recent proc entry is is empty before trying to
++	 * remove it.
++	 */
++	spin_lock_bh(&recent_lock);
++	list_for_each_entry(t, &recent_net->tables, list)
++	        remove_proc_entry(t->name, recent_net->xt_recent);
++
++	recent_net->xt_recent = NULL;
++	spin_unlock_bh(&recent_lock);
++
+ 	proc_net_remove(net, "xt_recent");
+ }
+ #else
+@@ -638,9 +653,6 @@ static int __net_init recent_net_init(struct net *net)
+ 
+ static void __net_exit recent_net_exit(struct net *net)
+ {
+-	struct recent_net *recent_net = recent_pernet(net);
+-
+-	BUG_ON(!list_empty(&recent_net->tables));
+ 	recent_proc_net_exit(net);
+ }
+ 
 -- 
 1.7.10.4
+
