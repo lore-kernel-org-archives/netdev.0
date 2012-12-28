@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next V3,repost 0/4] net: allow to change carrier
- from userspace
-Date: Fri, 28 Dec 2012 15:21:21 -0800 (PST)
-Message-ID: <20121228.152121.1771069747366138602.davem@davemloft.net>
-References: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net-next] xfrm: removes a superfluous check and add a
+ statistic
+Date: Fri, 28 Dec 2012 15:22:35 -0800 (PST)
+Message-ID: <20121228.152235.290256503144308680.davem@davemloft.net>
+References: <1356681988-7985-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	bhutchings@solarflare.com, mirqus@gmail.com, shemminger@vyatta.com,
-	greearb@candelatech.com, fbl@redhat.com, john.r.fastabend@intel.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55894 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55912 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754171Ab2L1XVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 18:21:24 -0500
-In-Reply-To: <1356688180-3549-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1754855Ab2L1XWg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 18:22:36 -0500
+In-Reply-To: <1356681988-7985-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 28 Dec 2012 10:49:36 +0100
+From: roy.qing.li@gmail.com
+Date: Fri, 28 Dec 2012 16:06:28 +0800
 
-> This is basically a V3 of a repost of my previous patchset:
-> "[patch net-next-2.6 0/2] net: allow to change carrier via sysfs" from Aug 30
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> The way net-sysfs stores values changed and this patchset reflects it.
-> Also, I exposed carrier via rtnetlink iface.
+> Remove the check if x->km.state equal to XFRM_STATE_VALID in
+> xfrm_state_check_expire(), which will be done before call
+> xfrm_state_check_expire().
 > 
-> So far, only dummy driver uses carrier change ndo. In very near future
-> team driver will use that as well.
+> add a LINUX_MIB_XFRMOUTSTATEINVALID statistic to record the
+> outbound error due to invalid xfrm state.
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Series applied, thanks.
+I'll let Steffen pick this up when he returns from his holiday
+break.
+
+Please CC: him on all IPSEC changes since he is the primary
+IPSEC maintainer and is the one who will integrate your IPSEC
+patches into his ipsec GIT tree.
