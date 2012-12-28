@@ -1,238 +1,290 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Fri, 28 Dec 2012 01:45:03 +0000
-Message-ID: <20121228014503.GA5017@dcvr.yhbt.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Voellmy <andreas.voellmy@yale.edu>,
-	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
-	"Junchang(Jason) Wang" <junchang.wang@yale.edu>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH 01/19] netfilter: move nf_conntrack initialize out of pernet operations
+Date: Fri, 28 Dec 2012 10:36:27 +0800
+Message-ID: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, canqunzhang@gmail.com, kaber@trash.net,
+	pablo@netfilter.org, ebiederm@xmission.com,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:12405 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752287Ab2L1Cip (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Dec 2012 21:38:45 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I'm finding ppoll() unexpectedly stuck when waiting for POLLIN on a
-local TCP socket.  The isolated code below can reproduces the issue
-after many minutes (<1 hour).  It might be easier to reproduce on
-a busy system while disk I/O is happening.
+canqun zhang reported a panic BUG,kernel may panic when
+unloading nf_conntrack module.
 
-This may also be related to an epoll-related issue reported
-by Andreas Voellmy:
-http://thread.gmane.org/gmane.linux.kernel/1408782/
+It's because we reset nf_ct_destroy to NULL when we deal
+with init_net,it's too early.Some packets belongs to other
+netns still refers to the conntrack.when these packets need
+to be freed, kfree_skb will call nf_ct_destroy which is
+NULL.
 
-My example involves a 3 thread data flow between two pairs
-of (4) sockets:
+fix this bug by moving the nf_conntrack initialize and cleanup
+codes out of the pernet operations,this job should be done
+in module_init/exit.We can't use init_net to identify if
+it's the right time.
 
-	 send_loop ->   recv_loop(recv_send)   -> recv_loop(recv_only)
-	 pair_a[1] -> (pair_a[0] -> pair_b[1]) -> pair_b[0]
+Reported-by: canqun zhang <canqunzhang@gmail.com>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ include/net/netfilter/nf_conntrack_core.h | 10 +++-
+ net/netfilter/nf_conntrack_core.c         | 99 ++++++++++++-------------------
+ net/netfilter/nf_conntrack_standalone.c   | 29 ++++++---
+ 3 files changed, 67 insertions(+), 71 deletions(-)
 
-At least 3.7 and 3.7.1 are affected.
-
-I have tcp_low_latency=1 set, I will try 0 later
-
-The last progress message I got was after receiving 2942052597760
-bytes on fd=7 (out of 64-bit ULONG_MAX / 2)
-
-strace:
-
-3644  sendto(4, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 16384, 0, NULL, 0 <unfinished ...>
-3643  sendto(6, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 16384, 0, NULL, 0 <unfinished ...>
-3642  ppoll([{fd=7, events=POLLIN}], 1, NULL, NULL, 8 <unfinished ...>
-3641  futex(0x7f23ed8129d0, FUTEX_WAIT, 3644, NULL <unfinished ...>
-
-The first and last lines of the strace are expected:
-
-+ 3644	sendto(4) is blocked because 3643 is blocked on sendto(fd=6)
-  and not able to call recv().
-+ 3641 is the main thread calling pthread_join
-
-What is unexpected is the tid=3643 and tid=3642 interaction.  As confirmed
-by lsof below, fd=6 is sending to wake up fd=7, but ppoll(fd=7) seems
-to not be waking up.
-
-lsof:
-toosleepy 3641   ew    4u  IPv4  12405      0t0     TCP localhost:55904->localhost:33249 (ESTABLISHED)
-toosleepy 3641   ew    5u  IPv4  12406      0t0     TCP localhost:33249->localhost:55904 (ESTABLISHED)
-toosleepy 3641   ew    6u  IPv4  12408      0t0     TCP localhost:48777->localhost:33348 (ESTABLISHED)
-toosleepy 3641   ew    7u  IPv4  12409      0t0     TCP localhost:33348->localhost:48777 (ESTABLISHED)
-
-System info: Linux 3.7.1 x86_64 SMP PREEMPT
-AMD Phenom(tm) II X4 945 Processor (4 cores)
-Nothing interesting in dmesg, iptables rules are empty.
-
-I have not yet been able to reproduce the issue using UNIX sockets,
-only TCP, but you can run:
-
-  ./toosleepy unix
-
-...to test with UNIX sockets intead of TCP.
-
-The following code is also available via git://bogomips.org/toosleepy
-gcc -o toosleepy -O2 -Wall -lpthread toosleepy.c
--------------------------------- 8< ------------------------------------
-#define _GNU_SOURCE
-#include <poll.h>
-#include <sys/ioctl.h>
-#include <pthread.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/tcp.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <assert.h>
-#include <limits.h>
-
-struct receiver {
-	int rfd;
-	int sfd;
-};
-
-/* blocking sender */
-static void * send_loop(void *fdp)
-{
-	int fd = *(int *)fdp;
-	char buf[16384];
-	ssize_t s;
-	size_t sent = 0;
-	size_t max = (size_t)ULONG_MAX / 2;
-
-	while (sent < max) {
-		s = send(fd, buf, sizeof(buf), 0);
-		if (s > 0)
-			sent += s;
-		if (s == -1)
-			assert(errno == EINTR);
-	}
-	dprintf(2, "%d done sending: %zu\n", fd, sent);
-	close(fd);
-	return NULL;
-}
-
-/* non-blocking receiver, using ppoll */
-static void * recv_loop(void *p)
-{
-	const struct receiver *rcvr = p;
-	char buf[16384];
-	nfds_t nfds = 1;
-	struct pollfd fds;
-	int rc;
-	ssize_t r, s;
-	size_t received = 0;
-	size_t sent = 0;
-
-	for (;;) {
-		r = recv(rcvr->rfd, buf, sizeof(buf), 0);
-		if (r == 0) {
-			break;
-		} else if (r == -1) {
-			assert(errno == EAGAIN);
-
-			fds.fd = rcvr->rfd;
-			fds.events = POLLIN;
-			errno = 0;
-			rc = ppoll(&fds, nfds, NULL, NULL);
-			assert(rc == 1);
-		} else {
-			assert(r > 0);
-			received += r;
-			if (rcvr->sfd >= 0) {
-				s = send(rcvr->sfd, buf, sizeof(buf), 0);
-				if (s > 0)
-					sent += s;
-				if (s == -1)
-					assert(errno == EINTR);
-			} else {
-				/* just burn some cycles */
-				write(-1, buf, sizeof(buf));
-			}
-		}
-		if ((received % (sizeof(buf) * sizeof(buf) * 16) == 0))
-			dprintf(2, " %d progress: %zu\n",
-			        rcvr->rfd, received);
-	}
-	dprintf(2, "%d got: %zu\n", rcvr->rfd, received);
-	if (rcvr->sfd >= 0) {
-		dprintf(2, "%d sent: %zu\n", rcvr->sfd, sent);
-		close(rcvr->sfd);
-	}
-
-	return NULL;
-}
-
-static void tcp_socketpair(int sv[2], int accept_flags)
-{
-	struct sockaddr_in addr;
-	socklen_t addrlen = sizeof(addr);
-	int l = socket(PF_INET, SOCK_STREAM, 0);
-	int c = socket(PF_INET, SOCK_STREAM, 0);
-	int a;
-
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = 0;
-	assert(0 == bind(l, (struct sockaddr*)&addr, addrlen));
-	assert(0 == listen(l, 1024));
-	assert(0 == getsockname(l, (struct sockaddr *)&addr, &addrlen));
-	assert(0 == connect(c, (struct sockaddr *)&addr, addrlen));
-	a = accept4(l, NULL, NULL, accept_flags);
-	assert(a >= 0);
-	close(l);
-	sv[0] = a;
-	sv[1] = c;
-}
-
-int main(int argc, char *argv[])
-{
-	int pair_a[2];
-	int pair_b[2];
-	pthread_t s, rs, r;
-	struct receiver recv_only;
-	struct receiver recv_send;
-
-	if (argc == 2 && strcmp(argv[1], "unix") == 0) {
-		int val;
-		assert(0 == socketpair(AF_UNIX, SOCK_STREAM, 0, pair_a));
-		assert(0 == socketpair(AF_UNIX, SOCK_STREAM, 0, pair_b));
-		/* only make the receiver non-blocking */
-		val = 1;
-		assert(0 == ioctl(pair_a[0], FIONBIO, &val));
-		val = 1;
-		assert(0 == ioctl(pair_b[0], FIONBIO, &val));
-	} else {
-		tcp_socketpair(pair_a, SOCK_NONBLOCK);
-		tcp_socketpair(pair_b, SOCK_NONBLOCK);
-	}
-
-	recv_send.rfd = pair_a[0];
-	recv_send.sfd = pair_b[1];
-	recv_only.rfd = pair_b[0];
-	recv_only.sfd = -1;
-
-	/*
-	 * data flow:
-	 * send_loop ->   recv_loop(recv_send)   -> recv_loop(recv_only)
-	 * pair_a[1] -> (pair_a[0] -> pair_b[1]) -> pair_b[0]
-	 */
-	assert(0 == pthread_create(&r, NULL, recv_loop, &recv_only));
-	assert(0 == pthread_create(&rs, NULL, recv_loop, &recv_send));
-	assert(0 == pthread_create(&s, NULL, send_loop, &pair_a[1]));
-	assert(0 == pthread_join(s, NULL));
-	assert(0 == pthread_join(rs, NULL));
-	assert(0 == pthread_join(r, NULL));
-
-	return 0;
-}
--------------------------------- 8< ------------------------------------
-Any help/suggestions/test patches would be greatly appreciated.
-Thanks for reading!
-
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index d8f5b9f..ec51a3c 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -25,8 +25,14 @@ extern unsigned int nf_conntrack_in(struct net *net,
+ 				    unsigned int hooknum,
+ 				    struct sk_buff *skb);
+ 
+-extern int nf_conntrack_init(struct net *net);
+-extern void nf_conntrack_cleanup(struct net *net);
++extern int nf_conntrack_init_net(struct net *net);
++extern void nf_conntrack_cleanup_net(struct net *net);
++
++extern int nf_conntrack_init_start(void);
++extern void nf_conntrack_cleanup_start(void);
++
++extern void nf_conntrack_init_end(void);
++extern void nf_conntrack_cleanup_end(void);
+ 
+ extern int nf_conntrack_proto_init(struct net *net);
+ extern void nf_conntrack_proto_fini(struct net *net);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 08cdc71..ffb2463 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1331,18 +1331,23 @@ static int untrack_refs(void)
+ 	return cnt;
+ }
+ 
+-static void nf_conntrack_cleanup_init_net(void)
++void nf_conntrack_cleanup_start(void)
+ {
+-	while (untrack_refs() > 0)
+-		schedule();
+-
+-#ifdef CONFIG_NF_CONNTRACK_ZONES
+-	nf_ct_extend_unregister(&nf_ct_zone_extend);
+-#endif
++	RCU_INIT_POINTER(ip_ct_attach, NULL);
+ }
+ 
+-static void nf_conntrack_cleanup_net(struct net *net)
++/*
++ * Mishearing the voices in his head, our hero wonders how he's
++ * supposed to kill the mall.
++ */
++void nf_conntrack_cleanup_net(struct net *net)
+ {
++	/*
++	 * This makes sure all current packets have passed through
++	 * netfilter framework.  Roll on, two-stage module
++	 * delete...
++	 */
++	synchronize_net();
+  i_see_dead_people:
+ 	nf_ct_iterate_cleanup(net, kill_all, NULL);
+ 	nf_ct_release_dying_list(net);
+@@ -1352,6 +1357,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
+ 	}
+ 
+ 	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
++	nf_conntrack_proto_fini(net);
+ 	nf_conntrack_helper_fini(net);
+ 	nf_conntrack_timeout_fini(net);
+ 	nf_conntrack_ecache_fini(net);
+@@ -1363,24 +1369,15 @@ static void nf_conntrack_cleanup_net(struct net *net)
+ 	free_percpu(net->ct.stat);
+ }
+ 
+-/* Mishearing the voices in his head, our hero wonders how he's
+-   supposed to kill the mall. */
+-void nf_conntrack_cleanup(struct net *net)
++void nf_conntrack_cleanup_end(void)
+ {
+-	if (net_eq(net, &init_net))
+-		RCU_INIT_POINTER(ip_ct_attach, NULL);
+-
+-	/* This makes sure all current packets have passed through
+-	   netfilter framework.  Roll on, two-stage module
+-	   delete... */
+-	synchronize_net();
+-	nf_conntrack_proto_fini(net);
+-	nf_conntrack_cleanup_net(net);
++	RCU_INIT_POINTER(nf_ct_destroy, NULL);
++	while (untrack_refs() > 0)
++		schedule();
+ 
+-	if (net_eq(net, &init_net)) {
+-		RCU_INIT_POINTER(nf_ct_destroy, NULL);
+-		nf_conntrack_cleanup_init_net();
+-	}
++#ifdef CONFIG_NF_CONNTRACK_ZONES
++	nf_ct_extend_unregister(&nf_ct_zone_extend);
++#endif
+ }
+ 
+ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls)
+@@ -1473,7 +1470,7 @@ void nf_ct_untracked_status_or(unsigned long bits)
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_untracked_status_or);
+ 
+-static int nf_conntrack_init_init_net(void)
++int nf_conntrack_init_start(void)
+ {
+ 	int max_factor = 8;
+ 	int ret, cpu;
+@@ -1527,7 +1524,7 @@ err_extend:
+ #define UNCONFIRMED_NULLS_VAL	((1<<30)+0)
+ #define DYING_NULLS_VAL		((1<<30)+1)
+ 
+-static int nf_conntrack_init_net(struct net *net)
++int nf_conntrack_init_net(struct net *net)
+ {
+ 	int ret;
+ 
+@@ -1580,7 +1577,12 @@ static int nf_conntrack_init_net(struct net *net)
+ 	ret = nf_conntrack_helper_init(net);
+ 	if (ret < 0)
+ 		goto err_helper;
++	ret = nf_conntrack_proto_init(net);
++	if (ret < 0)
++		goto out_proto;
+ 	return 0;
++out_proto:
++	nf_conntrack_helper_fini(net);
+ err_helper:
+ 	nf_conntrack_timeout_fini(net);
+ err_timeout:
+@@ -1603,42 +1605,17 @@ err_stat:
+ 	return ret;
+ }
+ 
++void nf_conntrack_init_end(void)
++{
++	/* For use by REJECT target */
++	RCU_INIT_POINTER(ip_ct_attach, nf_conntrack_attach);
++	RCU_INIT_POINTER(nf_ct_destroy, destroy_conntrack);
++
++	/* Howto get NAT offsets */
++	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
++}
++
+ s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
+ 			enum ip_conntrack_dir dir,
+ 			u32 seq);
+ EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
+-
+-int nf_conntrack_init(struct net *net)
+-{
+-	int ret;
+-
+-	if (net_eq(net, &init_net)) {
+-		ret = nf_conntrack_init_init_net();
+-		if (ret < 0)
+-			goto out_init_net;
+-	}
+-	ret = nf_conntrack_proto_init(net);
+-	if (ret < 0)
+-		goto out_proto;
+-	ret = nf_conntrack_init_net(net);
+-	if (ret < 0)
+-		goto out_net;
+-
+-	if (net_eq(net, &init_net)) {
+-		/* For use by REJECT target */
+-		RCU_INIT_POINTER(ip_ct_attach, nf_conntrack_attach);
+-		RCU_INIT_POINTER(nf_ct_destroy, destroy_conntrack);
+-
+-		/* Howto get NAT offsets */
+-		RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
+-	}
+-	return 0;
+-
+-out_net:
+-	nf_conntrack_proto_fini(net);
+-out_proto:
+-	if (net_eq(net, &init_net))
+-		nf_conntrack_cleanup_init_net();
+-out_init_net:
+-	return ret;
+-}
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+index 363285d..00bf93c 100644
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -530,11 +530,11 @@ static void nf_conntrack_standalone_fini_sysctl(struct net *net)
+ }
+ #endif /* CONFIG_SYSCTL */
+ 
+-static int nf_conntrack_net_init(struct net *net)
++static int nf_conntrack_pernet_init(struct net *net)
+ {
+ 	int ret;
+ 
+-	ret = nf_conntrack_init(net);
++	ret = nf_conntrack_init_net(net);
+ 	if (ret < 0)
+ 		goto out_init;
+ 	ret = nf_conntrack_standalone_init_proc(net);
+@@ -550,31 +550,44 @@ static int nf_conntrack_net_init(struct net *net)
+ out_sysctl:
+ 	nf_conntrack_standalone_fini_proc(net);
+ out_proc:
+-	nf_conntrack_cleanup(net);
++	nf_conntrack_cleanup_net(net);
+ out_init:
+ 	return ret;
+ }
+ 
+-static void nf_conntrack_net_exit(struct net *net)
++static void nf_conntrack_pernet_exit(struct net *net)
+ {
+ 	nf_conntrack_standalone_fini_sysctl(net);
+ 	nf_conntrack_standalone_fini_proc(net);
+-	nf_conntrack_cleanup(net);
++	nf_conntrack_cleanup_net(net);
+ }
+ 
+ static struct pernet_operations nf_conntrack_net_ops = {
+-	.init = nf_conntrack_net_init,
+-	.exit = nf_conntrack_net_exit,
++	.init = nf_conntrack_pernet_init,
++	.exit = nf_conntrack_pernet_exit,
+ };
+ 
+ static int __init nf_conntrack_standalone_init(void)
+ {
+-	return register_pernet_subsys(&nf_conntrack_net_ops);
++	int ret = nf_conntrack_init_start();
++	if (ret < 0)
++		goto out_start;
++	ret = register_pernet_subsys(&nf_conntrack_net_ops);
++	if (ret < 0)
++		goto out_pernet;
++	nf_conntrack_init_end();
++	return 0;
++out_pernet:
++	nf_conntrack_cleanup_end();
++out_start:
++	return ret;
+ }
+ 
+ static void __exit nf_conntrack_standalone_fini(void)
+ {
++	nf_conntrack_cleanup_start();
+ 	unregister_pernet_subsys(&nf_conntrack_net_ops);
++	nf_conntrack_cleanup_end();
+ }
+ 
+ module_init(nf_conntrack_standalone_init);
 -- 
-Eric Wong
+1.7.11.7
