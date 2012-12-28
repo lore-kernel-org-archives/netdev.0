@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] ah4/esp4: set transport header correctly for IPsec
- tunnel mode.
-Date: Fri, 28 Dec 2012 15:22:56 -0800 (PST)
-Message-ID: <20121228.152256.163682377977652704.davem@davemloft.net>
-References: <1356682036-25642-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [RFC PATCH 0/3] Make rfc3686 template work with asynchronous
+ block ciphers
+Date: Fri, 28 Dec 2012 15:23:11 -0800 (PST)
+Message-ID: <20121228.152311.290755667605168896.davem@davemloft.net>
+References: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
+	<20121228224248.GA29448@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55919 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755116Ab2L1XW5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 18:22:57 -0500
-In-Reply-To: <1356682036-25642-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jussi.kivilinna@mbnet.fi, linux-crypto@vger.kernel.org,
+	steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20121228224248.GA29448@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: roy.qing.li@gmail.com
-Date: Fri, 28 Dec 2012 16:07:16 +0800
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 29 Dec 2012 09:42:49 +1100
 
-> From: Li RongQing <roy.qing.li@gmail.com>
+> On Fri, Dec 28, 2012 at 12:04:48PM +0200, Jussi Kivilinna wrote:
+>> I'm not sure how this patchset should be dealt with (should 1st patch go
+>> through different tree than 2nd and 3rd?), so therefore it's RFC.
+>> 
+>> Second patch makes rfc3686 template work with asynchronous block ciphers and
+>> third patch changes aesni-intel to use this template. First patch fixed problem
+>> in xfrm_algo found with help of 2nd and 3rd patches and without 1st patch
+>> 2nd patch breaks aes-ctr with IPSEC.
 > 
-> IPsec tunnel does not set ECN field to CE in inner header when
-> the ECN field in the outer header is CE, and the ECN field in
-> the inner header is ECT(0) or ECT(1).
-> 
-> The cause is ipip_hdr() does not return the correct address of
-> inner header since skb->transport-header is not the inner header
-> after esp_input_done2(), or ah_input().
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> I think the easiest way is to have these patches go through Dave's
+> tree.
 
-Likewise I'll leave this to Steffen.
+Better yet, Steffen's IPSEC tree :-)
