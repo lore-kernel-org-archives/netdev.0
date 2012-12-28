@@ -1,54 +1,238 @@
-From: Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp>
-Subject: Re: vxlan in Linux kernel 3.7
-Date: Fri, 28 Dec 2012 09:46:49 +0900
-Message-ID: <20121228094648.5F53.C42C3789@sakura.ad.jp>
-References: <A3CA455BB4F1DA4E92CB43AAF0E4BB1D0667E12B@MX01A.corp.emc.com>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: ppoll() stuck on POLLIN while TCP peer is sending
+Date: Fri, 28 Dec 2012 01:45:03 +0000
+Message-ID: <20121228014503.GA5017@dcvr.yhbt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Qin, Xiaohong" <Xiaohong.Qin@emc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.sakura.ad.jp ([210.224.172.11]:36339 "EHLO
-	mail.sakura.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752333Ab2L1Aqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Dec 2012 19:46:46 -0500
-In-Reply-To: <A3CA455BB4F1DA4E92CB43AAF0E4BB1D0667E12B@MX01A.corp.emc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andreas Voellmy <andreas.voellmy@yale.edu>,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	"Junchang(Jason) Wang" <junchang.wang@yale.edu>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+I'm finding ppoll() unexpectedly stuck when waiting for POLLIN on a
+local TCP socket.  The isolated code below can reproduces the issue
+after many minutes (<1 hour).  It might be easier to reproduce on
+a busy system while disk I/O is happening.
 
-Hi Qin
+This may also be related to an epoll-related issue reported
+by Andreas Voellmy:
+http://thread.gmane.org/gmane.linux.kernel/1408782/
 
-FYI(For Your Information)
+My example involves a 3 thread data flow between two pairs
+of (4) sockets:
 
-A First Look At VXLAN over Infiniband Network On Linux 3.7-rc7 & iproute2
-http://slidesha.re/TsCKWc
+	 send_loop ->   recv_loop(recv_send)   -> recv_loop(recv_only)
+	 pair_a[1] -> (pair_a[0] -> pair_b[1]) -> pair_b[0]
 
+At least 3.7 and 3.7.1 are affected.
 
-On Thu, 27 Dec 2012 13:42:51 -0500
-"Qin, Xiaohong" <Xiaohong.Qin@emc.com> wrote:
+I have tcp_low_latency=1 set, I will try 0 later
 
-> Hi All,
-> 
-> I have installed kernel 3.7 on my Linux box, see the following uname -a output,
-> 
-> uname -a
-> Linux c210-m2-sib-3 3.7.0-030700-generic #201212102335 SMP Tue Dec 11 04:36:24 UTC 2012 x86_64 x86_64 x86_64 GNU/Linux
-> 
-> Does that mean I've got VXLAN module loaded or I still need to go through some extra steps to enable or configure it? Do you have any VXLAN setup or configuration document by chance?
-> 
-> Thanks.
-> 
-> Dennis Qin
-> 
-> P.S. If this is not the right place to ask this kind of questions, please let me know which mailing list I should use.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The last progress message I got was after receiving 2942052597760
+bytes on fd=7 (out of 64-bit ULONG_MAX / 2)
+
+strace:
+
+3644  sendto(4, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 16384, 0, NULL, 0 <unfinished ...>
+3643  sendto(6, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 16384, 0, NULL, 0 <unfinished ...>
+3642  ppoll([{fd=7, events=POLLIN}], 1, NULL, NULL, 8 <unfinished ...>
+3641  futex(0x7f23ed8129d0, FUTEX_WAIT, 3644, NULL <unfinished ...>
+
+The first and last lines of the strace are expected:
+
++ 3644	sendto(4) is blocked because 3643 is blocked on sendto(fd=6)
+  and not able to call recv().
++ 3641 is the main thread calling pthread_join
+
+What is unexpected is the tid=3643 and tid=3642 interaction.  As confirmed
+by lsof below, fd=6 is sending to wake up fd=7, but ppoll(fd=7) seems
+to not be waking up.
+
+lsof:
+toosleepy 3641   ew    4u  IPv4  12405      0t0     TCP localhost:55904->localhost:33249 (ESTABLISHED)
+toosleepy 3641   ew    5u  IPv4  12406      0t0     TCP localhost:33249->localhost:55904 (ESTABLISHED)
+toosleepy 3641   ew    6u  IPv4  12408      0t0     TCP localhost:48777->localhost:33348 (ESTABLISHED)
+toosleepy 3641   ew    7u  IPv4  12409      0t0     TCP localhost:33348->localhost:48777 (ESTABLISHED)
+
+System info: Linux 3.7.1 x86_64 SMP PREEMPT
+AMD Phenom(tm) II X4 945 Processor (4 cores)
+Nothing interesting in dmesg, iptables rules are empty.
+
+I have not yet been able to reproduce the issue using UNIX sockets,
+only TCP, but you can run:
+
+  ./toosleepy unix
+
+...to test with UNIX sockets intead of TCP.
+
+The following code is also available via git://bogomips.org/toosleepy
+gcc -o toosleepy -O2 -Wall -lpthread toosleepy.c
+-------------------------------- 8< ------------------------------------
+#define _GNU_SOURCE
+#include <poll.h>
+#include <sys/ioctl.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/tcp.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <assert.h>
+#include <limits.h>
+
+struct receiver {
+	int rfd;
+	int sfd;
+};
+
+/* blocking sender */
+static void * send_loop(void *fdp)
+{
+	int fd = *(int *)fdp;
+	char buf[16384];
+	ssize_t s;
+	size_t sent = 0;
+	size_t max = (size_t)ULONG_MAX / 2;
+
+	while (sent < max) {
+		s = send(fd, buf, sizeof(buf), 0);
+		if (s > 0)
+			sent += s;
+		if (s == -1)
+			assert(errno == EINTR);
+	}
+	dprintf(2, "%d done sending: %zu\n", fd, sent);
+	close(fd);
+	return NULL;
+}
+
+/* non-blocking receiver, using ppoll */
+static void * recv_loop(void *p)
+{
+	const struct receiver *rcvr = p;
+	char buf[16384];
+	nfds_t nfds = 1;
+	struct pollfd fds;
+	int rc;
+	ssize_t r, s;
+	size_t received = 0;
+	size_t sent = 0;
+
+	for (;;) {
+		r = recv(rcvr->rfd, buf, sizeof(buf), 0);
+		if (r == 0) {
+			break;
+		} else if (r == -1) {
+			assert(errno == EAGAIN);
+
+			fds.fd = rcvr->rfd;
+			fds.events = POLLIN;
+			errno = 0;
+			rc = ppoll(&fds, nfds, NULL, NULL);
+			assert(rc == 1);
+		} else {
+			assert(r > 0);
+			received += r;
+			if (rcvr->sfd >= 0) {
+				s = send(rcvr->sfd, buf, sizeof(buf), 0);
+				if (s > 0)
+					sent += s;
+				if (s == -1)
+					assert(errno == EINTR);
+			} else {
+				/* just burn some cycles */
+				write(-1, buf, sizeof(buf));
+			}
+		}
+		if ((received % (sizeof(buf) * sizeof(buf) * 16) == 0))
+			dprintf(2, " %d progress: %zu\n",
+			        rcvr->rfd, received);
+	}
+	dprintf(2, "%d got: %zu\n", rcvr->rfd, received);
+	if (rcvr->sfd >= 0) {
+		dprintf(2, "%d sent: %zu\n", rcvr->sfd, sent);
+		close(rcvr->sfd);
+	}
+
+	return NULL;
+}
+
+static void tcp_socketpair(int sv[2], int accept_flags)
+{
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(addr);
+	int l = socket(PF_INET, SOCK_STREAM, 0);
+	int c = socket(PF_INET, SOCK_STREAM, 0);
+	int a;
+
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	addr.sin_port = 0;
+	assert(0 == bind(l, (struct sockaddr*)&addr, addrlen));
+	assert(0 == listen(l, 1024));
+	assert(0 == getsockname(l, (struct sockaddr *)&addr, &addrlen));
+	assert(0 == connect(c, (struct sockaddr *)&addr, addrlen));
+	a = accept4(l, NULL, NULL, accept_flags);
+	assert(a >= 0);
+	close(l);
+	sv[0] = a;
+	sv[1] = c;
+}
+
+int main(int argc, char *argv[])
+{
+	int pair_a[2];
+	int pair_b[2];
+	pthread_t s, rs, r;
+	struct receiver recv_only;
+	struct receiver recv_send;
+
+	if (argc == 2 && strcmp(argv[1], "unix") == 0) {
+		int val;
+		assert(0 == socketpair(AF_UNIX, SOCK_STREAM, 0, pair_a));
+		assert(0 == socketpair(AF_UNIX, SOCK_STREAM, 0, pair_b));
+		/* only make the receiver non-blocking */
+		val = 1;
+		assert(0 == ioctl(pair_a[0], FIONBIO, &val));
+		val = 1;
+		assert(0 == ioctl(pair_b[0], FIONBIO, &val));
+	} else {
+		tcp_socketpair(pair_a, SOCK_NONBLOCK);
+		tcp_socketpair(pair_b, SOCK_NONBLOCK);
+	}
+
+	recv_send.rfd = pair_a[0];
+	recv_send.sfd = pair_b[1];
+	recv_only.rfd = pair_b[0];
+	recv_only.sfd = -1;
+
+	/*
+	 * data flow:
+	 * send_loop ->   recv_loop(recv_send)   -> recv_loop(recv_only)
+	 * pair_a[1] -> (pair_a[0] -> pair_b[1]) -> pair_b[0]
+	 */
+	assert(0 == pthread_create(&r, NULL, recv_loop, &recv_only));
+	assert(0 == pthread_create(&rs, NULL, recv_loop, &recv_send));
+	assert(0 == pthread_create(&s, NULL, send_loop, &pair_a[1]));
+	assert(0 == pthread_join(s, NULL));
+	assert(0 == pthread_join(rs, NULL));
+	assert(0 == pthread_join(r, NULL));
+
+	return 0;
+}
+-------------------------------- 8< ------------------------------------
+Any help/suggestions/test patches would be greatly appreciated.
+Thanks for reading!
 
 -- 
-SAKURA Internet Inc. / Senior Researcher
-Naoto MATSUMOTO <n-matsumoto@sakura.ad.jp>
-SAKURA Research Center <http://research.sakura.ad.jp/>
+Eric Wong
