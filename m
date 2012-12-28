@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qmi_wwan: add Telekom Speedstick LTE II
-Date: Fri, 28 Dec 2012 15:28:59 -0800 (PST)
-Message-ID: <20121228.152859.303342249509530161.davem@davemloft.net>
-References: <50D6CF0A.9020300@t-online.de>
-	<1356712255-9488-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH net-next] net: use per task frag allocator in
+ skb_append_datato_frags
+Date: Fri, 28 Dec 2012 15:29:19 -0800 (PST)
+Message-ID: <20121228.152919.278534013852665194.davem@davemloft.net>
+References: <1356710797.21409.150.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	tschaefer@t-online.de
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55972 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55978 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754171Ab2L1X3A convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 18:29:00 -0500
-In-Reply-To: <1356712255-9488-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1755071Ab2L1X3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 18:29:20 -0500
+In-Reply-To: <1356710797.21409.150.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Fri, 28 Dec 2012 17:30:55 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 28 Dec 2012 08:06:37 -0800
 
-> also known as Alcatel One Touch L100V LTE
->=20
-> The driver description files gives these names to the vendor specific
-> functions on this modem:
->=20
->  Application1: VID_1BBB&PID_011E&MI_00
->  Application2: VID_1BBB&PID_011E&MI_01
->  Modem:        VID_1BBB&PID_011E&MI_03
->  Ethernet:     VID_1BBB&PID_011E&MI_04
->=20
-> Reported-by: Thomas Sch=E4fer <tschaefer@t-online.de>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Use the new per task frag allocator in skb_append_datato_frags(),
+> to reduce number of frags and page allocator overhead.
+> 
+> Tested:
+>  ifconfig lo mtu 16436
+>  perf record netperf -t UDP_STREAM ; perf report 
+> 
+> before :
+>  Throughput: 32928 Mbit/s
+ ...
+>  after:
+>   Throughput: 47185 Mbit/s
+ ...
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Very nice, applied, thanks Eric.
