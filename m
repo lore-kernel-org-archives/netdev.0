@@ -1,8 +1,9 @@
 From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: [RFC PATCH 0/3] Make rfc3686 template work with asynchronous block
- ciphers
-Date: Fri, 28 Dec 2012 12:04:48 +0200
-Message-ID: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
+Subject: [RFC PATCH 1/3] xfrm_algo: probe asynchronous block ciphers instead
+ of synchronous
+Date: Fri, 28 Dec 2012 12:04:53 +0200
+Message-ID: <20121228100453.11073.55014.stgit@localhost6.localdomain6>
+References: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,29 +12,34 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: linux-crypto@vger.kernel.org
 Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I'm not sure how this patchset should be dealt with (should 1st patch go
-through different tree than 2nd and 3rd?), so therefore it's RFC.
+IPSEC uses block ciphers asynchronous, but probes only for synchronous block
+ciphers and makes ealg entries only available if synchronous block cipher is
+found. So with setup, where hardware crypto driver registers asynchronous
+block ciphers and software crypto module is not build, ealg is not marked
+as being available.
 
-Second patch makes rfc3686 template work with asynchronous block ciphers and
-third patch changes aesni-intel to use this template. First patch fixed problem
-in xfrm_algo found with help of 2nd and 3rd patches and without 1st patch
-2nd patch breaks aes-ctr with IPSEC.
+Use crypto_has_ablkcipher instead and remove ASYNC mask.
 
-
+Signed-off-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
 ---
+ net/xfrm/xfrm_algo.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Jussi Kivilinna (3):
-      xfrm_algo: probe asynchronous block ciphers instead of synchronous
-      crypto: ctr - make rfc3686 asynchronous block cipher
-      crypto: aesni-intel - remove rfc3686(ctr(aes)), utilize rfc3686 from ctr-module instead
-
-
- arch/x86/crypto/aesni-intel_glue.c |   37 --------
- crypto/ctr.c                       |  173 +++++++++++++++++++++++-------------
- crypto/tcrypt.c                    |    4 +
- crypto/tcrypt.h                    |    1 
- net/xfrm/xfrm_algo.c               |    3 -
- 5 files changed, 116 insertions(+), 102 deletions(-)
+diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
+index 4ce2d93..f9a5495 100644
+--- a/net/xfrm/xfrm_algo.c
++++ b/net/xfrm/xfrm_algo.c
+@@ -700,8 +700,7 @@ void xfrm_probe_algs(void)
+ 	}
+ 
+ 	for (i = 0; i < ealg_entries(); i++) {
+-		status = crypto_has_blkcipher(ealg_list[i].name, 0,
+-					      CRYPTO_ALG_ASYNC);
++		status = crypto_has_ablkcipher(ealg_list[i].name, 0, 0);
+ 		if (ealg_list[i].available != status)
+ 			ealg_list[i].available = status;
+ 	}
