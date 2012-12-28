@@ -1,81 +1,65 @@
 From: pablo@netfilter.org
-Subject: [PATCH 11/12] netfilter: xt_hashlimit: fix namespace destroy path
-Date: Fri, 28 Dec 2012 12:52:50 +0100
-Message-ID: <1356695571-3305-12-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/12] netfilter: nfnetlink_log: fix mac address for 6in4 tunnels
+Date: Fri, 28 Dec 2012 12:52:44 +0100
+Message-ID: <1356695571-3305-6-git-send-email-pablo@netfilter.org>
 References: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:51009 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753513Ab2L1LxQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Dec 2012 06:53:16 -0500
 In-Reply-To: <1356695571-3305-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Vitaly E. Lavrov" <lve@guap.ru>
+From: Bob Hockney <bhockney@ix.netcom.com>
 
-recent_net_exit() is called before recent_mt_destroy() in the
-destroy path of network namespaces. Make sure there are no entries
-in the parent proc entry xt_recent before removing it.
+For tunnelled ipv6in4 packets, the LOG target (xt_LOG.c) adjusts
+the start of the mac field to start at the ethernet header instead
+of the ipv4 header for the tunnel. This patch conforms what is
+passed by the NFLOG target through nfnetlink to what the LOG target
+does. Code borrowed from xt_LOG.c.
 
-Signed-off-by: Vitaly E. Lavrov <lve@guap.ru>
+Signed-off-by: Bob Hockney <bhockney@ix.netcom.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_hashlimit.c |   29 +++++++++++++++++++++++++----
- 1 file changed, 25 insertions(+), 4 deletions(-)
+ net/netfilter/nfnetlink_log.c |   15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index cc430f9..a9d7af9 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -329,7 +329,10 @@ static void htable_destroy(struct xt_hashlimit_htable *hinfo)
- 		parent = hashlimit_net->ipt_hashlimit;
- 	else
- 		parent = hashlimit_net->ip6t_hashlimit;
--	remove_proc_entry(hinfo->pde->name, parent);
-+
-+	if(parent != NULL)
-+		remove_proc_entry(hinfo->pde->name, parent);
-+
- 	htable_selective_cleanup(hinfo, select_all);
- 	vfree(hinfo);
- }
-@@ -873,6 +876,27 @@ static int __net_init hashlimit_proc_net_init(struct net *net)
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 9f199f2..4e210e0 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -384,6 +384,7 @@ __build_packet_message(struct nfulnl_instance *inst,
+ 	struct nfgenmsg *nfmsg;
+ 	sk_buff_data_t old_tail = inst->skb->tail;
+ 	struct sock *sk;
++	const unsigned char *hwhdrp;
  
- static void __net_exit hashlimit_proc_net_exit(struct net *net)
- {
-+	struct xt_hashlimit_htable *hinfo;
-+	struct hlist_node *pos;
-+	struct proc_dir_entry *pde;
-+	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
+ 	nlh = nlmsg_put(inst->skb, 0, 0,
+ 			NFNL_SUBSYS_ULOG << 8 | NFULNL_MSG_PACKET,
+@@ -485,9 +486,17 @@ __build_packet_message(struct nfulnl_instance *inst,
+ 	if (indev && skb_mac_header_was_set(skb)) {
+ 		if (nla_put_be16(inst->skb, NFULA_HWTYPE, htons(skb->dev->type)) ||
+ 		    nla_put_be16(inst->skb, NFULA_HWLEN,
+-				 htons(skb->dev->hard_header_len)) ||
+-		    nla_put(inst->skb, NFULA_HWHEADER, skb->dev->hard_header_len,
+-			    skb_mac_header(skb)))
++				 htons(skb->dev->hard_header_len)))
++			goto nla_put_failure;
 +
-+	/* recent_net_exit() is called before recent_mt_destroy(). Make sure
-+	 * that the parent xt_recent proc entry is is empty before trying to
-+	 * remove it.
-+	 */
-+	mutex_lock(&hashlimit_mutex);
-+	pde = hashlimit_net->ipt_hashlimit;
-+	if (pde == NULL)
-+		pde = hashlimit_net->ip6t_hashlimit;
++		hwhdrp = skb_mac_header(skb);
 +
-+	hlist_for_each_entry(hinfo, pos, &hashlimit_net->htables, node)
-+		remove_proc_entry(hinfo->pde->name, pde);
++		if (skb->dev->type == ARPHRD_SIT)
++			hwhdrp -= ETH_HLEN;
 +
-+	hashlimit_net->ipt_hashlimit = NULL;
-+	hashlimit_net->ip6t_hashlimit = NULL;
-+	mutex_unlock(&hashlimit_mutex);
-+
- 	proc_net_remove(net, "ipt_hashlimit");
- #if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
- 	proc_net_remove(net, "ip6t_hashlimit");
-@@ -889,9 +913,6 @@ static int __net_init hashlimit_net_init(struct net *net)
- 
- static void __net_exit hashlimit_net_exit(struct net *net)
- {
--	struct hashlimit_net *hashlimit_net = hashlimit_pernet(net);
--
--	BUG_ON(!hlist_empty(&hashlimit_net->htables));
- 	hashlimit_proc_net_exit(net);
- }
++		if (hwhdrp >= skb->head &&
++		    nla_put(inst->skb, NFULA_HWHEADER,
++			    skb->dev->hard_header_len, hwhdrp))
+ 			goto nla_put_failure;
+ 	}
  
 -- 
 1.7.10.4
-
