@@ -1,88 +1,91 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 1/2] vhost_net: correct error hanlding in
-	vhost_net_set_backend()
-Date: Fri, 28 Dec 2012 13:31:49 +0800
-Message-ID: <50DD2EC5.8010308@redhat.com>
-References: <20121227131442.GF20595@redhat.com>
+From: canqun zhang <canqunzhang@gmail.com>
+Subject: Re: [PATCH 01/19] netfilter: move nf_conntrack initialize out of
+ pernet operations
+Date: Fri, 28 Dec 2012 13:32:29 +0800
+Message-ID: <CAFFEFTU8kxXV2pQ3B_goRs2Y7p2ecZ1YuSKSjfYF_58eD1tDqw@mail.gmail.com>
+References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<CAFFEFTXT_fkF2pPSxDEEgic80NVWLqBWtFuvs6W9uDUW2aCnqw@mail.gmail.com>
+	<87ip7mlr2r.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20121227131442.GF20595@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Gao feng <gaofeng@cn.fujitsu.com>, netfilter-devel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>, pablo@netfilter.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <87ip7mlr2r.fsf@xmission.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/27/2012 09:14 PM, Michael S. Tsirkin wrote:
-> On Thu, Dec 27, 2012 at 02:39:19PM +0800, Jason Wang wrote:
->> Fix the leaking of oldubufs and fd refcnt when fail to initialized used ring.
->>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>  drivers/vhost/net.c |   14 +++++++++++---
->>  1 files changed, 11 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index ebd08b2..629d6b5 100644
->> --- a/drivers/vhost/net.c
->> +++ b/drivers/vhost/net.c
->> @@ -834,8 +834,10 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->>  		vhost_net_enable_vq(n, vq);
->>  
->>  		r = vhost_init_used(vq);
->> -		if (r)
->> -			goto err_vq;
->> +		if (r) {
->> +			sock = NULL;
->> +			goto err_used;
->> +		}
->>  
->>  		n->tx_packets = 0;
->>  		n->tx_zcopy_err = 0;
->> @@ -859,8 +861,14 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->>  	mutex_unlock(&n->dev.mutex);
->>  	return 0;
->>  
->> +err_used:
->> +	if (oldubufs)
->> +		vhost_ubuf_put_and_wait(oldubufs);
->> +	if (oldsock)
->> +		fput(oldsock->file);
->>  err_ubufs:
->> -	fput(sock->file);
->> +	if (sock)
->> +		fput(sock->file);
->>  err_vq:
->>  	mutex_unlock(&vq->mutex);
->>  err:
-> I think it's a real bug, but I don't see how the fix
-> makes sense.
-> We are returning an error, so we ideally
-> revert to the state before the faulty
-> operation. So this should put sock and ubufs,
-> not oldsock/oldubufs.
+yes=A3=ACNetwork namespaces in general can be cleaned up in any order=A3=
+=ACbut
+when doing /etc/ini.d/iptables restart, the system need cleaning up
+all net namespace,and init_net should be cleanup lastly.init_net is
+the first namespace,other net namespace is copied for it ,and it is
+diuty for Initializing resources,so It in itself is special.
 
-Agree.
+2012/12/28 Eric W. Biederman <ebiederm@xmission.com>:
+> canqun zhang <canqunzhang@gmail.com> writes:
 >
-> The best way is probably to change
-> vhost_init_used so that it gets private data
-> pointer as a parameter.
+>> Hi all
+>> As discussed above,if the host machine create several linux
+>> containers, there will be several  net namespaces.Resources with "nf
+>> conntrack" are registered or unregistered on the first net
+>> namespace(init_net),But init_net is not unregistered lastly,so
+>> cleanuping other net namespaces  will triger painic.
+>> If net namespaces are created  with the order of 1,2,...n,they shoul=
+d
+>> be cleaned with the order of n,...2,1,so in this case init_net will =
+be
+>> unregistered lastly.
 >
-> We can then call it before ubuf alloc.
-> You can then add err_used right after err_ubufs
-> with no extra logic.
+> No.  Network namespaces in general can be cleaned up in any order.
 >
-
-Make more sense, thanks.
+> In particular you should never ever expect to see the order
+> n,n-1,n-2,...,2,1.
 >
+> It may make sense to special case init_net in the cleanup order
+> but I would really rather not.
 >
+> Now init_net is special and really should never be cleaned up
+> for non-modular code.  So it almost makes sense to special
+> case init_net.
+>
+> Does anyone know why Alexy decided to do this only for init_net?
+>
+> My inclination is that Gao Feng is on the rigt path by just removing
+> the strange init_net special case and performing the work once
+> per module load, and once per module unload.
+>
+>> I fixed it up (see below). I have taken a lot of test!
+>
+> Thank you.
+>
+> It is nice to see that we have exposed this mis-assumption.
+>
+> I am inclined to leave the order of this list as is so that
+> other assumptions of network namespace unregistration order
+> are exposed.
+>
+> Unless there is a truly good reason to perform magic on init_net.
+>
+> Eric
+>
+>> diff -r 6a1a258923f5 -r 2667e89e6f50 net/core/net_namespace.c
+>> --- a/net/core/net_namespace.c  Fri Dec 28 11:01:17 2012 +0800
+>> +++ b/net/core/net_namespace.c  Fri Dec 28 11:05:12 2012 +0800
+>> @@ -450,7 +450,7 @@
+>>
+>>         list_del(&ops->list);
+>>         for_each_net(net)
+>> -               list_add_tail(&net->exit_list, &net_exit_list);
+>> +              list_add(&net->exit_list, &net_exit_list);
+>>         ops_exit_list(ops, &net_exit_list);
+>>         ops_free_list(ops, &net_exit_lis
+>>
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
