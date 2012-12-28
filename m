@@ -1,7 +1,7 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 14/19] netfilter: ipv6: move registration codes out of pernet_operations
-Date: Fri, 28 Dec 2012 10:36:41 +0800
-Message-ID: <1356662206-2260-15-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 13/19] netfilter: ipv4: move registration codes out of pernet_operations
+Date: Fri, 28 Dec 2012 10:36:40 +0800
+Message-ID: <1356662206-2260-14-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netdev@vger.kernel.org, canqunzhang@gmail.com, kaber@trash.net,
 	pablo@netfilter.org, ebiederm@xmission.com,
@@ -16,55 +16,57 @@ Move the proto (un)registration codes to the module_init/exit context.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c | 22 ++++++++++++++++++++++
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c | 22 ++++++++++++++++++++++
  1 file changed, 22 insertions(+)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 8db8182..6787ab1 100644
---- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-+++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-@@ -499,12 +499,31 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
- 		       "hook.\n");
- 		goto cleanup_ipv6;
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 933da838..39521ca 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -501,6 +501,18 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
+ 		goto cleanup_pernet;
  	}
-+
-+	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_tcp6);
+ 
++	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_tcp4);
 +	if (ret < 0)
-+		goto cleanup_tcp6;
++		goto cleanup_tcp4;
 +
-+	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udp6);
++	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udp4);
 +	if (ret < 0)
-+		goto cleanup_udp6;
++		goto cleanup_udp4;
 +
-+	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_icmpv6);
++	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_icmp);
 +	if (ret < 0)
-+		goto cleanup_icmpv6;
++		goto cleanup_icmp;
 +
- 	ret = nf_conntrack_l3proto_register(&nf_conntrack_l3proto_ipv6);
+ 	ret = nf_conntrack_l3proto_register(&nf_conntrack_l3proto_ipv4);
  	if (ret < 0)
  		goto cleanup_proto;
- 	return ret;
- 
+@@ -515,6 +527,12 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
+ 	nf_conntrack_l3proto_unregister(&nf_conntrack_l3proto_ipv4);
+ #endif
   cleanup_proto:
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_icmpv6);
-+ cleanup_icmpv6:
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp6);
-+ cleanup_udp6:
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp6);
-+ cleanup_tcp6:
- 	nf_unregister_hooks(ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
-  cleanup_ipv6:
- 	unregister_pernet_subsys(&ipv6_net_ops);
-@@ -516,6 +535,9 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
- static void __exit nf_conntrack_l3proto_ipv6_fini(void)
- {
- 	synchronize_net();
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_icmpv6);
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp6);
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp6);
- 	nf_conntrack_l3proto_unregister(&nf_conntrack_l3proto_ipv6);
- 	nf_unregister_hooks(ipv6_conntrack_ops, ARRAY_SIZE(ipv6_conntrack_ops));
- 	unregister_pernet_subsys(&ipv6_net_ops);
++	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_icmp);
++ cleanup_icmp:
++	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp4);
++ cleanup_udp4:
++	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp4);
++ cleanup_tcp4:
+ 	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
+  cleanup_pernet:
+ 	unregister_pernet_subsys(&ipv4_net_ops);
+@@ -529,7 +547,11 @@ static void __exit nf_conntrack_l3proto_ipv4_fini(void)
+ #if defined(CONFIG_PROC_FS) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
+ 	nf_conntrack_ipv4_compat_fini();
+ #endif
++
+ 	nf_conntrack_l3proto_unregister(&nf_conntrack_l3proto_ipv4);
++	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_icmp);
++	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp4);
++	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp4);
+ 	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
+ 	unregister_pernet_subsys(&ipv4_net_ops);
+ 	nf_unregister_sockopt(&so_getorigdst);
 -- 
 1.7.11.7
 
