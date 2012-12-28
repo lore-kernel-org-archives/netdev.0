@@ -1,46 +1,91 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: [Patch RFC] ndisc: Fix skb allocation size for link layer options.
-Date: Fri, 28 Dec 2012 14:46:50 +0100
-Message-ID: <1356702410-32293-1-git-send-email-stephan.gatzka@gmail.com>
-Cc: yoshfuji@linux-ipv6.org, Stephan Gatzka <stephan.gatzka@gmail.com>
-To: netdev@vger.kernel.org
+From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
+Subject: Re: [PATCH v2 1/1 net-next] NET: FEC: dynamtic check DMA desc buff type
+Date: Fri, 28 Dec 2012 15:45:32 +0100
+Message-ID: <20701.45196.361432.80622@ipc1.ka-ro>
+References: <1356676164-10910-1-git-send-email-Frank.Li@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <lznuaa@gmail.com>, <davem@davemloft.net>,
+	<s.hauer@pengutronix.de>, netdev@vger.kernel.org,
+	shawn.guo@linaro.org, linux-arm-kernel@lists.infradead.org
+To: Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f47.google.com ([209.85.214.47]:63739 "EHLO
-	mail-bk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753562Ab2L1Nr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 08:47:26 -0500
-Received: by mail-bk0-f47.google.com with SMTP id j4so4679895bkw.34
-        for <netdev@vger.kernel.org>; Fri, 28 Dec 2012 05:47:25 -0800 (PST)
+Received: from mail.karo-electronics.de ([81.173.242.67]:60604 "EHLO
+	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753689Ab2L1Op4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 09:45:56 -0500
+In-Reply-To: <1356676164-10910-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Stephan Gatzka <stephan.gatzka@gmail.com>
----
- net/ipv6/ndisc.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+=46rank Li writes:
+> MX6 and mx28 support enhanced DMA descript buff to support 1588
+> ptp. But MX25, MX3x, MX5x can't support enhanced DMA descript buff.
+> Check fec type and choose correct DAM descript buff type.
+                                    ^^^
+s/DAM/DMA/
+s/descript/descriptor/g
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 6574175..b12b94c 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -392,7 +392,7 @@ static struct sk_buff *ndisc_build_skb(struct net_device *dev,
- 
- 	len = sizeof(struct icmp6hdr) + (target ? sizeof(*target) : 0);
- 	if (llinfo)
--		len += ndisc_opt_addr_space(dev);
-+		len += sizeof(struct nd_opt_hdr) + ndisc_opt_addr_space(dev);
- 
- 	skb = sock_alloc_send_skb(sk,
- 				  (MAX_HEADER + sizeof(struct ipv6hdr) +
-@@ -1424,7 +1424,8 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
- 			memcpy(ha_buf, neigh->ha, dev->addr_len);
- 			read_unlock_bh(&neigh->lock);
- 			ha = ha_buf;
--			len += ndisc_opt_addr_space(dev);
-+			len += sizeof(struct nd_opt_hdr) +
-+				ndisc_opt_addr_space(dev);
- 		} else
- 			read_unlock_bh(&neigh->lock);
- 
--- 
-1.7.9.5
+[...]
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ether=
+net/freescale/fec.c
+> index 0704bca..290f91c 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -76,6 +76,8 @@
+>  #define FEC_QUIRK_USE_GASKET		(1 << 2)
+>  /* Controller has GBIT support */
+>  #define FEC_QUIRK_HAS_GBIT		(1 << 3)
+> +/* Controller has extend desc buffer */
+> +#define FEC_QUICK_HAS_BUFDESC_EX	(1 << 4)
+               ^^^^^
+As Sascha has already pointed out, this should be 'QUIRK' rather than
+'QUICK' (like in the preceeding lines)!
+
+>  static struct platform_device_id fec_devtype[] =3D {
+>  	{
+> @@ -93,7 +95,8 @@ static struct platform_device_id fec_devtype[] =3D =
+{
+>  		.driver_data =3D FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME,
+>  	}, {
+>  		.name =3D "imx6q-fec",
+> -		.driver_data =3D FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT,
+> +		.driver_data =3D FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
+> +				FEC_QUICK_HAS_BUFDESC_EX,
+                                    ^^^^^
+same as above.
+
+[...]
+> @@ -1574,6 +1617,8 @@ fec_probe(struct platform_device *pdev)
+>  	fep->pdev =3D pdev;
+>  	fep->dev_id =3D dev_id++;
+> =20
+> +	fep->bufdesc_ex =3D 0;
+> +
+>  	if (!fep->hwp) {
+>  		ret =3D -ENOMEM;
+>  		goto failed_ioremap;
+> @@ -1628,19 +1673,19 @@ fec_probe(struct platform_device *pdev)
+>  		goto failed_clk;
+>  	}
+> =20
+> -#ifdef CONFIG_FEC_PTP
+>  	fep->clk_ptp =3D devm_clk_get(&pdev->dev, "ptp");
+> +	fep->bufdesc_ex =3D
+> +		pdev->id_entry->driver_data & FEC_QUICK_HAS_BUFDESC_EX;
+                                                  ^^^^^
+same as above.
+
+
+Lothar Wa=C3=9Fmann
+--=20
+___________________________________________________________
+
+Ka-Ro electronics GmbH | Pascalstra=C3=9Fe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=C3=A4ftsf=C3=BChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
+
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
