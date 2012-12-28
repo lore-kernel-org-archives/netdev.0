@@ -1,123 +1,74 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH V2] forcedeth: Fix WARNINGS that result when DMA mapping is not checked
-Date: Thu, 27 Dec 2012 21:25:41 -0600
-Message-ID: <1356665141-4498-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com, davem@davemloft.net
+From: canqun zhang <canqunzhang@gmail.com>
+Subject: Re: kernel panic when running /etc/init.d/iptables restart
+Date: Fri, 28 Dec 2012 11:27:50 +0800
+Message-ID: <CAFFEFTVXVV09jqje_02WaAGuHkuiYjNreEuJw=2OCOujgnjcUA@mail.gmail.com>
+References: <CAFFEFTXxsPRf1Rmxyih0wL4O6q8G0OFmz0iRLX0tOYedYfajHw@mail.gmail.com>
+	<50D93B43.8060303@cn.fujitsu.com>
+	<CAFFEFTULzSysz+JCBC==VtKD8u1KO6EZnSdQ5XWM7um-zs9_pg@mail.gmail.com>
+	<50D965F9.7090007@cn.fujitsu.com>
+	<CAFFEFTWWNQ_NKw840mQ3gTfB9XR44EXb_=Ft4o+UoHwxv13VRg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAFFEFTWWNQ_NKw840mQ3gTfB9XR44EXb_=Ft4o+UoHwxv13VRg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With 3.8-rc1, the first call of pci_map_single() that is not checked
-with a corresponding pci_dma_mapping_error() call results in a warning
-with a splat as follows:
+Hi all
+As discussed above,if the host machine create several linux
+containers, there will be several  net namespaces.Resources with "nf
+conntrack" are registered or unregistered on the first net
+namespace(init_net),But init_net is not unregistered lastly,so
+cleanuping other net namespaces  will triger painic.
+If net namespaces are created  with the order of 1,2,...n,they should
+be cleaned with the order of n,...2,1,so in this case init_net will be
+unregistered lastly.
+I fixed it up (see below)
 
-WARNING: at lib/dma-debug.c:933 check_unmap+0x480/0x950()
-Hardware name: HP Pavilion dv2700 Notebook PC
-forcedeth 0000:00:0a.0: DMA-API: device driver failed to check
- map error[device address=0x00000000b176e002] [size=90 bytes] [mapped as single]
+diff -r 6a1a258923f5 -r 2667e89e6f50 net/core/net_namespace.c
+--- a/net/core/net_namespace.c  Fri Dec 28 11:01:17 2012 +0800
++++ b/net/core/net_namespace.c  Fri Dec 28 11:05:12 2012 +0800
+@@ -450,7 +450,7 @@
 
-Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
+        list_del(&ops->list);
+        for_each_net(net)
+-               list_add_tail(&net->exit_list, &net_exit_list);
++              list_add(&net->exit_list, &net_exit_list);
+        ops_exit_list(ops, &net_exit_list);
+        ops_free_list(ops, &net_exit_list);
+ }
 
-V1 => V2: Replaced dev_kfree_skb_any() calls with kfree_skb() in RX
-	  Changed TX mapping errors to drop packet, update drop count
-	  and return NETDEV_TX_OK
----
-
- drivers/net/ethernet/nvidia/forcedeth.c |   35 +++++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
-
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 653487d..87fa591 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -1821,6 +1821,11 @@ static int nv_alloc_rx(struct net_device *dev)
- 							     skb->data,
- 							     skb_tailroom(skb),
- 							     PCI_DMA_FROMDEVICE);
-+			if (pci_dma_mapping_error(np->pci_dev,
-+						  np->put_rx_ctx->dma)) {
-+				kfree_skb(skb);
-+				goto packet_dropped;
-+			}
- 			np->put_rx_ctx->dma_len = skb_tailroom(skb);
- 			np->put_rx.orig->buf = cpu_to_le32(np->put_rx_ctx->dma);
- 			wmb();
-@@ -1830,6 +1835,7 @@ static int nv_alloc_rx(struct net_device *dev)
- 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
- 				np->put_rx_ctx = np->first_rx_ctx;
- 		} else {
-+packet_dropped:
- 			u64_stats_update_begin(&np->swstats_rx_syncp);
- 			np->stat_rx_dropped++;
- 			u64_stats_update_end(&np->swstats_rx_syncp);
-@@ -1856,6 +1862,11 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
- 							     skb->data,
- 							     skb_tailroom(skb),
- 							     PCI_DMA_FROMDEVICE);
-+			if (pci_dma_mapping_error(np->pci_dev,
-+						  np->put_rx_ctx->dma)) {
-+				kfree_skb(skb);
-+				goto packet_dropped;
-+			}
- 			np->put_rx_ctx->dma_len = skb_tailroom(skb);
- 			np->put_rx.ex->bufhigh = cpu_to_le32(dma_high(np->put_rx_ctx->dma));
- 			np->put_rx.ex->buflow = cpu_to_le32(dma_low(np->put_rx_ctx->dma));
-@@ -1866,6 +1877,7 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
- 			if (unlikely(np->put_rx_ctx++ == np->last_rx_ctx))
- 				np->put_rx_ctx = np->first_rx_ctx;
- 		} else {
-+packet_dropped:
- 			u64_stats_update_begin(&np->swstats_rx_syncp);
- 			np->stat_rx_dropped++;
- 			u64_stats_update_end(&np->swstats_rx_syncp);
-@@ -2217,6 +2229,15 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
- 		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
- 						PCI_DMA_TODEVICE);
-+		if (pci_dma_mapping_error(np->pci_dev,
-+					  np->put_tx_ctx->dma)) {
-+			/* on DMA mapping error - drop the packet */
-+			kfree_skb(skb);
-+			u64_stats_update_begin(&np->swstats_tx_syncp);
-+			np->stat_tx_dropped++;
-+			u64_stats_update_end(&np->swstats_tx_syncp);
-+			return NETDEV_TX_OK;
-+		}
- 		np->put_tx_ctx->dma_len = bcnt;
- 		np->put_tx_ctx->dma_single = 1;
- 		put_tx->buf = cpu_to_le32(np->put_tx_ctx->dma);
-@@ -2337,6 +2358,15 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
- 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
- 		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
- 						PCI_DMA_TODEVICE);
-+		if (pci_dma_mapping_error(np->pci_dev,
-+					  np->put_tx_ctx->dma)) {
-+			/* on DMA mapping error - drop the packet */
-+			kfree_skb(skb);
-+			u64_stats_update_begin(&np->swstats_tx_syncp);
-+			np->stat_tx_dropped++;
-+			u64_stats_update_end(&np->swstats_tx_syncp);
-+			return NETDEV_TX_OK;
-+		}
- 		np->put_tx_ctx->dma_len = bcnt;
- 		np->put_tx_ctx->dma_single = 1;
- 		put_tx->bufhigh = cpu_to_le32(dma_high(np->put_tx_ctx->dma));
-@@ -5003,6 +5033,11 @@ static int nv_loopback_test(struct net_device *dev)
- 	test_dma_addr = pci_map_single(np->pci_dev, tx_skb->data,
- 				       skb_tailroom(tx_skb),
- 				       PCI_DMA_FROMDEVICE);
-+	if (pci_dma_mapping_error(np->pci_dev,
-+				  test_dma_addr)) {
-+		dev_kfree_skb_any(tx_skb);
-+		goto out;
-+	}
- 	pkt_data = skb_put(tx_skb, pkt_len);
- 	for (i = 0; i < pkt_len; i++)
- 		pkt_data[i] = (u8)(i & 0xff);
--- 
-1.7.10.4
+2012/12/25 canqun zhang <canqunzhang@gmail.com>:
+> Thanks for your suggestion,i will modify this patch and take tests.
+>
+> 2012/12/25 Gao feng <gaofeng@cn.fujitsu.com>:
+>> On 2012/12/25 15:25, canqun zhang wrote:
+>>> Hi Gao feng
+>>> The stack information is as follows. The kenel will panic because the
+>>> nf_ct_destroy is NULL.
+>>>
+>>> Reproduction:
+>>> (1) starting a lxc container
+>>> (2) iptables -t nat -A POSTROUTING -s 10.48.254.18 -o eth1 -j
+>>> MASQUERADE (run it on host machine)
+>>> (3) /etc/ini.d/iptables save (run it on host machine)
+>>> (4)/etc/init.d/iptables restart (run it on host machine)
+>>>
+>>
+>> Thanks!
+>> It seems that nf_conntrack_l[3,4]proto_unregister doesn't make sure
+>> nf_conns of the proto being destroyed.
+>>
+>> If I'm right, there is another problem even your fix this panic problem.
+>> the l3,14proto will be unregistered before all of it's nf_conns being destroyed.
+>> So even nf_ct_destroy is not NULL,in destroy_conntrack we are not able to
+>> find the right l4proto,the l4proto->destroy will be incorrect.resources will
+>> not be released correctly.
+>>
+>> So I think the root problem is we do register/unregister, set/unset both on the
+>> first net (init_net), Maybe it's better to do register set on the first net, and
+>> do unregister unset on the last net.
