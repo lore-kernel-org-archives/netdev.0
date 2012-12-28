@@ -1,7 +1,7 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 13/19] netfilter: ipv4: move registration codes out of pernet_operations
-Date: Fri, 28 Dec 2012 10:36:40 +0800
-Message-ID: <1356662206-2260-14-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH 17/19] netfilter: dccp: move registration codes out of pernet_operations
+Date: Fri, 28 Dec 2012 10:36:44 +0800
+Message-ID: <1356662206-2260-18-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: netdev@vger.kernel.org, canqunzhang@gmail.com, kaber@trash.net,
 	pablo@netfilter.org, ebiederm@xmission.com,
@@ -16,57 +16,47 @@ Move the proto (un)registration codes to the module_init/exit context.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c | 22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+ net/netfilter/nf_conntrack_proto_dccp.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 933da838..39521ca 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -501,6 +501,18 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
- 		goto cleanup_pernet;
- 	}
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index 3850d68..5f84e2b 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -972,11 +972,32 @@ static struct pernet_operations dccp_net_ops = {
  
-+	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_tcp4);
+ static int __init nf_conntrack_proto_dccp_init(void)
+ {
+-	return register_pernet_subsys(&dccp_net_ops);
++	int ret;
++	ret = nf_conntrack_l4proto_register(&dccp_proto4);
 +	if (ret < 0)
-+		goto cleanup_tcp4;
++		goto out_dccp4;
 +
-+	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udp4);
++	ret = nf_conntrack_l4proto_register(&dccp_proto6);
 +	if (ret < 0)
-+		goto cleanup_udp4;
++		goto out_dccp6;
 +
-+	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_icmp);
++	ret = register_pernet_subsys(&dccp_net_ops);
 +	if (ret < 0)
-+		goto cleanup_icmp;
++		goto out_pernet;
 +
- 	ret = nf_conntrack_l3proto_register(&nf_conntrack_l3proto_ipv4);
- 	if (ret < 0)
- 		goto cleanup_proto;
-@@ -515,6 +527,12 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
- 	nf_conntrack_l3proto_unregister(&nf_conntrack_l3proto_ipv4);
- #endif
-  cleanup_proto:
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_icmp);
-+ cleanup_icmp:
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp4);
-+ cleanup_udp4:
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp4);
-+ cleanup_tcp4:
- 	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
-  cleanup_pernet:
- 	unregister_pernet_subsys(&ipv4_net_ops);
-@@ -529,7 +547,11 @@ static void __exit nf_conntrack_l3proto_ipv4_fini(void)
- #if defined(CONFIG_PROC_FS) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
- 	nf_conntrack_ipv4_compat_fini();
- #endif
-+
- 	nf_conntrack_l3proto_unregister(&nf_conntrack_l3proto_ipv4);
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_icmp);
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp4);
-+	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp4);
- 	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
- 	unregister_pernet_subsys(&ipv4_net_ops);
- 	nf_unregister_sockopt(&so_getorigdst);
++	return 0;
++out_pernet:
++	nf_conntrack_l4proto_unregister(&dccp_proto6);
++out_dccp6:
++	nf_conntrack_l4proto_unregister(&dccp_proto4);
++out_dccp4:
++	return ret;
+ }
+ 
+ static void __exit nf_conntrack_proto_dccp_fini(void)
+ {
++	nf_conntrack_l4proto_unregister(&dccp_proto6);
++	nf_conntrack_l4proto_unregister(&dccp_proto4);
+ 	unregister_pernet_subsys(&dccp_net_ops);
+ }
+ 
 -- 
 1.7.11.7
 
