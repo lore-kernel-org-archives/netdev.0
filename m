@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/15] macvlan: add link to upper device
-Date: Sat, 29 Dec 2012 11:38:29 +0100
-Message-ID: <1356777522-19652-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 03/15] vlan: add link to upper device
+Date: Sat, 29 Dec 2012 11:38:30 +0100
+Message-ID: <1356777522-19652-4-git-send-email-jiri@resnulli.us>
 References: <1356777522-19652-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com,
 	bhutchings@solarflare.com, faisal.latif@intel.com,
@@ -16,56 +16,57 @@ Cc: davem@davemloft.net, edumazet@google.com,
 	pablo@netfilter.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:43423 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751321Ab2L2Ki4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2012 05:38:56 -0500
-Received: by mail-ee0-f42.google.com with SMTP id c41so5417353eek.1
-        for <netdev@vger.kernel.org>; Sat, 29 Dec 2012 02:38:55 -0800 (PST)
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:44559 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751321Ab2L2Ki7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2012 05:38:59 -0500
+Received: by mail-ee0-f50.google.com with SMTP id b45so5635583eek.37
+        for <netdev@vger.kernel.org>; Sat, 29 Dec 2012 02:38:58 -0800 (PST)
 In-Reply-To: <1356777522-19652-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/macvlan.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ net/8021q/vlan.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 68a43fe..b7b614f 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -765,16 +765,22 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 		memcpy(dev->dev_addr, lowerdev->dev_addr, ETH_ALEN);
- 	}
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index a292e80..babfde9 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -105,6 +105,8 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+ 	 */
+ 	unregister_netdevice_queue(dev, head);
  
-+	err = netdev_upper_dev_link(lowerdev, dev);
-+	if (err)
-+		goto destroy_port;
++	netdev_upper_dev_unlink(real_dev, dev);
 +
- 	port->count += 1;
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_gvrp_uninit_applicant(real_dev);
+ 
+@@ -162,9 +164,13 @@ int register_vlan_dev(struct net_device *dev)
+ 	if (err < 0)
+ 		goto out_uninit_applicant;
+ 
++	err = netdev_upper_dev_link(real_dev, dev);
++	if (err)
++		goto out_uninit_applicant;
++
  	err = register_netdevice(dev);
  	if (err < 0)
--		goto destroy_port;
-+		goto upper_dev_unlink;
+-		goto out_uninit_applicant;
++		goto out_upper_dev_unlink;
  
- 	list_add_tail(&vlan->list, &port->vlans);
- 	netif_stacked_transfer_operstate(lowerdev, dev);
+ 	/* Account for reference in struct vlan_dev_priv */
+ 	dev_hold(real_dev);
+@@ -180,6 +186,8 @@ int register_vlan_dev(struct net_device *dev)
  
  	return 0;
  
-+upper_dev_unlink:
-+	netdev_upper_dev_unlink(lowerdev, dev);
- destroy_port:
- 	port->count -= 1;
- 	if (!port->count)
-@@ -798,6 +804,7 @@ void macvlan_dellink(struct net_device *dev, struct list_head *head)
- 
- 	list_del(&vlan->list);
- 	unregister_netdevice_queue(dev, head);
-+	netdev_upper_dev_unlink(vlan->lowerdev, dev);
- }
- EXPORT_SYMBOL_GPL(macvlan_dellink);
- 
++out_upper_dev_unlink:
++	netdev_upper_dev_unlink(real_dev, dev);
+ out_uninit_applicant:
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_gvrp_uninit_applicant(real_dev);
 -- 
 1.8.0
