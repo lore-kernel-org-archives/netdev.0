@@ -1,37 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] forcedeth: Fix WARNINGS that result when DMA
- mapping is not checked
-Date: Fri, 28 Dec 2012 15:30:50 -0800 (PST)
-Message-ID: <20121228.153050.510027882505530294.davem@davemloft.net>
-References: <1356665141-4498-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 0/3] Make rfc3686 template work with asynchronous
+ block ciphers
+Date: Sat, 29 Dec 2012 11:08:12 +1100
+Message-ID: <20121229000812.GA29866@gondor.apana.org.au>
+References: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
+ <20121228224248.GA29448@gondor.apana.org.au>
+ <20121228.152311.290755667605168896.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Larry.Finger@lwfinger.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56001 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755098Ab2L1Xav (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Dec 2012 18:30:51 -0500
-In-Reply-To: <1356665141-4498-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jussi.kivilinna@mbnet.fi, linux-crypto@vger.kernel.org,
+	steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121228.152311.290755667605168896.davem@davemloft.net>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Date: Thu, 27 Dec 2012 21:25:41 -0600
-
-> With 3.8-rc1, the first call of pci_map_single() that is not checked
-> with a corresponding pci_dma_mapping_error() call results in a warning
-> with a splat as follows:
+On Fri, Dec 28, 2012 at 03:23:11PM -0800, David Miller wrote:
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Sat, 29 Dec 2012 09:42:49 +1100
 > 
-> WARNING: at lib/dma-debug.c:933 check_unmap+0x480/0x950()
-> Hardware name: HP Pavilion dv2700 Notebook PC
-> forcedeth 0000:00:0a.0: DMA-API: device driver failed to check
->  map error[device address=0x00000000b176e002] [size=90 bytes] [mapped as single]
+> > On Fri, Dec 28, 2012 at 12:04:48PM +0200, Jussi Kivilinna wrote:
+> >> I'm not sure how this patchset should be dealt with (should 1st patch go
+> >> through different tree than 2nd and 3rd?), so therefore it's RFC.
+> >> 
+> >> Second patch makes rfc3686 template work with asynchronous block ciphers and
+> >> third patch changes aesni-intel to use this template. First patch fixed problem
+> >> in xfrm_algo found with help of 2nd and 3rd patches and without 1st patch
+> >> 2nd patch breaks aes-ctr with IPSEC.
+> > 
+> > I think the easiest way is to have these patches go through Dave's
+> > tree.
 > 
-> Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> Better yet, Steffen's IPSEC tree :-)
 
-Applied, thanks Larry.
+Of course :)
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
