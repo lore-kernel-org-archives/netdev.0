@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 11/15] vlan: remove usage of dev->master in __vlan_find_dev_deep()
-Date: Sat, 29 Dec 2012 11:38:38 +0100
-Message-ID: <1356777522-19652-12-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 10/15] qeth: ensure that __vlan_find_dev_deep() is called with rcu_read_lock
+Date: Sat, 29 Dec 2012 11:38:37 +0100
+Message-ID: <1356777522-19652-11-git-send-email-jiri@resnulli.us>
 References: <1356777522-19652-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com,
 	bhutchings@solarflare.com, faisal.latif@intel.com,
@@ -16,60 +16,106 @@ Cc: davem@davemloft.net, edumazet@google.com,
 	pablo@netfilter.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:35708 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808Ab2L2Kj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2012 05:39:27 -0500
-Received: by mail-ee0-f44.google.com with SMTP id b47so5697181eek.31
-        for <netdev@vger.kernel.org>; Sat, 29 Dec 2012 02:39:26 -0800 (PST)
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:56933 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752808Ab2L2KjY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2012 05:39:24 -0500
+Received: by mail-ee0-f52.google.com with SMTP id d17so5427110eek.11
+        for <netdev@vger.kernel.org>; Sat, 29 Dec 2012 02:39:22 -0800 (PST)
 In-Reply-To: <1356777522-19652-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also, since all users call __vlan_find_dev_deep() with rcu_read_lock,
-make no possibility to call this with rtnl mutex held only.
+Also benefit from rcu_read_lock held and use __in_dev_get_rcu() in ipv4 case.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/8021q/vlan_core.c | 18 +++++++++++-------
- 1 file changed, 11 insertions(+), 7 deletions(-)
+ drivers/s390/net/qeth_l3_main.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 65e06ab..380440b 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -60,21 +60,25 @@ bool vlan_do_receive(struct sk_buff **skbp)
- 	return true;
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index 6e5eef0..0749efe 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -1640,6 +1640,7 @@ static void qeth_l3_add_mc(struct qeth_card *card, struct in_device *in4_dev)
+ 	}
  }
  
--/* Must be invoked with rcu_read_lock or with RTNL. */
--struct net_device *__vlan_find_dev_deep(struct net_device *real_dev,
-+/* Must be invoked with rcu_read_lock. */
-+struct net_device *__vlan_find_dev_deep(struct net_device *dev,
- 					u16 vlan_id)
++/* called with rcu_read_lock */
+ static void qeth_l3_add_vlan_mc(struct qeth_card *card)
  {
--	struct vlan_info *vlan_info = rcu_dereference_rtnl(real_dev->vlan_info);
-+	struct vlan_info *vlan_info = rcu_dereference(dev->vlan_info);
+ 	struct in_device *in_dev;
+@@ -1652,19 +1653,14 @@ static void qeth_l3_add_vlan_mc(struct qeth_card *card)
+ 	for_each_set_bit(vid, card->active_vlans, VLAN_N_VID) {
+ 		struct net_device *netdev;
  
- 	if (vlan_info) {
- 		return vlan_group_get_device(&vlan_info->grp, vlan_id);
- 	} else {
- 		/*
--		 * Bonding slaves do not have grp assigned to themselves.
--		 * Grp is assigned to bonding master instead.
-+		 * Lower devices of master uppers (bonding, team) do not have
-+		 * grp assigned to themselves. Grp is assigned to upper device
-+		 * instead.
- 		 */
--		if (netif_is_bond_slave(real_dev))
--			return __vlan_find_dev_deep(real_dev->master, vlan_id);
-+		struct net_device *upper_dev;
-+
-+		upper_dev = netdev_master_upper_dev_get_rcu(dev);
-+		if (upper_dev)
-+			return __vlan_find_dev_deep(upper_dev, vlan_id);
+-		rcu_read_lock();
+ 		netdev = __vlan_find_dev_deep(card->dev, vid);
+-		rcu_read_unlock();
+ 		if (netdev == NULL ||
+ 		    !(netdev->flags & IFF_UP))
+ 			continue;
+-		in_dev = in_dev_get(netdev);
++		in_dev = __in_dev_get_rcu(netdev);
+ 		if (!in_dev)
+ 			continue;
+-		rcu_read_lock();
+ 		qeth_l3_add_mc(card, in_dev);
+-		rcu_read_unlock();
+-		in_dev_put(in_dev);
  	}
+ }
  
- 	return NULL;
+@@ -1673,14 +1669,14 @@ static void qeth_l3_add_multicast_ipv4(struct qeth_card *card)
+ 	struct in_device *in4_dev;
+ 
+ 	QETH_CARD_TEXT(card, 4, "chkmcv4");
+-	in4_dev = in_dev_get(card->dev);
+-	if (in4_dev == NULL)
+-		return;
+ 	rcu_read_lock();
++	in4_dev = __in_dev_get_rcu(card->dev);
++	if (in4_dev == NULL)
++		goto unlock;
+ 	qeth_l3_add_mc(card, in4_dev);
+ 	qeth_l3_add_vlan_mc(card);
++unlock:
+ 	rcu_read_unlock();
+-	in_dev_put(in4_dev);
+ }
+ 
+ #ifdef CONFIG_QETH_IPV6
+@@ -1705,6 +1701,7 @@ static void qeth_l3_add_mc6(struct qeth_card *card, struct inet6_dev *in6_dev)
+ 	}
+ }
+ 
++/* called with rcu_read_lock */
+ static void qeth_l3_add_vlan_mc6(struct qeth_card *card)
+ {
+ 	struct inet6_dev *in_dev;
+@@ -1741,10 +1738,12 @@ static void qeth_l3_add_multicast_ipv6(struct qeth_card *card)
+ 	in6_dev = in6_dev_get(card->dev);
+ 	if (in6_dev == NULL)
+ 		return;
++	rcu_read_lock();
+ 	read_lock_bh(&in6_dev->lock);
+ 	qeth_l3_add_mc6(card, in6_dev);
+ 	qeth_l3_add_vlan_mc6(card);
+ 	read_unlock_bh(&in6_dev->lock);
++	rcu_read_unlock();
+ 	in6_dev_put(in6_dev);
+ }
+ #endif /* CONFIG_QETH_IPV6 */
+@@ -1813,8 +1812,10 @@ static void qeth_l3_free_vlan_addresses6(struct qeth_card *card,
+ static void qeth_l3_free_vlan_addresses(struct qeth_card *card,
+ 			unsigned short vid)
+ {
++	rcu_read_lock();
+ 	qeth_l3_free_vlan_addresses4(card, vid);
+ 	qeth_l3_free_vlan_addresses6(card, vid);
++	rcu_read_unlock();
+ }
+ 
+ static int qeth_l3_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
 -- 
 1.8.0
