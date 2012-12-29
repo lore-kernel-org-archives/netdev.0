@@ -1,52 +1,42 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 15/15] net: kill dev->master
-Date: Sat, 29 Dec 2012 11:38:42 +0100
-Message-ID: <1356777522-19652-16-git-send-email-jiri@resnulli.us>
-References: <1356777522-19652-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, faisal.latif@intel.com,
-	shemminger@vyatta.com, fbl@redhat.com, roland@kernel.org,
-	sean.hefty@intel.com, hal.rosenstock@gmail.com, fubar@us.ibm.com,
-	andy@greyhouse.net, divy@chelsio.com, jitendra.kalsaria@qlogic.com,
-	sony.chacko@qlogic.com, linux-driver@qlogic.com, kaber@trash.net,
-	ursula.braun@de.ibm.com, blaschka@linux.vnet.ibm.com,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	ebiederm@xmission.com, joe@perches.com, amwang@redhat.com,
-	nhorman@tuxdriver.com, john.r.fastabend@intel.com,
-	pablo@netfilter.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:47219 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752913Ab2L2Kjk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2012 05:39:40 -0500
-Received: by mail-ea0-f177.google.com with SMTP id c10so4529508eaa.22
-        for <netdev@vger.kernel.org>; Sat, 29 Dec 2012 02:39:39 -0800 (PST)
-In-Reply-To: <1356777522-19652-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
+Date: Sat, 29 Dec 2012 11:34:34 +0000
+Message-ID: <20121229113434.GA13336@dcvr.yhbt.net>
+References: <20121228014503.GA5017@dcvr.yhbt.net>
+ <20121228070652.GA6292@dcvr.yhbt.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andreas Voellmy <andreas.voellmy@yale.edu>,
+	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
+	"Junchang(Jason) Wang" <junchang.wang@yale.edu>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20121228070652.GA6292@dcvr.yhbt.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Nobody uses this now. Remove it.
+Eric Wong <normalperson@yhbt.net> wrote:
+> Eric Wong <normalperson@yhbt.net> wrote:
+> > I'm finding ppoll() unexpectedly stuck when waiting for POLLIN on a
+> > local TCP socket.  The isolated code below can reproduces the issue
+> > after many minutes (<1 hour).  It might be easier to reproduce on
+> > a busy system while disk I/O is happening.
+> 
+> Ugh, I can't seem to reproduce this anymore...  Will try something
+> else tomorrow.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- include/linux/netdevice.h | 4 ----
- 1 file changed, 4 deletions(-)
+The good news is I'm not imagining this...
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 94b5843..07ad1c3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1167,10 +1167,6 @@ struct net_device {
- 						 * avoid dirtying this cache line.
- 						 */
- 
--	struct net_device	*master; /* Pointer to master device of a group,
--					  * which this device is member of.
--					  */
--
- 	struct list_head	upper_dev_list; /* List of upper devices */
- 
- 	/* Interface address info used in eth_type_trans() */
--- 
-1.8.0
+The bad news is the issue is real and took a long time to reproduce
+again.  This issue happens even without preempt, and without
+tcp_low_latency on 3.7.1
+
+While running `toosleepy', I also needed to run heavy (not loopback)
+network and disk activity (several USB, SATA, and eSATA drives
+simultaneously) for many hours before hitting this.
+
+Hopefully this report is helpful in solving the issue.  Looking in at
+the various pieces in net and select/poll paths, there's several
+references to race conditions in the comments so this is hopefully
+familiar territory to someone here...
