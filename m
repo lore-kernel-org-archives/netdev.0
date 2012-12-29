@@ -1,42 +1,37 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Sat, 29 Dec 2012 11:34:34 +0000
-Message-ID: <20121229113434.GA13336@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <20121228070652.GA6292@dcvr.yhbt.net>
+From: julius <commercials22@yahoo.com>
+Subject: tc filter ouput, no filter hits?
+Date: Sat, 29 Dec 2012 05:46:17 -0800 (PST)
+Message-ID: <1356788777.97050.YahooMailNeo@web165006.mail.bf1.yahoo.com>
+Reply-To: julius <commercials22@yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Voellmy <andreas.voellmy@yale.edu>,
-	viro@zeniv.linux.org.uk, linux-fsdevel@vger.kernel.org,
-	"Junchang(Jason) Wang" <junchang.wang@yale.edu>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20121228070652.GA6292@dcvr.yhbt.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm17.bullet.mail.bf1.yahoo.com ([98.139.212.176]:34922 "EHLO
+	nm17.bullet.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752268Ab2L2NqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2012 08:46:18 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Wong <normalperson@yhbt.net> wrote:
-> Eric Wong <normalperson@yhbt.net> wrote:
-> > I'm finding ppoll() unexpectedly stuck when waiting for POLLIN on a
-> > local TCP socket.  The isolated code below can reproduces the issue
-> > after many minutes (<1 hour).  It might be easier to reproduce on
-> > a busy system while disk I/O is happening.
-> 
-> Ugh, I can't seem to reproduce this anymore...  Will try something
-> else tomorrow.
+hi,
 
-The good news is I'm not imagining this...
+ive seen some examples where the output from:
+tc -s filter show dev ifb0 parent 1: 
+shows a filter hit count, like the output shown below:
 
-The bad news is the issue is real and took a long time to reproduce
-again.  This issue happens even without preempt, and without
-tcp_low_latency on 3.7.1
+filter protocol ip pref 1 u32
+filter protocol ip pref 1 u32 fh 800: ht divisor 1
+filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 
+1:1  (rule hit 2 success 0)
 
-While running `toosleepy', I also needed to run heavy (not loopback)
-network and disk activity (several USB, SATA, and eSATA drives
-simultaneously) for many hours before hitting this.
 
-Hopefully this report is helpful in solving the issue.  Looking in at
-the various pieces in net and select/poll paths, there's several
-references to race conditions in the comments so this is hopefully
-familiar territory to someone here...
+
+however in my openwrt 12.09 and on my ubuntu machine i dont see the part in the paranthese, why is that?
+
+ubuntu:
+iproute (20120521-3ubuntu1)
+3.2.0-23-generic #36-Ubuntu
+
+
+greets
